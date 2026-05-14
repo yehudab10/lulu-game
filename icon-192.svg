@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <!-- Background -->
+  <rect width="192" height="192" rx="32" fill="#1a1a2e"/>
+  <!-- Road -->
+  <rect x="48" y="0" width="96" height="192" fill="#6B7B8D"/>
+  <line x1="96" y1="0" x2="96" y2="192" stroke="#F5F5DC" stroke-width="3" stroke-dasharray="14 11"/>
+  <!-- Lulu's pink car (top-down) -->
+  <g transform="translate(96,96)">
+    <ellipse cx="3" cy="6" rx="34" ry="40" fill="rgba(0,0,0,0.3)"/>
+    <rect x="-32" y="-44" width="64" height="86" rx="14" fill="#AD1457"/>
+    <rect x="-30" y="-42" width="60" height="82" rx="12" fill="#E91E63"/>
+    <!-- Windshield -->
+    <rect x="-22" y="-32" width="44" height="28" rx="6" fill="#4FC3F7"/>
+    <rect x="-20" y="-30" width="40" height="24" rx="5" fill="#81D4FA"/>
+    <!-- Lulu's head -->
+    <circle cx="0" cy="-16" r="12" fill="#FFCCBC"/>
+    <!-- Hair -->
+    <path d="M -12 -22 Q -12 -32 0 -32 Q 12 -32 12 -22 Q 12 -24 0 -25 Q -12 -24 -12 -22 Z" fill="#3E2723"/>
+    <!-- Pink bow -->
+    <ellipse cx="-7" cy="-25" rx="4" ry="3" fill="#FF4081"/>
+    <ellipse cx="-2" cy="-25" rx="4" ry="3" fill="#FF4081"/>
+    <circle cx="-5" cy="-25" r="1.5" fill="#C2185B"/>
+    <!-- Eyes -->
+    <ellipse cx="-5" cy="-16" rx="2.5" ry="3" fill="#fff"/>
+    <ellipse cx="5" cy="-16" rx="2.5" ry="3" fill="#fff"/>
+    <circle cx="-5" cy="-15" r="1.5" fill="#5D4037"/>
+    <circle cx="5" cy="-15" r="1.5" fill="#5D4037"/>
+    <!-- Lips -->
+    <ellipse cx="0" cy="-9" rx="3" ry="1.5" fill="#E91E63"/>
+    <!-- Wheels -->
+    <rect x="-38" y="-32" width="8" height="18" rx="3" fill="#333"/>
+    <rect x="30" y="-32" width="8" height="18" rx="3" fill="#333"/>
+    <rect x="-38" y="14" width="8" height="18" rx="3" fill="#333"/>
+    <rect x="30" y="14" width="8" height="18" rx="3" fill="#333"/>
+  </g>
+</svg>

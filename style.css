@@ -1,0 +1,75 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    background: #1a1a2e;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    /* Safe-area padding for notched phones */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+#gameCanvas {
+    display: block;
+    max-width: 100vw;
+    max-height: 100vh;
+    width: auto;
+    height: auto;
+    touch-action: none;
+    cursor: pointer;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    image-rendering: -webkit-optimize-contrast;
+}
+
+/* Hide the rotate message by default; only show on phones in landscape */
+#rotateMsg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #1a1a2e;
+    color: #fff;
+    z-index: 1000;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+#rotateMsg .rot-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    animation: spin 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0%, 100% { transform: rotate(-15deg); }
+    50% { transform: rotate(15deg); }
+}
+
+/* Show rotate prompt only on phones in landscape */
+@media (orientation: landscape) and (max-height: 500px) {
+    #rotateMsg { display: flex; }
+    #gameCanvas { display: none; }
+}

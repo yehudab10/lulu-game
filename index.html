@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="description" content="Help Lulu drive without crashing! A cute Sneaky-Sasquatch-style driving game with skins, missiles, and an angry old man.">
+
+    <!-- iOS web-app support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Lulu's Road Trip">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Disable phone-number / email auto-detection -->
+    <meta name="format-detection" content="telephone=no, email=no, address=no">
+
+    <!-- Open Graph (link previews) -->
+    <meta property="og:title" content="Lulu's Road Trip">
+    <meta property="og:description" content="Help Lulu drive without crashing!">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://lulu.boats/">
+
+    <title>Lulu's Road Trip</title>
+
+    <!-- SVG favicon (a little pink car) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='25' y='15' width='50' height='75' rx='12' fill='%23E91E63'/%3E%3Crect x='30' y='25' width='40' height='25' rx='6' fill='%2381D4FA'/%3E%3Crect x='32' y='62' width='36' height='15' rx='4' fill='%23F48FB1'/%3E%3Ccircle cx='35' cy='38' r='3' fill='%23222'/%3E%3Ccircle cx='65' cy='38' r='3' fill='%23222'/%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="rotateMsg">
+        <div class="rot-icon">📱↻</div>
+        <div>Please rotate your phone to portrait mode</div>
+    </div>
+    <canvas id="gameCanvas" width="480" height="854"></canvas>
+    <script src="game.js"></script>
+</body>
+</html>
