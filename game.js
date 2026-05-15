@@ -225,6 +225,7 @@
     var clickQueue = null; // {x, y} in canvas coords
     var pauseQueued = false;
     var missileQueued = false;
+    var honkQueued = false;
     var touchX = null;
     var steerTouchId = null;
     var boostTouchId = null;
@@ -236,6 +237,26 @@
     function consumeClick() { var c = clickQueue; clickQueue = null; return c; }
     function consumePause() { if (pauseQueued) { pauseQueued = false; return true; } return false; }
     function consumeMissile() { if (missileQueued) { missileQueued = false; return true; } return false; }
+    function consumeHonk() { if (honkQueued) { honkQueued = false; return true; } return false; }
+
+    function playHonk() {
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        // Classic "BEEP BEEP" - two short tones
+        for (var b = 0; b < 2; b++) {
+            var osc = ac.createOscillator();
+            var gain = ac.createGain();
+            osc.type = "square";
+            osc.frequency.value = 440 + b * 30;
+            var t = ac.currentTime + b * 0.16;
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.setValueAtTime(0.18, t + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
+            osc.connect(gain).connect(ac.destination);
+            osc.start(t);
+            osc.stop(t + 0.14);
+        }
+    }
 
     // Mobile control button rects (used by both drawing and touch hit-test)
     var MOBILE_BOOST_RECT = { x: 12, y: 686, w: 56, h: 56 };
@@ -268,6 +289,7 @@
         if (e.key === " " || e.key === "Enter") { queueAction(); e.preventDefault(); }
         if (e.key === "p" || e.key === "P" || e.key === "Escape") { pauseQueued = true; e.preventDefault(); }
         if (e.key === "m" || e.key === "M") { missileQueued = true; e.preventDefault(); }
+        if (e.key === "h" || e.key === "H") { honkQueued = true; e.preventDefault(); }
     });
     document.addEventListener("keyup", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
@@ -850,6 +872,38 @@
             }
         }
 
+        // Kids in back seat (after successful parking)
+        if (kidsInCar) {
+            // Pigtail kid
+            ctx.fillStyle = "#FFC107";
+            ctx.beginPath(); ctx.arc(-6, hh - 14, 4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(-6, hh - 13.5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFC107";
+            ctx.beginPath();
+            ctx.ellipse(-9, -hh + (hh - 14), 1.8, 2.5, -0.4, 0, Math.PI * 2);
+            ctx.ellipse(-3, -hh + (hh - 14), 1.8, 2.5, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(-7, hh - 14, 0.6, 0, Math.PI * 2);
+            ctx.arc(-5, hh - 14, 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            // Cap kid
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(6, hh - 13.5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1976D2";
+            ctx.beginPath();
+            ctx.arc(6, hh - 15, 3.3, Math.PI, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(7, hh - 15, 3.5, 1.2);
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(5, hh - 13, 0.6, 0, Math.PI * 2);
+            ctx.arc(7, hh - 13, 0.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         // Headlights
         ctx.fillStyle = "#FFF9C4";
         ctx.beginPath();
@@ -1410,6 +1464,784 @@
         ctx.restore();
     }
 
+    // ── Drawing: Parking sign + ice cream + billboards ────────
+    function drawParkingSign(x, y, bob) {
+        ctx.save();
+        ctx.translate(x, y + Math.sin(bob * 3) * 3);
+        // Glow halo
+        ctx.fillStyle = "rgba(33,150,243,0.25)";
+        ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+        // Pole
+        ctx.fillStyle = "#90A4AE";
+        ctx.fillRect(-1.5, 14, 3, 8);
+        // Sign body
+        ctx.fillStyle = "#0D47A1";
+        roundRect(-14, -14, 28, 28, 4); ctx.fill();
+        ctx.fillStyle = "#1976D2";
+        roundRect(-12, -12, 24, 24, 3); ctx.fill();
+        // White P
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("P", 0, 1);
+        // shimmer
+        if (Math.sin(bob * 4) > 0) {
+            ctx.fillStyle = "rgba(255,255,255,0.4)";
+            roundRect(-10, -10, 8, 4, 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function drawIceCreamSign(x, y, bob) {
+        ctx.save();
+        ctx.translate(x, y + Math.sin(bob * 3) * 3);
+        // Pole
+        ctx.fillStyle = "#5D4037";
+        ctx.fillRect(-1.5, 10, 3, 14);
+        // Cone (upside-down triangle)
+        ctx.fillStyle = "#FFB74D";
+        ctx.beginPath();
+        ctx.moveTo(-10, -2);
+        ctx.lineTo(10, -2);
+        ctx.lineTo(0, 14);
+        ctx.closePath();
+        ctx.fill();
+        // Waffle lines
+        ctx.strokeStyle = "#E65100";
+        ctx.lineWidth = 1;
+        for (var i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(-8 + i * 4, 2);
+            ctx.lineTo(8 - i * 4, 2);
+            ctx.stroke();
+        }
+        // Pink scoop
+        ctx.fillStyle = "#F48FB1";
+        ctx.beginPath(); ctx.arc(0, -6, 8, 0, Math.PI * 2); ctx.fill();
+        // White scoop on top
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(-3, -12, 5, 0, Math.PI * 2); ctx.fill();
+        // Cherry
+        ctx.fillStyle = "#D32F2F";
+        ctx.beginPath(); ctx.arc(-3, -16, 2.5, 0, Math.PI * 2); ctx.fill();
+        // Stem
+        ctx.strokeStyle = "#388E3C";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-3, -18); ctx.lineTo(-1, -20);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawBillboard(x, y, side, msg) {
+        ctx.save();
+        ctx.translate(x, y);
+        // Two posts
+        ctx.fillStyle = "#5D4037";
+        ctx.fillRect(-30, 0, 5, 50);
+        ctx.fillRect(25, 0, 5, 50);
+        // Board outline
+        ctx.fillStyle = "#3E2723";
+        roundRect(-40, -38, 80, 44, 3); ctx.fill();
+        // Board face
+        ctx.fillStyle = "#FFF59D";
+        roundRect(-37, -35, 74, 38, 2); ctx.fill();
+        // Text (wrap into 2 lines)
+        ctx.fillStyle = "#D32F2F";
+        ctx.font = "bold 8px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        var words = msg.split(" ");
+        var line1 = "", line2 = "";
+        for (var i = 0; i < words.length; i++) {
+            var test = (line1 ? line1 + " " : "") + words[i];
+            if (ctx.measureText(test).width < 70 && !line2) line1 = test;
+            else line2 = (line2 ? line2 + " " : "") + words[i];
+        }
+        if (!line2) {
+            ctx.font = "bold 10px 'Segoe UI', Arial, sans-serif";
+            ctx.fillText(line1, 0, -16);
+        } else {
+            ctx.fillText(line1, 0, -22);
+            ctx.fillText(line2, 0, -10);
+        }
+        ctx.restore();
+    }
+
+    function drawSasquatch(x, y, phase, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var legSwing = Math.sin(walkTime * 8) * 4;
+
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 26, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Big brown body
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath(); ctx.ellipse(0, 8, 16, 20, 0, 0, Math.PI * 2); ctx.fill();
+        // Fur tufts
+        ctx.fillStyle = "#5D4037";
+        ctx.beginPath();
+        ctx.ellipse(-10, 0, 5, 8, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(10, 0, 5, 8, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Legs
+        ctx.fillStyle = "#3E2723";
+        roundRect(-8, 22 - legSwing, 7, 8 + legSwing, 2); ctx.fill();
+        roundRect(1, 22 + legSwing, 7, 8 - legSwing, 2); ctx.fill();
+        // Feet
+        ctx.fillStyle = "#5D4037";
+        roundRect(-10, 28 - legSwing, 10, 4, 2); ctx.fill();
+        roundRect(0, 28 + legSwing, 10, 4, 2); ctx.fill();
+
+        // Arms (one waving if phase 1)
+        ctx.fillStyle = "#3E2723";
+        if (phase === 1) {
+            ctx.save();
+            ctx.translate(-13, 0);
+            ctx.rotate(-0.5 - Math.sin(walkTime * 6) * 0.4);
+            roundRect(-4, -2, 8, 18, 3); ctx.fill();
+            ctx.restore();
+            roundRect(8, 0, 8, 18, 3); ctx.fill();
+        } else {
+            var armSwing = -legSwing * 0.5;
+            roundRect(-15, -2 - armSwing, 8, 18 + Math.abs(armSwing), 3); ctx.fill();
+            roundRect(7, -2 + armSwing, 8, 18 + Math.abs(armSwing), 3); ctx.fill();
+        }
+
+        // Head
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath(); ctx.arc(0, -14, 12, 0, Math.PI * 2); ctx.fill();
+        // Face area (lighter brown)
+        ctx.fillStyle = "#6D4C41";
+        ctx.beginPath(); ctx.ellipse(0, -10, 8, 7, 0, 0, Math.PI * 2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = "#FFEB3B";
+        ctx.beginPath();
+        ctx.arc(-4, -14, 2.5, 0, Math.PI * 2);
+        ctx.arc(4, -14, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-4, -14, 1.4, 0, Math.PI * 2);
+        ctx.arc(4, -14, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Nostrils
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-2, -9, 0.6, 0, Math.PI * 2);
+        ctx.arc(2, -9, 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        // Mouth
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (phase === 1) {
+            // Surprised "o" mouth when waving
+            ctx.arc(0, -5, 2, 0, Math.PI * 2);
+        } else {
+            ctx.moveTo(-3, -5); ctx.quadraticCurveTo(0, -3, 3, -5);
+        }
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    function drawCopCar(x, y, sirenTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var hw = CAR_W / 2 + 4, hh = CAR_H / 2 + 4;
+
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(2, 6, hw + 4, hh - 6, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Body (black/white)
+        ctx.fillStyle = "#000";
+        roundRect(-hw - 2, -hh - 2, hw * 2 + 4, hh * 2 + 4, 10); ctx.fill();
+        ctx.fillStyle = "#FAFAFA";
+        roundRect(-hw, -hh + hh, hw * 2, hh, 6); ctx.fill();
+        ctx.fillStyle = "#212121";
+        roundRect(-hw, -hh, hw * 2, hh, 6); ctx.fill();
+
+        // Windshield
+        ctx.fillStyle = "#4FC3F7";
+        roundRect(-hw + 8, -hh + 8, hw * 2 - 16, 26, 5); ctx.fill();
+        ctx.fillStyle = "#81D4FA";
+        roundRect(-hw + 10, -hh + 10, hw * 2 - 20, 22, 4); ctx.fill();
+
+        // Sheriff star
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("★", 0, 10);
+
+        // Sirens (alternating red/blue flashing)
+        var flashR = Math.sin(sirenTime * 18) > 0;
+        ctx.fillStyle = flashR ? "#F44336" : "#FFCDD2";
+        roundRect(-hw + 6, -hh - 6, 12, 6, 2); ctx.fill();
+        ctx.fillStyle = flashR ? "#9FA8DA" : "#2196F3";
+        roundRect(hw - 18, -hh - 6, 12, 6, 2); ctx.fill();
+
+        // Light beam aura
+        if (flashR) {
+            ctx.fillStyle = "rgba(244,67,54,0.18)";
+            ctx.beginPath(); ctx.arc(-hw + 12, -hh - 3, 24, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = "rgba(33,150,243,0.18)";
+            ctx.beginPath(); ctx.arc(hw - 12, -hh - 3, 24, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Wheels
+        ctx.fillStyle = "#222";
+        roundRect(-hw - 3, -hh + 10, 7, 16, 3); ctx.fill();
+        roundRect(hw - 4, -hh + 10, 7, 16, 3); ctx.fill();
+        roundRect(-hw - 3, hh - 26, 7, 16, 3); ctx.fill();
+        roundRect(hw - 4, hh - 26, 7, 16, 3); ctx.fill();
+
+        ctx.restore();
+    }
+
+    // ── Drawing: Parking scene ───────────────────────────────
+    function drawParkingScene(time) {
+        // Buildings/sky behind the curb
+        ctx.fillStyle = "#FFE082";
+        ctx.fillRect(0, 0, W, 80);
+        // Sun
+        ctx.fillStyle = "#FFD54F";
+        ctx.beginPath(); ctx.arc(W - 60, 40, 24, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFB300";
+        ctx.beginPath(); ctx.arc(W - 60, 40, 20, 0, Math.PI * 2); ctx.fill();
+
+        // Buildings silhouette
+        ctx.fillStyle = "#5C6BC0";
+        ctx.fillRect(20, 30, 60, 50);
+        ctx.fillStyle = "#7986CB";
+        ctx.fillRect(85, 20, 80, 60);
+        ctx.fillStyle = "#3F51B5";
+        ctx.fillRect(170, 35, 70, 45);
+        ctx.fillStyle = "#9FA8DA";
+        ctx.fillRect(245, 25, 60, 55);
+        ctx.fillStyle = "#5C6BC0";
+        ctx.fillRect(310, 30, 90, 50);
+        ctx.fillStyle = "#7986CB";
+        ctx.fillRect(405, 40, 65, 40);
+        // Building windows
+        ctx.fillStyle = "#FFEB3B";
+        for (var bw = 30; bw < W - 30; bw += 12) {
+            for (var bh = 35; bh < 75; bh += 10) {
+                if (Math.random() > 0.4 || (bw * 7 + bh * 13) % 11 < 4) {
+                    ctx.fillRect(bw, bh, 5, 5);
+                }
+            }
+        }
+
+        // Sidewalk
+        ctx.fillStyle = "#BDBDBD";
+        ctx.fillRect(0, 80, W, 60);
+        // Sidewalk cracks
+        ctx.strokeStyle = "#9E9E9E";
+        ctx.lineWidth = 1;
+        for (var sx = 0; sx < W; sx += 60) {
+            ctx.beginPath(); ctx.moveTo(sx, 80); ctx.lineTo(sx, 140); ctx.stroke();
+        }
+        ctx.beginPath(); ctx.moveTo(0, 110); ctx.lineTo(W, 110); ctx.stroke();
+
+        // Curb edge (yellow paint)
+        ctx.fillStyle = "#FBC02D";
+        ctx.fillRect(0, 138, W, 4);
+        ctx.fillStyle = "#212121";
+        ctx.fillRect(0, 142, W, 2);
+
+        // Parking strip + main road
+        ctx.fillStyle = "#6B7B8D";
+        ctx.fillRect(0, 144, W, H - 144);
+
+        // White parking lines (between cars + at edges of zone)
+        ctx.strokeStyle = "#F5F5DC";
+        ctx.lineWidth = 3;
+        if (parkingZone) {
+            ctx.beginPath();
+            ctx.moveTo(parkingZone.x, parkingZone.y);
+            ctx.lineTo(parkingZone.x, parkingZone.y + parkingZone.h);
+            ctx.moveTo(parkingZone.x + parkingZone.w, parkingZone.y);
+            ctx.lineTo(parkingZone.x + parkingZone.w, parkingZone.y + parkingZone.h);
+            ctx.stroke();
+            // Outline (highlight when in zone)
+            var inZone = parkingCar && carIsInZone(parkingCar);
+            ctx.setLineDash([8, 6]);
+            ctx.strokeStyle = inZone ? "#4CAF50" : "#FFEB3B";
+            ctx.lineWidth = 3;
+            roundRect(parkingZone.x, parkingZone.y, parkingZone.w, parkingZone.h, 4);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Road center line (driving lane below)
+        ctx.strokeStyle = "#F5F5DC";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([20, 16]);
+        ctx.lineDashOffset = -(time * 30 % 36);
+        ctx.beginPath();
+        ctx.moveTo(0, H * 0.55); ctx.lineTo(W, H * 0.55);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Decorations on sidewalk
+        // Lamp post
+        ctx.fillStyle = "#37474F";
+        ctx.fillRect(70 - 2, 80, 4, 60);
+        ctx.beginPath(); ctx.arc(70, 78, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFEE58";
+        ctx.beginPath(); ctx.arc(70, 78, 5, 0, Math.PI * 2); ctx.fill();
+        // Lamp glow
+        ctx.fillStyle = "rgba(255,238,88,0.3)";
+        ctx.beginPath(); ctx.arc(70, 78, 18, 0, Math.PI * 2); ctx.fill();
+
+        // Fire hydrant
+        ctx.fillStyle = "#B71C1C";
+        roundRect(150, 110, 12, 22, 3); ctx.fill();
+        ctx.fillStyle = "#FFEB3B";
+        ctx.beginPath(); ctx.arc(156, 113, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#212121";
+        ctx.fillRect(145, 132, 22, 3);
+
+        // Mailbox
+        ctx.fillStyle = "#1565C0";
+        roundRect(330, 102, 24, 18, 3); ctx.fill();
+        ctx.fillStyle = "#0D47A1";
+        roundRect(338, 96, 8, 12, 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 8px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("USPS", 342, 113);
+        // pole
+        ctx.fillStyle = "#5D4037";
+        ctx.fillRect(340, 120, 4, 18);
+
+        // Parking meter near right
+        ctx.fillStyle = "#37474F";
+        ctx.fillRect(430, 120, 4, 22);
+        ctx.fillStyle = "#90A4AE";
+        roundRect(424, 102, 16, 22, 3); ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(432, 110, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#F44336";
+        ctx.fillText("EXP", 432, 119);
+    }
+
+    // ── Drawing: Security camera (with live tracking) ─────────
+    function drawSecurityCamera(cam, time) {
+        ctx.save();
+        ctx.translate(cam.x, cam.y);
+
+        // Pole (thick, dark grey)
+        ctx.fillStyle = "#263238";
+        ctx.fillRect(-3, 0, 6, cam.poleH);
+        ctx.fillStyle = "#37474F";
+        ctx.fillRect(-2, 0, 4, cam.poleH);
+        // Base on ground
+        ctx.fillStyle = "#212121";
+        roundRect(-10, cam.poleH - 3, 20, 6, 2); ctx.fill();
+
+        // Camera arm pivot (rotates to track)
+        var rot = cam.currentRot;
+        ctx.save();
+        ctx.rotate(rot);
+
+        // Arm (joint piece)
+        ctx.fillStyle = "#37474F";
+        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64";
+        roundRect(-3, -5, 22, 10, 3); ctx.fill();
+
+        // Camera body (chunkier)
+        ctx.fillStyle = "#212121";
+        roundRect(10, -11, 22, 22, 4); ctx.fill();
+        ctx.fillStyle = "#37474F";
+        roundRect(11, -10, 20, 20, 3); ctx.fill();
+
+        // Top fin
+        ctx.fillStyle = "#263238";
+        roundRect(14, -14, 14, 4, 2); ctx.fill();
+
+        // Lens (big black with blue inner)
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(30, 0, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1976D2";
+        ctx.beginPath(); ctx.arc(30, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(31, -1, 3, 0, Math.PI * 2); ctx.fill();
+        // Lens highlight
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.beginPath(); ctx.arc(29, -2, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // Recording red dot (blinking)
+        var blink = Math.sin(time * 6) > 0;
+        if (blink) {
+            ctx.fillStyle = "rgba(244,67,54,0.6)";
+            ctx.beginPath(); ctx.arc(14, -6, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#F44336";
+            ctx.beginPath(); ctx.arc(14, -6, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFCDD2";
+            ctx.beginPath(); ctx.arc(14, -6, 1, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = "#5D4037";
+            ctx.beginPath(); ctx.arc(14, -6, 2, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Tracking laser line - prominent red dashed line
+        var lasGrad = ctx.createLinearGradient(30, 0, 320, 0);
+        lasGrad.addColorStop(0, "rgba(244,67,54,0.85)");
+        lasGrad.addColorStop(1, "rgba(244,67,54,0)");
+        ctx.strokeStyle = lasGrad;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.lineDashOffset = -time * 30;
+        ctx.beginPath();
+        ctx.moveTo(30, 0);
+        ctx.lineTo(320, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.restore();
+
+        // "REC" badge below pole
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        roundRect(-18, cam.poleH + 4, 36, 13, 3); ctx.fill();
+        if (blink) {
+            ctx.fillStyle = "#F44336";
+        } else {
+            ctx.fillStyle = "#B71C1C";
+        }
+        ctx.beginPath(); ctx.arc(-10, cam.poleH + 10, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 9px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("REC", 4, cam.poleH + 10);
+
+        ctx.restore();
+    }
+
+    // ── Drawing: Damage decals ────────────────────────────────
+    function drawDamageDecals(car) {
+        if (!car.damage || car.damage.length === 0) return;
+        for (var i = 0; i < car.damage.length; i++) {
+            var d = car.damage[i];
+            ctx.save();
+            ctx.fillStyle = "#212121";
+            // Dent splotch
+            ctx.beginPath();
+            ctx.ellipse(d.x, d.y, d.size * 1.2, d.size, d.rot || 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Inner darker
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.ellipse(d.x, d.y, d.size * 0.7, d.size * 0.5, d.rot || 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Scratch marks
+            ctx.strokeStyle = "#FAFAFA";
+            ctx.lineWidth = 0.8;
+            for (var s = 0; s < 3; s++) {
+                var sa = (d.rot || 0) + s * 0.3 - 0.3;
+                ctx.beginPath();
+                ctx.moveTo(d.x - Math.cos(sa) * d.size, d.y - Math.sin(sa) * d.size);
+                ctx.lineTo(d.x + Math.cos(sa) * d.size, d.y + Math.sin(sa) * d.size);
+                ctx.stroke();
+            }
+            // Glass shards (for major hits)
+            if (d.size > 5) {
+                ctx.fillStyle = "#B0E0FF";
+                for (var g = 0; g < 4; g++) {
+                    var ga = sa + g;
+                    ctx.beginPath();
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x + Math.cos(ga) * 3, d.y + Math.sin(ga) * 3);
+                    ctx.lineTo(d.x + Math.cos(ga + 0.5) * 4, d.y + Math.sin(ga + 0.5) * 4);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+    }
+
+    // ── Drawing: Lulu's car (parking version with damage + crying) ─
+    function drawLuluCarFull(carObj, time, crying) {
+        var skin = SKINS[save.selectedSkin] || SKINS.pink;
+        ctx.save();
+        ctx.translate(carObj.x, carObj.y);
+        ctx.rotate(carObj.rot + Math.PI / 2); // car drawn facing up by default; rotate to current angle
+        var hw = CAR_W / 2, hh = CAR_H / 2;
+
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(3, 6, hw + 4, hh - 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Wheels
+        ctx.fillStyle = C.wheel;
+        roundRect(-hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
+        roundRect(hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
+        roundRect(-hw - 4, hh - 28, 8, 18, 3); ctx.fill();
+        roundRect(hw - 4, hh - 28, 8, 18, 3); ctx.fill();
+
+        // Body outline
+        ctx.fillStyle = skin.dark;
+        roundRect(-hw - 2, -hh - 2, CAR_W + 4, CAR_H + 4, 14); ctx.fill();
+
+        var grad = ctx.createLinearGradient(0, -hh, 0, hh);
+        grad.addColorStop(0, skin.light);
+        grad.addColorStop(0.5, skin.body);
+        grad.addColorStop(1, skin.dark);
+        ctx.fillStyle = grad;
+        roundRect(-hw, -hh, CAR_W, CAR_H, 12); ctx.fill();
+        if (skin.stripe) {
+            ctx.fillStyle = skin.stripe;
+            roundRect(-4, -hh + 4, 8, CAR_H - 8, 2); ctx.fill();
+        }
+
+        // Windshield
+        ctx.fillStyle = C.windshieldDark;
+        roundRect(-hw + 7, -hh + 8, CAR_W - 14, 26, 6); ctx.fill();
+        ctx.fillStyle = C.windshield;
+        roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
+
+        // Lulu's face
+        ctx.fillStyle = C.hair;
+        ctx.beginPath();
+        ctx.arc(0, -hh + 24, 11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-9, -hh + 24, 5, 7, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(9, -hh + 24, 5, 7, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath();
+        ctx.arc(0, -hh + 22, 7.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = C.hair;
+        ctx.beginPath();
+        ctx.arc(0, -hh + 16, 8.5, Math.PI, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-2, -hh + 17, 6, 3, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Pink bow
+        ctx.fillStyle = "#FF4081";
+        ctx.beginPath();
+        ctx.ellipse(-6, -hh + 13, 3.5, 2.5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(-2, -hh + 13, 3.5, 2.5, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#C2185B";
+        ctx.beginPath();
+        ctx.arc(-4, -hh + 13, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (crying) {
+            // Squeezed-shut eyes (sad arcs)
+            ctx.strokeStyle = "#5D4037";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.arc(-3, -hh + 21, 2.5, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.arc(3, -hh + 21, 2.5, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            // Big tear drops
+            ctx.fillStyle = "#4FC3F7";
+            ctx.beginPath();
+            ctx.moveTo(-3, -hh + 23);
+            ctx.quadraticCurveTo(-5, -hh + 27, -4, -hh + 30);
+            ctx.quadraticCurveTo(-2, -hh + 28, -3, -hh + 23);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(3, -hh + 23);
+            ctx.quadraticCurveTo(5, -hh + 27, 4, -hh + 30);
+            ctx.quadraticCurveTo(2, -hh + 28, 3, -hh + 23);
+            ctx.fill();
+            // Frowning mouth (oval shape, like wailing)
+            ctx.fillStyle = "#5D4037";
+            ctx.beginPath();
+            ctx.ellipse(0, -hh + 27, 2.5, 1.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Pink frowny mouth corners
+            ctx.strokeStyle = "#C2185B";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, -hh + 25, 3, 0.7 * Math.PI, 1.3 * Math.PI);
+            ctx.stroke();
+        } else {
+            // Normal eyes/lips
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#5D4037";
+            ctx.beginPath();
+            ctx.ellipse(-3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
+            ctx.ellipse(3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-2.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
+            ctx.arc(3.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = "#222";
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(-4.8, -hh + 19); ctx.lineTo(-5.5, -hh + 18);
+            ctx.moveTo(-3, -hh + 18.5); ctx.lineTo(-3, -hh + 17.5);
+            ctx.moveTo(-1.2, -hh + 19); ctx.lineTo(-0.5, -hh + 18);
+            ctx.moveTo(1.2, -hh + 19); ctx.lineTo(0.5, -hh + 18);
+            ctx.moveTo(3, -hh + 18.5); ctx.lineTo(3, -hh + 17.5);
+            ctx.moveTo(4.8, -hh + 19); ctx.lineTo(5.5, -hh + 18);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(255, 105, 135, 0.5)";
+            ctx.beginPath();
+            ctx.ellipse(-5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
+            ctx.ellipse(5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = C.lips;
+            ctx.beginPath();
+            ctx.ellipse(0, -hh + 25, 2.2, 1.1, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#FF80AB";
+            ctx.beginPath();
+            ctx.ellipse(0, -hh + 24.7, 1.5, 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Rear window
+        ctx.fillStyle = C.windshieldDark;
+        roundRect(-hw + 10, hh - 22, CAR_W - 20, 12, 4); ctx.fill();
+
+        // Kids in back seat (if kidsInCar)
+        if (kidsInCar) {
+            // Kid 1
+            ctx.fillStyle = "#FFC107";
+            ctx.beginPath(); ctx.arc(-7, hh - 16, 4.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(-7, hh - 15, 3.5, 0, Math.PI * 2); ctx.fill();
+            // pigtails
+            ctx.fillStyle = "#FFC107";
+            ctx.beginPath();
+            ctx.ellipse(-11, hh - 16, 2, 3, -0.4, 0, Math.PI * 2);
+            ctx.ellipse(-3, hh - 16, 2, 3, 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            // eyes happy
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(-8.5, hh - 16, 0.7, 0, Math.PI * 2);
+            ctx.arc(-5.5, hh - 16, 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            // smile
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 0.7;
+            ctx.beginPath();
+            ctx.arc(-7, hh - 14, 1.5, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+
+            // Kid 2 (with cap)
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(7, hh - 15, 3.5, 0, Math.PI * 2); ctx.fill();
+            // baseball cap
+            ctx.fillStyle = "#1976D2";
+            ctx.beginPath();
+            ctx.arc(7, hh - 17, 3.8, Math.PI, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(8, hh - 17, 4, 1.5);
+            // eyes
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(5.5, hh - 15, 0.7, 0, Math.PI * 2);
+            ctx.arc(8.5, hh - 15, 0.7, 0, Math.PI * 2);
+            ctx.fill();
+            // big smile
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 0.7;
+            ctx.beginPath();
+            ctx.arc(7, hh - 13, 1.7, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            // Ice cream cones
+            ctx.fillStyle = "#FFB74D";
+            ctx.beginPath();
+            ctx.moveTo(-10, hh - 9); ctx.lineTo(-7, hh - 9); ctx.lineTo(-8.5, hh - 6); ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#F48FB1";
+            ctx.beginPath(); ctx.arc(-8.5, hh - 10, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFB74D";
+            ctx.beginPath();
+            ctx.moveTo(5, hh - 9); ctx.lineTo(8, hh - 9); ctx.lineTo(6.5, hh - 6); ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath(); ctx.arc(6.5, hh - 10, 1.8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Headlights/taillights
+        ctx.fillStyle = "#FFF9C4";
+        ctx.beginPath();
+        ctx.ellipse(-hw + 10, -hh + 2, 5, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(hw - 10, -hh + 2, 5, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#F44336";
+        ctx.beginPath();
+        ctx.ellipse(-hw + 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(hw - 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Damage decals (drawn after car body)
+        drawDamageDecals(carObj);
+
+        ctx.restore();
+    }
+
+    function drawParkedCar(car) {
+        ctx.save();
+        ctx.translate(car.x, car.y);
+        ctx.rotate(car.rot + Math.PI / 2);
+        var hw = CAR_W / 2, hh = CAR_H / 2;
+
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath();
+        ctx.ellipse(3, 5, hw + 3, hh - 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = C.wheel;
+        roundRect(-hw - 3, -hh + 8, 7, 16, 3); ctx.fill();
+        roundRect(hw - 4, -hh + 8, 7, 16, 3); ctx.fill();
+        roundRect(-hw - 3, hh - 24, 7, 16, 3); ctx.fill();
+        roundRect(hw - 4, hh - 24, 7, 16, 3); ctx.fill();
+
+        ctx.fillStyle = shadeColor(car.color, -40);
+        roundRect(-hw - 2, -hh - 2, CAR_W + 4, CAR_H + 4, 12); ctx.fill();
+        var g2 = ctx.createLinearGradient(0, -hh, 0, hh);
+        g2.addColorStop(0, shadeColor(car.color, 30));
+        g2.addColorStop(1, car.color);
+        ctx.fillStyle = g2;
+        roundRect(-hw, -hh, CAR_W, CAR_H, 10); ctx.fill();
+
+        ctx.fillStyle = "#78909C";
+        roundRect(-hw + 6, hh - 22, CAR_W - 12, 14, 4); ctx.fill();
+        roundRect(-hw + 8, -hh + 8, CAR_W - 16, 11, 3); ctx.fill();
+
+        drawDamageDecals(car);
+        ctx.restore();
+    }
+
+    function carIsInZone(car) {
+        if (!parkingZone) return false;
+        return car.x > parkingZone.x + 8 &&
+               car.x < parkingZone.x + parkingZone.w - 8 &&
+               car.y > parkingZone.y + 8 &&
+               car.y < parkingZone.y + parkingZone.h - 8;
+    }
+
     // ── Drawing: HUD ─────────────────────────────────────────
     function drawHeart(x, y, filled) {
         ctx.save();
@@ -1537,6 +2369,16 @@
             ctx.stroke();
             drawText(save.missiles, W - 22, mY + 6, "bold 14px Arial", "#000", null, 0);
         }
+
+        // Parking / event message banner
+        if (parkingMsgTimer > 0) {
+            var alp = clamp(parkingMsgTimer / 2, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0," + (0.7 * alp) + ")";
+            roundRect(W / 2 - 140, 90, 280, 36, 10); ctx.fill();
+            ctx.globalAlpha = alp;
+            drawText(parkingMsg, W / 2, 108, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            ctx.globalAlpha = 1;
+        }
     }
 
     // ── State & Globals ──────────────────────────────────────
@@ -1584,6 +2426,39 @@
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
 
+    // ── Parking mini-game state ──────────────────────────────
+    var parkingSigns = [];      // P-sign pickups on the main road
+    var parkingSpawnTimer = 25; // first parking sign appears around 25s in
+    var parkingCar = null;      // Lulu's car in the parking scene
+    var parkedCars = [];        // two stationary parked cars
+    var parkingZone = null;     // {x,y,w,h} target spot
+    var parkingCameras = [];    // [{x,y,poleH,currentRot,blink}]
+    var parkingResult = null;   // "success" | "fail"
+    var parkingResultTimer = 0;
+    var parkingResultPhase = 0;
+    var parkingTransitionTimer = 0;
+    var parkingTransitionDuration = 0.9;
+    var parkingZoom = 1;
+    var parkingFlashTimer = 0;
+    var parkingMsg = "";
+    var parkingMsgTimer = 0;
+    var parkingInZoneTimer = 0; // how long Lulu has been in zone, stationary
+    var parkingTimeLeft = 0;    // countdown
+    var parkingFailHit = null;  // {who:"parked"|"curb", x,y, side, severity}
+    var parkingScore = 0;       // bonus accumulating
+    var kidsInCar = false;      // true after success
+
+    // Roleplay scenarios + extras
+    var sasquatchTimer = rand(40, 70);
+    var sasquatch = null; // {x, y, phase, timer}
+    var billboards = [];  // {x, y, msg, parallax}
+    var billboardTimer = 8;
+    var honkCooldown = 0;
+    var copEvent = null;  // {phase, timer, x, y}
+    var copEventTimer = rand(60, 120);
+    var iceCreamSigns = []; // similar to parking signs
+    var iceCreamSpawnTimer = 60;
+
     function resetGame() {
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
         score = 0; runCoins = 0; lives = MAX_LIVES;
@@ -1593,6 +2468,13 @@
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
+        parkingSigns = []; parkingSpawnTimer = 25;
+        iceCreamSigns = []; iceCreamSpawnTimer = 60;
+        sasquatch = null; sasquatchTimer = rand(40, 70);
+        billboards = []; billboardTimer = 8;
+        copEvent = null; copEventTimer = rand(60, 120);
+        honkCooldown = 0;
+        kidsInCar = false;
         initDecorations();
     }
 
@@ -1664,6 +2546,97 @@
         });
     }
 
+    function spawnDuckParade() {
+        // Mom + 6 ducklings cross slowly, single file from one side
+        var side = Math.random() > 0.5 ? 1 : -1;
+        var y = rand(H * 0.25, H * 0.45);
+        var startX = side > 0 ? ROAD_R + 40 : ROAD_L - 40;
+        var speed = -side * 25; // slow!
+        // Mama
+        animals.push({
+            type: "duck", x: startX, y: y, vx: speed,
+            hitW: 22, hitH: 18, walkTime: 0,
+            isParade: true, parent: true,
+            sayTimer: 4, says: ["Excuse me!", "*quack quack*", "We have right of way!", "Have a blessed day."]
+        });
+        // 6 ducklings, lined up behind
+        for (var i = 0; i < 6; i++) {
+            animals.push({
+                type: "duck", x: startX + side * (30 + i * 18), y: y + rand(-4, 4),
+                vx: speed * rand(0.9, 1.05),
+                hitW: 12, hitH: 10, walkTime: rand(0, Math.PI),
+                isParade: true, scale: 0.55,
+                isLast: i === 5, // last duckling trips
+                tripPhase: 0
+            });
+        }
+    }
+
+    function spawnParkingSign() {
+        var x = LANES[randInt(0, 2)];
+        parkingSigns.push({ x: x, y: -50, hitW: 26, hitH: 26, bob: 0 });
+    }
+
+    function spawnIceCreamSign() {
+        // Roadside icon (slightly off-road)
+        var side = Math.random() > 0.5 ? 1 : -1;
+        iceCreamSigns.push({
+            x: side > 0 ? ROAD_R + 16 : ROAD_L - 16,
+            y: -50, hitW: 30, hitH: 32, bob: 0
+        });
+    }
+
+    function spawnBillboard() {
+        var side = Math.random() > 0.5 ? 1 : -1;
+        var msgs = [
+            "SLOW DOWN, LULU!",
+            "FREE PICKLES NEXT EXIT",
+            "OSTRICH CROSSING 500ft",
+            "DRIVE LIKE GRANDMA",
+            "HONK IF U LOVE COINS",
+            "ICE CREAM AHEAD",
+            "CAUTION: KIDS w/ FORKS",
+            "WANTED: ANGRY OLD MAN",
+            "LULU.BOATS",
+            "RACCOON YARD SALE TODAY",
+            "WASH YOUR CAR. NOW.",
+            "BEWARE OF SASQUATCH"
+        ];
+        billboards.push({
+            x: side > 0 ? W - 50 : 50,
+            y: -120,
+            side: side,
+            msg: randPick(msgs),
+            parallax: rand(0.7, 0.9)
+        });
+    }
+
+    function spawnSasquatch() {
+        // Brief sighting in the bushes (way off-road, decorative)
+        var side = Math.random() > 0.5 ? 1 : -1;
+        sasquatch = {
+            x: side > 0 ? W - 30 : 30,
+            y: -40,
+            side: side,
+            phase: 0, // 0 walking in, 1 looking around, 2 walking out
+            timer: 0,
+            walkTime: 0,
+            waved: false
+        };
+    }
+
+    function spawnCop() {
+        // Cop event - police car appears from behind with sirens
+        copEvent = {
+            phase: 0, // 0 approaching, 1 pulled over, 2 questioning, 3 leaving
+            timer: 0,
+            x: player.x,
+            y: H + 80,
+            siren: 0,
+            dialogue: 0
+        };
+    }
+
     function fireMissile() {
         if (save.missiles <= 0) { playDeny(); return; }
         save.missiles--; persistSave();
@@ -1699,6 +2672,331 @@
         // Two happy tones
         playTone(523, 0.08, "triangle", 0.2);
         setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 80);
+    }
+
+    // ── Parking mini-game trigger + scene setup ──────────────
+    function triggerParkingMinigame() {
+        // Save state then switch
+        prevState = "playing";
+        state = "parkingIntro";
+        parkingTransitionTimer = parkingTransitionDuration;
+        parkingZoom = 1;
+        setupParkingScene();
+        // happy chime
+        playTone(880, 0.08, "sine", 0.18);
+        setTimeout(function () { playTone(1175, 0.12, "sine", 0.18); }, 80);
+    }
+
+    function setupParkingScene() {
+        // Lulu's car starts to the right of the empty spot, in the driving lane
+        parkingCar = {
+            x: W - 50, y: H * 0.55,
+            rot: -Math.PI, // facing left initially
+            speed: 0,
+            steerAngle: 0,
+            damage: [],
+            w: CAR_W, h: CAR_H
+        };
+        // Empty spot fixed in center for predictability
+        var spotCenterX = W / 2;
+        parkingZone = {
+            x: spotCenterX - CAR_H / 2 - 10,
+            y: 168,
+            w: CAR_H + 20,
+            h: CAR_W + 16
+        };
+        // Two parked cars, parallel to curb (facing right = rot 0)
+        parkedCars = [
+            { x: parkingZone.x - CAR_H / 2 - 8, y: parkingZone.y + parkingZone.h / 2,
+              rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H },
+            { x: parkingZone.x + parkingZone.w + CAR_H / 2 + 8, y: parkingZone.y + parkingZone.h / 2,
+              rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H }
+        ];
+        // Cameras (1-3) — mounted on tall poles on the sidewalk
+        var numCams = randInt(1, 3);
+        parkingCameras = [];
+        var camPositions = [
+            { x: 40, y: 88, poleH: 52 },
+            { x: W / 2, y: 88, poleH: 52 },
+            { x: W - 40, y: 88, poleH: 52 }
+        ];
+        var indexes = [0, 1, 2].sort(function () { return Math.random() - 0.5; }).slice(0, numCams);
+        for (var ci = 0; ci < indexes.length; ci++) {
+            var p = camPositions[indexes[ci]];
+            parkingCameras.push({ x: p.x, y: p.y, poleH: p.poleH, currentRot: Math.PI / 2 });
+        }
+        // State
+        parkingResult = null;
+        parkingResultTimer = 0;
+        parkingResultPhase = 0;
+        parkingInZoneTimer = 0;
+        parkingTimeLeft = 60; // 60 sec
+        parkingScore = 0;
+        parkingFlashTimer = 0;
+        parkingFailHit = null;
+    }
+
+    function updateParkingIntro(dt) {
+        parkingTransitionTimer -= dt;
+        // Smooth zoom from 1 to 2 then back to 1 during in
+        var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
+        parkingZoom = 1 + Math.sin(t * Math.PI) * 0.5; // peak in middle
+        if (parkingTransitionTimer <= 0) {
+            state = "parking";
+            parkingZoom = 1;
+            // start nice
+            playTone(523, 0.08, "triangle", 0.2);
+        }
+    }
+
+    function updateParking(dt) {
+        if (parkingMsgTimer > 0) parkingMsgTimer -= dt;
+        // Pause check
+        if (consumePause()) {
+            prevState = "parking";
+            state = "paused";
+            return;
+        }
+        // Click on pause button
+        var click = consumeClick();
+        if (click && pointInRect(click.x, click.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
+            prevState = "parking"; state = "paused"; playClick(); return;
+        }
+
+        // Steering input
+        var steerInput = 0;
+        if (keys.left) steerInput = -1;
+        if (keys.right) steerInput = 1;
+        if (touchX !== null && steerTouchId !== null) {
+            // For parking we use a different touch-steering: gently rotate based on touch position relative to car
+            var diff = touchX - parkingCar.x;
+            steerInput = clamp(diff / 80, -1, 1);
+        }
+        var accelInput = 0;
+        if (keys.up) accelInput = 1;
+        if (keys.down) accelInput = -1;
+        if (distractedMode) {
+            accelInput = -accelInput;
+            steerInput = -steerInput;
+        }
+
+        // Smooth speed (acceleration)
+        var maxSpeed = 60;
+        parkingCar.speed += accelInput * 90 * dt;
+        if (accelInput === 0) {
+            // friction
+            parkingCar.speed *= Math.pow(0.05, dt);
+            if (Math.abs(parkingCar.speed) < 1) parkingCar.speed = 0;
+        }
+        parkingCar.speed = clamp(parkingCar.speed, -maxSpeed * 0.7, maxSpeed);
+
+        // Steering angle (gradual)
+        parkingCar.steerAngle = lerp(parkingCar.steerAngle, steerInput * 0.6, dt * 5);
+
+        // Bicycle model rotation
+        if (Math.abs(parkingCar.speed) > 1) {
+            var turnRate = (parkingCar.speed / 25) * parkingCar.steerAngle;
+            parkingCar.rot += turnRate * dt;
+        }
+
+        // Movement
+        var newX = parkingCar.x + Math.cos(parkingCar.rot) * parkingCar.speed * dt;
+        var newY = parkingCar.y + Math.sin(parkingCar.rot) * parkingCar.speed * dt;
+
+        // World bounds (curb on top, edges on sides, bottom open road)
+        newX = clamp(newX, 30, W - 30);
+        newY = clamp(newY, 150, H - 50);
+
+        // Collision with parked cars (axis-aligned rough check + apply damage if newly colliding)
+        var hadCollision = false;
+        for (var pi = 0; pi < parkedCars.length; pi++) {
+            var pc = parkedCars[pi];
+            // Approximate: rotated rect SAT is complex; use circle approximation
+            var pcRadius = 22;
+            var luluRadius = 22;
+            var dx = newX - pc.x, dy = newY - pc.y;
+            var dist2 = dx * dx + dy * dy;
+            var combined = pcRadius + luluRadius;
+            if (dist2 < combined * combined) {
+                // Collision!
+                // Determine impact side relative to Lulu's local axes
+                var localAngle = Math.atan2(dy, dx) - parkingCar.rot;
+                // Front of car is +X direction in local space (since car drawn facing up, +X local)
+                // Actually our car's facing direction is along (cos(rot), sin(rot)) world.
+                // For damage on Lulu: location is opposite of impact direction
+                var impactSeverity = Math.abs(parkingCar.speed) / maxSpeed;
+                applyCollisionDamage(parkingCar, dx, dy, impactSeverity);
+                applyCollisionDamage(pc, -dx, -dy, impactSeverity);
+                // bounce back
+                var pushBack = 4;
+                newX = parkingCar.x - Math.cos(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
+                newY = parkingCar.y - Math.sin(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
+                parkingCar.speed *= -0.3; // bounce
+                parkingFlashTimer = 0.2;
+                shakeTimer = 0.25; shakeIntensity = 5;
+                playTone(180, 0.18, "sawtooth", 0.18);
+                hadCollision = true;
+                // If hit hard enough, fail
+                if (impactSeverity > 0.4) {
+                    parkingFailHit = { who: "parked", x: pc.x, y: pc.y, severity: impactSeverity };
+                    triggerParkingFail();
+                    return;
+                }
+                break;
+            }
+        }
+        // Curb collision (top)
+        if (newY < 150 && parkingCar.speed > 0) {
+            applyCollisionDamage(parkingCar, 0, -1, Math.abs(parkingCar.speed) / maxSpeed);
+            parkingCar.speed *= -0.3;
+            shakeTimer = 0.15; shakeIntensity = 3;
+        }
+
+        parkingCar.x = newX;
+        parkingCar.y = newY;
+
+        // Cameras track
+        for (var c = 0; c < parkingCameras.length; c++) {
+            var cam = parkingCameras[c];
+            var cdx = parkingCar.x - cam.x;
+            var cdy = parkingCar.y - cam.y;
+            var targetRot = Math.atan2(cdy, cdx);
+            // wrap shortest
+            var diffR = targetRot - cam.currentRot;
+            while (diffR > Math.PI) diffR -= Math.PI * 2;
+            while (diffR < -Math.PI) diffR += Math.PI * 2;
+            cam.currentRot += diffR * Math.min(1, dt * 6);
+        }
+
+        if (parkingFlashTimer > 0) parkingFlashTimer -= dt;
+        if (shakeTimer > 0) shakeTimer -= dt;
+
+        // Check if parked successfully: in zone + slow + roughly horizontal
+        var rotMod = ((parkingCar.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        var horizontalOK = (rotMod < 0.35 || rotMod > Math.PI * 2 - 0.35 ||
+                            Math.abs(rotMod - Math.PI) < 0.35);
+        var slow = Math.abs(parkingCar.speed) < 8;
+        if (carIsInZone(parkingCar) && slow && horizontalOK) {
+            parkingInZoneTimer += dt;
+            if (parkingInZoneTimer > 0.8) {
+                triggerParkingSuccess();
+                return;
+            }
+        } else {
+            parkingInZoneTimer = 0;
+        }
+
+        // Timer
+        parkingTimeLeft -= dt;
+        if (parkingTimeLeft <= 0) {
+            parkingFailHit = { who: "timeout" };
+            triggerParkingFail();
+            return;
+        }
+    }
+
+    function applyCollisionDamage(car, dx, dy, severity) {
+        // Convert world impact direction to local
+        var localAngle = Math.atan2(dy, dx) - (car.rot + Math.PI / 2);
+        var hw = CAR_W / 2, hh = CAR_H / 2;
+        // Project to local rectangle edge
+        var lx = Math.cos(localAngle), ly = Math.sin(localAngle);
+        // Normalize to fit on edge
+        var t1 = lx !== 0 ? Math.abs(hw / lx) : 1e9;
+        var t2 = ly !== 0 ? Math.abs(hh / ly) : 1e9;
+        var t = Math.min(t1, t2);
+        var dmgX = lx * t * 0.85;
+        var dmgY = ly * t * 0.85;
+        car.damage.push({
+            x: dmgX, y: dmgY,
+            size: 3 + severity * 6,
+            rot: localAngle
+        });
+        if (car.damage.length > 8) car.damage.shift();
+    }
+
+    function triggerParkingSuccess() {
+        parkingResult = "success";
+        parkingResultPhase = 0;
+        parkingResultTimer = 3.0;
+        kidsInCar = true;
+        state = "parkingResult";
+        // play happy fanfare
+        playTone(523, 0.1, "triangle", 0.2);
+        setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+        setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+        setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
+        // Bonus coins
+        var bonus = 50;
+        runCoins += bonus;
+        save.totalCoins += bonus;
+        score += 500;
+        persistSave();
+    }
+
+    function triggerParkingFail() {
+        parkingResult = "fail";
+        parkingResultPhase = 0;
+        parkingResultTimer = 4.0;
+        state = "parkingResult";
+        playExplosion();
+        setTimeout(playWompWomp, 300);
+        // Lose a life
+        lives = Math.max(0, lives - 1);
+    }
+
+    function updateParkingResult(dt) {
+        parkingResultTimer -= dt;
+        if (parkingResult === "success") {
+            // Just hold the celebration, then zoom back out
+            if (parkingResultTimer <= 0 && parkingResultPhase === 0) {
+                parkingResultPhase = 1;
+                parkingTransitionTimer = parkingTransitionDuration;
+            }
+            if (parkingResultPhase === 1) {
+                parkingTransitionTimer -= dt;
+                var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
+                parkingZoom = 1 + Math.sin(t * Math.PI) * 0.4;
+                if (parkingTransitionTimer <= 0) {
+                    state = "playing";
+                    parkingZoom = 1;
+                    parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
+                    parkingMsgTimer = 3;
+                    // keep kidsInCar = true for a while (or permanent?)
+                }
+            }
+        } else {
+            // Fail: phase 0 = damage display + angry man + crying Lulu
+            // After timer, zoom out
+            if (parkingResultTimer <= 0 && parkingResultPhase === 0) {
+                parkingResultPhase = 1;
+                parkingTransitionTimer = parkingTransitionDuration;
+            }
+            if (parkingResultPhase === 1) {
+                parkingTransitionTimer -= dt;
+                var t2 = 1 - parkingTransitionTimer / parkingTransitionDuration;
+                parkingZoom = 1 + Math.sin(t2 * Math.PI) * 0.4;
+                if (parkingTransitionTimer <= 0) {
+                    state = "playing";
+                    parkingZoom = 1;
+                    parkingMsg = "Better luck next time!";
+                    parkingMsgTimer = 2;
+                    if (lives <= 0) {
+                        // trigger normal game over
+                        crashX = player.x;
+                        crashY = player.y;
+                        crashRot = 0;
+                        crashRotVel = rand(-8, 8);
+                        spawnCrashBurst(player.x, player.y, true);
+                        state = "crash";
+                        crashPhase = 0;
+                        crashPhaseTimer = 1.4;
+                        if (score > save.highScore) save.highScore = Math.floor(score);
+                        persistSave();
+                    }
+                }
+            }
+        }
     }
 
     // ── Update: Playing ──────────────────────────────────────
@@ -1756,14 +3054,56 @@
             spawnClocks.ped = rand(5, 10) * speedFactor;
             spawnObstacle("ped");
         }
-        if (spawnClocks.animal <= 0) { spawnClocks.animal = rand(8, 14); spawnAnimal(); }
+        if (spawnClocks.animal <= 0) {
+            spawnClocks.animal = rand(8, 14);
+            if (gameTime > 45 && Math.random() < 0.15) spawnDuckParade();
+            else spawnAnimal();
+        }
         if (spawnClocks.coin <= 0) {
             spawnClocks.coin = rand(0.6, 1.4);
             if (Math.random() > 0.75) spawnCoinLine(); else spawnCoin();
         }
 
+        // Parking sign spawn
+        parkingSpawnTimer -= dt;
+        if (parkingSpawnTimer <= 0 && parkingSigns.length === 0 && gameTime > 20) {
+            parkingSpawnTimer = rand(45, 80);
+            spawnParkingSign();
+        }
+        // Ice cream sign
+        iceCreamSpawnTimer -= dt;
+        if (iceCreamSpawnTimer <= 0 && iceCreamSigns.length === 0 && gameTime > 30) {
+            iceCreamSpawnTimer = rand(60, 100);
+            spawnIceCreamSign();
+        }
+        // Sasquatch easter egg
+        sasquatchTimer -= dt;
+        if (sasquatchTimer <= 0 && !sasquatch && gameTime > 35) {
+            sasquatchTimer = rand(50, 120);
+            if (Math.random() < 0.4) spawnSasquatch();
+        }
+        // Billboards
+        billboardTimer -= dt;
+        if (billboardTimer <= 0) {
+            billboardTimer = rand(8, 18);
+            spawnBillboard();
+        }
+
         // Missile firing
         if (consumeMissile()) fireMissile();
+        // Honk
+        if (consumeHonk() && honkCooldown <= 0) {
+            playHonk();
+            honkCooldown = 0.4;
+            // Make any pedestrian wave (their walkTime gets a "wave" flag)
+            for (var hh = 0; hh < obstacles.length; hh++) {
+                if (obstacles[hh].type === "ped") obstacles[hh].waving = 1.5;
+            }
+            // Animals scatter
+            for (var hk = 0; hk < animals.length; hk++) {
+                animals[hk].vx *= 1.5; // run faster!
+            }
+        }
 
         // Pause check
         if (consumePause()) {
@@ -1865,6 +3205,70 @@
                 size: rand(2, 4), color: "#9E9E9E", gravity: 0
             });
         }
+
+        // Parking signs scroll + collision
+        for (var ps = parkingSigns.length - 1; ps >= 0; ps--) {
+            var psi = parkingSigns[ps];
+            psi.y += gameSpeed * dt;
+            psi.bob += dt;
+            if (psi.y > H + 60) { parkingSigns.splice(ps, 1); continue; }
+            if (aabb(player.x, player.y, CAR_W, CAR_H * 0.8, psi.x, psi.y, psi.hitW, psi.hitH)) {
+                parkingSigns.splice(ps, 1);
+                triggerParkingMinigame();
+                return;
+            }
+        }
+        // Ice cream signs (roadside; only collected if Lulu is at the edge)
+        for (var ic = iceCreamSigns.length - 1; ic >= 0; ic--) {
+            var ici = iceCreamSigns[ic];
+            ici.y += gameSpeed * dt;
+            ici.bob += dt;
+            if (ici.y > H + 60) { iceCreamSigns.splice(ic, 1); continue; }
+            if (aabb(player.x, player.y, CAR_W, CAR_H, ici.x, ici.y, ici.hitW, ici.hitH)) {
+                iceCreamSigns.splice(ic, 1);
+                // Quick bonus
+                runCoins += 5;
+                save.totalCoins += 5;
+                persistSave();
+                playCoin();
+                parkingMsg = "🍦 ICE CREAM! +5";
+                parkingMsgTimer = 2;
+                kidsInCar = true; // celebrate!
+                spawnCoinSparkle(ici.x, ici.y);
+            }
+        }
+        // Sasquatch update
+        if (sasquatch) {
+            sasquatch.timer += dt;
+            sasquatch.walkTime += dt;
+            sasquatch.y += gameSpeed * 0.4 * dt;
+            if (sasquatch.phase === 0 && sasquatch.timer > 0.8) {
+                sasquatch.phase = 1; sasquatch.timer = 0;
+            }
+            else if (sasquatch.phase === 1 && sasquatch.timer > 2.5) {
+                if (!sasquatch.waved) {
+                    runCoins += 10;
+                    save.totalCoins += 10;
+                    persistSave();
+                    parkingMsg = "🦍 SASQUATCH! +10";
+                    parkingMsgTimer = 2;
+                    sasquatch.waved = true;
+                }
+                sasquatch.phase = 2; sasquatch.timer = 0;
+            }
+            else if (sasquatch.phase === 2 && (sasquatch.timer > 1.5 || sasquatch.y > H + 40)) {
+                sasquatch = null;
+            }
+        }
+        // Billboard scroll
+        for (var bb = billboards.length - 1; bb >= 0; bb--) {
+            billboards[bb].y += gameSpeed * billboards[bb].parallax * dt;
+            if (billboards[bb].y > H + 60) billboards.splice(bb, 1);
+        }
+        // Message timer
+        if (parkingMsgTimer > 0) parkingMsgTimer -= dt;
+        // Honk cooldown
+        if (honkCooldown > 0) honkCooldown -= dt;
 
         updateDecorations(dt, gameSpeed);
         updateParticles(dt);
@@ -2178,7 +3582,16 @@
         }
 
         drawRoad(scrollOffset);
+
+        // Billboards (drawn first, behind trees)
+        for (var bi = 0; bi < billboards.length; bi++) {
+            drawBillboard(billboards[bi].x, billboards[bi].y, billboards[bi].side, billboards[bi].msg);
+        }
+
         drawDecorations(gameTime);
+
+        // Sasquatch easter egg (between decorations and obstacles)
+        if (sasquatch) drawSasquatch(sasquatch.x, sasquatch.y, sasquatch.phase, sasquatch.walkTime);
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
@@ -2186,6 +3599,14 @@
 
         for (var j = 0; j < coinEntities.length; j++) {
             if (!coinEntities[j].collected) drawCoin(coinEntities[j].x, coinEntities[j].y, gameTime);
+        }
+
+        // Parking signs (P) and ice cream signs
+        for (var psd = 0; psd < parkingSigns.length; psd++) {
+            drawParkingSign(parkingSigns[psd].x, parkingSigns[psd].y, parkingSigns[psd].bob);
+        }
+        for (var icd = 0; icd < iceCreamSigns.length; icd++) {
+            drawIceCreamSign(iceCreamSigns[icd].x, iceCreamSigns[icd].y, iceCreamSigns[icd].bob);
         }
 
         for (var k = 0; k < obstacles.length; k++) {
@@ -2251,6 +3672,185 @@
             drawEnemyCar(revengeCar.x, revengeCar.y, revengeCar.color, revengeCar.carType);
         }
         ctx.restore();
+    }
+
+    // ── Draw: Parking Intro/Outro (zoom transition) ──────────
+    function drawParkingIntro() {
+        // Render the main scene zoomed in to Lulu's car position with a flash
+        var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
+        // First half: zoom into main game player; second half: zoom out into parking scene
+        if (t < 0.5) {
+            ctx.save();
+            // Zoom in around player position
+            var zoom = 1 + t * 2; // 1 to 2
+            var cx = player.x, cy = player.y;
+            ctx.translate(W / 2, H / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-cx, -cy);
+            drawPlaying();
+            ctx.restore();
+            // White flash overlay growing
+            ctx.fillStyle = "rgba(255,255,255," + (t * 2 * 0.9) + ")";
+            ctx.fillRect(0, 0, W, H);
+        } else {
+            // Second half: white fading out as we reveal parking scene zoomed out
+            var t2 = (t - 0.5) * 2; // 0 to 1
+            var zoom2 = 2 - t2; // 2 to 1
+            var cx2 = parkingCar ? parkingCar.x : W / 2;
+            var cy2 = parkingCar ? parkingCar.y : H / 2;
+            ctx.save();
+            ctx.translate(W / 2, H / 2);
+            ctx.scale(zoom2, zoom2);
+            ctx.translate(-cx2, -cy2);
+            drawParkingFull(gameTime);
+            ctx.restore();
+            ctx.fillStyle = "rgba(255,255,255," + ((1 - t2) * 0.9) + ")";
+            ctx.fillRect(0, 0, W, H);
+        }
+    }
+
+    // ── Draw: Parking gameplay ───────────────────────────────
+    function drawParkingFull(time) {
+        drawParkingScene(time);
+        // Parked cars
+        for (var p = 0; p < parkedCars.length; p++) {
+            drawParkedCar(parkedCars[p]);
+        }
+        // Lulu's car
+        if (parkingCar) drawLuluCarFull(parkingCar, time, false);
+        // Cameras (drawn on top)
+        for (var c = 0; c < parkingCameras.length; c++) {
+            drawSecurityCamera(parkingCameras[c], time);
+        }
+        drawParticles();
+    }
+
+    function drawParking() {
+        ctx.save();
+        if (shakeTimer > 0) {
+            ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+        }
+        drawParkingFull(gameTime);
+        ctx.restore();
+
+        // Flash overlay on collision
+        if (parkingFlashTimer > 0) {
+            ctx.fillStyle = "rgba(244,67,54," + (parkingFlashTimer / 0.2 * 0.35) + ")";
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        // HUD: timer + "park here" prompt
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        roundRect(0, 0, W, 50, 0); ctx.fill();
+        drawText("PARALLEL PARKING", W / 2, 18, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+        drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 30, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+        drawText("Hearts ♥ " + lives, 30, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+
+        if (parkingCar && carIsInZone(parkingCar)) {
+            var pulse = 1 + Math.sin(gameTime * 8) * 0.1;
+            ctx.save();
+            ctx.translate(W / 2, H - 60);
+            ctx.scale(pulse, pulse);
+            drawText("HOLD STILL TO PARK!", 0, 0,
+                "bold 22px 'Segoe UI', Arial, sans-serif", "#4CAF50", "#000", 5);
+            ctx.restore();
+        } else {
+            drawText("Park between the two cars · ←→ steer · ↑↓ move",
+                W / 2, H - 30, "13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+        }
+
+        // Pause button
+        drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚",
+            { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+
+        // Mobile boost/brake buttons during parking (relabeled)
+        if (isTouchDevice) {
+            drawIconButton(MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w,
+                "▲", { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w,
+                "▼", { bg: keys.down ? "#64B5F6" : "#90CAF9", bgDark: "#1565C0" });
+        }
+    }
+
+    // ── Draw: Parking Result ────────────────────────────────
+    function drawParkingResult() {
+        ctx.save();
+        if (shakeTimer > 0) {
+            ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+        }
+
+        drawParkingScene(gameTime);
+        for (var p = 0; p < parkedCars.length; p++) drawParkedCar(parkedCars[p]);
+        if (parkingResult === "fail") {
+            drawLuluCarFull(parkingCar, gameTime, true); // crying
+        } else {
+            drawLuluCarFull(parkingCar, gameTime, false);
+        }
+        for (var c = 0; c < parkingCameras.length; c++) {
+            drawSecurityCamera(parkingCameras[c], gameTime);
+        }
+        drawParticles();
+
+        ctx.restore();
+
+        // Result overlay
+        if (parkingResult === "success") {
+            // Confetti particles
+            if (Math.random() > 0.5) {
+                particles.push({
+                    x: rand(0, W), y: -10,
+                    vx: rand(-30, 30), vy: rand(60, 140),
+                    life: 1.5, maxLife: 1.5,
+                    size: rand(3, 6),
+                    color: randPick(["#FF80AB", "#FFD700", "#4FC3F7", "#81C784", "#FFB74D"]),
+                    gravity: 30
+                });
+            }
+            ctx.fillStyle = "rgba(76, 175, 80, 0.25)";
+            ctx.fillRect(0, 0, W, H);
+            var bounce = 1 + Math.sin(gameTime * 6) * 0.08;
+            ctx.save();
+            ctx.translate(W / 2, H * 0.25);
+            ctx.scale(bounce, bounce);
+            drawText("PARKED! 🎉", 0, 0, "bold 42px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#0D47A1", 7);
+            drawText("ICE CREAM TIME!", 0, 38, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#0D47A1", 5);
+            drawText("+50 coins · +500 score", 0, 68, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            ctx.restore();
+
+            // Speech bubble from car: "Yay ice cream!"
+            if (parkingCar) {
+                drawSpeechBubble(parkingCar.x, parkingCar.y - 50, "YAY ICE CREAM!", gameTime);
+            }
+        } else if (parkingResult === "fail") {
+            ctx.fillStyle = "rgba(0,0,0,0.45)";
+            ctx.fillRect(0, 0, W, H);
+            drawText("CRASH!", W / 2, H * 0.18, "bold 40px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
+            var msg = parkingFailHit && parkingFailHit.who === "timeout" ? "Out of time!" : "You dinged the other car!";
+            drawText(msg, W / 2, H * 0.24, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            drawText("-1 ♥", W / 2, H * 0.30, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
+
+            // Draw angry man on the road below Lulu's car
+            if (parkingCar) {
+                var t = parkingResultTimer < 3 ? 3 - parkingResultTimer : 0;
+                var manX = parkingCar.x - 30 + t * 5; // walking up
+                var manY = parkingCar.y + 50;
+                drawAngryMan(Math.min(manX, parkingCar.x - 15), manY, t, "yelling", 1);
+                drawSpeechBubble(parkingCar.x - 20, manY - 30, "WHO TAUGHT YOU\nTO DRIVE!?", t);
+            }
+
+            // Crying tears falling from car
+            if (parkingCar && Math.random() > 0.6) {
+                particles.push({
+                    x: parkingCar.x + rand(-8, 8),
+                    y: parkingCar.y - 20,
+                    vx: rand(-10, 10), vy: rand(40, 80),
+                    life: 0.6, maxLife: 0.6,
+                    size: rand(2, 4),
+                    color: "#4FC3F7",
+                    gravity: 80
+                });
+            }
+        }
     }
 
     // ── Draw: Paused ─────────────────────────────────────────
@@ -2531,6 +4131,9 @@
         else if (state === "crash") updateCrash(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
+        else if (state === "parkingIntro") updateParkingIntro(dt);
+        else if (state === "parking") updateParking(dt);
+        else if (state === "parkingResult") updateParkingResult(dt);
 
         ctx.clearRect(0, 0, W, H);
 
@@ -2540,6 +4143,9 @@
         else if (state === "crash") drawCrash();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
+        else if (state === "parkingIntro") drawParkingIntro();
+        else if (state === "parking") drawParking();
+        else if (state === "parkingResult") drawParkingResult();
 
         requestAnimationFrame(gameLoop);
     }
