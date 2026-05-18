@@ -42,7 +42,10 @@
             selectedSkin: "pink",
             missiles: 0,
             shields: 0,
-            distractedUnlocked: false
+            distractedUnlocked: false,
+            parkingBestLevel: 0,
+            parkingTotalStars: 0,
+            parkingPerfectRuns: 0
         };
     }
 
@@ -230,6 +233,10 @@
     var steerTouchId = null;
     var boostTouchId = null;
     var brakeTouchId = null;
+    var parkLeftTouchId = null;
+    var parkRightTouchId = null;
+    var parkFwdTouchId = null;
+    var parkRevTouchId = null;
     var isTouchDevice = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
 
     function queueAction() { actionQueued = true; }
@@ -263,13 +270,28 @@
     var MOBILE_BRAKE_RECT = { x: 12, y: 750, w: 56, h: 56 };
     var PAUSE_RECT        = { x: 10, y: 65,  w: 40, h: 40 };
     var MISSILE_RECT      = { x: W - 80, y: H - 90, w: 64, h: 64 };
+    // Parking-only D-pad buttons (separate so they don't conflict with main game)
+    var PARK_LEFT_RECT  = { x: 16,       y: H - 76, w: 58, h: 58 };
+    var PARK_RIGHT_RECT = { x: 82,       y: H - 76, w: 58, h: 58 };
+    var PARK_FWD_RECT   = { x: W - 140,  y: H - 76, w: 58, h: 58 };
+    var PARK_REV_RECT   = { x: W - 76,   y: H - 76, w: 58, h: 58 };
 
     function hitGameButton(pos) {
-        if (state !== "playing") return null;
-        if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
-        if (pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
-        if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
-        if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
+        if (state === "playing") {
+            if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
+            if (pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
+            if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
+            if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
+            return null;
+        }
+        if (state === "parking") {
+            if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
+            if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
+            return null;
+        }
         return null;
     }
 
@@ -316,6 +338,18 @@
             } else if (btn === "brake") {
                 keys.down = true;
                 brakeTouchId = t.identifier;
+            } else if (btn === "parkLeft") {
+                keys.left = true;
+                parkLeftTouchId = t.identifier;
+            } else if (btn === "parkRight") {
+                keys.right = true;
+                parkRightTouchId = t.identifier;
+            } else if (btn === "parkFwd") {
+                keys.up = true;
+                parkFwdTouchId = t.identifier;
+            } else if (btn === "parkRev") {
+                keys.down = true;
+                parkRevTouchId = t.identifier;
             } else {
                 // Not a button — register click (for menu/shop/game-over) and start steering
                 clickQueue = pos;
@@ -339,29 +373,26 @@
         }
     }, { passive: false });
 
+    function releaseTouchId(id) {
+        if (id === steerTouchId) { steerTouchId = null; touchX = null; }
+        if (id === boostTouchId) { keys.up = false; boostTouchId = null; }
+        if (id === brakeTouchId) { keys.down = false; brakeTouchId = null; }
+        if (id === parkLeftTouchId)  { keys.left = false;  parkLeftTouchId = null; }
+        if (id === parkRightTouchId) { keys.right = false; parkRightTouchId = null; }
+        if (id === parkFwdTouchId)   { keys.up = false;    parkFwdTouchId = null; }
+        if (id === parkRevTouchId)   { keys.down = false;  parkRevTouchId = null; }
+    }
+
     canvas.addEventListener("touchend", function (e) {
         e.preventDefault();
         for (var i = 0; i < e.changedTouches.length; i++) {
-            var t = e.changedTouches[i];
-            if (t.identifier === steerTouchId) {
-                steerTouchId = null;
-                touchX = null;
-            } else if (t.identifier === boostTouchId) {
-                keys.up = false;
-                boostTouchId = null;
-            } else if (t.identifier === brakeTouchId) {
-                keys.down = false;
-                brakeTouchId = null;
-            }
+            releaseTouchId(e.changedTouches[i].identifier);
         }
     }, { passive: false });
 
     canvas.addEventListener("touchcancel", function (e) {
         for (var i = 0; i < e.changedTouches.length; i++) {
-            var t = e.changedTouches[i];
-            if (t.identifier === steerTouchId) { steerTouchId = null; touchX = null; }
-            if (t.identifier === boostTouchId) { keys.up = false; boostTouchId = null; }
-            if (t.identifier === brakeTouchId) { keys.down = false; brakeTouchId = null; }
+            releaseTouchId(e.changedTouches[i].identifier);
         }
     }, { passive: false });
 
@@ -1708,33 +1739,66 @@
 
     // ── Drawing: Parking scene ───────────────────────────────
     function drawParkingScene(time) {
-        // Buildings/sky behind the curb
-        ctx.fillStyle = "#FFE082";
+        var theme = (parkingLevelConfig && parkingLevelConfig.theme) || "day";
+        // Sky colors depending on theme
+        var skyTop, skyBot, sunOrMoon, sunColor1, sunColor2;
+        if (theme === "day") {
+            skyTop = "#FFE082"; skyBot = "#FFCC80";
+            sunOrMoon = "sun"; sunColor1 = "#FFD54F"; sunColor2 = "#FFB300";
+        } else if (theme === "dusk") {
+            skyTop = "#FF7043"; skyBot = "#5E35B1";
+            sunOrMoon = "sunset"; sunColor1 = "#FF8A65"; sunColor2 = "#D84315";
+        } else { // night
+            skyTop = "#0D1B40"; skyBot = "#1A237E";
+            sunOrMoon = "moon"; sunColor1 = "#ECEFF1"; sunColor2 = "#CFD8DC";
+        }
+        var skyGrad = ctx.createLinearGradient(0, 0, 0, 80);
+        skyGrad.addColorStop(0, skyTop);
+        skyGrad.addColorStop(1, skyBot);
+        ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, W, 80);
-        // Sun
-        ctx.fillStyle = "#FFD54F";
-        ctx.beginPath(); ctx.arc(W - 60, 40, 24, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#FFB300";
-        ctx.beginPath(); ctx.arc(W - 60, 40, 20, 0, Math.PI * 2); ctx.fill();
 
-        // Buildings silhouette
-        ctx.fillStyle = "#5C6BC0";
-        ctx.fillRect(20, 30, 60, 50);
-        ctx.fillStyle = "#7986CB";
-        ctx.fillRect(85, 20, 80, 60);
-        ctx.fillStyle = "#3F51B5";
-        ctx.fillRect(170, 35, 70, 45);
-        ctx.fillStyle = "#9FA8DA";
-        ctx.fillRect(245, 25, 60, 55);
-        ctx.fillStyle = "#5C6BC0";
-        ctx.fillRect(310, 30, 90, 50);
-        ctx.fillStyle = "#7986CB";
-        ctx.fillRect(405, 40, 65, 40);
-        // Building windows
-        ctx.fillStyle = "#FFEB3B";
+        // Stars at night
+        if (theme === "night") {
+            ctx.fillStyle = "#FFF";
+            for (var ss = 0; ss < 30; ss++) {
+                var sx = (ss * 37 + 13) % W;
+                var sy = (ss * 19 + 7) % 60;
+                var twinkle = (Math.sin(time * 2 + ss) > 0.3) ? 1 : 0.4;
+                ctx.globalAlpha = twinkle;
+                ctx.fillRect(sx, sy, 1.5, 1.5);
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // Sun / Moon
+        ctx.fillStyle = sunColor2;
+        ctx.beginPath(); ctx.arc(W - 60, 40, 24, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = sunColor1;
+        ctx.beginPath(); ctx.arc(W - 60, 40, 20, 0, Math.PI * 2); ctx.fill();
+        if (sunOrMoon === "moon") {
+            // Crescent — overlay sky color to carve out a crescent
+            ctx.fillStyle = skyTop;
+            ctx.beginPath(); ctx.arc(W - 67, 35, 18, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Building silhouette (darker at night/dusk)
+        var bldgColors = theme === "night"
+            ? ["#1A237E", "#283593", "#0D1F47", "#1A237E", "#283593", "#1A237E"]
+            : theme === "dusk"
+            ? ["#311B92", "#4527A0", "#1A237E", "#311B92", "#4527A0", "#311B92"]
+            : ["#5C6BC0", "#7986CB", "#3F51B5", "#9FA8DA", "#5C6BC0", "#7986CB"];
+        var rects = [[20, 30, 60, 50], [85, 20, 80, 60], [170, 35, 70, 45],
+                     [245, 25, 60, 55], [310, 30, 90, 50], [405, 40, 65, 40]];
+        for (var rb = 0; rb < rects.length; rb++) {
+            ctx.fillStyle = bldgColors[rb];
+            ctx.fillRect(rects[rb][0], rects[rb][1], rects[rb][2], rects[rb][3]);
+        }
+        // Windows: gold during day/dusk, blue at night
+        ctx.fillStyle = theme === "night" ? "#FFD740" : "#FFEB3B";
         for (var bw = 30; bw < W - 30; bw += 12) {
             for (var bh = 35; bh < 75; bh += 10) {
-                if (Math.random() > 0.4 || (bw * 7 + bh * 13) % 11 < 4) {
+                if ((bw * 7 + bh * 13) % 11 < (theme === "night" ? 5 : 4)) {
                     ctx.fillRect(bw, bh, 5, 5);
                 }
             }
@@ -2447,6 +2511,39 @@
     var parkingFailHit = null;  // {who:"parked"|"curb", x,y, side, severity}
     var parkingScore = 0;       // bonus accumulating
     var kidsInCar = false;      // true after success
+    // Challenge mode
+    var parkingChallengeMode = false;
+    var parkingLevel = 1;
+    var parkingChallengeLives = 3;
+    var parkingChallengeStars = 0;
+    var parkingChallengeCoins = 0;
+    var parkingLevelStartTimer = 0; // shows "LEVEL N" intro
+    var parkingLevelConfig = null;
+    var parkingPedestrian = null; // walking obstacle on harder levels
+    var parkingTouchedCar = false; // used for star calculation
+    var parkingPerfect = true;
+    var parkingLevelIntroText = "";
+    var parkingEndStats = null;
+
+    function getParkingLevelConfig(level) {
+        // Spot width tightens (CAR_H is the long axis when rotated)
+        var spotW = Math.max(CAR_H + 22 - level * 2.2, CAR_H + 4);
+        var theme;
+        if (level <= 3) theme = "day";
+        else if (level <= 6) theme = "dusk";
+        else theme = "night";
+        return {
+            level: level,
+            spotWidth: spotW,
+            numCameras: Math.min(1 + Math.floor((level - 1) / 2), 3),
+            timeLimit: Math.max(60 - level * 2.5, 25),
+            theme: theme,
+            coneInSpot: level >= 4,
+            pedestrian: level >= 5,
+            traffic: level >= 7,
+            sasquatchWatcher: level === 10 // special boss flavor
+        };
+    }
 
     // Roleplay scenarios + extras
     var sasquatchTimer = rand(40, 70);
@@ -2688,53 +2785,82 @@
     }
 
     function setupParkingScene() {
+        // Determine config: challenge mode uses level config, casual uses defaults
+        parkingLevelConfig = parkingChallengeMode
+            ? getParkingLevelConfig(parkingLevel)
+            : { level: 0, spotWidth: CAR_H + 20, numCameras: randInt(1, 3), timeLimit: 60,
+                theme: "day", coneInSpot: false, pedestrian: false, traffic: false, sasquatchWatcher: false };
+        var cfg = parkingLevelConfig;
+
         // Lulu's car starts to the right of the empty spot, in the driving lane
         parkingCar = {
             x: W - 50, y: H * 0.55,
-            rot: -Math.PI, // facing left initially
+            rot: -Math.PI,
             speed: 0,
             steerAngle: 0,
             damage: [],
             w: CAR_W, h: CAR_H
         };
-        // Empty spot fixed in center for predictability
+        // Empty spot
         var spotCenterX = W / 2;
         parkingZone = {
-            x: spotCenterX - CAR_H / 2 - 10,
+            x: spotCenterX - cfg.spotWidth / 2,
             y: 168,
-            w: CAR_H + 20,
+            w: cfg.spotWidth,
             h: CAR_W + 16
         };
-        // Two parked cars, parallel to curb (facing right = rot 0)
         parkedCars = [
-            { x: parkingZone.x - CAR_H / 2 - 8, y: parkingZone.y + parkingZone.h / 2,
+            { x: parkingZone.x - CAR_H / 2 - 6, y: parkingZone.y + parkingZone.h / 2,
               rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H },
-            { x: parkingZone.x + parkingZone.w + CAR_H / 2 + 8, y: parkingZone.y + parkingZone.h / 2,
+            { x: parkingZone.x + parkingZone.w + CAR_H / 2 + 6, y: parkingZone.y + parkingZone.h / 2,
               rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H }
         ];
-        // Cameras (1-3) — mounted on tall poles on the sidewalk
-        var numCams = randInt(1, 3);
+        // Cameras on the sidewalk
         parkingCameras = [];
         var camPositions = [
             { x: 40, y: 88, poleH: 52 },
             { x: W / 2, y: 88, poleH: 52 },
             { x: W - 40, y: 88, poleH: 52 }
         ];
-        var indexes = [0, 1, 2].sort(function () { return Math.random() - 0.5; }).slice(0, numCams);
+        var indexes = [0, 1, 2].sort(function () { return Math.random() - 0.5; }).slice(0, cfg.numCameras);
         for (var ci = 0; ci < indexes.length; ci++) {
             var p = camPositions[indexes[ci]];
             parkingCameras.push({ x: p.x, y: p.y, poleH: p.poleH, currentRot: Math.PI / 2 });
         }
-        // State
+        // Optional cone obstacle in the spot
+        parkingExtras = [];
+        if (cfg.coneInSpot) {
+            parkingExtras.push({
+                type: "cone",
+                x: parkingZone.x + parkingZone.w / 2 + rand(-15, 15),
+                y: parkingZone.y + parkingZone.h / 2 + rand(-10, 10),
+                hitR: 10
+            });
+        }
+        // Pedestrian walking by
+        parkingPedestrian = null;
+        if (cfg.pedestrian) {
+            parkingPedestrian = {
+                x: -20, y: 115, // on the sidewalk
+                vx: rand(35, 60),
+                walkTime: 0,
+                pedType: randInt(0, 2)
+            };
+        }
+        // Reset state
         parkingResult = null;
         parkingResultTimer = 0;
         parkingResultPhase = 0;
         parkingInZoneTimer = 0;
-        parkingTimeLeft = 60; // 60 sec
+        parkingTimeLeft = cfg.timeLimit;
         parkingScore = 0;
         parkingFlashTimer = 0;
         parkingFailHit = null;
+        parkingTouchedCar = false;
+        parkingPerfect = true;
     }
+
+    var parkingExtras = []; // cones, obstacles inside the parking area
 
     function updateParkingIntro(dt) {
         parkingTransitionTimer -= dt;
@@ -2763,15 +2889,10 @@
             prevState = "parking"; state = "paused"; playClick(); return;
         }
 
-        // Steering input
+        // Steering input — keyboard arrows or on-screen ◀ ▶ buttons
         var steerInput = 0;
         if (keys.left) steerInput = -1;
         if (keys.right) steerInput = 1;
-        if (touchX !== null && steerTouchId !== null) {
-            // For parking we use a different touch-steering: gently rotate based on touch position relative to car
-            var diff = touchX - parkingCar.x;
-            steerInput = clamp(diff / 80, -1, 1);
-        }
         var accelInput = 0;
         if (keys.up) accelInput = 1;
         if (keys.down) accelInput = -1;
@@ -2819,24 +2940,19 @@
             var combined = pcRadius + luluRadius;
             if (dist2 < combined * combined) {
                 // Collision!
-                // Determine impact side relative to Lulu's local axes
-                var localAngle = Math.atan2(dy, dx) - parkingCar.rot;
-                // Front of car is +X direction in local space (since car drawn facing up, +X local)
-                // Actually our car's facing direction is along (cos(rot), sin(rot)) world.
-                // For damage on Lulu: location is opposite of impact direction
                 var impactSeverity = Math.abs(parkingCar.speed) / maxSpeed;
                 applyCollisionDamage(parkingCar, dx, dy, impactSeverity);
                 applyCollisionDamage(pc, -dx, -dy, impactSeverity);
-                // bounce back
                 var pushBack = 4;
                 newX = parkingCar.x - Math.cos(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
                 newY = parkingCar.y - Math.sin(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
-                parkingCar.speed *= -0.3; // bounce
+                parkingCar.speed *= -0.3;
                 parkingFlashTimer = 0.2;
                 shakeTimer = 0.25; shakeIntensity = 5;
                 playTone(180, 0.18, "sawtooth", 0.18);
                 hadCollision = true;
-                // If hit hard enough, fail
+                parkingTouchedCar = true;
+                parkingPerfect = false;
                 if (impactSeverity > 0.4) {
                     parkingFailHit = { who: "parked", x: pc.x, y: pc.y, severity: impactSeverity };
                     triggerParkingFail();
@@ -2850,6 +2966,55 @@
             applyCollisionDamage(parkingCar, 0, -1, Math.abs(parkingCar.speed) / maxSpeed);
             parkingCar.speed *= -0.3;
             shakeTimer = 0.15; shakeIntensity = 3;
+            parkingPerfect = false;
+        }
+
+        // Cone collision (knock it over, no damage but +chaos)
+        for (var ex = parkingExtras.length - 1; ex >= 0; ex--) {
+            var ext = parkingExtras[ex];
+            if (ext.type === "cone") {
+                var ddx = newX - ext.x, ddy = newY - ext.y;
+                if (ddx * ddx + ddy * ddy < (ext.hitR + 22) * (ext.hitR + 22)) {
+                    // Boop! Cone is knocked away
+                    ext.knocked = true;
+                    ext.vx = ddx * 5;
+                    ext.vy = ddy * 5;
+                    ext.rot = 0;
+                    ext.rotVel = rand(-10, 10);
+                    parkingExtras.splice(ex, 1);
+                    parkingPerfect = false;
+                    playTone(220, 0.1, "square", 0.15);
+                    // Add a fun "BONK!" particle
+                    for (var pp = 0; pp < 8; pp++) {
+                        particles.push({
+                            x: ext.x, y: ext.y,
+                            vx: rand(-80, 80), vy: rand(-80, 20),
+                            life: 0.5, maxLife: 0.5,
+                            size: rand(2, 4), color: "#FF5722", gravity: 200
+                        });
+                    }
+                }
+            }
+        }
+
+        // Pedestrian update
+        if (parkingPedestrian) {
+            parkingPedestrian.x += parkingPedestrian.vx * dt;
+            parkingPedestrian.walkTime += dt;
+            if (parkingPedestrian.x > W + 30) {
+                parkingPedestrian = null;
+            } else if (parkingPedestrian) {
+                // Collision (pedestrian = passenger pickup OR fail!)
+                var pdx = newX - parkingPedestrian.x;
+                var pdy = newY - parkingPedestrian.y;
+                if (pdx * pdx + pdy * pdy < 25 * 25) {
+                    // ouch — instant fail for pedestrian hit
+                    parkingFailHit = { who: "pedestrian", x: parkingPedestrian.x, y: parkingPedestrian.y };
+                    parkingPedestrian = null;
+                    triggerParkingFail();
+                    return;
+                }
+            }
         }
 
         parkingCar.x = newX;
@@ -2915,22 +3080,39 @@
         if (car.damage.length > 8) car.damage.shift();
     }
 
+    function calcStars() {
+        if (parkingPerfect && !parkingTouchedCar) return 3;
+        if (!parkingTouchedCar) return 2;
+        return 1;
+    }
+
     function triggerParkingSuccess() {
         parkingResult = "success";
         parkingResultPhase = 0;
         parkingResultTimer = 3.0;
         kidsInCar = true;
         state = "parkingResult";
-        // play happy fanfare
         playTone(523, 0.1, "triangle", 0.2);
         setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
         setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
         setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
-        // Bonus coins
-        var bonus = 50;
-        runCoins += bonus;
-        save.totalCoins += bonus;
-        score += 500;
+
+        var stars = calcStars();
+        var levelBonus = parkingChallengeMode ? parkingLevel * 25 : 50;
+        var starBonus = stars * 15;
+        var bonus = levelBonus + starBonus;
+        if (parkingChallengeMode) {
+            parkingChallengeCoins += bonus;
+            parkingChallengeStars += stars;
+            save.totalCoins += bonus;
+            save.parkingTotalStars += stars;
+            if (stars === 3) save.parkingPerfectRuns++;
+            if (parkingLevel > save.parkingBestLevel) save.parkingBestLevel = parkingLevel;
+        } else {
+            runCoins += bonus;
+            save.totalCoins += bonus;
+            score += 500;
+        }
         persistSave();
     }
 
@@ -2941,14 +3123,23 @@
         state = "parkingResult";
         playExplosion();
         setTimeout(playWompWomp, 300);
-        // Lose a life
-        lives = Math.max(0, lives - 1);
+        if (parkingChallengeMode) {
+            parkingChallengeLives--;
+        } else {
+            lives = Math.max(0, lives - 1);
+        }
     }
 
     function updateParkingResult(dt) {
         parkingResultTimer -= dt;
+
+        // Allow skipping the result screen by clicking
+        var click = consumeClick();
+        if (click && parkingResultTimer > 0.3 && parkingResultPhase === 0) {
+            parkingResultTimer = 0.1;
+        }
+
         if (parkingResult === "success") {
-            // Just hold the celebration, then zoom back out
             if (parkingResultTimer <= 0 && parkingResultPhase === 0) {
                 parkingResultPhase = 1;
                 parkingTransitionTimer = parkingTransitionDuration;
@@ -2958,16 +3149,24 @@
                 var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
                 parkingZoom = 1 + Math.sin(t * Math.PI) * 0.4;
                 if (parkingTransitionTimer <= 0) {
-                    state = "playing";
                     parkingZoom = 1;
-                    parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
-                    parkingMsgTimer = 3;
-                    // keep kidsInCar = true for a while (or permanent?)
+                    if (parkingChallengeMode) {
+                        // Advance to next level
+                        parkingLevel++;
+                        if (parkingLevel > 10) {
+                            // Beat all 10 levels — victory!
+                            finishParkingRun(true);
+                        } else {
+                            startParkingLevel(parkingLevel);
+                        }
+                    } else {
+                        state = "playing";
+                        parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
+                        parkingMsgTimer = 3;
+                    }
                 }
             }
         } else {
-            // Fail: phase 0 = damage display + angry man + crying Lulu
-            // After timer, zoom out
             if (parkingResultTimer <= 0 && parkingResultPhase === 0) {
                 parkingResultPhase = 1;
                 parkingTransitionTimer = parkingTransitionDuration;
@@ -2977,26 +3176,70 @@
                 var t2 = 1 - parkingTransitionTimer / parkingTransitionDuration;
                 parkingZoom = 1 + Math.sin(t2 * Math.PI) * 0.4;
                 if (parkingTransitionTimer <= 0) {
-                    state = "playing";
                     parkingZoom = 1;
-                    parkingMsg = "Better luck next time!";
-                    parkingMsgTimer = 2;
-                    if (lives <= 0) {
-                        // trigger normal game over
-                        crashX = player.x;
-                        crashY = player.y;
-                        crashRot = 0;
-                        crashRotVel = rand(-8, 8);
-                        spawnCrashBurst(player.x, player.y, true);
-                        state = "crash";
-                        crashPhase = 0;
-                        crashPhaseTimer = 1.4;
-                        if (score > save.highScore) save.highScore = Math.floor(score);
-                        persistSave();
+                    if (parkingChallengeMode) {
+                        if (parkingChallengeLives <= 0) {
+                            finishParkingRun(false);
+                        } else {
+                            // Retry same level
+                            startParkingLevel(parkingLevel);
+                        }
+                    } else {
+                        state = "playing";
+                        parkingMsg = "Better luck next time!";
+                        parkingMsgTimer = 2;
+                        if (lives <= 0) {
+                            crashX = player.x;
+                            crashY = player.y;
+                            crashRot = 0;
+                            crashRotVel = rand(-8, 8);
+                            spawnCrashBurst(player.x, player.y, true);
+                            state = "crash";
+                            crashPhase = 0;
+                            crashPhaseTimer = 1.4;
+                            if (score > save.highScore) save.highScore = Math.floor(score);
+                            persistSave();
+                        }
                     }
                 }
             }
         }
+    }
+
+    function startParkingChallenge() {
+        parkingChallengeMode = true;
+        parkingLevel = 1;
+        parkingChallengeLives = 3;
+        parkingChallengeStars = 0;
+        parkingChallengeCoins = 0;
+        kidsInCar = false;
+        startParkingLevel(1);
+    }
+
+    function startParkingLevel(lvl) {
+        parkingLevel = lvl;
+        var levelMsgs = [
+            "DOWNTOWN BLOCK", "BUSY STREET", "TIGHT SQUEEZE", "CONE ZONE",
+            "RUSH HOUR", "DUSK DRIVE", "TIGHT & DARK", "DIAGONAL DANGER",
+            "MIDNIGHT PARK", "BOSS LEVEL"
+        ];
+        parkingLevelIntroText = "Level " + lvl + " · " + levelMsgs[Math.min(lvl - 1, 9)];
+        setupParkingScene();
+        state = "parkingIntro";
+        parkingTransitionTimer = parkingTransitionDuration;
+        parkingZoom = 1;
+        playTone(880, 0.08, "sine", 0.18);
+        setTimeout(function () { playTone(1175, 0.12, "sine", 0.18); }, 80);
+    }
+
+    function finishParkingRun(victory) {
+        parkingEndStats = {
+            level: parkingLevel,
+            stars: parkingChallengeStars,
+            coins: parkingChallengeCoins,
+            victory: victory
+        };
+        state = "parkingEnd";
     }
 
     // ── Update: Playing ──────────────────────────────────────
@@ -3316,7 +3559,7 @@
             }
             // Quit button
             if (pointInRect(click.x, click.y, W / 2 - 100, H / 2 + 60, 200, 60)) {
-                state = "menu"; playClick(); consumeAction(); return;
+                state = "menu"; parkingChallengeMode = false; playClick(); consumeAction(); return;
             }
             // Click outside buttons: do nothing (don't fall through to resume)
             consumeAction();
@@ -3462,24 +3705,30 @@
         var click = consumeClick();
         if (click) {
             // PLAY button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.55, 220, 64)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
                 resetGame(); state = "playing"; playClick(); return;
             }
+            // PARKING CHALLENGE button
+            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 68, 220, 54)) {
+                resetGame();
+                startParkingChallenge();
+                playClick(); return;
+            }
             // SHOP button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.55 + 80, 220, 56)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
                 state = "shop"; shopTab = "skins"; playClick(); return;
             }
             // Distracted mode toggle (if unlocked)
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.55 + 150, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 192, 220, 44)) {
                 distractedMode = !distractedMode; playClick(); return;
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 56, 16, 40, 40)) {
                 audioMuted = !audioMuted; playClick(); return;
             }
-            // Default: any click starts game
-            if (click.y > H * 0.3 && click.y < H * 0.5) {
+            // Default: any click in upper area starts game
+            if (click.y > H * 0.3 && click.y < H * 0.45) {
                 resetGame(); state = "playing"; playClick(); return;
             }
         }
@@ -3676,26 +3925,28 @@
 
     // ── Draw: Parking Intro/Outro (zoom transition) ──────────
     function drawParkingIntro() {
-        // Render the main scene zoomed in to Lulu's car position with a flash
         var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
-        // First half: zoom into main game player; second half: zoom out into parking scene
         if (t < 0.5) {
             ctx.save();
-            // Zoom in around player position
-            var zoom = 1 + t * 2; // 1 to 2
-            var cx = player.x, cy = player.y;
+            var zoom = 1 + t * 2;
+            // Center of zoom: in challenge mode, just zoom on middle of screen (no main game)
+            var cx = parkingChallengeMode ? W / 2 : (player ? player.x : W / 2);
+            var cy = parkingChallengeMode ? H / 2 : (player ? player.y : H / 2);
             ctx.translate(W / 2, H / 2);
             ctx.scale(zoom, zoom);
             ctx.translate(-cx, -cy);
-            drawPlaying();
+            if (parkingChallengeMode) {
+                // Show the parking scene already (since there's no main game to zoom from)
+                drawParkingFull(gameTime);
+            } else {
+                drawPlaying();
+            }
             ctx.restore();
-            // White flash overlay growing
             ctx.fillStyle = "rgba(255,255,255," + (t * 2 * 0.9) + ")";
             ctx.fillRect(0, 0, W, H);
         } else {
-            // Second half: white fading out as we reveal parking scene zoomed out
-            var t2 = (t - 0.5) * 2; // 0 to 1
-            var zoom2 = 2 - t2; // 2 to 1
+            var t2 = (t - 0.5) * 2;
+            var zoom2 = 2 - t2;
             var cx2 = parkingCar ? parkingCar.x : W / 2;
             var cy2 = parkingCar ? parkingCar.y : H / 2;
             ctx.save();
@@ -3707,14 +3958,26 @@
             ctx.fillStyle = "rgba(255,255,255," + ((1 - t2) * 0.9) + ")";
             ctx.fillRect(0, 0, W, H);
         }
+        drawParkingLevelIntro();
     }
 
     // ── Draw: Parking gameplay ───────────────────────────────
     function drawParkingFull(time) {
         drawParkingScene(time);
+
         // Parked cars
         for (var p = 0; p < parkedCars.length; p++) {
             drawParkedCar(parkedCars[p]);
+        }
+        // Cone obstacles in the parking spot
+        for (var e = 0; e < parkingExtras.length; e++) {
+            var ext = parkingExtras[e];
+            if (ext.type === "cone") drawCone(ext.x, ext.y);
+        }
+        // Pedestrian on sidewalk
+        if (parkingPedestrian) {
+            drawPedestrian(parkingPedestrian.x, parkingPedestrian.y,
+                parkingPedestrian.walkTime, parkingPedestrian.pedType);
         }
         // Lulu's car
         if (parkingCar) drawLuluCarFull(parkingCar, time, false);
@@ -3722,6 +3985,31 @@
         for (var c = 0; c < parkingCameras.length; c++) {
             drawSecurityCamera(parkingCameras[c], time);
         }
+
+        // Night-mode dim overlay (subtle) + headlight cone in front of Lulu
+        var theme = (parkingLevelConfig && parkingLevelConfig.theme) || "day";
+        if (theme === "night") {
+            ctx.fillStyle = "rgba(0, 8, 40, 0.35)";
+            ctx.fillRect(0, 140, W, H - 140);
+            if (parkingCar) {
+                // Headlight beams in front of car
+                ctx.save();
+                ctx.translate(parkingCar.x, parkingCar.y);
+                ctx.rotate(parkingCar.rot);
+                ctx.fillStyle = "rgba(255,247,180,0.18)";
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(80, -30);
+                ctx.lineTo(80, 30);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        } else if (theme === "dusk") {
+            ctx.fillStyle = "rgba(255, 87, 34, 0.10)";
+            ctx.fillRect(0, 0, W, H);
+        }
+
         drawParticles();
     }
 
@@ -3739,12 +4027,22 @@
             ctx.fillRect(0, 0, W, H);
         }
 
-        // HUD: timer + "park here" prompt
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        // HUD top bar
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
         roundRect(0, 0, W, 50, 0); ctx.fill();
-        drawText("PARALLEL PARKING", W / 2, 18, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-        drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 30, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
-        drawText("Hearts ♥ " + lives, 30, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+        if (parkingChallengeMode) {
+            drawText("LVL " + parkingLevel + " · " + (parkingLevelIntroText.split("· ")[1] || ""),
+                W / 2, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 14, 18, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+            // lives = small heart icons + count
+            drawText("♥ " + parkingChallengeLives, 14, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+            drawText("★ " + parkingChallengeStars, 14, 36, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "left");
+            drawText("$" + parkingChallengeCoins, W - 14, 36, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "right");
+        } else {
+            drawText("PARALLEL PARKING", W / 2, 18, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 30, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+            drawText("♥ " + lives, 30, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+        }
 
         if (parkingCar && carIsInZone(parkingCar)) {
             var pulse = 1 + Math.sin(gameTime * 8) * 0.1;
@@ -3763,13 +4061,21 @@
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚",
             { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
-        // Mobile boost/brake buttons during parking (relabeled)
-        if (isTouchDevice) {
-            drawIconButton(MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w,
-                "▲", { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
-            drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w,
-                "▼", { bg: keys.down ? "#64B5F6" : "#90CAF9", bgDark: "#1565C0" });
-        }
+        // Parking-mode D-pad buttons (always shown for mobile/desktop — they double as a UI hint)
+        // Left thumb: steering
+        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w,
+            "◀", { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w,
+            "▶", { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        // Right thumb: forward / reverse
+        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w,
+            "▲", { bg: keys.up ? "#FFEB3B" : "#A5D6A7", bgDark: "#2E7D32" });
+        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w,
+            "▼", { bg: keys.down ? "#FFEB3B" : "#EF9A9A", bgDark: "#B71C1C" });
+
+        // Labels under buttons
+        drawText("STEER", PARK_LEFT_RECT.x + 58, PARK_LEFT_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
+        drawText("DRIVE", PARK_FWD_RECT.x + 58, PARK_FWD_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
     }
 
     // ── Draw: Parking Result ────────────────────────────────
@@ -3850,6 +4156,113 @@
                     gravity: 80
                 });
             }
+        }
+
+        // Star rating overlay
+        if (parkingResult === "success" && parkingResultTimer < 2.5) {
+            var stars = calcStars();
+            var fadeIn = clamp((2.5 - parkingResultTimer) * 2, 0, 1);
+            ctx.globalAlpha = fadeIn;
+            for (var si = 0; si < 3; si++) {
+                var sx = W / 2 + (si - 1) * 48;
+                var sy = H * 0.42;
+                var lit = si < stars;
+                drawText(lit ? "★" : "☆", sx, sy,
+                    "bold 50px Arial", lit ? "#FFD700" : "#9E9E9E", "#000", 5);
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // ── Draw: Parking Level Intro (overlay during zoom-in) ────
+    function drawParkingLevelIntro() {
+        if (!parkingChallengeMode || !parkingLevelIntroText) return;
+        var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
+        if (t > 0.5) {
+            var alpha = clamp((t - 0.5) * 2, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0," + (alpha * 0.5) + ")";
+            ctx.fillRect(0, H / 2 - 60, W, 120);
+            ctx.globalAlpha = alpha;
+            drawText(parkingLevelIntroText, W / 2, H / 2 - 10,
+                "bold 28px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
+            var cfg = parkingLevelConfig;
+            if (cfg) {
+                var details = cfg.numCameras + " 📹 · " + Math.floor(cfg.timeLimit) + "s · " +
+                              cfg.theme.toUpperCase();
+                if (cfg.coneInSpot) details += " · 🚧";
+                if (cfg.pedestrian) details += " · 🚶";
+                drawText(details, W / 2, H / 2 + 24,
+                    "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            }
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // ── Draw: Parking End-of-Run Screen ───────────────────────
+    function drawParkingEnd() {
+        // Background: dark gradient
+        ctx.fillStyle = "#0D47A1";
+        ctx.fillRect(0, 0, W, H);
+        // Confetti
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+        for (var c = 0; c < 30; c++) {
+            var cx = (c * 47 + 13) % W;
+            var cy = (c * 31 + 7 + gameTime * 20) % H;
+            ctx.fillRect(cx, cy, 3, 3);
+        }
+
+        var stats = parkingEndStats || { level: 1, stars: 0, coins: 0, victory: false };
+
+        if (stats.victory) {
+            drawText("🏆 MASTER PARKER!", W / 2, H * 0.12, "bold 32px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
+            drawText("You beat ALL 10 levels!", W / 2, H * 0.18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        } else {
+            drawText("PARKING OVER", W / 2, H * 0.12, "bold 32px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 6);
+            drawText("You reached Level " + stats.level, W / 2, H * 0.18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        }
+
+        // Big stats box
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        roundRect(40, H * 0.27, W - 80, 200, 14); ctx.fill();
+        ctx.strokeStyle = "#42A5F5";
+        ctx.lineWidth = 3;
+        roundRect(40, H * 0.27, W - 80, 200, 14); ctx.stroke();
+
+        drawText("THIS RUN", W / 2, H * 0.30, "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 2);
+        drawText("Level reached: " + stats.level, W / 2, H * 0.34, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        drawText("Stars earned: ★ " + stats.stars, W / 2, H * 0.39, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+        drawText("Coins earned: $ " + stats.coins, W / 2, H * 0.44, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#000", 3);
+
+        drawText("ALL-TIME", W / 2, H * 0.50, "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 2);
+        drawText("Best level: " + save.parkingBestLevel, W / 2, H * 0.54, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        drawText("Total stars: ★ " + save.parkingTotalStars, W / 2, H * 0.58, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+        drawText("Perfect parks: " + save.parkingPerfectRuns, W / 2, H * 0.62, "bold 16px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
+
+        // Buttons
+        drawButton(W / 2 - 110, H * 0.74, 220, 56, "🅿 PLAY AGAIN", { bg: "#42A5F5", bgDark: "#0D47A1" });
+        drawButton(W / 2 - 110, H * 0.83, 220, 50, "MAIN MENU", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+    }
+
+    function updateParkingEnd(dt) {
+        var click = consumeClick();
+        if (!click) {
+            if (consumeAction()) {
+                startParkingChallenge();
+            }
+            return;
+        }
+        // Play Again
+        if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.74, 220, 56)) {
+            startParkingChallenge();
+            playClick();
+            return;
+        }
+        // Main Menu
+        if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.83, 220, 50)) {
+            parkingChallengeMode = false;
+            state = "menu";
+            playClick();
+            return;
         }
     }
 
@@ -3974,22 +4387,30 @@
         drawIconButton(W - 56, 16, 40, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
         // PLAY button
-        drawButton(W / 2 - 110, H * 0.55, 220, 64, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // PARKING CHALLENGE button
+        drawButton(W / 2 - 110, H * 0.50 + 68, 220, 54, "🅿 PARKING", { bg: "#42A5F5", bgDark: "#0D47A1" });
         // SHOP button
-        drawButton(W / 2 - 110, H * 0.55 + 80, 220, 56, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
+        drawButton(W / 2 - 110, H * 0.50 + 130, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 
         // Distracted mode toggle
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.55 + 150, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, H * 0.50 + 192, 220, 44, label, { bg: c1, bgDark: c2, small: true });
         }
 
-        // High score
-        if (save.highScore > 0) {
-            drawText("Best: " + formatNum(save.highScore), W / 2, H * 0.84,
-                "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
+        // High scores
+        if (save.highScore > 0 || save.parkingBestLevel > 0) {
+            var bestY = H * 0.82;
+            drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
+                "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
+            if (save.parkingBestLevel > 0) {
+                drawText("🅿 Best Level: " + save.parkingBestLevel + " · ★ " + save.parkingTotalStars,
+                    W / 2, bestY + 22,
+                    "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#333", 3);
+            }
         }
 
         // Controls hint
@@ -4134,6 +4555,7 @@
         else if (state === "parkingIntro") updateParkingIntro(dt);
         else if (state === "parking") updateParking(dt);
         else if (state === "parkingResult") updateParkingResult(dt);
+        else if (state === "parkingEnd") updateParkingEnd(dt);
 
         ctx.clearRect(0, 0, W, H);
 
@@ -4146,12 +4568,15 @@
         else if (state === "parkingIntro") drawParkingIntro();
         else if (state === "parking") drawParking();
         else if (state === "parkingResult") drawParkingResult();
+        else if (state === "parkingEnd") drawParkingEnd();
 
         requestAnimationFrame(gameLoop);
     }
 
     // ── Init ─────────────────────────────────────────────────
     initDecorations();
-    requestAnimationFrame(function (ts) { lastTime = ts; gameLoop(ts); });
+    // Draw the first frame synchronously so the menu shows up even in hidden tabs
+    lastTime = performance.now() - 16;
+    gameLoop(performance.now());
 
 })();

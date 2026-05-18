@@ -6,7 +6,6 @@ You've already deployed once, so DNS + GitHub Pages are configured. To push new 
 
 ### 1. Open your GitHub repo
 - Go to **https://github.com/yehudab10/lulu-game** (or wherever your repo lives)
-- You should see your existing files: `game.js`, `index.html`, `style.css`, `CNAME`, etc.
 
 ### 2. Upload all the files at once
 - Click **Add file** → **Upload files** (top right above the file list)
@@ -20,76 +19,115 @@ You've already deployed once, so DNS + GitHub Pages are configured. To push new 
   - `CNAME` (already there — uploading again is fine)
   - `.nojekyll` (already there — same)
   - `README.md`, `DEPLOY.md`, `UPDATE.md` (optional)
-- GitHub will show ✏️ "X files modified" or "X files added" — that's good
-- Scroll down to the **Commit changes** section
-- Commit message: something like *"Add parking minigame + cameras + sasquatch"*
+- GitHub will show "X files modified" — that's good
+- Scroll down to **Commit changes**
+- Commit message: something like *"Add Parking Challenge mode + fix mobile"*
 - Click the green **Commit changes** button
 
-> **Tip:** If you don't see hidden files like `.nojekyll`, open File Explorer and turn on **View → Show → Hidden items**.
+> **Tip:** Hidden files like `.nojekyll` need File Explorer → **View → Show → Hidden items** to be visible.
 
 ### 3. Wait ~1 minute for GitHub Pages to deploy
-- On the repo's main page, look for a small green ✓ check mark next to your latest commit hash. That means it's deployed.
-- Or visit the repo's **Actions** tab — you'll see a "pages build and deployment" run with a green ✓ when done.
+- Look for the green ✓ check mark next to your commit on the repo page.
 
 ### 4. Open lulu.boats on your phone
-- Hard refresh: pull down to reload on mobile, or in Chrome menu → Reload.
-- You should see the new version with parking signs, sasquatch sightings, billboards, etc.
-
-> **Pro tip:** If you've installed lulu.boats as an app (home-screen icon), it might cache the old version. Tap and hold → uninstall, then re-add.
+- **Pull down to refresh** to bust the old cache, or:
+- If you installed it as an app on your home screen, **uninstall and reinstall** (the app cache is sticky).
 
 ---
 
-## What's new in this update
+## What's new in this version (v3 — Parking Challenge)
 
-### 🅿️ Parallel Parking Mini-Game
-- Every 45–80 seconds, a **blue P sign** spawns on the road
-- Drive through it → smooth zoom transition → parking scene
-- **1–3 security cameras** track your car live with red laser sight lines
-- Use **↑↓ to drive forward/reverse**, **←→ to steer** (real bicycle-model physics)
-- Park between the two cars and **hold still** for ~1 sec to succeed
-- **Success** → 2 kids appear in the back seat, +50 coins, +500 score, ice cream message!
-- **Fail** (hit a car or run out of 60s) → damage decals appear on BOTH cars where you hit, angry man runs up yelling "WHO TAUGHT YOU TO DRIVE!?", Lulu cries with big tear drops, -1 life
+### 🅿️ PARKING CHALLENGE — a whole new game mode
+A new blue **"🅿 PARKING"** button on the main menu, right between PLAY and SHOP. Click it to enter a dedicated parking-only mode.
 
-### 🍦 Ice Cream Stand
-- Roadside sign with a giant ice cream cone (pink scoop, cherry on top)
-- Drive over it → +5 coins + kids appear in your back seat
+- **10 progressive levels** — each with a fun name:
+  1. **Downtown Block** (intro)
+  2. **Busy Street**
+  3. **Tight Squeeze** (narrower spot)
+  4. **Cone Zone** (cone obstacle in the middle of the spot — knock it for fun, but lose your ★)
+  5. **Rush Hour**
+  6. **Dusk Drive** (orange sky theme)
+  7. **Tight & Dark**
+  8. **Diagonal Danger**
+  9. **Midnight Park** (night theme — your car's headlights light the scene)
+  10. **BOSS LEVEL**
+- **3 lives** per run. Each level you fail you lose a life. Each level you pass you advance.
+- **Star rating per level:**
+  - ⭐⭐⭐ — Perfect park: no scratches, no cones knocked
+  - ⭐⭐ — Clean park: no car-to-car damage
+  - ⭐ — Made it (with damage)
+- **Day → dusk → night** sky themes as you progress. Buildings change color, stars come out at night, your car's headlights illuminate the parking spot.
+- **1–3 security cameras** track you live with red laser sight lines (more cameras on harder levels).
+- **Cone obstacles** placed inside the parking spot from level 4 onward.
+- **Pedestrians** walk across the sidewalk from level 5 onward — hit one = instant fail (don't worry, they always cross above the curb so you only hit them if you drive on the sidewalk).
+- **Tighter parking spots** and **shorter timer** each level.
+- **End-of-run screen** with stats: level reached, stars earned, coins earned, all-time best level, total stars, perfect parks count.
+- **All progress saves** to localStorage — your best level + total stars appear on the main menu.
 
-### 🦍 Sasquatch Easter Egg
-- Rare appearance (~30% chance every 50–120 sec) — a furry brown bigfoot waves at you from the roadside
-- Spot one → +10 coins (auto-rewarded)
+### 📱 Mobile controls FIXED for parking
+The parking minigame now has a proper **D-pad** at the bottom of the screen:
+- **◀ ▶** (bottom-left, white): steer left / right
+- **▲** (bottom-right, green): drive forward
+- **▼** (bottom-right, red): reverse
 
-### 📋 Funny Billboards
-- Roadside billboards rotate through 12 silly messages: *"SLOW DOWN, LULU!"*, *"OSTRICH CROSSING 500ft"*, *"BEWARE OF SASQUATCH"*, etc.
+Labels "STEER" and "DRIVE" appear under the buttons. They work on both touch and desktop (clicking with mouse also fires them). Keyboard arrow keys still work too.
 
-### 🦆 Duck Parade
-- Sometimes the duck obstacle is replaced by a **mama duck leading 6 ducklings** across the road
-- The last duckling trips and waddles to catch up
+### 🎁 Bonus rewards
+Successful parks in challenge mode earn:
+- Coins (more per level — 25 × level, plus 15 per star)
+- Stars (saved to your all-time total)
 
-### 📣 Honk Button (H key)
-- Press **H** to beep your horn
-- Pedestrians get startled, animals scatter
+### Other fixes
+- The parking scene now reliably initializes even when accessed directly from the menu (no road game required)
+- The result screen now shows your **star rating** for the level
+- The game now draws the first frame synchronously so it shows up faster on slow connections
 
-### Other quality-of-life improvements
-- New `manifest.webmanifest` makes the site installable as a mobile app
-- Cute pink-car app icons (SVG, crisp at any size)
-- Better damage decal system (dents + scratches + glass shards)
+---
+
+## Controls reference
+
+### Main game
+- **← → / A D**: steer
+- **↑ / W**: speed boost
+- **↓ / S**: slow down
+- **M**: fire missile
+- **H**: honk
+- **P / Esc**: pause
+- **Space / Enter / Click**: confirm / restart
+
+### Parking mini-game
+- **← → / A D / on-screen ◀ ▶**: steer the wheels
+- **↑ / W / on-screen ▲**: drive forward
+- **↓ / S / on-screen ▼**: reverse
+- **P / Esc**: pause
+
+**To park successfully:** get the car into the dashed yellow rectangle, with the car roughly horizontal (parallel to the curb), and hold still for ~1 second.
 
 ---
 
 ## Troubleshooting
 
-**I don't see the new features after updating**
-→ Hard refresh: Ctrl+Shift+R on desktop, or pull-to-refresh on mobile. Mobile installed apps might need uninstall + reinstall.
+**The PARKING button doesn't do anything**
+→ Hard refresh (Ctrl+Shift+R on desktop, pull-down on mobile). If installed as a home-screen app, reinstall.
 
-**The Pages deploy is stuck or failed**
-→ Repo → Actions tab → click the failed run → see the error. Usually it's a file conflict — re-upload everything and try again.
+**Mobile D-pad buttons don't show up**
+→ The page detects touch devices automatically. If you don't see them, you're probably on desktop — use arrow keys instead.
 
-**Something looks broken**
-→ Open browser dev tools (F12 → Console tab) and look for red errors. Send them to me and I'll fix.
+**Lulu keeps crashing into the parked cars**
+→ Drive SLOWLY. Hold ▲ for short bursts. Use ▼ to back up. The bicycle-model steering means the car turns more when moving — pivot-steering won't work.
+
+**Cone in the spot is annoying**
+→ You can knock it over with the side of the car and still park successfully, but you'll lose your 3-star rating (becomes 2 stars). To get ⭐⭐⭐ on cone levels, steer around it carefully.
+
+**Pedestrian got hit and I lost instantly**
+→ Pedestrians always walk along the sidewalk at the top of the scene. Don't drive into the sidewalk strip — stay below the yellow curb line.
+
+**Game crashed / blank screen**
+→ Open dev tools (F12 → Console) and send me any red errors.
 
 ---
 
-## To make further updates in the future
-Same process: edit files locally → upload to GitHub via web UI → wait 1 minute → refresh lulu.boats.
+## To make further updates later
+Same process: edit files → GitHub → Upload → Commit → wait 1 min.
 
-You never have to touch DNS, Namecheap, or terminal again. 🎉
+You never have to touch DNS, Namecheap, or terminal. 🎉
