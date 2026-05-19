@@ -767,91 +767,85 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // ── Lulu's face (feminine) ──
-        // Big curly hair backdrop
-        ctx.fillStyle = C.hair;
+        // ── Lulu's face (refined adult look) ──
+        // Long hair flowing back, behind head
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.arc(0, -hh + 24, 11, 0, Math.PI * 2);
-        ctx.fill();
-        // side curls
-        ctx.beginPath();
-        ctx.ellipse(-9, -hh + 24, 5, 7, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(9, -hh + 24, 5, 7, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(0, -hh + 26, 13, 16, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face
-        ctx.fillStyle = C.skin;
+        // Face (warmer olive)
+        ctx.fillStyle = "#E8B89A";
         ctx.beginPath();
         ctx.arc(0, -hh + 22, 7.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hair bangs / top
-        ctx.fillStyle = C.hair;
+        // Crown of head + center-parted bangs
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
         ctx.arc(0, -hh + 16, 8.5, Math.PI, Math.PI * 2);
         ctx.fill();
-        // little bangs sweep
+        // Center part highlight
+        ctx.fillStyle = "#7A5230";
+        ctx.fillRect(-0.5, -hh + 14, 1, 6);
+        // Front hair strands framing face (replaces bow)
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.ellipse(-2, -hh + 17, 6, 3, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(-7, -hh + 20, 2.2, 5, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(7, -hh + 20, 2.2, 5, 0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hair bow (pink!)
-        ctx.fillStyle = "#FF4081";
-        ctx.beginPath();
-        ctx.ellipse(-6, -hh + 13, 3.5, 2.5, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(-2, -hh + 13, 3.5, 2.5, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#C2185B";
-        ctx.beginPath();
-        ctx.arc(-4, -hh + 13, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Eyes (bigger, more anime-style)
+        // Eyes — softer adult almond
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.ellipse(-3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
-        ctx.ellipse(3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(-3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
         ctx.fill();
+        // Iris
         ctx.fillStyle = "#5D4037";
         ctx.beginPath();
-        ctx.ellipse(-3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
-        ctx.ellipse(3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
+        ctx.arc(-3, -hh + 21, 1.15, 0, Math.PI * 2);
+        ctx.arc(3, -hh + 21, 1.15, 0, Math.PI * 2);
         ctx.fill();
-        // Eye sparkle
+        // Pupil
+        ctx.fillStyle = "#1A0F08";
+        ctx.beginPath();
+        ctx.arc(-3, -hh + 21, 0.55, 0, Math.PI * 2);
+        ctx.arc(3, -hh + 21, 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye highlight
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.arc(-2.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
-        ctx.arc(3.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
+        ctx.arc(-2.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
+        ctx.arc(3.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyelashes
-        ctx.strokeStyle = "#222";
-        ctx.lineWidth = 0.8;
+        // Subtle eyelashes
+        ctx.strokeStyle = "#3E2723";
+        ctx.lineWidth = 0.6;
         ctx.beginPath();
-        ctx.moveTo(-4.8, -hh + 19); ctx.lineTo(-5.5, -hh + 18);
-        ctx.moveTo(-3, -hh + 18.5); ctx.lineTo(-3, -hh + 17.5);
-        ctx.moveTo(-1.2, -hh + 19); ctx.lineTo(-0.5, -hh + 18);
-        ctx.moveTo(1.2, -hh + 19); ctx.lineTo(0.5, -hh + 18);
-        ctx.moveTo(3, -hh + 18.5); ctx.lineTo(3, -hh + 17.5);
-        ctx.moveTo(4.8, -hh + 19); ctx.lineTo(5.5, -hh + 18);
+        ctx.moveTo(-4.5, -hh + 20.3); ctx.lineTo(-1.5, -hh + 20.3);
+        ctx.moveTo(1.5, -hh + 20.3); ctx.lineTo(4.5, -hh + 20.3);
         ctx.stroke();
 
-        // Blush
-        ctx.fillStyle = "rgba(255, 105, 135, 0.5)";
-        ctx.beginPath();
-        ctx.ellipse(-5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
-        ctx.ellipse(5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Freckles across nose bridge
+        ctx.fillStyle = "#A0623C";
+        ctx.fillRect(-2, -hh + 23, 0.6, 0.6);
+        ctx.fillRect(-0.5, -hh + 23.4, 0.6, 0.6);
+        ctx.fillRect(1.4, -hh + 23, 0.6, 0.6);
+        ctx.fillRect(2.4, -hh + 23.5, 0.5, 0.5);
+        ctx.fillRect(-1.3, -hh + 24, 0.5, 0.5);
 
-        // Lips (pink/red)
-        ctx.fillStyle = C.lips;
+        // Soft relaxed smile (no pursed lips)
+        ctx.strokeStyle = "#C97064";
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
-        ctx.ellipse(0, -hh + 25, 2.2, 1.1, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#FF80AB";
-        ctx.beginPath();
-        ctx.ellipse(0, -hh + 24.7, 1.5, 0.5, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, -hh + 25, 1.8, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+
+        // Tiny gold necklace dot at chest edge
+        ctx.fillStyle = "#FFD700";
+        ctx.fillRect(-0.5, -hh + 32, 1, 1);
 
         // Phone (distracted mode)
         if (distracted) {
@@ -2077,35 +2071,29 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // Lulu's face
-        ctx.fillStyle = C.hair;
+        // Lulu's face — refined adult look (matches drawLuluCar)
+        // Long hair flowing back
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.arc(0, -hh + 24, 11, 0, Math.PI * 2);
+        ctx.ellipse(0, -hh + 26, 13, 16, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(-9, -hh + 24, 5, 7, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(9, -hh + 24, 5, 7, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = C.skin;
+        // Face (olive)
+        ctx.fillStyle = "#E8B89A";
         ctx.beginPath();
         ctx.arc(0, -hh + 22, 7.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = C.hair;
+        // Crown of head + center-parted bangs
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
         ctx.arc(0, -hh + 16, 8.5, Math.PI, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = "#7A5230";
+        ctx.fillRect(-0.5, -hh + 14, 1, 6);
+        // Front hair strands
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.ellipse(-2, -hh + 17, 6, 3, -0.2, 0, Math.PI * 2);
-        ctx.fill();
-        // Pink bow
-        ctx.fillStyle = "#FF4081";
-        ctx.beginPath();
-        ctx.ellipse(-6, -hh + 13, 3.5, 2.5, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(-2, -hh + 13, 3.5, 2.5, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#C2185B";
-        ctx.beginPath();
-        ctx.arc(-4, -hh + 13, 1.2, 0, Math.PI * 2);
+        ctx.ellipse(-7, -hh + 20, 2.2, 5, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(7, -hh + 20, 2.2, 5, 0.2, 0, Math.PI * 2);
         ctx.fill();
 
         if (crying) {
@@ -2140,45 +2128,50 @@
             ctx.arc(0, -hh + 25, 3, 0.7 * Math.PI, 1.3 * Math.PI);
             ctx.stroke();
         } else {
-            // Normal eyes/lips
+            // Normal adult eyes/lips
             ctx.fillStyle = "#FFFFFF";
             ctx.beginPath();
-            ctx.ellipse(-3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
-            ctx.ellipse(3, -hh + 20.5, 2.2, 2.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(-3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
+            ctx.ellipse(3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = "#5D4037";
             ctx.beginPath();
-            ctx.ellipse(-3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
-            ctx.ellipse(3, -hh + 21, 1.3, 1.8, 0, 0, Math.PI * 2);
+            ctx.arc(-3, -hh + 21, 1.15, 0, Math.PI * 2);
+            ctx.arc(3, -hh + 21, 1.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#1A0F08";
+            ctx.beginPath();
+            ctx.arc(-3, -hh + 21, 0.55, 0, Math.PI * 2);
+            ctx.arc(3, -hh + 21, 0.55, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = "#FFFFFF";
             ctx.beginPath();
-            ctx.arc(-2.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
-            ctx.arc(3.5, -hh + 20.3, 0.5, 0, Math.PI * 2);
+            ctx.arc(-2.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
+            ctx.arc(3.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
             ctx.fill();
-            ctx.strokeStyle = "#222";
-            ctx.lineWidth = 0.8;
+            // Subtle eyelashes
+            ctx.strokeStyle = "#3E2723";
+            ctx.lineWidth = 0.6;
             ctx.beginPath();
-            ctx.moveTo(-4.8, -hh + 19); ctx.lineTo(-5.5, -hh + 18);
-            ctx.moveTo(-3, -hh + 18.5); ctx.lineTo(-3, -hh + 17.5);
-            ctx.moveTo(-1.2, -hh + 19); ctx.lineTo(-0.5, -hh + 18);
-            ctx.moveTo(1.2, -hh + 19); ctx.lineTo(0.5, -hh + 18);
-            ctx.moveTo(3, -hh + 18.5); ctx.lineTo(3, -hh + 17.5);
-            ctx.moveTo(4.8, -hh + 19); ctx.lineTo(5.5, -hh + 18);
+            ctx.moveTo(-4.5, -hh + 20.3); ctx.lineTo(-1.5, -hh + 20.3);
+            ctx.moveTo(1.5, -hh + 20.3); ctx.lineTo(4.5, -hh + 20.3);
             ctx.stroke();
-            ctx.fillStyle = "rgba(255, 105, 135, 0.5)";
+            // Freckles
+            ctx.fillStyle = "#A0623C";
+            ctx.fillRect(-2, -hh + 23, 0.6, 0.6);
+            ctx.fillRect(-0.5, -hh + 23.4, 0.6, 0.6);
+            ctx.fillRect(1.4, -hh + 23, 0.6, 0.6);
+            ctx.fillRect(2.4, -hh + 23.5, 0.5, 0.5);
+            ctx.fillRect(-1.3, -hh + 24, 0.5, 0.5);
+            // Soft smile
+            ctx.strokeStyle = "#C97064";
+            ctx.lineWidth = 0.7;
             ctx.beginPath();
-            ctx.ellipse(-5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
-            ctx.ellipse(5, -hh + 23, 1.8, 1.2, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = C.lips;
-            ctx.beginPath();
-            ctx.ellipse(0, -hh + 25, 2.2, 1.1, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#FF80AB";
-            ctx.beginPath();
-            ctx.ellipse(0, -hh + 24.7, 1.5, 0.5, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.arc(0, -hh + 25, 1.8, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+            // Necklace dot
+            ctx.fillStyle = "#FFD700";
+            ctx.fillRect(-0.5, -hh + 32, 1, 1);
         }
 
         // Rear window
@@ -2446,8 +2439,38 @@
     }
 
     // ── State & Globals ──────────────────────────────────────
-    var state = "menu";
-    var prevState = "menu"; // for pause to know what to return to
+    var state = "charSelect"; // start by picking a Bruck sister
+    var prevState = "menu";
+    var selectedChar = "lulu"; // "lulu" or "dina"
+    var charHovered = null; // for character-select UI feedback
+    var charSelectTime = 0;
+    // Dina mode state
+    var dina = null;        // {x, y, walkTime, vx, vy, sprintTimer, sprintCool, stumble, holding}
+    var mom = null;         // {x, y, walkTime, speed, distance}
+    var dinaRunPhase = 0;   // 0 = intro/bus, 1 = running, 2 = home/caught outro
+    var dinaRunTimer = 0;
+    var dinaRunDistance = 0;   // 0 -> 1 = home
+    var dinaSidewalk = [];     // hazards spawned in front of dina
+    var dinaSidewalkSpawn = 0;
+    var dinaStickers = 0;
+    var dinaCoinsRun = 0;
+    var dinaEnding = "ran"; // "ran" = beat mom, "walked" = mom caught up
+    var schoolBus = null;   // intro animation state
+    var schoolGirls = [];   // girls coming off the bus
+    var dinaCharacterFace = "happy"; // happy, determined, sleepy
+    // Home interior state
+    var dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down" };
+    var homeMessage = "";
+    var homeMessageTimer = 0;
+    var homeInteraction = null; // "morgan" | "tablet" | "nap"
+    // Morgan plushie mode
+    var morganHappy = 0;     // 0-100
+    var morganPetSpot = null; // {x, y, t} location to tap
+    var morganMood = "calm";
+    var morganTimer = 0;
+    // Tablet game
+    var tabletTransitionTimer = 0;
+    var inTabletMode = false; // true means Lulu game is running inside the tablet visual
     var player = { x: W / 2, y: PLAYER_Y, tilt: 0, targetX: W / 2 };
     var score = 0;
     var runCoins = 0;
@@ -3727,6 +3750,10 @@
             if (pointInRect(click.x, click.y, W - 56, 16, 40, 40)) {
                 audioMuted = !audioMuted; playClick(); return;
             }
+            // Back to character select (top-left)
+            if (pointInRect(click.x, click.y, 10, 16, 70, 40)) {
+                state = "charSelect"; playClick(); return;
+            }
             // Default: any click in upper area starts game
             if (click.y > H * 0.3 && click.y < H * 0.45) {
                 resetGame(); state = "playing"; playClick(); return;
@@ -4385,6 +4412,8 @@
 
         // Mute button
         drawIconButton(W - 56, 16, 40, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+        // Back to character select
+        drawButton(10, 16, 70, 40, "◀", { bg: "#90A4AE", bgDark: "#455A64", small: true });
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
@@ -4539,6 +4568,2217 @@
         }
     }
 
+    // ════════════════════════════════════════════════════════
+    // ════════════════ DINA MODE & CHARACTER SELECT ══════════
+    // ════════════════════════════════════════════════════════
+
+    // ── Drawing: Lulu portrait (for character select card) ─
+    function drawLuluPortrait(cx, cy, time, scale) {
+        var s = scale || 1;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s, s);
+
+        // Pink car peeking behind, lower-left
+        ctx.fillStyle = "#FF6FB5";
+        roundRect(-110, 30, 90, 50, 10); ctx.fill();
+        ctx.fillStyle = "#222";
+        ctx.beginPath(); ctx.arc(-90, 70, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-40, 70, 7, 0, Math.PI * 2); ctx.fill();
+
+        // Long flowing hair behind head
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.ellipse(0, 20, 50, 70, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face (warmer olive)
+        ctx.fillStyle = "#E8B89A";
+        ctx.beginPath(); ctx.arc(0, -10, 38, 0, Math.PI * 2); ctx.fill();
+
+        // Hair bangs / front (center-parted)
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.ellipse(-15, -35, 18, 14, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(15, -35, 18, 14, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Center part highlight
+        ctx.fillStyle = "#7A5230";
+        ctx.fillRect(-1, -40, 2, 12);
+
+        // Eyes — adult almond
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.ellipse(-13, -15, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(13, -15, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#5D4037";
+        ctx.beginPath();
+        ctx.arc(-13, -15, 3, 0, Math.PI * 2);
+        ctx.arc(13, -15, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#1A0F08";
+        ctx.beginPath();
+        ctx.arc(-13, -15, 1.5, 0, Math.PI * 2);
+        ctx.arc(13, -15, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Highlight
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.arc(-12, -16, 1, 0, Math.PI * 2);
+        ctx.arc(14, -16, 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle eyelashes
+        ctx.strokeStyle = "#3E2723";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-17, -18); ctx.lineTo(-13, -19);
+        ctx.moveTo(-9, -18); ctx.lineTo(-13, -19);
+        ctx.moveTo(17, -18); ctx.lineTo(13, -19);
+        ctx.moveTo(9, -18); ctx.lineTo(13, -19);
+        ctx.stroke();
+
+        // Eyebrows
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-19, -23); ctx.quadraticCurveTo(-13, -26, -7, -23);
+        ctx.moveTo(19, -23); ctx.quadraticCurveTo(13, -26, 7, -23);
+        ctx.stroke();
+
+        // Freckles across nose bridge
+        ctx.fillStyle = "#A0623C";
+        ctx.beginPath();
+        ctx.arc(-5, -3, 0.8, 0, Math.PI * 2);
+        ctx.arc(-2, -1, 0.7, 0, Math.PI * 2);
+        ctx.arc(2, -2, 0.7, 0, Math.PI * 2);
+        ctx.arc(5, -3, 0.8, 0, Math.PI * 2);
+        ctx.arc(-3, 1, 0.6, 0, Math.PI * 2);
+        ctx.arc(4, 1, 0.7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Nose tip
+        ctx.fillStyle = "rgba(180,120,90,0.4)";
+        ctx.beginPath(); ctx.ellipse(0, 3, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Soft smile
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 5, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+
+        // White tee
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(-35, 40, 70, 50, 8); ctx.fill();
+        // Tee outline
+        ctx.strokeStyle = "#D0D0D0";
+        ctx.lineWidth = 1.5;
+        roundRect(-35, 40, 70, 50, 8); ctx.stroke();
+        // Floral embroidery (3 small flowers)
+        var flowers = [[-18, 55], [0, 70], [16, 55]];
+        for (var f = 0; f < flowers.length; f++) {
+            var fx = flowers[f][0], fy = flowers[f][1];
+            for (var pp = 0; pp < 5; pp++) {
+                var ang = pp * Math.PI * 2 / 5;
+                ctx.fillStyle = "#FF4FA3";
+                ctx.beginPath();
+                ctx.arc(fx + Math.cos(ang) * 3, fy + Math.sin(ang) * 3, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = "#FFD93D";
+            ctx.beginPath(); ctx.arc(fx, fy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Gold necklace chain
+        ctx.strokeStyle = "#FFD700";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 38, 22, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        // Locket
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath(); ctx.arc(0, 42, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#B8860B";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // ── Drawing: Dina portrait (for character select card) ─
+    function drawDinaPortrait(cx, cy, time, scale) {
+        var s = scale || 1;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s, s);
+
+        // Long ponytail (right side, behind)
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.ellipse(45, 15, 14, 30, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Hair tie at base of ponytail
+        ctx.fillStyle = "#FF4FA3";
+        ctx.beginPath(); ctx.arc(40, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#C2185B";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Pink puffy coat (drawn behind face — bulky)
+        ctx.fillStyle = "#FFB0C8";
+        ctx.beginPath();
+        ctx.ellipse(0, 60, 65, 50, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Puffy texture (small circles around outline)
+        var puffPoints = [[-50, 50], [-45, 70], [-30, 90], [0, 100], [30, 90], [45, 70], [50, 50]];
+        for (var pp2 = 0; pp2 < puffPoints.length; pp2++) {
+            ctx.beginPath();
+            ctx.arc(puffPoints[pp2][0], puffPoints[pp2][1], 14, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = "#FFC5D6"; // highlight
+        ctx.beginPath();
+        ctx.ellipse(-15, 55, 30, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Coat collar/fur trim
+        ctx.fillStyle = "#FAFAFA";
+        ctx.beginPath();
+        ctx.ellipse(0, 35, 45, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face (rounder, peachy)
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath();
+        ctx.arc(0, -5, 34, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair top + bangs (across forehead)
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.arc(0, -28, 28, Math.PI, 0);
+        ctx.fill();
+        // Bangs sweep
+        ctx.beginPath();
+        ctx.ellipse(-8, -22, 18, 7, -0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dimples
+        ctx.fillStyle = "rgba(230,140,140,0.5)";
+        ctx.beginPath();
+        ctx.arc(-18, 8, 3, 0, Math.PI * 2);
+        ctx.arc(18, 8, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes — happy upturned arcs
+        ctx.strokeStyle = "#3D2817";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(-11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+
+        // Eyebrows
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-16, -18); ctx.quadraticCurveTo(-11, -20, -6, -18);
+        ctx.moveTo(16, -18); ctx.quadraticCurveTo(11, -20, 6, -18);
+        ctx.stroke();
+
+        // Nose
+        ctx.fillStyle = "rgba(220,150,120,0.5)";
+        ctx.beginPath(); ctx.arc(0, 3, 2, 0, Math.PI * 2); ctx.fill();
+
+        // BIG smile (open with teeth)
+        ctx.fillStyle = "#A0394D";
+        ctx.beginPath();
+        ctx.arc(0, 10, 12, 0, Math.PI);
+        ctx.fill();
+        // Teeth
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(-9, 10, 18, 5);
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, 10); ctx.lineTo(0, 15);
+        ctx.stroke();
+
+        // Morgan the cat plushie held in arms (bottom-left)
+        var mx = -45, my = 80;
+        // Body
+        ctx.fillStyle = "#9B8FB4";
+        ctx.beginPath(); ctx.ellipse(mx, my + 8, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+        // Head
+        ctx.beginPath(); ctx.arc(mx, my - 6, 11, 0, Math.PI * 2); ctx.fill();
+        // Ears
+        ctx.beginPath();
+        ctx.moveTo(mx - 9, my - 12); ctx.lineTo(mx - 4, my - 18); ctx.lineTo(mx - 1, my - 13);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(mx + 1, my - 13); ctx.lineTo(mx + 4, my - 18); ctx.lineTo(mx + 9, my - 12);
+        ctx.closePath(); ctx.fill();
+        // Inner ear pink
+        ctx.fillStyle = "#FFB8D9";
+        ctx.beginPath();
+        ctx.moveTo(mx - 6, my - 14); ctx.lineTo(mx - 4, my - 16); ctx.lineTo(mx - 2, my - 13);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(mx + 2, my - 13); ctx.lineTo(mx + 4, my - 16); ctx.lineTo(mx + 6, my - 14);
+        ctx.closePath(); ctx.fill();
+        // Eyes (cute closed arcs)
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(mx - 4, my - 6, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(mx + 4, my - 6, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.stroke();
+        // Nose
+        ctx.fillStyle = "#FF8AAA";
+        ctx.beginPath();
+        ctx.moveTo(mx - 1.5, my - 3); ctx.lineTo(mx + 1.5, my - 3); ctx.lineTo(mx, my - 1);
+        ctx.closePath(); ctx.fill();
+        // Smile stitch
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(mx, my - 1); ctx.quadraticCurveTo(mx - 2, my + 1, mx - 3, my);
+        ctx.moveTo(mx, my - 1); ctx.quadraticCurveTo(mx + 2, my + 1, mx + 3, my);
+        ctx.stroke();
+        // Pink heart on chest
+        ctx.fillStyle = "#FF6B9D";
+        ctx.beginPath();
+        ctx.arc(mx - 2, my + 4, 1.5, 0, Math.PI * 2);
+        ctx.arc(mx + 2, my + 4, 1.5, 0, Math.PI * 2);
+        ctx.moveTo(mx - 3, my + 4);
+        ctx.lineTo(mx, my + 8);
+        ctx.lineTo(mx + 3, my + 4);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // ── Update / Draw: Character Select ──────────────────────
+    function updateCharSelect(dt) {
+        charSelectTime += dt;
+        var click = consumeClick();
+        if (click) {
+            // Lulu card top half H*0.18 - H*0.50
+            if (click.y > H * 0.18 && click.y < H * 0.50) {
+                selectedChar = "lulu";
+                state = "menu";
+                playTone(523, 0.08, "triangle", 0.2);
+                setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 80);
+                return;
+            }
+            // Dina card bottom half H*0.52 - H*0.88
+            if (click.y > H * 0.52 && click.y < H * 0.88) {
+                selectedChar = "dina";
+                startDinaMode();
+                playTone(880, 0.08, "square", 0.18);
+                setTimeout(function () { playTone(1318, 0.12, "square", 0.2); }, 80);
+                return;
+            }
+        }
+        if (consumeAction()) {
+            // default to Lulu if no click but space pressed
+            selectedChar = "lulu";
+            state = "menu";
+        }
+    }
+
+    function drawCharSelect() {
+        // Festive sunset background
+        var g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, "#FFB6D9");
+        g.addColorStop(0.5, "#FFD89E");
+        g.addColorStop(1, "#C9A8E8");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        // Confetti dots drifting
+        ctx.globalAlpha = 0.7;
+        for (var i = 0; i < 40; i++) {
+            var x = (i * 47 + 13) % W;
+            var y = ((i * 31 + 9) + charSelectTime * 20) % H;
+            ctx.fillStyle = ["#FF4FA3", "#FFD93D", "#6BCBFF", "#A8E6CF", "#FFFFFF"][i % 5];
+            ctx.beginPath();
+            ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Header wobble
+        var wob = Math.sin(charSelectTime * 3) * 4;
+        drawText("Pick a Bruck Sister!", W / 2, 70 + wob, "bold 32px 'Segoe UI', Arial, sans-serif",
+            "#FFFFFF", "#7A2A5C", 6);
+
+        // Lulu Card
+        drawCharCard(50, H * 0.18, 380, H * 0.32, "lulu",
+            "Lulu — 18", "Pink car. Big sister energy.", "#FF4FA3");
+        // Dina Card
+        drawCharCard(50, H * 0.52, 380, H * 0.34, "dina",
+            "Dina — 8", "Has Morgan. Runs fast.", "#A06DC8");
+
+        // Footer
+        drawText("Tap a sister to play!", W / 2, H - 40,
+            "bold 16px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#7A2A5C", 4);
+    }
+
+    function drawCharCard(x, y, w, h, who, name, tagline, accent) {
+        // shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        roundRect(x + 5, y + 6, w, h, 18); ctx.fill();
+        // card body
+        ctx.fillStyle = "#FFF8F0";
+        roundRect(x, y, w, h, 18); ctx.fill();
+        // accent stripe
+        ctx.fillStyle = accent;
+        roundRect(x, y, w, 36, 18); ctx.fill();
+        ctx.fillRect(x, y + 18, w, 18);
+        // border
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 5;
+        roundRect(x, y, w, h, 18); ctx.stroke();
+        // header text
+        drawText(name, x + w / 2, y + 18, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        // Portrait
+        var portraitX = x + w / 2;
+        var portraitY = y + h * 0.45 + 30;
+        ctx.save();
+        // Soft glow under portrait
+        var grad = ctx.createRadialGradient(portraitX, portraitY + 30, 10, portraitX, portraitY + 30, 80);
+        grad.addColorStop(0, "rgba(255,255,255,0.6)");
+        grad.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y + 40, w, h - 40);
+        ctx.restore();
+        var bob = Math.sin(charSelectTime * 2.5 + (who === "dina" ? 1 : 0)) * 4;
+        if (who === "lulu") drawLuluPortrait(portraitX, portraitY + bob, charSelectTime, 0.95);
+        else drawDinaPortrait(portraitX, portraitY + bob, charSelectTime, 0.95);
+        // Tagline below
+        drawText(tagline, x + w / 2, y + h - 16, "italic 14px 'Segoe UI', Arial, sans-serif",
+            "#555", "#FFF", 2);
+        // "TAP" badge in corner
+        ctx.fillStyle = accent;
+        roundRect(x + w - 70, y + h - 36, 60, 26, 13); ctx.fill();
+        drawText("TAP ▶", x + w - 40, y + h - 23, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
+    }
+
+    function startDinaMode() {
+        state = "dinaBus";
+        dinaRunPhase = 0;
+        dinaRunTimer = 0;
+        dinaRunDistance = 0;
+        dinaCoinsRun = 0;
+        dinaStickers = 0;
+        dina = { x: W / 2 + 30, y: 350, walkTime: 0, vx: 0, vy: 0, sprintTimer: 3,
+                 sprintCool: 0, stumble: 0, holding: "backpack" };
+        schoolBus = { x: W + 220, y: 140, phase: 0, timer: 0, doorOpen: 0 };
+        schoolGirls = [];
+        // Pre-populate girls who will come off
+        for (var g = 0; g < 6; g++) {
+            schoolGirls.push({
+                spawn: 2.1 + g * 0.3, // when they appear (in seconds)
+                onBus: true,
+                x: 335, y: 195,
+                vx: rand(-30, 30),
+                vy: rand(40, 80),
+                walkTime: 0,
+                hairColor: ["#3E2723", "#5D4037", "#6D4C41", "#3E2723"][g % 4],
+                hairStyle: ["pony", "loose", "bun", "loose", "pony", "bun"][g]
+            });
+        }
+        mom = null;
+    }
+
+    // ── Drawing: Dina (top-down for game world) ──────────────
+    function drawDinaTopDown(x, y, walkTime, facing, holding) {
+        ctx.save();
+        ctx.translate(x, y);
+        var legSwing = Math.sin(walkTime * 12) * 5;
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 20, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Legs (black tights)
+        ctx.fillStyle = "#212121";
+        roundRect(-6, 6 - legSwing, 5, 16 + legSwing, 2); ctx.fill();
+        roundRect(1, 6 + legSwing, 5, 16 - legSwing, 2); ctx.fill();
+        // Boots
+        ctx.fillStyle = "#3E2723";
+        roundRect(-7, 20 - legSwing, 7, 4, 2); ctx.fill();
+        roundRect(0, 20 + legSwing, 7, 4, 2); ctx.fill();
+
+        // Pink puffy coat body (chunky/round)
+        ctx.fillStyle = "#FFB0C8";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 16, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Puff highlights
+        ctx.fillStyle = "#FFC5D6";
+        ctx.beginPath();
+        ctx.arc(-9, -3, 5, 0, Math.PI * 2);
+        ctx.arc(8, -2, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#FF8FB0";
+        ctx.beginPath();
+        ctx.arc(0, 8, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Arms (peeking from coat puffs)
+        ctx.fillStyle = "#FFB0C8";
+        roundRect(-18, -5, 5, 12, 2); ctx.fill();
+        roundRect(13, -5, 5, 12, 2); ctx.fill();
+        // Hands (skin)
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(-15, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(15, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+
+        // Backpack on back (showing as small bump behind coat)
+        if (holding === "backpack") {
+            ctx.fillStyle = "#1F2D5C";
+            roundRect(-7, -4, 14, 8, 3); ctx.fill();
+            // Unicorn keychain hanging off
+            ctx.fillStyle = "#FFB0C8";
+            ctx.beginPath(); ctx.arc(6, 6, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#FF4FA3";
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(6, 6); ctx.lineTo(7, 9);
+            ctx.stroke();
+        }
+
+        // Head (slightly larger for kid proportions)
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath();
+        ctx.arc(0, -13, 8.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hair top + ponytail (visible from above)
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.arc(0, -16, 9, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // Ponytail trailing behind (toward bottom of car/character)
+        ctx.beginPath();
+        ctx.ellipse(0, -3, 4, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Hair tie (small pink dot)
+        ctx.fillStyle = "#FF4FA3";
+        ctx.beginPath(); ctx.arc(0, -9, 1.5, 0, Math.PI * 2); ctx.fill();
+
+        // Face details
+        // Eyes (happy slits) for adorable face
+        ctx.strokeStyle = "#3D2817";
+        ctx.lineWidth = 1;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(-2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+        // Tiny smile
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(0, -10, 2, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        // Dimples
+        ctx.fillStyle = "rgba(230,140,140,0.5)";
+        ctx.beginPath();
+        ctx.arc(-4, -11, 0.8, 0, Math.PI * 2);
+        ctx.arc(4, -11, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // If holding Morgan plushie
+        if (holding === "morgan") {
+            // Small plushie cradled in arms (front of body)
+            var mx = 0, my = 5;
+            ctx.fillStyle = "#9B8FB4";
+            ctx.beginPath(); ctx.ellipse(mx, my, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(mx, my - 3, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(mx - 1, my - 3, 0.5, 0, Math.PI * 2);
+            ctx.arc(mx + 1, my - 3, 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    // ── Drawing: Mom (top-down) ──────────────────────────────
+    function drawMomTopDown(x, y, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var legSwing = Math.sin(walkTime * 10) * 4;
+
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 24, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Legs (dark pants)
+        ctx.fillStyle = "#37474F";
+        roundRect(-7, 8 - legSwing, 6, 18 + legSwing, 3); ctx.fill();
+        roundRect(1, 8 + legSwing, 6, 18 - legSwing, 3); ctx.fill();
+        // Shoes
+        ctx.fillStyle = "#212121";
+        roundRect(-8, 24 - legSwing, 8, 4, 2); ctx.fill();
+        roundRect(0, 24 + legSwing, 8, 4, 2); ctx.fill();
+
+        // Body - cozy sweater
+        ctx.fillStyle = "#8E24AA";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 18, 18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#AB47BC";
+        ctx.beginPath();
+        ctx.arc(-8, -8, 7, 0, Math.PI * 2);
+        ctx.arc(8, -8, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Arms (one waving)
+        var armWave = Math.sin(walkTime * 6) * 0.5;
+        ctx.fillStyle = "#8E24AA";
+        ctx.save();
+        ctx.translate(-15, -2);
+        ctx.rotate(-0.4 + armWave);
+        roundRect(-3, -8, 6, 16, 3); ctx.fill();
+        ctx.restore();
+        roundRect(13, -2, 6, 16, 3); ctx.fill();
+        // Hands
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(-18, 8, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(16, 14, 2.5, 0, Math.PI * 2); ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
+        // Hair (long, dark brown bob)
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath();
+        ctx.ellipse(0, -16, 10, 11, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-9, -14, 4, 8, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(9, -14, 4, 8, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face — concerned
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.arc(-3, -18, 0.8, 0, Math.PI * 2);
+        ctx.arc(3, -18, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        // Slight worried mouth
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(0, -14, 2, 0.05 * Math.PI, 0.45 * Math.PI);
+        ctx.stroke();
+
+        // Handbag bouncing
+        ctx.fillStyle = "#5D4037";
+        roundRect(13, -5, 9, 11, 2); ctx.fill();
+        ctx.fillStyle = "#FFD700";
+        ctx.fillRect(13, -2, 9, 2);
+
+        ctx.restore();
+    }
+
+    // ── Drawing: School Bus ──────────────────────────────────
+    function drawSchoolBus(bus) {
+        ctx.save();
+        ctx.translate(bus.x, bus.y);
+
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        roundRect(8, 8, 240, 140, 14); ctx.fill();
+
+        // Body
+        ctx.fillStyle = "#FFD426";
+        roundRect(0, 0, 240, 140, 14); ctx.fill();
+        // Outline
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 4;
+        roundRect(0, 0, 240, 140, 14); ctx.stroke();
+
+        // Black stripes
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 22, 240, 6);
+        ctx.fillRect(0, 116, 240, 6);
+
+        // Windshield (front)
+        ctx.fillStyle = "#7BB8E0";
+        roundRect(8, 4, 70, 18, 4); ctx.fill();
+
+        // Side windows along the side
+        ctx.fillStyle = "#7BB8E0";
+        for (var w = 0; w < 5; w++) {
+            roundRect(86 + w * 30, 4, 24, 18, 3); ctx.fill();
+        }
+
+        // "LEV BAIS YAAKOV" written along the side
+        ctx.fillStyle = "#000";
+        ctx.font = "bold 18px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("LEV BAIS YAAKOV", 120, 70);
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        ctx.fillText("SCHOOL", 120, 90);
+
+        // Wheels
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.ellipse(35, 138, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(205, 138, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#424242";
+        ctx.beginPath(); ctx.ellipse(35, 138, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(205, 138, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Door (right side, opens with bus.doorOpen 0-1)
+        ctx.fillStyle = "#000";
+        var doorOpen = bus.doorOpen || 0;
+        ctx.fillRect(218 + doorOpen * 8, 100, 8, 36);
+        // Door window
+        ctx.fillStyle = "#7BB8E0";
+        ctx.fillRect(220 + doorOpen * 8, 104, 4, 14);
+
+        // Flashing lights on top
+        var blink = Math.sin(bus.timer * 12) > 0;
+        ctx.fillStyle = blink ? "#FF2222" : "#FFAA22";
+        ctx.beginPath(); ctx.arc(20, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = !blink ? "#FF2222" : "#FFAA22";
+        ctx.beginPath(); ctx.arc(220, 0, 5, 0, Math.PI * 2); ctx.fill();
+
+        // Light aura
+        if (blink) {
+            ctx.fillStyle = "rgba(244,67,54,0.3)";
+            ctx.beginPath(); ctx.arc(20, 0, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(255,170,34,0.3)";
+            ctx.beginPath(); ctx.arc(220, 0, 16, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = "rgba(255,170,34,0.3)";
+            ctx.beginPath(); ctx.arc(20, 0, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(244,67,54,0.3)";
+            ctx.beginPath(); ctx.arc(220, 0, 16, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Stop sign deployed (when stopped)
+        if (bus.phase >= 1) {
+            ctx.fillStyle = "#D32F2F";
+            ctx.beginPath();
+            var cx = -18, cy = 80;
+            for (var i = 0; i < 8; i++) {
+                var ang = i * Math.PI / 4;
+                var px = cx + Math.cos(ang) * 16;
+                var py = cy + Math.sin(ang) * 16;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+            ctx.fillText("STOP", cx, cy + 2);
+        }
+
+        ctx.restore();
+    }
+
+    // ── Drawing: school girl in uniform (top-down) ───────────
+    function drawSchoolGirl(g) {
+        ctx.save();
+        ctx.translate(g.x, g.y);
+        var legSwing = Math.sin(g.walkTime * 14) * 4;
+
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 14, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+
+        // Navy skirt
+        ctx.fillStyle = "#1F2D5C";
+        roundRect(-6, 0, 12, 10, 2); ctx.fill();
+        // Legs (tights)
+        ctx.fillStyle = "#3E2723";
+        ctx.fillRect(-4, 8 - legSwing, 3, 8);
+        ctx.fillRect(1, 8 + legSwing, 3, 8);
+        // Shoes
+        ctx.fillStyle = "#000";
+        ctx.fillRect(-5, 15 - legSwing, 4, 2);
+        ctx.fillRect(1, 15 + legSwing, 4, 2);
+
+        // White shirt
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(-7, -8, 14, 12, 3); ctx.fill();
+        // Collar dots
+        ctx.fillStyle = "#1F2D5C";
+        ctx.fillRect(-3, -5, 1.5, 1.5);
+        ctx.fillRect(1.5, -5, 1.5, 1.5);
+
+        // Backpack
+        ctx.fillStyle = "#212121";
+        roundRect(-5, -4, 10, 6, 2); ctx.fill();
+
+        // Arms
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(-9, -6, 3, 9, 1); ctx.fill();
+        roundRect(6, -6, 3, 9, 1); ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#F5C9A0";
+        ctx.beginPath(); ctx.arc(0, -13, 6.5, 0, Math.PI * 2); ctx.fill();
+        // Hair styles
+        ctx.fillStyle = g.hairColor;
+        if (g.hairStyle === "pony") {
+            ctx.beginPath();
+            ctx.arc(0, -16, 7, Math.PI, Math.PI * 2);
+            ctx.ellipse(0, -8, 3, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (g.hairStyle === "bun") {
+            ctx.beginPath();
+            ctx.arc(0, -16, 7, Math.PI, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, -19, 4, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            // loose
+            ctx.beginPath();
+            ctx.arc(0, -14, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#F5C9A0";
+            ctx.beginPath(); ctx.arc(0, -13, 5.5, 0, Math.PI * 2); ctx.fill();
+        }
+        // Eyes
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-2, -13, 0.7, 0, Math.PI * 2);
+        ctx.arc(2, -13, 0.7, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // ── Update / Draw: Dina Bus Intro ────────────────────────
+    function updateDinaBus(dt) {
+        if (!schoolBus) return;
+        schoolBus.timer += dt;
+        var t = schoolBus.timer;
+
+        // Phase 0: bus drives in (0-1.2s)
+        if (schoolBus.phase === 0) {
+            schoolBus.x = lerp(W + 220, W / 2 - 120, Math.min(t / 1.2, 1));
+            if (t > 1.2) {
+                schoolBus.phase = 1;
+                schoolBus.timer = 1.2;
+            }
+        }
+        // Phase 1: doors hiss open (1.2-1.7s)
+        if (schoolBus.phase === 1) {
+            schoolBus.doorOpen = Math.min((t - 1.2) / 0.5, 1);
+            if (t > 1.7) {
+                schoolBus.phase = 2;
+                playTone(1200, 0.15, "sine", 0.18);
+            }
+        }
+        // Phase 2: girls coming off (1.7-5.0s)
+        if (schoolBus.phase === 2) {
+            for (var i = 0; i < schoolGirls.length; i++) {
+                var gi = schoolGirls[i];
+                if (gi.onBus && t > gi.spawn) {
+                    gi.onBus = false;
+                    gi.x = schoolBus.x + 220;
+                    gi.y = schoolBus.y + 130;
+                    // little chatter
+                    if (Math.random() > 0.5) playTone(rand(500, 900), 0.05, "sine", 0.06);
+                }
+                if (!gi.onBus) {
+                    gi.x += gi.vx * dt;
+                    gi.y += gi.vy * dt;
+                    gi.walkTime += dt;
+                }
+            }
+            if (t > 4.5) {
+                schoolBus.phase = 3;
+                // Dina emerges
+                dina.x = schoolBus.x + 220;
+                dina.y = schoolBus.y + 130;
+                dina.targetX = W / 2;
+                dina.targetY = 350;
+                dina.walkTime = 0;
+                dinaCharacterFace = "happy";
+            }
+        }
+        // Phase 3: Dina emerges and walks center (4.5-6.0s)
+        if (schoolBus.phase === 3) {
+            // Move Dina toward target
+            var dx = dina.targetX - dina.x;
+            var dy = dina.targetY - dina.y;
+            var d = Math.sqrt(dx * dx + dy * dy);
+            if (d > 2) {
+                dina.x += (dx / d) * 100 * dt;
+                dina.y += (dy / d) * 100 * dt;
+                dina.walkTime += dt;
+            } else if (t > 6.0) {
+                schoolBus.phase = 4;
+            }
+        }
+        // Phase 4: thought bubble (6.0-7.0s)
+        if (schoolBus.phase === 4 && t > 7.0) {
+            schoolBus.phase = 5;
+            dinaCharacterFace = "determined";
+            playTone(220, 0.12, "square", 0.15);
+        }
+        // Phase 5: determined / Hmph (7.0-8.0s)
+        if (schoolBus.phase === 5 && t > 8.0) {
+            schoolBus.phase = 6;
+        }
+        // Phase 6: bus drives away (8.0-8.7s)
+        if (schoolBus.phase === 6) {
+            schoolBus.x -= 600 * dt;
+            if (schoolBus.x < -300) {
+                // Start the run-home game
+                schoolBus = null;
+                startDinaRun();
+            }
+        }
+
+        // Allow click to skip
+        var click = consumeClick();
+        if (click || consumeAction()) {
+            schoolBus = null;
+            startDinaRun();
+        }
+    }
+
+    function drawDinaBus() {
+        // Background: sidewalk + road at bus stop
+        ctx.fillStyle = "#A8E6CF"; // green grass
+        ctx.fillRect(0, 0, W, H);
+        // Sky band at top
+        ctx.fillStyle = "#FFE082";
+        ctx.fillRect(0, 0, W, 90);
+        // Road (where bus is)
+        ctx.fillStyle = "#6B7B8D";
+        ctx.fillRect(0, 90, W, 220);
+        // Curb
+        ctx.fillStyle = "#FBC02D";
+        ctx.fillRect(0, 305, W, 4);
+        // Sidewalk
+        ctx.fillStyle = "#BDBDBD";
+        ctx.fillRect(0, 309, W, 90);
+        ctx.strokeStyle = "#9E9E9E";
+        ctx.lineWidth = 1;
+        for (var sxx = 60; sxx < W; sxx += 80) {
+            ctx.beginPath(); ctx.moveTo(sxx, 309); ctx.lineTo(sxx, 399); ctx.stroke();
+        }
+        // Lawn / houses below sidewalk
+        ctx.fillStyle = "#7CB342";
+        ctx.fillRect(0, 399, W, H - 399);
+        // Distant houses
+        ctx.fillStyle = "#EF9A9A";
+        roundRect(40, 430, 100, 80, 6); ctx.fill();
+        ctx.fillStyle = "#B71C1C";
+        ctx.beginPath();
+        ctx.moveTo(40, 430); ctx.lineTo(90, 400); ctx.lineTo(140, 430); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#A1887F";
+        roundRect(250, 440, 110, 70, 6); ctx.fill();
+        ctx.fillStyle = "#4E342E";
+        ctx.beginPath();
+        ctx.moveTo(250, 440); ctx.lineTo(305, 410); ctx.lineTo(360, 440); ctx.closePath();
+        ctx.fill();
+
+        // Bus
+        if (schoolBus) drawSchoolBus(schoolBus);
+
+        // School girls
+        for (var gi = 0; gi < schoolGirls.length; gi++) {
+            if (!schoolGirls[gi].onBus) drawSchoolGirl(schoolGirls[gi]);
+        }
+
+        // Dina (only after phase 3)
+        if (schoolBus && schoolBus.phase >= 3) {
+            drawDinaTopDown(dina.x, dina.y, dina.walkTime, "down", "backpack");
+        }
+
+        // Subtitles
+        if (schoolBus) {
+            var bt = schoolBus.timer;
+            if (bt > 2.0 && bt < 4.0) {
+                ctx.fillStyle = "rgba(0,0,0,0.6)";
+                roundRect(40, 750, W - 80, 50, 10); ctx.fill();
+                drawText("🔔 School's out!", W / 2, 775,
+                    "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+            } else if (bt > 6.0 && bt < 7.0 && dina) {
+                // Thought bubble above Dina
+                drawSpeechBubble(dina.x, dina.y - 25, "Where's mom?", bt);
+            } else if (bt > 7.0 && bt < 8.0 && dina) {
+                drawSpeechBubble(dina.x, dina.y - 25, "Hmph!\nI'll walk!", bt);
+            }
+        }
+
+        // Tap-to-skip hint
+        drawText("Tap to skip", W - 10, H - 14, "12px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "right");
+    }
+
+    function startDinaRun() {
+        state = "dinaRun";
+        dinaRunPhase = 1;
+        dinaRunTimer = 0;
+        dinaRunDistance = 0;
+        dinaSidewalk = [];
+        dinaSidewalkSpawn = 0;
+        dina = { x: W / 2, y: H - 200, walkTime: 0,
+                 lane: 1, sprintTimer: 3, sprintCool: 0,
+                 stumble: 0, holding: "backpack" };
+        mom = { x: W / 2, y: H + 100, walkTime: 0, distance: 1.0, says: 0, sayTimer: 0 };
+    }
+
+    // ── Update / Draw: Dina Run Home ─────────────────────────
+    var DINA_LANES_X = [W / 2 - 70, W / 2, W / 2 + 70]; // left grass, center sidewalk, right grass
+    var DINA_RUN_DURATION = 45; // seconds total
+
+    function updateDinaRun(dt) {
+        if (!dina) return;
+        dinaRunTimer += dt;
+        dina.walkTime += dt;
+
+        // Distance: 0 to 1 (1 = home)
+        dinaRunDistance = Math.min(dinaRunTimer / DINA_RUN_DURATION, 1);
+
+        // Sprint / slow input
+        var sprint = keys.up && dina.sprintTimer > 0;
+        if (sprint) dina.sprintTimer = Math.max(0, dina.sprintTimer - dt);
+        else dina.sprintTimer = Math.min(3, dina.sprintTimer + dt * 0.6);
+        var slow = keys.down;
+
+        // Speed (in distance-per-sec — translated to scroll speed)
+        var baseSpeed = 1 / DINA_RUN_DURATION;
+        var speedMult = sprint ? 2.0 : (slow ? 0.5 : 1.0);
+        if (dina.stumble > 0) {
+            speedMult *= 0.3;
+            dina.stumble -= dt;
+        }
+        var scrollSpeed = baseSpeed * speedMult * 200; // px/sec for visual scroll
+        dinaRunDistance = Math.min(dinaRunDistance + baseSpeed * speedMult * dt - baseSpeed * dt, 1);
+        // (recalibrate so timer alone doesn't dominate; bonus from sprinting helps)
+
+        // Steering (lane switch)
+        // Use keys.left/right or button presses to switch lanes
+        if (consumeLaneSwitch("left")) dina.lane = clamp(dina.lane - 1, 0, 2);
+        if (consumeLaneSwitch("right")) dina.lane = clamp(dina.lane + 1, 0, 2);
+        var targetX = DINA_LANES_X[dina.lane];
+        dina.x = lerp(dina.x, targetX, Math.min(1, 8 * dt));
+
+        // Spawn sidewalk hazards
+        dinaSidewalkSpawn -= dt;
+        if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 5) {
+            dinaSidewalkSpawn = rand(1.5, 3.0);
+            spawnDinaHazard();
+        }
+        // Update hazards
+        for (var h = dinaSidewalk.length - 1; h >= 0; h--) {
+            var hz = dinaSidewalk[h];
+            hz.y += scrollSpeed * dt;
+            hz.walkTime = (hz.walkTime || 0) + dt;
+            if (hz.y > H + 60) { dinaSidewalk.splice(h, 1); continue; }
+            // Collision
+            var dx = dina.x - hz.x;
+            var dy = dina.y - hz.y;
+            if (dx * dx + dy * dy < (hz.r + 15) * (hz.r + 15) && !hz.hit) {
+                hz.hit = true;
+                handleDinaHazard(hz);
+            }
+        }
+
+        // Mom catches up
+        var momCloseness = 1 - dinaRunDistance + (sprint ? -0.1 : 0); // 0 = at Dina, 1 = far behind
+        // Apply slowdowns
+        mom.distance = Math.max(0, mom.distance - (sprint ? 0.05 : 0.12) * dt);
+        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.5 * dt);
+        if (slow) mom.distance = Math.max(0, mom.distance - 0.1 * dt);
+        mom.walkTime += dt;
+        mom.sayTimer -= dt;
+        if (mom.sayTimer <= 0) {
+            mom.says = (mom.says + 1) % 4;
+            mom.sayTimer = rand(4, 8);
+        }
+        // mom's y position based on distance
+        mom.y = H + 50 - (1 - mom.distance) * 130;
+        mom.x = lerp(mom.x, DINA_LANES_X[dina.lane], dt * 2);
+
+        // Check ending conditions
+        if (dinaRunDistance >= 1) {
+            // Won the race! Reached home before mom
+            dinaEnding = "ran";
+            dinaRunPhase = 2;
+            state = "dinaCaught"; // shared outro state, with different flavor
+            dinaRunTimer = 0;
+            playTone(523, 0.1, "triangle", 0.2);
+            setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+            setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 200);
+            return;
+        }
+        if (mom.distance <= 0) {
+            // Mom caught up
+            dinaEnding = "walked";
+            dinaRunPhase = 2;
+            state = "dinaCaught";
+            dinaRunTimer = 0;
+            playTone(440, 0.18, "sine", 0.2);
+            return;
+        }
+    }
+
+    // Lane switch with keyboard or buttons
+    var lastLeftPress = false, lastRightPress = false;
+    function consumeLaneSwitch(dir) {
+        if (dir === "left") {
+            if (keys.left && !lastLeftPress) { lastLeftPress = true; return true; }
+            if (!keys.left) lastLeftPress = false;
+        }
+        if (dir === "right") {
+            if (keys.right && !lastRightPress) { lastRightPress = true; return true; }
+            if (!keys.right) lastRightPress = false;
+        }
+        return false;
+    }
+
+    function spawnDinaHazard() {
+        var types = ["hydrant", "dog", "butterfly", "squirrel", "kickball", "sprinkler", "hopscotch", "mailbox", "cat"];
+        var t = randPick(types);
+        var lane = randInt(0, 2);
+        dinaSidewalk.push({
+            type: t,
+            x: DINA_LANES_X[lane],
+            y: -40,
+            r: 14,
+            walkTime: 0
+        });
+    }
+
+    function handleDinaHazard(hz) {
+        if (hz.type === "hydrant" || hz.type === "kickball" || hz.type === "squirrel" || hz.type === "mailbox") {
+            dina.stumble = 0.5;
+            playTone(180, 0.1, "square", 0.15);
+        } else if (hz.type === "dog") {
+            dina.stumble = 1.5; // longer pause for petting
+            dinaCoinsRun += 2;
+            playTone(800, 0.08, "sine", 0.18); // happy
+        } else if (hz.type === "butterfly") {
+            dinaCoinsRun += 1;
+            playTone(1500, 0.08, "sine", 0.15);
+        } else if (hz.type === "sprinkler") {
+            // Speed boost momentarily
+            dina.sprintTimer = Math.min(3, dina.sprintTimer + 1);
+            playTone(440, 0.1, "sine", 0.18);
+        } else if (hz.type === "hopscotch") {
+            dinaStickers++;
+            playTone(1200, 0.1, "triangle", 0.18);
+        } else if (hz.type === "cat") {
+            // No effect unless slow walked (handled differently)
+            dinaCoinsRun += 1;
+            playTone(600, 0.1, "sine", 0.12);
+        }
+    }
+
+    function drawDinaSidewalkBg(scrollY) {
+        // Lawn (left/right green strips)
+        ctx.fillStyle = "#7CB342";
+        ctx.fillRect(0, 0, W, H);
+        // Lawn pattern
+        ctx.fillStyle = "#9CCC65";
+        for (var gy = (scrollY * 0.2) % 60 - 60; gy < H; gy += 60) {
+            ctx.fillRect(0, gy, W, 20);
+        }
+        // Sidewalk (center)
+        var SIDEWALK_L = W / 2 - 100, SIDEWALK_W = 200;
+        ctx.fillStyle = "#BDBDBD";
+        ctx.fillRect(SIDEWALK_L, 0, SIDEWALK_W, H);
+        // Sidewalk cracks
+        ctx.strokeStyle = "#9E9E9E";
+        ctx.lineWidth = 1;
+        for (var sy = (scrollY % 80) - 80; sy < H + 40; sy += 80) {
+            ctx.beginPath();
+            ctx.moveTo(SIDEWALK_L, sy);
+            ctx.lineTo(SIDEWALK_L + SIDEWALK_W, sy);
+            ctx.stroke();
+        }
+        // Lane dashes (visual aid)
+        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 14]);
+        ctx.lineDashOffset = -scrollY * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(SIDEWALK_L + 60, 0); ctx.lineTo(SIDEWALK_L + 60, H);
+        ctx.moveTo(SIDEWALK_L + 140, 0); ctx.lineTo(SIDEWALK_L + 140, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Side houses / fences (decorative, far back)
+        for (var hx = 0; hx < W; hx += 100) {
+            if (hx >= SIDEWALK_L - 20 && hx <= SIDEWALK_L + SIDEWALK_W + 20) continue;
+            var hy = ((hx * 7 + scrollY * 0.3) % H);
+            // Picket fence
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(hx, hy, 30, 14);
+        }
+    }
+
+    function drawDinaSidewalkHazard(hz) {
+        ctx.save();
+        ctx.translate(hz.x, hz.y);
+        if (hz.type === "hydrant") {
+            ctx.fillStyle = "#B71C1C";
+            roundRect(-7, -10, 14, 22, 4); ctx.fill();
+            ctx.fillStyle = "#FFEB3B";
+            ctx.beginPath(); ctx.arc(0, -5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#212121";
+            ctx.fillRect(-9, 12, 18, 3);
+        } else if (hz.type === "mailbox") {
+            // Pole
+            ctx.fillStyle = "#5D4037";
+            ctx.fillRect(-1, 0, 2, 14);
+            // Box
+            ctx.fillStyle = "#1565C0";
+            roundRect(-10, -10, 20, 14, 3); ctx.fill();
+            // Crayon sign "GO DINA!" hanging
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(-12, 4, 22, 8, 1); ctx.fill();
+            ctx.fillStyle = "#FF4FA3";
+            ctx.font = "bold 7px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("GO DINA!", 0, 10);
+        } else if (hz.type === "dog") {
+            // friendly golden retriever
+            ctx.fillStyle = "#F4A460";
+            ctx.beginPath(); ctx.ellipse(0, 0, 14, 9, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-10, -5, 6, 0, Math.PI * 2); ctx.fill();
+            // Ears
+            ctx.fillStyle = "#CD853F";
+            ctx.beginPath();
+            ctx.ellipse(-14, -3, 3, 6, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(-12, -6, 0.8, 0, Math.PI * 2);
+            ctx.arc(-8, -6, 0.8, 0, Math.PI * 2);
+            ctx.fill();
+            // Tail wag
+            ctx.strokeStyle = "#F4A460";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            var wag = Math.sin(hz.walkTime * 10) * 4;
+            ctx.moveTo(12, 0); ctx.quadraticCurveTo(20, -6, 22 + wag, -4);
+            ctx.stroke();
+            // Leash
+            ctx.strokeStyle = "#8E24AA";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-10, -10); ctx.lineTo(-2, -22);
+            ctx.stroke();
+        } else if (hz.type === "butterfly") {
+            // Pink/orange butterfly fluttering
+            var flutter = Math.sin(hz.walkTime * 25);
+            ctx.fillStyle = "#FF80AB";
+            ctx.beginPath();
+            ctx.ellipse(-6, -4, 6, 8 + flutter * 2, 0.3, 0, Math.PI * 2);
+            ctx.ellipse(6, -4, 6, 8 + flutter * 2, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#FFCDD2";
+            ctx.beginPath();
+            ctx.ellipse(-6, 4, 4, 5, 0.3, 0, Math.PI * 2);
+            ctx.ellipse(6, 4, 4, 5, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#212121";
+            ctx.fillRect(-0.5, -3, 1, 8);
+        } else if (hz.type === "squirrel") {
+            ctx.fillStyle = "#8D6E63";
+            ctx.beginPath(); ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-7, -3, 4, 0, Math.PI * 2); ctx.fill();
+            // Big tail
+            ctx.strokeStyle = "#8D6E63";
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(7, 0); ctx.quadraticCurveTo(15, -10, 8, -14);
+            ctx.stroke();
+            // Acorn
+            ctx.fillStyle = "#A0522D";
+            ctx.beginPath(); ctx.arc(-9, -2, 1.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath(); ctx.arc(-9, -4, 0.6, 0, Math.PI * 2); ctx.fill();
+        } else if (hz.type === "kickball") {
+            ctx.fillStyle = "#F44336";
+            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFCDD2";
+            ctx.beginPath(); ctx.arc(-3, -3, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#B71C1C";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.stroke();
+        } else if (hz.type === "sprinkler") {
+            // Sprinkler nozzle with water arcs
+            ctx.fillStyle = "#37474F";
+            roundRect(-4, 2, 8, 8, 2); ctx.fill();
+            // Water spraying
+            ctx.strokeStyle = "rgba(33,150,243,0.6)";
+            ctx.lineWidth = 2;
+            for (var ww = 0; ww < 8; ww++) {
+                var wa = -Math.PI / 2 + (ww / 7 - 0.5) * Math.PI * 0.8;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(wa) * 18, Math.sin(wa) * 18);
+                ctx.stroke();
+            }
+            ctx.fillStyle = "#4FC3F7";
+            for (var dd = 0; dd < 5; dd++) {
+                var da = -Math.PI / 2 + (dd / 4 - 0.5) * Math.PI * 0.8;
+                ctx.beginPath();
+                ctx.arc(Math.cos(da) * 14, Math.sin(da) * 14, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else if (hz.type === "hopscotch") {
+            // Chalk grid drawn on sidewalk
+            ctx.strokeStyle = "#FFC107";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-10, -14, 20, 28);
+            ctx.beginPath();
+            ctx.moveTo(-10, 0); ctx.lineTo(10, 0);
+            ctx.stroke();
+            ctx.fillStyle = "#FFC107";
+            ctx.font = "bold 10px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("1", 0, -5);
+            ctx.fillText("2", 0, 11);
+        } else if (hz.type === "cat") {
+            // Mr. Whiskers napping
+            ctx.fillStyle = "#FF7043";
+            ctx.beginPath(); ctx.ellipse(0, 0, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(-12, -2, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFAB91";
+            ctx.beginPath(); ctx.ellipse(0, 2, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+            // Lazy eye
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(-12, -3, 1.5, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            // Tail
+            ctx.strokeStyle = "#FF7043";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(13, 0); ctx.quadraticCurveTo(20, -4, 18, -8);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawDinaRun() {
+        // Background
+        drawDinaSidewalkBg(dinaRunTimer * 100);
+
+        // Hazards
+        for (var h = 0; h < dinaSidewalk.length; h++) {
+            drawDinaSidewalkHazard(dinaSidewalk[h]);
+        }
+
+        // Home appears at 80% progress
+        if (dinaRunDistance > 0.7) {
+            // Distant home in upper area
+            var alphaH = clamp((dinaRunDistance - 0.7) / 0.3, 0, 1);
+            var homeY = -100 + alphaH * 200;
+            ctx.save();
+            ctx.globalAlpha = alphaH;
+            ctx.fillStyle = "#A1887F";
+            roundRect(W / 2 - 70, homeY, 140, 90, 8); ctx.fill();
+            // Roof
+            ctx.fillStyle = "#5D4037";
+            ctx.beginPath();
+            ctx.moveTo(W / 2 - 80, homeY);
+            ctx.lineTo(W / 2, homeY - 40);
+            ctx.lineTo(W / 2 + 80, homeY);
+            ctx.closePath(); ctx.fill();
+            // Door
+            ctx.fillStyle = "#3E2723";
+            roundRect(W / 2 - 15, homeY + 50, 30, 40, 4); ctx.fill();
+            ctx.fillStyle = "#FFEB3B";
+            ctx.beginPath(); ctx.arc(W / 2 + 8, homeY + 70, 2, 0, Math.PI * 2); ctx.fill();
+            // Welcome mat
+            ctx.fillStyle = "#D32F2F";
+            ctx.fillRect(W / 2 - 18, homeY + 88, 36, 5);
+            // Sign "HOME"
+            ctx.fillStyle = "#FFD700";
+            roundRect(W / 2 - 30, homeY - 8, 60, 14, 4); ctx.fill();
+            drawText("HOME ♥", W / 2, homeY - 1, "bold 11px Arial", "#000", null, 0);
+            ctx.restore();
+        }
+
+        // Mom (behind)
+        if (mom) drawMomTopDown(mom.x, mom.y, mom.walkTime);
+
+        // Dina
+        if (dina) drawDinaTopDown(dina.x, dina.y, dina.walkTime, "up", "backpack");
+
+        // Mom proximity glow
+        if (mom && mom.distance < 0.3) {
+            var glow = (0.3 - mom.distance) / 0.3;
+            ctx.fillStyle = "rgba(255, 200, 0, " + (glow * 0.25) + ")";
+            ctx.fillRect(0, 0, W, H);
+            // "!" bubble above Dina
+            if (mom.distance < 0.15 && dina) {
+                ctx.save();
+                ctx.fillStyle = "#FFC107";
+                ctx.beginPath();
+                ctx.arc(dina.x + 18, dina.y - 28, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#000";
+                ctx.font = "bold 12px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("!", dina.x + 18, dina.y - 27);
+                ctx.restore();
+            }
+        }
+
+        // Mom speech every once in a while
+        if (mom && mom.sayTimer < 1) {
+            var phrases = ["Dinaaaa!", "Wait up!", "Honey!", "Hold on!"];
+            drawSpeechBubble(mom.x, mom.y - 25, phrases[mom.says], mom.walkTime);
+        }
+
+        // HUD top: distance bar
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        roundRect(0, 0, W, 50, 0); ctx.fill();
+        // Progress bar
+        var barX = 60, barY = 18, barW = W - 120, barH = 14;
+        ctx.fillStyle = "rgba(255,255,255,0.2)";
+        roundRect(barX, barY, barW, barH, 7); ctx.fill();
+        ctx.fillStyle = "#FF4FA3";
+        roundRect(barX, barY, barW * dinaRunDistance, barH, 7); ctx.fill();
+        // House icon at end
+        ctx.fillStyle = "#FFD700";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("🏠", W - 36, 28);
+        // Dina icon at progress
+        ctx.fillStyle = "#FFB0C8";
+        ctx.beginPath();
+        ctx.arc(barX + barW * dinaRunDistance, barY + barH / 2, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Stats
+        drawText("⏱ " + Math.max(0, Math.ceil(DINA_RUN_DURATION - dinaRunTimer)) + "s",
+            15, 18, "bold 13px Arial", "#FFD700", "#000", 2, "left");
+        drawText("⚡ " + dina.sprintTimer.toFixed(1) + "s", 15, 36, "bold 12px Arial", "#FFEB3B", "#000", 2, "left");
+        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
+            "bold 13px Arial", "#FFD700", "#000", 2, "left");
+
+        // Mobile lane controls + sprint + slow buttons (always visible — they double as legend)
+        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
+            { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
+            { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+    }
+
+    // ── Update / Draw: dinaCaught (ending) ───────────────────
+    function updateDinaCaught(dt) {
+        dinaRunTimer += dt;
+        // Hold for 3 seconds, then go home
+        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+            enterDinaHome();
+        }
+    }
+
+    function drawDinaCaught() {
+        // Home porch scene
+        ctx.fillStyle = "#FFB6D9";
+        ctx.fillRect(0, 0, W, H * 0.4);
+        ctx.fillStyle = "#7CB342";
+        ctx.fillRect(0, H * 0.4, W, H * 0.6);
+        // House
+        ctx.fillStyle = "#A1887F";
+        roundRect(W / 2 - 140, H * 0.18, 280, 280, 10); ctx.fill();
+        ctx.fillStyle = "#5D4037";
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 160, H * 0.18);
+        ctx.lineTo(W / 2, H * 0.05);
+        ctx.lineTo(W / 2 + 160, H * 0.18);
+        ctx.closePath(); ctx.fill();
+        // Windows
+        ctx.fillStyle = "#FFEB3B";
+        roundRect(W / 2 - 100, H * 0.25, 50, 50, 4); ctx.fill();
+        roundRect(W / 2 + 50, H * 0.25, 50, 50, 4); ctx.fill();
+        // Door
+        ctx.fillStyle = "#3E2723";
+        roundRect(W / 2 - 30, H * 0.35, 60, 110, 6); ctx.fill();
+        ctx.fillStyle = "#FFEB3B";
+        ctx.beginPath(); ctx.arc(W / 2 + 20, H * 0.42, 3, 0, Math.PI * 2); ctx.fill();
+        // Welcome mat
+        ctx.fillStyle = "#D32F2F";
+        ctx.fillRect(W / 2 - 40, H * 0.45 + 1, 80, 14);
+        drawText("WELCOME", W / 2, H * 0.45 + 8, "bold 9px Arial", "#FFEB3B", null, 0);
+
+        // Dina at the porch
+        var dinaX = W / 2, dinaY = H * 0.6;
+        // Pose: hands on hips if "ran", waving if "walked"
+        ctx.save();
+        ctx.translate(dinaX, dinaY);
+        // Use a larger version for the cutscene
+        ctx.scale(2.5, 2.5);
+        drawDinaTopDown(0, 0, dinaRunTimer * 4, "down", "backpack");
+        ctx.restore();
+        // Mom in scene
+        if (dinaEnding === "walked") {
+            var momX = dinaX - 60, momY = dinaY - 10;
+            ctx.save();
+            ctx.translate(momX, momY);
+            ctx.scale(2.5, 2.5);
+            drawMomTopDown(0, 0, dinaRunTimer * 5);
+            ctx.restore();
+            // Holding hands hint
+            ctx.strokeStyle = "#FFD700";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(momX + 20, momY + 20);
+            ctx.lineTo(dinaX - 20, dinaY + 20);
+            ctx.stroke();
+        }
+
+        // Speech bubble
+        var msg;
+        if (dinaEnding === "ran") {
+            msg = "I BEAT YOU,\nMOM!";
+        } else {
+            msg = "Fine,\nlet's walk\ntogether.";
+        }
+        drawSpeechBubble(dinaX, dinaY - 90, msg, dinaRunTimer * 4);
+
+        // Result text top
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        roundRect(40, 30, W - 80, 50, 12); ctx.fill();
+        drawText(dinaEnding === "ran" ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗",
+            W / 2, 56, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+
+        // Stats badge
+        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W / 2, H - 60,
+            "bold 16px Arial", "#FFD700", "#000", 3);
+        drawText("Tap to enter home", W / 2, H - 30, "14px Arial", "#FFFFFF", "#000", 2);
+    }
+
+    function enterDinaHome() {
+        // Reward: persist stickers and coins to save
+        save.totalCoins += dinaCoinsRun;
+        persistSave();
+        state = "dinaHome";
+        dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down", hover: null };
+        homeMessageTimer = 0;
+    }
+
+    // ── Update / Draw: Dina Home Interior ────────────────────
+    var HOME_OBJECTS = {
+        bed:     { x: 340, y: 280, w: 130, h: 180, label: "Take a nap?", action: "nap" },
+        tablet:  { x: 350, y: 320, w: 60, h: 40, label: "Play Lulu's game?", action: "tablet" },
+        morgan:  { x: 230, y: 590, w: 60, h: 60, label: "Play with Morgan?", action: "morgan" },
+        door:    { x: 380, y: 200, w: 80, h: 140, label: "Go back outside?", action: "outside" }
+    };
+
+    function updateDinaHome(dt) {
+        if (!dinaHome) dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down" };
+        var speed = 100;
+        var dx = 0, dy = 0;
+        if (keys.left) dx -= 1;
+        if (keys.right) dx += 1;
+        if (keys.up) dy -= 1;
+        if (keys.down) dy += 1;
+        if (dx || dy) {
+            var len = Math.sqrt(dx * dx + dy * dy);
+            dx /= len; dy /= len;
+            dinaHome.x = clamp(dinaHome.x + dx * speed * dt, 30, W - 30);
+            dinaHome.y = clamp(dinaHome.y + dy * speed * dt, 250, H - 30);
+            dinaHome.walkTime += dt;
+            dinaHome.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+        }
+
+        // Check overlap with interactive objects
+        var closest = null, closestDist = 999999;
+        for (var k in HOME_OBJECTS) {
+            var o = HOME_OBJECTS[k];
+            var ox = o.x + o.w / 2;
+            var oy = o.y + o.h / 2;
+            var dd = (dinaHome.x - ox) * (dinaHome.x - ox) + (dinaHome.y - oy) * (dinaHome.y - oy);
+            if (dd < (o.w / 2 + 30) * (o.w / 2 + 30) && dd < closestDist) {
+                closestDist = dd;
+                closest = o;
+            }
+        }
+        dinaHome.hover = closest;
+
+        // Space / action / click → activate
+        if (closest && (consumeAction() || consumeHomeInteract())) {
+            triggerHomeInteract(closest.action);
+        }
+        // Tap on object directly
+        var click = consumeClick();
+        if (click) {
+            for (var k2 in HOME_OBJECTS) {
+                var o2 = HOME_OBJECTS[k2];
+                if (pointInRect(click.x, click.y, o2.x, o2.y, o2.w, o2.h)) {
+                    triggerHomeInteract(o2.action);
+                    return;
+                }
+            }
+        }
+
+        if (homeMessageTimer > 0) homeMessageTimer -= dt;
+    }
+
+    var lastHomeInteractKey = false;
+    function consumeHomeInteract() {
+        // Space on keyboard is consumed by consumeAction already
+        return false;
+    }
+
+    function triggerHomeInteract(action) {
+        if (action === "morgan") {
+            state = "dinaMorgan";
+            morganHappy = 0;
+            morganPetSpot = null;
+            morganTimer = 0;
+            morganMood = "calm";
+            playTone(600, 0.1, "triangle", 0.2);
+        } else if (action === "tablet") {
+            // Game-within-a-game: enter regular Lulu mode
+            inTabletMode = true;
+            resetGame();
+            state = "playing";
+            playTone(880, 0.08, "sine", 0.18);
+        } else if (action === "nap") {
+            state = "dinaNap";
+            dinaRunTimer = 0;
+        } else if (action === "outside") {
+            // Go back to character select
+            state = "charSelect";
+            inTabletMode = false;
+        }
+    }
+
+    function drawDinaHome() {
+        // Wall (cream)
+        ctx.fillStyle = "#FFE8C8";
+        ctx.fillRect(0, 0, W, 280);
+        // Floor (honey wood)
+        ctx.fillStyle = "#E8B872";
+        ctx.fillRect(0, 280, W, H - 280);
+        // Wood grain lines
+        ctx.strokeStyle = "#C99A50";
+        ctx.lineWidth = 1;
+        for (var fy = 300; fy < H; fy += 30) {
+            ctx.beginPath();
+            ctx.moveTo(0, fy); ctx.lineTo(W, fy);
+            ctx.stroke();
+        }
+
+        // Window with sky + curtains
+        ctx.fillStyle = "#A8D8F0";
+        roundRect(60, 70, 120, 130, 6); ctx.fill();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 5;
+        roundRect(60, 70, 120, 130, 6); ctx.stroke();
+        // Window cross
+        ctx.beginPath();
+        ctx.moveTo(120, 70); ctx.lineTo(120, 200);
+        ctx.moveTo(60, 135); ctx.lineTo(180, 135);
+        ctx.stroke();
+        // Sun in window
+        ctx.fillStyle = "#FFD54F";
+        ctx.beginPath(); ctx.arc(95, 100, 16, 0, Math.PI * 2); ctx.fill();
+        // Curtains
+        ctx.fillStyle = "#B8E0D2";
+        roundRect(40, 60, 22, 150, 4); ctx.fill();
+        roundRect(180, 60, 22, 150, 4); ctx.fill();
+        // Sunbeam on floor
+        ctx.fillStyle = "rgba(255,235,150,0.4)";
+        ctx.beginPath();
+        ctx.moveTo(60, 280); ctx.lineTo(180, 280); ctx.lineTo(200, 500); ctx.lineTo(40, 500);
+        ctx.closePath(); ctx.fill();
+
+        // Poster (BE BRAVE)
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(220, 50, 80, 100, 4); ctx.fill();
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 3;
+        roundRect(220, 50, 80, 100, 4); ctx.stroke();
+        // Fox icon
+        ctx.fillStyle = "#FF7043";
+        ctx.beginPath(); ctx.arc(260, 95, 20, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(245, 78); ctx.lineTo(252, 70); ctx.lineTo(258, 80); ctx.closePath();
+        ctx.moveTo(275, 78); ctx.lineTo(268, 70); ctx.lineTo(262, 80); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(254, 92, 2, 0, Math.PI * 2);
+        ctx.arc(266, 92, 2, 0, Math.PI * 2);
+        ctx.fill();
+        drawText("BE BRAVE", 260, 130, "bold 11px Arial", "#5D4037", null, 0);
+
+        // Glow-in-dark stars on ceiling
+        var pulseTime = (dinaHome ? dinaHome.walkTime : 0) + dinaRunTimer;
+        ctx.fillStyle = "#FFEE58";
+        var stars = [[15, 20], [320, 30], [430, 25], [40, 250], [400, 245]];
+        for (var st = 0; st < stars.length; st++) {
+            var op = 0.5 + 0.5 * Math.sin(pulseTime * 2 + st);
+            ctx.globalAlpha = op;
+            drawText("★", stars[st][0], stars[st][1], "bold 14px Arial", "#FFEE58", null, 0);
+        }
+        ctx.globalAlpha = 1;
+
+        // Bed (right side)
+        var b = HOME_OBJECTS.bed;
+        ctx.fillStyle = "#5D4037";
+        roundRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6, 8); ctx.fill();
+        // Mattress
+        ctx.fillStyle = "#F4A4B8"; // pink quilt
+        roundRect(b.x, b.y, b.w, b.h, 6); ctx.fill();
+        // Quilt squares pattern
+        ctx.strokeStyle = "#E091A6";
+        ctx.lineWidth = 1.5;
+        for (var qx = b.x + 20; qx < b.x + b.w; qx += 30) {
+            ctx.beginPath();
+            ctx.moveTo(qx, b.y); ctx.lineTo(qx, b.y + b.h);
+            ctx.stroke();
+        }
+        for (var qy = b.y + 30; qy < b.y + b.h; qy += 30) {
+            ctx.beginPath();
+            ctx.moveTo(b.x, qy); ctx.lineTo(b.x + b.w, qy);
+            ctx.stroke();
+        }
+        // Pillow at head of bed
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(b.x + 10, b.y + 10, b.w - 20, 40, 8); ctx.fill();
+        // Mint blanket folded at foot
+        ctx.fillStyle = "#B8E0D2";
+        roundRect(b.x, b.y + b.h - 30, b.w, 30, 6); ctx.fill();
+
+        // Tablet on bed
+        var tb = HOME_OBJECTS.tablet;
+        ctx.fillStyle = "#212121";
+        roundRect(tb.x, tb.y, tb.w, tb.h, 4); ctx.fill();
+        ctx.fillStyle = "#4FC3F7";
+        roundRect(tb.x + 3, tb.y + 3, tb.w - 6, tb.h - 6, 3); ctx.fill();
+        // Tiny Lulu screen icon
+        ctx.fillStyle = "#E91E63";
+        roundRect(tb.x + 20, tb.y + 8, 20, 24, 4); ctx.fill();
+
+        // Toy bin (left)
+        ctx.fillStyle = "#D4A574";
+        roundRect(30, 480, 100, 120, 6); ctx.fill();
+        ctx.strokeStyle = "#8D6E63";
+        ctx.lineWidth = 2;
+        for (var bx = 35; bx < 130; bx += 6) {
+            ctx.beginPath();
+            ctx.moveTo(bx, 480); ctx.lineTo(bx + 3, 600);
+            ctx.stroke();
+        }
+        // Plushies poking out
+        ctx.fillStyle = "#FFD54F";
+        ctx.beginPath();
+        ctx.moveTo(50, 480);
+        ctx.lineTo(70, 460);
+        ctx.lineTo(90, 480);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#81C784";
+        ctx.beginPath();
+        ctx.arc(110, 470, 12, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Rug
+        ctx.fillStyle = "#FFE8C8";
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H * 0.72, 130, 100, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#B8E0D2";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H * 0.72, 110, 82, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "#F4A4B8";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.ellipse(W / 2, H * 0.72, 80, 60, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Morgan on rug
+        var mo = HOME_OBJECTS.morgan;
+        ctx.save();
+        ctx.translate(mo.x + 30, mo.y + 30);
+        ctx.scale(0.6, 0.6);
+        // Body
+        ctx.fillStyle = "#9B8FB4";
+        ctx.beginPath(); ctx.ellipse(0, 10, 32, 26, 0, 0, Math.PI * 2); ctx.fill();
+        // Head
+        ctx.beginPath(); ctx.arc(0, -16, 22, 0, Math.PI * 2); ctx.fill();
+        // Ears
+        ctx.beginPath();
+        ctx.moveTo(-20, -28); ctx.lineTo(-10, -42); ctx.lineTo(-2, -30); ctx.closePath();
+        ctx.moveTo(2, -30); ctx.lineTo(10, -42); ctx.lineTo(20, -28); ctx.closePath();
+        ctx.fill();
+        // Inner ears
+        ctx.fillStyle = "#FFB8D9";
+        ctx.beginPath();
+        ctx.moveTo(-15, -32); ctx.lineTo(-10, -38); ctx.lineTo(-5, -31); ctx.closePath();
+        ctx.fill();
+        // Eyes
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(-8, -15, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(8, -15, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.stroke();
+        // Nose
+        ctx.fillStyle = "#FF8AAA";
+        ctx.beginPath();
+        ctx.moveTo(-3, -8); ctx.lineTo(3, -8); ctx.lineTo(0, -5); ctx.closePath();
+        ctx.fill();
+        // Pink heart
+        ctx.fillStyle = "#FF6B9D";
+        ctx.beginPath(); ctx.arc(-3, 12, 3, 0, Math.PI * 2);
+        ctx.arc(3, 12, 3, 0, Math.PI * 2);
+        ctx.moveTo(-5, 12); ctx.lineTo(0, 20); ctx.lineTo(5, 12);
+        ctx.fill();
+        ctx.restore();
+
+        // Door
+        var dr = HOME_OBJECTS.door;
+        ctx.fillStyle = "#5D4037";
+        roundRect(dr.x - 3, dr.y - 3, dr.w + 6, dr.h + 6, 4); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(dr.x, dr.y, dr.w, dr.h, 4); ctx.fill();
+        ctx.fillStyle = "#FF4FA3";
+        ctx.beginPath(); ctx.arc(dr.x + dr.w - 12, dr.y + dr.h / 2, 3, 0, Math.PI * 2); ctx.fill();
+
+        // Crayon drawing taped near door (stick figure mom + dina)
+        ctx.fillStyle = "#FFF59D";
+        roundRect(dr.x - 60, dr.y - 25, 50, 50, 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 1.5;
+        // tape strips
+        roundRect(dr.x - 60, dr.y - 30, 50, 6, 1);
+        ctx.fillStyle = "rgba(255,200,150,0.6)";
+        ctx.fill();
+        // stick figures
+        ctx.strokeStyle = "#F44336";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(dr.x - 48, dr.y - 12, 3, 0, Math.PI * 2);
+        ctx.moveTo(dr.x - 48, dr.y - 9); ctx.lineTo(dr.x - 48, dr.y + 2);
+        ctx.moveTo(dr.x - 52, dr.y - 5); ctx.lineTo(dr.x - 44, dr.y - 5);
+        ctx.moveTo(dr.x - 48, dr.y + 2); ctx.lineTo(dr.x - 52, dr.y + 12);
+        ctx.moveTo(dr.x - 48, dr.y + 2); ctx.lineTo(dr.x - 44, dr.y + 12);
+        ctx.stroke();
+        ctx.strokeStyle = "#3F51B5";
+        ctx.beginPath();
+        ctx.arc(dr.x - 30, dr.y - 8, 4, 0, Math.PI * 2);
+        ctx.moveTo(dr.x - 30, dr.y - 4); ctx.lineTo(dr.x - 30, dr.y + 8);
+        ctx.moveTo(dr.x - 36, dr.y); ctx.lineTo(dr.x - 24, dr.y);
+        ctx.moveTo(dr.x - 30, dr.y + 8); ctx.lineTo(dr.x - 36, dr.y + 18);
+        ctx.moveTo(dr.x - 30, dr.y + 8); ctx.lineTo(dr.x - 24, dr.y + 18);
+        ctx.stroke();
+        // little heart between
+        ctx.fillStyle = "#F44336";
+        drawText("♥", dr.x - 39, dr.y - 18, "bold 9px Arial", "#F44336", null, 0);
+
+        // Cookie + milk on desk corner
+        ctx.fillStyle = "#FFA726";
+        ctx.beginPath();
+        ctx.arc(250, 260, 8, 0.3 * Math.PI, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = "#6D4C41";
+        ctx.beginPath();
+        ctx.arc(250, 260, 1.5, 0, Math.PI * 2);
+        ctx.arc(254, 257, 1.5, 0, Math.PI * 2);
+        ctx.arc(247, 258, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Milk glass
+        ctx.fillStyle = "#FAFAFA";
+        roundRect(265, 252, 12, 16, 2); ctx.fill();
+        ctx.strokeStyle = "#BDBDBD";
+        ctx.lineWidth = 1;
+        roundRect(265, 252, 12, 16, 2); ctx.stroke();
+
+        // Dina herself
+        drawDinaTopDown(dinaHome.x, dinaHome.y, dinaHome.walkTime, dinaHome.facing, "morgan");
+
+        // Hover label
+        if (dinaHome.hover) {
+            var o = dinaHome.hover;
+            var lx = o.x + o.w / 2;
+            var ly = o.y - 16;
+            drawSpeechBubble(lx, ly, o.label, dinaHome.walkTime);
+            drawText("[SPACE]", lx, ly + 14, "bold 11px Arial", "#FFD700", "#000", 2);
+        }
+
+        // HUD top bar
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        roundRect(0, 0, W, 40, 0); ctx.fill();
+        drawText("🕒 3:45 PM · 🏠 Home Sweet Home", W / 2, 20,
+            "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        drawText("♥ ★ " + dinaStickers + "  $" + formatNum(save.totalCoins), 12, 20,
+            "bold 12px Arial", "#FFD700", "#000", 2, "left");
+        drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
+
+        // Footer hint
+        drawText("Arrow keys to walk · Tap/Space to interact", W / 2, H - 12,
+            "11px Arial", "#FFFFFF", "#000", 2);
+    }
+
+    // ── Update / Draw: Morgan Cat Plushie ────────────────────
+    var morganHearts = [];
+    var morganSparkles = [];
+    function updateDinaMorgan(dt) {
+        morganTimer += dt;
+        // Move pet spot occasionally
+        if (!morganPetSpot || morganPetSpot.t <= 0) {
+            var zones = ["head", "back", "chin", "belly"];
+            var z = randPick(zones);
+            morganPetSpot = { zone: z, t: 4 };
+        }
+        morganPetSpot.t -= dt;
+
+        var click = consumeClick();
+        if (click) {
+            // Check exit button
+            if (pointInRect(click.x, click.y, 20, 30, 40, 40)) {
+                state = "dinaHome";
+                return;
+            }
+            // Detect zone clicked
+            var dx = click.x - 240;
+            var dy = click.y - 480;
+            // Head area (y < -50 relative)
+            var hit = null;
+            if (dy < -50 && Math.abs(dx) < 80) hit = "head";
+            else if (dy >= -50 && dy < 50 && Math.abs(dx) < 90) hit = "back";
+            else if (dy >= 50 && dy < 140 && Math.abs(dx) < 90) hit = "belly";
+            if (hit) {
+                var gain = (hit === "belly") ? 15 : (hit === morganPetSpot.zone ? 10 : 5);
+                morganHappy = Math.min(100, morganHappy + gain);
+                spawnMorganHearts(click.x, click.y, hit === "belly" ? 8 : 3);
+                playTone(hit === "belly" ? 700 : 1000, 0.08, "sine", 0.16);
+                morganMood = "happy";
+                setTimeout(function () { if (morganMood === "happy") morganMood = "calm"; }, 700);
+            }
+        }
+        // Update hearts
+        for (var hh = morganHearts.length - 1; hh >= 0; hh--) {
+            var heart = morganHearts[hh];
+            heart.life -= dt;
+            heart.y -= 40 * dt;
+            heart.x += Math.sin(heart.life * 4) * 0.5;
+            if (heart.life <= 0) morganHearts.splice(hh, 1);
+        }
+        // 100% celebration
+        if (morganHappy >= 100 && morganMood !== "celebrate") {
+            morganMood = "celebrate";
+            save.parkingTotalStars += 1;
+            persistSave();
+            playTone(523, 0.1, "triangle", 0.2);
+            setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+            setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 200);
+            setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
+        }
+    }
+
+    function spawnMorganHearts(x, y, n) {
+        for (var i = 0; i < n; i++) {
+            morganHearts.push({
+                x: x + rand(-15, 15), y: y,
+                life: 1.2,
+                color: randPick(["#FF6B9D", "#FF80AB", "#E91E63"])
+            });
+        }
+    }
+
+    function drawDinaMorgan() {
+        // Cozy background
+        ctx.fillStyle = "#FFF4E0";
+        ctx.fillRect(0, 0, W, H);
+        // Soft pink blanket
+        ctx.fillStyle = "#FFD4E5";
+        ctx.fillRect(0, H * 0.55, W, H * 0.45);
+        ctx.fillStyle = "#F5A8C8";
+        for (var f = 0; f < W; f += 60) {
+            ctx.beginPath();
+            ctx.ellipse(f, H * 0.55, 30, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Happiness bar at top
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        roundRect(0, 0, W, 60, 0); ctx.fill();
+        ctx.fillStyle = "#E8D4F0";
+        roundRect(40, 22, W - 80, 22, 11); ctx.fill();
+        ctx.fillStyle = "#FF8FB8";
+        roundRect(42, 24, (W - 84) * (morganHappy / 100), 18, 9); ctx.fill();
+        drawText("♥ " + Math.floor(morganHappy) + "%", W / 2, 33,
+            "bold 13px Arial", "#FFFFFF", "#000", 3);
+        drawText("Morgan's Happiness", W / 2, 12, "bold 10px Arial", "#FFD700", "#000", 2);
+
+        // Back button
+        drawIconButton(20, 80, 40, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
+        drawText("BACK", 40, 130, "bold 11px Arial", "#FFFFFF", "#000", 2);
+
+        // Morgan plushie (BIG)
+        ctx.save();
+        ctx.translate(240, 480);
+        var bounce = morganMood === "happy" ? Math.sin(morganTimer * 30) * 2 : 0;
+        var celebrate = morganMood === "celebrate";
+        if (celebrate) bounce += Math.abs(Math.sin(morganTimer * 8)) * -10;
+        ctx.translate(0, bounce);
+        // Body
+        ctx.fillStyle = "#9B8FB4";
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 90, 100, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Belly
+        ctx.fillStyle = "#D4C9E8";
+        ctx.beginPath();
+        ctx.ellipse(0, 80, 60, 50, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Stitching
+        ctx.strokeStyle = "#7A6FA0";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(0, 30); ctx.lineTo(0, 140);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Paws
+        ctx.fillStyle = "#9B8FB4";
+        ctx.beginPath(); ctx.ellipse(-35, 120, 25, 18, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(35, 120, 25, 18, 0, 0, Math.PI * 2); ctx.fill();
+        // Tail (wrapping right)
+        ctx.beginPath();
+        ctx.ellipse(85, 80, 15, 35, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Head
+        ctx.fillStyle = "#9B8FB4";
+        ctx.beginPath(); ctx.arc(0, -60, 80, 0, Math.PI * 2); ctx.fill();
+        // Ears
+        ctx.beginPath();
+        ctx.moveTo(-60, -100); ctx.lineTo(-40, -150); ctx.lineTo(-15, -100);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(15, -100); ctx.lineTo(40, -150); ctx.lineTo(60, -100);
+        ctx.closePath(); ctx.fill();
+        // Inner ears
+        ctx.fillStyle = "#FFB8D9";
+        ctx.beginPath();
+        ctx.moveTo(-50, -110); ctx.lineTo(-40, -135); ctx.lineTo(-25, -105);
+        ctx.closePath(); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(25, -105); ctx.lineTo(40, -135); ctx.lineTo(50, -110);
+        ctx.closePath(); ctx.fill();
+        // Cheeks
+        ctx.fillStyle = "#FFAACC";
+        ctx.beginPath(); ctx.arc(-50, -40, 14, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(50, -40, 14, 0, Math.PI * 2); ctx.fill();
+
+        // Eyes (based on mood)
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        if (morganMood === "happy" || celebrate) {
+            ctx.beginPath();
+            ctx.arc(-28, -60, 12, 1.1 * Math.PI, 1.9 * Math.PI);
+            ctx.arc(28, -60, 12, 1.1 * Math.PI, 1.9 * Math.PI);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = "#2A2438";
+            ctx.beginPath();
+            ctx.ellipse(-28, -60, 8, 11, 0, 0, Math.PI * 2);
+            ctx.ellipse(28, -60, 8, 11, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-26, -64, 3, 0, Math.PI * 2);
+            ctx.arc(30, -64, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.lineCap = "butt";
+
+        // Nose
+        ctx.fillStyle = "#E88AAA";
+        ctx.beginPath();
+        ctx.moveTo(-6, -30); ctx.lineTo(6, -30); ctx.lineTo(0, -24);
+        ctx.closePath(); ctx.fill();
+        // Mouth
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -24);
+        ctx.quadraticCurveTo(-4, -20, -6, -22);
+        ctx.moveTo(0, -24);
+        ctx.quadraticCurveTo(4, -20, 6, -22);
+        ctx.stroke();
+
+        // Highlight on pet spot
+        if (morganPetSpot && morganMood === "calm") {
+            ctx.strokeStyle = "rgba(255, 215, 0, " + (0.5 + 0.3 * Math.sin(morganTimer * 5)) + ")";
+            ctx.lineWidth = 3;
+            var psx = 0, psy = 0;
+            if (morganPetSpot.zone === "head") { psx = 0; psy = -60; }
+            else if (morganPetSpot.zone === "back") { psx = -20; psy = 0; }
+            else if (morganPetSpot.zone === "chin") { psx = 0; psy = -10; }
+            else if (morganPetSpot.zone === "belly") { psx = 0; psy = 70; }
+            ctx.beginPath();
+            ctx.arc(psx, psy, 25, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // Floating hearts
+        for (var h = 0; h < morganHearts.length; h++) {
+            var heart = morganHearts[h];
+            ctx.save();
+            ctx.globalAlpha = clamp(heart.life / 1.2, 0, 1);
+            ctx.fillStyle = heart.color;
+            ctx.font = "bold 20px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("♥", heart.x, heart.y);
+            ctx.restore();
+        }
+
+        // Dina's hand peeking from bottom-right
+        ctx.save();
+        ctx.translate(W - 60, H - 50);
+        ctx.fillStyle = "#A8E6CF";
+        roundRect(-30, 0, 60, 80, 8); ctx.fill();
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(0, -10, 16, 0, Math.PI * 2); ctx.fill();
+        // Fingers
+        for (var ff = 0; ff < 4; ff++) {
+            ctx.beginPath();
+            ctx.arc(-10 + ff * 6, -22, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // Celebrate big-burst stars
+        if (morganMood === "celebrate") {
+            ctx.fillStyle = "rgba(255, 235, 0, 0.15)";
+            ctx.fillRect(0, 0, W, H);
+            drawText("⭐ +1 STAR! ⭐", W / 2, H / 2 - 100,
+                "bold 28px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
+            if (Math.random() > 0.4) {
+                morganHearts.push({
+                    x: rand(0, W), y: H + 20,
+                    life: 2,
+                    color: randPick(["#FFD700", "#FFEB3B", "#FF6B9D"])
+                });
+                morganHearts[morganHearts.length - 1].y = H;
+            }
+        }
+
+        // Footer hint
+        drawText("Tap anywhere on Morgan to pet, scratch, or hug", W / 2, H - 14,
+            "12px Arial", "#FFFFFF", "#000", 2);
+    }
+
+    // ── Update / Draw: Dina Nap ──────────────────────────────
+    function updateDinaNap(dt) {
+        dinaRunTimer += dt;
+        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+            state = "dinaHome";
+        }
+    }
+
+    function drawDinaNap() {
+        // Slowly dimming dusk
+        var t = clamp(dinaRunTimer / 3.5, 0, 1);
+        ctx.fillStyle = "#FFE8C8";
+        ctx.fillRect(0, 0, W, H);
+        // Dim overlay
+        ctx.fillStyle = "rgba(40, 25, 80, " + (t * 0.55) + ")";
+        ctx.fillRect(0, 0, W, H);
+        // Bed in middle of screen
+        ctx.fillStyle = "#5D4037";
+        roundRect(W / 2 - 160, H / 2 - 80, 320, 180, 14); ctx.fill();
+        ctx.fillStyle = "#F4A4B8";
+        roundRect(W / 2 - 150, H / 2 - 70, 300, 160, 10); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(W / 2 - 120, H / 2 - 60, 240, 40, 8); ctx.fill();
+        // Blanket pulled up over Dina
+        ctx.fillStyle = "#B8E0D2";
+        roundRect(W / 2 - 100, H / 2 - 20, 200, 100, 8); ctx.fill();
+        // Dina's head poking out
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(W / 2, H / 2 - 35, 22, 0, Math.PI * 2); ctx.fill();
+        // Hair
+        ctx.fillStyle = "#6B4423";
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2 - 45, 24, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // Sleeping eyes (closed arcs)
+        ctx.strokeStyle = "#3D2817";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(W / 2 - 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(W / 2 + 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.stroke();
+        // Tiny smile
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(W / 2, H / 2 - 28, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        // Floating Z's
+        for (var zi = 0; zi < 3; zi++) {
+            var zt = (dinaRunTimer + zi * 0.5) % 2;
+            var alpha = 1 - zt / 2;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold " + (20 + zi * 6) + "px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Z", W / 2 + 20 + zi * 20, H / 2 - 70 - zt * 50);
+            ctx.restore();
+        }
+        // Floating moon/stars
+        ctx.fillStyle = "#FFEE58";
+        for (var sti = 0; sti < 6; sti++) {
+            ctx.fillText("★", (sti * 87 + 47) % W, 50 + (sti % 3) * 30);
+        }
+
+        // Result text
+        if (t > 0.7) {
+            ctx.globalAlpha = (t - 0.7) / 0.3;
+            drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
+                "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+            drawText("Tap to wake up", W / 2, H - 40,
+                "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+            ctx.globalAlpha = 1;
+        }
+
+        // Award the star once
+        if (t >= 1 && !window.__napAwarded) {
+            window.__napAwarded = true;
+            save.parkingTotalStars += 1;
+            persistSave();
+            setTimeout(function () { window.__napAwarded = false; }, 1000);
+        }
+    }
+
     // ── Main Loop ────────────────────────────────────────────
     var lastTime = 0;
 
@@ -4546,7 +6786,8 @@
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
 
-        if (state === "menu") updateMenu(dt);
+        if (state === "charSelect") updateCharSelect(dt);
+        else if (state === "menu") updateMenu(dt);
         else if (state === "playing") updatePlaying(dt);
         else if (state === "paused") updatePaused(dt);
         else if (state === "crash") updateCrash(dt);
@@ -4556,10 +6797,17 @@
         else if (state === "parking") updateParking(dt);
         else if (state === "parkingResult") updateParkingResult(dt);
         else if (state === "parkingEnd") updateParkingEnd(dt);
+        else if (state === "dinaBus") updateDinaBus(dt);
+        else if (state === "dinaRun") updateDinaRun(dt);
+        else if (state === "dinaCaught") updateDinaCaught(dt);
+        else if (state === "dinaHome") updateDinaHome(dt);
+        else if (state === "dinaMorgan") updateDinaMorgan(dt);
+        else if (state === "dinaNap") updateDinaNap(dt);
 
         ctx.clearRect(0, 0, W, H);
 
-        if (state === "menu") drawMenu();
+        if (state === "charSelect") drawCharSelect();
+        else if (state === "menu") drawMenu();
         else if (state === "playing") drawPlaying();
         else if (state === "paused") drawPaused();
         else if (state === "crash") drawCrash();
@@ -4569,6 +6817,12 @@
         else if (state === "parking") drawParking();
         else if (state === "parkingResult") drawParkingResult();
         else if (state === "parkingEnd") drawParkingEnd();
+        else if (state === "dinaBus") drawDinaBus();
+        else if (state === "dinaRun") drawDinaRun();
+        else if (state === "dinaCaught") drawDinaCaught();
+        else if (state === "dinaHome") drawDinaHome();
+        else if (state === "dinaMorgan") drawDinaMorgan();
+        else if (state === "dinaNap") drawDinaNap();
 
         requestAnimationFrame(gameLoop);
     }
