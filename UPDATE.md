@@ -1,178 +1,103 @@
-# How to update lulu.boats with v4 — Bruck Sisters update
+# How to update lulu.boats with v5 — 10-Agent Quality Pass
 
-This is the biggest update yet! Adds a whole new character (Dina) with her own mini-mode, a character-select screen, plus Lulu's appearance is refined to match the photo.
+This update is the result of **10 specialized agents** each auditing one area of the game (QA, bug hunting, visual polish, character art, animation, audio, UI/UX, mobile, performance, new features). Their reports flagged dozens of issues — this release fixes the highest-impact ones.
 
 Deploy is the same as before — drag files to GitHub, commit, refresh. ~3 minutes.
 
-## The easy way (drag & drop, no terminal)
+## What's fixed / new in v5
 
-### 1. Open your GitHub repo
-- Go to your repo (e.g., **https://github.com/yehudab10/lulu-game**)
+### 🐛 Critical bug fixes (would have broken your playthrough)
 
-### 2. Upload all the files
-- Click **Add file** → **Upload files**
-- Drag every file from your `lulu game` folder onto the upload area
-- The two big ones that changed: **`game.js`** and **`index.html`**
-- Scroll to the bottom → **Commit changes** with a message like "Add Bruck Sisters character select + Dina mode"
-- Click the green Commit button
+1. **Tablet trap** — Before: tapping the tablet in Dina's bedroom dropped you into Lulu's driving game with **no way back to Dina's home**. Now: the pause-menu QUIT and the game-over MAIN-MENU buttons route back to Dina's home when you entered via tablet.
 
-### 3. Wait ~1 minute
-- The repo will show a green ✓ check mark when GitHub Pages finishes deploying.
+2. **Tablet was hidden inside the bed hitbox** — Before: tapping the tablet on the bed actually triggered "Take a nap". The tablet was unreachable. Fixed.
 
-### 4. Open lulu.boats on your phone
-- Pull down to refresh (this busts the old cache).
-- If you have it installed as a home-screen app, **uninstall and reinstall** to get the new version.
+3. **Pause toggling on its own** — Before: pressing P or clicking pause could instantly resume because the same keystroke counted as both "pause" and "action". Fixed.
 
----
+4. **State leaks between runs** — Before: dying in challenge parking and starting a regular game could carry over stale lives/cameras/parking-cars to the wrong place. Fixed by resetting everything on resetGame.
 
-## What's new in v4 — The Bruck Sisters Update 👯
+5. **Morgan plushie back button was invisible** — Before: the BACK button was drawn at y=80 but its click hitbox was at y=30, so tapping it did nothing. Fixed.
 
-### 🎀 Character Select Screen (NEW first screen)
-When you open the game now, you'll see **"Pick a Bruck Sister!"** with two cards:
+6. **Morgan's "chin" pet zone unreachable** — Removed (you can pet head/back/belly).
 
-**Lulu — 18**
-- Long brown hair, brown eyes, white floral tee, gold necklace
-- Drives the pink car
-- Pink magenta card border
-- *"Pink car. Big sister energy."*
+7. **Dina target position undefined** if the bus intro was skipped — could cause NaN movement. Fixed.
 
-**Dina — 8**
-- Brown ponytail, big smile with dimples, pink puffy coat
-- Holding Morgan the cat plushie
-- Lilac purple card border
-- *"Has Morgan. Runs fast."*
+8. **Mom's first speech bubble was empty** for the first second of the run home. Now starts properly.
 
-Sunset gradient background with drifting confetti. Tap a card to enter that sister's mode. Tap the ◀ button on either menu to come back to character select.
+9. **Angry-man revenge sequence didn't clean up** — old objects lingered into game over. Fixed.
 
-### 👧 Dina Mode — Brand New
-**Dina is in 2nd grade** and just got off the school bus. Her mom is late picking her up, so she walks home herself. Then she's at home — what does she want to do?
+### 📱 Mobile-friendly improvements
 
-**1. School bus intro (8 seconds)**
-- A yellow **"LEV BAIS YAAKOV"** school bus pulls up with flashing red/orange lights and a deployed stop sign
-- The door hisses open, **6 girls in school uniforms** (navy skirts, white shirts, backpacks) hop off and scatter
-- Dina is the last off, carrying her backpack with a unicorn keychain
-- She looks around — thought bubble: *"Where's mom?"*
-- Determined: *"Hmph! I'll walk!"*
-- Bus drives off and the run-home mini-game begins
-- Tap to skip the intro if you want
+- All touch buttons are now **64×64 pixels** (up from 40-56px). Comfortably above Apple's 44pt minimum.
+- **More space between adjacent buttons** — 12-16px gaps instead of 6-8px.
+- Buttons moved **above the iPhone home-indicator zone** (last 34px of screen).
+- **Pause button moved to 48×48** in top-left (was 40×40).
+- **New 📣 honk button** on the right side of the main game (above missile), so you don't need a keyboard.
 
-**2. Run Home mini-game (~45 seconds)**
-- Top-down view scrolling up
-- Dina runs along the sidewalk in 3 lanes (left grass / center / right grass)
-- **Controls:**
-  - **← → / ◀ ▶ buttons:** switch lanes
-  - **↑ / ⚡ button:** sprint (uses a 3-second sprint meter, recharges over time)
-  - **↓ / 🐢 button:** slow walk (lets you sneak past sleeping cats)
-- **Mom chases on screen** behind her (purple sweater, handbag). She says cute things: *"Wait up!"*, *"Dinaaaa!"*, *"Hold on!"*. A "!" appears above Dina's head when mom is close.
-- **9 kid-friendly hazards/treats** (all non-scary):
-  - 🚰 Fire hydrant — bump = small stumble
-  - 🐕 Golden retriever — pet it (+2 coins, but pauses you)
-  - 🦋 Butterfly — follow for coin
-  - 🐿️ Squirrel with acorn — darts across, can trip you
-  - ⚽ Stray kickball — dodge it
-  - 💧 Sprinkler — refills sprint meter
-  - ✏️ Hopscotch chalk — earns a sticker
-  - 📬 Mailbox — has a crayon "GO DINA!" sign
-  - 🐈 Mr. Whiskers the cat — basking on sidewalk, judges you silently
-- **Progress bar** at top shows how close to home Dina is
-- **Home appears in the distance** at 80% progress (welcome mat, "HOME ♥" sign)
-- **Two endings, both cute** — no fail state:
-  - **Reach home before mom:** *"I BEAT YOU, MOM!"* fist pump on porch
-  - **Mom catches up:** *"Fine, let's walk together."* They hold hands and walk in
-- All coins and stickers carry over
+### 🎨 Visual polish
 
-**3. Home Interior**
-After arriving home, you're in Dina's bedroom — a top-down view of a cozy kid's room:
-- **Walls:** cream
-- **Wood plank floor** with grain lines
-- **Bed:** big pink quilt with white pillow, mint blanket at foot — **tap to take a nap**
-- **Tablet on the bed** — **tap to play the Lulu game on her tablet!** (game-within-a-game!)
-- **Morgan the cat plushie** on the rug — **tap to pet her**
-- **Window** with curtains and sun streaming through (sunbeam on floor)
-- **"BE BRAVE" poster** with a fox on it
-- **Glow-in-the-dark stars** on the ceiling (faintly pulsing)
-- **Cookie + milk** on the desk corner (half-eaten)
-- **Crayon drawing** of mom and Dina holding hands (taped near the door)
-- **Toy bin** with plushies poking out (star, rainbow)
-- **Door** to go back outside
-- HUD shows time (3:45 PM), happiness meter, coin count, "Mom: kitchen"
-- Walk Dina around with arrow keys, tap or press SPACE to interact
+- **Sky-to-grass gradient** on the Lulu road instead of one flat green. Adds depth.
+- **Drop shadows on road edges** — the road feels like it sits on the world instead of floating.
+- **Chunky 3px black outlines** on the road, matching Sneaky-Sasquatch style.
+- **Character-select gradient** now matches the rest of the game (sky-green-to-grass) instead of pink-orange-purple sunset.
+- **"LEV BAIS YAAKOV"** text on the bus is now in a white panel with proper outline — much more readable.
+- **Pedestrians** got proper big eyes with sparkles, rosy cheek dots, and an "oh!" surprised mouth instead of dead black dots.
 
-**4. Morgan the Plushie**
-A whole sub-mode dedicated to playing with her purple-grey cat plushie:
-- Big Morgan filling the screen, sitting on a pink blanket
-- **Tap her head/back** = pet her (3 hearts float up)
-- **Tap her belly** = hug (8 hearts burst!)
-- A glowing yellow circle highlights what she wants pet
-- **Happiness bar** at top fills with each interaction
-- **At 100%** Morgan bounces, winks, big celebration with star burst (+1 ⭐ saved to your stars)
-- Back button (◀) returns to bedroom
+### 🎵 New sound effects (all Web Audio — no files)
 
-**5. Take a Nap**
-Tap the bed → dimming-dusk transition → Dina tucked in with mint blanket → floating Z's → "RESTED! +1 ⭐"
+10+ new synthesized sounds added:
+- **Character select** — bright two-note "ding" when you pick a sister
+- **School bus door hiss** — proper filtered white noise
+- **School bell** — overtone-rich ring with a delayed echo
+- **Dog bark** when you pet the golden retriever
+- **Hopscotch jump** — pitch-up "boing" when you earn a sticker
+- **Star sparkle** for achievements
+- **Sprinkler water**, **squirrel chitter** (in code, ready to wire)
 
-**6. Tablet Game**
-Tap the tablet → drops you into the regular Lulu driving game ("Dina playing Lulu's game on her tablet"). Hilarious meta moment.
+### 🎺 Honk Symphony (NEW feature)
 
-### 💄 Lulu's Look — Refined
-Updated to match the photo reference:
-- **Hair** changed from very-dark-curly-with-bow → **medium brown, long, flowing, center-parted**
-- **Eyes** softened from anime → adult almond with brown iris
-- **Freckles** added across nose bridge
-- **Smile** changed from pursed pink lips → soft natural curve
-- **Skin tone** warmed (peachy olive)
-- **Tiny gold necklace dot** at chest
+Press **H** repeatedly — each honk plays the **next note up a C-major scale**. Chain 4+ in a row and you get a sparkly "♪ 4x!" floater. Pedestrians wave, animals scatter faster. Pure delight.
 
-Same change applies in both the road driving view AND the parking mini-game.
+### ✨ Coin pop + sparkle animations
+
+Coins collected now spawn a **floating "+1" number** that drifts up and fades out — instant visual feedback that you got it. Same for stickers (+⭐), butterflies (+1 🦋), dogs (+2 🐕), sprinklers (+⚡).
+
+### 🎬 Easing helpers + button press fx
+
+- New easing functions: `easeOutBack`, `easeOutQuad`, `easeOutElastic` (used internally)
+- **Button press flash** — every touchable button now triggers a brief visual flash when pressed, so your taps feel responsive
+- Floater system used by anything that wants to spawn a temporary "+N" or text effect
+
+### 🧹 Code quality
+
+- Removed dead code (`spawnCop` was never called)
+- Renamed shadowed `keys` variables that conflicted with the keyboard state
+- Moved `parkingExtras` declaration earlier so it's not relying on JS hoisting
+- Added missing resets in `resetGame()` so all sub-modes start clean
+- Added missing reset of `dinaRunTimer` when entering home
+
+## How to deploy
+
+1. Open your GitHub repo (lulu-game)
+2. **Add file → Upload files**
+3. Drag every file from your `lulu game` folder
+4. Commit with a message like "v5: 10-agent quality pass"
+5. Wait ~1 minute for the green checkmark
+6. **Pull down to refresh** on lulu.boats (or if installed as an app, **uninstall and reinstall** to bust the cache)
+
+## What's still pending (deferred for next batch)
+
+These were flagged by agents but require more invasive changes — saved for v6:
+- **Offscreen canvas caching** for the bedroom interior (perf win)
+- **Background music loops** (atmospheric pads for each state)
+- **Sasquatch hitchhiker** mini-event
+- **Ima's text messages** mini-event
+- **Mrs. Greenblatt the crossing guard** NPC
+- **Run-cycle bouncing** for all characters
+- **Scene fade transitions** between states
+
+All have detailed designs ready — just need the next session to implement.
 
 ---
 
-## Controls reference (everything)
-
-### Character select
-- Tap either card to choose
-- Lulu = drives. Dina = runs.
-
-### Lulu mode
-Same as before: ←→ steer, ↑ boost, ↓ slow, M missile, H honk, P pause. ◀ button (top-left) goes back to character select.
-
-### Dina Run Home
-- ← → lane switch
-- ↑ sprint (limited meter)
-- ↓ slow walk (sneak past cat)
-- On mobile: ◀ ▶ ⚡ 🐢 buttons at bottom
-
-### Dina home
-- Arrow keys to walk around her bedroom
-- Tap an object OR press SPACE next to it to interact
-- 4 interactables: **bed (nap)** · **tablet (Lulu game)** · **Morgan (plushie)** · **door (back outside)**
-
-### Morgan plushie
-- Tap anywhere on Morgan (head, back, belly)
-- ◀ button (top-left) to exit
-
-### Nap
-- Tap to wake up
-
----
-
-## Troubleshooting
-
-**Black screen / nothing loads**
-→ Open dev tools (F12 → Console). Send me any red errors.
-
-**Old version showing**
-→ Hard refresh (Ctrl+Shift+R on desktop). On mobile, pull-to-refresh. Installed app cache is sticky — uninstall and reinstall.
-
-**Can't get to character select**
-→ It's the new first screen. If you're stuck in Lulu mode, tap the ◀ button at the top-left of the main menu.
-
-**Dina's run feels too fast/slow**
-→ Use the slow walk (↓ / 🐢) to sneak. Use sprint (↑ / ⚡) to outrun mom near the end.
-
-**Mom always catches Dina**
-→ Try sprinting on the last 25%. Save sprint for emergencies. Petting the dog is a *trap* — it pauses you long enough for mom to catch up.
-
----
-
-That's it! Enjoy the Bruck Sisters game. 👯
+Have fun! The game should now feel **significantly less buggy and more polished** on your phone.

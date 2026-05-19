@@ -198,6 +198,71 @@
     }
     function playDeny() { playTone(180, 0.15, "square", 0.15); }
 
+    // ── Extra SFX (per Audio Engineer recommendations) ───────
+    function makeNoiseBuffer(ac, dur) {
+        var len = Math.floor(ac.sampleRate * dur);
+        var buf = ac.createBuffer(1, len, ac.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        return buf;
+    }
+    function playCharHover() { playTone(620, 0.06, "sine", 0.10, 880); }
+    function playCharSelect() {
+        playTone(660, 0.07, "triangle", 0.18, 990);
+        setTimeout(function () { playTone(990, 0.10, "triangle", 0.18, 1320); }, 70);
+    }
+    function playMenuHover() { playTone(900, 0.025, "sine", 0.06); }
+    function playStarSparkle() {
+        playTone(1760, 0.08, "sine", 0.12, 2640);
+        setTimeout(function () { playTone(2640, 0.08, "sine", 0.10, 3520); }, 60);
+        setTimeout(function () { playTone(3520, 0.12, "sine", 0.08, 4400); }, 120);
+    }
+    function playDinaStep() {
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        var n = ac.createBufferSource(); n.buffer = makeNoiseBuffer(ac, 0.05);
+        var g = ac.createGain(); var f = ac.createBiquadFilter();
+        f.type = "bandpass"; f.frequency.value = 1200; f.Q.value = 2;
+        g.gain.setValueAtTime(0.08, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.05);
+        n.connect(f).connect(g).connect(ac.destination); n.start(); n.stop(ac.currentTime + 0.06);
+    }
+    function playSchoolBell() {
+        playTone(1320, 0.5, "sine", 0.14);
+        playTone(1980, 0.5, "sine", 0.06);
+        setTimeout(function () { playTone(1320, 0.5, "sine", 0.12); playTone(1980, 0.5, "sine", 0.05); }, 280);
+    }
+    function playDoorHiss() {
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        var n = ac.createBufferSource(); n.buffer = makeNoiseBuffer(ac, 0.4);
+        var g = ac.createGain(); var f = ac.createBiquadFilter();
+        f.type = "highpass"; f.frequency.value = 3000;
+        g.gain.setValueAtTime(0.12, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.4);
+        n.connect(f).connect(g).connect(ac.destination); n.start(); n.stop(ac.currentTime + 0.42);
+    }
+    function playDogBark() {
+        playTone(280, 0.10, "sawtooth", 0.18, 180);
+        setTimeout(function () { playTone(320, 0.12, "sawtooth", 0.18, 200); }, 140);
+    }
+    function playHopJump() { playTone(440, 0.18, "triangle", 0.16, 880); }
+    // Honk Symphony — pitch varies with speed/honk count
+    var honkChain = 0; var honkChainResetTimer = 0;
+    function playHonkPitched(pitch) {
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        for (var b = 0; b < 2; b++) {
+            var osc = ac.createOscillator(); var gain = ac.createGain();
+            osc.type = "square"; osc.frequency.value = pitch + b * 30;
+            var t = ac.currentTime + b * 0.12;
+            gain.gain.setValueAtTime(0.18, t);
+            gain.gain.setValueAtTime(0.18, t + 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+            osc.connect(gain).connect(ac.destination); osc.start(t); osc.stop(t + 0.13);
+        }
+    }
+
     // ── Canvas Setup ─────────────────────────────────────────
     var canvas = document.getElementById("gameCanvas");
     var ctx = canvas.getContext("2d");
@@ -265,21 +330,24 @@
         }
     }
 
-    // Mobile control button rects (used by both drawing and touch hit-test)
-    var MOBILE_BOOST_RECT = { x: 12, y: 686, w: 56, h: 56 };
-    var MOBILE_BRAKE_RECT = { x: 12, y: 750, w: 56, h: 56 };
-    var PAUSE_RECT        = { x: 10, y: 65,  w: 40, h: 40 };
-    var MISSILE_RECT      = { x: W - 80, y: H - 90, w: 64, h: 64 };
-    // Parking-only D-pad buttons (separate so they don't conflict with main game)
-    var PARK_LEFT_RECT  = { x: 16,       y: H - 76, w: 58, h: 58 };
-    var PARK_RIGHT_RECT = { x: 82,       y: H - 76, w: 58, h: 58 };
-    var PARK_FWD_RECT   = { x: W - 140,  y: H - 76, w: 58, h: 58 };
-    var PARK_REV_RECT   = { x: W - 76,   y: H - 76, w: 58, h: 58 };
+    // Mobile control button rects — all 64×64 minimum, clear of iPhone home indicator (last ~34px),
+    // generous gaps between adjacent buttons. Sized per Mobile Tester + UX Designer recommendations.
+    var PAUSE_RECT        = { x: 8,        y: 60,       w: 48, h: 48 };
+    var MOBILE_BOOST_RECT = { x: 14,       y: H - 168,  w: 64, h: 64 }; // upper of left stack
+    var MOBILE_BRAKE_RECT = { x: 14,       y: H - 96,   w: 64, h: 64 }; // lower of left stack
+    var MISSILE_RECT      = { x: W - 78,   y: H - 96,   w: 64, h: 64 };
+    var HONK_RECT         = { x: W - 78,   y: H - 168,  w: 64, h: 64 };
+    // Parking-only D-pad buttons (different layout from main game)
+    var PARK_LEFT_RECT  = { x: 12,       y: H - 96, w: 64, h: 64 };
+    var PARK_RIGHT_RECT = { x: 88,       y: H - 96, w: 64, h: 64 };
+    var PARK_FWD_RECT   = { x: W - 152,  y: H - 96, w: 64, h: 64 };
+    var PARK_REV_RECT   = { x: W - 76,   y: H - 96, w: 64, h: 64 };
 
     function hitGameButton(pos) {
         if (state === "playing") {
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
+            if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
             return null;
@@ -328,10 +396,13 @@
             var pos = screenToCanvas(t.clientX, t.clientY);
             var btn = hitGameButton(pos);
 
+            if (btn) flashButton(btn);
             if (btn === "pause") {
                 pauseQueued = true;
             } else if (btn === "missile") {
                 missileQueued = true;
+            } else if (btn === "honk") {
+                honkQueued = true;
             } else if (btn === "boost") {
                 keys.up = true;
                 boostTouchId = t.identifier;
@@ -420,6 +491,49 @@
 
     // ── Utilities ────────────────────────────────────────────
     function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeOutBack(t) { var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }
+    function easeOutQuad(t) { return 1 - (1 - t) * (1 - t); }
+    function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+    function easeOutElastic(t) { if (t === 0 || t === 1) return t; var c4 = (2 * Math.PI) / 3; return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1; }
+
+    // Floating particles for +1 text bursts on pickup
+    var floaters = [];
+    function spawnFloater(x, y, txt, color) {
+        floaters.push({ kind: "text", x: x, y: y, t: 0, dur: 0.8, txt: txt, color: color || "#FFD700" });
+    }
+    function updateFloaters(dt) {
+        for (var i = floaters.length - 1; i >= 0; i--) {
+            floaters[i].t += dt;
+            if (floaters[i].t >= floaters[i].dur) floaters.splice(i, 1);
+        }
+    }
+    function drawFloaters() {
+        for (var i = 0; i < floaters.length; i++) {
+            var f = floaters[i];
+            var p = f.t / f.dur;
+            ctx.globalAlpha = 1 - easeOutQuad(p);
+            drawText(f.txt, f.x, f.y - 40 * easeOutQuad(p),
+                "bold 20px 'Segoe UI', Arial, sans-serif", f.color, "#000", 4);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // Button press visual feedback — register hit, draw a brief overlay
+    var btnPressFx = {};
+    function flashButton(id) { btnPressFx[id] = { t: 0, dur: 0.22 }; }
+    function getBtnPressScale(id) {
+        var fx = btnPressFx[id];
+        if (!fx) return 1;
+        var p = clamp(fx.t / fx.dur, 0, 1);
+        if (p < 0.5) return 1 - 0.10 * Math.sin(p * Math.PI);
+        return 1 + 0.05 * easeOutBack((p - 0.5) * 2) * (1 - p);
+    }
+    function updateBtnPressFx(dt) {
+        for (var k in btnPressFx) {
+            btnPressFx[k].t += dt;
+            if (btnPressFx[k].t >= btnPressFx[k].dur) delete btnPressFx[k];
+        }
+    }
     function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
     function rand(lo, hi) { return lo + Math.random() * (hi - lo); }
     function randInt(lo, hi) { return Math.floor(rand(lo, hi + 1)); }
@@ -685,16 +799,28 @@
     }
 
     function drawRoad(scrollOff) {
-        ctx.fillStyle = C.grass1;
+        // Sky-to-grass gradient for depth
+        var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+        skyGrad.addColorStop(0, "#A8E6CF");
+        skyGrad.addColorStop(0.35, "#7CCB7E");
+        skyGrad.addColorStop(1, "#5BA85D");
+        ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, W, H);
         ctx.fillStyle = C.grass2;
         for (var gy = ((scrollOff * 0.3) % 40) - 40; gy < H; gy += 40) {
             ctx.fillRect(0, gy, W, 18);
         }
+        // Drop shadow + chunky outline on road for depth (Sneaky-Sasquatch style)
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.fillRect(ROAD_L - 14, 0, 4, H);
+        ctx.fillRect(ROAD_R + 10, 0, 4, H);
         ctx.fillStyle = C.shoulder;
         roundRect(ROAD_L - 8, 0, ROAD_W + 16, H, 0); ctx.fill();
         ctx.fillStyle = C.road;
         ctx.fillRect(ROAD_L, 0, ROAD_W, H);
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(ROAD_L - 8, 0, ROAD_W + 16, H);
 
         ctx.strokeStyle = C.roadLine;
         ctx.lineWidth = 3;
@@ -1076,11 +1202,11 @@
         ctx.beginPath(); ctx.arc(-9, 7, 2.5, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(9, 7, 2.5, 0, Math.PI * 2); ctx.fill();
 
-        // Head
-        ctx.fillStyle = "#333";
-        ctx.beginPath(); ctx.arc(0, -14, 7.5, 0, Math.PI * 2); ctx.fill();
+        // Head with chunky outline
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(0, -14, 8, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = C.skin;
-        ctx.beginPath(); ctx.arc(0, -14, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -14, 6.8, 0, Math.PI * 2); ctx.fill();
 
         // Hair
         var hairCol = type === 0 ? "#FFC107" : (type === 1 ? "#3E2723" : "#6D4C41");
@@ -1095,17 +1221,33 @@
             ctx.fill();
         }
 
-        // Eyes
-        ctx.fillStyle = "#222";
+        // Sasquatch-style big sparkly eyes
+        ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.arc(-2, -13, 0.9, 0, Math.PI * 2);
-        ctx.arc(2, -13, 0.9, 0, Math.PI * 2);
+        ctx.arc(-2.2, -13, 1.6, 0, Math.PI * 2);
+        ctx.arc(2.2, -13, 1.6, 0, Math.PI * 2);
         ctx.fill();
-
-        // Mouth (surprised because car is coming!)
-        ctx.fillStyle = "#222";
+        ctx.fillStyle = "#1A1A1A";
         ctx.beginPath();
-        ctx.ellipse(0, -10, 1, 1.2, 0, 0, Math.PI * 2);
+        ctx.arc(-2.2, -12.8, 1.1, 0, Math.PI * 2);
+        ctx.arc(2.2, -12.8, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye highlights
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-1.8, -13.2, 0.4, 0, Math.PI * 2);
+        ctx.arc(2.6, -13.2, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Rosy cheek dots
+        ctx.fillStyle = "rgba(255,140,140,0.55)";
+        ctx.beginPath();
+        ctx.arc(-4, -11, 1.4, 0, Math.PI * 2);
+        ctx.arc(4, -11, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Tiny "oh!" mouth (still surprised)
+        ctx.fillStyle = "#5D2A2A";
+        ctx.beginPath();
+        ctx.ellipse(0, -10, 0.9, 1.3, 0, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -2342,6 +2484,14 @@
         if (icon) drawText(icon, x + 14, y + h / 2, "bold 18px Arial", textColor, "#000", 3);
     }
 
+    // Unified back-button helper — same look/size everywhere
+    function drawBackButton(x, y) {
+        x = (x === undefined) ? 12 : x;
+        y = (y === undefined) ? 12 : y;
+        drawButton(x, y, 80, 44, "◀ BACK", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+        return { x: x, y: y, w: 80, h: 44 };
+    }
+
     function drawIconButton(x, y, size, icon, opts) {
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
@@ -2415,6 +2565,10 @@
         // Missile button (bottom-right)
         var mY = MISSILE_RECT.y;
         drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: save.missiles > 0 ? "#F44336" : "#9E9E9E", bgDark: save.missiles > 0 ? "#B71C1C" : "#616161" });
+
+        // Honk button (above missile, right side)
+        drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
+            { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
         // count badge
         if (save.missiles > 0) {
             ctx.fillStyle = "#FFC107";
@@ -2471,6 +2625,10 @@
     // Tablet game
     var tabletTransitionTimer = 0;
     var inTabletMode = false; // true means Lulu game is running inside the tablet visual
+
+    // Parking extras (cones, obstacles in parking spot) — declared here to avoid hoisting fragility
+    var parkingExtras = [];
+    var morganHearts = [];
     var player = { x: W / 2, y: PLAYER_Y, tilt: 0, targetX: W / 2 };
     var score = 0;
     var runCoins = 0;
@@ -2595,6 +2753,15 @@
         copEvent = null; copEventTimer = rand(60, 120);
         honkCooldown = 0;
         kidsInCar = false;
+        // Reset Dina + parking state leaks (per QA + Bug Hunter)
+        parkingChallengeMode = false;
+        parkingResult = null; parkingFailHit = null;
+        parkingExtras = []; parkedCars = []; parkingPedestrian = null;
+        parkingCar = null; parkingZone = null; parkingLevelConfig = null;
+        parkingCameras = []; parkingMsgTimer = 0;
+        morganHearts = []; morganHappy = 0; morganMood = "calm";
+        dinaCoinsRun = 0; dinaStickers = 0; dinaSidewalk = [];
+        dinaRunTimer = 0; dinaRunDistance = 0; dinaRunPhase = 0;
         initDecorations();
     }
 
@@ -2883,7 +3050,7 @@
         parkingPerfect = true;
     }
 
-    var parkingExtras = []; // cones, obstacles inside the parking area
+    // parkingExtras declared earlier — see top of file
 
     function updateParkingIntro(dt) {
         parkingTransitionTimer -= dt;
@@ -3357,19 +3524,24 @@
 
         // Missile firing
         if (consumeMissile()) fireMissile();
-        // Honk
+        // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
-            playHonk();
-            honkCooldown = 0.4;
-            // Make any pedestrian wave (their walkTime gets a "wave" flag)
+            honkChain = Math.min(honkChain + 1, 7);
+            honkChainResetTimer = 1.5;
+            // Notes of a C-major scale: each successive honk = next note up
+            var notes = [262, 294, 330, 349, 392, 440, 494, 523];
+            playHonkPitched(notes[honkChain - 1]);
+            honkCooldown = 0.32;
+            // Show "+chain" floater on big chains
+            if (honkChain >= 4) spawnFloater(player.x, player.y - 40, "♪ " + honkChain + "x!", "#FFEB3B");
+            // Make pedestrians wave and animals scatter
             for (var hh = 0; hh < obstacles.length; hh++) {
                 if (obstacles[hh].type === "ped") obstacles[hh].waving = 1.5;
             }
-            // Animals scatter
-            for (var hk = 0; hk < animals.length; hk++) {
-                animals[hk].vx *= 1.5; // run faster!
-            }
+            for (var hk = 0; hk < animals.length; hk++) animals[hk].vx *= 1.5;
         }
+        honkChainResetTimer -= dt;
+        if (honkChainResetTimer <= 0) honkChain = 0;
 
         // Pause check
         if (consumePause()) {
@@ -3440,6 +3612,7 @@
                 persistSave();
                 score += 100 * scoreMult * coinMult;
                 spawnCoinSparkle(c.x, c.y);
+                spawnFloater(c.x, c.y, "+" + coinMult, "#FFD700");
                 playCoin();
                 coinEntities.splice(j, 1);
             }
@@ -3582,13 +3755,15 @@
             }
             // Quit button
             if (pointInRect(click.x, click.y, W / 2 - 100, H / 2 + 60, 200, 60)) {
+                if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 state = "menu"; parkingChallengeMode = false; playClick(); consumeAction(); return;
             }
             // Click outside buttons: do nothing (don't fall through to resume)
             consumeAction();
             return;
         }
-        if (consumePause() || consumeAction()) {
+        // Only keyboard Pause toggles back — Space (action) is reserved for buttons
+        if (consumePause()) {
             state = prevState;
             playClick();
             return;
@@ -3704,6 +3879,9 @@
     // ── Update: Game Over ────────────────────────────────────
     function updateGameOver(dt) {
         gameOverAlpha = Math.min(gameOverAlpha + dt * 2, 1);
+        // Clear residual angry-man/revenge-car state so they don't keep moving
+        if (angryMan) angryMan = null;
+        if (revengeCar) revengeCar = null;
         updateParticles(dt);
         var click = consumeClick();
         if (click) {
@@ -3713,7 +3891,8 @@
             }
             // Menu button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.88 - 25, 220, 50)) {
-                state = "menu"; playClick(); return;
+                if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); return; }
+                state = "charSelect"; playClick(); return;
             }
         }
         if (consumeAction()) {
@@ -3786,12 +3965,12 @@
 
         // Items
         if (shopTab === "skins") {
-            var keys = Object.keys(SKINS);
-            for (var i = 0; i < keys.length; i++) {
+            var skinKeys = Object.keys(SKINS);
+            for (var i = 0; i < skinKeys.length; i++) {
                 var col = i % 2, row = Math.floor(i / 2);
                 var cx = 20 + col * 230, cy = 165 + row * 145;
                 if (pointInRect(click.x, click.y, cx, cy, 210, 130)) {
-                    var key = keys[i];
+                    var key = skinKeys[i];
                     var skin = SKINS[key];
                     if (save.ownedSkins.indexOf(key) >= 0) {
                         save.selectedSkin = key; persistSave(); playBuy();
@@ -3915,6 +4094,7 @@
         }
 
         drawParticles();
+        drawFloaters();
 
         if (flashTimer > 0) {
             ctx.fillStyle = "rgba(255,0,0," + (flashTimer / 0.15 * 0.3) + ")";
@@ -4363,10 +4543,17 @@
             ctx.fillRect(0, gy, W, 18);
         }
 
+        // Drop shadow + chunky outline on road for depth (Sneaky-Sasquatch style)
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.fillRect(ROAD_L - 14, 0, 4, H);
+        ctx.fillRect(ROAD_R + 10, 0, 4, H);
         ctx.fillStyle = C.shoulder;
         roundRect(ROAD_L - 8, 0, ROAD_W + 16, H, 0); ctx.fill();
         ctx.fillStyle = C.road;
         ctx.fillRect(ROAD_L, 0, ROAD_W, H);
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(ROAD_L - 8, 0, ROAD_W + 16, H);
 
         ctx.strokeStyle = C.roadLine;
         ctx.lineWidth = 2;
@@ -4500,11 +4687,11 @@
     }
 
     function drawSkinsTab() {
-        var keys = Object.keys(SKINS);
-        for (var i = 0; i < keys.length; i++) {
+        var skinKeys = Object.keys(SKINS);
+        for (var i = 0; i < skinKeys.length; i++) {
             var col = i % 2, row = Math.floor(i / 2);
             var cx = 20 + col * 230, cy = 165 + row * 145;
-            var key = keys[i];
+            var key = skinKeys[i];
             var skin = SKINS[key];
             var owned = save.ownedSkins.indexOf(key) >= 0;
             var equipped = save.selectedSkin === key;
@@ -4871,16 +5058,14 @@
             if (click.y > H * 0.18 && click.y < H * 0.50) {
                 selectedChar = "lulu";
                 state = "menu";
-                playTone(523, 0.08, "triangle", 0.2);
-                setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 80);
+                playCharSelect();
                 return;
             }
             // Dina card bottom half H*0.52 - H*0.88
             if (click.y > H * 0.52 && click.y < H * 0.88) {
                 selectedChar = "dina";
                 startDinaMode();
-                playTone(880, 0.08, "square", 0.18);
-                setTimeout(function () { playTone(1318, 0.12, "square", 0.2); }, 80);
+                playCharSelect();
                 return;
             }
         }
@@ -4892,13 +5077,16 @@
     }
 
     function drawCharSelect() {
-        // Festive sunset background
+        // Cohesive sky-to-grass gradient to match the rest of the game
         var g = ctx.createLinearGradient(0, 0, 0, H);
-        g.addColorStop(0, "#FFB6D9");
-        g.addColorStop(0.5, "#FFD89E");
-        g.addColorStop(1, "#C9A8E8");
+        g.addColorStop(0, "#A8E6CF");
+        g.addColorStop(0.55, "#FFE3B0");
+        g.addColorStop(1, "#7CB342");
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, H);
+        // Chunky dark band behind title for contrast
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        roundRect(W / 2 - 180, 40, 360, 50, 14); ctx.fill();
         // Confetti dots drifting
         ctx.globalAlpha = 0.7;
         for (var i = 0; i < 40; i++) {
@@ -4976,7 +5164,8 @@
         dinaCoinsRun = 0;
         dinaStickers = 0;
         dina = { x: W / 2 + 30, y: 350, walkTime: 0, vx: 0, vy: 0, sprintTimer: 3,
-                 sprintCool: 0, stumble: 0, holding: "backpack" };
+                 sprintCool: 0, stumble: 0, holding: "backpack",
+                 targetX: W / 2, targetY: 350 };
         schoolBus = { x: W + 220, y: 140, phase: 0, timer: 0, doorOpen: 0 };
         schoolGirls = [];
         // Pre-populate girls who will come off
@@ -5221,14 +5410,20 @@
             roundRect(86 + w * 30, 4, 24, 18, 3); ctx.fill();
         }
 
+        // White panel behind school name (readability)
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(20, 56, 200, 36, 6); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 2.5;
+        roundRect(20, 56, 200, 36, 6); ctx.stroke();
         // "LEV BAIS YAAKOV" written along the side
-        ctx.fillStyle = "#000";
-        ctx.font = "bold 18px 'Segoe UI', Arial, sans-serif";
+        ctx.fillStyle = "#0D47A1";
+        ctx.font = "bold 16px 'Segoe UI', Arial, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText("LEV BAIS YAAKOV", 120, 70);
-        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
-        ctx.fillText("SCHOOL", 120, 90);
+        ctx.font = "bold 10px 'Segoe UI', Arial, sans-serif";
+        ctx.fillText("SCHOOL", 120, 84);
 
         // Wheels
         ctx.fillStyle = "#1A1A1A";
@@ -5378,10 +5573,11 @@
         }
         // Phase 1: doors hiss open (1.2-1.7s)
         if (schoolBus.phase === 1) {
+            if (schoolBus.doorOpen === 0) playDoorHiss();
             schoolBus.doorOpen = Math.min((t - 1.2) / 0.5, 1);
             if (t > 1.7) {
                 schoolBus.phase = 2;
-                playTone(1200, 0.15, "sine", 0.18);
+                playSchoolBell();
             }
         }
         // Phase 2: girls coming off (1.7-5.0s)
@@ -5535,7 +5731,7 @@
         dina = { x: W / 2, y: H - 200, walkTime: 0,
                  lane: 1, sprintTimer: 3, sprintCool: 0,
                  stumble: 0, holding: "backpack" };
-        mom = { x: W / 2, y: H + 100, walkTime: 0, distance: 1.0, says: 0, sayTimer: 0 };
+        mom = { x: W / 2, y: H + 100, walkTime: 0, distance: 1.0, says: 0, sayTimer: rand(4, 8) };
     }
 
     // ── Update / Draw: Dina Run Home ─────────────────────────
@@ -5666,19 +5862,22 @@
             dina.stumble = 0.5;
             playTone(180, 0.1, "square", 0.15);
         } else if (hz.type === "dog") {
-            dina.stumble = 1.5; // longer pause for petting
+            dina.stumble = 1.5;
             dinaCoinsRun += 2;
-            playTone(800, 0.08, "sine", 0.18); // happy
+            playDogBark();
+            spawnFloater(hz.x, hz.y, "+2 🐕", "#FFB74D");
         } else if (hz.type === "butterfly") {
             dinaCoinsRun += 1;
             playTone(1500, 0.08, "sine", 0.15);
+            spawnFloater(hz.x, hz.y, "+1 🦋", "#FF80AB");
         } else if (hz.type === "sprinkler") {
-            // Speed boost momentarily
             dina.sprintTimer = Math.min(3, dina.sprintTimer + 1);
             playTone(440, 0.1, "sine", 0.18);
+            spawnFloater(hz.x, hz.y, "+⚡", "#4FC3F7");
         } else if (hz.type === "hopscotch") {
             dinaStickers++;
-            playTone(1200, 0.1, "triangle", 0.18);
+            playHopJump();
+            spawnFloater(hz.x, hz.y, "+⭐", "#FFD700");
         } else if (hz.type === "cat") {
             // No effect unless slow walked (handled differently)
             dinaCoinsRun += 1;
@@ -6076,20 +6275,21 @@
     }
 
     function enterDinaHome() {
-        // Reward: persist stickers and coins to save
         save.totalCoins += dinaCoinsRun;
         persistSave();
         state = "dinaHome";
         dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down", hover: null };
         homeMessageTimer = 0;
+        dinaRunTimer = 0; // reset for star pulse / nap / morgan timers
     }
 
     // ── Update / Draw: Dina Home Interior ────────────────────
+    // ORDER MATTERS — tablet is INSIDE bed rect, so tablet must be checked first.
     var HOME_OBJECTS = {
-        bed:     { x: 340, y: 280, w: 130, h: 180, label: "Take a nap?", action: "nap" },
-        tablet:  { x: 350, y: 320, w: 60, h: 40, label: "Play Lulu's game?", action: "tablet" },
-        morgan:  { x: 230, y: 590, w: 60, h: 60, label: "Play with Morgan?", action: "morgan" },
-        door:    { x: 380, y: 200, w: 80, h: 140, label: "Go back outside?", action: "outside" }
+        tablet:  { x: 350, y: 320, w: 60, h: 40,  label: "Play Lulu's game?",  action: "tablet" },
+        morgan:  { x: 230, y: 590, w: 60, h: 60,  label: "Play with Morgan?",  action: "morgan" },
+        bed:     { x: 340, y: 280, w: 130, h: 180, label: "Take a nap?",       action: "nap" },
+        door:    { x: 380, y: 200, w: 80, h: 140, label: "Go back outside?",   action: "outside" }
     };
 
     function updateDinaHome(dt) {
@@ -6447,9 +6647,9 @@
     var morganSparkles = [];
     function updateDinaMorgan(dt) {
         morganTimer += dt;
-        // Move pet spot occasionally
+        // Move pet spot occasionally (chin not reachable; removed per QA)
         if (!morganPetSpot || morganPetSpot.t <= 0) {
-            var zones = ["head", "back", "chin", "belly"];
+            var zones = ["head", "back", "belly"];
             var z = randPick(zones);
             morganPetSpot = { zone: z, t: 4 };
         }
@@ -6457,8 +6657,8 @@
 
         var click = consumeClick();
         if (click) {
-            // Check exit button
-            if (pointInRect(click.x, click.y, 20, 30, 40, 40)) {
+            // Check exit button (matches drawIconButton at 20, 80, 48)
+            if (pointInRect(click.x, click.y, 20, 80, 48, 48)) {
                 state = "dinaHome";
                 return;
             }
@@ -6534,9 +6734,9 @@
             "bold 13px Arial", "#FFFFFF", "#000", 3);
         drawText("Morgan's Happiness", W / 2, 12, "bold 10px Arial", "#FFD700", "#000", 2);
 
-        // Back button
-        drawIconButton(20, 80, 40, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
-        drawText("BACK", 40, 130, "bold 11px Arial", "#FFFFFF", "#000", 2);
+        // Back button (matches click hitbox)
+        drawIconButton(20, 80, 48, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
+        drawText("BACK", 44, 138, "bold 11px Arial", "#FFFFFF", "#000", 2);
 
         // Morgan plushie (BIG)
         ctx.save();
@@ -6785,6 +6985,10 @@
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
+
+        // Global update tickers (always run)
+        updateBtnPressFx(dt);
+        updateFloaters(dt);
 
         if (state === "charSelect") updateCharSelect(dt);
         else if (state === "menu") updateMenu(dt);
