@@ -1520,15 +1520,27 @@
         ctx.fillStyle = redness;
         ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();
 
-        // White hair (spiky messy)
-        ctx.fillStyle = "#FAFAFA";
-        // big puff of white hair
+        // White hair (wild messy clumps with darker base for depth)
+        ctx.fillStyle = "#9E9E9E";
         ctx.beginPath();
-        ctx.arc(-5, -22, 5, 0, Math.PI * 2);
-        ctx.arc(0, -24, 5.5, 0, Math.PI * 2);
-        ctx.arc(5, -22, 5, 0, Math.PI * 2);
-        ctx.arc(-8, -19, 4, 0, Math.PI * 2);
-        ctx.arc(8, -19, 4, 0, Math.PI * 2);
+        ctx.arc(-7, -20, 6, 0, Math.PI * 2);
+        ctx.arc(0, -23, 7, 0, Math.PI * 2);
+        ctx.arc(7, -20, 6, 0, Math.PI * 2);
+        ctx.arc(-10, -17, 5, 0, Math.PI * 2);
+        ctx.arc(10, -17, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#FAFAFA";
+        ctx.beginPath();
+        ctx.arc(-6, -21, 5, 0, Math.PI * 2);
+        ctx.arc(1, -24, 5.8, 0, Math.PI * 2);
+        ctx.arc(7, -21, 5, 0, Math.PI * 2);
+        ctx.arc(-9, -18, 4, 0, Math.PI * 2);
+        ctx.arc(9, -18, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Sticky-up tufts (Sasquatch-grandpa cue)
+        ctx.beginPath();
+        ctx.ellipse(-4, -26, 1.5, 3, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(4, -26, 1.5, 3, 0.3, 0, Math.PI * 2);
         ctx.fill();
         // White bushy eyebrows (angry V-shape)
         ctx.fillStyle = "#FAFAFA";
@@ -1779,28 +1791,50 @@
             roundRect(7, -2 + armSwing, 8, 18 + Math.abs(armSwing), 3); ctx.fill();
         }
 
-        // Head
-        ctx.fillStyle = "#3E2723";
+        // Head (chunky outline + lighter face)
+        ctx.fillStyle = "#1A1410";
+        ctx.beginPath(); ctx.arc(0, -14, 13, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#4E342E";
         ctx.beginPath(); ctx.arc(0, -14, 12, 0, Math.PI * 2); ctx.fill();
-        // Face area (lighter brown)
-        ctx.fillStyle = "#6D4C41";
-        ctx.beginPath(); ctx.ellipse(0, -10, 8, 7, 0, 0, Math.PI * 2); ctx.fill();
-        // Eyes
-        ctx.fillStyle = "#FFEB3B";
+        // Fur tufts on top of head
+        ctx.fillStyle = "#3E2723";
         ctx.beginPath();
-        ctx.arc(-4, -14, 2.5, 0, Math.PI * 2);
-        ctx.arc(4, -14, 2.5, 0, Math.PI * 2);
+        ctx.arc(-9, -22, 4, 0, Math.PI * 2);
+        ctx.arc(-3, -24, 4, 0, Math.PI * 2);
+        ctx.arc(3, -24, 4, 0, Math.PI * 2);
+        ctx.arc(9, -22, 4, 0, Math.PI * 2);
+        ctx.fill();
+        // Lighter muzzle area
+        ctx.fillStyle = "#8D6E63";
+        ctx.beginPath(); ctx.ellipse(0, -9, 9, 7.5, 0, 0, Math.PI * 2); ctx.fill();
+        // Brow ridge (gives personality)
+        ctx.fillStyle = "#1A1410";
+        ctx.beginPath();
+        ctx.ellipse(-5, -17, 4, 1.5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(5, -17, 4, 1.5, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // Bigger friendlier eyes
+        ctx.fillStyle = "#FFF9C4";
+        ctx.beginPath();
+        ctx.arc(-4.5, -14, 3.2, 0, Math.PI * 2);
+        ctx.arc(4.5, -14, 3.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#000";
         ctx.beginPath();
-        ctx.arc(-4, -14, 1.4, 0, Math.PI * 2);
-        ctx.arc(4, -14, 1.4, 0, Math.PI * 2);
+        ctx.arc(-4.5, -13.5, 1.7, 0, Math.PI * 2);
+        ctx.arc(4.5, -13.5, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+        // Eye highlights
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.arc(-3.7, -14, 0.7, 0, Math.PI * 2);
+        ctx.arc(5.3, -14, 0.7, 0, Math.PI * 2);
         ctx.fill();
         // Nostrils
-        ctx.fillStyle = "#000";
+        ctx.fillStyle = "#1A1410";
         ctx.beginPath();
-        ctx.arc(-2, -9, 0.6, 0, Math.PI * 2);
-        ctx.arc(2, -9, 0.6, 0, Math.PI * 2);
+        ctx.arc(-2, -9, 0.8, 0, Math.PI * 2);
+        ctx.arc(2, -9, 0.8, 0, Math.PI * 2);
         ctx.fill();
         // Mouth
         ctx.strokeStyle = "#000";
@@ -1929,6 +1963,19 @@
         for (var rb = 0; rb < rects.length; rb++) {
             ctx.fillStyle = bldgColors[rb];
             ctx.fillRect(rects[rb][0], rects[rb][1], rects[rb][2], rects[rb][3]);
+            // Chunky black outline
+            ctx.strokeStyle = "#1A1A1A";
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(rects[rb][0], rects[rb][1], rects[rb][2], rects[rb][3]);
+            // Trapezoid roof on top
+            ctx.fillStyle = theme === "night" ? "#0D1230" : "#3E2723";
+            ctx.beginPath();
+            ctx.moveTo(rects[rb][0] - 4, rects[rb][1]);
+            ctx.lineTo(rects[rb][0] + rects[rb][2] + 4, rects[rb][1]);
+            ctx.lineTo(rects[rb][0] + rects[rb][2] - 2, rects[rb][1] - 7);
+            ctx.lineTo(rects[rb][0] + 2, rects[rb][1] - 7);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
         }
         // Windows: gold during day/dusk, blue at night
         ctx.fillStyle = theme === "night" ? "#FFD740" : "#FFEB3B";
@@ -5283,18 +5330,37 @@
         ctx.arc(4, -11, 0.8, 0, Math.PI * 2);
         ctx.fill();
 
-        // If holding Morgan plushie
+        // If holding Morgan plushie — proper cute cat with ears + nose + sleepy eyes
         if (holding === "morgan") {
-            // Small plushie cradled in arms (front of body)
             var mx = 0, my = 5;
+            // Body
             ctx.fillStyle = "#9B8FB4";
-            ctx.beginPath(); ctx.ellipse(mx, my, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(mx, my - 3, 3, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#000";
+            ctx.beginPath(); ctx.ellipse(mx, my + 1, 6, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+            // Head
+            ctx.beginPath(); ctx.arc(mx, my - 3, 4, 0, Math.PI * 2); ctx.fill();
+            // Ears (triangular)
             ctx.beginPath();
-            ctx.arc(mx - 1, my - 3, 0.5, 0, Math.PI * 2);
-            ctx.arc(mx + 1, my - 3, 0.5, 0, Math.PI * 2);
+            ctx.moveTo(mx - 3.5, my - 5); ctx.lineTo(mx - 2, my - 7.5); ctx.lineTo(mx - 1, my - 5);
+            ctx.moveTo(mx + 1, my - 5); ctx.lineTo(mx + 2, my - 7.5); ctx.lineTo(mx + 3.5, my - 5);
             ctx.fill();
+            // Inner ear pink
+            ctx.fillStyle = "#FFB8D9";
+            ctx.beginPath();
+            ctx.arc(mx - 2.2, my - 6, 0.6, 0, Math.PI * 2);
+            ctx.arc(mx + 2.2, my - 6, 0.6, 0, Math.PI * 2);
+            ctx.fill();
+            // Closed happy eyes
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 0.7;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(mx - 1.5, my - 3, 0.7, 1.1 * Math.PI, 1.9 * Math.PI);
+            ctx.arc(mx + 1.5, my - 3, 0.7, 1.1 * Math.PI, 1.9 * Math.PI);
+            ctx.stroke();
+            // Pink nose
+            ctx.fillStyle = "#FF8AAA";
+            ctx.beginPath(); ctx.arc(mx, my - 1.5, 0.5, 0, Math.PI * 2); ctx.fill();
+            ctx.lineCap = "butt";
         }
 
         ctx.restore();
@@ -5356,18 +5422,41 @@
         ctx.ellipse(9, -14, 4, 8, 0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face — concerned
+        // Head outline (chunky)
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.stroke();
+        // Cheek blush
+        ctx.fillStyle = "rgba(255,140,140,0.5)";
+        ctx.beginPath();
+        ctx.arc(-5, -16, 1.6, 0, Math.PI * 2);
+        ctx.arc(5, -16, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyes (whites + pupils)
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.arc(-3, -18, 1.4, 0, Math.PI * 2);
+        ctx.arc(3, -18, 1.4, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#222";
         ctx.beginPath();
-        ctx.arc(-3, -18, 0.8, 0, Math.PI * 2);
-        ctx.arc(3, -18, 0.8, 0, Math.PI * 2);
+        ctx.arc(-2.7, -17.8, 0.9, 0, Math.PI * 2);
+        ctx.arc(3.3, -17.8, 0.9, 0, Math.PI * 2);
         ctx.fill();
-        // Slight worried mouth
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 0.8;
+        // Worried brows (angled inward)
+        ctx.strokeStyle = "#3E2723";
+        ctx.lineWidth = 1.2;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(0, -14, 2, 0.05 * Math.PI, 0.45 * Math.PI);
+        ctx.moveTo(-6, -21); ctx.lineTo(-2, -22);
+        ctx.moveTo(2, -22); ctx.lineTo(6, -21);
         ctx.stroke();
+        ctx.lineCap = "butt";
+        // Small "o" worried mouth
+        ctx.fillStyle = "#5D2A2A";
+        ctx.beginPath();
+        ctx.ellipse(0, -14, 0.9, 1.4, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         // Handbag bouncing
         ctx.fillStyle = "#5D4037";
@@ -5522,37 +5611,64 @@
         roundRect(-9, -6, 3, 9, 1); ctx.fill();
         roundRect(6, -6, 3, 9, 1); ctx.fill();
 
-        // Head
+        // Head with chunky outline
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(0, -13, 7.3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#F5C9A0";
-        ctx.beginPath(); ctx.arc(0, -13, 6.5, 0, Math.PI * 2); ctx.fill();
-        // Hair styles
+        ctx.beginPath(); ctx.arc(0, -13, 6.3, 0, Math.PI * 2); ctx.fill();
+        // Hair (slightly darker outer + lighter inner pass)
+        ctx.fillStyle = shadeColor(g.hairColor, -35);
+        if (g.hairStyle === "pony") {
+            ctx.beginPath();
+            ctx.arc(0, -16, 8, Math.PI, Math.PI * 2);
+            ctx.ellipse(0, -8, 3.5, 6.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (g.hairStyle === "bun") {
+            ctx.beginPath();
+            ctx.arc(0, -16, 8, Math.PI, Math.PI * 2);
+            ctx.arc(0, -19, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            ctx.beginPath(); ctx.arc(0, -14, 8.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#F5C9A0";
+            ctx.beginPath(); ctx.arc(0, -13, 5.5, 0, Math.PI * 2); ctx.fill();
+        }
+        // Inner hair color pass for definition
         ctx.fillStyle = g.hairColor;
         if (g.hairStyle === "pony") {
             ctx.beginPath();
             ctx.arc(0, -16, 7, Math.PI, Math.PI * 2);
-            ctx.ellipse(0, -8, 3, 6, 0, 0, Math.PI * 2);
             ctx.fill();
         } else if (g.hairStyle === "bun") {
             ctx.beginPath();
-            ctx.arc(0, -16, 7, Math.PI, Math.PI * 2);
+            ctx.arc(0, -19, 3.5, 0, Math.PI * 2);
             ctx.fill();
-            ctx.beginPath();
-            ctx.arc(0, -19, 4, 0, Math.PI * 2);
-            ctx.fill();
-        } else {
-            // loose
-            ctx.beginPath();
-            ctx.arc(0, -14, 8, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#F5C9A0";
-            ctx.beginPath(); ctx.arc(0, -13, 5.5, 0, Math.PI * 2); ctx.fill();
         }
-        // Eyes
+        // Cheek blush
+        ctx.fillStyle = "rgba(255,150,150,0.5)";
+        ctx.beginPath();
+        ctx.arc(-3.5, -11, 1.2, 0, Math.PI * 2);
+        ctx.arc(3.5, -11, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Sparkly eyes (Sasquatch-style)
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-2.2, -13, 1.4, 0, Math.PI * 2);
+        ctx.arc(2.2, -13, 1.4, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#000";
         ctx.beginPath();
-        ctx.arc(-2, -13, 0.7, 0, Math.PI * 2);
-        ctx.arc(2, -13, 0.7, 0, Math.PI * 2);
+        ctx.arc(-2.2, -12.8, 0.9, 0, Math.PI * 2);
+        ctx.arc(2.2, -12.8, 0.9, 0, Math.PI * 2);
         ctx.fill();
+        // Tiny smile
+        ctx.strokeStyle = "#A0394D";
+        ctx.lineWidth = 0.9;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(0, -11, 1.6, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.stroke();
+        ctx.lineCap = "butt";
 
         ctx.restore();
     }
@@ -5651,42 +5767,96 @@
     }
 
     function drawDinaBus() {
-        // Background: sidewalk + road at bus stop
-        ctx.fillStyle = "#A8E6CF"; // green grass
-        ctx.fillRect(0, 0, W, H);
-        // Sky band at top
-        ctx.fillStyle = "#FFE082";
+        // Sky gradient at top
+        var skyG = ctx.createLinearGradient(0, 0, 0, 90);
+        skyG.addColorStop(0, "#A8E6CF"); skyG.addColorStop(1, "#FFE3B0");
+        ctx.fillStyle = skyG;
         ctx.fillRect(0, 0, W, 90);
+        // Unified lawn green (matches run home)
+        ctx.fillStyle = "#7CB342";
+        ctx.fillRect(0, 90, W, H);
         // Road (where bus is)
         ctx.fillStyle = "#6B7B8D";
         ctx.fillRect(0, 90, W, 220);
+        // Road outline + lane dashes
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(0, 90, W, 220);
+        ctx.strokeStyle = "#F5F5DC";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([20, 16]);
+        ctx.beginPath();
+        ctx.moveTo(0, 200); ctx.lineTo(W, 200);
+        ctx.stroke();
+        ctx.setLineDash([]);
         // Curb
         ctx.fillStyle = "#FBC02D";
         ctx.fillRect(0, 305, W, 4);
+        ctx.fillStyle = "#212121";
+        ctx.fillRect(0, 309, W, 2);
         // Sidewalk
-        ctx.fillStyle = "#BDBDBD";
-        ctx.fillRect(0, 309, W, 90);
+        ctx.fillStyle = "#D0CFC2";
+        ctx.fillRect(0, 311, W, 88);
         ctx.strokeStyle = "#9E9E9E";
         ctx.lineWidth = 1;
+        ctx.beginPath();
         for (var sxx = 60; sxx < W; sxx += 80) {
-            ctx.beginPath(); ctx.moveTo(sxx, 309); ctx.lineTo(sxx, 399); ctx.stroke();
+            ctx.moveTo(sxx, 311); ctx.lineTo(sxx, 399);
         }
-        // Lawn / houses below sidewalk
-        ctx.fillStyle = "#7CB342";
-        ctx.fillRect(0, 399, W, H - 399);
-        // Distant houses
+        ctx.stroke();
+
+        // Distant houses with chunky outlines + windows
+        // House 1 (pink)
         ctx.fillStyle = "#EF9A9A";
         roundRect(40, 430, 100, 80, 6); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        roundRect(40, 430, 100, 80, 6); ctx.stroke();
+        // Roof
         ctx.fillStyle = "#B71C1C";
         ctx.beginPath();
         ctx.moveTo(40, 430); ctx.lineTo(90, 400); ctx.lineTo(140, 430); ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = "#A1887F";
+        ctx.fill(); ctx.stroke();
+        // Windows
+        ctx.fillStyle = "#FFEB3B";
+        ctx.fillRect(56, 458, 22, 22);
+        ctx.fillRect(102, 458, 22, 22);
+        ctx.strokeRect(56, 458, 22, 22);
+        ctx.strokeRect(102, 458, 22, 22);
+        // Window cross
+        ctx.beginPath();
+        ctx.moveTo(67, 458); ctx.lineTo(67, 480);
+        ctx.moveTo(56, 469); ctx.lineTo(78, 469);
+        ctx.moveTo(113, 458); ctx.lineTo(113, 480);
+        ctx.moveTo(102, 469); ctx.lineTo(124, 469);
+        ctx.stroke();
+        // Door
+        ctx.fillStyle = "#5D4037";
+        ctx.fillRect(82, 484, 16, 26);
+        ctx.strokeRect(82, 484, 16, 26);
+
+        // House 2 (brown)
+        ctx.fillStyle = "#BCAAA4";
         roundRect(250, 440, 110, 70, 6); ctx.fill();
+        roundRect(250, 440, 110, 70, 6); ctx.stroke();
         ctx.fillStyle = "#4E342E";
         ctx.beginPath();
         ctx.moveTo(250, 440); ctx.lineTo(305, 410); ctx.lineTo(360, 440); ctx.closePath();
-        ctx.fill();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#FFEB3B";
+        ctx.fillRect(268, 460, 22, 22);
+        ctx.fillRect(320, 460, 22, 22);
+        ctx.strokeRect(268, 460, 22, 22);
+        ctx.strokeRect(320, 460, 22, 22);
+        ctx.beginPath();
+        ctx.moveTo(279, 460); ctx.lineTo(279, 482);
+        ctx.moveTo(268, 471); ctx.lineTo(290, 471);
+        ctx.moveTo(331, 460); ctx.lineTo(331, 482);
+        ctx.moveTo(320, 471); ctx.lineTo(342, 471);
+        ctx.stroke();
+        ctx.fillStyle = "#5D4037";
+        ctx.fillRect(297, 484, 16, 26);
+        ctx.strokeRect(297, 484, 16, 26);
 
         // Bus
         if (schoolBus) drawSchoolBus(schoolBus);
@@ -5886,29 +6056,46 @@
     }
 
     function drawDinaSidewalkBg(scrollY) {
-        // Lawn (left/right green strips)
+        // Lawn — unified green
         ctx.fillStyle = "#7CB342";
         ctx.fillRect(0, 0, W, H);
-        // Lawn pattern
+        // Lawn texture stripes
         ctx.fillStyle = "#9CCC65";
         for (var gy = (scrollY * 0.2) % 60 - 60; gy < H; gy += 60) {
             ctx.fillRect(0, gy, W, 20);
         }
-        // Sidewalk (center)
+        // Tiny flower pops scattered on the lawn
+        ctx.fillStyle = "#FFD54F";
+        for (var fi = 0; fi < 14; fi++) {
+            var fxx = (fi * 41 + 13) % W;
+            var fyy = ((fi * 67 + scrollY * 0.45) % (H + 80)) - 40;
+            if (fxx > W / 2 - 110 && fxx < W / 2 + 110) continue;
+            ctx.beginPath(); ctx.arc(fxx, fyy, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Sidewalk (center) with edge shadow
         var SIDEWALK_L = W / 2 - 100, SIDEWALK_W = 200;
-        ctx.fillStyle = "#BDBDBD";
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(SIDEWALK_L - 4, 0, 4, H);
+        ctx.fillRect(SIDEWALK_L + SIDEWALK_W, 0, 4, H);
+        ctx.fillStyle = "#D0CFC2";
         ctx.fillRect(SIDEWALK_L, 0, SIDEWALK_W, H);
-        // Sidewalk cracks
+        // Chunky outline
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(SIDEWALK_L, 0, SIDEWALK_W, H);
+        // Sidewalk cracks (batched into single path)
         ctx.strokeStyle = "#9E9E9E";
         ctx.lineWidth = 1;
+        ctx.beginPath();
         for (var sy = (scrollY % 80) - 80; sy < H + 40; sy += 80) {
-            ctx.beginPath();
-            ctx.moveTo(SIDEWALK_L, sy);
-            ctx.lineTo(SIDEWALK_L + SIDEWALK_W, sy);
-            ctx.stroke();
+            ctx.moveTo(SIDEWALK_L + 4, sy);
+            ctx.lineTo(SIDEWALK_L + SIDEWALK_W - 4, sy);
         }
-        // Lane dashes (visual aid)
-        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+        ctx.stroke();
+
+        // Lane dashes
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
         ctx.lineWidth = 1.5;
         ctx.setLineDash([6, 14]);
         ctx.lineDashOffset = -scrollY * 0.5;
@@ -5918,13 +6105,21 @@
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // Side houses / fences (decorative, far back)
-        for (var hx = 0; hx < W; hx += 100) {
-            if (hx >= SIDEWALK_L - 20 && hx <= SIDEWALK_L + SIDEWALK_W + 20) continue;
-            var hy = ((hx * 7 + scrollY * 0.3) % H);
-            // Picket fence
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillRect(hx, hy, 30, 14);
+        // Proper picket fence on both sides of the lawn
+        ctx.fillStyle = "#FFF8E8";
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 2;
+        for (var fx = 6; fx < SIDEWALK_L - 12; fx += 14) {
+            var ofy = ((fx * 7 + scrollY * 0.4) % (H + 60)) - 60;
+            roundRect(fx, ofy, 8, 18, 2); ctx.fill(); ctx.stroke();
+            // Mirror on right
+            roundRect(W - fx - 8, ofy + 30, 8, 18, 2); ctx.fill(); ctx.stroke();
+        }
+        // Fence rail (horizontal crossbar)
+        ctx.fillStyle = "#5D4037";
+        for (var ry = ((scrollY * 0.4) % 120) - 60; ry < H + 30; ry += 120) {
+            ctx.fillRect(0, ry, SIDEWALK_L - 6, 3);
+            ctx.fillRect(SIDEWALK_L + SIDEWALK_W + 6, ry, W - SIDEWALK_L - SIDEWALK_W - 6, 3);
         }
     }
 
@@ -6094,26 +6289,48 @@
             var homeY = -100 + alphaH * 200;
             ctx.save();
             ctx.globalAlpha = alphaH;
+            // House body
             ctx.fillStyle = "#A1887F";
             roundRect(W / 2 - 70, homeY, 140, 90, 8); ctx.fill();
+            ctx.strokeStyle = "#1A1A1A";
+            ctx.lineWidth = 3;
+            roundRect(W / 2 - 70, homeY, 140, 90, 8); ctx.stroke();
             // Roof
             ctx.fillStyle = "#5D4037";
             ctx.beginPath();
             ctx.moveTo(W / 2 - 80, homeY);
             ctx.lineTo(W / 2, homeY - 40);
             ctx.lineTo(W / 2 + 80, homeY);
-            ctx.closePath(); ctx.fill();
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            // Windows (lit warm yellow)
+            ctx.fillStyle = "#FFE082";
+            ctx.fillRect(W / 2 - 55, homeY + 18, 28, 28);
+            ctx.fillRect(W / 2 + 27, homeY + 18, 28, 28);
+            ctx.strokeRect(W / 2 - 55, homeY + 18, 28, 28);
+            ctx.strokeRect(W / 2 + 27, homeY + 18, 28, 28);
+            // Window cross panes
+            ctx.beginPath();
+            ctx.moveTo(W / 2 - 41, homeY + 18); ctx.lineTo(W / 2 - 41, homeY + 46);
+            ctx.moveTo(W / 2 - 55, homeY + 32); ctx.lineTo(W / 2 - 27, homeY + 32);
+            ctx.moveTo(W / 2 + 41, homeY + 18); ctx.lineTo(W / 2 + 41, homeY + 46);
+            ctx.moveTo(W / 2 + 27, homeY + 32); ctx.lineTo(W / 2 + 55, homeY + 32);
+            ctx.stroke();
             // Door
             ctx.fillStyle = "#3E2723";
             roundRect(W / 2 - 15, homeY + 50, 30, 40, 4); ctx.fill();
+            roundRect(W / 2 - 15, homeY + 50, 30, 40, 4); ctx.stroke();
             ctx.fillStyle = "#FFEB3B";
-            ctx.beginPath(); ctx.arc(W / 2 + 8, homeY + 70, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(W / 2 + 8, homeY + 72, 2, 0, Math.PI * 2); ctx.fill();
             // Welcome mat
             ctx.fillStyle = "#D32F2F";
             ctx.fillRect(W / 2 - 18, homeY + 88, 36, 5);
+            ctx.strokeRect(W / 2 - 18, homeY + 88, 36, 5);
             // Sign "HOME"
             ctx.fillStyle = "#FFD700";
             roundRect(W / 2 - 30, homeY - 8, 60, 14, 4); ctx.fill();
+            ctx.strokeStyle = "#5D4037";
+            ctx.lineWidth = 2;
+            roundRect(W / 2 - 30, homeY - 8, 60, 14, 4); ctx.stroke();
             drawText("HOME ♥", W / 2, homeY - 1, "bold 11px Arial", "#000", null, 0);
             ctx.restore();
         }
@@ -6376,17 +6593,29 @@
         // Wall (cream)
         ctx.fillStyle = "#FFE8C8";
         ctx.fillRect(0, 0, W, 280);
-        // Floor (honey wood)
+        // Wallpaper polka-dot pattern (subtle pink)
+        ctx.fillStyle = "rgba(255,180,200,0.28)";
+        for (var wy = 20; wy < 260; wy += 40) {
+            for (var wx = (wy % 80 === 0 ? 20 : 50); wx < W; wx += 60) {
+                ctx.beginPath(); ctx.arc(wx, wy, 4, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        // Baseboard (white strip with dark line)
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 268, W, 12);
+        ctx.fillStyle = "#1A1A1A";
+        ctx.fillRect(0, 280, W, 2);
+        // Floor (honey wood) — start below baseboard
         ctx.fillStyle = "#E8B872";
-        ctx.fillRect(0, 280, W, H - 280);
-        // Wood grain lines
+        ctx.fillRect(0, 282, W, H - 282);
+        // Wood grain lines (batched single path)
         ctx.strokeStyle = "#C99A50";
         ctx.lineWidth = 1;
+        ctx.beginPath();
         for (var fy = 300; fy < H; fy += 30) {
-            ctx.beginPath();
             ctx.moveTo(0, fy); ctx.lineTo(W, fy);
-            ctx.stroke();
         }
+        ctx.stroke();
 
         // Window with sky + curtains
         ctx.fillStyle = "#A8D8F0";
