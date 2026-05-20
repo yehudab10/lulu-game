@@ -1,106 +1,100 @@
-# How to update lulu.boats with v5 — 10-Agent Quality Pass (complete)
+# lulu.boats v7 — Critical bug fixes + redesigns
 
-This is a HUGE update — 10 specialized agents each audited one area of the game (QA, bug hunting, visual polish, character art, animation, audio, UI/UX, mobile, performance, new features) and their fixes have been integrated.
+Targeting the issues you flagged. Deploy is the same 3-min process.
 
-Deploy is the same: drag files to GitHub, commit, refresh. **~3 minutes total.**
+## 🚨 Important — how to verify the version actually deployed
 
----
+If you keep seeing the old version on your phone:
+1. **Pull-to-refresh** on lulu.boats (or hard refresh: hold the refresh button)
+2. If you installed it as an app on your home screen, **uninstall and reinstall** — the PWA cache is sticky
+3. Try a different device or **Incognito/Private** browsing window to confirm the new version IS deployed
 
-## What's fixed / new in v5
+The file you upload to GitHub must literally be the `game.js` that's currently in your `lulu game` folder. The most common cause of "old version showing" is that the upload to GitHub got skipped or replaced the wrong file.
 
-### 🐛 Critical bug fixes (would have broken your playthrough)
+## What's fixed in v7
 
-1. **Tablet trap** — tapping the tablet in Dina's room dropped you into Lulu's game **with no way back**. Now: pause/QUIT and game-over MAIN-MENU route back to Dina's home when you came via tablet.
-2. **Tablet hidden inside bed hitbox** — tapping the tablet on the bed used to trigger "Take a nap" instead. Fixed.
-3. **Pause toggled on its own** — same keystroke counted as pause + action. Fixed.
-4. **State leaks** — dying in challenge parking → starting a regular game carried over stale data. Fixed by resetting everything in `resetGame()`.
-5. **Morgan back-button invisible hitbox** — drawn at y=80 but click hitbox at y=30 — fixed.
-6. **Morgan "chin" pet zone unreachable** — removed, replaced with head/back/belly only.
-7. **Dina target position undefined** if bus intro was skipped — fixed.
-8. **Mom's first speech bubble was empty** — sayTimer now initializes properly.
-9. **Angry-man / revenge-car leftover state** lingered into game over — cleaned up.
+### 🔴 Major bug: Mom was catching Dina in 8 seconds
+**Before:** Mom's catchup rate was 0.12/sec — over a 45-second run she'd close 5.4 units of distance. Starting distance was only 1.0, so she'd catch Dina at ~8 seconds. Game-breaking.
 
-### 📱 Mobile-friendly improvements
+**After:** Mom no longer naturally catches up at all. She only gains ground when:
+- **Dina stumbles** (small +0.10/sec while stumble timer is active)
+- **Dina is in slow-walk mode** (small +0.04/sec)
+- **Final 10 seconds of the run** (+0.025/sec — tension builds at the end)
+- **Sprinting actively pushes Mom back** (Dina pulls ahead)
 
-- All touch buttons **standardized at 64×64** (was 40-58px). Comfortably above Apple's 44pt minimum.
-- **12-16px gaps** between adjacent buttons (was 6-8px).
-- Buttons moved **above iPhone home-indicator zone** (last 34px).
-- **Pause button bumped to 48×48** in top-left.
-- **New 📣 honk button** on right side of main game (above missile) — no keyboard needed.
+Now if you run cleanly, you make it home. Mom only catches up if you slow down a LOT or take too many hits. Both endings still possible — just earned, not arbitrary.
 
-### 🎨 Visual polish (chunky Sneaky-Sasquatch-style outlines everywhere)
+### 🔴 Major bug: Morgan back button didn't work
+**Before:** The visible "BACK" button was at y=80, but the click hitbox was at y=30 (50px above the visible button). Tapping the button did nothing.
 
-- **Sky-to-grass gradient** on Lulu's road + road drop shadows + **chunky 3px black outline**
-- **Char-select gradient** unified with the rest of the game (sky-green-to-grass instead of pink-orange sunset)
-- **"LEV BAIS YAAKOV"** text now sits in a white outlined panel — much more readable
-- **All parking buildings** got chunky outlines + **proper trapezoid roofs**
-- **Dina's sidewalk** now has shadow edges + chunky outline + lawn flower pops + proper picket fences with crossbars (instead of floating white rectangles)
-- **Dina bus scene** uses unified greens + lane lines + **houses now have proper window crosses + door + outlines**
-- **Dina's distant home** in run-home now has outlines + lit windows with pane crosses + outlined door
-- **Dina's bedroom** has wallpaper polka dots + white baseboard with dark trim line
-- **Pedestrians** now have sparkly Sneaky-Sasquatch eyes with highlights + rosy cheek dots + "oh!" surprised mouth (instead of dead black dots)
-- **School girls** got chunky outlines + cheek blush + sparkly eyes + tiny smiles + 3-tone hair shading
-- **Sasquatch** got bigger friendlier eyes + brow ridge + lighter muzzle + fur tufts + chunky outline
-- **Angry old man** hair has darker base under the white for depth + sticky-up tufts
-- **Mom** got chunky head outline + cheek blush + proper eyes with whites + worried brows + small "o" mouth
-- **Small Morgan plushie** (in Dina's arms) now has proper triangular ears + pink inner ears + pink nose + sleepy happy-arc eyes (was just two ovals)
+**After:** Hitbox enlarged to (10, 70, 80, 80) — covers the button AND its label, with extra padding. Plus it now plays a click sound for confirmation.
 
-### 🎵 New sound effects (all Web Audio — no files)
+### 🐒 "Lulu looked like a monkey" — face redesigned
+**Before:** Olive skin (#E8B89A) + very small dark almond eyes + freckles + dark brown hair → at 16px wide, this read as monkey-esque.
 
-- **Character select** — bright two-note "ding" when you pick a sister
-- **School bus door hiss** — proper filtered white noise
-- **School bell** — overtone-rich ring with delayed echo
-- **Dog bark** when you pet the golden retriever
-- **Hopscotch jump** — pitch-up "boing"
-- **Star sparkle** for achievements
+**After:**
+- **Brighter skin tone** (#FFD4B8 — peachy, clearly human)
+- **Warm brown hair** (#8B5A2B — was too dark before)
+- **Bigger feminine eyes** with eye sparkles (almond shape, brown iris)
+- **Eyebrows** added (small thin arcs — gives expression)
+- **Soft pink blush** on cheeks
+- **Pink lips** restored (clearly feminine)
+- **Eyelashes** more visible (small upward curves on outer corners)
+- **Subtle face outline** for definition
 
-### 🎺 Honk Symphony (NEW feature)
+Applied to BOTH `drawLuluCar` (in-game) AND `drawLuluCarFull` (parking scene) so she looks consistent everywhere.
 
-Press **H** repeatedly — each honk plays the **next note up a C-major scale**. Chain 4+ in a row and you get a sparkly **"♪ 4x!"** floater above your car. Pedestrians wave, animals scatter faster.
+### 🐻 "Dina looked fat" — coat slimmed down
+**Before:** Dina's pink puffy coat was an ellipse 16×14 (Big!) plus highlight puffs adding to the bulk. The character-select portrait had a 65×50 coat with 14px-radius puff points all around — she really looked spherical.
 
-### ✨ Pickup animations
+**After:**
+- **Top-down body:** ellipse reduced to 12×10 with chunky 1px outline for definition
+- **Portrait:** ellipse 44×38 with smaller 8px puff bumps (was 14px)
+- **Head outline** added (1px black) for the cartoon definition
+- **Arms slimmer + closer to body** (4px wide, was 5px)
+- **Hands smaller and tucked in**
 
-Coins collected now spawn a **floating "+1"** that drifts up and fades. Same for:
-- 🌟 Stickers — "+⭐"
-- 🦋 Butterflies — "+1 🦋"
-- 🐕 Dogs — "+2 🐕"
-- 💧 Sprinklers — "+⚡"
+She now looks like a kid in a puffy coat, not a marshmallow.
 
-### 🎬 Easing helpers + button press feedback
+### 🏠 Bedroom redesigned (objects no longer overlap)
+**Before:** Door (x:380-460) overlapped Bed (x:340-470, y:280-460). Tablet (x:350-410, y:320-360) was entirely inside the bed. Tapping the tablet triggered "nap".
 
-- New easing functions: `easeOutBack`, `easeOutQuad`, `easeOutElastic`
-- **Every touchable button flashes** briefly when pressed (visual confirmation your tap registered)
-- Floater system used by anything spawning a temporary text effect
+**After (completely new layout):**
+- **Door + sign:** LEFT WALL upper area (x:8-78, y:90-220). Has a yellow "DINA'S ROOM" sign above it.
+- **Crayon drawing** of mom + dina holding hands: above-left wall (x:95-155, y:100-160). Cute little artifact.
+- **Bed:** RIGHT-MIDDLE area (x:280-460, y:320-480). With chunky outline, quilted pattern, white pillow with a tiny teddy bear on it, mint blanket folded at the foot.
+- **Cookie + milk:** bottom-center on a little wooden side table (x:130-190, y:510-560). Tap to eat (+5 coins, crunch sound!).
+- **Tablet:** bottom-center, free-standing (x:230-290, y:510-554). Now shows a mini Lulu game preview on its screen. Tap to play Lulu's game on her tablet.
+- **Sticker book:** bottom-right (x:320-390, y:510-570). New! Tap to see your collected stars count.
+- **Morgan plushie:** bottom-left (x:30-94, y:540-610). Bigger draw (scale 0.7 instead of 0.6) so she's more visible. Tap to enter Morgan play mode.
+- **Big rug** at the bottom (200×60 ellipse) tying it all together.
 
-### 🧹 Code quality
+Now **6 interactive items** (was 4), all clearly separated, none overlapping.
 
-- Removed dead code (`spawnCop` was never called)
-- Renamed shadowed `keys` variables (conflicted with keyboard state)
-- Fixed `parkingExtras` hoisting fragility
-- Added all missing resets to `resetGame()`
+### 🎨 Other touches
+- Home message banner appears when you interact (e.g., "🍪 Yum! +5 coins")
+- HUD header simplified to "🏠 Dina's Bedroom"
+- Hint text changed from "Arrow keys to walk · Space to interact" → "Walk with arrows · Tap any item to interact"
 
 ---
 
 ## How to deploy
 
-1. Open your GitHub repo (lulu-game)
-2. **Add file → Upload files**
-3. Drag every file from your `lulu game` folder
-4. Commit with a message like "v5: 10-agent quality pass"
-5. Wait ~1 minute for the green checkmark
-6. **Pull down to refresh** on lulu.boats (or if installed as an app, **uninstall and reinstall** to bust cache)
-
-## What's deferred for next batch (already designed)
-
-These were flagged by agents but require deeper changes — design specs saved:
-- Offscreen-canvas caching for bedroom (perf win)
-- Background music loops (atmospheric pads per state)
-- Sasquatch hitchhiker mini-event
-- Ima's text messages mini-event
-- Mrs. Greenblatt the crossing guard NPC
-- Run-cycle bouncing animation
-- Scene fade transitions
+1. GitHub → your `lulu-game` repo → **Add file → Upload files**
+2. Drag every file from `lulu game` folder
+3. Commit ("v7: critical bug fixes + bedroom redesign + Lulu/Dina face fixes")
+4. Wait ~1 minute for green ✓
+5. **Critical:** Pull-to-refresh on lulu.boats. If installed as app on home screen, **uninstall + reinstall**.
 
 ---
 
-The game should now feel **significantly more polished and less buggy** on real devices. Enjoy! 🎀👯
+## Quick test checklist after deploying
+
+- [ ] **Character select:** Lulu portrait looks like a young woman (brighter skin, pink lips). Dina portrait isn't spherical anymore.
+- [ ] **Lulu mode:** Lulu's face in the car looks human (not monkey).
+- [ ] **Dina mode:** start a run, do nothing — Mom should NOT catch you in 8 seconds. You should easily reach home.
+- [ ] **Dina mode:** stumble into a hydrant 5+ times — Mom slowly closes in.
+- [ ] **Bedroom:** all 6 items are visible, none overlap. Tap each one and it triggers the correct interaction.
+- [ ] **Morgan play:** tap the BACK button → returns to bedroom (not stuck).
+
+If anything still looks broken on your phone but works in a private/incognito browser → it's a cache issue. Try clearing app data or reinstalling.

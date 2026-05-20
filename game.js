@@ -249,6 +249,98 @@
     function playHopJump() { playTone(440, 0.18, "triangle", 0.16, 880); }
     // Honk Symphony — pitch varies with speed/honk count
     var honkChain = 0; var honkChainResetTimer = 0;
+    // ── Background music system ─────────────────────────────
+    var musicNodes = [];
+    var musicState = null;
+    function stopMusic() {
+        for (var i = 0; i < musicNodes.length; i++) {
+            try { if (musicNodes[i].stop) musicNodes[i].stop(); }
+            catch (e) {}
+            try { if (musicNodes[i].disconnect) musicNodes[i].disconnect(); }
+            catch (e2) {}
+        }
+        musicNodes = [];
+        musicState = null;
+    }
+    function startMusic(track) {
+        if (musicState === track) return;
+        stopMusic();
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        musicState = track;
+        var master = ac.createGain();
+        master.gain.value = 0.05;
+        master.connect(ac.destination);
+        musicNodes.push(master);
+
+        if (track === "menu" || track === "charSelect") {
+            // Warm C-major chord drone (C+E+G)
+            [261.6, 329.6, 392].forEach(function (f) {
+                var o = ac.createOscillator();
+                o.type = "sine";
+                o.frequency.value = f;
+                var lfo = ac.createOscillator();
+                lfo.frequency.value = 0.3;
+                var lfoG = ac.createGain();
+                lfoG.gain.value = 2;
+                lfo.connect(lfoG).connect(o.frequency);
+                o.connect(master);
+                o.start(); lfo.start();
+                musicNodes.push(o); musicNodes.push(lfo);
+            });
+        } else if (track === "playing") {
+            // Road hum — low sawtooth + lowpass
+            var o = ac.createOscillator();
+            o.type = "sawtooth";
+            o.frequency.value = 70;
+            var f = ac.createBiquadFilter();
+            f.type = "lowpass"; f.frequency.value = 180;
+            o.connect(f).connect(master);
+            o.start();
+            musicNodes.push(o);
+        } else if (track === "parking") {
+            // Tense ticking via interval
+            var iv = setInterval(function () {
+                if (musicState !== "parking" || audioMuted) return;
+                playTone(1200, 0.02, "square", 0.05);
+            }, 500);
+            musicNodes.push({ stop: function () { clearInterval(iv); }, disconnect: function () {} });
+        } else if (track === "dinaRun") {
+            // Pizzicato bounce — A C E loop
+            var notes = [440, 523, 659, 523];
+            var idx = 0;
+            var iv2 = setInterval(function () {
+                if (musicState !== "dinaRun" || audioMuted) return;
+                playTone(notes[idx % 4], 0.10, "triangle", 0.07);
+                idx++;
+            }, 280);
+            musicNodes.push({ stop: function () { clearInterval(iv2); }, disconnect: function () {} });
+        } else if (track === "dinaHome") {
+            // Soft random tinkle every 5s
+            var iv3 = setInterval(function () {
+                if (musicState !== "dinaHome" || audioMuted) return;
+                var pitches = [2093, 2637, 3136];
+                playTone(randPick(pitches), 0.3, "sine", 0.05, randPick(pitches));
+            }, 5000);
+            musicNodes.push({ stop: function () { clearInterval(iv3); }, disconnect: function () {} });
+        } else if (track === "morgan") {
+            // Cozy purr loop — low rumble with AM
+            var oP = ac.createOscillator();
+            oP.type = "sine";
+            oP.frequency.value = 55;
+            var am = ac.createOscillator();
+            am.frequency.value = 20;
+            var amG = ac.createGain();
+            amG.gain.value = 0.5;
+            var pG = ac.createGain();
+            pG.gain.value = 0.5;
+            am.connect(amG).connect(pG.gain);
+            oP.connect(pG).connect(master);
+            oP.start(); am.start();
+            musicNodes.push(oP); musicNodes.push(am);
+        }
+    }
+
     function playHonkPitched(pitch) {
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
@@ -516,6 +608,28 @@
                 "bold 20px 'Segoe UI', Arial, sans-serif", f.color, "#000", 4);
             ctx.globalAlpha = 1;
         }
+    }
+
+    // Scene fade transition — fade-to-dark-then-out on state changes
+    var sceneFade = { t: 1, dur: 0.35, next: null, fired: true };
+    function gotoState(newState) {
+        if (sceneFade.t < sceneFade.dur) return; // already transitioning
+        sceneFade = { t: 0, dur: 0.35, next: newState, fired: false };
+    }
+    function updateSceneFade(dt) {
+        if (sceneFade.t >= sceneFade.dur) return;
+        sceneFade.t += dt;
+        if (!sceneFade.fired && sceneFade.t >= sceneFade.dur / 2) {
+            state = sceneFade.next;
+            sceneFade.fired = true;
+        }
+    }
+    function drawSceneFade() {
+        if (sceneFade.t >= sceneFade.dur) return;
+        var p = sceneFade.t / sceneFade.dur;
+        var a = p < 0.5 ? easeInOutQuad(p * 2) : easeInOutQuad((1 - p) * 2);
+        ctx.fillStyle = "rgba(15,10,30," + (a * 0.85) + ")";
+        ctx.fillRect(0, 0, W, H);
     }
 
     // Button press visual feedback — register hit, draw a brief overlay
@@ -893,81 +1007,115 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // ── Lulu's face (refined adult look) ──
-        // Long hair flowing back, behind head
-        ctx.fillStyle = "#6B4423";
+        // ── Lulu's face (cute young woman, not too dark) ──
+        // Long hair flowing back, behind head (warm brown)
+        ctx.fillStyle = "#8B5A2B";
         ctx.beginPath();
-        ctx.ellipse(0, -hh + 26, 13, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -hh + 27, 14, 17, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face (warmer olive)
-        ctx.fillStyle = "#E8B89A";
+        // Face — brighter, softer skin tone (not olive)
+        ctx.fillStyle = "#FFD4B8";
         ctx.beginPath();
-        ctx.arc(0, -hh + 22, 7.5, 0, Math.PI * 2);
+        ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
+        ctx.fill();
+        // Face outline (subtle warm shadow)
+        ctx.strokeStyle = "rgba(180,100,70,0.4)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Hair bangs / forehead (center-parted, framing face)
+        ctx.fillStyle = "#8B5A2B";
+        ctx.beginPath();
+        ctx.arc(0, -hh + 16, 9, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // Soft swept bangs
+        ctx.beginPath();
+        ctx.ellipse(-3, -hh + 17, 6.5, 3.5, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(3, -hh + 17, 6.5, 3.5, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        // Center part hint (slightly darker)
+        ctx.fillStyle = "#6B4423";
+        ctx.fillRect(-0.5, -hh + 14, 1, 5);
+        // Loose strands framing face
+        ctx.fillStyle = "#8B5A2B";
+        ctx.beginPath();
+        ctx.ellipse(-7.5, -hh + 21, 2, 5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(7.5, -hh + 21, 2, 5, 0.3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Crown of head + center-parted bangs
-        ctx.fillStyle = "#6B4423";
+        // Eyebrows (small thin arcs)
+        ctx.strokeStyle = "#5D3317";
+        ctx.lineWidth = 0.8;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(0, -hh + 16, 8.5, Math.PI, Math.PI * 2);
-        ctx.fill();
-        // Center part highlight
-        ctx.fillStyle = "#7A5230";
-        ctx.fillRect(-0.5, -hh + 14, 1, 6);
-        // Front hair strands framing face (replaces bow)
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.ellipse(-7, -hh + 20, 2.2, 5, -0.2, 0, Math.PI * 2);
-        ctx.ellipse(7, -hh + 20, 2.2, 5, 0.2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(-4.5, -hh + 19); ctx.quadraticCurveTo(-3, -hh + 18.5, -1.5, -hh + 19);
+        ctx.moveTo(1.5, -hh + 19); ctx.quadraticCurveTo(3, -hh + 18.5, 4.5, -hh + 19);
+        ctx.stroke();
+        ctx.lineCap = "butt";
 
-        // Eyes — softer adult almond
+        // Eyes — feminine almond shape, slightly bigger
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.ellipse(-3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
-        ctx.ellipse(3, -hh + 21, 1.9, 1.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(-3, -hh + 21, 2, 1.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(3, -hh + 21, 2, 1.6, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Iris
-        ctx.fillStyle = "#5D4037";
+        // Iris (warm brown)
+        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.arc(-3, -hh + 21, 1.15, 0, Math.PI * 2);
-        ctx.arc(3, -hh + 21, 1.15, 0, Math.PI * 2);
+        ctx.arc(-3, -hh + 21.2, 1.3, 0, Math.PI * 2);
+        ctx.arc(3, -hh + 21.2, 1.3, 0, Math.PI * 2);
         ctx.fill();
         // Pupil
         ctx.fillStyle = "#1A0F08";
         ctx.beginPath();
-        ctx.arc(-3, -hh + 21, 0.55, 0, Math.PI * 2);
-        ctx.arc(3, -hh + 21, 0.55, 0, Math.PI * 2);
+        ctx.arc(-3, -hh + 21.2, 0.6, 0, Math.PI * 2);
+        ctx.arc(3, -hh + 21.2, 0.6, 0, Math.PI * 2);
         ctx.fill();
-        // Eye highlight
+        // Eye sparkle
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
-        ctx.arc(-2.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
-        ctx.arc(3.5, -hh + 20.7, 0.4, 0, Math.PI * 2);
+        ctx.arc(-2.4, -hh + 20.8, 0.5, 0, Math.PI * 2);
+        ctx.arc(3.6, -hh + 20.8, 0.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Subtle eyelashes
+        // Eyelashes (small upward curves on outer corners)
         ctx.strokeStyle = "#3E2723";
-        ctx.lineWidth = 0.6;
-        ctx.beginPath();
-        ctx.moveTo(-4.5, -hh + 20.3); ctx.lineTo(-1.5, -hh + 20.3);
-        ctx.moveTo(1.5, -hh + 20.3); ctx.lineTo(4.5, -hh + 20.3);
-        ctx.stroke();
-
-        // Freckles across nose bridge
-        ctx.fillStyle = "#A0623C";
-        ctx.fillRect(-2, -hh + 23, 0.6, 0.6);
-        ctx.fillRect(-0.5, -hh + 23.4, 0.6, 0.6);
-        ctx.fillRect(1.4, -hh + 23, 0.6, 0.6);
-        ctx.fillRect(2.4, -hh + 23.5, 0.5, 0.5);
-        ctx.fillRect(-1.3, -hh + 24, 0.5, 0.5);
-
-        // Soft relaxed smile (no pursed lips)
-        ctx.strokeStyle = "#C97064";
         ctx.lineWidth = 0.7;
+        ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(0, -hh + 25, 1.8, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.moveTo(-4.8, -hh + 20.5); ctx.lineTo(-5.5, -hh + 19.8);
+        ctx.moveTo(-4.2, -hh + 20.3); ctx.lineTo(-4.6, -hh + 19.7);
+        ctx.moveTo(4.8, -hh + 20.5); ctx.lineTo(5.5, -hh + 19.8);
+        ctx.moveTo(4.2, -hh + 20.3); ctx.lineTo(4.6, -hh + 19.7);
         ctx.stroke();
+        ctx.lineCap = "butt";
+
+        // Soft pink blush
+        ctx.fillStyle = "rgba(255, 140, 160, 0.45)";
+        ctx.beginPath();
+        ctx.ellipse(-4.5, -hh + 24, 1.6, 1.1, 0, 0, Math.PI * 2);
+        ctx.ellipse(4.5, -hh + 24, 1.6, 1.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Small freckles across nose
+        ctx.fillStyle = "rgba(160, 100, 60, 0.7)";
+        ctx.fillRect(-2, -hh + 23.5, 0.6, 0.6);
+        ctx.fillRect(-0.5, -hh + 24, 0.6, 0.6);
+        ctx.fillRect(1.5, -hh + 23.5, 0.6, 0.6);
+        ctx.fillRect(2.5, -hh + 24, 0.5, 0.5);
+
+        // Soft pink lips (clearly feminine)
+        ctx.fillStyle = "#E91E63";
+        ctx.beginPath();
+        ctx.ellipse(0, -hh + 26.5, 2, 0.9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#FFB0C8";
+        ctx.beginPath();
+        ctx.ellipse(0, -hh + 26.2, 1.5, 0.4, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         // Tiny gold necklace dot at chest edge
         ctx.fillStyle = "#FFD700";
@@ -994,6 +1142,49 @@
         // Rear window
         ctx.fillStyle = C.windshieldDark;
         roundRect(-hw + 10, hh - 22, CAR_W - 20, 12, 4); ctx.fill();
+
+        // Sasquatch hitchhiker — big furry head sticking out top
+        if (sasquatchPassenger > 0) {
+            ctx.save();
+            // Body lump squished in the car
+            ctx.fillStyle = "#4E342E";
+            roundRect(-hw + 6, hh - 30, CAR_W - 12, 18, 6); ctx.fill();
+            // Head poking up through roof
+            ctx.fillStyle = "#1A1410";
+            ctx.beginPath(); ctx.arc(8, hh - 36, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#4E342E";
+            ctx.beginPath(); ctx.arc(8, hh - 36, 11, 0, Math.PI * 2); ctx.fill();
+            // Fur tufts
+            ctx.fillStyle = "#3E2723";
+            ctx.beginPath();
+            ctx.arc(2, hh - 44, 3.5, 0, Math.PI * 2);
+            ctx.arc(8, hh - 46, 4, 0, Math.PI * 2);
+            ctx.arc(14, hh - 44, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            // Eyes
+            ctx.fillStyle = "#FFF9C4";
+            ctx.beginPath();
+            ctx.arc(4, hh - 37, 2.5, 0, Math.PI * 2);
+            ctx.arc(12, hh - 37, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(4, hh - 37, 1.4, 0, Math.PI * 2);
+            ctx.arc(12, hh - 37, 1.4, 0, Math.PI * 2);
+            ctx.fill();
+            // Big chill smile
+            ctx.strokeStyle = "#1A1410";
+            ctx.lineWidth = 1.5;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(8, hh - 32, 3.5, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            ctx.lineCap = "butt";
+            // Arm hanging out window
+            ctx.fillStyle = "#4E342E";
+            roundRect(hw - 4, hh - 26, 8, 16, 3); ctx.fill();
+            ctx.restore();
+        }
 
         // Passengers (peeking out the rear window)
         if (passengers && passengers.length > 0) {
@@ -2260,29 +2451,29 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // Lulu's face — refined adult look (matches drawLuluCar)
-        // Long hair flowing back
-        ctx.fillStyle = "#6B4423";
+        // Lulu's face — cute young woman, matches drawLuluCar
+        ctx.fillStyle = "#8B5A2B";
         ctx.beginPath();
-        ctx.ellipse(0, -hh + 26, 13, 16, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -hh + 27, 14, 17, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Face (olive)
-        ctx.fillStyle = "#E8B89A";
+        ctx.fillStyle = "#FFD4B8";
         ctx.beginPath();
-        ctx.arc(0, -hh + 22, 7.5, 0, Math.PI * 2);
+        ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
         ctx.fill();
-        // Crown of head + center-parted bangs
-        ctx.fillStyle = "#6B4423";
+        ctx.fillStyle = "#8B5A2B";
         ctx.beginPath();
-        ctx.arc(0, -hh + 16, 8.5, Math.PI, Math.PI * 2);
+        ctx.arc(0, -hh + 16, 9, Math.PI, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#7A5230";
-        ctx.fillRect(-0.5, -hh + 14, 1, 6);
-        // Front hair strands
-        ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.ellipse(-7, -hh + 20, 2.2, 5, -0.2, 0, Math.PI * 2);
-        ctx.ellipse(7, -hh + 20, 2.2, 5, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(-3, -hh + 17, 6.5, 3.5, -0.2, 0, Math.PI * 2);
+        ctx.ellipse(3, -hh + 17, 6.5, 3.5, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#6B4423";
+        ctx.fillRect(-0.5, -hh + 14, 1, 5);
+        ctx.fillStyle = "#8B5A2B";
+        ctx.beginPath();
+        ctx.ellipse(-7.5, -hh + 21, 2, 5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(7.5, -hh + 21, 2, 5, 0.3, 0, Math.PI * 2);
         ctx.fill();
 
         if (crying) {
@@ -2637,6 +2828,37 @@
             drawText(parkingMsg, W / 2, 108, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
             ctx.globalAlpha = 1;
         }
+
+        // Ima's text message — phone bubble in top-right
+        if (imaText) {
+            var alpha2 = imaText.t < 0.3 ? imaText.t / 0.3
+                       : imaText.t > imaText.dur - 0.5 ? (imaText.dur - imaText.t) / 0.5 : 1;
+            var buzz = imaText.t < 0.4 ? Math.sin(imaText.t * 50) * 3 : 0;
+            ctx.save();
+            ctx.globalAlpha = alpha2;
+            // Phone body
+            var px = W - 130 + buzz, py = 130;
+            ctx.fillStyle = "#212121";
+            roundRect(px, py, 110, 92, 8); ctx.fill();
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(px + 4, py + 4, 102, 84, 5); ctx.fill();
+            // "IMA" header
+            ctx.fillStyle = "#FF80AB";
+            roundRect(px + 4, py + 4, 102, 18, 5); ctx.fill();
+            drawText("📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
+            // Message bubble
+            ctx.fillStyle = "#E1F5FE";
+            roundRect(px + 8, py + 26, 94, 56, 6); ctx.fill();
+            ctx.strokeStyle = "#0288D1";
+            ctx.lineWidth = 1.5;
+            roundRect(px + 8, py + 26, 94, 56, 6); ctx.stroke();
+            // Render multi-line message
+            var lines = imaText.msg.split("\n");
+            for (var li = 0; li < lines.length; li++) {
+                drawText(lines[li], px + 55, py + 38 + li * 12, "11px Arial", "#212121", null, 0);
+            }
+            ctx.restore();
+        }
     }
 
     // ── State & Globals ──────────────────────────────────────
@@ -2776,11 +2998,25 @@
     // Roleplay scenarios + extras
     var sasquatchTimer = rand(40, 70);
     var sasquatch = null; // {x, y, phase, timer}
+    var sasquatchPassenger = 0; // seconds remaining as passenger in Lulu's car
     var billboards = [];  // {x, y, msg, parallax}
     var billboardTimer = 8;
     var honkCooldown = 0;
     var copEvent = null;  // {phase, timer, x, y}
     var copEventTimer = rand(60, 120);
+    // Ima (Mom) text messages mini-event
+    var imaTextTimer = rand(35, 75);
+    var imaText = null; // { msg, t, dur }
+    var IMA_TEXTS = [
+        "did u eat? 🥨",
+        "abba making\ncholent — stop\nat store",
+        "your cousin got\na real job 😉",
+        "u still alive? 📞",
+        "ima loves u ❤️",
+        "PICK UP DINA!!",
+        "we have leftovers",
+        "ride safe mamaleh"
+    ];
     var iceCreamSigns = []; // similar to parking signs
     var iceCreamSpawnTimer = 60;
 
@@ -2800,6 +3036,9 @@
         copEvent = null; copEventTimer = rand(60, 120);
         honkCooldown = 0;
         kidsInCar = false;
+        imaText = null; imaTextTimer = rand(35, 75);
+        sasquatchPassenger = 0;
+        honkChain = 0; honkChainResetTimer = 0;
         // Reset Dina + parking state leaks (per QA + Bug Hunter)
         parkingChallengeMode = false;
         parkingResult = null; parkingFailHit = null;
@@ -3568,6 +3807,20 @@
             billboardTimer = rand(8, 18);
             spawnBillboard();
         }
+        // Ima's text messages — random buzz with phone icon
+        imaTextTimer -= dt;
+        if (imaTextTimer <= 0 && !imaText && gameTime > 25) {
+            imaTextTimer = rand(45, 90);
+            imaText = { msg: randPick(IMA_TEXTS), t: 0, dur: 4.0 };
+            // Phone buzz sound
+            playTone(180, 0.06, "square", 0.12);
+            setTimeout(function () { playTone(180, 0.06, "square", 0.12); }, 100);
+            setTimeout(function () { playTone(180, 0.06, "square", 0.12); }, 200);
+        }
+        if (imaText) {
+            imaText.t += dt;
+            if (imaText.t > imaText.dur) imaText = null;
+        }
 
         // Missile firing
         if (consumeMissile()) fireMissile();
@@ -3723,7 +3976,7 @@
                 spawnCoinSparkle(ici.x, ici.y);
             }
         }
-        // Sasquatch update
+        // Sasquatch update — now interactive: honk near him to pick him up!
         if (sasquatch) {
             sasquatch.timer += dt;
             sasquatch.walkTime += dt;
@@ -3731,7 +3984,7 @@
             if (sasquatch.phase === 0 && sasquatch.timer > 0.8) {
                 sasquatch.phase = 1; sasquatch.timer = 0;
             }
-            else if (sasquatch.phase === 1 && sasquatch.timer > 2.5) {
+            else if (sasquatch.phase === 1 && sasquatch.timer > 3.5) {
                 if (!sasquatch.waved) {
                     runCoins += 10;
                     save.totalCoins += 10;
@@ -3744,6 +3997,29 @@
             }
             else if (sasquatch.phase === 2 && (sasquatch.timer > 1.5 || sasquatch.y > H + 40)) {
                 sasquatch = null;
+            }
+            // Check honk pickup: if player honked while sasquatch is in wave-phase + on screen
+            if (sasquatch && sasquatch.phase === 1 && honkChain > 0 && honkChainResetTimer > 1.3 &&
+                sasquatch.y > 0 && sasquatch.y < H) {
+                sasquatchPassenger = 20; // 20 sec in car
+                runCoins += 25;
+                save.totalCoins += 25;
+                persistSave();
+                parkingMsg = "🦍 HITCHHIKER! +25";
+                parkingMsgTimer = 2.5;
+                spawnFloater(sasquatch.x, sasquatch.y, "♥", "#FF80AB");
+                sasquatch = null;
+            }
+        }
+        // Sasquatch passenger timer (decrements while in car)
+        if (sasquatchPassenger > 0) {
+            sasquatchPassenger -= dt;
+            if (sasquatchPassenger <= 0) {
+                parkingMsg = "🐟 Sasquatch left you a fish!";
+                parkingMsgTimer = 2.5;
+                runCoins += 50; // parting gift
+                save.totalCoins += 50;
+                persistSave();
             }
         }
         // Billboard scroll
@@ -3955,7 +4231,7 @@
         if (click) {
             // PLAY button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
-                resetGame(); state = "playing"; playClick(); return;
+                resetGame(); gotoState("playing"); playClick(); return;
             }
             // PARKING CHALLENGE button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 68, 220, 54)) {
@@ -3974,11 +4250,15 @@
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 56, 16, 40, 40)) {
-                audioMuted = !audioMuted; playClick(); return;
+                audioMuted = !audioMuted;
+                if (audioMuted) stopMusic();
+                else { var prev = musicState; musicState = null; if (prev) startMusic(prev); else startMusic("menu"); }
+                playClick();
+                return;
             }
             // Back to character select (top-left)
             if (pointInRect(click.x, click.y, 10, 16, 70, 40)) {
-                state = "charSelect"; playClick(); return;
+                gotoState("charSelect"); playClick(); return;
             }
             // Default: any click in upper area starts game
             if (click.y > H * 0.3 && click.y < H * 0.45) {
@@ -4093,7 +4373,18 @@
         drawDecorations(gameTime);
 
         // Sasquatch easter egg (between decorations and obstacles)
-        if (sasquatch) drawSasquatch(sasquatch.x, sasquatch.y, sasquatch.phase, sasquatch.walkTime);
+        if (sasquatch) {
+            drawSasquatch(sasquatch.x, sasquatch.y, sasquatch.phase, sasquatch.walkTime);
+            // Show "HONK!" prompt if in wave phase and on-screen
+            if (sasquatch.phase === 1 && sasquatch.y > 100 && sasquatch.y < H - 100) {
+                var promptPulse = 1 + Math.sin(gameTime * 6) * 0.1;
+                ctx.save();
+                ctx.translate(sasquatch.x, sasquatch.y - 50);
+                ctx.scale(promptPulse, promptPulse);
+                drawText("📣 HONK!", 0, 0, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+                ctx.restore();
+            }
+        }
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
@@ -4960,21 +5251,25 @@
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Pink puffy coat (drawn behind face — bulky)
+        // Pink puffy coat (smaller, more proportional — was way too wide before)
+        ctx.fillStyle = "#1A1A1A"; // outline
+        ctx.beginPath();
+        ctx.ellipse(0, 58, 46, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#FFB0C8";
         ctx.beginPath();
-        ctx.ellipse(0, 60, 65, 50, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 58, 44, 38, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Puffy texture (small circles around outline)
-        var puffPoints = [[-50, 50], [-45, 70], [-30, 90], [0, 100], [30, 90], [45, 70], [50, 50]];
+        // Subtle puffy texture (smaller circles, less bulgy)
+        var puffPoints = [[-32, 50], [-28, 68], [-18, 80], [0, 84], [18, 80], [28, 68], [32, 50]];
         for (var pp2 = 0; pp2 < puffPoints.length; pp2++) {
             ctx.beginPath();
-            ctx.arc(puffPoints[pp2][0], puffPoints[pp2][1], 14, 0, Math.PI * 2);
+            ctx.arc(puffPoints[pp2][0], puffPoints[pp2][1], 8, 0, Math.PI * 2);
             ctx.fill();
         }
         ctx.fillStyle = "#FFC5D6"; // highlight
         ctx.beginPath();
-        ctx.ellipse(-15, 55, 30, 18, 0, 0, Math.PI * 2);
+        ctx.ellipse(-10, 50, 20, 10, 0, 0, Math.PI * 2);
         ctx.fill();
 
         // Coat collar/fur trim
@@ -5104,15 +5399,17 @@
             // Lulu card top half H*0.18 - H*0.50
             if (click.y > H * 0.18 && click.y < H * 0.50) {
                 selectedChar = "lulu";
-                state = "menu";
+                gotoState("menu");
                 playCharSelect();
                 return;
             }
             // Dina card bottom half H*0.52 - H*0.88
             if (click.y > H * 0.52 && click.y < H * 0.88) {
                 selectedChar = "dina";
-                startDinaMode();
                 playCharSelect();
+                // Wait for fade midpoint, then enter dina mode (which sets state)
+                gotoState("dinaBus");
+                setTimeout(function () { startDinaMode(); }, 175);
                 return;
             }
         }
@@ -5234,9 +5531,13 @@
     // ── Drawing: Dina (top-down for game world) ──────────────
     function drawDinaTopDown(x, y, walkTime, facing, holding) {
         ctx.save();
-        ctx.translate(x, y);
+        // Body bounces up on each footfall — absolute sin = always positive
+        var bob = Math.abs(Math.sin(walkTime * 10)) * 3;
+        var lean = Math.sin(walkTime * 10) * 0.04;
+        ctx.translate(x, y - bob);
+        ctx.rotate(lean);
         var legSwing = Math.sin(walkTime * 12) * 5;
-        // Shadow
+        // Shadow (no bob — stays on ground)
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         ctx.beginPath(); ctx.ellipse(0, 20, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
 
@@ -5249,30 +5550,29 @@
         roundRect(-7, 20 - legSwing, 7, 4, 2); ctx.fill();
         roundRect(0, 20 + legSwing, 7, 4, 2); ctx.fill();
 
-        // Pink puffy coat body (chunky/round)
+        // Pink puffy coat body (smaller, more proportional)
+        ctx.fillStyle = "#1A1A1A"; // outline
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 13, 11, 0, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#FFB0C8";
         ctx.beginPath();
-        ctx.ellipse(0, 0, 16, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Puff highlights
+        // Subtle puff highlight (just one, not bulging)
         ctx.fillStyle = "#FFC5D6";
         ctx.beginPath();
-        ctx.arc(-9, -3, 5, 0, Math.PI * 2);
-        ctx.arc(8, -2, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#FF8FB0";
-        ctx.beginPath();
-        ctx.arc(0, 8, 4, 0, Math.PI * 2);
+        ctx.ellipse(-5, -3, 4, 2.5, -0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Arms (peeking from coat puffs)
+        // Arms (slimmer, peeking from coat puffs)
         ctx.fillStyle = "#FFB0C8";
-        roundRect(-18, -5, 5, 12, 2); ctx.fill();
-        roundRect(13, -5, 5, 12, 2); ctx.fill();
+        roundRect(-14, -4, 4, 10, 2); ctx.fill();
+        roundRect(10, -4, 4, 10, 2); ctx.fill();
         // Hands (skin)
         ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath(); ctx.arc(-15, 7, 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(15, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-12, 6, 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(12, 6, 2.2, 0, Math.PI * 2); ctx.fill();
 
         // Backpack on back (showing as small bump behind coat)
         if (holding === "backpack") {
@@ -5288,7 +5588,11 @@
             ctx.stroke();
         }
 
-        // Head (slightly larger for kid proportions)
+        // Head (kid proportions — thin outline for definition)
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath();
+        ctx.arc(0, -13, 9.5, 0, Math.PI * 2);
+        ctx.fill();
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath();
         ctx.arc(0, -13, 8.5, 0, Math.PI * 2);
@@ -5369,7 +5673,11 @@
     // ── Drawing: Mom (top-down) ──────────────────────────────
     function drawMomTopDown(x, y, walkTime) {
         ctx.save();
-        ctx.translate(x, y);
+        // Heavier mom bob — slower frequency, slightly larger amplitude
+        var momBob = Math.abs(Math.sin(walkTime * 8)) * 2.5;
+        var momLean = Math.sin(walkTime * 8) * 0.03;
+        ctx.translate(x, y - momBob);
+        ctx.rotate(momLean);
         var legSwing = Math.sin(walkTime * 10) * 4;
 
         ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -5897,6 +6205,7 @@
         dinaRunTimer = 0;
         dinaRunDistance = 0;
         dinaSidewalk = [];
+        dinaSidewalk.__greenblattSpawned = false;
         dinaSidewalkSpawn = 0;
         dina = { x: W / 2, y: H - 200, walkTime: 0,
                  lane: 1, sprintTimer: 3, sprintCool: 0,
@@ -5961,12 +6270,19 @@
             }
         }
 
-        // Mom catches up
-        var momCloseness = 1 - dinaRunDistance + (sprint ? -0.1 : 0); // 0 = at Dina, 1 = far behind
-        // Apply slowdowns
-        mom.distance = Math.max(0, mom.distance - (sprint ? 0.05 : 0.12) * dt);
-        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.5 * dt);
-        if (slow) mom.distance = Math.max(0, mom.distance - 0.1 * dt);
+        // Mom catches up — much more forgiving now.
+        // Base: Mom DOESN'T catch up while Dina runs normally.
+        // Stumbles, slow-walks, and the last 5 seconds of the run pull her closer.
+        if (sprint) {
+            // Sprinting lets Dina pull AHEAD if Mom is close, slows the chase otherwise
+            mom.distance = Math.min(1.0, mom.distance + 0.02 * dt);
+        }
+        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.10 * dt);
+        if (slow) mom.distance = Math.max(0, mom.distance - 0.04 * dt);
+        // Final-stretch tension: in the last 10 seconds of the run, Mom slowly closes in
+        if (dinaRunTimer > DINA_RUN_DURATION - 10) {
+            mom.distance = Math.max(0, mom.distance - 0.025 * dt);
+        }
         mom.walkTime += dt;
         mom.sayTimer -= dt;
         if (mom.sayTimer <= 0) {
@@ -6016,6 +6332,19 @@
 
     function spawnDinaHazard() {
         var types = ["hydrant", "dog", "butterfly", "squirrel", "kickball", "sprinkler", "hopscotch", "mailbox", "cat"];
+        // Mrs. Greenblatt appears once per run, around midpoint
+        if (!dinaSidewalk.__greenblattSpawned && dinaRunDistance > 0.4 && dinaRunDistance < 0.6 && Math.random() < 0.4) {
+            dinaSidewalk.push({
+                type: "greenblatt",
+                x: DINA_LANES_X[1], // always center sidewalk
+                y: -40,
+                r: 18,
+                walkTime: 0,
+                greeted: false
+            });
+            dinaSidewalk.__greenblattSpawned = true;
+            return;
+        }
         var t = randPick(types);
         var lane = randInt(0, 2);
         dinaSidewalk.push({
@@ -6049,9 +6378,20 @@
             playHopJump();
             spawnFloater(hz.x, hz.y, "+⭐", "#FFD700");
         } else if (hz.type === "cat") {
-            // No effect unless slow walked (handled differently)
             dinaCoinsRun += 1;
             playTone(600, 0.1, "sine", 0.12);
+        } else if (hz.type === "greenblatt") {
+            // Crossing guard hands you a tootsie roll
+            if (!hz.greeted) {
+                dinaCoinsRun += 5;
+                dinaStickers += 1;
+                hz.greeted = true;
+                playTone(660, 0.08, "triangle", 0.18);
+                setTimeout(function () { playTone(880, 0.1, "triangle", 0.18); }, 80);
+                spawnFloater(hz.x, hz.y, "🍬 +5", "#FFD700");
+                // Brief pause but no big stumble
+                dina.stumble = 0.4;
+            }
         }
     }
 
@@ -6250,6 +6590,84 @@
             ctx.textAlign = "center";
             ctx.fillText("1", 0, -5);
             ctx.fillText("2", 0, 11);
+        } else if (hz.type === "greenblatt") {
+            // Mrs. Greenblatt — crossing guard with stop sign
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.25)";
+            ctx.beginPath(); ctx.ellipse(0, 18, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+            // Body — yellow safety vest
+            ctx.fillStyle = "#FBC02D";
+            roundRect(-10, -4, 20, 18, 4); ctx.fill();
+            ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2;
+            roundRect(-10, -4, 20, 18, 4); ctx.stroke();
+            // Reflective stripes
+            ctx.fillStyle = "#FFF59D";
+            ctx.fillRect(-10, 1, 20, 2);
+            ctx.fillRect(-10, 8, 20, 2);
+            // Legs (dark)
+            ctx.fillStyle = "#37474F";
+            ctx.fillRect(-4, 14, 3, 8);
+            ctx.fillRect(1, 14, 3, 8);
+            // Shoes
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-5, 21, 4, 2);
+            ctx.fillRect(1, 21, 4, 2);
+            // Head with chunky outline
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(0, -11, 7.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFE0CC";
+            ctx.beginPath(); ctx.arc(0, -11, 6.5, 0, Math.PI * 2); ctx.fill();
+            // Sheitel / wig (grey-ish brown)
+            ctx.fillStyle = "#6D4C41";
+            ctx.beginPath(); ctx.arc(0, -14, 8, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(-7, -12, 3, 6, -0.2, 0, Math.PI * 2);
+            ctx.ellipse(7, -12, 3, 6, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            // Glasses
+            ctx.strokeStyle = "#1A1A1A";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(-3, -11, 2, 0, Math.PI * 2);
+            ctx.arc(3, -11, 2, 0, Math.PI * 2);
+            ctx.moveTo(-1, -11); ctx.lineTo(1, -11);
+            ctx.stroke();
+            // Smile
+            ctx.strokeStyle = "#A0394D";
+            ctx.lineWidth = 1;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(0, -8, 2.2, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+            ctx.lineCap = "butt";
+            // STOP sign in hand
+            ctx.save();
+            ctx.translate(-14, -2);
+            ctx.rotate(Math.sin(hz.walkTime * 2) * 0.15);
+            ctx.fillStyle = "#5D4037";
+            ctx.fillRect(-1, 0, 2, 12);
+            ctx.fillStyle = "#D32F2F";
+            ctx.beginPath();
+            for (var sii = 0; sii < 8; sii++) {
+                var sang = sii * Math.PI / 4 - Math.PI / 8;
+                var sx = Math.cos(sang) * 7;
+                var sy = Math.sin(sang) * 7;
+                if (sii === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = "#FFF";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.fillStyle = "#FFF";
+            ctx.font = "bold 4px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("STOP", 0, 1);
+            ctx.restore();
+            // Speech bubble for "Hi mamaleh!"
+            if (!hz.greeted && hz.y > 80 && hz.y < H - 100) {
+                drawSpeechBubble(0, -28, "Hi mamaleh!", hz.walkTime);
+            }
         } else if (hz.type === "cat") {
             // Mr. Whiskers napping
             ctx.fillStyle = "#FF7043";
@@ -6501,12 +6919,15 @@
     }
 
     // ── Update / Draw: Dina Home Interior ────────────────────
-    // ORDER MATTERS — tablet is INSIDE bed rect, so tablet must be checked first.
+    // Bedroom items — no overlapping rects. Door on left wall, bed bottom-right.
+    // ORDER MATTERS — items checked top-to-bottom. tablet must be before bed.
     var HOME_OBJECTS = {
-        tablet:  { x: 350, y: 320, w: 60, h: 40,  label: "Play Lulu's game?",  action: "tablet" },
-        morgan:  { x: 230, y: 590, w: 60, h: 60,  label: "Play with Morgan?",  action: "morgan" },
-        bed:     { x: 340, y: 280, w: 130, h: 180, label: "Take a nap?",       action: "nap" },
-        door:    { x: 380, y: 200, w: 80, h: 140, label: "Go back outside?",   action: "outside" }
+        tablet:  { x: 230, y: 510, w: 60, h: 44,  label: "Play Lulu's game?",   action: "tablet" },
+        morgan:  { x: 30,  y: 540, w: 64, h: 70,  label: "Play with Morgan?",   action: "morgan" },
+        snacks:  { x: 130, y: 510, w: 60, h: 50,  label: "Cookie & milk!",      action: "snack" },
+        sticker: { x: 320, y: 510, w: 70, h: 60,  label: "Sticker book?",       action: "stickers" },
+        bed:     { x: 280, y: 320, w: 180, h: 160, label: "Take a nap?",        action: "nap" },
+        door:    { x: 8,   y: 90,  w: 70, h: 130, label: "Go back outside?",    action: "outside" }
     };
 
     function updateDinaHome(dt) {
@@ -6574,7 +6995,6 @@
             morganMood = "calm";
             playTone(600, 0.1, "triangle", 0.2);
         } else if (action === "tablet") {
-            // Game-within-a-game: enter regular Lulu mode
             inTabletMode = true;
             resetGame();
             state = "playing";
@@ -6582,8 +7002,23 @@
         } else if (action === "nap") {
             state = "dinaNap";
             dinaRunTimer = 0;
+        } else if (action === "snack") {
+            // Cookie + milk: +5 coins, fun crunch sound, message
+            save.totalCoins += 5;
+            persistSave();
+            homeMessage = "🍪 Yum! +5 coins";
+            homeMessageTimer = 1.6;
+            spawnFloater(dinaHome.x, dinaHome.y - 40, "+5 🍪", "#FFD700");
+            playTone(440, 0.04, "square", 0.10);
+            setTimeout(function () { playTone(380, 0.04, "square", 0.10); }, 60);
+            setTimeout(function () { playTone(420, 0.04, "square", 0.08); }, 120);
+        } else if (action === "stickers") {
+            // Sticker book: shows current count
+            homeMessage = "⭐ " + (save.parkingTotalStars || 0) + " stars collected!";
+            homeMessageTimer = 2.0;
+            playTone(880, 0.08, "triangle", 0.15);
+            setTimeout(function () { playTone(1100, 0.10, "triangle", 0.15); }, 80);
         } else if (action === "outside") {
-            // Go back to character select
             state = "charSelect";
             inTabletMode = false;
         }
@@ -6672,114 +7107,166 @@
         }
         ctx.globalAlpha = 1;
 
-        // Bed (right side)
+        // ─── DOOR on left wall (upper area) ───
+        var dr = HOME_OBJECTS.door;
+        // Doorway frame (darker recess in wall)
+        ctx.fillStyle = "#8D6E63";
+        roundRect(dr.x - 4, dr.y - 4, dr.w + 8, dr.h + 8, 6); ctx.fill();
+        // Door
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(dr.x, dr.y, dr.w, dr.h, 4); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 3;
+        roundRect(dr.x, dr.y, dr.w, dr.h, 4); ctx.stroke();
+        // Door panels
+        ctx.strokeStyle = "#BDBDBD";
+        ctx.lineWidth = 1.5;
+        roundRect(dr.x + 6, dr.y + 10, dr.w - 12, 50, 3); ctx.stroke();
+        roundRect(dr.x + 6, dr.y + 70, dr.w - 12, 50, 3); ctx.stroke();
+        // Pink doorknob
+        ctx.fillStyle = "#FF4FA3";
+        ctx.beginPath(); ctx.arc(dr.x + dr.w - 12, dr.y + dr.h / 2, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.stroke();
+        // "Dina's Room" sign above door
+        ctx.fillStyle = "#FFD54F";
+        roundRect(dr.x - 4, dr.y - 24, dr.w + 8, 18, 4); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 2;
+        roundRect(dr.x - 4, dr.y - 24, dr.w + 8, 18, 4); ctx.stroke();
+        drawText("DINA'S ROOM", dr.x + dr.w / 2, dr.y - 15, "bold 10px Arial", "#5D4037", null, 0);
+
+        // ─── CRAYON DRAWING on wall (next to door, safely away from bed) ───
+        ctx.fillStyle = "#FFF59D";
+        roundRect(95, 100, 60, 60, 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 1.5;
+        roundRect(95, 100, 60, 60, 2); ctx.stroke();
+        // tape strip
+        ctx.fillStyle = "rgba(255,200,150,0.6)";
+        roundRect(110, 94, 30, 8, 1); ctx.fill();
+        // Stick figures (mom + dina holding hands)
+        ctx.strokeStyle = "#F44336"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(112, 122, 3, 0, Math.PI * 2);
+        ctx.moveTo(112, 125); ctx.lineTo(112, 138);
+        ctx.moveTo(108, 130); ctx.lineTo(125, 130); // arm reaching to Dina
+        ctx.moveTo(112, 138); ctx.lineTo(108, 148);
+        ctx.moveTo(112, 138); ctx.lineTo(116, 148);
+        ctx.stroke();
+        ctx.strokeStyle = "#3F51B5"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(135, 127, 3, 0, Math.PI * 2);
+        ctx.moveTo(135, 130); ctx.lineTo(135, 142);
+        ctx.moveTo(125, 134); ctx.lineTo(140, 134);
+        ctx.moveTo(135, 142); ctx.lineTo(131, 150);
+        ctx.moveTo(135, 142); ctx.lineTo(139, 150);
+        ctx.stroke();
+        ctx.fillStyle = "#F44336";
+        drawText("♥", 123, 119, "bold 10px Arial", "#F44336", null, 0);
+
+        // ─── BED (right side, big & cozy) ───
         var b = HOME_OBJECTS.bed;
+        // Bed frame outline
         ctx.fillStyle = "#5D4037";
-        roundRect(b.x - 3, b.y - 3, b.w + 6, b.h + 6, 8); ctx.fill();
-        // Mattress
-        ctx.fillStyle = "#F4A4B8"; // pink quilt
-        roundRect(b.x, b.y, b.w, b.h, 6); ctx.fill();
-        // Quilt squares pattern
+        roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 10); ctx.fill();
+        // Mattress pink quilt
+        ctx.fillStyle = "#F4A4B8";
+        roundRect(b.x, b.y, b.w, b.h, 8); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A";
+        ctx.lineWidth = 2.5;
+        roundRect(b.x, b.y, b.w, b.h, 8); ctx.stroke();
+        // Quilt patches (batched)
         ctx.strokeStyle = "#E091A6";
         ctx.lineWidth = 1.5;
-        for (var qx = b.x + 20; qx < b.x + b.w; qx += 30) {
-            ctx.beginPath();
-            ctx.moveTo(qx, b.y); ctx.lineTo(qx, b.y + b.h);
-            ctx.stroke();
+        ctx.beginPath();
+        for (var qx = b.x + 30; qx < b.x + b.w; qx += 40) {
+            ctx.moveTo(qx, b.y + 6); ctx.lineTo(qx, b.y + b.h - 6);
         }
-        for (var qy = b.y + 30; qy < b.y + b.h; qy += 30) {
-            ctx.beginPath();
-            ctx.moveTo(b.x, qy); ctx.lineTo(b.x + b.w, qy);
-            ctx.stroke();
+        for (var qy = b.y + 40; qy < b.y + b.h - 6; qy += 40) {
+            ctx.moveTo(b.x + 6, qy); ctx.lineTo(b.x + b.w - 6, qy);
         }
-        // Pillow at head of bed
+        ctx.stroke();
+        // Pillow
         ctx.fillStyle = "#FFFFFF";
-        roundRect(b.x + 10, b.y + 10, b.w - 20, 40, 8); ctx.fill();
+        roundRect(b.x + 12, b.y + 12, b.w - 24, 38, 8); ctx.fill();
+        ctx.strokeStyle = "#BDBDBD";
+        ctx.lineWidth = 1.5;
+        roundRect(b.x + 12, b.y + 12, b.w - 24, 38, 8); ctx.stroke();
         // Mint blanket folded at foot
         ctx.fillStyle = "#B8E0D2";
-        roundRect(b.x, b.y + b.h - 30, b.w, 30, 6); ctx.fill();
-
-        // Tablet on bed
-        var tb = HOME_OBJECTS.tablet;
-        ctx.fillStyle = "#212121";
-        roundRect(tb.x, tb.y, tb.w, tb.h, 4); ctx.fill();
-        ctx.fillStyle = "#4FC3F7";
-        roundRect(tb.x + 3, tb.y + 3, tb.w - 6, tb.h - 6, 3); ctx.fill();
-        // Tiny Lulu screen icon
-        ctx.fillStyle = "#E91E63";
-        roundRect(tb.x + 20, tb.y + 8, 20, 24, 4); ctx.fill();
-
-        // Toy bin (left)
-        ctx.fillStyle = "#D4A574";
-        roundRect(30, 480, 100, 120, 6); ctx.fill();
-        ctx.strokeStyle = "#8D6E63";
+        roundRect(b.x + 4, b.y + b.h - 32, b.w - 8, 28, 6); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A";
         ctx.lineWidth = 2;
-        for (var bx = 35; bx < 130; bx += 6) {
-            ctx.beginPath();
-            ctx.moveTo(bx, 480); ctx.lineTo(bx + 3, 600);
-            ctx.stroke();
-        }
-        // Plushies poking out
-        ctx.fillStyle = "#FFD54F";
+        roundRect(b.x + 4, b.y + b.h - 32, b.w - 8, 28, 6); ctx.stroke();
+        // Little teddy on pillow
+        ctx.fillStyle = "#A1887F";
+        ctx.beginPath(); ctx.arc(b.x + 28, b.y + 28, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(b.x + 22, b.y + 22, 3, 0, Math.PI * 2);
+        ctx.arc(b.x + 34, b.y + 22, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
         ctx.beginPath();
-        ctx.moveTo(50, 480);
-        ctx.lineTo(70, 460);
-        ctx.lineTo(90, 480);
-        ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "#81C784";
-        ctx.beginPath();
-        ctx.arc(110, 470, 12, 0, Math.PI * 2);
+        ctx.arc(b.x + 25, b.y + 27, 0.8, 0, Math.PI * 2);
+        ctx.arc(b.x + 31, b.y + 27, 0.8, 0, Math.PI * 2);
         ctx.fill();
 
-        // Rug
+        // ─── RUG (lower-center, big) ───
         ctx.fillStyle = "#FFE8C8";
         ctx.beginPath();
-        ctx.ellipse(W / 2, H * 0.72, 130, 100, 0, 0, Math.PI * 2);
+        ctx.ellipse(W / 2, H * 0.84, 200, 60, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#B8E0D2";
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.ellipse(W / 2, H * 0.72, 110, 82, 0, 0, Math.PI * 2);
+        ctx.ellipse(W / 2, H * 0.84, 180, 50, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.strokeStyle = "#F4A4B8";
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(W / 2, H * 0.72, 80, 60, 0, 0, Math.PI * 2);
+        ctx.ellipse(W / 2, H * 0.84, 150, 38, 0, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Morgan on rug
+        // ─── MORGAN PLUSHIE (bottom-left, on floor) ───
         var mo = HOME_OBJECTS.morgan;
         ctx.save();
-        ctx.translate(mo.x + 30, mo.y + 30);
-        ctx.scale(0.6, 0.6);
+        ctx.translate(mo.x + 32, mo.y + 38);
+        ctx.scale(0.7, 0.7);
+        // Outline
+        ctx.fillStyle = "#5D4350";
+        ctx.beginPath(); ctx.ellipse(0, 14, 36, 30, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -16, 26, 0, Math.PI * 2); ctx.fill();
         // Body
         ctx.fillStyle = "#9B8FB4";
-        ctx.beginPath(); ctx.ellipse(0, 10, 32, 26, 0, 0, Math.PI * 2); ctx.fill();
-        // Head
+        ctx.beginPath(); ctx.ellipse(0, 14, 32, 26, 0, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(0, -16, 22, 0, Math.PI * 2); ctx.fill();
         // Ears
         ctx.beginPath();
         ctx.moveTo(-20, -28); ctx.lineTo(-10, -42); ctx.lineTo(-2, -30); ctx.closePath();
         ctx.moveTo(2, -30); ctx.lineTo(10, -42); ctx.lineTo(20, -28); ctx.closePath();
         ctx.fill();
-        // Inner ears
         ctx.fillStyle = "#FFB8D9";
         ctx.beginPath();
         ctx.moveTo(-15, -32); ctx.lineTo(-10, -38); ctx.lineTo(-5, -31); ctx.closePath();
+        ctx.moveTo(5, -31); ctx.lineTo(10, -38); ctx.lineTo(15, -32); ctx.closePath();
         ctx.fill();
-        // Eyes
+        // Eyes (closed happy arcs)
         ctx.strokeStyle = "#000";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3; ctx.lineCap = "round";
         ctx.beginPath();
         ctx.arc(-8, -15, 4, 1.1 * Math.PI, 1.9 * Math.PI);
         ctx.arc(8, -15, 4, 1.1 * Math.PI, 1.9 * Math.PI);
         ctx.stroke();
-        // Nose
+        ctx.lineCap = "butt";
+        // Nose + mouth
         ctx.fillStyle = "#FF8AAA";
         ctx.beginPath();
         ctx.moveTo(-3, -8); ctx.lineTo(3, -8); ctx.lineTo(0, -5); ctx.closePath();
         ctx.fill();
-        // Pink heart
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -5); ctx.quadraticCurveTo(-2, -3, -4, -4);
+        ctx.moveTo(0, -5); ctx.quadraticCurveTo(2, -3, 4, -4);
+        ctx.stroke();
+        // Heart on chest
         ctx.fillStyle = "#FF6B9D";
         ctx.beginPath(); ctx.arc(-3, 12, 3, 0, Math.PI * 2);
         ctx.arc(3, 12, 3, 0, Math.PI * 2);
@@ -6787,88 +7274,112 @@
         ctx.fill();
         ctx.restore();
 
-        // Door
-        var dr = HOME_OBJECTS.door;
-        ctx.fillStyle = "#5D4037";
-        roundRect(dr.x - 3, dr.y - 3, dr.w + 6, dr.h + 6, 4); ctx.fill();
-        ctx.fillStyle = "#FFFFFF";
-        roundRect(dr.x, dr.y, dr.w, dr.h, 4); ctx.fill();
-        ctx.fillStyle = "#FF4FA3";
-        ctx.beginPath(); ctx.arc(dr.x + dr.w - 12, dr.y + dr.h / 2, 3, 0, Math.PI * 2); ctx.fill();
-
-        // Crayon drawing taped near door (stick figure mom + dina)
-        ctx.fillStyle = "#FFF59D";
-        roundRect(dr.x - 60, dr.y - 25, 50, 50, 2); ctx.fill();
-        ctx.strokeStyle = "#5D4037";
-        ctx.lineWidth = 1.5;
-        // tape strips
-        roundRect(dr.x - 60, dr.y - 30, 50, 6, 1);
-        ctx.fillStyle = "rgba(255,200,150,0.6)";
-        ctx.fill();
-        // stick figures
-        ctx.strokeStyle = "#F44336";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(dr.x - 48, dr.y - 12, 3, 0, Math.PI * 2);
-        ctx.moveTo(dr.x - 48, dr.y - 9); ctx.lineTo(dr.x - 48, dr.y + 2);
-        ctx.moveTo(dr.x - 52, dr.y - 5); ctx.lineTo(dr.x - 44, dr.y - 5);
-        ctx.moveTo(dr.x - 48, dr.y + 2); ctx.lineTo(dr.x - 52, dr.y + 12);
-        ctx.moveTo(dr.x - 48, dr.y + 2); ctx.lineTo(dr.x - 44, dr.y + 12);
-        ctx.stroke();
-        ctx.strokeStyle = "#3F51B5";
-        ctx.beginPath();
-        ctx.arc(dr.x - 30, dr.y - 8, 4, 0, Math.PI * 2);
-        ctx.moveTo(dr.x - 30, dr.y - 4); ctx.lineTo(dr.x - 30, dr.y + 8);
-        ctx.moveTo(dr.x - 36, dr.y); ctx.lineTo(dr.x - 24, dr.y);
-        ctx.moveTo(dr.x - 30, dr.y + 8); ctx.lineTo(dr.x - 36, dr.y + 18);
-        ctx.moveTo(dr.x - 30, dr.y + 8); ctx.lineTo(dr.x - 24, dr.y + 18);
-        ctx.stroke();
-        // little heart between
-        ctx.fillStyle = "#F44336";
-        drawText("♥", dr.x - 39, dr.y - 18, "bold 9px Arial", "#F44336", null, 0);
-
-        // Cookie + milk on desk corner
+        // ─── COOKIE + MILK on a small side table ───
+        var sn = HOME_OBJECTS.snacks;
+        // Table top
+        ctx.fillStyle = "#A1887F";
+        roundRect(sn.x - 4, sn.y + 32, sn.w + 8, 18, 4); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2;
+        roundRect(sn.x - 4, sn.y + 32, sn.w + 8, 18, 4); ctx.stroke();
+        // Table legs
+        ctx.fillStyle = "#8D6E63";
+        ctx.fillRect(sn.x, sn.y + 50, 4, 16);
+        ctx.fillRect(sn.x + sn.w - 4, sn.y + 50, 4, 16);
+        // Cookie
         ctx.fillStyle = "#FFA726";
+        ctx.beginPath(); ctx.arc(sn.x + 18, sn.y + 28, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2;
+        ctx.stroke();
+        // Chocolate chips
+        ctx.fillStyle = "#3E2723";
         ctx.beginPath();
-        ctx.arc(250, 260, 8, 0.3 * Math.PI, 2 * Math.PI);
-        ctx.fill();
-        ctx.fillStyle = "#6D4C41";
-        ctx.beginPath();
-        ctx.arc(250, 260, 1.5, 0, Math.PI * 2);
-        ctx.arc(254, 257, 1.5, 0, Math.PI * 2);
-        ctx.arc(247, 258, 1.5, 0, Math.PI * 2);
+        ctx.arc(sn.x + 14, sn.y + 24, 1.5, 0, Math.PI * 2);
+        ctx.arc(sn.x + 21, sn.y + 27, 1.5, 0, Math.PI * 2);
+        ctx.arc(sn.x + 16, sn.y + 31, 1.5, 0, Math.PI * 2);
+        ctx.arc(sn.x + 22, sn.y + 33, 1.5, 0, Math.PI * 2);
         ctx.fill();
         // Milk glass
         ctx.fillStyle = "#FAFAFA";
-        roundRect(265, 252, 12, 16, 2); ctx.fill();
-        ctx.strokeStyle = "#BDBDBD";
-        ctx.lineWidth = 1;
-        roundRect(265, 252, 12, 16, 2); ctx.stroke();
+        roundRect(sn.x + 36, sn.y + 18, 16, 28, 3); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2;
+        roundRect(sn.x + 36, sn.y + 18, 16, 28, 3); ctx.stroke();
+        // Milk surface
+        ctx.fillStyle = "#E3F2FD";
+        roundRect(sn.x + 38, sn.y + 22, 12, 4, 1); ctx.fill();
 
-        // Dina herself
+        // ─── TABLET (free-standing, no longer on bed) ───
+        var tb = HOME_OBJECTS.tablet;
+        ctx.fillStyle = "#212121";
+        roundRect(tb.x - 2, tb.y - 2, tb.w + 4, tb.h + 4, 5); ctx.fill();
+        ctx.fillStyle = "#37474F";
+        roundRect(tb.x, tb.y, tb.w, tb.h, 4); ctx.fill();
+        // Screen with mini Lulu game preview
+        ctx.fillStyle = "#7CCB7E"; // green road
+        roundRect(tb.x + 4, tb.y + 4, tb.w - 8, tb.h - 8, 3); ctx.fill();
+        ctx.fillStyle = "#6B7B8D"; // road strip
+        ctx.fillRect(tb.x + 18, tb.y + 6, 24, tb.h - 12);
+        ctx.fillStyle = "#E91E63"; // tiny Lulu car
+        roundRect(tb.x + 24, tb.y + tb.h - 18, 12, 12, 2); ctx.fill();
+        // Tablet stand
+        ctx.fillStyle = "#5D4037";
+        roundRect(tb.x + tb.w / 2 - 12, tb.y + tb.h, 24, 4, 2); ctx.fill();
+        // "LULU" label below
+        drawText("Lulu game", tb.x + tb.w / 2, tb.y + tb.h + 14, "bold 10px Arial", "#FFD700", "#000", 2);
+
+        // ─── STICKER BOOK (bottom-right) ───
+        var sb = HOME_OBJECTS.sticker;
+        ctx.fillStyle = "#1A1A1A";
+        roundRect(sb.x - 2, sb.y - 2, sb.w + 4, sb.h + 4, 4); ctx.fill();
+        ctx.fillStyle = "#FFC107";
+        roundRect(sb.x, sb.y, sb.w, sb.h, 3); ctx.fill();
+        ctx.fillStyle = "#FF9800";
+        roundRect(sb.x + 4, sb.y + 4, sb.w - 8, 14, 2); ctx.fill();
+        drawText("STICKERS", sb.x + sb.w / 2, sb.y + 11, "bold 9px Arial", "#FFF", null, 0);
+        // Cute stickers visible
+        ctx.fillStyle = "#FF80AB";
+        ctx.beginPath(); ctx.arc(sb.x + 14, sb.y + 30, 5, 0, Math.PI * 2); ctx.fill();
+        drawText("♥", sb.x + 14, sb.y + 32, "bold 7px Arial", "#FFF", null, 0);
+        ctx.fillStyle = "#81C784";
+        ctx.beginPath(); ctx.arc(sb.x + 30, sb.y + 35, 5, 0, Math.PI * 2); ctx.fill();
+        drawText("★", sb.x + 30, sb.y + 37, "bold 7px Arial", "#FFF", null, 0);
+        ctx.fillStyle = "#64B5F6";
+        ctx.beginPath(); ctx.arc(sb.x + 50, sb.y + 28, 5, 0, Math.PI * 2); ctx.fill();
+        drawText("☺", sb.x + 50, sb.y + 30, "bold 7px Arial", "#FFF", null, 0);
+
+        // ─── DINA herself ───
         drawDinaTopDown(dinaHome.x, dinaHome.y, dinaHome.walkTime, dinaHome.facing, "morgan");
 
-        // Hover label
+        // ─── Hover label for interactive objects ───
         if (dinaHome.hover) {
             var o = dinaHome.hover;
             var lx = o.x + o.w / 2;
-            var ly = o.y - 16;
+            var ly = o.y - 18;
             drawSpeechBubble(lx, ly, o.label, dinaHome.walkTime);
-            drawText("[SPACE]", lx, ly + 14, "bold 11px Arial", "#FFD700", "#000", 2);
+            drawText("[TAP]", lx, ly + 16, "bold 11px Arial", "#FFD700", "#000", 2);
         }
 
-        // HUD top bar
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        // ─── Home message banner ───
+        if (homeMessageTimer > 0) {
+            var alpHM = clamp(homeMessageTimer / 1.5, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0," + (0.7 * alpHM) + ")";
+            roundRect(W / 2 - 140, 50, 280, 36, 10); ctx.fill();
+            ctx.globalAlpha = alpHM;
+            drawText(homeMessage, W / 2, 68, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            ctx.globalAlpha = 1;
+        }
+
+        // ─── HUD top bar ───
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
         roundRect(0, 0, W, 40, 0); ctx.fill();
-        drawText("🕒 3:45 PM · 🏠 Home Sweet Home", W / 2, 20,
+        drawText("🏠 Dina's Bedroom", W / 2, 20,
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("♥ ★ " + dinaStickers + "  $" + formatNum(save.totalCoins), 12, 20,
+        drawText("⭐ " + dinaStickers + "  💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
-        // Footer hint
-        drawText("Arrow keys to walk · Tap/Space to interact", W / 2, H - 12,
-            "11px Arial", "#FFFFFF", "#000", 2);
+        // ─── Footer hint ───
+        drawText("Walk with arrows · Tap any item to interact",
+            W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
     }
 
     // ── Update / Draw: Morgan Cat Plushie ────────────────────
@@ -6886,9 +7397,10 @@
 
         var click = consumeClick();
         if (click) {
-            // Check exit button (matches drawIconButton at 20, 80, 48)
-            if (pointInRect(click.x, click.y, 20, 80, 48, 48)) {
+            // Check exit button — generous hitbox covering button + "BACK" label below
+            if (pointInRect(click.x, click.y, 10, 70, 80, 80)) {
                 state = "dinaHome";
+                playClick();
                 return;
             }
             // Detect zone clicked
@@ -7218,6 +7730,17 @@
         // Global update tickers (always run)
         updateBtnPressFx(dt);
         updateFloaters(dt);
+        updateSceneFade(dt);
+
+        // Background music tracks state changes
+        var musicTrack = null;
+        if (state === "charSelect" || state === "menu") musicTrack = "menu";
+        else if (state === "playing") musicTrack = "playing";
+        else if (state === "parking" || state === "parkingIntro" || state === "parkingResult") musicTrack = "parking";
+        else if (state === "dinaRun" || state === "dinaBus") musicTrack = "dinaRun";
+        else if (state === "dinaHome" || state === "dinaCaught" || state === "dinaNap") musicTrack = "dinaHome";
+        else if (state === "dinaMorgan") musicTrack = "morgan";
+        if (musicTrack && musicTrack !== musicState && audioCtx) startMusic(musicTrack);
 
         if (state === "charSelect") updateCharSelect(dt);
         else if (state === "menu") updateMenu(dt);
@@ -7256,6 +7779,9 @@
         else if (state === "dinaHome") drawDinaHome();
         else if (state === "dinaMorgan") drawDinaMorgan();
         else if (state === "dinaNap") drawDinaNap();
+
+        // Scene fade overlay (drawn on top of everything)
+        drawSceneFade();
 
         requestAnimationFrame(gameLoop);
     }
