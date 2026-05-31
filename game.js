@@ -45,7 +45,8 @@
             distractedUnlocked: false,
             parkingBestLevel: 0,
             parkingTotalStars: 0,
-            parkingPerfectRuns: 0
+            parkingPerfectRuns: 0,
+            luluHair: "#8B5A2B"
         };
     }
 
@@ -249,96 +250,71 @@
     function playHopJump() { playTone(440, 0.18, "triangle", 0.16, 880); }
     // Honk Symphony — pitch varies with speed/honk count
     var honkChain = 0; var honkChainResetTimer = 0;
-    // ── Background music system ─────────────────────────────
-    var musicNodes = [];
-    var musicState = null;
-    function stopMusic() {
-        for (var i = 0; i < musicNodes.length; i++) {
-            try { if (musicNodes[i].stop) musicNodes[i].stop(); }
-            catch (e) {}
-            try { if (musicNodes[i].disconnect) musicNodes[i].disconnect(); }
-            catch (e2) {}
+    // ── Background music system (real MP3 files) ────────────
+    var MUSIC_FILES = {
+        lulu:    "audio/lulu.mp3",
+        dina:    "audio/dina.mp3",
+        parking: "audio/parking.mp3",
+        avigail: "audio/avigail.mp3",
+        salon:   "audio/salon.mp3"
+    };
+    var musicElements = {};      // cached Audio() elements per track
+    var currentMusicTrack = null; // file-track name currently selected
+    var currentMusicEl = null;
+    var musicMuted = false;       // separate from SFX mute; toggled in pause menu
+    var musicState = null;        // kept for compatibility with old references
+    var MUSIC_VOLUME = 0.5;
+    var audioUnlocked = false;    // becomes true after first user gesture
+
+    function getMusicEl(track) {
+        if (!MUSIC_FILES[track]) return null;
+        if (!musicElements[track]) {
+            var a = new Audio(MUSIC_FILES[track]);
+            a.loop = true;
+            a.volume = MUSIC_VOLUME;
+            a.preload = "auto";
+            musicElements[track] = a;
         }
-        musicNodes = [];
+        return musicElements[track];
+    }
+
+    function stopMusic() {
+        if (currentMusicEl) {
+            try { currentMusicEl.pause(); } catch (e) {}
+        }
+        currentMusicEl = null;
+        currentMusicTrack = null;
         musicState = null;
     }
-    function startMusic(track) {
-        if (musicState === track) return;
-        stopMusic();
-        if (audioMuted) return;
-        var ac = getAudio(); if (!ac) return;
-        musicState = track;
-        var master = ac.createGain();
-        master.gain.value = 0.05;
-        master.connect(ac.destination);
-        musicNodes.push(master);
 
-        if (track === "menu" || track === "charSelect") {
-            // Warm C-major chord drone (C+E+G)
-            [261.6, 329.6, 392].forEach(function (f) {
-                var o = ac.createOscillator();
-                o.type = "sine";
-                o.frequency.value = f;
-                var lfo = ac.createOscillator();
-                lfo.frequency.value = 0.3;
-                var lfoG = ac.createGain();
-                lfoG.gain.value = 2;
-                lfo.connect(lfoG).connect(o.frequency);
-                o.connect(master);
-                o.start(); lfo.start();
-                musicNodes.push(o); musicNodes.push(lfo);
-            });
-        } else if (track === "playing") {
-            // Road hum — low sawtooth + lowpass
-            var o = ac.createOscillator();
-            o.type = "sawtooth";
-            o.frequency.value = 70;
-            var f = ac.createBiquadFilter();
-            f.type = "lowpass"; f.frequency.value = 180;
-            o.connect(f).connect(master);
-            o.start();
-            musicNodes.push(o);
-        } else if (track === "parking") {
-            // Tense ticking via interval
-            var iv = setInterval(function () {
-                if (musicState !== "parking" || audioMuted) return;
-                playTone(1200, 0.02, "square", 0.05);
-            }, 500);
-            musicNodes.push({ stop: function () { clearInterval(iv); }, disconnect: function () {} });
-        } else if (track === "dinaRun") {
-            // Pizzicato bounce — A C E loop
-            var notes = [440, 523, 659, 523];
-            var idx = 0;
-            var iv2 = setInterval(function () {
-                if (musicState !== "dinaRun" || audioMuted) return;
-                playTone(notes[idx % 4], 0.10, "triangle", 0.07);
-                idx++;
-            }, 280);
-            musicNodes.push({ stop: function () { clearInterval(iv2); }, disconnect: function () {} });
-        } else if (track === "dinaHome") {
-            // Soft random tinkle every 5s
-            var iv3 = setInterval(function () {
-                if (musicState !== "dinaHome" || audioMuted) return;
-                var pitches = [2093, 2637, 3136];
-                playTone(randPick(pitches), 0.3, "sine", 0.05, randPick(pitches));
-            }, 5000);
-            musicNodes.push({ stop: function () { clearInterval(iv3); }, disconnect: function () {} });
-        } else if (track === "morgan") {
-            // Cozy purr loop — low rumble with AM
-            var oP = ac.createOscillator();
-            oP.type = "sine";
-            oP.frequency.value = 55;
-            var am = ac.createOscillator();
-            am.frequency.value = 20;
-            var amG = ac.createGain();
-            amG.gain.value = 0.5;
-            var pG = ac.createGain();
-            pG.gain.value = 0.5;
-            am.connect(amG).connect(pG.gain);
-            oP.connect(pG).connect(master);
-            oP.start(); am.start();
-            musicNodes.push(oP); musicNodes.push(am);
+    // Pause/resume without losing position (used by pause menu)
+    function pauseMusic() {
+        if (currentMusicEl) { try { currentMusicEl.pause(); } catch (e) {} }
+    }
+    function resumeMusic() {
+        if (currentMusicEl && !musicMuted && !audioMuted && audioUnlocked) {
+            currentMusicEl.play().catch(function () {});
         }
+    }
+
+    function startMusic(track) {
+        if (musicMuted || audioMuted || !track || !audioUnlocked) return;
+        if (currentMusicTrack === track) {
+            // Same track — just make sure it's playing
+            if (currentMusicEl && currentMusicEl.paused) {
+                currentMusicEl.play().catch(function () {});
+            }
+            return;
+        }
+        // Switch tracks
+        if (currentMusicEl) { try { currentMusicEl.pause(); } catch (e) {} }
+        var el = getMusicEl(track);
+        currentMusicTrack = track;
+        musicState = track;
+        currentMusicEl = el;
+        if (!el) return;
+        el.volume = MUSIC_VOLUME;
+        el.play().catch(function () {});
     }
 
     function playHonkPitched(pitch) {
@@ -483,6 +459,7 @@
     canvas.addEventListener("touchstart", function (e) {
         e.preventDefault();
         getAudio(); // unlock audio on first touch
+        audioUnlocked = true;
         for (var i = 0; i < e.changedTouches.length; i++) {
             var t = e.changedTouches[i];
             var pos = screenToCanvas(t.clientX, t.clientY);
@@ -561,6 +538,7 @@
 
     canvas.addEventListener("mousedown", function (e) {
         getAudio();
+        audioUnlocked = true;
         var pos = screenToCanvas(e.clientX, e.clientY);
         clickQueue = pos;
         queueAction();
@@ -1009,7 +987,7 @@
 
         // ── Lulu's face (cute young woman, not too dark) ──
         // Long hair flowing back, behind head (warm brown)
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(0, -hh + 27, 14, 17, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -1027,7 +1005,7 @@
         ctx.stroke();
 
         // Hair bangs / forehead (center-parted, framing face)
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.arc(0, -hh + 16, 9, Math.PI, Math.PI * 2);
         ctx.fill();
@@ -1040,7 +1018,7 @@
         ctx.fillStyle = "#6B4423";
         ctx.fillRect(-0.5, -hh + 14, 1, 5);
         // Loose strands framing face
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(-7.5, -hh + 21, 2, 5, -0.3, 0, Math.PI * 2);
         ctx.ellipse(7.5, -hh + 21, 2, 5, 0.3, 0, Math.PI * 2);
@@ -1212,6 +1190,31 @@
                 ctx.arc(px, py + 1.2, 0.8, 0.1 * Math.PI, 0.9 * Math.PI);
                 ctx.stroke();
             }
+        }
+
+        // Avigail riding shotgun (after she joins) — curly black hair, gold hoops
+        if (avigailInCar) {
+            var ax = 7, ay = -hh + 22;
+            // Curly black hair
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath();
+            ctx.arc(ax - 3, ay - 2, 3, 0, Math.PI * 2);
+            ctx.arc(ax, ay - 4, 3.2, 0, Math.PI * 2);
+            ctx.arc(ax + 3, ay - 2, 3, 0, Math.PI * 2);
+            ctx.fill();
+            // Face
+            ctx.fillStyle = "#C68642";
+            ctx.beginPath(); ctx.arc(ax, ay, 3.4, 0, Math.PI * 2); ctx.fill();
+            // Hoop earrings
+            ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.arc(ax - 3.5, ay + 1, 1, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(ax + 3.5, ay + 1, 1, 0, Math.PI * 2); ctx.stroke();
+            // Eyes
+            ctx.fillStyle = "#000";
+            ctx.beginPath();
+            ctx.arc(ax - 1, ay, 0.5, 0, Math.PI * 2);
+            ctx.arc(ax + 1, ay, 0.5, 0, Math.PI * 2);
+            ctx.fill();
         }
 
         // Kids in back seat (after successful parking)
@@ -2452,7 +2455,7 @@
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
         // Lulu's face — cute young woman, matches drawLuluCar
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(0, -hh + 27, 14, 17, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -2460,7 +2463,7 @@
         ctx.beginPath();
         ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.arc(0, -hh + 16, 9, Math.PI, Math.PI * 2);
         ctx.fill();
@@ -2470,7 +2473,7 @@
         ctx.fill();
         ctx.fillStyle = "#6B4423";
         ctx.fillRect(-0.5, -hh + 14, 1, 5);
-        ctx.fillStyle = "#8B5A2B";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(-7.5, -hh + 21, 2, 5, -0.3, 0, Math.PI * 2);
         ctx.ellipse(7.5, -hh + 21, 2, 5, 0.3, 0, Math.PI * 2);
@@ -2842,10 +2845,11 @@
             roundRect(px, py, 110, 92, 8); ctx.fill();
             ctx.fillStyle = "#FFFFFF";
             roundRect(px + 4, py + 4, 102, 84, 5); ctx.fill();
-            // "IMA" header
-            ctx.fillStyle = "#FF80AB";
+            // Sender header (Ima = pink, Esti = purple/wistful)
+            var isEsti = imaText.sender === "esti";
+            ctx.fillStyle = isEsti ? "#9575CD" : "#FF80AB";
             roundRect(px + 4, py + 4, 102, 18, 5); ctx.fill();
-            drawText("📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
+            drawText(isEsti ? "💔 ESTI" : "📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
             // Message bubble
             ctx.fillStyle = "#E1F5FE";
             roundRect(px + 8, py + 26, 94, 56, 6); ctx.fill();
@@ -3006,7 +3010,7 @@
     var copEventTimer = rand(60, 120);
     // Ima (Mom) text messages mini-event
     var imaTextTimer = rand(35, 75);
-    var imaText = null; // { msg, t, dur }
+    var imaText = null; // { msg, t, dur, sender }
     var IMA_TEXTS = [
         "did u eat? 🥨",
         "abba making\ncholent — stop\nat store",
@@ -3017,8 +3021,47 @@
         "we have leftovers",
         "ride safe mamaleh"
     ];
+    // Esti — Lulu's ex-best-friend. Rarer, bittersweet texts.
+    var ESTI_TEXTS = [
+        "hey... i miss u 🥺",
+        "we used to be\nbest friends...",
+        "saw ur car today.\nu didn't wave 😢",
+        "do u still have\nour bracelet?",
+        "miss our drives\ntogether 💔",
+        "can we talk?\ni miss u, Lu"
+    ];
     var iceCreamSigns = []; // similar to parking signs
     var iceCreamSpawnTimer = 60;
+
+    // ── Avigail mode ─────────────────────────────────────────
+    var avigailWalker = null;       // {x, y, walkTime} roadside Avigail to reach
+    var avigailSpawnTimer = rand(30, 55);
+    var avigailInCar = false;       // 2x points active
+    var avigailStep = 0;            // door interaction step
+    var avigailReplyTimer = 0;      // showing Avigail's reply
+    var avigailReply = "";          // current reply line
+    var avigailExpr = "suspicious"; // facial expression
+    var avigailDoorTimer = 0;       // intro knock timer
+    var avigailChoices = [];        // current choice buttons
+    var avigailResolved = false;
+    var pointMult = 1;              // overall score multiplier from Avigail
+
+    // ── Salon mode ───────────────────────────────────────────
+    var salonSigns = [];
+    var salonSpawnTimer = rand(40, 70);
+    var salonPhase = 0;             // 0 intro, 1 pick, 2 processing, 3 reveal
+    var salonTimer = 0;
+    var salonPendingColor = null;
+    var salonIsBlonde = false;
+    var salonReaction = "";
+    var SALON_COLORS = [
+        { label: "PLATINUM", hex: "#F5E6C8", blonde: true },
+        { label: "GOLDEN", hex: "#E6B800", blonde: true },
+        { label: "BRUNETTE", hex: "#6B4423", blonde: false },
+        { label: "JET BLACK", hex: "#1A1A1A", blonde: false },
+        { label: "PINK", hex: "#FF6FB5", blonde: false },
+        { label: "BLUE", hex: "#5B8DEF", blonde: false }
+    ];
 
     function resetGame() {
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
@@ -3039,6 +3082,10 @@
         imaText = null; imaTextTimer = rand(35, 75);
         sasquatchPassenger = 0;
         honkChain = 0; honkChainResetTimer = 0;
+        // Avigail + salon
+        avigailWalker = null; avigailSpawnTimer = rand(30, 55);
+        avigailInCar = false; pointMult = 1;
+        salonSigns = []; salonSpawnTimer = rand(40, 70);
         // Reset Dina + parking state leaks (per QA + Bug Hunter)
         parkingChallengeMode = false;
         parkingResult = null; parkingFailHit = null;
@@ -3728,8 +3775,8 @@
         else if (keys.down) speedMod = 0.5;
         gameSpeed = baseGameSpeed * speedMod;
         scrollOffset += gameSpeed * dt;
-        var scoreMult = distractedMode ? 2 : 1;
-        var coinMult = passengerTimer > 0 ? 2 : 1;
+        var scoreMult = (distractedMode ? 2 : 1) * pointMult;
+        var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         score += gameSpeed * dt * 0.08 * scoreMult;
 
         // Steering (reversed if distracted)
@@ -3795,6 +3842,40 @@
             iceCreamSpawnTimer = rand(60, 100);
             spawnIceCreamSign();
         }
+        // Avigail walking on the roadside (only if not already with you)
+        avigailSpawnTimer -= dt;
+        if (avigailSpawnTimer <= 0 && !avigailWalker && !avigailInCar && gameTime > 18) {
+            avigailSpawnTimer = rand(40, 75);
+            // walks in a lane, scrolls down slower than traffic so Lulu can reach her
+            avigailWalker = { x: LANES[randInt(0, 2)], y: -60, walkTime: 0, hitW: 22, hitH: 26 };
+        }
+        if (avigailWalker) {
+            avigailWalker.y += gameSpeed * 0.55 * dt;
+            avigailWalker.walkTime += dt;
+            if (avigailWalker.y > H + 60) { avigailWalker = null; }
+            else if (aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
+                avigailWalker = null;
+                startAvigailScene();
+                return;
+            }
+        }
+        // Salon sign on the roadside
+        salonSpawnTimer -= dt;
+        if (salonSpawnTimer <= 0 && salonSigns.length === 0 && gameTime > 25) {
+            salonSpawnTimer = rand(55, 95);
+            salonSigns.push({ x: LANES[randInt(0, 2)], y: -60, hitW: 30, hitH: 34, bob: 0 });
+        }
+        for (var ssi = salonSigns.length - 1; ssi >= 0; ssi--) {
+            var ssg = salonSigns[ssi];
+            ssg.y += gameSpeed * dt;
+            ssg.bob += dt;
+            if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
+            if (aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
+                salonSigns.splice(ssi, 1);
+                startSalonScene();
+                return;
+            }
+        }
         // Sasquatch easter egg
         sasquatchTimer -= dt;
         if (sasquatchTimer <= 0 && !sasquatch && gameTime > 35) {
@@ -3811,7 +3892,12 @@
         imaTextTimer -= dt;
         if (imaTextTimer <= 0 && !imaText && gameTime > 25) {
             imaTextTimer = rand(45, 90);
-            imaText = { msg: randPick(IMA_TEXTS), t: 0, dur: 4.0 };
+            // 1 in 3 chance it's Esti (the ex-bff); otherwise Ima
+            if (Math.random() < 0.33) {
+                imaText = { msg: randPick(ESTI_TEXTS), t: 0, dur: 4.5, sender: "esti" };
+            } else {
+                imaText = { msg: randPick(IMA_TEXTS), t: 0, dur: 4.0, sender: "ima" };
+            }
             // Phone buzz sound
             playTone(180, 0.06, "square", 0.12);
             setTimeout(function () { playTone(180, 0.06, "square", 0.12); }, 100);
@@ -4073,22 +4159,33 @@
         var click = consumeClick();
         if (click) {
             // Resume button
-            if (pointInRect(click.x, click.y, W / 2 - 100, H / 2 - 20, 200, 60)) {
-                state = prevState; playClick(); consumeAction(); return;
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 55, 220, 56)) {
+                state = prevState; playClick(); resumeMusic(); consumeAction(); return;
+            }
+            // Music toggle
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 13, 220, 52)) {
+                musicMuted = !musicMuted;
+                if (musicMuted) pauseMusic(); else resumeMusic();
+                playClick(); consumeAction(); return;
+            }
+            // SFX toggle
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 75, 220, 52)) {
+                audioMuted = !audioMuted;
+                if (audioMuted) pauseMusic(); else resumeMusic();
+                playClick(); consumeAction(); return;
             }
             // Quit button
-            if (pointInRect(click.x, click.y, W / 2 - 100, H / 2 + 60, 200, 60)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 137, 220, 52)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 state = "menu"; parkingChallengeMode = false; playClick(); consumeAction(); return;
             }
-            // Click outside buttons: do nothing (don't fall through to resume)
             consumeAction();
             return;
         }
-        // Only keyboard Pause toggles back — Space (action) is reserved for buttons
         if (consumePause()) {
             state = prevState;
             playClick();
+            resumeMusic();
             return;
         }
     }
@@ -4400,6 +4497,21 @@
         }
         for (var icd = 0; icd < iceCreamSigns.length; icd++) {
             drawIceCreamSign(iceCreamSigns[icd].x, iceCreamSigns[icd].y, iceCreamSigns[icd].bob);
+        }
+        // Salon signs
+        for (var sld = 0; sld < salonSigns.length; sld++) {
+            drawSalonSign(salonSigns[sld].x, salonSigns[sld].y, salonSigns[sld].bob);
+        }
+        // Avigail walking on the road
+        if (avigailWalker) {
+            drawAvigailWalker(avigailWalker.x, avigailWalker.y, avigailWalker.walkTime);
+            // "REACH ME!" hint
+            var apulse = 1 + Math.sin(gameTime * 6) * 0.1;
+            ctx.save();
+            ctx.translate(avigailWalker.x, avigailWalker.y - 32);
+            ctx.scale(apulse, apulse);
+            drawText("AVIGAIL!", 0, 0, "bold 12px 'Segoe UI', Arial, sans-serif", "#CE93D8", "#000", 3);
+            ctx.restore();
         }
 
         for (var k = 0; k < obstacles.length; k++) {
@@ -4817,14 +4929,25 @@
         // overlay
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, W, H);
-        drawText("PAUSED", W / 2, H / 2 - 100, "bold 64px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
+        drawText("PAUSED", W / 2, H / 2 - 130, "bold 60px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
 
         // Resume button
-        drawButton(W / 2 - 100, H / 2 - 20, 200, 60, "RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        drawButton(W / 2 - 110, H / 2 - 55, 220, 56, "▶ RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // Music toggle button
+        var musicLabel = musicMuted ? "♪ MUSIC: OFF" : "♪ MUSIC: ON";
+        var mc1 = musicMuted ? "#9E9E9E" : "#42A5F5";
+        var mc2 = musicMuted ? "#616161" : "#0D47A1";
+        drawButton(W / 2 - 110, H / 2 + 13, 220, 52, musicLabel, { bg: mc1, bgDark: mc2, small: true });
+        // SFX toggle button
+        var sfxLabel = audioMuted ? "🔇 SOUND: OFF" : "🔊 SOUND: ON";
+        var sc1 = audioMuted ? "#9E9E9E" : "#FFC107";
+        var sc2 = audioMuted ? "#616161" : "#FF6F00";
+        drawButton(W / 2 - 110, H / 2 + 75, 220, 52, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
         // Quit button
-        drawButton(W / 2 - 100, H / 2 + 60, 200, 60, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        drawButton(W / 2 - 110, H / 2 + 137, 220, 52, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
-        drawText("Press P or ESC to resume", W / 2, H / 2 + 160, "14px 'Segoe UI', Arial, sans-serif", "#BBB", "#000", 2);
+        drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
+            W / 2, H / 2 + 210, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
     }
 
     // ── Draw: Game Over ──────────────────────────────────────
@@ -5111,24 +5234,24 @@
         ctx.beginPath(); ctx.arc(-90, 70, 7, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(-40, 70, 7, 0, Math.PI * 2); ctx.fill();
 
-        // Long flowing hair behind head
-        ctx.fillStyle = "#6B4423";
+        // Long flowing hair behind head (uses chosen hair color)
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(0, 20, 50, 70, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face (warmer olive)
-        ctx.fillStyle = "#E8B89A";
+        // Face (bright peachy skin to match in-car Lulu)
+        ctx.fillStyle = "#FFD4B8";
         ctx.beginPath(); ctx.arc(0, -10, 38, 0, Math.PI * 2); ctx.fill();
 
         // Hair bangs / front (center-parted)
-        ctx.fillStyle = "#6B4423";
+        ctx.fillStyle = save.luluHair;
         ctx.beginPath();
         ctx.ellipse(-15, -35, 18, 14, -0.3, 0, Math.PI * 2);
         ctx.ellipse(15, -35, 18, 14, 0.3, 0, Math.PI * 2);
         ctx.fill();
         // Center part highlight
-        ctx.fillStyle = "#7A5230";
+        ctx.fillStyle = shadeColor(save.luluHair, 18);
         ctx.fillRect(-1, -40, 2, 12);
 
         // Eyes — adult almond
@@ -7720,6 +7843,592 @@
         }
     }
 
+    // ════════════════════════════════════════════════════════
+    // ══════════════ AVIGAIL MODE ════════════════════════════
+    // ════════════════════════════════════════════════════════
+
+    // Roadside Avigail (top-down) — curly black hair, purple top
+    function drawAvigailWalker(x, y, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var legSwing = Math.sin(walkTime * 11) * 4;
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 16, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // Legs
+        ctx.fillStyle = "#37474F";
+        roundRect(-5, 4 - legSwing, 4, 14 + legSwing, 2); ctx.fill();
+        roundRect(1, 4 + legSwing, 4, 14 - legSwing, 2); ctx.fill();
+        ctx.fillStyle = "#212121";
+        roundRect(-6, 16 - legSwing, 6, 4, 2); ctx.fill();
+        roundRect(0, 16 + legSwing, 6, 4, 2); ctx.fill();
+        // Purple top
+        ctx.fillStyle = "#5E35B1";
+        roundRect(-9, -8, 18, 16, 5); ctx.fill();
+        ctx.fillStyle = "#7E57C2";
+        roundRect(-8, -7, 16, 14, 4); ctx.fill();
+        // Arms
+        ctx.fillStyle = "#7E57C2";
+        roundRect(-11, -6, 4, 12, 2); ctx.fill();
+        roundRect(7, -6, 4, 12, 2); ctx.fill();
+        ctx.fillStyle = "#C68642";
+        ctx.beginPath(); ctx.arc(-9, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(9, 7, 2.5, 0, Math.PI * 2); ctx.fill();
+        // Head (deeper skin)
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(0, -14, 8.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#C68642";
+        ctx.beginPath(); ctx.arc(0, -14, 7, 0, Math.PI * 2); ctx.fill();
+        // Curly black hair halo
+        ctx.fillStyle = "#1A1A1A";
+        var curls = [[-7, -18], [-2, -21], [4, -21], [8, -17], [-9, -13], [9, -12]];
+        for (var ci = 0; ci < curls.length; ci++) {
+            ctx.beginPath(); ctx.arc(curls[ci][0], curls[ci][1], 4, 0, Math.PI * 2); ctx.fill();
+        }
+        // Gold hoop earrings
+        ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(-7, -11, 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(7, -11, 2, 0, Math.PI * 2); ctx.stroke();
+        // Eyes
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.arc(-2.5, -14, 1.4, 0, Math.PI * 2);
+        ctx.arc(2.5, -14, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-2.5, -14, 0.8, 0, Math.PI * 2);
+        ctx.arc(2.5, -14, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // Salon sign (roadside) — scissors + "HAIR" sign
+    function drawSalonSign(x, y, bob) {
+        ctx.save();
+        ctx.translate(x, y + Math.sin(bob * 3) * 3);
+        // Glow
+        ctx.fillStyle = "rgba(216,27,96,0.25)";
+        ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fill();
+        // Pole
+        ctx.fillStyle = "#90A4AE";
+        ctx.fillRect(-1.5, 14, 3, 10);
+        // Sign body (pink salon sign)
+        ctx.fillStyle = "#AD1457";
+        roundRect(-18, -16, 36, 30, 5); ctx.fill();
+        ctx.fillStyle = "#EC407A";
+        roundRect(-16, -14, 32, 26, 4); ctx.fill();
+        // Scissors icon
+        ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-6, 6); ctx.lineTo(4, -4);
+        ctx.moveTo(-6, -4); ctx.lineTo(4, 6);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-7, 7, 2, 0, Math.PI * 2);
+        ctx.arc(-7, -5, 2, 0, Math.PI * 2);
+        ctx.stroke();
+        // "HAIR" label
+        ctx.fillStyle = "#FFF";
+        ctx.font = "bold 8px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("SALON", 0, 10);
+        ctx.restore();
+    }
+
+    // Avigail's face for the door scene (around cx, cy)
+    function drawAvigailFace(cx, cy, expr, time) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Curly black hair halo (behind)
+        ctx.fillStyle = "#1A1A1A";
+        for (var a = 0; a < 9; a++) {
+            var ang = (a / 9) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(Math.cos(ang) * 42, Math.sin(ang) * 40 - 8, 13, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // Face
+        ctx.fillStyle = "#C68642";
+        ctx.beginPath(); ctx.arc(0, -8, 38, 0, Math.PI * 2); ctx.fill();
+        // Gold hoops
+        ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(-34, 8, 6, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(34, 8, 6, 0, Math.PI * 2); ctx.stroke();
+        // Eyes
+        var eyeSquash = expr === "suspicious" ? 0.55 : (expr === "dramatic" ? 1.3 : 1);
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath();
+        ctx.ellipse(-13, -12, 6, 6 * eyeSquash, 0, 0, Math.PI * 2);
+        ctx.ellipse(13, -12, 6, 6 * eyeSquash, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#4E342E";
+        ctx.beginPath();
+        ctx.arc(-13, -12, 3, 0, Math.PI * 2);
+        ctx.arc(13, -12, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-13, -12, 1.5, 0, Math.PI * 2);
+        ctx.arc(13, -12, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        // Eyebrows by expression
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+        ctx.beginPath();
+        if (expr === "suspicious") {
+            ctx.moveTo(-20, -24); ctx.lineTo(-6, -22);      // one raised
+            ctx.moveTo(6, -20); ctx.lineTo(20, -20);
+        } else if (expr === "annoyed") {
+            ctx.moveTo(-20, -20); ctx.lineTo(-6, -24);      // angled down-in
+            ctx.moveTo(6, -24); ctx.lineTo(20, -20);
+        } else if (expr === "dramatic") {
+            ctx.moveTo(-20, -26); ctx.lineTo(-6, -28);      // both up
+            ctx.moveTo(6, -28); ctx.lineTo(20, -26);
+        } else { // excited
+            ctx.moveTo(-20, -24); ctx.lineTo(-6, -26);
+            ctx.moveTo(6, -26); ctx.lineTo(20, -24);
+        }
+        ctx.stroke();
+        ctx.lineCap = "butt";
+        // Mouth by expression
+        ctx.fillStyle = "#D32F2F";
+        if (expr === "excited") {
+            ctx.beginPath(); ctx.arc(0, 8, 12, 0, Math.PI); ctx.fill();
+            ctx.fillStyle = "#FFF"; ctx.fillRect(-9, 8, 18, 4);
+        } else if (expr === "dramatic") {
+            ctx.beginPath(); ctx.ellipse(0, 12, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
+            // hand to forehead
+            ctx.fillStyle = "#C68642";
+            ctx.beginPath(); ctx.ellipse(-22, -28, 10, 6, -0.5, 0, Math.PI * 2); ctx.fill();
+        } else if (expr === "annoyed") {
+            ctx.strokeStyle = "#7D1010"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(0, 18, 8, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+        } else { // suspicious - flat line
+            ctx.strokeStyle = "#7D1010"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(-8, 12); ctx.lineTo(8, 12); ctx.stroke();
+        }
+        // Bold red lips hint (when not open-mouthed)
+        ctx.restore();
+    }
+
+    // Avigail dialogue script (4 decisions; reply shown then advance)
+    var AVIGAIL_SCRIPT = [
+        {
+            prompt: "Nobody's home! This is\nher cat speaking.",
+            expr: "suspicious",
+            choices: [
+                { label: "Cats can't talk.", reply: "...Meow. Dang it.", expr: "annoyed" },
+                { label: "I see your feet under the door.", reply: "These are decorative feet.", expr: "suspicious", small: true },
+                { label: "I brought snacks.", reply: "WHY didn't you LEAD with that!", expr: "excited" }
+            ]
+        },
+        {
+            prompt: "Oh NOW you visit. You left\nme on read for 9 DAYS.",
+            expr: "annoyed",
+            choices: [
+                { label: "My phone fell in a lake.", reply: "Your phone. In a lake. Walking distance from me?", expr: "suspicious", small: true },
+                { label: "I was emotionally busy.", reply: "Emotionally busy?? Iconic though.", expr: "dramatic" },
+                { label: "I texted you back!", reply: "A THUMBS UP. You sent a thumbs up, Lulu.", expr: "annoyed", small: true }
+            ]
+        },
+        {
+            prompt: "Also why'd you find me\nWALKING? I have legs.",
+            expr: "dramatic",
+            choices: [
+                { label: "Car broke down again?", reply: "It's RESTING. It's not broken, it's RESTING.", expr: "annoyed", small: true },
+                { label: "Were you walking dramatically?", reply: "I walk with PURPOSE. There's a difference.", expr: "dramatic", small: true },
+                { label: "Doesn't matter, get in.", reply: "You can't just SKIP my lore, Lulu.", expr: "annoyed" }
+            ]
+        },
+        {
+            prompt: "Fine. But I get aux.\nNon-negotiable.",
+            expr: "suspicious",
+            choices: [
+                { label: "You played 1 song for 3 hrs.", reply: "It was a JOURNEY and you weren't ready.", expr: "dramatic", small: true },
+                { label: "Deal — no sad girl playlist.", reply: "Then I have nothing to offer this world.", expr: "dramatic", small: true },
+                { label: "Aux is yours, your majesty.", reply: "Was that sarcasm? I'll allow it. Once.", expr: "excited", small: true }
+            ]
+        }
+    ];
+    var AVIGAIL_CLOSERS = [
+        "Okay LET'S GO. I'm driving.\n...Fine, YOU drive.",
+        "If we get snacks on the way,\nall is forgiven.",
+        "I'm only coming for the aux\ncord and the bit."
+    ];
+
+    function startAvigailScene() {
+        prevState = "playing";
+        state = "avigailScene";
+        avigailStep = 0;
+        avigailReplyTimer = 0;
+        avigailReply = "";
+        avigailExpr = "suspicious";
+        avigailDoorTimer = 2.0;
+        avigailResolved = false;
+    }
+
+    function updateAvigailScene(dt) {
+        gameTime += dt; // keep face/bubble animations ticking
+        if (avigailDoorTimer > 0) {
+            avigailDoorTimer -= dt;
+            consumeClick(); consumeAction();
+            return;
+        }
+        // Showing a reply — wait then advance
+        if (avigailReplyTimer > 0) {
+            avigailReplyTimer -= dt;
+            consumeClick();
+            if (avigailReplyTimer <= 0) {
+                if (avigailResolved) { finishAvigailScene(); return; }
+                avigailStep++;
+                if (avigailStep >= AVIGAIL_SCRIPT.length) {
+                    // Resolution
+                    avigailResolved = true;
+                    avigailReply = randPick(AVIGAIL_CLOSERS);
+                    avigailExpr = "excited";
+                    avigailReplyTimer = 2.2;
+                    playTone(660, 0.1, "triangle", 0.2);
+                }
+            }
+            return;
+        }
+        // Awaiting a choice
+        var click = consumeClick();
+        if (click) {
+            var dec = AVIGAIL_SCRIPT[avigailStep];
+            for (var i = 0; i < dec.choices.length; i++) {
+                var by = 648 + i * 64;
+                if (pointInRect(click.x, click.y, 70, by, 340, 56)) {
+                    var ch = dec.choices[i];
+                    avigailReply = ch.reply;
+                    avigailExpr = ch.expr;
+                    avigailReplyTimer = 1.9;
+                    playClick();
+                    return;
+                }
+            }
+        }
+    }
+
+    function finishAvigailScene() {
+        avigailInCar = true;
+        pointMult = 2;
+        parkingMsg = "💜 AVIGAIL JOINED! 2× POINTS!";
+        parkingMsgTimer = 3;
+        spawnCoinSparkle(W / 2, H / 2);
+        state = "playing";
+    }
+
+    function drawAvigailScene() {
+        // Porch background
+        var sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, "#FFD89E"); sky.addColorStop(1, "#C9A8E8");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        // House wall
+        ctx.fillStyle = "#FFE0B2";
+        ctx.fillRect(0, 120, W, H - 120);
+        // Door
+        ctx.fillStyle = "#00796B";
+        roundRect(W / 2 - 90, 200, 180, 360, 10); ctx.fill();
+        ctx.fillStyle = "#26A69A";
+        roundRect(W / 2 - 82, 208, 164, 344, 8); ctx.fill();
+        ctx.strokeStyle = "#004D40"; ctx.lineWidth = 4;
+        roundRect(W / 2 - 90, 200, 180, 360, 10); ctx.stroke();
+        // Brass knob
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath(); ctx.arc(W / 2 + 66, 390, 7, 0, Math.PI * 2); ctx.fill();
+        // Nameplate
+        ctx.fillStyle = "#FFD54F";
+        roundRect(W / 2 - 70, 150, 140, 30, 6); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 2;
+        roundRect(W / 2 - 70, 150, 140, 30, 6); ctx.stroke();
+        drawText("AVIGAIL'S LAIR", W / 2, 165, "bold 13px 'Segoe UI', Arial, sans-serif", "#5D4037", null, 0);
+        // Wreath
+        ctx.strokeStyle = "#FBC02D"; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.arc(W / 2, 270, 28, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#5D4037";
+        ctx.beginPath(); ctx.arc(W / 2, 270, 8, 0, Math.PI * 2); ctx.fill();
+        // Doormat
+        ctx.fillStyle = "#A1887F";
+        roundRect(W / 2 - 70, H - 70, 140, 36, 4); ctx.fill();
+        drawText("GO AWAY :)", W / 2, H - 52, "bold 14px 'Segoe UI', Arial, sans-serif", "#3E2723", null, 0);
+
+        if (avigailDoorTimer > 0) {
+            // Lulu knocking (just show her car-less standing — reuse portrait small)
+            drawText("*knock knock knock*", W / 2, 110,
+                "bold 18px 'Segoe UI', Arial, sans-serif", "#5D4037", "#FFF", 3);
+            drawSpeechBubble(W / 2, 430, "Knock knock! I KNOW\nyou're home, Avigail.", avigailDoorTimer * 5);
+            return;
+        }
+
+        // Avigail in the doorway
+        drawAvigailFace(W / 2, 330, avigailExpr, gameTime);
+
+        // Speech bubble: either prompt or reply
+        var bubbleText, lockChoices = false;
+        if (avigailReplyTimer > 0) {
+            bubbleText = avigailReply;
+            lockChoices = true;
+        } else {
+            bubbleText = AVIGAIL_SCRIPT[avigailStep].prompt;
+        }
+        // Bubble
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(30, 430, W - 60, 90, 16); ctx.fill();
+        ctx.strokeStyle = "#00796B"; ctx.lineWidth = 3;
+        roundRect(30, 430, W - 60, 90, 16); ctx.stroke();
+        var lines = bubbleText.split("\n");
+        for (var li = 0; li < lines.length; li++) {
+            drawText(lines[li], W / 2, 460 + li * 24, "bold 17px 'Segoe UI', Arial, sans-serif", "#222", null, 0);
+        }
+
+        // Choice buttons (only when awaiting choice)
+        if (!lockChoices) {
+            var dec = AVIGAIL_SCRIPT[avigailStep];
+            var cols = [{ bg: "#66BB6A", bgDark: "#2E7D32" }, { bg: "#42A5F5", bgDark: "#0D47A1" }, { bg: "#FFC107", bgDark: "#FF6F00" }];
+            for (var i = 0; i < dec.choices.length; i++) {
+                var by = 648 + i * 64;
+                drawButton(70, by, 340, 56, dec.choices[i].label,
+                    { bg: cols[i].bg, bgDark: cols[i].bgDark, small: true });
+            }
+        } else {
+            drawText("...", W / 2, 700, "bold 28px Arial", "#FFF", "#000", 3);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ══════════════ SALON MODE ══════════════════════════════
+    // ════════════════════════════════════════════════════════
+
+    function startSalonScene() {
+        prevState = "playing";
+        state = "salon";
+        salonPhase = 0;
+        salonTimer = 0;
+        salonPendingColor = null;
+        salonIsBlonde = false;
+        salonReaction = "";
+    }
+
+    function updateSalon(dt) {
+        salonTimer += dt;
+        gameTime += dt; // keep Fabio/sparkle animations ticking
+        if (salonPhase === 0) {
+            // Intro — Fabio greets, auto-advance after 3.5s
+            if (salonTimer > 3.5 || consumeAction()) {
+                salonPhase = 1; salonTimer = 0;
+            }
+            consumeClick();
+            return;
+        }
+        if (salonPhase === 1) {
+            // Color pick
+            var click = consumeClick();
+            if (click) {
+                for (var i = 0; i < SALON_COLORS.length; i++) {
+                    var col = i % 2, row = Math.floor(i / 2);
+                    var bx = 50 + col * 250, by = 360 + row * 100;
+                    if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
+                        salonPendingColor = SALON_COLORS[i];
+                        salonIsBlonde = SALON_COLORS[i].blonde;
+                        salonPhase = 2; salonTimer = 0;
+                        playTone(523, 0.1, "triangle", 0.2);
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+        if (salonPhase === 2) {
+            // Processing ~6s, then reveal
+            // dramatic arpeggio swells
+            if (salonTimer > 6) {
+                salonPhase = 3; salonTimer = 0;
+                // Commit hair color
+                save.luluHair = salonPendingColor.hex;
+                persistSave();
+                if (salonIsBlonde) {
+                    salonReaction = randPick([
+                        "I'm BLONDE! I'm basically a\ndifferent person now!",
+                        "Fabio, I could KISS you.\nI won't. But I COULD."
+                    ]);
+                    spawnCoinSparkle(W / 2, 300);
+                    playTone(523, 0.1, "triangle", 0.2);
+                    setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+                    setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+                    setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
+                } else {
+                    var lbl = salonPendingColor.label;
+                    if (lbl === "BRUNETTE") salonReaction = "It's the SAME?! I paid for\na personality change!!";
+                    else if (lbl === "JET BLACK") salonReaction = "I look like I joined a SAD\nBAND. Where's the WARRANTY?!";
+                    else if (lbl === "PINK") salonReaction = "I'm a COTTON CANDY GOBLIN!\nMy LAWYER will hear of this!";
+                    else salonReaction = "I look like a TROLL doll!!\n...tell my car I loved it.";
+                    setTimeout(playWompWomp, 200);
+                }
+            }
+            return;
+        }
+        if (salonPhase === 3) {
+            // Reveal — TAP TO LEAVE
+            var click2 = consumeClick();
+            if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
+                state = "playing";
+            }
+        }
+    }
+
+    function drawFabio(x, y, time) {
+        ctx.save();
+        ctx.translate(x + Math.sin(time * 3) * 4, y);
+        // Black smock body
+        ctx.fillStyle = "#212121";
+        roundRect(-16, 0, 32, 50, 8); ctx.fill();
+        // Gold scissor brooch
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath(); ctx.arc(0, 14, 4, 0, Math.PI * 2); ctx.fill();
+        // Head
+        ctx.fillStyle = "#E8B89A";
+        ctx.beginPath(); ctx.arc(0, -14, 13, 0, Math.PI * 2); ctx.fill();
+        // Towering teal pompadour (3 stacked ellipses)
+        ctx.fillStyle = "#26A69A";
+        ctx.beginPath(); ctx.ellipse(0, -26, 14, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, -34, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-2, -42, 8, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = shadeColor("#26A69A", 40);
+        ctx.beginPath(); ctx.ellipse(-4, -28, 5, 3, -0.3, 0, Math.PI * 2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(-4, -15, 1.4, 0, Math.PI * 2);
+        ctx.arc(4, -15, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+        // Pencil mustache
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-5, -9); ctx.lineTo(0, -8); ctx.lineTo(5, -9);
+        ctx.stroke();
+        // Oversized scissors (snipping)
+        var snip = (Math.sin(time * 6) > 0) ? 0.3 : 0;
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 2.5;
+        ctx.save();
+        ctx.translate(20, 6);
+        ctx.beginPath();
+        ctx.moveTo(0, 0); ctx.lineTo(14, -6 - snip * 6);
+        ctx.moveTo(0, 0); ctx.lineTo(14, 6 + snip * 6);
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(-2, -3, 3, 0, Math.PI * 2); ctx.arc(-2, 3, 3, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        ctx.restore();
+    }
+
+    function drawSalon() {
+        // Walls (pink gradient)
+        var wall = ctx.createLinearGradient(0, 0, 0, 596);
+        wall.addColorStop(0, "#FFE0EC"); wall.addColorStop(1, "#FFC1DA");
+        ctx.fillStyle = wall; ctx.fillRect(0, 0, W, 596);
+        ctx.fillStyle = "#D81B60"; ctx.fillRect(0, 596, W, 6);
+        // Checkerboard floor
+        for (var fy = 600; fy < H; fy += 30) {
+            for (var fx = 0; fx < W; fx += 30) {
+                ctx.fillStyle = ((fx / 30 + fy / 30) % 2 === 0) ? "#F5F5F5" : "#F8BBD0";
+                ctx.fillRect(fx, fy, 30, 30);
+            }
+        }
+        // Big mirror
+        ctx.fillStyle = "#FFD700";
+        roundRect(120, 120, 240, 300, 14); ctx.fill();
+        ctx.fillStyle = "#D7F0FA";
+        roundRect(132, 132, 216, 276, 8); ctx.fill();
+        // Mirror sheen
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.beginPath();
+        ctx.moveTo(150, 132); ctx.lineTo(220, 132); ctx.lineTo(160, 408); ctx.lineTo(132, 408);
+        ctx.closePath(); ctx.fill();
+
+        // Salon chair (with Lulu in it during pick/process; reveal shows new hair)
+        ctx.fillStyle = "#B0BEC5";
+        ctx.fillRect(W / 2 - 4, 470, 8, 150); // pole
+        ctx.fillStyle = "#C2185B";
+        roundRect(W / 2 - 50, 440, 100, 60, 14); ctx.fill();
+
+        // Lulu in the mirror (shows her hair). During reveal, show new color big.
+        if (salonPhase >= 1) {
+            ctx.save();
+            ctx.translate(W / 2, 250);
+            ctx.scale(1.3, 1.3);
+            // reuse portrait — hair already reads save.luluHair (committed at reveal)
+            drawLuluPortrait(0, 0, gameTime, 1);
+            ctx.restore();
+        }
+
+        // Fabio the stylist (right side)
+        drawFabio(410, 360, gameTime);
+
+        // Phase-specific UI
+        if (salonPhase === 0) {
+            drawSalonBubble("Ah, bonjour! You sit in zee\nchair of GENIUS!");
+            drawText("(tap to continue)", W / 2, H - 30, "13px Arial", "#fff", "#000", 2);
+        } else if (salonPhase === 1) {
+            drawSalonBubble("What shall it be, mon chou?");
+            // 6 color swatches
+            for (var i = 0; i < SALON_COLORS.length; i++) {
+                var col = i % 2, row = Math.floor(i / 2);
+                var bx = 50 + col * 250, by = 360 + row * 100;
+                var c = SALON_COLORS[i];
+                drawButton(bx, by, 130, 80, c.label, { bg: c.hex, bgDark: shadeColor(c.hex, -50), small: true });
+            }
+        } else if (salonPhase === 2) {
+            // Processing: foils + dramatic ticker + white pulses
+            var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
+            ctx.fillStyle = "rgba(255,255,255," + pulse + ")";
+            ctx.fillRect(0, 0, W, H);
+            var ticker = salonTimer < 2 ? "Mixing zee potion…" :
+                         salonTimer < 4 ? "Patience is beauty…" : "Almost… ALMOST…";
+            drawSalonBubble(ticker);
+            // sparkle dust
+            if (Math.random() > 0.5) {
+                particles.push({ x: W / 2 + rand(-40, 40), y: 250 + rand(-40, 40),
+                    vx: rand(-30, 30), vy: rand(-40, -10), life: 0.6, maxLife: 0.6,
+                    size: rand(2, 5), color: randPick(["#FFD700", "#FFF", "#F8BBD0"]), gravity: 0 });
+            }
+            drawParticles();
+        } else if (salonPhase === 3) {
+            // Reveal reaction
+            if (salonIsBlonde) {
+                ctx.fillStyle = "rgba(255,235,150,0.2)";
+                ctx.fillRect(0, 0, W, H);
+                // floating hearts
+                if (Math.random() > 0.5) {
+                    particles.push({ x: rand(0, W), y: H, vx: rand(-20, 20), vy: rand(-90, -50),
+                        life: 1.5, maxLife: 1.5, size: rand(4, 8), color: "#E91E63", gravity: 20 });
+                }
+                drawParticles();
+            } else {
+                // sad blue tears
+                if (Math.random() > 0.4) {
+                    particles.push({ x: W / 2 + rand(-30, 30), y: 240, vx: rand(-10, 10), vy: rand(40, 80),
+                        life: 0.8, maxLife: 0.8, size: rand(2, 4), color: "#4FC3F7", gravity: 60 });
+                }
+                drawParticles();
+            }
+            drawSalonBubble(salonReaction);
+            // Fabio closer
+            drawText(salonIsBlonde ? "Fabio: VOILÀ. Thank ZEE ART." : "Fabio: Art is pain, darling.",
+                W / 2, 600, "italic 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            drawButton(W / 2 - 90, H - 80, 180, 50, "TAP TO LEAVE", { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
+        }
+    }
+
+    function drawSalonBubble(text) {
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(30, 50, W - 60, 70, 14); ctx.fill();
+        ctx.strokeStyle = "#D81B60"; ctx.lineWidth = 3;
+        roundRect(30, 50, W - 60, 70, 14); ctx.stroke();
+        var lines = text.split("\n");
+        for (var li = 0; li < lines.length; li++) {
+            drawText(lines[li], W / 2, 76 + li * 22, "bold 16px 'Segoe UI', Arial, sans-serif", "#AD1457", null, 0);
+        }
+    }
+
     // ── Main Loop ────────────────────────────────────────────
     var lastTime = 0;
 
@@ -7733,14 +8442,18 @@
         updateSceneFade(dt);
 
         // Background music tracks state changes
+        // Map game state → music file track
         var musicTrack = null;
-        if (state === "charSelect" || state === "menu") musicTrack = "menu";
-        else if (state === "playing") musicTrack = "playing";
-        else if (state === "parking" || state === "parkingIntro" || state === "parkingResult") musicTrack = "parking";
-        else if (state === "dinaRun" || state === "dinaBus") musicTrack = "dinaRun";
-        else if (state === "dinaHome" || state === "dinaCaught" || state === "dinaNap") musicTrack = "dinaHome";
-        else if (state === "dinaMorgan") musicTrack = "morgan";
-        if (musicTrack && musicTrack !== musicState && audioCtx) startMusic(musicTrack);
+        if (state === "charSelect" || state === "menu" || state === "playing" ||
+            state === "crash" || state === "gameover" || state === "shop") musicTrack = "lulu";
+        else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
+                 state === "parkingEnd") musicTrack = "parking";
+        else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
+                 state === "dinaHome" || state === "dinaNap" || state === "dinaMorgan") musicTrack = "dina";
+        else if (state === "avigailScene") musicTrack = "avigail";
+        else if (state.indexOf("salon") === 0) musicTrack = "salon";
+        // Paused keeps whatever was playing (handled in updatePaused)
+        if (musicTrack && state !== "paused") startMusic(musicTrack);
 
         if (state === "charSelect") updateCharSelect(dt);
         else if (state === "menu") updateMenu(dt);
@@ -7759,6 +8472,8 @@
         else if (state === "dinaHome") updateDinaHome(dt);
         else if (state === "dinaMorgan") updateDinaMorgan(dt);
         else if (state === "dinaNap") updateDinaNap(dt);
+        else if (state === "avigailScene") updateAvigailScene(dt);
+        else if (state === "salon") updateSalon(dt);
 
         ctx.clearRect(0, 0, W, H);
 
@@ -7779,11 +8494,19 @@
         else if (state === "dinaHome") drawDinaHome();
         else if (state === "dinaMorgan") drawDinaMorgan();
         else if (state === "dinaNap") drawDinaNap();
+        else if (state === "avigailScene") drawAvigailScene();
+        else if (state === "salon") drawSalon();
 
         // Scene fade overlay (drawn on top of everything)
         drawSceneFade();
 
-        requestAnimationFrame(gameLoop);
+        // Prefer rAF, but fall back to setTimeout when the tab is hidden
+        // (rAF is fully paused in background tabs; setTimeout still fires ~1/sec).
+        if (document.hidden) {
+            setTimeout(function () { gameLoop(performance.now()); }, 100);
+        } else {
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     // ── Init ─────────────────────────────────────────────────

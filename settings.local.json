@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where python *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx --version)",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('/c/Users/ybawe/OneDrive/Desktop/lulu game/game.js','utf8'\\);try{new Function\\(s\\);console.log\\('OK'\\);}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message\\);}\")",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('OK'\\);}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message\\);console.log\\('Line:',e.lineNumber\\);}\")",
+      "Bash(cd \"/c/Users/ybawe/OneDrive/Desktop/lulu game\" && tail -25 game.js)",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('OK length=',s.length\\);}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message,'line:',e.lineNumber\\);}\")",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('SYNTAX OK length=',s.length\\);}catch\\(e\\){console.log\\('SYNTAX ERROR:',e.message\\);}\")",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('OK len=',s.length\\);}catch\\(e\\){console.log\\('ERROR:',e.message\\);}\")",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('SYNTAX OK len=',s.length\\);}catch\\(e\\){console.log\\('ERR:',e.message\\);}\")",
+      "Bash(node -e \"var fs=require\\('fs'\\);var s=fs.readFileSync\\('game.js','utf8'\\);try{new Function\\(s\\);console.log\\('OK len=',s.length\\);}catch\\(e\\){console.log\\('ERR:',e.message\\);}\")",
+      "Bash(ls -la \"/c/Users/ybawe/Downloads/\" | grep -iE \"dina game|lulu driving|parking|lulu and avigail|blonde\" 2>/dev/null; echo \"---game dir---\"; ls -la \"/c/Users/ybawe/OneDrive/Desktop/lulu game/\")",
+      "Bash(mkdir -p audio)",
+      "Bash(cp \"/c/Users/ybawe/Downloads/dina game.mp3\" audio/dina.mp3)",
+      "Bash(cp \"/c/Users/ybawe/Downloads/lulu driving.mp3\" audio/lulu.mp3)",
+      "Bash(cp \"/c/Users/ybawe/Downloads/parking.mp3\" audio/parking.mp3)",
+      "Bash(cp \"/c/Users/ybawe/Downloads/lulu and avigail.mp3\" audio/avigail.mp3)"
+    ]
+  }
+}
