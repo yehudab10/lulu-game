@@ -633,7 +633,7 @@
                             startParkingLevel(parkingLevel);
                         }
                     } else {
-                        state = "playing";
+                        returnToDriving();
                         parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
                         parkingMsgTimer = 3;
                     }
@@ -657,22 +657,22 @@
                             // Retry same level
                             startParkingLevel(parkingLevel);
                         }
+                    } else if (lives <= 0) {
+                        // Out of lives → straight to the crash sequence (no grace).
+                        crashX = player.x;
+                        crashY = player.y;
+                        crashRot = 0;
+                        crashRotVel = rand(-8, 8);
+                        spawnCrashBurst(player.x, player.y, true);
+                        state = "crash";
+                        crashPhase = 0;
+                        crashPhaseTimer = 1.4;
+                        if (score > save.highScore) save.highScore = Math.floor(score);
+                        persistSave();
                     } else {
-                        state = "playing";
+                        returnToDriving();
                         parkingMsg = "Better luck next time!";
                         parkingMsgTimer = 2;
-                        if (lives <= 0) {
-                            crashX = player.x;
-                            crashY = player.y;
-                            crashRot = 0;
-                            crashRotVel = rand(-8, 8);
-                            spawnCrashBurst(player.x, player.y, true);
-                            state = "crash";
-                            crashPhase = 0;
-                            crashPhaseTimer = 1.4;
-                            if (score > save.highScore) save.highScore = Math.floor(score);
-                            persistSave();
-                        }
                     }
                 }
             }

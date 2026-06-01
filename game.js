@@ -3890,7 +3890,7 @@
                             startParkingLevel(parkingLevel);
                         }
                     } else {
-                        state = "playing";
+                        returnToDriving();
                         parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
                         parkingMsgTimer = 3;
                     }
@@ -3914,22 +3914,22 @@
                             // Retry same level
                             startParkingLevel(parkingLevel);
                         }
+                    } else if (lives <= 0) {
+                        // Out of lives → straight to the crash sequence (no grace).
+                        crashX = player.x;
+                        crashY = player.y;
+                        crashRot = 0;
+                        crashRotVel = rand(-8, 8);
+                        spawnCrashBurst(player.x, player.y, true);
+                        state = "crash";
+                        crashPhase = 0;
+                        crashPhaseTimer = 1.4;
+                        if (score > save.highScore) save.highScore = Math.floor(score);
+                        persistSave();
                     } else {
-                        state = "playing";
+                        returnToDriving();
                         parkingMsg = "Better luck next time!";
                         parkingMsgTimer = 2;
-                        if (lives <= 0) {
-                            crashX = player.x;
-                            crashY = player.y;
-                            crashRot = 0;
-                            crashRotVel = rand(-8, 8);
-                            spawnCrashBurst(player.x, player.y, true);
-                            state = "crash";
-                            crashPhase = 0;
-                            crashPhaseTimer = 1.4;
-                            if (score > save.highScore) save.highScore = Math.floor(score);
-                            persistSave();
-                        }
                     }
                 }
             }
@@ -3975,6 +3975,24 @@
     // ── Update: Playing ──────────────────────────────────────
     // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
     var coinPops = [];
+
+    // Grant a few seconds of collision immunity when re-entering the driving
+    // world from a sub-scene (parking / Avigail / salon / tablet), so the player
+    // isn't instantly hit by an obstacle that was already on top of the car.
+    // Also recenters the car and clears any obstacle currently overlapping it.
+    var REENTRY_IMMUNITY = 3.0; // seconds
+    function returnToDriving() {
+        state = "playing";
+        invincibleTimer = Math.max(invincibleTimer, REENTRY_IMMUNITY);
+        if (player) { player.targetX = LANES[1]; player.x = LANES[1]; }
+        // Sweep away anything sitting right where the car will be, so the grace
+        // window starts clean instead of with a pile-up at the player's feet.
+        if (typeof obstacles !== "undefined" && obstacles && player) {
+            for (var i = obstacles.length - 1; i >= 0; i--) {
+                if (Math.abs(obstacles[i].y - player.y) < 160) obstacles.splice(i, 1);
+            }
+        }
+    }
 
     function updatePlaying(dt) {
         gameTime += dt;
@@ -4842,6 +4860,24 @@
 
         ctx.restore();
         drawHUD();
+
+        // Re-entry grace indicator: a soft shield bubble around the car + a
+        // "SAFE" countdown, so the player knows they have a moment to react
+        // after returning to the road from a sub-world.
+        if (invincibleTimer > 1.0) {
+            var pulse = 0.5 + 0.5 * Math.sin(gameTime * 10);
+            ctx.save();
+            ctx.strokeStyle = "rgba(120,200,255," + (0.5 + 0.4 * pulse) + ")";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 44 + pulse * 4, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(120,200,255,0.12)";
+            ctx.fill();
+            ctx.restore();
+            drawText("🛡 SAFE " + Math.ceil(invincibleTimer) + "s", W / 2, 70,
+                "bold 16px 'Segoe UI', Arial, sans-serif", "#7CD4FF", "#003", 4);
+        }
     }
 
     // ── Draw: Crash ──────────────────────────────────────────
@@ -9315,7 +9351,7 @@
         parkingMsg = "💜 AVIGAIL JOINED! 2× POINTS!";
         parkingMsgTimer = 3;
         spawnCoinSparkle(W / 2, H / 2);
-        state = "playing";
+        returnToDriving();
     }
 
     function drawAvigailScene() {
@@ -9542,7 +9578,7 @@
             // Reveal — TAP TO LEAVE
             var click2 = consumeClick();
             if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
-                state = "playing";
+                returnToDriving();
             }
         }
     }

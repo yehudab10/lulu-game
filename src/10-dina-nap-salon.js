@@ -605,7 +605,7 @@
         parkingMsg = "💜 AVIGAIL JOINED! 2× POINTS!";
         parkingMsgTimer = 3;
         spawnCoinSparkle(W / 2, H / 2);
-        state = "playing";
+        returnToDriving();
     }
 
     function drawAvigailScene() {
@@ -832,7 +832,7 @@
             // Reveal — TAP TO LEAVE
             var click2 = consumeClick();
             if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
-                state = "playing";
+                returnToDriving();
             }
         }
     }
