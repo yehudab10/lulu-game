@@ -53,11 +53,16 @@
         var targetX = DINA_LANES_X[dina.lane];
         dina.x = lerp(dina.x, targetX, Math.min(1, 8 * dt));
 
-        // Spawn sidewalk hazards
+        // Spawn sidewalk hazards — denser as the run progresses so it ramps
+        // from "warm-up" to "obstacle course". Late game can spawn two at once.
         dinaSidewalkSpawn -= dt;
-        if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 5) {
-            dinaSidewalkSpawn = rand(1.5, 3.0);
+        if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 4) {
+            var prog = dinaRunDistance; // 0..1
+            // gap shrinks from ~1.4s early to ~0.55s late
+            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55);
             spawnDinaHazard();
+            // past the halfway mark, sometimes throw a second hazard in another lane
+            if (prog > 0.5 && Math.random() < 0.35 * prog) spawnDinaHazard();
         }
         // Update hazards
         for (var h = dinaSidewalk.length - 1; h >= 0; h--) {
@@ -74,18 +79,21 @@
             }
         }
 
-        // Mom catches up — much more forgiving now.
-        // Base: Mom DOESN'T catch up while Dina runs normally.
-        // Stumbles, slow-walks, and the last 5 seconds of the run pull her closer.
+        // Mom chase — now an actual RACE. She steadily gains ground at a
+        // baseline pace that ramps up over the run; sprinting is the only way
+        // to pull back ahead, so the player has to manage sprint + dodge hazards.
+        var chaseRamp = 0.012 + dinaRunDistance * 0.022; // baseline close-in, grows over time
+        mom.distance = Math.max(0, mom.distance - chaseRamp * dt);
         if (sprint) {
-            // Sprinting lets Dina pull AHEAD if Mom is close, slows the chase otherwise
-            mom.distance = Math.min(1.0, mom.distance + 0.02 * dt);
+            // Sprinting reverses the chase and buys back distance
+            mom.distance = Math.min(1.0, mom.distance + 0.075 * dt);
         }
-        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.10 * dt);
-        if (slow) mom.distance = Math.max(0, mom.distance - 0.04 * dt);
-        // Final-stretch tension: in the last 10 seconds of the run, Mom slowly closes in
-        if (dinaRunTimer > DINA_RUN_DURATION - 10) {
-            mom.distance = Math.max(0, mom.distance - 0.025 * dt);
+        // Mistakes hurt more now: stumbles and dawdling let Mom surge in
+        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.16 * dt);
+        if (slow) mom.distance = Math.max(0, mom.distance - 0.06 * dt);
+        // Final-stretch tension: in the last 8 seconds, Mom pushes hard
+        if (dinaRunTimer > DINA_RUN_DURATION - 8) {
+            mom.distance = Math.max(0, mom.distance - 0.04 * dt);
         }
         mom.walkTime += dt;
         mom.sayTimer -= dt;
@@ -114,6 +122,7 @@
             // Won the race! Reached home before mom
             dinaEnding = "ran";
             dinaRunPhase = 2;
+            bankDinaRunRewards(true); // winning banks coins + a bonus into Lulu's world
             state = "dinaCaught"; // shared outro state, with different flavor
             dinaRunTimer = 0;
             spawnDinaConfetti();
@@ -124,9 +133,10 @@
             return;
         }
         if (mom.distance <= 0) {
-            // Mom caught up
+            // Mom caught up — still keep what you collected (no win bonus)
             dinaEnding = "walked";
             dinaRunPhase = 2;
+            bankDinaRunRewards(false);
             state = "dinaCaught";
             dinaRunTimer = 0;
             playTone(440, 0.18, "sine", 0.2);
@@ -134,14 +144,30 @@
         }
     }
 
+    // Bank what Dina earned on the run into the shared save so it carries over
+    // into Lulu's world (coins) and the star total (stickers). Winning the race
+    // adds a tidy bonus. dinaRunBanked* hold the amounts for the result screen.
+    var dinaRunBankedCoins = 0, dinaRunBankedStars = 0, dinaRunWinBonus = 0;
+    function bankDinaRunRewards(won) {
+        dinaRunWinBonus = won ? 25 : 0;
+        dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
+        dinaRunBankedStars = dinaStickers;
+        save.totalCoins += dinaRunBankedCoins;
+        save.parkingTotalStars = (save.parkingTotalStars || 0) + dinaRunBankedStars;
+        persistSave();
+    }
+
     // Lane switch with keyboard or buttons
     var lastLeftPress = false, lastRightPress = false;
     function consumeLaneSwitch(dir) {
         if (dir === "left") {
+            // queued tap (mobile) — drains once
+            if (laneQueued === -1) { laneQueued = 0; return true; }
             if (keys.left && !lastLeftPress) { lastLeftPress = true; return true; }
             if (!keys.left) lastLeftPress = false;
         }
         if (dir === "right") {
+            if (laneQueued === 1) { laneQueued = 0; return true; }
             if (keys.right && !lastRightPress) { lastRightPress = true; return true; }
             if (!keys.right) lastRightPress = false;
         }
@@ -784,10 +810,13 @@
         drawText(dinaEnding === "ran" ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗",
             W / 2, 56, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
 
-        // Stats badge
-        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W / 2, H - 60,
+        // Rewards banked into the shared bank (carries over to Lulu's world)
+        var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";
+        drawText("Banked: ⭐ " + dinaRunBankedStars + "   💰 " + dinaRunBankedCoins + bonusStr, W / 2, H - 76,
             "bold 16px Arial", "#FFD700", "#000", 3);
-        drawText("Tap to enter home", W / 2, H - 30, "14px Arial", "#FFFFFF", "#000", 2);
+        drawText("Added to your bank: " + formatNum(save.totalCoins) + " 💰", W / 2, H - 52,
+            "bold 13px Arial", "#FFF8E1", "#000", 2);
+        drawText("Tap to enter home", W / 2, H - 26, "14px Arial", "#FFFFFF", "#000", 2);
 
         // Confetti celebration (on top of everything)
         for (var ci = 0; ci < dinaConfetti.length; ci++) {

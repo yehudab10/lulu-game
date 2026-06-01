@@ -117,6 +117,7 @@
                  targetX: W / 2, targetY: 350 };
         schoolBus = { x: W + 220, y: 140, phase: 0, timer: 0, doorOpen: 0 };
         schoolGirls = [];
+        particles.length = 0; // start the intro with a clean particle layer
         // Pre-populate girls who will come off
         for (var g = 0; g < 6; g++) {
             schoolGirls.push({
@@ -325,14 +326,19 @@
         // Head
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
-        // Hair (long, dark brown bob)
+        // Hair (adult bob) — frames the top + sides but leaves the lower
+        // face (~60% of the head) as visible skin. Head spans y -27..-9;
+        // hair stops around y -21 across the front so eyes/blush/mouth show.
         ctx.fillStyle = "#3E2723";
+        // Top cap: semicircle over the crown, flat edge above the brows.
         ctx.beginPath();
-        ctx.ellipse(0, -16, 10, 11, 0, Math.PI, Math.PI * 2);
+        ctx.arc(0, -21, 9.5, Math.PI, Math.PI * 2);
         ctx.fill();
+        // Bob sides: hair sweeps down past the cheeks at the very edges of
+        // the face, hugging the sides without covering the front features.
         ctx.beginPath();
-        ctx.ellipse(-9, -14, 4, 8, -0.2, 0, Math.PI * 2);
-        ctx.ellipse(9, -14, 4, 8, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(-9, -16, 2.8, 9, -0.15, 0, Math.PI * 2);
+        ctx.ellipse(9, -16, 2.8, 9, 0.15, 0, Math.PI * 2);
         ctx.fill();
 
         // Head outline (chunky)
@@ -591,6 +597,7 @@
         if (!schoolBus) return;
         schoolBus.timer += dt;
         var t = schoolBus.timer;
+        updateParticles(dt); // tick exhaust/dust puffs spawned below
 
         // Phase 0: bus drives in (0-1.2s)
         if (schoolBus.phase === 0) {
@@ -619,6 +626,17 @@
                     gi.y = schoolBus.y + 130;
                     // little chatter
                     if (Math.random() > 0.5) playTone(rand(500, 900), 0.05, "sine", 0.06);
+                    // little puff of dust as they hop down onto the sidewalk
+                    for (var dp = 0; dp < 5; dp++) {
+                        particles.push({
+                            x: gi.x + rand(-4, 4), y: gi.y + 10,
+                            vx: rand(-25, 25), vy: rand(-30, -5),
+                            life: rand(0.3, 0.6), maxLife: 0.6,
+                            size: rand(3, 6),
+                            color: randPick(["#D7CBB0", "#C9BCA0", "#E0D6BE"]),
+                            gravity: 40, smoke: true
+                        });
+                    }
                 }
                 if (!gi.onBus) {
                     gi.x += gi.vx * dt;
@@ -664,9 +682,23 @@
         // Phase 6: bus drives away (8.0-8.7s)
         if (schoolBus.phase === 6) {
             schoolBus.x -= 600 * dt;
+            // Exhaust puffs trailing from the back-right of the bus
+            schoolBus.exhaust = (schoolBus.exhaust || 0) + dt;
+            if (schoolBus.exhaust > 0.06) {
+                schoolBus.exhaust = 0;
+                particles.push({
+                    x: schoolBus.x + 240, y: schoolBus.y + 120 + rand(-4, 4),
+                    vx: rand(20, 60), vy: rand(-30, -10),
+                    life: rand(0.5, 0.9), maxLife: 0.9,
+                    size: rand(6, 11),
+                    color: randPick(["#9E9E9E", "#BDBDBD", "#757575"]),
+                    gravity: -20, smoke: true
+                });
+            }
             if (schoolBus.x < -300) {
                 // Start the run-home game
                 schoolBus = null;
+                particles.length = 0; // clear leftover exhaust/dust
                 startDinaRun();
             }
         }
@@ -675,6 +707,7 @@
         var click = consumeClick();
         if (click || consumeAction()) {
             schoolBus = null;
+            particles.length = 0; // clear leftover exhaust/dust
             startDinaRun();
         }
     }
@@ -771,8 +804,18 @@
         ctx.fillRect(297, 484, 16, 26);
         ctx.strokeRect(297, 484, 16, 26);
 
-        // Bus
-        if (schoolBus) drawSchoolBus(schoolBus);
+        // Bus — gentle idle bob while stopped (engine running, phases 1-5)
+        if (schoolBus) {
+            var busBob = (schoolBus.phase >= 1 && schoolBus.phase <= 5)
+                ? Math.sin(schoolBus.timer * 6) * 1.5 : 0;
+            var baseY = schoolBus.y;
+            schoolBus.y = baseY + busBob;
+            drawSchoolBus(schoolBus);
+            schoolBus.y = baseY;
+        }
+
+        // Exhaust / dust puffs (rendered behind the girls but over the bus)
+        drawParticles();
 
         // School girls
         for (var gi = 0; gi < schoolGirls.length; gi++) {
@@ -800,6 +843,11 @@
             }
         }
 
-        // Tap-to-skip hint
-        drawText("Tap to skip", W - 10, H - 14, "12px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "right");
+        // Tap-to-skip hint — shown from the very start, gentle pulse so it
+        // reads as an interactive prompt rather than static chrome.
+        var skipT = schoolBus ? schoolBus.timer : 0;
+        ctx.save();
+        ctx.globalAlpha = 0.75 + Math.sin(skipT * 4) * 0.2;
+        drawText("Tap to skip ▶", W - 12, H - 16, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+        ctx.restore();
     }

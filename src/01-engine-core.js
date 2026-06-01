@@ -362,6 +362,7 @@
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
+    var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
     var steerTouchId = null;
     var boostTouchId = null;
@@ -428,6 +429,22 @@
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
         }
+        // Dina's run + Cookie Catch reuse the parking D-pad rects for their
+        // on-screen buttons. Without this, taps fell through to a generic click
+        // and the buttons did nothing on mobile.
+        if (state === "dinaRun") {
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
+            if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
+            return null;
+        }
+        if (state === "cookieCatch") {
+            if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            return null;
+        }
         return null;
     }
 
@@ -480,9 +497,11 @@
                 brakeTouchId = t.identifier;
             } else if (btn === "parkLeft") {
                 keys.left = true;
+                laneQueued = -1; // ensures a fast tap still registers a lane step
                 parkLeftTouchId = t.identifier;
             } else if (btn === "parkRight") {
                 keys.right = true;
+                laneQueued = 1;
                 parkRightTouchId = t.identifier;
             } else if (btn === "parkFwd") {
                 keys.up = true;

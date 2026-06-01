@@ -1,13 +1,34 @@
+    var dinaNapTucked = false;      // false: "tap to tuck in"; true: drifting off
+    var dinaNapTuckTime = 0;        // seconds since tucked in
+
     function updateDinaNap(dt) {
+        // Fresh entry (external code sets dinaRunTimer = 0): reset the beat.
+        if (dinaRunTimer === 0) { dinaNapTucked = false; dinaNapTuckTime = 0; }
         dinaRunTimer += dt;
-        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+        if (!dinaNapTucked) {
+            // Beat 1 — wait for the player to tuck Dina in (or a gentle auto-nudge).
+            if (consumeClick() || consumeAction() || dinaRunTimer > 4) {
+                dinaNapTucked = true;
+                dinaNapTuckTime = 0;
+                playTone(523, 0.12, "sine", 0.16, 392); // soft descending "shh"
+            }
+            return;
+        }
+        // Beat 2 — drifting off; let it breathe ~3.2s, then tap to wake.
+        dinaNapTuckTime += dt;
+        if (dinaNapTuckTime > 3.2 && (consumeClick() || consumeAction() || dinaNapTuckTime > 4.5)) {
             state = "dinaHome";
+        } else {
+            consumeClick(); consumeAction();
         }
     }
 
     function drawDinaNap() {
-        // Slowly dimming dusk
-        var t = clamp(dinaRunTimer / 3.5, 0, 1);
+        var tucked = dinaNapTucked;
+        // Dusk deepens only once she's actually tucked in
+        var t = tucked ? clamp(dinaNapTuckTime / 3.2, 0, 1) : 0;
+        // gentle breathing factor (slower & deeper once asleep)
+        var breath = Math.sin(dinaRunTimer * (tucked ? 1.6 : 2.4)) * (tucked ? 3 : 2);
         ctx.fillStyle = "#FFE8C8";
         ctx.fillRect(0, 0, W, H);
         // Dim overlay
@@ -20,41 +41,47 @@
         roundRect(W / 2 - 150, H / 2 - 70, 300, 160, 10); ctx.fill();
         ctx.fillStyle = "#FFFFFF";
         roundRect(W / 2 - 120, H / 2 - 60, 240, 40, 8); ctx.fill();
-        // Blanket pulled up over Dina
+        // Blanket — sits low before tuck-in, pulled up snug after; gentle breathing rise.
+        // Bottom edge is fixed at H/2+80; the top edge moves so it never overshoots the bed.
+        var blanketBottom = H / 2 + 80;
+        var blanketTop = tucked ? (H / 2 - 20 - breath) : (H / 2 + 4);
         ctx.fillStyle = "#B8E0D2";
-        roundRect(W / 2 - 100, H / 2 - 20, 200, 100, 8); ctx.fill();
-        // Dina's head poking out
+        roundRect(W / 2 - 100, blanketTop, 200, blanketBottom - blanketTop, 8); ctx.fill();
+        // Dina's head poking out (rises/falls subtly with breath)
+        var headY = H / 2 - 35 + breath * 0.35;
         ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath(); ctx.arc(W / 2, H / 2 - 35, 22, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(W / 2, headY, 22, 0, Math.PI * 2); ctx.fill();
         // Hair
         ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.arc(W / 2, H / 2 - 45, 24, Math.PI, Math.PI * 2);
+        ctx.arc(W / 2, headY - 10, 24, Math.PI, Math.PI * 2);
         ctx.fill();
         // Sleeping eyes (closed arcs)
         ctx.strokeStyle = "#3D2817";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(W / 2 - 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.arc(W / 2 + 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(W / 2 - 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(W / 2 + 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
         ctx.stroke();
         // Tiny smile
         ctx.strokeStyle = "#A0394D";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(W / 2, H / 2 - 28, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(W / 2, headY + 7, 4, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
-        // Floating Z's
-        for (var zi = 0; zi < 3; zi++) {
-            var zt = (dinaRunTimer + zi * 0.5) % 2;
-            var alpha = 1 - zt / 2;
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = "#FFFFFF";
-            ctx.font = "bold " + (20 + zi * 6) + "px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText("Z", W / 2 + 20 + zi * 20, H / 2 - 70 - zt * 50);
-            ctx.restore();
+        // Floating Z's (only once she's actually asleep)
+        if (tucked) {
+            for (var zi = 0; zi < 3; zi++) {
+                var zt = (dinaNapTuckTime + zi * 0.5) % 2;
+                var alpha = (1 - zt / 2) * Math.min(1, dinaNapTuckTime);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.fillStyle = "#FFFFFF";
+                ctx.font = "bold " + (20 + zi * 6) + "px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText("Z", W / 2 + 20 + zi * 20, headY - 35 - zt * 50);
+                ctx.restore();
+            }
         }
         // Floating moon/stars
         ctx.fillStyle = "#FFEE58";
@@ -62,18 +89,31 @@
             ctx.fillText("★", (sti * 87 + 47) % W, 50 + (sti % 3) * 30);
         }
 
-        // Result text
-        if (t > 0.7) {
-            ctx.globalAlpha = (t - 0.7) / 0.3;
-            drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
-                "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
-            drawText("Tap to wake up", W / 2, H - 40,
-                "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        // Beat 1 prompt — invite the player to tuck Dina in
+        if (!tucked) {
+            var bob = Math.sin(dinaRunTimer * 3) * 4;
+            drawText("Dina's so tired...", W / 2, H - 120,
+                "bold 18px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#3D2C6B", 4);
+            drawText("👆 Tap to tuck her in", W / 2, H - 80 + bob,
+                "bold 20px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+        } else {
+            // Beat 2 — sweet dreams, then the earned reward
+            ctx.globalAlpha = Math.min(1, dinaNapTuckTime * 2);
+            drawText("Sweet dreams, Dina 💤", W / 2, H - 120,
+                "bold 18px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#3D2C6B", 4);
             ctx.globalAlpha = 1;
+            if (t > 0.7) {
+                ctx.globalAlpha = (t - 0.7) / 0.3;
+                drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
+                    "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+                drawText("Tap to wake up", W / 2, H - 40,
+                    "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+                ctx.globalAlpha = 1;
+            }
         }
 
-        // Award the star once
-        if (t >= 1 && !window.__napAwarded) {
+        // Award the star once (only after she's actually rested)
+        if (tucked && t >= 1 && !window.__napAwarded) {
             window.__napAwarded = true;
             save.parkingTotalStars += 1;
             persistSave();
@@ -473,6 +513,17 @@
             return;
         }
 
+        // Rugelach-promise token — visible once Lulu has promised rugelach, so the
+        // later "as promised" payoff feels earned rather than a hidden gotcha.
+        if (avigailHasRugelach) {
+            var tokY = 100;
+            ctx.fillStyle = "rgba(255,255,255,0.92)";
+            roundRect(W - 150, tokY - 16, 130, 32, 16); ctx.fill();
+            ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2;
+            roundRect(W - 150, tokY - 16, 130, 32, 16); ctx.stroke();
+            drawText("🍪 promised", W - 85, tokY, "bold 14px 'Segoe UI', Arial, sans-serif", "#5D4037", null, 0);
+        }
+
         // Avigail in the doorway
         drawAvigailFace(W / 2, 330, avigailExpr, gameTime);
 
@@ -528,7 +579,22 @@
         salonStyle = null;
         salonOops = false;
         salonConsultStep = 0;
+        salonConfirm = false;
     }
+
+    // Confirm sub-step for the color pick (telegraphs the choice before committing).
+    var salonConfirm = false;
+    // Every color is a win with its own flavor — no coin-flip, no punishment.
+    // Keyed by SALON_COLORS label so this lives entirely in this fragment.
+    // Blonde colors get the extra fanfare, telegraphed beforehand as Fabio's "✨ Fabio's pick".
+    var SALON_OUTCOMES = {
+        "PLATINUM": "I'm BLONDE! I'm basically a\nwhole new person now!",
+        "GOLDEN":   "GOLD?! Fabio, I could KISS\nyou. I won't. But I COULD.",
+        "BRUNETTE": "Rich, glossy brunette. I look\nEXPENSIVE. I love it.",
+        "JET BLACK": "Sleek. Mysterious. Main-\ncharacter energy. STUNNING.",
+        "PINK":     "PINK?! I'm a cotton-candy\nQUEEN and I OWN it!",
+        "BLUE":     "Ocean blue! Bold, cool, and\nTOTALLY my vibe. YES."
+    };
 
     function updateSalon(dt) {
         salonTimer += dt;
@@ -569,19 +635,31 @@
             return;
         }
         if (salonPhase === 3) {
-            // COLOR pick
             var click = consumeClick();
-            if (click) {
-                for (var i = 0; i < SALON_COLORS.length; i++) {
-                    var col = i % 2, row = Math.floor(i / 2);
-                    var bx = 50 + col * 250, by = 360 + row * 100;
-                    if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
-                        salonPendingColor = SALON_COLORS[i];
-                        salonIsBlonde = SALON_COLORS[i].blonde;
-                        salonPhase = 4; salonTimer = 0;
-                        playTone(523, 0.1, "triangle", 0.2);
-                        return;
-                    }
+            if (!click) return;
+            if (salonConfirm) {
+                // Confirm step — "Go {COLOR}?"  YES commits, BACK re-opens the swatches.
+                if (pointInRect(click.x, click.y, 60, 470, 170, 56)) {        // YES
+                    salonConfirm = false;
+                    salonPhase = 4; salonTimer = 0;
+                    playTone(523, 0.1, "triangle", 0.2);
+                } else if (pointInRect(click.x, click.y, 250, 470, 170, 56)) { // BACK
+                    salonConfirm = false;
+                    salonPendingColor = null;
+                    playClick();
+                }
+                return;
+            }
+            // COLOR pick — choosing a swatch opens the confirm step (no commit yet)
+            for (var i = 0; i < SALON_COLORS.length; i++) {
+                var col = i % 2, row = Math.floor(i / 2);
+                var bx = 50 + col * 250, by = 360 + row * 100;
+                if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
+                    salonPendingColor = SALON_COLORS[i];
+                    salonIsBlonde = SALON_COLORS[i].blonde;
+                    salonConfirm = true;
+                    playTone(440, 0.07, "triangle", 0.18);
+                    return;
                 }
             }
             return;
@@ -593,18 +671,19 @@
                 // Commit hair color — permanent, exactly once
                 save.luluHair = salonPendingColor.hex;
                 persistSave();
-                // 1-in-8 "oops" on non-blonde (keeps the blonde fanfare clean)
-                salonOops = (!salonIsBlonde && Math.random() < 0.125);
-                if (salonIsBlonde) {
-                    salonReaction = salonPendingColor.luluWin;
-                    spawnCoinSparkle(W / 2, 300);
-                    playTone(523, 0.1, "triangle", 0.2);
-                    setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
-                    setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+                // Every color is a happy result now. ~1-in-8 BONUS surprise: the cat
+                // knocks the bottle and it comes out even better (a treat, not a punishment).
+                salonOops = (Math.random() < 0.125);
+                // Always-positive reaction; oops swaps in its own delighted line.
+                salonReaction = salonOops ? SALON_OOPS.lulu
+                    : (SALON_OUTCOMES[salonPendingColor.label] || salonPendingColor.luluWin || "I LOVE it!");
+                // Cheerful arpeggio for everyone; blonde gets a little extra sparkle.
+                spawnCoinSparkle(W / 2, 300);
+                playTone(523, 0.1, "triangle", 0.2);
+                setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+                setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+                if (salonIsBlonde || salonOops) {
                     setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
-                } else {
-                    salonReaction = salonOops ? SALON_OOPS.lulu : salonPendingColor.luluLose;
-                    setTimeout(playWompWomp, 200);
                 }
             }
             return;
@@ -721,15 +800,40 @@
                 drawButton(60, sby, 380, 64, SALON_STYLES[s].label,
                     { bg: "#EC407A", bgDark: "#AD1457", small: true });
             }
-        } else if (salonPhase === 3) {
-            // Color pick — Fabio reacts to the chosen style
+        } else if (salonPhase === 3 && !salonConfirm) {
+            // Color pick — Fabio reacts to the chosen style. Each swatch shows its
+            // name (already) and Fabio flags his blonde "picks" so the best result
+            // is telegraphed, not a coin-flip.
             drawSalonBubble(salonStyle ? salonStyle.fabio : "What shall it be, mon chou?");
             for (var i = 0; i < SALON_COLORS.length; i++) {
                 var col = i % 2, row = Math.floor(i / 2);
                 var bx = 50 + col * 250, by = 360 + row * 100;
                 var c = SALON_COLORS[i];
                 drawButton(bx, by, 130, 80, c.label, { bg: c.hex, bgDark: shadeColor(c.hex, -50), small: true });
+                if (c.blonde) {
+                    drawText("✨ Fabio's pick", bx + 65, by + 71,
+                        "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD700", "#7A4F00", 2);
+                }
             }
+            drawText("Every shade is a look — pick what's YOU 💖", W / 2, 340,
+                "bold 12px 'Segoe UI', Arial, sans-serif", "#AD1457", "#FFF", 2);
+        } else if (salonPhase === 3 && salonConfirm) {
+            // Confirm step — telegraph the exact choice before committing.
+            var cc = salonPendingColor;
+            drawSalonBubble("Go " + cc.label + ", darling?\nA MARVELOUS choice!");
+            // Big preview swatch + name
+            ctx.fillStyle = cc.hex;
+            roundRect(W / 2 - 70, 360, 140, 90, 14); ctx.fill();
+            ctx.strokeStyle = shadeColor(cc.hex, -50); ctx.lineWidth = 4;
+            roundRect(W / 2 - 70, 360, 140, 90, 14); ctx.stroke();
+            drawText(cc.label, W / 2, 405, "bold 20px 'Segoe UI', Arial, sans-serif",
+                cc.blonde ? "#6B4423" : "#FFF", "#000", 3);
+            if (cc.blonde) {
+                drawText("✨ Fabio's pick", W / 2, 433,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#7A4F00", "#FFF", 2);
+            }
+            drawButton(60, 470, 170, 56, "YES! GO " + cc.label, { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
+            drawButton(250, 470, 170, 56, "← PICK AGAIN", { bg: "#90A4AE", bgDark: "#546E7A", small: true });
         } else if (salonPhase === 4) {
             // Processing: foils + beat-driven ticker + white pulses
             var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
@@ -747,28 +851,27 @@
             }
             drawParticles();
         } else if (salonPhase === 5) {
-            // Reveal reaction
-            if (salonIsBlonde) {
-                ctx.fillStyle = "rgba(255,235,150,0.2)";
-                ctx.fillRect(0, 0, W, H);
-                // floating hearts
-                if (Math.random() > 0.5) {
-                    particles.push({ x: rand(0, W), y: H, vx: rand(-20, 20), vy: rand(-90, -50),
-                        life: 1.5, maxLife: 1.5, size: rand(4, 8), color: "#E91E63", gravity: 20 });
-                }
-                drawParticles();
-            } else {
-                // sad blue tears
-                if (Math.random() > 0.4) {
-                    particles.push({ x: W / 2 + rand(-30, 30), y: 240, vx: rand(-10, 10), vy: rand(40, 80),
-                        life: 0.8, maxLife: 0.8, size: rand(2, 4), color: "#4FC3F7", gravity: 60 });
-                }
-                drawParticles();
+            // Reveal reaction — always celebratory now. Tint to the new hair color.
+            var glow = salonPendingColor ? salonPendingColor.hex : "#FFEB96";
+            ctx.fillStyle = "rgba(255,235,150,0.18)";
+            ctx.fillRect(0, 0, W, H);
+            // floating celebration confetti in the new color (+hearts)
+            if (Math.random() > 0.5) {
+                particles.push({ x: rand(0, W), y: H, vx: rand(-20, 20), vy: rand(-90, -50),
+                    life: 1.5, maxLife: 1.5, size: rand(4, 8),
+                    color: randPick(["#E91E63", glow, "#FFD700"]), gravity: 20 });
             }
+            // oops bonus gets a little extra paw-print sparkle burst
+            if (salonOops && Math.random() > 0.6) {
+                particles.push({ x: W / 2 + rand(-50, 50), y: 230 + rand(-20, 20),
+                    vx: rand(-30, 30), vy: rand(-40, -10), life: 0.7, maxLife: 0.7,
+                    size: rand(3, 6), color: randPick(["#FFD700", "#FFF"]), gravity: 0 });
+            }
+            drawParticles();
             drawSalonBubble(salonReaction);
-            // Fabio closer — oops gets its own confession line
-            var salonCloser = salonOops ? "Fabio: …it was zee CAT, I SWEAR."
-                : (salonIsBlonde ? "Fabio: VOILÀ. Thank ZEE ART." : "Fabio: Art is pain, darling.");
+            // Fabio closer — oops bonus gets its own (proud!) confession line
+            var salonCloser = salonOops ? "Fabio: zee CAT helped. A BONUS, non?"
+                : "Fabio: VOILÀ. Thank ZEE ART, darling.";
             drawText(salonCloser, W / 2, 600, "italic 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             drawButton(W / 2 - 90, H - 80, 180, 50, "TAP TO LEAVE", { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
         }

@@ -4,15 +4,22 @@
     var cookie = null; // {plateX, items[], timer, score, lives, spawnT, combo, comboT, msg, msgT, phase}
     var COOKIE_DURATION = 30;
     var COOKIE_PLATE_Y = H - 120;
-    var COOKIE_PLATE_W = 96;
+    var COOKIE_PLATE_W = 78;   // narrower plate → catching takes more skill
+    var COOKIE_FEE = 10;       // coins it costs to play one round
 
     function startCookieCatch() {
         state = "cookieCatch";
+        // Entry fee — costs coins to play so it's a real gamble (you only come
+        // out ahead by catching well), not a risk-free coin faucet.
+        var fee = Math.min(COOKIE_FEE, save.totalCoins);
+        save.totalCoins -= fee;
+        persistSave();
         cookie = {
             plateX: W / 2, plateVX: 0,
             items: [], timer: COOKIE_DURATION,
             score: 0, lives: 3, spawnT: 0.8,
             combo: 0, comboT: 0,
+            fee: fee,
             msg: "Catch the cookies!", msgT: 2,
             phase: "play", endT: 0, caught: 0
         };
@@ -22,12 +29,12 @@
 
     // Falling item kinds — weight controls how often each appears.
     var COOKIE_KINDS = [
-        { type: "cookie", emoji: "🍪", points: 1, weight: 50, good: true },
-        { type: "choc",   emoji: "🍫", points: 2, weight: 20, good: true },
-        { type: "donut",  emoji: "🍩", points: 3, weight: 12, good: true },
+        { type: "cookie", emoji: "🍪", points: 1, weight: 42, good: true },
+        { type: "choc",   emoji: "🍫", points: 2, weight: 18, good: true },
+        { type: "donut",  emoji: "🍩", points: 3, weight: 11, good: true },
         { type: "cupcake",emoji: "🧁", points: 5, weight: 6,  good: true },
-        { type: "milk",   emoji: "🥛", points: 2, weight: 8,  good: true },
-        { type: "bomb",   emoji: "💣", points: 0, weight: 10, good: false }
+        { type: "milk",   emoji: "🥛", points: 2, weight: 7,  good: true },
+        { type: "bomb",   emoji: "💣", points: 0, weight: 22, good: false }
     ];
     function pickCookieKind() {
         var total = 0, i;
@@ -80,13 +87,23 @@
         var progress = 1 - cookie.timer / COOKIE_DURATION;
         cookie.spawnT -= dt;
         if (cookie.spawnT <= 0) {
-            cookie.spawnT = rand(0.55, 1.0) * (1 - progress * 0.45);
+            // tighter spacing and a faster drop than before — more to track
+            cookie.spawnT = rand(0.4, 0.72) * (1 - progress * 0.5);
             var k = pickCookieKind();
             cookie.items.push({
                 kind: k, x: rand(30, W - 30), y: -20,
-                vy: rand(150, 210) + progress * 120,
+                vy: rand(200, 270) + progress * 170,
                 rot: rand(-0.3, 0.3), spin: rand(-2, 2), wob: rand(0, 6.28)
             });
+            // late-game double drop keeps the pressure on
+            if (progress > 0.55 && Math.random() < 0.4) {
+                var k2 = pickCookieKind();
+                cookie.items.push({
+                    kind: k2, x: rand(30, W - 30), y: -40,
+                    vy: rand(220, 290) + progress * 170,
+                    rot: rand(-0.3, 0.3), spin: rand(-2, 2), wob: rand(0, 6.28)
+                });
+            }
         }
 
         // ── Update items + catch test ──
@@ -227,7 +244,11 @@
         var tCol = lowT ? (Math.sin(gameTime * 12) > 0 ? "#FF5252" : "#FFEB3B") : "#FFF";
         drawText("⏱ " + Math.ceil(cookie.timer) + "s", W - 14, 18,
             "bold " + (lowT ? 17 : 15) + "px 'Segoe UI', Arial, sans-serif", tCol, "#000", 3, "right");
-        drawText("$" + cookie.score, 14, 18, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "left");
+        // Score, with the entry fee shown so the player knows what to beat.
+        var profit = cookie.score - cookie.fee;
+        var scoreCol = profit >= 0 ? "#7CFC4F" : "#FFD700";
+        drawText("$" + cookie.score + "  (fee $" + cookie.fee + ")", 14, 18,
+            "bold 14px 'Segoe UI', Arial, sans-serif", scoreCol, "#000", 2, "left");
         // lives as hearts
         var hh = "";
         for (var L = 0; L < cookie.lives; L++) hh += "♥";
@@ -262,14 +283,18 @@
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             ctx.fillRect(0, 0, W, H);
             var win = cookie.phase === "done";
-            drawText(win ? "🍪 YUM! 🍪" : "Out of cookies! 💥", W / 2, H / 2 - 80,
+            var net = cookie.score - cookie.fee;
+            drawText(win ? "🍪 YUM! 🍪" : "Out of cookies! 💥", W / 2, H / 2 - 100,
                 "bold 30px 'Segoe UI', Arial, sans-serif", win ? "#FFD700" : "#FF8A80", "#000", 6);
-            drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 30,
+            drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 52,
                 "bold 18px Arial", "#FFFFFF", "#000", 3);
-            drawText("+$" + cookie.score, W / 2, H / 2 + 14,
-                "bold 34px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            // Show the math: earned vs the fee paid, then the net result.
+            drawText("Earned $" + cookie.score + "   ·   Fee $" + cookie.fee, W / 2, H / 2 - 16,
+                "bold 14px Arial", "#FFE0B2", "#000", 2);
+            drawText((net >= 0 ? "Profit +$" : "Lost $") + Math.abs(net), W / 2, H / 2 + 26,
+                "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
             if (cookie.endT > 1.0) {
-                drawText("Tap to head back", W / 2, H / 2 + 70, "15px Arial", "#FFFFFF", "#000", 2);
+                drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);
             }
         }
     }

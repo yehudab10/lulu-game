@@ -97,8 +97,14 @@
             state = "dinaNap";
             dinaRunTimer = 0;
         } else if (action === "snack") {
-            // Cookie & milk now opens the Cookie Catch minigame.
-            startCookieCatch();
+            // Cookie & milk now opens the Cookie Catch minigame (costs coins to play).
+            if (save.totalCoins < COOKIE_FEE) {
+                homeMessage = "Need 💰" + COOKIE_FEE + " to play Cookie Catch";
+                homeMessageTimer = 1.8;
+                playDeny();
+            } else {
+                startCookieCatch();
+            }
         } else if (action === "stickers") {
             // Sticker book: shows current count
             homeMessage = "⭐ " + (save.parkingTotalStars || 0) + " stars collected!";

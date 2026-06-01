@@ -364,6 +364,7 @@
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
+    var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
     var steerTouchId = null;
     var boostTouchId = null;
@@ -430,6 +431,22 @@
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
         }
+        // Dina's run + Cookie Catch reuse the parking D-pad rects for their
+        // on-screen buttons. Without this, taps fell through to a generic click
+        // and the buttons did nothing on mobile.
+        if (state === "dinaRun") {
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
+            if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
+            return null;
+        }
+        if (state === "cookieCatch") {
+            if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            return null;
+        }
         return null;
     }
 
@@ -482,9 +499,11 @@
                 brakeTouchId = t.identifier;
             } else if (btn === "parkLeft") {
                 keys.left = true;
+                laneQueued = -1; // ensures a fast tap still registers a lane step
                 parkLeftTouchId = t.identifier;
             } else if (btn === "parkRight") {
                 keys.right = true;
+                laneQueued = 1;
                 parkRightTouchId = t.identifier;
             } else if (btn === "parkFwd") {
                 keys.up = true;
@@ -5769,6 +5788,7 @@
                  targetX: W / 2, targetY: 350 };
         schoolBus = { x: W + 220, y: 140, phase: 0, timer: 0, doorOpen: 0 };
         schoolGirls = [];
+        particles.length = 0; // start the intro with a clean particle layer
         // Pre-populate girls who will come off
         for (var g = 0; g < 6; g++) {
             schoolGirls.push({
@@ -5977,14 +5997,19 @@
         // Head
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
-        // Hair (long, dark brown bob)
+        // Hair (adult bob) — frames the top + sides but leaves the lower
+        // face (~60% of the head) as visible skin. Head spans y -27..-9;
+        // hair stops around y -21 across the front so eyes/blush/mouth show.
         ctx.fillStyle = "#3E2723";
+        // Top cap: semicircle over the crown, flat edge above the brows.
         ctx.beginPath();
-        ctx.ellipse(0, -16, 10, 11, 0, Math.PI, Math.PI * 2);
+        ctx.arc(0, -21, 9.5, Math.PI, Math.PI * 2);
         ctx.fill();
+        // Bob sides: hair sweeps down past the cheeks at the very edges of
+        // the face, hugging the sides without covering the front features.
         ctx.beginPath();
-        ctx.ellipse(-9, -14, 4, 8, -0.2, 0, Math.PI * 2);
-        ctx.ellipse(9, -14, 4, 8, 0.2, 0, Math.PI * 2);
+        ctx.ellipse(-9, -16, 2.8, 9, -0.15, 0, Math.PI * 2);
+        ctx.ellipse(9, -16, 2.8, 9, 0.15, 0, Math.PI * 2);
         ctx.fill();
 
         // Head outline (chunky)
@@ -6243,6 +6268,7 @@
         if (!schoolBus) return;
         schoolBus.timer += dt;
         var t = schoolBus.timer;
+        updateParticles(dt); // tick exhaust/dust puffs spawned below
 
         // Phase 0: bus drives in (0-1.2s)
         if (schoolBus.phase === 0) {
@@ -6271,6 +6297,17 @@
                     gi.y = schoolBus.y + 130;
                     // little chatter
                     if (Math.random() > 0.5) playTone(rand(500, 900), 0.05, "sine", 0.06);
+                    // little puff of dust as they hop down onto the sidewalk
+                    for (var dp = 0; dp < 5; dp++) {
+                        particles.push({
+                            x: gi.x + rand(-4, 4), y: gi.y + 10,
+                            vx: rand(-25, 25), vy: rand(-30, -5),
+                            life: rand(0.3, 0.6), maxLife: 0.6,
+                            size: rand(3, 6),
+                            color: randPick(["#D7CBB0", "#C9BCA0", "#E0D6BE"]),
+                            gravity: 40, smoke: true
+                        });
+                    }
                 }
                 if (!gi.onBus) {
                     gi.x += gi.vx * dt;
@@ -6316,9 +6353,23 @@
         // Phase 6: bus drives away (8.0-8.7s)
         if (schoolBus.phase === 6) {
             schoolBus.x -= 600 * dt;
+            // Exhaust puffs trailing from the back-right of the bus
+            schoolBus.exhaust = (schoolBus.exhaust || 0) + dt;
+            if (schoolBus.exhaust > 0.06) {
+                schoolBus.exhaust = 0;
+                particles.push({
+                    x: schoolBus.x + 240, y: schoolBus.y + 120 + rand(-4, 4),
+                    vx: rand(20, 60), vy: rand(-30, -10),
+                    life: rand(0.5, 0.9), maxLife: 0.9,
+                    size: rand(6, 11),
+                    color: randPick(["#9E9E9E", "#BDBDBD", "#757575"]),
+                    gravity: -20, smoke: true
+                });
+            }
             if (schoolBus.x < -300) {
                 // Start the run-home game
                 schoolBus = null;
+                particles.length = 0; // clear leftover exhaust/dust
                 startDinaRun();
             }
         }
@@ -6327,6 +6378,7 @@
         var click = consumeClick();
         if (click || consumeAction()) {
             schoolBus = null;
+            particles.length = 0; // clear leftover exhaust/dust
             startDinaRun();
         }
     }
@@ -6423,8 +6475,18 @@
         ctx.fillRect(297, 484, 16, 26);
         ctx.strokeRect(297, 484, 16, 26);
 
-        // Bus
-        if (schoolBus) drawSchoolBus(schoolBus);
+        // Bus — gentle idle bob while stopped (engine running, phases 1-5)
+        if (schoolBus) {
+            var busBob = (schoolBus.phase >= 1 && schoolBus.phase <= 5)
+                ? Math.sin(schoolBus.timer * 6) * 1.5 : 0;
+            var baseY = schoolBus.y;
+            schoolBus.y = baseY + busBob;
+            drawSchoolBus(schoolBus);
+            schoolBus.y = baseY;
+        }
+
+        // Exhaust / dust puffs (rendered behind the girls but over the bus)
+        drawParticles();
 
         // School girls
         for (var gi = 0; gi < schoolGirls.length; gi++) {
@@ -6452,8 +6514,13 @@
             }
         }
 
-        // Tap-to-skip hint
-        drawText("Tap to skip", W - 10, H - 14, "12px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "right");
+        // Tap-to-skip hint — shown from the very start, gentle pulse so it
+        // reads as an interactive prompt rather than static chrome.
+        var skipT = schoolBus ? schoolBus.timer : 0;
+        ctx.save();
+        ctx.globalAlpha = 0.75 + Math.sin(skipT * 4) * 0.2;
+        drawText("Tap to skip ▶", W - 12, H - 16, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+        ctx.restore();
     }
 
     function startDinaRun() {
@@ -6511,11 +6578,16 @@
         var targetX = DINA_LANES_X[dina.lane];
         dina.x = lerp(dina.x, targetX, Math.min(1, 8 * dt));
 
-        // Spawn sidewalk hazards
+        // Spawn sidewalk hazards — denser as the run progresses so it ramps
+        // from "warm-up" to "obstacle course". Late game can spawn two at once.
         dinaSidewalkSpawn -= dt;
-        if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 5) {
-            dinaSidewalkSpawn = rand(1.5, 3.0);
+        if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 4) {
+            var prog = dinaRunDistance; // 0..1
+            // gap shrinks from ~1.4s early to ~0.55s late
+            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55);
             spawnDinaHazard();
+            // past the halfway mark, sometimes throw a second hazard in another lane
+            if (prog > 0.5 && Math.random() < 0.35 * prog) spawnDinaHazard();
         }
         // Update hazards
         for (var h = dinaSidewalk.length - 1; h >= 0; h--) {
@@ -6532,18 +6604,21 @@
             }
         }
 
-        // Mom catches up — much more forgiving now.
-        // Base: Mom DOESN'T catch up while Dina runs normally.
-        // Stumbles, slow-walks, and the last 5 seconds of the run pull her closer.
+        // Mom chase — now an actual RACE. She steadily gains ground at a
+        // baseline pace that ramps up over the run; sprinting is the only way
+        // to pull back ahead, so the player has to manage sprint + dodge hazards.
+        var chaseRamp = 0.012 + dinaRunDistance * 0.022; // baseline close-in, grows over time
+        mom.distance = Math.max(0, mom.distance - chaseRamp * dt);
         if (sprint) {
-            // Sprinting lets Dina pull AHEAD if Mom is close, slows the chase otherwise
-            mom.distance = Math.min(1.0, mom.distance + 0.02 * dt);
+            // Sprinting reverses the chase and buys back distance
+            mom.distance = Math.min(1.0, mom.distance + 0.075 * dt);
         }
-        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.10 * dt);
-        if (slow) mom.distance = Math.max(0, mom.distance - 0.04 * dt);
-        // Final-stretch tension: in the last 10 seconds of the run, Mom slowly closes in
-        if (dinaRunTimer > DINA_RUN_DURATION - 10) {
-            mom.distance = Math.max(0, mom.distance - 0.025 * dt);
+        // Mistakes hurt more now: stumbles and dawdling let Mom surge in
+        if (dina.stumble > 0) mom.distance = Math.max(0, mom.distance - 0.16 * dt);
+        if (slow) mom.distance = Math.max(0, mom.distance - 0.06 * dt);
+        // Final-stretch tension: in the last 8 seconds, Mom pushes hard
+        if (dinaRunTimer > DINA_RUN_DURATION - 8) {
+            mom.distance = Math.max(0, mom.distance - 0.04 * dt);
         }
         mom.walkTime += dt;
         mom.sayTimer -= dt;
@@ -6572,6 +6647,7 @@
             // Won the race! Reached home before mom
             dinaEnding = "ran";
             dinaRunPhase = 2;
+            bankDinaRunRewards(true); // winning banks coins + a bonus into Lulu's world
             state = "dinaCaught"; // shared outro state, with different flavor
             dinaRunTimer = 0;
             spawnDinaConfetti();
@@ -6582,9 +6658,10 @@
             return;
         }
         if (mom.distance <= 0) {
-            // Mom caught up
+            // Mom caught up — still keep what you collected (no win bonus)
             dinaEnding = "walked";
             dinaRunPhase = 2;
+            bankDinaRunRewards(false);
             state = "dinaCaught";
             dinaRunTimer = 0;
             playTone(440, 0.18, "sine", 0.2);
@@ -6592,14 +6669,30 @@
         }
     }
 
+    // Bank what Dina earned on the run into the shared save so it carries over
+    // into Lulu's world (coins) and the star total (stickers). Winning the race
+    // adds a tidy bonus. dinaRunBanked* hold the amounts for the result screen.
+    var dinaRunBankedCoins = 0, dinaRunBankedStars = 0, dinaRunWinBonus = 0;
+    function bankDinaRunRewards(won) {
+        dinaRunWinBonus = won ? 25 : 0;
+        dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
+        dinaRunBankedStars = dinaStickers;
+        save.totalCoins += dinaRunBankedCoins;
+        save.parkingTotalStars = (save.parkingTotalStars || 0) + dinaRunBankedStars;
+        persistSave();
+    }
+
     // Lane switch with keyboard or buttons
     var lastLeftPress = false, lastRightPress = false;
     function consumeLaneSwitch(dir) {
         if (dir === "left") {
+            // queued tap (mobile) — drains once
+            if (laneQueued === -1) { laneQueued = 0; return true; }
             if (keys.left && !lastLeftPress) { lastLeftPress = true; return true; }
             if (!keys.left) lastLeftPress = false;
         }
         if (dir === "right") {
+            if (laneQueued === 1) { laneQueued = 0; return true; }
             if (keys.right && !lastRightPress) { lastRightPress = true; return true; }
             if (!keys.right) lastRightPress = false;
         }
@@ -7242,10 +7335,13 @@
         drawText(dinaEnding === "ran" ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗",
             W / 2, 56, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
 
-        // Stats badge
-        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W / 2, H - 60,
+        // Rewards banked into the shared bank (carries over to Lulu's world)
+        var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";
+        drawText("Banked: ⭐ " + dinaRunBankedStars + "   💰 " + dinaRunBankedCoins + bonusStr, W / 2, H - 76,
             "bold 16px Arial", "#FFD700", "#000", 3);
-        drawText("Tap to enter home", W / 2, H - 30, "14px Arial", "#FFFFFF", "#000", 2);
+        drawText("Added to your bank: " + formatNum(save.totalCoins) + " 💰", W / 2, H - 52,
+            "bold 13px Arial", "#FFF8E1", "#000", 2);
+        drawText("Tap to enter home", W / 2, H - 26, "14px Arial", "#FFFFFF", "#000", 2);
 
         // Confetti celebration (on top of everything)
         for (var ci = 0; ci < dinaConfetti.length; ci++) {
@@ -7358,8 +7454,14 @@
             state = "dinaNap";
             dinaRunTimer = 0;
         } else if (action === "snack") {
-            // Cookie & milk now opens the Cookie Catch minigame.
-            startCookieCatch();
+            // Cookie & milk now opens the Cookie Catch minigame (costs coins to play).
+            if (save.totalCoins < COOKIE_FEE) {
+                homeMessage = "Need 💰" + COOKIE_FEE + " to play Cookie Catch";
+                homeMessageTimer = 1.8;
+                playDeny();
+            } else {
+                startCookieCatch();
+            }
         } else if (action === "stickers") {
             // Sticker book: shows current count
             homeMessage = "⭐ " + (save.parkingTotalStars || 0) + " stars collected!";
@@ -8008,16 +8110,37 @@
     }
 
     // ── Update / Draw: Dina Nap ──────────────────────────────
+    var dinaNapTucked = false;      // false: "tap to tuck in"; true: drifting off
+    var dinaNapTuckTime = 0;        // seconds since tucked in
+
     function updateDinaNap(dt) {
+        // Fresh entry (external code sets dinaRunTimer = 0): reset the beat.
+        if (dinaRunTimer === 0) { dinaNapTucked = false; dinaNapTuckTime = 0; }
         dinaRunTimer += dt;
-        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+        if (!dinaNapTucked) {
+            // Beat 1 — wait for the player to tuck Dina in (or a gentle auto-nudge).
+            if (consumeClick() || consumeAction() || dinaRunTimer > 4) {
+                dinaNapTucked = true;
+                dinaNapTuckTime = 0;
+                playTone(523, 0.12, "sine", 0.16, 392); // soft descending "shh"
+            }
+            return;
+        }
+        // Beat 2 — drifting off; let it breathe ~3.2s, then tap to wake.
+        dinaNapTuckTime += dt;
+        if (dinaNapTuckTime > 3.2 && (consumeClick() || consumeAction() || dinaNapTuckTime > 4.5)) {
             state = "dinaHome";
+        } else {
+            consumeClick(); consumeAction();
         }
     }
 
     function drawDinaNap() {
-        // Slowly dimming dusk
-        var t = clamp(dinaRunTimer / 3.5, 0, 1);
+        var tucked = dinaNapTucked;
+        // Dusk deepens only once she's actually tucked in
+        var t = tucked ? clamp(dinaNapTuckTime / 3.2, 0, 1) : 0;
+        // gentle breathing factor (slower & deeper once asleep)
+        var breath = Math.sin(dinaRunTimer * (tucked ? 1.6 : 2.4)) * (tucked ? 3 : 2);
         ctx.fillStyle = "#FFE8C8";
         ctx.fillRect(0, 0, W, H);
         // Dim overlay
@@ -8030,41 +8153,47 @@
         roundRect(W / 2 - 150, H / 2 - 70, 300, 160, 10); ctx.fill();
         ctx.fillStyle = "#FFFFFF";
         roundRect(W / 2 - 120, H / 2 - 60, 240, 40, 8); ctx.fill();
-        // Blanket pulled up over Dina
+        // Blanket — sits low before tuck-in, pulled up snug after; gentle breathing rise.
+        // Bottom edge is fixed at H/2+80; the top edge moves so it never overshoots the bed.
+        var blanketBottom = H / 2 + 80;
+        var blanketTop = tucked ? (H / 2 - 20 - breath) : (H / 2 + 4);
         ctx.fillStyle = "#B8E0D2";
-        roundRect(W / 2 - 100, H / 2 - 20, 200, 100, 8); ctx.fill();
-        // Dina's head poking out
+        roundRect(W / 2 - 100, blanketTop, 200, blanketBottom - blanketTop, 8); ctx.fill();
+        // Dina's head poking out (rises/falls subtly with breath)
+        var headY = H / 2 - 35 + breath * 0.35;
         ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath(); ctx.arc(W / 2, H / 2 - 35, 22, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(W / 2, headY, 22, 0, Math.PI * 2); ctx.fill();
         // Hair
         ctx.fillStyle = "#6B4423";
         ctx.beginPath();
-        ctx.arc(W / 2, H / 2 - 45, 24, Math.PI, Math.PI * 2);
+        ctx.arc(W / 2, headY - 10, 24, Math.PI, Math.PI * 2);
         ctx.fill();
         // Sleeping eyes (closed arcs)
         ctx.strokeStyle = "#3D2817";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(W / 2 - 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.arc(W / 2 + 7, H / 2 - 35, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(W / 2 - 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+        ctx.arc(W / 2 + 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
         ctx.stroke();
         // Tiny smile
         ctx.strokeStyle = "#A0394D";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(W / 2, H / 2 - 28, 4, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(W / 2, headY + 7, 4, 0.15 * Math.PI, 0.85 * Math.PI);
         ctx.stroke();
-        // Floating Z's
-        for (var zi = 0; zi < 3; zi++) {
-            var zt = (dinaRunTimer + zi * 0.5) % 2;
-            var alpha = 1 - zt / 2;
-            ctx.save();
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = "#FFFFFF";
-            ctx.font = "bold " + (20 + zi * 6) + "px Arial";
-            ctx.textAlign = "left";
-            ctx.fillText("Z", W / 2 + 20 + zi * 20, H / 2 - 70 - zt * 50);
-            ctx.restore();
+        // Floating Z's (only once she's actually asleep)
+        if (tucked) {
+            for (var zi = 0; zi < 3; zi++) {
+                var zt = (dinaNapTuckTime + zi * 0.5) % 2;
+                var alpha = (1 - zt / 2) * Math.min(1, dinaNapTuckTime);
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+                ctx.fillStyle = "#FFFFFF";
+                ctx.font = "bold " + (20 + zi * 6) + "px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText("Z", W / 2 + 20 + zi * 20, headY - 35 - zt * 50);
+                ctx.restore();
+            }
         }
         // Floating moon/stars
         ctx.fillStyle = "#FFEE58";
@@ -8072,18 +8201,31 @@
             ctx.fillText("★", (sti * 87 + 47) % W, 50 + (sti % 3) * 30);
         }
 
-        // Result text
-        if (t > 0.7) {
-            ctx.globalAlpha = (t - 0.7) / 0.3;
-            drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
-                "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
-            drawText("Tap to wake up", W / 2, H - 40,
-                "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        // Beat 1 prompt — invite the player to tuck Dina in
+        if (!tucked) {
+            var bob = Math.sin(dinaRunTimer * 3) * 4;
+            drawText("Dina's so tired...", W / 2, H - 120,
+                "bold 18px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#3D2C6B", 4);
+            drawText("👆 Tap to tuck her in", W / 2, H - 80 + bob,
+                "bold 20px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+        } else {
+            // Beat 2 — sweet dreams, then the earned reward
+            ctx.globalAlpha = Math.min(1, dinaNapTuckTime * 2);
+            drawText("Sweet dreams, Dina 💤", W / 2, H - 120,
+                "bold 18px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#3D2C6B", 4);
             ctx.globalAlpha = 1;
+            if (t > 0.7) {
+                ctx.globalAlpha = (t - 0.7) / 0.3;
+                drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
+                    "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+                drawText("Tap to wake up", W / 2, H - 40,
+                    "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+                ctx.globalAlpha = 1;
+            }
         }
 
-        // Award the star once
-        if (t >= 1 && !window.__napAwarded) {
+        // Award the star once (only after she's actually rested)
+        if (tucked && t >= 1 && !window.__napAwarded) {
             window.__napAwarded = true;
             save.parkingTotalStars += 1;
             persistSave();
@@ -8483,6 +8625,17 @@
             return;
         }
 
+        // Rugelach-promise token — visible once Lulu has promised rugelach, so the
+        // later "as promised" payoff feels earned rather than a hidden gotcha.
+        if (avigailHasRugelach) {
+            var tokY = 100;
+            ctx.fillStyle = "rgba(255,255,255,0.92)";
+            roundRect(W - 150, tokY - 16, 130, 32, 16); ctx.fill();
+            ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2;
+            roundRect(W - 150, tokY - 16, 130, 32, 16); ctx.stroke();
+            drawText("🍪 promised", W - 85, tokY, "bold 14px 'Segoe UI', Arial, sans-serif", "#5D4037", null, 0);
+        }
+
         // Avigail in the doorway
         drawAvigailFace(W / 2, 330, avigailExpr, gameTime);
 
@@ -8538,7 +8691,22 @@
         salonStyle = null;
         salonOops = false;
         salonConsultStep = 0;
+        salonConfirm = false;
     }
+
+    // Confirm sub-step for the color pick (telegraphs the choice before committing).
+    var salonConfirm = false;
+    // Every color is a win with its own flavor — no coin-flip, no punishment.
+    // Keyed by SALON_COLORS label so this lives entirely in this fragment.
+    // Blonde colors get the extra fanfare, telegraphed beforehand as Fabio's "✨ Fabio's pick".
+    var SALON_OUTCOMES = {
+        "PLATINUM": "I'm BLONDE! I'm basically a\nwhole new person now!",
+        "GOLDEN":   "GOLD?! Fabio, I could KISS\nyou. I won't. But I COULD.",
+        "BRUNETTE": "Rich, glossy brunette. I look\nEXPENSIVE. I love it.",
+        "JET BLACK": "Sleek. Mysterious. Main-\ncharacter energy. STUNNING.",
+        "PINK":     "PINK?! I'm a cotton-candy\nQUEEN and I OWN it!",
+        "BLUE":     "Ocean blue! Bold, cool, and\nTOTALLY my vibe. YES."
+    };
 
     function updateSalon(dt) {
         salonTimer += dt;
@@ -8579,19 +8747,31 @@
             return;
         }
         if (salonPhase === 3) {
-            // COLOR pick
             var click = consumeClick();
-            if (click) {
-                for (var i = 0; i < SALON_COLORS.length; i++) {
-                    var col = i % 2, row = Math.floor(i / 2);
-                    var bx = 50 + col * 250, by = 360 + row * 100;
-                    if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
-                        salonPendingColor = SALON_COLORS[i];
-                        salonIsBlonde = SALON_COLORS[i].blonde;
-                        salonPhase = 4; salonTimer = 0;
-                        playTone(523, 0.1, "triangle", 0.2);
-                        return;
-                    }
+            if (!click) return;
+            if (salonConfirm) {
+                // Confirm step — "Go {COLOR}?"  YES commits, BACK re-opens the swatches.
+                if (pointInRect(click.x, click.y, 60, 470, 170, 56)) {        // YES
+                    salonConfirm = false;
+                    salonPhase = 4; salonTimer = 0;
+                    playTone(523, 0.1, "triangle", 0.2);
+                } else if (pointInRect(click.x, click.y, 250, 470, 170, 56)) { // BACK
+                    salonConfirm = false;
+                    salonPendingColor = null;
+                    playClick();
+                }
+                return;
+            }
+            // COLOR pick — choosing a swatch opens the confirm step (no commit yet)
+            for (var i = 0; i < SALON_COLORS.length; i++) {
+                var col = i % 2, row = Math.floor(i / 2);
+                var bx = 50 + col * 250, by = 360 + row * 100;
+                if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
+                    salonPendingColor = SALON_COLORS[i];
+                    salonIsBlonde = SALON_COLORS[i].blonde;
+                    salonConfirm = true;
+                    playTone(440, 0.07, "triangle", 0.18);
+                    return;
                 }
             }
             return;
@@ -8603,18 +8783,19 @@
                 // Commit hair color — permanent, exactly once
                 save.luluHair = salonPendingColor.hex;
                 persistSave();
-                // 1-in-8 "oops" on non-blonde (keeps the blonde fanfare clean)
-                salonOops = (!salonIsBlonde && Math.random() < 0.125);
-                if (salonIsBlonde) {
-                    salonReaction = salonPendingColor.luluWin;
-                    spawnCoinSparkle(W / 2, 300);
-                    playTone(523, 0.1, "triangle", 0.2);
-                    setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
-                    setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+                // Every color is a happy result now. ~1-in-8 BONUS surprise: the cat
+                // knocks the bottle and it comes out even better (a treat, not a punishment).
+                salonOops = (Math.random() < 0.125);
+                // Always-positive reaction; oops swaps in its own delighted line.
+                salonReaction = salonOops ? SALON_OOPS.lulu
+                    : (SALON_OUTCOMES[salonPendingColor.label] || salonPendingColor.luluWin || "I LOVE it!");
+                // Cheerful arpeggio for everyone; blonde gets a little extra sparkle.
+                spawnCoinSparkle(W / 2, 300);
+                playTone(523, 0.1, "triangle", 0.2);
+                setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
+                setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
+                if (salonIsBlonde || salonOops) {
                     setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
-                } else {
-                    salonReaction = salonOops ? SALON_OOPS.lulu : salonPendingColor.luluLose;
-                    setTimeout(playWompWomp, 200);
                 }
             }
             return;
@@ -8731,15 +8912,40 @@
                 drawButton(60, sby, 380, 64, SALON_STYLES[s].label,
                     { bg: "#EC407A", bgDark: "#AD1457", small: true });
             }
-        } else if (salonPhase === 3) {
-            // Color pick — Fabio reacts to the chosen style
+        } else if (salonPhase === 3 && !salonConfirm) {
+            // Color pick — Fabio reacts to the chosen style. Each swatch shows its
+            // name (already) and Fabio flags his blonde "picks" so the best result
+            // is telegraphed, not a coin-flip.
             drawSalonBubble(salonStyle ? salonStyle.fabio : "What shall it be, mon chou?");
             for (var i = 0; i < SALON_COLORS.length; i++) {
                 var col = i % 2, row = Math.floor(i / 2);
                 var bx = 50 + col * 250, by = 360 + row * 100;
                 var c = SALON_COLORS[i];
                 drawButton(bx, by, 130, 80, c.label, { bg: c.hex, bgDark: shadeColor(c.hex, -50), small: true });
+                if (c.blonde) {
+                    drawText("✨ Fabio's pick", bx + 65, by + 71,
+                        "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD700", "#7A4F00", 2);
+                }
             }
+            drawText("Every shade is a look — pick what's YOU 💖", W / 2, 340,
+                "bold 12px 'Segoe UI', Arial, sans-serif", "#AD1457", "#FFF", 2);
+        } else if (salonPhase === 3 && salonConfirm) {
+            // Confirm step — telegraph the exact choice before committing.
+            var cc = salonPendingColor;
+            drawSalonBubble("Go " + cc.label + ", darling?\nA MARVELOUS choice!");
+            // Big preview swatch + name
+            ctx.fillStyle = cc.hex;
+            roundRect(W / 2 - 70, 360, 140, 90, 14); ctx.fill();
+            ctx.strokeStyle = shadeColor(cc.hex, -50); ctx.lineWidth = 4;
+            roundRect(W / 2 - 70, 360, 140, 90, 14); ctx.stroke();
+            drawText(cc.label, W / 2, 405, "bold 20px 'Segoe UI', Arial, sans-serif",
+                cc.blonde ? "#6B4423" : "#FFF", "#000", 3);
+            if (cc.blonde) {
+                drawText("✨ Fabio's pick", W / 2, 433,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#7A4F00", "#FFF", 2);
+            }
+            drawButton(60, 470, 170, 56, "YES! GO " + cc.label, { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
+            drawButton(250, 470, 170, 56, "← PICK AGAIN", { bg: "#90A4AE", bgDark: "#546E7A", small: true });
         } else if (salonPhase === 4) {
             // Processing: foils + beat-driven ticker + white pulses
             var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
@@ -8757,28 +8963,27 @@
             }
             drawParticles();
         } else if (salonPhase === 5) {
-            // Reveal reaction
-            if (salonIsBlonde) {
-                ctx.fillStyle = "rgba(255,235,150,0.2)";
-                ctx.fillRect(0, 0, W, H);
-                // floating hearts
-                if (Math.random() > 0.5) {
-                    particles.push({ x: rand(0, W), y: H, vx: rand(-20, 20), vy: rand(-90, -50),
-                        life: 1.5, maxLife: 1.5, size: rand(4, 8), color: "#E91E63", gravity: 20 });
-                }
-                drawParticles();
-            } else {
-                // sad blue tears
-                if (Math.random() > 0.4) {
-                    particles.push({ x: W / 2 + rand(-30, 30), y: 240, vx: rand(-10, 10), vy: rand(40, 80),
-                        life: 0.8, maxLife: 0.8, size: rand(2, 4), color: "#4FC3F7", gravity: 60 });
-                }
-                drawParticles();
+            // Reveal reaction — always celebratory now. Tint to the new hair color.
+            var glow = salonPendingColor ? salonPendingColor.hex : "#FFEB96";
+            ctx.fillStyle = "rgba(255,235,150,0.18)";
+            ctx.fillRect(0, 0, W, H);
+            // floating celebration confetti in the new color (+hearts)
+            if (Math.random() > 0.5) {
+                particles.push({ x: rand(0, W), y: H, vx: rand(-20, 20), vy: rand(-90, -50),
+                    life: 1.5, maxLife: 1.5, size: rand(4, 8),
+                    color: randPick(["#E91E63", glow, "#FFD700"]), gravity: 20 });
             }
+            // oops bonus gets a little extra paw-print sparkle burst
+            if (salonOops && Math.random() > 0.6) {
+                particles.push({ x: W / 2 + rand(-50, 50), y: 230 + rand(-20, 20),
+                    vx: rand(-30, 30), vy: rand(-40, -10), life: 0.7, maxLife: 0.7,
+                    size: rand(3, 6), color: randPick(["#FFD700", "#FFF"]), gravity: 0 });
+            }
+            drawParticles();
             drawSalonBubble(salonReaction);
-            // Fabio closer — oops gets its own confession line
-            var salonCloser = salonOops ? "Fabio: …it was zee CAT, I SWEAR."
-                : (salonIsBlonde ? "Fabio: VOILÀ. Thank ZEE ART." : "Fabio: Art is pain, darling.");
+            // Fabio closer — oops bonus gets its own (proud!) confession line
+            var salonCloser = salonOops ? "Fabio: zee CAT helped. A BONUS, non?"
+                : "Fabio: VOILÀ. Thank ZEE ART, darling.";
             drawText(salonCloser, W / 2, 600, "italic 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             drawButton(W / 2 - 90, H - 80, 180, 50, "TAP TO LEAVE", { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
         }
@@ -8804,15 +9009,22 @@
     var cookie = null; // {plateX, items[], timer, score, lives, spawnT, combo, comboT, msg, msgT, phase}
     var COOKIE_DURATION = 30;
     var COOKIE_PLATE_Y = H - 120;
-    var COOKIE_PLATE_W = 96;
+    var COOKIE_PLATE_W = 78;   // narrower plate → catching takes more skill
+    var COOKIE_FEE = 10;       // coins it costs to play one round
 
     function startCookieCatch() {
         state = "cookieCatch";
+        // Entry fee — costs coins to play so it's a real gamble (you only come
+        // out ahead by catching well), not a risk-free coin faucet.
+        var fee = Math.min(COOKIE_FEE, save.totalCoins);
+        save.totalCoins -= fee;
+        persistSave();
         cookie = {
             plateX: W / 2, plateVX: 0,
             items: [], timer: COOKIE_DURATION,
             score: 0, lives: 3, spawnT: 0.8,
             combo: 0, comboT: 0,
+            fee: fee,
             msg: "Catch the cookies!", msgT: 2,
             phase: "play", endT: 0, caught: 0
         };
@@ -8822,12 +9034,12 @@
 
     // Falling item kinds — weight controls how often each appears.
     var COOKIE_KINDS = [
-        { type: "cookie", emoji: "🍪", points: 1, weight: 50, good: true },
-        { type: "choc",   emoji: "🍫", points: 2, weight: 20, good: true },
-        { type: "donut",  emoji: "🍩", points: 3, weight: 12, good: true },
+        { type: "cookie", emoji: "🍪", points: 1, weight: 42, good: true },
+        { type: "choc",   emoji: "🍫", points: 2, weight: 18, good: true },
+        { type: "donut",  emoji: "🍩", points: 3, weight: 11, good: true },
         { type: "cupcake",emoji: "🧁", points: 5, weight: 6,  good: true },
-        { type: "milk",   emoji: "🥛", points: 2, weight: 8,  good: true },
-        { type: "bomb",   emoji: "💣", points: 0, weight: 10, good: false }
+        { type: "milk",   emoji: "🥛", points: 2, weight: 7,  good: true },
+        { type: "bomb",   emoji: "💣", points: 0, weight: 22, good: false }
     ];
     function pickCookieKind() {
         var total = 0, i;
@@ -8880,13 +9092,23 @@
         var progress = 1 - cookie.timer / COOKIE_DURATION;
         cookie.spawnT -= dt;
         if (cookie.spawnT <= 0) {
-            cookie.spawnT = rand(0.55, 1.0) * (1 - progress * 0.45);
+            // tighter spacing and a faster drop than before — more to track
+            cookie.spawnT = rand(0.4, 0.72) * (1 - progress * 0.5);
             var k = pickCookieKind();
             cookie.items.push({
                 kind: k, x: rand(30, W - 30), y: -20,
-                vy: rand(150, 210) + progress * 120,
+                vy: rand(200, 270) + progress * 170,
                 rot: rand(-0.3, 0.3), spin: rand(-2, 2), wob: rand(0, 6.28)
             });
+            // late-game double drop keeps the pressure on
+            if (progress > 0.55 && Math.random() < 0.4) {
+                var k2 = pickCookieKind();
+                cookie.items.push({
+                    kind: k2, x: rand(30, W - 30), y: -40,
+                    vy: rand(220, 290) + progress * 170,
+                    rot: rand(-0.3, 0.3), spin: rand(-2, 2), wob: rand(0, 6.28)
+                });
+            }
         }
 
         // ── Update items + catch test ──
@@ -9027,7 +9249,11 @@
         var tCol = lowT ? (Math.sin(gameTime * 12) > 0 ? "#FF5252" : "#FFEB3B") : "#FFF";
         drawText("⏱ " + Math.ceil(cookie.timer) + "s", W - 14, 18,
             "bold " + (lowT ? 17 : 15) + "px 'Segoe UI', Arial, sans-serif", tCol, "#000", 3, "right");
-        drawText("$" + cookie.score, 14, 18, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "left");
+        // Score, with the entry fee shown so the player knows what to beat.
+        var profit = cookie.score - cookie.fee;
+        var scoreCol = profit >= 0 ? "#7CFC4F" : "#FFD700";
+        drawText("$" + cookie.score + "  (fee $" + cookie.fee + ")", 14, 18,
+            "bold 14px 'Segoe UI', Arial, sans-serif", scoreCol, "#000", 2, "left");
         // lives as hearts
         var hh = "";
         for (var L = 0; L < cookie.lives; L++) hh += "♥";
@@ -9062,14 +9288,18 @@
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             ctx.fillRect(0, 0, W, H);
             var win = cookie.phase === "done";
-            drawText(win ? "🍪 YUM! 🍪" : "Out of cookies! 💥", W / 2, H / 2 - 80,
+            var net = cookie.score - cookie.fee;
+            drawText(win ? "🍪 YUM! 🍪" : "Out of cookies! 💥", W / 2, H / 2 - 100,
                 "bold 30px 'Segoe UI', Arial, sans-serif", win ? "#FFD700" : "#FF8A80", "#000", 6);
-            drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 30,
+            drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 52,
                 "bold 18px Arial", "#FFFFFF", "#000", 3);
-            drawText("+$" + cookie.score, W / 2, H / 2 + 14,
-                "bold 34px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            // Show the math: earned vs the fee paid, then the net result.
+            drawText("Earned $" + cookie.score + "   ·   Fee $" + cookie.fee, W / 2, H / 2 - 16,
+                "bold 14px Arial", "#FFE0B2", "#000", 2);
+            drawText((net >= 0 ? "Profit +$" : "Lost $") + Math.abs(net), W / 2, H / 2 + 26,
+                "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
             if (cookie.endT > 1.0) {
-                drawText("Tap to head back", W / 2, H / 2 + 70, "15px Arial", "#FFFFFF", "#000", 2);
+                drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);
             }
         }
     }
