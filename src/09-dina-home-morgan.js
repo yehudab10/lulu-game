@@ -85,6 +85,8 @@
             morganPetSpot = null;
             morganTimer = 0;
             morganMood = "calm";
+            morganCelebrateT = 0;
+            morganStarAwarded = false;
             playTone(600, 0.1, "triangle", 0.2);
         } else if (action === "tablet") {
             inTabletMode = true;
@@ -476,6 +478,8 @@
 
     // ── Update / Draw: Morgan Cat Plushie ────────────────────
     var morganSparkles = [];
+    var morganCelebrateT = 0;        // time since hitting 100%, drives auto-exit
+    var morganStarAwarded = false;   // guards against farming the star by re-petting
     function updateDinaMorgan(dt) {
         morganTimer += dt;
         // Move pet spot occasionally (chin not reachable; removed per QA)
@@ -523,15 +527,25 @@
             heart.x += Math.sin(heart.life * 4) * 0.5;
             if (heart.life <= 0) morganHearts.splice(hh, 1);
         }
-        // 100% celebration
+        // 100% celebration — award the star only ONCE per visit (no farming by
+        // re-petting), then auto-return home so there's a clean finish.
         if (morganHappy >= 100 && morganMood !== "celebrate") {
             morganMood = "celebrate";
-            save.parkingTotalStars += 1;
-            persistSave();
+            morganCelebrateT = 0;
+            if (!morganStarAwarded) {
+                morganStarAwarded = true;
+                save.parkingTotalStars += 1;
+                persistSave();
+            }
             playTone(523, 0.1, "triangle", 0.2);
             setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
             setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 200);
             setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
+        }
+        if (morganMood === "celebrate") {
+            morganCelebrateT += dt;
+            // Let the player soak the moment, then drift back to the bedroom.
+            if (morganCelebrateT > 2.8) { state = "dinaHome"; consumeAction(); clickQueue = null; }
         }
     }
 
@@ -668,18 +682,24 @@
         ctx.quadraticCurveTo(4, -20, 6, -22);
         ctx.stroke();
 
-        // Highlight on pet spot
+        // Highlight on pet spot + a clear "Pet here!" label so the rotating
+        // sweet-spot mechanic is obvious instead of trial-and-error.
         if (morganPetSpot && morganMood === "calm") {
-            ctx.strokeStyle = "rgba(255, 215, 0, " + (0.5 + 0.3 * Math.sin(morganTimer * 5)) + ")";
+            var pulse = 0.5 + 0.3 * Math.sin(morganTimer * 5);
+            ctx.strokeStyle = "rgba(255, 215, 0, " + pulse + ")";
             ctx.lineWidth = 3;
             var psx = 0, psy = 0;
             if (morganPetSpot.zone === "head") { psx = 0; psy = -60; }
             else if (morganPetSpot.zone === "back") { psx = -20; psy = 0; }
             else if (morganPetSpot.zone === "chin") { psx = 0; psy = -10; }
             else if (morganPetSpot.zone === "belly") { psx = 0; psy = 70; }
+            var ringR = 25 + 3 * Math.sin(morganTimer * 5);
             ctx.beginPath();
-            ctx.arc(psx, psy, 25, 0, Math.PI * 2);
+            ctx.arc(psx, psy, ringR, 0, Math.PI * 2);
             ctx.stroke();
+            // pointing label
+            drawText("👆 Pet here!", psx, psy - ringR - 12,
+                "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#5D4037", 3);
         }
         ctx.restore();
 
@@ -714,8 +734,10 @@
         if (morganMood === "celebrate") {
             ctx.fillStyle = "rgba(255, 235, 0, 0.15)";
             ctx.fillRect(0, 0, W, H);
-            drawText("⭐ +1 STAR! ⭐", W / 2, H / 2 - 100,
-                "bold 28px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
+            drawText(morganStarAwarded ? "⭐ +1 STAR! ⭐" : "💜 Morgan's so happy! 💜", W / 2, H / 2 - 100,
+                "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
+            drawText("Morgan loves you, Dina!", W / 2, H / 2 - 64,
+                "bold 14px Arial", "#FFFFFF", "#000", 3);
             if (Math.random() > 0.4) {
                 morganHearts.push({
                     x: rand(0, W), y: H + 20,

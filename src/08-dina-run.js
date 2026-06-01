@@ -25,6 +25,7 @@
         if (!dina) return;
         dinaRunTimer += dt;
         dina.walkTime += dt;
+        if (shakeTimer > 0) shakeTimer -= dt;
 
         // Sprint / slow input
         var sprint = keys.up && dina.sprintTimer > 0;
@@ -115,9 +116,11 @@
             dinaRunPhase = 2;
             state = "dinaCaught"; // shared outro state, with different flavor
             dinaRunTimer = 0;
+            spawnDinaConfetti();
             playTone(523, 0.1, "triangle", 0.2);
             setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
             setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 200);
+            setTimeout(function () { playTone(1046, 0.16, "triangle", 0.24); }, 320);
             return;
         }
         if (mom.distance <= 0) {
@@ -174,10 +177,13 @@
     function handleDinaHazard(hz) {
         if (hz.type === "hydrant" || hz.type === "kickball" || hz.type === "squirrel" || hz.type === "mailbox") {
             dina.stumble = 0.5;
+            shakeTimer = 0.25; shakeIntensity = 5;
+            spawnCrashBurst(hz.x, hz.y, false);
             playTone(180, 0.1, "square", 0.15);
         } else if (hz.type === "dog") {
             dina.stumble = 1.5;
             dinaCoinsRun += 2;
+            shakeTimer = 0.4; shakeIntensity = 8;
             playDogBark();
             spawnFloater(hz.x, hz.y, "+2 🐕", "#FFB74D");
         } else if (hz.type === "butterfly") {
@@ -507,12 +513,25 @@
     }
 
     function drawDinaRun() {
+        ctx.save();
+        if (shakeTimer > 0) {
+            ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+        }
         // Background
         drawDinaSidewalkBg(dinaScrollY);
 
-        // Hazards
+        // Hazards — with an approach-warning shadow so the player can react
         for (var h = 0; h < dinaSidewalk.length; h++) {
-            drawDinaSidewalkHazard(dinaSidewalk[h]);
+            var hzz = dinaSidewalk[h];
+            // Telegraph: pulsing ground shadow once the hazard is on-screen but not yet reached
+            if (!hzz.hit && hzz.y > 0 && hzz.y < dina.y - 30) {
+                var warn = 0.35 + 0.25 * Math.sin(dinaRunTimer * 12);
+                ctx.fillStyle = "rgba(0,0,0," + (warn * 0.4) + ")";
+                ctx.beginPath();
+                ctx.ellipse(hzz.x, hzz.y + hzz.r + 6, hzz.r + 4, (hzz.r + 4) * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            drawDinaSidewalkHazard(hzz);
         }
 
         // Home appears at 80% progress
@@ -573,6 +592,23 @@
 
         // Dina
         if (dina) drawDinaTopDown(dina.x, dina.y, dina.walkTime, "up", "backpack");
+        // Sprint-charge bar floating just under Dina — readable at a glance, no HUD glance needed
+        if (dina) {
+            var sFrac = clamp(dina.sprintTimer / 3, 0, 1);
+            var sbW = 44, sbX = dina.x - sbW / 2, sbY = dina.y + 30;
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            roundRect(sbX - 2, sbY - 2, sbW + 4, 9, 4); ctx.fill();
+            // Color shifts green→amber→red as charge depletes
+            var sCol = sFrac > 0.5 ? "#7CFC4F" : sFrac > 0.2 ? "#FFC107" : "#FF5252";
+            ctx.fillStyle = sCol;
+            roundRect(sbX, sbY, sbW * sFrac, 5, 3); ctx.fill();
+            // Little bolt icon when full enough to use
+            if (sFrac > 0.05 && keys.up) {
+                ctx.fillStyle = "#FFEB3B";
+                ctx.font = "11px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText("⚡", dina.x, sbY - 9);
+            }
+        }
         if (dina && dina.chatLife > 0) drawSpeechBubble(dina.x, dina.y - 60, dina.chat, dina.walkTime);
 
         // Mom proximity glow
@@ -601,6 +637,8 @@
             var phrases = ["Dinaaaa!", "Wait up!", "Honey!", "Hold on!"];
             drawSpeechBubble(mom.x, mom.y - 25, phrases[mom.says], mom.walkTime);
         }
+
+        ctx.restore(); // end shake transform — HUD/buttons stay rock-steady
 
         // HUD top: distance bar
         ctx.fillStyle = "rgba(0,0,0,0.6)";
@@ -641,10 +679,32 @@
     }
 
     // ── Update / Draw: dinaCaught (ending) ───────────────────
+    // Self-contained confetti for the home-arrival celebration (the global
+    // particle system isn't ticked in this scene, so we run our own).
+    var dinaConfetti = [];
+    function spawnDinaConfetti() {
+        dinaConfetti = [];
+        var cols = ["#FF4FA3", "#FFD700", "#4FC3F7", "#7CFC4F", "#FF8A65", "#BA68C8"];
+        for (var i = 0; i < 60; i++) {
+            dinaConfetti.push({
+                x: rand(0, W), y: rand(-H * 0.4, 0),
+                vx: rand(-30, 30), vy: rand(40, 160),
+                size: rand(4, 9), color: randPick(cols),
+                rot: rand(0, Math.PI * 2), spin: rand(-6, 6)
+            });
+        }
+    }
     function updateDinaCaught(dt) {
         dinaRunTimer += dt;
+        for (var i = dinaConfetti.length - 1; i >= 0; i--) {
+            var p = dinaConfetti[i];
+            p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt;
+            p.vy += 60 * dt; // gentle gravity
+            if (p.y > H + 20) dinaConfetti.splice(i, 1);
+        }
         // Hold for 3 seconds, then go home
         if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+            dinaConfetti = [];
             enterDinaHome();
         }
     }
@@ -680,9 +740,14 @@
 
         // Dina at the porch
         var dinaX = W / 2, dinaY = H * 0.6;
+        // Victory jump on the "ran" ending — a few cheerful hops that settle.
+        var jump = 0;
+        if (dinaEnding === "ran") {
+            jump = Math.abs(Math.sin(dinaRunTimer * 6)) * 22 * Math.max(0, 1 - dinaRunTimer / 2.2);
+        }
         // Pose: hands on hips if "ran", waving if "walked"
         ctx.save();
-        ctx.translate(dinaX, dinaY);
+        ctx.translate(dinaX, dinaY - jump);
         // Use a larger version for the cutscene
         ctx.scale(2.5, 2.5);
         drawDinaTopDown(0, 0, dinaRunTimer * 4, "down", "backpack");
@@ -723,4 +788,15 @@
         drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W / 2, H - 60,
             "bold 16px Arial", "#FFD700", "#000", 3);
         drawText("Tap to enter home", W / 2, H - 30, "14px Arial", "#FFFFFF", "#000", 2);
+
+        // Confetti celebration (on top of everything)
+        for (var ci = 0; ci < dinaConfetti.length; ci++) {
+            var cp = dinaConfetti[ci];
+            ctx.save();
+            ctx.translate(cp.x, cp.y);
+            ctx.rotate(cp.rot);
+            ctx.fillStyle = cp.color;
+            ctx.fillRect(-cp.size / 2, -cp.size / 2, cp.size, cp.size * 0.6);
+            ctx.restore();
+        }
     }
