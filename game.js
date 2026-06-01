@@ -49,7 +49,8 @@
             parkingTotalStars: 0,
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
-            stickerBook: []  // placed stickers: [{kind, x, y, rot, scale}]
+            stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
+            dinaRunsPlayed: 0 // # of run-home attempts → drives progressive difficulty
         };
     }
 
@@ -5024,21 +5025,22 @@
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚",
             { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
-        // Parking-mode D-pad buttons (always shown for mobile/desktop — they double as a UI hint)
-        // Left thumb: steering
-        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w,
-            "◀", { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w,
-            "▶", { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        // Right thumb: forward / reverse
-        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w,
-            "▲", { bg: keys.up ? "#FFEB3B" : "#A5D6A7", bgDark: "#2E7D32" });
-        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w,
-            "▼", { bg: keys.down ? "#FFEB3B" : "#EF9A9A", bgDark: "#B71C1C" });
-
-        // Labels under buttons
-        drawText("STEER", PARK_LEFT_RECT.x + 58, PARK_LEFT_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
-        drawText("DRIVE", PARK_FWD_RECT.x + 58, PARK_FWD_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
+        // Parking-mode D-pad buttons — touch only; desktop uses arrow keys.
+        if (isTouchDevice) {
+            // Left thumb: steering
+            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w,
+                "◀", { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w,
+                "▶", { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            // Right thumb: forward / reverse
+            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w,
+                "▲", { bg: keys.up ? "#FFEB3B" : "#A5D6A7", bgDark: "#2E7D32" });
+            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w,
+                "▼", { bg: keys.down ? "#FFEB3B" : "#EF9A9A", bgDark: "#B71C1C" });
+            // Labels under buttons
+            drawText("STEER", PARK_LEFT_RECT.x + 58, PARK_LEFT_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
+            drawText("DRIVE", PARK_FWD_RECT.x + 58, PARK_FWD_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
+        }
     }
 
     // ── Draw: Parking Result ────────────────────────────────
@@ -6864,8 +6866,17 @@
         ctx.restore();
     }
 
+    // Progressive difficulty: ramps up the more the player has run home.
+    // dinaDiff = 1.0 on the first run and climbs ~12% per run, capping at 2.2x.
+    // Level is the human-facing "Run #" shown in the HUD.
+    var dinaDiff = 1;
+    var dinaRunLevel = 1;
     function startDinaRun() {
         state = "dinaRun";
+        dinaRunLevel = (save.dinaRunsPlayed || 0) + 1;
+        dinaDiff = Math.min(1 + (dinaRunLevel - 1) * 0.12, 2.2);
+        save.dinaRunsPlayed = dinaRunLevel;
+        persistSave();
         dinaRunPhase = 1;
         dinaRunTimer = 0;
         dinaRunDistance = 0;
@@ -6924,11 +6935,13 @@
         dinaSidewalkSpawn -= dt;
         if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 4) {
             var prog = dinaRunDistance; // 0..1
-            // gap shrinks from ~1.4s early to ~0.55s late
-            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55);
+            // gap shrinks from ~1.4s early to ~0.55s late, and tightens further
+            // on higher run levels (dinaDiff) for a real obstacle course.
+            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55) / dinaDiff;
             spawnDinaHazard();
             // past the halfway mark, sometimes throw a second hazard in another lane
-            if (prog > 0.5 && Math.random() < 0.35 * prog) spawnDinaHazard();
+            // (more likely the harder the run level)
+            if (prog > 0.5 && Math.random() < 0.35 * prog * dinaDiff) spawnDinaHazard();
         }
         // Update hazards
         for (var h = dinaSidewalk.length - 1; h >= 0; h--) {
@@ -6948,7 +6961,8 @@
         // Mom chase — now an actual RACE. She steadily gains ground at a
         // baseline pace that ramps up over the run; sprinting is the only way
         // to pull back ahead, so the player has to manage sprint + dodge hazards.
-        var chaseRamp = 0.012 + dinaRunDistance * 0.022; // baseline close-in, grows over time
+        // Mom closes in faster on higher run levels (progressive difficulty).
+        var chaseRamp = (0.012 + dinaRunDistance * 0.022) * dinaDiff;
         mom.distance = Math.max(0, mom.distance - chaseRamp * dt);
         if (sprint) {
             // Sprinting reverses the chase and buys back distance
@@ -7558,16 +7572,20 @@
         drawText("⚡ " + dina.sprintTimer.toFixed(1) + "s", 15, 36, "bold 12px Arial", "#FFEB3B", "#000", 2, "left");
         drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
             "bold 13px Arial", "#FFD700", "#000", 2, "left");
+        // Run level (progressive difficulty) — centered under the bar
+        drawText("Run #" + dinaRunLevel, W / 2, 40, "bold 12px Arial", "#FFFFFF", "#000", 2);
 
-        // Mobile lane controls + sprint + slow buttons (always visible — they double as legend)
-        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
-            { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
-        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
-            { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+        // Mobile lane controls + sprint + slow buttons (touch only — desktop uses arrow keys)
+        if (isTouchDevice) {
+            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
+                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
+                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+        }
     }
 
     // ── Update / Draw: dinaCaught (ending) ───────────────────
@@ -8165,20 +8183,21 @@
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
-        // ─── Mobile move pad (4-way) — left thumb steers L/R, right thumb U/D ───
-        // These reuse the PARK_*_RECT hitboxes (mapped to keys via hitGameButton),
-        // so the bedroom is fully playable on touch.
-        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
-            { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
-            { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        // ─── Mobile move pad (4-way) — touch only; desktop uses arrow keys ───
+        if (isTouchDevice) {
+            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
+                { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
+                { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        }
 
         // ─── Footer hint ───
-        drawText("Arrows / pad to walk · tap an item to interact",
+        drawText(isTouchDevice ? "Pad to walk · tap an item to interact"
+                               : "Arrow keys to walk · click an item to interact",
             W / 2, H - 110, "11px Arial", "#FFFFFF", "#000", 2);
     }
 
@@ -10036,13 +10055,16 @@
         // Pause button
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
-        // Mobile move buttons (double as a hint)
+        // Move buttons — touch only; desktop steers with arrow keys / tap.
         if (cookie.phase === "play") {
-            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawText("Slide to catch treats · dodge 💣", W / 2, H - 14,
+            if (isTouchDevice) {
+                drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                    { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+                drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                    { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            }
+            drawText(isTouchDevice ? "Slide to catch treats · dodge 💣"
+                                   : "◀ ▶ / move mouse to catch · dodge 💣", W / 2, H - 14,
                 "12px Arial", "#7A5230", null, 0);
         }
 

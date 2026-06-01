@@ -1,5 +1,14 @@
+    // Progressive difficulty: ramps up the more the player has run home.
+    // dinaDiff = 1.0 on the first run and climbs ~12% per run, capping at 2.2x.
+    // Level is the human-facing "Run #" shown in the HUD.
+    var dinaDiff = 1;
+    var dinaRunLevel = 1;
     function startDinaRun() {
         state = "dinaRun";
+        dinaRunLevel = (save.dinaRunsPlayed || 0) + 1;
+        dinaDiff = Math.min(1 + (dinaRunLevel - 1) * 0.12, 2.2);
+        save.dinaRunsPlayed = dinaRunLevel;
+        persistSave();
         dinaRunPhase = 1;
         dinaRunTimer = 0;
         dinaRunDistance = 0;
@@ -58,11 +67,13 @@
         dinaSidewalkSpawn -= dt;
         if (dinaSidewalkSpawn <= 0 && dinaRunTimer < DINA_RUN_DURATION - 4) {
             var prog = dinaRunDistance; // 0..1
-            // gap shrinks from ~1.4s early to ~0.55s late
-            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55);
+            // gap shrinks from ~1.4s early to ~0.55s late, and tightens further
+            // on higher run levels (dinaDiff) for a real obstacle course.
+            dinaSidewalkSpawn = rand(0.9, 1.6) * (1 - prog * 0.55) / dinaDiff;
             spawnDinaHazard();
             // past the halfway mark, sometimes throw a second hazard in another lane
-            if (prog > 0.5 && Math.random() < 0.35 * prog) spawnDinaHazard();
+            // (more likely the harder the run level)
+            if (prog > 0.5 && Math.random() < 0.35 * prog * dinaDiff) spawnDinaHazard();
         }
         // Update hazards
         for (var h = dinaSidewalk.length - 1; h >= 0; h--) {
@@ -82,7 +93,8 @@
         // Mom chase — now an actual RACE. She steadily gains ground at a
         // baseline pace that ramps up over the run; sprinting is the only way
         // to pull back ahead, so the player has to manage sprint + dodge hazards.
-        var chaseRamp = 0.012 + dinaRunDistance * 0.022; // baseline close-in, grows over time
+        // Mom closes in faster on higher run levels (progressive difficulty).
+        var chaseRamp = (0.012 + dinaRunDistance * 0.022) * dinaDiff;
         mom.distance = Math.max(0, mom.distance - chaseRamp * dt);
         if (sprint) {
             // Sprinting reverses the chase and buys back distance
@@ -692,16 +704,20 @@
         drawText("⚡ " + dina.sprintTimer.toFixed(1) + "s", 15, 36, "bold 12px Arial", "#FFEB3B", "#000", 2, "left");
         drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
             "bold 13px Arial", "#FFD700", "#000", 2, "left");
+        // Run level (progressive difficulty) — centered under the bar
+        drawText("Run #" + dinaRunLevel, W / 2, 40, "bold 12px Arial", "#FFFFFF", "#000", 2);
 
-        // Mobile lane controls + sprint + slow buttons (always visible — they double as legend)
-        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
-            { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
-        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
-            { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+        // Mobile lane controls + sprint + slow buttons (touch only — desktop uses arrow keys)
+        if (isTouchDevice) {
+            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
+                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
+                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+        }
     }
 
     // ── Update / Draw: dinaCaught (ending) ───────────────────

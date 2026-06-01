@@ -47,7 +47,8 @@
             parkingTotalStars: 0,
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
-            stickerBook: []  // placed stickers: [{kind, x, y, rot, scale}]
+            stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
+            dinaRunsPlayed: 0 // # of run-home attempts → drives progressive difficulty
         };
     }
 

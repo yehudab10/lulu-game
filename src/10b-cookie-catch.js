@@ -268,13 +268,16 @@
         // Pause button
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
-        // Mobile move buttons (double as a hint)
+        // Move buttons — touch only; desktop steers with arrow keys / tap.
         if (cookie.phase === "play") {
-            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawText("Slide to catch treats · dodge 💣", W / 2, H - 14,
+            if (isTouchDevice) {
+                drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                    { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+                drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                    { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            }
+            drawText(isTouchDevice ? "Slide to catch treats · dodge 💣"
+                                   : "◀ ▶ / move mouse to catch · dodge 💣", W / 2, H - 14,
                 "12px Arial", "#7A5230", null, 0);
         }
 

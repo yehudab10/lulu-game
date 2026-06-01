@@ -467,20 +467,21 @@
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
-        // ─── Mobile move pad (4-way) — left thumb steers L/R, right thumb U/D ───
-        // These reuse the PARK_*_RECT hitboxes (mapped to keys via hitGameButton),
-        // so the bedroom is fully playable on touch.
-        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
-            { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
-            { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        // ─── Mobile move pad (4-way) — touch only; desktop uses arrow keys ───
+        if (isTouchDevice) {
+            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
+                { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
+                { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        }
 
         // ─── Footer hint ───
-        drawText("Arrows / pad to walk · tap an item to interact",
+        drawText(isTouchDevice ? "Pad to walk · tap an item to interact"
+                               : "Arrow keys to walk · click an item to interact",
             W / 2, H - 110, "11px Arial", "#FFFFFF", "#000", 2);
     }
 
