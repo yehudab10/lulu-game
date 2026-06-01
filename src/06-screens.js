@@ -661,134 +661,209 @@
     // ── Drawing: Lulu portrait (for character select card) ─
     function drawLuluPortrait(cx, cy, time, scale) {
         var s = scale || 1;
+        var t = time || 0;
+        var bob = Math.sin(t * 1.6) * 2;            // gentle idle bob
+        var blink = (Math.sin(t * 1.1) > 0.97) ? 1 : 0; // occasional blink
+        var hair = save.luluHair;
+        var hairDk = shadeColor(hair, -22);
+        var hairLt = shadeColor(hair, 30);
+
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(cx, cy + bob);
         ctx.scale(s, s);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
 
-        // Pink car peeking behind, lower-left
-        ctx.fillStyle = "#FF6FB5";
-        roundRect(-110, 30, 90, 50, 10); ctx.fill();
-        ctx.fillStyle = "#222";
-        ctx.beginPath(); ctx.arc(-90, 70, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-40, 70, 7, 0, Math.PI * 2); ctx.fill();
+        // ── Pink car peeking behind, lower-left ──
+        ctx.save();
+        ctx.fillStyle = "#FF5FAE";
+        roundRect(-114, 30, 96, 52, 14); ctx.fill();
+        ctx.fillStyle = "#FF85C2"; // window shine
+        roundRect(-104, 38, 78, 18, 8); ctx.fill();
+        ctx.fillStyle = "#C9E9FF";
+        roundRect(-100, 40, 70, 13, 6); ctx.fill();
+        ctx.fillStyle = "#2A2A33";
+        ctx.beginPath(); ctx.arc(-94, 78, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-40, 78, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5A5A66";
+        ctx.beginPath(); ctx.arc(-94, 78, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-40, 78, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
 
-        // Long flowing hair behind head (uses chosen hair color)
-        ctx.fillStyle = save.luluHair;
+        // ── Long flowing hair behind (soft, with darker rim) ──
+        ctx.fillStyle = hairDk;
         ctx.beginPath();
-        ctx.ellipse(0, 20, 50, 70, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 26, 54, 74, 0, 0, Math.PI * 2);
         ctx.fill();
-
-        // Face (bright peachy skin to match in-car Lulu)
-        ctx.fillStyle = "#FFD4B8";
-        ctx.beginPath(); ctx.arc(0, -10, 38, 0, Math.PI * 2); ctx.fill();
-
-        // Hair bangs / front (center-parted)
-        ctx.fillStyle = save.luluHair;
+        ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.ellipse(-15, -35, 18, 14, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(15, -35, 18, 14, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(0, 22, 49, 68, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Center part highlight
-        ctx.fillStyle = shadeColor(save.luluHair, 18);
-        ctx.fillRect(-1, -40, 2, 12);
-
-        // Eyes — adult almond
-        ctx.fillStyle = "#FFFFFF";
+        // flowing strand highlights
+        ctx.strokeStyle = hairLt;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(-13, -15, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.ellipse(13, -15, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#5D4037";
-        ctx.beginPath();
-        ctx.arc(-13, -15, 3, 0, Math.PI * 2);
-        ctx.arc(13, -15, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#1A0F08";
-        ctx.beginPath();
-        ctx.arc(-13, -15, 1.5, 0, Math.PI * 2);
-        ctx.arc(13, -15, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        // Highlight
-        ctx.fillStyle = "#FFF";
-        ctx.beginPath();
-        ctx.arc(-12, -16, 1, 0, Math.PI * 2);
-        ctx.arc(14, -16, 1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Subtle eyelashes
-        ctx.strokeStyle = "#3E2723";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-17, -18); ctx.lineTo(-13, -19);
-        ctx.moveTo(-9, -18); ctx.lineTo(-13, -19);
-        ctx.moveTo(17, -18); ctx.lineTo(13, -19);
-        ctx.moveTo(9, -18); ctx.lineTo(13, -19);
+        ctx.moveTo(-34, -2); ctx.quadraticCurveTo(-44, 40, -30, 78);
+        ctx.moveTo(34, -2); ctx.quadraticCurveTo(44, 40, 30, 78);
         ctx.stroke();
 
-        // Eyebrows
-        ctx.strokeStyle = "#5D4037";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-19, -23); ctx.quadraticCurveTo(-13, -26, -7, -23);
-        ctx.moveTo(19, -23); ctx.quadraticCurveTo(13, -26, 7, -23);
-        ctx.stroke();
+        // ── Neck ──
+        ctx.fillStyle = shadeColor("#FFD9C0", -8);
+        roundRect(-9, 16, 18, 22, 6); ctx.fill();
 
-        // Freckles across nose bridge
-        ctx.fillStyle = "#A0623C";
+        // ── Face (soft rounded, warm peachy) ──
+        ctx.fillStyle = "#FFD9C0";
         ctx.beginPath();
-        ctx.arc(-5, -3, 0.8, 0, Math.PI * 2);
-        ctx.arc(-2, -1, 0.7, 0, Math.PI * 2);
-        ctx.arc(2, -2, 0.7, 0, Math.PI * 2);
-        ctx.arc(5, -3, 0.8, 0, Math.PI * 2);
-        ctx.arc(-3, 1, 0.6, 0, Math.PI * 2);
-        ctx.arc(4, 1, 0.7, 0, Math.PI * 2);
+        ctx.ellipse(0, -8, 37, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // soft shading on face edge
+        ctx.fillStyle = "rgba(244,170,140,0.30)";
+        ctx.beginPath();
+        ctx.ellipse(24, -2, 13, 26, -0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Nose tip
-        ctx.fillStyle = "rgba(180,120,90,0.4)";
-        ctx.beginPath(); ctx.ellipse(0, 3, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Soft smile
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 2.5;
+        // ── Hair front: center-parted soft swoop framing the face ──
+        ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.arc(0, 5, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.moveTo(-37, -10);
+        ctx.quadraticCurveTo(-44, -46, -6, -44);    // left swoop
+        ctx.quadraticCurveTo(0, -46, 6, -44);
+        ctx.quadraticCurveTo(44, -46, 37, -10);     // right swoop
+        ctx.quadraticCurveTo(30, -30, 14, -34);     // right inner part
+        ctx.quadraticCurveTo(8, -40, 0, -39);
+        ctx.quadraticCurveTo(-8, -40, -14, -34);    // left inner part
+        ctx.quadraticCurveTo(-30, -30, -37, -10);
+        ctx.closePath();
+        ctx.fill();
+        // glossy highlight band on hair
+        ctx.fillStyle = hairLt;
+        ctx.beginPath();
+        ctx.ellipse(-20, -34, 11, 4, -0.4, 0, Math.PI * 2);
+        ctx.ellipse(20, -34, 11, 4, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Rosy cheeks ──
+        ctx.fillStyle = "rgba(255,150,170,0.55)";
+        ctx.beginPath();
+        ctx.ellipse(-21, 2, 8, 5.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(21, 2, 8, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyebrows ──
+        ctx.strokeStyle = hairDk;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-19, -22); ctx.quadraticCurveTo(-12, -25, -5, -22);
+        ctx.moveTo(19, -22); ctx.quadraticCurveTo(12, -25, 5, -22);
         ctx.stroke();
 
-        // White tee
-        ctx.fillStyle = "#FFFFFF";
-        roundRect(-35, 40, 70, 50, 8); ctx.fill();
-        // Tee outline
-        ctx.strokeStyle = "#D0D0D0";
-        ctx.lineWidth = 1.5;
-        roundRect(-35, 40, 70, 50, 8); ctx.stroke();
-        // Floral embroidery (3 small flowers)
-        var flowers = [[-18, 55], [0, 70], [16, 55]];
-        for (var f = 0; f < flowers.length; f++) {
-            var fx = flowers[f][0], fy = flowers[f][1];
-            for (var pp = 0; pp < 5; pp++) {
-                var ang = pp * Math.PI * 2 / 5;
-                ctx.fillStyle = "#FF4FA3";
-                ctx.beginPath();
-                ctx.arc(fx + Math.cos(ang) * 3, fy + Math.sin(ang) * 3, 2, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.fillStyle = "#FFD93D";
-            ctx.beginPath(); ctx.arc(fx, fy, 1.5, 0, Math.PI * 2); ctx.fill();
+        // ── Eyes — big bright almond with sparkle ──
+        if (blink) {
+            ctx.strokeStyle = "#5D4037";
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(-13, -13, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.arc(13, -13, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+        } else {
+            // whites
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-13, -13, 6.5, 7.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(13, -13, 6.5, 7.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // iris (warm brown)
+            ctx.fillStyle = "#7A4A2B";
+            ctx.beginPath();
+            ctx.arc(-13, -12, 4.6, 0, Math.PI * 2);
+            ctx.arc(13, -12, 4.6, 0, Math.PI * 2);
+            ctx.fill();
+            // pupil
+            ctx.fillStyle = "#241208";
+            ctx.beginPath();
+            ctx.arc(-13, -12, 2.4, 0, Math.PI * 2);
+            ctx.arc(13, -12, 2.4, 0, Math.PI * 2);
+            ctx.fill();
+            // big sparkle + small sparkle
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-15, -15, 1.8, 0, Math.PI * 2);
+            ctx.arc(11, -15, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.75)";
+            ctx.beginPath();
+            ctx.arc(-11, -9, 1, 0, Math.PI * 2);
+            ctx.arc(15, -9, 1, 0, Math.PI * 2);
+            ctx.fill();
+            // upper lash line
+            ctx.strokeStyle = "#3E2723";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-13, -13, 6.5, 1.05 * Math.PI, 1.55 * Math.PI);
+            ctx.arc(13, -13, 6.5, 1.05 * Math.PI, 1.55 * Math.PI);
+            ctx.stroke();
+            // little lash flicks
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(-19, -15); ctx.lineTo(-21, -17);
+            ctx.moveTo(19, -15); ctx.lineTo(21, -17);
+            ctx.stroke();
         }
 
-        // Gold necklace chain
-        ctx.strokeStyle = "#FFD700";
-        ctx.lineWidth = 1.5;
+        // ── Nose (tiny soft) ──
+        ctx.fillStyle = "rgba(214,150,120,0.5)";
+        ctx.beginPath(); ctx.ellipse(0, 2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── Freckles ──
+        ctx.fillStyle = "rgba(180,110,80,0.7)";
         ctx.beginPath();
-        ctx.arc(0, 38, 22, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(-7, 0, 0.8, 0, Math.PI * 2);
+        ctx.arc(-3, 2, 0.7, 0, Math.PI * 2);
+        ctx.arc(3, 2, 0.7, 0, Math.PI * 2);
+        ctx.arc(7, 0, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Warm friendly smile ──
+        ctx.strokeStyle = "#C44E63";
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(0, 6, 8, 0.12 * Math.PI, 0.88 * Math.PI);
         ctx.stroke();
-        // Locket
-        ctx.fillStyle = "#FFD700";
-        ctx.beginPath(); ctx.arc(0, 42, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#B8860B";
-        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(255,140,160,0.45)"; // lower lip blush
+        ctx.beginPath();
+        ctx.ellipse(0, 11, 4, 1.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Trendy top (soft pink, modern crew neck) ──
+        ctx.fillStyle = "#FF9CC4";
+        roundRect(-37, 38, 74, 54, 16); ctx.fill();
+        ctx.fillStyle = "#FFB6D5"; // shoulder highlight
+        roundRect(-37, 38, 74, 16, 16); ctx.fill();
+        // neckline
+        ctx.fillStyle = shadeColor("#FFD9C0", -6);
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 13, 7, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = "#E97AAE";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 13, 7, 0, 0.05 * Math.PI, 0.95 * Math.PI);
         ctx.stroke();
+
+        // ── Dainty gold heart necklace ──
+        ctx.strokeStyle = "#FFD24A";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 40, 18, 0.2 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = "#FFCB2E";
+        ctx.beginPath();
+        ctx.arc(-1.8, 56, 1.6, 0, Math.PI * 2);
+        ctx.arc(1.8, 56, 1.6, 0, Math.PI * 2);
+        ctx.moveTo(-3.2, 56.5);
+        ctx.lineTo(0, 60.5);
+        ctx.lineTo(3.2, 56.5);
+        ctx.fill();
 
         ctx.restore();
     }
@@ -796,109 +871,220 @@
     // ── Drawing: Dina portrait (for character select card) ─
     function drawDinaPortrait(cx, cy, time, scale) {
         var s = scale || 1;
+        var t = time || 0;
+        var bob = Math.sin(t * 2.0 + 1) * 2.4;          // bouncier kid bob
+        var blink = (Math.sin(t * 1.3 + 2) > 0.97) ? 1 : 0;
+        var sparkle = 0.6 + 0.4 * Math.sin(t * 3);      // twinkling cheek sparkle
+        var HAIR = "#7A4A28", HAIR_DK = "#5E3819", HAIR_LT = "#9E6A40";
+
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(cx, cy + bob);
         ctx.scale(s, s);
-
-        // Long ponytail (right side, behind)
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.ellipse(45, 15, 14, 30, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        // Hair tie at base of ponytail
-        ctx.fillStyle = "#FF4FA3";
-        ctx.beginPath(); ctx.arc(40, 0, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#C2185B";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Pink puffy coat (smaller, more proportional — was way too wide before)
-        ctx.fillStyle = "#1A1A1A"; // outline
-        ctx.beginPath();
-        ctx.ellipse(0, 58, 46, 40, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#FFB0C8";
-        ctx.beginPath();
-        ctx.ellipse(0, 58, 44, 38, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Subtle puffy texture (smaller circles, less bulgy)
-        var puffPoints = [[-32, 50], [-28, 68], [-18, 80], [0, 84], [18, 80], [28, 68], [32, 50]];
-        for (var pp2 = 0; pp2 < puffPoints.length; pp2++) {
-            ctx.beginPath();
-            ctx.arc(puffPoints[pp2][0], puffPoints[pp2][1], 8, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.fillStyle = "#FFC5D6"; // highlight
-        ctx.beginPath();
-        ctx.ellipse(-10, 50, 20, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Coat collar/fur trim
-        ctx.fillStyle = "#FAFAFA";
-        ctx.beginPath();
-        ctx.ellipse(0, 35, 45, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Face (rounder, peachy)
-        ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath();
-        ctx.arc(0, -5, 34, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Hair top + bangs (across forehead)
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.arc(0, -28, 28, Math.PI, 0);
-        ctx.fill();
-        // Bangs sweep
-        ctx.beginPath();
-        ctx.ellipse(-8, -22, 18, 7, -0.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Dimples
-        ctx.fillStyle = "rgba(230,140,140,0.5)";
-        ctx.beginPath();
-        ctx.arc(-18, 8, 3, 0, Math.PI * 2);
-        ctx.arc(18, 8, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Eyes — happy upturned arcs
-        ctx.strokeStyle = "#3D2817";
-        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
         ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.arc(-11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.arc(11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.stroke();
-        ctx.lineCap = "butt";
 
-        // Eyebrows
-        ctx.strokeStyle = "#5D4037";
-        ctx.lineWidth = 1.8;
+        // ── Long ponytail (right side, behind, bouncy) ──
+        var pony = Math.sin(t * 2.2) * 3;
+        ctx.fillStyle = HAIR_DK;
         ctx.beginPath();
-        ctx.moveTo(-16, -18); ctx.quadraticCurveTo(-11, -20, -6, -18);
-        ctx.moveTo(16, -18); ctx.quadraticCurveTo(11, -20, 6, -18);
-        ctx.stroke();
-
-        // Nose
-        ctx.fillStyle = "rgba(220,150,120,0.5)";
-        ctx.beginPath(); ctx.arc(0, 3, 2, 0, Math.PI * 2); ctx.fill();
-
-        // BIG smile (open with teeth)
-        ctx.fillStyle = "#A0394D";
-        ctx.beginPath();
-        ctx.arc(0, 10, 12, 0, Math.PI);
+        ctx.ellipse(46 + pony, 18, 15, 33, 0.3, 0, Math.PI * 2);
         ctx.fill();
-        // Teeth
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(-9, 10, 18, 5);
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 0.5;
+        ctx.fillStyle = HAIR;
         ctx.beginPath();
-        ctx.moveTo(0, 10); ctx.lineTo(0, 15);
+        ctx.ellipse(44 + pony, 16, 12, 29, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // pony shine
+        ctx.strokeStyle = HAIR_LT;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(40, -4); ctx.quadraticCurveTo(50 + pony, 18, 44 + pony, 40);
+        ctx.stroke();
+        // Scrunchie at base of ponytail
+        ctx.fillStyle = "#FF63A9";
+        ctx.beginPath(); ctx.arc(38, -2, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FF8FC2";
+        ctx.beginPath(); ctx.arc(36, -4, 2.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── Cozy hoodie (lavender, soft and rounded) ──
+        ctx.fillStyle = "#B79CE6";
+        ctx.beginPath();
+        ctx.ellipse(0, 60, 44, 38, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        roundRect(-44, 58, 88, 40, 18); ctx.fill();
+        // hoodie highlight
+        ctx.fillStyle = "#CBB6F0";
+        roundRect(-44, 46, 88, 18, 18); ctx.fill();
+        // hood collar behind neck
+        ctx.fillStyle = "#A487DC";
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 30, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // drawstrings
+        ctx.strokeStyle = "#7E63C0";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-7, 50); ctx.lineTo(-9, 66);
+        ctx.moveTo(7, 50); ctx.lineTo(9, 66);
+        ctx.stroke();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-9, 67, 2.4, 0, Math.PI * 2);
+        ctx.arc(9, 67, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        // little star on hoodie
+        ctx.fillStyle = "#FFD93D";
+        ctx.beginPath();
+        for (var sp = 0; sp < 10; sp++) {
+            var sang = -Math.PI / 2 + sp * Math.PI / 5;
+            var srad = (sp % 2 === 0) ? 6 : 2.6;
+            var spx = 16 + Math.cos(sang) * srad;
+            var spy = 74 + Math.sin(sang) * srad;
+            if (sp === 0) ctx.moveTo(spx, spy); else ctx.lineTo(spx, spy);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // ── Neck ──
+        ctx.fillStyle = shadeColor("#FFE2CE", -8);
+        roundRect(-8, 18, 16, 20, 6); ctx.fill();
+
+        // ── Face (round, chubby kid cheeks) ──
+        ctx.fillStyle = "#FFE2CE";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 34, 35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(248,178,148,0.28)"; // soft chin shade
+        ctx.beginPath();
+        ctx.ellipse(0, 16, 18, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Hair: rounded top + cute bangs ──
+        ctx.fillStyle = HAIR;
+        ctx.beginPath();
+        ctx.ellipse(0, -22, 35, 30, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // bangs: little rounded scallops across forehead
+        ctx.beginPath();
+        ctx.moveTo(-34, -20);
+        ctx.quadraticCurveTo(-30, -2, -20, -14);
+        ctx.quadraticCurveTo(-12, -2, -6, -14);
+        ctx.quadraticCurveTo(0, 0, 6, -14);
+        ctx.quadraticCurveTo(12, -2, 20, -14);
+        ctx.quadraticCurveTo(30, -2, 34, -20);
+        ctx.quadraticCurveTo(20, -40, 0, -41);
+        ctx.quadraticCurveTo(-20, -40, -34, -20);
+        ctx.closePath();
+        ctx.fill();
+        // hair shine
+        ctx.fillStyle = HAIR_LT;
+        ctx.beginPath();
+        ctx.ellipse(-12, -30, 12, 5, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // side hair tucked by ears
+        ctx.fillStyle = HAIR;
+        ctx.beginPath();
+        ctx.ellipse(-32, -2, 6, 14, 0.1, 0, Math.PI * 2);
+        ctx.ellipse(32, -2, 6, 14, -0.1, 0, Math.PI * 2);
+        ctx.fill();
+        // cute pink bow on the side
+        ctx.fillStyle = "#FF63A9";
+        ctx.beginPath();
+        ctx.moveTo(-26, -28);
+        ctx.lineTo(-34, -33); ctx.lineTo(-34, -23); ctx.closePath();
+        ctx.moveTo(-26, -28);
+        ctx.lineTo(-18, -33); ctx.lineTo(-18, -23); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#C2185B";
+        ctx.beginPath(); ctx.arc(-26, -28, 2.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── Big rosy round cheeks with sparkle ──
+        ctx.fillStyle = "rgba(255,140,160,0.6)";
+        ctx.beginPath();
+        ctx.ellipse(-20, 6, 8, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(20, 6, 8, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255," + (0.35 + 0.35 * sparkle) + ")";
+        ctx.beginPath();
+        ctx.arc(-22, 4, 1.4, 0, Math.PI * 2);
+        ctx.arc(18, 4, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyebrows (small, friendly) ──
+        ctx.strokeStyle = HAIR_DK;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-16, -15); ctx.quadraticCurveTo(-11, -17, -6, -15);
+        ctx.moveTo(16, -15); ctx.quadraticCurveTo(11, -17, 6, -15);
         ctx.stroke();
 
-        // Morgan the cat plushie held in arms (bottom-left)
+        // ── Eyes — big, round, super sparkly (kid style) ──
+        if (blink) {
+            ctx.strokeStyle = "#3D2817";
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.arc(-11, -6, 6, 0.12 * Math.PI, 0.88 * Math.PI);
+            ctx.arc(11, -6, 6, 0.12 * Math.PI, 0.88 * Math.PI);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-11, -6, 6.5, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(11, -6, 6.5, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // big warm-brown iris
+            ctx.fillStyle = "#8A5A30";
+            ctx.beginPath();
+            ctx.arc(-11, -5, 5.2, 0, Math.PI * 2);
+            ctx.arc(11, -5, 5.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#2A150A";
+            ctx.beginPath();
+            ctx.arc(-11, -5, 2.8, 0, Math.PI * 2);
+            ctx.arc(11, -5, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+            // big shiny sparkles
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-13, -8, 2.2, 0, Math.PI * 2);
+            ctx.arc(9, -8, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.beginPath();
+            ctx.arc(-9, -2, 1.2, 0, Math.PI * 2);
+            ctx.arc(13, -2, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+            // top lash line
+            ctx.strokeStyle = "#3D2817";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-11, -6, 6.5, 1.05 * Math.PI, 1.6 * Math.PI);
+            ctx.arc(11, -6, 6.5, 1.05 * Math.PI, 1.6 * Math.PI);
+            ctx.stroke();
+        }
+
+        // ── Tiny nose ──
+        ctx.fillStyle = "rgba(220,150,120,0.55)";
+        ctx.beginPath(); ctx.arc(0, 6, 1.8, 0, Math.PI * 2); ctx.fill();
+
+        // ── BIG happy open grin with teeth ──
+        ctx.fillStyle = "#B23A52";
+        ctx.beginPath();
+        ctx.ellipse(0, 13, 11, 9, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; // teeth
+        ctx.beginPath();
+        ctx.moveTo(-10, 13);
+        ctx.lineTo(10, 13);
+        ctx.quadraticCurveTo(10, 17, 0, 17);
+        ctx.quadraticCurveTo(-10, 17, -10, 13);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FF7B96"; // little tongue
+        ctx.beginPath();
+        ctx.ellipse(0, 20, 5, 3, 0, 0, Math.PI);
+        ctx.fill();
+
+        // ── Morgan the purple cat plushie held in arms (bottom-left) ──
         var mx = -45, my = 80;
         // Body
         ctx.fillStyle = "#9B8FB4";

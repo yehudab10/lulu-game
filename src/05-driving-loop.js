@@ -1,3 +1,6 @@
+    // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
+    var coinPops = [];
+
     function updatePlaying(dt) {
         gameTime += dt;
         var baseGameSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
@@ -194,6 +197,28 @@
                     continue;
                 }
                 if (invincibleTimer <= 0) hitPlayer(o);
+            } else if (o.type === "car" && !o.nearMissed && invincibleTimer <= 0) {
+                // ── Near-miss "whoosh" reward: barely dodge an enemy car ──
+                // Trigger once per car, when it's roughly alongside us but not touching.
+                var dyNM = Math.abs(o.y - player.y);
+                var dxNM = Math.abs(o.x - player.x);
+                if (dyNM < CAR_H * 0.55 && dxNM > (CAR_W + o.hitW) * 0.5 && dxNM < CAR_W * 1.05) {
+                    o.nearMissed = true;
+                    score += 15 * scoreMult;
+                    spawnFloater((o.x + player.x) / 2, player.y - 8, "WHOOSH!", "#80D8FF");
+                    // small spark line in the gap between the two cars
+                    var sside = o.x < player.x ? -1 : 1;
+                    for (var nm = 0; nm < 5; nm++) {
+                        particles.push({
+                            x: player.x + sside * (CAR_W * 0.5) + rand(-3, 3),
+                            y: player.y + rand(-CAR_H * 0.3, CAR_H * 0.3),
+                            vx: sside * rand(20, 60), vy: rand(120, 200),
+                            life: 0.3, maxLife: 0.3,
+                            size: rand(1.5, 3), color: "#B3E5FC", gravity: 0
+                        });
+                    }
+                    playTone(720, 0.05, "sine", 0.06, 1100);
+                }
             }
         }
 
@@ -223,6 +248,14 @@
             var c = coinEntities[j];
             c.y += gameSpeed * dt;
             if (c.y > H + 50) { coinEntities.splice(j, 1); continue; }
+            // ── Coin magnet: gentle pull toward the car when it's close ──
+            var mdx = player.x - c.x, mdy = player.y - c.y;
+            var mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (mdist < 70 && mdist > 1) {
+                var pull = (1 - mdist / 70) * 240 * dt;
+                c.x += (mdx / mdist) * pull;
+                c.y += (mdy / mdist) * pull;
+            }
             if (!c.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, c.x, c.y, c.hitW, c.hitH)) {
                 c.collected = true;
                 runCoins += coinMult;
@@ -231,9 +264,17 @@
                 score += 100 * scoreMult * coinMult;
                 spawnCoinSparkle(c.x, c.y);
                 spawnFloater(c.x, c.y, "+" + coinMult, "#FFD700");
+                // little pop ring that scales up and fades
+                coinPops.push({ x: c.x, y: c.y, t: 0 });
+                if (coinPops.length > 12) coinPops.shift();
                 playCoin();
                 coinEntities.splice(j, 1);
             }
+        }
+        // Age coin-pickup pops
+        for (var cp = coinPops.length - 1; cp >= 0; cp--) {
+            coinPops[cp].t += dt;
+            if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
         }
 
         // Update animals
@@ -777,8 +818,47 @@
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
 
+        // ── Coin-collect pop rings (scale up + fade) ──
+        for (var cpd = 0; cpd < coinPops.length; cpd++) {
+            var cpp = coinPops[cpd];
+            var cpt = cpp.t / 0.35;
+            ctx.save();
+            ctx.globalAlpha = (1 - cpt) * 0.8;
+            ctx.strokeStyle = "#FFE082";
+            ctx.lineWidth = 2.5 * (1 - cpt) + 0.5;
+            ctx.beginPath();
+            ctx.arc(cpp.x, cpp.y, 6 + cpt * 18, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         drawParticles();
         drawFloaters();
+
+        // ── Speed lines / motion streaks at high speed ──
+        if (gameSpeed > 360) {
+            var spInt = Math.min((gameSpeed - 360) / (MAX_SPEED - 360), 1);
+            ctx.save();
+            ctx.globalAlpha = spInt * 0.35;
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 2;
+            ctx.lineCap = "round";
+            // deterministic-ish streaks driven by scroll so they "rush" downward.
+            // Bias toward the road edges so they don't obscure the action.
+            for (var sl = 0; sl < 7; sl++) {
+                var slx = (sl * 71 + 23) % (W + 40) - 20;
+                // skip streaks landing over the central play band (around the lanes)
+                if (slx > ROAD_L + 24 && slx < ROAD_R - 24) continue;
+                var phase = (scrollOffset * 2.2 + sl * 130) % (H + 160);
+                var sly = phase - 80;
+                var slen = 30 + spInt * 50;
+                ctx.beginPath();
+                ctx.moveTo(slx, sly);
+                ctx.lineTo(slx, sly + slen);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
 
         if (flashTimer > 0) {
             ctx.fillStyle = "rgba(255,0,0," + (flashTimer / 0.15 * 0.3) + ")";

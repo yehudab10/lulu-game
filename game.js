@@ -48,7 +48,8 @@
             parkingBestLevel: 0,
             parkingTotalStars: 0,
             parkingPerfectRuns: 0,
-            luluHair: "#8B5A2B"
+            luluHair: "#8B5A2B",
+            stickerBook: []  // placed stickers: [{kind, x, y, rot, scale}]
         };
     }
 
@@ -445,6 +446,15 @@
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
             if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            return null;
+        }
+        // Dina's bedroom is free-roam (4-way). Reuse the 4 D-pad rects for a
+        // mobile movement pad so the room is playable on touch.
+        if (state === "dinaHome") {
+            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
+            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
+            if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
+            if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
         }
         return null;
@@ -1288,6 +1298,26 @@
             ctx.fill();
         }
 
+        // Live driving cues: only the active player car, while actually driving
+        var driving = (typeof state !== "undefined" && state === "playing" && !blinking) || false;
+        var boosting = driving && keys.up;
+        var braking = driving && keys.down;
+
+        // Boost: warm headlight beam glowing forward
+        if (boosting) {
+            var beam = ctx.createLinearGradient(0, -hh - 30, 0, -hh);
+            beam.addColorStop(0, "rgba(255,249,196,0)");
+            beam.addColorStop(1, "rgba(255,249,196,0.35)");
+            ctx.fillStyle = beam;
+            ctx.beginPath();
+            ctx.moveTo(-hw + 6, -hh + 2);
+            ctx.lineTo(-hw - 4, -hh - 26);
+            ctx.lineTo(hw + 4, -hh - 26);
+            ctx.lineTo(hw - 6, -hh + 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+
         // Headlights
         ctx.fillStyle = "#FFF9C4";
         ctx.beginPath();
@@ -1295,12 +1325,45 @@
         ctx.ellipse(hw - 10, -hh + 2, 5, 3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Taillights
-        ctx.fillStyle = "#F44336";
+        // Brake-light glow halo when slowing
+        if (braking) {
+            ctx.fillStyle = "rgba(244,67,54,0.35)";
+            ctx.beginPath();
+            ctx.ellipse(-hw + 10, hh - 4, 9, 7, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw - 10, hh - 4, 9, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Taillights (brighter red when braking)
+        ctx.fillStyle = braking ? "#FF5252" : "#F44336";
         ctx.beginPath();
         ctx.ellipse(-hw + 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
         ctx.ellipse(hw - 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
+        if (braking) {
+            // hot white core
+            ctx.fillStyle = "#FFCDD2";
+            ctx.beginPath();
+            ctx.ellipse(-hw + 10, hh - 4, 1.8, 1.4, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw - 10, hh - 4, 1.8, 1.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Boost exhaust puffs out the back
+        if (boosting && Math.random() > 0.4) {
+            particles.push({
+                x: x + rand(-hw + 8, -hw + 14), y: y + hh + 4,
+                vx: rand(-12, 12), vy: rand(40, 90),
+                life: 0.35, maxLife: 0.35, smoke: true,
+                size: rand(2, 4), color: "rgba(200,200,200,0.7)", gravity: 0
+            });
+            particles.push({
+                x: x + rand(hw - 14, hw - 8), y: y + hh + 4,
+                vx: rand(-12, 12), vy: rand(40, 90),
+                life: 0.35, maxLife: 0.35, smoke: true,
+                size: rand(2, 4), color: "rgba(200,200,200,0.7)", gravity: 0
+            });
+        }
 
         ctx.globalAlpha = 1;
         ctx.restore();
@@ -1339,6 +1402,18 @@
         ctx.fillStyle = "#78909C";
         roundRect(-hw2 + 6, hh2 - 22, ew - 12, 14, 4); ctx.fill();
         roundRect(-hw2 + 8, -hh2 + 8, ew - 16, 11, 3); ctx.fill();
+        // glass gloss highlight (diagonal sheen) — cleaner, less flat look
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        roundRect(-hw2 + 8, hh2 - 21, (ew - 12) * 0.42, 12, 3); ctx.fill();
+        // body top sheen
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        roundRect(-hw2 + 4, -hh2 + 3, ew - 8, 5, 3); ctx.fill();
+        // facing taillights (enemy cars drive toward us — red lights at their rear/bottom)
+        ctx.fillStyle = "#EF5350";
+        ctx.beginPath();
+        ctx.ellipse(-hw2 + 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(hw2 - 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }
@@ -3897,6 +3972,9 @@
     }
 
     // ── Update: Playing ──────────────────────────────────────
+    // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
+    var coinPops = [];
+
     function updatePlaying(dt) {
         gameTime += dt;
         var baseGameSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
@@ -4093,6 +4171,28 @@
                     continue;
                 }
                 if (invincibleTimer <= 0) hitPlayer(o);
+            } else if (o.type === "car" && !o.nearMissed && invincibleTimer <= 0) {
+                // ── Near-miss "whoosh" reward: barely dodge an enemy car ──
+                // Trigger once per car, when it's roughly alongside us but not touching.
+                var dyNM = Math.abs(o.y - player.y);
+                var dxNM = Math.abs(o.x - player.x);
+                if (dyNM < CAR_H * 0.55 && dxNM > (CAR_W + o.hitW) * 0.5 && dxNM < CAR_W * 1.05) {
+                    o.nearMissed = true;
+                    score += 15 * scoreMult;
+                    spawnFloater((o.x + player.x) / 2, player.y - 8, "WHOOSH!", "#80D8FF");
+                    // small spark line in the gap between the two cars
+                    var sside = o.x < player.x ? -1 : 1;
+                    for (var nm = 0; nm < 5; nm++) {
+                        particles.push({
+                            x: player.x + sside * (CAR_W * 0.5) + rand(-3, 3),
+                            y: player.y + rand(-CAR_H * 0.3, CAR_H * 0.3),
+                            vx: sside * rand(20, 60), vy: rand(120, 200),
+                            life: 0.3, maxLife: 0.3,
+                            size: rand(1.5, 3), color: "#B3E5FC", gravity: 0
+                        });
+                    }
+                    playTone(720, 0.05, "sine", 0.06, 1100);
+                }
             }
         }
 
@@ -4122,6 +4222,14 @@
             var c = coinEntities[j];
             c.y += gameSpeed * dt;
             if (c.y > H + 50) { coinEntities.splice(j, 1); continue; }
+            // ── Coin magnet: gentle pull toward the car when it's close ──
+            var mdx = player.x - c.x, mdy = player.y - c.y;
+            var mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (mdist < 70 && mdist > 1) {
+                var pull = (1 - mdist / 70) * 240 * dt;
+                c.x += (mdx / mdist) * pull;
+                c.y += (mdy / mdist) * pull;
+            }
             if (!c.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, c.x, c.y, c.hitW, c.hitH)) {
                 c.collected = true;
                 runCoins += coinMult;
@@ -4130,9 +4238,17 @@
                 score += 100 * scoreMult * coinMult;
                 spawnCoinSparkle(c.x, c.y);
                 spawnFloater(c.x, c.y, "+" + coinMult, "#FFD700");
+                // little pop ring that scales up and fades
+                coinPops.push({ x: c.x, y: c.y, t: 0 });
+                if (coinPops.length > 12) coinPops.shift();
                 playCoin();
                 coinEntities.splice(j, 1);
             }
+        }
+        // Age coin-pickup pops
+        for (var cp = coinPops.length - 1; cp >= 0; cp--) {
+            coinPops[cp].t += dt;
+            if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
         }
 
         // Update animals
@@ -4676,8 +4792,47 @@
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
 
+        // ── Coin-collect pop rings (scale up + fade) ──
+        for (var cpd = 0; cpd < coinPops.length; cpd++) {
+            var cpp = coinPops[cpd];
+            var cpt = cpp.t / 0.35;
+            ctx.save();
+            ctx.globalAlpha = (1 - cpt) * 0.8;
+            ctx.strokeStyle = "#FFE082";
+            ctx.lineWidth = 2.5 * (1 - cpt) + 0.5;
+            ctx.beginPath();
+            ctx.arc(cpp.x, cpp.y, 6 + cpt * 18, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         drawParticles();
         drawFloaters();
+
+        // ── Speed lines / motion streaks at high speed ──
+        if (gameSpeed > 360) {
+            var spInt = Math.min((gameSpeed - 360) / (MAX_SPEED - 360), 1);
+            ctx.save();
+            ctx.globalAlpha = spInt * 0.35;
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 2;
+            ctx.lineCap = "round";
+            // deterministic-ish streaks driven by scroll so they "rush" downward.
+            // Bias toward the road edges so they don't obscure the action.
+            for (var sl = 0; sl < 7; sl++) {
+                var slx = (sl * 71 + 23) % (W + 40) - 20;
+                // skip streaks landing over the central play band (around the lanes)
+                if (slx > ROAD_L + 24 && slx < ROAD_R - 24) continue;
+                var phase = (scrollOffset * 2.2 + sl * 130) % (H + 160);
+                var sly = phase - 80;
+                var slen = 30 + spInt * 50;
+                ctx.beginPath();
+                ctx.moveTo(slx, sly);
+                ctx.lineTo(slx, sly + slen);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
 
         if (flashTimer > 0) {
             ctx.fillStyle = "rgba(255,0,0," + (flashTimer / 0.15 * 0.3) + ")";
@@ -5377,134 +5532,209 @@
     // ── Drawing: Lulu portrait (for character select card) ─
     function drawLuluPortrait(cx, cy, time, scale) {
         var s = scale || 1;
+        var t = time || 0;
+        var bob = Math.sin(t * 1.6) * 2;            // gentle idle bob
+        var blink = (Math.sin(t * 1.1) > 0.97) ? 1 : 0; // occasional blink
+        var hair = save.luluHair;
+        var hairDk = shadeColor(hair, -22);
+        var hairLt = shadeColor(hair, 30);
+
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(cx, cy + bob);
         ctx.scale(s, s);
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
 
-        // Pink car peeking behind, lower-left
-        ctx.fillStyle = "#FF6FB5";
-        roundRect(-110, 30, 90, 50, 10); ctx.fill();
-        ctx.fillStyle = "#222";
-        ctx.beginPath(); ctx.arc(-90, 70, 7, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(-40, 70, 7, 0, Math.PI * 2); ctx.fill();
+        // ── Pink car peeking behind, lower-left ──
+        ctx.save();
+        ctx.fillStyle = "#FF5FAE";
+        roundRect(-114, 30, 96, 52, 14); ctx.fill();
+        ctx.fillStyle = "#FF85C2"; // window shine
+        roundRect(-104, 38, 78, 18, 8); ctx.fill();
+        ctx.fillStyle = "#C9E9FF";
+        roundRect(-100, 40, 70, 13, 6); ctx.fill();
+        ctx.fillStyle = "#2A2A33";
+        ctx.beginPath(); ctx.arc(-94, 78, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-40, 78, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5A5A66";
+        ctx.beginPath(); ctx.arc(-94, 78, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-40, 78, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
 
-        // Long flowing hair behind head (uses chosen hair color)
-        ctx.fillStyle = save.luluHair;
+        // ── Long flowing hair behind (soft, with darker rim) ──
+        ctx.fillStyle = hairDk;
         ctx.beginPath();
-        ctx.ellipse(0, 20, 50, 70, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 26, 54, 74, 0, 0, Math.PI * 2);
         ctx.fill();
-
-        // Face (bright peachy skin to match in-car Lulu)
-        ctx.fillStyle = "#FFD4B8";
-        ctx.beginPath(); ctx.arc(0, -10, 38, 0, Math.PI * 2); ctx.fill();
-
-        // Hair bangs / front (center-parted)
-        ctx.fillStyle = save.luluHair;
+        ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.ellipse(-15, -35, 18, 14, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(15, -35, 18, 14, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(0, 22, 49, 68, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Center part highlight
-        ctx.fillStyle = shadeColor(save.luluHair, 18);
-        ctx.fillRect(-1, -40, 2, 12);
-
-        // Eyes — adult almond
-        ctx.fillStyle = "#FFFFFF";
+        // flowing strand highlights
+        ctx.strokeStyle = hairLt;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(-13, -15, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.ellipse(13, -15, 5, 3.5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#5D4037";
-        ctx.beginPath();
-        ctx.arc(-13, -15, 3, 0, Math.PI * 2);
-        ctx.arc(13, -15, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#1A0F08";
-        ctx.beginPath();
-        ctx.arc(-13, -15, 1.5, 0, Math.PI * 2);
-        ctx.arc(13, -15, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        // Highlight
-        ctx.fillStyle = "#FFF";
-        ctx.beginPath();
-        ctx.arc(-12, -16, 1, 0, Math.PI * 2);
-        ctx.arc(14, -16, 1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Subtle eyelashes
-        ctx.strokeStyle = "#3E2723";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-17, -18); ctx.lineTo(-13, -19);
-        ctx.moveTo(-9, -18); ctx.lineTo(-13, -19);
-        ctx.moveTo(17, -18); ctx.lineTo(13, -19);
-        ctx.moveTo(9, -18); ctx.lineTo(13, -19);
+        ctx.moveTo(-34, -2); ctx.quadraticCurveTo(-44, 40, -30, 78);
+        ctx.moveTo(34, -2); ctx.quadraticCurveTo(44, 40, 30, 78);
         ctx.stroke();
 
-        // Eyebrows
-        ctx.strokeStyle = "#5D4037";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(-19, -23); ctx.quadraticCurveTo(-13, -26, -7, -23);
-        ctx.moveTo(19, -23); ctx.quadraticCurveTo(13, -26, 7, -23);
-        ctx.stroke();
+        // ── Neck ──
+        ctx.fillStyle = shadeColor("#FFD9C0", -8);
+        roundRect(-9, 16, 18, 22, 6); ctx.fill();
 
-        // Freckles across nose bridge
-        ctx.fillStyle = "#A0623C";
+        // ── Face (soft rounded, warm peachy) ──
+        ctx.fillStyle = "#FFD9C0";
         ctx.beginPath();
-        ctx.arc(-5, -3, 0.8, 0, Math.PI * 2);
-        ctx.arc(-2, -1, 0.7, 0, Math.PI * 2);
-        ctx.arc(2, -2, 0.7, 0, Math.PI * 2);
-        ctx.arc(5, -3, 0.8, 0, Math.PI * 2);
-        ctx.arc(-3, 1, 0.6, 0, Math.PI * 2);
-        ctx.arc(4, 1, 0.7, 0, Math.PI * 2);
+        ctx.ellipse(0, -8, 37, 40, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // soft shading on face edge
+        ctx.fillStyle = "rgba(244,170,140,0.30)";
+        ctx.beginPath();
+        ctx.ellipse(24, -2, 13, 26, -0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Nose tip
-        ctx.fillStyle = "rgba(180,120,90,0.4)";
-        ctx.beginPath(); ctx.ellipse(0, 3, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
-
-        // Soft smile
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 2.5;
+        // ── Hair front: center-parted soft swoop framing the face ──
+        ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.arc(0, 5, 9, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.moveTo(-37, -10);
+        ctx.quadraticCurveTo(-44, -46, -6, -44);    // left swoop
+        ctx.quadraticCurveTo(0, -46, 6, -44);
+        ctx.quadraticCurveTo(44, -46, 37, -10);     // right swoop
+        ctx.quadraticCurveTo(30, -30, 14, -34);     // right inner part
+        ctx.quadraticCurveTo(8, -40, 0, -39);
+        ctx.quadraticCurveTo(-8, -40, -14, -34);    // left inner part
+        ctx.quadraticCurveTo(-30, -30, -37, -10);
+        ctx.closePath();
+        ctx.fill();
+        // glossy highlight band on hair
+        ctx.fillStyle = hairLt;
+        ctx.beginPath();
+        ctx.ellipse(-20, -34, 11, 4, -0.4, 0, Math.PI * 2);
+        ctx.ellipse(20, -34, 11, 4, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Rosy cheeks ──
+        ctx.fillStyle = "rgba(255,150,170,0.55)";
+        ctx.beginPath();
+        ctx.ellipse(-21, 2, 8, 5.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(21, 2, 8, 5.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyebrows ──
+        ctx.strokeStyle = hairDk;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-19, -22); ctx.quadraticCurveTo(-12, -25, -5, -22);
+        ctx.moveTo(19, -22); ctx.quadraticCurveTo(12, -25, 5, -22);
         ctx.stroke();
 
-        // White tee
-        ctx.fillStyle = "#FFFFFF";
-        roundRect(-35, 40, 70, 50, 8); ctx.fill();
-        // Tee outline
-        ctx.strokeStyle = "#D0D0D0";
-        ctx.lineWidth = 1.5;
-        roundRect(-35, 40, 70, 50, 8); ctx.stroke();
-        // Floral embroidery (3 small flowers)
-        var flowers = [[-18, 55], [0, 70], [16, 55]];
-        for (var f = 0; f < flowers.length; f++) {
-            var fx = flowers[f][0], fy = flowers[f][1];
-            for (var pp = 0; pp < 5; pp++) {
-                var ang = pp * Math.PI * 2 / 5;
-                ctx.fillStyle = "#FF4FA3";
-                ctx.beginPath();
-                ctx.arc(fx + Math.cos(ang) * 3, fy + Math.sin(ang) * 3, 2, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.fillStyle = "#FFD93D";
-            ctx.beginPath(); ctx.arc(fx, fy, 1.5, 0, Math.PI * 2); ctx.fill();
+        // ── Eyes — big bright almond with sparkle ──
+        if (blink) {
+            ctx.strokeStyle = "#5D4037";
+            ctx.lineWidth = 2.4;
+            ctx.beginPath();
+            ctx.arc(-13, -13, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.arc(13, -13, 6, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+        } else {
+            // whites
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-13, -13, 6.5, 7.5, 0, 0, Math.PI * 2);
+            ctx.ellipse(13, -13, 6.5, 7.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // iris (warm brown)
+            ctx.fillStyle = "#7A4A2B";
+            ctx.beginPath();
+            ctx.arc(-13, -12, 4.6, 0, Math.PI * 2);
+            ctx.arc(13, -12, 4.6, 0, Math.PI * 2);
+            ctx.fill();
+            // pupil
+            ctx.fillStyle = "#241208";
+            ctx.beginPath();
+            ctx.arc(-13, -12, 2.4, 0, Math.PI * 2);
+            ctx.arc(13, -12, 2.4, 0, Math.PI * 2);
+            ctx.fill();
+            // big sparkle + small sparkle
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-15, -15, 1.8, 0, Math.PI * 2);
+            ctx.arc(11, -15, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.75)";
+            ctx.beginPath();
+            ctx.arc(-11, -9, 1, 0, Math.PI * 2);
+            ctx.arc(15, -9, 1, 0, Math.PI * 2);
+            ctx.fill();
+            // upper lash line
+            ctx.strokeStyle = "#3E2723";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-13, -13, 6.5, 1.05 * Math.PI, 1.55 * Math.PI);
+            ctx.arc(13, -13, 6.5, 1.05 * Math.PI, 1.55 * Math.PI);
+            ctx.stroke();
+            // little lash flicks
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(-19, -15); ctx.lineTo(-21, -17);
+            ctx.moveTo(19, -15); ctx.lineTo(21, -17);
+            ctx.stroke();
         }
 
-        // Gold necklace chain
-        ctx.strokeStyle = "#FFD700";
-        ctx.lineWidth = 1.5;
+        // ── Nose (tiny soft) ──
+        ctx.fillStyle = "rgba(214,150,120,0.5)";
+        ctx.beginPath(); ctx.ellipse(0, 2, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── Freckles ──
+        ctx.fillStyle = "rgba(180,110,80,0.7)";
         ctx.beginPath();
-        ctx.arc(0, 38, 22, 0.15 * Math.PI, 0.85 * Math.PI);
+        ctx.arc(-7, 0, 0.8, 0, Math.PI * 2);
+        ctx.arc(-3, 2, 0.7, 0, Math.PI * 2);
+        ctx.arc(3, 2, 0.7, 0, Math.PI * 2);
+        ctx.arc(7, 0, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Warm friendly smile ──
+        ctx.strokeStyle = "#C44E63";
+        ctx.lineWidth = 2.6;
+        ctx.beginPath();
+        ctx.arc(0, 6, 8, 0.12 * Math.PI, 0.88 * Math.PI);
         ctx.stroke();
-        // Locket
-        ctx.fillStyle = "#FFD700";
-        ctx.beginPath(); ctx.arc(0, 42, 3, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#B8860B";
-        ctx.lineWidth = 1;
+        ctx.fillStyle = "rgba(255,140,160,0.45)"; // lower lip blush
+        ctx.beginPath();
+        ctx.ellipse(0, 11, 4, 1.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Trendy top (soft pink, modern crew neck) ──
+        ctx.fillStyle = "#FF9CC4";
+        roundRect(-37, 38, 74, 54, 16); ctx.fill();
+        ctx.fillStyle = "#FFB6D5"; // shoulder highlight
+        roundRect(-37, 38, 74, 16, 16); ctx.fill();
+        // neckline
+        ctx.fillStyle = shadeColor("#FFD9C0", -6);
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 13, 7, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = "#E97AAE";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 13, 7, 0, 0.05 * Math.PI, 0.95 * Math.PI);
         ctx.stroke();
+
+        // ── Dainty gold heart necklace ──
+        ctx.strokeStyle = "#FFD24A";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 40, 18, 0.2 * Math.PI, 0.8 * Math.PI);
+        ctx.stroke();
+        ctx.fillStyle = "#FFCB2E";
+        ctx.beginPath();
+        ctx.arc(-1.8, 56, 1.6, 0, Math.PI * 2);
+        ctx.arc(1.8, 56, 1.6, 0, Math.PI * 2);
+        ctx.moveTo(-3.2, 56.5);
+        ctx.lineTo(0, 60.5);
+        ctx.lineTo(3.2, 56.5);
+        ctx.fill();
 
         ctx.restore();
     }
@@ -5512,109 +5742,220 @@
     // ── Drawing: Dina portrait (for character select card) ─
     function drawDinaPortrait(cx, cy, time, scale) {
         var s = scale || 1;
+        var t = time || 0;
+        var bob = Math.sin(t * 2.0 + 1) * 2.4;          // bouncier kid bob
+        var blink = (Math.sin(t * 1.3 + 2) > 0.97) ? 1 : 0;
+        var sparkle = 0.6 + 0.4 * Math.sin(t * 3);      // twinkling cheek sparkle
+        var HAIR = "#7A4A28", HAIR_DK = "#5E3819", HAIR_LT = "#9E6A40";
+
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(cx, cy + bob);
         ctx.scale(s, s);
-
-        // Long ponytail (right side, behind)
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.ellipse(45, 15, 14, 30, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        // Hair tie at base of ponytail
-        ctx.fillStyle = "#FF4FA3";
-        ctx.beginPath(); ctx.arc(40, 0, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#C2185B";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Pink puffy coat (smaller, more proportional — was way too wide before)
-        ctx.fillStyle = "#1A1A1A"; // outline
-        ctx.beginPath();
-        ctx.ellipse(0, 58, 46, 40, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#FFB0C8";
-        ctx.beginPath();
-        ctx.ellipse(0, 58, 44, 38, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Subtle puffy texture (smaller circles, less bulgy)
-        var puffPoints = [[-32, 50], [-28, 68], [-18, 80], [0, 84], [18, 80], [28, 68], [32, 50]];
-        for (var pp2 = 0; pp2 < puffPoints.length; pp2++) {
-            ctx.beginPath();
-            ctx.arc(puffPoints[pp2][0], puffPoints[pp2][1], 8, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.fillStyle = "#FFC5D6"; // highlight
-        ctx.beginPath();
-        ctx.ellipse(-10, 50, 20, 10, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Coat collar/fur trim
-        ctx.fillStyle = "#FAFAFA";
-        ctx.beginPath();
-        ctx.ellipse(0, 35, 45, 12, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Face (rounder, peachy)
-        ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath();
-        ctx.arc(0, -5, 34, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Hair top + bangs (across forehead)
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.arc(0, -28, 28, Math.PI, 0);
-        ctx.fill();
-        // Bangs sweep
-        ctx.beginPath();
-        ctx.ellipse(-8, -22, 18, 7, -0.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Dimples
-        ctx.fillStyle = "rgba(230,140,140,0.5)";
-        ctx.beginPath();
-        ctx.arc(-18, 8, 3, 0, Math.PI * 2);
-        ctx.arc(18, 8, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Eyes — happy upturned arcs
-        ctx.strokeStyle = "#3D2817";
-        ctx.lineWidth = 3;
+        ctx.lineJoin = "round";
         ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.arc(-11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.arc(11, -10, 5, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.stroke();
-        ctx.lineCap = "butt";
 
-        // Eyebrows
-        ctx.strokeStyle = "#5D4037";
-        ctx.lineWidth = 1.8;
+        // ── Long ponytail (right side, behind, bouncy) ──
+        var pony = Math.sin(t * 2.2) * 3;
+        ctx.fillStyle = HAIR_DK;
         ctx.beginPath();
-        ctx.moveTo(-16, -18); ctx.quadraticCurveTo(-11, -20, -6, -18);
-        ctx.moveTo(16, -18); ctx.quadraticCurveTo(11, -20, 6, -18);
-        ctx.stroke();
-
-        // Nose
-        ctx.fillStyle = "rgba(220,150,120,0.5)";
-        ctx.beginPath(); ctx.arc(0, 3, 2, 0, Math.PI * 2); ctx.fill();
-
-        // BIG smile (open with teeth)
-        ctx.fillStyle = "#A0394D";
-        ctx.beginPath();
-        ctx.arc(0, 10, 12, 0, Math.PI);
+        ctx.ellipse(46 + pony, 18, 15, 33, 0.3, 0, Math.PI * 2);
         ctx.fill();
-        // Teeth
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(-9, 10, 18, 5);
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 0.5;
+        ctx.fillStyle = HAIR;
         ctx.beginPath();
-        ctx.moveTo(0, 10); ctx.lineTo(0, 15);
+        ctx.ellipse(44 + pony, 16, 12, 29, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // pony shine
+        ctx.strokeStyle = HAIR_LT;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(40, -4); ctx.quadraticCurveTo(50 + pony, 18, 44 + pony, 40);
+        ctx.stroke();
+        // Scrunchie at base of ponytail
+        ctx.fillStyle = "#FF63A9";
+        ctx.beginPath(); ctx.arc(38, -2, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FF8FC2";
+        ctx.beginPath(); ctx.arc(36, -4, 2.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── Cozy hoodie (lavender, soft and rounded) ──
+        ctx.fillStyle = "#B79CE6";
+        ctx.beginPath();
+        ctx.ellipse(0, 60, 44, 38, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        roundRect(-44, 58, 88, 40, 18); ctx.fill();
+        // hoodie highlight
+        ctx.fillStyle = "#CBB6F0";
+        roundRect(-44, 46, 88, 18, 18); ctx.fill();
+        // hood collar behind neck
+        ctx.fillStyle = "#A487DC";
+        ctx.beginPath();
+        ctx.ellipse(0, 40, 30, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // drawstrings
+        ctx.strokeStyle = "#7E63C0";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-7, 50); ctx.lineTo(-9, 66);
+        ctx.moveTo(7, 50); ctx.lineTo(9, 66);
+        ctx.stroke();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-9, 67, 2.4, 0, Math.PI * 2);
+        ctx.arc(9, 67, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        // little star on hoodie
+        ctx.fillStyle = "#FFD93D";
+        ctx.beginPath();
+        for (var sp = 0; sp < 10; sp++) {
+            var sang = -Math.PI / 2 + sp * Math.PI / 5;
+            var srad = (sp % 2 === 0) ? 6 : 2.6;
+            var spx = 16 + Math.cos(sang) * srad;
+            var spy = 74 + Math.sin(sang) * srad;
+            if (sp === 0) ctx.moveTo(spx, spy); else ctx.lineTo(spx, spy);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // ── Neck ──
+        ctx.fillStyle = shadeColor("#FFE2CE", -8);
+        roundRect(-8, 18, 16, 20, 6); ctx.fill();
+
+        // ── Face (round, chubby kid cheeks) ──
+        ctx.fillStyle = "#FFE2CE";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 34, 35, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(248,178,148,0.28)"; // soft chin shade
+        ctx.beginPath();
+        ctx.ellipse(0, 16, 18, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Hair: rounded top + cute bangs ──
+        ctx.fillStyle = HAIR;
+        ctx.beginPath();
+        ctx.ellipse(0, -22, 35, 30, 0, Math.PI, Math.PI * 2);
+        ctx.fill();
+        // bangs: little rounded scallops across forehead
+        ctx.beginPath();
+        ctx.moveTo(-34, -20);
+        ctx.quadraticCurveTo(-30, -2, -20, -14);
+        ctx.quadraticCurveTo(-12, -2, -6, -14);
+        ctx.quadraticCurveTo(0, 0, 6, -14);
+        ctx.quadraticCurveTo(12, -2, 20, -14);
+        ctx.quadraticCurveTo(30, -2, 34, -20);
+        ctx.quadraticCurveTo(20, -40, 0, -41);
+        ctx.quadraticCurveTo(-20, -40, -34, -20);
+        ctx.closePath();
+        ctx.fill();
+        // hair shine
+        ctx.fillStyle = HAIR_LT;
+        ctx.beginPath();
+        ctx.ellipse(-12, -30, 12, 5, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        // side hair tucked by ears
+        ctx.fillStyle = HAIR;
+        ctx.beginPath();
+        ctx.ellipse(-32, -2, 6, 14, 0.1, 0, Math.PI * 2);
+        ctx.ellipse(32, -2, 6, 14, -0.1, 0, Math.PI * 2);
+        ctx.fill();
+        // cute pink bow on the side
+        ctx.fillStyle = "#FF63A9";
+        ctx.beginPath();
+        ctx.moveTo(-26, -28);
+        ctx.lineTo(-34, -33); ctx.lineTo(-34, -23); ctx.closePath();
+        ctx.moveTo(-26, -28);
+        ctx.lineTo(-18, -33); ctx.lineTo(-18, -23); ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#C2185B";
+        ctx.beginPath(); ctx.arc(-26, -28, 2.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── Big rosy round cheeks with sparkle ──
+        ctx.fillStyle = "rgba(255,140,160,0.6)";
+        ctx.beginPath();
+        ctx.ellipse(-20, 6, 8, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(20, 6, 8, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255," + (0.35 + 0.35 * sparkle) + ")";
+        ctx.beginPath();
+        ctx.arc(-22, 4, 1.4, 0, Math.PI * 2);
+        ctx.arc(18, 4, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyebrows (small, friendly) ──
+        ctx.strokeStyle = HAIR_DK;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-16, -15); ctx.quadraticCurveTo(-11, -17, -6, -15);
+        ctx.moveTo(16, -15); ctx.quadraticCurveTo(11, -17, 6, -15);
         ctx.stroke();
 
-        // Morgan the cat plushie held in arms (bottom-left)
+        // ── Eyes — big, round, super sparkly (kid style) ──
+        if (blink) {
+            ctx.strokeStyle = "#3D2817";
+            ctx.lineWidth = 2.6;
+            ctx.beginPath();
+            ctx.arc(-11, -6, 6, 0.12 * Math.PI, 0.88 * Math.PI);
+            ctx.arc(11, -6, 6, 0.12 * Math.PI, 0.88 * Math.PI);
+            ctx.stroke();
+        } else {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-11, -6, 6.5, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(11, -6, 6.5, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // big warm-brown iris
+            ctx.fillStyle = "#8A5A30";
+            ctx.beginPath();
+            ctx.arc(-11, -5, 5.2, 0, Math.PI * 2);
+            ctx.arc(11, -5, 5.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#2A150A";
+            ctx.beginPath();
+            ctx.arc(-11, -5, 2.8, 0, Math.PI * 2);
+            ctx.arc(11, -5, 2.8, 0, Math.PI * 2);
+            ctx.fill();
+            // big shiny sparkles
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(-13, -8, 2.2, 0, Math.PI * 2);
+            ctx.arc(9, -8, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.beginPath();
+            ctx.arc(-9, -2, 1.2, 0, Math.PI * 2);
+            ctx.arc(13, -2, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+            // top lash line
+            ctx.strokeStyle = "#3D2817";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(-11, -6, 6.5, 1.05 * Math.PI, 1.6 * Math.PI);
+            ctx.arc(11, -6, 6.5, 1.05 * Math.PI, 1.6 * Math.PI);
+            ctx.stroke();
+        }
+
+        // ── Tiny nose ──
+        ctx.fillStyle = "rgba(220,150,120,0.55)";
+        ctx.beginPath(); ctx.arc(0, 6, 1.8, 0, Math.PI * 2); ctx.fill();
+
+        // ── BIG happy open grin with teeth ──
+        ctx.fillStyle = "#B23A52";
+        ctx.beginPath();
+        ctx.ellipse(0, 13, 11, 9, 0, 0, Math.PI);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; // teeth
+        ctx.beginPath();
+        ctx.moveTo(-10, 13);
+        ctx.lineTo(10, 13);
+        ctx.quadraticCurveTo(10, 17, 0, 17);
+        ctx.quadraticCurveTo(-10, 17, -10, 13);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FF7B96"; // little tongue
+        ctx.beginPath();
+        ctx.ellipse(0, 20, 5, 3, 0, 0, Math.PI);
+        ctx.fill();
+
+        // ── Morgan the purple cat plushie held in arms (bottom-left) ──
         var mx = -45, my = 80;
         // Body
         ctx.fillStyle = "#9B8FB4";
@@ -7463,11 +7804,8 @@
                 startCookieCatch();
             }
         } else if (action === "stickers") {
-            // Sticker book: shows current count
-            homeMessage = "⭐ " + (save.parkingTotalStars || 0) + " stars collected!";
-            homeMessageTimer = 2.0;
-            playTone(880, 0.08, "triangle", 0.15);
-            setTimeout(function () { playTone(1100, 0.10, "triangle", 0.15); }, 80);
+            // Open the interactive sticker book minigame
+            startStickerBook();
         } else if (action === "outside") {
             state = "charSelect";
             inTabletMode = false;
@@ -7827,9 +8165,21 @@
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
+        // ─── Mobile move pad (4-way) — left thumb steers L/R, right thumb U/D ───
+        // These reuse the PARK_*_RECT hitboxes (mapped to keys via hitGameButton),
+        // so the bedroom is fully playable on touch.
+        drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
+            { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
+            { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
+            { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+        drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
+            { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
+
         // ─── Footer hint ───
-        drawText("Walk with arrows · Tap any item to interact",
-            W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        drawText("Arrows / pad to walk · tap an item to interact",
+            W / 2, H - 110, "11px Arial", "#FFFFFF", "#000", 2);
     }
 
     // ── Update / Draw: Morgan Cat Plushie ────────────────────
@@ -8110,6 +8460,235 @@
     }
 
     // ── Update / Draw: Dina Nap ──────────────────────────────
+    // ── Minigame: Sticker Book ───────────────────────────────
+    // Dina spends the ⭐ stars she's earned to buy stickers and decorate a
+    // scrapbook page. Placements persist in save.stickerBook so the book is
+    // hers to keep. This gives earned stars a real purpose (a spend sink).
+    var sticker = null; // { held, msg, msgT, sparkle[] }
+
+    // Sticker catalog: emoji + star cost. Cheap-and-cheerful so kids can fill a page.
+    var STICKER_KINDS = [
+        { e: "⭐", cost: 1 }, { e: "💖", cost: 1 }, { e: "🌈", cost: 2 },
+        { e: "🦄", cost: 3 }, { e: "🌸", cost: 1 }, { e: "🐱", cost: 2 },
+        { e: "🍦", cost: 2 }, { e: "🎀", cost: 1 }, { e: "🦋", cost: 2 },
+        { e: "🍓", cost: 1 }, { e: "🌟", cost: 1 }, { e: "🐶", cost: 2 }
+    ];
+    var STICKER_PAGE = { x: 40, y: 110, w: W - 80, h: 380 }; // the scrapbook page rect
+
+    function startStickerBook() {
+        state = "stickerBook";
+        if (!save.stickerBook) save.stickerBook = [];
+        sticker = { held: null, msg: "Tap a sticker, then tap the page!", msgT: 3, sparkle: [] };
+        playTone(880, 0.08, "triangle", 0.15);
+        setTimeout(function () { playTone(1100, 0.1, "triangle", 0.15); }, 80);
+    }
+
+    function stickerSparkle(x, y) {
+        for (var i = 0; i < 10; i++) {
+            var a = (Math.PI * 2 / 10) * i;
+            sticker.sparkle.push({ x: x, y: y, vx: Math.cos(a) * rand(40, 110),
+                vy: Math.sin(a) * rand(40, 110), life: 0.5, max: 0.5,
+                col: randPick(["#FFD700", "#FF80AB", "#7C4DFF", "#4FC3F7"]) });
+        }
+    }
+
+    function updateStickerBook(dt) {
+        if (!sticker) return;
+        if (sticker.msgT > 0) sticker.msgT -= dt;
+        for (var s = sticker.sparkle.length - 1; s >= 0; s--) {
+            var p = sticker.sparkle[s];
+            p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+            if (p.life <= 0) sticker.sparkle.splice(s, 1);
+        }
+
+        var click = consumeClick();
+        if (!click) return;
+
+        // Back button
+        if (pointInRect(click.x, click.y, 10, 52, 80, 40)) {
+            persistSave();
+            sticker = null;
+            enterDinaHome();
+            playClick();
+            return;
+        }
+        // Clear-page button (bottom-right)
+        if (pointInRect(click.x, click.y, W - 110, H - 52, 100, 40)) {
+            if (save.stickerBook.length > 0) {
+                save.stickerBook = [];
+                persistSave();
+                sticker.msg = "Cleared the page!"; sticker.msgT = 1.6;
+                playTone(300, 0.12, "square", 0.14);
+            }
+            return;
+        }
+
+        // Tray row (bottom): pick up a sticker to place
+        var tray = stickerTrayLayout();
+        for (var t = 0; t < tray.length; t++) {
+            var it = tray[t];
+            if (pointInRect(click.x, click.y, it.x - 24, it.y - 24, 48, 48)) {
+                if ((save.parkingTotalStars || 0) >= it.kind.cost) {
+                    sticker.held = it.kind;
+                    sticker.msg = "Now tap the page to place " + it.kind.e;
+                    sticker.msgT = 2.5;
+                    playClick();
+                } else {
+                    sticker.msg = "Need ⭐" + it.kind.cost + " for that one";
+                    sticker.msgT = 1.8;
+                    playDeny();
+                }
+                return;
+            }
+        }
+
+        // Place held sticker onto the page
+        if (sticker.held && pointInRect(click.x, click.y, STICKER_PAGE.x, STICKER_PAGE.y, STICKER_PAGE.w, STICKER_PAGE.h)) {
+            save.parkingTotalStars -= sticker.held.cost;
+            save.stickerBook.push({
+                e: sticker.held.e, x: click.x, y: click.y,
+                rot: rand(-0.35, 0.35), scale: rand(0.9, 1.25)
+            });
+            persistSave();
+            stickerSparkle(click.x, click.y);
+            playTone(700, 0.07, "sine", 0.16);
+            setTimeout(function () { playTone(950, 0.08, "sine", 0.14); }, 60);
+            sticker.msg = "Pretty! ⭐" + (save.parkingTotalStars || 0) + " left";
+            sticker.msgT = 1.6;
+            // keep the same sticker held if still affordable, else drop it
+            if ((save.parkingTotalStars || 0) < sticker.held.cost) sticker.held = null;
+            return;
+        }
+    }
+
+    function stickerTrayLayout() {
+        // Two rows of 6 along the bottom tray.
+        var arr = [];
+        var startY = H - 150;
+        for (var i = 0; i < STICKER_KINDS.length; i++) {
+            var col = i % 6, row = Math.floor(i / 6);
+            arr.push({ kind: STICKER_KINDS[i], x: 50 + col * 76, y: startY + row * 50 });
+        }
+        return arr;
+    }
+
+    function drawStickerBook() {
+        // Warm desk background
+        ctx.fillStyle = "#E8C9A0";
+        ctx.fillRect(0, 0, W, H);
+        // wood grain
+        ctx.strokeStyle = "rgba(150,110,70,0.25)";
+        ctx.lineWidth = 2;
+        for (var wy = 0; wy < H; wy += 26) {
+            ctx.beginPath(); ctx.moveTo(0, wy + Math.sin(wy) * 3); ctx.lineTo(W, wy); ctx.stroke();
+        }
+
+        // HUD bar
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        roundRect(0, 0, W, 44, 0); ctx.fill();
+        drawText("📖 Dina's Sticker Book", W / 2, 22,
+            "bold 15px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, 22,
+            "bold 15px Arial", "#FFD700", "#000", 2, "right");
+
+        // Scrapbook page (with a cute spiral binding)
+        var pg = STICKER_PAGE;
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        roundRect(pg.x + 4, pg.y + 5, pg.w, pg.h, 14); ctx.fill();
+        ctx.fillStyle = "#FFFDF7";
+        roundRect(pg.x, pg.y, pg.w, pg.h, 14); ctx.fill();
+        ctx.strokeStyle = "#FF80AB"; ctx.lineWidth = 3;
+        roundRect(pg.x, pg.y, pg.w, pg.h, 14); ctx.stroke();
+        // faint guide dots
+        ctx.fillStyle = "rgba(255,180,200,0.25)";
+        for (var gy = pg.y + 30; gy < pg.y + pg.h - 10; gy += 40) {
+            for (var gx = pg.x + 30; gx < pg.x + pg.w - 10; gx += 40) {
+                ctx.beginPath(); ctx.arc(gx, gy, 2, 0, Math.PI * 2); ctx.fill();
+            }
+        }
+        // spiral binding rings along the top
+        ctx.strokeStyle = "#B07B4F"; ctx.lineWidth = 3;
+        for (var rx = pg.x + 20; rx < pg.x + pg.w - 10; rx += 26) {
+            ctx.beginPath(); ctx.arc(rx, pg.y, 6, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        }
+
+        // Empty-page hint
+        if (!save.stickerBook || save.stickerBook.length === 0) {
+            drawText("Your page is empty —", W / 2, pg.y + pg.h / 2 - 12,
+                "italic 15px 'Segoe UI', Arial", "#C9A0B0", null, 0);
+            drawText("decorate it below! 💕", W / 2, pg.y + pg.h / 2 + 12,
+                "italic 15px 'Segoe UI', Arial", "#C9A0B0", null, 0);
+        }
+
+        // Placed stickers (clipped to the page)
+        ctx.save();
+        roundRect(pg.x, pg.y, pg.w, pg.h, 14); ctx.clip();
+        for (var i = 0; i < save.stickerBook.length; i++) {
+            var pl = save.stickerBook[i];
+            ctx.save();
+            ctx.translate(pl.x, pl.y);
+            ctx.rotate(pl.rot);
+            ctx.scale(pl.scale, pl.scale);
+            // little white sticker backing for that vinyl look
+            ctx.fillStyle = "rgba(0,0,0,0.10)";
+            ctx.beginPath(); ctx.arc(1, 2, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.font = "30px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(pl.e, 0, 0);
+            ctx.restore();
+        }
+        ctx.restore();
+
+        // Sparkles
+        for (var sp = 0; sp < sticker.sparkle.length; sp++) {
+            var s2 = sticker.sparkle[sp];
+            ctx.globalAlpha = clamp(s2.life / s2.max, 0, 1);
+            ctx.fillStyle = s2.col;
+            ctx.beginPath(); ctx.arc(s2.x, s2.y, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+
+        // Tray label
+        drawText("Tap a sticker (costs ⭐), then tap the page", W / 2, H - 176,
+            "bold 12px 'Segoe UI', Arial", "#5D4037", "#FFF", 2);
+
+        // Tray of buyable stickers
+        var tray = stickerTrayLayout();
+        for (var t = 0; t < tray.length; t++) {
+            var it = tray[t];
+            var afford = (save.parkingTotalStars || 0) >= it.kind.cost;
+            var held = sticker.held === it.kind;
+            // tile
+            ctx.fillStyle = held ? "#FFF59D" : (afford ? "#FFFFFF" : "#D7CCC8");
+            roundRect(it.x - 24, it.y - 24, 48, 48, 10); ctx.fill();
+            ctx.strokeStyle = held ? "#FBC02D" : "#B0A08F"; ctx.lineWidth = held ? 3 : 2;
+            roundRect(it.x - 24, it.y - 24, 48, 48, 10); ctx.stroke();
+            ctx.globalAlpha = afford ? 1 : 0.45;
+            ctx.font = "26px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(it.kind.e, it.x, it.y - 4);
+            ctx.globalAlpha = 1;
+            // cost pill
+            drawText("⭐" + it.kind.cost, it.x, it.y + 16, "bold 10px Arial", afford ? "#FF8F00" : "#9E9E9E", "#FFF", 2);
+        }
+
+        // Held-sticker preview following nothing (shown near message)
+        if (sticker.held) {
+            drawText("Holding " + sticker.held.e + " — tap the page!", W / 2, 66,
+                "bold 13px 'Segoe UI', Arial", "#7C4DFF", "#FFF", 2);
+        } else if (sticker.msgT > 0) {
+            ctx.globalAlpha = clamp(sticker.msgT, 0, 1);
+            drawText(sticker.msg, W / 2, 66, "bold 13px 'Segoe UI', Arial", "#5D4037", "#FFF", 2);
+            ctx.globalAlpha = 1;
+        }
+
+        // Back + Clear buttons
+        drawIconButton(20, 56, 36, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
+        ctx.fillStyle = "#EF9A9A";
+        roundRect(W - 110, H - 52, 100, 40, 10); ctx.fill();
+        ctx.strokeStyle = "#C62828"; ctx.lineWidth = 2;
+        roundRect(W - 110, H - 52, 100, 40, 10); ctx.stroke();
+        drawText("🗑 Clear", W - 60, H - 32, "bold 13px Arial", "#FFFFFF", "#000", 2);
+    }
+
     var dinaNapTucked = false;      // false: "tap to tuck in"; true: drifting off
     var dinaNapTuckTime = 0;        // seconds since tucked in
 
@@ -8426,12 +9005,24 @@
         ctx.restore();
     }
 
-    // Avigail dialogue script (8 decisions; reply shown then advance)
-    // engine reads entry.prompt + choice.{label,reply,expr}. <=3 choices/step (3-color palette).
-    var AVIGAIL_SCRIPT = [
+    // Avigail dialogue — assembled FRESH each pickup from pools below so the
+    // conversation is rarely the same twice.
+    //   • AVIGAIL_OPENERS  — step 0. Each has a "rugelach" choice; picking it sets
+    //                        avigailHasRugelach. The chosen opener is tagged isOpener.
+    //   • AVIGAIL_MIDDLES  — a shuffled subset fills the middle.
+    //   • AVIGAIL_SNACKS   — one snack step (tagged isSnack) where "Rugelach. As
+    //                        promised." pays off the promise made at the door.
+    //   • AVIGAIL_CLOSERS  — final spoken line as she joins the trip (2x points).
+    // engine reads step.prompt + choice.{label,reply,expr}. <=3 choices/step.
+    // The rugelach payoff keys off the isOpener / isSnack tags (set at assembly
+    // time), NOT a fixed index, so shuffling can never break it.
+
+    // ── Openers (step 0). The rugelach choice is always present; rugelachIdx
+    //    records which choice index promises rugelach for this opener. ──
+    var AVIGAIL_OPENERS = [
         {
             prompt: "Nobody's home! This is\nher cat speaking.",
-            expr: "suspicious",
+            expr: "suspicious", rugelachIdx: 2,
             choices: [
                 { label: "Cats can't talk.", reply: "...Meow. Dang it. Hold on,\nI'm getting dressed.", expr: "annoyed" },
                 { label: "I see your feet under the door.", reply: "These are DECORATIVE feet.\nVery on-trend this season.", expr: "suspicious" },
@@ -8439,7 +9030,29 @@
             ]
         },
         {
-            prompt: "*door creaks open* Oh. It's\nYOU. The ghoster herself.",
+            prompt: "I'm not coming out. I'm in\nmy pajamas and my FEELINGS.",
+            expr: "dramatic", rugelachIdx: 1,
+            choices: [
+                { label: "It's 2 in the afternoon.", reply: "Time is a SOCIAL CONSTRUCT,\nLulu. So is your invitation.", expr: "smug" },
+                { label: "There's rugelach out here.", reply: "...Pajamas ARE a fashion\nstatement. I'll be RIGHT out.", expr: "excited" },
+                { label: "Same hat. Let me in.", reply: "Oh you GET it. Ugh, fine.\nUnlocking the door of doom.", expr: "love" }
+            ]
+        },
+        {
+            prompt: "State your business! And NO,\nI did not order a salad.",
+            expr: "suspicious", rugelachIdx: 0,
+            choices: [
+                { label: "I literally brought rugelach.", reply: "RUGELACH?! Why are we still\nTALKING? Move, move, move!", expr: "excited" },
+                { label: "It's me, Lulu. Open up.", reply: "'It's me' could be ANYONE.\nProve it. ...okay it's you.", expr: "suspicious" },
+                { label: "Road trip. Get in the car.", reply: "A road trip? Unannounced??\nThe AUDACITY. I'm intrigued.", expr: "smug" }
+            ]
+        }
+    ];
+
+    // ── Middle exchanges — a shuffled subset is used each run. ──
+    var AVIGAIL_MIDDLES = [
+        {
+            prompt: "Oh. It's YOU. The ghoster\nherself, in the FLESH.",
             expr: "annoyed",
             choices: [
                 { label: "I never ghosted you!", reply: "You left me on read for\n9 DAYS, Lulu. NINE.", expr: "annoyed" },
@@ -8475,15 +9088,6 @@
             ]
         },
         {
-            prompt: "Before I commit: what's the\nsnack situation in there?",
-            expr: "excited",
-            choices: [
-                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
-                { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
-                { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
-            ]
-        },
-        {
             prompt: "Okay but I'm calling shotgun\nAND aux. Non-negotiable.",
             expr: "smug",
             choices: [
@@ -8500,16 +9104,124 @@
                 { label: "...Define 'picking up.'", reply: "LULU. I KNEW it. Turn the\ncar around— no, fine, GO.", expr: "panic" },
                 { label: "He moved to Lakewood.", reply: "Baruch Hashem. Truly. Start\nthe kettle— I mean, the car.", expr: "love" }
             ]
+        },
+        // ── fresh material ──
+        {
+            prompt: "Wait. Did you bring snacks\nOR did you bring DRAMA?",
+            expr: "suspicious",
+            choices: [
+                { label: "Why not both?", reply: "...That's the most ME thing\nyou've EVER said. I'm proud.", expr: "love" },
+                { label: "Drama, obviously.", reply: "FINALLY. Someone who under-\nstands my LIFESTYLE. Get in.", expr: "excited" },
+                { label: "Snacks. Always snacks.", reply: "A woman of SUBSTANCE. My\nrespect? Earned. Barely.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "I had a DREAM about you.\nYou owed me a casserole.",
+            expr: "dramatic",
+            choices: [
+                { label: "Dreams aren't real debts.", reply: "Tell that to my SUBCONSCIOUS.\nShe keeps RECEIPTS, Lulu.", expr: "annoyed" },
+                { label: "I'll bake you two.", reply: "TWO casseroles?! Okay now\nI'm getting in the car FAST.", expr: "love" },
+                { label: "That's so specific.", reply: "My dreams have PRODUCTION\nVALUE. Unlike your texting.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Quick poll: am I the funny\nfriend or the WISE one today?",
+            expr: "smug",
+            choices: [
+                { label: "Funny. Definitely funny.", reply: "WRONG. I'm BOTH. This is a\ntrick poll. You failed. Drive.", expr: "annoyed" },
+                { label: "Wise AND funny.", reply: "Correct answer. Suspicious\nspeed, though. Were you coached?", expr: "suspicious" },
+                { label: "The dramatic one?", reply: "...How DARE you be RIGHT.\nUgh. Get in before I cry.", expr: "dramatic" }
+            ]
+        },
+        {
+            prompt: "I'm bringing my emotional\nsupport water bottle. Issue?",
+            expr: "suspicious",
+            choices: [
+                { label: "No issue at all.", reply: "Good. She's named Brenda.\nBrenda gets the cupholder.", expr: "excited" },
+                { label: "Does it have a name?", reply: "Obviously. BRENDA. Keep up.\nShe's been through a LOT.", expr: "dramatic" },
+                { label: "We're not bringing Brenda.", reply: "Then I'm not bringing ME.\n...kidding. Brenda's coming.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Be honest. Is my hair giving\n'main character' today?",
+            expr: "dramatic",
+            choices: [
+                { label: "It's giving LEGEND.", reply: "I KNOW. But I needed YOU\nto know that I know. Thank you.", expr: "love" },
+                { label: "It's giving... humid.", reply: "Slander! In MY doorway?!\nGet in before I rethink this.", expr: "annoyed" },
+                { label: "Better than mine.", reply: "Finally, some self-awareness.\nWe're gonna get along GREAT.", expr: "smug" }
+            ]
         }
     ];
+
+    // ── Snack step (the rugelach payoff lives here). ──
+    var AVIGAIL_SNACKS = [
+        {
+            prompt: "Before I commit: what's the\nsnack situation in there?",
+            expr: "excited",
+            choices: [
+                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
+                { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
+                { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
+            ]
+        },
+        {
+            prompt: "Non-negotiable: is there\nsomething to NOSH on?",
+            expr: "excited",
+            choices: [
+                { label: "Rugelach. As promised.", reply: "You REMEMBERED. I'm welling\nup. Don't look at me. DRIVE.", expr: "love" },
+                { label: "A suspicious mint.", reply: "A MINT? One? Singular?? This\nis a CRISIS, not a road trip.", expr: "panic" },
+                { label: "Gas station pretzels.", reply: "Gas station pretzels are a\nLOVE LANGUAGE. Fine. I'm in.", expr: "smug" }
+            ]
+        }
+    ];
+
     var AVIGAIL_CLOSERS = [
         "Okay LET'S GO. I'm driving.\n...Fine, YOU drive. This time.",
         "If we get snacks on the way,\nall nine days are forgiven.",
         "I'm only coming for the aux\ncord and the bit. Mostly the bit.",
         "Buckle up. If we die, I'm\ntelling everyone it was YOUR fault.",
-        "Shotgun, aux, AND the last\nrugelach. That's the deal. Go go go."
+        "Shotgun, aux, AND the last\nrugelach. That's the deal. Go go go.",
+        "Brenda's buckled, I'm buckled,\nlet's make some QUESTIONABLE memories.",
+        "I forgive you. Conditionally.\nThe condition is more rugelach."
     ];
+
     var avigailHasRugelach = false;
+    var AVIGAIL_SCRIPT = null;                                // assembled per scene
+    var avigailRugelachIdx = AVIGAIL_OPENERS[0].rugelachIdx;  // updated at assembly
+
+    // Fisher-Yates-ish shuffle returning a fresh array (does not mutate input).
+    function avigailShuffle(arr) {
+        var a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) {
+            var j = randInt(0, i);
+            var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+        }
+        return a;
+    }
+
+    // Assemble a fresh ~6-8 step script: opener (tagged isOpener) + shuffled
+    // middles + a snack step (tagged isSnack), all inserted in a pleasant order.
+    function buildAvigailScript() {
+        var opener = randPick(AVIGAIL_OPENERS);
+        opener.isOpener = true;                        // tag drives rugelach-promise logic
+        avigailRugelachIdx = opener.rugelachIdx;
+
+        var snack = randPick(AVIGAIL_SNACKS);
+        snack.isSnack = true;                          // tag drives the payoff logic
+
+        // 4-5 random middles → total 6-7 steps with opener + snack.
+        var midCount = randInt(4, 5);
+        var mids = avigailShuffle(AVIGAIL_MIDDLES).slice(0, midCount);
+
+        var script = [opener];
+        // Drop the snack step somewhere in the back half so the promise has time
+        // to register, then append the rest of the middles after it.
+        var splitAt = Math.ceil(mids.length / 2);
+        for (var m = 0; m < splitAt; m++) script.push(mids[m]);
+        script.push(snack);
+        for (var n = splitAt; n < mids.length; n++) script.push(mids[n]);
+        return script;
+    }
 
     function startAvigailScene() {
         prevState = "playing";
@@ -8521,6 +9233,7 @@
         avigailDoorTimer = 2.0;
         avigailResolved = false;
         avigailHasRugelach = false;
+        AVIGAIL_SCRIPT = buildAvigailScript();   // fresh randomized conversation
     }
 
     function updateAvigailScene(dt) {
@@ -8552,14 +9265,17 @@
         var click = consumeClick();
         if (click) {
             var dec = AVIGAIL_SCRIPT[avigailStep];
+            if (!dec) return;
             for (var i = 0; i < dec.choices.length; i++) {
                 var by = 636 + i * 60;
                 if (pointInRect(click.x, click.y, 70, by, 340, 54)) {
                     var ch = dec.choices[i];
-                    // remember the rugelach promise (step 0, "I brought rugelach")
-                    if (avigailStep === 0) avigailHasRugelach = (i === 2);
-                    // payoff: snack step "Rugelach. As promised." when she never got one
-                    if (avigailStep === 5 && i === 0 && !avigailHasRugelach) {
+                    // remember the rugelach promise — tracked via the opener tag +
+                    // its own rugelachIdx, so step order/shuffle can't break it.
+                    if (dec.isOpener) avigailHasRugelach = (i === avigailRugelachIdx);
+                    // payoff: on the snack step, "Rugelach. As promised." (choice 0)
+                    // only lands if a rugelach promise was actually made at the door.
+                    if (dec.isSnack && i === 0 && !avigailHasRugelach) {
                         avigailReply = "You said RUGELACH at the door\nand brought... NOTHING? Get in.";
                         avigailExpr = "annoyed";
                     } else {
@@ -8645,7 +9361,10 @@
             bubbleText = avigailReply;
             lockChoices = true;
         } else {
-            bubbleText = AVIGAIL_SCRIPT[avigailStep].prompt;
+            // Guard: avigailStep can momentarily equal SCRIPT.length on the frame
+            // the closer resolves; fall back gracefully instead of indexing OOB.
+            var cur = AVIGAIL_SCRIPT && AVIGAIL_SCRIPT[avigailStep];
+            bubbleText = cur ? cur.prompt : "...";
         }
         // Bubble
         ctx.fillStyle = "#FFFFFF";
@@ -8664,9 +9383,9 @@
                 drawText("♥ " + (avigailStep + 1) + " / " + AVIGAIL_SCRIPT.length,
                     W / 2, 540, "bold 14px 'Segoe UI', Arial, sans-serif", "#5D4037", "#FFF", 2);
             }
-            var dec = AVIGAIL_SCRIPT[avigailStep];
+            var dec = AVIGAIL_SCRIPT && AVIGAIL_SCRIPT[avigailStep];
             var cols = [{ bg: "#66BB6A", bgDark: "#2E7D32" }, { bg: "#42A5F5", bgDark: "#0D47A1" }, { bg: "#FFC107", bgDark: "#FF6F00" }];
-            for (var i = 0; i < dec.choices.length; i++) {
+            for (var i = 0; dec && i < dec.choices.length; i++) {
                 var by = 636 + i * 60;
                 drawButton(70, by, 340, 54, dec.choices[i].label,
                     { bg: cols[i].bg, bgDark: cols[i].bgDark, small: true });
@@ -8878,18 +9597,62 @@
         ctx.closePath(); ctx.fill();
 
         // Salon chair (with Lulu in it during pick/process; reveal shows new hair)
+        // Chrome hydraulic pole + round base.
+        ctx.fillStyle = "#90A4AE";
+        ctx.fillRect(W / 2 - 5, 470, 10, 150); // pole
         ctx.fillStyle = "#B0BEC5";
-        ctx.fillRect(W / 2 - 4, 470, 8, 150); // pole
-        ctx.fillStyle = "#C2185B";
-        roundRect(W / 2 - 50, 440, 100, 60, 14); ctx.fill();
+        roundRect(W / 2 - 7, 470, 4, 150, 2); ctx.fill(); // pole highlight
+        ctx.fillStyle = "#78909C";
+        ctx.beginPath(); ctx.ellipse(W / 2, 624, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#B0BEC5";
+        ctx.beginPath(); ctx.ellipse(W / 2, 620, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+        // Plush salon chair back (rounded, glossy pink) with armrests.
+        ctx.fillStyle = "#AD1457";
+        roundRect(W / 2 - 58, 432, 116, 78, 22); ctx.fill();
+        ctx.fillStyle = "#EC407A";
+        roundRect(W / 2 - 50, 440, 100, 64, 18); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.30)"; // gloss
+        roundRect(W / 2 - 44, 446, 88, 18, 12); ctx.fill();
+        ctx.fillStyle = "#C2185B"; // armrests
+        roundRect(W / 2 - 70, 470, 18, 30, 8); ctx.fill();
+        roundRect(W / 2 + 52, 470, 18, 30, 8); ctx.fill();
 
         // Lulu in the mirror (shows her hair). During reveal, show new color big.
         if (salonPhase >= 1) {
+            // Soft round vanity-mirror spotlight behind her so the portrait reads
+            // as a framed reflection rather than floating art.
             ctx.save();
-            ctx.translate(W / 2, 250);
-            ctx.scale(1.3, 1.3);
+            ctx.beginPath(); ctx.arc(W / 2, 240, 108, 0, Math.PI * 2); ctx.clip();
+            var glowG = ctx.createRadialGradient(W / 2, 230, 20, W / 2, 240, 110);
+            glowG.addColorStop(0, "rgba(255,255,255,0.55)");
+            glowG.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.fillStyle = glowG;
+            ctx.fillRect(W / 2 - 110, 130, 220, 220);
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(W / 2, 252);
+            ctx.scale(1.32, 1.32);
             // reuse portrait — hair already reads save.luluHair (committed at reveal)
             drawLuluPortrait(0, 0, gameTime, 1);
+            // Salon cape draped over her shoulders, painted OVER the portrait so it
+            // tidily hides the portrait's peeking car + tee and frames her face as a
+            // salon client. (Her hair/face still show — only the body is covered.)
+            ctx.fillStyle = "#37474F";
+            ctx.beginPath();
+            ctx.moveTo(-48, 40);
+            ctx.quadraticCurveTo(0, 30, 48, 40);
+            ctx.lineTo(64, 100);
+            ctx.quadraticCurveTo(0, 114, -64, 100);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#455A64"; // cape sheen panel
+            ctx.beginPath();
+            ctx.moveTo(-40, 42); ctx.quadraticCurveTo(0, 34, 40, 42);
+            ctx.lineTo(52, 94); ctx.quadraticCurveTo(0, 104, -52, 94);
+            ctx.closePath(); ctx.fill();
+            // White neck towel trim peeking above the cape collar
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(-30, 30, 60, 13, 6); ctx.fill();
             ctx.restore();
         }
 
@@ -9322,7 +10085,7 @@
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
                  state === "dinaHome" || state === "dinaNap" || state === "dinaMorgan" ||
-                 state === "cookieCatch") musicTrack = "dina";
+                 state === "cookieCatch" || state === "stickerBook") musicTrack = "dina";
         else if (state === "avigailScene") musicTrack = "avigail";
         else if (state.indexOf("salon") === 0) musicTrack = "salon";
         // Paused keeps whatever was playing (handled in updatePaused)
@@ -9346,6 +10109,7 @@
         else if (state === "dinaMorgan") updateDinaMorgan(dt);
         else if (state === "dinaNap") updateDinaNap(dt);
         else if (state === "cookieCatch") updateCookieCatch(dt);
+        else if (state === "stickerBook") updateStickerBook(dt);
         else if (state === "avigailScene") updateAvigailScene(dt);
         else if (state === "salon") updateSalon(dt);
 
@@ -9369,6 +10133,7 @@
         else if (state === "dinaMorgan") drawDinaMorgan();
         else if (state === "dinaNap") drawDinaNap();
         else if (state === "cookieCatch") drawCookieCatch();
+        else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
 

@@ -325,6 +325,26 @@
             ctx.fill();
         }
 
+        // Live driving cues: only the active player car, while actually driving
+        var driving = (typeof state !== "undefined" && state === "playing" && !blinking) || false;
+        var boosting = driving && keys.up;
+        var braking = driving && keys.down;
+
+        // Boost: warm headlight beam glowing forward
+        if (boosting) {
+            var beam = ctx.createLinearGradient(0, -hh - 30, 0, -hh);
+            beam.addColorStop(0, "rgba(255,249,196,0)");
+            beam.addColorStop(1, "rgba(255,249,196,0.35)");
+            ctx.fillStyle = beam;
+            ctx.beginPath();
+            ctx.moveTo(-hw + 6, -hh + 2);
+            ctx.lineTo(-hw - 4, -hh - 26);
+            ctx.lineTo(hw + 4, -hh - 26);
+            ctx.lineTo(hw - 6, -hh + 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+
         // Headlights
         ctx.fillStyle = "#FFF9C4";
         ctx.beginPath();
@@ -332,12 +352,45 @@
         ctx.ellipse(hw - 10, -hh + 2, 5, 3, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Taillights
-        ctx.fillStyle = "#F44336";
+        // Brake-light glow halo when slowing
+        if (braking) {
+            ctx.fillStyle = "rgba(244,67,54,0.35)";
+            ctx.beginPath();
+            ctx.ellipse(-hw + 10, hh - 4, 9, 7, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw - 10, hh - 4, 9, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Taillights (brighter red when braking)
+        ctx.fillStyle = braking ? "#FF5252" : "#F44336";
         ctx.beginPath();
         ctx.ellipse(-hw + 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
         ctx.ellipse(hw - 10, hh - 4, 4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
+        if (braking) {
+            // hot white core
+            ctx.fillStyle = "#FFCDD2";
+            ctx.beginPath();
+            ctx.ellipse(-hw + 10, hh - 4, 1.8, 1.4, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw - 10, hh - 4, 1.8, 1.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Boost exhaust puffs out the back
+        if (boosting && Math.random() > 0.4) {
+            particles.push({
+                x: x + rand(-hw + 8, -hw + 14), y: y + hh + 4,
+                vx: rand(-12, 12), vy: rand(40, 90),
+                life: 0.35, maxLife: 0.35, smoke: true,
+                size: rand(2, 4), color: "rgba(200,200,200,0.7)", gravity: 0
+            });
+            particles.push({
+                x: x + rand(hw - 14, hw - 8), y: y + hh + 4,
+                vx: rand(-12, 12), vy: rand(40, 90),
+                life: 0.35, maxLife: 0.35, smoke: true,
+                size: rand(2, 4), color: "rgba(200,200,200,0.7)", gravity: 0
+            });
+        }
 
         ctx.globalAlpha = 1;
         ctx.restore();
@@ -376,6 +429,18 @@
         ctx.fillStyle = "#78909C";
         roundRect(-hw2 + 6, hh2 - 22, ew - 12, 14, 4); ctx.fill();
         roundRect(-hw2 + 8, -hh2 + 8, ew - 16, 11, 3); ctx.fill();
+        // glass gloss highlight (diagonal sheen) — cleaner, less flat look
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        roundRect(-hw2 + 8, hh2 - 21, (ew - 12) * 0.42, 12, 3); ctx.fill();
+        // body top sheen
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        roundRect(-hw2 + 4, -hh2 + 3, ew - 8, 5, 3); ctx.fill();
+        // facing taillights (enemy cars drive toward us — red lights at their rear/bottom)
+        ctx.fillStyle = "#EF5350";
+        ctx.beginPath();
+        ctx.ellipse(-hw2 + 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+        ctx.ellipse(hw2 - 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }

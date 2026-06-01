@@ -314,12 +314,24 @@
         ctx.restore();
     }
 
-    // Avigail dialogue script (8 decisions; reply shown then advance)
-    // engine reads entry.prompt + choice.{label,reply,expr}. <=3 choices/step (3-color palette).
-    var AVIGAIL_SCRIPT = [
+    // Avigail dialogue — assembled FRESH each pickup from pools below so the
+    // conversation is rarely the same twice.
+    //   • AVIGAIL_OPENERS  — step 0. Each has a "rugelach" choice; picking it sets
+    //                        avigailHasRugelach. The chosen opener is tagged isOpener.
+    //   • AVIGAIL_MIDDLES  — a shuffled subset fills the middle.
+    //   • AVIGAIL_SNACKS   — one snack step (tagged isSnack) where "Rugelach. As
+    //                        promised." pays off the promise made at the door.
+    //   • AVIGAIL_CLOSERS  — final spoken line as she joins the trip (2x points).
+    // engine reads step.prompt + choice.{label,reply,expr}. <=3 choices/step.
+    // The rugelach payoff keys off the isOpener / isSnack tags (set at assembly
+    // time), NOT a fixed index, so shuffling can never break it.
+
+    // ── Openers (step 0). The rugelach choice is always present; rugelachIdx
+    //    records which choice index promises rugelach for this opener. ──
+    var AVIGAIL_OPENERS = [
         {
             prompt: "Nobody's home! This is\nher cat speaking.",
-            expr: "suspicious",
+            expr: "suspicious", rugelachIdx: 2,
             choices: [
                 { label: "Cats can't talk.", reply: "...Meow. Dang it. Hold on,\nI'm getting dressed.", expr: "annoyed" },
                 { label: "I see your feet under the door.", reply: "These are DECORATIVE feet.\nVery on-trend this season.", expr: "suspicious" },
@@ -327,7 +339,29 @@
             ]
         },
         {
-            prompt: "*door creaks open* Oh. It's\nYOU. The ghoster herself.",
+            prompt: "I'm not coming out. I'm in\nmy pajamas and my FEELINGS.",
+            expr: "dramatic", rugelachIdx: 1,
+            choices: [
+                { label: "It's 2 in the afternoon.", reply: "Time is a SOCIAL CONSTRUCT,\nLulu. So is your invitation.", expr: "smug" },
+                { label: "There's rugelach out here.", reply: "...Pajamas ARE a fashion\nstatement. I'll be RIGHT out.", expr: "excited" },
+                { label: "Same hat. Let me in.", reply: "Oh you GET it. Ugh, fine.\nUnlocking the door of doom.", expr: "love" }
+            ]
+        },
+        {
+            prompt: "State your business! And NO,\nI did not order a salad.",
+            expr: "suspicious", rugelachIdx: 0,
+            choices: [
+                { label: "I literally brought rugelach.", reply: "RUGELACH?! Why are we still\nTALKING? Move, move, move!", expr: "excited" },
+                { label: "It's me, Lulu. Open up.", reply: "'It's me' could be ANYONE.\nProve it. ...okay it's you.", expr: "suspicious" },
+                { label: "Road trip. Get in the car.", reply: "A road trip? Unannounced??\nThe AUDACITY. I'm intrigued.", expr: "smug" }
+            ]
+        }
+    ];
+
+    // ── Middle exchanges — a shuffled subset is used each run. ──
+    var AVIGAIL_MIDDLES = [
+        {
+            prompt: "Oh. It's YOU. The ghoster\nherself, in the FLESH.",
             expr: "annoyed",
             choices: [
                 { label: "I never ghosted you!", reply: "You left me on read for\n9 DAYS, Lulu. NINE.", expr: "annoyed" },
@@ -363,15 +397,6 @@
             ]
         },
         {
-            prompt: "Before I commit: what's the\nsnack situation in there?",
-            expr: "excited",
-            choices: [
-                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
-                { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
-                { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
-            ]
-        },
-        {
             prompt: "Okay but I'm calling shotgun\nAND aux. Non-negotiable.",
             expr: "smug",
             choices: [
@@ -388,16 +413,124 @@
                 { label: "...Define 'picking up.'", reply: "LULU. I KNEW it. Turn the\ncar around— no, fine, GO.", expr: "panic" },
                 { label: "He moved to Lakewood.", reply: "Baruch Hashem. Truly. Start\nthe kettle— I mean, the car.", expr: "love" }
             ]
+        },
+        // ── fresh material ──
+        {
+            prompt: "Wait. Did you bring snacks\nOR did you bring DRAMA?",
+            expr: "suspicious",
+            choices: [
+                { label: "Why not both?", reply: "...That's the most ME thing\nyou've EVER said. I'm proud.", expr: "love" },
+                { label: "Drama, obviously.", reply: "FINALLY. Someone who under-\nstands my LIFESTYLE. Get in.", expr: "excited" },
+                { label: "Snacks. Always snacks.", reply: "A woman of SUBSTANCE. My\nrespect? Earned. Barely.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "I had a DREAM about you.\nYou owed me a casserole.",
+            expr: "dramatic",
+            choices: [
+                { label: "Dreams aren't real debts.", reply: "Tell that to my SUBCONSCIOUS.\nShe keeps RECEIPTS, Lulu.", expr: "annoyed" },
+                { label: "I'll bake you two.", reply: "TWO casseroles?! Okay now\nI'm getting in the car FAST.", expr: "love" },
+                { label: "That's so specific.", reply: "My dreams have PRODUCTION\nVALUE. Unlike your texting.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Quick poll: am I the funny\nfriend or the WISE one today?",
+            expr: "smug",
+            choices: [
+                { label: "Funny. Definitely funny.", reply: "WRONG. I'm BOTH. This is a\ntrick poll. You failed. Drive.", expr: "annoyed" },
+                { label: "Wise AND funny.", reply: "Correct answer. Suspicious\nspeed, though. Were you coached?", expr: "suspicious" },
+                { label: "The dramatic one?", reply: "...How DARE you be RIGHT.\nUgh. Get in before I cry.", expr: "dramatic" }
+            ]
+        },
+        {
+            prompt: "I'm bringing my emotional\nsupport water bottle. Issue?",
+            expr: "suspicious",
+            choices: [
+                { label: "No issue at all.", reply: "Good. She's named Brenda.\nBrenda gets the cupholder.", expr: "excited" },
+                { label: "Does it have a name?", reply: "Obviously. BRENDA. Keep up.\nShe's been through a LOT.", expr: "dramatic" },
+                { label: "We're not bringing Brenda.", reply: "Then I'm not bringing ME.\n...kidding. Brenda's coming.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Be honest. Is my hair giving\n'main character' today?",
+            expr: "dramatic",
+            choices: [
+                { label: "It's giving LEGEND.", reply: "I KNOW. But I needed YOU\nto know that I know. Thank you.", expr: "love" },
+                { label: "It's giving... humid.", reply: "Slander! In MY doorway?!\nGet in before I rethink this.", expr: "annoyed" },
+                { label: "Better than mine.", reply: "Finally, some self-awareness.\nWe're gonna get along GREAT.", expr: "smug" }
+            ]
         }
     ];
+
+    // ── Snack step (the rugelach payoff lives here). ──
+    var AVIGAIL_SNACKS = [
+        {
+            prompt: "Before I commit: what's the\nsnack situation in there?",
+            expr: "excited",
+            choices: [
+                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
+                { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
+                { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
+            ]
+        },
+        {
+            prompt: "Non-negotiable: is there\nsomething to NOSH on?",
+            expr: "excited",
+            choices: [
+                { label: "Rugelach. As promised.", reply: "You REMEMBERED. I'm welling\nup. Don't look at me. DRIVE.", expr: "love" },
+                { label: "A suspicious mint.", reply: "A MINT? One? Singular?? This\nis a CRISIS, not a road trip.", expr: "panic" },
+                { label: "Gas station pretzels.", reply: "Gas station pretzels are a\nLOVE LANGUAGE. Fine. I'm in.", expr: "smug" }
+            ]
+        }
+    ];
+
     var AVIGAIL_CLOSERS = [
         "Okay LET'S GO. I'm driving.\n...Fine, YOU drive. This time.",
         "If we get snacks on the way,\nall nine days are forgiven.",
         "I'm only coming for the aux\ncord and the bit. Mostly the bit.",
         "Buckle up. If we die, I'm\ntelling everyone it was YOUR fault.",
-        "Shotgun, aux, AND the last\nrugelach. That's the deal. Go go go."
+        "Shotgun, aux, AND the last\nrugelach. That's the deal. Go go go.",
+        "Brenda's buckled, I'm buckled,\nlet's make some QUESTIONABLE memories.",
+        "I forgive you. Conditionally.\nThe condition is more rugelach."
     ];
+
     var avigailHasRugelach = false;
+    var AVIGAIL_SCRIPT = null;                                // assembled per scene
+    var avigailRugelachIdx = AVIGAIL_OPENERS[0].rugelachIdx;  // updated at assembly
+
+    // Fisher-Yates-ish shuffle returning a fresh array (does not mutate input).
+    function avigailShuffle(arr) {
+        var a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) {
+            var j = randInt(0, i);
+            var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+        }
+        return a;
+    }
+
+    // Assemble a fresh ~6-8 step script: opener (tagged isOpener) + shuffled
+    // middles + a snack step (tagged isSnack), all inserted in a pleasant order.
+    function buildAvigailScript() {
+        var opener = randPick(AVIGAIL_OPENERS);
+        opener.isOpener = true;                        // tag drives rugelach-promise logic
+        avigailRugelachIdx = opener.rugelachIdx;
+
+        var snack = randPick(AVIGAIL_SNACKS);
+        snack.isSnack = true;                          // tag drives the payoff logic
+
+        // 4-5 random middles → total 6-7 steps with opener + snack.
+        var midCount = randInt(4, 5);
+        var mids = avigailShuffle(AVIGAIL_MIDDLES).slice(0, midCount);
+
+        var script = [opener];
+        // Drop the snack step somewhere in the back half so the promise has time
+        // to register, then append the rest of the middles after it.
+        var splitAt = Math.ceil(mids.length / 2);
+        for (var m = 0; m < splitAt; m++) script.push(mids[m]);
+        script.push(snack);
+        for (var n = splitAt; n < mids.length; n++) script.push(mids[n]);
+        return script;
+    }
 
     function startAvigailScene() {
         prevState = "playing";
@@ -409,6 +542,7 @@
         avigailDoorTimer = 2.0;
         avigailResolved = false;
         avigailHasRugelach = false;
+        AVIGAIL_SCRIPT = buildAvigailScript();   // fresh randomized conversation
     }
 
     function updateAvigailScene(dt) {
@@ -440,14 +574,17 @@
         var click = consumeClick();
         if (click) {
             var dec = AVIGAIL_SCRIPT[avigailStep];
+            if (!dec) return;
             for (var i = 0; i < dec.choices.length; i++) {
                 var by = 636 + i * 60;
                 if (pointInRect(click.x, click.y, 70, by, 340, 54)) {
                     var ch = dec.choices[i];
-                    // remember the rugelach promise (step 0, "I brought rugelach")
-                    if (avigailStep === 0) avigailHasRugelach = (i === 2);
-                    // payoff: snack step "Rugelach. As promised." when she never got one
-                    if (avigailStep === 5 && i === 0 && !avigailHasRugelach) {
+                    // remember the rugelach promise — tracked via the opener tag +
+                    // its own rugelachIdx, so step order/shuffle can't break it.
+                    if (dec.isOpener) avigailHasRugelach = (i === avigailRugelachIdx);
+                    // payoff: on the snack step, "Rugelach. As promised." (choice 0)
+                    // only lands if a rugelach promise was actually made at the door.
+                    if (dec.isSnack && i === 0 && !avigailHasRugelach) {
                         avigailReply = "You said RUGELACH at the door\nand brought... NOTHING? Get in.";
                         avigailExpr = "annoyed";
                     } else {
@@ -533,7 +670,10 @@
             bubbleText = avigailReply;
             lockChoices = true;
         } else {
-            bubbleText = AVIGAIL_SCRIPT[avigailStep].prompt;
+            // Guard: avigailStep can momentarily equal SCRIPT.length on the frame
+            // the closer resolves; fall back gracefully instead of indexing OOB.
+            var cur = AVIGAIL_SCRIPT && AVIGAIL_SCRIPT[avigailStep];
+            bubbleText = cur ? cur.prompt : "...";
         }
         // Bubble
         ctx.fillStyle = "#FFFFFF";
@@ -552,9 +692,9 @@
                 drawText("♥ " + (avigailStep + 1) + " / " + AVIGAIL_SCRIPT.length,
                     W / 2, 540, "bold 14px 'Segoe UI', Arial, sans-serif", "#5D4037", "#FFF", 2);
             }
-            var dec = AVIGAIL_SCRIPT[avigailStep];
+            var dec = AVIGAIL_SCRIPT && AVIGAIL_SCRIPT[avigailStep];
             var cols = [{ bg: "#66BB6A", bgDark: "#2E7D32" }, { bg: "#42A5F5", bgDark: "#0D47A1" }, { bg: "#FFC107", bgDark: "#FF6F00" }];
-            for (var i = 0; i < dec.choices.length; i++) {
+            for (var i = 0; dec && i < dec.choices.length; i++) {
                 var by = 636 + i * 60;
                 drawButton(70, by, 340, 54, dec.choices[i].label,
                     { bg: cols[i].bg, bgDark: cols[i].bgDark, small: true });
@@ -766,18 +906,62 @@
         ctx.closePath(); ctx.fill();
 
         // Salon chair (with Lulu in it during pick/process; reveal shows new hair)
+        // Chrome hydraulic pole + round base.
+        ctx.fillStyle = "#90A4AE";
+        ctx.fillRect(W / 2 - 5, 470, 10, 150); // pole
         ctx.fillStyle = "#B0BEC5";
-        ctx.fillRect(W / 2 - 4, 470, 8, 150); // pole
-        ctx.fillStyle = "#C2185B";
-        roundRect(W / 2 - 50, 440, 100, 60, 14); ctx.fill();
+        roundRect(W / 2 - 7, 470, 4, 150, 2); ctx.fill(); // pole highlight
+        ctx.fillStyle = "#78909C";
+        ctx.beginPath(); ctx.ellipse(W / 2, 624, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#B0BEC5";
+        ctx.beginPath(); ctx.ellipse(W / 2, 620, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+        // Plush salon chair back (rounded, glossy pink) with armrests.
+        ctx.fillStyle = "#AD1457";
+        roundRect(W / 2 - 58, 432, 116, 78, 22); ctx.fill();
+        ctx.fillStyle = "#EC407A";
+        roundRect(W / 2 - 50, 440, 100, 64, 18); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.30)"; // gloss
+        roundRect(W / 2 - 44, 446, 88, 18, 12); ctx.fill();
+        ctx.fillStyle = "#C2185B"; // armrests
+        roundRect(W / 2 - 70, 470, 18, 30, 8); ctx.fill();
+        roundRect(W / 2 + 52, 470, 18, 30, 8); ctx.fill();
 
         // Lulu in the mirror (shows her hair). During reveal, show new color big.
         if (salonPhase >= 1) {
+            // Soft round vanity-mirror spotlight behind her so the portrait reads
+            // as a framed reflection rather than floating art.
             ctx.save();
-            ctx.translate(W / 2, 250);
-            ctx.scale(1.3, 1.3);
+            ctx.beginPath(); ctx.arc(W / 2, 240, 108, 0, Math.PI * 2); ctx.clip();
+            var glowG = ctx.createRadialGradient(W / 2, 230, 20, W / 2, 240, 110);
+            glowG.addColorStop(0, "rgba(255,255,255,0.55)");
+            glowG.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.fillStyle = glowG;
+            ctx.fillRect(W / 2 - 110, 130, 220, 220);
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(W / 2, 252);
+            ctx.scale(1.32, 1.32);
             // reuse portrait — hair already reads save.luluHair (committed at reveal)
             drawLuluPortrait(0, 0, gameTime, 1);
+            // Salon cape draped over her shoulders, painted OVER the portrait so it
+            // tidily hides the portrait's peeking car + tee and frames her face as a
+            // salon client. (Her hair/face still show — only the body is covered.)
+            ctx.fillStyle = "#37474F";
+            ctx.beginPath();
+            ctx.moveTo(-48, 40);
+            ctx.quadraticCurveTo(0, 30, 48, 40);
+            ctx.lineTo(64, 100);
+            ctx.quadraticCurveTo(0, 114, -64, 100);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#455A64"; // cape sheen panel
+            ctx.beginPath();
+            ctx.moveTo(-40, 42); ctx.quadraticCurveTo(0, 34, 40, 42);
+            ctx.lineTo(52, 94); ctx.quadraticCurveTo(0, 104, -52, 94);
+            ctx.closePath(); ctx.fill();
+            // White neck towel trim peeking above the cape collar
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(-30, 30, 60, 13, 6); ctx.fill();
             ctx.restore();
         }
 

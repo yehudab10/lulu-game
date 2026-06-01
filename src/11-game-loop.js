@@ -16,7 +16,7 @@
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
                  state === "dinaHome" || state === "dinaNap" || state === "dinaMorgan" ||
-                 state === "cookieCatch") musicTrack = "dina";
+                 state === "cookieCatch" || state === "stickerBook") musicTrack = "dina";
         else if (state === "avigailScene") musicTrack = "avigail";
         else if (state.indexOf("salon") === 0) musicTrack = "salon";
         // Paused keeps whatever was playing (handled in updatePaused)
@@ -40,6 +40,7 @@
         else if (state === "dinaMorgan") updateDinaMorgan(dt);
         else if (state === "dinaNap") updateDinaNap(dt);
         else if (state === "cookieCatch") updateCookieCatch(dt);
+        else if (state === "stickerBook") updateStickerBook(dt);
         else if (state === "avigailScene") updateAvigailScene(dt);
         else if (state === "salon") updateSalon(dt);
 
@@ -63,6 +64,7 @@
         else if (state === "dinaMorgan") drawDinaMorgan();
         else if (state === "dinaNap") drawDinaNap();
         else if (state === "cookieCatch") drawCookieCatch();
+        else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
 

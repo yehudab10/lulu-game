@@ -38,7 +38,8 @@ How it works:
 | `07-dina-world.js`       | character select, Dina/mom top-down sprites, school bus intro |
 | `08-dina-run.js`         | Dina's run-home scene + hazards + dinaCaught ending |
 | `09-dina-home-morgan.js` | Dina's bedroom, home-object routing, Morgan plushie scene |
-| `10-dina-nap-salon.js`   | Dina nap, Avigail scene, salon scene |
+| `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
+| `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |
 | `10b-cookie-catch.js`    | Cookie Catch minigame (Dina's bedroom snack activity) |
 | `11-game-loop.js`        | main gameLoop + init + IIFE close |
 
