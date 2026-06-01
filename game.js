@@ -3051,19 +3051,58 @@
     // ── Salon mode ───────────────────────────────────────────
     var salonSigns = [];
     var salonSpawnTimer = rand(40, 70);
-    var salonPhase = 0;             // 0 intro, 1 pick, 2 processing, 3 reveal
+    var salonPhase = 0;             // 0 intro,1 consult,2 style,3 color,4 process,5 reveal
     var salonTimer = 0;
     var salonPendingColor = null;
     var salonIsBlonde = false;
     var salonReaction = "";
+    var salonStyle = null;
+    var salonOops = false;
+    var salonConsultStep = 0;
     var SALON_COLORS = [
-        { label: "PLATINUM", hex: "#F5E6C8", blonde: true },
-        { label: "GOLDEN", hex: "#E6B800", blonde: true },
-        { label: "BRUNETTE", hex: "#6B4423", blonde: false },
-        { label: "JET BLACK", hex: "#1A1A1A", blonde: false },
-        { label: "PINK", hex: "#FF6FB5", blonde: false },
-        { label: "BLUE", hex: "#5B8DEF", blonde: false }
+        { label: "PLATINUM", hex: "#F5E6C8", blonde: true,
+          fabio: "PLATINUM?! Like zee\nDIAMOND of zee HEAD!",
+          luluWin: "I'm BLONDE! I'm basically a\ndifferent person now!" },
+        { label: "GOLDEN", hex: "#E6B800", blonde: true,
+          fabio: "GOLD! Zee Maccabees would\nWEEP. In a GOOD way!",
+          luluWin: "Fabio, I could KISS you.\nI won't. But I COULD." },
+        { label: "BRUNETTE", hex: "#6B4423", blonde: false,
+          fabio: "Brunette… bold. Brave.\nBasically a SHEITEL, no?",
+          luluLose: "It's the SAME?! I paid for\na personality change!!" },
+        { label: "JET BLACK", hex: "#1A1A1A", blonde: false,
+          fabio: "So DARK. So MYSTERIOUS.\nSo… Tisha B'Av, non?",
+          luluLose: "I look like I joined a SAD\nBAND. Where's the WARRANTY?!" },
+        { label: "PINK", hex: "#FF6FB5", blonde: false,
+          fabio: "PINK! Zee Bubbe will plotz.\nMaybe FAINT. Worth it!",
+          luluLose: "I'm a COTTON CANDY GOBLIN!\nMy LAWYER will hear of this!" },
+        { label: "BLUE", hex: "#5B8DEF", blonde: false,
+          fabio: "BLUE?! Zis is not zee\nmikveh, mon chou!",
+          luluLose: "I look like a TROLL doll!!\n...tell my car I loved it." }
     ];
+    // Pre-cut consult: each tap reveals the next Fabio line.
+    var SALON_CONSULT = [
+        "Sit, sit! Tell Fabio…\nwhat is zee VIBE today?",
+        "Mm-hm. MM-hm. I see\nGREAT trauma in zis hair.",
+        "Zis hair has not seen\nShabbos in WEEKS, non?",
+        "Do not worry. Fabio fixes\nEVERYTHING. Even your AURA."
+    ];
+    // Style is flavor only — does NOT change save.luluHair, but flavors Fabio's reaction.
+    var SALON_STYLES = [
+        { label: "ZEE SHEITEL", fabio: "Classic. Timeless. Your\nBubbe sheds a TEAR." },
+        { label: "BIG & BOUNCY", fabio: "VOLUME! We will need a\nLARGER doorway!" },
+        { label: "THE 'AVIGAIL'", fabio: "Curls to zee HEAVENS!\nZee neighbors will TALK." }
+    ];
+    var SALON_PROCESS_BEATS = [
+        "Mixing zee potion…",
+        "I add a PINCH of CHUTZPAH…",
+        "Patience is beauty, mon chou…",
+        "Zee foils! Zey SING to me!",
+        "Almost… ALMOST… do not BLINK…"
+    ];
+    var SALON_OOPS = {
+        fabio: "…OKAY zee cat knocked zee\nbottle. But I MEANT zat!",
+        lulu:  "MY HAIR. WHAT did you DO.\n...okay it's kind of GREAT."
+    };
 
     function resetGame() {
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
@@ -8305,6 +8344,9 @@
         salonPendingColor = null;
         salonIsBlonde = false;
         salonReaction = "";
+        salonStyle = null;
+        salonOops = false;
+        salonConsultStep = 0;
     }
 
     function updateSalon(dt) {
@@ -8319,7 +8361,34 @@
             return;
         }
         if (salonPhase === 1) {
-            // Color pick
+            // DIALOGUE — each tap advances one consult line; last → style pick
+            if (consumeClick() || consumeAction()) {
+                salonConsultStep++;
+                playTone(440, 0.06, "triangle", 0.15);
+                if (salonConsultStep >= SALON_CONSULT.length) {
+                    salonPhase = 2; salonTimer = 0;
+                }
+            }
+            return;
+        }
+        if (salonPhase === 2) {
+            // STYLE pick — 3 stacked buttons
+            var sclick = consumeClick();
+            if (sclick) {
+                for (var s = 0; s < SALON_STYLES.length; s++) {
+                    var sby = 380 + s * 80;
+                    if (pointInRect(sclick.x, sclick.y, 60, sby, 380, 64)) {
+                        salonStyle = SALON_STYLES[s];
+                        salonPhase = 3; salonTimer = 0;
+                        playTone(523, 0.1, "triangle", 0.2);
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+        if (salonPhase === 3) {
+            // COLOR pick
             var click = consumeClick();
             if (click) {
                 for (var i = 0; i < SALON_COLORS.length; i++) {
@@ -8328,7 +8397,7 @@
                     if (pointInRect(click.x, click.y, bx, by, 130, 80)) {
                         salonPendingColor = SALON_COLORS[i];
                         salonIsBlonde = SALON_COLORS[i].blonde;
-                        salonPhase = 2; salonTimer = 0;
+                        salonPhase = 4; salonTimer = 0;
                         playTone(523, 0.1, "triangle", 0.2);
                         return;
                     }
@@ -8336,36 +8405,30 @@
             }
             return;
         }
-        if (salonPhase === 2) {
-            // Processing ~6s, then reveal
-            // dramatic arpeggio swells
-            if (salonTimer > 6) {
-                salonPhase = 3; salonTimer = 0;
-                // Commit hair color
+        if (salonPhase === 4) {
+            // Processing ~6.4s of beats, then commit + reveal
+            if (salonTimer > 6.4) {
+                salonPhase = 5; salonTimer = 0;
+                // Commit hair color — permanent, exactly once
                 save.luluHair = salonPendingColor.hex;
                 persistSave();
+                // 1-in-8 "oops" on non-blonde (keeps the blonde fanfare clean)
+                salonOops = (!salonIsBlonde && Math.random() < 0.125);
                 if (salonIsBlonde) {
-                    salonReaction = randPick([
-                        "I'm BLONDE! I'm basically a\ndifferent person now!",
-                        "Fabio, I could KISS you.\nI won't. But I COULD."
-                    ]);
+                    salonReaction = salonPendingColor.luluWin;
                     spawnCoinSparkle(W / 2, 300);
                     playTone(523, 0.1, "triangle", 0.2);
                     setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
                     setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 200);
                     setTimeout(function () { playTone(1046, 0.18, "triangle", 0.22); }, 300);
                 } else {
-                    var lbl = salonPendingColor.label;
-                    if (lbl === "BRUNETTE") salonReaction = "It's the SAME?! I paid for\na personality change!!";
-                    else if (lbl === "JET BLACK") salonReaction = "I look like I joined a SAD\nBAND. Where's the WARRANTY?!";
-                    else if (lbl === "PINK") salonReaction = "I'm a COTTON CANDY GOBLIN!\nMy LAWYER will hear of this!";
-                    else salonReaction = "I look like a TROLL doll!!\n...tell my car I loved it.";
+                    salonReaction = salonOops ? SALON_OOPS.lulu : salonPendingColor.luluLose;
                     setTimeout(playWompWomp, 200);
                 }
             }
             return;
         }
-        if (salonPhase === 3) {
+        if (salonPhase === 5) {
             // Reveal — TAP TO LEAVE
             var click2 = consumeClick();
             if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
@@ -8466,22 +8529,35 @@
             drawSalonBubble("Ah, bonjour! You sit in zee\nchair of GENIUS!");
             drawText("(tap to continue)", W / 2, H - 30, "13px Arial", "#fff", "#000", 2);
         } else if (salonPhase === 1) {
-            drawSalonBubble("What shall it be, mon chou?");
-            // 6 color swatches
+            // Consult dialogue
+            drawSalonBubble(SALON_CONSULT[Math.min(salonConsultStep, SALON_CONSULT.length - 1)]);
+            drawText("(tap to continue)", W / 2, H - 30, "13px Arial", "#fff", "#000", 2);
+        } else if (salonPhase === 2) {
+            // Style pick — 3 stacked wide buttons
+            drawSalonBubble("And zee SILHOUETTE, darling?");
+            for (var s = 0; s < SALON_STYLES.length; s++) {
+                var sby = 380 + s * 80;
+                drawButton(60, sby, 380, 64, SALON_STYLES[s].label,
+                    { bg: "#EC407A", bgDark: "#AD1457", small: true });
+            }
+        } else if (salonPhase === 3) {
+            // Color pick — Fabio reacts to the chosen style
+            drawSalonBubble(salonStyle ? salonStyle.fabio : "What shall it be, mon chou?");
             for (var i = 0; i < SALON_COLORS.length; i++) {
                 var col = i % 2, row = Math.floor(i / 2);
                 var bx = 50 + col * 250, by = 360 + row * 100;
                 var c = SALON_COLORS[i];
                 drawButton(bx, by, 130, 80, c.label, { bg: c.hex, bgDark: shadeColor(c.hex, -50), small: true });
             }
-        } else if (salonPhase === 2) {
-            // Processing: foils + dramatic ticker + white pulses
+        } else if (salonPhase === 4) {
+            // Processing: foils + beat-driven ticker + white pulses
             var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
             ctx.fillStyle = "rgba(255,255,255," + pulse + ")";
             ctx.fillRect(0, 0, W, H);
-            var ticker = salonTimer < 2 ? "Mixing zee potion…" :
-                         salonTimer < 4 ? "Patience is beauty…" : "Almost… ALMOST…";
-            drawSalonBubble(ticker);
+            // first beat: Fabio's hot take on the chosen color, then the process beats
+            var pbeat = Math.min(Math.floor(salonTimer / 1.28), SALON_PROCESS_BEATS.length - 1);
+            drawSalonBubble(salonTimer < 1.4 && salonPendingColor
+                ? salonPendingColor.fabio : SALON_PROCESS_BEATS[pbeat]);
             // sparkle dust
             if (Math.random() > 0.5) {
                 particles.push({ x: W / 2 + rand(-40, 40), y: 250 + rand(-40, 40),
@@ -8489,7 +8565,7 @@
                     size: rand(2, 5), color: randPick(["#FFD700", "#FFF", "#F8BBD0"]), gravity: 0 });
             }
             drawParticles();
-        } else if (salonPhase === 3) {
+        } else if (salonPhase === 5) {
             // Reveal reaction
             if (salonIsBlonde) {
                 ctx.fillStyle = "rgba(255,235,150,0.2)";
@@ -8509,9 +8585,10 @@
                 drawParticles();
             }
             drawSalonBubble(salonReaction);
-            // Fabio closer
-            drawText(salonIsBlonde ? "Fabio: VOILÀ. Thank ZEE ART." : "Fabio: Art is pain, darling.",
-                W / 2, 600, "italic 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            // Fabio closer — oops gets its own confession line
+            var salonCloser = salonOops ? "Fabio: …it was zee CAT, I SWEAR."
+                : (salonIsBlonde ? "Fabio: VOILÀ. Thank ZEE ART." : "Fabio: Art is pain, darling.");
+            drawText(salonCloser, W / 2, 600, "italic 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             drawButton(W / 2 - 90, H - 80, 180, 50, "TAP TO LEAVE", { bg: "#66BB6A", bgDark: "#2E7D32", small: true });
         }
     }
