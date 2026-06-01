@@ -1,3 +1,5 @@
+// ⚠️ GENERATED FILE — do not edit directly.
+// Edit the fragments in src/ and run `node build.js`.
 // ============================================================
 //  LULU'S ROAD TRIP — A Sneaky-Sasquatch-style driving game
 // ============================================================
