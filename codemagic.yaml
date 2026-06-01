@@ -3,7 +3,7 @@
 # This is a NEW, self-contained workflow for the Capacitor app. It does not
 # touch any other app/workflow you have in Codemagic. Before the first build:
 #   1. In Codemagic → Teams → Integrations, connect an App Store Connect API
-#      key, and note its "name" (referenced below as APP_STORE_CONNECT).
+#      key, and note its "name" (referenced below as Jogley).
 #   2. In App Store Connect, create a NEW app with a UNIQUE bundle id (the
 #      `bundle_identifier` below) — must differ from your existing app.
 #   3. Add an iOS distribution certificate + provisioning profile to the
@@ -16,7 +16,7 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
-      app_store_connect: APP_STORE_CONNECT   # <- your integration name
+      app_store_connect: Jogley   # <- your integration name (key J42D8594FA)
     environment:
       ios_signing:
         distribution_type: app_store
