@@ -7185,6 +7185,9 @@
             for (var k2 in HOME_OBJECTS) {
                 var o2 = HOME_OBJECTS[k2];
                 if (pointInRect(click.x, click.y, o2.x, o2.y, o2.w, o2.h)) {
+                    // clear the queued action from this same tap so it doesn't
+                    // leak into (and instantly re-trigger something in) the next scene
+                    consumeAction();
                     triggerHomeInteract(o2.action);
                     return;
                 }
@@ -7613,6 +7616,10 @@
             // Check exit button — generous hitbox covering button + "BACK" label below
             if (pointInRect(click.x, click.y, 10, 70, 80, 80)) {
                 state = "dinaHome";
+                // clear any leftover queued tap/action so we don't instantly
+                // re-trigger Morgan (Dina is still standing on the plushie)
+                consumeAction();
+                clickQueue = null;
                 playClick();
                 return;
             }
