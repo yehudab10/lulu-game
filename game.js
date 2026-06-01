@@ -995,37 +995,53 @@
         var hairDark = shadeColor(hairC, -28);
         var hairLite = shadeColor(hairC, 22);
 
-        // Long hair flowing back behind head + over shoulders (frames the face)
+        // Long hair flowing down BOTH SIDES of the face (frames it — clearly feminine)
         ctx.fillStyle = hairC;
+        // left lock
         ctx.beginPath();
-        ctx.ellipse(0, fy + 3, 13, 16, 0, 0, Math.PI * 2);
+        ctx.moveTo(-7.5, fy - 4);
+        ctx.quadraticCurveTo(-12, fy + 2, -10.5, fy + 14);  // sweeps out then down
+        ctx.quadraticCurveTo(-9, fy + 20, -6, fy + 18);     // rounded tip
+        ctx.quadraticCurveTo(-6.5, fy + 8, -5, fy + 2);     // inner edge back up to cheek
+        ctx.closePath();
         ctx.fill();
-        // Hair shoulder strands spilling down the sides
+        // right lock (mirror)
         ctx.beginPath();
-        ctx.ellipse(-10, fy + 12, 3.5, 9, -0.15, 0, Math.PI * 2);
-        ctx.ellipse(10, fy + 12, 3.5, 9, 0.15, 0, Math.PI * 2);
+        ctx.moveTo(7.5, fy - 4);
+        ctx.quadraticCurveTo(12, fy + 2, 10.5, fy + 14);
+        ctx.quadraticCurveTo(9, fy + 20, 6, fy + 18);
+        ctx.quadraticCurveTo(6.5, fy + 8, 5, fy + 2);
+        ctx.closePath();
+        ctx.fill();
+        // hair sheen down each lock
+        ctx.fillStyle = hairLite;
+        ctx.beginPath();
+        ctx.ellipse(-9, fy + 7, 1.3, 5, 0.1, 0, Math.PI * 2);
+        ctx.ellipse(9, fy + 7, 1.3, 5, -0.1, 0, Math.PI * 2);
         ctx.fill();
 
         // Face — soft round, bright peachy skin
         ctx.fillStyle = "#FFD9C0";
         ctx.beginPath();
-        ctx.ellipse(0, fy, 7.5, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, fy, 8, 8.5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Hair: center-parted bangs framing the top of the face (one clean shape)
+        // Hair: center-parted bangs framing just the top of the face
         ctx.fillStyle = hairC;
         ctx.beginPath();
-        ctx.moveTo(-8, fy - 1);
-        ctx.quadraticCurveTo(-9, fy - 9, 0, fy - 9.5);
-        ctx.quadraticCurveTo(9, fy - 9, 8, fy - 1);
-        ctx.quadraticCurveTo(5, fy - 5, 0, fy - 4.5);     // center part dip
-        ctx.quadraticCurveTo(-5, fy - 5, -8, fy - 1);
+        ctx.moveTo(-8, fy + 1);
+        ctx.quadraticCurveTo(-10, fy - 8, 0, fy - 9);
+        ctx.quadraticCurveTo(10, fy - 8, 8, fy + 1);
+        ctx.quadraticCurveTo(6, fy - 3, 4, fy - 2.5);     // right bang sweep
+        ctx.quadraticCurveTo(2, fy - 5.5, 0, fy - 5);     // center part dip
+        ctx.quadraticCurveTo(-2, fy - 5.5, -4, fy - 2.5); // left bang sweep
+        ctx.quadraticCurveTo(-6, fy - 3, -8, fy + 1);
         ctx.closePath();
         ctx.fill();
-        // Hair highlight sheen
+        // Hair highlight sheen on bangs
         ctx.fillStyle = hairLite;
         ctx.beginPath();
-        ctx.ellipse(-3.5, fy - 6, 2.2, 1, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(-4, fy - 5, 2.2, 1.1, -0.3, 0, Math.PI * 2);
         ctx.fill();
 
         // Eyebrows — soft thin arcs
