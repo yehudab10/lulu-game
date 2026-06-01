@@ -985,119 +985,117 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // ── Lulu's face (cute young woman, not too dark) ──
-        // Long hair flowing back, behind head (warm brown)
-        ctx.fillStyle = save.luluHair;
+        // ── Lulu's face (cute young woman — bold & readable at small size) ──
+        var fy = -hh + 23;                 // face center y
+        var hairC = save.luluHair;
+        var hairDark = shadeColor(hairC, -28);
+        var hairLite = shadeColor(hairC, 22);
+
+        // Long hair flowing back behind head + over shoulders (frames the face)
+        ctx.fillStyle = hairC;
         ctx.beginPath();
-        ctx.ellipse(0, -hh + 27, 14, 17, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, fy + 3, 13, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Hair shoulder strands spilling down the sides
+        ctx.beginPath();
+        ctx.ellipse(-10, fy + 12, 3.5, 9, -0.15, 0, Math.PI * 2);
+        ctx.ellipse(10, fy + 12, 3.5, 9, 0.15, 0, Math.PI * 2);
         ctx.fill();
 
-        // Face — brighter, softer skin tone (not olive)
-        ctx.fillStyle = "#FFD4B8";
+        // Face — soft round, bright peachy skin
+        ctx.fillStyle = "#FFD9C0";
         ctx.beginPath();
-        ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
-        ctx.fill();
-        // Face outline (subtle warm shadow)
-        ctx.strokeStyle = "rgba(180,100,70,0.4)";
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.arc(0, -hh + 22, 8, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Hair bangs / forehead (center-parted, framing face)
-        ctx.fillStyle = save.luluHair;
-        ctx.beginPath();
-        ctx.arc(0, -hh + 16, 9, Math.PI, Math.PI * 2);
-        ctx.fill();
-        // Soft swept bangs
-        ctx.beginPath();
-        ctx.ellipse(-3, -hh + 17, 6.5, 3.5, -0.2, 0, Math.PI * 2);
-        ctx.ellipse(3, -hh + 17, 6.5, 3.5, 0.2, 0, Math.PI * 2);
-        ctx.fill();
-        // Center part hint (slightly darker)
-        ctx.fillStyle = "#6B4423";
-        ctx.fillRect(-0.5, -hh + 14, 1, 5);
-        // Loose strands framing face
-        ctx.fillStyle = save.luluHair;
-        ctx.beginPath();
-        ctx.ellipse(-7.5, -hh + 21, 2, 5, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(7.5, -hh + 21, 2, 5, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(0, fy, 7.5, 8, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyebrows (small thin arcs)
-        ctx.strokeStyle = "#5D3317";
-        ctx.lineWidth = 0.8;
-        ctx.lineCap = "round";
+        // Hair: center-parted bangs framing the top of the face (one clean shape)
+        ctx.fillStyle = hairC;
         ctx.beginPath();
-        ctx.moveTo(-4.5, -hh + 19); ctx.quadraticCurveTo(-3, -hh + 18.5, -1.5, -hh + 19);
-        ctx.moveTo(1.5, -hh + 19); ctx.quadraticCurveTo(3, -hh + 18.5, 4.5, -hh + 19);
-        ctx.stroke();
-        ctx.lineCap = "butt";
-
-        // Eyes — feminine almond shape, slightly bigger
-        ctx.fillStyle = "#FFFFFF";
-        ctx.beginPath();
-        ctx.ellipse(-3, -hh + 21, 2, 1.6, 0, 0, Math.PI * 2);
-        ctx.ellipse(3, -hh + 21, 2, 1.6, 0, 0, Math.PI * 2);
+        ctx.moveTo(-8, fy - 1);
+        ctx.quadraticCurveTo(-9, fy - 9, 0, fy - 9.5);
+        ctx.quadraticCurveTo(9, fy - 9, 8, fy - 1);
+        ctx.quadraticCurveTo(5, fy - 5, 0, fy - 4.5);     // center part dip
+        ctx.quadraticCurveTo(-5, fy - 5, -8, fy - 1);
+        ctx.closePath();
         ctx.fill();
-        // Iris (warm brown)
-        ctx.fillStyle = "#6B4423";
+        // Hair highlight sheen
+        ctx.fillStyle = hairLite;
         ctx.beginPath();
-        ctx.arc(-3, -hh + 21.2, 1.3, 0, Math.PI * 2);
-        ctx.arc(3, -hh + 21.2, 1.3, 0, Math.PI * 2);
-        ctx.fill();
-        // Pupil
-        ctx.fillStyle = "#1A0F08";
-        ctx.beginPath();
-        ctx.arc(-3, -hh + 21.2, 0.6, 0, Math.PI * 2);
-        ctx.arc(3, -hh + 21.2, 0.6, 0, Math.PI * 2);
-        ctx.fill();
-        // Eye sparkle
-        ctx.fillStyle = "#FFFFFF";
-        ctx.beginPath();
-        ctx.arc(-2.4, -hh + 20.8, 0.5, 0, Math.PI * 2);
-        ctx.arc(3.6, -hh + 20.8, 0.5, 0, Math.PI * 2);
+        ctx.ellipse(-3.5, fy - 6, 2.2, 1, -0.3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyelashes (small upward curves on outer corners)
-        ctx.strokeStyle = "#3E2723";
+        // Eyebrows — soft thin arcs
+        ctx.strokeStyle = hairDark;
         ctx.lineWidth = 0.7;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(-4.8, -hh + 20.5); ctx.lineTo(-5.5, -hh + 19.8);
-        ctx.moveTo(-4.2, -hh + 20.3); ctx.lineTo(-4.6, -hh + 19.7);
-        ctx.moveTo(4.8, -hh + 20.5); ctx.lineTo(5.5, -hh + 19.8);
-        ctx.moveTo(4.2, -hh + 20.3); ctx.lineTo(4.6, -hh + 19.7);
+        ctx.moveTo(-4.6, fy - 2.6); ctx.quadraticCurveTo(-2.8, fy - 3.4, -1, fy - 2.7);
+        ctx.moveTo(1, fy - 2.7); ctx.quadraticCurveTo(2.8, fy - 3.4, 4.6, fy - 2.6);
+        ctx.stroke();
+
+        // Eyes — big, round, sparkly (the key to reading as a cute girl)
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.ellipse(-2.9, fy, 2.4, 2.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(2.9, fy, 2.4, 2.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Iris — large warm brown
+        ctx.fillStyle = "#7A4A24";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy + 0.2, 1.7, 0, Math.PI * 2);
+        ctx.arc(2.9, fy + 0.2, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+        // Pupil
+        ctx.fillStyle = "#241208";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy + 0.2, 0.85, 0, Math.PI * 2);
+        ctx.arc(2.9, fy + 0.2, 0.85, 0, Math.PI * 2);
+        ctx.fill();
+        // Big eye sparkle
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-2.1, fy - 0.6, 0.8, 0, Math.PI * 2);
+        ctx.arc(3.7, fy - 0.6, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Upper lash line + outer-corner lashes (defines feminine eyes)
+        ctx.strokeStyle = "#2E1A10";
+        ctx.lineWidth = 0.9;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy, 2.5, Math.PI * 1.05, Math.PI * 1.85);
+        ctx.arc(2.9, fy, 2.5, Math.PI * 1.15, Math.PI * 1.95);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-5.2, fy - 0.6); ctx.lineTo(-6.1, fy - 1.4);
+        ctx.moveTo(5.2, fy - 0.6); ctx.lineTo(6.1, fy - 1.4);
         ctx.stroke();
         ctx.lineCap = "butt";
 
-        // Soft pink blush
-        ctx.fillStyle = "rgba(255, 140, 160, 0.45)";
+        // Soft pink blush on cheeks
+        ctx.fillStyle = "rgba(255, 135, 160, 0.5)";
         ctx.beginPath();
-        ctx.ellipse(-4.5, -hh + 24, 1.6, 1.1, 0, 0, Math.PI * 2);
-        ctx.ellipse(4.5, -hh + 24, 1.6, 1.1, 0, 0, Math.PI * 2);
+        ctx.ellipse(-4.6, fy + 3.2, 1.8, 1.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(4.6, fy + 3.2, 1.8, 1.2, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Small freckles across nose
-        ctx.fillStyle = "rgba(160, 100, 60, 0.7)";
-        ctx.fillRect(-2, -hh + 23.5, 0.6, 0.6);
-        ctx.fillRect(-0.5, -hh + 24, 0.6, 0.6);
-        ctx.fillRect(1.5, -hh + 23.5, 0.6, 0.6);
-        ctx.fillRect(2.5, -hh + 24, 0.5, 0.5);
-
-        // Soft pink lips (clearly feminine)
-        ctx.fillStyle = "#E91E63";
+        // Tiny button nose
+        ctx.strokeStyle = "rgba(190,120,90,0.5)";
+        ctx.lineWidth = 0.7;
         ctx.beginPath();
-        ctx.ellipse(0, -hh + 26.5, 2, 0.9, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#FFB0C8";
-        ctx.beginPath();
-        ctx.ellipse(0, -hh + 26.2, 1.5, 0.4, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, fy + 2.4, 0.9, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
 
-        // Tiny gold necklace dot at chest edge
-        ctx.fillStyle = "#FFD700";
-        ctx.fillRect(-0.5, -hh + 32, 1, 1);
+        // Glossy pink smile
+        ctx.fillStyle = "#E84A7F";
+        ctx.beginPath();
+        ctx.moveTo(-2.4, fy + 4.6);
+        ctx.quadraticCurveTo(0, fy + 6.6, 2.4, fy + 4.6);
+        ctx.quadraticCurveTo(0, fy + 5.4, -2.4, fy + 4.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(-1.2, fy + 4.8, 2.4, 0.6);   // teeth glint
 
         // Phone (distracted mode)
         if (distracted) {
@@ -7955,7 +7953,10 @@
         ctx.beginPath(); ctx.arc(-34, 8, 6, 0, Math.PI * 2); ctx.stroke();
         ctx.beginPath(); ctx.arc(34, 8, 6, 0, Math.PI * 2); ctx.stroke();
         // Eyes
-        var eyeSquash = expr === "suspicious" ? 0.55 : (expr === "dramatic" ? 1.3 : 1);
+        var eyeSquash = expr === "suspicious" ? 0.55
+            : expr === "smug" ? 0.6
+            : (expr === "dramatic" || expr === "panic") ? 1.35
+            : 1;
         ctx.fillStyle = "#FFF";
         ctx.beginPath();
         ctx.ellipse(-13, -12, 6, 6 * eyeSquash, 0, 0, Math.PI * 2);
@@ -7983,6 +7984,15 @@
         } else if (expr === "dramatic") {
             ctx.moveTo(-20, -26); ctx.lineTo(-6, -28);      // both up
             ctx.moveTo(6, -28); ctx.lineTo(20, -26);
+        } else if (expr === "smug") {
+            ctx.moveTo(-20, -26); ctx.lineTo(-6, -22);      // one cocked high
+            ctx.moveTo(6, -20); ctx.lineTo(20, -20);
+        } else if (expr === "panic") {
+            ctx.moveTo(-20, -28); ctx.lineTo(-6, -24);      // both high & pinched
+            ctx.moveTo(6, -24); ctx.lineTo(20, -28);
+        } else if (expr === "love") {
+            ctx.moveTo(-20, -25); ctx.lineTo(-6, -27);
+            ctx.moveTo(6, -27); ctx.lineTo(20, -25);
         } else { // excited
             ctx.moveTo(-20, -24); ctx.lineTo(-6, -26);
             ctx.moveTo(6, -26); ctx.lineTo(20, -24);
@@ -8002,6 +8012,20 @@
         } else if (expr === "annoyed") {
             ctx.strokeStyle = "#7D1010"; ctx.lineWidth = 2.5;
             ctx.beginPath(); ctx.arc(0, 18, 8, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+        } else if (expr === "love") {
+            ctx.beginPath(); ctx.arc(0, 8, 12, 0, Math.PI); ctx.fill();   // big smile
+            ctx.fillStyle = "#FFF"; ctx.fillRect(-9, 8, 18, 4);
+            // little heart cheeks
+            ctx.fillStyle = "rgba(233,30,99,0.45)";
+            ctx.beginPath(); ctx.arc(-22, 2, 5, 0, Math.PI * 2); ctx.arc(22, 2, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (expr === "panic") {
+            ctx.beginPath(); ctx.ellipse(0, 12, 6, 8, 0, 0, Math.PI * 2); ctx.fill(); // small O
+            // sweat drop
+            ctx.fillStyle = "#4FC3F7";
+            ctx.beginPath(); ctx.arc(28, -14, 3.5, 0, Math.PI * 2); ctx.fill();
+        } else if (expr === "smug") {
+            ctx.strokeStyle = "#7D1010"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(-8, 12); ctx.quadraticCurveTo(2, 16, 9, 9); ctx.stroke(); // smirk
         } else { // suspicious - flat line
             ctx.strokeStyle = "#7D1010"; ctx.lineWidth = 2.5;
             ctx.beginPath(); ctx.moveTo(-8, 12); ctx.lineTo(8, 12); ctx.stroke();
@@ -8010,50 +8034,90 @@
         ctx.restore();
     }
 
-    // Avigail dialogue script (4 decisions; reply shown then advance)
+    // Avigail dialogue script (8 decisions; reply shown then advance)
+    // engine reads entry.prompt + choice.{label,reply,expr}. <=3 choices/step (3-color palette).
     var AVIGAIL_SCRIPT = [
         {
             prompt: "Nobody's home! This is\nher cat speaking.",
             expr: "suspicious",
             choices: [
-                { label: "Cats can't talk.", reply: "...Meow. Dang it.", expr: "annoyed" },
-                { label: "I see your feet under the door.", reply: "These are decorative feet.", expr: "suspicious", small: true },
-                { label: "I brought snacks.", reply: "WHY didn't you LEAD with that!", expr: "excited" }
+                { label: "Cats can't talk.", reply: "...Meow. Dang it. Hold on,\nI'm getting dressed.", expr: "annoyed" },
+                { label: "I see your feet under the door.", reply: "These are DECORATIVE feet.\nVery on-trend this season.", expr: "suspicious" },
+                { label: "I brought rugelach.", reply: "WHY didn't you LEAD with\nthat?! Door's basically open.", expr: "excited" }
             ]
         },
         {
-            prompt: "Oh NOW you visit. You left\nme on read for 9 DAYS.",
+            prompt: "*door creaks open* Oh. It's\nYOU. The ghoster herself.",
             expr: "annoyed",
             choices: [
-                { label: "My phone fell in a lake.", reply: "Your phone. In a lake. Walking distance from me?", expr: "suspicious", small: true },
-                { label: "I was emotionally busy.", reply: "Emotionally busy?? Iconic though.", expr: "dramatic" },
-                { label: "I texted you back!", reply: "A THUMBS UP. You sent a thumbs up, Lulu.", expr: "annoyed", small: true }
+                { label: "I never ghosted you!", reply: "You left me on read for\n9 DAYS, Lulu. NINE.", expr: "annoyed" },
+                { label: "I missed your face?", reply: "Don't you 'miss your face' me.\n...okay it IS a great face.", expr: "smug" },
+                { label: "Ima made me come.", reply: "Your IMA has better manners\nthan you. Tell her I said hi.", expr: "dramatic" }
             ]
         },
         {
-            prompt: "Also why'd you find me\nWALKING? I have legs.",
+            prompt: "Nine days! I sat by my\nphone like it was Shabbos!",
             expr: "dramatic",
             choices: [
-                { label: "Car broke down again?", reply: "It's RESTING. It's not broken, it's RESTING.", expr: "annoyed", small: true },
-                { label: "Were you walking dramatically?", reply: "I walk with PURPOSE. There's a difference.", expr: "dramatic", small: true },
-                { label: "Doesn't matter, get in.", reply: "You can't just SKIP my lore, Lulu.", expr: "annoyed" }
+                { label: "My phone fell in a lake.", reply: "Your phone. In a lake.\nWalking distance from MY house?", expr: "suspicious" },
+                { label: "I was emotionally busy.", reply: "Emotionally busy. Iconic.\nUnforgivable, but iconic.", expr: "smug" },
+                { label: "I sent a thumbs up!", reply: "A THUMBS UP. To 'I think my\ncholent gained sentience.'", expr: "annoyed" }
             ]
         },
         {
-            prompt: "Fine. But I get aux.\nNon-negotiable.",
+            prompt: "And why'd you find me\nWALKING? I have a CAR.",
+            expr: "annoyed",
+            choices: [
+                { label: "Your car broke down again?", reply: "It's RESTING. It's not broken,\nit's spiritually recharging.", expr: "annoyed" },
+                { label: "You walk dramatically tho.", reply: "I walk with PURPOSE. There's\na difference, peasant.", expr: "dramatic" },
+                { label: "Were you avoiding someone?", reply: "...We do NOT speak of Tzippy\nfrom Lev Bais Yaakov. Drive.", expr: "panic" }
+            ]
+        },
+        {
+            prompt: "Hold on — is THIS the car?\nIt sounds like a kettle.",
             expr: "suspicious",
             choices: [
-                { label: "You played 1 song for 3 hrs.", reply: "It was a JOURNEY and you weren't ready.", expr: "dramatic", small: true },
-                { label: "Deal — no sad girl playlist.", reply: "Then I have nothing to offer this world.", expr: "dramatic", small: true },
-                { label: "Aux is yours, your majesty.", reply: "Was that sarcasm? I'll allow it. Once.", expr: "excited", small: true }
+                { label: "She's vintage.", reply: "She's a HAZARD with a\nnamePlate. I love her already.", expr: "smug" },
+                { label: "That's the AC. Probably.", reply: "That is NOT the AC, Lulu.\nThat is a CRY for help.", expr: "panic" },
+                { label: "Don't insult my car.", reply: "I'll insult whatever I want.\nIt's in my contract. Get in.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Before I commit: what's the\nsnack situation in there?",
+            expr: "excited",
+            choices: [
+                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
+                { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
+                { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
+            ]
+        },
+        {
+            prompt: "Okay but I'm calling shotgun\nAND aux. Non-negotiable.",
+            expr: "smug",
+            choices: [
+                { label: "You played 1 song for 3 hrs.", reply: "It was a JOURNEY and you\nweren't emotionally ready.", expr: "dramatic" },
+                { label: "Deal — no sad-girl playlist.", reply: "Then I have NOTHING to offer\nthis world. ...Fine. One bop.", expr: "dramatic" },
+                { label: "Aux is yours, your majesty.", reply: "Was that sarcasm? I'll allow\nit. ONCE. Don't push it.", expr: "smug" }
+            ]
+        },
+        {
+            prompt: "Last thing. Swear we're not\npicking up your cousin again.",
+            expr: "suspicious",
+            choices: [
+                { label: "I swear on the cholent.", reply: "That's the HOLIEST oath you\nhave. Okay. I believe you.", expr: "excited" },
+                { label: "...Define 'picking up.'", reply: "LULU. I KNEW it. Turn the\ncar around— no, fine, GO.", expr: "panic" },
+                { label: "He moved to Lakewood.", reply: "Baruch Hashem. Truly. Start\nthe kettle— I mean, the car.", expr: "love" }
             ]
         }
     ];
     var AVIGAIL_CLOSERS = [
-        "Okay LET'S GO. I'm driving.\n...Fine, YOU drive.",
-        "If we get snacks on the way,\nall is forgiven.",
-        "I'm only coming for the aux\ncord and the bit."
+        "Okay LET'S GO. I'm driving.\n...Fine, YOU drive. This time.",
+        "If we get snacks on the way,\nall nine days are forgiven.",
+        "I'm only coming for the aux\ncord and the bit. Mostly the bit.",
+        "Buckle up. If we die, I'm\ntelling everyone it was YOUR fault.",
+        "Shotgun, aux, AND the last\nrugelach. That's the deal. Go go go."
     ];
+    var avigailHasRugelach = false;
 
     function startAvigailScene() {
         prevState = "playing";
@@ -8064,6 +8128,7 @@
         avigailExpr = "suspicious";
         avigailDoorTimer = 2.0;
         avigailResolved = false;
+        avigailHasRugelach = false;
     }
 
     function updateAvigailScene(dt) {
@@ -8096,11 +8161,19 @@
         if (click) {
             var dec = AVIGAIL_SCRIPT[avigailStep];
             for (var i = 0; i < dec.choices.length; i++) {
-                var by = 648 + i * 64;
-                if (pointInRect(click.x, click.y, 70, by, 340, 56)) {
+                var by = 636 + i * 60;
+                if (pointInRect(click.x, click.y, 70, by, 340, 54)) {
                     var ch = dec.choices[i];
-                    avigailReply = ch.reply;
-                    avigailExpr = ch.expr;
+                    // remember the rugelach promise (step 0, "I brought rugelach")
+                    if (avigailStep === 0) avigailHasRugelach = (i === 2);
+                    // payoff: snack step "Rugelach. As promised." when she never got one
+                    if (avigailStep === 5 && i === 0 && !avigailHasRugelach) {
+                        avigailReply = "You said RUGELACH at the door\nand brought... NOTHING? Get in.";
+                        avigailExpr = "annoyed";
+                    } else {
+                        avigailReply = ch.reply;
+                        avigailExpr = ch.expr;
+                    }
                     avigailReplyTimer = 1.9;
                     playClick();
                     return;
@@ -8183,11 +8256,16 @@
 
         // Choice buttons (only when awaiting choice)
         if (!lockChoices) {
+            // progress hearts so the longer scene feels intentional
+            if (!avigailResolved) {
+                drawText("♥ " + (avigailStep + 1) + " / " + AVIGAIL_SCRIPT.length,
+                    W / 2, 540, "bold 14px 'Segoe UI', Arial, sans-serif", "#5D4037", "#FFF", 2);
+            }
             var dec = AVIGAIL_SCRIPT[avigailStep];
             var cols = [{ bg: "#66BB6A", bgDark: "#2E7D32" }, { bg: "#42A5F5", bgDark: "#0D47A1" }, { bg: "#FFC107", bgDark: "#FF6F00" }];
             for (var i = 0; i < dec.choices.length; i++) {
-                var by = 648 + i * 64;
-                drawButton(70, by, 340, 56, dec.choices[i].label,
+                var by = 636 + i * 60;
+                drawButton(70, by, 340, 54, dec.choices[i].label,
                     { bg: cols[i].bg, bgDark: cols[i].bgDark, small: true });
             }
         } else {
