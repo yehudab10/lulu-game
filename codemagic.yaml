@@ -40,6 +40,21 @@ workflows:
           # Regenerated each build so nothing native needs to live in git.
           if [ ! -d "ios" ]; then npx cap add ios; fi
           npx cap sync ios
+      - name: Inject AdMob App ID into Info.plist
+        script: |
+          # AdMob requires GADApplicationIdentifier in the native Info.plist.
+          # Because ios/ is regenerated each build, we set it here every time.
+          PLIST="ios/App/App/Info.plist"
+          /usr/libexec/PlistBuddy -c \
+            "Add :GADApplicationIdentifier string ca-app-pub-1477782549591980~6348467252" \
+            "$PLIST" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c \
+            "Set :GADApplicationIdentifier ca-app-pub-1477782549591980~6348467252" \
+            "$PLIST"
+          # App Tracking Transparency prompt text (required if the SDK can read IDFA).
+          /usr/libexec/PlistBuddy -c \
+            "Add :NSUserTrackingUsageDescription string This lets us show more relevant ads to keep the game free." \
+            "$PLIST" 2>/dev/null || true
       - name: Set marketing + build number
         script: |
           cd ios/App

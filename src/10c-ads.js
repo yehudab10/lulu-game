@@ -4,13 +4,18 @@
     // call is guarded + wrapped in try/catch so a missing or mismatched plugin
     // can never throw into the game loop — the game just runs ad-free.
     //
-    // Uses Google's official TEST ad unit IDs by default (safe to tap). Swap in
-    // your real AdMob IDs and set isTesting:false ONLY at release — tapping your
-    // own LIVE ads will get the AdMob account banned. See IOS_BUILD.md.
+    // These are the REAL AdMob ad unit IDs for Lulu's Road Trip.
+    // AdMob App ID (goes in Info.plist, injected by codemagic.yaml):
+    //   ca-app-pub-1477782549591980~6348467252
+    //
+    // isTesting:true makes the device show Google TEST ads (safe to tap) even
+    // with real ad unit IDs — keep it true for all TestFlight/dev testing.
+    // Set isTesting:false ONLY in the build you submit for App Store release.
+    // Tapping your own LIVE ads will get the AdMob account banned. See IOS_BUILD.md.
     var ADMOB = {
-        interstitialId: "ca-app-pub-3940256099942544/4411468910", // TEST id
-        rewardedId:     "ca-app-pub-3940256099942544/1712485313", // TEST id
-        isTesting: true,         // MUST stay true until you use real IDs
+        interstitialId: "ca-app-pub-1477782549591980/3654325071", // real interstitial
+        rewardedId:     "ca-app-pub-1477782549591980/2341243403", // real rewarded
+        isTesting: true,         // true = test ads on this device (no ban risk)
         interstitialEveryN: 2    // show an interstitial every Nth game over
     };
 
