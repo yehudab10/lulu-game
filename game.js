@@ -589,16 +589,20 @@
     }
 
     // Scene fade transition — fade-to-dark-then-out on state changes
-    var sceneFade = { t: 1, dur: 0.35, next: null, fired: true };
-    function gotoState(newState) {
-        if (sceneFade.t < sceneFade.dur) return; // already transitioning
-        sceneFade = { t: 0, dur: 0.35, next: newState, fired: false };
+    var sceneFade = { t: 1, dur: 0.35, next: null, fired: true, onMid: null };
+    // Returns true if a transition actually started (false if one is already running).
+    // onMid (optional) runs once at the fade midpoint — use it to init the next scene.
+    function gotoState(newState, onMid) {
+        if (sceneFade.t < sceneFade.dur) return false; // already transitioning
+        sceneFade = { t: 0, dur: 0.35, next: newState, fired: false, onMid: onMid || null };
+        return true;
     }
     function updateSceneFade(dt) {
         if (sceneFade.t >= sceneFade.dur) return;
         sceneFade.t += dt;
         if (!sceneFade.fired && sceneFade.t >= sceneFade.dur / 2) {
             state = sceneFade.next;
+            if (sceneFade.onMid) sceneFade.onMid();
             sceneFade.fired = true;
         }
     }
@@ -3090,9 +3094,10 @@
         parkingExtras = []; parkedCars = []; parkingPedestrian = null;
         parkingCar = null; parkingZone = null; parkingLevelConfig = null;
         parkingCameras = []; parkingMsgTimer = 0;
-        morganHearts = []; morganHappy = 0; morganMood = "calm";
+        morganHearts = []; morganSparkles = []; morganHappy = 0; morganMood = "calm";
         dinaCoinsRun = 0; dinaStickers = 0; dinaSidewalk = [];
         dinaRunTimer = 0; dinaRunDistance = 0; dinaRunPhase = 0;
+        shakeIntensity = 0;
         initDecorations();
     }
 
@@ -4347,7 +4352,7 @@
             if (pointInRect(click.x, click.y, W - 56, 16, 40, 40)) {
                 audioMuted = !audioMuted;
                 if (audioMuted) stopMusic();
-                else { var prev = musicState; musicState = null; if (prev) startMusic(prev); else startMusic("menu"); }
+                else { var prev = musicState; musicState = null; if (prev) startMusic(prev); else startMusic("lulu"); }
                 playClick();
                 return;
             }
@@ -5528,9 +5533,8 @@
             if (click.y > H * 0.52 && click.y < H * 0.88) {
                 selectedChar = "dina";
                 playCharSelect();
-                // Wait for fade midpoint, then enter dina mode (which sets state)
-                gotoState("dinaBus");
-                setTimeout(function () { startDinaMode(); }, 175);
+                // Enter dina mode at the fade midpoint (only if the fade actually started)
+                gotoState("dinaBus", function () { startDinaMode(); });
                 return;
             }
         }
@@ -6325,26 +6329,28 @@
         dinaRunPhase = 1;
         dinaRunTimer = 0;
         dinaRunDistance = 0;
+        dinaScrollY = 0;
         dinaSidewalk = [];
         dinaSidewalk.__greenblattSpawned = false;
         dinaSidewalkSpawn = 0;
         dina = { x: W / 2, y: H - 200, walkTime: 0,
                  lane: 1, sprintTimer: 3, sprintCool: 0,
-                 stumble: 0, holding: "backpack" };
+                 stumble: 0, holding: "backpack",
+                 chatTimer: rand(3, 6), chat: "", chatLife: 0 };
         mom = { x: W / 2, y: H + 100, walkTime: 0, distance: 1.0, says: 0, sayTimer: rand(4, 8) };
     }
 
     // ── Update / Draw: Dina Run Home ─────────────────────────
     var DINA_LANES_X = [W / 2 - 70, W / 2, W / 2 + 70]; // left grass, center sidewalk, right grass
-    var DINA_RUN_DURATION = 45; // seconds total
+    var DINA_RUN_DURATION = 45; // seconds total (nominal, at normal pace)
+    var DINA_BASE_SCROLL = 160;                              // px/sec the world moves at normal pace
+    var DINA_RUN_TOTAL_PX = DINA_BASE_SCROLL * DINA_RUN_DURATION; // 7200px = one full run
+    var dinaScrollY = 0;                                     // accumulated world scroll — single source of truth
 
     function updateDinaRun(dt) {
         if (!dina) return;
         dinaRunTimer += dt;
         dina.walkTime += dt;
-
-        // Distance: 0 to 1 (1 = home)
-        dinaRunDistance = Math.min(dinaRunTimer / DINA_RUN_DURATION, 1);
 
         // Sprint / slow input
         var sprint = keys.up && dina.sprintTimer > 0;
@@ -6352,16 +6358,18 @@
         else dina.sprintTimer = Math.min(3, dina.sprintTimer + dt * 0.6);
         var slow = keys.down;
 
-        // Speed (in distance-per-sec — translated to scroll speed)
-        var baseSpeed = 1 / DINA_RUN_DURATION;
+        // ── SINGLE source of truth for world motion ──
+        // One scroll speed in px/sec; sprint speeds it up, slow/stumble slow it.
         var speedMult = sprint ? 2.0 : (slow ? 0.5 : 1.0);
         if (dina.stumble > 0) {
             speedMult *= 0.3;
             dina.stumble -= dt;
         }
-        var scrollSpeed = baseSpeed * speedMult * 200; // px/sec for visual scroll
-        dinaRunDistance = Math.min(dinaRunDistance + baseSpeed * speedMult * dt - baseSpeed * dt, 1);
-        // (recalibrate so timer alone doesn't dominate; bonus from sprinting helps)
+        var scrollSpeed = DINA_BASE_SCROLL * speedMult; // px/sec — drives BG and hazards alike
+        dinaScrollY += scrollSpeed * dt;                // accumulate world travel
+
+        // Distance is derived from the exact same scroll → progress bar matches the visuals.
+        dinaRunDistance = Math.min(dinaScrollY / DINA_RUN_TOTAL_PX, 1);
 
         // Steering (lane switch)
         // Use keys.left/right or button presses to switch lanes
@@ -6413,6 +6421,18 @@
         // mom's y position based on distance
         mom.y = H + 50 - (1 - mom.distance) * 130;
         mom.x = lerp(mom.x, DINA_LANES_X[dina.lane], dt * 2);
+
+        // Dina cheerful chatter (personality)
+        dina.chatTimer -= dt;
+        if (dina.chatLife > 0) dina.chatLife -= dt;
+        if (dina.chatTimer <= 0) {
+            dina.chatTimer = rand(4, 8);
+            dina.chatLife = 1.6;
+            if (sprint) dina.chat = randPick(["Zoooom!", "Catch me!", "Wheee!"]);
+            else if (dina.stumble > 0) dina.chat = randPick(["Whoops!", "Oof!", "Almost!"]);
+            else if (dinaRunDistance > 0.7) dina.chat = randPick(["Home! Home!", "Almost there!"]);
+            else dina.chat = randPick(["La la la~", "Hi doggy!", "So fast!", "Race ya!"]);
+        }
 
         // Check ending conditions
         if (dinaRunDistance >= 1) {
@@ -6814,7 +6834,7 @@
 
     function drawDinaRun() {
         // Background
-        drawDinaSidewalkBg(dinaRunTimer * 100);
+        drawDinaSidewalkBg(dinaScrollY);
 
         // Hazards
         for (var h = 0; h < dinaSidewalk.length; h++) {
@@ -6879,6 +6899,7 @@
 
         // Dina
         if (dina) drawDinaTopDown(dina.x, dina.y, dina.walkTime, "up", "backpack");
+        if (dina && dina.chatLife > 0) drawSpeechBubble(dina.x, dina.y - 60, dina.chat, dina.walkTime);
 
         // Mom proximity glow
         if (mom && mom.distance < 0.3) {
@@ -7504,7 +7525,6 @@
     }
 
     // ── Update / Draw: Morgan Cat Plushie ────────────────────
-    var morganHearts = [];
     var morganSparkles = [];
     function updateDinaMorgan(dt) {
         morganTimer += dt;
