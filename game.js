@@ -2847,6 +2847,27 @@
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
+        // Honk-chain badge — shows the current musical streak so the Honk
+        // Symphony combo is visible instead of an invisible hidden mechanic.
+        if (honkChain > 0) {
+            var hcx = HONK_RECT.x + HONK_RECT.w - 4, hcy = HONK_RECT.y - 2;
+            var grow = 1 + Math.min(honkChain, 7) * 0.06;
+            ctx.save();
+            ctx.translate(hcx, hcy);
+            ctx.scale(grow, grow);
+            ctx.fillStyle = honkChain >= 5 ? "#FF4FA3" : "#7C4DFF";
+            ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2; ctx.stroke();
+            drawText("♪" + honkChain, 0, 1, "bold 12px Arial", "#FFF", "#000", 2);
+            ctx.restore();
+            // thin timeout ring showing how long the chain stays alive
+            ctx.strokeStyle = "rgba(255,255,255,0.85)";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(hcx, hcy, 16, -Math.PI / 2,
+                -Math.PI / 2 + Math.PI * 2 * clamp(honkChainResetTimer / 1.5, 0, 1));
+            ctx.stroke();
+        }
         // count badge
         if (save.missiles > 0) {
             ctx.fillStyle = "#FFC107";
@@ -3477,6 +3498,7 @@
 
     function updateParking(dt) {
         if (parkingMsgTimer > 0) parkingMsgTimer -= dt;
+        updateParticles(dt); // tick collision debris so it animates and clears
         // Pause check
         if (consumePause()) {
             prevState = "parking";
@@ -3548,8 +3570,12 @@
                 newY = parkingCar.y - Math.sin(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
                 parkingCar.speed *= -0.3;
                 parkingFlashTimer = 0.2;
-                shakeTimer = 0.25; shakeIntensity = 5;
+                // Heavier hits crunch harder — shake + debris scale with impact.
+                shakeTimer = 0.2 + impactSeverity * 0.3;
+                shakeIntensity = 4 + impactSeverity * 9;
+                spawnCrashBurst(pc.x, pc.y, impactSeverity > 0.35);
                 playTone(180, 0.18, "sawtooth", 0.18);
+                playTone(90, 0.12, "square", 0.10 + impactSeverity * 0.08);
                 hadCollision = true;
                 parkingTouchedCar = true;
                 parkingPerfect = false;
@@ -3652,7 +3678,15 @@
         }
 
         // Timer
+        var prevTime = parkingTimeLeft;
         parkingTimeLeft -= dt;
+        // Low-time panic cue: one urgent beep per second once under 10s
+        // (rising pitch as it gets more dire) so players feel the clock.
+        if (parkingTimeLeft <= 10 && parkingTimeLeft > 0 &&
+            Math.ceil(parkingTimeLeft) !== Math.ceil(prevTime)) {
+            var sec = Math.ceil(parkingTimeLeft);
+            playTone(sec <= 5 ? 880 : 660, 0.09, "square", 0.14);
+        }
         if (parkingTimeLeft <= 0) {
             parkingFailHit = { who: "timeout" };
             triggerParkingFail();
@@ -3732,6 +3766,7 @@
 
     function updateParkingResult(dt) {
         parkingResultTimer -= dt;
+        updateParticles(dt); // let leftover collision debris settle on the result screen
 
         // Allow skipping the result screen by clicking
         var click = consumeClick();
@@ -4761,20 +4796,38 @@
             ctx.fillRect(0, 0, W, H);
         }
 
+        // Low-time panic vignette — pulsing red edges when under 10s so the
+        // time pressure is felt, not just read off the clock.
+        if (parkingTimeLeft <= 10 && parkingTimeLeft > 0) {
+            var urgency = (10 - parkingTimeLeft) / 10;           // 0→1 as time runs out
+            var beat = 0.5 + 0.5 * Math.sin(gameTime * (6 + urgency * 8));
+            var vAlpha = (0.12 + urgency * 0.28) * beat;
+            var vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.62);
+            vg.addColorStop(0, "rgba(244,67,54,0)");
+            vg.addColorStop(1, "rgba(244,67,54," + vAlpha.toFixed(3) + ")");
+            ctx.fillStyle = vg;
+            ctx.fillRect(0, 0, W, H);
+        }
+
         // HUD top bar
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         roundRect(0, 0, W, 50, 0); ctx.fill();
+        // Timer goes red and grows a touch when the clock is low.
+        var lowTime = parkingTimeLeft <= 10;
+        var timeCol = lowTime ? (Math.sin(gameTime * 12) > 0 ? "#FF5252" : "#FFEB3B") : "#FFF";
         if (parkingChallengeMode) {
             drawText("LVL " + parkingLevel + " · " + (parkingLevelIntroText.split("· ")[1] || ""),
                 W / 2, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 14, 18, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 14, 18,
+                "bold " + (lowTime ? 17 : 15) + "px 'Segoe UI', Arial, sans-serif", timeCol, "#000", 3, "right");
             // lives = small heart icons + count
             drawText("♥ " + parkingChallengeLives, 14, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
             drawText("★ " + parkingChallengeStars, 14, 36, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "left");
             drawText("$" + parkingChallengeCoins, W - 14, 36, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 2, "right");
         } else {
             drawText("PARALLEL PARKING", W / 2, 18, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 30, 18, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3, "right");
+            drawText("⏱ " + Math.ceil(parkingTimeLeft) + "s", W - 30, 18,
+                "bold " + (lowTime ? 18 : 16) + "px 'Segoe UI', Arial, sans-serif", timeCol, "#000", 3, "right");
             drawText("♥ " + lives, 30, 18, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
         }
 

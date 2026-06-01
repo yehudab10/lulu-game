@@ -723,6 +723,27 @@
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
+        // Honk-chain badge — shows the current musical streak so the Honk
+        // Symphony combo is visible instead of an invisible hidden mechanic.
+        if (honkChain > 0) {
+            var hcx = HONK_RECT.x + HONK_RECT.w - 4, hcy = HONK_RECT.y - 2;
+            var grow = 1 + Math.min(honkChain, 7) * 0.06;
+            ctx.save();
+            ctx.translate(hcx, hcy);
+            ctx.scale(grow, grow);
+            ctx.fillStyle = honkChain >= 5 ? "#FF4FA3" : "#7C4DFF";
+            ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 2; ctx.stroke();
+            drawText("♪" + honkChain, 0, 1, "bold 12px Arial", "#FFF", "#000", 2);
+            ctx.restore();
+            // thin timeout ring showing how long the chain stays alive
+            ctx.strokeStyle = "rgba(255,255,255,0.85)";
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.arc(hcx, hcy, 16, -Math.PI / 2,
+                -Math.PI / 2 + Math.PI * 2 * clamp(honkChainResetTimer / 1.5, 0, 1));
+            ctx.stroke();
+        }
         // count badge
         if (save.missiles > 0) {
             ctx.fillStyle = "#FFC107";

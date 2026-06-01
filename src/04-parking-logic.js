@@ -336,6 +336,7 @@
 
     function updateParking(dt) {
         if (parkingMsgTimer > 0) parkingMsgTimer -= dt;
+        updateParticles(dt); // tick collision debris so it animates and clears
         // Pause check
         if (consumePause()) {
             prevState = "parking";
@@ -407,8 +408,12 @@
                 newY = parkingCar.y - Math.sin(parkingCar.rot) * Math.sign(parkingCar.speed) * pushBack;
                 parkingCar.speed *= -0.3;
                 parkingFlashTimer = 0.2;
-                shakeTimer = 0.25; shakeIntensity = 5;
+                // Heavier hits crunch harder — shake + debris scale with impact.
+                shakeTimer = 0.2 + impactSeverity * 0.3;
+                shakeIntensity = 4 + impactSeverity * 9;
+                spawnCrashBurst(pc.x, pc.y, impactSeverity > 0.35);
                 playTone(180, 0.18, "sawtooth", 0.18);
+                playTone(90, 0.12, "square", 0.10 + impactSeverity * 0.08);
                 hadCollision = true;
                 parkingTouchedCar = true;
                 parkingPerfect = false;
@@ -511,7 +516,15 @@
         }
 
         // Timer
+        var prevTime = parkingTimeLeft;
         parkingTimeLeft -= dt;
+        // Low-time panic cue: one urgent beep per second once under 10s
+        // (rising pitch as it gets more dire) so players feel the clock.
+        if (parkingTimeLeft <= 10 && parkingTimeLeft > 0 &&
+            Math.ceil(parkingTimeLeft) !== Math.ceil(prevTime)) {
+            var sec = Math.ceil(parkingTimeLeft);
+            playTone(sec <= 5 ? 880 : 660, 0.09, "square", 0.14);
+        }
         if (parkingTimeLeft <= 0) {
             parkingFailHit = { who: "timeout" };
             triggerParkingFail();
@@ -591,6 +604,7 @@
 
     function updateParkingResult(dt) {
         parkingResultTimer -= dt;
+        updateParticles(dt); // let leftover collision debris settle on the result screen
 
         // Allow skipping the result screen by clicking
         var click = consumeClick();
