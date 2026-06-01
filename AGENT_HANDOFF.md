@@ -34,7 +34,7 @@ The user historically deployed by hand (drag-drop in GitHub web UI). Now you can
 git add -A && git commit -m "..." && git push
 ```
 GitHub Pages redeploys in ~1 minute. **Always verify on the live site** after — see §6.
-- **CRITICAL:** the `audio/` folder (5 mp3s, ~10 MB total) must be committed or the music 404s (game still runs, just silent). `MUSIC_FILES` (line ~255) references `audio/lulu.mp3` etc. — the files MUST live in `audio/`, not the repo root. (v9 fixed a bug where they were in the root and all music silently 404'd.)
+- **CRITICAL:** the 5 mp3s (~10 MB total) live in the **repo ROOT** and `MUSIC_FILES` (line ~255) references them as bare filenames (`lulu.mp3`, etc.). They must stay in the root, or the paths in `MUSIC_FILES` must match wherever they are, or the music 404s (game still runs, just silent). (v8 docs wrongly said they were in an `audio/` folder and the code pointed at `audio/…` — that mismatch is why music was silent; v9 fixed it by pointing the code at the root files.)
 - After deploy, the user must **hard-refresh** (or uninstall/reinstall the PWA) because the page caches aggressively.
 
 ---
@@ -50,12 +50,11 @@ lulu game/
 ├── icon-512.svg
 ├── CNAME               # "lulu.boats"
 ├── .nojekyll
-├── audio/              # MUST be deployed for music
-│   ├── lulu.mp3        # menu + Lulu driving
-│   ├── dina.mp3        # Dina mode
-│   ├── parking.mp3     # parking challenge
-│   ├── avigail.mp3     # Avigail door scene
-│   └── salon.mp3       # salon scene
+├── lulu.mp3            # menu + Lulu driving (mp3s live in ROOT, not a folder)
+├── dina.mp3            # Dina mode
+├── parking.mp3         # parking challenge
+├── avigail.mp3         # Avigail door scene
+├── salon.mp3           # salon scene
 ├── README.md           # repo landing page
 ├── DEPLOY.md           # original first-time GitHub Pages + Namecheap setup guide
 ├── UPDATE.md           # rewritten each version — current deploy/changelog for the user
@@ -157,7 +156,7 @@ Keys: `highScore, totalCoins, ownedSkins[], selectedSkin, missiles, shields, dis
 - **v6:** run-cycle bounce, scene fades, Sasquatch hitchhiker, Mrs. Greenblatt, Ima texts, synth music.
 - **v7:** fixed Mom-catches-too-fast, Morgan back button, bedroom redesign (no overlaps), Lulu face ("looked like a monkey"), Dina coat slimmed.
 - **v8:** real MP3 music + pause music toggle, Esti ex-bff texts, Avigail door scene (2× points), Salon mode (permanent hair color).
-- **v9 (latest):** fixed broken music (mp3s were in repo root, not `audio/` — moved them into `audio/`); redesigned Lulu's in-car face (center-parted hair flowing down both sides, was a brown blob); fixed Dina-run scroll bug (bg and hazards now share one `dinaScrollY` speed that responds to sprint/slow/stumble — search `DINA_BASE_SCROLL`); expanded Avigail to 8 steps + rugelach memory + smug/panic/love exprs; expanded Salon (consult → style pick → per-color Fabio reactions → 1-in-8 oops); Dina run chatter; UI polish (wired `getBtnPressScale` into buttons, bigger touch targets). Verified via Playwright screenshots + a headless smoke harness. Several audit bug-fixes (duplicate `morganHearts`, menu-mute "menu" track, resetGame leaks, char-select fade race → `gotoState(state, onMid)`).
+- **v9 (latest):** fixed broken music (`MUSIC_FILES` pointed at `audio/…` but the mp3s live in the repo root — repointed the code at the root files); redesigned Lulu's in-car face (center-parted hair flowing down both sides, was a brown blob); fixed Dina-run scroll bug (bg and hazards now share one `dinaScrollY` speed that responds to sprint/slow/stumble — search `DINA_BASE_SCROLL`); expanded Avigail to 8 steps + rugelach memory + smug/panic/love exprs; expanded Salon (consult → style pick → per-color Fabio reactions → 1-in-8 oops); Dina run chatter; UI polish (wired `getBtnPressScale` into buttons, bigger touch targets). Verified via Playwright screenshots + a headless smoke harness. Several audit bug-fixes (duplicate `morganHearts`, menu-mute "menu" track, resetGame leaks, char-select fade race → `gotoState(state, onMid)`).
 
 ---
 

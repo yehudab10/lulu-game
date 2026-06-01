@@ -252,11 +252,11 @@
     var honkChain = 0; var honkChainResetTimer = 0;
     // ── Background music system (real MP3 files) ────────────
     var MUSIC_FILES = {
-        lulu:    "audio/lulu.mp3",
-        dina:    "audio/dina.mp3",
-        parking: "audio/parking.mp3",
-        avigail: "audio/avigail.mp3",
-        salon:   "audio/salon.mp3"
+        lulu:    "lulu.mp3",
+        dina:    "dina.mp3",
+        parking: "parking.mp3",
+        avigail: "avigail.mp3",
+        salon:   "salon.mp3"
     };
     var musicElements = {};      // cached Audio() elements per track
     var currentMusicTrack = null; // file-track name currently selected

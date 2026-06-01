@@ -6,10 +6,11 @@ Dina's weird walk, and adds a bunch more story/personality everywhere.
 ## 🐛 The big fixes
 
 ### 🎵 Music works again
-The music was pointing at the wrong place and silently failing. The 5 song
-files now live in an **`audio/` folder** and the game finds them correctly.
-**Music starts after your first tap** (browsers block autoplay until you touch
-the screen — that's normal).
+The music was pointing at the wrong place and silently failing. The game now
+looks for the 5 song files (which are already in your repo) in the right spot.
+**You don't need to upload anything new for the music** — just the updated
+`game.js`. **Music starts after your first tap** (browsers block autoplay until
+you touch the screen — that's normal).
 
 ### 👧 Lulu actually looks like a girl now
 Her little in-car face was a muddy brown blob. She now has center-parted hair
@@ -54,8 +55,7 @@ there!"), with different lines when she sprints, stumbles, or gets close to home
 ---
 
 ## Deploy checklist
-- [ ] Upload the **`audio/` folder** (all 5 mp3s) to GitHub — **don't skip this**
-- [ ] Upload updated **`game.js`**
+- [ ] Upload updated **`game.js`** (the mp3s are already in your repo — no need to re-upload them)
 - [ ] Commit + wait ~1 min
 - [ ] Hard-refresh lulu.boats (or uninstall + reinstall the home-screen app)
 - [ ] Tap once to start music
