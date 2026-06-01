@@ -426,6 +426,13 @@
                     "bold 16px 'Segoe UI', Arial, sans-serif", "#AAA", "#333", 3);
             }
 
+            // Rewarded ad: opt-in "watch for coins". Only renders in the native
+            // app once an ad is loaded (Ads.rewardedAvailable() is false on web).
+            if (Ads.rewardedAvailable()) {
+                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 ★",
+                    { bg: "#FFB300", bgDark: "#EF6C00" });
+            }
+
             // Buttons
             drawButton(W / 2 - 110, H * 0.78 - 30, 220, 60, "RESTART", { bg: "#66BB6A", bgDark: "#2E7D32" });
             drawButton(W / 2 - 110, H * 0.88 - 25, 220, 50, "MAIN MENU", { bg: "#5C6BC0", bgDark: "#283593", small: true });

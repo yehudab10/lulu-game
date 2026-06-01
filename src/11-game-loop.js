@@ -81,6 +81,7 @@
     }
 
     // ── Init ─────────────────────────────────────────────────
+    Ads.init(); // sets up AdMob in the native wrapper; no-op on the web
     initDecorations();
     // Draw the first frame synchronously so the menu shows up even in hidden tabs
     lastTime = performance.now() - 16;

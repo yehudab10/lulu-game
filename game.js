@@ -4559,6 +4559,7 @@
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
                 gameOverAlpha = 0;
+                Ads.onGameOver(); // interstitial in the native app; no-op on web
             }
             return;
         }
@@ -4573,6 +4574,15 @@
         updateParticles(dt);
         var click = consumeClick();
         if (click) {
+            // Rewarded ad button (native only — gated by an actually-loaded ad)
+            if (Ads.rewardedAvailable() &&
+                pointInRect(click.x, click.y, W / 2 - 130, H * 0.70 - 26, 260, 52)) {
+                Ads.showRewarded(function () {
+                    runCoins += 50; save.totalCoins += 50; persistSave();
+                    spawnFloater(W / 2, H * 0.40, "+50 ★", "#FFD700");
+                });
+                playClick(); return;
+            }
             // Restart button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.78 - 30, 220, 60)) {
                 resetGame(); state = "playing"; playClick(); return;
@@ -5332,6 +5342,13 @@
             } else if (save.highScore > 0) {
                 drawText("Best: " + formatNum(save.highScore), W / 2, H * 0.61,
                     "bold 16px 'Segoe UI', Arial, sans-serif", "#AAA", "#333", 3);
+            }
+
+            // Rewarded ad: opt-in "watch for coins". Only renders in the native
+            // app once an ad is loaded (Ads.rewardedAvailable() is false on web).
+            if (Ads.rewardedAvailable()) {
+                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 ★",
+                    { bg: "#FFB300", bgDark: "#EF6C00" });
             }
 
             // Buttons
@@ -10125,6 +10142,110 @@
         }
     }
 
+    // ── Mobile ads (AdMob via Capacitor) ─────────────────────
+    // No-op on the web build (lulu.boats). Only activates inside the native
+    // iOS/Android wrapper, where window.Capacitor.Plugins.AdMob exists. Every
+    // call is guarded + wrapped in try/catch so a missing or mismatched plugin
+    // can never throw into the game loop — the game just runs ad-free.
+    //
+    // Uses Google's official TEST ad unit IDs by default (safe to tap). Swap in
+    // your real AdMob IDs and set isTesting:false ONLY at release — tapping your
+    // own LIVE ads will get the AdMob account banned. See IOS_BUILD.md.
+    var ADMOB = {
+        interstitialId: "ca-app-pub-3940256099942544/4411468910", // TEST id
+        rewardedId:     "ca-app-pub-3940256099942544/1712485313", // TEST id
+        isTesting: true,         // MUST stay true until you use real IDs
+        interstitialEveryN: 2    // show an interstitial every Nth game over
+    };
+
+    var Ads = (function () {
+        function plugin() {
+            try {
+                if (typeof window === "undefined" || !window.Capacitor) return null;
+                var cap = window.Capacitor;
+                if (!cap.isNativePlatform || !cap.isNativePlatform()) return null;
+                return (cap.Plugins && cap.Plugins.AdMob) || null;
+            } catch (e) { return null; }
+        }
+
+        var ready = false;
+        var rewardedReady = false;
+        var gameOverCount = 0;
+        var rewardCb = null;
+
+        function prepInterstitial() {
+            var AdMob = plugin(); if (!AdMob) return;
+            try {
+                var p = AdMob.prepareInterstitial({
+                    adId: ADMOB.interstitialId, isTesting: ADMOB.isTesting
+                });
+                if (p && p.catch) p.catch(function () {});
+            } catch (e) {}
+        }
+
+        function prepRewarded() {
+            var AdMob = plugin(); if (!AdMob) return;
+            rewardedReady = false;
+            try {
+                var p = AdMob.prepareRewardVideoAd && AdMob.prepareRewardVideoAd({
+                    adId: ADMOB.rewardedId, isTesting: ADMOB.isTesting
+                });
+                if (p && p.then) p.then(function () { rewardedReady = true; })
+                                  .catch(function () {});
+            } catch (e) {}
+        }
+
+        function init() {
+            var AdMob = plugin(); if (!AdMob) return; // web → stay silent
+            try {
+                var p = AdMob.initialize({ initializeForTesting: ADMOB.isTesting });
+                Promise.resolve(p).then(function () {
+                    ready = true;
+                    prepInterstitial();
+                    prepRewarded();
+                    // Reward event (string is stable across plugin v6–v8).
+                    try {
+                        AdMob.addListener("onRewardedVideoAdReward", function () {
+                            if (rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+                        });
+                    } catch (e) {}
+                }).catch(function () {}); // ads unavailable → game continues fine
+            } catch (e) {}
+        }
+
+        return {
+            init: init,
+            // Call when entering game-over. Frequency-capped; preloads the next.
+            onGameOver: function () {
+                var AdMob = plugin(); if (!AdMob || !ready) return;
+                gameOverCount++;
+                if (gameOverCount % ADMOB.interstitialEveryN !== 0) return;
+                try {
+                    Promise.resolve(AdMob.showInterstitial())
+                        .then(prepInterstitial, prepInterstitial);
+                } catch (e) { prepInterstitial(); }
+            },
+            // True only in the native build with a rewarded ad loaded → gates UI.
+            rewardedAvailable: function () { return !!plugin() && rewardedReady; },
+            // Show a rewarded ad; onReward() fires once if the user earns it.
+            showRewarded: function (onReward) {
+                var AdMob = plugin(); if (!AdMob || !rewardedReady) return;
+                rewardCb = onReward || null;
+                rewardedReady = false;
+                try {
+                    var show = AdMob.showRewardVideoAd && AdMob.showRewardVideoAd();
+                    if (show && show.then) {
+                        show.then(function (item) {
+                            // Some versions resolve with the reward item too.
+                            if (item && rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+                            prepRewarded();
+                        }).catch(function () { rewardCb = null; prepRewarded(); });
+                    }
+                } catch (e) { rewardCb = null; prepRewarded(); }
+            }
+        };
+    })();
+
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
@@ -10208,6 +10329,7 @@
     }
 
     // ── Init ─────────────────────────────────────────────────
+    Ads.init(); // sets up AdMob in the native wrapper; no-op on the web
     initDecorations();
     // Draw the first frame synchronously so the menu shows up even in hidden tabs
     lastTime = performance.now() - 16;

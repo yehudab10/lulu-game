@@ -1,0 +1,14 @@
+{
+  "appId": "boats.lulu.game",
+  "appName": "Lulu's Road Trip",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#1a1a2e"
+  },
+  "plugins": {
+    "AdMob": {
+      "initializeForTesting": true
+    }
+  }
+}

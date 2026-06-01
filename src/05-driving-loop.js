@@ -584,6 +584,7 @@
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
                 gameOverAlpha = 0;
+                Ads.onGameOver(); // interstitial in the native app; no-op on web
             }
             return;
         }
@@ -598,6 +599,15 @@
         updateParticles(dt);
         var click = consumeClick();
         if (click) {
+            // Rewarded ad button (native only — gated by an actually-loaded ad)
+            if (Ads.rewardedAvailable() &&
+                pointInRect(click.x, click.y, W / 2 - 130, H * 0.70 - 26, 260, 52)) {
+                Ads.showRewarded(function () {
+                    runCoins += 50; save.totalCoins += 50; persistSave();
+                    spawnFloater(W / 2, H * 0.40, "+50 ★", "#FFD700");
+                });
+                playClick(); return;
+            }
             // Restart button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.78 - 30, 220, 60)) {
                 resetGame(); state = "playing"; playClick(); return;

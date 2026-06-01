@@ -1,0 +1,65 @@
+# Codemagic CI/CD — native iOS build for Lulu's Road Trip (Capacitor wrapper).
+#
+# This is a NEW, self-contained workflow for the Capacitor app. It does not
+# touch any other app/workflow you have in Codemagic. Before the first build:
+#   1. In Codemagic → Teams → Integrations, connect an App Store Connect API
+#      key, and note its "name" (referenced below as APP_STORE_CONNECT).
+#   2. In App Store Connect, create a NEW app with a UNIQUE bundle id (the
+#      `bundle_identifier` below) — must differ from your existing app.
+#   3. Add an iOS distribution certificate + provisioning profile to the
+#      Codemagic code-signing settings (or let Codemagic manage signing).
+# See IOS_BUILD.md for the full walkthrough.
+
+workflows:
+  ios-capacitor:
+    name: Lulu's Road Trip — iOS (Capacitor)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: APP_STORE_CONNECT   # <- your integration name
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: boats.lulu.game    # <- must be UNIQUE to this app
+      vars:
+        BUNDLE_ID: "boats.lulu.game"
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 22
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install npm dependencies
+        script: npm install
+      - name: Build web bundle + stage www/
+        script: |
+          node build.js
+          node scripts/copy-web.js
+      - name: Generate the iOS native project (Capacitor)
+        script: |
+          # Regenerated each build so nothing native needs to live in git.
+          if [ ! -d "ios" ]; then npx cap add ios; fi
+          npx cap sync ios
+      - name: Set marketing + build number
+        script: |
+          cd ios/App
+          agvtool new-version -all "$BUILD_NUMBER" || true
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios/App && pod install
+      - name: Set up code signing
+        script: xcode-project use-profiles
+      - name: Build the .ipa
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Flip to true once you've set up TestFlight beta groups / review.
+        submit_to_app_store: false
