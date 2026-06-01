@@ -39,6 +39,7 @@ How it works:
 | `08-dina-run.js`         | Dina's run-home scene + hazards + dinaCaught ending |
 | `09-dina-home-morgan.js` | Dina's bedroom, home-object routing, Morgan plushie scene |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene, salon scene |
+| `10b-cookie-catch.js`    | Cookie Catch minigame (Dina's bedroom snack activity) |
 | `11-game-loop.js`        | main gameLoop + init + IIFE close |
 
 ## Testing

@@ -97,15 +97,8 @@
             state = "dinaNap";
             dinaRunTimer = 0;
         } else if (action === "snack") {
-            // Cookie + milk: +5 coins, fun crunch sound, message
-            save.totalCoins += 5;
-            persistSave();
-            homeMessage = "🍪 Yum! +5 coins";
-            homeMessageTimer = 1.6;
-            spawnFloater(dinaHome.x, dinaHome.y - 40, "+5 🍪", "#FFD700");
-            playTone(440, 0.04, "square", 0.10);
-            setTimeout(function () { playTone(380, 0.04, "square", 0.10); }, 60);
-            setTimeout(function () { playTone(420, 0.04, "square", 0.08); }, 120);
+            // Cookie & milk now opens the Cookie Catch minigame.
+            startCookieCatch();
         } else if (action === "stickers") {
             // Sticker book: shows current count
             homeMessage = "⭐ " + (save.parkingTotalStars || 0) + " stars collected!";

@@ -409,6 +409,8 @@
             // Quit button
             if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 137, 220, 52)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
+                // Cookie Catch is a bedroom activity — quit back to the bedroom.
+                if (prevState === "cookieCatch") { cookie = null; enterDinaHome(); playClick(); consumeAction(); return; }
                 state = "menu"; parkingChallengeMode = false; playClick(); consumeAction(); return;
             }
             consumeAction();

@@ -360,7 +360,10 @@
 
     // ── Draw: Paused ─────────────────────────────────────────
     function drawPaused() {
-        drawPlaying();
+        // Draw whatever scene we paused from as the backdrop.
+        if (prevState === "parking") drawParking();
+        else if (prevState === "cookieCatch") drawCookieCatch();
+        else drawPlaying();
         // overlay
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, W, H);
