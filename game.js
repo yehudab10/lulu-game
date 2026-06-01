@@ -2714,6 +2714,14 @@
 
         if (disabled) { bg = "#9E9E9E"; bgDark = "#616161"; }
 
+        // press-squish feedback (when an id is supplied and recently flashed)
+        var sc = opts.id ? getBtnPressScale(opts.id) : 1;
+        if (sc !== 1) {
+            ctx.save();
+            var cx = x + w / 2, cy = y + h / 2;
+            ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+        }
+
         // shadow
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         roundRect(x, y + 4, w, h, 10); ctx.fill();
@@ -2725,6 +2733,8 @@
         // label
         drawText(label, x + w / 2, y + h / 2, "bold " + (smallLabel ? "14" : "20") + "px 'Segoe UI', Arial, sans-serif", textColor, "#000", 3);
         if (icon) drawText(icon, x + 14, y + h / 2, "bold 18px Arial", textColor, "#000", 3);
+
+        if (sc !== 1) ctx.restore();
     }
 
     // Unified back-button helper — same look/size everywhere
@@ -2739,6 +2749,12 @@
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
         var bgDark = opts.bgDark || "#FF6F00";
+        var sc = opts.id ? getBtnPressScale(opts.id) : 1;
+        if (sc !== 1) {
+            ctx.save();
+            var cx = x + size / 2, cy = y + size / 2;
+            ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+        }
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         roundRect(x, y + 3, size, size, 8); ctx.fill();
         ctx.fillStyle = bgDark;
@@ -2746,6 +2762,7 @@
         ctx.fillStyle = bg;
         roundRect(x + 2, y + 2, size - 4, size - 5, 6); ctx.fill();
         drawText(icon, x + size / 2, y + size / 2, "bold " + Math.floor(size * 0.55) + "px Arial", "#FFFFFF", "#000", 3);
+        if (sc !== 1) ctx.restore();
     }
 
     function drawHUD() {
@@ -2795,7 +2812,7 @@
         }
 
         // Pause button (top-left corner)
-        drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+        drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD", id: "pause" });
 
         // Mobile boost/brake buttons (only show on touch devices)
         if (isTouchDevice) {
@@ -2807,11 +2824,11 @@
 
         // Missile button (bottom-right)
         var mY = MISSILE_RECT.y;
-        drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: save.missiles > 0 ? "#F44336" : "#9E9E9E", bgDark: save.missiles > 0 ? "#B71C1C" : "#616161" });
+        drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: save.missiles > 0 ? "#F44336" : "#9E9E9E", bgDark: save.missiles > 0 ? "#B71C1C" : "#616161", id: "missile" });
 
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
-            { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
         // count badge
         if (save.missiles > 0) {
             ctx.fillStyle = "#FFC107";
@@ -4388,7 +4405,7 @@
                 distractedMode = !distractedMode; playClick(); return;
             }
             // Mute button
-            if (pointInRect(click.x, click.y, W - 56, 16, 40, 40)) {
+            if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
                 audioMuted = !audioMuted;
                 if (audioMuted) stopMusic();
                 else { var prev = musicState; musicState = null; if (prev) startMusic(prev); else startMusic("lulu"); }
@@ -4396,7 +4413,7 @@
                 return;
             }
             // Back to character select (top-left)
-            if (pointInRect(click.x, click.y, 10, 16, 70, 40)) {
+            if (pointInRect(click.x, click.y, 10, 14, 80, 44)) {
                 gotoState("charSelect"); playClick(); return;
             }
             // Default: any click in upper area starts game
@@ -4419,12 +4436,12 @@
         if (!click) return;
 
         // Back button
-        if (pointInRect(click.x, click.y, 16, 16, 80, 40)) {
+        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) {
             state = "menu"; playClick(); return;
         }
 
         // Tabs
-        var tabY = 100, tabH = 38, tabW = W / 3;
+        var tabY = 100, tabH = 44, tabW = W / 3;
         if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopTab = "skins"; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopTab = "powerups"; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopTab = "special"; playClick(); return; }
@@ -5101,9 +5118,9 @@
         drawText(formatNum(save.totalCoins), W - 85, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");
 
         // Mute button
-        drawIconButton(W - 56, 16, 40, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+        drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
         // Back to character select
-        drawButton(10, 16, 70, 40, "◀", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+        drawBackButton(10, 14);
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
@@ -5151,7 +5168,7 @@
         }
 
         // Back button
-        drawButton(16, 16, 80, 40, "◀ BACK", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+        drawBackButton(16, 14);
 
         // Title
         drawText("SHOP", W / 2, 38, "bold 36px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
@@ -5161,7 +5178,7 @@
         drawText(formatNum(save.totalCoins), W - 86, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");
 
         // Tabs
-        var tabY = 100, tabH = 38, tabW = W / 3;
+        var tabY = 100, tabH = 44, tabW = W / 3;
         var tabs = [["skins", "Skins"], ["powerups", "Power-Ups"], ["special", "Special"]];
         for (var ti = 0; ti < 3; ti++) {
             var key = tabs[ti][0], lbl = tabs[ti][1];
