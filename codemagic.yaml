@@ -18,9 +18,12 @@ workflows:
     integrations:
       app_store_connect: Jogley   # <- your integration name (key J42D8594FA)
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: boats.lulu.game    # <- must be UNIQUE to this app
+      # NOTE: we deliberately do NOT use the `ios_signing` block here.
+      # That block makes Codemagic run its built-in automatic signing at
+      # build-init time, which only *fetches* an existing profile and fails
+      # immediately ("No matching profiles found") before any script runs.
+      # Instead we fetch-and-CREATE the profile ourselves in the
+      # "Set up code signing" script step below.
       vars:
         BUNDLE_ID: "boats.lulu.game"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
