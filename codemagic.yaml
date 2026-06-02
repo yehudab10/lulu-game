@@ -26,11 +26,13 @@ workflows:
       # "Set up code signing" script step below.
       vars:
         BUNDLE_ID: "boats.lulu.game"
-        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        # Capacitor 8 uses Swift Package Manager, not CocoaPods, so there is
+        # no .xcworkspace / Podfile — we build the Xcode project directly and
+        # Xcode resolves the SPM packages (incl. the AdMob plugin) on its own.
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
       node: 22
       xcode: latest
-      cocoapods: default
     scripts:
       - name: Install npm dependencies
         script: npm install
@@ -62,9 +64,6 @@ workflows:
         script: |
           cd ios/App
           agvtool new-version -all "$BUILD_NUMBER" || true
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios/App && pod install
       - name: Set up code signing
         script: |
           # Fetch (and CREATE if missing) the distribution certificate +
@@ -80,7 +79,7 @@ workflows:
       - name: Build the .ipa
         script: |
           xcode-project build-ipa \
-            --workspace "$XCODE_WORKSPACE" \
+            --project "$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
