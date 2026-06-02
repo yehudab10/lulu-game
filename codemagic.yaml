@@ -73,9 +73,12 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --verbose
           keychain add-certificates
-          xcode-project use-profiles
+          # --verbose prints which profile/cert got matched to which target;
+          # --warn-only is intentionally NOT set so a no-match fails loudly.
+          xcode-project use-profiles --verbose
       - name: Build the .ipa
         script: |
           xcode-project build-ipa \
