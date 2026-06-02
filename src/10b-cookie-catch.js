@@ -81,6 +81,8 @@
             // tap moves the plate toward the tap x
             cookie.plateX = click.x;
         }
+        // Continuous finger-drag: the plate follows your finger across the screen.
+        if (touchX !== null) cookie.plateX = touchX;
         cookie.plateX = clamp(cookie.plateX, COOKIE_PLATE_W / 2, W - COOKIE_PLATE_W / 2);
 
         // ── Spawn falling items (faster as the round goes) ──
@@ -268,15 +270,9 @@
         // Pause button
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
 
-        // Move buttons — touch only; desktop steers with arrow keys / tap.
+        // Plate is dragged with a finger now — no on-screen arrows.
         if (cookie.phase === "play") {
-            if (isTouchDevice) {
-                drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-                    { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-                drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-                    { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            }
-            drawText(isTouchDevice ? "Slide to catch treats · dodge 💣"
+            drawText(isTouchDevice ? "Drag to catch treats · dodge 💣"
                                    : "◀ ▶ / move mouse to catch · dodge 💣", W / 2, H - 14,
                 "12px Arial", "#7A5230", null, 0);
         }

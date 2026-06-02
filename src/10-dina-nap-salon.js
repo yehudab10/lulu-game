@@ -18,6 +18,10 @@
         dinaNapTuckTime += dt;
         if (dinaNapTuckTime > 3.2 && (consumeClick() || consumeAction() || dinaNapTuckTime > 4.5)) {
             state = "dinaHome";
+            // Clear the leftover tap/action from THIS wake touch. Dina is still
+            // standing on the bed back in the bedroom, so without this the room
+            // would instantly re-trigger the nap → stuck in a loop.
+            consumeAction(); clickQueue = null;
         } else {
             consumeClick(); consumeAction();
         }

@@ -55,12 +55,19 @@
         // Distance is derived from the exact same scroll → progress bar matches the visuals.
         dinaRunDistance = Math.min(dinaScrollY / DINA_RUN_TOTAL_PX, 1);
 
-        // Steering (lane switch)
-        // Use keys.left/right or button presses to switch lanes
-        if (consumeLaneSwitch("left")) dina.lane = clamp(dina.lane - 1, 0, 2);
-        if (consumeLaneSwitch("right")) dina.lane = clamp(dina.lane + 1, 0, 2);
-        var targetX = DINA_LANES_X[dina.lane];
-        dina.x = lerp(dina.x, targetX, Math.min(1, 8 * dt));
+        // Steering — finger-drag (mobile) or arrow keys (desktop) move Dina
+        // smoothly across the sidewalk, exactly like Lulu's car. No lane arrows.
+        var dinaMinX = W / 2 - 95, dinaMaxX = W / 2 + 95;
+        if (touchX !== null) {
+            dina.x = lerp(dina.x, clamp(touchX, dinaMinX, dinaMaxX), Math.min(1, 14 * dt));
+        } else {
+            var dinaMove = 0;
+            if (keys.left) dinaMove -= 1;
+            if (keys.right) dinaMove += 1;
+            dina.x = clamp(dina.x + dinaMove * 280 * dt, dinaMinX, dinaMaxX);
+        }
+        // Keep lane index roughly synced for anything that reads it.
+        dina.lane = dina.x < W / 2 - 35 ? 0 : (dina.x > W / 2 + 35 ? 2 : 1);
 
         // Spawn sidewalk hazards — denser as the run progresses so it ramps
         // from "warm-up" to "obstacle course". Late game can spawn two at once.
@@ -115,7 +122,7 @@
         }
         // mom's y position based on distance
         mom.y = H + 50 - (1 - mom.distance) * 130;
-        mom.x = lerp(mom.x, DINA_LANES_X[dina.lane], dt * 2);
+        mom.x = lerp(mom.x, dina.x, dt * 2);
 
         // Dina cheerful chatter (personality)
         dina.chatTimer -= dt;
@@ -707,16 +714,14 @@
         // Run level (progressive difficulty) — centered under the bar
         drawText("Run #" + dinaRunLevel, W / 2, 40, "bold 12px Arial", "#FFFFFF", "#000", 2);
 
-        // Mobile lane controls + sprint + slow buttons (touch only — desktop uses arrow keys)
+        // Sprint (⚡) + slow (🐢) buttons only — left/right is finger-drag now.
+        // Hold one with a second finger while dragging Dina with the other.
         if (isTouchDevice) {
-            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
             drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
                 { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
             drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
                 { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+            drawText("drag to move", W / 2, H - 16, "11px Arial", "#FFFFFF", "#000", 2);
         }
     }
 

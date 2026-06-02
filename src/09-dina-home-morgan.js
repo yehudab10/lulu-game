@@ -27,6 +27,11 @@
         if (keys.right) dx += 1;
         if (keys.up) dy -= 1;
         if (keys.down) dy += 1;
+        // Touch: drag anywhere and Dina walks toward your finger (no D-pad).
+        if (touchX !== null && touchY !== null) {
+            var fdx = touchX - dinaHome.x, fdy = touchY - dinaHome.y;
+            if (Math.sqrt(fdx * fdx + fdy * fdy) > 8) { dx = fdx; dy = fdy; }
+        }
         if (dx || dy) {
             var len = Math.sqrt(dx * dx + dy * dy);
             dx /= len; dy /= len;
@@ -50,8 +55,11 @@
         }
         dinaHome.hover = closest;
 
-        // Space / action / click → activate
-        if (closest && (consumeAction() || consumeHomeInteract())) {
+        // Keyboard Space/Enter activates the nearest object (desktop affordance).
+        // Touch deliberately does NOT proximity-activate — otherwise simply
+        // starting a drag near the bed would fire the nap. Touch uses the
+        // precise tap-on-object check below instead.
+        if (closest && !isTouchDevice && (consumeAction() || consumeHomeInteract())) {
             triggerHomeInteract(closest.action);
         }
         // Tap on object directly
@@ -463,24 +471,12 @@
         roundRect(0, 0, W, 40, 0); ctx.fill();
         drawText("🏠 Dina's Bedroom", W / 2, 20,
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("⭐ " + dinaStickers + "  💰 " + formatNum(save.totalCoins), 12, 20,
+        drawText("⭐ " + (save.parkingTotalStars || 0) + "  💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
-        // ─── Mobile move pad (4-way) — touch only; desktop uses arrow keys ───
-        if (isTouchDevice) {
-            drawIconButton(PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, "◀",
-                { bg: keys.left ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, "▶",
-                { bg: keys.right ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "▲",
-                { bg: keys.up ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "▼",
-                { bg: keys.down ? "#FFEB3B" : "#FFFFFF", bgDark: "#90A4AE" });
-        }
-
         // ─── Footer hint ───
-        drawText(isTouchDevice ? "Pad to walk · tap an item to interact"
+        drawText(isTouchDevice ? "Drag to walk · tap an item to interact"
                                : "Arrow keys to walk · click an item to interact",
             W / 2, H - 110, "11px Arial", "#FFFFFF", "#000", 2);
     }

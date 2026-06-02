@@ -7,6 +7,15 @@
 
     // ── Constants ────────────────────────────────────────────
     var W = 480, H = 854;
+    // Fill tall phone screens instead of letterboxing with black bars: grow the
+    // logical play-field HEIGHT to match the device's aspect ratio. Sprites keep
+    // their proportions (scale stays uniform = screenWidth / W); only the amount
+    // of vertical play space changes. We only ever extend past the 854 design
+    // height — desktop / short screens keep 854 (and letterbox as before).
+    (function () {
+        var vw = window.innerWidth, vh = window.innerHeight;
+        if (vw > 0 && vh > 0) H = clamp(Math.round(W * vh / vw), 854, 1200);
+    })();
     var ROAD_L = 100, ROAD_R = 380, ROAD_W = 280;
     var LANE_W = ROAD_W / 3;
     var LANES = [ROAD_L + LANE_W * 0.5, ROAD_L + LANE_W * 1.5, ROAD_L + LANE_W * 2.5];
@@ -294,12 +303,17 @@
         if (currentMusicEl) { try { currentMusicEl.pause(); } catch (e) {} }
     }
     function resumeMusic() {
+        if (document.hidden) return;
         if (currentMusicEl && !musicMuted && !audioMuted && audioUnlocked) {
             currentMusicEl.play().catch(function () {});
         }
     }
 
     function startMusic(track) {
+        // Never (re)start audio while the app is backgrounded — the game loop
+        // keeps ticking via setTimeout when hidden and would otherwise re-play
+        // the music the moment we paused it on background.
+        if (document.hidden) return;
         if (musicMuted || audioMuted || !track || !audioUnlocked) return;
         if (currentMusicTrack === track) {
             // Same track — just make sure it's playing
@@ -366,6 +380,7 @@
     var honkQueued = false;
     var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
+    var touchY = null;  // held-finger position (drag-to-move scenes); null when not dragging
     var steerTouchId = null;
     var boostTouchId = null;
     var brakeTouchId = null;
@@ -434,28 +449,20 @@
         // Dina's run + Cookie Catch reuse the parking D-pad rects for their
         // on-screen buttons. Without this, taps fell through to a generic click
         // and the buttons did nothing on mobile.
+        // Dina's run uses finger-drag for left/right (like Lulu's car); only the
+        // sprint (⚡) and slow (🐢) buttons remain so they can be held with a
+        // second finger while dragging.
         if (state === "dinaRun") {
-            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
-            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
             if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
         }
+        // Cookie Catch slides the plate by dragging; only Pause stays a button.
         if (state === "cookieCatch") {
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
-            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
-            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
             return null;
         }
-        // Dina's bedroom is free-roam (4-way). Reuse the 4 D-pad rects for a
-        // mobile movement pad so the room is playable on touch.
-        if (state === "dinaHome") {
-            if (pointInRect(pos.x, pos.y, PARK_LEFT_RECT.x, PARK_LEFT_RECT.y, PARK_LEFT_RECT.w, PARK_LEFT_RECT.h)) return "parkLeft";
-            if (pointInRect(pos.x, pos.y, PARK_RIGHT_RECT.x, PARK_RIGHT_RECT.y, PARK_RIGHT_RECT.w, PARK_RIGHT_RECT.h)) return "parkRight";
-            if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
-            if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
-            return null;
-        }
+        // Dina's bedroom is now drag-to-walk + tap-to-interact (no D-pad).
         return null;
     }
 
@@ -521,12 +528,18 @@
                 keys.down = true;
                 parkRevTouchId = t.identifier;
             } else {
-                // Not a button — register click (for menu/shop/game-over) and start steering
+                // Not a button — register click (for menu/shop/game-over) and
+                // start finger-drag steering. Drag-to-move scenes (Dina's run,
+                // Cookie Catch, Dina's room) use the same single-finger follow as
+                // Lulu's driving, so no on-screen arrows are needed.
                 clickQueue = pos;
                 queueAction();
-                if (state === "playing" && steerTouchId === null) {
+                if (steerTouchId === null &&
+                    (state === "playing" || state === "dinaRun" ||
+                     state === "cookieCatch" || state === "dinaHome")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;
+                    touchY = pos.y;
                 }
             }
         }
@@ -539,12 +552,13 @@
             if (t.identifier === steerTouchId) {
                 var pos = screenToCanvas(t.clientX, t.clientY);
                 touchX = pos.x;
+                touchY = pos.y;
             }
         }
     }, { passive: false });
 
     function releaseTouchId(id) {
-        if (id === steerTouchId) { steerTouchId = null; touchX = null; }
+        if (id === steerTouchId) { steerTouchId = null; touchX = null; touchY = null; }
         if (id === boostTouchId) { keys.up = false; boostTouchId = null; }
         if (id === brakeTouchId) { keys.down = false; brakeTouchId = null; }
         if (id === parkLeftTouchId)  { keys.left = false;  parkLeftTouchId = null; }
@@ -576,6 +590,24 @@
 
     // Prevent the context menu on long-press (mobile)
     canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+    // ── Background / foreground: silence music when the app is backgrounded ──
+    // On iOS the HTML5 <audio> music keeps playing after you swipe the app away
+    // unless we explicitly pause it. Pause on hide, resume on return.
+    function onAppHidden() {
+        pauseMusic();
+        if (audioCtx && audioCtx.state === "running") { try { audioCtx.suspend(); } catch (e) {} }
+    }
+    function onAppVisible() {
+        if (audioCtx && audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }
+        resumeMusic();
+    }
+    document.addEventListener("visibilitychange", function () {
+        if (document.hidden) onAppHidden(); else onAppVisible();
+    });
+    window.addEventListener("pagehide", onAppHidden);
+    window.addEventListener("blur", onAppHidden);
+    window.addEventListener("focus", onAppVisible);
 
     function getSteer(playerX) {
         var s = 0;
