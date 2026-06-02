@@ -63,7 +63,17 @@ workflows:
         script: |
           cd ios/App && pod install
       - name: Set up code signing
-        script: xcode-project use-profiles
+        script: |
+          # Fetch (and CREATE if missing) the distribution certificate +
+          # provisioning profile for this bundle id, using the Jogley
+          # App Store Connect key. The --create flag is what generates a
+          # brand-new profile for boats.lulu.game on first run.
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build the .ipa
         script: |
           xcode-project build-ipa \
