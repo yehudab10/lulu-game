@@ -22,8 +22,14 @@ workflows:
       # That block makes Codemagic run its built-in automatic signing at
       # build-init time, which only *fetches* an existing profile and fails
       # immediately ("No matching profiles found") before any script runs.
-      # Instead we fetch-and-CREATE the profile ourselves in the
+      # Instead we fetch-and-CREATE the cert + profile ourselves in the
       # "Set up code signing" script step below.
+      groups:
+        # Codemagic env-var group that must contain CERTIFICATE_PRIVATE_KEY
+        # (a 2048-bit RSA private key). fetch-signing-files uses it to create
+        # and reuse the iOS distribution certificate. Without it, the tool
+        # cannot generate a certificate and silently produces no signing files.
+        - ios_signing
       vars:
         BUNDLE_ID: "boats.lulu.game"
         # Capacitor 8 uses Swift Package Manager, not CocoaPods, so there is
@@ -71,8 +77,11 @@ workflows:
           # App Store Connect key. The --create flag is what generates a
           # brand-new profile for boats.lulu.game on first run.
           keychain initialize
+          # --certificate-key supplies the RSA private key the tool needs to
+          # create (and on later builds, reuse) the iOS distribution cert.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY" \
             --create \
             --verbose
           keychain add-certificates
