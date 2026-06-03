@@ -8,7 +8,7 @@
   },
   "plugins": {
     "AdMob": {
-      "initializeForTesting": true
+      "initializeForTesting": false
     }
   }
 }

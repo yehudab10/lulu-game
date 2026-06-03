@@ -8,14 +8,16 @@
     // AdMob App ID (goes in Info.plist, injected by codemagic.yaml):
     //   ca-app-pub-1477782549591980~6348467252
     //
-    // isTesting:true makes the device show Google TEST ads (safe to tap) even
-    // with real ad unit IDs — keep it true for all TestFlight/dev testing.
-    // Set isTesting:false ONLY in the build you submit for App Store release.
-    // Tapping your own LIVE ads will get the AdMob account banned. See IOS_BUILD.md.
+    // isTesting:false serves LIVE ads — this is the App Store release setting.
+    // ⚠️ NEVER tap your own live ads: it can get the AdMob account banned. To
+    // test safely on your own phone, add that device's AdMob test-device ID to
+    // `testingDevices` below (printed in the Xcode/device console on first ad
+    // request) — it will then see Google TEST ads even though isTesting is false.
     var ADMOB = {
         interstitialId: "ca-app-pub-1477782549591980/3654325071", // real interstitial
         rewardedId:     "ca-app-pub-1477782549591980/2341243403", // real rewarded
-        isTesting: true,         // true = test ads on this device (no ban risk)
+        isTesting: false,        // false = LIVE ads (App Store release)
+        testingDevices: [],      // add your device's test-device ID(s) to stay safe
         interstitialEveryN: 2    // show an interstitial every Nth game over
     };
 
@@ -59,7 +61,10 @@
         function init() {
             var AdMob = plugin(); if (!AdMob) return; // web → stay silent
             try {
-                var p = AdMob.initialize({ initializeForTesting: ADMOB.isTesting });
+                var p = AdMob.initialize({
+                    initializeForTesting: ADMOB.isTesting,
+                    testingDevices: ADMOB.testingDevices
+                });
                 Promise.resolve(p).then(function () {
                     ready = true;
                     prepInterstitial();
