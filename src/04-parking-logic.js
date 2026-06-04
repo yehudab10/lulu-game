@@ -5,7 +5,8 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         heshy = null;
-        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
+        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+        initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         parkingSigns = []; parkingSpawnTimer = 25;

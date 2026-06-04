@@ -82,37 +82,29 @@
             spawnClocks.coin = rand(0.6, 1.4);
             if (Math.random() > 0.75) spawnCoinLine(); else spawnCoin();
         }
-        // Rare extra-life heart — only bothers to appear when you've taken damage.
-        if (spawnClocks.heart <= 0) {
-            spawnClocks.heart = rand(16, 28);
-            if (gameTime > 12 && lives < MAX_LIVES && Math.random() < 0.6) spawnHeart();
-        }
-        // Heshy's pool — rare Easter egg (no pools while one's already on screen).
-        if (spawnClocks.pool <= 0) {
-            spawnClocks.pool = rand(22, 40) * speedFactor;
+        // Rare extra-life heart (rarity in 01b-spawn-tuning.js)
+        if (tickSpawn("heart", dt) && gameTime > 10) spawnHeart();
+        // Heshy's pool easter egg — skip if one's already out or Heshy's mid-cameo
+        if (tickSpawn("heshyPool", dt) && gameTime > 12 && !heshy) {
             var poolOnScreen = false;
             for (var pq = 0; pq < obstacles.length; pq++) if (obstacles[pq].type === "pool") poolOnScreen = true;
-            if (gameTime > 18 && !poolOnScreen && !heshy && Math.random() < 0.5) spawnObstacle("pool");
+            if (!poolOnScreen) spawnObstacle("pool");
         }
         // Heshy cameo timer
         if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
 
+        // Roadside encounter events — rarity + randomized order live in
+        // 01b-spawn-tuning.js (SPAWN_CONFIG). tickSpawn() handles timing + odds.
         // Parking sign spawn
-        parkingSpawnTimer -= dt;
-        if (parkingSpawnTimer <= 0 && parkingSigns.length === 0 && gameTime > 20) {
-            parkingSpawnTimer = rand(45, 80);
+        if (tickSpawn("parkingSign", dt) && parkingSigns.length === 0 && gameTime > 20) {
             spawnParkingSign();
         }
         // Ice cream sign
-        iceCreamSpawnTimer -= dt;
-        if (iceCreamSpawnTimer <= 0 && iceCreamSigns.length === 0 && gameTime > 30) {
-            iceCreamSpawnTimer = rand(60, 100);
+        if (tickSpawn("iceCream", dt) && iceCreamSigns.length === 0 && gameTime > 30) {
             spawnIceCreamSign();
         }
         // Avigail walking on the roadside (only if not already with you)
-        avigailSpawnTimer -= dt;
-        if (avigailSpawnTimer <= 0 && !avigailWalker && !avigailInCar && gameTime > 18) {
-            avigailSpawnTimer = rand(40, 75);
+        if (tickSpawn("avigail", dt) && !avigailWalker && !avigailInCar && gameTime > 18) {
             // walks in a lane, scrolls down slower than traffic so Lulu can reach her
             avigailWalker = { x: LANES[randInt(0, 2)], y: -60, walkTime: 0, hitW: 22, hitH: 26 };
         }
@@ -127,9 +119,7 @@
             }
         }
         // Salon sign on the roadside
-        salonSpawnTimer -= dt;
-        if (salonSpawnTimer <= 0 && salonSigns.length === 0 && gameTime > 25) {
-            salonSpawnTimer = rand(55, 95);
+        if (tickSpawn("salon", dt) && salonSigns.length === 0 && gameTime > 25) {
             salonSigns.push({ x: LANES[randInt(0, 2)], y: -60, hitW: 30, hitH: 34, bob: 0 });
         }
         for (var ssi = salonSigns.length - 1; ssi >= 0; ssi--) {
@@ -144,10 +134,8 @@
             }
         }
         // Sasquatch easter egg
-        sasquatchTimer -= dt;
-        if (sasquatchTimer <= 0 && !sasquatch && gameTime > 35) {
-            sasquatchTimer = rand(50, 120);
-            if (Math.random() < 0.4) spawnSasquatch();
+        if (tickSpawn("sasquatch", dt) && !sasquatch && gameTime > 35) {
+            spawnSasquatch();
         }
         // Billboards
         billboardTimer -= dt;
@@ -323,15 +311,10 @@
             if (he.y > H + 50) { heartEntities.splice(hj, 1); continue; }
             if (!he.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, he.x, he.y, he.hitW, he.hitH)) {
                 he.collected = true;
-                if (lives < MAX_LIVES) {
-                    lives++;
-                    spawnFloater(he.x, he.y, "+1 ♥", "#FF4081");
-                } else {
-                    // already full → small coin bonus instead of a wasted heart
-                    runCoins += 5; save.totalCoins += 5; persistSave();
-                    score += 100 * scoreMult;
-                    spawnFloater(he.x, he.y, "+5", "#FFD700");
-                }
+                // Lives can now climb past the starting 3 (capped at 9 so the
+                // HUD stays sane).
+                lives = Math.min(lives + 1, 9);
+                spawnFloater(he.x, he.y, "+1 ♥", "#FF4081");
                 spawnCoinSparkle(he.x, he.y);
                 playTone(880, 0.1, "sine", 0.18, 1320);
                 setTimeout(function () { playTone(1320, 0.1, "sine", 0.16, 1760); }, 80);

@@ -1004,6 +1004,49 @@
     }
 
     // ── Drawing: Lulu's car (with skin & feminine face) ──────
+    // ── Spawn tuning (EDIT ME) ───────────────────────────────
+    // Rarity/timing for the random "encounter" events in Lulu's driving game.
+    // Everything here is safe to tweak — just edit the numbers and rebuild
+    // (`node build.js`). Core obstacles (cars/cones/coins) are NOT here; they
+    // stay frequent. These are the special, occasional events.
+    //
+    //   first:  [min,max] seconds before the event can FIRST appear in a run.
+    //           Randomized per run, so the ORDER of events differs every time.
+    //   every:  [min,max] seconds between attempts after that.
+    //   chance: 0..1 probability an attempt actually spawns (lower = rarer).
+    //
+    // Want something rarer?  → raise `every` and/or lower `chance`.
+    // Want it more common?   → lower `every` and/or raise `chance`.
+    var SPAWN_CONFIG = {
+        parkingSign: { first: [25, 75],  every: [55, 100], chance: 0.50 }, // 🅿 parking challenge offer
+        iceCream:    { first: [30, 85],  every: [65, 115], chance: 0.50 }, // 🍦 ice-cream bonus
+        avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup
+        salon:       { first: [30, 85],  every: [65, 115], chance: 0.45 }, // 💇 salon scene
+        sasquatch:   { first: [40, 100], every: [75, 150], chance: 0.35 }, // 🦶 sasquatch easter egg
+        heshyPool:   { first: [25, 70],  every: [40, 80],  chance: 0.50 }, // 🏊 Heshy-in-the-pool easter egg
+        heart:       { first: [15, 35],  every: [20, 40],  chance: 0.60 }  // ❤️ extra-life pickup
+    };
+
+    // Per-event countdown timers, (re)initialized at the start of each run.
+    var spawnTimers = {};
+    function initSpawnTimers() {
+        for (var key in SPAWN_CONFIG) {
+            var c = SPAWN_CONFIG[key];
+            spawnTimers[key] = rand(c.first[0], c.first[1]);
+        }
+    }
+    // Counts down `name`'s timer; when it elapses, resets it and rolls `chance`.
+    // Returns true only on the frames the event should actually spawn.
+    function tickSpawn(name, dt) {
+        var c = SPAWN_CONFIG[name];
+        if (!c) return false;
+        if (spawnTimers[name] === undefined) spawnTimers[name] = rand(c.first[0], c.first[1]);
+        spawnTimers[name] -= dt;
+        if (spawnTimers[name] > 0) return false;
+        spawnTimers[name] = rand(c.every[0], c.every[1]);
+        return Math.random() < c.chance;
+    }
+
     function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale) {
         var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
         var sc = scale || 1;
@@ -2919,9 +2962,18 @@
         drawCoin(W - 100, 26, gameTime);
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
-        // Hearts
-        for (var i = 0; i < MAX_LIVES; i++) {
-            drawHeart(W / 2 - 28 + i * 28, 30, i < lives);
+        // Hearts — lives can exceed the starting 3 now. Show up to 6 across
+        // (empty slots up to MAX_LIVES so damage still reads clearly), then
+        // collapse to a single heart + "×N" so it never runs off-screen.
+        if (lives <= 6) {
+            var slots = Math.max(MAX_LIVES, lives);
+            for (var i = 0; i < slots; i++) {
+                drawHeart(W / 2 - (slots - 1) * 14 + i * 28, 30, i < lives);
+            }
+        } else {
+            drawHeart(W / 2 - 16, 30, true);
+            drawText("×" + lives, W / 2 + 4, 30, "bold 18px 'Segoe UI', Arial, sans-serif",
+                "#FF4081", "#000", 3, "left");
         }
 
         // Speed bar
@@ -3124,7 +3176,7 @@
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
 
-    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
+    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special
@@ -3296,7 +3348,8 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         heshy = null;
-        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
+        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+        initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         parkingSigns = []; parkingSpawnTimer = 25;
@@ -4117,37 +4170,29 @@
             spawnClocks.coin = rand(0.6, 1.4);
             if (Math.random() > 0.75) spawnCoinLine(); else spawnCoin();
         }
-        // Rare extra-life heart — only bothers to appear when you've taken damage.
-        if (spawnClocks.heart <= 0) {
-            spawnClocks.heart = rand(16, 28);
-            if (gameTime > 12 && lives < MAX_LIVES && Math.random() < 0.6) spawnHeart();
-        }
-        // Heshy's pool — rare Easter egg (no pools while one's already on screen).
-        if (spawnClocks.pool <= 0) {
-            spawnClocks.pool = rand(22, 40) * speedFactor;
+        // Rare extra-life heart (rarity in 01b-spawn-tuning.js)
+        if (tickSpawn("heart", dt) && gameTime > 10) spawnHeart();
+        // Heshy's pool easter egg — skip if one's already out or Heshy's mid-cameo
+        if (tickSpawn("heshyPool", dt) && gameTime > 12 && !heshy) {
             var poolOnScreen = false;
             for (var pq = 0; pq < obstacles.length; pq++) if (obstacles[pq].type === "pool") poolOnScreen = true;
-            if (gameTime > 18 && !poolOnScreen && !heshy && Math.random() < 0.5) spawnObstacle("pool");
+            if (!poolOnScreen) spawnObstacle("pool");
         }
         // Heshy cameo timer
         if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
 
+        // Roadside encounter events — rarity + randomized order live in
+        // 01b-spawn-tuning.js (SPAWN_CONFIG). tickSpawn() handles timing + odds.
         // Parking sign spawn
-        parkingSpawnTimer -= dt;
-        if (parkingSpawnTimer <= 0 && parkingSigns.length === 0 && gameTime > 20) {
-            parkingSpawnTimer = rand(45, 80);
+        if (tickSpawn("parkingSign", dt) && parkingSigns.length === 0 && gameTime > 20) {
             spawnParkingSign();
         }
         // Ice cream sign
-        iceCreamSpawnTimer -= dt;
-        if (iceCreamSpawnTimer <= 0 && iceCreamSigns.length === 0 && gameTime > 30) {
-            iceCreamSpawnTimer = rand(60, 100);
+        if (tickSpawn("iceCream", dt) && iceCreamSigns.length === 0 && gameTime > 30) {
             spawnIceCreamSign();
         }
         // Avigail walking on the roadside (only if not already with you)
-        avigailSpawnTimer -= dt;
-        if (avigailSpawnTimer <= 0 && !avigailWalker && !avigailInCar && gameTime > 18) {
-            avigailSpawnTimer = rand(40, 75);
+        if (tickSpawn("avigail", dt) && !avigailWalker && !avigailInCar && gameTime > 18) {
             // walks in a lane, scrolls down slower than traffic so Lulu can reach her
             avigailWalker = { x: LANES[randInt(0, 2)], y: -60, walkTime: 0, hitW: 22, hitH: 26 };
         }
@@ -4162,9 +4207,7 @@
             }
         }
         // Salon sign on the roadside
-        salonSpawnTimer -= dt;
-        if (salonSpawnTimer <= 0 && salonSigns.length === 0 && gameTime > 25) {
-            salonSpawnTimer = rand(55, 95);
+        if (tickSpawn("salon", dt) && salonSigns.length === 0 && gameTime > 25) {
             salonSigns.push({ x: LANES[randInt(0, 2)], y: -60, hitW: 30, hitH: 34, bob: 0 });
         }
         for (var ssi = salonSigns.length - 1; ssi >= 0; ssi--) {
@@ -4179,10 +4222,8 @@
             }
         }
         // Sasquatch easter egg
-        sasquatchTimer -= dt;
-        if (sasquatchTimer <= 0 && !sasquatch && gameTime > 35) {
-            sasquatchTimer = rand(50, 120);
-            if (Math.random() < 0.4) spawnSasquatch();
+        if (tickSpawn("sasquatch", dt) && !sasquatch && gameTime > 35) {
+            spawnSasquatch();
         }
         // Billboards
         billboardTimer -= dt;
@@ -4358,15 +4399,10 @@
             if (he.y > H + 50) { heartEntities.splice(hj, 1); continue; }
             if (!he.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, he.x, he.y, he.hitW, he.hitH)) {
                 he.collected = true;
-                if (lives < MAX_LIVES) {
-                    lives++;
-                    spawnFloater(he.x, he.y, "+1 ♥", "#FF4081");
-                } else {
-                    // already full → small coin bonus instead of a wasted heart
-                    runCoins += 5; save.totalCoins += 5; persistSave();
-                    score += 100 * scoreMult;
-                    spawnFloater(he.x, he.y, "+5", "#FFD700");
-                }
+                // Lives can now climb past the starting 3 (capped at 9 so the
+                // HUD stays sane).
+                lives = Math.min(lives + 1, 9);
+                spawnFloater(he.x, he.y, "+1 ♥", "#FF4081");
                 spawnCoinSparkle(he.x, he.y);
                 playTone(880, 0.1, "sine", 0.18, 1320);
                 setTimeout(function () { playTone(1320, 0.1, "sine", 0.16, 1760); }, 80);

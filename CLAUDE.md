@@ -30,6 +30,7 @@ How it works:
 | file | contents |
 |------|----------|
 | `01-engine-core.js`      | constants, skins, save system, audio, canvas/input, math/draw utils, particles, decorations, road |
+| `01b-spawn-tuning.js`    | **SPAWN_CONFIG** — easily-editable rarity/timing for random roadside events (parking, Avigail, salon, sasquatch, Heshy pool, hearts) + `tickSpawn` |
 | `02-art-vehicles.js`     | Lulu's car art + enemy cars, obstacles, pedestrians, animals, missiles, signs, sasquatch, cop car |
 | `03-art-parking-hud.js`  | parking-scene art, security camera, damage decals, buttons, HUD, parking level config |
 | `04-parking-logic.js`    | resetGame, spawners, parking minigame setup/update/result, challenge flow |

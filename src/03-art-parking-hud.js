@@ -668,9 +668,18 @@
         drawCoin(W - 100, 26, gameTime);
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
-        // Hearts
-        for (var i = 0; i < MAX_LIVES; i++) {
-            drawHeart(W / 2 - 28 + i * 28, 30, i < lives);
+        // Hearts — lives can exceed the starting 3 now. Show up to 6 across
+        // (empty slots up to MAX_LIVES so damage still reads clearly), then
+        // collapse to a single heart + "×N" so it never runs off-screen.
+        if (lives <= 6) {
+            var slots = Math.max(MAX_LIVES, lives);
+            for (var i = 0; i < slots; i++) {
+                drawHeart(W / 2 - (slots - 1) * 14 + i * 28, 30, i < lives);
+            }
+        } else {
+            drawHeart(W / 2 - 16, 30, true);
+            drawText("×" + lives, W / 2 + 4, 30, "bold 18px 'Segoe UI', Arial, sans-serif",
+                "#FF4081", "#000", 3, "left");
         }
 
         // Speed bar
@@ -873,7 +882,7 @@
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
 
-    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
+    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special
