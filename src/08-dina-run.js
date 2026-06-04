@@ -36,10 +36,16 @@
         dina.walkTime += dt;
         if (shakeTimer > 0) shakeTimer -= dt;
 
-        // Sprint / slow input
-        var sprint = keys.up && dina.sprintTimer > 0;
-        if (sprint) dina.sprintTimer = Math.max(0, dina.sprintTimer - dt);
-        else dina.sprintTimer = Math.min(3, dina.sprintTimer + dt * 0.6);
+        // Sprint / slow input. The meter only RECHARGES when you're NOT holding
+        // boost — otherwise holding the button on an empty bar would refill it
+        // and re-engage, letting you sprint forever.
+        var wantSprint = keys.up;
+        var sprint = wantSprint && dina.sprintTimer > 0;
+        if (sprint) {
+            dina.sprintTimer = Math.max(0, dina.sprintTimer - dt);
+        } else if (!wantSprint) {
+            dina.sprintTimer = Math.min(3, dina.sprintTimer + dt * 0.6);
+        }
         var slow = keys.down;
 
         // ── SINGLE source of truth for world motion ──

@@ -392,7 +392,7 @@
             ]
         },
         {
-            prompt: "Hold on — is THIS the car?\nIt sounds like a kettle.",
+            prompt: "Is that your CAR out there?\nIt sounds like a kettle.",
             expr: "suspicious",
             choices: [
                 { label: "She's vintage.", reply: "She's a HAZARD with a\nnamePlate. I love her already.", expr: "smug" },
@@ -410,7 +410,7 @@
             ]
         },
         {
-            prompt: "Last thing. Swear we're not\npicking up your cousin again.",
+            prompt: "Swear we're not picking up\nyour cousin again.",
             expr: "suspicious",
             choices: [
                 { label: "I swear on the cholent.", reply: "That's the HOLIEST oath you\nhave. Okay. I believe you.", expr: "excited" },
@@ -472,7 +472,7 @@
             prompt: "Before I commit: what's the\nsnack situation in there?",
             expr: "excited",
             choices: [
-                { label: "Rugelach. As promised.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
+                { label: "Rugelach. A whole bag.", reply: "Marry me. Not really. But\nkeep the rugelach coming.", expr: "love" },
                 { label: "Half a granola bar.", reply: "Half?? Who ATE the other half\nin a moving vehicle?? Animal.", expr: "annoyed" },
                 { label: "Vibes only.", reply: "'Vibes only' is how friend-\nships END, Lulu. But fine.", expr: "dramatic" }
             ]
@@ -481,7 +481,7 @@
             prompt: "Non-negotiable: is there\nsomething to NOSH on?",
             expr: "excited",
             choices: [
-                { label: "Rugelach. As promised.", reply: "You REMEMBERED. I'm welling\nup. Don't look at me. DRIVE.", expr: "love" },
+                { label: "Rugelach. A whole bag.", reply: "A whole BAG?! I'm welling\nup. Don't look at me. DRIVE.", expr: "love" },
                 { label: "A suspicious mint.", reply: "A MINT? One? Singular?? This\nis a CRISIS, not a road trip.", expr: "panic" },
                 { label: "Gas station pretzels.", reply: "Gas station pretzels are a\nLOVE LANGUAGE. Fine. I'm in.", expr: "smug" }
             ]
@@ -516,15 +516,11 @@
     // middles + a snack step (tagged isSnack), all inserted in a pleasant order.
     function buildAvigailScript() {
         var opener = randPick(AVIGAIL_OPENERS);
-        opener.isOpener = true;                        // tag drives rugelach-promise logic
-        avigailRugelachIdx = opener.rugelachIdx;
-
         var snack = randPick(AVIGAIL_SNACKS);
-        snack.isSnack = true;                          // tag drives the payoff logic
 
-        // 4-5 random middles → total 6-7 steps with opener + snack.
-        var midCount = randInt(4, 5);
-        var mids = avigailShuffle(AVIGAIL_MIDDLES).slice(0, midCount);
+        // 2-3 self-contained middle quips → a tight, coherent 4-5 step chat
+        // (each middle stands on its own so any order reads fine).
+        var mids = avigailShuffle(AVIGAIL_MIDDLES).slice(0, randInt(2, 3));
 
         var script = [opener];
         // Drop the snack step somewhere in the back half so the promise has time
@@ -583,18 +579,8 @@
                 var by = 636 + i * 60;
                 if (pointInRect(click.x, click.y, 70, by, 340, 54)) {
                     var ch = dec.choices[i];
-                    // remember the rugelach promise — tracked via the opener tag +
-                    // its own rugelachIdx, so step order/shuffle can't break it.
-                    if (dec.isOpener) avigailHasRugelach = (i === avigailRugelachIdx);
-                    // payoff: on the snack step, "Rugelach. As promised." (choice 0)
-                    // only lands if a rugelach promise was actually made at the door.
-                    if (dec.isSnack && i === 0 && !avigailHasRugelach) {
-                        avigailReply = "You said RUGELACH at the door\nand brought... NOTHING? Get in.";
-                        avigailExpr = "annoyed";
-                    } else {
-                        avigailReply = ch.reply;
-                        avigailExpr = ch.expr;
-                    }
+                    avigailReply = ch.reply;
+                    avigailExpr = ch.expr;
                     avigailReplyTimer = 1.9;
                     playClick();
                     return;
