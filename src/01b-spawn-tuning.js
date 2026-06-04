@@ -12,6 +12,7 @@
     // Want something rarer?  → raise `every` and/or lower `chance`.
     // Want it more common?   → lower `every` and/or raise `chance`.
     var SPAWN_CONFIG = {
+        pedestrian:  { first: [12, 30], every: [20, 38],  chance: 0.70 }, // 🚶 walkers → passenger coin bonus
         parkingSign: { first: [25, 75],  every: [55, 100], chance: 0.50 }, // 🅿 parking challenge offer
         iceCream:    { first: [30, 85],  every: [65, 115], chance: 0.50 }, // 🍦 ice-cream bonus
         avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup

@@ -69,10 +69,9 @@
         if (spawnClocks.car <= 0) { spawnClocks.car = rand(1.0, 2.2) * speedFactor; spawnObstacle("car"); }
         if (spawnClocks.cone <= 0) { spawnClocks.cone = rand(2.5, 5) * speedFactor; spawnObstacle("cone"); }
         if (spawnClocks.puddle <= 0) { spawnClocks.puddle = rand(4, 8) * speedFactor; spawnObstacle("puddle"); }
-        if (spawnClocks.ped <= 0 && gameTime > 15) {
-            spawnClocks.ped = rand(5, 10) * speedFactor;
-            spawnObstacle("ped");
-        }
+        // Pedestrians (→ passenger pickup = 30s double-coin bonus). Rarer now
+        // so the bonus is occasional, not constant — tune in 01b-spawn-tuning.js.
+        if (tickSpawn("pedestrian", dt) && gameTime > 15) spawnObstacle("ped");
         if (spawnClocks.animal <= 0) {
             spawnClocks.animal = rand(8, 14);
             if (gameTime > 45 && Math.random() < 0.15) spawnDuckParade();

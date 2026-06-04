@@ -230,7 +230,12 @@
     var PASSENGER_SHIRT_COLORS = ["#E91E63", "#FFC107", "#43A047", "#2196F3", "#FF5722", "#9C27B0"];
     var PASSENGER_HAIR_COLORS  = ["#FFC107", "#3E2723", "#6D4C41", "#FAFAFA", "#E91E63", "#FF9800"];
 
+    // Names + one-liners shown when Lulu bonks a pedestrian (random each time).
+    var KO_NAMES = ["Shua", "Esti", "Random British guy", "Leah"];
+    var KO_LINES = [" was knocked down!", " went flying!", " ate dirt!", " got bonked!", " did a backflip!"];
+
     function pickUpPassenger(ped) {
+        spawnFloater(ped.x, ped.y - 26, randPick(KO_NAMES) + randPick(KO_LINES), "#FF8A65");
         passengers.push({
             pedType: ped.pedType,
             shirtColor: PASSENGER_SHIRT_COLORS[ped.pedType % PASSENGER_SHIRT_COLORS.length],

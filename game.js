@@ -1018,6 +1018,7 @@
     // Want something rarer?  → raise `every` and/or lower `chance`.
     // Want it more common?   → lower `every` and/or raise `chance`.
     var SPAWN_CONFIG = {
+        pedestrian:  { first: [12, 30], every: [20, 38],  chance: 0.70 }, // 🚶 walkers → passenger coin bonus
         parkingSign: { first: [25, 75],  every: [55, 100], chance: 0.50 }, // 🅿 parking challenge offer
         iceCream:    { first: [30, 85],  every: [65, 115], chance: 0.50 }, // 🍦 ice-cream bonus
         avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup
@@ -3573,7 +3574,12 @@
     var PASSENGER_SHIRT_COLORS = ["#E91E63", "#FFC107", "#43A047", "#2196F3", "#FF5722", "#9C27B0"];
     var PASSENGER_HAIR_COLORS  = ["#FFC107", "#3E2723", "#6D4C41", "#FAFAFA", "#E91E63", "#FF9800"];
 
+    // Names + one-liners shown when Lulu bonks a pedestrian (random each time).
+    var KO_NAMES = ["Shua", "Esti", "Random British guy", "Leah"];
+    var KO_LINES = [" was knocked down!", " went flying!", " ate dirt!", " got bonked!", " did a backflip!"];
+
     function pickUpPassenger(ped) {
+        spawnFloater(ped.x, ped.y - 26, randPick(KO_NAMES) + randPick(KO_LINES), "#FF8A65");
         passengers.push({
             pedType: ped.pedType,
             shirtColor: PASSENGER_SHIRT_COLORS[ped.pedType % PASSENGER_SHIRT_COLORS.length],
@@ -4157,10 +4163,9 @@
         if (spawnClocks.car <= 0) { spawnClocks.car = rand(1.0, 2.2) * speedFactor; spawnObstacle("car"); }
         if (spawnClocks.cone <= 0) { spawnClocks.cone = rand(2.5, 5) * speedFactor; spawnObstacle("cone"); }
         if (spawnClocks.puddle <= 0) { spawnClocks.puddle = rand(4, 8) * speedFactor; spawnObstacle("puddle"); }
-        if (spawnClocks.ped <= 0 && gameTime > 15) {
-            spawnClocks.ped = rand(5, 10) * speedFactor;
-            spawnObstacle("ped");
-        }
+        // Pedestrians (→ passenger pickup = 30s double-coin bonus). Rarer now
+        // so the bonus is occasional, not constant — tune in 01b-spawn-tuning.js.
+        if (tickSpawn("pedestrian", dt) && gameTime > 15) spawnObstacle("ped");
         if (spawnClocks.animal <= 0) {
             spawnClocks.animal = rand(8, 14);
             if (gameTime > 45 && Math.random() < 0.15) spawnDuckParade();
@@ -10252,6 +10257,9 @@
     function endCookieCatch(why) {
         cookie.phase = why;       // "done" (time up) or "oops" (out of lives)
         cookie.endT = 0;
+        // Drain any tap/action still queued from gameplay so the result screen
+        // doesn't instantly auto-dismiss — it waits for a fresh tap.
+        consumeAction(); clickQueue = null;
         if (why === "done") {
             playTone(523, 0.1, "triangle", 0.2);
             setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);

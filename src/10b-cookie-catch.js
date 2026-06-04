@@ -160,6 +160,9 @@
     function endCookieCatch(why) {
         cookie.phase = why;       // "done" (time up) or "oops" (out of lives)
         cookie.endT = 0;
+        // Drain any tap/action still queued from gameplay so the result screen
+        // doesn't instantly auto-dismiss — it waits for a fresh tap.
+        consumeAction(); clickQueue = null;
         if (why === "done") {
             playTone(523, 0.1, "triangle", 0.2);
             setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
