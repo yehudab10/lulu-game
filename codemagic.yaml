@@ -87,6 +87,12 @@ workflows:
           /usr/libexec/PlistBuddy -c \
             "Add :NSUserTrackingUsageDescription string This lets us show more relevant ads to keep the game free." \
             "$PLIST" 2>/dev/null || true
+          # Hide the iOS status bar so the game runs truly full-screen (no clock
+          # band over the artwork). Both keys are required for it to stick.
+          /usr/libexec/PlistBuddy -c "Add :UIStatusBarHidden bool true" "$PLIST" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set :UIStatusBarHidden true" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST"
       - name: Set marketing + build number
         script: |
           cd ios/App

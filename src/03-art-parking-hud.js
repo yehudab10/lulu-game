@@ -868,10 +868,12 @@
 
     var obstacles = [];
     var coinEntities = [];
+    var heartEntities = [];   // rare extra-life pickups
     var animals = [];
     var missiles = [];
+    var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
 
-    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special

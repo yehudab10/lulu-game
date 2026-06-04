@@ -23,8 +23,11 @@ html, body {
     justify-content: center;
     align-items: center;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    /* Safe-area padding for notched phones */
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Full-bleed: the canvas height now matches the device aspect ratio, so it
+       fills the whole screen. No safe-area letterbox padding. The native status
+       bar is hidden, and the game keeps its buttons clear of the home-indicator
+       zone, so nothing important hides behind system UI. */
+    padding: 0;
 }
 
 #gameCanvas {

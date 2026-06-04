@@ -3,8 +3,9 @@
         score = 0; runCoins = 0; lives = MAX_LIVES;
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
-        obstacles = []; coinEntities = []; animals = []; missiles = []; particles = [];
-        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+        obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
+        heshy = null;
+        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         parkingSigns = []; parkingSpawnTimer = 25;
@@ -61,6 +62,13 @@
                 type: "puddle", x: x, y: y,
                 hitW: 30, hitH: 12, speedMult: 1, lane: lane
             });
+        } else if (type === "pool") {
+            // Heshy's pool — an Easter-egg "obstacle" that's actually a treat:
+            // riding through it summons Heshy and grants a temporary shield.
+            obstacles.push({
+                type: "pool", x: x, y: y,
+                hitW: 34, hitH: 18, speedMult: 1, lane: lane
+            });
         } else if (type === "ped") {
             obstacles.push({
                 type: "ped", x: x, y: y,
@@ -75,6 +83,24 @@
         var x = rand(ROAD_L + 20, ROAD_R - 20);
         var y = -30;
         coinEntities.push({ x: x, y: y, hitW: 16, hitH: 16, collected: false });
+    }
+
+    // Rare floating heart → restores a life (or pays out coins if already full).
+    function spawnHeart() {
+        var x = rand(ROAD_L + 24, ROAD_R - 24);
+        heartEntities.push({ x: x, y: -30, hitW: 22, hitH: 22, collected: false, bob: rand(0, 6.28) });
+    }
+
+    // Heshy cannonballs into the scene: grant a temp shield + a funny cameo,
+    // never costing the player anything (it overlaps gameplay harmlessly).
+    function triggerHeshy() {
+        heshy = { t: 0, dur: 4.5 };
+        invincibleTimer = Math.max(invincibleTimer, 4.5); // shield for the cameo
+        spawnFloater(player.x, player.y - 40, "😎 HESHY!", "#4FC3F7");
+        // goofy splash + a sunglasses-cool two-note sting
+        spawnCoinSparkle(player.x, player.y);
+        playTone(523, 0.12, "triangle", 0.2);
+        setTimeout(function () { playTone(392, 0.18, "triangle", 0.2); }, 130);
     }
 
     function spawnCoinLine() {

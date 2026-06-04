@@ -1,11 +1,26 @@
+    var lastDispatchState = null;
+
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
 
+      try {
         // Global update tickers (always run)
         updateBtnPressFx(dt);
         updateFloaters(dt);
         updateSceneFade(dt);
+
+        // When the scene changes (via fade or a direct state set), drop any
+        // input that belonged to the previous scene — the tap that caused the
+        // transition, a half-finished finger-drag — so it can't double-fire or
+        // leak into the new scene (this caused stray jumps into other modes).
+        if (state !== lastDispatchState) {
+            actionQueued = false;
+            clickQueue = null;
+            pauseQueued = false;
+            steerTouchId = null; touchX = null; touchY = null;
+            lastDispatchState = state;
+        }
 
         // Background music tracks state changes
         // Map game state → music file track
@@ -70,7 +85,14 @@
 
         // Scene fade overlay (drawn on top of everything)
         drawSceneFade();
+      } catch (e) {
+        // Never let one bad frame kill the loop (which would freeze the whole
+        // app until a restart). Log it and keep going — input stays responsive.
+        if (window.console && console.error) console.error("Lulu frame error:", e);
+      }
 
+        // Scheduling lives OUTSIDE the try so the loop always continues, even
+        // if a frame threw above.
         // Prefer rAF, but fall back to setTimeout when the tab is hidden
         // (rAF is fully paused in background tabs; setTimeout still fires ~1/sec).
         if (document.hidden) {

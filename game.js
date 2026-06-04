@@ -3119,10 +3119,12 @@
 
     var obstacles = [];
     var coinEntities = [];
+    var heartEntities = [];   // rare extra-life pickups
     var animals = [];
     var missiles = [];
+    var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
 
-    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+    var spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special
@@ -3292,8 +3294,9 @@
         score = 0; runCoins = 0; lives = MAX_LIVES;
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
-        obstacles = []; coinEntities = []; animals = []; missiles = []; particles = [];
-        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
+        obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
+        heshy = null;
+        spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0, pool: 0, heart: 0 };
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         parkingSigns = []; parkingSpawnTimer = 25;
@@ -3350,6 +3353,13 @@
                 type: "puddle", x: x, y: y,
                 hitW: 30, hitH: 12, speedMult: 1, lane: lane
             });
+        } else if (type === "pool") {
+            // Heshy's pool — an Easter-egg "obstacle" that's actually a treat:
+            // riding through it summons Heshy and grants a temporary shield.
+            obstacles.push({
+                type: "pool", x: x, y: y,
+                hitW: 34, hitH: 18, speedMult: 1, lane: lane
+            });
         } else if (type === "ped") {
             obstacles.push({
                 type: "ped", x: x, y: y,
@@ -3364,6 +3374,24 @@
         var x = rand(ROAD_L + 20, ROAD_R - 20);
         var y = -30;
         coinEntities.push({ x: x, y: y, hitW: 16, hitH: 16, collected: false });
+    }
+
+    // Rare floating heart → restores a life (or pays out coins if already full).
+    function spawnHeart() {
+        var x = rand(ROAD_L + 24, ROAD_R - 24);
+        heartEntities.push({ x: x, y: -30, hitW: 22, hitH: 22, collected: false, bob: rand(0, 6.28) });
+    }
+
+    // Heshy cannonballs into the scene: grant a temp shield + a funny cameo,
+    // never costing the player anything (it overlaps gameplay harmlessly).
+    function triggerHeshy() {
+        heshy = { t: 0, dur: 4.5 };
+        invincibleTimer = Math.max(invincibleTimer, 4.5); // shield for the cameo
+        spawnFloater(player.x, player.y - 40, "😎 HESHY!", "#4FC3F7");
+        // goofy splash + a sunglasses-cool two-note sting
+        spawnCoinSparkle(player.x, player.y);
+        playTone(523, 0.12, "triangle", 0.2);
+        setTimeout(function () { playTone(392, 0.18, "triangle", 0.2); }, 130);
     }
 
     function spawnCoinLine() {
@@ -4089,6 +4117,20 @@
             spawnClocks.coin = rand(0.6, 1.4);
             if (Math.random() > 0.75) spawnCoinLine(); else spawnCoin();
         }
+        // Rare extra-life heart — only bothers to appear when you've taken damage.
+        if (spawnClocks.heart <= 0) {
+            spawnClocks.heart = rand(16, 28);
+            if (gameTime > 12 && lives < MAX_LIVES && Math.random() < 0.6) spawnHeart();
+        }
+        // Heshy's pool — rare Easter egg (no pools while one's already on screen).
+        if (spawnClocks.pool <= 0) {
+            spawnClocks.pool = rand(22, 40) * speedFactor;
+            var poolOnScreen = false;
+            for (var pq = 0; pq < obstacles.length; pq++) if (obstacles[pq].type === "pool") poolOnScreen = true;
+            if (gameTime > 18 && !poolOnScreen && !heshy && Math.random() < 0.5) spawnObstacle("pool");
+        }
+        // Heshy cameo timer
+        if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
 
         // Parking sign spawn
         parkingSpawnTimer -= dt;
@@ -4221,6 +4263,12 @@
                     obstacles.splice(i, 1);
                     continue;
                 }
+                if (o.type === "pool") {
+                    // Easter egg — never a penalty. Summon Heshy + grant a shield.
+                    triggerHeshy();
+                    obstacles.splice(i, 1);
+                    continue;
+                }
                 if (invincibleTimer <= 0) hitPlayer(o);
             } else if (o.type === "car" && !o.nearMissed && invincibleTimer <= 0) {
                 // ── Near-miss "whoosh" reward: barely dodge an enemy car ──
@@ -4300,6 +4348,30 @@
         for (var cp = coinPops.length - 1; cp >= 0; cp--) {
             coinPops[cp].t += dt;
             if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
+        }
+
+        // Update heart pickups (rare extra life)
+        for (var hj = heartEntities.length - 1; hj >= 0; hj--) {
+            var he = heartEntities[hj];
+            he.y += gameSpeed * dt;
+            he.bob += dt;
+            if (he.y > H + 50) { heartEntities.splice(hj, 1); continue; }
+            if (!he.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, he.x, he.y, he.hitW, he.hitH)) {
+                he.collected = true;
+                if (lives < MAX_LIVES) {
+                    lives++;
+                    spawnFloater(he.x, he.y, "+1 ♥", "#FF4081");
+                } else {
+                    // already full → small coin bonus instead of a wasted heart
+                    runCoins += 5; save.totalCoins += 5; persistSave();
+                    score += 100 * scoreMult;
+                    spawnFloater(he.x, he.y, "+5", "#FFD700");
+                }
+                spawnCoinSparkle(he.x, he.y);
+                playTone(880, 0.1, "sine", 0.18, 1320);
+                setTimeout(function () { playTone(1320, 0.1, "sine", 0.16, 1760); }, 80);
+                heartEntities.splice(hj, 1);
+            }
         }
 
         // Update animals
@@ -4763,6 +4835,105 @@
         }
     }
 
+    // ── Easter-egg + pickup art ──────────────────────────────
+    function drawHeshyPool(x, y, time) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath(); ctx.ellipse(0, 6, 34, 18, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFB300"; // inflatable rim
+        ctx.beginPath(); ctx.ellipse(0, 0, 34, 20, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#29B6F6"; // water
+        ctx.beginPath(); ctx.ellipse(0, 0, 27, 14, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-14, -2 + Math.sin(time * 4) * 1.5);
+        ctx.quadraticCurveTo(0, -6, 14, -2);
+        ctx.stroke();
+        ctx.fillStyle = "#FF5252"; // beach ball
+        ctx.beginPath(); ctx.arc(11, -3, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(11, -3, 5, -0.4, 0.7); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawHeartPickup(x, y, bob) {
+        var s = 1 + Math.sin(bob * 4) * 0.08;
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        ctx.fillStyle = "rgba(255,64,129,0.25)";
+        ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FF4081";
+        ctx.beginPath();
+        ctx.moveTo(0, 7);
+        ctx.bezierCurveTo(-10, -3, -7, -13, 0, -6);
+        ctx.bezierCurveTo(7, -13, 10, -3, 0, 7);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.beginPath(); ctx.ellipse(-4, -4, 2.2, 3.2, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // Heshy floats in on his inner tube, waves, and drifts away — pure cameo.
+    function drawHeshyCameo(t, dur) {
+        var enter = clamp(t / 0.5, 0, 1);
+        var exit = clamp((t - (dur - 0.7)) / 0.7, 0, 1);
+        var x = lerp(W + 100, W * 0.72, easeOutBack(enter)) + exit * 170;
+        var y = H * 0.34 + Math.sin(t * 3) * 7;
+        ctx.save();
+        ctx.translate(x, y);
+        // inner tube (donut float)
+        ctx.fillStyle = "#FF80AB";
+        ctx.beginPath(); ctx.ellipse(0, 18, 40, 22, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        for (var sg = 0; sg < 8; sg++) {
+            var a = sg / 8 * Math.PI * 2;
+            ctx.beginPath(); ctx.ellipse(Math.cos(a) * 30, 18 + Math.sin(a) * 16, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = "#29B6F6";
+        ctx.beginPath(); ctx.ellipse(0, 18, 20, 11, 0, 0, Math.PI * 2); ctx.fill();
+        // torso
+        ctx.fillStyle = "#FF7043";
+        roundRect(-16, -10, 32, 30, 8); ctx.fill();
+        // waving arm
+        var wave = Math.sin(t * 8) * 0.4;
+        ctx.save(); ctx.translate(15, -6); ctx.rotate(-0.7 + wave);
+        ctx.fillStyle = "#F0B27A"; roundRect(0, -4, 16, 7, 3); ctx.fill();
+        ctx.beginPath(); ctx.arc(17, -1, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // drink in the other hand
+        ctx.fillStyle = "#FFEE58"; roundRect(-23, -2, 7, 11, 2); ctx.fill();
+        ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(-19.5, -3, 2, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#F0B27A";
+        ctx.beginPath(); ctx.arc(0, -22, 15, 0, Math.PI * 2); ctx.fill();
+        // hair
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath(); ctx.arc(0, -27, 15, Math.PI, 0); ctx.fill();
+        // sunglasses
+        ctx.fillStyle = "#111111";
+        roundRect(-12, -25, 10, 7, 2); ctx.fill();
+        roundRect(2, -25, 10, 7, 2); ctx.fill();
+        ctx.fillRect(-2, -23, 4, 2);
+        // glint
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.fillRect(-10, -24, 3, 2);
+        // grin
+        ctx.strokeStyle = "#7A2A2A"; ctx.lineWidth = 2; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(0, -15, 6, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+
+        // banner text
+        var alpha = Math.min(1, t * 2) * (1 - exit);
+        ctx.globalAlpha = alpha;
+        drawText("🏊 Heshy's in the pool", W / 2, H * 0.15,
+            "bold 20px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#0277BD", 5);
+        drawText("with his shades on 😎", W / 2, H * 0.15 + 28,
+            "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#5D4037", 4);
+        ctx.globalAlpha = 1;
+    }
+
     // ── Draw: Playing ────────────────────────────────────────
     function drawPlaying() {
         ctx.save();
@@ -4795,10 +4966,15 @@
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
+            else if (obstacles[i].type === "pool") drawHeshyPool(obstacles[i].x, obstacles[i].y, gameTime);
         }
 
         for (var j = 0; j < coinEntities.length; j++) {
             if (!coinEntities[j].collected) drawCoin(coinEntities[j].x, coinEntities[j].y, gameTime);
+        }
+        // Heart pickups (rare extra life)
+        for (var hd = 0; hd < heartEntities.length; hd++) {
+            if (!heartEntities[hd].collected) drawHeartPickup(heartEntities[hd].x, heartEntities[hd].y, heartEntities[hd].bob);
         }
 
         // Parking signs (P) and ice cream signs
@@ -4852,6 +5028,9 @@
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
+
+        // Heshy cameo (drawn above the car so he floats over the scene)
+        if (heshy) drawHeshyCameo(heshy.t, heshy.dur);
 
         // ── Coin-collect pop rings (scale up + fade) ──
         for (var cpd = 0; cpd < coinPops.length; cpd++) {
@@ -10289,14 +10468,29 @@
         };
     })();
 
+    var lastDispatchState = null;
+
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
         lastTime = timestamp;
 
+      try {
         // Global update tickers (always run)
         updateBtnPressFx(dt);
         updateFloaters(dt);
         updateSceneFade(dt);
+
+        // When the scene changes (via fade or a direct state set), drop any
+        // input that belonged to the previous scene — the tap that caused the
+        // transition, a half-finished finger-drag — so it can't double-fire or
+        // leak into the new scene (this caused stray jumps into other modes).
+        if (state !== lastDispatchState) {
+            actionQueued = false;
+            clickQueue = null;
+            pauseQueued = false;
+            steerTouchId = null; touchX = null; touchY = null;
+            lastDispatchState = state;
+        }
 
         // Background music tracks state changes
         // Map game state → music file track
@@ -10361,7 +10555,14 @@
 
         // Scene fade overlay (drawn on top of everything)
         drawSceneFade();
+      } catch (e) {
+        // Never let one bad frame kill the loop (which would freeze the whole
+        // app until a restart). Log it and keep going — input stays responsive.
+        if (window.console && console.error) console.error("Lulu frame error:", e);
+      }
 
+        // Scheduling lives OUTSIDE the try so the loop always continues, even
+        // if a frame threw above.
         // Prefer rAF, but fall back to setTimeout when the tab is hidden
         // (rAF is fully paused in background tabs; setTimeout still fires ~1/sec).
         if (document.hidden) {
