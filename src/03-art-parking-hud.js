@@ -561,6 +561,9 @@
     }
 
     function drawHUD() {
+        // Shift the whole HUD below the notch / Dynamic Island (safe-area inset).
+        ctx.save();
+        ctx.translate(0, SAFE_TOP);
         // Score
         drawText(formatNum(Math.floor(score)), 70, 36, "bold 28px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5);
         drawText("SCORE", 70, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
@@ -707,6 +710,7 @@
             }
             ctx.restore();
         }
+        ctx.restore(); // end SAFE_TOP shift
     }
 
     // ── State & Globals ──────────────────────────────────────

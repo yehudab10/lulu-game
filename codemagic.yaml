@@ -93,6 +93,20 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :UIStatusBarHidden true" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST"
+      - name: Set audio session to .ambient (no background audio, obeys mute switch)
+        script: |
+          # WKWebView otherwise flips its audio session to .playback (ignores the
+          # silent switch + draws Apple's background-audio scrutiny). Force it to
+          # .ambient — a game category that obeys the mute switch, mixes with the
+          # user's music, and is silenced in the background. Idempotent + guarded
+          # so a template change can never fail the build.
+          APPD="ios/App/App/AppDelegate.swift"
+          if [ -f "$APPD" ] && ! grep -q "AVAudioSession" "$APPD"; then
+            perl -0777 -pi -e 's/import Capacitor/import Capacitor\nimport AVFoundation/' "$APPD" || true
+            perl -0777 -pi -e 's/(-> Bool \{\n)/$1        try? AVAudioSession.sharedInstance().setCategory(.ambient)\n/' "$APPD" || true
+            perl -0777 -pi -e 's/(func applicationDidBecomeActive\(_ application: UIApplication\) \{\n)/$1        try? AVAudioSession.sharedInstance().setCategory(.ambient)\n/' "$APPD" || true
+            echo "Patched AppDelegate.swift audio session:"; grep -n "AVAudioSession" "$APPD" || true
+          fi
       - name: Set marketing + build number
         script: |
           cd ios/App

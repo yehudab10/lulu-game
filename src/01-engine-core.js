@@ -7,15 +7,9 @@
 
     // ── Constants ────────────────────────────────────────────
     var W = 480, H = 854;
-    // Fill tall phone screens instead of letterboxing with black bars: grow the
-    // logical play-field HEIGHT to match the device's aspect ratio. Sprites keep
-    // their proportions (scale stays uniform = screenWidth / W); only the amount
-    // of vertical play space changes. We only ever extend past the 854 design
-    // height — desktop / short screens keep 854 (and letterbox as before).
-    (function () {
-        var vw = window.innerWidth, vh = window.innerHeight;
-        if (vw > 0 && vh > 0) H = clamp(Math.round(W * vh / vw), 854, 1200);
-    })();
+    // H (the logical play-field height) is recomputed from the real device
+    // viewport in relayout() below so the canvas fills the screen with no
+    // letterbox and no distortion. 854 is just a safe pre-layout default.
     var ROAD_L = 100, ROAD_R = 380, ROAD_W = 280;
     var LANE_W = ROAD_W / 3;
     var LANES = [ROAD_L + LANE_W * 0.5, ROAD_L + LANE_W * 1.5, ROAD_L + LANE_W * 2.5];
@@ -368,26 +362,62 @@
     // ── Canvas Setup ─────────────────────────────────────────
     var canvas = document.getElementById("gameCanvas");
     var ctx = canvas.getContext("2d");
-    var dpr = window.devicePixelRatio || 1;
+    var dpr = Math.max(1, window.devicePixelRatio || 1);
+    var viewW = W, viewH = H;           // last-measured viewport size (CSS px)
+    var SAFE_TOP = 0, SAFE_BOTTOM = 0;   // safe-area insets in LOGICAL units
 
-    function resizeCanvas() {
-        canvas.width = W * dpr;
-        canvas.height = H * dpr;
-        canvas.style.width = W + "px";
-        canvas.style.height = H + "px";
+    function measureViewport() {
+        var vv = window.visualViewport;
+        var vw = vv && vv.width ? vv.width : (document.documentElement.clientWidth || window.innerWidth || W);
+        var vh = vv && vv.height ? vv.height : (document.documentElement.clientHeight || window.innerHeight || H);
+        return { w: Math.max(1, Math.round(vw)), h: Math.max(1, Math.round(vh)) };
+    }
+    function readSafeInsets() {
+        try {
+            var p = document.createElement("div");
+            p.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+                "padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);";
+            document.body.appendChild(p);
+            var cs = getComputedStyle(p);
+            var t = parseFloat(cs.paddingTop) || 0, b = parseFloat(cs.paddingBottom) || 0;
+            document.body.removeChild(p);
+            return { top: t, bottom: b };
+        } catch (e) { return { top: 0, bottom: 0 }; }
+    }
+    // Recompute everything that depends on the (variable) play-field height.
+    function recomputeLayout() {
+        PLAYER_Y = H - 170;
+        var bot = H - SAFE_BOTTOM;
+        PAUSE_RECT        = { x: 8,       y: SAFE_TOP + 12, w: 48, h: 48 };
+        MOBILE_BOOST_RECT = { x: 14,      y: bot - 168, w: 64, h: 64 };
+        MOBILE_BRAKE_RECT = { x: 14,      y: bot - 96,  w: 64, h: 64 };
+        MISSILE_RECT      = { x: W - 78,  y: bot - 96,  w: 64, h: 64 };
+        HONK_RECT         = { x: W - 78,  y: bot - 168, w: 64, h: 64 };
+        PARK_LEFT_RECT    = { x: 12,      y: bot - 96,  w: 64, h: 64 };
+        PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
+        PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
+        PARK_REV_RECT     = { x: W - 76,  y: bot - 96,  w: 64, h: 64 };
+    }
+    // Full-bleed responsive sizing — re-measured whenever iOS changes the
+    // viewport (which it does late and repeatedly on launch / rotation).
+    function relayout() {
+        // Cap DPR at 2 — native 3× on big iPhones can blow the 256 MB canvas limit.
+        dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+        var m = measureViewport();
+        viewW = m.w; viewH = m.h;
+        // logical height tracks the device aspect → fills the screen, no bars
+        H = clamp(Math.round(W * viewH / viewW), 700, 1600);
+        var ins = readSafeInsets();
+        var perCss = H / viewH;             // logical px per CSS px
+        SAFE_TOP = ins.top * perCss;
+        SAFE_BOTTOM = ins.bottom * perCss;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        canvas.style.width = viewW + "px";
+        canvas.style.height = viewH + "px";
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        recomputeLayout();
     }
-    resizeCanvas();
-
-    function fitToScreen() {
-        var scaleX = window.innerWidth / W;
-        var scaleY = window.innerHeight / H;
-        var scale = Math.min(scaleX, scaleY);
-        canvas.style.width = Math.floor(W * scale) + "px";
-        canvas.style.height = Math.floor(H * scale) + "px";
-    }
-    fitToScreen();
-    window.addEventListener("resize", function () { resizeCanvas(); fitToScreen(); });
 
     // ── Input ────────────────────────────────────────────────
     var keys = { left: false, right: false, up: false, down: false };
@@ -434,18 +464,23 @@
         }
     }
 
-    // Mobile control button rects — all 64×64 minimum, clear of iPhone home indicator (last ~34px),
-    // generous gaps between adjacent buttons. Sized per Mobile Tester + UX Designer recommendations.
-    var PAUSE_RECT        = { x: 8,        y: 60,       w: 48, h: 48 };
-    var MOBILE_BOOST_RECT = { x: 14,       y: H - 168,  w: 64, h: 64 }; // upper of left stack
-    var MOBILE_BRAKE_RECT = { x: 14,       y: H - 96,   w: 64, h: 64 }; // lower of left stack
-    var MISSILE_RECT      = { x: W - 78,   y: H - 96,   w: 64, h: 64 };
-    var HONK_RECT         = { x: W - 78,   y: H - 168,  w: 64, h: 64 };
-    // Parking-only D-pad buttons (different layout from main game)
-    var PARK_LEFT_RECT  = { x: 12,       y: H - 96, w: 64, h: 64 };
-    var PARK_RIGHT_RECT = { x: 88,       y: H - 96, w: 64, h: 64 };
-    var PARK_FWD_RECT   = { x: W - 152,  y: H - 96, w: 64, h: 64 };
-    var PARK_REV_RECT   = { x: W - 76,   y: H - 96, w: 64, h: 64 };
+    // Mobile control button rects — 64×64, kept clear of the home indicator via
+    // SAFE_BOTTOM. Actual positions are (re)computed in recomputeLayout(); these
+    // are just declarations.
+    var PAUSE_RECT, MOBILE_BOOST_RECT, MOBILE_BRAKE_RECT, MISSILE_RECT, HONK_RECT;
+    var PARK_LEFT_RECT, PARK_RIGHT_RECT, PARK_FWD_RECT, PARK_REV_RECT;
+
+    // Now that the rect vars exist, lay everything out and keep it in sync with
+    // the live viewport. iOS reports the final viewport late and repeatedly on
+    // launch, so we re-measure on every relevant event AND a few times after.
+    relayout();
+    window.addEventListener("resize", relayout);
+    window.addEventListener("orientationchange", function () { setTimeout(relayout, 120); });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", relayout);
+        window.visualViewport.addEventListener("scroll", relayout);
+    }
+    [60, 150, 300, 600, 1000, 1500].forEach(function (ms) { setTimeout(relayout, ms); });
 
     function hitGameButton(pos) {
         if (state === "playing") {
@@ -485,12 +520,22 @@
     }
 
     function screenToCanvas(clientX, clientY) {
+        // Re-read the rect every touch (never cache — stale on iOS rotate/settle).
         var rect = canvas.getBoundingClientRect();
+        // If a touch lands before layout settled the rect can be 0 → NaN coords
+        // → random hit-tests. Re-measure once and retry.
+        if (!rect.width || !rect.height) { relayout(); rect = canvas.getBoundingClientRect(); }
+        if (!rect.width || !rect.height) return { x: clientX, y: clientY };
         return {
             x: (clientX - rect.left) / rect.width * W,
             y: (clientY - rect.top) / rect.height * H
         };
     }
+
+    // Block iOS pinch-zoom / double-tap-zoom so the visual viewport can't shift
+    // out from under our touch→canvas mapping.
+    document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
 
     document.addEventListener("keydown", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = true;
@@ -624,8 +669,17 @@
         if (document.hidden) onAppHidden(); else onAppVisible();
     });
     window.addEventListener("pagehide", onAppHidden);
-    window.addEventListener("blur", onAppHidden);
-    window.addEventListener("focus", onAppVisible);
+    // Capacitor App.appStateChange is the authoritative iOS background signal
+    // (maps to applicationWillResignActive / DidBecomeActive). We keep
+    // visibilitychange + pagehide as the web fallback and DROP blur/focus
+    // (they false-fire on iOS for keyboards / alerts).
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+        try {
+            window.Capacitor.Plugins.App.addListener("appStateChange", function (s) {
+                if (s && s.isActive) onAppVisible(); else onAppHidden();
+            });
+        } catch (e) {}
+    }
 
     function getSteer(playerX) {
         var s = 0;
