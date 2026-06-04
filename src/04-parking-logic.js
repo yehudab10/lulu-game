@@ -34,6 +34,7 @@
         dinaCoinsRun = 0; dinaStickers = 0; dinaSidewalk = [];
         dinaRunTimer = 0; dinaRunDistance = 0; dinaRunPhase = 0;
         shakeIntensity = 0;
+        initSeason();
         initDecorations();
     }
 

@@ -1,3 +1,154 @@
+    // Shared cute face for Lulu's car — used by both the driving game and the
+    // parking minigame so she looks identical in both. Drawn centered at (0, fy)
+    // in the car's local space. `crying` swaps in the sad/teary parking face.
+    function drawLuluFace(fy, crying) {
+        var hairC = save.luluHair;
+        var hairDark = shadeColor(hairC, -28);
+        var hairLite = shadeColor(hairC, 22);
+
+        // Long hair flowing down BOTH SIDES of the face
+        ctx.fillStyle = hairC;
+        ctx.beginPath();
+        ctx.moveTo(-7.5, fy - 4);
+        ctx.quadraticCurveTo(-12, fy + 2, -10.5, fy + 14);
+        ctx.quadraticCurveTo(-9, fy + 20, -6, fy + 18);
+        ctx.quadraticCurveTo(-6.5, fy + 8, -5, fy + 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(7.5, fy - 4);
+        ctx.quadraticCurveTo(12, fy + 2, 10.5, fy + 14);
+        ctx.quadraticCurveTo(9, fy + 20, 6, fy + 18);
+        ctx.quadraticCurveTo(6.5, fy + 8, 5, fy + 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = hairLite;
+        ctx.beginPath();
+        ctx.ellipse(-9, fy + 7, 1.3, 5, 0.1, 0, Math.PI * 2);
+        ctx.ellipse(9, fy + 7, 1.3, 5, -0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Face — soft round, bright peachy skin
+        ctx.fillStyle = "#FFD9C0";
+        ctx.beginPath();
+        ctx.ellipse(0, fy, 8, 8.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Center-parted bangs
+        ctx.fillStyle = hairC;
+        ctx.beginPath();
+        ctx.moveTo(-8, fy + 1);
+        ctx.quadraticCurveTo(-10, fy - 8, 0, fy - 9);
+        ctx.quadraticCurveTo(10, fy - 8, 8, fy + 1);
+        ctx.quadraticCurveTo(6, fy - 3, 4, fy - 2.5);
+        ctx.quadraticCurveTo(2, fy - 5.5, 0, fy - 5);
+        ctx.quadraticCurveTo(-2, fy - 5.5, -4, fy - 2.5);
+        ctx.quadraticCurveTo(-6, fy - 3, -8, fy + 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = hairLite;
+        ctx.beginPath();
+        ctx.ellipse(-4, fy - 5, 2.2, 1.1, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyebrows
+        ctx.strokeStyle = hairDark;
+        ctx.lineWidth = 0.7;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-4.6, fy - 2.6); ctx.quadraticCurveTo(-2.8, fy - 3.4, -1, fy - 2.7);
+        ctx.moveTo(1, fy - 2.7); ctx.quadraticCurveTo(2.8, fy - 3.4, 4.6, fy - 2.6);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+
+        if (crying) {
+            // Squeezed-shut sad eyes
+            ctx.strokeStyle = "#5D4037";
+            ctx.lineWidth = 1.1;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.arc(-2.9, fy + 0.4, 2.3, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.arc(2.9, fy + 0.4, 2.3, 0.1 * Math.PI, 0.9 * Math.PI);
+            ctx.stroke();
+            ctx.lineCap = "butt";
+            // Tear drops
+            ctx.fillStyle = "#4FC3F7";
+            ctx.beginPath();
+            ctx.moveTo(-2.9, fy + 2.4); ctx.quadraticCurveTo(-4.6, fy + 6, -3.6, fy + 8.4);
+            ctx.quadraticCurveTo(-1.9, fy + 6, -2.9, fy + 2.4); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(2.9, fy + 2.4); ctx.quadraticCurveTo(4.6, fy + 6, 3.6, fy + 8.4);
+            ctx.quadraticCurveTo(1.9, fy + 6, 2.9, fy + 2.4); ctx.fill();
+            // Wailing frown
+            ctx.fillStyle = "#5D4037";
+            ctx.beginPath();
+            ctx.ellipse(0, fy + 5, 1.8, 1.2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            return;
+        }
+
+        // Eyes — big, round, sparkly
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.ellipse(-2.9, fy, 2.4, 2.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(2.9, fy, 2.4, 2.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#7A4A24";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy + 0.2, 1.7, 0, Math.PI * 2);
+        ctx.arc(2.9, fy + 0.2, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#241208";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy + 0.2, 0.85, 0, Math.PI * 2);
+        ctx.arc(2.9, fy + 0.2, 0.85, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(-2.1, fy - 0.6, 0.8, 0, Math.PI * 2);
+        ctx.arc(3.7, fy - 0.6, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Upper lash line + outer lashes
+        ctx.strokeStyle = "#2E1A10";
+        ctx.lineWidth = 0.9;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(-2.9, fy, 2.5, Math.PI * 1.05, Math.PI * 1.85);
+        ctx.arc(2.9, fy, 2.5, Math.PI * 1.15, Math.PI * 1.95);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-5.2, fy - 0.6); ctx.lineTo(-6.1, fy - 1.4);
+        ctx.moveTo(5.2, fy - 0.6); ctx.lineTo(6.1, fy - 1.4);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+
+        // Blush
+        ctx.fillStyle = "rgba(255, 135, 160, 0.5)";
+        ctx.beginPath();
+        ctx.ellipse(-4.6, fy + 3.2, 1.8, 1.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(4.6, fy + 3.2, 1.8, 1.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Button nose
+        ctx.strokeStyle = "rgba(190,120,90,0.5)";
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        ctx.arc(0, fy + 2.4, 0.9, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+
+        // Glossy pink smile
+        ctx.fillStyle = "#E84A7F";
+        ctx.beginPath();
+        ctx.moveTo(-2.4, fy + 4.6);
+        ctx.quadraticCurveTo(0, fy + 6.6, 2.4, fy + 4.6);
+        ctx.quadraticCurveTo(0, fy + 5.4, -2.4, fy + 4.6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(-1.2, fy + 4.8, 2.4, 0.6);
+    }
+
     function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale) {
         var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
         var sc = scale || 1;

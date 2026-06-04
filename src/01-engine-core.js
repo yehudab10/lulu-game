@@ -26,6 +26,7 @@
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
     var INVINCIBLE_TIME = 1.8;
+    var PARKING_UNLOCK_COST = 1000; // one-time coin cost to unlock Parking Challenge
 
     // ── Skins ────────────────────────────────────────────────
     var SKINS = {
@@ -54,6 +55,7 @@
             distractedUnlocked: false,
             parkingBestLevel: 0,
             parkingTotalStars: 0,
+            parkingUnlocked: false,
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
             stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
@@ -259,6 +261,22 @@
         setTimeout(function () { playTone(320, 0.12, "sawtooth", 0.18, 200); }, 140);
     }
     function playHopJump() { playTone(440, 0.18, "triangle", 0.16, 880); }
+    function playThunder() {
+        if (audioMuted) return;
+        // crack now, low rolling rumble a moment later (like distant thunder)
+        setTimeout(function () {
+            var ac = getAudio(); if (!ac) return;
+            var n = ac.createBufferSource(); n.buffer = makeNoiseBuffer(ac, 1.1);
+            var g = ac.createGain(); var f = ac.createBiquadFilter();
+            f.type = "lowpass";
+            f.frequency.setValueAtTime(700, ac.currentTime);
+            f.frequency.exponentialRampToValueAtTime(110, ac.currentTime + 1.0);
+            g.gain.setValueAtTime(0.001, ac.currentTime);
+            g.gain.linearRampToValueAtTime(0.32, ac.currentTime + 0.05);
+            g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 1.1);
+            n.connect(f).connect(g).connect(ac.destination); n.start(); n.stop(ac.currentTime + 1.15);
+        }, rand(150, 450));
+    }
     // Honk Symphony — pitch varies with speed/honk count
     var honkChain = 0; var honkChainResetTimer = 0;
     // ── Background music system (real MP3 files) ────────────
@@ -856,11 +874,16 @@
         var type = Math.random();
         var x = side < 0 ? rand(10, ROAD_L - 15) : rand(ROAD_R + 15, W - 10);
         var d = { x: x, y: y, side: side, parallax: rand(0.55, 0.85) };
-        if (type < 0.45) {
+        var cfg = SEASONS[season];
+        // Winter sprinkles snow piles along the shoulder.
+        if (cfg.bare && type < 0.16) {
+            d.type = "snowpile"; d.scale = rand(0.7, 1.2);
+        } else if (type < 0.50) {
             d.type = "tree"; d.scale = rand(0.7, 1.1); d.swayOffset = rand(0, Math.PI * 2);
-        } else if (type < 0.7) {
+        } else if (type < 0.72) {
             d.type = "bush"; d.scale = rand(0.6, 1.0); d.bounceOffset = rand(0, Math.PI * 2);
-        } else if (type < 0.85) {
+        } else if (type < 0.72 + cfg.flower) {
+            // Flower frequency follows the season (lush in spring, none in winter).
             d.type = "flower"; d.color = randPick(C.flower); d.scale = rand(0.5, 0.8);
         } else {
             d.type = "fence"; d.width = rand(30, 55);
@@ -880,10 +903,192 @@
         }
     }
 
+    // ── Seasons / weather ────────────────────────────────────
+    // The world cycles through seasons every ~SEASON_DISTANCE of travel. Each
+    // season retints the sky/grass/foliage, sets a weather effect, a darkness
+    // level, and a puddle-frequency multiplier. Easy to tweak below.
+    var SEASONS = {
+        summer: { name: "Summer ☀️", sky: ["#A8E6CF", "#7CCB7E", "#5BA85D"], grass: "#66BB6A",
+                  trees: ["#2E7D32", "#388E3C", "#43A047"], bushes: ["#66BB6A", "#4CAF50", "#388E3C"],
+                  dark: 0, weather: null, puddleMul: 1, flower: 0.15, bare: false },
+        spring: { name: "Spring 🌸", sky: ["#BFE9FF", "#CDEFC4", "#9CD98C"], grass: "#7CC36A",
+                  trees: ["#7CB342", "#9CCC65", "#AED581"], bushes: ["#9CCC65", "#7CB342", "#689F38"],
+                  dark: 0, weather: "petals", puddleMul: 1, flower: 0.34, bare: false },
+        fall:   { name: "Fall 🍂", sky: ["#FFE0B2", "#F6C98E", "#D9A05B"], grass: "#C2A14B",
+                  trees: ["#E65100", "#EF6C00", "#F9A825"], bushes: ["#C0691E", "#A0522D", "#8D4E1E"],
+                  dark: 0.05, weather: "leaves", puddleMul: 1, flower: 0.05, bare: false },
+        winter: { name: "Winter ❄️", sky: ["#D4E6F1", "#C2D8E8", "#AEC9DC"], grass: "#E8EEF2",
+                  trees: ["#9DB1B8", "#8D9499", "#B0BEC5"], bushes: ["#E0E8EC", "#C5D2D8", "#A7B8C0"],
+                  dark: 0.12, weather: "snow", puddleMul: 1.5, flower: 0, bare: true },
+        rain:   { name: "Rainy 🌧️", sky: ["#9AABB5", "#80949F", "#65808C"], grass: "#4E7A52",
+                  trees: ["#2E5E32", "#356B39", "#3E7A42"], bushes: ["#3E7A42", "#356B39", "#2E5E32"],
+                  dark: 0.22, weather: "rain", puddleMul: 2.4, flower: 0.08, bare: false },
+        storm:  { name: "Thunderstorm ⛈️", sky: ["#5C6670", "#474F57", "#363C42"], grass: "#3E5E44",
+                  trees: ["#23421F", "#2A4D26", "#33592E"], bushes: ["#33592E", "#2A4D26", "#23421F"],
+                  dark: 0.38, weather: "rain", puddleMul: 2.6, flower: 0.05, bare: false, lightning: true }
+    };
+    var SEASON_ORDER = ["summer", "spring", "fall", "winter", "rain", "storm"];
+    var SEASON_DISTANCE = 7000;  // px of travel between season changes
+
+    var season = "summer", prevSeason = "summer", seasonBlend = 1;
+    var seasonNextAt = SEASON_DISTANCE, seasonBannerT = 0;
+    var weatherBits = [], weatherAccum = 0;
+    var lightningFlash = 0, lightningTimer = 4, lightningStrike = null;
+
+    function initSeason() {
+        season = "summer"; prevSeason = "summer"; seasonBlend = 1;
+        seasonNextAt = SEASON_DISTANCE + rand(-1500, 1500);
+        seasonBannerT = 0; weatherBits = []; weatherAccum = 0;
+        lightningFlash = 0; lightningTimer = rand(2, 5); lightningStrike = null;
+    }
+    function changeSeason() {
+        prevSeason = season;
+        var pick = season, tries = 0;
+        while (pick === season && tries < 12) { pick = randPick(SEASON_ORDER); tries++; }
+        season = pick;
+        seasonBlend = 0;
+        seasonNextAt = scrollOffset + SEASON_DISTANCE + rand(-1500, 1500);
+        seasonBannerT = 3.5;
+        lightningTimer = rand(1.5, 4);
+    }
+    function curSeason() { return SEASONS[season]; }
+    function lerpColor(a, b, t) {
+        var ca = hexToRgb(a), cb = hexToRgb(b);
+        return rgbToHex(Math.round(lerp(ca.r, cb.r, t)), Math.round(lerp(ca.g, cb.g, t)), Math.round(lerp(ca.b, cb.b, t)));
+    }
+    function seasonSky(i) { return lerpColor(SEASONS[prevSeason].sky[i], SEASONS[season].sky[i], seasonBlend); }
+    function seasonGrass() { return lerpColor(SEASONS[prevSeason].grass, SEASONS[season].grass, seasonBlend); }
+    function seasonDark() { return lerp(SEASONS[prevSeason].dark, SEASONS[season].dark, seasonBlend); }
+
+    function updateSeason(dt, speed) {
+        if (seasonBlend < 1) seasonBlend = Math.min(1, seasonBlend + dt / 1.8);
+        if (seasonBannerT > 0) seasonBannerT -= dt;
+        if (scrollOffset >= seasonNextAt) changeSeason();
+        var cfg = SEASONS[season];
+        // spawn weather
+        var rate = cfg.weather === "rain" ? 95 : cfg.weather === "snow" ? 30
+                 : cfg.weather === "leaves" ? 11 : cfg.weather === "petals" ? 9 : 0;
+        if (rate > 0 && seasonBlend > 0.25) {
+            weatherAccum += rate * dt;
+            while (weatherAccum >= 1) { weatherAccum -= 1; pushWeatherBit(cfg.weather, speed); }
+            // spring also gets the occasional butterfly fluttering across
+            if (cfg.weather === "petals" && Math.random() < dt * 0.4) pushButterfly();
+        }
+        for (var i = weatherBits.length - 1; i >= 0; i--) {
+            var w = weatherBits[i];
+            w.x += w.vx * dt; w.y += w.vy * dt;
+            if (w.spin !== undefined) w.rot += w.spin * dt;
+            if (w.flap !== undefined) w.flap += dt * 14;
+            w.life -= dt;
+            if (w.y > H + 24 || w.life <= 0 || w.x < -40 || w.x > W + 40) weatherBits.splice(i, 1);
+        }
+        // lightning
+        if (lightningFlash > 0) lightningFlash = Math.max(0, lightningFlash - dt * 3);
+        if (lightningStrike) { lightningStrike.t += dt; if (lightningStrike.t > 0.28) lightningStrike = null; }
+        if (cfg.lightning && seasonBlend > 0.5) {
+            lightningTimer -= dt;
+            if (lightningTimer <= 0) { lightningTimer = rand(3, 8); triggerLightning(); }
+        }
+    }
+
+    function pushWeatherBit(kind, speed) {
+        if (kind === "rain") {
+            weatherBits.push({ kind: "rain", x: rand(-20, W + 30), y: -20, vx: -120,
+                vy: 900 + speed * 0.4, len: rand(10, 18), life: 2 });
+        } else if (kind === "snow") {
+            weatherBits.push({ kind: "snow", x: rand(0, W), y: -10, vx: rand(-15, 15),
+                vy: rand(55, 105) + speed * 0.12, r: rand(1.5, 3.5), sway: rand(0, 6.28), life: 14 });
+        } else if (kind === "leaves") {
+            weatherBits.push({ kind: "leaf", x: rand(0, W), y: -15, vx: rand(-45, 45),
+                vy: rand(70, 130) + speed * 0.2, rot: rand(0, 6.28), spin: rand(-4, 4),
+                r: rand(4, 7), color: randPick(["#E65100", "#F57F17", "#FF8F00", "#BF360C"]), life: 12 });
+        } else if (kind === "petals") {
+            weatherBits.push({ kind: "petal", x: rand(0, W), y: -15, vx: rand(-30, 30),
+                vy: rand(50, 90) + speed * 0.15, rot: rand(0, 6.28), spin: rand(-3, 3),
+                r: rand(3, 5), color: randPick(["#FF80AB", "#F8BBD0", "#FFCDD2", "#F48FB1"]), life: 12 });
+        }
+    }
+    function pushButterfly() {
+        var dir = Math.random() < 0.5 ? 1 : -1;
+        weatherBits.push({ kind: "butterfly", x: dir > 0 ? -20 : W + 20, y: rand(60, H * 0.55),
+            vx: dir * rand(60, 100), vy: rand(-10, 10), flap: rand(0, 6.28),
+            color: randPick(["#FF7043", "#AB47BC", "#42A5F5", "#FFCA28"]), life: 9, dir: dir });
+    }
+
+    function triggerLightning() {
+        lightningFlash = 1;
+        playThunder();
+        if (Math.random() < 0.45 && typeof obstacles !== "undefined" && obstacles && obstacles.length) {
+            var cand = [];
+            for (var i = 0; i < obstacles.length; i++) {
+                var o = obstacles[i];
+                if (o.y > 30 && o.y < H - 130 && (o.type === "car" || o.type === "cone" || o.type === "ped")) cand.push(i);
+            }
+            if (cand.length) {
+                var idx = randPick(cand);
+                var ob = obstacles[idx];
+                lightningStrike = { x: ob.x, y: ob.y, t: 0 };
+                spawnCrashBurst(ob.x, ob.y, true);
+                obstacles.splice(idx, 1);
+            }
+        }
+    }
+
+    function drawWeather() {
+        for (var i = 0; i < weatherBits.length; i++) {
+            var w = weatherBits[i];
+            if (w.kind === "rain") {
+                ctx.strokeStyle = "rgba(185,212,235,0.55)"; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x - 3, w.y - w.len); ctx.stroke();
+            } else if (w.kind === "snow") {
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                ctx.beginPath(); ctx.arc(w.x + Math.sin(w.sway + w.y * 0.04) * 8, w.y, w.r, 0, Math.PI * 2); ctx.fill();
+            } else if (w.kind === "butterfly") {
+                ctx.save(); ctx.translate(w.x, w.y);
+                var flap = Math.abs(Math.sin(w.flap)) * 0.8 + 0.2;
+                ctx.fillStyle = w.color;
+                ctx.beginPath(); ctx.ellipse(-3, 0, 3 * flap, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(3, 0, 3 * flap, 4, 0.4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#3E2723";
+                ctx.fillRect(-0.6, -3, 1.2, 6);
+                ctx.restore();
+            } else { // leaf / petal
+                ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.rot);
+                ctx.fillStyle = w.color;
+                ctx.beginPath(); ctx.ellipse(0, 0, w.r, w.r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+    }
+
+    // Darkness tint + weather + lightning + season banner. Drawn over the world
+    // (call after the scene, before the HUD).
+    function drawSeasonFx() {
+        var dk = seasonDark();
+        if (dk > 0.001) { ctx.fillStyle = "rgba(12,16,38," + dk + ")"; ctx.fillRect(0, 0, W, H); }
+        drawWeather();
+        if (lightningStrike && lightningStrike.t < 0.18) {
+            ctx.strokeStyle = "#FFFDE7"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath();
+            var lx = lightningStrike.x, ly = 0;
+            ctx.moveTo(lx, 0);
+            while (ly < lightningStrike.y) { ly += rand(20, 42); lx += rand(-18, 18); ctx.lineTo(lx, ly); }
+            ctx.stroke(); ctx.lineCap = "butt";
+        }
+        if (lightningFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + (lightningFlash * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (seasonBannerT > 0) {
+            var a = clamp(seasonBannerT, 0, 1) * clamp((3.5 - seasonBannerT) * 4, 0, 1);
+            ctx.globalAlpha = a;
+            drawText(curSeason().name, W / 2, H * 0.30, "bold 26px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 6);
+            ctx.globalAlpha = 1;
+        }
+    }
+
     // ── Drawing: Environment ─────────────────────────────────
     function drawTree(x, y, scale, time, swayOff) {
         var s = scale || 1;
         var sway = Math.sin(time * 1.5 + (swayOff || 0)) * 2;
+        var cfg = SEASONS[season];
         ctx.save();
         ctx.translate(x + sway, y);
         ctx.scale(s, s);
@@ -891,26 +1096,42 @@
         roundRect(-7, -8, 14, 30, 3); ctx.fill();
         ctx.fillStyle = C.trunk;
         roundRect(-5, -6, 10, 26, 2); ctx.fill();
-        for (var i = 0; i < 3; i++) {
-            var cx = [-10, 10, 0][i], cy = [-26, -24, -34][i], r = [14, 13, 16][i];
-            ctx.fillStyle = "#1B5E20";
-            ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = C.tree[i];
-            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        if (cfg.bare) {
+            // Winter: bare branches with little snow caps
+            ctx.strokeStyle = C.trunkDark; ctx.lineWidth = 2; ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(0, -6); ctx.lineTo(-9, -20); ctx.moveTo(0, -10); ctx.lineTo(9, -22);
+            ctx.moveTo(0, -14); ctx.lineTo(0, -28); ctx.moveTo(0, -16); ctx.lineTo(-7, -26);
+            ctx.stroke(); ctx.lineCap = "butt";
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.ellipse(-9, -21, 3, 1.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(9, -23, 3, 1.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(0, -29, 3.2, 1.7, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else {
+            for (var i = 0; i < 3; i++) {
+                var cx = [-10, 10, 0][i], cy = [-26, -24, -34][i], r = [14, 13, 16][i];
+                ctx.fillStyle = shadeColor(cfg.trees[i], -34);
+                ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = cfg.trees[i];
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+            }
         }
         ctx.restore();
     }
 
     function drawBush(x, y, scale, time, bounceOff) {
         var s = (scale || 1) * (1 + Math.sin(time * 2 + (bounceOff || 0)) * 0.03);
+        var pal = SEASONS[season].bushes;
         ctx.save();
         ctx.translate(x, y); ctx.scale(s, s);
         for (var i = 0; i < 3; i++) {
             var bx = [-9, 9, 0][i], by = [-2, -1, -8][i];
             var rx = [13, 12, 14][i], ry = [9, 8, 11][i];
-            ctx.fillStyle = "#1B5E20";
+            ctx.fillStyle = shadeColor(pal[i], -34);
             ctx.beginPath(); ctx.ellipse(bx, by, rx + 2, ry + 2, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = C.bush[i];
+            ctx.fillStyle = pal[i];
             ctx.beginPath(); ctx.ellipse(bx, by, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
         }
         ctx.restore();
@@ -946,25 +1167,41 @@
         }
     }
 
+    function drawSnowPile(x, y, scale) {
+        var s = scale || 1;
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        ctx.fillStyle = "rgba(0,0,0,0.10)";
+        ctx.beginPath(); ctx.ellipse(0, 4, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#E8EEF2";
+        ctx.beginPath(); ctx.ellipse(-7, 0, 12, 9, 0, 0, Math.PI * 2);
+        ctx.ellipse(7, 1, 11, 8, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -4, 13, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.ellipse(-3, -6, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
     function drawDecorations(time) {
         for (var i = 0; i < decorations.length; i++) {
             var d = decorations[i];
             if (d.type === "tree") drawTree(d.x, d.y, d.scale, time, d.swayOffset);
             else if (d.type === "bush") drawBush(d.x, d.y, d.scale, time, d.bounceOffset);
             else if (d.type === "flower") drawFlower(d.x, d.y, d.color, d.scale);
+            else if (d.type === "snowpile") drawSnowPile(d.x, d.y, d.scale);
             else if (d.type === "fence") drawFence(d.x, d.y, d.width);
         }
     }
 
     function drawRoad(scrollOff) {
-        // Sky-to-grass gradient for depth
+        // Sky-to-grass gradient for depth (season-tinted)
         var skyGrad = ctx.createLinearGradient(0, 0, 0, H);
-        skyGrad.addColorStop(0, "#A8E6CF");
-        skyGrad.addColorStop(0.35, "#7CCB7E");
-        skyGrad.addColorStop(1, "#5BA85D");
+        skyGrad.addColorStop(0, seasonSky(0));
+        skyGrad.addColorStop(0.35, seasonSky(1));
+        skyGrad.addColorStop(1, seasonSky(2));
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = C.grass2;
+        ctx.fillStyle = shadeColor(seasonGrass(), 10);
         for (var gy = ((scrollOff * 0.3) % 40) - 40; gy < H; gy += 40) {
             ctx.fillRect(0, gy, W, 18);
         }

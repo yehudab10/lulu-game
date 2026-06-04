@@ -511,8 +511,10 @@
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
-        // PARKING CHALLENGE button
-        drawButton(W / 2 - 110, H * 0.50 + 68, 220, 54, "🅿 PARKING", { bg: "#42A5F5", bgDark: "#0D47A1" });
+        // PARKING CHALLENGE button — shows a coin lock until purchased.
+        drawButton(W / 2 - 110, H * 0.50 + 68, 220, 54,
+            save.parkingUnlocked ? "🅿 PARKING" : "🔒 PARKING 💰" + PARKING_UNLOCK_COST,
+            { bg: "#42A5F5", bgDark: "#0D47A1" });
         // SHOP button
         drawButton(W / 2 - 110, H * 0.50 + 130, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 
@@ -534,6 +536,16 @@
                     W / 2, bestY + 22,
                     "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#333", 3);
             }
+        }
+
+        // Transient message banner (e.g. parking unlock / not enough coins)
+        if (menuMsgTimer > 0) {
+            var mAlpha = clamp(menuMsgTimer, 0, 1);
+            ctx.globalAlpha = mAlpha;
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            roundRect(W / 2 - 150, H * 0.42, 300, 34, 10); ctx.fill();
+            drawText(menuMsg, W / 2, H * 0.42 + 17, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            ctx.globalAlpha = 1;
         }
 
         // Controls hint

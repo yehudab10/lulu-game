@@ -68,7 +68,7 @@
 
         if (spawnClocks.car <= 0) { spawnClocks.car = rand(1.0, 2.2) * speedFactor; spawnObstacle("car"); }
         if (spawnClocks.cone <= 0) { spawnClocks.cone = rand(2.5, 5) * speedFactor; spawnObstacle("cone"); }
-        if (spawnClocks.puddle <= 0) { spawnClocks.puddle = rand(4, 8) * speedFactor; spawnObstacle("puddle"); }
+        if (spawnClocks.puddle <= 0) { spawnClocks.puddle = rand(4, 8) * speedFactor / SEASONS[season].puddleMul; spawnObstacle("puddle"); }
         // Pedestrians (→ passenger pickup = 30s double-coin bonus). Rarer now
         // so the bonus is occasional, not constant — tune in 01b-spawn-tuning.js.
         if (tickSpawn("pedestrian", dt) && gameTime > 15) spawnObstacle("ped");
@@ -445,6 +445,7 @@
 
         updateDecorations(dt, gameSpeed);
         updateParticles(dt);
+        updateSeason(dt, gameSpeed);
     }
 
     function hitPlayer(obj) {
@@ -518,7 +519,7 @@
         cop.busted = true;
         var idx = roadCops.indexOf(cop);
         if (idx >= 0) roadCops.splice(idx, 1); // it's now the chaser, not a parked cop
-        copChase = { gap: 190, x: cop.x, siren: 0, escapeT: 0 };
+        copChase = { gap: 160, x: cop.x, siren: 0, escapeT: 0 };
         shakeTimer = 0.3; shakeIntensity = 5;
         spawnFloater(player.x, player.y - 50, "🚨 SPEED TRAP!", "#F44336");
         playTone(680, 0.25, "sawtooth", 0.14, 460);
@@ -528,14 +529,19 @@
     function updateCopChase(dt) {
         copChase.siren += dt;
         copChase.x = lerp(copChase.x, player.x, Math.min(1, 3 * dt));
-        // Gap grows when you're faster than the cruiser, shrinks when slower.
-        copChase.gap += (gameSpeed - 430) * dt * 0.5;
-        if (keys.up) copChase.gap += 55 * dt;   // flooring it pulls away
-        if (keys.down) copChase.gap -= 45 * dt;  // braking lets him catch up
-        copChase.gap = Math.max(0, copChase.gap);
-        if (copChase.gap > 340) {
+        // The cruiser keeps pace with your NATURAL speed, so being fast isn't
+        // enough — only actively flooring it (boost) opens a gap; cruising lets
+        // him slowly reel you in, braking lets him catch fast. This keeps the
+        // chase tense at any speed instead of ending instantly when you're fast.
+        var baseSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        var copCruise = baseSpeed * 1.12;
+        copChase.gap += (gameSpeed - copCruise) * dt * 0.7;
+        if (keys.up) copChase.gap += 40 * dt;    // flooring it pulls away
+        if (keys.down) copChase.gap -= 50 * dt;   // braking lets him catch up
+        copChase.gap = clamp(copChase.gap, 0, 520);
+        if (copChase.gap > 360) {
             copChase.escapeT += dt;
-            if (copChase.escapeT > 1.2) {
+            if (copChase.escapeT > 1.6) {
                 spawnFloater(player.x, player.y - 50, "Lost 'em! 😎", "#7CFC4F");
                 playTone(659, 0.1, "triangle", 0.2);
                 setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
@@ -811,8 +817,10 @@
     }
 
     // ── Update: Menu ─────────────────────────────────────────
+    var menuMsg = "", menuMsgTimer = 0;
     function updateMenu(dt) {
         menuBounce += dt;
+        if (menuMsgTimer > 0) menuMsgTimer -= dt;
         updateDecorations(dt, 80);
         var click = consumeClick();
         if (click) {
@@ -820,8 +828,22 @@
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
                 resetGame(); gotoState("playing"); playClick(); return;
             }
-            // PARKING CHALLENGE button
+            // PARKING CHALLENGE button — locked until bought with coins.
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 68, 220, 54)) {
+                if (!save.parkingUnlocked) {
+                    if (save.totalCoins >= PARKING_UNLOCK_COST) {
+                        save.totalCoins -= PARKING_UNLOCK_COST;
+                        save.parkingUnlocked = true;
+                        persistSave();
+                        playBuy();
+                        menuMsg = "🅿 Parking unlocked!"; menuMsgTimer = 2;
+                    } else {
+                        playDeny();
+                        menuMsg = "Need 💰" + PARKING_UNLOCK_COST + " to unlock parking";
+                        menuMsgTimer = 2;
+                    }
+                    return;
+                }
                 resetGame();
                 startParkingChallenge();
                 playClick(); return;
@@ -1202,6 +1224,8 @@
         }
 
         ctx.restore();
+        // Season darkness tint + weather + lightning + banner (over world, under HUD)
+        drawSeasonFx();
         drawHUD();
 
         // Re-entry grace indicator: a soft shield bubble around the car + a
