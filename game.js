@@ -1024,6 +1024,7 @@
         avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup
         salon:       { first: [30, 85],  every: [65, 115], chance: 0.45 }, // 💇 salon scene
         sasquatch:   { first: [40, 100], every: [75, 150], chance: 0.35 }, // 🦶 sasquatch easter egg
+        copHide:     { first: [22, 60],  every: [35, 75],  chance: 0.55 }, // 🚓 hidden roadside speed-trap cop
         heshyPool:   { first: [25, 70],  every: [40, 80],  chance: 0.50 }, // 🏊 Heshy-in-the-pool easter egg
         heart:       { first: [15, 35],  every: [20, 40],  chance: 0.60 }  // ❤️ extra-life pickup
     };
@@ -3248,6 +3249,10 @@
     var honkCooldown = 0;
     var copEvent = null;  // {phase, timer, x, y}
     var copEventTimer = rand(60, 120);
+    // Speed-trap cops: parked + hidden on the shoulder, then chase if provoked
+    var roadCops = [];    // [{x, y, side, hide, spot, busted}]
+    var copChase = null;  // active chase {gap, x, siren, escapeT}
+    var copBust = null;   // caught cutscene {phase, timer, man, copY, fromLeft, yell}
     // Ima (Mom) text messages mini-event
     var imaTextTimer = rand(35, 75);
     var imaText = null; // { msg, t, dur, sender }
@@ -3358,6 +3363,7 @@
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;
         copEvent = null; copEventTimer = rand(60, 120);
+        roadCops = []; copChase = null; copBust = null;
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
@@ -4185,6 +4191,9 @@
         }
         // Heshy cameo timer
         if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
+        // Hidden roadside speed-trap cops (rarity in 01b-spawn-tuning.js)
+        if (tickSpawn("copHide", dt) && gameTime > 15 && !copChase && roadCops.length < 2) spawnRoadCop();
+        updateCops(dt);
 
         // Roadside encounter events — rarity + randomized order live in
         // 01b-spawn-tuning.js (SPAWN_CONFIG). tickSpawn() handles timing + odds.
@@ -4306,6 +4315,11 @@
                 if (o.type === "ped") {
                     // Pick up the pedestrian as passenger! Always (even during invincibility).
                     pickUpPassenger(o);
+                    // Bonk someone in front of a watching cop → instant chase.
+                    if (!copChase && !copBust) {
+                        var witness = copInView();
+                        if (witness) startCopChase(witness);
+                    }
                     obstacles.splice(i, 1);
                     continue;
                 }
@@ -4563,6 +4577,159 @@
         } else {
             playWompWomp();
         }
+    }
+
+    // ── Speed-trap cops ──────────────────────────────────────
+    var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
+
+    function spawnRoadCop() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        var x = side < 0 ? rand(26, ROAD_L - 24) : rand(ROAD_R + 24, W - 26);
+        roadCops.push({ x: x, y: -100, side: side, hide: randPick(["bush", "tree", "billboard"]), spot: 0, busted: false });
+    }
+
+    // First on-screen, not-yet-triggered roadside cop (or null).
+    function copInView() {
+        for (var i = 0; i < roadCops.length; i++) {
+            var c = roadCops[i];
+            if (!c.busted && c.y > 60 && c.y < H - 40) return c;
+        }
+        return null;
+    }
+
+    function updateCops(dt) {
+        var speeding = keys.up || gameSpeed > 520; // flooring it, or just plain fast
+        for (var i = roadCops.length - 1; i >= 0; i--) {
+            var cop = roadCops[i];
+            cop.y += gameSpeed * dt;
+            if (cop.y > H + 100) { roadCops.splice(i, 1); continue; }
+            var inView = cop.y > 60 && cop.y < H - 40;
+            if (!copChase && !copBust && !cop.busted && inView && speeding) {
+                cop.spot += dt; // a short fuse so you can brake to avoid it
+                if (cop.spot >= 0.65) { startCopChase(cop); continue; }
+            } else {
+                cop.spot = Math.max(0, cop.spot - dt * 1.5);
+            }
+        }
+        if (copChase) updateCopChase(dt);
+    }
+
+    function startCopChase(cop) {
+        cop.busted = true;
+        var idx = roadCops.indexOf(cop);
+        if (idx >= 0) roadCops.splice(idx, 1); // it's now the chaser, not a parked cop
+        copChase = { gap: 190, x: cop.x, siren: 0, escapeT: 0 };
+        shakeTimer = 0.3; shakeIntensity = 5;
+        spawnFloater(player.x, player.y - 50, "🚨 SPEED TRAP!", "#F44336");
+        playTone(680, 0.25, "sawtooth", 0.14, 460);
+        setTimeout(function () { playTone(460, 0.25, "sawtooth", 0.14, 680); }, 240);
+    }
+
+    function updateCopChase(dt) {
+        copChase.siren += dt;
+        copChase.x = lerp(copChase.x, player.x, Math.min(1, 3 * dt));
+        // Gap grows when you're faster than the cruiser, shrinks when slower.
+        copChase.gap += (gameSpeed - 430) * dt * 0.5;
+        if (keys.up) copChase.gap += 55 * dt;   // flooring it pulls away
+        if (keys.down) copChase.gap -= 45 * dt;  // braking lets him catch up
+        copChase.gap = Math.max(0, copChase.gap);
+        if (copChase.gap > 340) {
+            copChase.escapeT += dt;
+            if (copChase.escapeT > 1.2) {
+                spawnFloater(player.x, player.y - 50, "Lost 'em! 😎", "#7CFC4F");
+                playTone(659, 0.1, "triangle", 0.2);
+                setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
+                copChase = null;
+                return;
+            }
+        } else { copChase.escapeT = 0; }
+        if (copChase.gap <= 6) startCopBust();
+    }
+
+    function startCopBust() {
+        var fromLeft = player.x > W / 2;
+        copBust = { phase: 0, timer: 0.8, copY: player.y + 90, man: null,
+                    fromLeft: fromLeft, yell: randPick(COP_YELLS) };
+        copChase = null;
+        state = "copBust";
+        shakeTimer = 0.5; shakeIntensity = 8;
+        playWompWomp();
+        if (score > save.highScore) save.highScore = Math.floor(score);
+        persistSave();
+    }
+
+    function updateCopBust(dt) {
+        if (shakeTimer > 0) shakeTimer -= dt;
+        copBust.timer -= dt;
+        updateParticles(dt);
+        if (copBust.phase === 0) {
+            // cop cruiser pulls up right behind Lulu
+            copBust.copY = lerp(copBust.copY, player.y + 56, Math.min(1, 5 * dt));
+            if (copBust.timer <= 0) {
+                copBust.phase = 1;
+                copBust.man = {
+                    x: copBust.fromLeft ? -30 : W + 30,
+                    y: player.y + 30,
+                    targetX: player.x + (copBust.fromLeft ? -42 : 42),
+                    time: 0, state: "running", runDir: copBust.fromLeft ? 1 : -1
+                };
+            }
+            return;
+        }
+        if (copBust.phase === 1) {
+            copBust.man.time += dt;
+            var dir = copBust.man.targetX - copBust.man.x;
+            if (Math.abs(dir) > 5) { copBust.man.x += Math.sign(dir) * 230 * dt; }
+            else { copBust.man.x = copBust.man.targetX; copBust.man.state = "yelling"; copBust.phase = 2; copBust.timer = 2.8; }
+            return;
+        }
+        if (copBust.phase === 2) {
+            copBust.man.time += dt;
+            if (copBust.timer <= 0) { copBust = null; state = "gameover"; }
+        }
+    }
+
+    function drawRoadsideCop(cop) {
+        drawCopCar(cop.x, cop.y, 0); // parked → static lights
+        // partial cover so it's "hidden"
+        if (cop.hide === "tree") {
+            drawTree(cop.x + cop.side * 4, cop.y - 4, 1.15, gameTime, cop.x);
+        } else if (cop.hide === "billboard") {
+            ctx.fillStyle = "#5D4037"; roundRect(cop.x - 22, cop.y - 8, 44, 28, 4); ctx.fill();
+            ctx.fillStyle = "#FFF"; roundRect(cop.x - 18, cop.y - 4, 36, 20, 2); ctx.fill();
+            drawText("RADAR", cop.x, cop.y + 6, "bold 9px Arial", "#37474F", null, 0);
+        } else {
+            drawBush(cop.x, cop.y + 10, 1.6, gameTime, cop.x);
+        }
+        if (cop.spot > 0.04) {
+            var a = clamp(cop.spot / 0.65, 0, 1);
+            ctx.globalAlpha = 0.55 + 0.45 * a;
+            drawText("!", cop.x, cop.y - 34, "bold " + (16 + a * 12) + "px Arial", "#FF1744", "#FFF", 3);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function drawCopBust() {
+        drawRoad(scrollOffset);
+        drawDecorations(gameTime);
+        ctx.save();
+        if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+        drawCopCar(player.x, copBust.copY, gameTime * 3); // sirens flashing
+        drawLuluCar(player.x, player.y, 0, false, gameTime, distractedMode);
+        if (copBust.man) {
+            drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir);
+            if (copBust.man.state === "yelling") {
+                var lines = copBust.yell.split("\n");
+                for (var li = 0; li < lines.length; li++) {
+                    drawText(lines[li], copBust.man.x, copBust.man.y - 72 + li * 18,
+                        "bold 15px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#7A0000", 4);
+                }
+            }
+        }
+        ctx.restore();
+        drawParticles();
+        drawText("🚨 BUSTED! 🚨", W / 2, H * 0.16, "bold 38px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
+        drawText("Caught speeding!", W / 2, H * 0.16 + 36, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
     }
 
     // ── Update: Paused ───────────────────────────────────────
@@ -5029,6 +5196,8 @@
         for (var sld = 0; sld < salonSigns.length; sld++) {
             drawSalonSign(salonSigns[sld].x, salonSigns[sld].y, salonSigns[sld].bob);
         }
+        // Hidden roadside speed-trap cops
+        for (var rcd = 0; rcd < roadCops.length; rcd++) drawRoadsideCop(roadCops[rcd]);
         // Avigail walking on the road
         if (avigailWalker) {
             drawAvigailWalker(avigailWalker.x, avigailWalker.y, avigailWalker.walkTime);
@@ -5072,6 +5241,18 @@
 
         // Heshy cameo (drawn above the car so he floats over the scene)
         if (heshy) drawHeshyCameo(heshy.t, heshy.dur);
+
+        // Chasing cop cruiser + "speed away" HUD
+        if (copChase) {
+            drawCopCar(copChase.x, player.y + copChase.gap, copChase.siren);
+            var copFlash = Math.sin(gameTime * 10) > 0;
+            drawText("🚨 SPEED AWAY! 🚨", W / 2, 92,
+                "bold 20px 'Segoe UI', Arial, sans-serif", copFlash ? "#FF5252" : "#FFEB3B", "#000", 5);
+            var dpct = clamp(copChase.gap / 340, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 70, 104, 140, 8, 4); ctx.fill();
+            ctx.fillStyle = dpct > 0.7 ? "#7CFC4F" : "#FF5252";
+            roundRect(W / 2 - 68, 106, 136 * dpct, 4, 2); ctx.fill();
+        }
 
         // ── Coin-collect pop rings (scale up + fade) ──
         for (var cpd = 0; cpd < coinPops.length; cpd++) {
@@ -10540,7 +10721,7 @@
         // Map game state → music file track
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
-            state === "crash" || state === "gameover" || state === "shop") musicTrack = "lulu";
+            state === "crash" || state === "copBust" || state === "gameover" || state === "shop") musicTrack = "lulu";
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
@@ -10556,6 +10737,7 @@
         else if (state === "playing") updatePlaying(dt);
         else if (state === "paused") updatePaused(dt);
         else if (state === "crash") updateCrash(dt);
+        else if (state === "copBust") updateCopBust(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
@@ -10580,6 +10762,7 @@
         else if (state === "playing") drawPlaying();
         else if (state === "paused") drawPaused();
         else if (state === "crash") drawCrash();
+        else if (state === "copBust") drawCopBust();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "parkingIntro") drawParkingIntro();

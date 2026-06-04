@@ -14,6 +14,7 @@
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;
         copEvent = null; copEventTimer = rand(60, 120);
+        roadCops = []; copChase = null; copBust = null;
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);

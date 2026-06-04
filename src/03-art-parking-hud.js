@@ -953,6 +953,10 @@
     var honkCooldown = 0;
     var copEvent = null;  // {phase, timer, x, y}
     var copEventTimer = rand(60, 120);
+    // Speed-trap cops: parked + hidden on the shoulder, then chase if provoked
+    var roadCops = [];    // [{x, y, side, hide, spot, busted}]
+    var copChase = null;  // active chase {gap, x, siren, escapeT}
+    var copBust = null;   // caught cutscene {phase, timer, man, copY, fromLeft, yell}
     // Ima (Mom) text messages mini-event
     var imaTextTimer = rand(35, 75);
     var imaText = null; // { msg, t, dur, sender }
