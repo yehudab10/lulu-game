@@ -1337,6 +1337,30 @@
         ctx.restore();
     }
 
+    function drawTopBus(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        var bw = 24, bh = 54; // half-extents → 48 wide, 108 long
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(2, 6, bw + 4, bh - 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#F9A825"; roundRect(-bw, -bh, bw * 2, bh * 2, 10); ctx.fill();
+        ctx.fillStyle = "#FBC02D"; roundRect(-bw + 2, -bh + 2, bw * 2 - 4, bh * 2 - 4, 8); ctx.fill();
+        ctx.fillStyle = "#212121"; ctx.fillRect(-bw, -bh + 20, bw * 2, 4); ctx.fillRect(-bw, bh - 24, bw * 2, 4);
+        // windshield at the front (bottom, toward player)
+        ctx.fillStyle = "#81D4FA"; roundRect(-bw + 5, bh - 20, bw * 2 - 10, 14, 4); ctx.fill();
+        // side windows
+        ctx.fillStyle = "#4FC3F7";
+        for (var wy = -bh + 26; wy < bh - 28; wy += 15) { ctx.fillRect(-bw + 4, wy, 8, 10); ctx.fillRect(bw - 12, wy, 8, 10); }
+        drawText("SCHOOL", 0, -bh + 12, "bold 8px Arial", "#212121", null, 0);
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(-6, -8, 12, 12); // roof hatch
+        ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(-bw + 6, bh - 3, 3, 0, Math.PI * 2); ctx.arc(bw - 6, bh - 3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-bw + 6, -bh + 4, 3, 0, Math.PI * 2); ctx.arc(bw - 6, -bh + 4, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#222";
+        roundRect(-bw - 3, -bh + 22, 6, 16, 2); ctx.fill(); roundRect(bw - 3, -bh + 22, 6, 16, 2); ctx.fill();
+        roundRect(-bw - 3, bh - 38, 6, 16, 2); ctx.fill(); roundRect(bw - 3, bh - 38, 6, 16, 2); ctx.fill();
+        ctx.restore();
+    }
+
     function drawAmbulance(x, y, time) {
         ctx.save();
         ctx.translate(x, y);

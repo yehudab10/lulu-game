@@ -259,6 +259,10 @@
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
                 // occasional drunken outburst
                 if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
+            } else if (o.type === "car" && o.behavior === "bus") {
+                if (o.commentT <= 0 && Math.abs(o.y - player.y) < 150 && Math.random() < dt * 0.4) {
+                    o.comment = randPick(BUS_QUIPS); o.commentT = 2.0;
+                }
             } else if (o.type === "car" && o.behavior === "patrol") {
                 // Cruises normally, but busts you if you speed in its view.
                 var patSpeeding = keys.up || gameSpeed > 520;
@@ -638,6 +642,13 @@
         if (paradeTimer > 0) {
             paradeTimer -= dt;
             if (Math.random() < dt * 9) spawnParadeRunner();
+        }
+
+        // School buses — rare on the open road, common in the school zone.
+        var busN = 0;
+        for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
+        if (gameTime > 15 && busN < 1 && Math.random() < dt * (zone === "school" ? 0.22 : 0.02)) {
+            spawnSchoolBus();
         }
 
         // Patrol cop cars cruising the road (rare; common in the police zone).
@@ -1509,6 +1520,9 @@
             } else if (o.type === "car" && o.behavior === "patrol") {
                 drawCopCar(o.x, o.y, gameTime);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
+            } else if (o.type === "car" && o.behavior === "bus") {
+                drawTopBus(o.x, o.y);
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
             } else if (o.type === "car") {
                 if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                 drawEnemyCar(o.x, o.y, o.color, o.carType);

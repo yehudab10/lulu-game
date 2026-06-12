@@ -2918,6 +2918,30 @@
         ctx.restore();
     }
 
+    function drawTopBus(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        var bw = 24, bh = 54; // half-extents → 48 wide, 108 long
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(2, 6, bw + 4, bh - 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#F9A825"; roundRect(-bw, -bh, bw * 2, bh * 2, 10); ctx.fill();
+        ctx.fillStyle = "#FBC02D"; roundRect(-bw + 2, -bh + 2, bw * 2 - 4, bh * 2 - 4, 8); ctx.fill();
+        ctx.fillStyle = "#212121"; ctx.fillRect(-bw, -bh + 20, bw * 2, 4); ctx.fillRect(-bw, bh - 24, bw * 2, 4);
+        // windshield at the front (bottom, toward player)
+        ctx.fillStyle = "#81D4FA"; roundRect(-bw + 5, bh - 20, bw * 2 - 10, 14, 4); ctx.fill();
+        // side windows
+        ctx.fillStyle = "#4FC3F7";
+        for (var wy = -bh + 26; wy < bh - 28; wy += 15) { ctx.fillRect(-bw + 4, wy, 8, 10); ctx.fillRect(bw - 12, wy, 8, 10); }
+        drawText("SCHOOL", 0, -bh + 12, "bold 8px Arial", "#212121", null, 0);
+        ctx.fillStyle = "#FFFFFF"; ctx.fillRect(-6, -8, 12, 12); // roof hatch
+        ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(-bw + 6, bh - 3, 3, 0, Math.PI * 2); ctx.arc(bw - 6, bh - 3, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-bw + 6, -bh + 4, 3, 0, Math.PI * 2); ctx.arc(bw - 6, -bh + 4, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#222";
+        roundRect(-bw - 3, -bh + 22, 6, 16, 2); ctx.fill(); roundRect(bw - 3, -bh + 22, 6, 16, 2); ctx.fill();
+        roundRect(-bw - 3, bh - 38, 6, 16, 2); ctx.fill(); roundRect(bw - 3, bh - 38, 6, 16, 2); ctx.fill();
+        ctx.restore();
+    }
+
     function drawAmbulance(x, y, time) {
         ctx.save();
         ctx.translate(x, y);
@@ -4312,6 +4336,18 @@
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+    var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
+    var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
+    var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
+
+    function spawnSchoolBus() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "bus", x: LANES[lane], y: -150,
+            color: "#F9A825", carType: 0, hitW: 40, hitH: 96, speedMult: 0.5,
+            lane: lane, comment: "", commentT: 0
+        });
+    }
 
     // Names + one-liners shown when Lulu bonks a pedestrian (random each time).
     var KO_NAMES = ["Shua", "Esti", "Random British guy", "Leah"];
@@ -5092,6 +5128,10 @@
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
                 // occasional drunken outburst
                 if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
+            } else if (o.type === "car" && o.behavior === "bus") {
+                if (o.commentT <= 0 && Math.abs(o.y - player.y) < 150 && Math.random() < dt * 0.4) {
+                    o.comment = randPick(BUS_QUIPS); o.commentT = 2.0;
+                }
             } else if (o.type === "car" && o.behavior === "patrol") {
                 // Cruises normally, but busts you if you speed in its view.
                 var patSpeeding = keys.up || gameSpeed > 520;
@@ -5471,6 +5511,13 @@
         if (paradeTimer > 0) {
             paradeTimer -= dt;
             if (Math.random() < dt * 9) spawnParadeRunner();
+        }
+
+        // School buses — rare on the open road, common in the school zone.
+        var busN = 0;
+        for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
+        if (gameTime > 15 && busN < 1 && Math.random() < dt * (zone === "school" ? 0.22 : 0.02)) {
+            spawnSchoolBus();
         }
 
         // Patrol cop cars cruising the road (rare; common in the police zone).
@@ -6342,6 +6389,9 @@
             } else if (o.type === "car" && o.behavior === "patrol") {
                 drawCopCar(o.x, o.y, gameTime);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
+            } else if (o.type === "car" && o.behavior === "bus") {
+                drawTopBus(o.x, o.y);
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
             } else if (o.type === "car") {
                 if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                 drawEnemyCar(o.x, o.y, o.color, o.carType);

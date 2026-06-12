@@ -339,6 +339,18 @@
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+    var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
+    var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
+    var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
+
+    function spawnSchoolBus() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "bus", x: LANES[lane], y: -150,
+            color: "#F9A825", carType: 0, hitW: 40, hitH: 96, speedMult: 0.5,
+            lane: lane, comment: "", commentT: 0
+        });
+    }
 
     // Names + one-liners shown when Lulu bonks a pedestrian (random each time).
     var KO_NAMES = ["Shua", "Esti", "Random British guy", "Leah"];
