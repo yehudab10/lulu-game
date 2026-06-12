@@ -5678,15 +5678,9 @@
             var cg = crossingGuard;
             cg.y += gameSpeed * dt;
             if (cg.commentT > 0) cg.commentT -= dt;
-            var cgx = cg.side < 0 ? ROAD_L + 14 : ROAD_R - 14;
-            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, cgx, cg.y, 22, 26)) {
-                hitPlayer({ x: cgx, y: cg.y });
-            }
-            for (var ck = cg.kids.length - 1; ck >= 0; ck--) {
-                if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, cg.kids[ck].kx, cg.y + cg.kids[ck].ky, 16, 18)) {
-                    hitPlayer({ x: cg.kids[ck].kx, y: cg.y }); cg.kids.splice(ck, 1);
-                }
-            }
+            // People are never a "lose a life" collision (that's confusing —
+            // bonking pedestrians elsewhere is a GOOD thing). The only stakes at
+            // a crossing are the speeding violation below.
             if (!cg.checked && cg.y > player.y - 6) {
                 cg.checked = true;
                 var slowG = keys.down || gameSpeed < baseGameSpeed * 0.72;
@@ -6526,17 +6520,65 @@
         if (bs.commentT > 0 && bs.comment) drawCarComment(bx, y - 24, bs.comment);
     }
 
-    // Soft headlight pools in front of traffic at night / in fog.
+    // Soft headlight pools in FRONT of traffic (cars face up the screen) at
+    // night / in fog.
     function drawCarHeadlights(x, y) {
-        var hy = y + CAR_H / 2;
-        var g = ctx.createLinearGradient(0, hy, 0, hy + 56);
+        var hy = y - CAR_H / 2;
+        var g = ctx.createLinearGradient(0, hy, 0, hy - 58);
         g.addColorStop(0, "rgba(255,246,200,0.30)");
         g.addColorStop(1, "rgba(255,246,200,0)");
         ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(x - 12, hy); ctx.lineTo(x - 24, hy + 56);
-        ctx.lineTo(x + 24, hy + 56); ctx.lineTo(x + 12, hy);
+        ctx.moveTo(x - 12, hy); ctx.lineTo(x - 24, hy - 58);
+        ctx.lineTo(x + 24, hy - 58); ctx.lineTo(x + 12, hy);
         ctx.closePath(); ctx.fill();
+    }
+
+    // Drunk driver: a sickly green haze, a woozy left-right TILT, and a wobbly
+    // swerve trail behind — reads as 'this car is all over the road'.
+    function drawDrunkCar(o) {
+        var tilt = Math.sin(o.swerveT * 4) * 0.13;
+        // green woozy aura
+        var ag = ctx.createRadialGradient(o.x, o.y, 6, o.x, o.y, CAR_W);
+        ag.addColorStop(0, "rgba(124,179,66,0.28)");
+        ag.addColorStop(1, "rgba(124,179,66,0)");
+        ctx.fillStyle = ag;
+        ctx.beginPath(); ctx.arc(o.x, o.y, CAR_W * 0.9, 0, Math.PI * 2); ctx.fill();
+        // wobbly swerve trail
+        ctx.strokeStyle = "rgba(124,179,66,0.5)"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath();
+        for (var t = 0; t <= 5; t++) {
+            var ty = o.y + CAR_H / 2 + t * 9;
+            var tx = o.x + Math.sin(o.swerveT * 3 - t * 0.7) * 9;
+            if (t === 0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+        }
+        ctx.stroke(); ctx.lineCap = "butt";
+        // the car itself, tilted
+        ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(tilt);
+        drawEnemyCar(0, 0, o.color, o.carType);
+        ctx.restore();
+        // little hiccup bubbles rising
+        var hb = (gameTime * 0.9) % 1;
+        ctx.globalAlpha = (1 - hb) * 0.8;
+        ctx.fillStyle = "#AED581";
+        ctx.beginPath(); ctx.arc(o.x + 13, o.y - 12 - hb * 16, 2.5 + hb * 2, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+
+    // Texting driver: a cool blue phone-glow washing over the windshield, and a
+    // tiny screen flicker — looks like a lit phone in their lap.
+    function drawTextingCar(o) {
+        drawEnemyCar(o.x, o.y, o.color, o.carType);
+        var pulse = 0.45 + 0.35 * Math.abs(Math.sin(gameTime * 6));
+        var wy = o.y - CAR_H / 2 + 18; // windshield area
+        var bg = ctx.createRadialGradient(o.x, wy, 1, o.x, wy, 18);
+        bg.addColorStop(0, "rgba(120,200,255," + pulse + ")");
+        bg.addColorStop(1, "rgba(120,200,255,0)");
+        ctx.fillStyle = bg;
+        ctx.beginPath(); ctx.arc(o.x, wy, 18, 0, Math.PI * 2); ctx.fill();
+        // the bright little screen
+        ctx.fillStyle = "rgba(200,235,255," + (0.6 + pulse * 0.4) + ")";
+        roundRect(o.x - 3, wy + 2, 6, 9, 1.5); ctx.fill();
     }
 
     function drawCarComment(x, y, text) {
@@ -6795,17 +6837,9 @@
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
             } else if (o.type === "car") {
                 if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
-                drawEnemyCar(o.x, o.y, o.color, o.carType);
-                if (o.behavior === "drunk") {
-                    // weaving + a beer can by the window
-                    drawText("🍺", o.x + 14, o.y - 4, "13px Arial", "#fff", null, 0);
-                } else if (o.behavior === "texting") {
-                    // glowing phone in the window
-                    ctx.save();
-                    ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 7));
-                    drawText("📱", o.x + 12, o.y, "12px Arial", "#fff", null, 0);
-                    ctx.restore();
-                }
+                if (o.behavior === "drunk") drawDrunkCar(o);
+                else if (o.behavior === "texting") drawTextingCar(o);
+                else drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType);
