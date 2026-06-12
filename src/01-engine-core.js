@@ -1296,13 +1296,30 @@
         ctx.strokeRect(x, y, w, h);
 
         if (b.kind === "construction") {
-            // exposed floors + scaffolding, hazard stripes at the base, a crane
-            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
-            for (var cf = y + 14; cf < y + h; cf += 16) { ctx.beginPath(); ctx.moveTo(x, cf); ctx.lineTo(x + w, cf); ctx.stroke(); }
-            for (var sc = 0; sc < w; sc += 8) { ctx.fillStyle = (sc / 8) % 2 ? "#1A1A1A" : "#FFC107"; ctx.fillRect(x + sc, y + h - 8, 8, 8); }
-            ctx.strokeStyle = "#FFB300"; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(x + w - 6, y); ctx.lineTo(x + w - 6, y - 26); ctx.lineTo(x + 4, y - 20); ctx.stroke();
-            ctx.fillStyle = "#616161"; ctx.fillRect(x + 8, y - 22, 5, 8);
+            // concrete shell: floor slabs + columns
+            ctx.strokeStyle = "rgba(0,0,0,0.28)"; ctx.lineWidth = 1;
+            for (var cf = y + 14; cf < y + h; cf += 15) { ctx.beginPath(); ctx.moveTo(x, cf); ctx.lineTo(x + w, cf); ctx.stroke(); }
+            for (var cc = x + 9; cc < x + w; cc += 16) { ctx.beginPath(); ctx.moveTo(cc, y); ctx.lineTo(cc, y + h); ctx.stroke(); }
+            // exposed rebar poking out of the top
+            ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1.5;
+            for (var rb = x + 6; rb < x + w; rb += 8) { ctx.beginPath(); ctx.moveTo(rb, y); ctx.lineTo(rb + (rb % 3 - 1) * 2, y - 7); ctx.stroke(); }
+            // scaffolding on the road-facing edge (poles + diagonals)
+            var sfx = b.side < 0 ? x + w - 7 : x + 1;
+            ctx.strokeStyle = "#64B5F6"; ctx.lineWidth = 1.5;
+            ctx.strokeRect(sfx, y + 6, 6, h - 10);
+            for (var sy = y + 6; sy < y + h - 12; sy += 14) { ctx.beginPath(); ctx.moveTo(sfx, sy); ctx.lineTo(sfx + 6, sy + 14); ctx.stroke(); }
+            // hazard stripes at the base
+            for (var sc = 0; sc < w; sc += 8) { ctx.fillStyle = (sc / 8) % 2 ? "#1A1A1A" : "#FFC107"; ctx.fillRect(x + sc, y + h - 7, 8, 7); }
+            // tower crane rising beside the shell
+            var crX = b.side < 0 ? x + w + 5 : x - 5, jib = b.side < 0 ? 1 : -1;
+            ctx.strokeStyle = "#FB8C00"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(crX, y + 12); ctx.lineTo(crX, y - 52); ctx.stroke();             // mast
+            ctx.beginPath(); ctx.moveTo(crX - jib * 12, y - 50); ctx.lineTo(crX + jib * 38, y - 50); ctx.stroke(); // jib + counter-jib
+            ctx.lineCap = "butt";
+            ctx.fillStyle = "#FB8C00"; ctx.fillRect(crX - 4, y - 56, 8, 7);                                // operator cab
+            var lx = crX + jib * 30, lyb = y - 50 + 14 + Math.sin(gameTime * 1.6) * 4;                     // hanging load (bobs)
+            ctx.strokeStyle = "#546E7A"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx, y - 50); ctx.lineTo(lx, lyb); ctx.stroke();
+            ctx.fillStyle = "#78909C"; ctx.fillRect(lx - 4, lyb, 8, 7);
             return;
         }
         if (b.kind === "gas") {
