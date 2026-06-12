@@ -727,8 +727,17 @@
         // School buses — rare on the open road, common in the school zone.
         var busN = 0;
         for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
-        if (gameTime > 15 && busN < 1 && Math.random() < dt * (zone === "school" ? 0.22 : 0.02)) {
+        if (gameTime > 15 && busN < 1 && convoyTimer <= 0 && Math.random() < dt * (zone === "school" ? 0.22 : 0.02)) {
             spawnSchoolBus();
+        }
+        // Field-trip convoy: a rare burst of several buses in a row.
+        if (convoyTimer <= 0 && busN === 0 && gameTime > 40 && Math.random() < dt * (zone === "school" ? 0.05 : 0.012)) {
+            convoyTimer = 6; convoyNext = 0;
+            parkingMsg = "🚌 Field-trip convoy!"; parkingMsgTimer = 2.5;
+        }
+        if (convoyTimer > 0) {
+            convoyTimer -= dt; convoyNext -= dt;
+            if (convoyNext <= 0 && busN < 4) { convoyNext = rand(0.9, 1.4); spawnSchoolBus(); }
         }
 
         // Patrol cop cars cruising the road (rare; common in the police zone).

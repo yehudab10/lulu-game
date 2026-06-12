@@ -6,7 +6,7 @@
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
-        crossingGuard = null; convoyTimer = 0;
+        crossingGuard = null; convoyTimer = 0; convoyNext = 0;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
