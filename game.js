@@ -4084,6 +4084,17 @@
         tollBooth = { y: -110, open: sh.slice(0, openCount), paid: false };
     }
 
+    // A cop car cruising the road like normal traffic — but it'll give chase if
+    // you speed past it (or blow a school-bus stop sign in its view).
+    function spawnPatrolCar() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "patrol", x: LANES[lane], y: -100,
+            color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64, speedMult: 0.7,
+            lane: lane, spot: 0, swerveT: 0, spillT: 0
+        });
+    }
+
     function spawnAlcoholDrop(x, y) {
         particles.push({
             x: x + rand(-16, 16), y: y + rand(-6, 18),
@@ -5081,6 +5092,13 @@
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
                 // occasional drunken outburst
                 if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
+            } else if (o.type === "car" && o.behavior === "patrol") {
+                // Cruises normally, but busts you if you speed in its view.
+                var patSpeeding = keys.up || gameSpeed > 520;
+                if (patSpeeding && !copChase && !copBust && Math.abs(o.y - player.y) < 175) {
+                    o.spot = (o.spot || 0) + dt;
+                    if (o.spot > 0.7) { beginCopChase(o.x, "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
+                } else { o.spot = Math.max(0, (o.spot || 0) - dt * 1.5); }
             } else if (o.type === "car" && o.behavior === "pulled") {
                 // Busted: drift to the shoulder, slow down, and bicker with the cop.
                 o.x = clamp(lerp(o.x, o.pullX, Math.min(1, 3 * dt)), ROAD_L + 18, ROAD_R - 18);
@@ -5455,6 +5473,14 @@
             if (Math.random() < dt * 9) spawnParadeRunner();
         }
 
+        // Patrol cop cars cruising the road (rare; common in the police zone).
+        var patrolN = 0;
+        for (var pc = 0; pc < obstacles.length; pc++) if (obstacles[pc].behavior === "patrol") patrolN++;
+        if (gameTime > 20 && !copChase && !copBust && patrolN < 1 &&
+            Math.random() < dt * (zone === "police" ? 0.18 : 0.03)) {
+            spawnPatrolCar();
+        }
+
         // A watching cop pulls over a drunk/texting driver (by chance).
         if (!copChase && !copBust && copInView() && Math.random() < dt * 0.7) {
             for (var pj = 0; pj < obstacles.length; pj++) {
@@ -5542,15 +5568,20 @@
         if (copChase) updateCopChase(dt);
     }
 
+    // Start a chase from any x with a custom alert (used by roadside cops,
+    // patrol cars, and bus-stop violations).
+    function beginCopChase(x, msg) {
+        copChase = { gap: 160, x: x, siren: 0, escapeT: 0 };
+        shakeTimer = 0.3; shakeIntensity = 5;
+        spawnFloater(player.x, player.y - 50, msg || "🚨 BUSTED!", "#F44336");
+        playTone(680, 0.25, "sawtooth", 0.14, 460);
+        setTimeout(function () { playTone(460, 0.25, "sawtooth", 0.14, 680); }, 240);
+    }
     function startCopChase(cop) {
         cop.busted = true;
         var idx = roadCops.indexOf(cop);
         if (idx >= 0) roadCops.splice(idx, 1); // it's now the chaser, not a parked cop
-        copChase = { gap: 160, x: cop.x, siren: 0, escapeT: 0 };
-        shakeTimer = 0.3; shakeIntensity = 5;
-        spawnFloater(player.x, player.y - 50, "🚨 SPEED TRAP!", "#F44336");
-        playTone(680, 0.25, "sawtooth", 0.14, 460);
-        setTimeout(function () { playTone(460, 0.25, "sawtooth", 0.14, 680); }, 240);
+        beginCopChase(cop.x, "🚨 SPEED TRAP!");
     }
 
     function updateCopChase(dt) {
@@ -6308,6 +6339,9 @@
             var o = obstacles[n];
             if (o.type === "car" && o.behavior === "ambulance") {
                 drawAmbulance(o.x, o.y, gameTime);
+            } else if (o.type === "car" && o.behavior === "patrol") {
+                drawCopCar(o.x, o.y, gameTime);
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             } else if (o.type === "car") {
                 if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                 drawEnemyCar(o.x, o.y, o.color, o.carType);

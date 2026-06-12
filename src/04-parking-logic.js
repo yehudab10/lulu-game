@@ -111,6 +111,17 @@
         tollBooth = { y: -110, open: sh.slice(0, openCount), paid: false };
     }
 
+    // A cop car cruising the road like normal traffic — but it'll give chase if
+    // you speed past it (or blow a school-bus stop sign in its view).
+    function spawnPatrolCar() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "patrol", x: LANES[lane], y: -100,
+            color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64, speedMult: 0.7,
+            lane: lane, spot: 0, swerveT: 0, spillT: 0
+        });
+    }
+
     function spawnAlcoholDrop(x, y) {
         particles.push({
             x: x + rand(-16, 16), y: y + rand(-6, 18),
