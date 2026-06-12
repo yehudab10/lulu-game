@@ -1269,11 +1269,19 @@
         }
     }
     function spawnCityBuilding(side) {
-        var w = rand(50, 76), h = rand(70, 130);
+        var w = rand(50, 76), h = rand(70, zone === "downtown" ? 155 : 130);
         var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
                          : rand(ROAD_R + 6, W - w - 6) + w / 2;
+        // Per-building variety chosen ONCE at spawn (stable, no flicker):
+        // a name, a sign style, a window seed, and whether the sign glows.
+        var label = zone === "bars" ? randPick(BAR_NAMES)
+                  : zone === "school" ? randPick(SCHOOL_NAMES)
+                  : BUILD_LABEL[zone];
         cityBuildings.push({ x: x, y: -h - 30, side: side, kind: zone, w: w, h: h,
-            lit: Math.random() < 0.7, tint: randInt(0, 2) });
+            lit: Math.random() < 0.7, tint: randInt(0, 2), seed: randInt(0, 997),
+            style: randInt(0, 2), label: label,
+            signC: zone === "bars" ? randPick(["#FF4FA3", "#4FC3F7", "#FFD54F", "#AED581"]) : BUILD_SIGN[zone],
+            glow: zone === "bars" && Math.random() < 0.3 });
     }
     function drawCityBuildings() {
         for (var i = 0; i < cityBuildings.length; i++) drawBuilding(cityBuildings[i]);
@@ -1285,6 +1293,8 @@
         gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"]
     };
     var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET" };
+    var BAR_NAMES = ["BAR", "PUB", "LOUNGE", "KARAOKE", "TAVERN", "JUICE BAR"];
+    var SCHOOL_NAMES = ["SCHOOL", "BAIS YAAKOV", "CHEDER", "PRESCHOOL", "DAY SCHOOL"];
     var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581" };
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
@@ -1343,29 +1353,77 @@
             return;
         }
 
-        // Tall buildings (bars/police/school/downtown/hospital): lit window grid
+        // Tall buildings (bars/police/school/downtown/hospital): lit window grid.
+        // Lit pattern is DETERMINISTIC per building (seed) — re-rolling each
+        // frame made every window strobe, which read as 'too flashy'.
+        var wi = 0;
         for (var wy = y + 10; wy < y + h - 8; wy += 16) {
             for (var wx = x + 7; wx < x + w - 8; wx += 14) {
-                ctx.fillStyle = (b.lit && Math.random() < 0.6) ? "#FFE082" : "rgba(20,20,30,0.5)";
+                wi++;
+                var litWin = b.lit && (((wi * 37 + (b.seed || 0)) % 10) < 6);
+                ctx.fillStyle = litWin ? "#FFE082" : "rgba(20,20,30,0.5)";
                 ctx.fillRect(wx, wy, 8, 9);
             }
         }
-        var label = BUILD_LABEL[b.kind];
+        var label = b.label || BUILD_LABEL[b.kind];
         if (label) {
-            var signC = BUILD_SIGN[b.kind];
+            var signC = b.signC || BUILD_SIGN[b.kind];
             ctx.fillStyle = "#1A1A1A";
             roundRect(x + 3, y - 16, w - 6, 16, 3); ctx.fill();
-            if (b.kind === "bars" && b.lit) { ctx.shadowColor = signC; ctx.shadowBlur = 8; }
-            drawText(label, x + w / 2, y - 8, "bold 10px 'Segoe UI', Arial, sans-serif", signC, null, 0);
+            // Only the occasional bar gets a soft neon glow — most signs are calm.
+            if (b.glow && b.lit) { ctx.shadowColor = signC; ctx.shadowBlur = 6; }
+            drawText(label, x + w / 2, y - 8, "bold 9px 'Segoe UI', Arial, sans-serif", signC, null, 0);
             ctx.shadowBlur = 0;
+        }
+        if (b.kind === "bars") {
+            if (b.style === 1) {
+                // striped fabric awning over the entrance
+                for (var awb = 0; awb < w - 8; awb += 9) {
+                    ctx.fillStyle = (awb / 9) % 2 ? "#FAFAFA" : (b.signC || "#FF4FA3");
+                    ctx.fillRect(x + 4 + awb, y + 2, Math.min(9, w - 12 - awb), 8);
+                }
+            } else if (b.style === 2) {
+                // a string of warm cafe lights along the facade (static)
+                ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(x + 4, y + 6); ctx.quadraticCurveTo(x + w / 2, y + 12, x + w - 4, y + 6); ctx.stroke();
+                for (var lt = 0; lt < 5; lt++) {
+                    var ltx = x + 6 + (w - 12) * lt / 4;
+                    ctx.fillStyle = "#FFD54F";
+                    ctx.beginPath(); ctx.arc(ltx, y + 8 + Math.sin(lt * 2.1) * 2, 1.8, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        } else if (b.kind === "school") {
+            if (b.style === 0) {
+                // flagpole beside the door
+                var fpx = x + 6;
+                ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(fpx, y + h); ctx.lineTo(fpx, y - 14); ctx.stroke();
+                ctx.fillStyle = "#42A5F5"; ctx.fillRect(fpx + 1, y - 13, 11, 7);
+            } else {
+                // wide double doors at the base
+                ctx.fillStyle = "#4E342E";
+                ctx.fillRect(x + w / 2 - 9, y + h - 18, 18, 18);
+                ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(x + w / 2, y + h - 18); ctx.lineTo(x + w / 2, y + h); ctx.stroke();
+            }
         }
         if (b.kind === "police") {
             ctx.fillStyle = "#E53935"; ctx.fillRect(x + 2, y - 22, (w - 4) / 2, 4);
             ctx.fillStyle = "#1E88E5"; ctx.fillRect(x + 2 + (w - 4) / 2, y - 22, (w - 4) / 2, 4);
         } else if (b.kind === "downtown") {
-            ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y - 18); ctx.stroke();
-            ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(x + w / 2, y - 18, 2, 0, Math.PI * 2); ctx.fill();
+            if (b.style === 0) {
+                // rooftop water tower
+                var wtx = x + w / 2;
+                ctx.strokeStyle = "#6D4C41"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(wtx - 6, y); ctx.lineTo(wtx - 6, y - 8); ctx.moveTo(wtx + 6, y); ctx.lineTo(wtx + 6, y - 8); ctx.stroke();
+                ctx.fillStyle = "#8D6E63"; roundRect(wtx - 9, y - 22, 18, 14, 3); ctx.fill();
+                ctx.fillStyle = "#6D4C41"; ctx.beginPath();
+                ctx.moveTo(wtx - 10, y - 22); ctx.lineTo(wtx, y - 30); ctx.lineTo(wtx + 10, y - 22); ctx.closePath(); ctx.fill();
+            } else {
+                ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y - 18); ctx.stroke();
+                ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(x + w / 2, y - 18, 2, 0, Math.PI * 2); ctx.fill();
+            }
         } else if (b.kind === "hospital") {
             // big red cross on the facade
             ctx.fillStyle = "#E53935";
