@@ -3823,6 +3823,8 @@
     var driveThru = null;     // active drive-thru {y, side, taken}
     var paradeTimer = 0;      // seconds left of a parade/marathon crowd
     var busStop = null;       // parked school bus dropping kids {y, signOut, ...}
+    var crossingGuard = null; // crossing guard halting traffic {y, side, kids, ...}
+    var convoyTimer = 0;      // field-trip bus convoy spawn window
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
@@ -4004,6 +4006,7 @@
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
+        crossingGuard = null; convoyTimer = 0;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -4340,6 +4343,14 @@
     var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
+    var GUARD_QUIPS = ["SLOW DOWN!", "Kids crossing!!", "Eyes UP, driver!", "STOP means STOP!", "Not on MY watch!"];
+
+    function spawnCrossingGuard() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        var kids = [], n = randInt(2, 3);
+        for (var i = 0; i < n; i++) kids.push({ kx: rand(ROAD_L + 26, ROAD_R - 26), ky: rand(-26, 26), type: randInt(0, 2) });
+        crossingGuard = { y: -160, side: side, kids: kids, checked: false, comment: "", commentT: 0 };
+    }
 
     // A bus parked in the right lane dropping kids, stop-sign extended. You must
     // SLOW DOWN (brake) to pass legally — otherwise it's a violation.
@@ -5571,6 +5582,40 @@
             if (busStop.y > H + 130) busStop = null;
         }
 
+        // Crossing guard halting traffic for kids — slow down (brake) to pass.
+        if (!crossingGuard && gameTime > 25 && Math.random() < dt * (zone === "school" ? 0.09 : 0.011)) spawnCrossingGuard();
+        if (crossingGuard) {
+            var cg = crossingGuard;
+            cg.y += gameSpeed * dt;
+            if (cg.commentT > 0) cg.commentT -= dt;
+            var cgx = cg.side < 0 ? ROAD_L + 14 : ROAD_R - 14;
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, cgx, cg.y, 22, 26)) {
+                hitPlayer({ x: cgx, y: cg.y });
+            }
+            for (var ck = cg.kids.length - 1; ck >= 0; ck--) {
+                if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, cg.kids[ck].kx, cg.y + cg.kids[ck].ky, 16, 18)) {
+                    hitPlayer({ x: cg.kids[ck].kx, y: cg.y }); cg.kids.splice(ck, 1);
+                }
+            }
+            if (!cg.checked && cg.y > player.y - 6) {
+                cg.checked = true;
+                var slowG = keys.down || gameSpeed < baseGameSpeed * 0.72;
+                if (!slowG) {
+                    cg.comment = randPick(GUARD_QUIPS); cg.commentT = 2.4;
+                    var gw = copInView();
+                    if (!gw) { for (var gp = 0; gp < obstacles.length; gp++) { if (obstacles[gp].behavior === "patrol") { gw = obstacles[gp]; break; } } }
+                    if (gw && !copChase && !copBust) {
+                        beginCopChase(gw.x, "🚨 CROSSING!");
+                        spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
+                    }
+                } else {
+                    score += 40 * scoreMult;
+                    spawnFloater(player.x, player.y - 30, "🛑 Thanks, driver!", "#7CFC4F");
+                }
+            }
+            if (cg.y > H + 120) crossingGuard = null;
+        }
+
         // School buses — rare on the open road, common in the school zone.
         var busN = 0;
         for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
@@ -6206,6 +6251,27 @@
         }
     }
 
+    function drawGuard(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-5, 2, 4, 12, 2); ctx.fill(); roundRect(1, 2, 4, 12, 2); ctx.fill();
+        ctx.fillStyle = "#FF7043"; roundRect(-8, -8, 16, 16, 4); ctx.fill();         // hi-vis vest
+        ctx.fillStyle = "#FFEB3B"; ctx.fillRect(-8, -2, 16, 3);                       // reflective stripe
+        ctx.fillStyle = "#FF7043"; roundRect(-11, -6, 4, 10, 2); ctx.fill();          // left arm
+        ctx.save(); ctx.translate(8, -6); ctx.rotate(-0.5); ctx.fillStyle = "#FF7043"; roundRect(0, -4, 4, 11, 2); ctx.fill(); ctx.restore(); // raised arm
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -14, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FBC02D"; ctx.beginPath(); ctx.arc(0, -15, 7, Math.PI, 0); ctx.fill(); // cap
+        ctx.fillStyle = "#F57F17"; ctx.fillRect(-7, -15, 14, 2);
+        ctx.restore();
+    }
+    function drawCrossingGuard(cg) {
+        var y = cg.y, gx = cg.side < 0 ? ROAD_L + 14 : ROAD_R - 14;
+        for (var k = 0; k < cg.kids.length; k++) drawPedestrian(cg.kids[k].kx, y + cg.kids[k].ky, gameTime + k, cg.kids[k].type);
+        drawGuard(gx, y);
+        drawStopSign(gx + (cg.side < 0 ? 22 : -22), y - 14, 9); // raised paddle toward the road
+        if (cg.commentT > 0 && cg.comment) drawCarComment(gx, y - 26, cg.comment);
+    }
+
     function drawStopSign(cx, cy, r) {
         ctx.save(); ctx.translate(cx, cy);
         ctx.fillStyle = "#D32F2F"; ctx.beginPath();
@@ -6514,7 +6580,8 @@
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
 
-        // Toll booth / train crossing / drive-thru / bus stop (over the road)
+        // Toll booth / train crossing / drive-thru / bus stop / crossing guard
+        if (crossingGuard) drawCrossingGuard(crossingGuard);
         if (busStop) drawBusStop(busStop);
         if (driveThru) drawDriveThru(driveThru);
         if (tollBooth) drawTollBooth(tollBooth);

@@ -797,6 +797,8 @@
     var driveThru = null;     // active drive-thru {y, side, taken}
     var paradeTimer = 0;      // seconds left of a parade/marathon crowd
     var busStop = null;       // parked school bus dropping kids {y, signOut, ...}
+    var crossingGuard = null; // crossing guard halting traffic {y, side, kids, ...}
+    var convoyTimer = 0;      // field-trip bus convoy spawn window
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
