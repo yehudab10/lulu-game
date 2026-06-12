@@ -523,6 +523,29 @@
         if (zone === "gas" && fuelCans.length < 2 && Math.random() < dt * 0.7) {
             spawnFuel(); // grab one for a nitro turbo
         }
+
+        // Toll booth gauntlet — navigate to an OPEN lane (closed gates crash you)
+        if (!tollBooth && tickSpawn("toll", dt) && gameTime > 25) spawnTollBooth();
+        if (tollBooth) {
+            tollBooth.y += gameSpeed * dt;
+            if (tollBooth.y > H + 90) { tollBooth = null; }
+            else {
+                for (var tlx = 0; tlx < 3; tlx++) {
+                    if (tollBooth.open.indexOf(tlx) !== -1) continue;
+                    if (invincibleTimer <= 0 &&
+                        aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.5, LANES[tlx], tollBooth.y, 64, 16)) {
+                        hitPlayer({ x: LANES[tlx], y: tollBooth.y });
+                        tollBooth.open.push(tlx); // smash through so it doesn't re-hit
+                    }
+                }
+                if (tollBooth && !tollBooth.paid && tollBooth.y > player.y - 8) {
+                    tollBooth.paid = true;
+                    score += 60 * scoreMult;
+                    spawnFloater(player.x, player.y - 40, "🎫 TOLL!", "#FFD54F");
+                    playCoin();
+                }
+            }
+        }
     }
 
     function hitPlayer(obj) {
@@ -1095,6 +1118,31 @@
         ctx.restore();
     }
 
+    function drawTollBooth(tb) {
+        var y = tb.y, l, lx, open;
+        // overhead gantry + legs
+        ctx.fillStyle = "#455A64"; ctx.fillRect(ROAD_L - 10, y - 34, 6, 42); ctx.fillRect(ROAD_R + 4, y - 34, 6, 42);
+        ctx.fillStyle = "#37474F"; ctx.fillRect(ROAD_L - 10, y - 34, ROAD_W + 20, 12);
+        ctx.fillStyle = "#FFD54F"; ctx.fillRect(ROAD_L - 10, y - 34, ROAD_W + 20, 3);
+        drawText("TOLL", W / 2, y - 27, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        for (l = 0; l < 3; l++) {
+            lx = LANES[l]; open = tb.open.indexOf(l) !== -1;
+            ctx.fillStyle = "#90A4AE"; roundRect(lx - 30, y - 18, 7, 30, 2); ctx.fill(); // booth hut
+            ctx.fillStyle = open ? "#66BB6A" : "#E53935";
+            ctx.beginPath(); ctx.arc(lx - 26, y - 22, 3, 0, Math.PI * 2); ctx.fill();      // light
+            if (open) {
+                ctx.strokeStyle = "#66BB6A"; ctx.lineWidth = 4; ctx.lineCap = "round";
+                ctx.beginPath(); ctx.moveTo(lx - 23, y); ctx.lineTo(lx - 15, y - 22); ctx.stroke();
+                ctx.lineCap = "butt";
+            } else {
+                for (var g = 0; g < 6; g++) {
+                    ctx.fillStyle = (g % 2) ? "#E53935" : "#FAFAFA";
+                    ctx.fillRect(lx - 30 + g * 10, y - 5, 10, 9);
+                }
+            }
+        }
+    }
+
     // Flame trail behind Lulu while nitro is active.
     function drawNitroFlame(time) {
         if (nitroTimer <= 0 || !player) return;
@@ -1278,6 +1326,9 @@
         for (var mm = 0; mm < missiles.length; mm++) {
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
+
+        // Toll booth (drawn over the road, behind the car)
+        if (tollBooth) drawTollBooth(tollBooth);
 
         // Nitro flame trail (under the car)
         if (state !== "crash") drawNitroFlame(gameTime);

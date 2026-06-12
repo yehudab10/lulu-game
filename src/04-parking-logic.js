@@ -4,7 +4,7 @@
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
-        fuelCans = []; nitroTimer = 0;
+        fuelCans = []; nitroTimer = 0; tollBooth = null;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -79,6 +79,13 @@
     function spawnFuel() {
         var x = rand(ROAD_L + 24, ROAD_R - 24);
         fuelCans.push({ x: x, y: -30, hitW: 22, hitH: 24, collected: false, bob: rand(0, 6.28) });
+    }
+
+    function spawnTollBooth() {
+        var sh = [0, 1, 2];
+        for (var i = sh.length - 1; i > 0; i--) { var j = randInt(0, i); var t = sh[i]; sh[i] = sh[j]; sh[j] = t; }
+        var openCount = Math.random() < 0.5 ? 1 : 2; // 1-2 lanes open
+        tollBooth = { y: -110, open: sh.slice(0, openCount), paid: false };
     }
 
     function spawnAlcoholDrop(x, y) {

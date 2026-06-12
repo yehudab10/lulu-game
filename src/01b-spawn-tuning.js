@@ -20,7 +20,8 @@
         sasquatch:   { first: [40, 100], every: [75, 150], chance: 0.35 }, // 🦶 sasquatch easter egg
         copHide:     { first: [22, 60],  every: [35, 75],  chance: 0.55 }, // 🚓 hidden roadside speed-trap cop
         heshyPool:   { first: [25, 70],  every: [40, 80],  chance: 0.50 }, // 🏊 Heshy-in-the-pool easter egg
-        heart:       { first: [15, 35],  every: [20, 40],  chance: 0.60 }  // ❤️ extra-life pickup
+        heart:       { first: [15, 35],  every: [20, 40],  chance: 0.60 }, // ❤️ extra-life pickup
+        toll:        { first: [45, 90],  every: [60, 120], chance: 0.55 }  // 🎫 toll-booth gauntlet
     };
 
     // Per-event countdown timers, (re)initialized at the start of each run.

@@ -792,6 +792,7 @@
     var heartEntities = [];   // rare extra-life pickups
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
+    var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
