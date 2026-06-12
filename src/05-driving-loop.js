@@ -653,6 +653,19 @@
             if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, bbx, busStop.y, 40, 90)) {
                 hitPlayer({ x: bbx, y: busStop.y });
             }
+            // Scoop up Dina if she's at this stop (drive through her spot).
+            if (busStop.hasDina && !busStop.dinaTaken) {
+                var dinaX = ROAD_R - 88;
+                if (aabb(player.x, player.y, CAR_W, CAR_H * 0.8, dinaX, busStop.y, 26, 32)) {
+                    busStop.dinaTaken = true;
+                    var dinaBonus = 60;
+                    runCoins += dinaBonus; save.totalCoins += dinaBonus; persistSave();
+                    score += 300 * scoreMult;
+                    spawnFloater(player.x, player.y - 40, "👧 Got Dina! +" + dinaBonus, "#FFD54F");
+                    spawnCoinSparkle(dinaX, busStop.y);
+                    playBuy();
+                }
+            }
             if (!busStop.checked && busStop.y > player.y - 6) {
                 busStop.checked = true;
                 var slowEnough = keys.down || gameSpeed < baseGameSpeed * 0.72;
@@ -1341,7 +1354,15 @@
         for (var k = 0; k < bs.kids.length; k++) {
             drawPedestrian(bx + bs.kids[k].dx, y + bs.kids[k].dy, gameTime + k, bs.kids[k].type);
         }
-        if (bs.hasDina) drawText("👧 Dina!", bx - 30, y + 64, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        // Dina waiting by the curb — grab her for a bonus
+        if (bs.hasDina && !bs.dinaTaken) {
+            var dx = ROAD_R - 88, pulse = 1 + Math.sin(gameTime * 6) * 0.18;
+            ctx.save(); ctx.translate(dx, y); ctx.scale(pulse, pulse);
+            ctx.fillStyle = "rgba(255,213,79,0.35)"; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            drawText("👧", dx, y - 2, "16px Arial", "#fff", null, 0);
+            drawText("DINA!", dx, y + 16, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        }
         if (bs.commentT > 0 && bs.comment) drawCarComment(bx, y - 24, bs.comment);
     }
 
