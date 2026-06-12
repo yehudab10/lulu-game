@@ -87,8 +87,9 @@
         var dir = Math.random() < 0.5 ? 1 : -1;
         // Short train (2-3 cars) so there's always a cleared side to steer into;
         // it sweeps in immediately as the crossing scrolls down.
+        // Spawns high so the "R X R" road paint announces it well in advance.
         trainCrossing = {
-            y: -190, dir: dir, started: false, gone: false,
+            y: -420, dir: dir, started: false, gone: false,
             trainX: dir > 0 ? -200 : W + 200, cars: randInt(2, 3), warnPhase: 0
         };
     }
@@ -109,7 +110,9 @@
         var sh = [0, 1, 2];
         for (var i = sh.length - 1; i > 0; i--) { var j = randInt(0, i); var t = sh[i]; sh[i] = sh[j]; sh[j] = t; }
         var openCount = Math.random() < 0.5 ? 1 : 2; // 1-2 lanes open
-        tollBooth = { y: -110, open: sh.slice(0, openCount), paid: false };
+        // Spawns well above the screen so its painted road warnings ("TOLL
+        // AHEAD" / "SLOW") scroll into view first — no more sudden gantry.
+        tollBooth = { y: -480, open: sh.slice(0, openCount), paid: false };
     }
 
     // A cop car cruising the road like normal traffic — but it'll give chase if

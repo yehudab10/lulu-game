@@ -4146,8 +4146,9 @@
         var dir = Math.random() < 0.5 ? 1 : -1;
         // Short train (2-3 cars) so there's always a cleared side to steer into;
         // it sweeps in immediately as the crossing scrolls down.
+        // Spawns high so the "R X R" road paint announces it well in advance.
         trainCrossing = {
-            y: -190, dir: dir, started: false, gone: false,
+            y: -420, dir: dir, started: false, gone: false,
             trainX: dir > 0 ? -200 : W + 200, cars: randInt(2, 3), warnPhase: 0
         };
     }
@@ -4168,7 +4169,9 @@
         var sh = [0, 1, 2];
         for (var i = sh.length - 1; i > 0; i--) { var j = randInt(0, i); var t = sh[i]; sh[i] = sh[j]; sh[j] = t; }
         var openCount = Math.random() < 0.5 ? 1 : 2; // 1-2 lanes open
-        tollBooth = { y: -110, open: sh.slice(0, openCount), paid: false };
+        // Spawns well above the screen so its painted road warnings ("TOLL
+        // AHEAD" / "SLOW") scroll into view first — no more sudden gantry.
+        tollBooth = { y: -480, open: sh.slice(0, openCount), paid: false };
     }
 
     // A cop car cruising the road like normal traffic — but it'll give chase if
@@ -6294,6 +6297,45 @@
         ctx.restore();
     }
 
+    // Advance warnings painted on the asphalt ahead of road events, so nothing
+    // arrives by surprise. Drawn early (under traffic) like real road paint.
+    function drawRoadPaintWord(word, y, color) {
+        if (y < -24 || y > H + 24) return;
+        ctx.save();
+        ctx.globalAlpha = 0.66;
+        drawText(word, W / 2, y, "bold 26px 'Segoe UI', Arial, sans-serif", color || "#F5F5DC", null, 0);
+        ctx.restore();
+    }
+    function drawRoadChevrons(y) {
+        if (y < -30 || y > H + 30) return;
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = "#F5F5DC"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        for (var l = 0; l < 3; l++) {
+            var cxv = LANES[l];
+            ctx.beginPath();
+            ctx.moveTo(cxv - 14, y + 10); ctx.lineTo(cxv, y - 4); ctx.lineTo(cxv + 14, y + 10);
+            ctx.stroke();
+        }
+        ctx.lineCap = "butt";
+        ctx.restore();
+    }
+    function drawTollWarnings(tb) {
+        drawRoadChevrons(tb.y + 180);
+        drawRoadPaintWord("TOLL AHEAD", tb.y + 215);
+        drawRoadPaintWord("SLOW", tb.y + 370, "#FFE082");
+    }
+    function drawTrainWarnings(tc) {
+        drawRoadPaintWord("R X R", tc.y + 180);
+        if (tc.y + 320 > -24 && tc.y + 320 < H + 24) {
+            ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#F5F5DC"; ctx.lineWidth = 5; ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(W / 2 - 18, tc.y + 304); ctx.lineTo(W / 2 + 18, tc.y + 336);
+            ctx.moveTo(W / 2 + 18, tc.y + 304); ctx.lineTo(W / 2 - 18, tc.y + 336);
+            ctx.stroke(); ctx.lineCap = "butt"; ctx.restore();
+        }
+    }
+
     function drawTollBooth(tb) {
         var y = tb.y, l, lx, open;
         // overhead gantry + legs
@@ -6561,6 +6603,11 @@
                 ctx.restore();
             }
         }
+
+        // Road-paint warnings go down first, like real paint — traffic drives
+        // over them, and they announce the toll/train long before it arrives.
+        if (tollBooth) drawTollWarnings(tollBooth);
+        if (trainCrossing) drawTrainWarnings(trainCrossing);
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
