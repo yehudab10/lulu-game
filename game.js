@@ -1214,8 +1214,11 @@
     // themed roadside buildings and matching traffic: a bar district (drunk
     // drivers), police HQ (lots of cops), a school zone (kids crossing), or
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
-    var ZONE_CITY = ["bars", "police", "school", "downtown"];
-    var ZONE_NAMES = { bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️" };
+    var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
+    var ZONE_NAMES = {
+        bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️",
+        hospital: "Hospital 🏥", construction: "Construction 🚧", gas: "Gas Station ⛽", market: "Farmers Market 🧺"
+    };
     var ZONE_RURAL_GAP = 13000;   // px of rural driving between city visits
     var zone = "rural";
     var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
@@ -1260,39 +1263,70 @@
     function drawCityBuildings() {
         for (var i = 0; i < cityBuildings.length; i++) drawBuilding(cityBuildings[i]);
     }
+    var BUILD_BODY = {
+        bars: ["#3E2C4F", "#4A3A5C", "#2E2240"], police: ["#37474F", "#455A64", "#2E3D44"],
+        school: ["#9C4A3C", "#A85A48", "#8C4234"], downtown: ["#546E7A", "#607D8B", "#4B636E"],
+        hospital: ["#ECEFF1", "#E0E4E7", "#F5F7F8"], construction: ["#9E8E6E", "#8C7D5E", "#A89A7C"],
+        gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"]
+    };
+    var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET" };
+    var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581" };
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.fillRect(x + 4, y + 8, w, h);
-        var body = b.kind === "bars" ? ["#3E2C4F", "#4A3A5C", "#2E2240"][b.tint]
-                 : b.kind === "police" ? ["#37474F", "#455A64", "#2E3D44"][b.tint]
-                 : b.kind === "school" ? ["#9C4A3C", "#A85A48", "#8C4234"][b.tint]
-                 : ["#546E7A", "#607D8B", "#4B636E"][b.tint]; // downtown
-        ctx.fillStyle = body;
+        ctx.fillStyle = (BUILD_BODY[b.kind] || BUILD_BODY.downtown)[b.tint];
         ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
-        // lit window grid
+
+        if (b.kind === "construction") {
+            // exposed floors + scaffolding, hazard stripes at the base, a crane
+            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 1;
+            for (var cf = y + 14; cf < y + h; cf += 16) { ctx.beginPath(); ctx.moveTo(x, cf); ctx.lineTo(x + w, cf); ctx.stroke(); }
+            for (var sc = 0; sc < w; sc += 8) { ctx.fillStyle = (sc / 8) % 2 ? "#1A1A1A" : "#FFC107"; ctx.fillRect(x + sc, y + h - 8, 8, 8); }
+            ctx.strokeStyle = "#FFB300"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(x + w - 6, y); ctx.lineTo(x + w - 6, y - 26); ctx.lineTo(x + 4, y - 20); ctx.stroke();
+            ctx.fillStyle = "#616161"; ctx.fillRect(x + 8, y - 22, 5, 8);
+            return;
+        }
+        if (b.kind === "gas") {
+            // bright canopy + a pump out front
+            ctx.fillStyle = "#FAFAFA"; ctx.fillRect(x - 2, y - 10, w + 4, 12);
+            ctx.fillStyle = "#C62828"; ctx.fillRect(x - 2, y - 10, w + 4, 4);
+            ctx.fillStyle = "#1A1A1A"; roundRect(x + w / 2 - 18, y - 30, 36, 18, 3); ctx.fill();
+            drawText("⛽GAS", x + w / 2, y - 21, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFEB3B", null, 0);
+            ctx.fillStyle = "#37474F"; ctx.fillRect(x + w / 2 - 4, y + h - 22, 8, 22); // pump
+            ctx.fillStyle = "#FF5252"; ctx.fillRect(x + w / 2 - 3, y + h - 20, 6, 6);
+            return;
+        }
+        if (b.kind === "market") {
+            // striped awning over the storefront + crates
+            for (var aw = 0; aw < w; aw += 10) { ctx.fillStyle = (aw / 10) % 2 ? "#E53935" : "#FAFAFA"; ctx.fillRect(x + aw, y - 12, 10, 12); }
+            ctx.fillStyle = "#1A1A1A"; roundRect(x + 3, y - 30, w - 6, 16, 3); ctx.fill();
+            drawText("MARKET", x + w / 2, y - 22, "bold 9px 'Segoe UI', Arial, sans-serif", "#AED581", null, 0);
+            ctx.fillStyle = "#A1887F"; ctx.fillRect(x + 6, y + h - 14, 12, 12); ctx.fillRect(x + w - 18, y + h - 14, 12, 12);
+            ctx.fillStyle = "#FF7043"; ctx.beginPath(); ctx.arc(x + 12, y + h - 16, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#8BC34A"; ctx.beginPath(); ctx.arc(x + w - 12, y + h - 16, 3, 0, Math.PI * 2); ctx.fill();
+            return;
+        }
+
+        // Tall buildings (bars/police/school/downtown/hospital): lit window grid
         for (var wy = y + 10; wy < y + h - 8; wy += 16) {
             for (var wx = x + 7; wx < x + w - 8; wx += 14) {
                 ctx.fillStyle = (b.lit && Math.random() < 0.6) ? "#FFE082" : "rgba(20,20,30,0.5)";
                 ctx.fillRect(wx, wy, 8, 9);
             }
         }
-        // themed roof sign
-        var label = b.kind === "bars" ? "BAR" : b.kind === "police" ? "POLICE"
-                  : b.kind === "school" ? "SCHOOL" : "";
+        var label = BUILD_LABEL[b.kind];
         if (label) {
-            var signC = b.kind === "bars" ? "#FF4FA3" : b.kind === "police" ? "#42A5F5" : "#FFD54F";
+            var signC = BUILD_SIGN[b.kind];
             ctx.fillStyle = "#1A1A1A";
             roundRect(x + 3, y - 16, w - 6, 16, 3); ctx.fill();
-            if (b.kind === "bars" && b.lit) {
-                ctx.shadowColor = signC; ctx.shadowBlur = 8;
-            }
+            if (b.kind === "bars" && b.lit) { ctx.shadowColor = signC; ctx.shadowBlur = 8; }
             drawText(label, x + w / 2, y - 8, "bold 10px 'Segoe UI', Arial, sans-serif", signC, null, 0);
             ctx.shadowBlur = 0;
         }
-        // police gets a flag-ish blue/red bar; downtown gets an antenna
         if (b.kind === "police") {
             ctx.fillStyle = "#E53935"; ctx.fillRect(x + 2, y - 22, (w - 4) / 2, 4);
             ctx.fillStyle = "#1E88E5"; ctx.fillRect(x + 2 + (w - 4) / 2, y - 22, (w - 4) / 2, 4);
@@ -1300,6 +1334,10 @@
             ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y - 18); ctx.stroke();
             ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(x + w / 2, y - 18, 2, 0, Math.PI * 2); ctx.fill();
+        } else if (b.kind === "hospital") {
+            // big red cross on the facade
+            ctx.fillStyle = "#E53935";
+            ctx.fillRect(x + w / 2 - 4, y + 12, 8, 26); ctx.fillRect(x + w / 2 - 13, y + 21, 26, 8);
         }
     }
 
@@ -5116,6 +5154,12 @@
         }
         if (zone === "school" && gameTime > 5 && Math.random() < dt * 0.9) {
             spawnObstacle("ped"); // kids crossing
+        }
+        if (zone === "construction" && Math.random() < dt * 1.6) {
+            spawnObstacle("cone"); // cone gauntlet
+        }
+        if (zone === "market" && Math.random() < dt * 0.9) {
+            spawnAnimal(); // animals wandering across from the market
         }
     }
 

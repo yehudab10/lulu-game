@@ -466,6 +466,12 @@
         if (zone === "school" && gameTime > 5 && Math.random() < dt * 0.9) {
             spawnObstacle("ped"); // kids crossing
         }
+        if (zone === "construction" && Math.random() < dt * 1.6) {
+            spawnObstacle("cone"); // cone gauntlet
+        }
+        if (zone === "market" && Math.random() < dt * 0.9) {
+            spawnAnimal(); // animals wandering across from the market
+        }
     }
 
     function hitPlayer(obj) {
