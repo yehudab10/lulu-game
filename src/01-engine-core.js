@@ -1029,6 +1029,14 @@
         seasonBannerT = 0;
         lightningTimer = rand(1.5, 4);
     }
+    // Transition to a SPECIFIC season (used for atmospheric zone pairings).
+    function setSeason(target) {
+        if (!SEASONS[target] || target === season) return;
+        prevSeason = season;
+        season = target;
+        seasonBlend = 0;
+        lightningTimer = rand(1.5, 4);
+    }
     function curSeason() { return SEASONS[season]; }
     function lerpColor(a, b, t) {
         var ca = hexToRgb(a), cb = hexToRgb(b);
@@ -1217,6 +1225,13 @@
         bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️",
         hospital: "Hospital 🏥", construction: "Construction 🚧", gas: "Gas Station ⛽", market: "Farmers Market 🧺"
     };
+    // Each city often arrives with a fitting sky (atmospheric combos).
+    var ZONE_SEASON = {
+        bars: ["night", "night", "rain"], downtown: ["night", "fog", "rain"],
+        police: ["night", "rain"], school: ["summer", "spring"],
+        market: ["summer", "spring"], construction: ["summer", "heatwave"],
+        hospital: ["summer", "fog"], gas: ["summer", "night"]
+    };
     var ZONE_RURAL_GAP = 13000;   // px of rural driving between city visits
     var zone = "rural";
     var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
@@ -1233,6 +1248,8 @@
                 zone = randPick(ZONE_CITY);
                 zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
                 cityBuildTimer = 0;
+                // Atmospheric pairing: a city often brings a fitting sky.
+                if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
             }
         } else {
             if (scrollOffset >= zoneEndsAt) {
