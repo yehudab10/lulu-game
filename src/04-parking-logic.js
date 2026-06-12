@@ -5,7 +5,7 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
-        trainCrossing = null; driveThru = null; paradeTimer = 0;
+        trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -342,6 +342,17 @@
     var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
+
+    // A bus parked in the right lane dropping kids, stop-sign extended. You must
+    // SLOW DOWN (brake) to pass legally — otherwise it's a violation.
+    function spawnBusStop() {
+        var kids = [], n = randInt(2, 4);
+        for (var i = 0; i < n; i++) kids.push({ dx: rand(-40, -16), dy: rand(-34, 54), type: randInt(0, 2) });
+        busStop = {
+            y: -190, signOut: true, violated: false, checked: false,
+            hasDina: Math.random() < 0.3, kids: kids, comment: "", commentT: 0
+        };
+    }
 
     function spawnSchoolBus() {
         var lane = randInt(0, 2);

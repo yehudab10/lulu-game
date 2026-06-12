@@ -644,6 +644,39 @@
             if (Math.random() < dt * 9) spawnParadeRunner();
         }
 
+        // Parked school bus dropping kids — you must SLOW (brake) to pass legally.
+        if (!busStop && gameTime > 25 && Math.random() < dt * (zone === "school" ? 0.10 : 0.012)) spawnBusStop();
+        if (busStop) {
+            busStop.y += gameSpeed * dt;
+            if (busStop.commentT > 0) busStop.commentT -= dt;
+            var bbx = ROAD_R - 24;
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.6, bbx, busStop.y, 40, 90)) {
+                hitPlayer({ x: bbx, y: busStop.y });
+            }
+            if (!busStop.checked && busStop.y > player.y - 6) {
+                busStop.checked = true;
+                var slowEnough = keys.down || gameSpeed < baseGameSpeed * 0.72;
+                if (busStop.signOut && !slowEnough) {
+                    busStop.violated = true;
+                    busStop.comment = randPick(BUS_STOP_QUIPS); busStop.commentT = 2.4;
+                    var watcher = copInView();
+                    if (!watcher) {
+                        for (var bp = 0; bp < obstacles.length; bp++) {
+                            if (obstacles[bp].behavior === "patrol") { watcher = obstacles[bp]; break; }
+                        }
+                    }
+                    if (watcher && !copChase && !copBust) {
+                        beginCopChase(watcher.x, "🚨 BUS SIGN!");
+                        spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
+                    }
+                } else if (busStop.signOut) {
+                    score += 40 * scoreMult;
+                    spawnFloater(player.x, player.y - 30, "🛑 Safe stop!", "#7CFC4F");
+                }
+            }
+            if (busStop.y > H + 130) busStop = null;
+        }
+
         // School buses — rare on the open road, common in the school zone.
         var busN = 0;
         for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
@@ -1279,6 +1312,39 @@
         }
     }
 
+    function drawStopSign(cx, cy, r) {
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = "#D32F2F"; ctx.beginPath();
+        for (var i = 0; i < 8; i++) {
+            var a = Math.PI / 8 + i * Math.PI / 4, px = Math.cos(a) * r, py = Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke();
+        drawText("STOP", 0, 0, "bold 6px Arial", "#fff", null, 0);
+        ctx.restore();
+    }
+    function drawBusStop(bs) {
+        var y = bs.y, bx = ROAD_R - 24;
+        drawTopBus(bx, y);
+        var flash = Math.sin(gameTime * 12) > 0;
+        if (bs.signOut) {
+            // flashing red lights
+            ctx.fillStyle = flash ? "#F44336" : "#7A1F1A";
+            ctx.beginPath(); ctx.arc(bx - 14, y - 50, 3, 0, Math.PI * 2); ctx.arc(bx + 14, y - 50, 3, 0, Math.PI * 2); ctx.fill();
+            // extended STOP-sign arm into the road
+            ctx.strokeStyle = "#212121"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(bx - 24, y); ctx.lineTo(bx - 40, y); ctx.stroke();
+            drawStopSign(bx - 52, y, 12);
+        }
+        // kids getting off
+        for (var k = 0; k < bs.kids.length; k++) {
+            drawPedestrian(bx + bs.kids[k].dx, y + bs.kids[k].dy, gameTime + k, bs.kids[k].type);
+        }
+        if (bs.hasDina) drawText("👧 Dina!", bx - 30, y + 64, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        if (bs.commentT > 0 && bs.comment) drawCarComment(bx, y - 24, bs.comment);
+    }
+
     function drawCarComment(x, y, text) {
         var bw = text.length * 5.6 + 14;
         var bx = clamp(x, bw / 2 + 4, W - bw / 2 - 4);
@@ -1546,7 +1612,8 @@
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
 
-        // Toll booth / train crossing / drive-thru (over the road, behind the car)
+        // Toll booth / train crossing / drive-thru / bus stop (over the road)
+        if (busStop) drawBusStop(busStop);
         if (driveThru) drawDriveThru(driveThru);
         if (tollBooth) drawTollBooth(tollBooth);
         if (trainCrossing) drawTrainCrossing(trainCrossing);
