@@ -6,6 +6,33 @@
     // isn't instantly hit by an obstacle that was already on top of the car.
     // Also recenters the car and clears any obstacle currently overlapping it.
     var REENTRY_IMMUNITY = 3.0; // seconds
+    var HONK_REACT = ["Okay okay!", "Geez!", "Rude!", "I'm MOVING!", "Alright!!", "Easy!", "Pushy!"];
+    // A honk scares nearby road users out of the way by chance — and the chance
+    // climbs with the honk chain (lean on the horn → more move). Animals bolt
+    // faster and sometimes turn back around.
+    function honkScare() {
+        var chance = Math.min(0.16 + honkChain * 0.10, 0.9);
+        for (var i = 0; i < obstacles.length; i++) {
+            var o = obstacles[i];
+            if (o.y > player.y + 40 || Math.abs(o.y - player.y) > 230) continue; // ahead & near
+            if (Math.random() > chance) continue;
+            if (o.type === "car" && (!o.behavior || o.behavior === "normal")) {
+                o.dodged = true; o.dodgeDir = o.x <= player.x ? -1 : 1;
+                if (Math.random() < 0.4) { o.comment = randPick(HONK_REACT); o.commentT = 1.3; }
+            } else if (o.type === "ped") {
+                o.vx = (o.x <= player.x ? -1 : 1) * rand(85, 150); // scurry off the road
+                o.waving = 0.6;
+            }
+        }
+        for (var a = 0; a < animals.length; a++) {
+            var an = animals[a];
+            if (Math.abs(an.y - player.y) > 240) continue;
+            if (Math.random() > chance) continue;
+            an.vx *= 1.9;                                  // bolt faster
+            if (Math.random() < 0.4) an.vx = -an.vx;       // sometimes turn back around
+        }
+    }
+
     function returnToDriving() {
         state = "playing";
         invincibleTimer = Math.max(invincibleTimer, REENTRY_IMMUNITY);
@@ -197,11 +224,7 @@
             honkCooldown = 0.32;
             // Show "+chain" floater on big chains
             if (honkChain >= 4) spawnFloater(player.x, player.y - 40, "♪ " + honkChain + "x!", "#FFEB3B");
-            // Make pedestrians wave and animals scatter
-            for (var hh = 0; hh < obstacles.length; hh++) {
-                if (obstacles[hh].type === "ped") obstacles[hh].waving = 1.5;
-            }
-            for (var hk = 0; hk < animals.length; hk++) animals[hk].vx *= 1.5;
+            honkScare();
         }
         honkChainResetTimer -= dt;
         if (honkChainResetTimer <= 0) honkChain = 0;
@@ -835,6 +858,16 @@
     var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
     var COP_PULLOVER = ["License & reg!", "Step out!", "Been DRINKING?!", "It was ONE lechaim!",
         "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!"];
+    // [cop line, Lulu's bribe/reply] — shown on the 1-in-5 "warning" let-off.
+    var WARN_EXCHANGES = [
+        ["Just a warning... slow down.", "Rugelach for the road, officer? 🥧"],
+        ["I'll let you off THIS time.", "You're my FAVORITE officer!"],
+        ["Don't let me catch you again.", "*slips a $20* ...what ticket?"],
+        ["Lucky day, lady. Go on.", "Tell the wife the cholent's ready!"],
+        ["Eh, my shift's almost over.", "Mention my name at the bakery!"],
+        ["Warning today. Drive safe.", "Officer, you DROPPED this $50 😇"],
+        ["Fine, GO. But behave.", "Shabbat shalom, officer! 🕯️"]
+    ];
 
     function spawnRoadCop() {
         var side = Math.random() < 0.5 ? -1 : 1;
@@ -912,13 +945,17 @@
 
     function startCopBust() {
         var fromLeft = player.x > W / 2;
+        var warn = Math.random() < 0.20; // 1 in 5: let off with a warning
         copBust = { phase: 0, timer: 0.8, copY: player.y + 90, man: null,
-                    fromLeft: fromLeft, yell: randPick(COP_YELLS) };
+                    fromLeft: fromLeft, warning: warn,
+                    yell: warn ? null : randPick(COP_YELLS),
+                    ex: warn ? randPick(WARN_EXCHANGES) : null };
         copChase = null;
         state = "copBust";
-        shakeTimer = 0.5; shakeIntensity = 8;
-        playWompWomp();
-        if (score > save.highScore) save.highScore = Math.floor(score);
+        shakeTimer = warn ? 0.25 : 0.5; shakeIntensity = warn ? 4 : 8;
+        if (warn) { playTone(523, 0.1, "triangle", 0.18); setTimeout(function () { playTone(784, 0.12, "triangle", 0.2); }, 120); }
+        else playWompWomp();
+        if (!warn && score > save.highScore) save.highScore = Math.floor(score);
         persistSave();
     }
 
@@ -944,12 +981,15 @@
             copBust.man.time += dt;
             var dir = copBust.man.targetX - copBust.man.x;
             if (Math.abs(dir) > 5) { copBust.man.x += Math.sign(dir) * 230 * dt; }
-            else { copBust.man.x = copBust.man.targetX; copBust.man.state = "yelling"; copBust.phase = 2; copBust.timer = 2.8; }
+            else { copBust.man.x = copBust.man.targetX; copBust.man.state = "yelling"; copBust.phase = 2; copBust.timer = copBust.warning ? 3.2 : 2.8; }
             return;
         }
         if (copBust.phase === 2) {
             copBust.man.time += dt;
-            if (copBust.timer <= 0) { copBust = null; state = "gameover"; }
+            if (copBust.timer <= 0) {
+                if (copBust.warning) { copBust = null; returnToDriving(); } // free to go!
+                else { copBust = null; state = "gameover"; }
+            }
         }
     }
 
@@ -982,7 +1022,7 @@
         drawLuluCar(player.x, player.y, 0, false, gameTime, distractedMode);
         if (copBust.man) {
             drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir);
-            if (copBust.man.state === "yelling") {
+            if (copBust.man.state === "yelling" && !copBust.warning) {
                 var lines = copBust.yell.split("\n");
                 for (var li = 0; li < lines.length; li++) {
                     drawText(lines[li], copBust.man.x, copBust.man.y - 72 + li * 18,
@@ -992,8 +1032,16 @@
         }
         ctx.restore();
         drawParticles();
-        drawText("🚨 BUSTED! 🚨", W / 2, H * 0.16, "bold 38px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
-        drawText("Caught speeding!", W / 2, H * 0.16 + 36, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        if (copBust.warning) {
+            drawText("⚠️ LET OFF WITH A WARNING", W / 2, H * 0.15, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 6);
+            // the exchange (cop line + Lulu's bribe)
+            drawText("👮 " + copBust.ex[0], W / 2, H * 0.15 + 34, "bold 15px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
+            if (copBust.phase >= 2) drawText("💁 " + copBust.ex[1], W / 2, H * 0.15 + 58, "bold 15px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 3);
+            if (copBust.phase >= 2) drawText("Back on the road! 🚗", W / 2, H * 0.15 + 86, "bold 13px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 3);
+        } else {
+            drawText("🚨 BUSTED! 🚨", W / 2, H * 0.16, "bold 38px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
+            drawText("Caught speeding!", W / 2, H * 0.16 + 36, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        }
     }
 
     // ── Update: Paused ───────────────────────────────────────

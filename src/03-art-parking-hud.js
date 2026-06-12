@@ -636,9 +636,11 @@
                 "▼", { bg: keys.down ? "#64B5F6" : "#90CAF9", bgDark: "#1565C0" });
         }
 
-        // Missile button (bottom-right)
+        // Missile button (bottom-right) — only shown when you actually have one.
         var mY = MISSILE_RECT.y;
-        drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: save.missiles > 0 ? "#F44336" : "#9E9E9E", bgDark: save.missiles > 0 ? "#B71C1C" : "#616161", id: "missile" });
+        if (save.missiles > 0) {
+            drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: "#F44336", bgDark: "#B71C1C", id: "missile" });
+        }
 
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",

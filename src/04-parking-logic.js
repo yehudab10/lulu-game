@@ -121,7 +121,8 @@
         var lane = randInt(0, 2);
         obstacles.push({
             type: "car", behavior: "patrol", x: LANES[lane], y: -100,
-            color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64, speedMult: 0.7,
+            color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64,
+            speedMult: Math.random() < 0.4 ? rand(1.3, 1.6) : 0.7,
             lane: lane, spot: 0, swerveT: 0, spillT: 0
         });
     }
@@ -164,14 +165,20 @@
             if (Math.abs(obstacles[i].y - y) < 120 && Math.abs(obstacles[i].x - x) < LANE_W) return;
         }
         if (type === "car") {
+            var beh = pickCarBehavior();
+            // Regular cars only ever drive SLOWER than you — you overtake them
+            // (same direction). Only DRUNK drivers can barrel toward you from the
+            // opposite direction (fast). Cops/ambulances set their own speeds.
+            var sm = rand(0.45, 0.72);
+            if (beh === "drunk" && Math.random() < 0.5) sm = rand(1.4, 1.7);
             obstacles.push({
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
                 carType: randInt(0, 2),
                 hitW: 36, hitH: 64,
-                speedMult: gameTime > 90 && Math.random() > 0.6 ? 1.4 : 0.6,
+                speedMult: sm,
                 lane: lane,
-                behavior: pickCarBehavior(),
+                behavior: beh,
                 swerveT: rand(0, 6.28), spillT: rand(0.2, 0.6)
             });
         } else if (type === "cone") {
