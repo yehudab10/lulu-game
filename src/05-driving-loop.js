@@ -229,10 +229,25 @@
             }
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
 
+            if (o.commentT > 0) o.commentT -= dt; // speech-bubble lifetime
+
             // Traffic parts for the ambulance: nearby cars veer to the shoulder.
             if (ambulance && o !== ambulance && o.type === "car" && Math.abs(o.y - ambulance.y) < 150) {
                 var away = o.x < ambulance.x ? -1 : 1;
                 o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
+
+            // Regular drivers occasionally (by chance) swerve aside when Lulu gets
+            // right up on them — a polite (or panicked) dodge.
+            if (o.type === "car" && (!o.behavior || o.behavior === "normal")) {
+                if (!o.dodgeChecked && Math.abs(o.y - player.y) < 130 && Math.abs(o.x - player.x) < CAR_W * 1.1) {
+                    o.dodgeChecked = true;
+                    if (Math.random() < 0.32) {
+                        o.dodged = true; o.dodgeDir = o.x <= player.x ? -1 : 1;
+                        if (Math.random() < 0.5) { o.comment = randPick(DODGE_QUIPS); o.commentT = 1.4; }
+                    }
+                }
+                if (o.dodged) o.x = clamp(o.x + o.dodgeDir * 110 * dt, ROAD_L + 20, ROAD_R - 20);
             }
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
@@ -242,6 +257,8 @@
                 o.x = clamp(o.x + Math.sin(o.swerveT * 2.6) * 95 * dt, ROAD_L + 22, ROAD_R - 22);
                 o.spillT -= dt;
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
+                // occasional drunken outburst
+                if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
             } else if (o.type === "car" && o.behavior === "texting") {
                 o.swerveT += dt;
                 o.x = clamp(o.x + Math.sin(o.swerveT * 1.1) * 42 * dt, ROAD_L + 22, ROAD_R - 22);
@@ -294,6 +311,12 @@
                         });
                     }
                     playTone(720, 0.05, "sine", 0.06, 1100);
+                    // The buzzed driver reacts by chance: a honk or a rude remark.
+                    if (!o.behavior || o.behavior === "normal") {
+                        var reactRoll = Math.random();
+                        if (reactRoll < 0.30) { playHonk(); o.comment = "BEEP! BEEP!"; o.commentT = 1.5; }
+                        else if (reactRoll < 0.55) { o.comment = randPick(RUDE_QUIPS); o.commentT = 2.0; }
+                    }
                 }
             }
         }
@@ -1200,6 +1223,16 @@
         }
     }
 
+    function drawCarComment(x, y, text) {
+        var bw = text.length * 5.6 + 14;
+        var bx = clamp(x, bw / 2 + 4, W - bw / 2 - 4);
+        var by = y - CAR_H / 2 - 16;
+        ctx.fillStyle = "rgba(255,255,255,0.95)";
+        roundRect(bx - bw / 2, by - 10, bw, 18, 6); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x - 4, by + 7); ctx.lineTo(x + 5, by + 7); ctx.lineTo(x, by + 13); ctx.closePath(); ctx.fill();
+        drawText(text, bx, by - 1, "bold 9px 'Segoe UI', Arial, sans-serif", "#C62828", null, 0);
+    }
+
     function drawTrainCrossing(tc) {
         var y = tc.y, trainW = tc.cars * 60, c, cx;
         // ties + rails across the road
@@ -1440,6 +1473,7 @@
                     drawText("📱", o.x + 12, o.y, "12px Arial", "#fff", null, 0);
                     ctx.restore();
                 }
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType);
         }

@@ -322,6 +322,13 @@
     var PASSENGER_SHIRT_COLORS = ["#E91E63", "#FFC107", "#43A047", "#2196F3", "#FF5722", "#9C27B0"];
     var PASSENGER_HAIR_COLORS  = ["#FFC107", "#3E2723", "#6D4C41", "#FAFAFA", "#E91E63", "#FF9800"];
 
+    // Driver chatter (speech bubbles over enemy cars, all by chance).
+    var DRUNK_QUIPS = ["WOOO!", "*hic* sorry!", "I'm FINE to drive!", "Is it Purim?!",
+        "Who moved the road?", "One more lechaim!", "Whose lane is this??", "I see TWO Lulus!"];
+    var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
+        "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
+    var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+
     // Names + one-liners shown when Lulu bonks a pedestrian (random each time).
     var KO_NAMES = ["Shua", "Esti", "Random British guy", "Leah"];
     var KO_LINES = [" was knocked down!", " went flying!", " ate dirt!", " got bonked!", " did a backflip!"];
