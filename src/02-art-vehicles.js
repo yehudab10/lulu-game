@@ -1337,6 +1337,31 @@
         ctx.restore();
     }
 
+    function drawAmbulance(x, y, time) {
+        ctx.save();
+        ctx.translate(x, y);
+        var hw = CAR_W / 2 + 5, hh = CAR_H / 2 + 6;
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(2, 6, hw + 3, hh - 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#CFD8DC"; roundRect(-hw - 2, -hh - 2, hw * 2 + 4, hh * 2 + 4, 10); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-hw, -hh, hw * 2, hh * 2, 8); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-hw, -3, hw * 2, 8); // red stripe
+        ctx.fillStyle = "#4FC3F7"; roundRect(-hw + 8, -hh + 8, hw * 2 - 16, 22, 5); ctx.fill();
+        // red cross on the roof
+        ctx.fillStyle = "#E53935";
+        ctx.fillRect(-3, hh - 30, 6, 18); ctx.fillRect(-9, hh - 24, 18, 6);
+        // flashing light bar
+        var on = Math.sin(time * 22) > 0;
+        ctx.fillStyle = on ? "#F44336" : "#FFCDD2"; roundRect(-hw + 6, -hh - 6, 12, 6, 2); ctx.fill();
+        ctx.fillStyle = on ? "#BBDEFB" : "#1E88E5"; roundRect(hw - 18, -hh - 6, 12, 6, 2); ctx.fill();
+        if (on) { ctx.fillStyle = "rgba(244,67,54,0.18)"; ctx.beginPath(); ctx.arc(-hw + 12, -hh - 3, 22, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.fillStyle = "rgba(33,150,243,0.18)"; ctx.beginPath(); ctx.arc(hw - 12, -hh - 3, 22, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = "#222";
+        roundRect(-hw - 3, -hh + 12, 7, 16, 3); ctx.fill(); roundRect(hw - 4, -hh + 12, 7, 16, 3); ctx.fill();
+        roundRect(-hw - 3, hh - 28, 7, 16, 3); ctx.fill(); roundRect(hw - 4, hh - 28, 7, 16, 3); ctx.fill();
+        ctx.restore();
+    }
+
     function drawCopCar(x, y, sirenTime) {
         ctx.save();
         ctx.translate(x, y);

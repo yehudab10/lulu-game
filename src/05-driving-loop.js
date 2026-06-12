@@ -204,12 +204,24 @@
             }
         }
 
+        // Find an active ambulance so traffic can pull aside for it.
+        var ambulance = null;
+        for (var ax = 0; ax < obstacles.length; ax++) {
+            if (obstacles[ax].behavior === "ambulance") { ambulance = obstacles[ax]; break; }
+        }
+
         // Update obstacles
         for (var i = obstacles.length - 1; i >= 0; i--) {
             var o = obstacles[i];
             o.y += gameSpeed * o.speedMult * dt;
             if (o.walkTime !== undefined) o.walkTime += dt;
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
+
+            // Traffic parts for the ambulance: nearby cars veer to the shoulder.
+            if (ambulance && o !== ambulance && o.type === "car" && Math.abs(o.y - ambulance.y) < 150) {
+                var away = o.x < ambulance.x ? -1 : 1;
+                o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
             // drivers drift gently. Both make the lane gaps unsafe.
@@ -471,6 +483,11 @@
         }
         if (zone === "market" && Math.random() < dt * 0.9) {
             spawnAnimal(); // animals wandering across from the market
+        }
+        if (zone === "hospital" && gameTime > 5 && Math.random() < dt * 0.5) {
+            var hasAmb = false;
+            for (var ha = 0; ha < obstacles.length; ha++) if (obstacles[ha].behavior === "ambulance") hasAmb = true;
+            if (!hasAmb) spawnAmbulance();
         }
     }
 
@@ -1172,7 +1189,9 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
-            if (o.type === "car") {
+            if (o.type === "car" && o.behavior === "ambulance") {
+                drawAmbulance(o.x, o.y, gameTime);
+            } else if (o.type === "car") {
                 drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.behavior === "drunk") {
                     // weaving + a beer can by the window

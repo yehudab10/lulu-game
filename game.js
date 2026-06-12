@@ -2880,6 +2880,31 @@
         ctx.restore();
     }
 
+    function drawAmbulance(x, y, time) {
+        ctx.save();
+        ctx.translate(x, y);
+        var hw = CAR_W / 2 + 5, hh = CAR_H / 2 + 6;
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(2, 6, hw + 3, hh - 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#CFD8DC"; roundRect(-hw - 2, -hh - 2, hw * 2 + 4, hh * 2 + 4, 10); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-hw, -hh, hw * 2, hh * 2, 8); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-hw, -3, hw * 2, 8); // red stripe
+        ctx.fillStyle = "#4FC3F7"; roundRect(-hw + 8, -hh + 8, hw * 2 - 16, 22, 5); ctx.fill();
+        // red cross on the roof
+        ctx.fillStyle = "#E53935";
+        ctx.fillRect(-3, hh - 30, 6, 18); ctx.fillRect(-9, hh - 24, 18, 6);
+        // flashing light bar
+        var on = Math.sin(time * 22) > 0;
+        ctx.fillStyle = on ? "#F44336" : "#FFCDD2"; roundRect(-hw + 6, -hh - 6, 12, 6, 2); ctx.fill();
+        ctx.fillStyle = on ? "#BBDEFB" : "#1E88E5"; roundRect(hw - 18, -hh - 6, 12, 6, 2); ctx.fill();
+        if (on) { ctx.fillStyle = "rgba(244,67,54,0.18)"; ctx.beginPath(); ctx.arc(-hw + 12, -hh - 3, 22, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.fillStyle = "rgba(33,150,243,0.18)"; ctx.beginPath(); ctx.arc(hw - 12, -hh - 3, 22, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = "#222";
+        roundRect(-hw - 3, -hh + 12, 7, 16, 3); ctx.fill(); roundRect(hw - 4, -hh + 12, 7, 16, 3); ctx.fill();
+        roundRect(-hw - 3, hh - 28, 7, 16, 3); ctx.fill(); roundRect(hw - 4, hh - 28, 7, 16, 3); ctx.fill();
+        ctx.restore();
+    }
+
     function drawCopCar(x, y, sirenTime) {
         ctx.save();
         ctx.translate(x, y);
@@ -3958,6 +3983,20 @@
         return "normal";
     }
 
+    // Emergency vehicle for the hospital zone — fast, flashing, and other cars
+    // pull aside as it screams down the road.
+    function spawnAmbulance() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "ambulance",
+            x: LANES[lane], y: -120, color: "#FFFFFF", carType: 0,
+            hitW: 38, hitH: 70, speedMult: 2.0, lane: lane, swerveT: 0, spillT: 0
+        });
+        playTone(900, 0.18, "sine", 0.14, 1320);
+        setTimeout(function () { playTone(1320, 0.18, "sine", 0.14, 900); }, 200);
+        setTimeout(function () { playTone(900, 0.18, "sine", 0.14, 1320); }, 400);
+    }
+
     function spawnAlcoholDrop(x, y) {
         particles.push({
             x: x + rand(-16, 16), y: y + rand(-6, 18),
@@ -4893,12 +4932,24 @@
             }
         }
 
+        // Find an active ambulance so traffic can pull aside for it.
+        var ambulance = null;
+        for (var ax = 0; ax < obstacles.length; ax++) {
+            if (obstacles[ax].behavior === "ambulance") { ambulance = obstacles[ax]; break; }
+        }
+
         // Update obstacles
         for (var i = obstacles.length - 1; i >= 0; i--) {
             var o = obstacles[i];
             o.y += gameSpeed * o.speedMult * dt;
             if (o.walkTime !== undefined) o.walkTime += dt;
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
+
+            // Traffic parts for the ambulance: nearby cars veer to the shoulder.
+            if (ambulance && o !== ambulance && o.type === "car" && Math.abs(o.y - ambulance.y) < 150) {
+                var away = o.x < ambulance.x ? -1 : 1;
+                o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
             // drivers drift gently. Both make the lane gaps unsafe.
@@ -5160,6 +5211,11 @@
         }
         if (zone === "market" && Math.random() < dt * 0.9) {
             spawnAnimal(); // animals wandering across from the market
+        }
+        if (zone === "hospital" && gameTime > 5 && Math.random() < dt * 0.5) {
+            var hasAmb = false;
+            for (var ha = 0; ha < obstacles.length; ha++) if (obstacles[ha].behavior === "ambulance") hasAmb = true;
+            if (!hasAmb) spawnAmbulance();
         }
     }
 
@@ -5861,7 +5917,9 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
-            if (o.type === "car") {
+            if (o.type === "car" && o.behavior === "ambulance") {
+                drawAmbulance(o.x, o.y, gameTime);
+            } else if (o.type === "car") {
                 drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.behavior === "drunk") {
                     // weaving + a beer can by the window

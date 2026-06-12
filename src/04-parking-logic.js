@@ -61,6 +61,20 @@
         return "normal";
     }
 
+    // Emergency vehicle for the hospital zone — fast, flashing, and other cars
+    // pull aside as it screams down the road.
+    function spawnAmbulance() {
+        var lane = randInt(0, 2);
+        obstacles.push({
+            type: "car", behavior: "ambulance",
+            x: LANES[lane], y: -120, color: "#FFFFFF", carType: 0,
+            hitW: 38, hitH: 70, speedMult: 2.0, lane: lane, swerveT: 0, spillT: 0
+        });
+        playTone(900, 0.18, "sine", 0.14, 1320);
+        setTimeout(function () { playTone(1320, 0.18, "sine", 0.14, 900); }, 200);
+        setTimeout(function () { playTone(900, 0.18, "sine", 0.14, 1320); }, 400);
+    }
+
     function spawnAlcoholDrop(x, y) {
         particles.push({
             x: x + rand(-16, 16), y: y + rand(-6, 18),
