@@ -4040,9 +4040,11 @@
 
     function spawnTrainCrossing() {
         var dir = Math.random() < 0.5 ? 1 : -1;
+        // Short train (2-3 cars) so there's always a cleared side to steer into;
+        // it sweeps in immediately as the crossing scrolls down.
         trainCrossing = {
-            y: -200, dir: dir, started: false, gone: false,
-            trainX: dir > 0 ? -220 : W + 220, cars: randInt(3, 5), warnPhase: 0
+            y: -190, dir: dir, started: false, gone: false,
+            trainX: dir > 0 ? -200 : W + 200, cars: randInt(2, 3), warnPhase: 0
         };
     }
     function spawnDriveThru() {
@@ -5353,12 +5355,20 @@
             var tc = trainCrossing;
             tc.y += gameSpeed * dt;
             tc.warnPhase += dt;
-            if (!tc.started && tc.y > H * 0.16) { tc.started = true; playTone(660, 0.12, "square", 0.1); }
+            if (!tc.started && tc.y > -30) {
+                tc.started = true;
+                parkingMsg = "🚂 TRAIN! Steer to a clear lane (or brake)";
+                parkingMsgTimer = 2.2;
+                playTone(660, 0.12, "square", 0.1);
+                setTimeout(function () { playTone(660, 0.12, "square", 0.1); }, 260);
+            }
             var trainW = tc.cars * 60;
-            if (tc.started && !tc.gone) tc.trainX += tc.dir * 340 * dt;
+            if (tc.started && !tc.gone) tc.trainX += tc.dir * 410 * dt;
             tc.gone = tc.dir > 0 ? (tc.trainX - trainW / 2 > W + 12) : (tc.trainX + trainW / 2 < -12);
+            // Only the train BODY hurts — the road it has already crossed is clear,
+            // so you steer into the trailing gap (braking buys time too).
             if (tc.started && !tc.gone && invincibleTimer <= 0 &&
-                aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.55, tc.trainX, tc.y, trainW, 42)) {
+                aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.5, tc.trainX, tc.y, trainW - 8, 40)) {
                 hitPlayer({ x: player.x, y: tc.y });
             }
             if (tc.y > H + 120) trainCrossing = null;

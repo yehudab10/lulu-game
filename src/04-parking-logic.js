@@ -84,9 +84,11 @@
 
     function spawnTrainCrossing() {
         var dir = Math.random() < 0.5 ? 1 : -1;
+        // Short train (2-3 cars) so there's always a cleared side to steer into;
+        // it sweeps in immediately as the crossing scrolls down.
         trainCrossing = {
-            y: -200, dir: dir, started: false, gone: false,
-            trainX: dir > 0 ? -220 : W + 220, cars: randInt(3, 5), warnPhase: 0
+            y: -190, dir: dir, started: false, gone: false,
+            trainX: dir > 0 ? -200 : W + 200, cars: randInt(2, 3), warnPhase: 0
         };
     }
     function spawnDriveThru() {
