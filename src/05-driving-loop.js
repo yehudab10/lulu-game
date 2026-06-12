@@ -259,6 +259,12 @@
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
                 // occasional drunken outburst
                 if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
+            } else if (o.type === "car" && o.behavior === "pulled") {
+                // Busted: drift to the shoulder, slow down, and bicker with the cop.
+                o.x = clamp(lerp(o.x, o.pullX, Math.min(1, 3 * dt)), ROAD_L + 18, ROAD_R - 18);
+                o.speedMult = Math.max(0.4, o.speedMult - dt * 0.8);
+                o.copSiren = (o.copSiren || 0) + dt;
+                if (o.commentT <= 0 && Math.random() < dt * 0.35) { o.comment = randPick(COP_PULLOVER); o.commentT = 2.4; }
             } else if (o.type === "car" && o.behavior === "texting") {
                 o.swerveT += dt;
                 o.x = clamp(o.x + Math.sin(o.swerveT * 1.1) * 42 * dt, ROAD_L + 22, ROAD_R - 22);
@@ -626,6 +632,23 @@
             paradeTimer -= dt;
             if (Math.random() < dt * 9) spawnParadeRunner();
         }
+
+        // A watching cop pulls over a drunk/texting driver (by chance).
+        if (!copChase && !copBust && copInView() && Math.random() < dt * 0.7) {
+            for (var pj = 0; pj < obstacles.length; pj++) {
+                var po = obstacles[pj];
+                if (po.type === "car" && (po.behavior === "drunk" || po.behavior === "texting") &&
+                    po.y > 40 && po.y < H - 120) {
+                    po.behavior = "pulled";
+                    po.pullX = po.x < W / 2 ? ROAD_L + 24 : ROAD_R - 24;
+                    po.copSiren = 0;
+                    po.comment = randPick(COP_PULLOVER); po.commentT = 2.6;
+                    playTone(680, 0.2, "sawtooth", 0.12, 460);
+                    setTimeout(function () { playTone(460, 0.2, "sawtooth", 0.12, 680); }, 220);
+                    break;
+                }
+            }
+        }
     }
 
     function hitPlayer(obj) {
@@ -662,6 +685,8 @@
 
     // ── Speed-trap cops ──────────────────────────────────────
     var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
+    var COP_PULLOVER = ["License & reg!", "Step out!", "Been DRINKING?!", "It was ONE lechaim!",
+        "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!"];
 
     function spawnRoadCop() {
         var side = Math.random() < 0.5 ? -1 : 1;
@@ -1462,6 +1487,7 @@
             if (o.type === "car" && o.behavior === "ambulance") {
                 drawAmbulance(o.x, o.y, gameTime);
             } else if (o.type === "car") {
+                if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                 drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.behavior === "drunk") {
                     // weaving + a beer can by the window
