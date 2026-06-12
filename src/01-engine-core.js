@@ -1258,9 +1258,11 @@
             }
             cityBuildTimer -= dt;
             if (cityBuildTimer <= 0) {
-                cityBuildTimer = rand(0.5, 1.0);
-                spawnCityBuilding(-1);
-                if (Math.random() < 0.85) spawnCityBuilding(1);
+                // Spaced out + sides chosen independently so it's a streetscape,
+                // not a solid wall of identical boxes.
+                cityBuildTimer = rand(1.0, 1.8);
+                if (Math.random() < 0.85) spawnCityBuilding(-1);
+                if (Math.random() < 0.7) spawnCityBuilding(1);
             }
         }
         for (var i = cityBuildings.length - 1; i >= 0; i--) {
@@ -1269,38 +1271,125 @@
         }
     }
     function spawnCityBuilding(side) {
-        var w = rand(50, 76), h = rand(70, zone === "downtown" ? 155 : 130);
+        var shortKind = (zone === "market" || zone === "gas");
+        var w = rand(50, 74);
+        var h = shortKind ? rand(58, 82) : rand(74, zone === "downtown" ? 162 : 126);
         var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
                          : rand(ROAD_R + 6, W - w - 6) + w / 2;
-        // Per-building variety chosen ONCE at spawn (stable, no flicker):
-        // a name, a sign style, a window seed, and whether the sign glows.
+        // All variety is chosen ONCE here (stable per building → no flicker).
         var label = zone === "bars" ? randPick(BAR_NAMES)
                   : zone === "school" ? randPick(SCHOOL_NAMES)
                   : BUILD_LABEL[zone];
-        cityBuildings.push({ x: x, y: -h - 30, side: side, kind: zone, w: w, h: h,
-            lit: Math.random() < 0.7, tint: randInt(0, 2), seed: randInt(0, 997),
-            style: randInt(0, 2), label: label,
-            signC: zone === "bars" ? randPick(["#FF4FA3", "#4FC3F7", "#FFD54F", "#AED581"]) : BUILD_SIGN[zone],
-            glow: zone === "bars" && Math.random() < 0.3 });
+        cityBuildings.push({ x: x, y: -h - 36, side: side, kind: zone, w: w, h: h,
+            lit: Math.random() < 0.72, tint: randInt(0, 2), seed: randInt(1, 997),
+            style: randInt(0, 2), roof: randInt(0, 2), shade: randInt(-12, 12),
+            label: label, glow: zone === "bars" && Math.random() < 0.3,
+            signC: zone === "bars" ? randPick(["#FF4FA3", "#4FC3F7", "#FFD54F", "#AED581", "#FF8A65"]) : BUILD_SIGN[zone],
+            roofC: randPick(["#5D4037", "#455A64", "#37474F", "#6D4C41", "#4E342E", "#827717"]),
+            awn: [randInt(0, 3), randInt(0, 3)], prod: [randInt(0, 4), randInt(0, 4), randInt(0, 4)] });
     }
     function drawCityBuildings() {
         for (var i = 0; i < cityBuildings.length; i++) drawBuilding(cityBuildings[i]);
     }
+    // Draw bold text shrunk to fit maxW (stops names spilling out of buildings).
+    function drawFitText(text, cx, cy, maxW, basePx, color, outline) {
+        var px = basePx;
+        ctx.font = "bold " + px + "px 'Segoe UI', Arial, sans-serif";
+        while (px > 5 && ctx.measureText(text).width > maxW) {
+            px--; ctx.font = "bold " + px + "px 'Segoe UI', Arial, sans-serif";
+        }
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+        if (outline) { ctx.strokeStyle = outline; ctx.lineWidth = 3; ctx.strokeText(text, cx, cy); }
+        ctx.fillStyle = color; ctx.fillText(text, cx, cy);
+    }
     var BUILD_BODY = {
-        bars: ["#3E2C4F", "#4A3A5C", "#2E2240"], police: ["#37474F", "#455A64", "#2E3D44"],
-        school: ["#9C4A3C", "#A85A48", "#8C4234"], downtown: ["#546E7A", "#607D8B", "#4B636E"],
+        bars: ["#3E2C4F", "#4A3A5C", "#5C2E52"], police: ["#37474F", "#455A64", "#2E3D44"],
+        school: ["#9C4A3C", "#A85A48", "#8C4234"], downtown: ["#546E7A", "#607D8B", "#7E8A93"],
         hospital: ["#ECEFF1", "#E0E4E7", "#F5F7F8"], construction: ["#9E8E6E", "#8C7D5E", "#A89A7C"],
         gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"]
     };
     var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET" };
     var BAR_NAMES = ["BAR", "PUB", "LOUNGE", "KARAOKE", "TAVERN", "JUICE BAR"];
-    var SCHOOL_NAMES = ["SCHOOL", "BAIS YAAKOV", "CHEDER", "PRESCHOOL", "DAY SCHOOL"];
+    var SCHOOL_NAMES = ["SCHOOL", "BAIS YAAKOV", "CHEDER", "ACADEMY", "DAY SCHOOL"];
     var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581" };
+    var AWN_COLS = ["#E53935", "#43A047", "#1E88E5", "#FB8C00"];
+    var PRODUCE = ["#FF7043", "#FFCA28", "#8BC34A", "#E53935", "#AB47BC"];
+    function drawMarketStall(b) {
+        var x = b.x - b.w / 2, w = b.w, baseY = b.y + b.h, stallH = 56, top = baseY - stallH;
+        ctx.fillStyle = "rgba(0,0,0,0.16)";
+        ctx.beginPath(); ctx.ellipse(x + w / 2, baseY - 2, w / 2, 7, 0, 0, Math.PI * 2); ctx.fill();
+        // posts + back board
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(x + 2, top + 10, 5, stallH - 10); ctx.fillRect(x + w - 7, top + 10, 5, stallH - 10);
+        ctx.fillStyle = "#BCAAA4"; ctx.fillRect(x + 5, top + 12, w - 10, stallH - 30);
+        // produce crates
+        var crateY = baseY - 24, cw = (w - 12) / 3;
+        for (var c = 0; c < 3; c++) {
+            var cx0 = x + 6 + c * cw;
+            ctx.fillStyle = "#6D4C41"; ctx.fillRect(cx0, crateY, cw - 2, 16);
+            ctx.fillStyle = "#5D4037"; ctx.fillRect(cx0, crateY, cw - 2, 3);
+            ctx.fillStyle = PRODUCE[b.prod[c]];
+            for (var p = 0; p < 4; p++) {
+                ctx.beginPath();
+                ctx.arc(cx0 + 4 + (p % 2) * (cw - 12), crateY - 1 - Math.floor(p / 2) * 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(x + 2, baseY - 8, w - 4, 8); // counter front
+        // striped scalloped awning
+        var a1 = AWN_COLS[b.awn[0]], awY = top - 2, awH = 15, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FAFAFA" : a1;
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 6); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        // sign
+        ctx.fillStyle = "#3E2723"; roundRect(x + 6, top - 19, w - 12, 14, 3); ctx.fill();
+        drawFitText(b.label || "MARKET", x + w / 2, top - 12, w - 16, 9, "#FFF59D");
+    }
+
+    function drawSchool(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, wi, wy, wx;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        ctx.fillStyle = shadeColor("#9C4A3C", b.shade); ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 1;
+        for (var br = y + 9; br < y + h; br += 9) { ctx.beginPath(); ctx.moveTo(x, br); ctx.lineTo(x + w, br); ctx.stroke(); }
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // arched windows (deterministic lit), leaving room for the door banner
+        wi = 0;
+        for (wy = y + 14; wy < y + h - 34; wy += 19) {
+            for (wx = x + 9; wx < x + w - 11; wx += 17) {
+                wi++;
+                ctx.fillStyle = (b.lit && ((wi * 37 + b.seed) % 10 < 6)) ? "#FFE082" : "#BBDEFB";
+                ctx.beginPath();
+                ctx.moveTo(wx, wy + 9); ctx.lineTo(wx, wy + 3); ctx.arc(wx + 5, wy + 3, 5, Math.PI, 0); ctx.lineTo(wx + 10, wy + 9); ctx.closePath();
+                ctx.fill(); ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1; ctx.stroke();
+            }
+        }
+        // peaked roof + bell cupola
+        ctx.fillStyle = b.roofC; ctx.beginPath();
+        ctx.moveTo(x - 4, y); ctx.lineTo(x + w / 2, y - 18); ctx.lineTo(x + w + 4, y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FAFAFA"; ctx.fillRect(x + w / 2 - 5, y - 28, 10, 12);
+        ctx.fillStyle = b.roofC; ctx.beginPath();
+        ctx.moveTo(x + w / 2 - 6, y - 28); ctx.lineTo(x + w / 2, y - 36); ctx.lineTo(x + w / 2 + 6, y - 28); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(x + w / 2, y - 22, 2.5, 0, Math.PI * 2); ctx.fill();
+        // double doors
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(x + w / 2 - 9, y + h - 18, 18, 18);
+        ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x + w / 2, y + h - 18); ctx.lineTo(x + w / 2, y + h); ctx.stroke();
+        // fitted name banner over the door
+        ctx.fillStyle = "#FFFFFF"; roundRect(x + 4, y + h - 33, w - 8, 13, 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1; roundRect(x + 4, y + h - 33, w - 8, 13, 2); ctx.stroke();
+        drawFitText(b.label || "SCHOOL", x + w / 2, y + h - 26, w - 12, 9, "#5D4037");
+    }
+
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        if (b.kind === "market") { drawMarketStall(b); return; }
+        if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.fillRect(x + 4, y + 8, w, h);
-        ctx.fillStyle = (BUILD_BODY[b.kind] || BUILD_BODY.downtown)[b.tint];
+        ctx.fillStyle = shadeColor((BUILD_BODY[b.kind] || BUILD_BODY.downtown)[b.tint], b.shade || 0);
         ctx.fillRect(x, y, w, h);
         ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
@@ -1365,14 +1454,26 @@
                 ctx.fillRect(wx, wy, 8, 9);
             }
         }
+        // Roofline variety (parapet / stepped / peaked) so towers aren't clones.
+        var roofC = shadeColor((BUILD_BODY[b.kind] || BUILD_BODY.downtown)[b.tint], (b.shade || 0) - 22);
+        ctx.fillStyle = roofC;
+        if (b.roof === 0) {
+            ctx.fillRect(x - 2, y - 4, w + 4, 6);                          // flat parapet
+        } else if (b.roof === 1) {
+            ctx.fillRect(x - 2, y - 4, w + 4, 5);
+            ctx.fillRect(x + w * 0.18, y - 9, w * 0.64, 6);               // stepped
+            ctx.fillRect(x + w * 0.36, y - 13, w * 0.28, 5);
+        } else {
+            ctx.beginPath(); ctx.moveTo(x - 2, y); ctx.lineTo(x + w / 2, y - 13); ctx.lineTo(x + w + 2, y); ctx.closePath(); ctx.fill(); // low peak
+        }
         var label = b.label || BUILD_LABEL[b.kind];
         if (label) {
             var signC = b.signC || BUILD_SIGN[b.kind];
+            var sy0 = y - 16 - (b.roof === 1 ? 8 : b.roof === 2 ? 6 : 0);
             ctx.fillStyle = "#1A1A1A";
-            roundRect(x + 3, y - 16, w - 6, 16, 3); ctx.fill();
-            // Only the occasional bar gets a soft neon glow — most signs are calm.
+            roundRect(x + 3, sy0, w - 6, 15, 3); ctx.fill();
             if (b.glow && b.lit) { ctx.shadowColor = signC; ctx.shadowBlur = 6; }
-            drawText(label, x + w / 2, y - 8, "bold 9px 'Segoe UI', Arial, sans-serif", signC, null, 0);
+            drawFitText(label, x + w / 2, sy0 + 8, w - 12, 9, signC);
             ctx.shadowBlur = 0;
         }
         if (b.kind === "bars") {
