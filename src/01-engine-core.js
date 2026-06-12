@@ -929,6 +929,13 @@
         var x = side < 0 ? rand(10, ROAD_L - 15) : rand(ROAD_R + 15, W - 10);
         var d = { x: x, y: y, side: side, parallax: rand(0.55, 0.85) };
         var cfg = SEASONS[season];
+        // In city zones the shoulder is sidewalk railings, not forest, so the
+        // themed buildings read clearly behind them.
+        if (zone !== "rural") {
+            d.type = "fence"; d.width = rand(28, 50);
+            decorations.push(d);
+            return;
+        }
         // Winter sprinkles snow piles along the shoulder.
         if (cfg.bare && type < 0.16) {
             d.type = "snowpile"; d.scale = rand(0.7, 1.2);
@@ -1197,6 +1204,100 @@
             var yy = H * 0.12 + i * 16 + Math.sin(gameTime * 3 + i) * 3;
             ctx.fillStyle = "rgba(255,255,255,0.05)";
             ctx.fillRect(0, yy, W, 4);
+        }
+    }
+
+    // ── City zones (themed scenery stretches) ────────────────
+    // Most of the drive is rural. Occasionally you pass through a CITY zone with
+    // themed roadside buildings and matching traffic: a bar district (drunk
+    // drivers), police HQ (lots of cops), a school zone (kids crossing), or
+    // downtown (texting drivers). Zones last a good stretch so they don't flash by.
+    var ZONE_CITY = ["bars", "police", "school", "downtown"];
+    var ZONE_NAMES = { bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️" };
+    var ZONE_RURAL_GAP = 13000;   // px of rural driving between city visits
+    var zone = "rural";
+    var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
+    var cityBuildings = [], cityBuildTimer = 0;
+
+    function initZone() {
+        zone = "rural";
+        zoneNextAt = ZONE_RURAL_GAP + rand(-3000, 5000);
+        zoneEndsAt = 0; cityBuildings = []; cityBuildTimer = 0;
+    }
+    function updateZone(dt, speed) {
+        if (zone === "rural") {
+            if (scrollOffset >= zoneNextAt) {
+                zone = randPick(ZONE_CITY);
+                zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
+                cityBuildTimer = 0;
+            }
+        } else {
+            if (scrollOffset >= zoneEndsAt) {
+                zone = "rural";
+                zoneNextAt = scrollOffset + ZONE_RURAL_GAP + rand(-3000, 5000);
+            }
+            cityBuildTimer -= dt;
+            if (cityBuildTimer <= 0) {
+                cityBuildTimer = rand(0.5, 1.0);
+                spawnCityBuilding(-1);
+                if (Math.random() < 0.85) spawnCityBuilding(1);
+            }
+        }
+        for (var i = cityBuildings.length - 1; i >= 0; i--) {
+            cityBuildings[i].y += speed * dt;
+            if (cityBuildings[i].y > H + 160) cityBuildings.splice(i, 1);
+        }
+    }
+    function spawnCityBuilding(side) {
+        var w = rand(50, 76), h = rand(70, 130);
+        var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
+                         : rand(ROAD_R + 6, W - w - 6) + w / 2;
+        cityBuildings.push({ x: x, y: -h - 30, side: side, kind: zone, w: w, h: h,
+            lit: Math.random() < 0.7, tint: randInt(0, 2) });
+    }
+    function drawCityBuildings() {
+        for (var i = 0; i < cityBuildings.length; i++) drawBuilding(cityBuildings[i]);
+    }
+    function drawBuilding(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(x + 4, y + 8, w, h);
+        var body = b.kind === "bars" ? ["#3E2C4F", "#4A3A5C", "#2E2240"][b.tint]
+                 : b.kind === "police" ? ["#37474F", "#455A64", "#2E3D44"][b.tint]
+                 : b.kind === "school" ? ["#9C4A3C", "#A85A48", "#8C4234"][b.tint]
+                 : ["#546E7A", "#607D8B", "#4B636E"][b.tint]; // downtown
+        ctx.fillStyle = body;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        // lit window grid
+        for (var wy = y + 10; wy < y + h - 8; wy += 16) {
+            for (var wx = x + 7; wx < x + w - 8; wx += 14) {
+                ctx.fillStyle = (b.lit && Math.random() < 0.6) ? "#FFE082" : "rgba(20,20,30,0.5)";
+                ctx.fillRect(wx, wy, 8, 9);
+            }
+        }
+        // themed roof sign
+        var label = b.kind === "bars" ? "BAR" : b.kind === "police" ? "POLICE"
+                  : b.kind === "school" ? "SCHOOL" : "";
+        if (label) {
+            var signC = b.kind === "bars" ? "#FF4FA3" : b.kind === "police" ? "#42A5F5" : "#FFD54F";
+            ctx.fillStyle = "#1A1A1A";
+            roundRect(x + 3, y - 16, w - 6, 16, 3); ctx.fill();
+            if (b.kind === "bars" && b.lit) {
+                ctx.shadowColor = signC; ctx.shadowBlur = 8;
+            }
+            drawText(label, x + w / 2, y - 8, "bold 10px 'Segoe UI', Arial, sans-serif", signC, null, 0);
+            ctx.shadowBlur = 0;
+        }
+        // police gets a flag-ish blue/red bar; downtown gets an antenna
+        if (b.kind === "police") {
+            ctx.fillStyle = "#E53935"; ctx.fillRect(x + 2, y - 22, (w - 4) / 2, 4);
+            ctx.fillStyle = "#1E88E5"; ctx.fillRect(x + 2 + (w - 4) / 2, y - 22, (w - 4) / 2, 4);
+        } else if (b.kind === "downtown") {
+            ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y - 18); ctx.stroke();
+            ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(x + w / 2, y - 18, 2, 0, Math.PI * 2); ctx.fill();
         }
     }
 

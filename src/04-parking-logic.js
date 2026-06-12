@@ -35,13 +35,51 @@
         dinaRunTimer = 0; dinaRunDistance = 0; dinaRunPhase = 0;
         shakeIntensity = 0;
         initSeason();
+        initZone();
         initDecorations();
     }
 
     // ── Spawning ─────────────────────────────────────────────
+    // Lane LINES (the gaps between lane centers) — used so cars/cones sometimes
+    // sit on the dashed line and you can't just park between lanes forever.
+    var LANE_LINES = [ROAD_L + LANE_W, ROAD_L + LANE_W * 2];
+
+    // Decide how an enemy car drives. Calm early on; after some distance (and
+    // especially at night / in the bar district) some drivers are DRUNK (big
+    // weaving swerves, spilling booze) or TEXTING (gentle distracted drift).
+    function pickCarBehavior() {
+        if (scrollOffset < 4000) return "normal";
+        var drunk = 0.06, texting = 0.10;
+        if (typeof season !== "undefined" && season === "night") drunk += 0.10;
+        if (typeof zone !== "undefined") {
+            if (zone === "bars") drunk += 0.30;
+            if (zone === "downtown") texting += 0.16;
+        }
+        var r = Math.random();
+        if (r < drunk) return "drunk";
+        if (r < drunk + texting) return "texting";
+        return "normal";
+    }
+
+    function spawnAlcoholDrop(x, y) {
+        particles.push({
+            x: x + rand(-16, 16), y: y + rand(-6, 18),
+            vx: rand(-25, 25), vy: rand(-5, 25), life: 0.9, maxLife: 0.9,
+            size: rand(2, 4), color: randPick(["#C8A24B", "#A6792E", "#D4AF5A", "#E8C66A"]),
+            gravity: 50
+        });
+    }
+
     function spawnObstacle(type) {
         var lane = randInt(0, 2);
         var x = LANES[lane];
+        // ~28% of cars/cones straddle a lane line so the lane gaps aren't a
+        // permanent safe spot. Everything else gets a little jitter.
+        if ((type === "car" || type === "cone") && Math.random() < 0.28) {
+            x = randPick(LANE_LINES) + rand(-8, 8);
+        } else {
+            x += rand(-10, 10);
+        }
         var y = -90;
         for (var i = 0; i < obstacles.length; i++) {
             if (Math.abs(obstacles[i].y - y) < 120 && Math.abs(obstacles[i].x - x) < LANE_W) return;
@@ -53,7 +91,9 @@
                 carType: randInt(0, 2),
                 hitW: 36, hitH: 64,
                 speedMult: gameTime > 90 && Math.random() > 0.6 ? 1.4 : 0.6,
-                lane: lane
+                lane: lane,
+                behavior: pickCarBehavior(),
+                swerveT: rand(0, 6.28), spillT: rand(0.2, 0.6)
             });
         } else if (type === "cone") {
             obstacles.push({

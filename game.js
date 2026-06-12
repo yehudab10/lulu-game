@@ -931,6 +931,13 @@
         var x = side < 0 ? rand(10, ROAD_L - 15) : rand(ROAD_R + 15, W - 10);
         var d = { x: x, y: y, side: side, parallax: rand(0.55, 0.85) };
         var cfg = SEASONS[season];
+        // In city zones the shoulder is sidewalk railings, not forest, so the
+        // themed buildings read clearly behind them.
+        if (zone !== "rural") {
+            d.type = "fence"; d.width = rand(28, 50);
+            decorations.push(d);
+            return;
+        }
         // Winter sprinkles snow piles along the shoulder.
         if (cfg.bare && type < 0.16) {
             d.type = "snowpile"; d.scale = rand(0.7, 1.2);
@@ -1199,6 +1206,100 @@
             var yy = H * 0.12 + i * 16 + Math.sin(gameTime * 3 + i) * 3;
             ctx.fillStyle = "rgba(255,255,255,0.05)";
             ctx.fillRect(0, yy, W, 4);
+        }
+    }
+
+    // ── City zones (themed scenery stretches) ────────────────
+    // Most of the drive is rural. Occasionally you pass through a CITY zone with
+    // themed roadside buildings and matching traffic: a bar district (drunk
+    // drivers), police HQ (lots of cops), a school zone (kids crossing), or
+    // downtown (texting drivers). Zones last a good stretch so they don't flash by.
+    var ZONE_CITY = ["bars", "police", "school", "downtown"];
+    var ZONE_NAMES = { bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️" };
+    var ZONE_RURAL_GAP = 13000;   // px of rural driving between city visits
+    var zone = "rural";
+    var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
+    var cityBuildings = [], cityBuildTimer = 0;
+
+    function initZone() {
+        zone = "rural";
+        zoneNextAt = ZONE_RURAL_GAP + rand(-3000, 5000);
+        zoneEndsAt = 0; cityBuildings = []; cityBuildTimer = 0;
+    }
+    function updateZone(dt, speed) {
+        if (zone === "rural") {
+            if (scrollOffset >= zoneNextAt) {
+                zone = randPick(ZONE_CITY);
+                zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
+                cityBuildTimer = 0;
+            }
+        } else {
+            if (scrollOffset >= zoneEndsAt) {
+                zone = "rural";
+                zoneNextAt = scrollOffset + ZONE_RURAL_GAP + rand(-3000, 5000);
+            }
+            cityBuildTimer -= dt;
+            if (cityBuildTimer <= 0) {
+                cityBuildTimer = rand(0.5, 1.0);
+                spawnCityBuilding(-1);
+                if (Math.random() < 0.85) spawnCityBuilding(1);
+            }
+        }
+        for (var i = cityBuildings.length - 1; i >= 0; i--) {
+            cityBuildings[i].y += speed * dt;
+            if (cityBuildings[i].y > H + 160) cityBuildings.splice(i, 1);
+        }
+    }
+    function spawnCityBuilding(side) {
+        var w = rand(50, 76), h = rand(70, 130);
+        var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
+                         : rand(ROAD_R + 6, W - w - 6) + w / 2;
+        cityBuildings.push({ x: x, y: -h - 30, side: side, kind: zone, w: w, h: h,
+            lit: Math.random() < 0.7, tint: randInt(0, 2) });
+    }
+    function drawCityBuildings() {
+        for (var i = 0; i < cityBuildings.length; i++) drawBuilding(cityBuildings[i]);
+    }
+    function drawBuilding(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.fillRect(x + 4, y + 8, w, h);
+        var body = b.kind === "bars" ? ["#3E2C4F", "#4A3A5C", "#2E2240"][b.tint]
+                 : b.kind === "police" ? ["#37474F", "#455A64", "#2E3D44"][b.tint]
+                 : b.kind === "school" ? ["#9C4A3C", "#A85A48", "#8C4234"][b.tint]
+                 : ["#546E7A", "#607D8B", "#4B636E"][b.tint]; // downtown
+        ctx.fillStyle = body;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, w, h);
+        // lit window grid
+        for (var wy = y + 10; wy < y + h - 8; wy += 16) {
+            for (var wx = x + 7; wx < x + w - 8; wx += 14) {
+                ctx.fillStyle = (b.lit && Math.random() < 0.6) ? "#FFE082" : "rgba(20,20,30,0.5)";
+                ctx.fillRect(wx, wy, 8, 9);
+            }
+        }
+        // themed roof sign
+        var label = b.kind === "bars" ? "BAR" : b.kind === "police" ? "POLICE"
+                  : b.kind === "school" ? "SCHOOL" : "";
+        if (label) {
+            var signC = b.kind === "bars" ? "#FF4FA3" : b.kind === "police" ? "#42A5F5" : "#FFD54F";
+            ctx.fillStyle = "#1A1A1A";
+            roundRect(x + 3, y - 16, w - 6, 16, 3); ctx.fill();
+            if (b.kind === "bars" && b.lit) {
+                ctx.shadowColor = signC; ctx.shadowBlur = 8;
+            }
+            drawText(label, x + w / 2, y - 8, "bold 10px 'Segoe UI', Arial, sans-serif", signC, null, 0);
+            ctx.shadowBlur = 0;
+        }
+        // police gets a flag-ish blue/red bar; downtown gets an antenna
+        if (b.kind === "police") {
+            ctx.fillStyle = "#E53935"; ctx.fillRect(x + 2, y - 22, (w - 4) / 2, 4);
+            ctx.fillStyle = "#1E88E5"; ctx.fillRect(x + 2 + (w - 4) / 2, y - 22, (w - 4) / 2, 4);
+        } else if (b.kind === "downtown") {
+            ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y - 18); ctx.stroke();
+            ctx.fillStyle = "#FF5252"; ctx.beginPath(); ctx.arc(x + w / 2, y - 18, 2, 0, Math.PI * 2); ctx.fill();
         }
     }
 
@@ -3793,13 +3894,51 @@
         dinaRunTimer = 0; dinaRunDistance = 0; dinaRunPhase = 0;
         shakeIntensity = 0;
         initSeason();
+        initZone();
         initDecorations();
     }
 
     // ── Spawning ─────────────────────────────────────────────
+    // Lane LINES (the gaps between lane centers) — used so cars/cones sometimes
+    // sit on the dashed line and you can't just park between lanes forever.
+    var LANE_LINES = [ROAD_L + LANE_W, ROAD_L + LANE_W * 2];
+
+    // Decide how an enemy car drives. Calm early on; after some distance (and
+    // especially at night / in the bar district) some drivers are DRUNK (big
+    // weaving swerves, spilling booze) or TEXTING (gentle distracted drift).
+    function pickCarBehavior() {
+        if (scrollOffset < 4000) return "normal";
+        var drunk = 0.06, texting = 0.10;
+        if (typeof season !== "undefined" && season === "night") drunk += 0.10;
+        if (typeof zone !== "undefined") {
+            if (zone === "bars") drunk += 0.30;
+            if (zone === "downtown") texting += 0.16;
+        }
+        var r = Math.random();
+        if (r < drunk) return "drunk";
+        if (r < drunk + texting) return "texting";
+        return "normal";
+    }
+
+    function spawnAlcoholDrop(x, y) {
+        particles.push({
+            x: x + rand(-16, 16), y: y + rand(-6, 18),
+            vx: rand(-25, 25), vy: rand(-5, 25), life: 0.9, maxLife: 0.9,
+            size: rand(2, 4), color: randPick(["#C8A24B", "#A6792E", "#D4AF5A", "#E8C66A"]),
+            gravity: 50
+        });
+    }
+
     function spawnObstacle(type) {
         var lane = randInt(0, 2);
         var x = LANES[lane];
+        // ~28% of cars/cones straddle a lane line so the lane gaps aren't a
+        // permanent safe spot. Everything else gets a little jitter.
+        if ((type === "car" || type === "cone") && Math.random() < 0.28) {
+            x = randPick(LANE_LINES) + rand(-8, 8);
+        } else {
+            x += rand(-10, 10);
+        }
         var y = -90;
         for (var i = 0; i < obstacles.length; i++) {
             if (Math.abs(obstacles[i].y - y) < 120 && Math.abs(obstacles[i].x - x) < LANE_W) return;
@@ -3811,7 +3950,9 @@
                 carType: randInt(0, 2),
                 hitW: 36, hitH: 64,
                 speedMult: gameTime > 90 && Math.random() > 0.6 ? 1.4 : 0.6,
-                lane: lane
+                lane: lane,
+                behavior: pickCarBehavior(),
+                swerveT: rand(0, 6.28), spillT: rand(0.2, 0.6)
             });
         } else if (type === "cone") {
             obstacles.push({
@@ -4721,6 +4862,18 @@
             if (o.walkTime !== undefined) o.walkTime += dt;
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
 
+            // Drunk drivers weave hard across lanes (and spill booze); texting
+            // drivers drift gently. Both make the lane gaps unsafe.
+            if (o.type === "car" && o.behavior === "drunk") {
+                o.swerveT += dt;
+                o.x = clamp(o.x + Math.sin(o.swerveT * 2.6) * 95 * dt, ROAD_L + 22, ROAD_R - 22);
+                o.spillT -= dt;
+                if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
+            } else if (o.type === "car" && o.behavior === "texting") {
+                o.swerveT += dt;
+                o.x = clamp(o.x + Math.sin(o.swerveT * 1.1) * 42 * dt, ROAD_L + 22, ROAD_R - 22);
+            }
+
             if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     // Pick up the pedestrian as passenger! Always (even during invincibility).
@@ -4956,6 +5109,14 @@
         updateDecorations(dt, gameSpeed);
         updateParticles(dt);
         updateSeason(dt, gameSpeed);
+        updateZone(dt, gameSpeed);
+        // Zone-specific extra traffic
+        if (zone === "police" && !copChase && !copBust && roadCops.length < 4 && Math.random() < dt * 1.1) {
+            spawnRoadCop();
+        }
+        if (zone === "school" && gameTime > 5 && Math.random() < dt * 0.9) {
+            spawnObstacle("ped"); // kids crossing
+        }
     }
 
     function hitPlayer(obj) {
@@ -5589,6 +5750,7 @@
         }
 
         drawDecorations(gameTime);
+        drawCityBuildings();
 
         // Sasquatch easter egg (between decorations and obstacles)
         if (sasquatch) {
@@ -5655,7 +5817,19 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
-            if (o.type === "car") drawEnemyCar(o.x, o.y, o.color, o.carType);
+            if (o.type === "car") {
+                drawEnemyCar(o.x, o.y, o.color, o.carType);
+                if (o.behavior === "drunk") {
+                    // weaving + a beer can by the window
+                    drawText("🍺", o.x + 14, o.y - 4, "13px Arial", "#fff", null, 0);
+                } else if (o.behavior === "texting") {
+                    // glowing phone in the window
+                    ctx.save();
+                    ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 7));
+                    drawText("📱", o.x + 12, o.y, "12px Arial", "#fff", null, 0);
+                    ctx.restore();
+                }
+            }
             else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType);
         }
 

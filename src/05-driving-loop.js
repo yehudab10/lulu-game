@@ -211,6 +211,18 @@
             if (o.walkTime !== undefined) o.walkTime += dt;
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
 
+            // Drunk drivers weave hard across lanes (and spill booze); texting
+            // drivers drift gently. Both make the lane gaps unsafe.
+            if (o.type === "car" && o.behavior === "drunk") {
+                o.swerveT += dt;
+                o.x = clamp(o.x + Math.sin(o.swerveT * 2.6) * 95 * dt, ROAD_L + 22, ROAD_R - 22);
+                o.spillT -= dt;
+                if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
+            } else if (o.type === "car" && o.behavior === "texting") {
+                o.swerveT += dt;
+                o.x = clamp(o.x + Math.sin(o.swerveT * 1.1) * 42 * dt, ROAD_L + 22, ROAD_R - 22);
+            }
+
             if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     // Pick up the pedestrian as passenger! Always (even during invincibility).
@@ -446,6 +458,14 @@
         updateDecorations(dt, gameSpeed);
         updateParticles(dt);
         updateSeason(dt, gameSpeed);
+        updateZone(dt, gameSpeed);
+        // Zone-specific extra traffic
+        if (zone === "police" && !copChase && !copBust && roadCops.length < 4 && Math.random() < dt * 1.1) {
+            spawnRoadCop();
+        }
+        if (zone === "school" && gameTime > 5 && Math.random() < dt * 0.9) {
+            spawnObstacle("ped"); // kids crossing
+        }
     }
 
     function hitPlayer(obj) {
@@ -1079,6 +1099,7 @@
         }
 
         drawDecorations(gameTime);
+        drawCityBuildings();
 
         // Sasquatch easter egg (between decorations and obstacles)
         if (sasquatch) {
@@ -1145,7 +1166,19 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
-            if (o.type === "car") drawEnemyCar(o.x, o.y, o.color, o.carType);
+            if (o.type === "car") {
+                drawEnemyCar(o.x, o.y, o.color, o.carType);
+                if (o.behavior === "drunk") {
+                    // weaving + a beer can by the window
+                    drawText("🍺", o.x + 14, o.y - 4, "13px Arial", "#fff", null, 0);
+                } else if (o.behavior === "texting") {
+                    // glowing phone in the window
+                    ctx.save();
+                    ctx.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 7));
+                    drawText("📱", o.x + 12, o.y, "12px Arial", "#fff", null, 0);
+                    ctx.restore();
+                }
+            }
             else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType);
         }
 
