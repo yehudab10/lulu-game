@@ -5011,7 +5011,12 @@
             invincibleTimer = Math.max(invincibleTimer, 0.2);
             score += baseGameSpeed * dt * 0.06;
         }
-        gameSpeed = baseGameSpeed * speedMod;
+        // Bad weather slows EVERYONE down — fog, snow, rain, and storms all
+        // make the whole road drive more carefully (eases in with the season).
+        var badWeather = (season === "fog" || season === "winter" ||
+                          season === "rain" || season === "storm");
+        var weatherSlow = badWeather ? 1 - 0.13 * seasonBlend : 1;
+        gameSpeed = baseGameSpeed * speedMod * weatherSlow;
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
@@ -6521,6 +6526,19 @@
         if (bs.commentT > 0 && bs.comment) drawCarComment(bx, y - 24, bs.comment);
     }
 
+    // Soft headlight pools in front of traffic at night / in fog.
+    function drawCarHeadlights(x, y) {
+        var hy = y + CAR_H / 2;
+        var g = ctx.createLinearGradient(0, hy, 0, hy + 56);
+        g.addColorStop(0, "rgba(255,246,200,0.30)");
+        g.addColorStop(1, "rgba(255,246,200,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(x - 12, hy); ctx.lineTo(x - 24, hy + 56);
+        ctx.lineTo(x + 24, hy + 56); ctx.lineTo(x + 12, hy);
+        ctx.closePath(); ctx.fill();
+    }
+
     function drawCarComment(x, y, text) {
         var bw = text.length * 5.6 + 14;
         var bx = clamp(x, bw / 2 + 4, W - bw / 2 - 4);
@@ -6762,6 +6780,11 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
+            // Headlights on at night and in fog (drawn under the vehicle)
+            if (o.type === "car" && seasonBlend > 0.4 &&
+                (season === "night" || season === "fog")) {
+                drawCarHeadlights(o.x, o.y);
+            }
             if (o.type === "car" && o.behavior === "ambulance") {
                 drawAmbulance(o.x, o.y, gameTime);
             } else if (o.type === "car" && o.behavior === "patrol") {
