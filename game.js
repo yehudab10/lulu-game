@@ -1519,7 +1519,10 @@
         copHide:     { first: [22, 60],  every: [35, 75],  chance: 0.55 }, // 🚓 hidden roadside speed-trap cop
         heshyPool:   { first: [25, 70],  every: [40, 80],  chance: 0.50 }, // 🏊 Heshy-in-the-pool easter egg
         heart:       { first: [15, 35],  every: [20, 40],  chance: 0.60 }, // ❤️ extra-life pickup
-        toll:        { first: [45, 90],  every: [60, 120], chance: 0.55 }  // 🎫 toll-booth gauntlet
+        toll:        { first: [45, 90],  every: [60, 120], chance: 0.55 }, // 🎫 toll-booth gauntlet
+        train:       { first: [55, 110], every: [70, 140], chance: 0.55 }, // 🚂 railroad crossing
+        driveThru:   { first: [35, 80],  every: [55, 110], chance: 0.55 }, // 🍔 drive-thru bonus
+        parade:      { first: [60, 120], every: [90, 170], chance: 0.45 }  // 🎉 parade / marathon crowd
     };
 
     // Per-event countdown timers, (re)initialized at the start of each run.
@@ -3758,6 +3761,9 @@
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
+    var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}
+    var driveThru = null;     // active drive-thru {y, side, taken}
+    var paradeTimer = 0;      // seconds left of a parade/marathon crowd
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
@@ -3938,6 +3944,7 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
+        trainCrossing = null; driveThru = null; paradeTimer = 0;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -4012,6 +4019,26 @@
     function spawnFuel() {
         var x = rand(ROAD_L + 24, ROAD_R - 24);
         fuelCans.push({ x: x, y: -30, hitW: 22, hitH: 24, collected: false, bob: rand(0, 6.28) });
+    }
+
+    function spawnTrainCrossing() {
+        var dir = Math.random() < 0.5 ? 1 : -1;
+        trainCrossing = {
+            y: -200, dir: dir, started: false, gone: false,
+            trainX: dir > 0 ? -220 : W + 220, cars: randInt(3, 5), warnPhase: 0
+        };
+    }
+    function spawnDriveThru() {
+        var side = Math.random() < 0.5 ? -1 : 1; // which shoulder the window is on
+        driveThru = { y: -150, side: side, taken: false };
+    }
+    function spawnParadeRunner() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        obstacles.push({
+            type: "ped", x: side < 0 ? ROAD_L - 12 : ROAD_R + 12, y: rand(-30, H * 0.42),
+            vx: -side * rand(60, 115), hitW: 18, hitH: 20, speedMult: 0.2, lane: 1,
+            pedType: randInt(0, 2), walkTime: 0
+        });
     }
 
     function spawnTollBooth() {
@@ -4975,6 +5002,10 @@
             var o = obstacles[i];
             o.y += gameSpeed * o.speedMult * dt;
             if (o.walkTime !== undefined) o.walkTime += dt;
+            if (o.vx) { // parade runners cross the road horizontally
+                o.x += o.vx * dt;
+                if (o.x < -45 || o.x > W + 45) { obstacles.splice(i, 1); continue; }
+            }
             if (o.y > H + 100) { obstacles.splice(i, 1); continue; }
 
             // Traffic parts for the ambulance: nearby cars veer to the shoulder.
@@ -5297,6 +5328,51 @@
                     playCoin();
                 }
             }
+        }
+
+        // Railroad crossing — a train sweeps across the road; brake to let it pass.
+        if (!trainCrossing && tickSpawn("train", dt) && gameTime > 30) spawnTrainCrossing();
+        if (trainCrossing) {
+            var tc = trainCrossing;
+            tc.y += gameSpeed * dt;
+            tc.warnPhase += dt;
+            if (!tc.started && tc.y > H * 0.16) { tc.started = true; playTone(660, 0.12, "square", 0.1); }
+            var trainW = tc.cars * 60;
+            if (tc.started && !tc.gone) tc.trainX += tc.dir * 340 * dt;
+            tc.gone = tc.dir > 0 ? (tc.trainX - trainW / 2 > W + 12) : (tc.trainX + trainW / 2 < -12);
+            if (tc.started && !tc.gone && invincibleTimer <= 0 &&
+                aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.55, tc.trainX, tc.y, trainW, 42)) {
+                hitPlayer({ x: player.x, y: tc.y });
+            }
+            if (tc.y > H + 120) trainCrossing = null;
+        }
+
+        // Drive-thru — clip the order window on the correct shoulder for coins.
+        if (!driveThru && tickSpawn("driveThru", dt) && gameTime > 20) spawnDriveThru();
+        if (driveThru) {
+            driveThru.y += gameSpeed * dt;
+            var dtWinX = driveThru.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+            if (!driveThru.taken &&
+                aabb(player.x, player.y, CAR_W, CAR_H, dtWinX, driveThru.y, 40, 60)) {
+                driveThru.taken = true;
+                var meal = randInt(20, 45);
+                runCoins += meal; save.totalCoins += meal; persistSave();
+                score += meal * 4;
+                spawnFloater(player.x, player.y - 30, "🍔 +" + meal, "#FFD54F");
+                spawnCoinSparkle(dtWinX, driveThru.y);
+                playBuy();
+            }
+            if (driveThru.y > H + 90) driveThru = null;
+        }
+
+        // Parade / marathon — a crowd streams across the road for a few seconds.
+        if (paradeTimer <= 0 && tickSpawn("parade", dt) && gameTime > 30) {
+            paradeTimer = rand(4.5, 7);
+            parkingMsg = "🎉 PARADE! Mind the crowd!"; parkingMsgTimer = 2.5;
+        }
+        if (paradeTimer > 0) {
+            paradeTimer -= dt;
+            if (Math.random() < dt * 9) spawnParadeRunner();
         }
     }
 
@@ -5895,6 +5971,53 @@
         }
     }
 
+    function drawTrainCrossing(tc) {
+        var y = tc.y, trainW = tc.cars * 60, c, cx;
+        // ties + rails across the road
+        ctx.fillStyle = "#6D4C41";
+        for (var rx = ROAD_L; rx < ROAD_R; rx += 18) ctx.fillRect(rx, y - 13, 5, 26);
+        ctx.strokeStyle = "#9E9E9E"; ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(ROAD_L, y - 9); ctx.lineTo(ROAD_R, y - 9);
+        ctx.moveTo(ROAD_L, y + 9); ctx.lineTo(ROAD_R, y + 9); ctx.stroke();
+        var active = tc.started && !tc.gone, flash = Math.sin(tc.warnPhase * 12) > 0;
+        // crossing signals on both shoulders
+        var posts = [ROAD_L - 6, ROAD_R + 6];
+        for (var p = 0; p < 2; p++) {
+            ctx.fillStyle = "#FAFAFA"; ctx.fillRect(posts[p] - 2, y - 34, 4, 30);
+            ctx.fillStyle = (active && flash) ? "#F44336" : "#7A1F1A";
+            ctx.beginPath(); ctx.arc(posts[p], y - 36, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        if (active) {
+            for (c = 0; c < tc.cars; c++) {
+                cx = tc.trainX - trainW / 2 + 30 + c * 60;
+                ctx.fillStyle = c === 0 ? "#263238" : ["#C62828", "#1565C0", "#2E7D32", "#6A1B9A", "#EF6C00"][c % 5];
+                roundRect(cx - 28, y - 21, 56, 42, 6); ctx.fill();
+                ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 2; roundRect(cx - 28, y - 21, 56, 42, 6); ctx.stroke();
+                ctx.fillStyle = "#90CAF9"; ctx.fillRect(cx - 18, y - 14, 36, 13);
+                ctx.fillStyle = "#212121"; ctx.fillRect(cx - 22, y + 16, 10, 6); ctx.fillRect(cx + 12, y + 16, 10, 6);
+            }
+        }
+    }
+
+    function drawDriveThru(d) {
+        var y = d.y;
+        var bldgX = d.side < 0 ? 6 : W - 62;
+        var winX = d.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(bldgX + 3, y - 16, 56, 74);
+        ctx.fillStyle = "#FFB300"; ctx.fillRect(bldgX, y - 20, 56, 74);
+        ctx.fillStyle = "#E53935"; ctx.fillRect(bldgX, y - 20, 56, 16);
+        drawText("🍔 FOOD", bldgX + 28, y - 12, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
+        drawText("DRIVE-THRU", bldgX + 28, y + 4, "bold 8px 'Segoe UI', Arial, sans-serif", "#5D4037", null, 0);
+        if (!d.taken) {
+            var pulse = 1 + Math.sin(gameTime * 6) * 0.2;
+            ctx.save(); ctx.translate(winX, y); ctx.scale(pulse, pulse);
+            ctx.fillStyle = "rgba(255,213,79,0.35)"; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+            drawText(d.side < 0 ? "◀🍔" : "🍔▶", 0, 0, "bold 14px Arial", "#FFEB3B", "#000", 3);
+            ctx.restore();
+        }
+    }
+
     // Flame trail behind Lulu while nitro is active.
     function drawNitroFlame(time) {
         if (nitroTimer <= 0 || !player) return;
@@ -6079,8 +6202,10 @@
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
 
-        // Toll booth (drawn over the road, behind the car)
+        // Toll booth / train crossing / drive-thru (over the road, behind the car)
+        if (driveThru) drawDriveThru(driveThru);
         if (tollBooth) drawTollBooth(tollBooth);
+        if (trainCrossing) drawTrainCrossing(trainCrossing);
 
         // Nitro flame trail (under the car)
         if (state !== "crash") drawNitroFlame(gameTime);

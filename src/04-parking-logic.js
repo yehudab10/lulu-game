@@ -5,6 +5,7 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
+        trainCrossing = null; driveThru = null; paradeTimer = 0;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -79,6 +80,26 @@
     function spawnFuel() {
         var x = rand(ROAD_L + 24, ROAD_R - 24);
         fuelCans.push({ x: x, y: -30, hitW: 22, hitH: 24, collected: false, bob: rand(0, 6.28) });
+    }
+
+    function spawnTrainCrossing() {
+        var dir = Math.random() < 0.5 ? 1 : -1;
+        trainCrossing = {
+            y: -200, dir: dir, started: false, gone: false,
+            trainX: dir > 0 ? -220 : W + 220, cars: randInt(3, 5), warnPhase: 0
+        };
+    }
+    function spawnDriveThru() {
+        var side = Math.random() < 0.5 ? -1 : 1; // which shoulder the window is on
+        driveThru = { y: -150, side: side, taken: false };
+    }
+    function spawnParadeRunner() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        obstacles.push({
+            type: "ped", x: side < 0 ? ROAD_L - 12 : ROAD_R + 12, y: rand(-30, H * 0.42),
+            vx: -side * rand(60, 115), hitW: 18, hitH: 20, speedMult: 0.2, lane: 1,
+            pedType: randInt(0, 2), walkTime: 0
+        });
     }
 
     function spawnTollBooth() {

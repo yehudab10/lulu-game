@@ -793,6 +793,9 @@
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
+    var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}
+    var driveThru = null;     // active drive-thru {y, side, taken}
+    var paradeTimer = 0;      // seconds left of a parade/marathon crowd
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
