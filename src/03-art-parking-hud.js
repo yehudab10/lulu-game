@@ -604,6 +604,13 @@
             drawText("DISTRACTED 2×", W / 2, 60, "bold 12px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2);
         }
 
+        // Nitro turbo indicator
+        if (nitroTimer > 0) {
+            drawText("🔥 NITRO", W / 2, 48, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 3);
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, 56, 80, 6, 3); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 38, 57, 76 * clamp(nitroTimer / 9, 0, 1), 4, 2); ctx.fill();
+        }
+
         // Passenger buff timer
         if (passengerTimer > 0) {
             var pctP = passengerTimer / 30;
@@ -783,6 +790,8 @@
     var obstacles = [];
     var coinEntities = [];
     var heartEntities = [];   // rare extra-life pickups
+    var fuelCans = [];        // gas-station nitro pickups
+    var nitroTimer = 0;       // seconds of turbo remaining
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}

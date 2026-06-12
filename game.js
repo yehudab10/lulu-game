@@ -3568,6 +3568,13 @@
             drawText("DISTRACTED 2×", W / 2, 60, "bold 12px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2);
         }
 
+        // Nitro turbo indicator
+        if (nitroTimer > 0) {
+            drawText("🔥 NITRO", W / 2, 48, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 3);
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, 56, 80, 6, 3); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 38, 57, 76 * clamp(nitroTimer / 9, 0, 1), 4, 2); ctx.fill();
+        }
+
         // Passenger buff timer
         if (passengerTimer > 0) {
             var pctP = passengerTimer / 30;
@@ -3747,6 +3754,8 @@
     var obstacles = [];
     var coinEntities = [];
     var heartEntities = [];   // rare extra-life pickups
+    var fuelCans = [];        // gas-station nitro pickups
+    var nitroTimer = 0;       // seconds of turbo remaining
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
@@ -3926,6 +3935,7 @@
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
+        fuelCans = []; nitroTimer = 0;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -3995,6 +4005,11 @@
         playTone(900, 0.18, "sine", 0.14, 1320);
         setTimeout(function () { playTone(1320, 0.18, "sine", 0.14, 900); }, 200);
         setTimeout(function () { playTone(900, 0.18, "sine", 0.14, 1320); }, 400);
+    }
+
+    function spawnFuel() {
+        var x = rand(ROAD_L + 24, ROAD_R - 24);
+        fuelCans.push({ x: x, y: -30, hitW: 22, hitH: 24, collected: false, bob: rand(0, 6.28) });
     }
 
     function spawnAlcoholDrop(x, y) {
@@ -4754,6 +4769,14 @@
         var speedMod = 1;
         if (keys.up) speedMod = 1.6;
         else if (keys.down) speedMod = 0.5;
+        // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
+        // through traffic for bonus points.
+        if (nitroTimer > 0) {
+            nitroTimer = Math.max(0, nitroTimer - dt);
+            speedMod = Math.max(speedMod, 2.0);
+            invincibleTimer = Math.max(invincibleTimer, 0.2);
+            score += baseGameSpeed * dt * 0.06;
+        }
         gameSpeed = baseGameSpeed * speedMod;
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode ? 2 : 1) * pointMult;
@@ -4981,6 +5004,13 @@
                     obstacles.splice(i, 1);
                     continue;
                 }
+                // Nitro turbo plows through traffic for bonus points.
+                if (nitroTimer > 0 && o.type === "car") {
+                    spawnCrashBurst(o.x, o.y, false); playExplosion();
+                    score += 30 * scoreMult;
+                    obstacles.splice(i, 1);
+                    continue;
+                }
                 if (invincibleTimer <= 0) hitPlayer(o);
             } else if (o.type === "car" && !o.nearMissed && invincibleTimer <= 0) {
                 // ── Near-miss "whoosh" reward: barely dodge an enemy car ──
@@ -5078,6 +5108,22 @@
                 playTone(880, 0.1, "sine", 0.18, 1320);
                 setTimeout(function () { playTone(1320, 0.1, "sine", 0.16, 1760); }, 80);
                 heartEntities.splice(hj, 1);
+            }
+        }
+
+        // Update fuel cans (nitro pickups)
+        for (var fj = fuelCans.length - 1; fj >= 0; fj--) {
+            var fc = fuelCans[fj];
+            fc.y += gameSpeed * dt;
+            fc.bob += dt;
+            if (fc.y > H + 50) { fuelCans.splice(fj, 1); continue; }
+            if (!fc.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, fc.x, fc.y, fc.hitW, fc.hitH)) {
+                fc.collected = true;
+                nitroTimer = Math.min(nitroTimer + 3.5, 9);
+                spawnFloater(fc.x, fc.y, "NITRO! 🔥", "#FF7043");
+                spawnCoinSparkle(fc.x, fc.y);
+                playTone(300, 0.18, "sawtooth", 0.16, 900);
+                fuelCans.splice(fj, 1);
             }
         }
 
@@ -5216,6 +5262,9 @@
             var hasAmb = false;
             for (var ha = 0; ha < obstacles.length; ha++) if (obstacles[ha].behavior === "ambulance") hasAmb = true;
             if (!hasAmb) spawnAmbulance();
+        }
+        if (zone === "gas" && fuelCans.length < 2 && Math.random() < dt * 0.7) {
+            spawnFuel(); // grab one for a nitro turbo
         }
     }
 
@@ -5775,6 +5824,35 @@
         ctx.restore();
     }
 
+    function drawFuelCan(x, y, bob) {
+        var s = 1 + Math.sin(bob * 4) * 0.08;
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        ctx.fillStyle = "rgba(255,112,67,0.25)";
+        ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#E53935";
+        roundRect(-8, -9, 16, 18, 3); ctx.fill();
+        ctx.strokeStyle = "#7A1F1A"; ctx.lineWidth = 1.5; roundRect(-8, -9, 16, 18, 3); ctx.stroke();
+        ctx.fillStyle = "#B71C1C"; roundRect(-6, -13, 8, 4, 1); ctx.fill(); // spout
+        ctx.fillStyle = "#FFEB3B"; drawText("⛽", 0, 1, "11px Arial", "#FFEB3B", null, 0);
+        ctx.restore();
+    }
+
+    // Flame trail behind Lulu while nitro is active.
+    function drawNitroFlame(time) {
+        if (nitroTimer <= 0 || !player) return;
+        var fx = player.x, fy = player.y + CAR_H / 2 + 4;
+        for (var i = 0; i < 3; i++) {
+            var fl = 14 + Math.abs(Math.sin(time * 30 + i)) * 16;
+            ctx.fillStyle = ["rgba(255,235,59,0.9)", "rgba(255,138,0,0.85)", "rgba(244,67,54,0.7)"][i];
+            ctx.beginPath();
+            ctx.moveTo(fx - 8 + i * 2, fy);
+            ctx.lineTo(fx, fy + fl + i * 6);
+            ctx.lineTo(fx + 8 - i * 2, fy);
+            ctx.closePath(); ctx.fill();
+        }
+    }
+
     // Heshy floats in on his inner tube, waves, and drifts away — pure cameo.
     function drawHeshyCameo(t, dur) {
         var enter = clamp(t / 0.5, 0, 1);
@@ -5878,6 +5956,10 @@
         for (var hd = 0; hd < heartEntities.length; hd++) {
             if (!heartEntities[hd].collected) drawHeartPickup(heartEntities[hd].x, heartEntities[hd].y, heartEntities[hd].bob);
         }
+        // Fuel cans (nitro pickups)
+        for (var fd = 0; fd < fuelCans.length; fd++) {
+            if (!fuelCans[fd].collected) drawFuelCan(fuelCans[fd].x, fuelCans[fd].y, fuelCans[fd].bob);
+        }
 
         // Parking signs (P) and ice cream signs
         for (var psd = 0; psd < parkingSigns.length; psd++) {
@@ -5939,6 +6021,9 @@
         for (var mm = 0; mm < missiles.length; mm++) {
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
+
+        // Nitro flame trail (under the car)
+        if (state !== "crash") drawNitroFlame(gameTime);
 
         // Player (or crashed car if state === crash)
         if (state === "crash") {
