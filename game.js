@@ -3884,6 +3884,7 @@
     var crossingGuard = null; // crossing guard halting traffic {y, side, kids, ...}
     var convoyTimer = 0;      // field-trip bus convoy spawn window
     var convoyNext = 0;       // spacing between convoy buses
+    var iceTruck = null;      // ice-cream truck on the shoulder {y, side, kids, taken}
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}
@@ -4065,7 +4066,7 @@
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
-        crossingGuard = null; convoyTimer = 0; convoyNext = 0;
+        crossingGuard = null; convoyTimer = 0; convoyNext = 0; iceTruck = null;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -4406,6 +4407,28 @@
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
     var GUARD_QUIPS = ["SLOW DOWN!", "Kids crossing!!", "Eyes UP, driver!", "STOP means STOP!", "Not on MY watch!"];
+
+    // Ice-cream truck parked on the shoulder. Kids cluster around it (and a
+    // couple more dash ACROSS the road toward it — watch out!). Hug the near
+    // lane to grab a scoop for coins. Jingle plays as it appears.
+    function spawnIceTruck() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        iceTruck = { y: -170, side: side, taken: false, kids: [], noteT: 0 };
+        for (var i = 0; i < randInt(2, 3); i++) {
+            iceTruck.kids.push({ dx: rand(-22, 22), dy: rand(34, 58), type: randInt(0, 2) });
+        }
+        var from = -side; // kids run from the far side toward the truck
+        for (var k = 0; k < randInt(1, 2); k++) {
+            obstacles.push({
+                type: "ped", x: from < 0 ? ROAD_L - 12 : ROAD_R + 12, y: rand(-60, 50),
+                vx: -from * rand(70, 120), hitW: 18, hitH: 20, speedMult: 0.2, lane: 1,
+                pedType: randInt(0, 2), walkTime: 0
+            });
+        }
+        [659, 587, 523, 587, 659, 659, 659].forEach(function (f, i) {
+            setTimeout(function () { playTone(f, 0.12, "square", 0.07); }, i * 140);
+        });
+    }
 
     function spawnCrossingGuard() {
         var side = Math.random() < 0.5 ? -1 : 1;
@@ -5678,6 +5701,28 @@
             if (cg.y > H + 120) crossingGuard = null;
         }
 
+        // Ice-cream truck — sweeter in summer/heatwave, near schools & markets.
+        if (!iceTruck && gameTime > 18 &&
+            Math.random() < dt * ((zone === "school" || zone === "market") ? 0.05 : 0.012) *
+                            ((season === "summer" || season === "heatwave") ? 1.6 : 1)) {
+            spawnIceTruck();
+        }
+        if (iceTruck) {
+            iceTruck.y += gameSpeed * dt;
+            iceTruck.noteT += dt;
+            var itX = iceTruck.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+            if (!iceTruck.taken && aabb(player.x, player.y, CAR_W, CAR_H, itX, iceTruck.y, 40, 60)) {
+                iceTruck.taken = true;
+                var scoop = randInt(12, 25);
+                runCoins += scoop; save.totalCoins += scoop; persistSave();
+                score += scoop * 4;
+                spawnFloater(player.x, player.y - 30, "🍦 +" + scoop, "#F8BBD0");
+                spawnCoinSparkle(itX, iceTruck.y);
+                playBuy();
+            }
+            if (iceTruck.y > H + 110) iceTruck = null;
+        }
+
         // School buses — rare on the open road, common in the school zone.
         var busN = 0;
         for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
@@ -6361,6 +6406,59 @@
         }
     }
 
+    function drawIceTruck(it) {
+        var y = it.y;
+        var tx = it.side < 0 ? ROAD_L - 36 : ROAD_R + 36; // parked on the shoulder
+        ctx.save();
+        ctx.translate(tx, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(2, 5, 26, 36, 0, 0, Math.PI * 2); ctx.fill();
+        // box truck: white with a pink wrap
+        ctx.fillStyle = "#E0E0E0"; roundRect(-24, -36, 48, 72, 8); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-22, -34, 44, 68, 6); ctx.fill();
+        ctx.fillStyle = "#F8BBD0"; roundRect(-22, -10, 44, 20, 0); ctx.fill();
+        ctx.strokeStyle = "#AD1457"; ctx.lineWidth = 2; roundRect(-22, -34, 44, 68, 6); ctx.stroke();
+        // cab windshield (front toward bottom)
+        ctx.fillStyle = "#81D4FA"; roundRect(-16, 18, 32, 12, 4); ctx.fill();
+        // serving window facing the road, with the server
+        var winX = it.side < 0 ? 14 : -22;
+        ctx.fillStyle = "#4FC3F7"; roundRect(winX, -26, 8, 22, 2); ctx.fill();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(winX + 4, -16, 4, 0, Math.PI * 2); ctx.fill();
+        // giant cone on the roof
+        ctx.fillStyle = "#D7A86E"; ctx.beginPath();
+        ctx.moveTo(-7, -36); ctx.lineTo(0, -54); ctx.lineTo(7, -36); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#F8BBD0"; ctx.beginPath(); ctx.arc(0, -36, 8, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, -43, 2.5, 0, Math.PI * 2); ctx.fill();
+        drawText("ICE CREAM", 0, 0, "bold 7px 'Segoe UI', Arial, sans-serif", "#AD1457", null, 0);
+        // wheels
+        ctx.fillStyle = "#222";
+        roundRect(-27, -24, 6, 14, 2); ctx.fill(); roundRect(21, -24, 6, 14, 2); ctx.fill();
+        roundRect(-27, 12, 6, 14, 2); ctx.fill(); roundRect(21, 12, 6, 14, 2); ctx.fill();
+        ctx.restore();
+        // kids clustered at the truck
+        for (var k = 0; k < it.kids.length; k++) {
+            drawPedestrian(tx + it.kids[k].dx, y + it.kids[k].dy, gameTime + k, it.kids[k].type);
+        }
+        // drifting music notes
+        for (var nz = 0; nz < 2; nz++) {
+            var nt = (it.noteT * 0.7 + nz * 0.5) % 1.4;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, 1 - nt / 1.4) * 0.8;
+            drawText(nz % 2 ? "♪" : "♫", tx + (it.side < 0 ? 20 : -20) + Math.sin(nt * 5) * 6,
+                y - 40 - nt * 34, "bold 13px Arial", "#AD1457", null, 0);
+            ctx.restore();
+        }
+        // pulsing scoop marker on the near lane
+        if (!it.taken) {
+            var ipulse = 1 + Math.sin(gameTime * 6) * 0.18;
+            var imx = it.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+            ctx.save(); ctx.translate(imx, y); ctx.scale(ipulse, ipulse);
+            ctx.fillStyle = "rgba(248,187,208,0.4)"; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+            drawText(it.side < 0 ? "◀🍦" : "🍦▶", 0, 0, "bold 13px Arial", "#F8BBD0", "#000", 3);
+            ctx.restore();
+        }
+    }
+
     function drawGuard(x, y) {
         ctx.save(); ctx.translate(x, y);
         ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -6696,6 +6794,7 @@
         }
 
         // Toll booth / train crossing / drive-thru / bus stop / crossing guard
+        if (iceTruck) drawIceTruck(iceTruck);
         if (crossingGuard) drawCrossingGuard(crossingGuard);
         if (busStop) drawBusStop(busStop);
         if (driveThru) drawDriveThru(driveThru);

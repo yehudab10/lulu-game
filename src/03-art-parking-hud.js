@@ -800,6 +800,7 @@
     var crossingGuard = null; // crossing guard halting traffic {y, side, kids, ...}
     var convoyTimer = 0;      // field-trip bus convoy spawn window
     var convoyNext = 0;       // spacing between convoy buses
+    var iceTruck = null;      // ice-cream truck on the shoulder {y, side, kids, taken}
     var animals = [];
     var missiles = [];
     var heshy = null;         // Heshy-in-the-pool Easter egg cameo {t, dur}

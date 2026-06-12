@@ -6,7 +6,7 @@
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
-        crossingGuard = null; convoyTimer = 0; convoyNext = 0;
+        crossingGuard = null; convoyTimer = 0; convoyNext = 0; iceTruck = null;
         heshy = null;
         spawnClocks = { car: 0, cone: 0, puddle: 0, animal: 0, coin: 0, ped: 0 };
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
@@ -347,6 +347,28 @@
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
     var GUARD_QUIPS = ["SLOW DOWN!", "Kids crossing!!", "Eyes UP, driver!", "STOP means STOP!", "Not on MY watch!"];
+
+    // Ice-cream truck parked on the shoulder. Kids cluster around it (and a
+    // couple more dash ACROSS the road toward it — watch out!). Hug the near
+    // lane to grab a scoop for coins. Jingle plays as it appears.
+    function spawnIceTruck() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        iceTruck = { y: -170, side: side, taken: false, kids: [], noteT: 0 };
+        for (var i = 0; i < randInt(2, 3); i++) {
+            iceTruck.kids.push({ dx: rand(-22, 22), dy: rand(34, 58), type: randInt(0, 2) });
+        }
+        var from = -side; // kids run from the far side toward the truck
+        for (var k = 0; k < randInt(1, 2); k++) {
+            obstacles.push({
+                type: "ped", x: from < 0 ? ROAD_L - 12 : ROAD_R + 12, y: rand(-60, 50),
+                vx: -from * rand(70, 120), hitW: 18, hitH: 20, speedMult: 0.2, lane: 1,
+                pedType: randInt(0, 2), walkTime: 0
+            });
+        }
+        [659, 587, 523, 587, 659, 659, 659].forEach(function (f, i) {
+            setTimeout(function () { playTone(f, 0.12, "square", 0.07); }, i * 140);
+        });
+    }
 
     function spawnCrossingGuard() {
         var side = Math.random() < 0.5 ? -1 : 1;

@@ -724,6 +724,28 @@
             if (cg.y > H + 120) crossingGuard = null;
         }
 
+        // Ice-cream truck — sweeter in summer/heatwave, near schools & markets.
+        if (!iceTruck && gameTime > 18 &&
+            Math.random() < dt * ((zone === "school" || zone === "market") ? 0.05 : 0.012) *
+                            ((season === "summer" || season === "heatwave") ? 1.6 : 1)) {
+            spawnIceTruck();
+        }
+        if (iceTruck) {
+            iceTruck.y += gameSpeed * dt;
+            iceTruck.noteT += dt;
+            var itX = iceTruck.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+            if (!iceTruck.taken && aabb(player.x, player.y, CAR_W, CAR_H, itX, iceTruck.y, 40, 60)) {
+                iceTruck.taken = true;
+                var scoop = randInt(12, 25);
+                runCoins += scoop; save.totalCoins += scoop; persistSave();
+                score += scoop * 4;
+                spawnFloater(player.x, player.y - 30, "🍦 +" + scoop, "#F8BBD0");
+                spawnCoinSparkle(itX, iceTruck.y);
+                playBuy();
+            }
+            if (iceTruck.y > H + 110) iceTruck = null;
+        }
+
         // School buses — rare on the open road, common in the school zone.
         var busN = 0;
         for (var bn = 0; bn < obstacles.length; bn++) if (obstacles[bn].behavior === "bus") busN++;
@@ -1407,6 +1429,59 @@
         }
     }
 
+    function drawIceTruck(it) {
+        var y = it.y;
+        var tx = it.side < 0 ? ROAD_L - 36 : ROAD_R + 36; // parked on the shoulder
+        ctx.save();
+        ctx.translate(tx, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(2, 5, 26, 36, 0, 0, Math.PI * 2); ctx.fill();
+        // box truck: white with a pink wrap
+        ctx.fillStyle = "#E0E0E0"; roundRect(-24, -36, 48, 72, 8); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-22, -34, 44, 68, 6); ctx.fill();
+        ctx.fillStyle = "#F8BBD0"; roundRect(-22, -10, 44, 20, 0); ctx.fill();
+        ctx.strokeStyle = "#AD1457"; ctx.lineWidth = 2; roundRect(-22, -34, 44, 68, 6); ctx.stroke();
+        // cab windshield (front toward bottom)
+        ctx.fillStyle = "#81D4FA"; roundRect(-16, 18, 32, 12, 4); ctx.fill();
+        // serving window facing the road, with the server
+        var winX = it.side < 0 ? 14 : -22;
+        ctx.fillStyle = "#4FC3F7"; roundRect(winX, -26, 8, 22, 2); ctx.fill();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(winX + 4, -16, 4, 0, Math.PI * 2); ctx.fill();
+        // giant cone on the roof
+        ctx.fillStyle = "#D7A86E"; ctx.beginPath();
+        ctx.moveTo(-7, -36); ctx.lineTo(0, -54); ctx.lineTo(7, -36); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#F8BBD0"; ctx.beginPath(); ctx.arc(0, -36, 8, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, -43, 2.5, 0, Math.PI * 2); ctx.fill();
+        drawText("ICE CREAM", 0, 0, "bold 7px 'Segoe UI', Arial, sans-serif", "#AD1457", null, 0);
+        // wheels
+        ctx.fillStyle = "#222";
+        roundRect(-27, -24, 6, 14, 2); ctx.fill(); roundRect(21, -24, 6, 14, 2); ctx.fill();
+        roundRect(-27, 12, 6, 14, 2); ctx.fill(); roundRect(21, 12, 6, 14, 2); ctx.fill();
+        ctx.restore();
+        // kids clustered at the truck
+        for (var k = 0; k < it.kids.length; k++) {
+            drawPedestrian(tx + it.kids[k].dx, y + it.kids[k].dy, gameTime + k, it.kids[k].type);
+        }
+        // drifting music notes
+        for (var nz = 0; nz < 2; nz++) {
+            var nt = (it.noteT * 0.7 + nz * 0.5) % 1.4;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, 1 - nt / 1.4) * 0.8;
+            drawText(nz % 2 ? "♪" : "♫", tx + (it.side < 0 ? 20 : -20) + Math.sin(nt * 5) * 6,
+                y - 40 - nt * 34, "bold 13px Arial", "#AD1457", null, 0);
+            ctx.restore();
+        }
+        // pulsing scoop marker on the near lane
+        if (!it.taken) {
+            var ipulse = 1 + Math.sin(gameTime * 6) * 0.18;
+            var imx = it.side < 0 ? ROAD_L + 26 : ROAD_R - 26;
+            ctx.save(); ctx.translate(imx, y); ctx.scale(ipulse, ipulse);
+            ctx.fillStyle = "rgba(248,187,208,0.4)"; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+            drawText(it.side < 0 ? "◀🍦" : "🍦▶", 0, 0, "bold 13px Arial", "#F8BBD0", "#000", 3);
+            ctx.restore();
+        }
+    }
+
     function drawGuard(x, y) {
         ctx.save(); ctx.translate(x, y);
         ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 12, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -1742,6 +1817,7 @@
         }
 
         // Toll booth / train crossing / drive-thru / bus stop / crossing guard
+        if (iceTruck) drawIceTruck(iceTruck);
         if (crossingGuard) drawCrossingGuard(crossingGuard);
         if (busStop) drawBusStop(busStop);
         if (driveThru) drawDriveThru(driveThru);
