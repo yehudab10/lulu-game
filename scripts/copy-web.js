@@ -19,6 +19,7 @@ const ASSETS = [
   "icon-192.svg",
   "icon-512.svg",
   "lulu.mp3",
+  "luludriving.mp3",
   "dina.mp3",
   "avigail.mp3",
   "parking.mp3",

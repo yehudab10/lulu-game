@@ -792,6 +792,7 @@
     var heartEntities = [];   // rare extra-life pickups
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
+    var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}
     var driveThru = null;     // active drive-thru {y, side, taken}

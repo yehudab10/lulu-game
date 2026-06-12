@@ -4,7 +4,7 @@
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
-        fuelCans = []; nitroTimer = 0; tollBooth = null;
+        fuelCans = []; nitroTimer = 0; wetTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
         crossingGuard = null; convoyTimer = 0; convoyNext = 0; iceTruck = null;
         heshy = null;
@@ -124,6 +124,20 @@
             color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64, speedMult: 0.7,
             lane: lane, spot: 0, swerveT: 0, spillT: 0
         });
+    }
+
+    // Water kicked up when Lulu splashes through a puddle.
+    function spawnSplash(x, y) {
+        for (var i = 0; i < 14; i++) {
+            var a = rand(-Math.PI, 0); // upward fan
+            particles.push({
+                x: x + rand(-14, 14), y: y + 18,
+                vx: Math.cos(a) * rand(40, 130), vy: Math.sin(a) * rand(60, 170),
+                life: 0.5, maxLife: 0.5, size: rand(2, 4.5),
+                color: randPick(["#42A5F5", "#90CAF9", "#BBDEFB", "#E1F5FE"]), gravity: 240
+            });
+        }
+        playTone(280, 0.12, "sine", 0.08, 120);
     }
 
     function spawnAlcoholDrop(x, y) {
@@ -339,7 +353,12 @@
 
     // Driver chatter (speech bubbles over enemy cars, all by chance).
     var DRUNK_QUIPS = ["WOOO!", "*hic* sorry!", "I'm FINE to drive!", "Is it Purim?!",
-        "Who moved the road?", "One more lechaim!", "Whose lane is this??", "I see TWO Lulus!"];
+        "Who moved the road?", "One more lechaim!", "Whose lane is this??", "I see TWO Lulus!",
+        "The road is WAVY!", "I'm not drunk, YOU are!", "Designated... nah.", "Wheee, bumper cars!",
+        "Which pedal stops?", "Shhh, don't tell Ima.", "I drive BETTER like this!", "*burp* 'scuse me",
+        "Is this Mario Kart?", "Left is the new right!", "Lanes are a suggestion!", "I LOVE everybody!",
+        "Was that a stop sign?", "Catch me if you can, ociffer!", "My car, my rules!", "Spinny spinny!",
+        "I only had... eleven.", "Honk if you love cholent!", "The lines keep MOVING!", "Weee-ooo weee-ooo... no cops right?"];
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];

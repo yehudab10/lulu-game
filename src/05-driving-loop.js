@@ -26,6 +26,8 @@
         var speedMod = 1;
         if (keys.up) speedMod = 1.6;
         else if (keys.down) speedMod = 0.5;
+        // Splashed a puddle → brief slowdown (nitro below can still override it).
+        if (wetTimer > 0) { wetTimer = Math.max(0, wetTimer - dt); speedMod = Math.min(speedMod, 0.6); }
         // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
         // through traffic for bonus points.
         if (nitroTimer > 0) {
@@ -79,7 +81,12 @@
         for (var k in spawnClocks) spawnClocks[k] -= dt;
         var speedFactor = 1 - (baseGameSpeed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED) * 0.4;
 
-        if (spawnClocks.car <= 0) { spawnClocks.car = rand(1.0, 2.2) * speedFactor; spawnObstacle("car"); }
+        if (spawnClocks.car <= 0) {
+            // Heat-wave desert highway: cars are rare, and stretches are empty.
+            var desert = (season === "heatwave");
+            spawnClocks.car = rand(1.0, 2.2) * speedFactor * (desert ? 3.5 : 1);
+            if (!(desert && Math.random() < 0.55)) spawnObstacle("car");
+        }
         if (spawnClocks.cone <= 0) { spawnClocks.cone = rand(2.5, 5) * speedFactor; spawnObstacle("cone"); }
         if (spawnClocks.puddle <= 0) { spawnClocks.puddle = rand(4, 8) * speedFactor / SEASONS[season].puddleMul; spawnObstacle("puddle"); }
         // Pedestrians (→ passenger pickup = 30s double-coin bonus). Rarer now
@@ -262,8 +269,8 @@
                 o.x = clamp(o.x + Math.sin(o.swerveT * 2.6) * 95 * dt, ROAD_L + 22, ROAD_R - 22);
                 o.spillT -= dt;
                 if (o.spillT <= 0) { o.spillT = rand(0.25, 0.6); spawnAlcoholDrop(o.x, o.y); }
-                // occasional drunken outburst
-                if (o.commentT <= 0 && Math.random() < dt * 0.22) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
+                // frequent drunken outbursts (lots of options)
+                if (o.commentT <= 0 && Math.random() < dt * 0.38) { o.comment = randPick(DRUNK_QUIPS); o.commentT = 2.2; }
             } else if (o.type === "car" && o.behavior === "bus") {
                 if (o.commentT <= 0 && Math.abs(o.y - player.y) < 150 && Math.random() < dt * 0.4) {
                     o.comment = randPick(BUS_QUIPS); o.commentT = 2.0;
@@ -302,6 +309,11 @@
                     // Easter egg — never a penalty. Summon Heshy + grant a shield.
                     triggerHeshy();
                     obstacles.splice(i, 1);
+                    continue;
+                }
+                if (o.type === "puddle") {
+                    // Just a wet splash that slows you for a beat — never a crash.
+                    if (!o.splashed) { o.splashed = true; wetTimer = Math.max(wetTimer, 0.7); spawnSplash(o.x, player.y); }
                     continue;
                 }
                 // Nitro turbo plows through traffic for bonus points.

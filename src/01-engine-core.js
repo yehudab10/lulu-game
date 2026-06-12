@@ -281,7 +281,14 @@
         avigail: "avigail.mp3",
         salon:   "salon.mp3"
     };
-    var musicElements = {};      // cached Audio() elements per track
+    // Some tracks are PLAYLISTS — they play through in sequence then repeat the
+    // sequence, instead of looping a single song forever.
+    var MUSIC_PLAYLISTS = {
+        lulu: ["lulu.mp3", "luludriving.mp3"]
+    };
+    var musicElements = {};       // cached looping Audio() per single-file track
+    var playlistEls = {};         // track → [Audio, ...] for playlist tracks
+    var playlistIdx = {};         // track → current index in its playlist
     var currentMusicTrack = null; // file-track name currently selected
     var currentMusicEl = null;
     var musicMuted = false;       // separate from SFX mute; toggled in pause menu
@@ -299,6 +306,35 @@
             musicElements[track] = a;
         }
         return musicElements[track];
+    }
+
+    function buildPlaylist(track) {
+        if (playlistEls[track]) return;
+        var files = MUSIC_PLAYLISTS[track];
+        var els = [];
+        files.forEach(function (f, i) {
+            var a = new Audio(f);
+            a.loop = false;
+            a.volume = MUSIC_VOLUME;
+            a.preload = "auto";
+            a.addEventListener("ended", function () {
+                // advance to the next song (cycling) only if still on this track
+                if (currentMusicTrack === track) {
+                    playlistIdx[track] = (i + 1) % files.length;
+                    playPlaylistCurrent(track);
+                }
+            });
+            els.push(a);
+        });
+        playlistEls[track] = els;
+        playlistIdx[track] = 0;
+    }
+    function playPlaylistCurrent(track) {
+        if (document.hidden || musicMuted || audioMuted || !audioUnlocked) return;
+        var el = playlistEls[track][playlistIdx[track] || 0];
+        currentMusicEl = el;
+        el.volume = MUSIC_VOLUME;
+        el.play().catch(function () {});
     }
 
     function stopMusic() {
@@ -336,13 +372,18 @@
         }
         // Switch tracks
         if (currentMusicEl) { try { currentMusicEl.pause(); } catch (e) {} }
-        var el = getMusicEl(track);
         currentMusicTrack = track;
         musicState = track;
-        currentMusicEl = el;
-        if (!el) return;
-        el.volume = MUSIC_VOLUME;
-        el.play().catch(function () {});
+        if (MUSIC_PLAYLISTS[track]) {
+            buildPlaylist(track);
+            playPlaylistCurrent(track);
+        } else {
+            var el = getMusicEl(track);
+            currentMusicEl = el;
+            if (!el) return;
+            el.volume = MUSIC_VOLUME;
+            el.play().catch(function () {});
+        }
     }
 
     function playHonkPitched(pitch) {
