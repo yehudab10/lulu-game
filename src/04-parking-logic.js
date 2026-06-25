@@ -13,6 +13,7 @@
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
+        crashReprieve = false; reprieveKind = null;
         parkingSigns = []; parkingSpawnTimer = 25;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
@@ -205,6 +206,8 @@
                 hitW: 18, hitH: 20, speedMult: 0.5, lane: lane,
                 pedType: randInt(0, 2),
                 worker: (typeof zone !== "undefined" && zone === "construction"),
+                drunk: (typeof zone !== "undefined" && zone === "bars"),
+                catcallT: 0,
                 walkTime: 0
             });
         }

@@ -2654,10 +2654,19 @@
     }
 
     // ── Drawing: Pedestrians (people obstacles) ──────────────
-    function drawPedestrian(x, y, walkTime, type, worker) {
+    function drawPedestrian(x, y, walkTime, type, worker, drunk) {
         ctx.save();
         ctx.translate(x, y);
-        var legSwing = Math.sin(walkTime * 10) * 4;
+        if (drunk) {
+            // Tipsy bar patron: a woozy green aura and a permanent sway.
+            var ag = ctx.createRadialGradient(0, 0, 4, 0, 0, 26);
+            ag.addColorStop(0, "rgba(124,179,66,0.22)");
+            ag.addColorStop(1, "rgba(124,179,66,0)");
+            ctx.fillStyle = ag;
+            ctx.beginPath(); ctx.arc(0, -4, 24, 0, Math.PI * 2); ctx.fill();
+            ctx.rotate(Math.sin(walkTime * 3) * 0.16);
+        }
+        var legSwing = Math.sin(walkTime * (drunk ? 6 : 10)) * (drunk ? 6 : 4);
         // Shadow
         ctx.fillStyle = "rgba(0,0,0,0.2)";
         ctx.beginPath(); ctx.ellipse(0, 16, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -2747,6 +2756,14 @@
             ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
             ctx.fillRect(-8.5, -16, 17, 2.5);
             ctx.fillStyle = "#F9A825"; ctx.fillRect(-1.5, -23, 3, 7);
+        }
+
+        if (drunk) {
+            // A little bottle clutched in one hand.
+            ctx.fillStyle = "#2E7D32";
+            roundRect(7.5, 1, 3.5, 9, 1.5); ctx.fill();
+            ctx.fillStyle = "#1B5E20";
+            ctx.fillRect(8.4, -1.5, 1.8, 3);
         }
 
         ctx.restore();
@@ -4297,6 +4314,8 @@
     var crashCars = [];       // revenge cars that mow down the swarm
     var crashSmokeT = 0;      // smoke emitter timer for the wreck
     var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
+    var crashReprieve = false; // this wipeout is secretly a funny second chance
+    var reprieveKind = null;   // "arrest" (cop nabs the man) | "chase" (man runs off)
 
     var obstacles = [];
     var coinEntities = [];
@@ -4501,6 +4520,7 @@
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
+        crashReprieve = false; reprieveKind = null;
         parkingSigns = []; parkingSpawnTimer = 25;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
@@ -4693,6 +4713,8 @@
                 hitW: 18, hitH: 20, speedMult: 0.5, lane: lane,
                 pedType: randInt(0, 2),
                 worker: (typeof zone !== "undefined" && zone === "construction"),
+                drunk: (typeof zone !== "undefined" && zone === "bars"),
+                catcallT: 0,
                 walkTime: 0
             });
         }
@@ -5699,6 +5721,18 @@
 
             if (o.commentT > 0) o.commentT -= dt; // speech-bubble lifetime
 
+            // Drunk bar patrons holler at Lulu often; rowdy workers, rarely.
+            if (o.type === "ped" && (o.drunk || o.worker) && o.y > 40 && o.y < H - 40) {
+                o.catcallT -= dt;
+                if (o.catcallT <= 0 && o.commentT <= 0) {
+                    var callChance = o.drunk ? 0.5 : 0.06; // workers only now and then
+                    if (Math.random() < callChance) {
+                        o.comment = randPick(BAR_CATCALLS); o.commentT = 2.0;
+                    }
+                    o.catcallT = rand(1.6, 3.4);
+                }
+            }
+
             // Traffic parts for the ambulance: nearby cars veer to the shoulder.
             if (ambulance && o !== ambulance && o.type === "car" && Math.abs(o.y - ambulance.y) < 150) {
                 var away = o.x < ambulance.x ? -1 : 1;
@@ -6032,6 +6066,9 @@
         if (zone === "construction" && gameTime > 8 && Math.random() < dt * 0.5) {
             spawnObstacle("ped"); // road workers (drawn with hard hats; act like peds)
         }
+        if (zone === "bars" && gameTime > 5 && Math.random() < dt * 0.45) {
+            spawnObstacle("ped"); // tipsy patrons spilling out of the bars
+        }
         if (zone === "hospital" && gameTime > 5 && Math.random() < dt * 0.5) {
             var hasAmb = false;
             for (var ha = 0; ha < obstacles.length; ha++) if (obstacles[ha].behavior === "ambulance") hasAmb = true;
@@ -6275,12 +6312,19 @@
             crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0;
             angryMan = null; revengeCar = null;
             if (kind === "car") {
-                // The enemy car you hit is wrecked, askew + smoking, just ahead.
-                var cx0 = clamp(player.x + (player.x < W / 2 ? 36 : -36), ROAD_L + 30, ROAD_R - 30);
-                crashedCar = { x: cx0, y: player.y - 70, rot: rand(0.22, 0.5) * (cx0 < player.x ? -1 : 1),
-                               color: (obj && obj.color) || randPick(C.enemyCols), carType: (obj && obj.carType) || 0 };
+                // The exact vehicle you hit becomes the wreck — bus stays a bus,
+                // ambulance an ambulance — sitting right where it was struck.
+                var wx = clamp(obj.x, ROAD_L + 24, ROAD_R - 24);
+                crashedCar = { x: wx, y: obj.y, rot: rand(0.22, 0.5) * (wx < player.x ? -1 : 1),
+                               color: (obj && obj.color) || randPick(C.enemyCols),
+                               carType: (obj && obj.carType) || 0,
+                               behavior: (obj && obj.behavior) || "normal" };
+                obj.hidden = true; // hide the live sprite so the wreck doesn't double up
                 spawnCrashBurst(crashedCar.x, crashedCar.y, true);
             }
+            // A rare, funny reprieve only when a person (not a swarm) confronts you.
+            crashReprieve = (kind !== "animal") && Math.random() < 0.20;
+            reprieveKind = Math.random() < 0.5 ? "arrest" : "chase";
             spawnCrashBurst(player.x, player.y, true);
             playExplosion();
             setTimeout(playWompWomp, 400);
@@ -6540,7 +6584,24 @@
         "MY INSURANCE!!",
         "20 YEARS,\nNO CLAIMS — GONE!",
         "DO YOU SEE\nTHIS DENT?!",
-        "I JUST WAXED\nTHIS!!"
+        "I JUST WAXED\nTHIS!!",
+        "THAT'S A LEASE,\nLADY!!",
+        "I JUST PAID\nIT OFF!!",
+        "MY WIFE'S\nGONNA KILL ME!",
+        "FORTY YEARS\nOF DRIVING!!",
+        "YOU'LL HEAR\nFROM MY LAWYER!",
+        "THAT WAS A\nCLASSIC!!",
+        "BRAND NEW\nTIRES!! GONE!",
+        "I NAMED\nHER BETSY!!",
+        "WHERE'S YOUR\nLICENSE?!",
+        "MY BUMPER\nSTICKER!!"
+    ];
+    // Drunk bar patrons + the odd rowdy worker holler these at Lulu.
+    var BAR_CATCALLS = [
+        "Heyyy gorgeous! 🍻", "Niiice ride, sweetheart!", "Gimme a liiift?",
+        "You're SO pretty!", "Marry me, Lulu! 💍", "*wolf whistle*", "Hubba hubba!",
+        "Lookin' GOOD!", "Call me! ...somehow", "Is it hot or is it you?",
+        "*hiccup* hellooo!", "Drive me home, cutie?", "My NUMBER is— *burp*"
     ];
     // Insults the swarming animals hurl at Lulu (generic across species).
     var ANIMAL_INSULTS = [
@@ -6775,9 +6836,13 @@
             return;
         }
 
-        // Phase 2: man yelling — spawn a revenge car coming down
+        // Phase 2: man yelling — then either a revenge car OR a funny reprieve
         if (crashPhase === 2) {
             angryMan.time += dt;
+            if (crashPhaseTimer <= 0 && crashReprieve) {
+                beginReprieve();
+                return;
+            }
             if (crashPhaseTimer <= 0 && !revengeCar) {
                 revengeCar = {
                     x: angryMan.x,
@@ -6818,6 +6883,74 @@
             }
             return;
         }
+
+        // Phase 4: the rare reprieve plays out — a weird, funny second chance.
+        if (crashPhase === 4) {
+            angryMan.time += dt;
+            if (angryMan.time > 7) { grantSecondChance(); return; } // hard safety cap
+            if (reprieveKind === "arrest") {
+                if (revengeCar && !revengeCar.arrived) {
+                    // cop screeches down to the man
+                    revengeCar.y += revengeCar.vy * dt;
+                    if (revengeCar.y >= angryMan.y) {
+                        revengeCar.y = angryMan.y;
+                        revengeCar.arrived = true;
+                        crashPhaseTimer = 1.1; // a beat for the cuffing
+                        angryYell = randPick(["You're NICKED!", "Book him, boys!", "Down to the station!"]);
+                    }
+                    return;
+                }
+                if (crashPhaseTimer > 0) return; // hold during the cuffing beat
+                // haul the man + cop off toward the nearer edge
+                var edgeDir = (revengeCar && revengeCar.x < W / 2) ? -1 : 1;
+                angryMan.state = "running"; angryMan.runDir = edgeDir;
+                angryMan.x += edgeDir * 175 * dt;
+                if (revengeCar) revengeCar.x += edgeDir * 95 * dt;
+                if (angryMan.x < -50 || angryMan.x > W + 50) grantSecondChance();
+                return;
+            }
+            // "chase": the man got distracted and bolts off down the road
+            angryMan.x += angryMan.runDir * 230 * dt;
+            if (angryMan.x < -50 || angryMan.x > W + 50) grantSecondChance();
+            return;
+        }
+    }
+
+    // Set up the rare second-chance sequence (chosen in hitPlayer).
+    function beginReprieve() {
+        crashPhase = 4;
+        crashPhaseTimer = 3.2;
+        if (reprieveKind === "arrest") {
+            // A cop screeches in from the top to nab the angry man.
+            revengeCar = {
+                x: clamp(angryMan.x + (angryMan.x < W / 2 ? 42 : -42), ROAD_L + 24, ROAD_R - 24),
+                y: -110, vy: 620, cop: true, arrived: false, hitW: 36, hitH: 64
+            };
+            angryYell = "Wait— officer?!";
+            angryMan.state = "yelling";
+        } else {
+            // The man is distracted by something and runs off down the road.
+            angryMan.state = "running";
+            angryMan.runDir = angryMan.x < W / 2 ? -1 : 1;
+            angryYell = randPick(["HEY! COME BACK!", "MY HAT! MY HAT!", "STOP! THIEF!", "THAT'S MY DOG!"]);
+        }
+    }
+
+    // Resume the run with one life — the funny twist let Lulu off the hook.
+    function grantSecondChance() {
+        spawnFloater(W / 2, H * 0.40, "SECOND CHANCE!", "#7CFC00");
+        spawnFloater(W / 2, H * 0.40 + 26,
+            reprieveKind === "arrest" ? "They cuffed the guy! 🚓" : "You slipped away! 🏃‍♀️", "#FFE082");
+        lives = 1;
+        invincibleTimer = 2.6;
+        shakeTimer = 0; flashTimer = 0;
+        angryMan = null; revengeCar = null; crashedCar = null;
+        crashCause = null; animalSwarm = []; crashCars = [];
+        crashReprieve = false; reprieveKind = null;
+        // Clear the hidden wreck sprite so it doesn't pop back when play resumes.
+        for (var hi = obstacles.length - 1; hi >= 0; hi--) if (obstacles[hi].hidden) obstacles.splice(hi, 1);
+        state = "playing";
+        playClick();
     }
 
     // ── Update: Game Over ────────────────────────────────────
@@ -7536,6 +7669,7 @@
 
         for (var n = 0; n < obstacles.length; n++) {
             var o = obstacles[n];
+            if (o.hidden) continue; // the wrecked car is redrawn by the crash scene
             // Headlights on at night and in fog (drawn under the vehicle)
             if (o.type === "car" && seasonBlend > 0.4 &&
                 (season === "night" || season === "fog")) {
@@ -7556,7 +7690,10 @@
                 else drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
-            else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker);
+            else if (o.type === "ped") {
+                drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk);
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 6, o.comment);
+            }
         }
 
         // Missiles
@@ -7676,14 +7813,8 @@
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
         }
 
-        // The enemy car you smashed — a smoking, tilted wreck just ahead.
-        if (crashedCar) {
-            ctx.save();
-            ctx.translate(crashedCar.x, crashedCar.y);
-            ctx.rotate(crashedCar.rot);
-            drawEnemyCar(0, 0, crashedCar.color, crashedCar.carType);
-            ctx.restore();
-        }
+        // The vehicle you smashed — the matching wreck, smoking and tilted.
+        if (crashedCar) drawWreck(crashedCar);
 
         // ── Animal-revenge variant ──────────────────────────────
         if (crashCause && crashCause.kind === "animal") {
@@ -7712,20 +7843,47 @@
 
         // ── Angry-man variant ───────────────────────────────────
         if (!angryMan) { ctx.restore(); return; }
-        // Revenge car (if active) — drawn before the man if behind, after if hit
-        if (revengeCar && angryMan.state !== "hit") {
-            drawEnemyCar(revengeCar.x, revengeCar.y, revengeCar.color, revengeCar.carType);
-        }
+        // Revenge car / cop (if active) — drawn before the man if behind, after if hit
+        if (revengeCar && angryMan.state !== "hit") drawRevenge(revengeCar);
         if (angryMan.state !== "hit") {
             drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir);
-            if (angryMan.state === "yelling") {
+            if (angryMan.state === "yelling" || crashPhase === 4) {
                 drawSpeechBubble(angryMan.x, angryMan.y - 30, angryYell, angryMan.time);
             }
         }
-        if (revengeCar && angryMan.state === "hit") {
-            drawEnemyCar(revengeCar.x, revengeCar.y, revengeCar.color, revengeCar.carType);
-        }
+        if (revengeCar && angryMan.state === "hit") drawRevenge(revengeCar);
         ctx.restore();
+    }
+
+    // Draw the wrecked vehicle that matches what Lulu actually hit (a bus stays
+    // a bus, an ambulance an ambulance), with a fixed scorch + cracked-glass overlay.
+    function drawWreck(v) {
+        ctx.save();
+        ctx.translate(v.x, v.y);
+        ctx.rotate(v.rot || 0);
+        if (v.behavior === "bus") drawTopBus(0, 0);
+        else if (v.behavior === "ambulance") drawAmbulance(0, 0, gameTime);
+        else if (v.behavior === "patrol") drawCopCar(0, 0, gameTime);
+        else drawEnemyCar(0, 0, v.color, v.carType); // "pulled"/drunk/texting = the civilian car body
+        // scorch blotches (deterministic — no per-frame flicker)
+        ctx.globalAlpha = 0.45;
+        ctx.fillStyle = "#2B2017";
+        ctx.beginPath(); ctx.ellipse(-4, -CAR_H * 0.18, 10, 7, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(6, CAR_H * 0.10, 7, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        // cracked windshield
+        ctx.strokeStyle = "rgba(232,242,255,0.9)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-6, -CAR_H * 0.22); ctx.lineTo(0, -CAR_H * 0.05); ctx.lineTo(7, -CAR_H * 0.20);
+        ctx.moveTo(0, -CAR_H * 0.05); ctx.lineTo(2, -CAR_H * 0.30);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // A revenge actor is either a regular car or the cop that nabs the angry man.
+    function drawRevenge(rc) {
+        if (rc.cop) drawCopCar(rc.x, rc.y, gameTime);
+        else drawEnemyCar(rc.x, rc.y, rc.color, rc.carType);
     }
 
     // ── Draw: Parking Intro/Outro (zoom transition) ──────────

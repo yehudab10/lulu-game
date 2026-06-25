@@ -654,10 +654,19 @@
     }
 
     // ── Drawing: Pedestrians (people obstacles) ──────────────
-    function drawPedestrian(x, y, walkTime, type, worker) {
+    function drawPedestrian(x, y, walkTime, type, worker, drunk) {
         ctx.save();
         ctx.translate(x, y);
-        var legSwing = Math.sin(walkTime * 10) * 4;
+        if (drunk) {
+            // Tipsy bar patron: a woozy green aura and a permanent sway.
+            var ag = ctx.createRadialGradient(0, 0, 4, 0, 0, 26);
+            ag.addColorStop(0, "rgba(124,179,66,0.22)");
+            ag.addColorStop(1, "rgba(124,179,66,0)");
+            ctx.fillStyle = ag;
+            ctx.beginPath(); ctx.arc(0, -4, 24, 0, Math.PI * 2); ctx.fill();
+            ctx.rotate(Math.sin(walkTime * 3) * 0.16);
+        }
+        var legSwing = Math.sin(walkTime * (drunk ? 6 : 10)) * (drunk ? 6 : 4);
         // Shadow
         ctx.fillStyle = "rgba(0,0,0,0.2)";
         ctx.beginPath(); ctx.ellipse(0, 16, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -747,6 +756,14 @@
             ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
             ctx.fillRect(-8.5, -16, 17, 2.5);
             ctx.fillStyle = "#F9A825"; ctx.fillRect(-1.5, -23, 3, 7);
+        }
+
+        if (drunk) {
+            // A little bottle clutched in one hand.
+            ctx.fillStyle = "#2E7D32";
+            roundRect(7.5, 1, 3.5, 9, 1.5); ctx.fill();
+            ctx.fillStyle = "#1B5E20";
+            ctx.fillRect(8.4, -1.5, 1.8, 3);
         }
 
         ctx.restore();

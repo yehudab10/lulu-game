@@ -794,6 +794,8 @@
     var crashCars = [];       // revenge cars that mow down the swarm
     var crashSmokeT = 0;      // smoke emitter timer for the wreck
     var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
+    var crashReprieve = false; // this wipeout is secretly a funny second chance
+    var reprieveKind = null;   // "arrest" (cop nabs the man) | "chase" (man runs off)
 
     var obstacles = [];
     var coinEntities = [];
