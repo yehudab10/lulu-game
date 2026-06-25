@@ -469,6 +469,7 @@
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
+    var footActQueued = false; // on-foot "interact" (enter building / steal car)
     var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
     var touchY = null;  // held-finger position (drag-to-move scenes); null when not dragging
@@ -548,9 +549,16 @@
         // Dina's run uses finger-drag for left/right (like Lulu's car); only the
         // sprint (⚡) and slow (🐢) buttons remain so they can be held with a
         // second finger while dragging.
-        if (state === "dinaRun" || state === "footRun") {
+        if (state === "dinaRun") {
             if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
+            return null;
+        }
+        // Lulu on foot: run/slow on the LEFT (boost/brake slots), interact on the RIGHT (honk slot).
+        if (state === "footRun") {
+            if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
+            if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
+            if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "footAct";
             return null;
         }
         // Cookie Catch slides the plate by dragging; only Pause stays a button.
@@ -589,6 +597,7 @@
         if (e.key === "p" || e.key === "P" || e.key === "Escape") { pauseQueued = true; e.preventDefault(); }
         if (e.key === "m" || e.key === "M") { missileQueued = true; e.preventDefault(); }
         if (e.key === "h" || e.key === "H") { honkQueued = true; e.preventDefault(); }
+        if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
     });
     document.addEventListener("keyup", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
@@ -633,6 +642,8 @@
             } else if (btn === "parkRev") {
                 keys.down = true;
                 parkRevTouchId = t.identifier;
+            } else if (btn === "footAct") {
+                footActQueued = true;
             } else {
                 // Not a button — register click (for menu/shop/game-over) and
                 // start finger-drag steering. Drag-to-move scenes (Dina's run,
@@ -642,7 +653,7 @@
                 queueAction();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
-                     state === "cookieCatch" || state === "dinaHome")) {
+                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;
                     touchY = pos.y;

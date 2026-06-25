@@ -471,6 +471,7 @@
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
+    var footActQueued = false; // on-foot "interact" (enter building / steal car)
     var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
     var touchY = null;  // held-finger position (drag-to-move scenes); null when not dragging
@@ -550,9 +551,16 @@
         // Dina's run uses finger-drag for left/right (like Lulu's car); only the
         // sprint (⚡) and slow (🐢) buttons remain so they can be held with a
         // second finger while dragging.
-        if (state === "dinaRun" || state === "footRun") {
+        if (state === "dinaRun") {
             if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
+            return null;
+        }
+        // Lulu on foot: run/slow on the LEFT (boost/brake slots), interact on the RIGHT (honk slot).
+        if (state === "footRun") {
+            if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
+            if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
+            if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "footAct";
             return null;
         }
         // Cookie Catch slides the plate by dragging; only Pause stays a button.
@@ -591,6 +599,7 @@
         if (e.key === "p" || e.key === "P" || e.key === "Escape") { pauseQueued = true; e.preventDefault(); }
         if (e.key === "m" || e.key === "M") { missileQueued = true; e.preventDefault(); }
         if (e.key === "h" || e.key === "H") { honkQueued = true; e.preventDefault(); }
+        if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
     });
     document.addEventListener("keyup", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
@@ -635,6 +644,8 @@
             } else if (btn === "parkRev") {
                 keys.down = true;
                 parkRevTouchId = t.identifier;
+            } else if (btn === "footAct") {
+                footActQueued = true;
             } else {
                 // Not a button — register click (for menu/shop/game-over) and
                 // start finger-drag steering. Drag-to-move scenes (Dina's run,
@@ -644,7 +655,7 @@
                 queueAction();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
-                     state === "cookieCatch" || state === "dinaHome")) {
+                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;
                     touchY = pos.y;
@@ -10813,588 +10824,445 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    //  LULU ON FOOT — "The Long Way to Bubbe's"
-    //  A self-contained top-down playthrough that boots up when Lulu's
-    //  car is wrecked. She's late for Shabbos dinner and the sun's going
-    //  down, so she runs there on foot — managing ONE stamina bar (sprint
-    //  to bank distance, walk to recover), dodging strollers/scooters/
-    //  hydrants, and outrunning Mom's minivan in the climax.
-    //  Cloned from the Dina-run template (08-dina-run.js).
-    //  Entered from: the 20% crash reprieve, a parking-sim crash, and
-    //  10% of cop pull-overs.  WIN → returnToDriving();  LOSE → gameover.
+    //  LULU ON FOOT — a GTA-lite walking world
+    //  When Lulu's car is wrecked she walks her OWN road (same world,
+    //  same traffic) — but on two legs and untouchable: cars honk and
+    //  swerve around her, drunks catcall and chase her, animals scatter.
+    //  She can duck into buildings (bar/school/hospital/police/beach —
+    //  each its own interior mini-world) and "borrow" a parked car to
+    //  get back on the road (GTA-style) — steal it in front of a cop and
+    //  you'll be chased.  Entered from the crash reprieve, a parking-sim
+    //  crash, and 10% of cop pull-overs.
     // ════════════════════════════════════════════════════════════
 
-    var FOOT_BASE = 165;        // px/sec base run speed (cruise)
-    var FOOT_TOTAL_PX = 7800;   // full journey to Bubbe's (~47s at cruise)
+    var FOOT_BASE = 150;        // forward walk speed (px/sec, cruise)
+    var FOOT_RUN = 2.1, FOOT_SLOW = 0.45;
 
-    // ── State ────────────────────────────────────────────────
-    var footPhase = 0;          // 0 intro · 1 run · 2 outro
+    // ── Exterior state ───────────────────────────────────────
+    var footPhase = 0;          // 0 = quick get-out cinematic, 1 = walking
     var footTimer = 0;
-    var footStartScroll = 0;    // scrollOffset when the run began (progress baseline)
-    var footDistance = 0;       // 0..1 progress along the real road
-    var footStamina = 100;      // the master resource — empties = caught
-    var footHazards = [];
-    var footHazardSpawn = 1.0;
-    var footStars = 0;
-    var footCoinsRun = 0;
-    var footLulu = null;
-    var momVan = null;          // climax pursuer (spawns ~85%)
+    var footLulu = null;        // { x, y, walkTime, face, wreckT }
+    var footObs = [];           // live world entities (cars/cops/peds/animals/cones/coins)
+    var footSpawnT = 1.0;
+    var footParked = [];        // stealable parked cars
+    var footDoors = [];         // building entrances
+    var footPrompt = null;      // nearest interactable: { kind, ent, label }
+    var footDoorCool = 0;       // re-entry cooldown after leaving a building
+    var footParkCool = 0;       // spacing between parked-car spawns
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
-    var footDiff = 1;
-    var footEnding = "made";    // "made" | "caught"
+    var footCoinsRun = 0, footStars = 0;
     var footIntroLine = "";
-    var footBeats = {};         // one-shot story-beat flags
-    var footConfetti = [];
-    var footBankedCoins = 0, footBankedStars = 0, footWinBonus = 0;
-    var footToast = "", footToastT = 0; // brief story-beat banner
+    var footHint = "", footHintT = 0;
+    var footChat = "", footChatT = 0, footChatNext = 3;
+    var footInteriorType = null;
+
+    // ── Saying pools (lots of variety) ───────────────────────
+    var FOOT_CAR_HONKS = ["BEEP BEEP!", "Use a CROSSWALK!", "You WALKING the highway?!",
+        "Meshugene!", "MOVE it, lady!", "Get OUTTA the road!", "HOOONK", "Nice jaywalk!",
+        "I'm DRIVING here!", "Sidewalk's RIGHT there!"];
+    var FOOT_DRUNK_CALLS = ["Heyyy gorgeous! 🍻", "Marry me — I have a CAR! 🚗", "*wolf whistle*",
+        "You're an ANGEL 😇", "Hubba hubba!", "Niiice... walk?", "Call me! ...somehow",
+        "Lookin' GOOD, Lulu!", "Is it hot or is it YOU?", "*hiccup* helloooo", "Need a LIFT? 😏",
+        "My NUMBER is— *burp*", "You complete me!", "Pull OVER, beautiful!"];
+    var FOOT_CHASE_LINES = ["Wait UP! 🏃", "Just ONE seltzer!", "I'll walk you home!",
+        "Come baaack!", "I'm a CATCH!", "Where ya GOIN?!", "Slow dowwwn!", "I do CARDIO!"];
+    var FOOT_LULU_CHAT = ["Where do I get a CAR around here?", "Walking. In these flats. Great.",
+        "Bubbe's gonna plotz.", "I need a RIDE.", "So many cars... none are MINE.",
+        "Is everyone DRUNK today?", "I should've taken the bus.", "These men. Oy.",
+        "Twenty minutes till candles!", "A car. Any car. Please."];
+    var FOOT_STEAL_LINES = ["Borrowing this! 🚗", "Sorry, EMERGENCY!", "I'll bring it back!",
+        "Don't mind if I DO!", "Grand theft... mitzvah?", "Keys were RIGHT there!", "Bubbe needs me!"];
 
     function startFootWorld(reason) {
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
-        footDiff = Math.min(1 + (footRunLevel - 1) * 0.12, 2.2);
         save.footRunsPlayed = footRunLevel; persistSave();
-        footPhase = 0; footTimer = 0; footStartScroll = scrollOffset; footDistance = 0;
-        footStamina = 100; footHazards = []; footHazardSpawn = 1.0;
-        footStars = 0; footCoinsRun = 0; footToast = ""; footToastT = 0;
-        momVan = null; footConfetti = [];
-        footBeats = { avigail: false, heshy: false, greenblatt: false, mom: false };
-        footEnding = "made";
+        footPhase = 0; footTimer = 0;
+        footObs = []; footParked = []; footDoors = [];
+        footSpawnT = 1.0; footParkCool = 6; footDoorCool = 2;
+        footPrompt = null;
+        footCoinsRun = 0; footStars = 0;
+        footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
+        footInteriorType = null;
+        footHint = "Find a car to “borrow” 🚗"; footHintT = 6;
         footIntroLine =
-            reason === "parkingCrash" ? "That's coming out of my deposit.\nDeal with it later — RUN!" :
-            reason === "copWalk"      ? "Impounded?! Bubbe's gonna plotz.\n\"Walk it off,\" he says. Fine. I'll WALK." :
-                                        "The car's a meatball. But Bubbe lights\ncandles in twenty minutes — RUN!";
-        footLulu = { x: W / 2, y: H - 200, walkTime: 0, lane: 1, stumble: 0,
-                     mood: "cry", chat: "", chatLife: 0, chatTimer: rand(2.5, 4.5), smokeT: 0 };
-        state = "footRun";
-        playClick();
+            reason === "parkingCrash" ? "That's coming out of my deposit.\nOn foot it is." :
+            reason === "copWalk"      ? "Impounded?! Fine. I'll WALK.\n...and find a new ride." :
+                                        "The car's a meatball.\nTime to borrow one.";
+        footLulu = { x: W / 2, y: H - 220, walkTime: 0, face: "cry", wreckT: 0 };
+        state = "footRun";   // smooth: no tap, flows straight in
     }
 
-    // ── Update ───────────────────────────────────────────────
+    // ── Update: exterior ─────────────────────────────────────
     function updateFootRun(dt) {
         if (!footLulu) return;
         footTimer += dt;
-        updateParticles(dt);            // particles aren't ticked globally in sub-scenes
+        updateParticles(dt);
         if (shakeTimer > 0) shakeTimer -= dt;
 
         if (footPhase === 0) { updateFootIntro(dt); return; }
-        if (footPhase === 2) { updateFootOutro(dt); return; }
 
-        // ── Phase 1: the run ──────────────────────────────────
-        if (footToastT > 0) footToastT -= dt;
-        var sprint = keys.up && footStamina > 0;
-        var slow = keys.down;
-        var speedMult = sprint ? 1.9 : (slow ? 0.55 : 1.0);
-        if (footLulu.stumble > 0) { speedMult *= 0.3; footLulu.stumble -= dt; }
+        // Forward pace — run/slow, on the LEFT buttons (keys.up/down)
+        var run = keys.up, slow = keys.down;
+        var sp = run ? FOOT_RUN : (slow ? FOOT_SLOW : 1.0);
+        var fwd = FOOT_BASE * sp;
 
-        // Stamina: the heart of the design. Sprinting burns it, walking
-        // recovers it, cruising slowly tires you. Hit 0 → Mom catches you.
-        if (sprint) footStamina -= 13 * dt;
-        else if (slow) footStamina += 7 * dt;
-        else footStamina -= 2.0 * dt;
-        footStamina = clamp(footStamina, 0, 100);
-        footLulu.mood = footStamina < 28 ? "panic" : "run";
+        // Advance her ACTUAL world (road, zones, seasons, decorations).
+        scrollOffset += fwd * dt;
+        updateZone(dt, fwd);
+        updateSeason(dt, fwd);
+        updateDecorations(dt, fwd);
+        footLulu.walkTime += dt * (0.4 + sp);
+        footLulu.face = "run";
+        if (run) particles.push({ x: footLulu.x + rand(-9, 9), y: footLulu.y + 22,
+            vx: rand(-22, 22), vy: rand(16, 50), life: 0.4, maxLife: 0.4,
+            size: rand(3, 6), color: randPick(["#D7CCC8", "#BCAAA4", "#CFD8DC"]), gravity: 0 });
 
-        // Legs visibly spin faster sprinting, plod walking — animation reads the mechanic.
-        footLulu.walkTime += dt * (0.4 + speedMult);
+        // Steer across the FULL width — road and sidewalks both.
+        var minX = 22, maxX = W - 22;
+        if (touchX !== null) footLulu.x = lerp(footLulu.x, clamp(touchX, minX, maxX), Math.min(1, 14 * dt));
+        else { var mv = (keys.left ? -1 : 0) + (keys.right ? 1 : 0); footLulu.x = clamp(footLulu.x + mv * 300 * dt, minX, maxX); }
 
-        // She's running along the SAME road she drives — advance the real
-        // world scroll and keep its zones/seasons/decorations evolving so it's
-        // her actual world (cars, buildings, weather), just on two legs.
-        var runSpeed = FOOT_BASE * speedMult;
-        scrollOffset += runSpeed * dt;
-        updateZone(dt, runSpeed);
-        updateSeason(dt, runSpeed);
-        updateDecorations(dt, runSpeed);
-        footDistance = clamp((scrollOffset - footStartScroll) / FOOT_TOTAL_PX, 0, 1);
+        // Spawn + advance the world entities and interactables.
+        footSpawnT -= dt;
+        if (footSpawnT <= 0) { footSpawnT = rand(0.6, 1.3); spawnFootObs(); }
+        if (footParkCool > 0) footParkCool -= dt;
+        if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); spawnFootParked(); }
+        if (footDoorCool > 0) footDoorCool -= dt;
+        maybeSpawnFootDoor();
 
-        // Sprint dust kicked up at her heels (the "boost beam" analog)
-        if (sprint) {
-            particles.push({ x: footLulu.x + rand(-9, 9), y: footLulu.y + 22,
-                vx: rand(-25, 25), vy: rand(18, 55), life: 0.4, maxLife: 0.4,
-                size: rand(3, 6), color: randPick(["#D7CCC8", "#BCAAA4", "#CFD8DC"]), gravity: 0 });
-        }
-        // Winded → sweat drops fly off her head
-        if (footLulu.mood === "panic" && Math.random() < dt * 7) {
-            particles.push({ x: footLulu.x + rand(-8, 8), y: footLulu.y - 24,
-                vx: rand(-40, 40), vy: rand(-40, -10), life: 0.5, maxLife: 0.5,
-                size: rand(2, 4), color: "#4FC3F7", gravity: 220 });
-        }
+        updateFootObs(dt, fwd);
+        scrollFootList(footParked, dt, fwd, 110);
+        scrollFootList(footDoors, dt, fwd, 80);
 
-        // Steering — finger-drag or arrow keys, exactly like the car, but she
-        // stays on the actual road (dodge the traffic between the curbs).
-        var minX = ROAD_L + 18, maxX = ROAD_R - 18;
-        if (touchX !== null) {
-            footLulu.x = lerp(footLulu.x, clamp(touchX, minX, maxX), Math.min(1, 14 * dt));
-        } else {
-            var mv = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
-            footLulu.x = clamp(footLulu.x + mv * 280 * dt, minX, maxX);
-        }
-        footLulu.lane = footLulu.x < W / 2 - 35 ? 0 : (footLulu.x > W / 2 + 35 ? 2 : 1);
+        // Context prompt + interact
+        footPrompt = footNearestInteractable();
+        var act = footActQueued; footActQueued = false;
+        if (act && footPrompt) doFootInteract(footPrompt);
 
-        triggerFootBeats();
-
-        // Hazard density ramps up over the run (and per run level)
-        footHazardSpawn -= dt;
-        if (footHazardSpawn <= 0 && footDistance < 0.97) {
-            footHazardSpawn = rand(0.85, 1.5) * (1 - footDistance * 0.5) / footDiff;
-            spawnFootHazard();
-            if (footDistance > 0.5 && Math.random() < 0.3 * footDistance * footDiff) spawnFootHazard();
-        }
-
-        // Move + collide hazards. Cars drive faster than the road scrolls
-        // (they bear down on her); cones/puddles/pickups ride with the road.
-        for (var h = footHazards.length - 1; h >= 0; h--) {
-            var hz = footHazards[h];
-            hz.y += (runSpeed + (hz.vyOwn || 0)) * dt;
-            if (hz.type === "car" && hz.swerve) hz.x = hz.baseX + Math.sin(hz.walkTime * 3) * 16; // drunk weave
-            hz.walkTime = (hz.walkTime || 0) + dt;
-            if (hz.y > H + 80) { footHazards.splice(h, 1); continue; }
-            if (hz.hit) continue;
-            // Roadside greeters (Avigail/Heshy/Greenblatt) fire as they pass her,
-            // not on touch — they live on the shoulder, you don't run into them.
-            if (hz.beat) {
-                if (hz.y > footLulu.y - 24) { hz.hit = true; handleFootHazard(hz); }
-                continue;
-            }
-            var dx = footLulu.x - hz.x, dy = footLulu.y - hz.y;
-            if (dx * dx + dy * dy < (hz.r + 14) * (hz.r + 14)) {
-                hz.hit = true;
-                handleFootHazard(hz);
-            }
-        }
-
-        // Mom's minivan — the visible climax pursuer (after Beat 4)
-        if (momVan) {
-            momVan.t += dt;
-            // Closeness driven by stamina: low stamina → van on her heels.
-            var targetY = H + 70 - (1 - footStamina / 100) * 200;
-            momVan.y = lerp(momVan.y, targetY, Math.min(1, 3 * dt));
-            momVan.x = lerp(momVan.x, footLulu.x, dt * 2);
-            momVan.honkT -= dt;
-            if (momVan.y < footLulu.y + 130 && momVan.honkT <= 0) {
-                momVan.honkT = rand(1.4, 2.6); playHonk();
-                shakeTimer = 0.2; shakeIntensity = 4;
-            }
-        }
-
-        // Lulu's running commentary
-        footLulu.chatTimer -= dt;
-        if (footLulu.chatLife > 0) footLulu.chatLife -= dt;
-        if (footLulu.chatTimer <= 0) {
-            footLulu.chatTimer = rand(3.5, 6.5);
-            footLulu.chatLife = 1.6;
-            if (footLulu.stumble > 0) footLulu.chat = randPick(["Oof!", "My ankle!", "Sheitel intact!"]);
-            else if (footStamina < 28) footLulu.chat = randPick(["*wheeze*", "I jog... never.", "Cardio is a LIE"]);
-            else if (sprint) footLulu.chat = randPick(["Outta my way!", "Coming through!", "MOVE it!"]);
-            else if (footDistance > 0.75) footLulu.chat = randPick(["I smell brisket!", "Almost, almost!", "Bubbe, hold the soup!"]);
-            else footLulu.chat = randPick(["These are NEW flats.", "Twenty minutes, she said.", "Why is it uphill?!"]);
-        }
-
-        // ── End conditions ────────────────────────────────────
-        if (footDistance >= 1) { enterFootOutro(true); return; }
-        if (footStamina <= 0) { enterFootOutro(false); return; }
+        // Chatter + hint
+        footChatT -= dt;
+        if (footChatT <= -footChatNext) { footChat = randPick(FOOT_LULU_CHAT); footChatT = 2.0; footChatNext = rand(3.5, 6); }
+        if (footHintT > 0) footHintT -= dt;
     }
 
     function updateFootIntro(dt) {
-        footLulu.smokeT -= dt;
-        if (footLulu.smokeT <= 0) {
-            footLulu.smokeT = 0.09;
-            particles.push({ x: W / 2 - 38 + rand(-10, 10), y: H * 0.42 + rand(-8, 6),
-                vx: rand(-18, 18), vy: rand(-55, -25), life: rand(1.0, 1.7), maxLife: 1.4,
-                size: rand(7, 13), color: randPick(["#616161", "#9E9E9E", "#757575"]),
+        footLulu.wreckT -= dt;
+        if (footLulu.wreckT <= 0) {
+            footLulu.wreckT = 0.09;
+            particles.push({ x: W / 2 - 38 + rand(-10, 10), y: H * 0.44 + rand(-8, 6),
+                vx: rand(-18, 18), vy: rand(-52, -24), life: rand(1.0, 1.6), maxLife: 1.3,
+                size: rand(7, 12), color: randPick(["#616161", "#9E9E9E", "#757575"]),
                 gravity: -22, smoke: true });
         }
-        footLulu.walkTime += dt * 1.2;
-        if (footTimer > 1.0) footLulu.mood = "run"; // cry → determined
-        if (footTimer > 2.9 || consumeClick() || consumeAction()) {
-            footPhase = 1; footTimer = 0;
-            footLulu.x = W / 2; footLulu.y = H - 200; footLulu.mood = "run";
-        }
+        footLulu.walkTime += dt * 1.3;
+        if (footTimer > 0.7) footLulu.face = "run";
+        // Smooth, automatic — NO tap needed.
+        if (footTimer > 1.6) { footPhase = 1; footTimer = 0; footLulu.x = W / 2; footLulu.y = H - 220; footLulu.face = "run"; }
     }
 
-    function updateFootOutro(dt) {
-        for (var i = footConfetti.length - 1; i >= 0; i--) {
-            var p = footConfetti[i];
-            p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt; p.vy += 60 * dt;
-            if (p.y > H + 20) footConfetti.splice(i, 1);
-        }
-        footLulu.walkTime += dt * 4;
-        // Auto-advance after the celebration, or on a deliberate tap (after a
-        // brief grace so a leftover input can't blow past the reward banner).
-        if (footTimer > 3.6 || (footTimer > 0.5 && (consumeClick() || consumeAction()))) {
-            endFootWorld(footEnding === "made");
-        }
-    }
-
-    // Fire authored story beats once each, at fixed progress thresholds.
-    function triggerFootBeats() {
-        if (!footBeats.avigail && footDistance > 0.22) {
-            footBeats.avigail = true;
-            footHazards.push({ type: "avigailCafe", x: ROAD_L - 16, y: -50, r: 20, walkTime: 0, beat: true });
-            footToast = "Avigail's Café — grab a breather!"; footToastT = 2.4;
-        }
-        if (!footBeats.heshy && footDistance > 0.48) {
-            footBeats.heshy = true;
-            footHazards.push({ type: "heshyLemonade", x: ROAD_R + 16, y: -50, r: 18, walkTime: 0, beat: true });
-        }
-        if (!footBeats.greenblatt && footDistance > 0.68) {
-            footBeats.greenblatt = true;
-            footHazards.push({ type: "greenblatt", x: ROAD_L - 18, y: -45, r: 18, walkTime: 0, greeted: false, beat: true });
-        }
-        if (!footBeats.mom && footDistance > 0.85) {
-            footBeats.mom = true;
-            momVan = { x: footLulu.x, y: H + 130, t: 0, honkT: 1.0 };
-            footToast = "Mom 📱: I see you on the corner. RUN."; footToastT = 2.6;
-        }
-    }
-
-    function spawnFootHazard() {
+    // ── World entities ───────────────────────────────────────
+    function spawnFootObs() {
         var lane = randInt(0, 2);
-        var lx = LANES[lane];
         var r = Math.random();
-        if (r < 0.52) {
-            // Real traffic bearing down the lane — the main thing to dodge.
-            footHazards.push({ type: "car", x: lx, baseX: lx, y: -80, r: 22,
-                color: randPick(C.enemyCols), carType: randInt(0, 2),
-                vyOwn: rand(55, 150), swerve: Math.random() < 0.22, walkTime: 0 });
-        } else if (r < 0.64) {
-            footHazards.push({ type: "cone", x: lx, y: -50, r: 12, walkTime: 0 });
-        } else if (r < 0.72) {
-            footHazards.push({ type: "puddle", x: lx, y: -48, r: 16, walkTime: 0 });
+        if (r < 0.40) {
+            footObs.push({ kind: "car", x: LANES[lane], baseX: LANES[lane], y: -90, vy: rand(60, 150),
+                color: randPick(C.enemyCols), carType: randInt(0, 2), honkT: rand(0, 1),
+                drunk: Math.random() < 0.16, swerveT: rand(0, 6.28), walkTime: 0, line: "", lineT: 0 });
+        } else if (r < 0.49) {
+            footObs.push({ kind: "cop", x: LANES[lane], y: -90, vy: rand(45, 85), walkTime: 0 });
+        } else if (r < 0.74) {
+            var onSide = Math.random() < 0.45;
+            footObs.push({ kind: "ped", x: onSide ? (Math.random() < 0.5 ? ROAD_L - 28 : ROAD_R + 28) : LANES[lane],
+                y: -40, vy: rand(8, 34), walkTime: 0, pedType: randInt(0, 2),
+                drunk: Math.random() < 0.42, chase: false, callT: rand(0.4, 2), line: "", lineT: 0 });
+        } else if (r < 0.86) {
+            footObs.push({ kind: "animal", x: rand(ROAD_L + 10, ROAD_R - 10), y: -30, vy: rand(18, 55),
+                walkTime: 0, animal: randPick(["duck", "raccoon", "ostrich"]) });
+        } else if (r < 0.95) {
+            footObs.push({ kind: "coin", x: LANES[lane], y: -30, vy: 0, walkTime: 0 });
         } else {
-            footHazards.push({ type: randPick(["coin", "coin", "coin", "bagel", "iceCoffee", "star"]),
-                x: lx, y: -48, r: 13, walkTime: 0 });
+            footObs.push({ kind: "cone", x: LANES[lane], y: -40, vy: 0, walkTime: 0 });
         }
     }
 
-    var FOOT_CAR_YELP = ["HEY! WALKING HERE!", "Watch it, buddy!", "MEEP MEEP?!", "Use a CROSSWALK, lady!", "OY!"];
-    function handleFootHazard(hz) {
-        var t = hz.type;
-        if (t === "car") {
-            // Clipped by traffic — the big road hazard. Stumble + a real stamina hit.
-            footLulu.stumble = 0.7; footStamina -= 12;
-            shakeTimer = 0.35; shakeIntensity = 8;
-            spawnCrashBurst(footLulu.x, footLulu.y, false);
-            playWompWomp();
-            spawnFloater(footLulu.x, footLulu.y - 30, randPick(FOOT_CAR_YELP), "#FFF");
-        } else if (t === "cone") {
-            footLulu.stumble = 0.5; footStamina -= 6;
-            shakeTimer = 0.2; shakeIntensity = 4;
-            spawnCrashBurst(hz.x, hz.y, false);
-            playTone(180, 0.1, "square", 0.15);
-        } else if (t === "puddle") {
-            footLulu.stumble = 0.7; footStamina -= 5;
-            shakeTimer = 0.2; shakeIntensity = 4;
-            spawnSplash(hz.x, footLulu.y);
-        } else if (t === "coin") {
-            footCoinsRun += 1; runCoins += 1; save.totalCoins += 1;
-            spawnCoinSparkle(hz.x, hz.y); playCoin();
-            spawnFloater(hz.x, hz.y - 12, "+1 💰", "#FFD700");
-        } else if (t === "bagel") {
-            footStamina = clamp(footStamina + 18, 0, 100);
-            footCoinsRun += 1; runCoins += 1; save.totalCoins += 1;
-            playTone(520, 0.1, "triangle", 0.16);
-            spawnFloater(hz.x, hz.y - 12, "+18 🥯", "#FFCC80");
-        } else if (t === "iceCoffee") {
-            footStamina = clamp(footStamina + 30, 0, 100);
-            spawnCoinSparkle(hz.x, hz.y);
-            playTone(760, 0.1, "sine", 0.16);
-            spawnFloater(hz.x, hz.y - 12, "Caffeine!! ⚡", "#8D6E63");
-        } else if (t === "star") {
-            footStars++;
-            playHopJump();
-            spawnFloater(hz.x, hz.y - 12, "+⭐", "#FFD700");
-        } else if (t === "avigailCafe") {
-            footStamina = 100;
-            playTone(660, 0.09, "triangle", 0.18);
-            setTimeout(function () { playTone(880, 0.1, "triangle", 0.18); }, 80);
-            spawnFloater(hz.x, hz.y - 18, "You got this, Lu! 💅", "#FF80AB");
-        } else if (t === "heshyLemonade") {
-            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5; footStars++;
-            footLulu.stumble = 0.45;
-            playTone(700, 0.08, "square", 0.14);
-            spawnFloater(hz.x, hz.y - 18, "🍋 +5  \"family discount\"", "#FFEE58");
-        } else if (t === "greenblatt") {
-            if (!hz.greeted) {
-                hz.greeted = true;
-                footCoinsRun += 5; runCoins += 5; save.totalCoins += 5; footStars++;
-                footLulu.stumble = 0.6; // cheek pinch
-                playTone(660, 0.08, "triangle", 0.18);
-                setTimeout(function () { playTone(880, 0.1, "triangle", 0.18); }, 80);
-                spawnFloater(hz.x, hz.y - 22, "🍬 +5  \"You're SO thin!\"", "#FFD700");
+    function updateFootObs(dt, fwd) {
+        for (var i = footObs.length - 1; i >= 0; i--) {
+            var o = footObs[i];
+            o.y += (fwd + (o.vy || 0)) * dt;
+            o.walkTime = (o.walkTime || 0) + dt;
+            if (o.lineT > 0) o.lineT -= dt;
+            if (o.y > H + 100) { footObs.splice(i, 1); continue; }
+
+            if (o.kind === "car") {
+                var dxc = o.x - footLulu.x;
+                if (o.honkT > 0) o.honkT -= dt;
+                // Approaching her lane → honk + swerve around (never hits her).
+                if (Math.abs(dxc) < 64 && o.y > footLulu.y - 150 && o.y < footLulu.y + 26) {
+                    o.x += (dxc >= 0 ? 1 : -1) * 70 * dt;
+                    if (o.honkT <= 0) { o.honkT = rand(1.4, 2.6); playHonk(); o.line = randPick(FOOT_CAR_HONKS); o.lineT = 1.5; }
+                }
+                if (o.drunk) { o.swerveT += dt; o.x = clamp(o.x + Math.sin(o.swerveT * 3) * 22 * dt, ROAD_L + 14, ROAD_R - 14); }
+            } else if (o.kind === "ped" && o.drunk) {
+                o.callT -= dt;
+                if (o.callT <= 0 && o.lineT <= 0) { o.callT = rand(1.8, 3.4); o.line = randPick(FOOT_DRUNK_CALLS); o.lineT = 2.2; }
+                // Close + roughly alongside → she's got an admirer who CHASES.
+                if (!o.chase && Math.abs(o.x - footLulu.x) < 150 && o.y > footLulu.y - 110 && o.y < footLulu.y + 60) o.chase = true;
+                if (o.chase) {
+                    o.x = lerp(o.x, footLulu.x, dt * 1.1);
+                    o.y = lerp(o.y, footLulu.y + 40, dt * 0.9);
+                    if (o.lineT <= 0 && Math.random() < dt * 0.7) { o.line = randPick(FOOT_CHASE_LINES); o.lineT = 1.8; }
+                }
+            } else if (o.kind === "animal") {
+                if (Math.abs(o.x - footLulu.x) < 66 && Math.abs(o.y - footLulu.y) < 80)
+                    o.x = clamp(o.x + (o.x >= footLulu.x ? 1 : -1) * 130 * dt, 12, W - 12);
+            } else if (o.kind === "coin") {
+                if (Math.abs(o.x - footLulu.x) < 26 && Math.abs(o.y - footLulu.y) < 26) {
+                    footCoinsRun++; runCoins++; save.totalCoins++;
+                    spawnCoinSparkle(o.x, o.y); playCoin();
+                    spawnFloater(o.x, o.y - 12, "+1 💰", "#FFD700");
+                    footObs.splice(i, 1);
+                }
             }
         }
     }
 
-    // ── Banking + return ─────────────────────────────────────
-    function enterFootOutro(won) {
-        footPhase = 2; footTimer = 0;
-        // Drain any taps/keys queued DURING the run (phase 1 ignores them, and
-        // the phase flip isn't a state change so the loop won't flush them) —
-        // otherwise the reward screen would be skipped on its very first frame.
-        consumeClick(); consumeAction();
-        footEnding = won ? "made" : "caught";
-        bankFootRewards(won);
-        if (won) {
-            spawnFootConfetti();
-            playTone(523, 0.1, "triangle", 0.2);
-            setTimeout(function () { playTone(659, 0.1, "triangle", 0.2); }, 100);
-            setTimeout(function () { playTone(784, 0.12, "triangle", 0.22); }, 200);
-            setTimeout(function () { playTone(1046, 0.16, "triangle", 0.24); }, 320);
-        } else {
-            playWompWomp();
+    function scrollFootList(list, dt, fwd, killBelow) {
+        for (var i = list.length - 1; i >= 0; i--) {
+            list[i].y += fwd * dt;
+            if (list[i].y > H + killBelow) list.splice(i, 1);
         }
     }
 
-    function bankFootRewards(won) {
-        footWinBonus = won ? 30 : 0;
-        footBankedCoins = footCoinsRun + footWinBonus;
-        footBankedStars = footStars;
-        runCoins += footWinBonus;
-        save.totalCoins += footWinBonus;
-        save.parkingTotalStars = (save.parkingTotalStars || 0) + footBankedStars;
-        if (footDistance > (save.footRunHigh || 0)) save.footRunHigh = footDistance;
-        persistSave();
+    function spawnFootParked() {
+        var left = Math.random() < 0.5;
+        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110,
+            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
-    function endFootWorld(won) {
-        if (won) {
-            // The on-foot detour was the second chance — make it real: she comes
-            // back to the road with at least one life (she may have entered the
-            // foot world on 0 lives from a fatal crash). copWalk keeps her lives.
-            lives = Math.max(lives, 1);
-            // Bubbe lends her a car / the wreck got towed & fixed — back to the road.
-            returnToDriving();
-        } else {
-            if (score > save.highScore) save.highScore = Math.floor(score);
-            persistSave();
-            gameOverAlpha = 0;
-            state = "gameover";
+    // City zones map to a building you can enter; beach gets a beach-hut.
+    function footZoneInterior() {
+        if (typeof zone === "undefined") return null;
+        if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
+        return null;
+    }
+    function maybeSpawnFootDoor() {
+        if (footDoorCool > 0 || footDoors.length > 0) return;
+        var t = footZoneInterior();
+        if (!t) return;
+        footDoorCool = rand(4, 7);
+        var left = Math.random() < 0.5;
+        footDoors.push({ type: t, x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
+    }
+
+    function footNearestInteractable() {
+        var best = null, bestD = 9999;
+        for (var i = 0; i < footParked.length; i++) {
+            var p = footParked[i];
+            var d = Math.abs(p.x - footLulu.x) + Math.abs(p.y - footLulu.y);
+            if (Math.abs(p.x - footLulu.x) < 56 && Math.abs(p.y - footLulu.y) < 86 && d < bestD) {
+                best = { kind: "steal", ent: p, label: "🚗 BORROW CAR" }; bestD = d;
+            }
+        }
+        for (var j = 0; j < footDoors.length; j++) {
+            var dr = footDoors[j];
+            var dd = Math.abs(dr.x - footLulu.x) + Math.abs(dr.y - footLulu.y);
+            if (Math.abs(dr.x - footLulu.x) < 56 && Math.abs(dr.y - footLulu.y) < 64 && dd < bestD) {
+                best = { kind: "enter", ent: dr, label: "🚪 ENTER " + FOOT_DOOR_NAME[dr.type] }; bestD = dd;
+            }
+        }
+        return best;
+    }
+    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH" };
+
+    function doFootInteract(prompt) {
+        if (prompt.kind === "enter") {
+            enterFootInterior(prompt.ent.type);
+            return;
+        }
+        // Steal a car → back on the road (GTA-style). A nearby cop = a chase.
+        spawnFloater(footLulu.x, footLulu.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
+        var seen = Math.random() < 0.12;
+        for (var i = 0; i < footObs.length; i++) {
+            var o = footObs[i];
+            if (o.kind === "cop" && o.y > -20 && o.y < H && Math.abs(o.x - prompt.ent.x) < 300) seen = true;
+        }
+        spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
+        playTone(520, 0.08, "square", 0.12);
+        lives = Math.max(lives, 1); // she entered foot on a wrecked car — give her a life back
+        returnToDriving();
+        if (seen) {
+            // The driving cop-chase system takes it from here.
+            if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
         }
     }
 
-    var FOOT_CONFETTI_COLS = ["#FF4FA3", "#FFD700", "#4FC3F7", "#7CFC4F", "#FF8A65", "#BA68C8"];
-    function spawnFootConfetti() {
-        footConfetti = [];
-        for (var i = 0; i < 64; i++) {
-            footConfetti.push({ x: rand(0, W), y: rand(-H * 0.4, 0),
-                vx: rand(-30, 30), vy: rand(40, 160), size: rand(4, 9),
-                color: randPick(FOOT_CONFETTI_COLS), rot: rand(0, Math.PI * 2), spin: rand(-6, 6) });
-        }
+    // ── Interior contract (interiors live in 08c/08d/08e) ────
+    function enterFootInterior(type) {
+        footInteriorType = type;
+        state = "footInterior";
+        if (type === "bars" && typeof initBarsInterior === "function") initBarsInterior();
+        else if (type === "school" && typeof initSchoolInterior === "function") initSchoolInterior();
+        else if (type === "hospital" && typeof initHospitalInterior === "function") initHospitalInterior();
+        else if (type === "police" && typeof initPoliceInterior === "function") initPoliceInterior();
+        else if (type === "beach" && typeof initBeachInterior === "function") initBeachInterior();
+        else { exitFootInterior(); return; }  // not built yet → bounce back out
+        playClick();
+    }
+    function exitFootInterior() {
+        footInteriorType = null;
+        state = "footRun";
+        footPhase = 1;
+        footDoors = [];          // clear doors so she doesn't instantly re-enter
+        footDoorCool = 2.0;
+        footPrompt = null;
+        if (footLulu) footLulu.face = "run";
+        playClick();
+    }
+    function updateFootInterior(dt) {
+        updateParticles(dt);
+        var t = footInteriorType;
+        if (t === "bars" && typeof updateBarsInterior === "function") updateBarsInterior(dt);
+        else if (t === "school" && typeof updateSchoolInterior === "function") updateSchoolInterior(dt);
+        else if (t === "hospital" && typeof updateHospitalInterior === "function") updateHospitalInterior(dt);
+        else if (t === "police" && typeof updatePoliceInterior === "function") updatePoliceInterior(dt);
+        else if (t === "beach" && typeof updateBeachInterior === "function") updateBeachInterior(dt);
+        else exitFootInterior();
+    }
+    function drawFootInterior() {
+        var t = footInteriorType;
+        if (t === "bars" && typeof drawBarsInterior === "function") drawBarsInterior();
+        else if (t === "school" && typeof drawSchoolInterior === "function") drawSchoolInterior();
+        else if (t === "hospital" && typeof drawHospitalInterior === "function") drawHospitalInterior();
+        else if (t === "police" && typeof drawPoliceInterior === "function") drawPoliceInterior();
+        else if (t === "beach" && typeof drawBeachInterior === "function") drawBeachInterior();
+        else { ctx.fillStyle = "#222"; ctx.fillRect(0, 0, W, H); }
+        drawParticles();
     }
 
-    // ── Draw ─────────────────────────────────────────────────
+    // ── Draw: exterior ───────────────────────────────────────
     function drawFootRun() {
         if (footPhase === 0) { drawFootIntro(); return; }
-        if (footPhase === 2) { drawFootOutro(); return; }
 
         ctx.save();
         if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
 
-        // Her real world — same road, decorations, buildings, season/weather.
+        // Her real world.
         drawRoad(scrollOffset);
         drawDecorations(footTimer);
         drawCityBuildings();
 
-        // Hazards with a pulsing telegraph shadow as they approach
-        for (var h = 0; h < footHazards.length; h++) {
-            var hz = footHazards[h];
-            if (!hz.hit && hz.y > 0 && hz.y < footLulu.y - 30) {
-                var warn = 0.35 + 0.25 * Math.sin(footTimer * 12);
-                ctx.fillStyle = "rgba(0,0,0," + (warn * 0.4) + ")";
-                ctx.beginPath();
-                ctx.ellipse(hz.x, hz.y + hz.r + 6, hz.r + 4, (hz.r + 4) * 0.4, 0, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            drawFootHazard(hz);
+        // Parked (stealable) cars sit on the shoulder, tilted.
+        for (var p = 0; p < footParked.length; p++) {
+            var pc = footParked[p];
+            ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
+            drawEnemyCar(0, 0, pc.color, pc.carType);
+            ctx.restore();
         }
+        // Building doors.
+        for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
 
-        drawFootDestination();
+        // World entities (traffic, cops, peds, animals, coins, cones).
+        for (var i = 0; i < footObs.length; i++) drawFootObs(footObs[i]);
 
-        if (momVan) drawMomVan(momVan.x, momVan.y, momVan.t);
+        // Lulu.
+        drawLuluTopDown(footLulu.x, footLulu.y, footLulu.walkTime, footLulu.face);
+        if (footChatT > 0) drawSpeechBubble(footLulu.x, footLulu.y - 56, footChat, footLulu.walkTime);
 
-        drawLuluTopDown(footLulu.x, footLulu.y, footLulu.walkTime, footLulu.mood);
         drawParticles();
-        if (footLulu.chatLife > 0) drawSpeechBubble(footLulu.x, footLulu.y - 58, footLulu.chat, footLulu.walkTime);
+        ctx.restore();
 
-        // Mom's headlights crawling closer → danger wash
-        if (momVan && momVan.y < footLulu.y + 150) {
-            var g = clamp((footLulu.y + 150 - momVan.y) / 150, 0, 1);
-            ctx.fillStyle = "rgba(255,210,80," + (g * 0.18) + ")";
-            ctx.fillRect(0, 0, W, H);
-            if (g > 0.5) {
-                ctx.fillStyle = "#FFC107";
-                ctx.beginPath(); ctx.arc(footLulu.x + 18, footLulu.y - 30, 8, 0, Math.PI * 2); ctx.fill();
-                drawText("!", footLulu.x + 18, footLulu.y - 29, "bold 12px Arial", "#000", null, 0);
-            }
-        }
-
-        ctx.restore(); // HUD steady (outside shake)
-        drawSeasonFx();  // season darkness + weather (rain/snow/fog) over the world
+        drawSeasonFx();   // weather + season darkness over the world
         drawFootHUD();
     }
 
-    function drawFootHUD() {
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        roundRect(0, 0, W, 52, 0); ctx.fill();
-
-        // Progress bar (pink) with a house at the end + a Lulu dot
-        var barX = 56, barY = 12, barW = W - 112, barH = 12;
-        ctx.fillStyle = "rgba(255,255,255,0.2)"; roundRect(barX, barY, barW, barH, 6); ctx.fill();
-        ctx.fillStyle = "#FF4FA3"; roundRect(barX, barY, barW * footDistance, barH, 6); ctx.fill();
-        ctx.font = "15px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("🏠", W - 32, barY + barH / 2);
-        ctx.fillStyle = "#FFB0C8";
-        ctx.beginPath(); ctx.arc(barX + barW * footDistance, barY + barH / 2, 7, 0, Math.PI * 2); ctx.fill();
-
-        // Stamina bar (green→amber→red)
-        var sbX = 56, sbY = 32, sbW = W - 112, sbH = 9, sf = footStamina / 100;
-        ctx.fillStyle = "rgba(255,255,255,0.18)"; roundRect(sbX, sbY, sbW, sbH, 4); ctx.fill();
-        ctx.fillStyle = sf > 0.5 ? "#7CFC4F" : sf > 0.22 ? "#FFC107" : "#FF5252";
-        roundRect(sbX, sbY, sbW * sf, sbH, 4); ctx.fill();
-        drawText("🏃", 30, 36, "13px Arial", "#FFF", "#000", 2);
-        drawText("STAMINA", sbX + sbW / 2, sbY + sbH / 2, "bold 7px Arial", "rgba(0,0,0,0.5)", null, 0);
-
-        drawText("⭐ " + footStars + "  💰 " + footCoinsRun, 8, 14, "bold 12px Arial", "#FFD700", "#000", 2, "left");
-        drawText("Run #" + footRunLevel, W - 8, 14, "bold 11px Arial", "#FFF", "#000", 2, "right");
-
-        // Story-beat toast banner
-        if (footToastT > 0) {
-            var ta = clamp(footToastT, 0, 1) * clamp((2.6 - footToastT) * 3, 0, 1);
-            ctx.globalAlpha = ta;
-            ctx.fillStyle = "rgba(0,0,0,0.7)"; roundRect(W / 2 - 150, 60, 300, 26, 8); ctx.fill();
-            drawText(footToast, W / 2, 73, "bold 12px Arial", "#FFE082", "#000", 2);
-            ctx.globalAlpha = 1;
-        }
-
-        if (isTouchDevice) {
-            drawIconButton(PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, "⚡",
-                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
-            drawIconButton(PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, "🐢",
-                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
-            drawText("drag to dodge", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
+    function drawFootObs(o) {
+        if (o.kind === "car") {
+            drawEnemyCar(o.x, o.y, o.color, o.carType);
+            if (o.lineT > 0 && o.y > 40 && o.y < H - 40) drawSpeechBubble(o.x, o.y - 46, o.line, o.walkTime);
+        } else if (o.kind === "cop") {
+            drawCopCar(o.x, o.y, footTimer * 3);
+        } else if (o.kind === "ped") {
+            drawPedestrian(o.x, o.y, o.walkTime, o.pedType, false, o.drunk);
+            if (o.lineT > 0 && o.y > 30 && o.y < H - 30) drawSpeechBubble(o.x, o.y - 30, o.line, o.walkTime);
+        } else if (o.kind === "animal") {
+            if (o.animal === "duck") drawDuck(o.x, o.y, o.walkTime);
+            else if (o.animal === "raccoon") drawRaccoon(o.x, o.y, o.walkTime);
+            else drawOstrich(o.x, o.y, o.walkTime);
+        } else if (o.kind === "coin") {
+            drawCoin(o.x, o.y, o.walkTime);
+        } else if (o.kind === "cone") {
+            drawCone(o.x, o.y);
         }
     }
 
-    // ── Intro tableau (phase 0) ──────────────────────────────
+    function drawFootDoor(dr) {
+        var onLeft = dr.x < W / 2;
+        ctx.save();
+        ctx.translate(dr.x, dr.y);
+        // awning + doorway, themed colour
+        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA" }[dr.type] || "#8D6E63";
+        ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();           // frame
+        ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();            // door
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill(); // knob
+        ctx.fillStyle = col; roundRect(-26, -16, 52, 16, 4); ctx.fill();                // awning
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        for (var s = -26; s < 26; s += 10) ctx.fillRect(s + 2, -16, 5, 16);
+        drawText(FOOT_DOOR_NAME[dr.type], 0, -8, "bold 8px Arial", "#fff", "#000", 2);
+        ctx.restore();
+    }
+
+    function drawFootHUD() {
+        // slim top bar
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        roundRect(0, 0, W, 40 + SAFE_TOP, 0); ctx.fill();
+        drawText("🚶‍♀️ ON FOOT", 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD54F", "#000", 2, "left");
+        drawText("⭐ " + footStars + "   💰 " + footCoinsRun, W - 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD700", "#000", 2, "right");
+        if (footHintT > 0) {
+            ctx.globalAlpha = clamp(footHintT, 0, 1);
+            drawText(footHint, W / 2, 26 + SAFE_TOP, "bold 13px Arial", "#FFF8E1", "#000", 3);
+            ctx.globalAlpha = 1;
+        }
+
+        // context prompt floating above Lulu
+        if (footPrompt) {
+            var py = footLulu.y - 78;
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            var pw = footPrompt.label.length * 7 + 24;
+            roundRect(footLulu.x - pw / 2, py, pw, 22, 6); ctx.fill();
+            drawText(footPrompt.label, footLulu.x, py + 11, "bold 11px Arial", "#FFE082", "#000", 2);
+        }
+
+        // Buttons: run / slow on the LEFT (where the car's boost/brake are),
+        // interact on the RIGHT (where honk is).
+        if (isTouchDevice) {
+            drawIconButton(MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, "⚡",
+                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, "🐢",
+                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+            drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👋" : "✋",
+                { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
+            drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        }
+    }
+
+    // ── Intro tableau (phase 0) — auto, no tap ──────────────
     function drawFootIntro() {
         drawRoad(scrollOffset);
         drawDecorations(footTimer);
         drawCityBuildings();
         drawSeasonFx();
-        // Dusk wash
-        ctx.fillStyle = "rgba(40,20,60,0.22)"; ctx.fillRect(0, 0, W, H);
-        // Wrecked pink car, tilted + smoking
-        ctx.save();
-        ctx.translate(W / 2 - 38, H * 0.42);
-        ctx.rotate(0.4);
+        ctx.fillStyle = "rgba(40,20,60,0.20)"; ctx.fillRect(0, 0, W, H);
+        // Wrecked car, tilted + smoking.
+        ctx.save(); ctx.translate(W / 2 - 38, H * 0.44); ctx.rotate(0.4);
         drawLuluCar(0, 0, 0, false, footTimer, false, save.selectedSkin, 1);
         ctx.restore();
         drawParticles();
-        // Lulu, just climbed out
-        drawLuluTopDown(W / 2 + 36, H * 0.42 + 14, footLulu.walkTime, footLulu.mood);
-        drawSpeechBubble(W / 2 + 36, H * 0.42 - 44, footIntroLine, footTimer);
-
-        // Title card slides up from the bottom
-        var slide = clamp((footTimer - 0.6) / 0.5, 0, 1);
-        var cardY = H * 0.7 + (1 - slide) * 80;
-        ctx.globalAlpha = slide;
-        ctx.fillStyle = "rgba(0,0,0,0.72)";
-        roundRect(30, cardY, W - 60, 92, 14); ctx.fill();
-        drawText("LULU ON FOOT", W / 2, cardY + 26, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-        drawText("Get to Bubbe's before sundown 🕯️", W / 2, cardY + 50, "bold 12px Arial", "#FFF8E1", "#000", 2);
-        drawText("⚡ run  ·  🐢 slow to catch your breath  ·  drag to dodge",
-            W / 2, cardY + 72, "11px Arial", "#B3E5FC", "#000", 2);
-        ctx.globalAlpha = 1;
-        if (footTimer > 1.3) drawText("tap to start", W / 2, H - 24, "13px Arial", "#FFFFFF", "#000", 2);
-    }
-
-    // ── Outro (phase 2) ──────────────────────────────────────
-    function drawFootOutro() {
-        // Dusk sky → warm porch
-        ctx.fillStyle = "#3A2A5C"; ctx.fillRect(0, 0, W, H * 0.42);
-        ctx.fillStyle = "#7CB342"; ctx.fillRect(0, H * 0.42, W, H * 0.58);
-        // Bubbe's house
-        ctx.fillStyle = "#C8A27A"; roundRect(W / 2 - 150, H * 0.16, 300, 290, 12); ctx.fill();
-        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 3; roundRect(W / 2 - 150, H * 0.16, 300, 290, 12); ctx.stroke();
-        ctx.fillStyle = "#6D4C41";
-        ctx.beginPath(); ctx.moveTo(W / 2 - 170, H * 0.16); ctx.lineTo(W / 2, H * 0.04); ctx.lineTo(W / 2 + 170, H * 0.16); ctx.closePath(); ctx.fill(); ctx.stroke();
-        // Warm windows
-        ctx.fillStyle = "#FFE082";
-        roundRect(W / 2 - 108, H * 0.24, 56, 56, 5); ctx.fill(); ctx.strokeRect(W / 2 - 108, H * 0.24, 56, 56);
-        roundRect(W / 2 + 52, H * 0.24, 56, 56, 5); ctx.fill(); ctx.strokeRect(W / 2 + 52, H * 0.24, 56, 56);
-        // Door + two Shabbos candles glowing in the window
-        ctx.fillStyle = "#3E2723"; roundRect(W / 2 - 34, H * 0.34, 68, 120, 6); ctx.fill(); ctx.stroke();
-        for (var cdl = 0; cdl < 2; cdl++) {
-            var cx = W / 2 - 92 + cdl * 12 + (cdl ? 152 : 0);
-            ctx.fillStyle = "#FFF3E0"; ctx.fillRect(cx, H * 0.30, 3, 12);
-            ctx.fillStyle = "#FFCA28"; ctx.beginPath(); ctx.arc(cx + 1.5, H * 0.30 - 3, 3, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // Lulu (and the plate / Mom)
-        var lx = W / 2, ly = H * 0.62;
-        if (footEnding === "made") {
-            var jump = Math.abs(Math.sin(footTimer * 6)) * 20 * Math.max(0, 1 - footTimer / 2.2);
-            ctx.save(); ctx.translate(lx, ly - jump); ctx.scale(2.4, 2.4);
-            drawLuluTopDown(0, 0, footTimer * 4, "run");
-            ctx.restore();
-            // Bubbe at the door with a foil plate
-            ctx.save(); ctx.translate(lx + 64, ly - 18); ctx.scale(2.2, 2.2);
-            drawMomTopDown(0, 0, footTimer * 1.4); // stand-in bubbe sprite
-            ctx.restore();
-            drawText("🍽️", lx + 40, ly - 28, "20px Arial", "#FFF", "#000", 2);
-        } else {
-            ctx.save(); ctx.translate(lx, ly); ctx.scale(2.4, 2.4);
-            drawLuluTopDown(0, 0, footTimer * 2, "panic");
-            ctx.restore();
-            // Mom's van pulled up alongside
-            ctx.save(); ctx.translate(lx - 86, ly + 4); ctx.scale(1.3, 1.3);
-            drawMomVan(0, 0, footTimer);
-            ctx.restore();
-        }
-
-        var bubble = footEnding === "made" ? "BRISKET!\nI SAVED THE\nBRISKET!" : "...So we\nwalk?";
-        drawSpeechBubble(lx, ly - 96, bubble, footTimer * 4);
-
-        // Banner
-        ctx.fillStyle = "rgba(0,0,0,0.6)"; roundRect(30, 26, W - 60, 50, 12); ctx.fill();
-        drawText(footEnding === "made" ? "YOU MADE IT! 🕯️ Good Shabbos!" : "Mom found you. \"Get in.\"",
-            W / 2, 52, "bold 17px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-
-        var bonusStr = footWinBonus > 0 ? "  (+" + footWinBonus + " bonus!)" : "";
-        drawText("Banked: ⭐ " + footBankedStars + "   💰 " + footBankedCoins + bonusStr,
-            W / 2, H - 74, "bold 16px Arial", "#FFD700", "#000", 3);
-        drawText(footEnding === "made" ? "Bubbe's lending you a car — back to the road!" : "Run over. Tap to see the score.",
-            W / 2, H - 50, "bold 12px Arial", "#FFF8E1", "#000", 2);
-        drawText("tap to continue", W / 2, H - 26, "13px Arial", "#FFFFFF", "#000", 2);
-
-        for (var ci = 0; ci < footConfetti.length; ci++) {
-            var cp = footConfetti[ci];
-            ctx.save(); ctx.translate(cp.x, cp.y); ctx.rotate(cp.rot);
-            ctx.fillStyle = cp.color; ctx.fillRect(-cp.size / 2, -cp.size / 2, cp.size, cp.size * 0.6);
-            ctx.restore();
-        }
-    }
-
-
-    function drawFootDestination() {
-        if (footDistance <= 0.78) return;
-        var a = clamp((footDistance - 0.78) / 0.22, 0, 1);
-        var homeY = -110 + a * 180;
-        ctx.save(); ctx.globalAlpha = a;
-        ctx.fillStyle = "#C8A27A"; roundRect(W / 2 - 74, homeY, 148, 92, 8); ctx.fill();
-        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 3; roundRect(W / 2 - 74, homeY, 148, 92, 8); ctx.stroke();
-        ctx.fillStyle = "#6D4C41";
-        ctx.beginPath(); ctx.moveTo(W / 2 - 84, homeY); ctx.lineTo(W / 2, homeY - 42); ctx.lineTo(W / 2 + 84, homeY); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#FFE082";
-        ctx.fillRect(W / 2 - 56, homeY + 20, 30, 30); ctx.fillRect(W / 2 + 26, homeY + 20, 30, 30);
-        ctx.strokeRect(W / 2 - 56, homeY + 20, 30, 30); ctx.strokeRect(W / 2 + 26, homeY + 20, 30, 30);
-        ctx.fillStyle = "#3E2723"; roundRect(W / 2 - 16, homeY + 52, 32, 40, 4); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#FFD700"; roundRect(W / 2 - 34, homeY - 10, 68, 15, 4); ctx.fill();
-        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 2; roundRect(W / 2 - 34, homeY - 10, 68, 15, 4); ctx.stroke();
-        drawText("BUBBE'S 🕯️", W / 2, homeY - 2, "bold 10px Arial", "#000", null, 0);
-        ctx.restore();
+        drawLuluTopDown(W / 2 + 36, H * 0.44 + 14, footLulu.walkTime, footLulu.face);
+        drawSpeechBubble(W / 2 + 36, H * 0.44 - 44, footIntroLine, footTimer);
+        drawText("LULU ON FOOT", W / 2, H * 0.66, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+        drawText("borrow a car to get back on the road", W / 2, H * 0.66 + 24, "bold 12px Arial", "#FFF8E1", "#000", 2);
     }
 
     // ── Running Lulu (top-down) ──────────────────────────────
@@ -11497,87 +11365,6 @@
         ctx.restore();
     }
 
-    // ── Mom's minivan (top-down pursuer) ─────────────────────
-    function drawMomVan(x, y, t) {
-        ctx.save();
-        ctx.translate(x, y);
-        // Headlight cones reaching up toward Lulu
-        var hg = ctx.createLinearGradient(0, -10, 0, -90);
-        hg.addColorStop(0, "rgba(255,235,150,0.45)"); hg.addColorStop(1, "rgba(255,235,150,0)");
-        ctx.fillStyle = hg;
-        ctx.beginPath(); ctx.moveTo(-12, -22); ctx.lineTo(-26, -92); ctx.lineTo(-2, -92); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(12, -22); ctx.lineTo(2, -92); ctx.lineTo(26, -92); ctx.closePath(); ctx.fill();
-        // Shadow
-        ctx.fillStyle = "rgba(0,0,0,0.22)";
-        ctx.beginPath(); ctx.ellipse(2, 6, 26, 40, 0, 0, Math.PI * 2); ctx.fill();
-        // Body (sensible-mom silver)
-        ctx.fillStyle = "#9E9E9E";
-        roundRect(-24, -38, 48, 78, 12); ctx.fill();
-        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2; roundRect(-24, -38, 48, 78, 12); ctx.stroke();
-        ctx.fillStyle = "#B0BEC5"; roundRect(-21, -34, 42, 30, 8); ctx.fill();
-        // Windshield + a little Mom silhouette
-        ctx.fillStyle = "#1D2A3A"; roundRect(-19, -30, 38, 20, 6); ctx.fill();
-        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -20, 6, 0, Math.PI * 2); ctx.fill();
-        // Headlights
-        ctx.fillStyle = "#FFF59D";
-        ctx.beginPath(); ctx.arc(-15, -36, 3.5, 0, Math.PI * 2); ctx.arc(15, -36, 3.5, 0, Math.PI * 2); ctx.fill();
-        // "MOM" plate
-        ctx.fillStyle = "#FFF"; roundRect(-12, 33, 24, 8, 2); ctx.fill();
-        drawText("MOM", 0, 37, "bold 6px Arial", "#1565C0", null, 0);
-        ctx.restore();
-    }
-
-    // ── Hazard / pickup / NPC sprites ────────────────────────
-    function drawFootHazard(hz) {
-        // Mrs. Greenblatt reuses the Dina-runner crossing-guard sprite.
-        if (hz.type === "greenblatt") {
-            drawDinaSidewalkHazard(hz);
-            return;
-        }
-        ctx.save();
-        ctx.translate(hz.x, hz.y);
-        var w = hz.walkTime || 0;
-        if (hz.type === "car") {
-            // The same enemy car art as the driving game — real traffic.
-            drawEnemyCar(0, 0, hz.color, hz.carType);
-        } else if (hz.type === "cone") {
-            drawCone(0, 0);
-        } else if (hz.type === "puddle") {
-            drawPuddle(0, 0);
-        } else if (hz.type === "coin") {
-            drawCoin(0, 0, w);
-        } else if (hz.type === "bagel") {
-            ctx.fillStyle = "#C8964B"; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#FFF3E0";
-            for (var sd = 0; sd < 7; sd++) { var sa = sd / 7 * Math.PI * 2; ctx.fillRect(Math.cos(sa) * 7 - 0.7, Math.sin(sa) * 7 - 0.7, 1.4, 1.4); }
-        } else if (hz.type === "iceCoffee") {
-            ctx.fillStyle = "rgba(255,255,255,0.85)"; roundRect(-6, -10, 12, 22, 3); ctx.fill();
-            ctx.fillStyle = "#6F4E37"; roundRect(-5, -4, 10, 15, 2); ctx.fill();
-            ctx.fillStyle = "#D7CCC8"; ctx.fillRect(-5, -2, 10, 3); // ice
-            ctx.strokeStyle = "#E91E63"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(3, -10); ctx.lineTo(6, -18); ctx.stroke();
-        } else if (hz.type === "star") {
-            drawFootStar(0, 0, 11, "#FFD700");
-        } else if (hz.type === "avigailCafe") {
-            // little café table + parasol + Avigail seated
-            ctx.fillStyle = "#6D4C41"; ctx.fillRect(-1, 2, 2, 14);
-            ctx.fillStyle = "#ECEFF1"; ctx.beginPath(); ctx.ellipse(0, 2, 12, 5, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#FF80AB"; ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(-16, -8); ctx.lineTo(16, -8); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#F8BBD0"; roundRect(8, -6, 9, 14, 4); ctx.fill();
-            ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(12, -10, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#6B4423"; ctx.beginPath(); ctx.arc(12, -12, 4.5, Math.PI, Math.PI * 2); ctx.fill();
-            if (hz.y > 70 && hz.y < H - 90) drawSpeechBubble(0, -34, "Sit! ...kidding,\nRUN, mami!", w);
-        } else if (hz.type === "heshyLemonade") {
-            ctx.fillStyle = "#8D6E63"; roundRect(-14, -2, 28, 16, 2); ctx.fill();
-            ctx.fillStyle = "#FFF59D"; roundRect(-14, -10, 28, 9, 2); ctx.fill();
-            ctx.fillStyle = "#F57F17"; ctx.font = "bold 6px Arial"; ctx.textAlign = "center"; ctx.fillText("LEMONADE", 0, -3.5);
-            ctx.fillStyle = "#FFEE58"; ctx.beginPath(); ctx.arc(0, 4, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(10, -2, 4, 0, Math.PI * 2); ctx.fill(); // Heshy
-            if (hz.y > 70 && hz.y < H - 90) drawSpeechBubble(0, -26, "Two bucks!", w);
-        }
-        ctx.restore();
-    }
-
     function drawFootStar(cx, cy, r, col) {
         ctx.fillStyle = col;
         ctx.beginPath();
@@ -11589,6 +11376,2529 @@
         }
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = "#FFA000"; ctx.lineWidth = 1; ctx.stroke();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  LULU ON FOOT — INTERIOR: "THE THIRSTY SCHOLAR" (neighborhood bar)
+    //  The richest, most-alive interior. Lulu wanders into a lively bar:
+    //  a long counter with a wisecracking bartender, neon signs, a wall of
+    //  bottles, a flickering disco dance floor, bar stools, a TV, and a
+    //  rogues' gallery of wobbly patrons (bartender, two drunks, a guy
+    //  passed out on the bar, a hulking bouncer, a glowing jukebox).
+    //  Walk Lulu left/right (drag or arrows); step up to a station to pop a
+    //  randomized one-liner. Some give coins / a ⭐ with a floater + sound.
+    //  All Jewish-family-humor PG flavor. LEAVE → exitFootInterior().
+    //
+    //  Defines ONLY: initBarsInterior / updateBarsInterior / drawBarsInterior
+    //  plus bar-prefixed private helpers/vars. Calls shared globals only.
+    // ════════════════════════════════════════════════════════════
+
+    // ── Local state ──────────────────────────────────────────
+    var barTime = 0;
+    var barLulu = null;            // {x, walkTime, facing}
+    var barDialogue = "";          // current speech-bubble text ("" = none)
+    var barDialogueT = 0;          // remaining seconds the bubble shows
+    var barDialogueX = W / 2;      // where the bubble points
+    var barFlash = 0;              // brief neon pop on interaction
+    var barDanceT = 0;             // Lulu's boogie timer (>0 = dancing)
+    var barClinkT = 0;             // throttle for ambient bottle clinks
+    var barLeaveBtn = { x: 0, y: 0, w: 0, h: 0 };
+    var barStations = [];          // interaction hotspots along the counter
+    var barUsed = {};              // one-time-reward flags per station id
+    var barPatronWobble = 0;       // shared wobble phase for the crowd
+
+    var BAR_FLOOR_Y = 0;           // y where the floor meets the back wall (set in init)
+
+    // ── Funny line pools (8-15 each, PG, Jewish-family-humor flavor) ──
+    var barBartenderLines = [
+        "We don't serve drivers here.\nWhat'll it be, walker?",
+        "Seltzer's on the house, mamaleh.\nYou look parched AND parked-out.",
+        "A nice egg cream? No alcohol,\nyour mother would plotz.",
+        "You want a pickle with that?\nWe got a whole barrel, take TWO.",
+        "Last call was twenty years ago.\nI just like the company.",
+        "Drink up, but slow — you've got\na long walk to Bubbe's yet.",
+        "On the house. Tell your cousin\nI said the brisket was dry.",
+        "Club soda, lime, and a side of\nunsolicited advice. Free of charge.",
+        "You're too good for this place.\nSo is everybody. Here's a seltzer.",
+        "I poured you a water. Hydrate.\nYou're no good to anyone fainted.",
+        "Happy hour? Honey, every hour\nI see you is a happy hour.",
+        "We're out of the good stuff,\nso I'm giving you the GREAT stuff.",
+        "No tab, no tip, no trouble.\nJust drink your seltzer, bubbeleh.",
+        "I'll cut you off after this — it's\nwater, but principles are principles."
+    ];
+    var barDrunkLines = [
+        "You're like my ex... but PRETTIER!",
+        "Marry me — I HAVE A CAR!\n(...it's my mom's. Still counts.)",
+        "Are you an angel? 'Cause I just\nfell off this stool for you.",
+        "I'd give you my number but I\nforgot it. And my name. And here.",
+        "You, me, the early-bird special.\nWhaddya say, sweetheart?",
+        "My therapist says I shouldn't\nflirt. My therapist is ME.",
+        "Is it hot in here or did you\njust walk in? ...it's both.",
+        "I love you. I love everyone.\nBut especially you. And that lamp.",
+        "Wanna split an appetizer and\nmaybe the rest of our lives?",
+        "I'm not drunk, I'm just very\nemotionally available right now.",
+        "You had me at 'leave me alone.'\nThat's flirting, right?",
+        "I once parallel parked PERFECTLY.\nOne time. Marry me anyway.",
+        "Beautiful AND you walked here?\nLow maintenance! Mom would LOVE you.",
+        "Hey... hey. Hey. ...I forgot.\nBut you're great. Hey."
+    ];
+    var barPassedOutLines = [
+        "(snoring)  ...five more minutes,\nBubbe... the brisket can wait...",
+        "(mumbling)  ...I told you the\nGPS was wrong... I TOLD you...",
+        "Zzzz... no thank you, I'm full...\nokay one more knish... zzzz...",
+        "(snore)  ...check, please...\nno wait, YOU pay... zzzz...",
+        "...the Mets... they'll win it...\nany decade now... zzzz...",
+        "Mmf... tell my wife the lawn\ncan mow ITSELF... zzzzz...",
+        "(snoring)  ...I'm not asleep...\nI'm just resting my whole face...",
+        "...one egg cream too many...\nworth it... totally worth it... zzz",
+        "Zzz... put it on Murray's tab...\nMurray's good for it... zzz...",
+        "(mumble)  ...I'll drive... I'm FINE\nto... drive... *thunk* ...zzz",
+        "...is it Shabbos yet... wake me\nfor the candles... only then... zzz"
+    ];
+    var barBouncerLines = [
+        "ID? ...nah, you got an honest\nface. Go on in, kid.",
+        "No funny business. I've thrown\nout TOUGHER bubbes than you.",
+        "You break it, you bought it.\nYou cry, I get the manager. Me.",
+        "I look mean but I cry at\nweddings. Don't tell nobody.",
+        "House rules: be nice, tip Sol,\nand NOBODY touches the jukebox volume.",
+        "You need a ride later? ...no.\nI walk everywhere. Keeps me humble.",
+        "Behave, and the seltzer flows.\nMisbehave, and... well, also seltzer.",
+        "I've seen it all in this joint.\nTwice. On a Tuesday. Go in.",
+        "You're cleared. Tell the bartender\nBig Schlomo says hi.",
+        "Trouble? In MY bar? Over my\nvery large, very gentle body.",
+        "Coat check's broke. Just hold\nyour coat. Builds character."
+    ];
+    var barJukeboxLines = [
+        "BOOGIE TIME! Klezmer remix,\nbaby — shake what Bubbe gave ya!",
+        "This song was number one at\nyour cousin's bar mitzvah. CLASSIC.",
+        "♪ ...and that's why you ALWAYS\ncall your mother ♪  (it's a banger)",
+        "Free play! Somebody jammed a\nbutton mitzvah token in there.",
+        "Disco never died — it just moved\nto a bar in the old neighborhood.",
+        "Hora breakdown incoming! Grab\na chair, we're lifting SOMEBODY.",
+        "The good stuff: side A is\nFrank, side B is more Frank.",
+        "Dance like nobody's filming —\nbecause Aunt Rivka definitely is.",
+        "♪ ...she's got a brand new... NOTHING,\nher car's wrecked ♪ ...too soon?",
+        "Cha-cha slide, but it's just\neveryone arguing about parking.",
+        "Turn it UP! ...okay, Schlomo said\nturn it down. We compromise: medium."
+    ];
+
+    // ── Init (called once on enter) ──────────────────────────
+    function initBarsInterior() {
+        barTime = 0;
+        barDialogue = ""; barDialogueT = 0; barDialogueX = W / 2;
+        barFlash = 0; barDanceT = 0; barClinkT = 1.2; barPatronWobble = 0;
+        barUsed = {};
+        barLulu = { x: W / 2, walkTime: 0, facing: 1 };
+
+        // Counter/back wall sits in the upper portion; Lulu walks the open
+        // floor below it. Pad for the safe-area top.
+        BAR_FLOOR_Y = SAFE_TOP + 250;
+
+        // Interaction stations: x positions Lulu must walk near. Each has an
+        // id, a label icon, the line pool, and reward behavior.
+        barStations = [
+            { id: "bouncer",  x: 44,       label: "🕴️", pool: barBouncerLines,  reward: null },
+            { id: "jukebox",  x: 116,      label: "🎵", pool: barJukeboxLines,  reward: "dance" },
+            { id: "drunkA",   x: 192,      label: "🥴", pool: barDrunkLines,    reward: null },
+            { id: "passed",   x: 270,      label: "😴", pool: barPassedOutLines, reward: "keys" },
+            { id: "drunkB",   x: 340,      label: "🥴", pool: barDrunkLines,    reward: "coins" },
+            { id: "bartender",x: W - 56,   label: "🍸", pool: barBartenderLines, reward: "seltzer" }
+        ];
+        playClick();
+        // welcoming little neon "blip" chord
+        playTone(523, 0.10, "sine", 0.12, 784);
+    }
+
+    // ── A station got tapped/walked-into: speak + maybe reward ──
+    function barTrigger(st) {
+        barDialogue = randPick(st.pool);
+        barDialogueT = 3.2;
+        barDialogueX = clamp(st.x, 60, W - 60);
+        barFlash = 1;
+        barLulu.facing = st.x < barLulu.x ? -1 : 1;
+        playClick();
+        // bottle-clink / glass-tink accent
+        playTone(rand(900, 1300), 0.06, "triangle", 0.14);
+
+        if (st.reward === "dance") {
+            // Boogie at the jukebox — a little dance animation + sparkles.
+            barDanceT = 2.6;
+            playTone(330, 0.12, "square", 0.10, 660);
+            for (var d = 0; d < 14; d++) {
+                particles.push({ x: barLulu.x + rand(-18, 18), y: BAR_FLOOR_Y + 70 + rand(-10, 10),
+                    vx: rand(-50, 50), vy: rand(-80, -20), life: 0.7, maxLife: 0.7,
+                    size: rand(3, 6), color: randPick(["#FF4081", "#40C4FF", "#FFD740", "#7C4DFF", "#69F0AE"]),
+                    gravity: 120 });
+            }
+            return;
+        }
+
+        if (barUsed[st.id]) return;   // one-time rewards only fire once
+
+        if (st.reward === "seltzer") {
+            // Free seltzer from the bartender → a ⭐ AND a couple coins.
+            barUsed[st.id] = true;
+            footStars += 1;
+            footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
+            spawnFloater(st.x, BAR_FLOOR_Y + 30, "🥤 FREE SELTZER ⭐", "#FFD700");
+            playCoin();
+            playTone(660, 0.10, "sine", 0.12, 990);
+            for (var s = 0; s < 10; s++) {
+                particles.push({ x: st.x + rand(-12, 12), y: BAR_FLOOR_Y + 20,
+                    vx: rand(-40, 40), vy: rand(-90, -30), life: 0.8, maxLife: 0.8,
+                    size: rand(2, 5), color: "#B3E5FC", gravity: 200 });
+            }
+        } else if (st.reward === "coins") {
+            // Tipsy patron buys YOU a drink (badly). Small coin tip.
+            barUsed[st.id] = true;
+            var tip = randInt(4, 7);
+            footCoinsRun += tip; runCoins += tip; save.totalCoins += tip; persistSave();
+            spawnFloater(st.x, BAR_FLOOR_Y + 30, "+" + tip + " 🪙 \"my treat!\"", "#FFD54F");
+            playCoin();
+        } else if (st.reward === "keys") {
+            // Passed-out guy "offers" his car keys in his sleep. Cruel joke —
+            // they're a chip clip. Still funny; tiny pity coins, once.
+            barUsed[st.id] = true;
+            footCoinsRun += 2; runCoins += 2; save.totalCoins += 2; persistSave();
+            spawnFloater(st.x, BAR_FLOOR_Y + 30, "🔑? ...it's a chip clip. +2", "#FFAB91");
+            playWompWomp();
+        }
+    }
+
+    // ── Update (per frame) ───────────────────────────────────
+    function updateBarsInterior(dt) {
+        barTime += dt;
+        barPatronWobble += dt;
+        if (barFlash > 0) barFlash = Math.max(0, barFlash - dt * 2.2);
+        if (barDialogueT > 0) barDialogueT -= dt;
+        if (barDanceT > 0) barDanceT -= dt;
+
+        // Ambient bottle clinks / murmur — occasional soft tinks.
+        barClinkT -= dt;
+        if (barClinkT <= 0) {
+            barClinkT = rand(2.2, 4.5);
+            playTone(rand(700, 1100), 0.05, "sine", 0.05);
+        }
+        // Dance-floor sparkle ambiance while boogieing.
+        if (barDanceT > 0 && Math.random() < dt * 16) {
+            particles.push({ x: barLulu.x + rand(-16, 16), y: BAR_FLOOR_Y + 80,
+                vx: rand(-30, 30), vy: rand(-60, -10), life: 0.6, maxLife: 0.6,
+                size: rand(2, 4), color: randPick(["#FF4081", "#40C4FF", "#FFD740"]), gravity: 100 });
+        }
+
+        // ── Movement: drag/tap-to-walk or arrow keys ──
+        var minX = 36, maxX = W - 36;
+        var click = consumeClick();
+
+        // LEAVE button first (top-priority hit)
+        if (click && pointInRect(click.x, click.y, barLeaveBtn.x, barLeaveBtn.y, barLeaveBtn.w, barLeaveBtn.h)) {
+            playClick();
+            exitFootInterior();
+            return;
+        }
+
+        // A tap on a station near the floor walks Lulu over AND triggers it
+        // if she's close; otherwise it just sets a walk target. Holding a
+        // finger (touchX) drags her directly.
+        var walkTarget = null;
+        if (touchX !== null) {
+            walkTarget = clamp(touchX, minX, maxX);
+        } else if (click) {
+            // Did they tap a station hotspot?
+            var hitSt = null;
+            for (var i = 0; i < barStations.length; i++) {
+                var st = barStations[i];
+                if (pointInRect(click.x, click.y, st.x - 34, SAFE_TOP + 70, 68, BAR_FLOOR_Y + 90 - (SAFE_TOP + 70))) {
+                    hitSt = st; break;
+                }
+            }
+            if (hitSt) {
+                walkTarget = clamp(hitSt.x, minX, maxX);
+                barLulu.pending = hitSt;          // trigger on arrival
+            } else {
+                walkTarget = clamp(click.x, minX, maxX);
+                barLulu.pending = null;
+            }
+        }
+
+        // Keyboard steering overrides target with direct velocity.
+        var kmv = (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+        if (kmv !== 0) {
+            barLulu.x = clamp(barLulu.x + kmv * 230 * dt, minX, maxX);
+            barLulu.facing = kmv;
+            barLulu.walkTime += dt * 2.4;
+            barLulu.pending = null;
+            walkTarget = null;
+        } else if (walkTarget !== null || barLulu.target !== undefined && barLulu.target !== null) {
+            if (walkTarget !== null) barLulu.target = walkTarget;
+            var tgt = barLulu.target;
+            var dx = tgt - barLulu.x;
+            if (Math.abs(dx) > 3) {
+                var dir = dx > 0 ? 1 : -1;
+                barLulu.facing = dir;
+                barLulu.x = clamp(barLulu.x + dir * 230 * dt, minX, maxX);
+                barLulu.walkTime += dt * 2.4;
+            } else {
+                barLulu.x = tgt;
+                barLulu.target = null;
+                if (barLulu.pending) { barTrigger(barLulu.pending); barLulu.pending = null; }
+            }
+        }
+
+        // Proximity trigger: walking NEAR a station (within 26px) and pausing
+        // also pops its line — but throttle so it doesn't spam every frame.
+        if (barDialogueT <= 0) {
+            for (var j = 0; j < barStations.length; j++) {
+                var s2 = barStations[j];
+                if (Math.abs(barLulu.x - s2.x) < 24 && !barLulu.target) {
+                    // only auto-trigger if she actually moved here this turn
+                    if (barLulu._lastNear !== s2.id) {
+                        barLulu._lastNear = s2.id;
+                        barTrigger(s2);
+                    }
+                    break;
+                }
+            }
+        }
+        // clear the near-latch when she steps away from all stations
+        var anyNear = false;
+        for (var k = 0; k < barStations.length; k++) {
+            if (Math.abs(barLulu.x - barStations[k].x) < 24) { anyNear = true; break; }
+        }
+        if (!anyNear) barLulu._lastNear = null;
+
+        // Space/Enter near a station also triggers (keyboard players).
+        if (consumeAction()) {
+            var nearest = null, best = 99999;
+            for (var m = 0; m < barStations.length; m++) {
+                var d2 = Math.abs(barLulu.x - barStations[m].x);
+                if (d2 < best) { best = d2; nearest = barStations[m]; }
+            }
+            if (nearest && best < 60) barTrigger(nearest);
+        }
+    }
+
+    // ── Drawing helpers (bar-prefixed) ───────────────────────
+
+    // Wall of glowing liquor bottles behind the counter.
+    function barDrawBottles(x, y, w) {
+        var cols = ["#FF7043", "#66BB6A", "#FFCA28", "#42A5F5", "#AB47BC", "#EF5350", "#26C6DA", "#FFA726"];
+        var n = Math.floor(w / 16);
+        for (var i = 0; i < n; i++) {
+            var bx = x + 8 + i * 16;
+            var col = cols[i % cols.length];
+            var glow = 0.5 + 0.5 * Math.sin(barTime * 2 + i);
+            ctx.save();
+            ctx.globalAlpha = 0.35 + glow * 0.3;
+            ctx.fillStyle = col;
+            ctx.beginPath(); ctx.arc(bx, y - 4, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            // bottle body
+            ctx.fillStyle = col;
+            roundRect(bx - 4, y - 14, 8, 22, 3); ctx.fill();
+            // neck + cap
+            ctx.fillStyle = shadeColor(col, -50);
+            roundRect(bx - 2, y - 22, 4, 9, 1); ctx.fill();
+            ctx.fillStyle = "#FFF59D";
+            roundRect(bx - 2, y - 24, 4, 3, 1); ctx.fill();
+            // shine streak
+            ctx.fillStyle = "rgba(255,255,255,0.5)";
+            roundRect(bx - 2, y - 12, 1.6, 16, 1); ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // A buzzing neon sign with a soft halo. Flickers occasionally.
+    function barDrawNeon(x, y, text, color, size) {
+        var flick = (Math.sin(barTime * 9 + x) > -0.9) ? 1 : 0.25;  // rare dropout
+        ctx.save();
+        ctx.globalAlpha = 0.28 * flick;
+        ctx.fillStyle = color;
+        var halfW = text.length * size * 0.32 + 14;
+        ctx.beginPath(); ctx.ellipse(x, y, halfW, size * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        // glowing tube text via layered strokes
+        ctx.globalAlpha = flick;
+        drawText(text, x, y, "bold " + size + "px 'Segoe UI', Arial, sans-serif", "#FFFFFF", color, 6);
+        drawText(text, x, y, "bold " + size + "px 'Segoe UI', Arial, sans-serif", color, null, 0);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // The jukebox: a glowing rounded cabinet that pulses with the "music".
+    function barDrawJukebox(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        var pulse = 0.5 + 0.5 * Math.sin(barTime * 6);
+        // glow halo
+        ctx.globalAlpha = 0.25 + pulse * 0.25;
+        var jg = ctx.createRadialGradient(0, -14, 4, 0, -14, 40);
+        jg.addColorStop(0, "#FF4081"); jg.addColorStop(1, "rgba(255,64,129,0)");
+        ctx.fillStyle = jg;
+        ctx.beginPath(); ctx.arc(0, -14, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        // cabinet
+        ctx.fillStyle = "#5D4037";
+        roundRect(-18, -44, 36, 56, 8); ctx.fill();
+        ctx.fillStyle = "#8D6E63";
+        roundRect(-15, -41, 30, 50, 6); ctx.fill();
+        // glowing arch top
+        var arch = ctx.createLinearGradient(0, -41, 0, -20);
+        arch.addColorStop(0, "#FFEB3B"); arch.addColorStop(0.5, "#FF4081"); arch.addColorStop(1, "#7C4DFF");
+        ctx.fillStyle = arch;
+        ctx.beginPath();
+        ctx.moveTo(-13, -20); ctx.lineTo(-13, -34);
+        ctx.arc(0, -34, 13, Math.PI, 0); ctx.lineTo(13, -20); ctx.closePath();
+        ctx.fill();
+        // bouncing equalizer bars
+        for (var b = 0; b < 5; b++) {
+            var bh = 4 + (0.5 + 0.5 * Math.sin(barTime * 8 + b * 1.3)) * 9;
+            ctx.fillStyle = ["#FF5252", "#FFD740", "#69F0AE", "#40C4FF", "#E040FB"][b];
+            roundRect(-11 + b * 5, -8 - bh, 3.4, bh, 1); ctx.fill();
+        }
+        // speaker grille
+        ctx.fillStyle = "#3E2723";
+        roundRect(-11, 2, 22, 7, 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // A wall-mounted TV showing a flickering "game" (it's always a tie).
+    function barDrawTV(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = "#212121";
+        roundRect(-26, -16, 52, 32, 4); ctx.fill();
+        // static-y screen
+        ctx.fillStyle = "#1B5E20";
+        roundRect(-22, -12, 44, 24, 2); ctx.fill();
+        ctx.globalAlpha = 0.5;
+        for (var s = 0; s < 6; s++) {
+            ctx.fillStyle = (Math.sin(barTime * 20 + s) > 0) ? "#A5D6A7" : "#2E7D32";
+            ctx.fillRect(-22, -12 + s * 4, 44, 2);
+        }
+        ctx.globalAlpha = 1;
+        // little scoreboard
+        drawText("4 : 4", 0, -2, "bold 9px Arial", "#FFEB3B", "#000", 2);
+        ctx.restore();
+    }
+
+    // A bar stool (chunky cartoon).
+    function barDrawStool(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath(); ctx.ellipse(0, 26, 13, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64";
+        roundRect(-2, -6, 4, 30, 2); ctx.fill();
+        ctx.fillStyle = "#37474F";
+        roundRect(-9, 18, 18, 4, 2); ctx.fill();
+        ctx.fillStyle = "#E53935";
+        ctx.beginPath(); ctx.ellipse(0, -8, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#EF5350";
+        ctx.beginPath(); ctx.ellipse(0, -9, 11, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // The bartender: a friendly mustachioed fella polishing a glass.
+    function barDrawBartender(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        var bob = Math.sin(barTime * 2) * 1.5;
+        // apron body
+        ctx.fillStyle = "#FFFFFF";
+        roundRect(-12, -18 + bob, 24, 26, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037";
+        roundRect(-12, 0 + bob, 24, 8, 3); ctx.fill();  // apron tie
+        // arms (one polishes)
+        ctx.fillStyle = "#FFFFFF";
+        var poke = Math.sin(barTime * 5) * 3;
+        roundRect(-16, -12 + bob, 6, 14, 3); ctx.fill();
+        roundRect(10, -14 + bob + poke, 6, 14, 3); ctx.fill();
+        // polishing glass in right hand
+        ctx.fillStyle = "rgba(178,235,242,0.8)";
+        roundRect(13, -20 + bob + poke, 6, 8, 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(0, -28 + bob, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(0, -28 + bob, 7.6, 0, Math.PI * 2); ctx.fill();
+        // bald top + side hair
+        ctx.fillStyle = "#9E9E9E";
+        ctx.beginPath(); ctx.arc(-6, -28 + bob, 2.4, 0, Math.PI * 2); ctx.arc(6, -28 + bob, 2.4, 0, Math.PI * 2); ctx.fill();
+        // eyes
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(-2.6, -29 + bob, 1.3, 0, Math.PI * 2); ctx.arc(2.6, -29 + bob, 1.3, 0, Math.PI * 2); ctx.fill();
+        // big mustache
+        ctx.fillStyle = "#3E2723";
+        roundRect(-5, -24 + bob, 10, 3.4, 1.6); ctx.fill();
+        ctx.restore();
+    }
+
+    // The bouncer: a huge gentle slab in sunglasses by the door.
+    function barDrawBouncer(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        var bob = Math.sin(barTime * 1.4) * 1;
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.beginPath(); ctx.ellipse(0, 30, 18, 5, 0, 0, Math.PI * 2); ctx.fill();
+        // legs
+        ctx.fillStyle = "#212121";
+        roundRect(-9, 8, 8, 22, 3); ctx.fill();
+        roundRect(1, 8, 8, 22, 3); ctx.fill();
+        // huge torso (black tee)
+        ctx.fillStyle = "#263238";
+        roundRect(-16, -22 + bob, 32, 34, 8); ctx.fill();
+        // arms crossed
+        ctx.fillStyle = C.skin;
+        roundRect(-18, -6 + bob, 36, 8, 4); ctx.fill();
+        ctx.fillStyle = "#1A1A1A";
+        roundRect(-6, -7 + bob, 12, 10, 3); ctx.fill();  // crossed-hands shadow
+        // head
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(0, -32 + bob, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(0, -32 + bob, 9.4, 0, Math.PI * 2); ctx.fill();
+        // sunglasses
+        ctx.fillStyle = "#000";
+        roundRect(-8, -35 + bob, 16, 5, 2); ctx.fill();
+        // tiny earpiece
+        ctx.strokeStyle = "#616161"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(9, -32 + bob, 1.8, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+
+    // Guy passed out face-down on the bar counter, little "Zzz" puffs.
+    function barDrawPassedOut(x, y) {
+        ctx.save();
+        ctx.translate(x, y);
+        // slumped body lying on counter
+        ctx.fillStyle = "#6D4C41";
+        roundRect(-14, -8, 28, 12, 5); ctx.fill();   // back
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(-16, -2, 7, 0, Math.PI * 2); ctx.fill();  // head down
+        // bald spot
+        ctx.fillStyle = "#BCAAA4";
+        ctx.beginPath(); ctx.arc(-16, -4, 3, 0, Math.PI * 2); ctx.fill();
+        // spilled glass
+        ctx.fillStyle = "rgba(178,235,242,0.85)";
+        roundRect(8, -2, 6, 7, 2); ctx.fill();
+        // Zzz
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(barTime * 3);
+        drawText("z", -22, -14 + Math.sin(barTime * 3) * 2, "bold 10px Arial", "#FFF", "#000", 2);
+        drawText("Z", -26, -22 + Math.sin(barTime * 3 + 1) * 2, "bold 13px Arial", "#FFF", "#000", 2);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // Disco floor tiles flickering with color (dance area).
+    function barDrawDanceFloor(x0, y0, w, h) {
+        var tile = 24, cols = ["#FF4081", "#40C4FF", "#FFD740", "#7C4DFF", "#69F0AE", "#FF6E40"];
+        ctx.save();
+        for (var ry = 0; ry < h; ry += tile) {
+            for (var rx = 0; rx < w; rx += tile) {
+                var idx = Math.floor((rx / tile + ry / tile + barTime * 3)) % cols.length;
+                ctx.globalAlpha = 0.45 + 0.4 * Math.sin(barTime * 5 + rx + ry);
+                ctx.fillStyle = cols[(idx + cols.length) % cols.length];
+                ctx.fillRect(x0 + rx, y0 + ry, tile - 2, tile - 2);
+            }
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // Spinning disco-ball light cones sweeping the room.
+    function barDrawDiscoLights() {
+        ctx.save();
+        var cx = W / 2, cy = SAFE_TOP + 56;
+        // hanging ball
+        ctx.fillStyle = "#B0BEC5";
+        ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
+        for (var f = 0; f < 8; f++) {
+            ctx.fillStyle = (Math.sin(barTime * 10 + f) > 0) ? "#FFFFFF" : "#90A4AE";
+            ctx.fillRect(cx - 9 + (f % 4) * 5, cy - 9 + Math.floor(f / 4) * 9, 3, 3);
+        }
+        // sweeping light cones
+        var beams = ["rgba(255,64,129,0.10)", "rgba(64,196,255,0.10)", "rgba(255,215,64,0.10)"];
+        for (var c = 0; c < 3; c++) {
+            var ang = barTime * (0.6 + c * 0.25) + c * 2.1;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(Math.sin(ang) * 0.9 + (c - 1) * 0.5);
+            ctx.fillStyle = beams[c];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-60, 320);
+            ctx.lineTo(60, 320);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        ctx.restore();
+    }
+
+    // ── Draw (per frame) ─────────────────────────────────────
+    function drawBarsInterior() {
+        var topY = SAFE_TOP;
+
+        // Back wall — moody dark plum gradient.
+        var wall = ctx.createLinearGradient(0, topY, 0, BAR_FLOOR_Y);
+        wall.addColorStop(0, "#2A1A2E");
+        wall.addColorStop(1, "#3E2236");
+        ctx.fillStyle = wall;
+        ctx.fillRect(0, 0, W, BAR_FLOOR_Y);
+
+        // Floor — warm dark wood planks.
+        var floor = ctx.createLinearGradient(0, BAR_FLOOR_Y, 0, H);
+        floor.addColorStop(0, "#4E342E");
+        floor.addColorStop(1, "#3E2723");
+        ctx.fillStyle = floor;
+        ctx.fillRect(0, BAR_FLOOR_Y, W, H - BAR_FLOOR_Y);
+        ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 2;
+        for (var px = 24; px < W; px += 48) {
+            ctx.beginPath(); ctx.moveTo(px, BAR_FLOOR_Y); ctx.lineTo(px, H); ctx.stroke();
+        }
+
+        // Sweeping disco lighting over everything (subtle).
+        barDrawDiscoLights();
+
+        // Dance floor patch (left-center), under the jukebox area.
+        barDrawDanceFloor(78, BAR_FLOOR_Y + 36, 120, 96);
+
+        // Back-bar shelf with the glowing bottle wall (right portion).
+        var shelfY = topY + 150;
+        ctx.fillStyle = "#3E2723";
+        ctx.fillRect(W - 230, shelfY - 30, 230, 6);
+        barDrawBottles(W - 226, shelfY, 222);
+        ctx.fillStyle = "#3E2723";
+        ctx.fillRect(W - 230, shelfY + 6, 230, 5);
+
+        // Neon signs.
+        barDrawNeon(W / 2, topY + 34, "THE THIRSTY SCHOLAR", "#FF4081", 17);
+        barDrawNeon(86, topY + 96, "L'CHAIM!", "#40C4FF", 16);
+        barDrawNeon(W - 70, topY + 150 - 70, "OPEN", "#69F0AE", 18);
+
+        // Wall TV (upper left-ish).
+        barDrawTV(180, topY + 92);
+
+        // The long bar counter (front edge, where stools line up).
+        var counterY = BAR_FLOOR_Y - 6;
+        ctx.fillStyle = "#5D4037";
+        roundRect(W - 250, counterY - 4, 250, 30, 6); ctx.fill();
+        ctx.fillStyle = "#795548";
+        roundRect(W - 248, counterY - 2, 246, 24, 5); ctx.fill();
+        // glossy top edge
+        ctx.fillStyle = "rgba(255,255,255,0.12)";
+        roundRect(W - 248, counterY - 2, 246, 5, 3); ctx.fill();
+
+        // Bartender behind the counter.
+        barDrawBartender(W - 56, BAR_FLOOR_Y - 28);
+
+        // Passed-out guy on the counter.
+        barDrawPassedOut(270, counterY - 2);
+
+        // Bar stools along the counter.
+        barDrawStool(W - 110, BAR_FLOOR_Y + 28);
+        barDrawStool(W - 160, BAR_FLOOR_Y + 28);
+
+        // Jukebox (left, by the dance floor).
+        barDrawJukebox(116, BAR_FLOOR_Y + 30);
+
+        // Bouncer by the door (far left).
+        barDrawBouncer(44, BAR_FLOOR_Y + 6);
+
+        // Two wobbly drunk patrons (reuse drawPedestrian drunk=true).
+        drawPedestrian(192, BAR_FLOOR_Y + 26, barPatronWobble + 0.4, 1, false, true);
+        drawPedestrian(340, BAR_FLOOR_Y + 26, barPatronWobble + 1.7, 2, false, true);
+
+        // A glowing exit door (far right of the floor) for flavor.
+        var doorX = W - 24;
+        ctx.save();
+        ctx.fillStyle = "#311B92";
+        roundRect(doorX - 22, BAR_FLOOR_Y - 40, 44, 96, 6); ctx.fill();
+        ctx.fillStyle = "rgba(105,240,174,0.18)";
+        roundRect(doorX - 22, BAR_FLOOR_Y - 40, 44, 12, 4); ctx.fill();
+        drawText("EXIT", doorX, BAR_FLOOR_Y - 34, "bold 10px Arial", "#69F0AE", "#000", 2);
+        ctx.restore();
+
+        // ── Lulu on the floor (walkable / dancing) ──
+        var luluY = BAR_FLOOR_Y + 60;
+        ctx.save();
+        if (barDanceT > 0) {
+            // Boogie: bouncy hop + spin sway.
+            var hop = Math.abs(Math.sin(barTime * 12)) * 8;
+            ctx.translate(barLulu.x, luluY - hop);
+            ctx.rotate(Math.sin(barTime * 10) * 0.18);
+            ctx.scale(barLulu.facing, 1);
+            drawLuluTopDown(0, 0, barTime * 2.2, "run");
+        } else {
+            ctx.translate(barLulu.x, luluY);
+            ctx.scale(barLulu.facing, 1);
+            drawLuluTopDown(0, 0, barLulu.walkTime, "run");
+        }
+        ctx.restore();
+
+        // Neon "pop" flash on interaction (full-screen tint).
+        if (barFlash > 0) {
+            ctx.save();
+            ctx.globalAlpha = barFlash * 0.18;
+            ctx.fillStyle = "#FF4081";
+            ctx.fillRect(0, 0, W, H);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // Active speech bubble.
+        if (barDialogueT > 0 && barDialogue) {
+            drawSpeechBubble(barDialogueX, BAR_FLOOR_Y + 6, barDialogue, barTime);
+        }
+
+        // Subtle "interactables glow" hint dots above each station.
+        for (var i = 0; i < barStations.length; i++) {
+            var st = barStations[i];
+            var pulse = 0.4 + 0.4 * Math.sin(barTime * 4 + i);
+            ctx.save();
+            ctx.globalAlpha = pulse;
+            drawText(st.label, st.x, BAR_FLOOR_Y - 56, "16px Arial", "#FFFFFF", "#000", 2);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // Title banner ribbon.
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        roundRect(W / 2 - 150, topY + 50, 300, 22, 8); ctx.fill();
+        drawText("🍸 THE THIRSTY SCHOLAR — BAR", W / 2, topY + 61, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD740", "#000", 3);
+        ctx.restore();
+
+        // Touch hint.
+        if (isTouchDevice) {
+            drawText("👆 Tap a face to chat · drag Lulu to walk", W / 2, H - 70, "bold 12px Arial", "#FFFFFF", "#000", 3);
+        } else {
+            drawText("◀ ▶ walk · SPACE to chat", W / 2, H - 70, "bold 12px Arial", "#FFFFFF", "#000", 3);
+        }
+
+        // LEAVE button.
+        var bw = 150, bh = 46;
+        barLeaveBtn = { x: W / 2 - bw / 2, y: H - 56, w: bw, h: bh };
+        drawButton(barLeaveBtn.x, barLeaveBtn.y, bw, bh, "🚪 LEAVE", { bg: "#EF5350", bgDark: "#B71C1C", id: "barLeave" });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  FOOT INTERIORS — SCHOOL & HOSPITAL
+    //  Two self-contained interior mini-scenes Lulu can wander into
+    //  while she's stranded on foot. Each is a full-screen painted
+    //  room with a walkable Lulu (tap/drag to stroll left-right),
+    //  several charming NPC/object interactions (randomized one-liners),
+    //  at least one coin/⭐ reward, and an obvious "🚪 LEAVE" door that
+    //  calls the prebuilt exitFootInterior().
+    //
+    //  Public (called by the central dispatcher):
+    //    initSchoolInterior / updateSchoolInterior / drawSchoolInterior
+    //    initHospitalInterior / updateHospitalInterior / drawHospitalInterior
+    //  Everything else is prefixed `sch` / `hosp` to avoid collisions.
+    // ════════════════════════════════════════════════════════════
+
+    // Shared little helper: a soft floor band used by both rooms.
+    function schHospFloorBand(y0, h, top, bot) {
+        var g = ctx.createLinearGradient(0, y0, 0, y0 + h);
+        g.addColorStop(0, top); g.addColorStop(1, bot);
+        ctx.fillStyle = g; ctx.fillRect(0, y0, W, h);
+    }
+
+    // ═══════════════════════ SCHOOL ═══════════════════════
+    //  "🍎 CHEDER ON THE CORNER — DAY SCHOOL"
+    //  A bright cheder hallway: lockers, a chalkboard, tiny desks,
+    //  taped-up kid drawings, a bake-sale table, a water fountain.
+    //  Interactions: Morah (strict teacher), a tiny kid, the
+    //  principal's door, the bake-sale (reward), the water fountain.
+
+    var schTime = 0;
+    var schLulu = null;          // {x, targetX, walkTime, mood, facing}
+    var schSpots = [];           // interaction hotspots
+    var schBubble = "", schBubbleT = 0, schBubbleX = 0;
+    var schKidWalk = 0, schKidX = 0, schKidDir = 1;
+    var schLeaveRect = { x: 0, y: 0, w: 0, h: 0 };
+    var schBakeDone = false;     // one-time coin reward latch
+    var schFloorY = 0;
+
+    var SCH_MORAH = [
+        "A grown woman? In MY hallway?\nWhere is your hall pass?!",
+        "We do NOT run in the cheder.\nWe glide, like ladies.",
+        "Is this your daughter's class?\nThen why are YOU here, mami?",
+        "You forgot your lunchbox in 1994\nand you STILL owe me a note.",
+        "No gum. No phones.\nNo... whatever that sheitel is doing.",
+        "Recess is over. Sit down.\n...You're forty? Sit down anyway.",
+        "Tuck in that shirt, young lady.\nYes, YOU. The tall one.",
+        "If you're here for the bake sale,\nthe rugelach are RATIONED.",
+        "I taught your husband aleph-bais.\nHe also couldn't sit still.",
+        "Detention is for everyone,\nincluding wandering mothers.",
+        "Spit out the gum. I can HEAR\nthe gum. There is no gum?\nThere will be.",
+        "Walk on the RIGHT, please.\nThis is a one-way hallway."
+    ];
+    var SCH_KID = [
+        "My morah says I'm a tzaddik.\nI told her I'm just hungry.",
+        "I have FORTY-SIX stickers.\nWanna see? ...Too bad, they're mine.",
+        "I traded my snack for a rock.\nIt's a GOOD rock though.",
+        "Is it Shabbos yet? Is it now?\nIs it NOW? How about now?",
+        "I know all the brachos.\nWatch — *whispers nothing* — done!",
+        "My bubbe gives me soda.\nDon't tell my ima. Or do. I'll deny it.",
+        "I'm not crying, YOU'RE crying.\n...okay I dropped my cookie.",
+        "I drew you on the wall!\nYou have nineteen fingers. Sorry.",
+        "Wanna hear a joke? Why did the\nmatzah— I forgot the rest.",
+        "I lost my tooth in the cubbies.\nThe tooth fairy works here, right?",
+        "Morah said sharing is caring.\nSo CARE about my homework, please.",
+        "I'm hiding from gym.\nYou never saw me. Shhh."
+    ];
+    var SCH_PRINCIPAL = [
+        "The principal will see you now.\n...In 1996, apparently.",
+        "Office hours: whenever the rabbi\nfinds his other shoe.",
+        "Sign in, sign out, sign a check\nfor the building fund. Mostly that one.",
+        "You're being sent to the office.\nAt your big age. Mazel.",
+        "The principal is 'in a meeting'\n(napping behind the gemara).",
+        "Please hold. The secretary is\non the phone with EVERYONE'S mother.",
+        "He'll call your mom.\n...Your mom is already in the parking lot.",
+        "We don't have a budget, but we\nhave a LOT of laminated signs.",
+        "The office candy dish is empty.\nThe rabbi has a sweet tooth too.",
+        "Yes, the heating is broken.\nYes, it's a 'character-building' winter."
+    ];
+    var SCH_BAKE = [
+        "Bake sale! Rugelach two dollars,\nguilt absolutely free.",
+        "Babka by the slice — proceeds\nfund the gym we'll never build.",
+        "Buy a hamantasch, support the\neighth grade trip to... the lobby.",
+        "These cookies are sugar-free.\nThat's a lie, but it's a MITZVAH lie.",
+        "Tzedakah jar's right here, mami.\nThe morah is WATCHING.",
+        "Last black-and-white cookie!\nFirst come, first kvell.",
+        "Macaroons! From Pesach!\n...This Pesach. Probably."
+    ];
+    var SCH_FOUNTAIN = [
+        "The water fountain only does\nlukewarm and 'forehead splash'.",
+        "Press the button, get a sip,\nget a free shirt soaking. Classic.",
+        "Someone left gum on it again.\nThe eternal cheder mystery.",
+        "It's been 'out of order' since\nthe Maccabees, honestly.",
+        "Cold water? In THIS school?\nDream bigger, mami.",
+        "*sluuurp* ...okay that's enough\nadventure for one hallway."
+    ];
+
+    function initSchoolInterior() {
+        schTime = 0;
+        schBubble = ""; schBubbleT = 0; schBubbleX = W / 2;
+        schKidWalk = 0; schKidX = W * 0.62; schKidDir = -1;
+        schBakeDone = false;
+        schFloorY = H * 0.60;
+        schLulu = { x: W / 2, y: schFloorY + 70, targetX: W / 2, walkTime: 0, mood: "run", facing: 1 };
+        // Interaction hotspots, positioned along the hallway floor line.
+        var fy = schFloorY + 70;
+        schSpots = [
+            { id: "morah",     x: W * 0.20, y: fy, r: 56, pool: SCH_MORAH },
+            { id: "kid",       x: W * 0.62, y: fy, r: 50, pool: SCH_KID, moving: true },
+            { id: "principal", x: W * 0.84, y: schFloorY - 6, r: 60, pool: SCH_PRINCIPAL },
+            { id: "bake",      x: W * 0.42, y: fy + 16, r: 58, pool: SCH_BAKE, reward: true },
+            { id: "fountain",  x: W * 0.06, y: schFloorY - 4, r: 46, pool: SCH_FOUNTAIN }
+        ];
+        playClick();
+    }
+
+    function schSay(spot) {
+        schBubble = randPick(spot.pool);
+        schBubbleT = 3.4;
+        schBubbleX = clamp(spot.x, 70, W - 70);
+        playClick();
+        if (spot.id === "morah") playTone(196, 0.14, "square", 0.13);
+        if (spot.id === "kid") playTone(740, 0.08, "triangle", 0.14);
+        if (spot.id === "fountain") playTone(520, 0.09, "sine", 0.12, 760);
+        if (spot.id === "principal") playTone(330, 0.12, "sine", 0.12);
+        // Bake-sale gives a one-time coin reward (then just flavor).
+        if (spot.reward && !schBakeDone) {
+            schBakeDone = true;
+            var n = 6;
+            footCoinsRun += n; runCoins += n; save.totalCoins += n;
+            spawnFloater(spot.x, spot.y - 30, "+" + n + " 💰 rugelach run!", "#FFD700");
+            playCoin();
+            for (var i = 0; i < 10; i++) {
+                particles.push({ x: spot.x + rand(-14, 14), y: spot.y - 20,
+                    vx: rand(-40, 40), vy: rand(-90, -30), life: 0.7, maxLife: 0.7,
+                    size: rand(3, 6), color: randPick(["#FFD700", "#FFCC80", "#A1674A"]), gravity: 240 });
+            }
+        } else if (spot.reward) {
+            // Tiny star for repeat visits — generous but not exploitable-feeling.
+            footStars += 1;
+            spawnFloater(spot.x, spot.y - 30, "+⭐ one more nosh", "#FFD700");
+            playHopJump();
+        }
+    }
+
+    function updateSchoolInterior(dt) {
+        if (!schLulu) return;
+        schTime += dt;
+        updateParticles(dt);
+        if (schBubbleT > 0) schBubbleT -= dt;
+
+        // Wandering kid paces the hall.
+        schKidWalk += dt * 3;
+        schKidX += schKidDir * 26 * dt;
+        if (schKidX < W * 0.50) { schKidX = W * 0.50; schKidDir = 1; }
+        if (schKidX > W * 0.74) { schKidX = W * 0.74; schKidDir = -1; }
+        for (var s = 0; s < schSpots.length; s++) {
+            if (schSpots[s].moving) schSpots[s].x = schKidX;
+        }
+
+        // Lulu strolls toward the last tapped x.
+        schLulu.x = lerp(schLulu.x, schLulu.targetX, Math.min(1, 9 * dt));
+        var moving = Math.abs(schLulu.x - schLulu.targetX) > 1.5;
+        if (moving) {
+            schLulu.walkTime += dt * 3.2;
+            schLulu.facing = schLulu.targetX > schLulu.x ? 1 : -1;
+        }
+
+        var click = consumeClick();
+        if (click) {
+            // Leave door first.
+            if (pointInRect(click.x, click.y, schLeaveRect.x, schLeaveRect.y, schLeaveRect.w, schLeaveRect.h)) {
+                playClick(); exitFootInterior(); return;
+            }
+            // Did they tap a hotspot? (then chat); otherwise walk there.
+            var hit = null;
+            for (var i = 0; i < schSpots.length; i++) {
+                var sp = schSpots[i];
+                var dx = click.x - sp.x, dy = click.y - sp.y;
+                if (dx * dx + dy * dy < sp.r * sp.r) { hit = sp; break; }
+            }
+            if (hit) { schLulu.targetX = clamp(hit.x, 40, W - 40); schSay(hit); }
+            else schLulu.targetX = clamp(click.x, 40, W - 40);
+        }
+    }
+
+    function schDrawLocker(x, y, w, h, col) {
+        ctx.fillStyle = col;
+        roundRect(x, y, w, h, 4); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 2;
+        roundRect(x, y, w, h, 4); ctx.stroke();
+        // vents
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        for (var v = 0; v < 3; v++) ctx.fillRect(x + 5, y + 8 + v * 5, w - 10, 2);
+        // handle + lock
+        ctx.fillStyle = "#37474F"; ctx.fillRect(x + w - 8, y + h * 0.5, 4, 12);
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(x + w - 6, y + h * 0.5 + 16, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function schDrawMorah(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        var bob = Math.sin(t * 2) * 1.5;
+        // long modest skirt
+        ctx.fillStyle = "#37474F"; roundRect(-16, -6 + bob, 32, 40, 6); ctx.fill();
+        // cardigan
+        ctx.fillStyle = "#6D4C41"; roundRect(-15, -26 + bob, 30, 26, 8); ctx.fill();
+        // wagging finger arm
+        ctx.save(); ctx.translate(13, -20 + bob); ctx.rotate(Math.sin(t * 6) * 0.4 - 0.5);
+        ctx.fillStyle = "#6D4C41"; roundRect(-3, 0, 6, 18, 3); ctx.fill();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, 20, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // head + sheitel (snood)
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -36 + bob, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#4E342E"; ctx.beginPath(); ctx.arc(0, -39 + bob, 12, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5D4037"; roundRect(-12, -40 + bob, 24, 10, 5); ctx.fill();
+        // stern face
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 2; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-6, -39 + bob); ctx.lineTo(-2, -37 + bob);
+        ctx.moveTo(6, -39 + bob); ctx.lineTo(2, -37 + bob); ctx.stroke(); // angry brows
+        ctx.beginPath(); ctx.arc(-4, -35 + bob, 1.4, 0, Math.PI * 2); ctx.arc(4, -35 + bob, 1.4, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-4, -29 + bob); ctx.lineTo(4, -29 + bob); ctx.stroke();
+        ctx.lineCap = "butt";
+        // glasses
+        ctx.strokeStyle = "#212121"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(-4, -35 + bob, 3, 0, Math.PI * 2); ctx.arc(4, -35 + bob, 3, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+
+    function schDrawKid(x, y, walk) {
+        ctx.save(); ctx.translate(x, y);
+        var legS = Math.sin(walk * 3) * 4;
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 18, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // little legs (grey trousers)
+        ctx.fillStyle = "#455A64"; roundRect(-6, 4 - legS, 5, 14 + legS, 2); ctx.fill();
+        roundRect(1, 4 + legS, 5, 14 - legS, 2); ctx.fill();
+        // white shirt + tzitzis
+        ctx.fillStyle = "#FFFFFF"; roundRect(-9, -12, 18, 20, 5); ctx.fill();
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(-7, 8); ctx.lineTo(-7, 12); ctx.moveTo(-3, 8); ctx.lineTo(-3, 12);
+        ctx.moveTo(3, 8); ctx.lineTo(3, 12); ctx.moveTo(7, 8); ctx.lineTo(7, 12); ctx.stroke();
+        // head
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -20, 9, 0, Math.PI * 2); ctx.fill();
+        // payos
+        ctx.fillStyle = "#4E342E"; ctx.beginPath(); ctx.arc(-8, -18, 2, 0, Math.PI * 2); ctx.arc(8, -18, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -24, 9, Math.PI, Math.PI * 2); ctx.fill();
+        // kippah
+        ctx.fillStyle = "#1565C0"; ctx.beginPath(); ctx.arc(0, -26, 6, Math.PI, Math.PI * 2); ctx.fill();
+        // happy face
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(-3, -20, 1.4, 0, Math.PI * 2); ctx.arc(3, -20, 1.4, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -17, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+    }
+
+    function schDrawScene() {
+        // Back wall (warm school cream) + wainscot.
+        ctx.fillStyle = "#FBE9C8"; ctx.fillRect(0, 0, W, schFloorY);
+        ctx.fillStyle = "#E8C98A"; ctx.fillRect(0, schFloorY - 26, W, 26);
+        ctx.strokeStyle = "#C8A05A"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, schFloorY - 26); ctx.lineTo(W, schFloorY - 26); ctx.stroke();
+
+        // Speckled linoleum floor with perspective tiles.
+        schHospFloorBand(schFloorY, H - schFloorY, "#9CCC65", "#7CB342");
+        ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
+        for (var ty = schFloorY + 18; ty < H; ty += 34) {
+            ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(W, ty); ctx.stroke();
+        }
+
+        // Chalkboard (center back) with aleph-bais + a sum.
+        var cbX = W * 0.30, cbY = 70, cbW = 200, cbH = 110;
+        ctx.fillStyle = "#5D4037"; roundRect(cbX - 6, cbY - 6, cbW + 12, cbH + 12, 6); ctx.fill();
+        ctx.fillStyle = "#2E4A3A"; roundRect(cbX, cbY, cbW, cbH, 4); ctx.fill();
+        drawText("א ב ג ד", cbX + cbW / 2, cbY + 26, "bold 22px Arial", "#F1F8E9", null, 0);
+        drawText("שבת = soup", cbX + cbW / 2, cbY + 56, "bold 16px Arial", "#FFF9C4", null, 0);
+        drawText("Be a mensch!", cbX + cbW / 2, cbY + 82, "italic 14px Arial", "#FFCDD2", null, 0);
+        // chalk tray
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(cbX, cbY + cbH, cbW, 6);
+        ctx.fillStyle = "#FFF"; ctx.fillRect(cbX + 16, cbY + cbH, 14, 4);
+        ctx.fillStyle = "#FFCDD2"; ctx.fillRect(cbX + 40, cbY + cbH, 12, 4);
+
+        // Taped-up kid drawings.
+        var draws = [[18, 60], [W - 60, 56], [W - 96, 150]];
+        var dcol = ["#FFCDD2", "#BBDEFB", "#FFF9C4"];
+        for (var d = 0; d < draws.length; d++) {
+            ctx.save(); ctx.translate(draws[d][0], draws[d][1]); ctx.rotate((d % 2 ? 1 : -1) * 0.08);
+            ctx.fillStyle = dcol[d]; ctx.fillRect(0, 0, 38, 30);
+            ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1; ctx.strokeRect(0, 0, 38, 30);
+            ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(12, 14, 5, 0, Math.PI * 2); ctx.fill(); // sun
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.arc(26, 18, 4, 0, Math.PI * 2); ctx.moveTo(26, 22); ctx.lineTo(26, 27); ctx.stroke(); // stick kid
+            // tape
+            ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(14, -3, 10, 6);
+            ctx.restore();
+        }
+
+        // Lockers along the right back wall.
+        var lcol = ["#42A5F5", "#EF5350", "#66BB6A", "#FFA726"];
+        for (var l = 0; l < 4; l++) schDrawLocker(W - 96 + (l % 2) * 44, schFloorY - 130 + Math.floor(l / 2) * 70, 40, 64, lcol[l]);
+
+        // Tiny desks scattered up front-left.
+        for (var dk = 0; dk < 3; dk++) {
+            var dxp = 40 + dk * 56, dyp = schFloorY + 40 + (dk % 2) * 18;
+            ctx.fillStyle = "#A1674A"; roundRect(dxp, dyp, 34, 8, 3); ctx.fill();        // desktop
+            ctx.fillStyle = "#7B4A2E"; ctx.fillRect(dxp + 3, dyp + 8, 4, 18); ctx.fillRect(dxp + 27, dyp + 8, 4, 18); // legs
+            ctx.fillStyle = "#FFF59D"; ctx.fillRect(dxp + 10, dyp - 2, 14, 4);          // notebook
+        }
+    }
+
+    function drawSchoolInterior() {
+        ctx.save();
+
+        schDrawScene();
+
+        // ── Hotspot NPCs / props ──
+        // Water fountain (far left).
+        var f = schSpots[4];
+        ctx.fillStyle = "#B0BEC5"; roundRect(f.x - 16, f.y - 28, 32, 40, 6); ctx.fill();
+        ctx.strokeStyle = "#607D8B"; ctx.lineWidth = 2; roundRect(f.x - 16, f.y - 28, 32, 40, 6); ctx.stroke();
+        ctx.fillStyle = "#4FC3F7"; ctx.beginPath(); ctx.ellipse(f.x, f.y - 24, 9, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#81D4FA"; // little arc of water
+        ctx.beginPath(); ctx.arc(f.x, f.y - 24 - Math.abs(Math.sin(schTime * 4)) * 6, 2, 0, Math.PI * 2); ctx.fill();
+        drawText("💧", f.x, f.y + 24, "13px Arial", "#0277BD", null, 0);
+
+        // Bake-sale table (mid-left).
+        var b = schSpots[3];
+        ctx.fillStyle = "#8D6E63"; roundRect(b.x - 40, b.y - 6, 80, 14, 4); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(b.x - 42, b.y - 10, 84, 8, 3); ctx.fill(); // tablecloth
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(b.x - 36, b.y + 8, 5, 16); ctx.fillRect(b.x + 31, b.y + 8, 5, 16);
+        // baked goods
+        var goods = ["🍪", "🥯", "🍩"];
+        for (var g = 0; g < 3; g++) drawText(goods[g], b.x - 24 + g * 24, b.y - 6, "16px Arial", "#000", null, 0);
+        // sign
+        ctx.save(); ctx.translate(b.x, b.y - 40); ctx.rotate(Math.sin(schTime * 2) * 0.04);
+        ctx.fillStyle = "#FFF59D"; roundRect(-44, -14, 88, 24, 4); ctx.fill();
+        ctx.strokeStyle = "#F9A825"; ctx.lineWidth = 2; roundRect(-44, -14, 88, 24, 4); ctx.stroke();
+        drawText("BAKE SALE", 0, -2, "bold 13px Arial", "#E65100", null, 0);
+        ctx.restore();
+        drawText(schBakeDone ? "(sold out, mami)" : "tap for nosh", b.x, b.y + 30, "bold 10px Arial", "#5D4037", "#FFF", 2);
+
+        // Principal's office door (right).
+        var p = schSpots[2];
+        ctx.fillStyle = "#5D4037"; roundRect(p.x - 34, p.y - 100, 68, 120, 6); ctx.fill();
+        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 3; roundRect(p.x - 34, p.y - 100, 68, 120, 6); ctx.stroke();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(p.x + 22, p.y - 40, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ECEFF1"; roundRect(p.x - 28, p.y - 92, 56, 26, 3); ctx.fill(); // nameplate window
+        drawText("OFFICE", p.x, p.y - 79, "bold 12px Arial", "#37474F", null, 0);
+        drawText("PRINCIPAL", p.x, p.y - 66, "bold 8px Arial", "#90A4AE", null, 0);
+
+        // Morah (strict teacher).
+        var m = schSpots[0];
+        schDrawMorah(m.x, m.y, schTime);
+
+        // Wandering kid.
+        var k = schSpots[1];
+        schDrawKid(k.x, k.y, schKidWalk);
+
+        // ── Lulu ──
+        drawLuluTopDown(schLulu.x, schLulu.y, schLulu.walkTime, schLulu.mood);
+
+        drawParticles();
+
+        // Active speech bubble.
+        if (schBubbleT > 0) {
+            ctx.globalAlpha = clamp(schBubbleT, 0, 1);
+            drawSpeechBubble(schBubbleX, (schFloorY + 30), schBubble, schTime * 4);
+            ctx.globalAlpha = 1;
+        }
+
+        ctx.restore();
+
+        // ── HUD (outside world transform) ──
+        // Title banner.
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
+        drawText("🍎 CHEDER ON THE CORNER", W / 2, SAFE_TOP + 27, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+
+        drawText("💰 " + footCoinsRun + "   ⭐ " + footStars, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+
+        // Leave door button (bottom).
+        var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
+        schLeaveRect = { x: lx, y: ly, w: lw, h: lh };
+        drawButton(lx, ly, lw, lh, "🚪 LEAVE", { bg: "#FF8A65", bgDark: "#D84315" });
+
+        if (isTouchDevice) {
+            drawText("tap a person/desk to chat · tap floor to walk", W / 2, ly - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        } else {
+            drawText("click a person/object to chat · click to walk", W / 2, ly - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        }
+    }
+
+    // ═══════════════════════ HOSPITAL ═══════════════════════
+    //  "🏥 MAIMONIDES-ISH URGENT CARE — WAITING ROOM"
+    //  A bright clinic waiting room: reception desk, plastic chairs,
+    //  a vending machine, an eye chart, a nervous hypochondriac, a
+    //  doctor with terrible advice, and Heshy nursing a pool injury.
+    //  Interactions: receptionist (insurance), hypochondriac, doctor,
+    //  vending machine (reward OR eats a coin for a laugh), Heshy.
+
+    var hospTime = 0;
+    var hospLulu = null;
+    var hospSpots = [];
+    var hospBubble = "", hospBubbleT = 0, hospBubbleX = 0;
+    var hospLeaveRect = { x: 0, y: 0, w: 0, h: 0 };
+    var hospFloorY = 0;
+    var hospVendShake = 0;       // vending machine wobble timer
+    var hospPatientBreath = 0;
+
+    var HOSP_RECEPTION = [
+        "Do you have insurance?\n...A coupon? A blessing? Anything?",
+        "Fill out these forms.\nAll forty. Both sides. In pen.",
+        "Name? Date of birth?\nMother's maiden complaint?",
+        "You're not in the system.\nNobody is. The system is a myth.",
+        "Co-pay is twenty dollars\nor one really good piece of babka.",
+        "The doctor is running behind.\nBy 'behind' I mean 'last Tuesday'.",
+        "Have a seat. And a number.\nAnd a long, contemplative wait.",
+        "Is this an emergency or are you\njust cold and want the WiFi?",
+        "We take all insurance!\n...We accept none of it. But we TAKE it.",
+        "Sign here, here, and here.\nThat last one was a raffle. You won a pen.",
+        "Pre-existing condition?\nYes — you exist, and that's a condition.",
+        "Please don't cough on the desk.\nCough on the OTHER patients, like normal."
+    ];
+    var HOSP_PATIENT = [
+        "I googled my symptoms.\nIt's either a cold or a dragon.",
+        "I've been waiting since BREAKFAST.\nI came for breakfast, actually.",
+        "Is it warm in here? I'm warm.\nAm I dying? Be honest.",
+        "My cousin had a cousin who\nsneezed once. Never recovered. Tragic.",
+        "I have a paper cut.\nI think it's spreading to my SOUL.",
+        "Do you smell toast? I smell toast.\nThat's a symptom, right? RIGHT?",
+        "I'm only here for the vending\nmachine, honestly. Don't tell.",
+        "My left pinky feels... opinionated.\nThat can't be good.",
+        "I read one medical article\nand now I'm basically a surgeon.",
+        "If I die in this chair,\ntell my bubbe I finished the soup.",
+        "They called number twelve.\nI'm number nine hundred. We wait.",
+        "Is the doctor cute? Asking for\nmy health. Strictly medical reasons."
+    ];
+    var HOSP_DOCTOR = [
+        "My professional advice?\nDrink water and stop reading WebMD.",
+        "Take two rugelach and call\nyour mother in the morning. Always.",
+        "It's probably stress.\nWhose isn't? Next patient!",
+        "Have you tried... not doing\nthe thing that hurts? Groundbreaking.",
+        "I prescribe a nap and a bagel.\nThat'll be four hundred dollars.",
+        "Walk it off. Worst case,\nyou walk it off to the ER. Mazel!",
+        "On a scale of one to oy,\nhow much does it hurt?",
+        "Good news: you'll live.\nBad news: so will the waiting room.",
+        "I went to a very good school.\nMostly for the parking. Say 'ahh'.",
+        "That rash? Confidence. You have\ntoo much. Tone it down. Heal.",
+        "Stick out your tongue.\n...Lovely. No notes. You're cured.",
+        "Two aspirin, one chicken soup,\nand absolutely no more stairs."
+    ];
+    var HOSP_VEND = [
+        "C-7... the chips are stuck.\nClassic C-7 behavior.",
+        "It took your coin AND your dignity.\nButtons are decorative here.",
+        "Press B-4? It dispenses B-5.\nAnd a small existential crisis.",
+        "This machine has TRUST issues.\nSo do you now. Welcome.",
+        "Kosher snacks only — the machine\nchecks the hechsher, swear to it.",
+        "It's leaning forward. Do NOT\nrock it. ...Okay rock it a LITTLE."
+    ];
+    var HOSP_HESHY = [
+        "I bellyflopped, Lu. The POOL won.\nThe pool always wins.",
+        "I told the lifeguard I was fine.\nI am, medically, NOT fine.",
+        "Cannonball gone wrong.\nWorth it. Ten outta ten. Ow.",
+        "My back went 'crunch'.\nThe whole shul heard it. Embarrassing.",
+        "Slipped on the pool tiles.\nNow I'm a hospital influencer.",
+        "They gave me a lollipop AND\na sling. Best day ever, honestly.",
+        "Don't tell Ma I dove off the\nhigh board. ...She's behind me, isn't she.",
+        "I'm 'between strokes', the doctor\nsaid. I don't even SWIM strokes!",
+        "The deep end disrespected me.\nWe have BEEF now. Me and the deep end."
+    ];
+
+    function initHospitalInterior() {
+        hospTime = 0;
+        hospBubble = ""; hospBubbleT = 0; hospBubbleX = W / 2;
+        hospVendShake = 0; hospPatientBreath = 0;
+        hospFloorY = H * 0.58;
+        hospLulu = { x: W / 2, y: hospFloorY + 80, targetX: W / 2, walkTime: 0, mood: "run", facing: 1 };
+        var fy = hospFloorY + 80;
+        hospSpots = [
+            { id: "reception", x: W * 0.50, y: hospFloorY - 8, r: 70, pool: HOSP_RECEPTION },
+            { id: "patient",   x: W * 0.18, y: fy,            r: 50, pool: HOSP_PATIENT },
+            { id: "doctor",    x: W * 0.82, y: fy - 6,        r: 52, pool: HOSP_DOCTOR },
+            { id: "vending",   x: W * 0.90, y: hospFloorY - 6, r: 50, pool: HOSP_VEND, vend: true },
+            { id: "heshy",     x: W * 0.34, y: fy + 18,       r: 48, pool: HOSP_HESHY, reward: true }
+        ];
+        playClick();
+    }
+
+    function hospSay(spot) {
+        hospBubble = randPick(spot.pool);
+        hospBubbleT = 3.4;
+        hospBubbleX = clamp(spot.x, 80, W - 80);
+        playClick();
+        if (spot.id === "reception") playTone(440, 0.08, "sine", 0.1);
+        if (spot.id === "patient") playTone(620, 0.07, "triangle", 0.12);
+        if (spot.id === "doctor") playTone(330, 0.1, "sine", 0.12);
+
+        // Vending machine: 60% gives a snack (+coins), 40% eats a coin (gag).
+        if (spot.vend) {
+            hospVendShake = 0.5;
+            if (Math.random() < 0.6) {
+                var n = 5;
+                footCoinsRun += n; runCoins += n; save.totalCoins += n;
+                spawnFloater(spot.x, spot.y - 40, "+" + n + " 💰 snack!", "#FFD700");
+                playCoin();
+                for (var i = 0; i < 8; i++) {
+                    particles.push({ x: spot.x + rand(-10, 10), y: spot.y - 10,
+                        vx: rand(-50, 50), vy: rand(-30, 60), life: 0.6, maxLife: 0.6,
+                        size: rand(3, 6), color: randPick(["#FFD700", "#FF8A65", "#FFF176"]), gravity: 280 });
+                }
+            } else if (footCoinsRun > 0 || runCoins > 0) {
+                footCoinsRun = Math.max(0, footCoinsRun - 1);
+                runCoins = Math.max(0, runCoins - 1);
+                save.totalCoins = Math.max(0, save.totalCoins - 1);
+                spawnFloater(spot.x, spot.y - 40, "-1 💸 it ATE it!", "#FF5252");
+                playWompWomp();
+            } else {
+                spawnFloater(spot.x, spot.y - 40, "*clunk* ...nothing.", "#B0BEC5");
+                playTone(150, 0.18, "square", 0.14);
+            }
+            return;
+        }
+        // Heshy hands over a get-well star the first time, flavor after.
+        if (spot.reward) {
+            if (!spot._gave) {
+                spot._gave = true;
+                footStars += 1;
+                footCoinsRun += 3; runCoins += 3; save.totalCoins += 3;
+                spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
+                playHopJump(); playCoin();
+            } else {
+                playTone(523, 0.08, "triangle", 0.14);
+            }
+        }
+    }
+
+    function updateHospitalInterior(dt) {
+        if (!hospLulu) return;
+        hospTime += dt;
+        updateParticles(dt);
+        if (hospBubbleT > 0) hospBubbleT -= dt;
+        if (hospVendShake > 0) hospVendShake -= dt;
+        hospPatientBreath += dt * 2;
+
+        hospLulu.x = lerp(hospLulu.x, hospLulu.targetX, Math.min(1, 9 * dt));
+        if (Math.abs(hospLulu.x - hospLulu.targetX) > 1.5) {
+            hospLulu.walkTime += dt * 3.2;
+            hospLulu.facing = hospLulu.targetX > hospLulu.x ? 1 : -1;
+        }
+
+        var click = consumeClick();
+        if (click) {
+            if (pointInRect(click.x, click.y, hospLeaveRect.x, hospLeaveRect.y, hospLeaveRect.w, hospLeaveRect.h)) {
+                playClick(); exitFootInterior(); return;
+            }
+            var hit = null;
+            for (var i = 0; i < hospSpots.length; i++) {
+                var sp = hospSpots[i];
+                var dx = click.x - sp.x, dy = click.y - sp.y;
+                if (dx * dx + dy * dy < sp.r * sp.r) { hit = sp; break; }
+            }
+            if (hit) { hospLulu.targetX = clamp(hit.x, 40, W - 40); hospSay(hit); }
+            else hospLulu.targetX = clamp(click.x, 40, W - 40);
+        }
+    }
+
+    function hospDrawChair(x, y) {
+        ctx.fillStyle = "#7E57C2"; roundRect(x - 12, y - 4, 24, 8, 3); ctx.fill();   // seat
+        ctx.fillStyle = "#5E35B1"; roundRect(x - 12, y - 22, 24, 20, 4); ctx.fill(); // back
+        ctx.fillStyle = "#37474F"; ctx.fillRect(x - 10, y + 4, 3, 12); ctx.fillRect(x + 7, y + 4, 3, 12); // legs
+    }
+
+    function hospDrawPatient(x, y, breath) {
+        ctx.save(); ctx.translate(x, y);
+        var b = Math.sin(breath) * 1.2;
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 16, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // sitting body (green sweater), shoulders rising with anxious breath
+        ctx.fillStyle = "#43A047"; roundRect(-12, -14 + b, 24, 26, 7); ctx.fill();
+        // nervous hands clasped
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(-3, 6 + b, 3, 0, Math.PI * 2); ctx.arc(3, 6 + b, 3, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -24 + b, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6D4C41"; ctx.beginPath(); ctx.arc(0, -27 + b, 11, Math.PI, Math.PI * 2); ctx.fill();
+        // worried face + sweat bead
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(-3.5, -25 + b, 1.8, 0, Math.PI * 2); ctx.arc(3.5, -25 + b, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = "#000"; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-6, -29 + b); ctx.lineTo(-2, -28 + b); ctx.moveTo(6, -29 + b); ctx.lineTo(2, -28 + b); ctx.stroke(); // worried brows
+        ctx.beginPath(); ctx.arc(0, -19 + b, 2.5, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke(); // frown
+        ctx.lineCap = "butt";
+        ctx.fillStyle = "#4FC3F7"; ctx.beginPath(); ctx.arc(9, -22 + b + Math.abs(Math.sin(breath * 1.3)) * 3, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function hospDrawDoctor(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        var bob = Math.sin(t * 2.5) * 1.5;
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 20, 13, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // white coat
+        ctx.fillStyle = "#FFFFFF"; roundRect(-15, -8 + bob, 30, 36, 6); ctx.fill();
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 1; roundRect(-15, -8 + bob, 30, 36, 6); ctx.stroke();
+        // teal scrubs collar
+        ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.moveTo(-6, -8 + bob); ctx.lineTo(0, 2 + bob); ctx.lineTo(6, -8 + bob); ctx.closePath(); ctx.fill();
+        // stethoscope
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-5, -6 + bob); ctx.quadraticCurveTo(0, 16 + bob, 7, 6 + bob); ctx.stroke();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(7, 7 + bob, 3, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -22 + bob, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -25 + bob, 11, Math.PI, Math.PI * 2); ctx.fill();
+        // confident face
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(-3.5, -22 + bob, 1.5, 0, Math.PI * 2); ctx.arc(3.5, -22 + bob, 1.5, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -19 + bob, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        ctx.lineCap = "butt";
+        // head mirror
+        ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.arc(0, -30 + bob, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(0, -30 + bob, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function hospDrawHeshy(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 16, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // sitting, swim trunks + towel
+        ctx.fillStyle = "#1E88E5"; roundRect(-12, -10, 24, 24, 6); ctx.fill();
+        ctx.fillStyle = "#FFCA28"; roundRect(-13, -2, 26, 8, 3); ctx.fill();     // towel
+        // arm in a sling
+        ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.moveTo(-12, -6); ctx.lineTo(6, 4); ctx.lineTo(-12, 8); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(4, 2, 3, 0, Math.PI * 2); ctx.fill(); // hand poking out
+        // head + wet hair + kippah
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -22, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#4E342E"; ctx.beginPath(); ctx.arc(0, -25, 11, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0D47A1"; ctx.beginPath(); ctx.arc(0, -28, 6, Math.PI, Math.PI * 2); ctx.fill();
+        // dripping bead
+        ctx.fillStyle = "#4FC3F7"; ctx.beginPath(); ctx.arc(8, -16 + Math.abs(Math.sin(t * 2)) * 4, 1.4, 0, Math.PI * 2); ctx.fill();
+        // ow face
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-5, -23); ctx.lineTo(-1, -24); ctx.moveTo(5, -23); ctx.lineTo(1, -24); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, -18, 2, 1.6, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineCap = "butt";
+        // bandage on knee
+        ctx.fillStyle = "#FFF"; ctx.fillRect(-8, 8, 8, 5);
+        ctx.strokeStyle = "#E0E0E0"; ctx.strokeRect(-8, 8, 8, 5);
+        ctx.restore();
+    }
+
+    function hospDrawScene() {
+        // Clinic wall (clean mint) + a colored stripe.
+        ctx.fillStyle = "#E0F2F1"; ctx.fillRect(0, 0, W, hospFloorY);
+        ctx.fillStyle = "#26A69A"; ctx.fillRect(0, hospFloorY - 30, W, 8);
+        ctx.fillStyle = "#B2DFDB"; ctx.fillRect(0, hospFloorY - 22, W, 22);
+
+        // Speckled tile floor.
+        schHospFloorBand(hospFloorY, H - hospFloorY, "#ECEFF1", "#CFD8DC");
+        ctx.strokeStyle = "rgba(120,144,156,0.35)"; ctx.lineWidth = 1;
+        for (var tx = 40; tx < W; tx += 60) { ctx.beginPath(); ctx.moveTo(tx, hospFloorY); ctx.lineTo(tx + (tx - W / 2) * 0.4, H); ctx.stroke(); }
+        for (var tyy = hospFloorY + 28; tyy < H; tyy += 32) { ctx.beginPath(); ctx.moveTo(0, tyy); ctx.lineTo(W, tyy); ctx.stroke(); }
+
+        // Red cross sign + clock on the back wall.
+        ctx.fillStyle = "#FFFFFF"; roundRect(20, 16, 46, 46, 8); ctx.fill();
+        ctx.strokeStyle = "#E53935"; ctx.lineWidth = 3; roundRect(20, 16, 46, 46, 8); ctx.stroke();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(38, 24, 10, 30); ctx.fillRect(28, 34, 30, 10);
+        // wall clock (ticking)
+        var clkX = W - 44, clkY = 40;
+        ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(clkX, clkY, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(clkX, clkY); ctx.lineTo(clkX + Math.cos(hospTime) * 10, clkY + Math.sin(hospTime) * 10); ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(clkX, clkY); ctx.lineTo(clkX + Math.cos(hospTime * 0.2) * 6, clkY + Math.sin(hospTime * 0.2) * 6); ctx.stroke();
+
+        // Eye chart (back-left).
+        ctx.fillStyle = "#FFFFFF"; roundRect(86, 18, 60, 80, 4); ctx.fill();
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 1; roundRect(86, 18, 60, 80, 4); ctx.stroke();
+        drawText("E", 116, 32, "bold 18px Arial", "#000", null, 0);
+        drawText("F P", 116, 48, "bold 13px Arial", "#000", null, 0);
+        drawText("T O Z", 116, 62, "bold 10px Arial", "#000", null, 0);
+        drawText("OY VEY", 116, 76, "bold 8px Arial", "#000", null, 0);
+        drawText("בהצלחה", 116, 88, "bold 6px Arial", "#888", null, 0);
+
+        // Reception desk (center).
+        var r = hospSpots[0];
+        ctx.fillStyle = "#5D4037"; roundRect(r.x - 90, r.y - 14, 180, 50, 6); ctx.fill();
+        ctx.fillStyle = "#795548"; roundRect(r.x - 90, r.y - 14, 180, 12, 6); ctx.fill(); // counter top
+        ctx.fillStyle = "#3E2723"; roundRect(r.x - 90, r.y - 2, 180, 38, 0); ctx.fill();
+        // monitor
+        ctx.fillStyle = "#263238"; roundRect(r.x - 70, r.y - 40, 34, 24, 3); ctx.fill();
+        ctx.fillStyle = "#4FC3F7"; ctx.fillRect(r.x - 66, r.y - 36, 26, 16);
+        // "RECEPTION" sign hanging
+        ctx.fillStyle = "#00897B"; roundRect(r.x - 56, r.y - 76, 112, 22, 5); ctx.fill();
+        drawText("RECEPTION", r.x, r.y - 65, "bold 13px Arial", "#FFFFFF", null, 0);
+        // bell + clipboard
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(r.x + 56, r.y - 8, 5, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; roundRect(r.x + 30, r.y - 6, 14, 18, 2); ctx.fill();
+        // receptionist head behind desk
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(r.x, r.y - 26 + Math.sin(hospTime * 2) * 1.5, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#8E5A3C"; ctx.beginPath(); ctx.arc(r.x, r.y - 30 + Math.sin(hospTime * 2) * 1.5, 12, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(r.x - 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.arc(r.x + 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(r.x - 3, r.y - 21); ctx.lineTo(r.x + 3, r.y - 21); ctx.stroke(); // flat unimpressed mouth
+        ctx.lineCap = "butt";
+    }
+
+    function hospDrawVending(x, y, shake) {
+        ctx.save();
+        var sx = shake > 0 ? Math.sin(shake * 50) * 2 : 0;
+        ctx.translate(x + sx, y);
+        // cabinet
+        ctx.fillStyle = "#C62828"; roundRect(-26, -100, 52, 116, 6); ctx.fill();
+        ctx.strokeStyle = "#7F1D1D"; ctx.lineWidth = 2; roundRect(-26, -100, 52, 116, 6); ctx.stroke();
+        // glass front with shelves of snacks
+        ctx.fillStyle = "#37474F"; roundRect(-20, -94, 32, 78, 3); ctx.fill();
+        var snackCols = ["#FF8A65", "#FFD54F", "#4FC3F7", "#AED581", "#BA68C8", "#FFB74D"];
+        for (var row = 0; row < 4; row++) {
+            for (var col = 0; col < 3; col++) {
+                ctx.fillStyle = snackCols[(row * 3 + col) % snackCols.length];
+                roundRect(-18 + col * 10, -90 + row * 18, 7, 12, 2); ctx.fill();
+            }
+        }
+        // keypad + slot
+        ctx.fillStyle = "#212121"; roundRect(-22, -12, 14, 24, 2); ctx.fill();
+        ctx.fillStyle = "#4CAF50"; ctx.beginPath(); ctx.arc(-19, -8, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; roundRect(-8, 4, 30, 6, 2); ctx.fill(); // dispense slot
+        drawText("SNAX", 0, -103, "bold 9px Arial", "#FFF", "#7F1D1D", 2);
+        ctx.restore();
+    }
+
+    function drawHospitalInterior() {
+        ctx.save();
+
+        hospDrawScene();
+
+        // Plastic waiting-room chairs in a row up front.
+        for (var c = 0; c < 4; c++) hospDrawChair(W * 0.10 + c * 64, hospFloorY + 70);
+
+        // Vending machine (far right).
+        var v = hospSpots[3];
+        hospDrawVending(v.x, v.y, hospVendShake);
+
+        // Doctor (right).
+        var dr = hospSpots[2];
+        hospDrawDoctor(dr.x, dr.y, hospTime);
+
+        // Nervous patient (left, on a chair).
+        var pt = hospSpots[1];
+        hospDrawPatient(pt.x, pt.y, hospPatientBreath);
+
+        // Heshy with pool injury (mid-left).
+        var he = hospSpots[4];
+        hospDrawHeshy(he.x, he.y, hospTime);
+
+        // Lulu.
+        drawLuluTopDown(hospLulu.x, hospLulu.y, hospLulu.walkTime, hospLulu.mood);
+
+        drawParticles();
+
+        if (hospBubbleT > 0) {
+            ctx.globalAlpha = clamp(hospBubbleT, 0, 1);
+            drawSpeechBubble(hospBubbleX, hospFloorY + 26, hospBubble, hospTime * 4);
+            ctx.globalAlpha = 1;
+        }
+
+        ctx.restore();
+
+        // ── HUD ──
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
+        drawText("🏥 URGENT CARE — WAITING ROOM", W / 2, SAFE_TOP + 27, "bold 14px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 4);
+
+        drawText("💰 " + footCoinsRun + "   ⭐ " + footStars, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+
+        var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
+        hospLeaveRect = { x: lx, y: ly, w: lw, h: lh };
+        drawButton(lx, ly, lw, lh, "🚪 LEAVE", { bg: "#4DB6AC", bgDark: "#00695C" });
+
+        if (isTouchDevice) {
+            drawText("tap a person/machine to chat · tap floor to walk", W / 2, ly - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        } else {
+            drawText("click a person/object to chat · click to walk", W / 2, ly - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  FOOT INTERIORS — POLICE STATION + BEACH
+    //  Two self-contained mini-scenes Lulu can wander into while she's
+    //  on foot (car wrecked). Each: full-screen art, walkable/animated
+    //  Lulu (drawLuluTopDown), 3+ randomized-dialogue interactions, a
+    //  reward (coins/⭐ + floater + sound), an obvious 🚪 LEAVE door/
+    //  button calling exitFootInterior(), a title banner, touch hints.
+    //  Defines ONLY init/update/draw{Police,Beach}Interior + pol*/bch*
+    //  prefixed helpers. Dispatcher/exitFootInterior live elsewhere.
+    // ════════════════════════════════════════════════════════════
+
+    // ── tiny shared idiom (prefixed so it can't collide) ─────────
+    // A "hotspot" is {x, walkY, r, label, lines, rewarded, type}. When
+    // Lulu walks near its x (or it's tapped) we pop a randomized line;
+    // reward hotspots pay out once per visit.
+
+    function polPickLine(spot) {
+        // avoid repeating the immediately-previous line for a pool
+        var arr = spot.lines, idx = randInt(0, arr.length - 1);
+        if (arr.length > 1 && idx === spot._last) idx = (idx + 1) % arr.length;
+        spot._last = idx;
+        return arr[idx];
+    }
+    function bchPickLine(spot) {
+        var arr = spot.lines, idx = randInt(0, arr.length - 1);
+        if (arr.length > 1 && idx === spot._last) idx = (idx + 1) % arr.length;
+        spot._last = idx;
+        return arr[idx];
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  POLICE STATION — "PRECINCT 18½"
+    // ════════════════════════════════════════════════════════════
+    var polTime = 0;
+    var polLuluX = 90, polLuluTargetX = 90, polWalkT = 0, polFacing = 1;
+    var polFloorY = 0;            // computed in init from H
+    var polBubble = "", polBubbleT = 0, polBubbleX = 0;
+    var polSpots = [];
+    var polLeaveRect = null;
+    var polCopMunch = 0;          // donut chew animation
+    var polPerpBlink = 0;
+    var polFan = 0;               // ceiling-fan spin
+    var polConfettiSpawned = false;
+
+    function initPoliceInterior() {
+        polTime = 0;
+        polFloorY = H - SAFE_BOTTOM - 120;
+        polLuluX = 90; polLuluTargetX = 90; polWalkT = 0; polFacing = 1;
+        polBubble = ""; polBubbleT = 0;
+        polCopMunch = 0; polPerpBlink = rand(0, 4); polFan = 0;
+        polConfettiSpawned = false;
+
+        polSpots = [
+            {
+                id: "desk", x: 175, r: 64, rewarded: false, reward: false,
+                label: "Desk Cop", _last: -1,
+                lines: [
+                    "Officer Pomerantz, how can I— oh, it's you.",
+                    "Your car? It's in the lot. $400 to spring it.",
+                    "Impound's $400, hon. And no, I can't 'round down.'",
+                    "We don't validate parking. We validate FEELINGS.",
+                    "You can file a complaint. It goes in this drawer.\n(The drawer is taped shut.)",
+                    "Lost and found? One umbrella, a herring, and regret.",
+                    "Sign here. And here. And here. And here. And here.",
+                    "Yes the donut's a bribe. From me. To me.",
+                    "Crime's down 2% since I started napping at noon.",
+                    "Your bubbe called. Twice. She says EAT.",
+                    "No I will NOT 'just this once' waive the fee.",
+                    "Press 1 for impound, 2 for snacks, 3 to hear this again."
+                ]
+            },
+            {
+                id: "cell", x: 305, r: 60, rewarded: false, reward: false,
+                label: "The Perp", _last: -1,
+                lines: [
+                    "I'm innocent! I only TASTED the kugel display.",
+                    "They got me for jaywalking. Diagonally. Twice.",
+                    "Psst — you got a nail file? Or like, a bagel file?",
+                    "I'm in for excessive parallel parking. It's a crime here.",
+                    "One phone call and I used it to order a pizza.",
+                    "I didn't do it. But I'd do it again. The pizza, I mean.",
+                    "Cell's got no WiFi. THIS is the real punishment.",
+                    "I'm basically a prisoner of my own bad choices. Relatable?",
+                    "If you see Heshy out there, tell him I said NOTHING.",
+                    "They call me 'The Schmear.' I don't know why. (I do.)",
+                    "Three squares a day and they're all bagels. No complaints.",
+                    "You bring snacks? No? Worst rescue ever.",
+                    "I'd shake your hand but, y'know. Bars. Boundaries."
+                ]
+            },
+            {
+                id: "board", x: 400, r: 56, rewarded: false, reward: false,
+                label: "Most Wanted", _last: -1,
+                lines: [
+                    "MOST WANTED: 7-foot 'Bigfoot.' Last seen... everywhere.",
+                    "Reward: 200 coins. Distinguishing feature: ENORMOUS.",
+                    "WANTED: Heshy. Crime: cannonballs in the kiddie pool.",
+                    "This poster's just a guy in a gorilla suit. Probably.",
+                    "WANTED for questioning: whoever ate the desk donuts.",
+                    "Hmm. That sasquatch sketch looks suspiciously fluffy.",
+                    "Suspect described as 'large, hairy, surprisingly polite.'",
+                    "Last seen fleeing a salon. With GREAT highlights.",
+                    "Armed and... fragrant? Smells like pine and chutzpah.",
+                    "BOLO: a minivan driven 'like a woman possessed.' (Mom.)",
+                    "There's a crayon 'wanted' poster of Dina. Aww. Denied.",
+                    "Reward doubles if you bring him in conditioned & calm."
+                ]
+            },
+            {
+                id: "coffee", x: 230, r: 50, rewarded: false, reward: true,
+                label: "Coffee Machine", _last: -1,
+                lines: [
+                    "FREE precinct coffee! Found 30 coins in the change slot!",
+                    "Jackpot — the machine coughed up 30 coins. Cop coffee!",
+                    "It's lukewarm, it's free, it tipped you 30 coins. Win.",
+                    "Tastes like a stakeout smells. But hey — 30 coins!",
+                    "The 'cappuccino' button dispenses pure caffeine + coins!"
+                ]
+            },
+            {
+                id: "confess", x: 130, r: 46, rewarded: false, reward: false,
+                label: "Confession Box", _last: -1,
+                lines: [
+                    "\"I confess! I jaywalked!\" ...Cop: \"We all do, hon.\"",
+                    "\"I double-parked outside Bubbe's!\" Cop: \"Bold. Continue.\"",
+                    "\"I took the last babka.\" Cop: \"THAT one's a real crime.\"",
+                    "\"I U-turned where I shouldn't.\" Cop: \"Show-off.\"",
+                    "\"I sped to make Shabbos.\" Cop: \"...okay that's fair.\"",
+                    "\"I honked at a goose.\" Cop: \"The goose had it coming.\"",
+                    "\"I parked in the rabbi's spot.\" Cop: \"...new charges.\"",
+                    "You confess. The cop yawns. Justice is exhausting."
+                ]
+            }
+        ];
+    }
+
+    function updatePoliceInterior(dt) {
+        polTime += dt;
+        polCopMunch += dt * 6;
+        polPerpBlink += dt;
+        polFan += dt * 5;
+        if (polBubbleT > 0) polBubbleT -= dt;
+
+        var bottom = H - SAFE_BOTTOM;
+        polLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
+
+        var c = consumeClick();
+        if (c) {
+            // LEAVE button
+            if (pointInRect(c.x, c.y, polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h)) {
+                playClick();
+                exitFootInterior();
+                return;
+            }
+            // door hotspot (top-right exit doorway)
+            if (pointInRect(c.x, c.y, W - 96, polFloorY - 132, 80, 132)) {
+                playClick();
+                exitFootInterior();
+                return;
+            }
+            // tapping a hotspot directly walks Lulu there + triggers it
+            var hit = null;
+            for (var i = 0; i < polSpots.length; i++) {
+                var s = polSpots[i];
+                if (Math.abs(c.x - s.x) < s.r && c.y < polFloorY + 60) { hit = s; break; }
+            }
+            if (hit) {
+                polLuluTargetX = clamp(hit.x - 40, 60, W - 60);
+                polFacing = (hit.x >= polLuluX) ? 1 : -1;
+                polTrigger(hit);
+            } else {
+                // tap-to-walk on the floor
+                polLuluTargetX = clamp(c.x, 50, W - 40);
+                polFacing = (c.x >= polLuluX) ? 1 : -1;
+            }
+        }
+
+        // proximity auto-trigger (walking up to a spot)
+        for (var j = 0; j < polSpots.length; j++) {
+            var sp = polSpots[j];
+            if (Math.abs(polLuluX + 40 - sp.x) < 28 && polBubbleT <= 0) polTrigger(sp);
+        }
+
+        // walk toward target
+        var dx = polLuluTargetX - polLuluX;
+        if (Math.abs(dx) > 2) {
+            var step = clamp(dx, -200 * dt, 200 * dt);
+            polLuluX += step;
+            polWalkT += dt;
+        }
+    }
+
+    function polTrigger(spot) {
+        if (polBubbleT > 0 && polBubble && spot.id === spot._lastShownId) {
+            // already showing this spot's bubble — don't spam
+        }
+        polBubble = polPickLine(spot);
+        polBubbleT = 2.6;
+        polBubbleX = spot.x;
+        spot._lastShownId = spot.id;
+        playClick();
+        if (spot.reward && !spot.rewarded) {
+            spot.rewarded = true;
+            footCoinsRun += 30; runCoins += 30; save.totalCoins += 30; persistSave();
+            spawnFloater(spot.x, polFloorY - 80, "+30", "#FFD700");
+            playCoin();
+            for (var k = 0; k < 12; k++) {
+                particles.push({
+                    x: spot.x, y: polFloorY - 60,
+                    vx: rand(-50, 50), vy: rand(-120, -40),
+                    life: 0, maxLife: 0.7, size: rand(3, 6),
+                    color: randPick(["#FFD700", "#6F4E37", "#FFF8B0"]), gravity: 260
+                });
+            }
+        }
+    }
+
+    function drawPoliceInterior() {
+        var bottom = H - SAFE_BOTTOM;
+        var floorY = polFloorY;
+
+        // ── back wall ───────────────────────────────────────────
+        var wallGrad = ctx.createLinearGradient(0, 0, 0, floorY);
+        wallGrad.addColorStop(0, "#3E5871");
+        wallGrad.addColorStop(1, "#56789B");
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(0, 0, W, floorY);
+        // wainscot stripe
+        ctx.fillStyle = "#2E4257";
+        ctx.fillRect(0, floorY - 26, W, 26);
+        // floor (checker tile w/ perspective fade)
+        ctx.fillStyle = "#9AA7B3";
+        ctx.fillRect(0, floorY, W, bottom - floorY);
+        for (var ty = 0; ty < 8; ty++) {
+            for (var tx = -1; tx < 10; tx++) {
+                if ((tx + ty) % 2 === 0) {
+                    ctx.fillStyle = "rgba(255,255,255,0.10)";
+                    var ts = 28 + ty * 5;
+                    ctx.fillRect(tx * ts, floorY + ty * 11, ts, 11);
+                }
+            }
+        }
+
+        // ceiling fan
+        ctx.save();
+        ctx.translate(W / 2, 30);
+        ctx.fillStyle = "#2E4257"; ctx.fillRect(-1.5, -20, 3, 14);
+        ctx.rotate(polFan);
+        ctx.fillStyle = "rgba(40,55,75,0.85)";
+        for (var fb = 0; fb < 3; fb++) {
+            ctx.rotate((Math.PI * 2) / 3);
+            roundRect(-4, 0, 8, 30, 4); ctx.fill();
+        }
+        ctx.fillStyle = "#1F2E3D"; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        // ── MOST WANTED board (x≈400) ──────────────────────────
+        polDrawBoard(400, floorY - 150);
+
+        // ── coffee machine (x≈230) ─────────────────────────────
+        polDrawCoffee(230, floorY);
+
+        // ── confession box (x≈130) ─────────────────────────────
+        polDrawConfession(130, floorY);
+
+        // ── holding cell + perp (x≈305) ────────────────────────
+        polDrawCell(305, floorY);
+
+        // ── exit doorway (top-right) ───────────────────────────
+        ctx.fillStyle = "#3A2A1A";
+        roundRect(W - 96, floorY - 132, 80, 132, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037";
+        roundRect(W - 90, floorY - 124, 68, 124, 4); ctx.fill();
+        ctx.fillStyle = "#FFD54F";
+        ctx.beginPath(); ctx.arc(W - 30, floorY - 62, 3, 0, Math.PI * 2); ctx.fill();
+        drawText("EXIT", W - 56, floorY - 118, "bold 11px Arial", "#B71C1C", "#FFF", 3);
+
+        // ── front desk + donut cop (x≈175), drawn near floor ───
+        polDrawDesk(175, floorY);
+
+        // ── Lulu ────────────────────────────────────────────────
+        ctx.save();
+        if (polFacing < 0) {
+            ctx.translate(polLuluX, 0); ctx.scale(-1, 1);
+            drawLuluTopDown(0, floorY + 18, polWalkT, "run");
+        } else {
+            drawLuluTopDown(polLuluX, floorY + 18, polWalkT, "run");
+        }
+        ctx.restore();
+
+        // ── speech bubble ───────────────────────────────────────
+        if (polBubbleT > 0 && polBubble) {
+            var by = floorY - 70;
+            drawSpeechBubble(clamp(polBubbleX, 70, W - 70), by, polBubble, polTime);
+        }
+
+        // ── title banner ────────────────────────────────────────
+        polDrawBanner();
+
+        // ── LEAVE button ───────────────────────────────────────
+        drawButton(polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h,
+            "🚪 LEAVE", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+
+        // ── touch / control hints ──────────────────────────────
+        if (isTouchDevice) {
+            drawText("Tap the floor to walk · tap a cop/board/perp to chat",
+                W / 2, bottom - 22, "bold 11px Arial", "#FFFFFF", "#1A2A3A", 3);
+        } else {
+            drawText("Walk up to people & props to talk · 🚪 to leave",
+                W / 2, bottom - 22, "bold 11px Arial", "#FFFFFF", "#1A2A3A", 3);
+        }
+    }
+
+    function polDrawBanner() {
+        ctx.save();
+        ctx.translate(0, SAFE_TOP);
+        var bw = 320, bx = (W - bw) / 2;
+        ctx.fillStyle = "rgba(20,30,45,0.85)";
+        roundRect(bx, 8, bw, 38, 10); ctx.fill();
+        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2;
+        roundRect(bx, 8, bw, 38, 10); ctx.stroke();
+        drawText("🚓 PRECINCT 18½ — POLICE", W / 2, 27,
+            "bold 17px 'Segoe UI', Arial", "#FFD54F", "#000", 4);
+        ctx.restore();
+    }
+
+    function polDrawBoard(cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // cork board
+        ctx.fillStyle = "#8D6E45";
+        roundRect(-46, 0, 92, 116, 6); ctx.fill();
+        ctx.fillStyle = "#A07C4F";
+        roundRect(-42, 4, 84, 108, 4); ctx.fill();
+        drawText("MOST", 0, 16, "bold 13px Arial", "#3A2A12", null, 0);
+        drawText("WANTED", 0, 30, "bold 13px Arial", "#3A2A12", null, 0);
+        // sasquatch mugshot poster
+        ctx.fillStyle = "#FFF8E1"; roundRect(-34, 40, 30, 40, 3); ctx.fill();
+        ctx.fillStyle = "#6D4C2F";
+        ctx.beginPath(); ctx.arc(-19, 56, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(-19, 56, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(-21, 55, 1, 0, Math.PI * 2); ctx.arc(-17, 55, 1, 0, Math.PI * 2); ctx.fill();
+        drawText("$200", -19, 74, "bold 7px Arial", "#B71C1C", null, 0);
+        // Heshy poster (pool menace)
+        ctx.fillStyle = "#FFF8E1"; roundRect(4, 40, 30, 40, 3); ctx.fill();
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(19, 55, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2E7D32"; // swim cap
+        ctx.beginPath(); ctx.arc(19, 51, 7, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(17, 55, 1, 0, Math.PI * 2); ctx.arc(21, 55, 1, 0, Math.PI * 2); ctx.fill();
+        drawText("HESHY", 19, 74, "bold 6px Arial", "#B71C1C", null, 0);
+        // pin glints
+        ctx.fillStyle = "#E53935";
+        ctx.beginPath(); ctx.arc(-19, 41, 2, 0, Math.PI * 2); ctx.arc(19, 41, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function polDrawCoffee(cx, floorY) {
+        ctx.save();
+        ctx.translate(cx, floorY);
+        // machine body
+        ctx.fillStyle = "#37474F";
+        roundRect(-22, -96, 44, 96, 6); ctx.fill();
+        ctx.fillStyle = "#546E7A";
+        roundRect(-18, -92, 36, 40, 4); ctx.fill();
+        drawText("☕", 0, -72, "bold 20px Arial", "#FFE0B2", null, 0);
+        // drip spout + cup
+        ctx.fillStyle = "#263238"; ctx.fillRect(-6, -52, 12, 6);
+        ctx.fillStyle = "#FFFFFF"; roundRect(-7, -44, 14, 12, 2); ctx.fill();
+        // steam (gentle, alpha-safe)
+        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(polTime * 3);
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(0, -50 - (polTime * 14 % 16), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        // buttons
+        ctx.fillStyle = "#FFB300"; ctx.beginPath(); ctx.arc(-10, -20, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(10, -20, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function polDrawConfession(cx, floorY) {
+        ctx.save();
+        ctx.translate(cx, floorY);
+        // little wooden booth
+        ctx.fillStyle = "#5D4037";
+        roundRect(-30, -108, 60, 108, 6); ctx.fill();
+        ctx.fillStyle = "#6D4C41";
+        roundRect(-26, -100, 52, 64, 4); ctx.fill();
+        // lattice screen
+        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 2;
+        for (var g = -20; g <= 20; g += 10) {
+            ctx.beginPath(); ctx.moveTo(g, -96); ctx.lineTo(g, -42); ctx.stroke();
+        }
+        for (var gy = -90; gy <= -48; gy += 10) {
+            ctx.beginPath(); ctx.moveTo(-24, gy); ctx.lineTo(24, gy); ctx.stroke();
+        }
+        // curtain
+        ctx.fillStyle = "#7B1FA2"; roundRect(-26, -36, 52, 36, 3); ctx.fill();
+        drawText("CONFESS", 0, -118, "bold 9px Arial", "#FFD54F", "#000", 3);
+        ctx.restore();
+    }
+
+    function polDrawCell(cx, floorY) {
+        ctx.save();
+        ctx.translate(cx, floorY);
+        // cell back
+        ctx.fillStyle = "#2E3B47";
+        roundRect(-46, -118, 92, 118, 4); ctx.fill();
+        // cot
+        ctx.fillStyle = "#455A64"; roundRect(-42, -40, 34, 36, 3); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; roundRect(-42, -44, 34, 8, 3); ctx.fill();
+        // the goofy perp (striped shirt, idle bounce + blink)
+        var bob = Math.sin(polTime * 2) * 2;
+        ctx.save();
+        ctx.translate(6, -28 + bob);
+        ctx.fillStyle = "#FAFAFA"; // body
+        roundRect(-12, -8, 24, 30, 6); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2; // stripes
+        for (var st = -4; st <= 18; st += 7) {
+            ctx.beginPath(); ctx.moveTo(-12, st); ctx.lineTo(12, st); ctx.stroke();
+        }
+        ctx.fillStyle = "#FFE0CC"; // head
+        ctx.beginPath(); ctx.arc(0, -16, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3E2723"; // hair
+        ctx.beginPath(); ctx.arc(0, -20, 10, Math.PI, Math.PI * 2); ctx.fill();
+        // eyes (blink)
+        var blink = (polPerpBlink % 3.4) < 0.12;
+        ctx.fillStyle = "#000";
+        if (blink) {
+            ctx.fillRect(-5, -16, 3, 1); ctx.fillRect(2, -16, 3, 1);
+        } else {
+            ctx.beginPath(); ctx.arc(-3.5, -16, 1.4, 0, Math.PI * 2); ctx.arc(3.5, -16, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        // goofy grin
+        ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(0, -11, 4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        ctx.restore();
+        // bars (vertical) — drawn over the perp
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        for (var b = -42; b <= 42; b += 12) {
+            ctx.beginPath(); ctx.moveTo(b, -118); ctx.lineTo(b, 0); ctx.stroke();
+        }
+        ctx.lineCap = "butt";
+        // top + bottom rails
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(-46, -116); ctx.lineTo(46, -116); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-46, -2); ctx.lineTo(46, -2); ctx.stroke();
+        drawText("HOLDING", 0, -128, "bold 9px Arial", "#CFD8DC", "#000", 3);
+        ctx.restore();
+    }
+
+    function polDrawDesk(cx, floorY) {
+        ctx.save();
+        ctx.translate(cx, floorY);
+        // the donut cop sitting behind the desk
+        var munch = (Math.sin(polCopMunch) > 0.4) ? 1 : 0; // mouth open on chew
+        ctx.save();
+        ctx.translate(0, -54);
+        // torso (navy uniform)
+        ctx.fillStyle = "#1A237E";
+        roundRect(-18, 0, 36, 30, 8); ctx.fill();
+        // badge
+        ctx.fillStyle = "#FFD700";
+        ctx.beginPath();
+        for (var p = 0; p < 5; p++) {
+            var a0 = -Math.PI / 2 + p * (Math.PI * 2 / 5);
+            ctx.lineTo(-8 + Math.cos(a0) * 5, 8 + Math.sin(a0) * 5);
+            var a1 = a0 + Math.PI / 5;
+            ctx.lineTo(-8 + Math.cos(a1) * 2.2, 8 + Math.sin(a1) * 2.2);
+        }
+        ctx.closePath(); ctx.fill();
+        // head
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(0, -14, 11, 0, Math.PI * 2); ctx.fill();
+        // police cap
+        ctx.fillStyle = "#1A237E";
+        ctx.beginPath(); ctx.arc(0, -19, 11, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillRect(-11, -19, 22, 3);
+        ctx.fillStyle = "#0D1442"; ctx.fillRect(-12, -16, 24, 3); // brim
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -22, 2, 0, Math.PI * 2); ctx.fill();
+        // eyes
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(-4, -14, 1.5, 0, Math.PI * 2); ctx.arc(4, -14, 1.5, 0, Math.PI * 2); ctx.fill();
+        // mouth (chewing)
+        ctx.fillStyle = munch ? "#5D2A2A" : "#A0394D";
+        if (munch) { ctx.beginPath(); ctx.arc(0, -8, 2.5, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -9, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke(); }
+        // donut in hand
+        ctx.save();
+        ctx.translate(15, -2 + Math.sin(polCopMunch / 2) * 1.5);
+        ctx.fillStyle = "#E8A05A"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#F06292"; ctx.beginPath(); ctx.arc(0, 0, 6, Math.PI, Math.PI * 2); ctx.fill(); // frosting
+        ctx.fillStyle = "#3E5871"; ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill(); // hole
+        ctx.restore();
+        ctx.restore();
+
+        // desk (front counter) — drawn OVER the cop's lower half
+        ctx.fillStyle = "#5D4037";
+        roundRect(-58, -24, 116, 44, 6); ctx.fill();
+        ctx.fillStyle = "#795548";
+        roundRect(-58, -24, 116, 10, 6); ctx.fill();
+        // nameplate
+        ctx.fillStyle = "#263238"; roundRect(-30, -8, 60, 14, 3); ctx.fill();
+        drawText("FRONT DESK", 0, -1, "bold 9px Arial", "#FFD54F", null, 0);
+        // little desk bell
+        ctx.fillStyle = "#FFC107";
+        ctx.beginPath(); ctx.arc(42, -26, 6, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillRect(36, -26, 12, 2);
+        ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.arc(42, -33, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  BEACH — "SHTRAND-BY-THE-SEA BOARDWALK"
+    // ════════════════════════════════════════════════════════════
+    var bchTime = 0;
+    var bchLuluX = 90, bchLuluTargetX = 90, bchWalkT = 0, bchFacing = 1;
+    var bchSandY = 0, bchSeaY = 0;
+    var bchBubble = "", bchBubbleT = 0, bchBubbleX = 0;
+    var bchSpots = [];
+    var bchLeaveRect = null;
+    var bchGulls = [];
+    var bchHeshyT = 0;            // Heshy bob phase
+
+    function initBeachInterior() {
+        bchTime = 0;
+        bchSeaY = (H * 0.30);
+        bchSandY = (H * 0.46);
+        bchLuluX = 90; bchLuluTargetX = 90; bchWalkT = 0; bchFacing = 1;
+        bchBubble = ""; bchBubbleT = 0;
+        bchHeshyT = 0;
+
+        bchGulls = [];
+        for (var g = 0; g < 4; g++) {
+            bchGulls.push({ x: rand(0, W), y: rand(40, bchSeaY - 10), vx: rand(18, 34) * (g % 2 ? 1 : -1), flap: rand(0, 6) });
+        }
+
+        bchSpots = [
+            {
+                id: "lifeguard", x: 360, r: 70, rewarded: false, reward: false,
+                label: "Lifeguard", _last: -1,
+                lines: [
+                    "No running on the boardwalk! ...Okay a little jog. Fine.",
+                    "Sunscreen check! SPF 50 or you answer to your bubbe.",
+                    "Rip current's mild today. The DRAMA current, though — wild.",
+                    "I rescued a beach ball earlier. True hero work.",
+                    "If you see a 7-foot swimmer, that's not a wave. That's Heshy.",
+                    "Whistle's just for show. I mostly point dramatically.",
+                    "Stay hydrated! Lemonade counts. Ice cream... debatable.",
+                    "I've got my eye on those seagulls. They KNOW what they did.",
+                    "Shark? Nah. That's just Heshy doing the breaststroke. Badly.",
+                    "Beach closes at sundown for Shabbos. Tide's been told.",
+                    "Buddy system, hon. Where's your buddy? ...the seagull? No.",
+                    "I'm 90% lifeguard, 10% sandcastle inspector."
+                ]
+            },
+            {
+                id: "icecream", x: 150, r: 64, rewarded: false, reward: true,
+                label: "Ice Cream Stand", _last: -1,
+                lines: [
+                    "One cone, on the house! Found 25 coins under the cart!",
+                    "Free scoop + the tip jar tipped YOU 25 coins. Cool day!",
+                    "Vanilla? Got it. And 25 coins fell out the change drawer!",
+                    "Rainbow sprinkles AND 25 coins? Best beach day ever!",
+                    "Cone's free 'cause it's melting fast — and here's 25 coins!"
+                ]
+            },
+            {
+                id: "gull", x: 255, r: 56, rewarded: false, reward: false,
+                label: "Sneaky Seagull", _last: -1,
+                lines: [
+                    "MINE. MINE. MINE. (It took your imaginary fries.)",
+                    "The seagull eyes your snack. You have no snack. It's furious.",
+                    "It stole a chip from someone three towels over. Legend.",
+                    "SQUAWK. Translation: 'gimme the bagel, lady.'",
+                    "This gull has committed more crimes than the perp downtown.",
+                    "It's not a seagull. It's a feathered tax collector.",
+                    "You blink. Your hot dog is gone. It was always gone.",
+                    "The gull tilts its head. It's planning something. Run.",
+                    "Beach rule #1: never make eye contact with the seagull.",
+                    "It dropped a fry on you as tribute. ...or an insult.",
+                    "SQUAWK SQUAWK (it's just saying 'good shabbos,' probably)."
+                ]
+            },
+            {
+                id: "castle", x: 60, r: 52, rewarded: false, reward: false,
+                label: "Sandcastle Kids", _last: -1,
+                lines: [
+                    "Kids: \"It's a SHUL made of sand! No shoes inside!\"",
+                    "\"We built a moat! It's for the crabs to do laps!\"",
+                    "\"Don't step on the east wing, that's the kiddush room!\"",
+                    "\"The tower fell. We're calling it 'modern art' now.\"",
+                    "\"A wave ate the drawbridge. We blame Heshy.\"",
+                    "\"This bucket is our hard hat AND our crown.\"",
+                    "\"We need 9 more castles for a minyan of castles!\"",
+                    "\"Wanna help? You can be in charge of the seashell windows.\"",
+                    "\"Mom said one more hour. We're building a SECOND castle.\"",
+                    "\"It's not sand in your sandwich. It's seasoning.\""
+                ]
+            },
+            {
+                id: "heshy", x: 420, r: 60, rewarded: false, reward: false,
+                label: "Heshy (in the water)", _last: -1,
+                lines: [
+                    "Heshy: \"CANNONBALL!\" (There is no diving board. He found a way.)",
+                    "\"Look, Lulu, no hands!\" (He is doing a doggy paddle. Slowly.)",
+                    "\"The ocean's basically a giant kiddie pool, change my mind!\"",
+                    "\"I'm not lost, I'm exploring! ...which way's the shore?\"",
+                    "\"Watch this!\" *belly flop* *seagulls applaud sarcastically*",
+                    "\"I brought floaties for my floaties. Safety first!\"",
+                    "\"The lifeguard keeps whistling at me. I think she's a fan.\"",
+                    "\"Tell Bubbe I'll be there for dinner — soon as I find my towel.\"",
+                    "\"I caught a fish! ...with my swim trunks. It's still in there.\"",
+                    "\"Marco! ...Polo? ...anyone? ...I'm just gonna float here.\""
+                ]
+            }
+        ];
+    }
+
+    function updateBeachInterior(dt) {
+        bchTime += dt;
+        bchHeshyT += dt;
+        if (bchBubbleT > 0) bchBubbleT -= dt;
+
+        // gulls drift + wrap
+        for (var i = 0; i < bchGulls.length; i++) {
+            var gl = bchGulls[i];
+            gl.x += gl.vx * dt; gl.flap += dt * 9;
+            gl.y += Math.sin(bchTime * 1.5 + i) * 6 * dt;
+            if (gl.x < -20) gl.x = W + 20;
+            if (gl.x > W + 20) gl.x = -20;
+        }
+
+        var bottom = H - SAFE_BOTTOM;
+        bchLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
+
+        var c = consumeClick();
+        if (c) {
+            if (pointInRect(c.x, c.y, bchLeaveRect.x, bchLeaveRect.y, bchLeaveRect.w, bchLeaveRect.h)) {
+                playClick(); exitFootInterior(); return;
+            }
+            // boardwalk archway exit (bottom-left "← BOARDWALK")
+            if (pointInRect(c.x, c.y, 12, bottom - 64, 110, 50)) {
+                playClick(); exitFootInterior(); return;
+            }
+            var hit = null;
+            for (var s = 0; s < bchSpots.length; s++) {
+                var sp = bchSpots[s];
+                if (Math.abs(c.x - sp.x) < sp.r && c.y < bottom - 70) { hit = sp; break; }
+            }
+            if (hit) {
+                bchLuluTargetX = clamp(hit.x - 40, 60, W - 60);
+                bchFacing = (hit.x >= bchLuluX) ? 1 : -1;
+                bchTrigger(hit);
+            } else {
+                bchLuluTargetX = clamp(c.x, 50, W - 40);
+                bchFacing = (c.x >= bchLuluX) ? 1 : -1;
+            }
+        }
+
+        for (var j = 0; j < bchSpots.length; j++) {
+            var q = bchSpots[j];
+            if (Math.abs(bchLuluX + 40 - q.x) < 28 && bchBubbleT <= 0) bchTrigger(q);
+        }
+
+        var dx = bchLuluTargetX - bchLuluX;
+        if (Math.abs(dx) > 2) {
+            bchLuluX += clamp(dx, -200 * dt, 200 * dt);
+            bchWalkT += dt;
+        }
+    }
+
+    function bchTrigger(spot) {
+        bchBubble = bchPickLine(spot);
+        bchBubbleT = 2.6;
+        bchBubbleX = spot.x;
+        playClick();
+        if (spot.reward && !spot.rewarded) {
+            spot.rewarded = true;
+            footCoinsRun += 25; runCoins += 25; save.totalCoins += 25; persistSave();
+            footStars += 1; // a little beach-day star too
+            spawnFloater(spot.x, bchSandY + 30, "+25 ⭐", "#FFD700");
+            playCoin();
+            playTone(880, 0.12, "sine", 0.12, 1320);
+            for (var k = 0; k < 14; k++) {
+                particles.push({
+                    x: spot.x, y: bchSandY + 20,
+                    vx: rand(-60, 60), vy: rand(-150, -50),
+                    life: 0, maxLife: 0.8, size: rand(3, 6),
+                    color: randPick(["#FFD700", "#FF80AB", "#4FC3F7", "#FFF8B0"]), gravity: 280
+                });
+            }
+        }
+    }
+
+    function drawBeachInterior() {
+        var bottom = H - SAFE_BOTTOM;
+        var seaY = bchSeaY, sandY = bchSandY;
+
+        // ── sky (warm beach gradient) ──────────────────────────
+        var sky = ctx.createLinearGradient(0, 0, 0, seaY);
+        sky.addColorStop(0, "#4FC3F7");
+        sky.addColorStop(1, "#B3E5FC");
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, W, seaY);
+
+        // sun + glow
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "#FFF59D";
+        ctx.beginPath(); ctx.arc(W - 70, 70, 46, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FFEE58";
+        ctx.beginPath(); ctx.arc(W - 70, 70, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        // ── ocean (animated parallax waves) ────────────────────
+        var sea = ctx.createLinearGradient(0, seaY, 0, sandY);
+        sea.addColorStop(0, "#0288D1");
+        sea.addColorStop(1, "#4DD0E1");
+        ctx.fillStyle = sea;
+        ctx.fillRect(0, seaY, W, sandY - seaY);
+        // three parallax wave layers (alpha-safe — reset after)
+        bchDrawWaves(seaY, sandY);
+
+        // ── wet-sand shoreline + beach ─────────────────────────
+        ctx.fillStyle = "#FFE0A3"; // wet line
+        ctx.fillRect(0, sandY - 6, W, 6);
+        var sandGrad = ctx.createLinearGradient(0, sandY, 0, bottom);
+        sandGrad.addColorStop(0, "#FFE8B0");
+        sandGrad.addColorStop(1, "#F4D08A");
+        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, sandY, W, bottom - sandY);
+        // speckles
+        ctx.fillStyle = "rgba(180,140,80,0.35)";
+        for (var sp2 = 0; sp2 < 40; sp2++) {
+            var rx = (sp2 * 53 % W), ry = sandY + ((sp2 * 37) % (bottom - sandY));
+            ctx.fillRect(rx, ry, 2, 2);
+        }
+
+        // ── seagulls (behind props, in sky) ────────────────────
+        for (var gi = 0; gi < bchGulls.length; gi++) bchDrawGull(bchGulls[gi]);
+
+        // ── umbrellas (parallax-ish depth) ─────────────────────
+        bchDrawUmbrella(70, sandY + 26, "#E53935", "#FFFFFF");
+        bchDrawUmbrella(W - 60, sandY + 40, "#43A047", "#FFF59D");
+
+        // sunbather on a towel
+        bchDrawSunbather(110, sandY + 64);
+
+        // ── Heshy bobbing in the water (x≈420) ─────────────────
+        bchDrawHeshy(420, seaY + (sandY - seaY) * 0.5);
+
+        // ── lifeguard tower (x≈360) ────────────────────────────
+        bchDrawTower(360, sandY);
+
+        // ── ice cream stand (x≈150) ────────────────────────────
+        bchDrawStand(150, sandY + 30);
+
+        // ── sandcastle (x≈60) ──────────────────────────────────
+        bchDrawCastle(60, sandY + 70);
+
+        // ── sneaky seagull on the sand (x≈255, the interactable) ─
+        bchDrawSandGull(255, sandY + 58);
+
+        // ── Lulu ───────────────────────────────────────────────
+        ctx.save();
+        if (bchFacing < 0) {
+            ctx.translate(bchLuluX, 0); ctx.scale(-1, 1);
+            drawLuluTopDown(0, sandY + 80, bchWalkT, "run");
+        } else {
+            drawLuluTopDown(bchLuluX, sandY + 80, bchWalkT, "run");
+        }
+        ctx.restore();
+
+        // ── speech bubble ──────────────────────────────────────
+        if (bchBubbleT > 0 && bchBubble) {
+            drawSpeechBubble(clamp(bchBubbleX, 80, W - 80), sandY + 20, bchBubble, bchTime);
+        }
+
+        // ── title banner ───────────────────────────────────────
+        bchDrawBanner();
+
+        // ── exits: LEAVE button + boardwalk arch ───────────────
+        drawButton(bchLeaveRect.x, bchLeaveRect.y, bchLeaveRect.w, bchLeaveRect.h,
+            "🚪 LEAVE", { bg: "#26A69A", bgDark: "#00695C", small: true });
+        drawButton(12, bottom - 64, 110, 50, "← BOARDWALK",
+            { bg: "#FFB74D", bgDark: "#EF6C00", small: true });
+
+        // ── touch / control hints ──────────────────────────────
+        if (isTouchDevice) {
+            drawText("Tap the sand to stroll · tap people/gulls to chat",
+                W / 2, bottom - 8, "bold 11px Arial", "#5D4037", "#FFF8E1", 3);
+        } else {
+            drawText("Walk up to the lifeguard, stand, gull & castle · 🚪 to leave",
+                W / 2, bottom - 8, "bold 11px Arial", "#5D4037", "#FFF8E1", 3);
+        }
+    }
+
+    function bchDrawBanner() {
+        ctx.save();
+        ctx.translate(0, SAFE_TOP);
+        var bw = 360, bx = (W - bw) / 2;
+        ctx.fillStyle = "rgba(2,119,189,0.85)";
+        roundRect(bx, 8, bw, 38, 10); ctx.fill();
+        ctx.strokeStyle = "#FFF59D"; ctx.lineWidth = 2;
+        roundRect(bx, 8, bw, 38, 10); ctx.stroke();
+        drawText("🏖️ SHTRAND-BY-THE-SEA — BEACH", W / 2, 27,
+            "bold 15px 'Segoe UI', Arial", "#FFF59D", "#01579B", 4);
+        ctx.restore();
+    }
+
+    function bchDrawWaves(seaY, sandY) {
+        var bands = [
+            { y: seaY + 8, amp: 4, len: 60, spd: 26, a: 0.30 },
+            { y: seaY + (sandY - seaY) * 0.45, amp: 5, len: 80, spd: 18, a: 0.40 },
+            { y: sandY - 16, amp: 6, len: 100, spd: 12, a: 0.55 }
+        ];
+        ctx.save();
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        for (var bnd = 0; bnd < bands.length; bnd++) {
+            var w = bands[bnd];
+            ctx.globalAlpha = w.a;
+            ctx.beginPath();
+            for (var x = -20; x <= W + 20; x += 6) {
+                var yy = w.y + Math.sin((x + bchTime * w.spd) / w.len * Math.PI * 2) * w.amp;
+                if (x === -20) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+            }
+            ctx.stroke();
+        }
+        // foam at the shoreline
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = "#FFFFFF";
+        for (var fx = 0; fx < W; fx += 18) {
+            var fy = sandY - 6 + Math.sin((fx + bchTime * 30) / 40) * 3;
+            ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    function bchDrawGull(g) {
+        ctx.save();
+        ctx.translate(g.x, g.y);
+        if (g.vx < 0) ctx.scale(-1, 1);
+        var flap = Math.sin(g.flap) * 0.5;
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-9, 0);
+        ctx.quadraticCurveTo(-4, -5 - flap * 6, 0, 0);
+        ctx.quadraticCurveTo(4, -5 - flap * 6, 9, 0);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function bchDrawSandGull(cx, cy) {
+        // a chunkier, interactable seagull standing on the sand
+        ctx.save();
+        ctx.translate(cx, cy);
+        var hop = Math.abs(Math.sin(bchTime * 3)) * 3;
+        ctx.translate(0, -hop);
+        // shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath(); ctx.ellipse(0, 16 + hop, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // legs
+        ctx.strokeStyle = "#FB8C00"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-3, 8); ctx.lineTo(-3, 15); ctx.moveTo(3, 8); ctx.lineTo(3, 15); ctx.stroke();
+        // body
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.ellipse(0, 2, 11, 9, 0, 0, Math.PI * 2); ctx.fill();
+        // wing
+        ctx.fillStyle = "#CFD8DC";
+        ctx.beginPath(); ctx.ellipse(4, 2, 6, 7, 0.3, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath(); ctx.arc(-7, -8, 6, 0, Math.PI * 2); ctx.fill();
+        // beak
+        ctx.fillStyle = "#FB8C00";
+        ctx.beginPath(); ctx.moveTo(-13, -8); ctx.lineTo(-19, -6); ctx.lineTo(-13, -5); ctx.closePath(); ctx.fill();
+        // eye (shifty)
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(-8 + Math.sin(bchTime * 2) * 1, -9, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function bchDrawUmbrella(cx, cy, c1, c2) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(-1.5, -2, 3, 34); // pole
+        // canopy panels
+        var r = 30;
+        for (var p = 0; p < 8; p++) {
+            ctx.fillStyle = (p % 2 === 0) ? c1 : c2;
+            ctx.beginPath();
+            ctx.moveTo(0, -2);
+            ctx.arc(0, -2, r, Math.PI + p * (Math.PI / 8), Math.PI + (p + 1) * (Math.PI / 8));
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function bchDrawSunbather(cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // towel
+        ctx.fillStyle = "#26C6DA"; roundRect(-22, -2, 44, 14, 3); ctx.fill();
+        ctx.fillStyle = "#00ACC1"; ctx.fillRect(-22, 3, 44, 3);
+        // lounging body
+        ctx.fillStyle = "#FFE0CC";
+        roundRect(-18, -6, 30, 8, 4); ctx.fill();
+        ctx.beginPath(); ctx.arc(14, -2, 5, 0, Math.PI * 2); ctx.fill(); // head
+        // sun hat
+        ctx.fillStyle = "#FFB300";
+        ctx.beginPath(); ctx.ellipse(14, -4, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function bchDrawHeshy(cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy + Math.sin(bchHeshyT * 2) * 4);
+        // ripples around him
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.ellipse(0, 8, 22, 6, 0, 0, Math.PI * 2); ctx.stroke();
+        // head + green swim cap
+        ctx.fillStyle = "#FFE0CC";
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2E7D32";
+        ctx.beginPath(); ctx.arc(0, -3, 10, Math.PI, Math.PI * 2); ctx.fill();
+        // happy eyes + grin
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.arc(-3.5, 0, 1.6, 0, Math.PI * 2); ctx.arc(3.5, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(0, 3, 4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
+        // a waving arm splashing
+        ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        var wave = Math.sin(bchHeshyT * 6) * 0.5;
+        ctx.beginPath(); ctx.moveTo(8, 6); ctx.lineTo(16 + wave * 6, -4 - wave * 6); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+    }
+
+    function bchDrawTower(cx, sandY) {
+        ctx.save();
+        ctx.translate(cx, sandY);
+        // legs
+        ctx.strokeStyle = "#A1674A"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(-22, 30); ctx.lineTo(-14, -36); ctx.moveTo(22, 30); ctx.lineTo(14, -36); ctx.stroke();
+        // platform
+        ctx.fillStyle = "#C8895C"; roundRect(-26, -44, 52, 10, 2); ctx.fill();
+        // hut
+        ctx.fillStyle = "#FFFFFF"; roundRect(-22, -78, 44, 36, 4); ctx.fill();
+        ctx.fillStyle = "#E53935"; // red roof
+        ctx.beginPath(); ctx.moveTo(-26, -78); ctx.lineTo(0, -98); ctx.lineTo(26, -78); ctx.closePath(); ctx.fill();
+        // cross emblem
+        ctx.fillStyle = "#E53935";
+        ctx.fillRect(-3, -70, 6, 18); ctx.fillRect(-9, -64, 18, 6);
+        // the lifeguard standing on the platform
+        ctx.save();
+        ctx.translate(0, -44);
+        ctx.fillStyle = "#E53935"; roundRect(-7, -22, 14, 18, 4); ctx.fill(); // red swimsuit/tank
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -28, 7, 0, Math.PI * 2); ctx.fill(); // head
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -31, 7, Math.PI, Math.PI * 2); ctx.fill(); // hair
+        ctx.fillStyle = "#000"; // sunglasses
+        roundRect(-6, -29, 12, 4, 2); ctx.fill();
+        // whistle hand up
+        ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(12, -24); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+        ctx.restore();
+    }
+
+    function bchDrawStand(cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        // counter
+        ctx.fillStyle = "#5D4037"; roundRect(-34, -6, 68, 30, 4); ctx.fill();
+        ctx.fillStyle = "#8D6E63"; roundRect(-34, -6, 68, 8, 4); ctx.fill();
+        // striped awning
+        for (var p = 0; p < 6; p++) {
+            ctx.fillStyle = (p % 2 === 0) ? "#FF6F60" : "#FFFFFF";
+            ctx.beginPath();
+            ctx.moveTo(-36 + p * 12, -40);
+            ctx.lineTo(-24 + p * 12, -40);
+            ctx.lineTo(-30 + p * 12, -30);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "#6D4C41"; ctx.fillRect(-36, -44, 72, 5); // awning bar
+        // poles
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(-34, -40, 3, 36); ctx.fillRect(31, -40, 3, 36);
+        // giant ice cream cone sign
+        ctx.save();
+        ctx.translate(0, -56 + Math.sin(bchTime * 2) * 2);
+        ctx.fillStyle = "#D7A86E"; // cone
+        ctx.beginPath(); ctx.moveTo(-7, -2); ctx.lineTo(7, -2); ctx.lineTo(0, 12); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#F8BBD0"; ctx.beginPath(); ctx.arc(-3, -5, 6, 0, Math.PI * 2); ctx.fill(); // strawberry
+        ctx.fillStyle = "#FFF59D"; ctx.beginPath(); ctx.arc(4, -7, 6, 0, Math.PI * 2); ctx.fill();   // vanilla
+        ctx.fillStyle = "#FFCDD2"; ctx.beginPath(); ctx.arc(0, -12, 5, 0, Math.PI * 2); ctx.fill();   // top
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, -16, 2, 0, Math.PI * 2); ctx.fill();   // cherry
+        ctx.restore();
+        drawText("ICE CREAM", 0, 14, "bold 10px Arial", "#FFF8E1", "#5D4037", 3);
+        ctx.restore();
+    }
+
+    function bchDrawCastle(cx, cy) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.fillStyle = "#E0B877";
+        // main keep
+        roundRect(-22, -18, 44, 22, 2); ctx.fill();
+        // towers
+        ctx.fillRect(-26, -28, 10, 32);
+        ctx.fillRect(16, -28, 10, 32);
+        // crenellations
+        ctx.fillStyle = "#D4A55F";
+        for (var cr = -26; cr < 26; cr += 6) ctx.fillRect(cr, -30, 4, 4);
+        // flags
+        ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-21, -28); ctx.lineTo(-21, -40); ctx.moveTo(21, -28); ctx.lineTo(21, -40); ctx.stroke();
+        ctx.fillStyle = "#42A5F5";
+        var wav = Math.sin(bchTime * 4) * 2;
+        ctx.beginPath(); ctx.moveTo(-21, -40); ctx.lineTo(-13, -38 + wav); ctx.lineTo(-21, -35); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#EF5350";
+        ctx.beginPath(); ctx.moveTo(21, -40); ctx.lineTo(29, -38 - wav); ctx.lineTo(21, -35); ctx.closePath(); ctx.fill();
+        // door (arch)
+        ctx.fillStyle = "#A1764B";
+        ctx.beginPath(); ctx.moveTo(-5, 4); ctx.lineTo(-5, -6); ctx.arc(0, -6, 5, Math.PI, 0); ctx.lineTo(5, 4); ctx.closePath(); ctx.fill();
+        // a little bucket + spade beside it
+        ctx.fillStyle = "#EF5350"; roundRect(28, -6, 12, 12, 2); ctx.fill();
+        ctx.fillStyle = "#FDD835"; ctx.fillRect(42, -10, 2, 16);
+        ctx.restore();
     }
 
     function enterDinaHome() {
@@ -14085,6 +16395,7 @@
             actionQueued = false;
             clickQueue = null;
             pauseQueued = false;
+            footActQueued = false;
             steerTouchId = null; touchX = null; touchY = null;
             lastDispatchState = state;
         }
@@ -14094,7 +16405,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
-            state === "footRun") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior") musicTrack = "lulu";
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
@@ -14112,6 +16423,7 @@
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "footRun") updateFootRun(dt);
+        else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
@@ -14138,6 +16450,7 @@
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
         else if (state === "footRun") drawFootRun();
+        else if (state === "footInterior") drawFootInterior();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "parkingIntro") drawParkingIntro();

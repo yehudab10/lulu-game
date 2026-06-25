@@ -18,6 +18,7 @@
             actionQueued = false;
             clickQueue = null;
             pauseQueued = false;
+            footActQueued = false;
             steerTouchId = null; touchX = null; touchY = null;
             lastDispatchState = state;
         }
@@ -27,7 +28,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
-            state === "footRun") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior") musicTrack = "lulu";
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
@@ -45,6 +46,7 @@
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "footRun") updateFootRun(dt);
+        else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
@@ -71,6 +73,7 @@
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
         else if (state === "footRun") drawFootRun();
+        else if (state === "footInterior") drawFootInterior();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "parkingIntro") drawParkingIntro();

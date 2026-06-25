@@ -38,7 +38,10 @@ How it works:
 | `06-screens.js`          | parking/paused/gameover/menu/shop draws, shop cards, Lulu/Dina portraits |
 | `07-dina-world.js`       | character select, Dina/mom top-down sprites, school bus intro |
 | `08-dina-run.js`         | Dina's run-home scene + hazards + dinaCaught ending |
-| `08b-foot-world.js`      | **Lulu on Foot** — on-foot playthrough when her car is wrecked: she runs to Bubbe's along **her real road** (reuses `drawRoad`/decorations/buildings/seasons + enemy-car art) managing a stamina bar, dodging traffic/cones/puddles, Mom's-minivan climax. Entered from the crash reprieve, a parking-sim crash, and 10% of cop pull-overs. WIN → back to driving; LOSE → game over |
+| `08b-foot-world.js`      | **Lulu on Foot** — GTA-lite walking world when her car is wrecked. Walks her **real road** (reuses `drawRoad`/decorations/buildings/seasons + enemy-car art), untouchable: traffic honks & swerves, drunks catcall & chase, animals scatter. Collects coins, enters buildings (→ interiors below), and "borrows" a parked car to get back on the road — steal in front of a cop → driving cop-chase. Smooth no-tap entry. Run/slow on the LEFT, interact on the RIGHT. Entered from the crash reprieve, a parking crash, and 10% of cop pull-overs. Defines the `footInterior` dispatch contract (`enter/exit/update/drawFootInterior`) |
+| `08c-foot-bar.js`        | Foot interior: **the bar** ("The Thirsty Scholar") — bartender, drunk flirts, jukebox dance, passed-out guy, bouncer |
+| `08d-foot-school-hospital.js` | Foot interiors: **school** (cheder hallway — morah, kids, bake sale) + **hospital** (waiting room — receptionist, hypochondriac, doctor, vending machine, Heshy) |
+| `08e-foot-police-beach.js` | Foot interiors: **police precinct** (desk cop / impound, holding cell, most-wanted board, coffee) + **beach** (boardwalk — lifeguard, ice-cream stand, seagull, sandcastle, Heshy) |
 | `09-dina-home-morgan.js` | Dina's bedroom, home-object routing, Morgan plushie scene |
 | `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |
