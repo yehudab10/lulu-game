@@ -893,6 +893,51 @@
         ctx.restore();
     }
 
+    // Dispatch helper: draw whichever critter species is swarming Lulu.
+    function drawCrashAnimal(x, y, type, frame) {
+        if (type === "raccoon") drawRaccoon(x, y, frame);
+        else if (type === "ostrich") drawOstrich(x, y, frame);
+        else drawDuck(x, y, frame);
+    }
+
+    // A comically-deceased critter (belly-up, X-ed-out eyes, lolling tongue)
+    // for the "you hit an animal" crash. Species only changes the body colour.
+    function drawDeadAnimal(x, y, type) {
+        var col = type === "raccoon" ? "#78909C" : type === "ostrich" ? "#424242" : "#FDD835";
+        ctx.save();
+        ctx.translate(x, y);
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.2)";
+        ctx.beginPath(); ctx.ellipse(0, 6, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+        // Flattened body
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.ellipse(0, 0, 14, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.beginPath(); ctx.ellipse(0, 1.5, 14, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+        // Stiff little legs sticking straight up
+        ctx.strokeStyle = "#5D4037";
+        ctx.lineWidth = 2; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-6, -4); ctx.lineTo(-8, -12);
+        ctx.moveTo(-2, -5); ctx.lineTo(-2, -13);
+        ctx.moveTo(2, -5); ctx.lineTo(3, -13);
+        ctx.moveTo(6, -4); ctx.lineTo(8, -12);
+        ctx.stroke();
+        // Head lolling to the side
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(-15, 1, 6, 0, Math.PI * 2); ctx.fill();
+        // X-ed-out eyes
+        ctx.strokeStyle = "#222"; ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(-18, -2); ctx.lineTo(-15, 1);
+        ctx.moveTo(-15, -2); ctx.lineTo(-18, 1);
+        ctx.stroke();
+        // Tongue
+        ctx.fillStyle = "#E53935";
+        ctx.beginPath(); ctx.ellipse(-20, 3.5, 2, 3, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
     // ── Drawing: Missile ─────────────────────────────────────
     function drawMissile(x, y, time) {
         ctx.save();

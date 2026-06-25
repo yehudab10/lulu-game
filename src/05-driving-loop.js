@@ -830,11 +830,24 @@
         flashTimer = 0.15;
         spawnCrashBurst(obj.x, obj.y, false);
         if (lives <= 0) {
-            // BIG crash + angry-man sequence
+            // BIG crash. What the FINAL hit was decides how the scene plays out.
+            var kind = obj && obj.type === "car" ? "car"
+                     : (obj && (obj.type === "duck" || obj.type === "raccoon" || obj.type === "ostrich")) ? "animal"
+                     : "other";
+            crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type };
             crashX = player.x;
             crashY = player.y;
             crashRot = 0;
             crashRotVel = rand(-8, 8);
+            crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0;
+            angryMan = null; revengeCar = null;
+            if (kind === "car") {
+                // The enemy car you hit is wrecked, askew + smoking, just ahead.
+                var cx0 = clamp(player.x + (player.x < W / 2 ? 36 : -36), ROAD_L + 30, ROAD_R - 30);
+                crashedCar = { x: cx0, y: player.y - 70, rot: rand(0.22, 0.5) * (cx0 < player.x ? -1 : 1),
+                               color: (obj && obj.color) || randPick(C.enemyCols), carType: (obj && obj.carType) || 0 };
+                spawnCrashBurst(crashedCar.x, crashedCar.y, true);
+            }
             spawnCrashBurst(player.x, player.y, true);
             playExplosion();
             setTimeout(playWompWomp, 400);
@@ -843,8 +856,6 @@
             crashPhaseTimer = 1.4; // explosion duration
             shakeTimer = 0.8;
             shakeIntensity = 10;
-            angryMan = null;
-            revengeCar = null;
             if (score > save.highScore) {
                 save.highScore = Math.floor(score);
             }
@@ -1090,7 +1101,159 @@
         "GET OFF\nTHE ROAD!",
         "LEARN TO\nDRIVE!!"
     ];
+    // Yells specifically for the driver who climbs out of the car you wrecked.
+    var CAR_YELLS = [
+        "YOU WRECKED\nMY CAR!!",
+        "MY INSURANCE!!",
+        "20 YEARS,\nNO CLAIMS — GONE!",
+        "DO YOU SEE\nTHIS DENT?!",
+        "I JUST WAXED\nTHIS!!"
+    ];
+    // Insults the swarming animals hurl at Lulu (generic across species).
+    var ANIMAL_INSULTS = [
+        "You DENT my cousin?!", "MURDERER!", "We saw EVERYTHING!", "Justice for Gerald!",
+        "You drive like a SHEEP!", "Honk THIS, lady!", "Road HOG!", "My aunt was crossing!",
+        "You'll PAY for this!", "We never forget!", "Off our road!", "Menace!"
+    ];
     var angryYell = "";
+
+    function emitWreckSmoke(dt) {
+        crashSmokeT -= dt;
+        if (crashSmokeT > 0) return;
+        crashSmokeT = 0.08;
+        var sources = [{ x: crashX, y: crashY }];
+        if (crashedCar) sources.push({ x: crashedCar.x, y: crashedCar.y });
+        for (var s = 0; s < sources.length; s++) {
+            particles.push({
+                x: sources[s].x + rand(-10, 10), y: sources[s].y + rand(-10, 6),
+                vx: rand(-18, 18), vy: rand(-60, -28), life: rand(1.0, 1.8), maxLife: 1.5,
+                size: rand(7, 13), color: randPick(["#424242", "#616161", "#9E9E9E", "#757575"]),
+                gravity: -20, smoke: true
+            });
+        }
+    }
+
+    // Crash variant: you flattened an animal. Its furious kin appear and
+    // surround Lulu hurling insults — until passing traffic mows THEM down too.
+    function spawnAnimalSwarm() {
+        var n = randInt(6, 8);
+        for (var i = 0; i < n; i++) {
+            var ang = (i / n) * Math.PI * 2 + rand(-0.25, 0.25);
+            var rad = rand(42, 72);
+            var bx = clamp(player.x + Math.cos(ang) * rad, ROAD_L + 16, ROAD_R - 16);
+            var by = clamp(player.y + Math.sin(ang) * rad * 0.7, 90, H - 90);
+            animalSwarm.push({
+                x: bx, y: by, baseX: bx, baseY: by,
+                insult: randPick(ANIMAL_INSULTS),
+                ph: rand(0, Math.PI * 2),
+                walkFrame: rand(0, 10),
+                state: "taunt", vx: 0, vy: 0, rot: 0,
+                bubbleT: rand(0, 2.4)
+            });
+        }
+    }
+
+    function updateAnimalCrash(dt) {
+        // Phase 0: explosion, then the kin materialize.
+        if (crashPhase === 0) {
+            if (crashPhaseTimer <= 0) {
+                spawnAnimalSwarm();
+                crashPhase = 1;
+                crashPhaseTimer = 7.0;  // hard cap on the scene length
+                crashCarT = 0.6;
+            }
+            return;
+        }
+
+        // Phase 1: kin taunt Lulu while revenge traffic flings them off one by one.
+        if (crashPhase === 1) {
+            var aliveCount = 0;
+            for (var i = 0; i < animalSwarm.length; i++) {
+                var m = animalSwarm[i];
+                m.ph += dt;
+                m.bubbleT += dt;
+                m.walkFrame += dt * 6;
+                if (m.state === "taunt") {
+                    aliveCount++;
+                    m.x = m.baseX + Math.sin(m.ph * 3) * 4;
+                    m.y = m.baseY - Math.abs(Math.sin(m.ph * 5)) * 5; // angry little hops
+                    if (m.bubbleT > 2.4) { m.bubbleT = 0; m.insult = randPick(ANIMAL_INSULTS); }
+                } else {
+                    m.x += m.vx * dt; m.y += m.vy * dt;
+                    m.vy += 420 * dt; m.rot += dt * 12;
+                }
+            }
+
+            // Spawn revenge cars that barrel down the road, aimed at the survivors.
+            crashCarT -= dt;
+            if (crashCarT <= 0 && crashCars.length < 5) {
+                crashCarT = rand(0.45, 0.9);
+                var survivors = [];
+                for (var s = 0; s < animalSwarm.length; s++) {
+                    if (animalSwarm[s].state === "taunt") survivors.push(animalSwarm[s]);
+                }
+                var tx = survivors.length
+                    ? randPick(survivors).x + rand(-12, 12)
+                    : rand(ROAD_L + 24, ROAD_R - 24);
+                tx = clamp(tx, ROAD_L + 20, ROAD_R - 20);
+                crashCars.push({
+                    x: tx, y: -90, color: randPick(C.enemyCols),
+                    carType: randInt(0, 2), vy: rand(640, 840), hitW: 36, hitH: 64
+                });
+            }
+
+            for (var c = crashCars.length - 1; c >= 0; c--) {
+                var car = crashCars[c];
+                car.y += car.vy * dt;
+                for (var j = 0; j < animalSwarm.length; j++) {
+                    var sm = animalSwarm[j];
+                    if (sm.state !== "taunt") continue;
+                    if (Math.abs(car.x - sm.x) < 26 && Math.abs(car.y - sm.y) < 34) {
+                        sm.state = "hit";
+                        sm.vx = (sm.x < car.x ? -1 : 1) * rand(120, 260);
+                        sm.vy = rand(-260, -130);
+                        sm.rot = 0;
+                        spawnCrashBurst(sm.x, sm.y, false);
+                        for (var k = 0; k < 8; k++) {  // a puff of feathers/fur
+                            particles.push({
+                                x: sm.x, y: sm.y, vx: rand(-90, 90), vy: rand(-130, -20),
+                                life: rand(0.5, 1.0), maxLife: 1.0, size: rand(2, 5),
+                                color: "#FAFAFA", gravity: 200
+                            });
+                        }
+                        playWompWomp();
+                    }
+                }
+                if (car.y > H + 120) crashCars.splice(c, 1);
+            }
+
+            if (aliveCount === 0 || crashPhaseTimer <= 0) {
+                crashPhase = 2;
+                crashPhaseTimer = 1.3;
+            }
+            return;
+        }
+
+        // Phase 2: brief beat as the last flung kin sail off, then game over.
+        if (crashPhase === 2) {
+            for (var i2 = 0; i2 < animalSwarm.length; i2++) {
+                var fm = animalSwarm[i2];
+                if (fm.state === "hit") {
+                    fm.x += fm.vx * dt; fm.y += fm.vy * dt; fm.vy += 420 * dt; fm.rot += dt * 12;
+                }
+            }
+            for (var c2 = crashCars.length - 1; c2 >= 0; c2--) {
+                crashCars[c2].y += crashCars[c2].vy * dt;
+                if (crashCars[c2].y > H + 120) crashCars.splice(c2, 1);
+            }
+            if (crashPhaseTimer <= 0) {
+                state = "gameover";
+                gameOverAlpha = 0;
+                Ads.onGameOver();
+            }
+            return;
+        }
+    }
 
     function updateCrash(dt) {
         crashPhaseTimer -= dt;
@@ -1099,35 +1262,70 @@
         crashRot += crashRotVel * dt;
         crashRotVel *= 0.96; // friction
         updateParticles(dt);
+        emitWreckSmoke(dt); // the wreck keeps smoking through the whole scene
+
+        if (crashCause && crashCause.kind === "animal") { updateAnimalCrash(dt); return; }
 
         // Phase 0: initial explosion (no scrolling — everything stops)
         if (crashPhase === 0) {
             if (crashPhaseTimer <= 0) {
-                // Spawn angry man on the opposite side of Lulu's car
-                var fromLeft = player.x > W / 2;
-                angryMan = {
-                    x: fromLeft ? -30 : W + 30,
-                    y: player.y + 50,
-                    targetX: player.x + (fromLeft ? -38 : 38),
-                    time: 0,
-                    state: "running",
-                    runDir: fromLeft ? 1 : -1
-                };
-                angryYell = randPick(ANGRY_YELLS);
+                if (crashCause && crashCause.kind === "car" && crashedCar) {
+                    // The driver of the car you wrecked flings open the door and
+                    // storms over from the smoking heap itself.
+                    var carLeft = crashedCar.x < player.x;
+                    angryMan = {
+                        x: crashedCar.x,
+                        y: crashedCar.y + 18,
+                        targetX: player.x + (carLeft ? -40 : 40),
+                        targetY: player.y + 46,
+                        time: 0,
+                        state: "running",
+                        runDir: carLeft ? 1 : -1
+                    };
+                    angryYell = randPick(CAR_YELLS);
+                    // door-burst puff at the wreck
+                    for (var d0 = 0; d0 < 7; d0++) {
+                        particles.push({
+                            x: crashedCar.x + rand(-8, 8), y: crashedCar.y + rand(-4, 10),
+                            vx: rand(-40, 40), vy: rand(-40, 0), life: 0.5, maxLife: 0.5,
+                            size: rand(2, 4), color: "#CFD8DC", gravity: 30
+                        });
+                    }
+                } else {
+                    // A random bystander charges in from the roadside.
+                    var fromLeft = player.x > W / 2;
+                    angryMan = {
+                        x: fromLeft ? -30 : W + 30,
+                        y: player.y + 50,
+                        targetX: player.x + (fromLeft ? -38 : 38),
+                        targetY: player.y + 50,
+                        time: 0,
+                        state: "running",
+                        runDir: fromLeft ? 1 : -1
+                    };
+                    angryYell = randPick(ANGRY_YELLS);
+                }
                 crashPhase = 1;
             }
             return;
         }
 
-        // Phase 1: man runs in
+        // Phase 1: man runs in (toward the spot beside Lulu, in x AND y)
         if (crashPhase === 1) {
             angryMan.time += dt;
-            var dir = angryMan.targetX - angryMan.x;
+            var ty = (typeof angryMan.targetY === "number") ? angryMan.targetY : angryMan.y;
+            var dx = angryMan.targetX - angryMan.x;
+            var dy = ty - angryMan.y;
             var runSpeed = 220;
-            if (Math.abs(dir) > 5) {
-                angryMan.x += Math.sign(dir) * runSpeed * dt;
+            var distSq = dx * dx + dy * dy;
+            if (distSq > 30) {
+                var d = Math.sqrt(distSq);
+                angryMan.x += (dx / d) * runSpeed * dt;
+                angryMan.y += (dy / d) * runSpeed * dt;
+                angryMan.runDir = dx >= 0 ? 1 : -1;
             } else {
                 angryMan.x = angryMan.targetX;
+                angryMan.y = ty;
                 angryMan.state = "yelling";
                 crashPhase = 2;
                 crashPhaseTimer = 2.2;
@@ -2040,12 +2238,47 @@
     // ── Draw: Crash ──────────────────────────────────────────
     function drawCrash() {
         drawPlaying();
-        // Layer the angry man + speech bubble + revenge car on top
-        if (!angryMan) return;
         ctx.save();
         if (shakeTimer > 0) {
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
         }
+
+        // The enemy car you smashed — a smoking, tilted wreck just ahead.
+        if (crashedCar) {
+            ctx.save();
+            ctx.translate(crashedCar.x, crashedCar.y);
+            ctx.rotate(crashedCar.rot);
+            drawEnemyCar(0, 0, crashedCar.color, crashedCar.carType);
+            ctx.restore();
+        }
+
+        // ── Animal-revenge variant ──────────────────────────────
+        if (crashCause && crashCause.kind === "animal") {
+            // The victim, belly-up at the point of impact.
+            drawDeadAnimal(crashX, crashY, crashCause.animal);
+            // Revenge traffic mowing through the mob.
+            for (var c = 0; c < crashCars.length; c++) {
+                drawEnemyCar(crashCars[c].x, crashCars[c].y, crashCars[c].color, crashCars[c].carType);
+            }
+            // The furious kin (taunting, or mid-flight after being clipped).
+            for (var i = 0; i < animalSwarm.length; i++) {
+                var m = animalSwarm[i];
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                if (m.state === "hit") ctx.rotate(m.rot);
+                drawCrashAnimal(0, 0, crashCause.animal, m.walkFrame);
+                ctx.restore();
+                // Stagger the bubbles so 8 critters don't all shout at once.
+                if (m.state === "taunt" && m.bubbleT < 1.5) {
+                    drawSpeechBubble(m.x, m.y - 26, m.insult, m.ph);
+                }
+            }
+            ctx.restore();
+            return;
+        }
+
+        // ── Angry-man variant ───────────────────────────────────
+        if (!angryMan) { ctx.restore(); return; }
         // Revenge car (if active) — drawn before the man if behind, after if hit
         if (revengeCar && angryMan.state !== "hit") {
             drawEnemyCar(revengeCar.x, revengeCar.y, revengeCar.color, revengeCar.carType);

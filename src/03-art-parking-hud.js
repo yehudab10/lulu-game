@@ -788,6 +788,12 @@
     var crashPhaseTimer = 0;
     var angryMan = null;
     var revengeCar = null;
+    var crashCause = null;   // {kind:"car"/"animal"/"other", color, carType, animal}
+    var crashedCar = null;   // the wrecked enemy car the angry driver climbs out of
+    var animalSwarm = [];     // mob of the same animal hurling insults
+    var crashCars = [];       // revenge cars that mow down the swarm
+    var crashSmokeT = 0;      // smoke emitter timer for the wreck
+    var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
 
     var obstacles = [];
     var coinEntities = [];

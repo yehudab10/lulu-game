@@ -970,6 +970,19 @@
         var x = side < 0 ? rand(10, ROAD_L - 15) : rand(ROAD_R + 15, W - 10);
         var d = { x: x, y: y, side: side, parallax: rand(0.55, 0.85) };
         var cfg = SEASONS[season];
+        // Bridge railings are drawn as part of the road — no shoulder clutter.
+        if (zone === "bridge") return;
+        // Beach: the seaward (left) side is open water; the sandy (right) side
+        // gets palms, umbrellas and the odd beach ball.
+        if (zone === "beach") {
+            if (side < 0) return;
+            var br = Math.random();
+            if (br < 0.45) { d.type = "palm"; d.scale = rand(0.85, 1.2); d.swayOffset = rand(0, Math.PI * 2); }
+            else if (br < 0.78) { d.type = "umbrella"; d.scale = rand(0.7, 1.0); d.color = randPick(["#E53935", "#1E88E5", "#FB8C00", "#8E24AA"]); }
+            else { d.type = "beachball"; d.scale = rand(0.5, 0.8); }
+            decorations.push(d);
+            return;
+        }
         // In city zones the shoulder is sidewalk railings, not forest, so the
         // themed buildings read clearly behind them.
         if (zone !== "rural") {
@@ -1090,7 +1103,10 @@
     function updateSeason(dt, speed) {
         if (seasonBlend < 1) seasonBlend = Math.min(1, seasonBlend + dt / 1.8);
         if (seasonBannerT > 0) seasonBannerT -= dt;
-        if (scrollOffset >= seasonNextAt) changeSeason();
+        // Hold the forced bright sky steady through scenic biomes — no random
+        // flip to rain/snow/night mid-bridge or mid-beach. The deferred change
+        // simply fires once the crossing ends (back on the rural road).
+        if (scrollOffset >= seasonNextAt && zone !== "bridge" && zone !== "beach") changeSeason();
         var cfg = SEASONS[season];
         // spawn weather
         var rate = cfg.weather === "rain" ? 95 : cfg.weather === "snow" ? 30
@@ -1262,9 +1278,11 @@
     // drivers), police HQ (lots of cops), a school zone (kids crossing), or
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
     var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
+    var ZONE_SCENIC = ["bridge", "beach"]; // open-water / coast biomes (no buildings)
     var ZONE_NAMES = {
         bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️",
-        hospital: "Hospital 🏥", construction: "Construction 🚧", gas: "Gas Station ⛽", market: "Farmers Market 🧺"
+        hospital: "Hospital 🏥", construction: "Construction 🚧", gas: "Gas Station ⛽", market: "Farmers Market 🧺",
+        bridge: "Bridge Crossing 🌉", beach: "Coast Road 🏖️"
     };
     // Each city often arrives with a fitting sky (atmospheric combos).
     var ZONE_SEASON = {
@@ -1286,24 +1304,34 @@
     function updateZone(dt, speed) {
         if (zone === "rural") {
             if (scrollOffset >= zoneNextAt) {
-                zone = randPick(ZONE_CITY);
-                zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
+                // Roughly 1-in-4 visits is a scenic crossing instead of a city.
+                if (Math.random() < 0.28) {
+                    zone = randPick(ZONE_SCENIC);
+                    zoneEndsAt = scrollOffset + rand(5500, 8000);
+                    setSeason("summer"); // bright skies over the water & sand
+                } else {
+                    zone = randPick(ZONE_CITY);
+                    zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
+                    // Atmospheric pairing: a city often brings a fitting sky.
+                    if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
+                }
                 cityBuildTimer = 0;
-                // Atmospheric pairing: a city often brings a fitting sky.
-                if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
             }
         } else {
             if (scrollOffset >= zoneEndsAt) {
                 zone = "rural";
                 zoneNextAt = scrollOffset + ZONE_RURAL_GAP + rand(-3000, 5000);
             }
-            cityBuildTimer -= dt;
-            if (cityBuildTimer <= 0) {
-                // Spaced out + sides chosen independently so it's a streetscape,
-                // not a solid wall of identical boxes.
-                cityBuildTimer = rand(1.0, 1.8);
-                if (Math.random() < 0.85) spawnCityBuilding(-1);
-                if (Math.random() < 0.7) spawnCityBuilding(1);
+            // Only city zones grow buildings; scenic biomes use shoulder deco.
+            if (zone !== "bridge" && zone !== "beach") {
+                cityBuildTimer -= dt;
+                if (cityBuildTimer <= 0) {
+                    // Spaced out + sides chosen independently so it's a streetscape,
+                    // not a solid wall of identical boxes.
+                    cityBuildTimer = rand(1.0, 1.8);
+                    if (Math.random() < 0.85) spawnCityBuilding(-1);
+                    if (Math.random() < 0.7) spawnCityBuilding(1);
+                }
             }
         }
         for (var i = cityBuildings.length - 1; i >= 0; i--) {
@@ -1695,6 +1723,134 @@
         ctx.restore();
     }
 
+    // ── Scenic biome art: palm, umbrella, beach ball ─────────
+    function drawPalm(x, y, scale, time, swayOff) {
+        var s = scale || 1;
+        var sway = Math.sin(time * 1.4 + (swayOff || 0)) * 0.12;
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        // shadow on the sand
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.beginPath(); ctx.ellipse(0, 2, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.rotate(sway);
+        // trunk (gently curved, banded)
+        ctx.strokeStyle = "#9C6B3F"; ctx.lineCap = "round"; ctx.lineWidth = 7;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(5, -22, 1, -44); ctx.stroke();
+        ctx.strokeStyle = "#B07D4C"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(5, -22, 1, -44); ctx.stroke();
+        // crown of fronds
+        ctx.translate(1, -44);
+        ctx.fillStyle = "#2E9E5B";
+        for (var f = 0; f < 7; f++) {
+            ctx.save();
+            ctx.rotate((f / 7) * Math.PI * 2 + Math.sin(time * 1.4 + f) * 0.06);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(14, -5, 26, 2);
+            ctx.quadraticCurveTo(14, 1, 0, 4);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        ctx.fillStyle = "#1F7E45";
+        for (var f2 = 0; f2 < 7; f2++) {
+            ctx.save();
+            ctx.rotate((f2 / 7) * Math.PI * 2 + 0.4);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(10, -3, 20, 1);
+            ctx.quadraticCurveTo(10, 0, 0, 3);
+            ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        // coconuts
+        ctx.fillStyle = "#5D4037";
+        ctx.beginPath(); ctx.arc(-3, 3, 3, 0, Math.PI * 2); ctx.arc(3, 4, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawBeachUmbrella(x, y, scale, color) {
+        var s = scale || 1;
+        var col = color || "#E53935";
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.beginPath(); ctx.ellipse(0, 2, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // pole
+        ctx.strokeStyle = "#9E9E9E"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-2, -30); ctx.stroke();
+        // canopy — alternating colour / white wedges
+        ctx.translate(-2, -30);
+        var R = 22;
+        for (var w = 0; w < 8; w++) {
+            ctx.fillStyle = (w % 2 === 0) ? col : "#FAFAFA";
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, R, Math.PI + (w / 8) * Math.PI, Math.PI + ((w + 1) / 8) * Math.PI);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, R, Math.PI, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(0, 0, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawBeachBall(x, y, scale, color) {
+        var s = scale || 1;
+        ctx.save();
+        ctx.translate(x, y); ctx.scale(s, s);
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.beginPath(); ctx.ellipse(0, 9, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FAFAFA";
+        ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+        var cols = ["#E53935", "#FDD835", "#1E88E5"];
+        for (var seg = 0; seg < 3; seg++) {
+            ctx.fillStyle = cols[seg % cols.length];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, 9, (seg / 3) * Math.PI * 2 - 0.4, (seg / 3) * Math.PI * 2 + 0.4);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.beginPath(); ctx.arc(-3, -3, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // Animated water for bridge/beach biomes — gentle shimmer bands that
+    // drift with travel so it reads as flowing, not a flat fill.
+    function drawWaterField(scrollOff, x0, x1, base) {
+        ctx.fillStyle = base;
+        ctx.fillRect(x0, 0, x1 - x0, H);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, H); ctx.clip();
+        ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 2;
+        var off = (scrollOff * 0.5) % 30;
+        for (var wy = -30 + off; wy < H + 30; wy += 30) {
+            ctx.beginPath();
+            for (var wx = x0 - 4; wx <= x1 + 4; wx += 16) {
+                var yy = wy + Math.sin((wx + scrollOff * 0.6) * 0.06) * 3;
+                if (wx <= x0 - 4) ctx.moveTo(wx, yy); else ctx.lineTo(wx, yy);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // A run of bridge railing along one road edge, posts scrolling past.
+    function drawBridgeRail(ex, scrollOff) {
+        ctx.fillStyle = "#B0BEC5";
+        ctx.fillRect(ex - 2, 0, 5, H);          // top rail
+        ctx.fillStyle = "#78909C";
+        ctx.fillRect(ex - 2, 2, 5, 2);
+        var off = (scrollOff * 0.85) % 34;
+        ctx.fillStyle = "#90A4AE";
+        for (var py = -34 + off; py < H; py += 34) {
+            ctx.fillRect(ex - 1, py, 3, 18);    // posts
+        }
+        ctx.fillStyle = "#CFD8DC";
+        ctx.fillRect(ex - 2, 9, 5, 2);          // lower rail highlight
+    }
+
     function drawDecorations(time) {
         for (var i = 0; i < decorations.length; i++) {
             var d = decorations[i];
@@ -1703,6 +1859,9 @@
             else if (d.type === "flower") drawFlower(d.x, d.y, d.color, d.scale);
             else if (d.type === "snowpile") drawSnowPile(d.x, d.y, d.scale);
             else if (d.type === "fence") drawFence(d.x, d.y, d.width);
+            else if (d.type === "palm") drawPalm(d.x, d.y, d.scale, time, d.swayOffset);
+            else if (d.type === "umbrella") drawBeachUmbrella(d.x, d.y, d.scale, d.color);
+            else if (d.type === "beachball") drawBeachBall(d.x, d.y, d.scale, d.color);
         }
     }
 
@@ -1714,9 +1873,29 @@
         skyGrad.addColorStop(1, seasonSky(2));
         ctx.fillStyle = skyGrad;
         ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = shadeColor(seasonGrass(), 10);
-        for (var gy = ((scrollOff * 0.3) % 40) - 40; gy < H; gy += 40) {
-            ctx.fillRect(0, gy, W, 18);
+        if (zone === "bridge") {
+            // Driving out over open water.
+            drawWaterField(scrollOff, 0, W, "#3C7CA6");
+        } else if (zone === "beach") {
+            // Ocean on the left, golden sand on the right (road hugs the coast).
+            drawWaterField(scrollOff, 0, ROAD_L - 4, "#1FA7C2");
+            var sandGrad = ctx.createLinearGradient(ROAD_R, 0, W, 0);
+            sandGrad.addColorStop(0, "#E4CF93");
+            sandGrad.addColorStop(1, "#EFDDAA");
+            ctx.fillStyle = sandGrad;
+            ctx.fillRect(ROAD_R - 4, 0, W - (ROAD_R - 4), H);
+            // a few speckles of darker, damp sand for texture
+            ctx.fillStyle = "rgba(150,120,70,0.18)";
+            for (var sx = ROAD_R + 8; sx < W - 4; sx += 22) {
+                var sdy = ((sx * 7 + scrollOff * 0.3) % H);
+                ctx.fillRect(sx, sdy, 4, 3);
+                ctx.fillRect(sx + 9, (sdy + 130) % H, 3, 3);
+            }
+        } else {
+            ctx.fillStyle = shadeColor(seasonGrass(), 10);
+            for (var gy = ((scrollOff * 0.3) % 40) - 40; gy < H; gy += 40) {
+                ctx.fillRect(0, gy, W, 18);
+            }
         }
         // Drop shadow + chunky outline on road for depth (Sneaky-Sasquatch style)
         ctx.fillStyle = "rgba(0,0,0,0.22)";
@@ -1749,6 +1928,22 @@
             ctx.stroke();
         }
         ctx.setLineDash([]);
+
+        // Scenic edge trim, drawn over the road's shoulder.
+        if (zone === "bridge") {
+            drawBridgeRail(ROAD_L - 11, scrollOff);
+            drawBridgeRail(ROAD_R + 11, scrollOff);
+        } else if (zone === "beach") {
+            // Wavy foam line where the surf laps the road's seaward shoulder.
+            ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath();
+            for (var fy = -6; fy < H + 6; fy += 12) {
+                var fx = ROAD_L - 9 + Math.sin((fy + scrollOff) * 0.08) * 4;
+                if (fy <= -6) ctx.moveTo(fx, fy); else ctx.lineTo(fx, fy);
+            }
+            ctx.stroke();
+            ctx.lineCap = "butt"; // don't leak the round cap into later strokes
+        }
     }
 
     // ── Drawing: Lulu's car (with skin & feminine face) ──────

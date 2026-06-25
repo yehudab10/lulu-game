@@ -12,6 +12,7 @@
         initSpawnTimers(); // randomized first-appearance per run (see 01b-spawn-tuning.js)
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
+        crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         parkingSigns = []; parkingSpawnTimer = 25;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
