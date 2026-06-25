@@ -26,7 +26,8 @@
         // Map game state → music file track
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
-            state === "crash" || state === "copBust" || state === "gameover" || state === "shop") musicTrack = "lulu";
+            state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
+            state === "footRun") musicTrack = "lulu";
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
@@ -43,6 +44,7 @@
         else if (state === "paused") updatePaused(dt);
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
+        else if (state === "footRun") updateFootRun(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
@@ -68,6 +70,7 @@
         else if (state === "paused") drawPaused();
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
+        else if (state === "footRun") drawFootRun();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "parkingIntro") drawParkingIntro();

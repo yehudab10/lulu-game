@@ -53,7 +53,9 @@
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
             stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
-            dinaRunsPlayed: 0 // # of run-home attempts → drives progressive difficulty
+            dinaRunsPlayed: 0, // # of run-home attempts → drives progressive difficulty
+            footRunsPlayed: 0, // # of on-foot runs → drives progressive difficulty
+            footRunHigh: 0     // furthest fraction of the walk to Bubbe's ever reached
         };
     }
 
@@ -546,7 +548,7 @@
         // Dina's run uses finger-drag for left/right (like Lulu's car); only the
         // sprint (⚡) and slow (🐢) buttons remain so they can be held with a
         // second finger while dragging.
-        if (state === "dinaRun") {
+        if (state === "dinaRun" || state === "footRun") {
             if (pointInRect(pos.x, pos.y, PARK_FWD_RECT.x, PARK_FWD_RECT.y, PARK_FWD_RECT.w, PARK_FWD_RECT.h)) return "parkFwd";
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
@@ -639,7 +641,7 @@
                 clickQueue = pos;
                 queueAction();
                 if (steerTouchId === null &&
-                    (state === "playing" || state === "dinaRun" ||
+                    (state === "playing" || state === "dinaRun" || state === "footRun" ||
                      state === "cookieCatch" || state === "dinaHome")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;

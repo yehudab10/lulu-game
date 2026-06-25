@@ -978,17 +978,22 @@
 
     function startCopBust() {
         var fromLeft = player.x > W / 2;
-        var warn = Math.random() < 0.20; // 1 in 5: let off with a warning
+        // 10% of ALL pull-overs: the car gets impounded and Lulu has to walk it
+        // off (the on-foot playthrough). Of the rest, 1-in-5 is a warning.
+        var walk = Math.random() < 0.10;
+        var warn = !walk && Math.random() < 0.20;
         copBust = { phase: 0, timer: 0.8, copY: player.y + 90, man: null,
-                    fromLeft: fromLeft, warning: warn,
-                    yell: warn ? null : randPick(COP_YELLS),
+                    fromLeft: fromLeft, warning: warn, walk: walk,
+                    yell: warn ? null : (walk ? "STEP OUT —\nIT'S GETTING\nTOWED!" : randPick(COP_YELLS)),
                     ex: warn ? randPick(WARN_EXCHANGES) : null };
         copChase = null;
         state = "copBust";
         shakeTimer = warn ? 0.25 : 0.5; shakeIntensity = warn ? 4 : 8;
         if (warn) { playTone(523, 0.1, "triangle", 0.18); setTimeout(function () { playTone(784, 0.12, "triangle", 0.2); }, 120); }
         else playWompWomp();
-        if (!warn && score > save.highScore) save.highScore = Math.floor(score);
+        // Don't commit the high score yet on a warning OR a walk — the walk run
+        // can still raise it, and its lose branch commits exactly once.
+        if (!warn && !walk && score > save.highScore) save.highScore = Math.floor(score);
         persistSave();
     }
 
@@ -1021,6 +1026,7 @@
             copBust.man.time += dt;
             if (copBust.timer <= 0) {
                 if (copBust.warning) { copBust = null; returnToDriving(); } // free to go!
+                else if (copBust.walk) { copBust = null; startFootWorld("copWalk"); } // car impounded → walk
                 else { copBust = null; state = "gameover"; }
             }
         }
@@ -1071,6 +1077,9 @@
             drawText("👮 " + copBust.ex[0], W / 2, H * 0.15 + 34, "bold 15px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
             if (copBust.phase >= 2) drawText("💁 " + copBust.ex[1], W / 2, H * 0.15 + 58, "bold 15px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 3);
             if (copBust.phase >= 2) drawText("Back on the road! 🚗", W / 2, H * 0.15 + 86, "bold 13px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 3);
+        } else if (copBust.walk) {
+            drawText("🚧 IMPOUNDED! 🚧", W / 2, H * 0.16, "bold 30px 'Segoe UI', Arial, sans-serif", "#FB8C00", "#000", 6);
+            drawText("No car? Then she'll WALK to Bubbe's...", W / 2, H * 0.16 + 36, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
         } else {
             drawText("🚨 BUSTED! 🚨", W / 2, H * 0.16, "bold 38px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
             drawText("Caught speeding!", W / 2, H * 0.16 + 36, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
@@ -1481,21 +1490,20 @@
         }
     }
 
-    // Resume the run with one life — the funny twist let Lulu off the hook.
+    // The funny twist let Lulu off the hook — but her CAR is wrecked, so she
+    // continues the run on foot (the "Lulu on Foot" playthrough). If she makes
+    // it to Bubbe's she gets a ride back to the road; if not, the run ends.
     function grantSecondChance() {
         spawnFloater(W / 2, H * 0.40, "SECOND CHANCE!", "#7CFC00");
         spawnFloater(W / 2, H * 0.40 + 26,
             reprieveKind === "arrest" ? "They cuffed the guy! 🚓" : "You slipped away! 🏃‍♀️", "#FFE082");
-        lives = 1;
-        invincibleTimer = 2.6;
         shakeTimer = 0; flashTimer = 0;
         angryMan = null; revengeCar = null; crashedCar = null;
         crashCause = null; animalSwarm = []; crashCars = [];
         crashReprieve = false; reprieveKind = null;
-        // Clear the hidden wreck sprite so it doesn't pop back when play resumes.
+        // Clear the hidden wreck sprite so it doesn't pop back when she returns.
         for (var hi = obstacles.length - 1; hi >= 0; hi--) if (obstacles[hi].hidden) obstacles.splice(hi, 1);
-        state = "playing";
-        playClick();
+        startFootWorld("crashReprieve");
     }
 
     // ── Update: Game Over ────────────────────────────────────

@@ -888,17 +888,13 @@
                             startParkingLevel(parkingLevel);
                         }
                     } else if (lives <= 0) {
-                        // Out of lives → straight to the crash sequence (no grace).
-                        crashX = player.x;
-                        crashY = player.y;
-                        crashRot = 0;
-                        crashRotVel = rand(-8, 8);
-                        spawnCrashBurst(player.x, player.y, true);
-                        state = "crash";
-                        crashPhase = 0;
-                        crashPhaseTimer = 1.4;
-                        if (score > save.highScore) save.highScore = Math.floor(score);
-                        persistSave();
+                        // Out of lives → the car's wrecked, so Lulu sets off on
+                        // foot (the "Lulu on Foot" playthrough). Defer the high
+                        // score — the foot run can still raise it, and its lose
+                        // branch commits it exactly once.
+                        parkingZoom = 1;
+                        startFootWorld("parkingCrash");
+                        return;
                     } else {
                         returnToDriving();
                         parkingMsg = "Better luck next time!";
