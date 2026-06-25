@@ -203,6 +203,7 @@
                 type: "ped", x: x, y: y,
                 hitW: 18, hitH: 20, speedMult: 0.5, lane: lane,
                 pedType: randInt(0, 2),
+                worker: (typeof zone !== "undefined" && zone === "construction"),
                 walkTime: 0
             });
         }

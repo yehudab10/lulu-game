@@ -654,7 +654,7 @@
     }
 
     // ── Drawing: Pedestrians (people obstacles) ──────────────
-    function drawPedestrian(x, y, walkTime, type) {
+    function drawPedestrian(x, y, walkTime, type, worker) {
         ctx.save();
         ctx.translate(x, y);
         var legSwing = Math.sin(walkTime * 10) * 4;
@@ -735,6 +735,19 @@
         ctx.beginPath();
         ctx.ellipse(0, -10, 0.9, 1.3, 0, 0, Math.PI * 2);
         ctx.fill();
+
+        if (worker) {
+            // Road worker: hi-vis vest over the shirt + a yellow hard hat.
+            ctx.fillStyle = "#FF7043";
+            roundRect(-8, -7, 16, 14, 4); ctx.fill();
+            roundRect(-11, -6, 4, 8, 2); ctx.fill(); roundRect(7, -6, 4, 8, 2); ctx.fill();
+            ctx.fillStyle = "#FDD835";
+            ctx.fillRect(-8, -2, 16, 2.5); ctx.fillRect(-1.5, -7, 3, 14);
+            ctx.fillStyle = "#FBC02D";
+            ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI, 0); ctx.fill();
+            ctx.fillRect(-8.5, -16, 17, 2.5);
+            ctx.fillStyle = "#F9A825"; ctx.fillRect(-1.5, -23, 3, 7);
+        }
 
         ctx.restore();
     }

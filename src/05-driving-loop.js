@@ -596,8 +596,8 @@
         if (zone === "construction" && Math.random() < dt * 1.6) {
             spawnObstacle("cone"); // cone gauntlet
         }
-        if (zone === "market" && Math.random() < dt * 0.9) {
-            spawnAnimal(); // animals wandering across from the market
+        if (zone === "construction" && gameTime > 8 && Math.random() < dt * 0.5) {
+            spawnObstacle("ped"); // road workers (drawn with hard hats; act like peds)
         }
         if (zone === "hospital" && gameTime > 5 && Math.random() < dt * 0.5) {
             var hasAmb = false;
@@ -1925,7 +1925,7 @@
                 else drawEnemyCar(o.x, o.y, o.color, o.carType);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
-            else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType);
+            else if (o.type === "ped") drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker);
         }
 
         // Missiles
