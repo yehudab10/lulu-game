@@ -10,15 +10,14 @@
     //  10% of cop pull-overs.  WIN → returnToDriving();  LOSE → gameover.
     // ════════════════════════════════════════════════════════════
 
-    var FOOT_LANES_X = [W / 2 - 70, W / 2, W / 2 + 70]; // hazard lane centers
     var FOOT_BASE = 165;        // px/sec base run speed (cruise)
     var FOOT_TOTAL_PX = 7800;   // full journey to Bubbe's (~47s at cruise)
 
     // ── State ────────────────────────────────────────────────
     var footPhase = 0;          // 0 intro · 1 run · 2 outro
     var footTimer = 0;
-    var footScrollY = 0;        // accumulated world scroll — single source of truth
-    var footDistance = 0;       // 0..1 progress (derived from footScrollY)
+    var footStartScroll = 0;    // scrollOffset when the run began (progress baseline)
+    var footDistance = 0;       // 0..1 progress along the real road
     var footStamina = 100;      // the master resource — empties = caught
     var footHazards = [];
     var footHazardSpawn = 1.0;
@@ -34,7 +33,6 @@
     var footBeats = {};         // one-shot story-beat flags
     var footConfetti = [];
     var footBankedCoins = 0, footBankedStars = 0, footWinBonus = 0;
-    var footLampGlow = 0;       // dusk lamps warm up as the run progresses
     var footToast = "", footToastT = 0; // brief story-beat banner
 
     function startFootWorld(reason) {
@@ -42,10 +40,10 @@
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         footDiff = Math.min(1 + (footRunLevel - 1) * 0.12, 2.2);
         save.footRunsPlayed = footRunLevel; persistSave();
-        footPhase = 0; footTimer = 0; footScrollY = 0; footDistance = 0;
+        footPhase = 0; footTimer = 0; footStartScroll = scrollOffset; footDistance = 0;
         footStamina = 100; footHazards = []; footHazardSpawn = 1.0;
         footStars = 0; footCoinsRun = 0; footToast = ""; footToastT = 0;
-        momVan = null; footConfetti = []; footLampGlow = 0;
+        momVan = null; footConfetti = [];
         footBeats = { avigail: false, heshy: false, greenblatt: false, mom: false };
         footEnding = "made";
         footIntroLine =
@@ -86,10 +84,15 @@
         // Legs visibly spin faster sprinting, plod walking — animation reads the mechanic.
         footLulu.walkTime += dt * (0.4 + speedMult);
 
+        // She's running along the SAME road she drives — advance the real
+        // world scroll and keep its zones/seasons/decorations evolving so it's
+        // her actual world (cars, buildings, weather), just on two legs.
         var runSpeed = FOOT_BASE * speedMult;
-        footScrollY += runSpeed * dt;
-        footDistance = clamp(footScrollY / FOOT_TOTAL_PX, 0, 1);
-        footLampGlow = clamp((footDistance - 0.3) / 0.6, 0, 1); // dusk deepens toward Bubbe's
+        scrollOffset += runSpeed * dt;
+        updateZone(dt, runSpeed);
+        updateSeason(dt, runSpeed);
+        updateDecorations(dt, runSpeed);
+        footDistance = clamp((scrollOffset - footStartScroll) / FOOT_TOTAL_PX, 0, 1);
 
         // Sprint dust kicked up at her heels (the "boost beam" analog)
         if (sprint) {
@@ -104,8 +107,9 @@
                 size: rand(2, 4), color: "#4FC3F7", gravity: 220 });
         }
 
-        // Steering — finger-drag or arrow keys, exactly like the car
-        var minX = W / 2 - 95, maxX = W / 2 + 95;
+        // Steering — finger-drag or arrow keys, exactly like the car, but she
+        // stays on the actual road (dodge the traffic between the curbs).
+        var minX = ROAD_L + 18, maxX = ROAD_R - 18;
         if (touchX !== null) {
             footLulu.x = lerp(footLulu.x, clamp(touchX, minX, maxX), Math.min(1, 14 * dt));
         } else {
@@ -124,16 +128,23 @@
             if (footDistance > 0.5 && Math.random() < 0.3 * footDistance * footDiff) spawnFootHazard();
         }
 
-        // Move + collide hazards
+        // Move + collide hazards. Cars drive faster than the road scrolls
+        // (they bear down on her); cones/puddles/pickups ride with the road.
         for (var h = footHazards.length - 1; h >= 0; h--) {
             var hz = footHazards[h];
-            hz.y += runSpeed * dt;
-            if (hz.type === "scooter") hz.y += 70 * dt; // the one hazard that chases you
-            if (hz.type === "stroller") hz.x += Math.sin(hz.walkTime * 1.4) * 18 * dt; // drifts
+            hz.y += (runSpeed + (hz.vyOwn || 0)) * dt;
+            if (hz.type === "car" && hz.swerve) hz.x = hz.baseX + Math.sin(hz.walkTime * 3) * 16; // drunk weave
             hz.walkTime = (hz.walkTime || 0) + dt;
-            if (hz.y > H + 70) { footHazards.splice(h, 1); continue; }
+            if (hz.y > H + 80) { footHazards.splice(h, 1); continue; }
+            if (hz.hit) continue;
+            // Roadside greeters (Avigail/Heshy/Greenblatt) fire as they pass her,
+            // not on touch — they live on the shoulder, you don't run into them.
+            if (hz.beat) {
+                if (hz.y > footLulu.y - 24) { hz.hit = true; handleFootHazard(hz); }
+                continue;
+            }
             var dx = footLulu.x - hz.x, dy = footLulu.y - hz.y;
-            if (dx * dx + dy * dy < (hz.r + 15) * (hz.r + 15) && !hz.hit) {
+            if (dx * dx + dy * dy < (hz.r + 14) * (hz.r + 14)) {
                 hz.hit = true;
                 handleFootHazard(hz);
             }
@@ -206,16 +217,16 @@
     function triggerFootBeats() {
         if (!footBeats.avigail && footDistance > 0.22) {
             footBeats.avigail = true;
-            footHazards.push({ type: "avigailCafe", x: FOOT_LANES_X[footLulu.lane], y: -50, r: 20, walkTime: 0 });
+            footHazards.push({ type: "avigailCafe", x: ROAD_L - 16, y: -50, r: 20, walkTime: 0, beat: true });
             footToast = "Avigail's Café — grab a breather!"; footToastT = 2.4;
         }
         if (!footBeats.heshy && footDistance > 0.48) {
             footBeats.heshy = true;
-            footHazards.push({ type: "heshyLemonade", x: FOOT_LANES_X[randInt(0, 2)], y: -50, r: 18, walkTime: 0 });
+            footHazards.push({ type: "heshyLemonade", x: ROAD_R + 16, y: -50, r: 18, walkTime: 0, beat: true });
         }
         if (!footBeats.greenblatt && footDistance > 0.68) {
             footBeats.greenblatt = true;
-            footHazards.push({ type: "greenblatt", x: FOOT_LANES_X[1], y: -45, r: 18, walkTime: 0, greeted: false });
+            footHazards.push({ type: "greenblatt", x: ROAD_L - 18, y: -45, r: 18, walkTime: 0, greeted: false, beat: true });
         }
         if (!footBeats.mom && footDistance > 0.85) {
             footBeats.mom = true;
@@ -225,41 +236,43 @@
     }
 
     function spawnFootHazard() {
-        var hazards = ["stroller", "hydrant", "scooter", "sandwichBoard", "puddle", "consTape", "dog"];
-        var pickups = ["coin", "coin", "coin", "bagel", "iceCoffee", "star"];
-        var pickPickup = Math.random() < 0.42;
-        var t = pickPickup ? randPick(pickups) : randPick(hazards);
-        footHazards.push({
-            type: t, x: FOOT_LANES_X[randInt(0, 2)], y: -45,
-            r: t === "dog" ? 16 : 14, walkTime: 0
-        });
+        var lane = randInt(0, 2);
+        var lx = LANES[lane];
+        var r = Math.random();
+        if (r < 0.52) {
+            // Real traffic bearing down the lane — the main thing to dodge.
+            footHazards.push({ type: "car", x: lx, baseX: lx, y: -80, r: 22,
+                color: randPick(C.enemyCols), carType: randInt(0, 2),
+                vyOwn: rand(55, 150), swerve: Math.random() < 0.22, walkTime: 0 });
+        } else if (r < 0.64) {
+            footHazards.push({ type: "cone", x: lx, y: -50, r: 12, walkTime: 0 });
+        } else if (r < 0.72) {
+            footHazards.push({ type: "puddle", x: lx, y: -48, r: 16, walkTime: 0 });
+        } else {
+            footHazards.push({ type: randPick(["coin", "coin", "coin", "bagel", "iceCoffee", "star"]),
+                x: lx, y: -48, r: 13, walkTime: 0 });
+        }
     }
 
+    var FOOT_CAR_YELP = ["HEY! WALKING HERE!", "Watch it, buddy!", "MEEP MEEP?!", "Use a CROSSWALK, lady!", "OY!"];
     function handleFootHazard(hz) {
         var t = hz.type;
-        if (t === "stroller" || t === "hydrant" || t === "sandwichBoard" || t === "consTape") {
-            footLulu.stumble = 0.5; footStamina -= 8;
-            shakeTimer = 0.22; shakeIntensity = 5;
+        if (t === "car") {
+            // Clipped by traffic — the big road hazard. Stumble + a real stamina hit.
+            footLulu.stumble = 0.7; footStamina -= 12;
+            shakeTimer = 0.35; shakeIntensity = 8;
+            spawnCrashBurst(footLulu.x, footLulu.y, false);
+            playWompWomp();
+            spawnFloater(footLulu.x, footLulu.y - 30, randPick(FOOT_CAR_YELP), "#FFF");
+        } else if (t === "cone") {
+            footLulu.stumble = 0.5; footStamina -= 6;
+            shakeTimer = 0.2; shakeIntensity = 4;
             spawnCrashBurst(hz.x, hz.y, false);
             playTone(180, 0.1, "square", 0.15);
-            if (t === "stroller") spawnFloater(hz.x, hz.y - 14, "Oy! Sorry!", "#FFF");
         } else if (t === "puddle") {
-            footLulu.stumble = 0.7; footStamina -= 6;
+            footLulu.stumble = 0.7; footStamina -= 5;
             shakeTimer = 0.2; shakeIntensity = 4;
-            for (var s = 0; s < 8; s++) particles.push({ x: hz.x, y: hz.y, vx: rand(-90, 90), vy: rand(-90, -10),
-                life: 0.5, maxLife: 0.5, size: rand(2, 5), color: "#4FC3F7", gravity: 240 });
-            playTone(300, 0.12, "sine", 0.12);
-        } else if (t === "scooter") {
-            footLulu.stumble = 0.6; footStamina -= 10;
-            shakeTimer = 0.28; shakeIntensity = 6;
-            spawnCrashBurst(hz.x, hz.y, false);
-            playTone(900, 0.06, "square", 0.12);
-            setTimeout(function () { playTone(700, 0.06, "square", 0.1); }, 70);
-        } else if (t === "dog") {
-            footLulu.stumble = 1.4; footCoinsRun += 2; runCoins += 2; save.totalCoins += 2;
-            shakeTimer = 0.3; shakeIntensity = 6;
-            playDogBark();
-            spawnFloater(hz.x, hz.y - 14, "+2 🐕 (so cute!)", "#FFB74D");
+            spawnSplash(hz.x, footLulu.y);
         } else if (t === "coin") {
             footCoinsRun += 1; runCoins += 1; save.totalCoins += 1;
             spawnCoinSparkle(hz.x, hz.y); playCoin();
@@ -365,7 +378,10 @@
         ctx.save();
         if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
 
-        drawFootStreet(footScrollY);
+        // Her real world — same road, decorations, buildings, season/weather.
+        drawRoad(scrollOffset);
+        drawDecorations(footTimer);
+        drawCityBuildings();
 
         // Hazards with a pulsing telegraph shadow as they approach
         for (var h = 0; h < footHazards.length; h++) {
@@ -401,6 +417,7 @@
         }
 
         ctx.restore(); // HUD steady (outside shake)
+        drawSeasonFx();  // season darkness + weather (rain/snow/fog) over the world
         drawFootHUD();
     }
 
@@ -448,9 +465,12 @@
 
     // ── Intro tableau (phase 0) ──────────────────────────────
     function drawFootIntro() {
-        drawFootStreet(0);
+        drawRoad(scrollOffset);
+        drawDecorations(footTimer);
+        drawCityBuildings();
+        drawSeasonFx();
         // Dusk wash
-        ctx.fillStyle = "rgba(40,20,60,0.25)"; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "rgba(40,20,60,0.22)"; ctx.fillRect(0, 0, W, H);
         // Wrecked pink car, tilted + smoking
         ctx.save();
         ctx.translate(W / 2 - 38, H * 0.42);
@@ -543,95 +563,6 @@
         }
     }
 
-    // ── The street (scrolling background) ────────────────────
-    function drawFootStreet(scrollY) {
-        // Dusk-tinted lawn that deepens as Lulu nears Bubbe's
-        var lawn = lerpColor("#7CB342", "#4E6A4A", footLampGlow);
-        ctx.fillStyle = lawn; ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = shadeColor(lawn, 16);
-        for (var gy = (scrollY * 0.2) % 60 - 60; gy < H; gy += 60) ctx.fillRect(0, gy, W, 20);
-
-        var SIDEWALK_L = W / 2 - 100, SIDEWALK_W = 200;
-        // Storefront strips parallax past on the lawn edges
-        drawFootStorefronts(scrollY, SIDEWALK_L);
-
-        // Sidewalk
-        ctx.fillStyle = "rgba(0,0,0,0.18)";
-        ctx.fillRect(SIDEWALK_L - 4, 0, 4, H); ctx.fillRect(SIDEWALK_L + SIDEWALK_W, 0, 4, H);
-        ctx.fillStyle = "#D0CFC2"; ctx.fillRect(SIDEWALK_L, 0, SIDEWALK_W, H);
-        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 3; ctx.strokeRect(SIDEWALK_L, 0, SIDEWALK_W, H);
-        ctx.strokeStyle = "#9E9E9E"; ctx.lineWidth = 1; ctx.beginPath();
-        for (var sy = (scrollY % 80) - 80; sy < H + 40; sy += 80) {
-            ctx.moveTo(SIDEWALK_L + 4, sy); ctx.lineTo(SIDEWALK_L + SIDEWALK_W - 4, sy);
-        }
-        ctx.stroke();
-        // Lane dashes
-        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 14]); ctx.lineDashOffset = -scrollY * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(SIDEWALK_L + 65, 0); ctx.lineTo(SIDEWALK_L + 65, H);
-        ctx.moveTo(SIDEWALK_L + 135, 0); ctx.lineTo(SIDEWALK_L + 135, H);
-        ctx.stroke(); ctx.setLineDash([]);
-
-        // A zebra crosswalk band scrolls down the sidewalk periodically
-        var cy0 = H - (scrollY % 520);
-        if (cy0 > -30 && cy0 < H + 30) {
-            ctx.fillStyle = "rgba(255,255,255,0.85)";
-            for (var st = 0; st < 6; st++) ctx.fillRect(SIDEWALK_L + 8 + st * 32, cy0, 18, 16);
-        }
-    }
-
-    function drawFootStorefronts(scrollY, SIDEWALK_L) {
-        var SHOPS = [
-            { name: "BAKERY", awn: "#E57373", body: "#8D6E63" },
-            { name: "DELI", awn: "#64B5F6", body: "#90A4AE" },
-            { name: "SALON", awn: "#BA68C8", body: "#CE93D8" },
-            { name: "SHOES", awn: "#FFB74D", body: "#A1887F" },
-            { name: "PIZZA", awn: "#EF5350", body: "#BCAAA4" },
-            { name: "SHUL", awn: "#4DB6AC", body: "#B0BEC5" }
-        ];
-        var span = 150;
-        for (var side = 0; side < 2; side++) {
-            var baseX = side === 0 ? 6 : SIDEWALK_L + 210;
-            var wdt = side === 0 ? SIDEWALK_L - 12 : W - (SIDEWALK_L + 210) - 6;
-            if (wdt < 30) continue;
-            for (var k = -1; k < Math.ceil(H / span) + 1; k++) {
-                var sy = ((k * span + (scrollY * 0.85 + side * 75)) % (span * (Math.ceil(H / span) + 2))) - span;
-                var shop = SHOPS[((k % SHOPS.length) + SHOPS.length + side) % SHOPS.length];
-                // facade
-                ctx.fillStyle = shop.body;
-                roundRect(baseX, sy + 16, wdt, span - 26, 4); ctx.fill();
-                ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.5;
-                roundRect(baseX, sy + 16, wdt, span - 26, 4); ctx.stroke();
-                // awning
-                ctx.fillStyle = shop.awn;
-                roundRect(baseX, sy + 8, wdt, 14, 3); ctx.fill();
-                ctx.fillStyle = "rgba(255,255,255,0.5)";
-                for (var swp = 0; swp < wdt; swp += 12) ctx.fillRect(baseX + swp + 6, sy + 8, 6, 14);
-                // lit window (warmer at dusk)
-                ctx.fillStyle = footLampGlow > 0.3 ? "#FFE082" : "#B3E5FC";
-                roundRect(baseX + 6, sy + 30, wdt - 12, 26, 3); ctx.fill();
-                // sign
-                if (wdt > 44) drawText(shop.name, baseX + wdt / 2, sy + 70, "bold 9px Arial", "#fff", "#000", 2);
-            }
-            // street lamps glowing at dusk
-            var lampY = ((scrollY * 0.85) % 260);
-            var lx = side === 0 ? SIDEWALK_L - 16 : SIDEWALK_L + 216;
-            for (var lp = -1; lp < Math.ceil(H / 260) + 1; lp++) {
-                var ly2 = lp * 260 + lampY;
-                ctx.strokeStyle = "#455A64"; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.moveTo(lx, ly2); ctx.lineTo(lx, ly2 - 26); ctx.stroke();
-                ctx.fillStyle = footLampGlow > 0.2 ? "#FFE082" : "#CFD8DC";
-                if (footLampGlow > 0.2) {
-                    ctx.globalAlpha = 0.4 * footLampGlow;
-                    ctx.beginPath(); ctx.arc(lx, ly2 - 28, 12, 0, Math.PI * 2); ctx.fill();
-                    ctx.globalAlpha = 1;
-                }
-                ctx.fillStyle = footLampGlow > 0.2 ? "#FFF59D" : "#CFD8DC";
-                ctx.beginPath(); ctx.arc(lx, ly2 - 28, 4, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-    }
 
     function drawFootDestination() {
         if (footDistance <= 0.78) return;
@@ -784,52 +715,21 @@
 
     // ── Hazard / pickup / NPC sprites ────────────────────────
     function drawFootHazard(hz) {
-        // Shared neighborhood sprites already drawn by the Dina runner:
-        if (hz.type === "hydrant" || hz.type === "dog" || hz.type === "greenblatt") {
+        // Mrs. Greenblatt reuses the Dina-runner crossing-guard sprite.
+        if (hz.type === "greenblatt") {
             drawDinaSidewalkHazard(hz);
             return;
         }
         ctx.save();
         ctx.translate(hz.x, hz.y);
         var w = hz.walkTime || 0;
-        if (hz.type === "stroller") {
-            // pram + a parent walking it
-            ctx.fillStyle = "#37474F"; roundRect(-12, -2, 18, 12, 4); ctx.fill();
-            ctx.fillStyle = "#90CAF9"; roundRect(-10, -7, 14, 7, 3); ctx.fill();
-            ctx.fillStyle = "#212121";
-            ctx.beginPath(); ctx.arc(-9, 12, 3, 0, Math.PI * 2); ctx.arc(3, 12, 3, 0, Math.PI * 2); ctx.fill();
-            // parent
-            ctx.fillStyle = "#8E24AA"; roundRect(8, -8, 9, 14, 4); ctx.fill();
-            ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(12, -12, 4, 0, Math.PI * 2); ctx.fill();
-        } else if (hz.type === "scooter") {
-            // kid leaning on a kick scooter
-            ctx.strokeStyle = "#212121"; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(-8, 10); ctx.lineTo(8, 10); ctx.moveTo(8, 10); ctx.lineTo(8, -8); ctx.stroke();
-            ctx.fillStyle = "#212121";
-            ctx.beginPath(); ctx.arc(-8, 12, 3, 0, Math.PI * 2); ctx.arc(8, 12, 3, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#43A047"; roundRect(-2, -10, 8, 12, 3); ctx.fill();
-            ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(2, -14, 4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(2, -16, 4.5, Math.PI, Math.PI * 2); ctx.fill(); // cap
-        } else if (hz.type === "sandwichBoard") {
-            ctx.fillStyle = "#5D4037";
-            ctx.beginPath(); ctx.moveTo(-12, 12); ctx.lineTo(-3, -12); ctx.lineTo(3, -12); ctx.lineTo(12, 12); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = "#FFF8E1"; roundRect(-9, -8, 18, 16, 2); ctx.fill();
-            ctx.fillStyle = "#C62828"; ctx.font = "bold 6px Arial"; ctx.textAlign = "center";
-            ctx.fillText("OPEN", 0, -2); ctx.fillText("☕", 0, 6);
+        if (hz.type === "car") {
+            // The same enemy car art as the driving game — real traffic.
+            drawEnemyCar(0, 0, hz.color, hz.carType);
+        } else if (hz.type === "cone") {
+            drawCone(0, 0);
         } else if (hz.type === "puddle") {
-            var sh = 0.6 + 0.4 * Math.sin(w * 6);
-            ctx.fillStyle = "rgba(79,195,247," + (0.45 * sh) + ")";
-            ctx.beginPath(); ctx.ellipse(0, 4, 16, 7, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.ellipse(0, 4, 11, 4.5, 0, 0, Math.PI * 2); ctx.stroke();
-        } else if (hz.type === "consTape") {
-            ctx.fillStyle = "#FB8C00";
-            for (var pst = -1; pst <= 1; pst += 2) { ctx.fillRect(pst * 22 - 2, -6, 4, 22); }
-            ctx.save(); ctx.rotate(Math.sin(w) * 0.04);
-            ctx.fillStyle = "#FDD835"; ctx.fillRect(-24, -4, 48, 8);
-            ctx.fillStyle = "#212121"; ctx.font = "bold 5px Arial"; ctx.textAlign = "center";
-            ctx.fillText("SIDEWALK CLOSED", 0, 0.5);
-            ctx.restore();
+            drawPuddle(0, 0);
         } else if (hz.type === "coin") {
             drawCoin(0, 0, w);
         } else if (hz.type === "bagel") {

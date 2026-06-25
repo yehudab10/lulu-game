@@ -267,14 +267,17 @@
             if (o.commentT > 0) o.commentT -= dt; // speech-bubble lifetime
 
             // Drunk bar patrons holler at Lulu often; rowdy workers, rarely.
-            if (o.type === "ped" && (o.drunk || o.worker) && o.y > 40 && o.y < H - 40) {
+            // Fire while they're anywhere on screen (not just dead-center) so a
+            // patron that's about to scroll off still gets a line out.
+            if (o.type === "ped" && (o.drunk || o.worker) && o.y > -10 && o.y < H + 10) {
                 o.catcallT -= dt;
                 if (o.catcallT <= 0 && o.commentT <= 0) {
-                    var callChance = o.drunk ? 0.5 : 0.06; // workers only now and then
+                    var callChance = o.drunk ? 0.85 : 0.06; // workers only now and then
                     if (Math.random() < callChance) {
-                        o.comment = randPick(BAR_CATCALLS); o.commentT = 2.0;
+                        o.comment = randPick(BAR_CATCALLS); o.commentT = 2.6; // long enough to read
                     }
-                    o.catcallT = rand(1.6, 3.4);
+                    // Drunks retry quickly so a missed roll doesn't go silent for long.
+                    o.catcallT = o.drunk ? rand(0.8, 1.8) : rand(1.6, 3.4);
                 }
             }
 
@@ -611,8 +614,8 @@
         if (zone === "construction" && gameTime > 8 && Math.random() < dt * 0.5) {
             spawnObstacle("ped"); // road workers (drawn with hard hats; act like peds)
         }
-        if (zone === "bars" && gameTime > 5 && Math.random() < dt * 0.45) {
-            spawnObstacle("ped"); // tipsy patrons spilling out of the bars
+        if (zone === "bars" && gameTime > 5 && Math.random() < dt * 1.1) {
+            spawnObstacle("ped"); // tipsy patrons spilling out of the bars (a rowdy crowd)
         }
         if (zone === "hospital" && gameTime > 5 && Math.random() < dt * 0.5) {
             var hasAmb = false;
@@ -1155,7 +1158,9 @@
         "Heyyy gorgeous! 🍻", "Niiice ride, sweetheart!", "Gimme a liiift?",
         "You're SO pretty!", "Marry me, Lulu! 💍", "*wolf whistle*", "Hubba hubba!",
         "Lookin' GOOD!", "Call me! ...somehow", "Is it hot or is it you?",
-        "*hiccup* hellooo!", "Drive me home, cutie?", "My NUMBER is— *burp*"
+        "*hiccup* hellooo!", "Drive me home, cutie?", "My NUMBER is— *burp*",
+        "Smile for me, doll!", "Best car in TOWN! 🚗", "Are you an angel? 😇",
+        "Pull OVER, beautiful!", "I LOVE you, Lulu!! 💕"
     ];
     // Insults the swarming animals hurl at Lulu (generic across species).
     var ANIMAL_INSULTS = [

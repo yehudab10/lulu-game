@@ -38,7 +38,7 @@ How it works:
 | `06-screens.js`          | parking/paused/gameover/menu/shop draws, shop cards, Lulu/Dina portraits |
 | `07-dina-world.js`       | character select, Dina/mom top-down sprites, school bus intro |
 | `08-dina-run.js`         | Dina's run-home scene + hazards + dinaCaught ending |
-| `08b-foot-world.js`      | **Lulu on Foot** — on-foot playthrough when her car is wrecked: run to Bubbe's for Shabbos managing a stamina bar, dodging pedestrian hazards, Mom's-minivan climax. Entered from the crash reprieve, a parking-sim crash, and 10% of cop pull-overs. WIN → back to driving; LOSE → game over |
+| `08b-foot-world.js`      | **Lulu on Foot** — on-foot playthrough when her car is wrecked: she runs to Bubbe's along **her real road** (reuses `drawRoad`/decorations/buildings/seasons + enemy-car art) managing a stamina bar, dodging traffic/cones/puddles, Mom's-minivan climax. Entered from the crash reprieve, a parking-sim crash, and 10% of cop pull-overs. WIN → back to driving; LOSE → game over |
 | `09-dina-home-morgan.js` | Dina's bedroom, home-object routing, Morgan plushie scene |
 | `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |

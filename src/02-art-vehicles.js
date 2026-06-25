@@ -658,13 +658,27 @@
         ctx.save();
         ctx.translate(x, y);
         if (drunk) {
-            // Tipsy bar patron: a woozy green aura and a permanent sway.
-            var ag = ctx.createRadialGradient(0, 0, 4, 0, 0, 26);
-            ag.addColorStop(0, "rgba(124,179,66,0.22)");
+            // Tipsy bar patron: a woozy green aura and a big drunken sway so it
+            // reads as "drunk" at a glance even when zipping past.
+            var ag = ctx.createRadialGradient(0, -4, 4, 0, -4, 30);
+            ag.addColorStop(0, "rgba(124,179,66,0.42)");
+            ag.addColorStop(0.6, "rgba(124,179,66,0.22)");
             ag.addColorStop(1, "rgba(124,179,66,0)");
             ctx.fillStyle = ag;
-            ctx.beginPath(); ctx.arc(0, -4, 24, 0, Math.PI * 2); ctx.fill();
-            ctx.rotate(Math.sin(walkTime * 3) * 0.16);
+            ctx.beginPath(); ctx.arc(0, -4, 28, 0, Math.PI * 2); ctx.fill();
+            // Floating "tipsy" bubbles drifting up off the patron.
+            ctx.fillStyle = "rgba(174,213,129,0.85)";
+            var bphase = walkTime * 1.6;
+            for (var db = 0; db < 3; db++) {
+                var bb = (bphase + db * 0.66) % 1;
+                ctx.globalAlpha = (1 - bb) * 0.8;
+                ctx.beginPath();
+                ctx.arc(7 + db * 2 - Math.sin(bphase + db) * 2, -20 - bb * 16, 1.6 + db * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            // Pronounced wobble (bigger than a normal walk lean).
+            ctx.rotate(Math.sin(walkTime * 3) * 0.26);
         }
         var legSwing = Math.sin(walkTime * (drunk ? 6 : 10)) * (drunk ? 6 : 4);
         // Shadow
@@ -759,11 +773,15 @@
         }
 
         if (drunk) {
-            // A little bottle clutched in one hand.
+            // A chunky bottle clutched in one hand, raised a little for "cheers".
             ctx.fillStyle = "#2E7D32";
-            roundRect(7.5, 1, 3.5, 9, 1.5); ctx.fill();
+            roundRect(7.5, -2, 4.5, 12, 2); ctx.fill();
             ctx.fillStyle = "#1B5E20";
-            ctx.fillRect(8.4, -1.5, 1.8, 3);
+            ctx.fillRect(8.8, -6, 2, 4); // neck
+            ctx.fillStyle = "#A5D6A7"; // glassy highlight
+            ctx.fillRect(8.4, 0, 1, 7);
+            ctx.fillStyle = "#FFF8E1"; // little label
+            ctx.fillRect(8.2, 3, 3.2, 3);
         }
 
         ctx.restore();

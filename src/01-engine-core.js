@@ -1280,6 +1280,20 @@
     // drivers), police HQ (lots of cops), a school zone (kids crossing), or
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
     var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
+    // Weighted city picker: the bar district is a signature set-piece (drunks
+    // catcalling Lulu), so it comes up noticeably more than the other cities
+    // without crowding them out. Everything else is equal-weight.
+    var ZONE_CITY_WEIGHT = { bars: 4 };
+    function pickCityZone() {
+        var total = 0, i;
+        for (i = 0; i < ZONE_CITY.length; i++) total += ZONE_CITY_WEIGHT[ZONE_CITY[i]] || 1;
+        var r = Math.random() * total;
+        for (i = 0; i < ZONE_CITY.length; i++) {
+            r -= ZONE_CITY_WEIGHT[ZONE_CITY[i]] || 1;
+            if (r < 0) return ZONE_CITY[i];
+        }
+        return ZONE_CITY[0];
+    }
     var ZONE_SCENIC = ["bridge", "beach"]; // open-water / coast biomes (no buildings)
     var ZONE_NAMES = {
         bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️",
@@ -1293,26 +1307,32 @@
         market: ["summer", "spring"], construction: ["summer", "heatwave"],
         hospital: ["summer", "fog"], gas: ["summer", "night"]
     };
-    var ZONE_RURAL_GAP = 13000;   // px of rural driving between city visits
+    var ZONE_RURAL_GAP = 11000;   // px of rural driving between city visits
     var zone = "rural";
     var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
     var cityBuildings = [], cityBuildTimer = 0;
+    var citiesSeen = 0; // used to fast-track the bar district on the first city visit
 
     function initZone() {
         zone = "rural";
         zoneNextAt = ZONE_RURAL_GAP + rand(-3000, 5000);
         zoneEndsAt = 0; cityBuildings = []; cityBuildTimer = 0;
+        citiesSeen = 0;
     }
     function updateZone(dt, speed) {
         if (zone === "rural") {
             if (scrollOffset >= zoneNextAt) {
-                // Roughly 1-in-4 visits is a scenic crossing instead of a city.
-                if (Math.random() < 0.28) {
+                // ~1-in-5 visits is a scenic crossing instead of a city. The first
+                // visit is never scenic so a fresh session reaches a city promptly.
+                if (citiesSeen > 0 && Math.random() < 0.2) {
                     zone = randPick(ZONE_SCENIC);
                     zoneEndsAt = scrollOffset + rand(5500, 8000);
                     setSeason("summer"); // bright skies over the water & sand
                 } else {
-                    zone = randPick(ZONE_CITY);
+                    // First city is usually the bar district (so players actually
+                    // meet the catcalling drunks early); afterwards it's weighted.
+                    zone = (citiesSeen === 0 && Math.random() < 0.7) ? "bars" : pickCityZone();
+                    citiesSeen++;
                     zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
                     // Atmospheric pairing: a city often brings a fitting sky.
                     if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));

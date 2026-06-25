@@ -207,7 +207,9 @@
                 pedType: randInt(0, 2),
                 worker: (typeof zone !== "undefined" && zone === "construction"),
                 drunk: (typeof zone !== "undefined" && zone === "bars"),
-                catcallT: 0,
+                // Small staggered initial delay so a crowd doesn't all shout on the
+                // same frame, but the first line still lands within ~1s of view.
+                catcallT: rand(0.2, 1.0),
                 walkTime: 0
             });
         }
