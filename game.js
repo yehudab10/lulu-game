@@ -4367,6 +4367,10 @@
     var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
     var crashReprieve = false; // this wipeout is secretly a funny second chance
     var reprieveKind = null;   // "arrest" (cop nabs the man) | "chase" (man runs off)
+    var playerVehicle = null;  // null = Lulu's car; "bus"/"ambulance"/"cop" if she hailed one
+    var salonReturnFoot = false; // leaving the salon should drop her back on foot, not driving
+    var hitchhiker = null;     // roadside thumber — honk near them to pick up (driving activity)
+    var hitchTimer = 0;
 
     var obstacles = [];
     var coinEntities = [];
@@ -4571,7 +4575,8 @@
         passengers = []; passengerTimer = 0;
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
-        crashReprieve = false; reprieveKind = null;
+        crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
+        hitchhiker = null; hitchTimer = rand(25, 55);
         parkingSigns = []; parkingSpawnTimer = 25;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
@@ -5550,6 +5555,33 @@
         }
     }
 
+    var HITCH_LINES = ["Bubbe's, please! 🙏", "You're a MENSCH!", "Thanks, doll!", "I owe you a kugel!",
+        "FINALLY someone stopped!", "To the wedding — STEP ON IT!", "Gut Shabbos, lifesaver!"];
+    function drawHitchhiker(h) {
+        ctx.save();
+        ctx.translate(h.x, h.y);
+        var bob = Math.abs(Math.sin(h.walkTime * 3)) * 2;
+        // little "BUBBE'S?" sign held up
+        ctx.fillStyle = "#FFF8E1"; roundRect(-3, -34 - bob, 22, 12, 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1; ctx.strokeRect(-3, -34 - bob, 22, 12);
+        drawText("BUBBE'S?", 8, -28 - bob, "bold 6px Arial", "#C62828", null, 0);
+        // body
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 16, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; roundRect(-5, 2, 4, 14, 2); ctx.fill(); roundRect(1, 2, 4, 14, 2); ctx.fill();
+        ctx.fillStyle = "#00897B"; roundRect(-8, -8, 16, 14, 5); ctx.fill();
+        // outstretched thumb arm (toward the road)
+        var toward = h.side < 0 ? 1 : -1;
+        ctx.strokeStyle = "#00897B"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(toward * 14, -10 - bob); ctx.stroke();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(toward * 14, -10 - bob, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.lineCap = "butt";
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -14, 7.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 6.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -17, 7, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
     function updatePlaying(dt) {
         // Lulu on foot reuses this whole real-world simulation (so NOTHING is
         // missing) — only the player-car bits below are branched on `onFoot`.
@@ -5688,9 +5720,25 @@
             // Salon works on foot too — she walks right in for a makeover.
             if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
                 salonSigns.splice(ssi, 1);
+                salonReturnFoot = onFoot;   // came on foot → leave on foot (no free car)
                 startSalonScene();
                 return;
             }
+        }
+        // Roadside HITCHHIKER (driving activity): a thumber on the shoulder you
+        // can honk at to pick up for a coin bonus + a 2× "passenger" window.
+        if (!onFoot) {
+            hitchTimer -= dt;
+            if (!hitchhiker && hitchTimer <= 0 && gameTime > 20) {
+                hitchTimer = rand(28, 60);
+                var hside = Math.random() < 0.5 ? -1 : 1;
+                hitchhiker = { x: hside < 0 ? ROAD_L - 18 : ROAD_R + 18, y: -70, walkTime: 0, side: hside };
+            }
+        }
+        if (hitchhiker) {
+            hitchhiker.y += gameSpeed * dt;
+            hitchhiker.walkTime += dt;
+            if (hitchhiker.y > H + 70) hitchhiker = null;
         }
         // Sasquatch easter egg
         if (tickSpawn("sasquatch", dt) && !sasquatch && gameTime > 35) {
@@ -5735,6 +5783,15 @@
             // Show "+chain" floater on big chains
             if (honkChain >= 4) spawnFloater(player.x, player.y - 40, "♪ " + honkChain + "x!", "#FFEB3B");
             honkScare();
+            // Honk near a hitchhiker → they hop in for a bonus + a 2× window.
+            if (hitchhiker && Math.abs(player.x - hitchhiker.x) < 110 && hitchhiker.y > 60 && hitchhiker.y < H - 60) {
+                runCoins += 15; save.totalCoins += 15;
+                passengerTimer = Math.max(passengerTimer, 30);
+                spawnFloater(hitchhiker.x, hitchhiker.y - 30, randPick(HITCH_LINES), "#7CFC4F");
+                spawnFloater(player.x, player.y - 62, "🚗 +15 💰  2× coins!", "#FFD700");
+                playCoin(); spawnCoinSparkle(hitchhiker.x, hitchhiker.y);
+                hitchhiker = null;
+            }
         }
         honkChainResetTimer -= dt;
         if (honkChainResetTimer <= 0) honkChain = 0;
@@ -6374,7 +6431,7 @@
             var kind = obj && obj.type === "car" ? "car"
                      : (obj && (obj.type === "duck" || obj.type === "raccoon" || obj.type === "ostrich")) ? "animal"
                      : "other";
-            crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type };
+            crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type, behavior: obj && obj.behavior };
             crashX = player.x;
             crashY = player.y;
             crashRot = 0;
@@ -6393,7 +6450,10 @@
                 spawnCrashBurst(crashedCar.x, crashedCar.y, true);
             }
             // A rare, funny reprieve only when a person (not a swarm) confronts you.
-            crashReprieve = (kind !== "animal") && Math.random() < 0.20;
+            // Crashing a DRUNK or TEXTING driver is far likelier to let her slip
+            // away on foot (they're in no state to chase): 50% vs 20%.
+            var sloppy = (kind === "car" && (crashCause.behavior === "drunk" || crashCause.behavior === "texting"));
+            crashReprieve = (kind !== "animal") && Math.random() < (sloppy ? 0.50 : 0.20);
             reprieveKind = Math.random() < 0.5 ? "arrest" : "chase";
             spawnCrashBurst(player.x, player.y, true);
             playExplosion();
@@ -6443,7 +6503,8 @@
     }
 
     function updateCops(dt) {
-        var speeding = keys.up || gameSpeed > 520; // flooring it, or just plain fast
+        // On foot, keys.up is RUN, not speeding — she can't get a speed-trap ticket.
+        var speeding = (state !== "footRun") && (keys.up || gameSpeed > 520);
         for (var i = roadCops.length - 1; i >= 0; i--) {
             var cop = roadCops[i];
             cop.y += gameSpeed * dt;
@@ -6675,6 +6736,25 @@
         "WHERE'S YOUR\nLICENSE?!",
         "MY BUMPER\nSTICKER!!"
     ];
+    // Themed yells for the wrecked driver, by how they were driving.
+    var DRUNK_CAR_YELLS = [
+        "*hic* YOU... YOU\nDENTED... sumthin'",
+        "WAS THAT... a\nCAR? or TWO cars?",
+        "I'm FINE to\nyell at you!",
+        "MY... *burp*\n...INSHURANCE!",
+        "OFFISHER! ...oh.\nYou're not a cop.",
+        "I only had\nSIX l'chaims!",
+        "Who moved\nthe ROAD?!"
+    ];
+    var TEXT_CAR_YELLS = [
+        "BRB — wait,\nMY CAR?!",
+        "I was MID-\nTEXT!! Rude!",
+        "Hold on, lemme\nphoto the dent.",
+        "Ugh, 1 bar of\nsignal AND no car!",
+        "I'll TWEET\nabout this!!",
+        "That's going on\nmy STORY.",
+        "K so anyway— MY\nCAR IS TOTALED?!"
+    ];
     // Drunk bar patrons + the odd rowdy worker holler these at Lulu.
     var BAR_CATCALLS = [
         "Heyyy gorgeous! 🍻", "Niiice ride, sweetheart!", "Gimme a liiift?",
@@ -6857,7 +6937,9 @@
                         state: "running",
                         runDir: carLeft ? 1 : -1
                     };
-                    angryYell = randPick(CAR_YELLS);
+                    angryYell = randPick(crashCause.behavior === "drunk" ? DRUNK_CAR_YELLS
+                                       : crashCause.behavior === "texting" ? TEXT_CAR_YELLS
+                                       : CAR_YELLS);
                     // door-burst puff at the wreck
                     for (var d0 = 0; d0 < 7; d0++) {
                         particles.push({
@@ -7726,6 +7808,8 @@
         }
         // Hidden roadside speed-trap cops
         for (var rcd = 0; rcd < roadCops.length; rcd++) drawRoadsideCop(roadCops[rcd]);
+        // Roadside hitchhiker (honk to pick up)
+        if (hitchhiker) drawHitchhiker(hitchhiker);
         // Avigail walking on the road
         if (avigailWalker) {
             drawAvigailWalker(avigailWalker.x, avigailWalker.y, avigailWalker.walkTime);
@@ -7804,6 +7888,12 @@
             // She blinks while briefly invincible after a knock.
             if (!(invincibleTimer > 0 && Math.sin(gameTime * 22) < 0))
                 drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
+        } else if (playerVehicle === "bus") {
+            drawTopBus(player.x, player.y);
+        } else if (playerVehicle === "ambulance") {
+            drawAmbulance(player.x, player.y, gameTime);
+        } else if (playerVehicle === "cop") {
+            drawCopCar(player.x, player.y, gameTime * 3);
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
@@ -10910,14 +11000,10 @@
         "Nailed it. Between two yentas.", "No ticket for THIS spot!", "I fit! ...barely.", "Perfect form, no car needed."];
     var FOOT_HAIL_OK = ["Thanks for the lift! 🚕", "You're a LIFESAVER!", "Bubbe's, and step on it!", "FINALLY, a ride!"];
     var FOOT_HAIL_NO = ["Rude!! 😤", "I had my hand UP!", "...off-duty, sure.", "Fine, I'll WALK. Again."];
-    var FOOT_COP_CHAT = [["Officer, where's the nearest car?", "Walk it off, ma'am."],
-        ["I'm NOT loitering, I'm strolling.", "Mm-hm. Keep strolling."],
-        ["Seen my impounded Honda?", "...four hundred dollars."],
-        ["Lovely day to NOT arrest me!", "Don't push it."],
-        ["Is jaywalking a mitzvah?", "It is NOT."],
-        ["Any donuts left?", "...that's profiling."],
-        ["I pay your salary!", "You pay $0.40 of it."],
-        ["Which way to Bubbe's?", "Everybody's bubbe is THAT way. *points*"]];
+    var FOOT_COP_PICKUP = ["🚓 Off the road, ma'am!", "🚓 You're coming with me.",
+        "🚓 Pedestrian in traffic — IN you go.", "🚓 Let's chat at the station.",
+        "🚓 Jaywalkin'? Cute. Get in.", "🚓 Bored. You'll do. Hop in."];
+    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓" };
     var FOOT_BUSK_LINES = ["💃 Spare a dime?", "Singin' for my SUPPER!", "Tips for a stranded girl?",
         "I take Venmo!", "ONE-woman band! 🎵", "🎵 Bubbe's on my MIIIND 🎵", "Watch me WERK!"];
     var FOOT_SELFIE_LINES = ["Say cheese, big guy! 🤳", "This is going VIRAL.", "Bubbe won't BELIEVE this!",
@@ -10976,6 +11062,20 @@
         footPrompt = footNearestInteractable();
         if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
 
+        // A bored cop who spots her walking in the road occasionally takes her
+        // in (low chance) — straight to the precinct interior. No speeding here.
+        if (footBuskT <= 0) {
+            var copSeen = null, ic;
+            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && rc.y > 60 && rc.y < H - 70) { copSeen = rc; break; } }
+            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && oc.y > 40 && oc.y < H - 70) { copSeen = oc; break; } }
+            if (copSeen && Math.random() < dt * 0.05) {
+                spawnFloater(player.x, player.y - 40, randPick(FOOT_COP_PICKUP), "#90CAF9");
+                playWompWomp();
+                enterFootInterior("police");
+                return;
+            }
+        }
+
         // Chatter + hint.
         footChatT -= dt;
         if (footChatT <= -footChatNext) { footChat = randPick(FOOT_LULU_CHAT); footChatT = 2.0; footChatNext = rand(4, 7); }
@@ -11029,10 +11129,11 @@
             if (e.type === "ped") consider({ kind: "talk", ent: e, label: "💬 TALK" }, e.x - player.x, e.y - player.y, 46, 50);
             else if (e.type === "duck" || e.type === "raccoon" || e.type === "ostrich")
                 consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
-            else if (e.type === "car" && (e.behavior === "patrol" || e.behavior === "pulled"))
-                consider({ kind: "cop", ent: e, label: "👮 ASK COP" }, e.x - player.x, e.y - player.y, 52, 70);
-            else if (e.type === "car")
-                consider({ kind: "hail", ent: e, label: "🚕 HAIL RIDE" }, e.x - player.x, e.y - player.y, 60, 80);
+            else if (e.type === "car") {
+                var lbl = e.behavior === "bus" ? "🚌 HAIL BUS" : e.behavior === "ambulance" ? "🚑 HAIL AMBULANCE"
+                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR" : "🚕 HAIL RIDE";
+                consider({ kind: "hail", ent: e, label: lbl }, e.x - player.x, e.y - player.y, 60, 80);
+            }
         }
         // The sasquatch easter egg → a selfie with the big guy.
         if (typeof sasquatch !== "undefined" && sasquatch)
@@ -11057,7 +11158,11 @@
         if (prompt.kind === "hail") {
             footChat = ""; footChatT = 0;
             if (Math.random() < 0.6) {     // a kind driver gives her a lift — legit ride, no chase
-                spawnFloater(player.x, player.y - 32, randPick(FOOT_HAIL_OK), "#7CFC4F");
+                // She drives whatever she flagged down — a bus stays a bus, etc.
+                var b = prompt.ent.behavior;
+                playerVehicle = (b === "bus") ? "bus" : (b === "ambulance") ? "ambulance"
+                              : (b === "patrol" || b === "pulled") ? "cop" : null;
+                spawnFloater(player.x, player.y - 32, playerVehicle ? FOOT_HAIL_VEHICLE[playerVehicle] : randPick(FOOT_HAIL_OK), "#7CFC4F");
                 playTone(660, 0.1, "triangle", 0.14);
                 lives = Math.max(lives, 1);
                 footParked = []; footDoors = []; footCompanion = null;
@@ -11067,13 +11172,6 @@
                 spawnFloater(player.x, player.y - 30, randPick(FOOT_HAIL_NO), "#FF8A80");
                 playHonk();
             }
-            return;
-        }
-        if (prompt.kind === "cop") {
-            var ex = randPick(FOOT_COP_CHAT);
-            footChat = ex[0]; footChatT = 2.4;
-            prompt.ent.comment = ex[1]; prompt.ent.commentT = 2.4;
-            playTone(440, 0.06, "sine", 0.08);
             return;
         }
         if (prompt.kind === "talk") {
@@ -11263,6 +11361,10 @@
         else if (type === "police" && typeof initPoliceInterior === "function") initPoliceInterior();
         else if (type === "beach" && typeof initBeachInterior === "function") initBeachInterior();
         else { exitFootInterior(); return; }
+        // Prime the interior's per-frame layout (some compute button rects in
+        // update) so the FIRST draw — which can be the same frame we entered
+        // (door collision / bored-cop pickup) — never sees a null rect.
+        updateFootInterior(0);
         playClick();
     }
     function exitFootInterior() {
@@ -15729,7 +15831,9 @@
             // Reveal — TAP TO LEAVE
             var click2 = consumeClick();
             if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
-                returnToDriving();
+                // If she walked in on foot, she walks back OUT on foot (no free car).
+                if (salonReturnFoot) { salonReturnFoot = false; state = "footRun"; }
+                else returnToDriving();
             }
         }
     }

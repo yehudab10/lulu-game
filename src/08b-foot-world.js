@@ -57,14 +57,10 @@
         "Nailed it. Between two yentas.", "No ticket for THIS spot!", "I fit! ...barely.", "Perfect form, no car needed."];
     var FOOT_HAIL_OK = ["Thanks for the lift! 🚕", "You're a LIFESAVER!", "Bubbe's, and step on it!", "FINALLY, a ride!"];
     var FOOT_HAIL_NO = ["Rude!! 😤", "I had my hand UP!", "...off-duty, sure.", "Fine, I'll WALK. Again."];
-    var FOOT_COP_CHAT = [["Officer, where's the nearest car?", "Walk it off, ma'am."],
-        ["I'm NOT loitering, I'm strolling.", "Mm-hm. Keep strolling."],
-        ["Seen my impounded Honda?", "...four hundred dollars."],
-        ["Lovely day to NOT arrest me!", "Don't push it."],
-        ["Is jaywalking a mitzvah?", "It is NOT."],
-        ["Any donuts left?", "...that's profiling."],
-        ["I pay your salary!", "You pay $0.40 of it."],
-        ["Which way to Bubbe's?", "Everybody's bubbe is THAT way. *points*"]];
+    var FOOT_COP_PICKUP = ["🚓 Off the road, ma'am!", "🚓 You're coming with me.",
+        "🚓 Pedestrian in traffic — IN you go.", "🚓 Let's chat at the station.",
+        "🚓 Jaywalkin'? Cute. Get in.", "🚓 Bored. You'll do. Hop in."];
+    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓" };
     var FOOT_BUSK_LINES = ["💃 Spare a dime?", "Singin' for my SUPPER!", "Tips for a stranded girl?",
         "I take Venmo!", "ONE-woman band! 🎵", "🎵 Bubbe's on my MIIIND 🎵", "Watch me WERK!"];
     var FOOT_SELFIE_LINES = ["Say cheese, big guy! 🤳", "This is going VIRAL.", "Bubbe won't BELIEVE this!",
@@ -123,6 +119,20 @@
         footPrompt = footNearestInteractable();
         if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
 
+        // A bored cop who spots her walking in the road occasionally takes her
+        // in (low chance) — straight to the precinct interior. No speeding here.
+        if (footBuskT <= 0) {
+            var copSeen = null, ic;
+            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && rc.y > 60 && rc.y < H - 70) { copSeen = rc; break; } }
+            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && oc.y > 40 && oc.y < H - 70) { copSeen = oc; break; } }
+            if (copSeen && Math.random() < dt * 0.05) {
+                spawnFloater(player.x, player.y - 40, randPick(FOOT_COP_PICKUP), "#90CAF9");
+                playWompWomp();
+                enterFootInterior("police");
+                return;
+            }
+        }
+
         // Chatter + hint.
         footChatT -= dt;
         if (footChatT <= -footChatNext) { footChat = randPick(FOOT_LULU_CHAT); footChatT = 2.0; footChatNext = rand(4, 7); }
@@ -176,10 +186,11 @@
             if (e.type === "ped") consider({ kind: "talk", ent: e, label: "💬 TALK" }, e.x - player.x, e.y - player.y, 46, 50);
             else if (e.type === "duck" || e.type === "raccoon" || e.type === "ostrich")
                 consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
-            else if (e.type === "car" && (e.behavior === "patrol" || e.behavior === "pulled"))
-                consider({ kind: "cop", ent: e, label: "👮 ASK COP" }, e.x - player.x, e.y - player.y, 52, 70);
-            else if (e.type === "car")
-                consider({ kind: "hail", ent: e, label: "🚕 HAIL RIDE" }, e.x - player.x, e.y - player.y, 60, 80);
+            else if (e.type === "car") {
+                var lbl = e.behavior === "bus" ? "🚌 HAIL BUS" : e.behavior === "ambulance" ? "🚑 HAIL AMBULANCE"
+                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR" : "🚕 HAIL RIDE";
+                consider({ kind: "hail", ent: e, label: lbl }, e.x - player.x, e.y - player.y, 60, 80);
+            }
         }
         // The sasquatch easter egg → a selfie with the big guy.
         if (typeof sasquatch !== "undefined" && sasquatch)
@@ -204,7 +215,11 @@
         if (prompt.kind === "hail") {
             footChat = ""; footChatT = 0;
             if (Math.random() < 0.6) {     // a kind driver gives her a lift — legit ride, no chase
-                spawnFloater(player.x, player.y - 32, randPick(FOOT_HAIL_OK), "#7CFC4F");
+                // She drives whatever she flagged down — a bus stays a bus, etc.
+                var b = prompt.ent.behavior;
+                playerVehicle = (b === "bus") ? "bus" : (b === "ambulance") ? "ambulance"
+                              : (b === "patrol" || b === "pulled") ? "cop" : null;
+                spawnFloater(player.x, player.y - 32, playerVehicle ? FOOT_HAIL_VEHICLE[playerVehicle] : randPick(FOOT_HAIL_OK), "#7CFC4F");
                 playTone(660, 0.1, "triangle", 0.14);
                 lives = Math.max(lives, 1);
                 footParked = []; footDoors = []; footCompanion = null;
@@ -214,13 +229,6 @@
                 spawnFloater(player.x, player.y - 30, randPick(FOOT_HAIL_NO), "#FF8A80");
                 playHonk();
             }
-            return;
-        }
-        if (prompt.kind === "cop") {
-            var ex = randPick(FOOT_COP_CHAT);
-            footChat = ex[0]; footChatT = 2.4;
-            prompt.ent.comment = ex[1]; prompt.ent.commentT = 2.4;
-            playTone(440, 0.06, "sine", 0.08);
             return;
         }
         if (prompt.kind === "talk") {
@@ -410,6 +418,10 @@
         else if (type === "police" && typeof initPoliceInterior === "function") initPoliceInterior();
         else if (type === "beach" && typeof initBeachInterior === "function") initBeachInterior();
         else { exitFootInterior(); return; }
+        // Prime the interior's per-frame layout (some compute button rects in
+        // update) so the FIRST draw — which can be the same frame we entered
+        // (door collision / bored-cop pickup) — never sees a null rect.
+        updateFootInterior(0);
         playClick();
     }
     function exitFootInterior() {

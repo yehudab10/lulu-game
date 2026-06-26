@@ -822,7 +822,9 @@
             // Reveal — TAP TO LEAVE
             var click2 = consumeClick();
             if ((click2 && salonTimer > 0.6) || consumeAction() || salonTimer > 18) {
-                returnToDriving();
+                // If she walked in on foot, she walks back OUT on foot (no free car).
+                if (salonReturnFoot) { salonReturnFoot = false; state = "footRun"; }
+                else returnToDriving();
             }
         }
     }

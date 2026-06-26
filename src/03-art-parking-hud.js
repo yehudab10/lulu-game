@@ -796,6 +796,10 @@
     var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
     var crashReprieve = false; // this wipeout is secretly a funny second chance
     var reprieveKind = null;   // "arrest" (cop nabs the man) | "chase" (man runs off)
+    var playerVehicle = null;  // null = Lulu's car; "bus"/"ambulance"/"cop" if she hailed one
+    var salonReturnFoot = false; // leaving the salon should drop her back on foot, not driving
+    var hitchhiker = null;     // roadside thumber — honk near them to pick up (driving activity)
+    var hitchTimer = 0;
 
     var obstacles = [];
     var coinEntities = [];
