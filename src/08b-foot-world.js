@@ -22,6 +22,8 @@
     var footPrompt = null;       // nearest interactable { kind, ent, label }
     var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
     var footBuskT = 0;           // >0 while she's busking/dancing on the curb
+    var footArrestT = 0;         // >0 during the "cop walks her in" cinematic
+    var footArrest = null;       // { x, y, line } cop cruiser pulling her over on foot
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -73,7 +75,7 @@
         save.footRunsPlayed = footRunLevel; persistSave();
         footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
-        footParkCool = 5; footDoorCool = 2;
+        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -126,9 +128,8 @@
             for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && rc.y > 60 && rc.y < H - 70) { copSeen = rc; break; } }
             if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && oc.y > 40 && oc.y < H - 70) { copSeen = oc; break; } }
             if (copSeen && Math.random() < dt * 0.05) {
-                spawnFloater(player.x, player.y - 40, randPick(FOOT_COP_PICKUP), "#90CAF9");
-                playWompWomp();
-                enterFootInterior("police");
+                copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
+                footStartArrest(copSeen.x);
                 return;
             }
         }
@@ -319,6 +320,49 @@
         spawnFloater(player.x, player.y - 42, "🅿️ PARKED (yourself)", "#4FC3F7");
         playClick();
         if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
+    }
+
+    // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
+    function footStartArrest(copX) {
+        footArrestT = 2.4;
+        footArrest = { x: clamp(copX, ROAD_L + 16, ROAD_R - 16), y: -140, line: randPick(FOOT_COP_PICKUP), grabbed: false };
+        footMood = "cry";
+        footChat = randPick(["I was just WALKING!", "This is HARASSMENT!", "...is it the flats?", "Bubbe will hear about THIS."]); footChatT = 2.0;
+        playWompWomp();
+    }
+    function updateFootArrest(dt) {
+        footArrestT -= dt;
+        footWalkTime += dt;
+        updateParticles(dt);
+        if (footArrest) {
+            // The cruiser rolls up alongside her, sirens going.
+            footArrest.y = lerp(footArrest.y, player.y - 4, Math.min(1, 3.4 * dt));
+            footArrest.x = lerp(footArrest.x, clamp(player.x + (footArrest.x < player.x ? -34 : 34), ROAD_L + 16, ROAD_R - 16), Math.min(1, 3 * dt));
+            if (!footArrest.grabbed && Math.abs(footArrest.y - (player.y - 4)) < 12) {
+                footArrest.grabbed = true;
+                if (footChatT > 0) footChatT = 0.4; // her protest ends; cop talks
+            }
+        }
+        if (footArrestT <= 0) { footArrest = null; enterFootInterior("police"); }
+    }
+    function drawFootArrest() {
+        // Frozen street, the cruiser pulling up, Lulu caught, then a fade to the precinct.
+        drawRoad(scrollOffset);
+        drawDecorations(footWalkTime);
+        drawCityBuildings();
+        drawSeasonFx();
+        if (footArrest) {
+            drawCopCar(footArrest.x, footArrest.y, footWalkTime * 6); // sirens flashing
+            if (footArrest.grabbed) drawSpeechBubble(footArrest.x, footArrest.y - 42, footArrest.line, footWalkTime);
+        }
+        drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
+        if (footChatT > 0) drawSpeechBubble(player.x, player.y - 56, footChat, footWalkTime);
+        drawParticles();
+        // Flashing red/blue wash + fade-to-black for the last 0.7s.
+        var wash = 0.12 + 0.10 * Math.sin(footWalkTime * 16);
+        ctx.fillStyle = (Math.sin(footWalkTime * 8) > 0 ? "rgba(80,120,255," : "rgba(255,70,70,") + wash + ")";
+        ctx.fillRect(0, 0, W, H);
+        if (footArrestT < 0.7) { ctx.fillStyle = "rgba(0,0,0," + clamp((0.7 - footArrestT) / 0.7, 0, 1) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     // ── Draw: the on-foot world layer ────────────────────────

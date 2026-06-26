@@ -39,16 +39,63 @@
     var polLeaveRect = null;
     var polCopMunch = 0;          // donut chew animation
     var polPerpBlink = 0;
+    var polPerpPace = 0;          // perp paces side-to-side / rattles bars
     var polFan = 0;               // ceiling-fan spin
     var polConfettiSpawned = false;
+    var polLuluFidget = 0;        // Lulu idle look-around timer
+    // — cached / precomputed (built once in init) —
+    var polWallGrad = null, polFloorGrad = null;
+    var polTiles = [];            // {x,y,w,h} static checker tiles
+    var polPhoneT = 0;            // desk phone ringing phase (>0 = ringing)
+    var polPhoneCool = 0;         // cooldown before next ring
+    var polFlick = 1;             // WANTED-board flicker brightness
+    var polFlickT = 0;
+    var polSteamCool = 0;         // throttle coffee-steam particle spawns
+    // micro-events (radio dispatch / perp hauled past)
+    var polEventT = 0, polEventCool = 0, polEventKind = 0;
+    var polEventX = 0;            // x of the hauled-perp procession
+    var polDispatch = "";         // radio crackle text
+    var POL_DISPATCH = [
+        "📻 *kkrrt* ...10-91, loose goat on Route 6...",
+        "📻 *kkrrt* ...be advised, babka heist in progress...",
+        "📻 *kkrrt* ...all units, double-parked minivan, code MOM...",
+        "📻 *kkrrt* ...suspect described as tall, hairy, polite...",
+        "📻 *kkrrt* ...possible 10-56, man overboard at Shtrand...",
+        "📻 *kkrrt* ...requesting backup, the donuts are GONE...",
+        "📻 *kkrrt* ...Heshy sighting near the kiddie pool, again..."
+    ];
 
     function initPoliceInterior() {
         polTime = 0;
         polFloorY = H - SAFE_BOTTOM - 120;
         polLuluX = 90; polLuluTargetX = 90; polWalkT = 0; polFacing = 1;
         polBubble = ""; polBubbleT = 0;
-        polCopMunch = 0; polPerpBlink = rand(0, 4); polFan = 0;
+        polCopMunch = 0; polPerpBlink = rand(0, 4); polPerpPace = 0; polFan = 0;
         polConfettiSpawned = false;
+        polLuluFidget = rand(0, 3);
+        polPhoneT = 0; polPhoneCool = rand(4, 8);
+        polFlick = 1; polFlickT = 0; polSteamCool = 0;
+        polEventT = 0; polEventCool = rand(6, 11); polEventKind = 0; polEventX = 0;
+        polDispatch = "";
+
+        // cache gradients ONCE
+        polWallGrad = ctx.createLinearGradient(0, 0, 0, polFloorY);
+        polWallGrad.addColorStop(0, "#3E5871");
+        polWallGrad.addColorStop(1, "#56789B");
+        polFloorGrad = ctx.createLinearGradient(0, polFloorY, 0, H - SAFE_BOTTOM);
+        polFloorGrad.addColorStop(0, "#9AA7B3");
+        polFloorGrad.addColorStop(1, "#7C8A98");
+
+        // precompute checker-tile rects (no per-frame loop math)
+        polTiles = [];
+        for (var ty = 0; ty < 8; ty++) {
+            for (var tx = -1; tx < 12; tx++) {
+                if ((tx + ty) % 2 === 0) {
+                    var ts = 28 + ty * 5;
+                    polTiles.push({ x: tx * ts, y: polFloorY + ty * 11, w: ts, h: 11 });
+                }
+            }
+        }
 
         polSpots = [
             {
@@ -66,7 +113,10 @@
                     "Crime's down 2% since I started napping at noon.",
                     "Your bubbe called. Twice. She says EAT.",
                     "No I will NOT 'just this once' waive the fee.",
-                    "Press 1 for impound, 2 for snacks, 3 to hear this again."
+                    "Press 1 for impound, 2 for snacks, 3 to hear this again.",
+                    "*phone rings* Precinct 18½, you bend it you mend it.",
+                    "Coffee's free, justice is not, and the donut is mine.",
+                    "We're understaffed. It's me, the fan, and a confused perp."
                 ]
             },
             {
@@ -85,7 +135,11 @@
                     "They call me 'The Schmear.' I don't know why. (I do.)",
                     "Three squares a day and they're all bagels. No complaints.",
                     "You bring snacks? No? Worst rescue ever.",
-                    "I'd shake your hand but, y'know. Bars. Boundaries."
+                    "I'd shake your hand but, y'know. Bars. Boundaries.",
+                    "*rattles bars* These? Decorative. The shame's the real cage.",
+                    "I've counted these bars 400 times. There are eight. Eight!",
+                    "Pacing's my cardio now. Six steps left, six steps right.",
+                    "Tell the cop I want my one call. To complain about the bagels."
                 ]
             },
             {
@@ -130,6 +184,17 @@
                     "\"I parked in the rabbi's spot.\" Cop: \"...new charges.\"",
                     "You confess. The cop yawns. Justice is exhausting."
                 ]
+            },
+            {
+                id: "fan", x: 250, r: 38, rewarded: false, reward: false,
+                label: "Ceiling Fan", _last: -1,
+                lines: [
+                    "The fan squeaks once per rotation. It's almost music.",
+                    "It's been spinning since 1987. Don't ask, no one knows.",
+                    "Best AC in the building. The ONLY AC in the building.",
+                    "It wobbles like it's nervous. Same, fan. Same.",
+                    "A paper airplane's been stuck up there for a year."
+                ]
             }
         ];
     }
@@ -138,8 +203,47 @@
         polTime += dt;
         polCopMunch += dt * 6;
         polPerpBlink += dt;
+        polPerpPace += dt * 1.4;
         polFan += dt * 5;
+        polLuluFidget -= dt;
+        if (polLuluFidget < 0) polLuluFidget = rand(2.5, 5);
         if (polBubbleT > 0) polBubbleT -= dt;
+
+        // flickering WANTED board (fluorescent buzz)
+        polFlickT -= dt;
+        if (polFlickT <= 0) {
+            polFlickT = rand(0.06, 0.5);
+            polFlick = (rand(0, 1) < 0.18) ? rand(0.45, 0.7) : rand(0.92, 1);
+        }
+
+        // desk phone ring cycle
+        if (polPhoneT > 0) {
+            polPhoneT -= dt;
+            if (polPhoneT <= 0) polPhoneCool = rand(6, 12);
+        } else {
+            polPhoneCool -= dt;
+            if (polPhoneCool <= 0) { polPhoneT = rand(2, 3.5); playTone(1180, 0.1, "square", 0.05, 0); }
+        }
+
+        // periodic micro-event: radio dispatch crackle OR perp hauled past
+        if (polEventT > 0) {
+            polEventT -= dt;
+            if (polEventKind === 2) polEventX += 70 * dt; // procession crosses back hall
+            if (polEventT <= 0) { polEventCool = rand(8, 14); polDispatch = ""; }
+        } else {
+            polEventCool -= dt;
+            if (polEventCool <= 0) {
+                polEventKind = (rand(0, 1) < 0.55) ? 1 : 2;
+                if (polEventKind === 1) {
+                    polEventT = 3.2;
+                    polDispatch = randPick(POL_DISPATCH);
+                    playTone(620, 0.08, "square", 0.05, 760);
+                } else {
+                    polEventT = 4.5; polEventX = -60;
+                    playTone(300, 0.15, "sawtooth", 0.05, 220);
+                }
+            }
+        }
 
         var bottom = H - SAFE_BOTTOM;
         polLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
@@ -219,27 +323,72 @@
         var bottom = H - SAFE_BOTTOM;
         var floorY = polFloorY;
 
-        // ── back wall ───────────────────────────────────────────
-        var wallGrad = ctx.createLinearGradient(0, 0, 0, floorY);
-        wallGrad.addColorStop(0, "#3E5871");
-        wallGrad.addColorStop(1, "#56789B");
-        ctx.fillStyle = wallGrad;
+        // ── back wall (cached gradient) ─────────────────────────
+        ctx.fillStyle = polWallGrad;
         ctx.fillRect(0, 0, W, floorY);
+
+        // back hallway depth: a darker recessed doorway mid-wall + a
+        // second cop crossing behind it (gives the lobby a "behind")
+        var hallX = W / 2 + 70, hallW = 90, hallTop = 40, hallBot = floorY - 26;
+        ctx.fillStyle = "#22323F";
+        ctx.fillRect(hallX, hallTop, hallW, hallBot - hallTop);
+        ctx.fillStyle = "#1A2730";
+        ctx.fillRect(hallX, hallTop, hallW, 6); // lintel shadow
+        // faint depth lines (perspective)
+        ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(hallX, hallTop); ctx.lineTo(hallX + 14, hallTop + 14);
+        ctx.moveTo(hallX + hallW, hallTop); ctx.lineTo(hallX + hallW - 14, hallTop + 14);
+        ctx.stroke();
+        // a second cop silhouette crossing the back hall
+        var bcX = hallX + 18 + (Math.sin(polTime * 0.5) * 0.5 + 0.5) * (hallW - 36);
+        ctx.save();
+        ctx.translate(bcX, hallBot - 8);
+        var bcW = (Math.sin(polTime * 7) > 0) ? 1 : -1;
+        ctx.fillStyle = "#16222B";
+        roundRect(-7, -34, 14, 26, 5); ctx.fill();            // body
+        ctx.beginPath(); ctx.arc(0, -40, 7, 0, Math.PI * 2); ctx.fill(); // head
+        ctx.beginPath(); ctx.arc(0, -44, 7, Math.PI, Math.PI * 2); ctx.fill(); // cap
+        ctx.fillRect(-1.5, -8, 3 * bcW, 8);                   // stepping leg hint
+        ctx.restore();
+
+        // ── fluorescent ceiling lighting: soft warm wash + flicker
+        ctx.save();
+        ctx.globalAlpha = 0.10 + (polFlick < 0.8 ? 0.05 : 0);
+        ctx.fillStyle = "#EAF6FF";
+        ctx.fillRect(0, 0, W, floorY * 0.5);
+        ctx.globalAlpha = 1;
+        // two ceiling tube fixtures
+        ctx.fillStyle = polFlick > 0.85 ? "#F4FBFF" : "#C7D6DF";
+        roundRect(W * 0.18, 14, 120, 8, 3); ctx.fill();
+        roundRect(W * 0.62, 14, 120, 8, 3); ctx.fill();
+        ctx.restore();
+
         // wainscot stripe
         ctx.fillStyle = "#2E4257";
         ctx.fillRect(0, floorY - 26, W, 26);
-        // floor (checker tile w/ perspective fade)
-        ctx.fillStyle = "#9AA7B3";
+
+        // floor (cached gradient + precomputed checker tiles)
+        ctx.fillStyle = polFloorGrad;
         ctx.fillRect(0, floorY, W, bottom - floorY);
-        for (var ty = 0; ty < 8; ty++) {
-            for (var tx = -1; tx < 10; tx++) {
-                if ((tx + ty) % 2 === 0) {
-                    ctx.fillStyle = "rgba(255,255,255,0.10)";
-                    var ts = 28 + ty * 5;
-                    ctx.fillRect(tx * ts, floorY + ty * 11, ts, 11);
-                }
-            }
+        ctx.fillStyle = "rgba(255,255,255,0.10)";
+        for (var ti = 0; ti < polTiles.length; ti++) {
+            var t = polTiles[ti];
+            ctx.fillRect(t.x, t.y, t.w, t.h);
         }
+
+        // ── ceiling-fan shadow sweeping the floor (under the fan) ─
+        ctx.save();
+        ctx.globalAlpha = 0.10;
+        ctx.translate(W / 2, floorY + 30);
+        ctx.rotate(polFan);
+        ctx.fillStyle = "#1A2730";
+        for (var fs = 0; fs < 3; fs++) {
+            ctx.rotate((Math.PI * 2) / 3);
+            ctx.fillRect(-7, 0, 14, 64);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
 
         // ceiling fan
         ctx.save();
@@ -278,15 +427,46 @@
         // ── front desk + donut cop (x≈175), drawn near floor ───
         polDrawDesk(175, floorY);
 
-        // ── Lulu ────────────────────────────────────────────────
+        // ── hauled-perp procession crossing the back hall ──────
+        if (polEventKind === 2 && polEventT > 0 && polEventX < W + 60) {
+            ctx.save();
+            ctx.globalAlpha = 0.85;
+            ctx.translate(polEventX, hallBot - 6);
+            // escorting cop
+            ctx.fillStyle = "#16222B"; roundRect(-9, -32, 14, 26, 5); ctx.fill();
+            ctx.beginPath(); ctx.arc(-2, -38, 6, 0, Math.PI * 2); ctx.fill();
+            // cuffed perp (striped) being walked
+            ctx.fillStyle = "#5A6B78"; roundRect(8, -30, 12, 22, 4); ctx.fill();
+            ctx.fillStyle = "#3A4854"; ctx.beginPath(); ctx.arc(14, -34, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // ── Lulu (with idle look-around fidget) ─────────────────
+        var polFid = (polLuluFidget < 0.6) ? Math.sin(polTime * 8) * 0.12 : 0;
         ctx.save();
         if (polFacing < 0) {
             ctx.translate(polLuluX, 0); ctx.scale(-1, 1);
+            ctx.translate(0, floorY + 18); ctx.rotate(polFid); ctx.translate(0, -(floorY + 18));
             drawLuluTopDown(0, floorY + 18, polWalkT, "run");
         } else {
+            ctx.translate(polLuluX, floorY + 18); ctx.rotate(polFid); ctx.translate(-polLuluX, -(floorY + 18));
             drawLuluTopDown(polLuluX, floorY + 18, polWalkT, "run");
         }
         ctx.restore();
+
+        // ── radio dispatch crackle banner (micro-event) ────────
+        if (polEventKind === 1 && polEventT > 0 && polDispatch) {
+            ctx.save();
+            var dw = 300, dxp = (W - dw) / 2, dyp = floorY - 200;
+            ctx.globalAlpha = clamp(polEventT, 0, 1) * (0.7 + 0.3 * Math.sin(polTime * 18));
+            ctx.fillStyle = "rgba(15,25,35,0.9)";
+            roundRect(dxp, dyp, dw, 26, 6); ctx.fill();
+            ctx.globalAlpha = clamp(polEventT, 0, 1);
+            drawText(polDispatch, W / 2, dyp + 17, "bold 11px Arial", "#9CFF9C", "#000", 3);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
 
         // ── speech bubble ───────────────────────────────────────
         if (polBubbleT > 0 && polBubble) {
@@ -327,11 +507,23 @@
     function polDrawBoard(cx, cy) {
         ctx.save();
         ctx.translate(cx, cy);
-        // cork board
+        // a buzzing fluorescent spotlight pooling on the board (flickers)
+        ctx.save();
+        ctx.globalAlpha = 0.18 * polFlick;
+        var bgGlow = ctx.createRadialGradient(0, 50, 4, 0, 50, 70);
+        bgGlow.addColorStop(0, "#FFF59D");
+        bgGlow.addColorStop(1, "rgba(255,245,157,0)");
+        ctx.fillStyle = bgGlow;
+        ctx.fillRect(-70, -20, 140, 140);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        // cork board (dimmed by the flicker)
+        ctx.globalAlpha = 0.78 + 0.22 * polFlick;
         ctx.fillStyle = "#8D6E45";
         roundRect(-46, 0, 92, 116, 6); ctx.fill();
         ctx.fillStyle = "#A07C4F";
         roundRect(-42, 4, 84, 108, 4); ctx.fill();
+        ctx.globalAlpha = 1;
         drawText("MOST", 0, 16, "bold 13px Arial", "#3A2A12", null, 0);
         drawText("WANTED", 0, 30, "bold 13px Arial", "#3A2A12", null, 0);
         // sasquatch mugshot poster
@@ -370,11 +562,24 @@
         // drip spout + cup
         ctx.fillStyle = "#263238"; ctx.fillRect(-6, -52, 12, 6);
         ctx.fillStyle = "#FFFFFF"; roundRect(-7, -44, 14, 12, 2); ctx.fill();
-        // steam (gentle, alpha-safe)
-        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(polTime * 3);
+        // steam (gentle, alpha-safe, two curling wisps)
+        ctx.globalAlpha = 0.30 + 0.18 * Math.sin(polTime * 3);
         ctx.fillStyle = "#FFFFFF";
-        ctx.beginPath(); ctx.arc(0, -50 - (polTime * 14 % 16), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(Math.sin(polTime * 2) * 2, -50 - (polTime * 14 % 16), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.22 + 0.14 * Math.sin(polTime * 3 + 1.5);
+        ctx.beginPath(); ctx.arc(3 + Math.sin(polTime * 2.5 + 1) * 2, -54 - (polTime * 11 % 14), 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
+        // capped ambient steam particles (a few per ~0.18s)
+        polSteamCool -= (1 / 60);
+        if (polSteamCool <= 0 && particles.length < 220) {
+            polSteamCool = 0.18;
+            particles.push({
+                x: cx + rand(-3, 3), y: floorY - 44,
+                vx: rand(-6, 6), vy: rand(-26, -16),
+                life: 0, maxLife: 1.1, size: rand(2, 4),
+                color: "rgba(255,255,255,0.5)", gravity: -8
+            });
+        }
         // buttons
         ctx.fillStyle = "#FFB300"; ctx.beginPath(); ctx.arc(-10, -20, 3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(10, -20, 3, 0, Math.PI * 2); ctx.fill();
@@ -412,10 +617,12 @@
         // cot
         ctx.fillStyle = "#455A64"; roundRect(-42, -40, 34, 36, 3); ctx.fill();
         ctx.fillStyle = "#90A4AE"; roundRect(-42, -44, 34, 8, 3); ctx.fill();
-        // the goofy perp (striped shirt, idle bounce + blink)
+        // the goofy perp (striped shirt, paces side-to-side + bob + blink)
         var bob = Math.sin(polTime * 2) * 2;
+        var pace = Math.sin(polPerpPace) * 16;       // walks the cell
+        var rattle = (Math.sin(polPerpPace) > 0.92) ? Math.sin(polTime * 40) * 1.2 : 0;
         ctx.save();
-        ctx.translate(6, -28 + bob);
+        ctx.translate(pace, -28 + bob);
         ctx.fillStyle = "#FAFAFA"; // body
         roundRect(-12, -8, 24, 30, 6); ctx.fill();
         ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2; // stripes
@@ -438,10 +645,11 @@
         ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.4;
         ctx.beginPath(); ctx.arc(0, -11, 4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
         ctx.restore();
-        // bars (vertical) — drawn over the perp
+        // bars (vertical) — drawn over the perp; rattle when he grips them
         ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 4; ctx.lineCap = "round";
         for (var b = -42; b <= 42; b += 12) {
-            ctx.beginPath(); ctx.moveTo(b, -118); ctx.lineTo(b, 0); ctx.stroke();
+            var br = (rattle && Math.abs(b - pace) < 18) ? rattle : 0;
+            ctx.beginPath(); ctx.moveTo(b + br, -118); ctx.lineTo(b + br, 0); ctx.stroke();
         }
         ctx.lineCap = "butt";
         // top + bottom rails
@@ -510,6 +718,20 @@
         ctx.beginPath(); ctx.arc(42, -26, 6, Math.PI, Math.PI * 2); ctx.fill();
         ctx.fillRect(36, -26, 12, 2);
         ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.arc(42, -33, 1.6, 0, Math.PI * 2); ctx.fill();
+
+        // ringing rotary phone (shudders + emits ring marks when ringing)
+        var ring = (polPhoneT > 0) ? Math.sin(polTime * 40) * 1.5 : 0;
+        ctx.save();
+        ctx.translate(-44 + ring, -26);
+        ctx.fillStyle = "#212B33"; roundRect(-9, -5, 18, 12, 3); ctx.fill();      // base
+        ctx.fillStyle = "#37474F"; roundRect(-11, -10, 22, 6, 3); ctx.fill();     // handset
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(0, 1, 4, 0, Math.PI * 2); ctx.fill(); // dial
+        if (polPhoneT > 0) {
+            ctx.fillStyle = "#FFD54F";
+            drawText("♪", -14, -12, "bold 10px Arial", "#FFD54F", null, 0);
+            drawText("♪", 14, -14, "bold 9px Arial", "#FFE082", null, 0);
+        }
+        ctx.restore();
         ctx.restore();
     }
 
@@ -524,6 +746,24 @@
     var bchLeaveRect = null;
     var bchGulls = [];
     var bchHeshyT = 0;            // Heshy bob phase
+    // — cached gradients / precomputed layout (built ONCE in init) —
+    var bchSkyGrad = null, bchSeaGrad = null, bchSandGrad = null, bchSunGlow = null;
+    var bchWaveX = [];           // precomputed wave sample x-coords
+    var bchScratchY = [];        // reusable y scratch buffer for wave paths
+    var bchSpeckles = [];        // static sand speckle positions
+    var bchDunes = [];           // parallax dune layer params
+    var bchClouds = [];          // parallax clouds
+    var bchGlints = [];          // static sun-glint seeds on the water
+    var bchSandCool = 0;         // throttle blowing-sand particles
+    // dynamic props
+    var bchBall = null;          // bouncing beach ball
+    var bchKiteT = 0;            // kite sway
+    var bchHeshyCannon = 0;      // >0 = mid-cannonball splash anim
+    var bchHeshyCool = 0;        // cooldown to next cannonball
+    var bchLifeScan = 0;         // lifeguard binocular scan phase
+    var bchLuluShade = 0;        // Lulu shields eyes from sun (timer)
+    var bchBigWaveT = 0;         // periodic high wash-up wave
+    var bchBigWaveCool = 0;
 
     function initBeachInterior() {
         bchTime = 0;
@@ -532,6 +772,61 @@
         bchLuluX = 90; bchLuluTargetX = 90; bchWalkT = 0; bchFacing = 1;
         bchBubble = ""; bchBubbleT = 0;
         bchHeshyT = 0;
+        bchBands = null; // rebuilt lazily on first draw (depends on sea/sand Y)
+        bchKiteT = 0; bchLifeScan = 0; bchLuluShade = rand(3, 7);
+        bchHeshyCannon = 0; bchHeshyCool = rand(5, 9);
+        bchBigWaveT = 0; bchBigWaveCool = rand(7, 12);
+        bchSandCool = 0;
+
+        // cache gradients ONCE
+        bchSkyGrad = ctx.createLinearGradient(0, 0, 0, bchSeaY);
+        bchSkyGrad.addColorStop(0, "#4FC3F7");
+        bchSkyGrad.addColorStop(1, "#B3E5FC");
+        bchSeaGrad = ctx.createLinearGradient(0, bchSeaY, 0, bchSandY);
+        bchSeaGrad.addColorStop(0, "#0288D1");
+        bchSeaGrad.addColorStop(1, "#4DD0E1");
+        bchSandGrad = ctx.createLinearGradient(0, bchSandY, 0, H - SAFE_BOTTOM);
+        bchSandGrad.addColorStop(0, "#FFE8B0");
+        bchSandGrad.addColorStop(1, "#F4D08A");
+        bchSunGlow = ctx.createRadialGradient(W - 70, 70, 18, W - 70, 70, 120);
+        bchSunGlow.addColorStop(0, "rgba(255,245,157,0.55)");
+        bchSunGlow.addColorStop(1, "rgba(255,245,157,0)");
+
+        // precompute wave sample x-coords + scratch buffer (reused each frame)
+        bchWaveX = []; bchScratchY = [];
+        for (var x = -20; x <= W + 20; x += 6) { bchWaveX.push(x); bchScratchY.push(0); }
+
+        // static sand speckles (no per-frame random => no flicker, no GC)
+        bchSpeckles = [];
+        var bottomY = H - SAFE_BOTTOM;
+        for (var sp2 = 0; sp2 < 46; sp2++) {
+            bchSpeckles.push({ x: (sp2 * 53) % W, y: bchSandY + ((sp2 * 37) % (bottomY - bchSandY)) });
+        }
+
+        // static sun-glint seeds on the water (twinkle via phase, not random)
+        bchGlints = [];
+        for (var gl = 0; gl < 22; gl++) {
+            bchGlints.push({
+                x: rand(W * 0.45, W - 20),
+                y: rand(bchSeaY + 6, bchSandY - 10),
+                ph: rand(0, Math.PI * 2), sz: rand(1, 2.4)
+            });
+        }
+
+        // parallax dunes (far + near) — drawn as static silhouettes
+        bchDunes = [
+            { y: bchSandY + 20, h: 26, col: "#EFD79A", off: -30 },
+            { y: bchSandY + 52, h: 34, col: "#E6C77F", off: 40 }
+        ];
+
+        // parallax clouds (drift)
+        bchClouds = [];
+        for (var cl = 0; cl < 4; cl++) {
+            bchClouds.push({ x: rand(0, W), y: rand(24, bchSeaY - 30), s: rand(0.7, 1.4), v: rand(4, 10) });
+        }
+
+        // bouncing beach ball (physics-lite, stays on the sand)
+        bchBall = { x: 200, y: bchSandY + 30, vx: rand(30, 60), vy: 0, r: 12, spin: 0 };
 
         bchGulls = [];
         for (var g = 0; g < 4; g++) {
@@ -554,7 +849,11 @@
                     "Shark? Nah. That's just Heshy doing the breaststroke. Badly.",
                     "Beach closes at sundown for Shabbos. Tide's been told.",
                     "Buddy system, hon. Where's your buddy? ...the seagull? No.",
-                    "I'm 90% lifeguard, 10% sandcastle inspector."
+                    "I'm 90% lifeguard, 10% sandcastle inspector.",
+                    "*scans with binoculars* ...yep, that's still Heshy. Floating.",
+                    "Kite's flying low. Somebody tell the seagull it's not lunch.",
+                    "Beach ball's loose again. Third escape this hour. Tenacious.",
+                    "I count heads every ten minutes. Heshy counts as three."
                 ]
             },
             {
@@ -582,7 +881,10 @@
                     "The gull tilts its head. It's planning something. Run.",
                     "Beach rule #1: never make eye contact with the seagull.",
                     "It dropped a fry on you as tribute. ...or an insult.",
-                    "SQUAWK SQUAWK (it's just saying 'good shabbos,' probably)."
+                    "SQUAWK SQUAWK (it's just saying 'good shabbos,' probably).",
+                    "It's eyeing the kite. It thinks the kite is a giant rival gull.",
+                    "It chased the beach ball into the surf. Bold. Wet. Foolish.",
+                    "Four gulls just flew off in formation. This one's the general."
                 ]
             },
             {
@@ -614,7 +916,11 @@
                     "\"The lifeguard keeps whistling at me. I think she's a fan.\"",
                     "\"Tell Bubbe I'll be there for dinner — soon as I find my towel.\"",
                     "\"I caught a fish! ...with my swim trunks. It's still in there.\"",
-                    "\"Marco! ...Polo? ...anyone? ...I'm just gonna float here.\""
+                    "\"Marco! ...Polo? ...anyone? ...I'm just gonna float here.\"",
+                    "\"CANNONBALL incoming — cover your snacks!\" *KERSPLASH*",
+                    "\"The waves keep pushing me back. I think they're shy.\"",
+                    "\"I'm doing the backstroke! ...into the buoy. Repeatedly.\"",
+                    "\"Is that a beach ball or my lunch? Only one way to find out.\""
                 ]
             }
         ];
@@ -623,7 +929,13 @@
     function updateBeachInterior(dt) {
         bchTime += dt;
         bchHeshyT += dt;
+        bchKiteT += dt;
+        bchLifeScan += dt;
+        bchLuluShade -= dt;
+        if (bchLuluShade < -1.2) bchLuluShade = rand(4, 8);
         if (bchBubbleT > 0) bchBubbleT -= dt;
+
+        var bottom = H - SAFE_BOTTOM;
 
         // gulls drift + wrap
         for (var i = 0; i < bchGulls.length; i++) {
@@ -634,7 +946,54 @@
             if (gl.x > W + 20) gl.x = -20;
         }
 
-        var bottom = H - SAFE_BOTTOM;
+        // clouds drift (parallax)
+        for (var ci = 0; ci < bchClouds.length; ci++) {
+            var cd = bchClouds[ci];
+            cd.x += cd.v * dt;
+            if (cd.x > W + 60) cd.x = -60;
+        }
+
+        // bouncing beach ball physics (lives on the sand band)
+        if (bchBall) {
+            bchBall.vy += 520 * dt;
+            bchBall.x += bchBall.vx * dt;
+            bchBall.y += bchBall.vy * dt;
+            bchBall.spin += bchBall.vx * dt * 0.05;
+            var floor = bchSandY + 40;
+            if (bchBall.y > floor) { bchBall.y = floor; bchBall.vy = -rand(180, 240); }
+            if (bchBall.x < 40) { bchBall.x = 40; bchBall.vx = Math.abs(bchBall.vx); }
+            if (bchBall.x > W - 40) { bchBall.x = W - 40; bchBall.vx = -Math.abs(bchBall.vx); }
+        }
+
+        // Heshy cannonball cycle (periodic big splash)
+        if (bchHeshyCannon > 0) {
+            bchHeshyCannon -= dt;
+        } else {
+            bchHeshyCool -= dt;
+            if (bchHeshyCool <= 0) {
+                bchHeshyCool = rand(6, 11);
+                bchHeshyCannon = 0.7;
+                playTone(160, 0.18, "sine", 0.06, 90);
+                var splashY = bchSeaY + (bchSandY - bchSeaY) * 0.5;
+                for (var sk = 0; sk < 12; sk++) {
+                    particles.push({
+                        x: 420 + rand(-10, 10), y: splashY,
+                        vx: rand(-90, 90), vy: rand(-180, -70),
+                        life: 0, maxLife: 0.7, size: rand(2, 5),
+                        color: randPick(["#FFFFFF", "#B3E5FC", "#4FC3F7"]), gravity: 420
+                    });
+                }
+            }
+        }
+
+        // periodic high wave that washes further up the sand
+        if (bchBigWaveT > 0) {
+            bchBigWaveT -= dt;
+        } else {
+            bchBigWaveCool -= dt;
+            if (bchBigWaveCool <= 0) { bchBigWaveCool = rand(8, 14); bchBigWaveT = 2.4; }
+        }
+
         bchLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
 
         var c = consumeClick();
@@ -645,6 +1004,14 @@
             // boardwalk archway exit (bottom-left "← BOARDWALK")
             if (pointInRect(c.x, c.y, 12, bottom - 64, 110, 50)) {
                 playClick(); exitFootInterior(); return;
+            }
+            // NEW interaction: bop the beach ball (it bounces up + chirps)
+            if (bchBall && Math.abs(c.x - bchBall.x) < 26 && Math.abs(c.y - bchBall.y) < 26) {
+                bchBall.vy = -rand(280, 360);
+                bchBall.vx = (c.x < bchBall.x ? 1 : -1) * rand(60, 120);
+                playTone(660, 0.07, "sine", 0.1, 880);
+                spawnFloater(bchBall.x, bchBall.y - 18, randPick(["boing!", "bonk!", "whee!"]), "#FF80AB");
+                return;
             }
             var hit = null;
             for (var s = 0; s < bchSpots.length; s++) {
@@ -700,46 +1067,129 @@
         var bottom = H - SAFE_BOTTOM;
         var seaY = bchSeaY, sandY = bchSandY;
 
-        // ── sky (warm beach gradient) ──────────────────────────
-        var sky = ctx.createLinearGradient(0, 0, 0, seaY);
-        sky.addColorStop(0, "#4FC3F7");
-        sky.addColorStop(1, "#B3E5FC");
-        ctx.fillStyle = sky;
+        // ── sky (cached gradient) ──────────────────────────────
+        ctx.fillStyle = bchSkyGrad;
         ctx.fillRect(0, 0, W, seaY);
 
-        // sun + glow
+        // parallax clouds (soft, behind sun)
         ctx.save();
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = "#FFF59D";
-        ctx.beginPath(); ctx.arc(W - 70, 70, 46, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        for (var cl = 0; cl < bchClouds.length; cl++) {
+            var cd = bchClouds[cl];
+            ctx.globalAlpha = 0.6;
+            var cr = 14 * cd.s;
+            ctx.beginPath();
+            ctx.arc(cd.x, cd.y, cr, 0, Math.PI * 2);
+            ctx.arc(cd.x + cr, cd.y + 3, cr * 0.8, 0, Math.PI * 2);
+            ctx.arc(cd.x - cr, cd.y + 4, cr * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
         ctx.globalAlpha = 1;
-        ctx.fillStyle = "#FFEE58";
-        ctx.beginPath(); ctx.arc(W - 70, 70, 30, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // ── ocean (animated parallax waves) ────────────────────
-        var sea = ctx.createLinearGradient(0, seaY, 0, sandY);
-        sea.addColorStop(0, "#0288D1");
-        sea.addColorStop(1, "#4DD0E1");
-        ctx.fillStyle = sea;
+        // sun + glow (cached radial) + glowing rays
+        ctx.save();
+        ctx.fillStyle = bchSunGlow;
+        ctx.fillRect(W - 190, -50, 240, 240);
+        ctx.fillStyle = "#FFEE58";
+        ctx.beginPath(); ctx.arc(W - 70, 70, 30, 0, Math.PI * 2); ctx.fill();
+        // slow-turning rays
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = "#FFF59D"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        for (var ray = 0; ray < 8; ray++) {
+            var ra = bchTime * 0.2 + ray * (Math.PI / 4);
+            ctx.beginPath();
+            ctx.moveTo(W - 70 + Math.cos(ra) * 36, 70 + Math.sin(ra) * 36);
+            ctx.lineTo(W - 70 + Math.cos(ra) * 48, 70 + Math.sin(ra) * 48);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.lineCap = "butt";
+        ctx.restore();
+
+        // ── ocean (cached gradient) ────────────────────────────
+        ctx.fillStyle = bchSeaGrad;
         ctx.fillRect(0, seaY, W, sandY - seaY);
+
+        // sun glints on the water (twinkle via phase — no per-frame random)
+        ctx.save();
+        ctx.fillStyle = "#FFFDE7";
+        for (var gn = 0; gn < bchGlints.length; gn++) {
+            var gp = bchGlints[gn];
+            var tw = 0.5 + 0.5 * Math.sin(bchTime * 3 + gp.ph);
+            ctx.globalAlpha = 0.15 + 0.5 * tw;
+            ctx.fillRect(gp.x, gp.y, gp.sz + tw, 1.4);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
         // three parallax wave layers (alpha-safe — reset after)
         bchDrawWaves(seaY, sandY);
 
-        // ── wet-sand shoreline + beach ─────────────────────────
+        // ── wet-sand shoreline + beach (cached gradient) ───────
+        // periodic high wave washes the wet line further up the sand
+        var washUp = (bchBigWaveT > 0) ? Math.sin((2.4 - bchBigWaveT) / 2.4 * Math.PI) * 18 : 0;
         ctx.fillStyle = "#FFE0A3"; // wet line
-        ctx.fillRect(0, sandY - 6, W, 6);
-        var sandGrad = ctx.createLinearGradient(0, sandY, 0, bottom);
-        sandGrad.addColorStop(0, "#FFE8B0");
-        sandGrad.addColorStop(1, "#F4D08A");
-        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, sandY - 6 - washUp * 0.4, W, 6 + washUp * 0.4);
+        ctx.fillStyle = bchSandGrad;
         ctx.fillRect(0, sandY, W, bottom - sandY);
-        // speckles
-        ctx.fillStyle = "rgba(180,140,80,0.35)";
-        for (var sp2 = 0; sp2 < 40; sp2++) {
-            var rx = (sp2 * 53 % W), ry = sandY + ((sp2 * 37) % (bottom - sandY));
-            ctx.fillRect(rx, ry, 2, 2);
+
+        // parallax dunes (depth on the sand)
+        for (var dn = 0; dn < bchDunes.length; dn++) {
+            var du = bchDunes[dn];
+            ctx.fillStyle = du.col;
+            ctx.beginPath();
+            ctx.moveTo(0, du.y + du.h);
+            for (var dx = 0; dx <= W; dx += 40) {
+                ctx.lineTo(dx, du.y + Math.sin((dx + du.off) / 90) * du.h);
+            }
+            ctx.lineTo(W, du.y + du.h);
+            ctx.closePath(); ctx.fill();
         }
+
+        // wash-up foam sheet when the big wave rolls in
+        if (washUp > 0.5) {
+            ctx.save();
+            ctx.globalAlpha = clamp(washUp / 18, 0, 1) * 0.5;
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, sandY - 2, W, washUp);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // static speckles (precomputed)
+        ctx.fillStyle = "rgba(180,140,80,0.35)";
+        for (var sp2 = 0; sp2 < bchSpeckles.length; sp2++) {
+            ctx.fillRect(bchSpeckles[sp2].x, bchSpeckles[sp2].y, 2, 2);
+        }
+
+        // blowing sand (capped ambient particles, a few per ~0.12s)
+        bchSandCool -= (1 / 60);
+        if (bchSandCool <= 0 && particles.length < 230) {
+            bchSandCool = 0.12;
+            particles.push({
+                x: -6, y: sandY + rand(6, bottom - sandY - 6),
+                vx: rand(120, 200), vy: rand(-12, 12),
+                life: 0, maxLife: rand(1.2, 2.0), size: rand(1, 2),
+                color: "rgba(220,190,130,0.6)", gravity: 0
+            });
+        }
+
+        // heat shimmer band just above the sand (cheap horizontal wobble)
+        ctx.save();
+        ctx.globalAlpha = 0.06;
+        ctx.fillStyle = "#FFFFFF";
+        for (var hs = 0; hs < 3; hs++) {
+            var hy = sandY + 8 + hs * 6 + Math.sin(bchTime * 4 + hs) * 1.5;
+            ctx.fillRect(0, hy, W, 1.5);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // ── kite in the sky (string to off-screen) ─────────────
+        bchDrawKite();
+
+        // ── beach ball (bouncing) ──────────────────────────────
+        if (bchBall) bchDrawBall(bchBall);
 
         // ── seagulls (behind props, in sky) ────────────────────
         for (var gi = 0; gi < bchGulls.length; gi++) bchDrawGull(bchGulls[gi]);
@@ -766,15 +1216,25 @@
         // ── sneaky seagull on the sand (x≈255, the interactable) ─
         bchDrawSandGull(255, sandY + 58);
 
-        // ── Lulu ───────────────────────────────────────────────
+        // ── Lulu (shields eyes from sun when idle) ─────────────
+        var bchLuluY = sandY + 80;
         ctx.save();
         if (bchFacing < 0) {
             ctx.translate(bchLuluX, 0); ctx.scale(-1, 1);
-            drawLuluTopDown(0, sandY + 80, bchWalkT, "run");
+            drawLuluTopDown(0, bchLuluY, bchWalkT, "run");
         } else {
-            drawLuluTopDown(bchLuluX, sandY + 80, bchWalkT, "run");
+            drawLuluTopDown(bchLuluX, bchLuluY, bchWalkT, "run");
         }
         ctx.restore();
+        // a little raised hand shading her eyes (overlay, briefly)
+        if (bchLuluShade > 0 && bchLuluShade < 1.4 && Math.abs(bchLuluTargetX - bchLuluX) < 3) {
+            ctx.save();
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 4; ctx.lineCap = "round";
+            var hsx = bchLuluX + bchFacing * 6;
+            ctx.beginPath(); ctx.moveTo(hsx, bchLuluY - 12); ctx.lineTo(hsx + bchFacing * 8, bchLuluY - 22); ctx.stroke();
+            ctx.lineCap = "butt";
+            ctx.restore();
+        }
 
         // ── speech bubble ──────────────────────────────────────
         if (bchBubbleT > 0 && bchBubble) {
@@ -813,27 +1273,33 @@
         ctx.restore();
     }
 
+    // wave bands cached once (params only); paths reuse bchWaveX/bchScratchY
+    var bchBands = null;
     function bchDrawWaves(seaY, sandY) {
-        var bands = [
-            { y: seaY + 8, amp: 4, len: 60, spd: 26, a: 0.30 },
-            { y: seaY + (sandY - seaY) * 0.45, amp: 5, len: 80, spd: 18, a: 0.40 },
-            { y: sandY - 16, amp: 6, len: 100, spd: 12, a: 0.55 }
-        ];
+        if (!bchBands) {
+            bchBands = [
+                { y: seaY + 8, amp: 4, len: 60, spd: 26, a: 0.30 },
+                { y: seaY + (sandY - seaY) * 0.45, amp: 5, len: 80, spd: 18, a: 0.40 },
+                { y: sandY - 16, amp: 6, len: 100, spd: 12, a: 0.55 }
+            ];
+        }
+        var xs = bchWaveX, n = xs.length, TWO_PI = Math.PI * 2;
         ctx.save();
         ctx.strokeStyle = "#FFFFFF";
         ctx.lineWidth = 3;
         ctx.lineCap = "round";
-        for (var bnd = 0; bnd < bands.length; bnd++) {
-            var w = bands[bnd];
+        for (var bnd = 0; bnd < bchBands.length; bnd++) {
+            var w = bchBands[bnd];
+            var phase = bchTime * w.spd, inv = TWO_PI / w.len;
             ctx.globalAlpha = w.a;
             ctx.beginPath();
-            for (var x = -20; x <= W + 20; x += 6) {
-                var yy = w.y + Math.sin((x + bchTime * w.spd) / w.len * Math.PI * 2) * w.amp;
-                if (x === -20) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+            for (var k = 0; k < n; k++) {
+                var yy = w.y + Math.sin((xs[k] + phase) * inv) * w.amp;
+                if (k === 0) ctx.moveTo(xs[k], yy); else ctx.lineTo(xs[k], yy);
             }
             ctx.stroke();
         }
-        // foam at the shoreline
+        // foam at the shoreline (no per-iteration allocation)
         ctx.globalAlpha = 0.6;
         ctx.fillStyle = "#FFFFFF";
         for (var fx = 0; fx < W; fx += 18) {
@@ -841,6 +1307,58 @@
             ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // bouncing beach ball (3-color wedge ball with spin + shadow)
+    function bchDrawBall(b) {
+        ctx.save();
+        // shadow on the sand
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.ellipse(b.x, bchSandY + 42, b.r * 0.9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.spin);
+        var cols = ["#EF5350", "#FFFFFF", "#42A5F5", "#FFFFFF", "#FFCA28", "#FFFFFF"];
+        for (var s = 0; s < 6; s++) {
+            ctx.fillStyle = cols[s];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, b.r, s * Math.PI / 3, (s + 1) * Math.PI / 3);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+
+    // a kite wheeling in the sky on a long string
+    function bchDrawKite() {
+        var kx = W * 0.30 + Math.sin(bchKiteT * 0.6) * 50;
+        var ky = 56 + Math.cos(bchKiteT * 0.9) * 18;
+        var ang = Math.sin(bchKiteT * 0.6) * 0.4;
+        ctx.save();
+        // string down to an off-screen flier near the sand
+        ctx.strokeStyle = "rgba(60,40,20,0.5)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(kx, ky);
+        ctx.quadraticCurveTo(kx - 30, ky + 80, W * 0.18, bchSandY + 50);
+        ctx.stroke();
+        ctx.translate(kx, ky);
+        ctx.rotate(ang);
+        // diamond kite
+        ctx.fillStyle = "#FF7043";
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(11, 0); ctx.lineTo(0, 14); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFCA28";
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(11, 0); ctx.lineTo(0, 0); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(0, 14); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke();
+        // tail bows
+        ctx.fillStyle = "#26A69A";
+        for (var t = 1; t <= 3; t++) {
+            ctx.beginPath(); ctx.arc(Math.sin(bchKiteT * 3 + t) * 4, 14 + t * 7, 2.4, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -922,11 +1440,13 @@
     }
 
     function bchDrawHeshy(cx, cy) {
+        // mid-cannonball: a quick crouch-jump above the waterline
+        var cannon = (bchHeshyCannon > 0) ? Math.sin((0.7 - bchHeshyCannon) / 0.7 * Math.PI) * 26 : 0;
         ctx.save();
-        ctx.translate(cx, cy + Math.sin(bchHeshyT * 2) * 4);
-        // ripples around him
+        ctx.translate(cx, cy + Math.sin(bchHeshyT * 2) * 4 - cannon);
+        // expanding ripple ring on splashdown
         ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(0, 8, 22, 6, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 8, 22 + cannon * 0.6, 6 + cannon * 0.15, 0, 0, Math.PI * 2); ctx.stroke();
         // head + green swim cap
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
@@ -968,10 +1488,24 @@
         ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -31, 7, Math.PI, Math.PI * 2); ctx.fill(); // hair
         ctx.fillStyle = "#000"; // sunglasses
         roundRect(-6, -29, 12, 4, 2); ctx.fill();
-        // whistle hand up
-        ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(12, -24); ctx.stroke();
-        ctx.lineCap = "butt";
+        // scanning the horizon with binoculars (periodic)
+        var scanning = (bchLifeScan % 5) < 1.6;
+        if (scanning) {
+            var look = Math.sin(bchLifeScan * 2) * 4;
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(4, -18); ctx.lineTo(8 + look, -28); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-4, -18); ctx.lineTo(-2 + look, -28); ctx.stroke();
+            ctx.lineCap = "butt";
+            // binoculars
+            ctx.fillStyle = "#212121";
+            roundRect(-3 + look, -33, 5, 6, 1); ctx.fill();
+            roundRect(3 + look, -33, 5, 6, 1); ctx.fill();
+        } else {
+            // whistle hand up
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(12, -24); ctx.stroke();
+            ctx.lineCap = "butt";
+        }
         ctx.restore();
         ctx.restore();
     }

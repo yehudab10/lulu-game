@@ -5587,6 +5587,7 @@
         // missing) — only the player-car bits below are branched on `onFoot`.
         var onFoot = (state === "footRun");
         if (onFoot && footIntroT > 0) { footIntroT -= dt; updateParticles(dt); footWalkTime += dt * 1.3; return; }
+        if (onFoot && footArrestT > 0) { updateFootArrest(dt); return; }
 
         gameTime += dt;
         var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
@@ -7744,6 +7745,7 @@
     function drawPlaying() {
         var onFoot = (state === "footRun") || (state === "paused" && prevState === "footRun");
         if (onFoot && footIntroT > 0) { drawFootIntro(); return; }
+        if (onFoot && footArrestT > 0) { drawFootArrest(); return; }
         ctx.save();
         if (shakeTimer > 0) {
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
@@ -10965,6 +10967,8 @@
     var footPrompt = null;       // nearest interactable { kind, ent, label }
     var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
     var footBuskT = 0;           // >0 while she's busking/dancing on the curb
+    var footArrestT = 0;         // >0 during the "cop walks her in" cinematic
+    var footArrest = null;       // { x, y, line } cop cruiser pulling her over on foot
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -11016,7 +11020,7 @@
         save.footRunsPlayed = footRunLevel; persistSave();
         footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
-        footParkCool = 5; footDoorCool = 2;
+        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -11069,9 +11073,8 @@
             for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && rc.y > 60 && rc.y < H - 70) { copSeen = rc; break; } }
             if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && oc.y > 40 && oc.y < H - 70) { copSeen = oc; break; } }
             if (copSeen && Math.random() < dt * 0.05) {
-                spawnFloater(player.x, player.y - 40, randPick(FOOT_COP_PICKUP), "#90CAF9");
-                playWompWomp();
-                enterFootInterior("police");
+                copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
+                footStartArrest(copSeen.x);
                 return;
             }
         }
@@ -11262,6 +11265,49 @@
         spawnFloater(player.x, player.y - 42, "🅿️ PARKED (yourself)", "#4FC3F7");
         playClick();
         if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
+    }
+
+    // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
+    function footStartArrest(copX) {
+        footArrestT = 2.4;
+        footArrest = { x: clamp(copX, ROAD_L + 16, ROAD_R - 16), y: -140, line: randPick(FOOT_COP_PICKUP), grabbed: false };
+        footMood = "cry";
+        footChat = randPick(["I was just WALKING!", "This is HARASSMENT!", "...is it the flats?", "Bubbe will hear about THIS."]); footChatT = 2.0;
+        playWompWomp();
+    }
+    function updateFootArrest(dt) {
+        footArrestT -= dt;
+        footWalkTime += dt;
+        updateParticles(dt);
+        if (footArrest) {
+            // The cruiser rolls up alongside her, sirens going.
+            footArrest.y = lerp(footArrest.y, player.y - 4, Math.min(1, 3.4 * dt));
+            footArrest.x = lerp(footArrest.x, clamp(player.x + (footArrest.x < player.x ? -34 : 34), ROAD_L + 16, ROAD_R - 16), Math.min(1, 3 * dt));
+            if (!footArrest.grabbed && Math.abs(footArrest.y - (player.y - 4)) < 12) {
+                footArrest.grabbed = true;
+                if (footChatT > 0) footChatT = 0.4; // her protest ends; cop talks
+            }
+        }
+        if (footArrestT <= 0) { footArrest = null; enterFootInterior("police"); }
+    }
+    function drawFootArrest() {
+        // Frozen street, the cruiser pulling up, Lulu caught, then a fade to the precinct.
+        drawRoad(scrollOffset);
+        drawDecorations(footWalkTime);
+        drawCityBuildings();
+        drawSeasonFx();
+        if (footArrest) {
+            drawCopCar(footArrest.x, footArrest.y, footWalkTime * 6); // sirens flashing
+            if (footArrest.grabbed) drawSpeechBubble(footArrest.x, footArrest.y - 42, footArrest.line, footWalkTime);
+        }
+        drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
+        if (footChatT > 0) drawSpeechBubble(player.x, player.y - 56, footChat, footWalkTime);
+        drawParticles();
+        // Flashing red/blue wash + fade-to-black for the last 0.7s.
+        var wash = 0.12 + 0.10 * Math.sin(footWalkTime * 16);
+        ctx.fillStyle = (Math.sin(footWalkTime * 8) > 0 ? "rgba(80,120,255," : "rgba(255,70,70,") + wash + ")";
+        ctx.fillRect(0, 0, W, H);
+        if (footArrestT < 0.7) { ctx.fillStyle = "rgba(0,0,0," + clamp((0.7 - footArrestT) / 0.7, 0, 1) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     // ── Draw: the on-foot world layer ────────────────────────
@@ -11507,6 +11553,11 @@
     //
     //  Defines ONLY: initBarsInterior / updateBarsInterior / drawBarsInterior
     //  plus bar-prefixed private helpers/vars. Calls shared globals only.
+    //
+    //  Performance contract: wall/floor/back-bar gradients are cached on
+    //  resize; bottle/stool/light/plank/mote layout is precomputed in init;
+    //  ambient haze particles are capped; no per-frame Math.random for the
+    //  static glints (each gets a fixed phase seed).
     // ════════════════════════════════════════════════════════════
 
     // ── Local state ──────────────────────────────────────────
@@ -11516,16 +11567,41 @@
     var barDialogueT = 0;          // remaining seconds the bubble shows
     var barDialogueX = W / 2;      // where the bubble points
     var barFlash = 0;              // brief neon pop on interaction
+    var barFlashColor = "#FF4081"; // tint color of the last neon pop
     var barDanceT = 0;             // Lulu's boogie timer (>0 = dancing)
     var barClinkT = 0;             // throttle for ambient bottle clinks
     var barLeaveBtn = { x: 0, y: 0, w: 0, h: 0 };
     var barStations = [];          // interaction hotspots along the counter
     var barUsed = {};              // one-time-reward flags per station id
     var barPatronWobble = 0;       // shared wobble phase for the crowd
+    var barHazeT = 0;              // throttle for ambient haze motes
+    var barTvChannel = 0;          // current TV "channel" index
+    var barTvT = 0;                // seconds until the TV flips channel
+    var barEventT = 0;             // seconds until the next micro-event
+    var barToastT = 0;             // >0 while a "L'CHAIM!" toast ripples
+    var barStumbleT = 0;          // >0 while a patron is sliding off a stool
+    var barStumbleX = 0;           // x of the stumbling patron
+    var barClinkPartnerT = 0;      // >0 while a patron raises a glass to clink
 
     var BAR_FLOOR_Y = 0;           // y where the floor meets the back wall (set in init)
 
-    // ── Funny line pools (8-15 each, PG, Jewish-family-humor flavor) ──
+    // ── Cached gradients / precomputed layout (built on resize) ──
+    var barW = 0, barH = 0;        // dims the caches were built for
+    var barWallGrad = null;        // back-wall plum gradient
+    var barFloorGrad = null;       // floor wood gradient
+    var barBackBarGrad = null;     // back-bar recess depth gradient
+    var barGlowGrad = null;        // warm overhead pendant glow
+    var barBottles = [];           // {bx, col, capCol, neckCol, seed}
+    var barStools = [];            // {x, y}
+    var barPlanks = [];            // x of each floor plank seam
+    var barMotes = [];             // drifting dust/smoke motes {x,y,r,spd,seed,col}
+    var barBeams = [];             // disco beam descriptors {col, spd, ph, off}
+    var barBackGlasses = [];       // hanging stemware {x, seed}
+
+    // module-level scratch (avoid per-frame allocation)
+    var barTvChannels = null;      // built in init
+
+    // ── Funny line pools (PG, Jewish-family-humor flavor) ──
     var barBartenderLines = [
         "We don't serve drivers here.\nWhat'll it be, walker?",
         "Seltzer's on the house, mamaleh.\nYou look parched AND parked-out.",
@@ -11540,7 +11616,13 @@
         "Happy hour? Honey, every hour\nI see you is a happy hour.",
         "We're out of the good stuff,\nso I'm giving you the GREAT stuff.",
         "No tab, no tip, no trouble.\nJust drink your seltzer, bubbeleh.",
-        "I'll cut you off after this — it's\nwater, but principles are principles."
+        "I'll cut you off after this — it's\nwater, but principles are principles.",
+        "I been polishing this same glass\nsince Tuesday. It's a meditation.",
+        "You hear about Murray? No? Good.\nSit. I'll tell you EVERYTHING.",
+        "Top shelf is just for show. The\nreal good stuff's under the bar.",
+        "Two olives or three? In this\neconomy I'm giving you FOUR.",
+        "I knew your grandmother. Tough\nlady. Tipped in advice. Sit down.",
+        "Cranberry, soda, splash of lime.\nWe call it 'the designated driver.'"
     ];
     var barDrunkLines = [
         "You're like my ex... but PRETTIER!",
@@ -11556,7 +11638,13 @@
         "You had me at 'leave me alone.'\nThat's flirting, right?",
         "I once parallel parked PERFECTLY.\nOne time. Marry me anyway.",
         "Beautiful AND you walked here?\nLow maintenance! Mom would LOVE you.",
-        "Hey... hey. Hey. ...I forgot.\nBut you're great. Hey."
+        "Hey... hey. Hey. ...I forgot.\nBut you're great. Hey.",
+        "I'm a CATCH. I floss. Sometimes.\nWeekly. Monthly. ...I own floss.",
+        "Are you a parking spot? 'Cause\nI been circling you all night.",
+        "I'd walk you home but the room's\nbeen walking ME for an hour.",
+        "Roses are red, this seltzer's\nflat, will you marry... what was I—",
+        "I have prospects! A cousin in\nflooring! He owes me twenty bucks!",
+        "Your eyes are like two olives.\nI mean that as the highest praise."
     ];
     var barPassedOutLines = [
         "(snoring)  ...five more minutes,\nBubbe... the brisket can wait...",
@@ -11569,7 +11657,10 @@
         "...one egg cream too many...\nworth it... totally worth it... zzz",
         "Zzz... put it on Murray's tab...\nMurray's good for it... zzz...",
         "(mumble)  ...I'll drive... I'm FINE\nto... drive... *thunk* ...zzz",
-        "...is it Shabbos yet... wake me\nfor the candles... only then... zzz"
+        "...is it Shabbos yet... wake me\nfor the candles... only then... zzz",
+        "(snore)  ...refinance the... the...\nthe whole... zzz... ask my broker...",
+        "Mmf... the WiFi password is\n'password'... don't tell... zzzz...",
+        "...just resting my eyes... and my\nface... and my entire... zzz..."
     ];
     var barBouncerLines = [
         "ID? ...nah, you got an honest\nface. Go on in, kid.",
@@ -11582,7 +11673,10 @@
         "I've seen it all in this joint.\nTwice. On a Tuesday. Go in.",
         "You're cleared. Tell the bartender\nBig Schlomo says hi.",
         "Trouble? In MY bar? Over my\nvery large, very gentle body.",
-        "Coat check's broke. Just hold\nyour coat. Builds character."
+        "Coat check's broke. Just hold\nyour coat. Builds character.",
+        "I do the door AND the books.\nTax season I'm a TEDDY bear.",
+        "You look like you walk safe.\nI respect that. Go on, sweetheart.",
+        "Last guy who started something?\nI made him apologize to his MOTHER."
     ];
     var barJukeboxLines = [
         "BOOGIE TIME! Klezmer remix,\nbaby — shake what Bubbe gave ya!",
@@ -11595,20 +11689,45 @@
         "Dance like nobody's filming —\nbecause Aunt Rivka definitely is.",
         "♪ ...she's got a brand new... NOTHING,\nher car's wrecked ♪ ...too soon?",
         "Cha-cha slide, but it's just\neveryone arguing about parking.",
-        "Turn it UP! ...okay, Schlomo said\nturn it down. We compromise: medium."
+        "Turn it UP! ...okay, Schlomo said\nturn it down. We compromise: medium.",
+        "B-12: the slow one. B-13:\nALSO the slow one. We don't judge.",
+        "It only plays one song but\nit's the GOOD one. Press it again."
+    ];
+    // NEW interaction: clink glasses with a patron (toast)
+    var barClinkLines = [
+        "L'CHAIM! To you, to me,\nto Bubbe's brisket! 🥂",
+        "To health! And to NEVER\nparking downtown again!",
+        "Mazel! ...what're we toasting?\nDoesn't matter. MAZEL!",
+        "To absent friends, present\nseltzer, and YOUR good face!",
+        "Drink! ...it's water, but the\nSPIRIT is one hundred proof!",
+        "To the chef! To the bartender!\nTo whoever invented the PICKLE!"
     ];
 
     // ── Init (called once on enter) ──────────────────────────
     function initBarsInterior() {
         barTime = 0;
         barDialogue = ""; barDialogueT = 0; barDialogueX = W / 2;
-        barFlash = 0; barDanceT = 0; barClinkT = 1.2; barPatronWobble = 0;
+        barFlash = 0; barFlashColor = "#FF4081";
+        barDanceT = 0; barClinkT = 1.2; barPatronWobble = 0;
+        barHazeT = 0;
+        barTvChannel = 0; barTvT = 2.4;
+        barEventT = rand(5, 9);
+        barToastT = 0; barStumbleT = 0; barStumbleX = 0; barClinkPartnerT = 0;
         barUsed = {};
         barLulu = { x: W / 2, walkTime: 0, facing: 1 };
 
         // Counter/back wall sits in the upper portion; Lulu walks the open
         // floor below it. Pad for the safe-area top.
         BAR_FLOOR_Y = SAFE_TOP + 250;
+
+        // TV "channels" — each is {label, fg, bg}. Cycled by the dynamic TV.
+        barTvChannels = [
+            { label: "4 : 4", fg: "#FFEB3B", bg: "#1B5E20", scan: "#A5D6A7", scanDark: "#2E7D32" }, // ballgame
+            { label: "♥ LIVE", fg: "#FF80AB", bg: "#4A148C", scan: "#CE93D8", scanDark: "#6A1B9A" }, // soap
+            { label: "NEWS", fg: "#FFFFFF", bg: "#0D47A1", scan: "#90CAF9", scanDark: "#1565C0" },   // news
+            { label: "$$$", fg: "#69F0AE", bg: "#1B5E20", scan: "#A5D6A7", scanDark: "#2E7D32" },    // weather/stocks
+            { label: "WX 72°", fg: "#FFD740", bg: "#37474F", scan: "#B0BEC5", scanDark: "#546E7A" }
+        ];
 
         // Interaction stations: x positions Lulu must walk near. Each has an
         // id, a label icon, the line pool, and reward behavior.
@@ -11617,12 +11736,99 @@
             { id: "jukebox",  x: 116,      label: "🎵", pool: barJukeboxLines,  reward: "dance" },
             { id: "drunkA",   x: 192,      label: "🥴", pool: barDrunkLines,    reward: null },
             { id: "passed",   x: 270,      label: "😴", pool: barPassedOutLines, reward: "keys" },
-            { id: "drunkB",   x: 340,      label: "🥴", pool: barDrunkLines,    reward: "coins" },
+            { id: "drunkB",   x: 340,      label: "🥂", pool: barDrunkLines,    reward: "clink" },
             { id: "bartender",x: W - 56,   label: "🍸", pool: barBartenderLines, reward: "seltzer" }
         ];
+
+        barBuildCaches();
+
         playClick();
         // welcoming little neon "blip" chord
         playTone(523, 0.10, "sine", 0.12, 784);
+    }
+
+    // ── Build cached gradients + precomputed static layout ────
+    //  Re-run whenever the canvas size changes so caches stay valid.
+    function barBuildCaches() {
+        barW = W; barH = H;
+        var topY = SAFE_TOP;
+
+        // Back-wall plum gradient.
+        barWallGrad = ctx.createLinearGradient(0, topY, 0, BAR_FLOOR_Y);
+        barWallGrad.addColorStop(0, "#241327");
+        barWallGrad.addColorStop(0.55, "#311A33");
+        barWallGrad.addColorStop(1, "#3E2236");
+
+        // Floor wood gradient.
+        barFloorGrad = ctx.createLinearGradient(0, BAR_FLOOR_Y, 0, H);
+        barFloorGrad.addColorStop(0, "#5A3A30");
+        barFloorGrad.addColorStop(0.5, "#4E342E");
+        barFloorGrad.addColorStop(1, "#3A241C");
+
+        // Back-bar recess — a darker inset behind the bottle wall for depth.
+        var shelfY = topY + 150;
+        barBackBarGrad = ctx.createLinearGradient(0, shelfY - 64, 0, shelfY + 14);
+        barBackBarGrad.addColorStop(0, "#1A0E1C");
+        barBackBarGrad.addColorStop(1, "#2C1726");
+
+        // Warm overhead pendant glow (radial, centered above the counter).
+        barGlowGrad = ctx.createRadialGradient(W - 120, topY + 40, 8, W - 120, topY + 40, 230);
+        barGlowGrad.addColorStop(0, "rgba(255,196,120,0.30)");
+        barGlowGrad.addColorStop(0.5, "rgba(255,170,90,0.10)");
+        barGlowGrad.addColorStop(1, "rgba(255,170,90,0)");
+
+        // Bottle wall — precompute each bottle's x, color, derived colors & seed.
+        var cols = ["#FF7043", "#66BB6A", "#FFCA28", "#42A5F5", "#AB47BC", "#EF5350", "#26C6DA", "#FFA726"];
+        barBottles.length = 0;
+        var shelfX = W - 226, shelfW = 222;
+        var n = Math.floor(shelfW / 16);
+        for (var i = 0; i < n; i++) {
+            var col = cols[i % cols.length];
+            barBottles.push({
+                bx: shelfX + 8 + i * 16,
+                col: col,
+                neckCol: shadeColor(col, -50),
+                seed: i * 1.37,           // fixed phase for the glow shimmer
+                h: 18 + (i % 3) * 4       // slight height variety
+            });
+        }
+
+        // Hanging stemware row (under the top shelf) — fixed positions/seeds.
+        barBackGlasses.length = 0;
+        for (var g = 0; g < 10; g++) {
+            barBackGlasses.push({ x: shelfX + 12 + g * 22, seed: g * 0.9 });
+        }
+
+        // Stools — fixed positions.
+        barStools.length = 0;
+        barStools.push({ x: W - 110, y: BAR_FLOOR_Y + 28 });
+        barStools.push({ x: W - 160, y: BAR_FLOOR_Y + 28 });
+        barStools.push({ x: W - 210, y: BAR_FLOOR_Y + 28 });
+
+        // Floor plank seams.
+        barPlanks.length = 0;
+        for (var px = 24; px < W; px += 48) barPlanks.push(px);
+
+        // Disco beam descriptors (color, speed, phase, lateral offset).
+        barBeams = [
+            { col: "rgba(255,64,129,0.10)", spd: 0.60, ph: 0.0, off: -0.5 },
+            { col: "rgba(64,196,255,0.10)", spd: 0.85, ph: 2.1, off: 0.0 },
+            { col: "rgba(255,215,64,0.10)", spd: 1.10, ph: 4.2, off: 0.5 }
+        ];
+
+        // Drifting ambient motes (dust/smoke/disco haze) — capped & seeded.
+        barMotes.length = 0;
+        var moteCols = ["rgba(255,213,128,0.10)", "rgba(255,255,255,0.07)", "rgba(206,147,216,0.08)"];
+        for (var m = 0; m < 22; m++) {
+            barMotes.push({
+                x: rand(0, W),
+                y: rand(topY + 20, BAR_FLOOR_Y + 80),
+                r: rand(6, 18),
+                spd: rand(4, 12),
+                seed: rand(0, Math.PI * 2),
+                col: moteCols[m % moteCols.length]
+            });
+        }
     }
 
     // ── A station got tapped/walked-into: speak + maybe reward ──
@@ -11630,7 +11836,7 @@
         barDialogue = randPick(st.pool);
         barDialogueT = 3.2;
         barDialogueX = clamp(st.x, 60, W - 60);
-        barFlash = 1;
+        barFlash = 1; barFlashColor = "#FF4081";
         barLulu.facing = st.x < barLulu.x ? -1 : 1;
         playClick();
         // bottle-clink / glass-tink accent
@@ -11645,6 +11851,30 @@
                     vx: rand(-50, 50), vy: rand(-80, -20), life: 0.7, maxLife: 0.7,
                     size: rand(3, 6), color: randPick(["#FF4081", "#40C4FF", "#FFD740", "#7C4DFF", "#69F0AE"]),
                     gravity: 120 });
+            }
+            return;
+        }
+
+        if (st.reward === "clink") {
+            // NEW: clink glasses with the tipsy patron — a toast, raised glass,
+            // sparkle, and a small coin tip the first time ("my round!").
+            barClinkPartnerT = 1.4;
+            barFlashColor = "#FFD740";
+            barDialogue = randPick(barClinkLines);
+            barDialogueT = 3.2;
+            playTone(rand(1100, 1500), 0.07, "triangle", 0.16);
+            playTone(1320, 0.10, "sine", 0.10, 1600);
+            for (var cs = 0; cs < 8; cs++) {
+                particles.push({ x: st.x + rand(-10, 10), y: BAR_FLOOR_Y - 4,
+                    vx: rand(-30, 30), vy: rand(-70, -20), life: 0.7, maxLife: 0.7,
+                    size: rand(2, 4), color: "#FFE082", gravity: 140 });
+            }
+            if (!barUsed[st.id]) {
+                barUsed[st.id] = true;
+                var t2 = randInt(3, 6);
+                footCoinsRun += t2; runCoins += t2; save.totalCoins += t2; persistSave();
+                spawnFloater(st.x, BAR_FLOOR_Y + 30, "+" + t2 + " 🪙 \"my round!\"", "#FFD54F");
+                playCoin();
             }
             return;
         }
@@ -11681,13 +11911,61 @@
         }
     }
 
+    // ── A spontaneous room-wide "L'CHAIM!" toast micro-event ──
+    function barDoToast() {
+        barToastT = 1.8;
+        barFlash = 0.8; barFlashColor = "#FFD740";
+        playTone(523, 0.10, "triangle", 0.12, 784);
+        playTone(659, 0.14, "sine", 0.10, 988);
+        for (var i = 0; i < 16; i++) {
+            particles.push({ x: rand(40, W - 40), y: BAR_FLOOR_Y + rand(-20, 10),
+                vx: rand(-40, 40), vy: rand(-100, -30), life: 0.9, maxLife: 0.9,
+                size: rand(2, 5), color: randPick(["#FFE082", "#FFD740", "#FFF59D"]), gravity: 160 });
+        }
+    }
+
     // ── Update (per frame) ───────────────────────────────────
     function updateBarsInterior(dt) {
+        // Rebuild caches if the canvas was resized.
+        if (barW !== W || barH !== H) barBuildCaches();
+
         barTime += dt;
         barPatronWobble += dt;
         if (barFlash > 0) barFlash = Math.max(0, barFlash - dt * 2.2);
         if (barDialogueT > 0) barDialogueT -= dt;
         if (barDanceT > 0) barDanceT -= dt;
+        if (barToastT > 0) barToastT -= dt;
+        if (barClinkPartnerT > 0) barClinkPartnerT -= dt;
+
+        // TV channel cycling (dynamic content).
+        barTvT -= dt;
+        if (barTvT <= 0) {
+            barTvT = rand(3.5, 6.5);
+            barTvChannel = (barTvChannel + 1) % barTvChannels.length;
+        }
+
+        // Patron stumble micro-event timer (a guy sliding off a stool).
+        if (barStumbleT > 0) barStumbleT -= dt;
+
+        // Periodic MICRO-EVENTS — toast ripple OR a patron sliding off a stool.
+        barEventT -= dt;
+        if (barEventT <= 0) {
+            barEventT = rand(7, 13);
+            if (Math.random() < 0.5) {
+                barDoToast();
+            } else {
+                // stumble: pick a stool and slide its "occupant" off briefly
+                barStumbleT = 1.3;
+                barStumbleX = barStools[randInt(0, barStools.length - 1)].x;
+                playTone(rand(180, 260), 0.14, "sawtooth", 0.08, 90);
+                playWompWomp();
+                for (var sp = 0; sp < 8; sp++) {
+                    particles.push({ x: barStumbleX + rand(-8, 8), y: BAR_FLOOR_Y + 40,
+                        vx: rand(-50, 50), vy: rand(-40, -10), life: 0.6, maxLife: 0.6,
+                        size: rand(2, 4), color: "#BCAAA4", gravity: 200 });
+                }
+            }
+        }
 
         // Ambient bottle clinks / murmur — occasional soft tinks.
         barClinkT -= dt;
@@ -11695,6 +11973,20 @@
             barClinkT = rand(2.2, 4.5);
             playTone(rand(700, 1100), 0.05, "sine", 0.05);
         }
+
+        // Ambient haze motes — capped: at most ~3 puffs per 0.12s near the
+        // dance floor / pendant light. Drifting motes themselves are static
+        // props (drawn directly), these are the soft rising disco/smoke wisps.
+        barHazeT -= dt;
+        if (barHazeT <= 0) {
+            barHazeT = 0.12;
+            for (var hp = 0; hp < 2; hp++) {
+                particles.push({ x: rand(70, 210), y: BAR_FLOOR_Y + rand(40, 120),
+                    vx: rand(-8, 8), vy: rand(-22, -10), life: rand(1.4, 2.2), maxLife: 2.2,
+                    size: rand(8, 16), color: "rgba(206,147,216,0.05)", gravity: -4 });
+            }
+        }
+
         // Dance-floor sparkle ambiance while boogieing.
         if (barDanceT > 0 && Math.random() < dt * 16) {
             particles.push({ x: barLulu.x + rand(-16, 16), y: BAR_FLOOR_Y + 80,
@@ -11796,32 +12088,58 @@
 
     // ── Drawing helpers (bar-prefixed) ───────────────────────
 
-    // Wall of glowing liquor bottles behind the counter.
-    function barDrawBottles(x, y, w) {
-        var cols = ["#FF7043", "#66BB6A", "#FFCA28", "#42A5F5", "#AB47BC", "#EF5350", "#26C6DA", "#FFA726"];
-        var n = Math.floor(w / 16);
-        for (var i = 0; i < n; i++) {
-            var bx = x + 8 + i * 16;
-            var col = cols[i % cols.length];
-            var glow = 0.5 + 0.5 * Math.sin(barTime * 2 + i);
+    // Wall of glowing liquor bottles behind the counter (precomputed layout).
+    function barDrawBottles(y) {
+        for (var i = 0; i < barBottles.length; i++) {
+            var b = barBottles[i];
+            var bx = b.bx;
+            var glow = 0.5 + 0.5 * Math.sin(barTime * 2 + b.seed);
             ctx.save();
             ctx.globalAlpha = 0.35 + glow * 0.3;
-            ctx.fillStyle = col;
+            ctx.fillStyle = b.col;
             ctx.beginPath(); ctx.arc(bx, y - 4, 7, 0, Math.PI * 2); ctx.fill();
             ctx.globalAlpha = 1;
-            // bottle body
-            ctx.fillStyle = col;
-            roundRect(bx - 4, y - 14, 8, 22, 3); ctx.fill();
+            // bottle body (slight height variety)
+            ctx.fillStyle = b.col;
+            roundRect(bx - 4, y - b.h + 4, 8, b.h, 3); ctx.fill();
             // neck + cap
-            ctx.fillStyle = shadeColor(col, -50);
-            roundRect(bx - 2, y - 22, 4, 9, 1); ctx.fill();
+            ctx.fillStyle = b.neckCol;
+            roundRect(bx - 2, y - b.h - 4, 4, 9, 1); ctx.fill();
             ctx.fillStyle = "#FFF59D";
-            roundRect(bx - 2, y - 24, 4, 3, 1); ctx.fill();
+            roundRect(bx - 2, y - b.h - 6, 4, 3, 1); ctx.fill();
             // shine streak
             ctx.fillStyle = "rgba(255,255,255,0.5)";
-            roundRect(bx - 2, y - 12, 1.6, 16, 1); ctx.fill();
+            roundRect(bx - 2, y - b.h + 6, 1.6, b.h - 8, 1); ctx.fill();
             ctx.restore();
         }
+    }
+
+    // Row of hanging stemware (inverted glasses) under the top shelf.
+    function barDrawHangingGlasses(y) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.fillStyle = "rgba(178,235,242,0.14)";
+        ctx.lineWidth = 1.2;
+        for (var i = 0; i < barBackGlasses.length; i++) {
+            var g = barBackGlasses[i];
+            var sway = Math.sin(barTime * 1.6 + g.seed) * 1.2;
+            var gx = g.x + sway;
+            // bowl (inverted)
+            ctx.beginPath();
+            ctx.moveTo(gx - 6, y);
+            ctx.quadraticCurveTo(gx, y + 11, gx + 6, y);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            // stem
+            ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y - 8); ctx.stroke();
+            // tiny glint (fixed phase per glass — no per-frame random)
+            ctx.globalAlpha = 0.4 + 0.4 * Math.sin(barTime * 3 + g.seed);
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            ctx.fillRect(gx - 3, y + 2, 1.4, 3);
+            ctx.fillStyle = "rgba(178,235,242,0.14)";
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
     }
 
     // A buzzing neon sign with a soft halo. Flickers occasionally.
@@ -11875,26 +12193,43 @@
         // speaker grille
         ctx.fillStyle = "#3E2723";
         roundRect(-11, 2, 22, 7, 2); ctx.fill();
+        // floating ♪ notes pulsing out of the top
+        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(barTime * 3);
+        drawText("♪", -20 + Math.sin(barTime * 2) * 3, -48 - (barTime * 8 % 14), "bold 12px Arial", "#FFD740", "#000", 2);
+        drawText("♫", 18 + Math.cos(barTime * 2.3) * 3, -44 - ((barTime * 8 + 7) % 14), "bold 11px Arial", "#FF80AB", "#000", 2);
+        ctx.globalAlpha = 1;
         ctx.restore();
     }
 
-    // A wall-mounted TV showing a flickering "game" (it's always a tie).
+    // A wall-mounted TV cycling through "channels" (dynamic content).
     function barDrawTV(x, y) {
+        var ch = barTvChannels[barTvChannel];
         ctx.save();
         ctx.translate(x, y);
+        // bezel + tiny mount bracket
+        ctx.fillStyle = "#0E0E0E";
+        roundRect(-1.5, 16, 3, 6, 1); ctx.fill();
         ctx.fillStyle = "#212121";
         roundRect(-26, -16, 52, 32, 4); ctx.fill();
-        // static-y screen
-        ctx.fillStyle = "#1B5E20";
+        // screen
+        ctx.fillStyle = ch.bg;
         roundRect(-22, -12, 44, 24, 2); ctx.fill();
+        // scanlines
         ctx.globalAlpha = 0.5;
         for (var s = 0; s < 6; s++) {
-            ctx.fillStyle = (Math.sin(barTime * 20 + s) > 0) ? "#A5D6A7" : "#2E7D32";
+            ctx.fillStyle = (Math.sin(barTime * 20 + s) > 0) ? ch.scan : ch.scanDark;
             ctx.fillRect(-22, -12 + s * 4, 44, 2);
         }
         ctx.globalAlpha = 1;
-        // little scoreboard
-        drawText("4 : 4", 0, -2, "bold 9px Arial", "#FFEB3B", "#000", 2);
+        // label
+        drawText(ch.label, 0, -2, "bold 9px Arial", ch.fg, "#000", 2);
+        // screen glare
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.beginPath();
+        ctx.moveTo(-22, -12); ctx.lineTo(-6, -12); ctx.lineTo(-18, 12); ctx.lineTo(-22, 12); ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.restore();
     }
 
@@ -11915,24 +12250,47 @@
         ctx.restore();
     }
 
-    // The bartender: a friendly mustachioed fella polishing a glass.
+    // The bartender: a friendly mustachioed fella who polishes & pours on a loop.
     function barDrawBartender(x, y) {
         ctx.save();
         ctx.translate(x, y);
         var bob = Math.sin(barTime * 2) * 1.5;
+        // loop: alternate between polishing a glass and pouring a drink
+        var phase = (barTime * 0.35) % 2;          // 0..2 → first half polish, second half pour
+        var pouring = phase >= 1;
         // apron body
         ctx.fillStyle = "#FFFFFF";
         roundRect(-12, -18 + bob, 24, 26, 6); ctx.fill();
         ctx.fillStyle = "#5D4037";
         roundRect(-12, 0 + bob, 24, 8, 3); ctx.fill();  // apron tie
-        // arms (one polishes)
+        // left arm
         ctx.fillStyle = "#FFFFFF";
-        var poke = Math.sin(barTime * 5) * 3;
         roundRect(-16, -12 + bob, 6, 14, 3); ctx.fill();
-        roundRect(10, -14 + bob + poke, 6, 14, 3); ctx.fill();
-        // polishing glass in right hand
-        ctx.fillStyle = "rgba(178,235,242,0.8)";
-        roundRect(13, -20 + bob + poke, 6, 8, 2); ctx.fill();
+        if (pouring) {
+            // pour: right arm tilts out, a bottle pours a stream into a glass
+            ctx.save();
+            ctx.translate(13, -10 + bob);
+            ctx.rotate(-0.5);
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(-3, -2, 6, 14, 3); ctx.fill();       // arm
+            ctx.fillStyle = "#66BB6A";
+            roundRect(-3, -12, 6, 12, 2); ctx.fill();       // tilted bottle
+            ctx.restore();
+            // pouring stream + glass on the counter
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = "#B2EBF2";
+            roundRect(15, -14 + bob, 1.6, 12 + Math.sin(barTime * 10) * 1.5, 1); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "rgba(178,235,242,0.85)";
+            roundRect(12, -2 + bob, 7, 9, 2); ctx.fill();
+        } else {
+            // polish: right arm wipes a glass back and forth
+            var poke = Math.sin(barTime * 5) * 3;
+            ctx.fillStyle = "#FFFFFF";
+            roundRect(10, -14 + bob + poke, 6, 14, 3); ctx.fill();
+            ctx.fillStyle = "rgba(178,235,242,0.8)";
+            roundRect(13, -20 + bob + poke, 6, 8, 2); ctx.fill();
+        }
         // head
         ctx.fillStyle = "#1A1A1A";
         ctx.beginPath(); ctx.arc(0, -28 + bob, 9, 0, Math.PI * 2); ctx.fill();
@@ -11977,9 +12335,13 @@
         // sunglasses
         ctx.fillStyle = "#000";
         roundRect(-8, -35 + bob, 16, 5, 2); ctx.fill();
-        // tiny earpiece
+        // tiny earpiece + occasional radio blink (fixed-phase, no random)
         ctx.strokeStyle = "#616161"; ctx.lineWidth = 1.4;
         ctx.beginPath(); ctx.arc(9, -32 + bob, 1.8, 0, Math.PI * 2); ctx.stroke();
+        if (Math.sin(barTime * 5) > 0.85) {
+            ctx.fillStyle = "#FF5252";
+            ctx.beginPath(); ctx.arc(9, -32 + bob, 1, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -11987,14 +12349,16 @@
     function barDrawPassedOut(x, y) {
         ctx.save();
         ctx.translate(x, y);
+        // gentle breathing rise/fall
+        var breathe = Math.sin(barTime * 2.2) * 0.8;
         // slumped body lying on counter
         ctx.fillStyle = "#6D4C41";
-        roundRect(-14, -8, 28, 12, 5); ctx.fill();   // back
+        roundRect(-14, -8 + breathe, 28, 12, 5); ctx.fill();   // back
         ctx.fillStyle = C.skin;
-        ctx.beginPath(); ctx.arc(-16, -2, 7, 0, Math.PI * 2); ctx.fill();  // head down
+        ctx.beginPath(); ctx.arc(-16, -2 + breathe, 7, 0, Math.PI * 2); ctx.fill();  // head down
         // bald spot
         ctx.fillStyle = "#BCAAA4";
-        ctx.beginPath(); ctx.arc(-16, -4, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-16, -4 + breathe, 3, 0, Math.PI * 2); ctx.fill();
         // spilled glass
         ctx.fillStyle = "rgba(178,235,242,0.85)";
         roundRect(8, -2, 6, 7, 2); ctx.fill();
@@ -12022,25 +12386,27 @@
         ctx.restore();
     }
 
-    // Spinning disco-ball light cones sweeping the room.
+    // Spinning disco-ball light cones sweeping the room (uses cached beams).
     function barDrawDiscoLights() {
         ctx.save();
         var cx = W / 2, cy = SAFE_TOP + 56;
-        // hanging ball
+        // hanging ball + cord
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(cx, SAFE_TOP); ctx.lineTo(cx, cy - 10); ctx.stroke();
         ctx.fillStyle = "#B0BEC5";
         ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
         for (var f = 0; f < 8; f++) {
             ctx.fillStyle = (Math.sin(barTime * 10 + f) > 0) ? "#FFFFFF" : "#90A4AE";
             ctx.fillRect(cx - 9 + (f % 4) * 5, cy - 9 + Math.floor(f / 4) * 9, 3, 3);
         }
-        // sweeping light cones
-        var beams = ["rgba(255,64,129,0.10)", "rgba(64,196,255,0.10)", "rgba(255,215,64,0.10)"];
-        for (var c = 0; c < 3; c++) {
-            var ang = barTime * (0.6 + c * 0.25) + c * 2.1;
+        // sweeping light cones (precomputed beam descriptors)
+        for (var c = 0; c < barBeams.length; c++) {
+            var bm = barBeams[c];
+            var ang = barTime * bm.spd + bm.ph;
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.rotate(Math.sin(ang) * 0.9 + (c - 1) * 0.5);
-            ctx.fillStyle = beams[c];
+            ctx.rotate(Math.sin(ang) * 0.9 + bm.off);
+            ctx.fillStyle = bm.col;
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(-60, 320);
@@ -12051,27 +12417,64 @@
         ctx.restore();
     }
 
+    // Drifting ambient haze motes (precomputed; cheap to animate).
+    function barDrawMotes() {
+        ctx.save();
+        for (var i = 0; i < barMotes.length; i++) {
+            var mo = barMotes[i];
+            // slow drift up-and-sideways, wrapping at the top of the floor
+            var dy = (barTime * mo.spd) % (BAR_FLOOR_Y + 120 - SAFE_TOP);
+            var my = (mo.y - dy);
+            if (my < SAFE_TOP) my += (BAR_FLOOR_Y + 120 - SAFE_TOP);
+            var mx = mo.x + Math.sin(barTime * 0.5 + mo.seed) * 14;
+            ctx.fillStyle = mo.col;
+            ctx.beginPath(); ctx.arc(mx, my, mo.r, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
     // ── Draw (per frame) ─────────────────────────────────────
     function drawBarsInterior() {
         var topY = SAFE_TOP;
 
-        // Back wall — moody dark plum gradient.
-        var wall = ctx.createLinearGradient(0, topY, 0, BAR_FLOOR_Y);
-        wall.addColorStop(0, "#2A1A2E");
-        wall.addColorStop(1, "#3E2236");
-        ctx.fillStyle = wall;
+        // Back wall — cached moody plum gradient.
+        ctx.fillStyle = barWallGrad;
         ctx.fillRect(0, 0, W, BAR_FLOOR_Y);
 
-        // Floor — warm dark wood planks.
-        var floor = ctx.createLinearGradient(0, BAR_FLOOR_Y, 0, H);
-        floor.addColorStop(0, "#4E342E");
-        floor.addColorStop(1, "#3E2723");
-        ctx.fillStyle = floor;
+        // Warm overhead pendant glow over the bar (cached radial).
+        ctx.fillStyle = barGlowGrad;
+        ctx.fillRect(W - 350, 0, 350, BAR_FLOOR_Y);
+
+        // Back-bar recess (darker inset) for depth behind the bottle wall.
+        var shelfY = topY + 150;
+        ctx.fillStyle = barBackBarGrad;
+        ctx.fillRect(W - 240, shelfY - 64, 240, 78);
+
+        // Floor — cached warm wood gradient + precomputed plank seams.
+        ctx.fillStyle = barFloorGrad;
         ctx.fillRect(0, BAR_FLOOR_Y, W, H - BAR_FLOOR_Y);
         ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 2;
-        for (var px = 24; px < W; px += 48) {
-            ctx.beginPath(); ctx.moveTo(px, BAR_FLOOR_Y); ctx.lineTo(px, H); ctx.stroke();
+        ctx.beginPath();
+        for (var p = 0; p < barPlanks.length; p++) {
+            ctx.moveTo(barPlanks[p], BAR_FLOOR_Y); ctx.lineTo(barPlanks[p], H);
         }
+        ctx.stroke();
+
+        // Neon floor reflections — soft colored smears mirrored on the wood.
+        ctx.save();
+        ctx.globalAlpha = 0.10;
+        var refl = ctx.createLinearGradient(0, BAR_FLOOR_Y, 0, BAR_FLOOR_Y + 90);
+        refl.addColorStop(0, "rgba(255,64,129,0.5)");
+        refl.addColorStop(0.5, "rgba(64,196,255,0.35)");
+        refl.addColorStop(1, "rgba(255,64,129,0)");
+        ctx.fillStyle = refl;
+        // shimmer the reflection band horizontally with the beat
+        ctx.fillRect(0, BAR_FLOOR_Y, W, 80);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // Drifting ambient haze motes (behind props).
+        barDrawMotes();
 
         // Sweeping disco lighting over everything (subtle).
         barDrawDiscoLights();
@@ -12079,20 +12482,27 @@
         // Dance floor patch (left-center), under the jukebox area.
         barDrawDanceFloor(78, BAR_FLOOR_Y + 36, 120, 96);
 
-        // Back-bar shelf with the glowing bottle wall (right portion).
-        var shelfY = topY + 150;
+        // Back-bar shelves + bottle wall + hanging stemware (layered depth).
         ctx.fillStyle = "#3E2723";
         ctx.fillRect(W - 230, shelfY - 30, 230, 6);
-        barDrawBottles(W - 226, shelfY, 222);
+        barDrawHangingGlasses(shelfY - 44);
+        barDrawBottles(shelfY);
         ctx.fillStyle = "#3E2723";
         ctx.fillRect(W - 230, shelfY + 6, 230, 5);
+        // back-bar mirror strip with a soft reflection of the bottles' glow
+        ctx.save();
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = "#FFE0B2";
+        ctx.fillRect(W - 226, shelfY + 12, 222, 4);
+        ctx.globalAlpha = 1;
+        ctx.restore();
 
         // Neon signs.
         barDrawNeon(W / 2, topY + 34, "THE THIRSTY SCHOLAR", "#FF4081", 17);
         barDrawNeon(86, topY + 96, "L'CHAIM!", "#40C4FF", 16);
         barDrawNeon(W - 70, topY + 150 - 70, "OPEN", "#69F0AE", 18);
 
-        // Wall TV (upper left-ish).
+        // Wall TV (upper left-ish) — now cycles channels.
         barDrawTV(180, topY + 92);
 
         // The long bar counter (front edge, where stools line up).
@@ -12105,15 +12515,16 @@
         ctx.fillStyle = "rgba(255,255,255,0.12)";
         roundRect(W - 248, counterY - 2, 246, 5, 3); ctx.fill();
 
-        // Bartender behind the counter.
+        // Bartender behind the counter (polishes & pours on a loop).
         barDrawBartender(W - 56, BAR_FLOOR_Y - 28);
 
         // Passed-out guy on the counter.
         barDrawPassedOut(270, counterY - 2);
 
-        // Bar stools along the counter.
-        barDrawStool(W - 110, BAR_FLOOR_Y + 28);
-        barDrawStool(W - 160, BAR_FLOOR_Y + 28);
+        // Bar stools along the counter (precomputed positions).
+        for (var si = 0; si < barStools.length; si++) {
+            barDrawStool(barStools[si].x, barStools[si].y);
+        }
 
         // Jukebox (left, by the dance floor).
         barDrawJukebox(116, BAR_FLOOR_Y + 30);
@@ -12121,9 +12532,34 @@
         // Bouncer by the door (far left).
         barDrawBouncer(44, BAR_FLOOR_Y + 6);
 
-        // Two wobbly drunk patrons (reuse drawPedestrian drunk=true).
+        // Two wobbly drunk patrons (reuse drawPedestrian drunk=true). They
+        // sip/sway on their own; the right one raises a glass when clinked.
         drawPedestrian(192, BAR_FLOOR_Y + 26, barPatronWobble + 0.4, 1, false, true);
+        // sipping glass for patron A (rises to "mouth" on a slow cycle)
+        var sipA = Math.max(0, Math.sin(barTime * 0.9)) * 6;
+        ctx.fillStyle = "rgba(178,235,242,0.85)";
+        roundRect(192 + 8, BAR_FLOOR_Y + 14 - sipA, 5, 8, 2); ctx.fill();
+
+        var clinkRaise = barClinkPartnerT > 0 ? 8 : 0;
         drawPedestrian(340, BAR_FLOOR_Y + 26, barPatronWobble + 1.7, 2, false, true);
+        ctx.fillStyle = "rgba(255,224,130,0.9)";
+        roundRect(340 - 12, BAR_FLOOR_Y + 14 - clinkRaise, 5, 8, 2); ctx.fill();
+
+        // A patron sliding off a stool — brief stumble micro-event.
+        if (barStumbleT > 0) {
+            var slide = (1.3 - barStumbleT) / 1.3;          // 0→1
+            ctx.save();
+            ctx.translate(barStumbleX + slide * 14, BAR_FLOOR_Y + 20 + slide * 26);
+            ctx.rotate(slide * 0.7);
+            ctx.fillStyle = "#7E57C2";
+            roundRect(-7, -10, 14, 18, 5); ctx.fill();      // tumbling body
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(0, -14, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            if (slide > 0.3 && slide < 0.45) {
+                drawText("WHOOPS!", barStumbleX, BAR_FLOOR_Y - 6, "bold 11px Arial", "#FFD740", "#000", 3);
+            }
+        }
 
         // A glowing exit door (far right of the floor) for flavor.
         var doorX = W - 24;
@@ -12135,7 +12571,7 @@
         drawText("EXIT", doorX, BAR_FLOOR_Y - 34, "bold 10px Arial", "#69F0AE", "#000", 2);
         ctx.restore();
 
-        // ── Lulu on the floor (walkable / dancing) ──
+        // ── Lulu on the floor (walkable / dancing / idle-sway) ──
         var luluY = BAR_FLOOR_Y + 60;
         ctx.save();
         if (barDanceT > 0) {
@@ -12146,7 +12582,12 @@
             ctx.scale(barLulu.facing, 1);
             drawLuluTopDown(0, 0, barTime * 2.2, "run");
         } else {
-            ctx.translate(barLulu.x, luluY);
+            // idle: gentle sway to the beat when standing still
+            var moving = barLulu.target != null || keys.left || keys.right;
+            var sway = moving ? 0 : Math.sin(barTime * 3) * 0.05;
+            var bobY = moving ? 0 : Math.abs(Math.sin(barTime * 3)) * 1.5;
+            ctx.translate(barLulu.x, luluY - bobY);
+            ctx.rotate(sway);
             ctx.scale(barLulu.facing, 1);
             drawLuluTopDown(0, 0, barLulu.walkTime, "run");
         }
@@ -12156,8 +12597,19 @@
         if (barFlash > 0) {
             ctx.save();
             ctx.globalAlpha = barFlash * 0.18;
-            ctx.fillStyle = "#FF4081";
+            ctx.fillStyle = barFlashColor;
             ctx.fillRect(0, 0, W, H);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // Room-wide L'CHAIM toast banner ripple.
+        if (barToastT > 0) {
+            ctx.save();
+            var ta = Math.min(1, barToastT / 0.4) * Math.min(1, (1.8 - barToastT) / 0.3);
+            ctx.globalAlpha = Math.max(0, ta);
+            var ty = BAR_FLOOR_Y - 90 - (1.8 - barToastT) * 14;
+            drawText("🥂 L'CHAIM! 🥂", W / 2, ty, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFE082", "#5D4037", 5);
             ctx.globalAlpha = 1;
             ctx.restore();
         }
@@ -12235,6 +12687,25 @@
     var schLeaveRect = { x: 0, y: 0, w: 0, h: 0 };
     var schBakeDone = false;     // one-time coin reward latch
     var schFloorY = 0;
+    // ── cached gradients (built once in init) ──
+    var schWallGrad = null, schFloorGrad = null, schShaftGrad = null;
+    // ── precomputed static layout (built once in init) ──
+    var schLockers = [];         // {x,y,w,h,col}
+    var schDrawings = [];        // {x,y,rot,col,kind}
+    var schDesks = [];           // {x,y}
+    var schDust = [];            // dust motes drifting in the sun shaft
+    var schWindows = [];         // {x, w} back-wall windows for sun shafts
+    var schPlanes = [];          // paper airplanes flying by {x,y,vx,vy,t,active}
+    // ── dynamic background kids running across the hall ──
+    var schRunners = [];         // {x, dir, speed, walk, type, chase}
+    var schBell = 6;             // class-bell countdown
+    var schBellFlash = 0;        // glow after the bell rings
+    var schWave = 0;             // wave-of-kids timer after bell
+    var schFlicker = 1;          // fluorescent flicker brightness
+    var schFlickerT = 0;         // time until next flicker re-roll
+    var schPlaneT = 5;           // paper-airplane spawn timer
+    var schPeekT = 0;            // Lulu "peeking into a room" timer
+    var SCH_KIDPAL = ["#1565C0", "#6A1B9A", "#00897B", "#C62828", "#F9A825"];
 
     var SCH_MORAH = [
         "A grown woman? In MY hallway?\nWhere is your hall pass?!",
@@ -12291,7 +12762,26 @@
         "Someone left gum on it again.\nThe eternal cheder mystery.",
         "It's been 'out of order' since\nthe Maccabees, honestly.",
         "Cold water? In THIS school?\nDream bigger, mami.",
-        "*sluuurp* ...okay that's enough\nadventure for one hallway."
+        "*sluuurp* ...okay that's enough\nadventure for one hallway.",
+        "The handle's sticky. Everything\nin a cheder is sticky. It's halacha.",
+        "I filled my water bottle here\nin 2009. Still tastes like 2009."
+    ];
+    // NEW interaction: the hallway clock (always 'almost recess').
+    var SCH_CLOCK = [
+        "Three more minutes till recess.\nIt's been three minutes for an hour.",
+        "This clock runs on cheder time:\nslow before lunch, fast after.",
+        "*tick* *tick* *tick*\nthe sound of childhood, honestly.",
+        "It's exactly 'snack o'clock'.\nIt's ALWAYS snack o'clock here.",
+        "The big hand fell off in '04.\nWe just guess now. Spiritually.",
+        "Davening's in five minutes.\nOr fifty. The clock is shy about it."
+    ];
+    // NEW interaction: the lost-and-found / lockers.
+    var SCH_LOCKER = [
+        "Lost-and-found: forty hats,\nzero owners. A cheder mystery.",
+        "Locker 12 has smelled like a\ntuna sandwich since Chanukah.",
+        "Someone's gym shoe achieved\nsentience in here. Don't open 6.",
+        "A single glove. A yo-yo. A note\nthat says 'sorry morah'. Iconic.",
+        "Whose coat is this? It's been\nhere since the boy GRADUATED."
     ];
 
     function initSchoolInterior() {
@@ -12308,9 +12798,76 @@
             { id: "kid",       x: W * 0.62, y: fy, r: 50, pool: SCH_KID, moving: true },
             { id: "principal", x: W * 0.84, y: schFloorY - 6, r: 60, pool: SCH_PRINCIPAL },
             { id: "bake",      x: W * 0.42, y: fy + 16, r: 58, pool: SCH_BAKE, reward: true },
-            { id: "fountain",  x: W * 0.06, y: schFloorY - 4, r: 46, pool: SCH_FOUNTAIN }
+            { id: "fountain",  x: W * 0.06, y: schFloorY - 4, r: 46, pool: SCH_FOUNTAIN },
+            { id: "clock",     x: W * 0.50, y: 44,            r: 40, pool: SCH_CLOCK },
+            { id: "locker",    x: W - 74,   y: schFloorY - 80, r: 50, pool: SCH_LOCKER }
         ];
+
+        // ── cached gradients ──
+        schWallGrad = ctx.createLinearGradient(0, 0, 0, schFloorY);
+        schWallGrad.addColorStop(0, "#FFF3D6");
+        schWallGrad.addColorStop(0.7, "#FBE9C8");
+        schWallGrad.addColorStop(1, "#F1DDB0");
+        schFloorGrad = ctx.createLinearGradient(0, schFloorY, 0, H);
+        schFloorGrad.addColorStop(0, "#9CCC65");
+        schFloorGrad.addColorStop(1, "#7CB342");
+        schShaftGrad = ctx.createLinearGradient(0, 0, 0, schFloorY);
+        schShaftGrad.addColorStop(0, "rgba(255,249,196,0.42)");
+        schShaftGrad.addColorStop(1, "rgba(255,249,196,0)");
+
+        // ── precompute back-wall windows (sun shafts come through these) ──
+        schWindows = [{ x: W * 0.12, w: 52 }, { x: W * 0.50, w: 52 }, { x: W * 0.70, w: 52 }];
+
+        // ── precompute lockers (right back wall) ──
+        var lcol = ["#42A5F5", "#EF5350", "#66BB6A", "#FFA726", "#AB47BC", "#26C6DA"];
+        schLockers = [];
+        for (var l = 0; l < 6; l++) {
+            schLockers.push({ x: W - 120 + (l % 3) * 44, y: schFloorY - 138 + Math.floor(l / 3) * 70,
+                w: 40, h: 64, col: lcol[l] });
+        }
+
+        // ── precompute taped-up kid drawings ──
+        var dcol = ["#FFCDD2", "#BBDEFB", "#FFF9C4", "#C8E6C9", "#F8BBD0"];
+        schDrawings = [];
+        var dpos = [[18, 60], [W - 168, 56], [W - 200, 150], [W * 0.55, 200], [W * 0.07, 150]];
+        for (var d = 0; d < dpos.length; d++) {
+            schDrawings.push({ x: dpos[d][0], y: dpos[d][1], rot: (d % 2 ? 1 : -1) * 0.08,
+                col: dcol[d % dcol.length], kind: d % 3 });
+        }
+
+        // ── precompute tiny desks ──
+        schDesks = [];
+        for (var dk = 0; dk < 3; dk++) {
+            schDesks.push({ x: 40 + dk * 56, y: schFloorY + 40 + (dk % 2) * 18 });
+        }
+
+        // ── capped dust motes drifting in the sun shafts ──
+        schDust = [];
+        for (var u = 0; u < 26; u++) {
+            var win = schWindows[u % schWindows.length];
+            schDust.push({ x: win.x + rand(-win.w * 0.6, win.w * 0.6), y: rand(0, schFloorY),
+                vy: rand(4, 14), drift: rand(0.4, 1.2), ph: rand(0, 6.28), a: rand(0.2, 0.6) });
+        }
+
+        // ── background runner kids (cross the hall on their own) ──
+        schRunners = [];
+        schRunners.push({ x: -40, dir: 1, speed: rand(70, 110), walk: 0,
+            type: randInt(0, SCH_KIDPAL.length - 1), chase: 0 });
+
+        schPlanes = [];
+        schPlaneT = rand(4, 8);
+        schBell = rand(8, 14); schBellFlash = 0; schWave = 0;
+        schFlicker = 1; schFlickerT = rand(0.5, 2.5);
+        schPeekT = rand(3, 7);
         playClick();
+    }
+
+    // Spawn a kid that runs across the full hallway width.
+    function schSpawnRunner(chase) {
+        var fromLeft = Math.random() < 0.5;
+        schRunners.push({ x: fromLeft ? -40 : W + 40, dir: fromLeft ? 1 : -1,
+            speed: rand(80, 140) * (chase ? 1.25 : 1), walk: 0,
+            type: randInt(0, SCH_KIDPAL.length - 1), chase: chase || 0 });
     }
 
     function schSay(spot) {
@@ -12322,6 +12879,8 @@
         if (spot.id === "kid") playTone(740, 0.08, "triangle", 0.14);
         if (spot.id === "fountain") playTone(520, 0.09, "sine", 0.12, 760);
         if (spot.id === "principal") playTone(330, 0.12, "sine", 0.12);
+        if (spot.id === "clock") playTone(880, 0.06, "triangle", 0.1);
+        if (spot.id === "locker") playTone(220, 0.1, "square", 0.12);
         // Bake-sale gives a one-time coin reward (then just flavor).
         if (spot.reward && !schBakeDone) {
             schBakeDone = true;
@@ -12356,6 +12915,72 @@
         for (var s = 0; s < schSpots.length; s++) {
             if (schSpots[s].moving) schSpots[s].x = schKidX;
         }
+
+        // ── Fluorescent flicker (one cheap re-roll, not per-frame random) ──
+        schFlickerT -= dt;
+        if (schFlickerT <= 0) {
+            schFlicker = Math.random() < 0.25 ? rand(0.55, 0.85) : 1;
+            schFlickerT = schFlicker < 1 ? rand(0.04, 0.12) : rand(0.8, 3.0);
+        }
+
+        // ── Dust motes drift up/down through the sun shafts ──
+        for (var u = 0; u < schDust.length; u++) {
+            var d = schDust[u];
+            d.y += d.vy * dt;
+            d.ph += dt;
+            if (d.y > schFloorY) { d.y = -4; }
+        }
+
+        // ── Class bell rings periodically → a wave of kids crosses ──
+        schBell -= dt;
+        if (schBellFlash > 0) schBellFlash -= dt;
+        if (schBell <= 0) {
+            schBell = rand(11, 18);
+            schBellFlash = 1.2;
+            schWave = 0.9;
+            playTone(1320, 0.13, "square", 0.13);
+            playTone(990, 0.18, "square", 0.1);
+        }
+        if (schWave > 0) {
+            schWave -= dt;
+            if (Math.random() < dt * 6) schSpawnRunner(0);
+        }
+
+        // ── Background runner kids cross the hall (+ occasional chase pair) ──
+        for (var rr = schRunners.length - 1; rr >= 0; rr--) {
+            var R = schRunners[rr];
+            R.x += R.dir * R.speed * dt;
+            R.walk += dt * 6;
+            if (R.x < -60 || R.x > W + 60) schRunners.splice(rr, 1);
+        }
+        if (schRunners.length < 2 && Math.random() < dt * 0.4) {
+            // sometimes two: a chaser right behind a runner
+            schSpawnRunner(0);
+            if (Math.random() < 0.4) {
+                var last = schRunners[schRunners.length - 1];
+                schRunners.push({ x: last.x - last.dir * 46, dir: last.dir,
+                    speed: last.speed * 1.05, walk: 0,
+                    type: randInt(0, SCH_KIDPAL.length - 1), chase: 1 });
+            }
+        }
+
+        // ── Paper airplane flies by occasionally ──
+        schPlaneT -= dt;
+        if (schPlaneT <= 0 && schPlanes.length < 2) {
+            schPlaneT = rand(6, 12);
+            var fl = Math.random() < 0.5;
+            schPlanes.push({ x: fl ? -30 : W + 30, y: rand(70, schFloorY - 40),
+                vx: (fl ? 1 : -1) * rand(150, 220), vy: rand(-10, 10), t: 0 });
+        }
+        for (var pl = schPlanes.length - 1; pl >= 0; pl--) {
+            var P = schPlanes[pl];
+            P.x += P.vx * dt; P.y += P.vy * dt + Math.sin(P.t * 6) * 14 * dt; P.t += dt;
+            if (P.x < -50 || P.x > W + 50) schPlanes.splice(pl, 1);
+        }
+
+        // ── Lulu peeks into rooms periodically when idle ──
+        schPeekT -= dt;
+        if (schPeekT <= 0) schPeekT = rand(4, 9);
 
         // Lulu strolls toward the last tapped x.
         schLulu.x = lerp(schLulu.x, schLulu.targetX, Math.min(1, 9 * dt));
@@ -12452,19 +13077,84 @@
         ctx.restore();
     }
 
+    // A small kid running across the hall (background, no payos detail — cheap).
+    function schDrawRunner(R) {
+        ctx.save(); ctx.translate(R.x, schFloorY + 54);
+        ctx.scale(R.dir, 1);
+        var legS = Math.sin(R.walk) * 6;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath();
+        ctx.ellipse(0, 16, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; roundRect(-5, 2 - legS, 4, 13 + legS, 2); ctx.fill();
+        roundRect(1, 2 + legS, 4, 13 - legS, 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-8, -10, 16, 16, 4); ctx.fill();
+        // little arm pumping
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath();
+        ctx.arc(7 + Math.sin(R.walk) * 3, -2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -18, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = R.chase ? "#C62828" : SCH_KIDPAL[R.type];
+        ctx.beginPath(); ctx.arc(0, -22, 6, Math.PI, Math.PI * 2); ctx.fill(); // kippah
+        ctx.restore();
+    }
+
     function schDrawScene() {
-        // Back wall (warm school cream) + wainscot.
-        ctx.fillStyle = "#FBE9C8"; ctx.fillRect(0, 0, W, schFloorY);
+        // Back wall (warm school cream) + wainscot — cached gradient.
+        ctx.fillStyle = schWallGrad; ctx.fillRect(0, 0, W, schFloorY);
+
+        // Back-wall windows with daylight (behind everything).
+        for (var wi = 0; wi < schWindows.length; wi++) {
+            var wn = schWindows[wi], wx = wn.x - wn.w / 2, wy = 26, wh = 70;
+            ctx.fillStyle = "#BBDEFB"; roundRect(wx, wy, wn.w, wh, 4); ctx.fill();
+            ctx.fillStyle = "#E1F5FE"; roundRect(wx, wy, wn.w, wh * 0.45, 4); ctx.fill();
+            ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(wn.x, wy); ctx.lineTo(wn.x, wy + wh);
+            ctx.moveTo(wx, wy + wh / 2); ctx.lineTo(wx + wn.w, wy + wh / 2); ctx.stroke();
+            ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2; ctx.strokeRect(wx, wy, wn.w, wh);
+        }
+
+        // ── Sun shafts slanting down from the windows (additive-ish glow) ──
+        ctx.save();
+        ctx.globalAlpha = 0.6 * schFlicker;
+        for (var sf = 0; sf < schWindows.length; sf++) {
+            var sw = schWindows[sf];
+            ctx.fillStyle = schShaftGrad;
+            ctx.beginPath();
+            ctx.moveTo(sw.x - sw.w * 0.4, 96);
+            ctx.lineTo(sw.x + sw.w * 0.4, 96);
+            ctx.lineTo(sw.x + sw.w * 0.4 + 60, schFloorY);
+            ctx.lineTo(sw.x - sw.w * 0.4 + 60, schFloorY);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+
+        // ── Dust motes in the light ──
+        ctx.fillStyle = "#FFFDE7";
+        for (var u = 0; u < schDust.length; u++) {
+            var dm = schDust[u];
+            ctx.globalAlpha = dm.a * (0.5 + 0.5 * Math.sin(dm.ph)) * schFlicker;
+            ctx.beginPath();
+            ctx.arc(dm.x + Math.sin(dm.ph) * 6 * dm.drift, dm.y, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Wainscot band.
         ctx.fillStyle = "#E8C98A"; ctx.fillRect(0, schFloorY - 26, W, 26);
         ctx.strokeStyle = "#C8A05A"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(0, schFloorY - 26); ctx.lineTo(W, schFloorY - 26); ctx.stroke();
 
-        // Speckled linoleum floor with perspective tiles.
-        schHospFloorBand(schFloorY, H - schFloorY, "#9CCC65", "#7CB342");
+        // Speckled linoleum floor with perspective tiles — cached gradient.
+        ctx.fillStyle = schFloorGrad; ctx.fillRect(0, schFloorY, W, H - schFloorY);
         ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
         for (var ty = schFloorY + 18; ty < H; ty += 34) {
             ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(W, ty); ctx.stroke();
         }
+
+        // Soft floor reflection of the sun shafts (warm pools of light).
+        ctx.save(); ctx.globalAlpha = 0.18 * schFlicker; ctx.fillStyle = "#FFF59D";
+        for (var rp = 0; rp < schWindows.length; rp++) {
+            ctx.beginPath();
+            ctx.ellipse(schWindows[rp].x + 50, schFloorY + 26, 34, 8, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
 
         // Chalkboard (center back) with aleph-bais + a sum.
         var cbX = W * 0.30, cbY = 70, cbW = 200, cbH = 110;
@@ -12478,38 +13168,67 @@
         ctx.fillStyle = "#FFF"; ctx.fillRect(cbX + 16, cbY + cbH, 14, 4);
         ctx.fillStyle = "#FFCDD2"; ctx.fillRect(cbX + 40, cbY + cbH, 12, 4);
 
-        // Taped-up kid drawings.
-        var draws = [[18, 60], [W - 60, 56], [W - 96, 150]];
-        var dcol = ["#FFCDD2", "#BBDEFB", "#FFF9C4"];
-        for (var d = 0; d < draws.length; d++) {
-            ctx.save(); ctx.translate(draws[d][0], draws[d][1]); ctx.rotate((d % 2 ? 1 : -1) * 0.08);
-            ctx.fillStyle = dcol[d]; ctx.fillRect(0, 0, 38, 30);
+        // Taped-up kid drawings (precomputed positions/colors).
+        for (var d = 0; d < schDrawings.length; d++) {
+            var dr = schDrawings[d];
+            ctx.save(); ctx.translate(dr.x, dr.y); ctx.rotate(dr.rot);
+            ctx.fillStyle = dr.col; ctx.fillRect(0, 0, 38, 30);
             ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1; ctx.strokeRect(0, 0, 38, 30);
-            ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(12, 14, 5, 0, Math.PI * 2); ctx.fill(); // sun
-            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
-            ctx.beginPath(); ctx.arc(26, 18, 4, 0, Math.PI * 2); ctx.moveTo(26, 22); ctx.lineTo(26, 27); ctx.stroke(); // stick kid
+            if (dr.kind === 0) {
+                ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(12, 14, 5, 0, Math.PI * 2); ctx.fill(); // sun
+                ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
+                ctx.beginPath(); ctx.arc(26, 18, 4, 0, Math.PI * 2); ctx.moveTo(26, 22); ctx.lineTo(26, 27); ctx.stroke();
+            } else if (dr.kind === 1) {
+                // a house
+                ctx.fillStyle = "#8D6E63"; ctx.fillRect(10, 14, 18, 12);
+                ctx.fillStyle = "#C62828"; ctx.beginPath();
+                ctx.moveTo(8, 14); ctx.lineTo(19, 6); ctx.lineTo(30, 14); ctx.closePath(); ctx.fill();
+            } else {
+                // a big scribbly heart
+                ctx.fillStyle = "#E91E63";
+                ctx.beginPath(); ctx.arc(14, 14, 4, 0, Math.PI * 2); ctx.arc(22, 14, 4, 0, Math.PI * 2);
+                ctx.moveTo(10, 16); ctx.lineTo(18, 26); ctx.lineTo(26, 16); ctx.closePath(); ctx.fill();
+            }
             // tape
             ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(14, -3, 10, 6);
             ctx.restore();
         }
 
-        // Lockers along the right back wall.
-        var lcol = ["#42A5F5", "#EF5350", "#66BB6A", "#FFA726"];
-        for (var l = 0; l < 4; l++) schDrawLocker(W - 96 + (l % 2) * 44, schFloorY - 130 + Math.floor(l / 2) * 70, 40, 64, lcol[l]);
+        // Lockers along the right back wall (precomputed).
+        for (var l = 0; l < schLockers.length; l++) {
+            var lk = schLockers[l];
+            schDrawLocker(lk.x, lk.y, lk.w, lk.h, lk.col);
+        }
 
-        // Tiny desks scattered up front-left.
-        for (var dk = 0; dk < 3; dk++) {
-            var dxp = 40 + dk * 56, dyp = schFloorY + 40 + (dk % 2) * 18;
+        // Tiny desks scattered up front-left (precomputed).
+        for (var dk = 0; dk < schDesks.length; dk++) {
+            var dxp = schDesks[dk].x, dyp = schDesks[dk].y;
             ctx.fillStyle = "#A1674A"; roundRect(dxp, dyp, 34, 8, 3); ctx.fill();        // desktop
             ctx.fillStyle = "#7B4A2E"; ctx.fillRect(dxp + 3, dyp + 8, 4, 18); ctx.fillRect(dxp + 27, dyp + 8, 4, 18); // legs
             ctx.fillStyle = "#FFF59D"; ctx.fillRect(dxp + 10, dyp - 2, 14, 4);          // notebook
         }
+
+        // ── Hallway clock (ticking, back wall center) ──
+        var clX = W * 0.50, clY = 44;
+        ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(clX, clY, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(schTime - 1.57) * 9, clY + Math.sin(schTime - 1.57) * 9); ctx.stroke();
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(schTime * 0.12 - 1.57) * 6, clY + Math.sin(schTime * 0.12 - 1.57) * 6); ctx.stroke();
+        // tick second hand jumps
+        ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1;
+        var sec = Math.floor(schTime) * 0.5236;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(sec - 1.57) * 12, clY + Math.sin(sec - 1.57) * 12); ctx.stroke();
     }
 
     function drawSchoolInterior() {
         ctx.save();
 
         schDrawScene();
+
+        // ── Background runner kids (behind props/NPCs) ──
+        for (var rk = 0; rk < schRunners.length; rk++) schDrawRunner(schRunners[rk]);
 
         // ── Hotspot NPCs / props ──
         // Water fountain (far left).
@@ -12554,8 +13273,40 @@
         var k = schSpots[1];
         schDrawKid(k.x, k.y, schKidWalk);
 
-        // ── Lulu ──
+        // ── Class bell on the wall (rings periodically, glows when ringing) ──
+        var blX = W * 0.50 + 30, blY = 26;
+        if (schBellFlash > 0) {
+            ctx.save();
+            ctx.globalAlpha = clamp(schBellFlash, 0, 1) * 0.5;
+            ctx.fillStyle = "#FFF176";
+            ctx.beginPath(); ctx.arc(blX, blY, 22 + (1.2 - schBellFlash) * 14, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.arc(blX, blY, 8, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#7F1D1D"; ctx.fillRect(blX - 8, blY, 16, 3);
+        ctx.fillStyle = "#FFCDD2"; ctx.beginPath();
+        ctx.arc(blX + (schBellFlash > 0 ? Math.sin(schTime * 40) * 2 : 0), blY + 3, 2, 0, Math.PI * 2); ctx.fill();
+
+        // ── Paper airplanes ──
+        for (var pa = 0; pa < schPlanes.length; pa++) {
+            var pn = schPlanes[pa];
+            ctx.save(); ctx.translate(pn.x, pn.y);
+            ctx.rotate(Math.atan2(pn.vy, pn.vx) + (pn.vx < 0 ? Math.PI : 0));
+            ctx.scale(pn.vx < 0 ? -1 : 1, 1);
+            ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(12, 0); ctx.lineTo(-12, 5); ctx.lineTo(-6, 0); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+        }
+
+        // ── Lulu (peeks into a room briefly via a tiny "?" thought) ──
         drawLuluTopDown(schLulu.x, schLulu.y, schLulu.walkTime, schLulu.mood);
+        if (schPeekT < 1.2 && Math.abs(schLulu.x - schLulu.targetX) <= 1.5) {
+            ctx.save();
+            ctx.globalAlpha = clamp(schPeekT, 0, 1) * 0.9;
+            drawText("👀", schLulu.x + 14 * schLulu.facing, schLulu.y - 56, "14px Arial", "#FFF", "#000", 2);
+            ctx.restore();
+        }
 
         drawParticles();
 
@@ -12603,6 +13354,31 @@
     var hospFloorY = 0;
     var hospVendShake = 0;       // vending machine wobble timer
     var hospPatientBreath = 0;
+    // ── cached gradients ──
+    var hospWallGrad = null, hospFloorGrad = null, hospLampGrad = null, hospVignette = null;
+    // ── precomputed static layout ──
+    var hospChairs = [];         // {x,y}
+    var hospTilesV = [];         // vertical tile x positions
+    var hospTilesH = [];         // horizontal tile y positions
+    var hospDust = [];           // gentle floating dust
+    var hospFish = [];           // {x,y,vx,col,ph} fish in the tank
+    var hospMags = [];           // magazine rack covers {col,rot}
+    // ── dynamic bits ──
+    var hospVendHum = 0;         // idle hum wobble phase
+    var hospVendIdleT = 3;       // random vending wobble timer
+    var hospNurse = null;        // {x, dir, walk, active, wait}
+    var hospNurseT = 4;          // time until next nurse crossing
+    var hospIvDrip = 0;          // IV drip timer
+    var hospServeNum = 7;        // "now serving" counter
+    var hospServeT = 8;          // ticks the counter
+    var hospServeFlash = 0;
+    var hospAmbT = 5;            // ambulance light flash event timer
+    var hospAmb = 0;             // ambulance flash active timer
+    var hospCough = 0;           // patient cough animation timer
+    var hospCoughT = 3;          // time until next cough
+    var hospTvFrame = 0;         // TV content index
+    var hospTvT = 2;             // TV channel-change timer
+    var hospLuluShift = 0;       // Lulu seat-shift wiggle phase
 
     var HOSP_RECEPTION = [
         "Do you have insurance?\n...A coupon? A blessing? Anything?",
@@ -12663,7 +13439,27 @@
         "They gave me a lollipop AND\na sling. Best day ever, honestly.",
         "Don't tell Ma I dove off the\nhigh board. ...She's behind me, isn't she.",
         "I'm 'between strokes', the doctor\nsaid. I don't even SWIM strokes!",
-        "The deep end disrespected me.\nWe have BEEF now. Me and the deep end."
+        "The deep end disrespected me.\nWe have BEEF now. Me and the deep end.",
+        "The X-ray guy said 'wow'.\nYou never want the X-ray guy to say 'wow'.",
+        "I'm getting a cast! Sign it?\nDraw something kosher. No goats."
+    ];
+    // NEW interaction: the fish tank in the corner.
+    var HOSP_FISH = [
+        "This fish has been to more\nappointments than I have.",
+        "They named him Dr. Gills.\nHe's the most qualified one here.",
+        "*blub* ...he's judging you.\nFish are very judgmental, mami.",
+        "The tank's the only thing in here\nwith good circulation. Lucky guy.",
+        "One fish. Big tank. Living the\ndream the rest of us only WAIT for.",
+        "He saw what's in that vending\nmachine. He's seen things, Lu."
+    ];
+    // NEW interaction: the waiting-room TV / magazine rack.
+    var HOSP_TV = [
+        "It's the news on mute, forever.\nSubtitles two minutes behind. Art.",
+        "A cooking show with no sound.\nI THINK that's a brisket. Pray it is.",
+        "Channel's stuck on the weather.\nIt's 'partly oy' with a chance of wait.",
+        "The remote vanished in 2011.\nWe watch what HaShem decides now.",
+        "Daytime TV: where everyone's\ncousin is somehow also their lawyer.",
+        "The magazines are from 2006.\nGreat news! The economy's gonna be FINE."
     ];
 
     function initHospitalInterior() {
@@ -12678,8 +13474,65 @@
             { id: "patient",   x: W * 0.18, y: fy,            r: 50, pool: HOSP_PATIENT },
             { id: "doctor",    x: W * 0.82, y: fy - 6,        r: 52, pool: HOSP_DOCTOR },
             { id: "vending",   x: W * 0.90, y: hospFloorY - 6, r: 50, pool: HOSP_VEND, vend: true },
-            { id: "heshy",     x: W * 0.34, y: fy + 18,       r: 48, pool: HOSP_HESHY, reward: true }
+            { id: "heshy",     x: W * 0.34, y: fy + 18,       r: 48, pool: HOSP_HESHY, reward: true },
+            { id: "fish",      x: W * 0.66, y: hospFloorY - 36, r: 42, pool: HOSP_FISH },
+            { id: "tv",        x: W * 0.14, y: 120,           r: 46, pool: HOSP_TV }
         ];
+
+        // ── cached gradients ──
+        hospWallGrad = ctx.createLinearGradient(0, 0, 0, hospFloorY);
+        hospWallGrad.addColorStop(0, "#EAF6F5");
+        hospWallGrad.addColorStop(0.6, "#E0F2F1");
+        hospWallGrad.addColorStop(1, "#CDE9E6");
+        hospFloorGrad = ctx.createLinearGradient(0, hospFloorY, 0, H);
+        hospFloorGrad.addColorStop(0, "#ECEFF1");
+        hospFloorGrad.addColorStop(1, "#CFD8DC");
+        // warm reception lamp glow (radial, centered over the desk)
+        hospLampGrad = ctx.createRadialGradient(W * 0.50, hospFloorY - 60, 8, W * 0.50, hospFloorY - 60, 150);
+        hospLampGrad.addColorStop(0, "rgba(255,224,130,0.45)");
+        hospLampGrad.addColorStop(1, "rgba(255,224,130,0)");
+        // cool sterile vignette
+        hospVignette = ctx.createRadialGradient(W / 2, hospFloorY * 0.5, hospFloorY * 0.4, W / 2, hospFloorY * 0.5, W * 0.7);
+        hospVignette.addColorStop(0, "rgba(176,210,224,0)");
+        hospVignette.addColorStop(1, "rgba(120,160,180,0.22)");
+
+        // ── precompute chairs ──
+        hospChairs = [];
+        for (var c = 0; c < 4; c++) hospChairs.push({ x: W * 0.10 + c * 64, y: hospFloorY + 70 });
+
+        // ── precompute floor tile lines ──
+        hospTilesV = []; hospTilesH = [];
+        for (var tx = 40; tx < W; tx += 60) hospTilesV.push(tx);
+        for (var tyy = hospFloorY + 28; tyy < H; tyy += 32) hospTilesH.push(tyy);
+
+        // ── capped floating dust ──
+        hospDust = [];
+        for (var u = 0; u < 18; u++) {
+            hospDust.push({ x: rand(0, W), y: rand(0, hospFloorY), vy: rand(-6, 6),
+                vx: rand(-5, 5), ph: rand(0, 6.28), a: rand(0.15, 0.4) });
+        }
+
+        // ── precompute fish-tank fish ──
+        hospFish = [];
+        var fcol = ["#FF7043", "#FFB300", "#42A5F5"];
+        for (var fi = 0; fi < 3; fi++) {
+            hospFish.push({ x: rand(0.2, 0.8), y: rand(0.25, 0.75), vx: (fi % 2 ? 1 : -1) * rand(0.1, 0.22),
+                col: fcol[fi], ph: rand(0, 6.28) });
+        }
+
+        // ── precompute magazine rack covers ──
+        hospMags = [];
+        var mcol = ["#EF5350", "#42A5F5", "#FFCA28", "#66BB6A"];
+        for (var mg = 0; mg < 4; mg++) hospMags.push({ col: mcol[mg], rot: rand(-0.12, 0.12) });
+
+        hospVendHum = 0; hospVendIdleT = rand(2, 5);
+        hospNurse = null; hospNurseT = rand(4, 8);
+        hospIvDrip = 0;
+        hospServeNum = randInt(5, 30); hospServeT = rand(6, 11); hospServeFlash = 0;
+        hospAmbT = rand(4, 9); hospAmb = 0;
+        hospCough = 0; hospCoughT = rand(2.5, 5);
+        hospTvFrame = 0; hospTvT = rand(2, 4);
+        hospLuluShift = 0;
         playClick();
     }
 
@@ -12691,6 +13544,8 @@
         if (spot.id === "reception") playTone(440, 0.08, "sine", 0.1);
         if (spot.id === "patient") playTone(620, 0.07, "triangle", 0.12);
         if (spot.id === "doctor") playTone(330, 0.1, "sine", 0.12);
+        if (spot.id === "fish") playTone(700, 0.07, "sine", 0.09, 480);
+        if (spot.id === "tv") playTone(280, 0.06, "square", 0.08);
 
         // Vending machine: 60% gives a snack (+coins), 40% eats a coin (gag).
         if (spot.vend) {
@@ -12738,6 +13593,83 @@
         if (hospBubbleT > 0) hospBubbleT -= dt;
         if (hospVendShake > 0) hospVendShake -= dt;
         hospPatientBreath += dt * 2;
+        hospVendHum += dt;
+        hospLuluShift += dt;
+
+        // ── Vending machine hums & occasionally wobbles on its own ──
+        hospVendIdleT -= dt;
+        if (hospVendIdleT <= 0) {
+            hospVendIdleT = rand(4, 9);
+            hospVendShake = Math.max(hospVendShake, 0.4);
+            playTone(110, 0.12, "sawtooth", 0.06);
+        }
+
+        // ── Floating dust ──
+        for (var u = 0; u < hospDust.length; u++) {
+            var dm = hospDust[u];
+            dm.x += dm.vx * dt; dm.y += dm.vy * dt; dm.ph += dt;
+            if (dm.y < 0) dm.y = hospFloorY; else if (dm.y > hospFloorY) dm.y = 0;
+            if (dm.x < 0) dm.x = W; else if (dm.x > W) dm.x = 0;
+        }
+
+        // ── Fish swim around the tank ──
+        for (var fi = 0; fi < hospFish.length; fi++) {
+            var F = hospFish[fi];
+            F.x += F.vx * dt; F.ph += dt;
+            if (F.x < 0.12) { F.x = 0.12; F.vx = Math.abs(F.vx); }
+            if (F.x > 0.88) { F.x = 0.88; F.vx = -Math.abs(F.vx); }
+        }
+
+        // ── IV drip drips (spawns a tiny falling bead occasionally) ──
+        hospIvDrip -= dt;
+        if (hospIvDrip <= 0) {
+            hospIvDrip = rand(0.8, 1.6);
+            particles.push({ x: W * 0.74, y: hospFloorY - 64, vx: 0, vy: 20, life: 0.7, maxLife: 0.7,
+                size: 2, color: "#4FC3F7", gravity: 120 });
+        }
+
+        // ── Nurse crosses with a clipboard ──
+        hospNurseT -= dt;
+        if (!hospNurse && hospNurseT <= 0) {
+            hospNurseT = rand(7, 13);
+            var fromL = Math.random() < 0.5;
+            hospNurse = { x: fromL ? -30 : W + 30, dir: fromL ? 1 : -1, walk: 0 };
+        }
+        if (hospNurse) {
+            hospNurse.x += hospNurse.dir * 90 * dt;
+            hospNurse.walk += dt * 6;
+            if (hospNurse.x < -50 || hospNurse.x > W + 50) hospNurse = null;
+        }
+
+        // ── "Now serving" counter ticks up ──
+        if (hospServeFlash > 0) hospServeFlash -= dt;
+        hospServeT -= dt;
+        if (hospServeT <= 0) {
+            hospServeT = rand(7, 13);
+            hospServeNum++;
+            hospServeFlash = 0.8;
+            playTone(880, 0.07, "sine", 0.1);
+            playTone(660, 0.1, "sine", 0.08);
+        }
+
+        // ── Ambulance light flashes through the window ──
+        hospAmbT -= dt;
+        if (hospAmb > 0) hospAmb -= dt;
+        if (hospAmbT <= 0) { hospAmbT = rand(9, 16); hospAmb = 2.4; }
+
+        // ── Hypochondriac coughs/fidgets ──
+        if (hospCough > 0) hospCough -= dt;
+        hospCoughT -= dt;
+        if (hospCoughT <= 0) {
+            hospCoughT = rand(3, 6);
+            hospCough = 0.5;
+            playTone(220, 0.09, "square", 0.08);
+            playTone(180, 0.12, "square", 0.06);
+        }
+
+        // ── TV channel content cycles ──
+        hospTvT -= dt;
+        if (hospTvT <= 0) { hospTvT = rand(2.5, 5); hospTvFrame = (hospTvFrame + 1) % 4; }
 
         hospLulu.x = lerp(hospLulu.x, hospLulu.targetX, Math.min(1, 9 * dt));
         if (Math.abs(hospLulu.x - hospLulu.targetX) > 1.5) {
@@ -12844,16 +13776,48 @@
     }
 
     function hospDrawScene() {
-        // Clinic wall (clean mint) + a colored stripe.
-        ctx.fillStyle = "#E0F2F1"; ctx.fillRect(0, 0, W, hospFloorY);
+        // Clinic wall (clean mint) — cached gradient — + a colored stripe.
+        ctx.fillStyle = hospWallGrad; ctx.fillRect(0, 0, W, hospFloorY);
+
+        // ── Ambulance light flashing through a back window (left of center) ──
+        var winX = W * 0.30, winY = 18, winW = 70, winH = 54;
+        ctx.fillStyle = "#37474F"; roundRect(winX - 3, winY - 3, winW + 6, winH + 6, 4); ctx.fill();
+        ctx.fillStyle = "#1A2530"; roundRect(winX, winY, winW, winH, 3); ctx.fill(); // night outside
+        // distant building dots
+        ctx.fillStyle = "#455A64";
+        ctx.fillRect(winX + 8, winY + 28, 12, 26); ctx.fillRect(winX + 26, winY + 18, 14, 36);
+        ctx.fillRect(winX + 46, winY + 24, 12, 30);
+        ctx.fillStyle = "#FFF59D"; ctx.fillRect(winX + 30, winY + 24, 4, 4); ctx.fillRect(winX + 50, winY + 30, 3, 3);
+        if (hospAmb > 0) {
+            var amb = (Math.sin(hospTime * 14) > 0) ? "rgba(244,67,54,0.5)" : "rgba(33,150,243,0.5)";
+            ctx.save(); ctx.globalAlpha = clamp(hospAmb, 0, 1);
+            ctx.fillStyle = amb; roundRect(winX, winY, winW, winH, 3); ctx.fill();
+            // beam spilling into the room
+            ctx.globalAlpha = clamp(hospAmb, 0, 1) * 0.3;
+            ctx.fillStyle = amb; ctx.beginPath();
+            ctx.moveTo(winX, winY + winH); ctx.lineTo(winX + winW, winY + winH);
+            ctx.lineTo(winX + winW + 40, hospFloorY); ctx.lineTo(winX - 40, hospFloorY); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(winX + winW / 2, winY); ctx.lineTo(winX + winW / 2, winY + winH); ctx.stroke();
+
         ctx.fillStyle = "#26A69A"; ctx.fillRect(0, hospFloorY - 30, W, 8);
         ctx.fillStyle = "#B2DFDB"; ctx.fillRect(0, hospFloorY - 22, W, 22);
 
-        // Speckled tile floor.
-        schHospFloorBand(hospFloorY, H - hospFloorY, "#ECEFF1", "#CFD8DC");
+        // Speckled tile floor — cached gradient + precomputed tile lines.
+        ctx.fillStyle = hospFloorGrad; ctx.fillRect(0, hospFloorY, W, H - hospFloorY);
         ctx.strokeStyle = "rgba(120,144,156,0.35)"; ctx.lineWidth = 1;
-        for (var tx = 40; tx < W; tx += 60) { ctx.beginPath(); ctx.moveTo(tx, hospFloorY); ctx.lineTo(tx + (tx - W / 2) * 0.4, H); ctx.stroke(); }
-        for (var tyy = hospFloorY + 28; tyy < H; tyy += 32) { ctx.beginPath(); ctx.moveTo(0, tyy); ctx.lineTo(W, tyy); ctx.stroke(); }
+        for (var iv = 0; iv < hospTilesV.length; iv++) {
+            var tvx = hospTilesV[iv];
+            ctx.beginPath(); ctx.moveTo(tvx, hospFloorY); ctx.lineTo(tvx + (tvx - W / 2) * 0.4, H); ctx.stroke();
+        }
+        for (var ih = 0; ih < hospTilesH.length; ih++) {
+            ctx.beginPath(); ctx.moveTo(0, hospTilesH[ih]); ctx.lineTo(W, hospTilesH[ih]); ctx.stroke();
+        }
+
+        // Warm reception lamp glow pooled over the desk.
+        ctx.fillStyle = hospLampGrad; ctx.fillRect(0, 0, W, hospFloorY + 40);
 
         // Red cross sign + clock on the back wall.
         ctx.fillStyle = "#FFFFFF"; roundRect(20, 16, 46, 46, 8); ctx.fill();
@@ -12898,6 +13862,129 @@
         ctx.beginPath(); ctx.arc(r.x - 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.arc(r.x + 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
         ctx.beginPath(); ctx.moveTo(r.x - 3, r.y - 21); ctx.lineTo(r.x + 3, r.y - 21); ctx.stroke(); // flat unimpressed mouth
         ctx.lineCap = "butt";
+
+        // ── "NOW SERVING" counter above the desk ──
+        var nsX = r.x, nsY = r.y - 92;
+        ctx.fillStyle = "#212121"; roundRect(nsX - 44, nsY - 12, 88, 24, 4); ctx.fill();
+        drawText("NOW SERVING", nsX - 16, nsY - 1, "bold 7px Arial", "#80CBC4", null, 0);
+        var nsCol = hospServeFlash > 0 ? "#FF5252" : "#FF7043";
+        drawText("#" + hospServeNum, nsX + 28, nsY + 2, "bold 14px 'Courier New', monospace", nsCol, null, 0);
+    }
+
+    // Wall-mounted waiting-room TV (muted, content cycles).
+    function hospDrawTV(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "#212121"; roundRect(-30, -22, 60, 44, 4); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2; roundRect(-30, -22, 60, 44, 4); ctx.stroke();
+        // mount arm
+        ctx.fillStyle = "#455A64"; ctx.fillRect(-3, -34, 6, 12);
+        // screen content by frame
+        var f = hospTvFrame;
+        if (f === 0) { // news with lower-third
+            ctx.fillStyle = "#1565C0"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#FFCA28"; ctx.beginPath(); ctx.arc(0, -4, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#E53935"; ctx.fillRect(-26, 8, 52, 10);
+            ctx.fillStyle = "#FFF"; ctx.fillRect(-23, 11, 30, 3);
+        } else if (f === 1) { // cooking show
+            ctx.fillStyle = "#FFE0B2"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#8D6E63"; ctx.fillRect(-14, 2, 28, 10);
+            ctx.fillStyle = "#A1674A"; ctx.beginPath(); ctx.arc(0, 2, 8, Math.PI, Math.PI * 2); ctx.fill();
+        } else if (f === 2) { // weather map
+            ctx.fillStyle = "#0D47A1"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#90CAF9"; ctx.fillRect(-18, -10, 36, 22);
+            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(10, -2, 5, 0, Math.PI * 2); ctx.fill();
+        } else { // static / snow
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "rgba(255,255,255,0.6)";
+            for (var s = 0; s < 14; s++) {
+                ctx.fillRect(-24 + ((s * 37 + hospTvFrame * 11) % 48), -16 + ((s * 53) % 32), 2, 2);
+            }
+        }
+        // glow flicker
+        ctx.fillStyle = "rgba(180,210,255," + (0.06 + 0.04 * Math.sin(hospTime * 9)) + ")";
+        ctx.fillRect(-26, -18, 52, 36);
+        ctx.restore();
+    }
+
+    // Corner fish tank (a hotspot prop).
+    function hospDrawFishTank(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        var w = 64, h = 44;
+        // stand
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(-w / 2 - 2, h / 2, w + 4, 14);
+        // water
+        ctx.fillStyle = "#4DD0E1"; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.18)"; roundRect(-w / 2, -h / 2, w, h * 0.4, 4); ctx.fill();
+        // gravel
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(-w / 2, h / 2 - 6, w, 6);
+        // plants
+        ctx.strokeStyle = "#388E3C"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-18, h / 2 - 6); ctx.quadraticCurveTo(-22, 0, -16, -8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(18, h / 2 - 6); ctx.quadraticCurveTo(22, 2, 14, -6); ctx.stroke();
+        ctx.lineCap = "butt";
+        // fish (precomputed, drifting)
+        for (var fi = 0; fi < hospFish.length; fi++) {
+            var F = hospFish[fi];
+            var fx = -w / 2 + F.x * w, fy = -h / 2 + F.y * h + Math.sin(F.ph) * 2;
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(F.vx < 0 ? -1 : 1, 1);
+            ctx.fillStyle = F.col; ctx.beginPath(); ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-9, -3); ctx.lineTo(-9, 3); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(3, -1, 0.8, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        // bubbles
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        for (var bb = 0; bb < 3; bb++) {
+            var by = (h / 2 - 6) - ((hospTime * 18 + bb * 16) % (h - 8));
+            ctx.beginPath(); ctx.arc(-12 + Math.sin(hospTime * 3 + bb) * 2, by, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        // glass frame
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2; roundRect(-w / 2, -h / 2, w, h, 4); ctx.stroke();
+        ctx.restore();
+    }
+
+    // IV drip pole (ambient prop, drips handled in update).
+    function hospDrawIvPole(x) {
+        var topY = hospFloorY - 86, botY = hospFloorY + 4;
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, botY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 8, topY); ctx.lineTo(x + 8, topY); ctx.stroke();
+        // bag
+        ctx.fillStyle = "rgba(178,235,233,0.85)"; roundRect(x + 2, topY + 2, 14, 22, 4); ctx.fill();
+        ctx.strokeStyle = "#80CBC4"; ctx.lineWidth = 1; roundRect(x + 2, topY + 2, 14, 22, 4); ctx.stroke();
+        // wheels
+        ctx.fillStyle = "#607D8B"; ctx.beginPath(); ctx.arc(x - 6, botY, 3, 0, Math.PI * 2); ctx.arc(x + 6, botY, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Magazine rack near the chairs.
+    function hospDrawMagRack(x, y) {
+        ctx.fillStyle = "#90A4AE"; roundRect(x - 22, y, 44, 6, 2); ctx.fill();
+        ctx.fillStyle = "#607D8B"; ctx.fillRect(x - 20, y + 6, 3, 16); ctx.fillRect(x + 17, y + 6, 3, 16);
+        for (var m = 0; m < hospMags.length; m++) {
+            ctx.save(); ctx.translate(x - 16 + m * 10, y - 8); ctx.rotate(hospMags[m].rot);
+            ctx.fillStyle = hospMags[m].col; roundRect(-5, -12, 10, 16, 1); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(-3, -9, 6, 2);
+            ctx.restore();
+        }
+    }
+
+    // Nurse crossing with a clipboard.
+    function hospDrawNurse(N) {
+        ctx.save(); ctx.translate(N.x, hospFloorY + 50); ctx.scale(N.dir, 1);
+        var legS = Math.sin(N.walk) * 5;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(0, 22, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#26A69A"; roundRect(-5, 6 - legS, 5, 16 + legS, 2); ctx.fill();
+        roundRect(1, 6 + legS, 5, 16 - legS, 2); ctx.fill();
+        ctx.fillStyle = "#4DB6AC"; roundRect(-11, -12, 22, 22, 6); ctx.fill();  // scrub top
+        // clipboard
+        ctx.fillStyle = "#FFF"; roundRect(8, -4, 9, 12, 1); ctx.fill();
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 1; roundRect(8, -4, 9, 12, 1); ctx.stroke();
+        // head + cap
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -22, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6D4C41"; ctx.beginPath(); ctx.arc(0, -25, 10, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; roundRect(-7, -30, 14, 6, 2); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-1, -29, 2, 4); ctx.fillRect(-2, -28, 4, 2);
+        ctx.restore();
     }
 
     function hospDrawVending(x, y, shake) {
@@ -12929,8 +14016,29 @@
 
         hospDrawScene();
 
-        // Plastic waiting-room chairs in a row up front.
-        for (var c = 0; c < 4; c++) hospDrawChair(W * 0.10 + c * 64, hospFloorY + 70);
+        // Wall TV (back-left) + fish tank (mid-right) — ambient hotspots.
+        var tv = hospSpots[6];
+        hospDrawTV(tv.x, tv.y);
+        var fishT = hospSpots[5];
+        hospDrawFishTank(fishT.x, fishT.y);
+
+        // IV pole near the doctor's side.
+        hospDrawIvPole(W * 0.74);
+
+        // Plastic waiting-room chairs in a row up front (precomputed).
+        for (var c = 0; c < hospChairs.length; c++) hospDrawChair(hospChairs[c].x, hospChairs[c].y);
+
+        // Magazine rack tucked by the chairs.
+        hospDrawMagRack(W * 0.10 + 4 * 64 + 10, hospFloorY + 64);
+
+        // ── Floating dust motes (between props and NPCs) ──
+        ctx.save(); ctx.fillStyle = "#FFFFFF";
+        for (var u = 0; u < hospDust.length; u++) {
+            var dm = hospDust[u];
+            ctx.globalAlpha = dm.a * (0.5 + 0.5 * Math.sin(dm.ph));
+            ctx.beginPath(); ctx.arc(dm.x, dm.y, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
 
         // Vending machine (far right).
         var v = hospSpots[3];
@@ -12940,16 +14048,31 @@
         var dr = hospSpots[2];
         hospDrawDoctor(dr.x, dr.y, hospTime);
 
-        // Nervous patient (left, on a chair).
+        // Nervous patient (left, on a chair) — coughs/leans forward periodically.
         var pt = hospSpots[1];
+        var cough = hospCough > 0 ? clamp(hospCough * 2, 0, 1) : 0;
+        ctx.save(); ctx.translate(0, cough * 3);
         hospDrawPatient(pt.x, pt.y, hospPatientBreath);
+        if (cough > 0) {
+            ctx.globalAlpha = cough * 0.8;
+            drawText("*kof kof*", pt.x + 24, pt.y - 40, "italic 10px Arial", "#90A4AE", "#FFF", 2);
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
 
         // Heshy with pool injury (mid-left).
         var he = hospSpots[4];
         hospDrawHeshy(he.x, he.y, hospTime);
 
-        // Lulu.
+        // Nurse crossing with a clipboard (in front of the chairs).
+        if (hospNurse) hospDrawNurse(hospNurse);
+
+        // Lulu (shifts in her waiting chair when idle).
+        var idle = Math.abs(hospLulu.x - hospLulu.targetX) <= 1.5;
+        ctx.save();
+        if (idle) ctx.translate(Math.sin(hospLuluShift * 1.4) * 1.5, 0);
         drawLuluTopDown(hospLulu.x, hospLulu.y, hospLulu.walkTime, hospLulu.mood);
+        ctx.restore();
 
         drawParticles();
 
@@ -12958,6 +14081,9 @@
             drawSpeechBubble(hospBubbleX, hospFloorY + 26, hospBubble, hospTime * 4);
             ctx.globalAlpha = 1;
         }
+
+        // Cool sterile vignette over the whole room (cached gradient).
+        ctx.fillStyle = hospVignette; ctx.fillRect(0, 0, W, H);
 
         ctx.restore();
 
@@ -13019,16 +14145,63 @@
     var polLeaveRect = null;
     var polCopMunch = 0;          // donut chew animation
     var polPerpBlink = 0;
+    var polPerpPace = 0;          // perp paces side-to-side / rattles bars
     var polFan = 0;               // ceiling-fan spin
     var polConfettiSpawned = false;
+    var polLuluFidget = 0;        // Lulu idle look-around timer
+    // — cached / precomputed (built once in init) —
+    var polWallGrad = null, polFloorGrad = null;
+    var polTiles = [];            // {x,y,w,h} static checker tiles
+    var polPhoneT = 0;            // desk phone ringing phase (>0 = ringing)
+    var polPhoneCool = 0;         // cooldown before next ring
+    var polFlick = 1;             // WANTED-board flicker brightness
+    var polFlickT = 0;
+    var polSteamCool = 0;         // throttle coffee-steam particle spawns
+    // micro-events (radio dispatch / perp hauled past)
+    var polEventT = 0, polEventCool = 0, polEventKind = 0;
+    var polEventX = 0;            // x of the hauled-perp procession
+    var polDispatch = "";         // radio crackle text
+    var POL_DISPATCH = [
+        "📻 *kkrrt* ...10-91, loose goat on Route 6...",
+        "📻 *kkrrt* ...be advised, babka heist in progress...",
+        "📻 *kkrrt* ...all units, double-parked minivan, code MOM...",
+        "📻 *kkrrt* ...suspect described as tall, hairy, polite...",
+        "📻 *kkrrt* ...possible 10-56, man overboard at Shtrand...",
+        "📻 *kkrrt* ...requesting backup, the donuts are GONE...",
+        "📻 *kkrrt* ...Heshy sighting near the kiddie pool, again..."
+    ];
 
     function initPoliceInterior() {
         polTime = 0;
         polFloorY = H - SAFE_BOTTOM - 120;
         polLuluX = 90; polLuluTargetX = 90; polWalkT = 0; polFacing = 1;
         polBubble = ""; polBubbleT = 0;
-        polCopMunch = 0; polPerpBlink = rand(0, 4); polFan = 0;
+        polCopMunch = 0; polPerpBlink = rand(0, 4); polPerpPace = 0; polFan = 0;
         polConfettiSpawned = false;
+        polLuluFidget = rand(0, 3);
+        polPhoneT = 0; polPhoneCool = rand(4, 8);
+        polFlick = 1; polFlickT = 0; polSteamCool = 0;
+        polEventT = 0; polEventCool = rand(6, 11); polEventKind = 0; polEventX = 0;
+        polDispatch = "";
+
+        // cache gradients ONCE
+        polWallGrad = ctx.createLinearGradient(0, 0, 0, polFloorY);
+        polWallGrad.addColorStop(0, "#3E5871");
+        polWallGrad.addColorStop(1, "#56789B");
+        polFloorGrad = ctx.createLinearGradient(0, polFloorY, 0, H - SAFE_BOTTOM);
+        polFloorGrad.addColorStop(0, "#9AA7B3");
+        polFloorGrad.addColorStop(1, "#7C8A98");
+
+        // precompute checker-tile rects (no per-frame loop math)
+        polTiles = [];
+        for (var ty = 0; ty < 8; ty++) {
+            for (var tx = -1; tx < 12; tx++) {
+                if ((tx + ty) % 2 === 0) {
+                    var ts = 28 + ty * 5;
+                    polTiles.push({ x: tx * ts, y: polFloorY + ty * 11, w: ts, h: 11 });
+                }
+            }
+        }
 
         polSpots = [
             {
@@ -13046,7 +14219,10 @@
                     "Crime's down 2% since I started napping at noon.",
                     "Your bubbe called. Twice. She says EAT.",
                     "No I will NOT 'just this once' waive the fee.",
-                    "Press 1 for impound, 2 for snacks, 3 to hear this again."
+                    "Press 1 for impound, 2 for snacks, 3 to hear this again.",
+                    "*phone rings* Precinct 18½, you bend it you mend it.",
+                    "Coffee's free, justice is not, and the donut is mine.",
+                    "We're understaffed. It's me, the fan, and a confused perp."
                 ]
             },
             {
@@ -13065,7 +14241,11 @@
                     "They call me 'The Schmear.' I don't know why. (I do.)",
                     "Three squares a day and they're all bagels. No complaints.",
                     "You bring snacks? No? Worst rescue ever.",
-                    "I'd shake your hand but, y'know. Bars. Boundaries."
+                    "I'd shake your hand but, y'know. Bars. Boundaries.",
+                    "*rattles bars* These? Decorative. The shame's the real cage.",
+                    "I've counted these bars 400 times. There are eight. Eight!",
+                    "Pacing's my cardio now. Six steps left, six steps right.",
+                    "Tell the cop I want my one call. To complain about the bagels."
                 ]
             },
             {
@@ -13110,6 +14290,17 @@
                     "\"I parked in the rabbi's spot.\" Cop: \"...new charges.\"",
                     "You confess. The cop yawns. Justice is exhausting."
                 ]
+            },
+            {
+                id: "fan", x: 250, r: 38, rewarded: false, reward: false,
+                label: "Ceiling Fan", _last: -1,
+                lines: [
+                    "The fan squeaks once per rotation. It's almost music.",
+                    "It's been spinning since 1987. Don't ask, no one knows.",
+                    "Best AC in the building. The ONLY AC in the building.",
+                    "It wobbles like it's nervous. Same, fan. Same.",
+                    "A paper airplane's been stuck up there for a year."
+                ]
             }
         ];
     }
@@ -13118,8 +14309,47 @@
         polTime += dt;
         polCopMunch += dt * 6;
         polPerpBlink += dt;
+        polPerpPace += dt * 1.4;
         polFan += dt * 5;
+        polLuluFidget -= dt;
+        if (polLuluFidget < 0) polLuluFidget = rand(2.5, 5);
         if (polBubbleT > 0) polBubbleT -= dt;
+
+        // flickering WANTED board (fluorescent buzz)
+        polFlickT -= dt;
+        if (polFlickT <= 0) {
+            polFlickT = rand(0.06, 0.5);
+            polFlick = (rand(0, 1) < 0.18) ? rand(0.45, 0.7) : rand(0.92, 1);
+        }
+
+        // desk phone ring cycle
+        if (polPhoneT > 0) {
+            polPhoneT -= dt;
+            if (polPhoneT <= 0) polPhoneCool = rand(6, 12);
+        } else {
+            polPhoneCool -= dt;
+            if (polPhoneCool <= 0) { polPhoneT = rand(2, 3.5); playTone(1180, 0.1, "square", 0.05, 0); }
+        }
+
+        // periodic micro-event: radio dispatch crackle OR perp hauled past
+        if (polEventT > 0) {
+            polEventT -= dt;
+            if (polEventKind === 2) polEventX += 70 * dt; // procession crosses back hall
+            if (polEventT <= 0) { polEventCool = rand(8, 14); polDispatch = ""; }
+        } else {
+            polEventCool -= dt;
+            if (polEventCool <= 0) {
+                polEventKind = (rand(0, 1) < 0.55) ? 1 : 2;
+                if (polEventKind === 1) {
+                    polEventT = 3.2;
+                    polDispatch = randPick(POL_DISPATCH);
+                    playTone(620, 0.08, "square", 0.05, 760);
+                } else {
+                    polEventT = 4.5; polEventX = -60;
+                    playTone(300, 0.15, "sawtooth", 0.05, 220);
+                }
+            }
+        }
 
         var bottom = H - SAFE_BOTTOM;
         polLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
@@ -13199,27 +14429,72 @@
         var bottom = H - SAFE_BOTTOM;
         var floorY = polFloorY;
 
-        // ── back wall ───────────────────────────────────────────
-        var wallGrad = ctx.createLinearGradient(0, 0, 0, floorY);
-        wallGrad.addColorStop(0, "#3E5871");
-        wallGrad.addColorStop(1, "#56789B");
-        ctx.fillStyle = wallGrad;
+        // ── back wall (cached gradient) ─────────────────────────
+        ctx.fillStyle = polWallGrad;
         ctx.fillRect(0, 0, W, floorY);
+
+        // back hallway depth: a darker recessed doorway mid-wall + a
+        // second cop crossing behind it (gives the lobby a "behind")
+        var hallX = W / 2 + 70, hallW = 90, hallTop = 40, hallBot = floorY - 26;
+        ctx.fillStyle = "#22323F";
+        ctx.fillRect(hallX, hallTop, hallW, hallBot - hallTop);
+        ctx.fillStyle = "#1A2730";
+        ctx.fillRect(hallX, hallTop, hallW, 6); // lintel shadow
+        // faint depth lines (perspective)
+        ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(hallX, hallTop); ctx.lineTo(hallX + 14, hallTop + 14);
+        ctx.moveTo(hallX + hallW, hallTop); ctx.lineTo(hallX + hallW - 14, hallTop + 14);
+        ctx.stroke();
+        // a second cop silhouette crossing the back hall
+        var bcX = hallX + 18 + (Math.sin(polTime * 0.5) * 0.5 + 0.5) * (hallW - 36);
+        ctx.save();
+        ctx.translate(bcX, hallBot - 8);
+        var bcW = (Math.sin(polTime * 7) > 0) ? 1 : -1;
+        ctx.fillStyle = "#16222B";
+        roundRect(-7, -34, 14, 26, 5); ctx.fill();            // body
+        ctx.beginPath(); ctx.arc(0, -40, 7, 0, Math.PI * 2); ctx.fill(); // head
+        ctx.beginPath(); ctx.arc(0, -44, 7, Math.PI, Math.PI * 2); ctx.fill(); // cap
+        ctx.fillRect(-1.5, -8, 3 * bcW, 8);                   // stepping leg hint
+        ctx.restore();
+
+        // ── fluorescent ceiling lighting: soft warm wash + flicker
+        ctx.save();
+        ctx.globalAlpha = 0.10 + (polFlick < 0.8 ? 0.05 : 0);
+        ctx.fillStyle = "#EAF6FF";
+        ctx.fillRect(0, 0, W, floorY * 0.5);
+        ctx.globalAlpha = 1;
+        // two ceiling tube fixtures
+        ctx.fillStyle = polFlick > 0.85 ? "#F4FBFF" : "#C7D6DF";
+        roundRect(W * 0.18, 14, 120, 8, 3); ctx.fill();
+        roundRect(W * 0.62, 14, 120, 8, 3); ctx.fill();
+        ctx.restore();
+
         // wainscot stripe
         ctx.fillStyle = "#2E4257";
         ctx.fillRect(0, floorY - 26, W, 26);
-        // floor (checker tile w/ perspective fade)
-        ctx.fillStyle = "#9AA7B3";
+
+        // floor (cached gradient + precomputed checker tiles)
+        ctx.fillStyle = polFloorGrad;
         ctx.fillRect(0, floorY, W, bottom - floorY);
-        for (var ty = 0; ty < 8; ty++) {
-            for (var tx = -1; tx < 10; tx++) {
-                if ((tx + ty) % 2 === 0) {
-                    ctx.fillStyle = "rgba(255,255,255,0.10)";
-                    var ts = 28 + ty * 5;
-                    ctx.fillRect(tx * ts, floorY + ty * 11, ts, 11);
-                }
-            }
+        ctx.fillStyle = "rgba(255,255,255,0.10)";
+        for (var ti = 0; ti < polTiles.length; ti++) {
+            var t = polTiles[ti];
+            ctx.fillRect(t.x, t.y, t.w, t.h);
         }
+
+        // ── ceiling-fan shadow sweeping the floor (under the fan) ─
+        ctx.save();
+        ctx.globalAlpha = 0.10;
+        ctx.translate(W / 2, floorY + 30);
+        ctx.rotate(polFan);
+        ctx.fillStyle = "#1A2730";
+        for (var fs = 0; fs < 3; fs++) {
+            ctx.rotate((Math.PI * 2) / 3);
+            ctx.fillRect(-7, 0, 14, 64);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
 
         // ceiling fan
         ctx.save();
@@ -13258,15 +14533,46 @@
         // ── front desk + donut cop (x≈175), drawn near floor ───
         polDrawDesk(175, floorY);
 
-        // ── Lulu ────────────────────────────────────────────────
+        // ── hauled-perp procession crossing the back hall ──────
+        if (polEventKind === 2 && polEventT > 0 && polEventX < W + 60) {
+            ctx.save();
+            ctx.globalAlpha = 0.85;
+            ctx.translate(polEventX, hallBot - 6);
+            // escorting cop
+            ctx.fillStyle = "#16222B"; roundRect(-9, -32, 14, 26, 5); ctx.fill();
+            ctx.beginPath(); ctx.arc(-2, -38, 6, 0, Math.PI * 2); ctx.fill();
+            // cuffed perp (striped) being walked
+            ctx.fillStyle = "#5A6B78"; roundRect(8, -30, 12, 22, 4); ctx.fill();
+            ctx.fillStyle = "#3A4854"; ctx.beginPath(); ctx.arc(14, -34, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // ── Lulu (with idle look-around fidget) ─────────────────
+        var polFid = (polLuluFidget < 0.6) ? Math.sin(polTime * 8) * 0.12 : 0;
         ctx.save();
         if (polFacing < 0) {
             ctx.translate(polLuluX, 0); ctx.scale(-1, 1);
+            ctx.translate(0, floorY + 18); ctx.rotate(polFid); ctx.translate(0, -(floorY + 18));
             drawLuluTopDown(0, floorY + 18, polWalkT, "run");
         } else {
+            ctx.translate(polLuluX, floorY + 18); ctx.rotate(polFid); ctx.translate(-polLuluX, -(floorY + 18));
             drawLuluTopDown(polLuluX, floorY + 18, polWalkT, "run");
         }
         ctx.restore();
+
+        // ── radio dispatch crackle banner (micro-event) ────────
+        if (polEventKind === 1 && polEventT > 0 && polDispatch) {
+            ctx.save();
+            var dw = 300, dxp = (W - dw) / 2, dyp = floorY - 200;
+            ctx.globalAlpha = clamp(polEventT, 0, 1) * (0.7 + 0.3 * Math.sin(polTime * 18));
+            ctx.fillStyle = "rgba(15,25,35,0.9)";
+            roundRect(dxp, dyp, dw, 26, 6); ctx.fill();
+            ctx.globalAlpha = clamp(polEventT, 0, 1);
+            drawText(polDispatch, W / 2, dyp + 17, "bold 11px Arial", "#9CFF9C", "#000", 3);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
 
         // ── speech bubble ───────────────────────────────────────
         if (polBubbleT > 0 && polBubble) {
@@ -13307,11 +14613,23 @@
     function polDrawBoard(cx, cy) {
         ctx.save();
         ctx.translate(cx, cy);
-        // cork board
+        // a buzzing fluorescent spotlight pooling on the board (flickers)
+        ctx.save();
+        ctx.globalAlpha = 0.18 * polFlick;
+        var bgGlow = ctx.createRadialGradient(0, 50, 4, 0, 50, 70);
+        bgGlow.addColorStop(0, "#FFF59D");
+        bgGlow.addColorStop(1, "rgba(255,245,157,0)");
+        ctx.fillStyle = bgGlow;
+        ctx.fillRect(-70, -20, 140, 140);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        // cork board (dimmed by the flicker)
+        ctx.globalAlpha = 0.78 + 0.22 * polFlick;
         ctx.fillStyle = "#8D6E45";
         roundRect(-46, 0, 92, 116, 6); ctx.fill();
         ctx.fillStyle = "#A07C4F";
         roundRect(-42, 4, 84, 108, 4); ctx.fill();
+        ctx.globalAlpha = 1;
         drawText("MOST", 0, 16, "bold 13px Arial", "#3A2A12", null, 0);
         drawText("WANTED", 0, 30, "bold 13px Arial", "#3A2A12", null, 0);
         // sasquatch mugshot poster
@@ -13350,11 +14668,24 @@
         // drip spout + cup
         ctx.fillStyle = "#263238"; ctx.fillRect(-6, -52, 12, 6);
         ctx.fillStyle = "#FFFFFF"; roundRect(-7, -44, 14, 12, 2); ctx.fill();
-        // steam (gentle, alpha-safe)
-        ctx.globalAlpha = 0.35 + 0.2 * Math.sin(polTime * 3);
+        // steam (gentle, alpha-safe, two curling wisps)
+        ctx.globalAlpha = 0.30 + 0.18 * Math.sin(polTime * 3);
         ctx.fillStyle = "#FFFFFF";
-        ctx.beginPath(); ctx.arc(0, -50 - (polTime * 14 % 16), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(Math.sin(polTime * 2) * 2, -50 - (polTime * 14 % 16), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.22 + 0.14 * Math.sin(polTime * 3 + 1.5);
+        ctx.beginPath(); ctx.arc(3 + Math.sin(polTime * 2.5 + 1) * 2, -54 - (polTime * 11 % 14), 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.globalAlpha = 1;
+        // capped ambient steam particles (a few per ~0.18s)
+        polSteamCool -= (1 / 60);
+        if (polSteamCool <= 0 && particles.length < 220) {
+            polSteamCool = 0.18;
+            particles.push({
+                x: cx + rand(-3, 3), y: floorY - 44,
+                vx: rand(-6, 6), vy: rand(-26, -16),
+                life: 0, maxLife: 1.1, size: rand(2, 4),
+                color: "rgba(255,255,255,0.5)", gravity: -8
+            });
+        }
         // buttons
         ctx.fillStyle = "#FFB300"; ctx.beginPath(); ctx.arc(-10, -20, 3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(10, -20, 3, 0, Math.PI * 2); ctx.fill();
@@ -13392,10 +14723,12 @@
         // cot
         ctx.fillStyle = "#455A64"; roundRect(-42, -40, 34, 36, 3); ctx.fill();
         ctx.fillStyle = "#90A4AE"; roundRect(-42, -44, 34, 8, 3); ctx.fill();
-        // the goofy perp (striped shirt, idle bounce + blink)
+        // the goofy perp (striped shirt, paces side-to-side + bob + blink)
         var bob = Math.sin(polTime * 2) * 2;
+        var pace = Math.sin(polPerpPace) * 16;       // walks the cell
+        var rattle = (Math.sin(polPerpPace) > 0.92) ? Math.sin(polTime * 40) * 1.2 : 0;
         ctx.save();
-        ctx.translate(6, -28 + bob);
+        ctx.translate(pace, -28 + bob);
         ctx.fillStyle = "#FAFAFA"; // body
         roundRect(-12, -8, 24, 30, 6); ctx.fill();
         ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 2; // stripes
@@ -13418,10 +14751,11 @@
         ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.4;
         ctx.beginPath(); ctx.arc(0, -11, 4, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();
         ctx.restore();
-        // bars (vertical) — drawn over the perp
+        // bars (vertical) — drawn over the perp; rattle when he grips them
         ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 4; ctx.lineCap = "round";
         for (var b = -42; b <= 42; b += 12) {
-            ctx.beginPath(); ctx.moveTo(b, -118); ctx.lineTo(b, 0); ctx.stroke();
+            var br = (rattle && Math.abs(b - pace) < 18) ? rattle : 0;
+            ctx.beginPath(); ctx.moveTo(b + br, -118); ctx.lineTo(b + br, 0); ctx.stroke();
         }
         ctx.lineCap = "butt";
         // top + bottom rails
@@ -13490,6 +14824,20 @@
         ctx.beginPath(); ctx.arc(42, -26, 6, Math.PI, Math.PI * 2); ctx.fill();
         ctx.fillRect(36, -26, 12, 2);
         ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.arc(42, -33, 1.6, 0, Math.PI * 2); ctx.fill();
+
+        // ringing rotary phone (shudders + emits ring marks when ringing)
+        var ring = (polPhoneT > 0) ? Math.sin(polTime * 40) * 1.5 : 0;
+        ctx.save();
+        ctx.translate(-44 + ring, -26);
+        ctx.fillStyle = "#212B33"; roundRect(-9, -5, 18, 12, 3); ctx.fill();      // base
+        ctx.fillStyle = "#37474F"; roundRect(-11, -10, 22, 6, 3); ctx.fill();     // handset
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(0, 1, 4, 0, Math.PI * 2); ctx.fill(); // dial
+        if (polPhoneT > 0) {
+            ctx.fillStyle = "#FFD54F";
+            drawText("♪", -14, -12, "bold 10px Arial", "#FFD54F", null, 0);
+            drawText("♪", 14, -14, "bold 9px Arial", "#FFE082", null, 0);
+        }
+        ctx.restore();
         ctx.restore();
     }
 
@@ -13504,6 +14852,24 @@
     var bchLeaveRect = null;
     var bchGulls = [];
     var bchHeshyT = 0;            // Heshy bob phase
+    // — cached gradients / precomputed layout (built ONCE in init) —
+    var bchSkyGrad = null, bchSeaGrad = null, bchSandGrad = null, bchSunGlow = null;
+    var bchWaveX = [];           // precomputed wave sample x-coords
+    var bchScratchY = [];        // reusable y scratch buffer for wave paths
+    var bchSpeckles = [];        // static sand speckle positions
+    var bchDunes = [];           // parallax dune layer params
+    var bchClouds = [];          // parallax clouds
+    var bchGlints = [];          // static sun-glint seeds on the water
+    var bchSandCool = 0;         // throttle blowing-sand particles
+    // dynamic props
+    var bchBall = null;          // bouncing beach ball
+    var bchKiteT = 0;            // kite sway
+    var bchHeshyCannon = 0;      // >0 = mid-cannonball splash anim
+    var bchHeshyCool = 0;        // cooldown to next cannonball
+    var bchLifeScan = 0;         // lifeguard binocular scan phase
+    var bchLuluShade = 0;        // Lulu shields eyes from sun (timer)
+    var bchBigWaveT = 0;         // periodic high wash-up wave
+    var bchBigWaveCool = 0;
 
     function initBeachInterior() {
         bchTime = 0;
@@ -13512,6 +14878,61 @@
         bchLuluX = 90; bchLuluTargetX = 90; bchWalkT = 0; bchFacing = 1;
         bchBubble = ""; bchBubbleT = 0;
         bchHeshyT = 0;
+        bchBands = null; // rebuilt lazily on first draw (depends on sea/sand Y)
+        bchKiteT = 0; bchLifeScan = 0; bchLuluShade = rand(3, 7);
+        bchHeshyCannon = 0; bchHeshyCool = rand(5, 9);
+        bchBigWaveT = 0; bchBigWaveCool = rand(7, 12);
+        bchSandCool = 0;
+
+        // cache gradients ONCE
+        bchSkyGrad = ctx.createLinearGradient(0, 0, 0, bchSeaY);
+        bchSkyGrad.addColorStop(0, "#4FC3F7");
+        bchSkyGrad.addColorStop(1, "#B3E5FC");
+        bchSeaGrad = ctx.createLinearGradient(0, bchSeaY, 0, bchSandY);
+        bchSeaGrad.addColorStop(0, "#0288D1");
+        bchSeaGrad.addColorStop(1, "#4DD0E1");
+        bchSandGrad = ctx.createLinearGradient(0, bchSandY, 0, H - SAFE_BOTTOM);
+        bchSandGrad.addColorStop(0, "#FFE8B0");
+        bchSandGrad.addColorStop(1, "#F4D08A");
+        bchSunGlow = ctx.createRadialGradient(W - 70, 70, 18, W - 70, 70, 120);
+        bchSunGlow.addColorStop(0, "rgba(255,245,157,0.55)");
+        bchSunGlow.addColorStop(1, "rgba(255,245,157,0)");
+
+        // precompute wave sample x-coords + scratch buffer (reused each frame)
+        bchWaveX = []; bchScratchY = [];
+        for (var x = -20; x <= W + 20; x += 6) { bchWaveX.push(x); bchScratchY.push(0); }
+
+        // static sand speckles (no per-frame random => no flicker, no GC)
+        bchSpeckles = [];
+        var bottomY = H - SAFE_BOTTOM;
+        for (var sp2 = 0; sp2 < 46; sp2++) {
+            bchSpeckles.push({ x: (sp2 * 53) % W, y: bchSandY + ((sp2 * 37) % (bottomY - bchSandY)) });
+        }
+
+        // static sun-glint seeds on the water (twinkle via phase, not random)
+        bchGlints = [];
+        for (var gl = 0; gl < 22; gl++) {
+            bchGlints.push({
+                x: rand(W * 0.45, W - 20),
+                y: rand(bchSeaY + 6, bchSandY - 10),
+                ph: rand(0, Math.PI * 2), sz: rand(1, 2.4)
+            });
+        }
+
+        // parallax dunes (far + near) — drawn as static silhouettes
+        bchDunes = [
+            { y: bchSandY + 20, h: 26, col: "#EFD79A", off: -30 },
+            { y: bchSandY + 52, h: 34, col: "#E6C77F", off: 40 }
+        ];
+
+        // parallax clouds (drift)
+        bchClouds = [];
+        for (var cl = 0; cl < 4; cl++) {
+            bchClouds.push({ x: rand(0, W), y: rand(24, bchSeaY - 30), s: rand(0.7, 1.4), v: rand(4, 10) });
+        }
+
+        // bouncing beach ball (physics-lite, stays on the sand)
+        bchBall = { x: 200, y: bchSandY + 30, vx: rand(30, 60), vy: 0, r: 12, spin: 0 };
 
         bchGulls = [];
         for (var g = 0; g < 4; g++) {
@@ -13534,7 +14955,11 @@
                     "Shark? Nah. That's just Heshy doing the breaststroke. Badly.",
                     "Beach closes at sundown for Shabbos. Tide's been told.",
                     "Buddy system, hon. Where's your buddy? ...the seagull? No.",
-                    "I'm 90% lifeguard, 10% sandcastle inspector."
+                    "I'm 90% lifeguard, 10% sandcastle inspector.",
+                    "*scans with binoculars* ...yep, that's still Heshy. Floating.",
+                    "Kite's flying low. Somebody tell the seagull it's not lunch.",
+                    "Beach ball's loose again. Third escape this hour. Tenacious.",
+                    "I count heads every ten minutes. Heshy counts as three."
                 ]
             },
             {
@@ -13562,7 +14987,10 @@
                     "The gull tilts its head. It's planning something. Run.",
                     "Beach rule #1: never make eye contact with the seagull.",
                     "It dropped a fry on you as tribute. ...or an insult.",
-                    "SQUAWK SQUAWK (it's just saying 'good shabbos,' probably)."
+                    "SQUAWK SQUAWK (it's just saying 'good shabbos,' probably).",
+                    "It's eyeing the kite. It thinks the kite is a giant rival gull.",
+                    "It chased the beach ball into the surf. Bold. Wet. Foolish.",
+                    "Four gulls just flew off in formation. This one's the general."
                 ]
             },
             {
@@ -13594,7 +15022,11 @@
                     "\"The lifeguard keeps whistling at me. I think she's a fan.\"",
                     "\"Tell Bubbe I'll be there for dinner — soon as I find my towel.\"",
                     "\"I caught a fish! ...with my swim trunks. It's still in there.\"",
-                    "\"Marco! ...Polo? ...anyone? ...I'm just gonna float here.\""
+                    "\"Marco! ...Polo? ...anyone? ...I'm just gonna float here.\"",
+                    "\"CANNONBALL incoming — cover your snacks!\" *KERSPLASH*",
+                    "\"The waves keep pushing me back. I think they're shy.\"",
+                    "\"I'm doing the backstroke! ...into the buoy. Repeatedly.\"",
+                    "\"Is that a beach ball or my lunch? Only one way to find out.\""
                 ]
             }
         ];
@@ -13603,7 +15035,13 @@
     function updateBeachInterior(dt) {
         bchTime += dt;
         bchHeshyT += dt;
+        bchKiteT += dt;
+        bchLifeScan += dt;
+        bchLuluShade -= dt;
+        if (bchLuluShade < -1.2) bchLuluShade = rand(4, 8);
         if (bchBubbleT > 0) bchBubbleT -= dt;
+
+        var bottom = H - SAFE_BOTTOM;
 
         // gulls drift + wrap
         for (var i = 0; i < bchGulls.length; i++) {
@@ -13614,7 +15052,54 @@
             if (gl.x > W + 20) gl.x = -20;
         }
 
-        var bottom = H - SAFE_BOTTOM;
+        // clouds drift (parallax)
+        for (var ci = 0; ci < bchClouds.length; ci++) {
+            var cd = bchClouds[ci];
+            cd.x += cd.v * dt;
+            if (cd.x > W + 60) cd.x = -60;
+        }
+
+        // bouncing beach ball physics (lives on the sand band)
+        if (bchBall) {
+            bchBall.vy += 520 * dt;
+            bchBall.x += bchBall.vx * dt;
+            bchBall.y += bchBall.vy * dt;
+            bchBall.spin += bchBall.vx * dt * 0.05;
+            var floor = bchSandY + 40;
+            if (bchBall.y > floor) { bchBall.y = floor; bchBall.vy = -rand(180, 240); }
+            if (bchBall.x < 40) { bchBall.x = 40; bchBall.vx = Math.abs(bchBall.vx); }
+            if (bchBall.x > W - 40) { bchBall.x = W - 40; bchBall.vx = -Math.abs(bchBall.vx); }
+        }
+
+        // Heshy cannonball cycle (periodic big splash)
+        if (bchHeshyCannon > 0) {
+            bchHeshyCannon -= dt;
+        } else {
+            bchHeshyCool -= dt;
+            if (bchHeshyCool <= 0) {
+                bchHeshyCool = rand(6, 11);
+                bchHeshyCannon = 0.7;
+                playTone(160, 0.18, "sine", 0.06, 90);
+                var splashY = bchSeaY + (bchSandY - bchSeaY) * 0.5;
+                for (var sk = 0; sk < 12; sk++) {
+                    particles.push({
+                        x: 420 + rand(-10, 10), y: splashY,
+                        vx: rand(-90, 90), vy: rand(-180, -70),
+                        life: 0, maxLife: 0.7, size: rand(2, 5),
+                        color: randPick(["#FFFFFF", "#B3E5FC", "#4FC3F7"]), gravity: 420
+                    });
+                }
+            }
+        }
+
+        // periodic high wave that washes further up the sand
+        if (bchBigWaveT > 0) {
+            bchBigWaveT -= dt;
+        } else {
+            bchBigWaveCool -= dt;
+            if (bchBigWaveCool <= 0) { bchBigWaveCool = rand(8, 14); bchBigWaveT = 2.4; }
+        }
+
         bchLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
 
         var c = consumeClick();
@@ -13625,6 +15110,14 @@
             // boardwalk archway exit (bottom-left "← BOARDWALK")
             if (pointInRect(c.x, c.y, 12, bottom - 64, 110, 50)) {
                 playClick(); exitFootInterior(); return;
+            }
+            // NEW interaction: bop the beach ball (it bounces up + chirps)
+            if (bchBall && Math.abs(c.x - bchBall.x) < 26 && Math.abs(c.y - bchBall.y) < 26) {
+                bchBall.vy = -rand(280, 360);
+                bchBall.vx = (c.x < bchBall.x ? 1 : -1) * rand(60, 120);
+                playTone(660, 0.07, "sine", 0.1, 880);
+                spawnFloater(bchBall.x, bchBall.y - 18, randPick(["boing!", "bonk!", "whee!"]), "#FF80AB");
+                return;
             }
             var hit = null;
             for (var s = 0; s < bchSpots.length; s++) {
@@ -13680,46 +15173,129 @@
         var bottom = H - SAFE_BOTTOM;
         var seaY = bchSeaY, sandY = bchSandY;
 
-        // ── sky (warm beach gradient) ──────────────────────────
-        var sky = ctx.createLinearGradient(0, 0, 0, seaY);
-        sky.addColorStop(0, "#4FC3F7");
-        sky.addColorStop(1, "#B3E5FC");
-        ctx.fillStyle = sky;
+        // ── sky (cached gradient) ──────────────────────────────
+        ctx.fillStyle = bchSkyGrad;
         ctx.fillRect(0, 0, W, seaY);
 
-        // sun + glow
+        // parallax clouds (soft, behind sun)
         ctx.save();
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = "#FFF59D";
-        ctx.beginPath(); ctx.arc(W - 70, 70, 46, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        for (var cl = 0; cl < bchClouds.length; cl++) {
+            var cd = bchClouds[cl];
+            ctx.globalAlpha = 0.6;
+            var cr = 14 * cd.s;
+            ctx.beginPath();
+            ctx.arc(cd.x, cd.y, cr, 0, Math.PI * 2);
+            ctx.arc(cd.x + cr, cd.y + 3, cr * 0.8, 0, Math.PI * 2);
+            ctx.arc(cd.x - cr, cd.y + 4, cr * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+        }
         ctx.globalAlpha = 1;
-        ctx.fillStyle = "#FFEE58";
-        ctx.beginPath(); ctx.arc(W - 70, 70, 30, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // ── ocean (animated parallax waves) ────────────────────
-        var sea = ctx.createLinearGradient(0, seaY, 0, sandY);
-        sea.addColorStop(0, "#0288D1");
-        sea.addColorStop(1, "#4DD0E1");
-        ctx.fillStyle = sea;
+        // sun + glow (cached radial) + glowing rays
+        ctx.save();
+        ctx.fillStyle = bchSunGlow;
+        ctx.fillRect(W - 190, -50, 240, 240);
+        ctx.fillStyle = "#FFEE58";
+        ctx.beginPath(); ctx.arc(W - 70, 70, 30, 0, Math.PI * 2); ctx.fill();
+        // slow-turning rays
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = "#FFF59D"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        for (var ray = 0; ray < 8; ray++) {
+            var ra = bchTime * 0.2 + ray * (Math.PI / 4);
+            ctx.beginPath();
+            ctx.moveTo(W - 70 + Math.cos(ra) * 36, 70 + Math.sin(ra) * 36);
+            ctx.lineTo(W - 70 + Math.cos(ra) * 48, 70 + Math.sin(ra) * 48);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1; ctx.lineCap = "butt";
+        ctx.restore();
+
+        // ── ocean (cached gradient) ────────────────────────────
+        ctx.fillStyle = bchSeaGrad;
         ctx.fillRect(0, seaY, W, sandY - seaY);
+
+        // sun glints on the water (twinkle via phase — no per-frame random)
+        ctx.save();
+        ctx.fillStyle = "#FFFDE7";
+        for (var gn = 0; gn < bchGlints.length; gn++) {
+            var gp = bchGlints[gn];
+            var tw = 0.5 + 0.5 * Math.sin(bchTime * 3 + gp.ph);
+            ctx.globalAlpha = 0.15 + 0.5 * tw;
+            ctx.fillRect(gp.x, gp.y, gp.sz + tw, 1.4);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
         // three parallax wave layers (alpha-safe — reset after)
         bchDrawWaves(seaY, sandY);
 
-        // ── wet-sand shoreline + beach ─────────────────────────
+        // ── wet-sand shoreline + beach (cached gradient) ───────
+        // periodic high wave washes the wet line further up the sand
+        var washUp = (bchBigWaveT > 0) ? Math.sin((2.4 - bchBigWaveT) / 2.4 * Math.PI) * 18 : 0;
         ctx.fillStyle = "#FFE0A3"; // wet line
-        ctx.fillRect(0, sandY - 6, W, 6);
-        var sandGrad = ctx.createLinearGradient(0, sandY, 0, bottom);
-        sandGrad.addColorStop(0, "#FFE8B0");
-        sandGrad.addColorStop(1, "#F4D08A");
-        ctx.fillStyle = sandGrad;
+        ctx.fillRect(0, sandY - 6 - washUp * 0.4, W, 6 + washUp * 0.4);
+        ctx.fillStyle = bchSandGrad;
         ctx.fillRect(0, sandY, W, bottom - sandY);
-        // speckles
-        ctx.fillStyle = "rgba(180,140,80,0.35)";
-        for (var sp2 = 0; sp2 < 40; sp2++) {
-            var rx = (sp2 * 53 % W), ry = sandY + ((sp2 * 37) % (bottom - sandY));
-            ctx.fillRect(rx, ry, 2, 2);
+
+        // parallax dunes (depth on the sand)
+        for (var dn = 0; dn < bchDunes.length; dn++) {
+            var du = bchDunes[dn];
+            ctx.fillStyle = du.col;
+            ctx.beginPath();
+            ctx.moveTo(0, du.y + du.h);
+            for (var dx = 0; dx <= W; dx += 40) {
+                ctx.lineTo(dx, du.y + Math.sin((dx + du.off) / 90) * du.h);
+            }
+            ctx.lineTo(W, du.y + du.h);
+            ctx.closePath(); ctx.fill();
         }
+
+        // wash-up foam sheet when the big wave rolls in
+        if (washUp > 0.5) {
+            ctx.save();
+            ctx.globalAlpha = clamp(washUp / 18, 0, 1) * 0.5;
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, sandY - 2, W, washUp);
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        // static speckles (precomputed)
+        ctx.fillStyle = "rgba(180,140,80,0.35)";
+        for (var sp2 = 0; sp2 < bchSpeckles.length; sp2++) {
+            ctx.fillRect(bchSpeckles[sp2].x, bchSpeckles[sp2].y, 2, 2);
+        }
+
+        // blowing sand (capped ambient particles, a few per ~0.12s)
+        bchSandCool -= (1 / 60);
+        if (bchSandCool <= 0 && particles.length < 230) {
+            bchSandCool = 0.12;
+            particles.push({
+                x: -6, y: sandY + rand(6, bottom - sandY - 6),
+                vx: rand(120, 200), vy: rand(-12, 12),
+                life: 0, maxLife: rand(1.2, 2.0), size: rand(1, 2),
+                color: "rgba(220,190,130,0.6)", gravity: 0
+            });
+        }
+
+        // heat shimmer band just above the sand (cheap horizontal wobble)
+        ctx.save();
+        ctx.globalAlpha = 0.06;
+        ctx.fillStyle = "#FFFFFF";
+        for (var hs = 0; hs < 3; hs++) {
+            var hy = sandY + 8 + hs * 6 + Math.sin(bchTime * 4 + hs) * 1.5;
+            ctx.fillRect(0, hy, W, 1.5);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // ── kite in the sky (string to off-screen) ─────────────
+        bchDrawKite();
+
+        // ── beach ball (bouncing) ──────────────────────────────
+        if (bchBall) bchDrawBall(bchBall);
 
         // ── seagulls (behind props, in sky) ────────────────────
         for (var gi = 0; gi < bchGulls.length; gi++) bchDrawGull(bchGulls[gi]);
@@ -13746,15 +15322,25 @@
         // ── sneaky seagull on the sand (x≈255, the interactable) ─
         bchDrawSandGull(255, sandY + 58);
 
-        // ── Lulu ───────────────────────────────────────────────
+        // ── Lulu (shields eyes from sun when idle) ─────────────
+        var bchLuluY = sandY + 80;
         ctx.save();
         if (bchFacing < 0) {
             ctx.translate(bchLuluX, 0); ctx.scale(-1, 1);
-            drawLuluTopDown(0, sandY + 80, bchWalkT, "run");
+            drawLuluTopDown(0, bchLuluY, bchWalkT, "run");
         } else {
-            drawLuluTopDown(bchLuluX, sandY + 80, bchWalkT, "run");
+            drawLuluTopDown(bchLuluX, bchLuluY, bchWalkT, "run");
         }
         ctx.restore();
+        // a little raised hand shading her eyes (overlay, briefly)
+        if (bchLuluShade > 0 && bchLuluShade < 1.4 && Math.abs(bchLuluTargetX - bchLuluX) < 3) {
+            ctx.save();
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 4; ctx.lineCap = "round";
+            var hsx = bchLuluX + bchFacing * 6;
+            ctx.beginPath(); ctx.moveTo(hsx, bchLuluY - 12); ctx.lineTo(hsx + bchFacing * 8, bchLuluY - 22); ctx.stroke();
+            ctx.lineCap = "butt";
+            ctx.restore();
+        }
 
         // ── speech bubble ──────────────────────────────────────
         if (bchBubbleT > 0 && bchBubble) {
@@ -13793,27 +15379,33 @@
         ctx.restore();
     }
 
+    // wave bands cached once (params only); paths reuse bchWaveX/bchScratchY
+    var bchBands = null;
     function bchDrawWaves(seaY, sandY) {
-        var bands = [
-            { y: seaY + 8, amp: 4, len: 60, spd: 26, a: 0.30 },
-            { y: seaY + (sandY - seaY) * 0.45, amp: 5, len: 80, spd: 18, a: 0.40 },
-            { y: sandY - 16, amp: 6, len: 100, spd: 12, a: 0.55 }
-        ];
+        if (!bchBands) {
+            bchBands = [
+                { y: seaY + 8, amp: 4, len: 60, spd: 26, a: 0.30 },
+                { y: seaY + (sandY - seaY) * 0.45, amp: 5, len: 80, spd: 18, a: 0.40 },
+                { y: sandY - 16, amp: 6, len: 100, spd: 12, a: 0.55 }
+            ];
+        }
+        var xs = bchWaveX, n = xs.length, TWO_PI = Math.PI * 2;
         ctx.save();
         ctx.strokeStyle = "#FFFFFF";
         ctx.lineWidth = 3;
         ctx.lineCap = "round";
-        for (var bnd = 0; bnd < bands.length; bnd++) {
-            var w = bands[bnd];
+        for (var bnd = 0; bnd < bchBands.length; bnd++) {
+            var w = bchBands[bnd];
+            var phase = bchTime * w.spd, inv = TWO_PI / w.len;
             ctx.globalAlpha = w.a;
             ctx.beginPath();
-            for (var x = -20; x <= W + 20; x += 6) {
-                var yy = w.y + Math.sin((x + bchTime * w.spd) / w.len * Math.PI * 2) * w.amp;
-                if (x === -20) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+            for (var k = 0; k < n; k++) {
+                var yy = w.y + Math.sin((xs[k] + phase) * inv) * w.amp;
+                if (k === 0) ctx.moveTo(xs[k], yy); else ctx.lineTo(xs[k], yy);
             }
             ctx.stroke();
         }
-        // foam at the shoreline
+        // foam at the shoreline (no per-iteration allocation)
         ctx.globalAlpha = 0.6;
         ctx.fillStyle = "#FFFFFF";
         for (var fx = 0; fx < W; fx += 18) {
@@ -13821,6 +15413,58 @@
             ctx.beginPath(); ctx.arc(fx, fy, 4, 0, Math.PI * 2); ctx.fill();
         }
         ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // bouncing beach ball (3-color wedge ball with spin + shadow)
+    function bchDrawBall(b) {
+        ctx.save();
+        // shadow on the sand
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.ellipse(b.x, bchSandY + 42, b.r * 0.9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.spin);
+        var cols = ["#EF5350", "#FFFFFF", "#42A5F5", "#FFFFFF", "#FFCA28", "#FFFFFF"];
+        for (var s = 0; s < 6; s++) {
+            ctx.fillStyle = cols[s];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, b.r, s * Math.PI / 3, (s + 1) * Math.PI / 3);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+    }
+
+    // a kite wheeling in the sky on a long string
+    function bchDrawKite() {
+        var kx = W * 0.30 + Math.sin(bchKiteT * 0.6) * 50;
+        var ky = 56 + Math.cos(bchKiteT * 0.9) * 18;
+        var ang = Math.sin(bchKiteT * 0.6) * 0.4;
+        ctx.save();
+        // string down to an off-screen flier near the sand
+        ctx.strokeStyle = "rgba(60,40,20,0.5)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(kx, ky);
+        ctx.quadraticCurveTo(kx - 30, ky + 80, W * 0.18, bchSandY + 50);
+        ctx.stroke();
+        ctx.translate(kx, ky);
+        ctx.rotate(ang);
+        // diamond kite
+        ctx.fillStyle = "#FF7043";
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(11, 0); ctx.lineTo(0, 14); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFCA28";
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(11, 0); ctx.lineTo(0, 0); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(0, 14); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke();
+        // tail bows
+        ctx.fillStyle = "#26A69A";
+        for (var t = 1; t <= 3; t++) {
+            ctx.beginPath(); ctx.arc(Math.sin(bchKiteT * 3 + t) * 4, 14 + t * 7, 2.4, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -13902,11 +15546,13 @@
     }
 
     function bchDrawHeshy(cx, cy) {
+        // mid-cannonball: a quick crouch-jump above the waterline
+        var cannon = (bchHeshyCannon > 0) ? Math.sin((0.7 - bchHeshyCannon) / 0.7 * Math.PI) * 26 : 0;
         ctx.save();
-        ctx.translate(cx, cy + Math.sin(bchHeshyT * 2) * 4);
-        // ripples around him
+        ctx.translate(cx, cy + Math.sin(bchHeshyT * 2) * 4 - cannon);
+        // expanding ripple ring on splashdown
         ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.ellipse(0, 8, 22, 6, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(0, 8, 22 + cannon * 0.6, 6 + cannon * 0.15, 0, 0, Math.PI * 2); ctx.stroke();
         // head + green swim cap
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
@@ -13948,10 +15594,24 @@
         ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -31, 7, Math.PI, Math.PI * 2); ctx.fill(); // hair
         ctx.fillStyle = "#000"; // sunglasses
         roundRect(-6, -29, 12, 4, 2); ctx.fill();
-        // whistle hand up
-        ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(12, -24); ctx.stroke();
-        ctx.lineCap = "butt";
+        // scanning the horizon with binoculars (periodic)
+        var scanning = (bchLifeScan % 5) < 1.6;
+        if (scanning) {
+            var look = Math.sin(bchLifeScan * 2) * 4;
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(4, -18); ctx.lineTo(8 + look, -28); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-4, -18); ctx.lineTo(-2 + look, -28); ctx.stroke();
+            ctx.lineCap = "butt";
+            // binoculars
+            ctx.fillStyle = "#212121";
+            roundRect(-3 + look, -33, 5, 6, 1); ctx.fill();
+            roundRect(3 + look, -33, 5, 6, 1); ctx.fill();
+        } else {
+            // whistle hand up
+            ctx.strokeStyle = "#FFE0CC"; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(6, -16); ctx.lineTo(12, -24); ctx.stroke();
+            ctx.lineCap = "butt";
+        }
         ctx.restore();
         ctx.restore();
     }

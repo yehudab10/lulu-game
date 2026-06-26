@@ -78,6 +78,7 @@
         // missing) — only the player-car bits below are branched on `onFoot`.
         var onFoot = (state === "footRun");
         if (onFoot && footIntroT > 0) { footIntroT -= dt; updateParticles(dt); footWalkTime += dt * 1.3; return; }
+        if (onFoot && footArrestT > 0) { updateFootArrest(dt); return; }
 
         gameTime += dt;
         var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
@@ -2235,6 +2236,7 @@
     function drawPlaying() {
         var onFoot = (state === "footRun") || (state === "paused" && prevState === "footRun");
         if (onFoot && footIntroT > 0) { drawFootIntro(); return; }
+        if (onFoot && footArrestT > 0) { drawFootArrest(); return; }
         ctx.save();
         if (shakeTimer > 0) {
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));

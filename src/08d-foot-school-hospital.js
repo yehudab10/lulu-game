@@ -35,6 +35,25 @@
     var schLeaveRect = { x: 0, y: 0, w: 0, h: 0 };
     var schBakeDone = false;     // one-time coin reward latch
     var schFloorY = 0;
+    // ── cached gradients (built once in init) ──
+    var schWallGrad = null, schFloorGrad = null, schShaftGrad = null;
+    // ── precomputed static layout (built once in init) ──
+    var schLockers = [];         // {x,y,w,h,col}
+    var schDrawings = [];        // {x,y,rot,col,kind}
+    var schDesks = [];           // {x,y}
+    var schDust = [];            // dust motes drifting in the sun shaft
+    var schWindows = [];         // {x, w} back-wall windows for sun shafts
+    var schPlanes = [];          // paper airplanes flying by {x,y,vx,vy,t,active}
+    // ── dynamic background kids running across the hall ──
+    var schRunners = [];         // {x, dir, speed, walk, type, chase}
+    var schBell = 6;             // class-bell countdown
+    var schBellFlash = 0;        // glow after the bell rings
+    var schWave = 0;             // wave-of-kids timer after bell
+    var schFlicker = 1;          // fluorescent flicker brightness
+    var schFlickerT = 0;         // time until next flicker re-roll
+    var schPlaneT = 5;           // paper-airplane spawn timer
+    var schPeekT = 0;            // Lulu "peeking into a room" timer
+    var SCH_KIDPAL = ["#1565C0", "#6A1B9A", "#00897B", "#C62828", "#F9A825"];
 
     var SCH_MORAH = [
         "A grown woman? In MY hallway?\nWhere is your hall pass?!",
@@ -91,7 +110,26 @@
         "Someone left gum on it again.\nThe eternal cheder mystery.",
         "It's been 'out of order' since\nthe Maccabees, honestly.",
         "Cold water? In THIS school?\nDream bigger, mami.",
-        "*sluuurp* ...okay that's enough\nadventure for one hallway."
+        "*sluuurp* ...okay that's enough\nadventure for one hallway.",
+        "The handle's sticky. Everything\nin a cheder is sticky. It's halacha.",
+        "I filled my water bottle here\nin 2009. Still tastes like 2009."
+    ];
+    // NEW interaction: the hallway clock (always 'almost recess').
+    var SCH_CLOCK = [
+        "Three more minutes till recess.\nIt's been three minutes for an hour.",
+        "This clock runs on cheder time:\nslow before lunch, fast after.",
+        "*tick* *tick* *tick*\nthe sound of childhood, honestly.",
+        "It's exactly 'snack o'clock'.\nIt's ALWAYS snack o'clock here.",
+        "The big hand fell off in '04.\nWe just guess now. Spiritually.",
+        "Davening's in five minutes.\nOr fifty. The clock is shy about it."
+    ];
+    // NEW interaction: the lost-and-found / lockers.
+    var SCH_LOCKER = [
+        "Lost-and-found: forty hats,\nzero owners. A cheder mystery.",
+        "Locker 12 has smelled like a\ntuna sandwich since Chanukah.",
+        "Someone's gym shoe achieved\nsentience in here. Don't open 6.",
+        "A single glove. A yo-yo. A note\nthat says 'sorry morah'. Iconic.",
+        "Whose coat is this? It's been\nhere since the boy GRADUATED."
     ];
 
     function initSchoolInterior() {
@@ -108,9 +146,76 @@
             { id: "kid",       x: W * 0.62, y: fy, r: 50, pool: SCH_KID, moving: true },
             { id: "principal", x: W * 0.84, y: schFloorY - 6, r: 60, pool: SCH_PRINCIPAL },
             { id: "bake",      x: W * 0.42, y: fy + 16, r: 58, pool: SCH_BAKE, reward: true },
-            { id: "fountain",  x: W * 0.06, y: schFloorY - 4, r: 46, pool: SCH_FOUNTAIN }
+            { id: "fountain",  x: W * 0.06, y: schFloorY - 4, r: 46, pool: SCH_FOUNTAIN },
+            { id: "clock",     x: W * 0.50, y: 44,            r: 40, pool: SCH_CLOCK },
+            { id: "locker",    x: W - 74,   y: schFloorY - 80, r: 50, pool: SCH_LOCKER }
         ];
+
+        // ── cached gradients ──
+        schWallGrad = ctx.createLinearGradient(0, 0, 0, schFloorY);
+        schWallGrad.addColorStop(0, "#FFF3D6");
+        schWallGrad.addColorStop(0.7, "#FBE9C8");
+        schWallGrad.addColorStop(1, "#F1DDB0");
+        schFloorGrad = ctx.createLinearGradient(0, schFloorY, 0, H);
+        schFloorGrad.addColorStop(0, "#9CCC65");
+        schFloorGrad.addColorStop(1, "#7CB342");
+        schShaftGrad = ctx.createLinearGradient(0, 0, 0, schFloorY);
+        schShaftGrad.addColorStop(0, "rgba(255,249,196,0.42)");
+        schShaftGrad.addColorStop(1, "rgba(255,249,196,0)");
+
+        // ── precompute back-wall windows (sun shafts come through these) ──
+        schWindows = [{ x: W * 0.12, w: 52 }, { x: W * 0.50, w: 52 }, { x: W * 0.70, w: 52 }];
+
+        // ── precompute lockers (right back wall) ──
+        var lcol = ["#42A5F5", "#EF5350", "#66BB6A", "#FFA726", "#AB47BC", "#26C6DA"];
+        schLockers = [];
+        for (var l = 0; l < 6; l++) {
+            schLockers.push({ x: W - 120 + (l % 3) * 44, y: schFloorY - 138 + Math.floor(l / 3) * 70,
+                w: 40, h: 64, col: lcol[l] });
+        }
+
+        // ── precompute taped-up kid drawings ──
+        var dcol = ["#FFCDD2", "#BBDEFB", "#FFF9C4", "#C8E6C9", "#F8BBD0"];
+        schDrawings = [];
+        var dpos = [[18, 60], [W - 168, 56], [W - 200, 150], [W * 0.55, 200], [W * 0.07, 150]];
+        for (var d = 0; d < dpos.length; d++) {
+            schDrawings.push({ x: dpos[d][0], y: dpos[d][1], rot: (d % 2 ? 1 : -1) * 0.08,
+                col: dcol[d % dcol.length], kind: d % 3 });
+        }
+
+        // ── precompute tiny desks ──
+        schDesks = [];
+        for (var dk = 0; dk < 3; dk++) {
+            schDesks.push({ x: 40 + dk * 56, y: schFloorY + 40 + (dk % 2) * 18 });
+        }
+
+        // ── capped dust motes drifting in the sun shafts ──
+        schDust = [];
+        for (var u = 0; u < 26; u++) {
+            var win = schWindows[u % schWindows.length];
+            schDust.push({ x: win.x + rand(-win.w * 0.6, win.w * 0.6), y: rand(0, schFloorY),
+                vy: rand(4, 14), drift: rand(0.4, 1.2), ph: rand(0, 6.28), a: rand(0.2, 0.6) });
+        }
+
+        // ── background runner kids (cross the hall on their own) ──
+        schRunners = [];
+        schRunners.push({ x: -40, dir: 1, speed: rand(70, 110), walk: 0,
+            type: randInt(0, SCH_KIDPAL.length - 1), chase: 0 });
+
+        schPlanes = [];
+        schPlaneT = rand(4, 8);
+        schBell = rand(8, 14); schBellFlash = 0; schWave = 0;
+        schFlicker = 1; schFlickerT = rand(0.5, 2.5);
+        schPeekT = rand(3, 7);
         playClick();
+    }
+
+    // Spawn a kid that runs across the full hallway width.
+    function schSpawnRunner(chase) {
+        var fromLeft = Math.random() < 0.5;
+        schRunners.push({ x: fromLeft ? -40 : W + 40, dir: fromLeft ? 1 : -1,
+            speed: rand(80, 140) * (chase ? 1.25 : 1), walk: 0,
+            type: randInt(0, SCH_KIDPAL.length - 1), chase: chase || 0 });
     }
 
     function schSay(spot) {
@@ -122,6 +227,8 @@
         if (spot.id === "kid") playTone(740, 0.08, "triangle", 0.14);
         if (spot.id === "fountain") playTone(520, 0.09, "sine", 0.12, 760);
         if (spot.id === "principal") playTone(330, 0.12, "sine", 0.12);
+        if (spot.id === "clock") playTone(880, 0.06, "triangle", 0.1);
+        if (spot.id === "locker") playTone(220, 0.1, "square", 0.12);
         // Bake-sale gives a one-time coin reward (then just flavor).
         if (spot.reward && !schBakeDone) {
             schBakeDone = true;
@@ -156,6 +263,72 @@
         for (var s = 0; s < schSpots.length; s++) {
             if (schSpots[s].moving) schSpots[s].x = schKidX;
         }
+
+        // ── Fluorescent flicker (one cheap re-roll, not per-frame random) ──
+        schFlickerT -= dt;
+        if (schFlickerT <= 0) {
+            schFlicker = Math.random() < 0.25 ? rand(0.55, 0.85) : 1;
+            schFlickerT = schFlicker < 1 ? rand(0.04, 0.12) : rand(0.8, 3.0);
+        }
+
+        // ── Dust motes drift up/down through the sun shafts ──
+        for (var u = 0; u < schDust.length; u++) {
+            var d = schDust[u];
+            d.y += d.vy * dt;
+            d.ph += dt;
+            if (d.y > schFloorY) { d.y = -4; }
+        }
+
+        // ── Class bell rings periodically → a wave of kids crosses ──
+        schBell -= dt;
+        if (schBellFlash > 0) schBellFlash -= dt;
+        if (schBell <= 0) {
+            schBell = rand(11, 18);
+            schBellFlash = 1.2;
+            schWave = 0.9;
+            playTone(1320, 0.13, "square", 0.13);
+            playTone(990, 0.18, "square", 0.1);
+        }
+        if (schWave > 0) {
+            schWave -= dt;
+            if (Math.random() < dt * 6) schSpawnRunner(0);
+        }
+
+        // ── Background runner kids cross the hall (+ occasional chase pair) ──
+        for (var rr = schRunners.length - 1; rr >= 0; rr--) {
+            var R = schRunners[rr];
+            R.x += R.dir * R.speed * dt;
+            R.walk += dt * 6;
+            if (R.x < -60 || R.x > W + 60) schRunners.splice(rr, 1);
+        }
+        if (schRunners.length < 2 && Math.random() < dt * 0.4) {
+            // sometimes two: a chaser right behind a runner
+            schSpawnRunner(0);
+            if (Math.random() < 0.4) {
+                var last = schRunners[schRunners.length - 1];
+                schRunners.push({ x: last.x - last.dir * 46, dir: last.dir,
+                    speed: last.speed * 1.05, walk: 0,
+                    type: randInt(0, SCH_KIDPAL.length - 1), chase: 1 });
+            }
+        }
+
+        // ── Paper airplane flies by occasionally ──
+        schPlaneT -= dt;
+        if (schPlaneT <= 0 && schPlanes.length < 2) {
+            schPlaneT = rand(6, 12);
+            var fl = Math.random() < 0.5;
+            schPlanes.push({ x: fl ? -30 : W + 30, y: rand(70, schFloorY - 40),
+                vx: (fl ? 1 : -1) * rand(150, 220), vy: rand(-10, 10), t: 0 });
+        }
+        for (var pl = schPlanes.length - 1; pl >= 0; pl--) {
+            var P = schPlanes[pl];
+            P.x += P.vx * dt; P.y += P.vy * dt + Math.sin(P.t * 6) * 14 * dt; P.t += dt;
+            if (P.x < -50 || P.x > W + 50) schPlanes.splice(pl, 1);
+        }
+
+        // ── Lulu peeks into rooms periodically when idle ──
+        schPeekT -= dt;
+        if (schPeekT <= 0) schPeekT = rand(4, 9);
 
         // Lulu strolls toward the last tapped x.
         schLulu.x = lerp(schLulu.x, schLulu.targetX, Math.min(1, 9 * dt));
@@ -252,19 +425,84 @@
         ctx.restore();
     }
 
+    // A small kid running across the hall (background, no payos detail — cheap).
+    function schDrawRunner(R) {
+        ctx.save(); ctx.translate(R.x, schFloorY + 54);
+        ctx.scale(R.dir, 1);
+        var legS = Math.sin(R.walk) * 6;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath();
+        ctx.ellipse(0, 16, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; roundRect(-5, 2 - legS, 4, 13 + legS, 2); ctx.fill();
+        roundRect(1, 2 + legS, 4, 13 - legS, 2); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(-8, -10, 16, 16, 4); ctx.fill();
+        // little arm pumping
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath();
+        ctx.arc(7 + Math.sin(R.walk) * 3, -2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -18, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = R.chase ? "#C62828" : SCH_KIDPAL[R.type];
+        ctx.beginPath(); ctx.arc(0, -22, 6, Math.PI, Math.PI * 2); ctx.fill(); // kippah
+        ctx.restore();
+    }
+
     function schDrawScene() {
-        // Back wall (warm school cream) + wainscot.
-        ctx.fillStyle = "#FBE9C8"; ctx.fillRect(0, 0, W, schFloorY);
+        // Back wall (warm school cream) + wainscot — cached gradient.
+        ctx.fillStyle = schWallGrad; ctx.fillRect(0, 0, W, schFloorY);
+
+        // Back-wall windows with daylight (behind everything).
+        for (var wi = 0; wi < schWindows.length; wi++) {
+            var wn = schWindows[wi], wx = wn.x - wn.w / 2, wy = 26, wh = 70;
+            ctx.fillStyle = "#BBDEFB"; roundRect(wx, wy, wn.w, wh, 4); ctx.fill();
+            ctx.fillStyle = "#E1F5FE"; roundRect(wx, wy, wn.w, wh * 0.45, 4); ctx.fill();
+            ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(wn.x, wy); ctx.lineTo(wn.x, wy + wh);
+            ctx.moveTo(wx, wy + wh / 2); ctx.lineTo(wx + wn.w, wy + wh / 2); ctx.stroke();
+            ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2; ctx.strokeRect(wx, wy, wn.w, wh);
+        }
+
+        // ── Sun shafts slanting down from the windows (additive-ish glow) ──
+        ctx.save();
+        ctx.globalAlpha = 0.6 * schFlicker;
+        for (var sf = 0; sf < schWindows.length; sf++) {
+            var sw = schWindows[sf];
+            ctx.fillStyle = schShaftGrad;
+            ctx.beginPath();
+            ctx.moveTo(sw.x - sw.w * 0.4, 96);
+            ctx.lineTo(sw.x + sw.w * 0.4, 96);
+            ctx.lineTo(sw.x + sw.w * 0.4 + 60, schFloorY);
+            ctx.lineTo(sw.x - sw.w * 0.4 + 60, schFloorY);
+            ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+
+        // ── Dust motes in the light ──
+        ctx.fillStyle = "#FFFDE7";
+        for (var u = 0; u < schDust.length; u++) {
+            var dm = schDust[u];
+            ctx.globalAlpha = dm.a * (0.5 + 0.5 * Math.sin(dm.ph)) * schFlicker;
+            ctx.beginPath();
+            ctx.arc(dm.x + Math.sin(dm.ph) * 6 * dm.drift, dm.y, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        // Wainscot band.
         ctx.fillStyle = "#E8C98A"; ctx.fillRect(0, schFloorY - 26, W, 26);
         ctx.strokeStyle = "#C8A05A"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(0, schFloorY - 26); ctx.lineTo(W, schFloorY - 26); ctx.stroke();
 
-        // Speckled linoleum floor with perspective tiles.
-        schHospFloorBand(schFloorY, H - schFloorY, "#9CCC65", "#7CB342");
+        // Speckled linoleum floor with perspective tiles — cached gradient.
+        ctx.fillStyle = schFloorGrad; ctx.fillRect(0, schFloorY, W, H - schFloorY);
         ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1;
         for (var ty = schFloorY + 18; ty < H; ty += 34) {
             ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(W, ty); ctx.stroke();
         }
+
+        // Soft floor reflection of the sun shafts (warm pools of light).
+        ctx.save(); ctx.globalAlpha = 0.18 * schFlicker; ctx.fillStyle = "#FFF59D";
+        for (var rp = 0; rp < schWindows.length; rp++) {
+            ctx.beginPath();
+            ctx.ellipse(schWindows[rp].x + 50, schFloorY + 26, 34, 8, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
 
         // Chalkboard (center back) with aleph-bais + a sum.
         var cbX = W * 0.30, cbY = 70, cbW = 200, cbH = 110;
@@ -278,38 +516,67 @@
         ctx.fillStyle = "#FFF"; ctx.fillRect(cbX + 16, cbY + cbH, 14, 4);
         ctx.fillStyle = "#FFCDD2"; ctx.fillRect(cbX + 40, cbY + cbH, 12, 4);
 
-        // Taped-up kid drawings.
-        var draws = [[18, 60], [W - 60, 56], [W - 96, 150]];
-        var dcol = ["#FFCDD2", "#BBDEFB", "#FFF9C4"];
-        for (var d = 0; d < draws.length; d++) {
-            ctx.save(); ctx.translate(draws[d][0], draws[d][1]); ctx.rotate((d % 2 ? 1 : -1) * 0.08);
-            ctx.fillStyle = dcol[d]; ctx.fillRect(0, 0, 38, 30);
+        // Taped-up kid drawings (precomputed positions/colors).
+        for (var d = 0; d < schDrawings.length; d++) {
+            var dr = schDrawings[d];
+            ctx.save(); ctx.translate(dr.x, dr.y); ctx.rotate(dr.rot);
+            ctx.fillStyle = dr.col; ctx.fillRect(0, 0, 38, 30);
             ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1; ctx.strokeRect(0, 0, 38, 30);
-            ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(12, 14, 5, 0, Math.PI * 2); ctx.fill(); // sun
-            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
-            ctx.beginPath(); ctx.arc(26, 18, 4, 0, Math.PI * 2); ctx.moveTo(26, 22); ctx.lineTo(26, 27); ctx.stroke(); // stick kid
+            if (dr.kind === 0) {
+                ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.arc(12, 14, 5, 0, Math.PI * 2); ctx.fill(); // sun
+                ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
+                ctx.beginPath(); ctx.arc(26, 18, 4, 0, Math.PI * 2); ctx.moveTo(26, 22); ctx.lineTo(26, 27); ctx.stroke();
+            } else if (dr.kind === 1) {
+                // a house
+                ctx.fillStyle = "#8D6E63"; ctx.fillRect(10, 14, 18, 12);
+                ctx.fillStyle = "#C62828"; ctx.beginPath();
+                ctx.moveTo(8, 14); ctx.lineTo(19, 6); ctx.lineTo(30, 14); ctx.closePath(); ctx.fill();
+            } else {
+                // a big scribbly heart
+                ctx.fillStyle = "#E91E63";
+                ctx.beginPath(); ctx.arc(14, 14, 4, 0, Math.PI * 2); ctx.arc(22, 14, 4, 0, Math.PI * 2);
+                ctx.moveTo(10, 16); ctx.lineTo(18, 26); ctx.lineTo(26, 16); ctx.closePath(); ctx.fill();
+            }
             // tape
             ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(14, -3, 10, 6);
             ctx.restore();
         }
 
-        // Lockers along the right back wall.
-        var lcol = ["#42A5F5", "#EF5350", "#66BB6A", "#FFA726"];
-        for (var l = 0; l < 4; l++) schDrawLocker(W - 96 + (l % 2) * 44, schFloorY - 130 + Math.floor(l / 2) * 70, 40, 64, lcol[l]);
+        // Lockers along the right back wall (precomputed).
+        for (var l = 0; l < schLockers.length; l++) {
+            var lk = schLockers[l];
+            schDrawLocker(lk.x, lk.y, lk.w, lk.h, lk.col);
+        }
 
-        // Tiny desks scattered up front-left.
-        for (var dk = 0; dk < 3; dk++) {
-            var dxp = 40 + dk * 56, dyp = schFloorY + 40 + (dk % 2) * 18;
+        // Tiny desks scattered up front-left (precomputed).
+        for (var dk = 0; dk < schDesks.length; dk++) {
+            var dxp = schDesks[dk].x, dyp = schDesks[dk].y;
             ctx.fillStyle = "#A1674A"; roundRect(dxp, dyp, 34, 8, 3); ctx.fill();        // desktop
             ctx.fillStyle = "#7B4A2E"; ctx.fillRect(dxp + 3, dyp + 8, 4, 18); ctx.fillRect(dxp + 27, dyp + 8, 4, 18); // legs
             ctx.fillStyle = "#FFF59D"; ctx.fillRect(dxp + 10, dyp - 2, 14, 4);          // notebook
         }
+
+        // ── Hallway clock (ticking, back wall center) ──
+        var clX = W * 0.50, clY = 44;
+        ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(clX, clY, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(schTime - 1.57) * 9, clY + Math.sin(schTime - 1.57) * 9); ctx.stroke();
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(schTime * 0.12 - 1.57) * 6, clY + Math.sin(schTime * 0.12 - 1.57) * 6); ctx.stroke();
+        // tick second hand jumps
+        ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1;
+        var sec = Math.floor(schTime) * 0.5236;
+        ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(sec - 1.57) * 12, clY + Math.sin(sec - 1.57) * 12); ctx.stroke();
     }
 
     function drawSchoolInterior() {
         ctx.save();
 
         schDrawScene();
+
+        // ── Background runner kids (behind props/NPCs) ──
+        for (var rk = 0; rk < schRunners.length; rk++) schDrawRunner(schRunners[rk]);
 
         // ── Hotspot NPCs / props ──
         // Water fountain (far left).
@@ -354,8 +621,40 @@
         var k = schSpots[1];
         schDrawKid(k.x, k.y, schKidWalk);
 
-        // ── Lulu ──
+        // ── Class bell on the wall (rings periodically, glows when ringing) ──
+        var blX = W * 0.50 + 30, blY = 26;
+        if (schBellFlash > 0) {
+            ctx.save();
+            ctx.globalAlpha = clamp(schBellFlash, 0, 1) * 0.5;
+            ctx.fillStyle = "#FFF176";
+            ctx.beginPath(); ctx.arc(blX, blY, 22 + (1.2 - schBellFlash) * 14, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.arc(blX, blY, 8, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#7F1D1D"; ctx.fillRect(blX - 8, blY, 16, 3);
+        ctx.fillStyle = "#FFCDD2"; ctx.beginPath();
+        ctx.arc(blX + (schBellFlash > 0 ? Math.sin(schTime * 40) * 2 : 0), blY + 3, 2, 0, Math.PI * 2); ctx.fill();
+
+        // ── Paper airplanes ──
+        for (var pa = 0; pa < schPlanes.length; pa++) {
+            var pn = schPlanes[pa];
+            ctx.save(); ctx.translate(pn.x, pn.y);
+            ctx.rotate(Math.atan2(pn.vy, pn.vx) + (pn.vx < 0 ? Math.PI : 0));
+            ctx.scale(pn.vx < 0 ? -1 : 1, 1);
+            ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(12, 0); ctx.lineTo(-12, 5); ctx.lineTo(-6, 0); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+            ctx.restore();
+        }
+
+        // ── Lulu (peeks into a room briefly via a tiny "?" thought) ──
         drawLuluTopDown(schLulu.x, schLulu.y, schLulu.walkTime, schLulu.mood);
+        if (schPeekT < 1.2 && Math.abs(schLulu.x - schLulu.targetX) <= 1.5) {
+            ctx.save();
+            ctx.globalAlpha = clamp(schPeekT, 0, 1) * 0.9;
+            drawText("👀", schLulu.x + 14 * schLulu.facing, schLulu.y - 56, "14px Arial", "#FFF", "#000", 2);
+            ctx.restore();
+        }
 
         drawParticles();
 
@@ -403,6 +702,31 @@
     var hospFloorY = 0;
     var hospVendShake = 0;       // vending machine wobble timer
     var hospPatientBreath = 0;
+    // ── cached gradients ──
+    var hospWallGrad = null, hospFloorGrad = null, hospLampGrad = null, hospVignette = null;
+    // ── precomputed static layout ──
+    var hospChairs = [];         // {x,y}
+    var hospTilesV = [];         // vertical tile x positions
+    var hospTilesH = [];         // horizontal tile y positions
+    var hospDust = [];           // gentle floating dust
+    var hospFish = [];           // {x,y,vx,col,ph} fish in the tank
+    var hospMags = [];           // magazine rack covers {col,rot}
+    // ── dynamic bits ──
+    var hospVendHum = 0;         // idle hum wobble phase
+    var hospVendIdleT = 3;       // random vending wobble timer
+    var hospNurse = null;        // {x, dir, walk, active, wait}
+    var hospNurseT = 4;          // time until next nurse crossing
+    var hospIvDrip = 0;          // IV drip timer
+    var hospServeNum = 7;        // "now serving" counter
+    var hospServeT = 8;          // ticks the counter
+    var hospServeFlash = 0;
+    var hospAmbT = 5;            // ambulance light flash event timer
+    var hospAmb = 0;             // ambulance flash active timer
+    var hospCough = 0;           // patient cough animation timer
+    var hospCoughT = 3;          // time until next cough
+    var hospTvFrame = 0;         // TV content index
+    var hospTvT = 2;             // TV channel-change timer
+    var hospLuluShift = 0;       // Lulu seat-shift wiggle phase
 
     var HOSP_RECEPTION = [
         "Do you have insurance?\n...A coupon? A blessing? Anything?",
@@ -463,7 +787,27 @@
         "They gave me a lollipop AND\na sling. Best day ever, honestly.",
         "Don't tell Ma I dove off the\nhigh board. ...She's behind me, isn't she.",
         "I'm 'between strokes', the doctor\nsaid. I don't even SWIM strokes!",
-        "The deep end disrespected me.\nWe have BEEF now. Me and the deep end."
+        "The deep end disrespected me.\nWe have BEEF now. Me and the deep end.",
+        "The X-ray guy said 'wow'.\nYou never want the X-ray guy to say 'wow'.",
+        "I'm getting a cast! Sign it?\nDraw something kosher. No goats."
+    ];
+    // NEW interaction: the fish tank in the corner.
+    var HOSP_FISH = [
+        "This fish has been to more\nappointments than I have.",
+        "They named him Dr. Gills.\nHe's the most qualified one here.",
+        "*blub* ...he's judging you.\nFish are very judgmental, mami.",
+        "The tank's the only thing in here\nwith good circulation. Lucky guy.",
+        "One fish. Big tank. Living the\ndream the rest of us only WAIT for.",
+        "He saw what's in that vending\nmachine. He's seen things, Lu."
+    ];
+    // NEW interaction: the waiting-room TV / magazine rack.
+    var HOSP_TV = [
+        "It's the news on mute, forever.\nSubtitles two minutes behind. Art.",
+        "A cooking show with no sound.\nI THINK that's a brisket. Pray it is.",
+        "Channel's stuck on the weather.\nIt's 'partly oy' with a chance of wait.",
+        "The remote vanished in 2011.\nWe watch what HaShem decides now.",
+        "Daytime TV: where everyone's\ncousin is somehow also their lawyer.",
+        "The magazines are from 2006.\nGreat news! The economy's gonna be FINE."
     ];
 
     function initHospitalInterior() {
@@ -478,8 +822,65 @@
             { id: "patient",   x: W * 0.18, y: fy,            r: 50, pool: HOSP_PATIENT },
             { id: "doctor",    x: W * 0.82, y: fy - 6,        r: 52, pool: HOSP_DOCTOR },
             { id: "vending",   x: W * 0.90, y: hospFloorY - 6, r: 50, pool: HOSP_VEND, vend: true },
-            { id: "heshy",     x: W * 0.34, y: fy + 18,       r: 48, pool: HOSP_HESHY, reward: true }
+            { id: "heshy",     x: W * 0.34, y: fy + 18,       r: 48, pool: HOSP_HESHY, reward: true },
+            { id: "fish",      x: W * 0.66, y: hospFloorY - 36, r: 42, pool: HOSP_FISH },
+            { id: "tv",        x: W * 0.14, y: 120,           r: 46, pool: HOSP_TV }
         ];
+
+        // ── cached gradients ──
+        hospWallGrad = ctx.createLinearGradient(0, 0, 0, hospFloorY);
+        hospWallGrad.addColorStop(0, "#EAF6F5");
+        hospWallGrad.addColorStop(0.6, "#E0F2F1");
+        hospWallGrad.addColorStop(1, "#CDE9E6");
+        hospFloorGrad = ctx.createLinearGradient(0, hospFloorY, 0, H);
+        hospFloorGrad.addColorStop(0, "#ECEFF1");
+        hospFloorGrad.addColorStop(1, "#CFD8DC");
+        // warm reception lamp glow (radial, centered over the desk)
+        hospLampGrad = ctx.createRadialGradient(W * 0.50, hospFloorY - 60, 8, W * 0.50, hospFloorY - 60, 150);
+        hospLampGrad.addColorStop(0, "rgba(255,224,130,0.45)");
+        hospLampGrad.addColorStop(1, "rgba(255,224,130,0)");
+        // cool sterile vignette
+        hospVignette = ctx.createRadialGradient(W / 2, hospFloorY * 0.5, hospFloorY * 0.4, W / 2, hospFloorY * 0.5, W * 0.7);
+        hospVignette.addColorStop(0, "rgba(176,210,224,0)");
+        hospVignette.addColorStop(1, "rgba(120,160,180,0.22)");
+
+        // ── precompute chairs ──
+        hospChairs = [];
+        for (var c = 0; c < 4; c++) hospChairs.push({ x: W * 0.10 + c * 64, y: hospFloorY + 70 });
+
+        // ── precompute floor tile lines ──
+        hospTilesV = []; hospTilesH = [];
+        for (var tx = 40; tx < W; tx += 60) hospTilesV.push(tx);
+        for (var tyy = hospFloorY + 28; tyy < H; tyy += 32) hospTilesH.push(tyy);
+
+        // ── capped floating dust ──
+        hospDust = [];
+        for (var u = 0; u < 18; u++) {
+            hospDust.push({ x: rand(0, W), y: rand(0, hospFloorY), vy: rand(-6, 6),
+                vx: rand(-5, 5), ph: rand(0, 6.28), a: rand(0.15, 0.4) });
+        }
+
+        // ── precompute fish-tank fish ──
+        hospFish = [];
+        var fcol = ["#FF7043", "#FFB300", "#42A5F5"];
+        for (var fi = 0; fi < 3; fi++) {
+            hospFish.push({ x: rand(0.2, 0.8), y: rand(0.25, 0.75), vx: (fi % 2 ? 1 : -1) * rand(0.1, 0.22),
+                col: fcol[fi], ph: rand(0, 6.28) });
+        }
+
+        // ── precompute magazine rack covers ──
+        hospMags = [];
+        var mcol = ["#EF5350", "#42A5F5", "#FFCA28", "#66BB6A"];
+        for (var mg = 0; mg < 4; mg++) hospMags.push({ col: mcol[mg], rot: rand(-0.12, 0.12) });
+
+        hospVendHum = 0; hospVendIdleT = rand(2, 5);
+        hospNurse = null; hospNurseT = rand(4, 8);
+        hospIvDrip = 0;
+        hospServeNum = randInt(5, 30); hospServeT = rand(6, 11); hospServeFlash = 0;
+        hospAmbT = rand(4, 9); hospAmb = 0;
+        hospCough = 0; hospCoughT = rand(2.5, 5);
+        hospTvFrame = 0; hospTvT = rand(2, 4);
+        hospLuluShift = 0;
         playClick();
     }
 
@@ -491,6 +892,8 @@
         if (spot.id === "reception") playTone(440, 0.08, "sine", 0.1);
         if (spot.id === "patient") playTone(620, 0.07, "triangle", 0.12);
         if (spot.id === "doctor") playTone(330, 0.1, "sine", 0.12);
+        if (spot.id === "fish") playTone(700, 0.07, "sine", 0.09, 480);
+        if (spot.id === "tv") playTone(280, 0.06, "square", 0.08);
 
         // Vending machine: 60% gives a snack (+coins), 40% eats a coin (gag).
         if (spot.vend) {
@@ -538,6 +941,83 @@
         if (hospBubbleT > 0) hospBubbleT -= dt;
         if (hospVendShake > 0) hospVendShake -= dt;
         hospPatientBreath += dt * 2;
+        hospVendHum += dt;
+        hospLuluShift += dt;
+
+        // ── Vending machine hums & occasionally wobbles on its own ──
+        hospVendIdleT -= dt;
+        if (hospVendIdleT <= 0) {
+            hospVendIdleT = rand(4, 9);
+            hospVendShake = Math.max(hospVendShake, 0.4);
+            playTone(110, 0.12, "sawtooth", 0.06);
+        }
+
+        // ── Floating dust ──
+        for (var u = 0; u < hospDust.length; u++) {
+            var dm = hospDust[u];
+            dm.x += dm.vx * dt; dm.y += dm.vy * dt; dm.ph += dt;
+            if (dm.y < 0) dm.y = hospFloorY; else if (dm.y > hospFloorY) dm.y = 0;
+            if (dm.x < 0) dm.x = W; else if (dm.x > W) dm.x = 0;
+        }
+
+        // ── Fish swim around the tank ──
+        for (var fi = 0; fi < hospFish.length; fi++) {
+            var F = hospFish[fi];
+            F.x += F.vx * dt; F.ph += dt;
+            if (F.x < 0.12) { F.x = 0.12; F.vx = Math.abs(F.vx); }
+            if (F.x > 0.88) { F.x = 0.88; F.vx = -Math.abs(F.vx); }
+        }
+
+        // ── IV drip drips (spawns a tiny falling bead occasionally) ──
+        hospIvDrip -= dt;
+        if (hospIvDrip <= 0) {
+            hospIvDrip = rand(0.8, 1.6);
+            particles.push({ x: W * 0.74, y: hospFloorY - 64, vx: 0, vy: 20, life: 0.7, maxLife: 0.7,
+                size: 2, color: "#4FC3F7", gravity: 120 });
+        }
+
+        // ── Nurse crosses with a clipboard ──
+        hospNurseT -= dt;
+        if (!hospNurse && hospNurseT <= 0) {
+            hospNurseT = rand(7, 13);
+            var fromL = Math.random() < 0.5;
+            hospNurse = { x: fromL ? -30 : W + 30, dir: fromL ? 1 : -1, walk: 0 };
+        }
+        if (hospNurse) {
+            hospNurse.x += hospNurse.dir * 90 * dt;
+            hospNurse.walk += dt * 6;
+            if (hospNurse.x < -50 || hospNurse.x > W + 50) hospNurse = null;
+        }
+
+        // ── "Now serving" counter ticks up ──
+        if (hospServeFlash > 0) hospServeFlash -= dt;
+        hospServeT -= dt;
+        if (hospServeT <= 0) {
+            hospServeT = rand(7, 13);
+            hospServeNum++;
+            hospServeFlash = 0.8;
+            playTone(880, 0.07, "sine", 0.1);
+            playTone(660, 0.1, "sine", 0.08);
+        }
+
+        // ── Ambulance light flashes through the window ──
+        hospAmbT -= dt;
+        if (hospAmb > 0) hospAmb -= dt;
+        if (hospAmbT <= 0) { hospAmbT = rand(9, 16); hospAmb = 2.4; }
+
+        // ── Hypochondriac coughs/fidgets ──
+        if (hospCough > 0) hospCough -= dt;
+        hospCoughT -= dt;
+        if (hospCoughT <= 0) {
+            hospCoughT = rand(3, 6);
+            hospCough = 0.5;
+            playTone(220, 0.09, "square", 0.08);
+            playTone(180, 0.12, "square", 0.06);
+        }
+
+        // ── TV channel content cycles ──
+        hospTvT -= dt;
+        if (hospTvT <= 0) { hospTvT = rand(2.5, 5); hospTvFrame = (hospTvFrame + 1) % 4; }
 
         hospLulu.x = lerp(hospLulu.x, hospLulu.targetX, Math.min(1, 9 * dt));
         if (Math.abs(hospLulu.x - hospLulu.targetX) > 1.5) {
@@ -644,16 +1124,48 @@
     }
 
     function hospDrawScene() {
-        // Clinic wall (clean mint) + a colored stripe.
-        ctx.fillStyle = "#E0F2F1"; ctx.fillRect(0, 0, W, hospFloorY);
+        // Clinic wall (clean mint) — cached gradient — + a colored stripe.
+        ctx.fillStyle = hospWallGrad; ctx.fillRect(0, 0, W, hospFloorY);
+
+        // ── Ambulance light flashing through a back window (left of center) ──
+        var winX = W * 0.30, winY = 18, winW = 70, winH = 54;
+        ctx.fillStyle = "#37474F"; roundRect(winX - 3, winY - 3, winW + 6, winH + 6, 4); ctx.fill();
+        ctx.fillStyle = "#1A2530"; roundRect(winX, winY, winW, winH, 3); ctx.fill(); // night outside
+        // distant building dots
+        ctx.fillStyle = "#455A64";
+        ctx.fillRect(winX + 8, winY + 28, 12, 26); ctx.fillRect(winX + 26, winY + 18, 14, 36);
+        ctx.fillRect(winX + 46, winY + 24, 12, 30);
+        ctx.fillStyle = "#FFF59D"; ctx.fillRect(winX + 30, winY + 24, 4, 4); ctx.fillRect(winX + 50, winY + 30, 3, 3);
+        if (hospAmb > 0) {
+            var amb = (Math.sin(hospTime * 14) > 0) ? "rgba(244,67,54,0.5)" : "rgba(33,150,243,0.5)";
+            ctx.save(); ctx.globalAlpha = clamp(hospAmb, 0, 1);
+            ctx.fillStyle = amb; roundRect(winX, winY, winW, winH, 3); ctx.fill();
+            // beam spilling into the room
+            ctx.globalAlpha = clamp(hospAmb, 0, 1) * 0.3;
+            ctx.fillStyle = amb; ctx.beginPath();
+            ctx.moveTo(winX, winY + winH); ctx.lineTo(winX + winW, winY + winH);
+            ctx.lineTo(winX + winW + 40, hospFloorY); ctx.lineTo(winX - 40, hospFloorY); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(winX + winW / 2, winY); ctx.lineTo(winX + winW / 2, winY + winH); ctx.stroke();
+
         ctx.fillStyle = "#26A69A"; ctx.fillRect(0, hospFloorY - 30, W, 8);
         ctx.fillStyle = "#B2DFDB"; ctx.fillRect(0, hospFloorY - 22, W, 22);
 
-        // Speckled tile floor.
-        schHospFloorBand(hospFloorY, H - hospFloorY, "#ECEFF1", "#CFD8DC");
+        // Speckled tile floor — cached gradient + precomputed tile lines.
+        ctx.fillStyle = hospFloorGrad; ctx.fillRect(0, hospFloorY, W, H - hospFloorY);
         ctx.strokeStyle = "rgba(120,144,156,0.35)"; ctx.lineWidth = 1;
-        for (var tx = 40; tx < W; tx += 60) { ctx.beginPath(); ctx.moveTo(tx, hospFloorY); ctx.lineTo(tx + (tx - W / 2) * 0.4, H); ctx.stroke(); }
-        for (var tyy = hospFloorY + 28; tyy < H; tyy += 32) { ctx.beginPath(); ctx.moveTo(0, tyy); ctx.lineTo(W, tyy); ctx.stroke(); }
+        for (var iv = 0; iv < hospTilesV.length; iv++) {
+            var tvx = hospTilesV[iv];
+            ctx.beginPath(); ctx.moveTo(tvx, hospFloorY); ctx.lineTo(tvx + (tvx - W / 2) * 0.4, H); ctx.stroke();
+        }
+        for (var ih = 0; ih < hospTilesH.length; ih++) {
+            ctx.beginPath(); ctx.moveTo(0, hospTilesH[ih]); ctx.lineTo(W, hospTilesH[ih]); ctx.stroke();
+        }
+
+        // Warm reception lamp glow pooled over the desk.
+        ctx.fillStyle = hospLampGrad; ctx.fillRect(0, 0, W, hospFloorY + 40);
 
         // Red cross sign + clock on the back wall.
         ctx.fillStyle = "#FFFFFF"; roundRect(20, 16, 46, 46, 8); ctx.fill();
@@ -698,6 +1210,129 @@
         ctx.beginPath(); ctx.arc(r.x - 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.arc(r.x + 3.5, r.y - 26, 1.4, 0, Math.PI * 2); ctx.fillStyle = "#000"; ctx.fill();
         ctx.beginPath(); ctx.moveTo(r.x - 3, r.y - 21); ctx.lineTo(r.x + 3, r.y - 21); ctx.stroke(); // flat unimpressed mouth
         ctx.lineCap = "butt";
+
+        // ── "NOW SERVING" counter above the desk ──
+        var nsX = r.x, nsY = r.y - 92;
+        ctx.fillStyle = "#212121"; roundRect(nsX - 44, nsY - 12, 88, 24, 4); ctx.fill();
+        drawText("NOW SERVING", nsX - 16, nsY - 1, "bold 7px Arial", "#80CBC4", null, 0);
+        var nsCol = hospServeFlash > 0 ? "#FF5252" : "#FF7043";
+        drawText("#" + hospServeNum, nsX + 28, nsY + 2, "bold 14px 'Courier New', monospace", nsCol, null, 0);
+    }
+
+    // Wall-mounted waiting-room TV (muted, content cycles).
+    function hospDrawTV(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "#212121"; roundRect(-30, -22, 60, 44, 4); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2; roundRect(-30, -22, 60, 44, 4); ctx.stroke();
+        // mount arm
+        ctx.fillStyle = "#455A64"; ctx.fillRect(-3, -34, 6, 12);
+        // screen content by frame
+        var f = hospTvFrame;
+        if (f === 0) { // news with lower-third
+            ctx.fillStyle = "#1565C0"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#FFCA28"; ctx.beginPath(); ctx.arc(0, -4, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#E53935"; ctx.fillRect(-26, 8, 52, 10);
+            ctx.fillStyle = "#FFF"; ctx.fillRect(-23, 11, 30, 3);
+        } else if (f === 1) { // cooking show
+            ctx.fillStyle = "#FFE0B2"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#8D6E63"; ctx.fillRect(-14, 2, 28, 10);
+            ctx.fillStyle = "#A1674A"; ctx.beginPath(); ctx.arc(0, 2, 8, Math.PI, Math.PI * 2); ctx.fill();
+        } else if (f === 2) { // weather map
+            ctx.fillStyle = "#0D47A1"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "#90CAF9"; ctx.fillRect(-18, -10, 36, 22);
+            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(10, -2, 5, 0, Math.PI * 2); ctx.fill();
+        } else { // static / snow
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(-26, -18, 52, 36);
+            ctx.fillStyle = "rgba(255,255,255,0.6)";
+            for (var s = 0; s < 14; s++) {
+                ctx.fillRect(-24 + ((s * 37 + hospTvFrame * 11) % 48), -16 + ((s * 53) % 32), 2, 2);
+            }
+        }
+        // glow flicker
+        ctx.fillStyle = "rgba(180,210,255," + (0.06 + 0.04 * Math.sin(hospTime * 9)) + ")";
+        ctx.fillRect(-26, -18, 52, 36);
+        ctx.restore();
+    }
+
+    // Corner fish tank (a hotspot prop).
+    function hospDrawFishTank(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        var w = 64, h = 44;
+        // stand
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(-w / 2 - 2, h / 2, w + 4, 14);
+        // water
+        ctx.fillStyle = "#4DD0E1"; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.18)"; roundRect(-w / 2, -h / 2, w, h * 0.4, 4); ctx.fill();
+        // gravel
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(-w / 2, h / 2 - 6, w, 6);
+        // plants
+        ctx.strokeStyle = "#388E3C"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-18, h / 2 - 6); ctx.quadraticCurveTo(-22, 0, -16, -8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(18, h / 2 - 6); ctx.quadraticCurveTo(22, 2, 14, -6); ctx.stroke();
+        ctx.lineCap = "butt";
+        // fish (precomputed, drifting)
+        for (var fi = 0; fi < hospFish.length; fi++) {
+            var F = hospFish[fi];
+            var fx = -w / 2 + F.x * w, fy = -h / 2 + F.y * h + Math.sin(F.ph) * 2;
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(F.vx < 0 ? -1 : 1, 1);
+            ctx.fillStyle = F.col; ctx.beginPath(); ctx.ellipse(0, 0, 5, 3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-9, -3); ctx.lineTo(-9, 3); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(3, -1, 0.8, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        // bubbles
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        for (var bb = 0; bb < 3; bb++) {
+            var by = (h / 2 - 6) - ((hospTime * 18 + bb * 16) % (h - 8));
+            ctx.beginPath(); ctx.arc(-12 + Math.sin(hospTime * 3 + bb) * 2, by, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        // glass frame
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2; roundRect(-w / 2, -h / 2, w, h, 4); ctx.stroke();
+        ctx.restore();
+    }
+
+    // IV drip pole (ambient prop, drips handled in update).
+    function hospDrawIvPole(x) {
+        var topY = hospFloorY - 86, botY = hospFloorY + 4;
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, botY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 8, topY); ctx.lineTo(x + 8, topY); ctx.stroke();
+        // bag
+        ctx.fillStyle = "rgba(178,235,233,0.85)"; roundRect(x + 2, topY + 2, 14, 22, 4); ctx.fill();
+        ctx.strokeStyle = "#80CBC4"; ctx.lineWidth = 1; roundRect(x + 2, topY + 2, 14, 22, 4); ctx.stroke();
+        // wheels
+        ctx.fillStyle = "#607D8B"; ctx.beginPath(); ctx.arc(x - 6, botY, 3, 0, Math.PI * 2); ctx.arc(x + 6, botY, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Magazine rack near the chairs.
+    function hospDrawMagRack(x, y) {
+        ctx.fillStyle = "#90A4AE"; roundRect(x - 22, y, 44, 6, 2); ctx.fill();
+        ctx.fillStyle = "#607D8B"; ctx.fillRect(x - 20, y + 6, 3, 16); ctx.fillRect(x + 17, y + 6, 3, 16);
+        for (var m = 0; m < hospMags.length; m++) {
+            ctx.save(); ctx.translate(x - 16 + m * 10, y - 8); ctx.rotate(hospMags[m].rot);
+            ctx.fillStyle = hospMags[m].col; roundRect(-5, -12, 10, 16, 1); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.6)"; ctx.fillRect(-3, -9, 6, 2);
+            ctx.restore();
+        }
+    }
+
+    // Nurse crossing with a clipboard.
+    function hospDrawNurse(N) {
+        ctx.save(); ctx.translate(N.x, hospFloorY + 50); ctx.scale(N.dir, 1);
+        var legS = Math.sin(N.walk) * 5;
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(0, 22, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#26A69A"; roundRect(-5, 6 - legS, 5, 16 + legS, 2); ctx.fill();
+        roundRect(1, 6 + legS, 5, 16 - legS, 2); ctx.fill();
+        ctx.fillStyle = "#4DB6AC"; roundRect(-11, -12, 22, 22, 6); ctx.fill();  // scrub top
+        // clipboard
+        ctx.fillStyle = "#FFF"; roundRect(8, -4, 9, 12, 1); ctx.fill();
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 1; roundRect(8, -4, 9, 12, 1); ctx.stroke();
+        // head + cap
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -22, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6D4C41"; ctx.beginPath(); ctx.arc(0, -25, 10, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; roundRect(-7, -30, 14, 6, 2); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-1, -29, 2, 4); ctx.fillRect(-2, -28, 4, 2);
+        ctx.restore();
     }
 
     function hospDrawVending(x, y, shake) {
@@ -729,8 +1364,29 @@
 
         hospDrawScene();
 
-        // Plastic waiting-room chairs in a row up front.
-        for (var c = 0; c < 4; c++) hospDrawChair(W * 0.10 + c * 64, hospFloorY + 70);
+        // Wall TV (back-left) + fish tank (mid-right) — ambient hotspots.
+        var tv = hospSpots[6];
+        hospDrawTV(tv.x, tv.y);
+        var fishT = hospSpots[5];
+        hospDrawFishTank(fishT.x, fishT.y);
+
+        // IV pole near the doctor's side.
+        hospDrawIvPole(W * 0.74);
+
+        // Plastic waiting-room chairs in a row up front (precomputed).
+        for (var c = 0; c < hospChairs.length; c++) hospDrawChair(hospChairs[c].x, hospChairs[c].y);
+
+        // Magazine rack tucked by the chairs.
+        hospDrawMagRack(W * 0.10 + 4 * 64 + 10, hospFloorY + 64);
+
+        // ── Floating dust motes (between props and NPCs) ──
+        ctx.save(); ctx.fillStyle = "#FFFFFF";
+        for (var u = 0; u < hospDust.length; u++) {
+            var dm = hospDust[u];
+            ctx.globalAlpha = dm.a * (0.5 + 0.5 * Math.sin(dm.ph));
+            ctx.beginPath(); ctx.arc(dm.x, dm.y, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
 
         // Vending machine (far right).
         var v = hospSpots[3];
@@ -740,16 +1396,31 @@
         var dr = hospSpots[2];
         hospDrawDoctor(dr.x, dr.y, hospTime);
 
-        // Nervous patient (left, on a chair).
+        // Nervous patient (left, on a chair) — coughs/leans forward periodically.
         var pt = hospSpots[1];
+        var cough = hospCough > 0 ? clamp(hospCough * 2, 0, 1) : 0;
+        ctx.save(); ctx.translate(0, cough * 3);
         hospDrawPatient(pt.x, pt.y, hospPatientBreath);
+        if (cough > 0) {
+            ctx.globalAlpha = cough * 0.8;
+            drawText("*kof kof*", pt.x + 24, pt.y - 40, "italic 10px Arial", "#90A4AE", "#FFF", 2);
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
 
         // Heshy with pool injury (mid-left).
         var he = hospSpots[4];
         hospDrawHeshy(he.x, he.y, hospTime);
 
-        // Lulu.
+        // Nurse crossing with a clipboard (in front of the chairs).
+        if (hospNurse) hospDrawNurse(hospNurse);
+
+        // Lulu (shifts in her waiting chair when idle).
+        var idle = Math.abs(hospLulu.x - hospLulu.targetX) <= 1.5;
+        ctx.save();
+        if (idle) ctx.translate(Math.sin(hospLuluShift * 1.4) * 1.5, 0);
         drawLuluTopDown(hospLulu.x, hospLulu.y, hospLulu.walkTime, hospLulu.mood);
+        ctx.restore();
 
         drawParticles();
 
@@ -758,6 +1429,9 @@
             drawSpeechBubble(hospBubbleX, hospFloorY + 26, hospBubble, hospTime * 4);
             ctx.globalAlpha = 1;
         }
+
+        // Cool sterile vignette over the whole room (cached gradient).
+        ctx.fillStyle = hospVignette; ctx.fillRect(0, 0, W, H);
 
         ctx.restore();
 
