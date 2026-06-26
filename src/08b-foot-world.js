@@ -84,6 +84,9 @@
             reason === "parkingCrash" ? "That's coming out of my deposit.\nOn foot it is." :
             reason === "copWalk"      ? "Impounded?! Fine. I'll WALK.\n...and find a new ride." :
                                         "The car's a meatball.\nTime to borrow one.";
+        // A chase doesn't follow her onto the sidewalk — clear it so a leftover
+        // pursuit can't "pull over" a walking Lulu (she'd be drawn as a car).
+        copChase = null; copBust = null;
         lives = Math.max(lives, 1);   // she can still lose it — but starts with one
         invincibleTimer = 0;
         if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }

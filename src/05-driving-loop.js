@@ -79,6 +79,9 @@
         var onFoot = (state === "footRun");
         if (onFoot && footIntroT > 0) { footIntroT -= dt; updateParticles(dt); footWalkTime += dt * 1.3; return; }
         if (onFoot && footArrestT > 0) { updateFootArrest(dt); return; }
+        // Walking never changes the DRIVING score — it has its own coins/stars.
+        // Snapshot here, restore at the end, so nothing this frame inflates it.
+        var footScore0 = onFoot ? score : 0;
 
         gameTime += dt;
         var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
@@ -103,9 +106,11 @@
         var weatherSlow = badWeather ? 1 - 0.13 * seasonBlend : 1;
         gameSpeed = baseGameSpeed * speedMod * weatherSlow;
         scrollOffset += gameSpeed * dt;
-        var scoreMult = (distractedMode ? 2 : 1) * pointMult;
+        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
-        score += gameSpeed * dt * 0.08 * scoreMult;
+        // Walking doesn't rack up DRIVING score (foot has its own coins/stars) —
+        // otherwise the invisible foot stretch silently inflates the score.
+        if (!onFoot) score += gameSpeed * dt * 0.08 * scoreMult;
 
         // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
@@ -905,7 +910,7 @@
 
         // On foot: building doors, parked cars to "borrow", and the hand-button
         // interactions (talk / pet / hail / enter / steal) live here.
-        if (onFoot) updateFootExtras(dt);
+        if (onFoot) { score = footScore0; updateFootExtras(dt); }
     }
 
     function hitPlayer(obj) {
@@ -1009,7 +1014,8 @@
                 cop.spot = Math.max(0, cop.spot - dt * 1.5);
             }
         }
-        if (copChase) updateCopChase(dt);
+        // A chase never progresses while she's on foot (she's not a car to bust).
+        if (copChase && state !== "footRun") updateCopChase(dt);
     }
 
     // Start a chase from any x with a custom alert (used by roadside cops,
