@@ -47,17 +47,22 @@
     }
 
     function updatePlaying(dt) {
+        // Lulu on foot reuses this whole real-world simulation (so NOTHING is
+        // missing) — only the player-car bits below are branched on `onFoot`.
+        var onFoot = (state === "footRun");
+        if (onFoot && footIntroT > 0) { footIntroT -= dt; updateParticles(dt); footWalkTime += dt * 1.3; return; }
+
         gameTime += dt;
-        var baseGameSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
-        // Speed control: up = boost, down = slow
+        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Speed control: up = run, down = slow (on foot the LEFT buttons).
         var speedMod = 1;
-        if (keys.up) speedMod = 1.6;
-        else if (keys.down) speedMod = 0.5;
+        if (keys.up) speedMod = onFoot ? 2.0 : 1.6;
+        else if (keys.down) speedMod = onFoot ? 0.4 : 0.5;
         // Splashed a puddle → brief slowdown (nitro below can still override it).
         if (wetTimer > 0) { wetTimer = Math.max(0, wetTimer - dt); speedMod = Math.min(speedMod, 0.6); }
         // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
-        // through traffic for bonus points.
-        if (nitroTimer > 0) {
+        // through traffic for bonus points. (Driving only.)
+        if (nitroTimer > 0 && !onFoot) {
             nitroTimer = Math.max(0, nitroTimer - dt);
             speedMod = Math.max(speedMod, 2.0);
             invincibleTimer = Math.max(invincibleTimer, 0.2);
@@ -74,14 +79,15 @@
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         score += gameSpeed * dt * 0.08 * scoreMult;
 
-        // Steering (reversed if distracted)
+        // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
-        if (distractedMode) steerInput = -steerInput;
-        var steerSpeed = 300;
+        if (distractedMode && !onFoot) steerInput = -steerInput;
+        var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
-        player.targetX = clamp(player.targetX, ROAD_L + CAR_W / 2 + 4, ROAD_R - CAR_W / 2 - 4);
-        player.x = lerp(player.x, player.targetX, Math.min(1, 10 * dt));
-        player.tilt = lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
+        player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
+        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
+        player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
+        if (onFoot) footWalkTime += dt * (0.5 + speedMod);
 
         // Timers
         if (invincibleTimer > 0) invincibleTimer -= dt;
@@ -161,7 +167,7 @@
             avigailWalker.y += gameSpeed * 0.55 * dt;
             avigailWalker.walkTime += dt;
             if (avigailWalker.y > H + 60) { avigailWalker = null; }
-            else if (aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
+            else if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
                 avigailWalker = null;
                 startAvigailScene();
                 return;
@@ -176,7 +182,7 @@
             ssg.y += gameSpeed * dt;
             ssg.bob += dt;
             if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
-            if (aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
+            if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
                 salonSigns.splice(ssi, 1);
                 startSalonScene();
                 return;
@@ -231,19 +237,22 @@
 
         // Pause check
         if (consumePause()) {
-            prevState = "playing";
+            prevState = onFoot ? "footRun" : "playing";
             state = "paused";
             playClick();
             return;
         }
 
-        // Click on pause/missile buttons (mouse fallback — touch path already routes via hitGameButton)
-        var click = consumeClick();
-        if (click) {
-            if (pointInRect(click.x, click.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
-                prevState = "playing"; state = "paused"; playClick(); return;
-            } else if (pointInRect(click.x, click.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) {
-                fireMissile();
+        // Click on pause/missile buttons (mouse fallback — touch path already routes
+        // via hitGameButton). Disabled on foot (no pause/missile there).
+        if (!onFoot) {
+            var click = consumeClick();
+            if (click) {
+                if (pointInRect(click.x, click.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
+                    prevState = "playing"; state = "paused"; playClick(); return;
+                } else if (pointInRect(click.x, click.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) {
+                    fireMissile();
+                }
             }
         }
 
@@ -333,15 +342,17 @@
 
             if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
-                    // Pick up the pedestrian as passenger! Always (even during invincibility).
-                    pickUpPassenger(o);
-                    // Bonk someone in front of a watching cop → instant chase.
-                    if (!copChase && !copBust) {
-                        var witness = copInView();
-                        if (witness) startCopChase(witness);
+                    if (!onFoot) {
+                        // Pick up the pedestrian as passenger! Always (even during invincibility).
+                        pickUpPassenger(o);
+                        // Bonk someone in front of a watching cop → instant chase.
+                        if (!copChase && !copBust) {
+                            var witness = copInView();
+                            if (witness) startCopChase(witness);
+                        }
+                        obstacles.splice(i, 1);
                     }
-                    obstacles.splice(i, 1);
-                    continue;
+                    continue; // on foot she just walks among them (talk via the hand button)
                 }
                 if (o.type === "pool") {
                     // Easter egg — never a penalty. Summon Heshy + grant a shield.
@@ -473,7 +484,7 @@
             fc.y += gameSpeed * dt;
             fc.bob += dt;
             if (fc.y > H + 50) { fuelCans.splice(fj, 1); continue; }
-            if (!fc.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, fc.x, fc.y, fc.hitW, fc.hitH)) {
+            if (!onFoot && !fc.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, fc.x, fc.y, fc.hitW, fc.hitH)) {
                 fc.collected = true;
                 nitroTimer = Math.min(nitroTimer + 3.5, 9);
                 spawnFloater(fc.x, fc.y, "NITRO! 🔥", "#FF7043");
@@ -838,9 +849,16 @@
                 }
             }
         }
+
+        // On foot: building doors, parked cars to "borrow", and the hand-button
+        // interactions (talk / pet / hail / enter / steal) live here.
+        if (onFoot) updateFootExtras(dt);
     }
 
     function hitPlayer(obj) {
+        // On foot she's NOT in a car: getting clipped by traffic knocks her
+        // down (lose a life); tripping on cones/animals is just a stumble.
+        if (state === "footRun") { footKnockout(obj); return; }
         lives--;
         invincibleTimer = INVINCIBLE_TIME;
         shakeTimer = 0.4;
@@ -2138,6 +2156,8 @@
 
     // ── Draw: Playing ────────────────────────────────────────
     function drawPlaying() {
+        var onFoot = (state === "footRun") || (state === "paused" && prevState === "footRun");
+        if (onFoot && footIntroT > 0) { drawFootIntro(); return; }
         ctx.save();
         if (shakeTimer > 0) {
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
@@ -2270,9 +2290,16 @@
         // Nitro flame trail (under the car)
         if (state !== "crash") drawNitroFlame(gameTime);
 
-        // Player (or crashed car if state === crash)
+        // On foot: parked (stealable) cars + building doors sit in the world.
+        if (onFoot) drawFootWorld();
+
+        // Player (or crashed car if state === crash; or Lulu on foot)
         if (state === "crash") {
             drawLuluCar(crashX, crashY, crashRot, false, gameTime, distractedMode);
+        } else if (onFoot) {
+            // She blinks while briefly invincible after a knock.
+            if (!(invincibleTimer > 0 && Math.sin(gameTime * 22) < 0))
+                drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
@@ -2342,6 +2369,7 @@
         ctx.restore();
         // Season darkness tint + weather + lightning + banner (over world, under HUD)
         drawSeasonFx();
+        if (onFoot) { drawFootHUD(); return; }
         drawHUD();
 
         // Re-entry grace indicator: a soft shield bubble around the car + a

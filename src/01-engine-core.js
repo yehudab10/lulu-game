@@ -739,8 +739,8 @@
         var s = 0;
         if (keys.left) s -= 1;
         if (keys.right) s += 1;
-        // Mobile: finger-follow steering (continuous)
-        if (touchX !== null && state === "playing") {
+        // Mobile: finger-follow steering (continuous) — also when on foot
+        if (touchX !== null && (state === "playing" || state === "footRun")) {
             var diff = touchX - playerX;
             s = clamp(diff / 35, -1.4, 1.4);
         }

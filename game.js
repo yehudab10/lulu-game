@@ -741,8 +741,8 @@
         var s = 0;
         if (keys.left) s -= 1;
         if (keys.right) s += 1;
-        // Mobile: finger-follow steering (continuous)
-        if (touchX !== null && state === "playing") {
+        // Mobile: finger-follow steering (continuous) — also when on foot
+        if (touchX !== null && (state === "playing" || state === "footRun")) {
             var diff = touchX - playerX;
             s = clamp(diff / 35, -1.4, 1.4);
         }
@@ -5551,17 +5551,22 @@
     }
 
     function updatePlaying(dt) {
+        // Lulu on foot reuses this whole real-world simulation (so NOTHING is
+        // missing) — only the player-car bits below are branched on `onFoot`.
+        var onFoot = (state === "footRun");
+        if (onFoot && footIntroT > 0) { footIntroT -= dt; updateParticles(dt); footWalkTime += dt * 1.3; return; }
+
         gameTime += dt;
-        var baseGameSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
-        // Speed control: up = boost, down = slow
+        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Speed control: up = run, down = slow (on foot the LEFT buttons).
         var speedMod = 1;
-        if (keys.up) speedMod = 1.6;
-        else if (keys.down) speedMod = 0.5;
+        if (keys.up) speedMod = onFoot ? 2.0 : 1.6;
+        else if (keys.down) speedMod = onFoot ? 0.4 : 0.5;
         // Splashed a puddle → brief slowdown (nitro below can still override it).
         if (wetTimer > 0) { wetTimer = Math.max(0, wetTimer - dt); speedMod = Math.min(speedMod, 0.6); }
         // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
-        // through traffic for bonus points.
-        if (nitroTimer > 0) {
+        // through traffic for bonus points. (Driving only.)
+        if (nitroTimer > 0 && !onFoot) {
             nitroTimer = Math.max(0, nitroTimer - dt);
             speedMod = Math.max(speedMod, 2.0);
             invincibleTimer = Math.max(invincibleTimer, 0.2);
@@ -5578,14 +5583,15 @@
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         score += gameSpeed * dt * 0.08 * scoreMult;
 
-        // Steering (reversed if distracted)
+        // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
-        if (distractedMode) steerInput = -steerInput;
-        var steerSpeed = 300;
+        if (distractedMode && !onFoot) steerInput = -steerInput;
+        var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
-        player.targetX = clamp(player.targetX, ROAD_L + CAR_W / 2 + 4, ROAD_R - CAR_W / 2 - 4);
-        player.x = lerp(player.x, player.targetX, Math.min(1, 10 * dt));
-        player.tilt = lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
+        player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
+        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
+        player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
+        if (onFoot) footWalkTime += dt * (0.5 + speedMod);
 
         // Timers
         if (invincibleTimer > 0) invincibleTimer -= dt;
@@ -5665,7 +5671,7 @@
             avigailWalker.y += gameSpeed * 0.55 * dt;
             avigailWalker.walkTime += dt;
             if (avigailWalker.y > H + 60) { avigailWalker = null; }
-            else if (aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
+            else if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
                 avigailWalker = null;
                 startAvigailScene();
                 return;
@@ -5680,7 +5686,7 @@
             ssg.y += gameSpeed * dt;
             ssg.bob += dt;
             if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
-            if (aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
+            if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
                 salonSigns.splice(ssi, 1);
                 startSalonScene();
                 return;
@@ -5735,19 +5741,22 @@
 
         // Pause check
         if (consumePause()) {
-            prevState = "playing";
+            prevState = onFoot ? "footRun" : "playing";
             state = "paused";
             playClick();
             return;
         }
 
-        // Click on pause/missile buttons (mouse fallback — touch path already routes via hitGameButton)
-        var click = consumeClick();
-        if (click) {
-            if (pointInRect(click.x, click.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
-                prevState = "playing"; state = "paused"; playClick(); return;
-            } else if (pointInRect(click.x, click.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) {
-                fireMissile();
+        // Click on pause/missile buttons (mouse fallback — touch path already routes
+        // via hitGameButton). Disabled on foot (no pause/missile there).
+        if (!onFoot) {
+            var click = consumeClick();
+            if (click) {
+                if (pointInRect(click.x, click.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
+                    prevState = "playing"; state = "paused"; playClick(); return;
+                } else if (pointInRect(click.x, click.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) {
+                    fireMissile();
+                }
             }
         }
 
@@ -5837,15 +5846,17 @@
 
             if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
-                    // Pick up the pedestrian as passenger! Always (even during invincibility).
-                    pickUpPassenger(o);
-                    // Bonk someone in front of a watching cop → instant chase.
-                    if (!copChase && !copBust) {
-                        var witness = copInView();
-                        if (witness) startCopChase(witness);
+                    if (!onFoot) {
+                        // Pick up the pedestrian as passenger! Always (even during invincibility).
+                        pickUpPassenger(o);
+                        // Bonk someone in front of a watching cop → instant chase.
+                        if (!copChase && !copBust) {
+                            var witness = copInView();
+                            if (witness) startCopChase(witness);
+                        }
+                        obstacles.splice(i, 1);
                     }
-                    obstacles.splice(i, 1);
-                    continue;
+                    continue; // on foot she just walks among them (talk via the hand button)
                 }
                 if (o.type === "pool") {
                     // Easter egg — never a penalty. Summon Heshy + grant a shield.
@@ -5977,7 +5988,7 @@
             fc.y += gameSpeed * dt;
             fc.bob += dt;
             if (fc.y > H + 50) { fuelCans.splice(fj, 1); continue; }
-            if (!fc.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, fc.x, fc.y, fc.hitW, fc.hitH)) {
+            if (!onFoot && !fc.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, fc.x, fc.y, fc.hitW, fc.hitH)) {
                 fc.collected = true;
                 nitroTimer = Math.min(nitroTimer + 3.5, 9);
                 spawnFloater(fc.x, fc.y, "NITRO! 🔥", "#FF7043");
@@ -6342,9 +6353,16 @@
                 }
             }
         }
+
+        // On foot: building doors, parked cars to "borrow", and the hand-button
+        // interactions (talk / pet / hail / enter / steal) live here.
+        if (onFoot) updateFootExtras(dt);
     }
 
     function hitPlayer(obj) {
+        // On foot she's NOT in a car: getting clipped by traffic knocks her
+        // down (lose a life); tripping on cones/animals is just a stumble.
+        if (state === "footRun") { footKnockout(obj); return; }
         lives--;
         invincibleTimer = INVINCIBLE_TIME;
         shakeTimer = 0.4;
@@ -7642,6 +7660,8 @@
 
     // ── Draw: Playing ────────────────────────────────────────
     function drawPlaying() {
+        var onFoot = (state === "footRun") || (state === "paused" && prevState === "footRun");
+        if (onFoot && footIntroT > 0) { drawFootIntro(); return; }
         ctx.save();
         if (shakeTimer > 0) {
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
@@ -7774,9 +7794,16 @@
         // Nitro flame trail (under the car)
         if (state !== "crash") drawNitroFlame(gameTime);
 
-        // Player (or crashed car if state === crash)
+        // On foot: parked (stealable) cars + building doors sit in the world.
+        if (onFoot) drawFootWorld();
+
+        // Player (or crashed car if state === crash; or Lulu on foot)
         if (state === "crash") {
             drawLuluCar(crashX, crashY, crashRot, false, gameTime, distractedMode);
+        } else if (onFoot) {
+            // She blinks while briefly invincible after a knock.
+            if (!(invincibleTimer > 0 && Math.sin(gameTime * 22) < 0))
+                drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
@@ -7846,6 +7873,7 @@
         ctx.restore();
         // Season darkness tint + weather + lightning + banner (over world, under HUD)
         drawSeasonFx();
+        if (onFoot) { drawFootHUD(); return; }
         drawHUD();
 
         // Re-entry grace indicator: a soft shield bubble around the car + a
@@ -10825,30 +10853,27 @@
 
     // ════════════════════════════════════════════════════════════
     //  LULU ON FOOT — a GTA-lite walking world
-    //  When Lulu's car is wrecked she walks her OWN road (same world,
-    //  same traffic) — but on two legs and untouchable: cars honk and
-    //  swerve around her, drunks catcall and chase her, animals scatter.
-    //  She can duck into buildings (bar/school/hospital/police/beach —
-    //  each its own interior mini-world) and "borrow" a parked car to
-    //  get back on the road (GTA-style) — steal it in front of a cop and
-    //  you'll be chased.  Entered from the crash reprieve, a parking-sim
-    //  crash, and 10% of cop pull-overs.
+    //  When Lulu's car is wrecked she walks her OWN road. Foot mode REUSES
+    //  the real driving simulation (updatePlaying/drawPlaying) — so NOTHING
+    //  is missing: every car, cop, animal, toll booth, train, parade, sign,
+    //  coin, etc. is there. She just walks instead of driving, and she is
+    //  NOT invincible — clipped by traffic she goes down (lose a life).
+    //  This fragment adds only the on-foot LAYER: the get-out intro, the
+    //  hand-button interactions (talk / pet / enter a building / borrow a
+    //  car), the knockdown, the HUD, and the building-interior dispatch.
+    //  Entered from the crash reprieve, a parking crash, and 10% of pull-overs.
     // ════════════════════════════════════════════════════════════
 
-    var FOOT_BASE = 150;        // forward walk speed (px/sec, cruise)
-    var FOOT_RUN = 2.1, FOOT_SLOW = 0.45;
+    var FOOT_WALK_SPEED = 150;   // world scroll while walking (px/sec, cruise)
 
-    // ── Exterior state ───────────────────────────────────────
-    var footPhase = 0;          // 0 = quick get-out cinematic, 1 = walking
-    var footTimer = 0;
-    var footLulu = null;        // { x, y, walkTime, face, wreckT }
-    var footObs = [];           // live world entities (cars/cops/peds/animals/cones/coins)
-    var footSpawnT = 1.0;
-    var footParked = [];        // stealable parked cars
-    var footDoors = [];         // building entrances
-    var footPrompt = null;      // nearest interactable: { kind, ent, label }
-    var footDoorCool = 0;       // re-entry cooldown after leaving a building
-    var footParkCool = 0;       // spacing between parked-car spawns
+    // ── Foot-layer state ─────────────────────────────────────
+    var footIntroT = 0;          // get-out cinematic timer (no tap needed)
+    var footWalkTime = 0;        // animation clock for the on-foot sprite
+    var footMood = "run";        // "run" | "panic" | "cry"
+    var footParked = [];         // stealable parked cars on the shoulder
+    var footDoors = [];          // building entrances
+    var footPrompt = null;       // nearest interactable { kind, ent, label }
+    var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
     var footCoinsRun = 0, footStars = 0;
@@ -10857,197 +10882,88 @@
     var footChat = "", footChatT = 0, footChatNext = 3;
     var footInteriorType = null;
 
-    // ── Saying pools (lots of variety) ───────────────────────
-    var FOOT_CAR_HONKS = ["BEEP BEEP!", "Use a CROSSWALK!", "You WALKING the highway?!",
-        "Meshugene!", "MOVE it, lady!", "Get OUTTA the road!", "HOOONK", "Nice jaywalk!",
-        "I'm DRIVING here!", "Sidewalk's RIGHT there!"];
-    var FOOT_DRUNK_CALLS = ["Heyyy gorgeous! 🍻", "Marry me — I have a CAR! 🚗", "*wolf whistle*",
-        "You're an ANGEL 😇", "Hubba hubba!", "Niiice... walk?", "Call me! ...somehow",
-        "Lookin' GOOD, Lulu!", "Is it hot or is it YOU?", "*hiccup* helloooo", "Need a LIFT? 😏",
-        "My NUMBER is— *burp*", "You complete me!", "Pull OVER, beautiful!"];
-    var FOOT_CHASE_LINES = ["Wait UP! 🏃", "Just ONE seltzer!", "I'll walk you home!",
-        "Come baaack!", "I'm a CATCH!", "Where ya GOIN?!", "Slow dowwwn!", "I do CARDIO!"];
+    // ── Saying pools ─────────────────────────────────────────
     var FOOT_LULU_CHAT = ["Where do I get a CAR around here?", "Walking. In these flats. Great.",
         "Bubbe's gonna plotz.", "I need a RIDE.", "So many cars... none are MINE.",
         "Is everyone DRUNK today?", "I should've taken the bus.", "These men. Oy.",
-        "Twenty minutes till candles!", "A car. Any car. Please."];
+        "A car. Any car. Please.", "Cardio counts as a mitzvah, right?"];
     var FOOT_STEAL_LINES = ["Borrowing this! 🚗", "Sorry, EMERGENCY!", "I'll bring it back!",
         "Don't mind if I DO!", "Grand theft... mitzvah?", "Keys were RIGHT there!", "Bubbe needs me!"];
+    var FOOT_TALK_LULU = ["Hi! Have you seen a free car?", "Lovely weather for WALKING. ugh.",
+        "Gut voch!", "You didn't see anything.", "Nice... whatever that is.", "Can I borrow your car? No? Rude."];
+    var FOOT_PED_REPLY = ["Shalom! 👋", "...do I know you?", "Spare a nickel?", "Walk faster, lady!",
+        "Nice day, eh?", "I'm late too!", "Mazel tov! ...for what? dunno.", "Cute bag!"];
+    var FOOT_DRUNK_REPLY = ["Heyyy GORGEOUS! 🍻", "Marry me — I have a CAR! 🚗", "*hiccup* helloooo",
+        "You're an ANGEL 😇", "Niiice walk!", "Call me! ...somehow", "Need a LIFT? 😏"];
+    var FOOT_PET_LINES = ["Awww! 🐾", "Who's a good boy?!", "So FLUFFY!", "Hi little guy!", "Shoo! ...no, stay!"];
 
     function startFootWorld(reason) {
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         save.footRunsPlayed = footRunLevel; persistSave();
-        footPhase = 0; footTimer = 0;
-        footObs = []; footParked = []; footDoors = [];
-        footSpawnT = 1.0; footParkCool = 6; footDoorCool = 2;
-        footPrompt = null;
+        footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
+        footParked = []; footDoors = []; footPrompt = null;
+        footParkCool = 5; footDoorCool = 2;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
-        footHint = "Find a car to “borrow” 🚗"; footHintT = 6;
+        footHint = "Find a car to “borrow” 🚗  •  ✋ to interact"; footHintT = 6;
         footIntroLine =
             reason === "parkingCrash" ? "That's coming out of my deposit.\nOn foot it is." :
             reason === "copWalk"      ? "Impounded?! Fine. I'll WALK.\n...and find a new ride." :
                                         "The car's a meatball.\nTime to borrow one.";
-        footLulu = { x: W / 2, y: H - 220, walkTime: 0, face: "cry", wreckT: 0 };
-        state = "footRun";   // smooth: no tap, flows straight in
+        lives = Math.max(lives, 1);   // she can still lose it — but starts with one
+        invincibleTimer = 0;
+        if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
+        state = "footRun";            // smooth: updatePlaying runs the world, drawFootIntro plays first
     }
 
-    // ── Update: exterior ─────────────────────────────────────
-    function updateFootRun(dt) {
-        if (!footLulu) return;
-        footTimer += dt;
-        updateParticles(dt);
-        if (shakeTimer > 0) shakeTimer -= dt;
+    // Thin dispatch wrappers — foot mode IS the real driving sim with onFoot set.
+    function updateFootRun(dt) { updatePlaying(dt); }
+    function drawFootRun() { drawPlaying(); }
 
-        if (footPhase === 0) { updateFootIntro(dt); return; }
+    // ── The on-foot LAYER (called from updatePlaying when onFoot) ────
+    function updateFootExtras(dt) {
+        footMood = invincibleTimer > 0 ? "panic" : "run";
 
-        // Forward pace — run/slow, on the LEFT buttons (keys.up/down)
-        var run = keys.up, slow = keys.down;
-        var sp = run ? FOOT_RUN : (slow ? FOOT_SLOW : 1.0);
-        var fwd = FOOT_BASE * sp;
-
-        // Advance her ACTUAL world (road, zones, seasons, decorations).
-        scrollOffset += fwd * dt;
-        updateZone(dt, fwd);
-        updateSeason(dt, fwd);
-        updateDecorations(dt, fwd);
-        footLulu.walkTime += dt * (0.4 + sp);
-        footLulu.face = "run";
-        if (run) particles.push({ x: footLulu.x + rand(-9, 9), y: footLulu.y + 22,
-            vx: rand(-22, 22), vy: rand(16, 50), life: 0.4, maxLife: 0.4,
-            size: rand(3, 6), color: randPick(["#D7CCC8", "#BCAAA4", "#CFD8DC"]), gravity: 0 });
-
-        // Steer across the FULL width — road and sidewalks both.
-        var minX = 22, maxX = W - 22;
-        if (touchX !== null) footLulu.x = lerp(footLulu.x, clamp(touchX, minX, maxX), Math.min(1, 14 * dt));
-        else { var mv = (keys.left ? -1 : 0) + (keys.right ? 1 : 0); footLulu.x = clamp(footLulu.x + mv * 300 * dt, minX, maxX); }
-
-        // Spawn + advance the world entities and interactables.
-        footSpawnT -= dt;
-        if (footSpawnT <= 0) { footSpawnT = rand(0.6, 1.3); spawnFootObs(); }
+        // Spawn + scroll the stealable cars and building doors.
         if (footParkCool > 0) footParkCool -= dt;
-        if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); spawnFootParked(); }
+        if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); footSpawnParked(); }
         if (footDoorCool > 0) footDoorCool -= dt;
-        maybeSpawnFootDoor();
+        footMaybeSpawnDoor();
+        footScroll(footParked, 110, dt);
+        footScroll(footDoors, 80, dt);
 
-        updateFootObs(dt, fwd);
-        scrollFootList(footParked, dt, fwd, 110);
-        scrollFootList(footDoors, dt, fwd, 80);
-
-        // Context prompt + interact
+        // Nearest thing she can interact with + the hand-button action.
         footPrompt = footNearestInteractable();
-        var act = footActQueued; footActQueued = false;
-        if (act && footPrompt) doFootInteract(footPrompt);
+        if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); }
 
-        // Chatter + hint
+        // Chatter + hint.
         footChatT -= dt;
-        if (footChatT <= -footChatNext) { footChat = randPick(FOOT_LULU_CHAT); footChatT = 2.0; footChatNext = rand(3.5, 6); }
+        if (footChatT <= -footChatNext) { footChat = randPick(FOOT_LULU_CHAT); footChatT = 2.0; footChatNext = rand(4, 7); }
         if (footHintT > 0) footHintT -= dt;
     }
 
-    function updateFootIntro(dt) {
-        footLulu.wreckT -= dt;
-        if (footLulu.wreckT <= 0) {
-            footLulu.wreckT = 0.09;
-            particles.push({ x: W / 2 - 38 + rand(-10, 10), y: H * 0.44 + rand(-8, 6),
-                vx: rand(-18, 18), vy: rand(-52, -24), life: rand(1.0, 1.6), maxLife: 1.3,
-                size: rand(7, 12), color: randPick(["#616161", "#9E9E9E", "#757575"]),
-                gravity: -22, smoke: true });
-        }
-        footLulu.walkTime += dt * 1.3;
-        if (footTimer > 0.7) footLulu.face = "run";
-        // Smooth, automatic — NO tap needed.
-        if (footTimer > 1.6) { footPhase = 1; footTimer = 0; footLulu.x = W / 2; footLulu.y = H - 220; footLulu.face = "run"; }
-    }
-
-    // ── World entities ───────────────────────────────────────
-    function spawnFootObs() {
-        var lane = randInt(0, 2);
-        var r = Math.random();
-        if (r < 0.40) {
-            footObs.push({ kind: "car", x: LANES[lane], baseX: LANES[lane], y: -90, vy: rand(60, 150),
-                color: randPick(C.enemyCols), carType: randInt(0, 2), honkT: rand(0, 1),
-                drunk: Math.random() < 0.16, swerveT: rand(0, 6.28), walkTime: 0, line: "", lineT: 0 });
-        } else if (r < 0.49) {
-            footObs.push({ kind: "cop", x: LANES[lane], y: -90, vy: rand(45, 85), walkTime: 0 });
-        } else if (r < 0.74) {
-            var onSide = Math.random() < 0.45;
-            footObs.push({ kind: "ped", x: onSide ? (Math.random() < 0.5 ? ROAD_L - 28 : ROAD_R + 28) : LANES[lane],
-                y: -40, vy: rand(8, 34), walkTime: 0, pedType: randInt(0, 2),
-                drunk: Math.random() < 0.42, chase: false, callT: rand(0.4, 2), line: "", lineT: 0 });
-        } else if (r < 0.86) {
-            footObs.push({ kind: "animal", x: rand(ROAD_L + 10, ROAD_R - 10), y: -30, vy: rand(18, 55),
-                walkTime: 0, animal: randPick(["duck", "raccoon", "ostrich"]) });
-        } else if (r < 0.95) {
-            footObs.push({ kind: "coin", x: LANES[lane], y: -30, vy: 0, walkTime: 0 });
-        } else {
-            footObs.push({ kind: "cone", x: LANES[lane], y: -40, vy: 0, walkTime: 0 });
-        }
-    }
-
-    function updateFootObs(dt, fwd) {
-        for (var i = footObs.length - 1; i >= 0; i--) {
-            var o = footObs[i];
-            o.y += (fwd + (o.vy || 0)) * dt;
-            o.walkTime = (o.walkTime || 0) + dt;
-            if (o.lineT > 0) o.lineT -= dt;
-            if (o.y > H + 100) { footObs.splice(i, 1); continue; }
-
-            if (o.kind === "car") {
-                var dxc = o.x - footLulu.x;
-                if (o.honkT > 0) o.honkT -= dt;
-                // Approaching her lane → honk + swerve around (never hits her).
-                if (Math.abs(dxc) < 64 && o.y > footLulu.y - 150 && o.y < footLulu.y + 26) {
-                    o.x += (dxc >= 0 ? 1 : -1) * 70 * dt;
-                    if (o.honkT <= 0) { o.honkT = rand(1.4, 2.6); playHonk(); o.line = randPick(FOOT_CAR_HONKS); o.lineT = 1.5; }
-                }
-                if (o.drunk) { o.swerveT += dt; o.x = clamp(o.x + Math.sin(o.swerveT * 3) * 22 * dt, ROAD_L + 14, ROAD_R - 14); }
-            } else if (o.kind === "ped" && o.drunk) {
-                o.callT -= dt;
-                if (o.callT <= 0 && o.lineT <= 0) { o.callT = rand(1.8, 3.4); o.line = randPick(FOOT_DRUNK_CALLS); o.lineT = 2.2; }
-                // Close + roughly alongside → she's got an admirer who CHASES.
-                if (!o.chase && Math.abs(o.x - footLulu.x) < 150 && o.y > footLulu.y - 110 && o.y < footLulu.y + 60) o.chase = true;
-                if (o.chase) {
-                    o.x = lerp(o.x, footLulu.x, dt * 1.1);
-                    o.y = lerp(o.y, footLulu.y + 40, dt * 0.9);
-                    if (o.lineT <= 0 && Math.random() < dt * 0.7) { o.line = randPick(FOOT_CHASE_LINES); o.lineT = 1.8; }
-                }
-            } else if (o.kind === "animal") {
-                if (Math.abs(o.x - footLulu.x) < 66 && Math.abs(o.y - footLulu.y) < 80)
-                    o.x = clamp(o.x + (o.x >= footLulu.x ? 1 : -1) * 130 * dt, 12, W - 12);
-            } else if (o.kind === "coin") {
-                if (Math.abs(o.x - footLulu.x) < 26 && Math.abs(o.y - footLulu.y) < 26) {
-                    footCoinsRun++; runCoins++; save.totalCoins++;
-                    spawnCoinSparkle(o.x, o.y); playCoin();
-                    spawnFloater(o.x, o.y - 12, "+1 💰", "#FFD700");
-                    footObs.splice(i, 1);
-                }
-            }
-        }
-    }
-
-    function scrollFootList(list, dt, fwd, killBelow) {
+    function footScroll(list, killBelow, dt) {
         for (var i = list.length - 1; i >= 0; i--) {
-            list[i].y += fwd * dt;
+            list[i].y += gameSpeed * dt;       // gameSpeed is the live world scroll
             if (list[i].y > H + killBelow) list.splice(i, 1);
         }
     }
 
-    function spawnFootParked() {
+    function footSpawnParked() {
         var left = Math.random() < 0.5;
         footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110,
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
-    // City zones map to a building you can enter; beach gets a beach-hut.
+    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH" };
     function footZoneInterior() {
         if (typeof zone === "undefined") return null;
         if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
         return null;
     }
-    function maybeSpawnFootDoor() {
+    function footMaybeSpawnDoor() {
         if (footDoorCool > 0 || footDoors.length > 0) return;
         var t = footZoneInterior();
         if (!t) return;
@@ -11057,45 +10973,153 @@
     }
 
     function footNearestInteractable() {
-        var best = null, bestD = 9999;
-        for (var i = 0; i < footParked.length; i++) {
-            var p = footParked[i];
-            var d = Math.abs(p.x - footLulu.x) + Math.abs(p.y - footLulu.y);
-            if (Math.abs(p.x - footLulu.x) < 56 && Math.abs(p.y - footLulu.y) < 86 && d < bestD) {
-                best = { kind: "steal", ent: p, label: "🚗 BORROW CAR" }; bestD = d;
-            }
+        var best = null, bestD = 1e9;
+        function consider(cand, dx, dy, rx, ry) {
+            if (Math.abs(dx) < rx && Math.abs(dy) < ry) { var d = Math.abs(dx) + Math.abs(dy); if (d < bestD) { best = cand; bestD = d; } }
         }
-        for (var j = 0; j < footDoors.length; j++) {
-            var dr = footDoors[j];
-            var dd = Math.abs(dr.x - footLulu.x) + Math.abs(dr.y - footLulu.y);
-            if (Math.abs(dr.x - footLulu.x) < 56 && Math.abs(dr.y - footLulu.y) < 64 && dd < bestD) {
-                best = { kind: "enter", ent: dr, label: "🚪 ENTER " + FOOT_DOOR_NAME[dr.type] }; bestD = dd;
-            }
+        for (var i = 0; i < footDoors.length; i++) {
+            var dr = footDoors[i];
+            consider({ kind: "enter", ent: dr, label: "🚪 ENTER " + FOOT_DOOR_NAME[dr.type] }, dr.x - player.x, dr.y - player.y, 58, 66);
+        }
+        for (var p = 0; p < footParked.length; p++) {
+            var pc = footParked[p];
+            consider({ kind: "borrow", ent: pc, label: "🚗 BORROW CAR" }, pc.x - player.x, pc.y - player.y, 58, 88);
+        }
+        // Real pedestrians (talk) and animals (pet) from the live world.
+        for (var o = 0; o < obstacles.length; o++) {
+            var e = obstacles[o];
+            if (e.type === "ped") consider({ kind: "talk", ent: e, label: "💬 TALK" }, e.x - player.x, e.y - player.y, 46, 50);
+            else if (e.type === "duck" || e.type === "raccoon" || e.type === "ostrich")
+                consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
         }
         return best;
     }
-    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH" };
 
     function doFootInteract(prompt) {
-        if (prompt.kind === "enter") {
-            enterFootInterior(prompt.ent.type);
+        if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
+        if (prompt.kind === "borrow") {
+            spawnFloater(player.x, player.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
+            spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
+            playTone(520, 0.08, "square", 0.12);
+            // Stealing in front of a cop → the driving chase takes over.
+            var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
+            lives = Math.max(lives, 1);
+            footParked = []; footDoors = [];
+            returnToDriving();   // back on the road (state → "playing")
+            if (seen && typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
             return;
         }
-        // Steal a car → back on the road (GTA-style). A nearby cop = a chase.
-        spawnFloater(footLulu.x, footLulu.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
-        var seen = Math.random() < 0.12;
-        for (var i = 0; i < footObs.length; i++) {
-            var o = footObs[i];
-            if (o.kind === "cop" && o.y > -20 && o.y < H && Math.abs(o.x - prompt.ent.x) < 300) seen = true;
+        if (prompt.kind === "talk") {
+            var e = prompt.ent;
+            e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
+            footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0;
+            playTone(520, 0.05, "sine", 0.08);
+            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
+            return;
         }
-        spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
-        playTone(520, 0.08, "square", 0.12);
-        lives = Math.max(lives, 1); // she entered foot on a wrecked car — give her a life back
-        returnToDriving();
-        if (seen) {
-            // The driving cop-chase system takes it from here.
-            if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
+        if (prompt.kind === "pet") {
+            var a = prompt.ent;
+            footCoinsRun++; runCoins++; save.totalCoins++;
+            spawnFloater(a.x, a.y - 18, randPick(FOOT_PET_LINES) + " +1", "#FFB74D");
+            playDogBark();
+            a.x = clamp(a.x + (a.x >= player.x ? 1 : -1) * 40, 12, W - 12); // it scoots off, delighted
+            return;
         }
+    }
+
+    // Clipped on foot: cars knock her down (lose a life); cones/animals just trip.
+    function footKnockout(obj) {
+        var deadly = obj && obj.type === "car";
+        shakeTimer = 0.35; shakeIntensity = 8; flashTimer = 0.12;
+        spawnCrashBurst(player.x, player.y, false);
+        if (!deadly) { invincibleTimer = 0.7; footMood = "panic"; spawnFloater(player.x, player.y - 30, "oof!", "#FFF"); return; }
+        lives--;
+        invincibleTimer = 1.6; footMood = "panic";
+        playWompWomp();
+        spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
+        if (lives <= 0) {
+            if (score > save.highScore) save.highScore = Math.floor(score);
+            persistSave();
+            gameOverAlpha = 0;
+            state = "gameover";
+        }
+    }
+
+    // ── Draw: the on-foot world layer ────────────────────────
+    function drawFootWorld() {
+        for (var p = 0; p < footParked.length; p++) {
+            var pc = footParked[p];
+            ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
+            drawEnemyCar(0, 0, pc.color, pc.carType);
+            ctx.restore();
+        }
+        for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
+    }
+
+    function drawFootDoor(dr) {
+        var onLeft = dr.x < W / 2;
+        ctx.save();
+        ctx.translate(dr.x, dr.y);
+        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA" }[dr.type] || "#8D6E63";
+        ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();
+        ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = col; roundRect(-26, -16, 52, 16, 4); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        for (var s = -26; s < 26; s += 10) ctx.fillRect(s + 2, -16, 5, 16);
+        drawText(FOOT_DOOR_NAME[dr.type], 0, -8, "bold 8px Arial", "#fff", "#000", 2);
+        ctx.restore();
+    }
+
+    function drawFootHUD() {
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        roundRect(0, 0, W, 40 + SAFE_TOP, 0); ctx.fill();
+        // hearts (she CAN go down now)
+        for (var i = 0; i < Math.max(3, lives); i++) drawHeart(14 + i * 20, 16 + SAFE_TOP, i < lives);
+        drawText("🚶‍♀️ 💰 " + runCoins + "  ⭐ " + footStars, W - 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD700", "#000", 2, "right");
+        if (footHintT > 0) {
+            ctx.globalAlpha = clamp(footHintT, 0, 1);
+            drawText(footHint, W / 2, 30 + SAFE_TOP, "bold 12px Arial", "#FFF8E1", "#000", 3);
+            ctx.globalAlpha = 1;
+        }
+        if (footPrompt) {
+            var py = player.y - 78, pw = footPrompt.label.length * 7 + 24;
+            ctx.fillStyle = "rgba(0,0,0,0.7)"; roundRect(player.x - pw / 2, py, pw, 22, 6); ctx.fill();
+            drawText(footPrompt.label, player.x, py + 11, "bold 11px Arial", "#FFE082", "#000", 2);
+        }
+        if (footChatT > 0) drawSpeechBubble(player.x, player.y - 54, footChat, footWalkTime);
+
+        // Buttons: run/slow on the LEFT (boost/brake slots), interact on the RIGHT.
+        if (isTouchDevice) {
+            drawIconButton(MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, "⚡",
+                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
+            drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, "🐢",
+                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
+            drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👉" : "✋",
+                { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
+            drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
+        }
+    }
+
+    // ── Intro tableau (auto, no tap) ─────────────────────────
+    function drawFootIntro() {
+        drawRoad(scrollOffset);
+        drawDecorations(footWalkTime);
+        drawCityBuildings();
+        drawSeasonFx();
+        ctx.fillStyle = "rgba(40,20,60,0.20)"; ctx.fillRect(0, 0, W, H);
+        ctx.save(); ctx.translate(W / 2 - 38, H * 0.44); ctx.rotate(0.4);
+        drawLuluCar(0, 0, 0, false, footWalkTime, false, save.selectedSkin, 1);
+        ctx.restore();
+        // get-out smoke
+        if (Math.sin(footWalkTime * 9) > 0) particles.push({ x: W / 2 - 38 + rand(-8, 8), y: H * 0.44,
+            vx: rand(-14, 14), vy: rand(-48, -22), life: 1.2, maxLife: 1.2, size: rand(7, 12),
+            color: randPick(["#616161", "#9E9E9E"]), gravity: -20, smoke: true });
+        drawParticles();
+        drawLuluTopDown(W / 2 + 36, H * 0.44 + 14, footWalkTime, footIntroT > 0.7 ? "cry" : "run");
+        drawSpeechBubble(W / 2 + 36, H * 0.44 - 44, footIntroLine, footWalkTime);
+        drawText("LULU ON FOOT", W / 2, H * 0.66, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+        drawText("borrow a car to get back on the road", W / 2, H * 0.66 + 24, "bold 12px Arial", "#FFF8E1", "#000", 2);
     }
 
     // ── Interior contract (interiors live in 08c/08d/08e) ────
@@ -11107,17 +11131,14 @@
         else if (type === "hospital" && typeof initHospitalInterior === "function") initHospitalInterior();
         else if (type === "police" && typeof initPoliceInterior === "function") initPoliceInterior();
         else if (type === "beach" && typeof initBeachInterior === "function") initBeachInterior();
-        else { exitFootInterior(); return; }  // not built yet → bounce back out
+        else { exitFootInterior(); return; }
         playClick();
     }
     function exitFootInterior() {
         footInteriorType = null;
         state = "footRun";
-        footPhase = 1;
-        footDoors = [];          // clear doors so she doesn't instantly re-enter
-        footDoorCool = 2.0;
-        footPrompt = null;
-        if (footLulu) footLulu.face = "run";
+        footDoors = []; footDoorCool = 2.0; footPrompt = null;
+        footMood = "run";
         playClick();
     }
     function updateFootInterior(dt) {
@@ -11141,130 +11162,6 @@
         drawParticles();
     }
 
-    // ── Draw: exterior ───────────────────────────────────────
-    function drawFootRun() {
-        if (footPhase === 0) { drawFootIntro(); return; }
-
-        ctx.save();
-        if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
-
-        // Her real world.
-        drawRoad(scrollOffset);
-        drawDecorations(footTimer);
-        drawCityBuildings();
-
-        // Parked (stealable) cars sit on the shoulder, tilted.
-        for (var p = 0; p < footParked.length; p++) {
-            var pc = footParked[p];
-            ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
-            drawEnemyCar(0, 0, pc.color, pc.carType);
-            ctx.restore();
-        }
-        // Building doors.
-        for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
-
-        // World entities (traffic, cops, peds, animals, coins, cones).
-        for (var i = 0; i < footObs.length; i++) drawFootObs(footObs[i]);
-
-        // Lulu.
-        drawLuluTopDown(footLulu.x, footLulu.y, footLulu.walkTime, footLulu.face);
-        if (footChatT > 0) drawSpeechBubble(footLulu.x, footLulu.y - 56, footChat, footLulu.walkTime);
-
-        drawParticles();
-        ctx.restore();
-
-        drawSeasonFx();   // weather + season darkness over the world
-        drawFootHUD();
-    }
-
-    function drawFootObs(o) {
-        if (o.kind === "car") {
-            drawEnemyCar(o.x, o.y, o.color, o.carType);
-            if (o.lineT > 0 && o.y > 40 && o.y < H - 40) drawSpeechBubble(o.x, o.y - 46, o.line, o.walkTime);
-        } else if (o.kind === "cop") {
-            drawCopCar(o.x, o.y, footTimer * 3);
-        } else if (o.kind === "ped") {
-            drawPedestrian(o.x, o.y, o.walkTime, o.pedType, false, o.drunk);
-            if (o.lineT > 0 && o.y > 30 && o.y < H - 30) drawSpeechBubble(o.x, o.y - 30, o.line, o.walkTime);
-        } else if (o.kind === "animal") {
-            if (o.animal === "duck") drawDuck(o.x, o.y, o.walkTime);
-            else if (o.animal === "raccoon") drawRaccoon(o.x, o.y, o.walkTime);
-            else drawOstrich(o.x, o.y, o.walkTime);
-        } else if (o.kind === "coin") {
-            drawCoin(o.x, o.y, o.walkTime);
-        } else if (o.kind === "cone") {
-            drawCone(o.x, o.y);
-        }
-    }
-
-    function drawFootDoor(dr) {
-        var onLeft = dr.x < W / 2;
-        ctx.save();
-        ctx.translate(dr.x, dr.y);
-        // awning + doorway, themed colour
-        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA" }[dr.type] || "#8D6E63";
-        ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();           // frame
-        ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();            // door
-        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill(); // knob
-        ctx.fillStyle = col; roundRect(-26, -16, 52, 16, 4); ctx.fill();                // awning
-        ctx.fillStyle = "rgba(255,255,255,0.55)";
-        for (var s = -26; s < 26; s += 10) ctx.fillRect(s + 2, -16, 5, 16);
-        drawText(FOOT_DOOR_NAME[dr.type], 0, -8, "bold 8px Arial", "#fff", "#000", 2);
-        ctx.restore();
-    }
-
-    function drawFootHUD() {
-        // slim top bar
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        roundRect(0, 0, W, 40 + SAFE_TOP, 0); ctx.fill();
-        drawText("🚶‍♀️ ON FOOT", 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD54F", "#000", 2, "left");
-        drawText("⭐ " + footStars + "   💰 " + footCoinsRun, W - 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD700", "#000", 2, "right");
-        if (footHintT > 0) {
-            ctx.globalAlpha = clamp(footHintT, 0, 1);
-            drawText(footHint, W / 2, 26 + SAFE_TOP, "bold 13px Arial", "#FFF8E1", "#000", 3);
-            ctx.globalAlpha = 1;
-        }
-
-        // context prompt floating above Lulu
-        if (footPrompt) {
-            var py = footLulu.y - 78;
-            ctx.fillStyle = "rgba(0,0,0,0.7)";
-            var pw = footPrompt.label.length * 7 + 24;
-            roundRect(footLulu.x - pw / 2, py, pw, 22, 6); ctx.fill();
-            drawText(footPrompt.label, footLulu.x, py + 11, "bold 11px Arial", "#FFE082", "#000", 2);
-        }
-
-        // Buttons: run / slow on the LEFT (where the car's boost/brake are),
-        // interact on the RIGHT (where honk is).
-        if (isTouchDevice) {
-            drawIconButton(MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, "⚡",
-                { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
-            drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, "🐢",
-                { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
-            drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👋" : "✋",
-                { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
-            drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
-        }
-    }
-
-    // ── Intro tableau (phase 0) — auto, no tap ──────────────
-    function drawFootIntro() {
-        drawRoad(scrollOffset);
-        drawDecorations(footTimer);
-        drawCityBuildings();
-        drawSeasonFx();
-        ctx.fillStyle = "rgba(40,20,60,0.20)"; ctx.fillRect(0, 0, W, H);
-        // Wrecked car, tilted + smoking.
-        ctx.save(); ctx.translate(W / 2 - 38, H * 0.44); ctx.rotate(0.4);
-        drawLuluCar(0, 0, 0, false, footTimer, false, save.selectedSkin, 1);
-        ctx.restore();
-        drawParticles();
-        drawLuluTopDown(W / 2 + 36, H * 0.44 + 14, footLulu.walkTime, footLulu.face);
-        drawSpeechBubble(W / 2 + 36, H * 0.44 - 44, footIntroLine, footTimer);
-        drawText("LULU ON FOOT", W / 2, H * 0.66, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-        drawText("borrow a car to get back on the road", W / 2, H * 0.66 + 24, "bold 12px Arial", "#FFF8E1", "#000", 2);
-    }
-
     // ── Running Lulu (top-down) ──────────────────────────────
     function drawLuluTopDown(x, y, walkTime, mood) {
         ctx.save();
@@ -11275,11 +11172,9 @@
         var legSwing = Math.sin(walkTime * 16) * 7;
         var armSwing = Math.sin(walkTime * 16) * 0.5;
 
-        // Shadow (stays grounded)
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         ctx.beginPath(); ctx.ellipse(0, 22, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
 
-        // Legs (denim) + sneakers
         ctx.fillStyle = "#3F5C8A";
         roundRect(-6, 7 - legSwing, 5, 16 + legSwing, 2); ctx.fill();
         roundRect(1, 7 + legSwing, 5, 16 - legSwing, 2); ctx.fill();
@@ -11287,7 +11182,6 @@
         roundRect(-7, 21 - legSwing, 7, 4, 2); ctx.fill();
         roundRect(0, 21 + legSwing, 7, 4, 2); ctx.fill();
 
-        // Swinging arms (behind the body), skin hands
         for (var a = 0; a < 2; a++) {
             ctx.save();
             ctx.translate(a === 0 ? -11 : 11, -3);
@@ -11299,25 +11193,21 @@
             ctx.restore();
         }
 
-        // Body — pink top
         ctx.fillStyle = "#1A1A1A";
         ctx.beginPath(); ctx.ellipse(0, 0, 13, 11, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#FF9EC3";
         ctx.beginPath(); ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#FFC0DA";
         ctx.beginPath(); ctx.ellipse(-5, -3, 4, 2.5, -0.2, 0, Math.PI * 2); ctx.fill();
-        // little crossbody bag
         ctx.strokeStyle = "#8E5A3C"; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(-8, -6); ctx.lineTo(7, 7); ctx.stroke();
         ctx.fillStyle = "#A1674A"; roundRect(5, 4, 7, 6, 2); ctx.fill();
 
-        // Head
         ctx.fillStyle = "#1A1A1A";
         ctx.beginPath(); ctx.arc(0, -13, 9.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#FFE0CC";
         ctx.beginPath(); ctx.arc(0, -13, 8.5, 0, Math.PI * 2); ctx.fill();
 
-        // Hair (luluHair) cap + flowing ponytail streaming behind as she runs
         var hair = save.luluHair || "#8B5A2B";
         ctx.fillStyle = hair;
         ctx.beginPath(); ctx.arc(0, -16, 9, Math.PI, Math.PI * 2); ctx.fill();
@@ -11325,39 +11215,31 @@
         ctx.beginPath(); ctx.ellipse(0 + tail, -2, 4.5, 9, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = shadeColor(hair, 22);
         ctx.beginPath(); ctx.ellipse(-3, -17, 3, 2, -0.3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#FF4FA3"; // hair tie
+        ctx.fillStyle = "#FF4FA3";
         ctx.beginPath(); ctx.arc(0, -9, 1.5, 0, Math.PI * 2); ctx.fill();
 
-        // Face by mood
         if (mood === "cry") {
             ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1; ctx.lineCap = "round";
             ctx.beginPath();
             ctx.arc(-3, -13.5, 1.6, 1.15 * Math.PI, 1.85 * Math.PI);
             ctx.arc(3, -13.5, 1.6, 1.15 * Math.PI, 1.85 * Math.PI);
             ctx.stroke(); ctx.lineCap = "butt";
-            ctx.fillStyle = "#4FC3F7"; // tears
+            ctx.fillStyle = "#4FC3F7";
             ctx.beginPath(); ctx.arc(-3.5, -10.5, 1, 0, Math.PI * 2); ctx.arc(3.5, -10.5, 1, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 0.9;
             ctx.beginPath(); ctx.arc(0, -8.5, 2, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
         } else {
             ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 1; ctx.lineCap = "round";
             ctx.beginPath();
-            if (mood === "panic") {
-                ctx.arc(-2.5, -13, 1.8, 0, Math.PI * 2);
-                ctx.arc(2.5, -13, 1.8, 0, Math.PI * 2);
-            } else {
-                ctx.arc(-2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
-                ctx.arc(2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI);
-            }
+            if (mood === "panic") { ctx.arc(-2.5, -13, 1.8, 0, Math.PI * 2); ctx.arc(2.5, -13, 1.8, 0, Math.PI * 2); }
+            else { ctx.arc(-2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI); ctx.arc(2.5, -13, 1.5, 1.1 * Math.PI, 1.9 * Math.PI); }
             ctx.stroke(); ctx.lineCap = "butt";
-            // mouth
             ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 0.9;
             ctx.beginPath();
             if (mood === "panic") ctx.ellipse(0, -9.5, 1.6, 1.4, 0, 0, Math.PI * 2);
             else ctx.arc(0, -10, 2, 0.12 * Math.PI, 0.88 * Math.PI);
             ctx.stroke();
         }
-        // Cheeks (flushed when panicking)
         ctx.fillStyle = mood === "panic" ? "rgba(244,90,90,0.55)" : "rgba(230,140,140,0.45)";
         ctx.beginPath(); ctx.arc(-5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2);
         ctx.arc(5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2); ctx.fill();
