@@ -1294,9 +1294,9 @@
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
     var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
     // Weighted city picker: the bar district is a signature set-piece (drunks
-    // catcalling Lulu), so it comes up noticeably more than the other cities
-    // without crowding them out. Everything else is equal-weight.
-    var ZONE_CITY_WEIGHT = { bars: 4 };
+    // catcalling Lulu), so it's a touch more common than the rest — but only
+    // slightly, and never forced to be first. Everything else is equal-weight.
+    var ZONE_CITY_WEIGHT = { bars: 2 };
     function pickCityZone() {
         var total = 0, i;
         for (i = 0; i < ZONE_CITY.length; i++) total += ZONE_CITY_WEIGHT[ZONE_CITY[i]] || 1;
@@ -1342,9 +1342,9 @@
                     zoneEndsAt = scrollOffset + rand(5500, 8000);
                     setSeason("summer"); // bright skies over the water & sand
                 } else {
-                    // First city is usually the bar district (so players actually
-                    // meet the catcalling drunks early); afterwards it's weighted.
-                    zone = (citiesSeen === 0 && Math.random() < 0.7) ? "bars" : pickCityZone();
+                    // Every city is a fresh weighted random roll — no zone is ever
+                    // forced (the bar district just has a slightly higher weight).
+                    zone = pickCityZone();
                     citiesSeen++;
                     zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
                     // Atmospheric pairing: a city often brings a fitting sky.
@@ -10874,6 +10874,7 @@
     var footDoors = [];          // building entrances
     var footPrompt = null;       // nearest interactable { kind, ent, label }
     var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
+    var footBuskT = 0;           // >0 while she's busking/dancing on the curb
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -10891,12 +10892,16 @@
     var FOOT_STEAL_LINES = ["Borrowing this! 🚗", "Sorry, EMERGENCY!", "I'll bring it back!",
         "Don't mind if I DO!", "Grand theft... mitzvah?", "Keys were RIGHT there!", "Bubbe needs me!"];
     var FOOT_TALK_LULU = ["Hi! Have you seen a free car?", "Lovely weather for WALKING. ugh.",
-        "Gut voch!", "You didn't see anything.", "Nice... whatever that is.", "Can I borrow your car? No? Rude."];
+        "Gut voch!", "You didn't see anything.", "Nice... whatever that is.", "Can I borrow your car? No? Rude.",
+        "Do these flats say 'desperate'?", "I'm not lost, I'm... scenic.", "Got bus fare? A bus? A horse?"];
     var FOOT_PED_REPLY = ["Shalom! 👋", "...do I know you?", "Spare a nickel?", "Walk faster, lady!",
-        "Nice day, eh?", "I'm late too!", "Mazel tov! ...for what? dunno.", "Cute bag!"];
+        "Nice day, eh?", "I'm late too!", "Mazel tov! ...for what? dunno.", "Cute bag!",
+        "You dropped your... no? okay.", "I LOVE your energy!", "Gut Shabbos! ...it's Tuesday.", "Move along, dear."];
     var FOOT_DRUNK_REPLY = ["Heyyy GORGEOUS! 🍻", "Marry me — I have a CAR! 🚗", "*hiccup* helloooo",
-        "You're an ANGEL 😇", "Niiice walk!", "Call me! ...somehow", "Need a LIFT? 😏"];
-    var FOOT_PET_LINES = ["Awww! 🐾", "Who's a good boy?!", "So FLUFFY!", "Hi little guy!", "Shoo! ...no, stay!"];
+        "You're an ANGEL 😇", "Niiice walk!", "Call me! ...somehow", "Need a LIFT? 😏",
+        "Are you a parking ticket? 'Cause FINE.", "I named a SHOT after you!", "You're like my ex but TALLER"];
+    var FOOT_PET_LINES = ["Awww! 🐾", "Who's a good boy?!", "So FLUFFY!", "Hi little guy!", "Shoo! ...no, stay!",
+        "It LICKED me!", "You're coming HOME with me.", "Is this... a raccoon? Adorable.", "BOOP the snoot!"];
     var AVIGAIL_WALK_LINES = ["Power walk, mama! 💪", "Did you SEE his sheitel?", "We should get coffee.",
         "I'm telling EVERYONE about this.", "Your form is terrible — but cute.", "Two girls, no car, BIG energy!",
         "Should we just steal a convertible?", "My feet hurt ALREADY.", "This is so much cardio.",
@@ -10909,7 +10914,15 @@
         ["I'm NOT loitering, I'm strolling.", "Mm-hm. Keep strolling."],
         ["Seen my impounded Honda?", "...four hundred dollars."],
         ["Lovely day to NOT arrest me!", "Don't push it."],
-        ["Is jaywalking a mitzvah?", "It is NOT."]];
+        ["Is jaywalking a mitzvah?", "It is NOT."],
+        ["Any donuts left?", "...that's profiling."],
+        ["I pay your salary!", "You pay $0.40 of it."],
+        ["Which way to Bubbe's?", "Everybody's bubbe is THAT way. *points*"]];
+    var FOOT_BUSK_LINES = ["💃 Spare a dime?", "Singin' for my SUPPER!", "Tips for a stranded girl?",
+        "I take Venmo!", "ONE-woman band! 🎵", "🎵 Bubbe's on my MIIIND 🎵", "Watch me WERK!"];
+    var FOOT_SELFIE_LINES = ["Say cheese, big guy! 🤳", "This is going VIRAL.", "Bubbe won't BELIEVE this!",
+        "Filter? You're perfect.", "#Sasquatch #blessed", "Smile! ...do you HAVE teeth?"];
+    var FOOT_HIGHFIVE = ["✋ YEAH!", "Up top!", "Nailed it!", "👊 respect", "Don't leave me hangin— oh!"];
 
     function startFootWorld(reason) {
         footEntryReason = reason;
@@ -10938,7 +10951,17 @@
 
     // ── The on-foot LAYER (called from updatePlaying when onFoot) ────
     function updateFootExtras(dt) {
-        footMood = invincibleTimer > 0 ? "panic" : "run";
+        if (footBuskT > 0) footBuskT -= dt;
+        footMood = footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
+
+        // Drunk pedestrians she passes shuffle toward her and holler (reactive world).
+        for (var di = 0; di < obstacles.length; di++) {
+            var dp = obstacles[di];
+            if (dp.type === "ped" && dp.drunk && Math.abs(dp.y - player.y) < 130 && Math.abs(dp.x - player.x) < 150) {
+                dp.x = lerp(dp.x, player.x, dt * 0.8);
+                if ((dp.commentT || 0) <= 0 && Math.random() < dt * 0.5) { dp.comment = randPick(FOOT_DRUNK_REPLY); dp.commentT = 2.0; }
+            }
+        }
 
         // Spawn + scroll the stealable cars and building doors.
         if (footParkCool > 0) footParkCool -= dt;
@@ -10951,7 +10974,7 @@
 
         // Nearest thing she can interact with + the hand-button action.
         footPrompt = footNearestInteractable();
-        if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); }
+        if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
 
         // Chatter + hint.
         footChatT -= dt;
@@ -11011,6 +11034,9 @@
             else if (e.type === "car")
                 consider({ kind: "hail", ent: e, label: "🚕 HAIL RIDE" }, e.x - player.x, e.y - player.y, 60, 80);
         }
+        // The sasquatch easter egg → a selfie with the big guy.
+        if (typeof sasquatch !== "undefined" && sasquatch)
+            consider({ kind: "selfie", ent: sasquatch, label: "🤳 SELFIE" }, sasquatch.x - player.x, sasquatch.y - player.y, 64, 76);
         return best;
     }
 
@@ -11052,10 +11078,22 @@
         }
         if (prompt.kind === "talk") {
             var e = prompt.ent;
-            e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
-            footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0;
-            playTone(520, 0.05, "sine", 0.08);
+            if (!e.drunk && Math.random() < 0.25) {           // sometimes it's a high-five
+                footChat = "Up high! ✋"; footChatT = 1.6;
+                e.comment = randPick(FOOT_HIGHFIVE); e.commentT = 2.0; playHopJump();
+            } else {
+                e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
+                footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0; playTone(520, 0.05, "sine", 0.08);
+            }
             if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
+            return;
+        }
+        if (prompt.kind === "selfie") {
+            flashTimer = 0.15;
+            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5;
+            footChat = randPick(FOOT_SELFIE_LINES); footChatT = 2.0;
+            spawnFloater(player.x, player.y - 42, "📸 +5 (going viral!)", "#FFD700");
+            playCoin();
             return;
         }
         if (prompt.kind === "pet") {
@@ -11102,6 +11140,22 @@
         if (c.sayT > 0) c.sayT -= dt;
         c.sayNext -= dt;
         if (c.sayNext <= 0) { c.say = randPick(AVIGAIL_WALK_LINES); c.sayT = 2.2; c.sayNext = rand(4, 7); }
+    }
+
+    // Hand button with nothing nearby → she busks/dances on the curb; passers-by tip.
+    function footBusk() {
+        footBuskT = 1.6;
+        footChat = randPick(FOOT_BUSK_LINES); footChatT = 1.8;
+        playHopJump();
+        for (var n = 0; n < 6; n++) particles.push({ x: player.x + rand(-16, 16), y: player.y - 18,
+            vx: rand(-30, 30), vy: rand(-65, -20), life: 0.9, maxLife: 0.9, size: rand(3, 6),
+            color: randPick(["#FF80AB", "#4FC3F7", "#FFD54F", "#AED581"]), gravity: 36 });
+        var tips = 0;
+        for (var o = 0; o < obstacles.length; o++) {
+            var e = obstacles[o];
+            if (e.type === "ped" && Math.abs(e.x - player.x) < 130 && Math.abs(e.y - player.y) < 150) { tips++; e.comment = "👏"; e.commentT = 1.2; }
+        }
+        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
     }
 
     // Walk into a "P" sign on foot → she just parks HERSELF between people.
@@ -11242,12 +11296,13 @@
     // ── Running Lulu (top-down) ──────────────────────────────
     function drawLuluTopDown(x, y, walkTime, mood) {
         ctx.save();
-        var bob = Math.abs(Math.sin(walkTime * 13)) * 4;
-        var lean = Math.sin(walkTime * 13) * 0.05;
+        var dancing = (mood === "dance");
+        var bob = Math.abs(Math.sin(walkTime * (dancing ? 18 : 13))) * (dancing ? 9 : 4);
+        var lean = Math.sin(walkTime * (dancing ? 9 : 13)) * (dancing ? 0.18 : 0.05);
         ctx.translate(x, y - bob);
         ctx.rotate(lean);
-        var legSwing = Math.sin(walkTime * 16) * 7;
-        var armSwing = Math.sin(walkTime * 16) * 0.5;
+        var legSwing = Math.sin(walkTime * 16) * (dancing ? 9 : 7);
+        var armSwing = Math.sin(walkTime * 16) * (dancing ? 1.5 : 0.5);
 
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         ctx.beginPath(); ctx.ellipse(0, 22, 16, 4, 0, 0, Math.PI * 2); ctx.fill();

@@ -1292,9 +1292,9 @@
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
     var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
     // Weighted city picker: the bar district is a signature set-piece (drunks
-    // catcalling Lulu), so it comes up noticeably more than the other cities
-    // without crowding them out. Everything else is equal-weight.
-    var ZONE_CITY_WEIGHT = { bars: 4 };
+    // catcalling Lulu), so it's a touch more common than the rest — but only
+    // slightly, and never forced to be first. Everything else is equal-weight.
+    var ZONE_CITY_WEIGHT = { bars: 2 };
     function pickCityZone() {
         var total = 0, i;
         for (i = 0; i < ZONE_CITY.length; i++) total += ZONE_CITY_WEIGHT[ZONE_CITY[i]] || 1;
@@ -1340,9 +1340,9 @@
                     zoneEndsAt = scrollOffset + rand(5500, 8000);
                     setSeason("summer"); // bright skies over the water & sand
                 } else {
-                    // First city is usually the bar district (so players actually
-                    // meet the catcalling drunks early); afterwards it's weighted.
-                    zone = (citiesSeen === 0 && Math.random() < 0.7) ? "bars" : pickCityZone();
+                    // Every city is a fresh weighted random roll — no zone is ever
+                    // forced (the bar district just has a slightly higher weight).
+                    zone = pickCityZone();
                     citiesSeen++;
                     zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
                     // Atmospheric pairing: a city often brings a fitting sky.
