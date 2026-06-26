@@ -167,10 +167,9 @@
             avigailWalker.y += gameSpeed * 0.55 * dt;
             avigailWalker.walkTime += dt;
             if (avigailWalker.y > H + 60) { avigailWalker = null; }
-            else if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
-                avigailWalker = null;
-                startAvigailScene();
-                return;
+            else if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
+                if (onFoot) { footAvigailJoin(avigailWalker); avigailWalker = null; }
+                else { avigailWalker = null; startAvigailScene(); return; }
             }
         }
         // Salon sign on the roadside
@@ -182,7 +181,8 @@
             ssg.y += gameSpeed * dt;
             ssg.bob += dt;
             if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
-            if (!onFoot && aabb(player.x, player.y, CAR_W, CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
+            // Salon works on foot too — she walks right in for a makeover.
+            if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
                 salonSigns.splice(ssi, 1);
                 startSalonScene();
                 return;
@@ -527,10 +527,10 @@
             psi.y += gameSpeed * dt;
             psi.bob += dt;
             if (psi.y > H + 60) { parkingSigns.splice(ps, 1); continue; }
-            if (aabb(player.x, player.y, CAR_W, CAR_H * 0.8, psi.x, psi.y, psi.hitW, psi.hitH)) {
+            if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H * 0.8, psi.x, psi.y, psi.hitW, psi.hitH)) {
                 parkingSigns.splice(ps, 1);
-                triggerParkingMinigame();
-                return;
+                if (onFoot) { footParkingGag(); }
+                else { triggerParkingMinigame(); return; }
             }
         }
         // Ice cream signs (roadside; only collected if Lulu is at the edge)

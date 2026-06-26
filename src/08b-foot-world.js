@@ -20,6 +20,7 @@
     var footParked = [];         // stealable parked cars on the shoulder
     var footDoors = [];          // building entrances
     var footPrompt = null;       // nearest interactable { kind, ent, label }
+    var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -43,13 +44,26 @@
     var FOOT_DRUNK_REPLY = ["Heyyy GORGEOUS! 🍻", "Marry me — I have a CAR! 🚗", "*hiccup* helloooo",
         "You're an ANGEL 😇", "Niiice walk!", "Call me! ...somehow", "Need a LIFT? 😏"];
     var FOOT_PET_LINES = ["Awww! 🐾", "Who's a good boy?!", "So FLUFFY!", "Hi little guy!", "Shoo! ...no, stay!"];
+    var AVIGAIL_WALK_LINES = ["Power walk, mama! 💪", "Did you SEE his sheitel?", "We should get coffee.",
+        "I'm telling EVERYONE about this.", "Your form is terrible — but cute.", "Two girls, no car, BIG energy!",
+        "Should we just steal a convertible?", "My feet hurt ALREADY.", "This is so much cardio.",
+        "Ooh, is that a SALON?", "Walk it off, queen. 👑", "I brought snacks. ...I ate them."];
+    var FOOT_PARK_GAG = ["Parallel parking... MYSELF! 🅿️", "Excuse me — squeezing IN.",
+        "Nailed it. Between two yentas.", "No ticket for THIS spot!", "I fit! ...barely.", "Perfect form, no car needed."];
+    var FOOT_HAIL_OK = ["Thanks for the lift! 🚕", "You're a LIFESAVER!", "Bubbe's, and step on it!", "FINALLY, a ride!"];
+    var FOOT_HAIL_NO = ["Rude!! 😤", "I had my hand UP!", "...off-duty, sure.", "Fine, I'll WALK. Again."];
+    var FOOT_COP_CHAT = [["Officer, where's the nearest car?", "Walk it off, ma'am."],
+        ["I'm NOT loitering, I'm strolling.", "Mm-hm. Keep strolling."],
+        ["Seen my impounded Honda?", "...four hundred dollars."],
+        ["Lovely day to NOT arrest me!", "Don't push it."],
+        ["Is jaywalking a mitzvah?", "It is NOT."]];
 
     function startFootWorld(reason) {
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         save.footRunsPlayed = footRunLevel; persistSave();
         footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
-        footParked = []; footDoors = []; footPrompt = null;
+        footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
         footParkCool = 5; footDoorCool = 2;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
@@ -80,6 +94,7 @@
         footMaybeSpawnDoor();
         footScroll(footParked, 110, dt);
         footScroll(footDoors, 80, dt);
+        updateFootCompanion(dt);
 
         // Nearest thing she can interact with + the hand-button action.
         footPrompt = footNearestInteractable();
@@ -132,12 +147,16 @@
             var pc = footParked[p];
             consider({ kind: "borrow", ent: pc, label: "🚗 BORROW CAR" }, pc.x - player.x, pc.y - player.y, 58, 88);
         }
-        // Real pedestrians (talk) and animals (pet) from the live world.
+        // Live-world folk: talk to peds, pet animals, chat up cops, or HAIL a car.
         for (var o = 0; o < obstacles.length; o++) {
             var e = obstacles[o];
             if (e.type === "ped") consider({ kind: "talk", ent: e, label: "💬 TALK" }, e.x - player.x, e.y - player.y, 46, 50);
             else if (e.type === "duck" || e.type === "raccoon" || e.type === "ostrich")
                 consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
+            else if (e.type === "car" && (e.behavior === "patrol" || e.behavior === "pulled"))
+                consider({ kind: "cop", ent: e, label: "👮 ASK COP" }, e.x - player.x, e.y - player.y, 52, 70);
+            else if (e.type === "car")
+                consider({ kind: "hail", ent: e, label: "🚕 HAIL RIDE" }, e.x - player.x, e.y - player.y, 60, 80);
         }
         return best;
     }
@@ -151,9 +170,31 @@
             // Stealing in front of a cop → the driving chase takes over.
             var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
             lives = Math.max(lives, 1);
-            footParked = []; footDoors = [];
+            footParked = []; footDoors = []; footCompanion = null;
             returnToDriving();   // back on the road (state → "playing")
             if (seen && typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
+            return;
+        }
+        if (prompt.kind === "hail") {
+            footChat = ""; footChatT = 0;
+            if (Math.random() < 0.6) {     // a kind driver gives her a lift — legit ride, no chase
+                spawnFloater(player.x, player.y - 32, randPick(FOOT_HAIL_OK), "#7CFC4F");
+                playTone(660, 0.1, "triangle", 0.14);
+                lives = Math.max(lives, 1);
+                footParked = []; footDoors = []; footCompanion = null;
+                returnToDriving();
+            } else {                       // ...or they blow right past her
+                prompt.ent.comment = "Off duty!"; prompt.ent.commentT = 1.4;
+                spawnFloater(player.x, player.y - 30, randPick(FOOT_HAIL_NO), "#FF8A80");
+                playHonk();
+            }
+            return;
+        }
+        if (prompt.kind === "cop") {
+            var ex = randPick(FOOT_COP_CHAT);
+            footChat = ex[0]; footChatT = 2.4;
+            prompt.ent.comment = ex[1]; prompt.ent.commentT = 2.4;
+            playTone(440, 0.06, "sine", 0.08);
             return;
         }
         if (prompt.kind === "talk") {
@@ -192,8 +233,44 @@
         }
     }
 
+    // Avigail spots Lulu walking and tags along — different from the in-car scene.
+    function footAvigailJoin(av) {
+        footCompanion = { x: av.x, y: av.y, walkTime: 0, say: "Lulu?! Wait for ME!", sayT: 2.4, sayNext: rand(3, 5) };
+        footChat = "Avigail! Walk with me!"; footChatT = 2.2;
+        spawnFloater(player.x, player.y - 44, "Avigail joined the walk! 💅", "#FF80AB");
+        playHopJump();
+    }
+    function updateFootCompanion(dt) {
+        if (!footCompanion) return;
+        var c = footCompanion;
+        c.x = lerp(c.x, clamp(player.x - 34, 16, W - 16), Math.min(1, 4 * dt));
+        c.y = lerp(c.y, player.y + 16, Math.min(1, 4 * dt));
+        c.walkTime += dt * (keys.up ? 2.0 : keys.down ? 0.6 : 1.2);
+        if (c.sayT > 0) c.sayT -= dt;
+        c.sayNext -= dt;
+        if (c.sayNext <= 0) { c.say = randPick(AVIGAIL_WALK_LINES); c.sayT = 2.2; c.sayNext = rand(4, 7); }
+    }
+
+    // Walk into a "P" sign on foot → she just parks HERSELF between people.
+    function footParkingGag() {
+        footChat = randPick(FOOT_PARK_GAG); footChatT = 2.2;
+        spawnFloater(player.x, player.y - 42, "🅿️ PARKED (yourself)", "#4FC3F7");
+        playClick();
+        if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
+    }
+
     // ── Draw: the on-foot world layer ────────────────────────
     function drawFootWorld() {
+        if (footCompanion) {
+            drawAvigailWalker(footCompanion.x, footCompanion.y, footCompanion.walkTime);
+            if (footCompanion.sayT > 0) drawSpeechBubble(footCompanion.x, footCompanion.y - 40, footCompanion.say, footCompanion.walkTime);
+        }
+        for (var p = 0; p < footParked.length; p++) {
+            var pc = footParked[p];
+            ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
+            drawEnemyCar(0, 0, pc.color, pc.carType);
+            ctx.restore();
+        }
         for (var p = 0; p < footParked.length; p++) {
             var pc = footParked[p];
             ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
