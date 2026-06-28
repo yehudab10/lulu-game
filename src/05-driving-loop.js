@@ -1,6 +1,19 @@
     // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
     var coinPops = [];
 
+    // Car-on-car fender benders — when two traffic cars bump, they wreck on the
+    // road and (sometimes) the drivers pile out to argue; a cop may roll up.
+    var roadDramas = [];
+    var carCrashCooldown = rand(7, 16);
+    // Drivers bickering after a fender bender (they alternate these).
+    var CAR_ARGUE = ["YOU were TEXTING!", "Look at my BUMPER!!", "I had the RIGHT of way!",
+        "You came outta NOWHERE!", "My cousin's a LAWYER!", "Watch where you're GOING!",
+        "This is a LEASE!", "You owe me a FENDER!", "I just WAXED this!", "Call your INSURANCE!",
+        "Were you even LOOKING?!", "Unbelievable!", "My BACK! ...actually it's fine.",
+        "Off the road, BOTH of you!", "I'm filming this!", "Says the guy in REVERSE!"];
+    var DRAMA_COP_LINES = ["🚓 BREAK IT UP!", "🚓 Move it ALONG!", "🚓 Who called this in?",
+        "🚓 Licenses. Both of ya.", "🚓 Nobody's hurt? GO.", "🚓 Off the road, folks!"];
+
     // Pepper spray — a short green spray cone toward the last target. Drawn in
     // drawPlaying, ticked down in updatePlaying.
     var pepperBeam = null;
@@ -60,6 +73,95 @@
             best.comment = randPick(PEPPER_PED); best.commentT = 2.6;
             spawnFloater(player.x, player.y - 56, "🚑 Ambulance inbound!", "#FF8A80");
             if (typeof spawnAmbulance === "function") spawnAmbulance();
+        }
+    }
+
+    // A little driver who hops out of a crashed car to argue. Stays beside its
+    // car (so it scrolls down with the wreck).
+    function makeDramaDriver(car, side) {
+        return { car: car, side: side, time: rand(0, 6), state: "yelling",
+                 bubble: "", bubbleT: 0, cop: false };
+    }
+
+    // Stage a fender bender between two nearby traffic cars: both wreck in place,
+    // and (sometimes) drivers get out to argue / a cop rolls up.
+    function triggerCarCrash(a, b) {
+        a.crashed = b.crashed = true;
+        a.changing = b.changing = null;
+        a.dodged = b.dodged = false;
+        a.speedMult = b.speedMult = 1.0;   // now stationary on the road (scrolls with it)
+        a.crashRot = rand(0.14, 0.4) * (a.x <= b.x ? 1 : -1);
+        b.crashRot = rand(0.14, 0.4) * (b.x < a.x ? 1 : -1);
+        var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        spawnCrashBurst(mx, my, true);
+        playExplosion();
+        var drama = { a: a, b: b, t: 0, smokeT: 0, drivers: [], cop: null, lineT: 1.0, who: 0 };
+        if (Math.random() < 0.65) {                  // drivers pile out to argue
+            drama.drivers = [makeDramaDriver(a, a.x <= b.x ? -1 : 1),
+                             makeDramaDriver(b, b.x < a.x ? -1 : 1)];
+        }
+        if (Math.random() < 0.30) {                  // a cop rolls up, lights going
+            drama.cop = { t: 0, line: randPick(DRAMA_COP_LINES), lineT: 2.4, slide: 0 };
+        }
+        roadDramas.push(drama);
+        spawnFloater(mx, my - 40, randPick(["💥 FENDER BENDER!", "💥 CRUNCH!", "💥 OOF!", "💥 SMASH!"]), "#FF7043");
+        playTone(180, 0.18, "sawtooth", 0.13, 90);
+    }
+
+    // Periodically pair up two traffic cars that have drifted close together and
+    // crash them — a believable ambient fender bender, no teleporting.
+    function tickCarCrashes(dt) {
+        carCrashCooldown -= dt;
+        if (carCrashCooldown > 0 || roadDramas.length >= 2) return;
+        for (var i = 0; i < obstacles.length; i++) {
+            var a = obstacles[i];
+            if (a.type !== "car" || a.crashed) continue;
+            if (a.behavior && a.behavior !== "normal" && a.behavior !== "drunk" && a.behavior !== "texting") continue;
+            if (a.y < 30 || a.y > player.y - 120) continue;   // only ahead, on-screen
+            for (var j = i + 1; j < obstacles.length; j++) {
+                var b = obstacles[j];
+                if (b.type !== "car" || b.crashed) continue;
+                if (b.behavior && b.behavior !== "normal" && b.behavior !== "drunk" && b.behavior !== "texting") continue;
+                if (Math.abs(a.x - b.x) < 44 && Math.abs(a.y - b.y) < 56) {
+                    triggerCarCrash(a, b);
+                    carCrashCooldown = rand(10, 22);
+                    return;
+                }
+            }
+        }
+    }
+
+    function updateRoadDramas(dt) {
+        for (var i = roadDramas.length - 1; i >= 0; i--) {
+            var d = roadDramas[i];
+            d.t += dt;
+            var aGone = obstacles.indexOf(d.a) < 0 || d.a.y > H + 80;
+            var bGone = obstacles.indexOf(d.b) < 0 || d.b.y > H + 80;
+            if (aGone && bGone) { roadDramas.splice(i, 1); continue; }
+            // lingering smoke off the wrecks
+            d.smokeT -= dt;
+            if (d.smokeT <= 0) {
+                d.smokeT = 0.16;
+                var sc = (Math.random() < 0.5 ? d.a : d.b);
+                particles.push({ x: sc.x + rand(-6, 6), y: sc.y - 6, vx: rand(-12, 12), vy: rand(-40, -16),
+                    life: rand(0.8, 1.6), maxLife: 1.4, size: rand(6, 11),
+                    color: randPick(["#616161", "#9E9E9E", "#757575"]), gravity: -18, smoke: true });
+            }
+            // drivers take turns hollering
+            if (d.drivers.length) {
+                d.lineT -= dt;
+                if (d.lineT <= 0) {
+                    d.who ^= 1;
+                    d.drivers[d.who].bubble = randPick(CAR_ARGUE);
+                    d.drivers[d.who].bubbleT = 1.7;
+                    d.lineT = 1.8;
+                }
+                for (var k = 0; k < d.drivers.length; k++) {
+                    d.drivers[k].time += dt;
+                    if (d.drivers[k].bubbleT > 0) d.drivers[k].bubbleT -= dt;
+                }
+            }
+            if (d.cop) { d.cop.t += dt; d.cop.lineT -= dt; d.cop.slide = Math.min(1, d.cop.slide + dt * 1.6); }
         }
     }
 
@@ -341,6 +443,10 @@
         // Pepper spray (clears an animal off the road, or drops a person)
         if (consumePepper()) firePepperSpray();
         if (pepperBeam) { pepperBeam.t -= dt; if (pepperBeam.t <= 0) pepperBeam = null; }
+
+        // Ambient car-on-car fender benders + their roadside drama.
+        tickCarCrashes(dt);
+        updateRoadDramas(dt);
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -423,14 +529,14 @@
             }
 
             // Traffic parts for the ambulance: nearby cars veer to the shoulder.
-            if (ambulance && o !== ambulance && o.type === "car" && Math.abs(o.y - ambulance.y) < 150) {
+            if (ambulance && o !== ambulance && o.type === "car" && !o.crashed && Math.abs(o.y - ambulance.y) < 150) {
                 var away = o.x < ambulance.x ? -1 : 1;
                 o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
             // right up on them — a polite (or panicked) dodge.
-            if (o.type === "car" && (!o.behavior || o.behavior === "normal")) {
+            if (o.type === "car" && !o.crashed && (!o.behavior || o.behavior === "normal")) {
                 if (!o.dodgeChecked && Math.abs(o.y - player.y) < 130 && Math.abs(o.x - player.x) < CAR_W * 1.1) {
                     o.dodgeChecked = true;
                     if (Math.random() < 0.32) {
@@ -467,7 +573,9 @@
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
             // drivers drift gently. Both make the lane gaps unsafe.
-            if (o.type === "car" && o.behavior === "drunk") {
+            if (o.type === "car" && o.crashed) {
+                // wrecked — no AI, just scroll with the road (handled above)
+            } else if (o.type === "car" && o.behavior === "drunk") {
                 o.swerveT += dt;
                 o.x = clamp(o.x + Math.sin(o.swerveT * 2.6) * 95 * dt, ROAD_L + 22, ROAD_R - 22);
                 o.spillT -= dt;
@@ -2351,6 +2459,48 @@
         ctx.restore();
     }
 
+    // A wrecked traffic car (after a fender bender): tilted, scorched, cracked.
+    function drawRoadWreck(o) {
+        ctx.save();
+        ctx.translate(o.x, o.y);
+        ctx.rotate(o.crashRot || 0);
+        drawEnemyCar(0, 0, o.color, o.carType);
+        ctx.globalAlpha = 0.42; ctx.fillStyle = "#2B2017";
+        ctx.beginPath(); ctx.ellipse(-4, -CAR_H * 0.16, 9, 6, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(5, CAR_H * 0.10, 6, 4, -0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(232,242,255,0.9)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-5, -CAR_H * 0.2); ctx.lineTo(0, -CAR_H * 0.04); ctx.lineTo(6, -CAR_H * 0.18);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // The roadside drama after a fender bender: arguing drivers + maybe a cop.
+    function drawRoadDramas() {
+        for (var i = 0; i < roadDramas.length; i++) {
+            var d = roadDramas[i];
+            var aIn = obstacles.indexOf(d.a) >= 0, bIn = obstacles.indexOf(d.b) >= 0;
+            var ay = aIn ? d.a.y : d.b.y;
+            // a cop cruiser rolls up beside the wreck, lights flashing
+            if (d.cop) {
+                var cx = clamp((d.a.x + d.b.x) / 2, ROAD_L + 30, ROAD_R - 30);
+                var cy = lerp(ay - 116, ay - 60, d.cop.slide);
+                drawCopCar(cx, cy, d.cop.t * 3);
+                if (d.cop.lineT > 0) drawCarComment(cx, cy - 28, d.cop.line);
+            }
+            // the drivers, out of their cars, hollering at each other
+            for (var k = 0; k < d.drivers.length; k++) {
+                var drv = d.drivers[k];
+                if (obstacles.indexOf(drv.car) < 0) continue;
+                var dx = clamp(drv.car.x + drv.side * 26, ROAD_L + 14, ROAD_R - 14);
+                var dyy = drv.car.y + 6;
+                drawAngryMan(dx, dyy, drv.time, "yelling", drv.side, false);
+                if (drv.bubbleT > 0) drawSpeechBubble(dx, dyy - 26, drv.bubble, drv.time);
+            }
+        }
+    }
+
     // Drunk driver: a sickly green haze, a woozy left-right TILT, and a wobbly
     // swerve trail behind — reads as 'this car is all over the road'.
     function drawDrunkCar(o) {
@@ -2720,11 +2870,15 @@
                 drawTopBus(o.x, o.y);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
             } else if (o.type === "car") {
-                if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
-                if (o.behavior === "drunk") drawDrunkCar(o);
-                else if (o.behavior === "texting") drawTextingCar(o);
-                else drawEnemyCar(o.x, o.y, o.color, o.carType);
-                if (o.changing) drawTurnSignal(o);
+                if (o.crashed) {
+                    drawRoadWreck(o);
+                } else {
+                    if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
+                    if (o.behavior === "drunk") drawDrunkCar(o);
+                    else if (o.behavior === "texting") drawTextingCar(o);
+                    else drawEnemyCar(o.x, o.y, o.color, o.carType);
+                    if (o.changing) drawTurnSignal(o);
+                }
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") {
@@ -2743,6 +2897,9 @@
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 6, o.comment);
             }
         }
+
+        // Fender-bender drama (arguing drivers + any responding cop) over the cars
+        if (roadDramas.length) drawRoadDramas();
 
         // Missiles
         for (var mm = 0; mm < missiles.length; mm++) {
