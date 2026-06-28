@@ -45,6 +45,7 @@
             ownedSkins: ["pink"],
             selectedSkin: "pink",
             missiles: 0,
+            pepperSpray: 0,
             shields: 0,
             distractedUnlocked: false,
             parkingBestLevel: 0,
@@ -437,6 +438,7 @@
         MOBILE_BRAKE_RECT = { x: 14,      y: bot - 96,  w: 64, h: 64 };
         MISSILE_RECT      = { x: W - 78,  y: bot - 96,  w: 64, h: 64 };
         HONK_RECT         = { x: W - 78,  y: bot - 168, w: 64, h: 64 };
+        PEPPER_RECT       = { x: W - 78,  y: bot - 240, w: 64, h: 64 };
         PARK_LEFT_RECT    = { x: 12,      y: bot - 96,  w: 64, h: 64 };
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
@@ -470,6 +472,7 @@
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
+    var pepperQueued = false;
     var footActQueued = false; // on-foot "interact" (enter building / steal car)
     var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
@@ -493,6 +496,7 @@
     function consumePause() { if (pauseQueued) { pauseQueued = false; return true; } return false; }
     function consumeMissile() { if (missileQueued) { missileQueued = false; return true; } return false; }
     function consumeHonk() { if (honkQueued) { honkQueued = false; return true; } return false; }
+    function consumePepper() { if (pepperQueued) { pepperQueued = false; return true; } return false; }
 
     function playHonk() {
         if (audioMuted) return;
@@ -516,7 +520,7 @@
     // Mobile control button rects — 64×64, kept clear of the home indicator via
     // SAFE_BOTTOM. Actual positions are (re)computed in recomputeLayout(); these
     // are just declarations.
-    var PAUSE_RECT, MOBILE_BOOST_RECT, MOBILE_BRAKE_RECT, MISSILE_RECT, HONK_RECT;
+    var PAUSE_RECT, MOBILE_BOOST_RECT, MOBILE_BRAKE_RECT, MISSILE_RECT, HONK_RECT, PEPPER_RECT;
     var PARK_LEFT_RECT, PARK_RIGHT_RECT, PARK_FWD_RECT, PARK_REV_RECT;
 
     // Now that the rect vars exist, lay everything out and keep it in sync with
@@ -535,6 +539,7 @@
         if (state === "playing") {
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (save.missiles > 0 && pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
+            if (save.pepperSpray > 0 && pointInRect(pos.x, pos.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) return "pepper";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
@@ -602,6 +607,7 @@
         if (e.key === "p" || e.key === "P" || e.key === "Escape") { pauseQueued = true; e.preventDefault(); }
         if (e.key === "m" || e.key === "M") { missileQueued = true; e.preventDefault(); }
         if (e.key === "h" || e.key === "H") { honkQueued = true; e.preventDefault(); }
+        if (e.key === "x" || e.key === "X") { pepperQueued = true; e.preventDefault(); }
         if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
     });
     document.addEventListener("keyup", function (e) {
@@ -625,6 +631,8 @@
                 pauseQueued = true;
             } else if (btn === "missile") {
                 missileQueued = true;
+            } else if (btn === "pepper") {
+                pepperQueued = true;
             } else if (btn === "honk") {
                 honkQueued = true;
             } else if (btn === "boost") {

@@ -1,6 +1,68 @@
     // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
     var coinPops = [];
 
+    // Pepper spray — a short green spray cone toward the last target. Drawn in
+    // drawPlaying, ticked down in updatePlaying.
+    var pepperBeam = null;
+    var PEPPER_ANIMAL = ["🌶️ ZAP!", "Sorry, lil guy!", "Off the road! 🐾", "Pew pew! 🌶️",
+        "Not today, critter!", "Spicy! 🥵", "Shoo!! 💨"];
+    var PEPPER_PED = ["🤧 MY EYES!", "AGH — SPICY!", "Was that... MACE?!", "I can't SEE!",
+        "Why, Lulu, WHY?!", "*coughing fit*", "I'm CALLING someone!"];
+
+    // A puff of green spray particles where pepper spray lands.
+    function spawnPepperCloud(x, y) {
+        for (var i = 0; i < 16; i++) {
+            var ang = rand(0, Math.PI * 2), spd = rand(20, 95);
+            particles.push({
+                x: x, y: y,
+                vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 25,
+                life: rand(0.4, 0.95), maxLife: 0.85, size: rand(3, 7),
+                color: randPick(["#AED581", "#9CCC65", "#C5E1A5", "#7CB342"]),
+                gravity: -12, smoke: true
+            });
+        }
+    }
+
+    // Spray the nearest animal (clears it) or person (drops them — ambulance
+    // responds) ahead of Lulu. A whiff with no target in range costs nothing.
+    function firePepperSpray() {
+        if (save.pepperSpray <= 0) { playDeny(); return; }
+        var best = null, bestD = 1e9, bestKind = null, ai = -1;
+        for (var a = 0; a < animals.length; a++) {
+            var an = animals[a];
+            if (an.y > player.y + 24 || an.y < player.y - 250) continue;
+            var d = Math.abs(an.x - player.x) + Math.abs(an.y - player.y);
+            if (d < bestD) { bestD = d; best = an; bestKind = "animal"; ai = a; }
+        }
+        if (!best) {
+            for (var p = 0; p < obstacles.length; p++) {
+                var ob = obstacles[p];
+                if (ob.type !== "ped" || ob.sprayed) continue;
+                if (ob.y > player.y + 24 || ob.y < player.y - 250) continue;
+                var dp = Math.abs(ob.x - player.x) + Math.abs(ob.y - player.y);
+                if (dp < bestD) { bestD = dp; best = ob; bestKind = "ped"; }
+            }
+        }
+        if (!best) {   // nothing in range → harmless whiff, no charge spent
+            spawnFloater(player.x, player.y - 40, "🌶️ *whiff!*", "#A5D6A7");
+            playTone(300, 0.08, "sawtooth", 0.05);
+            return;
+        }
+        save.pepperSpray--; persistSave();
+        pepperBeam = { x: player.x, y: player.y - CAR_H / 2, tx: best.x, ty: best.y, t: 0.3 };
+        spawnPepperCloud(best.x, best.y);
+        playTone(540, 0.05, "sawtooth", 0.09, 240); // *pssst*
+        if (bestKind === "animal") {
+            spawnFloater(best.x, best.y - 20, randPick(PEPPER_ANIMAL), "#C5E1A5");
+            if (ai >= 0) animals.splice(ai, 1);
+        } else {
+            best.sprayed = true; best.vx = 0;
+            best.comment = randPick(PEPPER_PED); best.commentT = 2.6;
+            spawnFloater(player.x, player.y - 56, "🚑 Ambulance inbound!", "#FF8A80");
+            if (typeof spawnAmbulance === "function") spawnAmbulance();
+        }
+    }
+
     // Coin combo — grab coins in quick succession to build a multiplier. The
     // window resets if you go too long without a pickup. Drives a popup + a
     // small HUD meter and escalating score/coin bonuses.
@@ -276,6 +338,9 @@
 
         // Missile firing
         if (consumeMissile()) fireMissile();
+        // Pepper spray (clears an animal off the road, or drops a person)
+        if (consumePepper()) firePepperSpray();
+        if (pepperBeam) { pepperBeam.t -= dt; if (pepperBeam.t <= 0) pepperBeam = null; }
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -317,6 +382,8 @@
                     prevState = "playing"; state = "paused"; playClick(); return;
                 } else if (pointInRect(click.x, click.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) {
                     fireMissile();
+                } else if (save.pepperSpray > 0 && pointInRect(click.x, click.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) {
+                    firePepperSpray();
                 }
             }
         }
@@ -343,7 +410,7 @@
             // Drunk bar patrons holler at Lulu often; rowdy workers, rarely.
             // Fire while they're anywhere on screen (not just dead-center) so a
             // patron that's about to scroll off still gets a line out.
-            if (o.type === "ped" && (o.drunk || o.worker) && o.y > -10 && o.y < H + 10) {
+            if (o.type === "ped" && (o.drunk || o.worker) && !o.sprayed && o.y > -10 && o.y < H + 10) {
                 o.catcallT -= dt;
                 if (o.catcallT <= 0 && o.commentT <= 0) {
                     var callChance = o.drunk ? 0.85 : 0.06; // workers only now and then
@@ -1975,7 +2042,7 @@
             }
         } else if (shopTab === "powerups") {
             // Missile card
-            if (pointInRect(click.x, click.y, 40, 170, W - 80, 130)) {
+            if (pointInRect(click.x, click.y, 40, 156, W - 80, 112)) {
                 if (save.totalCoins >= 20) {
                     save.totalCoins -= 20; save.missiles++;
                     persistSave(); playBuy();
@@ -1984,11 +2051,20 @@
                 return;
             }
             // Mega pack (5 missiles)
-            if (pointInRect(click.x, click.y, 40, 320, W - 80, 130)) {
+            if (pointInRect(click.x, click.y, 40, 290, W - 80, 112)) {
                 if (save.totalCoins >= 80) {
                     save.totalCoins -= 80; save.missiles += 5;
                     persistSave(); playBuy();
                     lastBoughtMessage = "+5 Missiles!"; lastBoughtTimer = 1.2;
+                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                return;
+            }
+            // Pepper spray
+            if (pointInRect(click.x, click.y, 40, 422, W - 80, 112)) {
+                if (save.totalCoins >= 15) {
+                    save.totalCoins -= 15; save.pepperSpray++;
+                    persistSave(); playBuy();
+                    lastBoughtMessage = "+1 Pepper Spray! 🌶️"; lastBoughtTimer = 1.2;
                 } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
                 return;
             }
@@ -2652,7 +2728,18 @@
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") {
-                drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk);
+                if (o.sprayed) {
+                    // toppled over, clutching their eyes, with a lingering green haze
+                    ctx.save();
+                    ctx.translate(o.x, o.y + 6);
+                    ctx.rotate(1.35);
+                    drawPedestrian(0, 0, 0, o.pedType, o.worker, o.drunk);
+                    ctx.restore();
+                    ctx.fillStyle = "rgba(156,204,101,0.35)";
+                    ctx.beginPath(); ctx.arc(o.x, o.y - 4, 16, 0, Math.PI * 2); ctx.fill();
+                } else {
+                    drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk);
+                }
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 6, o.comment);
             }
         }
@@ -2728,6 +2815,28 @@
             ctx.beginPath();
             ctx.arc(cpp.x, cpp.y, 6 + cpt * 18, 0, Math.PI * 2);
             ctx.stroke();
+            ctx.restore();
+        }
+
+        // ── Pepper spray cone (toward the last target) ──
+        if (pepperBeam) {
+            var pb = pepperBeam, pa = clamp(pb.t / 0.3, 0, 1);
+            var ang = Math.atan2(pb.ty - pb.y, pb.tx - pb.x);
+            var spread = 0.22;
+            ctx.save();
+            ctx.globalAlpha = pa * 0.5;
+            var pg = ctx.createLinearGradient(pb.x, pb.y, pb.tx, pb.ty);
+            pg.addColorStop(0, "rgba(174,213,129,0.9)");
+            pg.addColorStop(1, "rgba(124,179,66,0)");
+            ctx.fillStyle = pg;
+            var len = Math.hypot(pb.tx - pb.x, pb.ty - pb.y) + 16;
+            ctx.translate(pb.x, pb.y);
+            ctx.rotate(ang);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(len, -len * Math.tan(spread));
+            ctx.lineTo(len, len * Math.tan(spread));
+            ctx.closePath(); ctx.fill();
             ctx.restore();
         }
 

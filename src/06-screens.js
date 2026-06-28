@@ -673,10 +673,13 @@
 
     function drawPowerupsTab() {
         // Missile single
-        drawShopCard(40, 170, W - 80, 130, "🚀 Missile", "Destroy 1 car ahead", 20, "Buy +1", save.totalCoins >= 20);
-        drawText("You own: " + save.missiles, W / 2, 295, "bold 14px Arial", "#FFD700", "#000", 2);
+        drawShopCard(40, 156, W - 80, 112, "🚀 Missile", "Destroy 1 car ahead", 20, "Buy +1", save.totalCoins >= 20);
+        drawText("You own: " + save.missiles, W / 2, 274, "bold 12px Arial", "#FFD700", "#000", 2);
         // Missile pack
-        drawShopCard(40, 320, W - 80, 130, "🚀×5 Mega Pack", "Save 20 coins!", 80, "Buy 5-Pack", save.totalCoins >= 80);
+        drawShopCard(40, 290, W - 80, 112, "🚀×5 Mega Pack", "Save 20 coins!", 80, "Buy 5-Pack", save.totalCoins >= 80);
+        // Pepper spray — clear an animal (or person!) off the road
+        drawShopCard(40, 422, W - 80, 112, "🌶️ Pepper Spray", "Zap an animal off the road!", 15, "Buy +1", save.totalCoins >= 15);
+        drawText("You own: " + save.pepperSpray, W / 2, 540, "bold 12px Arial", "#AED581", "#000", 2);
     }
 
     function drawSpecialTab() {

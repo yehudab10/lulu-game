@@ -679,6 +679,15 @@
             drawIconButton(MISSILE_RECT.x, mY, MISSILE_RECT.w, "🚀", { bg: "#F44336", bgDark: "#B71C1C", id: "missile" });
         }
 
+        // Pepper spray button (above honk) — only when owned.
+        if (save.pepperSpray > 0) {
+            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "🌶️", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
+            ctx.fillStyle = "#AED581";
+            ctx.beginPath(); ctx.arc(W - 22, PEPPER_RECT.y + 5, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#558B2F"; ctx.lineWidth = 2; ctx.stroke();
+            drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
+        }
+
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
