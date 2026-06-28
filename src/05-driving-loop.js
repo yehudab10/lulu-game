@@ -1001,15 +1001,68 @@
     var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
     var COP_PULLOVER = ["License & reg!", "Step out!", "Been DRINKING?!", "It was ONE lechaim!",
         "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!"];
-    // [cop line, Lulu's bribe/reply] — shown on the 1-in-5 "warning" let-off.
-    var WARN_EXCHANGES = [
-        ["Just a warning... slow down.", "Rugelach for the road, officer? 🥧"],
-        ["I'll let you off THIS time.", "You're my FAVORITE officer!"],
-        ["Don't let me catch you again.", "*slips a $20* ...what ticket?"],
-        ["Lucky day, lady. Go on.", "Tell the wife the cholent's ready!"],
-        ["Eh, my shift's almost over.", "Mention my name at the bakery!"],
-        ["Warning today. Drive safe.", "Officer, you DROPPED this $50 😇"],
-        ["Fine, GO. But behave.", "Shabbat shalom, officer! 🕯️"]
+    // Pull-over cutscene scripts — a back-and-forth between the 👮 officer and
+    // 💁 Lulu that plays out toward an `outcome`: "free" (she talks her way out),
+    // "ticket" (game over), or "walk" (impound → on-foot). Each [who, text] line
+    // shows for a beat (tap to advance). Keep lines short — they're bubbles.
+    var COP_SCENES = [
+        // ── She gets off (bribe / charm / other) ──────────────
+        { outcome: "free", title: "LET OFF! 🍀", lines: [
+            ["cop", "License and\nregistration."],
+            ["lulu", "Officer... warm\nrugelach? 🥧"],
+            ["cop", "...is that\ncinnamon?"],
+            ["lulu", "Still warm. 😇"],
+            ["cop", "*takes two*\nSlow down, kid."] ] },
+        { outcome: "free", title: "WHAT TICKET? 💸", lines: [
+            ["cop", "Know how fast\nyou were going?"],
+            ["lulu", "*slips a $20*\nDo YOU?"],
+            ["cop", "...I saw\nnothing."],
+            ["lulu", "Pleasure, officer! 😘"] ] },
+        { outcome: "free", title: "CHARMED! 💕", lines: [
+            ["cop", "Step out of\nthe vehicle."],
+            ["lulu", "Anyone say you\nlook like a\nmovie star?"],
+            ["cop", "...my wife\nsays that."],
+            ["lulu", "She's RIGHT. 💕"],
+            ["cop", "Ehh. Warning."] ] },
+        { outcome: "free", title: "BUBBE KNOWS HIM! 🍲", lines: [
+            ["cop", "Name?"],
+            ["lulu", "Bruck. You know\nmy Bubbe?"],
+            ["cop", "...Bubbe Bruck?!\nThe CHOLENT?!"],
+            ["lulu", "Fridays at six. 🍲"],
+            ["cop", "Tell her Moishy\nsays hi. GO!"] ] },
+        { outcome: "free", title: "CROCODILE TEARS 😭", lines: [
+            ["cop", "That's a big\nticket, ma'am."],
+            ["lulu", "*sniffle* It's\nbeen SUCH a day"],
+            ["cop", "Oh— no— don't—\nokay, okay—"],
+            ["lulu", "*sniff* ...really?"],
+            ["cop", "Just GO. Please\nstop crying. 😭"] ] },
+        // ── She gets the ticket (game over) ───────────────────
+        { outcome: "ticket", title: "BUSTED! 🚨", lines: [
+            ["cop", "Know why I\npulled you over?"],
+            ["lulu", "The three reds?\nOr the speeding?"],
+            ["cop", "...there were\nTHREE?!"],
+            ["lulu", "...two. 😬"] ] },
+        { outcome: "ticket", title: "BRIBE FAIL! 🚨", lines: [
+            ["cop", "License and\nregistration."],
+            ["lulu", "*slips a $20*"],
+            ["cop", "Is this a\nBRIBE?!"],
+            ["lulu", "...a tip? 😬"] ] },
+        { outcome: "ticket", title: "SASSED! 🚨", lines: [
+            ["cop", "Step out of\nthe vehicle."],
+            ["lulu", "I PAY your\nsalary!"],
+            ["cop", "And I write\nYOUR tickets."],
+            ["lulu", "...fair. 😬"] ] },
+        // ── Impounded → she walks (on-foot mode) ──────────────
+        { outcome: "walk", title: "IMPOUNDED! 🚧", lines: [
+            ["cop", "This reg expired\nin 2019."],
+            ["lulu", "It's VINTAGE! 💅"],
+            ["cop", "It's getting\nTOWED."],
+            ["lulu", "...walking it is. 🚶‍♀️"] ] },
+        { outcome: "walk", title: "IMPOUNDED! 🚧", lines: [
+            ["cop", "Whose car\nis this?"],
+            ["lulu", "Define 'whose'..."],
+            ["cop", "TOW it."],
+            ["lulu", "Oof. 🚶‍♀️"] ] }
     ];
 
     function spawnRoadCop() {
@@ -1088,59 +1141,104 @@
         if (copChase.gap <= 6) startCopBust();
     }
 
+    var COP_LINE_DUR = 1.55;  // seconds each dialogue line lingers (tap to skip)
+
     function startCopBust() {
         var fromLeft = player.x > W / 2;
-        // 10% of ALL pull-overs: the car gets impounded and Lulu has to walk it
-        // off (the on-foot playthrough). Of the rest, 1-in-5 is a warning.
-        var walk = Math.random() < 0.10;
-        var warn = !walk && Math.random() < 0.20;
-        copBust = { phase: 0, timer: 0.8, copY: player.y + 90, man: null,
-                    fromLeft: fromLeft, warning: warn, walk: walk,
-                    yell: warn ? null : (walk ? "STEP OUT —\nIT'S GETTING\nTOWED!" : randPick(COP_YELLS)),
-                    ex: warn ? randPick(WARN_EXCHANGES) : null };
+        // Pick the OUTCOME first (preserving the old odds: 10% impound, ~22% let
+        // off, the rest a ticket), then a funny scene that plays toward it.
+        var r = Math.random();
+        var outcome = r < 0.10 ? "walk" : r < 0.32 ? "free" : "ticket";
+        var pool = COP_SCENES.filter(function (s) { return s.outcome === outcome; });
+        var scene = randPick(pool);
+        copBust = {
+            phase: 0, timer: 1.0, copY: player.y + 96, man: null, fromLeft: fromLeft,
+            outcome: outcome, title: scene.title, lines: scene.lines,
+            line: 0, lineT: 0, resolveT: 0, knockT: 0
+        };
         copChase = null;
         state = "copBust";
-        shakeTimer = warn ? 0.25 : 0.5; shakeIntensity = warn ? 4 : 8;
-        if (warn) { playTone(523, 0.1, "triangle", 0.18); setTimeout(function () { playTone(784, 0.12, "triangle", 0.2); }, 120); }
-        else playWompWomp();
-        // Don't commit the high score yet on a warning OR a walk — the walk run
-        // can still raise it, and its lose branch commits exactly once.
-        if (!warn && !walk && score > save.highScore) save.highScore = Math.floor(score);
+        shakeTimer = 0.45; shakeIntensity = 6;
+        playWompWomp();
+        // Commit the high score only on the ticket (the real game over); free &
+        // walk can still raise it, and their branches commit exactly once.
+        if (outcome === "ticket" && score > save.highScore) save.highScore = Math.floor(score);
         persistSave();
+    }
+
+    // Whose turn it is this line ("cop" / "lulu"), or null when the script is done.
+    function copSpeaker() {
+        var ln = copBust.lines[copBust.line];
+        return ln ? ln[0] : null;
     }
 
     function updateCopBust(dt) {
         if (shakeTimer > 0) shakeTimer -= dt;
-        copBust.timer -= dt;
         updateParticles(dt);
+
+        // Phase 0 — the cruiser eases up right behind her.
         if (copBust.phase === 0) {
-            // cop cruiser pulls up right behind Lulu
-            copBust.copY = lerp(copBust.copY, player.y + 56, Math.min(1, 5 * dt));
+            copBust.timer -= dt;
+            copBust.copY = lerp(copBust.copY, player.y + 58, Math.min(1, 5 * dt));
             if (copBust.timer <= 0) {
                 copBust.phase = 1;
                 copBust.man = {
-                    x: copBust.fromLeft ? -30 : W + 30,
-                    y: player.y + 30,
-                    targetX: player.x + (copBust.fromLeft ? -42 : 42),
+                    x: copBust.fromLeft ? -34 : W + 34,
+                    y: player.y + 18,
+                    targetX: player.x + (copBust.fromLeft ? -44 : 44),
                     time: 0, state: "running", runDir: copBust.fromLeft ? 1 : -1,
-                    cop: true   // it's the officer climbing out of the cruiser
+                    cop: true   // the officer climbing out of the cruiser
                 };
             }
             return;
         }
+
+        // Phase 1 — he strolls over to her window (deliberate, not a sprint).
         if (copBust.phase === 1) {
             copBust.man.time += dt;
             var dir = copBust.man.targetX - copBust.man.x;
-            if (Math.abs(dir) > 5) { copBust.man.x += Math.sign(dir) * 230 * dt; }
-            else { copBust.man.x = copBust.man.targetX; copBust.man.state = "yelling"; copBust.phase = 2; copBust.timer = copBust.warning ? 3.2 : 2.8; }
+            if (Math.abs(dir) > 4) {
+                copBust.man.x += Math.sign(dir) * 165 * dt;
+                copBust.man.runDir = dir >= 0 ? 1 : -1;
+            } else {
+                copBust.man.x = copBust.man.targetX;
+                copBust.phase = 2; copBust.line = 0; copBust.lineT = 0;
+                copBust.man.state = (copSpeaker() === "cop") ? "talk" : "listen";
+                playTone(330, 0.05, "square", 0.08); // *tap tap* on the window
+            }
             return;
         }
+
+        // Phase 2 — the back-and-forth. Each line lingers, or tap to advance.
         if (copBust.phase === 2) {
             copBust.man.time += dt;
-            if (copBust.timer <= 0) {
-                if (copBust.warning) { copBust = null; returnToDriving(); } // free to go!
-                else if (copBust.walk) { copBust = null; startFootWorld("copWalk"); } // car impounded → walk
-                else { copBust = null; state = "gameover"; }
+            copBust.lineT += dt;
+            var skip = consumeClick() || consumeAction();
+            if (copBust.lineT >= COP_LINE_DUR || skip) {
+                copBust.line++;
+                copBust.lineT = 0;
+                if (copBust.line >= copBust.lines.length) {
+                    copBust.phase = 3; copBust.resolveT = 0;
+                    copBust.man.state = copBust.outcome === "free" ? "talk" : "yelling";
+                } else {
+                    var who = copSpeaker();
+                    copBust.man.state = (who === "cop") ? "talk" : "listen";
+                    playTone(who === "cop" ? 300 : 620, 0.04, "sine", 0.06); // speech blip
+                }
+            }
+            return;
+        }
+
+        // Phase 3 — the outcome lands, holds a beat, then resolves.
+        if (copBust.phase === 3) {
+            copBust.man.time += dt;
+            copBust.resolveT += dt;
+            if (copBust.resolveT > 1.9) {
+                var out = copBust.outcome;
+                copBust = null;
+                if (out === "free") returnToDriving();
+                else if (out === "walk") startFootWorld("copWalk");
+                else state = "gameover";
             }
         }
     }
@@ -1188,28 +1286,47 @@
         drawLuluCar(player.x, player.y, 0, false, gameTime, distractedMode);
         if (copBust.man) {
             drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir, copBust.man.cop);
-            if (copBust.man.state === "yelling" && !copBust.warning) {
-                var lines = copBust.yell.split("\n");
-                for (var li = 0; li < lines.length; li++) {
-                    drawText(lines[li], copBust.man.x, copBust.man.y - 72 + li * 18,
-                        "bold 15px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#7A0000", 4);
-                }
-            }
         }
         ctx.restore();
         drawParticles();
-        if (copBust.warning) {
-            drawText("⚠️ LET OFF WITH A WARNING", W / 2, H * 0.15, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 6);
-            // the exchange (cop line + Lulu's bribe)
-            drawText("👮 " + copBust.ex[0], W / 2, H * 0.15 + 34, "bold 15px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
-            if (copBust.phase >= 2) drawText("💁 " + copBust.ex[1], W / 2, H * 0.15 + 58, "bold 15px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 3);
-            if (copBust.phase >= 2) drawText("Back on the road! 🚗", W / 2, H * 0.15 + 86, "bold 13px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 3);
-        } else if (copBust.walk) {
-            drawText("🚧 IMPOUNDED! 🚧", W / 2, H * 0.16, "bold 30px 'Segoe UI', Arial, sans-serif", "#FB8C00", "#000", 6);
-            drawText("No car? Then she'll WALK to Bubbe's...", W / 2, H * 0.16 + 36, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
-        } else {
-            drawText("🚨 BUSTED! 🚨", W / 2, H * 0.16, "bold 38px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
-            drawText("Caught speeding!", W / 2, H * 0.16 + 36, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+
+        // Top banner: the situation as it unfolds (no sudden jump to a verdict).
+        if (copBust.phase <= 1) {
+            var apProg = copBust.phase === 0 ? "🚨 PULLED OVER 🚨" : "Here he comes...";
+            drawText(apProg, W / 2, H * 0.12, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 6);
+        }
+
+        // The exchange — show whoever is speaking this beat, as a bubble over
+        // their head (cop) or over her car (Lulu).
+        if (copBust.phase === 2 && copBust.man) {
+            var cur = copBust.lines[copBust.line];
+            if (cur) {
+                if (cur[0] === "cop") {
+                    drawSpeechBubble(copBust.man.x, copBust.man.y - 24, "👮 " + cur[1], copBust.man.time);
+                } else {
+                    drawSpeechBubble(player.x, player.y - 28, "💁 " + cur[1], gameTime);
+                }
+            }
+            // gentle tap-to-continue nudge
+            ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
+            drawText("tap ▸", W / 2, H * 0.93, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            ctx.globalAlpha = 1;
+        }
+
+        // Phase 3 — the verdict lands with a big banner.
+        if (copBust.phase === 3) {
+            var col = copBust.outcome === "free" ? "#7CFC4F"
+                    : copBust.outcome === "walk" ? "#FB8C00" : "#F44336";
+            var pop = 1 + Math.max(0, 0.35 - copBust.resolveT) * 1.2; // quick pop-in
+            ctx.save();
+            ctx.translate(W / 2, H * 0.15);
+            ctx.scale(pop, pop);
+            drawText(copBust.title, 0, 0, "bold 30px 'Segoe UI', Arial, sans-serif", col, "#000", 6);
+            ctx.restore();
+            var sub = copBust.outcome === "free" ? "Back on the road! 🚗"
+                    : copBust.outcome === "walk" ? "No car? She'll WALK to Bubbe's..."
+                    : "Caught speeding!";
+            drawText(sub, W / 2, H * 0.15 + 32, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
         }
     }
 

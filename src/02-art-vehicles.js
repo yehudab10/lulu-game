@@ -1113,12 +1113,21 @@
             ctx.fillStyle = C.skin;
             ctx.beginPath(); ctx.arc(-10, 9 - armSwing * 0.3, 2.5, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(11, 9 + armSwing * 0.3, 2.5, 0, Math.PI * 2); ctx.fill();
+        } else if (state === "talk" || state === "listen") {
+            // calm chatting pose — arms at rest with a small gesture bob
+            var gb = (state === "talk" ? Math.sin(time * 5) * 2 : 0);
+            ctx.fillStyle = shirtMain;
+            roundRect(-13, -5, 5, 13, 2); ctx.fill();
+            roundRect(8, -5 + gb * 0.4, 5, 13, 2); ctx.fill();
+            ctx.fillStyle = C.skin;
+            ctx.beginPath(); ctx.arc(-10, 8, 2.5, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(11, 8 + gb * 0.4, 2.5, 0, Math.PI * 2); ctx.fill();
         }
 
         // Head (red-faced angry)
         ctx.fillStyle = "#222";
         ctx.beginPath(); ctx.arc(0, -16, 9, 0, Math.PI * 2); ctx.fill();
-        // angry red face
+        // angry red face (calm when just talking)
         var redness = state === "yelling" ? "#FF7043" : "#FFAB91";
         ctx.fillStyle = redness;
         ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();
@@ -1196,12 +1205,13 @@
         ctx.ellipse(3, -12, 4, 1.8, -0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Open yelling mouth
-        if (state === "yelling") {
+        // Open yelling mouth (also animated, smaller, when calmly talking)
+        if (state === "yelling" || state === "talk") {
+            var talk = state === "talk";
             ctx.fillStyle = "#000";
             ctx.beginPath();
-            var mouthW = 3 + Math.sin(time * 25) * 1.2;
-            ctx.ellipse(0, -9, mouthW, 2.5, 0, 0, Math.PI * 2);
+            var mouthW = (talk ? 2 : 3) + Math.abs(Math.sin(time * (talk ? 14 : 25))) * (talk ? 1.4 : 1.2);
+            ctx.ellipse(0, -9, mouthW, talk ? 1.8 : 2.5, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = "#F44336";
             ctx.beginPath();
