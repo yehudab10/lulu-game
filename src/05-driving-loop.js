@@ -1,6 +1,13 @@
     // Transient visual-only pickup pops (coin collect rings). Drawn in drawPlaying.
     var coinPops = [];
 
+    // Coin combo — grab coins in quick succession to build a multiplier. The
+    // window resets if you go too long without a pickup. Drives a popup + a
+    // small HUD meter and escalating score/coin bonuses.
+    var coinCombo = 0;        // current consecutive-pickup count
+    var coinComboT = 0;       // >0 while the combo window is open
+    var coinComboFx = 0;      // >0 briefly after a pickup (pop animation)
+
     // Grant a few seconds of collision immunity when re-entering the driving
     // world from a sub-scene (parking / Avigail / salon / tablet), so the player
     // isn't instantly hit by an obstacle that was already on top of the car.
@@ -499,12 +506,27 @@
             }
             if (!c.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, c.x, c.y, c.hitW, c.hitH)) {
                 c.collected = true;
-                runCoins += coinMult;
-                save.totalCoins += coinMult;
+                // Build the combo: another coin within the window bumps it,
+                // otherwise it restarts at 1.
+                coinCombo = (coinComboT > 0) ? coinCombo + 1 : 1;
+                coinComboT = 1.5;
+                coinComboFx = 0.3;
+                // Multiplier ramps every 3 coins: x1 (1-2), x2 (3-5), x3 (6-8)... up to x5.
+                var comboMult = Math.min(1 + Math.floor((coinCombo - 1) / 3), 5);
+                var gained = coinMult * comboMult;
+                runCoins += gained;
+                save.totalCoins += gained;
                 persistSave();
-                score += 100 * scoreMult * coinMult;
+                score += 100 * scoreMult * gained;
                 spawnCoinSparkle(c.x, c.y);
-                spawnFloater(c.x, c.y, "+" + coinMult, "#FFD700");
+                if (comboMult > 1) {
+                    // Hotter color the higher the multiplier.
+                    var hot = comboMult >= 4 ? "#FF5252" : comboMult >= 3 ? "#FF9800" : "#FFD54F";
+                    spawnFloater(c.x, c.y, "+" + gained + "  x" + comboMult + "!", hot);
+                    if (coinCombo % 3 === 0) playStarSparkle();   // milestone ding
+                } else {
+                    spawnFloater(c.x, c.y, "+" + gained, "#FFD700");
+                }
                 // little pop ring that scales up and fades
                 coinPops.push({ x: c.x, y: c.y, t: 0 });
                 if (coinPops.length > 12) coinPops.shift();
@@ -517,6 +539,9 @@
             coinPops[cp].t += dt;
             if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
         }
+        // Decay the combo window; when it lapses the streak resets.
+        if (coinComboT > 0) { coinComboT -= dt; if (coinComboT <= 0) coinCombo = 0; }
+        if (coinComboFx > 0) coinComboFx -= dt;
 
         // Update heart pickups (rare extra life)
         for (var hj = heartEntities.length - 1; hj >= 0; hj--) {
@@ -956,6 +981,8 @@
             spawnCrashBurst(player.x, player.y, true);
             playExplosion();
             setTimeout(playWompWomp, 400);
+            crashFlash = 0.4;   // hard white impact flash
+            slowMoT = 0.55;     // brief bullet-time on the explosion
             state = "crash";
             crashPhase = 0;
             crashPhaseTimer = 1.4; // explosion duration
@@ -1945,9 +1972,15 @@
         for (l = 0; l < 3; l++) {
             lx = LANES[l]; open = tb.open.indexOf(l) !== -1;
             ctx.fillStyle = "#90A4AE"; roundRect(lx - 30, y - 18, 7, 30, 2); ctx.fill(); // booth hut
+            // little attendant peeking out of the booth window
+            ctx.fillStyle = "#37474F"; ctx.fillRect(lx - 29, y - 14, 5, 9);              // window
+            ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(lx - 26, y - 10, 2.2, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = open ? "#66BB6A" : "#E53935";
             ctx.beginPath(); ctx.arc(lx - 26, y - 22, 3, 0, Math.PI * 2); ctx.fill();      // light
             if (open) {
+                // soft green "go" glow + raised gate
+                ctx.fillStyle = "rgba(102,187,106,0.35)";
+                ctx.beginPath(); ctx.arc(lx - 26, y - 22, 6, 0, Math.PI * 2); ctx.fill();
                 ctx.strokeStyle = "#66BB6A"; ctx.lineWidth = 4; ctx.lineCap = "round";
                 ctx.beginPath(); ctx.moveTo(lx - 23, y); ctx.lineTo(lx - 15, y - 22); ctx.stroke();
                 ctx.lineCap = "butt";
@@ -2156,22 +2189,83 @@
         ctx.moveTo(ROAD_L, y - 9); ctx.lineTo(ROAD_R, y - 9);
         ctx.moveTo(ROAD_L, y + 9); ctx.lineTo(ROAD_R, y + 9); ctx.stroke();
         var active = tc.started && !tc.gone, flash = Math.sin(tc.warnPhase * 12) > 0;
-        // crossing signals on both shoulders
+        // crossing signals on both shoulders — twin lamps that alternate
+        // left/right like a real railroad crossing, with a glow when lit.
         var posts = [ROAD_L - 6, ROAD_R + 6];
         for (var p = 0; p < 2; p++) {
             ctx.fillStyle = "#FAFAFA"; ctx.fillRect(posts[p] - 2, y - 34, 4, 30);
-            ctx.fillStyle = (active && flash) ? "#F44336" : "#7A1F1A";
-            ctx.beginPath(); ctx.arc(posts[p], y - 36, 4, 0, Math.PI * 2); ctx.fill();
+            // crossbuck
+            ctx.strokeStyle = "#FAFAFA"; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(posts[p] - 6, y - 44); ctx.lineTo(posts[p] + 6, y - 32);
+            ctx.moveTo(posts[p] + 6, y - 44); ctx.lineTo(posts[p] - 6, y - 32); ctx.stroke();
+            for (var lamp = 0; lamp < 2; lamp++) {
+                var lit = active && (lamp === 0 ? flash : !flash);
+                var lxp = posts[p] + (lamp === 0 ? -5 : 5);
+                if (lit) {
+                    ctx.fillStyle = "rgba(244,67,54,0.4)";
+                    ctx.beginPath(); ctx.arc(lxp, y - 26, 7, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.fillStyle = lit ? "#FF5252" : "#7A1F1A";
+                ctx.beginPath(); ctx.arc(lxp, y - 26, 3.5, 0, Math.PI * 2); ctx.fill();
+            }
         }
         if (active) {
+            // Motion streaks trailing the train (behind = opposite its travel dir).
+            ctx.save();
+            ctx.globalAlpha = 0.35; ctx.strokeStyle = "#E0F7FF"; ctx.lineWidth = 2; ctx.lineCap = "round";
+            var tailX = tc.dir > 0 ? tc.trainX - trainW / 2 : tc.trainX + trainW / 2;
+            for (var ms = 0; ms < 5; ms++) {
+                var msy = y - 16 + ms * 8;
+                var msl = 26 + (Math.sin(tc.warnPhase * 20 + ms) + 1) * 12;
+                ctx.beginPath();
+                ctx.moveTo(tailX - tc.dir * 6, msy);
+                ctx.lineTo(tailX - tc.dir * (6 + msl), msy);
+                ctx.stroke();
+            }
+            ctx.restore();
+
             for (c = 0; c < tc.cars; c++) {
                 cx = tc.trainX - trainW / 2 + 30 + c * 60;
                 ctx.fillStyle = c === 0 ? "#263238" : ["#C62828", "#1565C0", "#2E7D32", "#6A1B9A", "#EF6C00"][c % 5];
                 roundRect(cx - 28, y - 21, 56, 42, 6); ctx.fill();
                 ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 2; roundRect(cx - 28, y - 21, 56, 42, 6); ctx.stroke();
                 ctx.fillStyle = "#90CAF9"; ctx.fillRect(cx - 18, y - 14, 36, 13);
+                // roof rivets / detail line
+                ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(cx - 24, y + 4); ctx.lineTo(cx + 24, y + 4); ctx.stroke();
                 ctx.fillStyle = "#212121"; ctx.fillRect(cx - 22, y + 16, 10, 6); ctx.fillRect(cx + 12, y + 16, 10, 6);
             }
+
+            // Locomotive smokestack + rising steam puffs (the loco is car 0).
+            var locoX = tc.trainX - trainW / 2 + 30;
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(locoX - 16, y - 28, 7, 8); // stack
+            for (var sp = 0; sp < 4; sp++) {
+                var spt = (tc.warnPhase * 1.6 + sp * 0.5) % 2;        // 0..2 life
+                var spA = clamp(1 - spt / 2, 0, 1);
+                if (spA <= 0) continue;
+                ctx.fillStyle = "rgba(220,220,225," + (spA * 0.55) + ")";
+                ctx.beginPath();
+                ctx.arc(locoX - 12 - tc.dir * spt * 10, y - 30 - spt * 16, 4 + spt * 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Headlight beam at the front of the train.
+            var frontX = tc.dir > 0 ? tc.trainX + trainW / 2 : tc.trainX - trainW / 2;
+            ctx.save();
+            var beam = ctx.createLinearGradient(frontX, y, frontX + tc.dir * 70, y);
+            beam.addColorStop(0, "rgba(255,245,180,0.6)");
+            beam.addColorStop(1, "rgba(255,245,180,0)");
+            ctx.fillStyle = beam;
+            ctx.beginPath();
+            ctx.moveTo(frontX, y - 4);
+            ctx.lineTo(frontX + tc.dir * 70, y - 26);
+            ctx.lineTo(frontX + tc.dir * 70, y + 26);
+            ctx.lineTo(frontX, y + 4);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#FFF9C4";
+            ctx.beginPath(); ctx.arc(frontX, y, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
         }
     }
 

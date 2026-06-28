@@ -590,6 +590,24 @@
         drawCoin(W - 100, 26, gameTime);
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
+        // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
+        // with a draining window bar. Pops on each fresh pickup.
+        if (coinCombo >= 3) {
+            var cMult = Math.min(1 + Math.floor((coinCombo - 1) / 3), 5);
+            var cHot = cMult >= 4 ? "#FF5252" : cMult >= 3 ? "#FF9800" : "#FFD54F";
+            var cPop = 1 + (coinComboFx > 0 ? coinComboFx * 0.7 : 0);
+            ctx.save();
+            ctx.translate(70, 62);
+            ctx.scale(cPop, cPop);
+            drawText("🔥 ×" + cMult + " COMBO", 0, 0,
+                "bold 14px 'Segoe UI', Arial, sans-serif", cHot, "#000", 3, "left");
+            ctx.restore();
+            // draining window bar under the badge
+            var cwp = clamp(coinComboT / 1.5, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(64, 70, 96, 5, 2.5); ctx.fill();
+            ctx.fillStyle = cHot; roundRect(64, 70, 96 * cwp, 5, 2.5); ctx.fill();
+        }
+
         // Hearts — lives can exceed the starting 3 now. Show up to 6 across
         // (empty slots up to MAX_LIVES so damage still reads clearly), then
         // collapse to a single heart + "×N" so it never runs off-screen.
@@ -789,6 +807,8 @@
     var shakeTimer = 0;
     var shakeIntensity = 0;
     var flashTimer = 0;
+    var crashFlash = 0;   // white impact flash on the fatal crash (fades fast)
+    var slowMoT = 0;      // >0 = brief bullet-time after a big hit
     var crashTimer = 0;
     var menuBounce = 0;
     var gameOverAlpha = 0;

@@ -5,16 +5,33 @@
         lastTime = timestamp;
 
       try {
-        // Global update tickers (always run)
+        // Global update tickers (always run) — these use REAL time so timed
+        // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
         updateFloaters(dt);
         updateSceneFade(dt);
+        updateStateTransition(dt);
+        if (crashFlash > 0) crashFlash -= dt;
+
+        // Bullet-time: briefly slow the simulation after a big crash for drama.
+        // Decremented with real time so it always lasts ~0.55s; the scaled dt is
+        // what the scene updates below actually advance by.
+        if (slowMoT > 0) { slowMoT -= dt; dt *= 0.4; }
 
         // When the scene changes (via fade or a direct state set), drop any
         // input that belonged to the previous scene — the tap that caused the
         // transition, a half-finished finger-drag — so it can't double-fire or
         // leak into the new scene (this caused stray jumps into other modes).
         if (state !== lastDispatchState) {
+            // Play the iris wipe on deliberate scene/menu changes — but NOT on
+            // action-consequence flips (crash flash handles those), pause/resume
+            // (would hide the menu), or while a gotoState fade is already running.
+            var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, paused: 1,
+                            footRun: 1, footInterior: 1, footWedding: 1 };
+            if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
+                sceneFade.t >= sceneFade.dur) {
+                startStateTransition();
+            }
             actionQueued = false;
             clickQueue = null;
             pauseQueued = false;
@@ -102,8 +119,17 @@
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
 
+        // Blinding white impact flash on a fatal crash (over the scene, under
+        // the scene-fade/iris so transitions still read).
+        if (crashFlash > 0) {
+            ctx.fillStyle = "rgba(255,255,255," + (clamp(crashFlash / 0.4, 0, 1) * 0.9) + ")";
+            ctx.fillRect(0, 0, W, H);
+        }
+
         // Scene fade overlay (drawn on top of everything)
         drawSceneFade();
+        // Iris wipe for hard scene cuts (on top of the fade)
+        drawStateTransition();
       } catch (e) {
         // Never let one bad frame kill the loop (which would freeze the whole
         // app until a restart). Log it and keep going — input stays responsive.

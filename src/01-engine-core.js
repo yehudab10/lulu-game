@@ -811,6 +811,35 @@
         ctx.fillRect(0, 0, W, H);
     }
 
+    // Lightweight "iris-in" wipe played on every scene change (the new scene is
+    // revealed through a growing circular hole). Triggered from the game loop
+    // when `state` changes, so it polishes hard cuts everywhere at once without
+    // touching each transition site.
+    var stateTrans = { t: 999, dur: 0.34 };
+    function startStateTransition() { stateTrans = { t: 0, dur: 0.34 }; }
+    function updateStateTransition(dt) { if (stateTrans.t < stateTrans.dur) stateTrans.t += dt; }
+    function drawStateTransition() {
+        if (stateTrans.t >= stateTrans.dur) return;
+        var p = clamp(stateTrans.t / stateTrans.dur, 0, 1);
+        var e = easeInOutQuad(p);
+        var maxR = Math.sqrt(W * W + H * H) / 2;
+        var r = e * maxR;
+        ctx.save();
+        ctx.fillStyle = "rgba(8,6,20,0.94)";
+        ctx.beginPath();
+        ctx.rect(0, 0, W, H);
+        ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2);
+        ctx.fill("evenodd");
+        // a soft bright rim on the iris edge for a touch of polish
+        if (r > 4 && r < maxR) {
+            ctx.globalAlpha = (1 - e) * 0.5;
+            ctx.strokeStyle = "#FFE9B0";
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(W / 2, H / 2, r, 0, Math.PI * 2); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     // Button press visual feedback — register hit, draw a brief overlay
     var btnPressFx = {};
     function flashButton(id) { btnPressFx[id] = { t: 0, dur: 0.22 }; }
