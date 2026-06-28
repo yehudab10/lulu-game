@@ -1254,6 +1254,17 @@
         "That's going on\nmy STORY.",
         "K so anyway— MY\nCAR IS TOTALED?!"
     ];
+    // When the wreck was a police cruiser, the officer storms out — by-the-book
+    // furious, badge-and-cap and all.
+    var COP_CAR_YELLS = [
+        "That's a CITY\nvehicle, ma'am!",
+        "You're under\nARREST! ...probably.",
+        "RECKLESS\nDRIVING! Pull o— oh.",
+        "I just WAXED\nthis cruiser!!",
+        "Do you KNOW\nwho I am?!",
+        "License and\nregistration. NOW.",
+        "That'll be a\nVERY big ticket."
+    ];
     // Drunk bar patrons + the odd rowdy worker holler these at Lulu.
     var BAR_CATCALLS = [
         "Heyyy gorgeous! 🍻", "Niiice ride, sweetheart!", "Gimme a liiift?",
@@ -1427,6 +1438,9 @@
                     // The driver of the car you wrecked flings open the door and
                     // storms over from the smoking heap itself.
                     var carLeft = crashedCar.x < player.x;
+                    // A wrecked cop car sends out a uniformed officer, not a
+                    // grandpa — looks right since the wreck is drawn as a cruiser.
+                    var crashIsCop = crashCause.behavior === "patrol";
                     angryMan = {
                         x: crashedCar.x,
                         y: crashedCar.y + 18,
@@ -1434,9 +1448,11 @@
                         targetY: player.y + 46,
                         time: 0,
                         state: "running",
-                        runDir: carLeft ? 1 : -1
+                        runDir: carLeft ? 1 : -1,
+                        cop: crashIsCop
                     };
-                    angryYell = randPick(crashCause.behavior === "drunk" ? DRUNK_CAR_YELLS
+                    angryYell = randPick(crashIsCop ? COP_CAR_YELLS
+                                       : crashCause.behavior === "drunk" ? DRUNK_CAR_YELLS
                                        : crashCause.behavior === "texting" ? TEXT_CAR_YELLS
                                        : CAR_YELLS);
                     // door-burst puff at the wreck
@@ -2551,7 +2567,7 @@
         // Revenge car / cop (if active) — drawn before the man if behind, after if hit
         if (revengeCar && angryMan.state !== "hit") drawRevenge(revengeCar);
         if (angryMan.state !== "hit") {
-            drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir);
+            drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop);
             if (angryMan.state === "yelling" || crashPhase === 4) {
                 drawSpeechBubble(angryMan.x, angryMan.y - 30, angryYell, angryMan.time);
             }

@@ -1026,9 +1026,14 @@
     }
 
     // ── Drawing: Angry Man + Speech Bubble ───────────────────
-    function drawAngryMan(x, y, time, state, runDir) {
+    function drawAngryMan(x, y, time, state, runDir, cop) {
         ctx.save();
         ctx.translate(x, y);
+
+        // A cop variant (when the wreck was a police cruiser): navy uniform,
+        // peaked cap + badge instead of grandpa plaid + wild white hair.
+        var shirtDark = cop ? "#0D1B5E" : "#8B0000";
+        var shirtMain = cop ? "#1A237E" : "#B71C1C";
 
         // Shadow
         ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -1037,8 +1042,8 @@
         var legSwing = state === "running" ? Math.sin(time * 18) * 6 : Math.sin(time * 4) * 1;
         var armRaise = state === "yelling" ? Math.sin(time * 12) * 10 : 0;
 
-        // Legs (brown pants)
-        ctx.fillStyle = "#3E2723";
+        // Legs (brown pants — navy for the cop)
+        ctx.fillStyle = cop ? "#1A237E" : "#3E2723";
         roundRect(-6, 8 - legSwing, 5, 16 + legSwing, 2); ctx.fill();
         roundRect(1, 8 + legSwing, 5, 16 - legSwing, 2); ctx.fill();
         // Shoes
@@ -1046,23 +1051,42 @@
         roundRect(-7, 22 - legSwing, 7, 4, 2); ctx.fill();
         roundRect(0, 22 + legSwing, 7, 4, 2); ctx.fill();
 
-        // Body (plaid red shirt for grumpy-grandpa vibe)
-        ctx.fillStyle = "#8B0000";
+        // Body (plaid red shirt for grumpy-grandpa vibe / navy police shirt)
+        ctx.fillStyle = shirtDark;
         roundRect(-11, -8, 22, 18, 5); ctx.fill();
-        ctx.fillStyle = "#B71C1C";
+        ctx.fillStyle = shirtMain;
         roundRect(-10, -7, 20, 16, 4); ctx.fill();
-        // shirt lines
-        ctx.strokeStyle = "rgba(0,0,0,0.3)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(-4, -7); ctx.lineTo(-4, 9);
-        ctx.moveTo(4, -7); ctx.lineTo(4, 9);
-        ctx.moveTo(-10, -2); ctx.lineTo(10, -2);
-        ctx.moveTo(-10, 4); ctx.lineTo(10, 4);
-        ctx.stroke();
+        if (cop) {
+            // Police shirt details: button placket, badge, tie.
+            ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 9); ctx.stroke();
+            // gold badge (left chest)
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath();
+            for (var bs = 0; bs < 5; bs++) {
+                var ba = -Math.PI / 2 + bs * (Math.PI * 2 / 5);
+                ctx.lineTo(-6 + Math.cos(ba) * 3, -2 + Math.sin(ba) * 3);
+                ctx.lineTo(-6 + Math.cos(ba + Math.PI / 5) * 1.4, -2 + Math.sin(ba + Math.PI / 5) * 1.4);
+            }
+            ctx.closePath(); ctx.fill();
+            // collar tabs
+            ctx.fillStyle = shirtDark;
+            ctx.beginPath(); ctx.moveTo(-3, -7); ctx.lineTo(0, -4); ctx.lineTo(-1, -7); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(3, -7); ctx.lineTo(0, -4); ctx.lineTo(1, -7); ctx.fill();
+        } else {
+            // shirt lines (plaid)
+            ctx.strokeStyle = "rgba(0,0,0,0.3)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-4, -7); ctx.lineTo(-4, 9);
+            ctx.moveTo(4, -7); ctx.lineTo(4, 9);
+            ctx.moveTo(-10, -2); ctx.lineTo(10, -2);
+            ctx.moveTo(-10, 4); ctx.lineTo(10, 4);
+            ctx.stroke();
+        }
 
         // Arms (one raised when yelling)
-        ctx.fillStyle = "#B71C1C";
+        ctx.fillStyle = shirtMain;
         if (state === "yelling") {
             // both arms up (shaking fist)
             ctx.save();
@@ -1073,7 +1097,7 @@
             ctx.fillStyle = C.skin;
             ctx.beginPath(); ctx.arc(0, -13, 3, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
-            ctx.fillStyle = "#B71C1C";
+            ctx.fillStyle = shirtMain;
             ctx.save();
             ctx.translate(10, -5);
             ctx.rotate(0.8 - armRaise * 0.03);
@@ -1083,7 +1107,7 @@
             ctx.restore();
         } else if (state === "running") {
             var armSwing = -legSwing;
-            ctx.fillStyle = "#B71C1C";
+            ctx.fillStyle = shirtMain;
             roundRect(-13, -5 - armSwing * 0.3, 5, 14, 2); ctx.fill();
             roundRect(8, -5 + armSwing * 0.3, 5, 14, 2); ctx.fill();
             ctx.fillStyle = C.skin;
@@ -1099,6 +1123,21 @@
         ctx.fillStyle = redness;
         ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();
 
+        if (cop) {
+            // Short dark hair under the cap
+            ctx.fillStyle = "#3E2723";
+            ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, 0); ctx.fill();
+            // Peaked police cap: band, crown, glossy black peak, gold emblem.
+            ctx.fillStyle = "#0D1B5E";
+            ctx.beginPath(); ctx.ellipse(0, -22, 9, 3.2, 0, 0, Math.PI * 2); ctx.fill(); // band
+            ctx.fillStyle = "#1A237E";
+            ctx.beginPath(); ctx.ellipse(0, -25, 8.5, 4.5, 0, Math.PI, 0); ctx.fill();   // crown
+            ctx.fillStyle = "#0A0A0A";
+            ctx.beginPath(); ctx.ellipse(0, -20.5, 9.5, 2.2, 0, 0, Math.PI); ctx.fill(); // peak/brim
+            // gold cap emblem
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath(); ctx.arc(0, -24, 1.8, 0, Math.PI * 2); ctx.fill();
+        } else {
         // White hair (wild messy clumps with darker base for depth)
         ctx.fillStyle = "#9E9E9E";
         ctx.beginPath();
@@ -1121,8 +1160,9 @@
         ctx.ellipse(-4, -26, 1.5, 3, -0.3, 0, Math.PI * 2);
         ctx.ellipse(4, -26, 1.5, 3, 0.3, 0, Math.PI * 2);
         ctx.fill();
-        // White bushy eyebrows (angry V-shape)
-        ctx.fillStyle = "#FAFAFA";
+        }
+        // Bushy eyebrows (angry V-shape) — white for grandpa, dark for the cop
+        ctx.fillStyle = cop ? "#3E2723" : "#FAFAFA";
         ctx.save();
         ctx.translate(-3, -18);
         ctx.rotate(0.4);
@@ -1149,8 +1189,8 @@
         ctx.arc(3, -15, 0.9, 0, Math.PI * 2);
         ctx.fill();
 
-        // Big white mustache
-        ctx.fillStyle = "#FAFAFA";
+        // Big mustache — white for grandpa, a dark cop 'stache otherwise
+        ctx.fillStyle = cop ? "#3E2723" : "#FAFAFA";
         ctx.beginPath();
         ctx.ellipse(-3, -12, 4, 1.8, 0.2, 0, Math.PI * 2);
         ctx.ellipse(3, -12, 4, 1.8, -0.2, 0, Math.PI * 2);
