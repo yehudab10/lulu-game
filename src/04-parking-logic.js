@@ -714,11 +714,18 @@
                 var pdx = newX - parkingPedestrian.x;
                 var pdy = newY - parkingPedestrian.y;
                 if (pdx * pdx + pdy * pdy < 25 * 25) {
-                    // ouch — instant fail for pedestrian hit
-                    parkingFailHit = { who: "pedestrian", x: parkingPedestrian.x, y: parkingPedestrian.y };
-                    parkingPedestrian = null;
-                    triggerParkingFail();
-                    return;
+                    // Only a fail if you actually ROLL into them — a pedestrian
+                    // bumping a stopped/parked car is harmless (they just shuffle
+                    // off), so finishing your park never costs a life to a passerby.
+                    if (Math.abs(parkingCar.speed) > 8) {
+                        parkingFailHit = { who: "pedestrian", x: parkingPedestrian.x, y: parkingPedestrian.y };
+                        parkingPedestrian = null;
+                        triggerParkingFail();
+                        return;
+                    } else {
+                        // nudge them clear and let them keep walking, no penalty
+                        parkingPedestrian.x = parkingCar.x + (parkingPedestrian.x < parkingCar.x ? -28 : 28);
+                    }
                 }
             }
         }
