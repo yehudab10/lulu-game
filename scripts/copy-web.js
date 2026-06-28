@@ -23,7 +23,8 @@ const ASSETS = [
   "dina.mp3",
   "avigail.mp3",
   "parking.mp3",
-  "salon.mp3"
+  "salon.mp3",
+  "wedding.mp3"
 ];
 
 fs.rmSync(OUT, { recursive: true, force: true });

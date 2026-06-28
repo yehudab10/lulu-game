@@ -283,7 +283,8 @@
         dina:    "dina.mp3",
         parking: "parking.mp3",
         avigail: "avigail.mp3",
-        salon:   "salon.mp3"
+        salon:   "salon.mp3",
+        wedding: "wedding.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.
@@ -19176,7 +19177,8 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior" || state === "footWedding") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+        else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||

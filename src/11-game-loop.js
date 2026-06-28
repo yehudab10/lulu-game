@@ -36,7 +36,8 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior" || state === "footWedding") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+        else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
