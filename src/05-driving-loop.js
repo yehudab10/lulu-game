@@ -538,6 +538,13 @@
                 var away = o.x < ambulance.x ? -1 : 1;
                 o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
             }
+            // ...and for LULU when she's driving a siren vehicle (cop/ambulance):
+            // cars ahead and around her pull aside to let her through.
+            if ((playerVehicle === "cop" || playerVehicle === "ambulance") &&
+                o.type === "car" && !o.crashed && Math.abs(o.y - player.y) < 165) {
+                var pAway = o.x < player.x ? -1 : 1;
+                o.x = clamp(o.x + pAway * 90 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
             // right up on them — a polite (or panicked) dodge.
@@ -3060,12 +3067,17 @@
                     ctx.save();
                     ctx.translate(o.x, o.y + 6);
                     ctx.rotate(1.35);
-                    drawPedestrian(0, 0, 0, o.pedType, o.worker, o.drunk);
+                    drawPedestrian(0, 0, 0, o.pedType, o.worker, o.drunk, o.cop, o.kid);
                     ctx.restore();
                     ctx.fillStyle = "rgba(156,204,101,0.35)";
                     ctx.beginPath(); ctx.arc(o.x, o.y - 4, 16, 0, Math.PI * 2); ctx.fill();
+                } else if (o.kid) {
+                    // kids are smaller
+                    ctx.save(); ctx.translate(o.x, o.y); ctx.scale(0.72, 0.72);
+                    drawPedestrian(0, 0, o.walkTime, o.pedType, false, false, false, true);
+                    ctx.restore();
                 } else {
-                    drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk);
+                    drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk, o.cop);
                 }
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 6, o.comment);
             }

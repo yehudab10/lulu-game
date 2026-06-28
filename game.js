@@ -2784,7 +2784,7 @@
     }
 
     // ── Drawing: Pedestrians (people obstacles) ──────────────
-    function drawPedestrian(x, y, walkTime, type, worker, drunk) {
+    function drawPedestrian(x, y, walkTime, type, worker, drunk, cop, kid) {
         ctx.save();
         ctx.translate(x, y);
         if (drunk) {
@@ -2912,6 +2912,36 @@
             ctx.fillRect(8.4, 0, 1, 7);
             ctx.fillStyle = "#FFF8E1"; // little label
             ctx.fillRect(8.2, 3, 3.2, 3);
+        }
+
+        if (cop) {
+            // Navy police uniform over the shirt + a peaked cap + gold badge.
+            ctx.fillStyle = "#1A237E";
+            roundRect(-9, -8, 18, 16, 5); ctx.fill();
+            roundRect(-11, -6, 4, 12, 2); ctx.fill(); roundRect(7, -6, 4, 12, 2); ctx.fill();
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath(); ctx.arc(-4, -2, 1.8, 0, Math.PI * 2); ctx.fill();   // badge
+            ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();  // placket
+            // peaked cap over the hair
+            ctx.fillStyle = "#0D1B5E";
+            ctx.beginPath(); ctx.ellipse(0, -18, 8, 2.6, 0, 0, Math.PI * 2); ctx.fill();   // band
+            ctx.fillStyle = "#1A237E";
+            ctx.beginPath(); ctx.ellipse(0, -20.5, 7.5, 3.6, 0, Math.PI, 0); ctx.fill();   // crown
+            ctx.fillStyle = "#0A0A0A";
+            ctx.beginPath(); ctx.ellipse(0, -16.6, 8.5, 1.8, 0, 0, Math.PI); ctx.fill();   // brim
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath(); ctx.arc(0, -19.5, 1.4, 0, Math.PI * 2); ctx.fill();           // emblem
+        }
+
+        if (kid) {
+            // A little school backpack on the back.
+            ctx.fillStyle = "#EF5350";
+            roundRect(-12, -6, 5, 12, 2); ctx.fill();
+            ctx.fillStyle = "#C62828";
+            ctx.fillRect(-12, -1, 5, 2);
+            ctx.strokeStyle = "#C62828"; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(-7, -6); ctx.lineTo(-4, -5); ctx.stroke(); // strap
         }
 
         ctx.restore();
@@ -4980,6 +5010,7 @@
                 pedType: randInt(0, 2),
                 worker: (typeof zone !== "undefined" && zone === "construction"),
                 drunk: (typeof zone !== "undefined" && zone === "bars"),
+                cop: (typeof zone !== "undefined" && zone === "police"),
                 // Small staggered initial delay so a crowd doesn't all shout on the
                 // same frame, but the first line still lands within ~1s of view.
                 catcallT: rand(0.2, 1.0),
@@ -6256,6 +6287,13 @@
             if (ambulance && o !== ambulance && o.type === "car" && !o.crashed && Math.abs(o.y - ambulance.y) < 150) {
                 var away = o.x < ambulance.x ? -1 : 1;
                 o.x = clamp(o.x + away * 80 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
+            // ...and for LULU when she's driving a siren vehicle (cop/ambulance):
+            // cars ahead and around her pull aside to let her through.
+            if ((playerVehicle === "cop" || playerVehicle === "ambulance") &&
+                o.type === "car" && !o.crashed && Math.abs(o.y - player.y) < 165) {
+                var pAway = o.x < player.x ? -1 : 1;
+                o.x = clamp(o.x + pAway * 90 * dt, ROAD_L + 20, ROAD_R - 20);
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
@@ -8779,12 +8817,17 @@
                     ctx.save();
                     ctx.translate(o.x, o.y + 6);
                     ctx.rotate(1.35);
-                    drawPedestrian(0, 0, 0, o.pedType, o.worker, o.drunk);
+                    drawPedestrian(0, 0, 0, o.pedType, o.worker, o.drunk, o.cop, o.kid);
                     ctx.restore();
                     ctx.fillStyle = "rgba(156,204,101,0.35)";
                     ctx.beginPath(); ctx.arc(o.x, o.y - 4, 16, 0, Math.PI * 2); ctx.fill();
+                } else if (o.kid) {
+                    // kids are smaller
+                    ctx.save(); ctx.translate(o.x, o.y); ctx.scale(0.72, 0.72);
+                    drawPedestrian(0, 0, o.walkTime, o.pedType, false, false, false, true);
+                    ctx.restore();
                 } else {
-                    drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk);
+                    drawPedestrian(o.x, o.y, o.walkTime, o.pedType, o.worker, o.drunk, o.cop);
                 }
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 6, o.comment);
             }

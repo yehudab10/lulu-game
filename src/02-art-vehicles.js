@@ -654,7 +654,7 @@
     }
 
     // ── Drawing: Pedestrians (people obstacles) ──────────────
-    function drawPedestrian(x, y, walkTime, type, worker, drunk) {
+    function drawPedestrian(x, y, walkTime, type, worker, drunk, cop, kid) {
         ctx.save();
         ctx.translate(x, y);
         if (drunk) {
@@ -782,6 +782,36 @@
             ctx.fillRect(8.4, 0, 1, 7);
             ctx.fillStyle = "#FFF8E1"; // little label
             ctx.fillRect(8.2, 3, 3.2, 3);
+        }
+
+        if (cop) {
+            // Navy police uniform over the shirt + a peaked cap + gold badge.
+            ctx.fillStyle = "#1A237E";
+            roundRect(-9, -8, 18, 16, 5); ctx.fill();
+            roundRect(-11, -6, 4, 12, 2); ctx.fill(); roundRect(7, -6, 4, 12, 2); ctx.fill();
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath(); ctx.arc(-4, -2, 1.8, 0, Math.PI * 2); ctx.fill();   // badge
+            ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 7); ctx.stroke();  // placket
+            // peaked cap over the hair
+            ctx.fillStyle = "#0D1B5E";
+            ctx.beginPath(); ctx.ellipse(0, -18, 8, 2.6, 0, 0, Math.PI * 2); ctx.fill();   // band
+            ctx.fillStyle = "#1A237E";
+            ctx.beginPath(); ctx.ellipse(0, -20.5, 7.5, 3.6, 0, Math.PI, 0); ctx.fill();   // crown
+            ctx.fillStyle = "#0A0A0A";
+            ctx.beginPath(); ctx.ellipse(0, -16.6, 8.5, 1.8, 0, 0, Math.PI); ctx.fill();   // brim
+            ctx.fillStyle = "#FFD54F";
+            ctx.beginPath(); ctx.arc(0, -19.5, 1.4, 0, Math.PI * 2); ctx.fill();           // emblem
+        }
+
+        if (kid) {
+            // A little school backpack on the back.
+            ctx.fillStyle = "#EF5350";
+            roundRect(-12, -6, 5, 12, 2); ctx.fill();
+            ctx.fillStyle = "#C62828";
+            ctx.fillRect(-12, -1, 5, 2);
+            ctx.strokeStyle = "#C62828"; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(-7, -6); ctx.lineTo(-4, -5); ctx.stroke(); // strap
         }
 
         ctx.restore();
