@@ -382,7 +382,8 @@
                 }
             } else if (o.type === "car" && o.behavior === "patrol") {
                 // Cruises normally, but busts you if you speed in its view.
-                var patSpeeding = keys.up || gameSpeed > 520;
+                // (On foot keys.up is RUN, not speeding — never a violation.)
+                var patSpeeding = !onFoot && (keys.up || gameSpeed > 520);
                 if (patSpeeding && !copChase && !copBust && Math.abs(o.y - player.y) < 175) {
                     o.spot = (o.spot || 0) + dt;
                     if (o.spot > 0.7) { beginCopChase(o.x, "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
@@ -805,7 +806,7 @@
                             if (obstacles[bp].behavior === "patrol") { watcher = obstacles[bp]; break; }
                         }
                     }
-                    if (watcher && !copChase && !copBust) {
+                    if (watcher && !copChase && !copBust && !onFoot) {
                         beginCopChase(watcher.x, "🚨 BUS SIGN!");
                         spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
                     }
@@ -833,7 +834,7 @@
                     cg.comment = randPick(GUARD_QUIPS); cg.commentT = 2.4;
                     var gw = copInView();
                     if (!gw) { for (var gp = 0; gp < obstacles.length; gp++) { if (obstacles[gp].behavior === "patrol") { gw = obstacles[gp]; break; } } }
-                    if (gw && !copChase && !copBust) {
+                    if (gw && !copChase && !copBust && !onFoot) {
                         beginCopChase(gw.x, "🚨 CROSSING!");
                         spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
                     }

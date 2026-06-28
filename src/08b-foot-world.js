@@ -99,6 +99,12 @@
 
     // ── The on-foot LAYER (called from updatePlaying when onFoot) ────
     function updateFootExtras(dt) {
+        // Belt-and-suspenders: a chase/bust can NEVER exist on foot. Even though
+        // every road-violation trigger is now gated by !onFoot, clear any stray
+        // chase here each frame so the "SPEED AWAY!" HUD can't render while she
+        // walks (and so she can't get pulled over the instant she borrows a car).
+        if (copChase) copChase = null;
+        if (copBust) copBust = null;
         if (footBuskT > 0) footBuskT -= dt;
         footMood = footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
 
