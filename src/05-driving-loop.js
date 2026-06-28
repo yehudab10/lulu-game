@@ -201,7 +201,7 @@
             avigailWalker.walkTime += dt;
             if (avigailWalker.y > H + 60) { avigailWalker = null; }
             else if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, avigailWalker.x, avigailWalker.y, avigailWalker.hitW, avigailWalker.hitH)) {
-                if (onFoot) { footAvigailJoin(avigailWalker); avigailWalker = null; }
+                if (onFoot) { footAvigailMeet(avigailWalker); avigailWalker = null; return; }
                 else { avigailWalker = null; startAvigailScene(); return; }
             }
         }

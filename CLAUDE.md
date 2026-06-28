@@ -42,6 +42,7 @@ How it works:
 | `08c-foot-bar.js`        | Foot interior: **the bar** ("The Thirsty Scholar") — bartender, drunk flirts, jukebox dance, passed-out guy, bouncer |
 | `08d-foot-school-hospital.js` | Foot interiors: **school** (cheder hallway — morah, kids, bake sale) + **hospital** (waiting room — receptionist, hypochondriac, doctor, vending machine, Heshy) |
 | `08e-foot-police-beach.js` | Foot interiors: **police precinct** (desk cop / impound, holding cell, most-wanted board, coffee) + **beach** (boardwalk — lifeguard, ice-cream stand, seagull, sandcastle, Heshy) |
+| `08f-foot-wedding.js`    | **Avigail's wedding** cutscene (`state === "footWedding"`) — rare (10%) when Lulu meets Avigail on foot: interactive chuppah scene (petal-throw procession → 7 circles + glass stomp + MAZEL TOV → hora + bouquet catch), exits to `footRun` |
 | `09-dina-home-morgan.js` | Dina's bedroom, home-object routing, Morgan plushie scene |
 | `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |

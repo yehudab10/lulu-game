@@ -19,6 +19,8 @@
             clickQueue = null;
             pauseQueued = false;
             footActQueued = false;
+            // Release any held/locked controls when the scene changes.
+            keys.up = false; keys.down = false; boostLock = false; brakeLock = false;
             steerTouchId = null; touchX = null; touchY = null;
             lastDispatchState = state;
         }
@@ -28,7 +30,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior" || state === "footWedding") musicTrack = "lulu";
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
@@ -47,6 +49,7 @@
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "footRun") updateFootRun(dt);
         else if (state === "footInterior") updateFootInterior(dt);
+        else if (state === "footWedding") updateFootWedding(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
@@ -74,6 +77,7 @@
         else if (state === "copBust") drawCopBust();
         else if (state === "footRun") drawFootRun();
         else if (state === "footInterior") drawFootInterior();
+        else if (state === "footWedding") drawFootWedding();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "parkingIntro") drawParkingIntro();

@@ -540,6 +540,23 @@
         return { x: x, y: y, w: 80, h: 44 };
     }
 
+    // A 🔒 badge + glow ring on a run/slow button that's been double-tapped to
+    // lock (cruise control). Shared by the driving HUD and the on-foot HUD.
+    function drawSpeedLockBadges() {
+        var pairs = [[boostLock, MOBILE_BOOST_RECT], [brakeLock, MOBILE_BRAKE_RECT]];
+        for (var i = 0; i < 2; i++) {
+            if (!pairs[i][0]) continue;
+            var r = pairs[i][1];
+            ctx.save();
+            ctx.strokeStyle = "rgba(124,252,79,0.9)"; ctx.lineWidth = 3;
+            roundRect(r.x - 2, r.y - 2, r.w + 4, r.w + 4, 16); ctx.stroke();
+            ctx.fillStyle = "#2E7D32";
+            ctx.beginPath(); ctx.arc(r.x + r.w - 6, r.y + 6, 9, 0, Math.PI * 2); ctx.fill();
+            drawText("🔒", r.x + r.w - 6, r.y + 7, "11px Arial", "#FFF", null, 0);
+            ctx.restore();
+        }
+    }
+
     function drawIconButton(x, y, size, icon, opts) {
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
@@ -564,9 +581,10 @@
         // Shift the whole HUD below the notch / Dynamic Island (safe-area inset).
         ctx.save();
         ctx.translate(0, SAFE_TOP);
-        // Score
-        drawText(formatNum(Math.floor(score)), 70, 36, "bold 28px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5);
-        drawText("SCORE", 70, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+        // Score — left-aligned starting just right of the pause button so the
+        // number can't grow under it.
+        drawText("SCORE", 64, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
+        drawText(formatNum(Math.floor(score)), 64, 36, "bold 26px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5, "left");
 
         // Coins (current run)
         drawCoin(W - 100, 26, gameTime);
@@ -634,6 +652,7 @@
                 "▲", { bg: keys.up ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00" });
             drawIconButton(MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w,
                 "▼", { bg: keys.down ? "#64B5F6" : "#90CAF9", bgDark: "#1565C0" });
+            drawSpeedLockBadges();
         }
 
         // Missile button (bottom-right) — only shown when you actually have one.

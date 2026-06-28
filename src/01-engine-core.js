@@ -476,6 +476,10 @@
     var steerTouchId = null;
     var boostTouchId = null;
     var brakeTouchId = null;
+    // "Cruise control" — double-tap the run/slow button to LOCK it on (for big
+    // screens / pros who don't want to hold). boost*Lock keeps keys.up/down set
+    // after release; *DblT is the short double-tap window.
+    var boostLock = false, brakeLock = false, boostDblT = 0, brakeDblT = 0;
     var parkLeftTouchId = null;
     var parkRightTouchId = null;
     var parkFwdTouchId = null;
@@ -623,9 +627,13 @@
             } else if (btn === "honk") {
                 honkQueued = true;
             } else if (btn === "boost") {
+                if (boostDblT > 0) { boostLock = !boostLock; boostDblT = 0; } else boostDblT = 0.3;
+                if (boostLock) { brakeLock = false; keys.down = false; }
                 keys.up = true;
                 boostTouchId = t.identifier;
             } else if (btn === "brake") {
+                if (brakeDblT > 0) { brakeLock = !brakeLock; brakeDblT = 0; } else brakeDblT = 0.3;
+                if (brakeLock) { boostLock = false; keys.up = false; }
                 keys.down = true;
                 brakeTouchId = t.identifier;
             } else if (btn === "parkLeft") {
@@ -676,8 +684,8 @@
 
     function releaseTouchId(id) {
         if (id === steerTouchId) { steerTouchId = null; touchX = null; touchY = null; }
-        if (id === boostTouchId) { keys.up = false; boostTouchId = null; }
-        if (id === brakeTouchId) { keys.down = false; brakeTouchId = null; }
+        if (id === boostTouchId) { keys.up = boostLock; boostTouchId = null; } // stays on if locked
+        if (id === brakeTouchId) { keys.down = brakeLock; brakeTouchId = null; }
         if (id === parkLeftTouchId)  { keys.left = false;  parkLeftTouchId = null; }
         if (id === parkRightTouchId) { keys.right = false; parkRightTouchId = null; }
         if (id === parkFwdTouchId)   { keys.up = false;    parkFwdTouchId = null; }
@@ -813,6 +821,8 @@
         return 1 + 0.05 * easeOutBack((p - 0.5) * 2) * (1 - p);
     }
     function updateBtnPressFx(dt) {
+        if (boostDblT > 0) boostDblT -= dt;
+        if (brakeDblT > 0) brakeDblT -= dt;
         for (var k in btnPressFx) {
             btnPressFx[k].t += dt;
             if (btnPressFx[k].t >= btnPressFx[k].dur) delete btnPressFx[k];

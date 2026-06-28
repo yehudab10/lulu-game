@@ -283,6 +283,30 @@
         }
     }
 
+    var AVIGAIL_BUSY = ["Can't, mami — date with my Aviel! 💕", "Aviel's taking me to the AQUARIUM!",
+        "I'm so in love I can't walk STRAIGHT!", "Aviel called me his 'whole world' — GAH!",
+        "We're picking a china pattern, BYE!", "Sorry, Aviel's double-parked!", "He texted 'wyd' — I gotta GO!",
+        "Shidduch of the CENTURY, gotta run!", "Aviel learned to PARALLEL PARK for me 😭"];
+    var LULU_AVIGAIL_BUSY = ["Ugh, get a ROOM. ...mazel tov tho.", "Third-wheeling? Hard pass.",
+        "Tell Aviel I said... be normal.", "Young love. Gross. Adorable. Gross.", "Go, go! ...lucky.",
+        "I'll just talk to this hydrant then.", "Everyone's got a ride but ME.", "He learned to PARK? ...show-off."];
+
+    // On foot she runs into Avigail: usually she tags along, sometimes she's
+    // off with her chosson Aviel, and (rarely!) she's getting MARRIED right now.
+    function footAvigailMeet(av) {
+        var r = Math.random();
+        if (r < 0.10 && typeof startFootWedding === "function") { startFootWedding(); return; }
+        if (r < 0.30) { footAvigailBusy(av); return; }
+        footAvigailJoin(av);
+    }
+    function footAvigailBusy(av) {
+        spawnFloater(av.x, av.y - 28, "💕 " + randPick(AVIGAIL_BUSY), "#FF80AB");
+        footChat = randPick(LULU_AVIGAIL_BUSY); footChatT = 2.6;
+        playTone(660, 0.08, "sine", 0.1);
+        for (var h = 0; h < 6; h++) particles.push({ x: av.x + rand(-10, 10), y: av.y - 10,
+            vx: rand(-20, 20), vy: rand(-50, -15), life: 1.0, maxLife: 1.0, size: rand(3, 6), color: "#FF80AB", gravity: 20 });
+    }
+
     // Avigail spots Lulu walking and tags along — different from the in-car scene.
     function footAvigailJoin(av) {
         footCompanion = { x: av.x, y: av.y, walkTime: 0, say: "Lulu?! Wait for ME!", sayT: 2.4, sayNext: rand(3, 5) };
@@ -430,6 +454,7 @@
                 { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
             drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👉" : "✋",
                 { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
+            drawSpeedLockBadges();
             drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
         }
     }
