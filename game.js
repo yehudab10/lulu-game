@@ -5876,6 +5876,11 @@
         if (bestKind === "animal") {
             spawnFloater(best.x, best.y - 20, randPick(PEPPER_ANIMAL), "#C5E1A5");
             if (ai >= 0) animals.splice(ai, 1);
+        } else if (best.cop) {
+            // Macing a COP is a one-way ticket downtown.
+            spawnFloater(best.x, best.y - 20, "😡 BIG mistake!", "#FF5252");
+            if (typeof goToJail === "function") goToJail(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]);
+            return;
         } else {
             best.sprayed = true; best.vx = 0;
             best.comment = randPick(PEPPER_PED); best.commentT = 2.6;
@@ -6527,13 +6532,22 @@
             } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
-                        // Pick up the pedestrian as passenger! Always (even during invincibility).
+                        var witness = (!copChase && !copBust) ? copInView() : null;
+                        // Plowing into someone AT SPEED is a hit-and-run: if a cop
+                        // sees it (or a bystander reports it) she's booked. The
+                        // re-entry shield protects her from this.
+                        var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
+                        if (reckless && (witness || Math.random() < 0.3)) {
+                            obstacles.splice(i, 1);
+                            if (typeof goToJail === "function") {
+                                goToJail(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
+                                return;
+                            }
+                        }
+                        // Otherwise she just gives them a lift — pick up as passenger.
                         pickUpPassenger(o);
                         // Bonk someone in front of a watching cop → instant chase.
-                        if (!copChase && !copBust) {
-                            var witness = copInView();
-                            if (witness) startCopChase(witness);
-                        }
+                        if (witness) startCopChase(witness);
                         obstacles.splice(i, 1);
                     }
                     continue; // on foot she just walks among them (talk via the hand button)
@@ -12379,12 +12393,13 @@
             spawnFloater(player.x, player.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
             spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
             playTone(520, 0.08, "square", 0.12);
-            // Stealing in front of a cop → the driving chase takes over.
+            // Boosting a car in front of a cop = caught red-handed → straight to
+            // jail (and her day in court).
             var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
             lives = Math.max(lives, 1);
             footParked = []; footDoors = []; footCompanion = null;
-            returnToDriving();   // back on the road (state → "playing")
-            if (seen && typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
+            if (seen && typeof goToJail === "function") { goToJail(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
+            returnToDriving();   // clean getaway — back on the road (state → "playing")
             return;
         }
         if (prompt.kind === "hail") {
@@ -20372,7 +20387,19 @@
         { label: "👵 Invoke Bubbe", says: "My Bubbe makes the JUDGE'S favorite cholent!",
           outcomes: [["dismissed", 0.50], ["fine", 0.40], ["jail", 0.10]] },
         { label: "😇 'I'm a good girl'", says: "Me? I've never even SPED, officer— judge!",
-          outcomes: [["dismissed", 0.40], ["fine", 0.45], ["jail", 0.15]] }
+          outcomes: [["dismissed", 0.40], ["fine", 0.45], ["jail", 0.15]] },
+        { label: "🎤 OBJECT!", says: "OBJECTION! On the grounds of... vibes. 💅",
+          outcomes: [["dismissed", 0.40], ["fine", 0.40], ["jail", 0.20]] },
+        { label: "🍪 Bribe the JURY", says: "*passes rugelach down the jury box* 🍪",
+          outcomes: [["dismissed", 0.55], ["fine", 0.25], ["jail", 0.20]], bribe: true },
+        { label: "📞 Demand a lawyer", says: "I get one call — to my cousin. The LAWYER.",
+          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]] },
+        { label: "💃 Dazzle the court", says: "*little tap routine* Charges dropped now? 💃",
+          outcomes: [["dismissed", 0.50], ["fine", 0.30], ["jail", 0.20]] },
+        { label: "🤥 Lie (badly)", says: "I wasn't there. Or driving. Or... born.",
+          outcomes: [["dismissed", 0.30], ["fine", 0.40], ["jail", 0.30]] },
+        { label: "🙏 Beg for mercy", says: "Mercy! I'll never speed again! ...today.",
+          outcomes: [["dismissed", 0.50], ["fine", 0.40], ["jail", 0.10]] }
     ];
 
     // ── Entry: book her on these charges ─────────────────────
@@ -20383,7 +20410,8 @@
         list = list.filter(function (c, i) { return list.indexOf(c) === i; });  // no dupes
         jail = { charges: list, phase: 0, t: 0, cellmateLine: randPick(CELLMATE_LINES),
                  cellmateT: 2.6, luluLine: randPick(LULU_CELL_LINES), luluT: 4.0,
-                 escapeMethod: "", flash: 0.3 };
+                 escapeMethod: "", flash: 0.3,
+                 bail: list.length * randInt(35, 55) };   // pay this to skip court entirely
         copChase = null; copBust = null; copStop = null;
         if (typeof playWompWomp === "function") playWompWomp();
         playTone(110, 0.5, "square", 0.12);                 // CLANG — cell door
@@ -20392,8 +20420,9 @@
     }
 
     // ── Button rects (deterministic — shared by update + draw) ──
-    function cellEscapeRect() { return { x: W / 2 - 150, y: H - 132, w: 140, h: 52 }; }
-    function cellCourtRect() { return { x: W / 2 + 10, y: H - 132, w: 140, h: 52 }; }
+    function cellEscapeRect() { return { x: W / 2 - 105, y: H - 188, w: 210, h: 46 }; }
+    function cellBailRect() { return { x: W / 2 - 105, y: H - 136, w: 210, h: 46 }; }
+    function cellCourtRect() { return { x: W / 2 - 105, y: H - 84, w: 210, h: 46 }; }
     function courtOptRect(i) { return { x: W / 2 - 150, y: H - 168 + i * 50, w: 300, h: 44 }; }
 
     // ════════════════ JAIL CELL ════════════════
@@ -20408,13 +20437,28 @@
             if (jail.t > 1.1) { jail.phase = 1; jail.t = 0; }
             return;
         }
-        if (jail.phase === 1) {                 // waiting — escape or face the judge
+        if (jail.phase === 1) {                 // waiting — escape, post bail, or court
             var click = consumeClick();
             if (click) {
-                var er = cellEscapeRect(), cr = cellCourtRect();
+                var er = cellEscapeRect(), br = cellBailRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) {
                     jail.phase = 2; jail.t = 0; jail.escapeMethod = randPick(ESCAPE_METHODS);
                     playTone(440, 0.08, "square", 0.1); playTone(660, 0.1, "square", 0.1);
+                    return;
+                }
+                if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
+                    if (save.totalCoins >= jail.bail) {
+                        save.totalCoins -= jail.bail; persistSave();
+                        var paid = jail.bail;
+                        jail = null; prisonClothes = false;
+                        if (typeof returnToDriving === "function") returnToDriving();
+                        spawnFloater(player.x, player.y - 50, "💰 BAILED OUT! −" + paid, "#7CFC4F");
+                        playTone(784, 0.1, "triangle", 0.18);
+                        return;
+                    } else {
+                        playTone(180, 0.15, "square", 0.15);   // denied
+                        spawnFloater(W / 2, H * 0.42, "Can't make bail! 😬", "#FF8A80");
+                    }
                     return;
                 }
                 if (pointInRect(click.x, click.y, cr.x, cr.y, cr.w, cr.h)) {
@@ -20422,7 +20466,7 @@
                 }
             }
             // dawdle too long → they drag her to court anyway
-            if (jail.t > 16) { openCourt(jail.charges); return; }
+            if (jail.t > 18) { openCourt(jail.charges); return; }
             return;
         }
         if (jail.phase === 2) {                 // jailbreak in progress
@@ -20483,12 +20527,13 @@
         }
 
         if (jail.phase === 1) {
-            var er = cellEscapeRect(), cr = cellCourtRect();
+            var er = cellEscapeRect(), br = cellBailRect(), cr = cellCourtRect();
             var glow = Math.sin(gameTime * 6) > 0;
-            drawButton(er.x, er.y, er.w, er.h, "🏃 ESCAPE", { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32" });
-            drawButton(cr.x, cr.y, cr.w, cr.h, "⚖️ COURT", { bg: "#42A5F5", bgDark: "#0D47A1" });
-            drawText("...or wait for your hearing", W / 2, H - 64,
-                "italic 11px 'Segoe UI', Arial, sans-serif", "#BCAAA4", "#000", 2);
+            drawButton(er.x, er.y, er.w, er.h, "🏃 ESCAPE (sneaky)", { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32", small: true });
+            var canBail = save.totalCoins >= jail.bail;
+            drawButton(br.x, br.y, br.w, br.h, "💰 POST BAIL  ★" + jail.bail,
+                { bg: canBail ? "#FFB300" : "#757575", bgDark: canBail ? "#EF6C00" : "#424242", small: true });
+            drawButton(cr.x, cr.y, cr.w, cr.h, "⚖️ FACE THE JUDGE", { bg: "#42A5F5", bgDark: "#0D47A1", small: true });
         }
         if (jail.phase === 2) {
             ctx.fillStyle = "rgba(0,0,0,0.7)"; roundRect(W / 2 - 160, H * 0.4, 320, 92, 12); ctx.fill();

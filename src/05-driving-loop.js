@@ -68,6 +68,11 @@
         if (bestKind === "animal") {
             spawnFloater(best.x, best.y - 20, randPick(PEPPER_ANIMAL), "#C5E1A5");
             if (ai >= 0) animals.splice(ai, 1);
+        } else if (best.cop) {
+            // Macing a COP is a one-way ticket downtown.
+            spawnFloater(best.x, best.y - 20, "😡 BIG mistake!", "#FF5252");
+            if (typeof goToJail === "function") goToJail(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]);
+            return;
         } else {
             best.sprayed = true; best.vx = 0;
             best.comment = randPick(PEPPER_PED); best.commentT = 2.6;
@@ -719,13 +724,22 @@
             } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
-                        // Pick up the pedestrian as passenger! Always (even during invincibility).
+                        var witness = (!copChase && !copBust) ? copInView() : null;
+                        // Plowing into someone AT SPEED is a hit-and-run: if a cop
+                        // sees it (or a bystander reports it) she's booked. The
+                        // re-entry shield protects her from this.
+                        var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
+                        if (reckless && (witness || Math.random() < 0.3)) {
+                            obstacles.splice(i, 1);
+                            if (typeof goToJail === "function") {
+                                goToJail(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
+                                return;
+                            }
+                        }
+                        // Otherwise she just gives them a lift — pick up as passenger.
                         pickUpPassenger(o);
                         // Bonk someone in front of a watching cop → instant chase.
-                        if (!copChase && !copBust) {
-                            var witness = copInView();
-                            if (witness) startCopChase(witness);
-                        }
+                        if (witness) startCopChase(witness);
                         obstacles.splice(i, 1);
                     }
                     continue; // on foot she just walks among them (talk via the hand button)

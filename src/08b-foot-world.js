@@ -214,12 +214,13 @@
             spawnFloater(player.x, player.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
             spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
             playTone(520, 0.08, "square", 0.12);
-            // Stealing in front of a cop → the driving chase takes over.
+            // Boosting a car in front of a cop = caught red-handed → straight to
+            // jail (and her day in court).
             var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
             lives = Math.max(lives, 1);
             footParked = []; footDoors = []; footCompanion = null;
-            returnToDriving();   // back on the road (state → "playing")
-            if (seen && typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO!");
+            if (seen && typeof goToJail === "function") { goToJail(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
+            returnToDriving();   // clean getaway — back on the road (state → "playing")
             return;
         }
         if (prompt.kind === "hail") {
