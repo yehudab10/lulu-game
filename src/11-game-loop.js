@@ -36,9 +36,18 @@
             clickQueue = null;
             pauseQueued = false;
             footActQueued = false;
-            // Release any held/locked controls when the scene changes.
-            keys.up = false; keys.down = false; boostLock = false; brakeLock = false;
+            // Drop any held control input from the previous scene.
+            keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;
+            // Speed-lock (cruise control) should SURVIVE scene/minigame exits:
+            // returning to driving re-applies the locked speed so pros don't have
+            // to re-lock every time. Locks only clear on a true exit to the menus
+            // / game over (and on a fresh run via resetGame).
+            if (state === "playing" || state === "footRun") {
+                keys.up = boostLock; keys.down = brakeLock;
+            } else if (state === "menu" || state === "charSelect" || state === "gameover") {
+                boostLock = false; brakeLock = false;
+            }
             // Dropping back onto the sidewalk (from an interior / the wedding /
             // a fresh foot start) → a 2s shield so a car sitting right on her
             // can't clip her the instant she reappears.

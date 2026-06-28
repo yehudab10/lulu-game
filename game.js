@@ -4737,6 +4737,7 @@
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;
@@ -6056,6 +6057,30 @@
                     }
                 }
                 if (o.dodged) o.x = clamp(o.x + o.dodgeDir * 110 * dt, ROAD_L + 20, ROAD_R - 20);
+
+                // Rare, polite lane change — signals first (amber blinker), THEN
+                // eases across. Only well ahead of Lulu so it reads as ambient
+                // traffic, not a swerve into her.
+                if (!o.dodged && !o.changing && o.lane !== undefined &&
+                    o.y > 40 && o.y < player.y - 80 && Math.random() < dt * 0.05) {
+                    var dirs = [];
+                    if (o.lane > 0) dirs.push(-1);
+                    if (o.lane < 2) dirs.push(1);
+                    if (dirs.length) {
+                        o.signalDir = randPick(dirs);
+                        o.lane += o.signalDir;
+                        o.laneTargetX = LANES[o.lane];
+                        o.signalT = rand(0.7, 1.1);   // blink before moving
+                        o.changing = "signal";
+                    }
+                }
+                if (o.changing === "signal") {
+                    o.signalT -= dt;
+                    if (o.signalT <= 0) o.changing = "move";
+                } else if (o.changing === "move") {
+                    o.x = lerp(o.x, o.laneTargetX, Math.min(1, 3.5 * dt));
+                    if (Math.abs(o.x - o.laneTargetX) < 2) { o.x = o.laneTargetX; o.changing = null; }
+                }
             }
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
@@ -7923,6 +7948,18 @@
         ctx.closePath(); ctx.fill();
     }
 
+    // Blinking amber turn signal while a car is signaling / changing lanes.
+    function drawTurnSignal(o) {
+        if (Math.sin(gameTime * 16) <= 0) return;   // the "off" half of the blink
+        var sx = o.x + o.signalDir * 18;
+        ctx.save();
+        ctx.fillStyle = "#FFB300";
+        ctx.shadowColor = "#FFC107"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(sx, o.y + 30, 3.4, 0, Math.PI * 2); ctx.fill();  // front corner
+        ctx.beginPath(); ctx.arc(sx, o.y - 30, 3.0, 0, Math.PI * 2); ctx.fill();  // rear corner
+        ctx.restore();
+    }
+
     // Drunk driver: a sickly green haze, a woozy left-right TILT, and a wobbly
     // swerve trail behind — reads as 'this car is all over the road'.
     function drawDrunkCar(o) {
@@ -8296,6 +8333,7 @@
                 if (o.behavior === "drunk") drawDrunkCar(o);
                 else if (o.behavior === "texting") drawTextingCar(o);
                 else drawEnemyCar(o.x, o.y, o.color, o.carType);
+                if (o.changing) drawTurnSignal(o);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") {
@@ -19614,9 +19652,18 @@
             clickQueue = null;
             pauseQueued = false;
             footActQueued = false;
-            // Release any held/locked controls when the scene changes.
-            keys.up = false; keys.down = false; boostLock = false; brakeLock = false;
+            // Drop any held control input from the previous scene.
+            keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;
+            // Speed-lock (cruise control) should SURVIVE scene/minigame exits:
+            // returning to driving re-applies the locked speed so pros don't have
+            // to re-lock every time. Locks only clear on a true exit to the menus
+            // / game over (and on a fresh run via resetGame).
+            if (state === "playing" || state === "footRun") {
+                keys.up = boostLock; keys.down = brakeLock;
+            } else if (state === "menu" || state === "charSelect" || state === "gameover") {
+                boostLock = false; brakeLock = false;
+            }
             // Dropping back onto the sidewalk (from an interior / the wedding /
             // a fresh foot start) → a 2s shield so a car sitting right on her
             // can't clip her the instant she reappears.

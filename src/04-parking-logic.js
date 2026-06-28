@@ -2,6 +2,7 @@
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;

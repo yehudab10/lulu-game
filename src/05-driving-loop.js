@@ -372,6 +372,30 @@
                     }
                 }
                 if (o.dodged) o.x = clamp(o.x + o.dodgeDir * 110 * dt, ROAD_L + 20, ROAD_R - 20);
+
+                // Rare, polite lane change — signals first (amber blinker), THEN
+                // eases across. Only well ahead of Lulu so it reads as ambient
+                // traffic, not a swerve into her.
+                if (!o.dodged && !o.changing && o.lane !== undefined &&
+                    o.y > 40 && o.y < player.y - 80 && Math.random() < dt * 0.05) {
+                    var dirs = [];
+                    if (o.lane > 0) dirs.push(-1);
+                    if (o.lane < 2) dirs.push(1);
+                    if (dirs.length) {
+                        o.signalDir = randPick(dirs);
+                        o.lane += o.signalDir;
+                        o.laneTargetX = LANES[o.lane];
+                        o.signalT = rand(0.7, 1.1);   // blink before moving
+                        o.changing = "signal";
+                    }
+                }
+                if (o.changing === "signal") {
+                    o.signalT -= dt;
+                    if (o.signalT <= 0) o.changing = "move";
+                } else if (o.changing === "move") {
+                    o.x = lerp(o.x, o.laneTargetX, Math.min(1, 3.5 * dt));
+                    if (Math.abs(o.x - o.laneTargetX) < 2) { o.x = o.laneTargetX; o.changing = null; }
+                }
             }
 
             // Drunk drivers weave hard across lanes (and spill booze); texting
@@ -2239,6 +2263,18 @@
         ctx.closePath(); ctx.fill();
     }
 
+    // Blinking amber turn signal while a car is signaling / changing lanes.
+    function drawTurnSignal(o) {
+        if (Math.sin(gameTime * 16) <= 0) return;   // the "off" half of the blink
+        var sx = o.x + o.signalDir * 18;
+        ctx.save();
+        ctx.fillStyle = "#FFB300";
+        ctx.shadowColor = "#FFC107"; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(sx, o.y + 30, 3.4, 0, Math.PI * 2); ctx.fill();  // front corner
+        ctx.beginPath(); ctx.arc(sx, o.y - 30, 3.0, 0, Math.PI * 2); ctx.fill();  // rear corner
+        ctx.restore();
+    }
+
     // Drunk driver: a sickly green haze, a woozy left-right TILT, and a wobbly
     // swerve trail behind — reads as 'this car is all over the road'.
     function drawDrunkCar(o) {
@@ -2612,6 +2648,7 @@
                 if (o.behavior === "drunk") drawDrunkCar(o);
                 else if (o.behavior === "texting") drawTextingCar(o);
                 else drawEnemyCar(o.x, o.y, o.color, o.carType);
+                if (o.changing) drawTurnSignal(o);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }
             else if (o.type === "ped") {
