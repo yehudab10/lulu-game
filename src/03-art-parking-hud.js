@@ -688,6 +688,15 @@
             drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
         }
 
+        // Siren / pull-over button — only while driving a hailed cop car.
+        if (playerVehicle === "cop") {
+            var sirRed = Math.sin(gameTime * 8) > 0;
+            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, "🚨",
+                { bg: sirRed ? "#EF5350" : "#42A5F5", bgDark: sirRed ? "#B71C1C" : "#0D47A1", id: "siren" });
+            drawText("BUST", COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
+                "bold 10px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+        }
+
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });

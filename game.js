@@ -441,6 +441,7 @@
         MISSILE_RECT      = { x: W - 78,  y: bot - 96,  w: 64, h: 64 };
         HONK_RECT         = { x: W - 78,  y: bot - 168, w: 64, h: 64 };
         PEPPER_RECT       = { x: W - 78,  y: bot - 240, w: 64, h: 64 };
+        COP_RECT          = { x: 14,      y: bot - 240, w: 64, h: 64 };  // siren / pull-over (cop car only)
         PARK_LEFT_RECT    = { x: 12,      y: bot - 96,  w: 64, h: 64 };
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
@@ -475,6 +476,7 @@
     var missileQueued = false;
     var honkQueued = false;
     var pepperQueued = false;
+    var sirenQueued = false;
     var footActQueued = false; // on-foot "interact" (enter building / steal car)
     var laneQueued = 0; // -1 = step left, +1 = step right (set on tap, drained per frame)
     var touchX = null;
@@ -499,6 +501,7 @@
     function consumeMissile() { if (missileQueued) { missileQueued = false; return true; } return false; }
     function consumeHonk() { if (honkQueued) { honkQueued = false; return true; } return false; }
     function consumePepper() { if (pepperQueued) { pepperQueued = false; return true; } return false; }
+    function consumeSiren() { if (sirenQueued) { sirenQueued = false; return true; } return false; }
 
     function playHonk() {
         if (audioMuted) return;
@@ -522,7 +525,7 @@
     // Mobile control button rects — 64×64, kept clear of the home indicator via
     // SAFE_BOTTOM. Actual positions are (re)computed in recomputeLayout(); these
     // are just declarations.
-    var PAUSE_RECT, MOBILE_BOOST_RECT, MOBILE_BRAKE_RECT, MISSILE_RECT, HONK_RECT, PEPPER_RECT;
+    var PAUSE_RECT, MOBILE_BOOST_RECT, MOBILE_BRAKE_RECT, MISSILE_RECT, HONK_RECT, PEPPER_RECT, COP_RECT;
     var PARK_LEFT_RECT, PARK_RIGHT_RECT, PARK_FWD_RECT, PARK_REV_RECT;
 
     // Now that the rect vars exist, lay everything out and keep it in sync with
@@ -542,6 +545,7 @@
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (save.missiles > 0 && pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
             if (save.pepperSpray > 0 && pointInRect(pos.x, pos.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) return "pepper";
+            if (playerVehicle === "cop" && pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
@@ -610,6 +614,7 @@
         if (e.key === "m" || e.key === "M") { missileQueued = true; e.preventDefault(); }
         if (e.key === "h" || e.key === "H") { honkQueued = true; e.preventDefault(); }
         if (e.key === "x" || e.key === "X") { pepperQueued = true; e.preventDefault(); }
+        if (e.key === "z" || e.key === "Z") { sirenQueued = true; e.preventDefault(); }
         if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
     });
     document.addEventListener("keyup", function (e) {
@@ -635,6 +640,8 @@
                 missileQueued = true;
             } else if (btn === "pepper") {
                 pepperQueued = true;
+            } else if (btn === "siren") {
+                sirenQueued = true;
             } else if (btn === "honk") {
                 honkQueued = true;
             } else if (btn === "boost") {
@@ -4399,6 +4406,15 @@
             drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
         }
 
+        // Siren / pull-over button — only while driving a hailed cop car.
+        if (playerVehicle === "cop") {
+            var sirRed = Math.sin(gameTime * 8) > 0;
+            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, "🚨",
+                { bg: sirRed ? "#EF5350" : "#42A5F5", bgDark: sirRed ? "#B71C1C" : "#0D47A1", id: "siren" });
+            drawText("BUST", COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
+                "bold 10px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+        }
+
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
@@ -6150,6 +6166,9 @@
         // Ambient car-on-car fender benders + their roadside drama.
         tickCarCrashes(dt);
         updateRoadDramas(dt);
+
+        // Driving a (hailed) cop car: hit the siren to pull someone over.
+        if (playerVehicle === "cop" && consumeSiren()) copPullOver();
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -6193,6 +6212,8 @@
                     fireMissile();
                 } else if (save.pepperSpray > 0 && pointInRect(click.x, click.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) {
                     firePepperSpray();
+                } else if (playerVehicle === "cop" && pointInRect(click.x, click.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) {
+                    copPullOver();
                 }
             }
         }
@@ -7229,6 +7250,174 @@
                     : copBust.outcome === "walk" ? "No car? She'll WALK to Bubbe's..."
                     : "Caught speeding!";
             drawText(sub, W / 2, H * 0.15 + 32, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        }
+    }
+
+    // ══ Lulu drives a (hailed) cop car → she can pull people over ══
+    // The reverse of the bust: now SHE'S the officer. Each scene is a back-and-
+    // forth ending in a bribe (coins), an arrest (more coins + "justice"), a
+    // warning, or the driver flooring it and getting away.
+    var copStop = null;
+    var COP_STOP_SCENES = [
+        // ── Bribe (she pockets it) ──
+        { outcome: "bribe", title: "💵 BRIBE POCKETED!", reward: 30, lines: [
+            ["lulu", "License and\nregistration!"],
+            ["driver", "Officer... for the\n'coffee fund'? 💵"],
+            ["lulu", "...I take\ncash."],
+            ["driver", "Pleasure doing\nbusiness! 😎"] ] },
+        { outcome: "bribe", title: "💵 KICKBACK!", reward: 35, lines: [
+            ["lulu", "Do you know how\nfast you were going?"],
+            ["driver", "Fast enough to\nslip you a fifty? 🤑"],
+            ["lulu", "Drive safe,\ncitizen. 😇"] ] },
+        { outcome: "bribe", title: "💵 'DONATION' MADE", reward: 28, lines: [
+            ["lulu", "Step out of\nthe vehicle!"],
+            ["driver", "Rugelach AND\ntwenty bucks? 🥧"],
+            ["lulu", "...for the\nPRECINCT. Go."] ] },
+        // ── Jail (hauled off) ──
+        { outcome: "jail", title: "🚔 HAULED TO JAIL!", reward: 45, lines: [
+            ["lulu", "You were\nFLYING!"],
+            ["driver", "I'm LATE for\nkiddush!"],
+            ["lulu", "Tell it to\nthe JUDGE!"],
+            ["driver", "Aw, nuts. 🚔"] ] },
+        { outcome: "jail", title: "🚔 BOOKED!", reward: 40, lines: [
+            ["lulu", "You ran THREE\nred lights!"],
+            ["driver", "They were\n...orange-ish?"],
+            ["lulu", "In the car.\nLet's GO."] ] },
+        // ── Warning (let off) ──
+        { outcome: "letgo", title: "⚠️ WARNING GIVEN", reward: 8, lines: [
+            ["lulu", "Slow it down,\nbubbeleh."],
+            ["driver", "Yes, officer!\nThank you! 🙏"] ] },
+        { outcome: "letgo", title: "⚠️ LET OFF", reward: 8, lines: [
+            ["lulu", "I'll let it\nslide... once."],
+            ["driver", "You're an\nANGEL! 😇"] ] },
+        // ── Runner (they bolt) ──
+        { outcome: "runs", title: "💨 THEY BOLTED!", reward: 0, lines: [
+            ["lulu", "Step out of\nthe—"],
+            ["driver", "...NEVER!! 🏃💨"],
+            ["lulu", "...oy. 🚓💨"] ] },
+        { outcome: "runs", title: "💨 RUNNER!", reward: 0, lines: [
+            ["lulu", "Pull over\nNOW!"],
+            ["driver", "Catch me,\ncopper! 😜"] ] }
+    ];
+
+    function copPullOver() {
+        if (state !== "playing" || playerVehicle !== "cop") return;
+        // nearest ordinary traffic car ahead, within siren range
+        var best = null, bestD = 1e9, bi = -1;
+        for (var i = 0; i < obstacles.length; i++) {
+            var o = obstacles[i];
+            if (o.type !== "car" || o.crashed) continue;
+            if (o.behavior && o.behavior !== "normal" && o.behavior !== "drunk" && o.behavior !== "texting") continue;
+            if (o.y > player.y - 40 || o.y < player.y - 340) continue;   // ahead, in range
+            var d = player.y - o.y;
+            if (d < bestD) { bestD = d; best = o; bi = i; }
+        }
+        if (!best) {
+            spawnFloater(player.x, player.y - 46, "🚨 No one to bust!", "#90CAF9");
+            playTone(700, 0.1, "sawtooth", 0.07, 500);
+            return;
+        }
+        var r = Math.random();
+        var outcome = r < 0.35 ? "bribe" : r < 0.70 ? "jail" : r < 0.90 ? "letgo" : "runs";
+        var pool = COP_STOP_SCENES.filter(function (s) { return s.outcome === outcome; });
+        var sc = randPick(pool);
+        var car = { x: clamp(best.x, ROAD_L + 30, ROAD_R - 30), y: clamp(best.y, 120, player.y - 150),
+                    color: best.color, carType: best.carType, behavior: best.behavior };
+        obstacles.splice(bi, 1);
+        copStop = { phase: 0, timer: 0.9, car: car, copY: car.y + 180,
+                    lines: sc.lines, line: 0, lineT: 0, outcome: outcome,
+                    title: sc.title, reward: sc.reward, resolveT: 0, rewarded: false };
+        state = "copStop";
+        // siren whoop
+        playTone(900, 0.12, "sine", 0.13, 1320);
+        setTimeout(function () { playTone(1320, 0.12, "sine", 0.13, 900); }, 160);
+    }
+
+    function updateCopStop(dt) {
+        if (shakeTimer > 0) shakeTimer -= dt;
+        updateParticles(dt);
+        var cs = copStop;
+        // Phase 0 — Lulu's cruiser eases up behind the car she lit up.
+        if (cs.phase === 0) {
+            cs.timer -= dt;
+            cs.copY = lerp(cs.copY, cs.car.y + 84, Math.min(1, 5 * dt));
+            if (cs.timer <= 0) { cs.phase = 1; cs.line = 0; cs.lineT = 0; }
+            return;
+        }
+        // Phase 1 — the exchange (tap to advance).
+        if (cs.phase === 1) {
+            cs.lineT += dt;
+            var skip = consumeClick() || consumeAction();
+            if (cs.lineT >= COP_LINE_DUR || skip) {
+                cs.line++; cs.lineT = 0;
+                if (cs.line >= cs.lines.length) {
+                    cs.phase = 2; cs.resolveT = 0;
+                    if (!cs.rewarded) {
+                        cs.rewarded = true;
+                        if (cs.reward > 0) {
+                            runCoins += cs.reward; save.totalCoins += cs.reward; persistSave();
+                            spawnFloater(player.x, player.y - 60, "+" + cs.reward + " 💰", "#FFD700");
+                            playCoin();
+                        }
+                        if (cs.outcome === "jail") spawnFloater(cs.car.x, cs.car.y - 30, "⭐ Justice served!", "#FFD54F");
+                        if (cs.outcome === "runs") spawnFloater(cs.car.x, cs.car.y - 30, "💨 Gone!", "#FF8A80");
+                    }
+                } else {
+                    playTone(cs.lines[cs.line][0] === "lulu" ? 640 : 320, 0.04, "sine", 0.06);
+                }
+            }
+            return;
+        }
+        // Phase 2 — verdict, then back to patrolling.
+        if (cs.phase === 2) {
+            cs.resolveT += dt;
+            if (cs.resolveT > 1.8) { copStop = null; state = "playing"; }
+        }
+    }
+
+    function drawCopStop() {
+        drawRoad(scrollOffset);
+        drawDecorations(gameTime);
+
+        // Siren light-wash (Lulu's OWN cruiser this time).
+        var sirN = Math.sin(gameTime * 9), redOn = sirN > 0, washA = 0.10 + Math.abs(sirN) * 0.16;
+        var wg = ctx.createLinearGradient(redOn ? 0 : W, 0, redOn ? W : 0, 0);
+        wg.addColorStop(0, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + washA + ")");
+        wg.addColorStop(0.55, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + (washA * 0.25) + ")");
+        wg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
+
+        var cs = copStop, car = cs.car;
+        ctx.save();
+        if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+        // the pulled-over car
+        drawEnemyCar(car.x, car.y, car.color, car.carType);
+        // Lulu's cop cruiser easing up behind, lights going
+        drawCopCar(player.x, cs.copY, gameTime * 3);
+        ctx.restore();
+        drawParticles();
+
+        if (cs.phase <= 0) {
+            drawText("🚨 PULLING THEM OVER 🚨", W / 2, H * 0.12,
+                "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 6);
+        }
+        if (cs.phase === 1) {
+            var cur = cs.lines[cs.line];
+            if (cur) {
+                if (cur[0] === "lulu") drawSpeechBubble(player.x, cs.copY - 30, "🚓 " + cur[1], gameTime);
+                else drawSpeechBubble(car.x, car.y - 28, "🚗 " + cur[1], gameTime);
+            }
+            ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
+            drawText("tap ▸", W / 2, H * 0.93, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            ctx.globalAlpha = 1;
+        }
+        if (cs.phase === 2) {
+            var col = cs.outcome === "bribe" ? "#FFD700" : cs.outcome === "jail" ? "#7CFC4F"
+                    : cs.outcome === "letgo" ? "#90CAF9" : "#FF8A80";
+            var pop = 1 + Math.max(0, 0.35 - cs.resolveT) * 1.2;
+            ctx.save(); ctx.translate(W / 2, H * 0.15); ctx.scale(pop, pop);
+            drawText(cs.title, 0, 0, "bold 28px 'Segoe UI', Arial, sans-serif", col, "#000", 6);
+            ctx.restore();
         }
     }
 
@@ -19929,7 +20118,7 @@
             // Play the iris wipe on deliberate scene/menu changes — but NOT on
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
-            var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, paused: 1,
+            var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
                 sceneFade.t >= sceneFade.dur) {
@@ -19964,7 +20153,7 @@
         // Map game state → music file track
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
-            state === "crash" || state === "copBust" || state === "gameover" || state === "shop" ||
+            state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
             state === "footRun" || state === "footInterior") musicTrack = "lulu";
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
@@ -19983,6 +20172,7 @@
         else if (state === "paused") updatePaused(dt);
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
+        else if (state === "copStop") updateCopStop(dt);
         else if (state === "footRun") updateFootRun(dt);
         else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "footWedding") updateFootWedding(dt);
@@ -20011,6 +20201,7 @@
         else if (state === "paused") drawPaused();
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
+        else if (state === "copStop") drawCopStop();
         else if (state === "footRun") drawFootRun();
         else if (state === "footInterior") drawFootInterior();
         else if (state === "footWedding") drawFootWedding();
