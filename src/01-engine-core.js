@@ -543,7 +543,8 @@
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (save.missiles > 0 && pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
             if (save.pepperSpray > 0 && pointInRect(pos.x, pos.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) return "pepper";
-            if (playerVehicle === "cop" && pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
+            if ((playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") &&
+                pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";

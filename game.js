@@ -545,7 +545,8 @@
             if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
             if (save.missiles > 0 && pointInRect(pos.x, pos.y, MISSILE_RECT.x, MISSILE_RECT.y, MISSILE_RECT.w, MISSILE_RECT.h)) return "missile";
             if (save.pepperSpray > 0 && pointInRect(pos.x, pos.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) return "pepper";
-            if (playerVehicle === "cop" && pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
+            if ((playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") &&
+                pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
@@ -4451,12 +4452,16 @@
             drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
         }
 
-        // Siren / pull-over button — only while driving a hailed cop car.
-        if (playerVehicle === "cop") {
+        // Special-vehicle action button — cop (pull over), ambulance (rescue),
+        // or school bus (stop sign).
+        if (playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") {
+            var icon = playerVehicle === "bus" ? "🛑" : "🚨";
+            var lbl = playerVehicle === "cop" ? "BUST" : playerVehicle === "ambulance" ? "RESCUE" : "STOP";
             var sirRed = Math.sin(gameTime * 8) > 0;
-            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, "🚨",
-                { bg: sirRed ? "#EF5350" : "#42A5F5", bgDark: sirRed ? "#B71C1C" : "#0D47A1", id: "siren" });
-            drawText("BUST", COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
+            var abg = playerVehicle === "bus" ? "#F44336" : (sirRed ? "#EF5350" : "#42A5F5");
+            var abgD = playerVehicle === "bus" ? "#B71C1C" : (sirRed ? "#B71C1C" : "#0D47A1");
+            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, icon, { bg: abg, bgDark: abgD, id: "siren" });
+            drawText(lbl, COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
                 "bold 10px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
         }
 
@@ -4817,6 +4822,7 @@
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         roadDramas = []; carCrashCooldown = rand(7, 16);
+        busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;
@@ -5818,7 +5824,7 @@
         if (!best) {
             for (var p = 0; p < obstacles.length; p++) {
                 var ob = obstacles[p];
-                if (ob.type !== "ped" || ob.sprayed) continue;
+                if (ob.type !== "ped" || ob.sprayed || ob.kid) continue;   // never the kids
                 if (ob.y > player.y + 24 || ob.y < player.y - 250) continue;
                 var dp = Math.abs(ob.x - player.x) + Math.abs(ob.y - player.y);
                 if (dp < bestD) { bestD = dp; best = ob; bestKind = "ped"; }
@@ -5842,6 +5848,88 @@
             spawnFloater(player.x, player.y - 56, "🚑 Ambulance inbound!", "#FF8A80");
             if (typeof spawnAmbulance === "function") spawnAmbulance();
         }
+    }
+
+    // ── Special-vehicle abilities (cop / ambulance / school bus) ──
+    var busStopT = 0;            // >0 while the bus's STOP sign is deployed
+    var busKidTimer = 0;         // spawn cadence for roadside kids while bus-driving
+    var busKids = 0;             // kids picked up this run
+    var RESCUE_LINES = ["You're SAVED!", "To the hospital!", "Hang in there!",
+        "Easy does it!", "Gotcha! 🚑", "We've got you!"];
+
+    function vehicleHasAction() {
+        return playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus";
+    }
+    function doVehicleAction() {
+        if (playerVehicle === "cop") copPullOver();
+        else if (playerVehicle === "ambulance") ambulanceRescue();
+        else if (playerVehicle === "bus") busStopSign();
+    }
+
+    // Ambulance: scoop up the nearest hurt person (a pepper-sprayed one counts
+    // double) and whisk them off for a reward.
+    function ambulanceRescue() {
+        if (playerVehicle !== "ambulance") return;
+        var best = null, bi = -1, bestScore = -1;
+        for (var i = 0; i < obstacles.length; i++) {
+            var o = obstacles[i];
+            if (o.type !== "ped" || o.kid) continue;
+            if (o.y > player.y + 30 || o.y < player.y - 300) continue;
+            var sc = (o.sprayed ? 1000 : 0) + (300 - Math.abs(o.y - player.y));
+            if (sc > bestScore) { bestScore = sc; best = o; bi = i; }
+        }
+        if (!best) {
+            spawnFloater(player.x, player.y - 46, "🚑 No patients nearby!", "#90CAF9");
+            playTone(900, 0.1, "sine", 0.1, 1320);
+            return;
+        }
+        var reward = best.sprayed ? 35 : 18;
+        runCoins += reward; save.totalCoins += reward; persistSave();
+        for (var p = 0; p < 12; p++) {
+            var a = rand(0, Math.PI * 2), spd = rand(30, 95);
+            particles.push({ x: best.x, y: best.y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+                life: rand(0.4, 0.8), maxLife: 0.7, size: rand(2, 5),
+                color: randPick(["#FFFFFF", "#EF5350", "#FF8A80"]), gravity: 0 });
+        }
+        spawnFloater(best.x, best.y - 24, randPick(RESCUE_LINES), "#FF8A80");
+        spawnFloater(player.x, player.y - 58, "+" + reward + " 💰", "#FFD700");
+        playCoin();
+        obstacles.splice(bi, 1);
+        playTone(900, 0.12, "sine", 0.13, 1320);
+        setTimeout(function () { playTone(1320, 0.12, "sine", 0.13, 900); }, 160);
+    }
+
+    // School bus: pop the STOP sign — nearby cars halt and waiting kids board.
+    function busStopSign() {
+        if (playerVehicle !== "bus") return;
+        busStopT = 2.8;
+        playTone(520, 0.1, "square", 0.1);
+        var boarded = 0;
+        for (var i = obstacles.length - 1; i >= 0; i--) {
+            var o = obstacles[i];
+            if (o.type === "car" && !o.crashed && Math.abs(o.y - player.y) < 220) o.stopT = 2.8;
+            if (o.type === "ped" && o.kid && Math.abs(o.y - player.y) < 190 && Math.abs(o.x - player.x) < 150) {
+                boarded++; busKids++;
+                spawnFloater(o.x, o.y - 22, "🎒 hops in!", "#FFEB3B");
+                obstacles.splice(i, 1);
+            }
+        }
+        if (boarded > 0) {
+            var rw = boarded * 8;
+            runCoins += rw; save.totalCoins += rw; persistSave();
+            spawnFloater(player.x, player.y - 58, "+" + rw + " 💰  " + boarded + " kid" + (boarded > 1 ? "s" : "") + "!", "#FFD700");
+            playCoin();
+        } else {
+            spawnFloater(player.x, player.y - 46, "🛑 STOP!", "#F44336");
+        }
+    }
+
+    // A kid waiting on the shoulder for the (player-driven) bus.
+    function spawnSchoolKid() {
+        var side = Math.random() < 0.5 ? -1 : 1;
+        var x = side < 0 ? rand(18, Math.max(22, ROAD_L - 18)) : rand(ROAD_R + 18, W - 18);
+        obstacles.push({ type: "ped", x: x, y: -40, hitW: 12, hitH: 14, speedMult: 0.55,
+            lane: 1, pedType: randInt(0, 2), kid: true, walkTime: 0 });
     }
 
     // A little driver who hops out of a crashed car to argue. Stays beside its
@@ -6216,8 +6304,15 @@
         tickCarCrashes(dt);
         updateRoadDramas(dt);
 
-        // Driving a (hailed) cop car: hit the siren to pull someone over.
-        if (playerVehicle === "cop" && consumeSiren()) copPullOver();
+        // Special-vehicle action button (cop → pull over, ambulance → rescue,
+        // bus → stop sign).
+        if (vehicleHasAction() && consumeSiren()) doVehicleAction();
+        // School bus: roadside kids appear and the deployed STOP sign times out.
+        if (playerVehicle === "bus") {
+            busKidTimer -= dt;
+            if (busKidTimer <= 0) { busKidTimer = rand(4, 8); spawnSchoolKid(); }
+        }
+        if (busStopT > 0) busStopT -= dt;
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -6261,8 +6356,8 @@
                     fireMissile();
                 } else if (save.pepperSpray > 0 && pointInRect(click.x, click.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) {
                     firePepperSpray();
-                } else if (playerVehicle === "cop" && pointInRect(click.x, click.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) {
-                    copPullOver();
+                } else if (vehicleHasAction() && pointInRect(click.x, click.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) {
+                    doVehicleAction();
                 }
             }
         }
@@ -6276,7 +6371,11 @@
         // Update obstacles
         for (var i = obstacles.length - 1; i >= 0; i--) {
             var o = obstacles[i];
-            o.y += gameSpeed * o.speedMult * dt;
+            // Cars obeying the bus's STOP sign hold their ground (scroll with the
+            // road) until the sign retracts.
+            var effSpeed = o.speedMult;
+            if (o.stopT > 0) { o.stopT -= dt; effSpeed = 1.0; }
+            o.y += gameSpeed * effSpeed * dt;
             if (o.walkTime !== undefined) o.walkTime += dt;
             if (o.vx) { // parade runners cross the road horizontally
                 o.x += o.vx * dt;
@@ -6385,7 +6484,10 @@
                 o.x = clamp(o.x + Math.sin(o.swerveT * 1.1) * 42 * dt, ROAD_L + 22, ROAD_R - 22);
             }
 
-            if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
+            if (o.kid) {
+                // Waiting school kids are never a collision — they board only via
+                // the bus's STOP sign. Just let them scroll past.
+            } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
                         // Pick up the pedestrian as passenger! Always (even during invincibility).
@@ -8891,6 +8993,25 @@
                 drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
         } else if (playerVehicle === "bus") {
             drawTopBus(player.x, player.y);
+            // Deployed STOP sign swinging out from the bus's left side.
+            if (busStopT > 0) {
+                var ext = clamp((2.8 - busStopT) * 6, 0, 1) * (busStopT < 0.4 ? busStopT / 0.4 : 1);
+                var sgx = player.x - 30 - ext * 16, sgy = player.y - 4;
+                ctx.strokeStyle = "#616161"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(player.x - 24, sgy); ctx.lineTo(sgx, sgy); ctx.stroke();
+                ctx.save();
+                ctx.translate(sgx, sgy);
+                ctx.fillStyle = "#E53935"; ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (var oc = 0; oc < 8; oc++) {
+                    var oa = Math.PI / 8 + oc * Math.PI / 4;
+                    var px = Math.cos(oa) * 13, py = Math.sin(oa) * 13;
+                    if (oc === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+                drawText("STOP", 0, 1, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
+                ctx.restore();
+            }
         } else if (playerVehicle === "ambulance") {
             drawAmbulance(player.x, player.y, gameTime);
         } else if (playerVehicle === "cop") {

@@ -703,12 +703,16 @@
             drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
         }
 
-        // Siren / pull-over button — only while driving a hailed cop car.
-        if (playerVehicle === "cop") {
+        // Special-vehicle action button — cop (pull over), ambulance (rescue),
+        // or school bus (stop sign).
+        if (playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") {
+            var icon = playerVehicle === "bus" ? "🛑" : "🚨";
+            var lbl = playerVehicle === "cop" ? "BUST" : playerVehicle === "ambulance" ? "RESCUE" : "STOP";
             var sirRed = Math.sin(gameTime * 8) > 0;
-            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, "🚨",
-                { bg: sirRed ? "#EF5350" : "#42A5F5", bgDark: sirRed ? "#B71C1C" : "#0D47A1", id: "siren" });
-            drawText("BUST", COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
+            var abg = playerVehicle === "bus" ? "#F44336" : (sirRed ? "#EF5350" : "#42A5F5");
+            var abgD = playerVehicle === "bus" ? "#B71C1C" : (sirRed ? "#B71C1C" : "#0D47A1");
+            drawIconButton(COP_RECT.x, COP_RECT.y, COP_RECT.w, icon, { bg: abg, bgDark: abgD, id: "siren" });
+            drawText(lbl, COP_RECT.x + COP_RECT.w / 2, COP_RECT.y + COP_RECT.w + 8,
                 "bold 10px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
         }
 
