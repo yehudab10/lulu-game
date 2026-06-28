@@ -539,6 +539,9 @@
             if (busKidTimer <= 0) { busKidTimer = rand(4, 8); spawnSchoolKid(); }
         }
         if (busStopT > 0) busStopT -= dt;
+
+        // Escaped-convict heat: WANTED posters + cops recognizing her.
+        if (!onFoot && prisonClothes) { updateFugitive(dt); if (state !== "playing") return; }
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -1542,10 +1545,13 @@
             copBust.resolveT += dt;
             if (copBust.resolveT > 1.9) {
                 var out = copBust.outcome;
+                var wasBribe = copBust.title && copBust.title.indexOf("BRIBE") >= 0;
                 copBust = null;
                 if (out === "free") returnToDriving();
                 else if (out === "walk") startFootWorld("copWalk");
-                else state = "gameover";
+                // A ticket now means a trip downtown — booked, then her day in
+                // court — instead of an instant game over.
+                else goToJail(wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"]);
             }
         }
     }
@@ -2189,6 +2195,14 @@
                 revengeCar.y += revengeCar.vy * dt;
             }
             if (crashPhaseTimer <= 0) {
+                // Totaling a POLICE cruiser doesn't end the run — it gets you
+                // arrested (booked → court) instead of a plain game over.
+                if (crashCause && crashCause.behavior === "patrol") {
+                    crashedCar = null; angryMan = null; revengeCar = null; crashCause = null;
+                    lives = Math.max(lives, 1);
+                    goToJail(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"]);
+                    return;
+                }
                 state = "gameover";
                 gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver(); // interstitial in the native app; no-op on web
@@ -3049,7 +3063,7 @@
 
         // Billboards (drawn first, behind trees)
         for (var bi = 0; bi < billboards.length; bi++) {
-            drawBillboard(billboards[bi].x, billboards[bi].y, billboards[bi].side, billboards[bi].msg);
+            drawBillboard(billboards[bi].x, billboards[bi].y, billboards[bi].side, billboards[bi].msg, billboards[bi].wanted);
         }
 
         drawDecorations(gameTime);

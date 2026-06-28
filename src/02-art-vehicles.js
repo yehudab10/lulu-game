@@ -1372,7 +1372,7 @@
         ctx.restore();
     }
 
-    function drawBillboard(x, y, side, msg) {
+    function drawBillboard(x, y, side, msg, wanted) {
         ctx.save();
         ctx.translate(x, y);
         // Two posts
@@ -1382,6 +1382,28 @@
         // Board outline
         ctx.fillStyle = "#3E2723";
         roundRect(-40, -38, 80, 44, 3); ctx.fill();
+
+        if (wanted) {
+            // A WANTED poster: aged paper, "WANTED", a Lulu mugshot, "REWARD".
+            ctx.fillStyle = "#E8DBB5"; roundRect(-37, -35, 74, 38, 2); ctx.fill();
+            ctx.fillStyle = "#3E2723"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif"; ctx.fillText("WANTED", 0, -31);
+            // mugshot
+            ctx.fillStyle = "#9E9E9E"; roundRect(-11, -27, 22, 20, 2); ctx.fill();
+            ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
+            ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 6.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(-2.3, -16, 1, 0, Math.PI * 2); ctx.arc(2.3, -16, 1, 0, Math.PI * 2); ctx.fill();
+            // height bars behind
+            ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(-9, -22); ctx.lineTo(9, -22); ctx.moveTo(-9, -12); ctx.lineTo(9, -12); ctx.stroke();
+            ctx.fillStyle = "#B71C1C"; ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
+            ctx.fillText("REWARD: 1 KUGEL", 0, -2);
+            ctx.restore();
+            return;
+        }
+
         // Board face
         ctx.fillStyle = "#FFF59D";
         roundRect(-37, -35, 74, 38, 2); ctx.fill();

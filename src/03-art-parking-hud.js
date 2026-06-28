@@ -655,6 +655,9 @@
             drawText("DISTRACTED 2×", W / 2, 60, "bold 12px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2);
         }
 
+        // Fugitive (escaped-convict) status strip
+        if (typeof drawFugitiveHUD === "function") drawFugitiveHUD();
+
         // Nitro turbo indicator
         if (nitroTimer > 0) {
             drawText("🔥 NITRO", W / 2, 48, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 3);

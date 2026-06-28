@@ -5,6 +5,8 @@
         boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         roadDramas = []; carCrashCooldown = rand(7, 16);
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
+        prisonClothes = false; fugitiveT = 0; fugitiveSpot = 0;
+        jail = null; court = null;
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;
