@@ -2384,6 +2384,15 @@
         if (state === "crash") {
             drawLuluCar(crashX, crashY, crashRot, false, gameTime, distractedMode);
         } else if (onFoot) {
+            // A soft shield bubble while she has re-entry / knock immunity.
+            if (invincibleTimer > 0.35) {
+                var sp = 0.5 + 0.5 * Math.sin(gameTime * 9);
+                ctx.save();
+                ctx.strokeStyle = "rgba(120,200,255," + (0.45 + 0.4 * sp) + ")"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(player.x, player.y - 4, 26 + sp * 3, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = "rgba(120,200,255,0.12)"; ctx.fill();
+                ctx.restore();
+            }
             // She blinks while briefly invincible after a knock.
             if (!(invincibleTimer > 0 && Math.sin(gameTime * 22) < 0))
                 drawLuluTopDown(player.x, player.y, footWalkTime, footMood);

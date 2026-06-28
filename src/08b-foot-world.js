@@ -88,7 +88,7 @@
         // pursuit can't "pull over" a walking Lulu (she'd be drawn as a car).
         copChase = null; copBust = null;
         lives = Math.max(lives, 1);   // she can still lose it — but starts with one
-        invincibleTimer = 0;
+        invincibleTimer = 2.0;        // brief shield so she isn't clipped the instant she appears
         if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
         state = "footRun";            // smooth: updatePlaying runs the world, drawFootIntro plays first
     }
@@ -124,13 +124,13 @@
         footPrompt = footNearestInteractable();
         if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
 
-        // A bored cop who spots her walking in the road occasionally takes her
-        // in (low chance) — straight to the precinct interior. No speeding here.
+        // A bored cop who spots her walking CLOSE BY occasionally takes her in
+        // (low chance) — straight to the precinct interior. No speeding here.
         if (footBuskT <= 0) {
             var copSeen = null, ic;
-            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && rc.y > 60 && rc.y < H - 70) { copSeen = rc; break; } }
-            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && oc.y > 40 && oc.y < H - 70) { copSeen = oc; break; } }
-            if (copSeen && Math.random() < dt * 0.05) {
+            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 80 && Math.abs(rc.y - player.y) < 90) { copSeen = rc; break; } }
+            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 90 && Math.abs(oc.y - player.y) < 100) { copSeen = oc; break; } }
+            if (copSeen && Math.random() < dt * 0.10) {
                 copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
                 footStartArrest(copSeen.x);
                 return;
@@ -501,6 +501,7 @@
         state = "footRun";
         footDoors = []; footDoorCool = 2.0; footPrompt = null;
         footMood = "run";
+        invincibleTimer = Math.max(invincibleTimer, 2.0); // shield on re-entry to the road
         playClick();
     }
     function updateFootInterior(dt) {

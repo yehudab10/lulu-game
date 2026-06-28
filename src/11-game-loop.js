@@ -22,6 +22,12 @@
             // Release any held/locked controls when the scene changes.
             keys.up = false; keys.down = false; boostLock = false; brakeLock = false;
             steerTouchId = null; touchX = null; touchY = null;
+            // Dropping back onto the sidewalk (from an interior / the wedding /
+            // a fresh foot start) → a 2s shield so a car sitting right on her
+            // can't clip her the instant she reappears.
+            if (state === "footRun" && lastDispatchState !== "paused") {
+                invincibleTimer = Math.max(invincibleTimer, 2.0);
+            }
             lastDispatchState = state;
         }
 
