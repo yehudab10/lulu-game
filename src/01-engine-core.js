@@ -283,7 +283,8 @@
         parking: "parking.mp3",
         avigail: "avigail.mp3",
         salon:   "salon.mp3",
-        wedding: "wedding.mp3"
+        wedding: "wedding.mp3",
+        prison:  "prison.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.

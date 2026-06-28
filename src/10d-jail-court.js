@@ -128,6 +128,19 @@
                 spawnFloater(player.x, player.y - 28, "Cops will RECOGNIZE you...", "#FF8A80");
                 return;
             }
+            return;
+        }
+        if (jail.phase === 9) {                 // serving the sentence (the punishment)
+            jail.t += dt;
+            jail.days = Math.min(30, Math.floor(jail.t * 8.5));
+            if (jail.t > 4.0) {
+                jail = null;
+                spawnFloater(player.x, player.y - 50, "Released — CAR IMPOUNDED!", "#FF8A80");
+                spawnFloater(player.x, player.y - 28, "Time served. You're walking. 🚶‍♀️", "#FFE082");
+                if (typeof startFootWorld === "function") startFootWorld("copWalk");
+                else if (typeof returnToDriving === "function") returnToDriving();
+                return;
+            }
         }
     }
 
@@ -178,8 +191,30 @@
         ctx.fillStyle = "rgba(255,255,255,0.10)";
         for (var j = 0; j <= 6; j++) ctx.fillRect((W / 6) * j - 4, 128, 2.5, floorY - 128 + 30);
 
-        // ── arrival flash + title + charge sheet (parchment) ──
         if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+
+        // ── serving the sentence (the actual punishment) ──
+        if (jail.phase === 9) {
+            var total = 30, day = Math.min(jail.days, total);
+            drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
+            // tally marks scratched on the wall (6 groups of 5)
+            ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 2;
+            for (var d = 0; d < day; d++) {
+                var grp = Math.floor(d / 5), inG = d % 5;
+                var gx = 60 + grp * 40, gy = 200;
+                if (inG < 4) { ctx.beginPath(); ctx.moveTo(gx + inG * 5, gy); ctx.lineTo(gx + inG * 5, gy + 18); ctx.stroke(); }
+                else { ctx.beginPath(); ctx.moveTo(gx - 3, gy + 16); ctx.lineTo(gx + 17, gy + 2); ctx.stroke(); }
+            }
+            ctx.fillStyle = "rgba(0,0,0,0.62)"; roundRect(W / 2 - 130, H - 156, 260, 76, 12); ctx.fill();
+            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 156, 260, 76, 12); ctx.stroke();
+            drawText("DAY " + day + " / " + total, W / 2, H - 132, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
+            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 116, 208, 10, 5); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 116, 208 * (day / total), 10, 5); ctx.fill();
+            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 94, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+            return;
+        }
+
+        // ── arrival title + charge sheet (parchment) ──
         drawText("🚔 BOOKED!", W / 2, 30, "bold 30px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 6);
         var sy = 116, sh = 22 + jail.charges.length * 15;
         ctx.fillStyle = "#E8DBB5"; roundRect(W / 2 - 130, sy, 260, sh, 6); ctx.fill();
@@ -211,7 +246,7 @@
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
         var cl = (charges && charges.length ? charges.slice() : ["BEING SUSPICIOUS"]);
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
-                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0,
+                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
                   lines: [
                       { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
                       { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" },
@@ -226,18 +261,34 @@
         return "fine";
     }
 
+    // Typewriter reveal for the dialogue box.
+    var DLG_CPS = 45;
+    function courtTyped(full) { return full.slice(0, Math.floor(court.typeT * DLG_CPS)); }
+    function courtDone(full) { return Math.floor(court.typeT * DLG_CPS) >= full.length; }
+
+    // Guilty + jail time = she actually DOES the time, then walks out with her
+    // car impounded (→ on-foot mode). A real punishment, not a free ride back.
+    function serveTime() {
+        prisonClothes = false;
+        jail = { phase: 9, t: 0, days: 0, charges: [], cellmateLine: "", cellmateT: 99, flash: 0, bail: 0 };
+        state = "jailCell";
+        playTone(110, 0.4, "square", 0.1);
+    }
+
     function updateCourtroom(dt) {
         court.t += dt;
+        court.typeT += dt;
         if (court.gavel > 0) court.gavel -= dt;
         if (court.banner > 0) court.banner -= dt;
 
         if (court.phase === 0) {                     // ALL RISE
-            if (court.t > 1.5) { court.phase = 1; court.t = 0; court.gavel = 0.3; playTone(150, 0.12, "square", 0.18); }
+            if (court.t > 1.5) { court.phase = 1; court.t = 0; court.typeT = 0; court.gavel = 0.3; playTone(150, 0.12, "square", 0.18); }
             return;
         }
         if (court.phase === 1) {                     // intro dialogue (judge → pros → judge)
             if (consumeClick() || consumeAction()) {
-                court.li++;
+                if (!courtDone(court.lines[court.li].text)) { court.typeT = 999; return; }   // reveal first
+                court.li++; court.typeT = 0;
                 if (court.li >= court.lines.length) { court.phase = 2; court.t = 0; }
                 else playTone(court.lines[court.li].p === "judge" ? 300 : 380, 0.04, "sine", 0.06);
             }
@@ -248,7 +299,7 @@
             if (click) for (var i = 0; i < court.options.length; i++) {
                 var r = courtOptRect(i);
                 if (pointInRect(click.x, click.y, r.x, r.y, r.w, r.h)) {
-                    court.choice = i; court.phase = 3; court.t = 0;
+                    court.choice = i; court.phase = 3; court.t = 0; court.typeT = 0;
                     court.defLine = { who: "LULU", p: "lulu", accent: "#F48FB1", text: court.options[i].says };
                     playTone(660, 0.06, "sine", 0.1); return;
                 }
@@ -256,7 +307,10 @@
             return;
         }
         if (court.phase === 3) {                     // Lulu's defense line
-            if (consumeClick() || consumeAction()) { court.phase = 4; court.t = 0; }
+            if (consumeClick() || consumeAction()) {
+                if (!courtDone(court.defLine.text)) { court.typeT = 999; return; }
+                court.phase = 4; court.t = 0;
+            }
             return;
         }
         if (court.phase === 4) {                     // jury deliberates → verdict
@@ -264,35 +318,38 @@
                 var opt = court.options[court.choice];
                 court.verdict = rollVerdict(opt);
                 if (opt.bribe && court.verdict !== "dismissed") court.charges.push("BRIBING A JUDGE (BADLY)");
-                if (court.verdict === "fine" || court.verdict === "jail") {
-                    var base = court.charges.length * randInt(12, 30);
-                    if (opt.bribe && court.verdict !== "dismissed") base += 40;
+                if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
+                    var base = court.charges.length * randInt(14, 34);
+                    if (opt.bribe) base += 40;
                     court.fine = base;
                 }
                 var vt = court.verdict === "dismissed" ? "CASE DISMISSED! Now get outta my court. 🎉"
                        : court.verdict === "jail" ? "GUILTY! Thirty days in the clink, missy! ⛓️"
                        : "GUILTY! That'll be ★" + court.fine + ". See the clerk on your way out. 💸";
                 court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: vt };
-                court.phase = 5; court.t = 0; court.gavel = 0.4; court.banner = 0.55;
+                court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                 playTone(150, 0.16, "square", 0.18);
                 playTone(court.verdict === "dismissed" ? 880 : 200, 0.22, "triangle", 0.16);
                 return;
             }
             return;
         }
-        if (court.phase === 5) {                     // verdict delivered → released
+        if (court.phase === 5) {                     // verdict delivered → consequence
             if (!court.applied) {
                 court.applied = true;
-                if (court.verdict !== "dismissed") {
+                if (court.verdict === "fine") {
                     var pay = Math.min(court.fine, save.totalCoins);
                     save.totalCoins -= pay; persistSave(); court.paid = pay; court.couldnt = pay < court.fine;
                 }
             }
             if (court.t > 0.7 && (consumeClick() || consumeAction())) {
-                var v = court.verdict; court = null; prisonClothes = false;
+                if (!courtDone(court.verdictLine.text)) { court.typeT = 999; return; }
+                var v = court.verdict; court = null;
+                if (v === "jail") { serveTime(); return; }     // actually do the time → walk out, no car
+                prisonClothes = false;
                 if (typeof returnToDriving === "function") returnToDriving();
                 spawnFloater(player.x, player.y - 50,
-                    v === "dismissed" ? "⚖️ DISMISSED! Free to go!" : (v === "jail" ? "Served your time. 🚗" : "Fine paid. Drive safer! 🚗"),
+                    v === "dismissed" ? "⚖️ DISMISSED! Free to go!" : "Fine paid. Drive safer! 🚗",
                     v === "dismissed" ? "#7CFC4F" : "#FFE082");
             }
         }
@@ -318,7 +375,9 @@
 
         // judge bench (center), jury box (left), prosecutor (right), Lulu (center podium)
         drawBenchJudge(W / 2, 78, court.gavel > 0);
-        drawJuryBox(14, 168, court.phase >= 4);
+        var jReact = court.phase >= 5 ? (court.verdict === "dismissed" ? "free" : "guilty")
+                   : (court.phase === 4 ? "deliberate" : "watch");
+        drawJuryBox(14, 168, jReact);
         var prosTalk = (court.phase === 1 && court.li === 1);
         drawProsecutor(W - 52, H * 0.50, gameTime, prosTalk);
         drawDefendant(W / 2, H * 0.56);
@@ -339,7 +398,8 @@
             drawText("⚖️ ALL RISE ⚖️", 0, 0, "bold 30px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6); ctx.restore();
         } else if (court.phase === 1) {
             var ln = court.lines[court.li];
-            drawDialogueBox(ln.who, ln.text, ln.p, ln.accent, true);
+            var d1 = courtDone(ln.text);
+            drawDialogueBox(ln.who, courtTyped(ln.text), ln.p, ln.accent, d1, !d1);
         } else if (court.phase === 2) {
             // RPG choice menu
             ctx.fillStyle = "rgba(20,12,30,0.78)"; roundRect(14, H - 168, W - 28, 158, 12); ctx.fill();
@@ -350,7 +410,8 @@
                 drawButton(r.x, r.y, r.w, r.h, court.options[i].label, { bg: "#7E57C2", bgDark: "#4527A0", small: true });
             }
         } else if (court.phase === 3) {
-            drawDialogueBox(court.defLine.who, court.defLine.text, court.defLine.p, court.defLine.accent, true);
+            var d3 = courtDone(court.defLine.text);
+            drawDialogueBox(court.defLine.who, courtTyped(court.defLine.text), court.defLine.p, court.defLine.accent, d3, !d3);
         } else if (court.phase === 4) {
             ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(W / 2 - 140, H - 70, 280, 34, 10); ctx.fill();
             var dots = ".".repeat(1 + (Math.floor(court.t * 3) % 3));
@@ -365,10 +426,13 @@
                 drawText(court.verdict === "dismissed" ? "DISMISSED" : "GUILTY", 0, 0, "bold 34px 'Segoe UI', Arial, sans-serif", col, "#000", 5);
                 ctx.restore();
             }
-            drawDialogueBox(court.verdictLine.who, court.verdictLine.text, court.verdictLine.p, court.verdictLine.accent, court.t > 0.7);
-            if (court.verdict !== "dismissed" && court.applied)
+            var d5 = courtDone(court.verdictLine.text);
+            drawDialogueBox(court.verdictLine.who, courtTyped(court.verdictLine.text), court.verdictLine.p, court.verdictLine.accent, court.t > 0.7 && d5, !d5);
+            if (court.verdict === "fine" && court.applied)
                 drawText("−" + court.paid + " 💰" + (court.couldnt ? "  (rest = community service!)" : ""),
                     W / 2, H - 150, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+            else if (court.verdict === "jail")
+                drawText("⛓️ Off to serve your time...", W / 2, H - 150, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
         }
     }
 
@@ -420,7 +484,7 @@
         for (var l = 0; l < lines.length; l++) drawText(lines[l], cx, cy + l * lh, "13px 'Segoe UI', Arial, sans-serif", col || "#FFF", "#000", 2);
     }
 
-    function drawDialogueBox(name, text, ptype, accent, advance) {
+    function drawDialogueBox(name, text, ptype, accent, advance, talking) {
         var bh = 116, by = H - bh - 12, bx = 12, bw = W - 24;
         ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(bx + 3, by + 4, bw, bh, 14); ctx.fill();
         var g = ctx.createLinearGradient(0, by, 0, by + bh);
@@ -432,7 +496,7 @@
         ctx.save(); roundRect(px, py, pf, pf, 10); ctx.clip();
         var pg = ctx.createLinearGradient(0, py, 0, py + pf); pg.addColorStop(0, "#473A5E"); pg.addColorStop(1, "#2A2238");
         ctx.fillStyle = pg; ctx.fillRect(px, py, pf, pf);
-        drawPortrait(ptype, px + pf / 2, py + pf / 2 + 8, pf - 8);
+        drawPortrait(ptype, px + pf / 2, py + pf / 2 + 8, pf - 8, talking);
         ctx.restore();
         ctx.strokeStyle = accent; ctx.lineWidth = 2; roundRect(px, py, pf, pf, 10); ctx.stroke();
         // nameplate tab
@@ -445,6 +509,13 @@
         var lines = wrapLines(text, tw, "15px 'Segoe UI', Arial, sans-serif");
         for (var i = 0; i < lines.length; i++)
             drawText(lines[i], tx, by + 30 + i * 21, "15px 'Segoe UI', Arial, sans-serif", "#F3E9FF", "#000", 2, "left");
+        // typewriter caret at the end of the last line while still revealing
+        if (talking && lines.length) {
+            ctx.font = "15px 'Segoe UI', Arial, sans-serif";
+            var cw = ctx.measureText(lines[lines.length - 1]).width;
+            if (Math.sin(gameTime * 12) > 0)
+                drawText("▌", tx + cw + 3, by + 30 + (lines.length - 1) * 21, "15px 'Segoe UI', Arial, sans-serif", accent, null, 0, "left");
+        }
         if (advance) {
             var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 5));
             ctx.globalAlpha = bl;
@@ -454,7 +525,7 @@
     }
 
     // Head-and-shoulders portraits for the dialogue box.
-    function drawPortrait(type, cx, cy, s) {
+    function drawPortrait(type, cx, cy, s, talking) {
         var hr = s * 0.26;
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
@@ -501,6 +572,15 @@
             ctx.beginPath(); ctx.ellipse(cx - hr * 0.95, cy + hr * 0.25, hr * 0.4, hr * 0.95, -0.2, 0, Math.PI * 2); ctx.ellipse(cx + hr * 0.95, cy + hr * 0.25, hr * 0.4, hr * 0.95, 0.2, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
         }
+        // mouth — flaps open/closed while talking, neutral otherwise
+        var my = cy + hr * (type === "prosecutor" ? 0.62 : 0.5);
+        if (talking) {
+            var open = hr * (0.08 + Math.abs(Math.sin(gameTime * 15)) * 0.16);
+            ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(cx, my, hr * 0.2, open, 0, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.arc(cx, my - hr * 0.1, hr * 0.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        }
     }
 
     // ── Courtroom figures ────────────────────────────────────
@@ -531,28 +611,44 @@
         drawText("THE HON. JUDGE", cx, topY + 95, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0);
     }
 
-    function drawJuryBox(x, y) {
+    function drawJuryBox(x, y, react) {
         ctx.fillStyle = "#4E342E"; roundRect(x, y, 122, 74, 6); ctx.fill();
-        for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++) drawJuror(x + 24 + c * 37, y + 22 + r * 26, r * 3 + c);
+        for (var r = 0; r < 2; r++) for (var c = 0; c < 3; c++) drawJuror(x + 24 + c * 37, y + 22 + r * 26, r * 3 + c, react);
         ctx.fillStyle = "#5D4037"; roundRect(x, y + 46, 122, 9, 2); ctx.fill();   // front rail
         ctx.fillStyle = "#3E2723"; roundRect(x + 36, y + 64, 50, 12, 2); ctx.fill();
         drawText("JURY", x + 61, y + 71, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0);
     }
 
-    function drawJuror(x, y, seed) {
+    // A single juror who REACTS: watches, leans-in to deliberate, gasps at a
+    // guilty verdict, or relaxes/smiles at a dismissal.
+    function drawJuror(x, y, seed, react) {
         var skin = ["#F4C9A0", "#E8B98A", "#D9A875", "#C68642"][seed % 4];
         var hair = ["#3E2723", "#5D4037", "#8D6E63", "#212121", "#BDBDBD", "#6D4C41"][seed % 6];
         var shirt = ["#5C6BC0", "#26A69A", "#EF5350", "#8D6E63", "#7E57C2", "#66BB6A"][(seed * 2) % 6];
         var bob = Math.sin(gameTime * 1.6 + seed) * 1;
-        ctx.save(); ctx.translate(x, y + bob);
-        ctx.fillStyle = shirt; roundRect(-9, 4, 18, 13, 4); ctx.fill();             // shoulders
+        var lean = react === "deliberate" ? Math.sin(gameTime * 3 + seed * 1.7) * 2.5 : 0;
+        var wide = react === "guilty";
+        ctx.save(); ctx.translate(x + lean, y + bob);
+        ctx.fillStyle = shirt; roundRect(-9, 4, 18, 13, 4); ctx.fill();
         ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -2, 8, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(0, -2, 6.6, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, -4, 6.8, Math.PI, 0); ctx.fill();
-        if (seed % 3 === 0) ctx.fillRect(-7, -4, 14, 2.5);                          // some have fuller hair
-        ctx.fillStyle = "#1A1A1A";
-        ctx.beginPath(); ctx.arc(-2.4, -2, 1.1, 0, Math.PI * 2); ctx.arc(2.4, -2, 1.1, 0, Math.PI * 2); ctx.fill();
-        if (seed % 2 === 0) { ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(-1, -4); ctx.moveTo(1, -4); ctx.lineTo(4, -5); ctx.stroke(); } // skeptical brow
+        if (seed % 3 === 0) ctx.fillRect(-7, -4, 14, 2.5);
+        // eyes
+        if (wide) { ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-2.4, -2, 1.9, 0, Math.PI * 2); ctx.arc(2.4, -2, 1.9, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.4, -2, wide ? 1.3 : 1.1, 0, Math.PI * 2); ctx.arc(2.4, -2, wide ? 1.3 : 1.1, 0, Math.PI * 2); ctx.fill();
+        // brows + mouth by reaction
+        if (react === "guilty") {
+            ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-4, -5.6); ctx.lineTo(-1, -5); ctx.moveTo(1, -5); ctx.lineTo(4, -5.6); ctx.stroke();
+            ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.arc(0, 2, 1.4, 0, Math.PI * 2); ctx.fill();   // gasp
+        } else if (react === "free") {
+            ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0, 1, 2, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke(); // smile
+        } else if (react === "deliberate") {
+            ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(3.5, 3, 2, 0, Math.PI * 2); ctx.fill();        // hand to chin (whisper)
+            if (seed % 2 === 0) { ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(-1, -4); ctx.moveTo(1, -4); ctx.lineTo(4, -5); ctx.stroke(); }
+        } else if (seed % 2 === 0) {
+            ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-4, -5); ctx.lineTo(-1, -4); ctx.moveTo(1, -4); ctx.lineTo(4, -5); ctx.stroke(); // skeptical
+        }
         ctx.restore();
     }
 

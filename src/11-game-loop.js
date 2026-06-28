@@ -63,8 +63,8 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "jailCell" || state === "courtroom" ||
             state === "footRun" || state === "footInterior") musicTrack = "lulu";
+        else if (state === "jailCell" || state === "courtroom") musicTrack = "prison";   // jail / court / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
