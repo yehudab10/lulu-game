@@ -310,6 +310,21 @@
 
     // ── Drawing: Lulu's car (parking version with damage + crying) ─
     function drawLuluCarFull(carObj, time, crying) {
+        // Driving a special vehicle into the spot → park THAT vehicle. Those art
+        // funcs draw fixed-orientation around their origin, so wrap them in the
+        // same rotation and scale them to roughly the parking footprint.
+        if (carObj.vehicle === "bus" || carObj.vehicle === "ambulance" || carObj.vehicle === "cop") {
+            ctx.save();
+            ctx.translate(carObj.x, carObj.y);
+            ctx.rotate(carObj.rot + Math.PI / 2);
+            var vsc = carObj.vehicle === "bus" ? 0.7 : 0.9;
+            ctx.scale(vsc, vsc);
+            if (carObj.vehicle === "bus") drawTopBus(0, 0);
+            else if (carObj.vehicle === "ambulance") drawAmbulance(0, 0, time);
+            else drawCopCar(0, 0, time * 3);
+            ctx.restore();
+            return;
+        }
         var skin = SKINS[save.selectedSkin] || SKINS.pink;
         ctx.save();
         ctx.translate(carObj.x, carObj.y);

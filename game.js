@@ -4058,6 +4058,21 @@
 
     // ── Drawing: Lulu's car (parking version with damage + crying) ─
     function drawLuluCarFull(carObj, time, crying) {
+        // Driving a special vehicle into the spot → park THAT vehicle. Those art
+        // funcs draw fixed-orientation around their origin, so wrap them in the
+        // same rotation and scale them to roughly the parking footprint.
+        if (carObj.vehicle === "bus" || carObj.vehicle === "ambulance" || carObj.vehicle === "cop") {
+            ctx.save();
+            ctx.translate(carObj.x, carObj.y);
+            ctx.rotate(carObj.rot + Math.PI / 2);
+            var vsc = carObj.vehicle === "bus" ? 0.7 : 0.9;
+            ctx.scale(vsc, vsc);
+            if (carObj.vehicle === "bus") drawTopBus(0, 0);
+            else if (carObj.vehicle === "ambulance") drawAmbulance(0, 0, time);
+            else drawCopCar(0, 0, time * 3);
+            ctx.restore();
+            return;
+        }
         var skin = SKINS[save.selectedSkin] || SKINS.pink;
         ctx.save();
         ctx.translate(carObj.x, carObj.y);
@@ -5287,14 +5302,17 @@
                 theme: "day", coneInSpot: false, pedestrian: false, traffic: false, sasquatchWatcher: false };
         var cfg = parkingLevelConfig;
 
-        // Lulu's car starts to the right of the empty spot, in the driving lane
+        // Lulu's car starts to the right of the empty spot, in the driving lane.
+        // If she rolled in driving a special vehicle (bus/ambulance/cop), she
+        // parks THAT — the challenge mode (entered from the menu) is always her car.
         parkingCar = {
             x: W - 50, y: H * 0.55,
             rot: -Math.PI,
             speed: 0,
             steerAngle: 0,
             damage: [],
-            w: CAR_W, h: CAR_H
+            w: CAR_W, h: CAR_H,
+            vehicle: parkingChallengeMode ? null : (typeof playerVehicle !== "undefined" ? playerVehicle : null)
         };
         // Empty spot
         var spotCenterX = W / 2;

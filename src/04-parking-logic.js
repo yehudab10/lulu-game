@@ -489,14 +489,17 @@
                 theme: "day", coneInSpot: false, pedestrian: false, traffic: false, sasquatchWatcher: false };
         var cfg = parkingLevelConfig;
 
-        // Lulu's car starts to the right of the empty spot, in the driving lane
+        // Lulu's car starts to the right of the empty spot, in the driving lane.
+        // If she rolled in driving a special vehicle (bus/ambulance/cop), she
+        // parks THAT — the challenge mode (entered from the menu) is always her car.
         parkingCar = {
             x: W - 50, y: H * 0.55,
             rot: -Math.PI,
             speed: 0,
             steerAngle: 0,
             damage: [],
-            w: CAR_W, h: CAR_H
+            w: CAR_W, h: CAR_H,
+            vehicle: parkingChallengeMode ? null : (typeof playerVehicle !== "undefined" ? playerVehicle : null)
         };
         // Empty spot
         var spotCenterX = W / 2;
