@@ -792,6 +792,8 @@
     var crashTimer = 0;
     var menuBounce = 0;
     var gameOverAlpha = 0;
+    var goScoreShown = 0;      // animated count-up of the final score
+    var goConfettiDone = false; // one-shot confetti on a new high score
     var dustTimer = 0;
     var distractedMode = false;
 

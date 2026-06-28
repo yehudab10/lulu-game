@@ -284,7 +284,7 @@
         if (lives <= 0) {
             if (score > save.highScore) save.highScore = Math.floor(score);
             persistSave();
-            gameOverAlpha = 0;
+            gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
             state = "gameover";
         }
     }

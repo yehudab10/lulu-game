@@ -948,12 +948,42 @@
         }
     }
 
+    // Celebratory confetti — fluttering rotating rectangles that drift down.
+    // Used on big wins (new high score) for a satisfying payoff.
+    function spawnConfetti(x, y, count) {
+        var cols = ["#FF5252", "#FFD54F", "#69F0AE", "#40C4FF", "#E040FB", "#FF80AB", "#FFFFFF"];
+        count = count || 60;
+        for (var i = 0; i < count; i++) {
+            var ang = rand(-Math.PI * 0.85, -Math.PI * 0.15);
+            var spd = rand(160, 460);
+            particles.push({
+                x: x + rand(-30, 30), y: y,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd,
+                life: rand(1.4, 2.6), maxLife: 2.2,
+                size: rand(4, 8),
+                color: randPick(cols),
+                gravity: 320,
+                confetti: true,
+                rot: rand(0, Math.PI * 2),
+                spin: rand(-9, 9),
+                wob: rand(0, Math.PI * 2)
+            });
+        }
+    }
+
     function updateParticles(dt) {
         for (var i = particles.length - 1; i >= 0; i--) {
             var p = particles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.vy += p.gravity * dt;
+            if (p.confetti) {
+                p.rot += p.spin * dt;
+                p.wob += dt * 6;
+                p.x += Math.sin(p.wob) * 28 * dt;   // gentle side-to-side flutter
+                p.vx *= 0.97;                         // air drag so they settle
+            }
             p.life -= dt;
             if (p.smoke) p.size += dt * 8;
             if (p.life <= 0) particles.splice(i, 1);
@@ -964,6 +994,18 @@
         for (var i = 0; i < particles.length; i++) {
             var p = particles[i];
             var alpha = clamp(p.life / p.maxLife, 0, 1);
+            if (p.confetti) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                // flip width by the flutter so it looks like a spinning flake
+                var w = p.size * (0.4 + Math.abs(Math.cos(p.wob)) * 0.9);
+                ctx.fillRect(-w / 2, -p.size / 2, w, p.size);
+                ctx.restore();
+                continue;
+            }
             ctx.globalAlpha = p.smoke ? alpha * 0.6 : alpha;
             ctx.fillStyle = p.color;
             ctx.beginPath();
@@ -4374,6 +4416,8 @@
     var crashTimer = 0;
     var menuBounce = 0;
     var gameOverAlpha = 0;
+    var goScoreShown = 0;      // animated count-up of the final score
+    var goConfettiDone = false; // one-shot confetti on a new high score
     var dustTimer = 0;
     var distractedMode = false;
 
@@ -6941,7 +6985,7 @@
             }
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
-                gameOverAlpha = 0;
+                gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver();
             }
             return;
@@ -7079,7 +7123,7 @@
             }
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
-                gameOverAlpha = 0;
+                gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver(); // interstitial in the native app; no-op on web
             }
             return;
@@ -7159,6 +7203,22 @@
         // Clear residual angry-man/revenge-car state so they don't keep moving
         if (angryMan) angryMan = null;
         if (revengeCar) revengeCar = null;
+        // Animated score count-up once the panel has faded in — gives the final
+        // number a satisfying "tally" feel instead of just popping on.
+        if (gameOverAlpha > 0.3) {
+            var goTarget = Math.floor(score);
+            if (goScoreShown < goTarget) {
+                goScoreShown = Math.min(goTarget, goScoreShown + Math.max(1, goTarget * dt * 1.1));
+            } else {
+                goScoreShown = goTarget;
+                // Count-up finished: if it's a new best, throw confetti once.
+                if (!goConfettiDone && goTarget >= save.highScore && save.highScore > 0) {
+                    goConfettiDone = true;
+                    spawnConfetti(W / 2, H * 0.30, 80);
+                    playStarSparkle();
+                }
+            }
+        }
         updateParticles(dt);
         var click = consumeClick();
         if (click) {
@@ -8522,8 +8582,15 @@
 
             drawText("SCORE", W / 2, H * 0.33,
                 "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
-            drawText(formatNum(Math.floor(score)), W / 2, H * 0.40,
-                "bold 40px 'Segoe UI', Arial, sans-serif", "#FFF", "#333", 5);
+            // Score "pops" slightly bigger while the count-up is still climbing.
+            var goClimbing = goScoreShown < Math.floor(score);
+            var goPulse = goClimbing ? 1 + Math.sin(gameTime * 22) * 0.05 : 1;
+            ctx.save();
+            ctx.translate(W / 2, H * 0.40);
+            ctx.scale(goPulse, goPulse);
+            drawText(formatNum(Math.floor(goScoreShown)), 0, 0,
+                "bold 40px 'Segoe UI', Arial, sans-serif", goClimbing ? "#FFF59D" : "#FFF", "#333", 5);
+            ctx.restore();
 
             drawText("★ " + runCoins + " coins this run", W / 2, H * 0.47,
                 "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, "#333", 3);
@@ -8555,6 +8622,8 @@
             drawButton(W / 2 - 110, H * 0.88 - 25, 220, 50, "MAIN MENU", { bg: "#5C6BC0", bgDark: "#283593", small: true });
 
             ctx.globalAlpha = 1;
+            // Celebration confetti rains over everything on a new high score.
+            drawParticles();
         }
     }
 
@@ -8612,6 +8681,24 @@
             "bold 56px 'Segoe UI', Arial, sans-serif", SKINS[save.selectedSkin].body, "#333", 7);
         drawText("ROAD TRIP", W / 2, titleY + 28,
             "bold 44px 'Segoe UI', Arial, sans-serif", "#FFF", "#333", 6);
+
+        // Title shine sweep — a soft gleam slides across the words every few
+        // seconds, giving the logo a glossy, polished feel.
+        var sweep = (menuBounce * 0.30) % 2.6;   // gleam visible while < 1
+        if (sweep < 1) {
+            var sx = (W / 2 - 170) + sweep * 380;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(W / 2 - 170, titleY - 58, 340, 96);
+            ctx.clip();
+            var shine = ctx.createLinearGradient(sx - 46, 0, sx + 46, 0);
+            shine.addColorStop(0, "rgba(255,255,255,0)");
+            shine.addColorStop(0.5, "rgba(255,255,255,0.4)");
+            shine.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.fillStyle = shine;
+            ctx.fillRect(W / 2 - 170, titleY - 58, 340, 96);
+            ctx.restore();
+        }
 
         // Car
         var carY = H * 0.36 + Math.sin(menuBounce * 3) * 8;
@@ -11275,7 +11362,7 @@
         if (lives <= 0) {
             if (score > save.highScore) save.highScore = Math.floor(score);
             persistSave();
-            gameOverAlpha = 0;
+            gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
             state = "gameover";
         }
     }

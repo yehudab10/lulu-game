@@ -405,8 +405,15 @@
 
             drawText("SCORE", W / 2, H * 0.33,
                 "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
-            drawText(formatNum(Math.floor(score)), W / 2, H * 0.40,
-                "bold 40px 'Segoe UI', Arial, sans-serif", "#FFF", "#333", 5);
+            // Score "pops" slightly bigger while the count-up is still climbing.
+            var goClimbing = goScoreShown < Math.floor(score);
+            var goPulse = goClimbing ? 1 + Math.sin(gameTime * 22) * 0.05 : 1;
+            ctx.save();
+            ctx.translate(W / 2, H * 0.40);
+            ctx.scale(goPulse, goPulse);
+            drawText(formatNum(Math.floor(goScoreShown)), 0, 0,
+                "bold 40px 'Segoe UI', Arial, sans-serif", goClimbing ? "#FFF59D" : "#FFF", "#333", 5);
+            ctx.restore();
 
             drawText("★ " + runCoins + " coins this run", W / 2, H * 0.47,
                 "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, "#333", 3);
@@ -438,6 +445,8 @@
             drawButton(W / 2 - 110, H * 0.88 - 25, 220, 50, "MAIN MENU", { bg: "#5C6BC0", bgDark: "#283593", small: true });
 
             ctx.globalAlpha = 1;
+            // Celebration confetti rains over everything on a new high score.
+            drawParticles();
         }
     }
 
@@ -495,6 +504,24 @@
             "bold 56px 'Segoe UI', Arial, sans-serif", SKINS[save.selectedSkin].body, "#333", 7);
         drawText("ROAD TRIP", W / 2, titleY + 28,
             "bold 44px 'Segoe UI', Arial, sans-serif", "#FFF", "#333", 6);
+
+        // Title shine sweep — a soft gleam slides across the words every few
+        // seconds, giving the logo a glossy, polished feel.
+        var sweep = (menuBounce * 0.30) % 2.6;   // gleam visible while < 1
+        if (sweep < 1) {
+            var sx = (W / 2 - 170) + sweep * 380;
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(W / 2 - 170, titleY - 58, 340, 96);
+            ctx.clip();
+            var shine = ctx.createLinearGradient(sx - 46, 0, sx + 46, 0);
+            shine.addColorStop(0, "rgba(255,255,255,0)");
+            shine.addColorStop(0.5, "rgba(255,255,255,0.4)");
+            shine.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.fillStyle = shine;
+            ctx.fillRect(W / 2 - 170, titleY - 58, 340, 96);
+            ctx.restore();
+        }
 
         // Car
         var carY = H * 0.36 + Math.sin(menuBounce * 3) * 8;

@@ -1402,7 +1402,7 @@
             }
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
-                gameOverAlpha = 0;
+                gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver();
             }
             return;
@@ -1540,7 +1540,7 @@
             }
             if (crashPhaseTimer <= 0) {
                 state = "gameover";
-                gameOverAlpha = 0;
+                gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver(); // interstitial in the native app; no-op on web
             }
             return;
@@ -1620,6 +1620,22 @@
         // Clear residual angry-man/revenge-car state so they don't keep moving
         if (angryMan) angryMan = null;
         if (revengeCar) revengeCar = null;
+        // Animated score count-up once the panel has faded in — gives the final
+        // number a satisfying "tally" feel instead of just popping on.
+        if (gameOverAlpha > 0.3) {
+            var goTarget = Math.floor(score);
+            if (goScoreShown < goTarget) {
+                goScoreShown = Math.min(goTarget, goScoreShown + Math.max(1, goTarget * dt * 1.1));
+            } else {
+                goScoreShown = goTarget;
+                // Count-up finished: if it's a new best, throw confetti once.
+                if (!goConfettiDone && goTarget >= save.highScore && save.highScore > 0) {
+                    goConfettiDone = true;
+                    spawnConfetti(W / 2, H * 0.30, 80);
+                    playStarSparkle();
+                }
+            }
+        }
         updateParticles(dt);
         var click = consumeClick();
         if (click) {

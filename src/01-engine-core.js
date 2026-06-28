@@ -946,12 +946,42 @@
         }
     }
 
+    // Celebratory confetti — fluttering rotating rectangles that drift down.
+    // Used on big wins (new high score) for a satisfying payoff.
+    function spawnConfetti(x, y, count) {
+        var cols = ["#FF5252", "#FFD54F", "#69F0AE", "#40C4FF", "#E040FB", "#FF80AB", "#FFFFFF"];
+        count = count || 60;
+        for (var i = 0; i < count; i++) {
+            var ang = rand(-Math.PI * 0.85, -Math.PI * 0.15);
+            var spd = rand(160, 460);
+            particles.push({
+                x: x + rand(-30, 30), y: y,
+                vx: Math.cos(ang) * spd,
+                vy: Math.sin(ang) * spd,
+                life: rand(1.4, 2.6), maxLife: 2.2,
+                size: rand(4, 8),
+                color: randPick(cols),
+                gravity: 320,
+                confetti: true,
+                rot: rand(0, Math.PI * 2),
+                spin: rand(-9, 9),
+                wob: rand(0, Math.PI * 2)
+            });
+        }
+    }
+
     function updateParticles(dt) {
         for (var i = particles.length - 1; i >= 0; i--) {
             var p = particles[i];
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.vy += p.gravity * dt;
+            if (p.confetti) {
+                p.rot += p.spin * dt;
+                p.wob += dt * 6;
+                p.x += Math.sin(p.wob) * 28 * dt;   // gentle side-to-side flutter
+                p.vx *= 0.97;                         // air drag so they settle
+            }
             p.life -= dt;
             if (p.smoke) p.size += dt * 8;
             if (p.life <= 0) particles.splice(i, 1);
@@ -962,6 +992,18 @@
         for (var i = 0; i < particles.length; i++) {
             var p = particles[i];
             var alpha = clamp(p.life / p.maxLife, 0, 1);
+            if (p.confetti) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                // flip width by the flutter so it looks like a spinning flake
+                var w = p.size * (0.4 + Math.abs(Math.cos(p.wob)) * 0.9);
+                ctx.fillRect(-w / 2, -p.size / 2, w, p.size);
+                ctx.restore();
+                continue;
+            }
             ctx.globalAlpha = p.smoke ? alpha * 0.6 : alpha;
             ctx.fillStyle = p.color;
             ctx.beginPath();
