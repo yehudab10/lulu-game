@@ -6718,7 +6718,8 @@
                     x: copBust.fromLeft ? -30 : W + 30,
                     y: player.y + 30,
                     targetX: player.x + (copBust.fromLeft ? -42 : 42),
-                    time: 0, state: "running", runDir: copBust.fromLeft ? 1 : -1
+                    time: 0, state: "running", runDir: copBust.fromLeft ? 1 : -1,
+                    cop: true   // it's the officer climbing out of the cruiser
                 };
             }
             return;
@@ -6763,12 +6764,26 @@
     function drawCopBust() {
         drawRoad(scrollOffset);
         drawDecorations(gameTime);
+
+        // Siren light-wash: the whole scene pulses red then blue, like the
+        // cruiser's bar is strobing across it. Sides alternate for that
+        // sweeping squad-car feel. Kept subtle so the action stays readable.
+        var sirN = Math.sin(gameTime * 9);
+        var redOn = sirN > 0;
+        var washA = 0.10 + Math.abs(sirN) * 0.16;
+        var washGrad = ctx.createLinearGradient(redOn ? 0 : W, 0, redOn ? W : 0, 0);
+        washGrad.addColorStop(0, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + washA + ")");
+        washGrad.addColorStop(0.55, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + (washA * 0.25) + ")");
+        washGrad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = washGrad;
+        ctx.fillRect(0, 0, W, H);
+
         ctx.save();
         if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
         drawCopCar(player.x, copBust.copY, gameTime * 3); // sirens flashing
         drawLuluCar(player.x, player.y, 0, false, gameTime, distractedMode);
         if (copBust.man) {
-            drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir);
+            drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir, copBust.man.cop);
             if (copBust.man.state === "yelling" && !copBust.warning) {
                 var lines = copBust.yell.split("\n");
                 for (var li = 0; li < lines.length; li++) {
