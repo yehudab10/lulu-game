@@ -288,7 +288,9 @@
         avigail: "avigail.mp3",
         salon:   "salon.mp3",
         wedding: "wedding.mp3",
-        prison:  "prison.mp3"
+        prison:  "prison.mp3",
+        er1:     "er1.mp3",
+        er2:     "er2.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.

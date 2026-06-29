@@ -290,7 +290,9 @@
         avigail: "avigail.mp3",
         salon:   "salon.mp3",
         wedding: "wedding.mp3",
-        prison:  "prison.mp3"
+        prison:  "prison.mp3",
+        er1:     "er1.mp3",
+        er2:     "er2.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.
@@ -22345,6 +22347,7 @@
     // ════════════════════════════════════════════════════════════
 
     var hospital = null;
+    var erMusic = "er1";   // which ER song is playing — picked at random per visit
 
     var DIAGNOSES = ["a mild case of the OOFs", "two broken nails and a bruised ego",
         "whiplash — from your own SASS", "a boo-boo. A BIG boo-boo", "a concussion (or you're just like this)",
@@ -22412,6 +22415,7 @@
                      tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.0,
                      tammyGreet: randPick(TAMMY_GREET[tm]), tammyCare: randPick(TAMMY_CARE[tm]) };
         copChase = null; copBust = null; copStop = null;
+        erMusic = Math.random() < 0.5 ? "er1" : "er2";   // random ER song this visit
         playTone(880, 0.1, "sine", 0.06); setTimeout(function () { playTone(880, 0.1, "sine", 0.06); }, 700);
         state = "hospital";
         return true;
@@ -22550,62 +22554,190 @@
         }
     }
 
-    function drawHospital() {
-        // ── clinical room (bounded so it doesn't stretch on tall screens) ──
-        var erFloor = Math.min(H * 0.62, 470);
-        var bedY = erFloor - 96, bedX = W / 2 - 70, bedW = 150, bedH = 40;
+    // ── ER room pieces (depth + lighting, like the courtroom revamp) ──────
+    // Perspective vinyl floor: seams converge to a vanishing point + ceiling-
+    // light reflections streak toward the viewer.
+    function drawErPerspFloor(topY) {
+        var fg = ctx.createLinearGradient(0, topY, 0, H);
+        fg.addColorStop(0, "#C4D8D4"); fg.addColorStop(1, "#8AAEA9");
+        ctx.fillStyle = fg; ctx.fillRect(0, topY, W, H - topY);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, topY, W, H - topY); ctx.clip();
+        var vpx = W / 2, vpy = topY - 70;
+        ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1.5;
+        for (var bx = -W * 0.5; bx <= W * 1.5; bx += W / 9) { ctx.beginPath(); ctx.moveTo(vpx, vpy); ctx.lineTo(bx, H + 4); ctx.stroke(); }
+        ctx.strokeStyle = "rgba(0,0,0,0.07)";
+        var seams = [0.13, 0.30, 0.52, 0.78, 1.0];
+        for (var s = 0; s < seams.length; s++) { var yy = topY + (H - topY) * seams[s]; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); }
+        // glossy reflections under the two ceiling panels
+        ctx.fillStyle = "rgba(255,255,245,0.07)";
+        for (var r = 0; r < 2; r++) { var rx = W * (0.3 + r * 0.4); ctx.beginPath(); ctx.moveTo(rx - 12, topY); ctx.lineTo(rx + 12, topY); ctx.lineTo(rx + 44, H); ctx.lineTo(rx - 44, H); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+    }
+    // A ticking wall clock.
+    function drawErClock(cx, cy, r) {
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1;
+        for (var i = 0; i < 12; i++) { var a = i * Math.PI / 6; ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * (r - 2), cy + Math.sin(a) * (r - 2)); ctx.lineTo(cx + Math.cos(a) * (r - 4), cy + Math.sin(a) * (r - 4)); ctx.stroke(); }
+        var mn = gameTime * 0.12 - Math.PI / 2, sc = gameTime * 1.4 - Math.PI / 2;
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(mn) * r * 0.5, cy + Math.sin(mn) * r * 0.5); ctx.stroke();
+        ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(sc) * r * 0.8, cy + Math.sin(sc) * r * 0.8); ctx.stroke();
+        ctx.fillStyle = "#37474F"; ctx.beginPath(); ctx.arc(cx, cy, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+    // The whole clinical room: walls, ceiling lights+glow, floor, decor, monitor,
+    // IV pole (with a falling drip), and the privacy curtain.
+    function drawErRoom(erFloor, bedY) {
+        // — back wall: clinical mint + lower wainscot band + trim rail —
         var bg = ctx.createLinearGradient(0, 0, 0, erFloor);
-        bg.addColorStop(0, "#CFE7E4"); bg.addColorStop(1, "#A6C9C6");
+        bg.addColorStop(0, "#DCEEEB"); bg.addColorStop(0.62, "#C2E0DB"); bg.addColorStop(1, "#AAD0CB");
         ctx.fillStyle = bg; ctx.fillRect(0, 0, W, erFloor);
-        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < erFloor; ty += 30) ctx.fillRect(0, ty, W, 1.5);
-        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, erFloor, W, 5);
-        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, erFloor + 5, W, H);
-        // curtain rail + curtain on the right
-        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, erFloor - 76);
-        ctx.fillStyle = "rgba(120,180,200,0.35)";
-        for (var cu = 0; cu < 5; cu++) { roundRect(W * 0.64 + cu * 26, 74, 22, erFloor - 90, 6); ctx.fill(); }
+        var wainTop = erFloor - 64;
+        ctx.fillStyle = "#9FC4BF"; ctx.fillRect(0, wainTop, W, erFloor - wainTop);
+        ctx.fillStyle = "#6F9B96"; ctx.fillRect(0, wainTop - 4, W, 4);
+        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(0, wainTop, W, 1.5);
+        ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 1;
+        for (var ty = 34; ty < wainTop; ty += 36) { ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(W, ty); ctx.stroke(); }
 
-        // ── heart monitor ──
-        var mx = 24, my = 90, mw = 120, mh = 70;
-        ctx.fillStyle = "#263238"; roundRect(mx - 6, my - 6, mw + 12, mh + 20, 6); ctx.fill();
+        // — ceiling fluorescent panels + soft glow cones (subtle flicker) —
+        var flick = Math.sin(hospital.ekg * 37) > -0.85 ? 1 : 0.55;
+        for (var p = 0; p < 2; p++) {
+            var lx = W * (0.3 + p * 0.4), lw = 92;
+            var cone = ctx.createLinearGradient(0, 6, 0, erFloor);
+            cone.addColorStop(0, "rgba(255,255,240," + (0.22 * flick) + ")"); cone.addColorStop(1, "rgba(255,255,240,0)");
+            ctx.fillStyle = cone; ctx.beginPath();
+            ctx.moveTo(lx - lw / 2, 8); ctx.lineTo(lx + lw / 2, 8); ctx.lineTo(lx + lw, erFloor); ctx.lineTo(lx - lw, erFloor); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#CFD8DC"; roundRect(lx - lw / 2, 5, lw, 13, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,238," + flick + ")"; roundRect(lx - lw / 2 + 3, 7, lw - 6, 9, 2); ctx.fill();
+        }
+
+        // — back-wall decor —
+        // a glowing red-cross emblem behind the bed
+        ctx.save(); ctx.globalAlpha = 0.9; ctx.translate(W / 2, 120);
+        ctx.fillStyle = "#FFF"; roundRect(-26, -26, 52, 52, 10); ctx.fill();
+        ctx.strokeStyle = "#E0E0E0"; ctx.lineWidth = 2; roundRect(-26, -26, 52, 52, 10); ctx.stroke();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-7, -19, 14, 38); ctx.fillRect(-19, -7, 38, 14);
+        ctx.restore();
+        drawErClock(W * 0.86, 44, 17);                                            // wall clock (top-right)
+        // eye-chart poster (upper-left)
+        ctx.fillStyle = "#FFF"; roundRect(20, 30, 40, 50, 3); ctx.fill();
+        ctx.fillStyle = "#37474F";
+        var ech = ["E", "F P", "T O Z", "L P E D"];
+        for (var ei = 0; ei < ech.length; ei++) drawText(ech[ei], 40, 40 + ei * 11, "bold " + (10 - ei * 1.6) + "px Arial", "#37474F", null, 0);
+        // hand-sanitizer dispenser on the wall (right of center)
+        ctx.fillStyle = "#ECEFF1"; roundRect(W * 0.5 + 70, 150, 16, 26, 3); ctx.fill();
+        ctx.fillStyle = "#80CBC4"; roundRect(W * 0.5 + 72, 154, 12, 12, 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; roundRect(W * 0.5 + 75, 176, 6, 4, 1); ctx.fill();
+
+        // — perspective vinyl floor —
+        drawErPerspFloor(erFloor);
+        ctx.fillStyle = "#6F9B96"; ctx.fillRect(0, erFloor - 1, W, 3);
+
+        // — supply cabinet against the left wainscot —
+        ctx.fillStyle = "#CFD8DC"; roundRect(8, wainTop - 30, 56, erFloor - (wainTop - 30) - 2, 3); ctx.fill();
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(36, wainTop - 28); ctx.lineTo(36, erFloor - 4); ctx.stroke();
+        for (var sh = wainTop - 14; sh < erFloor - 6; sh += 16) { ctx.beginPath(); ctx.moveTo(10, sh); ctx.lineTo(62, sh); ctx.stroke(); }
+        ctx.fillStyle = "#90A4AE"; ctx.fillRect(30, wainTop - 18, 3, 6); ctx.fillRect(39, wainTop - 18, 3, 6);
+
+        // — privacy curtain (right), gently swaying —
+        ctx.fillStyle = "#90A4AE"; ctx.fillRect(W * 0.66, 64, W * 0.34, 5);          // rail
+        for (var cu = 0; cu < 6; cu++) {
+            var sway = Math.sin(gameTime * 1.1 + cu * 0.6) * 2;
+            ctx.fillStyle = cu % 2 ? "rgba(150,200,210,0.40)" : "rgba(120,180,200,0.34)";
+            roundRect(W * 0.67 + cu * 24 + sway, 70, 21, erFloor - 78, 5); ctx.fill();
+        }
+
+        // — heart monitor on a rolling stand (left) —
+        var mx = 22, my = 92, mw = 116, mh = 64;
+        ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(mx + mw / 2, my + mh + 14); ctx.lineTo(mx + mw / 2, erFloor - 12); ctx.stroke();
+        ctx.fillStyle = "#263238"; roundRect(mx - 6, my - 6, mw + 12, mh + 22, 7); ctx.fill();
         ctx.fillStyle = "#0A140F"; roundRect(mx, my, mw, mh, 3); ctx.fill();
         ctx.strokeStyle = "#39FF7A"; ctx.lineWidth = 2; ctx.beginPath();
-        for (var sx = 0; sx <= mw; sx += 4) {
-            var t = (sx / mw) * 6 + hospital.ekg * 4, beat = (t % 6);
-            var sy = my + mh / 2 - (beat > 2.6 && beat < 3.2 ? Math.sin((beat - 2.6) / 0.6 * Math.PI) * 22 : 0);
-            if (sx === 0) ctx.moveTo(mx + sx, sy); else ctx.lineTo(mx + sx, sy);
+        for (var ssx = 0; ssx <= mw; ssx += 4) {
+            var t = (ssx / mw) * 6 + hospital.ekg * 4, beat = (t % 6);
+            var sy = my + mh / 2 - (beat > 2.6 && beat < 3.2 ? Math.sin((beat - 2.6) / 0.6 * Math.PI) * 20 : 0);
+            if (ssx === 0) ctx.moveTo(mx + ssx, sy); else ctx.lineTo(mx + ssx, sy);
         }
         ctx.stroke();
         drawText((Math.sin(hospital.ekg * 6) > 0 ? "♥ " : "  ") + (78 + Math.floor(Math.sin(hospital.ekg) * 6)) + " BPM",
-            mx + mw / 2, my + mh + 6, "bold 10px 'Segoe UI', Arial, sans-serif", "#39FF7A", "#000", 2);
+            mx + mw - 4, my + mh - 6, "bold 11px 'Segoe UI', Arial, sans-serif", "#39FF7A", "#000", 2, "right");
 
-        // ── IV pole ──
-        var ivx = W - 54;
-        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, erFloor - 20); ctx.stroke();
-        ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
-        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, bedY); ctx.stroke();
+        // — IV pole (right) with a falling drip —
+        var ivx = W - 40;
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 72); ctx.lineTo(ivx, erFloor - 10); ctx.stroke();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.moveTo(ivx - 10, 72); ctx.lineTo(ivx + 10, 72); ctx.lineTo(ivx, 64); ctx.closePath(); ctx.fill();   // hook
+        ctx.fillStyle = "rgba(255,205,210,0.92)"; roundRect(ivx - 9, 82, 18, 30, 5); ctx.fill();   // saline bag
+        ctx.fillStyle = "#EF9A9A"; roundRect(ivx - 9, 82, 18, 30 * 0.4, 5); ctx.fill();
+        ctx.fillStyle = "#FFF"; roundRect(ivx - 4, 112, 8, 7, 1); ctx.fill();                          // drip chamber
+        var drop = (gameTime % 1.1) / 1.1;                                                            // a drop falling down the line
+        ctx.fillStyle = "#EF9A9A"; ctx.beginPath(); ctx.arc(ivx, 119 + drop * 10, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(ivx, 130); ctx.lineTo(W / 2 + 36, bedY + 2); ctx.stroke();
+    }
+
+    // A proper rolling hospital bed with Lulu tucked in (breathing, bandaged).
+    function drawErBed(bedX, bedY, bedW, bedH) {
+        ctx.fillStyle = "rgba(0,0,0,0.13)"; ctx.beginPath(); ctx.ellipse(bedX + bedW / 2, bedY + bedH + 36, bedW * 0.56, 9, 0, 0, Math.PI * 2); ctx.fill();
+        // legs + wheels
+        ctx.fillStyle = "#90A4AE"; roundRect(bedX + 4, bedY + bedH + 4, 6, 30, 2); ctx.fill(); roundRect(bedX + bedW - 10, bedY + bedH + 4, 6, 30, 2); ctx.fill();
+        ctx.fillStyle = "#37474F"; ctx.beginPath(); ctx.arc(bedX + 7, bedY + bedH + 35, 5, 0, Math.PI * 2); ctx.arc(bedX + bedW - 7, bedY + bedH + 35, 5, 0, Math.PI * 2); ctx.fill();
+        // headboard (left end)
+        ctx.fillStyle = "#B0BEC5"; roundRect(bedX - 12, bedY - 14, 9, bedH + 22, 3); ctx.fill();
+        // frame + mattress
+        ctx.fillStyle = "#CFD8DC"; roundRect(bedX - 5, bedY + bedH - 7, bedW + 10, 13, 3); ctx.fill();
+        ctx.fillStyle = "#F2F5F6"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();
+        // blanket (gradient) tucked from mid-bed down
+        var bl = ctx.createLinearGradient(0, bedY - 4, 0, bedY + bedH); bl.addColorStop(0, "#90CAF9"); bl.addColorStop(1, "#5AA0E8");
+        ctx.fillStyle = bl; roundRect(bedX + 44, bedY - 4, bedW - 48, 26, 6); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(bedX + 44, bedY - 2, bedW - 48, 2);
+        // pillow
+        ctx.fillStyle = "#FFF"; roundRect(bedX + 2, bedY - 8, 40, 26, 8); ctx.fill();
+        // front safety rail
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 2.5; roundRect(bedX + 34, bedY + bedH - 1, bedW - 44, 13, 4); ctx.stroke();
+        // hanging chart clipboard on the foot rail
+        ctx.save(); ctx.translate(bedX + bedW + 2, bedY + bedH + 4); ctx.rotate(0.1);
+        ctx.fillStyle = "#8D6E63"; roundRect(-7, 0, 15, 19, 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; roundRect(-5, 2, 11, 14, 1); ctx.fill();
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 0.7; for (var cl = 5; cl < 15; cl += 3) { ctx.beginPath(); ctx.moveTo(-3, cl); ctx.lineTo(4, cl); ctx.stroke(); }
+        ctx.restore();
+        // Lulu: head on the pillow, gentle breathing bob, head bandage, dizzy eyes
+        var br = Math.sin(gameTime * 2) * 0.7, hx = bedX + 23, hy = bedY + 5 + br;
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(hx, hy, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(hx, hy, 9.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(hx, hy - 3, 9.6, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; ctx.save(); ctx.translate(hx - 1, hy - 6); ctx.rotate(-0.35); ctx.fillRect(-8, -2, 16, 4); ctx.restore();   // bandage wrap
+        ctx.fillStyle = "#E53935"; ctx.fillRect(hx + 5, hy - 9, 2.4, 2.4);                                                                  // tiny cross
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1; ctx.beginPath();                                                                    // woozy closed eyes
+        ctx.arc(hx - 3, hy + 1, 1.7, 0.12 * Math.PI, 0.88 * Math.PI); ctx.arc(hx + 3, hy + 1, 1.7, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke();
+        ctx.fillStyle = "rgba(255,140,140,0.55)"; ctx.beginPath(); ctx.arc(hx - 5, hy + 5, 1.7, 0, Math.PI * 2); ctx.arc(hx + 5, hy + 5, 1.7, 0, Math.PI * 2); ctx.fill();
+        // an arm in a sling resting on the blanket
+        ctx.fillStyle = "#FFF"; ctx.save(); ctx.translate(hx + 34, hy + 12); ctx.rotate(0.22); roundRect(-5, -4, 26, 9, 4); ctx.fill();
+        ctx.strokeStyle = "#E0E0E0"; ctx.lineWidth = 1; roundRect(-5, -4, 26, 9, 4); ctx.stroke(); ctx.restore();
+    }
+
+    function drawHospital() {
+        // ── high-quality clinical ER room (bounded so it doesn't stretch tall) ──
+        var erFloor = Math.min(H * 0.62, 470);
+        var bedY = erFloor - 96, bedX = W / 2 - 70, bedW = 150, bedH = 40;
+        drawErRoom(erFloor, bedY);
+        // a soft warm spotlight pools on the bed (focus, like the courtroom)
+        var pool = ctx.createRadialGradient(bedX + bedW / 2, bedY + 8, 12, bedX + bedW / 2, bedY + 8, 150);
+        pool.addColorStop(0, "rgba(255,250,228,0.22)"); pool.addColorStop(1, "rgba(255,250,228,0)");
+        ctx.fillStyle = pool; ctx.beginPath(); ctx.ellipse(bedX + bedW / 2, bedY + 14, 132, 92, 0, 0, Math.PI * 2); ctx.fill();
 
       if (hospital.phase >= 4 && hospital.phase <= 6) {
         // she's not in bed anymore — she's making a break for it
         drawErEscape(erFloor);
       } else {
-        // ── bed + Lulu lying down ──
-        ctx.fillStyle = "#455A64"; roundRect(bedX - 6, bedY + bedH, 8, 34, 2); ctx.fill(); roundRect(bedX + bedW - 2, bedY + bedH, 8, 34, 2); ctx.fill();
-        ctx.fillStyle = "#ECEFF1"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();      // mattress
-        ctx.fillStyle = "#90CAF9"; roundRect(bedX + 34, bedY - 4, bedW - 38, 22, 6); ctx.fill(); // blanket
-        ctx.fillStyle = "#FFF"; roundRect(bedX + 4, bedY - 6, 34, 22, 6); ctx.fill();     // pillow
-        // Lulu's head on the pillow + a little bandage
-        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 4, 11, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 4, 9.4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 1, 9.6, Math.PI, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#FFF"; ctx.save(); ctx.translate(bedX + 18, bedY - 2); ctx.rotate(-0.4); ctx.fillRect(-5, -1.5, 10, 3); ctx.restore(); // bandage
-        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 19, bedY + 4, 1, 0, Math.PI * 2); ctx.arc(bedX + 25, bedY + 4, 1, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(bedX + 16, bedY + 7, 1.6, 0, Math.PI * 2); ctx.arc(bedX + 28, bedY + 7, 1.6, 0, Math.PI * 2); ctx.fill();
-
+        drawErBed(bedX, bedY, bedW, bedH);
         // ── the doctor (right) + Nurse Tammy, Lulu's sister (left) at the bedside ──
-        drawDoctor(W / 2 + 70, bedY - 6, gameTime, hospital.phase === 1);
-        drawNurse(W / 2 - 70, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3);
+        drawDoctor(W / 2 + 72, bedY - 6, gameTime, hospital.phase === 1);
+        drawNurse(W / 2 - 74, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3);
       }
+
+        // soft vignette to frame the lit scene
+        var vg = ctx.createRadialGradient(W / 2, erFloor * 0.6, 80, W / 2, H * 0.5, H * 0.7);
+        vg.addColorStop(0, "rgba(10,30,28,0)"); vg.addColorStop(1, "rgba(10,30,28,0.32)");
+        ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
         // title
         drawText("🏥 THE ER", W / 2, 34, "bold 26px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 4);
@@ -22628,7 +22760,7 @@
             for (var i = 0; i < hospital.options.length; i++) {
                 var r = hospOptRect(i), opt = hospital.options[i];
                 var pBill = Math.round(40 * opt.billMul);
-                drawButton(r.x, r.y, r.w, r.h, opt.label + (opt.dash ? "  (free — RISKY!)" : "  (~★" + pBill + ")"),
+                drawButton(r.x, r.y, r.w, r.h, opt.label + (opt.dash ? "  (free — RISKY!)" : "  (~💰" + pBill + ")"),
                     { bg: opt.dash ? "#EF6C00" : "#00897B", bgDark: opt.dash ? "#BF360C" : "#004D40", small: true });
             }
         } else if (hospital.phase === 3) {
@@ -22971,7 +23103,8 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "hospital" || state === "footRun" || state === "footInterior") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+        else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
         else if (state === "jailCell" || state === "courtroom" || state === "arrest") musicTrack = "prison";   // arrest / jail / court / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
