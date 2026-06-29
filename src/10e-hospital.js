@@ -14,19 +14,25 @@
         "road rash and a wounded reputation", "one (1) ouchie, doctor's note attached", "a fractured sense of caution"];
     var DOC_GREET = ["You're awake! Don't sue us.", "Well well. The famous Lulu.", "BP's high, attitude's higher.",
         "Welcome back to the land of the living.", "You flatlined your DIGNITY, mostly."];
-    // [label, billMul, resultLine, extraLife]
+    var DOC_REPEAT = ["You AGAIN?! We should charge rent.", "Back so soon? I kept your bed warm.",
+        "Lulu. Of COURSE it's Lulu.", "Third gown this WEEK, young lady.", "Frequent-flyer miles don't cover THIS."];
     var HOSP_OPTIONS = [
         { label: "🩹 Just patch me up", billMul: 1.0, extra: false, say: "Band-aid, a lollipop, you're golden. Try the BRAKES next time." },
         { label: "💊 The GOOD stuff, doc!", billMul: 2.0, extra: true, say: "Premium care! Extra heart on the house. Wheee~ 💕" },
-        { label: "🏃 Skip the bill — RUN!", billMul: 0, extra: false, say: "HEY! Get back here with that gown— ...and she's gone. 🏃", dash: true }
+        { label: "🏃 Skip the bill — RUN!", billMul: 0, extra: false, dash: true }
     ];
+    // What the doctor says when she bolts — and whether security nabs her.
+    var DASH_CLEAN = ["...and she's GONE. Little gonif. 🏃💨", "...vanished. In a HOSPITAL GOWN. Iconic.", "Security was on break. Lucky girl."];
+    var DASH_CAUGHT = ["Oh no you DON'T! SECURITY! 🚨", "Grab her — that gown is PROPERTY!", "Nice try. Guard's faster than you. 🚓"];
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
+        save.erVisits = (save.erVisits || 0) + 1; persistSave();
+        var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
         hospital = { phase: 0, t: 0, typeT: 0, reason: reason || "crash",
-                     diagnosis: randPick(DIAGNOSES), greet: randPick(DOC_GREET),
+                     diagnosis: randPick(DIAGNOSES), greet: greet,
                      options: HOSP_OPTIONS, choice: -1, bill: 0, applied: false, ekg: 0, line: null,
-                     lines: null, li: 0 };
+                     caught: false, lines: null, li: 0 };
         copChase = null; copBust = null; copStop = null;
         playTone(880, 0.1, "sine", 0.06); setTimeout(function () { playTone(880, 0.1, "sine", 0.06); }, 700);
         state = "hospital";
@@ -63,8 +69,15 @@
                     var opt = hospital.options[i];
                     hospital.choice = i; hospital.phase = 3; hospital.t = 0; hospital.typeT = 0;
                     hospital.bill = Math.round(rand(25, 55) * opt.billMul);
-                    hospital.line = opt.say;
-                    playTone(opt.dash ? 300 : 660, 0.06, "sine", 0.1);
+                    if (opt.dash) {
+                        // ~55% chance security nabs the bill-skipper → off to jail.
+                        hospital.caught = Math.random() < 0.55;
+                        hospital.line = hospital.caught ? randPick(DASH_CAUGHT) : randPick(DASH_CLEAN);
+                        playTone(hospital.caught ? 200 : 520, 0.08, "square", 0.12);
+                    } else {
+                        hospital.line = opt.say;
+                        playTone(660, 0.06, "sine", 0.1);
+                    }
                     return;
                 }
             }
@@ -82,10 +95,16 @@
             }
             if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
-                var dash = hospital.options[hospital.choice].dash;
+                var dash = hospital.options[hospital.choice].dash, caught = hospital.caught;
                 hospital = null;
+                // Caught skipping the bill → straight into the arrest cinematic → jail.
+                if (dash && caught) {
+                    if (typeof beginArrest === "function") beginArrest(["SKIPPING A MEDICAL BILL", "GIVING A NURSE LIP"]);
+                    else if (typeof returnToDriving === "function") returnToDriving();
+                    return;
+                }
                 if (typeof returnToDriving === "function") returnToDriving();
-                spawnFloater(player.x, player.y - 50, dash ? "🏃 Skipped the bill!" : "🩹 Patched up — drive safe!", "#7CFC4F");
+                spawnFloater(player.x, player.y - 50, dash ? "🏃 Got away with it!" : "🩹 Patched up — drive safe!", "#7CFC4F");
             }
         }
     }
@@ -157,7 +176,7 @@
             for (var i = 0; i < hospital.options.length; i++) {
                 var r = hospOptRect(i), opt = hospital.options[i];
                 var pBill = Math.round(40 * opt.billMul);
-                drawButton(r.x, r.y, r.w, r.h, opt.label + (opt.billMul > 0 ? "  (~★" + pBill + ")" : "  (free!)"),
+                drawButton(r.x, r.y, r.w, r.h, opt.label + (opt.dash ? "  (free — RISKY!)" : "  (~★" + pBill + ")"),
                     { bg: opt.dash ? "#EF6C00" : "#00897B", bgDark: opt.dash ? "#BF360C" : "#004D40", small: true });
             }
         } else if (hospital.phase === 3) {

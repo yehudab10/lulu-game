@@ -59,6 +59,7 @@
             footRunHigh: 0,    // furthest fraction of the walk to Bubbe's ever reached
             convictions: 0,    // guilty verdicts → strike system (3rd strike = real jail)
             offenses: 0,       // times booked → rising bail
+            erVisits: 0,       // trips to the ER → "frequent flyer" gag
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }

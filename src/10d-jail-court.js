@@ -845,7 +845,7 @@
     // The police chopper + tracking spotlight (drawn over the road at 5★).
     function drawFugChopper() {
         if (!prisonClothes || wantedLevel() < 5) return;
-        var cx = fugChopperX || player.x, cy = SAFE_TOP + 36, px = player.x, py = player.y;
+        var cx = fugChopperX || player.x, cy = H * 0.2 + Math.sin(gameTime * 2) * 6, px = player.x, py = player.y;
         var sg = ctx.createLinearGradient(cx, cy, px, py);
         sg.addColorStop(0, "rgba(255,245,150,0.38)"); sg.addColorStop(1, "rgba(255,245,150,0.05)");
         ctx.fillStyle = sg;
