@@ -19372,50 +19372,119 @@
 
     function drawDinaNap() {
         var tucked = dinaNapTucked;
-        // Dusk deepens only once she's actually tucked in
+        // Night deepens only once she's actually tucked in
         var t = tucked ? clamp(dinaNapTuckTime / 3.2, 0, 1) : 0;
         // gentle breathing factor (slower & deeper once asleep)
         var breath = Math.sin(dinaRunTimer * (tucked ? 1.6 : 2.4)) * (tucked ? 3 : 2);
-        ctx.fillStyle = "#FFE8C8";
-        ctx.fillRect(0, 0, W, H);
-        // Dim overlay
-        ctx.fillStyle = "rgba(40, 25, 80, " + (t * 0.55) + ")";
-        ctx.fillRect(0, 0, W, H);
-        // Bed in middle of screen
-        ctx.fillStyle = "#5D4037";
-        roundRect(W / 2 - 160, H / 2 - 80, 320, 180, 14); ctx.fill();
-        ctx.fillStyle = "#F4A4B8";
-        roundRect(W / 2 - 150, H / 2 - 70, 300, 160, 10); ctx.fill();
-        ctx.fillStyle = "#FFFFFF";
-        roundRect(W / 2 - 120, H / 2 - 60, 240, 40, 8); ctx.fill();
-        // Blanket — sits low before tuck-in, pulled up snug after; gentle breathing rise.
-        // Bottom edge is fixed at H/2+80; the top edge moves so it never overshoots the bed.
-        var blanketBottom = H / 2 + 80;
-        var blanketTop = tucked ? (H / 2 - 20 - breath) : (H / 2 + 4);
-        ctx.fillStyle = "#B8E0D2";
-        roundRect(W / 2 - 100, blanketTop, 200, blanketBottom - blanketTop, 8); ctx.fill();
-        // Dina's head poking out (rises/falls subtly with breath)
-        var headY = H / 2 - 35 + breath * 0.35;
-        ctx.fillStyle = "#FFE0CC";
-        ctx.beginPath(); ctx.arc(W / 2, headY, 22, 0, Math.PI * 2); ctx.fill();
-        // Hair
-        ctx.fillStyle = "#6B4423";
-        ctx.beginPath();
-        ctx.arc(W / 2, headY - 10, 24, Math.PI, Math.PI * 2);
-        ctx.fill();
-        // Sleeping eyes (closed arcs)
-        ctx.strokeStyle = "#3D2817";
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(W / 2 - 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.arc(W / 2 + 7, headY, 4, 1.1 * Math.PI, 1.9 * Math.PI);
-        ctx.stroke();
-        // Tiny smile
-        ctx.strokeStyle = "#A0394D";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(W / 2, headY + 7, 4, 0.15 * Math.PI, 0.85 * Math.PI);
-        ctx.stroke();
+        var floorY = H * 0.6;
+
+        // ── bedroom wall: warm by day, deepening to night-blue as she drifts off ──
+        var wg = ctx.createLinearGradient(0, 0, 0, floorY);
+        wg.addColorStop(0, "#F4D8AE"); wg.addColorStop(1, "#E6C193");
+        ctx.fillStyle = wg; ctx.fillRect(0, 0, W, floorY);
+        ctx.globalAlpha = t * 0.7;
+        var ng = ctx.createLinearGradient(0, 0, 0, floorY);
+        ng.addColorStop(0, "#171645"); ng.addColorStop(1, "#2C2A5C");
+        ctx.fillStyle = ng; ctx.fillRect(0, 0, W, floorY);
+        ctx.globalAlpha = 1;
+        // soft polka-dot wallpaper
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        for (var py = 24; py < floorY - 10; py += 46) for (var px = 24 + ((py / 46 | 0) % 2) * 23; px < W; px += 46) { ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.fill(); }
+        // corner shadows for depth
+        var csL = ctx.createLinearGradient(0, 0, W * 0.16, 0); csL.addColorStop(0, "rgba(0,0,0,0.2)"); csL.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = csL; ctx.fillRect(0, 0, W * 0.16, floorY);
+        var csR = ctx.createLinearGradient(W, 0, W * 0.84, 0); csR.addColorStop(0, "rgba(0,0,0,0.2)"); csR.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = csR; ctx.fillRect(W * 0.84, 0, W * 0.16, floorY);
+
+        // ── window (back wall, upper-right) — night sky, crescent moon, stars ──
+        var winX = W * 0.62, winY = 54, winW = W * 0.28, winH = floorY * 0.52;
+        ctx.fillStyle = "#6D4C41"; roundRect(winX - 7, winY - 7, winW + 14, winH + 14, 6); ctx.fill();
+        ctx.save(); roundRect(winX, winY, winW, winH, 3); ctx.clip();
+        var sky = ctx.createLinearGradient(0, winY, 0, winY + winH);
+        sky.addColorStop(0, "#10164A"); sky.addColorStop(1, "#3C3C72");
+        ctx.fillStyle = sky; ctx.fillRect(winX, winY, winW, winH);
+        for (var sti = 0; sti < 12; sti++) {
+            var stx = winX + ((sti * 53 + 17) % (winW - 8)) + 4, sty = winY + ((sti * 37 + 11) % (winH - 30)) + 6;
+            ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(dinaRunTimer * 1.5 + sti));
+            ctx.fillStyle = "#FFF8E1"; ctx.beginPath(); ctx.arc(stx, sty, sti % 3 ? 1 : 1.6, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#FFF3C4"; ctx.beginPath(); ctx.arc(winX + winW * 0.72, winY + winH * 0.3, 15, 0, Math.PI * 2); ctx.fill();   // moon
+        ctx.fillStyle = "#27275A"; ctx.beginPath(); ctx.arc(winX + winW * 0.63, winY + winH * 0.25, 14, 0, Math.PI * 2); ctx.fill();   // crescent cut
+        ctx.fillStyle = "#23204E"; ctx.beginPath(); ctx.moveTo(winX, winY + winH); ctx.quadraticCurveTo(winX + winW * 0.5, winY + winH * 0.7, winX + winW, winY + winH); ctx.closePath(); ctx.fill();  // distant hill
+        ctx.restore();
+        ctx.strokeStyle = "#6D4C41"; ctx.lineWidth = 3;   // muntins
+        ctx.beginPath(); ctx.moveTo(winX + winW / 2, winY); ctx.lineTo(winX + winW / 2, winY + winH); ctx.moveTo(winX, winY + winH / 2); ctx.lineTo(winX + winW, winY + winH / 2); ctx.stroke();
+        // moonbeam spilling onto the floor (brighter as night deepens)
+        ctx.fillStyle = "rgba(214,226,255," + (0.08 + t * 0.12) + ")";
+        ctx.beginPath(); ctx.moveTo(winX + 6, winY + winH); ctx.lineTo(winX + winW - 6, winY + winH); ctx.lineTo(W * 0.72, H); ctx.lineTo(W * 0.16, H); ctx.closePath(); ctx.fill();
+
+        // ── wood floor + rug ──
+        var fg = ctx.createLinearGradient(0, floorY, 0, H);
+        fg.addColorStop(0, "#9B7A68"); fg.addColorStop(1, "#74564A");
+        ctx.fillStyle = fg; ctx.fillRect(0, floorY, W, H - floorY);
+        ctx.globalAlpha = t * 0.55; ctx.fillStyle = "#211B3C"; ctx.fillRect(0, floorY, W, H - floorY); ctx.globalAlpha = 1;
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(0, floorY - 3, W, 6);   // baseboard
+        ctx.strokeStyle = "rgba(0,0,0,0.10)"; ctx.lineWidth = 1;
+        for (var pl = 40; pl < W; pl += 64) { ctx.beginPath(); ctx.moveTo(pl, floorY); ctx.lineTo(pl + (pl - W / 2) * 0.12, H); ctx.stroke(); }
+        ctx.fillStyle = "rgba(196,120,150,0.30)"; ctx.beginPath(); ctx.ellipse(W / 2, floorY + (H - floorY) * 0.48, W * 0.33, (H - floorY) * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── nightstand + lamp (left) — warm glow before sleep, dims after ──
+        var nsX = W * 0.1, nsTop = floorY - 30;
+        ctx.fillStyle = "#7B5A48"; roundRect(nsX, nsTop, 56, floorY - nsTop + 28, 4); ctx.fill();
+        ctx.fillStyle = "#6B4C3C"; ctx.fillRect(nsX, nsTop + 22, 56, 3);
+        var lampGlow = (1 - t) * 0.9 + 0.1;
+        ctx.fillStyle = "rgba(255,224,130," + (lampGlow * 0.5) + ")"; ctx.beginPath(); ctx.arc(nsX + 28, nsTop - 16, 40, 0, Math.PI * 2); ctx.fill();   // lamp halo
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(nsX + 26, nsTop - 18, 4, 14);   // lamp stem
+        ctx.fillStyle = tucked ? "#9E8A6A" : "#FFE082"; ctx.beginPath(); ctx.moveTo(nsX + 18, nsTop - 18); ctx.lineTo(nsX + 38, nsTop - 18); ctx.lineTo(nsX + 34, nsTop - 32); ctx.lineTo(nsX + 22, nsTop - 32); ctx.closePath(); ctx.fill();   // lampshade
+
+        // ── toy chest (right) ──
+        var tcX = W * 0.82;
+        ctx.fillStyle = "#9575CD"; roundRect(tcX, floorY - 38, 64, floorY - (floorY - 38) + 32, 5); ctx.fill();
+        ctx.fillStyle = "#7E57C2"; roundRect(tcX, floorY - 38, 64, 12, 5); ctx.fill();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(tcX + 32, floorY - 26, 3, 0, Math.PI * 2); ctx.fill();
+        drawText("🧸", tcX + 16, floorY - 48, "16px Arial", "#000", null, 0); drawText("🪀", tcX + 46, floorY - 46, "13px Arial", "#000", null, 0);
+
+        // ── the bed (headboard, frame, mattress, pillow, blanket, Dina) ──
+        var bedX = W / 2 - 140, bedW = 280, bedTop = floorY - 36, bedBot = H - 40;
+        ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.beginPath(); ctx.ellipse(W / 2, bedBot + 6, bedW * 0.52, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6D4C41"; roundRect(bedX - 12, bedTop - 56, 26, bedBot - bedTop + 56, 6); ctx.fill();   // headboard (left)
+        ctx.fillStyle = "#5D4037"; roundRect(bedX - 9, bedTop - 50, 20, 30, 4); ctx.fill();
+        ctx.fillStyle = "#8D6E63"; roundRect(bedX, bedTop, bedW, bedBot - bedTop, 8); ctx.fill();   // frame
+        ctx.fillStyle = "#FFF6FA"; roundRect(bedX + 6, bedTop + 4, bedW - 12, 36, 6); ctx.fill();    // mattress sheet
+        // pillow (near headboard, top)
+        ctx.fillStyle = "#FFFFFF"; roundRect(bedX + 10, bedTop - 6, 52, 34, 9); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.05)"; roundRect(bedX + 14, bedTop + 6, 44, 6, 3); ctx.fill();
+        // Dina's head on the pillow (breathing)
+        var headX = bedX + 36, headY = bedTop + 8 + breath * 0.4;
+        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(headX, headY, 17, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6B4423"; ctx.beginPath(); ctx.arc(headX, headY - 7, 18, Math.PI, Math.PI * 2); ctx.fill();   // hair
+        ctx.beginPath(); ctx.ellipse(headX + 16, headY + 2, 5, 11, 0.3, 0, Math.PI * 2); ctx.fill();                    // ponytail
+        ctx.fillStyle = "#FF4FA3"; ctx.beginPath(); ctx.arc(headX - 8, headY - 12, 3, 0, Math.PI * 2); ctx.fill();      // bow
+        ctx.strokeStyle = "#3D2817"; ctx.lineWidth = 2; ctx.beginPath();                                                // sleepy eyes
+        ctx.arc(headX - 5, headY, 3, 1.1 * Math.PI, 1.9 * Math.PI); ctx.arc(headX + 5, headY, 3, 1.1 * Math.PI, 1.9 * Math.PI); ctx.stroke();
+        ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(headX - 9, headY + 5, 2.4, 0, Math.PI * 2); ctx.arc(headX + 9, headY + 5, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(headX, headY + 6, 3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        // blanket — low before tuck-in, pulled snug to her chin after; folds + breathing
+        var blanketLeft = bedX + 52;
+        var blanketTopY = tucked ? (headY + 6 - breath) : (bedTop + 22);
+        var bgrad = ctx.createLinearGradient(0, blanketTopY, 0, bedBot); bgrad.addColorStop(0, "#A8DAC8"); bgrad.addColorStop(1, "#7FBBA6");
+        ctx.fillStyle = bgrad; roundRect(blanketLeft, blanketTopY, bedX + bedW - blanketLeft - 6, bedBot - blanketTopY - 4, 8); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.07)"; ctx.lineWidth = 2;   // fold lines
+        for (var fl = blanketLeft + 30; fl < bedX + bedW - 20; fl += 40) { ctx.beginPath(); ctx.moveTo(fl, blanketTopY + 6); ctx.lineTo(fl - 6, bedBot - 10); ctx.stroke(); }
+        ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(blanketLeft, blanketTopY + 2, bedX + bedW - blanketLeft - 6, 2);   // top hem
+        // Morgan the plushie tucked beside her
+        ctx.fillStyle = "#9E9E9E"; ctx.beginPath(); ctx.arc(bedX + 70, headY + 4, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bedX + 65, headY - 4, 3, 0, Math.PI * 2); ctx.arc(bedX + 75, headY - 4, 3, 0, Math.PI * 2); ctx.fill();   // ears
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 67, headY + 3, 1, 0, Math.PI * 2); ctx.arc(bedX + 73, headY + 3, 1, 0, Math.PI * 2); ctx.fill();
+
+        // ── moonlight spotlight on Dina once she's asleep ──
+        if (tucked) {
+            var sp = ctx.createRadialGradient(headX, headY, 6, headX, headY, 90);
+            sp.addColorStop(0, "rgba(220,230,255," + (t * 0.16) + ")"); sp.addColorStop(1, "rgba(220,230,255,0)");
+            ctx.fillStyle = sp; ctx.beginPath(); ctx.arc(headX, headY, 90, 0, Math.PI * 2); ctx.fill();
+        }
+
         // Floating Z's (only once she's actually asleep)
         if (tucked) {
             for (var zi = 0; zi < 3; zi++) {
@@ -19424,16 +19493,11 @@
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, alpha);
                 ctx.fillStyle = "#FFFFFF";
-                ctx.font = "bold " + (20 + zi * 6) + "px Arial";
+                ctx.font = "bold " + (18 + zi * 6) + "px Arial";
                 ctx.textAlign = "left";
-                ctx.fillText("Z", W / 2 + 20 + zi * 20, headY - 35 - zt * 50);
+                ctx.fillText("Z", headX + 22 + zi * 18, headY - 24 - zt * 46);
                 ctx.restore();
             }
-        }
-        // Floating moon/stars
-        ctx.fillStyle = "#FFEE58";
-        for (var sti = 0; sti < 6; sti++) {
-            ctx.fillText("★", (sti * 87 + 47) % W, 50 + (sti % 3) * 30);
         }
 
         // Beat 1 prompt — invite the player to tuck Dina in
