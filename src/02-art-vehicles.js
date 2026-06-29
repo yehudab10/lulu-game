@@ -1074,7 +1074,7 @@
     }
 
     // ── Drawing: Angry Man + Speech Bubble ───────────────────
-    function drawAngryMan(x, y, time, state, runDir, cop, mood, hair) {
+    function drawAngryMan(x, y, time, state, runDir, cop, mood, hair, type) {
         ctx.save();
         ctx.translate(x, y);
         // The driver who climbs out isn't always a grumpy grandpa: `mood` is
@@ -1088,8 +1088,8 @@
 
         // A cop variant (when the wreck was a police cruiser): navy uniform,
         // peaked cap + badge instead of grandpa plaid + wild white hair.
-        var shirtDark = cop ? "#0D1B5E" : "#8B0000";
-        var shirtMain = cop ? "#1A237E" : "#B71C1C";
+        var shirtDark = cop ? "#0D1B5E" : (type && type.shirtDark) || "#8B0000";
+        var shirtMain = cop ? "#1A237E" : (type && type.shirt) || "#B71C1C";
 
         // Shadow
         ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -1129,8 +1129,8 @@
             ctx.fillStyle = shirtDark;
             ctx.beginPath(); ctx.moveTo(-3, -7); ctx.lineTo(0, -4); ctx.lineTo(-1, -7); ctx.fill();
             ctx.beginPath(); ctx.moveTo(3, -7); ctx.lineTo(0, -4); ctx.lineTo(1, -7); ctx.fill();
-        } else {
-            // shirt lines (plaid)
+        } else if (!type || type.hair === "grandpa") {
+            // shirt lines (plaid) — the classic grumpy-grandpa flannel
             ctx.strokeStyle = "rgba(0,0,0,0.3)";
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -1139,6 +1139,11 @@
             ctx.moveTo(-10, -2); ctx.lineTo(10, -2);
             ctx.moveTo(-10, 4); ctx.lineTo(10, 4);
             ctx.stroke();
+        } else {
+            // collared shirt with a button placket; a tie for the suit types
+            ctx.fillStyle = "rgba(255,255,255,0.85)"; roundRect(-3, -7, 6, 5, 1); ctx.fill();   // open collar
+            if (type.tie) { ctx.fillStyle = type.tie; ctx.beginPath(); ctx.moveTo(-1.6, -5); ctx.lineTo(1.6, -5); ctx.lineTo(1, 8); ctx.lineTo(-1, 8); ctx.closePath(); ctx.fill(); }
+            else { ctx.strokeStyle = "rgba(0,0,0,0.22)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 9); ctx.stroke(); }
         }
 
         // Arms (one raised when yelling)
@@ -1233,6 +1238,23 @@
         ctx.ellipse(-7, -15, 2.6, 6, -0.3, 0, Math.PI * 2);
         ctx.ellipse(7, -15, 2.6, 6, 0.3, 0, Math.PI * 2);
         ctx.fill();
+        }
+        // ── type headwear (over the hair) ──
+        if (!cop && type) {
+            if (type.cap) {                                  // baseball cap, brim forward
+                ctx.fillStyle = type.cap; ctx.beginPath(); ctx.ellipse(0, -21, 8.4, 5, 0, Math.PI, 0); ctx.fill();
+                ctx.fillRect(-8.4, -21, 16.8, 2.5);
+                ctx.fillStyle = shadeColor(type.cap, -18); roundRect(runDir >= 0 ? 4 : -16, -21.5, 12, 3.5, 2); ctx.fill();
+                ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(0, -22, 1.4, 0, Math.PI * 2); ctx.fill();
+            } else if (type.beanie) {                        // knit beanie with a fold
+                ctx.fillStyle = type.beanie; ctx.beginPath(); ctx.arc(0, -18, 8.8, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = shadeColor(type.beanie, 18); ctx.fillRect(-8.8, -19.5, 17.6, 3.5);
+                ctx.fillStyle = shadeColor(type.beanie, -12); ctx.beginPath(); ctx.arc(0, -26, 2, 0, Math.PI * 2); ctx.fill();
+            } else if (type.sunhat) {                        // wide straw sun hat
+                ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.ellipse(0, -19, 13, 4.2, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.ellipse(0, -22, 7, 4.5, 0, Math.PI, 0); ctx.fill();
+                ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-7, -20); ctx.lineTo(7, -20); ctx.stroke();
+            }
         }
         // ── Brows / eyes / mouth all read the mood ──
         var browCol = cop ? "#3E2723" : (grandpa ? "#FAFAFA" : hairCol);

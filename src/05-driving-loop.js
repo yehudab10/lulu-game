@@ -2018,6 +2018,45 @@
     var angryYell = "";
     var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
 
+    // The person who climbs out of the car you hit isn't always a grumpy grandpa.
+    // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the
+    // scared/sad mood pools above carry the emotion when they're rattled instead.
+    var STRANGER_TYPES = [
+        { id: "grandpa", w: 3, shirt: "#B71C1C", shirtDark: "#8B0000", hair: "grandpa",
+          yells: CAR_YELLS },
+        { id: "businessman", w: 2, shirt: "#37474F", shirtDark: "#263238", tie: "#C62828", hair: "#3E2723",
+          yells: ["I have a MEETING\nin TEN minutes!", "Do you know how\nMUCH I bill an HOUR?!",
+                  "My CLIENT is\nin that car!", "This is a COMPANY\nlease, you menace!",
+                  "I'll have your\nLICENSE for this!", "I'm late for\nMY OWN DEPOSITION!"] },
+        { id: "teen", w: 2, shirt: "#7E57C2", shirtDark: "#4527A0", cap: "#FDD835", hair: "#212121",
+          yells: ["Bro. BRO. My DAD's\ngonna KILL me!", "I just GOT my\nlicense YESTERDAY!",
+                  "This is SO going\non my STORY!", "My insurance is,\nlike, my MOM!",
+                  "You dinged my\nSUBWOOFER, dude!", "That's a vintage\nGAME in there!!"] },
+        { id: "mom", w: 2, shirt: "#EC407A", shirtDark: "#AD1457", hair: "#5D4037",
+          yells: ["There are KIDS\nin this car!!", "I JUST did the\ncarpool, lady!",
+                  "My toddler is\nNAPPING in there!", "You scared the\nBABY! Shame!",
+                  "I have GROCERIES\nmelting, you know!", "Snack time is\nRUINED now!"] },
+        { id: "tourist", w: 1, shirt: "#26A69A", shirtDark: "#00796B", sunhat: 1, hair: "#8D6E63",
+          yells: ["Iz zis... how you\nPARK in zis country?", "My RENTAL! Ze\ndeposit! NOOO!",
+                  "Vhere is ze\nEiffel Tower?!", "I take PHOTO of\nyour bad driving!",
+                  "Ze guidebook said\nNOSING about ZIS!"] },
+        { id: "delivery", w: 1, shirt: "#FB8C00", shirtDark: "#E65100", cap: "#5D4037", hair: "#3E2723",
+          yells: ["Forty PACKAGES\nin there, lady!", "My ROUTE is\nRUINED now!",
+                  "That was a\nSAME-DAY delivery!", "My TIPS! Do you\nknow my TIPS?!",
+                  "Customer's gonna\nONE-STAR me!"] },
+        { id: "hipster", w: 1, shirt: "#8D6E63", shirtDark: "#5D4037", beanie: "#455A64", hair: "#3E2723",
+          yells: ["That was a\nVINTAGE bumper!", "You wouldn't get it,\nit was ARTISANAL.",
+                  "I had a COLD BREW\nin the cupholder!", "My VINYL collection\nis BACK there!",
+                  "This car is\nIRONIC, actually."] }
+    ];
+    function pickStrangerType() {
+        var total = 0, i;
+        for (i = 0; i < STRANGER_TYPES.length; i++) total += STRANGER_TYPES[i].w;
+        var r = Math.random() * total;
+        for (i = 0; i < STRANGER_TYPES.length; i++) { r -= STRANGER_TYPES[i].w; if (r <= 0) return STRANGER_TYPES[i]; }
+        return STRANGER_TYPES[0];
+    }
+
     function emitWreckSmoke(dt) {
         crashSmokeT -= dt;
         if (crashSmokeT > 0) return;
@@ -2181,6 +2220,7 @@
                     // an ordinary driver might climb out scared or heartbroken instead.
                     var themed = crashIsCop || crashCause.behavior === "drunk" || crashCause.behavior === "texting";
                     var dMood = themed ? "angry" : rollDriverMood();
+                    var sType = themed ? null : pickStrangerType();
                     angryMan = {
                         x: crashedCar.x,
                         y: crashedCar.y + 18,
@@ -2191,12 +2231,13 @@
                         runDir: carLeft ? 1 : -1,
                         cop: crashIsCop,
                         mood: dMood,
-                        hair: crashIsCop ? null : driverHairFor(dMood)
+                        stype: sType,
+                        hair: crashIsCop ? null : (sType ? (sType.hair === "grandpa" && dMood !== "angry" ? "#5D4037" : sType.hair) : driverHairFor(dMood))
                     };
                     angryYell = crashIsCop ? randPick(COP_CAR_YELLS)
                               : crashCause.behavior === "drunk" ? randPick(DRUNK_CAR_YELLS)
                               : crashCause.behavior === "texting" ? randPick(TEXT_CAR_YELLS)
-                              : moodYell(dMood, CAR_YELLS);
+                              : (dMood === "angry" ? randPick(sType.yells) : moodYell(dMood, CAR_YELLS));
                     // door-burst puff at the wreck
                     for (var d0 = 0; d0 < 7; d0++) {
                         particles.push({
@@ -2209,6 +2250,7 @@
                     // A random bystander charges (or stumbles, shaken) in from the roadside.
                     var fromLeft = player.x > W / 2;
                     var bMood = rollDriverMood();
+                    var bType = pickStrangerType();
                     angryMan = {
                         x: fromLeft ? -30 : W + 30,
                         y: player.y + 50,
@@ -2218,9 +2260,10 @@
                         state: "running",
                         runDir: fromLeft ? 1 : -1,
                         mood: bMood,
-                        hair: driverHairFor(bMood)
+                        stype: bType,
+                        hair: bType.hair === "grandpa" && bMood !== "angry" ? "#5D4037" : bType.hair
                     };
-                    angryYell = moodYell(bMood, ANGRY_YELLS);
+                    angryYell = bMood === "angry" ? randPick(bType.yells) : moodYell(bMood, ANGRY_YELLS);
                 }
                 crashPhase = 1;
             }
@@ -3647,14 +3690,14 @@
                 // tip the fainting driver over, pivoting at his feet
                 ctx.save();
                 ctx.translate(angryMan.x, angryMan.y + 18); ctx.rotate(fr); ctx.translate(-angryMan.x, -(angryMan.y + 18));
-                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
+                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair, angryMan.stype);
                 ctx.restore();
                 if (fr >= Math.PI / 2) for (var ds = 0; ds < 3; ds++) {
                     var da = gameTime * 4 + ds * 2.1;
                     drawText("💫", angryMan.x + 26 + Math.cos(da) * 10, angryMan.y - 6 + Math.sin(da) * 6, "12px Arial", "#FFD54F", null, 0);
                 }
             } else {
-                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
+                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair, angryMan.stype);
             }
             if ((angryMan.state === "yelling" || crashPhase === 4) && fr < Math.PI / 2) {
                 drawSpeechBubble(angryMan.x, angryMan.y - 30, angryYell, angryMan.time);
