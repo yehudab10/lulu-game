@@ -20598,7 +20598,10 @@
             var click = consumeClick();
             if (click) {
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
-                if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) { startLockpick(); playTone(330, 0.05, "square", 0.1); return; }
+                if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) {
+                    if (jail.escapeFails >= 3) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    startLockpick(); playTone(330, 0.05, "square", 0.1); return;
+                }
                 if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
@@ -20696,74 +20699,127 @@
         }
     }
 
-    function drawJailCell() {
-        if (jail.phase === 0) { drawIntake(); return; }
-        // ── back wall (cool concrete with a vignette) ──
-        var bg = ctx.createLinearGradient(0, 0, 0, H);
-        bg.addColorStop(0, "#3A4450"); bg.addColorStop(1, "#222932");
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-        // brick courses
-        ctx.fillStyle = "rgba(0,0,0,0.16)";
-        for (var by = 60; by < H - 150; by += 24) {
-            for (var bx = ((Math.floor(by / 24) % 2) ? -28 : 0); bx < W; bx += 56) ctx.fillRect(bx + 2, by, 52, 2);
-            ctx.fillRect(0, by, W, 1.5);
+    // A believable, composed cell that scales to any screen height. Viewer is
+    // in the corridor: cell interior behind the bars, a guard pacing in front.
+    function drawCellRoom(rt, rb, servedDays) {
+        var floorTop = rb - Math.max(76, (rb - rt) * 0.26);
+        // back wall (concrete) — fills everything above the floor
+        var wall = ctx.createLinearGradient(0, 0, 0, floorTop);
+        wall.addColorStop(0, "#48525E"); wall.addColorStop(1, "#2F3740");
+        ctx.fillStyle = wall; ctx.fillRect(0, 0, W, floorTop);
+        ctx.strokeStyle = "rgba(0,0,0,0.16)"; ctx.lineWidth = 1.5;
+        for (var hy = 20; hy < floorTop; hy += 28) { ctx.beginPath(); ctx.moveTo(0, hy); ctx.lineTo(W, hy); ctx.stroke(); }
+        for (var vy = 20; vy < floorTop; vy += 28) {
+            var off = (Math.floor(vy / 28) % 2) ? 28 : 0;
+            for (var vx = off; vx < W; vx += 56) { ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(vx, vy + 28); ctx.stroke(); }
         }
-        // graffiti
-        ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.font = "italic 12px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "left";
-        ctx.fillText("LULU WUZ HERE", 30, 250); ctx.fillText("DAY 4,382...", W - 150, 300);
+        // floor
+        var fl = ctx.createLinearGradient(0, floorTop, 0, H);
+        fl.addColorStop(0, "#3A434C"); fl.addColorStop(1, "#1E242A");
+        ctx.fillStyle = fl; ctx.fillRect(0, floorTop, W, H - floorTop);
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(0, floorTop, W, 4);
+        ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
+        for (var sx = 0; sx <= W; sx += 54) { ctx.beginPath(); ctx.moveTo(sx, floorTop); ctx.lineTo(sx + (sx - W / 2) * 0.18, H); ctx.stroke(); }
+
+        // hanging caged light
+        ctx.strokeStyle = "#1B1E24"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W * 0.5, rt - 2); ctx.lineTo(W * 0.5, rt + 16); ctx.stroke();
+        ctx.fillStyle = "rgba(255,240,180,0.45)"; ctx.beginPath(); ctx.arc(W * 0.5, rt + 24, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.arc(W * 0.5, rt + 22, 6, 0, Math.PI * 2); ctx.fill();
+
         // barred moonlit window
-        ctx.fillStyle = "#101D30"; roundRect(W / 2 - 46, 56, 92, 58, 6); ctx.fill();
-        ctx.fillStyle = "#FFF8E1"; ctx.beginPath(); ctx.arc(W / 2 + 16, 80, 13, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#101D30"; ctx.beginPath(); ctx.arc(W / 2 + 21, 76, 11, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#566270"; ctx.lineWidth = 4;
-        for (var wb = 0; wb < 3; wb++) { ctx.beginPath(); ctx.moveTo(W / 2 - 30 + wb * 30, 56); ctx.lineTo(W / 2 - 30 + wb * 30, 114); ctx.stroke(); }
+        var winW = 92, winX = W / 2 - winW / 2, winY = rt + 30, winH = 60;
+        ctx.fillStyle = "#0E1A2C"; roundRect(winX, winY, winW, winH, 6); ctx.fill();
+        ctx.fillStyle = "#FFF8E1"; ctx.beginPath(); ctx.arc(winX + winW - 24, winY + 22, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0E1A2C"; ctx.beginPath(); ctx.arc(winX + winW - 20, winY + 18, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.85)"; for (var st = 0; st < 5; st++) ctx.fillRect(winX + 10 + st * 13, winY + 12 + (st % 2) * 18, 2, 2);
+        ctx.fillStyle = "#5B6876"; ctx.fillRect(winX - 4, winY + winH, winW + 8, 5);
+        ctx.strokeStyle = "#6B7886"; ctx.lineWidth = 4;
+        for (var wb = 1; wb < 4; wb++) { var wbx = winX + wb * (winW / 4); ctx.beginPath(); ctx.moveTo(wbx, winY); ctx.lineTo(wbx, winY + winH); ctx.stroke(); }
 
-        // ── cell furniture ──
-        var floorY = H - 196;
-        ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(0, floorY, W, 6);
-        // bunk bed (right)
-        ctx.fillStyle = "#4A5560"; roundRect(W - 150, floorY - 70, 138, 16, 3); ctx.fill();
-        ctx.fillStyle = "#37414B"; ctx.fillRect(W - 148, floorY - 54, 8, 54); ctx.fillRect(W - 24, floorY - 54, 8, 54);
-        ctx.fillStyle = "#90A4AE"; roundRect(W - 150, floorY - 36, 138, 12, 3); ctx.fill(); // lower mattress
-        ctx.fillStyle = "#B0BEC5"; roundRect(W - 150, floorY - 80, 32, 12, 3); ctx.fill(); // pillow
-        // steel toilet+sink (left)
-        ctx.fillStyle = "#9AA7B0"; roundRect(20, floorY - 34, 30, 34, 5); ctx.fill();
-        ctx.fillStyle = "#C2CCD3"; ctx.beginPath(); ctx.ellipse(35, floorY - 30, 13, 6, 0, 0, Math.PI * 2); ctx.fill();
+        // graffiti spread around
+        ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.font = "italic 12px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "left";
+        ctx.fillText("LULU WUZ HERE", 24, winY + winH + 46);
+        ctx.fillText("FREE THE FLATS", W - 150, winY + winH + 84);
 
-        // ── characters ──
-        drawPrisoner(W - 80, floorY - 28, gameTime, "lulu");      // Lulu sitting on the bunk
-        drawPrisoner(W * 0.26, floorY - 6, gameTime, "mate");     // pacing cellmate
-        // a guard patrolling outside the bars
-        var gx = W / 2 + Math.sin(gameTime * 0.6) * (W * 0.3);
-        drawAngryMan(gx, 150, gameTime, "running", Math.cos(gameTime * 0.6) >= 0 ? 1 : -1, true);
-
-        // ── foreground bars (with highlight) ──
-        ctx.fillStyle = "#2C2F36";
-        for (var i = 0; i <= 6; i++) ctx.fillRect((W / 6) * i - 5, 128, 10, floorY - 128 + 30);
-        ctx.fillRect(0, 124, W, 10);
-        ctx.fillStyle = "rgba(255,255,255,0.10)";
-        for (var j = 0; j <= 6; j++) ctx.fillRect((W / 6) * j - 4, 128, 2.5, floorY - 128 + 30);
-
-        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
-
-        // ── serving the sentence (the actual punishment) ──
-        if (jail.phase === 9) {
-            var total = jail.total || 30, day = Math.min(jail.days, total);
-            drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
-            // tally marks scratched on the wall (6 groups of 5)
-            ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 2;
-            for (var d = 0; d < day; d++) {
-                var grp = Math.floor(d / 5), inG = d % 5;
-                var gx = 60 + grp * 40, gy = 200;
+        // tally marks (serving)
+        if (servedDays > 0) {
+            ctx.strokeStyle = "rgba(255,255,255,0.62)"; ctx.lineWidth = 2;
+            var ty0 = winY + winH + 30;
+            for (var d = 0; d < servedDays; d++) {
+                var grp = Math.floor(d / 5), inG = d % 5, gx = 38 + grp * 40, gy = ty0;
                 if (inG < 4) { ctx.beginPath(); ctx.moveTo(gx + inG * 5, gy); ctx.lineTo(gx + inG * 5, gy + 18); ctx.stroke(); }
                 else { ctx.beginPath(); ctx.moveTo(gx - 3, gy + 16); ctx.lineTo(gx + 17, gy + 2); ctx.stroke(); }
             }
-            ctx.fillStyle = "rgba(0,0,0,0.62)"; roundRect(W / 2 - 130, H - 156, 260, 76, 12); ctx.fill();
-            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 156, 260, 76, 12); ctx.stroke();
-            drawText("DAY " + day + " / " + total, W / 2, H - 132, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
-            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 116, 208, 10, 5); ctx.fill();
-            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 116, 208 * (day / total), 10, 5); ctx.fill();
-            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 94, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+        }
+
+        // bunk bed (two-tier) on the right, standing on the floor
+        var bedW = 116, bedX = W - bedW - 12, lowY = floorTop - 18, upY = lowY - 74;
+        ctx.fillStyle = "#37414B"; ctx.fillRect(bedX, upY - 6, 7, lowY - upY + 24); ctx.fillRect(bedX + bedW - 7, upY - 6, 7, lowY - upY + 24);
+        ctx.fillStyle = "#4A5560"; roundRect(bedX, upY, bedW, 13, 3); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; roundRect(bedX + 4, upY - 8, bedW - 8, 9, 3); ctx.fill();
+        ctx.fillStyle = "#B0BEC5"; roundRect(bedX + 6, upY - 10, 28, 9, 3); ctx.fill();
+        ctx.fillStyle = "#4A5560"; roundRect(bedX, lowY, bedW, 13, 3); ctx.fill();
+        ctx.fillStyle = "#78848F"; roundRect(bedX + 4, lowY - 7, bedW - 8, 8, 3); ctx.fill();
+
+        // steel sink on the left
+        var sinkY = floorTop - 2;
+        ctx.fillStyle = "#8593A0"; roundRect(20, sinkY - 42, 34, 42, 6); ctx.fill();
+        ctx.fillStyle = "#AEB9C2"; ctx.beginPath(); ctx.ellipse(37, sinkY - 38, 14, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6B7682"; ctx.fillRect(35, sinkY - 50, 4, 9);
+
+        // the prisoners (behind the bars)
+        drawPrisoner(bedX + bedW / 2, upY - 12, gameTime, "lulu");                       // Lulu on the upper bunk
+        drawPrisoner(W * 0.27, floorTop + (rb - floorTop) * 0.34, gameTime + 1, "mate");  // cellmate on the floor
+
+        // ── the front gate ──
+        drawCellBars(rt, rb);
+
+        // a guard paces the corridor IN FRONT of the bars
+        var gx = W / 2 + Math.sin(gameTime * 0.5) * (W * 0.30);
+        drawAngryMan(gx, floorTop + (rb - floorTop) * 0.5, gameTime, "running", Math.cos(gameTime * 0.5) >= 0 ? 1 : -1, true);
+    }
+
+    function drawCellBars(rt, rb) {
+        var n = Math.max(5, Math.round(W / 60)), gap = W / n;
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        for (var i = 0; i <= n; i++) ctx.fillRect(i * gap + 3, rt, 8, rb - rt);   // cast shadow
+        for (var i2 = 0; i2 <= n; i2++) {
+            var x = i2 * gap, g = ctx.createLinearGradient(x - 5, 0, x + 5, 0);
+            g.addColorStop(0, "#15181D"); g.addColorStop(0.45, "#454C55"); g.addColorStop(0.55, "#5C656F"); g.addColorStop(1, "#15181D");
+            ctx.fillStyle = g; roundRect(x - 5, rt, 10, rb - rt, 3); ctx.fill();
+        }
+        var rails = [rt + 6, (rt + rb) / 2, rb - 12];
+        for (var r = 0; r < rails.length; r++) {
+            var ry = rails[r], g2 = ctx.createLinearGradient(0, ry, 0, ry + 12);
+            g2.addColorStop(0, "#5C656F"); g2.addColorStop(0.5, "#3A4048"); g2.addColorStop(1, "#15181D");
+            ctx.fillStyle = g2; roundRect(0, ry, W, 12, 2); ctx.fill();
+        }
+        // heavy padlock on the gate
+        var lx = W / 2, ly = (rt + rb) / 2 + 8;
+        ctx.strokeStyle = "#11141A"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(lx, ly, 8, Math.PI, 0); ctx.stroke();
+        ctx.fillStyle = "#0E1014"; roundRect(lx - 12, ly, 24, 22, 4); ctx.fill();
+        ctx.fillStyle = "#FFC107"; ctx.beginPath(); ctx.arc(lx, ly + 11, 3.2, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawJailCell() {
+        if (jail.phase === 0) { drawIntake(); return; }
+        var serving = (jail.phase === 9);
+        var rt = serving ? 100 : (140 + jail.charges.length * 15);
+        var rb = (jail.phase === 1 || jail.phase === 4) ? H - 242 : H - 140;
+        drawCellRoom(rt, rb, serving ? Math.min(jail.total, jail.days) : 0);
+
+        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+
+        // ── serving the sentence ──
+        if (serving) {
+            var total = jail.total || 30, day = Math.min(jail.days, total);
+            drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 34, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
+            ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.fill();
+            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.stroke();
+            drawText("DAY " + day + " / " + total, W / 2, H - 102, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
+            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 86, 208, 10, 5); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 86, 208 * (day / total), 10, 5); ctx.fill();
+            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 62, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
             return;
         }
 
@@ -20780,7 +20836,9 @@
             // 2×2 action grid + the cellmate chatting in a dialogue box
             var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
             var glow = Math.sin(gameTime * 6) > 0;
-            drawButton(er.x, er.y, er.w, er.h, "🏃 Escape", { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32", small: true });
+            var locked = jail.escapeFails >= 3;
+            drawButton(er.x, er.y, er.w, er.h, locked ? "🔒 Watched" : (jail.escapeFails > 0 ? "🏃 Escape (" + jail.escapeFails + " fails)" : "🏃 Escape"),
+                locked ? { bg: "#757575", bgDark: "#424242", small: true } : { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32", small: true });
             var canBail = save.totalCoins >= jail.bail;
             drawButton(br.x, br.y, br.w, br.h, "💰 Bail ★" + jail.bail, { bg: canBail ? "#FFB300" : "#757575", bgDark: canBail ? "#EF6C00" : "#424242", small: true });
             var canLaw = save.totalCoins >= jail.lawyerFee;
@@ -21053,18 +21111,30 @@
         var wall = ctx.createLinearGradient(0, 0, 0, H);
         wall.addColorStop(0, "#7A5640"); wall.addColorStop(1, "#5A3E2E");
         ctx.fillStyle = wall; ctx.fillRect(0, 0, W, H);
+        // Bound the courtroom "floor" so the action clusters together instead of
+        // stretching apart on tall screens; the floor + gallery fill the rest.
+        var cFloor = Math.min(H * 0.6, 392);
         ctx.fillStyle = "rgba(0,0,0,0.10)";
-        for (var p = 0; p < W; p += 38) ctx.fillRect(p, 0, 2, H * 0.62);
+        for (var p = 0; p < W; p += 38) ctx.fillRect(p, 0, 2, cFloor + 8);
         // wainscot line + marble floor
-        ctx.fillStyle = "#4E342E"; ctx.fillRect(0, H * 0.6, W, 6);
-        var fl = ctx.createLinearGradient(0, H * 0.6, 0, H);
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(0, cFloor, W, 6);
+        var fl = ctx.createLinearGradient(0, cFloor, 0, H);
         fl.addColorStop(0, "#8D8579"); fl.addColorStop(1, "#6B645A");
-        ctx.fillStyle = fl; ctx.fillRect(0, H * 0.6 + 6, W, H);
+        ctx.fillStyle = fl; ctx.fillRect(0, cFloor + 6, W, H);
         // seal + flags on the back wall
         ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(W / 2, 44, 22, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(W / 2, 44, 17, 0, Math.PI * 2); ctx.fill();
         drawText("⚖", W / 2, 47, "bold 20px Arial", "#5D4037", null, 0);
         ctx.fillStyle = "#1565C0"; ctx.fillRect(W / 2 - 54, 26, 4, 40); ctx.fillStyle = "#C62828"; ctx.fillRect(W / 2 + 50, 26, 4, 40);
+
+        // public gallery fills the lower courtroom on tall screens
+        var galTop = cFloor + 44;
+        if (H - galTop > 230) {
+            ctx.fillStyle = "#4E342E"; ctx.fillRect(0, galTop, W, 7);
+            for (var gr = 0; gr < 2; gr++) for (var gc = 0; gc < 6; gc++)
+                drawJuror(34 + gc * ((W - 68) / 5), galTop + 28 + gr * 30, gr * 6 + gc + 3, "watch");
+            drawText("— PUBLIC GALLERY —", W / 2, galTop + 90, "bold 9px 'Segoe UI', Arial, sans-serif", "rgba(255,235,200,0.5)", "#000", 1);
+        }
 
         // judge bench (center), jury box (left), prosecutor (right), Lulu (center podium)
         drawBenchJudge(W / 2, 78, court.gavel > 0);
@@ -21072,12 +21142,12 @@
                    : (court.phase === 4 ? "deliberate" : "watch");
         drawJuryBox(14, 168, jReact);
         var prosTalk = (court.phase === 1 && court.li === 1);
-        drawProsecutor(W - 52, H * 0.50, gameTime, prosTalk);
-        drawDefendant(W / 2, H * 0.56);
+        drawProsecutor(W - 52, cFloor - 30, gameTime, prosTalk);
+        drawDefendant(W / 2, cFloor - 36);
         // her retained defense counsel stands beside her
         if (court.lawyer) {
-            drawProsecutor(W / 2 - 66, H * 0.52, gameTime + 3, false);   // a second suited figure
-            drawText("🤵 COUNSEL", W / 2 - 66, H * 0.52 - 30, "bold 8px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 2);
+            drawProsecutor(W / 2 - 66, cFloor - 26, gameTime + 3, false);
+            drawText("🤵 COUNSEL", W / 2 - 66, cFloor - 56, "bold 8px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 2);
         }
         if (court.gavel > 0) drawText("BANG!", W / 2 + 64, 92, "bold 13px Arial", "#FFD54F", "#000", 3);
 
@@ -21603,17 +21673,19 @@
     }
 
     function drawHospital() {
-        // ── clinical room ──
-        var bg = ctx.createLinearGradient(0, 0, 0, H);
+        // ── clinical room (bounded so it doesn't stretch on tall screens) ──
+        var erFloor = Math.min(H * 0.62, 470);
+        var bedY = erFloor - 96, bedX = W / 2 - 70, bedW = 150, bedH = 40;
+        var bg = ctx.createLinearGradient(0, 0, 0, erFloor);
         bg.addColorStop(0, "#CFE7E4"); bg.addColorStop(1, "#A6C9C6");
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < H * 0.6; ty += 30) ctx.fillRect(0, ty, W, 1.5);
-        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, H * 0.6, W, 5);
-        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, H * 0.6 + 5, W, H);
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, erFloor);
+        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < erFloor; ty += 30) ctx.fillRect(0, ty, W, 1.5);
+        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, erFloor, W, 5);
+        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, erFloor + 5, W, H);
         // curtain rail + curtain on the right
-        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, H * 0.5);
+        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, erFloor - 76);
         ctx.fillStyle = "rgba(120,180,200,0.35)";
-        for (var cu = 0; cu < 5; cu++) roundRect(W * 0.64 + cu * 26, 74, 22, H * 0.46, 6), ctx.fill();
+        for (var cu = 0; cu < 5; cu++) { roundRect(W * 0.64 + cu * 26, 74, 22, erFloor - 90, 6); ctx.fill(); }
 
         // ── heart monitor ──
         var mx = 24, my = 90, mw = 120, mh = 70;
@@ -21631,12 +21703,11 @@
 
         // ── IV pole ──
         var ivx = W - 54;
-        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, H * 0.55); ctx.stroke();
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, erFloor - 20); ctx.stroke();
         ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
-        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, H * 0.5); ctx.stroke();
+        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, bedY); ctx.stroke();
 
         // ── bed + Lulu lying down ──
-        var bedX = W / 2 - 70, bedY = H * 0.5, bedW = 150, bedH = 40;
         ctx.fillStyle = "#455A64"; roundRect(bedX - 6, bedY + bedH, 8, 34, 2); ctx.fill(); roundRect(bedX + bedW - 2, bedY + bedH, 8, 34, 2); ctx.fill();
         ctx.fillStyle = "#ECEFF1"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();      // mattress
         ctx.fillStyle = "#90CAF9"; roundRect(bedX + 34, bedY - 4, bedW - 38, 22, 6); ctx.fill(); // blanket
@@ -21707,6 +21778,10 @@
     }
 
     var lastDispatchState = null;
+    var enterFadeT = 0;   // brief fade-in for cutscene scenes that skip the iris wipe
+    // Heavy story scenes that hard-cut in (excluded from the iris) — give them a
+    // quick ease-in from black so nothing pops jarringly.
+    var ENTER_FADE = { arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, copBust: 1, copStop: 1 };
 
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
@@ -21720,6 +21795,7 @@
         updateSceneFade(dt);
         updateStateTransition(dt);
         if (crashFlash > 0) crashFlash -= dt;
+        if (enterFadeT > 0) enterFadeT -= dt;
 
         // Bullet-time: briefly slow the simulation after a big crash for drama.
         // Decremented with real time so it always lasts ~0.55s; the scaled dt is
@@ -21741,6 +21817,8 @@
                 sceneFade.t >= sceneFade.dur) {
                 startStateTransition();
             }
+            // Heavy story scenes ease in from black instead of hard-cutting.
+            if (lastDispatchState !== null && ENTER_FADE[state]) enterFadeT = 0.32;
             actionQueued = false;
             clickQueue = null;
             pauseQueued = false;
@@ -21847,6 +21925,12 @@
         else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
+
+        // Quick ease-in from black for hard-cut story scenes (arrest/jail/court/ER).
+        if (enterFadeT > 0) {
+            ctx.fillStyle = "rgba(8,6,20," + (clamp(enterFadeT / 0.32, 0, 1) * 0.92) + ")";
+            ctx.fillRect(0, 0, W, H);
+        }
 
         // Blinding white impact flash on a fatal crash (over the scene, under
         // the scene-fade/iris so transitions still read).

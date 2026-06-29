@@ -110,17 +110,19 @@
     }
 
     function drawHospital() {
-        // ── clinical room ──
-        var bg = ctx.createLinearGradient(0, 0, 0, H);
+        // ── clinical room (bounded so it doesn't stretch on tall screens) ──
+        var erFloor = Math.min(H * 0.62, 470);
+        var bedY = erFloor - 96, bedX = W / 2 - 70, bedW = 150, bedH = 40;
+        var bg = ctx.createLinearGradient(0, 0, 0, erFloor);
         bg.addColorStop(0, "#CFE7E4"); bg.addColorStop(1, "#A6C9C6");
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < H * 0.6; ty += 30) ctx.fillRect(0, ty, W, 1.5);
-        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, H * 0.6, W, 5);
-        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, H * 0.6 + 5, W, H);
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, erFloor);
+        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < erFloor; ty += 30) ctx.fillRect(0, ty, W, 1.5);
+        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, erFloor, W, 5);
+        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, erFloor + 5, W, H);
         // curtain rail + curtain on the right
-        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, H * 0.5);
+        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, erFloor - 76);
         ctx.fillStyle = "rgba(120,180,200,0.35)";
-        for (var cu = 0; cu < 5; cu++) roundRect(W * 0.64 + cu * 26, 74, 22, H * 0.46, 6), ctx.fill();
+        for (var cu = 0; cu < 5; cu++) { roundRect(W * 0.64 + cu * 26, 74, 22, erFloor - 90, 6); ctx.fill(); }
 
         // ── heart monitor ──
         var mx = 24, my = 90, mw = 120, mh = 70;
@@ -138,12 +140,11 @@
 
         // ── IV pole ──
         var ivx = W - 54;
-        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, H * 0.55); ctx.stroke();
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, erFloor - 20); ctx.stroke();
         ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
-        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, H * 0.5); ctx.stroke();
+        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, bedY); ctx.stroke();
 
         // ── bed + Lulu lying down ──
-        var bedX = W / 2 - 70, bedY = H * 0.5, bedW = 150, bedH = 40;
         ctx.fillStyle = "#455A64"; roundRect(bedX - 6, bedY + bedH, 8, 34, 2); ctx.fill(); roundRect(bedX + bedW - 2, bedY + bedH, 8, 34, 2); ctx.fill();
         ctx.fillStyle = "#ECEFF1"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();      // mattress
         ctx.fillStyle = "#90CAF9"; roundRect(bedX + 34, bedY - 4, bedW - 38, 22, 6); ctx.fill(); // blanket

@@ -1,4 +1,8 @@
     var lastDispatchState = null;
+    var enterFadeT = 0;   // brief fade-in for cutscene scenes that skip the iris wipe
+    // Heavy story scenes that hard-cut in (excluded from the iris) — give them a
+    // quick ease-in from black so nothing pops jarringly.
+    var ENTER_FADE = { arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, copBust: 1, copStop: 1 };
 
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
@@ -12,6 +16,7 @@
         updateSceneFade(dt);
         updateStateTransition(dt);
         if (crashFlash > 0) crashFlash -= dt;
+        if (enterFadeT > 0) enterFadeT -= dt;
 
         // Bullet-time: briefly slow the simulation after a big crash for drama.
         // Decremented with real time so it always lasts ~0.55s; the scaled dt is
@@ -33,6 +38,8 @@
                 sceneFade.t >= sceneFade.dur) {
                 startStateTransition();
             }
+            // Heavy story scenes ease in from black instead of hard-cutting.
+            if (lastDispatchState !== null && ENTER_FADE[state]) enterFadeT = 0.32;
             actionQueued = false;
             clickQueue = null;
             pauseQueued = false;
@@ -139,6 +146,12 @@
         else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
+
+        // Quick ease-in from black for hard-cut story scenes (arrest/jail/court/ER).
+        if (enterFadeT > 0) {
+            ctx.fillStyle = "rgba(8,6,20," + (clamp(enterFadeT / 0.32, 0, 1) * 0.92) + ")";
+            ctx.fillRect(0, 0, W, H);
+        }
 
         // Blinding white impact flash on a fatal crash (over the scene, under
         // the scene-fade/iris so transitions still read).
