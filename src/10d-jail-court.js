@@ -55,15 +55,64 @@
         "EXCESSIVE SASS", "JAYWALKING WITH INTENT", "POSSESSION OF RUGELACH",
         "DISTURBING THE PEACE (LOUDLY)", "DRIVING WHILE FABULOUS"];
     var PROSECUTOR_LINES = ["The defendant is a MENACE, your honor!", "We have her DEAD to rights!",
-        "Throw the BOOK at her!", "She showed NO remorse — only sass!", "The people DEMAND justice!",
-        "I've never seen a clearer case!", "Lock her up and lose the key!"];
-    var JUDGE_INTROS = ["Order! ORDER in my court!", "This had better be good...",
-        "I haven't even had my coffee.", "Let's be quick — I tee off at noon.", "What fresh nonsense is THIS?"];
-    var OBJECTIONS = ["OBJECTION! She's making that UP!", "OBJECTION! Leading the jury!",
-        "OBJECTION! That's hearsay AND chutzpah!", "OBJECTION, your honor — she WINKED at me!",
-        "OBJECTION! The defense is pure FARFEL!", "OBJECTION! She did the SAME thing last week!"];
-    var JUDGE_SUSTAIN = ["Sustained. Nice try, Ms. Bruck.", "Sustained! Strike that.", "Sustained. I'm not buying it."];
-    var JUDGE_OVERRULE = ["Overruled. Sit DOWN, counselor.", "Overruled. Let her finish.", "Overruled — I rather liked it."];
+        "Throw the BOOK at her — the WHOLE library!", "She showed NO remorse — only SASS!",
+        "The PEOPLE demand justice! And a refund!", "I've never seen a clearer case in my LIFE.",
+        "Lock her up and lose the key. Then lose the LOCK.", "Exhibit A: her DRIVING. Exhibit B: her ATTITUDE.",
+        "Three witnesses, your honor. All TERRIFIED.", "I rest my case. ...okay I don't, but LOOK at her."];
+    // The judge — distractible, hungry, eternally late for golf.
+    var JUDGE_INTROS = ["Order! ORDER in my court!", "This had BETTER be good...",
+        "I haven't even had my coffee. Make it QUICK.", "Let's be brief — I tee off at noon.",
+        "What FRESH nonsense is this?", "Ms. Bruck. AGAIN. We really must stop meeting like this.",
+        "I had a lovely brisket planned. Then THIS case appeared.", "Bailiff, my gavel. ...the HEAVY one.",
+        "Settle down. The sooner we start, the sooner I can NAP."];
+    var OBJECTIONS = ["OBJECTION! She's making that UP!", "OBJECTION! Leading the jury by the NOSE!",
+        "OBJECTION! That's hearsay AND chutzpah!", "OBJECTION — she WINKED at me, your honor!",
+        "OBJECTION! The defense is pure FARFEL!", "OBJECTION! She did the SAME thing last TUESDAY!",
+        "OBJECTION! Counsel is being... CHARMING. It's distracting!", "OBJECTION! That's not a LAW, that's a VIBE!"];
+    var JUDGE_SUSTAIN = ["Sustained. Nice try, Ms. Bruck.", "Sustained! Strike that from the record.",
+        "Sustained. I'm not buying what you're selling.", "Sustained. And frankly, RUDE."];
+    var JUDGE_OVERRULE = ["Overruled. Sit DOWN, counselor.", "Overruled. Let the woman finish.",
+        "Overruled — honestly, I rather LIKED it.", "Overruled. That objection bored me."];
+    // Reactions the judge/gallery toss out after Lulu's plea (pure flavor).
+    var COURT_REACTS = ["*the gallery murmurs* 🤔", "*a juror nods slowly...* ", "*the stenographer stops typing to stare*",
+        "*someone in the back whispers 'iconic'*", "*the prosecutor's eye TWITCHES*", "*the judge sips coffee, unimpressed*"];
+
+    // ── Random courtroom EVENTS — a small chance (~40%) something dramatic
+    //    interrupts the trial. Each plays a few lines and NUDGES the verdict:
+    //    "help" (lean acquittal) · "hurt" (lean guilty) · "dismiss" (instant out)
+    //    · charge adds a fresh charge. Mistrial is rare. ──
+    var COURT_EVENTS = [
+        { id: "avigail", nudge: "hurt", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A surprise witness takes the stand, your honor!" },
+            { who: "AVIGAIL", p: "avigail", accent: "#CE93D8", text: "She cut me off in the CARPOOL lane. With a SMILE. 😤" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...the court notes the carpool incident. Tsk tsk." } ] },
+        { id: "bubbe", nudge: "help", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A character witness approaches the bench..." },
+            { who: "BUBBE", p: "bubbe", accent: "#FFCC80", text: "My Lulu?! She brings me SOUP every Shabbos! An ANGEL! 👵" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...I do love a good soup. Noted FAVORABLY." } ] },
+        { id: "phone", nudge: "hurt", charge: "CONTEMPT OF COURT (PHONE)", lines: [
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Is that a PHONE ringing in MY courtroom?!" },
+            { who: "LULU", p: "lulu", accent: "#F48FB1", text: "One sec— HI IMA! ...no, I'm in COURT. I'll call back! 📞" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "CONTEMPT! That's a brand-NEW charge, missy." } ] },
+        { id: "golf", nudge: "help", lines: [
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "*taps watch* I tee off in twenty minutes. Let's WRAP this." },
+            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: "But your honor — the EVIDENCE—!" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "The evidence can WAIT. The ninth hole CANNOT." } ] },
+        { id: "hair", nudge: "help", lines: [
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Juror four says you did her... HIGHLIGHTS?" },
+            { who: "LULU", p: "lulu", accent: "#F48FB1", text: "Babka balayage, forty bucks. I'll do YOURS too, your honor. 💇" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...we'll discuss it in chambers. Noted favorably." } ] },
+        { id: "coffee", nudge: "help", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "Your honor — your coffee. Two sugars, splash of oat. ☕" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...ahhh. You know what? Suddenly I feel MERCIFUL." } ] },
+        { id: "gasp", nudge: "none", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "*the entire gallery GASPS in unison* 😱" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "ORDER! One more gasp and I CLEAR the room!" } ] }
+    ];
+    var COURT_MISTRIAL = { id: "mistrial", nudge: "dismiss", lines: [
+        { who: "LULU", p: "lulu", accent: "#F48FB1", text: "Your honor — the bailiff SNEEZED during my oath. MISTRIAL!" },
+        { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...you know what? I'm hungry. Case DISMISSED. Everybody OUT." } ] };
+    function pickCourtEvent() { return Math.random() < 0.10 ? COURT_MISTRIAL : randPick(COURT_EVENTS); }
     // Hire-a-lawyer tiers — you get what you pay for. feeMul is per-charge.
     var LAWYER_TIERS = [
         { name: "Public Defender", feeMul: 6, mitig: 0.25, blunder: 0.28, accent: "#90A4AE",
@@ -929,6 +978,21 @@
     function pickBarRect() { return { x: W / 2 - 150, y: H * 0.5, w: 300, h: 26 }; }
     function escapeBtnRect() { return { x: W / 2 - 90, y: H - 92, w: 180, h: 48 }; }
 
+    // After Lulu's plea (and any objection), ~40% of the time a random courtroom
+    // EVENT interrupts before the jury deliberates; otherwise straight to verdict.
+    function courtAfterArgument() {
+        if (!court.eventUsed && Math.random() < 0.4) {
+            court.eventUsed = true;
+            court.event = pickCourtEvent();
+            court.eventLi = 0; court.evStamp = 0.6;
+            if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
+            court.phase = 36; court.t = 0; court.typeT = 0;
+            playTone(440, 0.1, "triangle", 0.14);
+        } else {
+            court.phase = 4; court.t = 0;
+        }
+    }
+
     function updateCourtroom(dt) {
         court.t += dt;
         court.typeT += dt;
@@ -974,8 +1038,18 @@
                     court.objLi = 0; court.phase = 35; court.t = 0; court.typeT = 0; court.objStamp = 0.6;
                     playTone(200, 0.12, "square", 0.16);
                 } else {
-                    court.phase = 4; court.t = 0;
+                    courtAfterArgument();
                 }
+            }
+            return;
+        }
+        if (court.phase === 36) {                    // a random courtroom EVENT
+            if (court.evStamp > 0) court.evStamp -= dt;
+            if (consumeClick() || consumeAction()) {
+                if (!courtDone(court.event.lines[court.eventLi].text)) { court.typeT = 999; return; }
+                court.eventLi++; court.typeT = 0;
+                if (court.eventLi >= court.event.lines.length) { court.phase = 4; court.t = 0; }
+                else playTone(court.event.lines[court.eventLi].p === "judge" ? 300 : 380, 0.04, "sine", 0.06);
             }
             return;
         }
@@ -984,7 +1058,7 @@
             if (consumeClick() || consumeAction()) {
                 if (!courtDone(court.objLines[court.objLi].text)) { court.typeT = 999; return; }
                 court.objLi++; court.typeT = 0;
-                if (court.objLi >= court.objLines.length) { court.phase = 4; court.t = 0; }
+                if (court.objLi >= court.objLines.length) { courtAfterArgument(); }
                 else { court.objStamp = 0; playTone(300, 0.04, "sine", 0.06); }
             }
             return;
@@ -1020,6 +1094,13 @@
                         if (court.verdict === "jail" && Math.random() < court.lawyerMitig) court.verdict = "fine";
                         if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
                     }
+                }
+                // a random courtroom EVENT can swing it (mistrial springs her outright)
+                if (court.event) {
+                    var nd = court.event.nudge;
+                    if (nd === "dismiss") court.verdict = "dismissed";
+                    else if (nd === "help") { if (court.verdict === "jail" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed"; }
+                    else if (nd === "hurt") { if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.3) court.verdict = "jail"; }
                 }
                 if (opt.bribe && court.verdict !== "dismissed") court.charges.push("BRIBING A JUDGE (BADLY)");
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
@@ -1333,6 +1414,17 @@
             var ol = court.objLines[court.objLi];
             var dO = courtDone(ol.text);
             drawDialogueBox(ol.who, courtTyped(ol.text), ol.p, ol.accent, dO, !dO);
+        } else if (court.phase === 36) {
+            // a "❗ HOLD ON ❗" stamp on the first beat, then the event plays out
+            if (court.eventLi === 0 && court.evStamp > 0) {
+                var es = 1 + court.evStamp * 2;
+                ctx.save(); ctx.translate(W / 2, H * 0.32); ctx.rotate(-0.05); ctx.scale(es, es); ctx.globalAlpha = clamp(1 - court.evStamp, 0, 1) + 0.4;
+                ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 4; roundRect(-120, -24, 240, 48, 8); ctx.stroke();
+                drawText("❗ HOLD ON ❗", 0, 0, "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5); ctx.restore();
+            }
+            var el = court.event.lines[court.eventLi];
+            var dE = courtDone(el.text);
+            drawDialogueBox(el.who, courtTyped(el.text), el.p, el.accent, dE, !dE);
         } else if (court.phase === 4) {
             ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(W / 2 - 140, H - 70, 280, 34, 10); ctx.fill();
             var dots = ".".repeat(1 + (Math.floor(court.t * 3) % 3));
@@ -1503,7 +1595,7 @@
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
-                    : type === "tammy" ? "#26A69A"
+                    : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -1554,6 +1646,24 @@
             ctx.fillStyle = "#E53935"; ctx.fillRect(cx - hr * 0.1, cy - hr * 1.38, hr * 0.2, hr * 0.42); ctx.fillRect(cx - hr * 0.24, cy - hr * 1.22, hr * 0.48, hr * 0.16);
             ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white V-neck
+        } else if (type === "avigail") {
+            // Lulu's rival — sleek dark hair, smug arched brows, a hoop earring
+            ctx.fillStyle = "#241712";
+            ctx.beginPath(); ctx.arc(cx, cy - hr * 0.28, hr * 1.08, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(cx - hr * 0.95, cy + hr * 0.35, hr * 0.34, hr * 1.0, -0.15, 0, Math.PI * 2); ctx.ellipse(cx + hr * 0.95, cy + hr * 0.35, hr * 0.34, hr * 1.0, 0.15, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = shadeColor("#241712", 26); ctx.fillRect(cx - hr * 0.6, cy - hr * 0.5, hr * 1.2, hr * 0.16);   // side-part sheen
+            ctx.strokeStyle = "#241712"; ctx.lineWidth = 1.4;   // arched smug brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.34); ctx.quadraticCurveTo(cx - hr * 0.34, cy - hr * 0.48, cx - hr * 0.18, cy - hr * 0.36);
+            ctx.moveTo(cx + hr * 0.18, cy - hr * 0.36); ctx.quadraticCurveTo(cx + hr * 0.34, cy - hr * 0.48, cx + hr * 0.5, cy - hr * 0.34); ctx.stroke();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx + hr * 0.86, cy + hr * 0.5, hr * 0.16, 0, Math.PI * 2); ctx.stroke();  // hoop earring
+        } else if (type === "bubbe") {
+            // sweet old lady — gray hair under a headscarf, round glasses
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 0.95, Math.PI, 0); ctx.fill();    // gray hair peek
+            ctx.fillStyle = "#A1887F"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.32, hr * 1.12, Math.PI * 1.05, -0.05); ctx.fill();   // headscarf over the top
+            ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.moveTo(cx + hr * 0.9, cy - hr * 0.5); ctx.lineTo(cx + hr * 1.15, cy + hr * 0.3); ctx.lineTo(cx + hr * 0.7, cy + hr * 0.1); ctx.closePath(); ctx.fill();  // scarf knot
+            ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.4;   // round granny glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
+            ctx.fillStyle = "rgba(255,140,140,0.45)"; ctx.beginPath(); ctx.arc(cx - hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.arc(cx + hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.fill();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);

@@ -289,6 +289,8 @@
         salon:   "salon.mp3",
         wedding: "wedding.mp3",
         prison:  "prison.mp3",
+        court:   "court.mp3",
+        walking: "walking.mp3",
         er1:     "er1.mp3",
         er2:     "er2.mp3"
     };

@@ -26,6 +26,8 @@ const ASSETS = [
   "salon.mp3",
   "wedding.mp3",
   "prison.mp3",
+  "court.mp3",
+  "walking.mp3",
   "er1.mp3",
   "er2.mp3"
 ];

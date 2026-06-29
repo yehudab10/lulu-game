@@ -70,9 +70,11 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior" || state === "exitScene") musicTrack = "lulu";
+            state === "exitScene") musicTrack = "lulu";
+        else if (state === "footRun" || state === "footInterior") musicTrack = "walking";   // on-foot theme
         else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
-        else if (state === "jailCell" || state === "courtroom" || state === "arrest") musicTrack = "prison";   // arrest / jail / court / escape
+        else if (state === "courtroom") musicTrack = "court";  // courtroom theme
+        else if (state === "jailCell" || state === "arrest") musicTrack = "prison";   // arrest / jail / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
                  state === "parkingEnd") musicTrack = "parking";
