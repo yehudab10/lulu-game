@@ -167,6 +167,11 @@
     // ── Init ─────────────────────────────────────────────────
     Ads.init(); // sets up AdMob in the native wrapper; no-op on the web
     initDecorations();
+    // If a previous session left an unfinished sentence (in a cell, serving time,
+    // or on the lam), resume it on load instead of dropping back to the menu.
+    if (save.lockup && typeof resumeLockup === "function") {
+        try { resumeLockup(); } catch (e) { save.lockup = null; persistSave(); }
+    }
     // Draw the first frame synchronously so the menu shows up even in hidden tabs
     lastTime = performance.now() - 16;
     gameLoop(performance.now());

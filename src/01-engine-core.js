@@ -56,7 +56,10 @@
             stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
             dinaRunsPlayed: 0, // # of run-home attempts → drives progressive difficulty
             footRunsPlayed: 0, // # of on-foot runs → drives progressive difficulty
-            footRunHigh: 0     // furthest fraction of the walk to Bubbe's ever reached
+            footRunHigh: 0,    // furthest fraction of the walk to Bubbe's ever reached
+            convictions: 0,    // guilty verdicts → strike system (3rd strike = real jail)
+            offenses: 0,       // times booked → rising bail
+            lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
 
