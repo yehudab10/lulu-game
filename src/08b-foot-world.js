@@ -219,7 +219,7 @@
             var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
             lives = Math.max(lives, 1);
             footParked = []; footDoors = []; footCompanion = null;
-            if (seen && typeof goToJail === "function") { goToJail(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
+            if (seen && typeof beginArrest === "function") { beginArrest(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
             returnToDriving();   // clean getaway — back on the road (state → "playing")
             return;
         }

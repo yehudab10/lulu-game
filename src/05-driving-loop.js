@@ -71,7 +71,7 @@
         } else if (best.cop) {
             // Macing a COP is a one-way ticket downtown.
             spawnFloater(best.x, best.y - 20, "😡 BIG mistake!", "#FF5252");
-            if (typeof goToJail === "function") goToJail(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]);
+            if (typeof beginArrest === "function") beginArrest(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]);
             return;
         } else {
             best.sprayed = true; best.vx = 0;
@@ -732,7 +732,7 @@
                         if (reckless && (witness || Math.random() < 0.3)) {
                             obstacles.splice(i, 1);
                             if (typeof goToJail === "function") {
-                                goToJail(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
+                                beginArrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
                                 return;
                             }
                         }
@@ -2214,7 +2214,7 @@
                 if (crashCause && crashCause.behavior === "patrol") {
                     crashedCar = null; angryMan = null; revengeCar = null; crashCause = null;
                     lives = Math.max(lives, 1);
-                    goToJail(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"]);
+                    beginArrest(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"]);
                     return;
                 }
                 state = "gameover";
