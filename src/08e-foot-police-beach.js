@@ -500,6 +500,44 @@
         roundRect(W * 0.62, 14, 120, 8, 3); ctx.fill();
         ctx.restore();
 
+        // ── wall decor to fill the tall lobby wall ─────────────
+        var wdMid = floorY * 0.5;
+        // precinct seal — a gold star in a ring (upper-left)
+        var seX = W * 0.20, seY = 142;
+        ctx.fillStyle = "#16222B"; ctx.beginPath(); ctx.arc(seX, seY, 44, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#FFC107"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(seX, seY, 37, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath();
+        for (var ss = 0; ss < 5; ss++) { var sa = -Math.PI / 2 + ss * (Math.PI * 2 / 5); ctx.lineTo(seX + Math.cos(sa) * 19, seY - 5 + Math.sin(sa) * 19); var sb = sa + Math.PI / 5; ctx.lineTo(seX + Math.cos(sb) * 8.5, seY - 5 + Math.sin(sb) * 8.5); }
+        ctx.closePath(); ctx.fill();
+        drawText("PRECINCT 18½", seX, seY + 30, "bold 7px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0);
+        // wall clock (upper-centre, left of the hallway)
+        var clX = W * 0.5, clY = 124;
+        ctx.fillStyle = "#ECEFF1"; ctx.beginPath(); ctx.arc(clX, clY, 21, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(clX, clY, 21, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = "#263238"; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(polTime * 0.4 - Math.PI / 2) * 10, clY + Math.sin(polTime * 0.4 - Math.PI / 2) * 10); ctx.stroke();
+        ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(clX, clY); ctx.lineTo(clX + Math.cos(polTime * 1.6 - Math.PI / 2) * 15, clY + Math.sin(polTime * 1.6 - Math.PI / 2) * 15); ctx.stroke();
+        // framed "OFFICER O' MONTH" photo (right of the hallway)
+        var phX = W * 0.9, phY = 150;
+        ctx.fillStyle = "#5D4037"; roundRect(phX - 28, phY - 34, 56, 68, 4); ctx.fill();
+        ctx.fillStyle = "#90CAF9"; roundRect(phX - 23, phY - 29, 46, 48, 2); ctx.fill();
+        ctx.fillStyle = "#1A237E"; roundRect(phX - 11, phY - 4, 22, 23, 6); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(phX, phY - 10, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0D1B5E"; ctx.beginPath(); ctx.ellipse(phX, phY - 16, 9, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+        drawText("OFFICER O' MONTH", phX, phY + 28, "bold 6px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0);
+        // cork bulletin board with sticky notes (mid-left)
+        var bbX = W * 0.2, bbY = wdMid + 30;
+        ctx.fillStyle = "#A1724B"; roundRect(bbX - 46, bbY - 34, 92, 68, 4); ctx.fill();
+        ctx.strokeStyle = "#6D4C41"; ctx.lineWidth = 4; roundRect(bbX - 46, bbY - 34, 92, 68, 4); ctx.stroke();
+        var noteCols = ["#FFF59D", "#FFAB91", "#A5D6A7", "#90CAF9"];
+        for (var nz = 0; nz < 4; nz++) { var nx = bbX - 24 + (nz % 2) * 48, ny = bbY - 16 + Math.floor(nz / 2) * 34; ctx.save(); ctx.translate(nx, ny); ctx.rotate((nz % 2 ? 1 : -1) * 0.08); ctx.fillStyle = noteCols[nz]; roundRect(-15, -13, 30, 26, 2); ctx.fill(); ctx.fillStyle = "rgba(0,0,0,0.16)"; for (var ln = 0; ln < 3; ln++) ctx.fillRect(-11, -7 + ln * 6, 22, 1.4); ctx.restore(); }
+        // motivational poster (mid-centre)
+        var poX = W * 0.52, poY = wdMid + 30;
+        ctx.fillStyle = "#263238"; roundRect(poX - 44, poY - 34, 88, 68, 4); ctx.fill();
+        ctx.fillStyle = "#1565C0"; roundRect(poX - 40, poY - 30, 80, 60, 3); ctx.fill();
+        drawText("PROTECT", poX, poY - 13, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        drawText("& SERVE", poX, poY + 1, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        drawText("(SNACKS)", poX, poY + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 2);
+
         // wainscot stripe
         ctx.fillStyle = "#2E4257";
         ctx.fillRect(0, floorY - 26, W, 26);
@@ -1302,6 +1340,35 @@
         ctx.fillStyle = "rgba(180,140,80,0.35)";
         for (var sp2 = 0; sp2 < bchSpeckles.length; sp2++) {
             ctx.fillRect(bchSpeckles[sp2].x, bchSpeckles[sp2].y, 2, 2);
+        }
+
+        // ── beach bric-a-brac to fill the lower sand ───────────
+        // a striped beach towel
+        ctx.save(); ctx.translate(W * 0.28, bottom - 116); ctx.rotate(-0.12);
+        ctx.fillStyle = "rgba(0,0,0,0.10)"; ctx.beginPath(); ctx.ellipse(2, 30, 50, 11, 0, 0, Math.PI * 2); ctx.fill();
+        for (var ts = 0; ts < 6; ts++) { ctx.fillStyle = ts % 2 ? "#FF5252" : "#FFFDE7"; roundRect(-45 + ts * 15, -26, 15, 56, 2); ctx.fill(); }
+        ctx.restore();
+        // a beach ball resting on the towel
+        ctx.save(); ctx.translate(W * 0.28 + 70, bottom - 132);
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.beginPath(); ctx.ellipse(0, 16, 15, 4, 0, 0, Math.PI * 2); ctx.fill();
+        var ballCols = ["#E53935", "#FDD835", "#1E88E5", "#43A047"];
+        for (var bq = 0; bq < 4; bq++) { ctx.fillStyle = ballCols[bq]; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 14, bq * Math.PI / 2, (bq + 1) * Math.PI / 2); ctx.closePath(); ctx.fill(); }
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // a starfish
+        ctx.save(); ctx.translate(W * 0.72, bottom - 150); ctx.rotate(0.3);
+        ctx.fillStyle = "#FF8A65"; ctx.beginPath();
+        for (var sf = 0; sf < 5; sf++) { var fa = -Math.PI / 2 + sf * (Math.PI * 2 / 5); ctx.lineTo(Math.cos(fa) * 13, Math.sin(fa) * 13); var fb = fa + Math.PI / 5; ctx.lineTo(Math.cos(fb) * 5.5, Math.sin(fb) * 5.5); }
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.45)"; for (var sd = 0; sd < 5; sd++) { var fc = -Math.PI / 2 + sd * (Math.PI * 2 / 5); ctx.beginPath(); ctx.arc(Math.cos(fc) * 6, Math.sin(fc) * 6, 1.2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        // a few scattered seashells
+        var shells = [[W * 0.5, bottom - 64, "#F8BBD0"], [W * 0.86, bottom - 96, "#FFE0B2"], [W * 0.16, bottom - 44, "#FFCCBC"], [W * 0.62, bottom - 40, "#E1BEE7"]];
+        for (var sh = 0; sh < shells.length; sh++) {
+            var shx = shells[sh][0], shy = shells[sh][1];
+            ctx.fillStyle = shells[sh][2]; ctx.beginPath(); ctx.arc(shx, shy, 8, Math.PI, 0); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "rgba(120,70,40,0.25)"; ctx.lineWidth = 1;
+            for (var rr = 0; rr < 4; rr++) { ctx.beginPath(); ctx.moveTo(shx, shy); ctx.lineTo(shx + Math.cos(Math.PI + rr * Math.PI / 3) * 8, shy + Math.sin(Math.PI + rr * Math.PI / 3) * 8); ctx.stroke(); }
         }
 
         // blowing sand (capped ambient particles, a few per ~0.12s)
