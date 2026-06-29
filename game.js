@@ -20868,32 +20868,68 @@
         }
     }
 
-    // The booking/mugshot intake before the cell.
+    // The booking/mugshot intake before the cell — a full booking room.
     function drawIntake() {
-        var bg = ctx.createLinearGradient(0, 0, 0, H);
-        bg.addColorStop(0, "#5A6470"); bg.addColorStop(1, "#39424C");
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-        // height-chart wall
-        ctx.fillStyle = "#7C8896"; ctx.fillRect(W / 2 - 90, 90, 180, H * 0.5);
-        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 2; ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "right";
-        for (var ft = 0; ft < 7; ft++) {
-            var ly = 110 + ft * ((H * 0.5 - 30) / 6);
-            ctx.beginPath(); ctx.moveTo(W / 2 - 90, ly); ctx.lineTo(W / 2 - 70, ly); ctx.stroke();
-            ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillText((6 - ft) + "'", W / 2 - 74, ly + 4);
+        var floorY = Math.min(H * 0.78, H - 150);
+        var groundY = floorY - 8;                 // where Lulu's feet stand
+        // institutional tiled wall
+        var bg = ctx.createLinearGradient(0, 0, 0, floorY);
+        bg.addColorStop(0, "#5E6975"); bg.addColorStop(1, "#3E4751");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, floorY);
+        ctx.strokeStyle = "rgba(255,255,255,0.05)"; ctx.lineWidth = 1;
+        for (var tx = 0; tx <= W; tx += 46) { ctx.beginPath(); ctx.moveTo(tx, 84); ctx.lineTo(tx, floorY); ctx.stroke(); }
+        for (var tyy = 84; tyy < floorY; tyy += 46) { ctx.beginPath(); ctx.moveTo(0, tyy); ctx.lineTo(W, tyy); ctx.stroke(); }
+        // floor
+        var fg = ctx.createLinearGradient(0, floorY, 0, H);
+        fg.addColorStop(0, "#39424C"); fg.addColorStop(1, "#222a31");
+        ctx.fillStyle = fg; ctx.fillRect(0, floorY, W, H - floorY);
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.fillRect(0, floorY, W, 4);
+
+        // ── the HEIGHT CHART behind Lulu (tall, integrated into the wall) ──
+        var chW = 142, chX = W / 2 - chW / 2, chTop = 96, chBot = groundY;
+        ctx.fillStyle = "#9AA6B2"; roundRect(chX, chTop, chW, chBot - chTop, 3); ctx.fill();
+        ctx.fillStyle = "#C4CDD6"; ctx.fillRect(chX, chTop, chW, 6);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2; ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "left";
+        var feet = 7;
+        for (var ft = 0; ft <= feet; ft++) {
+            var ly = chBot - (ft / feet) * (chBot - chTop - 8) - 6;
+            var major = true;
+            ctx.beginPath(); ctx.moveTo(chX + 4, ly); ctx.lineTo(chX + (major ? 22 : 12), ly); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(chX + chW - 22, ly); ctx.lineTo(chX + chW - 4, ly); ctx.stroke();
+            ctx.fillStyle = "#37414B"; ctx.fillText(ft + "'", chX + 6, ly - 3);
+            // half-foot ticks
+            if (ft < feet) { var ly2 = ly - (1 / feet) * (chBot - chTop - 8) / 2; ctx.beginPath(); ctx.moveTo(chX + 4, ly2); ctx.lineTo(chX + 12, ly2); ctx.stroke(); }
         }
-        // Lulu front-on, holding her booking placard
-        drawPrisoner(W / 2, H * 0.5, gameTime * 0.5, "lulu");
-        ctx.fillStyle = "#FFF"; roundRect(W / 2 - 34, H * 0.5 + 6, 68, 26, 3); ctx.fill();
-        ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.strokeRect(W / 2 - 34, H * 0.5 + 6, 68, 26);
-        drawText("BRUCK, L.", W / 2, H * 0.5 + 14, "bold 9px 'Segoe UI', Arial, sans-serif", "#000", null, 0);
-        drawText(jail.inmate || "#0613", W / 2, H * 0.5 + 25, "bold 10px 'Segoe UI', Arial, sans-serif", "#C62828", null, 0);
-        // tripod camera
-        ctx.fillStyle = "#212121"; ctx.fillRect(W / 2 + 110, H * 0.42, 26, 18);
-        ctx.fillStyle = "#000"; ctx.fillRect(W / 2 + 108, H * 0.45, 6, 10);
-        ctx.strokeStyle = "#212121"; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(W / 2 + 123, H * 0.42 + 18); ctx.lineTo(W / 2 + 113, H * 0.42 + 60);
-        ctx.moveTo(W / 2 + 123, H * 0.42 + 18); ctx.lineTo(W / 2 + 133, H * 0.42 + 60); ctx.stroke();
-        // title + flash
+
+        // ── Lulu front-on, BIGGER, holding her booking placard ──
+        ctx.save(); ctx.translate(W / 2, groundY - 30); ctx.scale(1.7, 1.7);
+        drawPrisoner(0, 0, gameTime * 0.5, "lulu");
+        ctx.restore();
+        var plY = groundY - 16;
+        ctx.fillStyle = "#FFF"; roundRect(W / 2 - 42, plY, 84, 32, 3); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5; ctx.strokeRect(W / 2 - 42, plY, 84, 32);
+        ctx.fillStyle = "#222"; ctx.fillRect(W / 2 - 42, plY, 84, 3);
+        drawText("BRUCK, L.", W / 2, plY + 12, "bold 11px 'Segoe UI', Arial, sans-serif", "#111", null, 0);
+        drawText(jail.inmate || "#0613", W / 2, plY + 25, "bold 12px 'Segoe UI', Arial, sans-serif", "#C62828", null, 0);
+
+        // ── a proper press camera on a tripod ──
+        var camX = W - 70, camY = groundY - 110;
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(camX, camY + 14); ctx.lineTo(camX - 18, groundY); ctx.moveTo(camX, camY + 14); ctx.lineTo(camX + 18, groundY); ctx.moveTo(camX, camY + 14); ctx.lineTo(camX, groundY - 4); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.fillStyle = "#2B2B2B"; roundRect(camX - 22, camY - 14, 40, 30, 4); ctx.fill();   // body
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(camX - 28, camY + 2, 9, 0, Math.PI * 2); ctx.fill(); // lens
+        ctx.fillStyle = "#4FC3F7"; ctx.beginPath(); ctx.arc(camX - 28, camY + 2, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(camX - 10, camY - 26, 20, 12, 2); ctx.fill();    // flash housing
+        ctx.fillStyle = jail.camFlash > 0 ? "#FFFFFF" : "#FFF59D"; ctx.beginPath(); ctx.arc(camX, camY - 20, 5, 0, Math.PI * 2); ctx.fill();
+
+        // booking desk + ink pad in the foreground corner
+        ctx.fillStyle = "#5D4037"; roundRect(-10, groundY - 18, 80, 60, 4); ctx.fill();
+        ctx.fillStyle = "#4E342E"; roundRect(-10, groundY - 18, 80, 8, 4); ctx.fill();
+        ctx.fillStyle = "#263238"; roundRect(14, groundY - 10, 28, 18, 2); ctx.fill();        // ink pad
+        ctx.fillStyle = "#455A64"; roundRect(18, groundY - 6, 20, 10, 1); ctx.fill();
+
+        // title + flash + tap
         drawText("📸 BOOKING & INTAKE", W / 2, 44, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
         drawText("Inmate " + (jail.inmate || "#0613") + " — say cheese!", W / 2, 70, "bold 13px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 3);
         if (jail.camFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + clamp(jail.camFlash / 0.4, 0, 1) + ")"; ctx.fillRect(0, 0, W, H); }
@@ -21127,13 +21163,18 @@
         drawText("⚖", W / 2, 47, "bold 20px Arial", "#5D4037", null, 0);
         ctx.fillStyle = "#1565C0"; ctx.fillRect(W / 2 - 54, 26, 4, 40); ctx.fillStyle = "#C62828"; ctx.fillRect(W / 2 + 50, 26, 4, 40);
 
-        // public gallery fills the lower courtroom on tall screens
-        var galTop = cFloor + 44;
-        if (H - galTop > 230) {
+        // public gallery sits just behind the bar; a packed crowd whose rows
+        // scale to fill the whole floor down to the dialogue box on tall screens
+        // (so there's no dead empty band on a 2:1+ phone).
+        var galTop = cFloor + 40;
+        var galBot = H - 150;   // reserve the bottom band for the dialogue box
+        if (galBot - galTop > 120) {
+            var galRows = clamp(Math.round((galBot - galTop) / 34), 2, 12);
+            var rowGap = (galBot - galTop) / galRows;
             ctx.fillStyle = "#4E342E"; ctx.fillRect(0, galTop, W, 7);
-            for (var gr = 0; gr < 2; gr++) for (var gc = 0; gc < 6; gc++)
-                drawJuror(34 + gc * ((W - 68) / 5), galTop + 28 + gr * 30, gr * 6 + gc + 3, "watch");
-            drawText("— PUBLIC GALLERY —", W / 2, galTop + 90, "bold 9px 'Segoe UI', Arial, sans-serif", "rgba(255,235,200,0.5)", "#000", 1);
+            for (var gr = 0; gr < galRows; gr++) for (var gc = 0; gc < 6; gc++)
+                drawJuror(34 + gc * ((W - 68) / 5), galTop + rowGap * 0.7 + gr * rowGap, gr * 6 + gc + 3, "watch");
+            drawText("— PUBLIC GALLERY —", W / 2, galBot + 12, "bold 9px 'Segoe UI', Arial, sans-serif", "rgba(255,235,200,0.55)", "#000", 1);
         }
 
         // judge bench (center), jury box (left), prosecutor (right), Lulu (center podium)
@@ -21151,8 +21192,9 @@
         }
         if (court.gavel > 0) drawText("BANG!", W / 2 + 64, 92, "bold 13px Arial", "#FFD54F", "#000", 3);
 
-        // small charge sheet (top-right) for context
-        var cy = 150;
+        // small charge sheet (top-right) for context — below the bench so it
+        // doesn't overlap the judge.
+        var cy = 184;
         ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(W - 172, cy, 162, 18 + court.charges.length * 14, 6); ctx.fill();
         drawText("CHARGES", W - 91, cy + 11, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
         for (var c = 0; c < court.charges.length; c++)
