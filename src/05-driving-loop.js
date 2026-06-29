@@ -1330,7 +1330,11 @@
             // away on foot (they're in no state to chase): 50% vs 20%.
             var sloppy = (kind === "car" && (crashCause.behavior === "drunk" || crashCause.behavior === "texting"));
             crashReprieve = (kind !== "animal") && Math.random() < (sloppy ? 0.50 : 0.20);
-            reprieveKind = Math.random() < 0.5 ? "arrest" : "chase";
+            // Car-on-car wrecks can summon Hillel, the (ex-)insurance adjuster, who
+            // assesses the damage and sometimes cuts Lulu a check. Otherwise the
+            // usual funny outs (a cop nabs the guy, or he gets distracted and bolts).
+            reprieveKind = (kind === "car" && Math.random() < 0.4) ? "insurance"
+                         : (Math.random() < 0.5 ? "arrest" : "chase");
             spawnCrashBurst(player.x, player.y, true);
             playExplosion();
             setTimeout(playWompWomp, 400);
@@ -2003,6 +2007,7 @@
         "You'll PAY for this!", "We never forget!", "Off our road!", "Menace!"
     ];
     var angryYell = "";
+    var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
 
     function emitWreckSmoke(dt) {
         crashSmokeT -= dt;
@@ -2310,7 +2315,46 @@
         // Phase 4: the rare reprieve plays out — a weird, funny second chance.
         if (crashPhase === 4) {
             angryMan.time += dt;
-            if (angryMan.time > 7) { grantSecondChance(); return; } // hard safety cap
+            if (angryMan.time > 9) { grantSecondChance(); return; } // hard safety cap
+            if (reprieveKind === "insurance") {
+                var hg = hillelAdjuster;
+                if (!hg) { grantSecondChance(); return; }
+                hg.t += dt;
+                if (hg.phase === 0) {                        // Hillel hustles over
+                    var hdx = hg.targetX - hg.x;
+                    if (Math.abs(hdx) > 4) { hg.x += (hdx >= 0 ? 1 : -1) * 150 * dt; hg.dir = hdx >= 0 ? 1 : -1; }
+                    else { hg.x = hg.targetX; hg.phase = 1; hg.t = 0; hg.line = "Let me just... assess the damage. Mm. Mm-hm."; }
+                    return;
+                }
+                if (hg.phase === 1) {                        // assessing, clipboard out
+                    if (hg.t > 1.7) {
+                        hg.approved = Math.random() < 0.6;
+                        hg.payout = hg.approved ? randInt(50, 140) : 0;
+                        hg.line = hg.approved
+                            ? randPick(["Good news — claim APPROVED! ★" + hg.payout + ". 📋",
+                                        "Pushed it through! ★" + hg.payout + ". Don't tell my old boss.",
+                                        "Approved! ★" + hg.payout + ". The system still likes me. 😅"])
+                            : randPick(["Denied — 'pre-existing recklessness.' Sorry, kid.",
+                                        "Lapsed policy. And, ah... I don't actually work there now.",
+                                        "Claim DENIED. But hey — nobody's pressing charges!"]);
+                        hg.phase = 2; hg.t = 0;
+                        playTone(hg.approved ? 784 : 200, 0.12, "triangle", 0.16);
+                    }
+                    return;
+                }
+                if (hg.phase === 2) {                        // verdict → pay out → slip away
+                    if (!hg.paid) {
+                        hg.paid = true;
+                        if (hg.payout > 0) {
+                            runCoins += hg.payout; save.totalCoins += hg.payout; persistSave();
+                            spawnFloater(player.x, player.y - 40, "📋 +" + hg.payout + " insurance!", "#90CAF9");
+                        }
+                    }
+                    if (hg.t > 1.9) grantSecondChance();
+                    return;
+                }
+                return;
+            }
             if (reprieveKind === "arrest") {
                 if (revengeCar && !revengeCar.arrived) {
                     // cop screeches down to the man
@@ -2343,7 +2387,22 @@
     function beginReprieve() {
         crashPhase = 4;
         crashPhaseTimer = 3.2;
-        if (reprieveKind === "arrest") {
+        if (reprieveKind === "insurance") {
+            // Hillel walks up from the shoulder, clipboard in hand, to "handle the
+            // claim." The other driver calms down and lets the professional work.
+            var fromLeft = player.x < W / 2;
+            hillelAdjuster = {
+                x: fromLeft ? -28 : W + 28, y: player.y + 30,
+                targetX: player.x + (fromLeft ? -46 : 46), targetY: player.y + 30,
+                dir: fromLeft ? 1 : -1, phase: 0, t: 0,
+                payout: 0, approved: false,
+                line: randPick(["Hi, Hillel — I'll be your adjuster today.",
+                                "Don't panic! I do this... I DID this for a living.",
+                                "Lulu?! Small world. Let me just assess the, ah, carnage."])
+            };
+            angryMan.state = "talk";
+            angryYell = randPick(["...who's THIS guy?", "Finally, a professional.", "*grumbles*"]);
+        } else if (reprieveKind === "arrest") {
             // A cop screeches in from the top to nab the angry man.
             revengeCar = {
                 x: clamp(angryMan.x + (angryMan.x < W / 2 ? 42 : -42), ROAD_L + 24, ROAD_R - 24),
@@ -2365,9 +2424,10 @@
     function grantSecondChance() {
         spawnFloater(W / 2, H * 0.40, "SECOND CHANCE!", "#7CFC00");
         spawnFloater(W / 2, H * 0.40 + 26,
-            reprieveKind === "arrest" ? "They cuffed the guy! 🚓" : "You slipped away! 🏃‍♀️", "#FFE082");
+            reprieveKind === "insurance" ? "Hillel handled it! 📋"
+            : reprieveKind === "arrest" ? "They cuffed the guy! 🚓" : "You slipped away! 🏃‍♀️", "#FFE082");
         shakeTimer = 0; flashTimer = 0;
-        angryMan = null; revengeCar = null; crashedCar = null;
+        angryMan = null; revengeCar = null; crashedCar = null; hillelAdjuster = null;
         crashCause = null; animalSwarm = []; crashCars = [];
         crashReprieve = false; reprieveKind = null;
         // Clear the hidden wreck sprite so it doesn't pop back when she returns.
@@ -3513,6 +3573,21 @@
             }
         }
         if (revengeCar && angryMan.state === "hit") drawRevenge(revengeCar);
+        // Hillel the (ex-)insurance adjuster, hustling over with his clipboard.
+        if (hillelAdjuster && typeof drawHillel === "function") {
+            var hg = hillelAdjuster;
+            drawHillel(hg.x, hg.y, gameTime, hg.phase >= 1);
+            if (hg.line) {
+                var hlines = wrapLines(hg.line, W - 84, "bold 14px 'Segoe UI', Arial, sans-serif");
+                var hbh = 16 + hlines.length * 19, hby = 74, hbw = W - 56, hbx = 28;
+                ctx.fillStyle = "rgba(18,26,40,0.92)"; roundRect(hbx, hby, hbw, hbh, 10); ctx.fill();
+                ctx.strokeStyle = "#90CAF9"; ctx.lineWidth = 2; roundRect(hbx, hby, hbw, hbh, 10); ctx.stroke();
+                ctx.fillStyle = "#90CAF9"; roundRect(hbx + 12, hby - 11, 150, 20, 6); ctx.fill();
+                drawText("🧮 HILLEL · claims", hbx + 87, hby - 1, "bold 11px 'Segoe UI', Arial, sans-serif", "#0D1B3E", null, 0);
+                for (var hl = 0; hl < hlines.length; hl++)
+                    drawText(hlines[hl], W / 2, hby + 16 + hl * 19, "bold 14px 'Segoe UI', Arial, sans-serif", "#E3F2FD", "#000", 2);
+            }
+        }
         ctx.restore();
     }
 
