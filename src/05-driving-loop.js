@@ -1470,6 +1470,28 @@
                 cop.spot = Math.max(0, cop.spot - dt * 1.5);
             }
         }
+        // ── Escalating HEAT: the longer & faster the run, the more often a cruiser
+        //    "gets the call" and starts a fresh pursuit. Chases pile on at higher
+        //    levels (every 30s is a level), even more when she's speeding/distracted. ──
+        if (state === "playing" && !copChase && !copBust && !crashReprieve && gameSpeed > 220) {
+            spontaneousChaseCool -= dt;
+            if (spontaneousChaseCool <= 0) {
+                var lvl = Math.floor(gameTime / 30);
+                if (lvl >= 2) {
+                    var fireChance = clamp(0.14 + 0.07 * (lvl - 2), 0, 0.65) * (speeding ? 1.4 : 0.55) * (distractedMode ? 1.35 : 1);
+                    if (Math.random() < fireChance) {
+                        beginCopChase(player.x, randPick(["📻 SPEEDING REPORTED — PURSUE!", "🚨 APB ON A PINK CAR!",
+                            "📻 RECKLESS DRIVER — ALL UNITS!", "🚓 SOMEONE CALLED IT IN!", "📻 SHE'S BACK AT IT — GO GO GO!"]));
+                        spontaneousChaseCool = rand(15, 24) - Math.min(lvl, 7);   // next window (shorter at high levels)
+                    } else {
+                        spontaneousChaseCool = rand(4, 7);                          // recheck soon
+                    }
+                } else {
+                    spontaneousChaseCool = 6;
+                }
+            }
+        }
+
         // A chase never progresses while she's on foot (she's not a car to bust).
         if (copChase && state !== "footRun") updateCopChase(dt);
     }
@@ -1510,6 +1532,7 @@
                 playTone(659, 0.1, "triangle", 0.2);
                 setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
                 copChase = null;
+                spontaneousChaseCool = rand(12, 20);   // breather before the next call-in
                 return;
             }
         } else { copChase.escapeT = 0; }
@@ -2017,6 +2040,7 @@
     ];
     var angryYell = "";
     var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
+    var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the

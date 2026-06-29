@@ -29,6 +29,7 @@
         billboards = []; billboardTimer = 8;
         copEvent = null; copEventTimer = rand(60, 120);
         roadCops = []; copChase = null; copBust = null;
+        spontaneousChaseCool = 22;
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
