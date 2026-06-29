@@ -65,8 +65,147 @@
         "📻 *kkrrt* ...Heshy sighting near the kiddie pool, again..."
     ];
 
+    // ── Precinct SNEAK-OUT cutscene (mirrors the ER escape) ──────
+    // Leaving the precinct sometimes plays a comedic "sneak past the cops" beat:
+    // a random attempt, then either a clean strut-out or a funny nab. (She's
+    // free to go either way — getting "caught" just means she's shooed out.)
+    var polEscape = null;
+    var POL_ESCAPES = [
+        { attempt: "🤫 ...tiptoes past the donut-munching desk cop.", visual: "tiptoe" },
+        { attempt: "🪖 ...army-crawls across the precinct floor.", visual: "crawl" },
+        { attempt: "🧹 ...grabs a mop — 'just the janitor, officer!'", visual: "mop" },
+        { attempt: "🔔 ...yanks the fire alarm and bolts in the chaos!", visual: "alarm" }
+    ];
+    var POL_CLEAN = ["...waltzed right out the front door. 🚶‍♀️💨",
+        "The cop never looked up from his cruller. 🍩", "Out clean — she even swiped a lollipop. 🍭",
+        "Smooth. Nobody saw a thing.", "Strolled past three cops. Confidence is a disguise."];
+    var POL_CAUGHT = [
+        { line: "The desk cop looks up mid-bite: 'Goin' SOMEWHERE?' 🍩👮", visual: "donut" },
+        { line: "A K9 clamps onto her pant leg. Good boy. 🐕🚔", visual: "k9" },
+        { line: "The front door swings open — backup's already there. 🚓", visual: "backup" }
+    ];
+    function startPolEscape() {
+        polEscape = { escape: randPick(POL_ESCAPES), gag: randPick(POL_CAUGHT), cleanLine: randPick(POL_CLEAN),
+                      caught: Math.random() < 0.45, phase: 0, t: 0 };
+        polBubble = ""; polBubbleT = 0;   // drop any lingering chat bubble
+        if (typeof consumeAction === "function") consumeAction();
+        playClick();
+    }
+    function updatePolEscape(dt) {
+        polEscape.t += dt;
+        if (typeof updateParticles === "function") updateParticles(dt);
+        if (polEscape.phase === 0) {
+            // dust for the crawl/alarm dashes
+            var v = polEscape.escape.visual;
+            if ((v === "crawl" || v === "alarm") && typeof particles !== "undefined" && Math.random() < 0.5)
+                particles.push({ x: rand(W * 0.3, W * 0.7), y: polFloorY + 28, vx: rand(-30, 30), vy: rand(-24, -6),
+                    life: 0.5, maxLife: 0.5, size: rand(5, 9), color: "#CFD8DC", gravity: -20, smoke: true });
+            if (polEscape.t > 2.3) {
+                if (polEscape.caught) { polEscape.phase = 1; polEscape.t = 0; playTone(200, 0.12, "square", 0.14); }
+                else { spawnFloater(W / 2, polFloorY - 40, "🏃 Out clean!", "#7CFC4F"); polEscape = null; exitFootInterior(); }
+            }
+        } else {
+            if (polEscape.t > 2.2 || (polEscape.t > 1.0 && (consumeClick() || consumeAction()))) {
+                spawnFloater(W / 2, polFloorY - 40, "😳 ...shooed back to the street.", "#FFCC80");
+                polEscape = null; exitFootInterior();
+            }
+        }
+    }
+    function drawPolEscape(floorY) {
+        var pe = polEscape, t = pe.t, gy = floorY + 18;
+        // floor shadow so the action reads as a lit stage
+        var ff = ctx.createLinearGradient(0, floorY - 16, 0, H);
+        ff.addColorStop(0, "rgba(6,14,22,0)"); ff.addColorStop(1, "rgba(6,14,22,0.72)");
+        ctx.fillStyle = ff; ctx.fillRect(0, floorY - 16, W, H - floorY + 16);
+
+        if (pe.phase === 0) {
+            var prog = clamp(t / 2.3, 0, 1), v = pe.escape.visual;
+            if (v === "tiptoe") {
+                drawPolDonutCop(W * 0.20, gy, t, false);
+                var cx = lerp(W * 0.40, W * 0.86, prog), bob = Math.abs(Math.sin(t * 6)) * 5;
+                ctx.fillStyle = "rgba(255,255,255,0.28)";
+                for (var d = 1; d <= 4; d++) { var dx = cx - d * 26; if (dx > W * 0.30) { ctx.beginPath(); ctx.arc(dx, gy + 20, 2.5, 0, Math.PI * 2); ctx.fill(); } }
+                drawErLulu(cx, gy - bob, 1.4, t * 4, "panic", 0.12);
+                drawText("🤫", cx + 20, gy - 46, "16px Arial", "#000", null, 0);
+            } else if (v === "crawl") {
+                var cx2 = lerp(W * 0.20, W * 0.82, prog);
+                erSpeed(cx2 - 26, gy + 10, 1, 3, 18);
+                drawErLulu(cx2, gy + 14, 1.3, t * 5, "panic", -1.45);   // ~horizontal = belly-crawl
+                drawText("🪖", cx2 - 22, gy - 8, "14px Arial", "#000", null, 0);
+            } else if (v === "mop") {
+                var cx3 = lerp(W * 0.30, W * 0.82, prog);
+                drawErLulu(cx3, gy, 1.35, t * 3, "panic", 0);
+                ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 3; ctx.lineCap = "round";
+                ctx.beginPath(); ctx.moveTo(cx3 + 12, gy - 16); ctx.lineTo(cx3 + 28, gy + 22); ctx.stroke(); ctx.lineCap = "butt";
+                ctx.strokeStyle = "#FFE082"; ctx.lineWidth = 1.5;
+                for (var ms = -5; ms <= 5; ms += 2.5) { ctx.beginPath(); ctx.moveTo(cx3 + 28 + ms, gy + 20); ctx.lineTo(cx3 + 28 + ms * 1.4, gy + 30); ctx.stroke(); }
+                ctx.fillStyle = "#FFD54F"; roundRect(cx3 - 30, gy + 14, 16, 14, 3); ctx.fill();   // bucket
+                drawText("🧹 just moppin'~", cx3, gy - 48, "bold 11px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 2);
+            } else { // alarm
+                // alarm box on the wall, pulled, ringing
+                ctx.fillStyle = "#C62828"; roundRect(W * 0.16, floorY - 150, 30, 40, 4); ctx.fill();
+                ctx.fillStyle = "#FFCDD2"; roundRect(W * 0.16 + 6, floorY - 142, 18, 12, 2); ctx.fill();
+                ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(W * 0.16 + 15, floorY - 116 + Math.sin(t * 20) * 2, 5, 0, Math.PI * 2); ctx.fill();  // bell
+                var bl0 = Math.abs(Math.sin(t * 14));
+                drawText("🔔 CLANG CLANG!", W * 0.16 + 70, floorY - 130, "bold 13px 'Segoe UI', Arial, sans-serif", "rgba(255,82,82," + (0.5 + bl0 * 0.5) + ")", "#000", 3);
+                var cx4 = lerp(W * 0.5, W * 0.88, prog);
+                erSpeed(cx4 - 30, gy, 1, 4, 26);
+                drawErLulu(cx4, gy, 1.4, t * 6, "panic", 0.1);
+            }
+        } else {
+            var v2 = pe.gag.visual;
+            if (v2 === "donut") {
+                drawErLulu(W * 0.40, gy, 1.35, t * 5, "cry", 0.1);
+                drawPolDonutCop(W * 0.64, gy, t, true);
+            } else if (v2 === "k9") {
+                drawErLulu(W * 0.46, gy, 1.35, t * 5, "cry", -0.12);
+                drawPolDog(W * 0.60, gy + 16, t);
+            } else { // backup at the door
+                drawErLulu(W * 0.42, gy, 1.3, t * 5, "cry", 0);
+                ctx.save(); ctx.translate(W * 0.64, gy); ctx.scale(1.3, 1.3); drawAngryMan(0, 0, t, "running", -1, true); ctx.restore();
+            }
+        }
+        if (typeof drawParticles === "function") drawParticles();
+        // caption (reuses the ER caption card) + nabbed banner
+        erCaption(pe.phase === 0 ? pe.escape.attempt : pe.gag.line, pe.phase === 0 ? "#FFE082" : "#FF8A80");
+        if (pe.phase === 1 && t > 1.0) {
+            var bl = 0.4 + 0.6 * Math.abs(Math.sin(polTime * 6));
+            ctx.globalAlpha = bl; drawText("🚨 NABBED 🚨", W / 2, floorY - 170, "bold 20px 'Segoe UI', Arial, sans-serif", "#FF1744", "#000", 5); ctx.globalAlpha = 1;
+        }
+    }
+    // A seated, donut-munching desk cop (looks up + "!" when alert).
+    function drawPolDonutCop(x, y, t, alert) {
+        ctx.save(); ctx.translate(x, y); ctx.scale(1.25, 1.25);
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 26, 15, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A237E"; roundRect(-13, 0, 26, 24, 6); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -10, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0D1457"; roundRect(-11, -16, 22, 6, 2); ctx.fill();
+        ctx.fillStyle = "#1A237E"; roundRect(-8, -21, 16, 6, 2); ctx.fill();
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -18, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3E2723"; ctx.fillRect(-4, -7, 8, 2);
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-3, -10, alert ? 1.7 : 1, 0, Math.PI * 2); ctx.arc(3, -10, alert ? 1.7 : 1, 0, Math.PI * 2); ctx.fill();
+        // donut in hand
+        ctx.fillStyle = "#F8BBD0"; ctx.beginPath(); ctx.arc(15, 7, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(15, 7, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#E91E63"; ctx.fillRect(13, 3, 1.5, 1.5); ctx.fillRect(18, 6, 1.5, 1.5); ctx.fillRect(14, 10, 1.5, 1.5);
+        ctx.restore();
+        if (alert) drawText("!", x, y - 34, "bold 18px Arial", "#FF1744", "#000", 3);
+    }
+    // A little K9 latched onto her leg, tail wagging.
+    function drawPolDog(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "#5D4037"; roundRect(-10, -6, 22, 13, 5); ctx.fill();
+        ctx.beginPath(); ctx.arc(-12, -4, 6, 0, Math.PI * 2); ctx.fill();          // head toward Lulu (left)
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(-16, -8, 2, 0, Math.PI * 2); ctx.fill();  // ear
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(-6, 5, 3, 7); ctx.fillRect(5, 5, 3, 7);
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(11, -2); ctx.lineTo(18, -10 + Math.sin(t * 18) * 5); ctx.stroke(); ctx.lineCap = "butt";
+        ctx.restore();
+    }
+
     function initPoliceInterior() {
         polTime = 0;
+        polEscape = null;
         polFloorY = H - SAFE_BOTTOM - 120;
         polLuluX = 90; polLuluTargetX = 90; polWalkT = 0; polFacing = 1;
         polBubble = ""; polBubbleT = 0;
@@ -201,6 +340,7 @@
 
     function updatePoliceInterior(dt) {
         polTime += dt;
+        if (polEscape) { updatePolEscape(dt); return; }   // sneak-out cutscene owns input
         polCopMunch += dt * 6;
         polPerpBlink += dt;
         polPerpPace += dt * 1.4;
@@ -250,16 +390,12 @@
 
         var c = consumeClick();
         if (c) {
-            // LEAVE button
-            if (pointInRect(c.x, c.y, polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h)) {
-                playClick();
-                exitFootInterior();
-                return;
-            }
-            // door hotspot (top-right exit doorway)
-            if (pointInRect(c.x, c.y, W - 96, polFloorY - 132, 80, 132)) {
-                playClick();
-                exitFootInterior();
+            // LEAVE button / door — often play a comedic "sneak past the cops"
+            // exit (mirrors the ER escape); otherwise just walk out.
+            if (pointInRect(c.x, c.y, polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h) ||
+                pointInRect(c.x, c.y, W - 96, polFloorY - 132, 80, 132)) {
+                if (Math.random() < 0.55) { startPolEscape(); return; }
+                playClick(); exitFootInterior();
                 return;
             }
             // tapping a hotspot directly walks Lulu there + triggers it
@@ -442,7 +578,11 @@
             ctx.restore();
         }
 
-        // ── Lulu (with idle look-around fidget) ─────────────────
+        // ── Lulu (with idle look-around fidget) — replaced by the sneak-out
+        //    cutscene while escaping ───────────────────────────────
+        if (polEscape) {
+            drawPolEscape(floorY);
+        } else {
         var polFid = (polLuluFidget < 0.6) ? Math.sin(polTime * 8) * 0.12 : 0;
         ctx.save();
         if (polFacing < 0) {
@@ -454,6 +594,7 @@
             drawLuluTopDown(polLuluX, floorY + 18, polWalkT, "run");
         }
         ctx.restore();
+        }
 
         // ── radio dispatch crackle banner (micro-event) ────────
         if (polEventKind === 1 && polEventT > 0 && polDispatch) {
@@ -477,7 +618,8 @@
         // ── title banner ────────────────────────────────────────
         polDrawBanner();
 
-        // ── LEAVE button ───────────────────────────────────────
+        // ── LEAVE button + hints (hidden during the sneak-out cutscene) ──
+        if (polEscape) return;
         drawButton(polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h,
             "🚪 LEAVE", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 

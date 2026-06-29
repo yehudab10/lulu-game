@@ -503,7 +503,8 @@
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
             if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
-                jail.serveDays += 0.6; jail.tapCool = 0.12; jail.workFx = 0.22;
+                jail.serveDays += 0.6; jail.tapCool = 0.12; jail.workFx = 0.24;
+                spawnFloater(W / 2 + rand(-46, 46), H * 0.52, "⛏️ +1", "#FFE082");
                 playTone(380 + (jail.days % 5) * 28, 0.04, "square", 0.08);
             }
             jail.days = Math.min(jail.total, Math.floor(jail.serveDays));
@@ -652,10 +653,11 @@
             drawText("DAY " + day + " / " + total, W / 2, H - 110, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
             ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 94, 208, 10, 5); ctx.fill();
             ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 94, 208 * (day / total), 10, 5); ctx.fill();
-            // tap-to-grind prompt (pulses; brighter right after a tap)
+            // tap-to-grind prompt (pulses; brighter right after a tap). Make it
+            // clear you tap the SCREEN — there's no special button to hunt for.
             var grindBl = (jail.workFx > 0 ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 5)));
             ctx.globalAlpha = grindBl;
-            drawText("⛏️ TAP to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            drawText("👆 TAP ANYWHERE to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             ctx.globalAlpha = 1;
             drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 54, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
             return;

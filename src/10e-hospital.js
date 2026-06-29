@@ -62,8 +62,31 @@
     function hospTyped(full) { return full.slice(0, Math.floor(hospital.typeT * 45)); }
     function hospDone(full) { return Math.floor(hospital.typeT * 45) >= full.length; }
 
+    // ── escape particle helpers (glass shards / dust puffs / skid smoke) ──
+    function erGlass(x, y) {
+        for (var i = 0; i < 5; i++) particles.push({ x: x + rand(-14, 14), y: y + rand(-12, 12),
+            vx: rand(-160, 160), vy: rand(-220, -40), life: 0.9, maxLife: 0.9, size: rand(3, 6),
+            color: randPick(["#CFEFF6", "#9FD2E0", "#E3F4F8"]), gravity: 520, glass: true });
+    }
+    function erDust(x, y) {
+        for (var i = 0; i < 2; i++) particles.push({ x: x + rand(-6, 6), y: y + rand(-3, 3),
+            vx: rand(-40, 40), vy: rand(-30, -8), life: 0.6, maxLife: 0.6, size: rand(5, 10),
+            color: randPick(["#B0BEC5", "#CFD8DC", "#ECEFF1"]), gravity: -30, smoke: true });
+    }
+    function erSpawnFx() {
+        if (!hospital || hospital.phase !== 4) return;
+        var v = hospital.escape.visual, prog = clamp(hospital.escT / 2.3, 0, 1);
+        var gy = Math.min(H * 0.62, 470) - 24;
+        if (v === "window") { if (hospital.escT < 0.5) erGlass(W * 0.5, 116); }
+        else if (v === "chair") erDust(lerp(W * 0.26, W * 0.82, prog) - 14, gy + 22);
+        else if (v === "gurney") erDust(lerp(-50, W + 50, prog) - 26, gy + 20);
+        else if (v === "coat") { if (Math.random() < 0.25) erDust(lerp(W * 0.34, W * 0.76, prog), gy + 18); }
+        else if (v === "vent") { if (Math.random() < 0.4) erDust(W * 0.5 + rand(-6, 6), 150); }
+    }
+
     function updateHospital(dt) {
         hospital.t += dt; hospital.typeT += dt; hospital.ekg += dt;
+        if (typeof updateParticles === "function") updateParticles(dt);
         if (hospital.phase === 0) {                 // coming to
             if (hospital.t > 1.6 || consumeClick() || consumeAction()) {
                 hospital.phase = 1; hospital.t = 0; hospital.typeT = 0;
@@ -125,15 +148,18 @@
             return;
         }
         if (hospital.phase === 4) {                 // ESCAPE ATTEMPT (the funny try)
+            if (hospital.escT === 0 && hospital.escape.visual === "window") playTone(260, 0.18, "sawtooth", 0.16);
             hospital.escT += dt;
+            erSpawnFx();
             if (hospital.escT > 2.3) {
-                if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; playTone(200, 0.12, "square", 0.14); }
+                if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; shakeTimer = 0.25; shakeIntensity = 5; playTone(200, 0.12, "square", 0.14); }
                 else { hospital.phase = 6; hospital.t = 0; playTone(680, 0.1, "triangle", 0.16);
                        setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110); }
             }
             return;
         }
         if (hospital.phase === 5) {                 // CAUGHT — the gag plays, then arrest
+            if (shakeTimer > 0) shakeTimer -= dt;
             hospital.escT += dt;
             if (hospital.escT > 2.4 || (hospital.escT > 1.0 && (consumeClick() || consumeAction()))) {
                 hospital = null;
@@ -260,116 +286,176 @@
             drawText(lines[i], W / 2, by + 16 + i * 20, "bold 15px 'Segoe UI', Arial, sans-serif", "#F3F8F4", "#000", 3);
     }
 
-    // The bill-skip escape scene: a random funny attempt, then (if nabbed) a
-    // random funny capture. Drawn in the ER room above the floor line.
+    // Lulu drawn scaled/rotated (the escape uses a bigger, livelier Lulu than
+    // the tiny top-down sprite). `extra` adds a quick costume (lab coat).
+    function drawErLulu(x, y, s, t, mood, rot, extra) {
+        ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); ctx.scale(s, s);
+        drawLuluTopDown(0, 0, t, mood);
+        if (extra === "coat") {
+            ctx.fillStyle = "rgba(250,250,250,0.96)"; roundRect(-14, -5, 28, 27, 8); ctx.fill();
+            ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 20); ctx.stroke();
+            ctx.fillStyle = "#1A1A1A"; roundRect(-9, -16, 18, 5, 2); ctx.fill();        // big shades
+        }
+        ctx.restore();
+    }
+    // Speed/whoosh lines trailing a moving figure (dir: +1 moving right).
+    function erSpeed(x, y, dir, n, len) {
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+        for (var i = 0; i < n; i++) { var yy = y + (i - (n - 1) / 2) * 8; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x - dir * (len + i * 5), yy); ctx.stroke(); }
+        ctx.lineCap = "butt";
+    }
+
+    // The bill-skip escape scene: a random funny ATTEMPT, then (if nabbed) a
+    // random funny CAPTURE. Bigger, animated, with particles.
     function drawErEscape(erFloor) {
-        var e = hospital, t = e.escT || 0, gy = erFloor - 24;
+        var e = hospital, t = e.escT || 0, gy = erFloor + 16;
+        // fade the empty foreground floor into shadow so the action reads as a
+        // lit "stage" instead of a half-empty room.
+        var ff = ctx.createLinearGradient(0, erFloor, 0, H);
+        ff.addColorStop(0, "rgba(8,24,22,0)"); ff.addColorStop(0.5, "rgba(8,24,22,0.35)"); ff.addColorStop(1, "rgba(8,24,22,0.72)");
+        ctx.fillStyle = ff; ctx.fillRect(0, erFloor, W, H - erFloor);
+        var shake = (e.phase === 5 && shakeTimer > 0) ? shakeIntensity : 0;
+        ctx.save();
+        if (shake) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
         if (e.phase === 4) {
             var prog = clamp(t / 2.3, 0, 1), v = e.escape.visual;
             if (v === "window") {
-                drawErWindow(W * 0.5, 116);
-                // glass shards flying out
-                for (var g = 0; g < 7; g++) {
-                    var ga = g * 1.3, gd = prog * (40 + g * 9);
-                    ctx.fillStyle = "rgba(180,225,235,0.8)";
-                    ctx.save(); ctx.translate(W * 0.5 + Math.cos(ga) * gd, 116 + Math.abs(Math.sin(ga)) * gd * 0.7 + prog * 30); ctx.rotate(ga + prog * 4);
-                    ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(3, 3); ctx.lineTo(-3, 3); ctx.fill(); ctx.restore();
+                drawErWindow(W * 0.5, 120);
+                if (prog < 0.4) {   // shatter starburst flash at the window
+                    var f = 1 - prog / 0.4;
+                    ctx.strokeStyle = "rgba(255,255,255," + f + ")"; ctx.lineWidth = 3;
+                    for (var r = 0; r < 8; r++) { var a = r * Math.PI / 4; ctx.beginPath(); ctx.moveTo(W * 0.5, 120); ctx.lineTo(W * 0.5 + Math.cos(a) * (20 + f * 26), 120 + Math.sin(a) * (20 + f * 26)); ctx.stroke(); }
                 }
-                var lx = lerp(W * 0.5, W * 0.5 - 70, prog), ly = lerp(132, gy, prog);
-                ctx.save(); ctx.translate(lx, ly); ctx.rotate(-0.7 + prog * 1.3); drawLuluTopDown(0, 0, t * 7, "panic"); ctx.restore();
+                // accelerating tumble down-and-left out of the window
+                var lx = lerp(W * 0.5, W * 0.30, prog), ly = 120 + (gy - 120) * (prog * prog);
+                erSpeed(lx + 30, ly - 6, 1, 4, 22);
+                drawErLulu(lx, ly, 1.4, t * 9, "panic", -0.5 - prog * 2.6);
+                drawText("CRASH!", W * 0.5 + 40, 96, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             } else if (v === "coat") {
-                var cx = lerp(W * 0.36, W * 0.74, prog);
-                drawLuluTopDown(cx, gy, t * 4, "panic");
-                // a stolen lab coat draped over her + sunglasses
-                ctx.fillStyle = "rgba(250,250,250,0.92)"; roundRect(cx - 13, gy - 6, 26, 26, 7); ctx.fill();
-                ctx.fillStyle = "#222"; roundRect(cx - 7, gy - 16, 14, 4, 2); ctx.fill();   // shades
-                drawText("🥼", cx, gy + 30, "12px Arial", "#000", null, 0);
+                var cx = lerp(W * 0.26, W * 0.78, prog), bob = Math.abs(Math.sin(t * 6)) * 5;
+                // sneaky dotted footstep trail
+                ctx.fillStyle = "rgba(255,255,255,0.28)";
+                for (var d = 1; d <= 4; d++) { var dx = cx - d * 26; if (dx > 30) { ctx.beginPath(); ctx.arc(dx, gy + 20, 2.5, 0, Math.PI * 2); ctx.fill(); } }
+                drawErLulu(cx, gy - bob, 1.4, t * 4, "panic", 0.12, "coat");
+                drawText("🤫 nothing to see here", cx, gy - 52, "bold 11px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 2);
             } else if (v === "chair") {
-                var wx = lerp(W * 0.3, W * 0.8, prog);
-                // wheelchair
-                ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 3;
-                ctx.beginPath(); ctx.arc(wx - 8, gy + 16, 12, 0, Math.PI * 2); ctx.arc(wx + 10, gy + 16, 8, 0, Math.PI * 2); ctx.stroke();
-                ctx.fillStyle = "#546E7A"; roundRect(wx - 12, gy + 2, 24, 6, 2); ctx.fill();
-                drawLuluTopDown(wx, gy - 4, t * 3, "panic");
-                // motion lines
-                ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
-                for (var ml = 0; ml < 3; ml++) { ctx.beginPath(); ctx.moveTo(wx - 26 - ml * 10, gy + ml * 6); ctx.lineTo(wx - 40 - ml * 10, gy + ml * 6); ctx.stroke(); }
+                var wx = lerp(W * 0.24, W * 0.82, prog);
+                erSpeed(wx - 34, gy + 4, 1, 4, 26);
+                // big spinning back wheel + small front wheel
+                ctx.save(); ctx.translate(wx - 14, gy + 14); ctx.rotate(t * 16);
+                ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 17, 0, Math.PI * 2); ctx.stroke();
+                ctx.lineWidth = 2; for (var sp = 0; sp < 6; sp++) { var sa = sp * Math.PI / 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(sa) * 16, Math.sin(sa) * 16); ctx.stroke(); }
+                ctx.restore();
+                ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(wx + 14, gy + 18, 7, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#546E7A"; roundRect(wx - 16, gy + 2, 30, 6, 2); ctx.fill();   // seat
+                ctx.fillStyle = "#37474F"; ctx.fillRect(wx + 13, gy - 14, 4, 22);              // push handle
+                drawErLulu(wx, gy - 8, 1.3, t * 3, "panic", -0.08);
             } else if (v === "gurney") {
-                var gx = lerp(-50, W + 50, prog);
-                ctx.fillStyle = "#ECEFF1"; roundRect(gx - 34, gy, 68, 14, 5); ctx.fill();     // gurney bed
-                ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(gx - 22, gy + 18, 5, 0, Math.PI * 2); ctx.arc(gx + 22, gy + 18, 5, 0, Math.PI * 2); ctx.fill();
-                // Lulu's head + a flailing arm
-                ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(gx - 22, gy + 2, 8, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(gx - 22, gy - 1, 8, Math.PI, Math.PI * 2); ctx.fill();
-                ctx.strokeStyle = C.skin; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx + 6, gy + 2); ctx.lineTo(gx + 14, gy - 8 + Math.sin(t * 20) * 4); ctx.stroke();
-                drawText("WHEEEE", gx, gy - 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
+                var gx = lerp(-60, W + 60, prog);
+                for (var k = 3; k >= 1; k--) {   // motion-blur ghost trail
+                    ctx.globalAlpha = 0.16 * k; ctx.fillStyle = "#ECEFF1"; roundRect(gx - 36 - k * 26, gy + 2, 72, 14, 5); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                erSpeed(gx - 42, gy + 4, 1, 5, 30);
+                ctx.fillStyle = "#ECEFF1"; roundRect(gx - 36, gy + 2, 72, 14, 5); ctx.fill();   // gurney
+                ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(gx - 22, gy + 20, 6, 0, Math.PI * 2); ctx.arc(gx + 22, gy + 20, 6, 0, Math.PI * 2); ctx.fill();
+                // Lulu lying on it, head + flailing arms
+                ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(gx - 24, gy + 2, 9, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(gx - 24, gy - 2, 9, Math.PI, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = C.skin; ctx.lineWidth = 3.5; ctx.lineCap = "round";
+                ctx.beginPath(); ctx.moveTo(gx, gy + 2); ctx.lineTo(gx + 12, gy - 12 + Math.sin(t * 22) * 6); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gx + 6, gy + 4); ctx.lineTo(gx + 18, gy - 6 + Math.cos(t * 22) * 6); ctx.stroke(); ctx.lineCap = "butt";
+                drawText("WHEEEEE!", gx, gy - 22, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             } else { // vent
-                drawErWindow(W * 0.5, 110, true);   // reuse as a vent grate
-                // her legs dangling out of the vent, kicking
-                var kick = Math.sin(t * 14) * 5;
-                ctx.fillStyle = "#ECEFF1"; roundRect(W * 0.5 - 8, 128, 6, 18 + kick, 3); ctx.fill(); roundRect(W * 0.5 + 2, 128, 6, 18 - kick, 3); ctx.fill();
-                ctx.fillStyle = "#FFF"; ctx.fillRect(W * 0.5 - 9, 144 + kick, 8, 4); ctx.fillRect(W * 0.5 + 1, 144 - kick, 8, 4);
+                drawErWindow(W * 0.5, 116, true);   // grate
+                var kick = Math.sin(t * 13) * 6;
+                // her legs kicking out of the open grate
+                ctx.fillStyle = "#3F5C8A"; roundRect(W * 0.5 - 9, 132, 7, 20 + kick, 3); ctx.fill(); roundRect(W * 0.5 + 2, 132, 7, 20 - kick, 3); ctx.fill();
+                ctx.fillStyle = "#FFF"; ctx.fillRect(W * 0.5 - 10, 150 + kick, 9, 4); ctx.fillRect(W * 0.5 + 1, 150 - kick, 9, 4);
+                drawText("nnngh— almost—", W * 0.5, 184, "bold 12px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 2);
             }
         } else {
-            // CAUGHT GAG
-            var v2 = e.caughtGag.visual;
+            // ── CAUGHT GAG ──
+            var v2 = e.caughtGag.visual, rev = clamp((t - 0.4) / 0.5, 0, 1);
             if (v2 === "cars") {
-                for (var i = 0; i < 3; i++) drawCopCar(W * 0.24 + i * (W * 0.26), gy - 2, gameTime * 5);
-                drawLuluTopDown(W * 0.5, gy - 44, t * 4, "cry");
+                // skid marks + a row of flashing cruisers, spotlight on Lulu
+                ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 5;
+                for (var sk = 0; sk < 3; sk++) { var scx = W * 0.22 + sk * (W * 0.28); ctx.beginPath(); ctx.moveTo(scx - 26, gy + 26); ctx.lineTo(scx, gy + 14); ctx.stroke(); }
+                for (var cc = 0; cc < 3; cc++) drawCopCar(W * 0.22 + cc * (W * 0.28), gy + 2, gameTime * 6);
+                // spotlight cone onto a frozen, hands-up Lulu
+                ctx.fillStyle = "rgba(255,255,200,0.16)"; ctx.beginPath(); ctx.moveTo(W * 0.5, gy + 2); ctx.lineTo(W * 0.5 - 36, gy - 70); ctx.lineTo(W * 0.5 + 36, gy - 70); ctx.closePath(); ctx.fill();
+                drawErLulu(W * 0.5, gy - 50, 1.3, t * 5, "cry", 0);
             } else if (v2 === "oldlady") {
-                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
-                drawOldLadyCop(W * 0.60, gy, t);
+                drawErLulu(W * 0.36, gy, 1.35, t * 5, "cry", 0.1);
+                drawOldLadyCop(W * 0.62, gy, t);
             } else if (v2 === "doccop") {
-                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
-                drawDoctor(W * 0.60, gy - 4, gameTime, false);
-                ctx.fillStyle = "#FFD700"; drawText("★", W * 0.60 + 10, gy - 4, "bold 16px Arial", "#FFD700", "#000", 2);   // hidden badge
-            } else { // guard
-                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
-                drawAngryMan(W * 0.58, gy, t, "running", -1, true);
+                drawErLulu(W * 0.38, gy, 1.3, t * 5, "cry", 0.12);
+                ctx.save(); ctx.translate(W * 0.6, gy - 6); ctx.scale(1.25, 1.25); drawDoctor(0, 0, gameTime, false); ctx.restore();
+                // coat flaps open → badge revealed
+                if (rev > 0) { ctx.globalAlpha = rev; ctx.fillStyle = "#1565C0"; roundRect(W * 0.6 - 6, gy - 8, 14, 18, 3); ctx.fill();
+                    ctx.fillStyle = "#FFD700"; drawText("★", W * 0.6 + 1, gy + 1, "bold 14px Arial", "#FFD700", "#000", 2); ctx.globalAlpha = 1; }
+            } else { // guard tackle
+                var lunge = clamp(t / 0.5, 0, 1);
+                drawErLulu(lerp(W * 0.5, W * 0.4, lunge), gy, 1.3, t * 6, "cry", -0.2 * lunge);
+                ctx.save(); ctx.translate(lerp(W * 0.78, W * 0.55, lunge), gy); ctx.scale(1.3, 1.3); drawAngryMan(0, 0, t, "running", -1, true); ctx.restore();
+                if (rev > 0) { // impact stars
+                    ctx.fillStyle = "#FFD54F"; for (var st2 = 0; st2 < 5; st2++) { var aa = st2 * 1.25; drawText("✦", W * 0.48 + Math.cos(aa) * 22, gy - 24 + Math.sin(aa) * 16, "bold 13px Arial", "#FFD54F", "#000", 2); } }
             }
         }
+        ctx.restore();
+        if (typeof drawParticles === "function") drawParticles();
     }
 
-    // A shattered ER window (also reused as a vent grate).
+    // A shattered ER window (also reused as a vent grate). Bigger now.
     function drawErWindow(cx, cy, grate) {
-        ctx.fillStyle = "#37474F"; roundRect(cx - 34, cy - 26, 68, 52, 5); ctx.fill();
-        ctx.fillStyle = grate ? "#546E7A" : "#9FD2E0"; roundRect(cx - 30, cy - 22, 60, 44, 4); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(cx - 42, cy - 32, 84, 64, 6); ctx.fill();
+        ctx.fillStyle = grate ? "#546E7A" : "#9FD2E0"; roundRect(cx - 37, cy - 27, 74, 54, 5); ctx.fill();
         if (grate) {
+            ctx.fillStyle = "#0A140F"; roundRect(cx - 28, cy - 18, 56, 36, 3); ctx.fill();   // open dark vent
             ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2;
-            for (var s = -18; s <= 18; s += 8) { ctx.beginPath(); ctx.moveTo(cx - 30, cy + s); ctx.lineTo(cx + 30, cy + s); ctx.stroke(); }
+            for (var s = -22; s <= 22; s += 8) { ctx.beginPath(); ctx.moveTo(cx - 28, cy + s); ctx.lineTo(cx + 28, cy + s); ctx.stroke(); }
+            // the popped-off grate cover hanging
+            ctx.fillStyle = "#90A4AE"; ctx.save(); ctx.translate(cx + 30, cy + 18); ctx.rotate(0.5); roundRect(-14, -3, 28, 6, 2); ctx.fill(); ctx.restore();
         } else {
-            // jagged broken hole
-            ctx.fillStyle = "#0A140F"; ctx.beginPath();
-            ctx.moveTo(cx - 18, cy - 14); ctx.lineTo(cx - 2, cy - 18); ctx.lineTo(cx + 16, cy - 10);
-            ctx.lineTo(cx + 12, cy + 12); ctx.lineTo(cx - 6, cy + 16); ctx.lineTo(cx - 20, cy + 4); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#0A140F"; ctx.beginPath();   // jagged broken hole
+            ctx.moveTo(cx - 24, cy - 18); ctx.lineTo(cx - 4, cy - 24); ctx.lineTo(cx + 22, cy - 12);
+            ctx.lineTo(cx + 16, cy + 16); ctx.lineTo(cx - 8, cy + 22); ctx.lineTo(cx - 28, cy + 6); ctx.closePath(); ctx.fill();
             ctx.strokeStyle = "#CFEFF6"; ctx.lineWidth = 1.5; ctx.stroke();
         }
     }
 
-    // A "sweet old lady" who is actually a cop — shawl + bun, with a police cap
-    // popping up over it as the disguise drops.
+    // A "sweet old lady" who's actually a cop — the shawl FLIES off and a police
+    // cap pops up as the disguise drops, with a wagging finger.
     function drawOldLadyCop(x, y, t) {
-        var reveal = clamp((t - 0.5) / 0.6, 0, 1);
-        ctx.save(); ctx.translate(x, y);
-        // body / shawl (triangle)
-        ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-15, 24); ctx.lineTo(15, 24); ctx.closePath(); ctx.fill();
-        // head
-        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI * 2); ctx.fill();
-        // gray bun
-        ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(0, -24, 4, 0, Math.PI * 2); ctx.fill();
-        // glasses + frown
-        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-3, -14, 2.2, 0, Math.PI * 2); ctx.arc(3, -14, 2.2, 0, Math.PI * 2); ctx.stroke();
-        // police cap slides up out of the bun on reveal
-        if (reveal > 0) {
-            ctx.save(); ctx.translate(0, -24 - reveal * 12); ctx.globalAlpha = reveal;
-            ctx.fillStyle = "#1A237E"; roundRect(-11, -6, 22, 8, 2); ctx.fill();
-            ctx.fillStyle = "#1A237E"; roundRect(-9, -10, 18, 5, 2); ctx.fill();
-            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -7, 2, 0, Math.PI * 2); ctx.fill();
+        var reveal = clamp((t - 0.45) / 0.5, 0, 1);
+        ctx.save(); ctx.translate(x, y); ctx.scale(1.3, 1.3);
+        // cop body (revealed) — navy uniform
+        ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-13, 24); ctx.lineTo(13, 24); ctx.closePath(); ctx.fill();
+        if (reveal < 1) {   // the shawl still partly on / flying off
+            ctx.save(); ctx.globalAlpha = 1 - reveal * 0.6; ctx.translate(reveal * 34, -reveal * 40); ctx.rotate(reveal * 1.4);
+            ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-15, 22); ctx.lineTo(15, 22); ctx.closePath(); ctx.fill();
             ctx.restore();
         }
+        // head
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();   // gray bun (under cap)
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-3, -14, 2.2, 0, Math.PI * 2); ctx.arc(3, -14, 2.2, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-3, -14, 0.9, 0, Math.PI * 2); ctx.arc(3, -14, 0.9, 0, Math.PI * 2); ctx.fill();
+        // police cap drops onto her head on reveal
+        if (reveal > 0) {
+            ctx.save(); ctx.translate(0, -22 + (1 - reveal) * -14); ctx.globalAlpha = reveal;
+            ctx.fillStyle = "#0D1457"; roundRect(-12, -2, 24, 7, 2); ctx.fill();
+            ctx.fillStyle = "#1A237E"; roundRect(-9, -8, 18, 7, 2); ctx.fill();
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -4, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            // wagging finger
+            var wag = Math.sin(t * 12) * 6;
+            ctx.strokeStyle = C.skin; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(-14, 4); ctx.lineTo(-22 + wag, -8); ctx.stroke(); ctx.lineCap = "butt";
+        }
         ctx.restore();
-        drawText("👵🚔", x, y + 36, "13px Arial", "#000", null, 0);
+        if (reveal > 0.6) drawText("FREEZE! 🚔", x, y - 40, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
     }
 
     // A white-coat doctor with a clipboard / stethoscope.
