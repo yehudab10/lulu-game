@@ -404,6 +404,35 @@
         }
     }
 
+    // Browsers (especially iOS/WKWebView) gate the FIRST play() of each <audio>
+    // element behind a user gesture — even after the WebAudio context is unlocked.
+    // So a track first heard in a LATER scene would stay silent until the next tap.
+    // Warm EVERY track up during the very first gesture: a muted play()+pause()
+    // "unlocks" each element so later programmatic startMusic() just works.
+    var musicWarmed = false;
+    function unlockAllMusic() {
+        if (musicWarmed) return;
+        musicWarmed = true;
+        function warm(el) {
+            if (!el) return;
+            try {
+                el.muted = true;
+                var p = el.play();
+                if (p && p.then) p.then(function () { try { el.pause(); el.currentTime = 0; el.muted = false; } catch (e) {} })
+                                  .catch(function () { try { el.muted = false; } catch (e) {} });
+                else { el.pause(); el.currentTime = 0; el.muted = false; }
+            } catch (e) { try { el.muted = false; } catch (e2) {} }
+        }
+        var tracks = Object.keys(MUSIC_FILES || {});
+        for (var i = 0; i < tracks.length; i++) warm(getMusicEl(tracks[i]));
+        var plKeys = Object.keys(MUSIC_PLAYLISTS || {});
+        for (var k = 0; k < plKeys.length; k++) {
+            buildPlaylist(plKeys[k]);
+            var els = playlistEls[plKeys[k]] || [];
+            for (var j = 0; j < els.length; j++) warm(els[j]);
+        }
+    }
+
     function playHonkPitched(pitch) {
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
@@ -642,6 +671,7 @@
     document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
 
     document.addEventListener("keydown", function (e) {
+        getAudio(); audioUnlocked = true; unlockAllMusic();   // keyboard counts as a gesture too
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = true;
         if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") keys.right = true;
         if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") { keys.up = true; e.preventDefault(); }
@@ -665,6 +695,7 @@
         e.preventDefault();
         getAudio(); // unlock audio on first touch
         audioUnlocked = true;
+        unlockAllMusic(); // warm up every track so later scenes don't wait for a tap
         for (var i = 0; i < e.changedTouches.length; i++) {
             var t = e.changedTouches[i];
             var pos = screenToCanvas(t.clientX, t.clientY);
@@ -763,6 +794,7 @@
     canvas.addEventListener("mousedown", function (e) {
         getAudio();
         audioUnlocked = true;
+        unlockAllMusic();
         var pos = screenToCanvas(e.clientX, e.clientY);
         clickQueue = pos;
         queueAction();
