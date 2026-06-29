@@ -77,6 +77,16 @@
     var COURT_REACTS = ["*the gallery murmurs* 🤔", "*a juror nods slowly...* ", "*the stenographer stops typing to stare*",
         "*someone in the back whispers 'iconic'*", "*the prosecutor's eye TWITCHES*", "*the judge sips coffee, unimpressed*"];
 
+    // Family who turn up in the gallery to watch the trial — one lit, recognizable
+    // face among the dark spectator silhouettes, blurting support (or heckling).
+    var COURT_GALLERY_GUESTS = [
+        { p: "abba",    accent: "#FFD180", lines: ["THAT'S MY GIRL!\n...order, your honor. ❤️", "She's a GOOD\ngirl, I SWEAR!", "Objection! She's\nmy DAUGHTER!"] },
+        { p: "hillel",  accent: "#BBDEFB", lines: ["Statistically she's\n...mostly innocent?", "I'm just here for\nmoral support! 😅", "For the record, I\ndid NOT advise this."] },
+        { p: "raphael", accent: "#FFCC80", lines: ["Throw the book!\n...kidding. Mostly. 😏", "In MY day: a fine\nand a HANDSHAKE.", "Feh. Where's\nHillel? *grumble*"] },
+        { p: "bubbe",   accent: "#D7C29A", lines: ["She didn't EAT\ntoday! Mercy! 🍲", "My LULULEH wouldn't\nhurt a FLY!", "I'll bake the judge\na cholent — DEAL?"] },
+        { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] }
+    ];
+
     // ── Random courtroom EVENTS — a small chance (~40%) something dramatic
     //    interrupts the trial. Each plays a few lines and NUDGES the verdict:
     //    "help" (lean acquittal) · "hurt" (lean guilty) · "dismiss" (instant out)
@@ -970,7 +980,9 @@
         ];
         if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
+        var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
+                  galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
                   phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
@@ -1277,8 +1289,18 @@
     function drawGalleryFG(frontY) {
         // four big audience heads peeking up over the bar, framing the foreground.
         var seats = [0.11, 0.36, 0.64, 0.89];
+        var guest = (typeof court !== "undefined" && court) ? court.galleryGuest : null;
+        var guestSeat = 2;   // the family member sits just right of centre
         for (var i = 0; i < seats.length; i++) {
             var gx = seats[i] * W, sc = 1.55 + (i % 2) * 0.3, gy = frontY - 6 + (i % 2) * 8;
+            if (guest && i === guestSeat) {
+                // a LIT, recognizable family face among the dark silhouettes
+                ctx.save(); ctx.translate(gx, gy + 2); ctx.scale(1.12, 1.12);
+                ctx.fillStyle = "rgba(0,0,0,0.5)"; roundRect(-26, 4, 52, 50, 14); ctx.fill();   // seat shadow
+                drawPortrait(guest.p, 0, -2, 50, Math.sin(gameTime * 5) > 0);
+                ctx.restore();
+                continue;
+            }
             ctx.save(); ctx.translate(gx, gy); ctx.scale(sc, sc);
             ctx.fillStyle = "#130E0A";
             roundRect(-30, -4, 60, 54, 15); ctx.fill();
@@ -1286,6 +1308,11 @@
             ctx.strokeStyle = "rgba(255,201,130,0.13)"; ctx.lineWidth = 2.4;
             ctx.beginPath(); ctx.arc(0, -8, 18, Math.PI * 1.1, Math.PI * 1.92); ctx.stroke();
             ctx.restore();
+        }
+        // the guest's little outburst, in a bubble above their seat
+        if (guest && guest.line) {
+            var bx = clamp(seats[guestSeat] * W, 130, W - 130);
+            drawSpeechBubble(bx, frontY - 84, guest.line, gameTime);
         }
     }
 
