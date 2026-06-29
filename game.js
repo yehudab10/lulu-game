@@ -21797,7 +21797,14 @@
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
             court.phase = 36; court.t = 0; court.typeT = 0;
-            playTone(440, 0.1, "triangle", 0.14);
+            // a distinct sting per event so the interruption lands
+            var evId = court.event.id;
+            if (evId === "phone") { playTone(1180, 0.12, "sine", 0.13); setTimeout(function () { playTone(1180, 0.12, "sine", 0.13); }, 220); setTimeout(function () { playTone(1180, 0.12, "sine", 0.13); }, 440); }   // ring ring ring
+            else if (evId === "mistrial") { playTone(523, 0.1, "triangle", 0.16); setTimeout(function () { playTone(784, 0.14, "triangle", 0.16); }, 120); setTimeout(function () { playTone(1047, 0.18, "triangle", 0.16); }, 260); }   // triumphant
+            else if (evId === "gasp") { playTone(300, 0.35, "sine", 0.11, 720); }                          // rising gasp
+            else if (evId === "avigail") { playTone(160, 0.22, "sawtooth", 0.15, 110); }                   // ominous
+            else if (evId === "bubbe") { playTone(587, 0.12, "triangle", 0.12); setTimeout(function () { playTone(880, 0.16, "triangle", 0.12); }, 130); }   // warm chime
+            else playTone(440, 0.1, "triangle", 0.14);
         } else {
             court.phase = 4; court.t = 0;
         }
