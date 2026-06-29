@@ -1959,6 +1959,34 @@
         "License and\nregistration. NOW.",
         "That'll be a\nVERY big ticket."
     ];
+    // Not everyone you bump is a furious grandpa — some are shaken and scared,
+    // some are heartbroken. These pools fit either a bystander or a wrecked driver.
+    var SCARED_YELLS = [
+        "P-PLEASE don't\nhurt me!!",
+        "MY HANDS ARE\nSHAKING!!",
+        "I— I've NEVER\ncrashed before!",
+        "Is everyone\nOKAY?! oh no—",
+        "I'm calling\nmy MOM!!",
+        "Do we... do we\nEXCHANGE info?!",
+        "I think I might\nFAINT...",
+        "AAH! my life\nFLASHED by!!"
+    ];
+    var SAD_YELLS = [
+        "...my car. my\nbeautiful car. 😢",
+        "I just GOT it\nwashed... *sniff*",
+        "why does this\nALWAYS happen...",
+        "I can't afford\nthis... again. 💧",
+        "it was my\nzaidy's car...",
+        "*quietly\nsobbing*",
+        "I'm having the\nWORST week...",
+        "I only wanted\na nice drive..."
+    ];
+    // Hair looks for the random driver — "grandpa" is the classic wild white.
+    var DRIVER_HAIR = ["grandpa", "grandpa", "#3E2723", "#5D4037", "#212121", "#8D6E63", "#BDBDBD", "#C0843B"];
+    function rollDriverMood() { var r = Math.random(); return r < 0.25 ? "scared" : r < 0.50 ? "sad" : "angry"; }
+    function driverHairFor(mood) { var h = randPick(DRIVER_HAIR); return (mood !== "angry" && h === "grandpa") ? "#5D4037" : h; }
+    function moodYell(mood, angryPool) { return mood === "scared" ? randPick(SCARED_YELLS) : mood === "sad" ? randPick(SAD_YELLS) : randPick(angryPool); }
+
     // Drunk bar patrons + the odd rowdy worker holler these at Lulu.
     var BAR_CATCALLS = [
         "Heyyy gorgeous! 🍻", "Niiice ride, sweetheart!", "Gimme a liiift?",
@@ -2135,6 +2163,10 @@
                     // A wrecked cop car sends out a uniformed officer, not a
                     // grandpa — looks right since the wreck is drawn as a cruiser.
                     var crashIsCop = crashCause.behavior === "patrol";
+                    // Cops, drunks and texters stay their (angry/oblivious) selves;
+                    // an ordinary driver might climb out scared or heartbroken instead.
+                    var themed = crashIsCop || crashCause.behavior === "drunk" || crashCause.behavior === "texting";
+                    var dMood = themed ? "angry" : rollDriverMood();
                     angryMan = {
                         x: crashedCar.x,
                         y: crashedCar.y + 18,
@@ -2143,12 +2175,14 @@
                         time: 0,
                         state: "running",
                         runDir: carLeft ? 1 : -1,
-                        cop: crashIsCop
+                        cop: crashIsCop,
+                        mood: dMood,
+                        hair: crashIsCop ? null : driverHairFor(dMood)
                     };
-                    angryYell = randPick(crashIsCop ? COP_CAR_YELLS
-                                       : crashCause.behavior === "drunk" ? DRUNK_CAR_YELLS
-                                       : crashCause.behavior === "texting" ? TEXT_CAR_YELLS
-                                       : CAR_YELLS);
+                    angryYell = crashIsCop ? randPick(COP_CAR_YELLS)
+                              : crashCause.behavior === "drunk" ? randPick(DRUNK_CAR_YELLS)
+                              : crashCause.behavior === "texting" ? randPick(TEXT_CAR_YELLS)
+                              : moodYell(dMood, CAR_YELLS);
                     // door-burst puff at the wreck
                     for (var d0 = 0; d0 < 7; d0++) {
                         particles.push({
@@ -2158,8 +2192,9 @@
                         });
                     }
                 } else {
-                    // A random bystander charges in from the roadside.
+                    // A random bystander charges (or stumbles, shaken) in from the roadside.
                     var fromLeft = player.x > W / 2;
+                    var bMood = rollDriverMood();
                     angryMan = {
                         x: fromLeft ? -30 : W + 30,
                         y: player.y + 50,
@@ -2167,9 +2202,11 @@
                         targetY: player.y + 50,
                         time: 0,
                         state: "running",
-                        runDir: fromLeft ? 1 : -1
+                        runDir: fromLeft ? 1 : -1,
+                        mood: bMood,
+                        hair: driverHairFor(bMood)
                     };
-                    angryYell = randPick(ANGRY_YELLS);
+                    angryYell = moodYell(bMood, ANGRY_YELLS);
                 }
                 crashPhase = 1;
             }
@@ -3470,7 +3507,7 @@
         // Revenge car / cop (if active) — drawn before the man if behind, after if hit
         if (revengeCar && angryMan.state !== "hit") drawRevenge(revengeCar);
         if (angryMan.state !== "hit") {
-            drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop);
+            drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
             if (angryMan.state === "yelling" || crashPhase === 4) {
                 drawSpeechBubble(angryMan.x, angryMan.y - 30, angryYell, angryMan.time);
             }

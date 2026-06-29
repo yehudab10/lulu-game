@@ -1063,9 +1063,17 @@
     }
 
     // ── Drawing: Angry Man + Speech Bubble ───────────────────
-    function drawAngryMan(x, y, time, state, runDir, cop) {
+    function drawAngryMan(x, y, time, state, runDir, cop, mood, hair) {
         ctx.save();
         ctx.translate(x, y);
+        // The driver who climbs out isn't always a grumpy grandpa: `mood` is
+        // "angry" (default), "scared", or "sad", and `hair` varies the person
+        // ("grandpa" = the classic wild white; otherwise a combed cap of that
+        // color). Cops are always by-the-book angry.
+        mood = mood || "angry";
+        if (cop) { mood = "angry"; hair = null; }
+        var grandpa = !hair || hair === "grandpa";
+        var hairCol = grandpa ? "#FAFAFA" : hair;
 
         // A cop variant (when the wreck was a police cruiser): navy uniform,
         // peaked cap + badge instead of grandpa plaid + wild white hair.
@@ -1161,12 +1169,12 @@
             ctx.beginPath(); ctx.arc(11, 8 + gb * 0.4, 2.5, 0, Math.PI * 2); ctx.fill();
         }
 
-        // Head (red-faced angry)
+        // Head — flushed red when angry, pale when scared, wan when sad.
         ctx.fillStyle = "#222";
         ctx.beginPath(); ctx.arc(0, -16, 9, 0, Math.PI * 2); ctx.fill();
-        // angry red face (calm when just talking)
-        var redness = state === "yelling" ? "#FF7043" : "#FFAB91";
-        ctx.fillStyle = redness;
+        var faceCol = mood === "scared" ? "#FFE3D2" : mood === "sad" ? "#EDB29A"
+                    : (state === "yelling" ? "#FF7043" : "#FFAB91");
+        ctx.fillStyle = faceCol;
         ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();
 
         if (cop) {
@@ -1183,7 +1191,7 @@
             // gold cap emblem
             ctx.fillStyle = "#FFD54F";
             ctx.beginPath(); ctx.arc(0, -24, 1.8, 0, Math.PI * 2); ctx.fill();
-        } else {
+        } else if (grandpa) {
         // White hair (wild messy clumps with darker base for depth)
         ctx.fillStyle = "#9E9E9E";
         ctx.beginPath();
@@ -1206,61 +1214,74 @@
         ctx.ellipse(-4, -26, 1.5, 3, -0.3, 0, Math.PI * 2);
         ctx.ellipse(4, -26, 1.5, 3, 0.3, 0, Math.PI * 2);
         ctx.fill();
-        }
-        // Bushy eyebrows (angry V-shape) — white for grandpa, dark for the cop
-        ctx.fillStyle = cop ? "#3E2723" : "#FAFAFA";
-        ctx.save();
-        ctx.translate(-3, -18);
-        ctx.rotate(0.4);
-        roundRect(-3, 0, 6, 2, 1); ctx.fill();
-        ctx.restore();
-        ctx.save();
-        ctx.translate(3, -18);
-        ctx.rotate(-0.4);
-        roundRect(-3, 0, 6, 2, 1); ctx.fill();
-        ctx.restore();
-
-        // Eyes (angry slits)
-        ctx.strokeStyle = "#000";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(-5, -16); ctx.lineTo(-2, -15);
-        ctx.moveTo(2, -15); ctx.lineTo(5, -16);
-        ctx.stroke();
-
-        // Pupils (small angry dots)
-        ctx.fillStyle = "#000";
-        ctx.beginPath();
-        ctx.arc(-3, -15, 0.9, 0, Math.PI * 2);
-        ctx.arc(3, -15, 0.9, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Big mustache — white for grandpa, a dark cop 'stache otherwise
-        ctx.fillStyle = cop ? "#3E2723" : "#FAFAFA";
-        ctx.beginPath();
-        ctx.ellipse(-3, -12, 4, 1.8, 0.2, 0, Math.PI * 2);
-        ctx.ellipse(3, -12, 4, 1.8, -0.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Open yelling mouth (also animated, smaller, when calmly talking)
-        if (state === "yelling" || state === "talk") {
-            var talk = state === "talk";
-            ctx.fillStyle = "#000";
-            ctx.beginPath();
-            var mouthW = (talk ? 2 : 3) + Math.abs(Math.sin(time * (talk ? 14 : 25))) * (talk ? 1.4 : 1.2);
-            ctx.ellipse(0, -9, mouthW, talk ? 1.8 : 2.5, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#F44336";
-            ctx.beginPath();
-            ctx.ellipse(0, -8.5, mouthW * 0.6, 1, 0, 0, Math.PI * 2);
-            ctx.fill();
         } else {
-            // grumpy frown
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 1.2;
+        // A combed cap of hair in the driver's colour (a younger, varied person)
+        ctx.fillStyle = hairCol;
+        ctx.beginPath(); ctx.arc(0, -19, 8.6, Math.PI, 0); ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(-7, -15, 2.6, 6, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(7, -15, 2.6, 6, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        }
+        // ── Brows / eyes / mouth all read the mood ──
+        var browCol = cop ? "#3E2723" : (grandpa ? "#FAFAFA" : hairCol);
+        ctx.fillStyle = browCol;
+        if (mood === "scared") {                       // high, flat, worried
+            roundRect(-6, -22, 5, 2, 1); ctx.fill();
+            roundRect(1, -22, 5, 2, 1); ctx.fill();
+        } else if (mood === "sad") {                   // inner-up "frown" brows
+            ctx.save(); ctx.translate(-3, -19); ctx.rotate(-0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
+            ctx.save(); ctx.translate(3, -19); ctx.rotate(0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
+        } else {                                       // angry V
+            ctx.save(); ctx.translate(-3, -18); ctx.rotate(0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
+            ctx.save(); ctx.translate(3, -18); ctx.rotate(-0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
+        }
+
+        if (mood === "scared") {                       // wide frightened eyes + sweat
+            ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-3, -15.5, 2.2, 0, Math.PI * 2); ctx.arc(3, -15.5, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-3, -15, 1.1, 0, Math.PI * 2); ctx.arc(3, -15, 1.1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(6.5, -14 + Math.abs(Math.sin(time * 6)) * 2, 1.3, 0, Math.PI * 2); ctx.fill();
+        } else if (mood === "sad") {                   // droopy eyes + a welling tear
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.3;
+            ctx.beginPath(); ctx.arc(-3, -14, 1.8, 1.05 * Math.PI, 1.95 * Math.PI); ctx.arc(3, -14, 1.8, 1.05 * Math.PI, 1.95 * Math.PI); ctx.stroke();
+            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-3, -15, 0.9, 0, Math.PI * 2); ctx.arc(3, -15, 0.9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(120,190,235,0.95)"; ctx.beginPath(); ctx.arc(-4, -11 + ((time * 10) % 5), 1.3, 0, Math.PI * 2); ctx.fill();
+        } else {                                       // angry slits + dot pupils
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(-5, -16); ctx.lineTo(-2, -15); ctx.moveTo(2, -15); ctx.lineTo(5, -16); ctx.stroke();
+            ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-3, -15, 0.9, 0, Math.PI * 2); ctx.arc(3, -15, 0.9, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // Big mustache — only on the classic grandpa or the cop
+        if (grandpa || cop) {
+            ctx.fillStyle = cop ? "#3E2723" : "#FAFAFA";
             ctx.beginPath();
-            ctx.arc(0, -8, 3, 1.2 * Math.PI, 1.8 * Math.PI);
-            ctx.stroke();
+            ctx.ellipse(-3, -12, 4, 1.8, 0.2, 0, Math.PI * 2);
+            ctx.ellipse(3, -12, 4, 1.8, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Mouth by mood
+        if (mood === "scared") {                       // trembling little "o"
+            ctx.fillStyle = "#3A1A1A"; ctx.beginPath();
+            ctx.ellipse(Math.sin(time * 30) * 0.6, -9, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        } else if (mood === "sad") {                   // wobbly frown / open sob
+            if (state === "yelling" || state === "talk") {
+                ctx.fillStyle = "#3A1A1A"; ctx.beginPath();
+                ctx.ellipse(0, -8, 2.4, 1.6 + Math.abs(Math.sin(time * 10)) * 1.2, 0, 0, Math.PI * 2); ctx.fill();
+            } else {
+                ctx.strokeStyle = "#000"; ctx.lineWidth = 1.3; ctx.beginPath();
+                ctx.arc(0, -5, 3.4, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+            }
+        } else if (state === "yelling" || state === "talk") {
+            var talk = state === "talk";
+            ctx.fillStyle = "#000"; ctx.beginPath();
+            var mouthW = (talk ? 2 : 3) + Math.abs(Math.sin(time * (talk ? 14 : 25))) * (talk ? 1.4 : 1.2);
+            ctx.ellipse(0, -9, mouthW, talk ? 1.8 : 2.5, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#F44336"; ctx.beginPath(); ctx.ellipse(0, -8.5, mouthW * 0.6, 1, 0, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.2; ctx.beginPath();
+            ctx.arc(0, -8, 3, 1.2 * Math.PI, 1.8 * Math.PI); ctx.stroke();
         }
 
         ctx.restore();
