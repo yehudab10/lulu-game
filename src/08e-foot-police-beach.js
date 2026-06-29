@@ -1190,7 +1190,7 @@
         if (spot.reward && !spot.rewarded) {
             spot.rewarded = true;
             footCoinsRun += 25; runCoins += 25; save.totalCoins += 25; persistSave();
-            footStars += 1; // a little beach-day star too
+            footAwardStar(); // a little beach-day star too
             spawnFloater(spot.x, bchSandY + 30, "+25 ⭐", "#FFD700");
             playCoin();
             playTone(880, 0.12, "sine", 0.12, 1320);

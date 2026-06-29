@@ -436,7 +436,7 @@
         wedRewardGiven = true;
         var n = caught ? 40 : 15;
         footCoinsRun += n; runCoins += n; save.totalCoins += n;
-        if (caught) footStars += 1;
+        if (caught) footAwardStar();
         persistSave();
         spawnFloater(W / 2, wedAisleBot - 80, "+" + n + (caught ? " 💰  +1⭐" : " 💰"),
             caught ? "#FFD700" : "#FFE082");

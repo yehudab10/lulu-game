@@ -572,20 +572,25 @@
         }
     }
 
-    // A centered chili for the pepper-spray button — the 🌶️ emoji renders
+    // A clean, centered chili for the pepper-spray button — the 🌶️ emoji renders
     // off-center (its glyph sits high-left in the em box), so we draw our own.
     function drawChili(cx, cy, s) {
-        ctx.save(); ctx.translate(cx, cy + s * 0.05); ctx.rotate(0.25);
-        ctx.fillStyle = "#E53935";                       // curved tapering red body
+        ctx.save(); ctx.translate(cx, cy);
+        // glossy red body (a smooth tapering chili curving down to a point)
+        var g = ctx.createLinearGradient(-s * 0.4, -s * 0.5, s * 0.3, s * 0.7);
+        g.addColorStop(0, "#FF5A52"); g.addColorStop(1, "#C62828");
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(-s * 0.32, -s * 0.5);
-        ctx.bezierCurveTo(s * 0.55, -s * 0.62, s * 0.5, s * 0.6, -s * 0.04, s * 0.88);
-        ctx.bezierCurveTo(-s * 0.42, s * 0.58, -s * 0.55, -s * 0.06, -s * 0.32, -s * 0.5);
+        ctx.moveTo(-s * 0.16, -s * 0.46);
+        ctx.bezierCurveTo(s * 0.5, -s * 0.4, s * 0.42, s * 0.5, -s * 0.04, s * 0.74);
+        ctx.bezierCurveTo(-s * 0.2, s * 0.46, -s * 0.44, 0, -s * 0.16, -s * 0.46);
         ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.42)";        // glossy highlight
-        ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.08, s * 0.34, 0.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#43A047"; ctx.lineWidth = Math.max(2, s * 0.22); ctx.lineCap = "round";  // green stem
-        ctx.beginPath(); ctx.moveTo(-s * 0.3, -s * 0.5); ctx.lineTo(-s * 0.02, -s * 0.92); ctx.stroke();
+        // soft vertical highlight for sheen
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.beginPath(); ctx.ellipse(-s * 0.04, s * 0.02, s * 0.06, s * 0.26, 0.32, 0, Math.PI * 2); ctx.fill();
+        // curved green stem
+        ctx.strokeStyle = "#388E3C"; ctx.lineWidth = Math.max(2, s * 0.17); ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-s * 0.14, -s * 0.42); ctx.quadraticCurveTo(-s * 0.02, -s * 0.72, s * 0.16, -s * 0.84); ctx.stroke();
         ctx.lineCap = "butt";
         ctx.restore();
     }

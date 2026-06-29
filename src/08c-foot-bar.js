@@ -342,7 +342,7 @@
         if (st.reward === "seltzer") {
             // Free seltzer from the bartender → a ⭐ AND a couple coins.
             barUsed[st.id] = true;
-            footStars += 1;
+            footAwardStar();
             footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
             spawnFloater(st.x, BAR_FLOOR_Y + 30, "🥤 FREE SELTZER ⭐", "#FFD700");
             playCoin();

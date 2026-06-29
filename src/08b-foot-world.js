@@ -28,6 +28,10 @@
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
     var footCoinsRun = 0, footStars = 0;
+    // Stars Lulu earns exploring on foot bank into the REAL star currency
+    // (save.parkingTotalStars) — the same ⭐ she spends in the sticker book —
+    // so they actually mean something instead of vanishing on a side counter.
+    function footAwardStar(n) { save.parkingTotalStars = (save.parkingTotalStars || 0) + (n || 1); persistSave(); }
     var footIntroLine = "";
     var footHint = "", footHintT = 0;
     var footChat = "", footChatT = 0, footChatNext = 3;
@@ -444,14 +448,16 @@
         var top = SAFE_TOP;
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, W, top + 50);
 
-        // "ON FOOT" + carried-over score (left, clear of the pause button)
+        // "ON FOOT" + coins collected (left). No SCORE here — score is a driving
+        // stat and stays frozen on foot, so showing it just looked broken. Coins
+        // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
-        drawText(formatNum(Math.floor(score)), 64, top + 34, "bold 22px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 4, "left");
+        drawCoin(72, top + 36, gameTime);
+        drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
-        // coins + stars (top-right, same slot as the driving HUD's coins)
-        drawCoin(W - 134, top + 24, gameTime);
-        drawText("× " + runCoins, W - 118, top + 25, "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
-        drawText("⭐ " + footStars, W - 12, top + 25, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
+        // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
+        // sticker book uses), not a throwaway counter.
+        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
 
         // hearts, centered like the driving HUD (she CAN lose them now)
         var slots = Math.max(3, lives);

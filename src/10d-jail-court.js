@@ -505,7 +505,7 @@
             jail.actClock = (jail.actClock || 0) + dt;
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
-            if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
+            if ((consumeClick() || consumeAction()) && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
                 jail.serveDays += 1.4; jail.tapCool = 0.10; jail.workFx = 0.24;   // a tap = real progress
                 spawnFloater(W / 2 + rand(-46, 46), H * 0.5, "⛏️ +1 day", "#FFE082");
                 playTone(360 + (jail.days % 6) * 26, 0.04, "square", 0.08);
@@ -712,9 +712,9 @@
             // clear you tap the SCREEN — there's no special button to hunt for.
             var grindBl = (jail.workFx > 0 ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 5)));
             ctx.globalAlpha = grindBl;
-            drawText("👆 TAP ANYWHERE to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            drawFitText("👆 TAP ANYWHERE to do your time", W / 2, H - 72, 240, 13, "#FFE082", "#000");
             ctx.globalAlpha = 1;
-            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 54, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+            drawFitText("car impounded — you walk out free 🚶‍♀️", W / 2, H - 54, 240, 11, "#FFCC80", "#000");
             return;
         }
 

@@ -4366,20 +4366,25 @@
         }
     }
 
-    // A centered chili for the pepper-spray button — the 🌶️ emoji renders
+    // A clean, centered chili for the pepper-spray button — the 🌶️ emoji renders
     // off-center (its glyph sits high-left in the em box), so we draw our own.
     function drawChili(cx, cy, s) {
-        ctx.save(); ctx.translate(cx, cy + s * 0.05); ctx.rotate(0.25);
-        ctx.fillStyle = "#E53935";                       // curved tapering red body
+        ctx.save(); ctx.translate(cx, cy);
+        // glossy red body (a smooth tapering chili curving down to a point)
+        var g = ctx.createLinearGradient(-s * 0.4, -s * 0.5, s * 0.3, s * 0.7);
+        g.addColorStop(0, "#FF5A52"); g.addColorStop(1, "#C62828");
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.moveTo(-s * 0.32, -s * 0.5);
-        ctx.bezierCurveTo(s * 0.55, -s * 0.62, s * 0.5, s * 0.6, -s * 0.04, s * 0.88);
-        ctx.bezierCurveTo(-s * 0.42, s * 0.58, -s * 0.55, -s * 0.06, -s * 0.32, -s * 0.5);
+        ctx.moveTo(-s * 0.16, -s * 0.46);
+        ctx.bezierCurveTo(s * 0.5, -s * 0.4, s * 0.42, s * 0.5, -s * 0.04, s * 0.74);
+        ctx.bezierCurveTo(-s * 0.2, s * 0.46, -s * 0.44, 0, -s * 0.16, -s * 0.46);
         ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.42)";        // glossy highlight
-        ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.08, s * 0.34, 0.5, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#43A047"; ctx.lineWidth = Math.max(2, s * 0.22); ctx.lineCap = "round";  // green stem
-        ctx.beginPath(); ctx.moveTo(-s * 0.3, -s * 0.5); ctx.lineTo(-s * 0.02, -s * 0.92); ctx.stroke();
+        // soft vertical highlight for sheen
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.beginPath(); ctx.ellipse(-s * 0.04, s * 0.02, s * 0.06, s * 0.26, 0.32, 0, Math.PI * 2); ctx.fill();
+        // curved green stem
+        ctx.strokeStyle = "#388E3C"; ctx.lineWidth = Math.max(2, s * 0.17); ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-s * 0.14, -s * 0.42); ctx.quadraticCurveTo(-s * 0.02, -s * 0.72, s * 0.16, -s * 0.84); ctx.stroke();
         ctx.lineCap = "butt";
         ctx.restore();
     }
@@ -12280,6 +12285,10 @@
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
     var footCoinsRun = 0, footStars = 0;
+    // Stars Lulu earns exploring on foot bank into the REAL star currency
+    // (save.parkingTotalStars) — the same ⭐ she spends in the sticker book —
+    // so they actually mean something instead of vanishing on a side counter.
+    function footAwardStar(n) { save.parkingTotalStars = (save.parkingTotalStars || 0) + (n || 1); persistSave(); }
     var footIntroLine = "";
     var footHint = "", footHintT = 0;
     var footChat = "", footChatT = 0, footChatNext = 3;
@@ -12696,14 +12705,16 @@
         var top = SAFE_TOP;
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, W, top + 50);
 
-        // "ON FOOT" + carried-over score (left, clear of the pause button)
+        // "ON FOOT" + coins collected (left). No SCORE here — score is a driving
+        // stat and stays frozen on foot, so showing it just looked broken. Coins
+        // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
-        drawText(formatNum(Math.floor(score)), 64, top + 34, "bold 22px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 4, "left");
+        drawCoin(72, top + 36, gameTime);
+        drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
-        // coins + stars (top-right, same slot as the driving HUD's coins)
-        drawCoin(W - 134, top + 24, gameTime);
-        drawText("× " + runCoins, W - 118, top + 25, "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
-        drawText("⭐ " + footStars, W - 12, top + 25, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
+        // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
+        // sticker book uses), not a throwaway counter.
+        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
 
         // hearts, centered like the driving HUD (she CAN lose them now)
         var slots = Math.max(3, lives);
@@ -13252,7 +13263,7 @@
         if (st.reward === "seltzer") {
             // Free seltzer from the bartender → a ⭐ AND a couple coins.
             barUsed[st.id] = true;
-            footStars += 1;
+            footAwardStar();
             footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
             spawnFloater(st.x, BAR_FLOOR_Y + 30, "🥤 FREE SELTZER ⭐", "#FFD700");
             playCoin();
@@ -14263,7 +14274,7 @@
             }
         } else if (spot.reward) {
             // Tiny star for repeat visits — generous but not exploitable-feeling.
-            footStars += 1;
+            footAwardStar();
             spawnFloater(spot.x, spot.y - 30, "+⭐ one more nosh", "#FFD700");
             playHopJump();
         }
@@ -14692,7 +14703,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🍎 CHEDER ON THE CORNER", W / 2, SAFE_TOP + 27, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + footStars, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         // Leave door button (bottom).
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
@@ -14944,7 +14955,7 @@
         if (spot.reward) {
             if (!spot._gave) {
                 spot._gave = true;
-                footStars += 1;
+                footAwardStar();
                 footCoinsRun += 3; runCoins += 3; save.totalCoins += 3;
                 spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
                 playHopJump(); playCoin();
@@ -15459,7 +15470,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🏥 URGENT CARE — WAITING ROOM", W / 2, SAFE_TOP + 27, "bold 14px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + footStars, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
         hospLeaveRect = { x: lx, y: ly, w: lw, h: lh };
@@ -16664,7 +16675,7 @@
         if (spot.reward && !spot.rewarded) {
             spot.rewarded = true;
             footCoinsRun += 25; runCoins += 25; save.totalCoins += 25; persistSave();
-            footStars += 1; // a little beach-day star too
+            footAwardStar(); // a little beach-day star too
             spawnFloater(spot.x, bchSandY + 30, "+25 ⭐", "#FFD700");
             playCoin();
             playTone(880, 0.12, "sine", 0.12, 1320);
@@ -17625,7 +17636,7 @@
         wedRewardGiven = true;
         var n = caught ? 40 : 15;
         footCoinsRun += n; runCoins += n; save.totalCoins += n;
-        if (caught) footStars += 1;
+        if (caught) footAwardStar();
         persistSave();
         spawnFloater(W / 2, wedAisleBot - 80, "+" + n + (caught ? " 💰  +1⭐" : " 💰"),
             caught ? "#FFD700" : "#FFE082");
@@ -21082,7 +21093,7 @@
             jail.actClock = (jail.actClock || 0) + dt;
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
-            if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
+            if ((consumeClick() || consumeAction()) && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
                 jail.serveDays += 1.4; jail.tapCool = 0.10; jail.workFx = 0.24;   // a tap = real progress
                 spawnFloater(W / 2 + rand(-46, 46), H * 0.5, "⛏️ +1 day", "#FFE082");
                 playTone(360 + (jail.days % 6) * 26, 0.04, "square", 0.08);
@@ -21289,9 +21300,9 @@
             // clear you tap the SCREEN — there's no special button to hunt for.
             var grindBl = (jail.workFx > 0 ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 5)));
             ctx.globalAlpha = grindBl;
-            drawText("👆 TAP ANYWHERE to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            drawFitText("👆 TAP ANYWHERE to do your time", W / 2, H - 72, 240, 13, "#FFE082", "#000");
             ctx.globalAlpha = 1;
-            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 54, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+            drawFitText("car impounded — you walk out free 🚶‍♀️", W / 2, H - 54, 240, 11, "#FFCC80", "#000");
             return;
         }
 
