@@ -942,7 +942,38 @@
         var wall = ctx.createLinearGradient(0, 0, 0, 596);
         wall.addColorStop(0, "#FFE0EC"); wall.addColorStop(1, "#FFC1DA");
         ctx.fillStyle = wall; ctx.fillRect(0, 0, W, 596);
+        // subtle damask dots on the wall for texture
+        ctx.fillStyle = "rgba(255,255,255,0.14)";
+        for (var wdy = 40; wdy < 580; wdy += 52) for (var wdx = ((wdy / 52) % 2 ? 26 : 0); wdx < W; wdx += 52) {
+            ctx.beginPath(); ctx.arc(wdx, wdy, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // crown moulding + baseboard
+        ctx.fillStyle = "#F48FB1"; ctx.fillRect(0, 0, W, 10);
         ctx.fillStyle = "#D81B60"; ctx.fillRect(0, 596, W, 6);
+        ctx.fillStyle = "#AD1457"; ctx.fillRect(0, 588, W, 8);
+
+        // ── wall decor ──────────────────────────────────────────
+        // left wall: a framed glam poster
+        ctx.fillStyle = "#FFFFFF"; roundRect(22, 150, 74, 98, 6); ctx.fill();
+        ctx.strokeStyle = "#D81B60"; ctx.lineWidth = 3; roundRect(22, 150, 74, 98, 6); ctx.stroke();
+        ctx.save(); roundRect(27, 155, 64, 88, 4); ctx.clip();
+        var posG = ctx.createLinearGradient(0, 155, 0, 243); posG.addColorStop(0, "#FCE4EC"); posG.addColorStop(1, "#F8BBD0");
+        ctx.fillStyle = posG; ctx.fillRect(27, 155, 64, 88);
+        ctx.fillStyle = "#AD1457"; ctx.beginPath(); ctx.arc(59, 212, 15, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(59, 198, 21, 13, 0, Math.PI, 0); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(43, 206, 6, 16, -0.3, 0, Math.PI * 2); ctx.ellipse(75, 206, 6, 16, 0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        drawText("✨ CHEZ FABIO ✨", 59, 238, "bold 7px 'Segoe UI', Arial, sans-serif", "#AD1457", null, 0);
+        // right wall: a product shelf with little bottles
+        ctx.fillStyle = "#C2185B"; roundRect(372, 236, 100, 7, 2); ctx.fill();
+        var shelfCols = ["#80DEEA", "#F48FB1", "#FFD54F", "#CE93D8"];
+        for (var pb = 0; pb < 4; pb++) {
+            var pbx = 382 + pb * 23;
+            ctx.fillStyle = shelfCols[pb]; roundRect(pbx, 213, 13, 23, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.45)"; roundRect(pbx + 2, 216, 4, 14, 2); ctx.fill();
+            ctx.fillStyle = "#ECEFF1"; roundRect(pbx + 4, 208, 5, 6, 1); ctx.fill();
+        }
+
         // Checkerboard floor
         for (var fy = 600; fy < H; fy += 30) {
             for (var fx = 0; fx < W; fx += 30) {
@@ -960,6 +991,17 @@
         ctx.beginPath();
         ctx.moveTo(150, 132); ctx.lineTo(220, 132); ctx.lineTo(160, 408); ctx.lineTo(132, 408);
         ctx.closePath(); ctx.fill();
+        // Hollywood vanity bulbs ringing the gold frame (gentle twinkle)
+        var mBulbs = [];
+        for (var mbx = 138; mbx <= 342; mbx += 29) { mBulbs.push([mbx, 126]); mBulbs.push([mbx, 414]); }
+        for (var mby = 152; mby <= 392; mby += 30) { mBulbs.push([126, mby]); mBulbs.push([354, mby]); }
+        for (var mb = 0; mb < mBulbs.length; mb++) {
+            var bxx = mBulbs[mb][0], byy = mBulbs[mb][1], tw = 0.55 + 0.45 * Math.sin(gameTime * 5 + mb * 0.7);
+            var bgrad = ctx.createRadialGradient(bxx, byy, 1, bxx, byy, 10);
+            bgrad.addColorStop(0, "rgba(255,249,210," + tw + ")"); bgrad.addColorStop(1, "rgba(255,249,210,0)");
+            ctx.fillStyle = bgrad; ctx.beginPath(); ctx.arc(bxx, byy, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFFBE6"; ctx.beginPath(); ctx.arc(bxx, byy, 3.4, 0, Math.PI * 2); ctx.fill();
+        }
 
         // Salon chair (with Lulu in it during pick/process; reveal shows new hair)
         // Chrome hydraulic pole + round base.
@@ -981,6 +1023,40 @@
         ctx.fillStyle = "#C2185B"; // armrests
         roundRect(W / 2 - 70, 470, 18, 30, 8); ctx.fill();
         roundRect(W / 2 + 52, 470, 18, 30, 8); ctx.fill();
+
+        // ── floor furniture to fill the room ────────────────────
+        // glossy floor sheen
+        var floorSheen = ctx.createLinearGradient(0, 600, 0, H);
+        floorSheen.addColorStop(0, "rgba(255,255,255,0.16)"); floorSheen.addColorStop(0.5, "rgba(255,255,255,0)");
+        ctx.fillStyle = floorSheen; ctx.fillRect(0, 600, W, H - 600);
+        // a chrome rolling product cart (bottom-left)
+        ctx.save(); ctx.translate(78, 712);
+        ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.ellipse(0, 96, 44, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#CFD8DC"; roundRect(-40, -6, 80, 96, 8); ctx.fill();
+        ctx.fillStyle = "#B0BEC5"; roundRect(-40, 36, 80, 5, 2); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(-30, 96, 6, 0, Math.PI * 2); ctx.arc(30, 96, 6, 0, Math.PI * 2); ctx.fill();
+        // bottles + tools on the top shelf
+        var cartCols = ["#80DEEA", "#F48FB1", "#FFD54F"];
+        for (var cb = 0; cb < 3; cb++) { ctx.fillStyle = cartCols[cb]; roundRect(-32 + cb * 20, -2, 14, 26, 3); ctx.fill(); ctx.fillStyle = "#ECEFF1"; roundRect(-29 + cb * 20, -7, 6, 6, 1); ctx.fill(); }
+        // scissors + comb on the lower shelf
+        ctx.strokeStyle = "#607D8B"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-30, 52); ctx.lineTo(-16, 64); ctx.moveTo(-30, 64); ctx.lineTo(-16, 52); ctx.stroke();
+        ctx.fillStyle = "#607D8B"; ctx.beginPath(); ctx.arc(-30, 52, 3, 0, Math.PI * 2); ctx.arc(-30, 64, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; roundRect(2, 56, 30, 7, 2); ctx.fill();
+        for (var ct = 0; ct < 8; ct++) ctx.fillRect(4 + ct * 3.6, 56, 1.4, 11);
+        ctx.restore();
+        // a leafy potted plant (bottom-right)
+        ctx.save(); ctx.translate(424, 770);
+        ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.ellipse(0, 70, 40, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#4CAF50";
+        for (var lf = 0; lf < 7; lf++) { var la = -Math.PI / 2 + (lf - 3) * 0.42, ll = 52 + (lf % 2) * 10;
+            ctx.save(); ctx.rotate(la + Math.sin(gameTime * 1.5 + lf) * 0.03);
+            ctx.beginPath(); ctx.ellipse(0, -ll / 2, 10, ll / 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+        ctx.fillStyle = "#2E7D32"; for (var lf2 = 0; lf2 < 4; lf2++) { var la2 = -Math.PI / 2 + (lf2 - 1.5) * 0.5;
+            ctx.save(); ctx.rotate(la2); ctx.beginPath(); ctx.ellipse(0, -24, 6, 24, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+        var potG = ctx.createLinearGradient(-26, 40, 26, 40); potG.addColorStop(0, "#E091B5"); potG.addColorStop(1, "#C2185B");
+        ctx.fillStyle = potG; ctx.beginPath(); ctx.moveTo(-26, 40); ctx.lineTo(26, 40); ctx.lineTo(20, 74); ctx.lineTo(-20, 74); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#AD1457"; roundRect(-28, 36, 56, 8, 3); ctx.fill();
+        ctx.restore();
 
         // Lulu in the mirror (shows her hair). During reveal, show new color big.
         if (salonPhase >= 1) {
@@ -1023,6 +1099,17 @@
 
         // Fabio the stylist (right side)
         drawFabio(410, 360, gameTime);
+
+        // soft framing vignette + a few drifting glamour sparkles
+        var salVig = ctx.createRadialGradient(W / 2, H * 0.42, H * 0.3, W / 2, H * 0.5, H * 0.72);
+        salVig.addColorStop(0, "rgba(0,0,0,0)"); salVig.addColorStop(1, "rgba(120,20,70,0.20)");
+        ctx.fillStyle = salVig; ctx.fillRect(0, 0, W, H);
+        for (var sp = 0; sp < 5; sp++) {
+            var spx = (sp * 173 + 40) % W, spy = (H - ((gameTime * 18 + sp * 120) % H));
+            ctx.globalAlpha = 0.5 + 0.5 * Math.sin(gameTime * 3 + sp);
+            drawText("✦", spx, spy, (7 + (sp % 3) * 2) + "px Arial", "#FFF1F8", null, 0);
+        }
+        ctx.globalAlpha = 1;
 
         // Phase-specific UI
         if (salonPhase === 0) {
