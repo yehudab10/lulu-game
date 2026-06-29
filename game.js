@@ -4366,6 +4366,23 @@
         }
     }
 
+    // A centered chili for the pepper-spray button — the 🌶️ emoji renders
+    // off-center (its glyph sits high-left in the em box), so we draw our own.
+    function drawChili(cx, cy, s) {
+        ctx.save(); ctx.translate(cx, cy + s * 0.05); ctx.rotate(0.25);
+        ctx.fillStyle = "#E53935";                       // curved tapering red body
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.32, -s * 0.5);
+        ctx.bezierCurveTo(s * 0.55, -s * 0.62, s * 0.5, s * 0.6, -s * 0.04, s * 0.88);
+        ctx.bezierCurveTo(-s * 0.42, s * 0.58, -s * 0.55, -s * 0.06, -s * 0.32, -s * 0.5);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.42)";        // glossy highlight
+        ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.08, s * 0.34, 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#43A047"; ctx.lineWidth = Math.max(2, s * 0.22); ctx.lineCap = "round";  // green stem
+        ctx.beginPath(); ctx.moveTo(-s * 0.3, -s * 0.5); ctx.lineTo(-s * 0.02, -s * 0.92); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+    }
     function drawIconButton(x, y, size, icon, opts) {
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
@@ -4502,7 +4519,8 @@
 
         // Pepper spray button (above honk) — only when owned.
         if (save.pepperSpray > 0) {
-            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "🌶️", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
+            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
+            drawChili(PEPPER_RECT.x + PEPPER_RECT.w / 2, PEPPER_RECT.y + PEPPER_RECT.w / 2, PEPPER_RECT.w * 0.30);
             ctx.fillStyle = "#AED581";
             ctx.beginPath(); ctx.arc(W - 22, PEPPER_RECT.y + 5, 13, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#558B2F"; ctx.lineWidth = 2; ctx.stroke();
@@ -21057,21 +21075,29 @@
             // system skims court costs off whatever coins she had. It's a real
             // setback — not a 3-second skip.
             if (jail.serveDays === undefined) jail.serveDays = jail.days || 0;
-            if (jail.serveRate === undefined) jail.serveRate = jail.total / clamp(20 + jail.total * 0.12, 20, 34);
+            // Passive time now crawls — TAPPING is how you actually do your time.
+            // Ignore it and you'll rot here; tap and you grind through ~10x faster.
+            if (jail.serveRate === undefined) jail.serveRate = clamp(jail.total / 110, 0.8, 1.5);
             jail.serveDays += dt * jail.serveRate;
+            jail.actClock = (jail.actClock || 0) + dt;
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
             if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
-                jail.serveDays += 0.6; jail.tapCool = 0.12; jail.workFx = 0.24;
-                spawnFloater(W / 2 + rand(-46, 46), H * 0.52, "⛏️ +1", "#FFE082");
-                playTone(380 + (jail.days % 5) * 28, 0.04, "square", 0.08);
+                jail.serveDays += 1.4; jail.tapCool = 0.10; jail.workFx = 0.24;   // a tap = real progress
+                spawnFloater(W / 2 + rand(-46, 46), H * 0.5, "⛏️ +1 day", "#FFE082");
+                playTone(360 + (jail.days % 6) * 26, 0.04, "square", 0.08);
             }
             jail.days = Math.min(jail.total, Math.floor(jail.serveDays));
-            // periodic jail-life vignettes so the grind stays funny, not dead air
-            jail.vigT = (jail.vigT === undefined ? 1.2 : jail.vigT) - dt;
-            if (jail.vigT <= 0 && jail.days < jail.total) {
-                spawnFloater(W / 2, H * 0.46, randPick(JAIL_LIFE), "#FFCC80");
-                jail.vigT = rand(2.6, 4.2);
+            // cycle her activity every few seconds (push-ups / reading / etc.)
+            jail.actT = (jail.actT === undefined ? 0 : jail.actT) - dt;
+            if (jail.actT <= 0) { jail.act = ((jail.act === undefined ? -1 : jail.act) + 1) % SERVE_ACTS.length; jail.actT = rand(3.4, 5.0); jail.actClock = 0; }
+            // cellmate ↔ Lulu banter bubbles
+            jail.banterT = (jail.banterT === undefined ? 1.0 : jail.banterT) - dt;
+            if (jail.banterShowT > 0) jail.banterShowT -= dt;
+            if (jail.banterT <= 0 && jail.days < jail.total) {
+                jail.banterWho = (jail.banterWho === "mate") ? "lulu" : "mate";
+                jail.banterTxt = randPick(jail.banterWho === "mate" ? CELLMATE_LINES : LULU_CELL_LINES);
+                jail.banterShowT = 2.8; jail.banterT = rand(3.6, 5.2);
             }
             if (save.lockup && save.lockup.mode === "serving" && save.lockup.days !== jail.days) {
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
@@ -21094,7 +21120,7 @@
 
     // A believable, composed cell that scales to any screen height. Viewer is
     // in the corridor: cell interior behind the bars, a guard pacing in front.
-    function drawCellRoom(rt, rb, servedDays) {
+    function drawCellRoom(rt, rb, servedDays, servePose) {
         var floorTop = rb - Math.max(76, (rb - rt) * 0.26);
         // back wall (concrete) — fills everything above the floor
         var wall = ctx.createLinearGradient(0, 0, 0, floorTop);
@@ -21161,7 +21187,8 @@
         ctx.fillStyle = "#6B7682"; ctx.fillRect(35, sinkY - 50, 4, 9);
 
         // the prisoners (behind the bars)
-        drawPrisoner(bedX + bedW / 2, upY - 12, gameTime, "lulu");                       // Lulu on the upper bunk
+        if (servePose) drawServingLulu(servePose, floorTop, rb, bedX, bedW, upY, lowY);   // doing her time, activities + beard
+        else drawPrisoner(bedX + bedW / 2, upY - 12, gameTime, "lulu");                   // Lulu on the upper bunk (deciding)
         drawPrisoner(W * 0.27, floorTop + (rb - floorTop) * 0.34, gameTime + 1, "mate");  // cellmate on the floor
 
         // ── the front gate ──
@@ -21170,6 +21197,42 @@
         // a guard paces the corridor IN FRONT of the bars
         var gx = W / 2 + Math.sin(gameTime * 0.5) * (W * 0.30);
         drawAngryMan(gx, floorTop + (rb - floorTop) * 0.5, gameTime, "running", Math.cos(gameTime * 0.5) >= 0 ? 1 : -1, true);
+    }
+
+    var SERVE_ACTS = ["🏃 jogging in place", "📖 reading the rulebook", "🎵 prison blues", "✏️ scratching a tally", "🚶 pacing the cell"];
+    // Lulu DOING HER TIME — a cycling activity + a beard that grows with the
+    // sentence. Drawn behind the bars (drawCellRoom adds them after).
+    function drawServingLulu(pose, floorTop, rb, bedX, bedW, upY, lowY) {
+        var b = pose.beard, t = pose.t, act = pose.act;
+        var fy = floorTop + (rb - floorTop) * 0.42, hx = W * 0.6;
+        if (act === 0) {                 // JOGGING IN PLACE (upright bob)
+            var jog = Math.abs(Math.sin(t * 7)) * 6;
+            drawPrisoner(hx, fy - jog, gameTime * 2.2, "lulu", b);
+            // little dust puffs at her feet
+            ctx.fillStyle = "rgba(180,190,200,0.35)";
+            ctx.beginPath(); ctx.arc(hx - 8, fy + 22, 3 + jog * 0.3, 0, Math.PI * 2); ctx.arc(hx + 8, fy + 22, 3 + jog * 0.3, 0, Math.PI * 2); ctx.fill();
+        } else if (act === 1) {          // READING
+            drawPrisoner(hx, fy, gameTime * 0.4, "lulu", b);
+            ctx.save(); ctx.translate(hx, fy + 6); ctx.rotate(-0.15);
+            ctx.fillStyle = "#5D4037"; roundRect(-13, 0, 26, 17, 2); ctx.fill();
+            ctx.fillStyle = "#ECEFF1"; roundRect(-11, 2, 10, 13, 1); ctx.fill(); roundRect(1, 2, 10, 13, 1); ctx.fill();
+            ctx.restore();
+        } else if (act === 2) {          // HARMONICA
+            drawPrisoner(hx, fy, gameTime, "lulu", b);
+            ctx.fillStyle = "#B0BEC5"; roundRect(hx - 7, fy - 12, 14, 4, 1); ctx.fill();
+            drawText("♪", hx + 16, fy - 20 - Math.sin(t * 4) * 4, "bold 14px Arial", "#FFE082", "#000", 2);
+            drawText("♫", hx + 28, fy - 28 - Math.cos(t * 3) * 4, "bold 11px Arial", "#FFD54F", "#000", 2);
+        } else if (act === 3) {          // TALLY scratching
+            drawPrisoner(hx, fy, gameTime * 0.4, "lulu", b);
+            var scr = Math.sin(t * 9) * 3;
+            ctx.strokeStyle = C.skin; ctx.lineWidth = 3; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(hx + 11, fy - 6); ctx.lineTo(hx + 22 + scr, fy - 15); ctx.stroke(); ctx.lineCap = "butt";
+            ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1.5;
+            for (var sm = 0; sm < 3; sm++) { ctx.beginPath(); ctx.moveTo(hx + 24 + sm * 3, fy - 20); ctx.lineTo(hx + 24 + sm * 3, fy - 10); ctx.stroke(); }
+        } else {                          // PACING
+            var px = hx + Math.sin(t * 1.3) * W * 0.15;
+            drawPrisoner(px, fy, gameTime * 1.6, "lulu", b);
+        }
     }
 
     function drawCellBars(rt, rb) {
@@ -21199,14 +21262,24 @@
         var serving = (jail.phase === 9);
         var rt = serving ? 100 : (140 + jail.charges.length * 15);
         var rb = (jail.phase === 1 || jail.phase === 4) ? H - 242 : H - 140;
-        drawCellRoom(rt, rb, serving ? Math.min(jail.total, jail.days) : 0);
+        var servePose = serving ? { act: jail.act || 0, t: jail.actClock || 0,
+            beard: clamp(jail.days / Math.max(1, jail.total), 0, 1), workFx: jail.workFx || 0 } : null;
+        drawCellRoom(rt, rb, serving ? Math.min(jail.total, jail.days) : 0, servePose);
 
         if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
 
         // ── serving the sentence ──
         if (serving) {
             var total = jail.total || 30, day = Math.min(jail.days, total);
+            // banter bubbles over the speaker (figures already drawn in the cell)
+            var sFloorTop = rb - Math.max(76, (rb - rt) * 0.26), sFy = sFloorTop + (rb - sFloorTop) * 0.42;
+            if (jail.banterShowT > 0 && jail.banterTxt) {
+                if (jail.banterWho === "mate") drawSpeechBubble(W * 0.27, sFloorTop + (rb - sFloorTop) * 0.34 - 40, jail.banterTxt, gameTime);
+                else drawSpeechBubble(clamp(W * 0.6, 80, W - 80), sFy - 46, jail.banterTxt, gameTime);
+            }
             drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 34, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
+            // current activity (clean status line under the title)
+            drawText(SERVE_ACTS[jail.act || 0], W / 2, 58, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 3);
             ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.fill();
             ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.stroke();
             drawText("DAY " + day + " / " + total, W / 2, H - 110, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
@@ -22182,7 +22255,7 @@
     }
 
     // A seated striped-jumpsuit prisoner ("lulu" = hair + cheeks, "mate" = beanie).
-    function drawPrisoner(x, y, t, who) {
+    function drawPrisoner(x, y, t, who, beard) {
         ctx.save(); ctx.translate(x, y);
         var bob = Math.sin(t * 2 + (who === "lulu" ? 1 : 0)) * 1.5; ctx.translate(0, bob);
         ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0, 24, 16, 4, 0, 0, Math.PI * 2); ctx.fill();
@@ -22203,6 +22276,19 @@
         }
         ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-3, -18, 1.3, 0, Math.PI * 2); ctx.arc(3, -18, 1.3, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(0, -11, 3, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+        // a beard that GROWS the longer she's been locked up (0..1)
+        if (beard > 0) {
+            var bl = 4 + beard * 15;
+            ctx.fillStyle = shadeColor(save.luluHair || "#8B5A2B", -14);
+            ctx.beginPath();
+            ctx.moveTo(-7.5, -15);
+            ctx.quadraticCurveTo(-8.5, -13 + bl, 0, -11 + bl);
+            ctx.quadraticCurveTo(8.5, -13 + bl, 7.5, -15);
+            ctx.quadraticCurveTo(0, -10, -7.5, -15);
+            ctx.fill();
+            // moustache scruff so it reads as a beard, not a bib
+            ctx.fillRect(-6, -15, 12, 2.5);
+        }
         ctx.restore();
     }
 

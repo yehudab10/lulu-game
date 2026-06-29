@@ -572,6 +572,23 @@
         }
     }
 
+    // A centered chili for the pepper-spray button — the 🌶️ emoji renders
+    // off-center (its glyph sits high-left in the em box), so we draw our own.
+    function drawChili(cx, cy, s) {
+        ctx.save(); ctx.translate(cx, cy + s * 0.05); ctx.rotate(0.25);
+        ctx.fillStyle = "#E53935";                       // curved tapering red body
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.32, -s * 0.5);
+        ctx.bezierCurveTo(s * 0.55, -s * 0.62, s * 0.5, s * 0.6, -s * 0.04, s * 0.88);
+        ctx.bezierCurveTo(-s * 0.42, s * 0.58, -s * 0.55, -s * 0.06, -s * 0.32, -s * 0.5);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.42)";        // glossy highlight
+        ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.08, s * 0.34, 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#43A047"; ctx.lineWidth = Math.max(2, s * 0.22); ctx.lineCap = "round";  // green stem
+        ctx.beginPath(); ctx.moveTo(-s * 0.3, -s * 0.5); ctx.lineTo(-s * 0.02, -s * 0.92); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.restore();
+    }
     function drawIconButton(x, y, size, icon, opts) {
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
@@ -708,7 +725,8 @@
 
         // Pepper spray button (above honk) — only when owned.
         if (save.pepperSpray > 0) {
-            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "🌶️", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
+            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
+            drawChili(PEPPER_RECT.x + PEPPER_RECT.w / 2, PEPPER_RECT.y + PEPPER_RECT.w / 2, PEPPER_RECT.w * 0.30);
             ctx.fillStyle = "#AED581";
             ctx.beginPath(); ctx.arc(W - 22, PEPPER_RECT.y + 5, 13, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#558B2F"; ctx.lineWidth = 2; ctx.stroke();
