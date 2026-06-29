@@ -791,67 +791,244 @@
         }
     }
 
-    function drawCourtroom() {
-        // ── panelled-wood courtroom with depth ──
-        var wall = ctx.createLinearGradient(0, 0, 0, H);
-        wall.addColorStop(0, "#7A5640"); wall.addColorStop(1, "#5A3E2E");
-        ctx.fillStyle = wall; ctx.fillRect(0, 0, W, H);
-        // Bound the courtroom "floor" so the action clusters together instead of
-        // stretching apart on tall screens; the floor + gallery fill the rest.
-        var cFloor = Math.min(H * 0.6, 392);
-        ctx.fillStyle = "rgba(0,0,0,0.10)";
-        for (var p = 0; p < W; p += 38) ctx.fillRect(p, 0, 2, cFloor + 8);
-        // wainscot line + marble floor
-        ctx.fillStyle = "#4E342E"; ctx.fillRect(0, cFloor, W, 6);
-        var fl = ctx.createLinearGradient(0, cFloor, 0, H);
-        fl.addColorStop(0, "#8D8579"); fl.addColorStop(1, "#6B645A");
-        ctx.fillStyle = fl; ctx.fillRect(0, cFloor + 6, W, H);
-        // seal + flags on the back wall
-        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(W / 2, 44, 22, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(W / 2, 44, 17, 0, Math.PI * 2); ctx.fill();
-        drawText("⚖", W / 2, 47, "bold 20px Arial", "#5D4037", null, 0);
-        ctx.fillStyle = "#1565C0"; ctx.fillRect(W / 2 - 54, 26, 4, 40); ctx.fillStyle = "#C62828"; ctx.fillRect(W / 2 + 50, 26, 4, 40);
+    // A tall arched window with cool daylight on the back wall.
+    function drawCourtWindow(cx, top, w, h) {
+        ctx.fillStyle = "#2E1D14"; roundRect(cx - w / 2 - 4, top - 4, w + 8, h + 8, w / 2); ctx.fill();
+        var sky = ctx.createLinearGradient(0, top, 0, top + h);
+        sky.addColorStop(0, "#9FC2D8"); sky.addColorStop(1, "#5E7E96");
+        ctx.save(); roundRect(cx - w / 2, top, w, h, w / 2); ctx.clip();
+        ctx.fillStyle = sky; ctx.fillRect(cx - w / 2, top, w, h);
+        // a couple of soft light streaks
+        ctx.fillStyle = "rgba(255,255,255,0.16)";
+        ctx.save(); ctx.translate(cx, top + h / 2); ctx.rotate(-0.5);
+        ctx.fillRect(-6, -h, 5, h * 2); ctx.fillRect(6, -h, 3, h * 2); ctx.restore();
+        ctx.restore();
+        // muntins (cross bars)
+        ctx.strokeStyle = "#2E1D14"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, top + h);
+        ctx.moveTo(cx - w / 2, top + h * 0.34); ctx.lineTo(cx + w / 2, top + h * 0.34);
+        ctx.moveTo(cx - w / 2, top + h * 0.67); ctx.lineTo(cx + w / 2, top + h * 0.67); ctx.stroke();
+    }
 
-        // public gallery sits just behind the bar; a packed crowd whose rows
-        // scale to fill the whole floor down to the dialogue box on tall screens
-        // (so there's no dead empty band on a 2:1+ phone).
-        var galTop = cFloor + 40;
-        var galBot = H - 150;   // reserve the bottom band for the dialogue box
-        if (galBot - galTop > 120) {
-            var galRows = clamp(Math.round((galBot - galTop) / 34), 2, 12);
-            var rowGap = (galBot - galTop) / galRows;
-            ctx.fillStyle = "#4E342E"; ctx.fillRect(0, galTop, W, 7);
-            for (var gr = 0; gr < galRows; gr++) for (var gc = 0; gc < 6; gc++)
-                drawJuror(34 + gc * ((W - 68) / 5), galTop + rowGap * 0.7 + gr * rowGap, gr * 6 + gc + 3, "watch");
-            drawText("— PUBLIC GALLERY —", W / 2, galBot + 12, "bold 9px 'Segoe UI', Arial, sans-serif", "rgba(255,235,200,0.55)", "#000", 1);
+    // Perspective wood floor: a board fan converging to a vanishing point on the
+    // horizon, plus faint cross-seams that bunch up toward the back. This single
+    // trick is what gives the room real depth on any screen height.
+    function drawCourtPerspFloor(topY, frontY) {
+        var fg = ctx.createLinearGradient(0, topY, 0, frontY);
+        fg.addColorStop(0, "#6A4830"); fg.addColorStop(0.45, "#553A28"); fg.addColorStop(1, "#3A271A");
+        ctx.fillStyle = fg; ctx.fillRect(0, topY, W, frontY - topY);
+        ctx.save(); ctx.beginPath(); ctx.rect(0, topY, W, frontY - topY); ctx.clip();
+        // radiating boards
+        ctx.strokeStyle = "rgba(0,0,0,0.20)"; ctx.lineWidth = 1.5;
+        for (var bx = -W * 0.5; bx <= W * 1.5; bx += W / 10) {
+            ctx.beginPath(); ctx.moveTo(W / 2, topY - 26); ctx.lineTo(bx, frontY + 6); ctx.stroke();
+        }
+        // a faint warm highlight board down the middle
+        ctx.strokeStyle = "rgba(255,224,170,0.05)"; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(W / 2, topY - 26); ctx.lineTo(W / 2, frontY + 6); ctx.stroke();
+        // cross-seams, tighter toward the horizon
+        var seams = [0.10, 0.24, 0.42, 0.66, 0.95];
+        ctx.strokeStyle = "rgba(0,0,0,0.14)"; ctx.lineWidth = 1.5;
+        for (var s = 0; s < seams.length; s++) {
+            var yy = topY + (frontY - topY) * seams[s];
+            ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // The jury box: a raised, slightly-angled platform against the left wall.
+    function drawCourtJury(x, topY, react) {
+        var w = 126, h = 66;
+        // platform base (front face, angled toward the viewer)
+        ctx.fillStyle = "#33210F"; ctx.beginPath();
+        ctx.moveTo(x, topY + h); ctx.lineTo(x + w, topY + h - 8);
+        ctx.lineTo(x + w, topY + h + 26); ctx.lineTo(x, topY + h + 34); ctx.closePath(); ctx.fill();
+        // box back panel
+        ctx.fillStyle = "#4E342E"; ctx.beginPath();
+        ctx.moveTo(x, topY); ctx.lineTo(x + w, topY + 6);
+        ctx.lineTo(x + w, topY + h - 8); ctx.lineTo(x, topY + h); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x, topY, 5, h);   // inner shade
+        // two rows of jurors, riding the slope
+        for (var r = 0; r < 2; r++) for (var c = 0; c < 4; c++)
+            drawJuror(x + 22 + c * 27, topY + 24 + r * 22 + c * 1.6, r * 4 + c, react);
+        // front rail (angled)
+        ctx.fillStyle = "#6D4C32"; ctx.beginPath();
+        ctx.moveTo(x, topY + h - 2); ctx.lineTo(x + w, topY + h - 10);
+        ctx.lineTo(x + w, topY + h - 2); ctx.lineTo(x, topY + h + 6); ctx.closePath(); ctx.fill();
+        // plate
+        ctx.fillStyle = "#2E1D14"; roundRect(x + w / 2 - 24, topY + h + 8, 48, 13, 3); ctx.fill();
+        drawText("JURY", x + w / 2, topY + h + 15, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0);
+    }
+
+    // A counsel table seen at a slight angle (parallelogram top), with a folder.
+    function drawCounselTable(cx, baseY, accent) {
+        var tw = 80, th = 15;
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(cx, baseY + 30, tw * 0.58, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6B4A2F"; ctx.beginPath();
+        ctx.moveTo(cx - tw / 2, baseY); ctx.lineTo(cx + tw / 2, baseY);
+        ctx.lineTo(cx + tw / 2 - 9, baseY - 11); ctx.lineTo(cx - tw / 2 - 9, baseY - 11); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#4E3420"; ctx.fillRect(cx - tw / 2, baseY, tw, th);
+        ctx.fillStyle = "#3A2718"; ctx.fillRect(cx - tw / 2, baseY + th, tw, 3);
+        ctx.fillStyle = "#2E1D14"; ctx.fillRect(cx - tw / 2 + 5, baseY + th, 5, 16); ctx.fillRect(cx + tw / 2 - 10, baseY + th, 5, 16);
+        // papers + a colored case folder
+        ctx.fillStyle = "#ECECEC"; ctx.save(); ctx.translate(cx - 12, baseY - 5); ctx.rotate(-0.12); ctx.fillRect(-9, -3, 18, 6); ctx.restore();
+        ctx.fillStyle = accent; ctx.fillRect(cx + 4, baseY - 8, 17, 5);
+    }
+
+    // The bar/railing across the front of the well, with a gap for the aisle.
+    function drawCourtBar(y) {
+        ctx.fillStyle = "#5A3E28"; ctx.fillRect(0, y, W, 7);
+        ctx.fillStyle = "#3A2718"; ctx.fillRect(0, y + 7, W, 4);
+        ctx.fillStyle = "#6D4C32";
+        for (var bx = 14; bx < W; bx += 26) {
+            if (Math.abs(bx + 2 - W / 2) < 34) continue;   // leave the center aisle open
+            ctx.fillRect(bx, y + 11, 5, 20);
+        }
+        ctx.fillStyle = "#3A2718"; ctx.fillRect(0, y + 30, W, 4);
+    }
+
+    // Big, dark, slightly-warm-rimmed audience heads framing the very foreground —
+    // we're watching from a gallery seat. Replaces the old flat grid of heads.
+    function drawGalleryFG(frontY) {
+        // four big audience heads peeking up over the bar, framing the foreground.
+        var seats = [0.11, 0.36, 0.64, 0.89];
+        for (var i = 0; i < seats.length; i++) {
+            var gx = seats[i] * W, sc = 1.55 + (i % 2) * 0.3, gy = frontY - 6 + (i % 2) * 8;
+            ctx.save(); ctx.translate(gx, gy); ctx.scale(sc, sc);
+            ctx.fillStyle = "#130E0A";
+            roundRect(-30, -4, 60, 54, 15); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -8, 18, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "rgba(255,201,130,0.13)"; ctx.lineWidth = 2.4;
+            ctx.beginPath(); ctx.arc(0, -8, 18, Math.PI * 1.1, Math.PI * 1.92); ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    function drawCourtroom() {
+        // ════ Grand courtroom built for depth: a perspective floor + red aisle
+        // carpet receding to the bench, a raised jury box & counsel tables in the
+        // well, and large out-of-focus gallery silhouettes framing the foreground
+        // (POV: we're sitting in the gallery). Fills any screen height naturally. ════
+        var reserve = 128;                                   // bottom band for the dialogue box
+        var wallBot = 172;                                   // horizon / far edge of the floor
+        var floorFront = Math.max(wallBot + 250, H - reserve);
+        var spanH = floorFront - wallBot;
+
+        // — back wall: warm wood paneling —
+        var wall = ctx.createLinearGradient(0, 0, 0, wallBot);
+        wall.addColorStop(0, "#6E4B36"); wall.addColorStop(1, "#553A2A");
+        ctx.fillStyle = wall; ctx.fillRect(0, 0, W, wallBot);
+        ctx.fillStyle = "rgba(0,0,0,0.13)"; for (var p = 22; p < W; p += 40) ctx.fillRect(p, 0, 2, wallBot);
+        ctx.fillStyle = "rgba(255,232,200,0.05)"; for (var p2 = 24; p2 < W; p2 += 40) ctx.fillRect(p2, 0, 1, wallBot);
+        // overhead warm light cone onto the bench
+        var cone = ctx.createLinearGradient(0, 0, 0, wallBot + 120);
+        cone.addColorStop(0, "rgba(255,226,150,0.20)"); cone.addColorStop(1, "rgba(255,226,150,0)");
+        ctx.fillStyle = cone; ctx.beginPath();
+        ctx.moveTo(W / 2 - 26, 0); ctx.lineTo(W / 2 + 26, 0);
+        ctx.lineTo(W / 2 + 135, wallBot + 110); ctx.lineTo(W / 2 - 135, wallBot + 110); ctx.closePath(); ctx.fill();
+        // arched window (left) + diegetic case docket (right) flank the seal
+        drawCourtWindow(48, 28, 34, 104);
+        // great seal — raised, faintly glowing
+        var sgl = ctx.createRadialGradient(W / 2, 44, 4, W / 2, 44, 42);
+        sgl.addColorStop(0, "rgba(255,213,79,0.30)"); sgl.addColorStop(1, "rgba(255,213,79,0)");
+        ctx.fillStyle = sgl; ctx.beginPath(); ctx.arc(W / 2, 44, 42, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2E1D14"; ctx.beginPath(); ctx.arc(W / 2, 42, 23, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(W / 2, 42, 18, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#D4AF37"; ctx.beginPath(); ctx.arc(W / 2, 42, 18, 0.1, Math.PI - 0.1); ctx.fill();
+        drawText("⚖", W / 2, 45, "bold 21px Arial", "#3E2723", null, 0);
+        // flags flanking the seal
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(W / 2 - 48, 22, 3, 44); ctx.fillRect(W / 2 + 45, 22, 3, 44);
+        ctx.fillStyle = "#1565C0"; ctx.beginPath(); ctx.moveTo(W / 2 - 45, 24); ctx.quadraticCurveTo(W / 2 - 30, 30, W / 2 - 16, 24);
+        ctx.lineTo(W / 2 - 16, 44); ctx.quadraticCurveTo(W / 2 - 30, 50, W / 2 - 45, 44); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#C62828"; ctx.beginPath(); ctx.moveTo(W / 2 + 16, 24); ctx.quadraticCurveTo(W / 2 + 30, 30, W / 2 + 45, 24);
+        ctx.lineTo(W / 2 + 45, 44); ctx.quadraticCurveTo(W / 2 + 30, 50, W / 2 + 16, 44); ctx.closePath(); ctx.fill();
+        // ribbon banner (tucked just under the seal, above the judge)
+        ctx.fillStyle = "#5A1A18"; roundRect(W / 2 - 58, 60, 116, 13, 3); ctx.fill();
+        ctx.fillStyle = "#3E0F0E"; ctx.beginPath(); ctx.moveTo(W / 2 - 58, 73); ctx.lineTo(W / 2 - 66, 79); ctx.lineTo(W / 2 - 58, 69); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(W / 2 + 58, 73); ctx.lineTo(W / 2 + 66, 79); ctx.lineTo(W / 2 + 58, 69); ctx.fill();
+        drawText("IN JUSTICE WE TRUST", W / 2, 67, "bold 8px 'Segoe UI', Arial, sans-serif", "#F0D8A0", "#000", 1);
+        // wainscot rail where the wall meets the floor
+        ctx.fillStyle = "#3A2718"; ctx.fillRect(0, wallBot - 8, W, 8);
+        ctx.fillStyle = "#241509"; ctx.fillRect(0, wallBot, W, 3);
+
+        // — perspective floor + red aisle carpet —
+        drawCourtPerspFloor(wallBot, floorFront);
+        var carBackY = wallBot - 4, carBackH = 14, carFrontH = 42, carFrontY = floorFront + 26;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - carBackH, carBackY); ctx.lineTo(W / 2 + carBackH, carBackY);
+        ctx.lineTo(W / 2 + carFrontH, carFrontY); ctx.lineTo(W / 2 - carFrontH, carFrontY); ctx.closePath();
+        var cg = ctx.createLinearGradient(0, carBackY, 0, carFrontY);
+        cg.addColorStop(0, "#8A2F2A"); cg.addColorStop(1, "#5C1B19");
+        ctx.fillStyle = cg; ctx.fill();
+        // carpet gold trim + center sheen
+        ctx.strokeStyle = "rgba(214,175,80,0.55)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(W / 2 - carBackH + 4, carBackY); ctx.lineTo(W / 2 - carFrontH + 7, carFrontY);
+        ctx.moveTo(W / 2 + carBackH - 4, carBackY); ctx.lineTo(W / 2 + carFrontH - 7, carFrontY); ctx.stroke();
+        ctx.strokeStyle = "rgba(255,210,180,0.10)"; ctx.lineWidth = 6;
+        ctx.beginPath(); ctx.moveTo(W / 2, carBackY); ctx.lineTo(W / 2, carFrontY); ctx.stroke();
+
+        // — raised dais under the judge's bench —
+        var benchTopY = 84;
+        ctx.fillStyle = "#33210F"; ctx.beginPath();
+        ctx.moveTo(W / 2 - 116, wallBot); ctx.lineTo(W / 2 + 116, wallBot);
+        ctx.lineTo(W / 2 + 100, wallBot - 22); ctx.lineTo(W / 2 - 100, wallBot - 22); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#4A3220"; ctx.fillRect(W / 2 - 100, wallBot - 25, 200, 4);
+        // two carpeted steps up to the bench
+        for (var st = 0; st < 2; st++) {
+            ctx.fillStyle = st % 2 ? "#7A2824" : "#6A201D";
+            ctx.fillRect(W / 2 - 30 - st * 8, wallBot + 2 + st * 9, 60 + st * 16, 8);
         }
 
-        // judge bench (center), jury box (left), prosecutor (right), Lulu (center podium)
-        drawBenchJudge(W / 2, 78, court.gavel > 0);
+        // — the bench + judge (back, center) —
+        drawBenchJudge(W / 2, benchTopY + 6, court.gavel > 0);
+        if (court.gavel > 0) drawText("BANG!", W / 2 + 66, benchTopY + 4, "bold 13px Arial", "#FFD54F", "#000", 3);
+
+        // — jury box (back-left, raised) —
         var jReact = court.phase >= 5 ? (court.verdict === "dismissed" ? "free" : "guilty")
                    : (court.phase === 4 ? "deliberate" : "watch");
-        drawJuryBox(14, 168, jReact);
-        var prosTalk = (court.phase === 1 && court.li === 1);
-        drawProsecutor(W - 52, cFloor - 30, gameTime, prosTalk);
-        drawDefendant(W / 2, cFloor - 36);
-        // her retained defense counsel stands beside her
-        if (court.lawyer) {
-            drawProsecutor(W / 2 - 66, cFloor - 26, gameTime + 3, false);
-            drawText("🤵 COUNSEL", W / 2 - 66, cFloor - 56, "bold 8px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 2);
-        }
-        if (court.gavel > 0) drawText("BANG!", W / 2 + 64, 92, "bold 13px Arial", "#FFD54F", "#000", 3);
+        drawCourtJury(6, 150, jReact);
 
-        // small charge sheet (top-right) for context — below the bench so it
-        // doesn't overlap the judge.
-        var cy = 184;
-        ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(W - 172, cy, 162, 18 + court.charges.length * 14, 6); ctx.fill();
-        drawText("CHARGES", W - 91, cy + 11, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        // — counsel tables in the well; Lulu front & center at the lectern —
+        var tableY = wallBot + spanH * 0.28;
+        var lecternY = Math.max(tableY + 130, floorFront - 170);   // close to camera; the aisle recedes ABOVE her
+        var prosTalk = (court.phase === 1 && court.li === 1);
+        drawCounselTable(W * 0.78, tableY, "#C62828");      // prosecution
+        drawProsecutor(W * 0.80, tableY + 4, gameTime, prosTalk);
+        if (court.lawyer) {
+            drawCounselTable(W * 0.20, tableY, "#26A69A");  // defense
+            drawProsecutor(W * 0.20, tableY + 4, gameTime + 3, false, "DEFENSE");
+        }
+        // a soft spotlight pool picks Lulu out as the focal figure
+        var pool = ctx.createRadialGradient(W / 2, lecternY + 4, 6, W / 2, lecternY + 4, 96);
+        pool.addColorStop(0, "rgba(255,232,170,0.18)"); pool.addColorStop(1, "rgba(255,232,170,0)");
+        ctx.fillStyle = pool; ctx.beginPath(); ctx.ellipse(W / 2, lecternY + 14, 80, 60, 0, 0, Math.PI * 2); ctx.fill();
+        // Lulu at the lectern, scaled up as the closest, most prominent figure
+        ctx.save(); ctx.translate(W / 2, lecternY); ctx.scale(1.28, 1.28);
+        drawDefendant(0, 0); ctx.restore();
+
+        // — the bar + foreground gallery silhouettes (our POV) —
+        drawCourtBar(floorFront - 40);
+        drawGalleryFG(floorFront);
+
+        // soft vignette to focus the eye on the lit bench
+        var vg = ctx.createRadialGradient(W / 2, wallBot, 60, W / 2, H * 0.5, H * 0.72);
+        vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.42)");
+        ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+        // — case docket placard on the right wall (diegetic charge sheet) —
+        var dkW = 134, dkX = W - dkW - 10, dkY = 30;
+        var dkH = 26 + court.charges.length * 13 + ((save.convictions || 0) > 0 ? 15 : 0);
+        ctx.fillStyle = "#2E1D14"; roundRect(dkX - 3, dkY - 3, dkW + 6, dkH + 6, 5); ctx.fill();
+        ctx.fillStyle = "rgba(20,12,6,0.92)"; roundRect(dkX, dkY, dkW, dkH, 4); ctx.fill();
+        ctx.strokeStyle = "#6D4C32"; ctx.lineWidth = 1.5; roundRect(dkX, dkY, dkW, dkH, 4); ctx.stroke();
+        drawText("📋 CASE DOCKET", dkX + dkW / 2, dkY + 13, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        ctx.strokeStyle = "rgba(255,213,79,0.25)"; ctx.beginPath(); ctx.moveTo(dkX + 8, dkY + 18); ctx.lineTo(dkX + dkW - 8, dkY + 18); ctx.stroke();
         for (var c = 0; c < court.charges.length; c++)
-            drawText("• " + court.charges[c], W - 91, cy + 25 + c * 14, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 1);
+            drawText("• " + court.charges[c], dkX + dkW / 2, dkY + 30 + c * 13, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 1);
         var pri = save.convictions || 0;
         if (pri > 0)
             drawText(pri >= 2 ? "⚠️ 3RD STRIKE — NO MERCY" : "PRIORS: " + pri + " strike" + (pri > 1 ? "s" : ""),
-                W - 91, cy + 30 + court.charges.length * 14, "bold 8px 'Segoe UI', Arial, sans-serif", pri >= 2 ? "#FF5252" : "#FFB300", "#000", 2);
+                dkX + dkW / 2, dkY + 33 + court.charges.length * 13, "bold 8px 'Segoe UI', Arial, sans-serif", pri >= 2 ? "#FF5252" : "#FFB300", "#000", 2);
 
         // ── phase overlays ──
         if (court.phase === 0) {
@@ -1193,7 +1370,7 @@
         ctx.restore();
     }
 
-    function drawProsecutor(x, y, t, pointing) {
+    function drawProsecutor(x, y, t, pointing, label) {
         ctx.save(); ctx.translate(x, y);
         ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.beginPath(); ctx.ellipse(0, 26, 15, 4, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#1C2429"; roundRect(-7, 12, 6, 16, 2); ctx.fill(); roundRect(1, 12, 6, 16, 2); ctx.fill();   // trousers
@@ -1214,7 +1391,8 @@
         ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -18, 1.1, 0, Math.PI * 2); ctx.arc(2.6, -18, 1.1, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#3E2723"; ctx.fillRect(-3.5, -13, 7, 1.8);   // mustache
         ctx.restore();
-        drawText("PROSECUTOR", x, y + 36, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 2);
+        if (label !== null)
+            drawText(label || "PROSECUTOR", x, y + 36, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 2);
     }
 
     function drawDefendant(cx, py) {
