@@ -15,6 +15,7 @@
     var fugitiveSpot = 0;
     var wantedPosterT = 0;
     var fugCopT = 0;            // escalating cop-spawn timer while a fugitive
+    var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
 
     var ARREST_LINES = ["🚨 YOU'RE UNDER ARREST!", "🚨 Hands where I can see 'em!",
         "🚨 End of the road, Lulu!", "🚨 You're comin' with ME.", "🚨 Cuff her!", "🚨 Book 'em, Danno!"];
@@ -46,6 +47,15 @@
         "OBJECTION! The defense is pure FARFEL!", "OBJECTION! She did the SAME thing last week!"];
     var JUDGE_SUSTAIN = ["Sustained. Nice try, Ms. Bruck.", "Sustained! Strike that.", "Sustained. I'm not buying it."];
     var JUDGE_OVERRULE = ["Overruled. Sit DOWN, counselor.", "Overruled. Let her finish.", "Overruled — I rather liked it."];
+    // Hire-a-lawyer tiers — you get what you pay for. feeMul is per-charge.
+    var LAWYER_TIERS = [
+        { name: "Public Defender", feeMul: 6, mitig: 0.25, blunder: 0.28, accent: "#90A4AE",
+          say: "Uh... first day! Is this the right courtroom? 😬", tag: "cheap — might BLUNDER" },
+        { name: "Local Attorney", feeMul: 19, mitig: 0.58, blunder: 0.05, accent: "#80CBC4",
+          say: "We'll fight this. I read MOST of the file. 🤵", tag: "solid odds" },
+        { name: "Hotshot Lawyer", feeMul: 44, mitig: 0.86, blunder: 0, accent: "#FFD54F",
+          say: "They don't have a CASE. Watch this. 😎", tag: "pricey — best odds" }
+    ];
 
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
@@ -203,7 +213,10 @@
     function cellBailRect() { return { x: 24 + cellBtnW(), y: H - 232, w: cellBtnW(), h: 42 }; }
     function cellLawyerRect() { return { x: 14, y: H - 184, w: cellBtnW(), h: 42 }; }
     function cellCourtRect() { return { x: 24 + cellBtnW(), y: H - 184, w: cellBtnW(), h: 42 }; }
-    function courtOptRect(i) { return { x: 22, y: H - 132 + i * 42, w: W - 44, h: 38 }; }
+    function lawyerFee(tier) { return Math.round((jail.charges.length) * tier.feeMul * (1 + (save.convictions || 0) * 0.2)); }
+    function lawyerTierRect(i) { return { x: 28, y: H - 214 + i * 54, w: W - 56, h: 48 }; }
+    function lawyerBackRect() { return { x: W / 2 - 60, y: H - 52, w: 120, h: 38 }; }
+    function courtOptRect(i) { return { x: 22, y: H - 176 + i * 40, w: W - 44, h: 36 }; }
 
     // ════════════════ JAIL CELL ════════════════
     function startLockpick() {
@@ -235,18 +248,7 @@
             if (click) {
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) { startLockpick(); playTone(330, 0.05, "square", 0.1); return; }
-                if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) {
-                    if (save.totalCoins >= jail.lawyerFee) {
-                        save.totalCoins -= jail.lawyerFee; persistSave();
-                        spawnFloater(W / 2, H * 0.42, "🤵 Lawyer retained! −" + jail.lawyerFee, "#7CFC4F");
-                        playTone(660, 0.08, "triangle", 0.16);
-                        openCourt(jail.charges, true);   // go to trial WITH counsel
-                    } else {
-                        playTone(180, 0.15, "square", 0.15);
-                        spawnFloater(W / 2, H * 0.42, "Can't afford a lawyer! 😬", "#FF8A80");
-                    }
-                    return;
-                }
+                if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
                         save.totalCoins -= jail.bail; persistSave();
@@ -263,6 +265,27 @@
                 if (pointInRect(click.x, click.y, cr.x, cr.y, cr.w, cr.h)) { openCourt(jail.charges); return; }
             }
             if (jail.t > 22) { openCourt(jail.charges); return; }
+            return;
+        }
+        if (jail.phase === 4) {                 // LAWYER tier menu
+            var lc = consumeClick();
+            if (lc) {
+                for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
+                    var tr = lawyerTierRect(ti);
+                    if (pointInRect(lc.x, lc.y, tr.x, tr.y, tr.w, tr.h)) {
+                        var tier = LAWYER_TIERS[ti], fee = lawyerFee(tier);
+                        if (save.totalCoins >= fee) {
+                            save.totalCoins -= fee; persistSave();
+                            spawnFloater(W / 2, H * 0.40, "🤵 " + tier.name + " retained! −" + fee, "#7CFC4F");
+                            playTone(660, 0.08, "triangle", 0.16);
+                            openCourt(jail.charges, tier);
+                        } else { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.40, "Can't afford " + tier.name + "! 😬", "#FF8A80"); }
+                        return;
+                    }
+                }
+                var bk = lawyerBackRect();
+                if (pointInRect(lc.x, lc.y, bk.x, bk.y, bk.w, bk.h)) { jail.phase = 1; jail.t = 0; return; }
+            }
             return;
         }
         if (jail.phase === 3) {                 // LOCKPICK minigame
@@ -413,6 +436,19 @@
             drawButton(lr.x, lr.y, lr.w, lr.h, "🤵 Lawyer ★" + jail.lawyerFee, { bg: canLaw ? "#26A69A" : "#757575", bgDark: canLaw ? "#00695C" : "#424242", small: true });
             drawButton(cr.x, cr.y, cr.w, cr.h, "⚖️ Court", { bg: "#42A5F5", bgDark: "#0D47A1", small: true });
             drawDialogueBox("CELLMATE", jail.cellmateLine, "cellmate", "#90A4AE", false);
+        } else if (jail.phase === 4) {
+            // lawyer tier picker
+            ctx.fillStyle = "rgba(10,14,20,0.88)"; roundRect(14, H - 252, W - 28, 242, 14); ctx.fill();
+            ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 252, W - 28, 242, 14); ctx.stroke();
+            drawText("🤵 RETAIN A LAWYER", W / 2, H - 236, "bold 17px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 4);
+            for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
+                var tier = LAWYER_TIERS[ti], tr = lawyerTierRect(ti), fee = lawyerFee(tier), afford = save.totalCoins >= fee;
+                drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: afford ? "#37474F" : "#2A2A2A", bgDark: afford ? "#263238" : "#1A1A1A", small: true });
+                drawText(tier.name + "  ★" + fee, tr.x + tr.w / 2, tr.y + 16, "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
+                drawText(tier.tag, tr.x + tr.w / 2, tr.y + 35, "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
+            }
+            var bk = lawyerBackRect();
+            drawButton(bk.x, bk.y, bk.w, bk.h, "‹ Back", { bg: "#546E7A", bgDark: "#37474F", small: true });
         } else if (jail.phase === 3) {
             drawLockpick();
         } else if (jail.phase === 2) {
@@ -482,18 +518,22 @@
     }
 
     // ════════════════ COURTROOM ════════════════
-    function openCourt(charges, withLawyer) {
+    function openCourt(charges, lawyerTier) {
         var pool = DEFENSE_POOL.slice(), opts = [];
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
+        // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
+        opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
         var cl = (charges && charges.length ? charges.slice() : ["BEING SUSPICIOUS"]);
         var lines = [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
         ];
-        if (withLawyer) lines.push({ who: "DEFENSE", p: "lawyer", accent: "#80CBC4", text: "My client pleads NOT GUILTY, your honor. We'll take it from here. 🤵" });
+        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
-                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0, lawyer: !!withLawyer,
+                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
+                  lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
+                  lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
                   lines: lines };
         jail = null; state = "courtroom"; playTone(523, 0.12, "triangle", 0.16);
@@ -588,19 +628,34 @@
         if (court.phase === 4) {                     // jury deliberates → verdict
             if (court.t > 1.9) {
                 var opt = court.options[court.choice];
+                var strikes = save.convictions || 0;
+                if (opt.plea) {
+                    // Plea bargain: cop to a lesser charge for a guaranteed small fine.
+                    court.verdict = "fine";
+                    court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
+                    save.convictions = (save.convictions || 0) + 1; persistSave();
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, ★" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
+                    playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
+                    return;
+                }
                 court.verdict = rollVerdict(opt);
                 // A sustained objection hurts her; an overruled one helps.
                 if (court.objResult === "sustain" && court.verdict === "dismissed" && Math.random() < 0.6) court.verdict = "fine";
                 if (court.objResult === "overrule" && court.verdict !== "dismissed" && Math.random() < 0.35) court.verdict = "dismissed";
                 // STRIKES: repeat offenders get no mercy. 3rd strike = real jail.
-                var strikes = save.convictions || 0;
                 if (strikes >= 2) court.verdict = "jail";
                 else if (strikes >= 1 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
                 if (court.charges.length >= 4 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                // A retained lawyer fights it down a notch (can even beat a 3rd strike).
+                // A retained lawyer fights it down — by how much depends on the tier.
+                // Cheap counsel can BLUNDER and not help (you get what you pay for).
                 if (court.lawyer) {
-                    if (court.verdict === "jail" && Math.random() < 0.55) court.verdict = "fine";
-                    if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed";
+                    if (Math.random() < court.lawyerBlunder) {
+                        if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
+                    } else {
+                        if (court.verdict === "jail" && Math.random() < court.lawyerMitig) court.verdict = "fine";
+                        if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
+                    }
                 }
                 if (opt.bribe && court.verdict !== "dismissed") court.charges.push("BRIBING A JUDGE (BADLY)");
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
@@ -698,12 +753,13 @@
             drawDialogueBox(ln.who, courtTyped(ln.text), ln.p, ln.accent, d1, !d1);
         } else if (court.phase === 2) {
             // RPG choice menu
-            ctx.fillStyle = "rgba(20,12,30,0.78)"; roundRect(14, H - 168, W - 28, 158, 12); ctx.fill();
-            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(14, H - 168, W - 28, 158, 12); ctx.stroke();
-            drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 152, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            ctx.fillStyle = "rgba(20,12,30,0.80)"; roundRect(14, H - 210, W - 28, 200, 12); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(14, H - 210, W - 28, 200, 12); ctx.stroke();
+            drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 192, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             for (var i = 0; i < court.options.length; i++) {
-                var r = courtOptRect(i);
-                drawButton(r.x, r.y, r.w, r.h, court.options[i].label, { bg: "#7E57C2", bgDark: "#4527A0", small: true });
+                var r = courtOptRect(i), plea = court.options[i].plea;
+                drawButton(r.x, r.y, r.w, r.h, court.options[i].label,
+                    plea ? { bg: "#26A69A", bgDark: "#00695C", small: true } : { bg: "#7E57C2", bgDark: "#4527A0", small: true });
             }
         } else if (court.phase === 3) {
             var d3 = courtDone(court.defLine.text);
@@ -774,14 +830,43 @@
             var o = obstacles[i];
             if (o.type === "car" && o.behavior === "patrol" && Math.abs(o.y - player.y) < 200) { seen = o; break; }
         }
+        // At 5★ a police chopper locks a spotlight on her — there's no hiding.
+        if (wl >= 5) {
+            fugChopperX = lerp(fugChopperX || player.x, player.x, Math.min(1, 2.2 * dt));
+            fugitiveSpot += dt * 1.1;
+            if (fugitiveSpot > Math.max(0.85, 1.7 - wl * 0.18)) { beginArrest(["ESCAPE FROM CUSTODY", "EVADING A HELICOPTER"]); return; }
+        }
         // Higher wanted = they recognize her faster, and bust at a lower threshold.
         var bustAt = Math.max(0.85, 1.7 - wl * 0.18);
         if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { beginArrest(["ESCAPE FROM CUSTODY", "RESISTING (with SASS)"]); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
     }
 
+    // The police chopper + tracking spotlight (drawn over the road at 5★).
+    function drawFugChopper() {
+        if (!prisonClothes || wantedLevel() < 5) return;
+        var cx = fugChopperX || player.x, cy = SAFE_TOP + 36, px = player.x, py = player.y;
+        var sg = ctx.createLinearGradient(cx, cy, px, py);
+        sg.addColorStop(0, "rgba(255,245,150,0.38)"); sg.addColorStop(1, "rgba(255,245,150,0.05)");
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.moveTo(cx - 12, cy + 6); ctx.lineTo(px - 44, py); ctx.lineTo(px + 44, py); ctx.lineTo(cx + 12, cy + 6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,245,150,0.20)"; ctx.beginPath(); ctx.ellipse(px, py, 48, 20, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = "#263238"; roundRect(-22, -8, 44, 16, 6); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(18, -3, 18, 5, 2); ctx.fill();
+        ctx.fillStyle = "#90CAF9"; roundRect(-18, -5, 12, 9, 3); ctx.fill();
+        var sir = Math.sin(gameTime * 10) > 0;
+        ctx.fillStyle = sir ? "#FF5252" : "#42A5F5"; ctx.beginPath(); ctx.arc(0, 8, 2.5, 0, Math.PI * 2); ctx.fill();
+        var rot = gameTime * 28, rw = 32;
+        ctx.strokeStyle = "rgba(210,210,210,0.7)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-Math.cos(rot) * rw, -11); ctx.lineTo(Math.cos(rot) * rw, -11); ctx.stroke();
+        ctx.restore();
+        drawText("🚁 POLICE", cx, cy - 20, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#000", 2);
+    }
+
     function drawFugitiveHUD() {
         if (!prisonClothes) return;
+        drawFugChopper();
         var wl = wantedLevel();
         var pulse = Math.sin(gameTime * 8) > 0;
         drawText("🔒 FUGITIVE", W / 2, SAFE_TOP + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
@@ -859,7 +944,7 @@
         var hr = s * 0.26;
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
-                    : type === "lawyer" ? "#37474F"
+                    : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -893,6 +978,13 @@
             ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.6, 1); ctx.fill();
             ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.moveTo(cx - 2.5, cy + hr * 0.6); ctx.lineTo(cx, cy + hr * 1.1); ctx.lineTo(cx + 2.5, cy + hr * 0.6); ctx.fill(); // teal tie
             ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;   // smart glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
+        } else if (type === "doctor") {
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.98, Math.PI, 0); ctx.fill(); // hair
+            ctx.strokeStyle = "#455A64"; ctx.lineWidth = 1.6;   // stethoscope
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.3, cy + hr * 0.5); ctx.quadraticCurveTo(cx, cy + hr * 1.1, cx + hr * 0.3, cy + hr * 0.5); ctx.stroke();
+            ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.55, hr * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;     // glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie

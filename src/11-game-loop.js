@@ -27,7 +27,7 @@
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
             var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
-                            arrest: 1, jailCell: 1, courtroom: 1,
+                            arrest: 1, jailCell: 1, courtroom: 1, hospital: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
                 sceneFade.t >= sceneFade.dur) {
@@ -63,7 +63,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+            state === "hospital" || state === "footRun" || state === "footInterior") musicTrack = "lulu";
         else if (state === "jailCell" || state === "courtroom" || state === "arrest") musicTrack = "prison";   // arrest / jail / court / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
@@ -84,6 +84,7 @@
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "copStop") updateCopStop(dt);
         else if (state === "arrest") updateArrest(dt);
+        else if (state === "hospital") updateHospital(dt);
         else if (state === "jailCell") updateJailCell(dt);
         else if (state === "courtroom") updateCourtroom(dt);
         else if (state === "footRun") updateFootRun(dt);
@@ -116,6 +117,7 @@
         else if (state === "copBust") drawCopBust();
         else if (state === "copStop") drawCopStop();
         else if (state === "arrest") drawArrest();
+        else if (state === "hospital") drawHospital();
         else if (state === "jailCell") drawJailCell();
         else if (state === "courtroom") drawCourtroom();
         else if (state === "footRun") drawFootRun();

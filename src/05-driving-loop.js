@@ -2217,6 +2217,12 @@
                     beginArrest(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"]);
                     return;
                 }
+                // Sometimes the ambulance gets there first → the ER, not game over.
+                if (typeof beginHospital === "function" && Math.random() < 0.35) {
+                    crashedCar = null; angryMan = null; revengeCar = null; crashCause = null;
+                    beginHospital("crash");
+                    return;
+                }
                 state = "gameover";
                 gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver(); // interstitial in the native app; no-op on web

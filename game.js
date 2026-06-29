@@ -8030,6 +8030,12 @@
                     beginArrest(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"]);
                     return;
                 }
+                // Sometimes the ambulance gets there first → the ER, not game over.
+                if (typeof beginHospital === "function" && Math.random() < 0.35) {
+                    crashedCar = null; angryMan = null; revengeCar = null; crashCause = null;
+                    beginHospital("crash");
+                    return;
+                }
                 state = "gameover";
                 gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
                 Ads.onGameOver(); // interstitial in the native app; no-op on web
@@ -12467,6 +12473,8 @@
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
         if (lives <= 0) {
+            // Sometimes the ER scoops her up instead of a flat game over.
+            if (typeof beginHospital === "function" && Math.random() < 0.45) { beginHospital("knockout"); return; }
             if (score > save.highScore) save.highScore = Math.floor(score);
             persistSave();
             gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
@@ -20357,6 +20365,7 @@
     var fugitiveSpot = 0;
     var wantedPosterT = 0;
     var fugCopT = 0;            // escalating cop-spawn timer while a fugitive
+    var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
 
     var ARREST_LINES = ["🚨 YOU'RE UNDER ARREST!", "🚨 Hands where I can see 'em!",
         "🚨 End of the road, Lulu!", "🚨 You're comin' with ME.", "🚨 Cuff her!", "🚨 Book 'em, Danno!"];
@@ -20388,6 +20397,15 @@
         "OBJECTION! The defense is pure FARFEL!", "OBJECTION! She did the SAME thing last week!"];
     var JUDGE_SUSTAIN = ["Sustained. Nice try, Ms. Bruck.", "Sustained! Strike that.", "Sustained. I'm not buying it."];
     var JUDGE_OVERRULE = ["Overruled. Sit DOWN, counselor.", "Overruled. Let her finish.", "Overruled — I rather liked it."];
+    // Hire-a-lawyer tiers — you get what you pay for. feeMul is per-charge.
+    var LAWYER_TIERS = [
+        { name: "Public Defender", feeMul: 6, mitig: 0.25, blunder: 0.28, accent: "#90A4AE",
+          say: "Uh... first day! Is this the right courtroom? 😬", tag: "cheap — might BLUNDER" },
+        { name: "Local Attorney", feeMul: 19, mitig: 0.58, blunder: 0.05, accent: "#80CBC4",
+          say: "We'll fight this. I read MOST of the file. 🤵", tag: "solid odds" },
+        { name: "Hotshot Lawyer", feeMul: 44, mitig: 0.86, blunder: 0, accent: "#FFD54F",
+          say: "They don't have a CASE. Watch this. 😎", tag: "pricey — best odds" }
+    ];
 
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
@@ -20545,7 +20563,10 @@
     function cellBailRect() { return { x: 24 + cellBtnW(), y: H - 232, w: cellBtnW(), h: 42 }; }
     function cellLawyerRect() { return { x: 14, y: H - 184, w: cellBtnW(), h: 42 }; }
     function cellCourtRect() { return { x: 24 + cellBtnW(), y: H - 184, w: cellBtnW(), h: 42 }; }
-    function courtOptRect(i) { return { x: 22, y: H - 132 + i * 42, w: W - 44, h: 38 }; }
+    function lawyerFee(tier) { return Math.round((jail.charges.length) * tier.feeMul * (1 + (save.convictions || 0) * 0.2)); }
+    function lawyerTierRect(i) { return { x: 28, y: H - 214 + i * 54, w: W - 56, h: 48 }; }
+    function lawyerBackRect() { return { x: W / 2 - 60, y: H - 52, w: 120, h: 38 }; }
+    function courtOptRect(i) { return { x: 22, y: H - 176 + i * 40, w: W - 44, h: 36 }; }
 
     // ════════════════ JAIL CELL ════════════════
     function startLockpick() {
@@ -20577,18 +20598,7 @@
             if (click) {
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) { startLockpick(); playTone(330, 0.05, "square", 0.1); return; }
-                if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) {
-                    if (save.totalCoins >= jail.lawyerFee) {
-                        save.totalCoins -= jail.lawyerFee; persistSave();
-                        spawnFloater(W / 2, H * 0.42, "🤵 Lawyer retained! −" + jail.lawyerFee, "#7CFC4F");
-                        playTone(660, 0.08, "triangle", 0.16);
-                        openCourt(jail.charges, true);   // go to trial WITH counsel
-                    } else {
-                        playTone(180, 0.15, "square", 0.15);
-                        spawnFloater(W / 2, H * 0.42, "Can't afford a lawyer! 😬", "#FF8A80");
-                    }
-                    return;
-                }
+                if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
                         save.totalCoins -= jail.bail; persistSave();
@@ -20605,6 +20615,27 @@
                 if (pointInRect(click.x, click.y, cr.x, cr.y, cr.w, cr.h)) { openCourt(jail.charges); return; }
             }
             if (jail.t > 22) { openCourt(jail.charges); return; }
+            return;
+        }
+        if (jail.phase === 4) {                 // LAWYER tier menu
+            var lc = consumeClick();
+            if (lc) {
+                for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
+                    var tr = lawyerTierRect(ti);
+                    if (pointInRect(lc.x, lc.y, tr.x, tr.y, tr.w, tr.h)) {
+                        var tier = LAWYER_TIERS[ti], fee = lawyerFee(tier);
+                        if (save.totalCoins >= fee) {
+                            save.totalCoins -= fee; persistSave();
+                            spawnFloater(W / 2, H * 0.40, "🤵 " + tier.name + " retained! −" + fee, "#7CFC4F");
+                            playTone(660, 0.08, "triangle", 0.16);
+                            openCourt(jail.charges, tier);
+                        } else { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.40, "Can't afford " + tier.name + "! 😬", "#FF8A80"); }
+                        return;
+                    }
+                }
+                var bk = lawyerBackRect();
+                if (pointInRect(lc.x, lc.y, bk.x, bk.y, bk.w, bk.h)) { jail.phase = 1; jail.t = 0; return; }
+            }
             return;
         }
         if (jail.phase === 3) {                 // LOCKPICK minigame
@@ -20755,6 +20786,19 @@
             drawButton(lr.x, lr.y, lr.w, lr.h, "🤵 Lawyer ★" + jail.lawyerFee, { bg: canLaw ? "#26A69A" : "#757575", bgDark: canLaw ? "#00695C" : "#424242", small: true });
             drawButton(cr.x, cr.y, cr.w, cr.h, "⚖️ Court", { bg: "#42A5F5", bgDark: "#0D47A1", small: true });
             drawDialogueBox("CELLMATE", jail.cellmateLine, "cellmate", "#90A4AE", false);
+        } else if (jail.phase === 4) {
+            // lawyer tier picker
+            ctx.fillStyle = "rgba(10,14,20,0.88)"; roundRect(14, H - 252, W - 28, 242, 14); ctx.fill();
+            ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 252, W - 28, 242, 14); ctx.stroke();
+            drawText("🤵 RETAIN A LAWYER", W / 2, H - 236, "bold 17px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 4);
+            for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
+                var tier = LAWYER_TIERS[ti], tr = lawyerTierRect(ti), fee = lawyerFee(tier), afford = save.totalCoins >= fee;
+                drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: afford ? "#37474F" : "#2A2A2A", bgDark: afford ? "#263238" : "#1A1A1A", small: true });
+                drawText(tier.name + "  ★" + fee, tr.x + tr.w / 2, tr.y + 16, "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
+                drawText(tier.tag, tr.x + tr.w / 2, tr.y + 35, "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
+            }
+            var bk = lawyerBackRect();
+            drawButton(bk.x, bk.y, bk.w, bk.h, "‹ Back", { bg: "#546E7A", bgDark: "#37474F", small: true });
         } else if (jail.phase === 3) {
             drawLockpick();
         } else if (jail.phase === 2) {
@@ -20824,18 +20868,22 @@
     }
 
     // ════════════════ COURTROOM ════════════════
-    function openCourt(charges, withLawyer) {
+    function openCourt(charges, lawyerTier) {
         var pool = DEFENSE_POOL.slice(), opts = [];
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
+        // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
+        opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
         var cl = (charges && charges.length ? charges.slice() : ["BEING SUSPICIOUS"]);
         var lines = [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
         ];
-        if (withLawyer) lines.push({ who: "DEFENSE", p: "lawyer", accent: "#80CBC4", text: "My client pleads NOT GUILTY, your honor. We'll take it from here. 🤵" });
+        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
-                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0, lawyer: !!withLawyer,
+                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
+                  lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
+                  lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
                   lines: lines };
         jail = null; state = "courtroom"; playTone(523, 0.12, "triangle", 0.16);
@@ -20930,19 +20978,34 @@
         if (court.phase === 4) {                     // jury deliberates → verdict
             if (court.t > 1.9) {
                 var opt = court.options[court.choice];
+                var strikes = save.convictions || 0;
+                if (opt.plea) {
+                    // Plea bargain: cop to a lesser charge for a guaranteed small fine.
+                    court.verdict = "fine";
+                    court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
+                    save.convictions = (save.convictions || 0) + 1; persistSave();
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, ★" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
+                    playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
+                    return;
+                }
                 court.verdict = rollVerdict(opt);
                 // A sustained objection hurts her; an overruled one helps.
                 if (court.objResult === "sustain" && court.verdict === "dismissed" && Math.random() < 0.6) court.verdict = "fine";
                 if (court.objResult === "overrule" && court.verdict !== "dismissed" && Math.random() < 0.35) court.verdict = "dismissed";
                 // STRIKES: repeat offenders get no mercy. 3rd strike = real jail.
-                var strikes = save.convictions || 0;
                 if (strikes >= 2) court.verdict = "jail";
                 else if (strikes >= 1 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
                 if (court.charges.length >= 4 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                // A retained lawyer fights it down a notch (can even beat a 3rd strike).
+                // A retained lawyer fights it down — by how much depends on the tier.
+                // Cheap counsel can BLUNDER and not help (you get what you pay for).
                 if (court.lawyer) {
-                    if (court.verdict === "jail" && Math.random() < 0.55) court.verdict = "fine";
-                    if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed";
+                    if (Math.random() < court.lawyerBlunder) {
+                        if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
+                    } else {
+                        if (court.verdict === "jail" && Math.random() < court.lawyerMitig) court.verdict = "fine";
+                        if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
+                    }
                 }
                 if (opt.bribe && court.verdict !== "dismissed") court.charges.push("BRIBING A JUDGE (BADLY)");
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
@@ -21040,12 +21103,13 @@
             drawDialogueBox(ln.who, courtTyped(ln.text), ln.p, ln.accent, d1, !d1);
         } else if (court.phase === 2) {
             // RPG choice menu
-            ctx.fillStyle = "rgba(20,12,30,0.78)"; roundRect(14, H - 168, W - 28, 158, 12); ctx.fill();
-            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(14, H - 168, W - 28, 158, 12); ctx.stroke();
-            drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 152, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            ctx.fillStyle = "rgba(20,12,30,0.80)"; roundRect(14, H - 210, W - 28, 200, 12); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(14, H - 210, W - 28, 200, 12); ctx.stroke();
+            drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 192, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             for (var i = 0; i < court.options.length; i++) {
-                var r = courtOptRect(i);
-                drawButton(r.x, r.y, r.w, r.h, court.options[i].label, { bg: "#7E57C2", bgDark: "#4527A0", small: true });
+                var r = courtOptRect(i), plea = court.options[i].plea;
+                drawButton(r.x, r.y, r.w, r.h, court.options[i].label,
+                    plea ? { bg: "#26A69A", bgDark: "#00695C", small: true } : { bg: "#7E57C2", bgDark: "#4527A0", small: true });
             }
         } else if (court.phase === 3) {
             var d3 = courtDone(court.defLine.text);
@@ -21116,14 +21180,43 @@
             var o = obstacles[i];
             if (o.type === "car" && o.behavior === "patrol" && Math.abs(o.y - player.y) < 200) { seen = o; break; }
         }
+        // At 5★ a police chopper locks a spotlight on her — there's no hiding.
+        if (wl >= 5) {
+            fugChopperX = lerp(fugChopperX || player.x, player.x, Math.min(1, 2.2 * dt));
+            fugitiveSpot += dt * 1.1;
+            if (fugitiveSpot > Math.max(0.85, 1.7 - wl * 0.18)) { beginArrest(["ESCAPE FROM CUSTODY", "EVADING A HELICOPTER"]); return; }
+        }
         // Higher wanted = they recognize her faster, and bust at a lower threshold.
         var bustAt = Math.max(0.85, 1.7 - wl * 0.18);
         if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { beginArrest(["ESCAPE FROM CUSTODY", "RESISTING (with SASS)"]); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
     }
 
+    // The police chopper + tracking spotlight (drawn over the road at 5★).
+    function drawFugChopper() {
+        if (!prisonClothes || wantedLevel() < 5) return;
+        var cx = fugChopperX || player.x, cy = SAFE_TOP + 36, px = player.x, py = player.y;
+        var sg = ctx.createLinearGradient(cx, cy, px, py);
+        sg.addColorStop(0, "rgba(255,245,150,0.38)"); sg.addColorStop(1, "rgba(255,245,150,0.05)");
+        ctx.fillStyle = sg;
+        ctx.beginPath(); ctx.moveTo(cx - 12, cy + 6); ctx.lineTo(px - 44, py); ctx.lineTo(px + 44, py); ctx.lineTo(cx + 12, cy + 6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,245,150,0.20)"; ctx.beginPath(); ctx.ellipse(px, py, 48, 20, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = "#263238"; roundRect(-22, -8, 44, 16, 6); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(18, -3, 18, 5, 2); ctx.fill();
+        ctx.fillStyle = "#90CAF9"; roundRect(-18, -5, 12, 9, 3); ctx.fill();
+        var sir = Math.sin(gameTime * 10) > 0;
+        ctx.fillStyle = sir ? "#FF5252" : "#42A5F5"; ctx.beginPath(); ctx.arc(0, 8, 2.5, 0, Math.PI * 2); ctx.fill();
+        var rot = gameTime * 28, rw = 32;
+        ctx.strokeStyle = "rgba(210,210,210,0.7)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-Math.cos(rot) * rw, -11); ctx.lineTo(Math.cos(rot) * rw, -11); ctx.stroke();
+        ctx.restore();
+        drawText("🚁 POLICE", cx, cy - 20, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#000", 2);
+    }
+
     function drawFugitiveHUD() {
         if (!prisonClothes) return;
+        drawFugChopper();
         var wl = wantedLevel();
         var pulse = Math.sin(gameTime * 8) > 0;
         drawText("🔒 FUGITIVE", W / 2, SAFE_TOP + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
@@ -21201,7 +21294,7 @@
         var hr = s * 0.26;
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
-                    : type === "lawyer" ? "#37474F"
+                    : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -21235,6 +21328,13 @@
             ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.6, 1); ctx.fill();
             ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.moveTo(cx - 2.5, cy + hr * 0.6); ctx.lineTo(cx, cy + hr * 1.1); ctx.lineTo(cx + 2.5, cy + hr * 0.6); ctx.fill(); // teal tie
             ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;   // smart glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
+        } else if (type === "doctor") {
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.98, Math.PI, 0); ctx.fill(); // hair
+            ctx.strokeStyle = "#455A64"; ctx.lineWidth = 1.6;   // stethoscope
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.3, cy + hr * 0.5); ctx.quadraticCurveTo(cx, cy + hr * 1.1, cx + hr * 0.3, cy + hr * 0.5); ctx.stroke();
+            ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.55, hr * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;     // glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
@@ -21390,6 +21490,202 @@
         ctx.restore();
     }
 
+    // ════════════════════════════════════════════════════════════
+    //  THE HOSPITAL / ER  — a softer landing than game over.
+    //  A bad enough crash or knockout sometimes sends Lulu to the ER instead
+    //  of straight to game over: she wakes up, a doctor delivers a (ridiculous)
+    //  diagnosis through the RPG dialogue box, she picks her care, pays a
+    //  MEDICAL BILL (coins), and is discharged back onto the road, patched up.
+    //  Reuses the dialogue box / portraits from the jail-court fragment.
+    // ════════════════════════════════════════════════════════════
+
+    var hospital = null;
+
+    var DIAGNOSES = ["a mild case of the OOFs", "two broken nails and a bruised ego",
+        "whiplash — from your own SASS", "a boo-boo. A BIG boo-boo", "a concussion (or you're just like this)",
+        "road rash and a wounded reputation", "one (1) ouchie, doctor's note attached", "a fractured sense of caution"];
+    var DOC_GREET = ["You're awake! Don't sue us.", "Well well. The famous Lulu.", "BP's high, attitude's higher.",
+        "Welcome back to the land of the living.", "You flatlined your DIGNITY, mostly."];
+    // [label, billMul, resultLine, extraLife]
+    var HOSP_OPTIONS = [
+        { label: "🩹 Just patch me up", billMul: 1.0, extra: false, say: "Band-aid, a lollipop, you're golden. Try the BRAKES next time." },
+        { label: "💊 The GOOD stuff, doc!", billMul: 2.0, extra: true, say: "Premium care! Extra heart on the house. Wheee~ 💕" },
+        { label: "🏃 Skip the bill — RUN!", billMul: 0, extra: false, say: "HEY! Get back here with that gown— ...and she's gone. 🏃", dash: true }
+    ];
+
+    // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
+    function beginHospital(reason) {
+        hospital = { phase: 0, t: 0, typeT: 0, reason: reason || "crash",
+                     diagnosis: randPick(DIAGNOSES), greet: randPick(DOC_GREET),
+                     options: HOSP_OPTIONS, choice: -1, bill: 0, applied: false, ekg: 0, line: null,
+                     lines: null, li: 0 };
+        copChase = null; copBust = null; copStop = null;
+        playTone(880, 0.1, "sine", 0.06); setTimeout(function () { playTone(880, 0.1, "sine", 0.06); }, 700);
+        state = "hospital";
+        return true;
+    }
+
+    function hospOptRect(i) { return { x: 22, y: H - 162 + i * 46, w: W - 44, h: 40 }; }
+
+    // typewriter helpers (shared shape with the courtroom)
+    function hospTyped(full) { return full.slice(0, Math.floor(hospital.typeT * 45)); }
+    function hospDone(full) { return Math.floor(hospital.typeT * 45) >= full.length; }
+
+    function updateHospital(dt) {
+        hospital.t += dt; hospital.typeT += dt; hospital.ekg += dt;
+        if (hospital.phase === 0) {                 // coming to
+            if (hospital.t > 1.6 || consumeClick() || consumeAction()) {
+                hospital.phase = 1; hospital.t = 0; hospital.typeT = 0;
+                hospital.line = hospital.greet + " You've got " + hospital.diagnosis + ".";
+            }
+            return;
+        }
+        if (hospital.phase === 1) {                 // diagnosis
+            if (consumeClick() || consumeAction()) {
+                if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
+                hospital.phase = 2; hospital.t = 0;
+            }
+            return;
+        }
+        if (hospital.phase === 2) {                 // pick your care
+            var click = consumeClick();
+            if (click) for (var i = 0; i < hospital.options.length; i++) {
+                var r = hospOptRect(i);
+                if (pointInRect(click.x, click.y, r.x, r.y, r.w, r.h)) {
+                    var opt = hospital.options[i];
+                    hospital.choice = i; hospital.phase = 3; hospital.t = 0; hospital.typeT = 0;
+                    hospital.bill = Math.round(rand(25, 55) * opt.billMul);
+                    hospital.line = opt.say;
+                    playTone(opt.dash ? 300 : 660, 0.06, "sine", 0.1);
+                    return;
+                }
+            }
+            return;
+        }
+        if (hospital.phase === 3) {                 // result → discharge
+            if (!hospital.applied) {
+                hospital.applied = true;
+                var opt = hospital.options[hospital.choice];
+                if (hospital.bill > 0) {
+                    var pay = Math.min(hospital.bill, save.totalCoins);
+                    save.totalCoins -= pay; persistSave(); hospital.paid = pay;
+                }
+                lives = Math.max(1, (typeof lives !== "undefined" ? lives : 1) + (opt.extra ? 1 : 0));
+            }
+            if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
+                if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
+                var dash = hospital.options[hospital.choice].dash;
+                hospital = null;
+                if (typeof returnToDriving === "function") returnToDriving();
+                spawnFloater(player.x, player.y - 50, dash ? "🏃 Skipped the bill!" : "🩹 Patched up — drive safe!", "#7CFC4F");
+            }
+        }
+    }
+
+    function drawHospital() {
+        // ── clinical room ──
+        var bg = ctx.createLinearGradient(0, 0, 0, H);
+        bg.addColorStop(0, "#CFE7E4"); bg.addColorStop(1, "#A6C9C6");
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#B7D6D2"; for (var ty = 0; ty < H * 0.6; ty += 30) ctx.fillRect(0, ty, W, 1.5);
+        ctx.fillStyle = "#7FA9A4"; ctx.fillRect(0, H * 0.6, W, 5);
+        ctx.fillStyle = "#9DBDB8"; ctx.fillRect(0, H * 0.6 + 5, W, H);
+        // curtain rail + curtain on the right
+        ctx.fillStyle = "#78909C"; ctx.fillRect(W * 0.62, 70, 6, H * 0.5);
+        ctx.fillStyle = "rgba(120,180,200,0.35)";
+        for (var cu = 0; cu < 5; cu++) roundRect(W * 0.64 + cu * 26, 74, 22, H * 0.46, 6), ctx.fill();
+
+        // ── heart monitor ──
+        var mx = 24, my = 90, mw = 120, mh = 70;
+        ctx.fillStyle = "#263238"; roundRect(mx - 6, my - 6, mw + 12, mh + 20, 6); ctx.fill();
+        ctx.fillStyle = "#0A140F"; roundRect(mx, my, mw, mh, 3); ctx.fill();
+        ctx.strokeStyle = "#39FF7A"; ctx.lineWidth = 2; ctx.beginPath();
+        for (var sx = 0; sx <= mw; sx += 4) {
+            var t = (sx / mw) * 6 + hospital.ekg * 4, beat = (t % 6);
+            var sy = my + mh / 2 - (beat > 2.6 && beat < 3.2 ? Math.sin((beat - 2.6) / 0.6 * Math.PI) * 22 : 0);
+            if (sx === 0) ctx.moveTo(mx + sx, sy); else ctx.lineTo(mx + sx, sy);
+        }
+        ctx.stroke();
+        drawText((Math.sin(hospital.ekg * 6) > 0 ? "♥ " : "  ") + (78 + Math.floor(Math.sin(hospital.ekg) * 6)) + " BPM",
+            mx + mw / 2, my + mh + 6, "bold 10px 'Segoe UI', Arial, sans-serif", "#39FF7A", "#000", 2);
+
+        // ── IV pole ──
+        var ivx = W - 54;
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ivx, 70); ctx.lineTo(ivx, H * 0.55); ctx.stroke();
+        ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
+        ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, H * 0.5); ctx.stroke();
+
+        // ── bed + Lulu lying down ──
+        var bedX = W / 2 - 70, bedY = H * 0.5, bedW = 150, bedH = 40;
+        ctx.fillStyle = "#455A64"; roundRect(bedX - 6, bedY + bedH, 8, 34, 2); ctx.fill(); roundRect(bedX + bedW - 2, bedY + bedH, 8, 34, 2); ctx.fill();
+        ctx.fillStyle = "#ECEFF1"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();      // mattress
+        ctx.fillStyle = "#90CAF9"; roundRect(bedX + 34, bedY - 4, bedW - 38, 22, 6); ctx.fill(); // blanket
+        ctx.fillStyle = "#FFF"; roundRect(bedX + 4, bedY - 6, 34, 22, 6); ctx.fill();     // pillow
+        // Lulu's head on the pillow + a little bandage
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 4, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 4, 9.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(bedX + 22, bedY + 1, 9.6, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF"; ctx.save(); ctx.translate(bedX + 18, bedY - 2); ctx.rotate(-0.4); ctx.fillRect(-5, -1.5, 10, 3); ctx.restore(); // bandage
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 19, bedY + 4, 1, 0, Math.PI * 2); ctx.arc(bedX + 25, bedY + 4, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(bedX + 16, bedY + 7, 1.6, 0, Math.PI * 2); ctx.arc(bedX + 28, bedY + 7, 1.6, 0, Math.PI * 2); ctx.fill();
+
+        // ── the doctor at the bedside ──
+        drawDoctor(W / 2 + 64, bedY - 6, gameTime, hospital.phase === 1 || hospital.phase === 3);
+
+        // title
+        drawText("🏥 THE ER", W / 2, 34, "bold 26px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 4);
+
+        // ── phase overlays ──
+        if (hospital.phase === 0) {
+            ctx.fillStyle = "rgba(230,245,243," + clamp(1 - hospital.t / 1.6, 0, 1) * 0.85 + ")"; ctx.fillRect(0, 0, W, H);
+            drawText("...beep... beep...", W / 2, H / 2, "bold 20px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 3);
+        } else if (hospital.phase === 1) {
+            var d1 = hospDone(hospital.line);
+            drawDialogueBox("DR. SHTERN", hospTyped(hospital.line), "doctor", "#80CBC4", d1, !d1);
+        } else if (hospital.phase === 2) {
+            ctx.fillStyle = "rgba(0,40,38,0.78)"; roundRect(14, H - 200, W - 28, 190, 12); ctx.fill();
+            ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 200, W - 28, 190, 12); ctx.stroke();
+            drawText("🏥 How do you want your care?", W / 2, H - 182, "bold 14px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 3);
+            for (var i = 0; i < hospital.options.length; i++) {
+                var r = hospOptRect(i), opt = hospital.options[i];
+                var pBill = Math.round(40 * opt.billMul);
+                drawButton(r.x, r.y, r.w, r.h, opt.label + (opt.billMul > 0 ? "  (~★" + pBill + ")" : "  (free!)"),
+                    { bg: opt.dash ? "#EF6C00" : "#00897B", bgDark: opt.dash ? "#BF360C" : "#004D40", small: true });
+            }
+        } else if (hospital.phase === 3) {
+            var d3 = hospDone(hospital.line);
+            drawDialogueBox("DR. SHTERN", hospTyped(hospital.line), "doctor", "#80CBC4", hospital.t > 0.6 && d3, !d3);
+            if (hospital.applied && hospital.bill > 0)
+                drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, H - 168, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+        }
+    }
+
+    // A white-coat doctor with a clipboard / stethoscope.
+    function drawDoctor(x, y, t, talking) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 28, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-6, 12, 5, 16, 2); ctx.fill(); roundRect(1, 12, 5, 16, 2); ctx.fill();
+        ctx.fillStyle = "#212121"; roundRect(-7, 26, 8, 4, 2); ctx.fill(); roundRect(0, 26, 8, 4, 2); ctx.fill();
+        ctx.fillStyle = "#FAFAFA"; roundRect(-12, -10, 24, 24, 5); ctx.fill();           // coat
+        ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-5, 14); ctx.lineTo(5, 14); ctx.fill();
+        ctx.strokeStyle = "#455A64"; ctx.lineWidth = 1.6;                                  // stethoscope
+        ctx.beginPath(); ctx.moveTo(-4, -7); ctx.quadraticCurveTo(0, 8, 4, -7); ctx.stroke();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(4, -6, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FAFAFA"; roundRect(-13, -8, 4, 14, 2); ctx.fill();
+        ctx.fillStyle = "#8D6E63"; roundRect(9, -8, 6, 14, 1); ctx.fill();                 // clipboard
+        ctx.fillStyle = "#FFF"; roundRect(10, -7, 4, 11, 1); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -18, 7.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -20, 8, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;                                    // glasses
+        ctx.beginPath(); ctx.arc(-2.6, -18, 2, 0, Math.PI * 2); ctx.arc(2.6, -18, 2, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -18, 0.9, 0, Math.PI * 2); ctx.arc(2.6, -18, 0.9, 0, Math.PI * 2); ctx.fill();
+        if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -12, 1.6, 0.8 + Math.abs(Math.sin(t * 15)) * 1.4, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -13, 2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+        ctx.restore();
+        drawText("DR. SHTERN", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 2);
+    }
+
     var lastDispatchState = null;
 
     function gameLoop(timestamp) {
@@ -21419,7 +21715,7 @@
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
             var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
-                            arrest: 1, jailCell: 1, courtroom: 1,
+                            arrest: 1, jailCell: 1, courtroom: 1, hospital: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
                 sceneFade.t >= sceneFade.dur) {
@@ -21455,7 +21751,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+            state === "hospital" || state === "footRun" || state === "footInterior") musicTrack = "lulu";
         else if (state === "jailCell" || state === "courtroom" || state === "arrest") musicTrack = "prison";   // arrest / jail / court / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
@@ -21476,6 +21772,7 @@
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "copStop") updateCopStop(dt);
         else if (state === "arrest") updateArrest(dt);
+        else if (state === "hospital") updateHospital(dt);
         else if (state === "jailCell") updateJailCell(dt);
         else if (state === "courtroom") updateCourtroom(dt);
         else if (state === "footRun") updateFootRun(dt);
@@ -21508,6 +21805,7 @@
         else if (state === "copBust") drawCopBust();
         else if (state === "copStop") drawCopStop();
         else if (state === "arrest") drawArrest();
+        else if (state === "hospital") drawHospital();
         else if (state === "jailCell") drawJailCell();
         else if (state === "courtroom") drawCourtroom();
         else if (state === "footRun") drawFootRun();

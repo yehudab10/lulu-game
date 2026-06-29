@@ -283,6 +283,8 @@
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
         if (lives <= 0) {
+            // Sometimes the ER scoops her up instead of a flat game over.
+            if (typeof beginHospital === "function" && Math.random() < 0.45) { beginHospital("knockout"); return; }
             if (score > save.highScore) save.highScore = Math.floor(score);
             persistSave();
             gameOverAlpha = 0; goScoreShown = 0; goConfettiDone = false;
