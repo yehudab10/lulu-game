@@ -1632,6 +1632,7 @@
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
                     : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
+                    : type === "rabbi" ? "#1A1A1A" : type === "clown" ? "#E53935" : type === "kid" ? "#FFB74D" : type === "oldman" ? "#6D4C41"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -1747,6 +1748,40 @@
             ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.32); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.36); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.36); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.32); ctx.stroke();
             ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.5, 1); ctx.fill();
             ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(cx - 2.5, cy + hr * 0.6); ctx.lineTo(cx, cy + hr * 1.1); ctx.lineTo(cx + 2.5, cy + hr * 0.6); ctx.fill();
+        } else if (type === "rabbi") {
+            // black hat + full gray beard + glasses
+            ctx.fillStyle = "#9E9E9E"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.12, hr * 0.95, 0.06 * Math.PI, 0.94 * Math.PI); ctx.closePath(); ctx.fill();   // beard
+            ctx.fillRect(cx - hr * 0.92, cy - hr * 0.15, hr * 0.2, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.15, hr * 0.2, hr * 0.6);
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(cx - hr * 1.15, cy - hr * 0.66, hr * 2.3, hr * 0.22);   // hat brim
+            ctx.fillStyle = "#0A0A0A"; roundRect(cx - hr * 0.78, cy - hr * 1.28, hr * 1.56, hr * 0.7, 3); ctx.fill();   // hat crown
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.3;   // glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.04, hr * 0.24, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.04, hr * 0.24, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.1, cy - hr * 0.04); ctx.lineTo(cx + hr * 0.1, cy - hr * 0.04); ctx.stroke();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white shirt
+        } else if (type === "clown") {
+            // rainbow wig, white face, red nose, big grin
+            ctx.fillStyle = "#FFF6F2"; ctx.beginPath(); ctx.arc(cx, cy, hr * 0.96, 0, Math.PI * 2); ctx.fill();   // white face over skin
+            var wc = ["#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5"];
+            for (var cw = 0; cw < 5; cw++) { ctx.fillStyle = wc[cw]; ctx.beginPath(); ctx.arc(cx - hr * 0.8 + cw * hr * 0.4, cy - hr * 0.35, hr * 0.42, Math.PI, 0); ctx.fill(); }   // rainbow tufts
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.05, hr * 0.13, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.05, hr * 0.13, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1565C0"; ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.3); ctx.lineTo(cx - hr * 0.18, cy - hr * 0.05); ctx.lineTo(cx - hr * 0.5, cy + hr * 0.05); ctx.fill();   // diamond eye paint
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.18, hr * 0.2, 0, Math.PI * 2); ctx.fill();   // red nose
+            ctx.fillStyle = "#FFEB3B"; roundRect(cx - hr * 0.5, cy + hr * 0.55, hr, hr * 0.5, 6); ctx.fill();   // polka collar
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx - hr * 0.2, cy + hr * 0.75, hr * 0.1, 0, Math.PI * 2); ctx.arc(cx + hr * 0.2, cy + hr * 0.75, hr * 0.1, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "kid") {
+            // little kid: short hair / kippah, big eyes already drawn, rosy cheeks
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.3, hr * 1.0, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#3949AB"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.62, hr * 0.4, Math.PI, 0); ctx.fill();   // little kippah
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.22, hr * 0.16, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.22, hr * 0.16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#66BB6A"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.5, 1); ctx.fill();   // striped tee
+        } else if (type === "oldman") {
+            // bald combover, bushy gray brows + mustache, big glasses, cardigan
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(cx - hr * 0.66, cy - hr * 0.18, hr * 0.42, Math.PI * 0.6, Math.PI * 1.9); ctx.fill(); ctx.beginPath(); ctx.arc(cx + hr * 0.66, cy - hr * 0.18, hr * 0.42, Math.PI * 1.1, Math.PI * 0.4); ctx.fill();
+            ctx.fillStyle = "#E0E0E0"; ctx.fillRect(cx - hr * 0.5, cy - hr * 0.5, hr, hr * 0.16);   // thin combover strand
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1.4;   // big glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.28, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.28, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.06, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.06, cy - hr * 0.02); ctx.stroke();
+            ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - hr * 0.55, cy - hr * 0.34); ctx.lineTo(cx - hr * 0.12, cy - hr * 0.3); ctx.moveTo(cx + hr * 0.12, cy - hr * 0.3); ctx.lineTo(cx + hr * 0.55, cy - hr * 0.34); ctx.stroke();   // bushy brows
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.34, hr * 0.46, hr * 0.18, 0, 0, Math.PI * 2); ctx.fill();   // mustache
+            ctx.fillStyle = "#795548"; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.4, 8); ctx.fill();   // cardigan collar bit
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);

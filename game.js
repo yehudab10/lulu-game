@@ -22633,6 +22633,7 @@
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
                     : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
+                    : type === "rabbi" ? "#1A1A1A" : type === "clown" ? "#E53935" : type === "kid" ? "#FFB74D" : type === "oldman" ? "#6D4C41"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -22748,6 +22749,40 @@
             ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.32); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.36); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.36); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.32); ctx.stroke();
             ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.5, 1); ctx.fill();
             ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(cx - 2.5, cy + hr * 0.6); ctx.lineTo(cx, cy + hr * 1.1); ctx.lineTo(cx + 2.5, cy + hr * 0.6); ctx.fill();
+        } else if (type === "rabbi") {
+            // black hat + full gray beard + glasses
+            ctx.fillStyle = "#9E9E9E"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.12, hr * 0.95, 0.06 * Math.PI, 0.94 * Math.PI); ctx.closePath(); ctx.fill();   // beard
+            ctx.fillRect(cx - hr * 0.92, cy - hr * 0.15, hr * 0.2, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.15, hr * 0.2, hr * 0.6);
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(cx - hr * 1.15, cy - hr * 0.66, hr * 2.3, hr * 0.22);   // hat brim
+            ctx.fillStyle = "#0A0A0A"; roundRect(cx - hr * 0.78, cy - hr * 1.28, hr * 1.56, hr * 0.7, 3); ctx.fill();   // hat crown
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.3;   // glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.04, hr * 0.24, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.04, hr * 0.24, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.1, cy - hr * 0.04); ctx.lineTo(cx + hr * 0.1, cy - hr * 0.04); ctx.stroke();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white shirt
+        } else if (type === "clown") {
+            // rainbow wig, white face, red nose, big grin
+            ctx.fillStyle = "#FFF6F2"; ctx.beginPath(); ctx.arc(cx, cy, hr * 0.96, 0, Math.PI * 2); ctx.fill();   // white face over skin
+            var wc = ["#E53935", "#FB8C00", "#FDD835", "#43A047", "#1E88E5"];
+            for (var cw = 0; cw < 5; cw++) { ctx.fillStyle = wc[cw]; ctx.beginPath(); ctx.arc(cx - hr * 0.8 + cw * hr * 0.4, cy - hr * 0.35, hr * 0.42, Math.PI, 0); ctx.fill(); }   // rainbow tufts
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.05, hr * 0.13, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.05, hr * 0.13, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1565C0"; ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.3); ctx.lineTo(cx - hr * 0.18, cy - hr * 0.05); ctx.lineTo(cx - hr * 0.5, cy + hr * 0.05); ctx.fill();   // diamond eye paint
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.18, hr * 0.2, 0, Math.PI * 2); ctx.fill();   // red nose
+            ctx.fillStyle = "#FFEB3B"; roundRect(cx - hr * 0.5, cy + hr * 0.55, hr, hr * 0.5, 6); ctx.fill();   // polka collar
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx - hr * 0.2, cy + hr * 0.75, hr * 0.1, 0, Math.PI * 2); ctx.arc(cx + hr * 0.2, cy + hr * 0.75, hr * 0.1, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "kid") {
+            // little kid: short hair / kippah, big eyes already drawn, rosy cheeks
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.3, hr * 1.0, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#3949AB"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.62, hr * 0.4, Math.PI, 0); ctx.fill();   // little kippah
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.22, hr * 0.16, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.22, hr * 0.16, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#66BB6A"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.5, 1); ctx.fill();   // striped tee
+        } else if (type === "oldman") {
+            // bald combover, bushy gray brows + mustache, big glasses, cardigan
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(cx - hr * 0.66, cy - hr * 0.18, hr * 0.42, Math.PI * 0.6, Math.PI * 1.9); ctx.fill(); ctx.beginPath(); ctx.arc(cx + hr * 0.66, cy - hr * 0.18, hr * 0.42, Math.PI * 1.1, Math.PI * 0.4); ctx.fill();
+            ctx.fillStyle = "#E0E0E0"; ctx.fillRect(cx - hr * 0.5, cy - hr * 0.5, hr, hr * 0.16);   // thin combover strand
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1.4;   // big glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.28, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.28, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.06, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.06, cy - hr * 0.02); ctx.stroke();
+            ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - hr * 0.55, cy - hr * 0.34); ctx.lineTo(cx - hr * 0.12, cy - hr * 0.3); ctx.moveTo(cx + hr * 0.12, cy - hr * 0.3); ctx.lineTo(cx + hr * 0.55, cy - hr * 0.34); ctx.stroke();   // bushy brows
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.34, hr * 0.46, hr * 0.18, 0, 0, Math.PI * 2); ctx.fill();   // mustache
+            ctx.fillStyle = "#795548"; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.4, 8); ctx.fill();   // cardigan collar bit
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);
@@ -23005,15 +23040,95 @@
         "In MY day we didn't crash cars, we DROVE them. Properly.",
         "I'd lend you gelt for the bill, but, eh... I'm saving it. For Hillel."
     ];
+    // ── THE WIDER CAST drops by the ER bedside — a random cameo (or two) per
+    //    visit, each with their own shtick. Tammy still treats her; THESE are the
+    //    well-wishers, hecklers and weirdos who wander in. ~50 lines in all. ──
+    var BUBBE_ER = [
+        "I brought CHOLENT. You'll eat it ALL — you're skin and bones, mamaleh.",
+        "A hospital?! Did they even offer you tea? No? FEH. Barbarians.",
+        "I lit a candle for you. And one for the other driver. I'm FAIR.",
+        "Your cousin Esti would NEVER crash. I'm just SAYING, sweetheart.",
+        "When I was your age we didn't HAVE cars. We walked. Uphill. BOTH ways.",
+        "Eat. Eat! The nurse is too skinny also. EVERYONE in here, eat!"
+    ];
+    var AVIGAIL_ER = [
+        "Crashed AGAIN? And here I am — engaged AND completely unscratched. 💍",
+        "I'd sign your cast, but I JUST got my nails done. You understand.",
+        "I only came to see if it was as bad as everyone's saying. ...It is. 💅",
+        "Should I post this? For your followers? Oh wait — you have none.",
+        "Get well soon-ish. The wedding's Sunday and you are NOT on the list."
+    ];
+    var DOC_ER = [
+        "Second opinion: yep, still reckless. That'll be another ★50.",
+        "I'm not your doctor. I just heard there was DRAMA. Please, continue.",
+        "Good news: you're alive! Bad news: we're fresh out of lollipops.",
+        "We googled your symptoms. WebMD says, and I quote, 'stop doing that.'",
+        "Your X-ray is GORGEOUS. Frame-worthy. Still broken, mind you.",
+        "Filing this on insurance? *laughs in medical bill* Oh, you're serious."
+    ];
+    var COP_ER = [
+        "Just making sure you didn't ESCAPE. ...Don't get any ideas.",
+        "Officer Krupke. We've MET. Several times. This week, actually.",
+        "Heal up quick — your court date waits for NO ONE, ma'am.",
+        "Love the gown. Very 'flight risk.' I'll be right outside. 👮"
+    ];
+    var RABBI_ER = [
+        "Refuah shleimah, Lulu. And maybe — just maybe — slow down a little?",
+        "I'm not saying it's a SIGN. But your bumper did say 'HONK FOR MOSHIACH.'",
+        "Everyone makes mistakes. You just make yours at eighty miles an hour.",
+        "I'll add you to the Mi Shebeirach. Under the 'frequent flyers' section.",
+        "They say G-d watches over fools and children. You, He double-shifts."
+    ];
+    var CLOWN_ER = [
+        "Wrong ward — I do the KIDS' floor — but honk honk anyway! 🤡",
+        "Balloon animal? This one's a... totaled sedan. Too soon? 🎈",
+        "Why the long face? Oh. Right. The car. ...Tough crowd tonight.",
+        "Knock knock! Who's there? Your insurance adjuster! (It is not.)"
+    ];
+    var KID_ER = [
+        "Are you the lady who hit the ICE CREAM TRUCK?! You're a LEGEND. 🍦",
+        "My mom says you drive like a 'farkakteh.' What's a farkakteh?",
+        "Can I have your wheelchair when you're done? I wanna go FAST.",
+        "I drew you a picture! It's the crash. There's a LOT of red, see?"
+    ];
+    var OLDMAN_ER = [
+        "In MY day a fender-bender meant a handshake and a brisket. FEH.",
+        "You drive like your grandmother. And SHE'S banned from the roads!",
+        "I had a car just like yours. Once. Before YOU were allowed to drive.",
+        "*adjusts hearing aid* They said you crashed into a WHAT now?"
+    ];
+    // Expand a character's line list into individual cameo entries.
+    function erCameoSet(who, p, body, accent, sub, lines, extra) {
+        var out = [];
+        for (var i = 0; i < lines.length; i++) {
+            var c = { who: who, p: p, body: body, accent: accent, sub: sub, text: lines[i] };
+            if (extra) for (var k in extra) c[k] = extra[k];
+            out.push(c);
+        }
+        return out;
+    }
+    var ER_CAMEOS = [].concat(
+        erCameoSet("HILLEL", "hillel", "hillel", "#90CAF9", "🧮 Tammy's husband — the actuary (between jobs)", HILLEL_LINES, { hillel: true }),
+        erCameoSet("UNCLE RAPHAEL", "raphael", "raphael", "#FFB74D", "💢 your uncle — adores Hillel, not you", RAPHAEL_LINES),
+        erCameoSet("BUBBE", "bubbe", "bubbe", "#C5A880", "👵 she brought food. obviously.", BUBBE_ER),
+        erCameoSet("AVIGAIL", "avigail", "avigail", "#B39DDB", "💅 your nemesis — here to gloat", AVIGAIL_ER),
+        erCameoSet("A NOSY DOCTOR", "doctor", "doctor", "#80CBC4", "🩺 not even your doctor", DOC_ER),
+        erCameoSet("OFFICER KRUPKE", "cop", "cop", "#5C6BC0", "👮 keeping an eye on you", COP_ER),
+        erCameoSet("THE RABBI", "rabbi", "rabbi", "#CFD8DC", "✡️ here for a refuah shleimah", RABBI_ER),
+        erCameoSet("BOZO THE CLOWN", "clown", "clown", "#FF8A80", "🤡 lost from the kids' ward", CLOWN_ER),
+        erCameoSet("SOME KID", "kid", "kid", "#A5D6A7", "🧒 a little fan, kind of", KID_ER),
+        erCameoSet("A NOSY ZAIDY", "oldman", "oldman", "#B0BEC5", "👴 unimpressed by your generation", OLDMAN_ER)
+    );
     // Build the (possibly empty) bedside-visit script for this ER trip.
     function buildErVisit() {
-        var roll = Math.random();
-        var hillel = { who: "HILLEL", p: "hillel", accent: "#90CAF9", text: randPick(HILLEL_LINES) };
-        var raph   = { who: "UNCLE RAPHAEL", p: "raphael", accent: "#FFB74D", text: randPick(RAPHAEL_LINES) };
-        if (roll < 0.30) return { lines: [hillel], hillel: true };               // Hillel solo
-        if (roll < 0.54) return { lines: [raph], hillel: false };                // Raphael solo
-        if (roll < 0.70) return { lines: [hillel, raph], hillel: true };         // both — Raph undercuts
-        return { lines: [], hillel: false };                                     // nobody today
+        if (Math.random() < 0.28) return { lines: [], hillel: false };           // nobody today
+        var first = randPick(ER_CAMEOS);
+        var lines = [first], hillel = !!first.hillel;
+        if (Math.random() < 0.22) {                                              // a SECOND well-wisher wanders in
+            var second = randPick(ER_CAMEOS);
+            if (second.who !== first.who) { lines.push(second); if (second.hillel) hillel = true; }
+        }
+        return { lines: lines, hillel: hillel };
     }
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
@@ -23383,10 +23498,15 @@
         drawErBed(bedX, bedY, bedW, bedH);
         // ── bedside: Nurse Tammy (left) always; the right slot is the doctor,
         //    or — during the family visit — Hillel or Uncle Raphael. ──
-        var visP = (hospital.phase === 8 && hospital.visit[hospital.visitStep]) ? hospital.visit[hospital.visitStep].p : null;
-        if (visP === "hillel") drawHillel(W / 2 + 74, bedY - 6, gameTime, true);
-        else if (visP === "raphael") drawRaphael(W / 2 + 74, bedY - 6, gameTime, true);
-        else drawDoctor(W / 2 + 72, bedY - 6, gameTime, hospital.phase === 1);
+        var visC = (hospital.phase === 8) ? hospital.visit[hospital.visitStep] : null;
+        if (visC) {
+            if (visC.body === "hillel") drawHillel(W / 2 + 74, bedY - 6, gameTime, true);
+            else if (visC.body === "raphael") drawRaphael(W / 2 + 74, bedY - 6, gameTime, true);
+            else if (visC.body === "doctor") drawDoctor(W / 2 + 72, bedY - 6, gameTime, true);
+            else drawErGuest(W / 2 + 74, bedY - 6, gameTime, visC.body, true, visC.who, visC.accent);
+        } else {
+            drawDoctor(W / 2 + 72, bedY - 6, gameTime, hospital.phase === 1);
+        }
         drawNurse(W / 2 - 74, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3 || hospital.phase === 8);
       }
 
@@ -23412,8 +23532,7 @@
         } else if (hospital.phase === 8) {
             var v8 = hospital.visit[hospital.visitStep], d8 = hospDone(hospital.line);
             drawDialogueBox(v8.who, hospTyped(hospital.line), v8.p, v8.accent, d8, !d8);
-            drawText(v8.p === "hillel" ? "🧮 Tammy's husband — the actuary (between jobs)" : "💢 your uncle — adores Hillel, not you",
-                W / 2, H - 168, "bold 12px 'Segoe UI', Arial, sans-serif", v8.p === "hillel" ? "#BBDEFB" : "#FFE0B2", "#000", 3);
+            if (v8.sub) drawText(v8.sub, W / 2, H - 168, "bold 12px 'Segoe UI', Arial, sans-serif", "#E1F5FE", "#000", 3);
         } else if (hospital.phase === 2) {
             ctx.fillStyle = "rgba(0,40,38,0.78)"; roundRect(14, H - 200, W - 28, 190, 12); ctx.fill();
             ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 200, W - 28, 190, 12); ctx.stroke();
@@ -23784,6 +23903,98 @@
         else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-2.6, -10); ctx.quadraticCurveTo(0, -8.6, 2.6, -10.6); ctx.stroke(); }
         ctx.restore();
         drawText("UNCLE RAPHAEL", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#FB8C00", "#FFF", 2);
+    }
+
+    // Shared little legs/shoes for the cameo bodies.
+    function erLegs(pants, shoes, t) {
+        var sw = Math.sin(t * 4) * 1;
+        ctx.fillStyle = pants; roundRect(-6, 12, 5, 16, 2); ctx.fill(); roundRect(1, 12, 5, 16, 2); ctx.fill();
+        ctx.fillStyle = shoes; roundRect(-7, 26 + sw, 8, 4, 2); ctx.fill(); roundRect(0, 26 - sw, 8, 4, 2); ctx.fill();
+    }
+    // A flexible bedside GUEST for the random ER cameos (Bubbe, a rabbi, a clown,
+    // a nosy old man, Avigail, a cop, a kid...). `kind` selects the look.
+    function drawErGuest(x, y, t, kind, talking, name, col) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 28, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+        var mo = talking ? 0.8 + Math.abs(Math.sin(t * 15)) * 1.3 : 0;   // mouth open amount
+        function face(eyeStyle) {
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -16, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 7.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -16, 1.1, 0, Math.PI * 2); ctx.arc(2.6, -16, 1.1, 0, Math.PI * 2); ctx.fill();
+            if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -11, 1.6, mo, 0, 0, Math.PI * 2); ctx.fill(); }
+            else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0, -12, 1.8, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+        }
+        if (kind === "bubbe") {
+            erLegs("#5D4037", "#3E2723", t);
+            ctx.fillStyle = "#8D6E63"; roundRect(-11, -9, 22, 21, 6); ctx.fill();         // cardigan dress
+            ctx.fillStyle = "#6D4C41"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            ctx.fillStyle = "#90A4AE"; roundRect(-7, 2, 14, 8, 2); ctx.fill();             // a pot of cholent
+            ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.arc(0, -1 - ((t * 8) % 6), 1.4, 0, Math.PI * 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(0, -19, 8, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#A1887F"; ctx.beginPath(); ctx.arc(0, -20, 8.6, Math.PI * 1.04, -0.04); ctx.fill();   // headscarf
+            ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-2.6, -16, 2, 0, Math.PI * 2); ctx.arc(2.6, -16, 2, 0, Math.PI * 2); ctx.stroke();
+        } else if (kind === "avigail") {
+            erLegs("#4A148C", "#212121", t);
+            ctx.fillStyle = "#7E57C2"; roundRect(-11, -9, 22, 20, 6); ctx.fill();          // chic dress
+            ctx.fillStyle = "#9575CD"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#241712"; ctx.beginPath(); ctx.arc(0, -18, 8.6, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-8, -13, 2.6, 7, -0.2, 0, Math.PI * 2); ctx.ellipse(8, -13, 2.6, 7, 0.2, 0, Math.PI * 2); ctx.fill();   // sleek long hair
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(7, -10, 1.8, 0, Math.PI * 2); ctx.stroke();   // hoop
+        } else if (kind === "rabbi") {
+            erLegs("#1A1A1A", "#0A0A0A", t);
+            ctx.fillStyle = "#1A1A1A"; roundRect(-11, -9, 22, 22, 5); ctx.fill();          // black coat
+            ctx.fillStyle = "#FFF"; roundRect(-3, -8, 6, 14, 1); ctx.fill();               // white shirt
+            ctx.fillStyle = "#1A1A1A"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#BDBDBD"; ctx.beginPath(); ctx.arc(0, -11, 6.5, 0.05 * Math.PI, 0.95 * Math.PI); ctx.closePath(); ctx.fill();   // beard
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(-10, -22, 20, 3); roundRect(-7, -30, 14, 9, 2); ctx.fill();   // black hat
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-2.6, -16, 2, 0, Math.PI * 2); ctx.arc(2.6, -16, 2, 0, Math.PI * 2); ctx.stroke();
+        } else if (kind === "clown") {
+            erLegs("#1E88E5", "#E53935", t);
+            ctx.fillStyle = "#FDD835"; roundRect(-12, -9, 24, 21, 7); ctx.fill();          // jumpsuit
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(-4, -2, 2.4, 0, Math.PI * 2); ctx.arc(4, 4, 2.4, 0, Math.PI * 2); ctx.fill();   // pom buttons
+            ctx.fillStyle = "#43A047"; roundRect(-14, -5, 5, 13, 2); ctx.fill(); roundRect(9, -5, 5, 13, 2); ctx.fill();
+            ctx.fillStyle = "#FFF6F2"; ctx.beginPath(); ctx.arc(0, -16, 8, 0, Math.PI * 2); ctx.fill();   // white face
+            var wc = ["#E53935", "#FB8C00", "#43A047", "#1E88E5"];
+            for (var cw = 0; cw < 4; cw++) { ctx.fillStyle = wc[cw]; ctx.beginPath(); ctx.arc(-6 + cw * 4, -22, 3.4, Math.PI, 0); ctx.fill(); }
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -16, 1.1, 0, Math.PI * 2); ctx.arc(2.6, -16, 1.1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, -13, 2, 0, Math.PI * 2); ctx.fill();   // nose
+            ctx.strokeStyle = "#E53935"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(0, -11, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();   // grin
+        } else if (kind === "kid") {
+            ctx.save(); ctx.scale(0.82, 0.82);   // smaller
+            erLegs("#3949AB", "#FFFFFF", t);
+            ctx.fillStyle = "#66BB6A"; roundRect(-10, -8, 20, 18, 5); ctx.fill();
+            ctx.fillStyle = "#FFF"; ctx.fillRect(-10, -3, 20, 3);
+            ctx.fillStyle = "#66BB6A"; roundRect(-12, -4, 4, 12, 2); ctx.fill(); roundRect(8, -4, 4, 12, 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#3949AB"; ctx.beginPath(); ctx.arc(0, -21, 4, Math.PI, 0); ctx.fill();   // kippah
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(-4.6, -13, 1.6, 0, Math.PI * 2); ctx.arc(4.6, -13, 1.6, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        } else if (kind === "oldman") {
+            erLegs("#546E7A", "#3E2723", t);
+            ctx.fillStyle = "#795548"; roundRect(-11, -9, 22, 21, 6); ctx.fill();          // cardigan
+            ctx.fillStyle = "#5D4037"; ctx.fillRect(-1, -9, 2, 21);
+            ctx.fillStyle = "#795548"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(-6, -18, 3, Math.PI, 0); ctx.arc(6, -18, 3, Math.PI, 0); ctx.fill();   // side hair
+            ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.ellipse(0, -12.5, 4.4, 1.8, 0, 0, Math.PI * 2); ctx.fill();   // mustache
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-2.6, -16, 2.4, 0, Math.PI * 2); ctx.arc(2.6, -16, 2.4, 0, Math.PI * 2); ctx.stroke();   // big glasses
+        } else if (kind === "cop") {
+            drawAngryMan(0, 0, t, talking ? "talk" : "listen", 1, true); ctx.restore();
+            drawText(name || "OFFICER", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", col || "#5C6BC0", "#FFF", 2);
+            return;
+        } else {   // generic visitor (man/woman)
+            erLegs("#455A64", "#212121", t);
+            ctx.fillStyle = col || "#5C6BC0"; roundRect(-11, -9, 22, 20, 5); ctx.fill();
+            ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, 0); ctx.fill();
+        }
+        ctx.restore();
+        drawText(name || "VISITOR", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", col || "#FFD54F", "#FFF", 2);
     }
 
     var lastDispatchState = null;
