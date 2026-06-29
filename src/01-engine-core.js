@@ -457,16 +457,34 @@
         dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
         var m = measureViewport();
         viewW = m.w; viewH = m.h;
-        // logical height tracks the device aspect → fills the screen, no bars
-        H = clamp(Math.round(W * viewH / viewW), 700, 1600);
+        // Logical play-field height.
+        //  • PORTRAIT viewport (phones): match the canvas aspect to the screen so
+        //    it fills edge-to-edge with no distortion.
+        //  • LANDSCAPE viewport (desktop browsers): a wide aspect can't be matched
+        //    without squashing the portrait game flat, so lock to a tall-phone
+        //    aspect and LETTERBOX (centered, background bars on the sides) instead
+        //    of stretching the canvas across the whole window.
+        if (viewH >= viewW) {
+            H = clamp(Math.round(W * viewH / viewW), 700, 1600);
+        } else {
+            H = 960;   // ~0.5 aspect: a comfortable modern-phone portrait
+        }
+        // Contain-fit the W×H canvas inside the viewport (preserve aspect), then
+        // center it. When the aspect already matches (phones) this is full-bleed.
+        var cAspect = W / H;
+        var dispW, dispH;
+        if (viewW / viewH > cAspect) { dispH = viewH; dispW = Math.round(viewH * cAspect); }
+        else { dispW = viewW; dispH = Math.round(viewW / cAspect); }
         var ins = readSafeInsets();
-        var perCss = H / viewH;             // logical px per CSS px
+        var perCss = H / dispH;             // logical px per CSS px (in display space)
         SAFE_TOP = ins.top * perCss;
         SAFE_BOTTOM = ins.bottom * perCss;
         canvas.width = Math.round(W * dpr);
         canvas.height = Math.round(H * dpr);
-        canvas.style.width = viewW + "px";
-        canvas.style.height = viewH + "px";
+        canvas.style.width = dispW + "px";
+        canvas.style.height = dispH + "px";
+        canvas.style.left = Math.round((viewW - dispW) / 2) + "px";   // center the letterbox
+        canvas.style.top = Math.round((viewH - dispH) / 2) + "px";
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         recomputeLayout();
     }

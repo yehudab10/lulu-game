@@ -33,14 +33,18 @@ html, body {
 
 #gameCanvas {
     display: block;
-    /* Full-bleed: anchored at the origin and sized in JS (relayout) to exactly
-       fill the visual viewport. No letterbox, no centering offset. */
+    /* Sized AND positioned in JS (relayout): on phones it fills the viewport
+       edge-to-edge; on landscape/desktop it's contain-fit to a tall-phone aspect
+       and centered (top/left set in JS), with the body background showing as
+       letterbox bars on the sides instead of stretching the game flat. */
     position: fixed;
     top: 0;
     left: 0;
     touch-action: none;
     cursor: pointer;
     image-rendering: -webkit-optimize-contrast;
+    /* subtle separation between the play-field and the letterbox bars on desktop */
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 40px rgba(0,0,0,0.45);
 }
 
 /* Hide the rotate message by default; only show on phones in landscape */
