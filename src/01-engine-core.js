@@ -84,6 +84,9 @@
     }
 
     function persistSave() {
+        // safety net: currencies should never persist negative
+        if (save.totalCoins < 0) save.totalCoins = 0;
+        if (save.parkingTotalStars < 0) save.parkingTotalStars = 0;
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
     }
 

@@ -295,6 +295,20 @@
         state = "playing";
         invincibleTimer = Math.max(invincibleTimer, REENTRY_IMMUNITY);
         if (player) { player.targetX = LANES[1]; player.x = LANES[1]; }
+        // Resuming the road after a sub-scene (jail / court / hospital / parking /
+        // salon / Avigail): clear TRANSIENT state so it can't leak across the trip
+        // — a chase, a stale combo/honk-chain inflating score, a hitchhiker frozen
+        // on the shoulder, leftover screen effects, or a mid-interaction buff.
+        // (Score, coins, lives, and the player's vehicle persist — it's the SAME run.)
+        copChase = null; copBust = null; copStop = null;
+        hitchhiker = null;
+        coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        honkChain = 0; honkChainResetTimer = 0;
+        nitroTimer = 0; wetTimer = 0; slowMoT = 0; crashFlash = 0; shakeTimer = 0;
+        sasquatchPassenger = 0;
+        passengers = []; passengerTimer = 0;
+        avigailInCar = false; pointMult = 1;
+        crashReprieve = false; reprieveKind = null;
         // Sweep away anything sitting right where the car will be, so the grace
         // window starts clean instead of with a pile-up at the player's feet.
         if (typeof obstacles !== "undefined" && obstacles && player) {
@@ -563,7 +577,7 @@
             honkScare();
             // Honk near a hitchhiker → they hop in for a bonus + a 2× window.
             if (hitchhiker && Math.abs(player.x - hitchhiker.x) < 110 && hitchhiker.y > 60 && hitchhiker.y < H - 60) {
-                runCoins += 15; save.totalCoins += 15;
+                runCoins += 15; save.totalCoins += 15; persistSave();
                 passengerTimer = Math.max(passengerTimer, 30);
                 spawnFloater(hitchhiker.x, hitchhiker.y - 30, randPick(HITCH_LINES), "#7CFC4F");
                 spawnFloater(player.x, player.y - 62, "🚗 +15 💰  2× coins!", "#FFD700");
@@ -738,7 +752,7 @@
                         var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
                         if (reckless && witness) {
                             obstacles.splice(i, 1);
-                            if (typeof goToJail === "function") {
+                            if (typeof beginArrest === "function") {
                                 beginArrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
                                 return;
                             }
@@ -1557,7 +1571,9 @@
         if (copBust.phase === 2) {
             copBust.man.time += dt;
             copBust.lineT += dt;
-            var skip = consumeClick() || consumeAction();
+            // consume BOTH (a tap queues each) so the leftover can't advance an
+            // extra line next frame or leak into the resumed scene.
+            var cbc = consumeClick(), cba = consumeAction(), skip = cbc || cba;
             if (copBust.lineT >= COP_LINE_DUR || skip) {
                 copBust.line++;
                 copBust.lineT = 0;
@@ -1771,7 +1787,7 @@
         // Phase 1 — the exchange (tap to advance).
         if (cs.phase === 1) {
             cs.lineT += dt;
-            var skip = consumeClick() || consumeAction();
+            var csc = consumeClick(), csa = consumeAction(), skip = csc || csa;
             if (cs.lineT >= COP_LINE_DUR || skip) {
                 cs.line++; cs.lineT = 0;
                 if (cs.line >= cs.lines.length) {

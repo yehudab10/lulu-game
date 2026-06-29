@@ -233,7 +233,7 @@
         if (spot.reward && !schBakeDone) {
             schBakeDone = true;
             var n = 6;
-            footCoinsRun += n; runCoins += n; save.totalCoins += n;
+            footCoinsRun += n; runCoins += n; save.totalCoins += n; persistSave();
             spawnFloater(spot.x, spot.y - 30, "+" + n + " 💰 rugelach run!", "#FFD700");
             playCoin();
             for (var i = 0; i < 10; i++) {
@@ -900,7 +900,7 @@
             hospVendShake = 0.5;
             if (Math.random() < 0.6) {
                 var n = 5;
-                footCoinsRun += n; runCoins += n; save.totalCoins += n;
+                footCoinsRun += n; runCoins += n; save.totalCoins += n; persistSave();
                 spawnFloater(spot.x, spot.y - 40, "+" + n + " 💰 snack!", "#FFD700");
                 playCoin();
                 for (var i = 0; i < 8; i++) {
@@ -911,7 +911,7 @@
             } else if (footCoinsRun > 0 || runCoins > 0) {
                 footCoinsRun = Math.max(0, footCoinsRun - 1);
                 runCoins = Math.max(0, runCoins - 1);
-                save.totalCoins = Math.max(0, save.totalCoins - 1);
+                save.totalCoins = Math.max(0, save.totalCoins - 1); persistSave();
                 spawnFloater(spot.x, spot.y - 40, "-1 💸 it ATE it!", "#FF5252");
                 playWompWomp();
             } else {
@@ -925,7 +925,7 @@
             if (!spot._gave) {
                 spot._gave = true;
                 footAwardStar();
-                footCoinsRun += 3; runCoins += 3; save.totalCoins += 3;
+                footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
                 spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
                 playHopJump(); playCoin();
             } else {

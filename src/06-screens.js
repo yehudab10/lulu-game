@@ -415,7 +415,7 @@
                 "bold 40px 'Segoe UI', Arial, sans-serif", goClimbing ? "#FFF59D" : "#FFF", "#333", 5);
             ctx.restore();
 
-            drawText("★ " + runCoins + " coins this run", W / 2, H * 0.47,
+            drawText("💰 " + runCoins + " coins this run", W / 2, H * 0.47,
                 "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, "#333", 3);
             drawText("Total bank: " + formatNum(save.totalCoins), W / 2, H * 0.52,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#333", 2);

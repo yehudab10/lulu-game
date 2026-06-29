@@ -86,6 +86,9 @@
     }
 
     function persistSave() {
+        // safety net: currencies should never persist negative
+        if (save.totalCoins < 0) save.totalCoins = 0;
+        if (save.parkingTotalStars < 0) save.parkingTotalStars = 0;
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
     }
 
@@ -6183,6 +6186,20 @@
         state = "playing";
         invincibleTimer = Math.max(invincibleTimer, REENTRY_IMMUNITY);
         if (player) { player.targetX = LANES[1]; player.x = LANES[1]; }
+        // Resuming the road after a sub-scene (jail / court / hospital / parking /
+        // salon / Avigail): clear TRANSIENT state so it can't leak across the trip
+        // — a chase, a stale combo/honk-chain inflating score, a hitchhiker frozen
+        // on the shoulder, leftover screen effects, or a mid-interaction buff.
+        // (Score, coins, lives, and the player's vehicle persist — it's the SAME run.)
+        copChase = null; copBust = null; copStop = null;
+        hitchhiker = null;
+        coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        honkChain = 0; honkChainResetTimer = 0;
+        nitroTimer = 0; wetTimer = 0; slowMoT = 0; crashFlash = 0; shakeTimer = 0;
+        sasquatchPassenger = 0;
+        passengers = []; passengerTimer = 0;
+        avigailInCar = false; pointMult = 1;
+        crashReprieve = false; reprieveKind = null;
         // Sweep away anything sitting right where the car will be, so the grace
         // window starts clean instead of with a pile-up at the player's feet.
         if (typeof obstacles !== "undefined" && obstacles && player) {
@@ -6451,7 +6468,7 @@
             honkScare();
             // Honk near a hitchhiker → they hop in for a bonus + a 2× window.
             if (hitchhiker && Math.abs(player.x - hitchhiker.x) < 110 && hitchhiker.y > 60 && hitchhiker.y < H - 60) {
-                runCoins += 15; save.totalCoins += 15;
+                runCoins += 15; save.totalCoins += 15; persistSave();
                 passengerTimer = Math.max(passengerTimer, 30);
                 spawnFloater(hitchhiker.x, hitchhiker.y - 30, randPick(HITCH_LINES), "#7CFC4F");
                 spawnFloater(player.x, player.y - 62, "🚗 +15 💰  2× coins!", "#FFD700");
@@ -6626,7 +6643,7 @@
                         var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
                         if (reckless && witness) {
                             obstacles.splice(i, 1);
-                            if (typeof goToJail === "function") {
+                            if (typeof beginArrest === "function") {
                                 beginArrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
                                 return;
                             }
@@ -7445,7 +7462,9 @@
         if (copBust.phase === 2) {
             copBust.man.time += dt;
             copBust.lineT += dt;
-            var skip = consumeClick() || consumeAction();
+            // consume BOTH (a tap queues each) so the leftover can't advance an
+            // extra line next frame or leak into the resumed scene.
+            var cbc = consumeClick(), cba = consumeAction(), skip = cbc || cba;
             if (copBust.lineT >= COP_LINE_DUR || skip) {
                 copBust.line++;
                 copBust.lineT = 0;
@@ -7659,7 +7678,7 @@
         // Phase 1 — the exchange (tap to advance).
         if (cs.phase === 1) {
             cs.lineT += dt;
-            var skip = consumeClick() || consumeAction();
+            var csc = consumeClick(), csa = consumeAction(), skip = csc || csa;
             if (cs.lineT >= COP_LINE_DUR || skip) {
                 cs.line++; cs.lineT = 0;
                 if (cs.line >= cs.lines.length) {
@@ -9796,7 +9815,7 @@
                 "bold 40px 'Segoe UI', Arial, sans-serif", goClimbing ? "#FFF59D" : "#FFF", "#333", 5);
             ctx.restore();
 
-            drawText("★ " + runCoins + " coins this run", W / 2, H * 0.47,
+            drawText("💰 " + runCoins + " coins this run", W / 2, H * 0.47,
                 "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, "#333", 3);
             drawText("Total bank: " + formatNum(save.totalCoins), W / 2, H * 0.52,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#333", 2);
@@ -12707,12 +12726,12 @@
                 e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
                 footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0; playTone(520, 0.05, "sine", 0.08);
             }
-            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
+            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
             return;
         }
         if (prompt.kind === "selfie") {
             flashTimer = 0.15;
-            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5;
+            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5; persistSave();
             footChat = randPick(FOOT_SELFIE_LINES); footChatT = 2.0;
             spawnFloater(player.x, player.y - 42, "📸 +5 (going viral!)", "#FFD700");
             playCoin();
@@ -12720,7 +12739,7 @@
         }
         if (prompt.kind === "pet") {
             var a = prompt.ent;
-            footCoinsRun++; runCoins++; save.totalCoins++;
+            footCoinsRun++; runCoins++; save.totalCoins++; persistSave();
             spawnFloater(a.x, a.y - 18, randPick(FOOT_PET_LINES) + " +1", "#FFB74D");
             playDogBark();
             a.x = clamp(a.x + (a.x >= player.x ? 1 : -1) * 40, 12, W - 12); // it scoots off, delighted
@@ -12803,7 +12822,7 @@
             var e = obstacles[o];
             if (e.type === "ped" && Math.abs(e.x - player.x) < 130 && Math.abs(e.y - player.y) < 150) { tips++; e.comment = "👏"; e.commentT = 1.2; }
         }
-        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
+        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; persistSave(); spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
     }
 
     // Walk into a "P" sign on foot → she just parks HERSELF between people.
@@ -12811,7 +12830,7 @@
         footChat = randPick(FOOT_PARK_GAG); footChatT = 2.2;
         spawnFloater(player.x, player.y - 42, "🅿️ PARKED (yourself)", "#4FC3F7");
         playClick();
-        if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
+        if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
     }
 
     // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
@@ -14486,7 +14505,7 @@
         if (spot.reward && !schBakeDone) {
             schBakeDone = true;
             var n = 6;
-            footCoinsRun += n; runCoins += n; save.totalCoins += n;
+            footCoinsRun += n; runCoins += n; save.totalCoins += n; persistSave();
             spawnFloater(spot.x, spot.y - 30, "+" + n + " 💰 rugelach run!", "#FFD700");
             playCoin();
             for (var i = 0; i < 10; i++) {
@@ -15153,7 +15172,7 @@
             hospVendShake = 0.5;
             if (Math.random() < 0.6) {
                 var n = 5;
-                footCoinsRun += n; runCoins += n; save.totalCoins += n;
+                footCoinsRun += n; runCoins += n; save.totalCoins += n; persistSave();
                 spawnFloater(spot.x, spot.y - 40, "+" + n + " 💰 snack!", "#FFD700");
                 playCoin();
                 for (var i = 0; i < 8; i++) {
@@ -15164,7 +15183,7 @@
             } else if (footCoinsRun > 0 || runCoins > 0) {
                 footCoinsRun = Math.max(0, footCoinsRun - 1);
                 runCoins = Math.max(0, runCoins - 1);
-                save.totalCoins = Math.max(0, save.totalCoins - 1);
+                save.totalCoins = Math.max(0, save.totalCoins - 1); persistSave();
                 spawnFloater(spot.x, spot.y - 40, "-1 💸 it ATE it!", "#FF5252");
                 playWompWomp();
             } else {
@@ -15178,7 +15197,7 @@
             if (!spot._gave) {
                 spot._gave = true;
                 footAwardStar();
-                footCoinsRun += 3; runCoins += 3; save.totalCoins += 3;
+                footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
                 spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
                 playHopJump(); playCoin();
             } else {

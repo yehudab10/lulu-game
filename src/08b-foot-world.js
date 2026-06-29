@@ -419,12 +419,12 @@
                 e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
                 footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0; playTone(520, 0.05, "sine", 0.08);
             }
-            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
+            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
             return;
         }
         if (prompt.kind === "selfie") {
             flashTimer = 0.15;
-            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5;
+            footCoinsRun += 5; runCoins += 5; save.totalCoins += 5; persistSave();
             footChat = randPick(FOOT_SELFIE_LINES); footChatT = 2.0;
             spawnFloater(player.x, player.y - 42, "📸 +5 (going viral!)", "#FFD700");
             playCoin();
@@ -432,7 +432,7 @@
         }
         if (prompt.kind === "pet") {
             var a = prompt.ent;
-            footCoinsRun++; runCoins++; save.totalCoins++;
+            footCoinsRun++; runCoins++; save.totalCoins++; persistSave();
             spawnFloater(a.x, a.y - 18, randPick(FOOT_PET_LINES) + " +1", "#FFB74D");
             playDogBark();
             a.x = clamp(a.x + (a.x >= player.x ? 1 : -1) * 40, 12, W - 12); // it scoots off, delighted
@@ -515,7 +515,7 @@
             var e = obstacles[o];
             if (e.type === "ped" && Math.abs(e.x - player.x) < 130 && Math.abs(e.y - player.y) < 150) { tips++; e.comment = "👏"; e.commentT = 1.2; }
         }
-        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
+        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; persistSave(); spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
     }
 
     // Walk into a "P" sign on foot → she just parks HERSELF between people.
@@ -523,7 +523,7 @@
         footChat = randPick(FOOT_PARK_GAG); footChatT = 2.2;
         spawnFloater(player.x, player.y - 42, "🅿️ PARKED (yourself)", "#4FC3F7");
         playClick();
-        if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
+        if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
     }
 
     // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
