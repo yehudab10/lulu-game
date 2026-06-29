@@ -7,7 +7,7 @@
         dinaRunTimer += dt;
         if (!dinaNapTucked) {
             // Beat 1 — wait for the player to tuck Dina in (or a gentle auto-nudge).
-            if (consumeClick() || consumeAction() || dinaRunTimer > 4) {
+            if (consumeTap() || dinaRunTimer > 4) {
                 dinaNapTucked = true;
                 dinaNapTuckTime = 0;
                 playTone(523, 0.12, "sine", 0.16, 392); // soft descending "shh"
@@ -16,7 +16,7 @@
         }
         // Beat 2 — drifting off; let it breathe ~3.2s, then tap to wake.
         dinaNapTuckTime += dt;
-        if (dinaNapTuckTime > 3.2 && (consumeClick() || consumeAction() || dinaNapTuckTime > 4.5)) {
+        if (dinaNapTuckTime > 3.2 && (consumeTap() || dinaNapTuckTime > 4.5)) {
             state = "dinaHome";
             // Clear the leftover tap/action from THIS wake touch. Dina is still
             // standing on the bed back in the bedroom, so without this the room
@@ -803,7 +803,7 @@
         }
         if (salonPhase === 1) {
             // DIALOGUE — each tap advances one consult line; last → style pick
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 salonConsultStep++;
                 playTone(440, 0.06, "triangle", 0.15);
                 if (salonConsultStep >= SALON_CONSULT.length) {

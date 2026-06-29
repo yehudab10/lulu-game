@@ -441,7 +441,8 @@
 
         if (jail.phase === 0) {                 // INTAKE — mugshot booking
             if (Math.abs(jail.t - 1.0) < dt && jail.camFlash <= 0) { jail.camFlash = 0.4; playTone(1400, 0.04, "sine", 0.12); }
-            if (jail.t > 2.8 || consumeClick() || consumeAction()) { jail.phase = 1; jail.t = 0; }
+            var intakeTap = consumeTap();
+            if (jail.t > 2.8 || intakeTap) { jail.phase = 1; jail.t = 0; }
             return;
         }
         if (jail.phase === 1) {                 // deciding: escape / bail / lawyer / court
@@ -555,7 +556,7 @@
             jail.actClock = (jail.actClock || 0) + dt;
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
-            if ((consumeClick() || consumeAction()) && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
+            if (consumeTap() && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
                 jail.serveDays += 1.4; jail.tapCool = 0.10; jail.workFx = 0.24;   // a tap = real progress
                 spawnFloater(W / 2 + rand(-46, 46), H * 0.5, "⛏️ +1 day", "#FFE082");
                 playTone(360 + (jail.days % 6) * 26, 0.04, "square", 0.08);
@@ -1011,7 +1012,7 @@
             return;
         }
         if (court.phase === 1) {                     // intro dialogue (judge → pros → judge)
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.lines[court.li].text)) { court.typeT = 999; return; }   // reveal first
                 court.li++; court.typeT = 0;
                 if (court.li >= court.lines.length) { court.phase = 2; court.t = 0; }
@@ -1032,7 +1033,7 @@
             return;
         }
         if (court.phase === 3) {                     // Lulu's defense line
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.defLine.text)) { court.typeT = 999; return; }
                 // The prosecutor sometimes leaps up to OBJECT before the ruling.
                 if (!court.objected && Math.random() < 0.5) {
@@ -1052,7 +1053,7 @@
         }
         if (court.phase === 36) {                    // a random courtroom EVENT
             if (court.evStamp > 0) court.evStamp -= dt;
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.event.lines[court.eventLi].text)) { court.typeT = 999; return; }
                 court.eventLi++; court.typeT = 0;
                 if (court.eventLi >= court.event.lines.length) { court.phase = 4; court.t = 0; }
@@ -1062,7 +1063,7 @@
         }
         if (court.phase === 35) {                    // OBJECTION exchange
             if (court.objStamp > 0) court.objStamp -= dt;
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.objLines[court.objLi].text)) { court.typeT = 999; return; }
                 court.objLi++; court.typeT = 0;
                 if (court.objLi >= court.objLines.length) { courtAfterArgument(); }
@@ -1135,7 +1136,7 @@
                     save.totalCoins -= pay; persistSave(); court.paid = pay; court.couldnt = pay < court.fine;
                 }
             }
-            if (court.t > 0.7 && (consumeClick() || consumeAction())) {
+            if (court.t > 0.7 && consumeTap()) {
                 if (!courtDone(court.verdictLine.text)) { court.typeT = 999; return; }
                 var v = court.verdict; court = null;
                 if (v !== "jail") clearLockup();   // jail keeps a lockup (serveTime resets it)

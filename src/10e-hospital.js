@@ -114,14 +114,14 @@
         hospital.t += dt; hospital.typeT += dt; hospital.ekg += dt;
         if (typeof updateParticles === "function") updateParticles(dt);
         if (hospital.phase === 0) {                 // coming to
-            if (hospital.t > 1.6 || consumeClick() || consumeAction()) {
+            if (hospital.t > 1.6 || consumeTap()) {
                 hospital.phase = 1; hospital.t = 0; hospital.typeT = 0;
                 hospital.line = hospital.greet + " You've got " + hospital.diagnosis + ".";
             }
             return;
         }
         if (hospital.phase === 1) {                 // doctor's diagnosis
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital.phase = 7; hospital.t = 0; hospital.typeT = 0;   // → Tammy clocks her
                 hospital.line = hospital.tammyGreet;
@@ -130,7 +130,7 @@
             return;
         }
         if (hospital.phase === 7) {                 // NURSE TAMMY recognizes her sister
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital.phase = 2; hospital.t = 0;
             }
@@ -175,7 +175,7 @@
                 }
                 lives = Math.max(1, (typeof lives !== "undefined" ? lives : 1) + (opt.extra ? 1 : 0));
             }
-            if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
+            if (hospital.t > 0.6 && consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital = null;
                 beginExitScene("hospital", "drive", "🩹 Discharged — drive safe!");
@@ -196,7 +196,7 @@
         if (hospital.phase === 5) {                 // CAUGHT — the gag plays, then arrest
             if (shakeTimer > 0) shakeTimer -= dt;
             hospital.escT += dt;
-            if (hospital.escT > 2.4 || (hospital.escT > 1.0 && (consumeClick() || consumeAction()))) {
+            if (hospital.escT > 2.4 || (hospital.escT > 1.0 && consumeTap())) {
                 hospital = null;
                 if (typeof beginArrest === "function") beginArrest(["SKIPPING A MEDICAL BILL", "FLEEING IN A GOWN"]);
                 else if (typeof returnToDriving === "function") returnToDriving();
@@ -205,7 +205,7 @@
         }
         if (hospital.phase === 6) {                 // CLEAN GETAWAY
             hospital.t += dt;
-            if (hospital.t > 1.7 || consumeClick() || consumeAction()) {
+            if (hospital.t > 1.7 || consumeTap()) {
                 hospital = null;
                 beginExitScene("hospital", "drive", "🏃 Skipped the bill — GONE!");
             }

@@ -105,7 +105,7 @@
                 else { spawnFloater(W / 2, polFloorY - 40, "🏃 Out clean!", "#7CFC4F"); polEscape = null; exitFootInterior(); }
             }
         } else {
-            if (polEscape.t > 2.2 || (polEscape.t > 1.0 && (consumeClick() || consumeAction()))) {
+            if (polEscape.t > 2.2 || (polEscape.t > 1.0 && consumeTap())) {
                 spawnFloater(W / 2, polFloorY - 40, "😳 ...shooed back to the street.", "#FFCC80");
                 polEscape = null; exitFootInterior();
             }

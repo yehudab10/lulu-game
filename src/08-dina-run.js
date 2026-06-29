@@ -756,7 +756,7 @@
             if (p.y > H + 20) dinaConfetti.splice(i, 1);
         }
         // Hold for 3 seconds, then go home
-        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+        if (dinaRunTimer > 3.5 || consumeTap()) {
             dinaConfetti = [];
             enterDinaHome();
         }

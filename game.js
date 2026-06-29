@@ -527,6 +527,12 @@
     function queueAction() { actionQueued = true; }
     function consumeAction() { if (actionQueued) { actionQueued = false; return true; } return false; }
     function consumeClick() { var c = clickQueue; clickQueue = null; return c; }
+    // A single tap queues BOTH a click and an action (see touchstart/mousedown).
+    // `consumeClick() || consumeAction()` short-circuits and leaves the action
+    // queued, which then leaks into the next frame and double-advances dialogue.
+    // consumeTap() drains both unconditionally and reports whether either fired —
+    // use it anywhere you just want "did the user tap?" (position unused).
+    function consumeTap() { var c = consumeClick(); var a = consumeAction(); return !!(c || a); }
     function consumePause() { if (pauseQueued) { pauseQueued = false; return true; } return false; }
     function consumeMissile() { if (missileQueued) { missileQueued = false; return true; } return false; }
     function consumeHonk() { if (honkQueued) { honkQueued = false; return true; } return false; }
@@ -12277,7 +12283,7 @@
             if (p.y > H + 20) dinaConfetti.splice(i, 1);
         }
         // Hold for 3 seconds, then go home
-        if (dinaRunTimer > 3.5 || consumeClick() || consumeAction()) {
+        if (dinaRunTimer > 3.5 || consumeTap()) {
             dinaConfetti = [];
             enterDinaHome();
         }
@@ -12528,7 +12534,7 @@
         var e = exitScene; if (!e) return;
         e.t += dt;
         // tap to skip ahead to the drive-off
-        if (e.phase < 2 && (consumeClick() || consumeAction())) { e.phase = 2; e.t = 0; e.door = 1; e.walk = 1; }
+        if (e.phase < 2 && consumeTap()) { e.phase = 2; e.t = 0; e.door = 1; e.walk = 1; }
         if (e.phase === 0) {                         // door opens, Lulu steps out
             e.door = Math.min(1, e.door + dt / 0.5);
             if (e.t > 0.8) { e.phase = 1; e.t = 0; }
@@ -15904,7 +15910,7 @@
                 else { spawnFloater(W / 2, polFloorY - 40, "🏃 Out clean!", "#7CFC4F"); polEscape = null; exitFootInterior(); }
             }
         } else {
-            if (polEscape.t > 2.2 || (polEscape.t > 1.0 && (consumeClick() || consumeAction()))) {
+            if (polEscape.t > 2.2 || (polEscape.t > 1.0 && consumeTap())) {
                 spawnFloater(W / 2, polFloorY - 40, "😳 ...shooed back to the street.", "#FFCC80");
                 polEscape = null; exitFootInterior();
             }
@@ -19423,7 +19429,7 @@
         dinaRunTimer += dt;
         if (!dinaNapTucked) {
             // Beat 1 — wait for the player to tuck Dina in (or a gentle auto-nudge).
-            if (consumeClick() || consumeAction() || dinaRunTimer > 4) {
+            if (consumeTap() || dinaRunTimer > 4) {
                 dinaNapTucked = true;
                 dinaNapTuckTime = 0;
                 playTone(523, 0.12, "sine", 0.16, 392); // soft descending "shh"
@@ -19432,7 +19438,7 @@
         }
         // Beat 2 — drifting off; let it breathe ~3.2s, then tap to wake.
         dinaNapTuckTime += dt;
-        if (dinaNapTuckTime > 3.2 && (consumeClick() || consumeAction() || dinaNapTuckTime > 4.5)) {
+        if (dinaNapTuckTime > 3.2 && (consumeTap() || dinaNapTuckTime > 4.5)) {
             state = "dinaHome";
             // Clear the leftover tap/action from THIS wake touch. Dina is still
             // standing on the bed back in the bedroom, so without this the room
@@ -20219,7 +20225,7 @@
         }
         if (salonPhase === 1) {
             // DIALOGUE — each tap advances one consult line; last → style pick
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 salonConsultStep++;
                 playTone(440, 0.06, "triangle", 0.15);
                 if (salonConsultStep >= SALON_CONSULT.length) {
@@ -20604,7 +20610,7 @@
         // ── End-of-round handoff ──
         if (cookie.phase !== "play") {
             cookie.endT += dt;
-            if (cookie.endT > 1.0 && (consumeClick() || consumeAction())) {
+            if (cookie.endT > 1.0 && consumeTap()) {
                 // Bank the coins and return to the bedroom.
                 save.totalCoins += cookie.score;
                 persistSave();
@@ -21407,7 +21413,8 @@
 
         if (jail.phase === 0) {                 // INTAKE — mugshot booking
             if (Math.abs(jail.t - 1.0) < dt && jail.camFlash <= 0) { jail.camFlash = 0.4; playTone(1400, 0.04, "sine", 0.12); }
-            if (jail.t > 2.8 || consumeClick() || consumeAction()) { jail.phase = 1; jail.t = 0; }
+            var intakeTap = consumeTap();
+            if (jail.t > 2.8 || intakeTap) { jail.phase = 1; jail.t = 0; }
             return;
         }
         if (jail.phase === 1) {                 // deciding: escape / bail / lawyer / court
@@ -21521,7 +21528,7 @@
             jail.actClock = (jail.actClock || 0) + dt;
             if (jail.tapCool > 0) jail.tapCool -= dt;
             if (jail.workFx > 0) jail.workFx -= dt;
-            if ((consumeClick() || consumeAction()) && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
+            if (consumeTap() && (jail.tapCool || 0) <= 0 && jail.days < jail.total) {
                 jail.serveDays += 1.4; jail.tapCool = 0.10; jail.workFx = 0.24;   // a tap = real progress
                 spawnFloater(W / 2 + rand(-46, 46), H * 0.5, "⛏️ +1 day", "#FFE082");
                 playTone(360 + (jail.days % 6) * 26, 0.04, "square", 0.08);
@@ -21977,7 +21984,7 @@
             return;
         }
         if (court.phase === 1) {                     // intro dialogue (judge → pros → judge)
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.lines[court.li].text)) { court.typeT = 999; return; }   // reveal first
                 court.li++; court.typeT = 0;
                 if (court.li >= court.lines.length) { court.phase = 2; court.t = 0; }
@@ -21998,7 +22005,7 @@
             return;
         }
         if (court.phase === 3) {                     // Lulu's defense line
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.defLine.text)) { court.typeT = 999; return; }
                 // The prosecutor sometimes leaps up to OBJECT before the ruling.
                 if (!court.objected && Math.random() < 0.5) {
@@ -22018,7 +22025,7 @@
         }
         if (court.phase === 36) {                    // a random courtroom EVENT
             if (court.evStamp > 0) court.evStamp -= dt;
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.event.lines[court.eventLi].text)) { court.typeT = 999; return; }
                 court.eventLi++; court.typeT = 0;
                 if (court.eventLi >= court.event.lines.length) { court.phase = 4; court.t = 0; }
@@ -22028,7 +22035,7 @@
         }
         if (court.phase === 35) {                    // OBJECTION exchange
             if (court.objStamp > 0) court.objStamp -= dt;
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!courtDone(court.objLines[court.objLi].text)) { court.typeT = 999; return; }
                 court.objLi++; court.typeT = 0;
                 if (court.objLi >= court.objLines.length) { courtAfterArgument(); }
@@ -22101,7 +22108,7 @@
                     save.totalCoins -= pay; persistSave(); court.paid = pay; court.couldnt = pay < court.fine;
                 }
             }
-            if (court.t > 0.7 && (consumeClick() || consumeAction())) {
+            if (court.t > 0.7 && consumeTap()) {
                 if (!courtDone(court.verdictLine.text)) { court.typeT = 999; return; }
                 var v = court.verdict; court = null;
                 if (v !== "jail") clearLockup();   // jail keeps a lockup (serveTime resets it)
@@ -22921,14 +22928,14 @@
         hospital.t += dt; hospital.typeT += dt; hospital.ekg += dt;
         if (typeof updateParticles === "function") updateParticles(dt);
         if (hospital.phase === 0) {                 // coming to
-            if (hospital.t > 1.6 || consumeClick() || consumeAction()) {
+            if (hospital.t > 1.6 || consumeTap()) {
                 hospital.phase = 1; hospital.t = 0; hospital.typeT = 0;
                 hospital.line = hospital.greet + " You've got " + hospital.diagnosis + ".";
             }
             return;
         }
         if (hospital.phase === 1) {                 // doctor's diagnosis
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital.phase = 7; hospital.t = 0; hospital.typeT = 0;   // → Tammy clocks her
                 hospital.line = hospital.tammyGreet;
@@ -22937,7 +22944,7 @@
             return;
         }
         if (hospital.phase === 7) {                 // NURSE TAMMY recognizes her sister
-            if (consumeClick() || consumeAction()) {
+            if (consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital.phase = 2; hospital.t = 0;
             }
@@ -22982,7 +22989,7 @@
                 }
                 lives = Math.max(1, (typeof lives !== "undefined" ? lives : 1) + (opt.extra ? 1 : 0));
             }
-            if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
+            if (hospital.t > 0.6 && consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital = null;
                 beginExitScene("hospital", "drive", "🩹 Discharged — drive safe!");
@@ -23003,7 +23010,7 @@
         if (hospital.phase === 5) {                 // CAUGHT — the gag plays, then arrest
             if (shakeTimer > 0) shakeTimer -= dt;
             hospital.escT += dt;
-            if (hospital.escT > 2.4 || (hospital.escT > 1.0 && (consumeClick() || consumeAction()))) {
+            if (hospital.escT > 2.4 || (hospital.escT > 1.0 && consumeTap())) {
                 hospital = null;
                 if (typeof beginArrest === "function") beginArrest(["SKIPPING A MEDICAL BILL", "FLEEING IN A GOWN"]);
                 else if (typeof returnToDriving === "function") returnToDriving();
@@ -23012,7 +23019,7 @@
         }
         if (hospital.phase === 6) {                 // CLEAN GETAWAY
             hospital.t += dt;
-            if (hospital.t > 1.7 || consumeClick() || consumeAction()) {
+            if (hospital.t > 1.7 || consumeTap()) {
                 hospital = null;
                 beginExitScene("hospital", "drive", "🏃 Skipped the bill — GONE!");
             }

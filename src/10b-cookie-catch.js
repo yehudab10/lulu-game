@@ -55,7 +55,7 @@
         // ── End-of-round handoff ──
         if (cookie.phase !== "play") {
             cookie.endT += dt;
-            if (cookie.endT > 1.0 && (consumeClick() || consumeAction())) {
+            if (cookie.endT > 1.0 && consumeTap()) {
                 // Bank the coins and return to the bedroom.
                 save.totalCoins += cookie.score;
                 persistSave();

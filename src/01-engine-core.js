@@ -525,6 +525,12 @@
     function queueAction() { actionQueued = true; }
     function consumeAction() { if (actionQueued) { actionQueued = false; return true; } return false; }
     function consumeClick() { var c = clickQueue; clickQueue = null; return c; }
+    // A single tap queues BOTH a click and an action (see touchstart/mousedown).
+    // `consumeClick() || consumeAction()` short-circuits and leaves the action
+    // queued, which then leaks into the next frame and double-advances dialogue.
+    // consumeTap() drains both unconditionally and reports whether either fired —
+    // use it anywhere you just want "did the user tap?" (position unused).
+    function consumeTap() { var c = consumeClick(); var a = consumeAction(); return !!(c || a); }
     function consumePause() { if (pauseQueued) { pauseQueued = false; return true; } return false; }
     function consumeMissile() { if (missileQueued) { missileQueued = false; return true; } return false; }
     function consumeHonk() { if (honkQueued) { honkQueued = false; return true; } return false; }

@@ -148,7 +148,7 @@
         var e = exitScene; if (!e) return;
         e.t += dt;
         // tap to skip ahead to the drive-off
-        if (e.phase < 2 && (consumeClick() || consumeAction())) { e.phase = 2; e.t = 0; e.door = 1; e.walk = 1; }
+        if (e.phase < 2 && consumeTap()) { e.phase = 2; e.t = 0; e.door = 1; e.walk = 1; }
         if (e.phase === 0) {                         // door opens, Lulu steps out
             e.door = Math.min(1, e.door + dt / 0.5);
             if (e.t > 0.8) { e.phase = 1; e.t = 0; }
