@@ -430,15 +430,20 @@
     function unlockAllMusic() {
         if (musicWarmed) return;
         musicWarmed = true;
+        // Unlock each element by CALLING play() during the gesture, then pausing it
+        // SYNCHRONOUSLY (with volume 0) so nothing is ever actually audible — that's
+        // the Howler-style idiom. An async pause (in a .then) lets them all blare at
+        // once before the pause lands; the synchronous pause + zero volume can't.
         function warm(el) {
             if (!el) return;
             try {
-                el.muted = true;
+                el.volume = 0;
                 var p = el.play();
-                if (p && p.then) p.then(function () { try { el.pause(); el.currentTime = 0; el.muted = false; } catch (e) {} })
-                                  .catch(function () { try { el.muted = false; } catch (e) {} });
-                else { el.pause(); el.currentTime = 0; el.muted = false; }
-            } catch (e) { try { el.muted = false; } catch (e2) {} }
+                if (p && p.catch) p.catch(function () {});   // the immediate pause aborts play() — ignore
+                el.pause();
+                el.currentTime = 0;
+                el.volume = MUSIC_VOLUME;
+            } catch (e) { try { el.volume = MUSIC_VOLUME; } catch (e2) {} }
         }
         var tracks = Object.keys(MUSIC_FILES || {});
         for (var i = 0; i < tracks.length; i++) warm(getMusicEl(tracks[i]));
