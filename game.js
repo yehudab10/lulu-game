@@ -8286,26 +8286,14 @@
                             size: rand(2, 4), color: "#CFD8DC", gravity: 30
                         });
                     }
+                    crashPhase = 1;
                 } else {
-                    // A random bystander charges (or stumbles, shaken) in from the roadside.
-                    var fromLeft = player.x > W / 2;
-                    var bMood = rollDriverMood();
-                    var bType = pickStrangerType();
-                    angryMan = {
-                        x: fromLeft ? -30 : W + 30,
-                        y: player.y + 50,
-                        targetX: player.x + (fromLeft ? -38 : 38),
-                        targetY: player.y + 50,
-                        time: 0,
-                        state: "running",
-                        runDir: fromLeft ? 1 : -1,
-                        mood: bMood,
-                        stype: bType,
-                        hair: bType.hair === "grandpa" && bMood !== "angry" ? "#5D4037" : bType.hair
-                    };
-                    angryYell = bMood === "angry" ? randPick(bType.yells) : moodYell(bMood, ANGRY_YELLS);
+                    // Hitting a cone / barrier / sign / lone obstacle — there's no one
+                    // to climb out and confront her. Skip the driver beat entirely and
+                    // go straight to the aftermath fork (ER chance or game over).
+                    crashPhase = 3;
+                    crashPhaseTimer = 0.8;
                 }
-                crashPhase = 1;
             }
             return;
         }
@@ -22554,6 +22542,7 @@
         var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
                   galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
+                  galleryGuestLines: gg ? gg.lines : null, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
                   phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
@@ -22616,6 +22605,12 @@
         court.typeT += dt;
         if (court.gavel > 0) court.gavel -= dt;
         if (court.banner > 0) court.banner -= dt;
+        // The gallery guest only blurts now and then — a brief heckle that clears,
+        // not a caption parked on screen the whole trial.
+        if (court.galleryGuest) {
+            if (court.guestT > 0) court.guestT -= dt;
+            else { court.guestCool -= dt; if (court.guestCool <= 0) { court.guestT = 2.6; court.guestCool = rand(8, 13); court.galleryGuest.line = randPick(court.galleryGuestLines); } }
+        }
 
         if (court.phase === 0) {                     // ALL RISE
             if (court.t > 1.5) { court.phase = 1; court.t = 0; court.typeT = 0; court.gavel = 0.3; playTone(150, 0.12, "square", 0.18); }
@@ -22880,8 +22875,8 @@
             ctx.beginPath(); ctx.arc(0, -8, 18, Math.PI * 1.1, Math.PI * 1.92); ctx.stroke();
             ctx.restore();
         }
-        // the guest's little outburst, in a bubble above their seat
-        if (guest && guest.line) {
+        // the guest's little outburst — only while they're actively piping up
+        if (guest && guest.line && court.guestT > 0) {
             var bx = clamp(seats[guestSeat] * W, 130, W - 130);
             drawSpeechBubble(bx, frontY - 84, guest.line, gameTime);
         }

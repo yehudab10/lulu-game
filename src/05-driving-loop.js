@@ -2270,26 +2270,14 @@
                             size: rand(2, 4), color: "#CFD8DC", gravity: 30
                         });
                     }
+                    crashPhase = 1;
                 } else {
-                    // A random bystander charges (or stumbles, shaken) in from the roadside.
-                    var fromLeft = player.x > W / 2;
-                    var bMood = rollDriverMood();
-                    var bType = pickStrangerType();
-                    angryMan = {
-                        x: fromLeft ? -30 : W + 30,
-                        y: player.y + 50,
-                        targetX: player.x + (fromLeft ? -38 : 38),
-                        targetY: player.y + 50,
-                        time: 0,
-                        state: "running",
-                        runDir: fromLeft ? 1 : -1,
-                        mood: bMood,
-                        stype: bType,
-                        hair: bType.hair === "grandpa" && bMood !== "angry" ? "#5D4037" : bType.hair
-                    };
-                    angryYell = bMood === "angry" ? randPick(bType.yells) : moodYell(bMood, ANGRY_YELLS);
+                    // Hitting a cone / barrier / sign / lone obstacle — there's no one
+                    // to climb out and confront her. Skip the driver beat entirely and
+                    // go straight to the aftermath fork (ER chance or game over).
+                    crashPhase = 3;
+                    crashPhaseTimer = 0.8;
                 }
-                crashPhase = 1;
             }
             return;
         }
