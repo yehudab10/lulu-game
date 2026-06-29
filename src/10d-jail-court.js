@@ -32,7 +32,9 @@
     var CELLMATE_LINES = ["What're you in for? 😏", "I'm INNOCENT. ...mostly.",
         "Psst — wanna dig a tunnel?", "The food here is a CRIME too.", "Third time this week!",
         "You got a good lawyer?", "I just jaywalked, I SWEAR.", "They never proved nothin'.",
-        "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel."];
+        "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel.",
+        "Your sister's that ER nurse? My BACK is killin' me.", "Bruck? As in NURSE Tammy Bruck??",
+        "Tammy stitched me up once. Sweet girl. Scary needle."];
     // Flavor for the "doing your time" montage — keeps the grind entertaining.
     var JAIL_LIFE = ["🍖 Mystery meat for dinner... again.", "😴 Cellmate snores like a CHAINSAW.",
         "📢 ROLL CALL! Everybody UP.", "🥄 You sculpted a shiv... out of pudding.",
@@ -1506,6 +1508,7 @@
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
+                    : type === "tammy" ? "#26A69A"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -1547,6 +1550,15 @@
             ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.55, hr * 0.12, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;     // glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
+        } else if (type === "tammy") {
+            // Lulu's sister: Bruck-family hair + rosy cheeks, topped with a nurse cap
+            ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
+            ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 1.05, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(cx - hr * 0.92, cy + hr * 0.22, hr * 0.36, hr * 0.88, -0.2, 0, Math.PI * 2); ctx.ellipse(cx + hr * 0.92, cy + hr * 0.22, hr * 0.36, hr * 0.88, 0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.moveTo(cx - hr * 0.72, cy - hr * 0.92); ctx.lineTo(cx + hr * 0.72, cy - hr * 0.92); ctx.lineTo(cx + hr * 0.5, cy - hr * 1.42); ctx.lineTo(cx - hr * 0.5, cy - hr * 1.42); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#E53935"; ctx.fillRect(cx - hr * 0.1, cy - hr * 1.38, hr * 0.2, hr * 0.42); ctx.fillRect(cx - hr * 0.24, cy - hr * 1.22, hr * 0.48, hr * 0.16);
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white V-neck
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);

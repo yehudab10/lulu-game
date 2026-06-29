@@ -509,9 +509,12 @@
         imaTextTimer -= dt;
         if (imaTextTimer <= 0 && !imaText && gameTime > 25) {
             imaTextTimer = rand(45, 90);
-            // 1 in 3 chance it's Esti (the ex-bff); otherwise Ima
-            if (Math.random() < 0.33) {
+            // mix of Ima, her sister Tammy, and (rarer) her ex-bff Esti
+            var rt = Math.random();
+            if (rt < 0.25) {
                 imaText = { msg: randPick(ESTI_TEXTS), t: 0, dur: 4.5, sender: "esti" };
+            } else if (rt < 0.55) {
+                imaText = { msg: randPick(TAMMY_TEXTS), t: 0, dur: 4.0, sender: "tammy" };
             } else {
                 imaText = { msg: randPick(IMA_TEXTS), t: 0, dur: 4.0, sender: "ima" };
             }

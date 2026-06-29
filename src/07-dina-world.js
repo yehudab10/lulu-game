@@ -61,8 +61,11 @@
             "Dina — 8", "Has Morgan. Runs fast.", "#A06DC8");
 
         // Footer
-        drawText("Tap a sister to play!", W / 2, H - 40,
+        drawText("Tap a sister to play!", W / 2, H - 42,
             "bold 16px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#7A2A5C", 4);
+        // the THIRD Bruck sister isn't playable — she's at work (nod to Tammy)
+        drawText("🏥 (Tammy's working a shift — she's a nurse)", W / 2, H - 18,
+            "italic 11px 'Segoe UI', Arial, sans-serif", "rgba(255,255,255,0.72)", "#7A2A5C", 3);
     }
 
     function drawCharCard(x, y, w, h, who, name, tagline, accent) {

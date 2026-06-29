@@ -4604,11 +4604,11 @@
             roundRect(px, py, 110, 92, 8); ctx.fill();
             ctx.fillStyle = "#FFFFFF";
             roundRect(px + 4, py + 4, 102, 84, 5); ctx.fill();
-            // Sender header (Ima = pink, Esti = purple/wistful)
-            var isEsti = imaText.sender === "esti";
-            ctx.fillStyle = isEsti ? "#9575CD" : "#FF80AB";
+            // Sender header (Ima = pink, Esti = purple/wistful, Tammy = teal)
+            var sndr = imaText.sender;
+            ctx.fillStyle = sndr === "esti" ? "#9575CD" : sndr === "tammy" ? "#26A69A" : "#FF80AB";
             roundRect(px + 4, py + 4, 102, 18, 5); ctx.fill();
-            drawText(isEsti ? "💔 ESTI" : "📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
+            drawText(sndr === "esti" ? "💔 ESTI" : sndr === "tammy" ? "👩‍⚕️ TAMMY" : "📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
             // Message bubble
             ctx.fillStyle = "#E1F5FE";
             roundRect(px + 8, py + 26, 94, 56, 6); ctx.fill();
@@ -4822,6 +4822,17 @@
         "do u still have\nour bracelet?",
         "miss our drives\ntogether 💔",
         "can we talk?\ni miss u, Lu"
+    ];
+    // Tammy — Lulu's big sister, the ER nurse. Bossy, loving, exhausted.
+    var TAMMY_TEXTS = [
+        "did u CRASH again?? 🚑",
+        "saw ur chart.\nSIT DOWN.",
+        "ur blood type is\nSASS apparently",
+        "working a double.\ndon't u DARE visit",
+        "BUCKLE UP or i\ntell Bubbe",
+        "Ma asked if ur\neating. ARE u?",
+        "i'm keeping a bed\nwarm. as a THREAT",
+        "stop. crashing. 🙏"
     ];
     var iceCreamSigns = []; // similar to parking signs
     var iceCreamSpawnTimer = 60;
@@ -5225,7 +5236,10 @@
             "LULU.BOATS",
             "RACCOON YARD SALE TODAY",
             "WASH YOUR CAR. NOW.",
-            "BEWARE OF SASQUATCH"
+            "BEWARE OF SASQUATCH",
+            "NURSE OF THE YEAR: T. BRUCK",
+            "TAMMY SAYS: BUCKLE UP!",
+            "ER VISITS DOWN 0%. THX LULU"
         ];
         billboards.push({
             x: side > 0 ? W - 50 : 50,
@@ -6372,9 +6386,12 @@
         imaTextTimer -= dt;
         if (imaTextTimer <= 0 && !imaText && gameTime > 25) {
             imaTextTimer = rand(45, 90);
-            // 1 in 3 chance it's Esti (the ex-bff); otherwise Ima
-            if (Math.random() < 0.33) {
+            // mix of Ima, her sister Tammy, and (rarer) her ex-bff Esti
+            var rt = Math.random();
+            if (rt < 0.25) {
                 imaText = { msg: randPick(ESTI_TEXTS), t: 0, dur: 4.5, sender: "esti" };
+            } else if (rt < 0.55) {
+                imaText = { msg: randPick(TAMMY_TEXTS), t: 0, dur: 4.0, sender: "tammy" };
             } else {
                 imaText = { msg: randPick(IMA_TEXTS), t: 0, dur: 4.0, sender: "ima" };
             }
@@ -10605,8 +10622,11 @@
             "Dina — 8", "Has Morgan. Runs fast.", "#A06DC8");
 
         // Footer
-        drawText("Tap a sister to play!", W / 2, H - 40,
+        drawText("Tap a sister to play!", W / 2, H - 42,
             "bold 16px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#7A2A5C", 4);
+        // the THIRD Bruck sister isn't playable — she's at work (nod to Tammy)
+        drawText("🏥 (Tammy's working a shift — she's a nurse)", W / 2, H - 18,
+            "italic 11px 'Segoe UI', Arial, sans-serif", "rgba(255,255,255,0.72)", "#7A2A5C", 3);
     }
 
     function drawCharCard(x, y, w, h, who, name, tagline, accent) {
@@ -20620,7 +20640,9 @@
     var CELLMATE_LINES = ["What're you in for? 😏", "I'm INNOCENT. ...mostly.",
         "Psst — wanna dig a tunnel?", "The food here is a CRIME too.", "Third time this week!",
         "You got a good lawyer?", "I just jaywalked, I SWEAR.", "They never proved nothin'.",
-        "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel."];
+        "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel.",
+        "Your sister's that ER nurse? My BACK is killin' me.", "Bruck? As in NURSE Tammy Bruck??",
+        "Tammy stitched me up once. Sweet girl. Scary needle."];
     // Flavor for the "doing your time" montage — keeps the grind entertaining.
     var JAIL_LIFE = ["🍖 Mystery meat for dinner... again.", "😴 Cellmate snores like a CHAINSAW.",
         "📢 ROLL CALL! Everybody UP.", "🥄 You sculpted a shiv... out of pudding.",
@@ -22094,6 +22116,7 @@
         // shoulders/clothes
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
+                    : type === "tammy" ? "#26A69A"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -22135,6 +22158,15 @@
             ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.55, hr * 0.12, 0, Math.PI * 2); ctx.fill();
             ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;     // glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.22, 0, Math.PI * 2); ctx.stroke();
+        } else if (type === "tammy") {
+            // Lulu's sister: Bruck-family hair + rosy cheeks, topped with a nurse cap
+            ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
+            ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 1.05, Math.PI, 0); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(cx - hr * 0.92, cy + hr * 0.22, hr * 0.36, hr * 0.88, -0.2, 0, Math.PI * 2); ctx.ellipse(cx + hr * 0.92, cy + hr * 0.22, hr * 0.36, hr * 0.88, 0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.moveTo(cx - hr * 0.72, cy - hr * 0.92); ctx.lineTo(cx + hr * 0.72, cy - hr * 0.92); ctx.lineTo(cx + hr * 0.5, cy - hr * 1.42); ctx.lineTo(cx - hr * 0.5, cy - hr * 1.42); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#E53935"; ctx.fillRect(cx - hr * 0.1, cy - hr * 1.38, hr * 0.2, hr * 0.42); ctx.fillRect(cx - hr * 0.24, cy - hr * 1.22, hr * 0.48, hr * 0.16);
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white V-neck
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);
@@ -22347,14 +22379,38 @@
         { line: "A guard tackles her at the sliding doors. OOF. 🚨", visual: "guard" }
     ];
 
+    // ── NURSE TAMMY — Lulu's big sister, works the ER. She recognizes Lulu the
+    //    second she's wheeled in, and her MOOD decides the bill: sweet → family
+    //    discount, gossip → sister rate (pay in gossip), fed-up → full price. ──
+    var TAMMY_GREET = {
+        sweet:  ["LULU?! Oh my GOSH — are you OKAY?!", "Of all the ERs in town, you crash into MINE.",
+                 "Sit STILL, mamaleh, I've got you. It's me.", "My baby sister! ...what did you DO this time?"],
+        scold:  ["FOUR times this month, Lulu. FOUR.", "I'm telling Ma. And Bubbe. And Abba. ALL of them.",
+                 "You'll pay this off babysitting Dina. For a YEAR.", "I clock out in five minutes and HERE you are."],
+        gossip: ["Did you hear Avigail's ENGAGED? In MY ER you find out.", "You didn't bring me a coffee. Typical Lulu.",
+                 "Ooh, sit — I have SO much to tell you about Esti.", "I covered your name on the chart. You're WELCOME."]
+    };
+    var TAMMY_CARE = {
+        sweet:  ["There — stitched, kissed, FREE of charge. Don't tell my boss. 💕", "Family discount. Now GO, before a doctor sees this.",
+                 "All patched. Text Ma you're alive, she's been calling ME."],
+        scold:  ["Fine. Full price, and I'm rounding UP. 🧾", "Patched. NO discount — maybe THAT'll teach you.",
+                 "There. Now drive like you've got a sister who worries."],
+        gossip: ["Half off — but you owe me ALL the details. 🤭", "Sister rate. Spill about Avigail and we're square.",
+                 "Discounted. Hold still and tell me EVERYTHING."]
+    };
+
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
         save.erVisits = (save.erVisits || 0) + 1; persistSave();
         var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
+        // Tammy's working today (she always is). Her mood sets the bill multiplier.
+        var moods = ["sweet", "scold", "gossip"], tm = randPick(moods);
         hospital = { phase: 0, t: 0, typeT: 0, reason: reason || "crash",
                      diagnosis: randPick(DIAGNOSES), greet: greet,
                      options: HOSP_OPTIONS, choice: -1, bill: 0, applied: false, ekg: 0, line: null,
-                     caught: false, lines: null, li: 0 };
+                     caught: false, lines: null, li: 0,
+                     tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.0,
+                     tammyGreet: randPick(TAMMY_GREET[tm]), tammyCare: randPick(TAMMY_CARE[tm]) };
         copChase = null; copBust = null; copStop = null;
         playTone(880, 0.1, "sine", 0.06); setTimeout(function () { playTone(880, 0.1, "sine", 0.06); }, 700);
         state = "hospital";
@@ -22399,7 +22455,16 @@
             }
             return;
         }
-        if (hospital.phase === 1) {                 // diagnosis
+        if (hospital.phase === 1) {                 // doctor's diagnosis
+            if (consumeClick() || consumeAction()) {
+                if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
+                hospital.phase = 7; hospital.t = 0; hospital.typeT = 0;   // → Tammy clocks her
+                hospital.line = hospital.tammyGreet;
+                playTone(740, 0.08, "sine", 0.08);
+            }
+            return;
+        }
+        if (hospital.phase === 7) {                 // NURSE TAMMY recognizes her sister
             if (consumeClick() || consumeAction()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital.phase = 2; hospital.t = 0;
@@ -22424,9 +22489,10 @@
                         hospital.phase = 4; hospital.escT = 0;
                         playTone(520, 0.08, "square", 0.12);
                     } else {
+                        // Tammy patches her up — the family discount comes off the bill.
                         hospital.phase = 3;
-                        hospital.bill = Math.round(rand(25, 55) * opt.billMul);
-                        hospital.line = opt.say;
+                        hospital.bill = Math.round(rand(25, 55) * opt.billMul * hospital.tammyDiscount);
+                        hospital.line = hospital.tammyCare;
                         playTone(660, 0.06, "sine", 0.1);
                     }
                     return;
@@ -22519,7 +22585,7 @@
         ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
         ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, bedY); ctx.stroke();
 
-      if (hospital.phase >= 4) {
+      if (hospital.phase >= 4 && hospital.phase <= 6) {
         // she's not in bed anymore — she's making a break for it
         drawErEscape(erFloor);
       } else {
@@ -22536,8 +22602,9 @@
         ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(bedX + 19, bedY + 4, 1, 0, Math.PI * 2); ctx.arc(bedX + 25, bedY + 4, 1, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(bedX + 16, bedY + 7, 1.6, 0, Math.PI * 2); ctx.arc(bedX + 28, bedY + 7, 1.6, 0, Math.PI * 2); ctx.fill();
 
-        // ── the doctor at the bedside ──
-        drawDoctor(W / 2 + 64, bedY - 6, gameTime, hospital.phase === 1 || hospital.phase === 3);
+        // ── the doctor (right) + Nurse Tammy, Lulu's sister (left) at the bedside ──
+        drawDoctor(W / 2 + 70, bedY - 6, gameTime, hospital.phase === 1);
+        drawNurse(W / 2 - 70, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3);
       }
 
         // title
@@ -22550,6 +22617,10 @@
         } else if (hospital.phase === 1) {
             var d1 = hospDone(hospital.line);
             drawDialogueBox("DR. SHTERN", hospTyped(hospital.line), "doctor", "#80CBC4", d1, !d1);
+        } else if (hospital.phase === 7) {
+            var d7 = hospDone(hospital.line);
+            drawDialogueBox("NURSE TAMMY", hospTyped(hospital.line), "tammy", "#F48FB1", d7, !d7);
+            drawText("👩‍⚕️ your big SISTER works here!", W / 2, H - 168, "bold 12px 'Segoe UI', Arial, sans-serif", "#F8BBD0", "#000", 3);
         } else if (hospital.phase === 2) {
             ctx.fillStyle = "rgba(0,40,38,0.78)"; roundRect(14, H - 200, W - 28, 190, 12); ctx.fill();
             ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 200, W - 28, 190, 12); ctx.stroke();
@@ -22562,9 +22633,15 @@
             }
         } else if (hospital.phase === 3) {
             var d3 = hospDone(hospital.line);
-            drawDialogueBox("DR. SHTERN", hospTyped(hospital.line), "doctor", "#80CBC4", hospital.t > 0.6 && d3, !d3);
-            if (hospital.applied && hospital.bill > 0)
-                drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, H - 168, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+            drawDialogueBox("NURSE TAMMY", hospTyped(hospital.line), "tammy", "#F48FB1", hospital.t > 0.6 && d3, !d3);
+            if (hospital.applied) {
+                if (hospital.tammyDiscount < 1)
+                    drawText("👩‍⚕️ family discount applied!", W / 2, H - 186, "bold 12px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+                if (hospital.bill > 0)
+                    drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, H - 168, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+                else
+                    drawText("🩹 on the house — don't tell the boss!", W / 2, H - 168, "bold 13px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+            }
         } else if (hospital.phase === 4) {
             // the escape ATTEMPT caption
             erCaption(hospital.escape.attempt, "#FFE082");
@@ -22787,6 +22864,39 @@
         else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -13, 2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
         ctx.restore();
         drawText("DR. SHTERN", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 2);
+    }
+
+    // Nurse Tammy — Lulu's big sister. Teal scrubs, nurse cap, Bruck-family hair
+    // + rosy cheeks (she's clearly Lulu's sister), holding a heart chart.
+    function drawNurse(x, y, t, talking) {
+        var hair = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 28, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#00897B"; roundRect(-6, 12, 5, 16, 2); ctx.fill(); roundRect(1, 12, 5, 16, 2); ctx.fill();   // teal scrub pants
+        ctx.fillStyle = "#ECEFF1"; roundRect(-7, 26, 8, 4, 2); ctx.fill(); roundRect(0, 26, 8, 4, 2); ctx.fill();      // white shoes
+        ctx.fillStyle = "#26A69A"; roundRect(-12, -10, 24, 24, 5); ctx.fill();                                          // scrub top
+        ctx.fillStyle = "#1E8E82"; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-5, 5); ctx.lineTo(5, 5); ctx.fill(); // V-neck
+        ctx.fillStyle = "#FFF"; roundRect(5, -6, 5, 4, 1); ctx.fill();                                                  // name badge
+        // arm holding a little heart chart
+        ctx.fillStyle = "#26A69A"; roundRect(-15, -8, 5, 14, 2); ctx.fill();
+        ctx.fillStyle = "#ECEFF1"; roundRect(-19, -6, 7, 12, 1); ctx.fill();
+        drawText("♥", -15.5, 0, "bold 7px Arial", "#E53935", null, 0);
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -18, 7.6, 0, Math.PI * 2); ctx.fill();
+        // Bruck-family hair (like Lulu) — crown + side locks
+        ctx.fillStyle = hair; ctx.beginPath(); ctx.arc(0, -20, 8, Math.PI, 0); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-7, -15, 2.6, 6, -0.3, 0, Math.PI * 2); ctx.ellipse(7, -15, 2.6, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+        // nurse cap (white, red cross)
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.moveTo(-7.5, -23); ctx.lineTo(7.5, -23); ctx.lineTo(5, -29); ctx.lineTo(-5, -29); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.fillRect(-1.1, -28.5, 2.2, 5); ctx.fillRect(-2.4, -27, 4.8, 2);
+        // eyes + rosy cheeks
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -18, 1.1, 0, Math.PI * 2); ctx.arc(2.6, -18, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(-4.6, -15, 1.6, 0, Math.PI * 2); ctx.arc(4.6, -15, 1.6, 0, Math.PI * 2); ctx.fill();
+        if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -13, 1.6, 0.8 + Math.abs(Math.sin(t * 15)) * 1.4, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -14, 2, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke(); }
+        ctx.restore();
+        drawText("NURSE TAMMY", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#EC407A", "#FFF", 2);
     }
 
     var lastDispatchState = null;

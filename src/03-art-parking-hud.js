@@ -810,11 +810,11 @@
             roundRect(px, py, 110, 92, 8); ctx.fill();
             ctx.fillStyle = "#FFFFFF";
             roundRect(px + 4, py + 4, 102, 84, 5); ctx.fill();
-            // Sender header (Ima = pink, Esti = purple/wistful)
-            var isEsti = imaText.sender === "esti";
-            ctx.fillStyle = isEsti ? "#9575CD" : "#FF80AB";
+            // Sender header (Ima = pink, Esti = purple/wistful, Tammy = teal)
+            var sndr = imaText.sender;
+            ctx.fillStyle = sndr === "esti" ? "#9575CD" : sndr === "tammy" ? "#26A69A" : "#FF80AB";
             roundRect(px + 4, py + 4, 102, 18, 5); ctx.fill();
-            drawText(isEsti ? "💔 ESTI" : "📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
+            drawText(sndr === "esti" ? "💔 ESTI" : sndr === "tammy" ? "👩‍⚕️ TAMMY" : "📞 IMA", px + 55, py + 13, "bold 11px Arial", "#FFFFFF", null, 0);
             // Message bubble
             ctx.fillStyle = "#E1F5FE";
             roundRect(px + 8, py + 26, 94, 56, 6); ctx.fill();
@@ -1028,6 +1028,17 @@
         "do u still have\nour bracelet?",
         "miss our drives\ntogether 💔",
         "can we talk?\ni miss u, Lu"
+    ];
+    // Tammy — Lulu's big sister, the ER nurse. Bossy, loving, exhausted.
+    var TAMMY_TEXTS = [
+        "did u CRASH again?? 🚑",
+        "saw ur chart.\nSIT DOWN.",
+        "ur blood type is\nSASS apparently",
+        "working a double.\ndon't u DARE visit",
+        "BUCKLE UP or i\ntell Bubbe",
+        "Ma asked if ur\neating. ARE u?",
+        "i'm keeping a bed\nwarm. as a THREAT",
+        "stop. crashing. 🙏"
     ];
     var iceCreamSigns = []; // similar to parking signs
     var iceCreamSpawnTimer = 60;

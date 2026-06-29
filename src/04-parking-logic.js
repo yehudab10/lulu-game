@@ -328,7 +328,10 @@
             "LULU.BOATS",
             "RACCOON YARD SALE TODAY",
             "WASH YOUR CAR. NOW.",
-            "BEWARE OF SASQUATCH"
+            "BEWARE OF SASQUATCH",
+            "NURSE OF THE YEAR: T. BRUCK",
+            "TAMMY SAYS: BUCKLE UP!",
+            "ER VISITS DOWN 0%. THX LULU"
         ];
         billboards.push({
             x: side > 0 ? W - 50 : 50,
