@@ -10901,18 +10901,35 @@
         g.addColorStop(1, "#7CB342");
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, W, H);
+        // warm sun-glow up top
+        var csSun = ctx.createRadialGradient(W / 2, 50, 20, W / 2, 50, 280);
+        csSun.addColorStop(0, "rgba(255,248,205,0.55)"); csSun.addColorStop(1, "rgba(255,248,205,0)");
+        ctx.fillStyle = csSun; ctx.fillRect(0, 0, W, 340);
+        // soft drifting clouds
+        for (var cc = 0; cc < 3; cc++) {
+            var clx = ((charSelectTime * (7 + cc * 4) + cc * 210) % (W + 180)) - 90;
+            var cly = 46 + cc * 30, cls = 1 - cc * 0.16;
+            ctx.fillStyle = "rgba(255,255,255," + (0.55 - cc * 0.1) + ")";
+            ctx.beginPath();
+            ctx.ellipse(clx, cly, 34 * cls, 16 * cls, 0, 0, Math.PI * 2);
+            ctx.ellipse(clx + 26 * cls, cly + 4, 24 * cls, 13 * cls, 0, 0, Math.PI * 2);
+            ctx.ellipse(clx - 26 * cls, cly + 4, 22 * cls, 12 * cls, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
         // Chunky dark band behind title for contrast
         ctx.fillStyle = "rgba(0,0,0,0.35)";
         roundRect(W / 2 - 180, 40, 360, 50, 14); ctx.fill();
-        // Confetti dots drifting
+        // Drifting confetti — a mix of dots and little stars
         ctx.globalAlpha = 0.7;
         for (var i = 0; i < 40; i++) {
             var x = (i * 47 + 13) % W;
             var y = ((i * 31 + 9) + charSelectTime * 20) % H;
             ctx.fillStyle = ["#FF4FA3", "#FFD93D", "#6BCBFF", "#A8E6CF", "#FFFFFF"][i % 5];
-            ctx.beginPath();
-            ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2);
-            ctx.fill();
+            if (i % 4 === 0) {
+                drawText("✦", x, y, (8 + (i % 3) * 3) + "px Arial", ctx.fillStyle, null, 0);
+            } else {
+                ctx.beginPath(); ctx.arc(x, y, 3 + (i % 3), 0, Math.PI * 2); ctx.fill();
+            }
         }
         ctx.globalAlpha = 1;
 
@@ -10934,19 +10951,28 @@
         // the THIRD Bruck sister isn't playable — she's at work (nod to Tammy)
         drawText("🏥 (Tammy's working a shift — she's a nurse)", W / 2, H - 18,
             "italic 11px 'Segoe UI', Arial, sans-serif", "rgba(255,255,255,0.72)", "#7A2A5C", 3);
+
+        // soft frame vignette to draw the eye to the cards
+        var csVig = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.34, W / 2, H * 0.5, H * 0.72);
+        csVig.addColorStop(0, "rgba(0,0,0,0)"); csVig.addColorStop(1, "rgba(40,20,40,0.20)");
+        ctx.fillStyle = csVig; ctx.fillRect(0, 0, W, H);
     }
 
     function drawCharCard(x, y, w, h, who, name, tagline, accent) {
         // shadow
         ctx.fillStyle = "rgba(0,0,0,0.25)";
         roundRect(x + 5, y + 6, w, h, 18); ctx.fill();
-        // card body
-        ctx.fillStyle = "#FFF8F0";
+        // card body — soft top-lit gradient instead of a flat fill
+        var cardG = ctx.createLinearGradient(0, y, 0, y + h);
+        cardG.addColorStop(0, "#FFFDF8"); cardG.addColorStop(1, "#FCEAF1");
+        ctx.fillStyle = cardG;
         roundRect(x, y, w, h, 18); ctx.fill();
-        // accent stripe
+        // accent stripe with a glossy sheen
         ctx.fillStyle = accent;
         roundRect(x, y, w, 36, 18); ctx.fill();
         ctx.fillRect(x, y + 18, w, 18);
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        roundRect(x + 10, y + 6, w - 20, 9, 5); ctx.fill();
         // border
         ctx.strokeStyle = accent;
         ctx.lineWidth = 5;
@@ -10970,10 +10996,12 @@
         // Tagline below
         drawText(tagline, x + w / 2, y + h - 16, "italic 14px 'Segoe UI', Arial, sans-serif",
             "#555", "#FFF", 2);
-        // "TAP" badge in corner
-        ctx.fillStyle = accent;
-        roundRect(x + w - 70, y + h - 36, 60, 26, 13); ctx.fill();
-        drawText("TAP ▶", x + w - 40, y + h - 23, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
+        // "TAP" badge in corner — gently pulsing to invite a tap
+        var tp = 1 + Math.sin(charSelectTime * 4 + (who === "dina" ? 1.5 : 0)) * 0.07;
+        ctx.save(); ctx.translate(x + w - 40, y + h - 23); ctx.scale(tp, tp);
+        ctx.fillStyle = accent; roundRect(-30, -13, 60, 26, 13); ctx.fill();
+        drawText("TAP ▶", 0, 0, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
+        ctx.restore();
     }
 
     function startDinaMode() {
