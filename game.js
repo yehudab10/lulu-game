@@ -4559,6 +4559,15 @@
         drawCoin(W - 100, 26, gameTime);
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
+        // WANTED file open (skipped the ER, etc.) — a blinking warning so she knows
+        // why cops keep giving chase. Only a judge clears it.
+        if (typeof isWanted === "function" && isWanted() && !prisonClothes) {
+            var wbl = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 5));
+            ctx.globalAlpha = wbl;
+            drawText("🚨 WANTED", W - 100, 52, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3, "left");
+            ctx.globalAlpha = 1;
+        }
+
         // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
         // with a draining window bar. Pops on each fresh pickup.
         if (coinCombo >= 3) {
@@ -5075,7 +5084,8 @@
         billboards = []; billboardTimer = 8;
         copEvent = null; copEventTimer = rand(60, 120);
         roadCops = []; copChase = null; copBust = null;
-        spontaneousChaseCool = 22;
+        spontaneousChaseCool = 22; wantedSpot = 0; wantedPatrolT = 0;
+        if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
@@ -7508,6 +7518,20 @@
             }
         }
 
+        // ── WANTED: with an open file, any cop who gets a look at her gives chase —
+        //    and patrols keep trickling in — until a JUDGE clears the case. ──
+        if (typeof isWanted === "function" && isWanted() && !prisonClothes && state === "playing" && !copChase && !copBust) {
+            var seenW = copInView();
+            if (!seenW) for (var wi = 0; wi < obstacles.length; wi++) {
+                var wo = obstacles[wi];
+                if (wo.type === "car" && wo.behavior === "patrol" && Math.abs(wo.y - player.y) < 200) { seenW = wo; break; }
+            }
+            if (seenW) { wantedSpot += dt; if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!"); } }
+            else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
+            wantedPatrolT -= dt;
+            if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
+        }
+
         // A chase never progresses while she's on foot (she's not a car to bust).
         if (copChase && state !== "footRun") updateCopChase(dt);
     }
@@ -8057,6 +8081,8 @@
     var angryYell = "";
     var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
     var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
+    var wantedSpot = 0;              // recognition meter while she has an open "wanted" file
+    var wantedPatrolT = 0;          // trickle of patrols hunting a wanted Lulu
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the
@@ -21968,6 +21994,8 @@
     // ── Entry: book her ──────────────────────────────────────
     function goToJail(charges) {
         var list = (charges && charges.length ? charges.slice() : ["DISTURBING THE PEACE"]);
+        // Pull in any OUTSTANDING accusations — now's when she answers for them all.
+        if (save.wanted && save.wanted.length) list = list.concat(save.wanted);
         if (Math.random() < 0.5) list.push(randPick(EXTRA_CHARGES));
         list = list.filter(function (c, i) { return list.indexOf(c) === i; });
         save.offenses = (save.offenses || 0) + 1;
@@ -22045,8 +22073,11 @@
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
                         var paid = chargeCoins(jail.bail);   // bail out of her coins
+                        // Out on bail = released PENDING trial: the charges stay open,
+                        // so she's still WANTED until she actually faces a judge.
+                        addWanted(jail.charges);
                         clearLockup(); jail = null; prisonClothes = false;
-                        beginExitScene("police", "drive", "💰 Bailed out! −" + paid + " 💰");
+                        beginExitScene("police", "drive", "💰 Out on bail — but still WANTED 'til court. 🚨");
                     } else {
                         playTone(180, 0.15, "square", 0.15);
                         spawnFloater(W / 2, H * 0.42, "Can't make bail! 😬", "#FF8A80");
@@ -22744,6 +22775,7 @@
             if (court.t > 0.7 && consumeTap()) {
                 if (!courtDone(court.verdictLine.text)) { court.typeT = 999; return; }
                 var v = court.verdict; court = null;
+                clearWanted();   // she's answered to a judge — the slate is clean
                 if (v !== "jail") clearLockup();   // jail keeps a lockup (serveTime resets it)
                 if (v === "jail") { serveTime(); return; }     // actually do the time → walk out, no car
                 prisonClothes = false;
@@ -23082,6 +23114,18 @@
     // ════════════════ FUGITIVE ════════════════
     // Wanted level (1–5★) climbs the longer she stays on the lam.
     function wantedLevel() { return prisonClothes ? clamp(Math.floor(fugitiveT / 11) + 1, 1, 5) : 0; }
+
+    // ── Outstanding accusations (the "wanted" file) ─────────────
+    // Things Lulu is accused of but hasn't answered for. Escaping the ER (or any
+    // skip) files charges here; cops who spot her give chase until she's finally
+    // hauled before a judge and the case is RESOLVED — only a court clears these.
+    function isWanted() { return !!(save.wanted && save.wanted.length); }
+    function addWanted(charges) {
+        if (!save.wanted) save.wanted = [];
+        for (var i = 0; i < charges.length; i++) if (save.wanted.indexOf(charges[i]) < 0) save.wanted.push(charges[i]);
+        persistSave();
+    }
+    function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
         if (!prisonClothes) return;
@@ -23902,11 +23946,12 @@
             }
             return;
         }
-        if (hospital.phase === 6) {                 // CLEAN GETAWAY
+        if (hospital.phase === 6) {                 // CLEAN GETAWAY → now a wanted woman
             hospital.t += dt;
             if (hospital.t > 1.7 || consumeTap()) {
                 hospital = null;
-                beginExitScene("hospital", "drive", "🏃 Skipped the bill — GONE!");
+                if (typeof addWanted === "function") addWanted(["SKIPPING A MEDICAL BILL", "FLEEING THE HOSPITAL"]);
+                beginExitScene("hospital", "drive", "🏃 GONE! ...but you're WANTED now. 🚨");
             }
             return;
         }

@@ -1492,6 +1492,20 @@
             }
         }
 
+        // ── WANTED: with an open file, any cop who gets a look at her gives chase —
+        //    and patrols keep trickling in — until a JUDGE clears the case. ──
+        if (typeof isWanted === "function" && isWanted() && !prisonClothes && state === "playing" && !copChase && !copBust) {
+            var seenW = copInView();
+            if (!seenW) for (var wi = 0; wi < obstacles.length; wi++) {
+                var wo = obstacles[wi];
+                if (wo.type === "car" && wo.behavior === "patrol" && Math.abs(wo.y - player.y) < 200) { seenW = wo; break; }
+            }
+            if (seenW) { wantedSpot += dt; if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!"); } }
+            else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
+            wantedPatrolT -= dt;
+            if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
+        }
+
         // A chase never progresses while she's on foot (she's not a car to bust).
         if (copChase && state !== "footRun") updateCopChase(dt);
     }
@@ -2041,6 +2055,8 @@
     var angryYell = "";
     var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
     var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
+    var wantedSpot = 0;              // recognition meter while she has an open "wanted" file
+    var wantedPatrolT = 0;          // trickle of patrols hunting a wanted Lulu
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the

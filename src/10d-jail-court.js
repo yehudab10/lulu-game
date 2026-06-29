@@ -407,6 +407,8 @@
     // ── Entry: book her ──────────────────────────────────────
     function goToJail(charges) {
         var list = (charges && charges.length ? charges.slice() : ["DISTURBING THE PEACE"]);
+        // Pull in any OUTSTANDING accusations — now's when she answers for them all.
+        if (save.wanted && save.wanted.length) list = list.concat(save.wanted);
         if (Math.random() < 0.5) list.push(randPick(EXTRA_CHARGES));
         list = list.filter(function (c, i) { return list.indexOf(c) === i; });
         save.offenses = (save.offenses || 0) + 1;
@@ -484,8 +486,11 @@
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
                         var paid = chargeCoins(jail.bail);   // bail out of her coins
+                        // Out on bail = released PENDING trial: the charges stay open,
+                        // so she's still WANTED until she actually faces a judge.
+                        addWanted(jail.charges);
                         clearLockup(); jail = null; prisonClothes = false;
-                        beginExitScene("police", "drive", "💰 Bailed out! −" + paid + " 💰");
+                        beginExitScene("police", "drive", "💰 Out on bail — but still WANTED 'til court. 🚨");
                     } else {
                         playTone(180, 0.15, "square", 0.15);
                         spawnFloater(W / 2, H * 0.42, "Can't make bail! 😬", "#FF8A80");
@@ -1183,6 +1188,7 @@
             if (court.t > 0.7 && consumeTap()) {
                 if (!courtDone(court.verdictLine.text)) { court.typeT = 999; return; }
                 var v = court.verdict; court = null;
+                clearWanted();   // she's answered to a judge — the slate is clean
                 if (v !== "jail") clearLockup();   // jail keeps a lockup (serveTime resets it)
                 if (v === "jail") { serveTime(); return; }     // actually do the time → walk out, no car
                 prisonClothes = false;
@@ -1521,6 +1527,18 @@
     // ════════════════ FUGITIVE ════════════════
     // Wanted level (1–5★) climbs the longer she stays on the lam.
     function wantedLevel() { return prisonClothes ? clamp(Math.floor(fugitiveT / 11) + 1, 1, 5) : 0; }
+
+    // ── Outstanding accusations (the "wanted" file) ─────────────
+    // Things Lulu is accused of but hasn't answered for. Escaping the ER (or any
+    // skip) files charges here; cops who spot her give chase until she's finally
+    // hauled before a judge and the case is RESOLVED — only a court clears these.
+    function isWanted() { return !!(save.wanted && save.wanted.length); }
+    function addWanted(charges) {
+        if (!save.wanted) save.wanted = [];
+        for (var i = 0; i < charges.length; i++) if (save.wanted.indexOf(charges[i]) < 0) save.wanted.push(charges[i]);
+        persistSave();
+    }
+    function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
         if (!prisonClothes) return;

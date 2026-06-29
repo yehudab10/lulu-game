@@ -355,11 +355,12 @@
             }
             return;
         }
-        if (hospital.phase === 6) {                 // CLEAN GETAWAY
+        if (hospital.phase === 6) {                 // CLEAN GETAWAY → now a wanted woman
             hospital.t += dt;
             if (hospital.t > 1.7 || consumeTap()) {
                 hospital = null;
-                beginExitScene("hospital", "drive", "🏃 Skipped the bill — GONE!");
+                if (typeof addWanted === "function") addWanted(["SKIPPING A MEDICAL BILL", "FLEEING THE HOSPITAL"]);
+                beginExitScene("hospital", "drive", "🏃 GONE! ...but you're WANTED now. 🚨");
             }
             return;
         }

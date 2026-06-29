@@ -29,7 +29,8 @@
         billboards = []; billboardTimer = 8;
         copEvent = null; copEventTimer = rand(60, 120);
         roadCops = []; copChase = null; copBust = null;
-        spontaneousChaseCool = 22;
+        spontaneousChaseCool = 22; wantedSpot = 0; wantedPatrolT = 0;
+        if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);

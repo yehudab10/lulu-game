@@ -627,6 +627,15 @@
         drawCoin(W - 100, 26, gameTime);
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
+        // WANTED file open (skipped the ER, etc.) — a blinking warning so she knows
+        // why cops keep giving chase. Only a judge clears it.
+        if (typeof isWanted === "function" && isWanted() && !prisonClothes) {
+            var wbl = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 5));
+            ctx.globalAlpha = wbl;
+            drawText("🚨 WANTED", W - 100, 52, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3, "left");
+            ctx.globalAlpha = 1;
+        }
+
         // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
         // with a draining window bar. Pops on each fresh pickup.
         if (coinCombo >= 3) {
