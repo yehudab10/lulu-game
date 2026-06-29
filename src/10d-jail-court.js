@@ -33,6 +33,13 @@
         "Psst — wanna dig a tunnel?", "The food here is a CRIME too.", "Third time this week!",
         "You got a good lawyer?", "I just jaywalked, I SWEAR.", "They never proved nothin'.",
         "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel."];
+    // Flavor for the "doing your time" montage — keeps the grind entertaining.
+    var JAIL_LIFE = ["🍖 Mystery meat for dinner... again.", "😴 Cellmate snores like a CHAINSAW.",
+        "📢 ROLL CALL! Everybody UP.", "🥄 You sculpted a shiv... out of pudding.",
+        "💪 Yard time: 200 push-ups.", "🚿 Cold shower. ICE cold.", "📺 The one TV is stuck on C-SPAN.",
+        "🐀 You named the cell mouse Heshy.", "✉️ A letter from Bubbe! ...it's a bill.",
+        "🔔 Lights out. Then lights ON. Then OUT.", "🧻 Out of toilet paper. AGAIN.",
+        "🍮 Traded your pudding for a 'favor'.", "📓 You started a prison memoir. It's just complaints."];
     var LULU_CELL_LINES = ["Bubbe is gonna PLOTZ.", "This jumpsuit is NOT my color.",
         "I get ONE phone call, right?", "I was barely speeding!", "Avigail set me up, I KNOW it.",
         "Is there a kosher option?", "I demand to see a JUDGE.", "These bars clash with everything."];
@@ -83,7 +90,7 @@
         { label: "🍪 Bribe the JURY", says: "*passes rugelach down the jury box* 🍪",
           outcomes: [["dismissed", 0.55], ["fine", 0.25], ["jail", 0.20]], bribe: true },
         { label: "📞 Demand a lawyer", says: "I get one call — to my cousin. The LAWYER.",
-          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]] },
+          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]], demandLawyer: true },
         { label: "💃 Dazzle the court", says: "*little tap routine* Charges dropped now? 💃",
           outcomes: [["dismissed", 0.50], ["fine", 0.30], ["jail", 0.20]] },
         { label: "🤥 Lie (badly)", says: "I wasn't there. Or driving. Or... born.",
@@ -436,6 +443,7 @@
         }
         if (jail.phase === 3) {                 // LOCKPICK minigame
             var lk = jail.lock;
+            if (lk.missFx > 0) lk.missFx -= dt;
             if (lk.result) {
                 lk.resultT += dt;
                 if (lk.result === "win" && lk.resultT > 1.0) { jail.phase = 2; jail.t = 0; jail.escapeMethod = randPick(ESCAPE_METHODS); }
@@ -460,7 +468,8 @@
                     if (lk.done >= lk.pins) { lk.result = "win"; lk.resultT = 0; playTone(988, 0.14, "triangle", 0.2); }
                     else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.84); lk.speed *= 1.08; }
                 } else {
-                    lk.misses++; playTone(150, 0.12, "square", 0.16);
+                    lk.misses++; lk.missFx = 0.5; playTone(150, 0.12, "square", 0.16);
+                    spawnFloater(W / 2, H * 0.34 + 70, "✖ MISS!", "#FF1744");
                     if (lk.misses >= lk.maxMiss) { lk.result = "lose"; lk.resultT = 0; playTone(90, 0.3, "square", 0.16); }
                 }
                 return;   // don't also advance on the tap frame — keeps the hit crisp
@@ -482,15 +491,40 @@
             }
             return;
         }
-        if (jail.phase === 9) {                 // serving the sentence
-            jail.days = Math.min(jail.total, Math.floor(jail.t * 8.5));
+        if (jail.phase === 9) {                 // serving the sentence — DOING HARD TIME
+            // Doing time DRAGS now. A day ticks by slowly on its own; tapping is
+            // "hard labor" that grinds a little time off faster (mash to endure
+            // it). The sentence is much longer than before, and on release the
+            // system skims court costs off whatever coins she had. It's a real
+            // setback — not a 3-second skip.
+            if (jail.serveDays === undefined) jail.serveDays = jail.days || 0;
+            if (jail.serveRate === undefined) jail.serveRate = jail.total / clamp(20 + jail.total * 0.12, 20, 34);
+            jail.serveDays += dt * jail.serveRate;
+            if (jail.tapCool > 0) jail.tapCool -= dt;
+            if (jail.workFx > 0) jail.workFx -= dt;
+            if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
+                jail.serveDays += 0.6; jail.tapCool = 0.12; jail.workFx = 0.22;
+                playTone(380 + (jail.days % 5) * 28, 0.04, "square", 0.08);
+            }
+            jail.days = Math.min(jail.total, Math.floor(jail.serveDays));
+            // periodic jail-life vignettes so the grind stays funny, not dead air
+            jail.vigT = (jail.vigT === undefined ? 1.2 : jail.vigT) - dt;
+            if (jail.vigT <= 0 && jail.days < jail.total) {
+                spawnFloater(W / 2, H * 0.46, randPick(JAIL_LIFE), "#FFCC80");
+                jail.vigT = rand(2.6, 4.2);
+            }
             if (save.lockup && save.lockup.mode === "serving" && save.lockup.days !== jail.days) {
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
             }
-            if (jail.t > jail.total / 8.5 + 0.6) {
+            if (jail.days >= jail.total) {
+                // Released — the system takes its pound of flesh: court costs +
+                // commissary debt skim whatever coins she had on her.
+                var fees = Math.min(save.totalCoins || 0, 40 + jail.total * 2);
+                if (fees > 0) { save.totalCoins -= fees; persistSave(); }
                 clearLockup(); jail = null;
-                spawnFloater(player.x, player.y - 50, "Released — CAR IMPOUNDED!", "#FF8A80");
-                spawnFloater(player.x, player.y - 28, "Time served. You're walking. 🚶‍♀️", "#FFE082");
+                spawnFloater(player.x, player.y - 56, "Time served — CAR IMPOUNDED!", "#FF8A80");
+                if (fees > 0) spawnFloater(player.x, player.y - 34, "−" + fees + " 💰 court costs", "#FF8A80");
+                spawnFloater(player.x, player.y - 12, "You're walking. 🚶‍♀️", "#FFE082");
                 if (typeof startFootWorld === "function") startFootWorld("copWalk");
                 else if (typeof returnToDriving === "function") returnToDriving();
                 return;
@@ -613,12 +647,17 @@
         if (serving) {
             var total = jail.total || 30, day = Math.min(jail.days, total);
             drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 34, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
-            ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.fill();
-            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.stroke();
-            drawText("DAY " + day + " / " + total, W / 2, H - 102, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
-            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 86, 208, 10, 5); ctx.fill();
-            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 86, 208 * (day / total), 10, 5); ctx.fill();
-            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 62, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+            ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.fill();
+            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.stroke();
+            drawText("DAY " + day + " / " + total, W / 2, H - 110, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
+            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 94, 208, 10, 5); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 94, 208 * (day / total), 10, 5); ctx.fill();
+            // tap-to-grind prompt (pulses; brighter right after a tap)
+            var grindBl = (jail.workFx > 0 ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 5)));
+            ctx.globalAlpha = grindBl;
+            drawText("⛏️ TAP to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            ctx.globalAlpha = 1;
+            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 54, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
             return;
         }
 
@@ -739,10 +778,33 @@
     // The escape lockpick timing minigame.
     function drawLockpick() {
         var lk = jail.lock, br = pickBarRect();
-        ctx.fillStyle = "rgba(0,0,0,0.82)"; roundRect(W / 2 - 170, H * 0.34, 340, 200, 14); ctx.fill();
-        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(W / 2 - 170, H * 0.34, 340, 200, 14); ctx.stroke();
-        drawText("🔓 PICK THE LOCK", W / 2, H * 0.34 + 24, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
-        drawText("TAP when the pick is in the green!", W / 2, H * 0.34 + 46, "bold 12px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
+        var boxY = H * 0.34, boxH = 200;
+        // a hot red flash over the whole box on a fresh miss
+        var missF = clamp((lk.missFx || 0) / 0.5, 0, 1);
+        ctx.fillStyle = "rgba(0,0,0,0.82)"; roundRect(W / 2 - 170, boxY, 340, boxH, 14); ctx.fill();
+        ctx.strokeStyle = missF > 0 ? "#FF1744" : "#FFD54F"; ctx.lineWidth = 2 + missF * 3; roundRect(W / 2 - 170, boxY, 340, boxH, 14); ctx.stroke();
+        drawText("🔓 PICK THE LOCK", W / 2, boxY + 24, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
+        drawText("TAP when the pick is in the green!", W / 2, boxY + 45, "bold 12px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
+
+        // ── STRIKES: big, bright red X's right under the title so they're unmissable ──
+        var sx0 = W / 2 - (lk.maxMiss - 1) * 22, sy = boxY + 72;
+        drawText("STRIKES", W / 2 - (lk.maxMiss) * 22 - 16, sy, "bold 11px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 2, "right");
+        for (var m = 0; m < lk.maxMiss; m++) {
+            var hit = m < lk.misses, cx = sx0 + m * 44;
+            // empty slot ring
+            ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(cx, sy, 13, 0, Math.PI * 2); ctx.stroke();
+            if (hit) {
+                // the most-recent miss pops bigger
+                var fresh = (m === lk.misses - 1) ? missF : 0;
+                var sc = 1 + fresh * 0.7;
+                ctx.save(); ctx.translate(cx, sy); ctx.scale(sc, sc);
+                ctx.fillStyle = "rgba(255,23,68,0.28)"; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                drawText("✖", 0, 0, "bold 26px Arial", "#FF1744", "#000", 3);
+                ctx.restore();
+            }
+        }
+
         // the bar
         ctx.fillStyle = "#263238"; roundRect(br.x, br.y, br.w, br.h, 6); ctx.fill();
         ctx.fillStyle = "#66BB6A"; roundRect(br.x + (lk.zoneC - lk.zoneW / 2) * br.w, br.y, lk.zoneW * br.w, br.h, 4); ctx.fill();
@@ -750,20 +812,22 @@
         var mx = br.x + lk.pos * br.w;
         ctx.fillStyle = "#FFEB3B"; ctx.fillRect(mx - 2, br.y - 8, 4, br.h + 16);
         ctx.beginPath(); ctx.moveTo(mx, br.y - 8); ctx.lineTo(mx - 6, br.y - 18); ctx.lineTo(mx + 6, br.y - 18); ctx.fill();
-        // pins progress + misses
+        // pins progress
         for (var p = 0; p < lk.pins; p++) {
             ctx.fillStyle = p < lk.done ? "#66BB6A" : "#546E7A";
-            ctx.beginPath(); ctx.arc(W / 2 - (lk.pins - 1) * 12 + p * 24, br.y + 54, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(W / 2 - (lk.pins - 1) * 12 + p * 24, br.y + 50, 6, 0, Math.PI * 2); ctx.fill();
         }
-        for (var m = 0; m < lk.maxMiss; m++)
-            drawText(m < lk.misses ? "✖" : "·", W / 2 - 18 + m * 18, br.y + 84, "bold 16px Arial", m < lk.misses ? "#FF5252" : "#607D8B", "#000", 2);
-        if (lk.result === "win") drawText("🔓 CLICK! You're out!", W / 2, H * 0.34 + 176, "bold 18px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 4);
-        else if (lk.result === "lose") drawText("🚨 CAUGHT! Back to your cell.", W / 2, H * 0.34 + 176, "bold 16px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 4);
+        if (lk.result === "win") drawText("🔓 CLICK! You're out!", W / 2, boxY + 178, "bold 18px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 4);
+        else if (lk.result === "lose") drawText("🚨 CAUGHT! Back to your cell.", W / 2, boxY + 178, "bold 16px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 4);
+        // a quick red wash across the whole screen on the miss for extra "ouch"
+        if (missF > 0) { ctx.fillStyle = "rgba(255,23,68," + (missF * 0.16) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     // ════════════════ COURTROOM ════════════════
     function openCourt(charges, lawyerTier) {
         var pool = DEFENSE_POOL.slice(), opts = [];
+        // If she already RETAINED counsel, "Demand a lawyer" makes no sense — drop it.
+        if (lawyerTier) pool = pool.filter(function (o) { return !o.demandLawyer; });
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
         // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
         opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
@@ -798,8 +862,9 @@
     // car impounded (→ on-foot mode). Sentence length scales with strikes.
     function serveTime() {
         prisonClothes = false;
-        var total = Math.min(90, 30 + Math.max(0, (save.convictions || 1) - 1) * 15);
-        jail = { phase: 9, t: 0, days: 0, total: total, charges: [], cellmateLine: "", cellmateT: 99, flash: 0, bail: 0 };
+        // Longer sentences that climb hard with priors — a real stretch now.
+        var total = Math.min(150, 45 + Math.max(0, (save.convictions || 1) - 1) * 25);
+        jail = { phase: 9, t: 0, days: 0, serveDays: 0, total: total, charges: [], cellmateLine: "", cellmateT: 99, flash: 0, bail: 0 };
         saveLockup("serving", [], 0, 0, total);
         state = "jailCell";
         playTone(110, 0.4, "square", 0.1);

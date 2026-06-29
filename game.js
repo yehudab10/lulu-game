@@ -20450,6 +20450,13 @@
         "Psst — wanna dig a tunnel?", "The food here is a CRIME too.", "Third time this week!",
         "You got a good lawyer?", "I just jaywalked, I SWEAR.", "They never proved nothin'.",
         "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel."];
+    // Flavor for the "doing your time" montage — keeps the grind entertaining.
+    var JAIL_LIFE = ["🍖 Mystery meat for dinner... again.", "😴 Cellmate snores like a CHAINSAW.",
+        "📢 ROLL CALL! Everybody UP.", "🥄 You sculpted a shiv... out of pudding.",
+        "💪 Yard time: 200 push-ups.", "🚿 Cold shower. ICE cold.", "📺 The one TV is stuck on C-SPAN.",
+        "🐀 You named the cell mouse Heshy.", "✉️ A letter from Bubbe! ...it's a bill.",
+        "🔔 Lights out. Then lights ON. Then OUT.", "🧻 Out of toilet paper. AGAIN.",
+        "🍮 Traded your pudding for a 'favor'.", "📓 You started a prison memoir. It's just complaints."];
     var LULU_CELL_LINES = ["Bubbe is gonna PLOTZ.", "This jumpsuit is NOT my color.",
         "I get ONE phone call, right?", "I was barely speeding!", "Avigail set me up, I KNOW it.",
         "Is there a kosher option?", "I demand to see a JUDGE.", "These bars clash with everything."];
@@ -20500,7 +20507,7 @@
         { label: "🍪 Bribe the JURY", says: "*passes rugelach down the jury box* 🍪",
           outcomes: [["dismissed", 0.55], ["fine", 0.25], ["jail", 0.20]], bribe: true },
         { label: "📞 Demand a lawyer", says: "I get one call — to my cousin. The LAWYER.",
-          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]] },
+          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]], demandLawyer: true },
         { label: "💃 Dazzle the court", says: "*little tap routine* Charges dropped now? 💃",
           outcomes: [["dismissed", 0.50], ["fine", 0.30], ["jail", 0.20]] },
         { label: "🤥 Lie (badly)", says: "I wasn't there. Or driving. Or... born.",
@@ -20853,6 +20860,7 @@
         }
         if (jail.phase === 3) {                 // LOCKPICK minigame
             var lk = jail.lock;
+            if (lk.missFx > 0) lk.missFx -= dt;
             if (lk.result) {
                 lk.resultT += dt;
                 if (lk.result === "win" && lk.resultT > 1.0) { jail.phase = 2; jail.t = 0; jail.escapeMethod = randPick(ESCAPE_METHODS); }
@@ -20877,7 +20885,8 @@
                     if (lk.done >= lk.pins) { lk.result = "win"; lk.resultT = 0; playTone(988, 0.14, "triangle", 0.2); }
                     else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.84); lk.speed *= 1.08; }
                 } else {
-                    lk.misses++; playTone(150, 0.12, "square", 0.16);
+                    lk.misses++; lk.missFx = 0.5; playTone(150, 0.12, "square", 0.16);
+                    spawnFloater(W / 2, H * 0.34 + 70, "✖ MISS!", "#FF1744");
                     if (lk.misses >= lk.maxMiss) { lk.result = "lose"; lk.resultT = 0; playTone(90, 0.3, "square", 0.16); }
                 }
                 return;   // don't also advance on the tap frame — keeps the hit crisp
@@ -20899,15 +20908,40 @@
             }
             return;
         }
-        if (jail.phase === 9) {                 // serving the sentence
-            jail.days = Math.min(jail.total, Math.floor(jail.t * 8.5));
+        if (jail.phase === 9) {                 // serving the sentence — DOING HARD TIME
+            // Doing time DRAGS now. A day ticks by slowly on its own; tapping is
+            // "hard labor" that grinds a little time off faster (mash to endure
+            // it). The sentence is much longer than before, and on release the
+            // system skims court costs off whatever coins she had. It's a real
+            // setback — not a 3-second skip.
+            if (jail.serveDays === undefined) jail.serveDays = jail.days || 0;
+            if (jail.serveRate === undefined) jail.serveRate = jail.total / clamp(20 + jail.total * 0.12, 20, 34);
+            jail.serveDays += dt * jail.serveRate;
+            if (jail.tapCool > 0) jail.tapCool -= dt;
+            if (jail.workFx > 0) jail.workFx -= dt;
+            if ((consumeClick() || consumeAction()) && jail.tapCool <= 0 && jail.days < jail.total) {
+                jail.serveDays += 0.6; jail.tapCool = 0.12; jail.workFx = 0.22;
+                playTone(380 + (jail.days % 5) * 28, 0.04, "square", 0.08);
+            }
+            jail.days = Math.min(jail.total, Math.floor(jail.serveDays));
+            // periodic jail-life vignettes so the grind stays funny, not dead air
+            jail.vigT = (jail.vigT === undefined ? 1.2 : jail.vigT) - dt;
+            if (jail.vigT <= 0 && jail.days < jail.total) {
+                spawnFloater(W / 2, H * 0.46, randPick(JAIL_LIFE), "#FFCC80");
+                jail.vigT = rand(2.6, 4.2);
+            }
             if (save.lockup && save.lockup.mode === "serving" && save.lockup.days !== jail.days) {
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
             }
-            if (jail.t > jail.total / 8.5 + 0.6) {
+            if (jail.days >= jail.total) {
+                // Released — the system takes its pound of flesh: court costs +
+                // commissary debt skim whatever coins she had on her.
+                var fees = Math.min(save.totalCoins || 0, 40 + jail.total * 2);
+                if (fees > 0) { save.totalCoins -= fees; persistSave(); }
                 clearLockup(); jail = null;
-                spawnFloater(player.x, player.y - 50, "Released — CAR IMPOUNDED!", "#FF8A80");
-                spawnFloater(player.x, player.y - 28, "Time served. You're walking. 🚶‍♀️", "#FFE082");
+                spawnFloater(player.x, player.y - 56, "Time served — CAR IMPOUNDED!", "#FF8A80");
+                if (fees > 0) spawnFloater(player.x, player.y - 34, "−" + fees + " 💰 court costs", "#FF8A80");
+                spawnFloater(player.x, player.y - 12, "You're walking. 🚶‍♀️", "#FFE082");
                 if (typeof startFootWorld === "function") startFootWorld("copWalk");
                 else if (typeof returnToDriving === "function") returnToDriving();
                 return;
@@ -21030,12 +21064,17 @@
         if (serving) {
             var total = jail.total || 30, day = Math.min(jail.days, total);
             drawText("⛓️ SERVING YOUR SENTENCE", W / 2, 34, "bold 24px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 5);
-            ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.fill();
-            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 128, 260, 80, 12); ctx.stroke();
-            drawText("DAY " + day + " / " + total, W / 2, H - 102, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
-            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 86, 208, 10, 5); ctx.fill();
-            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 86, 208 * (day / total), 10, 5); ctx.fill();
-            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 62, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
+            ctx.fillStyle = "rgba(0,0,0,0.66)"; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.fill();
+            ctx.strokeStyle = "#FF7043"; ctx.lineWidth = 2; roundRect(W / 2 - 130, H - 134, 260, 92, 12); ctx.stroke();
+            drawText("DAY " + day + " / " + total, W / 2, H - 110, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
+            ctx.fillStyle = "rgba(255,255,255,0.25)"; roundRect(W / 2 - 104, H - 94, 208, 10, 5); ctx.fill();
+            ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 104, H - 94, 208 * (day / total), 10, 5); ctx.fill();
+            // tap-to-grind prompt (pulses; brighter right after a tap)
+            var grindBl = (jail.workFx > 0 ? 1 : 0.55 + 0.45 * Math.abs(Math.sin(gameTime * 5)));
+            ctx.globalAlpha = grindBl;
+            drawText("⛏️ TAP to do your time", W / 2, H - 72, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            ctx.globalAlpha = 1;
+            drawText("car impounded — you'll walk out 🚶‍♀️", W / 2, H - 54, "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2);
             return;
         }
 
@@ -21156,10 +21195,33 @@
     // The escape lockpick timing minigame.
     function drawLockpick() {
         var lk = jail.lock, br = pickBarRect();
-        ctx.fillStyle = "rgba(0,0,0,0.82)"; roundRect(W / 2 - 170, H * 0.34, 340, 200, 14); ctx.fill();
-        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2; roundRect(W / 2 - 170, H * 0.34, 340, 200, 14); ctx.stroke();
-        drawText("🔓 PICK THE LOCK", W / 2, H * 0.34 + 24, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
-        drawText("TAP when the pick is in the green!", W / 2, H * 0.34 + 46, "bold 12px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
+        var boxY = H * 0.34, boxH = 200;
+        // a hot red flash over the whole box on a fresh miss
+        var missF = clamp((lk.missFx || 0) / 0.5, 0, 1);
+        ctx.fillStyle = "rgba(0,0,0,0.82)"; roundRect(W / 2 - 170, boxY, 340, boxH, 14); ctx.fill();
+        ctx.strokeStyle = missF > 0 ? "#FF1744" : "#FFD54F"; ctx.lineWidth = 2 + missF * 3; roundRect(W / 2 - 170, boxY, 340, boxH, 14); ctx.stroke();
+        drawText("🔓 PICK THE LOCK", W / 2, boxY + 24, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
+        drawText("TAP when the pick is in the green!", W / 2, boxY + 45, "bold 12px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
+
+        // ── STRIKES: big, bright red X's right under the title so they're unmissable ──
+        var sx0 = W / 2 - (lk.maxMiss - 1) * 22, sy = boxY + 72;
+        drawText("STRIKES", W / 2 - (lk.maxMiss) * 22 - 16, sy, "bold 11px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 2, "right");
+        for (var m = 0; m < lk.maxMiss; m++) {
+            var hit = m < lk.misses, cx = sx0 + m * 44;
+            // empty slot ring
+            ctx.strokeStyle = "rgba(255,255,255,0.22)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(cx, sy, 13, 0, Math.PI * 2); ctx.stroke();
+            if (hit) {
+                // the most-recent miss pops bigger
+                var fresh = (m === lk.misses - 1) ? missF : 0;
+                var sc = 1 + fresh * 0.7;
+                ctx.save(); ctx.translate(cx, sy); ctx.scale(sc, sc);
+                ctx.fillStyle = "rgba(255,23,68,0.28)"; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+                drawText("✖", 0, 0, "bold 26px Arial", "#FF1744", "#000", 3);
+                ctx.restore();
+            }
+        }
+
         // the bar
         ctx.fillStyle = "#263238"; roundRect(br.x, br.y, br.w, br.h, 6); ctx.fill();
         ctx.fillStyle = "#66BB6A"; roundRect(br.x + (lk.zoneC - lk.zoneW / 2) * br.w, br.y, lk.zoneW * br.w, br.h, 4); ctx.fill();
@@ -21167,20 +21229,22 @@
         var mx = br.x + lk.pos * br.w;
         ctx.fillStyle = "#FFEB3B"; ctx.fillRect(mx - 2, br.y - 8, 4, br.h + 16);
         ctx.beginPath(); ctx.moveTo(mx, br.y - 8); ctx.lineTo(mx - 6, br.y - 18); ctx.lineTo(mx + 6, br.y - 18); ctx.fill();
-        // pins progress + misses
+        // pins progress
         for (var p = 0; p < lk.pins; p++) {
             ctx.fillStyle = p < lk.done ? "#66BB6A" : "#546E7A";
-            ctx.beginPath(); ctx.arc(W / 2 - (lk.pins - 1) * 12 + p * 24, br.y + 54, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(W / 2 - (lk.pins - 1) * 12 + p * 24, br.y + 50, 6, 0, Math.PI * 2); ctx.fill();
         }
-        for (var m = 0; m < lk.maxMiss; m++)
-            drawText(m < lk.misses ? "✖" : "·", W / 2 - 18 + m * 18, br.y + 84, "bold 16px Arial", m < lk.misses ? "#FF5252" : "#607D8B", "#000", 2);
-        if (lk.result === "win") drawText("🔓 CLICK! You're out!", W / 2, H * 0.34 + 176, "bold 18px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 4);
-        else if (lk.result === "lose") drawText("🚨 CAUGHT! Back to your cell.", W / 2, H * 0.34 + 176, "bold 16px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 4);
+        if (lk.result === "win") drawText("🔓 CLICK! You're out!", W / 2, boxY + 178, "bold 18px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 4);
+        else if (lk.result === "lose") drawText("🚨 CAUGHT! Back to your cell.", W / 2, boxY + 178, "bold 16px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 4);
+        // a quick red wash across the whole screen on the miss for extra "ouch"
+        if (missF > 0) { ctx.fillStyle = "rgba(255,23,68," + (missF * 0.16) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     // ════════════════ COURTROOM ════════════════
     function openCourt(charges, lawyerTier) {
         var pool = DEFENSE_POOL.slice(), opts = [];
+        // If she already RETAINED counsel, "Demand a lawyer" makes no sense — drop it.
+        if (lawyerTier) pool = pool.filter(function (o) { return !o.demandLawyer; });
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
         // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
         opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
@@ -21215,8 +21279,9 @@
     // car impounded (→ on-foot mode). Sentence length scales with strikes.
     function serveTime() {
         prisonClothes = false;
-        var total = Math.min(90, 30 + Math.max(0, (save.convictions || 1) - 1) * 15);
-        jail = { phase: 9, t: 0, days: 0, total: total, charges: [], cellmateLine: "", cellmateT: 99, flash: 0, bail: 0 };
+        // Longer sentences that climb hard with priors — a real stretch now.
+        var total = Math.min(150, 45 + Math.max(0, (save.convictions || 1) - 1) * 25);
+        jail = { phase: 9, t: 0, days: 0, serveDays: 0, total: total, charges: [], cellmateLine: "", cellmateT: 99, flash: 0, bail: 0 };
         saveLockup("serving", [], 0, 0, total);
         state = "jailCell";
         playTone(110, 0.4, "square", 0.1);
@@ -22020,9 +22085,26 @@
         { label: "💊 The GOOD stuff, doc!", billMul: 2.0, extra: true, say: "Premium care! Extra heart on the house. Wheee~ 💕" },
         { label: "🏃 Skip the bill — RUN!", billMul: 0, extra: false, dash: true }
     ];
-    // What the doctor says when she bolts — and whether security nabs her.
-    var DASH_CLEAN = ["...and she's GONE. Little gonif. 🏃💨", "...vanished. In a HOSPITAL GOWN. Iconic.", "Security was on break. Lucky girl."];
-    var DASH_CAUGHT = ["Oh no you DON'T! SECURITY! 🚨", "Grab her — that gown is PROPERTY!", "Nice try. Guard's faster than you. 🚓"];
+    // ── Bill-skip ESCAPE cutscene content ──
+    // The way she TRIES to bolt (a random funny attempt, played out on screen).
+    var ER_ESCAPES = [
+        { attempt: "🪟 She DIVES through the ER window!", visual: "window" },
+        { attempt: "🥼 ...struts out in a stolen lab coat.", visual: "coat" },
+        { attempt: "♿ Wheelchair getaway — beep beep!", visual: "chair" },
+        { attempt: "🛏️ ...rides a runaway gurney like a sled!", visual: "gurney" },
+        { attempt: "🌀 ...up into the air vent, spy-movie style!", visual: "vent" }
+    ];
+    // If she makes it — a clean-getaway brag.
+    var ER_CLEAN = ["...and she's GONE. Little gonif. 🏃💨", "...vanished. In a HOSPITAL GOWN. Iconic.",
+        "Security was on a bagel break. 🥯", "Filmed her own escape for TikTok. #blessed",
+        "Hopped the bus in a gown. Nobody blinked."];
+    // If she's nabbed — the cop gets her in a DIFFERENT funny way each time.
+    var ER_CAUGHT = [
+        { line: "A sweet old lady blocks her — then rips off the shawl: IT'S A COP! 👵🚔", visual: "oldlady" },
+        { line: "She bursts outside — into a WALL of waiting cop cars. 🚓🚓🚓", visual: "cars" },
+        { line: "The 'doctor' clamps her shoulder — badge under the coat. 🩺🚔", visual: "doccop" },
+        { line: "A guard tackles her at the sliding doors. OOF. 🚨", visual: "guard" }
+    ];
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
@@ -22066,14 +22148,20 @@
                 var r = hospOptRect(i);
                 if (pointInRect(click.x, click.y, r.x, r.y, r.w, r.h)) {
                     var opt = hospital.options[i];
-                    hospital.choice = i; hospital.phase = 3; hospital.t = 0; hospital.typeT = 0;
-                    hospital.bill = Math.round(rand(25, 55) * opt.billMul);
+                    hospital.choice = i; hospital.t = 0; hospital.typeT = 0;
+                    consumeAction();   // drop this tap's queued action so it can't skip the cutscene
                     if (opt.dash) {
-                        // ~55% chance security nabs the bill-skipper → off to jail.
+                        // She BOLTS — play a random escape attempt. ~55% she's nabbed,
+                        // and if so the capture is its own random gag.
+                        hospital.escape = randPick(ER_ESCAPES);
+                        hospital.caughtGag = randPick(ER_CAUGHT);
+                        hospital.cleanLine = randPick(ER_CLEAN);
                         hospital.caught = Math.random() < 0.55;
-                        hospital.line = hospital.caught ? randPick(DASH_CAUGHT) : randPick(DASH_CLEAN);
-                        playTone(hospital.caught ? 200 : 520, 0.08, "square", 0.12);
+                        hospital.phase = 4; hospital.escT = 0;
+                        playTone(520, 0.08, "square", 0.12);
                     } else {
+                        hospital.phase = 3;
+                        hospital.bill = Math.round(rand(25, 55) * opt.billMul);
                         hospital.line = opt.say;
                         playTone(660, 0.06, "sine", 0.1);
                     }
@@ -22082,7 +22170,7 @@
             }
             return;
         }
-        if (hospital.phase === 3) {                 // result → discharge
+        if (hospital.phase === 3) {                 // result → discharge (paid care)
             if (!hospital.applied) {
                 hospital.applied = true;
                 var opt = hospital.options[hospital.choice];
@@ -22094,17 +22182,38 @@
             }
             if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
-                var dash = hospital.options[hospital.choice].dash, caught = hospital.caught;
                 hospital = null;
-                // Caught skipping the bill → straight into the arrest cinematic → jail.
-                if (dash && caught) {
-                    if (typeof beginArrest === "function") beginArrest(["SKIPPING A MEDICAL BILL", "GIVING A NURSE LIP"]);
-                    else if (typeof returnToDriving === "function") returnToDriving();
-                    return;
-                }
                 if (typeof returnToDriving === "function") returnToDriving();
-                spawnFloater(player.x, player.y - 50, dash ? "🏃 Got away with it!" : "🩹 Patched up — drive safe!", "#7CFC4F");
+                spawnFloater(player.x, player.y - 50, "🩹 Patched up — drive safe!", "#7CFC4F");
             }
+            return;
+        }
+        if (hospital.phase === 4) {                 // ESCAPE ATTEMPT (the funny try)
+            hospital.escT += dt;
+            if (hospital.escT > 2.3) {
+                if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; playTone(200, 0.12, "square", 0.14); }
+                else { hospital.phase = 6; hospital.t = 0; playTone(680, 0.1, "triangle", 0.16);
+                       setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110); }
+            }
+            return;
+        }
+        if (hospital.phase === 5) {                 // CAUGHT — the gag plays, then arrest
+            hospital.escT += dt;
+            if (hospital.escT > 2.4 || (hospital.escT > 1.0 && (consumeClick() || consumeAction()))) {
+                hospital = null;
+                if (typeof beginArrest === "function") beginArrest(["SKIPPING A MEDICAL BILL", "FLEEING IN A GOWN"]);
+                else if (typeof returnToDriving === "function") returnToDriving();
+            }
+            return;
+        }
+        if (hospital.phase === 6) {                 // CLEAN GETAWAY
+            hospital.t += dt;
+            if (hospital.t > 1.7 || consumeClick() || consumeAction()) {
+                hospital = null;
+                if (typeof returnToDriving === "function") returnToDriving();
+                spawnFloater(player.x, player.y - 50, "🏃 Skipped the bill — GONE!", "#7CFC4F");
+            }
+            return;
         }
     }
 
@@ -22143,6 +22252,10 @@
         ctx.fillStyle = "#FFCDD2"; roundRect(ivx - 8, 80, 16, 26, 4); ctx.fill();
         ctx.strokeStyle = "#EF9A9A"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ivx, 106); ctx.lineTo(W / 2 + 30, bedY); ctx.stroke();
 
+      if (hospital.phase >= 4) {
+        // she's not in bed anymore — she's making a break for it
+        drawErEscape(erFloor);
+      } else {
         // ── bed + Lulu lying down ──
         ctx.fillStyle = "#455A64"; roundRect(bedX - 6, bedY + bedH, 8, 34, 2); ctx.fill(); roundRect(bedX + bedW - 2, bedY + bedH, 8, 34, 2); ctx.fill();
         ctx.fillStyle = "#ECEFF1"; roundRect(bedX, bedY, bedW, bedH, 6); ctx.fill();      // mattress
@@ -22158,6 +22271,7 @@
 
         // ── the doctor at the bedside ──
         drawDoctor(W / 2 + 64, bedY - 6, gameTime, hospital.phase === 1 || hospital.phase === 3);
+      }
 
         // title
         drawText("🏥 THE ER", W / 2, 34, "bold 26px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 4);
@@ -22184,7 +22298,142 @@
             drawDialogueBox("DR. SHTERN", hospTyped(hospital.line), "doctor", "#80CBC4", hospital.t > 0.6 && d3, !d3);
             if (hospital.applied && hospital.bill > 0)
                 drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, H - 168, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+        } else if (hospital.phase === 4) {
+            // the escape ATTEMPT caption
+            erCaption(hospital.escape.attempt, "#FFE082");
+        } else if (hospital.phase === 5) {
+            // BUSTED gag caption (in red)
+            erCaption(hospital.caughtGag.line, "#FF8A80");
+            if (hospital.escT > 1.0) {
+                var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 6));
+                ctx.globalAlpha = bl; drawText("🚨 BUSTED 🚨", W / 2, H * 0.30, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF1744", "#000", 5); ctx.globalAlpha = 1;
+            }
+        } else if (hospital.phase === 6) {
+            erCaption(hospital.cleanLine, "#7CFC4F");
         }
+    }
+
+    // A centered caption card for the escape cutscene beats.
+    function erCaption(text, accent) {
+        ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
+        var lines = wrapLines(text, W - 80, "bold 15px 'Segoe UI', Arial, sans-serif");
+        var bh = 18 + lines.length * 20, by = H - bh - 40, bw = W - 36, bx = 18;
+        ctx.fillStyle = "rgba(10,20,18,0.86)"; roundRect(bx, by, bw, bh, 12); ctx.fill();
+        ctx.strokeStyle = accent; ctx.lineWidth = 2.5; roundRect(bx, by, bw, bh, 12); ctx.stroke();
+        for (var i = 0; i < lines.length; i++)
+            drawText(lines[i], W / 2, by + 16 + i * 20, "bold 15px 'Segoe UI', Arial, sans-serif", "#F3F8F4", "#000", 3);
+    }
+
+    // The bill-skip escape scene: a random funny attempt, then (if nabbed) a
+    // random funny capture. Drawn in the ER room above the floor line.
+    function drawErEscape(erFloor) {
+        var e = hospital, t = e.escT || 0, gy = erFloor - 24;
+        if (e.phase === 4) {
+            var prog = clamp(t / 2.3, 0, 1), v = e.escape.visual;
+            if (v === "window") {
+                drawErWindow(W * 0.5, 116);
+                // glass shards flying out
+                for (var g = 0; g < 7; g++) {
+                    var ga = g * 1.3, gd = prog * (40 + g * 9);
+                    ctx.fillStyle = "rgba(180,225,235,0.8)";
+                    ctx.save(); ctx.translate(W * 0.5 + Math.cos(ga) * gd, 116 + Math.abs(Math.sin(ga)) * gd * 0.7 + prog * 30); ctx.rotate(ga + prog * 4);
+                    ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(3, 3); ctx.lineTo(-3, 3); ctx.fill(); ctx.restore();
+                }
+                var lx = lerp(W * 0.5, W * 0.5 - 70, prog), ly = lerp(132, gy, prog);
+                ctx.save(); ctx.translate(lx, ly); ctx.rotate(-0.7 + prog * 1.3); drawLuluTopDown(0, 0, t * 7, "panic"); ctx.restore();
+            } else if (v === "coat") {
+                var cx = lerp(W * 0.36, W * 0.74, prog);
+                drawLuluTopDown(cx, gy, t * 4, "panic");
+                // a stolen lab coat draped over her + sunglasses
+                ctx.fillStyle = "rgba(250,250,250,0.92)"; roundRect(cx - 13, gy - 6, 26, 26, 7); ctx.fill();
+                ctx.fillStyle = "#222"; roundRect(cx - 7, gy - 16, 14, 4, 2); ctx.fill();   // shades
+                drawText("🥼", cx, gy + 30, "12px Arial", "#000", null, 0);
+            } else if (v === "chair") {
+                var wx = lerp(W * 0.3, W * 0.8, prog);
+                // wheelchair
+                ctx.strokeStyle = "#90A4AE"; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(wx - 8, gy + 16, 12, 0, Math.PI * 2); ctx.arc(wx + 10, gy + 16, 8, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = "#546E7A"; roundRect(wx - 12, gy + 2, 24, 6, 2); ctx.fill();
+                drawLuluTopDown(wx, gy - 4, t * 3, "panic");
+                // motion lines
+                ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
+                for (var ml = 0; ml < 3; ml++) { ctx.beginPath(); ctx.moveTo(wx - 26 - ml * 10, gy + ml * 6); ctx.lineTo(wx - 40 - ml * 10, gy + ml * 6); ctx.stroke(); }
+            } else if (v === "gurney") {
+                var gx = lerp(-50, W + 50, prog);
+                ctx.fillStyle = "#ECEFF1"; roundRect(gx - 34, gy, 68, 14, 5); ctx.fill();     // gurney bed
+                ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(gx - 22, gy + 18, 5, 0, Math.PI * 2); ctx.arc(gx + 22, gy + 18, 5, 0, Math.PI * 2); ctx.fill();
+                // Lulu's head + a flailing arm
+                ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(gx - 22, gy + 2, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(gx - 22, gy - 1, 8, Math.PI, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = C.skin; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx + 6, gy + 2); ctx.lineTo(gx + 14, gy - 8 + Math.sin(t * 20) * 4); ctx.stroke();
+                drawText("WHEEEE", gx, gy - 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
+            } else { // vent
+                drawErWindow(W * 0.5, 110, true);   // reuse as a vent grate
+                // her legs dangling out of the vent, kicking
+                var kick = Math.sin(t * 14) * 5;
+                ctx.fillStyle = "#ECEFF1"; roundRect(W * 0.5 - 8, 128, 6, 18 + kick, 3); ctx.fill(); roundRect(W * 0.5 + 2, 128, 6, 18 - kick, 3); ctx.fill();
+                ctx.fillStyle = "#FFF"; ctx.fillRect(W * 0.5 - 9, 144 + kick, 8, 4); ctx.fillRect(W * 0.5 + 1, 144 - kick, 8, 4);
+            }
+        } else {
+            // CAUGHT GAG
+            var v2 = e.caughtGag.visual;
+            if (v2 === "cars") {
+                for (var i = 0; i < 3; i++) drawCopCar(W * 0.24 + i * (W * 0.26), gy - 2, gameTime * 5);
+                drawLuluTopDown(W * 0.5, gy - 44, t * 4, "cry");
+            } else if (v2 === "oldlady") {
+                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
+                drawOldLadyCop(W * 0.60, gy, t);
+            } else if (v2 === "doccop") {
+                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
+                drawDoctor(W * 0.60, gy - 4, gameTime, false);
+                ctx.fillStyle = "#FFD700"; drawText("★", W * 0.60 + 10, gy - 4, "bold 16px Arial", "#FFD700", "#000", 2);   // hidden badge
+            } else { // guard
+                drawLuluTopDown(W * 0.40, gy, t * 3, "cry");
+                drawAngryMan(W * 0.58, gy, t, "running", -1, true);
+            }
+        }
+    }
+
+    // A shattered ER window (also reused as a vent grate).
+    function drawErWindow(cx, cy, grate) {
+        ctx.fillStyle = "#37474F"; roundRect(cx - 34, cy - 26, 68, 52, 5); ctx.fill();
+        ctx.fillStyle = grate ? "#546E7A" : "#9FD2E0"; roundRect(cx - 30, cy - 22, 60, 44, 4); ctx.fill();
+        if (grate) {
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2;
+            for (var s = -18; s <= 18; s += 8) { ctx.beginPath(); ctx.moveTo(cx - 30, cy + s); ctx.lineTo(cx + 30, cy + s); ctx.stroke(); }
+        } else {
+            // jagged broken hole
+            ctx.fillStyle = "#0A140F"; ctx.beginPath();
+            ctx.moveTo(cx - 18, cy - 14); ctx.lineTo(cx - 2, cy - 18); ctx.lineTo(cx + 16, cy - 10);
+            ctx.lineTo(cx + 12, cy + 12); ctx.lineTo(cx - 6, cy + 16); ctx.lineTo(cx - 20, cy + 4); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "#CFEFF6"; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+    }
+
+    // A "sweet old lady" who is actually a cop — shawl + bun, with a police cap
+    // popping up over it as the disguise drops.
+    function drawOldLadyCop(x, y, t) {
+        var reveal = clamp((t - 0.5) / 0.6, 0, 1);
+        ctx.save(); ctx.translate(x, y);
+        // body / shawl (triangle)
+        ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(-15, 24); ctx.lineTo(15, 24); ctx.closePath(); ctx.fill();
+        // head
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 9, 0, Math.PI * 2); ctx.fill();
+        // gray bun
+        ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -24, 4, 0, Math.PI * 2); ctx.fill();
+        // glasses + frown
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-3, -14, 2.2, 0, Math.PI * 2); ctx.arc(3, -14, 2.2, 0, Math.PI * 2); ctx.stroke();
+        // police cap slides up out of the bun on reveal
+        if (reveal > 0) {
+            ctx.save(); ctx.translate(0, -24 - reveal * 12); ctx.globalAlpha = reveal;
+            ctx.fillStyle = "#1A237E"; roundRect(-11, -6, 22, 8, 2); ctx.fill();
+            ctx.fillStyle = "#1A237E"; roundRect(-9, -10, 18, 5, 2); ctx.fill();
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -7, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+        ctx.restore();
+        drawText("👵🚔", x, y + 36, "13px Arial", "#000", null, 0);
     }
 
     // A white-coat doctor with a clipboard / stethoscope.
