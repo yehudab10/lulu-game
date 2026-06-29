@@ -144,6 +144,25 @@
         playTone(880, 0.08, "sine", 0.18, 1320);
         setTimeout(function () { playTone(1320, 0.08, "sine", 0.15, 1760); }, 60);
     }
+    // Coins LEAVING the bank — a descending "cha-ching... aww" cash-register drop.
+    function playCoinLoss() {
+        playTone(1320, 0.08, "sine", 0.16, 660);
+        setTimeout(function () { playTone(660, 0.12, "sine", 0.14, 440); }, 70);
+    }
+    // Charge coins from the persistent bank, with sound + a floating "−N 💰".
+    // Returns the amount actually paid (capped at what she has). Use everywhere a
+    // fine / fee / bill / bail comes out of her coins so it's always visible.
+    function chargeCoins(amount, fx, fy, label) {
+        amount = Math.max(0, Math.round(amount || 0));
+        var pay = Math.min(amount, save.totalCoins);
+        if (pay > 0) {
+            save.totalCoins -= pay; persistSave();
+            playCoinLoss();
+            if (typeof spawnFloater === "function" && typeof fx === "number")
+                spawnFloater(fx, fy, (label || "") + "−" + pay + " 💰", "#FF8A80");
+        }
+        return pay;
+    }
 
     function playWompWomp() {
         if (audioMuted) return;

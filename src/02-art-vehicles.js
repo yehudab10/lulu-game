@@ -660,6 +660,17 @@
         ctx.restore();
     }
 
+    // A compact "bank balance" chip (💰 N) for scenes where Lulu spends coins —
+    // court, the ER, jail — so she can watch fines/fees come out of her stash.
+    function drawCoinHud(x, y) {
+        var bw = 102, bh = 30;
+        var bx = (typeof x === "number") ? x : W - 116, by = (typeof y === "number") ? y : 14;
+        ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(bx, by, bw, bh, 15); ctx.fill();
+        ctx.strokeStyle = "rgba(255,215,0,0.5)"; ctx.lineWidth = 1.5; roundRect(bx, by, bw, bh, 15); ctx.stroke();
+        drawCoin(bx + 18, by + 15, gameTime);
+        drawText(formatNum(save.totalCoins), bx + 34, by + 16, "bold 16px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 3, "left");
+    }
+
     // ── Drawing: Pedestrians (people obstacles) ──────────────
     function drawPedestrian(x, y, walkTime, type, worker, drunk, cop, kid) {
         ctx.save();

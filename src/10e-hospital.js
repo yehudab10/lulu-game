@@ -319,8 +319,7 @@
                     }
                 }
                 if (hospital.bill > 0) {
-                    var pay = Math.min(hospital.bill, save.totalCoins);
-                    save.totalCoins -= pay; persistSave(); hospital.paid = pay;
+                    hospital.paid = chargeCoins(hospital.bill);   // medical bill out of her coins
                 }
                 lives = Math.max(1, (typeof lives !== "undefined" ? lives : 1) + (opt.extra ? 1 : 0));
             }
@@ -339,9 +338,7 @@
                 if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; shakeTimer = 0.25; shakeIntensity = 5; playTone(200, 0.12, "square", 0.14);
                     // Nabbed → the bill she tried to skip gets collected at booking,
                     // so getting caught ALWAYS stings even if the court later lets her off.
-                    var owed = Math.min(hospital.skippedBill || 0, save.totalCoins);
-                    if (owed > 0) { save.totalCoins -= owed; persistSave(); }
-                    hospital.billCollected = owed;
+                    hospital.billCollected = chargeCoins(hospital.skippedBill || 0);
                 }
                 else { hospital.phase = 6; hospital.t = 0; playTone(680, 0.1, "triangle", 0.16);
                        setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110); }
@@ -431,7 +428,7 @@
         ctx.strokeStyle = "#E0E0E0"; ctx.lineWidth = 2; roundRect(-26, -26, 52, 52, 10); ctx.stroke();
         ctx.fillStyle = "#E53935"; ctx.fillRect(-7, -19, 14, 38); ctx.fillRect(-19, -7, 38, 14);
         ctx.restore();
-        drawErClock(W * 0.86, 44, 17);                                            // wall clock (top-right)
+        drawErClock(W * 0.86, 92, 17);                                            // wall clock (clear of the coin HUD)
         // eye-chart poster (upper-left)
         ctx.fillStyle = "#FFF"; roundRect(20, 30, 40, 50, 3); ctx.fill();
         ctx.fillStyle = "#37474F";
@@ -564,6 +561,7 @@
 
         // title
         drawText("🏥 THE ER", W / 2, 34, "bold 26px 'Segoe UI', Arial, sans-serif", "#00897B", "#FFF", 4);
+        drawCoinHud();   // her coin bank — watch the bill come out of it
 
         // ── phase overlays ──
         if (hospital.phase === 0) {

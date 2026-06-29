@@ -483,9 +483,8 @@
                 if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
                 if (pointInRect(click.x, click.y, br.x, br.y, br.w, br.h)) {
                     if (save.totalCoins >= jail.bail) {
-                        save.totalCoins -= jail.bail; persistSave();
-                        var paid = jail.bail; clearLockup(); jail = null; prisonClothes = false;
-                        playTone(784, 0.1, "triangle", 0.18);
+                        var paid = chargeCoins(jail.bail);   // bail out of her coins
+                        clearLockup(); jail = null; prisonClothes = false;
                         beginExitScene("police", "drive", "💰 Bailed out! −" + paid + " 💰");
                     } else {
                         playTone(180, 0.15, "square", 0.15);
@@ -511,9 +510,8 @@
                             playTone(523, 0.08, "triangle", 0.14); setTimeout(function () { playTone(784, 0.1, "triangle", 0.16); }, 110);
                             openCourt(jail.charges, tier);
                         } else if (save.totalCoins >= fee) {
-                            save.totalCoins -= fee; persistSave();
+                            chargeCoins(fee);   // lawyer's retainer out of her coins
                             spawnFloater(W / 2, H * 0.40, "🤵 " + tier.name + " retained! −" + fee, "#7CFC4F");
-                            playTone(660, 0.08, "triangle", 0.16);
                             openCourt(jail.charges, tier);
                         } else { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.40, "Can't afford " + tier.name + "! 😬", "#FF8A80"); }
                         return;
@@ -611,8 +609,7 @@
             if (jail.days >= jail.total) {
                 // Released — the system takes its pound of flesh: court costs +
                 // commissary debt skim whatever coins she had on her.
-                var fees = Math.min(save.totalCoins || 0, 40 + jail.total * 2);
-                if (fees > 0) { save.totalCoins -= fees; persistSave(); }
+                var fees = chargeCoins(40 + jail.total * 2);   // court costs out of her coins
                 clearLockup(); jail = null;
                 // walks out the jail doors — but her car's impounded, so she's on foot
                 beginExitScene("jail", "foot", fees > 0 ? "⛓️ Time served · −" + fees + " 💰 court costs" : "⛓️ Time served — you're free!", "copWalk");
@@ -800,6 +797,7 @@
 
         // ── arrival title + charge sheet (parchment) ──
         drawText("🚔 BOOKED!", W / 2, 30, "bold 30px 'Segoe UI', Arial, sans-serif", "#FF7043", "#000", 6);
+        drawCoinHud(14, 14);   // her coin bank — bail/lawyer/fees come out of it
         var sy = 116, sh = 22 + jail.charges.length * 15;
         ctx.fillStyle = "#E8DBB5"; roundRect(W / 2 - 130, sy, 260, sh, 6); ctx.fill();
         ctx.strokeStyle = "#9E8A5A"; ctx.lineWidth = 2; roundRect(W / 2 - 130, sy, 260, sh, 6); ctx.stroke();
@@ -1171,8 +1169,8 @@
             if (!court.applied) {
                 court.applied = true;
                 if (court.verdict === "fine") {
-                    var pay = Math.min(court.fine, save.totalCoins);
-                    save.totalCoins -= pay; persistSave(); court.paid = pay; court.couldnt = pay < court.fine;
+                    court.couldnt = court.fine > save.totalCoins;
+                    court.paid = chargeCoins(court.fine);   // out of her coins (cash-register drop)
                 }
             }
             if (court.t > 0.7 && consumeTap()) {
@@ -1441,6 +1439,8 @@
         if (pri > 0)
             drawText(pri >= 2 ? "⚠️ 3RD STRIKE — NO MERCY" : "PRIORS: " + pri + " strike" + (pri > 1 ? "s" : ""),
                 dkX + dkW / 2, dkY + 33 + court.charges.length * 13, "bold 8px 'Segoe UI', Arial, sans-serif", pri >= 2 ? "#FF5252" : "#FFB300", "#000", 2);
+        // her coin bank, under the docket — so the fine visibly comes out of it
+        drawCoinHud(W - 116, dkY + dkH + 8);
 
         // ── phase overlays ──
         if (court.phase === 0) {
