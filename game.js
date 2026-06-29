@@ -6197,6 +6197,10 @@
         // — a chase, a stale combo/honk-chain inflating score, a hitchhiker frozen
         // on the shoulder, leftover screen effects, or a mid-interaction buff.
         // (Score, coins, lives, and the player's vehicle persist — it's the SAME run.)
+        // BUT never resume driving with 0 hearts: a fatal crash can route to the ER
+        // (entered at lives 0); if she then escapes/gets released back to the road,
+        // she'd be drivable-but-dead and die on the next tap. Floor at 1.
+        lives = Math.max(lives, 1);
         copChase = null; copBust = null; copStop = null;
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
@@ -22601,6 +22605,7 @@
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
+                    : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -22669,6 +22674,33 @@
             ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.4;   // round granny glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
             ctx.fillStyle = "rgba(255,140,140,0.45)"; ctx.beginPath(); ctx.arc(cx - hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.arc(cx + hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "hillel") {
+            // thinning brown hair + black yarmulke, glasses, worried brows, crooked tie
+            ctx.fillStyle = "#4E342E";
+            ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy - hr * 0.3, hr * 0.46, Math.PI, 0); ctx.arc(cx + hr * 0.5, cy - hr * 0.3, hr * 0.46, Math.PI, 0); ctx.fill();
+            ctx.fillRect(cx - hr * 1.0, cy - hr * 0.3, hr * 0.28, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.3, hr * 0.28, hr * 0.6);
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.66, hr * 0.44, Math.PI, 0); ctx.fill();   // yarmulke
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.3;   // glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
+            ctx.strokeStyle = "#4E342E"; ctx.lineWidth = 1.3;   // worried brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.42); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.3); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.3); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.42); ctx.stroke();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // collar
+            ctx.save(); ctx.translate(cx, cy + hr * 0.6); ctx.rotate(0.2);
+            ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.moveTo(-2.8, 0); ctx.lineTo(2.8, 0); ctx.lineTo(2, hr * 0.62); ctx.lineTo(-2, hr * 0.62); ctx.closePath(); ctx.fill(); ctx.restore();
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(cx + hr * 0.62, cy + hr * 0.12, hr * 0.12, 0, Math.PI * 2); ctx.fill();   // sweat
+        } else if (type === "raphael") {
+            // balding gray sides + shiny pate, heavy brows, thick mustache, gold chain
+            ctx.fillStyle = "#455A64";
+            ctx.beginPath(); ctx.arc(cx - hr * 0.66, cy - hr * 0.18, hr * 0.5, Math.PI * 0.6, Math.PI * 1.9); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + hr * 0.66, cy - hr * 0.18, hr * 0.5, Math.PI * 1.1, Math.PI * 0.4); ctx.fill();
+            ctx.fillRect(cx - hr * 1.02, cy - hr * 0.22, hr * 0.28, hr * 0.7); ctx.fillRect(cx + hr * 0.74, cy - hr * 0.22, hr * 0.28, hr * 0.7);
+            ctx.fillStyle = "rgba(255,255,255,0.13)"; ctx.beginPath(); ctx.ellipse(cx - hr * 0.12, cy - hr * 0.5, hr * 0.32, hr * 0.15, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2;   // heavy brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.55, cy - hr * 0.3); ctx.lineTo(cx - hr * 0.12, cy - hr * 0.22); ctx.moveTo(cx + hr * 0.12, cy - hr * 0.22); ctx.lineTo(cx + hr * 0.55, cy - hr * 0.3); ctx.stroke();
+            ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.34, hr * 0.5, hr * 0.18, 0, 0, Math.PI * 2); ctx.fill();   // mustache
+            ctx.fillStyle = "#4A148C"; ctx.beginPath(); ctx.moveTo(cx, cy + hr * 0.5); ctx.lineTo(cx - hr * 0.42, cy + hr * 1.1); ctx.lineTo(cx + hr * 0.42, cy + hr * 1.1); ctx.closePath(); ctx.fill();   // open collar
+            ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.55, hr * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.95, hr * 0.12, 0, Math.PI * 2); ctx.fill();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);
@@ -22685,7 +22717,7 @@
             ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
         }
         // mouth — flaps open/closed while talking, neutral otherwise
-        var my = cy + hr * (type === "prosecutor" ? 0.62 : 0.5);
+        var my = cy + hr * (type === "prosecutor" || type === "raphael" ? 0.62 : 0.5);
         if (talking) {
             var open = hr * (0.08 + Math.abs(Math.sin(gameTime * 15)) * 0.16);
             ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(cx, my, hr * 0.2, open, 0, 0, Math.PI * 2); ctx.fill();
@@ -22902,16 +22934,53 @@
                  "Discounted. Hold still and tell me EVERYTHING."]
     };
 
+    // ── THE IN-LAWS drop by the bedside (Tammy texted the family group chat) ──
+    // HILLEL — Tammy's husband. A nervous, perpetually-between-jobs actuary who
+    //   STILL talks like he sells car insurance (his last gig, sort of). He frets
+    //   in statistics and means well. If he visits and Lulu pays for care, he'll
+    //   "file the claim" — sometimes it lands (discount!), sometimes it's denied.
+    var HILLEL_LINES = [
+        "Tammy texted me. Actuarially, Lulu, your crash rate is... off the charts.",
+        "I ran your numbers on the drive over. You're a 94th-percentile risk. Yikes.",
+        "I'd put this through insurance, but they, ah... let me go on Tuesday.",
+        "Between jobs right now! But statistically, SOMETHING'll turn up, right?",
+        "As your former-ish insurance guy: please, PLEASE stop totaling cars.",
+        "I updated your premium in my head. It made me a little nauseous."
+    ];
+    // RAPHAEL — the uncle. Stout, smug, gold chain, cigar. Adores Hillel ("mein
+    //   kind"), needles Lulu, can't stand Tammy, and once talked Hillel into a
+    //   $2,000 "miracle" turbo part that never worked (he'll bring it up).
+    var RAPHAEL_LINES = [
+        "Oy, THIS one. Always was the clumsy little niece, nu?",
+        "Hillel! Mein kind — did you tell her about the turbo I found you? A METSIAH.",
+        "Two THOUSAND dollars that part, and feh, never worked. But Hillel TRIED. Good boy.",
+        "Your sister Tammy? Don't get me started. But Hillel — Hillel is FAMILY.",
+        "In MY day we didn't crash cars, we DROVE them. Properly.",
+        "I'd lend you gelt for the bill, but, eh... I'm saving it. For Hillel."
+    ];
+    // Build the (possibly empty) bedside-visit script for this ER trip.
+    function buildErVisit() {
+        var roll = Math.random();
+        var hillel = { who: "HILLEL", p: "hillel", accent: "#90CAF9", text: randPick(HILLEL_LINES) };
+        var raph   = { who: "UNCLE RAPHAEL", p: "raphael", accent: "#FFB74D", text: randPick(RAPHAEL_LINES) };
+        if (roll < 0.30) return { lines: [hillel], hillel: true };               // Hillel solo
+        if (roll < 0.54) return { lines: [raph], hillel: false };                // Raphael solo
+        if (roll < 0.70) return { lines: [hillel, raph], hillel: true };         // both — Raph undercuts
+        return { lines: [], hillel: false };                                     // nobody today
+    }
+
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
         save.erVisits = (save.erVisits || 0) + 1; persistSave();
         var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
         // Tammy's working today (she always is). Her mood sets the bill multiplier.
         var moods = ["sweet", "scold", "gossip"], tm = randPick(moods);
+        var visit = buildErVisit();
         hospital = { phase: 0, t: 0, typeT: 0, reason: reason || "crash",
                      diagnosis: randPick(DIAGNOSES), greet: greet,
                      options: HOSP_OPTIONS, choice: -1, bill: 0, applied: false, ekg: 0, line: null,
                      caught: false, lines: null, li: 0,
+                     visit: visit.lines, visitStep: 0, hillelVisited: visit.hillel, claimMsg: null,
                      tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.0,
                      tammyGreet: randPick(TAMMY_GREET[tm]), tammyCare: randPick(TAMMY_CARE[tm]) };
         copChase = null; copBust = null; copStop = null;
@@ -22971,7 +23040,26 @@
         if (hospital.phase === 7) {                 // NURSE TAMMY recognizes her sister
             if (consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
-                hospital.phase = 2; hospital.t = 0;
+                if (hospital.visit && hospital.visit.length) {   // the in-laws dropped by
+                    hospital.phase = 8; hospital.visitStep = 0; hospital.t = 0; hospital.typeT = 0;
+                    hospital.line = hospital.visit[0].text;
+                    playTone(hospital.visit[0].p === "hillel" ? 500 : 300, 0.08, "sine", 0.08);
+                } else {
+                    hospital.phase = 2; hospital.t = 0;
+                }
+            }
+            return;
+        }
+        if (hospital.phase === 8) {                 // family bedside visit (Hillel / Raphael)
+            if (consumeTap()) {
+                if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
+                hospital.visitStep++;
+                if (hospital.visitStep >= hospital.visit.length) {
+                    hospital.phase = 2; hospital.t = 0;
+                } else {
+                    hospital.typeT = 0; hospital.line = hospital.visit[hospital.visitStep].text;
+                    playTone(hospital.visit[hospital.visitStep].p === "hillel" ? 500 : 300, 0.08, "sine", 0.08);
+                }
             }
             return;
         }
@@ -22990,6 +23078,7 @@
                         hospital.caughtGag = randPick(ER_CAUGHT);
                         hospital.cleanLine = randPick(ER_CLEAN);
                         hospital.caught = Math.random() < 0.55;
+                        hospital.skippedBill = randInt(30, 60);   // what she owes if nabbed
                         hospital.phase = 4; hospital.escT = 0;
                         playTone(520, 0.08, "square", 0.12);
                     } else {
@@ -23008,6 +23097,18 @@
             if (!hospital.applied) {
                 hospital.applied = true;
                 var opt = hospital.options[hospital.choice];
+                // If Hillel dropped by, he "files the claim" on her behalf — his
+                // old insurance instincts kick in. Sometimes it lands (a discount),
+                // sometimes it's denied (he doesn't actually work there anymore).
+                if (hospital.hillelVisited && hospital.bill > 0) {
+                    if (Math.random() < 0.55) {
+                        var cut = Math.round(hospital.bill * rand(0.4, 0.6));
+                        hospital.bill -= cut; hospital.claim = cut;
+                        hospital.claimMsg = "📋 Hillel filed your claim — APPROVED! −★" + cut;
+                    } else {
+                        hospital.claimMsg = "📋 Hillel's claim DENIED — he doesn't work there anymore. 😬";
+                    }
+                }
                 if (hospital.bill > 0) {
                     var pay = Math.min(hospital.bill, save.totalCoins);
                     save.totalCoins -= pay; persistSave(); hospital.paid = pay;
@@ -23026,7 +23127,13 @@
             hospital.escT += dt;
             erSpawnFx();
             if (hospital.escT > 2.3) {
-                if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; shakeTimer = 0.25; shakeIntensity = 5; playTone(200, 0.12, "square", 0.14); }
+                if (hospital.caught) { hospital.phase = 5; hospital.escT = 0; shakeTimer = 0.25; shakeIntensity = 5; playTone(200, 0.12, "square", 0.14);
+                    // Nabbed → the bill she tried to skip gets collected at booking,
+                    // so getting caught ALWAYS stings even if the court later lets her off.
+                    var owed = Math.min(hospital.skippedBill || 0, save.totalCoins);
+                    if (owed > 0) { save.totalCoins -= owed; persistSave(); }
+                    hospital.billCollected = owed;
+                }
                 else { hospital.phase = 6; hospital.t = 0; playTone(680, 0.1, "triangle", 0.16);
                        setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110); }
             }
@@ -23227,9 +23334,13 @@
         drawErEscape(erFloor);
       } else {
         drawErBed(bedX, bedY, bedW, bedH);
-        // ── the doctor (right) + Nurse Tammy, Lulu's sister (left) at the bedside ──
-        drawDoctor(W / 2 + 72, bedY - 6, gameTime, hospital.phase === 1);
-        drawNurse(W / 2 - 74, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3);
+        // ── bedside: Nurse Tammy (left) always; the right slot is the doctor,
+        //    or — during the family visit — Hillel or Uncle Raphael. ──
+        var visP = (hospital.phase === 8 && hospital.visit[hospital.visitStep]) ? hospital.visit[hospital.visitStep].p : null;
+        if (visP === "hillel") drawHillel(W / 2 + 74, bedY - 6, gameTime, true);
+        else if (visP === "raphael") drawRaphael(W / 2 + 74, bedY - 6, gameTime, true);
+        else drawDoctor(W / 2 + 72, bedY - 6, gameTime, hospital.phase === 1);
+        drawNurse(W / 2 - 74, bedY - 6, gameTime, hospital.phase === 7 || hospital.phase === 3 || hospital.phase === 8);
       }
 
         // soft vignette to frame the lit scene
@@ -23251,6 +23362,11 @@
             var d7 = hospDone(hospital.line);
             drawDialogueBox("NURSE TAMMY", hospTyped(hospital.line), "tammy", "#F48FB1", d7, !d7);
             drawText("👩‍⚕️ your big SISTER works here!", W / 2, H - 168, "bold 12px 'Segoe UI', Arial, sans-serif", "#F8BBD0", "#000", 3);
+        } else if (hospital.phase === 8) {
+            var v8 = hospital.visit[hospital.visitStep], d8 = hospDone(hospital.line);
+            drawDialogueBox(v8.who, hospTyped(hospital.line), v8.p, v8.accent, d8, !d8);
+            drawText(v8.p === "hillel" ? "🧮 Tammy's husband — the actuary (between jobs)" : "💢 your uncle — adores Hillel, not you",
+                W / 2, H - 168, "bold 12px 'Segoe UI', Arial, sans-serif", v8.p === "hillel" ? "#BBDEFB" : "#FFE0B2", "#000", 3);
         } else if (hospital.phase === 2) {
             ctx.fillStyle = "rgba(0,40,38,0.78)"; roundRect(14, H - 200, W - 28, 190, 12); ctx.fill();
             ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 200, W - 28, 190, 12); ctx.stroke();
@@ -23265,6 +23381,9 @@
             var d3 = hospDone(hospital.line);
             drawDialogueBox("NURSE TAMMY", hospTyped(hospital.line), "tammy", "#F48FB1", hospital.t > 0.6 && d3, !d3);
             if (hospital.applied) {
+                if (hospital.claimMsg)
+                    drawText(hospital.claimMsg, W / 2, H - 202, "bold 12px 'Segoe UI', Arial, sans-serif",
+                        hospital.claim ? "#90CAF9" : "#FFAB91", "#000", 3);
                 if (hospital.tammyDiscount < 1)
                     drawText("👩‍⚕️ family discount applied!", W / 2, H - 186, "bold 12px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
                 if (hospital.bill > 0)
@@ -23281,6 +23400,9 @@
             if (hospital.escT > 1.0) {
                 var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 6));
                 ctx.globalAlpha = bl; drawText("🚨 BUSTED 🚨", W / 2, H * 0.30, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF1744", "#000", 5); ctx.globalAlpha = 1;
+                if (hospital.billCollected > 0)
+                    drawText("🧾 they collected your ★" + hospital.billCollected + " bill anyway", W / 2, H * 0.30 + 26,
+                        "bold 12px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
             }
         } else if (hospital.phase === 6) {
             erCaption(hospital.cleanLine, "#7CFC4F");
@@ -23527,6 +23649,94 @@
         else { ctx.strokeStyle = "#A0394D"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(0, -14, 2, 0.12 * Math.PI, 0.88 * Math.PI); ctx.stroke(); }
         ctx.restore();
         drawText("NURSE TAMMY", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#EC407A", "#FFF", 2);
+    }
+
+    // HILLEL — Tammy's husband. A sweaty, between-jobs actuary who still dresses
+    // like the car-insurance guy he used to be: pale button-down, crooked navy
+    // tie, black yarmulke, glasses, and a calculator he can't put down.
+    function drawHillel(x, y, t, talking) {
+        var fid = Math.sin(t * 3) * 0.04;   // nervous little sway
+        ctx.save(); ctx.translate(x, y); ctx.rotate(fid);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 28, 14, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // gray slacks + brown shoes
+        ctx.fillStyle = "#546E7A"; roundRect(-6, 12, 5, 16, 2); ctx.fill(); roundRect(1, 12, 5, 16, 2); ctx.fill();
+        ctx.fillStyle = "#5D4037"; roundRect(-7, 26, 8, 4, 2); ctx.fill(); roundRect(0, 26, 8, 4, 2); ctx.fill();
+        // pale-blue button-down shirt
+        ctx.fillStyle = "#BBDEFB"; roundRect(-12, -10, 24, 24, 5); ctx.fill();
+        ctx.fillStyle = "#90CAF9"; ctx.fillRect(-1, -10, 2, 24);                 // button placket
+        // crooked navy tie (he's a bit of a mess)
+        ctx.save(); ctx.translate(0, -8); ctx.rotate(0.2);
+        ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.moveTo(-2.5, 0); ctx.lineTo(2.5, 0); ctx.lineTo(2, 16); ctx.lineTo(-2, 16); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        // arm clutching a calculator (the actuary)
+        ctx.fillStyle = "#BBDEFB"; roundRect(-16, -6, 5, 13, 2); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-21, -2, 9, 11, 1); ctx.fill();     // calculator body
+        ctx.fillStyle = "#80DEEA"; roundRect(-20, -1, 7, 3, 1); ctx.fill();      // screen
+        ctx.fillStyle = "#90A4AE"; for (var rr = 0; rr < 2; rr++) for (var cc = 0; cc < 3; cc++) ctx.fillRect(-20 + cc * 2.4, 3 + rr * 2.4, 1.4, 1.4);
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -18, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -18, 7.6, 0, Math.PI * 2); ctx.fill();
+        // thinning hair: receding tufts + sideburns
+        ctx.fillStyle = "#4E342E";
+        ctx.beginPath(); ctx.arc(-4.5, -20, 2.8, Math.PI, 0); ctx.arc(4.5, -20, 2.8, Math.PI, 0); ctx.fill();
+        ctx.fillRect(-7.6, -19, 2.2, 5); ctx.fillRect(5.4, -19, 2.2, 5);
+        // black yarmulke on the crown
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -23.5, 4.6, Math.PI, 0); ctx.fill();
+        // glasses
+        ctx.strokeStyle = "#263238"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(-2.6, -18, 2.2, 0, Math.PI * 2); ctx.arc(2.6, -18, 2.2, 0, Math.PI * 2); ctx.moveTo(-0.4, -18); ctx.lineTo(0.4, -18); ctx.stroke();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -18, 0.9, 0, Math.PI * 2); ctx.arc(2.6, -18, 0.9, 0, Math.PI * 2); ctx.fill();
+        // worried raised brows
+        ctx.strokeStyle = "#4E342E"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-5, -22.5); ctx.lineTo(-1, -21.5); ctx.moveTo(1, -21.5); ctx.lineTo(5, -22.5); ctx.stroke();
+        // a nervous sweat bead
+        ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(6.4, -15 + Math.abs(Math.sin(t * 4)) * 1.6, 1.4, 0, Math.PI * 2); ctx.fill();
+        // mouth
+        if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -12, 1.5, 0.8 + Math.abs(Math.sin(t * 15)) * 1.3, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0, -11, 1.8, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke(); }
+        ctx.restore();
+        drawText("HILLEL", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#42A5F5", "#FFF", 2);
+    }
+
+    // UNCLE RAPHAEL — stout and smug, gold chain over an open silk shirt, a cigar,
+    // a balding pate with slicked gray sides and a thick mustache. Loves Hillel,
+    // tolerates no one else.
+    function drawRaphael(x, y, t, talking) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 28, 16, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+        // dark slacks + black loafers
+        ctx.fillStyle = "#37474F"; roundRect(-7, 13, 6, 15, 2); ctx.fill(); roundRect(1, 13, 6, 15, 2); ctx.fill();
+        ctx.fillStyle = "#212121"; roundRect(-9, 26, 9, 4, 2); ctx.fill(); roundRect(0, 26, 9, 4, 2); ctx.fill();
+        // round belly in a flashy purple shirt
+        ctx.fillStyle = "#6A1B9A"; roundRect(-15, -10, 30, 26, 9); ctx.fill();
+        ctx.fillStyle = "#4A148C"; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-6, 7); ctx.lineTo(6, 7); ctx.closePath(); ctx.fill();   // open collar
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(-4, 3); ctx.lineTo(4, 3); ctx.closePath(); ctx.fill();        // chest
+        // gold chain
+        ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, -6, 5, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0, -0.5, 1.4, 0, Math.PI * 2); ctx.fill();
+        // arm with a cigar (+ a curl of smoke) and a pinky ring
+        ctx.fillStyle = "#6A1B9A"; roundRect(11, -6, 6, 12, 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(15, 7, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFD700"; ctx.fillRect(13.4, 7.4, 1.6, 1.6);
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(16, 6, 9, 2.4);
+        ctx.fillStyle = "#FF7043"; ctx.fillRect(24.6, 6, 1.6, 2.4);
+        ctx.fillStyle = "rgba(200,200,200,0.45)"; ctx.beginPath(); ctx.arc(26 + Math.sin(t * 3) * 1.5, 2 - ((t * 6) % 8), 1.7, 0, Math.PI * 2); ctx.fill();
+        // jowly head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -19, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -19, 8.6, 0, Math.PI * 2); ctx.fill();
+        // balding — slicked gray sides + a shiny pate
+        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(-6, -21, 3.6, Math.PI * 0.7, Math.PI * 1.9); ctx.fill(); ctx.beginPath(); ctx.arc(6, -21, 3.6, Math.PI * 1.1, Math.PI * 0.3); ctx.fill();
+        ctx.fillStyle = "#546E7A"; ctx.fillRect(-8.8, -20, 2.4, 7); ctx.fillRect(6.4, -20, 2.4, 7);
+        ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.beginPath(); ctx.ellipse(-1.5, -24, 3.4, 1.6, -0.3, 0, Math.PI * 2); ctx.fill();
+        // smug half-lidded eyes + heavy brows
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-3, -19, 1.1, 0, Math.PI * 2); ctx.arc(3, -19, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-5.5, -22); ctx.lineTo(-1, -21); ctx.moveTo(1, -21); ctx.lineTo(5.5, -22); ctx.stroke();
+        // thick mustache
+        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.ellipse(0, -13.5, 5, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        // smug mouth under the mustache
+        if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -10, 1.8, 0.8 + Math.abs(Math.sin(t * 15)) * 1.2, 0, 0, Math.PI * 2); ctx.fill(); }
+        else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(-2.6, -10); ctx.quadraticCurveTo(0, -8.6, 2.6, -10.6); ctx.stroke(); }
+        ctx.restore();
+        drawText("UNCLE RAPHAEL", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", "#FB8C00", "#FFF", 2);
     }
 
     var lastDispatchState = null;

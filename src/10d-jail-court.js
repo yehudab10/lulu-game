@@ -1604,6 +1604,7 @@
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
+                    : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -1672,6 +1673,33 @@
             ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.4;   // round granny glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
             ctx.fillStyle = "rgba(255,140,140,0.45)"; ctx.beginPath(); ctx.arc(cx - hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.arc(cx + hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "hillel") {
+            // thinning brown hair + black yarmulke, glasses, worried brows, crooked tie
+            ctx.fillStyle = "#4E342E";
+            ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy - hr * 0.3, hr * 0.46, Math.PI, 0); ctx.arc(cx + hr * 0.5, cy - hr * 0.3, hr * 0.46, Math.PI, 0); ctx.fill();
+            ctx.fillRect(cx - hr * 1.0, cy - hr * 0.3, hr * 0.28, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.3, hr * 0.28, hr * 0.6);
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.66, hr * 0.44, Math.PI, 0); ctx.fill();   // yarmulke
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.3;   // glasses
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
+            ctx.strokeStyle = "#4E342E"; ctx.lineWidth = 1.3;   // worried brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.42); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.3); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.3); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.42); ctx.stroke();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // collar
+            ctx.save(); ctx.translate(cx, cy + hr * 0.6); ctx.rotate(0.2);
+            ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.moveTo(-2.8, 0); ctx.lineTo(2.8, 0); ctx.lineTo(2, hr * 0.62); ctx.lineTo(-2, hr * 0.62); ctx.closePath(); ctx.fill(); ctx.restore();
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(cx + hr * 0.62, cy + hr * 0.12, hr * 0.12, 0, Math.PI * 2); ctx.fill();   // sweat
+        } else if (type === "raphael") {
+            // balding gray sides + shiny pate, heavy brows, thick mustache, gold chain
+            ctx.fillStyle = "#455A64";
+            ctx.beginPath(); ctx.arc(cx - hr * 0.66, cy - hr * 0.18, hr * 0.5, Math.PI * 0.6, Math.PI * 1.9); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + hr * 0.66, cy - hr * 0.18, hr * 0.5, Math.PI * 1.1, Math.PI * 0.4); ctx.fill();
+            ctx.fillRect(cx - hr * 1.02, cy - hr * 0.22, hr * 0.28, hr * 0.7); ctx.fillRect(cx + hr * 0.74, cy - hr * 0.22, hr * 0.28, hr * 0.7);
+            ctx.fillStyle = "rgba(255,255,255,0.13)"; ctx.beginPath(); ctx.ellipse(cx - hr * 0.12, cy - hr * 0.5, hr * 0.32, hr * 0.15, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 2;   // heavy brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.55, cy - hr * 0.3); ctx.lineTo(cx - hr * 0.12, cy - hr * 0.22); ctx.moveTo(cx + hr * 0.12, cy - hr * 0.22); ctx.lineTo(cx + hr * 0.55, cy - hr * 0.3); ctx.stroke();
+            ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.ellipse(cx, cy + hr * 0.34, hr * 0.5, hr * 0.18, 0, 0, Math.PI * 2); ctx.fill();   // mustache
+            ctx.fillStyle = "#4A148C"; ctx.beginPath(); ctx.moveTo(cx, cy + hr * 0.5); ctx.lineTo(cx - hr * 0.42, cy + hr * 1.1); ctx.lineTo(cx + hr * 0.42, cy + hr * 1.1); ctx.closePath(); ctx.fill();   // open collar
+            ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.55, hr * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.95, hr * 0.12, 0, Math.PI * 2); ctx.fill();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);
@@ -1688,7 +1716,7 @@
             ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(cx - hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.arc(cx + hr * 0.5, cy + hr * 0.25, hr * 0.18, 0, Math.PI * 2); ctx.fill();
         }
         // mouth — flaps open/closed while talking, neutral otherwise
-        var my = cy + hr * (type === "prosecutor" ? 0.62 : 0.5);
+        var my = cy + hr * (type === "prosecutor" || type === "raphael" ? 0.62 : 0.5);
         if (talking) {
             var open = hr * (0.08 + Math.abs(Math.sin(gameTime * 15)) * 0.16);
             ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(cx, my, hr * 0.2, open, 0, 0, Math.PI * 2); ctx.fill();

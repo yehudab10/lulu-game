@@ -300,6 +300,10 @@
         // — a chase, a stale combo/honk-chain inflating score, a hitchhiker frozen
         // on the shoulder, leftover screen effects, or a mid-interaction buff.
         // (Score, coins, lives, and the player's vehicle persist — it's the SAME run.)
+        // BUT never resume driving with 0 hearts: a fatal crash can route to the ER
+        // (entered at lives 0); if she then escapes/gets released back to the road,
+        // she'd be drivable-but-dead and die on the next tap. Floor at 1.
+        lives = Math.max(lives, 1);
         copChase = null; copBust = null; copStop = null;
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
