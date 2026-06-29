@@ -122,6 +122,16 @@
         { name: "Hotshot Lawyer", feeMul: 44, mitig: 0.86, blunder: 0, accent: "#FFD54F",
           say: "They don't have a CASE. Watch this. 😎", tag: "pricey — best odds" }
     ];
+    // ABBA — Lulu's dad. Turns out he passed the bar "years ago, for fun." When
+    // he happens to be available (a treat — not every sentence) he takes her case
+    // for FREE because she's his little girl. Fights HARD; near-hotshot odds.
+    var ABBA_TIER = { name: "Abba", feeMul: 0, free: true, mitig: 0.80, blunder: 0, accent: "#FFB74D",
+        portrait: "abba", say: "That's my DAUGHTER, your honor. Show a little RACHMONES. ❤️",
+        tag: "FREE — he's your DAD ❤️" };
+    var ABBA_RETAIN_LINES = ["👨‍⚖️ ABBA took the case — for FREE! ❤️", "👨‍⚖️ \"For you, bubbeleh? No charge.\"",
+        "👨‍⚖️ Abba cracks his knuckles. \"Watch THIS.\"", "👨‍⚖️ \"Don't tell Ima how fast you were going.\""];
+    // The lawyer options Lulu can see this sentence (Abba only sometimes shows).
+    function activeLawyerTiers() { return (jail && jail.abbaAvailable) ? [ABBA_TIER].concat(LAWYER_TIERS) : LAWYER_TIERS; }
 
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
@@ -396,6 +406,7 @@
         jail = { charges: list, phase: 0, t: 0, cellmateLine: randPick(CELLMATE_LINES), cellmateT: 4.0,
                  escapeMethod: "", flash: 0.3, bail: bail, inmate: "#" + randInt(1000, 9999),
                  camFlash: 0, escapeFails: 0, lock: null,
+                 abbaAvailable: Math.random() < 0.35,   // a treat: Abba's free counsel, sometimes
                  lawyerFee: Math.round(list.length * randInt(18, 28) * (1 + strikes * 0.3)) };
         copChase = null; copBust = null; copStop = null;
         saveLockup("cell", list, bail, 0);
@@ -412,7 +423,13 @@
     function cellLawyerRect() { return { x: 14, y: H - 184, w: cellBtnW(), h: 42 }; }
     function cellCourtRect() { return { x: 24 + cellBtnW(), y: H - 184, w: cellBtnW(), h: 42 }; }
     function lawyerFee(tier) { return Math.round((jail.charges.length) * tier.feeMul * (1 + (save.convictions || 0) * 0.2)); }
-    function lawyerTierRect(i) { return { x: 28, y: H - 214 + i * 54, w: W - 56, h: 48 }; }
+    function lawyerTierRect(i, n) {
+        n = n || 3;
+        var top = n >= 4 ? H - 232 : H - 214;
+        var gap = n >= 4 ? 44 : 54;
+        var h   = n >= 4 ? 38 : 48;
+        return { x: 28, y: top + i * gap, w: W - 56, h: h };
+    }
     function lawyerBackRect() { return { x: W / 2 - 60, y: H - 52, w: 120, h: 38 }; }
     function courtOptRect(i) { return { x: 22, y: H - 176 + i * 40, w: W - 44, h: 36 }; }
 
@@ -474,11 +491,16 @@
         if (jail.phase === 4) {                 // LAWYER tier menu
             var lc = consumeClick();
             if (lc) {
-                for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
-                    var tr = lawyerTierRect(ti);
+                var tiers = activeLawyerTiers();
+                for (var ti = 0; ti < tiers.length; ti++) {
+                    var tr = lawyerTierRect(ti, tiers.length);
                     if (pointInRect(lc.x, lc.y, tr.x, tr.y, tr.w, tr.h)) {
-                        var tier = LAWYER_TIERS[ti], fee = lawyerFee(tier);
-                        if (save.totalCoins >= fee) {
+                        var tier = tiers[ti], fee = tier.free ? 0 : lawyerFee(tier);
+                        if (tier.free) {
+                            spawnFloater(W / 2, H * 0.40, randPick(ABBA_RETAIN_LINES), "#FFD180");
+                            playTone(523, 0.08, "triangle", 0.14); setTimeout(function () { playTone(784, 0.1, "triangle", 0.16); }, 110);
+                            openCourt(jail.charges, tier);
+                        } else if (save.totalCoins >= fee) {
                             save.totalCoins -= fee; persistSave();
                             spawnFloater(W / 2, H * 0.40, "🤵 " + tier.name + " retained! −" + fee, "#7CFC4F");
                             playTone(660, 0.08, "triangle", 0.16);
@@ -793,11 +815,16 @@
             ctx.fillStyle = "rgba(10,14,20,0.88)"; roundRect(14, H - 252, W - 28, 242, 14); ctx.fill();
             ctx.strokeStyle = "#26A69A"; ctx.lineWidth = 2; roundRect(14, H - 252, W - 28, 242, 14); ctx.stroke();
             drawText("🤵 RETAIN A LAWYER", W / 2, H - 236, "bold 17px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 4);
-            for (var ti = 0; ti < LAWYER_TIERS.length; ti++) {
-                var tier = LAWYER_TIERS[ti], tr = lawyerTierRect(ti), fee = lawyerFee(tier), afford = save.totalCoins >= fee;
-                drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: afford ? "#37474F" : "#2A2A2A", bgDark: afford ? "#263238" : "#1A1A1A", small: true });
-                drawText(tier.name + "  ★" + fee, tr.x + tr.w / 2, tr.y + 16, "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
-                drawText(tier.tag, tr.x + tr.w / 2, tr.y + 35, "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
+            var lawTiers = activeLawyerTiers();
+            for (var ti = 0; ti < lawTiers.length; ti++) {
+                var tier = lawTiers[ti], tr = lawyerTierRect(ti, lawTiers.length);
+                var fee = tier.free ? 0 : lawyerFee(tier), afford = tier.free || save.totalCoins >= fee;
+                var tierBg = tier.free ? "#5D4037" : (afford ? "#37474F" : "#2A2A2A");
+                var tierBgD = tier.free ? "#4E342E" : (afford ? "#263238" : "#1A1A1A");
+                drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: tierBg, bgDark: tierBgD, small: true });
+                drawText(tier.name + (tier.free ? "  ❤️ FREE" : "  ★" + fee), tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 13 : 16),
+                    "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
+                drawText(tier.tag, tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 28 : 35), "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
             }
             var bk = lawyerBackRect();
             drawButton(bk.x, bk.y, bk.w, bk.h, "‹ Back", { bg: "#546E7A", bgDark: "#37474F", small: true });
@@ -941,7 +968,7 @@
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
         ];
-        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
+        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
                   phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
@@ -1604,7 +1631,7 @@
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
-                    : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A"
+                    : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -1700,6 +1727,26 @@
             ctx.fillStyle = "#4A148C"; ctx.beginPath(); ctx.moveTo(cx, cy + hr * 0.5); ctx.lineTo(cx - hr * 0.42, cy + hr * 1.1); ctx.lineTo(cx + hr * 0.42, cy + hr * 1.1); ctx.closePath(); ctx.fill();   // open collar
             ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.55, hr * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
             ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.95, hr * 0.12, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "abba") {
+            // Lulu's dad — graying brown hair, a knit kippah, a full groomed beard,
+            // glasses, and a tie (he's lawyering today). Warm and proud.
+            ctx.fillStyle = "#6D4C41"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.28, hr * 1.04, Math.PI, 0); ctx.fill();   // hair
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(cx - hr * 0.92, cy - hr * 0.42, hr * 0.26, hr * 0.5); ctx.fillRect(cx + hr * 0.66, cy - hr * 0.42, hr * 0.26, hr * 0.5);   // gray temples
+            // knit kippah on the crown
+            ctx.fillStyle = "#1565C0"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.6, hr * 0.5, Math.PI, 0); ctx.fill();
+            ctx.strokeStyle = "#0D47A1"; ctx.lineWidth = 0.8;
+            for (var kk = -2; kk <= 2; kk++) { ctx.beginPath(); ctx.moveTo(cx + kk * hr * 0.18, cy - hr * 0.6); ctx.lineTo(cx + kk * hr * 0.18, cy - hr * 1.02); ctx.stroke(); }
+            // full beard framing the lower face (below the eyes) + sideburns
+            ctx.fillStyle = "#6D4C41";
+            ctx.beginPath(); ctx.arc(cx, cy + hr * 0.12, hr * 0.95, 0.08 * Math.PI, 0.92 * Math.PI); ctx.closePath(); ctx.fill();
+            ctx.fillRect(cx - hr * 0.92, cy - hr * 0.18, hr * 0.2, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.18, hr * 0.2, hr * 0.6);
+            // glasses
+            ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.3;
+            ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.24, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.24, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.1, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.1, cy - hr * 0.02); ctx.stroke();
+            // warm brows + a tie
+            ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.32); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.36); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.36); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.32); ctx.stroke();
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.5, 1); ctx.fill();
+            ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(cx - 2.5, cy + hr * 0.6); ctx.lineTo(cx, cy + hr * 1.1); ctx.lineTo(cx + 2.5, cy + hr * 0.6); ctx.fill();
         } else if (type === "cellmate") {
             ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.2, hr * 1.0, Math.PI, 0); ctx.fill(); // beanie
             ctx.fillRect(cx - hr, cy - hr * 0.2, hr * 2, hr * 0.28);
