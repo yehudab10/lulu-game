@@ -679,6 +679,15 @@
                 W / 2, pY, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
         }
 
+        // End the SAFE_TOP shift HERE. Everything above is the top text strip,
+        // which uses local coords and SHOULD ride below the notch. Everything
+        // below (buttons, banners) already bakes SAFE_TOP / SAFE_BOTTOM into its
+        // RECTs and absolute coords — keeping it inside the translate shifted it
+        // down by an extra SAFE_TOP (pause floated low, the brake button fell off
+        // the bottom edge on notched phones, and the visuals no longer matched
+        // their touch targets).
+        ctx.restore();
+
         // Pause button (top-left corner)
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD", id: "pause" });
 
@@ -796,7 +805,6 @@
             }
             ctx.restore();
         }
-        ctx.restore(); // end SAFE_TOP shift
     }
 
     // ── State & Globals ──────────────────────────────────────

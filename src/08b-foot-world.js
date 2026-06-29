@@ -438,14 +438,37 @@
     }
 
     function drawFootHUD() {
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        roundRect(0, 0, W, 40 + SAFE_TOP, 0); ctx.fill();
-        // hearts (she CAN go down now)
-        for (var i = 0; i < Math.max(3, lives); i++) drawHeart(14 + i * 20, 16 + SAFE_TOP, i < lives);
-        drawText("🚶‍♀️ 💰 " + runCoins + "  ⭐ " + footStars, W - 10, 16 + SAFE_TOP, "bold 13px Arial", "#FFD700", "#000", 2, "right");
+        // Mirror the driving HUD's safe-area-aware top strip so nothing tucks
+        // under the notch / Dynamic Island. Top text sits a comfortable distance
+        // below SAFE_TOP (matching drawHUD); buttons use their own inset RECTs.
+        var top = SAFE_TOP;
+        ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, W, top + 50);
+
+        // "ON FOOT" + carried-over score (left, clear of the pause button)
+        drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
+        drawText(formatNum(Math.floor(score)), 64, top + 34, "bold 22px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 4, "left");
+
+        // coins + stars (top-right, same slot as the driving HUD's coins)
+        drawCoin(W - 134, top + 24, gameTime);
+        drawText("× " + runCoins, W - 118, top + 25, "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
+        drawText("⭐ " + footStars, W - 12, top + 25, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
+
+        // hearts, centered like the driving HUD (she CAN lose them now)
+        var slots = Math.max(3, lives);
+        if (lives <= 6) {
+            for (var i = 0; i < slots; i++) drawHeart(W / 2 - (slots - 1) * 13 + i * 26, top + 28, i < lives);
+        } else {
+            drawHeart(W / 2 - 16, top + 28, true);
+            drawText("×" + lives, W / 2 + 4, top + 28, "bold 18px 'Segoe UI', Arial, sans-serif", "#FF4081", "#000", 3, "left");
+        }
+
+        // pause button — works on foot (keyboard P did too) but the button was
+        // never drawn, so it was effectively hidden. Now it's here, like driving.
+        drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD", id: "pause" });
+
         if (footHintT > 0) {
             ctx.globalAlpha = clamp(footHintT, 0, 1);
-            drawText(footHint, W / 2, 30 + SAFE_TOP, "bold 12px Arial", "#FFF8E1", "#000", 3);
+            drawText(footHint, W / 2, top + 64, "bold 12px Arial", "#FFF8E1", "#000", 3);
             ctx.globalAlpha = 1;
         }
         if (footPrompt) {
