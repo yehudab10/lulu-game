@@ -724,12 +724,16 @@
             } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
-                        var witness = (!copChase && !copBust) ? copInView() : null;
-                        // Plowing into someone AT SPEED is a hit-and-run: if a cop
-                        // sees it (or a bystander reports it) she's booked. The
-                        // re-entry shield protects her from this.
+                        var roadWitness = (!copChase && !copBust) ? copInView() : null;
+                        var patrolWitness = (!copChase && !copBust && !roadWitness) ? patrolInView() : null;
+                        var witness = roadWitness || patrolWitness;
+                        // Plowing into someone AT SPEED is a hit-and-run — but she's
+                        // only booked for it if a COP actually SEES it happen (a
+                        // roadside cop OR a patrol car on screen). No cop in view, no
+                        // witness, no arrest (she just gives them a lift).
+                        // The re-entry shield protects her from this.
                         var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
-                        if (reckless && (witness || Math.random() < 0.3)) {
+                        if (reckless && witness) {
                             obstacles.splice(i, 1);
                             if (typeof goToJail === "function") {
                                 beginArrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
@@ -739,7 +743,11 @@
                         // Otherwise she just gives them a lift — pick up as passenger.
                         pickUpPassenger(o);
                         // Bonk someone in front of a watching cop → instant chase.
-                        if (witness) startCopChase(witness);
+                        // A roadside cop converts into the chaser; a patrol car just
+                        // lights up from where it is (no obstacle-array splice here,
+                        // so the ped index below stays valid).
+                        if (roadWitness) startCopChase(roadWitness);
+                        else if (patrolWitness) beginCopChase(patrolWitness.x, "🚨 BUSTED!");
                         obstacles.splice(i, 1);
                     }
                     continue; // on foot she just walks among them (talk via the hand button)
@@ -1400,6 +1408,15 @@
         for (var i = 0; i < roadCops.length; i++) {
             var c = roadCops[i];
             if (!c.busted && c.y > 60 && c.y < H - 40) return c;
+        }
+        return null;
+    }
+
+    // First on-screen patrol CAR (or null) — also counts as a witnessing cop.
+    function patrolInView() {
+        for (var i = 0; i < obstacles.length; i++) {
+            var o = obstacles[i];
+            if (o.type === "car" && o.behavior === "patrol" && o.y > 0 && o.y < H) return o;
         }
         return null;
     }

@@ -6538,12 +6538,16 @@
             } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
-                        var witness = (!copChase && !copBust) ? copInView() : null;
-                        // Plowing into someone AT SPEED is a hit-and-run: if a cop
-                        // sees it (or a bystander reports it) she's booked. The
-                        // re-entry shield protects her from this.
+                        var roadWitness = (!copChase && !copBust) ? copInView() : null;
+                        var patrolWitness = (!copChase && !copBust && !roadWitness) ? patrolInView() : null;
+                        var witness = roadWitness || patrolWitness;
+                        // Plowing into someone AT SPEED is a hit-and-run — but she's
+                        // only booked for it if a COP actually SEES it happen (a
+                        // roadside cop OR a patrol car on screen). No cop in view, no
+                        // witness, no arrest (she just gives them a lift).
+                        // The re-entry shield protects her from this.
                         var reckless = (keys.up || gameSpeed > 520) && invincibleTimer <= 0;
-                        if (reckless && (witness || Math.random() < 0.3)) {
+                        if (reckless && witness) {
                             obstacles.splice(i, 1);
                             if (typeof goToJail === "function") {
                                 beginArrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
@@ -6553,7 +6557,11 @@
                         // Otherwise she just gives them a lift — pick up as passenger.
                         pickUpPassenger(o);
                         // Bonk someone in front of a watching cop → instant chase.
-                        if (witness) startCopChase(witness);
+                        // A roadside cop converts into the chaser; a patrol car just
+                        // lights up from where it is (no obstacle-array splice here,
+                        // so the ped index below stays valid).
+                        if (roadWitness) startCopChase(roadWitness);
+                        else if (patrolWitness) beginCopChase(patrolWitness.x, "🚨 BUSTED!");
                         obstacles.splice(i, 1);
                     }
                     continue; // on foot she just walks among them (talk via the hand button)
@@ -7214,6 +7222,15 @@
         for (var i = 0; i < roadCops.length; i++) {
             var c = roadCops[i];
             if (!c.busted && c.y > 60 && c.y < H - 40) return c;
+        }
+        return null;
+    }
+
+    // First on-screen patrol CAR (or null) — also counts as a witnessing cop.
+    function patrolInView() {
+        for (var i = 0; i < obstacles.length; i++) {
+            var o = obstacles[i];
+            if (o.type === "car" && o.behavior === "patrol" && o.y > 0 && o.y < H) return o;
         }
         return null;
     }
@@ -20368,8 +20385,16 @@
     var fugCopT = 0;            // escalating cop-spawn timer while a fugitive
     var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
 
-    var ARREST_LINES = ["🚨 YOU'RE UNDER ARREST!", "🚨 Hands where I can see 'em!",
-        "🚨 End of the road, Lulu!", "🚨 You're comin' with ME.", "🚨 Cuff her!", "🚨 Book 'em, Danno!"];
+    var ARREST_LINES = ["YOU'RE UNDER ARREST!", "Hands where I can see 'em!",
+        "End of the road, Lulu!", "You're comin' with ME.", "Step out of the vehicle, ma'am.",
+        "Book 'em, Danno!", "You have the right to remain... fabulous.", "That's a paddlin'. And a cuffin'."];
+    // Lulu's sassy retort while she's being collared — paired with the cop's line.
+    var LULU_ARREST_LINES = ["I was barely OVER the limit!", "Do you KNOW who my Bubbe is?",
+        "This is POLICE harassment!", "Can I at least fix my SHEITEL first?",
+        "I want my ONE phone call!", "I'm calling my LAWYER. ...do I have one?",
+        "Ugh, these cuffs are SO last season.", "I'll be out by Shabbos, you'll SEE."];
+    var CUFF_LINES = ["🔗 *CLICK* — gotcha.", "🔗 Cuffs ON. Watch your head.",
+        "🔗 You're goin' DOWNTOWN.", "🔗 Easy does it, Ms. Bruck."];
 
     // ── Content pools ────────────────────────────────────────
     var CELLMATE_LINES = ["What're you in for? 😏", "I'm INNOCENT. ...mostly.",
@@ -20463,14 +20488,29 @@
         state = "jailCell"; return true;
     }
 
-    // ── Arrest cinematic: a cop actually pulls up and cuffs her, THEN she's
-    //    booked — so no jail entry happens as a sudden cut. ─────────
+    // ── Arrest cinematic ─────────────────────────────────────
+    //  A full beat: cruiser pulls up → officer struts over → a little back-and-
+    //  forth (cop barks, Lulu sasses) → she's CUFFED (animated) → perp-walked to
+    //  the cruiser → and you watch it DRIVE her to the nearest police station,
+    //  which scrolls into view. THEN she's booked. No sudden cut to jail.
     function beginArrest(charges) {
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
-        arrest = { charges: charges, t: 0, phase: 0, onFoot: onFoot,
-                   copX: clamp((player ? player.x : W / 2) + ((player ? player.x : W / 2) < W / 2 ? 56 : -56), ROAD_L + 30, ROAD_R - 30),
-                   copY: py + 190, officer: null, line: randPick(ARREST_LINES), fade: 0 };
+        var px = (player ? player.x : W / 2);
+        var fromLeft = px > W / 2;                  // cop approaches from her open side
+        arrest = {
+            charges: charges, t: 0, phase: 0, onFoot: onFoot,
+            px: px, py: py,                         // her (abandoned) car / start spot
+            outX: px + (fromLeft ? -26 : 26), outY: py + 2,   // where she stands once pulled out
+            lx: px + (fromLeft ? -26 : 26), ly: py + 2,       // her live standing position
+            copX: clamp(px + (fromLeft ? -52 : 52), ROAD_L + 30, ROAD_R - 30),
+            copY: py + 190,                         // cruiser slides up from behind
+            fromLeft: fromLeft, officer: null,
+            copLine: randPick(ARREST_LINES), luluLine: randPick(LULU_ARREST_LINES),
+            cuffLine: randPick(CUFF_LINES), dialStep: 0,
+            cuffT: 0, walkP: 0, cuffed: false,
+            scroll: 0, station: null, fade: 0
+        };
         copChase = null; copBust = null; copStop = null;
         if (typeof playWompWomp === "function") playWompWomp();
         playTone(900, 0.12, "sine", 0.13, 1320);
@@ -20480,40 +20520,94 @@
 
     function updateArrest(dt) {
         arrest.t += dt;
-        var py = (player && player.y) || PLAYER_Y;
-        if (arrest.phase === 0) {                 // cruiser slides up behind her
-            arrest.copY = lerp(arrest.copY, py + 62, Math.min(1, 4 * dt));
-            if (arrest.t > 1.0) {
-                arrest.phase = 1; arrest.t = 0;
-                var fromLeft = (player ? player.x : W / 2) > W / 2;
-                arrest.officer = { x: fromLeft ? -30 : W + 30, y: py + 18,
-                                   targetX: (player ? player.x : W / 2) + (fromLeft ? -42 : 42),
-                                   time: 0, state: "running", runDir: fromLeft ? 1 : -1, cop: true };
+        if (shakeTimer > 0) shakeTimer -= dt;
+        var a = arrest;
+        if (a.phase === 0) {                        // cruiser slides up behind her
+            a.copY = lerp(a.copY, a.py + 64, Math.min(1, 4 * dt));
+            if (a.t > 1.0) {
+                a.phase = 1; a.t = 0;
+                a.officer = { x: a.fromLeft ? -30 : W + 30, y: a.py + 16,
+                              targetX: a.px + (a.fromLeft ? -40 : 40),
+                              time: 0, state: "running", runDir: a.fromLeft ? 1 : -1, cop: true };
             }
             return;
         }
-        if (arrest.phase === 1) {                 // officer struts over
-            var o = arrest.officer; o.time += dt;
+        if (a.phase === 1) {                        // officer struts over to her
+            var o = a.officer; o.time += dt;
             var dx = o.targetX - o.x;
-            if (Math.abs(dx) > 4) { o.x += (dx >= 0 ? 1 : -1) * 165 * dt; o.runDir = dx >= 0 ? 1 : -1; }
-            else { o.x = o.targetX; o.state = "yelling"; arrest.phase = 2; arrest.t = 0; playTone(330, 0.05, "square", 0.1); }
+            if (Math.abs(dx) > 4) { o.x += (dx >= 0 ? 1 : -1) * 170 * dt; o.runDir = dx >= 0 ? 1 : -1; }
+            else { o.x = o.targetX; o.state = "yelling"; a.phase = 2; a.t = 0; playTone(330, 0.05, "square", 0.1); }
             return;
         }
-        if (arrest.phase === 2) {                 // "UNDER ARREST!" + the cuffs
-            arrest.officer.time += dt;
-            if (arrest.t > 2.1) { arrest.phase = 3; arrest.t = 0; }
+        if (a.phase === 2) {                        // back-and-forth: cop barks, Lulu sasses
+            a.officer.time += dt;
+            // consume BOTH (a tap queues each) so one tap advances exactly one line.
+            var tClick = consumeClick(), tAct = consumeAction(), tap = !!(tClick || tAct);
+            if (a.dialStep === 0 && (tap || a.t > 1.9)) { a.dialStep = 1; a.t = 0; playTone(520, 0.05, "triangle", 0.1); return; }
+            if (a.dialStep === 1 && (tap || a.t > 1.9)) { a.phase = 3; a.t = 0; a.officer.state = "yelling"; return; }
             return;
         }
-        if (arrest.phase === 3) {                 // fade → booking
-            arrest.fade = Math.min(1, arrest.t / 0.6);
-            if (arrest.t > 0.7) { var ch = arrest.charges; arrest = null; goToJail(ch); }
+        if (a.phase === 3) {                        // CUFFING — rings snap on, *click*
+            a.officer.time += dt;
+            a.cuffT = Math.min(1, a.cuffT + dt / 1.0);
+            if (!a.cuffed && a.cuffT >= 0.55) {     // the snap
+                a.cuffed = true; playTone(1200, 0.05, "square", 0.13); shakeTimer = 0.18; shakeIntensity = 3;
+                setTimeout(function () { playTone(1500, 0.04, "square", 0.12); }, 70);
+            }
+            if (a.t > 1.7) { a.phase = 4; a.t = 0; }
+            return;
+        }
+        if (a.phase === 4) {                        // perp walk to the cruiser, then loaded in
+            a.officer.time += dt;
+            a.walkP = Math.min(1, a.walkP + dt / 1.7);
+            // she + the officer walk from where she's standing over to the cruiser door
+            a.lx = lerp(a.outX, a.copX + (a.fromLeft ? 16 : -16), a.walkP);
+            a.ly = lerp(a.outY, a.copY - 6, a.walkP);
+            a.officer.x = a.lx + (a.fromLeft ? -16 : 16); a.officer.y = a.ly + 2;
+            a.officer.runDir = a.fromLeft ? -1 : 1; a.officer.state = a.walkP < 0.98 ? "running" : "yelling";
+            if (a.walkP >= 1 && a.t > 0.5) {        // door shut → roll out
+                a.phase = 5; a.t = 0;
+                playTone(220, 0.08, "square", 0.12);   // *thunk* door
+                a.station = { x: (a.fromLeft ? ROAD_R + 44 : ROAD_L - 44), y: -150, side: a.fromLeft ? 1 : -1,
+                              kind: "police", w: 78, h: 116, lit: true, tint: 1, seed: 42, style: 0, roof: 0,
+                              shade: 0, label: "POLICE", glow: false, signC: BUILD_SIGN.police,
+                              roofC: "#37474F", awn: [0, 0], prod: [0, 0, 0] };
+            }
+            return;
+        }
+        if (a.phase === 5) {                        // DRIVE to the nearest station
+            var driveSpd = 360 + Math.min(260, a.t * 150);
+            a.scroll += driveSpd * dt;
+            if (a.station) a.station.y += driveSpd * dt;
+            // once the station is alongside, the cruiser veers in and we fade
+            var pullingIn = a.station && a.station.y > H * 0.46;
+            if (pullingIn) {
+                a.copX = lerp(a.copX, a.station.x + (a.fromLeft ? -36 : 36), Math.min(1, 2.4 * dt));
+                a.fade = Math.min(1, a.fade + dt / 0.7);
+            }
+            if (a.fade >= 1) { var ch = a.charges; arrest = null; goToJail(ch); }
+            return;
         }
     }
 
     function drawArrest() {
-        if (typeof drawRoad === "function") drawRoad(scrollOffset);
+        var a = arrest;
+        // shake for the cuff snap / drive
+        ctx.save();
+        if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
+
+        if (typeof drawRoad === "function") drawRoad(scrollOffset + (a.scroll || 0));
         if (typeof drawDecorations === "function") drawDecorations(gameTime);
-        // siren light-wash
+
+        // the police station scrolling into view during the drive
+        if (a.station && typeof drawBuilding === "function") {
+            drawBuilding(a.station);
+            // a little driveway apron + a sign post so it reads as "the station"
+            ctx.fillStyle = "#9E9E9E";
+            ctx.fillRect(a.station.x - (a.fromLeft ? 40 : 0) - (a.fromLeft ? 0 : 40), a.station.y + a.station.h, 40, 14);
+        }
+
+        // siren light-wash over the whole scene
         var sirN = Math.sin(gameTime * 9), redOn = sirN > 0, washA = 0.12 + Math.abs(sirN) * 0.18;
         var wg = ctx.createLinearGradient(redOn ? 0 : W, 0, redOn ? W : 0, 0);
         wg.addColorStop(0, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + washA + ")");
@@ -20521,20 +20615,83 @@
         wg.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
 
-        var py = (player && player.y) || PLAYER_Y, px = (player ? player.x : W / 2);
-        if (arrest.copY !== undefined) drawCopCar(arrest.copX, arrest.copY, gameTime * 3);
-        // Lulu, stopped and nervous
-        if (arrest.onFoot && typeof drawLuluTopDown === "function") drawLuluTopDown(px, py, gameTime * 4, "cry");
-        else if (typeof drawLuluCar === "function") drawLuluCar(px, py, 0, false, gameTime, distractedMode);
-        if (arrest.officer) drawAngryMan(arrest.officer.x, arrest.officer.y, arrest.officer.time, arrest.officer.state, arrest.officer.runDir, true);
-
-        if (arrest.phase >= 1) drawText(arrest.line, W / 2, H * 0.15, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 6);
-        if (arrest.phase >= 2) {
-            var clk = Math.sin(gameTime * 14) > 0 ? "🔗 *click* 🔗" : "🔗 *CLICK* 🔗";
-            drawText(clk, W / 2, H * 0.15 + 30, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
-            drawText("You're being BOOKED...", W / 2, H * 0.15 + 54, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        if (a.phase === 5) {
+            // driving shot: just the cruiser (Lulu's inside) rolling to the station
+            drawCopCar(a.copX, H * 0.6, gameTime * 5);
+            ctx.restore();
+            drawText("🚓  EN ROUTE TO BOOKING", W / 2, H * 0.13, "bold 19px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            drawText("Nearest precinct: PRECINCT 18½", W / 2, H * 0.13 + 26, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            if (a.fade > 0) { ctx.fillStyle = "rgba(8,6,20," + a.fade + ")"; ctx.fillRect(0, 0, W, H); }
+            return;
         }
-        if (arrest.fade > 0) { ctx.fillStyle = "rgba(8,6,20," + arrest.fade + ")"; ctx.fillRect(0, 0, W, H); }
+
+        // she's in her car for the first beat; once pulled out (phase ≥ 2) the car
+        // isn't drawn (drawLuluCar always seats her, which would double her up).
+        if (!a.onFoot && a.phase < 2 && typeof drawLuluCar === "function") drawLuluCar(a.px, a.py, 0, false, gameTime, distractedMode);
+        // the cruiser she'll be loaded into
+        drawCopCar(a.copX, a.copY, gameTime * 3);
+
+        // Lulu — in her car for the first beat, then standing once pulled out
+        if (a.phase <= 1 && !a.onFoot) {
+            // (already drawn above as the car)
+        } else if (typeof drawLuluTopDown === "function") {
+            drawLuluTopDown(a.lx, a.ly, a.phase === 4 ? gameTime * 5 : gameTime * 2, "cry");
+            if (a.cuffed || a.cuffT > 0) drawArrestCuffs(a.lx, a.ly + 8, a.cuffT);
+        }
+        if (a.officer) drawAngryMan(a.officer.x, a.officer.y, a.officer.time, a.officer.state, a.officer.runDir, true);
+
+        ctx.restore();
+
+        // ── dialogue / captions ──
+        if (a.phase === 2) {
+            if (a.dialStep === 0) drawArrestBubble("👮 OFFICER", a.copLine, "#FF5252");
+            else drawArrestBubble("💃 LULU", a.luluLine, "#FF4FA3");
+            var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 5));
+            ctx.globalAlpha = bl; drawText("▾ tap", W / 2, H * 0.30, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2); ctx.globalAlpha = 1;
+        } else if (a.phase === 3) {
+            drawText(a.cuffLine, W / 2, H * 0.15, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            if (a.cuffed) drawText("You're being BOOKED...", W / 2, H * 0.15 + 28, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        } else if (a.phase === 4) {
+            drawText("🚶‍♀️ Into the cruiser...", W / 2, H * 0.15, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+        } else if (a.phase >= 1) {
+            drawText(a.copLine, W / 2, H * 0.15, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 6);
+        }
+    }
+
+    // Two cuff rings + chain that pop in and snap together (t: 0→1).
+    function drawArrestCuffs(x, y, t) {
+        var pop = clamp(t / 0.5, 0, 1), snap = clamp((t - 0.4) / 0.3, 0, 1);
+        var sep = lerp(8, 3.6, snap), r = 3.2 * pop;
+        if (r <= 0.1) return;
+        ctx.save(); ctx.translate(x, y);
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(-sep + 2.4, 0); ctx.lineTo(sep - 2.4, 0); ctx.stroke();   // chain
+        for (var s = -1; s <= 1; s += 2) {
+            ctx.strokeStyle = "#ECEFF1"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(s * sep, 0, r, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "#78909C"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(s * sep, 0, r, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+        }
+        if (snap > 0 && snap < 1) {   // glint flash on the snap
+            ctx.globalAlpha = (1 - snap); ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath(); ctx.arc(0, -1, 2.6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+    }
+
+    // A speech card centered on screen for the arrest back-and-forth.
+    function drawArrestBubble(who, text, accent) {
+        ctx.font = "bold 16px 'Segoe UI', Arial, sans-serif";
+        var tw = Math.min(W - 48, ctx.measureText(text).width + 40), bx = W / 2 - tw / 2, by = H * 0.20, bh = 50;
+        ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(bx + 3, by + 4, tw, bh, 12); ctx.fill();
+        var g = ctx.createLinearGradient(0, by, 0, by + bh); g.addColorStop(0, "#2A2336"); g.addColorStop(1, "#171121");
+        ctx.fillStyle = g; roundRect(bx, by, tw, bh, 12); ctx.fill();
+        ctx.strokeStyle = accent; ctx.lineWidth = 2.5; roundRect(bx, by, tw, bh, 12); ctx.stroke();
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        var nw = ctx.measureText(who).width + 18;
+        ctx.fillStyle = accent; roundRect(bx + 14, by - 11, nw, 20, 6); ctx.fill();
+        drawText(who, bx + 14 + nw / 2, by + 0, "bold 11px 'Segoe UI', Arial, sans-serif", "#1A1230", null, 0);
+        drawText(text, W / 2, by + 32, "bold 16px 'Segoe UI', Arial, sans-serif", "#F3E9FF", "#000", 3);
     }
 
     // ── Entry: book her ──────────────────────────────────────
@@ -20571,6 +20728,9 @@
 
     // ════════════════ JAIL CELL ════════════════
     function startLockpick() {
+        // Drop the tap that OPENED the minigame so its queued action doesn't leak
+        // in as an instant (unwanted) first pick.
+        consumeClick(); consumeAction();
         var s = save.convictions || 0;
         jail.lock = {
             pins: 3 + Math.min(2, s) + Math.min(2, jail.escapeFails),   // harder for repeat offenders
@@ -20656,19 +20816,26 @@
                 }
                 return;
             }
-            lk.pos += lk.dir * lk.speed * dt;
-            if (lk.pos >= 1) { lk.pos = 1; lk.dir = -1; }
-            if (lk.pos <= 0) { lk.pos = 0; lk.dir = 1; }
-            if (consumeClick() || consumeAction()) {
+            // Hit-test FIRST — against lk.pos exactly as it was last DRAWN — so the
+            // check matches what the player saw, then advance. ONE tap = ONE pick:
+            // a tap queues BOTH a click and an action, so consume both in the same
+            // frame, or the leftover fires a phantom second pick next frame (marker
+            // already moved → guaranteed miss; that's what felt impossible to sync).
+            var lkClick = consumeClick(), lkAct = consumeAction();
+            if (lkClick || lkAct) {
                 if (Math.abs(lk.pos - lk.zoneC) < lk.zoneW / 2) {
                     lk.done++; playTone(740 + lk.done * 80, 0.06, "sine", 0.12);
                     if (lk.done >= lk.pins) { lk.result = "win"; lk.resultT = 0; playTone(988, 0.14, "triangle", 0.2); }
-                    else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.84); lk.speed *= 1.1; }
+                    else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.84); lk.speed *= 1.08; }
                 } else {
                     lk.misses++; playTone(150, 0.12, "square", 0.16);
                     if (lk.misses >= lk.maxMiss) { lk.result = "lose"; lk.resultT = 0; playTone(90, 0.3, "square", 0.16); }
                 }
+                return;   // don't also advance on the tap frame — keeps the hit crisp
             }
+            lk.pos += lk.dir * lk.speed * dt;
+            if (lk.pos >= 1) { lk.pos = 1; lk.dir = -1; }
+            if (lk.pos <= 0) { lk.pos = 0; lk.dir = 1; }
             return;
         }
         if (jail.phase === 2) {                 // jailbreak success reveal
