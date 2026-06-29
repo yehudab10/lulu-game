@@ -7296,6 +7296,15 @@
                      : (obj && (obj.type === "duck" || obj.type === "raccoon" || obj.type === "ostrich")) ? "animal"
                      : "other";
             crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type, behavior: obj && obj.behavior };
+            // Snapshot the data Hillel will use to adjudicate fault: each driver's
+            // speed, who was ahead (= who rear-ended whom), whether they drifted
+            // oncoming, and whether Lulu was distracted at the wheel.
+            var oMult = (obj && typeof obj.speedMult === "number") ? obj.speedMult : 1;
+            crashCause.luluSpeed = Math.round(gameSpeed / 6);                 // ~mph-ish for flavor
+            crashCause.otherSpeed = Math.round(Math.abs(gameSpeed * (1 - oMult)) / 6);
+            crashCause.oncoming = oMult > 1.05;
+            crashCause.otherAhead = !!(obj && obj.y < player.y);
+            crashCause.distracted = !!distractedMode;
             crashX = player.x;
             crashY = player.y;
             crashRot = 0;
@@ -8314,31 +8323,51 @@
                     else { hg.x = hg.targetX; hg.phase = 1; hg.t = 0; hg.line = "Let me just... assess the damage. Mm. Mm-hm."; }
                     return;
                 }
-                if (hg.phase === 1) {                        // assessing, clipboard out
-                    if (hg.t > 1.7) {
-                        hg.approved = Math.random() < 0.6;
-                        hg.payout = hg.approved ? randInt(50, 140) : 0;
-                        hg.line = hg.approved
-                            ? randPick(["Good news — claim APPROVED! ★" + hg.payout + ". 📋",
-                                        "Pushed it through! ★" + hg.payout + ". Don't tell my old boss.",
-                                        "Approved! ★" + hg.payout + ". The system still likes me. 😅"])
-                            : randPick(["Denied — 'pre-existing recklessness.' Sorry, kid.",
-                                        "Lapsed policy. And, ah... I don't actually work there now.",
-                                        "Claim DENIED. But hey — nobody's pressing charges!"]);
+                if (hg.phase === 1) {                        // crunching the numbers, clipboard out
+                    if (hg.t > 1.8) {
+                        // Hillel's actuarial fault calc: who was faster, who hit whom,
+                        // who was distracted, who was impaired.
+                        var f = 0.5;
+                        if (hg.otherAhead) f += 0.22; else f -= 0.22;          // rear-ended the car in front = her fault
+                        if (hg.oncoming) f -= 0.12;                            // they drifted into her lane
+                        if (hg.distracted) f += 0.18;                          // she wasn't watching the road
+                        if (hg.luluSpeed > hg.otherSpeed + 14) f += 0.15;      // she was barreling
+                        if (hg.behavior === "drunk" || hg.behavior === "texting") f -= 0.30;
+                        f = clamp(f, 0.12, 0.9);
+                        hg.atFault = Math.random() < f;
+                        if (hg.atFault) {
+                            hg.amount = randInt(40, 110);
+                            hg.report = "You: " + hg.luluSpeed + "mph · Them: " + hg.otherSpeed + "mph · " + (hg.otherAhead ? "you hit the car in FRONT" : "you swerved into them");
+                            hg.line = randPick([
+                                "Ran the numbers — this one's on YOU. Deductible's ★" + hg.amount + ", sorry kid.",
+                                "Fault's yours, mathematically. ★" + hg.amount + " out of pocket, I'm afraid.",
+                                "You were doing " + hg.luluSpeed + "; they weren't. ★" + hg.amount + " deductible."]);
+                        } else {
+                            hg.amount = randInt(60, 150);
+                            hg.report = "Them: " + hg.otherSpeed + "mph · You: " + hg.luluSpeed + "mph · " + (hg.otherAhead ? "but they cut you off" : "they rear-ended YOU") + (hg.oncoming ? ", oncoming" : "");
+                            hg.line = randPick([
+                                "Clear fault on THEM. Claim approved — ★" + hg.amount + ", enjoy.",
+                                "Not your fault! Pushed it through: ★" + hg.amount + ". 📋",
+                                "They were in the wrong doing " + hg.otherSpeed + ". ★" + hg.amount + " for you."]);
+                        }
                         hg.phase = 2; hg.t = 0;
-                        playTone(hg.approved ? 784 : 200, 0.12, "triangle", 0.16);
+                        playTone(hg.atFault ? 200 : 784, 0.12, "triangle", 0.16);
                     }
                     return;
                 }
-                if (hg.phase === 2) {                        // verdict → pay out → slip away
+                if (hg.phase === 2) {                        // verdict → settle up → slip away
                     if (!hg.paid) {
                         hg.paid = true;
-                        if (hg.payout > 0) {
-                            runCoins += hg.payout; save.totalCoins += hg.payout; persistSave();
-                            spawnFloater(player.x, player.y - 40, "📋 +" + hg.payout + " insurance!", "#90CAF9");
+                        if (hg.atFault) {
+                            var charged = chargeCoins(hg.amount);
+                            spawnFloater(player.x, player.y - 40, "📋 −" + charged + " deductible", "#FF8A80");
+                        } else if (hg.amount > 0) {
+                            runCoins += hg.amount; save.totalCoins += hg.amount; persistSave();
+                            playCoin();
+                            spawnFloater(player.x, player.y - 40, "📋 +" + hg.amount + " payout!", "#90CAF9");
                         }
                     }
-                    if (hg.t > 1.9) grantSecondChance();
+                    if (hg.t > 2.1) grantSecondChance();
                     return;
                 }
                 return;
@@ -8420,11 +8449,17 @@
             hillelAdjuster = {
                 x: fromLeft ? -28 : W + 28, y: player.y + 30,
                 targetX: player.x + (fromLeft ? -46 : 46), targetY: player.y + 30,
-                dir: fromLeft ? 1 : -1, phase: 0, t: 0,
-                payout: 0, approved: false,
+                dir: fromLeft ? 1 : -1, phase: 0, t: 0, amount: 0, atFault: false, report: null,
+                // fault inputs snapshotted at impact
+                luluSpeed: (crashCause && crashCause.luluSpeed) || 0,
+                otherSpeed: (crashCause && crashCause.otherSpeed) || 0,
+                otherAhead: !!(crashCause && crashCause.otherAhead),
+                oncoming: !!(crashCause && crashCause.oncoming),
+                distracted: !!(crashCause && crashCause.distracted),
+                behavior: crashCause && crashCause.behavior,
                 line: randPick(["Hi, Hillel — I'll be your adjuster today.",
                                 "Don't panic! I do this... I DID this for a living.",
-                                "Lulu?! Small world. Let me just assess the, ah, carnage."])
+                                "Lulu?! Small world. Let me just run the numbers."])
             };
             angryMan.state = "talk";
             angryYell = randPick(["...who's THIS guy?", "Finally, a professional.", "*grumbles*"]);
@@ -9627,6 +9662,10 @@
                 drawText("🧮 HILLEL · claims", hbx + 87, hby - 1, "bold 11px 'Segoe UI', Arial, sans-serif", "#0D1B3E", null, 0);
                 for (var hl = 0; hl < hlines.length; hl++)
                     drawText(hlines[hl], W / 2, hby + 16 + hl * 19, "bold 14px 'Segoe UI', Arial, sans-serif", "#E3F2FD", "#000", 2);
+                // his fault-finding worksheet, just under the box
+                if (hg.report)
+                    drawText("📐 " + hg.report, W / 2, hby + hbh + 14, "bold 11px 'Segoe UI', Arial, sans-serif",
+                        hg.atFault ? "#FFCDD2" : "#B9F6CA", "#0A1018", 3);
             }
         }
         ctx.restore();
