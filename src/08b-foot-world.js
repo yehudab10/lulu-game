@@ -73,6 +73,34 @@
         "Filter? You're perfect.", "#Sasquatch #blessed", "Smile! ...do you HAVE teeth?"];
     var FOOT_HIGHFIVE = ["✋ YEAH!", "Up top!", "Nailed it!", "👊 respect", "Don't leave me hangin— oh!"];
 
+    // What Lulu mutters when her ride dies and she's stuck on foot — way more
+    // variety than just "the car's a meatball."
+    var FOOT_INTRO_LINES = {
+        wreck: [
+            "The car's a MEATBALL.\nTime to borrow one.",
+            "Well. That's not buffing out.\nOn foot it is.",
+            "RIP, little pink car. 🥀\nYou served me... okay.",
+            "The engine went 'kaplooey.'\nThat's the medical term.",
+            "Totaled. Bubbe is NOT\nhearing about this.",
+            "It's not a car now,\nit's modern ART. Walking!",
+            "Four wheels down to zero.\nGuess I'm hoofing it.",
+            "She's taking a nap.\nA... permanent nap. 😴",
+            "Smoke this color is\nNEVER a good sign.",
+            "I'll walk it off. Literally."
+        ],
+        copWalk: [
+            "Impounded?! Fine. I'll WALK.\n...and find a new ride.",
+            "They TOWED my baby!\nBorrowing the next one.",
+            "No car, no problem.\n...okay, SOME problem.",
+            "The lot wants $400.\nI want a NEW car. Free."
+        ],
+        parkingCrash: [
+            "That's coming out of\nmy deposit. On foot it is.",
+            "I'll just... leave that there.\nWalking now! 🚶‍♀️",
+            "Parking is HARD, okay?!\nUgh. Find another."
+        ]
+    };
+
     function startFootWorld(reason) {
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
@@ -84,10 +112,10 @@
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
         footHint = "Find a car to “borrow” 🚗  •  ✋ to interact"; footHintT = 6;
-        footIntroLine =
-            reason === "parkingCrash" ? "That's coming out of my deposit.\nOn foot it is." :
-            reason === "copWalk"      ? "Impounded?! Fine. I'll WALK.\n...and find a new ride." :
-                                        "The car's a meatball.\nTime to borrow one.";
+        var pool = reason === "parkingCrash" ? FOOT_INTRO_LINES.parkingCrash
+                 : reason === "copWalk"      ? FOOT_INTRO_LINES.copWalk
+                                             : FOOT_INTRO_LINES.wreck;
+        footIntroLine = randPick(pool);
         // A chase doesn't follow her onto the sidewalk — clear it so a leftover
         // pursuit can't "pull over" a walking Lulu (she'd be drawn as a car).
         copChase = null; copBust = null;
@@ -95,6 +123,142 @@
         invincibleTimer = 2.0;        // brief shield so she isn't clipped the instant she appears
         if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
         state = "footRun";            // smooth: updatePlaying runs the world, drawFootIntro plays first
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  EXIT-A-BUILDING cutscene — a consistent beat for LEAVING the
+    //  hospital / courthouse / precinct: Lulu walks out the door of a
+    //  roadside building and either drives off or heads out on foot,
+    //  instead of just snapping onto the road. Reusable from any scene.
+    // ════════════════════════════════════════════════════════════
+    var exitScene = null;
+    // kind: "hospital"|"court"|"jail"|"police"  ·  dest: "drive"|"foot"
+    function beginExitScene(kind, dest, caption, footReason) {
+        copChase = null; copBust = null; copStop = null;
+        consumeClick(); consumeAction();   // drop the tap that triggered the exit
+
+        var quips = dest === "drive" ? ["Let's ROLL. 🚗", "Outta here!", "Freedom smells like exhaust.", "Back to the road, baby."]
+                                     : ["Walking it is. 🚶‍♀️", "No car? No problem.", "Free... and on foot. Ugh."];
+        exitScene = { kind: kind, dest: dest, caption: caption || "", quip: randPick(quips), footReason: footReason || "carWreck",
+                      t: 0, phase: 0, door: 0, walk: 0, carGo: 0, fade: 0 };
+        state = "exitScene";
+        if (typeof playClick === "function") playClick();
+    }
+    function updateExitScene(dt) {
+        var e = exitScene; if (!e) return;
+        e.t += dt;
+        // tap to skip ahead to the drive-off
+        if (e.phase < 2 && (consumeClick() || consumeAction())) { e.phase = 2; e.t = 0; e.door = 1; e.walk = 1; }
+        if (e.phase === 0) {                         // door opens, Lulu steps out
+            e.door = Math.min(1, e.door + dt / 0.5);
+            if (e.t > 0.8) { e.phase = 1; e.t = 0; }
+        } else if (e.phase === 1) {                  // walk to the curb / car
+            e.walk = Math.min(1, e.walk + dt / 1.3);
+            if (e.walk >= 1 && e.t > 0.35) { e.phase = 2; e.t = 0; }
+        } else if (e.phase === 2) {                  // drive off / step out → fade
+            if (e.dest === "drive") e.carGo = Math.min(1, e.carGo + dt / 1.0);
+            e.fade = Math.min(1, e.fade + dt / 0.7);
+            if (e.fade >= 1) {
+                var dest = e.dest, fr = e.footReason; exitScene = null;
+                if (dest === "drive") { if (typeof returnToDriving === "function") returnToDriving(); }
+                else { if (typeof startFootWorld === "function") startFootWorld(fr); }
+            }
+        }
+    }
+    function drawExitScene() {
+        var e = exitScene, walk = clamp(e.walk, 0, 1);
+        // ── ground: grass on the left, a vertical road on the right ──
+        var gr = ctx.createLinearGradient(0, 0, 0, H);
+        gr.addColorStop(0, "#8BC34A"); gr.addColorStop(1, "#689F38");
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+        // striped grass
+        ctx.fillStyle = "rgba(255,255,255,0.05)"; for (var g = 0; g < H; g += 26) ctx.fillRect(0, g, W, 13);
+        var rdX = W * 0.58, rdW = W * 0.36;
+        ctx.fillStyle = "#5C6470"; ctx.fillRect(rdX, 0, rdW, H);                                  // road
+        ctx.fillStyle = "#E8E4D8"; ctx.fillRect(rdX - 4, 0, 4, H); ctx.fillRect(rdX + rdW, 0, 4, H);  // edge lines
+        ctx.fillStyle = "#9AA0AC"; for (var d = -((gameTime * 120) % 60); d < H; d += 60) { ctx.fillRect(rdX + rdW / 2 - 2, d, 4, 30); }  // lane dashes
+        // a paved walkway from the building to the curb
+        ctx.fillStyle = "#BCAE8E";
+        var bx = 22, by = H * 0.12, bw = rdX - 64, bh = H * 0.40;
+        var doorX = bx + bw * 0.5, doorY = by + bh;
+        ctx.beginPath(); ctx.moveTo(doorX - 18, doorY); ctx.lineTo(doorX + 18, doorY); ctx.lineTo(rdX - 2, H * 0.7 + 22); ctx.lineTo(rdX - 2, H * 0.7 - 18); ctx.closePath(); ctx.fill();
+
+        // ── the building facade ──
+        drawExitBuilding(e.kind, bx, by, bw, bh, e.door);
+
+        // ── Lulu's parked car on the road (drive only), drives up & off in phase 2 ──
+        var carX = rdX + rdW * 0.5, parkY = H * 0.66;
+        var carY = lerp(parkY, -150, e.carGo);
+        var inCar = (walk >= 1 && e.carGo > 0.05);
+        if (e.dest === "drive") {
+            ctx.save(); ctx.translate(carX, carY);
+            drawLuluCar(0, 0, 0, false, gameTime, false, save.selectedSkin, 1, !inCar);   // empty until she's in
+            ctx.restore();
+        }
+        // ── Lulu walks door → car/curb ──
+        if (!inCar) {
+            var tx = e.dest === "drive" ? carX - 22 : rdX - 12;
+            var ty = e.dest === "drive" ? parkY : H * 0.72;
+            var lx = lerp(doorX, tx, walk), ly = lerp(doorY + 8, ty, walk);
+            drawLuluTopDown(lx, ly, gameTime * (walk < 1 ? 6 : 2), e.dest === "drive" ? "run" : "cry");
+            if (e.phase <= 1) drawSpeechBubble(lx, ly - 46, e.quip, gameTime);
+        }
+
+        // ── caption banner (bottom) ──
+        if (e.caption) {
+            ctx.font = "bold 18px 'Segoe UI', Arial, sans-serif";
+            var cw = Math.min(W - 36, ctx.measureText(e.caption).width + 40), cbx = W / 2 - cw / 2, cby = H - 86;
+            ctx.fillStyle = "rgba(12,20,16,0.85)"; roundRect(cbx, cby, cw, 40, 12); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 2.5; roundRect(cbx, cby, cw, 40, 12); ctx.stroke();
+            drawText(e.caption, W / 2, cby + 22, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+            if (e.phase < 2) { var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 5)); ctx.globalAlpha = bl; drawText("▾ tap", W / 2, cby + 56, "bold 12px Arial", "#FFD54F", "#000", 2); ctx.globalAlpha = 1; }
+        }
+        if (e.fade > 0) { ctx.fillStyle = "rgba(10,12,20," + e.fade + ")"; ctx.fillRect(0, 0, W, H); }
+    }
+    // A front-on roadside building facade, themed per kind, with sliding/opening
+    // doors revealing a lit interior as Lulu exits.
+    function drawExitBuilding(kind, x, y, w, h, doorOpen) {
+        var body = kind === "hospital" ? "#EAF1F0" : kind === "court" ? "#CDBfA0"
+                 : "#5A6B78";                                                   // police / jail (slate)
+        var roof = kind === "hospital" ? "#B5CFCB" : kind === "court" ? "#A89A78" : "#3C4854";
+        var signC = kind === "hospital" ? "#00897B" : kind === "court" ? "#5D4037" : "#1565C0";
+        var label = kind === "hospital" ? "🏥 GENERAL HOSPITAL" : kind === "court" ? "⚖️ COURTHOUSE"
+                  : kind === "jail" ? "🚓 COUNTY JAIL" : "🚓 PRECINCT 18½";
+        // drop shadow + body
+        ctx.fillStyle = "rgba(0,0,0,0.15)"; roundRect(x + 5, y + 7, w, h, 6); ctx.fill();
+        ctx.fillStyle = body; roundRect(x, y, w, h, 6); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.18)"; ctx.lineWidth = 2; roundRect(x, y, w, h, 6); ctx.stroke();
+        // roof / pediment
+        if (kind === "court") {                       // classical pediment + columns
+            ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + w / 2, y - 28); ctx.lineTo(x + w + 6, y); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.5)";
+            for (var c = 0; c < 4; c++) { var colX = x + 14 + c * ((w - 28) / 3); ctx.fillRect(colX - 4, y + 24, 8, h - 50); }
+        } else {
+            ctx.fillStyle = roof; ctx.fillRect(x - 4, y - 8, w + 8, 12);
+        }
+        // window grid (barred for jail)
+        for (var wy = y + 16; wy < y + h - 70; wy += 30) {
+            for (var wx = x + 14; wx < x + w - 18; wx += 34) {
+                ctx.fillStyle = "#2A3742"; roundRect(wx, wy, 22, 18, 2); ctx.fill();
+                ctx.fillStyle = "rgba(180,220,235,0.6)"; roundRect(wx + 1.5, wy + 1.5, 19, 15, 2); ctx.fill();
+                if (kind === "jail") { ctx.fillStyle = "#37474F"; for (var b = 0; b < 3; b++) ctx.fillRect(wx + 4 + b * 6, wy, 2.5, 18); }
+            }
+        }
+        // hospital red cross
+        if (kind === "hospital") { ctx.fillStyle = "#E53935"; ctx.fillRect(x + w / 2 - 4, y + 14, 8, 24); ctx.fillRect(x + w / 2 - 12, y + 22, 24, 8); }
+        // sign board
+        ctx.fillStyle = "#1A1A1A"; roundRect(x + w * 0.12, y - 6, w * 0.76, 18, 4); ctx.fill();
+        drawFitText(label, x + w / 2, y + 3, w * 0.72, 11, signC === "#5D4037" ? "#FFE0B2" : signC, "#000");
+        // doorway (lit interior) + double doors that slide/swing open
+        var dw = 44, dh = 56, dx = x + w / 2 - dw / 2, dy = y + h - dh;
+        ctx.fillStyle = "#3A2C1E"; roundRect(dx - 4, dy - 4, dw + 8, dh + 4, 4); ctx.fill();      // frame
+        ctx.fillStyle = "#FFE9A8"; ctx.fillRect(dx, dy, dw, dh);                                    // warm interior glow
+        var slide = doorOpen * (dw / 2 - 2);
+        ctx.fillStyle = kind === "hospital" ? "rgba(160,210,220,0.92)" : "#6D5640";
+        ctx.fillRect(dx - slide, dy, dw / 2, dh); ctx.fillRect(dx + dw / 2 + slide, dy, dw / 2, dh);  // two door leaves
+        ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 1; ctx.strokeRect(dx - slide, dy, dw / 2, dh); ctx.strokeRect(dx + dw / 2 + slide, dy, dw / 2, dh);
+        // a couple of steps down to the path
+        for (var s = 0; s < 2; s++) { ctx.fillStyle = s % 2 ? "#C9BB9A" : "#BCAE8E"; ctx.fillRect(dx - 8 - s * 6, y + h + s * 7, dw + 16 + s * 12, 7); }
     }
 
     // Thin dispatch wrappers — foot mode IS the real driving sim with onFoot set.
@@ -503,19 +667,46 @@
         drawDecorations(footWalkTime);
         drawCityBuildings();
         drawSeasonFx();
-        ctx.fillStyle = "rgba(40,20,60,0.20)"; ctx.fillRect(0, 0, W, H);
-        ctx.save(); ctx.translate(W / 2 - 38, H * 0.44); ctx.rotate(0.4);
-        drawLuluCar(0, 0, 0, false, footWalkTime, false, save.selectedSkin, 1);
+        var prog = clamp(1 - footIntroT / 1.6, 0, 1);
+        ctx.fillStyle = "rgba(30,16,46,0.30)"; ctx.fillRect(0, 0, W, H);
+
+        var cx = W / 2 - 32, cy = H * 0.45;
+        // ── the dead car: tilted, hood up, hazards blinking, engine smoking ──
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(0.32);
+        drawLuluCar(0, 0, 0, false, footWalkTime, false, save.selectedSkin, 1, true);   // EMPTY — she climbed out
+        // popped hood (front of the top-down car)
+        ctx.fillStyle = "rgba(0,0,0,0.25)"; roundRect(-14, -34, 28, 8, 2); ctx.fill();
         ctx.restore();
-        // get-out smoke
-        if (Math.sin(footWalkTime * 9) > 0) particles.push({ x: W / 2 - 38 + rand(-8, 8), y: H * 0.44,
-            vx: rand(-14, 14), vy: rand(-48, -22), life: 1.2, maxLife: 1.2, size: rand(7, 12),
-            color: randPick(["#616161", "#9E9E9E"]), gravity: -20, smoke: true });
+        // hazard blinkers (flashing amber)
+        if (Math.sin(footWalkTime * 6) > 0) {
+            ctx.fillStyle = "#FFC107";
+            ctx.beginPath(); ctx.arc(cx - 18, cy - 22, 2.5, 0, Math.PI * 2); ctx.arc(cx + 16, cy - 26, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
+        // engine smoke (steady plume) + a couple of sparks
+        if (footWalkTime % 0.07 < 0.035) particles.push({ x: cx - 6 + rand(-8, 8), y: cy - 30,
+            vx: rand(-12, 12), vy: rand(-52, -26), life: 1.3, maxLife: 1.3, size: rand(7, 13),
+            color: randPick(["#616161", "#9E9E9E", "#757575"]), gravity: -22, smoke: true });
+        if (prog < 0.5 && Math.random() < 0.2) particles.push({ x: cx - 4, y: cy - 28, vx: rand(-30, 30), vy: rand(-40, -10),
+            life: 0.4, maxLife: 0.4, size: rand(2, 4), color: "#FFB300", gravity: 120 });
         drawParticles();
-        drawLuluTopDown(W / 2 + 36, H * 0.44 + 14, footWalkTime, footIntroT > 0.7 ? "cry" : "run");
-        drawSpeechBubble(W / 2 + 36, H * 0.44 - 44, footIntroLine, footWalkTime);
-        drawText("LULU ON FOOT", W / 2, H * 0.66, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
-        drawText("borrow a car to get back on the road", W / 2, H * 0.66 + 24, "bold 12px Arial", "#FFF8E1", "#000", 2);
+
+        // ── Lulu climbs out and stands beside the wreck (animated) ──
+        var lx = lerp(cx + 4, cx + 60, clamp(prog / 0.55, 0, 1)), ly = cy + 12;
+        var mood = prog < 0.4 ? "panic" : "cry";
+        // dust puffs as she scrambles out
+        if (prog < 0.55 && Math.random() < 0.3) particles.push({ x: lx, y: ly + 16, vx: rand(-26, 26), vy: rand(-20, -4),
+            life: 0.5, maxLife: 0.5, size: rand(4, 8), color: "#CFC4B0", gravity: 40, smoke: true });
+        drawLuluTopDown(lx, ly, footWalkTime, mood);
+        if (prog > 0.32) drawSpeechBubble(lx, ly - 48, footIntroLine, footWalkTime);
+
+        // ── title card pops in ──
+        var tp = clamp((prog - 0.2) / 0.3, 0, 1);
+        ctx.save(); ctx.translate(W / 2, H * 0.68); ctx.scale(0.82 + tp * 0.18, 0.82 + tp * 0.18); ctx.globalAlpha = tp;
+        drawText("🚶‍♀️ LULU ON FOOT", 0, 0, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+        ctx.restore();
+        ctx.globalAlpha = tp;
+        drawText("borrow a car to get back on the road", W / 2, H * 0.68 + 26, "bold 12px Arial", "#FFF8E1", "#000", 2);
+        ctx.globalAlpha = 1;
     }
 
     // ── Interior contract (interiors live in 08c/08d/08e) ────

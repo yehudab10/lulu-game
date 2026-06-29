@@ -2,7 +2,7 @@
     var enterFadeT = 0;   // brief fade-in for cutscene scenes that skip the iris wipe
     // Heavy story scenes that hard-cut in (excluded from the iris) — give them a
     // quick ease-in from black so nothing pops jarringly.
-    var ENTER_FADE = { arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, copBust: 1, copStop: 1 };
+    var ENTER_FADE = { arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, copBust: 1, copStop: 1, exitScene: 1 };
 
     function gameLoop(timestamp) {
         var dt = Math.min((timestamp - lastTime) / 1000, 0.05);
@@ -32,7 +32,7 @@
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
             var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
-                            arrest: 1, jailCell: 1, courtroom: 1, hospital: 1,
+                            arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, exitScene: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
                 sceneFade.t >= sceneFade.dur) {
@@ -70,7 +70,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "footRun" || state === "footInterior") musicTrack = "lulu";
+            state === "footRun" || state === "footInterior" || state === "exitScene") musicTrack = "lulu";
         else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
         else if (state === "jailCell" || state === "courtroom" || state === "arrest") musicTrack = "prison";   // arrest / jail / court / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
@@ -95,6 +95,7 @@
         else if (state === "hospital") updateHospital(dt);
         else if (state === "jailCell") updateJailCell(dt);
         else if (state === "courtroom") updateCourtroom(dt);
+        else if (state === "exitScene") updateExitScene(dt);
         else if (state === "footRun") updateFootRun(dt);
         else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "footWedding") updateFootWedding(dt);
@@ -128,6 +129,7 @@
         else if (state === "hospital") drawHospital();
         else if (state === "jailCell") drawJailCell();
         else if (state === "courtroom") drawCourtroom();
+        else if (state === "exitScene") drawExitScene();
         else if (state === "footRun") drawFootRun();
         else if (state === "footInterior") drawFootInterior();
         else if (state === "footWedding") drawFootWedding();

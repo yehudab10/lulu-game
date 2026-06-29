@@ -178,8 +178,7 @@
             if (hospital.t > 0.6 && (consumeClick() || consumeAction())) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
                 hospital = null;
-                if (typeof returnToDriving === "function") returnToDriving();
-                spawnFloater(player.x, player.y - 50, "🩹 Patched up — drive safe!", "#7CFC4F");
+                beginExitScene("hospital", "drive", "🩹 Discharged — drive safe!");
             }
             return;
         }
@@ -208,8 +207,7 @@
             hospital.t += dt;
             if (hospital.t > 1.7 || consumeClick() || consumeAction()) {
                 hospital = null;
-                if (typeof returnToDriving === "function") returnToDriving();
-                spawnFloater(player.x, player.y - 50, "🏃 Skipped the bill — GONE!", "#7CFC4F");
+                beginExitScene("hospital", "drive", "🏃 Skipped the bill — GONE!");
             }
             return;
         }

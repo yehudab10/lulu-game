@@ -408,9 +408,8 @@
                     if (save.totalCoins >= jail.bail) {
                         save.totalCoins -= jail.bail; persistSave();
                         var paid = jail.bail; clearLockup(); jail = null; prisonClothes = false;
-                        if (typeof returnToDriving === "function") returnToDriving();
-                        spawnFloater(player.x, player.y - 50, "💰 BAILED OUT! −" + paid, "#7CFC4F");
                         playTone(784, 0.1, "triangle", 0.18);
+                        beginExitScene("police", "drive", "💰 Bailed out! −" + paid + " 💰");
                     } else {
                         playTone(180, 0.15, "square", 0.15);
                         spawnFloater(W / 2, H * 0.42, "Can't make bail! 😬", "#FF8A80");
@@ -533,11 +532,8 @@
                 var fees = Math.min(save.totalCoins || 0, 40 + jail.total * 2);
                 if (fees > 0) { save.totalCoins -= fees; persistSave(); }
                 clearLockup(); jail = null;
-                spawnFloater(player.x, player.y - 56, "Time served — CAR IMPOUNDED!", "#FF8A80");
-                if (fees > 0) spawnFloater(player.x, player.y - 34, "−" + fees + " 💰 court costs", "#FF8A80");
-                spawnFloater(player.x, player.y - 12, "You're walking. 🚶‍♀️", "#FFE082");
-                if (typeof startFootWorld === "function") startFootWorld("copWalk");
-                else if (typeof returnToDriving === "function") returnToDriving();
+                // walks out the jail doors — but her car's impounded, so she's on foot
+                beginExitScene("jail", "foot", fees > 0 ? "⛓️ Time served · −" + fees + " 💰 court costs" : "⛓️ Time served — you're free!", "copWalk");
                 return;
             }
         }
@@ -1057,10 +1053,9 @@
                 if (v !== "jail") clearLockup();   // jail keeps a lockup (serveTime resets it)
                 if (v === "jail") { serveTime(); return; }     // actually do the time → walk out, no car
                 prisonClothes = false;
-                if (typeof returnToDriving === "function") returnToDriving();
-                spawnFloater(player.x, player.y - 50,
-                    v === "dismissed" ? "⚖️ DISMISSED! Free to go!" : "Fine paid. Drive safer! 🚗",
-                    v === "dismissed" ? "#7CFC4F" : "#FFE082");
+                // walk out of the courthouse and drive off
+                beginExitScene("court", "drive",
+                    v === "dismissed" ? "⚖️ DISMISSED — free to go!" : "💸 Fine paid. Drive safer!");
             }
         }
     }

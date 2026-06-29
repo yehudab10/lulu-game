@@ -149,7 +149,7 @@
         ctx.fillRect(-1.2, fy + 4.8, 2.4, 0.6);
     }
 
-    function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale) {
+    function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale, empty) {
         var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
         var sc = scale || 1;
         ctx.save();
@@ -198,7 +198,13 @@
         ctx.fillStyle = C.windshield;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
 
-        // ── Lulu's face (cute young woman — bold & readable at small size) ──
+        // ── Lulu's face (skipped for an EMPTY car — she's out of it) ──
+      if (empty) {
+        // two empty seat-backs showing through the windshield
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        roundRect(-hw + 11, -hh + 12, (CAR_W - 22) / 2 - 1, 18, 3); ctx.fill();
+        roundRect(2, -hh + 12, (CAR_W - 22) / 2 - 1, 18, 3); ctx.fill();
+      } else {
         var fy = -hh + 23;                 // face center y
         var hairC = save.luluHair;
         var hairDark = shadeColor(hairC, -28);
@@ -325,6 +331,7 @@
         ctx.fill();
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(-1.2, fy + 4.8, 2.4, 0.6);   // teeth glint
+      }
 
         // Phone (distracted mode)
         if (distracted) {
