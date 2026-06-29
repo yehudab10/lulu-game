@@ -180,10 +180,35 @@
             ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
         }
 
-        // Cozy kitchen background
-        ctx.fillStyle = "#FFF4E0";
+        // Cozy kitchen background — warm vertical gradient instead of a flat wall
+        var ckBg = ctx.createLinearGradient(0, 0, 0, H);
+        ckBg.addColorStop(0, "#FFF7E8");
+        ckBg.addColorStop(1, "#F3E2C2");
+        ctx.fillStyle = ckBg;
         ctx.fillRect(0, 0, W, H);
-        // Warm sunbeam
+
+        // Sunny kitchen window up top — the source of the warm sunbeam below.
+        var ckwX = W * 0.18, ckwY = 22, ckwW = W * 0.30, ckwH = 96;
+        ctx.fillStyle = "#9CCBE8"; roundRect(ckwX - 5, ckwY - 5, ckwW + 10, ckwH + 10, 6); ctx.fill();
+        ctx.save();
+        roundRect(ckwX, ckwY, ckwW, ckwH, 3); ctx.clip();   // keep the view inside the panes
+        var skyG = ctx.createLinearGradient(0, ckwY, 0, ckwY + ckwH);
+        skyG.addColorStop(0, "#BFE3FF"); skyG.addColorStop(1, "#E8F6FF");
+        ctx.fillStyle = skyG; ctx.fillRect(ckwX, ckwY, ckwW, ckwH);
+        // a little rolling hill + sun seen through the glass
+        ctx.fillStyle = "#FFE08A"; ctx.beginPath();
+        ctx.arc(ckwX + ckwW * 0.74, ckwY + 24, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#A5D6A7"; ctx.beginPath();
+        ctx.ellipse(ckwX + ckwW * 0.4, ckwY + ckwH - 4, ckwW * 0.6, 20, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // muntins + frame
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(ckwX + ckwW / 2, ckwY); ctx.lineTo(ckwX + ckwW / 2, ckwY + ckwH);
+        ctx.moveTo(ckwX, ckwY + ckwH / 2); ctx.lineTo(ckwX + ckwW, ckwY + ckwH / 2); ctx.stroke();
+        ctx.strokeStyle = "#C8A878"; ctx.lineWidth = 3; ctx.strokeRect(ckwX, ckwY, ckwW, ckwH);
+
+        // Warm sunbeam slanting down from the window
         ctx.fillStyle = "rgba(255, 224, 130, 0.25)";
         ctx.beginPath();
         ctx.moveTo(W * 0.15, 0); ctx.lineTo(W * 0.45, 0);
