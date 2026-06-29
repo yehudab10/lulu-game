@@ -3404,7 +3404,13 @@
             ctx.save(); ctx.translate(3, -18); ctx.rotate(-0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
         }
 
-        if (mood === "scared") {                       // wide frightened eyes + sweat
+        if (state === "faint") {                       // X_X knocked out cold
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(-4.6, -16.6); ctx.lineTo(-1.4, -13.4); ctx.moveTo(-1.4, -16.6); ctx.lineTo(-4.6, -13.4);
+            ctx.moveTo(1.4, -16.6); ctx.lineTo(4.6, -13.4); ctx.moveTo(4.6, -16.6); ctx.lineTo(1.4, -13.4);
+            ctx.stroke();
+        } else if (mood === "scared") {                // wide frightened eyes + sweat
             ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-3, -15.5, 2.2, 0, Math.PI * 2); ctx.arc(3, -15.5, 2.2, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-3, -15, 1.1, 0, Math.PI * 2); ctx.arc(3, -15, 1.1, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(6.5, -14 + Math.abs(Math.sin(time * 6)) * 2, 1.3, 0, Math.PI * 2); ctx.fill();
@@ -3429,7 +3435,9 @@
         }
 
         // Mouth by mood
-        if (mood === "scared") {                       // trembling little "o"
+        if (state === "faint") {                        // slack, knocked-out mouth
+            ctx.fillStyle = "#3A1A1A"; ctx.beginPath(); ctx.ellipse(0, -9, 1.6, 2, 0, 0, Math.PI * 2); ctx.fill();
+        } else if (mood === "scared") {                // trembling little "o"
             ctx.fillStyle = "#3A1A1A"; ctx.beginPath();
             ctx.ellipse(Math.sin(time * 30) * 0.6, -9, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
         } else if (mood === "sad") {                   // wobbly frown / open sob
@@ -8273,6 +8281,31 @@
                 }
                 return;
             }
+            if (reprieveKind === "faint") {                  // the scared driver keels over
+                angryMan.faintT = (angryMan.faintT || 0) + dt;
+                if (angryMan.faintT > 1.0) {
+                    angryMan.faintRot = Math.min(Math.PI / 2, (angryMan.faintRot || 0) + dt * 3.2);
+                    angryMan.state = "faint";
+                    if (angryMan.faintRot >= Math.PI / 2 && !angryMan.thudded) {
+                        angryMan.thudded = true; shakeTimer = 0.18; shakeIntensity = 4;
+                        playTone(90, 0.18, "square", 0.14);
+                        for (var fp = 0; fp < 6; fp++) particles.push({ x: angryMan.x + rand(-14, 14), y: angryMan.y + 16,
+                            vx: rand(-50, 50), vy: rand(-26, -6), life: 0.5, maxLife: 0.5, size: rand(3, 5), color: "#BCAAA4", gravity: 60 });
+                    }
+                }
+                if (angryMan.faintT > 2.8) grantSecondChance();
+                return;
+            }
+            if (reprieveKind === "weep") {                   // the sad driver shuffles home
+                angryMan.x += angryMan.runDir * 92 * dt;
+                angryMan.weepT = (angryMan.weepT || 0) + dt;
+                if (angryMan.weepT > 0.18) { angryMan.weepT = 0;
+                    particles.push({ x: angryMan.x + rand(-4, 4), y: angryMan.y - 14, vx: angryMan.runDir * 8, vy: 40,
+                        life: 0.7, maxLife: 0.7, size: rand(2, 3.4), color: "#7EC8F0", gravity: 120 });
+                }
+                if (angryMan.x < -50 || angryMan.x > W + 50) grantSecondChance();
+                return;
+            }
             if (reprieveKind === "arrest") {
                 if (revengeCar && !revengeCar.arrived) {
                     // cop screeches down to the man
@@ -8305,7 +8338,20 @@
     function beginReprieve() {
         crashPhase = 4;
         crashPhaseTimer = 3.2;
-        if (reprieveKind === "insurance") {
+        // A shaken or heartbroken driver resolves it their OWN way: the scared one
+        // keels over in a faint, the sad one shuffles home weeping. (Insurance —
+        // Hillel's payout — is too good to override.)
+        if (angryMan && reprieveKind !== "insurance") {
+            if (angryMan.mood === "scared" && Math.random() < 0.7) reprieveKind = "faint";
+            else if (angryMan.mood === "sad" && Math.random() < 0.7) reprieveKind = "weep";
+        }
+        if (reprieveKind === "faint") {
+            angryMan.state = "yelling"; angryMan.faintT = 0; angryMan.faintRot = 0;
+            angryYell = randPick(["I— I can't... feel my\nKNEES—", "everything's gone\nall... spinny...", "I feel FAINT—\n*wobble*"]);
+        } else if (reprieveKind === "weep") {
+            angryMan.state = "running"; angryMan.runDir = angryMan.x < W / 2 ? -1 : 1;
+            angryYell = randPick(["*sob* ...I'm just\ngonna go home.", "I want my\nMOMMY... 😭", "this is the WORST\nday... *wail*"]);
+        } else if (reprieveKind === "insurance") {
             // Hillel walks up from the shoulder, clipboard in hand, to "handle the
             // claim." The other driver calms down and lets the professional work.
             var fromLeft = player.x < W / 2;
@@ -8343,7 +8389,9 @@
         spawnFloater(W / 2, H * 0.40, "SECOND CHANCE!", "#7CFC00");
         spawnFloater(W / 2, H * 0.40 + 26,
             reprieveKind === "insurance" ? "Hillel handled it! 📋"
-            : reprieveKind === "arrest" ? "They cuffed the guy! 🚓" : "You slipped away! 🏃‍♀️", "#FFE082");
+            : reprieveKind === "arrest" ? "They cuffed the guy! 🚓"
+            : reprieveKind === "faint" ? "He fainted dead away! 😵"
+            : reprieveKind === "weep" ? "He went home crying. 😢" : "You slipped away! 🏃‍♀️", "#FFE082");
         shakeTimer = 0; flashTimer = 0;
         angryMan = null; revengeCar = null; crashedCar = null; hillelAdjuster = null;
         crashCause = null; animalSwarm = []; crashCars = [];
@@ -9485,8 +9533,21 @@
         // Revenge car / cop (if active) — drawn before the man if behind, after if hit
         if (revengeCar && angryMan.state !== "hit") drawRevenge(revengeCar);
         if (angryMan.state !== "hit") {
-            drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
-            if (angryMan.state === "yelling" || crashPhase === 4) {
+            var fr = angryMan.faintRot || 0;
+            if (fr) {
+                // tip the fainting driver over, pivoting at his feet
+                ctx.save();
+                ctx.translate(angryMan.x, angryMan.y + 18); ctx.rotate(fr); ctx.translate(-angryMan.x, -(angryMan.y + 18));
+                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
+                ctx.restore();
+                if (fr >= Math.PI / 2) for (var ds = 0; ds < 3; ds++) {
+                    var da = gameTime * 4 + ds * 2.1;
+                    drawText("💫", angryMan.x + 26 + Math.cos(da) * 10, angryMan.y - 6 + Math.sin(da) * 6, "12px Arial", "#FFD54F", null, 0);
+                }
+            } else {
+                drawAngryMan(angryMan.x, angryMan.y, angryMan.time, angryMan.state, angryMan.runDir, angryMan.cop, angryMan.mood, angryMan.hair);
+            }
+            if ((angryMan.state === "yelling" || crashPhase === 4) && fr < Math.PI / 2) {
                 drawSpeechBubble(angryMan.x, angryMan.y - 30, angryYell, angryMan.time);
             }
         }

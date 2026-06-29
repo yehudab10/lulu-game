@@ -1237,7 +1237,13 @@
             ctx.save(); ctx.translate(3, -18); ctx.rotate(-0.4); roundRect(-3, 0, 6, 2, 1); ctx.fill(); ctx.restore();
         }
 
-        if (mood === "scared") {                       // wide frightened eyes + sweat
+        if (state === "faint") {                       // X_X knocked out cold
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(-4.6, -16.6); ctx.lineTo(-1.4, -13.4); ctx.moveTo(-1.4, -16.6); ctx.lineTo(-4.6, -13.4);
+            ctx.moveTo(1.4, -16.6); ctx.lineTo(4.6, -13.4); ctx.moveTo(4.6, -16.6); ctx.lineTo(1.4, -13.4);
+            ctx.stroke();
+        } else if (mood === "scared") {                // wide frightened eyes + sweat
             ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-3, -15.5, 2.2, 0, Math.PI * 2); ctx.arc(3, -15.5, 2.2, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(-3, -15, 1.1, 0, Math.PI * 2); ctx.arc(3, -15, 1.1, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(6.5, -14 + Math.abs(Math.sin(time * 6)) * 2, 1.3, 0, Math.PI * 2); ctx.fill();
@@ -1262,7 +1268,9 @@
         }
 
         // Mouth by mood
-        if (mood === "scared") {                       // trembling little "o"
+        if (state === "faint") {                        // slack, knocked-out mouth
+            ctx.fillStyle = "#3A1A1A"; ctx.beginPath(); ctx.ellipse(0, -9, 1.6, 2, 0, 0, Math.PI * 2); ctx.fill();
+        } else if (mood === "scared") {                // trembling little "o"
             ctx.fillStyle = "#3A1A1A"; ctx.beginPath();
             ctx.ellipse(Math.sin(time * 30) * 0.6, -9, 1.8, 2.2, 0, 0, Math.PI * 2); ctx.fill();
         } else if (mood === "sad") {                   // wobbly frown / open sob
