@@ -459,6 +459,22 @@
             ctx.fillRect(0, gy, W, 18);
         }
 
+        // Drifting cloud shadows — soft dark ellipses sweeping across the grass
+        // for a sense of open sky overhead. Deterministic so they don't pop.
+        ctx.save();
+        for (var cs = 0; cs < 3; cs++) {
+            var csY = (cs * H * 0.4 + menuBounce * 26) % (H + 240) - 120;
+            var csX = cs === 1 ? W * 0.5 : (cs === 0 ? W * 0.16 : W * 0.84);
+            var csG = ctx.createRadialGradient(csX, csY, 10, csX, csY, 150);
+            csG.addColorStop(0, "rgba(0,0,0,0.10)");
+            csG.addColorStop(1, "rgba(0,0,0,0)");
+            ctx.fillStyle = csG;
+            ctx.beginPath();
+            ctx.ellipse(csX, csY, 150, 90, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
         // Drop shadow + chunky outline on road for depth (Sneaky-Sasquatch style)
         ctx.fillStyle = "rgba(0,0,0,0.22)";
         ctx.fillRect(ROAD_L - 14, 0, 4, H);
@@ -498,8 +514,18 @@
             drawCoin(cx, cy, menuBounce + ci);
         }
 
-        // Title
+        // Warm sun-glow behind the logo — a soft golden halo that makes the
+        // title feel lit rather than pasted on.
         var titleY = H * 0.13 + Math.sin(menuBounce * 2) * 5;
+        ctx.save();
+        var glow = ctx.createRadialGradient(W / 2, titleY, 20, W / 2, titleY, 220);
+        glow.addColorStop(0, "rgba(255,235,150," + (0.22 + Math.sin(menuBounce * 2) * 0.05) + ")");
+        glow.addColorStop(1, "rgba(255,235,150,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, titleY - 220, W, 440);
+        ctx.restore();
+
+        // Title
         drawText("LULU'S", W / 2, titleY - 22,
             "bold 56px 'Segoe UI', Arial, sans-serif", SKINS[save.selectedSkin].body, "#333", 7);
         drawText("ROAD TRIP", W / 2, titleY + 28,
@@ -523,8 +549,17 @@
             ctx.restore();
         }
 
-        // Car
+        // Car — with a soft ground shadow that breathes with the bob so the car
+        // reads as floating just above the road rather than stuck to it.
         var carY = H * 0.36 + Math.sin(menuBounce * 3) * 8;
+        var shY = H * 0.36 + 44;
+        var shScale = 1 - Math.sin(menuBounce * 3) * 0.10;
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath();
+        ctx.ellipse(W / 2, shY, 34 * shScale, 11 * shScale, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
         drawLuluCar(W / 2, carY, Math.sin(menuBounce * 2) * 0.05, false, menuBounce, distractedMode);
 
         // Coin balance top-right
@@ -574,6 +609,15 @@
             drawText(menuMsg, W / 2, H * 0.42 + 17, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
             ctx.globalAlpha = 1;
         }
+
+        // Soft vignette to frame the scene and draw the eye inward.
+        ctx.save();
+        var vig = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.30, W / 2, H * 0.45, H * 0.72);
+        vig.addColorStop(0, "rgba(0,0,0,0)");
+        vig.addColorStop(1, "rgba(0,0,0,0.22)");
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
 
         // Controls hint
         drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
