@@ -9792,8 +9792,16 @@
     // ── Draw: Game Over ──────────────────────────────────────
     function drawGameOver() {
         drawPlaying();
-        ctx.fillStyle = "rgba(0,0,0," + (gameOverAlpha * 0.65) + ")";
+        ctx.fillStyle = "rgba(0,0,0," + (gameOverAlpha * 0.6) + ")";
         ctx.fillRect(0, 0, W, H);
+        // Extra radial darkening at the edges so the central readout pops.
+        ctx.save();
+        var goVig = ctx.createRadialGradient(W / 2, H * 0.42, H * 0.18, W / 2, H * 0.42, H * 0.7);
+        goVig.addColorStop(0, "rgba(0,0,0,0)");
+        goVig.addColorStop(1, "rgba(0,0,0," + (gameOverAlpha * 0.45) + ")");
+        ctx.fillStyle = goVig;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
 
         if (gameOverAlpha > 0.3) {
             var a = Math.min((gameOverAlpha - 0.3) / 0.4, 1);
@@ -10026,11 +10034,14 @@
 
     // ── Draw: Shop ───────────────────────────────────────────
     function drawShop() {
-        // bg
-        ctx.fillStyle = "#37474F";
+        // bg — vertical gradient gives the slate some depth rather than a flat wall
+        var sg = ctx.createLinearGradient(0, 0, 0, H);
+        sg.addColorStop(0, "#455A64");
+        sg.addColorStop(1, "#263238");
+        ctx.fillStyle = sg;
         ctx.fillRect(0, 0, W, H);
         // pattern
-        ctx.fillStyle = "#455A64";
+        ctx.fillStyle = "rgba(255,255,255,0.04)";
         for (var y = 0; y < H; y += 20) {
             for (var x = (y % 40 === 0 ? 0 : 10); x < W; x += 20) {
                 ctx.fillRect(x, y, 10, 10);
@@ -10039,6 +10050,15 @@
 
         // Back button
         drawBackButton(16, 14);
+
+        // Soft golden glow behind the SHOP title.
+        ctx.save();
+        var shG = ctx.createRadialGradient(W / 2, 38, 8, W / 2, 38, 120);
+        shG.addColorStop(0, "rgba(255,215,0,0.18)");
+        shG.addColorStop(1, "rgba(255,215,0,0)");
+        ctx.fillStyle = shG;
+        ctx.fillRect(0, 0, W, 140);
+        ctx.restore();
 
         // Title
         drawText("SHOP", W / 2, 38, "bold 36px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
@@ -10074,6 +10094,15 @@
             drawText(lastBoughtMessage, W / 2, H - 45, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
             ctx.globalAlpha = 1;
         }
+
+        // Framing vignette.
+        ctx.save();
+        var shVig = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.34, W / 2, H * 0.5, H * 0.72);
+        shVig.addColorStop(0, "rgba(0,0,0,0)");
+        shVig.addColorStop(1, "rgba(0,0,0,0.28)");
+        ctx.fillStyle = shVig;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
     }
 
     function drawSkinsTab() {
