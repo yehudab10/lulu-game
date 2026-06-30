@@ -739,7 +739,7 @@
             var cy0 = nitroTimer > 0 ? 78 : 48;
             drawText("🍺 COURAGE ×2", W / 2, cy0, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD740", "#000", 3);
             ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, cy0 + 8, 80, 6, 3); ctx.fill();
-            ctx.fillStyle = "#FFD740"; roundRect(W / 2 - 38, cy0 + 9, 76 * clamp(courageT / 16, 0, 1), 4, 2); ctx.fill();
+            ctx.fillStyle = "#FFD740"; roundRect(W / 2 - 38, cy0 + 9, 76 * clamp(courageT / 20, 0, 1), 4, 2); ctx.fill();
         }
 
         // Passenger buff timer

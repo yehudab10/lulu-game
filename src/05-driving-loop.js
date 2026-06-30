@@ -2811,36 +2811,70 @@
     // The steamroller itself (Lulu in the cab unless `empty`, for the parked one).
     function drawSteamroller(x, y, tilt, t, empty) {
         ctx.save(); ctx.translate(x, y); ctx.rotate(tilt || 0);
-        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(0, 10, 32, 44, 0, 0, Math.PI * 2); ctx.fill();
-        // rear treads
-        ctx.fillStyle = "#212121"; roundRect(-28, 4, 13, 30, 4); ctx.fill(); roundRect(15, 4, 13, 30, 4); ctx.fill();
-        ctx.fillStyle = "#424242"; for (var tr = 6; tr < 32; tr += 6) { ctx.fillRect(-28, tr, 13, 2); ctx.fillRect(15, tr, 13, 2); }
-        // chassis
-        ctx.fillStyle = "#F9A825"; roundRect(-22, -16, 44, 46, 8); ctx.fill();
-        ctx.fillStyle = "#F57F17"; roundRect(-22, 16, 44, 14, 8); ctx.fill();
-        ctx.save(); roundRect(-22, 16, 44, 14, 8); ctx.clip();   // hazard stripes on the tail
-        ctx.fillStyle = "#212121"; for (var hs = -34; hs < 30; hs += 12) { ctx.beginPath(); ctx.moveTo(hs, 30); ctx.lineTo(hs + 8, 16); ctx.lineTo(hs + 16, 16); ctx.lineTo(hs + 8, 30); ctx.closePath(); ctx.fill(); }
+        // ground shadow
+        ctx.fillStyle = "rgba(0,0,0,0.26)"; ctx.beginPath(); ctx.ellipse(0, 14, 35, 47, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── REAR drive drum (a shaded cylinder across the back) ──
+        var rg = ctx.createLinearGradient(0, 20, 0, 40);
+        rg.addColorStop(0, "#90A4AE"); rg.addColorStop(0.5, "#607D8B"); rg.addColorStop(1, "#37474F");
+        ctx.fillStyle = rg; roundRect(-27, 20, 54, 20, 6); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.18)"; roundRect(-27, 21, 54, 4, 6); ctx.fill();
+        ctx.fillStyle = "#263238"; for (var rsx = -22; rsx < 26; rsx += 8) ctx.fillRect(rsx, 24, 2, 14);   // tread grooves
+        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(-27, 30, 5, 0, Math.PI * 2); ctx.arc(27, 30, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(-27, 30, 2.2, 0, Math.PI * 2); ctx.arc(27, 30, 2.2, 0, Math.PI * 2); ctx.fill();
+
+        // ── CHASSIS / engine body (gradient + panel + rivets) ──
+        var cg = ctx.createLinearGradient(0, -14, 0, 26);
+        cg.addColorStop(0, "#FFCA28"); cg.addColorStop(0.55, "#F9A825"); cg.addColorStop(1, "#F57F17");
+        ctx.fillStyle = cg; roundRect(-21, -14, 42, 40, 8); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.10)"; ctx.fillRect(-21, 6, 42, 1.5);                         // panel seam
+        ctx.fillStyle = "#FFE082"; for (var rv = -15; rv <= 15; rv += 10) { ctx.beginPath(); ctx.arc(rv, -10, 1, 0, Math.PI * 2); ctx.fill(); }
+        // hazard-stripe tail band
+        ctx.save(); roundRect(-21, 13, 42, 13, 6); ctx.clip();
+        ctx.fillStyle = "#212121"; for (var hs = -30; hs < 26; hs += 11) { ctx.beginPath(); ctx.moveTo(hs, 26); ctx.lineTo(hs + 7, 13); ctx.lineTo(hs + 14, 13); ctx.lineTo(hs + 7, 26); ctx.closePath(); ctx.fill(); }
         ctx.restore();
-        // cab + roll cage
-        ctx.fillStyle = "#FBC02D"; roundRect(-16, -12, 32, 26, 6); ctx.fill();
-        ctx.fillStyle = "#B3E5FC"; roundRect(-12, -8, 24, 17, 4); ctx.fill();
+        ctx.strokeStyle = "#E65100"; ctx.lineWidth = 2; roundRect(-21, -14, 42, 40, 8); ctx.stroke();
+
+        // ── exhaust stack (left) with a cap + a rising puff ──
+        ctx.fillStyle = "#546E7A"; roundRect(-20, -22, 5, 12, 1.5); ctx.fill();
+        ctx.fillStyle = "#263238"; roundRect(-21.5, -24, 8, 4, 1.5); ctx.fill();
+        if (!empty) { var pf = (t * 16) % 12; ctx.fillStyle = "rgba(120,120,120," + (0.5 - pf * 0.035) + ")"; ctx.beginPath(); ctx.arc(-17.5, -26 - pf, 3 + pf * 0.25, 0, Math.PI * 2); ctx.fill(); }
+
+        // ── CAB: roll-cage frame, tinted glass, Lulu, amber beacon ──
+        ctx.fillStyle = "#FBC02D"; roundRect(-15, -12, 30, 26, 6); ctx.fill();
+        var gg = ctx.createLinearGradient(0, -9, 0, 11); gg.addColorStop(0, "#B3E5FC"); gg.addColorStop(1, "#4FC3F7");
+        ctx.fillStyle = gg; roundRect(-11, -8, 22, 18, 4); ctx.fill();
         if (!empty) {   // Lulu at the controls
             ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(0, -2, 8, Math.PI, 0); ctx.fill();
             ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(0, -2, 7, Math.PI, 0); ctx.fill();
             ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.2, 0, 1, 0, Math.PI * 2); ctx.arc(2.2, 0, 1, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(-4, 2, 1.4, 0, Math.PI * 2); ctx.arc(4, 2, 1.4, 0, Math.PI * 2); ctx.fill();
-        } else { ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(-10, -6, 20, 13, 3); ctx.fill(); }
-        ctx.strokeStyle = "#E65100"; ctx.lineWidth = 3; roundRect(-16, -14, 32, 30, 6); ctx.stroke();
-        // exhaust + a puff
-        ctx.fillStyle = "#616161"; roundRect(16, -22, 5, 11, 2); ctx.fill();
-        if (!empty) { ctx.fillStyle = "rgba(120,120,120,0.5)"; ctx.beginPath(); ctx.arc(18, -26 - (t * 18 % 10), 3 + (t * 18 % 10) * 0.3, 0, Math.PI * 2); ctx.fill(); }
-        // the big FRONT DRUM ROLLER
-        ctx.fillStyle = "#78909C"; roundRect(-32, -42, 64, 24, 7); ctx.fill();
-        ctx.fillStyle = "#B0BEC5"; roundRect(-32, -42, 64, 7, 7); ctx.fill();
-        ctx.fillStyle = "#546E7A"; roundRect(-32, -24, 64, 4, 2); ctx.fill();
-        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(-30, -30, 5, 0, Math.PI * 2); ctx.arc(30, -30, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(-30, -30, 2, 0, Math.PI * 2); ctx.arc(30, -30, 2, 0, Math.PI * 2); ctx.fill();
+        } else { ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(-9, -6, 18, 13, 3); ctx.fill(); }
+        ctx.strokeStyle = "#E65100"; ctx.lineWidth = 3; roundRect(-15, -12, 30, 26, 6); ctx.stroke();
+        ctx.fillStyle = "#FF6F00"; [[-13, -10], [13, -10], [-13, 12], [13, 12]].forEach(function (p) { ctx.beginPath(); ctx.arc(p[0], p[1], 2.3, 0, Math.PI * 2); ctx.fill(); });  // cage corner posts
+        var beac = Math.sin(t * 10) > 0;                                                            // amber beacon
+        if (beac) { ctx.fillStyle = "rgba(255,179,0,0.32)"; ctx.beginPath(); ctx.arc(0, -13, 8, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = beac ? "#FFC107" : "#8D6E00"; ctx.beginPath(); ctx.arc(0, -13, 3, 0, Math.PI * 2); ctx.fill();
+
+        // ── articulation joint linking cab to the front drum ──
+        ctx.fillStyle = "#37474F"; roundRect(-6, -21, 12, 9, 2); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(0, -16.5, 2.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── FRONT big DRUM ROLLER (cylinder w/ sheen, rotating seams, hub bolts) ──
+        var dg = ctx.createLinearGradient(0, -45, 0, -20);
+        dg.addColorStop(0, "#CFD8DC"); dg.addColorStop(0.42, "#90A4AE"); dg.addColorStop(1, "#546E7A");
+        ctx.fillStyle = dg; roundRect(-32, -45, 64, 25, 6); ctx.fill();
+        ctx.save(); roundRect(-32, -45, 64, 25, 6); ctx.clip();
+        ctx.fillStyle = "rgba(255,255,255,0.38)"; ctx.fillRect(-32, -44, 64, 5);                    // top sheen
+        ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.fillRect(-32, -25, 64, 5);                          // bottom shade
+        ctx.strokeStyle = "rgba(55,71,79,0.45)"; ctx.lineWidth = 1.5;                                // rotating seams
+        for (var ds = 0; ds < 6; ds++) { var sx = -36 + (ds * 14 + ((t * 46) % 14)); ctx.beginPath(); ctx.moveTo(sx, -45); ctx.lineTo(sx, -20); ctx.stroke(); }
+        ctx.restore();
+        ctx.fillStyle = "#37474F"; roundRect(-31, -49, 62, 3, 1); ctx.fill();                        // scraper bar
+        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(-30, -32, 6, 0, Math.PI * 2); ctx.arc(30, -32, 6, 0, Math.PI * 2); ctx.fill();   // end caps
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(-30, -32, 3.4, 0, Math.PI * 2); ctx.arc(30, -32, 3.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#263238"; for (var bo = 0; bo < 6; bo++) { var ba = bo * Math.PI / 3 + t; ctx.beginPath(); ctx.arc(-30 + Math.cos(ba) * 3.8, -32 + Math.sin(ba) * 3.8, 0.8, 0, Math.PI * 2); ctx.arc(30 + Math.cos(ba) * 3.8, -32 + Math.sin(ba) * 3.8, 0.8, 0, Math.PI * 2); ctx.fill(); }
         ctx.restore();
     }
     // The parked pickup: a steamroller boxed in by warning cones.
@@ -3959,6 +3993,22 @@
             ctx.restore();
             drawText("🛡 SAFE " + Math.ceil(invincibleTimer) + "s", W / 2, 70,
                 "bold 16px 'Segoe UI', Arial, sans-serif", "#7CD4FF", "#003", 4);
+        }
+        // Liquid-courage shield — a bold GOLD bubble that lasts the WHOLE buff, so
+        // it's obvious it's still active (the blue re-entry shield only covers the
+        // brief grace window, which made the buff look like it died after ~2s).
+        if (courageT > 0 && state !== "footRun") {
+            var cpz = 0.5 + 0.5 * Math.sin(gameTime * 9);
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,213,79," + (0.55 + 0.35 * cpz) + ")"; ctx.lineWidth = 3.5;
+            ctx.beginPath(); ctx.arc(player.x, player.y, 42 + cpz * 4, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(255,213,79,0.10)"; ctx.fill();
+            ctx.restore();
+            // a couple of orbiting sparkles
+            for (var cs = 0; cs < 2; cs++) {
+                var sa = gameTime * 3 + cs * Math.PI;
+                drawText("✦", player.x + Math.cos(sa) * 46, player.y + Math.sin(sa) * 46, "bold 11px Arial", "#FFE082", "#5D4037", 2);
+            }
         }
     }
 

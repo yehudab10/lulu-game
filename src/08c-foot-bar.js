@@ -308,7 +308,7 @@
             barDialogueT = 2.8; barDialogueX = W / 2; playDeny(); return;
         }
         chargeCoins(BAR_COURAGE_FEE);
-        if (typeof courageT !== "undefined") courageT = 16;
+        if (typeof courageT !== "undefined") courageT = 20;
         barDialogue = randPick(BAR_COURAGE_LINES);
         barDialogueT = 3.2; barDialogueX = W / 2;
         barFlash = 0.8; barFlashColor = "#FFD740";
