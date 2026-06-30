@@ -5325,6 +5325,7 @@
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
         prisonClothes = false; fugitiveT = 0; fugitiveSpot = 0; fugCopT = 0;
         if (typeof fugDisguise !== "undefined") { fugDisguise = null; fugDisguiseT = 0; }
+        if (typeof copK9s !== "undefined") { copK9s = []; copMissiles = []; copK9T = 0; copMslT = 0; }
         jail = null; court = null; arrest = null;
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
@@ -6957,6 +6958,7 @@
 
         // Escaped-convict heat: WANTED posters + cops recognizing her.
         if (!onFoot && prisonClothes) { updateFugitive(dt); if (state !== "playing") return; }
+        if (!onFoot && typeof updateCopHazards === "function") { updateCopHazards(dt); if (state !== "playing") return; }
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -10135,6 +10137,8 @@
         for (var mm = 0; mm < missiles.length; mm++) {
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
+        // K9 dogs + cop missiles (high-heat fugitive hazards)
+        if (typeof drawCopHazards === "function") drawCopHazards();
 
         // Toll booth / train crossing / drive-thru / bus stop / crossing guard
         if (iceTruck) drawIceTruck(iceTruck);
@@ -13516,6 +13520,10 @@
     var footBuskT = 0;           // >0 while she's busking/dancing on the curb
     var footArrestT = 0;         // >0 during the "cop walks her in" cinematic
     var footArrest = null;       // { x, y, line } cop cruiser pulling her over on foot
+    var footChase = null;        // an on-FOOT cop chase when a wanted Lulu is spotted
+    var FOOT_CHASE_TAUNTS = ["STOP! POLICE!", "You can't outrun the LAW!", "Get BACK here!",
+        "I do CARDIO, Lulu!", "Freeze! ...okay, RUN then.", "I've got your SHEITEL on file!",
+        "End of the line, missy!", "I skipped lunch for THIS!"];
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -13608,7 +13616,7 @@
         footIntroT = reason === "droveOff" ? 0 : 1.6; footWalkTime = 0;
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
-        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
+        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footChase = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -13776,7 +13784,8 @@
         if (copChase) copChase = null;
         if (copBust) copBust = null;
         if (footBuskT > 0) footBuskT -= dt;
-        footMood = footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
+        if (footChase) updateFootChase(dt);
+        footMood = footChase ? "panic" : footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
 
         // Drunk pedestrians she passes shuffle toward her and holler (reactive world).
         for (var di = 0; di < obstacles.length; di++) {
@@ -13805,22 +13814,17 @@
             if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
         }
 
-        // A cop who spots a WANTED Lulu walking CLOSE BY nabs her — but ONLY if
-        // she's actually got an open file (no more random grabs of an innocent
-        // pedestrian). It runs the full arrest cutscene (crime dialogue + the
-        // drive to the station) via beginArrest, same as everywhere else.
+        // A cop who spots a WANTED Lulu on foot doesn't just grab her — he pulls
+        // over and gives CHASE on foot (she can outrun him). Only fires when she
+        // actually has an open file, and not while a chase is already running.
         var footWanted = (typeof isWanted === "function" && isWanted()) || prisonClothes;
-        if (footBuskT <= 0 && footWanted) {
+        if (footBuskT <= 0 && footWanted && !footChase) {
             var copSeen = null, ic;
-            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 80 && Math.abs(rc.y - player.y) < 90) { copSeen = rc; break; } }
-            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 90 && Math.abs(oc.y - player.y) < 100) { copSeen = oc; break; } }
-            if (copSeen && Math.random() < dt * 0.14) {
-                copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
-                if (typeof beginArrest === "function") {
-                    var fch = (save.wanted && save.wanted.length) ? save.wanted.slice() : ["EVADING ARREST"];
-                    beginArrest(fch);
-                } else { footStartArrest(copSeen.x); }
-                return;
+            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 110 && Math.abs(rc.y - player.y) < 130) { copSeen = rc; break; } }
+            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 120 && Math.abs(oc.y - player.y) < 140) { copSeen = oc; break; } }
+            if (copSeen && Math.random() < dt * 0.7) {
+                copSeen.busted = true; // this cop is now the one chasing her
+                startFootChase(copSeen.x);
             }
         }
 
@@ -13964,14 +13968,17 @@
         for (ci = 0; ci < roadCops.length; ci++) { var rc = roadCops[ci]; if (!rc.busted && Math.abs(rc.y - player.y) < 180) { watcher = rc; break; } }
         if (!watcher) for (ci = 0; ci < obstacles.length; ci++) { var po = obstacles[ci]; if (po.type === "car" && po.behavior === "patrol" && Math.abs(po.y - player.y) < 180) { watcher = po; break; } }
         lives = Math.max(lives, 1);
-        footParked = []; footDoors = []; footCompanion = null;
+        footParked = []; footDoors = []; footCompanion = null; footChase = null;   // jumped in a car → shook the foot cop
         var v = pc.vtype || "car";
+        // returnToDriving FIRST — its scene-resume cleanup clears a stale dozer
+        // ("diesel days are over"), so set the borrowed vehicle AFTER it or the
+        // steamroller would get wiped right back to her pink car.
+        returnToDriving();
         if (v === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
         else if (v === "cop") playerVehicle = "cop";
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
-        returnToDriving();
         // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
         // drive them and you're clean; only getting run down books the theft. This
         // keeps a single hijack from leaving her hunted forever.
@@ -14132,6 +14139,42 @@
         if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
     }
 
+    // ── On-FOOT cop chase: a cop pulls over and runs her down. She opens a gap by
+    //    RUNNING (⚡), gets reeled in by walking/slowing; lose him for a beat and
+    //    he gives up, or let him close and she's nabbed (the full arrest cutscene).
+    function startFootChase(copX) {
+        footChase = { gap: 130, copX: clamp(copX, ROAD_L + 16, ROAD_R - 16), t: 0, escapeT: 0,
+                      taunt: randPick(FOOT_CHASE_TAUNTS), tauntT: 1.6 };
+        spawnFloater(player.x, player.y - 56, "🚓 A cop's after you — RUN! 🏃‍♀️", "#FF5252");
+        if (typeof playWompWomp === "function") playWompWomp();
+        playTone(680, 0.2, "sawtooth", 0.13, 460);
+    }
+    function updateFootChase(dt) {
+        var fc = footChase;
+        fc.t += dt;
+        fc.copX = lerp(fc.copX, player.x, Math.min(1, 2.4 * dt));        // he tracks her side of the road
+        // RUNNING opens a gap; cruising lets him slowly reel her in; slowing is suicide
+        var d = keys.up ? 48 : (keys.down ? -54 : -20);
+        fc.gap = clamp(fc.gap + d * dt, 0, 340);
+        if (fc.tauntT > 0) fc.tauntT -= dt; else if (Math.random() < dt * 0.5) { fc.taunt = randPick(FOOT_CHASE_TAUNTS); fc.tauntT = 2.0; }
+        if (fc.gap > 270) {
+            fc.escapeT += dt;
+            if (fc.escapeT > 1.8) {
+                footChase = null;
+                spawnFloater(player.x, player.y - 50, "Lost the cop! 😎", "#7CFC4F");
+                playTone(659, 0.1, "triangle", 0.2); setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
+                footBuskT = 2.0;   // brief cooldown before another cop clocks her
+                return;
+            }
+        } else fc.escapeT = 0;
+        if (fc.gap <= 4) {       // run down → collared
+            footChase = null;
+            var fch = (save.wanted && save.wanted.length) ? save.wanted.slice() : ["EVADING ARREST", "RESISTING ARREST"];
+            if (typeof beginArrest === "function") beginArrest(fch);
+            else footStartArrest(player.x);
+        }
+    }
+
     // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
     function footStartArrest(copX) {
         footArrestT = 2.4;
@@ -14192,6 +14235,12 @@
             ctx.restore();
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
+        // the chasing cop on foot — nearer the closer the gap gets
+        if (footChase) {
+            var fc = footChase, copY = clamp(player.y + 40 + fc.gap * 0.5, player.y + 24, H - SAFE_BOTTOM - 24);
+            if (typeof drawAngryMan === "function") drawAngryMan(fc.copX, copY, footWalkTime, "running", 1, true);
+            if (fc.tauntT > 0 && typeof drawSpeechBubble === "function") drawSpeechBubble(fc.copX, copY - 42, fc.taunt, footWalkTime);
+        }
         if (footHotwire) drawHotwire(footHotwire);
     }
 
@@ -14256,6 +14305,18 @@
         // pause button — works on foot (keyboard P did too) but the button was
         // never drawn, so it was effectively hidden. Now it's here, like driving.
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD", id: "pause" });
+
+        // on-foot chase banner + distance meter (run ⚡ to open the gap!)
+        if (footChase) {
+            var pulse = Math.sin(gameTime * 9) > 0;
+            drawText("🚨 COP CHASING — RUN! ⚡", W / 2, top + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
+            var bw = 150, bx = W / 2 - bw / 2, by = top + 66;
+            ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(bx, by, bw, 7, 3); ctx.fill();
+            var gp = clamp(footChase.gap / 270, 0, 1);
+            ctx.fillStyle = gp > 0.6 ? "#7CFC4F" : gp > 0.3 ? "#FFD740" : "#FF5252";
+            roundRect(bx, by, bw * gp, 7, 3); ctx.fill();
+            drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+        }
 
         if (footHintT > 0) {
             ctx.globalAlpha = clamp(footHintT, 0, 1);
@@ -22547,6 +22608,9 @@
     var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
     var fugDisguise = null;     // the rare roadside DISGUISE pickup (shakes the heat)
     var fugDisguiseT = 0;       // delay until the next disguise can appear
+    var copK9s = [];            // K9 dogs loosed into the street (3★+)
+    var copMissiles = [];       // missiles cop cars fire at her (4★+)
+    var copK9T = 0, copMslT = 0;   // spawn cadences for the above
 
     var ARREST_LINES = ["YOU'RE UNDER ARREST!", "Hands where I can see 'em!",
         "End of the road, Lulu!", "You're comin' with ME.", "Step out of the vehicle, ma'am.",
@@ -24362,7 +24426,7 @@
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
-        if (!prisonClothes) { fugDisguise = null; return; }
+        if (!prisonClothes) { fugDisguise = null; copK9s = []; copMissiles = []; return; }
         fugitiveT += dt;
         // The COOL way to shake the heat: catch a rare roadside DISGUISE (a clothes
         // rack on the shoulder) and swap out of the jumpsuit so the cops stop
@@ -24419,6 +24483,10 @@
             if (wl >= 4 && typeof spawnK9Unit === "function" && Math.random() < 0.4) spawnK9Unit();
             if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.4) spawnRoadCop();
         }
+        // 3★+ : cops turn K9 dogs LOOSE into the street to run her down.
+        if (wl >= 3) { copK9T -= dt; if (copK9T <= 0) { copK9T = Math.max(2.2, rand(4.5, 7) - wl * 0.4); spawnCopK9(); } }
+        // 4★+ : cruisers start FIRING MISSILES at her (dodge by lane-changing).
+        if (wl >= 4) { copMslT -= dt; if (copMslT <= 0) { copMslT = Math.max(2.4, rand(4, 6) - (wl - 4) * 0.7); fireCopMissile(); } }
         // A chase (or its pull-over) already owns the moment — don't double up,
         // and let the recognition meter cool while she's actively running.
         if (copChase || copBust) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
@@ -24440,6 +24508,83 @@
         }
         if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 RECOGNIZED — DRIVE!"); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
+    }
+
+    // ── K9 dogs + cop-car missiles (the high-heat hazards) ──
+    function spawnCopK9() {
+        var sx = LANES[randInt(0, 2)], sy = -36;
+        for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.type === "car" && o.behavior === "patrol" && o.y > -30 && o.y < player.y - 10) { sx = o.x; sy = o.y + 28; break; } }
+        copK9s.push({ x: sx, y: sy, t: 0, hitW: 18, hitH: 16, bark: rand(0.3, 0.9) });
+        if (typeof playDogBark === "function") playDogBark();
+        spawnFloater(sx, sy - 16, "🐕 K9 LOOSE!", "#FFCC80");
+    }
+    function fireCopMissile() {
+        var sx = LANES[randInt(0, 2)], sy = -28;
+        for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.type === "car" && o.behavior === "patrol" && o.y > -30 && o.y < player.y - 10) { sx = o.x; sy = o.y + 18; break; } }
+        copMissiles.push({ x: sx, y: sy, t: 0, hitW: 11, hitH: 22 });
+        playTone(300, 0.1, "sawtooth", 0.12, 140);
+        spawnFloater(sx, sy - 14, "🚀 INCOMING!", "#FF8A80");
+    }
+    function updateCopHazards(dt) {
+        // K9 dogs bound at her from up the road; she can sidestep them.
+        for (var i = copK9s.length - 1; i >= 0; i--) {
+            var k = copK9s[i]; k.t += dt; k.bark -= dt;
+            if (k.bark <= 0) { k.bark = rand(0.6, 1.2); if (typeof playDogBark === "function" && Math.abs(k.y - player.y) < 240) playDogBark(); }
+            k.x = lerp(k.x, player.x, Math.min(1, 1.4 * dt));
+            k.y += (gameSpeed * 1.1 + 70) * dt;
+            if (k.y > H + 50) { copK9s.splice(i, 1); continue; }
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, k.x, k.y, k.hitW, k.hitH)) {
+                spawnFloater(k.x, k.y - 18, "🐕 CHOMP!", "#FF5252"); copK9s.splice(i, 1);
+                if (typeof hitPlayer === "function") hitPlayer({ x: k.x, y: k.y });
+                if (state !== "playing") return;
+            }
+        }
+        // Cop missiles streak down with WEAK homing (lane-change to dodge).
+        for (var m = copMissiles.length - 1; m >= 0; m--) {
+            var ms = copMissiles[m]; ms.t += dt;
+            ms.x = lerp(ms.x, player.x, Math.min(1, 1.25 * dt));
+            ms.y += 320 * dt;
+            if (Math.random() < 0.7) particles.push({ x: ms.x + rand(-3, 3), y: ms.y - 12, vx: rand(-18, 18), vy: rand(20, 50), life: 0, maxLife: 0.4, size: rand(2, 4), color: randPick(["#FFB300", "#FF7043", "#9E9E9E"]), gravity: 0 });
+            if (ms.y > H + 40) { copMissiles.splice(m, 1); continue; }
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, ms.x, ms.y, ms.hitW, ms.hitH)) {
+                spawnCrashBurst(ms.x, ms.y, true); if (typeof playExplosion === "function") playExplosion();
+                copMissiles.splice(m, 1);
+                if (typeof hitPlayer === "function") hitPlayer({ x: ms.x, y: ms.y });
+                if (state !== "playing") return;
+            }
+        }
+    }
+    function drawCopK9(x, y, t) {
+        var run = Math.sin(t * 16);
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 9, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-6 - run * 3, 9); ctx.moveTo(6, 2); ctx.lineTo(6 + run * 3, 9); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.fillStyle = "#4E342E"; roundRect(-9, -6, 18, 12, 6); ctx.fill();
+        ctx.fillStyle = "#3E2723"; roundRect(-9, -6, 18, 4, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, 9, 6, 0, Math.PI * 2); ctx.fill();   // head toward her
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-3, 0); ctx.lineTo(-1, 5); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(5, 5); ctx.lineTo(3, 0); ctx.lineTo(1, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, 13, 1.7, 0, Math.PI * 2); ctx.fill();  // snout
+        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-2.4, 9, 1.1, 0, Math.PI * 2); ctx.arc(2.4, 9, 1.1, 0, Math.PI * 2); ctx.fill();  // fierce eyes
+        ctx.restore();
+    }
+    function drawCopMissile(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(255,160,60,0.55)"; ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(4, -9); ctx.lineTo(0, -9 - (6 + Math.sin(t * 30) * 3)); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-4, -10, 8, 16, 3); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.fillRect(-4, -5, 8, 2);
+        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(-4, 6); ctx.lineTo(4, 6); ctx.lineTo(0, 13); ctx.closePath(); ctx.fill();   // nose cone (down)
+        ctx.fillStyle = "#455A64";
+        ctx.beginPath(); ctx.moveTo(-4, -10); ctx.lineTo(-7, -6); ctx.lineTo(-4, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(7, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+    function drawCopHazards() {
+        for (var i = 0; i < copK9s.length; i++) drawCopK9(copK9s[i].x, copK9s[i].y, copK9s[i].t);
+        for (var m = 0; m < copMissiles.length; m++) drawCopMissile(copMissiles[m].x, copMissiles[m].y, copMissiles[m].t);
     }
 
     // The police chopper + tracking spotlight (drawn over the road at 5★).

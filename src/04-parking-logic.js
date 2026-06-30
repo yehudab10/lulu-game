@@ -7,6 +7,7 @@
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
         prisonClothes = false; fugitiveT = 0; fugitiveSpot = 0; fugCopT = 0;
         if (typeof fugDisguise !== "undefined") { fugDisguise = null; fugDisguiseT = 0; }
+        if (typeof copK9s !== "undefined") { copK9s = []; copMissiles = []; copK9T = 0; copMslT = 0; }
         jail = null; court = null; arrest = null;
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;

@@ -652,6 +652,7 @@
 
         // Escaped-convict heat: WANTED posters + cops recognizing her.
         if (!onFoot && prisonClothes) { updateFugitive(dt); if (state !== "playing") return; }
+        if (!onFoot && typeof updateCopHazards === "function") { updateCopHazards(dt); if (state !== "playing") return; }
         // Honk Symphony — pitched by chain count
         if (consumeHonk() && honkCooldown <= 0) {
             honkChain = Math.min(honkChain + 1, 7);
@@ -3830,6 +3831,8 @@
         for (var mm = 0; mm < missiles.length; mm++) {
             drawMissile(missiles[mm].x, missiles[mm].y, missiles[mm].time);
         }
+        // K9 dogs + cop missiles (high-heat fugitive hazards)
+        if (typeof drawCopHazards === "function") drawCopHazards();
 
         // Toll booth / train crossing / drive-thru / bus stop / crossing guard
         if (iceTruck) drawIceTruck(iceTruck);

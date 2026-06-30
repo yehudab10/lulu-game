@@ -18,6 +18,9 @@
     var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
     var fugDisguise = null;     // the rare roadside DISGUISE pickup (shakes the heat)
     var fugDisguiseT = 0;       // delay until the next disguise can appear
+    var copK9s = [];            // K9 dogs loosed into the street (3★+)
+    var copMissiles = [];       // missiles cop cars fire at her (4★+)
+    var copK9T = 0, copMslT = 0;   // spawn cadences for the above
 
     var ARREST_LINES = ["YOU'RE UNDER ARREST!", "Hands where I can see 'em!",
         "End of the road, Lulu!", "You're comin' with ME.", "Step out of the vehicle, ma'am.",
@@ -1833,7 +1836,7 @@
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
-        if (!prisonClothes) { fugDisguise = null; return; }
+        if (!prisonClothes) { fugDisguise = null; copK9s = []; copMissiles = []; return; }
         fugitiveT += dt;
         // The COOL way to shake the heat: catch a rare roadside DISGUISE (a clothes
         // rack on the shoulder) and swap out of the jumpsuit so the cops stop
@@ -1890,6 +1893,10 @@
             if (wl >= 4 && typeof spawnK9Unit === "function" && Math.random() < 0.4) spawnK9Unit();
             if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.4) spawnRoadCop();
         }
+        // 3★+ : cops turn K9 dogs LOOSE into the street to run her down.
+        if (wl >= 3) { copK9T -= dt; if (copK9T <= 0) { copK9T = Math.max(2.2, rand(4.5, 7) - wl * 0.4); spawnCopK9(); } }
+        // 4★+ : cruisers start FIRING MISSILES at her (dodge by lane-changing).
+        if (wl >= 4) { copMslT -= dt; if (copMslT <= 0) { copMslT = Math.max(2.4, rand(4, 6) - (wl - 4) * 0.7); fireCopMissile(); } }
         // A chase (or its pull-over) already owns the moment — don't double up,
         // and let the recognition meter cool while she's actively running.
         if (copChase || copBust) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
@@ -1911,6 +1918,83 @@
         }
         if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 RECOGNIZED — DRIVE!"); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
+    }
+
+    // ── K9 dogs + cop-car missiles (the high-heat hazards) ──
+    function spawnCopK9() {
+        var sx = LANES[randInt(0, 2)], sy = -36;
+        for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.type === "car" && o.behavior === "patrol" && o.y > -30 && o.y < player.y - 10) { sx = o.x; sy = o.y + 28; break; } }
+        copK9s.push({ x: sx, y: sy, t: 0, hitW: 18, hitH: 16, bark: rand(0.3, 0.9) });
+        if (typeof playDogBark === "function") playDogBark();
+        spawnFloater(sx, sy - 16, "🐕 K9 LOOSE!", "#FFCC80");
+    }
+    function fireCopMissile() {
+        var sx = LANES[randInt(0, 2)], sy = -28;
+        for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.type === "car" && o.behavior === "patrol" && o.y > -30 && o.y < player.y - 10) { sx = o.x; sy = o.y + 18; break; } }
+        copMissiles.push({ x: sx, y: sy, t: 0, hitW: 11, hitH: 22 });
+        playTone(300, 0.1, "sawtooth", 0.12, 140);
+        spawnFloater(sx, sy - 14, "🚀 INCOMING!", "#FF8A80");
+    }
+    function updateCopHazards(dt) {
+        // K9 dogs bound at her from up the road; she can sidestep them.
+        for (var i = copK9s.length - 1; i >= 0; i--) {
+            var k = copK9s[i]; k.t += dt; k.bark -= dt;
+            if (k.bark <= 0) { k.bark = rand(0.6, 1.2); if (typeof playDogBark === "function" && Math.abs(k.y - player.y) < 240) playDogBark(); }
+            k.x = lerp(k.x, player.x, Math.min(1, 1.4 * dt));
+            k.y += (gameSpeed * 1.1 + 70) * dt;
+            if (k.y > H + 50) { copK9s.splice(i, 1); continue; }
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, k.x, k.y, k.hitW, k.hitH)) {
+                spawnFloater(k.x, k.y - 18, "🐕 CHOMP!", "#FF5252"); copK9s.splice(i, 1);
+                if (typeof hitPlayer === "function") hitPlayer({ x: k.x, y: k.y });
+                if (state !== "playing") return;
+            }
+        }
+        // Cop missiles streak down with WEAK homing (lane-change to dodge).
+        for (var m = copMissiles.length - 1; m >= 0; m--) {
+            var ms = copMissiles[m]; ms.t += dt;
+            ms.x = lerp(ms.x, player.x, Math.min(1, 1.25 * dt));
+            ms.y += 320 * dt;
+            if (Math.random() < 0.7) particles.push({ x: ms.x + rand(-3, 3), y: ms.y - 12, vx: rand(-18, 18), vy: rand(20, 50), life: 0, maxLife: 0.4, size: rand(2, 4), color: randPick(["#FFB300", "#FF7043", "#9E9E9E"]), gravity: 0 });
+            if (ms.y > H + 40) { copMissiles.splice(m, 1); continue; }
+            if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, ms.x, ms.y, ms.hitW, ms.hitH)) {
+                spawnCrashBurst(ms.x, ms.y, true); if (typeof playExplosion === "function") playExplosion();
+                copMissiles.splice(m, 1);
+                if (typeof hitPlayer === "function") hitPlayer({ x: ms.x, y: ms.y });
+                if (state !== "playing") return;
+            }
+        }
+    }
+    function drawCopK9(x, y, t) {
+        var run = Math.sin(t * 16);
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 9, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-6 - run * 3, 9); ctx.moveTo(6, 2); ctx.lineTo(6 + run * 3, 9); ctx.stroke();
+        ctx.lineCap = "butt";
+        ctx.fillStyle = "#4E342E"; roundRect(-9, -6, 18, 12, 6); ctx.fill();
+        ctx.fillStyle = "#3E2723"; roundRect(-9, -6, 18, 4, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, 9, 6, 0, Math.PI * 2); ctx.fill();   // head toward her
+        ctx.fillStyle = "#3E2723";
+        ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-3, 0); ctx.lineTo(-1, 5); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(5, 5); ctx.lineTo(3, 0); ctx.lineTo(1, 5); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, 13, 1.7, 0, Math.PI * 2); ctx.fill();  // snout
+        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-2.4, 9, 1.1, 0, Math.PI * 2); ctx.arc(2.4, 9, 1.1, 0, Math.PI * 2); ctx.fill();  // fierce eyes
+        ctx.restore();
+    }
+    function drawCopMissile(x, y, t) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(255,160,60,0.55)"; ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(4, -9); ctx.lineTo(0, -9 - (6 + Math.sin(t * 30) * 3)); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-4, -10, 8, 16, 3); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.fillRect(-4, -5, 8, 2);
+        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(-4, 6); ctx.lineTo(4, 6); ctx.lineTo(0, 13); ctx.closePath(); ctx.fill();   // nose cone (down)
+        ctx.fillStyle = "#455A64";
+        ctx.beginPath(); ctx.moveTo(-4, -10); ctx.lineTo(-7, -6); ctx.lineTo(-4, -6); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(7, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+    function drawCopHazards() {
+        for (var i = 0; i < copK9s.length; i++) drawCopK9(copK9s[i].x, copK9s[i].y, copK9s[i].t);
+        for (var m = 0; m < copMissiles.length; m++) drawCopMissile(copMissiles[m].x, copMissiles[m].y, copMissiles[m].t);
     }
 
     // The police chopper + tracking spotlight (drawn over the road at 5★).

@@ -26,6 +26,10 @@
     var footBuskT = 0;           // >0 while she's busking/dancing on the curb
     var footArrestT = 0;         // >0 during the "cop walks her in" cinematic
     var footArrest = null;       // { x, y, line } cop cruiser pulling her over on foot
+    var footChase = null;        // an on-FOOT cop chase when a wanted Lulu is spotted
+    var FOOT_CHASE_TAUNTS = ["STOP! POLICE!", "You can't outrun the LAW!", "Get BACK here!",
+        "I do CARDIO, Lulu!", "Freeze! ...okay, RUN then.", "I've got your SHEITEL on file!",
+        "End of the line, missy!", "I skipped lunch for THIS!"];
     var footDoorCool = 0, footParkCool = 0;
     var footEntryReason = "crashReprieve";
     var footRunLevel = 1;
@@ -118,7 +122,7 @@
         footIntroT = reason === "droveOff" ? 0 : 1.6; footWalkTime = 0;
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
-        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
+        footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footChase = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -286,7 +290,8 @@
         if (copChase) copChase = null;
         if (copBust) copBust = null;
         if (footBuskT > 0) footBuskT -= dt;
-        footMood = footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
+        if (footChase) updateFootChase(dt);
+        footMood = footChase ? "panic" : footBuskT > 0 ? "dance" : (invincibleTimer > 0 ? "panic" : "run");
 
         // Drunk pedestrians she passes shuffle toward her and holler (reactive world).
         for (var di = 0; di < obstacles.length; di++) {
@@ -315,22 +320,17 @@
             if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
         }
 
-        // A cop who spots a WANTED Lulu walking CLOSE BY nabs her — but ONLY if
-        // she's actually got an open file (no more random grabs of an innocent
-        // pedestrian). It runs the full arrest cutscene (crime dialogue + the
-        // drive to the station) via beginArrest, same as everywhere else.
+        // A cop who spots a WANTED Lulu on foot doesn't just grab her — he pulls
+        // over and gives CHASE on foot (she can outrun him). Only fires when she
+        // actually has an open file, and not while a chase is already running.
         var footWanted = (typeof isWanted === "function" && isWanted()) || prisonClothes;
-        if (footBuskT <= 0 && footWanted) {
+        if (footBuskT <= 0 && footWanted && !footChase) {
             var copSeen = null, ic;
-            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 80 && Math.abs(rc.y - player.y) < 90) { copSeen = rc; break; } }
-            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 90 && Math.abs(oc.y - player.y) < 100) { copSeen = oc; break; } }
-            if (copSeen && Math.random() < dt * 0.14) {
-                copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
-                if (typeof beginArrest === "function") {
-                    var fch = (save.wanted && save.wanted.length) ? save.wanted.slice() : ["EVADING ARREST"];
-                    beginArrest(fch);
-                } else { footStartArrest(copSeen.x); }
-                return;
+            for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 110 && Math.abs(rc.y - player.y) < 130) { copSeen = rc; break; } }
+            if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 120 && Math.abs(oc.y - player.y) < 140) { copSeen = oc; break; } }
+            if (copSeen && Math.random() < dt * 0.7) {
+                copSeen.busted = true; // this cop is now the one chasing her
+                startFootChase(copSeen.x);
             }
         }
 
@@ -474,14 +474,17 @@
         for (ci = 0; ci < roadCops.length; ci++) { var rc = roadCops[ci]; if (!rc.busted && Math.abs(rc.y - player.y) < 180) { watcher = rc; break; } }
         if (!watcher) for (ci = 0; ci < obstacles.length; ci++) { var po = obstacles[ci]; if (po.type === "car" && po.behavior === "patrol" && Math.abs(po.y - player.y) < 180) { watcher = po; break; } }
         lives = Math.max(lives, 1);
-        footParked = []; footDoors = []; footCompanion = null;
+        footParked = []; footDoors = []; footCompanion = null; footChase = null;   // jumped in a car → shook the foot cop
         var v = pc.vtype || "car";
+        // returnToDriving FIRST — its scene-resume cleanup clears a stale dozer
+        // ("diesel days are over"), so set the borrowed vehicle AFTER it or the
+        // steamroller would get wiped right back to her pink car.
+        returnToDriving();
         if (v === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
         else if (v === "cop") playerVehicle = "cop";
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
-        returnToDriving();
         // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
         // drive them and you're clean; only getting run down books the theft. This
         // keeps a single hijack from leaving her hunted forever.
@@ -642,6 +645,42 @@
         if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
     }
 
+    // ── On-FOOT cop chase: a cop pulls over and runs her down. She opens a gap by
+    //    RUNNING (⚡), gets reeled in by walking/slowing; lose him for a beat and
+    //    he gives up, or let him close and she's nabbed (the full arrest cutscene).
+    function startFootChase(copX) {
+        footChase = { gap: 130, copX: clamp(copX, ROAD_L + 16, ROAD_R - 16), t: 0, escapeT: 0,
+                      taunt: randPick(FOOT_CHASE_TAUNTS), tauntT: 1.6 };
+        spawnFloater(player.x, player.y - 56, "🚓 A cop's after you — RUN! 🏃‍♀️", "#FF5252");
+        if (typeof playWompWomp === "function") playWompWomp();
+        playTone(680, 0.2, "sawtooth", 0.13, 460);
+    }
+    function updateFootChase(dt) {
+        var fc = footChase;
+        fc.t += dt;
+        fc.copX = lerp(fc.copX, player.x, Math.min(1, 2.4 * dt));        // he tracks her side of the road
+        // RUNNING opens a gap; cruising lets him slowly reel her in; slowing is suicide
+        var d = keys.up ? 48 : (keys.down ? -54 : -20);
+        fc.gap = clamp(fc.gap + d * dt, 0, 340);
+        if (fc.tauntT > 0) fc.tauntT -= dt; else if (Math.random() < dt * 0.5) { fc.taunt = randPick(FOOT_CHASE_TAUNTS); fc.tauntT = 2.0; }
+        if (fc.gap > 270) {
+            fc.escapeT += dt;
+            if (fc.escapeT > 1.8) {
+                footChase = null;
+                spawnFloater(player.x, player.y - 50, "Lost the cop! 😎", "#7CFC4F");
+                playTone(659, 0.1, "triangle", 0.2); setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
+                footBuskT = 2.0;   // brief cooldown before another cop clocks her
+                return;
+            }
+        } else fc.escapeT = 0;
+        if (fc.gap <= 4) {       // run down → collared
+            footChase = null;
+            var fch = (save.wanted && save.wanted.length) ? save.wanted.slice() : ["EVADING ARREST", "RESISTING ARREST"];
+            if (typeof beginArrest === "function") beginArrest(fch);
+            else footStartArrest(player.x);
+        }
+    }
+
     // ── "Cop walks her in" cinematic (smooth → precinct interior) ────
     function footStartArrest(copX) {
         footArrestT = 2.4;
@@ -702,6 +741,12 @@
             ctx.restore();
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
+        // the chasing cop on foot — nearer the closer the gap gets
+        if (footChase) {
+            var fc = footChase, copY = clamp(player.y + 40 + fc.gap * 0.5, player.y + 24, H - SAFE_BOTTOM - 24);
+            if (typeof drawAngryMan === "function") drawAngryMan(fc.copX, copY, footWalkTime, "running", 1, true);
+            if (fc.tauntT > 0 && typeof drawSpeechBubble === "function") drawSpeechBubble(fc.copX, copY - 42, fc.taunt, footWalkTime);
+        }
         if (footHotwire) drawHotwire(footHotwire);
     }
 
@@ -766,6 +811,18 @@
         // pause button — works on foot (keyboard P did too) but the button was
         // never drawn, so it was effectively hidden. Now it's here, like driving.
         drawIconButton(PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD", id: "pause" });
+
+        // on-foot chase banner + distance meter (run ⚡ to open the gap!)
+        if (footChase) {
+            var pulse = Math.sin(gameTime * 9) > 0;
+            drawText("🚨 COP CHASING — RUN! ⚡", W / 2, top + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
+            var bw = 150, bx = W / 2 - bw / 2, by = top + 66;
+            ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(bx, by, bw, 7, 3); ctx.fill();
+            var gp = clamp(footChase.gap / 270, 0, 1);
+            ctx.fillStyle = gp > 0.6 ? "#7CFC4F" : gp > 0.3 ? "#FFD740" : "#FF5252";
+            roundRect(bx, by, bw * gp, 7, 3); ctx.fill();
+            drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+        }
 
         if (footHintT > 0) {
             ctx.globalAlpha = clamp(footHintT, 0, 1);
