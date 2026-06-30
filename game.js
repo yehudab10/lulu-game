@@ -4568,6 +4568,14 @@
             ctx.globalAlpha = 1;
         }
 
+        // Steamroller "diesel" gauge while crushing
+        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer" && dozerTimer > 0) {
+            drawText("🚜 CRUSH MODE", W / 2, 60, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+            var dwp = clamp(dozerTimer / 13, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(W / 2 - 60, 74, 120, 6, 3); ctx.fill();
+            ctx.fillStyle = dwp < 0.25 ? "#FF7043" : "#F9A825"; roundRect(W / 2 - 60, 74, 120 * dwp, 6, 3); ctx.fill();
+        }
+
         // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
         // with a draining window bar. Pops on each fresh pickup.
         if (coinCombo >= 3) {
@@ -5085,6 +5093,7 @@
         copEvent = null; copEventTimer = rand(60, 120);
         roadCops = []; copChase = null; copBust = null;
         spontaneousChaseCool = 22; wantedSpot = 0; wantedPatrolT = 0;
+        dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = [];
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         honkCooldown = 0;
         kidsInCar = false;
@@ -6330,6 +6339,7 @@
         // (entered at lives 0); if she then escapes/gets released back to the road,
         // she'd be drivable-but-dead and die on the next tap. Floor at 1.
         lives = Math.max(lives, 1);
+        if (playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }   // diesel days are over
         copChase = null; copBust = null; copStop = null;
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
@@ -6407,6 +6417,9 @@
                           season === "rain" || season === "storm");
         var weatherSlow = badWeather ? 1 - 0.13 * seasonBlend : 1;
         gameSpeed = baseGameSpeed * speedMod * weatherSlow;
+        // The steamroller is a TANK but a slug — hard-cap its top speed (which is
+        // exactly why a chase in one is so dangerous: you can't pull away).
+        if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
@@ -6422,6 +6435,19 @@
         player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
         player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
         player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
+
+        // ── Steamroller: tick its diesel, spawn/seek the rare pickup ──
+        if (!onFoot) {
+            if (playerVehicle === "dozer") { dozerTimer -= dt; if (dozerTimer <= 0) endDozer(); }
+            else if (state === "playing" && dozers.length === 0 && gameTime > 25) {
+                dozerSpawnCool -= dt;
+                if (dozerSpawnCool <= 0) {
+                    if (Math.random() < 0.55) { spawnDozer(); dozerSpawnCool = rand(45, 80); }
+                    else dozerSpawnCool = rand(12, 22);
+                }
+            }
+            updateDozerWorld(dt);
+        }
         if (onFoot) footWalkTime += dt * (0.5 + speedMod);
 
         // Timers
@@ -6808,6 +6834,14 @@
                 if (o.type === "puddle") {
                     // Just a wet splash that slows you for a beat — never a crash.
                     if (!o.splashed) { o.splashed = true; wetTimer = Math.max(wetTimer, 0.7); spawnSplash(o.x, player.y); }
+                    continue;
+                }
+                // Steamroller FLATTENS any car it touches (she's unharmed) and just
+                // rolls over cones / debris.
+                if (playerVehicle === "dozer") {
+                    if (o.type === "car") crushCar(o);
+                    else spawnCrashBurst(o.x, o.y, false);
+                    obstacles.splice(i, 1);
                     continue;
                 }
                 // Nitro turbo plows through traffic for bonus points.
@@ -8083,6 +8117,11 @@
     var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
     var wantedSpot = 0;              // recognition meter while she has an open "wanted" file
     var wantedPatrolT = 0;          // trickle of patrols hunting a wanted Lulu
+    var dozers = [];                // parked steamrollers waiting in work zones
+    var dozerTimer = 0;             // how much "diesel" is left while driving one
+    var dozerSpawnCool = 34;        // long cooldown — the steamroller is rare
+    var flatWrecks = [];            // pancaked cars left in the steamroller's wake
+    var DOZER_SPEED = 235;          // it's SLOW — that's the trade for being unstoppable
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the
@@ -8605,6 +8644,123 @@
         // Clear the hidden wreck sprite so it doesn't pop back when she returns.
         for (var hi = obstacles.length - 1; hi >= 0; hi--) if (obstacles[hi].hidden) obstacles.splice(hi, 1);
         startFootWorld("crashReprieve");
+    }
+
+    // ════════════ CONSTRUCTION VEHICLE — the STEAMROLLER ════════════
+    // A steamroller sits parked in a coned-off work zone. Drive into it to
+    // COMMANDEER it: it's SLOW, but it FLATTENS any car it touches (the driver
+    // doesn't make it — dark, but quick). If a cop sees, she's chased — and good
+    // luck outrunning anyone in a steamroller.
+    function spawnDozer() {
+        dozers.push({ x: LANES[randInt(0, 2)], y: -140, hitW: 50, hitH: 64, taken: false, t: 0 });
+    }
+    function commandeerDozer(d) {
+        d.taken = true;
+        playerVehicle = "dozer"; dozerTimer = 13;
+        invincibleTimer = Math.max(invincibleTimer, 0.4);
+        spawnFloater(player.x, player.y - 44, "🚜 STEAMROLLER!", "#FFD54F");
+        spawnFloater(player.x, player.y - 24, "CRUSH everything! (slow though)", "#FFE082");
+        playTone(70, 0.3, "sawtooth", 0.18); setTimeout(function () { playTone(90, 0.4, "square", 0.14); }, 180);
+    }
+    function endDozer(msg) {
+        playerVehicle = null; dozerTimer = 0;
+        invincibleTimer = Math.max(invincibleTimer, 1.2);
+        if (player) player.targetX = LANES[1];
+        spawnFloater(player.x, player.y - 40, msg || "⛽ Out of diesel — back to your car!", "#FFCC80");
+    }
+    function crushCar(o) {
+        spawnCrashBurst(o.x, o.y, true);
+        if (typeof playExplosion === "function") playExplosion();
+        playTone(64, 0.24, "square", 0.16); shakeTimer = 0.12; shakeIntensity = 4;
+        flatWrecks.push({ x: o.x, y: o.y, color: o.color || "#9E9E9E", t: 0, cop: o.behavior === "patrol" });
+        score += 60 * scoreMult; runCoins += 3; save.totalCoins += 3; persistSave();
+        spawnFloater(o.x, o.y - 10, randPick(["SPLAT! 💀", "FLATTENED!", "PANCAKED! 🥞", "CRUNCH! 💀"]), "#FF5252");
+        // A cop in view (or a flattened cruiser) = she's made → chase + a wanted file.
+        var witness = (typeof copInView === "function" && copInView()) || o.behavior === "patrol";
+        if (!witness) for (var ci = 0; ci < obstacles.length; ci++) {
+            var co = obstacles[ci];
+            if (co.type === "car" && co.behavior === "patrol" && co.y > 0 && co.y < H) { witness = true; break; }
+        }
+        if (witness && !copChase && !copBust) {
+            if (typeof addWanted === "function") addWanted(["VEHICULAR DESTRUCTION", "JOYRIDING A STEAMROLLER"]);
+            beginCopChase(player.x, "🚨 VEHICULAR DESTRUCTION!");
+        }
+    }
+    // pickups + pancaked wrecks scroll with the road; pickup on overlap
+    function updateDozerWorld(dt) {
+        for (var i = flatWrecks.length - 1; i >= 0; i--) {
+            var fw = flatWrecks[i]; fw.y += gameSpeed * dt; fw.t += dt;
+            if (fw.y > H + 40 || fw.t > 6) flatWrecks.splice(i, 1);
+        }
+        for (var d = dozers.length - 1; d >= 0; d--) {
+            var dz = dozers[d]; dz.y += gameSpeed * dt; dz.t += dt;
+            if (dz.y > H + 80) { dozers.splice(d, 1); continue; }
+            if (!dz.taken && playerVehicle !== "dozer" && state !== "footRun" &&
+                aabb(player.x, player.y, CAR_W, CAR_H, dz.x, dz.y, dz.hitW * 0.7, dz.hitH * 0.7)) {
+                commandeerDozer(dz); dozers.splice(d, 1);
+            }
+        }
+    }
+
+    // The pancaked wreck left behind — a squashed car silhouette.
+    function drawFlatWreck(fw) {
+        ctx.save(); ctx.translate(fw.x, fw.y);
+        ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.beginPath(); ctx.ellipse(0, 2, 26, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = shadeColor(fw.color, -20); roundRect(-24, -6, 48, 12, 5); ctx.fill();
+        ctx.fillStyle = fw.color; roundRect(-22, -5, 44, 6, 4); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.3)"; for (var c = -16; c <= 16; c += 8) ctx.fillRect(c, -5, 1.5, 11);  // crumple lines
+        if (fw.cop) { ctx.fillStyle = "#1A237E"; roundRect(-22, -5, 44, 4, 2); ctx.fill(); }
+        ctx.restore();
+    }
+    // The steamroller itself (Lulu in the cab unless `empty`, for the parked one).
+    function drawSteamroller(x, y, tilt, t, empty) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(tilt || 0);
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(0, 10, 32, 44, 0, 0, Math.PI * 2); ctx.fill();
+        // rear treads
+        ctx.fillStyle = "#212121"; roundRect(-28, 4, 13, 30, 4); ctx.fill(); roundRect(15, 4, 13, 30, 4); ctx.fill();
+        ctx.fillStyle = "#424242"; for (var tr = 6; tr < 32; tr += 6) { ctx.fillRect(-28, tr, 13, 2); ctx.fillRect(15, tr, 13, 2); }
+        // chassis
+        ctx.fillStyle = "#F9A825"; roundRect(-22, -16, 44, 46, 8); ctx.fill();
+        ctx.fillStyle = "#F57F17"; roundRect(-22, 16, 44, 14, 8); ctx.fill();
+        ctx.save(); roundRect(-22, 16, 44, 14, 8); ctx.clip();   // hazard stripes on the tail
+        ctx.fillStyle = "#212121"; for (var hs = -34; hs < 30; hs += 12) { ctx.beginPath(); ctx.moveTo(hs, 30); ctx.lineTo(hs + 8, 16); ctx.lineTo(hs + 16, 16); ctx.lineTo(hs + 8, 30); ctx.closePath(); ctx.fill(); }
+        ctx.restore();
+        // cab + roll cage
+        ctx.fillStyle = "#FBC02D"; roundRect(-16, -12, 32, 26, 6); ctx.fill();
+        ctx.fillStyle = "#B3E5FC"; roundRect(-12, -8, 24, 17, 4); ctx.fill();
+        if (!empty) {   // Lulu at the controls
+            ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(0, -2, 8, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, 0, 6.5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = save.luluHair || "#8B5A2B"; ctx.beginPath(); ctx.arc(0, -2, 7, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.2, 0, 1, 0, Math.PI * 2); ctx.arc(2.2, 0, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(255,140,140,0.5)"; ctx.beginPath(); ctx.arc(-4, 2, 1.4, 0, Math.PI * 2); ctx.arc(4, 2, 1.4, 0, Math.PI * 2); ctx.fill();
+        } else { ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(-10, -6, 20, 13, 3); ctx.fill(); }
+        ctx.strokeStyle = "#E65100"; ctx.lineWidth = 3; roundRect(-16, -14, 32, 30, 6); ctx.stroke();
+        // exhaust + a puff
+        ctx.fillStyle = "#616161"; roundRect(16, -22, 5, 11, 2); ctx.fill();
+        if (!empty) { ctx.fillStyle = "rgba(120,120,120,0.5)"; ctx.beginPath(); ctx.arc(18, -26 - (t * 18 % 10), 3 + (t * 18 % 10) * 0.3, 0, Math.PI * 2); ctx.fill(); }
+        // the big FRONT DRUM ROLLER
+        ctx.fillStyle = "#78909C"; roundRect(-32, -42, 64, 24, 7); ctx.fill();
+        ctx.fillStyle = "#B0BEC5"; roundRect(-32, -42, 64, 7, 7); ctx.fill();
+        ctx.fillStyle = "#546E7A"; roundRect(-32, -24, 64, 4, 2); ctx.fill();
+        ctx.fillStyle = "#455A64"; ctx.beginPath(); ctx.arc(-30, -30, 5, 0, Math.PI * 2); ctx.arc(30, -30, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(-30, -30, 2, 0, Math.PI * 2); ctx.arc(30, -30, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+    // The parked pickup: a steamroller boxed in by warning cones.
+    function drawDozerPickup(d) {
+        var cones = [[-34, 30], [34, 30], [-34, -34], [34, -34]];
+        for (var c = 0; c < cones.length; c++) {
+            var cx = d.x + cones[c][0], cy = d.y + cones[c][1];
+            ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(cx, cy + 8, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FF7043"; ctx.beginPath(); ctx.moveTo(cx - 6, cy + 8); ctx.lineTo(cx + 6, cy + 8); ctx.lineTo(cx, cy - 8); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#FFF"; ctx.fillRect(cx - 4, cy - 1, 8, 3);
+        }
+        drawSteamroller(d.x, d.y, 0, d.t, true);
+        var bl = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
+        ctx.globalAlpha = bl;
+        drawText("🚜 DRIVE IN!", d.x, d.y - 54, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+        ctx.globalAlpha = 1;
     }
 
     // ── Update: Game Over ────────────────────────────────────
@@ -9433,6 +9589,9 @@
         for (var fd = 0; fd < fuelCans.length; fd++) {
             if (!fuelCans[fd].collected) drawFuelCan(fuelCans[fd].x, fuelCans[fd].y, fuelCans[fd].bob);
         }
+        // Pancaked wrecks left by the steamroller, then the parked steamroller(s)
+        for (var fw = 0; fw < flatWrecks.length; fw++) drawFlatWreck(flatWrecks[fw]);
+        for (var dd = 0; dd < dozers.length; dd++) drawDozerPickup(dozers[dd]);
 
         // Parking signs (P) and ice cream signs
         for (var psd = 0; psd < parkingSigns.length; psd++) {
@@ -9585,6 +9744,8 @@
             drawAmbulance(player.x, player.y, gameTime);
         } else if (playerVehicle === "cop") {
             drawCopCar(player.x, player.y, gameTime * 3);
+        } else if (playerVehicle === "dozer") {
+            drawSteamroller(player.x, player.y, player.tilt, gameTime);
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }

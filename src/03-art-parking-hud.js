@@ -636,6 +636,14 @@
             ctx.globalAlpha = 1;
         }
 
+        // Steamroller "diesel" gauge while crushing
+        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer" && dozerTimer > 0) {
+            drawText("🚜 CRUSH MODE", W / 2, 60, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+            var dwp = clamp(dozerTimer / 13, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(W / 2 - 60, 74, 120, 6, 3); ctx.fill();
+            ctx.fillStyle = dwp < 0.25 ? "#FF7043" : "#F9A825"; roundRect(W / 2 - 60, 74, 120 * dwp, 6, 3); ctx.fill();
+        }
+
         // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
         // with a draining window bar. Pops on each fresh pickup.
         if (coinCombo >= 3) {
