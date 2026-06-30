@@ -4814,10 +4814,12 @@
 
         // Steamroller "diesel" gauge while crushing
         if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer" && dozerTimer > 0) {
-            drawText("🚜 CRUSH MODE", W / 2, 60, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
             var dwp = clamp(dozerTimer / 13, 0, 1);
-            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(W / 2 - 60, 74, 120, 6, 3); ctx.fill();
-            ctx.fillStyle = dwp < 0.25 ? "#FF7043" : "#F9A825"; roundRect(W / 2 - 60, 74, 120 * dwp, 6, 3); ctx.fill();
+            drawText("🚜 CRUSH MODE" + (dwp < 0.25 ? " — ⛽ LOW!" : ""), W / 2, 60, "bold 14px 'Segoe UI', Arial, sans-serif", dwp < 0.25 ? "#FF7043" : "#FFD54F", "#000", 3);
+            // ⛽ diesel gauge — empties as her time in the steamroller runs out
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(W / 2 - 60, 74, 120, 7, 3.5); ctx.fill();
+            ctx.fillStyle = dwp < 0.25 ? "#FF7043" : "#F9A825"; roundRect(W / 2 - 60, 74, 120 * dwp, 7, 3.5); ctx.fill();
+            ctx.fillStyle = "#FFE082"; drawText("⛽", W / 2 - 70, 80, "10px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
         }
 
         // Coin combo badge — appears once the multiplier kicks in (3+ in a row),
@@ -6640,7 +6642,11 @@
         // (entered at lives 0); if she then escapes/gets released back to the road,
         // she'd be drivable-but-dead and die on the next tap. Floor at 1.
         lives = Math.max(lives, 1);
-        if (playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }   // diesel days are over
+        // The steamroller now SURVIVES a chase it caused: if there's diesel left,
+        // she rolls right back out of the pull-over in it. It only truly ends when
+        // the diesel runs dry, or when she's pulled out of the vehicle entirely —
+        // arrested / hospitalized / on foot (those clear it at their own entry points).
+        if (playerVehicle === "dozer" && dozerTimer <= 0) playerVehicle = null;
         copChase = null; copBust = null; copStop = null;
         // Fugitive hazards (K9s / missiles) spawned during the chase/bust window must
         // not survive back onto the road — otherwise a frozen, off-screen dog or
@@ -23144,6 +23150,8 @@
     // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
+        // Busted → the steamroller is impounded; she won't roll out of jail in it.
+        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
         var px = (player ? player.x : W / 2);
@@ -25562,6 +25570,7 @@
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
+        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
         save.erVisits = (save.erVisits || 0) + 1; persistSave();
         var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
         // Tammy's working today (she always is). Her mood sets the bill multiplier.

@@ -304,7 +304,11 @@
         // (entered at lives 0); if she then escapes/gets released back to the road,
         // she'd be drivable-but-dead and die on the next tap. Floor at 1.
         lives = Math.max(lives, 1);
-        if (playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }   // diesel days are over
+        // The steamroller now SURVIVES a chase it caused: if there's diesel left,
+        // she rolls right back out of the pull-over in it. It only truly ends when
+        // the diesel runs dry, or when she's pulled out of the vehicle entirely —
+        // arrested / hospitalized / on foot (those clear it at their own entry points).
+        if (playerVehicle === "dozer" && dozerTimer <= 0) playerVehicle = null;
         copChase = null; copBust = null; copStop = null;
         // Fugitive hazards (K9s / missiles) spawned during the chase/bust window must
         // not survive back onto the road — otherwise a frozen, off-screen dog or

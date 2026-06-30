@@ -303,6 +303,8 @@
     // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
+        // Busted → the steamroller is impounded; she won't roll out of jail in it.
+        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
         var px = (player ? player.x : W / 2);
