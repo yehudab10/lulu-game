@@ -703,6 +703,13 @@
             ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, 56, 80, 6, 3); ctx.fill();
             ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 38, 57, 76 * clamp(nitroTimer / 9, 0, 1), 4, 2); ctx.fill();
         }
+        // Liquid-courage buff indicator (from the bar) — shield + 2x score
+        if (courageT > 0) {
+            var cy0 = nitroTimer > 0 ? 78 : 48;
+            drawText("🍺 COURAGE ×2", W / 2, cy0, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD740", "#000", 3);
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, cy0 + 8, 80, 6, 3); ctx.fill();
+            ctx.fillStyle = "#FFD740"; roundRect(W / 2 - 38, cy0 + 9, 76 * clamp(courageT / 16, 0, 1), 4, 2); ctx.fill();
+        }
 
         // Passenger buff timer
         if (passengerTimer > 0) {
@@ -944,6 +951,7 @@
     var heartEntities = [];   // rare extra-life pickups
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
+    var courageT = 0;         // "liquid courage" buff from the bar — shield + 2x score while driving
     var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}

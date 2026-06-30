@@ -12,7 +12,7 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
-        fuelCans = []; nitroTimer = 0; wetTimer = 0; tollBooth = null;
+        fuelCans = []; nitroTimer = 0; courageT = 0; wetTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
         crossingGuard = null; convoyTimer = 0; convoyNext = 0; iceTruck = null;
         heshy = null;

@@ -37,6 +37,7 @@
     var polBubble = "", polBubbleT = 0, polBubbleX = 0;
     var polSpots = [];
     var polLeaveRect = null;
+    var polServiceRect = null;   // "settle your charges" service button
     var polCopMunch = 0;          // donut chew animation
     var polPerpBlink = 0;
     var polPerpPace = 0;          // perp paces side-to-side / rattles bars
@@ -387,9 +388,14 @@
 
         var bottom = H - SAFE_BOTTOM;
         polLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
+        polServiceRect = footServiceRect();
 
         var c = consumeClick();
         if (c) {
+            // SETTLE-CHARGES service desk: pay to wipe her outstanding "wanted" file
+            if (pointInRect(c.x, c.y, polServiceRect.x, polServiceRect.y, polServiceRect.w, polServiceRect.h)) {
+                polSettleCharges(); return;
+            }
             // LEAVE button / door — often play a comedic "sneak past the cops"
             // exit (mirrors the ER escape); otherwise just walk out.
             if (pointInRect(c.x, c.y, polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h) ||
@@ -428,6 +434,31 @@
             polLuluX += step;
             polWalkT += dt;
         }
+    }
+
+    function polWantedFee() { return (typeof isWanted === "function" && isWanted()) ? 50 + save.wanted.length * 40 : 0; }
+    // The genuinely USEFUL reason to come to the precinct: pay your fine and the
+    // cops call off the hunt (clears the outstanding "wanted" file — otherwise
+    // only a court can). Costs more the longer your rap sheet.
+    function polSettleCharges() {
+        if (!(typeof isWanted === "function" && isWanted())) {
+            polBubble = randPick(["Your record's clean as a whistle, hon.", "Nothin' on file. Keep it that way.",
+                "No charges pending. Don't tempt me to FIND some."]);
+            polBubbleT = 2.8; polBubbleX = W / 2; playClick(); return;
+        }
+        var cost = polWantedFee();
+        if (save.totalCoins < cost) {
+            polBubble = "Can't cover the fine? Then you're STILL wanted, hon.";
+            polBubbleT = 3.0; polBubbleX = W / 2; playDeny(); return;
+        }
+        chargeCoins(cost); if (typeof clearWanted === "function") clearWanted();
+        polBubble = "Paid in full. Charges DROPPED — cops'll leave you be.";
+        polBubbleT = 3.2; polBubbleX = W / 2;
+        spawnFloater(W / 2, polFloorY - 70, "🧾 record wiped clean!", "#7CFC4F");
+        playCoin();
+        for (var k = 0; k < 14; k++) particles.push({ x: W / 2 + rand(-30, 30), y: polFloorY - 50,
+            vx: rand(-50, 50), vy: rand(-120, -40), life: 0, maxLife: 0.8, size: rand(3, 6),
+            color: randPick(["#7CFC4F", "#FFFFFF", "#B9F6CA"]), gravity: 240 });
     }
 
     function polTrigger(spot) {
@@ -660,6 +691,14 @@
         if (polEscape) return;
         drawButton(polLeaveRect.x, polLeaveRect.y, polLeaveRect.w, polLeaveRect.h,
             "🚪 LEAVE", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        // ── SETTLE-CHARGES service button (the useful reason to be here) ──
+        if (polServiceRect) {
+            var wanted = (typeof isWanted === "function" && isWanted());
+            var fee = polWantedFee();
+            var sState = !wanted ? "done" : (save.totalCoins >= fee ? "ready" : "cant");
+            drawFootServiceBtn(polServiceRect, "🧾", wanted ? "SETTLE CHARGES" : "RECORD CLEAN",
+                wanted ? ("💰" + fee + " · clear record") : "✓ no charges", sState);
+        }
 
         // ── touch / control hints ──────────────────────────────
         if (isTouchDevice) {
@@ -924,6 +963,7 @@
     var bchBubble = "", bchBubbleT = 0, bchBubbleX = 0;
     var bchSpots = [];
     var bchLeaveRect = null;
+    var bchServiceRect = null;   // "rest & heal in the sun" service button
     var bchGulls = [];
     var bchHeshyT = 0;            // Heshy bob phase
     // — cached gradients / precomputed layout (built ONCE in init) —
@@ -1175,9 +1215,14 @@
         }
 
         bchLeaveRect = { x: W - 122, y: bottom - 64, w: 110, h: 50 };
+        bchServiceRect = { x: 12, y: bottom - 124, w: 168, h: 52 };   // stacked above the BOARDWALK exit
 
         var c = consumeClick();
         if (c) {
+            // REST & HEAL service: a lie-down in the sun patches her hearts back up
+            if (pointInRect(c.x, c.y, bchServiceRect.x, bchServiceRect.y, bchServiceRect.w, bchServiceRect.h)) {
+                bchRestHeal(); return;
+            }
             if (pointInRect(c.x, c.y, bchLeaveRect.x, bchLeaveRect.y, bchLeaveRect.w, bchLeaveRect.h)) {
                 playClick(); exitFootInterior(); return;
             }
@@ -1218,6 +1263,29 @@
             bchLuluX += clamp(dx, -200 * dt, 200 * dt);
             bchWalkT += dt;
         }
+    }
+
+    var BCH_HEAL_FEE = 40;
+    // The genuinely USEFUL reason to hit the beach: a rest in the sun patches
+    // her hearts back to full before her next drive.
+    function bchRestHeal() {
+        if (typeof lives !== "undefined" && lives >= MAX_LIVES) {
+            bchBubble = randPick(["You're already fresh as a daisy, mamaleh.", "Hearts are full — go enjoy the waves!"]);
+            bchBubbleT = 2.8; bchBubbleX = W / 2; playClick(); return;
+        }
+        if (save.totalCoins < BCH_HEAL_FEE) {
+            bchBubble = "A cabana costs coins, bubbeleh. Come back richer.";
+            bchBubbleT = 2.8; bchBubbleX = W / 2; playDeny(); return;
+        }
+        chargeCoins(BCH_HEAL_FEE);
+        if (typeof lives !== "undefined") lives = Math.max(lives, MAX_LIVES);
+        bchBubble = "Ahhh. Sun, sea, and full hearts. Drive safe now!";
+        bchBubbleT = 3.0; bchBubbleX = W / 2;
+        spawnFloater(W / 2, bchSandY, "❤ rested — hearts refilled!", "#FF80AB");
+        playCoin();
+        for (var k = 0; k < 12; k++) particles.push({ x: W / 2 + rand(-26, 26), y: bchSandY,
+            vx: rand(-40, 40), vy: rand(-110, -40), life: 0, maxLife: 0.8, size: rand(3, 6),
+            color: randPick(["#FF80AB", "#FFFFFF", "#FF4081"]), gravity: 220 });
     }
 
     function bchTrigger(spot) {
@@ -1458,6 +1526,13 @@
             "🚪 LEAVE", { bg: "#26A69A", bgDark: "#00695C", small: true });
         drawButton(12, bottom - 64, 110, 50, "← BOARDWALK",
             { bg: "#FFB74D", bgDark: "#EF6C00", small: true });
+        // ── REST & HEAL service button (the useful reason to be here) ──
+        if (bchServiceRect) {
+            var full = (typeof lives !== "undefined" && lives >= MAX_LIVES);
+            var hState = full ? "done" : (save.totalCoins >= BCH_HEAL_FEE ? "ready" : "cant");
+            drawFootServiceBtn(bchServiceRect, "🛟", full ? "FULLY RESTED" : "REST & HEAL",
+                full ? "✓ hearts full" : ("💰" + BCH_HEAL_FEE + " · refill ❤"), hState);
+        }
 
         // ── touch / control hints ──────────────────────────────
         if (isTouchDevice) {

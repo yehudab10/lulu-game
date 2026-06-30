@@ -846,6 +846,21 @@
         invincibleTimer = Math.max(invincibleTimer, 2.0); // shield on re-entry to the road
         playClick();
     }
+
+    // ── Shared "useful service" button for interiors (bottom-left, opposite the
+    //    LEAVE button). A labeled action with a coin cost, dimmed when it can't
+    //    be used / already done, green-checked when complete. Returns nothing;
+    //    interiors keep their own rect for hit-testing. ──
+    function footServiceRect() { return { x: 12, y: H - SAFE_BOTTOM - 64, w: 150, h: 52 }; }
+    function drawFootServiceBtn(r, icon, label, costText, state) {
+        // state: "ready" | "cant" | "done"
+        var bg = state === "done" ? "#66BB6A" : state === "cant" ? "#9E9E9E" : "#7E57C2";
+        var bgD = state === "done" ? "#2E7D32" : state === "cant" ? "#616161" : "#4527A0";
+        drawButton(r.x, r.y, r.w, r.h, "", { bg: bg, bgDark: bgD, small: true });
+        drawText(icon + " " + label, r.x + r.w / 2, r.y + 17, "bold 12px 'Segoe UI', Arial", "#FFFFFF", "#000", 2);
+        drawText(costText, r.x + r.w / 2, r.y + 35, "bold 12px 'Segoe UI', Arial",
+            state === "done" ? "#E8F5E9" : state === "cant" ? "#EEEEEE" : "#FFE082", "#000", 2);
+    }
     function updateFootInterior(dt) {
         updateParticles(dt);
         var t = footInteriorType;

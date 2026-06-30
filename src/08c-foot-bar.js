@@ -29,6 +29,7 @@
     var barDanceT = 0;             // Lulu's boogie timer (>0 = dancing)
     var barClinkT = 0;             // throttle for ambient bottle clinks
     var barLeaveBtn = { x: 0, y: 0, w: 0, h: 0 };
+    var barServiceRect = null;     // "liquid courage" buy-a-drink service button
     var barStations = [];          // interaction hotspots along the counter
     var barUsed = {};              // one-time-reward flags per station id
     var barPatronWobble = 0;       // shared wobble phase for the crowd
@@ -290,6 +291,34 @@
     }
 
     // ── A station got tapped/walked-into: speak + maybe reward ──
+    var BAR_COURAGE_FEE = 35;
+    var BAR_COURAGE_LINES = ["One 'liquid courage,' coming up. Drive bold, mamaleh! 🍺",
+        "On the rocks of RECKLESSNESS. Go get 'em, kid.",
+        "Bottoms up — you're invincible now. (Legally: you're NOT.)",
+        "L'chaim! Points double when you've got moxie like THAT."];
+    // The genuinely USEFUL reason to hit the bar: a drink gives her next drive a
+    // shield + double score (sets the courageT buff that 05-driving-loop reads).
+    function barBuyCourage() {
+        if (typeof courageT !== "undefined" && courageT > 0) {
+            barDialogue = "Easy, tiger — you've still got a buzz on. Go DRIVE.";
+            barDialogueT = 2.8; barDialogueX = W / 2; playClick(); return;
+        }
+        if (save.totalCoins < BAR_COURAGE_FEE) {
+            barDialogue = "No coins, no courage. House doesn't run a tab, hon.";
+            barDialogueT = 2.8; barDialogueX = W / 2; playDeny(); return;
+        }
+        chargeCoins(BAR_COURAGE_FEE);
+        if (typeof courageT !== "undefined") courageT = 16;
+        barDialogue = randPick(BAR_COURAGE_LINES);
+        barDialogueT = 3.2; barDialogueX = W / 2;
+        barFlash = 0.8; barFlashColor = "#FFD740";
+        spawnFloater(W / 2, BAR_FLOOR_Y + 40, "🍺 LIQUID COURAGE — next drive!", "#FFD54F");
+        playTone(523, 0.1, "triangle", 0.12, 784);
+        for (var k = 0; k < 12; k++) particles.push({ x: W / 2 + rand(-30, 30), y: BAR_FLOOR_Y + 30,
+            vx: rand(-40, 40), vy: rand(-110, -40), life: 0, maxLife: 0.8, size: rand(3, 6),
+            color: randPick(["#FFE082", "#FFD740", "#FFF59D"]), gravity: 200 });
+    }
+
     function barTrigger(st) {
         barDialogue = randPick(st.pool);
         barDialogueT = 3.2;
@@ -460,6 +489,12 @@
         if (click && pointInRect(click.x, click.y, barLeaveBtn.x, barLeaveBtn.y, barLeaveBtn.w, barLeaveBtn.h)) {
             playClick();
             exitFootInterior();
+            return;
+        }
+        // LIQUID COURAGE service: buy a drink for a shield + 2x-score buff next drive
+        barServiceRect = footServiceRect();
+        if (click && pointInRect(click.x, click.y, barServiceRect.x, barServiceRect.y, barServiceRect.w, barServiceRect.h)) {
+            barBuyCourage();
             return;
         }
 
@@ -1106,4 +1141,10 @@
         var bw = 150, bh = 46;
         barLeaveBtn = { x: W / 2 - bw / 2, y: H - 56, w: bw, h: bh };
         drawButton(barLeaveBtn.x, barLeaveBtn.y, bw, bh, "🚪 LEAVE", { bg: "#EF5350", bgDark: "#B71C1C", id: "barLeave" });
+        // ── LIQUID COURAGE service button (the useful reason to be here) ──
+        if (!barServiceRect) barServiceRect = footServiceRect();
+        var hasBuzz = (typeof courageT !== "undefined" && courageT > 0);
+        var cState = hasBuzz ? "done" : (save.totalCoins >= BAR_COURAGE_FEE ? "ready" : "cant");
+        drawFootServiceBtn(barServiceRect, "🍺", hasBuzz ? "GOT A BUZZ" : "LIQUID COURAGE",
+            hasBuzz ? "✓ drive bold!" : ("💰" + BAR_COURAGE_FEE + " · shield+2x"), cState);
     }

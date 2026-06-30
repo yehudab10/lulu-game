@@ -412,7 +412,14 @@
         if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) gameSpeed = 0;
         scrollOffset += gameSpeed * dt;
-        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
+        // "Liquid courage" from the bar: while it lasts and she's actually
+        // DRIVING, she's shielded and rakes in double points (tipsy-but-fearless).
+        if (!onFoot && courageT > 0) {
+            courageT = Math.max(0, courageT - dt);
+            invincibleTimer = Math.max(invincibleTimer, 0.25);
+            if (courageT <= 0) spawnFloater(player.x, player.y - 40, "🍺 courage wore off", "#CE93D8");
+        }
+        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1);
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         // Walking doesn't rack up DRIVING score (foot has its own coins/stars) —
         // otherwise the invisible foot stretch silently inflates the score.
