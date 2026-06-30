@@ -1452,8 +1452,9 @@
     }
 
     function drawNightFx() {
-        // Headlight beams from Lulu's car lighting the road ahead
-        if (typeof player !== "undefined" && player) {
+        // Headlight beams from Lulu's car lighting the road ahead — but NOT when
+        // she's on foot (she has no car, so floating headlights looked silly).
+        if (typeof player !== "undefined" && player && state !== "footRun") {
             var hx = player.x, hy = player.y - 34;
             var g = ctx.createLinearGradient(0, hy, 0, hy - 200);
             g.addColorStop(0, "rgba(255,248,200,0.20)");

@@ -1454,8 +1454,9 @@
     }
 
     function drawNightFx() {
-        // Headlight beams from Lulu's car lighting the road ahead
-        if (typeof player !== "undefined" && player) {
+        // Headlight beams from Lulu's car lighting the road ahead — but NOT when
+        // she's on foot (she has no car, so floating headlights looked silly).
+        if (typeof player !== "undefined" && player && state !== "footRun") {
             var hx = player.x, hy = player.y - 34;
             var g = ctx.createLinearGradient(0, hy, 0, hy - 200);
             g.addColorStop(0, "rgba(255,248,200,0.20)");
@@ -8020,10 +8021,11 @@
         // off, the rest a ticket), then a funny scene that plays toward it.
         var r = Math.random();
         var outcome = r < 0.10 ? "walk" : r < 0.32 ? "free" : "ticket";
-        // A chase that carries specific charges (e.g. grand theft) ALWAYS ends in
-        // a booking if she's caught — no "let off" for boosting a car.
+        // A chase that carries specific charges (e.g. grand theft), OR a FUGITIVE
+        // who's run down, ALWAYS ends in a booking — so the SCENE matches the result
+        // (no "Bubbe knows him / bribe works" free scene that then jails her anyway).
         var chargeCarry = copChase ? copChase.charges : null;
-        if (chargeCarry) outcome = "ticket";
+        if (chargeCarry || prisonClothes) outcome = "ticket";
         var pool = COP_SCENES.filter(function (s) { return s.outcome === outcome; });
         var scene = randPick(pool);
         copBust = {
@@ -23427,6 +23429,10 @@
                 // prior break (no more wiping the slate to 1★ every time she runs).
                 save.escapes = (save.escapes || 0) + 1; persistSave();
                 var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
+                // She broke out FROM these charges — they're still outstanding, so
+                // they ride onto her wanted file (so the next charge sheet remembers
+                // everything instead of resetting to just "ESCAPE").
+                if (typeof addWanted === "function" && jail.charges && jail.charges.length) addWanted(jail.charges);
                 prisonClothes = true; fugitiveT = heat; fugitiveSpot = 0; wantedPosterT = 1.2; fugCopT = 2.5; fugDisguise = null; fugDisguiseT = rand(12, 20);
                 saveLockup("fugitive", [], 0, 0, Math.max(8, 55 - heat), 0);
                 jail = null;

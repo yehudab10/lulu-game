@@ -721,6 +721,10 @@
                 // prior break (no more wiping the slate to 1★ every time she runs).
                 save.escapes = (save.escapes || 0) + 1; persistSave();
                 var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
+                // She broke out FROM these charges — they're still outstanding, so
+                // they ride onto her wanted file (so the next charge sheet remembers
+                // everything instead of resetting to just "ESCAPE").
+                if (typeof addWanted === "function" && jail.charges && jail.charges.length) addWanted(jail.charges);
                 prisonClothes = true; fugitiveT = heat; fugitiveSpot = 0; wantedPosterT = 1.2; fugCopT = 2.5; fugDisguise = null; fugDisguiseT = rand(12, 20);
                 saveLockup("fugitive", [], 0, 0, Math.max(8, 55 - heat), 0);
                 jail = null;
