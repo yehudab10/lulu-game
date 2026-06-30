@@ -7928,8 +7928,8 @@
 
     // Start a chase from any x with a custom alert (used by roadside cops,
     // patrol cars, and bus-stop violations).
-    function beginCopChase(x, msg) {
-        copChase = { gap: 160, x: x, siren: 0, escapeT: 0 };
+    function beginCopChase(x, msg, charges) {
+        copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null };
         shakeTimer = 0.3; shakeIntensity = 5;
         spawnFloater(player.x, player.y - 50, msg || "🚨 BUSTED!", "#F44336");
         playTone(680, 0.25, "sawtooth", 0.14, 460);
@@ -7977,11 +7977,15 @@
         // off, the rest a ticket), then a funny scene that plays toward it.
         var r = Math.random();
         var outcome = r < 0.10 ? "walk" : r < 0.32 ? "free" : "ticket";
+        // A chase that carries specific charges (e.g. grand theft) ALWAYS ends in
+        // a booking if she's caught — no "let off" for boosting a car.
+        var chargeCarry = copChase ? copChase.charges : null;
+        if (chargeCarry) outcome = "ticket";
         var pool = COP_SCENES.filter(function (s) { return s.outcome === outcome; });
         var scene = randPick(pool);
         copBust = {
             phase: 0, timer: 1.0, copY: player.y + 96, man: null, fromLeft: fromLeft,
-            outcome: outcome, title: scene.title, lines: scene.lines,
+            outcome: outcome, title: scene.title, lines: scene.lines, bustCharges: chargeCarry,
             line: 0, lineT: 0, resolveT: 0, knockT: 0
         };
         copChase = null;
@@ -8066,6 +8070,7 @@
             if (copBust.resolveT > 1.9) {
                 var out = copBust.outcome;
                 var wasBribe = copBust.title && copBust.title.indexOf("BRIBE") >= 0;
+                var bch = copBust.bustCharges;
                 copBust = null;
                 // A FUGITIVE who actually gets run down doesn't get a warning or a
                 // walk — she's collared on the spot (escape charges, drive downtown).
@@ -8078,7 +8083,7 @@
                 // the station (the arrest cutscene) before booking + her day in
                 // court — instead of blinking straight to a cell.
                 else {
-                    var tch = wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"];
+                    var tch = bch || (wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"]);
                     if (typeof beginArrest === "function") beginArrest(tch, { fromBust: true });
                     else goToJail(tch);
                 }
@@ -13953,7 +13958,11 @@
     function finalizeBorrow(pc) {
         spawnFloater(player.x, player.y - 32, "🔓 HOTWIRED!", "#7CFC4F");
         spawnCrashBurst(pc.x, pc.y, false);
-        var seen = (typeof copInView === "function" && copInView());
+        // Only a cop GENUINELY NEARBY (close enough to actually witness the boost)
+        // reacts — a lone cruiser way up the road doesn't count.
+        var watcher = null, ci;
+        for (ci = 0; ci < roadCops.length; ci++) { var rc = roadCops[ci]; if (!rc.busted && Math.abs(rc.y - player.y) < 180) { watcher = rc; break; } }
+        if (!watcher) for (ci = 0; ci < obstacles.length; ci++) { var po = obstacles[ci]; if (po.type === "car" && po.behavior === "patrol" && Math.abs(po.y - player.y) < 180) { watcher = po; break; } }
         lives = Math.max(lives, 1);
         footParked = []; footDoors = []; footCompanion = null;
         var v = pc.vtype || "car";
@@ -13963,12 +13972,11 @@
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
         returnToDriving();
-        // A cop watched her boost it → she's WANTED and the CHASE is on. No instant
-        // jail: she can out-drive them, or get pulled over the normal way (and the
-        // grand-theft charge rides along on her wanted file into court).
-        if (seen) {
-            if (typeof addWanted === "function") addWanted(["GRAND THEFT AUTO", "JOYRIDING"]);
-            if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!");
+        // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
+        // drive them and you're clean; only getting run down books the theft. This
+        // keeps a single hijack from leaving her hunted forever.
+        if (watcher && typeof beginCopChase === "function") {
+            beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!", ["GRAND THEFT AUTO", "JOYRIDING"]);
         }
     }
     function footHotwireFail(h) {
@@ -22816,9 +22824,9 @@
     //  forth (cop barks, Lulu sasses) → she's CUFFED (animated) → perp-walked to
     //  the cruiser → and you watch it DRIVE her to the nearest police station,
     //  which scrolls into view. THEN she's booked. No sudden cut to jail.
-    // opts.fromBust: she was just pulled over, so the cruiser & cop are already
-    // there — skip the roll-up/approach and start at the cuffing beat (still shows
-    // crime dialogue + the drive to the station).
+    // opts.fromBust: she was just pulled over (the copBust scene already played
+    // the cop dialogue), so we skip the whole approach/banter/cuffing and go
+    // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
         var onFoot = (state === "footRun" || state === "footInterior");
@@ -22828,23 +22836,25 @@
         // crime-specific banter when we can match a charge; generic otherwise
         var cd = chargeDialogueFor(charges);
         arrest = {
-            charges: charges, t: 0, phase: opts.fromBust ? 2 : 0, onFoot: onFoot,
+            charges: charges, t: 0, phase: opts.fromBust ? 5 : 0, onFoot: onFoot,
             px: px, py: py,                         // her (abandoned) car / start spot
             outX: px + (fromLeft ? -26 : 26), outY: py + 2,   // where she stands once pulled out
             lx: px + (fromLeft ? -26 : 26), ly: py + 2,       // her live standing position
             copX: clamp(px + (fromLeft ? -52 : 52), ROAD_L + 30, ROAD_R - 30),
-            copY: py + (opts.fromBust ? 64 : 190),  // cruiser already alongside on a bust
+            copY: py + 190,                         // cruiser slides up from behind
             fromLeft: fromLeft, officer: null,
             copLine: cd ? randPick(cd.cop) : randPick(ARREST_LINES),
             luluLine: cd ? randPick(cd.lulu) : randPick(LULU_ARREST_LINES),
             cuffLine: randPick(CUFF_LINES), dialStep: 0,
-            cuffT: 0, walkP: 0, cuffed: false,
+            cuffT: 0, walkP: opts.fromBust ? 1 : 0, cuffed: !!opts.fromBust,
             scroll: 0, station: null, fade: 0
         };
-        // when we skip straight to cuffing, the officer must already be on-scene
+        // from a pull-over: jump to the haul-in — pre-place the cruiser + station.
         if (opts.fromBust) {
-            arrest.officer = { x: px + (fromLeft ? -26 : 26), y: py + 2, time: 0,
-                               state: "yelling", runDir: fromLeft ? -1 : 1, cop: true };
+            arrest.copX = clamp(px, ROAD_L + 30, ROAD_R - 30);
+            arrest.station = { x: (fromLeft ? ROAD_R + 56 : ROAD_L - 56), y: -176, side: fromLeft ? 1 : -1,
+                               kind: "policeStation", w: 112, h: 168, lit: true, seed: 42 };
+            playTone(220, 0.08, "square", 0.12);   // *thunk* — door shuts, off we go
         }
         copChase = null; copBust = null; copStop = null;
         if (typeof playWompWomp === "function") playWompWomp();

@@ -295,9 +295,9 @@
     //  forth (cop barks, Lulu sasses) → she's CUFFED (animated) → perp-walked to
     //  the cruiser → and you watch it DRIVE her to the nearest police station,
     //  which scrolls into view. THEN she's booked. No sudden cut to jail.
-    // opts.fromBust: she was just pulled over, so the cruiser & cop are already
-    // there — skip the roll-up/approach and start at the cuffing beat (still shows
-    // crime dialogue + the drive to the station).
+    // opts.fromBust: she was just pulled over (the copBust scene already played
+    // the cop dialogue), so we skip the whole approach/banter/cuffing and go
+    // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
         var onFoot = (state === "footRun" || state === "footInterior");
@@ -307,23 +307,25 @@
         // crime-specific banter when we can match a charge; generic otherwise
         var cd = chargeDialogueFor(charges);
         arrest = {
-            charges: charges, t: 0, phase: opts.fromBust ? 2 : 0, onFoot: onFoot,
+            charges: charges, t: 0, phase: opts.fromBust ? 5 : 0, onFoot: onFoot,
             px: px, py: py,                         // her (abandoned) car / start spot
             outX: px + (fromLeft ? -26 : 26), outY: py + 2,   // where she stands once pulled out
             lx: px + (fromLeft ? -26 : 26), ly: py + 2,       // her live standing position
             copX: clamp(px + (fromLeft ? -52 : 52), ROAD_L + 30, ROAD_R - 30),
-            copY: py + (opts.fromBust ? 64 : 190),  // cruiser already alongside on a bust
+            copY: py + 190,                         // cruiser slides up from behind
             fromLeft: fromLeft, officer: null,
             copLine: cd ? randPick(cd.cop) : randPick(ARREST_LINES),
             luluLine: cd ? randPick(cd.lulu) : randPick(LULU_ARREST_LINES),
             cuffLine: randPick(CUFF_LINES), dialStep: 0,
-            cuffT: 0, walkP: 0, cuffed: false,
+            cuffT: 0, walkP: opts.fromBust ? 1 : 0, cuffed: !!opts.fromBust,
             scroll: 0, station: null, fade: 0
         };
-        // when we skip straight to cuffing, the officer must already be on-scene
+        // from a pull-over: jump to the haul-in — pre-place the cruiser + station.
         if (opts.fromBust) {
-            arrest.officer = { x: px + (fromLeft ? -26 : 26), y: py + 2, time: 0,
-                               state: "yelling", runDir: fromLeft ? -1 : 1, cop: true };
+            arrest.copX = clamp(px, ROAD_L + 30, ROAD_R - 30);
+            arrest.station = { x: (fromLeft ? ROAD_R + 56 : ROAD_L - 56), y: -176, side: fromLeft ? 1 : -1,
+                               kind: "policeStation", w: 112, h: 168, lit: true, seed: 42 };
+            playTone(220, 0.08, "square", 0.12);   // *thunk* — door shuts, off we go
         }
         copChase = null; copBust = null; copStop = null;
         if (typeof playWompWomp === "function") playWompWomp();

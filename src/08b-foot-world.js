@@ -468,7 +468,11 @@
     function finalizeBorrow(pc) {
         spawnFloater(player.x, player.y - 32, "🔓 HOTWIRED!", "#7CFC4F");
         spawnCrashBurst(pc.x, pc.y, false);
-        var seen = (typeof copInView === "function" && copInView());
+        // Only a cop GENUINELY NEARBY (close enough to actually witness the boost)
+        // reacts — a lone cruiser way up the road doesn't count.
+        var watcher = null, ci;
+        for (ci = 0; ci < roadCops.length; ci++) { var rc = roadCops[ci]; if (!rc.busted && Math.abs(rc.y - player.y) < 180) { watcher = rc; break; } }
+        if (!watcher) for (ci = 0; ci < obstacles.length; ci++) { var po = obstacles[ci]; if (po.type === "car" && po.behavior === "patrol" && Math.abs(po.y - player.y) < 180) { watcher = po; break; } }
         lives = Math.max(lives, 1);
         footParked = []; footDoors = []; footCompanion = null;
         var v = pc.vtype || "car";
@@ -478,12 +482,11 @@
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
         returnToDriving();
-        // A cop watched her boost it → she's WANTED and the CHASE is on. No instant
-        // jail: she can out-drive them, or get pulled over the normal way (and the
-        // grand-theft charge rides along on her wanted file into court).
-        if (seen) {
-            if (typeof addWanted === "function") addWanted(["GRAND THEFT AUTO", "JOYRIDING"]);
-            if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!");
+        // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
+        // drive them and you're clean; only getting run down books the theft. This
+        // keeps a single hijack from leaving her hunted forever.
+        if (watcher && typeof beginCopChase === "function") {
+            beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!", ["GRAND THEFT AUTO", "JOYRIDING"]);
         }
     }
     function footHotwireFail(h) {

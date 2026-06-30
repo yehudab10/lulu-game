@@ -1623,8 +1623,8 @@
 
     // Start a chase from any x with a custom alert (used by roadside cops,
     // patrol cars, and bus-stop violations).
-    function beginCopChase(x, msg) {
-        copChase = { gap: 160, x: x, siren: 0, escapeT: 0 };
+    function beginCopChase(x, msg, charges) {
+        copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null };
         shakeTimer = 0.3; shakeIntensity = 5;
         spawnFloater(player.x, player.y - 50, msg || "🚨 BUSTED!", "#F44336");
         playTone(680, 0.25, "sawtooth", 0.14, 460);
@@ -1672,11 +1672,15 @@
         // off, the rest a ticket), then a funny scene that plays toward it.
         var r = Math.random();
         var outcome = r < 0.10 ? "walk" : r < 0.32 ? "free" : "ticket";
+        // A chase that carries specific charges (e.g. grand theft) ALWAYS ends in
+        // a booking if she's caught — no "let off" for boosting a car.
+        var chargeCarry = copChase ? copChase.charges : null;
+        if (chargeCarry) outcome = "ticket";
         var pool = COP_SCENES.filter(function (s) { return s.outcome === outcome; });
         var scene = randPick(pool);
         copBust = {
             phase: 0, timer: 1.0, copY: player.y + 96, man: null, fromLeft: fromLeft,
-            outcome: outcome, title: scene.title, lines: scene.lines,
+            outcome: outcome, title: scene.title, lines: scene.lines, bustCharges: chargeCarry,
             line: 0, lineT: 0, resolveT: 0, knockT: 0
         };
         copChase = null;
@@ -1761,6 +1765,7 @@
             if (copBust.resolveT > 1.9) {
                 var out = copBust.outcome;
                 var wasBribe = copBust.title && copBust.title.indexOf("BRIBE") >= 0;
+                var bch = copBust.bustCharges;
                 copBust = null;
                 // A FUGITIVE who actually gets run down doesn't get a warning or a
                 // walk — she's collared on the spot (escape charges, drive downtown).
@@ -1773,7 +1778,7 @@
                 // the station (the arrest cutscene) before booking + her day in
                 // court — instead of blinking straight to a cell.
                 else {
-                    var tch = wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"];
+                    var tch = bch || (wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"]);
                     if (typeof beginArrest === "function") beginArrest(tch, { fromBust: true });
                     else goToJail(tch);
                 }
