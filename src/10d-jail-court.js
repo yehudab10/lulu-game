@@ -818,9 +818,9 @@
             drawButton(er.x, er.y, er.w, er.h, locked ? "🔒 Watched" : (jail.escapeFails > 0 ? "🏃 Escape (" + jail.escapeFails + " fails)" : "🏃 Escape"),
                 locked ? { bg: "#757575", bgDark: "#424242", small: true } : { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32", small: true });
             var canBail = save.totalCoins >= jail.bail;
-            drawButton(br.x, br.y, br.w, br.h, "💰 Bail ★" + jail.bail, { bg: canBail ? "#FFB300" : "#757575", bgDark: canBail ? "#EF6C00" : "#424242", small: true });
-            var canLaw = save.totalCoins >= jail.lawyerFee;
-            drawButton(lr.x, lr.y, lr.w, lr.h, "🤵 Lawyer ★" + jail.lawyerFee, { bg: canLaw ? "#26A69A" : "#757575", bgDark: canLaw ? "#00695C" : "#424242", small: true });
+            drawButton(br.x, br.y, br.w, br.h, "💰 Bail " + jail.bail, { bg: canBail ? "#FFB300" : "#757575", bgDark: canBail ? "#EF6C00" : "#424242", small: true });
+            // No single price here — the lawyer screen lists each tier's own fee.
+            drawButton(lr.x, lr.y, lr.w, lr.h, "🤵 Lawyer", { bg: "#26A69A", bgDark: "#00695C", small: true });
             drawButton(cr.x, cr.y, cr.w, cr.h, "⚖️ Court", { bg: "#42A5F5", bgDark: "#0D47A1", small: true });
             drawDialogueBox("CELLMATE", jail.cellmateLine, "cellmate", "#90A4AE", false);
         } else if (jail.phase === 4) {

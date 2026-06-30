@@ -417,6 +417,8 @@
         // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
         if (distractedMode && !onFoot) steerInput = -steerInput;
+        // While hotwiring a car she stands STILL (so she isn't wandering into traffic).
+        if (onFoot && typeof footHotwire !== "undefined" && footHotwire) { steerInput = 0; player.targetX = player.x; }
         var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
         player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
@@ -445,12 +447,18 @@
         //    seconds (braking or just stuck in slow traffic) an EXIT button appears;
         //    pressing it eases the car to the shoulder and she steps out — smooth,
         //    no cutscene. (Not mid-chase — that'd be a free escape.) ──
-        var canExit = !onFoot && state === "playing" && !copChase && !copBust && !crashReprieve;
+        // Only offer the exit when she's already over in a SIDE lane (you pull
+        // over from the shoulder side, not the middle of the road).
+        var inSideLane = Math.abs(player.x - LANES[1]) > LANE_W * 0.45;
+        var canExit = !onFoot && state === "playing" && !copChase && !copBust && !crashReprieve && inSideLane;
         if (parkExit) {
             parkExit.t += dt;
             invincibleTimer = Math.max(invincibleTimer, 0.3);
             keys.up = false; keys.down = true;                 // braking to a stop
-            player.targetX = parkExit.side < 0 ? ROAD_L + CAR_W / 2 + 6 : ROAD_R - CAR_W / 2 - 6;
+            // ease all the way onto the shoulder, leaning into the turn as she pulls in
+            player.targetX = parkExit.side < 0 ? ROAD_L + CAR_W / 2 + 2 : ROAD_R - CAR_W / 2 - 2;
+            var pinProg = clamp(parkExit.t / parkExit.dur, 0, 1);
+            player.tilt = lerp(player.tilt, parkExit.side * 0.14 * (1 - pinProg), Math.min(1, 9 * dt));
             if (parkExit.t >= parkExit.dur) { dropToFoot(parkExit.side); return; }
             exitBtnShown = false;
         } else if (canExit) {

@@ -112,7 +112,9 @@
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         save.footRunsPlayed = footRunLevel; persistSave();
-        footIntroT = reason === "droveOff" ? 1.0 : 1.6; footWalkTime = 0;
+        // Ditching the car is a DIRECT hand-off — no intro flourish, she just keeps
+        // moving on foot from where she parked.
+        footIntroT = reason === "droveOff" ? 0 : 1.6; footWalkTime = 0;
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
