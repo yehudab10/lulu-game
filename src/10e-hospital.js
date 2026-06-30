@@ -164,6 +164,14 @@
         "I had a car just like yours. Once. Before YOU were allowed to drive.",
         "*adjusts hearing aid* They said you crashed into a WHAT now?"
     ];
+    var FAYGE_ER = [
+        "Refuah shleimah! Now — is there SALT in that IV drip? I'll ASK a nurse. 🧂🚫",
+        "I brought you soup. Unsalted, naturally. *gently rocks baby Chani* 👶",
+        "Eat something, Lulu, you're all skin and bones — says ME, ironically. 😅",
+        "Shhh, Chani, shhh — the nice lady just crashed, that's ALL, sweetie.",
+        "The cafeteria food here? The SODIUM, feh — I'd sooner fast, honestly.",
+        "Hold Chani a moment? ...oh. The whole arm's in a cast. Never mind! 🤱"
+    ];
     // Expand a character's line list into individual cameo entries.
     function erCameoSet(who, p, body, accent, sub, lines, extra) {
         var out = [];
@@ -184,7 +192,8 @@
         erCameoSet("THE RABBI", "rabbi", "rabbi", "#CFD8DC", "✡️ here for a refuah shleimah", RABBI_ER),
         erCameoSet("BOZO THE CLOWN", "clown", "clown", "#FF8A80", "🤡 lost from the kids' ward", CLOWN_ER),
         erCameoSet("SOME KID", "kid", "kid", "#A5D6A7", "🧒 a little fan, kind of", KID_ER),
-        erCameoSet("A NOSY ZAIDY", "oldman", "oldman", "#B0BEC5", "👴 unimpressed by your generation", OLDMAN_ER)
+        erCameoSet("A NOSY ZAIDY", "oldman", "oldman", "#B0BEC5", "👴 unimpressed by your generation", OLDMAN_ER),
+        erCameoSet("SISTER FAYGE", "fayge", "fayge", "#80CBC4", "🧂 your sister — anti-salt, plus baby Chani", FAYGE_ER)
     );
     // Build the (possibly empty) bedside-visit script for this ER trip.
     function buildErVisit() {
@@ -1161,6 +1170,17 @@
             ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(-6, -18, 3, Math.PI, 0); ctx.arc(6, -18, 3, Math.PI, 0); ctx.fill();   // side hair
             ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.ellipse(0, -12.5, 4.4, 1.8, 0, 0, Math.PI * 2); ctx.fill();   // mustache
             ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-2.6, -16, 2.4, 0, Math.PI * 2); ctx.arc(2.6, -16, 2.4, 0, Math.PI * 2); ctx.stroke();   // big glasses
+        } else if (kind === "fayge") {
+            erLegs("#37474F", "#263238", t);
+            ctx.fillStyle = "#5C6BC0"; roundRect(-8, -9, 16, 21, 5); ctx.fill();           // slim modest dress (narrow = underweight)
+            ctx.fillStyle = "#3F51B5"; roundRect(-11, -5, 4, 13, 2); ctx.fill(); roundRect(7, -5, 4, 13, 2); ctx.fill();
+            // baby Chani swaddled in her arms
+            ctx.fillStyle = "#FFF3E0"; ctx.beginPath(); ctx.ellipse(0, 4, 7, 5, -0.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(-4, 2.4, 2.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-4.7, 2, 0.5, 0, Math.PI * 2); ctx.arc(-3.5, 2, 0.5, 0, Math.PI * 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.arc(0, -18.5, 8.4, Math.PI * 1.04, -0.04); ctx.fill();   // teal tichel
+            ctx.fillStyle = "#00897B"; ctx.beginPath(); ctx.moveTo(7.5, -20); ctx.lineTo(11.5, -14); ctx.lineTo(6.5, -15); ctx.closePath(); ctx.fill();   // scarf knot
         } else if (kind === "cop") {
             drawAngryMan(0, 0, t, talking ? "talk" : "listen", 1, true); ctx.restore();
             drawText(name || "OFFICER", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", col || "#5C6BC0", "#FFF", 2);

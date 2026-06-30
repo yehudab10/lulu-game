@@ -166,7 +166,8 @@
         { p: "hillel",  accent: "#BBDEFB", lines: ["Statistically she's\n...mostly innocent?", "I'm just here for\nmoral support! 😅", "For the record, I\ndid NOT advise this."] },
         { p: "raphael", accent: "#FFCC80", lines: ["Throw the book!\n...kidding. Mostly. 😏", "In MY day: a fine\nand a HANDSHAKE.", "Feh. Where's\nHillel? *grumble*"] },
         { p: "bubbe",   accent: "#D7C29A", lines: ["She didn't EAT\ntoday! Mercy! 🍲", "My LULULEH wouldn't\nhurt a FLY!", "I'll bake the judge\na cholent — DEAL?"] },
-        { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] }
+        { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] },
+        { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] }
     ];
 
     // ── Random courtroom EVENTS — a small chance (~40%) something dramatic
@@ -182,6 +183,11 @@
             { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A character witness approaches the bench..." },
             { who: "BUBBE", p: "bubbe", accent: "#FFCC80", text: "My Lulu?! She brings me SOUP every Shabbos! An ANGEL! 👵" },
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...I do love a good soup. Noted FAVORABLY." } ] },
+        { id: "fayge", nudge: "help", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A character witness steps up — baby in arms, your honor." },
+            { who: "SISTER FAYGE", p: "fayge", accent: "#80CBC4", text: "My SISTER drove me to every low-sodium clinic in the COUNTY! A saint! 🧂" },
+            { who: "SISTER FAYGE", p: "fayge", accent: "#80CBC4", text: "*rocks baby* Shhh, Chani, mommy's defending Auntie Lulu... 👶" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...a devoted sister. And such a quiet baby. The court is charmed." } ] },
         { id: "phone", nudge: "hurt", charge: "CONTEMPT OF COURT (PHONE)", lines: [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Is that a PHONE ringing in MY courtroom?!" },
             { who: "LULU", p: "lulu", accent: "#F48FB1", text: "One sec— HI IMA! ...no, I'm in COURT. I'll call back! 📞" },
@@ -2246,7 +2252,7 @@
         var clothes = type === "judge" ? "#1A1A1A" : type === "prosecutor" ? "#26323A"
                     : type === "lawyer" ? "#37474F" : type === "doctor" ? "#ECEFF1"
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
-                    : type === "hillel" ? "#BBDEFB" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
+                    : type === "hillel" ? "#BBDEFB" : type === "fayge" ? "#5C6BC0" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
                     : type === "rabbi" ? "#1A1A1A" : type === "clown" ? "#E53935" : type === "kid" ? "#FFB74D" : type === "oldman" ? "#6D4C41"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
@@ -2316,6 +2322,17 @@
             ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.4;   // round granny glasses
             ctx.beginPath(); ctx.arc(cx - hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.arc(cx + hr * 0.34, cy - hr * 0.02, hr * 0.26, 0, Math.PI * 2); ctx.moveTo(cx - hr * 0.08, cy - hr * 0.02); ctx.lineTo(cx + hr * 0.08, cy - hr * 0.02); ctx.stroke();
             ctx.fillStyle = "rgba(255,140,140,0.45)"; ctx.beginPath(); ctx.arc(cx - hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.arc(cx + hr * 0.55, cy + hr * 0.28, hr * 0.2, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "fayge") {
+            // Lulu's thin young sister — neat tichel (headscarf), slightly hollow
+            // cheeks (she barely eats), and baby Chani swaddled at her shoulder.
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.16, hr * 0.88, Math.PI, 0); ctx.fill();   // hair peek
+            ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.34, hr * 1.14, Math.PI * 1.04, -0.04); ctx.fill();   // teal tichel
+            ctx.fillStyle = "#00897B"; ctx.beginPath(); ctx.moveTo(cx - hr * 0.92, cy - hr * 0.46); ctx.lineTo(cx - hr * 1.18, cy + hr * 0.34); ctx.lineTo(cx - hr * 0.7, cy + hr * 0.12); ctx.closePath(); ctx.fill();   // knotted tail
+            ctx.fillStyle = "rgba(120,80,70,0.16)"; ctx.beginPath(); ctx.ellipse(cx - hr * 0.52, cy + hr * 0.2, hr * 0.15, hr * 0.3, 0, 0, Math.PI * 2); ctx.ellipse(cx + hr * 0.52, cy + hr * 0.2, hr * 0.15, hr * 0.3, 0, 0, Math.PI * 2); ctx.fill();   // gaunt cheeks
+            var fbx = cx + hr * 1.0, fby = cy + hr * 0.78;            // swaddled baby Chani
+            ctx.fillStyle = "#FFF3E0"; ctx.beginPath(); ctx.ellipse(fbx, fby, hr * 0.34, hr * 0.46, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(fbx + hr * 0.05, fby - hr * 0.3, hr * 0.17, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(fbx - hr * 0.02, fby - hr * 0.32, hr * 0.04, 0, Math.PI * 2); ctx.arc(fbx + hr * 0.12, fby - hr * 0.32, hr * 0.04, 0, Math.PI * 2); ctx.fill();
         } else if (type === "hillel") {
             // thinning brown hair + black yarmulke, glasses, worried brows, crooked tie
             ctx.fillStyle = "#4E342E";
