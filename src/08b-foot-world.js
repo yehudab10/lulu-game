@@ -372,7 +372,7 @@
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
-    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH" };
+    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH", salon: "SALON", parking: "PARKING" };
     function footZoneInterior() {
         if (typeof zone === "undefined") return null;
         if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
@@ -380,11 +380,14 @@
     }
     function footMaybeSpawnDoor() {
         if (footDoorCool > 0 || footDoors.length > 0) return;
-        var t = footZoneInterior();
-        if (!t) return;
+        // The SALON and PARKING are roadside shops Lulu can duck into ON FOOT, always
+        // available; the zone's own interior (bar/precinct/etc.) is also offered.
+        var cands = ["salon", "parking"];
+        var zi = footZoneInterior();
+        if (zi) cands.push(zi, zi);   // weight the local interior a little
         footDoorCool = rand(4, 7);
         var left = Math.random() < 0.5;
-        footDoors.push({ type: t, x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
+        footDoors.push({ type: randPick(cands), x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
     }
 
     function footNearestInteractable() {
@@ -520,7 +523,18 @@
     }
 
     function doFootInteract(prompt) {
-        if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
+        if (prompt.kind === "enter") {
+            var dt2 = prompt.ent.type;
+            // Salon & parking are full scenes (not footInterior dispatch) — run them
+            // and have them return HERE to the foot world afterward.
+            if (dt2 === "salon" && typeof startSalonScene === "function") {
+                footDoors = []; salonReturnFoot = true; playClick(); startSalonScene(); return;
+            }
+            if (dt2 === "parking" && typeof triggerParkingMinigame === "function") {
+                footDoors = []; parkingReturnFoot = true; playClick(); triggerParkingMinigame(); return;
+            }
+            enterFootInterior(dt2); return;
+        }
         if (prompt.kind === "disguise") { footDoDisguise(); return; }
         if (prompt.kind === "borrow") {
             startFootApproach(prompt.ent);   // walk up + STOP at the car, THEN hotwire
@@ -831,7 +845,7 @@
         var onLeft = dr.x < W / 2;
         ctx.save();
         ctx.translate(dr.x, dr.y);
-        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA" }[dr.type] || "#8D6E63";
+        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA", salon: "#EC407A", parking: "#607D8B" }[dr.type] || "#8D6E63";
         ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();
         ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();
         ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill();

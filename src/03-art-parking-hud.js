@@ -1020,6 +1020,7 @@
     var kidsInCar = false;      // true after success
     // Challenge mode
     var parkingChallengeMode = false;
+    var parkingReturnFoot = false;   // entered the parking lot ON FOOT → return to foot
     var parkingLevel = 1;
     var parkingChallengeLives = 3;
     var parkingChallengeStars = 0;

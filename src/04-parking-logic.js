@@ -25,7 +25,7 @@
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
-        parkingSigns = []; parkingSpawnTimer = 25;
+        parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;
@@ -906,6 +906,12 @@
                         } else {
                             startParkingLevel(parkingLevel);
                         }
+                    } else if (parkingReturnFoot) {
+                        // came in on foot → walk back out into the SAME foot world
+                        parkingReturnFoot = false;
+                        state = "footRun";
+                        if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
+                        invincibleTimer = Math.max(invincibleTimer, 1.5);
                     } else {
                         returnToDriving();
                         parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
@@ -937,8 +943,15 @@
                         // score — the foot run can still raise it, and its lose
                         // branch commits it exactly once.
                         parkingZoom = 1;
+                        parkingReturnFoot = false;
                         startFootWorld("parkingCrash");
                         return;
+                    } else if (parkingReturnFoot) {
+                        // came in on foot → walk back out into the SAME foot world
+                        parkingReturnFoot = false;
+                        state = "footRun";
+                        if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
+                        invincibleTimer = Math.max(invincibleTimer, 1.5);
                     } else {
                         returnToDriving();
                         parkingMsg = "Better luck next time!";
@@ -951,6 +964,7 @@
 
     function startParkingChallenge() {
         parkingChallengeMode = true;
+        parkingReturnFoot = false;
         parkingLevel = 1;
         parkingChallengeLives = 3;
         parkingChallengeStars = 0;

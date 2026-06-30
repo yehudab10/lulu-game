@@ -543,10 +543,8 @@
 
         // Roadside encounter events — rarity + randomized order live in
         // 01b-spawn-tuning.js (SPAWN_CONFIG). tickSpawn() handles timing + odds.
-        // Parking sign spawn
-        if (tickSpawn("parkingSign", dt) && parkingSigns.length === 0 && gameTime > 20) {
-            spawnParkingSign();
-        }
+        // Parking is now a BUILDING she enters ON FOOT (a foot-world door), not a
+        // road sign — so nothing spawns on the main road here anymore.
         // Ice cream sign
         if (tickSpawn("iceCream", dt) && iceCreamSigns.length === 0 && gameTime > 30) {
             spawnIceCreamSign();
@@ -565,23 +563,8 @@
                 else { avigailWalker = null; startAvigailScene(); return; }
             }
         }
-        // Salon sign on the roadside
-        if (tickSpawn("salon", dt) && salonSigns.length === 0 && gameTime > 25) {
-            salonSigns.push({ x: LANES[randInt(0, 2)], y: -60, hitW: 30, hitH: 34, bob: 0 });
-        }
-        for (var ssi = salonSigns.length - 1; ssi >= 0; ssi--) {
-            var ssg = salonSigns[ssi];
-            ssg.y += gameSpeed * dt;
-            ssg.bob += dt;
-            if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
-            // Salon works on foot too — she walks right in for a makeover.
-            if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
-                salonSigns.splice(ssi, 1);
-                salonReturnFoot = onFoot;   // came on foot → leave on foot (no free car)
-                startSalonScene();
-                return;
-            }
-        }
+        // The SALON is now a BUILDING she enters ON FOOT (a foot-world door), not a
+        // road sign — handled in the foot world, so nothing spawns on the road here.
         // Roadside HITCHHIKER (driving activity): a thumber on the shoulder you
         // can honk at to pick up for a coin bonus + a 2× "passenger" window.
         if (!onFoot) {

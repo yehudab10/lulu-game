@@ -5164,6 +5164,7 @@
     var kidsInCar = false;      // true after success
     // Challenge mode
     var parkingChallengeMode = false;
+    var parkingReturnFoot = false;   // entered the parking lot ON FOOT → return to foot
     var parkingLevel = 1;
     var parkingChallengeLives = 3;
     var parkingChallengeStars = 0;
@@ -5343,7 +5344,7 @@
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
-        parkingSigns = []; parkingSpawnTimer = 25;
+        parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;
@@ -6224,6 +6225,12 @@
                         } else {
                             startParkingLevel(parkingLevel);
                         }
+                    } else if (parkingReturnFoot) {
+                        // came in on foot → walk back out into the SAME foot world
+                        parkingReturnFoot = false;
+                        state = "footRun";
+                        if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
+                        invincibleTimer = Math.max(invincibleTimer, 1.5);
                     } else {
                         returnToDriving();
                         parkingMsg = "🍦 ICE CREAM TIME! +50 coins";
@@ -6255,8 +6262,15 @@
                         // score — the foot run can still raise it, and its lose
                         // branch commits it exactly once.
                         parkingZoom = 1;
+                        parkingReturnFoot = false;
                         startFootWorld("parkingCrash");
                         return;
+                    } else if (parkingReturnFoot) {
+                        // came in on foot → walk back out into the SAME foot world
+                        parkingReturnFoot = false;
+                        state = "footRun";
+                        if (player) { player.x = W / 2; player.targetX = W / 2; player.y = PLAYER_Y; player.tilt = 0; }
+                        invincibleTimer = Math.max(invincibleTimer, 1.5);
                     } else {
                         returnToDriving();
                         parkingMsg = "Better luck next time!";
@@ -6269,6 +6283,7 @@
 
     function startParkingChallenge() {
         parkingChallengeMode = true;
+        parkingReturnFoot = false;
         parkingLevel = 1;
         parkingChallengeLives = 3;
         parkingChallengeStars = 0;
@@ -6849,10 +6864,8 @@
 
         // Roadside encounter events — rarity + randomized order live in
         // 01b-spawn-tuning.js (SPAWN_CONFIG). tickSpawn() handles timing + odds.
-        // Parking sign spawn
-        if (tickSpawn("parkingSign", dt) && parkingSigns.length === 0 && gameTime > 20) {
-            spawnParkingSign();
-        }
+        // Parking is now a BUILDING she enters ON FOOT (a foot-world door), not a
+        // road sign — so nothing spawns on the main road here anymore.
         // Ice cream sign
         if (tickSpawn("iceCream", dt) && iceCreamSigns.length === 0 && gameTime > 30) {
             spawnIceCreamSign();
@@ -6871,23 +6884,8 @@
                 else { avigailWalker = null; startAvigailScene(); return; }
             }
         }
-        // Salon sign on the roadside
-        if (tickSpawn("salon", dt) && salonSigns.length === 0 && gameTime > 25) {
-            salonSigns.push({ x: LANES[randInt(0, 2)], y: -60, hitW: 30, hitH: 34, bob: 0 });
-        }
-        for (var ssi = salonSigns.length - 1; ssi >= 0; ssi--) {
-            var ssg = salonSigns[ssi];
-            ssg.y += gameSpeed * dt;
-            ssg.bob += dt;
-            if (ssg.y > H + 60) { salonSigns.splice(ssi, 1); continue; }
-            // Salon works on foot too — she walks right in for a makeover.
-            if (aabb(player.x, player.y, onFoot ? 40 : CAR_W, onFoot ? 44 : CAR_H, ssg.x, ssg.y, ssg.hitW, ssg.hitH)) {
-                salonSigns.splice(ssi, 1);
-                salonReturnFoot = onFoot;   // came on foot → leave on foot (no free car)
-                startSalonScene();
-                return;
-            }
-        }
+        // The SALON is now a BUILDING she enters ON FOOT (a foot-world door), not a
+        // road sign — handled in the foot world, so nothing spawns on the road here.
         // Roadside HITCHHIKER (driving activity): a thumber on the shoulder you
         // can honk at to pick up for a coin bonus + a 2× "passenger" window.
         if (!onFoot) {
@@ -13909,7 +13907,7 @@
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
-    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH" };
+    var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH", salon: "SALON", parking: "PARKING" };
     function footZoneInterior() {
         if (typeof zone === "undefined") return null;
         if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
@@ -13917,11 +13915,14 @@
     }
     function footMaybeSpawnDoor() {
         if (footDoorCool > 0 || footDoors.length > 0) return;
-        var t = footZoneInterior();
-        if (!t) return;
+        // The SALON and PARKING are roadside shops Lulu can duck into ON FOOT, always
+        // available; the zone's own interior (bar/precinct/etc.) is also offered.
+        var cands = ["salon", "parking"];
+        var zi = footZoneInterior();
+        if (zi) cands.push(zi, zi);   // weight the local interior a little
         footDoorCool = rand(4, 7);
         var left = Math.random() < 0.5;
-        footDoors.push({ type: t, x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
+        footDoors.push({ type: randPick(cands), x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
     }
 
     function footNearestInteractable() {
@@ -14057,7 +14058,18 @@
     }
 
     function doFootInteract(prompt) {
-        if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
+        if (prompt.kind === "enter") {
+            var dt2 = prompt.ent.type;
+            // Salon & parking are full scenes (not footInterior dispatch) — run them
+            // and have them return HERE to the foot world afterward.
+            if (dt2 === "salon" && typeof startSalonScene === "function") {
+                footDoors = []; salonReturnFoot = true; playClick(); startSalonScene(); return;
+            }
+            if (dt2 === "parking" && typeof triggerParkingMinigame === "function") {
+                footDoors = []; parkingReturnFoot = true; playClick(); triggerParkingMinigame(); return;
+            }
+            enterFootInterior(dt2); return;
+        }
         if (prompt.kind === "disguise") { footDoDisguise(); return; }
         if (prompt.kind === "borrow") {
             startFootApproach(prompt.ent);   // walk up + STOP at the car, THEN hotwire
@@ -14368,7 +14380,7 @@
         var onLeft = dr.x < W / 2;
         ctx.save();
         ctx.translate(dr.x, dr.y);
-        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA" }[dr.type] || "#8D6E63";
+        var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA", salon: "#EC407A", parking: "#607D8B" }[dr.type] || "#8D6E63";
         ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();
         ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();
         ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill();
