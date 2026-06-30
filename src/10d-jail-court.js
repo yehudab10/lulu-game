@@ -125,19 +125,34 @@
     function pickCourtEvent() { return Math.random() < 0.10 ? COURT_MISTRIAL : randPick(COURT_EVENTS); }
     // Hire-a-lawyer tiers — you get what you pay for. feeMul is per-charge.
     var LAWYER_TIERS = [
-        { name: "Public Defender", feeMul: 6, mitig: 0.25, blunder: 0.28, accent: "#90A4AE",
-          say: "Uh... first day! Is this the right courtroom? 😬", tag: "cheap — might BLUNDER" },
-        { name: "Local Attorney", feeMul: 19, mitig: 0.58, blunder: 0.05, accent: "#80CBC4",
-          say: "We'll fight this. I read MOST of the file. 🤵", tag: "solid odds" },
-        { name: "Hotshot Lawyer", feeMul: 44, mitig: 0.86, blunder: 0, accent: "#FFD54F",
-          say: "They don't have a CASE. Watch this. 😎", tag: "pricey — best odds" }
+        { name: "Public Defender", feeMul: 6, mitig: 0.25, blunder: 0.28, accent: "#90A4AE", tag: "cheap — might BLUNDER",
+          says: ["Uh... first day! Is this the right courtroom? 😬",
+                 "I... did NOT read the file. Is it bad? It's bad, right?",
+                 "Objection! ...wait, am I the prosecutor? No? Okay.",
+                 "I passed the bar on the THIRD try. We've got this. Maybe.",
+                 "My other client's also at 2pm, so let's, uh, hustle."] },
+        { name: "Local Attorney", feeMul: 19, mitig: 0.58, blunder: 0.05, accent: "#80CBC4", tag: "solid odds",
+          says: ["We'll fight this. I read MOST of the file. 🤵",
+                 "Reasonable doubt is my middle name. Well — it's Steven.",
+                 "I've won cases like this. ...A few. Some. One. We're good.",
+                 "Let me handle the judge — we golf. Badly, but we golf.",
+                 "Stay calm, look innocent, and let me do the talking."] },
+        { name: "Hotshot Lawyer", feeMul: 44, mitig: 0.86, blunder: 0, accent: "#FFD54F", tag: "pricey — best odds",
+          says: ["They don't have a CASE. Watch this. 😎",
+                 "I bill more per hour than that fine. Relax.",
+                 "Your honor, I'll be brief, devastating, and correct.",
+                 "I've never lost. Don't check that. Just — trust me. 💼",
+                 "By the time I'm done, THEY'LL be apologizing to YOU."] }
     ];
     // ABBA — Lulu's dad. Turns out he passed the bar "years ago, for fun." When
     // he happens to be available (a treat — not every sentence) he takes her case
     // for FREE because she's his little girl. Fights HARD; near-hotshot odds.
     var ABBA_TIER = { name: "Abba", feeMul: 0, free: true, mitig: 0.80, blunder: 0, accent: "#FFB74D",
-        portrait: "abba", say: "That's my DAUGHTER, your honor. Show a little RACHMONES. ❤️",
-        tag: "FREE — he's your DAD ❤️" };
+        portrait: "abba", tag: "FREE — he's your DAD ❤️",
+        says: ["That's my DAUGHTER, your honor. Show a little RACHMONES. ❤️",
+               "I changed her diapers. THIS is who you're prosecuting?",
+               "Your honor, between us fathers... let it slide, nu?",
+               "She's a GOOD girl. A FAST girl, but a good one. ❤️"] };
     var ABBA_RETAIN_LINES = ["👨‍⚖️ ABBA took the case — for FREE! ❤️", "👨‍⚖️ \"For you, bubbeleh? No charge.\"",
         "👨‍⚖️ Abba cracks his knuckles. \"Watch THIS.\"", "👨‍⚖️ \"Don't tell Ima how fast you were going.\""];
     // The lawyer options Lulu can see this sentence (Abba only sometimes shows).
@@ -160,8 +175,6 @@
           outcomes: [["dismissed", 0.40], ["fine", 0.40], ["jail", 0.20]] },
         { label: "🍪 Bribe the JURY", says: "*passes rugelach down the jury box* 🍪",
           outcomes: [["dismissed", 0.55], ["fine", 0.25], ["jail", 0.20]], bribe: true },
-        { label: "📞 Demand a lawyer", says: "I get one call — to my cousin. The LAWYER.",
-          outcomes: [["dismissed", 0.45], ["fine", 0.45], ["jail", 0.10]], demandLawyer: true },
         { label: "💃 Dazzle the court", says: "*little tap routine* Charges dropped now? 💃",
           outcomes: [["dismissed", 0.50], ["fine", 0.30], ["jail", 0.20]] },
         { label: "🤥 Lie (badly)", says: "I wasn't there. Or driving. Or... born.",
@@ -454,7 +467,7 @@
         jail.lock = {
             pins: 3 + Math.min(2, s) + Math.min(2, jail.escapeFails),   // harder for repeat offenders
             done: 0, pos: 0, dir: 1,
-            speed: 0.85 + s * 0.12 + jail.escapeFails * 0.18,
+            speed: 0.58 + s * 0.08 + jail.escapeFails * 0.12,           // gentler — the marker was too fast
             zoneC: rand(0.25, 0.75), zoneW: Math.max(0.13, 0.30 - s * 0.03 - jail.escapeFails * 0.03),
             misses: 0, maxMiss: 3, result: null, resultT: 0
         };
@@ -552,7 +565,7 @@
                 if (Math.abs(lk.pos - lk.zoneC) < lk.zoneW / 2) {
                     lk.done++; playTone(740 + lk.done * 80, 0.06, "sine", 0.12);
                     if (lk.done >= lk.pins) { lk.result = "win"; lk.resultT = 0; playTone(988, 0.14, "triangle", 0.2); }
-                    else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.84); lk.speed *= 1.08; }
+                    else { lk.zoneC = rand(0.18, 0.82); lk.zoneW = Math.max(0.11, lk.zoneW * 0.86); lk.speed *= 1.05; }
                 } else {
                     lk.misses++; lk.missFx = 0.5; playTone(150, 0.12, "square", 0.16);
                     spawnFloater(W / 2, H * 0.34 + 70, "✖ MISS!", "#FF1744");
@@ -981,7 +994,7 @@
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
         ];
-        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.say });
+        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.says ? randPick(lawyerTier.says) : lawyerTier.say });
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
@@ -1159,14 +1172,26 @@
                     else if (nd === "help") { if (court.verdict === "jail" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed"; }
                     else if (nd === "hurt") { if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.3) court.verdict = "jail"; }
                 }
-                if (opt.bribe && court.verdict !== "dismissed") court.charges.push("BRIBING A JUDGE (BADLY)");
+                // ── BRIBERY: she actually PAYS, and it's a real gamble ──
+                if (opt.bribe) {
+                    var bribeAmt = Math.round(randInt(70, 150) * (1 + strikes * 0.25));
+                    court.bribePaid = chargeCoins(bribeAmt);          // the cash leaves her hands either way
+                    if (Math.random() < 0.28) {                        // OFFENDED → contempt, book thrown
+                        court.bribeBackfire = true;
+                        if (court.charges.indexOf("BRIBING A COURT OFFICIAL") < 0) court.charges.push("BRIBING A COURT OFFICIAL");
+                        court.verdict = "jail";
+                    } else {                                           // it LANDED — nudge her toward walking
+                        if (court.verdict === "jail") court.verdict = "fine";
+                        else if (court.verdict === "fine" && Math.random() < 0.7) court.verdict = "dismissed";
+                    }
+                }
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
                     var base = court.charges.length * randInt(14, 34) * (1 + strikes * 0.4);
-                    if (opt.bribe) base += 40;
                     court.fine = Math.round(base);
                 }
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
-                var vt = court.verdict === "dismissed" ? "CASE DISMISSED! Now get outta my court. 🎉"
+                var vt = court.bribeBackfire ? "CONTEMPT! You tried to BRIBE this court?! HARD time! ⛓️💸"
+                       : court.verdict === "dismissed" ? (opt.bribe ? "Case... 'dismissed.' *quietly pockets the envelope* 🤫" : "CASE DISMISSED! Now get outta my court. 🎉")
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")
                        : "GUILTY! That'll be 💰" + court.fine + ". See the clerk on your way out. 💸";
                 court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: vt };
@@ -1516,11 +1541,19 @@
             }
             var d5 = courtDone(court.verdictLine.text);
             drawDialogueBox(court.verdictLine.who, courtTyped(court.verdictLine.text), court.verdictLine.p, court.verdictLine.accent, court.t > 0.7 && d5, !d5);
-            if (court.verdict === "fine" && court.applied)
+            var vy5 = H - 150;
+            if (court.verdict === "fine" && court.applied) {
                 drawText("−" + court.paid + " 💰" + (court.couldnt ? "  (rest = community service!)" : ""),
-                    W / 2, H - 150, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
-            else if (court.verdict === "jail")
-                drawText("⛓️ Off to serve your time...", W / 2, H - 150, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+                    W / 2, vy5, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+                vy5 -= 18;
+            } else if (court.verdict === "jail") {
+                drawText("⛓️ Off to serve your time...", W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+                vy5 -= 18;
+            }
+            // show the bribe she paid (win OR lose — the cash always leaves her hands)
+            if (court.bribePaid > 0)
+                drawText((court.bribeBackfire ? "💸 −" + court.bribePaid + " 💰 bribe — and it BACKFIRED!" : "🤫 −" + court.bribePaid + " 💰 'donation'"),
+                    W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", court.bribeBackfire ? "#FF5252" : "#CE93D8", "#000", 3);
         }
     }
 

@@ -19,17 +19,21 @@
         "Lulu. Of COURSE it's Lulu.", "Third gown this WEEK, young lady.", "Frequent-flyer miles don't cover THIS."];
     // A POOL of care choices — two are drawn at random each visit (plus the always-
     // present "run for it"), so the menu doesn't feel like the same three forever.
+    // Each choice now actually DOES something on discharge — hearts, pocketed
+    // medical supplies (missiles / pepper spray), or a cheap-care gamble.
+    //   lives: hearts gained · gift: free item · risk: chance a cheap fix goes wrong
     var HOSP_CARE_POOL = [
-        { label: "🩹 Just patch me up", billMul: 1.0, extra: false, say: "Band-aid, a lollipop, you're golden. Try the BRAKES next time." },
-        { label: "💊 The GOOD stuff, doc!", billMul: 2.0, extra: true, say: "Premium care! Extra heart on the house. Wheee~ 💕" },
-        { label: "🩻 Full body scan", billMul: 1.6, extra: true, say: "Everything's... mostly where it goes. Have a bonus heart." },
-        { label: "💉 Just the painkillers", billMul: 1.2, extra: false, say: "Floaty now. Veeery floaty. Maybe drive... tomorrow." },
-        { label: "🧴 Bandage, I'm fine!", billMul: 0.6, extra: false, say: "Barely even bleeding. ...Mostly. Off you go, gonif." },
-        { label: "🦴 Set the broken bits", billMul: 1.8, extra: true, say: "*CRACK* There! Good as... 80% as new. Extra heart, brave girl." },
-        { label: "🍲 Bubbe's cholent cure", billMul: 0.9, extra: true, say: "Tammy snuck it in. Cures EVERYTHING. Free heart, bubbeleh. 💕" },
-        { label: "🧠 'Am I concussed?'", billMul: 1.3, extra: false, say: "Follow my finger. ...Other finger. Yeah, you're 'fine.'" },
-        { label: "✨ Whatever's cheapest", billMul: 0.7, extra: false, say: "Generic everything. Tastes like pennies. You'll live!" },
-        { label: "🫀 Premium VIP suite", billMul: 2.4, extra: true, say: "Robe, slippers, a TV! And a heart. Tell your friends. 🤩" }
+        { label: "🩹 Just patch me up", billMul: 1.0, lives: 0, say: "Band-aid, a lollipop, you're golden. Try the BRAKES next time." },
+        { label: "💊 The GOOD stuff, doc!", billMul: 2.0, lives: 1, say: "Premium care! Extra heart on the house. Wheee~ 💕" },
+        { label: "🩻 Full body scan", billMul: 1.6, lives: 1, say: "Everything's... mostly where it goes. Bonus heart." },
+        { label: "💉 Pocket the painkillers", billMul: 1.2, lives: 0, gift: "pepper", say: "*slips a few in her bag* ...for the road. 🌶️" },
+        { label: "🧴 Bandage, I'm fine!", billMul: 0.6, lives: 0, risk: 0.4, say: "Barely even bleeding. ...Mostly. Off you go, gonif." },
+        { label: "🦴 Set the broken bits", billMul: 1.8, lives: 2, say: "*CRACK CRACK* Good as... 90% new! TWO bonus hearts, brave girl." },
+        { label: "🍲 Bubbe's cholent cure", billMul: 0.9, lives: 1, say: "Tammy snuck it in. Cures EVERYTHING. Free heart, bubbeleh. 💕" },
+        { label: "🧠 'Am I concussed?'", billMul: 1.3, lives: 0, risk: 0.25, say: "Follow my finger. ...Other finger. Yeah, you're 'fine.'" },
+        { label: "✨ Whatever's cheapest", billMul: 0.6, lives: 0, risk: 0.45, say: "Generic everything. Tastes like pennies. Prob'ly fine!" },
+        { label: "🫀 Premium VIP suite", billMul: 2.4, lives: 2, gift: "missile", say: "Robe, slippers, a TV — and they 'forgot' a flare in your bag. 🚀" },
+        { label: "🩼 The works + crutches", billMul: 2.1, lives: 1, gift: "missile", say: "Crutches you won't use and a parting gift. Don't ask. 🚀" }
     ];
     var HOSP_DASH = { label: "🏃 Skip the bill — RUN!", billMul: 0, extra: false, dash: true };
     function rollHospOptions() {
@@ -345,7 +349,16 @@
                 if (hospital.bill > 0) {
                     hospital.paid = chargeCoins(hospital.bill);   // medical bill out of her coins
                 }
-                lives = Math.max(1, (typeof lives !== "undefined" ? lives : 1) + (opt.extra ? 1 : 0));
+                // ── the choice actually does something ──
+                var heartGain = (typeof opt.lives === "number") ? opt.lives : (opt.extra ? 1 : 0);
+                if (typeof lives === "undefined") lives = 1;
+                // a cheap-care GAMBLE can go wrong (a complication eats a heart)
+                if (opt.risk && Math.random() < opt.risk) { hospital.complication = true; heartGain -= 1; }
+                lives = Math.max(1, lives + heartGain);
+                hospital.heartGain = heartGain;
+                // pocketed "supplies" — a real, useful gift
+                if (opt.gift === "missile") { save.missiles = (save.missiles || 0) + 1; persistSave(); hospital.gift = "🚀 +1 missile"; }
+                else if (opt.gift === "pepper") { save.pepperSpray = (save.pepperSpray || 0) + 1; persistSave(); hospital.gift = "🌶️ +1 pepper spray"; }
             }
             if (hospital.t > 0.6 && consumeTap()) {
                 if (!hospDone(hospital.line)) { hospital.typeT = 999; return; }
@@ -664,15 +677,35 @@
             var d3 = hospDone(hospital.line);
             drawDialogueBox("NURSE TAMMY", hospTyped(hospital.line), "tammy", "#F48FB1", hospital.t > 0.6 && d3, !d3);
             if (hospital.applied) {
-                if (hospital.claimMsg)
-                    drawText(hospital.claimMsg, W / 2, H - 202, "bold 12px 'Segoe UI', Arial, sans-serif",
-                        hospital.claim ? "#90CAF9" : "#FFAB91", "#000", 3);
-                if (hospital.tammyDiscount < 1)
-                    drawText("👩‍⚕️ family discount applied!", W / 2, H - 186, "bold 12px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+                // stack the discharge receipt upward from just above the dialogue box
+                var ry = H - 168;
                 if (hospital.bill > 0)
-                    drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, H - 168, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+                    drawText("🧾 −" + hospital.paid + " 💰 medical bill", W / 2, ry, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
                 else
-                    drawText("🩹 on the house — don't tell the boss!", W / 2, H - 168, "bold 13px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+                    drawText("🩹 on the house — don't tell the boss!", W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+                ry -= 18;
+                if (hospital.tammyDiscount < 1) {
+                    drawText("👩‍⚕️ family discount applied!", W / 2, ry, "bold 12px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#000", 3);
+                    ry -= 18;
+                }
+                if (hospital.claimMsg) {
+                    drawText(hospital.claimMsg, W / 2, ry, "bold 12px 'Segoe UI', Arial, sans-serif",
+                        hospital.claim ? "#90CAF9" : "#FFAB91", "#000", 3);
+                    ry -= 18;
+                }
+                // ── what the CARE CHOICE actually did ──
+                if (hospital.complication) {
+                    drawText("💔 complication! −1 heart", W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
+                    ry -= 18;
+                }
+                if (hospital.heartGain > 0) {
+                    drawText("❤️ +" + hospital.heartGain + " heart" + (hospital.heartGain > 1 ? "s" : ""), W / 2, ry, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 3);
+                    ry -= 18;
+                }
+                if (hospital.gift) {
+                    drawText(hospital.gift, W / 2, ry, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+                    ry -= 18;
+                }
             }
         } else if (hospital.phase === 4) {
             // the escape ATTEMPT caption
