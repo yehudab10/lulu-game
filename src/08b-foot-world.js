@@ -98,6 +98,12 @@
             "That's coming out of\nmy deposit. On foot it is.",
             "I'll just... leave that there.\nWalking now! 🚶‍♀️",
             "Parking is HARD, okay?!\nUgh. Find another."
+        ],
+        droveOff: [
+            "Parked it. Stretching\nmy legs. 🚶‍♀️",
+            "Bored of driving.\nLet's WALK a bit.",
+            "Pulled over. Time to\nfind a BETTER ride.",
+            "I'll leave it here.\nNobody'll notice. Probably."
         ]
     };
 
@@ -105,7 +111,8 @@
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         save.footRunsPlayed = footRunLevel; persistSave();
-        footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
+        footIntroT = reason === "droveOff" ? 1.0 : 1.6; footWalkTime = 0;
+        footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
@@ -114,6 +121,7 @@
         footHint = "Find a car to “borrow” 🚗  •  ✋ to interact"; footHintT = 6;
         var pool = reason === "parkingCrash" ? FOOT_INTRO_LINES.parkingCrash
                  : reason === "copWalk"      ? FOOT_INTRO_LINES.copWalk
+                 : reason === "droveOff"     ? FOOT_INTRO_LINES.droveOff
                                              : FOOT_INTRO_LINES.wreck;
         footIntroLine = randPick(pool);
         // A chase doesn't follow her onto the sidewalk — clear it so a leftover

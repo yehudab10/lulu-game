@@ -505,6 +505,7 @@
         HONK_RECT         = { x: W - 78,  y: bot - 168, w: 64, h: 64 };
         PEPPER_RECT       = { x: W - 78,  y: bot - 240, w: 64, h: 64 };
         COP_RECT          = { x: 14,      y: bot - 240, w: 64, h: 64 };  // siren / pull-over (cop car only)
+        EXIT_RECT         = { x: W / 2 - 74, y: bot - 58, w: 148, h: 44 }; // ditch the car → on foot (when slowed)
         PARK_LEFT_RECT    = { x: 12,      y: bot - 96,  w: 64, h: 64 };
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
@@ -553,6 +554,9 @@
     var keys = { left: false, right: false, up: false, down: false };
     var actionQueued = false;
     var clickQueue = null; // {x, y} in canvas coords
+    var EXIT_RECT = null;           // ditch-the-car button (only while slowed)
+    var exitQueued = false;         // tapped the EXIT button / pressed Q
+    var exitBtnShown = false;       // set each frame by updatePlaying when eligible
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
@@ -635,6 +639,7 @@
             if ((playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") &&
                 pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
+            if (exitBtnShown && EXIT_RECT && pointInRect(pos.x, pos.y, EXIT_RECT.x, EXIT_RECT.y, EXIT_RECT.w, EXIT_RECT.h)) return "exit";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
             return null;
@@ -705,6 +710,7 @@
         if (e.key === "x" || e.key === "X") { pepperQueued = true; e.preventDefault(); }
         if (e.key === "z" || e.key === "Z") { sirenQueued = true; e.preventDefault(); }
         if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
+        if (e.key === "q" || e.key === "Q") { exitQueued = true; e.preventDefault(); }     // ditch the car
     });
     document.addEventListener("keyup", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
@@ -734,6 +740,8 @@
                 sirenQueued = true;
             } else if (btn === "honk") {
                 honkQueued = true;
+            } else if (btn === "exit") {
+                exitQueued = true;
             } else if (btn === "boost") {
                 if (boostDblT > 0) { boostLock = !boostLock; boostDblT = 0; } else boostDblT = 0.3;
                 if (boostLock) { brakeLock = false; keys.down = false; }

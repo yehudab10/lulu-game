@@ -323,6 +323,26 @@
         }
     }
 
+    // Begin the smooth pull-over: pick the nearer shoulder and coast to it.
+    function startParkExit() {
+        parkExit = { t: 0, dur: 1.15, side: player.x < W / 2 ? -1 : 1 };
+        slowDriveT = 0; exitBtnShown = false;
+        invincibleTimer = Math.max(invincibleTimer, 2.0);
+        spawnFloater(player.x, player.y - 40, "🅿️ pulling over…", "#CE93D8");
+        playTone(440, 0.12, "sine", 0.1, 320);
+    }
+    // She's parked — step out and continue on foot (no cutscene, the world keeps
+    // rolling). startFootWorld drops her into the foot sim near where she parked.
+    function dropToFoot(side) {
+        parkExit = null; slowDriveT = 0; exitBtnShown = false;
+        playerVehicle = null;
+        if (typeof startFootWorld === "function") startFootWorld("droveOff");
+        if (player) {
+            var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
+            player.x = sx; player.targetX = sx;
+        }
+    }
+
     var HITCH_LINES = ["Bubbe's, please! 🙏", "You're a MENSCH!", "Thanks, doll!", "I owe you a kugel!",
         "FINALLY someone stopped!", "To the wedding — STEP ON IT!", "Gut Shabbos, lifesaver!"];
     function drawHitchhiker(h) {
@@ -385,6 +405,8 @@
         // The steamroller is a TANK but a slug — hard-cap its top speed (which is
         // exactly why a chase in one is so dangerous: you can't pull away).
         if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
+        // Coasting to a stop as she pulls over to step out.
+        if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
@@ -413,6 +435,25 @@
             }
             updateDozerWorld(dt);
         }
+
+        // ── Ditch the car → on foot. When she's been crawling for a couple of
+        //    seconds (braking or just stuck in slow traffic) an EXIT button appears;
+        //    pressing it eases the car to the shoulder and she steps out — smooth,
+        //    no cutscene. (Not mid-chase — that'd be a free escape.) ──
+        var canExit = !onFoot && state === "playing" && !copChase && !copBust && !crashReprieve;
+        if (parkExit) {
+            parkExit.t += dt;
+            invincibleTimer = Math.max(invincibleTimer, 0.3);
+            keys.up = false; keys.down = true;                 // braking to a stop
+            player.targetX = parkExit.side < 0 ? ROAD_L + CAR_W / 2 + 6 : ROAD_R - CAR_W / 2 - 6;
+            if (parkExit.t >= parkExit.dur) { dropToFoot(parkExit.side); return; }
+            exitBtnShown = false;
+        } else if (canExit) {
+            var goingSlow = keys.down || gameSpeed < BASE_SPEED * 0.82;
+            slowDriveT = goingSlow ? slowDriveT + dt : Math.max(0, slowDriveT - dt * 2.5);
+            exitBtnShown = slowDriveT > 1.6;
+            if (exitQueued) { exitQueued = false; if (exitBtnShown) startParkExit(); }
+        } else { slowDriveT = 0; exitBtnShown = false; exitQueued = false; }
         if (onFoot) footWalkTime += dt * (0.5 + speedMod);
 
         // Timers
@@ -2087,6 +2128,8 @@
     var dozerSpawnCool = 34;        // long cooldown — the steamroller is rare
     var flatWrecks = [];            // pancaked cars left in the steamroller's wake
     var DOZER_SPEED = 235;          // it's SLOW — that's the trade for being unstoppable
+    var slowDriveT = 0;            // how long she's been crawling (unlocks the EXIT button)
+    var parkExit = null;           // smooth "pull over & step out → on foot" animation
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the

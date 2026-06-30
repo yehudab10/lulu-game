@@ -507,6 +507,7 @@
         HONK_RECT         = { x: W - 78,  y: bot - 168, w: 64, h: 64 };
         PEPPER_RECT       = { x: W - 78,  y: bot - 240, w: 64, h: 64 };
         COP_RECT          = { x: 14,      y: bot - 240, w: 64, h: 64 };  // siren / pull-over (cop car only)
+        EXIT_RECT         = { x: W / 2 - 74, y: bot - 58, w: 148, h: 44 }; // ditch the car → on foot (when slowed)
         PARK_LEFT_RECT    = { x: 12,      y: bot - 96,  w: 64, h: 64 };
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
@@ -555,6 +556,9 @@
     var keys = { left: false, right: false, up: false, down: false };
     var actionQueued = false;
     var clickQueue = null; // {x, y} in canvas coords
+    var EXIT_RECT = null;           // ditch-the-car button (only while slowed)
+    var exitQueued = false;         // tapped the EXIT button / pressed Q
+    var exitBtnShown = false;       // set each frame by updatePlaying when eligible
     var pauseQueued = false;
     var missileQueued = false;
     var honkQueued = false;
@@ -637,6 +641,7 @@
             if ((playerVehicle === "cop" || playerVehicle === "ambulance" || playerVehicle === "bus") &&
                 pointInRect(pos.x, pos.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) return "siren";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "honk";
+            if (exitBtnShown && EXIT_RECT && pointInRect(pos.x, pos.y, EXIT_RECT.x, EXIT_RECT.y, EXIT_RECT.w, EXIT_RECT.h)) return "exit";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
             return null;
@@ -707,6 +712,7 @@
         if (e.key === "x" || e.key === "X") { pepperQueued = true; e.preventDefault(); }
         if (e.key === "z" || e.key === "Z") { sirenQueued = true; e.preventDefault(); }
         if (e.key === "e" || e.key === "E") { footActQueued = true; e.preventDefault(); } // on-foot interact
+        if (e.key === "q" || e.key === "Q") { exitQueued = true; e.preventDefault(); }     // ditch the car
     });
     document.addEventListener("keyup", function (e) {
         if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") keys.left = false;
@@ -736,6 +742,8 @@
                 sirenQueued = true;
             } else if (btn === "honk") {
                 honkQueued = true;
+            } else if (btn === "exit") {
+                exitQueued = true;
             } else if (btn === "boost") {
                 if (boostDblT > 0) { boostLock = !boostLock; boostDblT = 0; } else boostDblT = 0.3;
                 if (boostLock) { brakeLock = false; keys.down = false; }
@@ -4703,6 +4711,14 @@
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
+
+        // Ditch-the-car button — fades in once she's been crawling a moment.
+        if (typeof exitBtnShown !== "undefined" && exitBtnShown && EXIT_RECT) {
+            var ebp = 0.85 + 0.15 * Math.sin(gameTime * 5);
+            ctx.globalAlpha = ebp;
+            drawButton(EXIT_RECT.x, EXIT_RECT.y, EXIT_RECT.w, EXIT_RECT.h, "🚶 EXIT CAR", { bg: "#7E57C2", bgDark: "#4527A0", small: true });
+            ctx.globalAlpha = 1;
+        }
         // Honk-chain badge — shows the current musical streak so the Honk
         // Symphony combo is visible instead of an invisible hidden mechanic.
         if (honkChain > 0) {
@@ -5094,6 +5110,7 @@
         roadCops = []; copChase = null; copBust = null;
         spontaneousChaseCool = 22; wantedSpot = 0; wantedPatrolT = 0;
         dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = [];
+        slowDriveT = 0; parkExit = null; exitBtnShown = false; exitQueued = false;
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         honkCooldown = 0;
         kidsInCar = false;
@@ -6358,6 +6375,26 @@
         }
     }
 
+    // Begin the smooth pull-over: pick the nearer shoulder and coast to it.
+    function startParkExit() {
+        parkExit = { t: 0, dur: 1.15, side: player.x < W / 2 ? -1 : 1 };
+        slowDriveT = 0; exitBtnShown = false;
+        invincibleTimer = Math.max(invincibleTimer, 2.0);
+        spawnFloater(player.x, player.y - 40, "🅿️ pulling over…", "#CE93D8");
+        playTone(440, 0.12, "sine", 0.1, 320);
+    }
+    // She's parked — step out and continue on foot (no cutscene, the world keeps
+    // rolling). startFootWorld drops her into the foot sim near where she parked.
+    function dropToFoot(side) {
+        parkExit = null; slowDriveT = 0; exitBtnShown = false;
+        playerVehicle = null;
+        if (typeof startFootWorld === "function") startFootWorld("droveOff");
+        if (player) {
+            var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
+            player.x = sx; player.targetX = sx;
+        }
+    }
+
     var HITCH_LINES = ["Bubbe's, please! 🙏", "You're a MENSCH!", "Thanks, doll!", "I owe you a kugel!",
         "FINALLY someone stopped!", "To the wedding — STEP ON IT!", "Gut Shabbos, lifesaver!"];
     function drawHitchhiker(h) {
@@ -6420,6 +6457,8 @@
         // The steamroller is a TANK but a slug — hard-cap its top speed (which is
         // exactly why a chase in one is so dangerous: you can't pull away).
         if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
+        // Coasting to a stop as she pulls over to step out.
+        if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
@@ -6448,6 +6487,25 @@
             }
             updateDozerWorld(dt);
         }
+
+        // ── Ditch the car → on foot. When she's been crawling for a couple of
+        //    seconds (braking or just stuck in slow traffic) an EXIT button appears;
+        //    pressing it eases the car to the shoulder and she steps out — smooth,
+        //    no cutscene. (Not mid-chase — that'd be a free escape.) ──
+        var canExit = !onFoot && state === "playing" && !copChase && !copBust && !crashReprieve;
+        if (parkExit) {
+            parkExit.t += dt;
+            invincibleTimer = Math.max(invincibleTimer, 0.3);
+            keys.up = false; keys.down = true;                 // braking to a stop
+            player.targetX = parkExit.side < 0 ? ROAD_L + CAR_W / 2 + 6 : ROAD_R - CAR_W / 2 - 6;
+            if (parkExit.t >= parkExit.dur) { dropToFoot(parkExit.side); return; }
+            exitBtnShown = false;
+        } else if (canExit) {
+            var goingSlow = keys.down || gameSpeed < BASE_SPEED * 0.82;
+            slowDriveT = goingSlow ? slowDriveT + dt : Math.max(0, slowDriveT - dt * 2.5);
+            exitBtnShown = slowDriveT > 1.6;
+            if (exitQueued) { exitQueued = false; if (exitBtnShown) startParkExit(); }
+        } else { slowDriveT = 0; exitBtnShown = false; exitQueued = false; }
         if (onFoot) footWalkTime += dt * (0.5 + speedMod);
 
         // Timers
@@ -8122,6 +8180,8 @@
     var dozerSpawnCool = 34;        // long cooldown — the steamroller is rare
     var flatWrecks = [];            // pancaked cars left in the steamroller's wake
     var DOZER_SPEED = 235;          // it's SLOW — that's the trade for being unstoppable
+    var slowDriveT = 0;            // how long she's been crawling (unlocks the EXIT button)
+    var parkExit = null;           // smooth "pull over & step out → on foot" animation
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the
@@ -13081,6 +13141,12 @@
             "That's coming out of\nmy deposit. On foot it is.",
             "I'll just... leave that there.\nWalking now! 🚶‍♀️",
             "Parking is HARD, okay?!\nUgh. Find another."
+        ],
+        droveOff: [
+            "Parked it. Stretching\nmy legs. 🚶‍♀️",
+            "Bored of driving.\nLet's WALK a bit.",
+            "Pulled over. Time to\nfind a BETTER ride.",
+            "I'll leave it here.\nNobody'll notice. Probably."
         ]
     };
 
@@ -13088,7 +13154,8 @@
         footEntryReason = reason;
         footRunLevel = (save.footRunsPlayed || 0) + 1;
         save.footRunsPlayed = footRunLevel; persistSave();
-        footIntroT = 1.6; footWalkTime = 0; footMood = "cry";
+        footIntroT = reason === "droveOff" ? 1.0 : 1.6; footWalkTime = 0;
+        footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
@@ -13097,6 +13164,7 @@
         footHint = "Find a car to “borrow” 🚗  •  ✋ to interact"; footHintT = 6;
         var pool = reason === "parkingCrash" ? FOOT_INTRO_LINES.parkingCrash
                  : reason === "copWalk"      ? FOOT_INTRO_LINES.copWalk
+                 : reason === "droveOff"     ? FOOT_INTRO_LINES.droveOff
                                              : FOOT_INTRO_LINES.wreck;
         footIntroLine = randPick(pool);
         // A chase doesn't follow her onto the sidewalk — clear it so a leftover
@@ -24912,6 +24980,7 @@
             clickQueue = null;
             pauseQueued = false;
             footActQueued = false;
+            exitQueued = false;
             // Drop any held control input from the previous scene.
             keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;

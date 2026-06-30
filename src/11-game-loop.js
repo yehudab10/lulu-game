@@ -44,6 +44,7 @@
             clickQueue = null;
             pauseQueued = false;
             footActQueued = false;
+            exitQueued = false;
             // Drop any held control input from the previous scene.
             keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;

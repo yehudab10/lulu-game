@@ -771,6 +771,14 @@
         // Honk button (above missile, right side)
         drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, "📣",
             { bg: honkCooldown > 0 ? "#FFEB3B" : "#FFC107", bgDark: "#FF6F00", id: "honk" });
+
+        // Ditch-the-car button — fades in once she's been crawling a moment.
+        if (typeof exitBtnShown !== "undefined" && exitBtnShown && EXIT_RECT) {
+            var ebp = 0.85 + 0.15 * Math.sin(gameTime * 5);
+            ctx.globalAlpha = ebp;
+            drawButton(EXIT_RECT.x, EXIT_RECT.y, EXIT_RECT.w, EXIT_RECT.h, "🚶 EXIT CAR", { bg: "#7E57C2", bgDark: "#4527A0", small: true });
+            ctx.globalAlpha = 1;
+        }
         // Honk-chain badge — shows the current musical streak so the Honk
         // Symphony combo is visible instead of an invisible hidden mechanic.
         if (honkChain > 0) {
