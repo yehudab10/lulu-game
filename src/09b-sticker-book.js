@@ -66,13 +66,13 @@
         for (var t = 0; t < tray.length; t++) {
             var it = tray[t];
             if (pointInRect(click.x, click.y, it.x - 24, it.y - 24, 48, 48)) {
-                if ((save.parkingTotalStars || 0) >= it.kind.cost) {
+                if ((save.totalCoins || 0) >= it.kind.cost) {
                     sticker.held = it.kind;
                     sticker.msg = "Now tap the page to place " + it.kind.e;
                     sticker.msgT = 2.5;
                     playClick();
                 } else {
-                    sticker.msg = "Need ⭐" + it.kind.cost + " for that one";
+                    sticker.msg = "Need 💰" + it.kind.cost + " for that one";
                     sticker.msgT = 1.8;
                     playDeny();
                 }
@@ -82,7 +82,7 @@
 
         // Place held sticker onto the page
         if (sticker.held && pointInRect(click.x, click.y, STICKER_PAGE.x, STICKER_PAGE.y, STICKER_PAGE.w, STICKER_PAGE.h)) {
-            save.parkingTotalStars -= sticker.held.cost;
+            save.totalCoins -= sticker.held.cost;
             save.stickerBook.push({
                 e: sticker.held.e, x: click.x, y: click.y,
                 rot: rand(-0.35, 0.35), scale: rand(0.9, 1.25)
@@ -91,10 +91,10 @@
             stickerSparkle(click.x, click.y);
             playTone(700, 0.07, "sine", 0.16);
             setTimeout(function () { playTone(950, 0.08, "sine", 0.14); }, 60);
-            sticker.msg = "Pretty! ⭐" + (save.parkingTotalStars || 0) + " left";
+            sticker.msg = "Pretty! 💰" + (save.totalCoins || 0) + " left";
             sticker.msgT = 1.6;
             // keep the same sticker held if still affordable, else drop it
-            if ((save.parkingTotalStars || 0) < sticker.held.cost) sticker.held = null;
+            if ((save.totalCoins || 0) < sticker.held.cost) sticker.held = null;
             return;
         }
     }
@@ -126,7 +126,7 @@
         roundRect(0, 0, W, 44, 0); ctx.fill();
         drawText("📖 Dina's Sticker Book", W / 2, 22,
             "bold 15px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, 22,
+        drawText("💰 " + (save.totalCoins || 0), W - 14, 22,
             "bold 15px Arial", "#FFD700", "#000", 2, "right");
 
         // Scrapbook page (with a cute spiral binding)
@@ -186,14 +186,14 @@
         }
 
         // Tray label
-        drawText("Tap a sticker (costs ⭐), then tap the page", W / 2, H - 176,
+        drawText("Tap a sticker (costs 💰), then tap the page", W / 2, H - 176,
             "bold 12px 'Segoe UI', Arial", "#5D4037", "#FFF", 2);
 
         // Tray of buyable stickers
         var tray = stickerTrayLayout();
         for (var t = 0; t < tray.length; t++) {
             var it = tray[t];
-            var afford = (save.parkingTotalStars || 0) >= it.kind.cost;
+            var afford = (save.totalCoins || 0) >= it.kind.cost;
             var held = sticker.held === it.kind;
             // tile
             ctx.fillStyle = held ? "#FFF59D" : (afford ? "#FFFFFF" : "#D7CCC8");
@@ -205,7 +205,7 @@
             ctx.fillText(it.kind.e, it.x, it.y - 4);
             ctx.globalAlpha = 1;
             // cost pill
-            drawText("⭐" + it.kind.cost, it.x, it.y + 16, "bold 10px Arial", afford ? "#FF8F00" : "#9E9E9E", "#FFF", 2);
+            drawText("💰" + it.kind.cost, it.x, it.y + 16, "bold 10px Arial", afford ? "#FF8F00" : "#9E9E9E", "#FFF", 2);
         }
 
         // Held-sticker preview following nothing (shown near message)

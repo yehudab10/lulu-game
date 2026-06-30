@@ -244,7 +244,7 @@
         } else if (spot.reward) {
             // Tiny star for repeat visits — generous but not exploitable-feeling.
             footAwardStar();
-            spawnFloater(spot.x, spot.y - 30, "+⭐ one more nosh", "#FFD700");
+            spawnFloater(spot.x, spot.y - 30, "+1 💰 one more nosh", "#FFD700");
             playHopJump();
         }
     }
@@ -672,7 +672,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🍎 CHEDER ON THE CORNER", W / 2, SAFE_TOP + 27, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         // Leave door button (bottom).
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
@@ -926,7 +926,7 @@
                 spot._gave = true;
                 footAwardStar();
                 footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
-                spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
+                spawnFloater(spot.x, spot.y - 36, "+3 💰 get-well gelt!", "#FFD700");
                 playHopJump(); playCoin();
             } else {
                 playTone(523, 0.08, "triangle", 0.14);
@@ -1439,7 +1439,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🏥 URGENT CARE — WAITING ROOM", W / 2, SAFE_TOP + 27, "bold 14px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
         hospLeaveRect = { x: lx, y: ly, w: lw, h: lh };

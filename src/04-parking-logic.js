@@ -835,8 +835,7 @@
         if (parkingChallengeMode) {
             parkingChallengeCoins += bonus;
             parkingChallengeStars += stars;
-            save.totalCoins += bonus;
-            save.parkingTotalStars += stars;
+            save.totalCoins += bonus;   // the grade just scales the COIN payout now
             if (stars === 3) save.parkingPerfectRuns++;
             if (parkingLevel > save.parkingBestLevel) save.parkingBestLevel = parkingLevel;
         } else {

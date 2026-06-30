@@ -835,7 +835,7 @@
                 var tierBg = tier.free ? "#5D4037" : (afford ? "#37474F" : "#2A2A2A");
                 var tierBgD = tier.free ? "#4E342E" : (afford ? "#263238" : "#1A1A1A");
                 drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: tierBg, bgDark: tierBgD, small: true });
-                drawText(tier.name + (tier.free ? "  ❤️ FREE" : "  ★" + fee), tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 13 : 16),
+                drawText(tier.name + (tier.free ? "  ❤️ FREE" : "  💰" + fee), tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 13 : 16),
                     "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
                 drawText(tier.tag, tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 28 : 35), "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
             }
@@ -1129,7 +1129,7 @@
                     court.verdict = "fine";
                     court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
                     save.convictions = (save.convictions || 0) + 1; persistSave();
-                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, ★" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
@@ -1168,7 +1168,7 @@
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
                 var vt = court.verdict === "dismissed" ? "CASE DISMISSED! Now get outta my court. 🎉"
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")
-                       : "GUILTY! That'll be ★" + court.fine + ". See the clerk on your way out. 💸";
+                       : "GUILTY! That'll be 💰" + court.fine + ". See the clerk on your way out. 💸";
                 court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: vt };
                 court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                 playTone(150, 0.16, "square", 0.18);

@@ -122,7 +122,7 @@
         "Get well soon-ish. The wedding's Sunday and you are NOT on the list."
     ];
     var DOC_ER = [
-        "Second opinion: yep, still reckless. That'll be another ★50.",
+        "Second opinion: yep, still reckless. That'll be another 💰50.",
         "I'm not your doctor. I just heard there was DRAMA. Please, continue.",
         "Good news: you're alive! Bad news: we're fresh out of lollipops.",
         "We googled your symptoms. WebMD says, and I quote, 'stop doing that.'",
@@ -337,7 +337,7 @@
                     if (Math.random() < 0.55) {
                         var cut = Math.round(hospital.bill * rand(0.4, 0.6));
                         hospital.bill -= cut; hospital.claim = cut;
-                        hospital.claimMsg = "📋 Hillel filed your claim — APPROVED! −★" + cut;
+                        hospital.claimMsg = "📋 Hillel filed your claim — APPROVED! −💰" + cut;
                     } else {
                         hospital.claimMsg = "📋 Hillel's claim DENIED — he doesn't work there anymore. 😬";
                     }
@@ -684,7 +684,7 @@
                 var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 6));
                 ctx.globalAlpha = bl; drawText("🚨 BUSTED 🚨", W / 2, H * 0.30, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF1744", "#000", 5); ctx.globalAlpha = 1;
                 if (hospital.billCollected > 0)
-                    drawText("🧾 they collected your ★" + hospital.billCollected + " bill anyway", W / 2, H * 0.30 + 26,
+                    drawText("🧾 they collected your 💰" + hospital.billCollected + " bill anyway", W / 2, H * 0.30 + 26,
                         "bold 12px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
             }
         } else if (hospital.phase === 6) {

@@ -172,7 +172,7 @@
             ctx.globalAlpha = 1;
             if (t > 0.7) {
                 ctx.globalAlpha = (t - 0.7) / 0.3;
-                drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
+                drawText("💤 RESTED! +1 💰", W / 2, H - 80,
                     "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
                 drawText("Tap to wake up", W / 2, H - 40,
                     "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
@@ -183,7 +183,7 @@
         // Award the star once (only after she's actually rested)
         if (tucked && t >= 1 && !window.__napAwarded) {
             window.__napAwarded = true;
-            save.parkingTotalStars += 1;
+            save.totalCoins += 1;
             persistSave();
             setTimeout(function () { window.__napAwarded = false; }, 1000);
         }

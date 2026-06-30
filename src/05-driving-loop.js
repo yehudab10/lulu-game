@@ -2509,16 +2509,16 @@
                             hg.amount = randInt(40, 110);
                             hg.report = "You: " + hg.luluSpeed + "mph · Them: " + hg.otherSpeed + "mph · " + (hg.otherAhead ? "you hit the car in FRONT" : "you swerved into them");
                             hg.line = randPick([
-                                "Ran the numbers — this one's on YOU. Deductible's ★" + hg.amount + ", sorry kid.",
-                                "Fault's yours, mathematically. ★" + hg.amount + " out of pocket, I'm afraid.",
-                                "You were doing " + hg.luluSpeed + "; they weren't. ★" + hg.amount + " deductible."]);
+                                "Ran the numbers — this one's on YOU. Deductible's 💰" + hg.amount + ", sorry kid.",
+                                "Fault's yours, mathematically. 💰" + hg.amount + " out of pocket, I'm afraid.",
+                                "You were doing " + hg.luluSpeed + "; they weren't. 💰" + hg.amount + " deductible."]);
                         } else {
                             hg.amount = randInt(60, 150);
                             hg.report = "Them: " + hg.otherSpeed + "mph · You: " + hg.luluSpeed + "mph · " + (hg.otherAhead ? "but they cut you off" : "they rear-ended YOU") + (hg.oncoming ? ", oncoming" : "");
                             hg.line = randPick([
-                                "Clear fault on THEM. Claim approved — ★" + hg.amount + ", enjoy.",
-                                "Not your fault! Pushed it through: ★" + hg.amount + ". 📋",
-                                "They were in the wrong doing " + hg.otherSpeed + ". ★" + hg.amount + " for you."]);
+                                "Clear fault on THEM. Claim approved — 💰" + hg.amount + ", enjoy.",
+                                "Not your fault! Pushed it through: 💰" + hg.amount + ". 📋",
+                                "They were in the wrong doing " + hg.otherSpeed + ". 💰" + hg.amount + " for you."]);
                         }
                         hg.phase = 2; hg.t = 0;
                         playTone(hg.atFault ? 200 : 784, 0.12, "triangle", 0.16);
@@ -2814,7 +2814,7 @@
                 pointInRect(click.x, click.y, W / 2 - 130, H * 0.70 - 26, 260, 52)) {
                 Ads.showRewarded(function () {
                     runCoins += 50; save.totalCoins += 50; persistSave();
-                    spawnFloater(W / 2, H * 0.40, "+50 ★", "#FFD700");
+                    spawnFloater(W / 2, H * 0.40, "+50 💰", "#FFD700");
                 });
                 playClick(); return;
             }

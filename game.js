@@ -5914,8 +5914,7 @@
         if (parkingChallengeMode) {
             parkingChallengeCoins += bonus;
             parkingChallengeStars += stars;
-            save.totalCoins += bonus;
-            save.parkingTotalStars += stars;
+            save.totalCoins += bonus;   // the grade just scales the COIN payout now
             if (stars === 3) save.parkingPerfectRuns++;
             if (parkingLevel > save.parkingBestLevel) save.parkingBestLevel = parkingLevel;
         } else {
@@ -8561,16 +8560,16 @@
                             hg.amount = randInt(40, 110);
                             hg.report = "You: " + hg.luluSpeed + "mph · Them: " + hg.otherSpeed + "mph · " + (hg.otherAhead ? "you hit the car in FRONT" : "you swerved into them");
                             hg.line = randPick([
-                                "Ran the numbers — this one's on YOU. Deductible's ★" + hg.amount + ", sorry kid.",
-                                "Fault's yours, mathematically. ★" + hg.amount + " out of pocket, I'm afraid.",
-                                "You were doing " + hg.luluSpeed + "; they weren't. ★" + hg.amount + " deductible."]);
+                                "Ran the numbers — this one's on YOU. Deductible's 💰" + hg.amount + ", sorry kid.",
+                                "Fault's yours, mathematically. 💰" + hg.amount + " out of pocket, I'm afraid.",
+                                "You were doing " + hg.luluSpeed + "; they weren't. 💰" + hg.amount + " deductible."]);
                         } else {
                             hg.amount = randInt(60, 150);
                             hg.report = "Them: " + hg.otherSpeed + "mph · You: " + hg.luluSpeed + "mph · " + (hg.otherAhead ? "but they cut you off" : "they rear-ended YOU") + (hg.oncoming ? ", oncoming" : "");
                             hg.line = randPick([
-                                "Clear fault on THEM. Claim approved — ★" + hg.amount + ", enjoy.",
-                                "Not your fault! Pushed it through: ★" + hg.amount + ". 📋",
-                                "They were in the wrong doing " + hg.otherSpeed + ". ★" + hg.amount + " for you."]);
+                                "Clear fault on THEM. Claim approved — 💰" + hg.amount + ", enjoy.",
+                                "Not your fault! Pushed it through: 💰" + hg.amount + ". 📋",
+                                "They were in the wrong doing " + hg.otherSpeed + ". 💰" + hg.amount + " for you."]);
                         }
                         hg.phase = 2; hg.t = 0;
                         playTone(hg.atFault ? 200 : 784, 0.12, "triangle", 0.16);
@@ -8866,7 +8865,7 @@
                 pointInRect(click.x, click.y, W / 2 - 130, H * 0.70 - 26, 260, 52)) {
                 Ads.showRewarded(function () {
                     runCoins += 50; save.totalCoins += 50; persistSave();
-                    spawnFloater(W / 2, H * 0.40, "+50 ★", "#FFD700");
+                    spawnFloater(W / 2, H * 0.40, "+50 💰", "#FFD700");
                 });
                 playClick(); return;
             }
@@ -10377,7 +10376,7 @@
 
         drawText("ALL-TIME", W / 2, H * 0.50, "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 2);
         drawText("Best level: " + save.parkingBestLevel, W / 2, H * 0.54, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
-        drawText("Total stars: ★ " + save.parkingTotalStars, W / 2, H * 0.58, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+        drawText("💰 Coins: " + formatNum(save.totalCoins), W / 2, H * 0.58, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
         drawText("Perfect parks: " + save.parkingPerfectRuns, W / 2, H * 0.62, "bold 16px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
 
         // Buttons
@@ -10493,7 +10492,7 @@
             // Rewarded ad: opt-in "watch for coins". Only renders in the native
             // app once an ad is loaded (Ads.rewardedAvailable() is false on web).
             if (Ads.rewardedAvailable()) {
-                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 ★",
+                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 💰",
                     { bg: "#FFB300", bgDark: "#EF6C00" });
             }
 
@@ -10651,7 +10650,7 @@
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {
-                drawText("🅿 Best Level: " + save.parkingBestLevel + " · ★ " + save.parkingTotalStars,
+                drawText("🅿 Best Level: " + save.parkingBestLevel,
                     W / 2, bestY + 22,
                     "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#333", 3);
             }
@@ -10788,7 +10787,7 @@
             else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
-                drawText("★ " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
+                drawText("💰 " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
         }
     }
@@ -10819,7 +10818,7 @@
         drawText(title, x + w / 2, y + 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
         drawText(desc, x + w / 2, y + 60, "14px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
         if (!owned) {
-            drawText("★ " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
+            drawText("💰 " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
             drawText(canAfford ? btnLabel : "Need more coins", x + w / 2, y + h - 12, "bold 14px Arial", "#FFF", "#000", 2);
         } else {
             drawText("✓ " + btnLabel, x + w / 2, y + h - 20, "bold 22px Arial", "#FFF", "#000", 3);
@@ -12376,7 +12375,7 @@
         dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
         dinaRunBankedStars = dinaStickers;
         save.totalCoins += dinaRunBankedCoins;
-        save.parkingTotalStars = (save.parkingTotalStars || 0) + dinaRunBankedStars;
+        save.totalCoins = (save.totalCoins || 0) + dinaRunBankedStars;
         persistSave();
     }
 
@@ -12446,7 +12445,7 @@
         } else if (hz.type === "hopscotch") {
             dinaStickers++;
             playHopJump();
-            spawnFloater(hz.x, hz.y, "+⭐", "#FFD700");
+            spawnFloater(hz.x, hz.y, "+💰", "#FFD700");
         } else if (hz.type === "cat") {
             dinaCoinsRun += 1;
             playTone(600, 0.1, "sine", 0.12);
@@ -12913,7 +12912,7 @@
         drawText("⏱ " + Math.max(0, Math.ceil(DINA_RUN_DURATION - dinaRunTimer)) + "s",
             15, 18, "bold 13px Arial", "#FFD700", "#000", 2, "left");
         drawText("⚡ " + dina.sprintTimer.toFixed(1) + "s", 15, 36, "bold 12px Arial", "#FFEB3B", "#000", 2, "left");
-        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
+        drawText("💰 " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
             "bold 13px Arial", "#FFD700", "#000", 2, "left");
         // Run level (progressive difficulty) — centered under the bar
         drawText("Run #" + dinaRunLevel, W / 2, 40, "bold 12px Arial", "#FFFFFF", "#000", 2);
@@ -13037,7 +13036,7 @@
 
         // Rewards banked into the shared bank (carries over to Lulu's world)
         var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";
-        drawText("Banked: ⭐ " + dinaRunBankedStars + "   💰 " + dinaRunBankedCoins + bonusStr, W / 2, H - 76,
+        drawText("Banked: 💰 " + (dinaRunBankedStars + dinaRunBankedCoins) + bonusStr, W / 2, H - 76,
             "bold 16px Arial", "#FFD700", "#000", 3);
         drawText("Added to your bank: " + formatNum(save.totalCoins) + " 💰", W / 2, H - 52,
             "bold 13px Arial", "#FFF8E1", "#000", 2);
@@ -13087,9 +13086,9 @@
     var footRunLevel = 1;
     var footCoinsRun = 0, footStars = 0;
     // Stars Lulu earns exploring on foot bank into the REAL star currency
-    // (save.parkingTotalStars) — the same ⭐ she spends in the sticker book —
+    // (save.totalCoins) — the same ⭐ she spends in the sticker book —
     // so they actually mean something instead of vanishing on a side counter.
-    function footAwardStar(n) { save.parkingTotalStars = (save.parkingTotalStars || 0) + (n || 1); persistSave(); }
+    function footAwardStar(n) { save.totalCoins = (save.totalCoins || 0) + (n || 1); persistSave(); }
     var footIntroLine = "";
     var footHint = "", footHintT = 0;
     var footChat = "", footChatT = 0, footChatNext = 3;
@@ -13766,7 +13765,7 @@
 
         // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
         // sticker book uses), not a throwaway counter.
-        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
+        drawText("💰 " + formatNum(save.totalCoins), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
 
         // hearts, centered like the driving HUD (she CAN lose them now)
         var slots = Math.max(3, lives);
@@ -15354,7 +15353,7 @@
         } else if (spot.reward) {
             // Tiny star for repeat visits — generous but not exploitable-feeling.
             footAwardStar();
-            spawnFloater(spot.x, spot.y - 30, "+⭐ one more nosh", "#FFD700");
+            spawnFloater(spot.x, spot.y - 30, "+1 💰 one more nosh", "#FFD700");
             playHopJump();
         }
     }
@@ -15782,7 +15781,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🍎 CHEDER ON THE CORNER", W / 2, SAFE_TOP + 27, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         // Leave door button (bottom).
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
@@ -16036,7 +16035,7 @@
                 spot._gave = true;
                 footAwardStar();
                 footCoinsRun += 3; runCoins += 3; save.totalCoins += 3; persistSave();
-                spawnFloater(spot.x, spot.y - 36, "+⭐ +3 💰 get-well gelt!", "#FFD700");
+                spawnFloater(spot.x, spot.y - 36, "+3 💰 get-well gelt!", "#FFD700");
                 playHopJump(); playCoin();
             } else {
                 playTone(523, 0.08, "triangle", 0.14);
@@ -16549,7 +16548,7 @@
         ctx.fillStyle = "rgba(0,0,0,0.55)"; roundRect(20, SAFE_TOP + 8, W - 40, 38, 10); ctx.fill();
         drawText("🏥 URGENT CARE — WAITING ROOM", W / 2, SAFE_TOP + 27, "bold 14px 'Segoe UI', Arial, sans-serif", "#B2DFDB", "#000", 4);
 
-        drawText("💰 " + footCoinsRun + "   ⭐ " + (save.parkingTotalStars || 0), 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
+        drawText("💰 " + footCoinsRun, 14, SAFE_TOP + 60, "bold 13px Arial", "#FFD700", "#000", 3, "left");
 
         var lw = 150, lh = 46, lx = W / 2 - lw / 2, ly = H - lh - 16 - SAFE_BOTTOM;
         hospLeaveRect = { x: lx, y: ly, w: lw, h: lh };
@@ -19729,7 +19728,7 @@
         roundRect(0, 0, W, 40, 0); ctx.fill();
         drawText("🏠 Dina's Bedroom", W / 2, 20,
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("⭐ " + (save.parkingTotalStars || 0) + "  💰 " + formatNum(save.totalCoins), 12, 20,
+        drawText("💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
@@ -19797,7 +19796,7 @@
             morganCelebrateT = 0;
             if (!morganStarAwarded) {
                 morganStarAwarded = true;
-                save.parkingTotalStars += 1;
+                save.totalCoins += 1;
                 persistSave();
             }
             playTone(523, 0.1, "triangle", 0.2);
@@ -19997,7 +19996,7 @@
         if (morganMood === "celebrate") {
             ctx.fillStyle = "rgba(255, 235, 0, 0.15)";
             ctx.fillRect(0, 0, W, H);
-            drawText(morganStarAwarded ? "⭐ +1 STAR! ⭐" : "💜 Morgan's so happy! 💜", W / 2, H / 2 - 100,
+            drawText(morganStarAwarded ? "💰 +1 coin! 💰" : "💜 Morgan's so happy! 💜", W / 2, H / 2 - 100,
                 "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
             drawText("Morgan loves you, Dina!", W / 2, H / 2 - 64,
                 "bold 14px Arial", "#FFFFFF", "#000", 3);
@@ -20085,13 +20084,13 @@
         for (var t = 0; t < tray.length; t++) {
             var it = tray[t];
             if (pointInRect(click.x, click.y, it.x - 24, it.y - 24, 48, 48)) {
-                if ((save.parkingTotalStars || 0) >= it.kind.cost) {
+                if ((save.totalCoins || 0) >= it.kind.cost) {
                     sticker.held = it.kind;
                     sticker.msg = "Now tap the page to place " + it.kind.e;
                     sticker.msgT = 2.5;
                     playClick();
                 } else {
-                    sticker.msg = "Need ⭐" + it.kind.cost + " for that one";
+                    sticker.msg = "Need 💰" + it.kind.cost + " for that one";
                     sticker.msgT = 1.8;
                     playDeny();
                 }
@@ -20101,7 +20100,7 @@
 
         // Place held sticker onto the page
         if (sticker.held && pointInRect(click.x, click.y, STICKER_PAGE.x, STICKER_PAGE.y, STICKER_PAGE.w, STICKER_PAGE.h)) {
-            save.parkingTotalStars -= sticker.held.cost;
+            save.totalCoins -= sticker.held.cost;
             save.stickerBook.push({
                 e: sticker.held.e, x: click.x, y: click.y,
                 rot: rand(-0.35, 0.35), scale: rand(0.9, 1.25)
@@ -20110,10 +20109,10 @@
             stickerSparkle(click.x, click.y);
             playTone(700, 0.07, "sine", 0.16);
             setTimeout(function () { playTone(950, 0.08, "sine", 0.14); }, 60);
-            sticker.msg = "Pretty! ⭐" + (save.parkingTotalStars || 0) + " left";
+            sticker.msg = "Pretty! 💰" + (save.totalCoins || 0) + " left";
             sticker.msgT = 1.6;
             // keep the same sticker held if still affordable, else drop it
-            if ((save.parkingTotalStars || 0) < sticker.held.cost) sticker.held = null;
+            if ((save.totalCoins || 0) < sticker.held.cost) sticker.held = null;
             return;
         }
     }
@@ -20145,7 +20144,7 @@
         roundRect(0, 0, W, 44, 0); ctx.fill();
         drawText("📖 Dina's Sticker Book", W / 2, 22,
             "bold 15px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, 22,
+        drawText("💰 " + (save.totalCoins || 0), W - 14, 22,
             "bold 15px Arial", "#FFD700", "#000", 2, "right");
 
         // Scrapbook page (with a cute spiral binding)
@@ -20205,14 +20204,14 @@
         }
 
         // Tray label
-        drawText("Tap a sticker (costs ⭐), then tap the page", W / 2, H - 176,
+        drawText("Tap a sticker (costs 💰), then tap the page", W / 2, H - 176,
             "bold 12px 'Segoe UI', Arial", "#5D4037", "#FFF", 2);
 
         // Tray of buyable stickers
         var tray = stickerTrayLayout();
         for (var t = 0; t < tray.length; t++) {
             var it = tray[t];
-            var afford = (save.parkingTotalStars || 0) >= it.kind.cost;
+            var afford = (save.totalCoins || 0) >= it.kind.cost;
             var held = sticker.held === it.kind;
             // tile
             ctx.fillStyle = held ? "#FFF59D" : (afford ? "#FFFFFF" : "#D7CCC8");
@@ -20224,7 +20223,7 @@
             ctx.fillText(it.kind.e, it.x, it.y - 4);
             ctx.globalAlpha = 1;
             // cost pill
-            drawText("⭐" + it.kind.cost, it.x, it.y + 16, "bold 10px Arial", afford ? "#FF8F00" : "#9E9E9E", "#FFF", 2);
+            drawText("💰" + it.kind.cost, it.x, it.y + 16, "bold 10px Arial", afford ? "#FF8F00" : "#9E9E9E", "#FFF", 2);
         }
 
         // Held-sticker preview following nothing (shown near message)
@@ -20420,7 +20419,7 @@
             ctx.globalAlpha = 1;
             if (t > 0.7) {
                 ctx.globalAlpha = (t - 0.7) / 0.3;
-                drawText("💤 RESTED! +1 ⭐", W / 2, H - 80,
+                drawText("💤 RESTED! +1 💰", W / 2, H - 80,
                     "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
                 drawText("Tap to wake up", W / 2, H - 40,
                     "12px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
@@ -20431,7 +20430,7 @@
         // Award the star once (only after she's actually rested)
         if (tucked && t >= 1 && !window.__napAwarded) {
             window.__napAwarded = true;
-            save.parkingTotalStars += 1;
+            save.totalCoins += 1;
             persistSave();
             setTimeout(function () { window.__napAwarded = false; }, 1000);
         }
@@ -22745,7 +22744,7 @@
                 var tierBg = tier.free ? "#5D4037" : (afford ? "#37474F" : "#2A2A2A");
                 var tierBgD = tier.free ? "#4E342E" : (afford ? "#263238" : "#1A1A1A");
                 drawButton(tr.x, tr.y, tr.w, tr.h, "", { bg: tierBg, bgDark: tierBgD, small: true });
-                drawText(tier.name + (tier.free ? "  ❤️ FREE" : "  ★" + fee), tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 13 : 16),
+                drawText(tier.name + (tier.free ? "  ❤️ FREE" : "  💰" + fee), tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 13 : 16),
                     "bold 14px 'Segoe UI', Arial, sans-serif", afford ? tier.accent : "#777", "#000", 3);
                 drawText(tier.tag, tr.x + tr.w / 2, tr.y + (lawTiers.length >= 4 ? 28 : 35), "italic 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
             }
@@ -23039,7 +23038,7 @@
                     court.verdict = "fine";
                     court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
                     save.convictions = (save.convictions || 0) + 1; persistSave();
-                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, ★" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
@@ -23078,7 +23077,7 @@
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
                 var vt = court.verdict === "dismissed" ? "CASE DISMISSED! Now get outta my court. 🎉"
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")
-                       : "GUILTY! That'll be ★" + court.fine + ". See the clerk on your way out. 💸";
+                       : "GUILTY! That'll be 💰" + court.fine + ". See the clerk on your way out. 💸";
                 court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: vt };
                 court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                 playTone(150, 0.16, "square", 0.18);
@@ -24036,7 +24035,7 @@
         "Get well soon-ish. The wedding's Sunday and you are NOT on the list."
     ];
     var DOC_ER = [
-        "Second opinion: yep, still reckless. That'll be another ★50.",
+        "Second opinion: yep, still reckless. That'll be another 💰50.",
         "I'm not your doctor. I just heard there was DRAMA. Please, continue.",
         "Good news: you're alive! Bad news: we're fresh out of lollipops.",
         "We googled your symptoms. WebMD says, and I quote, 'stop doing that.'",
@@ -24251,7 +24250,7 @@
                     if (Math.random() < 0.55) {
                         var cut = Math.round(hospital.bill * rand(0.4, 0.6));
                         hospital.bill -= cut; hospital.claim = cut;
-                        hospital.claimMsg = "📋 Hillel filed your claim — APPROVED! −★" + cut;
+                        hospital.claimMsg = "📋 Hillel filed your claim — APPROVED! −💰" + cut;
                     } else {
                         hospital.claimMsg = "📋 Hillel's claim DENIED — he doesn't work there anymore. 😬";
                     }
@@ -24598,7 +24597,7 @@
                 var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 6));
                 ctx.globalAlpha = bl; drawText("🚨 BUSTED 🚨", W / 2, H * 0.30, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF1744", "#000", 5); ctx.globalAlpha = 1;
                 if (hospital.billCollected > 0)
-                    drawText("🧾 they collected your ★" + hospital.billCollected + " bill anyway", W / 2, H * 0.30 + 26,
+                    drawText("🧾 they collected your 💰" + hospital.billCollected + " bill anyway", W / 2, H * 0.30 + 26,
                         "bold 12px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
             }
         } else if (hospital.phase === 6) {

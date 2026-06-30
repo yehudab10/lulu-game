@@ -328,7 +328,7 @@
 
         drawText("ALL-TIME", W / 2, H * 0.50, "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 2);
         drawText("Best level: " + save.parkingBestLevel, W / 2, H * 0.54, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
-        drawText("Total stars: ★ " + save.parkingTotalStars, W / 2, H * 0.58, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+        drawText("💰 Coins: " + formatNum(save.totalCoins), W / 2, H * 0.58, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
         drawText("Perfect parks: " + save.parkingPerfectRuns, W / 2, H * 0.62, "bold 16px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#000", 3);
 
         // Buttons
@@ -444,7 +444,7 @@
             // Rewarded ad: opt-in "watch for coins". Only renders in the native
             // app once an ad is loaded (Ads.rewardedAvailable() is false on web).
             if (Ads.rewardedAvailable()) {
-                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 ★",
+                drawButton(W / 2 - 130, H * 0.70 - 26, 260, 52, "📺  WATCH → +50 💰",
                     { bg: "#FFB300", bgDark: "#EF6C00" });
             }
 
@@ -602,7 +602,7 @@
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {
-                drawText("🅿 Best Level: " + save.parkingBestLevel + " · ★ " + save.parkingTotalStars,
+                drawText("🅿 Best Level: " + save.parkingBestLevel,
                     W / 2, bestY + 22,
                     "bold 14px 'Segoe UI', Arial, sans-serif", "#90CAF9", "#333", 3);
             }
@@ -739,7 +739,7 @@
             else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
-                drawText("★ " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
+                drawText("💰 " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
         }
     }
@@ -770,7 +770,7 @@
         drawText(title, x + w / 2, y + 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
         drawText(desc, x + w / 2, y + 60, "14px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
         if (!owned) {
-            drawText("★ " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
+            drawText("💰 " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
             drawText(canAfford ? btnLabel : "Need more coins", x + w / 2, y + h - 12, "bold 14px Arial", "#FFF", "#000", 2);
         } else {
             drawText("✓ " + btnLabel, x + w / 2, y + h - 20, "bold 22px Arial", "#FFF", "#000", 3);

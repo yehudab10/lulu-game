@@ -30,9 +30,9 @@
     var footRunLevel = 1;
     var footCoinsRun = 0, footStars = 0;
     // Stars Lulu earns exploring on foot bank into the REAL star currency
-    // (save.parkingTotalStars) — the same ⭐ she spends in the sticker book —
+    // (save.totalCoins) — the same ⭐ she spends in the sticker book —
     // so they actually mean something instead of vanishing on a side counter.
-    function footAwardStar(n) { save.parkingTotalStars = (save.parkingTotalStars || 0) + (n || 1); persistSave(); }
+    function footAwardStar(n) { save.totalCoins = (save.totalCoins || 0) + (n || 1); persistSave(); }
     var footIntroLine = "";
     var footHint = "", footHintT = 0;
     var footChat = "", footChatT = 0, footChatNext = 3;
@@ -709,7 +709,7 @@
 
         // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
         // sticker book uses), not a throwaway counter.
-        drawText("⭐ " + (save.parkingTotalStars || 0), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
+        drawText("💰 " + formatNum(save.totalCoins), W - 14, top + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "right");
 
         // hearts, centered like the driving HUD (she CAN lose them now)
         var slots = Math.max(3, lives);

@@ -471,7 +471,7 @@
         roundRect(0, 0, W, 40, 0); ctx.fill();
         drawText("🏠 Dina's Bedroom", W / 2, 20,
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
-        drawText("⭐ " + (save.parkingTotalStars || 0) + "  💰 " + formatNum(save.totalCoins), 12, 20,
+        drawText("💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
         drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
 
@@ -539,7 +539,7 @@
             morganCelebrateT = 0;
             if (!morganStarAwarded) {
                 morganStarAwarded = true;
-                save.parkingTotalStars += 1;
+                save.totalCoins += 1;
                 persistSave();
             }
             playTone(523, 0.1, "triangle", 0.2);
@@ -739,7 +739,7 @@
         if (morganMood === "celebrate") {
             ctx.fillStyle = "rgba(255, 235, 0, 0.15)";
             ctx.fillRect(0, 0, W, H);
-            drawText(morganStarAwarded ? "⭐ +1 STAR! ⭐" : "💜 Morgan's so happy! 💜", W / 2, H / 2 - 100,
+            drawText(morganStarAwarded ? "💰 +1 coin! 💰" : "💜 Morgan's so happy! 💜", W / 2, H / 2 - 100,
                 "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 6);
             drawText("Morgan loves you, Dina!", W / 2, H / 2 - 64,
                 "bold 14px Arial", "#FFFFFF", "#000", 3);

@@ -178,7 +178,7 @@
         dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
         dinaRunBankedStars = dinaStickers;
         save.totalCoins += dinaRunBankedCoins;
-        save.parkingTotalStars = (save.parkingTotalStars || 0) + dinaRunBankedStars;
+        save.totalCoins = (save.totalCoins || 0) + dinaRunBankedStars;
         persistSave();
     }
 
@@ -248,7 +248,7 @@
         } else if (hz.type === "hopscotch") {
             dinaStickers++;
             playHopJump();
-            spawnFloater(hz.x, hz.y, "+⭐", "#FFD700");
+            spawnFloater(hz.x, hz.y, "+💰", "#FFD700");
         } else if (hz.type === "cat") {
             dinaCoinsRun += 1;
             playTone(600, 0.1, "sine", 0.12);
@@ -715,7 +715,7 @@
         drawText("⏱ " + Math.max(0, Math.ceil(DINA_RUN_DURATION - dinaRunTimer)) + "s",
             15, 18, "bold 13px Arial", "#FFD700", "#000", 2, "left");
         drawText("⚡ " + dina.sprintTimer.toFixed(1) + "s", 15, 36, "bold 12px Arial", "#FFEB3B", "#000", 2, "left");
-        drawText("⭐ " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
+        drawText("💰 " + dinaStickers + "  $" + dinaCoinsRun, W - 80, 18,
             "bold 13px Arial", "#FFD700", "#000", 2, "left");
         // Run level (progressive difficulty) — centered under the bar
         drawText("Run #" + dinaRunLevel, W / 2, 40, "bold 12px Arial", "#FFFFFF", "#000", 2);
@@ -839,7 +839,7 @@
 
         // Rewards banked into the shared bank (carries over to Lulu's world)
         var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";
-        drawText("Banked: ⭐ " + dinaRunBankedStars + "   💰 " + dinaRunBankedCoins + bonusStr, W / 2, H - 76,
+        drawText("Banked: 💰 " + (dinaRunBankedStars + dinaRunBankedCoins) + bonusStr, W / 2, H - 76,
             "bold 16px Arial", "#FFD700", "#000", 3);
         drawText("Added to your bank: " + formatNum(save.totalCoins) + " 💰", W / 2, H - 52,
             "bold 13px Arial", "#FFF8E1", "#000", 2);
