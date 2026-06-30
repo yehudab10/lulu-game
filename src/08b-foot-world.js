@@ -18,6 +18,7 @@
     var footWalkTime = 0;        // animation clock for the on-foot sprite
     var footMood = "run";        // "run" | "panic" | "cry"
     var footParked = [];         // stealable parked cars on the shoulder
+    var footHotwire = null;      // the quick "hotwire to unlock it" challenge
     var footDoors = [];          // building entrances
     var footPrompt = null;       // nearest interactable { kind, ent, label }
     var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
@@ -113,7 +114,7 @@
         save.footRunsPlayed = footRunLevel; persistSave();
         footIntroT = reason === "droveOff" ? 1.0 : 1.6; footWalkTime = 0;
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
-        footParked = []; footDoors = []; footPrompt = null; footCompanion = null;
+        footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
@@ -298,13 +299,16 @@
         if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); footSpawnParked(); }
         if (footDoorCool > 0) footDoorCool -= dt;
         footMaybeSpawnDoor();
-        footScroll(footParked, 110, dt);
+        if (!footHotwire) footScroll(footParked, 110, dt);   // hold the car still mid-hotwire
         footScroll(footDoors, 80, dt);
         updateFootCompanion(dt);
 
-        // Nearest thing she can interact with + the hand-button action.
-        footPrompt = footNearestInteractable();
-        if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
+        // A hotwire-in-progress takes over input; otherwise hand-button interactions.
+        if (footHotwire) { updateFootHotwire(dt); footPrompt = null; }
+        else {
+            footPrompt = footNearestInteractable();
+            if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
+        }
 
         // A bored cop who spots her walking CLOSE BY occasionally takes her in
         // (low chance) — straight to the precinct interior. No speeding here.
@@ -334,7 +338,12 @@
 
     function footSpawnParked() {
         var left = Math.random() < 0.5;
-        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110,
+        // Mostly ordinary cars, but now and then something juicier is parked up:
+        // a cop cruiser, a bus, an ambulance, or (rarely) a steamroller. The fancier
+        // the ride, the tougher the hotwire.
+        var r = Math.random();
+        var vtype = r < 0.68 ? "car" : r < 0.80 ? "cop" : r < 0.90 ? "ambulance" : r < 0.97 ? "bus" : "dozer";
+        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype,
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
@@ -364,7 +373,8 @@
         }
         for (var p = 0; p < footParked.length; p++) {
             var pc = footParked[p];
-            consider({ kind: "borrow", ent: pc, label: "🚗 BORROW CAR" }, pc.x - player.x, pc.y - player.y, 58, 88);
+            var blbl = { cop: "🚓 HOTWIRE COP CAR", ambulance: "🚑 HOTWIRE AMBULANCE", bus: "🚌 HOTWIRE BUS", dozer: "🚜 HOTWIRE STEAMROLLER" }[pc.vtype] || "🚗 HOTWIRE CAR";
+            consider({ kind: "borrow", ent: pc, label: blbl }, pc.x - player.x, pc.y - player.y, 58, 88);
         }
         // Live-world folk: talk to peds, pet animals, chat up cops, or HAIL a car.
         for (var o = 0; o < obstacles.length; o++) {
@@ -384,24 +394,77 @@
         return best;
     }
 
+    // ── Hotwire mini-challenge: tap when the slider's in the green. Plain cars
+    //    are a quick one-pin freebie; cop cars / buses / ambulances take two; the
+    //    steamroller takes three and the zone is mean. Two misses sets off an alarm.
+    function startFootHotwire(pc) {
+        var v = pc.vtype || "car";
+        var diff = v === "car"   ? { pins: 1, zoneW: 0.36, speed: 0.85 }
+                 : v === "dozer" ? { pins: 3, zoneW: 0.19, speed: 1.30 }
+                                 : { pins: 2, zoneW: 0.25, speed: 1.08 };
+        footHotwire = { veh: pc, pins: diff.pins, zoneW: diff.zoneW, speed: diff.speed,
+                        hit: 0, misses: 0, pos: 0, dir: 1, zoneC: rand(0.28, 0.72), result: null, resultT: 0 };
+        consumeClick(); consumeAction(); footActQueued = false;   // drop the initiating tap
+        spawnFloater(player.x, player.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
+        playTone(440, 0.05, "square", 0.1);
+    }
+    function updateFootHotwire(dt) {
+        var h = footHotwire;
+        if (h.result) {
+            h.resultT += dt;
+            if (h.result === "win" && h.resultT > 0.5) { footHotwire = null; finalizeBorrow(h.veh); }
+            else if (h.result === "fail" && h.resultT > 1.1) { footHotwire = null; footHotwireFail(h); }
+            return;
+        }
+        var tap = footActQueued || consumeTap(); footActQueued = false;
+        if (tap) {
+            if (Math.abs(h.pos - h.zoneC) < h.zoneW / 2) {
+                h.hit++; playTone(680 + h.hit * 90, 0.05, "sine", 0.1);
+                if (h.hit >= h.pins) { h.result = "win"; h.resultT = 0; playTone(988, 0.12, "triangle", 0.2); }
+                else { h.zoneC = rand(0.22, 0.78); h.speed *= 1.06; }
+            } else {
+                h.misses++; playTone(150, 0.1, "square", 0.14);
+                spawnFloater(W / 2, H * 0.46, "✖ slipped!", "#FF8A80");
+                if (h.misses >= 2) { h.result = "fail"; h.resultT = 0; playTone(90, 0.25, "square", 0.14); }
+            }
+            return;
+        }
+        h.pos += h.dir * h.speed * dt;
+        if (h.pos >= 1) { h.pos = 1; h.dir = -1; } else if (h.pos <= 0) { h.pos = 0; h.dir = 1; }
+    }
+    function finalizeBorrow(pc) {
+        spawnFloater(player.x, player.y - 32, "🔓 HOTWIRED!", "#7CFC4F");
+        spawnCrashBurst(pc.x, pc.y, false);
+        var seen = (typeof copInView === "function" && copInView());
+        lives = Math.max(lives, 1);
+        footParked = []; footDoors = []; footCompanion = null;
+        if (seen && typeof beginArrest === "function") { beginArrest(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
+        var v = pc.vtype || "car";
+        if (v === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
+        else if (v === "cop") playerVehicle = "cop";
+        else if (v === "ambulance") playerVehicle = "ambulance";
+        else if (v === "bus") playerVehicle = "bus";
+        else playerVehicle = null;
+        returnToDriving();
+    }
+    function footHotwireFail(h) {
+        spawnFloater(player.x, player.y - 32, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80");
+        if (typeof playHonk === "function") playHonk();
+        footParked = [];   // that one's a bust — move along
+        if (typeof copInView === "function" && copInView() && Math.random() < 0.5 && typeof beginArrest === "function") {
+            beginArrest(["ATTEMPTED GRAND THEFT AUTO"]);
+        }
+    }
+
     function doFootInteract(prompt) {
         if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
         if (prompt.kind === "borrow") {
-            spawnFloater(player.x, player.y - 32, randPick(FOOT_STEAL_LINES), "#FFE082");
-            spawnCrashBurst(prompt.ent.x, prompt.ent.y, false);
-            playTone(520, 0.08, "square", 0.12);
-            // Boosting a car in front of a cop = caught red-handed → straight to
-            // jail (and her day in court).
-            var seen = Math.random() < 0.1 || (typeof copInView === "function" && copInView());
-            lives = Math.max(lives, 1);
-            footParked = []; footDoors = []; footCompanion = null;
-            if (seen && typeof beginArrest === "function") { beginArrest(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
-            returnToDriving();   // clean getaway — back on the road (state → "playing")
+            startFootHotwire(prompt.ent);   // unlock it with a quick hotwire first
             return;
         }
         if (prompt.kind === "hail") {
             footChat = ""; footChatT = 0;
-            if (Math.random() < 0.6) {     // a kind driver gives her a lift — legit ride, no chase
+            if (Math.random() < 0.42) {    // harder to thumb a ride now — most folks blow past
                 // She drives whatever she flagged down — a bus stays a bus, etc.
                 var b = prompt.ent.behavior;
                 playerVehicle = (b === "bus") ? "bus" : (b === "ambulance") ? "ambulance"
@@ -586,16 +649,31 @@
         for (var p = 0; p < footParked.length; p++) {
             var pc = footParked[p];
             ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
-            drawEnemyCar(0, 0, pc.color, pc.carType);
-            ctx.restore();
-        }
-        for (var p = 0; p < footParked.length; p++) {
-            var pc = footParked[p];
-            ctx.save(); ctx.translate(pc.x, pc.y); ctx.rotate(pc.rot || 0);
-            drawEnemyCar(0, 0, pc.color, pc.carType);
+            if (pc.vtype === "cop") drawCopCar(0, 0, gameTime * 3);
+            else if (pc.vtype === "ambulance") drawAmbulance(0, 0, gameTime);
+            else if (pc.vtype === "bus" && typeof drawTopBus === "function") drawTopBus(0, 0);
+            else if (pc.vtype === "dozer" && typeof drawSteamroller === "function") drawSteamroller(0, 0, 0, gameTime, true);
+            else drawEnemyCar(0, 0, pc.color, pc.carType);
             ctx.restore();
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
+        if (footHotwire) drawHotwire(footHotwire);
+    }
+
+    var FOOT_VEH_NAME = { car: "CAR", cop: "COP CAR", ambulance: "AMBULANCE", bus: "BUS", dozer: "STEAMROLLER" };
+    function drawHotwire(h) {
+        var bw = W - 84, bx = 42, by = H * 0.52, bh = 26;
+        ctx.fillStyle = "rgba(8,10,18,0.86)"; roundRect(bx - 12, by - 50, bw + 24, 108, 12); ctx.fill();
+        ctx.strokeStyle = h.result === "fail" ? "#FF5252" : "#FFD54F"; ctx.lineWidth = 2; roundRect(bx - 12, by - 50, bw + 24, 108, 12); ctx.stroke();
+        var title = h.result === "win" ? "🔓 GOT IT!" : h.result === "fail" ? "🚨 ALARM — BAIL!" : "HOTWIRE — tap in the GREEN!";
+        drawText(title, W / 2, by - 32, "bold 14px 'Segoe UI', Arial, sans-serif", h.result === "fail" ? "#FF8A80" : "#FFD54F", "#000", 3);
+        ctx.fillStyle = "#37474F"; roundRect(bx, by, bw, bh, 8); ctx.fill();
+        ctx.fillStyle = "#66BB6A"; roundRect(bx + (h.zoneC - h.zoneW / 2) * bw, by, h.zoneW * bw, bh, 4); ctx.fill();
+        ctx.fillStyle = "#FFFFFF"; roundRect(bx + h.pos * bw - 3, by - 5, 6, bh + 10, 3); ctx.fill();
+        for (var p = 0; p < h.pins; p++) {
+            ctx.fillStyle = p < h.hit ? "#FFD54F" : "#546E7A";
+            ctx.beginPath(); ctx.arc(W / 2 - (h.pins - 1) * 11 + p * 22, by + 44, 5, 0, Math.PI * 2); ctx.fill();
+        }
     }
 
     function drawFootDoor(dr) {

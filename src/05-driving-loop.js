@@ -423,17 +423,12 @@
         player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
         player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
 
-        // ── Steamroller: tick its diesel, spawn/seek the rare pickup ──
+        // ── Steamroller: tick its diesel; keep the pancaked-wreck wake rolling.
+        //    (You can't grab one off the road anymore — they're commandeered on
+        //    FOOT now, and seen driven in construction zones.) ──
         if (!onFoot) {
             if (playerVehicle === "dozer") { dozerTimer -= dt; if (dozerTimer <= 0) endDozer(); }
-            else if (state === "playing" && dozers.length === 0 && gameTime > 25) {
-                dozerSpawnCool -= dt;
-                if (dozerSpawnCool <= 0) {
-                    if (Math.random() < 0.55) { spawnDozer(); dozerSpawnCool = rand(45, 80); }
-                    else dozerSpawnCool = rand(12, 22);
-                }
-            }
-            updateDozerWorld(dt);
+            updateFlatWrecks(dt);
         }
 
         // ── Ditch the car → on foot. When she's been crawling for a couple of
@@ -2694,19 +2689,11 @@
             beginCopChase(player.x, "🚨 VEHICULAR DESTRUCTION!");
         }
     }
-    // pickups + pancaked wrecks scroll with the road; pickup on overlap
-    function updateDozerWorld(dt) {
+    // The pancaked wrecks she leaves behind scroll off with the road.
+    function updateFlatWrecks(dt) {
         for (var i = flatWrecks.length - 1; i >= 0; i--) {
             var fw = flatWrecks[i]; fw.y += gameSpeed * dt; fw.t += dt;
             if (fw.y > H + 40 || fw.t > 6) flatWrecks.splice(i, 1);
-        }
-        for (var d = dozers.length - 1; d >= 0; d--) {
-            var dz = dozers[d]; dz.y += gameSpeed * dt; dz.t += dt;
-            if (dz.y > H + 80) { dozers.splice(d, 1); continue; }
-            if (!dz.taken && playerVehicle !== "dozer" && state !== "footRun" &&
-                aabb(player.x, player.y, CAR_W, CAR_H, dz.x, dz.y, dz.hitW * 0.7, dz.hitH * 0.7)) {
-                commandeerDozer(dz); dozers.splice(d, 1);
-            }
         }
     }
 
@@ -3597,9 +3584,8 @@
         for (var fd = 0; fd < fuelCans.length; fd++) {
             if (!fuelCans[fd].collected) drawFuelCan(fuelCans[fd].x, fuelCans[fd].y, fuelCans[fd].bob);
         }
-        // Pancaked wrecks left by the steamroller, then the parked steamroller(s)
+        // Pancaked wrecks left behind by the steamroller
         for (var fw = 0; fw < flatWrecks.length; fw++) drawFlatWreck(flatWrecks[fw]);
-        for (var dd = 0; dd < dozers.length; dd++) drawDozerPickup(dozers[dd]);
 
         // Parking signs (P) and ice cream signs
         for (var psd = 0; psd < parkingSigns.length; psd++) {
