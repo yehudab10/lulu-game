@@ -1064,6 +1064,8 @@
     var copEventTimer = rand(60, 120);
     // Speed-trap cops: parked + hidden on the shoulder, then chase if provoked
     var roadCops = [];    // [{x, y, side, hide, spot, busted}]
+    var roadsideVeh = []; // decorative parked vehicles on the grass shoulder, each with a "story"
+    var roadsideCool = 0;
     var copChase = null;  // active chase {gap, x, siren, escapeT}
     var copBust = null;   // caught cutscene {phase, timer, man, copY, fromLeft, yell}
     // Ima (Mom) text messages mini-event

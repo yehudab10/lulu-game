@@ -26,6 +26,7 @@
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
+        if (typeof roadsideVeh !== "undefined") { roadsideVeh = []; roadsideCool = 0; }
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;

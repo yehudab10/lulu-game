@@ -5209,6 +5209,8 @@
     var copEventTimer = rand(60, 120);
     // Speed-trap cops: parked + hidden on the shoulder, then chase if provoked
     var roadCops = [];    // [{x, y, side, hide, spot, busted}]
+    var roadsideVeh = []; // decorative parked vehicles on the grass shoulder, each with a "story"
+    var roadsideCool = 0;
     var copChase = null;  // active chase {gap, x, siren, escapeT}
     var copBust = null;   // caught cutscene {phase, timer, man, copY, fromLeft, yell}
     // Ima (Mom) text messages mini-event
@@ -5346,6 +5348,7 @@
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
+        if (typeof roadsideVeh !== "undefined") { roadsideVeh = []; roadsideCool = 0; }
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
         sasquatch = null; sasquatchTimer = rand(40, 70);
         billboards = []; billboardTimer = 8;
@@ -6887,6 +6890,8 @@
         }
         // The SALON is now a BUILDING she enters ON FOOT (a foot-world door), not a
         // road sign — handled in the foot world, so nothing spawns on the road here.
+        // Decorative parked vehicles on the grass shoulder (each with a "story").
+        if (!onFoot) updateRoadsideVeh(dt);
         // Roadside HITCHHIKER (driving activity): a thumber on the shoulder you
         // can honk at to pick up for a coin bonus + a 2× "passenger" window.
         if (!onFoot) {
@@ -8133,6 +8138,71 @@
                     else goToJail(tch);
                 }
             }
+        }
+    }
+
+    // ── Decorative parked vehicles on the grass shoulder, each with its own
+    //    little "story" — crashed into a tree, slid off-trail through the mud,
+    //    pulled over by a cop, abandoned (driver's watering a bush), or broken
+    //    down with the hood up. Pure scenery; they don't collide. ──
+    var ROADSIDE_STORIES = ["tree", "offtrail", "pulled", "abandoned", "malfunction"];
+    function spawnRoadsideVeh() {
+        var left = Math.random() < 0.5;
+        var story = randPick(ROADSIDE_STORIES);
+        var x = left ? rand(26, Math.max(28, ROAD_L - 28)) : rand(ROAD_R + 28, W - 26);
+        var rot = (left ? 1 : -1) * (story === "offtrail" ? rand(0.5, 0.9) : story === "tree" ? rand(0.12, 0.3) : rand(-0.08, 0.08));
+        roadsideVeh.push({ x: x, y: -140, side: left ? -1 : 1, story: story,
+            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: rot, copSiren: 0, peeT: rand(0, 2) });
+    }
+    function updateRoadsideVeh(dt) {
+        for (var i = roadsideVeh.length - 1; i >= 0; i--) {
+            var v = roadsideVeh[i];
+            v.y += gameSpeed * dt;
+            if (v.story === "pulled") v.copSiren += dt;
+            if (v.story === "abandoned") v.peeT += dt;
+            if (v.y > H + 140) roadsideVeh.splice(i, 1);
+        }
+        if (roadsideCool > 0) { roadsideCool -= dt; return; }
+        // grass shoulders only — city shoulders are packed with buildings
+        if (zone !== "rural" || gameTime < 8 || roadsideVeh.length >= 2) return;
+        if (Math.random() < dt * 0.5) { spawnRoadsideVeh(); roadsideCool = rand(3.5, 7); }
+    }
+    function drawRoadsideVeh(v) {
+        var x = v.x, y = v.y;
+        // muddy tire tracks trailing off the road (slid off-trail)
+        if (v.story === "offtrail") {
+            ctx.strokeStyle = "rgba(86,60,38,0.5)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(x - 6 - v.side * 30, y + 130); ctx.quadraticCurveTo(x - 4, y + 55, x - 5, y + 6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x + 6 - v.side * 30, y + 130); ctx.quadraticCurveTo(x + 8, y + 55, x + 5, y + 6); ctx.stroke();
+            ctx.lineCap = "butt";
+        }
+        // a cop cruiser parked behind it, lights going
+        if (v.story === "pulled") drawCopCar(x - v.side * 3, y + 50, v.copSiren * 3);
+        // the parked car (tilted per story)
+        ctx.save(); ctx.translate(x, y); ctx.rotate(v.rot || 0);
+        drawEnemyCar(0, 0, v.color, v.carType);
+        if (v.story === "malfunction") {
+            ctx.fillStyle = "#455A64"; roundRect(-13, -CAR_H / 2 - 7, 26, 11, 2); ctx.fill();           // popped hood
+            ctx.fillStyle = "#263238"; roundRect(-13, -CAR_H / 2 - 7, 26, 3, 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.ellipse(-CAR_W / 2 - 1, -CAR_H / 2 + 18, 6, 3, 0, 0, Math.PI * 2); ctx.fill();   // flat tire
+        }
+        if (v.story === "abandoned") {   // driver door swung open
+            ctx.fillStyle = shadeColor(v.color, -22); ctx.save(); ctx.translate(-CAR_W / 2 + 3, -2); ctx.rotate(-0.7); roundRect(-3, -11, 6, 22, 2); ctx.fill(); ctx.restore();
+        }
+        ctx.restore();
+        // a tree the nose is crumpled into + a wisp of smoke
+        if (v.story === "tree") {
+            if (typeof drawTree === "function") drawTree(x + v.side * 3, y - CAR_H / 2 - 6, 1.05, gameTime, x);
+            if (Math.random() < 0.4) particles.push({ x: x + rand(-6, 6), y: y - CAR_H / 2, vx: rand(-10, 10), vy: rand(-30, -12), life: 0, maxLife: 1.0, size: rand(4, 7), color: randPick(["#9E9E9E", "#BDBDBD", "#757575"]), gravity: -10 });
+        }
+        if (v.story === "malfunction" && Math.random() < 0.35) particles.push({ x: x + rand(-5, 5), y: y - CAR_H / 2 - 5, vx: rand(-8, 8), vy: rand(-26, -10), life: 0, maxLife: 0.9, size: rand(3, 6), color: randPick(["#9E9E9E", "#616161", "#424242"]), gravity: -8 });
+        // abandoned: the driver "watering" a bush off to the side
+        if (v.story === "abandoned") {
+            var gx = x + v.side * 27, gy = y + 6;
+            ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(gx + v.side * 6, gy + 7, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#5D4037"; roundRect(gx - 3, gy - 14, 7, 14, 2); ctx.fill();
+            ctx.fillStyle = (typeof C !== "undefined" && C.skin) || "#FFD9C0"; ctx.beginPath(); ctx.arc(gx, gy - 16, 4, 0, Math.PI * 2); ctx.fill();
+            drawText("💦", gx + v.side * 5, gy - 3, "9px Arial", "#80DEEA", null, 0);
         }
     }
 
@@ -10043,6 +10113,8 @@
 
         drawDecorations(gameTime);
         drawCityBuildings();
+        // parked roadside vehicles with their little stories (on the grass shoulder)
+        for (var rvd = 0; rvd < roadsideVeh.length; rvd++) drawRoadsideVeh(roadsideVeh[rvd]);
 
         // Sasquatch easter egg (between decorations and obstacles)
         if (sasquatch) {
