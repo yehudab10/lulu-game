@@ -207,7 +207,7 @@
         var visit = buildErVisit();
         // ~45% of arrivals get the cinematic ambulance ride-in first (eyes fading
         // out at the crash → siren in the dark → eyes opening to the ER).
-        var doIntro = Math.random() < 0.45;
+        var doIntro = Math.random() < 0.6;
         hospital = { phase: doIntro ? -1 : 0, introT: 0, t: 0, typeT: 0, reason: reason || "crash",
                      diagnosis: randPick(DIAGNOSES), greet: greet,
                      options: rollHospOptions(), choice: -1, bill: 0, applied: false, ekg: 0, line: null,
@@ -253,9 +253,16 @@
     function updateHospital(dt) {
         hospital.t += dt; hospital.typeT += dt; hospital.ekg += dt;
         if (typeof updateParticles === "function") updateParticles(dt);
-        if (hospital.phase === -1) {                // cinematic ambulance ride-in
+        if (hospital.phase === -1) {                // cinematic ambulance pickup
             hospital.introT += dt;
-            if (hospital.introT > 3.7 || (hospital.introT > 1.8 && consumeTap())) { hospital.phase = 0; hospital.t = 0; }
+            // a quick siren whoop as the ambulance comes into view
+            if (!hospital.sirened && hospital.introT > 0.25) {
+                hospital.sirened = true;
+                playTone(740, 0.16, "sine", 0.12, 1100);
+                setTimeout(function () { playTone(1100, 0.16, "sine", 0.12, 740); }, 200);
+                setTimeout(function () { playTone(740, 0.16, "sine", 0.10, 1100); }, 420);
+            }
+            if (hospital.introT > 4.0 || (hospital.introT > 2.9 && consumeTap())) { hospital.phase = 0; hospital.t = 0; }
             return;
         }
         if (hospital.phase === 0) {                 // coming to
@@ -563,50 +570,66 @@
         ctx.strokeStyle = "#E0E0E0"; ctx.lineWidth = 1; roundRect(-5, -4, 26, 9, 4); ctx.stroke(); ctx.restore();
     }
 
-    // The cinematic ride-in: her eyes fade shut over the crash, an ambulance
-    // races through the dark with its siren, then her eyes open to the ER.
+    // The cinematic pickup: she's down on the SAME road and — through her own
+    // slowly-drooping eyelids — watches an ambulance race down the road toward
+    // her, siren going. Her eyes shut, and she comes to in the ER.
     function drawErIntro() {
         var t = hospital.introT, erFloor = Math.min(H * 0.62, 470);
-        // base: the ER room (revealed as the eyes open) or black during the ride
-        if (t > 2.5) drawErRoom(erFloor, erFloor - 96);
-        else { ctx.fillStyle = "#080B12"; ctx.fillRect(0, 0, W, H); }
-        // siren wash + a racing ambulance through the dark
-        if (t > 0.9 && t < 2.8) {
-            var redOn = Math.sin(gameTime * 9) > 0;
-            var wg = ctx.createLinearGradient(redOn ? 0 : W, 0, redOn ? W : 0, 0);
-            wg.addColorStop(0, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + 0.2 + ")");
-            wg.addColorStop(1, "rgba(0,0,0,0)");
-            ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
-            var ax = lerp(-72, W + 72, clamp((t - 0.9) / 1.9, 0, 1));
-            ctx.save(); ctx.translate(ax, H * 0.5);
-            ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(0, 26, 44, 7, 0, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#FFFFFF"; roundRect(-44, -16, 70, 36, 6); ctx.fill();
-            ctx.fillStyle = "#ECEFF1"; roundRect(26, -8, 22, 24, 5); ctx.fill();
-            ctx.fillStyle = "#B3E5FC"; roundRect(30, -4, 14, 11, 2); ctx.fill();
-            ctx.fillStyle = "#E53935"; ctx.fillRect(-44, 2, 70, 5);
-            ctx.fillStyle = "#E53935"; ctx.fillRect(-12, -11, 4, 12); ctx.fillRect(-18, -7, 16, 4);
-            ctx.fillStyle = (Math.sin(gameTime * 12) > 0) ? "#FF1744" : "#2979FF"; roundRect(-6, -22, 14, 6, 2); ctx.fill();
-            ctx.fillStyle = "#212121"; ctx.beginPath(); ctx.arc(-28, 20, 7, 0, Math.PI * 2); ctx.arc(20, 20, 7, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
-            for (var ml = 0; ml < 3; ml++) { ctx.beginPath(); ctx.moveTo(-50, -8 + ml * 10); ctx.lineTo(-74, -8 + ml * 10); ctx.stroke(); }
-            ctx.restore();
+        var herY = H * 0.72, herX = clamp((player ? player.x : W / 2), ROAD_L + 26, ROAD_R - 26);
+
+        // ── base layer ──
+        if (t > 2.9) {
+            // eyes reopening → reveal the ER room
+            drawErRoom(erFloor, erFloor - 96);
+        } else {
+            // still out on the road where she went down
+            if (typeof drawRoad === "function") drawRoad(scrollOffset);
+            else { ctx.fillStyle = "#5A6470"; ctx.fillRect(0, 0, W, H); }
+            if (typeof drawDecorations === "function") drawDecorations(gameTime);
+            // her — slumped in her wrecked vehicle, or face-down if she was on foot
+            if (hospital.reason === "knockout") {
+                if (typeof drawLuluTopDown === "function") drawLuluTopDown(herX, herY, gameTime * 1.4, "cry");
+            } else if (typeof drawPlayerVehicleAt === "function") {
+                drawPlayerVehicleAt(herX, herY, 0.32, gameTime, false);
+            }
+            // the AMBULANCE racing down the same road toward her (top-down), smooth
+            var ambProg = clamp(t / 2.0, 0, 1);
+            var ease = 1 - (1 - ambProg) * (1 - ambProg);                 // ease-out: fast then settling in
+            var ambY = lerp(-100, herY - 104, ease);
+            var ambX = lerp(W * 0.5, herX, ambProg);
+            // brief siren light-wash for the first ~1.7s
+            if (t < 1.7) {
+                var redOn = Math.sin(gameTime * 9) > 0, washA = 0.10 + Math.abs(Math.sin(gameTime * 9)) * 0.16;
+                var wg = ctx.createLinearGradient(redOn ? 0 : W, 0, redOn ? W : 0, 0);
+                wg.addColorStop(0, (redOn ? "rgba(255,40,40," : "rgba(40,90,255,") + washA + ")");
+                wg.addColorStop(1, "rgba(0,0,0,0)");
+                ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
+            }
+            // headlight cones sweeping ahead of the ambulance as it nears
+            ctx.fillStyle = "rgba(255,255,210,0.10)";
+            ctx.beginPath(); ctx.moveTo(ambX - 14, ambY + 30); ctx.lineTo(ambX - 30, ambY + 130); ctx.lineTo(ambX - 2, ambY + 130); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(ambX + 14, ambY + 30); ctx.lineTo(ambX + 30, ambY + 130); ctx.lineTo(ambX + 2, ambY + 130); ctx.closePath(); ctx.fill();
+            if (typeof drawAmbulance === "function") drawAmbulance(ambX, ambY, gameTime);
         }
-        // EYELIDS — close (t→1.1), flutter near-shut, then open (t>2.7)
-        var openness = t < 1.1 ? clamp(1 - t / 1.1, 0.06, 1)
-                     : t < 2.7 ? 0.06 + 0.05 * Math.abs(Math.sin(t * 4))
-                     : clamp((t - 2.7) / 1.0, 0, 1);
+
+        // ── EYELIDS slowly drooping shut (you watch the rescue through the slit),
+        //    then fully closed, then lifting open onto the ER ──
+        var openness = t < 2.1 ? clamp(1 - Math.pow(t / 2.1, 1.5), 0.05, 1)   // smooth droop closed
+                     : t < 2.9 ? 0.05                                          // shut — black
+                     : clamp((t - 2.9) / 1.0, 0, 1);                           // reopen onto the ER
         var lid = (1 - openness) * 0.5 * H;
         ctx.fillStyle = "#04060B";
         ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(W, -2); ctx.lineTo(W, lid); ctx.quadraticCurveTo(W / 2, lid + 26, 0, lid); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(0, H + 2); ctx.lineTo(W, H + 2); ctx.lineTo(W, H - lid); ctx.quadraticCurveTo(W / 2, H - lid - 26, 0, H - lid); ctx.closePath(); ctx.fill();
-        if (openness < 0.55) { ctx.fillStyle = "rgba(0,0,0," + (0.55 - openness) + ")"; ctx.fillRect(0, 0, W, H); }   // blur toward black
+        if (openness < 0.5) { ctx.fillStyle = "rgba(0,0,0," + (0.5 - openness) + ")"; ctx.fillRect(0, 0, W, H); }   // fade to black at the shut
+
         // captions ON TOP of the lids so they stay readable through the slit
-        if (t > 0.9 && t < 2.8) {
-            drawText("🚑  AMBULANCE EN ROUTE…", W / 2, H * 0.22, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
-            drawText("(" + (hospital.reason === "knockout" ? "out cold on the pavement" : "everything went dark") + "…)",
-                W / 2, H * 0.78, "italic 13px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#000", 2);
+        if (t < 2.1) {
+            drawText("🚑  AMBULANCE INCOMING…", W / 2, H * 0.20, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 4);
+            drawText("(" + (hospital.reason === "knockout" ? "out cold on the pavement" : "everything's going dark") + "…)",
+                W / 2, H * 0.80, "italic 13px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#000", 2);
         }
-        if (t > 2.7) drawText("🏥 …you come to in the ER", W / 2, 40, "bold 18px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 4);
+        if (t > 2.9) drawText("🏥 …you come to in the ER", W / 2, 40, "bold 18px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 4);
     }
 
     function drawHospital() {
