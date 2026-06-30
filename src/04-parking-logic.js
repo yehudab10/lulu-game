@@ -30,7 +30,7 @@
         copEvent = null; copEventTimer = rand(60, 120);
         roadCops = []; copChase = null; copBust = null;
         spontaneousChaseCool = 22; wantedSpot = 0; wantedPatrolT = 0;
-        dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = [];
+        dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = []; dozerNpcCool = 8;
         slowDriveT = 0; parkExit = null; exitBtnShown = false; exitQueued = false;
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         honkCooldown = 0;

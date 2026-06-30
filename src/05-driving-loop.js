@@ -429,6 +429,16 @@
         if (!onFoot) {
             if (playerVehicle === "dozer") { dozerTimer -= dt; if (dozerTimer <= 0) endDozer(); }
             updateFlatWrecks(dt);
+            // A steamroller trundles by — often in construction zones, rarely else.
+            if (state === "playing") {
+                dozerNpcCool -= dt;
+                if (dozerNpcCool <= 0) {
+                    var inConstruction = (typeof zone !== "undefined" && zone === "construction");
+                    if (inConstruction && Math.random() < 0.5) { spawnDozerNPC(); dozerNpcCool = rand(7, 13); }
+                    else if (!inConstruction && Math.random() < 0.05) { spawnDozerNPC(); dozerNpcCool = rand(45, 85); }
+                    else dozerNpcCool = inConstruction ? rand(3, 6) : rand(10, 18);
+                }
+            }
         }
 
         // ── Ditch the car → on foot. When she's been crawling for a couple of
@@ -2125,6 +2135,7 @@
     var DOZER_SPEED = 235;          // it's SLOW — that's the trade for being unstoppable
     var slowDriveT = 0;            // how long she's been crawling (unlocks the EXIT button)
     var parkExit = null;           // smooth "pull over & step out → on foot" animation
+    var dozerNpcCool = 8;          // cadence for a steamroller trundling by (construction zones)
 
     // The person who climbs out of the car you hit isn't always a grumpy grandpa.
     // Each TYPE has its own look (shirt/cap/tie/hair) and its own ANGRY yells; the
@@ -2656,6 +2667,13 @@
     // luck outrunning anyone in a steamroller.
     function spawnDozer() {
         dozers.push({ x: LANES[randInt(0, 2)], y: -140, hitW: 50, hitH: 64, taken: false, t: 0 });
+    }
+    // A steamroller trundling along in traffic — a slow hazard to overtake. Common
+    // in construction zones, a rare sight elsewhere.
+    function spawnDozerNPC() {
+        var lane = randInt(0, 2);
+        obstacles.push({ type: "car", x: LANES[lane], y: -130, color: "#F9A825", carType: 0,
+            hitW: 48, hitH: 60, speedMult: 0.86, lane: lane, behavior: "dozer", swerveT: 0, spillT: 0 });
     }
     function commandeerDozer(d) {
         d.taken = true;
@@ -3641,6 +3659,8 @@
             } else if (o.type === "car" && o.behavior === "bus") {
                 drawTopBus(o.x, o.y);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
+            } else if (o.type === "car" && o.behavior === "dozer") {
+                drawSteamroller(o.x, o.y, 0, gameTime);
             } else if (o.type === "car") {
                 if (o.crashed) {
                     drawRoadWreck(o);
