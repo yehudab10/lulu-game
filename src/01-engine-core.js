@@ -53,6 +53,7 @@
             parkingUnlocked: false,
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
+            luluHairStyle: "sheitel",  // hair SHAPE: sheitel | bouncy | avigail (set at salon)
             stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
             dinaRunsPlayed: 0, // # of run-home attempts → drives progressive difficulty
             footRunsPlayed: 0, // # of on-foot runs → drives progressive difficulty

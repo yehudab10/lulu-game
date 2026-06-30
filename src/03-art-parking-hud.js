@@ -1120,11 +1120,13 @@
         "Zis hair has not seen\nShabbos in WEEKS, non?",
         "Do not worry. Fabio fixes\nEVERYTHING. Even your AURA."
     ];
-    // Style is flavor only — does NOT change save.luluHair, but flavors Fabio's reaction.
+    // Style now actually changes the SHAPE of Lulu's hair (save.luluHairStyle),
+    // committed at the salon reveal — sleek sheitel, big bouncy volume, or the
+    // sky-high curl tower (the "Avigail"). Color is chosen separately, below.
     var SALON_STYLES = [
-        { label: "ZEE SHEITEL", fabio: "Classic. Timeless. Your\nBubbe sheds a TEAR." },
-        { label: "BIG & BOUNCY", fabio: "VOLUME! We will need a\nLARGER doorway!" },
-        { label: "THE 'AVIGAIL'", fabio: "Curls to zee HEAVENS!\nZee neighbors will TALK." }
+        { label: "ZEE SHEITEL", style: "sheitel", fabio: "Classic. Timeless. Your\nBubbe sheds a TEAR." },
+        { label: "BIG & BOUNCY", style: "bouncy", fabio: "VOLUME! We will need a\nLARGER doorway!" },
+        { label: "THE 'AVIGAIL'", style: "avigail", fabio: "Curls to zee HEAVENS!\nZee neighbors will TALK." }
     ];
     var SALON_PROCESS_BEATS = [
         "Mixing zee potion…",

@@ -890,8 +890,17 @@
         ctx.beginPath(); ctx.arc(0, -13, 8.5, 0, Math.PI * 2); ctx.fill();
 
         var hair = save.luluHair || "#8B5A2B";
+        var hStyle = save.luluHairStyle || "sheitel";
         ctx.fillStyle = hair;
         ctx.beginPath(); ctx.arc(0, -16, 9, Math.PI, Math.PI * 2); ctx.fill();
+        // SHAPE: bouncy = side volume puffs · avigail = curl tower on top
+        if (hStyle === "bouncy") {
+            ctx.beginPath(); ctx.arc(-9, -14, 4.5, 0, Math.PI * 2); ctx.arc(9, -14, 4.5, 0, Math.PI * 2); ctx.fill();
+        } else if (hStyle === "avigail") {
+            ctx.beginPath();
+            ctx.arc(-5, -20, 3, 0, Math.PI * 2); ctx.arc(0, -22, 3.4, 0, Math.PI * 2);
+            ctx.arc(5, -20, 3, 0, Math.PI * 2); ctx.fill();
+        }
         var tail = Math.sin(walkTime * 16) * 3;
         ctx.beginPath(); ctx.ellipse(0 + tail, -2, 4.5, 9, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = shadeColor(hair, 22);

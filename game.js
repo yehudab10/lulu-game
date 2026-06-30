@@ -55,6 +55,7 @@
             parkingUnlocked: false,
             parkingPerfectRuns: 0,
             luluHair: "#8B5A2B",
+            luluHairStyle: "sheitel",  // hair SHAPE: sheitel | bouncy | avigail (set at salon)
             stickerBook: [],  // placed stickers: [{kind, x, y, rot, scale}]
             dinaRunsPlayed: 0, // # of run-home attempts → drives progressive difficulty
             footRunsPlayed: 0, // # of on-foot runs → drives progressive difficulty
@@ -2236,6 +2237,18 @@
         var hairC = save.luluHair;
         var hairDark = shadeColor(hairC, -28);
         var hairLite = shadeColor(hairC, 22);
+        var hairStyle = save.luluHairStyle || "sheitel";
+
+        // BIG & BOUNCY / AVIGAIL get extra volume drawn BEHIND the head first
+        if (hairStyle === "bouncy") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.arc(-9, fy - 3, 5, 0, Math.PI * 2); ctx.arc(9, fy - 3, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (hairStyle === "avigail") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath();
+            ctx.arc(-5, fy - 11, 3.4, 0, Math.PI * 2); ctx.arc(0, fy - 13, 3.8, 0, Math.PI * 2);
+            ctx.arc(5, fy - 11, 3.4, 0, Math.PI * 2); ctx.arc(0, fy - 16, 3, 0, Math.PI * 2); ctx.fill();
+        }
 
         // Long hair flowing down BOTH SIDES of the face
         ctx.fillStyle = hairC;
@@ -5060,11 +5073,13 @@
         "Zis hair has not seen\nShabbos in WEEKS, non?",
         "Do not worry. Fabio fixes\nEVERYTHING. Even your AURA."
     ];
-    // Style is flavor only — does NOT change save.luluHair, but flavors Fabio's reaction.
+    // Style now actually changes the SHAPE of Lulu's hair (save.luluHairStyle),
+    // committed at the salon reveal — sleek sheitel, big bouncy volume, or the
+    // sky-high curl tower (the "Avigail"). Color is chosen separately, below.
     var SALON_STYLES = [
-        { label: "ZEE SHEITEL", fabio: "Classic. Timeless. Your\nBubbe sheds a TEAR." },
-        { label: "BIG & BOUNCY", fabio: "VOLUME! We will need a\nLARGER doorway!" },
-        { label: "THE 'AVIGAIL'", fabio: "Curls to zee HEAVENS!\nZee neighbors will TALK." }
+        { label: "ZEE SHEITEL", style: "sheitel", fabio: "Classic. Timeless. Your\nBubbe sheds a TEAR." },
+        { label: "BIG & BOUNCY", style: "bouncy", fabio: "VOLUME! We will need a\nLARGER doorway!" },
+        { label: "THE 'AVIGAIL'", style: "avigail", fabio: "Curls to zee HEAVENS!\nZee neighbors will TALK." }
     ];
     var SALON_PROCESS_BEATS = [
         "Mixing zee potion…",
@@ -10848,6 +10863,7 @@
         var hair = save.luluHair;
         var hairDk = shadeColor(hair, -22);
         var hairLt = shadeColor(hair, 30);
+        var hairStyle = save.luluHairStyle || "sheitel";   // shape chosen at the salon
 
         ctx.save();
         ctx.translate(cx, cy + bob);
@@ -10871,14 +10887,17 @@
         ctx.beginPath(); ctx.arc(-40, 78, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // ── Long flowing hair behind (soft, with darker rim) ──
+        // ── Long flowing hair behind (soft, with darker rim) — SHAPE varies ──
+        // bouncy = wider & rounder · avigail = taller voluminous tower · sheitel = sleek
+        var bhW = hairStyle === "bouncy" ? 62 : hairStyle === "avigail" ? 50 : 54;
+        var bhH = hairStyle === "avigail" ? 84 : hairStyle === "bouncy" ? 72 : 74;
         ctx.fillStyle = hairDk;
         ctx.beginPath();
-        ctx.ellipse(0, 26, 54, 74, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 26, bhW, bhH, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.ellipse(0, 22, 49, 68, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 22, bhW - 5, bhH - 6, 0, 0, Math.PI * 2);
         ctx.fill();
         // flowing strand highlights
         ctx.strokeStyle = hairLt;
@@ -10887,6 +10906,17 @@
         ctx.moveTo(-34, -2); ctx.quadraticCurveTo(-44, 40, -30, 78);
         ctx.moveTo(34, -2); ctx.quadraticCurveTo(44, 40, 30, 78);
         ctx.stroke();
+        // BIG & BOUNCY — two round volume puffs ballooning out at the sides
+        if (hairStyle === "bouncy") {
+            ctx.fillStyle = hair;
+            ctx.beginPath();
+            ctx.arc(-50, 4, 20, 0, Math.PI * 2);
+            ctx.arc(50, 4, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = hairLt;
+            ctx.beginPath();
+            ctx.arc(-54, -2, 5, 0, Math.PI * 2);
+            ctx.arc(46, -2, 5, 0, Math.PI * 2); ctx.fill();
+        }
 
         // ── Neck ──
         ctx.fillStyle = shadeColor("#FFD9C0", -8);
@@ -10922,6 +10952,18 @@
         ctx.ellipse(-20, -34, 11, 4, -0.4, 0, Math.PI * 2);
         ctx.ellipse(20, -34, 11, 4, 0.4, 0, Math.PI * 2);
         ctx.fill();
+        // THE 'AVIGAIL' — a tower of curls piled to the heavens + side ringlets
+        if (hairStyle === "avigail") {
+            ctx.fillStyle = hair;
+            var curls = [[-22, -46, 12], [0, -54, 13], [22, -46, 12], [-11, -58, 9], [11, -58, 9], [0, -66, 8]];
+            for (var ci = 0; ci < curls.length; ci++) {
+                ctx.beginPath(); ctx.arc(curls[ci][0], curls[ci][1], curls[ci][2], 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = hairLt;       // little shines on the curl tower
+            for (var cj = 0; cj < curls.length; cj++) {
+                ctx.beginPath(); ctx.arc(curls[cj][0] - 3, curls[cj][1] - 3, curls[cj][2] * 0.3, 0, Math.PI * 2); ctx.fill();
+            }
+        }
 
         // ── Rosy cheeks ──
         ctx.fillStyle = "rgba(255,150,170,0.55)";
@@ -13956,8 +13998,17 @@
         ctx.beginPath(); ctx.arc(0, -13, 8.5, 0, Math.PI * 2); ctx.fill();
 
         var hair = save.luluHair || "#8B5A2B";
+        var hStyle = save.luluHairStyle || "sheitel";
         ctx.fillStyle = hair;
         ctx.beginPath(); ctx.arc(0, -16, 9, Math.PI, Math.PI * 2); ctx.fill();
+        // SHAPE: bouncy = side volume puffs · avigail = curl tower on top
+        if (hStyle === "bouncy") {
+            ctx.beginPath(); ctx.arc(-9, -14, 4.5, 0, Math.PI * 2); ctx.arc(9, -14, 4.5, 0, Math.PI * 2); ctx.fill();
+        } else if (hStyle === "avigail") {
+            ctx.beginPath();
+            ctx.arc(-5, -20, 3, 0, Math.PI * 2); ctx.arc(0, -22, 3.4, 0, Math.PI * 2);
+            ctx.arc(5, -20, 3, 0, Math.PI * 2); ctx.fill();
+        }
         var tail = Math.sin(walkTime * 16) * 3;
         ctx.beginPath(); ctx.ellipse(0 + tail, -2, 4.5, 9, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = shadeColor(hair, 22);
@@ -21119,8 +21170,9 @@
             // Processing ~6.4s of beats, then commit + reveal
             if (salonTimer > 6.4) {
                 salonPhase = 5; salonTimer = 0;
-                // Commit hair color — permanent, exactly once
+                // Commit hair color AND shape — permanent, exactly once
                 save.luluHair = salonPendingColor.hex;
+                if (salonStyle && salonStyle.style) save.luluHairStyle = salonStyle.style;
                 persistSave();
                 // Every color is a happy result now. ~1-in-8 BONUS surprise: the cat
                 // knocks the bottle and it comes out even better (a treat, not a punishment).

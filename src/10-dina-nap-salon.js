@@ -862,8 +862,9 @@
             // Processing ~6.4s of beats, then commit + reveal
             if (salonTimer > 6.4) {
                 salonPhase = 5; salonTimer = 0;
-                // Commit hair color — permanent, exactly once
+                // Commit hair color AND shape — permanent, exactly once
                 save.luluHair = salonPendingColor.hex;
+                if (salonStyle && salonStyle.style) save.luluHairStyle = salonStyle.style;
                 persistSave();
                 // Every color is a happy result now. ~1-in-8 BONUS surprise: the cat
                 // knocks the bottle and it comes out even better (a treat, not a punishment).

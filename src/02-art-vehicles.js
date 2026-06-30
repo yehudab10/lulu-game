@@ -5,6 +5,18 @@
         var hairC = save.luluHair;
         var hairDark = shadeColor(hairC, -28);
         var hairLite = shadeColor(hairC, 22);
+        var hairStyle = save.luluHairStyle || "sheitel";
+
+        // BIG & BOUNCY / AVIGAIL get extra volume drawn BEHIND the head first
+        if (hairStyle === "bouncy") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.arc(-9, fy - 3, 5, 0, Math.PI * 2); ctx.arc(9, fy - 3, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (hairStyle === "avigail") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath();
+            ctx.arc(-5, fy - 11, 3.4, 0, Math.PI * 2); ctx.arc(0, fy - 13, 3.8, 0, Math.PI * 2);
+            ctx.arc(5, fy - 11, 3.4, 0, Math.PI * 2); ctx.arc(0, fy - 16, 3, 0, Math.PI * 2); ctx.fill();
+        }
 
         // Long hair flowing down BOTH SIDES of the face
         ctx.fillStyle = hairC;

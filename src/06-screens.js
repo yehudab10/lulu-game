@@ -795,6 +795,7 @@
         var hair = save.luluHair;
         var hairDk = shadeColor(hair, -22);
         var hairLt = shadeColor(hair, 30);
+        var hairStyle = save.luluHairStyle || "sheitel";   // shape chosen at the salon
 
         ctx.save();
         ctx.translate(cx, cy + bob);
@@ -818,14 +819,17 @@
         ctx.beginPath(); ctx.arc(-40, 78, 4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // ── Long flowing hair behind (soft, with darker rim) ──
+        // ── Long flowing hair behind (soft, with darker rim) — SHAPE varies ──
+        // bouncy = wider & rounder · avigail = taller voluminous tower · sheitel = sleek
+        var bhW = hairStyle === "bouncy" ? 62 : hairStyle === "avigail" ? 50 : 54;
+        var bhH = hairStyle === "avigail" ? 84 : hairStyle === "bouncy" ? 72 : 74;
         ctx.fillStyle = hairDk;
         ctx.beginPath();
-        ctx.ellipse(0, 26, 54, 74, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 26, bhW, bhH, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = hair;
         ctx.beginPath();
-        ctx.ellipse(0, 22, 49, 68, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 22, bhW - 5, bhH - 6, 0, 0, Math.PI * 2);
         ctx.fill();
         // flowing strand highlights
         ctx.strokeStyle = hairLt;
@@ -834,6 +838,17 @@
         ctx.moveTo(-34, -2); ctx.quadraticCurveTo(-44, 40, -30, 78);
         ctx.moveTo(34, -2); ctx.quadraticCurveTo(44, 40, 30, 78);
         ctx.stroke();
+        // BIG & BOUNCY — two round volume puffs ballooning out at the sides
+        if (hairStyle === "bouncy") {
+            ctx.fillStyle = hair;
+            ctx.beginPath();
+            ctx.arc(-50, 4, 20, 0, Math.PI * 2);
+            ctx.arc(50, 4, 20, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = hairLt;
+            ctx.beginPath();
+            ctx.arc(-54, -2, 5, 0, Math.PI * 2);
+            ctx.arc(46, -2, 5, 0, Math.PI * 2); ctx.fill();
+        }
 
         // ── Neck ──
         ctx.fillStyle = shadeColor("#FFD9C0", -8);
@@ -869,6 +884,18 @@
         ctx.ellipse(-20, -34, 11, 4, -0.4, 0, Math.PI * 2);
         ctx.ellipse(20, -34, 11, 4, 0.4, 0, Math.PI * 2);
         ctx.fill();
+        // THE 'AVIGAIL' — a tower of curls piled to the heavens + side ringlets
+        if (hairStyle === "avigail") {
+            ctx.fillStyle = hair;
+            var curls = [[-22, -46, 12], [0, -54, 13], [22, -46, 12], [-11, -58, 9], [11, -58, 9], [0, -66, 8]];
+            for (var ci = 0; ci < curls.length; ci++) {
+                ctx.beginPath(); ctx.arc(curls[ci][0], curls[ci][1], curls[ci][2], 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.fillStyle = hairLt;       // little shines on the curl tower
+            for (var cj = 0; cj < curls.length; cj++) {
+                ctx.beginPath(); ctx.arc(curls[cj][0] - 3, curls[cj][1] - 3, curls[cj][2] * 0.3, 0, Math.PI * 2); ctx.fill();
+            }
+        }
 
         // ── Rosy cheeks ──
         ctx.fillStyle = "rgba(255,150,170,0.55)";
