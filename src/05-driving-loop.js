@@ -3105,6 +3105,12 @@
         if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         updateDecorations(dt, 80);
         var click = consumeClick();
+        // A tap queues BOTH a click and an action. Drop the paired action as soon as
+        // we have the click, so a button tap that returns early (the secret Dina
+        // corner, mute, the distracted toggle) can't ALSO trip the "any action starts
+        // the game" catch-all on the next frame. (This is what broke the Dina easter
+        // egg: the first corner-tap started the game instead of counting toward 5.)
+        if (click) consumeAction();
         if (click) {
             // PLAY button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
