@@ -91,6 +91,11 @@
         "Snitches get... extra pudding.", "First timer, huh? Cute.", "Don't drop the kugel.",
         "Your sister's that ER nurse? My BACK is killin' me.", "Bruck? As in NURSE Tammy Bruck??",
         "Tammy stitched me up once. Sweet girl. Scary needle."];
+    // What the cellblock says once Lulu's a KNOWN repeat escape artist.
+    var CELLMATE_FAMOUS = ["Wait — YOU'RE the one who keeps BREAKING OUT?! Teach me!",
+        "They named a CELL after you. This one. It leaks.", "Back AGAIN? You treat this place like a hotel.",
+        "The guards have your FACE on a dartboard, y'know.", "Legend says you tunneled with a SPOON. Is it true??",
+        "I lost count of your breakouts. So did the WARDEN. Respect.", "You're famous in here. Sign my jumpsuit?"];
     // Flavor for the "doing your time" montage — keeps the grind entertaining.
     var JAIL_LIFE = ["🍖 Mystery meat for dinner... again.", "😴 Cellmate snores like a CHAINSAW.",
         "📢 ROLL CALL! Everybody UP.", "🥄 You sculpted a shiv... out of pudding.",
@@ -107,6 +112,22 @@
         "You stroll out behind the lunch cart like you BELONG there. 🛒",
         "The guard's asleep. You lift his keys with a hairpin. 🗝️",
         "You trade a cellmate two puddings for a guard uniform. 👮"];
+    // Each escape now PLAYS OUT as an animated top-down vignette (see drawJailEscape).
+    // `cap` is the punchline shown over it; `alt` lines add variety on repeat breaks.
+    var JAIL_ESCAPES = [
+        { kind: "cart",     cap: "🛒 You stroll out behind the lunch cart like you BELONG here.",
+                            alt: ["🛒 Nobody questions a woman pushing a cart with PURPOSE.", "🛒 The cart squeaks. You squeak back. You're out."] },
+        { kind: "disguise", cap: "👮 Two puddings bought a guard's cap. Salute… and SAUNTER out.",
+                            alt: ["👮 In the cap you ARE the law. Briefly. Walk tall.", "👮 'Evening, officer.' 'Evening, ME.' Out you go."] },
+        { kind: "keys",     cap: "🗝️ The guard's snoring — you lift his keys with a hairpin.",
+                            alt: ["🗝️ He dreams of donuts. You dream of FREEDOM. Click.", "🗝️ Tiptoe, jingle, gone. Sweet dreams, officer."] },
+        { kind: "faint",    cap: "😵 You fake a faint — the guard rushes in, and you BOLT past him!",
+                            alt: ["😵 'She's DOWN!' …and then she's GONE. Oscar-worthy.", "😵 One dramatic swoon, one wide-open door. Exit, stage left."] },
+        { kind: "vent",     cap: "🌀 Up into the air vent, spy-movie style. Don't look down.",
+                            alt: ["🌀 You shimmy through the ductwork like a glamorous raccoon.", "🌀 Dusty, cramped, ICONIC. The vent delivers you to freedom."] },
+        { kind: "tunnel",   cap: "🥄 Weeks of pudding-spoon digging pays off. See ya, suckers!",
+                            alt: ["🥄 You surface in the yard, dirt in your sheitel, FREE.", "🥄 The tunnel smelled like pudding. Worth it. You're out."] }
+    ];
     var EXTRA_CHARGES = ["UNPAID PARKING (47 TICKETS)", "IMPERSONATING A NICE LADY",
         "EXCESSIVE SASS", "JAYWALKING WITH INTENT", "POSSESSION OF RUGELACH",
         "DISTURBING THE PEACE (LOUDLY)", "DRIVING WHILE FABULOUS"];
@@ -568,7 +589,7 @@
             done: 0, pos: 0, dir: 1,
             speed: 0.48 + s * 0.06 + jail.escapeFails * 0.10,           // gentler — the marker was too fast
             zoneC: rand(0.25, 0.75), zoneW: Math.max(0.17, 0.36 - s * 0.025 - jail.escapeFails * 0.025),
-            misses: 0, maxMiss: 4, result: null, resultT: 0
+            misses: 0, maxMiss: 3, result: null, resultT: 0
         };
         jail.phase = 3; jail.t = 0;
     }
@@ -578,7 +599,10 @@
         if (jail.camFlash > 0) jail.camFlash -= dt;
         jail.t += dt;
         jail.cellmateT -= dt;
-        if (jail.cellmateT <= 0) { jail.cellmateLine = randPick(CELLMATE_LINES); jail.cellmateT = rand(4, 7); }
+        if (jail.cellmateT <= 0) {
+            jail.cellmateLine = ((save.escapes || 0) >= 2 && Math.random() < 0.5) ? randPick(CELLMATE_FAMOUS) : randPick(CELLMATE_LINES);
+            jail.cellmateT = rand(4, 7);
+        }
 
         if (jail.phase === 0) {                 // INTAKE — mugshot booking
             if (Math.abs(jail.t - 1.0) < dt && jail.camFlash <= 0) { jail.camFlash = 0.4; playTone(1400, 0.04, "sine", 0.12); }
@@ -591,7 +615,8 @@
             if (click) {
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) {
-                    if (jail.escapeFails >= 3) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    // ONE shot at a breakout per stay — blow it and the guard watches you.
+                    if (jail.escapeFails >= 1) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
                     startLockpick(); playTone(330, 0.05, "square", 0.1); return;
                 }
                 if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
@@ -644,7 +669,13 @@
             if (lk.missFx > 0) lk.missFx -= dt;
             if (lk.result) {
                 lk.resultT += dt;
-                if (lk.result === "win" && lk.resultT > 1.0) { jail.phase = 2; jail.t = 0; jail.escapeMethod = randPick(ESCAPE_METHODS); }
+                if (lk.result === "win" && lk.resultT > 1.0) {
+                    var ev = randPick(JAIL_ESCAPES);
+                    // repeat breakouts pull from the alt punchlines for variety
+                    var cap = ((save.escapes || 0) > 0 && ev.alt && Math.random() < 0.7) ? randPick(ev.alt) : ev.cap;
+                    jail.escape = { kind: ev.kind, cap: cap }; jail.escapeMethod = cap;
+                    jail.phase = 2; jail.t = 0;
+                }
                 else if (lk.result === "lose" && lk.resultT > 1.8) {
                     jail.escapeFails++;
                     if (jail.charges.indexOf("ATTEMPTED ESCAPE") < 0) jail.charges.push("ATTEMPTED ESCAPE");
@@ -677,14 +708,20 @@
             if (lk.pos <= 0) { lk.pos = 0; lk.dir = 1; }
             return;
         }
-        if (jail.phase === 2) {                 // jailbreak success reveal
-            if (jail.t > 2.8) {
-                prisonClothes = true; fugitiveT = 0; fugitiveSpot = 0; wantedPosterT = 1.5; fugCopT = 3;
-                saveLockup("fugitive", [], 0, 0, 30, 0);
+        if (jail.phase === 2) {                 // jailbreak — the animated escape vignette
+            if (typeof updateParticles === "function") updateParticles(dt);
+            if (jail.t > 4.2 || (jail.t > 2.6 && consumeTap())) {
+                // She's out — and her fugitive HEAT carries over / escalates with each
+                // prior break (no more wiping the slate to 1★ every time she runs).
+                save.escapes = (save.escapes || 0) + 1; persistSave();
+                var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
+                prisonClothes = true; fugitiveT = heat; fugitiveSpot = 0; wantedPosterT = 1.2; fugCopT = 2.5;
+                saveLockup("fugitive", [], 0, 0, Math.max(8, 55 - heat), 0);
                 jail = null;
                 if (typeof returnToDriving === "function") returnToDriving();
                 spawnFloater(player.x, player.y - 50, "🏃 JAILBREAK!", "#FFD54F");
-                spawnFloater(player.x, player.y - 28, "Cops will RECOGNIZE you...", "#FF8A80");
+                spawnFloater(player.x, player.y - 28, save.escapes > 1
+                    ? "Break #" + save.escapes + " — they're FURIOUS now! 🚨" : "Cops will RECOGNIZE you...", "#FF8A80");
                 return;
             }
             return;
@@ -874,6 +911,125 @@
         ctx.fillStyle = "#FFC107"; ctx.beginPath(); ctx.arc(lx, ly + 11, 3.2, 0, Math.PI * 2); ctx.fill();
     }
 
+    // ── The animated JAILBREAK vignette (top-down prison corridor) ──
+    // A random escape plays out: she slips out behind a lunch cart, struts past a
+    // guard in a stolen cap, lifts a snoozing guard's keys, fakes a faint and
+    // bolts, shimmies up a vent, or surfaces from a pudding-spoon tunnel.
+    function escCorridor() {
+        var fg = ctx.createLinearGradient(0, 0, 0, H);
+        fg.addColorStop(0, "#6C7278"); fg.addColorStop(1, "#4C525A");
+        ctx.fillStyle = fg; ctx.fillRect(0, 0, W, H);
+        // floor tile seams
+        ctx.strokeStyle = "rgba(0,0,0,0.12)"; ctx.lineWidth = 2;
+        for (var gx = 0; gx <= W; gx += 56) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke(); }
+        for (var gy = 60; gy < H; gy += 56) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+        var midY = H * 0.52;
+        // open cell on the LEFT (her starting spot) — back wall + bars + swung door
+        ctx.fillStyle = "#23272C"; ctx.fillRect(0, midY - 92, 30, 184);
+        ctx.strokeStyle = "#AEB6BD"; ctx.lineWidth = 4;
+        for (var bx = 9; bx <= 27; bx += 9) { ctx.beginPath(); ctx.moveTo(bx, midY - 88); ctx.lineTo(bx, midY + 6); ctx.stroke(); }
+        ctx.save(); ctx.translate(30, midY + 10); ctx.rotate(-0.5);   // the swung-open barred door
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 4;
+        for (var dbx = 0; dbx < 40; dbx += 9) { ctx.beginPath(); ctx.moveTo(dbx, 0); ctx.lineTo(dbx, 40); ctx.stroke(); }
+        ctx.strokeRect(0, 0, 36, 40); ctx.restore();
+        // EXIT door on the RIGHT
+        ctx.fillStyle = "#4E342E"; roundRect(W - 30, midY - 52, 30, 104, 4); ctx.fill();
+        ctx.fillStyle = "#3E2723"; roundRect(W - 26, midY - 46, 22, 92, 3); ctx.fill();
+        ctx.fillStyle = "#FFC107"; ctx.beginPath(); ctx.arc(W - 22, midY, 3, 0, Math.PI * 2); ctx.fill();   // knob
+        ctx.fillStyle = "#1B5E20"; roundRect(W - 70, midY - 74, 56, 17, 3); ctx.fill();
+        drawText("EXIT", W - 42, midY - 65, "bold 12px 'Segoe UI', Arial", "#FFF", "#000", 2);
+        return midY;
+    }
+    function escSleepGuard(x, y, t) {
+        // a guard slumped in a chair, snoring (top-downish)
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(x, y + 14, 18, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5D4037"; roundRect(x - 14, y - 6, 28, 22, 4); ctx.fill();          // chair back
+        ctx.fillStyle = "#1A237E"; roundRect(x - 11, y - 2, 22, 20, 5); ctx.fill();          // navy torso
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(x, y + 6, 1.8, 0, Math.PI * 2); ctx.fill();  // badge
+        ctx.fillStyle = (typeof C !== "undefined" && C.skin) || "#FFD9C0"; ctx.beginPath(); ctx.arc(x, y - 6, 7, 0, Math.PI * 2); ctx.fill();  // head (tipped back)
+        ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.arc(x, y - 9, 7, Math.PI, 0); ctx.fill();        // cap
+        // Zzz
+        var zf = (t * 1.2) % 1;
+        ctx.globalAlpha = 1 - zf;
+        drawText("z", x + 12 + zf * 8, y - 12 - zf * 14, "bold " + (10 + zf * 6) + "px Arial", "#E1F5FE", "#000", 1);
+        ctx.globalAlpha = 1;
+    }
+    function escCart(x, y) {
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(x, y + 20, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#B0BEC5"; roundRect(x - 20, y - 18, 40, 38, 4); ctx.fill();          // cart body
+        ctx.fillStyle = "#90A4AE"; roundRect(x - 20, y - 18, 40, 4, 2); ctx.fill();
+        ctx.fillStyle = "#CFD8DC"; roundRect(x - 16, y - 12, 32, 9, 2); ctx.fill();           // tray 1
+        ctx.fillStyle = "#FFE0B2"; roundRect(x - 14, y - 10, 12, 5, 1); ctx.fill();           // a sad bread roll
+        ctx.fillStyle = "#CFD8DC"; roundRect(x - 16, y + 1, 32, 9, 2); ctx.fill();            // tray 2
+        ctx.fillStyle = "#A5D6A7"; roundRect(x + 2, y + 3, 10, 5, 1); ctx.fill();             // mystery green
+        ctx.fillStyle = "#37474F"; ctx.beginPath(); ctx.arc(x - 14, y + 20, 4, 0, Math.PI * 2); ctx.arc(x + 14, y + 20, 4, 0, Math.PI * 2); ctx.fill();  // wheels
+    }
+    function drawJailEscape() {
+        var esc = jail.escape || { kind: "cart", cap: "🏃 You're OUT!" }, t = jail.t;
+        var p = clamp(t / 3.0, 0, 1), ease = 1 - (1 - p) * (1 - p);
+        var midY = escCorridor();
+        var cellX = 52, exitX = W - 52, lx, ly = midY;
+
+        if (esc.kind === "cart") {
+            var cx = lerp(cellX - 6, exitX - 18, ease);
+            drawLuluTopDown(cx - 26, ly + 4, t * 3, "run");      // ducking along behind it
+            escCart(cx, ly);
+        } else if (esc.kind === "disguise") {
+            drawAngryMan(W * 0.52, ly - 52, t, "talk", -1, true);  // an oblivious guard, looking away
+            lx = lerp(cellX, exitX, ease);
+            drawLuluTopDown(lx, ly, t * 2.4, "run");
+            ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.arc(lx, ly - 17, 7.5, Math.PI, 0); ctx.fill();   // stolen cap
+            ctx.fillStyle = "#0D1442"; ctx.fillRect(lx - 8, ly - 17, 16, 2);
+            ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(lx, ly - 20, 1.6, 0, Math.PI * 2); ctx.fill();
+        } else if (esc.kind === "keys") {
+            escSleepGuard(W * 0.52, ly - 6, t);
+            lx = p < 0.5 ? lerp(cellX, W * 0.52 - 26, clamp(p / 0.5, 0, 1)) : lerp(W * 0.52 - 26, exitX, clamp((p - 0.5) / 0.5, 0, 1));
+            drawLuluTopDown(lx, ly + 10, t * 2.0, "run");
+            if (p > 0.45 && p < 0.62) { drawText("🗝️", lx + 12, ly - 2, "16px Arial", "#FFD54F", "#000", 2);  // lifted keys + jingle
+                if (Math.random() < 0.4) particles.push({ x: lx + 12, y: ly - 4, vx: rand(-20, 20), vy: rand(-30, -8), life: 0, maxLife: 0.5, size: rand(2, 3), color: "#FFE082", gravity: 120 }); }
+        } else if (esc.kind === "faint") {
+            var gp = clamp(p / 0.5, 0, 1);
+            var gx = lerp(exitX, cellX + 46, gp);
+            if (p < 0.5) {   // swooned by the cell; guard rushing in
+                drawAngryMan(gx, ly - 6, t, "running", -1, true);
+                ctx.save(); ctx.translate(cellX + 24, ly + 8); ctx.rotate(1.4);
+                drawLuluTopDown(0, 0, 0, "cry"); ctx.restore();
+                drawText("😵", cellX + 24, ly - 18, "18px Arial", "#FFEB3B", "#000", 2);
+            } else {        // sprang up — BOLTS past him to the exit
+                drawAngryMan(cellX + 46, ly - 6, t, "yelling", 1, true);
+                drawText("❓", cellX + 46, ly - 26, "16px Arial", "#FFF", "#000", 2);
+                lx = lerp(cellX + 30, exitX, clamp((p - 0.5) / 0.5, 0, 1));
+                drawLuluTopDown(lx, ly + 8, t * 3.2, "run");
+            }
+        } else if (esc.kind === "vent") {
+            var vx = W * 0.54;
+            // floor vent grate
+            ctx.fillStyle = "#263238"; roundRect(vx - 16, ly - 12, 32, 26, 3); ctx.fill();
+            ctx.strokeStyle = "#546E7A"; ctx.lineWidth = 2;
+            for (var vs = ly - 8; vs < ly + 12; vs += 5) { ctx.beginPath(); ctx.moveTo(vx - 13, vs); ctx.lineTo(vx + 13, vs); ctx.stroke(); }
+            if (p < 0.55) { lx = lerp(cellX, vx, clamp(p / 0.55, 0, 1)); drawLuluTopDown(lx, ly, t * 2.4, "run"); }
+            else { var sc = clamp(1 - (p - 0.55) / 0.45, 0.1, 1); ctx.save(); ctx.translate(vx, ly - 2); ctx.scale(sc, sc); drawLuluTopDown(0, 0, t * 4, "panic"); ctx.restore();
+                if (p > 0.6) drawText("🌀", vx, ly - 22, (12 + (1 - sc) * 12) + "px Arial", "#B3E5FC", "#000", 2); }
+        } else {   // tunnel
+            var tx = exitX - 40;
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.ellipse(tx, ly + 2, 20, 13, 0, 0, Math.PI * 2); ctx.fill();   // dirt hole
+            ctx.fillStyle = "#1B0F0A"; ctx.beginPath(); ctx.ellipse(tx, ly + 2, 14, 9, 0, 0, Math.PI * 2); ctx.fill();
+            if (p < 0.5) { lx = lerp(cellX, tx - 4, clamp(p / 0.5, 0, 1)); drawLuluTopDown(lx, ly, t * 2.2, "run"); }
+            else { var sk = clamp(1 - (p - 0.5) / 0.5, 0.15, 1); ctx.save(); ctx.translate(tx, ly + 2 + (1 - sk) * 8); ctx.scale(sk, sk); drawLuluTopDown(0, 0, t * 3, "panic"); ctx.restore();
+                if (Math.random() < 0.5) particles.push({ x: tx + rand(-12, 12), y: ly, vx: rand(-40, 40), vy: rand(-70, -20), life: 0, maxLife: 0.6, size: rand(2, 4), color: randPick(["#5D4037", "#795548", "#3E2723"]), gravity: 240 }); }
+        }
+        if (typeof drawParticles === "function") drawParticles();
+
+        // title + caption banner
+        var pulse = Math.sin(gameTime * 8) > 0;
+        drawText("🏃 JAILBREAK!", W / 2, SAFE_TOP + 30, "bold 26px 'Segoe UI', Arial, sans-serif", pulse ? "#7CFC4F" : "#B9F6CA", "#000", 5);
+        ctx.fillStyle = "rgba(0,0,0,0.62)"; roundRect(20, H - 116, W - 40, 60, 12); ctx.fill();
+        ctx.strokeStyle = "#7CFC4F"; ctx.lineWidth = 2; roundRect(20, H - 116, W - 40, 60, 12); ctx.stroke();
+        wrapCentered(esc.cap, W / 2, H - 96, W - 64, 15, "#FFFFFF");
+        if (t > 2.6) { ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(gameTime * 4));
+            drawText("▾ tap", W / 2, H - 40, "bold 12px 'Segoe UI', Arial", "#7CFC4F", "#000", 2); ctx.globalAlpha = 1; }
+    }
+
     function drawJailCell() {
         if (jail.phase === 0) { drawIntake(); return; }
         var serving = (jail.phase === 9);
@@ -926,8 +1082,8 @@
             // 2×2 action grid + the cellmate chatting in a dialogue box
             var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
             var glow = Math.sin(gameTime * 6) > 0;
-            var locked = jail.escapeFails >= 3;
-            drawButton(er.x, er.y, er.w, er.h, locked ? "🔒 Watched" : (jail.escapeFails > 0 ? "🏃 Escape (" + jail.escapeFails + " fails)" : "🏃 Escape"),
+            var locked = jail.escapeFails >= 1;
+            drawButton(er.x, er.y, er.w, er.h, locked ? "🔒 Watched" : "🏃 Escape",
                 locked ? { bg: "#757575", bgDark: "#424242", small: true } : { bg: glow ? "#66BB6A" : "#4CAF50", bgDark: "#2E7D32", small: true });
             var canBail = save.totalCoins >= jail.bail;
             drawButton(br.x, br.y, br.w, br.h, "💰 Bail " + jail.bail, { bg: canBail ? "#FFB300" : "#757575", bgDark: canBail ? "#EF6C00" : "#424242", small: true });
@@ -956,10 +1112,7 @@
         } else if (jail.phase === 3) {
             drawLockpick();
         } else if (jail.phase === 2) {
-            ctx.fillStyle = "rgba(0,0,0,0.78)"; roundRect(W / 2 - 168, H * 0.40, 336, 100, 14); ctx.fill();
-            ctx.strokeStyle = "#7CFC4F"; ctx.lineWidth = 3; roundRect(W / 2 - 168, H * 0.40, 336, 100, 14); ctx.stroke();
-            drawText("🏃 JAILBREAK!", W / 2, H * 0.40 + 26, "bold 22px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#000", 5);
-            wrapCentered(jail.escapeMethod, W / 2, H * 0.40 + 50, 300, 16, "#FFF");
+            drawJailEscape();
         }
     }
 
@@ -1698,20 +1851,26 @@
             if (typeof spawnPatrolCar === "function") spawnPatrolCar();
             if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.6) spawnRoadCop();
         }
+        // A chase (or its pull-over) already owns the moment — don't double up,
+        // and let the recognition meter cool while she's actively running.
+        if (copChase || copBust) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
         var seen = (typeof copInView === "function" && copInView());
         if (!seen) for (var i = 0; i < obstacles.length; i++) {
             var o = obstacles[i];
             if (o.type === "car" && o.behavior === "patrol" && Math.abs(o.y - player.y) < 200) { seen = o; break; }
         }
-        // At 5★ a police chopper locks a spotlight on her — there's no hiding.
+        // Being recognized no longer means instant cuffs — it kicks off a CHASE she
+        // gets a real shot at out-running (floor it to open a gap). She only goes
+        // back inside if a cruiser actually runs her down. The chopper at 5★ just
+        // makes them lock on faster.
+        var bustAt = Math.max(0.7, 1.6 - wl * 0.2);
         if (wl >= 5) {
             fugChopperX = lerp(fugChopperX || player.x, player.x, Math.min(1, 2.2 * dt));
             fugitiveSpot += dt * 1.1;
-            if (fugitiveSpot > Math.max(0.85, 1.7 - wl * 0.18)) { beginArrest(["ESCAPE FROM CUSTODY", "EVADING A HELICOPTER"]); return; }
+            if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚁 SPOTLIGHT — FLOOR IT!"); return; }
+            return;
         }
-        // Higher wanted = they recognize her faster, and bust at a lower threshold.
-        var bustAt = Math.max(0.85, 1.7 - wl * 0.18);
-        if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { beginArrest(["ESCAPE FROM CUSTODY", "RESISTING (with SASS)"]); return; } }
+        if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 RECOGNIZED — DRIVE!"); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
     }
 

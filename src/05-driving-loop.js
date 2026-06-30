@@ -1743,7 +1743,12 @@
                 var out = copBust.outcome;
                 var wasBribe = copBust.title && copBust.title.indexOf("BRIBE") >= 0;
                 copBust = null;
-                if (out === "free") returnToDriving();
+                // A FUGITIVE who actually gets run down doesn't get a warning or a
+                // walk — she's collared on the spot (escape charges, drive downtown).
+                if (prisonClothes) {
+                    if (typeof beginArrest === "function") beginArrest(["ESCAPE FROM CUSTODY", "RESISTING ARREST"], { fromBust: true });
+                    else goToJail(["ESCAPE FROM CUSTODY", "RESISTING ARREST"]);
+                } else if (out === "free") returnToDriving();
                 else if (out === "walk") startFootWorld("copWalk");
                 // A ticket now means a trip downtown: she's cuffed and DRIVEN to
                 // the station (the arrest cutscene) before booking + her day in
