@@ -407,6 +407,10 @@
         if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
+        // On foot, walking up to a parked car: the world coasts to a halt so she
+        // visibly STOPS at it before the hotwire (then stays stopped through it).
+        if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
+        if (onFoot && typeof footHotwire !== "undefined" && footHotwire) gameSpeed = 0;
         scrollOffset += gameSpeed * dt;
         var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
@@ -419,6 +423,8 @@
         if (distractedMode && !onFoot) steerInput = -steerInput;
         // While hotwiring a car she stands STILL (so she isn't wandering into traffic).
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) { steerInput = 0; player.targetX = player.x; }
+        // Walking up to a car → auto-steer toward it and stop right alongside.
+        else if (onFoot && typeof footApproach !== "undefined" && footApproach) { steerInput = 0; player.targetX = clamp(footApproach.car.x, 22, W - 22); }
         var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
         player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);

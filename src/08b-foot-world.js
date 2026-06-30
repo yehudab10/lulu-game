@@ -19,6 +19,7 @@
     var footMood = "run";        // "run" | "panic" | "cry"
     var footParked = [];         // stealable parked cars on the shoulder
     var footHotwire = null;      // the quick "hotwire to unlock it" challenge
+    var footApproach = null;     // walking up + coasting to a STOP at the car before hotwiring
     var footDoors = [];          // building entrances
     var footPrompt = null;       // nearest interactable { kind, ent, label }
     var footCompanion = null;    // Avigail walking along with her { x, y, walkTime, say, sayT }
@@ -116,7 +117,7 @@
         // moving on foot from where she parked.
         footIntroT = reason === "droveOff" ? 0 : 1.6; footWalkTime = 0;
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
-        footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null;
+        footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footBuskT = 0;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
@@ -301,12 +302,14 @@
         if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); footSpawnParked(); }
         if (footDoorCool > 0) footDoorCool -= dt;
         footMaybeSpawnDoor();
-        if (!footHotwire) footScroll(footParked, 110, dt);   // hold the car still mid-hotwire
+        if (!footHotwire && !footApproach) footScroll(footParked, 110, dt);   // hold the car still while she walks up / hotwires
         footScroll(footDoors, 80, dt);
         updateFootCompanion(dt);
 
-        // A hotwire-in-progress takes over input; otherwise hand-button interactions.
-        if (footHotwire) { updateFootHotwire(dt); footPrompt = null; }
+        // Walking up to the car (coasting to a stop) takes priority, then a
+        // hotwire-in-progress, then ordinary hand-button interactions.
+        if (footApproach) { updateFootApproach(dt); footPrompt = null; }
+        else if (footHotwire) { updateFootHotwire(dt); footPrompt = null; }
         else {
             footPrompt = footNearestInteractable();
             if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
@@ -396,6 +399,28 @@
         return best;
     }
 
+    // ── Walk-up-and-STOP: before the hotwire UI pops, Lulu actually steps over
+    //    to the parked car and the world coasts to a halt — so it reads as her
+    //    stopping to get in, not teleporting into the challenge.
+    function startFootApproach(pc) {
+        footApproach = { car: pc, t: 0 };
+        consumeClick(); consumeAction(); footActQueued = false;   // drop the initiating tap
+        spawnFloater(player.x, player.y - 32, "🚗 …sidling up to it", "#FFE082");
+        playTone(330, 0.05, "sine", 0.08);
+    }
+    function updateFootApproach(dt) {
+        footApproach.t += dt;
+        var car = footApproach.car;
+        // car got cleared somehow (e.g. a scene change swept it) → abort cleanly
+        if (footParked.indexOf(car) < 0) { footApproach = null; return; }
+        // start the hotwire once she's lined up at the car (or after a short beat)
+        var aligned = Math.abs(player.x - car.x) < 16;
+        if ((aligned && footApproach.t > 0.4) || footApproach.t > 1.5) {
+            var pc = footApproach.car; footApproach = null;
+            startFootHotwire(pc);
+        }
+    }
+
     // ── Hotwire mini-challenge: tap when the slider's in the green. Plain cars
     //    are a quick one-pin freebie; cop cars / buses / ambulances take two; the
     //    steamroller takes three and the zone is mean. Two misses sets off an alarm.
@@ -461,7 +486,7 @@
     function doFootInteract(prompt) {
         if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
         if (prompt.kind === "borrow") {
-            startFootHotwire(prompt.ent);   // unlock it with a quick hotwire first
+            startFootApproach(prompt.ent);   // walk up + STOP at the car, THEN hotwire
             return;
         }
         if (prompt.kind === "hail") {
