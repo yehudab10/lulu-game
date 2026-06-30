@@ -280,6 +280,24 @@
         var strikes = Math.min(save.convictions || 0, 5);
         return Math.min(BOUNTY_CAP, Math.round(13 * sum * (1 + 0.08 * strikes)));
     }
+    // The single WORST charge on the sheet — drives how dramatic the trial gets.
+    function worstCharge(charges) {
+        var w = null, best = -1;
+        for (var i = 0; i < (charges ? charges.length : 0); i++) {
+            var cw = chargeWeight(charges[i]);
+            if (cw > best) { best = cw; w = charges[i]; }
+        }
+        return w || "BEING SUSPICIOUS";
+    }
+    // Drama tier 0–3 from the worst charge's severity (a count of petty charges
+    // can nudge it up one, but real chaos needs a genuinely serious crime).
+    function courtDramaTier(charges) {
+        var sev = chargeWeight(worstCharge(charges));
+        if (sev >= 4) return 3;                          // grand theft / vehicular destruction
+        if (sev >= 3) return 2;                          // hit & run / escape / joyriding
+        if (sev >= 2 || (charges && charges.length >= 3)) return 1;
+        return 0;                                        // a lone speeding ticket — barely a yawn
+    }
 
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
@@ -1317,17 +1335,24 @@
         for (var oi = 0; oi < opts.length; oi++) {
             if (opts[oi].bribe) opts[oi] = { label: opts[oi].label, says: opts[oi].says, outcomes: opts[oi].outcomes, bribe: true, cost: bribeCost };
         }
-        var manyCharges = cl.length >= 3;
+        // Drama scales with the WORST charge — a grand-theft case is a circus, a lone
+        // speeding ticket is a yawn — and the prosecutor calls out the real crime.
+        var dramaTier = courtDramaTier(cl);
+        var worst = worstCharge(cl), listStr = cl.join(", "), more = cl.length > 1;
+        var prosFlourish = dramaTier >= 3 ? (" " + worst + "?! In all my YEARS — the most BRAZEN case of my CAREER!!" + (more ? " The FULL sheet: " + listStr + "." : " 😤"))
+                         : dramaTier === 2 ? (" " + worst + " — the sheer AUDACITY, your honor!" + (more ? " (Also: " + listStr + ".)" : ""))
+                         : dramaTier === 1 ? (" The charges: " + listStr + ".")
+                         : (" ...just " + listStr + ". *barely looks up* 🥱");
         var lines = [
-            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
-            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + (manyCharges
-                ? " A STAGGERING rap sheet — " + cl.length + " counts: " + cl.join(", ") + "!!"
-                : " The charges: " + cl.join(", ") + "!") }
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: dramaTier >= 3 ? "A case like THIS in MY court?! *SLAMS gavel*" : randPick(JUDGE_INTROS) },
+            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + prosFlourish }
         ];
-        // A fat rap sheet sends the courtroom into an uproar before she even pleads.
-        if (manyCharges) {
+        // A serious charge sends the courtroom into an uproar; a moderate one murmurs.
+        if (dramaTier >= 2) {
             lines.push({ who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "*the gallery ERUPTS — gasps, boos, a dropped kugel* 😱" });
             lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "ORDER! ORDER!! One more outburst and I CLEAR this courtroom! 🔨" });
+        } else if (dramaTier === 1) {
+            lines.push({ who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "*a low murmur ripples through the gallery* 🤫" });
         }
         if (lawyerTier) {
             lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.says ? randPick(lawyerTier.says) : lawyerTier.say });
@@ -1339,7 +1364,7 @@
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
                   galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
                   galleryGuestLines: gg ? gg.lines : null, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
-                  phase: 0, t: 0, gavel: manyCharges ? 0.5 : 0, banner: manyCharges ? 0.5 : 0, li: 0, typeT: 0,
+                  phase: 0, t: 0, gavel: dramaTier >= 2 ? 0.5 : 0, banner: dramaTier >= 2 ? 0.5 : 0, li: 0, typeT: 0, dramaTier: dramaTier,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
@@ -1377,16 +1402,16 @@
     // After Lulu's plea (and any objection), ~40% of the time a random courtroom
     // EVENT interrupts before the jury deliberates; otherwise straight to verdict.
     function courtAfterArgument() {
-        // The more counts she's facing, the more likely the court descends into chaos.
-        var nCh = court.charges.length;
-        var evChance = clamp(0.4 + 0.13 * (nCh - 1), 0.4, 0.9);
+        // The worse the crime, the more likely the court descends into chaos.
+        var dramaTier = court.dramaTier || 0;
+        var evChance = clamp(0.32 + 0.16 * dramaTier, 0.32, 0.9);
         if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
             court.nudges = [court.event.nudge];
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
-            if (nCh >= 3) { court.gavel = 0.5; court.banner = 0.45; }   // bang the gavel to punctuate the bedlam
+            if (dramaTier >= 2) { court.gavel = 0.5; court.banner = 0.45; }   // bang the gavel to punctuate the bedlam
             court.phase = 36; court.t = 0; court.typeT = 0;
             // a distinct sting per event so the interruption lands
             var evId = court.event.id;
@@ -1410,7 +1435,7 @@
         // not a caption parked on screen the whole trial.
         if (court.galleryGuest) {
             if (court.guestT > 0) court.guestT -= dt;
-            else { court.guestCool -= dt; if (court.guestCool <= 0) { court.guestT = 2.6; court.guestCool = (court.charges.length >= 3 ? rand(4, 7) : rand(8, 13)); court.galleryGuest.line = randPick(court.galleryGuestLines); } }
+            else { court.guestCool -= dt; if (court.guestCool <= 0) { court.guestT = 2.6; court.guestCool = ((court.dramaTier || 0) >= 2 ? rand(4, 7) : rand(8, 13)); court.galleryGuest.line = randPick(court.galleryGuestLines); } }
         }
 
         if (court.phase === 0) {                     // ALL RISE
@@ -1463,8 +1488,8 @@
                 if (!courtDone(court.event.lines[court.eventLi].text)) { court.typeT = 999; return; }
                 court.eventLi++; court.typeT = 0;
                 if (court.eventLi >= court.event.lines.length) {
-                    // Big rap sheets can spiral into a SECOND interruption — pile on the chaos.
-                    if (court.charges.length >= 3 && !court.secondEvent && Math.random() < 0.55) {
+                    // Serious cases can spiral into a SECOND interruption — pile on the chaos.
+                    if ((court.dramaTier || 0) >= 2 && !court.secondEvent && Math.random() < 0.55) {
                         court.secondEvent = true;
                         var prevId = court.event.id, e2 = pickCourtEvent(), guard = 0;
                         while (e2.id === prevId && guard++ < 6) e2 = pickCourtEvent();
