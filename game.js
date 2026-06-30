@@ -4796,9 +4796,10 @@
     }
 
     // ── State & Globals ──────────────────────────────────────
-    var state = "charSelect"; // start by picking a Bruck sister
+    var state = "menu";       // boot straight to Lulu's menu (Dina is hidden)
     var prevState = "menu";
     var selectedChar = "lulu"; // "lulu" or "dina"
+    var menuSecretTaps = 0, menuSecretT = 0;   // secret tap-combo that reveals the sister picker
     var charHovered = null; // for character-select UI feedback
     var charSelectTime = 0;
     // Dina mode state
@@ -8889,6 +8890,7 @@
     function updateMenu(dt) {
         menuBounce += dt;
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
+        if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         updateDecorations(dt, 80);
         var click = consumeClick();
         if (click) {
@@ -8933,9 +8935,12 @@
                 playClick();
                 return;
             }
-            // Back to character select (top-left)
-            if (pointInRect(click.x, click.y, 10, 14, 80, 44)) {
-                gotoState("charSelect"); playClick(); return;
+            // Secret: tap the top-left corner 5× quickly to reveal the hidden
+            // sister picker (Dina's mode lives behind it).
+            if (pointInRect(click.x, click.y, 0, 0, 70, 70)) {
+                menuSecretTaps++; menuSecretT = 1.4;
+                if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
+                return;
             }
             // Default: any click in upper area starts game
             if (click.y > H * 0.3 && click.y < H * 0.45) {
@@ -10624,8 +10629,13 @@
 
         // Mute button
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
-        // Back to character select
-        drawBackButton(10, 14);
+        // (No visible 'back to sister picker' — Dina lives behind a secret 5-tap on
+        //  the top-left corner. A faint dot hints at it for those in the know.)
+        if (menuSecretTaps > 0) {
+            ctx.globalAlpha = 0.5;
+            for (var st = 0; st < menuSecretTaps; st++) drawText("·", 16 + st * 8, 30, "bold 20px Arial", "#FFF", null, 0);
+            ctx.globalAlpha = 1;
+        }
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });

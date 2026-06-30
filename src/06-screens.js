@@ -576,8 +576,13 @@
 
         // Mute button
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
-        // Back to character select
-        drawBackButton(10, 14);
+        // (No visible 'back to sister picker' — Dina lives behind a secret 5-tap on
+        //  the top-left corner. A faint dot hints at it for those in the know.)
+        if (menuSecretTaps > 0) {
+            ctx.globalAlpha = 0.5;
+            for (var st = 0; st < menuSecretTaps; st++) drawText("·", 16 + st * 8, 30, "bold 20px Arial", "#FFF", null, 0);
+            ctx.globalAlpha = 1;
+        }
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });

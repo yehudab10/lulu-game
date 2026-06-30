@@ -2838,6 +2838,7 @@
     function updateMenu(dt) {
         menuBounce += dt;
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
+        if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         updateDecorations(dt, 80);
         var click = consumeClick();
         if (click) {
@@ -2882,9 +2883,12 @@
                 playClick();
                 return;
             }
-            // Back to character select (top-left)
-            if (pointInRect(click.x, click.y, 10, 14, 80, 44)) {
-                gotoState("charSelect"); playClick(); return;
+            // Secret: tap the top-left corner 5× quickly to reveal the hidden
+            // sister picker (Dina's mode lives behind it).
+            if (pointInRect(click.x, click.y, 0, 0, 70, 70)) {
+                menuSecretTaps++; menuSecretT = 1.4;
+                if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
+                return;
             }
             // Default: any click in upper area starts game
             if (click.y > H * 0.3 && click.y < H * 0.45) {

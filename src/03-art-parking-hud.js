@@ -856,9 +856,10 @@
     }
 
     // ── State & Globals ──────────────────────────────────────
-    var state = "charSelect"; // start by picking a Bruck sister
+    var state = "menu";       // boot straight to Lulu's menu (Dina is hidden)
     var prevState = "menu";
     var selectedChar = "lulu"; // "lulu" or "dina"
+    var menuSecretTaps = 0, menuSecretT = 0;   // secret tap-combo that reveals the sister picker
     var charHovered = null; // for character-select UI feedback
     var charSelectTime = 0;
     // Dina mode state
