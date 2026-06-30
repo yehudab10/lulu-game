@@ -1759,6 +1759,23 @@
         }
     }
 
+    // Draw whatever vehicle Lulu is CURRENTLY driving (her pink car, or a
+    // borrowed bus / ambulance / cop cruiser / steamroller) at a given spot.
+    // Cutscenes use this so the pulled-over / crashed / arrested vehicle matches
+    // what she was actually behind the wheel of — not always the pink car.
+    function drawPlayerVehicleAt(x, y, rot, time, blinking) {
+        if (!playerVehicle) { drawLuluCar(x, y, rot, blinking, time, distractedMode); return; }
+        ctx.save();
+        ctx.translate(x, y);
+        if (rot) ctx.rotate(rot);
+        if (playerVehicle === "bus") drawTopBus(0, 0);
+        else if (playerVehicle === "ambulance") drawAmbulance(0, 0, time);
+        else if (playerVehicle === "cop") drawCopCar(0, 0, time * 3);
+        else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, time);
+        else drawLuluCar(0, 0, 0, blinking, time, distractedMode);
+        ctx.restore();
+    }
+
     function drawCopBust() {
         drawRoad(scrollOffset);
         drawDecorations(gameTime);
@@ -1779,7 +1796,7 @@
         ctx.save();
         if (shakeTimer > 0) ctx.translate(rand(-shakeIntensity, shakeIntensity), rand(-shakeIntensity, shakeIntensity));
         drawCopCar(player.x, copBust.copY, gameTime * 3); // sirens flashing
-        drawLuluCar(player.x, player.y, 0, false, gameTime, distractedMode);
+        drawPlayerVehicleAt(player.x, player.y, 0, gameTime, false);
         if (copBust.man) {
             drawAngryMan(copBust.man.x, copBust.man.y, copBust.man.time, copBust.man.state, copBust.man.runDir, copBust.man.cop);
         }
@@ -3748,7 +3765,7 @@
 
         // Player (or crashed car if state === crash; or Lulu on foot)
         if (state === "crash") {
-            drawLuluCar(crashX, crashY, crashRot, false, gameTime, distractedMode);
+            drawPlayerVehicleAt(crashX, crashY, crashRot, gameTime, false);
         } else if (onFoot) {
             // A soft shield bubble while she has re-entry / knock immunity.
             if (invincibleTimer > 0.35) {

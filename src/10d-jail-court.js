@@ -350,7 +350,7 @@
 
         // she's in her car for the first beat; once pulled out (phase ≥ 2) the car
         // isn't drawn (drawLuluCar always seats her, which would double her up).
-        if (!a.onFoot && a.phase < 2 && typeof drawLuluCar === "function") drawLuluCar(a.px, a.py, 0, false, gameTime, distractedMode);
+        if (!a.onFoot && a.phase < 2 && typeof drawPlayerVehicleAt === "function") drawPlayerVehicleAt(a.px, a.py, 0, gameTime, false);
         // the cruiser she'll be loaded into
         drawCopCar(a.copX, a.copY, gameTime * 3);
 
