@@ -7958,8 +7958,13 @@
     }
 
     function updateCops(dt) {
-        // On foot, keys.up is RUN, not speeding — she can't get a speed-trap ticket.
-        var speeding = (state !== "footRun") && (keys.up || gameSpeed > 520);
+        // "Speeding" means going faster than the natural flow of traffic — NOT just
+        // moving fast. The world speed ramps up over time (cruise climbs toward
+        // MAX_SPEED), so a fixed threshold like ">520" wrongly flagged her late-game
+        // even while braking. Tie it to the current cruise instead, and NEVER count
+        // braking as speeding (the speed trap is meant to be dodgeable by slowing).
+        var cruiseNow = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        var speeding = (state !== "footRun") && !keys.down && (keys.up || gameSpeed > cruiseNow * 1.06);
         for (var i = roadCops.length - 1; i >= 0; i--) {
             var cop = roadCops[i];
             cop.y += gameSpeed * dt;
@@ -7982,8 +7987,12 @@
                 if (lvl >= 2) {
                     var fireChance = clamp(0.14 + 0.07 * (lvl - 2), 0, 0.65) * (speeding ? 1.4 : 0.55) * (distractedMode ? 1.35 : 1);
                     if (Math.random() < fireChance) {
-                        beginCopChase(player.x, randPick(["📻 SPEEDING REPORTED — PURSUE!", "🚨 APB ON A PINK CAR!",
-                            "📻 RECKLESS DRIVER — ALL UNITS!", "🚓 SOMEONE CALLED IT IN!", "📻 SHE'S BACK AT IT — GO GO GO!"]));
+                        // Don't accuse her of speeding if she's actually crawling — pick
+                        // a speed-themed call only when she's truly fast.
+                        var apbMsg = speeding
+                            ? randPick(["📻 SPEEDING REPORTED — PURSUE!", "📻 RECKLESS DRIVER — ALL UNITS!", "🚨 APB ON A PINK CAR!"])
+                            : randPick(["🚨 APB ON A PINK CAR!", "🚓 SOMEONE CALLED IT IN!", "📻 SHE'S BACK AT IT — GO GO GO!"]);
+                        beginCopChase(player.x, apbMsg);
                         spontaneousChaseCool = rand(15, 24) - Math.min(lvl, 7);   // next window (shorter at high levels)
                     } else {
                         spontaneousChaseCool = rand(4, 7);                          // recheck soon
