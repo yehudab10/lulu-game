@@ -784,6 +784,8 @@
                 { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
             drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👉" : "✋",
                 { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
+            // pepper spray works on foot too (self-defense) — shown when owned.
+            if (save.pepperSpray > 0 && typeof drawPepperButton === "function") drawPepperButton();
             drawSpeedLockBadges();
             drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
         }

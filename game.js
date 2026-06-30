@@ -666,8 +666,11 @@
             if (pointInRect(pos.x, pos.y, PARK_REV_RECT.x, PARK_REV_RECT.y, PARK_REV_RECT.w, PARK_REV_RECT.h)) return "parkRev";
             return null;
         }
-        // Lulu on foot: run/slow on the LEFT (boost/brake slots), interact on the RIGHT (honk slot).
+        // Lulu on foot: pause (top-left), pepper (top-right stack), run/slow on the
+        // LEFT (boost/brake slots), interact on the RIGHT (honk slot).
         if (state === "footRun") {
+            if (pointInRect(pos.x, pos.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) return "pause";
+            if (save.pepperSpray > 0 && pointInRect(pos.x, pos.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) return "pepper";
             if (pointInRect(pos.x, pos.y, MOBILE_BOOST_RECT.x, MOBILE_BOOST_RECT.y, MOBILE_BOOST_RECT.w, MOBILE_BOOST_RECT.h)) return "boost";
             if (pointInRect(pos.x, pos.y, MOBILE_BRAKE_RECT.x, MOBILE_BRAKE_RECT.y, MOBILE_BRAKE_RECT.w, MOBILE_BRAKE_RECT.h)) return "brake";
             if (pointInRect(pos.x, pos.y, HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, HONK_RECT.h)) return "footAct";
@@ -4624,43 +4627,74 @@
 
     // A clean, centered chili for the pepper-spray button — the 🌶️ emoji renders
     // off-center (its glyph sits high-left in the em box), so we draw our own.
-    function drawChili(cx, cy, s) {
+    // A proper pepper-spray CANISTER: red body, white hazard label, black
+    // trigger cap + nozzle, and a puff of spray mist. (Replaces the old chili.)
+    function drawPepperSprayCan(cx, cy, s) {
         ctx.save(); ctx.translate(cx, cy);
-        // glossy red body (a smooth tapering chili curving down to a point)
-        var g = ctx.createLinearGradient(-s * 0.4, -s * 0.5, s * 0.3, s * 0.7);
-        g.addColorStop(0, "#FF5A52"); g.addColorStop(1, "#C62828");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.16, -s * 0.46);
-        ctx.bezierCurveTo(s * 0.5, -s * 0.4, s * 0.42, s * 0.5, -s * 0.04, s * 0.74);
-        ctx.bezierCurveTo(-s * 0.2, s * 0.46, -s * 0.44, 0, -s * 0.16, -s * 0.46);
-        ctx.closePath(); ctx.fill();
-        // soft vertical highlight for sheen
-        ctx.fillStyle = "rgba(255,255,255,0.5)";
-        ctx.beginPath(); ctx.ellipse(-s * 0.04, s * 0.02, s * 0.06, s * 0.26, 0.32, 0, Math.PI * 2); ctx.fill();
-        // curved green stem
-        ctx.strokeStyle = "#388E3C"; ctx.lineWidth = Math.max(2, s * 0.17); ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(-s * 0.14, -s * 0.42); ctx.quadraticCurveTo(-s * 0.02, -s * 0.72, s * 0.16, -s * 0.84); ctx.stroke();
-        ctx.lineCap = "butt";
+        var bw = s * 0.96, bh = s * 1.74, bodyTop = -bh / 2 + s * 0.2;
+        // shadow
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; roundRect(-bw / 2 + 1.5, bodyTop + 2, bw, bh - s * 0.2, bw * 0.24); ctx.fill();
+        // red canister body
+        var g = ctx.createLinearGradient(-bw / 2, 0, bw / 2, 0);
+        g.addColorStop(0, "#7F0E0E"); g.addColorStop(0.45, "#EF4636"); g.addColorStop(0.7, "#F4796C"); g.addColorStop(1, "#7F0E0E");
+        ctx.fillStyle = g; roundRect(-bw / 2, bodyTop, bw, bh - s * 0.2, bw * 0.24); ctx.fill();
+        // white warning label band with a red diamond
+        ctx.fillStyle = "#F6F6F6"; roundRect(-bw / 2, -s * 0.06, bw, s * 0.64, 2); ctx.fill();
+        ctx.fillStyle = "#D32F2F";
+        ctx.beginPath(); ctx.moveTo(0, s * 0.07); ctx.lineTo(s * 0.16, s * 0.26); ctx.lineTo(0, s * 0.45); ctx.lineTo(-s * 0.16, s * 0.26); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#F6F6F6"; drawText("!", 0, s * 0.27, "bold " + Math.floor(s * 0.34) + "px Arial", "#F6F6F6", null, 0);
+        // black trigger cap
+        ctx.fillStyle = "#222A2E"; roundRect(-bw * 0.44, bodyTop - s * 0.26, bw * 0.88, s * 0.34, bw * 0.14); ctx.fill();
+        // nozzle button + tip
+        ctx.fillStyle = "#3C4A52"; roundRect(-bw * 0.30, bodyTop - s * 0.44, bw * 0.36, s * 0.22, 2); ctx.fill();
+        ctx.fillStyle = "#222A2E"; roundRect(bw * 0.16, bodyTop - s * 0.30, s * 0.26, s * 0.13, 1); ctx.fill();
+        // spray mist puffing up-right from the nozzle
+        for (var m = 0; m < 4; m++) {
+            var mm = m / 3;
+            ctx.globalAlpha = 0.85 - mm * 0.22;
+            ctx.fillStyle = mm < 0.5 ? "#FFE082" : "#FFF59D";
+            ctx.beginPath(); ctx.arc(bw * 0.5 + mm * s * 0.7, bodyTop - s * 0.2 - mm * s * 0.42, s * (0.09 + mm * 0.11), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
         ctx.restore();
     }
+    // The pepper-spray HUD button (a polished button + the canister icon + a
+    // count badge). Shared by the driving and on-foot HUDs.
+    function drawPepperButton() {
+        drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "", { bg: "#FF7043", bgDark: "#BF360C", id: "pepper" });
+        drawPepperSprayCan(PEPPER_RECT.x + PEPPER_RECT.w / 2, PEPPER_RECT.y + PEPPER_RECT.w / 2, PEPPER_RECT.w * 0.30);
+        // count badge (top-right of the button)
+        var bx = PEPPER_RECT.x + PEPPER_RECT.w - 4, by = PEPPER_RECT.y + 4;
+        ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(bx, by, 12, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#BF360C"; ctx.lineWidth = 2; ctx.stroke();
+        drawText(save.pepperSpray, bx, by + 1, "bold 13px Arial", "#BF360C", null, 0);
+    }
+    // Polished pull-style HUD button: drop shadow, dark rim, gradient face, a top
+    // sheen, and a subtle inner highlight stroke.
     function drawIconButton(x, y, size, icon, opts) {
         opts = opts || {};
         var bg = opts.bg || "#FFC107";
         var bgDark = opts.bgDark || "#FF6F00";
+        var r = Math.max(9, size * 0.26);
         var sc = opts.id ? getBtnPressScale(opts.id) : 1;
         if (sc !== 1) {
             ctx.save();
             var cx = x + size / 2, cy = y + size / 2;
             ctx.translate(cx, cy); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
         }
-        ctx.fillStyle = "rgba(0,0,0,0.25)";
-        roundRect(x, y + 3, size, size, 8); ctx.fill();
-        ctx.fillStyle = bgDark;
-        roundRect(x, y, size, size, 8); ctx.fill();
-        ctx.fillStyle = bg;
-        roundRect(x + 2, y + 2, size - 4, size - 5, 6); ctx.fill();
-        drawText(icon, x + size / 2, y + size / 2, "bold " + Math.floor(size * 0.55) + "px Arial", "#FFFFFF", "#000", 3);
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.30)"; roundRect(x, y + 4, size, size, r); ctx.fill();
+        // dark rim / bezel
+        ctx.fillStyle = bgDark; roundRect(x, y, size, size, r); ctx.fill();
+        // gradient face (lighter top → base → slightly darker bottom)
+        var fg = ctx.createLinearGradient(0, y, 0, y + size);
+        fg.addColorStop(0, shadeColor(bg, 20)); fg.addColorStop(0.5, bg); fg.addColorStop(1, shadeColor(bg, -12));
+        ctx.fillStyle = fg; roundRect(x + 2.5, y + 2, size - 5, size - 5, r - 2); ctx.fill();
+        // glossy top sheen
+        ctx.fillStyle = "rgba(255,255,255,0.26)"; roundRect(x + 5, y + 4, size - 10, size * 0.36, r - 3); ctx.fill();
+        // crisp inner highlight stroke
+        ctx.strokeStyle = "rgba(255,255,255,0.30)"; ctx.lineWidth = 1.2; roundRect(x + 2.5, y + 2, size - 5, size - 5, r - 2); ctx.stroke();
+        if (icon) drawText(icon, x + size / 2, y + size / 2, "bold " + Math.floor(size * 0.5) + "px Arial", "#FFFFFF", "#000", 3);
         if (sc !== 1) ctx.restore();
     }
 
@@ -4803,14 +4837,7 @@
         }
 
         // Pepper spray button (above honk) — only when owned.
-        if (save.pepperSpray > 0) {
-            drawIconButton(PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, "", { bg: "#8BC34A", bgDark: "#558B2F", id: "pepper" });
-            drawChili(PEPPER_RECT.x + PEPPER_RECT.w / 2, PEPPER_RECT.y + PEPPER_RECT.w / 2, PEPPER_RECT.w * 0.30);
-            ctx.fillStyle = "#AED581";
-            ctx.beginPath(); ctx.arc(W - 22, PEPPER_RECT.y + 5, 13, 0, Math.PI * 2); ctx.fill();
-            ctx.strokeStyle = "#558B2F"; ctx.lineWidth = 2; ctx.stroke();
-            drawText(save.pepperSpray, W - 22, PEPPER_RECT.y + 6, "bold 14px Arial", "#1B5E20", null, 0);
-        }
+        if (save.pepperSpray > 0) drawPepperButton();
 
         // Special-vehicle action button — cop (pull over), ambulance (rescue),
         // or school bus (stop sign).
@@ -6871,8 +6898,8 @@
             return;
         }
 
-        // Click on pause/missile buttons (mouse fallback — touch path already routes
-        // via hitGameButton). Disabled on foot (no pause/missile there).
+        // Click on the HUD buttons (mouse fallback — touch path already routes via
+        // hitGameButton). On foot only pause + pepper apply.
         if (!onFoot) {
             var click = consumeClick();
             if (click) {
@@ -6884,6 +6911,15 @@
                     firePepperSpray();
                 } else if (vehicleHasAction() && pointInRect(click.x, click.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) {
                     doVehicleAction();
+                }
+            }
+        } else {
+            var fclick = consumeClick();
+            if (fclick) {
+                if (pointInRect(fclick.x, fclick.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
+                    prevState = "footRun"; state = "paused"; playClick(); return;
+                } else if (save.pepperSpray > 0 && pointInRect(fclick.x, fclick.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) {
+                    firePepperSpray();
                 }
             }
         }
@@ -14092,6 +14128,8 @@
                 { bg: keys.down ? "#FFEB3B" : "#90CAF9", bgDark: "#1565C0" });
             drawIconButton(HONK_RECT.x, HONK_RECT.y, HONK_RECT.w, footPrompt ? "👉" : "✋",
                 { bg: footPrompt ? "#7CFC4F" : "#B0BEC5", bgDark: "#2E7D32" });
+            // pepper spray works on foot too (self-defense) — shown when owned.
+            if (save.pepperSpray > 0 && typeof drawPepperButton === "function") drawPepperButton();
             drawSpeedLockBadges();
             drawText("drag to walk", W / 2, H - 14, "11px Arial", "#FFFFFF", "#000", 2);
         }

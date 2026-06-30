@@ -684,8 +684,8 @@
             return;
         }
 
-        // Click on pause/missile buttons (mouse fallback — touch path already routes
-        // via hitGameButton). Disabled on foot (no pause/missile there).
+        // Click on the HUD buttons (mouse fallback — touch path already routes via
+        // hitGameButton). On foot only pause + pepper apply.
         if (!onFoot) {
             var click = consumeClick();
             if (click) {
@@ -697,6 +697,15 @@
                     firePepperSpray();
                 } else if (vehicleHasAction() && pointInRect(click.x, click.y, COP_RECT.x, COP_RECT.y, COP_RECT.w, COP_RECT.h)) {
                     doVehicleAction();
+                }
+            }
+        } else {
+            var fclick = consumeClick();
+            if (fclick) {
+                if (pointInRect(fclick.x, fclick.y, PAUSE_RECT.x, PAUSE_RECT.y, PAUSE_RECT.w, PAUSE_RECT.h)) {
+                    prevState = "footRun"; state = "paused"; playClick(); return;
+                } else if (save.pepperSpray > 0 && pointInRect(fclick.x, fclick.y, PEPPER_RECT.x, PEPPER_RECT.y, PEPPER_RECT.w, PEPPER_RECT.h)) {
+                    firePepperSpray();
                 }
             }
         }
