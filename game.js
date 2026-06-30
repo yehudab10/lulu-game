@@ -9229,6 +9229,7 @@
         playerVehicle = null; dozerTimer = 0;
         invincibleTimer = Math.max(invincibleTimer, 1.2);
         if (player) player.targetX = LANES[1];
+        persistSave();   // flush the crush-coins banked in memory during the rampage
         spawnFloater(player.x, player.y - 40, msg || "⛽ Out of diesel — back to your car!", "#FFCC80");
     }
     function crushCar(o) {
@@ -9236,7 +9237,11 @@
         if (typeof playExplosion === "function") playExplosion();
         playTone(64, 0.24, "square", 0.16); shakeTimer = 0.12; shakeIntensity = 4;
         flatWrecks.push({ x: o.x, y: o.y, color: o.color || "#9E9E9E", t: 0, cop: o.behavior === "patrol" });
-        score += 60 * scoreMult; runCoins += 3; save.totalCoins += 3; persistSave();
+        // Bank the crush coins in memory only — do NOT persistSave() here. Flattening
+        // a cluster crushes several cars in one frame, and a synchronous localStorage
+        // write per car caused a visible hitch. They persist at the next checkpoint
+        // (endDozer / scene change / game over).
+        score += 60 * scoreMult; runCoins += 3; save.totalCoins += 3;
         spawnFloater(o.x, o.y - 10, randPick(["SPLAT! 💀", "FLATTENED!", "PANCAKED! 🥞", "CRUNCH! 💀"]), "#FF5252");
         // A cop in view (or a flattened cruiser) = she's made → chase + a wanted file.
         var witness = (typeof copInView === "function" && copInView()) || o.behavior === "patrol";
