@@ -23247,7 +23247,20 @@
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...ahhh. You know what? Suddenly I feel MERCIFUL." } ] },
         { id: "gasp", nudge: "none", lines: [
             { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "*the entire gallery GASPS in unison* 😱" },
-            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "ORDER! One more gasp and I CLEAR the room!" } ] }
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "ORDER! One more gasp and I CLEAR the room!" } ] },
+        { id: "faint", nudge: "help", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "The STENOGRAPHER just fainted, your honor! 😵" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Someone fetch a juice box! ...we'll go EASY, given the bedlam." } ] },
+        { id: "fly", nudge: "hurt", lines: [
+            { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A FLY is loose in the courtroom — total pandemonium! 🪰" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "*SWATS the gavel* CONTEMPT! ...the insect. And YOU, a little." } ] },
+        { id: "objection", nudge: "hurt", lines: [
+            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: "OBJECTION! She's doing JAZZ HANDS at the jury! 🙌" },
+            { who: "LULU", p: "lulu", accent: "#F48FB1", text: "It's called CHARISMA, your honor. Sustained?" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "OVERRULED. And stop that. ...mostly." } ] },
+        { id: "babka", nudge: "help", lines: [
+            { who: "BUBBE", p: "bubbe", accent: "#FFCC80", text: "*wheels a CART of babka into the gallery* Nu, everybody EAT! 🍰" },
+            { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...is that chocolate? The court will take a SHORT recess. Favorably." } ] }
     ];
     var COURT_MISTRIAL = { id: "mistrial", nudge: "dismiss", lines: [
         { who: "LULU", p: "lulu", accent: "#F48FB1", text: "Your honor — the bailiff SNEEZED during my oath. MISTRIAL!" },
@@ -24346,10 +24359,18 @@
         for (var oi = 0; oi < opts.length; oi++) {
             if (opts[oi].bribe) opts[oi] = { label: opts[oi].label, says: opts[oi].says, outcomes: opts[oi].outcomes, bribe: true, cost: bribeCost };
         }
+        var manyCharges = cl.length >= 3;
         var lines = [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
-            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
+            { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + (manyCharges
+                ? " A STAGGERING rap sheet — " + cl.length + " counts: " + cl.join(", ") + "!!"
+                : " The charges: " + cl.join(", ") + "!") }
         ];
+        // A fat rap sheet sends the courtroom into an uproar before she even pleads.
+        if (manyCharges) {
+            lines.push({ who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "*the gallery ERUPTS — gasps, boos, a dropped kugel* 😱" });
+            lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "ORDER! ORDER!! One more outburst and I CLEAR this courtroom! 🔨" });
+        }
         if (lawyerTier) {
             lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.says ? randPick(lawyerTier.says) : lawyerTier.say });
             // …then the lawyer actually ARGUES the specific charge(s) at stake.
@@ -24360,7 +24381,7 @@
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
                   galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
                   galleryGuestLines: gg ? gg.lines : null, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
-                  phase: 0, t: 0, gavel: 0, banner: 0, li: 0, typeT: 0,
+                  phase: 0, t: 0, gavel: manyCharges ? 0.5 : 0, banner: manyCharges ? 0.5 : 0, li: 0, typeT: 0,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
@@ -24398,11 +24419,16 @@
     // After Lulu's plea (and any objection), ~40% of the time a random courtroom
     // EVENT interrupts before the jury deliberates; otherwise straight to verdict.
     function courtAfterArgument() {
-        if (!court.eventUsed && Math.random() < 0.4) {
+        // The more counts she's facing, the more likely the court descends into chaos.
+        var nCh = court.charges.length;
+        var evChance = clamp(0.4 + 0.13 * (nCh - 1), 0.4, 0.9);
+        if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
+            court.nudges = [court.event.nudge];
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
+            if (nCh >= 3) { court.gavel = 0.5; court.banner = 0.45; }   // bang the gavel to punctuate the bedlam
             court.phase = 36; court.t = 0; court.typeT = 0;
             // a distinct sting per event so the interruption lands
             var evId = court.event.id;
@@ -24426,7 +24452,7 @@
         // not a caption parked on screen the whole trial.
         if (court.galleryGuest) {
             if (court.guestT > 0) court.guestT -= dt;
-            else { court.guestCool -= dt; if (court.guestCool <= 0) { court.guestT = 2.6; court.guestCool = rand(8, 13); court.galleryGuest.line = randPick(court.galleryGuestLines); } }
+            else { court.guestCool -= dt; if (court.guestCool <= 0) { court.guestT = 2.6; court.guestCool = (court.charges.length >= 3 ? rand(4, 7) : rand(8, 13)); court.galleryGuest.line = randPick(court.galleryGuestLines); } }
         }
 
         if (court.phase === 0) {                     // ALL RISE
@@ -24478,7 +24504,19 @@
             if (consumeTap()) {
                 if (!courtDone(court.event.lines[court.eventLi].text)) { court.typeT = 999; return; }
                 court.eventLi++; court.typeT = 0;
-                if (court.eventLi >= court.event.lines.length) { court.phase = 4; court.t = 0; }
+                if (court.eventLi >= court.event.lines.length) {
+                    // Big rap sheets can spiral into a SECOND interruption — pile on the chaos.
+                    if (court.charges.length >= 3 && !court.secondEvent && Math.random() < 0.55) {
+                        court.secondEvent = true;
+                        var prevId = court.event.id, e2 = pickCourtEvent(), guard = 0;
+                        while (e2.id === prevId && guard++ < 6) e2 = pickCourtEvent();
+                        court.event = e2; court.eventLi = 0; court.evStamp = 0.6;
+                        (court.nudges = court.nudges || []).push(e2.nudge);
+                        if (e2.charge && court.charges.indexOf(e2.charge) < 0) court.charges.push(e2.charge);
+                        court.gavel = 0.5; court.banner = 0.45;
+                        playTone(440, 0.1, "triangle", 0.14);
+                    } else { court.phase = 4; court.t = 0; }
+                }
                 else playTone(court.event.lines[court.eventLi].p === "judge" ? 300 : 380, 0.04, "sine", 0.06);
             }
             return;
@@ -24526,13 +24564,17 @@
                         if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
                     }
                 }
-                // a random courtroom EVENT can swing it (mistrial springs her outright)
-                if (court.event) {
-                    var nd = court.event.nudge;
+                // Each courtroom EVENT that fired can swing the verdict (mistrial springs
+                // her outright). Multiple events on a chaotic trial each get a say.
+                var ndlist = court.nudges || (court.event ? [court.event.nudge] : []);
+                for (var ni = 0; ni < ndlist.length; ni++) {
+                    var nd = ndlist[ni];
                     if (nd === "dismiss") court.verdict = "dismissed";
                     else if (nd === "help") { if (court.verdict === "jail" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed"; }
                     else if (nd === "hurt") { if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.3) court.verdict = "jail"; }
                 }
+                // A mistrial ALWAYS springs her — chaos can't walk back a "case dismissed."
+                if (ndlist.indexOf("dismiss") >= 0) court.verdict = "dismissed";
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
                     court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
