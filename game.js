@@ -8122,6 +8122,7 @@
     }
 
     function updateCops(dt) {
+        if (postEscapeGrace > 0) postEscapeGrace -= dt;   // breather after shaking a chase
         // "Speeding" means going faster than the natural flow of traffic — NOT just
         // moving fast. The world speed ramps up over time (cruise climbs toward
         // MAX_SPEED), so a fixed threshold like ">520" wrongly flagged her late-game
@@ -8134,7 +8135,7 @@
             cop.y += gameSpeed * dt;
             if (cop.y > H + 100) { roadCops.splice(i, 1); continue; }
             var inView = cop.y > 60 && cop.y < H - 40;
-            if (!copChase && !copBust && !cop.busted && inView && speeding) {
+            if (!copChase && !copBust && !cop.busted && inView && speeding && postEscapeGrace <= 0) {
                 cop.spot += dt; // a short fuse so you can brake to avoid it
                 if (cop.spot >= 0.65) { startCopChase(cop); continue; }
             } else {
@@ -8144,7 +8145,7 @@
         // ── Escalating HEAT: the longer & faster the run, the more often a cruiser
         //    "gets the call" and starts a fresh pursuit. Chases pile on at higher
         //    levels (every 30s is a level), even more when she's speeding/distracted. ──
-        if (state === "playing" && !copChase && !copBust && !crashReprieve && gameSpeed > 220) {
+        if (state === "playing" && !copChase && !copBust && !crashReprieve && gameSpeed > 220 && postEscapeGrace <= 0) {
             spontaneousChaseCool -= dt;
             if (spontaneousChaseCool <= 0) {
                 var lvl = Math.floor(gameTime / 30);
@@ -8169,13 +8170,15 @@
 
         // ── WANTED: with an open file, any cop who gets a look at her gives chase —
         //    and patrols keep trickling in — until a JUDGE clears the case. ──
-        if (typeof isWanted === "function" && isWanted() && !prisonClothes && state === "playing" && !copChase && !copBust) {
+        if (typeof isWanted === "function" && isWanted() && !prisonClothes && state === "playing" && !copChase && !copBust && postEscapeGrace <= 0) {
             var seenW = copInView();
             if (!seenW) for (var wi = 0; wi < obstacles.length; wi++) {
                 var wo = obstacles[wi];
                 if (wo.type === "car" && wo.behavior === "patrol" && Math.abs(wo.y - player.y) < 200) { seenW = wo; break; }
             }
-            if (seenW) { wantedSpot += dt; if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!"); } }
+            // Driving calmly makes her harder to spot — slowing down should feel safer,
+            // not punished. Flooring it past a cop gets her made fast.
+            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!"); } }
             else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
             wantedPatrolT -= dt;
             if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
@@ -8225,6 +8228,7 @@
                 setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
                 copChase = null;
                 spontaneousChaseCool = rand(12, 20);   // breather before the next call-in
+                postEscapeGrace = 5;   // hard breather: NO cop (trap/APB/recognition) can pounce for a few seconds
                 return;
             }
         } else { copChase.escapeT = 0; }
@@ -8834,6 +8838,7 @@
     function hillelTyped(s) { return s ? s.slice(0, Math.floor((hillelAdjuster.typeT || 0) * 32)) : ""; }
     function hillelDone(s) { return !s || Math.floor((hillelAdjuster.typeT || 0) * 32) >= s.length; }
     var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
+    var postEscapeGrace = 0;         // after shaking a chase: a breather where NO new chase can start
     var wantedSpot = 0;              // recognition meter while she has an open "wanted" file
     var wantedPatrolT = 0;          // trickle of patrols hunting a wanted Lulu
     var dozers = [];                // parked steamrollers waiting in work zones
@@ -24535,7 +24540,7 @@
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
                     court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
-                    if (Math.random() < 0.85) {                        // it USUALLY works now — high odds
+                    if (Math.random() < 0.6) {                         // a real gamble again (flop = just a small fine)
                         court.bribeWorked = true;
                         court.verdict = "dismissed";                   // the judge looks the other way
                     } else {                                           // flopped — just a small slap, NOT jail
@@ -24977,7 +24982,8 @@
         if (wl >= 4) { copMslT -= dt; if (copMslT <= 0) { copMslT = Math.max(2.4, rand(4, 6) - (wl - 4) * 0.7); fireCopMissile(); } }
         // A chase (or its pull-over) already owns the moment — don't double up,
         // and let the recognition meter cool while she's actively running.
-        if (copChase || copBust) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
+        // …and a fresh escape buys a breather here too — no instant re-recognition.
+        if (copChase || copBust || (typeof postEscapeGrace !== "undefined" && postEscapeGrace > 0)) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
         var seen = (typeof copInView === "function" && copInView());
         if (!seen) for (var i = 0; i < obstacles.length; i++) {
             var o = obstacles[i];

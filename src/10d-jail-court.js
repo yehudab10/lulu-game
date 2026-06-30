@@ -1488,7 +1488,7 @@
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
                     court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
-                    if (Math.random() < 0.85) {                        // it USUALLY works now — high odds
+                    if (Math.random() < 0.6) {                         // a real gamble again (flop = just a small fine)
                         court.bribeWorked = true;
                         court.verdict = "dismissed";                   // the judge looks the other way
                     } else {                                           // flopped — just a small slap, NOT jail
@@ -1930,7 +1930,8 @@
         if (wl >= 4) { copMslT -= dt; if (copMslT <= 0) { copMslT = Math.max(2.4, rand(4, 6) - (wl - 4) * 0.7); fireCopMissile(); } }
         // A chase (or its pull-over) already owns the moment — don't double up,
         // and let the recognition meter cool while she's actively running.
-        if (copChase || copBust) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
+        // …and a fresh escape buys a breather here too — no instant re-recognition.
+        if (copChase || copBust || (typeof postEscapeGrace !== "undefined" && postEscapeGrace > 0)) { fugitiveSpot = Math.max(0, fugitiveSpot - dt); return; }
         var seen = (typeof copInView === "function" && copInView());
         if (!seen) for (var i = 0; i < obstacles.length; i++) {
             var o = obstacles[i];
