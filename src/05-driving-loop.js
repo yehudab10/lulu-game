@@ -4222,36 +4222,26 @@
             }
         }
         if (revengeCar && angryMan.state === "hit") drawRevenge(revengeCar);
-        // Hillel the (ex-)insurance adjuster, hustling over with his clipboard.
-        if (hillelAdjuster && typeof drawHillel === "function") {
+        // Hillel the (ex-)insurance adjuster — played as a clean RPG dialogue beat so
+        // his claims read clearly instead of competing with the crash chaos: a soft
+        // scrim calms the busy wreck behind him, a tidy verdict card shows the math,
+        // and his lines land in the standard portrait dialogue box.
+        if (hillelAdjuster) {
             var hg = hillelAdjuster;
-            drawHillel(hg.x, hg.y, gameTime, hg.phase >= 1);
-            if (hg.line) {
-                var typed = hillelTyped(hg.line), lineDone = hillelDone(hg.line);
-                var hlines = wrapLines(typed, W - 84, "bold 14px 'Segoe UI', Arial, sans-serif");
-                if (!hlines.length) hlines = [""];
-                var hbh = 16 + hlines.length * 19, hby = 74, hbw = W - 56, hbx = 28;
-                // speech-bubble tail pointing down toward Hillel
-                var tailX = clamp(hg.x, hbx + 24, hbx + hbw - 24);
-                ctx.fillStyle = "rgba(18,26,40,0.92)";
-                ctx.beginPath(); ctx.moveTo(tailX - 11, hby + hbh - 1); ctx.lineTo(tailX + 11, hby + hbh - 1); ctx.lineTo(tailX + 2, hby + hbh + 16); ctx.closePath(); ctx.fill();
-                roundRect(hbx, hby, hbw, hbh, 10); ctx.fill();
-                ctx.strokeStyle = "#90CAF9"; ctx.lineWidth = 2; roundRect(hbx, hby, hbw, hbh, 10); ctx.stroke();
-                ctx.fillStyle = "#90CAF9"; roundRect(hbx + 12, hby - 11, 150, 20, 6); ctx.fill();
-                drawText("🧮 HILLEL · claims", hbx + 87, hby - 1, "bold 11px 'Segoe UI', Arial, sans-serif", "#0D1B3E", null, 0);
-                for (var hl = 0; hl < hlines.length; hl++)
-                    drawText(hlines[hl], W / 2, hby + 16 + hl * 19, "bold 14px 'Segoe UI', Arial, sans-serif", "#E3F2FD", "#000", 2);
-                // a soft blinking "tap to continue" once the line has finished typing
-                if (lineDone) {
-                    ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
-                    drawText("▾ tap", hbx + hbw - 30, hby + hbh - 7, "bold 10px 'Segoe UI', Arial, sans-serif", "#90CAF9", null, 0);
-                    ctx.globalAlpha = 1;
-                }
-                // his fault-finding worksheet, just under the box (once the verdict reads out)
-                if (hg.report && lineDone && hg.phase >= 2)
-                    drawText("📐 " + hg.report, W / 2, hby + hbh + 26, "bold 11px 'Segoe UI', Arial, sans-serif",
-                        hg.atFault ? "#FFCDD2" : "#B9F6CA", "#0A1018", 3);
+            ctx.fillStyle = "rgba(8,12,24,0.52)"; ctx.fillRect(0, 0, W, H);
+            if (typeof drawHillel === "function") drawHillel(hg.x, hg.y, gameTime, hg.phase >= 1);
+            // The fault worksheet as a tidy card above the dialogue box (after the verdict reads).
+            if (hg.report && hillelDone(hg.line) && hg.phase >= 2) {
+                var wy = H - 128 - 50, wx = 18, ww = W - 36;
+                ctx.fillStyle = "rgba(13,27,62,0.94)"; roundRect(wx, wy, ww, 44, 10); ctx.fill();
+                ctx.strokeStyle = hg.atFault ? "#EF9A9A" : "#A5D6A7"; ctx.lineWidth = 2; roundRect(wx, wy, ww, 44, 10); ctx.stroke();
+                drawText(hg.atFault ? "⚖️ AT FAULT — 💰" + hg.amount + " deductible" : "✅ NOT YOUR FAULT — 💰" + hg.amount + " payout",
+                    W / 2, wy + 14, "bold 12px 'Segoe UI', Arial, sans-serif", hg.atFault ? "#FFCDD2" : "#B9F6CA", "#000", 2);
+                drawFitText("📐 " + hg.report, W / 2, wy + 32, ww - 18, 10, "#CFE3FF");
             }
+            // The clean portrait dialogue box (same one the court/cops use).
+            if (typeof drawDialogueBox === "function" && hg.line)
+                drawDialogueBox("🧮 HILLEL · claims", hillelTyped(hg.line), "hillel", "#90CAF9", hillelDone(hg.line), !hillelDone(hg.line));
         }
         ctx.restore();
     }
