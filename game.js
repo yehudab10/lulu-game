@@ -8008,6 +8008,9 @@
     // patrol cars, and bus-stop violations).
     function beginCopChase(x, msg, charges) {
         copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null };
+        // Give her a moment to open a gap before the high-heat hazards start — at
+        // 5★ the chase used to fire and a K9/missile could land in the same breath.
+        if (typeof copK9T !== "undefined") { copK9T = Math.max(copK9T, 3); copMslT = Math.max(copMslT, 3); }
         shakeTimer = 0.3; shakeIntensity = 5;
         spawnFloater(player.x, player.y - 50, msg || "🚨 BUSTED!", "#F44336");
         playTone(680, 0.25, "sawtooth", 0.14, 460);
@@ -8028,7 +8031,7 @@
         // him slowly reel you in, braking lets him catch fast. This keeps the
         // chase tense at any speed instead of ending instantly when you're fast.
         var baseSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
-        var copCruise = baseSpeed * 1.12;
+        var copCruise = baseSpeed * 1.16;   // slightly faster cruise so long chases don't go slack
         copChase.gap += (gameSpeed - copCruise) * dt * 0.7;
         if (keys.up) copChase.gap += 40 * dt;    // flooring it pulls away
         if (keys.down) copChase.gap -= 50 * dt;   // braking lets him catch up
@@ -14244,7 +14247,7 @@
         spawnCrashBurst(player.x, player.y, false);
         if (!deadly) { invincibleTimer = 0.7; footMood = "panic"; spawnFloater(player.x, player.y - 30, "oof!", "#FFF"); return; }
         lives--;
-        invincibleTimer = 1.6; footMood = "panic";
+        invincibleTimer = 2.0; footMood = "panic";   // match the other re-entry shields so a 2nd car can't instantly re-clip her
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
         if (lives <= 0) {
@@ -23548,7 +23551,10 @@
                 // She's out — and her fugitive HEAT carries over / escalates with each
                 // prior break (no more wiping the slate to 1★ every time she runs).
                 save.escapes = (save.escapes || 0) + 1; persistSave();
-                var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
+                // Each break starts a little hotter than the last, but RAMPS gently
+                // (≈1★→1★→2★→2★→3★) instead of vaulting straight to 4★ — she should
+                // climb the heat ladder, not skip to the top the instant she's out.
+                var heat = Math.min(30, (save.escapes - 1) * 7);   // 0, 7, 14, 21, 28…
                 // She broke out FROM these charges — they're still outstanding, so
                 // they ride onto her wanted file (so the next charge sheet remembers
                 // everything instead of resetting to just "ESCAPE").
@@ -24235,7 +24241,8 @@
                     // Plea bargain: cop to a lesser charge for a guaranteed small fine.
                     court.verdict = "fine";
                     court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
-                    save.convictions = (save.convictions || 0) + 1; persistSave();
+                    // A plea bargain is the lenient way out — it should NOT add a strike
+                    // (that double-punished the cheap option and snowballed toward jail).
                     court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
@@ -24698,7 +24705,7 @@
             if (typeof spawnPatrolCar === "function") {
                 var pc = spawnPatrolCar();
                 // 3★+ : some cruisers turn into hunters that track her lane.
-                if (pc && wl >= 3 && Math.random() < (wl >= 4 ? 0.7 : 0.45)) pc.aggro = true;
+                if (pc && wl >= 3 && Math.random() < (wl >= 4 ? 0.7 : 0.20)) pc.aggro = true;   // 3★ eases in (was 0.45)
             }
             if (wl >= 4 && typeof spawnK9Unit === "function" && Math.random() < 0.4) spawnK9Unit();
             if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.4) spawnRoadCop();
@@ -24750,7 +24757,7 @@
         for (var i = copK9s.length - 1; i >= 0; i--) {
             var k = copK9s[i]; k.t += dt; k.bark -= dt;
             if (k.bark <= 0) { k.bark = rand(0.6, 1.2); if (typeof playDogBark === "function" && Math.abs(k.y - player.y) < 240) playDogBark(); }
-            k.x = lerp(k.x, player.x, Math.min(1, 1.4 * dt));
+            k.x = lerp(k.x, player.x, Math.min(1, 0.9 * dt));   // soft homing — a lane-change can shake the dog
             k.y += (gameSpeed * 1.1 + 70) * dt;
             if (k.y > H + 50) { copK9s.splice(i, 1); continue; }
             if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, k.x, k.y, k.hitW, k.hitH)) {

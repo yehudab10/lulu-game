@@ -606,7 +606,7 @@
         spawnCrashBurst(player.x, player.y, false);
         if (!deadly) { invincibleTimer = 0.7; footMood = "panic"; spawnFloater(player.x, player.y - 30, "oof!", "#FFF"); return; }
         lives--;
-        invincibleTimer = 1.6; footMood = "panic";
+        invincibleTimer = 2.0; footMood = "panic";   // match the other re-entry shields so a 2nd car can't instantly re-clip her
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
         if (lives <= 0) {

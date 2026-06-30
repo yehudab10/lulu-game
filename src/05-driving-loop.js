@@ -1674,6 +1674,9 @@
     // patrol cars, and bus-stop violations).
     function beginCopChase(x, msg, charges) {
         copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null };
+        // Give her a moment to open a gap before the high-heat hazards start — at
+        // 5★ the chase used to fire and a K9/missile could land in the same breath.
+        if (typeof copK9T !== "undefined") { copK9T = Math.max(copK9T, 3); copMslT = Math.max(copMslT, 3); }
         shakeTimer = 0.3; shakeIntensity = 5;
         spawnFloater(player.x, player.y - 50, msg || "🚨 BUSTED!", "#F44336");
         playTone(680, 0.25, "sawtooth", 0.14, 460);
@@ -1694,7 +1697,7 @@
         // him slowly reel you in, braking lets him catch fast. This keeps the
         // chase tense at any speed instead of ending instantly when you're fast.
         var baseSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
-        var copCruise = baseSpeed * 1.12;
+        var copCruise = baseSpeed * 1.16;   // slightly faster cruise so long chases don't go slack
         copChase.gap += (gameSpeed - copCruise) * dt * 0.7;
         if (keys.up) copChase.gap += 40 * dt;    // flooring it pulls away
         if (keys.down) copChase.gap -= 50 * dt;   // braking lets him catch up

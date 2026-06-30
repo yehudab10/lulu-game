@@ -720,7 +720,10 @@
                 // She's out — and her fugitive HEAT carries over / escalates with each
                 // prior break (no more wiping the slate to 1★ every time she runs).
                 save.escapes = (save.escapes || 0) + 1; persistSave();
-                var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
+                // Each break starts a little hotter than the last, but RAMPS gently
+                // (≈1★→1★→2★→2★→3★) instead of vaulting straight to 4★ — she should
+                // climb the heat ladder, not skip to the top the instant she's out.
+                var heat = Math.min(30, (save.escapes - 1) * 7);   // 0, 7, 14, 21, 28…
                 // She broke out FROM these charges — they're still outstanding, so
                 // they ride onto her wanted file (so the next charge sheet remembers
                 // everything instead of resetting to just "ESCAPE").
@@ -1407,7 +1410,8 @@
                     // Plea bargain: cop to a lesser charge for a guaranteed small fine.
                     court.verdict = "fine";
                     court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
-                    save.convictions = (save.convictions || 0) + 1; persistSave();
+                    // A plea bargain is the lenient way out — it should NOT add a strike
+                    // (that double-punished the cheap option and snowballed toward jail).
                     court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
@@ -1870,7 +1874,7 @@
             if (typeof spawnPatrolCar === "function") {
                 var pc = spawnPatrolCar();
                 // 3★+ : some cruisers turn into hunters that track her lane.
-                if (pc && wl >= 3 && Math.random() < (wl >= 4 ? 0.7 : 0.45)) pc.aggro = true;
+                if (pc && wl >= 3 && Math.random() < (wl >= 4 ? 0.7 : 0.20)) pc.aggro = true;   // 3★ eases in (was 0.45)
             }
             if (wl >= 4 && typeof spawnK9Unit === "function" && Math.random() < 0.4) spawnK9Unit();
             if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.4) spawnRoadCop();
@@ -1922,7 +1926,7 @@
         for (var i = copK9s.length - 1; i >= 0; i--) {
             var k = copK9s[i]; k.t += dt; k.bark -= dt;
             if (k.bark <= 0) { k.bark = rand(0.6, 1.2); if (typeof playDogBark === "function" && Math.abs(k.y - player.y) < 240) playDogBark(); }
-            k.x = lerp(k.x, player.x, Math.min(1, 1.4 * dt));
+            k.x = lerp(k.x, player.x, Math.min(1, 0.9 * dt));   // soft homing — a lane-change can shake the dog
             k.y += (gameSpeed * 1.1 + 70) * dt;
             if (k.y > H + 50) { copK9s.splice(i, 1); continue; }
             if (invincibleTimer <= 0 && aabb(player.x, player.y, CAR_W * 0.6, CAR_H * 0.6, k.x, k.y, k.hitW, k.hitH)) {
