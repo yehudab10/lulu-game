@@ -6819,6 +6819,14 @@
         // re-entering the car doesn't instantly re-trigger a chase from a stale value.
         if (typeof copK9s !== "undefined") { copK9s = []; copMissiles = []; copK9T = 0; copMslT = 0; }
         if (typeof fugitiveSpot !== "undefined") fugitiveSpot = 0;
+        // Fresh back on the road — bailed out, broke out, or let off at a stop. Give a
+        // REAL breather before any cop (speed trap / APB / wanted/fugitive recognition)
+        // can re-pounce, and zero the recognition meters + delay the next call-in.
+        // Otherwise a still-wanted Lulu gets re-chased the instant she's back, on loop.
+        postEscapeGrace = Math.max(postEscapeGrace, 6);
+        wantedSpot = 0;
+        spontaneousChaseCool = Math.max(spontaneousChaseCool, 8);
+        if (typeof wantedPatrolT !== "undefined") wantedPatrolT = Math.max(wantedPatrolT, 5);
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         honkChain = 0; honkChainResetTimer = 0;
@@ -23382,6 +23390,7 @@
         save.lockup = lk;                                    // restore (resetGame cleared it)
         if (lk.mode === "fugitive") {
             prisonClothes = true; fugitiveT = lk.fugT || 0; fugitiveSpot = 0; wantedPosterT = 1.5; fugCopT = 3; fugDisguise = null; fugDisguiseT = rand(12, 20);
+            if (typeof postEscapeGrace !== "undefined") postEscapeGrace = 6;   // breather on resume, don't insta-chase
             state = "playing"; return true;
         }
         if (lk.mode === "serving") {

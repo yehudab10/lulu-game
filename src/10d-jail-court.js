@@ -340,6 +340,7 @@
         save.lockup = lk;                                    // restore (resetGame cleared it)
         if (lk.mode === "fugitive") {
             prisonClothes = true; fugitiveT = lk.fugT || 0; fugitiveSpot = 0; wantedPosterT = 1.5; fugCopT = 3; fugDisguise = null; fugDisguiseT = rand(12, 20);
+            if (typeof postEscapeGrace !== "undefined") postEscapeGrace = 6;   // breather on resume, don't insta-chase
             state = "playing"; return true;
         }
         if (lk.mode === "serving") {
