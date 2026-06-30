@@ -359,10 +359,10 @@
             if (a.walkP >= 1 && a.t > 0.5) {        // door shut → roll out
                 a.phase = 5; a.t = 0;
                 playTone(220, 0.08, "square", 0.12);   // *thunk* door
-                a.station = { x: (a.fromLeft ? ROAD_R + 44 : ROAD_L - 44), y: -150, side: a.fromLeft ? 1 : -1,
-                              kind: "police", w: 78, h: 116, lit: true, tint: 1, seed: 42, style: 0, roof: 0,
-                              shade: 0, label: "POLICE", glow: false, signC: BUILD_SIGN.police,
-                              roofC: "#37474F", awn: [0, 0], prod: [0, 0, 0] };
+                // she's driven INTO the precinct's motor-pool — the same roadside
+                // police lot she sees while driving the police zone.
+                a.station = { x: (a.fromLeft ? ROAD_R + 48 : ROAD_L - 48), y: -160, side: a.fromLeft ? 1 : -1,
+                              kind: "policeLot", w: 92, h: 150 };
             }
             return;
         }

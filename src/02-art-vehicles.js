@@ -1718,4 +1718,47 @@
         ctx.restore();
     }
 
+    // A little roadside police motor-pool: paved lot, parked cruisers, a
+    // standing officer, and one walking a cuffed perp in. Drawn relative to a
+    // scrolling building-like record {x (center), y (top), w, h, side}. Reused
+    // as the lot the arrest cruiser pulls into at the station.
+    function drawPoliceLot(b) {
+        var lw = b.w, lh = b.h, lx = b.x - lw / 2, ly = b.y, t = gameTime;
+        ctx.save();
+        // drop shadow + asphalt pad
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(lx + 3, ly + 5, lw, lh, 7); ctx.fill();
+        var pg = ctx.createLinearGradient(0, ly, 0, ly + lh);
+        pg.addColorStop(0, "#74797E"); pg.addColorStop(1, "#5E6368");
+        ctx.fillStyle = pg; roundRect(lx, ly, lw, lh, 7); ctx.fill();
+        ctx.strokeStyle = "#3F4448"; ctx.lineWidth = 2; roundRect(lx, ly, lw, lh, 7); ctx.stroke();
+        // yellow parking-bay lines
+        ctx.strokeStyle = "rgba(255,213,79,0.75)"; ctx.lineWidth = 2;
+        for (var py = ly + 20; py < ly + lh - 16; py += 38) {
+            ctx.beginPath(); ctx.moveTo(lx + 8, py); ctx.lineTo(lx + lw - 8, py); ctx.stroke();
+        }
+        // POLICE sign on a post at the entrance
+        ctx.fillStyle = "#37474F"; ctx.fillRect(b.x - 1.5, ly - 16, 3, 16);
+        ctx.fillStyle = "#1A237E"; roundRect(b.x - 26, ly - 30, 52, 15, 3); ctx.fill();
+        drawText("POLICE", b.x, ly - 22, "bold 9px 'Segoe UI', Arial", "#FFD54F", "#000", 2);
+        // two parked cruisers (static), scaled to fit the bays
+        var sc = Math.min(0.7, (lw - 14) / (CAR_W + 12));
+        for (var c = 0; c < 2; c++) {
+            ctx.save(); ctx.translate(b.x, ly + 34 + c * 40); ctx.scale(sc, sc); drawCopCar(0, 0, 0); ctx.restore();
+        }
+        // an officer standing watch (lower-left)…
+        drawAngryMan(lx + 16, ly + lh - 12, t, "talk", 1, true);
+        // …and an officer walking a cuffed perp toward the door (lower-right)
+        var ex = lx + lw - 30, ey = ly + lh - 12;
+        ctx.save(); ctx.translate(ex + 13, ey);
+        ctx.fillStyle = "#CFD8DC"; roundRect(-6, -16, 12, 16, 3); ctx.fill();             // perp torso
+        ctx.strokeStyle = "#78909C"; ctx.lineWidth = 1.4;                                  // prison stripes
+        ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(6, -12); ctx.moveTo(-6, -7); ctx.lineTo(6, -7); ctx.moveTo(-6, -2); ctx.lineTo(6, -2); ctx.stroke();
+        ctx.fillStyle = (typeof C !== "undefined" && C.skin) || "#FFD9C0"; ctx.beginPath(); ctx.arc(0, -20, 5, 0, Math.PI * 2); ctx.fill();   // head
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -22, 5, Math.PI, 0); ctx.fill();   // hair
+        ctx.fillStyle = "#B0BEC5"; ctx.fillRect(-3, -6, 6, 3);                              // cuffs
+        ctx.restore();
+        drawAngryMan(ex, ey, t, "running", 1, true);
+        ctx.restore();
+    }
+
     // ── Drawing: Parking scene ───────────────────────────────

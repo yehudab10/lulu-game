@@ -1521,6 +1521,7 @@
     var zone = "rural";
     var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
     var cityBuildings = [], cityBuildTimer = 0;
+    var policeLotCount = 0;   // # of roadside police lots spawned this police zone (cap ~2)
     var citiesSeen = 0; // used to fast-track the bar district on the first city visit
 
     function initZone() {
@@ -1548,6 +1549,7 @@
                     if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
                 }
                 cityBuildTimer = 0;
+                policeLotCount = 0;   // fresh zone → it can grow a lot or two again
             }
         } else {
             if (scrollOffset >= zoneEndsAt) {
@@ -1561,8 +1563,13 @@
                     // Spaced out + sides chosen independently so it's a streetscape,
                     // not a solid wall of identical boxes.
                     cityBuildTimer = rand(1.0, 1.8);
-                    if (Math.random() < 0.85) spawnCityBuilding(-1);
-                    if (Math.random() < 0.7) spawnCityBuilding(1);
+                    // The police zone grows a roadside motor-pool once or twice.
+                    if (zone === "police" && policeLotCount < 2 && Math.random() < 0.45) {
+                        spawnPoliceLot(Math.random() < 0.5 ? -1 : 1); policeLotCount++;
+                    } else {
+                        if (Math.random() < 0.85) spawnCityBuilding(-1);
+                        if (Math.random() < 0.7) spawnCityBuilding(1);
+                    }
                 }
             }
         }
@@ -1570,6 +1577,12 @@
             cityBuildings[i].y += speed * dt;
             if (cityBuildings[i].y > H + 160) cityBuildings.splice(i, 1);
         }
+    }
+    function spawnPoliceLot(side) {
+        var lw = 92, lh = 150;
+        var x = side < 0 ? Math.max(lw / 2 + 2, ROAD_L / 2)
+                         : Math.min(W - lw / 2 - 2, (ROAD_R + W) / 2);
+        cityBuildings.push({ x: x, y: -lh - 30, side: side, kind: "policeLot", w: lw, h: lh });
     }
     function spawnCityBuilding(side) {
         var shortKind = (zone === "market" || zone === "gas");
@@ -1686,6 +1699,7 @@
 
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";

@@ -1523,6 +1523,7 @@
     var zone = "rural";
     var zoneEndsAt = 0, zoneNextAt = ZONE_RURAL_GAP;
     var cityBuildings = [], cityBuildTimer = 0;
+    var policeLotCount = 0;   // # of roadside police lots spawned this police zone (cap ~2)
     var citiesSeen = 0; // used to fast-track the bar district on the first city visit
 
     function initZone() {
@@ -1550,6 +1551,7 @@
                     if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
                 }
                 cityBuildTimer = 0;
+                policeLotCount = 0;   // fresh zone → it can grow a lot or two again
             }
         } else {
             if (scrollOffset >= zoneEndsAt) {
@@ -1563,8 +1565,13 @@
                     // Spaced out + sides chosen independently so it's a streetscape,
                     // not a solid wall of identical boxes.
                     cityBuildTimer = rand(1.0, 1.8);
-                    if (Math.random() < 0.85) spawnCityBuilding(-1);
-                    if (Math.random() < 0.7) spawnCityBuilding(1);
+                    // The police zone grows a roadside motor-pool once or twice.
+                    if (zone === "police" && policeLotCount < 2 && Math.random() < 0.45) {
+                        spawnPoliceLot(Math.random() < 0.5 ? -1 : 1); policeLotCount++;
+                    } else {
+                        if (Math.random() < 0.85) spawnCityBuilding(-1);
+                        if (Math.random() < 0.7) spawnCityBuilding(1);
+                    }
                 }
             }
         }
@@ -1572,6 +1579,12 @@
             cityBuildings[i].y += speed * dt;
             if (cityBuildings[i].y > H + 160) cityBuildings.splice(i, 1);
         }
+    }
+    function spawnPoliceLot(side) {
+        var lw = 92, lh = 150;
+        var x = side < 0 ? Math.max(lw / 2 + 2, ROAD_L / 2)
+                         : Math.min(W - lw / 2 - 2, (ROAD_R + W) / 2);
+        cityBuildings.push({ x: x, y: -lh - 30, side: side, kind: "policeLot", w: lw, h: lh });
     }
     function spawnCityBuilding(side) {
         var shortKind = (zone === "market" || zone === "gas");
@@ -1688,6 +1701,7 @@
 
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";
@@ -3947,6 +3961,49 @@
         roundRect(-hw - 3, hh - 26, 7, 16, 3); ctx.fill();
         roundRect(hw - 4, hh - 26, 7, 16, 3); ctx.fill();
 
+        ctx.restore();
+    }
+
+    // A little roadside police motor-pool: paved lot, parked cruisers, a
+    // standing officer, and one walking a cuffed perp in. Drawn relative to a
+    // scrolling building-like record {x (center), y (top), w, h, side}. Reused
+    // as the lot the arrest cruiser pulls into at the station.
+    function drawPoliceLot(b) {
+        var lw = b.w, lh = b.h, lx = b.x - lw / 2, ly = b.y, t = gameTime;
+        ctx.save();
+        // drop shadow + asphalt pad
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; roundRect(lx + 3, ly + 5, lw, lh, 7); ctx.fill();
+        var pg = ctx.createLinearGradient(0, ly, 0, ly + lh);
+        pg.addColorStop(0, "#74797E"); pg.addColorStop(1, "#5E6368");
+        ctx.fillStyle = pg; roundRect(lx, ly, lw, lh, 7); ctx.fill();
+        ctx.strokeStyle = "#3F4448"; ctx.lineWidth = 2; roundRect(lx, ly, lw, lh, 7); ctx.stroke();
+        // yellow parking-bay lines
+        ctx.strokeStyle = "rgba(255,213,79,0.75)"; ctx.lineWidth = 2;
+        for (var py = ly + 20; py < ly + lh - 16; py += 38) {
+            ctx.beginPath(); ctx.moveTo(lx + 8, py); ctx.lineTo(lx + lw - 8, py); ctx.stroke();
+        }
+        // POLICE sign on a post at the entrance
+        ctx.fillStyle = "#37474F"; ctx.fillRect(b.x - 1.5, ly - 16, 3, 16);
+        ctx.fillStyle = "#1A237E"; roundRect(b.x - 26, ly - 30, 52, 15, 3); ctx.fill();
+        drawText("POLICE", b.x, ly - 22, "bold 9px 'Segoe UI', Arial", "#FFD54F", "#000", 2);
+        // two parked cruisers (static), scaled to fit the bays
+        var sc = Math.min(0.7, (lw - 14) / (CAR_W + 12));
+        for (var c = 0; c < 2; c++) {
+            ctx.save(); ctx.translate(b.x, ly + 34 + c * 40); ctx.scale(sc, sc); drawCopCar(0, 0, 0); ctx.restore();
+        }
+        // an officer standing watch (lower-left)…
+        drawAngryMan(lx + 16, ly + lh - 12, t, "talk", 1, true);
+        // …and an officer walking a cuffed perp toward the door (lower-right)
+        var ex = lx + lw - 30, ey = ly + lh - 12;
+        ctx.save(); ctx.translate(ex + 13, ey);
+        ctx.fillStyle = "#CFD8DC"; roundRect(-6, -16, 12, 16, 3); ctx.fill();             // perp torso
+        ctx.strokeStyle = "#78909C"; ctx.lineWidth = 1.4;                                  // prison stripes
+        ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(6, -12); ctx.moveTo(-6, -7); ctx.lineTo(6, -7); ctx.moveTo(-6, -2); ctx.lineTo(6, -2); ctx.stroke();
+        ctx.fillStyle = (typeof C !== "undefined" && C.skin) || "#FFD9C0"; ctx.beginPath(); ctx.arc(0, -20, 5, 0, Math.PI * 2); ctx.fill();   // head
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -22, 5, Math.PI, 0); ctx.fill();   // hair
+        ctx.fillStyle = "#B0BEC5"; ctx.fillRect(-3, -6, 6, 3);                              // cuffs
+        ctx.restore();
+        drawAngryMan(ex, ey, t, "running", 1, true);
         ctx.restore();
     }
 
@@ -22573,10 +22630,10 @@
             if (a.walkP >= 1 && a.t > 0.5) {        // door shut → roll out
                 a.phase = 5; a.t = 0;
                 playTone(220, 0.08, "square", 0.12);   // *thunk* door
-                a.station = { x: (a.fromLeft ? ROAD_R + 44 : ROAD_L - 44), y: -150, side: a.fromLeft ? 1 : -1,
-                              kind: "police", w: 78, h: 116, lit: true, tint: 1, seed: 42, style: 0, roof: 0,
-                              shade: 0, label: "POLICE", glow: false, signC: BUILD_SIGN.police,
-                              roofC: "#37474F", awn: [0, 0], prod: [0, 0, 0] };
+                // she's driven INTO the precinct's motor-pool — the same roadside
+                // police lot she sees while driving the police zone.
+                a.station = { x: (a.fromLeft ? ROAD_R + 48 : ROAD_L - 48), y: -160, side: a.fromLeft ? 1 : -1,
+                              kind: "policeLot", w: 92, h: 150 };
             }
             return;
         }
