@@ -17,6 +17,7 @@
     var footIntroT = 0;          // get-out cinematic timer (no tap needed)
     var footWalkTime = 0;        // animation clock for the on-foot sprite
     var footMood = "run";        // "run" | "panic" | "cry"
+    var footDisguiseLook = null;  // null | "oldLady" | "oldMan" — set by the QUICK-CHANGE booth
     var footParked = [];         // stealable parked cars on the shoulder
     var footHotwire = null;      // the quick "hotwire to unlock it" challenge
     var footApproach = null;     // walking up + coasting to a STOP at the car before hotwiring
@@ -125,7 +126,7 @@
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footChase = null; footBuskT = 0;
-        footDisguise = null; footDisguiseCool = 3;
+        footDisguise = null; footDisguiseCool = 3; footDisguiseLook = null;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -689,11 +690,14 @@
     function footDoDisguise() {
         footDisguise = null; footDisguiseCool = rand(8, 14);
         footChase = null;
+        // Actually CHANGE her clothes — she walks out as a little old lady or old
+        // man (random), so nobody recognizes her for the rest of this foot trip.
+        footDisguiseLook = Math.random() < 0.5 ? "oldLady" : "oldMan";
         if (typeof clearWanted === "function") clearWanted();
         if (typeof prisonClothes !== "undefined") prisonClothes = false;
         if (typeof clearLockup === "function") clearLockup();
         if (typeof fugitiveSpot !== "undefined") fugitiveSpot = 0;
-        spawnFloater(player.x, player.y - 58, "🥸 NEW LOOK!", "#7CFC4F");
+        spawnFloater(player.x, player.y - 58, footDisguiseLook === "oldLady" ? "👵 SWEET OLD LADY!" : "👴 OLD MAN DISGUISE!", "#7CFC4F");
         spawnFloater(player.x, player.y - 36, "Heat's off — nobody knows you! 😎", "#B9F6CA");
         playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
         for (var i = 0; i < 18; i++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
@@ -1144,6 +1148,29 @@
         ctx.fillStyle = mood === "panic" ? "rgba(244,90,90,0.55)" : "rgba(230,140,140,0.45)";
         ctx.beginPath(); ctx.arc(-5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2);
         ctx.arc(5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2); ctx.fill();
+
+        // ── DISGUISE: paint the old-lady / old-man getup over the top so she
+        //    visibly becomes someone else after the QUICK-CHANGE booth. ──
+        if (footDisguiseLook === "oldLady") {
+            ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.ellipse(0, 1, 13, 10, 0, 0, Math.PI * 2); ctx.fill();   // drab shawl over the torso
+            ctx.fillStyle = "#CFCFCF"; ctx.beginPath(); ctx.arc(0, -19, 4, 0, Math.PI * 2); ctx.fill();             // gray bun peeking out back
+            ctx.fillStyle = "#C2185B"; ctx.beginPath(); ctx.arc(0, -14, 9.6, Math.PI, 0);                          // floral babushka headscarf
+            ctx.lineTo(8, -11); ctx.quadraticCurveTo(0, -7.5, -8, -11); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-2.4, -7); ctx.lineTo(2.4, -7); ctx.lineTo(0, -2.5); ctx.closePath(); ctx.fill();   // knot under the chin
+            ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath();
+            ctx.arc(-4, -14, 1, 0, Math.PI * 2); ctx.arc(3, -16, 1, 0, Math.PI * 2); ctx.arc(5, -12, 1, 0, Math.PI * 2); ctx.fill();   // polka dots
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.8; ctx.beginPath();
+            ctx.arc(-2.6, -13, 2, 0, Math.PI * 2); ctx.arc(2.6, -13, 2, 0, Math.PI * 2); ctx.moveTo(-0.6, -13); ctx.lineTo(0.6, -13); ctx.stroke();   // granny glasses
+        } else if (footDisguiseLook === "oldMan") {
+            ctx.fillStyle = "#546E7A"; ctx.beginPath(); ctx.ellipse(0, 1, 13, 10, 0, 0, Math.PI * 2); ctx.fill();   // drab coat over the torso
+            ctx.fillStyle = "#CFCFCF"; ctx.beginPath(); ctx.arc(-7, -12.5, 2.6, 0, Math.PI * 2); ctx.arc(7, -12.5, 2.6, 0, Math.PI * 2); ctx.fill();   // gray side hair
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -15, 9, Math.PI, 0); ctx.fill();                 // flat newsboy cap
+            ctx.beginPath(); ctx.ellipse(0, -15, 9, 2.6, 0, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#4E342E"; roundRect(-10, -15.5, 5, 2.4, 1); ctx.fill();                                // little brim
+            ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.ellipse(0, -9, 3.6, 1.6, 0, 0, Math.PI * 2); ctx.fill();   // bushy gray mustache
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.8; ctx.beginPath();
+            ctx.arc(-2.6, -13, 2, 0, Math.PI * 2); ctx.arc(2.6, -13, 2, 0, Math.PI * 2); ctx.stroke();              // round spectacles
+        }
 
         ctx.restore();
     }

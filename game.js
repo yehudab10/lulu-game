@@ -1495,7 +1495,7 @@
     // themed roadside buildings and matching traffic: a bar district (drunk
     // drivers), police HQ (lots of cops), a school zone (kids crossing), or
     // downtown (texting drivers). Zones last a good stretch so they don't flash by.
-    var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market"];
+    var ZONE_CITY = ["bars", "police", "school", "downtown", "hospital", "construction", "gas", "market", "salon", "parking"];
     // Weighted city picker: the bar district is a signature set-piece (drunks
     // catcalling Lulu), so it's a touch more common than the rest — but only
     // slightly, and never forced to be first. Everything else is equal-weight.
@@ -1514,6 +1514,7 @@
     var ZONE_NAMES = {
         bars: "Bar District 🍸", police: "Police HQ 🚓", school: "School Zone 🏫", downtown: "Downtown 🏙️",
         hospital: "Hospital 🏥", construction: "Construction 🚧", gas: "Gas Station ⛽", market: "Farmers Market 🧺",
+        salon: "Salon Row 💇", parking: "Parking District 🅿️",
         bridge: "Bridge Crossing 🌉", beach: "Coast Road 🏖️"
     };
     // Each city often arrives with a fitting sky (atmospheric combos).
@@ -1521,7 +1522,8 @@
         bars: ["night", "night", "rain"], downtown: ["night", "fog", "rain"],
         police: ["night", "rain"], school: ["summer", "spring"],
         market: ["summer", "spring"], construction: ["summer", "heatwave"],
-        hospital: ["summer", "fog"], gas: ["summer", "night"]
+        hospital: ["summer", "fog"], gas: ["summer", "night"],
+        salon: ["spring", "summer"], parking: ["night", "fog"]
     };
     var ZONE_RURAL_GAP = 11000;   // px of rural driving between city visits
     var zone = "rural";
@@ -1591,9 +1593,9 @@
         cityBuildings.push({ x: x, y: -lh - 30, side: side, kind: "policeLot", w: lw, h: lh });
     }
     function spawnCityBuilding(side) {
-        var shortKind = (zone === "market" || zone === "gas");
-        var w = rand(50, 74);
-        var h = shortKind ? rand(58, 82) : rand(74, zone === "downtown" ? 162 : 126);
+        var shortKind = (zone === "market" || zone === "gas" || zone === "salon");
+        var w = zone === "parking" ? rand(70, 96) : rand(50, 74);
+        var h = shortKind ? rand(64, 92) : (zone === "parking" ? rand(96, 138) : rand(74, zone === "downtown" ? 162 : 126));
         var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
                          : rand(ROAD_R + 6, W - w - 6) + w / 2;
         // All variety is chosen ONCE here (stable per building → no flicker).
@@ -1626,12 +1628,13 @@
         bars: ["#3E2C4F", "#4A3A5C", "#5C2E52"], police: ["#37474F", "#455A64", "#2E3D44"],
         school: ["#9C4A3C", "#A85A48", "#8C4234"], downtown: ["#546E7A", "#607D8B", "#7E8A93"],
         hospital: ["#ECEFF1", "#E0E4E7", "#F5F7F8"], construction: ["#9E8E6E", "#8C7D5E", "#A89A7C"],
-        gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"]
+        gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"],
+        salon: ["#E79BBC", "#EFA9C6", "#DD8BAE"], parking: ["#79858C", "#828E95", "#6E7A81"]
     };
-    var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET" };
+    var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET", salon: "SALON", parking: "PARKING" };
     var BAR_NAMES = ["BAR", "PUB", "LOUNGE", "KARAOKE", "TAVERN", "JUICE BAR"];
     var SCHOOL_NAMES = ["SCHOOL", "BAIS YAAKOV", "CHEDER", "ACADEMY", "DAY SCHOOL"];
-    var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581" };
+    var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581", salon: "#FFC0DD", parking: "#90CAF9" };
     var AWN_COLS = ["#E53935", "#43A047", "#1E88E5", "#FB8C00"];
     var PRODUCE = ["#FF7043", "#FFCA28", "#8BC34A", "#E53935", "#AB47BC"];
     function drawMarketStall(b) {
@@ -1793,10 +1796,170 @@
         ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(fpx, y - 26, 1.4, 0, Math.PI * 2); ctx.fill();
     }
 
+    // A chic HAIR SALON: blush-pink stucco facade, a scalloped pink/white awning,
+    // a big plate-glass window with a styling chair + mannequin-head silhouette,
+    // a candy-stripe barber pole by the door, and a glowing neon "💇 SALON" sign.
+    // Reads instantly as a hair salon at the roadside building scale.
+    function drawSalonStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // blush stucco facade (lighter at top)
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#FAD3E2"); fg.addColorStop(1, "#E79BBC");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(120,40,80,0.35)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // soft pilasters
+        ctx.fillStyle = "rgba(255,255,255,0.22)"; ctx.fillRect(x, y, 4, h); ctx.fillRect(x + w - 4, y, 4, h);
+        // gold trim band under the sign
+        ctx.fillStyle = "#E6B84F"; ctx.fillRect(x, y + 2, w, 3);
+
+        // ── big plate-glass window (most of the lower facade) ──
+        var gx = x + 6, gy = y + h * 0.42, gw = w - 12, gh = h - (gy - y) - 22;
+        ctx.fillStyle = "#5B7C86"; roundRect(gx, gy, gw, gh, 3); ctx.fill();           // glass (teal-grey)
+        var glass = ctx.createLinearGradient(gx, gy, gx + gw, gy + gh);
+        glass.addColorStop(0, "rgba(255,255,255,0.45)"); glass.addColorStop(0.5, "rgba(255,255,255,0.05)");
+        glass.addColorStop(1, "rgba(255,255,255,0.30)");
+        ctx.fillStyle = glass; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        ctx.strokeStyle = "#C98AAA"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 3); ctx.stroke();
+        var gbot = gy + gh;
+        // mannequin-head silhouette on a stand (left of window)
+        var mhx = gx + gw * 0.30;
+        ctx.fillStyle = "rgba(40,20,40,0.55)";
+        ctx.fillRect(mhx - 1, gbot - gh * 0.34, 2, gh * 0.34);                          // stand
+        ctx.beginPath(); ctx.arc(mhx, gbot - gh * 0.40, gh * 0.11, 0, Math.PI * 2); ctx.fill(); // head
+        // big swoosh of styled hair on the head
+        ctx.fillStyle = "rgba(90,55,30,0.6)";
+        ctx.beginPath();
+        ctx.moveTo(mhx - gh * 0.11, gbot - gh * 0.42);
+        ctx.quadraticCurveTo(mhx - gh * 0.22, gbot - gh * 0.18, mhx - gh * 0.05, gbot - gh * 0.14);
+        ctx.quadraticCurveTo(mhx + gh * 0.02, gbot - gh * 0.34, mhx + gh * 0.10, gbot - gh * 0.40);
+        ctx.closePath(); ctx.fill();
+        // styling chair silhouette (right of window)
+        var chx = gx + gw * 0.70;
+        ctx.fillStyle = "rgba(40,20,40,0.5)";
+        ctx.fillRect(chx - 1.5, gbot - gh * 0.30, 3, gh * 0.30);                        // pedestal
+        roundRect(chx - gh * 0.10, gbot - gh * 0.44, gh * 0.20, gh * 0.18, 3); ctx.fill(); // seat back
+        ctx.fillRect(chx - gh * 0.10, gbot - gh * 0.30, gh * 0.20, gh * 0.06);          // seat
+        // a couple of pink bottles on a counter shelf
+        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(gx + 3, gbot - 7, gw - 6, 3);
+        ctx.fillStyle = "#FF7AB3"; ctx.fillRect(gx + 6, gbot - 12, 3, 5);
+        ctx.fillStyle = "#FFD24F"; ctx.fillRect(gx + 12, gbot - 11, 3, 4);
+        ctx.fillStyle = "#7AD0FF"; ctx.fillRect(gx + gw - 12, gbot - 12, 3, 5);
+
+        // ── door + barber pole ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 5 : x + 5, dyTop = y + h - 18;
+        ctx.fillStyle = "#7A4A60"; roundRect(dx, dyTop, dw, 18, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(dx + 2, dyTop + 2, dw - 4, 7);
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+        // barber pole on the far side of the door from the window flow
+        var bpx = (b.side < 0) ? x + 7 : x + w - 7, bpY = y + h - 26, bpH = 22;
+        ctx.fillStyle = "#FFFFFF"; roundRect(bpx - 2.5, bpY, 5, bpH, 2.5); ctx.fill();
+        for (var sp = 0; sp < bpH; sp += 4) {
+            var off = (sp + (t * 9) % 4);
+            ctx.fillStyle = ((Math.floor((sp) / 4) % 2)) ? "#E53935" : "#1E88E5";
+            ctx.fillRect(bpx - 2.5, bpY + ((off) % bpH), 5, 2);
+        }
+        ctx.fillStyle = "#C0A050"; ctx.fillRect(bpx - 3, bpY - 2, 6, 2.5); ctx.fillRect(bpx - 3, bpY + bpH - 0.5, 6, 2.5);
+
+        // ── scalloped pink/white awning above the window ──
+        var awY = gy - 13, awH = 11, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FFFFFF" : "#F06AA6";
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 5); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x, awY, w, 2);
+
+        // ── glowing neon SALON sign poking above the roof ──
+        var sy0 = y - 17;
+        ctx.fillStyle = "#3A1828"; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.fill();
+        ctx.strokeStyle = "#E6B84F"; ctx.lineWidth = 1; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.stroke();
+        ctx.shadowColor = "#FF4FA3"; ctx.shadowBlur = 7;
+        drawFitText("💇 " + (b.label || "SALON"), x + w / 2, sy0 + 8, w - 14, 10, "#FFC0DD");
+        ctx.shadowBlur = 0;
+    }
+
+    // A multi-level PARKING GARAGE: concrete-grey structure with blue trim,
+    // horizontal deck slabs (a couple of parked-car silhouettes peeking out of the
+    // openings), a roll-up entry door with a ramp arrow, and a bold blue "P" sign
+    // on the roof. Reads instantly as a parking structure.
+    function drawParkingGarage(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // concrete facade
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#9AA6AD"); fg.addColorStop(1, "#79858C");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        // corner columns
+        ctx.fillStyle = "#B3BEC4"; ctx.fillRect(x, y, 6, h); ctx.fillRect(x + w - 6, y, 6, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // blue cornice band at the top
+        ctx.fillStyle = "#1E88E5"; ctx.fillRect(x - 2, y - 4, w + 4, 7);
+        ctx.fillStyle = "#1565C0"; ctx.fillRect(x - 2, y - 4, w + 4, 2.5);
+
+        // ── deck levels: each level is a dark open band with a slab beneath it,
+        //    and the road-facing openings show a parked-car silhouette or two ──
+        var carCols = ["#E57373", "#FFD54F", "#64B5F6", "#FFFFFF", "#81C784", "#FF8A65"];
+        var lvlH = 22, leftIn = x + 8, rightIn = x + w - 8, innerW = rightIn - leftIn;
+        var doorH = 20, lastLvlBot = y + h - doorH - 2;
+        var li = 0;
+        for (var ly = y + 9; ly + lvlH <= lastLvlBot; ly += lvlH) {
+            // open (dark) deck cavity
+            ctx.fillStyle = "#34404A"; ctx.fillRect(leftIn, ly, innerW, lvlH - 6);
+            // a couple of parked-car silhouettes peeking out (deterministic per level)
+            var slots = Math.max(2, Math.floor(innerW / 17));
+            var slotW = innerW / slots;
+            for (var c = 0; c < slots; c++) {
+                var key = ((li * 31 + c * 17 + (b.seed || 1)) % 10);
+                if (key < 5) continue;                                  // empty stall
+                var cx0 = leftIn + c * slotW + 2, cwid = slotW - 4, carTop = ly + lvlH - 6 - 9;
+                ctx.fillStyle = carCols[(li * 3 + c + (b.seed || 0)) % carCols.length];
+                roundRect(cx0, carTop, cwid, 9, 2); ctx.fill();          // car body
+                ctx.fillStyle = "rgba(180,225,255,0.55)"; ctx.fillRect(cx0 + 1.5, carTop + 1, cwid - 3, 3.5); // windshield
+                ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(cx0 + 1, carTop + 8, 2.5, 2); ctx.fillRect(cx0 + cwid - 3.5, carTop + 8, 2.5, 2); // wheels
+            }
+            // concrete slab under the deck (with blue safety stripe edge)
+            ctx.fillStyle = "#C2CBD0"; ctx.fillRect(leftIn - 2, ly + lvlH - 6, innerW + 4, 6);
+            ctx.fillStyle = "#FBC02D"; ctx.fillRect(leftIn - 2, ly + lvlH - 6, innerW + 4, 1.5);
+            li++;
+        }
+
+        // ── ground floor: roll-up entry door with chevron ramp arrows ──
+        var dy = y + h - doorH;
+        ctx.fillStyle = "#2B343B"; ctx.fillRect(leftIn - 2, dy, innerW + 4, doorH);
+        ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1;
+        for (var rr = dy + 3; rr < dy + doorH; rr += 4) { ctx.beginPath(); ctx.moveTo(leftIn - 2, rr); ctx.lineTo(leftIn + innerW + 2, rr); ctx.stroke(); }
+        // up-ramp chevrons (entry arrow) pointing in
+        var acx = x + w / 2;
+        ctx.strokeStyle = "#FFEB3B"; ctx.lineWidth = 2;
+        for (var ch = 0; ch < 3; ch++) {
+            var ay = dy + doorH - 4 - ch * 5;
+            ctx.beginPath(); ctx.moveTo(acx - 6, ay + 3); ctx.lineTo(acx, ay - 1); ctx.lineTo(acx + 6, ay + 3); ctx.stroke();
+        }
+        // clearance bar above the door
+        ctx.fillStyle = "#FBC02D"; ctx.fillRect(leftIn - 2, dy - 3, innerW + 4, 3);
+
+        // ── bold blue "P" sign on a post poking above the roof ──
+        var px2 = (b.side < 0) ? x + 12 : x + w - 12, sTop = y - 30;
+        ctx.fillStyle = "#90A4AE"; ctx.fillRect(px2 - 1.5, y - 6, 3, 6);                // post
+        ctx.fillStyle = "#1565C0"; roundRect(px2 - 9, sTop, 18, 18, 3); ctx.fill();
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 1.5; roundRect(px2 - 9, sTop, 18, 18, 3); ctx.stroke();
+        drawText("P", px2, sTop + 9, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFFFFF", null, 0);
+        // PARKING label band across the cornice
+        var ly0 = y - 18;
+        ctx.fillStyle = "#0D2A47"; roundRect(x + 4, ly0, w - 8, 14, 3); ctx.fill();
+        drawFitText(b.label || "PARKING", x + w / 2, ly0 + 7, w - 14, 9, "#90CAF9");
+    }
+
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
         if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
         if ((b.kind === "police" || b.kind === "policeStation")) { drawPoliceStation(b); return; }
+        if (b.kind === "salon") { drawSalonStore(b); return; }
+        if (b.kind === "parking") { drawParkingGarage(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";
@@ -5359,6 +5522,7 @@
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
+        if (typeof footDisguiseLook !== "undefined") footDisguiseLook = null;
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
         if (typeof roadsideVeh !== "undefined") { roadsideVeh = []; roadsideCool = 0; }
         iceCreamSigns = []; iceCreamSpawnTimer = 60;
@@ -13683,6 +13847,7 @@
     var footIntroT = 0;          // get-out cinematic timer (no tap needed)
     var footWalkTime = 0;        // animation clock for the on-foot sprite
     var footMood = "run";        // "run" | "panic" | "cry"
+    var footDisguiseLook = null;  // null | "oldLady" | "oldMan" — set by the QUICK-CHANGE booth
     var footParked = [];         // stealable parked cars on the shoulder
     var footHotwire = null;      // the quick "hotwire to unlock it" challenge
     var footApproach = null;     // walking up + coasting to a STOP at the car before hotwiring
@@ -13791,7 +13956,7 @@
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footChase = null; footBuskT = 0;
-        footDisguise = null; footDisguiseCool = 3;
+        footDisguise = null; footDisguiseCool = 3; footDisguiseLook = null;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -14355,11 +14520,14 @@
     function footDoDisguise() {
         footDisguise = null; footDisguiseCool = rand(8, 14);
         footChase = null;
+        // Actually CHANGE her clothes — she walks out as a little old lady or old
+        // man (random), so nobody recognizes her for the rest of this foot trip.
+        footDisguiseLook = Math.random() < 0.5 ? "oldLady" : "oldMan";
         if (typeof clearWanted === "function") clearWanted();
         if (typeof prisonClothes !== "undefined") prisonClothes = false;
         if (typeof clearLockup === "function") clearLockup();
         if (typeof fugitiveSpot !== "undefined") fugitiveSpot = 0;
-        spawnFloater(player.x, player.y - 58, "🥸 NEW LOOK!", "#7CFC4F");
+        spawnFloater(player.x, player.y - 58, footDisguiseLook === "oldLady" ? "👵 SWEET OLD LADY!" : "👴 OLD MAN DISGUISE!", "#7CFC4F");
         spawnFloater(player.x, player.y - 36, "Heat's off — nobody knows you! 😎", "#B9F6CA");
         playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
         for (var i = 0; i < 18; i++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
@@ -14810,6 +14978,29 @@
         ctx.fillStyle = mood === "panic" ? "rgba(244,90,90,0.55)" : "rgba(230,140,140,0.45)";
         ctx.beginPath(); ctx.arc(-5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2);
         ctx.arc(5, -11, mood === "panic" ? 1.6 : 1.1, 0, Math.PI * 2); ctx.fill();
+
+        // ── DISGUISE: paint the old-lady / old-man getup over the top so she
+        //    visibly becomes someone else after the QUICK-CHANGE booth. ──
+        if (footDisguiseLook === "oldLady") {
+            ctx.fillStyle = "#8D6E63"; ctx.beginPath(); ctx.ellipse(0, 1, 13, 10, 0, 0, Math.PI * 2); ctx.fill();   // drab shawl over the torso
+            ctx.fillStyle = "#CFCFCF"; ctx.beginPath(); ctx.arc(0, -19, 4, 0, Math.PI * 2); ctx.fill();             // gray bun peeking out back
+            ctx.fillStyle = "#C2185B"; ctx.beginPath(); ctx.arc(0, -14, 9.6, Math.PI, 0);                          // floral babushka headscarf
+            ctx.lineTo(8, -11); ctx.quadraticCurveTo(0, -7.5, -8, -11); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-2.4, -7); ctx.lineTo(2.4, -7); ctx.lineTo(0, -2.5); ctx.closePath(); ctx.fill();   // knot under the chin
+            ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.beginPath();
+            ctx.arc(-4, -14, 1, 0, Math.PI * 2); ctx.arc(3, -16, 1, 0, Math.PI * 2); ctx.arc(5, -12, 1, 0, Math.PI * 2); ctx.fill();   // polka dots
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.8; ctx.beginPath();
+            ctx.arc(-2.6, -13, 2, 0, Math.PI * 2); ctx.arc(2.6, -13, 2, 0, Math.PI * 2); ctx.moveTo(-0.6, -13); ctx.lineTo(0.6, -13); ctx.stroke();   // granny glasses
+        } else if (footDisguiseLook === "oldMan") {
+            ctx.fillStyle = "#546E7A"; ctx.beginPath(); ctx.ellipse(0, 1, 13, 10, 0, 0, Math.PI * 2); ctx.fill();   // drab coat over the torso
+            ctx.fillStyle = "#CFCFCF"; ctx.beginPath(); ctx.arc(-7, -12.5, 2.6, 0, Math.PI * 2); ctx.arc(7, -12.5, 2.6, 0, Math.PI * 2); ctx.fill();   // gray side hair
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -15, 9, Math.PI, 0); ctx.fill();                 // flat newsboy cap
+            ctx.beginPath(); ctx.ellipse(0, -15, 9, 2.6, 0, Math.PI, 0); ctx.fill();
+            ctx.fillStyle = "#4E342E"; roundRect(-10, -15.5, 5, 2.4, 1); ctx.fill();                                // little brim
+            ctx.fillStyle = "#E0E0E0"; ctx.beginPath(); ctx.ellipse(0, -9, 3.6, 1.6, 0, 0, Math.PI * 2); ctx.fill();   // bushy gray mustache
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 0.8; ctx.beginPath();
+            ctx.arc(-2.6, -13, 2, 0, Math.PI * 2); ctx.arc(2.6, -13, 2, 0, Math.PI * 2); ctx.stroke();              // round spectacles
+        }
 
         ctx.restore();
     }
@@ -23096,6 +23287,28 @@
     // The lawyer options Lulu can see this sentence (Abba only sometimes shows).
     function activeLawyerTiers() { return (jail && jail.abbaAvailable) ? [ABBA_TIER].concat(LAWYER_TIERS) : LAWYER_TIERS; }
 
+    // ── BOUNTY: one severity-weighted, CAPPED number drives every cost ──
+    // Proven model (Skyrim / RDR2): what you owe scales with how BAD the crimes
+    // were, not just how many charges stacked up, and it's hard-capped so it can
+    // never spiral past a few good runs' worth of coins. Bail / fine / plea all
+    // derive from this, so costs never stack into an unpayable wall.
+    var CHARGE_WEIGHT = {
+        "SPEEDING": 1, "DISTURBING THE PEACE": 1, "BEING SUSPICIOUS": 1, "JAYWALKING": 1,
+        "RECKLESS DRIVING": 2, "RESISTING ARREST": 2, "ATTEMPTED ESCAPE": 2,
+        "ATTEMPTED BRIBERY": 2, "BRIBING A COURT OFFICIAL": 2, "CONTEMPT OF COURT": 2,
+        "RUNNING FROM THE LAW": 3, "HIT AND RUN": 3, "JOYRIDING A STEAMROLLER": 3, "ESCAPE FROM CUSTODY": 3,
+        "GRAND THEFT AUTO": 4, "VEHICULAR DESTRUCTION": 4
+    };
+    var BOUNTY_CAP = 400;   // hard ceiling — a real sting, never a debt wall
+    function chargeWeight(c) { return CHARGE_WEIGHT[c] || 2; }   // unknown charge = moderate
+    function bountyFor(charges) {
+        var sum = 0, n = charges ? charges.length : 0;
+        for (var i = 0; i < n; i++) sum += chargeWeight(charges[i]);
+        if (sum === 0) sum = 1;
+        var strikes = Math.min(save.convictions || 0, 5);
+        return Math.min(BOUNTY_CAP, Math.round(13 * sum * (1 + 0.08 * strikes)));
+    }
+
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
           outcomes: [["dismissed", 0.45], ["fine", 0.40], ["jail", 0.15]] },
@@ -23122,8 +23335,9 @@
     ];
 
     // ── Persistence (survives a page refresh) ────────────────
-    function saveLockup(mode, charges, bail, days, total, fugT) {
-        save.lockup = { mode: mode, charges: charges || [], bail: bail || 0, days: days || 0, total: total || 30, fugT: fugT || 0 };
+    function saveLockup(mode, charges, bail, days, total, fugT, escFails, escUsed) {
+        save.lockup = { mode: mode, charges: charges || [], bail: bail || 0, days: days || 0, total: total || 30, fugT: fugT || 0,
+                        escFails: escFails || 0, escUsed: !!escUsed };
         persistSave();
     }
     function clearLockup() { save.lockup = null; persistSave(); }
@@ -23145,7 +23359,10 @@
         }
         jail = { charges: lk.charges || ["DISTURBING THE PEACE"], phase: 1, t: 0,
                  cellmateLine: randPick(CELLMATE_LINES), cellmateT: 4.0, escapeMethod: "",
-                 flash: 0, bail: lk.bail || 60, inmate: "#" + randInt(1000, 9999), camFlash: 0, escapeFails: 0, lock: null };
+                 flash: 0, bail: lk.bail || 60, inmate: "#" + randInt(1000, 9999), camFlash: 0,
+                 // Restore the breakout state so refreshing the page can't hand out a
+                 // fresh escape attempt (the old exploit: reload → unlimited tries).
+                 escapeFails: lk.escFails || 0, escUsed: !!lk.escUsed, lock: null };
         state = "jailCell"; return true;
     }
 
@@ -23411,7 +23628,9 @@
         save.offenses = (save.offenses || 0) + 1;
         var strikes = save.convictions || 0;
         // Bail climbs with how wanted she is (priors + strikes).
-        var bail = Math.round(list.length * randInt(38, 56) * (1 + (save.offenses - 1) * 0.35 + strikes * 0.6));
+        // Bail = ~40% of the capped bounty — a fast-track to skip the wait (charges
+        // stay open till court). Severity-weighted + capped, so it can't balloon.
+        var bail = Math.max(15, Math.round(bountyFor(list) * 0.4));
         jail = { charges: list, phase: 0, t: 0, cellmateLine: randPick(CELLMATE_LINES), cellmateT: 4.0,
                  escapeMethod: "", flash: 0.3, bail: bail, inmate: "#" + randInt(1000, 9999),
                  camFlash: 0, escapeFails: 0, lock: null,
@@ -23480,7 +23699,11 @@
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) {
                     // ONE shot at a breakout per stay — blow it and the guard watches you.
-                    if (jail.escapeFails >= 1) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    if (jail.escUsed) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    // Burn the one attempt the MOMENT she commits, and persist it — so a
+                    // page refresh mid-pick can't rewind to a fresh try.
+                    jail.escUsed = true;
+                    saveLockup("cell", jail.charges, jail.bail, 0, 0, 0, jail.escapeFails, true);
                     startLockpick(); playTone(330, 0.05, "square", 0.1); return;
                 }
                 if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
@@ -23543,7 +23766,7 @@
                 else if (lk.result === "lose" && lk.resultT > 1.8) {
                     jail.escapeFails++;
                     if (jail.charges.indexOf("ATTEMPTED ESCAPE") < 0) jail.charges.push("ATTEMPTED ESCAPE");
-                    saveLockup("cell", jail.charges, jail.bail, 0);
+                    saveLockup("cell", jail.charges, jail.bail, 0, 0, 0, jail.escapeFails, true);
                     jail.phase = 1; jail.t = 0; jail.lock = null;
                     spawnFloater(W / 2, H * 0.4, "CAUGHT! The guard's watching now. 👮", "#FF8A80");
                 }
@@ -23632,12 +23855,13 @@
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
             }
             if (jail.days >= jail.total) {
-                // Released — the system takes its pound of flesh: court costs +
-                // commissary debt skim whatever coins she had on her.
-                var fees = chargeCoins(40 + jail.total * 2);   // court costs out of her coins
+                // Serving time is the ALWAYS-AVAILABLE, no-cash path out (proven model:
+                // Skyrim jail costs time, not gold). No surprise "court costs" skim — the
+                // sentence + impounded car IS the punishment, so she can never be
+                // soft-locked by a fine she can't pay.
                 clearLockup(); jail = null;
                 // walks out the jail doors — but her car's impounded, so she's on foot
-                beginExitScene("jail", "foot", fees > 0 ? "⛓️ Time served · −" + fees + " 💰 court costs" : "⛓️ Time served — you're free!", "copWalk");
+                beginExitScene("jail", "foot", "⛓️ Time served — you're free!", "copWalk");
                 return;
             }
         }
@@ -24110,9 +24334,17 @@
         // If she already RETAINED counsel, "Demand a lawyer" makes no sense — drop it.
         if (lawyerTier) pool = pool.filter(function (o) { return !o.demandLawyer; });
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
-        // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
-        opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
         var cl = (charges && charges.length ? charges.slice() : ["BEING SUSPICIOUS"]);
+        // Up-front prices so the player sees the cost ON the button (no surprises):
+        //   plea  = a small settlement, bribe = a flat, affordable gamble.
+        var strk = Math.min(save.convictions || 0, 5);
+        var pleaFine = Math.max(8, Math.round(bountyFor(cl) * 0.3));
+        var bribeCost = Math.min(120, 45 + strk * 8);
+        // a guaranteed-but-cheap way out: cop to a lesser charge for a small fine
+        opts.push({ label: "🤝 Plea bargain", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true, cost: pleaFine });
+        for (var oi = 0; oi < opts.length; oi++) {
+            if (opts[oi].bribe) opts[oi] = { label: opts[oi].label, says: opts[oi].says, outcomes: opts[oi].outcomes, bribe: true, cost: bribeCost };
+        }
         var lines = [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
@@ -24267,7 +24499,7 @@
                 if (opt.plea) {
                     // Plea bargain: cop to a lesser charge for a guaranteed small fine.
                     court.verdict = "fine";
-                    court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
+                    court.fine = opt.cost || Math.max(8, Math.round(bountyFor(court.charges) * 0.3));
                     // A plea bargain is the lenient way out — it should NOT add a strike
                     // (that double-punished the cheap option and snowballed toward jail).
                     court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
@@ -24302,23 +24534,23 @@
                 }
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
-                    var bribeAmt = Math.round(randInt(70, 150) * (1 + strikes * 0.25));
-                    court.bribePaid = chargeCoins(bribeAmt);          // the cash leaves her hands either way
-                    if (Math.random() < 0.28) {                        // OFFENDED → contempt, book thrown
-                        court.bribeBackfire = true;
-                        if (court.charges.indexOf("BRIBING A COURT OFFICIAL") < 0) court.charges.push("BRIBING A COURT OFFICIAL");
-                        court.verdict = "jail";
-                    } else {                                           // it LANDED — nudge her toward walking
-                        if (court.verdict === "jail") court.verdict = "fine";
-                        else if (court.verdict === "fine" && Math.random() < 0.7) court.verdict = "dismissed";
+                    court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
+                    if (Math.random() < 0.85) {                        // it USUALLY works now — high odds
+                        court.bribeWorked = true;
+                        court.verdict = "dismissed";                   // the judge looks the other way
+                    } else {                                           // flopped — just a small slap, NOT jail
+                        court.bribeFlop = true;
+                        court.verdict = "fine";
+                        court.smallFine = true;
                     }
                 }
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
-                    var base = court.charges.length * randInt(14, 34) * (1 + strikes * 0.4);
-                    court.fine = Math.round(base);
+                    // Severity-weighted + capped; a flopped bribe is only a small fine.
+                    court.fine = court.smallFine ? Math.max(8, Math.round(bountyFor(court.charges) * 0.3))
+                                                 : bountyFor(court.charges);
                 }
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
-                var vt = court.bribeBackfire ? "CONTEMPT! You tried to BRIBE this court?! HARD time! ⛓️💸"
+                var vt = court.bribeFlop ? "Hmph — THAT'S your offer? Just a small fine then. Now scram. 😒 (💰" + court.fine + ")"
                        : court.verdict === "dismissed" ? (opt.bribe ? "Case... 'dismissed.' *quietly pockets the envelope* 🤫" : "CASE DISMISSED! Now get outta my court. 🎉")
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")
                        : "GUILTY! That'll be 💰" + court.fine + ". See the clerk on your way out. 💸";
@@ -24625,7 +24857,9 @@
             drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 192, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             for (var i = 0; i < court.options.length; i++) {
                 var r = courtOptRect(i), plea = court.options[i].plea;
-                drawButton(r.x, r.y, r.w, r.h, court.options[i].label,
+                // Show the price right on the button for the options that cost coins.
+                var oLbl = court.options[i].label + (court.options[i].cost ? "  (💰" + court.options[i].cost + ")" : "");
+                drawButton(r.x, r.y, r.w, r.h, oLbl,
                     plea ? { bg: "#26A69A", bgDark: "#00695C", small: true } : { bg: "#7E57C2", bgDark: "#4527A0", small: true });
             }
         } else if (court.phase === 3) {
@@ -24680,8 +24914,8 @@
             }
             // show the bribe she paid (win OR lose — the cash always leaves her hands)
             if (court.bribePaid > 0)
-                drawText((court.bribeBackfire ? "💸 −" + court.bribePaid + " 💰 bribe — and it BACKFIRED!" : "🤫 −" + court.bribePaid + " 💰 'donation'"),
-                    W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", court.bribeBackfire ? "#FF5252" : "#CE93D8", "#000", 3);
+                drawText((court.bribeFlop ? "💸 −" + court.bribePaid + " 💰 bribe — barely landed!" : "🤫 −" + court.bribePaid + " 💰 'donation'"),
+                    W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", court.bribeFlop ? "#FFB300" : "#CE93D8", "#000", 3);
         }
     }
 

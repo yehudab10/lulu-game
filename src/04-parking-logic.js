@@ -25,6 +25,7 @@
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
         hitchhiker = null; hitchTimer = rand(25, 55);
+        if (typeof footDisguiseLook !== "undefined") footDisguiseLook = null;
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
         if (typeof roadsideVeh !== "undefined") { roadsideVeh = []; roadsideCool = 0; }
         iceCreamSigns = []; iceCreamSpawnTimer = 60;

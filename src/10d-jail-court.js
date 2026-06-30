@@ -240,6 +240,28 @@
     // The lawyer options Lulu can see this sentence (Abba only sometimes shows).
     function activeLawyerTiers() { return (jail && jail.abbaAvailable) ? [ABBA_TIER].concat(LAWYER_TIERS) : LAWYER_TIERS; }
 
+    // ── BOUNTY: one severity-weighted, CAPPED number drives every cost ──
+    // Proven model (Skyrim / RDR2): what you owe scales with how BAD the crimes
+    // were, not just how many charges stacked up, and it's hard-capped so it can
+    // never spiral past a few good runs' worth of coins. Bail / fine / plea all
+    // derive from this, so costs never stack into an unpayable wall.
+    var CHARGE_WEIGHT = {
+        "SPEEDING": 1, "DISTURBING THE PEACE": 1, "BEING SUSPICIOUS": 1, "JAYWALKING": 1,
+        "RECKLESS DRIVING": 2, "RESISTING ARREST": 2, "ATTEMPTED ESCAPE": 2,
+        "ATTEMPTED BRIBERY": 2, "BRIBING A COURT OFFICIAL": 2, "CONTEMPT OF COURT": 2,
+        "RUNNING FROM THE LAW": 3, "HIT AND RUN": 3, "JOYRIDING A STEAMROLLER": 3, "ESCAPE FROM CUSTODY": 3,
+        "GRAND THEFT AUTO": 4, "VEHICULAR DESTRUCTION": 4
+    };
+    var BOUNTY_CAP = 400;   // hard ceiling — a real sting, never a debt wall
+    function chargeWeight(c) { return CHARGE_WEIGHT[c] || 2; }   // unknown charge = moderate
+    function bountyFor(charges) {
+        var sum = 0, n = charges ? charges.length : 0;
+        for (var i = 0; i < n; i++) sum += chargeWeight(charges[i]);
+        if (sum === 0) sum = 1;
+        var strikes = Math.min(save.convictions || 0, 5);
+        return Math.min(BOUNTY_CAP, Math.round(13 * sum * (1 + 0.08 * strikes)));
+    }
+
     var DEFENSE_POOL = [
         { label: "🥺 Plead & cry", says: "Your honor, it's been SUCH a hard week... 😭",
           outcomes: [["dismissed", 0.45], ["fine", 0.40], ["jail", 0.15]] },
@@ -266,8 +288,9 @@
     ];
 
     // ── Persistence (survives a page refresh) ────────────────
-    function saveLockup(mode, charges, bail, days, total, fugT) {
-        save.lockup = { mode: mode, charges: charges || [], bail: bail || 0, days: days || 0, total: total || 30, fugT: fugT || 0 };
+    function saveLockup(mode, charges, bail, days, total, fugT, escFails, escUsed) {
+        save.lockup = { mode: mode, charges: charges || [], bail: bail || 0, days: days || 0, total: total || 30, fugT: fugT || 0,
+                        escFails: escFails || 0, escUsed: !!escUsed };
         persistSave();
     }
     function clearLockup() { save.lockup = null; persistSave(); }
@@ -289,7 +312,10 @@
         }
         jail = { charges: lk.charges || ["DISTURBING THE PEACE"], phase: 1, t: 0,
                  cellmateLine: randPick(CELLMATE_LINES), cellmateT: 4.0, escapeMethod: "",
-                 flash: 0, bail: lk.bail || 60, inmate: "#" + randInt(1000, 9999), camFlash: 0, escapeFails: 0, lock: null };
+                 flash: 0, bail: lk.bail || 60, inmate: "#" + randInt(1000, 9999), camFlash: 0,
+                 // Restore the breakout state so refreshing the page can't hand out a
+                 // fresh escape attempt (the old exploit: reload → unlimited tries).
+                 escapeFails: lk.escFails || 0, escUsed: !!lk.escUsed, lock: null };
         state = "jailCell"; return true;
     }
 
@@ -555,7 +581,9 @@
         save.offenses = (save.offenses || 0) + 1;
         var strikes = save.convictions || 0;
         // Bail climbs with how wanted she is (priors + strikes).
-        var bail = Math.round(list.length * randInt(38, 56) * (1 + (save.offenses - 1) * 0.35 + strikes * 0.6));
+        // Bail = ~40% of the capped bounty — a fast-track to skip the wait (charges
+        // stay open till court). Severity-weighted + capped, so it can't balloon.
+        var bail = Math.max(15, Math.round(bountyFor(list) * 0.4));
         jail = { charges: list, phase: 0, t: 0, cellmateLine: randPick(CELLMATE_LINES), cellmateT: 4.0,
                  escapeMethod: "", flash: 0.3, bail: bail, inmate: "#" + randInt(1000, 9999),
                  camFlash: 0, escapeFails: 0, lock: null,
@@ -624,7 +652,11 @@
                 var er = cellEscapeRect(), br = cellBailRect(), lr = cellLawyerRect(), cr = cellCourtRect();
                 if (pointInRect(click.x, click.y, er.x, er.y, er.w, er.h)) {
                     // ONE shot at a breakout per stay — blow it and the guard watches you.
-                    if (jail.escapeFails >= 1) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    if (jail.escUsed) { playTone(180, 0.15, "square", 0.15); spawnFloater(W / 2, H * 0.4, "The guard's WATCHING now — no more escapes! 👮", "#FF8A80"); return; }
+                    // Burn the one attempt the MOMENT she commits, and persist it — so a
+                    // page refresh mid-pick can't rewind to a fresh try.
+                    jail.escUsed = true;
+                    saveLockup("cell", jail.charges, jail.bail, 0, 0, 0, jail.escapeFails, true);
                     startLockpick(); playTone(330, 0.05, "square", 0.1); return;
                 }
                 if (pointInRect(click.x, click.y, lr.x, lr.y, lr.w, lr.h)) { jail.phase = 4; jail.t = 0; playTone(440, 0.05, "sine", 0.1); return; }
@@ -687,7 +719,7 @@
                 else if (lk.result === "lose" && lk.resultT > 1.8) {
                     jail.escapeFails++;
                     if (jail.charges.indexOf("ATTEMPTED ESCAPE") < 0) jail.charges.push("ATTEMPTED ESCAPE");
-                    saveLockup("cell", jail.charges, jail.bail, 0);
+                    saveLockup("cell", jail.charges, jail.bail, 0, 0, 0, jail.escapeFails, true);
                     jail.phase = 1; jail.t = 0; jail.lock = null;
                     spawnFloater(W / 2, H * 0.4, "CAUGHT! The guard's watching now. 👮", "#FF8A80");
                 }
@@ -776,12 +808,13 @@
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
             }
             if (jail.days >= jail.total) {
-                // Released — the system takes its pound of flesh: court costs +
-                // commissary debt skim whatever coins she had on her.
-                var fees = chargeCoins(40 + jail.total * 2);   // court costs out of her coins
+                // Serving time is the ALWAYS-AVAILABLE, no-cash path out (proven model:
+                // Skyrim jail costs time, not gold). No surprise "court costs" skim — the
+                // sentence + impounded car IS the punishment, so she can never be
+                // soft-locked by a fine she can't pay.
                 clearLockup(); jail = null;
                 // walks out the jail doors — but her car's impounded, so she's on foot
-                beginExitScene("jail", "foot", fees > 0 ? "⛓️ Time served · −" + fees + " 💰 court costs" : "⛓️ Time served — you're free!", "copWalk");
+                beginExitScene("jail", "foot", "⛓️ Time served — you're free!", "copWalk");
                 return;
             }
         }
@@ -1254,9 +1287,17 @@
         // If she already RETAINED counsel, "Demand a lawyer" makes no sense — drop it.
         if (lawyerTier) pool = pool.filter(function (o) { return !o.demandLawyer; });
         for (var k = 0; k < 3 && pool.length; k++) opts.push(pool.splice(randInt(0, pool.length - 1), 1)[0]);
-        // a guaranteed-but-costly way out: cop to a lesser charge for a small fine
-        opts.push({ label: "🤝 Plea bargain (small fine)", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true });
         var cl = (charges && charges.length ? charges.slice() : ["BEING SUSPICIOUS"]);
+        // Up-front prices so the player sees the cost ON the button (no surprises):
+        //   plea  = a small settlement, bribe = a flat, affordable gamble.
+        var strk = Math.min(save.convictions || 0, 5);
+        var pleaFine = Math.max(8, Math.round(bountyFor(cl) * 0.3));
+        var bribeCost = Math.min(120, 45 + strk * 8);
+        // a guaranteed-but-cheap way out: cop to a lesser charge for a small fine
+        opts.push({ label: "🤝 Plea bargain", says: "Fine, fine — I'll take the DEAL, your honor. 🤝", plea: true, cost: pleaFine });
+        for (var oi = 0; oi < opts.length; oi++) {
+            if (opts[oi].bribe) opts[oi] = { label: opts[oi].label, says: opts[oi].says, outcomes: opts[oi].outcomes, bribe: true, cost: bribeCost };
+        }
         var lines = [
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
@@ -1411,7 +1452,7 @@
                 if (opt.plea) {
                     // Plea bargain: cop to a lesser charge for a guaranteed small fine.
                     court.verdict = "fine";
-                    court.fine = Math.round(court.charges.length * randInt(7, 14) * (1 + strikes * 0.15));
+                    court.fine = opt.cost || Math.max(8, Math.round(bountyFor(court.charges) * 0.3));
                     // A plea bargain is the lenient way out — it should NOT add a strike
                     // (that double-punished the cheap option and snowballed toward jail).
                     court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
@@ -1446,23 +1487,23 @@
                 }
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
-                    var bribeAmt = Math.round(randInt(70, 150) * (1 + strikes * 0.25));
-                    court.bribePaid = chargeCoins(bribeAmt);          // the cash leaves her hands either way
-                    if (Math.random() < 0.28) {                        // OFFENDED → contempt, book thrown
-                        court.bribeBackfire = true;
-                        if (court.charges.indexOf("BRIBING A COURT OFFICIAL") < 0) court.charges.push("BRIBING A COURT OFFICIAL");
-                        court.verdict = "jail";
-                    } else {                                           // it LANDED — nudge her toward walking
-                        if (court.verdict === "jail") court.verdict = "fine";
-                        else if (court.verdict === "fine" && Math.random() < 0.7) court.verdict = "dismissed";
+                    court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
+                    if (Math.random() < 0.85) {                        // it USUALLY works now — high odds
+                        court.bribeWorked = true;
+                        court.verdict = "dismissed";                   // the judge looks the other way
+                    } else {                                           // flopped — just a small slap, NOT jail
+                        court.bribeFlop = true;
+                        court.verdict = "fine";
+                        court.smallFine = true;
                     }
                 }
                 if (court.verdict === "fine") {        // money punishment (jail = time + car instead)
-                    var base = court.charges.length * randInt(14, 34) * (1 + strikes * 0.4);
-                    court.fine = Math.round(base);
+                    // Severity-weighted + capped; a flopped bribe is only a small fine.
+                    court.fine = court.smallFine ? Math.max(8, Math.round(bountyFor(court.charges) * 0.3))
+                                                 : bountyFor(court.charges);
                 }
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
-                var vt = court.bribeBackfire ? "CONTEMPT! You tried to BRIBE this court?! HARD time! ⛓️💸"
+                var vt = court.bribeFlop ? "Hmph — THAT'S your offer? Just a small fine then. Now scram. 😒 (💰" + court.fine + ")"
                        : court.verdict === "dismissed" ? (opt.bribe ? "Case... 'dismissed.' *quietly pockets the envelope* 🤫" : "CASE DISMISSED! Now get outta my court. 🎉")
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")
                        : "GUILTY! That'll be 💰" + court.fine + ". See the clerk on your way out. 💸";
@@ -1769,7 +1810,9 @@
             drawText("⚖️  How do you plead, Ms. Bruck?", W / 2, H - 192, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             for (var i = 0; i < court.options.length; i++) {
                 var r = courtOptRect(i), plea = court.options[i].plea;
-                drawButton(r.x, r.y, r.w, r.h, court.options[i].label,
+                // Show the price right on the button for the options that cost coins.
+                var oLbl = court.options[i].label + (court.options[i].cost ? "  (💰" + court.options[i].cost + ")" : "");
+                drawButton(r.x, r.y, r.w, r.h, oLbl,
                     plea ? { bg: "#26A69A", bgDark: "#00695C", small: true } : { bg: "#7E57C2", bgDark: "#4527A0", small: true });
             }
         } else if (court.phase === 3) {
@@ -1824,8 +1867,8 @@
             }
             // show the bribe she paid (win OR lose — the cash always leaves her hands)
             if (court.bribePaid > 0)
-                drawText((court.bribeBackfire ? "💸 −" + court.bribePaid + " 💰 bribe — and it BACKFIRED!" : "🤫 −" + court.bribePaid + " 💰 'donation'"),
-                    W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", court.bribeBackfire ? "#FF5252" : "#CE93D8", "#000", 3);
+                drawText((court.bribeFlop ? "💸 −" + court.bribePaid + " 💰 bribe — barely landed!" : "🤫 −" + court.bribePaid + " 💰 'donation'"),
+                    W / 2, vy5, "bold 13px 'Segoe UI', Arial, sans-serif", court.bribeFlop ? "#FFB300" : "#CE93D8", "#000", 3);
         }
     }
 
