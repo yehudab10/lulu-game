@@ -3964,6 +3964,46 @@
         ctx.restore();
     }
 
+    // K9 UNIT — a blacked-out cruiser-SUV with a barking dog in the back, used
+    // when a fugitive's heat is high. Boxier + darker than a patrol car.
+    function drawK9Car(x, y, sirenTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var hw = CAR_W / 2 + 6, hh = CAR_H / 2 + 6;
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(2, 8, hw + 4, hh - 4, 0, 0, Math.PI * 2); ctx.fill();
+        // boxy black SUV body
+        ctx.fillStyle = "#0C0F13"; roundRect(-hw - 2, -hh - 2, hw * 2 + 4, hh * 2 + 4, 8); ctx.fill();
+        var bg = ctx.createLinearGradient(-hw, 0, hw, 0);
+        bg.addColorStop(0, "#1A1E24"); bg.addColorStop(0.5, "#2C333B"); bg.addColorStop(1, "#1A1E24");
+        ctx.fillStyle = bg; roundRect(-hw, -hh, hw * 2, hh * 2, 7); ctx.fill();
+        // white "POLICE K9" door panel
+        ctx.fillStyle = "#ECEFF1"; roundRect(-hw, -6, hw * 2, 22, 0); ctx.fill();
+        drawText("K9", 0, 6, "bold 11px Arial", "#0D1B5E", null, 0);
+        // windshield + rear cage window
+        ctx.fillStyle = "#37474F"; roundRect(-hw + 7, -hh + 7, hw * 2 - 14, 22, 5); ctx.fill();
+        ctx.fillStyle = "#546E7A"; roundRect(-hw + 9, -hh + 9, hw * 2 - 18, 18, 4); ctx.fill();
+        // rear cage with a dog silhouette (barking — head bobs)
+        ctx.fillStyle = "#11161B"; roundRect(-hw + 8, hh - 30, hw * 2 - 16, 22, 4); ctx.fill();
+        ctx.strokeStyle = "#5A6772"; ctx.lineWidth = 1;
+        for (var cg = -hw + 12; cg < hw - 10; cg += 6) { ctx.beginPath(); ctx.moveTo(cg, hh - 30); ctx.lineTo(cg, hh - 8); ctx.stroke(); }
+        var bob = Math.abs(Math.sin(sirenTime * 6)) * 2;
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, hh - 20 - bob, 5, 0, Math.PI * 2); ctx.fill();   // dog head
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.moveTo(-5, hh - 24 - bob); ctx.lineTo(-2, hh - 27 - bob); ctx.lineTo(-2, hh - 22 - bob); ctx.closePath(); ctx.fill();  // ear
+        ctx.beginPath(); ctx.moveTo(5, hh - 24 - bob); ctx.lineTo(2, hh - 27 - bob); ctx.lineTo(2, hh - 22 - bob); ctx.closePath(); ctx.fill();
+        // roof light bar (red/blue strobe)
+        var flashR = Math.sin(sirenTime * 18) > 0;
+        ctx.fillStyle = "#11161B"; roundRect(-14, -4, 28, 7, 2); ctx.fill();
+        ctx.fillStyle = flashR ? "#FF1744" : "#7A1320"; roundRect(-13, -3, 12, 5, 1); ctx.fill();
+        ctx.fillStyle = flashR ? "#0D2A6B" : "#2979FF"; roundRect(1, -3, 12, 5, 1); ctx.fill();
+        ctx.fillStyle = flashR ? "rgba(255,23,68,0.18)" : "rgba(41,121,255,0.18)";
+        ctx.beginPath(); ctx.arc(flashR ? -7 : 7, 0, 22, 0, Math.PI * 2); ctx.fill();
+        // chunky tires
+        ctx.fillStyle = "#0A0A0A";
+        roundRect(-hw - 4, -hh + 12, 8, 18, 3); ctx.fill(); roundRect(hw - 4, -hh + 12, 8, 18, 3); ctx.fill();
+        roundRect(-hw - 4, hh - 30, 8, 18, 3); ctx.fill(); roundRect(hw - 4, hh - 30, 8, 18, 3); ctx.fill();
+        ctx.restore();
+    }
+
     // A little roadside police motor-pool: paved lot, parked cruisers, a
     // standing officer, and one walking a cuffed perp in. Drawn relative to a
     // scrolling building-like record {x (center), y (top), w, h, side}. Reused
@@ -5166,6 +5206,7 @@
         roadDramas = []; carCrashCooldown = rand(7, 16);
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
         prisonClothes = false; fugitiveT = 0; fugitiveSpot = 0; fugCopT = 0;
+        if (typeof fugDisguise !== "undefined") { fugDisguise = null; fugDisguiseT = 0; }
         jail = null; court = null; arrest = null;
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
@@ -5294,12 +5335,26 @@
     // you speed past it (or blow a school-bus stop sign in its view).
     function spawnPatrolCar() {
         var lane = randInt(0, 2);
-        obstacles.push({
+        var o = {
             type: "car", behavior: "patrol", x: LANES[lane], y: -100,
             color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64,
             speedMult: Math.random() < 0.4 ? rand(1.3, 1.6) : 0.7,
             lane: lane, spot: 0, swerveT: 0, spillT: 0
-        });
+        };
+        obstacles.push(o);
+        return o;
+    }
+    // A K9 unit — a dark cruiser-SUV with a dog aboard, that actively hunts her
+    // position. Shows up only when the heat is high (4★+).
+    function spawnK9Unit() {
+        var lane = randInt(0, 2);
+        var o = {
+            type: "car", behavior: "patrol", k9: true, aggro: true,
+            x: LANES[lane], y: -120, color: "#23272E", carType: 0, hitW: 38, hitH: 70,
+            speedMult: 1.5, lane: lane, spot: 0, swerveT: 0, spillT: 0, barkT: rand(1, 2.5)
+        };
+        obstacles.push(o);
+        return o;
     }
 
     // Water kicked up when Lulu splashes through a puddle.
@@ -6937,12 +6992,22 @@
                     o.comment = randPick(BUS_QUIPS); o.commentT = 2.0;
                 }
             } else if (o.type === "car" && o.behavior === "patrol") {
+                // AGGRESSIVE hunter units (3★+ / K9) actively steer toward her lane
+                // and ride faster — a real driving threat, not just scenery.
+                if (o.aggro && prisonClothes) {
+                    o.x = clamp(lerp(o.x, player.x, Math.min(1, 1.5 * dt)), ROAD_L + 18, ROAD_R - 18);
+                    o.speedMult = Math.max(o.speedMult, 1.45);
+                }
+                if (o.k9) {   // the dog barks when it's closing in
+                    o.barkT = (o.barkT || 0) - dt;
+                    if (o.barkT <= 0 && Math.abs(o.y - player.y) < 220) { o.barkT = rand(0.7, 1.4); if (typeof playDogBark === "function") playDogBark(); }
+                }
                 // Cruises normally, but busts you if you speed in its view.
                 // (On foot keys.up is RUN, not speeding — never a violation.)
                 var patSpeeding = !onFoot && (keys.up || gameSpeed > 520);
                 if (patSpeeding && !copChase && !copBust && Math.abs(o.y - player.y) < 175) {
                     o.spot = (o.spot || 0) + dt;
-                    if (o.spot > 0.7) { beginCopChase(o.x, "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
+                    if (o.spot > 0.7) { beginCopChase(o.x, o.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
                 } else { o.spot = Math.max(0, (o.spot || 0) - dt * 1.5); }
             } else if (o.type === "car" && o.behavior === "pulled") {
                 // Busted: drift to the shoulder, slow down, and bicker with the cop.
@@ -9855,7 +9920,8 @@
             if (o.type === "car" && o.behavior === "ambulance") {
                 drawAmbulance(o.x, o.y, gameTime);
             } else if (o.type === "car" && o.behavior === "patrol") {
-                drawCopCar(o.x, o.y, gameTime);
+                if (o.k9 && typeof drawK9Car === "function") drawK9Car(o.x, o.y, gameTime);
+                else drawCopCar(o.x, o.y, gameTime);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             } else if (o.type === "car" && o.behavior === "bus") {
                 drawTopBus(o.x, o.y);
@@ -22292,6 +22358,8 @@
     var wantedPosterT = 0;
     var fugCopT = 0;            // escalating cop-spawn timer while a fugitive
     var fugChopperX = 0;        // police chopper x (tracks Lulu at 5★)
+    var fugDisguise = null;     // the rare roadside DISGUISE pickup (shakes the heat)
+    var fugDisguiseT = 0;       // delay until the next disguise can appear
 
     var ARREST_LINES = ["YOU'RE UNDER ARREST!", "Hands where I can see 'em!",
         "End of the road, Lulu!", "You're comin' with ME.", "Step out of the vehicle, ma'am.",
@@ -22550,7 +22618,7 @@
         if (typeof resetGame === "function") resetGame();    // ready the road for her release
         save.lockup = lk;                                    // restore (resetGame cleared it)
         if (lk.mode === "fugitive") {
-            prisonClothes = true; fugitiveT = lk.fugT || 0; fugitiveSpot = 0; wantedPosterT = 1.5; fugCopT = 3;
+            prisonClothes = true; fugitiveT = lk.fugT || 0; fugitiveSpot = 0; wantedPosterT = 1.5; fugCopT = 3; fugDisguise = null; fugDisguiseT = rand(12, 20);
             state = "playing"; return true;
         }
         if (lk.mode === "serving") {
@@ -22991,7 +23059,7 @@
                 // prior break (no more wiping the slate to 1★ every time she runs).
                 save.escapes = (save.escapes || 0) + 1; persistSave();
                 var heat = Math.min(38, (save.escapes - 1) * 12);   // 0, 12, 24… → starts hotter
-                prisonClothes = true; fugitiveT = heat; fugitiveSpot = 0; wantedPosterT = 1.2; fugCopT = 2.5;
+                prisonClothes = true; fugitiveT = heat; fugitiveSpot = 0; wantedPosterT = 1.2; fugCopT = 2.5; fugDisguise = null; fugDisguiseT = rand(12, 20);
                 saveLockup("fugitive", [], 0, 0, Math.max(8, 55 - heat), 0);
                 jail = null;
                 if (typeof returnToDriving === "function") returnToDriving();
@@ -24106,9 +24174,37 @@
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
-        if (!prisonClothes) return;
+        if (!prisonClothes) { fugDisguise = null; return; }
         fugitiveT += dt;
-        if (fugitiveT > 55) { prisonClothes = false; fugitiveSpot = 0; clearLockup(); spawnFloater(player.x, player.y - 50, "😎 Ditched the jumpsuit!", "#7CFC4F"); return; }
+        // The COOL way to shake the heat: catch a rare roadside DISGUISE (a clothes
+        // rack on the shoulder) and swap out of the jumpsuit so the cops stop
+        // recognizing you. It only turns up occasionally and you have to weave to
+        // it through the swarm — pulling it off clears the whole wanted file.
+        var wlNow = wantedLevel();
+        if (fugDisguiseT > 0) fugDisguiseT -= dt;
+        if (!fugDisguise && fugDisguiseT <= 0 && wlNow >= 2 && !copChase && !copBust) {
+            fugDisguise = { x: (Math.random() < 0.5 ? ROAD_L + 22 : ROAD_R - 22), y: -70, t: 0, got: 0 };
+        }
+        if (fugDisguise && !fugDisguise.got) {
+            fugDisguise.t += dt; fugDisguise.y += gameSpeed * dt;
+            if (Math.abs(fugDisguise.x - player.x) < 36 && Math.abs(fugDisguise.y - player.y) < 46) {
+                fugDisguise.got = 0.001;   // GRABBED — shed the whole identity
+                prisonClothes = false; fugitiveSpot = 0; fugChopperX = 0;
+                clearLockup(); if (typeof clearWanted === "function") clearWanted();
+                copChase = null;
+                fugDisguiseT = 0;
+                shakeTimer = 0.2; shakeIntensity = 4;
+                spawnFloater(player.x, player.y - 56, "🥸 NEW LOOK!", "#7CFC4F");
+                spawnFloater(player.x, player.y - 34, "They don't recognize you! 😎", "#B9F6CA");
+                playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
+                for (var dp = 0; dp < 16; dp++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
+                return;
+            }
+            if (fugDisguise.y > H + 70) { fugDisguise = null; fugDisguiseT = rand(12, 20); }   // missed it — wait for the next
+        }
+        // Lay-low FALLBACK: only if she somehow survives a very long time clean does
+        // the heat finally die down on its own (the disguise is the real way out).
+        if (fugitiveT > 100) { prisonClothes = false; fugitiveSpot = 0; fugDisguise = null; clearLockup(); spawnFloater(player.x, player.y - 50, "😎 Laid low long enough — heat's off.", "#7CFC4F"); return; }
         if (save.lockup && save.lockup.mode === "fugitive" && Math.floor(fugitiveT) !== Math.floor(save.lockup.fugT)) {
             save.lockup.fugT = fugitiveT; persistSave();
         }
@@ -24120,12 +24216,20 @@
             var side = Math.random() < 0.5 ? -1 : 1;
             billboards.push({ x: side > 0 ? W - 50 : 50, y: -120, side: side, msg: "WANTED: LULU", parallax: rand(0.7, 0.9), wanted: true });
         }
-        // The heat escalates: more patrol cars roll in the higher her wanted level.
+        // The heat escalates by STAGE, not just volume: low stars trickle a few
+        // cruisers; 3★ brings AGGRESSIVE hunter units that steer at her; 4★ adds a
+        // K9 unit; 5★ is the chopper (below). Spawn cadence is gentler than before
+        // so it's tense, not a wall of identical cars.
         fugCopT -= dt;
         if (fugCopT <= 0) {
-            fugCopT = Math.max(2.0, 6.5 - wl * 0.9);
-            if (typeof spawnPatrolCar === "function") spawnPatrolCar();
-            if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.6) spawnRoadCop();
+            fugCopT = Math.max(3.4, 8.2 - wl * 0.7);
+            if (typeof spawnPatrolCar === "function") {
+                var pc = spawnPatrolCar();
+                // 3★+ : some cruisers turn into hunters that track her lane.
+                if (pc && wl >= 3 && Math.random() < (wl >= 4 ? 0.7 : 0.45)) pc.aggro = true;
+            }
+            if (wl >= 4 && typeof spawnK9Unit === "function" && Math.random() < 0.4) spawnK9Unit();
+            if (wl >= 4 && typeof spawnRoadCop === "function" && Math.random() < 0.4) spawnRoadCop();
         }
         // A chase (or its pull-over) already owns the moment — don't double up,
         // and let the recognition meter cool while she's actively running.
@@ -24151,29 +24255,99 @@
     }
 
     // The police chopper + tracking spotlight (drawn over the road at 5★).
+    // A proper menacing top-down gunship-ish silhouette: fuselage with a tinted
+    // cockpit, tail boom + spinning tail rotor, landing skids, red/blue belly
+    // strobes, a sweeping searchlight, and a motion-blurred main rotor disc.
     function drawFugChopper() {
         if (!prisonClothes || wantedLevel() < 5) return;
-        var cx = fugChopperX || player.x, cy = H * 0.2 + Math.sin(gameTime * 2) * 6, px = player.x, py = player.y;
-        var sg = ctx.createLinearGradient(cx, cy, px, py);
-        sg.addColorStop(0, "rgba(255,245,150,0.38)"); sg.addColorStop(1, "rgba(255,245,150,0.05)");
+        var cx = fugChopperX || player.x, cy = H * 0.19 + Math.sin(gameTime * 2) * 5;
+        var px = player.x, py = player.y;
+        // ── sweeping searchlight cone + ground pool ──
+        var sway = Math.sin(gameTime * 1.3) * 12, tx = px + sway;
+        var sg = ctx.createLinearGradient(cx, cy, tx, py);
+        sg.addColorStop(0, "rgba(255,250,200,0.52)"); sg.addColorStop(1, "rgba(255,250,200,0.04)");
         ctx.fillStyle = sg;
-        ctx.beginPath(); ctx.moveTo(cx - 12, cy + 6); ctx.lineTo(px - 44, py); ctx.lineTo(px + 44, py); ctx.lineTo(cx + 12, cy + 6); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "rgba(255,245,150,0.20)"; ctx.beginPath(); ctx.ellipse(px, py, 48, 20, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx - 8, cy + 16); ctx.lineTo(tx - 54, py + 28); ctx.lineTo(tx + 54, py + 28); ctx.lineTo(cx + 8, cy + 16); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,250,200,0.16)"; ctx.beginPath(); ctx.ellipse(tx, py, 56, 22, 0, 0, Math.PI * 2); ctx.fill();
+        // ── soft shadow under the aircraft ──
+        ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.beginPath(); ctx.ellipse(cx, cy + 44, 30, 9, 0, 0, Math.PI * 2); ctx.fill();
         ctx.save(); ctx.translate(cx, cy);
-        ctx.fillStyle = "#263238"; roundRect(-22, -8, 44, 16, 6); ctx.fill();
-        ctx.fillStyle = "#37474F"; roundRect(18, -3, 18, 5, 2); ctx.fill();
-        ctx.fillStyle = "#90CAF9"; roundRect(-18, -5, 12, 9, 3); ctx.fill();
-        var sir = Math.sin(gameTime * 10) > 0;
-        ctx.fillStyle = sir ? "#FF5252" : "#42A5F5"; ctx.beginPath(); ctx.arc(0, 8, 2.5, 0, Math.PI * 2); ctx.fill();
-        var rot = gameTime * 28, rw = 32;
-        ctx.strokeStyle = "rgba(210,210,210,0.7)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-Math.cos(rot) * rw, -11); ctx.lineTo(Math.cos(rot) * rw, -11); ctx.stroke();
+        // tail boom (sweeps up/back) + vertical fin + spinning tail rotor
+        ctx.fillStyle = "#252C32"; roundRect(-4, -54, 8, 42, 4); ctx.fill();
+        ctx.fillStyle = "#171C20"; ctx.beginPath(); ctx.moveTo(-4, -52); ctx.lineTo(-12, -58); ctx.lineTo(-4, -44); ctx.closePath(); ctx.fill();
+        var trot = gameTime * 46;
+        ctx.strokeStyle = "rgba(205,210,215,0.6)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-7 - Math.cos(trot) * 8, -52); ctx.lineTo(-7 + Math.cos(trot) * 8, -52); ctx.stroke();
+        // landing skids
+        ctx.strokeStyle = "#37424A"; ctx.lineWidth = 2.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-17, -2); ctx.lineTo(-17, 22); ctx.moveTo(17, -2); ctx.lineTo(17, 22); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-9, 6); ctx.lineTo(-17, 6); ctx.moveTo(9, 6); ctx.lineTo(17, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-9, 16); ctx.lineTo(-17, 16); ctx.moveTo(9, 16); ctx.lineTo(17, 16); ctx.stroke();
+        // fuselage — sleek, nose toward the road (down)
+        var bodyG = ctx.createLinearGradient(-15, 0, 15, 0);
+        bodyG.addColorStop(0, "#0E141A"); bodyG.addColorStop(0.5, "#39454E"); bodyG.addColorStop(1, "#0E141A");
+        ctx.fillStyle = bodyG; ctx.beginPath();
+        ctx.moveTo(0, 32);
+        ctx.quadraticCurveTo(-15, 18, -13, -6);
+        ctx.quadraticCurveTo(-12, -16, 0, -16);
+        ctx.quadraticCurveTo(12, -16, 13, -6);
+        ctx.quadraticCurveTo(15, 18, 0, 32);
+        ctx.closePath(); ctx.fill();
+        // tinted cockpit glass at the nose
+        ctx.fillStyle = "#5E94C4"; ctx.beginPath();
+        ctx.moveTo(0, 28); ctx.quadraticCurveTo(-9, 14, -7, 2); ctx.quadraticCurveTo(0, -1, 7, 2); ctx.quadraticCurveTo(9, 14, 0, 28); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.28)"; roundRect(-5, 5, 3.5, 12, 2); ctx.fill();
+        // white POLICE band across the body
+        ctx.fillStyle = "#F4F6F8"; roundRect(-13, -11, 26, 8, 2); ctx.fill();
+        drawText("POLICE", 0, -7, "bold 6px Arial", "#0D1B5E", null, 0);
+        // red/blue belly strobes with halos
+        var sir = Math.sin(gameTime * 11) > 0;
+        ctx.fillStyle = sir ? "rgba(255,23,68,0.22)" : "rgba(41,121,255,0.22)";
+        ctx.beginPath(); ctx.arc(sir ? -11 : 11, 18, 10, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = sir ? "#FF1744" : "#7A1320"; ctx.beginPath(); ctx.arc(-11, 18, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = sir ? "#0D2A6B" : "#2979FF"; ctx.beginPath(); ctx.arc(11, 18, 2.6, 0, Math.PI * 2); ctx.fill();
+        // MAIN ROTOR — translucent blur disc + two blades whirling over the hub
+        var mrot = gameTime * 32, rw = 46;
+        ctx.fillStyle = "rgba(185,195,205,0.09)"; ctx.beginPath(); ctx.arc(0, 4, rw, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(228,233,238,0.5)"; ctx.lineWidth = 3;
+        for (var bld = 0; bld < 2; bld++) {
+            var a = mrot + bld * Math.PI / 2;
+            ctx.beginPath(); ctx.moveTo(-Math.cos(a) * rw, 4 - Math.sin(a) * rw * 0.5); ctx.lineTo(Math.cos(a) * rw, 4 + Math.sin(a) * rw * 0.5); ctx.stroke();
+        }
+        ctx.fillStyle = "#0B1014"; ctx.beginPath(); ctx.arc(0, 4, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#37424A"; ctx.beginPath(); ctx.arc(0, 4, 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-        drawText("🚁 POLICE", cx, cy - 20, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#000", 2);
+        ctx.lineCap = "butt";
+        var lp = Math.sin(gameTime * 8) > 0;
+        drawText("🚁 POLICE AIR UNIT", cx, cy - 60, "bold 9px 'Segoe UI', Arial, sans-serif", lp ? "#FF5252" : "#FFEB3B", "#000", 3);
+    }
+
+    // The roadside DISGUISE pickup — a glam clothes rack glowing on the shoulder.
+    function drawFugDisguise() {
+        if (!fugDisguise || fugDisguise.got) return;
+        var d = fugDisguise, gx = d.x, gy = d.y, bob = Math.sin(d.t * 4) * 2;
+        var gl = 0.30 + 0.28 * Math.abs(Math.sin(d.t * 5));
+        ctx.fillStyle = "rgba(206,147,216," + gl + ")"; ctx.beginPath(); ctx.arc(gx, gy, 28, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(gx, gy + bob);
+        // rack bar + stand
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-17, -15); ctx.lineTo(17, -15); ctx.moveTo(0, -15); ctx.lineTo(0, 17); ctx.stroke();
+        ctx.fillStyle = "#78848C"; ctx.beginPath(); ctx.moveTo(-9, 17); ctx.lineTo(9, 17); ctx.lineTo(0, 12); ctx.closePath(); ctx.fill();
+        // glam dress on a hanger
+        ctx.fillStyle = "#EC407A"; ctx.beginPath(); ctx.moveTo(-10, -11); ctx.lineTo(10, -11); ctx.lineTo(13, 9); ctx.lineTo(-13, 9); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.22)"; ctx.beginPath(); ctx.moveTo(-10, -11); ctx.lineTo(-3, -11); ctx.lineTo(-7, 9); ctx.lineTo(-13, 9); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -13, 3, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke();  // hanger hook
+        // wig + shades perched on top
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -19, 6.5, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = "#212121"; roundRect(-6, -20, 12, 4, 2); ctx.fill();
+        ctx.restore();
+        var pulse2 = Math.sin(d.t * 6) > 0;
+        drawText("🥸 GRAB — new look!", gx, gy - 32, "bold 10px 'Segoe UI', Arial", pulse2 ? "#F3E5F5" : "#E1BEE7", "#000", 3);
     }
 
     function drawFugitiveHUD() {
         if (!prisonClothes) return;
+        drawFugDisguise();
         drawFugChopper();
         var wl = wantedLevel();
         var pulse = Math.sin(gameTime * 8) > 0;
@@ -24183,7 +24357,7 @@
         for (var s = 0; s < 5; s++) stars += (s < wl ? "★" : "☆");
         drawText(stars, W / 2, SAFE_TOP + 74, "bold 15px Arial", wl >= 4 ? "#FF5252" : "#FFD54F", "#000", 3);
         if (fugitiveSpot > 0.05) {
-            var bustAt = Math.max(0.85, 1.7 - wl * 0.18);
+            var bustAt = Math.max(0.7, 1.6 - wl * 0.2);
             var w = 120, x = W / 2 - w / 2, y = SAFE_TOP + 84;
             ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(x, y, w, 6, 3); ctx.fill();
             ctx.fillStyle = "#FF5252"; roundRect(x, y, w * clamp(fugitiveSpot / bustAt, 0, 1), 6, 3); ctx.fill();

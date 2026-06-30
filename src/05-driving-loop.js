@@ -805,12 +805,22 @@
                     o.comment = randPick(BUS_QUIPS); o.commentT = 2.0;
                 }
             } else if (o.type === "car" && o.behavior === "patrol") {
+                // AGGRESSIVE hunter units (3★+ / K9) actively steer toward her lane
+                // and ride faster — a real driving threat, not just scenery.
+                if (o.aggro && prisonClothes) {
+                    o.x = clamp(lerp(o.x, player.x, Math.min(1, 1.5 * dt)), ROAD_L + 18, ROAD_R - 18);
+                    o.speedMult = Math.max(o.speedMult, 1.45);
+                }
+                if (o.k9) {   // the dog barks when it's closing in
+                    o.barkT = (o.barkT || 0) - dt;
+                    if (o.barkT <= 0 && Math.abs(o.y - player.y) < 220) { o.barkT = rand(0.7, 1.4); if (typeof playDogBark === "function") playDogBark(); }
+                }
                 // Cruises normally, but busts you if you speed in its view.
                 // (On foot keys.up is RUN, not speeding — never a violation.)
                 var patSpeeding = !onFoot && (keys.up || gameSpeed > 520);
                 if (patSpeeding && !copChase && !copBust && Math.abs(o.y - player.y) < 175) {
                     o.spot = (o.spot || 0) + dt;
-                    if (o.spot > 0.7) { beginCopChase(o.x, "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
+                    if (o.spot > 0.7) { beginCopChase(o.x, o.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
                 } else { o.spot = Math.max(0, (o.spot || 0) - dt * 1.5); }
             } else if (o.type === "car" && o.behavior === "pulled") {
                 // Busted: drift to the shoulder, slow down, and bicker with the cop.
@@ -3723,7 +3733,8 @@
             if (o.type === "car" && o.behavior === "ambulance") {
                 drawAmbulance(o.x, o.y, gameTime);
             } else if (o.type === "car" && o.behavior === "patrol") {
-                drawCopCar(o.x, o.y, gameTime);
+                if (o.k9 && typeof drawK9Car === "function") drawK9Car(o.x, o.y, gameTime);
+                else drawCopCar(o.x, o.y, gameTime);
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             } else if (o.type === "car" && o.behavior === "bus") {
                 drawTopBus(o.x, o.y);

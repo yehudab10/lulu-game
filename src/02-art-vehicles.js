@@ -1718,6 +1718,46 @@
         ctx.restore();
     }
 
+    // K9 UNIT — a blacked-out cruiser-SUV with a barking dog in the back, used
+    // when a fugitive's heat is high. Boxier + darker than a patrol car.
+    function drawK9Car(x, y, sirenTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var hw = CAR_W / 2 + 6, hh = CAR_H / 2 + 6;
+        ctx.fillStyle = "rgba(0,0,0,0.28)"; ctx.beginPath(); ctx.ellipse(2, 8, hw + 4, hh - 4, 0, 0, Math.PI * 2); ctx.fill();
+        // boxy black SUV body
+        ctx.fillStyle = "#0C0F13"; roundRect(-hw - 2, -hh - 2, hw * 2 + 4, hh * 2 + 4, 8); ctx.fill();
+        var bg = ctx.createLinearGradient(-hw, 0, hw, 0);
+        bg.addColorStop(0, "#1A1E24"); bg.addColorStop(0.5, "#2C333B"); bg.addColorStop(1, "#1A1E24");
+        ctx.fillStyle = bg; roundRect(-hw, -hh, hw * 2, hh * 2, 7); ctx.fill();
+        // white "POLICE K9" door panel
+        ctx.fillStyle = "#ECEFF1"; roundRect(-hw, -6, hw * 2, 22, 0); ctx.fill();
+        drawText("K9", 0, 6, "bold 11px Arial", "#0D1B5E", null, 0);
+        // windshield + rear cage window
+        ctx.fillStyle = "#37474F"; roundRect(-hw + 7, -hh + 7, hw * 2 - 14, 22, 5); ctx.fill();
+        ctx.fillStyle = "#546E7A"; roundRect(-hw + 9, -hh + 9, hw * 2 - 18, 18, 4); ctx.fill();
+        // rear cage with a dog silhouette (barking — head bobs)
+        ctx.fillStyle = "#11161B"; roundRect(-hw + 8, hh - 30, hw * 2 - 16, 22, 4); ctx.fill();
+        ctx.strokeStyle = "#5A6772"; ctx.lineWidth = 1;
+        for (var cg = -hw + 12; cg < hw - 10; cg += 6) { ctx.beginPath(); ctx.moveTo(cg, hh - 30); ctx.lineTo(cg, hh - 8); ctx.stroke(); }
+        var bob = Math.abs(Math.sin(sirenTime * 6)) * 2;
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, hh - 20 - bob, 5, 0, Math.PI * 2); ctx.fill();   // dog head
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.moveTo(-5, hh - 24 - bob); ctx.lineTo(-2, hh - 27 - bob); ctx.lineTo(-2, hh - 22 - bob); ctx.closePath(); ctx.fill();  // ear
+        ctx.beginPath(); ctx.moveTo(5, hh - 24 - bob); ctx.lineTo(2, hh - 27 - bob); ctx.lineTo(2, hh - 22 - bob); ctx.closePath(); ctx.fill();
+        // roof light bar (red/blue strobe)
+        var flashR = Math.sin(sirenTime * 18) > 0;
+        ctx.fillStyle = "#11161B"; roundRect(-14, -4, 28, 7, 2); ctx.fill();
+        ctx.fillStyle = flashR ? "#FF1744" : "#7A1320"; roundRect(-13, -3, 12, 5, 1); ctx.fill();
+        ctx.fillStyle = flashR ? "#0D2A6B" : "#2979FF"; roundRect(1, -3, 12, 5, 1); ctx.fill();
+        ctx.fillStyle = flashR ? "rgba(255,23,68,0.18)" : "rgba(41,121,255,0.18)";
+        ctx.beginPath(); ctx.arc(flashR ? -7 : 7, 0, 22, 0, Math.PI * 2); ctx.fill();
+        // chunky tires
+        ctx.fillStyle = "#0A0A0A";
+        roundRect(-hw - 4, -hh + 12, 8, 18, 3); ctx.fill(); roundRect(hw - 4, -hh + 12, 8, 18, 3); ctx.fill();
+        roundRect(-hw - 4, hh - 30, 8, 18, 3); ctx.fill(); roundRect(hw - 4, hh - 30, 8, 18, 3); ctx.fill();
+        ctx.restore();
+    }
+
     // A little roadside police motor-pool: paved lot, parked cruisers, a
     // standing officer, and one walking a cuffed perp in. Drawn relative to a
     // scrolling building-like record {x (center), y (top), w, h, side}. Reused

@@ -6,6 +6,7 @@
         roadDramas = []; carCrashCooldown = rand(7, 16);
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
         prisonClothes = false; fugitiveT = 0; fugitiveSpot = 0; fugCopT = 0;
+        if (typeof fugDisguise !== "undefined") { fugDisguise = null; fugDisguiseT = 0; }
         jail = null; court = null; arrest = null;
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
@@ -134,12 +135,26 @@
     // you speed past it (or blow a school-bus stop sign in its view).
     function spawnPatrolCar() {
         var lane = randInt(0, 2);
-        obstacles.push({
+        var o = {
             type: "car", behavior: "patrol", x: LANES[lane], y: -100,
             color: "#FFFFFF", carType: 0, hitW: 36, hitH: 64,
             speedMult: Math.random() < 0.4 ? rand(1.3, 1.6) : 0.7,
             lane: lane, spot: 0, swerveT: 0, spillT: 0
-        });
+        };
+        obstacles.push(o);
+        return o;
+    }
+    // A K9 unit — a dark cruiser-SUV with a dog aboard, that actively hunts her
+    // position. Shows up only when the heat is high (4★+).
+    function spawnK9Unit() {
+        var lane = randInt(0, 2);
+        var o = {
+            type: "car", behavior: "patrol", k9: true, aggro: true,
+            x: LANES[lane], y: -120, color: "#23272E", carType: 0, hitW: 38, hitH: 70,
+            speedMult: 1.5, lane: lane, spot: 0, swerveT: 0, spillT: 0, barkT: rand(1, 2.5)
+        };
+        obstacles.push(o);
+        return o;
     }
 
     // Water kicked up when Lulu splashes through a puddle.
