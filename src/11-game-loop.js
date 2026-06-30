@@ -45,6 +45,14 @@
             pauseQueued = false;
             footActQueued = false;
             exitQueued = false;
+            // Driving-HUD action queues (weapon/honk/siren/lane taps) must also drop on
+            // a scene change — a tap fired just before the flip would otherwise leak in
+            // and auto-fire on re-entry to driving.
+            missileQueued = false;
+            honkQueued = false;
+            pepperQueued = false;
+            sirenQueued = false;
+            laneQueued = 0;
             // Drop any held control input from the previous scene.
             keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;

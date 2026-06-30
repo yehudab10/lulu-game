@@ -6640,6 +6640,13 @@
         lives = Math.max(lives, 1);
         if (playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }   // diesel days are over
         copChase = null; copBust = null; copStop = null;
+        // Fugitive hazards (K9s / missiles) spawned during the chase/bust window must
+        // not survive back onto the road — otherwise a frozen, off-screen dog or
+        // missile ambushes her the instant she's back in control. They re-spawn on
+        // their own cadence if she's still hot. Also zero the recognition meter so
+        // re-entering the car doesn't instantly re-trigger a chase from a stale value.
+        if (typeof copK9s !== "undefined") { copK9s = []; copMissiles = []; copK9T = 0; copMslT = 0; }
+        if (typeof fugitiveSpot !== "undefined") fugitiveSpot = 0;
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         honkChain = 0; honkChainResetTimer = 0;
@@ -26511,6 +26518,14 @@
             pauseQueued = false;
             footActQueued = false;
             exitQueued = false;
+            // Driving-HUD action queues (weapon/honk/siren/lane taps) must also drop on
+            // a scene change — a tap fired just before the flip would otherwise leak in
+            // and auto-fire on re-entry to driving.
+            missileQueued = false;
+            honkQueued = false;
+            pepperQueued = false;
+            sirenQueued = false;
+            laneQueued = 0;
             // Drop any held control input from the previous scene.
             keys.up = false; keys.down = false;
             steerTouchId = null; touchX = null; touchY = null;
