@@ -27,6 +27,62 @@
         "Ugh, these cuffs are SO last season.", "I'll be out by Shabbos, you'll SEE."];
     var CUFF_LINES = ["🔗 *CLICK* — gotcha.", "🔗 Cuffs ON. Watch your head.",
         "🔗 You're goin' DOWNTOWN.", "🔗 Easy does it, Ms. Bruck."];
+    // Crime-specific cop barks + Lulu retorts, keyed by a substring of the charge.
+    // First matching charge wins; otherwise we fall back to the generic pools above.
+    var CHARGE_DIALOGUE = [
+        { key: "GRAND THEFT AUTO", cop: ["That car wasn't YOURS, Lulu!", "Boostin' cars now?! That's a FELONY!", "Hot-wire artist, huh? Cute. Cuffs."],
+                                   lulu: ["I was just BORROWING it!", "It had the keys IN it! ...basically.", "Finders keepers is a LAW, no?"] },
+        { key: "JOYRIDING",       cop: ["Joyride's OVER, lead-foot.", "Fun's done. Out of the car."],
+                                   lulu: ["It's only a joyride if I'm having FUN. I wasn't!", "Define 'joy.' Loosely."] },
+        { key: "PEPPER", cop: ["You MACED me?! MY EYES!", "Assaulting an officer — that's HARD time, lady!"],
+                         lulu: ["You startled me! Reflexes!", "It was for my SELF-DEFENSE. From YOU."] },
+        { key: "ASSAULT", cop: ["You laid hands on an OFFICER.", "Nobody touches the badge, Lulu."],
+                          lulu: ["I have very ASSERTIVE hands.", "He was ASKING for it, your hon— officer."] },
+        { key: "HIT AND RUN", cop: ["You FLED the scene, Bruck!", "Hit somethin' and BOLTED. Classy."],
+                              lulu: ["I didn't flee, I... left briskly.", "There was NO scene. I made GREAT time though."] },
+        { key: "RECKLESS", cop: ["Drivin' like a MANIAC out there!", "Reckless! You coulda killed a GOOSE!"],
+                           lulu: ["I prefer 'spirited.'", "Reckless? I PARALLEL park flawlessly!"] },
+        { key: "SPEEDING", cop: ["Eighty in a forty, Ms. Bruck.", "You blew past me like I was PARKED."],
+                           lulu: ["Everyone was going slow! ...except me.", "I was keeping up with TRAFFIC. In my MIND."] },
+        { key: "ESCAPE", cop: ["Back to the cell, fugitive!", "Thought you could RUN from us?"],
+                         lulu: ["I was just stretching my legs! For a WEEK!", "The jumpsuit washes me out, I HAD to leave."] },
+        { key: "BRIB", cop: ["Tried to BRIBE the law, eh?", "Your 'envelope' just bought you CHARGES."],
+                       lulu: ["It was a GIFT! For your birthday! ...whenever!", "That wasn't a bribe, it was a... tip."] },
+        { key: "EVADING", cop: ["You ran from a HELICOPTER, genius.", "Quite the chase. You LOSE."],
+                          lulu: ["I waved! That's basically cooperating!", "I thought it was a FAN. Of mine."] }
+    ];
+    function chargeDialogueFor(charges) {
+        if (charges) for (var d = 0; d < CHARGE_DIALOGUE.length; d++)
+            for (var c = 0; c < charges.length; c++)
+                if (charges[c].indexOf(CHARGE_DIALOGUE[d].key) >= 0) return CHARGE_DIALOGUE[d];
+        return null;
+    }
+    // A lawyer's actual ARGUMENT against a specific charge — so retained counsel
+    // visibly defends the real crime at stake, not just generic flavor.
+    var CHARGE_DEFENSE = [
+        { key: "GRAND THEFT AUTO", arg: "the so-called 'theft' was a spirited TEST-DRIVE — no intent to permanently deprive!" },
+        { key: "JOYRIDING", arg: "'joyriding' implies JOY; my client will testify she felt only mild contentment." },
+        { key: "PEPPER", arg: "the spray was a textbook reflexive act of SELF-DEFENSE." },
+        { key: "ASSAULT", arg: "my client never STRUCK the officer — she GESTURED. Emphatically. It's protected expression." },
+        { key: "HIT AND RUN", arg: "she did not 'flee' — she departed to summon HELP. Deeply civic, really." },
+        { key: "RECKLESS", arg: "'reckless' is subjective; the record shows only CONFIDENT car-handling." },
+        { key: "SPEEDING", arg: "the radar gun was plainly miscalibrated, as these devices notoriously are." },
+        { key: "ESCAPE", arg: "one cannot 'escape' a cell whose door was, arguably, left AJAR." },
+        { key: "BRIB", arg: "that envelope was a CHARITABLE donation to the policeman's ball. Tax-deductible, even." },
+        { key: "EVADING", arg: "my client cannot have EVADED a pursuer she did not know was pursuing her." }
+    ];
+    function lawyerChargeArgument(tier, charges) {
+        var snip = null;
+        for (var d = 0; d < CHARGE_DEFENSE.length && !snip; d++)
+            for (var c = 0; c < charges.length; c++)
+                if (charges[c].indexOf(CHARGE_DEFENSE[d].key) >= 0) { snip = CHARGE_DEFENSE[d]; break; }
+        if (!snip) snip = { arg: "the prosecution's case is, frankly, vibes and hearsay, your honor." };
+        var lead = tier.name === "Public Defender" ? "Uh — *checks the wrong file* — your honor, I'll argue that "
+                 : tier.name === "Abba" ? "Your honor, as her FATHER and her counsel: "
+                 : tier.name === "Hotshot Lawyer" ? "Your honor, I'll be brief and devastating: "
+                 : "Your honor, the defense contends ";
+        return lead + snip.arg;
+    }
 
     // ── Content pools ────────────────────────────────────────
     var CELLMATE_LINES = ["What're you in for? 😏", "I'm INNOCENT. ...mostly.",
@@ -216,24 +272,36 @@
     //  forth (cop barks, Lulu sasses) → she's CUFFED (animated) → perp-walked to
     //  the cruiser → and you watch it DRIVE her to the nearest police station,
     //  which scrolls into view. THEN she's booked. No sudden cut to jail.
-    function beginArrest(charges) {
+    // opts.fromBust: she was just pulled over, so the cruiser & cop are already
+    // there — skip the roll-up/approach and start at the cuffing beat (still shows
+    // crime dialogue + the drive to the station).
+    function beginArrest(charges, opts) {
+        opts = opts || {};
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
         var px = (player ? player.x : W / 2);
         var fromLeft = px > W / 2;                  // cop approaches from her open side
+        // crime-specific banter when we can match a charge; generic otherwise
+        var cd = chargeDialogueFor(charges);
         arrest = {
-            charges: charges, t: 0, phase: 0, onFoot: onFoot,
+            charges: charges, t: 0, phase: opts.fromBust ? 2 : 0, onFoot: onFoot,
             px: px, py: py,                         // her (abandoned) car / start spot
             outX: px + (fromLeft ? -26 : 26), outY: py + 2,   // where she stands once pulled out
             lx: px + (fromLeft ? -26 : 26), ly: py + 2,       // her live standing position
             copX: clamp(px + (fromLeft ? -52 : 52), ROAD_L + 30, ROAD_R - 30),
-            copY: py + 190,                         // cruiser slides up from behind
+            copY: py + (opts.fromBust ? 64 : 190),  // cruiser already alongside on a bust
             fromLeft: fromLeft, officer: null,
-            copLine: randPick(ARREST_LINES), luluLine: randPick(LULU_ARREST_LINES),
+            copLine: cd ? randPick(cd.cop) : randPick(ARREST_LINES),
+            luluLine: cd ? randPick(cd.lulu) : randPick(LULU_ARREST_LINES),
             cuffLine: randPick(CUFF_LINES), dialStep: 0,
             cuffT: 0, walkP: 0, cuffed: false,
             scroll: 0, station: null, fade: 0
         };
+        // when we skip straight to cuffing, the officer must already be on-scene
+        if (opts.fromBust) {
+            arrest.officer = { x: px + (fromLeft ? -26 : 26), y: py + 2, time: 0,
+                               state: "yelling", runDir: fromLeft ? -1 : 1, cop: true };
+        }
         copChase = null; copBust = null; copStop = null;
         if (typeof playWompWomp === "function") playWompWomp();
         playTone(900, 0.12, "sine", 0.13, 1320);
@@ -496,11 +564,11 @@
         consumeClick(); consumeAction();
         var s = save.convictions || 0;
         jail.lock = {
-            pins: 3 + Math.min(2, s) + Math.min(2, jail.escapeFails),   // harder for repeat offenders
+            pins: 2 + Math.min(2, s) + Math.min(2, jail.escapeFails),   // harder for repeat offenders
             done: 0, pos: 0, dir: 1,
-            speed: 0.58 + s * 0.08 + jail.escapeFails * 0.12,           // gentler — the marker was too fast
-            zoneC: rand(0.25, 0.75), zoneW: Math.max(0.13, 0.30 - s * 0.03 - jail.escapeFails * 0.03),
-            misses: 0, maxMiss: 3, result: null, resultT: 0
+            speed: 0.48 + s * 0.06 + jail.escapeFails * 0.10,           // gentler — the marker was too fast
+            zoneC: rand(0.25, 0.75), zoneW: Math.max(0.17, 0.36 - s * 0.025 - jail.escapeFails * 0.025),
+            misses: 0, maxMiss: 4, result: null, resultT: 0
         };
         jail.phase = 3; jail.t = 0;
     }
@@ -1025,7 +1093,11 @@
             { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(JUDGE_INTROS) },
             { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(PROSECUTOR_LINES) + " The charges: " + cl.join(", ") + "!" }
         ];
-        if (lawyerTier) lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.says ? randPick(lawyerTier.says) : lawyerTier.say });
+        if (lawyerTier) {
+            lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerTier.says ? randPick(lawyerTier.says) : lawyerTier.say });
+            // …then the lawyer actually ARGUES the specific charge(s) at stake.
+            lines.push({ who: lawyerTier.name.toUpperCase(), p: lawyerTier.portrait || "lawyer", accent: lawyerTier.accent, text: lawyerChargeArgument(lawyerTier, cl) });
+        }
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,

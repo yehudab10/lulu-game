@@ -1745,9 +1745,14 @@
                 copBust = null;
                 if (out === "free") returnToDriving();
                 else if (out === "walk") startFootWorld("copWalk");
-                // A ticket now means a trip downtown — booked, then her day in
-                // court — instead of an instant game over.
-                else goToJail(wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"]);
+                // A ticket now means a trip downtown: she's cuffed and DRIVEN to
+                // the station (the arrest cutscene) before booking + her day in
+                // court — instead of blinking straight to a cell.
+                else {
+                    var tch = wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"] : ["SPEEDING", "RECKLESS DRIVING"];
+                    if (typeof beginArrest === "function") beginArrest(tch, { fromBust: true });
+                    else goToJail(tch);
+                }
             }
         }
     }

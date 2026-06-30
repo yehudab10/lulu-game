@@ -315,15 +315,21 @@
             if (footActQueued) { footActQueued = false; if (footPrompt) doFootInteract(footPrompt); else footBusk(); }
         }
 
-        // A bored cop who spots her walking CLOSE BY occasionally takes her in
-        // (low chance) — straight to the precinct interior. No speeding here.
-        if (footBuskT <= 0) {
+        // A cop who spots a WANTED Lulu walking CLOSE BY nabs her — but ONLY if
+        // she's actually got an open file (no more random grabs of an innocent
+        // pedestrian). It runs the full arrest cutscene (crime dialogue + the
+        // drive to the station) via beginArrest, same as everywhere else.
+        var footWanted = (typeof isWanted === "function" && isWanted()) || prisonClothes;
+        if (footBuskT <= 0 && footWanted) {
             var copSeen = null, ic;
             for (ic = 0; ic < roadCops.length; ic++) { var rc = roadCops[ic]; if (!rc.busted && Math.abs(rc.x - player.x) < 80 && Math.abs(rc.y - player.y) < 90) { copSeen = rc; break; } }
             if (!copSeen) for (ic = 0; ic < obstacles.length; ic++) { var oc = obstacles[ic]; if (oc.type === "car" && (oc.behavior === "patrol" || oc.behavior === "pulled") && Math.abs(oc.x - player.x) < 90 && Math.abs(oc.y - player.y) < 100) { copSeen = oc; break; } }
-            if (copSeen && Math.random() < dt * 0.10) {
+            if (copSeen && Math.random() < dt * 0.14) {
                 copSeen.busted = true; // this cop is now the one nabbing her (no re-trigger)
-                footStartArrest(copSeen.x);
+                if (typeof beginArrest === "function") {
+                    var fch = (save.wanted && save.wanted.length) ? save.wanted.slice() : ["EVADING ARREST"];
+                    beginArrest(fch);
+                } else { footStartArrest(copSeen.x); }
                 return;
             }
         }
@@ -465,7 +471,6 @@
         var seen = (typeof copInView === "function" && copInView());
         lives = Math.max(lives, 1);
         footParked = []; footDoors = []; footCompanion = null;
-        if (seen && typeof beginArrest === "function") { beginArrest(["GRAND THEFT AUTO", "JOYRIDING"]); return; }
         var v = pc.vtype || "car";
         if (v === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
         else if (v === "cop") playerVehicle = "cop";
@@ -473,13 +478,23 @@
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
         returnToDriving();
+        // A cop watched her boost it → she's WANTED and the CHASE is on. No instant
+        // jail: she can out-drive them, or get pulled over the normal way (and the
+        // grand-theft charge rides along on her wanted file into court).
+        if (seen) {
+            if (typeof addWanted === "function") addWanted(["GRAND THEFT AUTO", "JOYRIDING"]);
+            if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!");
+        }
     }
     function footHotwireFail(h) {
         spawnFloater(player.x, player.y - 32, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80");
         if (typeof playHonk === "function") playHonk();
         footParked = [];   // that one's a bust — move along
-        if (typeof copInView === "function" && copInView() && Math.random() < 0.5 && typeof beginArrest === "function") {
-            beginArrest(["ATTEMPTED GRAND THEFT AUTO"]);
+        // A cop saw the attempt → she's WANTED for it, but she's still on foot
+        // (no car to chase) so she just has to slip away before one nabs her.
+        if (typeof copInView === "function" && copInView() && typeof addWanted === "function") {
+            addWanted(["ATTEMPTED GRAND THEFT AUTO"]);
+            spawnFloater(player.x, player.y - 54, "👮 a cop SAW that — you're WANTED!", "#FF8A80");
         }
     }
 
