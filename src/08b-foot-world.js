@@ -368,7 +368,10 @@
         // the ride, the tougher the hotwire.
         var r = Math.random();
         var vtype = r < 0.68 ? "car" : r < 0.80 ? "cop" : r < 0.90 ? "ambulance" : r < 0.97 ? "bus" : "dozer";
-        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype,
+        // ~1-in-4 ordinary cars is a LEMON (hood up / flat tire) — steal it and it
+        // drives badly. Fancier rides (cop/bus/etc.) are never lemons.
+        var lemon = (vtype === "car" && Math.random() < 0.25) ? (Math.random() < 0.5 ? "engine" : "tire") : null;
+        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype, lemon: lemon,
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
@@ -503,6 +506,13 @@
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
+        // Stole a LEMON → it drives badly (a flat tire pulls her to one side, or a
+        // shot engine sputters and smokes) until she ditches it for another ride.
+        if (typeof carMalfunction !== "undefined") {
+            carMalfunction = pc.lemon ? { type: pc.lemon, drift: (Math.random() < 0.5 ? -1 : 1), t: 0, sput: 0 } : null;
+            if (pc.lemon === "tire") spawnFloater(player.x, player.y - 32, "🛠️ FLAT TIRE — it PULLS!", "#FF8A80");
+            else if (pc.lemon === "engine") spawnFloater(player.x, player.y - 32, "🛠️ BAD ENGINE — it SPUTTERS!", "#FF8A80");
+        }
         // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
         // drive them and you're clean; only getting run down books the theft. This
         // keeps a single hijack from leaving her hunted forever.
@@ -812,7 +822,16 @@
             else if (pc.vtype === "bus" && typeof drawTopBus === "function") drawTopBus(0, 0);
             else if (pc.vtype === "dozer" && typeof drawSteamroller === "function") drawSteamroller(0, 0, 0, gameTime, true);
             else drawEnemyCar(0, 0, pc.color, pc.carType);
+            // a LEMON wears its trouble: a popped hood + smoke (engine) or a flat
+            // tire — so you can SEE it's a dud before you steal it.
+            if (pc.lemon === "engine") {
+                ctx.fillStyle = "#455A64"; roundRect(-13, -CAR_H / 2 - 7, 26, 11, 2); ctx.fill();
+                ctx.fillStyle = "#263238"; roundRect(-13, -CAR_H / 2 - 7, 26, 3, 2); ctx.fill();
+            } else if (pc.lemon === "tire") {
+                ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.ellipse(-CAR_W / 2 - 1, -CAR_H / 2 + 18, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+            }
             ctx.restore();
+            if (pc.lemon === "engine" && Math.random() < 0.25) particles.push({ x: pc.x + rand(-5, 5), y: pc.y - CAR_H / 2 - 4, vx: rand(-8, 8), vy: rand(-24, -10), life: 0, maxLife: 0.9, size: rand(3, 6), color: randPick(["#9E9E9E", "#616161"]), gravity: -8 });
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
         if (footDisguise) drawFootDisguiseBooth(footDisguise.x, footDisguise.y, footDisguise.t);

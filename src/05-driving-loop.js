@@ -335,7 +335,7 @@
     // rolling). startFootWorld drops her into the foot sim near where she parked.
     function dropToFoot(side) {
         parkExit = null; slowDriveT = 0; exitBtnShown = false;
-        playerVehicle = null;
+        playerVehicle = null; carMalfunction = null;   // ditched the lemon
         if (typeof startFootWorld === "function") startFootWorld("droveOff");
         if (player) {
             var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
@@ -411,6 +411,19 @@
         // visibly STOPS at it before the hotwire (then stays stopped through it).
         if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) gameSpeed = 0;
+        // Stolen LEMON: a flat tire keeps tugging her aside; a shot engine sputters
+        // (brief speed cuts) and trails smoke. Lasts until she's in another ride.
+        if (!onFoot && carMalfunction) {
+            carMalfunction.t += dt;
+            if (carMalfunction.type === "engine") {
+                carMalfunction.sput = (carMalfunction.sput || 0) - dt;
+                if (carMalfunction.sput <= 0) { carMalfunction.sput = rand(1.3, 2.6); carMalfunction.sputT = 0.45; playTone(rand(80, 130), 0.1, "sawtooth", 0.06); }
+                if (carMalfunction.sputT > 0) { carMalfunction.sputT -= dt; gameSpeed *= 0.42; }
+                if (Math.random() < 0.3) particles.push({ x: player.x + rand(-7, 7), y: player.y - CAR_H / 2, vx: rand(-12, 12), vy: rand(-30, -12), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#9E9E9E", "#616161", "#424242"]), gravity: -10 });
+            } else {   // flat tire → constant pull to one side + a shudder
+                player.targetX = clamp(player.targetX + carMalfunction.drift * 36 * dt, ROAD_L + CAR_W / 2 + 4, ROAD_R - CAR_W / 2 - 4);
+            }
+        }
         scrollOffset += gameSpeed * dt;
         // "Liquid courage" from the bar: while it lasts and she's actually
         // DRIVING, she's shielded and rakes in double points (tipsy-but-fearless).

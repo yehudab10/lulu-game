@@ -734,6 +734,14 @@
             ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, 56, 80, 6, 3); ctx.fill();
             ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 38, 57, 76 * clamp(nitroTimer / 9, 0, 1), 4, 2); ctx.fill();
         }
+        // Stolen-lemon warning so she knows WHY the car's misbehaving (stacked
+        // below any nitro / courage badge).
+        if (carMalfunction) {
+            var blink = Math.sin(gameTime * 6) > -0.2;
+            var ly = 48 + (nitroTimer > 0 ? 30 : 0) + (courageT > 0 ? 30 : 0);
+            drawText(carMalfunction.type === "tire" ? "🛠️ FLAT TIRE — counter-steer!" : "🛠️ BAD ENGINE — sputtering!",
+                W / 2, ly, "bold 12px 'Segoe UI', Arial, sans-serif", blink ? "#FF7043" : "#FFB300", "#000", 3);
+        }
         // Liquid-courage buff indicator (from the bar) — shield + 2x score
         if (courageT > 0) {
             var cy0 = nitroTimer > 0 ? 78 : 48;
@@ -976,6 +984,7 @@
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
     var courageT = 0;         // "liquid courage" buff from the bar — shield + 2x score while driving
+    var carMalfunction = null;// {type:"tire"/"engine", drift, t} — a stolen LEMON drives badly
     var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}

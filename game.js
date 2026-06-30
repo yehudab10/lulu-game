@@ -4879,6 +4879,14 @@
             ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(W / 2 - 40, 56, 80, 6, 3); ctx.fill();
             ctx.fillStyle = "#FF7043"; roundRect(W / 2 - 38, 57, 76 * clamp(nitroTimer / 9, 0, 1), 4, 2); ctx.fill();
         }
+        // Stolen-lemon warning so she knows WHY the car's misbehaving (stacked
+        // below any nitro / courage badge).
+        if (carMalfunction) {
+            var blink = Math.sin(gameTime * 6) > -0.2;
+            var ly = 48 + (nitroTimer > 0 ? 30 : 0) + (courageT > 0 ? 30 : 0);
+            drawText(carMalfunction.type === "tire" ? "🛠️ FLAT TIRE — counter-steer!" : "🛠️ BAD ENGINE — sputtering!",
+                W / 2, ly, "bold 12px 'Segoe UI', Arial, sans-serif", blink ? "#FF7043" : "#FFB300", "#000", 3);
+        }
         // Liquid-courage buff indicator (from the bar) — shield + 2x score
         if (courageT > 0) {
             var cy0 = nitroTimer > 0 ? 78 : 48;
@@ -5121,6 +5129,7 @@
     var fuelCans = [];        // gas-station nitro pickups
     var nitroTimer = 0;       // seconds of turbo remaining
     var courageT = 0;         // "liquid courage" buff from the bar — shield + 2x score while driving
+    var carMalfunction = null;// {type:"tire"/"engine", drift, t} — a stolen LEMON drives badly
     var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}
@@ -5336,7 +5345,7 @@
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
         crashFlash = 0; slowMoT = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
-        fuelCans = []; nitroTimer = 0; courageT = 0; wetTimer = 0; tollBooth = null;
+        fuelCans = []; nitroTimer = 0; courageT = 0; carMalfunction = null; wetTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
         crossingGuard = null; convoyTimer = 0; convoyNext = 0; iceTruck = null;
         heshy = null;
@@ -6660,7 +6669,7 @@
     // rolling). startFootWorld drops her into the foot sim near where she parked.
     function dropToFoot(side) {
         parkExit = null; slowDriveT = 0; exitBtnShown = false;
-        playerVehicle = null;
+        playerVehicle = null; carMalfunction = null;   // ditched the lemon
         if (typeof startFootWorld === "function") startFootWorld("droveOff");
         if (player) {
             var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
@@ -6736,6 +6745,19 @@
         // visibly STOPS at it before the hotwire (then stays stopped through it).
         if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) gameSpeed = 0;
+        // Stolen LEMON: a flat tire keeps tugging her aside; a shot engine sputters
+        // (brief speed cuts) and trails smoke. Lasts until she's in another ride.
+        if (!onFoot && carMalfunction) {
+            carMalfunction.t += dt;
+            if (carMalfunction.type === "engine") {
+                carMalfunction.sput = (carMalfunction.sput || 0) - dt;
+                if (carMalfunction.sput <= 0) { carMalfunction.sput = rand(1.3, 2.6); carMalfunction.sputT = 0.45; playTone(rand(80, 130), 0.1, "sawtooth", 0.06); }
+                if (carMalfunction.sputT > 0) { carMalfunction.sputT -= dt; gameSpeed *= 0.42; }
+                if (Math.random() < 0.3) particles.push({ x: player.x + rand(-7, 7), y: player.y - CAR_H / 2, vx: rand(-12, 12), vy: rand(-30, -12), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#9E9E9E", "#616161", "#424242"]), gravity: -10 });
+            } else {   // flat tire → constant pull to one side + a shudder
+                player.targetX = clamp(player.targetX + carMalfunction.drift * 36 * dt, ROAD_L + CAR_W / 2 + 4, ROAD_R - CAR_W / 2 - 4);
+            }
+        }
         scrollOffset += gameSpeed * dt;
         // "Liquid courage" from the bar: while it lasts and she's actually
         // DRIVING, she's shielded and rakes in double points (tipsy-but-fearless).
@@ -13977,7 +13999,10 @@
         // the ride, the tougher the hotwire.
         var r = Math.random();
         var vtype = r < 0.68 ? "car" : r < 0.80 ? "cop" : r < 0.90 ? "ambulance" : r < 0.97 ? "bus" : "dozer";
-        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype,
+        // ~1-in-4 ordinary cars is a LEMON (hood up / flat tire) — steal it and it
+        // drives badly. Fancier rides (cop/bus/etc.) are never lemons.
+        var lemon = (vtype === "car" && Math.random() < 0.25) ? (Math.random() < 0.5 ? "engine" : "tire") : null;
+        footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype, lemon: lemon,
             color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
     }
 
@@ -14112,6 +14137,13 @@
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
         else playerVehicle = null;
+        // Stole a LEMON → it drives badly (a flat tire pulls her to one side, or a
+        // shot engine sputters and smokes) until she ditches it for another ride.
+        if (typeof carMalfunction !== "undefined") {
+            carMalfunction = pc.lemon ? { type: pc.lemon, drift: (Math.random() < 0.5 ? -1 : 1), t: 0, sput: 0 } : null;
+            if (pc.lemon === "tire") spawnFloater(player.x, player.y - 32, "🛠️ FLAT TIRE — it PULLS!", "#FF8A80");
+            else if (pc.lemon === "engine") spawnFloater(player.x, player.y - 32, "🛠️ BAD ENGINE — it SPUTTERS!", "#FF8A80");
+        }
         // A cop right there saw it → a ONE-OFF chase (no permanent rap sheet). Out-
         // drive them and you're clean; only getting run down books the theft. This
         // keeps a single hijack from leaving her hunted forever.
@@ -14421,7 +14453,16 @@
             else if (pc.vtype === "bus" && typeof drawTopBus === "function") drawTopBus(0, 0);
             else if (pc.vtype === "dozer" && typeof drawSteamroller === "function") drawSteamroller(0, 0, 0, gameTime, true);
             else drawEnemyCar(0, 0, pc.color, pc.carType);
+            // a LEMON wears its trouble: a popped hood + smoke (engine) or a flat
+            // tire — so you can SEE it's a dud before you steal it.
+            if (pc.lemon === "engine") {
+                ctx.fillStyle = "#455A64"; roundRect(-13, -CAR_H / 2 - 7, 26, 11, 2); ctx.fill();
+                ctx.fillStyle = "#263238"; roundRect(-13, -CAR_H / 2 - 7, 26, 3, 2); ctx.fill();
+            } else if (pc.lemon === "tire") {
+                ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.ellipse(-CAR_W / 2 - 1, -CAR_H / 2 + 18, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+            }
             ctx.restore();
+            if (pc.lemon === "engine" && Math.random() < 0.25) particles.push({ x: pc.x + rand(-5, 5), y: pc.y - CAR_H / 2 - 4, vx: rand(-8, 8), vy: rand(-24, -10), life: 0, maxLife: 0.9, size: rand(3, 6), color: randPick(["#9E9E9E", "#616161"]), gravity: -8 });
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
         if (footDisguise) drawFootDisguiseBooth(footDisguise.x, footDisguise.y, footDisguise.t);
