@@ -808,13 +808,13 @@
                 save.lockup.days = jail.days; persistSave();      // keep the served days on disk
             }
             if (jail.days >= jail.total) {
-                // Serving time is the ALWAYS-AVAILABLE, no-cash path out (proven model:
-                // Skyrim jail costs time, not gold). No surprise "court costs" skim — the
-                // sentence + impounded car IS the punishment, so she can never be
-                // soft-locked by a fine she can't pay.
+                // A MODEST, capped release fee (court costs) so doing time still stings —
+                // but it only skims what she can afford (chargeCoins floors at 0, never
+                // into debt), so a broke player still walks free and can't be soft-locked.
+                var fees = chargeCoins(Math.min(50, 15 + Math.round(jail.total * 0.3)));
                 clearLockup(); jail = null;
                 // walks out the jail doors — but her car's impounded, so she's on foot
-                beginExitScene("jail", "foot", "⛓️ Time served — you're free!", "copWalk");
+                beginExitScene("jail", "foot", fees > 0 ? "⛓️ Time served · −" + fees + " 💰 court costs" : "⛓️ Time served — you're free!", "copWalk");
                 return;
             }
         }
