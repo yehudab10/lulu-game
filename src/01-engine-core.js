@@ -1700,9 +1700,100 @@
         drawFitText(b.label || "SCHOOL", x + w / 2, y + h - 26, w - 12, 9, "#5D4037");
     }
 
+    // A proper PRECINCT: stone facade, a columned portico with a pediment, a big
+    // illuminated POLICE / PRECINCT 18½ sign, lit windows, a rotating blue beacon,
+    // a flag, entrance steps and the classic blue lamp globes. Scales to b.w/b.h
+    // so it reads well both as a roadside police-zone landmark and as the bigger
+    // booking destination during an arrest.
+    function drawPoliceStation(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.fillRect(x + 5, y + 9, w, h);
+        // stone facade (cool blue-grey, lighter at top)
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#637182"); fg.addColorStop(1, "#46525F");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        // corner pilasters + ashlar coursing
+        ctx.fillStyle = "#71808F"; ctx.fillRect(x, y, 6, h); ctx.fillRect(x + w - 6, y, 6, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.10)"; ctx.lineWidth = 1;
+        for (var cy2 = y + 18; cy2 < y + h - 4; cy2 += 18) { ctx.beginPath(); ctx.moveTo(x + 6, cy2); ctx.lineTo(x + w - 6, cy2); ctx.stroke(); }
+        // cornice / parapet
+        ctx.fillStyle = "#39444F"; ctx.fillRect(x - 3, y - 5, w + 6, 9);
+        ctx.fillStyle = "#2B343D"; ctx.fillRect(x - 3, y - 5, w + 6, 2.5);
+        // lit window columns flanking the central bay
+        var bayW = Math.max(26, w * 0.42), bx0 = x + w / 2 - bayW / 2, bx1 = x + w / 2 + bayW / 2;
+        var wi = 0;
+        for (var wy = y + 12; wy < y + h - 12; wy += 17) {
+            for (var side = 0; side < 2; side++) {
+                var wx = side === 0 ? x + 11 : bx1 + 5;
+                var wEnd = side === 0 ? bx0 - 5 : x + w - 11;
+                for (; wx + 9 <= wEnd; wx += 14) {
+                    wi++;
+                    var lit = b.lit !== false && (((wi * 41 + (b.seed || 7)) % 10) < 6);
+                    ctx.fillStyle = lit ? "#FFE082" : "#2A3742";
+                    roundRect(wx, wy, 9, 11, 1.5); ctx.fill();
+                    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fillRect(wx, wy, 9, 2);
+                }
+            }
+        }
+        // ── central PORTICO: pediment + entablature + columns ──
+        var px = x + w / 2, pw = bayW + 8, colTop = y + 20, colBot = y + h - 16;
+        ctx.fillStyle = "#8493A2";                                   // pediment
+        ctx.beginPath(); ctx.moveTo(px - pw / 2 - 3, colTop); ctx.lineTo(px, y + 2); ctx.lineTo(px + pw / 2 + 3, colTop); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#6E7D8C"; ctx.beginPath(); ctx.moveTo(px - pw / 2 - 3, colTop); ctx.lineTo(px, y + 6); ctx.lineTo(px + pw / 2 + 3, colTop); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#9AA8B6"; ctx.fillRect(px - pw / 2 - 3, colTop, pw + 6, 7);   // entablature
+        ctx.fillStyle = "#39444F"; ctx.fillRect(px - pw / 2 - 3, colTop + 7, pw + 6, 2);
+        // recessed entrance bay (dark) behind the columns
+        ctx.fillStyle = "#2A333C"; ctx.fillRect(px - pw / 2 + 2, colTop + 9, pw - 4, colBot - (colTop + 9));
+        // columns
+        var ncol = w > 90 ? 4 : 3;
+        for (var c = 0; c < ncol; c++) {
+            var cx2 = px - pw / 2 + 4 + c * (pw - 8) / (ncol - 1);
+            var cg = ctx.createLinearGradient(cx2 - 3, 0, cx2 + 3, 0);
+            cg.addColorStop(0, "#AEBAC6"); cg.addColorStop(0.5, "#E7ECF1"); cg.addColorStop(1, "#AEBAC6");
+            ctx.fillStyle = cg; ctx.fillRect(cx2 - 2.6, colTop + 9, 5.2, colBot - (colTop + 9));
+            ctx.fillStyle = "#C9D2DA"; ctx.fillRect(cx2 - 3.4, colTop + 8, 6.8, 2.5);     // capital
+            ctx.fillRect(cx2 - 3.4, colBot - 2, 6.8, 2.5);                                  // base
+        }
+        // glass entrance doors at the base of the bay
+        ctx.fillStyle = "#11181E"; roundRect(px - pw * 0.26, colBot - 16, pw * 0.52, 16, 2); ctx.fill();
+        ctx.fillStyle = "#2E4A63"; roundRect(px - pw * 0.24, colBot - 14, pw * 0.22, 13, 1); ctx.fill();
+        ctx.fillStyle = "#2E4A63"; roundRect(px + pw * 0.02, colBot - 14, pw * 0.22, 13, 1); ctx.fill();
+        // entrance steps spilling toward the road
+        for (var s = 0; s < 3; s++) { ctx.fillStyle = s % 2 ? "#7E8C9A" : "#909DAB"; ctx.fillRect(px - pw * 0.34 - s * 3, y + h - 2 + s * 2.4, pw * 0.68 + s * 6, 3); }
+        // ── blue precinct lamp globes flanking the doors (glowing) ──
+        var glow = 0.5 + 0.5 * Math.sin(t * 4);
+        for (var lg = 0; lg < 2; lg++) {
+            var lgx = lg === 0 ? px - pw * 0.42 : px + pw * 0.42, lgy = colBot - 6;
+            ctx.fillStyle = "#2B343D"; ctx.fillRect(lgx - 1, lgy, 2, 8);
+            ctx.fillStyle = "rgba(41,121,255," + (0.25 + 0.25 * glow) + ")"; ctx.beginPath(); ctx.arc(lgx, lgy - 1, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#2979FF"; ctx.beginPath(); ctx.arc(lgx, lgy - 1, 3, 0, Math.PI * 2); ctx.fill();
+        }
+        // ── illuminated POLICE sign band across the facade ──
+        var sy0 = y + 8;
+        ctx.fillStyle = "#0D1B3E"; roundRect(x + 6, sy0, w - 12, 15, 3); ctx.fill();
+        ctx.shadowColor = "#42A5F5"; ctx.shadowBlur = 7;
+        drawFitText("POLICE", x + w / 2, sy0 + 8, w - 16, 11, "#90CAF9");
+        ctx.shadowBlur = 0;
+        // small precinct number plaque
+        drawText("PRECINCT 18½", x + w / 2, sy0 + 24, "bold 7px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#0A1018", 2);
+        // ── rooftop rotating blue beacon ──
+        var beac = Math.sin(t * 8) > 0;
+        ctx.fillStyle = "#2B343D"; ctx.fillRect(px - 5, y - 11, 10, 7);
+        if (beac) { ctx.fillStyle = "rgba(41,121,255,0.35)"; ctx.beginPath(); ctx.arc(px, y - 12, 11, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = beac ? "#2979FF" : "#1A3A6B"; ctx.beginPath(); ctx.arc(px, y - 12, 3.4, 0, Math.PI * 2); ctx.fill();
+        // ── flagpole + flag on the corner ──
+        var fpx = x + 10;
+        ctx.strokeStyle = "#CFD8DC"; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(fpx, y - 4); ctx.lineTo(fpx, y - 26); ctx.stroke();
+        ctx.fillStyle = "#1E88E5"; var fw = Math.sin(t * 3) * 1.5;
+        ctx.beginPath(); ctx.moveTo(fpx, y - 26); ctx.lineTo(fpx + 14, y - 24 + fw); ctx.lineTo(fpx, y - 19); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(fpx, y - 26, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
         if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
+        if ((b.kind === "police" || b.kind === "policeStation")) { drawPoliceStation(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";

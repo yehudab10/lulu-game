@@ -382,10 +382,9 @@
             if (a.walkP >= 1 && a.t > 0.5) {        // door shut → roll out
                 a.phase = 5; a.t = 0;
                 playTone(220, 0.08, "square", 0.12);   // *thunk* door
-                // she's driven INTO the precinct's motor-pool — the same roadside
-                // police lot she sees while driving the police zone.
-                a.station = { x: (a.fromLeft ? ROAD_R + 48 : ROAD_L - 48), y: -160, side: a.fromLeft ? 1 : -1,
-                              kind: "policeLot", w: 92, h: 150 };
+                // she's driven up to the big precinct house for booking.
+                a.station = { x: (a.fromLeft ? ROAD_R + 56 : ROAD_L - 56), y: -176, side: a.fromLeft ? 1 : -1,
+                              kind: "policeStation", w: 112, h: 168, lit: true, seed: 42 };
             }
             return;
         }
@@ -415,10 +414,10 @@
 
         // the police station scrolling into view during the drive
         if (a.station && typeof drawBuilding === "function") {
-            drawBuilding(a.station);
-            // a little driveway apron + a sign post so it reads as "the station"
+            // a driveway leading from the road up to the precinct steps
             ctx.fillStyle = "#9E9E9E";
-            ctx.fillRect(a.station.x - (a.fromLeft ? 40 : 0) - (a.fromLeft ? 0 : 40), a.station.y + a.station.h, 40, 14);
+            ctx.fillRect(a.station.x + (a.fromLeft ? -a.station.w / 2 : a.station.w / 2 - 28) + (a.fromLeft ? 4 : -4), a.station.y + a.station.h - 4, 24, 30);
+            drawBuilding(a.station);
             // bold floating label + arrow so it unmistakably reads as the destination
             if (a.station.y > -40) {
                 var lblY = clamp(a.station.y - 14, 30, H - 40);
