@@ -5130,6 +5130,7 @@
     var nitroTimer = 0;       // seconds of turbo remaining
     var courageT = 0;         // "liquid courage" buff from the bar — shield + 2x score while driving
     var carMalfunction = null;// {type:"tire"/"engine", drift, t} — a stolen LEMON drives badly
+    var parkingResultBonus = 0, parkingResultStars = 0;   // last park's ACTUAL payout, for the result screen
     var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}
@@ -6180,6 +6181,7 @@
         var levelBonus = parkingChallengeMode ? parkingLevel * 25 : 50;
         var starBonus = stars * 15;
         var bonus = levelBonus + starBonus;
+        parkingResultBonus = bonus; parkingResultStars = stars;   // remember the REAL payout for the result screen
         if (parkingChallengeMode) {
             parkingChallengeCoins += bonus;
             parkingChallengeStars += stars;
@@ -8501,7 +8503,7 @@
             ctx.globalAlpha = 1;
         }
         if (cs.phase === 2) {
-            var col = cs.outcome === "bribe" ? "#FFD700" : cs.outcome === "jail" ? "#7CFC4F"
+            var col = cs.outcome === "bribe" ? "#FFD700" : cs.outcome === "jail" ? "#5C6BC0"
                     : cs.outcome === "letgo" ? "#90CAF9" : "#FF8A80";
             var pop = 1 + Math.max(0, 0.35 - cs.resolveT) * 1.2;
             ctx.save(); ctx.translate(W / 2, H * 0.15); ctx.scale(pop, pop);
@@ -10814,7 +10816,9 @@
             ctx.scale(bounce, bounce);
             drawText("PARKED! 🎉", 0, 0, "bold 42px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#0D47A1", 7);
             drawText("ICE CREAM TIME!", 0, 38, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#0D47A1", 5);
-            drawText("+50 coins · +500 score", 0, 68, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            var starStr = parkingResultStars > 0 ? "⭐".repeat(parkingResultStars) + " · " : "";
+            var payStr = starStr + "+" + parkingResultBonus + " coins" + (parkingChallengeMode ? "" : " · +500 score");
+            drawText(payStr, 0, 68, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
             ctx.restore();
 
             // Speech bubble from car: "Yay ice cream!"
@@ -10825,7 +10829,8 @@
             ctx.fillStyle = "rgba(0,0,0,0.45)";
             ctx.fillRect(0, 0, W, H);
             drawText("CRASH!", W / 2, H * 0.18, "bold 40px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
-            var msg = parkingFailHit && parkingFailHit.who === "timeout" ? "Out of time!" : "You dinged the other car!";
+            var failWho = parkingFailHit && parkingFailHit.who;
+            var msg = failWho === "timeout" ? "Out of time!" : failWho === "pedestrian" ? "You bumped a pedestrian!" : "You dinged the other car!";
             drawText(msg, W / 2, H * 0.24, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             drawText("-1 ♥", W / 2, H * 0.30, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
 
@@ -25565,7 +25570,7 @@
                      options: rollHospOptions(), choice: -1, bill: 0, applied: false, ekg: 0, line: null,
                      caught: false, lines: null, li: 0,
                      visit: visit.lines, visitStep: 0, hillelVisited: visit.hillel, claimMsg: null,
-                     tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.0,
+                     tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.15,
                      tammyGreet: randPick(TAMMY_GREET[tm]), tammyCare: randPick(TAMMY_CARE[tm]) };
         copChase = null; copBust = null; copStop = null;
         erMusic = Math.random() < 0.5 ? "er1" : "er2";   // random ER song this visit
@@ -25711,10 +25716,12 @@
                 // ── the choice actually does something ──
                 var heartGain = (typeof opt.lives === "number") ? opt.lives : (opt.extra ? 1 : 0);
                 if (typeof lives === "undefined") lives = 1;
+                var prevLives = lives;
                 // a cheap-care GAMBLE can go wrong (a complication eats a heart)
                 if (opt.risk && Math.random() < opt.risk) { hospital.complication = true; heartGain -= 1; }
                 lives = Math.max(1, lives + heartGain);
                 hospital.heartGain = heartGain;
+                hospital.heartDelta = lives - prevLives;   // actual change after the floor-at-1
                 // pocketed "supplies" — a real, useful gift
                 if (opt.gift === "missile") { save.missiles = (save.missiles || 0) + 1; persistSave(); hospital.gift = "🚀 +1 missile"; }
                 else if (opt.gift === "pepper") { save.pepperSpray = (save.pepperSpray || 0) + 1; persistSave(); hospital.gift = "🌶️ +1 pepper spray"; }
@@ -26070,7 +26077,10 @@
                 }
                 // ── what the CARE CHOICE actually did ──
                 if (hospital.complication) {
-                    drawText("💔 complication! −1 heart", W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
+                    // Only claim a lost heart if one actually came off (a fatal-crash
+                    // visit is floored at 1, so the gamble can fizzle with no real loss).
+                    var compMsg = hospital.heartDelta < 0 ? "💔 complication! −1 heart" : "💔 complication — but you pulled through";
+                    drawText(compMsg, W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
                     ry -= 18;
                 }
                 if (hospital.heartGain > 0) {

@@ -985,6 +985,7 @@
     var nitroTimer = 0;       // seconds of turbo remaining
     var courageT = 0;         // "liquid courage" buff from the bar — shield + 2x score while driving
     var carMalfunction = null;// {type:"tire"/"engine", drift, t} — a stolen LEMON drives badly
+    var parkingResultBonus = 0, parkingResultStars = 0;   // last park's ACTUAL payout, for the result screen
     var wetTimer = 0;         // brief slow after splashing through a puddle
     var tollBooth = null;     // active toll booth {y, open:[lanes], paid}
     var trainCrossing = null; // active railroad crossing {y, trainX, dir, ...}

@@ -213,7 +213,7 @@
                      options: rollHospOptions(), choice: -1, bill: 0, applied: false, ekg: 0, line: null,
                      caught: false, lines: null, li: 0,
                      visit: visit.lines, visitStep: 0, hillelVisited: visit.hillel, claimMsg: null,
-                     tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.0,
+                     tammyMood: tm, tammyDiscount: tm === "sweet" ? 0 : tm === "gossip" ? 0.5 : 1.15,
                      tammyGreet: randPick(TAMMY_GREET[tm]), tammyCare: randPick(TAMMY_CARE[tm]) };
         copChase = null; copBust = null; copStop = null;
         erMusic = Math.random() < 0.5 ? "er1" : "er2";   // random ER song this visit
@@ -359,10 +359,12 @@
                 // ── the choice actually does something ──
                 var heartGain = (typeof opt.lives === "number") ? opt.lives : (opt.extra ? 1 : 0);
                 if (typeof lives === "undefined") lives = 1;
+                var prevLives = lives;
                 // a cheap-care GAMBLE can go wrong (a complication eats a heart)
                 if (opt.risk && Math.random() < opt.risk) { hospital.complication = true; heartGain -= 1; }
                 lives = Math.max(1, lives + heartGain);
                 hospital.heartGain = heartGain;
+                hospital.heartDelta = lives - prevLives;   // actual change after the floor-at-1
                 // pocketed "supplies" — a real, useful gift
                 if (opt.gift === "missile") { save.missiles = (save.missiles || 0) + 1; persistSave(); hospital.gift = "🚀 +1 missile"; }
                 else if (opt.gift === "pepper") { save.pepperSpray = (save.pepperSpray || 0) + 1; persistSave(); hospital.gift = "🌶️ +1 pepper spray"; }
@@ -718,7 +720,10 @@
                 }
                 // ── what the CARE CHOICE actually did ──
                 if (hospital.complication) {
-                    drawText("💔 complication! −1 heart", W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
+                    // Only claim a lost heart if one actually came off (a fatal-crash
+                    // visit is floored at 1, so the gamble can fizzle with no real loss).
+                    var compMsg = hospital.heartDelta < 0 ? "💔 complication! −1 heart" : "💔 complication — but you pulled through";
+                    drawText(compMsg, W / 2, ry, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 3);
                     ry -= 18;
                 }
                 if (hospital.heartGain > 0) {

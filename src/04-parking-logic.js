@@ -849,6 +849,7 @@
         var levelBonus = parkingChallengeMode ? parkingLevel * 25 : 50;
         var starBonus = stars * 15;
         var bonus = levelBonus + starBonus;
+        parkingResultBonus = bonus; parkingResultStars = stars;   // remember the REAL payout for the result screen
         if (parkingChallengeMode) {
             parkingChallengeCoins += bonus;
             parkingChallengeStars += stars;

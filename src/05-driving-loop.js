@@ -2167,7 +2167,7 @@
             ctx.globalAlpha = 1;
         }
         if (cs.phase === 2) {
-            var col = cs.outcome === "bribe" ? "#FFD700" : cs.outcome === "jail" ? "#7CFC4F"
+            var col = cs.outcome === "bribe" ? "#FFD700" : cs.outcome === "jail" ? "#5C6BC0"
                     : cs.outcome === "letgo" ? "#90CAF9" : "#FF8A80";
             var pop = 1 + Math.max(0, 0.35 - cs.resolveT) * 1.2;
             ctx.save(); ctx.translate(W / 2, H * 0.15); ctx.scale(pop, pop);

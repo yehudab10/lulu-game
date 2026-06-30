@@ -213,7 +213,9 @@
             ctx.scale(bounce, bounce);
             drawText("PARKED! 🎉", 0, 0, "bold 42px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#0D47A1", 7);
             drawText("ICE CREAM TIME!", 0, 38, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#0D47A1", 5);
-            drawText("+50 coins · +500 score", 0, 68, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
+            var starStr = parkingResultStars > 0 ? "⭐".repeat(parkingResultStars) + " · " : "";
+            var payStr = starStr + "+" + parkingResultBonus + " coins" + (parkingChallengeMode ? "" : " · +500 score");
+            drawText(payStr, 0, 68, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3);
             ctx.restore();
 
             // Speech bubble from car: "Yay ice cream!"
@@ -224,7 +226,8 @@
             ctx.fillStyle = "rgba(0,0,0,0.45)";
             ctx.fillRect(0, 0, W, H);
             drawText("CRASH!", W / 2, H * 0.18, "bold 40px 'Segoe UI', Arial, sans-serif", "#F44336", "#000", 7);
-            var msg = parkingFailHit && parkingFailHit.who === "timeout" ? "Out of time!" : "You dinged the other car!";
+            var failWho = parkingFailHit && parkingFailHit.who;
+            var msg = failWho === "timeout" ? "Out of time!" : failWho === "pedestrian" ? "You bumped a pedestrian!" : "You dinged the other car!";
             drawText(msg, W / 2, H * 0.24, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             drawText("-1 ♥", W / 2, H * 0.30, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
 
