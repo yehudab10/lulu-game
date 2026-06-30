@@ -1950,32 +1950,76 @@
             }
         }
     }
+    // A proper K9 (German-Shepherd) bounding head-first at her — drawn in the same
+    // clean outline-and-fill style as the game's other animals (duck/raccoon), but
+    // snarling: tan body with a black saddle, a navy police vest + gold badge,
+    // pointed ears, bared teeth and fierce yellow eyes under angry brows.
     function drawCopK9(x, y, t) {
-        var run = Math.sin(t * 16);
+        var run = Math.sin(t * 16), run2 = Math.cos(t * 16);
         ctx.save(); ctx.translate(x, y);
-        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 9, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 3; ctx.lineCap = "round";
-        ctx.beginPath(); ctx.moveTo(-6, 2); ctx.lineTo(-6 - run * 3, 9); ctx.moveTo(6, 2); ctx.lineTo(6 + run * 3, 9); ctx.stroke();
+        // shadow
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 11, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // tail trailing up/back, wagging
+        ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(0, -8); ctx.quadraticCurveTo(run * 5, -15, run * 9, -19); ctx.stroke();
+        // legs (galloping — front/back animate out of phase)
+        ctx.strokeStyle = "#4E342E"; ctx.lineWidth = 3.4;
+        ctx.beginPath(); ctx.moveTo(-6, -2); ctx.lineTo(-9 - run * 2, 4); ctx.moveTo(6, -2); ctx.lineTo(9 + run2 * 2, 4);
+        ctx.moveTo(-5, 5); ctx.lineTo(-7 - run2 * 3, 13); ctx.moveTo(5, 5); ctx.lineTo(7 + run * 3, 13); ctx.stroke();
         ctx.lineCap = "butt";
-        ctx.fillStyle = "#4E342E"; roundRect(-9, -6, 18, 12, 6); ctx.fill();
-        ctx.fillStyle = "#3E2723"; roundRect(-9, -6, 18, 4, 6); ctx.fill();
-        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, 9, 6, 0, Math.PI * 2); ctx.fill();   // head toward her
-        ctx.fillStyle = "#3E2723";
-        ctx.beginPath(); ctx.moveTo(-5, 5); ctx.lineTo(-3, 0); ctx.lineTo(-1, 5); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(5, 5); ctx.lineTo(3, 0); ctx.lineTo(1, 5); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, 13, 1.7, 0, Math.PI * 2); ctx.fill();  // snout
-        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-2.4, 9, 1.1, 0, Math.PI * 2); ctx.arc(2.4, 9, 1.1, 0, Math.PI * 2); ctx.fill();  // fierce eyes
+        // body — tan underbody + black shepherd saddle
+        ctx.fillStyle = "#A1887F"; roundRect(-8, -8, 16, 16, 7); ctx.fill();
+        ctx.fillStyle = "#3E2723"; roundRect(-8, -8, 16, 9, 7); ctx.fill();
+        // navy police vest band + gold badge
+        ctx.fillStyle = "#1A237E"; ctx.fillRect(-8, -3, 16, 4);
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(0, -1, 2, 0, Math.PI * 2); ctx.fill();
+        // head toward her (down)
+        ctx.fillStyle = "#6D4C41"; ctx.beginPath(); ctx.arc(0, 9, 6.5, 0, Math.PI * 2); ctx.fill();
+        // pointed ears
+        ctx.fillStyle = "#4E342E";
+        ctx.beginPath(); ctx.moveTo(-6, 5); ctx.lineTo(-7, -1); ctx.lineTo(-2, 4); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(6, 5); ctx.lineTo(7, -1); ctx.lineTo(2, 4); ctx.closePath(); ctx.fill();
+        // muzzle + nose
+        ctx.fillStyle = "#4E342E"; roundRect(-3, 11, 6, 5, 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, 16, 1.8, 0, Math.PI * 2); ctx.fill();
+        // bared teeth (snarl)
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath(); ctx.moveTo(-2.5, 13.4); ctx.lineTo(-1.5, 15.4); ctx.lineTo(-0.5, 13.4); ctx.closePath();
+        ctx.moveTo(2.5, 13.4); ctx.lineTo(1.5, 15.4); ctx.lineTo(0.5, 13.4); ctx.closePath(); ctx.fill();
+        // fierce yellow eyes + pupils + angry brows
+        ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-2.6, 8.5, 1.4, 0, Math.PI * 2); ctx.arc(2.6, 8.5, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, 8.9, 0.7, 0, Math.PI * 2); ctx.arc(2.6, 8.9, 0.7, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#1A1A1A"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-4.6, 6.3); ctx.lineTo(-1.2, 7.6); ctx.moveTo(4.6, 6.3); ctx.lineTo(1.2, 7.6); ctx.stroke();
+        ctx.lineCap = "butt";
         ctx.restore();
     }
+    // The cop missile — same clean rocket silhouette as the player's own missile,
+    // but liveried as police ordnance and meaner: dark navy body, a red/blue stripe,
+    // swept tail fins, and a dark-red nose with a pulsing red targeting eye. It flies
+    // DOWNWARD at her, so the nose points down and the exhaust streams up behind it.
     function drawCopMissile(x, y, t) {
+        var flicker = 1 + Math.sin(t * 30) * 0.35;
         ctx.save(); ctx.translate(x, y);
-        ctx.fillStyle = "rgba(255,160,60,0.55)"; ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(4, -9); ctx.lineTo(0, -9 - (6 + Math.sin(t * 30) * 3)); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "#37474F"; roundRect(-4, -10, 8, 16, 3); ctx.fill();
-        ctx.fillStyle = "#90A4AE"; ctx.fillRect(-4, -5, 8, 2);
-        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(-4, 6); ctx.lineTo(4, 6); ctx.lineTo(0, 13); ctx.closePath(); ctx.fill();   // nose cone (down)
-        ctx.fillStyle = "#455A64";
-        ctx.beginPath(); ctx.moveTo(-4, -10); ctx.lineTo(-7, -6); ctx.lineTo(-4, -6); ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(7, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill();
+        // exhaust trail (behind = up)
+        ctx.fillStyle = "rgba(255,120,40,0.55)"; ctx.beginPath(); ctx.ellipse(0, -16, 5, 11 * flicker, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,200,40,0.8)"; ctx.beginPath(); ctx.ellipse(0, -13, 3.2, 7 * flicker, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.beginPath(); ctx.ellipse(0, -11, 1.6, 4 * flicker, 0, 0, Math.PI * 2); ctx.fill();
+        // swept tail fins
+        ctx.fillStyle = "#263238";
+        ctx.beginPath(); ctx.moveTo(-4, -8); ctx.lineTo(-8, -12); ctx.lineTo(-4, -4); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(4, -8); ctx.lineTo(8, -12); ctx.lineTo(4, -4); ctx.closePath(); ctx.fill();
+        // body — navy shell + charcoal inset
+        ctx.fillStyle = "#1A237E"; roundRect(-4.5, -11, 9, 22, 3); ctx.fill();
+        ctx.fillStyle = "#37474F"; roundRect(-3.5, -10, 7, 20, 2); ctx.fill();
+        // red/blue police stripe
+        ctx.fillStyle = "#D32F2F"; ctx.fillRect(-4.5, -4, 9, 2.4);
+        ctx.fillStyle = "#1565C0"; ctx.fillRect(-4.5, -1.4, 9, 2.4);
+        // menacing dark-red nose cone (down)
+        ctx.fillStyle = "#B71C1C"; ctx.beginPath(); ctx.moveTo(-4.5, 9); ctx.lineTo(0, 16); ctx.lineTo(4.5, 9); ctx.closePath(); ctx.fill();
+        // pulsing red targeting eye
+        ctx.fillStyle = "rgba(255,40,40," + (0.55 + 0.45 * Math.abs(Math.sin(t * 18))) + ")";
+        ctx.beginPath(); ctx.arc(0, 8, 1.7, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
     }
     function drawCopHazards() {
