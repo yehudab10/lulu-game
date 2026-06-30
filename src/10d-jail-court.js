@@ -328,6 +328,11 @@
             // a little driveway apron + a sign post so it reads as "the station"
             ctx.fillStyle = "#9E9E9E";
             ctx.fillRect(a.station.x - (a.fromLeft ? 40 : 0) - (a.fromLeft ? 0 : 40), a.station.y + a.station.h, 40, 14);
+            // bold floating label + arrow so it unmistakably reads as the destination
+            if (a.station.y > -40) {
+                var lblY = clamp(a.station.y - 14, 30, H - 40);
+                drawText("⬇ PRECINCT 18½", a.station.x, lblY, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
+            }
         }
 
         // siren light-wash over the whole scene
@@ -339,11 +344,21 @@
         ctx.fillStyle = wg; ctx.fillRect(0, 0, W, H);
 
         if (a.phase === 5) {
-            // driving shot: just the cruiser (Lulu's inside) rolling to the station
+            // driving shot: just the cruiser (Lulu's inside) rolling to the station.
+            // Lulu's worried face in the back window so it's clearly HER being hauled off.
             drawCopCar(a.copX, H * 0.6, gameTime * 5);
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(a.copX, H * 0.6 + 12, 6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin || "#FFD9C0"; ctx.beginPath(); ctx.arc(a.copX, H * 0.6 + 12, 4.4, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
-            drawText("🚓  EN ROUTE TO BOOKING", W / 2, H * 0.13, "bold 19px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
-            drawText("Nearest precinct: PRECINCT 18½", W / 2, H * 0.13 + 26, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            // clear, persistent "she's being taken in" header
+            drawArrestHeader(true);
+            drawText("🚓  TAKING LULU TO THE STATION", W / 2, H * 0.155, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            // a little progress bar: how close the cruiser is to the precinct
+            var prog = clamp(((a.station ? a.station.y : 0) / (H * 0.5)) * 0.7 + a.fade * 0.3, 0, 1);
+            var bw = W * 0.6, bx = (W - bw) / 2, by = H * 0.155 + 22;
+            ctx.fillStyle = "rgba(0,0,0,0.5)"; roundRect(bx, by, bw, 12, 6); ctx.fill();
+            ctx.fillStyle = "#FF5252"; roundRect(bx + 2, by + 2, (bw - 4) * prog, 8, 4); ctx.fill();
+            drawText("🚗 ———→ 🏛️ PRECINCT 18½", W / 2, by + 30, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
             if (a.fade > 0) { ctx.fillStyle = "rgba(8,6,20," + a.fade + ")"; ctx.fillRect(0, 0, W, H); }
             return;
         }
@@ -365,6 +380,10 @@
 
         ctx.restore();
 
+        // ── persistent "UNDER ARREST" header so it's never ambiguous what's
+        //    happening (she's being taken in, not just pulled over / released) ──
+        if (a.phase >= 1) drawArrestHeader(false);
+
         // ── dialogue / captions ──
         if (a.phase === 2) {
             if (a.dialStep === 0) drawArrestBubble("👮 OFFICER", a.copLine, "#FF5252");
@@ -379,6 +398,18 @@
         } else if (a.phase >= 1) {
             drawText(a.copLine, W / 2, H * 0.15, "bold 22px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 6);
         }
+    }
+
+    // A bold pulsing "UNDER ARREST" banner pinned to the top of the arrest
+    // cutscene, so players always know Lulu is being hauled in (not let go).
+    function drawArrestHeader(enroute) {
+        var pulse = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
+        var bw = 250, bx = (W - bw) / 2, by = SAFE_TOP + 8, bh = 30;
+        ctx.fillStyle = "rgba(150,20,20," + (0.78 + 0.18 * pulse) + ")";
+        roundRect(bx, by, bw, bh, 8); ctx.fill();
+        ctx.strokeStyle = "rgba(255,210,80," + (0.55 + 0.4 * pulse) + ")"; ctx.lineWidth = 2;
+        roundRect(bx, by, bw, bh, 8); ctx.stroke();
+        drawText("🚨 UNDER ARREST 🚨", W / 2, by + bh / 2, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
     }
 
     // Two cuff rings + chain that pop in and snap together (t: 0→1).
