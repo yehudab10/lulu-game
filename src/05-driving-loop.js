@@ -1476,9 +1476,11 @@
     }
 
     // ── Speed-trap cops ──────────────────────────────────────
-    var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
+    var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!",
+        "PULL IT OVER,\nLEADFOOT!", "PARTY'S OVER,\nBRUCK!", "NICE AND\nSLOW NOW!", "I CLOCKED\nYOU, MISSY!"];
     var COP_PULLOVER = ["License & reg!", "Step out!", "Been DRINKING?!", "It was ONE lechaim!",
-        "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!"];
+        "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!",
+        "Where's the FIRE?", "You a race car?", "Slow your TUCHUS!", "Registration. NOW."];
     // Pull-over cutscene scripts — a back-and-forth between the 👮 officer and
     // 💁 Lulu that plays out toward an `outcome`: "free" (she talks her way out),
     // "ticket" (game over), or "walk" (impound → on-foot). Each [who, text] line
@@ -1540,7 +1542,48 @@
             ["cop", "Whose car\nis this?"],
             ["lulu", "Define 'whose'..."],
             ["cop", "TOW it."],
-            ["lulu", "Oof. 🚶‍♀️"] ] }
+            ["lulu", "Oof. 🚶‍♀️"] ],
+        },
+        // ── more LET-OFFs ─────────────────────────────────────
+        { outcome: "free", title: "COUSIN ESTI?! 💅", lines: [
+            ["cop", "Step out, please."],
+            ["lulu", "You went to\nEsti's wedding!"],
+            ["cop", "...the open bar.\nGreat herring."],
+            ["lulu", "Mishpacha! 💕"],
+            ["cop", "Ach, GO already."] ] },
+        { outcome: "free", title: "RUNNING LATE! ⏰", lines: [
+            ["cop", "What's the rush?"],
+            ["lulu", "Candle-lighting\nin TEN minutes!"],
+            ["cop", "...oh. OH. GO.\nDRIVE SAFE— GO!"],
+            ["lulu", "Good Shabbos! 🕯️"] ] },
+        { outcome: "free", title: "DASHBOARD DEAL 🍪", lines: [
+            ["cop", "This is a\nNO-stopping zone."],
+            ["lulu", "Black-and-white\ncookie? Fresh."],
+            ["cop", "...is the white\nside bigger?"],
+            ["lulu", "For YOU it is. 😇"],
+            ["cop", "Move along."] ] },
+        // ── more TICKETS ──────────────────────────────────────
+        { outcome: "ticket", title: "NO DICE 🚨", lines: [
+            ["cop", "Eighty in a\nthirty, Bruck."],
+            ["lulu", "I was... rounding\nDOWN?"],
+            ["cop", "To EIGHTY?"],
+            ["lulu", "...generously. 😬"] ] },
+        { outcome: "ticket", title: "TOO MUCH SASS 🚨", lines: [
+            ["cop", "Anything to say\nfor yourself?"],
+            ["lulu", "Love the hat.\nVery 'mall cop.'"],
+            ["cop", "That'll be\nEXTRA."],
+            ["lulu", "...worth it. 😬"] ] },
+        { outcome: "ticket", title: "PHONE A FRIEND 🚨", lines: [
+            ["cop", "Were you TEXTING?"],
+            ["lulu", "It was a VOICE\nnote! Totally legal!"],
+            ["cop", "It is NOT."],
+            ["lulu", "...send. 😬"] ] },
+        // ── more IMPOUNDS ─────────────────────────────────────
+        { outcome: "walk", title: "IMPOUNDED! 🚧", lines: [
+            ["cop", "Plates don't\nmatch the car."],
+            ["lulu", "It's a... costume!"],
+            ["cop", "For the CAR?"],
+            ["lulu", "...walking. 🚶‍♀️"] ] }
     ];
 
     function spawnRoadCop() {

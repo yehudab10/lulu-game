@@ -7782,9 +7782,11 @@
     }
 
     // ── Speed-trap cops ──────────────────────────────────────
-    var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!"];
+    var COP_YELLS = ["PULL OVER!", "LICENSE AND\nREGISTRATION!", "YOU'RE BUSTED,\nLULU!", "NO SPEEDING\nIN MY TOWN!", "THAT'S A\nTICKET!",
+        "PULL IT OVER,\nLEADFOOT!", "PARTY'S OVER,\nBRUCK!", "NICE AND\nSLOW NOW!", "I CLOCKED\nYOU, MISSY!"];
     var COP_PULLOVER = ["License & reg!", "Step out!", "Been DRINKING?!", "It was ONE lechaim!",
-        "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!"];
+        "Define 'drunk'...", "I'm FINE officer!", "Blow into this.", "Eyes on the road!",
+        "Where's the FIRE?", "You a race car?", "Slow your TUCHUS!", "Registration. NOW."];
     // Pull-over cutscene scripts — a back-and-forth between the 👮 officer and
     // 💁 Lulu that plays out toward an `outcome`: "free" (she talks her way out),
     // "ticket" (game over), or "walk" (impound → on-foot). Each [who, text] line
@@ -7846,7 +7848,48 @@
             ["cop", "Whose car\nis this?"],
             ["lulu", "Define 'whose'..."],
             ["cop", "TOW it."],
-            ["lulu", "Oof. 🚶‍♀️"] ] }
+            ["lulu", "Oof. 🚶‍♀️"] ],
+        },
+        // ── more LET-OFFs ─────────────────────────────────────
+        { outcome: "free", title: "COUSIN ESTI?! 💅", lines: [
+            ["cop", "Step out, please."],
+            ["lulu", "You went to\nEsti's wedding!"],
+            ["cop", "...the open bar.\nGreat herring."],
+            ["lulu", "Mishpacha! 💕"],
+            ["cop", "Ach, GO already."] ] },
+        { outcome: "free", title: "RUNNING LATE! ⏰", lines: [
+            ["cop", "What's the rush?"],
+            ["lulu", "Candle-lighting\nin TEN minutes!"],
+            ["cop", "...oh. OH. GO.\nDRIVE SAFE— GO!"],
+            ["lulu", "Good Shabbos! 🕯️"] ] },
+        { outcome: "free", title: "DASHBOARD DEAL 🍪", lines: [
+            ["cop", "This is a\nNO-stopping zone."],
+            ["lulu", "Black-and-white\ncookie? Fresh."],
+            ["cop", "...is the white\nside bigger?"],
+            ["lulu", "For YOU it is. 😇"],
+            ["cop", "Move along."] ] },
+        // ── more TICKETS ──────────────────────────────────────
+        { outcome: "ticket", title: "NO DICE 🚨", lines: [
+            ["cop", "Eighty in a\nthirty, Bruck."],
+            ["lulu", "I was... rounding\nDOWN?"],
+            ["cop", "To EIGHTY?"],
+            ["lulu", "...generously. 😬"] ] },
+        { outcome: "ticket", title: "TOO MUCH SASS 🚨", lines: [
+            ["cop", "Anything to say\nfor yourself?"],
+            ["lulu", "Love the hat.\nVery 'mall cop.'"],
+            ["cop", "That'll be\nEXTRA."],
+            ["lulu", "...worth it. 😬"] ] },
+        { outcome: "ticket", title: "PHONE A FRIEND 🚨", lines: [
+            ["cop", "Were you TEXTING?"],
+            ["lulu", "It was a VOICE\nnote! Totally legal!"],
+            ["cop", "It is NOT."],
+            ["lulu", "...send. 😬"] ] },
+        // ── more IMPOUNDS ─────────────────────────────────────
+        { outcome: "walk", title: "IMPOUNDED! 🚧", lines: [
+            ["cop", "Plates don't\nmatch the car."],
+            ["lulu", "It's a... costume!"],
+            ["cop", "For the CAR?"],
+            ["lulu", "...walking. 🚶‍♀️"] ] }
     ];
 
     function spawnRoadCop() {
@@ -13521,6 +13564,8 @@
     var footArrestT = 0;         // >0 during the "cop walks her in" cinematic
     var footArrest = null;       // { x, y, line } cop cruiser pulling her over on foot
     var footChase = null;        // an on-FOOT cop chase when a wanted Lulu is spotted
+    var footDisguise = null;     // a roadside QUICK-CHANGE booth (shed the heat on foot)
+    var footDisguiseCool = 0;
     var FOOT_CHASE_TAUNTS = ["STOP! POLICE!", "You can't outrun the LAW!", "Get BACK here!",
         "I do CARDIO, Lulu!", "Freeze! ...okay, RUN then.", "I've got your SHEITEL on file!",
         "End of the line, missy!", "I skipped lunch for THIS!"];
@@ -13617,6 +13662,7 @@
         footMood = reason === "droveOff" ? "run" : "cry";   // she chose this one, no tears
         footParked = []; footDoors = []; footPrompt = null; footCompanion = null; footHotwire = null; footApproach = null;
         footParkCool = 5; footDoorCool = 2; footArrestT = 0; footArrest = null; footChase = null; footBuskT = 0;
+        footDisguise = null; footDisguiseCool = 3;
         footCoinsRun = 0; footStars = 0;
         footChat = ""; footChatT = 0; footChatNext = rand(2.5, 4.5);
         footInteriorType = null;
@@ -13801,6 +13847,17 @@
         if (footParkCool <= 0 && footParked.length < 1) { footParkCool = rand(5, 9); footSpawnParked(); }
         if (footDoorCool > 0) footDoorCool -= dt;
         footMaybeSpawnDoor();
+        // A roadside QUICK-CHANGE booth shows up on the shoulder while she's WANTED —
+        // duck in (on foot, by the side of the road) to swap her look and shed the heat.
+        var footWantedNow = (typeof isWanted === "function" && isWanted()) || prisonClothes;
+        if (footDisguiseCool > 0) footDisguiseCool -= dt;
+        if (footWantedNow && !footDisguise && footDisguiseCool <= 0) {
+            footDisguise = { x: (Math.random() < 0.5 ? ROAD_L - 34 : ROAD_R + 34), y: -110, t: 0 };
+        }
+        if (footDisguise) {
+            footDisguise.t += dt; footDisguise.y += gameSpeed * dt;
+            if (footDisguise.y > H + 100 || !footWantedNow) { footDisguise = null; footDisguiseCool = rand(4, 8); }
+        }
         if (!footHotwire && !footApproach) footScroll(footParked, 110, dt);   // hold the car still while she walks up / hotwires
         footScroll(footDoors, 80, dt);
         updateFootCompanion(dt);
@@ -13872,6 +13929,7 @@
         function consider(cand, dx, dy, rx, ry) {
             if (Math.abs(dx) < rx && Math.abs(dy) < ry) { var d = Math.abs(dx) + Math.abs(dy); if (d < bestD) { best = cand; bestD = d; } }
         }
+        if (footDisguise) consider({ kind: "disguise", ent: footDisguise, label: "🥸 DUCK IN — change your look" }, footDisguise.x - player.x, footDisguise.y - player.y, 56, 66);
         for (var i = 0; i < footDoors.length; i++) {
             var dr = footDoors[i];
             consider({ kind: "enter", ent: dr, label: "🚪 ENTER " + FOOT_DOOR_NAME[dr.type] }, dr.x - player.x, dr.y - player.y, 58, 66);
@@ -14000,6 +14058,7 @@
 
     function doFootInteract(prompt) {
         if (prompt.kind === "enter") { enterFootInterior(prompt.ent.type); return; }
+        if (prompt.kind === "disguise") { footDoDisguise(); return; }
         if (prompt.kind === "borrow") {
             startFootApproach(prompt.ent);   // walk up + STOP at the car, THEN hotwire
             return;
@@ -14139,6 +14198,50 @@
         if (Math.random() < 0.5) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(player.x, player.y - 62, "+1 💰", "#FFD700"); }
     }
 
+    // ── Roadside QUICK-CHANGE booth (foot-only) → sheds the whole wanted file ──
+    function footDoDisguise() {
+        footDisguise = null; footDisguiseCool = rand(8, 14);
+        footChase = null;
+        if (typeof clearWanted === "function") clearWanted();
+        if (typeof prisonClothes !== "undefined") prisonClothes = false;
+        if (typeof clearLockup === "function") clearLockup();
+        if (typeof fugitiveSpot !== "undefined") fugitiveSpot = 0;
+        spawnFloater(player.x, player.y - 58, "🥸 NEW LOOK!", "#7CFC4F");
+        spawnFloater(player.x, player.y - 36, "Heat's off — nobody knows you! 😎", "#B9F6CA");
+        playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
+        for (var i = 0; i < 18; i++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
+    }
+    // A proper roadside changing booth: striped awning, a pink privacy curtain, a
+    // little clothes rack of dresses peeking out, and a glowing QUICK-CHANGE sign.
+    function drawFootDisguiseBooth(x, y, t) {
+        var glow = 0.4 + 0.3 * Math.abs(Math.sin(t * 4));
+        ctx.fillStyle = "rgba(206,147,216," + (0.16 + 0.14 * glow) + ")"; ctx.beginPath(); ctx.arc(x, y, 42, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = "rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(0, 32, 30, 7, 0, 0, Math.PI * 2); ctx.fill();
+        var bw = 52, bh = 50, top = -bh / 2 + 12;
+        // booth shell
+        ctx.fillStyle = "#6A1B3A"; roundRect(-bw / 2, top, bw, bh, 5); ctx.fill();
+        // pink privacy curtain, slightly parted in the middle
+        ctx.fillStyle = "#EC407A"; roundRect(-bw / 2 + 4, top + 4, bw / 2 - 6, bh - 8, 3); ctx.fill();
+        ctx.fillStyle = "#F06292"; roundRect(4, top + 4, bw / 2 - 8, bh - 8, 3); ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 1;
+        for (var f = -bw / 2 + 8; f < bw / 2 - 6; f += 6) { if (Math.abs(f) < 3) continue; ctx.beginPath(); ctx.moveTo(f, top + 5); ctx.lineTo(f, top + bh - 5); ctx.stroke(); }
+        // a peep of a fancy shoe under the curtain (someone's changing!)
+        ctx.fillStyle = "#FFD54F"; roundRect(-7, top + bh - 6, 6, 4, 1); ctx.fill(); roundRect(2, top + bh - 6, 6, 4, 1); ctx.fill();
+        // striped awning
+        for (var a = 0; a < bw; a += 8) { ctx.fillStyle = (a / 8) % 2 ? "#FFFFFF" : "#E91E63"; ctx.fillRect(-bw / 2 + a, top - 11, Math.min(8, bw - a), 12); }
+        ctx.fillStyle = "#AD1457"; ctx.fillRect(-bw / 2, top - 11, bw, 3);
+        // little clothes rack of dresses on the road-facing side
+        ctx.strokeStyle = "#B0BEC5"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bw / 2 - 1, top + 6); ctx.lineTo(bw / 2 + 14, top + 6); ctx.stroke();
+        ctx.fillStyle = "#7E57C2"; ctx.beginPath(); ctx.moveTo(bw / 2 + 2, top + 6); ctx.lineTo(bw / 2 + 8, top + 6); ctx.lineTo(bw / 2 + 9, top + 20); ctx.lineTo(bw / 2 + 1, top + 20); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.moveTo(bw / 2 + 6, top + 6); ctx.lineTo(bw / 2 + 12, top + 6); ctx.lineTo(bw / 2 + 13, top + 18); ctx.lineTo(bw / 2 + 5, top + 18); ctx.closePath(); ctx.fill();
+        // glowing sign
+        ctx.fillStyle = "#311B92"; roundRect(-bw / 2 - 2, top - 28, bw + 4, 14, 3); ctx.fill();
+        drawText("🥸 QUICK CHANGE", 0, top - 21, "bold 8px 'Segoe UI', Arial", "#F3E5F5", "#000", 2);
+        ctx.restore();
+        if (Math.sin(t * 7) > 0.55) drawText("✦", x + 24, y - 16, "11px Arial", "#FFE082", "#5D4037", 1);
+    }
+
     // ── On-FOOT cop chase: a cop pulls over and runs her down. She opens a gap by
     //    RUNNING (⚡), gets reeled in by walking/slowing; lose him for a beat and
     //    he gives up, or let him close and she's nabbed (the full arrest cutscene).
@@ -14235,6 +14338,7 @@
             ctx.restore();
         }
         for (var d = 0; d < footDoors.length; d++) drawFootDoor(footDoors[d]);
+        if (footDisguise) drawFootDisguiseBooth(footDisguise.x, footDisguise.y, footDisguise.t);
         // the chasing cop on foot — nearer the closer the gap gets
         if (footChase) {
             var fc = footChase, copY = clamp(player.y + 40 + fc.gap * 0.5, player.y + 24, H - SAFE_BOTTOM - 24);
@@ -24426,34 +24530,12 @@
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
-        if (!prisonClothes) { fugDisguise = null; copK9s = []; copMissiles = []; return; }
+        if (!prisonClothes) { copK9s = []; copMissiles = []; return; }
         fugitiveT += dt;
-        // The COOL way to shake the heat: catch a rare roadside DISGUISE (a clothes
-        // rack on the shoulder) and swap out of the jumpsuit so the cops stop
-        // recognizing you. It only turns up occasionally and you have to weave to
-        // it through the swarm — pulling it off clears the whole wanted file.
+        // (The DISGUISE that sheds the heat now lives on the SHOULDER and is only
+        //  reachable ON FOOT — see footDisguise in the foot world. While driving,
+        //  the lay-low fallback below is the only way the heat dies down by itself.)
         var wlNow = wantedLevel();
-        if (fugDisguiseT > 0) fugDisguiseT -= dt;
-        if (!fugDisguise && fugDisguiseT <= 0 && wlNow >= 2 && !copChase && !copBust) {
-            fugDisguise = { x: (Math.random() < 0.5 ? ROAD_L + 22 : ROAD_R - 22), y: -70, t: 0, got: 0 };
-        }
-        if (fugDisguise && !fugDisguise.got) {
-            fugDisguise.t += dt; fugDisguise.y += gameSpeed * dt;
-            if (Math.abs(fugDisguise.x - player.x) < 36 && Math.abs(fugDisguise.y - player.y) < 46) {
-                fugDisguise.got = 0.001;   // GRABBED — shed the whole identity
-                prisonClothes = false; fugitiveSpot = 0; fugChopperX = 0;
-                clearLockup(); if (typeof clearWanted === "function") clearWanted();
-                copChase = null;
-                fugDisguiseT = 0;
-                shakeTimer = 0.2; shakeIntensity = 4;
-                spawnFloater(player.x, player.y - 56, "🥸 NEW LOOK!", "#7CFC4F");
-                spawnFloater(player.x, player.y - 34, "They don't recognize you! 😎", "#B9F6CA");
-                playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
-                for (var dp = 0; dp < 16; dp++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
-                return;
-            }
-            if (fugDisguise.y > H + 70) { fugDisguise = null; fugDisguiseT = rand(12, 20); }   // missed it — wait for the next
-        }
         // Lay-low FALLBACK: only if she somehow survives a very long time clean does
         // the heat finally die down on its own (the disguise is the real way out).
         if (fugitiveT > 100) { prisonClothes = false; fugitiveSpot = 0; fugDisguise = null; clearLockup(); spawnFloater(player.x, player.y - 50, "😎 Laid low long enough — heat's off.", "#7CFC4F"); return; }
@@ -24680,7 +24762,6 @@
 
     function drawFugitiveHUD() {
         if (!prisonClothes) return;
-        drawFugDisguise();
         drawFugChopper();
         var wl = wantedLevel();
         var pulse = Math.sin(gameTime * 8) > 0;

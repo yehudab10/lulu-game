@@ -1836,34 +1836,12 @@
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
 
     function updateFugitive(dt) {
-        if (!prisonClothes) { fugDisguise = null; copK9s = []; copMissiles = []; return; }
+        if (!prisonClothes) { copK9s = []; copMissiles = []; return; }
         fugitiveT += dt;
-        // The COOL way to shake the heat: catch a rare roadside DISGUISE (a clothes
-        // rack on the shoulder) and swap out of the jumpsuit so the cops stop
-        // recognizing you. It only turns up occasionally and you have to weave to
-        // it through the swarm — pulling it off clears the whole wanted file.
+        // (The DISGUISE that sheds the heat now lives on the SHOULDER and is only
+        //  reachable ON FOOT — see footDisguise in the foot world. While driving,
+        //  the lay-low fallback below is the only way the heat dies down by itself.)
         var wlNow = wantedLevel();
-        if (fugDisguiseT > 0) fugDisguiseT -= dt;
-        if (!fugDisguise && fugDisguiseT <= 0 && wlNow >= 2 && !copChase && !copBust) {
-            fugDisguise = { x: (Math.random() < 0.5 ? ROAD_L + 22 : ROAD_R - 22), y: -70, t: 0, got: 0 };
-        }
-        if (fugDisguise && !fugDisguise.got) {
-            fugDisguise.t += dt; fugDisguise.y += gameSpeed * dt;
-            if (Math.abs(fugDisguise.x - player.x) < 36 && Math.abs(fugDisguise.y - player.y) < 46) {
-                fugDisguise.got = 0.001;   // GRABBED — shed the whole identity
-                prisonClothes = false; fugitiveSpot = 0; fugChopperX = 0;
-                clearLockup(); if (typeof clearWanted === "function") clearWanted();
-                copChase = null;
-                fugDisguiseT = 0;
-                shakeTimer = 0.2; shakeIntensity = 4;
-                spawnFloater(player.x, player.y - 56, "🥸 NEW LOOK!", "#7CFC4F");
-                spawnFloater(player.x, player.y - 34, "They don't recognize you! 😎", "#B9F6CA");
-                playTone(660, 0.1, "triangle", 0.16); setTimeout(function () { playTone(988, 0.12, "triangle", 0.16); }, 110);
-                for (var dp = 0; dp < 16; dp++) particles.push({ x: player.x + rand(-20, 20), y: player.y, vx: rand(-70, 70), vy: rand(-130, -40), life: 0, maxLife: 0.8, size: rand(3, 6), color: randPick(["#CE93D8", "#FFD54F", "#80DEEA", "#FFFFFF"]), gravity: 240 });
-                return;
-            }
-            if (fugDisguise.y > H + 70) { fugDisguise = null; fugDisguiseT = rand(12, 20); }   // missed it — wait for the next
-        }
         // Lay-low FALLBACK: only if she somehow survives a very long time clean does
         // the heat finally die down on its own (the disguise is the real way out).
         if (fugitiveT > 100) { prisonClothes = false; fugitiveSpot = 0; fugDisguise = null; clearLockup(); spawnFloater(player.x, player.y - 50, "😎 Laid low long enough — heat's off.", "#7CFC4F"); return; }
@@ -2090,7 +2068,6 @@
 
     function drawFugitiveHUD() {
         if (!prisonClothes) return;
-        drawFugDisguise();
         drawFugChopper();
         var wl = wantedLevel();
         var pulse = Math.sin(gameTime * 8) > 0;
