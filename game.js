@@ -8200,6 +8200,9 @@
     ];
     var angryYell = "";
     var hillelAdjuster = null;   // Hillel-the-insurance-guy reprieve, when active
+    // typewriter helpers for Hillel's speech bubble (slow, smooth, tap-paced)
+    function hillelTyped(s) { return s ? s.slice(0, Math.floor((hillelAdjuster.typeT || 0) * 32)) : ""; }
+    function hillelDone(s) { return !s || Math.floor((hillelAdjuster.typeT || 0) * 32) >= s.length; }
     var spontaneousChaseCool = 22;   // cooldown before the next "called-in" pursuit can spawn
     var wantedSpot = 0;              // recognition meter while she has an open "wanted" file
     var wantedPatrolT = 0;          // trickle of patrols hunting a wanted Lulu
@@ -8553,15 +8556,28 @@
             if (reprieveKind === "insurance") {
                 var hg = hillelAdjuster;
                 if (!hg) { grantSecondChance(); return; }
-                hg.t += dt;
-                if (hg.phase === 0) {                        // Hillel hustles over
+                hg.t += dt; hg.typeT = (hg.typeT || 0) + dt;
+                var hTap = consumeTap();
+                if (hTap && !hillelDone(hg.line)) { hg.typeT = 999; return; }   // a tap fast-forwards the typing first
+                if (hg.phase === 0) {                        // Hillel ambles over (slow, smooth), greeting types out
                     var hdx = hg.targetX - hg.x;
-                    if (Math.abs(hdx) > 4) { hg.x += (hdx >= 0 ? 1 : -1) * 150 * dt; hg.dir = hdx >= 0 ? 1 : -1; }
-                    else { hg.x = hg.targetX; hg.phase = 1; hg.t = 0; hg.line = "Let me just... assess the damage. Mm. Mm-hm."; }
+                    if (Math.abs(hdx) > 2) {
+                        // constant slow amble + a gentle ease over the last stretch
+                        var sp = Math.abs(hdx) < 36 ? 52 : 88;
+                        hg.x += (hdx >= 0 ? 1 : -1) * sp * dt; hg.dir = hdx >= 0 ? 1 : -1;
+                    } else { hg.x = hg.targetX; hg.arrived = true; }
+                    // only move on once he's there AND done greeting — tap to continue (auto after a beat)
+                    if (hg.arrived && hillelDone(hg.line) && (hTap || hg.t > 2.4)) {
+                        hg.phase = 1; hg.t = 0; hg.typeT = 0;
+                        hg.line = randPick(["Let me just... assess the damage. Mm. Mm-hm.",
+                                            "Hold still — running the actuarials...",
+                                            "One moment, carrying the one... mm-hm."]);
+                        playTone(520, 0.06, "sine", 0.06);
+                    }
                     return;
                 }
                 if (hg.phase === 1) {                        // crunching the numbers, clipboard out
-                    if (hg.t > 1.8) {
+                    if (hillelDone(hg.line) && (hTap || hg.t > 2.2)) {
                         // Hillel's actuarial fault calc: who was faster, who hit whom,
                         // who was distracted, who was impaired.
                         var f = 0.5;
@@ -8587,13 +8603,13 @@
                                 "Not your fault! Pushed it through: 💰" + hg.amount + ". 📋",
                                 "They were in the wrong doing " + hg.otherSpeed + ". 💰" + hg.amount + " for you."]);
                         }
-                        hg.phase = 2; hg.t = 0;
+                        hg.phase = 2; hg.t = 0; hg.typeT = 0;
                         playTone(hg.atFault ? 200 : 784, 0.12, "triangle", 0.16);
                     }
                     return;
                 }
                 if (hg.phase === 2) {                        // verdict → settle up → slip away
-                    if (!hg.paid) {
+                    if (!hg.paid && hillelDone(hg.line)) {   // settle the moment the verdict has finished reading
                         hg.paid = true;
                         if (hg.atFault) {
                             var charged = chargeCoins(hg.amount);
@@ -8604,7 +8620,7 @@
                             spawnFloater(player.x, player.y - 40, "📋 +" + hg.amount + " payout!", "#90CAF9");
                         }
                     }
-                    if (hg.t > 2.1) grantSecondChance();
+                    if (hg.paid && (hTap || hg.t > 2.6)) grantSecondChance();
                     return;
                 }
                 return;
@@ -8889,10 +8905,11 @@
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.78 - 30, 220, 60)) {
                 resetGame(); state = "playing"; playClick(); return;
             }
-            // Menu button
+            // Menu button — Dina's tablet games return to her room; everyone else
+            // goes to Lulu's menu (the sister picker is hidden behind the secret combo).
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.88 - 25, 220, 50)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); return; }
-                state = "charSelect"; playClick(); return;
+                state = "menu"; playClick(); return;
             }
         }
         if (consumeAction()) {
@@ -10017,17 +10034,29 @@
             var hg = hillelAdjuster;
             drawHillel(hg.x, hg.y, gameTime, hg.phase >= 1);
             if (hg.line) {
-                var hlines = wrapLines(hg.line, W - 84, "bold 14px 'Segoe UI', Arial, sans-serif");
+                var typed = hillelTyped(hg.line), lineDone = hillelDone(hg.line);
+                var hlines = wrapLines(typed, W - 84, "bold 14px 'Segoe UI', Arial, sans-serif");
+                if (!hlines.length) hlines = [""];
                 var hbh = 16 + hlines.length * 19, hby = 74, hbw = W - 56, hbx = 28;
-                ctx.fillStyle = "rgba(18,26,40,0.92)"; roundRect(hbx, hby, hbw, hbh, 10); ctx.fill();
+                // speech-bubble tail pointing down toward Hillel
+                var tailX = clamp(hg.x, hbx + 24, hbx + hbw - 24);
+                ctx.fillStyle = "rgba(18,26,40,0.92)";
+                ctx.beginPath(); ctx.moveTo(tailX - 11, hby + hbh - 1); ctx.lineTo(tailX + 11, hby + hbh - 1); ctx.lineTo(tailX + 2, hby + hbh + 16); ctx.closePath(); ctx.fill();
+                roundRect(hbx, hby, hbw, hbh, 10); ctx.fill();
                 ctx.strokeStyle = "#90CAF9"; ctx.lineWidth = 2; roundRect(hbx, hby, hbw, hbh, 10); ctx.stroke();
                 ctx.fillStyle = "#90CAF9"; roundRect(hbx + 12, hby - 11, 150, 20, 6); ctx.fill();
                 drawText("🧮 HILLEL · claims", hbx + 87, hby - 1, "bold 11px 'Segoe UI', Arial, sans-serif", "#0D1B3E", null, 0);
                 for (var hl = 0; hl < hlines.length; hl++)
                     drawText(hlines[hl], W / 2, hby + 16 + hl * 19, "bold 14px 'Segoe UI', Arial, sans-serif", "#E3F2FD", "#000", 2);
-                // his fault-finding worksheet, just under the box
-                if (hg.report)
-                    drawText("📐 " + hg.report, W / 2, hby + hbh + 14, "bold 11px 'Segoe UI', Arial, sans-serif",
+                // a soft blinking "tap to continue" once the line has finished typing
+                if (lineDone) {
+                    ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 4));
+                    drawText("▾ tap", hbx + hbw - 30, hby + hbh - 7, "bold 10px 'Segoe UI', Arial, sans-serif", "#90CAF9", null, 0);
+                    ctx.globalAlpha = 1;
+                }
+                // his fault-finding worksheet, just under the box (once the verdict reads out)
+                if (hg.report && lineDone && hg.phase >= 2)
+                    drawText("📐 " + hg.report, W / 2, hby + hbh + 26, "bold 11px 'Segoe UI', Arial, sans-serif",
                         hg.atFault ? "#FFCDD2" : "#B9F6CA", "#0A1018", 3);
             }
         }
