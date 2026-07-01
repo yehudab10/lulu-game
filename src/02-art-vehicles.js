@@ -611,6 +611,8 @@
         else if (type === 4) { ew = 52; eh = 100; rad = 6; }  // box truck — biggest
         else if (type === 5) { ew = 42; eh = 72; rad = 16; }  // electric car — rounded/compact
         else if (type === 6) { ew = 50; eh = 76; rad = 9; }   // sports car — low & wide
+        else if (type === 7) { ew = 44; eh = 76; rad = 9; }   // taxi — sedan-ish
+        else if (type === 8) { ew = 50; eh = 118; rad = 7; }  // city bus — longest vehicle
         else { ew = 44; eh = 68; rad = 12; }
         var hw2 = ew / 2, hh2 = eh / 2;
 
@@ -770,6 +772,104 @@
             ctx.beginPath();
             ctx.ellipse(-hw2 + 9, hh2 - 9, 3, 2, 0, 0, Math.PI * 2);
             ctx.ellipse(hw2 - 9, hh2 - 9, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        } else if (type === 7) {
+            // ── TAXI ── classic yellow cab: checker band, TAXI roof light, red taillights
+            var taxiY = "#FDD835", taxiYd = "#FBC02D";
+            // repaint the body in iconic taxi yellow (a taxi is defined by its color)
+            ctx.fillStyle = shadeColor(taxiY, -40);
+            roundRect(-hw2 - 2, -hh2 - 2, ew + 4, eh + 4, rad + 2); ctx.fill();
+            var tg = ctx.createLinearGradient(0, -hh2, 0, hh2);
+            tg.addColorStop(0, shadeColor(taxiY, 25));
+            tg.addColorStop(1, taxiYd);
+            ctx.fillStyle = tg;
+            roundRect(-hw2, -hh2, ew, eh, rad); ctx.fill();
+            // windshield (front) + rear window
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 8, -hh2 + 8, ew - 16, 11, 3); ctx.fill();
+            roundRect(-hw2 + 6, hh2 - 22, ew - 12, 14, 4); ctx.fill();
+            // ── black-and-white CHECKER stripe band across the middle side ──
+            var bandTop = -2, bandH = 8, sq = bandH / 2, nsq = Math.ceil(ew / sq) + 1;
+            ctx.fillStyle = "#ECEFF1";
+            ctx.fillRect(-hw2, bandTop, ew, bandH);
+            ctx.fillStyle = "#212121";
+            for (var cr = 0; cr < 2; cr++) {
+                for (var cc = 0; cc < nsq; cc++) {
+                    if ((cr + cc) % 2 === 0) ctx.fillRect(-hw2 + cc * sq, bandTop + cr * sq, sq, sq);
+                }
+            }
+            ctx.strokeStyle = shadeColor(taxiY, -40); ctx.lineWidth = 1;
+            ctx.strokeRect(-hw2, bandTop, ew, bandH);
+            // ── small "TAXI" roof-light box on top (front) ──
+            var lbW = 20, lbH = 9, lbTop = -hh2 + 22;
+            ctx.fillStyle = "#212121";
+            roundRect(-lbW / 2 - 1, lbTop - 1, lbW + 2, lbH + 2, 2); ctx.fill();
+            ctx.fillStyle = "#FFF59D";                  // lit sign
+            roundRect(-lbW / 2, lbTop, lbW, lbH, 2); ctx.fill();
+            ctx.fillStyle = "#5D4037";
+            ctx.font = "bold 6px sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("TAXI", 0, lbTop + lbH / 2 + 0.5);
+            ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+            // windshield gloss + body top sheen
+            ctx.fillStyle = "rgba(255,255,255,0.20)";
+            roundRect(-hw2 + 8, -hh2 + 8, (ew - 16) * 0.42, 11, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.12)";
+            roundRect(-hw2 + 4, -hh2 + 3, ew - 8, 5, 3); ctx.fill();
+            // taillights
+            ctx.fillStyle = "#EF5350";
+            ctx.beginPath();
+            ctx.ellipse(-hw2 + 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw2 - 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        } else if (type === 8) {
+            // ── CITY BUS ── longest vehicle: side-window rows, dest sign, livery stripe
+            // big front windshield
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 6, -hh2 + 12, ew - 12, 14, 4); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.20)";
+            roundRect(-hw2 + 6, -hh2 + 12, (ew - 12) * 0.4, 14, 4); ctx.fill();
+            // ── lit destination sign strip near the front ──
+            ctx.fillStyle = "#212121";
+            roundRect(-hw2 + 6, -hh2 + 4, ew - 12, 6, 2); ctx.fill();
+            ctx.fillStyle = "#FFF176";
+            roundRect(-hw2 + 8, -hh2 + 5, ew - 16, 4, 1.5); ctx.fill();
+            ctx.fillStyle = "#4E342E";
+            ctx.font = "bold 4.5px sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("42 DOWNTOWN", 0, -hh2 + 7.2);
+            ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+            // ── horizontal livery accent stripe down the length ──
+            ctx.fillStyle = shadeColor(color, 45);
+            ctx.fillRect(-hw2, -1, ew, 6);
+            ctx.fillStyle = shadeColor(color, -30);
+            ctx.fillRect(-hw2, -2, ew, 1.5);
+            // ── rows of side windows down BOTH sides (evenly spaced) ──
+            var winTop = -hh2 + 30, winBot = hh2 - 12, winH = 12;
+            var gap = 5, nWin = Math.floor((winBot - winTop + gap) / (winH + gap));
+            var winW = 8;
+            for (var wi = 0; wi < nWin; wi++) {
+                var wy = winTop + wi * (winH + gap);
+                if (wy + winH > winBot) break;
+                ctx.fillStyle = "#78909C";
+                roundRect(-hw2 + 3, wy, winW, winH, 2); ctx.fill();     // left column
+                roundRect(hw2 - 3 - winW, wy, winW, winH, 2); ctx.fill(); // right column
+                ctx.fillStyle = "rgba(255,255,255,0.16)";
+                roundRect(-hw2 + 3, wy, winW * 0.4, winH, 2); ctx.fill();
+                roundRect(hw2 - 3 - winW, wy, winW * 0.4, winH, 2); ctx.fill();
+            }
+            // body top sheen
+            ctx.fillStyle = "rgba(255,255,255,0.10)";
+            roundRect(-hw2 + 5, -hh2 + 3, ew - 10, 4, 2); ctx.fill();
+            // taillights
+            ctx.fillStyle = "#EF5350";
+            ctx.beginPath();
+            ctx.ellipse(-hw2 + 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw2 - 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
             return;
