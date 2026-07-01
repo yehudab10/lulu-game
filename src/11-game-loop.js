@@ -12,12 +12,17 @@
         // Global update tickers (always run) — these use REAL time so timed
         // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
+        updateTapFx(dt);
         updateFloaters(dt);
         updateSceneFade(dt);
         updateStateTransition(dt);
         if (crashFlash > 0) crashFlash -= dt;
         if (enterFadeT > 0) enterFadeT -= dt;
 
+        // Hit-stop: for a few frames after a fatal impact the world all but
+        // FREEZES (with a zoom punch drawn below) — then bullet-time takes over.
+        // Real-time decrement, like the other impact timers.
+        if (hitStopT > 0) { hitStopT -= dt; dt *= 0.05; }
         // Bullet-time: briefly slow the simulation after a big crash for drama.
         // Decremented with real time so it always lasts ~0.55s; the scaled dt is
         // what the scene updates below actually advance by.
@@ -129,6 +134,15 @@
 
         ctx.clearRect(0, 0, W, H);
 
+        // Zoom punch during hit-stop: the whole scene bulges ~5% from center,
+        // easing out as the freeze thaws. Overlays (flash/fade) stay unzoomed.
+        var hitZoomed = hitStopT > 0;
+        if (hitZoomed) {
+            var hz = 1 + 0.05 * clamp(hitStopT / 0.14, 0, 1);
+            ctx.save();
+            ctx.translate(W / 2, H / 2); ctx.scale(hz, hz); ctx.translate(-W / 2, -H / 2);
+        }
+
         if (state === "charSelect") drawCharSelect();
         else if (state === "menu") drawMenu();
         else if (state === "playing") drawPlaying();
@@ -160,6 +174,8 @@
         else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
+
+        if (hitZoomed) ctx.restore();
 
         // Quick ease-in from black for hard-cut story scenes (arrest/jail/court/ER).
         if (enterFadeT > 0) {

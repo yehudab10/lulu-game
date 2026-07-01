@@ -555,6 +555,7 @@
     var keys = { left: false, right: false, up: false, down: false };
     var actionQueued = false;
     var clickQueue = null; // {x, y} in canvas coords
+    var tapFx = [];        // touch-feedback ripples (drawn in interiors, where buttons lack press fx)
     var EXIT_RECT = null;           // ditch-the-car button (only while slowed)
     var exitQueued = false;         // tapped the EXIT button / pressed Q
     var exitBtnShown = false;       // set each frame by updatePlaying when eligible
@@ -779,6 +780,7 @@
                 // Lulu's driving, so no on-screen arrows are needed.
                 clickQueue = pos;
                 queueAction();
+                tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
                      state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
@@ -832,7 +834,25 @@
         var pos = screenToCanvas(e.clientX, e.clientY);
         clickQueue = pos;
         queueAction();
+        tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
     });
+
+    // Tap-feedback ripple: a quick expanding ring where the finger landed. The
+    // driving HUD's buttons have their own press fx — this is for the interiors
+    // (bar/school/hospital/precinct/beach), whose tap targets gave no feedback.
+    function updateTapFx(dt) {
+        for (var i = tapFx.length - 1; i >= 0; i--) { tapFx[i].t += dt; if (tapFx[i].t > 0.32) tapFx.splice(i, 1); }
+    }
+    function drawTapFx() {
+        for (var i = 0; i < tapFx.length; i++) {
+            var f = tapFx[i], p = f.t / 0.32;
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,255,255," + (0.55 * (1 - p)) + ")"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(f.x, f.y, 8 + p * 26, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(255,255,255," + (0.16 * (1 - p)) + ")"; ctx.fill();
+            ctx.restore();
+        }
+    }
 
     // Prevent the context menu on long-press (mobile)
     canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });

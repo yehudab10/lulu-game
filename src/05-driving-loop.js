@@ -328,7 +328,7 @@
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         honkChain = 0; honkChainResetTimer = 0;
-        nitroTimer = 0; wetTimer = 0; slowMoT = 0; crashFlash = 0; shakeTimer = 0;
+        nitroTimer = 0; wetTimer = 0; slowMoT = 0; hitStopT = 0; crashFlash = 0; shakeTimer = 0;
         sasquatchPassenger = 0;
         passengers = []; passengerTimer = 0;
         avigailInCar = false; pointMult = 1;
@@ -1023,6 +1023,13 @@
                 // little pop ring that scales up and fades
                 coinPops.push({ x: c.x, y: c.y, t: 0 });
                 if (coinPops.length > 12) coinPops.shift();
+                // …and the coin itself ARCS up to the HUD counter (classic juice):
+                // 1-2 mini coins on slightly different bezier paths + timing.
+                for (var cf = 0; cf < Math.min(2, gained); cf++) {
+                    coinFlys.push({ sx: c.x, sy: c.y, cx: c.x + rand(-50, 50), cy: c.y - rand(60, 110),
+                                    t: -cf * 0.07, dur: 0.38 });
+                }
+                if (coinFlys.length > 10) coinFlys.shift();
                 playCoin();
                 coinEntities.splice(j, 1);
             }
@@ -1032,6 +1039,12 @@
             coinPops[cp].t += dt;
             if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
         }
+        // Advance the HUD-bound flying coins; pulse the counter as each lands.
+        for (var cfj = coinFlys.length - 1; cfj >= 0; cfj--) {
+            coinFlys[cfj].t += dt;
+            if (coinFlys[cfj].t >= coinFlys[cfj].dur) { coinFlys.splice(cfj, 1); coinHudPulse = 0.28; }
+        }
+        if (coinHudPulse > 0) coinHudPulse -= dt;
         // Decay the combo window; when it lapses the streak resets.
         if (coinComboT > 0) { coinComboT -= dt; if (coinComboT <= 0) coinCombo = 0; }
         if (coinComboFx > 0) coinComboFx -= dt;
@@ -1489,6 +1502,7 @@
             setTimeout(playWompWomp, 400);
             crashFlash = 0.4;   // hard white impact flash
             slowMoT = 0.55;     // brief bullet-time on the explosion
+            hitStopT = 0.14;    // 2-3 frames of near-freeze + zoom punch FIRST — weight
             state = "crash";
             crashPhase = 0;
             crashPhaseTimer = 1.4; // explosion duration

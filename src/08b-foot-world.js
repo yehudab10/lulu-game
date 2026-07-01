@@ -827,7 +827,37 @@
     }
 
     // ── Draw: the on-foot world layer ────────────────────────
+    // A raised planter/hedge strip along the outer margins that scrolls SLOWER
+    // than the road (0.55x) — cheap parallax that gives the flat top-down
+    // sidewalk a sense of depth while she's walking.
+    function drawFootParallax() {
+        var span = H + 170;
+        for (var k = 0; k < 8; k++) {
+            var py = ((k * 150 + scrollOffset * 0.55) % span + span) % span - 85;
+            var left = k % 2 === 0, px = left ? 13 : W - 13;
+            var kind = k % 3;
+            ctx.save(); ctx.translate(px, py);
+            ctx.fillStyle = "rgba(0,0,0,0.16)";                      // drop shadow = raised
+            ctx.beginPath(); ctx.ellipse(3, 5, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
+            if (kind === 0) {           // trimmed hedge
+                ctx.fillStyle = "#2E7D32"; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.ellipse(-3, -3, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (kind === 1) {    // stone planter with flowers
+                ctx.fillStyle = "#8D8D8D"; roundRect(-11, -7, 22, 14, 4); ctx.fill();
+                ctx.fillStyle = "#6D6D6D"; roundRect(-11, -7, 22, 4, 4); ctx.fill();
+                ctx.fillStyle = "#66BB6A"; ctx.beginPath(); ctx.ellipse(0, -1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = k % 4 ? "#F06292" : "#FFD54F";
+                ctx.beginPath(); ctx.arc(-4, -2, 2, 0, Math.PI * 2); ctx.arc(3, -3, 2, 0, Math.PI * 2); ctx.arc(0, 1, 2, 0, Math.PI * 2); ctx.fill();
+            } else {                    // little street shrub in a pot
+                ctx.fillStyle = "#795548"; roundRect(-6, 1, 12, 8, 2); ctx.fill();
+                ctx.fillStyle = "#388E3C"; ctx.beginPath(); ctx.arc(0, -5, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#4CAF50"; ctx.beginPath(); ctx.arc(-2, -7, 4.5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
     function drawFootWorld() {
+        drawFootParallax();
         if (footCompanion) {
             drawAvigailWalker(footCompanion.x, footCompanion.y, footCompanion.walkTime);
             if (footCompanion.sayT > 0) drawSpeechBubble(footCompanion.x, footCompanion.y - 40, footCompanion.say, footCompanion.walkTime);
@@ -1069,6 +1099,7 @@
         else if (t === "beach" && typeof drawBeachInterior === "function") drawBeachInterior();
         else { ctx.fillStyle = "#222"; ctx.fillRect(0, 0, W, H); }
         drawParticles();
+        drawTapFx();   // consistent tap feedback — interior targets had none
     }
 
     // ── Running Lulu (top-down) ──────────────────────────────

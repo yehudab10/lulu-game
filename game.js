@@ -557,6 +557,7 @@
     var keys = { left: false, right: false, up: false, down: false };
     var actionQueued = false;
     var clickQueue = null; // {x, y} in canvas coords
+    var tapFx = [];        // touch-feedback ripples (drawn in interiors, where buttons lack press fx)
     var EXIT_RECT = null;           // ditch-the-car button (only while slowed)
     var exitQueued = false;         // tapped the EXIT button / pressed Q
     var exitBtnShown = false;       // set each frame by updatePlaying when eligible
@@ -781,6 +782,7 @@
                 // Lulu's driving, so no on-screen arrows are needed.
                 clickQueue = pos;
                 queueAction();
+                tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
                      state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
@@ -834,7 +836,25 @@
         var pos = screenToCanvas(e.clientX, e.clientY);
         clickQueue = pos;
         queueAction();
+        tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
     });
+
+    // Tap-feedback ripple: a quick expanding ring where the finger landed. The
+    // driving HUD's buttons have their own press fx — this is for the interiors
+    // (bar/school/hospital/precinct/beach), whose tap targets gave no feedback.
+    function updateTapFx(dt) {
+        for (var i = tapFx.length - 1; i >= 0; i--) { tapFx[i].t += dt; if (tapFx[i].t > 0.32) tapFx.splice(i, 1); }
+    }
+    function drawTapFx() {
+        for (var i = 0; i < tapFx.length; i++) {
+            var f = tapFx[i], p = f.t / 0.32;
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,255,255," + (0.55 * (1 - p)) + ")"; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.arc(f.x, f.y, 8 + p * 26, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(255,255,255," + (0.16 * (1 - p)) + ")"; ctx.fill();
+            ctx.restore();
+        }
+    }
 
     // Prevent the context menu on long-press (mobile)
     canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
@@ -5253,9 +5273,20 @@
         drawText("SCORE", 64, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         drawText(formatNum(Math.floor(score)), 64, 36, "bold 26px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5, "left");
 
-        // Coins (current run)
-        drawCoin(W - 100, 26, gameTime);
+        // Coins (current run) — the counter POPS when a flying coin lands on it.
+        var chPop = 1 + Math.max(0, coinHudPulse) * 0.9;
+        ctx.save(); ctx.translate(W - 100, 26); ctx.scale(chPop, chPop); drawCoin(0, 0, gameTime); ctx.restore();
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
+        // Collected coins arcing up to the counter (quadratic bezier, ease-in).
+        for (var cfd = 0; cfd < coinFlys.length; cfd++) {
+            var cf = coinFlys[cfd]; if (cf.t < 0) continue;
+            var cp2 = Math.min(1, cf.t / cf.dur); cp2 = cp2 * cp2 * (3 - 2 * cp2);   // smoothstep
+            var inv = 1 - cp2;
+            var fx = inv * inv * cf.sx + 2 * inv * cp2 * cf.cx + cp2 * cp2 * (W - 100);
+            var fy = inv * inv * cf.sy + 2 * inv * cp2 * cf.cy + cp2 * cp2 * 26;
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(0.6, 0.6); ctx.globalAlpha = 0.95;
+            drawCoin(0, 0, gameTime + cfd); ctx.restore();
+        }
 
         // WANTED file open (skipped the ER, etc.) — a blinking warning so she knows
         // why cops keep giving chase. Only a judge clears it.
@@ -5546,6 +5577,9 @@
     var flashTimer = 0;
     var crashFlash = 0;   // white impact flash on the fatal crash (fades fast)
     var slowMoT = 0;      // >0 = brief bullet-time after a big hit
+    var hitStopT = 0;     // >0 = a few frames of near-total freeze + zoom punch (impact weight)
+    var coinFlys = [];    // little coins arcing from a pickup to the HUD counter
+    var coinHudPulse = 0; // HUD coin counter pops when a flying coin lands
     var crashTimer = 0;
     var menuBounce = 0;
     var gameOverAlpha = 0;
@@ -5801,7 +5835,7 @@
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
-        crashFlash = 0; slowMoT = 0;
+        crashFlash = 0; slowMoT = 0; hitStopT = 0; coinFlys = []; coinHudPulse = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; courageT = 0; carMalfunction = null; wetTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;
@@ -7124,7 +7158,7 @@
         hitchhiker = null;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         honkChain = 0; honkChainResetTimer = 0;
-        nitroTimer = 0; wetTimer = 0; slowMoT = 0; crashFlash = 0; shakeTimer = 0;
+        nitroTimer = 0; wetTimer = 0; slowMoT = 0; hitStopT = 0; crashFlash = 0; shakeTimer = 0;
         sasquatchPassenger = 0;
         passengers = []; passengerTimer = 0;
         avigailInCar = false; pointMult = 1;
@@ -7819,6 +7853,13 @@
                 // little pop ring that scales up and fades
                 coinPops.push({ x: c.x, y: c.y, t: 0 });
                 if (coinPops.length > 12) coinPops.shift();
+                // …and the coin itself ARCS up to the HUD counter (classic juice):
+                // 1-2 mini coins on slightly different bezier paths + timing.
+                for (var cf = 0; cf < Math.min(2, gained); cf++) {
+                    coinFlys.push({ sx: c.x, sy: c.y, cx: c.x + rand(-50, 50), cy: c.y - rand(60, 110),
+                                    t: -cf * 0.07, dur: 0.38 });
+                }
+                if (coinFlys.length > 10) coinFlys.shift();
                 playCoin();
                 coinEntities.splice(j, 1);
             }
@@ -7828,6 +7869,12 @@
             coinPops[cp].t += dt;
             if (coinPops[cp].t > 0.35) coinPops.splice(cp, 1);
         }
+        // Advance the HUD-bound flying coins; pulse the counter as each lands.
+        for (var cfj = coinFlys.length - 1; cfj >= 0; cfj--) {
+            coinFlys[cfj].t += dt;
+            if (coinFlys[cfj].t >= coinFlys[cfj].dur) { coinFlys.splice(cfj, 1); coinHudPulse = 0.28; }
+        }
+        if (coinHudPulse > 0) coinHudPulse -= dt;
         // Decay the combo window; when it lapses the streak resets.
         if (coinComboT > 0) { coinComboT -= dt; if (coinComboT <= 0) coinCombo = 0; }
         if (coinComboFx > 0) coinComboFx -= dt;
@@ -8285,6 +8332,7 @@
             setTimeout(playWompWomp, 400);
             crashFlash = 0.4;   // hard white impact flash
             slowMoT = 0.55;     // brief bullet-time on the explosion
+            hitStopT = 0.14;    // 2-3 frames of near-freeze + zoom punch FIRST — weight
             state = "crash";
             crashPhase = 0;
             crashPhaseTimer = 1.4; // explosion duration
@@ -14988,7 +15036,37 @@
     }
 
     // ── Draw: the on-foot world layer ────────────────────────
+    // A raised planter/hedge strip along the outer margins that scrolls SLOWER
+    // than the road (0.55x) — cheap parallax that gives the flat top-down
+    // sidewalk a sense of depth while she's walking.
+    function drawFootParallax() {
+        var span = H + 170;
+        for (var k = 0; k < 8; k++) {
+            var py = ((k * 150 + scrollOffset * 0.55) % span + span) % span - 85;
+            var left = k % 2 === 0, px = left ? 13 : W - 13;
+            var kind = k % 3;
+            ctx.save(); ctx.translate(px, py);
+            ctx.fillStyle = "rgba(0,0,0,0.16)";                      // drop shadow = raised
+            ctx.beginPath(); ctx.ellipse(3, 5, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
+            if (kind === 0) {           // trimmed hedge
+                ctx.fillStyle = "#2E7D32"; ctx.beginPath(); ctx.ellipse(0, 0, 13, 9, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.ellipse(-3, -3, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (kind === 1) {    // stone planter with flowers
+                ctx.fillStyle = "#8D8D8D"; roundRect(-11, -7, 22, 14, 4); ctx.fill();
+                ctx.fillStyle = "#6D6D6D"; roundRect(-11, -7, 22, 4, 4); ctx.fill();
+                ctx.fillStyle = "#66BB6A"; ctx.beginPath(); ctx.ellipse(0, -1, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = k % 4 ? "#F06292" : "#FFD54F";
+                ctx.beginPath(); ctx.arc(-4, -2, 2, 0, Math.PI * 2); ctx.arc(3, -3, 2, 0, Math.PI * 2); ctx.arc(0, 1, 2, 0, Math.PI * 2); ctx.fill();
+            } else {                    // little street shrub in a pot
+                ctx.fillStyle = "#795548"; roundRect(-6, 1, 12, 8, 2); ctx.fill();
+                ctx.fillStyle = "#388E3C"; ctx.beginPath(); ctx.arc(0, -5, 8, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#4CAF50"; ctx.beginPath(); ctx.arc(-2, -7, 4.5, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
     function drawFootWorld() {
+        drawFootParallax();
         if (footCompanion) {
             drawAvigailWalker(footCompanion.x, footCompanion.y, footCompanion.walkTime);
             if (footCompanion.sayT > 0) drawSpeechBubble(footCompanion.x, footCompanion.y - 40, footCompanion.say, footCompanion.walkTime);
@@ -15230,6 +15308,7 @@
         else if (t === "beach" && typeof drawBeachInterior === "function") drawBeachInterior();
         else { ctx.fillStyle = "#222"; ctx.fillRect(0, 0, W, H); }
         drawParticles();
+        drawTapFx();   // consistent tap feedback — interior targets had none
     }
 
     // ── Running Lulu (top-down) ──────────────────────────────
@@ -24776,7 +24855,51 @@
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
                   lines: lines };
+        // Seed the jury-mood meter with everything known walking in: priors,
+        // the size of the charge sheet, and whether she retained counsel.
+        court.lean = 0; court.factors = [];
+        if (strk >= 2) { court.threeStrikes = true; addCourtFactor("⚖️ " + strk + " strikes — no mercy", -1.5); }
+        else if (strk === 1) addCourtFactor("⚖️ a prior strike", -0.45);
+        if (cl.length >= 4) addCourtFactor("📜 a LONG charge sheet", -0.4);
+        if (lawyerTier) addCourtFactor("🤵 " + lawyerTier.name, 0.3 + (lawyerTier.mitig || 0) * 0.7);
         jail = null; state = "courtroom"; playTone(523, 0.12, "triangle", 0.16);
+    }
+
+    // ── JURY MOOD: the legible replacement for the old hidden re-rolls ──
+    // Every influence on the trial (strikes, charge sheet, counsel, objections,
+    // courtroom chaos) registers as a VISIBLE factor that nudges one "lean"
+    // number, shown live on a meter — then the verdict applies a single bounded
+    // shift instead of five stacked invisible coin flips.
+    function courtEventFactor(ev) {
+        if (ev.nudge === "dismiss") { court.mistrial = true; addCourtFactor("💥 MISTRIAL!", 2); }
+        else if (ev.nudge === "help") addCourtFactor("💞 the court is CHARMED", 0.55);
+        else if (ev.nudge === "hurt") addCourtFactor("😤 the court is ANNOYED", -0.55);
+    }
+    function addCourtFactor(label, amt) {
+        if (!court) return;
+        court.lean = (court.lean || 0) + amt;
+        (court.factors = court.factors || []).push({ t: label, a: amt });
+        court.meterFx = 0.6;   // meter blips so the change is noticeable
+    }
+    function drawJuryMeter() {
+        if (!court || !court.factors || !court.factors.length) return;
+        if (court.meterFx > 0) court.meterFx -= 1 / 60;
+        var mx = 14, my = 52, mw = 128;
+        ctx.fillStyle = "rgba(10,8,22,0.72)"; roundRect(mx - 4, my - 12, mw + 8, 34 + Math.min(3, court.factors.length) * 13, 8); ctx.fill();
+        drawText("JURY MOOD", mx, my - 3, "bold 9px 'Segoe UI', Arial, sans-serif", "#B39DDB", "#000", 2, "left");
+        // the bar: hostile (red) ← → friendly (green), needle at the current lean
+        var grd = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+        grd.addColorStop(0, "#E53935"); grd.addColorStop(0.5, "#FFB300"); grd.addColorStop(1, "#66BB6A");
+        ctx.fillStyle = grd; roundRect(mx, my + 2, mw, 7, 3.5); ctx.fill();
+        var lp = clamp(0.5 + (court.lean || 0) * 0.22, 0.04, 0.96);
+        var pulse = court.meterFx > 0 ? 1 + court.meterFx * 0.8 : 1;
+        ctx.fillStyle = "#FFF"; ctx.strokeStyle = "#1A1230"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(mx + mw * lp, my + 5.5, 5 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // the last few factors, as tiny signed chips
+        var shown = court.factors.slice(-3);
+        for (var i = 0; i < shown.length; i++)
+            drawText(shown[i].t, mx, my + 20 + i * 13, "bold 9px 'Segoe UI', Arial, sans-serif",
+                shown[i].a >= 0 ? "#A5D6A7" : "#EF9A9A", "#000", 2, "left");
     }
 
     function rollVerdict(opt) {
@@ -24815,7 +24938,7 @@
         if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
-            court.nudges = [court.event.nudge];
+            courtEventFactor(court.event);
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
             if (dramaTier >= 2) { court.gavel = 0.5; court.banner = 0.45; }   // bang the gavel to punctuate the bedlam
@@ -24877,6 +25000,8 @@
                 if (!court.objected && Math.random() < 0.5) {
                     court.objected = true;
                     court.objResult = Math.random() < 0.5 ? "sustain" : "overrule";
+                    if (court.objResult === "sustain") addCourtFactor("🚫 objection SUSTAINED", -0.5);
+                    else addCourtFactor("✅ objection overruled", 0.4);
                     court.objLines = [
                         { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(OBJECTIONS) },
                         { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(court.objResult === "sustain" ? JUDGE_SUSTAIN : JUDGE_OVERRULE) }
@@ -24901,7 +25026,7 @@
                         var prevId = court.event.id, e2 = pickCourtEvent(), guard = 0;
                         while (e2.id === prevId && guard++ < 6) e2 = pickCourtEvent();
                         court.event = e2; court.eventLi = 0; court.evStamp = 0.6;
-                        (court.nudges = court.nudges || []).push(e2.nudge);
+                        courtEventFactor(e2);
                         if (e2.charge && court.charges.indexOf(e2.charge) < 0) court.charges.push(e2.charge);
                         court.gavel = 0.5; court.banner = 0.45;
                         playTone(440, 0.1, "triangle", 0.14);
@@ -24936,35 +25061,29 @@
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
                 }
+                // ── ONE legible deliberation pass ──
+                // The chosen defense sets the base odds; everything else already
+                // registered as a VISIBLE jury-mood factor (strikes, charge sheet,
+                // counsel, objection, chaos). A cheap lawyer can still blunder —
+                // rolled ONCE, and it lands on the meter like everything else.
+                if (court.lawyer && Math.random() < court.lawyerBlunder) {
+                    court.lawyerBlundered = true;
+                    addCourtFactor("🤦 counsel BLUNDERED", -(0.45 + (court.lawyerMitig || 0) * 0.7));
+                }
                 court.verdict = rollVerdict(opt);
-                // A sustained objection hurts her; an overruled one helps.
-                if (court.objResult === "sustain" && court.verdict === "dismissed" && Math.random() < 0.6) court.verdict = "fine";
-                if (court.objResult === "overrule" && court.verdict !== "dismissed" && Math.random() < 0.35) court.verdict = "dismissed";
-                // STRIKES: repeat offenders get no mercy. 3rd strike = real jail.
-                if (strikes >= 2) court.verdict = "jail";
-                else if (strikes >= 1 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                if (court.charges.length >= 4 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                // A retained lawyer fights it down — by how much depends on the tier.
-                // Cheap counsel can BLUNDER and not help (you get what you pay for).
-                if (court.lawyer) {
-                    if (Math.random() < court.lawyerBlunder) {
-                        if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                    } else {
-                        if (court.verdict === "jail" && Math.random() < court.lawyerMitig) court.verdict = "fine";
-                        if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
-                    }
+                if (court.mistrial) court.verdict = "dismissed";        // chaos springs her outright
+                else if (court.threeStrikes) court.verdict = "jail";    // hard rule, shown on the meter
+                else {
+                    // Single bounded shift: the net mood (plus ONE die of jitter)
+                    // moves the base verdict at most two steps. No stacked re-rolls.
+                    var vmapUp = { jail: 0, fine: 1, dismissed: 2 };
+                    var v = vmapUp[court.verdict];
+                    var eff = (court.lean || 0) + rand(-0.35, 0.35);
+                    if (eff <= -1.1) v -= 2; else if (eff <= -0.45) v -= 1;
+                    else if (eff >= 1.1) v += 2; else if (eff >= 0.45) v += 1;
+                    v = clamp(v, 0, 2);
+                    court.verdict = v === 2 ? "dismissed" : v === 1 ? "fine" : "jail";
                 }
-                // Each courtroom EVENT that fired can swing the verdict (mistrial springs
-                // her outright). Multiple events on a chaotic trial each get a say.
-                var ndlist = court.nudges || (court.event ? [court.event.nudge] : []);
-                for (var ni = 0; ni < ndlist.length; ni++) {
-                    var nd = ndlist[ni];
-                    if (nd === "dismiss") court.verdict = "dismissed";
-                    else if (nd === "help") { if (court.verdict === "jail" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed"; }
-                    else if (nd === "hurt") { if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.3) court.verdict = "jail"; }
-                }
-                // A mistrial ALWAYS springs her — chaos can't walk back a "case dismissed."
-                if (ndlist.indexOf("dismiss") >= 0) court.verdict = "dismissed";
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
                     court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
@@ -25272,6 +25391,8 @@
                 dkX + dkW / 2, dkY + 33 + court.charges.length * 13, "bold 8px 'Segoe UI', Arial, sans-serif", pri >= 2 ? "#FF5252" : "#FFB300", "#000", 2);
         // her coin bank, under the docket — so the fine visibly comes out of it
         drawCoinHud(W - 116, dkY + dkH + 8);
+        // the live jury-mood meter + its factor chips (left side, under the bank)
+        drawJuryMeter();
 
         // ── phase overlays ──
         if (court.phase === 0) {
@@ -27281,12 +27402,17 @@
         // Global update tickers (always run) — these use REAL time so timed
         // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
+        updateTapFx(dt);
         updateFloaters(dt);
         updateSceneFade(dt);
         updateStateTransition(dt);
         if (crashFlash > 0) crashFlash -= dt;
         if (enterFadeT > 0) enterFadeT -= dt;
 
+        // Hit-stop: for a few frames after a fatal impact the world all but
+        // FREEZES (with a zoom punch drawn below) — then bullet-time takes over.
+        // Real-time decrement, like the other impact timers.
+        if (hitStopT > 0) { hitStopT -= dt; dt *= 0.05; }
         // Bullet-time: briefly slow the simulation after a big crash for drama.
         // Decremented with real time so it always lasts ~0.55s; the scaled dt is
         // what the scene updates below actually advance by.
@@ -27398,6 +27524,15 @@
 
         ctx.clearRect(0, 0, W, H);
 
+        // Zoom punch during hit-stop: the whole scene bulges ~5% from center,
+        // easing out as the freeze thaws. Overlays (flash/fade) stay unzoomed.
+        var hitZoomed = hitStopT > 0;
+        if (hitZoomed) {
+            var hz = 1 + 0.05 * clamp(hitStopT / 0.14, 0, 1);
+            ctx.save();
+            ctx.translate(W / 2, H / 2); ctx.scale(hz, hz); ctx.translate(-W / 2, -H / 2);
+        }
+
         if (state === "charSelect") drawCharSelect();
         else if (state === "menu") drawMenu();
         else if (state === "playing") drawPlaying();
@@ -27429,6 +27564,8 @@
         else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
+
+        if (hitZoomed) ctx.restore();
 
         // Quick ease-in from black for hard-cut story scenes (arrest/jail/court/ER).
         if (enterFadeT > 0) {

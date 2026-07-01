@@ -664,9 +664,20 @@
         drawText("SCORE", 64, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         drawText(formatNum(Math.floor(score)), 64, 36, "bold 26px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5, "left");
 
-        // Coins (current run)
-        drawCoin(W - 100, 26, gameTime);
+        // Coins (current run) — the counter POPS when a flying coin lands on it.
+        var chPop = 1 + Math.max(0, coinHudPulse) * 0.9;
+        ctx.save(); ctx.translate(W - 100, 26); ctx.scale(chPop, chPop); drawCoin(0, 0, gameTime); ctx.restore();
         drawText("× " + runCoins, W - 70, 27, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
+        // Collected coins arcing up to the counter (quadratic bezier, ease-in).
+        for (var cfd = 0; cfd < coinFlys.length; cfd++) {
+            var cf = coinFlys[cfd]; if (cf.t < 0) continue;
+            var cp2 = Math.min(1, cf.t / cf.dur); cp2 = cp2 * cp2 * (3 - 2 * cp2);   // smoothstep
+            var inv = 1 - cp2;
+            var fx = inv * inv * cf.sx + 2 * inv * cp2 * cf.cx + cp2 * cp2 * (W - 100);
+            var fy = inv * inv * cf.sy + 2 * inv * cp2 * cf.cy + cp2 * cp2 * 26;
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(0.6, 0.6); ctx.globalAlpha = 0.95;
+            drawCoin(0, 0, gameTime + cfd); ctx.restore();
+        }
 
         // WANTED file open (skipped the ER, etc.) — a blinking warning so she knows
         // why cops keep giving chase. Only a judge clears it.
@@ -957,6 +968,9 @@
     var flashTimer = 0;
     var crashFlash = 0;   // white impact flash on the fatal crash (fades fast)
     var slowMoT = 0;      // >0 = brief bullet-time after a big hit
+    var hitStopT = 0;     // >0 = a few frames of near-total freeze + zoom punch (impact weight)
+    var coinFlys = [];    // little coins arcing from a pickup to the HUD counter
+    var coinHudPulse = 0; // HUD coin counter pops when a flying coin lands
     var crashTimer = 0;
     var menuBounce = 0;
     var gameOverAlpha = 0;

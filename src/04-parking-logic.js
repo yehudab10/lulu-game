@@ -12,7 +12,7 @@
         if (save.lockup) { save.lockup = null; persistSave(); }   // a fresh run clears any old sentence
         gameSpeed = BASE_SPEED; scrollOffset = 0; gameTime = 0;
         invincibleTimer = 0; shakeTimer = 0; flashTimer = 0; crashTimer = 0;
-        crashFlash = 0; slowMoT = 0;
+        crashFlash = 0; slowMoT = 0; hitStopT = 0; coinFlys = []; coinHudPulse = 0;
         obstacles = []; coinEntities = []; heartEntities = []; animals = []; missiles = []; particles = [];
         fuelCans = []; nitroTimer = 0; courageT = 0; carMalfunction = null; wetTimer = 0; tollBooth = null;
         trainCrossing = null; driveThru = null; paradeTimer = 0; busStop = null;

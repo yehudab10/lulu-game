@@ -1376,7 +1376,51 @@
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
                   objected: false, objResult: null, objLines: null, objLi: 0, objStamp: 0,
                   lines: lines };
+        // Seed the jury-mood meter with everything known walking in: priors,
+        // the size of the charge sheet, and whether she retained counsel.
+        court.lean = 0; court.factors = [];
+        if (strk >= 2) { court.threeStrikes = true; addCourtFactor("⚖️ " + strk + " strikes — no mercy", -1.5); }
+        else if (strk === 1) addCourtFactor("⚖️ a prior strike", -0.45);
+        if (cl.length >= 4) addCourtFactor("📜 a LONG charge sheet", -0.4);
+        if (lawyerTier) addCourtFactor("🤵 " + lawyerTier.name, 0.3 + (lawyerTier.mitig || 0) * 0.7);
         jail = null; state = "courtroom"; playTone(523, 0.12, "triangle", 0.16);
+    }
+
+    // ── JURY MOOD: the legible replacement for the old hidden re-rolls ──
+    // Every influence on the trial (strikes, charge sheet, counsel, objections,
+    // courtroom chaos) registers as a VISIBLE factor that nudges one "lean"
+    // number, shown live on a meter — then the verdict applies a single bounded
+    // shift instead of five stacked invisible coin flips.
+    function courtEventFactor(ev) {
+        if (ev.nudge === "dismiss") { court.mistrial = true; addCourtFactor("💥 MISTRIAL!", 2); }
+        else if (ev.nudge === "help") addCourtFactor("💞 the court is CHARMED", 0.55);
+        else if (ev.nudge === "hurt") addCourtFactor("😤 the court is ANNOYED", -0.55);
+    }
+    function addCourtFactor(label, amt) {
+        if (!court) return;
+        court.lean = (court.lean || 0) + amt;
+        (court.factors = court.factors || []).push({ t: label, a: amt });
+        court.meterFx = 0.6;   // meter blips so the change is noticeable
+    }
+    function drawJuryMeter() {
+        if (!court || !court.factors || !court.factors.length) return;
+        if (court.meterFx > 0) court.meterFx -= 1 / 60;
+        var mx = 14, my = 52, mw = 128;
+        ctx.fillStyle = "rgba(10,8,22,0.72)"; roundRect(mx - 4, my - 12, mw + 8, 34 + Math.min(3, court.factors.length) * 13, 8); ctx.fill();
+        drawText("JURY MOOD", mx, my - 3, "bold 9px 'Segoe UI', Arial, sans-serif", "#B39DDB", "#000", 2, "left");
+        // the bar: hostile (red) ← → friendly (green), needle at the current lean
+        var grd = ctx.createLinearGradient(mx, 0, mx + mw, 0);
+        grd.addColorStop(0, "#E53935"); grd.addColorStop(0.5, "#FFB300"); grd.addColorStop(1, "#66BB6A");
+        ctx.fillStyle = grd; roundRect(mx, my + 2, mw, 7, 3.5); ctx.fill();
+        var lp = clamp(0.5 + (court.lean || 0) * 0.22, 0.04, 0.96);
+        var pulse = court.meterFx > 0 ? 1 + court.meterFx * 0.8 : 1;
+        ctx.fillStyle = "#FFF"; ctx.strokeStyle = "#1A1230"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(mx + mw * lp, my + 5.5, 5 * pulse, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // the last few factors, as tiny signed chips
+        var shown = court.factors.slice(-3);
+        for (var i = 0; i < shown.length; i++)
+            drawText(shown[i].t, mx, my + 20 + i * 13, "bold 9px 'Segoe UI', Arial, sans-serif",
+                shown[i].a >= 0 ? "#A5D6A7" : "#EF9A9A", "#000", 2, "left");
     }
 
     function rollVerdict(opt) {
@@ -1415,7 +1459,7 @@
         if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
-            court.nudges = [court.event.nudge];
+            courtEventFactor(court.event);
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);
             if (dramaTier >= 2) { court.gavel = 0.5; court.banner = 0.45; }   // bang the gavel to punctuate the bedlam
@@ -1477,6 +1521,8 @@
                 if (!court.objected && Math.random() < 0.5) {
                     court.objected = true;
                     court.objResult = Math.random() < 0.5 ? "sustain" : "overrule";
+                    if (court.objResult === "sustain") addCourtFactor("🚫 objection SUSTAINED", -0.5);
+                    else addCourtFactor("✅ objection overruled", 0.4);
                     court.objLines = [
                         { who: "PROSECUTOR", p: "prosecutor", accent: "#EF9A9A", text: randPick(OBJECTIONS) },
                         { who: "JUDGE", p: "judge", accent: "#B39DDB", text: randPick(court.objResult === "sustain" ? JUDGE_SUSTAIN : JUDGE_OVERRULE) }
@@ -1501,7 +1547,7 @@
                         var prevId = court.event.id, e2 = pickCourtEvent(), guard = 0;
                         while (e2.id === prevId && guard++ < 6) e2 = pickCourtEvent();
                         court.event = e2; court.eventLi = 0; court.evStamp = 0.6;
-                        (court.nudges = court.nudges || []).push(e2.nudge);
+                        courtEventFactor(e2);
                         if (e2.charge && court.charges.indexOf(e2.charge) < 0) court.charges.push(e2.charge);
                         court.gavel = 0.5; court.banner = 0.45;
                         playTone(440, 0.1, "triangle", 0.14);
@@ -1536,35 +1582,29 @@
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
                 }
+                // ── ONE legible deliberation pass ──
+                // The chosen defense sets the base odds; everything else already
+                // registered as a VISIBLE jury-mood factor (strikes, charge sheet,
+                // counsel, objection, chaos). A cheap lawyer can still blunder —
+                // rolled ONCE, and it lands on the meter like everything else.
+                if (court.lawyer && Math.random() < court.lawyerBlunder) {
+                    court.lawyerBlundered = true;
+                    addCourtFactor("🤦 counsel BLUNDERED", -(0.45 + (court.lawyerMitig || 0) * 0.7));
+                }
                 court.verdict = rollVerdict(opt);
-                // A sustained objection hurts her; an overruled one helps.
-                if (court.objResult === "sustain" && court.verdict === "dismissed" && Math.random() < 0.6) court.verdict = "fine";
-                if (court.objResult === "overrule" && court.verdict !== "dismissed" && Math.random() < 0.35) court.verdict = "dismissed";
-                // STRIKES: repeat offenders get no mercy. 3rd strike = real jail.
-                if (strikes >= 2) court.verdict = "jail";
-                else if (strikes >= 1 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                if (court.charges.length >= 4 && court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                // A retained lawyer fights it down — by how much depends on the tier.
-                // Cheap counsel can BLUNDER and not help (you get what you pay for).
-                if (court.lawyer) {
-                    if (Math.random() < court.lawyerBlunder) {
-                        if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine";
-                    } else {
-                        if (court.verdict === "jail" && Math.random() < court.lawyerMitig) court.verdict = "fine";
-                        if (court.verdict === "fine" && Math.random() < court.lawyerMitig * 0.7) court.verdict = "dismissed";
-                    }
+                if (court.mistrial) court.verdict = "dismissed";        // chaos springs her outright
+                else if (court.threeStrikes) court.verdict = "jail";    // hard rule, shown on the meter
+                else {
+                    // Single bounded shift: the net mood (plus ONE die of jitter)
+                    // moves the base verdict at most two steps. No stacked re-rolls.
+                    var vmapUp = { jail: 0, fine: 1, dismissed: 2 };
+                    var v = vmapUp[court.verdict];
+                    var eff = (court.lean || 0) + rand(-0.35, 0.35);
+                    if (eff <= -1.1) v -= 2; else if (eff <= -0.45) v -= 1;
+                    else if (eff >= 1.1) v += 2; else if (eff >= 0.45) v += 1;
+                    v = clamp(v, 0, 2);
+                    court.verdict = v === 2 ? "dismissed" : v === 1 ? "fine" : "jail";
                 }
-                // Each courtroom EVENT that fired can swing the verdict (mistrial springs
-                // her outright). Multiple events on a chaotic trial each get a say.
-                var ndlist = court.nudges || (court.event ? [court.event.nudge] : []);
-                for (var ni = 0; ni < ndlist.length; ni++) {
-                    var nd = ndlist[ni];
-                    if (nd === "dismiss") court.verdict = "dismissed";
-                    else if (nd === "help") { if (court.verdict === "jail" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.45) court.verdict = "dismissed"; }
-                    else if (nd === "hurt") { if (court.verdict === "dismissed" && Math.random() < 0.5) court.verdict = "fine"; else if (court.verdict === "fine" && Math.random() < 0.3) court.verdict = "jail"; }
-                }
-                // A mistrial ALWAYS springs her — chaos can't walk back a "case dismissed."
-                if (ndlist.indexOf("dismiss") >= 0) court.verdict = "dismissed";
                 // ── BRIBERY: she actually PAYS, and it's a real gamble ──
                 if (opt.bribe) {
                     court.bribePaid = chargeCoins(opt.cost || 50);     // the flat bribe (shown on the button)
@@ -1872,6 +1912,8 @@
                 dkX + dkW / 2, dkY + 33 + court.charges.length * 13, "bold 8px 'Segoe UI', Arial, sans-serif", pri >= 2 ? "#FF5252" : "#FFB300", "#000", 2);
         // her coin bank, under the docket — so the fine visibly comes out of it
         drawCoinHud(W - 116, dkY + dkH + 8);
+        // the live jury-mood meter + its factor chips (left side, under the bank)
+        drawJuryMeter();
 
         // ── phase overlays ──
         if (court.phase === 0) {
