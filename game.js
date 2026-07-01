@@ -4914,6 +4914,16 @@
             ctx.restore();
             return;
         }
+        // A hotwired/hailed civilian ride parks as ITSELF (taxi/pickup/EV/etc.).
+        if (carObj.vehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) {
+            ctx.save();
+            ctx.translate(carObj.x, carObj.y);
+            ctx.rotate(carObj.rot + Math.PI / 2);
+            ctx.scale(0.9, 0.9);
+            drawEnemyCar(0, 0, borrowedCar.color || "#E53935", borrowedCar.carType || 0);
+            ctx.restore();
+            return;
+        }
         var skin = SKINS[save.selectedSkin] || SKINS.pink;
         ctx.save();
         ctx.translate(carObj.x, carObj.y);
@@ -7141,6 +7151,7 @@
     function dropToFoot(side) {
         parkExit = null; slowDriveT = 0; exitBtnShown = false;
         playerVehicle = null; carMalfunction = null;   // ditched the lemon
+        if (typeof borrowedCar !== "undefined") borrowedCar = null;
         if (typeof startFootWorld === "function") startFootWorld("droveOff");
         if (player) {
             var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
@@ -14212,7 +14223,7 @@
     var FOOT_COP_PICKUP = ["🚓 Off the road, ma'am!", "🚓 You're coming with me.",
         "🚓 Pedestrian in traffic — IN you go.", "🚓 Let's chat at the station.",
         "🚓 Jaywalkin'? Cute. Get in.", "🚓 Bored. You'll do. Hop in."];
-    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓" };
+    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓", dozer: "He just... HANDED her the steamroller?! 🚜" };
     var FOOT_BUSK_LINES = ["💃 Spare a dime?", "Singin' for my SUPPER!", "Tips for a stranded girl?",
         "I take Venmo!", "ONE-woman band! 🎵", "🎵 Bubbe's on my MIIIND 🎵", "Watch me WERK!"];
     var FOOT_SELFIE_LINES = ["Say cheese, big guy! 🤳", "This is going VIRAL.", "Bubbe won't BELIEVE this!",
@@ -14554,7 +14565,9 @@
                 consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
             else if (e.type === "car") {
                 var lbl = e.behavior === "bus" ? "🚌 HAIL BUS" : e.behavior === "ambulance" ? "🚑 HAIL AMBULANCE"
-                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR" : "🚕 HAIL RIDE";
+                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR"
+                        : e.behavior === "dozer" ? "🚜 HAIL STEAMROLLER"
+                        : e.carType === 7 ? "🚕 HAIL TAXI" : e.carType === 8 ? "🚌 HAIL CITY BUS" : "🚕 HAIL RIDE";
                 consider({ kind: "hail", ent: e, label: lbl }, e.x - player.x, e.y - player.y, 60, 80);
             }
         }
@@ -14705,6 +14718,7 @@
                 if (b === "bus") playerVehicle = "bus";
                 else if (b === "ambulance") playerVehicle = "ambulance";
                 else if (b === "patrol" || b === "pulled") playerVehicle = "cop";
+                else if (b === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
                 else {
                     playerVehicle = "borrowed";
                     if (typeof borrowedCar !== "undefined") borrowedCar = { carType: prompt.ent.carType || 0, color: prompt.ent.color || "#E53935" };
@@ -16733,7 +16747,7 @@
         } else if (spot.reward) {
             // Tiny star for repeat visits — generous but not exploitable-feeling.
             footAwardStar();
-            spawnFloater(spot.x, spot.y - 30, "+1 💰 one more nosh", "#FFD700");
+            spawnFloater(spot.x, spot.y - 30, "+1 ⭐ one more nosh", "#FFD700");
             playHopJump();
         }
     }
@@ -22283,6 +22297,10 @@
     function buildAvigailScript() {
         var opener = randPick(AVIGAIL_OPENERS);
         var snack = randPick(AVIGAIL_SNACKS);
+        // The comments promised these tags "at assembly" but nothing ever set
+        // them — so the rugelach-promise flag could never fire. Tag for real.
+        opener.isOpener = true;
+        avigailRugelachIdx = opener.rugelachIdx;
 
         // 2-3 self-contained middle quips → a tight, coherent 4-5 step chat
         // (each middle stands on its own so any order reads fine).
@@ -22348,6 +22366,10 @@
                     avigailReply = ch.reply;
                     avigailExpr = ch.expr;
                     avigailReplyTimer = 1.9;
+                    // The door promise pays off later: picking the rugelach opener
+                    // is remembered (the flag existed but was never set — the token
+                    // in her speech bubble could never appear).
+                    if (dec.isOpener && i === avigailRugelachIdx) avigailHasRugelach = true;
                     playClick();
                     return;
                 }
@@ -23200,7 +23222,7 @@
         // Score, with the entry fee shown so the player knows what to beat.
         var profit = cookie.score - cookie.fee;
         var scoreCol = profit >= 0 ? "#7CFC4F" : "#FFD700";
-        drawText("$" + cookie.score + "  (fee $" + cookie.fee + ")", 14, 18,
+        drawText("💰" + cookie.score + "  (fee 💰" + cookie.fee + ")", 14, 18,
             "bold 14px 'Segoe UI', Arial, sans-serif", scoreCol, "#000", 2, "left");
         // lives as hearts
         var hh = "";
@@ -23239,9 +23261,9 @@
             drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 52,
                 "bold 18px Arial", "#FFFFFF", "#000", 3);
             // Show the math: earned vs the fee paid, then the net result.
-            drawText("Earned $" + cookie.score + "   ·   Fee $" + cookie.fee, W / 2, H / 2 - 16,
+            drawText("Earned 💰" + cookie.score + "   ·   Fee 💰" + cookie.fee, W / 2, H / 2 - 16,
                 "bold 14px Arial", "#FFE0B2", "#000", 2);
-            drawText((net >= 0 ? "Profit +$" : "Lost $") + Math.abs(net), W / 2, H / 2 + 26,
+            drawText((net >= 0 ? "Profit +💰" : "Lost 💰") + Math.abs(net), W / 2, H / 2 + 26,
                 "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
             if (cookie.endT > 1.0) {
                 drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);
@@ -23732,8 +23754,14 @@
     // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
-        // Busted → the steamroller is impounded; she won't roll out of jail in it.
-        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
+        // Busted → whatever she was driving that isn't hers gets impounded: the
+        // steamroller AND any hotwired/hailed ride (she shouldn't stroll out of
+        // booking and be handed the stolen taxi back). The lemon curse goes with it.
+        if (typeof playerVehicle !== "undefined" && (playerVehicle === "dozer" || playerVehicle === "borrowed")) {
+            playerVehicle = null; dozerTimer = 0;
+            if (typeof borrowedCar !== "undefined") borrowedCar = null;
+            if (typeof carMalfunction !== "undefined") carMalfunction = null;
+        }
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
         var px = (player ? player.x : W / 2);
@@ -24890,7 +24918,7 @@
                     court.fine = opt.cost || Math.max(8, Math.round(bountyFor(court.charges) * 0.3));
                     // A plea bargain is the lenient way out — it should NOT add a strike
                     // (that double-punished the cheap option and snowballed toward jail).
-                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Reduced to a 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
@@ -25323,6 +25351,13 @@
     function addWanted(charges) {
         if (!save.wanted) save.wanted = [];
         for (var i = 0; i < charges.length; i++) if (save.wanted.indexOf(charges[i]) < 0) save.wanted.push(charges[i]);
+        // The file holds only the 8 WORST offenses (RDR2-style cap): endless
+        // bail/escape cycles used to grow it without bound, ballooning the charge
+        // sheet UI. The pettiest charges fall off first — the DA has priorities.
+        if (save.wanted.length > 8) {
+            save.wanted.sort(function (a, b) { return chargeWeight(b) - chargeWeight(a); });
+            save.wanted = save.wanted.slice(0, 8);
+        }
         persistSave();
     }
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }
@@ -26226,7 +26261,13 @@
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
-        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
+        // The wreck gets towed while she's in the ER — the steamroller and any
+        // hotwired/hailed ride (and its lemon curse) don't follow her out.
+        if (typeof playerVehicle !== "undefined" && (playerVehicle === "dozer" || playerVehicle === "borrowed")) {
+            playerVehicle = null; dozerTimer = 0;
+            if (typeof borrowedCar !== "undefined") borrowedCar = null;
+            if (typeof carMalfunction !== "undefined") carMalfunction = null;
+        }
         save.erVisits = (save.erVisits || 0) + 1; persistSave();
         var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
         // Tammy's working today (she always is). Her mood sets the bill multiplier.

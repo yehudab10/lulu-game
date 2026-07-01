@@ -355,6 +355,7 @@
     function dropToFoot(side) {
         parkExit = null; slowDriveT = 0; exitBtnShown = false;
         playerVehicle = null; carMalfunction = null;   // ditched the lemon
+        if (typeof borrowedCar !== "undefined") borrowedCar = null;
         if (typeof startFootWorld === "function") startFootWorld("droveOff");
         if (player) {
             var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;

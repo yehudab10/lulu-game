@@ -244,7 +244,7 @@
         } else if (spot.reward) {
             // Tiny star for repeat visits — generous but not exploitable-feeling.
             footAwardStar();
-            spawnFloater(spot.x, spot.y - 30, "+1 💰 one more nosh", "#FFD700");
+            spawnFloater(spot.x, spot.y - 30, "+1 ⭐ one more nosh", "#FFD700");
             playHopJump();
         }
     }

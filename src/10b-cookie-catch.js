@@ -277,7 +277,7 @@
         // Score, with the entry fee shown so the player knows what to beat.
         var profit = cookie.score - cookie.fee;
         var scoreCol = profit >= 0 ? "#7CFC4F" : "#FFD700";
-        drawText("$" + cookie.score + "  (fee $" + cookie.fee + ")", 14, 18,
+        drawText("💰" + cookie.score + "  (fee 💰" + cookie.fee + ")", 14, 18,
             "bold 14px 'Segoe UI', Arial, sans-serif", scoreCol, "#000", 2, "left");
         // lives as hearts
         var hh = "";
@@ -316,9 +316,9 @@
             drawText("Caught " + cookie.caught + " treats", W / 2, H / 2 - 52,
                 "bold 18px Arial", "#FFFFFF", "#000", 3);
             // Show the math: earned vs the fee paid, then the net result.
-            drawText("Earned $" + cookie.score + "   ·   Fee $" + cookie.fee, W / 2, H / 2 - 16,
+            drawText("Earned 💰" + cookie.score + "   ·   Fee 💰" + cookie.fee, W / 2, H / 2 - 16,
                 "bold 14px Arial", "#FFE0B2", "#000", 2);
-            drawText((net >= 0 ? "Profit +$" : "Lost $") + Math.abs(net), W / 2, H / 2 + 26,
+            drawText((net >= 0 ? "Profit +💰" : "Lost 💰") + Math.abs(net), W / 2, H / 2 + 26,
                 "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
             if (cookie.endT > 1.0) {
                 drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);

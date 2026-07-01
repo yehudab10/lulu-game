@@ -581,6 +581,10 @@
     function buildAvigailScript() {
         var opener = randPick(AVIGAIL_OPENERS);
         var snack = randPick(AVIGAIL_SNACKS);
+        // The comments promised these tags "at assembly" but nothing ever set
+        // them — so the rugelach-promise flag could never fire. Tag for real.
+        opener.isOpener = true;
+        avigailRugelachIdx = opener.rugelachIdx;
 
         // 2-3 self-contained middle quips → a tight, coherent 4-5 step chat
         // (each middle stands on its own so any order reads fine).
@@ -646,6 +650,10 @@
                     avigailReply = ch.reply;
                     avigailExpr = ch.expr;
                     avigailReplyTimer = 1.9;
+                    // The door promise pays off later: picking the rugelach opener
+                    // is remembered (the flag existed but was never set — the token
+                    // in her speech bubble could never appear).
+                    if (dec.isOpener && i === avigailRugelachIdx) avigailHasRugelach = true;
                     playClick();
                     return;
                 }

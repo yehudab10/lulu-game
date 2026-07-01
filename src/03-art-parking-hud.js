@@ -325,6 +325,16 @@
             ctx.restore();
             return;
         }
+        // A hotwired/hailed civilian ride parks as ITSELF (taxi/pickup/EV/etc.).
+        if (carObj.vehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) {
+            ctx.save();
+            ctx.translate(carObj.x, carObj.y);
+            ctx.rotate(carObj.rot + Math.PI / 2);
+            ctx.scale(0.9, 0.9);
+            drawEnemyCar(0, 0, borrowedCar.color || "#E53935", borrowedCar.carType || 0);
+            ctx.restore();
+            return;
+        }
         var skin = SKINS[save.selectedSkin] || SKINS.pink;
         ctx.save();
         ctx.translate(carObj.x, carObj.y);

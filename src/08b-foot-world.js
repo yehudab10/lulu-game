@@ -75,7 +75,7 @@
     var FOOT_COP_PICKUP = ["🚓 Off the road, ma'am!", "🚓 You're coming with me.",
         "🚓 Pedestrian in traffic — IN you go.", "🚓 Let's chat at the station.",
         "🚓 Jaywalkin'? Cute. Get in.", "🚓 Bored. You'll do. Hop in."];
-    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓" };
+    var FOOT_HAIL_VEHICLE = { bus: "On a BUS now?! 🚌", ambulance: "WEE-OOO! 🚑", cop: "Driving a COP car?! 🚓", dozer: "He just... HANDED her the steamroller?! 🚜" };
     var FOOT_BUSK_LINES = ["💃 Spare a dime?", "Singin' for my SUPPER!", "Tips for a stranded girl?",
         "I take Venmo!", "ONE-woman band! 🎵", "🎵 Bubbe's on my MIIIND 🎵", "Watch me WERK!"];
     var FOOT_SELFIE_LINES = ["Say cheese, big guy! 🤳", "This is going VIRAL.", "Bubbe won't BELIEVE this!",
@@ -417,7 +417,9 @@
                 consider({ kind: "pet", ent: e, label: "🐾 PET" }, e.x - player.x, e.y - player.y, 44, 46);
             else if (e.type === "car") {
                 var lbl = e.behavior === "bus" ? "🚌 HAIL BUS" : e.behavior === "ambulance" ? "🚑 HAIL AMBULANCE"
-                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR" : "🚕 HAIL RIDE";
+                        : (e.behavior === "patrol" || e.behavior === "pulled") ? "🚓 HAIL COP CAR"
+                        : e.behavior === "dozer" ? "🚜 HAIL STEAMROLLER"
+                        : e.carType === 7 ? "🚕 HAIL TAXI" : e.carType === 8 ? "🚌 HAIL CITY BUS" : "🚕 HAIL RIDE";
                 consider({ kind: "hail", ent: e, label: lbl }, e.x - player.x, e.y - player.y, 60, 80);
             }
         }
@@ -568,6 +570,7 @@
                 if (b === "bus") playerVehicle = "bus";
                 else if (b === "ambulance") playerVehicle = "ambulance";
                 else if (b === "patrol" || b === "pulled") playerVehicle = "cop";
+                else if (b === "dozer") { playerVehicle = "dozer"; if (typeof dozerTimer !== "undefined") dozerTimer = 13; }
                 else {
                     playerVehicle = "borrowed";
                     if (typeof borrowedCar !== "undefined") borrowedCar = { carType: prompt.ent.carType || 0, color: prompt.ent.color || "#E53935" };

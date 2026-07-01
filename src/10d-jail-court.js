@@ -367,8 +367,14 @@
     // STRAIGHT to the drive to the station — no second cop scene, just the haul-in.
     function beginArrest(charges, opts) {
         opts = opts || {};
-        // Busted → the steamroller is impounded; she won't roll out of jail in it.
-        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
+        // Busted → whatever she was driving that isn't hers gets impounded: the
+        // steamroller AND any hotwired/hailed ride (she shouldn't stroll out of
+        // booking and be handed the stolen taxi back). The lemon curse goes with it.
+        if (typeof playerVehicle !== "undefined" && (playerVehicle === "dozer" || playerVehicle === "borrowed")) {
+            playerVehicle = null; dozerTimer = 0;
+            if (typeof borrowedCar !== "undefined") borrowedCar = null;
+            if (typeof carMalfunction !== "undefined") carMalfunction = null;
+        }
         var onFoot = (state === "footRun" || state === "footInterior");
         var py = (player && player.y) || PLAYER_Y;
         var px = (player ? player.x : W / 2);
@@ -1525,7 +1531,7 @@
                     court.fine = opt.cost || Math.max(8, Math.round(bountyFor(court.charges) * 0.3));
                     // A plea bargain is the lenient way out — it should NOT add a strike
                     // (that double-punished the cheap option and snowballed toward jail).
-                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Lesser charge, 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
+                    court.verdictLine = { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "Deal accepted. Reduced to a 💰" + court.fine + " fine. Don't make me regret it. 🤝" };
                     court.phase = 5; court.t = 0; court.typeT = 0; court.gavel = 0.4; court.banner = 0.55;
                     playTone(150, 0.16, "square", 0.18); playTone(523, 0.2, "triangle", 0.16);
                     return;
@@ -1958,6 +1964,13 @@
     function addWanted(charges) {
         if (!save.wanted) save.wanted = [];
         for (var i = 0; i < charges.length; i++) if (save.wanted.indexOf(charges[i]) < 0) save.wanted.push(charges[i]);
+        // The file holds only the 8 WORST offenses (RDR2-style cap): endless
+        // bail/escape cycles used to grow it without bound, ballooning the charge
+        // sheet UI. The pettiest charges fall off first — the DA has priorities.
+        if (save.wanted.length > 8) {
+            save.wanted.sort(function (a, b) { return chargeWeight(b) - chargeWeight(a); });
+            save.wanted = save.wanted.slice(0, 8);
+        }
         persistSave();
     }
     function clearWanted() { if (save.wanted && save.wanted.length) { save.wanted = []; persistSave(); } }

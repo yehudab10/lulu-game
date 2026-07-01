@@ -209,7 +209,13 @@
 
     // Wake her up in the ER. Returns true (so callers can use it as a reprieve).
     function beginHospital(reason) {
-        if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer") { playerVehicle = null; dozerTimer = 0; }
+        // The wreck gets towed while she's in the ER — the steamroller and any
+        // hotwired/hailed ride (and its lemon curse) don't follow her out.
+        if (typeof playerVehicle !== "undefined" && (playerVehicle === "dozer" || playerVehicle === "borrowed")) {
+            playerVehicle = null; dozerTimer = 0;
+            if (typeof borrowedCar !== "undefined") borrowedCar = null;
+            if (typeof carMalfunction !== "undefined") carMalfunction = null;
+        }
         save.erVisits = (save.erVisits || 0) + 1; persistSave();
         var greet = save.erVisits >= 3 && Math.random() < 0.7 ? randPick(DOC_REPEAT) : randPick(DOC_GREET);
         // Tammy's working today (she always is). Her mood sets the bill multiplier.
