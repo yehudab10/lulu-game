@@ -84,6 +84,17 @@
         }
     }
 
+    // ── Avigail rivalry↔friendship meter (persists) ──────────────────────────
+    // 0 = sworn nemesis · 50 = frenemies (default) · 100 = actual best friends.
+    // Fed by real moments: the porch visit, her wedding, sharing the road.
+    // High friendship flips her courtroom appearances from hostile to helpful.
+    function avigailRel() { return (typeof save.avigailRel === "number") ? save.avigailRel : 50; }
+    function bumpAvigailRel(d) {
+        save.avigailRel = Math.max(0, Math.min(100, avigailRel() + d));
+        persistSave();
+        if (typeof player !== "undefined" && player && typeof spawnFloater === "function")
+            spawnFloater(player.x, player.y - 46, (d > 0 ? "+" : "") + d + " 💜 Avigail", d > 0 ? "#CE93D8" : "#FF8A80");
+    }
     function persistSave() {
         // safety net: currencies should never persist negative
         if (save.totalCoins < 0) save.totalCoins = 0;
@@ -2046,6 +2057,257 @@
         drawFitText(b.label || "PARKING", x + w / 2, ly0 + 7, w - 14, 9, "#90CAF9");
     }
 
+    // A warm little BAKERY: cream stucco with chocolate-brown trim, a brown/cream
+    // scalloped awning, a glowing display window stacked with braided challahs,
+    // round loaves and a frosted layer cake, a "🥐 BAKERY" sign board, and faint
+    // steam wisps curling out of a rooftop vent pipe. Reads instantly as a bakery.
+    function drawBakeryStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 3;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // cream stucco facade (lighter at top)
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#FBEED3"); fg.addColorStop(1, "#E9CF9C");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(93,58,32,0.5)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // soft pilasters + chocolate trim band under the roofline
+        ctx.fillStyle = "rgba(255,255,255,0.28)"; ctx.fillRect(x, y, 4, h); ctx.fillRect(x + w - 4, y, 4, h);
+        ctx.fillStyle = "#8D5A33"; ctx.fillRect(x, y + 2, w, 3);
+
+        // ── rooftop vent pipe + faint steam wisps (subtle, gameTime-animated) ──
+        var vx = x + w - 9;
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(vx - 2, y - 20, 4, 20);
+        ctx.fillStyle = "#6D4C41"; ctx.fillRect(vx - 3.5, y - 22, 7, 2.5);
+        for (var st = 0; st < 3; st++) {
+            var ph = (t * 0.5 + st * 0.33 + (sd % 5) * 0.13) % 1;        // 0..1 rise cycle
+            var sy2 = y - 24 - ph * 15;
+            var sx2 = vx + Math.sin(ph * 5 + st * 2.1) * 3;
+            ctx.fillStyle = "rgba(255,255,255," + (0.28 * (1 - ph)).toFixed(3) + ")";
+            ctx.beginPath(); ctx.arc(sx2, sy2, 2.2 + ph * 2.6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── big display window full of baked goods ──
+        var gx = x + 6, gy = y + h * 0.34, gw = w - 12, gh = h - (gy - y) - 21, gbot = gy + gh;
+        ctx.fillStyle = "#4E342E"; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var warm = ctx.createLinearGradient(0, gy, 0, gbot);
+        warm.addColorStop(0, "rgba(255,196,110,0.38)"); warm.addColorStop(1, "rgba(255,170,70,0.12)");
+        ctx.fillStyle = warm; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        // upper shelf: frosted layer cake (left) + braided challah (right)
+        var shY = gy + gh * 0.50;
+        ctx.fillStyle = "rgba(255,235,200,0.5)"; ctx.fillRect(gx + 2, shY, gw - 4, 2);
+        var ckx = gx + gw * 0.26;
+        ctx.fillStyle = "#F48FB1"; ctx.fillRect(ckx - 7, shY - 7, 14, 7);          // bottom tier
+        ctx.fillStyle = "#FFF3E0"; ctx.fillRect(ckx - 5, shY - 12, 10, 5);         // top tier
+        ctx.beginPath(); ctx.arc(ckx - 4, shY - 7, 1.5, 0, Math.PI);               // frosting drips
+        ctx.arc(ckx, shY - 7, 1.5, 0, Math.PI); ctx.arc(ckx + 4, shY - 7, 1.5, 0, Math.PI); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(ckx, shY - 13.5, 1.7, 0, Math.PI * 2); ctx.fill(); // cherry
+        var chX = gx + gw * 0.70, chW = Math.min(22, gw * 0.4);
+        ctx.fillStyle = "#B5722A"; roundRect(chX - chW / 2, shY - 6, chW, 6, 3); ctx.fill();  // challah base
+        ctx.fillStyle = "#D99A45";                                                   // braid humps
+        for (var bp = 0; bp < 4; bp++) { ctx.beginPath(); ctx.arc(chX - chW / 2 + 4 + bp * (chW - 8) / 3, shY - 6, 2.6, Math.PI, 0); ctx.fill(); }
+        ctx.fillStyle = "#FFF3E0";                                                   // sesame
+        ctx.fillRect(chX - 4, shY - 8, 1, 1); ctx.fillRect(chX + 2, shY - 7.5, 1, 1); ctx.fillRect(chX - 1, shY - 9, 1, 1);
+        // lower counter: round sourdough loaves
+        ctx.fillStyle = "rgba(255,235,200,0.45)"; ctx.fillRect(gx + 3, gbot - 6, gw - 6, 3);
+        var lfx = gx + gw * 0.28;
+        ctx.fillStyle = "#C07E33";
+        ctx.beginPath(); ctx.arc(lfx, gbot - 10, 4.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gw * 0.52, gbot - 9.5, 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gw * 0.74, gbot - 10, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8A5620"; ctx.lineWidth = 1;                              // score lines
+        ctx.beginPath(); ctx.moveTo(lfx - 3, gbot - 11.5); ctx.lineTo(lfx + 3, gbot - 8.5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gx + gw * 0.74 - 2.6, gbot - 8.6); ctx.lineTo(gx + gw * 0.74 + 2.6, gbot - 11.4); ctx.stroke();
+        ctx.strokeStyle = "#8D5A33"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 3); ctx.stroke(); // frame
+
+        // ── wooden door with glass panel (on the road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 5 : x + 5, dyTop = y + h - 18;
+        ctx.fillStyle = "#5D4037"; roundRect(dx, dyTop, dw, 18, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,220,150,0.4)"; ctx.fillRect(dx + 2, dyTop + 2, dw - 4, 7);
+        ctx.fillStyle = "#E6B84F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── brown/cream scalloped awning above the window ──
+        var awY = gy - 13, awH = 11, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FFF3DC" : "#8D5A33";
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 5); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x, awY, w, 2);
+
+        // ── warm BAKERY sign board above the roof ──
+        var sy0 = y - 17;
+        ctx.fillStyle = "#4E2A14"; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.fill();
+        ctx.strokeStyle = "#E6B84F"; ctx.lineWidth = 1; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.stroke();
+        ctx.shadowColor = "#FFB300"; ctx.shadowBlur = 6;
+        drawFitText("🥐 " + (b.label || "BAKERY"), x + w / 2, sy0 + 8, w - 14, 10, "#FFE0A3");
+        ctx.shadowBlur = 0;
+    }
+
+    // A classic corner PIZZERIA: white/cream facade with tricolore green cornice
+    // and red base course, a red/white scalloped awning, a glowing red "🍕 PIZZA"
+    // sign, a round pepperoni-pizza emblem on a post, and a warm oven-lit window
+    // with the pizzaiolo's silhouette (chef hat!) behind the counter.
+    function drawPizzaStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 5;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // cream facade
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#FDF6EA"); fg.addColorStop(1, "#EFDFC4");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(80,40,20,0.4)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(x, y, 4, h); ctx.fillRect(x + w - 4, y, 4, h);
+        // Italian tricolore trim: green cornice band + red base course
+        ctx.fillStyle = "#2E7D32"; ctx.fillRect(x, y + 2, w, 4);
+        ctx.fillStyle = "#C62828"; ctx.fillRect(x, y + h - 3, w, 3);
+
+        // ── warm window with counter + pizzaiolo silhouette ──
+        var gx = x + 6, gy = y + h * 0.42, gw = w - 12, gh = h - (gy - y) - 21, gbot = gy + gh;
+        ctx.fillStyle = "#301B10"; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var oa = 0.30 + 0.05 * Math.sin(t * 2.2);                       // gentle oven-glow breathing
+        var og = ctx.createRadialGradient(gx + gw * 0.5, gbot - 4, 2, gx + gw * 0.5, gbot - 4, gw * 0.62);
+        og.addColorStop(0, "rgba(255,167,70," + oa.toFixed(3) + ")"); og.addColorStop(1, "rgba(255,120,40,0)");
+        ctx.fillStyle = og; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var pzx = gx + gw * 0.36;                                        // pizzaiolo (dark against glow)
+        ctx.fillStyle = "rgba(20,10,6,0.8)";
+        ctx.beginPath(); ctx.arc(pzx, gy + gh * 0.40, gh * 0.12, 0, Math.PI * 2); ctx.fill();      // head
+        roundRect(pzx - gh * 0.16, gy + gh * 0.50, gh * 0.32, gh * 0.30, 3); ctx.fill();           // torso
+        ctx.fillStyle = "rgba(255,248,235,0.85)";                                                   // chef hat
+        roundRect(pzx - gh * 0.09, gy + gh * 0.40 - gh * 0.27, gh * 0.18, gh * 0.15, 2); ctx.fill();
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(gx + 2, gbot - gh * 0.26, gw - 4, 4);              // counter top
+        var cpx = gx + gw * 0.74, cpy = gbot - gh * 0.26 - 3;                                       // pizza on the counter
+        ctx.fillStyle = "#E0A040"; ctx.beginPath(); ctx.arc(cpx, cpy, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFCB4D"; ctx.beginPath(); ctx.arc(cpx, cpy, 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#C62828";
+        ctx.beginPath(); ctx.arc(cpx - 1.5, cpy - 1, 1, 0, Math.PI * 2); ctx.arc(cpx + 1.6, cpy + 0.3, 1, 0, Math.PI * 2); ctx.arc(cpx - 0.4, cpy + 1.8, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#1B5E20"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 3); ctx.stroke(); // green frame
+
+        // ── green door (road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 5 : x + 5, dyTop = y + h - 18;
+        ctx.fillStyle = "#1B5E20"; roundRect(dx, dyTop, dw, 18, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,214,130,0.4)"; ctx.fillRect(dx + 2, dyTop + 2, dw - 4, 7);
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── red/white scalloped awning above the window ──
+        var awY = gy - 13, awH = 11, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FFFFFF" : "#D32F2F";
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 5); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x, awY, w, 2);
+
+        // ── glowing neon PIZZA sign above the roof ──
+        var sy0 = y - 16;
+        ctx.fillStyle = "#23120C"; roundRect(x + 4, sy0, w - 8, 14, 4); ctx.fill();
+        ctx.strokeStyle = "#2E7D32"; ctx.lineWidth = 1; roundRect(x + 4, sy0, w - 8, 14, 4); ctx.stroke();
+        ctx.shadowColor = "#FF3D00"; ctx.shadowBlur = 6 + Math.sin(t * 3) * 1.5;
+        drawFitText("🍕 " + (b.label || "PIZZA"), x + w / 2, sy0 + 7, w - 14, 10, "#FFAB91");
+        ctx.shadowBlur = 0;
+
+        // ── round pepperoni-pizza emblem on a post (road side, pokes above roof) ──
+        var px2 = (b.side < 0) ? x + 13 : x + w - 13, ecy = y - 27;
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(px2 - 1.5, y - 18, 3, 18);          // post
+        ctx.fillStyle = "#D9903C"; ctx.beginPath(); ctx.arc(px2, ecy, 10, 0, Math.PI * 2); ctx.fill();   // crust
+        ctx.fillStyle = "#FFC94D"; ctx.beginPath(); ctx.arc(px2, ecy, 7.6, 0, Math.PI * 2); ctx.fill();  // cheese
+        ctx.strokeStyle = "rgba(160,90,20,0.45)"; ctx.lineWidth = 1;                 // slice cuts
+        for (var cl = 0; cl < 3; cl++) {
+            var ca = cl * Math.PI / 3 + 0.4;
+            ctx.beginPath(); ctx.moveTo(px2 - Math.cos(ca) * 7.4, ecy - Math.sin(ca) * 7.4);
+            ctx.lineTo(px2 + Math.cos(ca) * 7.4, ecy + Math.sin(ca) * 7.4); ctx.stroke();
+        }
+        ctx.fillStyle = "#C62828";                                                   // pepperoni (deterministic)
+        for (var pp = 0; pp < 5; pp++) {
+            var pa = pp * 2.4 + sd, pr = 2.2 + ((pp * 37 + sd) % 3) * 1.5;
+            ctx.beginPath(); ctx.arc(px2 + Math.cos(pa) * pr, ecy + Math.sin(pa) * pr, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px2, ecy, 10, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // A cozy BOOKSHOP: deep bottle-green painted timber facade with a wood
+    // cornice and gold pinstripe, a warm window stacked with colourful book
+    // spines, a gently swinging "📚 BOOKS" sign hanging on chains from the
+    // cornice, and a little wooden bargain-book cart parked out front.
+    function drawBookStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 9;
+        var SPINES = ["#C62828", "#F9A825", "#1565C0", "#6A1B9A", "#2E7D32", "#EF6C00", "#AD1457", "#00838F"];
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // bottle-green painted facade
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#3E6B50"); fg.addColorStop(1, "#26503A");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // wood pilasters + carved cornice with gold pinstripe
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(x, y, 5, h); ctx.fillRect(x + w - 5, y, 5, h);
+        ctx.fillStyle = "#6D4C41"; ctx.fillRect(x - 2, y - 5, w + 4, 9);
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(x - 2, y - 5, w + 4, 2.5);
+        ctx.fillStyle = "#E6B84F"; ctx.fillRect(x, y + 5, w, 1.5);
+
+        // ── warm shop window stacked with book spines ──
+        var gx = x + 7, gy = y + 27, gw = w - 14, gh = h - 27 - 20, gbot = gy + gh;
+        ctx.fillStyle = "#2B1D12"; roundRect(gx, gy, gw, gh, 2); ctx.fill();
+        var warm = ctx.createLinearGradient(0, gy, 0, gbot);
+        warm.addColorStop(0, "rgba(255,205,130,0.30)"); warm.addColorStop(1, "rgba(255,180,100,0.06)");
+        ctx.fillStyle = warm; roundRect(gx, gy, gw, gh, 2); ctx.fill();
+        // shelves of colourful spines (deterministic widths/heights via seed);
+        // short windows get one shelf, tall ones two
+        var nrows = gh > 30 ? 2 : 1;
+        for (var row = 0; row < nrows; row++) {
+            var shelfY = gbot - 3 - row * (gh * 0.46);
+            ctx.fillStyle = "#5D4037"; ctx.fillRect(gx + 1, shelfY, gw - 2, 2.5);
+            var bx2 = gx + 3, k = 0;
+            while (bx2 < gx + gw - 5) {
+                var key2 = k * 29 + row * 13 + sd * 3;
+                var bw2 = 2.5 + (key2 % 3), bh2 = Math.min(7 + ((key2 * 7) % 5), shelfY - gy - 2);
+                if ((key2 % 9) === 4) { bx2 += bw2 + 2.5; k++; continue; }    // the odd gap
+                ctx.fillStyle = SPINES[key2 % SPINES.length];
+                ctx.fillRect(bx2, shelfY - bh2, bw2, bh2);
+                bx2 += bw2 + 1; k++;
+            }
+        }
+        ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 2); ctx.stroke();
+
+        // ── wooden door with 4-pane glass (road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 6 : x + 6, dyTop = y + h - 19;
+        ctx.fillStyle = "#4E342E"; roundRect(dx, dyTop, dw, 19, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,214,140,0.45)";
+        ctx.fillRect(dx + 2, dyTop + 2, dw / 2 - 3, 5); ctx.fillRect(dx + dw / 2 + 1, dyTop + 2, dw / 2 - 3, 5);
+        ctx.fillRect(dx + 2, dyTop + 9, dw / 2 - 3, 5); ctx.fillRect(dx + dw / 2 + 1, dyTop + 9, dw / 2 - 3, 5);
+        ctx.fillStyle = "#E6B84F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── hanging "📚 BOOKS" sign on chains under the cornice (subtle sway) ──
+        var sw2 = Math.min(w - 14, 58), sh2 = 13;
+        ctx.save();
+        ctx.translate(x + w / 2, y + 6);
+        ctx.rotate(Math.sin(t * 1.3 + sd) * 0.045);
+        ctx.strokeStyle = "#B08D57"; ctx.lineWidth = 1;                              // chains
+        ctx.beginPath(); ctx.moveTo(-sw2 / 2 + 8, 0); ctx.lineTo(-sw2 / 2 + 6, 5); ctx.moveTo(sw2 / 2 - 8, 0); ctx.lineTo(sw2 / 2 - 6, 5); ctx.stroke();
+        ctx.fillStyle = "#4E342E"; roundRect(-sw2 / 2, 5, sw2, sh2, 3); ctx.fill();
+        ctx.strokeStyle = "#E6B84F"; roundRect(-sw2 / 2, 5, sw2, sh2, 3); ctx.stroke();
+        drawFitText("📚 " + (b.label || "BOOKS"), 0, 5 + sh2 / 2 + 0.5, sw2 - 8, 9, "#F5E6C0");
+        ctx.restore();
+
+        // ── little bargain-book cart out front (road side) ──
+        var cx3 = (b.side < 0) ? x + w + 10 : x - 10, cby = y + h;
+        ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.ellipse(cx3, cby - 1, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        for (var bk = 0; bk < 5; bk++) {                                             // books poking out
+            var kk = bk * 31 + sd * 7;
+            ctx.fillStyle = SPINES[kk % SPINES.length];
+            ctx.fillRect(cx3 - 7 + bk * 3, cby - 13 - (5 + (kk % 4)), 2.6, 8 + (kk % 4));
+        }
+        ctx.fillStyle = "#795548"; ctx.fillRect(cx3 - 9, cby - 13, 18, 8);           // cart box
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(cx3 - 9, cby - 13, 18, 2);
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.5;                            // handle toward the shop
+        ctx.beginPath(); ctx.moveTo(cx3 + (b.side < 0 ? -9 : 9), cby - 11); ctx.lineTo(cx3 + (b.side < 0 ? -14 : 14), cby - 14); ctx.stroke();
+        ctx.fillStyle = "#33251C";                                                    // wheels
+        ctx.beginPath(); ctx.arc(cx3 - 5, cby - 4, 2.6, 0, Math.PI * 2); ctx.arc(cx3 + 5, cby - 4, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#B08D57";
+        ctx.beginPath(); ctx.arc(cx3 - 5, cby - 4, 0.9, 0, Math.PI * 2); ctx.arc(cx3 + 5, cby - 4, 0.9, 0, Math.PI * 2); ctx.fill();
+    }
+
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
         if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
@@ -2053,6 +2315,9 @@
         if (b.kind === "salon") { drawSalonStore(b); return; }
         if (b.kind === "parking") { drawParkingGarage(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
+        if (b.kind === "bakery") { drawBakeryStore(b); return; }
+        if (b.kind === "pizza") { drawPizzaStore(b); return; }
+        if (b.kind === "books") { drawBookStore(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.fillRect(x + 4, y + 8, w, h);

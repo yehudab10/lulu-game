@@ -438,6 +438,9 @@
         footCoinsRun += n; runCoins += n; save.totalCoins += n;
         if (caught) footAwardStar();
         persistSave();
+        // Showing up to her WEDDING is the biggest friendship moment there is
+        // (+15; catching the bouquet makes it +20 — she threw it AT you, admit it).
+        if (typeof bumpAvigailRel === "function") bumpAvigailRel(caught ? 20 : 15);
         spawnFloater(W / 2, wedAisleBot - 80, "+" + n + (caught ? " 💰  +1⭐" : " 💰"),
             caught ? "#FFD700" : "#FFE082");
     }

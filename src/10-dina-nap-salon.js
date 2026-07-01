@@ -662,6 +662,9 @@
     }
 
     function finishAvigailScene() {
+        // A whole porch visit, survived → the rivalry thaws (+6, +4 more if she
+        // remembered the rugelach — Avigail never forgets a promised pastry).
+        if (typeof bumpAvigailRel === "function") bumpAvigailRel(6 + (avigailHasRugelach ? 4 : 0));
         avigailInCar = true;
         pointMult = 2;
         parkingMsg = "💜 AVIGAIL JOINED! 2× POINTS!";
@@ -712,6 +715,15 @@
             return;
         }
 
+        // Rivalry↔friendship chip (top-left): where things stand with Avigail.
+        if (typeof avigailRel === "function") {
+            var arv = avigailRel();
+            ctx.fillStyle = "rgba(255,255,255,0.9)"; roundRect(16, 84, 128, 32, 16); ctx.fill();
+            ctx.strokeStyle = "#7E57C2"; ctx.lineWidth = 2; roundRect(16, 84, 128, 32, 16); ctx.stroke();
+            drawText(arv >= 65 ? "💜 friends" : arv <= 35 ? "⚔️ rivals" : "😤 frenemies", 46 + 34, 94, "bold 10px 'Segoe UI', Arial, sans-serif", "#4E2A66", null, 0);
+            ctx.fillStyle = "rgba(126,87,194,0.25)"; roundRect(26, 102, 108, 7, 3.5); ctx.fill();
+            ctx.fillStyle = "#7E57C2"; roundRect(26, 102, 108 * (arv / 100), 7, 3.5); ctx.fill();
+        }
         // Rugelach-promise token — visible once Lulu has promised rugelach, so the
         // later "as promised" payoff feels earned rather than a hidden gotcha.
         if (avigailHasRugelach) {

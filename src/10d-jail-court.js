@@ -169,6 +169,12 @@
         { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] },
         { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] }
     ];
+    // Once the rivalry has truly thawed (rel ≥ 65), Avigail shows up FOR her.
+    var AVIGAIL_FRIEND_LINES = ["She's with ME,\nyour honor. 💜", "Objection! She's\nmy best friend!", "Free her — we have\na NAIL appointment. 💅"];
+    var AVIGAIL_FRIEND_EVENT = { id: "avigail", nudge: "help", lines: [
+        { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A character witness takes the stand, your honor!" },
+        { who: "AVIGAIL", p: "avigail", accent: "#CE93D8", text: "This woman drove me to MY OWN WEDDING. She's a mensch. 💜" },
+        { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...high praise from a bride. Noted FAVORABLY." } ] };
 
     // ── Random courtroom EVENTS — a small chance (~40%) something dramatic
     //    interrupts the trial. Each plays a few lines and NUDGES the verdict:
@@ -1368,9 +1374,11 @@
         }
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
+        // A befriended Avigail heckles FOR the defense.
+        var ggLines = gg ? (gg.p === "avigail" && typeof avigailRel === "function" && avigailRel() >= 65 ? AVIGAIL_FRIEND_LINES : gg.lines) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
-                  galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
-                  galleryGuestLines: gg ? gg.lines : null, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
+                  galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(ggLines) } : null,
+                  galleryGuestLines: ggLines, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
                   phase: 0, t: 0, gavel: dramaTier >= 2 ? 0.5 : 0, banner: dramaTier >= 2 ? 0.5 : 0, li: 0, typeT: 0, dramaTier: dramaTier,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
@@ -1459,6 +1467,8 @@
         if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
+            // A befriended Avigail's "surprise witness" moment flips to HELPING her.
+            if (court.event.id === "avigail" && typeof avigailRel === "function" && avigailRel() >= 65) court.event = AVIGAIL_FRIEND_EVENT;
             courtEventFactor(court.event);
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);

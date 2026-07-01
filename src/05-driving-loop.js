@@ -580,6 +580,26 @@
         }
         // Heshy cameo timer
         if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
+        // Avigail out DRIVING — her purple coupe shares the road: a taunt as you
+        // pass (+1 💜, grudging respect), or — delicious — pulled over on a rural
+        // shoulder getting a ticket of her own (+2 💜 for witnessing it).
+        if (tickSpawn("avigailCar", dt) && gameTime > 15) {
+            var aviOut = false;
+            for (var aq = 0; aq < obstacles.length; aq++) if (obstacles[aq].behavior === "avigail") aviOut = true;
+            if (!aviOut) {
+                if (zone === "rural" && Math.random() < 0.3) {
+                    var aLeft = Math.random() < 0.5;
+                    roadsideVeh.push({ x: aLeft ? rand(26, Math.max(28, ROAD_L - 28)) : rand(ROAD_R + 28, W - 26),
+                        y: -140, side: aLeft ? -1 : 1, story: "pulled", avigail: true,
+                        color: "#7E57C2", carType: 6, rot: (aLeft ? 1 : -1) * rand(-0.06, 0.06), copSiren: 0, peeT: 0 });
+                } else {
+                    var aHb = carHitbox(6);
+                    obstacles.push({ type: "car", x: LANES[randInt(0, 2)], y: -110, color: "#7E57C2", carType: 6,
+                        hitW: aHb.hw, hitH: aHb.hh, speedMult: rand(0.5, 0.66), lane: randInt(0, 2),
+                        behavior: "avigail", swerveT: 0, spillT: 0 });
+                }
+            }
+        }
         // Hidden roadside speed-trap cops (rarity in 01b-spawn-tuning.js)
         if (tickSpawn("copHide", dt) && gameTime > 15 && !copChase && roadCops.length < 2) spawnRoadCop();
         updateCops(dt);
@@ -795,6 +815,15 @@
             if (o.type === "pool" && o.yard && !o.heshyed && Math.abs(o.y - player.y) < 60) {
                 o.heshyed = true;
                 triggerHeshy();
+            }
+
+            // Passing Avigail's coupe → the obligatory taunt exchange. Sharing the
+            // road (without trading paint) slowly thaws the rivalry: +1 💜.
+            if (o.behavior === "avigail" && !o.taunted && Math.abs(o.y - player.y) < 130) {
+                o.taunted = true;
+                o.comment = randPick(AVIGAIL_ROAD_TAUNTS); o.commentT = 2.4;
+                spawnFloater(player.x, player.y - 30, randPick(LULU_ROAD_REPLIES), "#F48FB1");
+                if (typeof bumpAvigailRel === "function") bumpAvigailRel(1);
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
@@ -1468,6 +1497,8 @@
                      : (obj && (obj.type === "duck" || obj.type === "raccoon" || obj.type === "ostrich")) ? "animal"
                      : "other";
             crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type, behavior: obj && obj.behavior };
+            // Trading paint with AVIGAIL is a friendship disaster: -10 💜.
+            if (obj && obj.behavior === "avigail" && typeof bumpAvigailRel === "function") bumpAvigailRel(-10);
             // Snapshot the data Hillel will use to adjudicate fault: each driver's
             // speed, who was ahead (= who rear-ended whom), whether they drifted
             // oncoming, and whether Lulu was distracted at the wheel.
@@ -1915,6 +1946,14 @@
             v.y += gameSpeed * dt;
             if (v.story === "pulled") v.copSiren += dt;
             if (v.story === "abandoned") v.peeT += dt;
+            // Catching AVIGAIL pulled over, mid-tantrum → +2 💜 (schadenfreude
+            // is a bonding experience) and Lulu savors the moment.
+            if (v.avigail && !v.seen && Math.abs(v.y - player.y) < 100) {
+                v.seen = true;
+                if (!v.yell) v.yell = randPick(AVIGAIL_PULLED_YELLS);
+                if (typeof bumpAvigailRel === "function") bumpAvigailRel(2);
+                spawnFloater(player.x, player.y - 30, "😏 Well, well, WELL.", "#F48FB1");
+            }
             if (v.y > H + 140) roadsideVeh.splice(i, 1);
         }
         if (roadsideCool > 0) { roadsideCool -= dt; return; }
@@ -1933,6 +1972,8 @@
         }
         // a cop cruiser parked behind it, lights going
         if (v.story === "pulled") drawCopCar(x - v.side * 3, y + 50, v.copSiren * 3);
+        // Avigail mid-tantrum at the officer
+        if (v.avigail && v.yell && v.y > 40 && v.y < H - 60) drawSpeechBubble(x, y - 44, v.yell, v.copSiren);
         // the parked car (tilted per story)
         ctx.save(); ctx.translate(x, y); ctx.rotate(v.rot || 0);
         drawEnemyCar(0, 0, v.color, v.carType);
@@ -4009,6 +4050,19 @@
                     if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                     if (o.behavior === "drunk") drawDrunkCar(o);
                     else if (o.behavior === "texting") drawTextingCar(o);
+                    else if (o.behavior === "avigail") {
+                        // Avigail's purple coupe — sleek dark hair + a gold hoop
+                        // visible through the windshield, and a 💅 vanity plate.
+                        drawEnemyCar(o.x, o.y, "#7E57C2", 6);
+                        ctx.save(); ctx.translate(o.x, o.y);
+                        ctx.fillStyle = "#241712"; ctx.beginPath(); ctx.arc(0, -8, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -7, 4.2, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#241712"; ctx.beginPath(); ctx.arc(0, -10, 4.6, Math.PI, 0); ctx.fill();
+                        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(4.5, -6, 1.5, 0, Math.PI * 2); ctx.stroke();
+                        ctx.fillStyle = "#FFF"; roundRect(-8, 26, 16, 7, 2); ctx.fill();
+                        drawText("💅", 0, 30, "7px Arial", "#000", null, 0);
+                        ctx.restore();
+                    }
                     else drawEnemyCar(o.x, o.y, o.color, o.carType);
                     if (o.changing) drawTurnSignal(o);
                 }

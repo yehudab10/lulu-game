@@ -86,6 +86,17 @@
         }
     }
 
+    // ── Avigail rivalry↔friendship meter (persists) ──────────────────────────
+    // 0 = sworn nemesis · 50 = frenemies (default) · 100 = actual best friends.
+    // Fed by real moments: the porch visit, her wedding, sharing the road.
+    // High friendship flips her courtroom appearances from hostile to helpful.
+    function avigailRel() { return (typeof save.avigailRel === "number") ? save.avigailRel : 50; }
+    function bumpAvigailRel(d) {
+        save.avigailRel = Math.max(0, Math.min(100, avigailRel() + d));
+        persistSave();
+        if (typeof player !== "undefined" && player && typeof spawnFloater === "function")
+            spawnFloater(player.x, player.y - 46, (d > 0 ? "+" : "") + d + " 💜 Avigail", d > 0 ? "#CE93D8" : "#FF8A80");
+    }
     function persistSave() {
         // safety net: currencies should never persist negative
         if (save.totalCoins < 0) save.totalCoins = 0;
@@ -2048,6 +2059,257 @@
         drawFitText(b.label || "PARKING", x + w / 2, ly0 + 7, w - 14, 9, "#90CAF9");
     }
 
+    // A warm little BAKERY: cream stucco with chocolate-brown trim, a brown/cream
+    // scalloped awning, a glowing display window stacked with braided challahs,
+    // round loaves and a frosted layer cake, a "🥐 BAKERY" sign board, and faint
+    // steam wisps curling out of a rooftop vent pipe. Reads instantly as a bakery.
+    function drawBakeryStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 3;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // cream stucco facade (lighter at top)
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#FBEED3"); fg.addColorStop(1, "#E9CF9C");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(93,58,32,0.5)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // soft pilasters + chocolate trim band under the roofline
+        ctx.fillStyle = "rgba(255,255,255,0.28)"; ctx.fillRect(x, y, 4, h); ctx.fillRect(x + w - 4, y, 4, h);
+        ctx.fillStyle = "#8D5A33"; ctx.fillRect(x, y + 2, w, 3);
+
+        // ── rooftop vent pipe + faint steam wisps (subtle, gameTime-animated) ──
+        var vx = x + w - 9;
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(vx - 2, y - 20, 4, 20);
+        ctx.fillStyle = "#6D4C41"; ctx.fillRect(vx - 3.5, y - 22, 7, 2.5);
+        for (var st = 0; st < 3; st++) {
+            var ph = (t * 0.5 + st * 0.33 + (sd % 5) * 0.13) % 1;        // 0..1 rise cycle
+            var sy2 = y - 24 - ph * 15;
+            var sx2 = vx + Math.sin(ph * 5 + st * 2.1) * 3;
+            ctx.fillStyle = "rgba(255,255,255," + (0.28 * (1 - ph)).toFixed(3) + ")";
+            ctx.beginPath(); ctx.arc(sx2, sy2, 2.2 + ph * 2.6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── big display window full of baked goods ──
+        var gx = x + 6, gy = y + h * 0.34, gw = w - 12, gh = h - (gy - y) - 21, gbot = gy + gh;
+        ctx.fillStyle = "#4E342E"; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var warm = ctx.createLinearGradient(0, gy, 0, gbot);
+        warm.addColorStop(0, "rgba(255,196,110,0.38)"); warm.addColorStop(1, "rgba(255,170,70,0.12)");
+        ctx.fillStyle = warm; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        // upper shelf: frosted layer cake (left) + braided challah (right)
+        var shY = gy + gh * 0.50;
+        ctx.fillStyle = "rgba(255,235,200,0.5)"; ctx.fillRect(gx + 2, shY, gw - 4, 2);
+        var ckx = gx + gw * 0.26;
+        ctx.fillStyle = "#F48FB1"; ctx.fillRect(ckx - 7, shY - 7, 14, 7);          // bottom tier
+        ctx.fillStyle = "#FFF3E0"; ctx.fillRect(ckx - 5, shY - 12, 10, 5);         // top tier
+        ctx.beginPath(); ctx.arc(ckx - 4, shY - 7, 1.5, 0, Math.PI);               // frosting drips
+        ctx.arc(ckx, shY - 7, 1.5, 0, Math.PI); ctx.arc(ckx + 4, shY - 7, 1.5, 0, Math.PI); ctx.fill();
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(ckx, shY - 13.5, 1.7, 0, Math.PI * 2); ctx.fill(); // cherry
+        var chX = gx + gw * 0.70, chW = Math.min(22, gw * 0.4);
+        ctx.fillStyle = "#B5722A"; roundRect(chX - chW / 2, shY - 6, chW, 6, 3); ctx.fill();  // challah base
+        ctx.fillStyle = "#D99A45";                                                   // braid humps
+        for (var bp = 0; bp < 4; bp++) { ctx.beginPath(); ctx.arc(chX - chW / 2 + 4 + bp * (chW - 8) / 3, shY - 6, 2.6, Math.PI, 0); ctx.fill(); }
+        ctx.fillStyle = "#FFF3E0";                                                   // sesame
+        ctx.fillRect(chX - 4, shY - 8, 1, 1); ctx.fillRect(chX + 2, shY - 7.5, 1, 1); ctx.fillRect(chX - 1, shY - 9, 1, 1);
+        // lower counter: round sourdough loaves
+        ctx.fillStyle = "rgba(255,235,200,0.45)"; ctx.fillRect(gx + 3, gbot - 6, gw - 6, 3);
+        var lfx = gx + gw * 0.28;
+        ctx.fillStyle = "#C07E33";
+        ctx.beginPath(); ctx.arc(lfx, gbot - 10, 4.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gw * 0.52, gbot - 9.5, 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(gx + gw * 0.74, gbot - 10, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8A5620"; ctx.lineWidth = 1;                              // score lines
+        ctx.beginPath(); ctx.moveTo(lfx - 3, gbot - 11.5); ctx.lineTo(lfx + 3, gbot - 8.5); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(gx + gw * 0.74 - 2.6, gbot - 8.6); ctx.lineTo(gx + gw * 0.74 + 2.6, gbot - 11.4); ctx.stroke();
+        ctx.strokeStyle = "#8D5A33"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 3); ctx.stroke(); // frame
+
+        // ── wooden door with glass panel (on the road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 5 : x + 5, dyTop = y + h - 18;
+        ctx.fillStyle = "#5D4037"; roundRect(dx, dyTop, dw, 18, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,220,150,0.4)"; ctx.fillRect(dx + 2, dyTop + 2, dw - 4, 7);
+        ctx.fillStyle = "#E6B84F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── brown/cream scalloped awning above the window ──
+        var awY = gy - 13, awH = 11, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FFF3DC" : "#8D5A33";
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 5); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x, awY, w, 2);
+
+        // ── warm BAKERY sign board above the roof ──
+        var sy0 = y - 17;
+        ctx.fillStyle = "#4E2A14"; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.fill();
+        ctx.strokeStyle = "#E6B84F"; ctx.lineWidth = 1; roundRect(x + 4, sy0, w - 8, 15, 4); ctx.stroke();
+        ctx.shadowColor = "#FFB300"; ctx.shadowBlur = 6;
+        drawFitText("🥐 " + (b.label || "BAKERY"), x + w / 2, sy0 + 8, w - 14, 10, "#FFE0A3");
+        ctx.shadowBlur = 0;
+    }
+
+    // A classic corner PIZZERIA: white/cream facade with tricolore green cornice
+    // and red base course, a red/white scalloped awning, a glowing red "🍕 PIZZA"
+    // sign, a round pepperoni-pizza emblem on a post, and a warm oven-lit window
+    // with the pizzaiolo's silhouette (chef hat!) behind the counter.
+    function drawPizzaStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 5;
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // cream facade
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#FDF6EA"); fg.addColorStop(1, "#EFDFC4");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(80,40,20,0.4)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.fillRect(x, y, 4, h); ctx.fillRect(x + w - 4, y, 4, h);
+        // Italian tricolore trim: green cornice band + red base course
+        ctx.fillStyle = "#2E7D32"; ctx.fillRect(x, y + 2, w, 4);
+        ctx.fillStyle = "#C62828"; ctx.fillRect(x, y + h - 3, w, 3);
+
+        // ── warm window with counter + pizzaiolo silhouette ──
+        var gx = x + 6, gy = y + h * 0.42, gw = w - 12, gh = h - (gy - y) - 21, gbot = gy + gh;
+        ctx.fillStyle = "#301B10"; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var oa = 0.30 + 0.05 * Math.sin(t * 2.2);                       // gentle oven-glow breathing
+        var og = ctx.createRadialGradient(gx + gw * 0.5, gbot - 4, 2, gx + gw * 0.5, gbot - 4, gw * 0.62);
+        og.addColorStop(0, "rgba(255,167,70," + oa.toFixed(3) + ")"); og.addColorStop(1, "rgba(255,120,40,0)");
+        ctx.fillStyle = og; roundRect(gx, gy, gw, gh, 3); ctx.fill();
+        var pzx = gx + gw * 0.36;                                        // pizzaiolo (dark against glow)
+        ctx.fillStyle = "rgba(20,10,6,0.8)";
+        ctx.beginPath(); ctx.arc(pzx, gy + gh * 0.40, gh * 0.12, 0, Math.PI * 2); ctx.fill();      // head
+        roundRect(pzx - gh * 0.16, gy + gh * 0.50, gh * 0.32, gh * 0.30, 3); ctx.fill();           // torso
+        ctx.fillStyle = "rgba(255,248,235,0.85)";                                                   // chef hat
+        roundRect(pzx - gh * 0.09, gy + gh * 0.40 - gh * 0.27, gh * 0.18, gh * 0.15, 2); ctx.fill();
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(gx + 2, gbot - gh * 0.26, gw - 4, 4);              // counter top
+        var cpx = gx + gw * 0.74, cpy = gbot - gh * 0.26 - 3;                                       // pizza on the counter
+        ctx.fillStyle = "#E0A040"; ctx.beginPath(); ctx.arc(cpx, cpy, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFCB4D"; ctx.beginPath(); ctx.arc(cpx, cpy, 3.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#C62828";
+        ctx.beginPath(); ctx.arc(cpx - 1.5, cpy - 1, 1, 0, Math.PI * 2); ctx.arc(cpx + 1.6, cpy + 0.3, 1, 0, Math.PI * 2); ctx.arc(cpx - 0.4, cpy + 1.8, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#1B5E20"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 3); ctx.stroke(); // green frame
+
+        // ── green door (road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 5 : x + 5, dyTop = y + h - 18;
+        ctx.fillStyle = "#1B5E20"; roundRect(dx, dyTop, dw, 18, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,214,130,0.4)"; ctx.fillRect(dx + 2, dyTop + 2, dw - 4, 7);
+        ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── red/white scalloped awning above the window ──
+        var awY = gy - 13, awH = 11, sw0 = 10;
+        for (var s = 0; s < w; s += sw0) {
+            var sw = Math.min(sw0, w - s);
+            ctx.fillStyle = ((s / sw0) % 2) ? "#FFFFFF" : "#D32F2F";
+            ctx.fillRect(x + s, awY, sw, awH);
+            ctx.beginPath(); ctx.moveTo(x + s, awY + awH); ctx.lineTo(x + s + sw / 2, awY + awH + 5); ctx.lineTo(x + s + sw, awY + awH); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(0,0,0,0.12)"; ctx.fillRect(x, awY, w, 2);
+
+        // ── glowing neon PIZZA sign above the roof ──
+        var sy0 = y - 16;
+        ctx.fillStyle = "#23120C"; roundRect(x + 4, sy0, w - 8, 14, 4); ctx.fill();
+        ctx.strokeStyle = "#2E7D32"; ctx.lineWidth = 1; roundRect(x + 4, sy0, w - 8, 14, 4); ctx.stroke();
+        ctx.shadowColor = "#FF3D00"; ctx.shadowBlur = 6 + Math.sin(t * 3) * 1.5;
+        drawFitText("🍕 " + (b.label || "PIZZA"), x + w / 2, sy0 + 7, w - 14, 10, "#FFAB91");
+        ctx.shadowBlur = 0;
+
+        // ── round pepperoni-pizza emblem on a post (road side, pokes above roof) ──
+        var px2 = (b.side < 0) ? x + 13 : x + w - 13, ecy = y - 27;
+        ctx.fillStyle = "#8D6E63"; ctx.fillRect(px2 - 1.5, y - 18, 3, 18);          // post
+        ctx.fillStyle = "#D9903C"; ctx.beginPath(); ctx.arc(px2, ecy, 10, 0, Math.PI * 2); ctx.fill();   // crust
+        ctx.fillStyle = "#FFC94D"; ctx.beginPath(); ctx.arc(px2, ecy, 7.6, 0, Math.PI * 2); ctx.fill();  // cheese
+        ctx.strokeStyle = "rgba(160,90,20,0.45)"; ctx.lineWidth = 1;                 // slice cuts
+        for (var cl = 0; cl < 3; cl++) {
+            var ca = cl * Math.PI / 3 + 0.4;
+            ctx.beginPath(); ctx.moveTo(px2 - Math.cos(ca) * 7.4, ecy - Math.sin(ca) * 7.4);
+            ctx.lineTo(px2 + Math.cos(ca) * 7.4, ecy + Math.sin(ca) * 7.4); ctx.stroke();
+        }
+        ctx.fillStyle = "#C62828";                                                   // pepperoni (deterministic)
+        for (var pp = 0; pp < 5; pp++) {
+            var pa = pp * 2.4 + sd, pr = 2.2 + ((pp * 37 + sd) % 3) * 1.5;
+            ctx.beginPath(); ctx.arc(px2 + Math.cos(pa) * pr, ecy + Math.sin(pa) * pr, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px2, ecy, 10, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // A cozy BOOKSHOP: deep bottle-green painted timber facade with a wood
+    // cornice and gold pinstripe, a warm window stacked with colourful book
+    // spines, a gently swinging "📚 BOOKS" sign hanging on chains from the
+    // cornice, and a little wooden bargain-book cart parked out front.
+    function drawBookStore(b) {
+        var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h, t = gameTime, sd = b.seed || 9;
+        var SPINES = ["#C62828", "#F9A825", "#1565C0", "#6A1B9A", "#2E7D32", "#EF6C00", "#AD1457", "#00838F"];
+        // drop shadow
+        ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(x + 4, y + 8, w, h);
+        // bottle-green painted facade
+        var fg = ctx.createLinearGradient(0, y, 0, y + h);
+        fg.addColorStop(0, "#3E6B50"); fg.addColorStop(1, "#26503A");
+        ctx.fillStyle = fg; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.45)"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        // wood pilasters + carved cornice with gold pinstripe
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(x, y, 5, h); ctx.fillRect(x + w - 5, y, 5, h);
+        ctx.fillStyle = "#6D4C41"; ctx.fillRect(x - 2, y - 5, w + 4, 9);
+        ctx.fillStyle = "#4E342E"; ctx.fillRect(x - 2, y - 5, w + 4, 2.5);
+        ctx.fillStyle = "#E6B84F"; ctx.fillRect(x, y + 5, w, 1.5);
+
+        // ── warm shop window stacked with book spines ──
+        var gx = x + 7, gy = y + 27, gw = w - 14, gh = h - 27 - 20, gbot = gy + gh;
+        ctx.fillStyle = "#2B1D12"; roundRect(gx, gy, gw, gh, 2); ctx.fill();
+        var warm = ctx.createLinearGradient(0, gy, 0, gbot);
+        warm.addColorStop(0, "rgba(255,205,130,0.30)"); warm.addColorStop(1, "rgba(255,180,100,0.06)");
+        ctx.fillStyle = warm; roundRect(gx, gy, gw, gh, 2); ctx.fill();
+        // shelves of colourful spines (deterministic widths/heights via seed);
+        // short windows get one shelf, tall ones two
+        var nrows = gh > 30 ? 2 : 1;
+        for (var row = 0; row < nrows; row++) {
+            var shelfY = gbot - 3 - row * (gh * 0.46);
+            ctx.fillStyle = "#5D4037"; ctx.fillRect(gx + 1, shelfY, gw - 2, 2.5);
+            var bx2 = gx + 3, k = 0;
+            while (bx2 < gx + gw - 5) {
+                var key2 = k * 29 + row * 13 + sd * 3;
+                var bw2 = 2.5 + (key2 % 3), bh2 = Math.min(7 + ((key2 * 7) % 5), shelfY - gy - 2);
+                if ((key2 % 9) === 4) { bx2 += bw2 + 2.5; k++; continue; }    // the odd gap
+                ctx.fillStyle = SPINES[key2 % SPINES.length];
+                ctx.fillRect(bx2, shelfY - bh2, bw2, bh2);
+                bx2 += bw2 + 1; k++;
+            }
+        }
+        ctx.strokeStyle = "#8D6E63"; ctx.lineWidth = 2; roundRect(gx, gy, gw, gh, 2); ctx.stroke();
+
+        // ── wooden door with 4-pane glass (road side) ──
+        var dw = Math.min(16, w * 0.26), dx = (b.side < 0) ? x + w - dw - 6 : x + 6, dyTop = y + h - 19;
+        ctx.fillStyle = "#4E342E"; roundRect(dx, dyTop, dw, 19, 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,214,140,0.45)";
+        ctx.fillRect(dx + 2, dyTop + 2, dw / 2 - 3, 5); ctx.fillRect(dx + dw / 2 + 1, dyTop + 2, dw / 2 - 3, 5);
+        ctx.fillRect(dx + 2, dyTop + 9, dw / 2 - 3, 5); ctx.fillRect(dx + dw / 2 + 1, dyTop + 9, dw / 2 - 3, 5);
+        ctx.fillStyle = "#E6B84F"; ctx.beginPath(); ctx.arc(b.side < 0 ? dx + 3 : dx + dw - 3, dyTop + 11, 1.4, 0, Math.PI * 2); ctx.fill();
+
+        // ── hanging "📚 BOOKS" sign on chains under the cornice (subtle sway) ──
+        var sw2 = Math.min(w - 14, 58), sh2 = 13;
+        ctx.save();
+        ctx.translate(x + w / 2, y + 6);
+        ctx.rotate(Math.sin(t * 1.3 + sd) * 0.045);
+        ctx.strokeStyle = "#B08D57"; ctx.lineWidth = 1;                              // chains
+        ctx.beginPath(); ctx.moveTo(-sw2 / 2 + 8, 0); ctx.lineTo(-sw2 / 2 + 6, 5); ctx.moveTo(sw2 / 2 - 8, 0); ctx.lineTo(sw2 / 2 - 6, 5); ctx.stroke();
+        ctx.fillStyle = "#4E342E"; roundRect(-sw2 / 2, 5, sw2, sh2, 3); ctx.fill();
+        ctx.strokeStyle = "#E6B84F"; roundRect(-sw2 / 2, 5, sw2, sh2, 3); ctx.stroke();
+        drawFitText("📚 " + (b.label || "BOOKS"), 0, 5 + sh2 / 2 + 0.5, sw2 - 8, 9, "#F5E6C0");
+        ctx.restore();
+
+        // ── little bargain-book cart out front (road side) ──
+        var cx3 = (b.side < 0) ? x + w + 10 : x - 10, cby = y + h;
+        ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.ellipse(cx3, cby - 1, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        for (var bk = 0; bk < 5; bk++) {                                             // books poking out
+            var kk = bk * 31 + sd * 7;
+            ctx.fillStyle = SPINES[kk % SPINES.length];
+            ctx.fillRect(cx3 - 7 + bk * 3, cby - 13 - (5 + (kk % 4)), 2.6, 8 + (kk % 4));
+        }
+        ctx.fillStyle = "#795548"; ctx.fillRect(cx3 - 9, cby - 13, 18, 8);           // cart box
+        ctx.fillStyle = "#5D4037"; ctx.fillRect(cx3 - 9, cby - 13, 18, 2);
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.5;                            // handle toward the shop
+        ctx.beginPath(); ctx.moveTo(cx3 + (b.side < 0 ? -9 : 9), cby - 11); ctx.lineTo(cx3 + (b.side < 0 ? -14 : 14), cby - 14); ctx.stroke();
+        ctx.fillStyle = "#33251C";                                                    // wheels
+        ctx.beginPath(); ctx.arc(cx3 - 5, cby - 4, 2.6, 0, Math.PI * 2); ctx.arc(cx3 + 5, cby - 4, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#B08D57";
+        ctx.beginPath(); ctx.arc(cx3 - 5, cby - 4, 0.9, 0, Math.PI * 2); ctx.arc(cx3 + 5, cby - 4, 0.9, 0, Math.PI * 2); ctx.fill();
+    }
+
     function drawBuilding(b) {
         var x = b.x - b.w / 2, y = b.y, w = b.w, h = b.h;
         if (b.kind === "policeLot" && typeof drawPoliceLot === "function") { drawPoliceLot(b); return; }
@@ -2055,6 +2317,9 @@
         if (b.kind === "salon") { drawSalonStore(b); return; }
         if (b.kind === "parking") { drawParkingGarage(b); return; }
         if (b.kind === "market") { drawMarketStall(b); return; }
+        if (b.kind === "bakery") { drawBakeryStore(b); return; }
+        if (b.kind === "pizza") { drawPizzaStore(b); return; }
+        if (b.kind === "books") { drawBookStore(b); return; }
         if (b.kind === "school") { drawSchool(b); return; }
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.fillRect(x + 4, y + 8, w, h);
@@ -2564,7 +2829,8 @@
         pedestrian:  { first: [12, 30], every: [20, 38],  chance: 0.70 }, // 🚶 walkers → passenger coin bonus
         parkingSign: { first: [25, 75],  every: [55, 100], chance: 0.50 }, // 🅿 parking challenge offer
         iceCream:    { first: [30, 85],  every: [65, 115], chance: 0.50 }, // 🍦 ice-cream bonus
-        avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup
+        avigail:     { first: [40, 110], every: [110, 190], chance: 0.4 }, // Avigail porch visit — RARE, so it's an EVENT
+        avigailCar:  { first: [30, 70],  every: [55, 110],  chance: 0.5 }, // 💅 Avigail out DRIVING (taunts; sometimes pulled over)
         salon:       { first: [30, 85],  every: [65, 115], chance: 0.45 }, // 💇 salon scene
         sasquatch:   { first: [40, 100], every: [75, 150], chance: 0.35 }, // 🦶 sasquatch easter egg
         copHide:     { first: [22, 60],  every: [35, 75],  chance: 0.55 }, // 🚓 hidden roadside speed-trap cop
@@ -6314,6 +6580,17 @@
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+    // Avigail-on-the-road banter (her purple coupe shares the streets now).
+    var AVIGAIL_ROAD_TAUNTS = [
+        "Nice driving, Bruck. For a LEARNER. 💅", "Oh look, they let YOU back out.",
+        "Race you to the light! Kidding. I'd win.", "Is that your PARKING speed?",
+        "Love the car. Very... pink.", "Mirror. Signal. MANICURE. 💅"];
+    var LULU_ROAD_REPLIES = [
+        "😏 Hi, Avigail.", "Eyes on the road, princess.", "*waves SWEETLY*",
+        "Still owe you rugelach!", "Nice coupe. Aviel pick it?"];
+    var AVIGAIL_PULLED_YELLS = [
+        "This is HARASSMENT, officer!", "Do you KNOW who my father IS?!",
+        "I was going the speed of TRAFFIC!", "These plates are DESIGNER!"];
     var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
@@ -7488,6 +7765,26 @@
         }
         // Heshy cameo timer
         if (heshy) { heshy.t += dt; if (heshy.t >= heshy.dur) heshy = null; }
+        // Avigail out DRIVING — her purple coupe shares the road: a taunt as you
+        // pass (+1 💜, grudging respect), or — delicious — pulled over on a rural
+        // shoulder getting a ticket of her own (+2 💜 for witnessing it).
+        if (tickSpawn("avigailCar", dt) && gameTime > 15) {
+            var aviOut = false;
+            for (var aq = 0; aq < obstacles.length; aq++) if (obstacles[aq].behavior === "avigail") aviOut = true;
+            if (!aviOut) {
+                if (zone === "rural" && Math.random() < 0.3) {
+                    var aLeft = Math.random() < 0.5;
+                    roadsideVeh.push({ x: aLeft ? rand(26, Math.max(28, ROAD_L - 28)) : rand(ROAD_R + 28, W - 26),
+                        y: -140, side: aLeft ? -1 : 1, story: "pulled", avigail: true,
+                        color: "#7E57C2", carType: 6, rot: (aLeft ? 1 : -1) * rand(-0.06, 0.06), copSiren: 0, peeT: 0 });
+                } else {
+                    var aHb = carHitbox(6);
+                    obstacles.push({ type: "car", x: LANES[randInt(0, 2)], y: -110, color: "#7E57C2", carType: 6,
+                        hitW: aHb.hw, hitH: aHb.hh, speedMult: rand(0.5, 0.66), lane: randInt(0, 2),
+                        behavior: "avigail", swerveT: 0, spillT: 0 });
+                }
+            }
+        }
         // Hidden roadside speed-trap cops (rarity in 01b-spawn-tuning.js)
         if (tickSpawn("copHide", dt) && gameTime > 15 && !copChase && roadCops.length < 2) spawnRoadCop();
         updateCops(dt);
@@ -7703,6 +8000,15 @@
             if (o.type === "pool" && o.yard && !o.heshyed && Math.abs(o.y - player.y) < 60) {
                 o.heshyed = true;
                 triggerHeshy();
+            }
+
+            // Passing Avigail's coupe → the obligatory taunt exchange. Sharing the
+            // road (without trading paint) slowly thaws the rivalry: +1 💜.
+            if (o.behavior === "avigail" && !o.taunted && Math.abs(o.y - player.y) < 130) {
+                o.taunted = true;
+                o.comment = randPick(AVIGAIL_ROAD_TAUNTS); o.commentT = 2.4;
+                spawnFloater(player.x, player.y - 30, randPick(LULU_ROAD_REPLIES), "#F48FB1");
+                if (typeof bumpAvigailRel === "function") bumpAvigailRel(1);
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
@@ -8376,6 +8682,8 @@
                      : (obj && (obj.type === "duck" || obj.type === "raccoon" || obj.type === "ostrich")) ? "animal"
                      : "other";
             crashCause = { kind: kind, color: obj && obj.color, carType: obj && obj.carType, animal: obj && obj.type, behavior: obj && obj.behavior };
+            // Trading paint with AVIGAIL is a friendship disaster: -10 💜.
+            if (obj && obj.behavior === "avigail" && typeof bumpAvigailRel === "function") bumpAvigailRel(-10);
             // Snapshot the data Hillel will use to adjudicate fault: each driver's
             // speed, who was ahead (= who rear-ended whom), whether they drifted
             // oncoming, and whether Lulu was distracted at the wheel.
@@ -8823,6 +9131,14 @@
             v.y += gameSpeed * dt;
             if (v.story === "pulled") v.copSiren += dt;
             if (v.story === "abandoned") v.peeT += dt;
+            // Catching AVIGAIL pulled over, mid-tantrum → +2 💜 (schadenfreude
+            // is a bonding experience) and Lulu savors the moment.
+            if (v.avigail && !v.seen && Math.abs(v.y - player.y) < 100) {
+                v.seen = true;
+                if (!v.yell) v.yell = randPick(AVIGAIL_PULLED_YELLS);
+                if (typeof bumpAvigailRel === "function") bumpAvigailRel(2);
+                spawnFloater(player.x, player.y - 30, "😏 Well, well, WELL.", "#F48FB1");
+            }
             if (v.y > H + 140) roadsideVeh.splice(i, 1);
         }
         if (roadsideCool > 0) { roadsideCool -= dt; return; }
@@ -8841,6 +9157,8 @@
         }
         // a cop cruiser parked behind it, lights going
         if (v.story === "pulled") drawCopCar(x - v.side * 3, y + 50, v.copSiren * 3);
+        // Avigail mid-tantrum at the officer
+        if (v.avigail && v.yell && v.y > 40 && v.y < H - 60) drawSpeechBubble(x, y - 44, v.yell, v.copSiren);
         // the parked car (tilted per story)
         ctx.save(); ctx.translate(x, y); ctx.rotate(v.rot || 0);
         drawEnemyCar(0, 0, v.color, v.carType);
@@ -10917,6 +11235,19 @@
                     if (o.behavior === "pulled") drawCopCar(o.x, o.y + CAR_H + 8, o.copSiren || gameTime);
                     if (o.behavior === "drunk") drawDrunkCar(o);
                     else if (o.behavior === "texting") drawTextingCar(o);
+                    else if (o.behavior === "avigail") {
+                        // Avigail's purple coupe — sleek dark hair + a gold hoop
+                        // visible through the windshield, and a 💅 vanity plate.
+                        drawEnemyCar(o.x, o.y, "#7E57C2", 6);
+                        ctx.save(); ctx.translate(o.x, o.y);
+                        ctx.fillStyle = "#241712"; ctx.beginPath(); ctx.arc(0, -8, 6, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#FFE0CC"; ctx.beginPath(); ctx.arc(0, -7, 4.2, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = "#241712"; ctx.beginPath(); ctx.arc(0, -10, 4.6, Math.PI, 0); ctx.fill();
+                        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(4.5, -6, 1.5, 0, Math.PI * 2); ctx.stroke();
+                        ctx.fillStyle = "#FFF"; roundRect(-8, 26, 16, 7, 2); ctx.fill();
+                        drawText("💅", 0, 30, "7px Arial", "#000", null, 0);
+                        ctx.restore();
+                    }
                     else drawEnemyCar(o.x, o.y, o.color, o.carType);
                     if (o.changing) drawTurnSignal(o);
                 }
@@ -14979,8 +15310,11 @@
     // off with her chosson Aviel, and (rarely!) she's getting MARRIED right now.
     function footAvigailMeet(av) {
         var r = Math.random();
-        if (r < 0.10 && typeof startFootWedding === "function") { startFootWedding(); return; }
-        if (r < 0.30) { footAvigailBusy(av); return; }
+        // Real friends get invited: the wedding is far likelier once the rivalry
+        // has genuinely thawed (rel ≥ 65).
+        var wedCh = (typeof avigailRel === "function" && avigailRel() >= 65) ? 0.25 : 0.10;
+        if (r < wedCh && typeof startFootWedding === "function") { startFootWedding(); return; }
+        if (r < wedCh + 0.20) { footAvigailBusy(av); return; }
         footAvigailJoin(av);
     }
     function footAvigailBusy(av) {
@@ -20483,6 +20817,9 @@
         footCoinsRun += n; runCoins += n; save.totalCoins += n;
         if (caught) footAwardStar();
         persistSave();
+        // Showing up to her WEDDING is the biggest friendship moment there is
+        // (+15; catching the bouquet makes it +20 — she threw it AT you, admit it).
+        if (typeof bumpAvigailRel === "function") bumpAvigailRel(caught ? 20 : 15);
         spawnFloater(W / 2, wedAisleBot - 80, "+" + n + (caught ? " 💰  +1⭐" : " 💰"),
             caught ? "#FFD700" : "#FFE082");
     }
@@ -22609,6 +22946,9 @@
     }
 
     function finishAvigailScene() {
+        // A whole porch visit, survived → the rivalry thaws (+6, +4 more if she
+        // remembered the rugelach — Avigail never forgets a promised pastry).
+        if (typeof bumpAvigailRel === "function") bumpAvigailRel(6 + (avigailHasRugelach ? 4 : 0));
         avigailInCar = true;
         pointMult = 2;
         parkingMsg = "💜 AVIGAIL JOINED! 2× POINTS!";
@@ -22659,6 +22999,15 @@
             return;
         }
 
+        // Rivalry↔friendship chip (top-left): where things stand with Avigail.
+        if (typeof avigailRel === "function") {
+            var arv = avigailRel();
+            ctx.fillStyle = "rgba(255,255,255,0.9)"; roundRect(16, 84, 128, 32, 16); ctx.fill();
+            ctx.strokeStyle = "#7E57C2"; ctx.lineWidth = 2; roundRect(16, 84, 128, 32, 16); ctx.stroke();
+            drawText(arv >= 65 ? "💜 friends" : arv <= 35 ? "⚔️ rivals" : "😤 frenemies", 46 + 34, 94, "bold 10px 'Segoe UI', Arial, sans-serif", "#4E2A66", null, 0);
+            ctx.fillStyle = "rgba(126,87,194,0.25)"; roundRect(26, 102, 108, 7, 3.5); ctx.fill();
+            ctx.fillStyle = "#7E57C2"; roundRect(26, 102, 108 * (arv / 100), 7, 3.5); ctx.fill();
+        }
         // Rugelach-promise token — visible once Lulu has promised rugelach, so the
         // later "as promised" payoff feels earned rather than a hidden gotcha.
         if (avigailHasRugelach) {
@@ -23787,6 +24136,12 @@
         { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] },
         { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] }
     ];
+    // Once the rivalry has truly thawed (rel ≥ 65), Avigail shows up FOR her.
+    var AVIGAIL_FRIEND_LINES = ["She's with ME,\nyour honor. 💜", "Objection! She's\nmy best friend!", "Free her — we have\na NAIL appointment. 💅"];
+    var AVIGAIL_FRIEND_EVENT = { id: "avigail", nudge: "help", lines: [
+        { who: "BAILIFF", p: "cop", accent: "#90A4AE", text: "A character witness takes the stand, your honor!" },
+        { who: "AVIGAIL", p: "avigail", accent: "#CE93D8", text: "This woman drove me to MY OWN WEDDING. She's a mensch. 💜" },
+        { who: "JUDGE", p: "judge", accent: "#B39DDB", text: "...high praise from a bride. Noted FAVORABLY." } ] };
 
     // ── Random courtroom EVENTS — a small chance (~40%) something dramatic
     //    interrupts the trial. Each plays a few lines and NUDGES the verdict:
@@ -24986,9 +25341,11 @@
         }
         lines.push({ who: "JUDGE", p: "judge", accent: "#B39DDB", text: "And how do you plead, Ms. Bruck?" });
         var gg = Math.random() < 0.5 ? randPick(COURT_GALLERY_GUESTS) : null;
+        // A befriended Avigail heckles FOR the defense.
+        var ggLines = gg ? (gg.p === "avigail" && typeof avigailRel === "function" && avigailRel() >= 65 ? AVIGAIL_FRIEND_LINES : gg.lines) : null;
         court = { charges: cl, options: opts, choice: -1, verdict: null, fine: 0, applied: false,
-                  galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(gg.lines) } : null,
-                  galleryGuestLines: gg ? gg.lines : null, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
+                  galleryGuest: gg ? { p: gg.p, accent: gg.accent, line: randPick(ggLines) } : null,
+                  galleryGuestLines: ggLines, guestT: gg ? 2.6 : 0, guestCool: rand(7, 11),
                   phase: 0, t: 0, gavel: dramaTier >= 2 ? 0.5 : 0, banner: dramaTier >= 2 ? 0.5 : 0, li: 0, typeT: 0, dramaTier: dramaTier,
                   lawyer: !!lawyerTier, lawyerMitig: lawyerTier ? lawyerTier.mitig : 0,
                   lawyerBlunder: lawyerTier ? lawyerTier.blunder : 0, lawyerName: lawyerTier ? lawyerTier.name : null,
@@ -25077,6 +25434,8 @@
         if (!court.eventUsed && Math.random() < evChance) {
             court.eventUsed = true;
             court.event = pickCourtEvent();
+            // A befriended Avigail's "surprise witness" moment flips to HELPING her.
+            if (court.event.id === "avigail" && typeof avigailRel === "function" && avigailRel() >= 65) court.event = AVIGAIL_FRIEND_EVENT;
             courtEventFactor(court.event);
             court.eventLi = 0; court.evStamp = 0.6;
             if (court.event.charge && court.charges.indexOf(court.event.charge) < 0) court.charges.push(court.event.charge);

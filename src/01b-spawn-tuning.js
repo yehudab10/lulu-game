@@ -15,7 +15,8 @@
         pedestrian:  { first: [12, 30], every: [20, 38],  chance: 0.70 }, // 🚶 walkers → passenger coin bonus
         parkingSign: { first: [25, 75],  every: [55, 100], chance: 0.50 }, // 🅿 parking challenge offer
         iceCream:    { first: [30, 85],  every: [65, 115], chance: 0.50 }, // 🍦 ice-cream bonus
-        avigail:     { first: [25, 80],  every: [60, 110], chance: 0.45 }, // Avigail pickup
+        avigail:     { first: [40, 110], every: [110, 190], chance: 0.4 }, // Avigail porch visit — RARE, so it's an EVENT
+        avigailCar:  { first: [30, 70],  every: [55, 110],  chance: 0.5 }, // 💅 Avigail out DRIVING (taunts; sometimes pulled over)
         salon:       { first: [30, 85],  every: [65, 115], chance: 0.45 }, // 💇 salon scene
         sasquatch:   { first: [40, 100], every: [75, 150], chance: 0.35 }, // 🦶 sasquatch easter egg
         copHide:     { first: [22, 60],  every: [35, 75],  chance: 0.55 }, // 🚓 hidden roadside speed-trap cop

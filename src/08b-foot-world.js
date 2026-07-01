@@ -668,8 +668,11 @@
     // off with her chosson Aviel, and (rarely!) she's getting MARRIED right now.
     function footAvigailMeet(av) {
         var r = Math.random();
-        if (r < 0.10 && typeof startFootWedding === "function") { startFootWedding(); return; }
-        if (r < 0.30) { footAvigailBusy(av); return; }
+        // Real friends get invited: the wedding is far likelier once the rivalry
+        // has genuinely thawed (rel ≥ 65).
+        var wedCh = (typeof avigailRel === "function" && avigailRel() >= 65) ? 0.25 : 0.10;
+        if (r < wedCh && typeof startFootWedding === "function") { startFootWedding(); return; }
+        if (r < wedCh + 0.20) { footAvigailBusy(av); return; }
         footAvigailJoin(av);
     }
     function footAvigailBusy(av) {

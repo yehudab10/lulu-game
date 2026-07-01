@@ -417,6 +417,17 @@
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+    // Avigail-on-the-road banter (her purple coupe shares the streets now).
+    var AVIGAIL_ROAD_TAUNTS = [
+        "Nice driving, Bruck. For a LEARNER. 💅", "Oh look, they let YOU back out.",
+        "Race you to the light! Kidding. I'd win.", "Is that your PARKING speed?",
+        "Love the car. Very... pink.", "Mirror. Signal. MANICURE. 💅"];
+    var LULU_ROAD_REPLIES = [
+        "😏 Hi, Avigail.", "Eyes on the road, princess.", "*waves SWEETLY*",
+        "Still owe you rugelach!", "Nice coupe. Aviel pick it?"];
+    var AVIGAIL_PULLED_YELLS = [
+        "This is HARASSMENT, officer!", "Do you KNOW who my father IS?!",
+        "I was going the speed of TRAFFIC!", "These plates are DESIGNER!"];
     var BUS_QUIPS = ["Kids on board!", "Slow it down!", "Beep beep!", "Mind the children!", "No passing!"];
     var BUS_STOP_QUIPS = ["STOP for the bus!", "Kids crossing!!", "You BLEW my sign!", "Where's the FIRE?!", "Report that plate!"];
     var COP_BUS_SNARK = ["Ran a bus sign, huh?", "Cute. PULL OVER.", "Kids were CROSSING!", "That's a big ticket."];
