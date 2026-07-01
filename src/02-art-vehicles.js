@@ -572,11 +572,33 @@
     // traffic, roadside decoration, and the parked cars Lulu can borrow on foot.
     function randCarType() {
         var r = Math.random();
-        if (r < 0.60) return randInt(0, 2);   // sedans — the bulk of traffic
+        if (r < 0.50) return randInt(0, 2);   // sedans — still the bulk of traffic
+        if (r < 0.62) return 7;                // taxi — common around town
         if (r < 0.73) return 3;                // pickup truck
-        if (r < 0.84) return 6;                // sports car
-        if (r < 0.94) return 5;                // electric car
-        return 4;                              // box truck (rarest — it's the biggest)
+        if (r < 0.83) return 6;                // sports car
+        if (r < 0.91) return 5;                // electric car
+        if (r < 0.97) return 4;                // box truck
+        return 8;                              // city bus (rarest — the longest)
+    }
+    // Collision box sized to each body — big rides (truck / bus) are proper big
+    // targets instead of a car-sized box floating in a huge silhouette.
+    function carHitbox(type) {
+        if (type === 3) return { hw: 40, hh: 80 };    // pickup
+        if (type === 4) return { hw: 46, hh: 94 };    // box truck
+        if (type === 5) return { hw: 36, hh: 62 };    // electric
+        if (type === 6) return { hw: 44, hh: 66 };    // sports
+        if (type === 7) return { hw: 38, hh: 68 };    // taxi
+        if (type === 8) return { hw: 48, hh: 112 };   // city bus
+        return { hw: 36, hh: 64 };                     // sedans
+    }
+    // How each borrowed ride handles: a sports car is quick, a truck/bus is a slug.
+    function vehicleSpeedFactor(type) {
+        if (type === 6) return 1.18;   // sports — zippy
+        if (type === 5) return 1.06;   // electric — peppy
+        if (type === 3) return 0.90;   // pickup — a bit heavy
+        if (type === 4) return 0.80;   // box truck — slug
+        if (type === 8) return 0.74;   // city bus — big slug
+        return 1;                      // sedans / taxi — normal
     }
     function drawEnemyCar(x, y, color, type) {
         ctx.save();

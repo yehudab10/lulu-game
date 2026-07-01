@@ -205,11 +205,12 @@
             // opposite direction (fast). Cops/ambulances set their own speeds.
             var sm = rand(0.45, 0.72);
             if (beh === "drunk" && Math.random() < 0.5) sm = rand(1.4, 1.7);
+            var ct = randCarType(), hb = carHitbox(ct);
             obstacles.push({
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
-                carType: randCarType(),
-                hitW: 36, hitH: 64,
+                carType: ct,
+                hitW: hb.hw, hitH: hb.hh,
                 speedMult: sm,
                 lane: lane,
                 behavior: beh,

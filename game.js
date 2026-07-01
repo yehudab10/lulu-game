@@ -3076,11 +3076,33 @@
     // traffic, roadside decoration, and the parked cars Lulu can borrow on foot.
     function randCarType() {
         var r = Math.random();
-        if (r < 0.60) return randInt(0, 2);   // sedans — the bulk of traffic
+        if (r < 0.50) return randInt(0, 2);   // sedans — still the bulk of traffic
+        if (r < 0.62) return 7;                // taxi — common around town
         if (r < 0.73) return 3;                // pickup truck
-        if (r < 0.84) return 6;                // sports car
-        if (r < 0.94) return 5;                // electric car
-        return 4;                              // box truck (rarest — it's the biggest)
+        if (r < 0.83) return 6;                // sports car
+        if (r < 0.91) return 5;                // electric car
+        if (r < 0.97) return 4;                // box truck
+        return 8;                              // city bus (rarest — the longest)
+    }
+    // Collision box sized to each body — big rides (truck / bus) are proper big
+    // targets instead of a car-sized box floating in a huge silhouette.
+    function carHitbox(type) {
+        if (type === 3) return { hw: 40, hh: 80 };    // pickup
+        if (type === 4) return { hw: 46, hh: 94 };    // box truck
+        if (type === 5) return { hw: 36, hh: 62 };    // electric
+        if (type === 6) return { hw: 44, hh: 66 };    // sports
+        if (type === 7) return { hw: 38, hh: 68 };    // taxi
+        if (type === 8) return { hw: 48, hh: 112 };   // city bus
+        return { hw: 36, hh: 64 };                     // sedans
+    }
+    // How each borrowed ride handles: a sports car is quick, a truck/bus is a slug.
+    function vehicleSpeedFactor(type) {
+        if (type === 6) return 1.18;   // sports — zippy
+        if (type === 5) return 1.06;   // electric — peppy
+        if (type === 3) return 0.90;   // pickup — a bit heavy
+        if (type === 4) return 0.80;   // box truck — slug
+        if (type === 8) return 0.74;   // city bus — big slug
+        return 1;                      // sedans / taxi — normal
     }
     function drawEnemyCar(x, y, color, type) {
         ctx.save();
@@ -5862,11 +5884,12 @@
             // opposite direction (fast). Cops/ambulances set their own speeds.
             var sm = rand(0.45, 0.72);
             if (beh === "drunk" && Math.random() < 0.5) sm = rand(1.4, 1.7);
+            var ct = randCarType(), hb = carHitbox(ct);
             obstacles.push({
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
-                carType: randCarType(),
-                hitW: 36, hitH: 64,
+                carType: ct,
+                hitW: hb.hw, hitH: hb.hh,
                 speedMult: sm,
                 lane: lane,
                 behavior: beh,
@@ -7087,6 +7110,16 @@
         // The steamroller is a TANK but a slug — hard-cap its top speed (which is
         // exactly why a chase in one is so dangerous: you can't pull away).
         if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
+        // A borrowed ride handles like itself: a sports car is quicker, a box truck
+        // or city bus is a slug (harder to pull away in a chase).
+        else if (playerVehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) gameSpeed *= vehicleSpeedFactor(borrowedCar.carType);
+        // Driving a big borrowed rig (box truck / city bus / pickup) = a bigger target
+        // in the car-vs-car collision below (she's a bus, she gets hit like one).
+        var rideHitScale = 1;
+        if (playerVehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) {
+            var _bt = borrowedCar.carType;
+            rideHitScale = _bt === 8 ? 1.30 : _bt === 4 ? 1.22 : _bt === 3 ? 1.10 : 1;
+        }
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
         // On foot, walking up to a parked car: the world coasts to a halt so she
@@ -7526,7 +7559,7 @@
             if (o.kid) {
                 // Waiting school kids are never a collision — they board only via
                 // the bus's STOP sign. Just let them scroll past.
-            } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
+            } else if (aabb(player.x, player.y, CAR_W * 0.7 * rideHitScale, CAR_H * 0.7 * rideHitScale, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
                         var roadWitness = (!copChase && !copBust) ? copInView() : null;

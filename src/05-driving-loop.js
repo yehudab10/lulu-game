@@ -424,6 +424,16 @@
         // The steamroller is a TANK but a slug — hard-cap its top speed (which is
         // exactly why a chase in one is so dangerous: you can't pull away).
         if (playerVehicle === "dozer") gameSpeed = Math.min(gameSpeed, DOZER_SPEED);
+        // A borrowed ride handles like itself: a sports car is quicker, a box truck
+        // or city bus is a slug (harder to pull away in a chase).
+        else if (playerVehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) gameSpeed *= vehicleSpeedFactor(borrowedCar.carType);
+        // Driving a big borrowed rig (box truck / city bus / pickup) = a bigger target
+        // in the car-vs-car collision below (she's a bus, she gets hit like one).
+        var rideHitScale = 1;
+        if (playerVehicle === "borrowed" && typeof borrowedCar !== "undefined" && borrowedCar) {
+            var _bt = borrowedCar.carType;
+            rideHitScale = _bt === 8 ? 1.30 : _bt === 4 ? 1.22 : _bt === 3 ? 1.10 : 1;
+        }
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
         // On foot, walking up to a parked car: the world coasts to a halt so she
@@ -863,7 +873,7 @@
             if (o.kid) {
                 // Waiting school kids are never a collision — they board only via
                 // the bus's STOP sign. Just let them scroll past.
-            } else if (aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, o.x, o.y, o.hitW, o.hitH)) {
+            } else if (aabb(player.x, player.y, CAR_W * 0.7 * rideHitScale, CAR_H * 0.7 * rideHitScale, o.x, o.y, o.hitW, o.hitH)) {
                 if (o.type === "ped") {
                     if (!onFoot) {
                         var roadWitness = (!copChase && !copBust) ? copInView() : null;
