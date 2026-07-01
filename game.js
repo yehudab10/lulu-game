@@ -14696,15 +14696,21 @@
         if (prompt.kind === "hail") {
             footChat = ""; footChatT = 0;
             if (Math.random() < 0.42) {    // harder to thumb a ride now — most folks blow past
-                // She drives whatever she flagged down — a bus stays a bus, etc.
+                // She drives whatever she flagged down — a bus stays a bus, and a
+                // taxi / pickup / sports car / EV / truck she rides AS ITSELF.
                 var b = prompt.ent.behavior;
-                playerVehicle = (b === "bus") ? "bus" : (b === "ambulance") ? "ambulance"
-                              : (b === "patrol" || b === "pulled") ? "cop" : null;
-                spawnFloater(player.x, player.y - 32, playerVehicle ? FOOT_HAIL_VEHICLE[playerVehicle] : randPick(FOOT_HAIL_OK), "#7CFC4F");
-                playTone(660, 0.1, "triangle", 0.14);
                 lives = Math.max(lives, 1);
                 footParked = []; footDoors = []; footCompanion = null;
-                returnToDriving();
+                returnToDriving();   // FIRST — its cleanup won't wipe the ride we set next
+                if (b === "bus") playerVehicle = "bus";
+                else if (b === "ambulance") playerVehicle = "ambulance";
+                else if (b === "patrol" || b === "pulled") playerVehicle = "cop";
+                else {
+                    playerVehicle = "borrowed";
+                    if (typeof borrowedCar !== "undefined") borrowedCar = { carType: prompt.ent.carType || 0, color: prompt.ent.color || "#E53935" };
+                }
+                spawnFloater(player.x, player.y - 32, (playerVehicle && FOOT_HAIL_VEHICLE[playerVehicle]) || randPick(FOOT_HAIL_OK), "#7CFC4F");
+                playTone(660, 0.1, "triangle", 0.14);
             } else {                       // ...or they blow right past her
                 prompt.ent.comment = "Off duty!"; prompt.ent.commentT = 1.4;
                 spawnFloater(player.x, player.y - 30, randPick(FOOT_HAIL_NO), "#FF8A80");
