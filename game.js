@@ -3071,6 +3071,17 @@
     }
 
     // ── Drawing: Enemy cars ──────────────────────────────────
+    // Pick a traffic body type — ordinary sedans (0-2) stay common; the fun rides
+    // (pickup / sports / electric / box truck) sprinkle in for variety. Used by
+    // traffic, roadside decoration, and the parked cars Lulu can borrow on foot.
+    function randCarType() {
+        var r = Math.random();
+        if (r < 0.60) return randInt(0, 2);   // sedans — the bulk of traffic
+        if (r < 0.73) return 3;                // pickup truck
+        if (r < 0.84) return 6;                // sports car
+        if (r < 0.94) return 5;                // electric car
+        return 4;                              // box truck (rarest — it's the biggest)
+    }
     function drawEnemyCar(x, y, color, type) {
         ctx.save();
         ctx.translate(x, y);
@@ -5283,7 +5294,8 @@
     var crashCarT = 0;        // spawn cadence for the swarm-mowing revenge cars
     var crashReprieve = false; // this wipeout is secretly a funny second chance
     var reprieveKind = null;   // "arrest" (cop nabs the man) | "chase" (man runs off)
-    var playerVehicle = null;  // null = Lulu's car; "bus"/"ambulance"/"cop" if she hailed one
+    var playerVehicle = null;  // null = Lulu's car; "bus"/"ambulance"/"cop"/"dozer"/"borrowed"
+    var borrowedCar = null;    // {carType, color} when she's driving a hotwired civilian car
     var salonReturnFoot = false; // leaving the salon should drop her back on foot, not driving
     var hitchhiker = null;     // roadside thumber — honk near them to pick up (driving activity)
     var hitchTimer = 0;
@@ -5521,6 +5533,7 @@
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
+        if (typeof borrowedCar !== "undefined") borrowedCar = null;
         hitchhiker = null; hitchTimer = rand(25, 55);
         if (typeof footDisguiseLook !== "undefined") footDisguiseLook = null;
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
@@ -5704,7 +5717,7 @@
             obstacles.push({
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
-                carType: randInt(0, 2),
+                carType: randCarType(),
                 hitW: 36, hitH: 64,
                 speedMult: sm,
                 lane: lane,
@@ -8377,7 +8390,7 @@
         var x = left ? rand(26, Math.max(28, ROAD_L - 28)) : rand(ROAD_R + 28, W - 26);
         var rot = (left ? 1 : -1) * (story === "offtrail" ? rand(0.5, 0.9) : story === "tree" ? rand(0.12, 0.3) : rand(-0.08, 0.08));
         roadsideVeh.push({ x: x, y: -140, side: left ? -1 : 1, story: story,
-            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: rot, copSiren: 0, peeT: rand(0, 2) });
+            color: randPick(C.enemyCols), carType: randCarType(), rot: rot, copSiren: 0, peeT: rand(0, 2) });
     }
     function updateRoadsideVeh(dt) {
         for (var i = roadsideVeh.length - 1; i >= 0; i--) {
@@ -8464,6 +8477,7 @@
         else if (playerVehicle === "ambulance") drawAmbulance(0, 0, time);
         else if (playerVehicle === "cop") drawCopCar(0, 0, time * 3);
         else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, time);
+        else if (playerVehicle === "borrowed") drawEnemyCar(0, 0, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
         else drawLuluCar(0, 0, 0, blinking, time, distractedMode);
         ctx.restore();
     }
@@ -14212,7 +14226,7 @@
         // drives badly. Fancier rides (cop/bus/etc.) are never lemons.
         var lemon = (vtype === "car" && Math.random() < 0.25) ? (Math.random() < 0.5 ? "engine" : "tire") : null;
         footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype, lemon: lemon,
-            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
+            color: randPick(C.enemyCols), carType: randCarType(), rot: left ? 0.12 : -0.12 });
     }
 
     var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH", salon: "SALON", parking: "PARKING" };
@@ -14345,7 +14359,12 @@
         else if (v === "cop") playerVehicle = "cop";
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
-        else playerVehicle = null;
+        else {
+            // A hotwired civilian car — she drives IT (its body + paint), not her pink
+            // car, so the pickup / sports car / EV / truck she boosts is what she rides.
+            playerVehicle = "borrowed";
+            if (typeof borrowedCar !== "undefined") borrowedCar = { carType: pc.carType || 0, color: pc.color || "#E53935" };
+        }
         // Stole a LEMON → it drives badly (a flat tire pulls her to one side, or a
         // shot engine sputters and smokes) until she ditches it for another ride.
         if (typeof carMalfunction !== "undefined") {

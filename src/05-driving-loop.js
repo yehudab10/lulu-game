@@ -1875,7 +1875,7 @@
         var x = left ? rand(26, Math.max(28, ROAD_L - 28)) : rand(ROAD_R + 28, W - 26);
         var rot = (left ? 1 : -1) * (story === "offtrail" ? rand(0.5, 0.9) : story === "tree" ? rand(0.12, 0.3) : rand(-0.08, 0.08));
         roadsideVeh.push({ x: x, y: -140, side: left ? -1 : 1, story: story,
-            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: rot, copSiren: 0, peeT: rand(0, 2) });
+            color: randPick(C.enemyCols), carType: randCarType(), rot: rot, copSiren: 0, peeT: rand(0, 2) });
     }
     function updateRoadsideVeh(dt) {
         for (var i = roadsideVeh.length - 1; i >= 0; i--) {
@@ -1962,6 +1962,7 @@
         else if (playerVehicle === "ambulance") drawAmbulance(0, 0, time);
         else if (playerVehicle === "cop") drawCopCar(0, 0, time * 3);
         else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, time);
+        else if (playerVehicle === "borrowed") drawEnemyCar(0, 0, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
         else drawLuluCar(0, 0, 0, blinking, time, distractedMode);
         ctx.restore();
     }

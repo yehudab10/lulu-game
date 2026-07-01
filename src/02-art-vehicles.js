@@ -567,6 +567,17 @@
     }
 
     // ── Drawing: Enemy cars ──────────────────────────────────
+    // Pick a traffic body type — ordinary sedans (0-2) stay common; the fun rides
+    // (pickup / sports / electric / box truck) sprinkle in for variety. Used by
+    // traffic, roadside decoration, and the parked cars Lulu can borrow on foot.
+    function randCarType() {
+        var r = Math.random();
+        if (r < 0.60) return randInt(0, 2);   // sedans — the bulk of traffic
+        if (r < 0.73) return 3;                // pickup truck
+        if (r < 0.84) return 6;                // sports car
+        if (r < 0.94) return 5;                // electric car
+        return 4;                              // box truck (rarest — it's the biggest)
+    }
     function drawEnemyCar(x, y, color, type) {
         ctx.save();
         ctx.translate(x, y);

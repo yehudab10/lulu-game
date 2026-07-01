@@ -24,6 +24,7 @@
         crashPhase = 0; crashPhaseTimer = 0; angryMan = null; revengeCar = null;
         crashCause = null; crashedCar = null; animalSwarm = []; crashCars = []; crashSmokeT = 0; crashCarT = 0;
         crashReprieve = false; reprieveKind = null; playerVehicle = null; salonReturnFoot = false;
+        if (typeof borrowedCar !== "undefined") borrowedCar = null;
         hitchhiker = null; hitchTimer = rand(25, 55);
         if (typeof footDisguiseLook !== "undefined") footDisguiseLook = null;
         parkingSigns = []; parkingSpawnTimer = 25; parkingReturnFoot = false;
@@ -207,7 +208,7 @@
             obstacles.push({
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
-                carType: randInt(0, 2),
+                carType: randCarType(),
                 hitW: 36, hitH: 64,
                 speedMult: sm,
                 lane: lane,

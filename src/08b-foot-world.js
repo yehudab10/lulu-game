@@ -373,7 +373,7 @@
         // drives badly. Fancier rides (cop/bus/etc.) are never lemons.
         var lemon = (vtype === "car" && Math.random() < 0.25) ? (Math.random() < 0.5 ? "engine" : "tire") : null;
         footParked.push({ x: left ? ROAD_L - 24 : ROAD_R + 24, y: -110, vtype: vtype, lemon: lemon,
-            color: randPick(C.enemyCols), carType: randInt(0, 2), rot: left ? 0.12 : -0.12 });
+            color: randPick(C.enemyCols), carType: randCarType(), rot: left ? 0.12 : -0.12 });
     }
 
     var FOOT_DOOR_NAME = { bars: "BAR", school: "SCHOOL", hospital: "CLINIC", police: "PRECINCT", beach: "BEACH", salon: "SALON", parking: "PARKING" };
@@ -506,7 +506,12 @@
         else if (v === "cop") playerVehicle = "cop";
         else if (v === "ambulance") playerVehicle = "ambulance";
         else if (v === "bus") playerVehicle = "bus";
-        else playerVehicle = null;
+        else {
+            // A hotwired civilian car — she drives IT (its body + paint), not her pink
+            // car, so the pickup / sports car / EV / truck she boosts is what she rides.
+            playerVehicle = "borrowed";
+            if (typeof borrowedCar !== "undefined") borrowedCar = { carType: pc.carType || 0, color: pc.color || "#E53935" };
+        }
         // Stole a LEMON → it drives badly (a flat tire pulls her to one side, or a
         // shot engine sputters and smokes) until she ditches it for another ride.
         if (typeof carMalfunction !== "undefined") {
