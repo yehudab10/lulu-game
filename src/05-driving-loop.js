@@ -790,6 +790,13 @@
                 o.x = clamp(o.x + pAway * 90 * dt, ROAD_L + 20, ROAD_R - 20);
             }
 
+            // Heshy's pool sits in a FRONT YARD off the shoulder now — cruising
+            // past it (any lane) is enough to catch his eye. He stays lounging.
+            if (o.type === "pool" && o.yard && !o.heshyed && Math.abs(o.y - player.y) < 60) {
+                o.heshyed = true;
+                triggerHeshy();
+            }
+
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
             // right up on them — a polite (or panicked) dodge.
             if (o.type === "car" && !o.crashed && (!o.behavior || o.behavior === "normal")) {
@@ -3880,6 +3887,7 @@
 
         drawDecorations(gameTime);
         drawCityBuildings();
+        drawSidewalkFolk();   // ambient city folk strolling / ducking into shops
         // parked roadside vehicles with their little stories (on the grass shoulder)
         for (var rvd = 0; rvd < roadsideVeh.length; rvd++) drawRoadsideVeh(roadsideVeh[rvd]);
 
@@ -3904,7 +3912,23 @@
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
-            else if (obstacles[i].type === "pool") drawHeshyPool(obstacles[i].x, obstacles[i].y, gameTime);
+            else if (obstacles[i].type === "pool") {
+                var hp = obstacles[i];
+                if (hp.yard) {
+                    // his little front yard: a grass pad, a picket fence behind,
+                    // and a folding chair — so the pool has an ADDRESS now
+                    ctx.save(); ctx.translate(hp.x, hp.y);
+                    ctx.fillStyle = "#7CB342"; roundRect(-34, -26, 68, 52, 10); ctx.fill();
+                    ctx.fillStyle = "#8BC34A"; roundRect(-30, -22, 60, 44, 8); ctx.fill();
+                    ctx.strokeStyle = "#EEE7D0"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+                    for (var pk = -28; pk <= 28; pk += 8) { ctx.beginPath(); ctx.moveTo(pk, -26); ctx.lineTo(pk, -18); ctx.stroke(); }
+                    ctx.beginPath(); ctx.moveTo(-30, -22); ctx.lineTo(30, -22); ctx.stroke(); ctx.lineCap = "butt";
+                    ctx.fillStyle = "#FF7043"; roundRect(20, 8, 10, 12, 2); ctx.fill();   // folding chair
+                    ctx.fillStyle = "#FFAB91"; roundRect(21, 9, 8, 5, 2); ctx.fill();
+                    ctx.restore();
+                }
+                drawHeshyPool(hp.x, hp.y, gameTime);
+            }
         }
 
         for (var j = 0; j < coinEntities.length; j++) {

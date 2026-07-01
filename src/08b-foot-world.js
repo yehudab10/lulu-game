@@ -323,7 +323,14 @@
             if (footDisguise.y > H + 100 || !footWantedNow) { footDisguise = null; footDisguiseCool = rand(4, 8); }
         }
         if (!footHotwire && !footApproach) footScroll(footParked, 110, dt);   // hold the car still while she walks up / hotwires
-        footScroll(footDoors, 80, dt);
+        // Only STANDALONE doors (beach) scroll here — anchored ones track their
+        // building every frame in footMaybeSpawnDoor.
+        for (var sdi = footDoors.length - 1; sdi >= 0; sdi--) {
+            var sdd = footDoors[sdi];
+            if (!sdd.standalone) continue;
+            sdd.y += gameSpeed * dt;
+            if (sdd.y > H + 80) footDoors.splice(sdi, 1);
+        }
         updateFootCompanion(dt);
 
         // Walking up to the car (coasting to a stop) takes priority, then a
@@ -382,16 +389,31 @@
         if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
         return null;
     }
+    // Doors are the BUILDINGS now: every enterable storefront scrolling past on
+    // foot gets its entrance at its base — no more free-floating random doors.
+    // (The beach has no building, so its boardwalk entrance still pops up on its
+    // own — only in the beach stretch, and far less often than doors used to.)
+    var FOOT_ENTERABLE = { bars: 1, school: 1, hospital: 1, police: 1, salon: 1, parking: 1 };
     function footMaybeSpawnDoor() {
-        if (footDoorCool > 0 || footDoors.length > 0) return;
-        // The SALON and PARKING are roadside shops Lulu can duck into ON FOOT, always
-        // available; the zone's own interior (bar/precinct/etc.) is also offered.
-        var cands = ["salon", "parking"];
-        var zi = footZoneInterior();
-        if (zi) cands.push(zi, zi);   // weight the local interior a little
-        footDoorCool = rand(4, 7);
-        var left = Math.random() < 0.5;
-        footDoors.push({ type: randPick(cands), x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
+        // Rebuild the building-anchored entrances from what's actually on screen.
+        var kept = [];
+        for (var k = 0; k < footDoors.length; k++) if (footDoors[k].standalone) kept.push(footDoors[k]);
+        footDoors = kept;
+        if (typeof cityBuildings !== "undefined") {
+            for (var i = 0; i < cityBuildings.length; i++) {
+                var b = cityBuildings[i];
+                if (!FOOT_ENTERABLE[b.kind]) continue;
+                var by = b.y + b.h + 10;
+                if (by < -60 || by > H + 40) continue;
+                footDoors.push({ type: b.kind, x: b.x, y: by, bld: b });
+            }
+        }
+        // Beach entrance — rare, and only where a beach actually is.
+        if (typeof zone !== "undefined" && zone === "beach" && footDoorCool <= 0) {
+            footDoorCool = rand(9, 14);
+            var left = Math.random() < 0.5;
+            footDoors.push({ type: "beach", x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90, standalone: true });
+        }
     }
 
     function footNearestInteractable() {
@@ -913,6 +935,21 @@
         ctx.save();
         ctx.translate(dr.x, dr.y);
         var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA", salon: "#EC407A", parking: "#607D8B" }[dr.type] || "#8D6E63";
+        if (dr.bld) {
+            // Anchored to a real storefront: the building already wears its own
+            // sign, so just a welcoming doorway at its base — a soft glow spilling
+            // out + a pulsing mat so it reads "you can go in here".
+            var gp = 0.45 + 0.25 * Math.abs(Math.sin(gameTime * 2.6));
+            ctx.fillStyle = "rgba(255,224,130," + (gp * 0.35) + ")";
+            ctx.beginPath(); ctx.ellipse(0, 22, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#3E2723"; roundRect(-16, -8, 32, 34, 4); ctx.fill();
+            ctx.fillStyle = "#5D4037"; roundRect(-12, -5, 24, 31, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,224,130,0.8)"; roundRect(-8, -2, 16, 10, 2); ctx.fill();  // lit window
+            ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 7 : -7, 14, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = col; roundRect(-14, 26, 28, 6, 3); ctx.fill();                       // welcome mat in the shop's color
+            ctx.restore();
+            return;
+        }
         ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();
         ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();
         ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill();

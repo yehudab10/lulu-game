@@ -227,11 +227,15 @@
                 hitW: 30, hitH: 12, speedMult: 1, lane: lane
             });
         } else if (type === "pool") {
-            // Heshy's pool — an Easter-egg "obstacle" that's actually a treat:
-            // riding through it summons Heshy and grants a temporary shield.
+            // Heshy's pool — no longer plopped in the middle of TRAFFIC: it sits
+            // in a little front yard off the shoulder, and just cruising past it
+            // (any lane) summons Heshy + grants the shield. Same treat, believable
+            // address.
+            var poolLeft = Math.random() < 0.5;
             obstacles.push({
-                type: "pool", x: x, y: y,
-                hitW: 34, hitH: 18, speedMult: 1, lane: lane
+                type: "pool",
+                x: poolLeft ? rand(34, Math.max(38, ROAD_L - 28)) : rand(ROAD_R + 28, W - 34),
+                y: y, hitW: 34, hitH: 18, speedMult: 1, lane: lane, yard: true
             });
         } else if (type === "ped") {
             obstacles.push({

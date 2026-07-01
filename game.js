@@ -1557,6 +1557,7 @@
         zoneNextAt = ZONE_RURAL_GAP + rand(-3000, 5000);
         zoneEndsAt = 0; cityBuildings = []; cityBuildTimer = 0;
         citiesSeen = 0;
+        if (typeof sidewalkFolk !== "undefined") { sidewalkFolk = []; folkTimer = 0; }
     }
     function updateZone(dt, speed) {
         if (zone === "rural") {
@@ -1605,6 +1606,67 @@
             cityBuildings[i].y += speed * dt;
             if (cityBuildings[i].y > H + 160) cityBuildings.splice(i, 1);
         }
+        updateSidewalkFolk(dt, speed);
+    }
+
+    // ── Sidewalk folk: ambient city pedestrians ─────────────────────────────
+    // Purely decorative people strolling the sidewalks of city stretches — some
+    // emerge FROM a storefront, some walk along and duck INTO one. No collision,
+    // no interaction: they're what makes a street read as a living city.
+    var sidewalkFolk = [], folkTimer = 0;
+    function updateSidewalkFolk(dt, speed) {
+        var cityish = zone !== "rural" && zone !== "bridge" && zone !== "beach";
+        folkTimer -= dt;
+        if (cityish && folkTimer <= 0 && sidewalkFolk.length < 5) {
+            folkTimer = rand(1.6, 3.2);
+            var side = Math.random() < 0.5 ? -1 : 1;
+            var sx = side < 0 ? rand(Math.max(20, ROAD_L - 34), Math.max(24, ROAD_L - 14)) : rand(ROAD_R + 14, ROAD_R + 34);
+            var f = { x: sx, y: -26, side: side, dir: Math.random() < 0.6 ? 1 : -1,
+                      spd: rand(26, 52), walkTime: rand(0, 5), pedType: randInt(0, 2),
+                      mode: "stroll", fade: 0 };
+            // A third of them step OUT of a storefront on their side instead.
+            if (Math.random() < 0.34) {
+                for (var b = 0; b < cityBuildings.length; b++) {
+                    var cb = cityBuildings[b];
+                    if (cb.side === side && cb.y > -60 && cb.y + cb.h < H * 0.45) {
+                        f.y = cb.y + cb.h + 6; f.x = cb.x; f.mode = "exiting"; f.fade = 1; break;
+                    }
+                }
+            }
+            sidewalkFolk.push(f);
+        }
+        for (var i = sidewalkFolk.length - 1; i >= 0; i--) {
+            var p = sidewalkFolk[i];
+            p.y += speed * dt + p.dir * p.spd * dt * (p.mode === "stroll" ? 1 : 0.5);
+            p.walkTime += dt;
+            if (p.mode === "exiting") { p.fade -= dt * 1.6; if (p.fade <= 0) { p.fade = 0; p.mode = "stroll"; } }
+            // Strollers sometimes spot a shop coming up on their side and go in.
+            if (p.mode === "stroll" && !p.target && Math.random() < dt * 0.25) {
+                for (var b2 = 0; b2 < cityBuildings.length; b2++) {
+                    var tb = cityBuildings[b2];
+                    if (tb.side === p.side && tb.y + tb.h > p.y - 140 && tb.y + tb.h < p.y - 30) { p.target = tb; break; }
+                }
+            }
+            if (p.target) {
+                var dy = (p.target.y + p.target.h + 6) - p.y;
+                p.y += clamp(dy, -40 * dt, 40 * dt);                 // drift to the doorway
+                p.x += clamp(p.target.x - p.x, -30 * dt, 30 * dt);
+                if (Math.abs(dy) < 5 && Math.abs(p.target.x - p.x) < 6) {
+                    p.mode = "entering"; p.fade = (p.fade || 0) + dt * 2.2;
+                    if (p.fade >= 1) { sidewalkFolk.splice(i, 1); continue; }   // stepped inside
+                }
+            }
+            if (p.y > H + 40 || p.y < -60 || (!cityish && p.y > H * 0.5)) sidewalkFolk.splice(i, 1);
+        }
+    }
+    function drawSidewalkFolk() {
+        for (var i = 0; i < sidewalkFolk.length; i++) {
+            var p = sidewalkFolk[i];
+            ctx.save();
+            if (p.fade > 0) ctx.globalAlpha = clamp(1 - p.fade, 0, 1);   // door fade in/out
+            if (typeof drawPedestrian === "function") drawPedestrian(p.x, p.y, p.walkTime, p.pedType);
+            ctx.restore();
+        }
     }
     function spawnPoliceLot(side) {
         var lw = 92, lh = 150;
@@ -1612,21 +1674,31 @@
                          : Math.min(W - lw / 2 - 2, (ROAD_R + W) / 2);
         cityBuildings.push({ x: x, y: -lh - 30, side: side, kind: "policeLot", w: lw, h: lh });
     }
+    // A real street is a MIX — the zone sets the flavor (about half the
+    // buildings), the rest is the usual city jumble of shops and offices.
+    // (Before this, a "salon" zone was 100% salons — a monoculture street.)
+    var CITY_MIX = ["downtown", "downtown", "market", "gas", "bakery", "pizza", "books", "salon", "bars", "parking"];
+    function cityKindFor() {
+        var own = zone === "police" || zone === "construction" ? 0.6 : 0.45;
+        return Math.random() < own ? zone : randPick(CITY_MIX);
+    }
     function spawnCityBuilding(side) {
-        var shortKind = (zone === "market" || zone === "gas" || zone === "salon");
-        var w = zone === "parking" ? rand(70, 96) : rand(50, 74);
-        var h = shortKind ? rand(64, 92) : (zone === "parking" ? rand(96, 138) : rand(74, zone === "downtown" ? 162 : 126));
+        var kind = cityKindFor();
+        var shortKind = (kind === "market" || kind === "gas" || kind === "salon" ||
+                         kind === "bakery" || kind === "pizza" || kind === "books");
+        var w = kind === "parking" ? rand(70, 96) : rand(50, 74);
+        var h = shortKind ? rand(64, 92) : (kind === "parking" ? rand(96, 138) : rand(74, kind === "downtown" ? 162 : 126));
         var x = side < 0 ? rand(6, Math.max(8, ROAD_L - w - 6)) + w / 2
                          : rand(ROAD_R + 6, W - w - 6) + w / 2;
         // All variety is chosen ONCE here (stable per building → no flicker).
-        var label = zone === "bars" ? randPick(BAR_NAMES)
-                  : zone === "school" ? randPick(SCHOOL_NAMES)
-                  : BUILD_LABEL[zone];
-        cityBuildings.push({ x: x, y: -h - 36, side: side, kind: zone, w: w, h: h,
+        var label = kind === "bars" ? randPick(BAR_NAMES)
+                  : kind === "school" ? randPick(SCHOOL_NAMES)
+                  : BUILD_LABEL[kind];
+        cityBuildings.push({ x: x, y: -h - 36, side: side, kind: kind, w: w, h: h,
             lit: Math.random() < 0.72, tint: randInt(0, 2), seed: randInt(1, 997),
             style: randInt(0, 2), roof: randInt(0, 2), shade: randInt(-12, 12),
-            label: label, glow: zone === "bars" && Math.random() < 0.3,
-            signC: zone === "bars" ? randPick(["#FF4FA3", "#4FC3F7", "#FFD54F", "#AED581", "#FF8A65"]) : BUILD_SIGN[zone],
+            label: label, glow: kind === "bars" && Math.random() < 0.3,
+            signC: kind === "bars" ? randPick(["#FF4FA3", "#4FC3F7", "#FFD54F", "#AED581", "#FF8A65"]) : BUILD_SIGN[kind],
             roofC: randPick(["#5D4037", "#455A64", "#37474F", "#6D4C41", "#4E342E", "#827717"]),
             awn: [randInt(0, 3), randInt(0, 3)], prod: [randInt(0, 4), randInt(0, 4), randInt(0, 4)] });
     }
@@ -1649,12 +1721,14 @@
         school: ["#9C4A3C", "#A85A48", "#8C4234"], downtown: ["#546E7A", "#607D8B", "#7E8A93"],
         hospital: ["#ECEFF1", "#E0E4E7", "#F5F7F8"], construction: ["#9E8E6E", "#8C7D5E", "#A89A7C"],
         gas: ["#C62828", "#B71C1C", "#D32F2F"], market: ["#6D4C41", "#7B5A4C", "#5D4037"],
-        salon: ["#E79BBC", "#EFA9C6", "#DD8BAE"], parking: ["#79858C", "#828E95", "#6E7A81"]
+        salon: ["#E79BBC", "#EFA9C6", "#DD8BAE"], parking: ["#79858C", "#828E95", "#6E7A81"],
+        bakery: ["#EFD9B4", "#E8CFA5", "#F5E3C3"], pizza: ["#C62828", "#B92B2B", "#D13030"],
+        books: ["#33574A", "#2E4F43", "#3B6152"]
     };
-    var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET", salon: "SALON", parking: "PARKING" };
+    var BUILD_LABEL = { bars: "BAR", police: "POLICE", school: "SCHOOL", hospital: "HOSPITAL", gas: "GAS", market: "MARKET", salon: "SALON", parking: "PARKING", bakery: "BAKERY", pizza: "PIZZA", books: "BOOKS" };
     var BAR_NAMES = ["BAR", "PUB", "LOUNGE", "KARAOKE", "TAVERN", "JUICE BAR"];
     var SCHOOL_NAMES = ["SCHOOL", "BAIS YAAKOV", "CHEDER", "ACADEMY", "DAY SCHOOL"];
-    var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581", salon: "#FFC0DD", parking: "#90CAF9" };
+    var BUILD_SIGN = { bars: "#FF4FA3", police: "#42A5F5", school: "#FFD54F", hospital: "#E53935", gas: "#FFEB3B", market: "#AED581", salon: "#FFC0DD", parking: "#90CAF9", bakery: "#FFB74D", pizza: "#FFF176", books: "#A5D6A7" };
     var AWN_COLS = ["#E53935", "#43A047", "#1E88E5", "#FB8C00"];
     var PRODUCE = ["#FF7043", "#FFCA28", "#8BC34A", "#E53935", "#AB47BC"];
     function drawMarketStall(b) {
@@ -6050,11 +6124,15 @@
                 hitW: 30, hitH: 12, speedMult: 1, lane: lane
             });
         } else if (type === "pool") {
-            // Heshy's pool — an Easter-egg "obstacle" that's actually a treat:
-            // riding through it summons Heshy and grants a temporary shield.
+            // Heshy's pool — no longer plopped in the middle of TRAFFIC: it sits
+            // in a little front yard off the shoulder, and just cruising past it
+            // (any lane) summons Heshy + grants the shield. Same treat, believable
+            // address.
+            var poolLeft = Math.random() < 0.5;
             obstacles.push({
-                type: "pool", x: x, y: y,
-                hitW: 34, hitH: 18, speedMult: 1, lane: lane
+                type: "pool",
+                x: poolLeft ? rand(34, Math.max(38, ROAD_L - 28)) : rand(ROAD_R + 28, W - 34),
+                y: y, hitW: 34, hitH: 18, speedMult: 1, lane: lane, yard: true
             });
         } else if (type === "ped") {
             obstacles.push({
@@ -7618,6 +7696,13 @@
                 o.type === "car" && !o.crashed && Math.abs(o.y - player.y) < 165) {
                 var pAway = o.x < player.x ? -1 : 1;
                 o.x = clamp(o.x + pAway * 90 * dt, ROAD_L + 20, ROAD_R - 20);
+            }
+
+            // Heshy's pool sits in a FRONT YARD off the shoulder now — cruising
+            // past it (any lane) is enough to catch his eye. He stays lounging.
+            if (o.type === "pool" && o.yard && !o.heshyed && Math.abs(o.y - player.y) < 60) {
+                o.heshyed = true;
+                triggerHeshy();
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
@@ -10710,6 +10795,7 @@
 
         drawDecorations(gameTime);
         drawCityBuildings();
+        drawSidewalkFolk();   // ambient city folk strolling / ducking into shops
         // parked roadside vehicles with their little stories (on the grass shoulder)
         for (var rvd = 0; rvd < roadsideVeh.length; rvd++) drawRoadsideVeh(roadsideVeh[rvd]);
 
@@ -10734,7 +10820,23 @@
 
         for (var i = 0; i < obstacles.length; i++) {
             if (obstacles[i].type === "puddle") drawPuddle(obstacles[i].x, obstacles[i].y);
-            else if (obstacles[i].type === "pool") drawHeshyPool(obstacles[i].x, obstacles[i].y, gameTime);
+            else if (obstacles[i].type === "pool") {
+                var hp = obstacles[i];
+                if (hp.yard) {
+                    // his little front yard: a grass pad, a picket fence behind,
+                    // and a folding chair — so the pool has an ADDRESS now
+                    ctx.save(); ctx.translate(hp.x, hp.y);
+                    ctx.fillStyle = "#7CB342"; roundRect(-34, -26, 68, 52, 10); ctx.fill();
+                    ctx.fillStyle = "#8BC34A"; roundRect(-30, -22, 60, 44, 8); ctx.fill();
+                    ctx.strokeStyle = "#EEE7D0"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+                    for (var pk = -28; pk <= 28; pk += 8) { ctx.beginPath(); ctx.moveTo(pk, -26); ctx.lineTo(pk, -18); ctx.stroke(); }
+                    ctx.beginPath(); ctx.moveTo(-30, -22); ctx.lineTo(30, -22); ctx.stroke(); ctx.lineCap = "butt";
+                    ctx.fillStyle = "#FF7043"; roundRect(20, 8, 10, 12, 2); ctx.fill();   // folding chair
+                    ctx.fillStyle = "#FFAB91"; roundRect(21, 9, 8, 5, 2); ctx.fill();
+                    ctx.restore();
+                }
+                drawHeshyPool(hp.x, hp.y, gameTime);
+            }
         }
 
         for (var j = 0; j < coinEntities.length; j++) {
@@ -14532,7 +14634,14 @@
             if (footDisguise.y > H + 100 || !footWantedNow) { footDisguise = null; footDisguiseCool = rand(4, 8); }
         }
         if (!footHotwire && !footApproach) footScroll(footParked, 110, dt);   // hold the car still while she walks up / hotwires
-        footScroll(footDoors, 80, dt);
+        // Only STANDALONE doors (beach) scroll here — anchored ones track their
+        // building every frame in footMaybeSpawnDoor.
+        for (var sdi = footDoors.length - 1; sdi >= 0; sdi--) {
+            var sdd = footDoors[sdi];
+            if (!sdd.standalone) continue;
+            sdd.y += gameSpeed * dt;
+            if (sdd.y > H + 80) footDoors.splice(sdi, 1);
+        }
         updateFootCompanion(dt);
 
         // Walking up to the car (coasting to a stop) takes priority, then a
@@ -14591,16 +14700,31 @@
         if (zone === "bars" || zone === "school" || zone === "hospital" || zone === "police" || zone === "beach") return zone;
         return null;
     }
+    // Doors are the BUILDINGS now: every enterable storefront scrolling past on
+    // foot gets its entrance at its base — no more free-floating random doors.
+    // (The beach has no building, so its boardwalk entrance still pops up on its
+    // own — only in the beach stretch, and far less often than doors used to.)
+    var FOOT_ENTERABLE = { bars: 1, school: 1, hospital: 1, police: 1, salon: 1, parking: 1 };
     function footMaybeSpawnDoor() {
-        if (footDoorCool > 0 || footDoors.length > 0) return;
-        // The SALON and PARKING are roadside shops Lulu can duck into ON FOOT, always
-        // available; the zone's own interior (bar/precinct/etc.) is also offered.
-        var cands = ["salon", "parking"];
-        var zi = footZoneInterior();
-        if (zi) cands.push(zi, zi);   // weight the local interior a little
-        footDoorCool = rand(4, 7);
-        var left = Math.random() < 0.5;
-        footDoors.push({ type: randPick(cands), x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90 });
+        // Rebuild the building-anchored entrances from what's actually on screen.
+        var kept = [];
+        for (var k = 0; k < footDoors.length; k++) if (footDoors[k].standalone) kept.push(footDoors[k]);
+        footDoors = kept;
+        if (typeof cityBuildings !== "undefined") {
+            for (var i = 0; i < cityBuildings.length; i++) {
+                var b = cityBuildings[i];
+                if (!FOOT_ENTERABLE[b.kind]) continue;
+                var by = b.y + b.h + 10;
+                if (by < -60 || by > H + 40) continue;
+                footDoors.push({ type: b.kind, x: b.x, y: by, bld: b });
+            }
+        }
+        // Beach entrance — rare, and only where a beach actually is.
+        if (typeof zone !== "undefined" && zone === "beach" && footDoorCool <= 0) {
+            footDoorCool = rand(9, 14);
+            var left = Math.random() < 0.5;
+            footDoors.push({ type: "beach", x: left ? ROAD_L - 30 : ROAD_R + 30, y: -90, standalone: true });
+        }
     }
 
     function footNearestInteractable() {
@@ -15122,6 +15246,21 @@
         ctx.save();
         ctx.translate(dr.x, dr.y);
         var col = { bars: "#7E57C2", school: "#EF5350", hospital: "#42A5F5", police: "#5C6BC0", beach: "#26C6DA", salon: "#EC407A", parking: "#607D8B" }[dr.type] || "#8D6E63";
+        if (dr.bld) {
+            // Anchored to a real storefront: the building already wears its own
+            // sign, so just a welcoming doorway at its base — a soft glow spilling
+            // out + a pulsing mat so it reads "you can go in here".
+            var gp = 0.45 + 0.25 * Math.abs(Math.sin(gameTime * 2.6));
+            ctx.fillStyle = "rgba(255,224,130," + (gp * 0.35) + ")";
+            ctx.beginPath(); ctx.ellipse(0, 22, 30, 13, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#3E2723"; roundRect(-16, -8, 32, 34, 4); ctx.fill();
+            ctx.fillStyle = "#5D4037"; roundRect(-12, -5, 24, 31, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,224,130,0.8)"; roundRect(-8, -2, 16, 10, 2); ctx.fill();  // lit window
+            ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 7 : -7, 14, 1.8, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = col; roundRect(-14, 26, 28, 6, 3); ctx.fill();                       // welcome mat in the shop's color
+            ctx.restore();
+            return;
+        }
         ctx.fillStyle = "#3E2723"; roundRect(-20, -2, 40, 46, 4); ctx.fill();
         ctx.fillStyle = "#5D4037"; roundRect(-15, 2, 30, 42, 3); ctx.fill();
         ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(onLeft ? 9 : -9, 24, 2, 0, Math.PI * 2); ctx.fill();
