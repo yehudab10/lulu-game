@@ -4058,6 +4058,9 @@
             drawCopCar(player.x, player.y, gameTime * 3);
         } else if (playerVehicle === "dozer") {
             drawSteamroller(player.x, player.y, player.tilt, gameTime);
+        } else if (playerVehicle === "borrowed") {
+            // A hotwired civilian car — she drives IT (its body + paint), not her pink car.
+            drawEnemyCar(player.x, player.y, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
         } else {
             drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
