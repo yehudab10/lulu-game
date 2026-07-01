@@ -9734,7 +9734,9 @@
         spawnCrashBurst(o.x, o.y, true);
         if (typeof playExplosion === "function") playExplosion();
         playTone(64, 0.24, "square", 0.16); shakeTimer = 0.12; shakeIntensity = 4;
-        flatWrecks.push({ x: o.x, y: o.y, color: o.color || "#9E9E9E", t: 0, cop: o.behavior === "patrol" });
+        flatWrecks.push({ x: o.x, y: o.y, color: o.color || "#9E9E9E", t: 0, cop: o.behavior === "patrol",
+            // pancake keeps the victim's footprint — a flattened bus stays LONG
+            sz: Math.max(0.85, Math.min(1.8, (o.hitH || 64) / 64)) });
         // Bank the crush coins in memory only — do NOT persistSave() here. Flattening
         // a cluster crushes several cars in one frame, and a synchronous localStorage
         // write per car caused a visible hitch. They persist at the next checkpoint
@@ -9763,6 +9765,7 @@
     // The pancaked wreck left behind — a squashed car silhouette.
     function drawFlatWreck(fw) {
         ctx.save(); ctx.translate(fw.x, fw.y);
+        var fs = fw.sz || 1; ctx.scale(fs, 1 + (fs - 1) * 0.35);   // bigger victim → bigger pancake
         ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.beginPath(); ctx.ellipse(0, 2, 26, 9, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = shadeColor(fw.color, -20); roundRect(-24, -6, 48, 12, 5); ctx.fill();
         ctx.fillStyle = fw.color; roundRect(-22, -5, 44, 6, 4); ctx.fill();
@@ -10328,12 +10331,15 @@
     // Blinking amber turn signal while a car is signaling / changing lanes.
     function drawTurnSignal(o) {
         if (Math.sin(gameTime * 16) <= 0) return;   // the "off" half of the blink
-        var sx = o.x + o.signalDir * 18;
+        // Sit the lamps on the vehicle's ACTUAL corners — the old fixed offsets
+        // were sedan-sized, so a box truck or city bus blinked from mid-body.
+        var sx = o.x + o.signalDir * ((o.hitW || 36) / 2 + 2);
+        var sy = (o.hitH || 64) / 2 - 4;
         ctx.save();
         ctx.fillStyle = "#FFB300";
         ctx.shadowColor = "#FFC107"; ctx.shadowBlur = 8;
-        ctx.beginPath(); ctx.arc(sx, o.y + 30, 3.4, 0, Math.PI * 2); ctx.fill();  // front corner
-        ctx.beginPath(); ctx.arc(sx, o.y - 30, 3.0, 0, Math.PI * 2); ctx.fill();  // rear corner
+        ctx.beginPath(); ctx.arc(sx, o.y + sy, 3.4, 0, Math.PI * 2); ctx.fill();  // front corner
+        ctx.beginPath(); ctx.arc(sx, o.y - sy, 3.0, 0, Math.PI * 2); ctx.fill();  // rear corner
         ctx.restore();
     }
 
@@ -10828,10 +10834,28 @@
             // She blinks while briefly invincible after a knock.
             if (!(invincibleTimer > 0 && Math.sin(gameTime * 22) < 0))
                 drawLuluTopDown(player.x, player.y, footWalkTime, footMood);
-        } else if (playerVehicle === "bus") {
-            drawTopBus(player.x, player.y);
-            // Deployed STOP sign swinging out from the bus's left side.
-            if (busStopT > 0) {
+        } else {
+            // ── ONE rig for every ride: each vehicle leans into the steering
+            //    (player.tilt) and flickers while invincible, exactly like the
+            //    pink car always has. Before this, only Lulu's own car tilted
+            //    and blinked — a hailed bus or hotwired taxi sat rigid and gave
+            //    NO visual cue at all during the immunity window.
+            //    (The pink car keeps its own internal blink via the param.)
+            if (!(playerVehicle && invincibleTimer > 0 && Math.sin(gameTime * 22) < 0)) {
+                ctx.save();
+                ctx.translate(player.x, player.y);
+                ctx.rotate(player.tilt || 0);
+                if (playerVehicle === "bus") drawTopBus(0, 0);
+                else if (playerVehicle === "ambulance") drawAmbulance(0, 0, gameTime);
+                else if (playerVehicle === "cop") drawCopCar(0, 0, gameTime * 3);
+                else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, gameTime);
+                else if (playerVehicle === "borrowed") drawEnemyCar(0, 0, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
+                else drawLuluCar(0, 0, 0, invincibleTimer > 0, gameTime, distractedMode);
+                ctx.restore();
+            }
+            // Deployed STOP sign swinging out from the bus's left side (drawn
+            // outside the tilt rig so the arm stays screen-aligned).
+            if (playerVehicle === "bus" && busStopT > 0) {
                 var ext = clamp((2.8 - busStopT) * 6, 0, 1) * (busStopT < 0.4 ? busStopT / 0.4 : 1);
                 var sgx = player.x - 30 - ext * 16, sgy = player.y - 4;
                 ctx.strokeStyle = "#616161"; ctx.lineWidth = 3;
@@ -10849,17 +10873,6 @@
                 drawText("STOP", 0, 1, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFF", null, 0);
                 ctx.restore();
             }
-        } else if (playerVehicle === "ambulance") {
-            drawAmbulance(player.x, player.y, gameTime);
-        } else if (playerVehicle === "cop") {
-            drawCopCar(player.x, player.y, gameTime * 3);
-        } else if (playerVehicle === "dozer") {
-            drawSteamroller(player.x, player.y, player.tilt, gameTime);
-        } else if (playerVehicle === "borrowed") {
-            // A hotwired civilian car — she drives IT (its body + paint), not her pink car.
-            drawEnemyCar(player.x, player.y, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
-        } else {
-            drawLuluCar(player.x, player.y, player.tilt, invincibleTimer > 0, gameTime, distractedMode);
         }
 
         // Heshy cameo (drawn above the car so he floats over the scene)
