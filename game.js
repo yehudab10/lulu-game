@@ -3088,38 +3088,186 @@
         var ew, eh, rad;
         if (type === 0) { ew = 42; eh = 74; rad = 10; }
         else if (type === 1) { ew = 48; eh = 82; rad = 8; }
+        else if (type === 2) { ew = 44; eh = 68; rad = 12; }
+        else if (type === 3) { ew = 46; eh = 88; rad = 8; }   // pickup truck — longer
+        else if (type === 4) { ew = 52; eh = 100; rad = 6; }  // box truck — biggest
+        else if (type === 5) { ew = 42; eh = 72; rad = 16; }  // electric car — rounded/compact
+        else if (type === 6) { ew = 50; eh = 76; rad = 9; }   // sports car — low & wide
         else { ew = 44; eh = 68; rad = 12; }
         var hw2 = ew / 2, hh2 = eh / 2;
 
+        // soft drop shadow
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.beginPath();
         ctx.ellipse(3, 5, hw2 + 3, hh2 - 8, 0, 0, Math.PI * 2);
         ctx.fill();
 
+        // wheels (four dark roundRects at the corners)
         ctx.fillStyle = C.wheel;
         roundRect(-hw2 - 3, -hh2 + 8, 7, 16, 3); ctx.fill();
         roundRect(hw2 - 4, -hh2 + 8, 7, 16, 3); ctx.fill();
         roundRect(-hw2 - 3, hh2 - 24, 7, 16, 3); ctx.fill();
         roundRect(hw2 - 4, hh2 - 24, 7, 16, 3); ctx.fill();
 
+        // darker body outline
         ctx.fillStyle = shadeColor(color, -40);
         roundRect(-hw2 - 2, -hh2 - 2, ew + 4, eh + 4, rad + 2); ctx.fill();
 
+        // vertical body gradient
         var g2 = ctx.createLinearGradient(0, -hh2, 0, hh2);
         g2.addColorStop(0, shadeColor(color, 30));
         g2.addColorStop(1, color);
         ctx.fillStyle = g2;
         roundRect(-hw2, -hh2, ew, eh, rad); ctx.fill();
 
-        ctx.fillStyle = "#78909C";
-        roundRect(-hw2 + 6, hh2 - 22, ew - 12, 14, 4); ctx.fill();
-        roundRect(-hw2 + 8, -hh2 + 8, ew - 16, 11, 3); ctx.fill();
-        // glass gloss highlight (diagonal sheen) — cleaner, less flat look
-        ctx.fillStyle = "rgba(255,255,255,0.18)";
-        roundRect(-hw2 + 8, hh2 - 21, (ew - 12) * 0.42, 12, 3); ctx.fill();
-        // body top sheen
-        ctx.fillStyle = "rgba(255,255,255,0.12)";
-        roundRect(-hw2 + 4, -hh2 + 3, ew - 8, 5, 3); ctx.fill();
+        if (type === 3) {
+            // ── PICKUP TRUCK ── cab at front (top) + open cargo bed at rear (bottom)
+            var cabTop = -hh2 + 4, cabH = eh * 0.42;
+            // cab roof panel
+            ctx.fillStyle = shadeColor(color, 12);
+            roundRect(-hw2 + 3, cabTop, ew - 6, cabH, rad - 2); ctx.fill();
+            // windshield (front of cab)
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 8, cabTop + 5, ew - 16, 11, 3); ctx.fill();
+            // cab rear window
+            roundRect(-hw2 + 8, cabTop + cabH - 12, ew - 16, 9, 3); ctx.fill();
+            // ── open cargo bed (recessed rectangle with visible walls) ──
+            var bedTop = cabTop + cabH + 4, bedBot = hh2 - 6;
+            ctx.fillStyle = shadeColor(color, -22);     // bed walls
+            roundRect(-hw2 + 4, bedTop, ew - 8, bedBot - bedTop, 4); ctx.fill();
+            ctx.fillStyle = shadeColor(color, -48);     // recessed bed floor
+            roundRect(-hw2 + 8, bedTop + 4, ew - 16, bedBot - bedTop - 8, 3); ctx.fill();
+            // spare tire in the bed
+            ctx.fillStyle = C.wheel;
+            ctx.beginPath(); ctx.ellipse(-hw2 + 15, (bedTop + bedBot) / 2, 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = shadeColor(C.wheel, 40);
+            ctx.beginPath(); ctx.ellipse(-hw2 + 15, (bedTop + bedBot) / 2, 2.5, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+            // wooden crate in the bed
+            ctx.fillStyle = "#A1887F";
+            roundRect(hw2 - 22, (bedTop + bedBot) / 2 - 6, 13, 13, 2); ctx.fill();
+            ctx.strokeStyle = "#6D4C41"; ctx.lineWidth = 1.5;
+            roundRect(hw2 - 22, (bedTop + bedBot) / 2 - 6, 13, 13, 2); ctx.stroke();
+            // cab windshield gloss
+            ctx.fillStyle = "rgba(255,255,255,0.18)";
+            roundRect(-hw2 + 8, cabTop + 5, (ew - 16) * 0.42, 11, 3); ctx.fill();
+        } else if (type === 4) {
+            // ── BOX TRUCK ── small cab at front + tall box cargo body behind it
+            var bcabH = eh * 0.24, bcabTop = -hh2 + 3;
+            // cab (uses body color, slightly darker roof)
+            ctx.fillStyle = shadeColor(color, -8);
+            roundRect(-hw2 + 3, bcabTop, ew - 6, bcabH, rad); ctx.fill();
+            // cab windshield
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 8, bcabTop + 4, ew - 16, bcabH - 8, 3); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.18)";
+            roundRect(-hw2 + 8, bcabTop + 4, (ew - 16) * 0.42, bcabH - 8, 3); ctx.fill();
+            // ── tall box cargo body (lighter than cab) ──
+            var boxTop = bcabTop + bcabH + 2, boxBot = hh2 - 3;
+            var boxCol = shadeColor(color, 55);
+            var bg = ctx.createLinearGradient(0, boxTop, 0, boxBot);
+            bg.addColorStop(0, shadeColor(boxCol, 20));
+            bg.addColorStop(1, boxCol);
+            ctx.fillStyle = shadeColor(color, -40);     // box edge
+            roundRect(-hw2 + 1, boxTop, ew - 2, boxBot - boxTop, 5); ctx.fill();
+            ctx.fillStyle = bg;
+            roundRect(-hw2 + 3, boxTop + 1, ew - 6, boxBot - boxTop - 2, 4); ctx.fill();
+            // roll-up door panel on the back with horizontal slat lines
+            ctx.fillStyle = shadeColor(boxCol, -14);
+            roundRect(-hw2 + 6, boxBot - 22, ew - 12, 18, 3); ctx.fill();
+            ctx.strokeStyle = shadeColor(boxCol, -34); ctx.lineWidth = 1;
+            for (var si = 1; si <= 3; si++) {
+                var sy = boxBot - 22 + si * 4.5;
+                ctx.beginPath(); ctx.moveTo(-hw2 + 8, sy); ctx.lineTo(hw2 - 8, sy); ctx.stroke();
+            }
+            // door handle
+            ctx.fillStyle = shadeColor(boxCol, -40);
+            roundRect(-3, boxBot - 15, 6, 3, 1.5); ctx.fill();
+            // box top sheen
+            ctx.fillStyle = "rgba(255,255,255,0.10)";
+            roundRect(-hw2 + 5, boxTop + 2, ew - 10, 5, 2); ctx.fill();
+        } else if (type === 5) {
+            // ── ELECTRIC CAR ── sleek/rounded, smooth closed nose, teal eco accent
+            var evTeal = "#26C6DA";
+            // smooth nose (no grille) — a bright full-width LED light bar across the front
+            ctx.fillStyle = evTeal;
+            roundRect(-hw2 + 6, -hh2 + 3, ew - 12, 4, 2); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.7)";
+            roundRect(-hw2 + 8, -hh2 + 4, ew - 16, 2, 1); ctx.fill();
+            // large curved windshield + rear cabin glass
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 7, -hh2 + 11, ew - 14, 13, 5); ctx.fill();
+            roundRect(-hw2 + 7, hh2 - 26, ew - 14, 13, 5); ctx.fill();
+            // eco/teal accent stripe down each side
+            ctx.fillStyle = evTeal;
+            roundRect(-hw2 + 2, -hh2 + 12, 3, eh - 24, 1.5); ctx.fill();
+            roundRect(hw2 - 5, -hh2 + 12, 3, eh - 24, 1.5); ctx.fill();
+            // charge-port dot with a tiny glow
+            ctx.fillStyle = evTeal;
+            ctx.beginPath(); ctx.ellipse(hw2 - 9, -hh2 + 20, 3, 3, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#E0F7FA";
+            ctx.beginPath(); ctx.ellipse(hw2 - 9, -hh2 + 20, 1.3, 1.3, 0, 0, Math.PI * 2); ctx.fill();
+            // glossy windshield sheen + body top sheen
+            ctx.fillStyle = "rgba(255,255,255,0.20)";
+            roundRect(-hw2 + 7, -hh2 + 11, (ew - 14) * 0.42, 13, 4); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.14)";
+            roundRect(-hw2 + 6, -hh2 + 7, ew - 12, 4, 3); ctx.fill();
+            // taillights
+            ctx.fillStyle = "#EF5350";
+            ctx.beginPath();
+            ctx.ellipse(-hw2 + 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw2 - 8, hh2 - 3, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        } else if (type === 6) {
+            // ── SPORTS CAR ── low & wide, tapered nose, twin racing stripes, rear wing
+            // aggressive tapered nose (dark wedge at the front)
+            ctx.fillStyle = shadeColor(color, -28);
+            ctx.beginPath();
+            ctx.moveTo(-hw2 + 6, -hh2 + 3);
+            ctx.lineTo(hw2 - 6, -hh2 + 3);
+            ctx.lineTo(hw2 - 12, -hh2 + 16);
+            ctx.lineTo(-hw2 + 12, -hh2 + 16);
+            ctx.closePath(); ctx.fill();
+            // twin racing stripes down the middle
+            ctx.fillStyle = "rgba(255,255,255,0.85)";
+            roundRect(-6, -hh2 + 2, 4, eh - 4, 1.5); ctx.fill();
+            roundRect(2, -hh2 + 2, 4, eh - 4, 1.5); ctx.fill();
+            // low wide cockpit glass (single canopy)
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 8, -hh2 + 18, ew - 16, 24, 5); ctx.fill();
+            // windshield gloss
+            ctx.fillStyle = "rgba(255,255,255,0.20)";
+            roundRect(-hw2 + 8, -hh2 + 18, (ew - 16) * 0.4, 24, 4); ctx.fill();
+            // ── rear spoiler / wing across the tail ──
+            ctx.fillStyle = shadeColor(color, -50);
+            roundRect(-hw2 - 1, hh2 - 12, 5, 12, 2); ctx.fill();   // left strut
+            roundRect(hw2 - 4, hh2 - 12, 5, 12, 2); ctx.fill();    // right strut
+            ctx.fillStyle = shadeColor(color, -30);
+            roundRect(-hw2 - 3, hh2 - 6, ew + 6, 6, 3); ctx.fill(); // wing blade
+            ctx.fillStyle = "rgba(255,255,255,0.16)";
+            roundRect(-hw2 - 1, hh2 - 6, ew + 2, 2, 1); ctx.fill();
+            // taillights
+            ctx.fillStyle = "#EF5350";
+            ctx.beginPath();
+            ctx.ellipse(-hw2 + 9, hh2 - 9, 3, 2, 0, 0, Math.PI * 2);
+            ctx.ellipse(hw2 - 9, hh2 - 9, 3, 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            return;
+        } else {
+            // ── SEDANS (types 0,1,2) — unchanged ──
+            ctx.fillStyle = "#78909C";
+            roundRect(-hw2 + 6, hh2 - 22, ew - 12, 14, 4); ctx.fill();
+            roundRect(-hw2 + 8, -hh2 + 8, ew - 16, 11, 3); ctx.fill();
+            // glass gloss highlight (diagonal sheen) — cleaner, less flat look
+            ctx.fillStyle = "rgba(255,255,255,0.18)";
+            roundRect(-hw2 + 8, hh2 - 21, (ew - 12) * 0.42, 12, 3); ctx.fill();
+            // body top sheen
+            ctx.fillStyle = "rgba(255,255,255,0.12)";
+            roundRect(-hw2 + 4, -hh2 + 3, ew - 8, 5, 3); ctx.fill();
+        }
+
         // facing taillights (enemy cars drive toward us — red lights at their rear/bottom)
         ctx.fillStyle = "#EF5350";
         ctx.beginPath();
