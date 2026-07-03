@@ -3188,6 +3188,8 @@
         // the game" catch-all on the next frame. (This is what broke the Dina easter
         // egg: the first corner-tap started the game instead of counting toward 5.)
         if (click) consumeAction();
+        // Shared Road button + its name/room overlay get first crack at the tap.
+        if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         if (click) {
             // PLAY button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
@@ -3243,6 +3245,9 @@
             }
         }
         if (consumeAction()) {
+            // With the Shared Road overlay open, keyboard-start must not fire
+            // behind it (mpMenuClick(null) returns true iff the overlay is open).
+            if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
             resetGame(); state = "playing";
         }
     }
@@ -4113,6 +4118,10 @@
 
         // On foot: parked (stealable) cars + building doors sit in the world.
         if (onFoot) drawFootWorld();
+
+        // Shared Road ghosts — other real players sharing the highway (drawn
+        // under Lulu so she always reads on top). Guarded no-op offline.
+        if (typeof mpDrawGhosts === "function") { try { mpDrawGhosts(); } catch (e) {} }
 
         // Player (or crashed car if state === crash; or Lulu on foot)
         if (state === "crash") {

@@ -5613,6 +5613,8 @@
         drawText("SCORE", 64, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         drawText(formatNum(Math.floor(score)), 64, 36, "bold 26px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5, "left");
 
+        // Shared Road rider count (only when connected)
+        if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
         // Coins (current run) — the counter POPS when a flying coin lands on it.
         var chPop = 1 + Math.max(0, coinHudPulse) * 0.9;
         ctx.save(); ctx.translate(W - 100, 26); ctx.scale(chPop, chPop); drawCoin(0, 0, gameTime); ctx.restore();
@@ -10373,6 +10375,8 @@
         // the game" catch-all on the next frame. (This is what broke the Dina easter
         // egg: the first corner-tap started the game instead of counting toward 5.)
         if (click) consumeAction();
+        // Shared Road button + its name/room overlay get first crack at the tap.
+        if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         if (click) {
             // PLAY button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
@@ -10428,6 +10432,9 @@
             }
         }
         if (consumeAction()) {
+            // With the Shared Road overlay open, keyboard-start must not fire
+            // behind it (mpMenuClick(null) returns true iff the overlay is open).
+            if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
             resetGame(); state = "playing";
         }
     }
@@ -11298,6 +11305,10 @@
 
         // On foot: parked (stealable) cars + building doors sit in the world.
         if (onFoot) drawFootWorld();
+
+        // Shared Road ghosts — other real players sharing the highway (drawn
+        // under Lulu so she always reads on top). Guarded no-op offline.
+        if (typeof mpDrawGhosts === "function") { try { mpDrawGhosts(); } catch (e) {} }
 
         // Player (or crashed car if state === crash; or Lulu on foot)
         if (state === "crash") {
@@ -12237,6 +12248,10 @@
         // Controls hint
         drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
             "11px 'Segoe UI', Arial, sans-serif", "#DDD", "#333", 2);
+
+        // Shared Road (multiplayer) button + its overlay — drawn LAST so the
+        // name/room picker sits on top of everything. Guarded no-op offline.
+        if (typeof mpMenuButton === "function") { try { mpMenuButton(); } catch (e) {} }
     }
 
     // ── Draw: Shop ───────────────────────────────────────────
@@ -15616,6 +15631,7 @@
         // stat and stays frozen on foot, so showing it just looked broken. Coins
         // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
+        if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
         drawCoin(72, top + 36, gameTime);
         drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 
@@ -27901,6 +27917,9 @@
         // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
         updateTapFx(dt);
+        // Shared Road (multiplayer) lifecycle — a guarded no-op unless the
+        // player has explicitly joined from the menu. Never touches offline play.
+        if (typeof mpUpdate === "function") { try { mpUpdate(dt); } catch (e) {} }
         updateFloaters(dt);
         updateSceneFade(dt);
         updateStateTransition(dt);

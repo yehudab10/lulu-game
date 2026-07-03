@@ -664,6 +664,8 @@
         drawText("SCORE", 64, 14, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         drawText(formatNum(Math.floor(score)), 64, 36, "bold 26px 'Segoe UI', Arial, sans-serif", C.hud, C.hudShadow, 5, "left");
 
+        // Shared Road rider count (only when connected)
+        if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
         // Coins (current run) — the counter POPS when a flying coin lands on it.
         var chPop = 1 + Math.max(0, coinHudPulse) * 0.9;
         ctx.save(); ctx.translate(W - 100, 26); ctx.scale(chPop, chPop); drawCoin(0, 0, gameTime); ctx.restore();

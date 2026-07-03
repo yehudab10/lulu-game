@@ -638,6 +638,10 @@
         // Controls hint
         drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
             "11px 'Segoe UI', Arial, sans-serif", "#DDD", "#333", 2);
+
+        // Shared Road (multiplayer) button + its overlay — drawn LAST so the
+        // name/room picker sits on top of everything. Guarded no-op offline.
+        if (typeof mpMenuButton === "function") { try { mpMenuButton(); } catch (e) {} }
     }
 
     // ── Draw: Shop ───────────────────────────────────────────

@@ -974,6 +974,7 @@
         // stat and stays frozen on foot, so showing it just looked broken. Coins
         // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
+        if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
         drawCoin(72, top + 36, gameTime);
         drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
 

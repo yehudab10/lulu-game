@@ -13,6 +13,9 @@
         // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
         updateTapFx(dt);
+        // Shared Road (multiplayer) lifecycle — a guarded no-op unless the
+        // player has explicitly joined from the menu. Never touches offline play.
+        if (typeof mpUpdate === "function") { try { mpUpdate(dt); } catch (e) {} }
         updateFloaters(dt);
         updateSceneFade(dt);
         updateStateTransition(dt);
