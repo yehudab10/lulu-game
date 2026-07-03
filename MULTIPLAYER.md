@@ -62,5 +62,35 @@ Honk event → 📣 floater at that ghost + honk sfx if within 300 px.
 - `save.mpName` persists the chosen name.
 
 ## Non-goals v1
-No collision, no chat, no server authority, no accounts. Phase 2 (separate):
-async wanted-poster billboards + daily leaderboard.
+No collision, no chat, no server authority, no accounts.
+
+## PHASE 2 — async board (wanted posters + daily leaderboard)
+A single global Durable Object ("BOARD") with SQLite storage, reached over
+plain HTTPS fetch (same Worker, new routes). All client posting happens ONLY
+when the player has joined Shared Road this session (opt-in) — offline and
+never-joined players are never published.
+
+Routes (JSON):
+- `POST /board/wanted`  body `{"name":"Cholent Boy","charges":["GRAND THEFT AUTO","SPEEDING"]}`
+  → 204. Server validates: name MUST be one of the 12 curated names, ≤3
+  charges, each ≤32 chars A-Z0-9()&' spaces; keeps the newest 30; per-IP
+  ≥20s between posts.
+- `GET /board/wanted` → `{"list":[{"name":…,"charges":[…],"ts":…}]}` newest
+  first, max 12.
+- `POST /board/score` body `{"name":"…","score":12345}` → 204. Same name
+  validation; score clamped 0..2e6; keeps best score per name per UTC day;
+  per-IP ≥10s between posts.
+- `GET /board/scores` → `{"day":"2026-07-03","list":[{"name":…,"score":…}]}`
+  top 8 for the current UTC day.
+- CORS: `Access-Control-Allow-Origin: *` on GET/POST + OPTIONS preflight.
+
+Client behavior (only when opted in, all try/caught, all fire-and-forget):
+- On being JAILED (goToJail) → POST /board/wanted with her name + top-3
+  charges by severity.
+- On game over → POST /board/score (once per run).
+- Fugitive-mode WANTED billboards + the precinct most-wanted board draw REAL
+  recent players from GET /board/wanted (cached 60s, fallback to the
+  fictional posters when empty/unavailable).
+- The menu shows a small "🏁 TODAY'S TOP RIDERS" panel (top 5) from
+  GET /board/scores (cached 60s), only when Shared Road has ever been used
+  (save.mpName exists) and the fetch succeeds — otherwise nothing renders.
