@@ -218,6 +218,12 @@
             mpMyId = msg.id;
             mpConnected = true;
             mpPeers = {};
+            // Joining a friend room switches distracted mode OFF (solo cheat —
+            // reverse controls + 2× score would poison shared scores/races).
+            if (mpRoom !== "lobby" && typeof distractedMode !== "undefined" && distractedMode) {
+                distractedMode = false;
+                menuMsg = "📱 Distracted mode off — friend room"; menuMsgTimer = 2.5;
+            }
             if (msg.peers) {
                 for (var i = 0; i < msg.peers.length; i++) {
                     var pp = msg.peers[i];
@@ -628,7 +634,7 @@
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
         var baseY = H * 0.50;
-        var y = baseY + (save.distractedUnlocked ? 244 : 192);
+        var y = baseY + (save.distractedUnlocked ? 188 : 136);
         return { x: W / 2 - 110, y: y, w: 220, h: 46 };
     }
 

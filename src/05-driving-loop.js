@@ -3287,14 +3287,20 @@
                 resetGame(); gotoState("playing"); playClick(); return;
             }
             // PARKING button removed from the menu — parking is now reached only
-            // via the road pull-over (Q / EXIT). SHOP etc. keep their positions.
+            // via the road pull-over (Q / EXIT); the stack is compacted to match.
             // SHOP button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 74, 220, 54)) {
                 state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
             }
-            // Distracted mode toggle (if unlocked)
+            // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
+            // controls, 2× score) — locked out in friend rooms so shared
+            // leaderboards and races stay fair.
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 192, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
+                if (!distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
+                    menuMsg = "📱 No distracted mode in friend rooms"; menuMsgTimer = 2.2;
+                    playDeny(); return;
+                }
                 distractedMode = !distractedMode; playClick(); return;
             }
             // Mute button

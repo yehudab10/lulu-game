@@ -38,6 +38,11 @@
         dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = []; dozerNpcCool = 8;
         slowDriveT = 0; parkExit = null; exitBtnShown = false; exitQueued = false;
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
+        // Last-line guard: distracted mode never runs inside a friend room
+        // (reverse controls + 2× score would poison shared scores/races).
+        if (distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
+            distractedMode = false;
+        }
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);

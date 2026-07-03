@@ -609,17 +609,17 @@
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
         // PARKING button intentionally NOT drawn — parking is reached via the
-        // road pull-over now. SHOP + the others keep their positions (the 🌐
-        // Shared Road button rect is computed independently in 10f).
+        // road pull-over now; the stack below is compacted to close the gap
+        // (the 🌐 Shared Road button rect follows suit in 10f).
         // SHOP button
-        drawButton(W / 2 - 110, H * 0.50 + 130, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
+        drawButton(W / 2 - 110, H * 0.50 + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 
         // Distracted mode toggle
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.50 + 192, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, H * 0.50 + 136, 220, 44, label, { bg: c1, bgDark: c2, small: true });
         }
 
         // High scores
@@ -771,8 +771,12 @@
         for (var i = 0; i < 4; i++) {
             var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
             var f = statFill(mult), bx = sx + i * (bw + gap);
+            // Empty notches need a visible outline — a dark fill alone vanishes
+            // into the unowned cards' slate background.
             ctx.fillStyle = "rgba(0,0,0,0.35)";
             roundRect(bx, topY, bw, h, 3); ctx.fill();
+            ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            roundRect(bx, topY, bw, h, 3); ctx.stroke();
             var fh = h * f;
             ctx.fillStyle = "#FFD54F";
             roundRect(bx, topY + (h - fh), bw, fh, 3); ctx.fill();
@@ -828,7 +832,7 @@
 
             // Status line
             if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#1a1400", null, 0);
-            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#123010", null, 0);
+            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#FFF", "#123010", 2);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
                 drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);

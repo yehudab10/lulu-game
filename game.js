@@ -6628,6 +6628,11 @@
         dozers = []; dozerTimer = 0; dozerSpawnCool = 34; flatWrecks = []; dozerNpcCool = 8;
         slowDriveT = 0; parkExit = null; exitBtnShown = false; exitQueued = false;
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
+        // Last-line guard: distracted mode never runs inside a friend room
+        // (reverse controls + 2× score would poison shared scores/races).
+        if (distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
+            distractedMode = false;
+        }
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
@@ -11020,14 +11025,20 @@
                 resetGame(); gotoState("playing"); playClick(); return;
             }
             // PARKING button removed from the menu — parking is now reached only
-            // via the road pull-over (Q / EXIT). SHOP etc. keep their positions.
+            // via the road pull-over (Q / EXIT); the stack is compacted to match.
             // SHOP button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 74, 220, 54)) {
                 state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
             }
-            // Distracted mode toggle (if unlocked)
+            // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
+            // controls, 2× score) — locked out in friend rooms so shared
+            // leaderboards and races stay fair.
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 192, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
+                if (!distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
+                    menuMsg = "📱 No distracted mode in friend rooms"; menuMsgTimer = 2.2;
+                    playDeny(); return;
+                }
                 distractedMode = !distractedMode; playClick(); return;
             }
             // Mute button
@@ -12871,17 +12882,17 @@
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
         // PARKING button intentionally NOT drawn — parking is reached via the
-        // road pull-over now. SHOP + the others keep their positions (the 🌐
-        // Shared Road button rect is computed independently in 10f).
+        // road pull-over now; the stack below is compacted to close the gap
+        // (the 🌐 Shared Road button rect follows suit in 10f).
         // SHOP button
-        drawButton(W / 2 - 110, H * 0.50 + 130, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
+        drawButton(W / 2 - 110, H * 0.50 + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 
         // Distracted mode toggle
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.50 + 192, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, H * 0.50 + 136, 220, 44, label, { bg: c1, bgDark: c2, small: true });
         }
 
         // High scores
@@ -13033,8 +13044,12 @@
         for (var i = 0; i < 4; i++) {
             var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
             var f = statFill(mult), bx = sx + i * (bw + gap);
+            // Empty notches need a visible outline — a dark fill alone vanishes
+            // into the unowned cards' slate background.
             ctx.fillStyle = "rgba(0,0,0,0.35)";
             roundRect(bx, topY, bw, h, 3); ctx.fill();
+            ctx.lineWidth = 1; ctx.strokeStyle = "rgba(255,255,255,0.35)";
+            roundRect(bx, topY, bw, h, 3); ctx.stroke();
             var fh = h * f;
             ctx.fillStyle = "#FFD54F";
             roundRect(bx, topY + (h - fh), bw, fh, 3); ctx.fill();
@@ -13090,7 +13105,7 @@
 
             // Status line
             if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#1a1400", null, 0);
-            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#123010", null, 0);
+            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#FFF", "#123010", 2);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
                 drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
@@ -29098,6 +29113,12 @@
             mpMyId = msg.id;
             mpConnected = true;
             mpPeers = {};
+            // Joining a friend room switches distracted mode OFF (solo cheat —
+            // reverse controls + 2× score would poison shared scores/races).
+            if (mpRoom !== "lobby" && typeof distractedMode !== "undefined" && distractedMode) {
+                distractedMode = false;
+                menuMsg = "📱 Distracted mode off — friend room"; menuMsgTimer = 2.5;
+            }
             if (msg.peers) {
                 for (var i = 0; i < msg.peers.length; i++) {
                     var pp = msg.peers[i];
@@ -29508,7 +29529,7 @@
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
         var baseY = H * 0.50;
-        var y = baseY + (save.distractedUnlocked ? 244 : 192);
+        var y = baseY + (save.distractedUnlocked ? 188 : 136);
         return { x: W / 2 - 110, y: y, w: 220, h: 46 };
     }
 
