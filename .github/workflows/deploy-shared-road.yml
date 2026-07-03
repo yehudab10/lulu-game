@@ -1,0 +1,78 @@
+# Deploys the Shared Road multiplayer relay (server/mp-worker.js) to
+# Cloudflare Workers. Runs only when manually triggered from the Actions tab
+# (or via API). Needs one repo secret: CLOUDFLARE_API_TOKEN.
+name: Deploy Shared Road worker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve Cloudflare account id
+        id: acct
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -e
+          RESP=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            https://api.cloudflare.com/client/v4/accounts)
+          ACCT=$(echo "$RESP" | jq -r '.result[0].id // empty')
+          if [ -z "$ACCT" ]; then
+            echo "::error::Could not resolve a Cloudflare account from the token. API said: $RESP"
+            exit 1
+          fi
+          echo "account_id=$ACCT" >> "$GITHUB_OUTPUT"
+          echo "Resolved account: $ACCT"
+
+      - name: Ensure workers.dev subdomain exists (best effort)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCT: ${{ steps.acct.outputs.account_id }}
+        run: |
+          SUB=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCT/workers/subdomain" \
+            | jq -r '.result.subdomain // empty')
+          if [ -n "$SUB" ]; then
+            echo "workers.dev subdomain already set: $SUB"
+          else
+            WANT="lulu-boats-$(echo "$ACCT" | cut -c1-6)"
+            echo "No subdomain yet — attempting to register '$WANT'"
+            curl -s -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"subdomain\":\"$WANT\"}" \
+              "https://api.cloudflare.com/client/v4/accounts/$ACCT/workers/subdomain" | jq .
+            echo "(If this failed, pick a subdomain once in the Cloudflare dash → Workers & Pages, then re-run this workflow.)"
+          fi
+
+      - name: Deploy worker
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.acct.outputs.account_id }}
+        run: |
+          npm install --no-audit --no-fund
+          npx wrangler deploy 2>&1 | tee deploy.log
+          echo "==== DEPLOYED URL ===="
+          grep -Eo 'https://[a-z0-9.-]+workers\.dev' deploy.log | head -1 || true
+
+      - name: Show final URL
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCT: ${{ steps.acct.outputs.account_id }}
+        run: |
+          SUB=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCT/workers/subdomain" \
+            | jq -r '.result.subdomain // empty')
+          if [ -n "$SUB" ]; then
+            echo "SHARED_ROAD_URL=wss://lulu-shared-road.$SUB.workers.dev"
+          else
+            echo "SHARED_ROAD_URL=(no workers.dev subdomain registered yet)"
+          fi
