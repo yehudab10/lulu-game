@@ -21,6 +21,193 @@ const MAX_FRAME_BYTES = 2 * 1024;
 const STATE_RATE_LIMIT = 8; // per second per client
 const CLOSE_ROOM_FULL = 4001;
 
+// --- Async board (phase 2) — in-memory mirror of the DO logic ---------------
+const CURATED_NAMES = [
+  "Cholent Boy", "Rugelach Queen", "Bubby's Favorite", "Kugel Kid",
+  "Shabbos Racer", "Babka Baron", "Gefilte Ghost", "Mitzvah Machine",
+  "Sheitel Slayer", "Dreidel Daredevil", "Latke Legend", "Schmaltz Speedster",
+];
+const CURATED_SET = new Set(CURATED_NAMES);
+const WANTED_KEEP = 30;
+const WANTED_GET = 12;
+const SCORES_GET = 8;
+const MAX_CHARGES = 3;
+const MAX_CHARGE_LEN = 32;
+const SCORE_MAX = 2e6;
+const WANTED_MIN_GAP_MS = 20 * 1000;
+const SCORE_MIN_GAP_MS = 10 * 1000;
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Max-Age": "86400",
+};
+
+// In-memory board storage (survives only for the life of the process — fine
+// for local dev / tests).
+const board = {
+  wanted: [], // { ts, name, charges: [] } newest last
+  scores: new Map(), // day -> Map(name -> best score)
+  ipHits: new Map(), // ip -> { wanted, score } last-post ms
+};
+
+function utcDay(now) {
+  return new Date(now == null ? Date.now() : now).toISOString().slice(0, 10);
+}
+function validName(name) {
+  return typeof name === "string" && CURATED_SET.has(name);
+}
+function sanitizeCharges(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const c of raw) {
+    if (out.length >= MAX_CHARGES) break;
+    if (typeof c !== "string") continue;
+    const clean = c
+      .toUpperCase()
+      .replace(/[^A-Z0-9()&' ]/g, "")
+      .slice(0, MAX_CHARGE_LEN)
+      .trim();
+    if (clean) out.push(clean);
+  }
+  return out;
+}
+function clampScore(v) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return n > SCORE_MAX ? SCORE_MAX : n;
+}
+function boardRateOk(ip, kind, gapMs, now) {
+  const rec = board.ipHits.get(ip) || {};
+  const last = rec[kind] || 0;
+  if (now - last < gapMs) return false;
+  rec[kind] = now;
+  board.ipHits.set(ip, rec);
+  return true;
+}
+function boardClientIp(req) {
+  return (
+    req.headers["cf-connecting-ip"] ||
+    (req.socket && req.socket.remoteAddress) ||
+    "0.0.0.0"
+  );
+}
+function sendBoard(res, status, obj) {
+  const headers = { ...CORS_HEADERS };
+  if (status === 204 || obj == null) {
+    res.writeHead(status, headers);
+    res.end();
+    return;
+  }
+  headers["content-type"] = "application/json";
+  res.writeHead(status, headers);
+  res.end(JSON.stringify(obj));
+}
+
+// Handle a /board/* HTTP request. Returns true if consumed.
+function handleBoard(req, res, pathname) {
+  if (req.method === "OPTIONS") {
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return true;
+  }
+  if (pathname === "/board/wanted" && req.method === "GET") {
+    const list = board.wanted
+      .slice()
+      .reverse()
+      .slice(0, WANTED_GET)
+      .map((w) => ({ name: w.name, charges: w.charges.slice(), ts: w.ts }));
+    sendBoard(res, 200, { list });
+    return true;
+  }
+  if (pathname === "/board/scores" && req.method === "GET") {
+    const day = utcDay();
+    const dayMap = board.scores.get(day) || new Map();
+    const list = [...dayMap.entries()]
+      .map(([name, score]) => ({ name, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, SCORES_GET);
+    sendBoard(res, 200, { day, list });
+    return true;
+  }
+  if (
+    (pathname === "/board/wanted" || pathname === "/board/score") &&
+    req.method === "POST"
+  ) {
+    readHttpBody(req, (body) => {
+      const now = Date.now();
+      const ip = boardClientIp(req);
+      if (!body || !validName(body.name)) {
+        sendBoard(res, 400, { error: "bad request" });
+        return;
+      }
+      if (pathname === "/board/wanted") {
+        if (!boardRateOk(ip, "wanted", WANTED_MIN_GAP_MS, now)) {
+          sendBoard(res, 429, { error: "rate limited" });
+          return;
+        }
+        board.wanted.push({
+          ts: now,
+          name: body.name,
+          charges: sanitizeCharges(body.charges),
+        });
+        if (board.wanted.length > WANTED_KEEP) {
+          board.wanted = board.wanted.slice(board.wanted.length - WANTED_KEEP);
+        }
+        sendBoard(res, 204, null);
+      } else {
+        if (!boardRateOk(ip, "score", SCORE_MIN_GAP_MS, now)) {
+          sendBoard(res, 429, { error: "rate limited" });
+          return;
+        }
+        const day = utcDay(now);
+        let dayMap = board.scores.get(day);
+        if (!dayMap) {
+          dayMap = new Map();
+          board.scores.set(day, dayMap);
+        }
+        const score = clampScore(body.score);
+        const prev = dayMap.get(body.name);
+        if (prev == null || score > prev) dayMap.set(body.name, score);
+        sendBoard(res, 204, null);
+      }
+    });
+    return true;
+  }
+  return false;
+}
+
+// Collect a size-capped JSON body, then invoke cb(objOrNull).
+function readHttpBody(req, cb) {
+  const chunks = [];
+  let total = 0;
+  let done = false;
+  const finish = (obj) => {
+    if (done) return;
+    done = true;
+    cb(obj);
+  };
+  req.on("data", (c) => {
+    total += c.length;
+    if (total > MAX_FRAME_BYTES) {
+      finish(null);
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+  req.on("end", () => {
+    try {
+      const obj = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      finish(obj && typeof obj === "object" ? obj : null);
+    } catch (_) {
+      finish(null);
+    }
+  });
+  req.on("error", () => finish(null));
+}
+
 // Load a WebSocketServer implementation: real `ws`, else the fallback.
 // Set WS_IMPL=fallback to force the zero-dependency implementation.
 let WebSocketServer;
@@ -114,9 +301,16 @@ function allowState(ws) {
 // --- server ----------------------------------------------------------------
 
 const server = http.createServer((req, res) => {
-  if (req.url === "/" || req.url === "/health") {
+  const pathname = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`)
+    .pathname;
+  if (pathname === "/" || pathname === "/health") {
     res.writeHead(200, { "content-type": "text/plain" });
     res.end("Shared Road local relay OK\n");
+    return;
+  }
+  if (pathname.startsWith("/board")) {
+    if (handleBoard(req, res, pathname)) return;
+    sendBoard(res, 404, { error: "not found" });
     return;
   }
   res.writeHead(426);

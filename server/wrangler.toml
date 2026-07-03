@@ -7,8 +7,20 @@ compatibility_date = "2024-09-23"
 name = "ROOMS"
 class_name = "Room"
 
+# Async board (phase 2): a single global instance (idFromName "global") backing
+# the wanted-poster feed and the daily leaderboard, with SQLite storage.
+[[durable_objects.bindings]]
+name = "BOARD"
+class_name = "Board"
+
 # Durable Objects must be declared in a migration. SQLite-backed classes are
 # available on the Workers free plan.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+# Phase 2 migration: introduce the SQLite-backed Board class. Kept as a
+# separate tag so the existing v1 migration is never mutated.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Board"]

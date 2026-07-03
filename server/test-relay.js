@@ -10,6 +10,7 @@
 
 const { spawn } = require("child_process");
 const path = require("path");
+const http = require("http");
 
 let WebSocket;
 try {
@@ -58,6 +59,38 @@ function last(ws, type) {
 }
 function count(ws, type) {
   return ws.inbox.filter((m) => m.t === type).length;
+}
+
+// Plain-HTTP request to the board endpoints on the same port. `ip` sets a
+// fake CF-Connecting-IP so we control per-IP rate limiting from the test.
+function httpReq(method, pathname, body, ip) {
+  return new Promise((resolve, reject) => {
+    const payload = body == null ? null : Buffer.from(JSON.stringify(body));
+    const headers = {};
+    if (payload) {
+      headers["content-type"] = "application/json";
+      headers["content-length"] = payload.length;
+    }
+    if (ip) headers["cf-connecting-ip"] = ip;
+    const req = http.request(
+      { host: "127.0.0.1", port: PORT, method, path: pathname, headers },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let json = null;
+          try {
+            json = text ? JSON.parse(text) : null;
+          } catch (_) {}
+          resolve({ status: res.statusCode, headers: res.headers, json });
+        });
+      }
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 async function main() {
@@ -179,6 +212,127 @@ async function main() {
     a.send(JSON.stringify({ t: "s", d: { m: 0, x: 1, di: 1, sp: 1, junk: huge } }));
     await sleep(100);
     assert(count(d, "s") === 0, ">2KB frame is dropped (not relayed)");
+
+    // ---- 10. async board: wanted roundtrip --------------------------------
+    console.log("\n# board: wanted post + get roundtrip");
+    const w1 = await httpReq(
+      "POST",
+      "/board/wanted",
+      { name: "Cholent Boy", charges: ["GRAND THEFT AUTO", "SPEEDING"] },
+      "10.0.0.1"
+    );
+    assert(w1.status === 204, `valid wanted POST → 204 (got ${w1.status})`);
+    assert(
+      w1.headers["access-control-allow-origin"] === "*",
+      "wanted POST carries CORS allow-origin *"
+    );
+    const wg = await httpReq("GET", "/board/wanted", null, "10.0.0.9");
+    assert(wg.status === 200 && wg.json && Array.isArray(wg.json.list), "GET wanted returns a list");
+    const found = wg.json.list.find((x) => x.name === "Cholent Boy");
+    assert(!!found, "posted wanted poster appears in GET");
+    assert(
+      found &&
+        found.charges.length === 2 &&
+        found.charges[0] === "GRAND THEFT AUTO",
+      "wanted charges round-tripped intact"
+    );
+    assert(
+      wg.headers["access-control-allow-origin"] === "*",
+      "GET wanted carries CORS allow-origin *"
+    );
+
+    // ---- 11. board: curated-name rejection --------------------------------
+    console.log("\n# board: curated-name validation");
+    const bad = await httpReq(
+      "POST",
+      "/board/wanted",
+      { name: "H4X0R Kid", charges: ["SPEEDING"] },
+      "10.0.0.2"
+    );
+    assert(bad.status === 400, `non-curated name → 400 (got ${bad.status})`);
+    const badScore = await httpReq(
+      "POST",
+      "/board/score",
+      { name: "Not Real", score: 999 },
+      "10.0.0.3"
+    );
+    assert(badScore.status === 400, `non-curated score name → 400 (got ${badScore.status})`);
+
+    // ---- 12. board: oversized/too-many charges truncated ------------------
+    console.log("\n# board: charge sanitation (truncate)");
+    const longCharge = "X".repeat(50) + "!!!bad$$$"; // >32 chars + illegal chars
+    const cs = await httpReq(
+      "POST",
+      "/board/wanted",
+      {
+        name: "Babka Baron",
+        charges: [longCharge, "RECKLESS DRIVING", "JAYWALKING", "FOURTH ONE"],
+      },
+      "10.0.0.4"
+    );
+    assert(cs.status === 204, `oversized-charge POST accepted → 204 (got ${cs.status})`);
+    const cg = await httpReq("GET", "/board/wanted", null, "10.0.0.9");
+    const baron = cg.json.list.find((x) => x.name === "Babka Baron");
+    assert(!!baron, "sanitized poster present");
+    assert(baron && baron.charges.length === 3, `charges capped at 3 (got ${baron ? baron.charges.length : "?"})`);
+    assert(
+      baron && baron.charges[0].length <= 32 && !/[^A-Z0-9()&' ]/.test(baron.charges[0]),
+      "first charge truncated to ≤32 chars and stripped of illegal chars"
+    );
+
+    // ---- 13. board: wanted retention cap (GET ≤12, newest first) ----------
+    console.log("\n# board: wanted retention / newest-first");
+    for (let i = 0; i < 15; i++) {
+      // distinct IPs to sidestep the 20s per-IP throttle
+      await httpReq(
+        "POST",
+        "/board/wanted",
+        { name: "Kugel Kid", charges: ["TAG " + i] },
+        "10.9." + i + ".1"
+      );
+    }
+    const rg = await httpReq("GET", "/board/wanted", null, "10.0.0.9");
+    assert(rg.json.list.length === 12, `GET wanted capped at 12 (got ${rg.json.list.length})`);
+    assert(
+      rg.json.list[0].charges[0] === "TAG 14",
+      `newest poster first (got ${rg.json.list[0].charges[0]})`
+    );
+
+    // ---- 14. board: score best-per-day upsert -----------------------------
+    console.log("\n# board: score best-per-day upsert");
+    const s1 = await httpReq("POST", "/board/score", { name: "Latke Legend", score: 12345 }, "11.0.0.1");
+    assert(s1.status === 204, `score POST → 204 (got ${s1.status})`);
+    // lower score for the SAME name (different IP to avoid the throttle)
+    const s2 = await httpReq("POST", "/board/score", { name: "Latke Legend", score: 5000 }, "11.0.0.2");
+    assert(s2.status === 204, `lower score POST → 204 (got ${s2.status})`);
+    const sg = await httpReq("GET", "/board/scores", null, "11.0.0.9");
+    assert(sg.status === 200 && sg.json && sg.json.day, "GET scores returns day + list");
+    const latke = sg.json.list.find((x) => x.name === "Latke Legend");
+    assert(latke && latke.score === 12345, `best-per-day kept the higher score (got ${latke ? latke.score : "?"})`);
+
+    // ---- 15. board: score clamp -------------------------------------------
+    console.log("\n# board: score clamp to 2e6");
+    await httpReq("POST", "/board/score", { name: "Gefilte Ghost", score: 9999999999 }, "11.0.0.3");
+    const sg2 = await httpReq("GET", "/board/scores", null, "11.0.0.9");
+    const ghost = sg2.json.list.find((x) => x.name === "Gefilte Ghost");
+    assert(ghost && ghost.score === 2000000, `huge score clamped to 2e6 (got ${ghost ? ghost.score : "?"})`);
+
+    // ---- 16. board: per-IP rate limit (429) -------------------------------
+    console.log("\n# board: per-IP rate limit");
+    const rl1 = await httpReq("POST", "/board/wanted", { name: "Shabbos Racer", charges: ["SPEEDING"] }, "12.0.0.1");
+    assert(rl1.status === 204, `first wanted from IP → 204 (got ${rl1.status})`);
+    const rl2 = await httpReq("POST", "/board/wanted", { name: "Shabbos Racer", charges: ["SPEEDING"] }, "12.0.0.1");
+    assert(rl2.status === 429, `immediate second wanted from same IP → 429 (got ${rl2.status})`);
+
+    // ---- 17. board: CORS preflight ----------------------------------------
+    console.log("\n# board: OPTIONS preflight");
+    const pre = await httpReq("OPTIONS", "/board/wanted", null, "13.0.0.1");
+    assert(pre.status === 204, `OPTIONS preflight → 204 (got ${pre.status})`);
+    assert(
+      pre.headers["access-control-allow-origin"] === "*" &&
+        /POST/.test(pre.headers["access-control-allow-methods"] || ""),
+      "preflight advertises CORS origin + methods"
+    );
 
     // cleanup
     [a, c, d, over, ...capClients].forEach((w) => {
