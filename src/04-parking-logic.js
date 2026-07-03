@@ -49,6 +49,7 @@
         salonSigns = []; salonSpawnTimer = rand(40, 70);
         // Reset Dina + parking state leaks (per QA + Bug Hunter)
         parkingChallengeMode = false;
+        parkingFromPullover = false; parkingWalkout = null; parkingLotStyle = null;
         parkingResult = null; parkingFailHit = null;
         parkingExtras = []; parkedCars = []; parkingPedestrian = null;
         parkingCar = null; parkingZone = null; parkingLevelConfig = null;
@@ -206,7 +207,7 @@
             var sm = rand(0.45, 0.72);
             if (beh === "drunk" && Math.random() < 0.5) sm = rand(1.4, 1.7);
             var ct = randCarType(), hb = carHitbox(ct);
-            obstacles.push({
+            var carObj = {
                 type: "car", x: x, y: y,
                 color: randPick(C.enemyCols),
                 carType: ct,
@@ -215,7 +216,18 @@
                 lane: lane,
                 behavior: beh,
                 swerveT: rand(0, 6.28), spillT: rand(0.2, 0.6)
-            });
+            };
+            // Rare traffic MALFUNCTION (~3%) — normal cars only, and at most ONE
+            // afflicted car on screen at a time (skip the roll if one's already out).
+            if (beh === "normal" && Math.random() < 0.03) {
+                var malOut = false;
+                for (var mq = 0; mq < obstacles.length; mq++) { if (obstacles[mq].mal) { malOut = true; break; } }
+                if (!malOut) {
+                    carObj.mal = randPick(["breakdown", "flat", "rage"]);
+                    carObj.malT = 0;
+                }
+            }
+            obstacles.push(carObj);
         } else if (type === "cone") {
             obstacles.push({
                 type: "cone", x: x + rand(-15, 15), y: y,
@@ -417,6 +429,9 @@
     var RUDE_QUIPS = ["LEARN TO DRIVE!", "MY LANE!!", "Signal much?!", "Drive like my BUBBE!",
         "Off the road!", "MOVE IT!", "Watch it, lady!", "Oy, this DRIVER..."];
     var DODGE_QUIPS = ["WHOA!", "Yikes!", "Careful!!", "Hey now!", "Meshugga!"];
+    // Road-rage driver (a "rage" malfunction) — honking, tailgating, in a hurry.
+    var RAGE_QUIPS = ["MOVE IT!!", "I'm LATE!", "OUTTA MY WAY!", "GO GO GO!",
+        "Some of us WORK!", "LEARN TO DRIVE!", "TODAY, people!!"];
     // Avigail-on-the-road banter (her purple coupe shares the streets now).
     var AVIGAIL_ROAD_TAUNTS = [
         "Nice driving, Bruck. For a LEARNER. 💅", "Oh look, they let YOU back out.",
@@ -527,6 +542,56 @@
         setTimeout(function () { playTone(1175, 0.12, "sine", 0.18); }, 80);
     }
 
+    // Build a FRESH casual roadside lot each pull-over so it never feels canned:
+    // the open spot lands on a random side + row height, flanked by 2-4 parked
+    // cars, plus a subtle ground-tint / signage variant. `rng` is injectable
+    // (defaults to Math.random; the lead seeds it for multiplayer later) and
+    // `spotIndex` picks WHICH candidate slot is hers. Parallel layout only —
+    // perpendicular would need updateParking's rotation/zone checks rewritten,
+    // so everything else is varied instead (see the task summary note).
+    function buildRoadsideParkingLayout(rng, spotIndex, spotWidth) {
+        function rf() { return rng(); }
+        function rrange(a, b) { return a + rf() * (b - a); }
+        function rpick(arr) { return arr[Math.floor(rf() * arr.length)]; }
+
+        var depth = CAR_W + 16;                     // spot depth (matches challenge)
+        var rowY = Math.round(rrange(152, 196));    // vary how high the row sits
+        var carsN = 2 + Math.floor(rf() * 3);       // 2..4 surrounding parked cars
+        var slots = carsN + 1;                      // slots incl. the open one
+        // Parked cars sit ~a car-length wide (drawn rotated, so CAR_H is the
+        // horizontal footprint); pack them tight so up to 4 + the open bay fit.
+        var parkedPitch = CAR_H + 6;                // ~84
+        var margin = 22;
+        var rowW = carsN * parkedPitch + spotWidth; // fits within W-2*margin for carsN≤4
+        var slack = Math.max(0, (W - 2 * margin) - rowW);
+        // Which side of the lot the row hugs (nudges which side her spot lands on).
+        var side = Math.floor(rf() * 3);            // 0 left · 1 center · 2 right
+        var startX = margin + (side === 0 ? 0 : side === 2 ? slack : slack / 2);
+        // Which slot is open — randomized, but shifted deterministically by
+        // spotIndex so multiplayer can hand each rider a different bay.
+        var openIdx = ((Math.floor(rf() * slots) + (spotIndex || 0)) % slots + slots) % slots;
+
+        var zone = null, cars = [], cursor = startX;
+        for (var s = 0; s < slots; s++) {
+            if (s === openIdx) {
+                zone = { x: cursor, y: rowY, w: spotWidth, h: depth };
+                cursor += spotWidth;
+            } else {
+                cars.push({ x: cursor + parkedPitch / 2, y: rowY + depth / 2, rot: 0,
+                    color: rpick(C.enemyCols),
+                    carType: (typeof randCarType === "function" ? randCarType() : 0),
+                    damage: [], w: CAR_W, h: CAR_H });
+                cursor += parkedPitch;
+            }
+        }
+        var style = {
+            tint: rpick(["rgba(120,140,90,0.10)", "rgba(90,110,140,0.10)",
+                         "rgba(140,110,90,0.10)", "rgba(110,110,120,0.08)", null]),
+            sign: rpick(["LOT A", "P-2", "VISITOR", "2 HR MAX", "PAY HERE", "CUSTOMERS ONLY"])
+        };
+        return { zone: zone, cars: cars, style: style };
+    }
+
     function setupParkingScene() {
         // Determine config: challenge mode uses level config, casual uses defaults
         parkingLevelConfig = parkingChallengeMode
@@ -547,20 +612,32 @@
             w: CAR_W, h: CAR_H,
             vehicle: parkingChallengeMode ? null : (typeof playerVehicle !== "undefined" ? playerVehicle : null)
         };
-        // Empty spot
-        var spotCenterX = W / 2;
-        parkingZone = {
-            x: spotCenterX - cfg.spotWidth / 2,
-            y: 168,
-            w: cfg.spotWidth,
-            h: CAR_W + 16
-        };
-        parkedCars = [
-            { x: parkingZone.x - CAR_H / 2 - 6, y: parkingZone.y + parkingZone.h / 2,
-              rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H },
-            { x: parkingZone.x + parkingZone.w + CAR_H / 2 + 6, y: parkingZone.y + parkingZone.h / 2,
-              rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H }
-        ];
+        // Empty spot + the cars flanking it.
+        if (parkingChallengeMode) {
+            // Challenge mode keeps its fixed, centered two-car bay.
+            parkingLotStyle = null;
+            var spotCenterX = W / 2;
+            parkingZone = {
+                x: spotCenterX - cfg.spotWidth / 2,
+                y: 168,
+                w: cfg.spotWidth,
+                h: CAR_W + 16
+            };
+            parkedCars = [
+                { x: parkingZone.x - CAR_H / 2 - 6, y: parkingZone.y + parkingZone.h / 2,
+                  rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H },
+                { x: parkingZone.x + parkingZone.w + CAR_H / 2 + 6, y: parkingZone.y + parkingZone.h / 2,
+                  rot: 0, color: randPick(C.enemyCols), damage: [], w: CAR_W, h: CAR_H }
+            ];
+        } else {
+            // Casual pull-over lot — freshly randomized every time (see helper).
+            var rng = (typeof mpParkingRng === "function") ? mpParkingRng() : Math.random;
+            var spotIdx = (typeof mpParkingSpotIndex === "function") ? mpParkingSpotIndex() : 0;
+            var layout = buildRoadsideParkingLayout(rng, spotIdx, cfg.spotWidth);
+            parkingZone = layout.zone;
+            parkedCars = layout.cars;
+            parkingLotStyle = layout.style;
+        }
         // Cameras on the sidewalk
         parkingCameras = [];
         var camPositions = [
@@ -917,6 +994,10 @@
                 parkingZoom = 1 + Math.sin(t * Math.PI) * 0.4;
                 if (parkingTransitionTimer <= 0) {
                     parkingZoom = 1;
+                    if (parkingFromPullover) {
+                        // Pulled over → she steps out + walks off, THEN foot world.
+                        beginParkingWalkout(); return;
+                    }
                     if (parkingChallengeMode) {
                         // Advance to next level
                         parkingLevel++;
@@ -950,6 +1031,11 @@
                 parkingZoom = 1 + Math.sin(t2 * Math.PI) * 0.4;
                 if (parkingTransitionTimer <= 0) {
                     parkingZoom = 1;
+                    if (parkingFromPullover) {
+                        // Pulled over, then failed the park — she still steps out
+                        // and walks off into the foot world (no snap).
+                        beginParkingWalkout(); return;
+                    }
                     if (parkingChallengeMode) {
                         if (parkingChallengeLives <= 0) {
                             finishParkingRun(false);
@@ -979,6 +1065,41 @@
                     }
                 }
             }
+        }
+    }
+
+    // ── Pull-over walk-out — a short beat where Lulu steps out of the freshly
+    //    parked car and walks a few steps away before the foot world begins, so
+    //    the hand-off doesn't snap. Only for pull-over parks (challenge / on-foot
+    //    entries keep their own returns). ──
+    function beginParkingWalkout() {
+        var px = parkingCar ? parkingCar.x : W / 2;
+        var py = parkingCar ? parkingCar.y : H * 0.5;
+        parkingWalkout = {
+            t: 0, dur: 1.0, walkTime: 0,
+            sx: px, sy: py, x: px, y: py,
+            dx: px < W / 2 ? 1 : -1   // step out toward the middle of the lot
+        };
+        state = "parkingWalkout";
+    }
+
+    function updateParkingWalkout(dt) {
+        updateParticles(dt);
+        if (!parkingWalkout) { startFootWorld("droveOff"); return; }
+        parkingWalkout.t += dt;
+        parkingWalkout.walkTime += dt * 1.6;
+        var pr = clamp(parkingWalkout.t / parkingWalkout.dur, 0, 1);
+        // A few steps away from the car — out and slightly down the lot.
+        parkingWalkout.x = parkingWalkout.sx + parkingWalkout.dx * 34 * pr;
+        parkingWalkout.y = parkingWalkout.sy + 22 * pr;
+        if (parkingWalkout.t >= parkingWalkout.dur) {
+            parkingFromPullover = false;
+            parkingWalkout = null;
+            // She's left the car parked — step out clean (no vehicle in tow).
+            playerVehicle = null;
+            if (typeof carMalfunction !== "undefined") carMalfunction = null;
+            if (typeof borrowedCar !== "undefined") borrowedCar = null;
+            startFootWorld("droveOff");
         }
     }
 

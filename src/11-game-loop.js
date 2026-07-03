@@ -94,7 +94,7 @@
         else if (state === "jailCell" || state === "arrest") musicTrack = "prison";   // arrest / jail / escape
         else if (state === "footWedding") musicTrack = "wedding";   // Avigail's wedding music
         else if (state === "parking" || state === "parkingIntro" || state === "parkingResult" ||
-                 state === "parkingEnd") musicTrack = "parking";
+                 state === "parkingWalkout" || state === "parkingEnd") musicTrack = "parking";
         else if (state === "dinaRun" || state === "dinaBus" || state === "dinaCaught" ||
                  state === "dinaHome" || state === "dinaNap" || state === "dinaMorgan" ||
                  state === "cookieCatch" || state === "stickerBook") musicTrack = "dina";
@@ -123,6 +123,7 @@
         else if (state === "parkingIntro") updateParkingIntro(dt);
         else if (state === "parking") updateParking(dt);
         else if (state === "parkingResult") updateParkingResult(dt);
+        else if (state === "parkingWalkout") updateParkingWalkout(dt);
         else if (state === "parkingEnd") updateParkingEnd(dt);
         else if (state === "dinaBus") updateDinaBus(dt);
         else if (state === "dinaRun") updateDinaRun(dt);
@@ -166,6 +167,7 @@
         else if (state === "parkingIntro") drawParkingIntro();
         else if (state === "parking") drawParking();
         else if (state === "parkingResult") drawParkingResult();
+        else if (state === "parkingWalkout") drawParkingWalkout();
         else if (state === "parkingEnd") drawParkingEnd();
         else if (state === "dinaBus") drawDinaBus();
         else if (state === "dinaRun") drawDinaRun();

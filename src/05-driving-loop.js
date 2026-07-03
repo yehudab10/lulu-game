@@ -202,12 +202,12 @@
         if (carCrashCooldown > 0 || roadDramas.length >= 2) return;
         for (var i = 0; i < obstacles.length; i++) {
             var a = obstacles[i];
-            if (a.type !== "car" || a.crashed) continue;
+            if (a.type !== "car" || a.crashed || a.mal) continue;   // afflicted cars run their own arc
             if (a.behavior && a.behavior !== "normal" && a.behavior !== "drunk" && a.behavior !== "texting") continue;
             if (a.y < 30 || a.y > player.y - 120) continue;   // only ahead, on-screen
             for (var j = i + 1; j < obstacles.length; j++) {
                 var b = obstacles[j];
-                if (b.type !== "car" || b.crashed) continue;
+                if (b.type !== "car" || b.crashed || b.mal) continue;
                 if (b.behavior && b.behavior !== "normal" && b.behavior !== "drunk" && b.behavior !== "texting") continue;
                 if (Math.abs(a.x - b.x) < 44 && Math.abs(a.y - b.y) < 56) {
                     triggerCarCrash(a, b);
@@ -274,7 +274,7 @@
             var o = obstacles[i];
             if (o.y > player.y + 40 || Math.abs(o.y - player.y) > 230) continue; // ahead & near
             if (Math.random() > chance) continue;
-            if (o.type === "car" && (!o.behavior || o.behavior === "normal")) {
+            if (o.type === "car" && !o.mal && (!o.behavior || o.behavior === "normal")) {
                 o.dodged = true; o.dodgeDir = o.x <= player.x ? -1 : 1;
                 if (Math.random() < 0.4) { o.comment = randPick(HONK_REACT); o.commentT = 1.3; }
             } else if (o.type === "ped") {
@@ -350,17 +350,15 @@
         spawnFloater(player.x, player.y - 40, "🅿️ pulling over…", "#CE93D8");
         playTone(440, 0.12, "sine", 0.1, 320);
     }
-    // She's parked — step out and continue on foot (no cutscene, the world keeps
-    // rolling). startFootWorld drops her into the foot sim near where she parked.
+    // The pull-over coast finished — she's rolled onto the shoulder, so drop
+    // her into the CASUAL parking minigame to actually tuck the car in. The
+    // pull-over flag routes the after-park beat (walk out → foot world).
     function dropToFoot(side) {
         parkExit = null; slowDriveT = 0; exitBtnShown = false;
-        playerVehicle = null; carMalfunction = null;   // ditched the lemon
-        if (typeof borrowedCar !== "undefined") borrowedCar = null;
-        if (typeof startFootWorld === "function") startFootWorld("droveOff");
-        if (player) {
-            var sx = side < 0 ? ROAD_L + 30 : ROAD_R - 30;
-            player.x = sx; player.targetX = sx;
-        }
+        parkingChallengeMode = false;
+        parkingReturnFoot = false;
+        parkingFromPullover = true;   // → walk-out → startFootWorld("droveOff")
+        triggerParkingMinigame();     // parks the CURRENT vehicle (playerVehicle preserved)
     }
 
     var HITCH_LINES = ["Bubbe's, please! 🙏", "You're a MENSCH!", "Thanks, doll!", "I owe you a kugel!",
@@ -782,6 +780,76 @@
 
             if (o.commentT > 0) o.commentT -= dt; // speech-bubble lifetime
 
+            // ── Traffic MALFUNCTION — a rare afflicted normal car acts up. It
+            //    NEVER targets the player (normal collision rules apply); driving
+            //    only (foot mode leaves traffic behaving plainly). ──
+            if (o.type === "car" && o.mal && !o.crashed && o.behavior === "normal" && !onFoot) {
+                o.malT = (o.malT || 0) + dt;
+                if (o.mal === "breakdown") {
+                    // Eases to a near-stop in-lane over ~2s; hazards + hood smoke.
+                    o.speedMult = lerp(o.speedMult, 0.08, Math.min(1, dt * 1.4));
+                    if (!o.malSaid && o.malT > 0.4) { o.malSaid = true; o.comment = "Not now, NOT NOW!"; o.commentT = 2.6; }
+                    o.smokeT = (o.smokeT || 0) - dt;
+                    if (o.smokeT <= 0 && o.y > -20 && o.y < H) {
+                        o.smokeT = rand(0.22, 0.45);
+                        particles.push({ x: o.x + rand(-6, 6), y: o.y - (o.hitH || 64) / 2,
+                            vx: rand(-10, 10), vy: rand(-34, -14), life: 0, maxLife: rand(0.7, 1.2),
+                            size: rand(4, 8), color: randPick(["#9E9E9E", "#757575", "#616161"]), gravity: -10, smoke: true });
+                    }
+                } else if (o.mal === "flat") {
+                    // Limps at ~0.35, sways, and veers toward the nearest shoulder.
+                    o.speedMult = lerp(o.speedMult, 0.35, Math.min(1, dt * 1.2));
+                    if (!o.malSaid && o.malT > 0.3) { o.malSaid = true; o.comment = "thump thump thump…"; o.commentT = 2.6; }
+                    var shoulderX = (o.x < W / 2) ? (ROAD_L + 14) : (ROAD_R - 14);
+                    o.x = lerp(o.x, shoulderX, Math.min(1, dt * 0.5)) + Math.sin(o.malT * 6) * 16 * dt;
+                    // Fully off the road edge → becomes a parked "malfunction" veh.
+                    if (o.x <= ROAD_L + 6 || o.x >= ROAD_R - 6) {
+                        var flatLeft = o.x < W / 2;
+                        roadsideVeh.push({ x: flatLeft ? Math.max(26, ROAD_L - 20) : Math.min(W - 26, ROAD_R + 20),
+                            y: o.y, side: flatLeft ? -1 : 1, story: "malfunction",
+                            color: o.color, carType: o.carType,
+                            rot: (flatLeft ? 1 : -1) * rand(-0.05, 0.05), copSiren: 0, peeT: 0 });
+                        obstacles.splice(i, 1);
+                        continue;
+                    }
+                } else if (o.mal === "rage") {
+                    // Speeds up (never faster than a drunk), honks, tailgates.
+                    o.speedMult = Math.min(1.25, o.speedMult + dt * 0.4);
+                    if (o.malHonkT === undefined) o.malHonkT = rand(0.8, 1.8);
+                    o.malHonkT -= dt;
+                    if (o.malHonkT <= 0) {
+                        o.malHonkT = rand(1.4, 3.0);
+                        if (Math.abs(o.y - player.y) < 320 && o.y > -20 && o.y < H && typeof playHonk === "function") playHonk();
+                        if (o.commentT <= 0) { o.comment = randPick(RAGE_QUIPS); o.commentT = 1.8; }
+                    }
+                    // TAILGATE: close on the nearest car ahead in its lane.
+                    var ahead = null, aheadD = 1e9;
+                    for (var ri = 0; ri < obstacles.length; ri++) {
+                        var ro = obstacles[ri];
+                        if (ro === o || ro.type !== "car" || ro.crashed) continue;
+                        if (Math.abs(ro.x - o.x) > CAR_W) continue;       // same lane-ish
+                        var rgd = o.y - ro.y;                             // ahead = smaller y
+                        if (rgd > 0 && rgd < 140 && rgd < aheadD) { aheadD = rgd; ahead = ro; }
+                    }
+                    if (ahead) {
+                        if (aheadD > 60) o.speedMult = Math.min(1.25, (ahead.speedMult || 0.5) + 0.45);
+                        else o.speedMult = Math.min(o.speedMult, ahead.speedMult || 0.5);   // tuck in + match
+                        // Occasional abrupt, signal-less lane change to get around.
+                        if (!o.changing && o.lane !== undefined && Math.random() < dt * 0.5) {
+                            var rdirs = [];
+                            if (o.lane > 0) rdirs.push(-1);
+                            if (o.lane < 2) rdirs.push(1);
+                            if (rdirs.length) { o.lane += randPick(rdirs); o.laneTargetX = LANES[o.lane]; o.changing = "move"; }
+                        }
+                    }
+                    // Drive the cut-over (the polite block is skipped for mal cars).
+                    if (o.changing === "move") {
+                        o.x = lerp(o.x, o.laneTargetX, Math.min(1, 4.5 * dt));
+                        if (Math.abs(o.x - o.laneTargetX) < 2) { o.x = o.laneTargetX; o.changing = null; }
+                    }
+                }
+            }
+
             // Drunk bar patrons holler at Lulu often; rowdy workers, rarely.
             // Fire while they're anywhere on screen (not just dead-center) so a
             // patron that's about to scroll off still gets a line out.
@@ -827,8 +895,9 @@
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
-            // right up on them — a polite (or panicked) dodge.
-            if (o.type === "car" && !o.crashed && (!o.behavior || o.behavior === "normal")) {
+            // right up on them — a polite (or panicked) dodge. Malfunctioning cars
+            // are excluded (they run their own erratic behavior above).
+            if (o.type === "car" && !o.crashed && !o.mal && (!o.behavior || o.behavior === "normal")) {
                 if (!o.dodgeChecked && Math.abs(o.y - player.y) < 130 && Math.abs(o.x - player.x) < CAR_W * 1.1) {
                     o.dodgeChecked = true;
                     if (Math.random() < 0.32) {
@@ -3196,26 +3265,8 @@
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
                 resetGame(); gotoState("playing"); playClick(); return;
             }
-            // PARKING CHALLENGE button — locked until bought with coins.
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 68, 220, 54)) {
-                if (!save.parkingUnlocked) {
-                    if (save.totalCoins >= PARKING_UNLOCK_COST) {
-                        save.totalCoins -= PARKING_UNLOCK_COST;
-                        save.parkingUnlocked = true;
-                        persistSave();
-                        playBuy();
-                        menuMsg = "🅿 Parking unlocked!"; menuMsgTimer = 2;
-                    } else {
-                        playDeny();
-                        menuMsg = "Need 💰" + PARKING_UNLOCK_COST + " to unlock parking";
-                        menuMsgTimer = 2;
-                    }
-                    return;
-                }
-                resetGame();
-                startParkingChallenge();
-                playClick(); return;
-            }
+            // PARKING button removed from the menu — parking is now reached only
+            // via the road pull-over (Q / EXIT). SHOP etc. keep their positions.
             // SHOP button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
                 state = "shop"; shopTab = "skins"; playClick(); return;
@@ -3612,6 +3663,22 @@
         ctx.shadowColor = "#FFC107"; ctx.shadowBlur = 8;
         ctx.beginPath(); ctx.arc(sx, o.y + sy, 3.4, 0, Math.PI * 2); ctx.fill();  // front corner
         ctx.beginPath(); ctx.arc(sx, o.y - sy, 3.0, 0, Math.PI * 2); ctx.fill();  // rear corner
+        ctx.restore();
+    }
+
+    // A broken-down car's HAZARD lights — the same amber-lamp look as a turn
+    // signal, but flashing all FOUR corners at once.
+    function drawHazards(o) {
+        if (Math.sin(gameTime * 12) <= 0) return;   // the "off" half of the blink
+        var hx = (o.hitW || 36) / 2 + 2;
+        var hy = (o.hitH || 64) / 2 - 4;
+        ctx.save();
+        ctx.fillStyle = "#FFB300";
+        ctx.shadowColor = "#FFC107"; ctx.shadowBlur = 8;
+        var corners = [[-hx, hy], [hx, hy], [-hx, -hy], [hx, -hy]];
+        for (var h = 0; h < 4; h++) {
+            ctx.beginPath(); ctx.arc(o.x + corners[h][0], o.y + corners[h][1], 3.2, 0, Math.PI * 2); ctx.fill();
+        }
         ctx.restore();
     }
 
@@ -4071,6 +4138,7 @@
                     }
                     else drawEnemyCar(o.x, o.y, o.color, o.carType);
                     if (o.changing) drawTurnSignal(o);
+                    if (o.mal === "breakdown") drawHazards(o);   // amber four-corner hazards
                 }
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y, o.comment);
             }

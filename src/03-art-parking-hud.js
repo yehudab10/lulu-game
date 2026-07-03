@@ -97,6 +97,11 @@
         // Parking strip + main road
         ctx.fillStyle = "#6B7B8D";
         ctx.fillRect(0, 144, W, H - 144);
+        // Casual pull-over lots get a subtle ground tint so each one feels fresh.
+        if (parkingLotStyle && parkingLotStyle.tint) {
+            ctx.fillStyle = parkingLotStyle.tint;
+            ctx.fillRect(0, 144, W, H - 144);
+        }
 
         // White parking lines (between cars + at edges of zone)
         ctx.strokeStyle = "#F5F5DC";
@@ -169,6 +174,17 @@
         ctx.beginPath(); ctx.arc(432, 110, 5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#F44336";
         ctx.fillText("EXP", 432, 119);
+
+        // Casual pull-over lots get a little signboard variant (VISITOR / P-2 / …)
+        // so the lot reads a touch different each time.
+        if (parkingLotStyle && parkingLotStyle.sign) {
+            ctx.save();
+            ctx.fillStyle = "#37474F"; ctx.fillRect(232, 96, 3, 44);   // post
+            ctx.fillStyle = "#1565C0"; roundRect(210, 84, 48, 18, 3); ctx.fill();
+            ctx.strokeStyle = "#0D47A1"; ctx.lineWidth = 1.5; roundRect(210, 84, 48, 18, 3); ctx.stroke();
+            drawText("🅿 " + parkingLotStyle.sign, 234, 93, "bold 8px Arial", "#FFFFFF", null, 0);
+            ctx.restore();
+        }
     }
 
     // ── Drawing: Security camera (with live tracking) ─────────
@@ -1060,6 +1076,10 @@
     // Challenge mode
     var parkingChallengeMode = false;
     var parkingReturnFoot = false;   // entered the parking lot ON FOOT → return to foot
+    var parkingFromPullover = false; // reached parking by pulling over while DRIVING → after the
+                                     // result screen she steps out + walks off into the foot world
+    var parkingWalkout = null;       // {t,dur,x,y,...} the ~1s step-out-of-the-car beat before foot
+    var parkingLotStyle = null;      // casual roadside-lot look {tint, sign} — randomized per pull-over
     var parkingLevel = 1;
     var parkingChallengeLives = 3;
     var parkingChallengeStars = 0;

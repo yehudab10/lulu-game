@@ -53,6 +53,9 @@
             drawPedestrian(parkingPedestrian.x, parkingPedestrian.y,
                 parkingPedestrian.walkTime, parkingPedestrian.pedType);
         }
+        // Party members parking in the same lot (Shared Road) — translucent
+        // ghosts under Lulu's car so she always reads on top.
+        if (typeof mpDrawParkingGhosts === "function") { try { mpDrawParkingGhosts(); } catch (e) {} }
         // Lulu's car
         if (parkingCar) drawLuluCarFull(parkingCar, time, false);
         // Cameras (drawn on top)
@@ -168,6 +171,14 @@
             // Labels under buttons
             drawText("STEER", PARK_LEFT_RECT.x + 58, PARK_LEFT_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
             drawText("DRIVE", PARK_FWD_RECT.x + 58, PARK_FWD_RECT.y + 70, "bold 10px Arial", "#FFF", "#000", 2);
+        }
+    }
+
+    // ── Draw: Pull-over walk-out (Lulu steps out + walks off before foot) ──
+    function drawParkingWalkout() {
+        drawParkingFull(gameTime);
+        if (parkingWalkout) {
+            drawLuluTopDown(parkingWalkout.x, parkingWalkout.y, parkingWalkout.walkTime, "walk");
         }
     }
 
@@ -597,10 +608,9 @@
 
         // PLAY button
         drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
-        // PARKING CHALLENGE button — shows a coin lock until purchased.
-        drawButton(W / 2 - 110, H * 0.50 + 68, 220, 54,
-            save.parkingUnlocked ? "🅿 PARKING" : "🔒 PARKING 💰" + PARKING_UNLOCK_COST,
-            { bg: "#42A5F5", bgDark: "#0D47A1" });
+        // PARKING button intentionally NOT drawn — parking is reached via the
+        // road pull-over now. SHOP + the others keep their positions (the 🌐
+        // Shared Road button rect is computed independently in 10f).
         // SHOP button
         drawButton(W / 2 - 110, H * 0.50 + 130, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 

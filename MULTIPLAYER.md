@@ -27,6 +27,15 @@ Client → server:
     px (scrollOffset) · sp: current speed px/s · vk: "car"(=Lulu skin)|
     "borrowed"|"cop"|"bus"|"ambulance"|"dozer" · ct: carType when borrowed ·
     co: color when borrowed
+- piggyback fields inside `d` (the relay forwards `d` verbatim, so client-only
+  features ride along without server changes):
+  - races: `rn` race id (invite/announce) · `rp` cumulative race progress px ·
+    `rw` race id the sender just won
+  - party parking: `pk:{x,y,r}` — parking-minigame car pose (px, px, radians
+    ×100 rounded), sent only while `state === "parking"`. Peers with a fresh
+    `pk` (<3 s) draw as translucent ghosts in the shared lot. Friend rooms
+    seed the lot layout from the room code (`mpParkingRng`) and each member
+    gets a distinct target bay by roster order (`mpParkingSpotIndex`).
 - event: `{"t":"e","e":"honk"}` | `{"t":"e","e":"wave"}`
 - ping: `{"t":"pi"}` (30s keepalive; server echoes `{"t":"po"}`)
 

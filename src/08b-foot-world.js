@@ -393,7 +393,10 @@
     // foot gets its entrance at its base — no more free-floating random doors.
     // (The beach has no building, so its boardwalk entrance still pops up on its
     // own — only in the beach stretch, and far less often than doors used to.)
-    var FOOT_ENTERABLE = { bars: 1, school: 1, hospital: 1, police: 1, salon: 1, parking: 1 };
+    // NOTE: "parking" removed — the parking lot is now reached only via the road
+    // pull-over, so parking-garage buildings no longer grow foot doors (they stay
+    // as scenery). Salon + the rest keep theirs.
+    var FOOT_ENTERABLE = { bars: 1, school: 1, hospital: 1, police: 1, salon: 1 };
     function footMaybeSpawnDoor() {
         // Rebuild the building-anchored entrances from what's actually on screen.
         var kept = [];
