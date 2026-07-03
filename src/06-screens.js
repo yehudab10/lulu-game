@@ -813,10 +813,10 @@
             roundRect(cx + 9, cy + 9, chW, 14, 7); ctx.fill();
             drawText(chip, cx + 9 + chW / 2, cy + 16, "bold 9px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
 
-            // Car preview
+            // Car preview — static side-profile (~0.5 rad) reads like a catalog.
             ctx.save();
-            ctx.translate(cx + 105, cy + 44);
-            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 0.72);
+            ctx.translate(cx + 105, cy + 40);
+            drawShowroomCar(key, 0.5, 0.62);
             ctx.restore();
 
             // EQUIPPED tick badge (top-right of the well)
@@ -911,16 +911,14 @@
         // Soft elliptical shadow (fixed while the car spins).
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.32)";
-        ctx.beginPath(); ctx.ellipse(cxs, cys + 44, 92, 22, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cxs, cys + 52, 92, 20, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // The car, drawn LARGE on an oblique/tilted plane so its top-down art
-        // rotates like a 3/4 showroom turntable instead of a flat spinning sticker.
+        // The car — a pretty SIDE-PROFILE illustration on a pseudo-3D turntable
+        // (horizontal squash by cos(angle), front/rear sliver when edge-on).
         ctx.save();
-        ctx.translate(cxs, cys);
-        ctx.transform(1, 0, 0, 0.6, 0, 0);   // vertical squash → 3/4 view tilt
-        ctx.rotate(ang);
-        drawLuluCar(0, 0, 0, false, menuBounce, false, key, 2.2);
+        ctx.translate(cxs, cys - 6);
+        drawShowroomCar(key, ang, 1.55);
         ctx.restore();
 
         // Specular sweep across the car — a rotating light streak synced to spin.
@@ -1007,36 +1005,230 @@
         drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
     }
 
+    // ── Shop item cards (Power-Ups + Special): shared layout so the draw and
+    //    the click router (updateShop) read from the SAME rects and can't drift,
+    //    exactly like the garage's shopDetailRects. ──
+    var SHOP_ITEMS = {
+        missile:    { title: "Missile",      price: 20,   desc: "Blast the car right ahead of you.",         count: "missiles",    accent: "#EF5350" },
+        megapack:   { title: "Mega 5-Pack",  price: 80,   desc: "Five missiles — save 20 coins!",            count: "missiles",    accent: "#FF7043" },
+        pepper:     { title: "Pepper Spray", price: 15,   desc: "Zap an animal (or person!) off the road.",  count: "pepperSpray", accent: "#8BC34A" },
+        distracted: { title: "Distracted Mode", price: 1000, desc: "On her phone: reversed controls, 2× score.", count: null,       accent: "#BA68C8" }
+    };
+
+    function shopCardLayout(tab) {
+        var x = 22, w = W - 44, list = [];
+        function card(id, y, h) {
+            var bh = 44, bw = w - 104;
+            list.push({ id: id, x: x, y: y, w: w, h: h,
+                        btnX: x + 92, btnY: y + h - bh - 12, btnW: bw, btnH: bh });
+        }
+        if (tab === "powerups") {
+            card("missile", 158, 118);
+            card("megapack", 288, 118);
+            card("pepper", 418, 118);
+        } else {
+            card("distracted", 176, 214);
+        }
+        return list;
+    }
+
     function drawPowerupsTab() {
-        // Missile single
-        drawShopCard(40, 156, W - 80, 112, "🚀 Missile", "Destroy 1 car ahead", 20, "Buy +1", save.totalCoins >= 20);
-        drawText("You own: " + save.missiles, W / 2, 274, "bold 12px Arial", "#FFD700", "#000", 2);
-        // Missile pack
-        drawShopCard(40, 290, W - 80, 112, "🚀×5 Mega Pack", "Save 20 coins!", 80, "Buy 5-Pack", save.totalCoins >= 80);
-        // Pepper spray — clear an animal (or person!) off the road
-        drawShopCard(40, 422, W - 80, 112, "🌶️ Pepper Spray", "Zap an animal off the road!", 15, "Buy +1", save.totalCoins >= 15);
-        drawText("You own: " + save.pepperSpray, W / 2, 540, "bold 12px Arial", "#AED581", "#000", 2);
+        var cards = shopCardLayout("powerups");
+        for (var i = 0; i < cards.length; i++) drawShopItemCard(cards[i]);
     }
 
     function drawSpecialTab() {
-        drawShopCard(40, 170, W - 80, 170, "📱 Distracted Mode", "Lulu's on her phone! Reverse controls + 2× score.", 1000,
-            save.distractedUnlocked ? "OWNED" : "Unlock", save.totalCoins >= 1000 && !save.distractedUnlocked, save.distractedUnlocked);
+        var cards = shopCardLayout("special");
+        for (var i = 0; i < cards.length; i++) drawShopItemCard(cards[i]);
     }
 
-    function drawShopCard(x, y, w, h, title, desc, price, btnLabel, canAfford, owned) {
-        ctx.fillStyle = owned ? "#66BB6A" : "#546E7A";
-        roundRect(x, y, w, h, 12); ctx.fill();
-        ctx.fillStyle = owned ? "#388E3C" : "#37474F";
-        ctx.lineWidth = 3; ctx.strokeStyle = "#000";
-        roundRect(x, y, w, h, 12); ctx.stroke();
+    // ── Procedural item art (drawn in a box centered at cx,cy) ──
+    function drawMissileIcon(cx, cy, ang, L, withFlame) {
+        ctx.save();
+        ctx.translate(cx, cy); ctx.rotate(ang);
+        var hL = L / 2, r = L * 0.17, nose = hL, bodyEnd = hL * 0.5;
+        if (withFlame) {
+            var fl = ctx.createLinearGradient(-hL - L * 0.55, 0, -hL, 0);
+            fl.addColorStop(0, "rgba(255,235,59,0)");
+            fl.addColorStop(0.5, "#FF9800");
+            fl.addColorStop(1, "#FFEB3B");
+            ctx.fillStyle = fl;
+            ctx.beginPath();
+            ctx.moveTo(-hL, -r * 0.7);
+            ctx.quadraticCurveTo(-hL - L * 0.6, 0, -hL, r * 0.7);
+            ctx.quadraticCurveTo(-hL - L * 0.18, 0, -hL, -r * 0.7);
+            ctx.fill();
+        }
+        // fins
+        ctx.fillStyle = "#B71C1C";
+        ctx.beginPath(); ctx.moveTo(-hL + r * 0.6, -r * 0.9); ctx.lineTo(-hL - r * 0.4, -r * 2); ctx.lineTo(-hL + r * 1.6, -r * 0.2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-hL + r * 0.6, r * 0.9); ctx.lineTo(-hL - r * 0.4, r * 2); ctx.lineTo(-hL + r * 1.6, r * 0.2); ctx.closePath(); ctx.fill();
+        // body
+        var bg = ctx.createLinearGradient(0, -r, 0, r);
+        bg.addColorStop(0, "#FFCDD2"); bg.addColorStop(0.5, "#E53935"); bg.addColorStop(1, "#B71C1C");
+        ctx.fillStyle = bg;
+        roundRect(-hL, -r, bodyEnd + hL, r * 2, r); ctx.fill();
+        // nose cone
+        ctx.fillStyle = "#455A64";
+        ctx.beginPath(); ctx.moveTo(bodyEnd, -r); ctx.quadraticCurveTo(nose + r * 0.5, 0, bodyEnd, r); ctx.closePath(); ctx.fill();
+        // porthole + gloss
+        ctx.fillStyle = "#B3E5FC";
+        ctx.beginPath(); ctx.arc(-hL * 0.1, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        roundRect(-hL + r * 0.4, -r + 1, bodyEnd + hL - r, r * 0.55, r * 0.3); ctx.fill();
+        ctx.restore();
+    }
 
-        drawText(title, x + w / 2, y + 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
-        drawText(desc, x + w / 2, y + 60, "14px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
-        if (!owned) {
-            drawText("💰 " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
-            drawText(canAfford ? btnLabel : "Need more coins", x + w / 2, y + h - 12, "bold 14px Arial", "#FFF", "#000", 2);
+    function drawMissileArt(cx, cy) {
+        drawMissileIcon(cx, cy, -0.62, 52, true);
+    }
+
+    function drawMegaPackArt(cx, cy) {
+        // fanned trio
+        drawMissileIcon(cx - 9, cy + 8, -0.95, 40, true);
+        drawMissileIcon(cx + 9, cy + 8, -0.28, 40, true);
+        drawMissileIcon(cx, cy - 4, -0.62, 46, true);
+        // BEST VALUE ribbon
+        ctx.save();
+        ctx.translate(cx + 12, cy - 22); ctx.rotate(-0.3);
+        ctx.fillStyle = "#FFC107";
+        roundRect(-30, -8, 60, 16, 4); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = "#FF8F00";
+        roundRect(-30, -8, 60, 16, 4); ctx.stroke();
+        drawText("BEST VALUE", 0, 1, "bold 9px 'Segoe UI', Arial, sans-serif", "#5D3A00", null, 0);
+        ctx.restore();
+    }
+
+    function drawPepperArt(cx, cy) {
+        // spray cloud (upper-right)
+        ctx.fillStyle = "rgba(139,195,74,0.45)";
+        var puffs = [[16, -20, 8], [24, -14, 6], [22, -24, 5], [12, -26, 5]];
+        for (var p = 0; p < puffs.length; p++) {
+            ctx.beginPath(); ctx.arc(cx + puffs[p][0], cy + puffs[p][1], puffs[p][2], 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(205,220,57,0.7)";
+        for (var d = 0; d < 5; d++) {
+            ctx.beginPath(); ctx.arc(cx + 8 + d * 3.5, cy - 12 - d * 2.4, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        // canister body
+        var bg = ctx.createLinearGradient(cx - 12, 0, cx + 8, 0);
+        bg.addColorStop(0, "#C62828"); bg.addColorStop(0.5, "#EF5350"); bg.addColorStop(1, "#B71C1C");
+        ctx.fillStyle = bg;
+        roundRect(cx - 12, cy - 6, 20, 30, 5); ctx.fill();
+        // label band
+        ctx.fillStyle = "#FFF3E0"; ctx.fillRect(cx - 12, cy + 4, 20, 9);
+        ctx.fillStyle = "#8BC34A";
+        ctx.beginPath(); ctx.arc(cx - 2, cy + 8.5, 3, 0, Math.PI * 2); ctx.fill();
+        // cap + nozzle
+        ctx.fillStyle = "#37474F";
+        roundRect(cx - 9, cy - 14, 14, 9, 3); ctx.fill();
+        roundRect(cx + 3, cy - 12, 8, 5, 2); ctx.fill();   // nozzle pointing right
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        roundRect(cx - 9, cy - 4, 3, 26, 1.5); ctx.fill();
+    }
+
+    function drawPhoneArt(cx, cy) {
+        // chat bubbles behind
+        ctx.fillStyle = "#4FC3F7";
+        roundRect(cx - 2, cy - 26, 26, 15, 6); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 4, cy - 12); ctx.lineTo(cx + 9, cy - 12); ctx.lineTo(cx + 4, cy - 7); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFF";
+        for (var b = 0; b < 3; b++) { ctx.beginPath(); ctx.arc(cx + 4 + b * 6, cy - 18.5, 1.6, 0, Math.PI * 2); ctx.fill(); }
+        // phone body
+        ctx.fillStyle = "#263238";
+        roundRect(cx - 15, cy - 12, 26, 44, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037";  // hand thumb hint at bottom
+        // screen
+        var sg = ctx.createLinearGradient(0, cy - 8, 0, cy + 28);
+        sg.addColorStop(0, "#B3E5FC"); sg.addColorStop(1, "#4FC3F7");
+        ctx.fillStyle = sg;
+        roundRect(cx - 12, cy - 8, 20, 34, 3); ctx.fill();
+        // message rows
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        roundRect(cx - 9, cy - 4, 12, 3, 1.5); ctx.fill();
+        roundRect(cx - 9, cy + 2, 9, 3, 1.5); ctx.fill();
+        ctx.fillStyle = "rgba(255,235,59,0.9)";
+        roundRect(cx - 3, cy + 8, 11, 3, 1.5); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        roundRect(cx - 9, cy + 14, 10, 3, 1.5); ctx.fill();
+    }
+
+    var SHOP_ART = { missile: drawMissileArt, megapack: drawMegaPackArt, pepper: drawPepperArt, distracted: drawPhoneArt };
+
+    function drawShopItemCard(c) {
+        var it = SHOP_ITEMS[c.id];
+        var owned = c.id === "distracted" && save.distractedUnlocked;
+        var canAfford = save.totalCoins >= it.price;
+
+        // Card frame
+        var cg = ctx.createLinearGradient(0, c.y, 0, c.y + c.h);
+        cg.addColorStop(0, owned ? "#3E5C46" : "#455A64");
+        cg.addColorStop(1, owned ? "#2E4636" : "#2E3B42");
+        ctx.fillStyle = cg;
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = owned ? "#66BB6A" : "#263238";
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.stroke();
+
+        // Art well on the left
+        var aw = 78, ax = c.x + 10, ay = c.y + 10, ah = c.h - 20;
+        var ag = ctx.createLinearGradient(0, ay, 0, ay + ah);
+        ag.addColorStop(0, "#1f2a30"); ag.addColorStop(1, "#101a1f");
+        ctx.fillStyle = ag;
+        roundRect(ax, ay, aw, ah, 10); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        roundRect(ax, ay, aw, ah, 10); ctx.stroke();
+        ctx.save();
+        SHOP_ART[c.id](ax + aw / 2, ay + ah / 2);
+        ctx.restore();
+
+        // Title + description (readable light-on-dark)
+        var tx = c.x + 100;
+        drawText(it.title, tx, c.y + 26, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3, "left");
+        drawText(it.desc, tx, c.y + 48, "13px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2, "left");
+        if (c.id === "distracted") {
+            drawText("Solo runs only — disabled in friend rooms.", tx, c.y + 68,
+                "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2, "left");
+        }
+
+        // Owned-count pill (top-right), with a purchase pop/flash
+        var pillText = null;
+        if (it.count) pillText = "×" + save[it.count] + " owned";
+        else if (owned) pillText = "OWNED";
+        if (pillText) {
+            var popping = buyPopId === c.id && buyPopTimer > 0;
+            var pop = popping ? 1 + Math.sin(clamp(buyPopTimer / 0.5, 0, 1) * Math.PI) * 0.35 : 1;
+            ctx.save();
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var pw = ctx.measureText(pillText).width + 20;
+            var pcx = c.x + c.w - 12 - pw / 2, pcy = c.y + 22;
+            ctx.translate(pcx, pcy); ctx.scale(pop, pop);
+            ctx.fillStyle = popping ? "#FFF176" : (owned ? "#43A047" : "#FFC107");
+            roundRect(-pw / 2, -11, pw, 22, 11); ctx.fill();
+            drawText(pillText, 0, 1, "bold 12px 'Segoe UI', Arial, sans-serif", "#3a2b00", null, 0);
+            ctx.restore();
+        }
+
+        // BUY button — or an OWNED note for distracted
+        if (owned) {
+            ctx.fillStyle = "rgba(0,0,0,0.25)";
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.fill();
+            drawText("OWNED — toggle it on the menu", c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                "bold 13px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#0a1a0a", 2);
         } else {
-            drawText("✓ " + btnLabel, x + w / 2, y + h - 20, "bold 22px Arial", "#FFF", "#000", 3);
+            var bgc = canAfford ? "#FFC107" : "#8D5B5B";
+            var bgd = canAfford ? "#FF8F00" : "#5D3A3A";
+            ctx.fillStyle = bgc;
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.fill();
+            ctx.lineWidth = 2.5; ctx.strokeStyle = bgd;
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.stroke();
+            if (canAfford) {
+                drawText("BUY  💰 " + formatNum(it.price), c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                    "bold 17px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
+            } else {
+                var need = it.price - save.totalCoins;
+                drawText("need " + formatNum(need) + " more 💰", c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                    "bold 15px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#3a1a0a", 2);
+            }
         }
     }
 

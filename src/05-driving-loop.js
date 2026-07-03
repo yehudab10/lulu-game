@@ -3336,6 +3336,7 @@
         menuBounce += dt;
         if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
+        if (buyPopTimer > 0) buyPopTimer -= dt;   // owned-count pill pop/flash
 
         if (consumePause()) { shopDetail = null; state = "menu"; playClick(); return; }
         var click = consumeClick();
@@ -3395,48 +3396,40 @@
                     shopDetail = skinKeys[i]; shopDetailT = 0; playClick(); return;
                 }
             }
-        } else if (shopTab === "powerups") {
-            // Missile card
-            if (pointInRect(click.x, click.y, 40, 156, W - 80, 112)) {
-                if (save.totalCoins >= 20) {
-                    save.totalCoins -= 20; save.missiles++;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+1 Missile!"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-            // Mega pack (5 missiles)
-            if (pointInRect(click.x, click.y, 40, 290, W - 80, 112)) {
-                if (save.totalCoins >= 80) {
-                    save.totalCoins -= 80; save.missiles += 5;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+5 Missiles!"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-            // Pepper spray
-            if (pointInRect(click.x, click.y, 40, 422, W - 80, 112)) {
-                if (save.totalCoins >= 15) {
-                    save.totalCoins -= 15; save.pepperSpray++;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+1 Pepper Spray! 🌶️"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-        } else if (shopTab === "special") {
-            // Distracted mode
-            if (pointInRect(click.x, click.y, 40, 170, W - 80, 170)) {
-                if (save.distractedUnlocked) {
-                    lastBoughtMessage = "Already unlocked! Toggle in menu.";
-                    lastBoughtTimer = 1.5;
-                    playClick();
-                } else if (save.totalCoins >= 1000) {
-                    save.totalCoins -= 1000;
-                    save.distractedUnlocked = true;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "Distracted Mode UNLOCKED!";
-                    lastBoughtTimer = 2;
-                } else { playDeny(); lastBoughtMessage = "Need 1000 coins!"; lastBoughtTimer = 1.2; }
+        } else if (shopTab === "powerups" || shopTab === "special") {
+            // Only the BUY button buys — the whole card is no longer one hitbox.
+            // Rects come from the SAME shopCardLayout the draw uses so they can't drift.
+            var cards = shopCardLayout(shopTab);
+            for (var ci = 0; ci < cards.length; ci++) {
+                var c = cards[ci];
+                if (!pointInRect(click.x, click.y, c.btnX, c.btnY, c.btnW, c.btnH)) continue;
+                if (c.id === "missile") {
+                    if (save.totalCoins >= 20) {
+                        save.totalCoins -= 20; save.missiles++;
+                        persistSave(); playBuy(); buyPopId = "missile"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+1 Missile!"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "megapack") {
+                    if (save.totalCoins >= 80) {
+                        save.totalCoins -= 80; save.missiles += 5;
+                        persistSave(); playBuy(); buyPopId = "megapack"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+5 Missiles!"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "pepper") {
+                    if (save.totalCoins >= 15) {
+                        save.totalCoins -= 15; save.pepperSpray++;
+                        persistSave(); playBuy(); buyPopId = "pepper"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+1 Pepper Spray! 🌶️"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "distracted") {
+                    if (save.distractedUnlocked) {
+                        lastBoughtMessage = "Already unlocked! Toggle in menu."; lastBoughtTimer = 1.5; playClick();
+                    } else if (save.totalCoins >= 1000) {
+                        save.totalCoins -= 1000; save.distractedUnlocked = true;
+                        persistSave(); playBuy(); buyPopId = "distracted"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "Distracted Mode UNLOCKED!"; lastBoughtTimer = 2;
+                    } else { playDeny(); lastBoughtMessage = "Need 1000 coins!"; lastBoughtTimer = 1.2; }
+                }
                 return;
             }
         }

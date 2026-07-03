@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.3.0";
+    var GAME_VERSION = "1.3.1";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -3056,23 +3056,32 @@
         ctx.ellipse(3, 6, hw + 4, hh - 6, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Wheels
-        ctx.fillStyle = C.wheel;
-        roundRect(-hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
-        roundRect(hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
-        roundRect(-hw - 4, hh - 28, 8, 18, 3); ctx.fill();
-        roundRect(hw - 4, hh - 28, 8, 18, 3); ctx.fill();
+        // Wheels — deeper tire contrast (dark tire + a lighter tread inset)
+        var wheelSpots = [[-hw - 4, -hh + 10], [hw - 4, -hh + 10], [-hw - 4, hh - 28], [hw - 4, hh - 28]];
+        for (var wi = 0; wi < 4; wi++) {
+            var wx0 = wheelSpots[wi][0], wy0 = wheelSpots[wi][1];
+            ctx.fillStyle = "#181818";
+            roundRect(wx0, wy0, 8, 18, 3); ctx.fill();
+            ctx.fillStyle = "#3a3a3a";
+            roundRect(wx0 + 1.5, wy0 + 3, 5, 12, 2); ctx.fill();
+        }
 
         // Body outline
         ctx.fillStyle = skin.dark;
         roundRect(-hw - 2, -hh - 2, CAR_W + 4, CAR_H + 4, 14); ctx.fill();
 
-        // Body
-        var grad = ctx.createLinearGradient(0, -hh, 0, hh);
+        // Body — diagonal gradient, light source top-left
+        var grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
         grad.addColorStop(0, skin.light);
-        grad.addColorStop(0.5, skin.body);
+        grad.addColorStop(0.42, skin.body);
         grad.addColorStop(1, skin.dark);
         ctx.fillStyle = grad;
+        roundRect(-hw, -hh, CAR_W, CAR_H, 12); ctx.fill();
+        // top-left sheen band along the hood
+        var sheen = ctx.createLinearGradient(-hw, -hh, -hw + 14, -hh + 20);
+        sheen.addColorStop(0, "rgba(255,255,255,0.28)");
+        sheen.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = sheen;
         roundRect(-hw, -hh, CAR_W, CAR_H, 12); ctx.fill();
 
         // Optional racing stripe
@@ -3081,11 +3090,26 @@
             roundRect(-4, -hh + 4, 8, CAR_H - 8, 2); ctx.fill();
         }
 
-        // Windshield
+        // Thin bumper highlights (front + rear lip)
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        roundRect(-hw + 5, -hh + 1, CAR_W - 10, 2, 1); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.15)";
+        roundRect(-hw + 5, hh - 3, CAR_W - 10, 2, 1); ctx.fill();
+
+        // Windshield — glass gradient + diagonal glare stripe
         ctx.fillStyle = C.windshieldDark;
         roundRect(-hw + 7, -hh + 8, CAR_W - 14, 26, 6); ctx.fill();
-        ctx.fillStyle = C.windshield;
+        var wsg = ctx.createLinearGradient(-hw + 8, -hh + 9, -hw + 8, -hh + 33);
+        wsg.addColorStop(0, "#A6E1FB"); wsg.addColorStop(1, C.windshield);
+        ctx.fillStyle = wsg;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
+        ctx.save();
+        roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.clip();
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(-hw + 10, -hh + 9); ctx.lineTo(-hw + 20, -hh + 9);
+        ctx.lineTo(-hw + 8, -hh + 33); ctx.lineTo(-hw + 4, -hh + 33); ctx.closePath(); ctx.fill();
+        ctx.restore();
 
         // ── Lulu's face (skipped for an EMPTY car — she's out of it) ──
       if (empty) {
@@ -3440,6 +3464,252 @@
         }
 
         ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // ── Showroom "fake-3D" car ────────────────────────────────
+    // A pretty SIDE-PROFILE cartoon car (facing +x) used by the garage detail
+    // turntable and the card previews. The turntable illusion (see
+    // drawShowroomCar) is the classic sprite trick: horizontally squash the
+    // profile by cos(angle) and swap to a narrow FRONT/REAR sliver when the car
+    // turns edge-on, so it never collapses to a flat line.
+
+    // Trace the body silhouette (facing right, centered near origin). No fill —
+    // callers fill / clip / darken with it so the shape can't drift.
+    function showroomBodyPath() {
+        ctx.beginPath();
+        ctx.moveTo(-72, 16);
+        ctx.quadraticCurveTo(-75, 4, -70, -6);        // rear bumper + trunk lip
+        ctx.lineTo(-58, -9);
+        ctx.quadraticCurveTo(-50, -11, -45, -30);     // C-pillar up to roof
+        ctx.quadraticCurveTo(-43, -35, -35, -35);     // rear roof corner
+        ctx.lineTo(8, -35);                           // roofline
+        ctx.quadraticCurveTo(20, -35, 27, -19);       // A-pillar / windshield
+        ctx.lineTo(41, -12);                          // cowl → hood base
+        ctx.lineTo(64, -11);                          // hood
+        ctx.quadraticCurveTo(73, -10, 74, -1);        // nose
+        ctx.quadraticCurveTo(75, 8, 71, 16);          // front bumper
+        ctx.lineTo(-72, 16);                          // rocker (bottom)
+        ctx.closePath();
+    }
+
+    // One wheel of the side profile: tire depth, hubcap, spokes.
+    function showroomWheel(wx) {
+        var wr = 17;
+        // wheel-well shadow
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath(); ctx.arc(wx, 17, wr + 3, Math.PI, 0); ctx.fill();
+        // tire
+        ctx.fillStyle = "#1b1b1f";
+        ctx.beginPath(); ctx.arc(wx, 18, wr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2c2c30";
+        ctx.beginPath(); ctx.arc(wx, 18, wr - 2.5, 0, Math.PI * 2); ctx.fill();
+        // hubcap
+        var hg = ctx.createRadialGradient(wx - 3, 15, 1, wx, 18, wr - 5);
+        hg.addColorStop(0, "#f2f4f6"); hg.addColorStop(1, "#9aa4ac");
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(wx, 18, wr - 6, 0, Math.PI * 2); ctx.fill();
+        // spokes
+        ctx.strokeStyle = "rgba(80,90,98,0.7)"; ctx.lineWidth = 1.4;
+        for (var k = 0; k < 5; k++) {
+            var a = k * (Math.PI * 2 / 5) + 0.4;
+            ctx.beginPath(); ctx.moveTo(wx, 18);
+            ctx.lineTo(wx + Math.cos(a) * (wr - 7), 18 + Math.sin(a) * (wr - 7)); ctx.stroke();
+        }
+        ctx.fillStyle = "#5a646c";
+        ctx.beginPath(); ctx.arc(wx, 18, 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // The full side illustration, facing +x, drawn already-squashed by caller.
+    function showroomProfileArt(skin) {
+        var wheelFront = 45, wheelRear = -44;
+        // wheels first (body overlaps their tops → seated look)
+        showroomWheel(wheelRear);
+        showroomWheel(wheelFront);
+
+        // body outline (dark keyline)
+        ctx.fillStyle = skin.dark;
+        ctx.save(); ctx.translate(0, 0); ctx.lineJoin = "round";
+        showroomBodyPath();
+        ctx.lineWidth = 5; ctx.strokeStyle = skin.dark; ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+
+        // body fill — vertical gradient, light source top
+        var bg = ctx.createLinearGradient(0, -35, 0, 16);
+        bg.addColorStop(0, skin.light);
+        bg.addColorStop(0.45, skin.body);
+        bg.addColorStop(1, skin.dark);
+        showroomBodyPath();
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = bg;
+        ctx.fillRect(-80, -40, 160, 60);
+
+        // rocker-panel shading (bottom strip in shadow)
+        var rg = ctx.createLinearGradient(0, 4, 0, 16);
+        rg.addColorStop(0, "rgba(0,0,0,0)"); rg.addColorStop(1, "rgba(0,0,0,0.4)");
+        ctx.fillStyle = rg; ctx.fillRect(-80, 2, 160, 16);
+
+        // racing stripe along the side (stripe skins)
+        if (skin.stripe) {
+            ctx.fillStyle = skin.stripe;
+            ctx.globalAlpha = 0.9;
+            ctx.fillRect(-72, -3, 146, 6);
+            ctx.globalAlpha = 1;
+        }
+
+        // horizontal specular band along the body
+        var spec = ctx.createLinearGradient(0, -10, 0, -2);
+        spec.addColorStop(0, "rgba(255,255,255,0)");
+        spec.addColorStop(0.5, "rgba(255,255,255,0.45)");
+        spec.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = spec; ctx.fillRect(-72, -11, 146, 9);
+        ctx.restore();  // end body clip
+
+        // greenhouse / windows with sky reflection
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-42, -31);
+        ctx.lineTo(6, -31);
+        ctx.quadraticCurveTo(15, -31, 20, -19);
+        ctx.lineTo(-42, -14);
+        ctx.closePath();
+        ctx.clip();
+        var sky = ctx.createLinearGradient(0, -33, 0, -13);
+        sky.addColorStop(0, "#cdeafd"); sky.addColorStop(0.55, "#8fc6f0"); sky.addColorStop(1, "#5b93c4");
+        ctx.fillStyle = sky; ctx.fillRect(-44, -33, 66, 22);
+        // reflection streak
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.beginPath();
+        ctx.moveTo(-30, -31); ctx.lineTo(-22, -31); ctx.lineTo(-34, -13); ctx.lineTo(-42, -13); ctx.closePath(); ctx.fill();
+        // Lulu head silhouette behind the glass
+        var hairC = save.luluHair || "#8B5A2B";
+        ctx.fillStyle = hairC;
+        ctx.beginPath(); ctx.arc(-8, -20, 7.5, 0, Math.PI * 2); ctx.fill();      // hair
+        ctx.fillStyle = "#FFD9C0";
+        ctx.beginPath(); ctx.arc(-6, -19, 5, 0, Math.PI * 2); ctx.fill();        // face
+        ctx.fillStyle = hairC;
+        ctx.beginPath(); ctx.arc(-11, -18, 3.4, 0, Math.PI * 2); ctx.fill();     // hair sweep
+        ctx.restore();
+        // window pillar + frame
+        ctx.strokeStyle = skin.dark; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-42, -31); ctx.lineTo(6, -31);
+        ctx.quadraticCurveTo(15, -31, 20, -19);
+        ctx.stroke();
+        // B-pillar
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(-16, -31); ctx.lineTo(-16, -14); ctx.stroke();
+
+        // door seam + handle
+        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-16, -12); ctx.lineTo(-16, 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-40, -9); ctx.lineTo(-40, 6); ctx.stroke();
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        roundRect(-30, -8, 9, 3, 1.5); ctx.fill();
+
+        // headlight (front) + taillight (rear)
+        ctx.fillStyle = "#FFF7C0";
+        ctx.beginPath(); ctx.ellipse(69, -4, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(69, -4, 4, 5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#E53935";
+        roundRect(-73, -5, 5, 9, 2); ctx.fill();
+
+        // thin bumper highlights
+        ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(66, 10); ctx.lineTo(72, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-71, 8); ctx.lineTo(-66, 11); ctx.stroke();
+    }
+
+    // Narrow FRONT (or REAR) sliver, so the car never collapses edge-on.
+    function showroomEndArt(skin, isFront) {
+        // ground shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 40, 30, 10, 0, 0, Math.PI * 2); ctx.fill();
+        // wheels peeking at the sides
+        ctx.fillStyle = "#1b1b1f";
+        roundRect(-26, 8, 8, 22, 4); ctx.fill();
+        roundRect(18, 8, 8, 22, 4); ctx.fill();
+        // narrow body
+        showroomEndBodyPath();
+        ctx.fillStyle = skin.dark; ctx.lineWidth = 5; ctx.strokeStyle = skin.dark;
+        ctx.stroke(); ctx.fill();
+        showroomEndBodyPath();
+        ctx.save(); ctx.clip();
+        var bg = ctx.createLinearGradient(-22, 0, 22, 0);
+        bg.addColorStop(0, skin.dark); bg.addColorStop(0.5, skin.light); bg.addColorStop(1, skin.dark);
+        ctx.fillStyle = bg; ctx.fillRect(-24, -40, 48, 60);
+        if (skin.stripe) { ctx.fillStyle = skin.stripe; ctx.globalAlpha = 0.9; ctx.fillRect(-4, -36, 8, 52); ctx.globalAlpha = 1; }
+        ctx.restore();
+        // windshield / rear window
+        var wg = ctx.createLinearGradient(0, -32, 0, -12);
+        wg.addColorStop(0, "#cdeafd"); wg.addColorStop(1, "#5b93c4");
+        ctx.fillStyle = wg;
+        roundRect(-17, -31, 34, 20, 6); ctx.fill();
+        ctx.strokeStyle = skin.dark; ctx.lineWidth = 2;
+        roundRect(-17, -31, 34, 20, 6); ctx.stroke();
+        if (isFront) {
+            // Lulu behind the windshield
+            var hairC = save.luluHair || "#8B5A2B";
+            ctx.fillStyle = hairC; ctx.beginPath(); ctx.arc(0, -22, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFD9C0"; ctx.beginPath(); ctx.arc(0, -20, 4.5, 0, Math.PI * 2); ctx.fill();
+            // headlights
+            ctx.fillStyle = "#FFF7C0";
+            ctx.beginPath(); ctx.ellipse(-15, 2, 4, 5, 0, 0, Math.PI * 2); ctx.ellipse(15, 2, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // grille
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(-8, 4, 16, 5, 2); ctx.fill();
+        } else {
+            // taillights
+            ctx.fillStyle = "#E53935";
+            roundRect(-18, 0, 6, 8, 2); ctx.fill();
+            roundRect(12, 0, 6, 8, 2); ctx.fill();
+        }
+        // roof specular
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        roundRect(-14, -33, 28, 3, 1.5); ctx.fill();
+    }
+
+    function showroomEndBodyPath() {
+        ctx.beginPath();
+        ctx.moveTo(-22, 14);
+        ctx.quadraticCurveTo(-24, -8, -18, -12);
+        ctx.quadraticCurveTo(-18, -34, 0, -34);
+        ctx.quadraticCurveTo(18, -34, 18, -12);
+        ctx.quadraticCurveTo(24, -8, 22, 14);
+        ctx.closePath();
+    }
+
+    // Public: draw the showroom car centered at the current origin.
+    // angle spins the turntable; scale sizes it.
+    function drawShowroomCar(skinKey, angle, scale) {
+        var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
+        var s = scale || 1;
+        var f = Math.cos(angle);
+        ctx.save();
+        ctx.scale(s, s);
+
+        if (Math.abs(f) < 0.18) {
+            // edge-on → front/rear sliver (sin sign picks which end faces us)
+            showroomEndArt(skin, Math.sin(angle) >= 0);
+        } else {
+            var squash = Math.abs(f);
+            // ground shadow (barely squashes → stays grounded)
+            ctx.fillStyle = "rgba(0,0,0,0.28)";
+            ctx.beginPath();
+            ctx.ellipse(0, 40, 74 * (0.5 + 0.5 * squash), 12, 0, 0, Math.PI * 2); ctx.fill();
+            // squashed + sign-flipped profile
+            ctx.save();
+            ctx.scale(f, 1);
+            showroomProfileArt(skin);
+            // darken the side turning away
+            if (squash < 1) {
+                showroomBodyPath();
+                ctx.fillStyle = "rgba(0,0,0," + ((1 - squash) * 0.4) + ")";
+                ctx.fill();
+            }
+            ctx.restore();
+        }
         ctx.restore();
     }
 
@@ -6405,6 +6675,8 @@
     var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
+    var buyPopId = null;   // which shop item's owned-count pill just popped
+    var buyPopTimer = 0;   // pop/flash timer for that pill
 
     // ── Parking mini-game state ──────────────────────────────
     var parkingSigns = [];      // P-sign pickups on the main road
@@ -11074,6 +11346,7 @@
         menuBounce += dt;
         if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
+        if (buyPopTimer > 0) buyPopTimer -= dt;   // owned-count pill pop/flash
 
         if (consumePause()) { shopDetail = null; state = "menu"; playClick(); return; }
         var click = consumeClick();
@@ -11133,48 +11406,40 @@
                     shopDetail = skinKeys[i]; shopDetailT = 0; playClick(); return;
                 }
             }
-        } else if (shopTab === "powerups") {
-            // Missile card
-            if (pointInRect(click.x, click.y, 40, 156, W - 80, 112)) {
-                if (save.totalCoins >= 20) {
-                    save.totalCoins -= 20; save.missiles++;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+1 Missile!"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-            // Mega pack (5 missiles)
-            if (pointInRect(click.x, click.y, 40, 290, W - 80, 112)) {
-                if (save.totalCoins >= 80) {
-                    save.totalCoins -= 80; save.missiles += 5;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+5 Missiles!"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-            // Pepper spray
-            if (pointInRect(click.x, click.y, 40, 422, W - 80, 112)) {
-                if (save.totalCoins >= 15) {
-                    save.totalCoins -= 15; save.pepperSpray++;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "+1 Pepper Spray! 🌶️"; lastBoughtTimer = 1.2;
-                } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
-                return;
-            }
-        } else if (shopTab === "special") {
-            // Distracted mode
-            if (pointInRect(click.x, click.y, 40, 170, W - 80, 170)) {
-                if (save.distractedUnlocked) {
-                    lastBoughtMessage = "Already unlocked! Toggle in menu.";
-                    lastBoughtTimer = 1.5;
-                    playClick();
-                } else if (save.totalCoins >= 1000) {
-                    save.totalCoins -= 1000;
-                    save.distractedUnlocked = true;
-                    persistSave(); playBuy();
-                    lastBoughtMessage = "Distracted Mode UNLOCKED!";
-                    lastBoughtTimer = 2;
-                } else { playDeny(); lastBoughtMessage = "Need 1000 coins!"; lastBoughtTimer = 1.2; }
+        } else if (shopTab === "powerups" || shopTab === "special") {
+            // Only the BUY button buys — the whole card is no longer one hitbox.
+            // Rects come from the SAME shopCardLayout the draw uses so they can't drift.
+            var cards = shopCardLayout(shopTab);
+            for (var ci = 0; ci < cards.length; ci++) {
+                var c = cards[ci];
+                if (!pointInRect(click.x, click.y, c.btnX, c.btnY, c.btnW, c.btnH)) continue;
+                if (c.id === "missile") {
+                    if (save.totalCoins >= 20) {
+                        save.totalCoins -= 20; save.missiles++;
+                        persistSave(); playBuy(); buyPopId = "missile"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+1 Missile!"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "megapack") {
+                    if (save.totalCoins >= 80) {
+                        save.totalCoins -= 80; save.missiles += 5;
+                        persistSave(); playBuy(); buyPopId = "megapack"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+5 Missiles!"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "pepper") {
+                    if (save.totalCoins >= 15) {
+                        save.totalCoins -= 15; save.pepperSpray++;
+                        persistSave(); playBuy(); buyPopId = "pepper"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "+1 Pepper Spray! 🌶️"; lastBoughtTimer = 1.2;
+                    } else { playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2; }
+                } else if (c.id === "distracted") {
+                    if (save.distractedUnlocked) {
+                        lastBoughtMessage = "Already unlocked! Toggle in menu."; lastBoughtTimer = 1.5; playClick();
+                    } else if (save.totalCoins >= 1000) {
+                        save.totalCoins -= 1000; save.distractedUnlocked = true;
+                        persistSave(); playBuy(); buyPopId = "distracted"; buyPopTimer = 0.5;
+                        lastBoughtMessage = "Distracted Mode UNLOCKED!"; lastBoughtTimer = 2;
+                    } else { playDeny(); lastBoughtMessage = "Need 1000 coins!"; lastBoughtTimer = 1.2; }
+                }
                 return;
             }
         }
@@ -13086,10 +13351,10 @@
             roundRect(cx + 9, cy + 9, chW, 14, 7); ctx.fill();
             drawText(chip, cx + 9 + chW / 2, cy + 16, "bold 9px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
 
-            // Car preview
+            // Car preview — static side-profile (~0.5 rad) reads like a catalog.
             ctx.save();
-            ctx.translate(cx + 105, cy + 44);
-            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 0.72);
+            ctx.translate(cx + 105, cy + 40);
+            drawShowroomCar(key, 0.5, 0.62);
             ctx.restore();
 
             // EQUIPPED tick badge (top-right of the well)
@@ -13184,16 +13449,14 @@
         // Soft elliptical shadow (fixed while the car spins).
         ctx.save();
         ctx.fillStyle = "rgba(0,0,0,0.32)";
-        ctx.beginPath(); ctx.ellipse(cxs, cys + 44, 92, 22, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cxs, cys + 52, 92, 20, 0, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
 
-        // The car, drawn LARGE on an oblique/tilted plane so its top-down art
-        // rotates like a 3/4 showroom turntable instead of a flat spinning sticker.
+        // The car — a pretty SIDE-PROFILE illustration on a pseudo-3D turntable
+        // (horizontal squash by cos(angle), front/rear sliver when edge-on).
         ctx.save();
-        ctx.translate(cxs, cys);
-        ctx.transform(1, 0, 0, 0.6, 0, 0);   // vertical squash → 3/4 view tilt
-        ctx.rotate(ang);
-        drawLuluCar(0, 0, 0, false, menuBounce, false, key, 2.2);
+        ctx.translate(cxs, cys - 6);
+        drawShowroomCar(key, ang, 1.55);
         ctx.restore();
 
         // Specular sweep across the car — a rotating light streak synced to spin.
@@ -13280,36 +13543,230 @@
         drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
     }
 
+    // ── Shop item cards (Power-Ups + Special): shared layout so the draw and
+    //    the click router (updateShop) read from the SAME rects and can't drift,
+    //    exactly like the garage's shopDetailRects. ──
+    var SHOP_ITEMS = {
+        missile:    { title: "Missile",      price: 20,   desc: "Blast the car right ahead of you.",         count: "missiles",    accent: "#EF5350" },
+        megapack:   { title: "Mega 5-Pack",  price: 80,   desc: "Five missiles — save 20 coins!",            count: "missiles",    accent: "#FF7043" },
+        pepper:     { title: "Pepper Spray", price: 15,   desc: "Zap an animal (or person!) off the road.",  count: "pepperSpray", accent: "#8BC34A" },
+        distracted: { title: "Distracted Mode", price: 1000, desc: "On her phone: reversed controls, 2× score.", count: null,       accent: "#BA68C8" }
+    };
+
+    function shopCardLayout(tab) {
+        var x = 22, w = W - 44, list = [];
+        function card(id, y, h) {
+            var bh = 44, bw = w - 104;
+            list.push({ id: id, x: x, y: y, w: w, h: h,
+                        btnX: x + 92, btnY: y + h - bh - 12, btnW: bw, btnH: bh });
+        }
+        if (tab === "powerups") {
+            card("missile", 158, 118);
+            card("megapack", 288, 118);
+            card("pepper", 418, 118);
+        } else {
+            card("distracted", 176, 214);
+        }
+        return list;
+    }
+
     function drawPowerupsTab() {
-        // Missile single
-        drawShopCard(40, 156, W - 80, 112, "🚀 Missile", "Destroy 1 car ahead", 20, "Buy +1", save.totalCoins >= 20);
-        drawText("You own: " + save.missiles, W / 2, 274, "bold 12px Arial", "#FFD700", "#000", 2);
-        // Missile pack
-        drawShopCard(40, 290, W - 80, 112, "🚀×5 Mega Pack", "Save 20 coins!", 80, "Buy 5-Pack", save.totalCoins >= 80);
-        // Pepper spray — clear an animal (or person!) off the road
-        drawShopCard(40, 422, W - 80, 112, "🌶️ Pepper Spray", "Zap an animal off the road!", 15, "Buy +1", save.totalCoins >= 15);
-        drawText("You own: " + save.pepperSpray, W / 2, 540, "bold 12px Arial", "#AED581", "#000", 2);
+        var cards = shopCardLayout("powerups");
+        for (var i = 0; i < cards.length; i++) drawShopItemCard(cards[i]);
     }
 
     function drawSpecialTab() {
-        drawShopCard(40, 170, W - 80, 170, "📱 Distracted Mode", "Lulu's on her phone! Reverse controls + 2× score.", 1000,
-            save.distractedUnlocked ? "OWNED" : "Unlock", save.totalCoins >= 1000 && !save.distractedUnlocked, save.distractedUnlocked);
+        var cards = shopCardLayout("special");
+        for (var i = 0; i < cards.length; i++) drawShopItemCard(cards[i]);
     }
 
-    function drawShopCard(x, y, w, h, title, desc, price, btnLabel, canAfford, owned) {
-        ctx.fillStyle = owned ? "#66BB6A" : "#546E7A";
-        roundRect(x, y, w, h, 12); ctx.fill();
-        ctx.fillStyle = owned ? "#388E3C" : "#37474F";
-        ctx.lineWidth = 3; ctx.strokeStyle = "#000";
-        roundRect(x, y, w, h, 12); ctx.stroke();
+    // ── Procedural item art (drawn in a box centered at cx,cy) ──
+    function drawMissileIcon(cx, cy, ang, L, withFlame) {
+        ctx.save();
+        ctx.translate(cx, cy); ctx.rotate(ang);
+        var hL = L / 2, r = L * 0.17, nose = hL, bodyEnd = hL * 0.5;
+        if (withFlame) {
+            var fl = ctx.createLinearGradient(-hL - L * 0.55, 0, -hL, 0);
+            fl.addColorStop(0, "rgba(255,235,59,0)");
+            fl.addColorStop(0.5, "#FF9800");
+            fl.addColorStop(1, "#FFEB3B");
+            ctx.fillStyle = fl;
+            ctx.beginPath();
+            ctx.moveTo(-hL, -r * 0.7);
+            ctx.quadraticCurveTo(-hL - L * 0.6, 0, -hL, r * 0.7);
+            ctx.quadraticCurveTo(-hL - L * 0.18, 0, -hL, -r * 0.7);
+            ctx.fill();
+        }
+        // fins
+        ctx.fillStyle = "#B71C1C";
+        ctx.beginPath(); ctx.moveTo(-hL + r * 0.6, -r * 0.9); ctx.lineTo(-hL - r * 0.4, -r * 2); ctx.lineTo(-hL + r * 1.6, -r * 0.2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-hL + r * 0.6, r * 0.9); ctx.lineTo(-hL - r * 0.4, r * 2); ctx.lineTo(-hL + r * 1.6, r * 0.2); ctx.closePath(); ctx.fill();
+        // body
+        var bg = ctx.createLinearGradient(0, -r, 0, r);
+        bg.addColorStop(0, "#FFCDD2"); bg.addColorStop(0.5, "#E53935"); bg.addColorStop(1, "#B71C1C");
+        ctx.fillStyle = bg;
+        roundRect(-hL, -r, bodyEnd + hL, r * 2, r); ctx.fill();
+        // nose cone
+        ctx.fillStyle = "#455A64";
+        ctx.beginPath(); ctx.moveTo(bodyEnd, -r); ctx.quadraticCurveTo(nose + r * 0.5, 0, bodyEnd, r); ctx.closePath(); ctx.fill();
+        // porthole + gloss
+        ctx.fillStyle = "#B3E5FC";
+        ctx.beginPath(); ctx.arc(-hL * 0.1, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        roundRect(-hL + r * 0.4, -r + 1, bodyEnd + hL - r, r * 0.55, r * 0.3); ctx.fill();
+        ctx.restore();
+    }
 
-        drawText(title, x + w / 2, y + 30, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 4);
-        drawText(desc, x + w / 2, y + 60, "14px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
-        if (!owned) {
-            drawText("💰 " + price, x + w / 2, y + h - 35, "bold 22px Arial", canAfford ? "#FFD700" : "#EF5350", "#000", 3);
-            drawText(canAfford ? btnLabel : "Need more coins", x + w / 2, y + h - 12, "bold 14px Arial", "#FFF", "#000", 2);
+    function drawMissileArt(cx, cy) {
+        drawMissileIcon(cx, cy, -0.62, 52, true);
+    }
+
+    function drawMegaPackArt(cx, cy) {
+        // fanned trio
+        drawMissileIcon(cx - 9, cy + 8, -0.95, 40, true);
+        drawMissileIcon(cx + 9, cy + 8, -0.28, 40, true);
+        drawMissileIcon(cx, cy - 4, -0.62, 46, true);
+        // BEST VALUE ribbon
+        ctx.save();
+        ctx.translate(cx + 12, cy - 22); ctx.rotate(-0.3);
+        ctx.fillStyle = "#FFC107";
+        roundRect(-30, -8, 60, 16, 4); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = "#FF8F00";
+        roundRect(-30, -8, 60, 16, 4); ctx.stroke();
+        drawText("BEST VALUE", 0, 1, "bold 9px 'Segoe UI', Arial, sans-serif", "#5D3A00", null, 0);
+        ctx.restore();
+    }
+
+    function drawPepperArt(cx, cy) {
+        // spray cloud (upper-right)
+        ctx.fillStyle = "rgba(139,195,74,0.45)";
+        var puffs = [[16, -20, 8], [24, -14, 6], [22, -24, 5], [12, -26, 5]];
+        for (var p = 0; p < puffs.length; p++) {
+            ctx.beginPath(); ctx.arc(cx + puffs[p][0], cy + puffs[p][1], puffs[p][2], 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = "rgba(205,220,57,0.7)";
+        for (var d = 0; d < 5; d++) {
+            ctx.beginPath(); ctx.arc(cx + 8 + d * 3.5, cy - 12 - d * 2.4, 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+        // canister body
+        var bg = ctx.createLinearGradient(cx - 12, 0, cx + 8, 0);
+        bg.addColorStop(0, "#C62828"); bg.addColorStop(0.5, "#EF5350"); bg.addColorStop(1, "#B71C1C");
+        ctx.fillStyle = bg;
+        roundRect(cx - 12, cy - 6, 20, 30, 5); ctx.fill();
+        // label band
+        ctx.fillStyle = "#FFF3E0"; ctx.fillRect(cx - 12, cy + 4, 20, 9);
+        ctx.fillStyle = "#8BC34A";
+        ctx.beginPath(); ctx.arc(cx - 2, cy + 8.5, 3, 0, Math.PI * 2); ctx.fill();
+        // cap + nozzle
+        ctx.fillStyle = "#37474F";
+        roundRect(cx - 9, cy - 14, 14, 9, 3); ctx.fill();
+        roundRect(cx + 3, cy - 12, 8, 5, 2); ctx.fill();   // nozzle pointing right
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        roundRect(cx - 9, cy - 4, 3, 26, 1.5); ctx.fill();
+    }
+
+    function drawPhoneArt(cx, cy) {
+        // chat bubbles behind
+        ctx.fillStyle = "#4FC3F7";
+        roundRect(cx - 2, cy - 26, 26, 15, 6); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(cx + 4, cy - 12); ctx.lineTo(cx + 9, cy - 12); ctx.lineTo(cx + 4, cy - 7); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#FFF";
+        for (var b = 0; b < 3; b++) { ctx.beginPath(); ctx.arc(cx + 4 + b * 6, cy - 18.5, 1.6, 0, Math.PI * 2); ctx.fill(); }
+        // phone body
+        ctx.fillStyle = "#263238";
+        roundRect(cx - 15, cy - 12, 26, 44, 6); ctx.fill();
+        ctx.fillStyle = "#5D4037";  // hand thumb hint at bottom
+        // screen
+        var sg = ctx.createLinearGradient(0, cy - 8, 0, cy + 28);
+        sg.addColorStop(0, "#B3E5FC"); sg.addColorStop(1, "#4FC3F7");
+        ctx.fillStyle = sg;
+        roundRect(cx - 12, cy - 8, 20, 34, 3); ctx.fill();
+        // message rows
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        roundRect(cx - 9, cy - 4, 12, 3, 1.5); ctx.fill();
+        roundRect(cx - 9, cy + 2, 9, 3, 1.5); ctx.fill();
+        ctx.fillStyle = "rgba(255,235,59,0.9)";
+        roundRect(cx - 3, cy + 8, 11, 3, 1.5); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        roundRect(cx - 9, cy + 14, 10, 3, 1.5); ctx.fill();
+    }
+
+    var SHOP_ART = { missile: drawMissileArt, megapack: drawMegaPackArt, pepper: drawPepperArt, distracted: drawPhoneArt };
+
+    function drawShopItemCard(c) {
+        var it = SHOP_ITEMS[c.id];
+        var owned = c.id === "distracted" && save.distractedUnlocked;
+        var canAfford = save.totalCoins >= it.price;
+
+        // Card frame
+        var cg = ctx.createLinearGradient(0, c.y, 0, c.y + c.h);
+        cg.addColorStop(0, owned ? "#3E5C46" : "#455A64");
+        cg.addColorStop(1, owned ? "#2E4636" : "#2E3B42");
+        ctx.fillStyle = cg;
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = owned ? "#66BB6A" : "#263238";
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.stroke();
+
+        // Art well on the left
+        var aw = 78, ax = c.x + 10, ay = c.y + 10, ah = c.h - 20;
+        var ag = ctx.createLinearGradient(0, ay, 0, ay + ah);
+        ag.addColorStop(0, "#1f2a30"); ag.addColorStop(1, "#101a1f");
+        ctx.fillStyle = ag;
+        roundRect(ax, ay, aw, ah, 10); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        roundRect(ax, ay, aw, ah, 10); ctx.stroke();
+        ctx.save();
+        SHOP_ART[c.id](ax + aw / 2, ay + ah / 2);
+        ctx.restore();
+
+        // Title + description (readable light-on-dark)
+        var tx = c.x + 100;
+        drawText(it.title, tx, c.y + 26, "bold 20px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3, "left");
+        drawText(it.desc, tx, c.y + 48, "13px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2, "left");
+        if (c.id === "distracted") {
+            drawText("Solo runs only — disabled in friend rooms.", tx, c.y + 68,
+                "italic 11px 'Segoe UI', Arial, sans-serif", "#FFCC80", "#000", 2, "left");
+        }
+
+        // Owned-count pill (top-right), with a purchase pop/flash
+        var pillText = null;
+        if (it.count) pillText = "×" + save[it.count] + " owned";
+        else if (owned) pillText = "OWNED";
+        if (pillText) {
+            var popping = buyPopId === c.id && buyPopTimer > 0;
+            var pop = popping ? 1 + Math.sin(clamp(buyPopTimer / 0.5, 0, 1) * Math.PI) * 0.35 : 1;
+            ctx.save();
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var pw = ctx.measureText(pillText).width + 20;
+            var pcx = c.x + c.w - 12 - pw / 2, pcy = c.y + 22;
+            ctx.translate(pcx, pcy); ctx.scale(pop, pop);
+            ctx.fillStyle = popping ? "#FFF176" : (owned ? "#43A047" : "#FFC107");
+            roundRect(-pw / 2, -11, pw, 22, 11); ctx.fill();
+            drawText(pillText, 0, 1, "bold 12px 'Segoe UI', Arial, sans-serif", "#3a2b00", null, 0);
+            ctx.restore();
+        }
+
+        // BUY button — or an OWNED note for distracted
+        if (owned) {
+            ctx.fillStyle = "rgba(0,0,0,0.25)";
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.fill();
+            drawText("OWNED — toggle it on the menu", c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                "bold 13px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#0a1a0a", 2);
         } else {
-            drawText("✓ " + btnLabel, x + w / 2, y + h - 20, "bold 22px Arial", "#FFF", "#000", 3);
+            var bgc = canAfford ? "#FFC107" : "#8D5B5B";
+            var bgd = canAfford ? "#FF8F00" : "#5D3A3A";
+            ctx.fillStyle = bgc;
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.fill();
+            ctx.lineWidth = 2.5; ctx.strokeStyle = bgd;
+            roundRect(c.btnX, c.btnY, c.btnW, c.btnH, 12); ctx.stroke();
+            if (canAfford) {
+                drawText("BUY  💰 " + formatNum(it.price), c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                    "bold 17px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
+            } else {
+                var need = it.price - save.totalCoins;
+                drawText("need " + formatNum(need) + " more 💰", c.btnX + c.btnW / 2, c.btnY + c.btnH / 2 + 1,
+                    "bold 15px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#3a1a0a", 2);
+            }
         }
     }
 

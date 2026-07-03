@@ -1053,6 +1053,8 @@
     var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
+    var buyPopId = null;   // which shop item's owned-count pill just popped
+    var buyPopTimer = 0;   // pop/flash timer for that pill
 
     // ── Parking mini-game state ──────────────────────────────
     var parkingSigns = [];      // P-sign pickups on the main road

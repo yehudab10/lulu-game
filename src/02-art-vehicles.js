@@ -179,23 +179,32 @@
         ctx.ellipse(3, 6, hw + 4, hh - 6, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Wheels
-        ctx.fillStyle = C.wheel;
-        roundRect(-hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
-        roundRect(hw - 4, -hh + 10, 8, 18, 3); ctx.fill();
-        roundRect(-hw - 4, hh - 28, 8, 18, 3); ctx.fill();
-        roundRect(hw - 4, hh - 28, 8, 18, 3); ctx.fill();
+        // Wheels — deeper tire contrast (dark tire + a lighter tread inset)
+        var wheelSpots = [[-hw - 4, -hh + 10], [hw - 4, -hh + 10], [-hw - 4, hh - 28], [hw - 4, hh - 28]];
+        for (var wi = 0; wi < 4; wi++) {
+            var wx0 = wheelSpots[wi][0], wy0 = wheelSpots[wi][1];
+            ctx.fillStyle = "#181818";
+            roundRect(wx0, wy0, 8, 18, 3); ctx.fill();
+            ctx.fillStyle = "#3a3a3a";
+            roundRect(wx0 + 1.5, wy0 + 3, 5, 12, 2); ctx.fill();
+        }
 
         // Body outline
         ctx.fillStyle = skin.dark;
         roundRect(-hw - 2, -hh - 2, CAR_W + 4, CAR_H + 4, 14); ctx.fill();
 
-        // Body
-        var grad = ctx.createLinearGradient(0, -hh, 0, hh);
+        // Body — diagonal gradient, light source top-left
+        var grad = ctx.createLinearGradient(-hw, -hh, hw, hh);
         grad.addColorStop(0, skin.light);
-        grad.addColorStop(0.5, skin.body);
+        grad.addColorStop(0.42, skin.body);
         grad.addColorStop(1, skin.dark);
         ctx.fillStyle = grad;
+        roundRect(-hw, -hh, CAR_W, CAR_H, 12); ctx.fill();
+        // top-left sheen band along the hood
+        var sheen = ctx.createLinearGradient(-hw, -hh, -hw + 14, -hh + 20);
+        sheen.addColorStop(0, "rgba(255,255,255,0.28)");
+        sheen.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = sheen;
         roundRect(-hw, -hh, CAR_W, CAR_H, 12); ctx.fill();
 
         // Optional racing stripe
@@ -204,11 +213,26 @@
             roundRect(-4, -hh + 4, 8, CAR_H - 8, 2); ctx.fill();
         }
 
-        // Windshield
+        // Thin bumper highlights (front + rear lip)
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        roundRect(-hw + 5, -hh + 1, CAR_W - 10, 2, 1); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.15)";
+        roundRect(-hw + 5, hh - 3, CAR_W - 10, 2, 1); ctx.fill();
+
+        // Windshield — glass gradient + diagonal glare stripe
         ctx.fillStyle = C.windshieldDark;
         roundRect(-hw + 7, -hh + 8, CAR_W - 14, 26, 6); ctx.fill();
-        ctx.fillStyle = C.windshield;
+        var wsg = ctx.createLinearGradient(-hw + 8, -hh + 9, -hw + 8, -hh + 33);
+        wsg.addColorStop(0, "#A6E1FB"); wsg.addColorStop(1, C.windshield);
+        ctx.fillStyle = wsg;
         roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.fill();
+        ctx.save();
+        roundRect(-hw + 8, -hh + 9, CAR_W - 16, 24, 5); ctx.clip();
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(-hw + 10, -hh + 9); ctx.lineTo(-hw + 20, -hh + 9);
+        ctx.lineTo(-hw + 8, -hh + 33); ctx.lineTo(-hw + 4, -hh + 33); ctx.closePath(); ctx.fill();
+        ctx.restore();
 
         // ── Lulu's face (skipped for an EMPTY car — she's out of it) ──
       if (empty) {
@@ -563,6 +587,252 @@
         }
 
         ctx.globalAlpha = 1;
+        ctx.restore();
+    }
+
+    // ── Showroom "fake-3D" car ────────────────────────────────
+    // A pretty SIDE-PROFILE cartoon car (facing +x) used by the garage detail
+    // turntable and the card previews. The turntable illusion (see
+    // drawShowroomCar) is the classic sprite trick: horizontally squash the
+    // profile by cos(angle) and swap to a narrow FRONT/REAR sliver when the car
+    // turns edge-on, so it never collapses to a flat line.
+
+    // Trace the body silhouette (facing right, centered near origin). No fill —
+    // callers fill / clip / darken with it so the shape can't drift.
+    function showroomBodyPath() {
+        ctx.beginPath();
+        ctx.moveTo(-72, 16);
+        ctx.quadraticCurveTo(-75, 4, -70, -6);        // rear bumper + trunk lip
+        ctx.lineTo(-58, -9);
+        ctx.quadraticCurveTo(-50, -11, -45, -30);     // C-pillar up to roof
+        ctx.quadraticCurveTo(-43, -35, -35, -35);     // rear roof corner
+        ctx.lineTo(8, -35);                           // roofline
+        ctx.quadraticCurveTo(20, -35, 27, -19);       // A-pillar / windshield
+        ctx.lineTo(41, -12);                          // cowl → hood base
+        ctx.lineTo(64, -11);                          // hood
+        ctx.quadraticCurveTo(73, -10, 74, -1);        // nose
+        ctx.quadraticCurveTo(75, 8, 71, 16);          // front bumper
+        ctx.lineTo(-72, 16);                          // rocker (bottom)
+        ctx.closePath();
+    }
+
+    // One wheel of the side profile: tire depth, hubcap, spokes.
+    function showroomWheel(wx) {
+        var wr = 17;
+        // wheel-well shadow
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath(); ctx.arc(wx, 17, wr + 3, Math.PI, 0); ctx.fill();
+        // tire
+        ctx.fillStyle = "#1b1b1f";
+        ctx.beginPath(); ctx.arc(wx, 18, wr, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2c2c30";
+        ctx.beginPath(); ctx.arc(wx, 18, wr - 2.5, 0, Math.PI * 2); ctx.fill();
+        // hubcap
+        var hg = ctx.createRadialGradient(wx - 3, 15, 1, wx, 18, wr - 5);
+        hg.addColorStop(0, "#f2f4f6"); hg.addColorStop(1, "#9aa4ac");
+        ctx.fillStyle = hg;
+        ctx.beginPath(); ctx.arc(wx, 18, wr - 6, 0, Math.PI * 2); ctx.fill();
+        // spokes
+        ctx.strokeStyle = "rgba(80,90,98,0.7)"; ctx.lineWidth = 1.4;
+        for (var k = 0; k < 5; k++) {
+            var a = k * (Math.PI * 2 / 5) + 0.4;
+            ctx.beginPath(); ctx.moveTo(wx, 18);
+            ctx.lineTo(wx + Math.cos(a) * (wr - 7), 18 + Math.sin(a) * (wr - 7)); ctx.stroke();
+        }
+        ctx.fillStyle = "#5a646c";
+        ctx.beginPath(); ctx.arc(wx, 18, 2.4, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // The full side illustration, facing +x, drawn already-squashed by caller.
+    function showroomProfileArt(skin) {
+        var wheelFront = 45, wheelRear = -44;
+        // wheels first (body overlaps their tops → seated look)
+        showroomWheel(wheelRear);
+        showroomWheel(wheelFront);
+
+        // body outline (dark keyline)
+        ctx.fillStyle = skin.dark;
+        ctx.save(); ctx.translate(0, 0); ctx.lineJoin = "round";
+        showroomBodyPath();
+        ctx.lineWidth = 5; ctx.strokeStyle = skin.dark; ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+
+        // body fill — vertical gradient, light source top
+        var bg = ctx.createLinearGradient(0, -35, 0, 16);
+        bg.addColorStop(0, skin.light);
+        bg.addColorStop(0.45, skin.body);
+        bg.addColorStop(1, skin.dark);
+        showroomBodyPath();
+        ctx.save(); ctx.clip();
+        ctx.fillStyle = bg;
+        ctx.fillRect(-80, -40, 160, 60);
+
+        // rocker-panel shading (bottom strip in shadow)
+        var rg = ctx.createLinearGradient(0, 4, 0, 16);
+        rg.addColorStop(0, "rgba(0,0,0,0)"); rg.addColorStop(1, "rgba(0,0,0,0.4)");
+        ctx.fillStyle = rg; ctx.fillRect(-80, 2, 160, 16);
+
+        // racing stripe along the side (stripe skins)
+        if (skin.stripe) {
+            ctx.fillStyle = skin.stripe;
+            ctx.globalAlpha = 0.9;
+            ctx.fillRect(-72, -3, 146, 6);
+            ctx.globalAlpha = 1;
+        }
+
+        // horizontal specular band along the body
+        var spec = ctx.createLinearGradient(0, -10, 0, -2);
+        spec.addColorStop(0, "rgba(255,255,255,0)");
+        spec.addColorStop(0.5, "rgba(255,255,255,0.45)");
+        spec.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = spec; ctx.fillRect(-72, -11, 146, 9);
+        ctx.restore();  // end body clip
+
+        // greenhouse / windows with sky reflection
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-42, -31);
+        ctx.lineTo(6, -31);
+        ctx.quadraticCurveTo(15, -31, 20, -19);
+        ctx.lineTo(-42, -14);
+        ctx.closePath();
+        ctx.clip();
+        var sky = ctx.createLinearGradient(0, -33, 0, -13);
+        sky.addColorStop(0, "#cdeafd"); sky.addColorStop(0.55, "#8fc6f0"); sky.addColorStop(1, "#5b93c4");
+        ctx.fillStyle = sky; ctx.fillRect(-44, -33, 66, 22);
+        // reflection streak
+        ctx.fillStyle = "rgba(255,255,255,0.4)";
+        ctx.beginPath();
+        ctx.moveTo(-30, -31); ctx.lineTo(-22, -31); ctx.lineTo(-34, -13); ctx.lineTo(-42, -13); ctx.closePath(); ctx.fill();
+        // Lulu head silhouette behind the glass
+        var hairC = save.luluHair || "#8B5A2B";
+        ctx.fillStyle = hairC;
+        ctx.beginPath(); ctx.arc(-8, -20, 7.5, 0, Math.PI * 2); ctx.fill();      // hair
+        ctx.fillStyle = "#FFD9C0";
+        ctx.beginPath(); ctx.arc(-6, -19, 5, 0, Math.PI * 2); ctx.fill();        // face
+        ctx.fillStyle = hairC;
+        ctx.beginPath(); ctx.arc(-11, -18, 3.4, 0, Math.PI * 2); ctx.fill();     // hair sweep
+        ctx.restore();
+        // window pillar + frame
+        ctx.strokeStyle = skin.dark; ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.moveTo(-42, -31); ctx.lineTo(6, -31);
+        ctx.quadraticCurveTo(15, -31, 20, -19);
+        ctx.stroke();
+        // B-pillar
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(-16, -31); ctx.lineTo(-16, -14); ctx.stroke();
+
+        // door seam + handle
+        ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.moveTo(-16, -12); ctx.lineTo(-16, 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-40, -9); ctx.lineTo(-40, 6); ctx.stroke();
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        roundRect(-30, -8, 9, 3, 1.5); ctx.fill();
+
+        // headlight (front) + taillight (rear)
+        ctx.fillStyle = "#FFF7C0";
+        ctx.beginPath(); ctx.ellipse(69, -4, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.ellipse(69, -4, 4, 5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "#E53935";
+        roundRect(-73, -5, 5, 9, 2); ctx.fill();
+
+        // thin bumper highlights
+        ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(66, 10); ctx.lineTo(72, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-71, 8); ctx.lineTo(-66, 11); ctx.stroke();
+    }
+
+    // Narrow FRONT (or REAR) sliver, so the car never collapses edge-on.
+    function showroomEndArt(skin, isFront) {
+        // ground shadow
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath(); ctx.ellipse(0, 40, 30, 10, 0, 0, Math.PI * 2); ctx.fill();
+        // wheels peeking at the sides
+        ctx.fillStyle = "#1b1b1f";
+        roundRect(-26, 8, 8, 22, 4); ctx.fill();
+        roundRect(18, 8, 8, 22, 4); ctx.fill();
+        // narrow body
+        showroomEndBodyPath();
+        ctx.fillStyle = skin.dark; ctx.lineWidth = 5; ctx.strokeStyle = skin.dark;
+        ctx.stroke(); ctx.fill();
+        showroomEndBodyPath();
+        ctx.save(); ctx.clip();
+        var bg = ctx.createLinearGradient(-22, 0, 22, 0);
+        bg.addColorStop(0, skin.dark); bg.addColorStop(0.5, skin.light); bg.addColorStop(1, skin.dark);
+        ctx.fillStyle = bg; ctx.fillRect(-24, -40, 48, 60);
+        if (skin.stripe) { ctx.fillStyle = skin.stripe; ctx.globalAlpha = 0.9; ctx.fillRect(-4, -36, 8, 52); ctx.globalAlpha = 1; }
+        ctx.restore();
+        // windshield / rear window
+        var wg = ctx.createLinearGradient(0, -32, 0, -12);
+        wg.addColorStop(0, "#cdeafd"); wg.addColorStop(1, "#5b93c4");
+        ctx.fillStyle = wg;
+        roundRect(-17, -31, 34, 20, 6); ctx.fill();
+        ctx.strokeStyle = skin.dark; ctx.lineWidth = 2;
+        roundRect(-17, -31, 34, 20, 6); ctx.stroke();
+        if (isFront) {
+            // Lulu behind the windshield
+            var hairC = save.luluHair || "#8B5A2B";
+            ctx.fillStyle = hairC; ctx.beginPath(); ctx.arc(0, -22, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFD9C0"; ctx.beginPath(); ctx.arc(0, -20, 4.5, 0, Math.PI * 2); ctx.fill();
+            // headlights
+            ctx.fillStyle = "#FFF7C0";
+            ctx.beginPath(); ctx.ellipse(-15, 2, 4, 5, 0, 0, Math.PI * 2); ctx.ellipse(15, 2, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+            // grille
+            ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(-8, 4, 16, 5, 2); ctx.fill();
+        } else {
+            // taillights
+            ctx.fillStyle = "#E53935";
+            roundRect(-18, 0, 6, 8, 2); ctx.fill();
+            roundRect(12, 0, 6, 8, 2); ctx.fill();
+        }
+        // roof specular
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        roundRect(-14, -33, 28, 3, 1.5); ctx.fill();
+    }
+
+    function showroomEndBodyPath() {
+        ctx.beginPath();
+        ctx.moveTo(-22, 14);
+        ctx.quadraticCurveTo(-24, -8, -18, -12);
+        ctx.quadraticCurveTo(-18, -34, 0, -34);
+        ctx.quadraticCurveTo(18, -34, 18, -12);
+        ctx.quadraticCurveTo(24, -8, 22, 14);
+        ctx.closePath();
+    }
+
+    // Public: draw the showroom car centered at the current origin.
+    // angle spins the turntable; scale sizes it.
+    function drawShowroomCar(skinKey, angle, scale) {
+        var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
+        var s = scale || 1;
+        var f = Math.cos(angle);
+        ctx.save();
+        ctx.scale(s, s);
+
+        if (Math.abs(f) < 0.18) {
+            // edge-on → front/rear sliver (sin sign picks which end faces us)
+            showroomEndArt(skin, Math.sin(angle) >= 0);
+        } else {
+            var squash = Math.abs(f);
+            // ground shadow (barely squashes → stays grounded)
+            ctx.fillStyle = "rgba(0,0,0,0.28)";
+            ctx.beginPath();
+            ctx.ellipse(0, 40, 74 * (0.5 + 0.5 * squash), 12, 0, 0, Math.PI * 2); ctx.fill();
+            // squashed + sign-flipped profile
+            ctx.save();
+            ctx.scale(f, 1);
+            showroomProfileArt(skin);
+            // darken the side turning away
+            if (squash < 1) {
+                showroomBodyPath();
+                ctx.fillStyle = "rgba(0,0,0," + ((1 - squash) * 0.4) + ")";
+                ctx.fill();
+            }
+            ctx.restore();
+        }
         ctx.restore();
     }
 
