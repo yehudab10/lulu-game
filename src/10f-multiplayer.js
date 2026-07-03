@@ -55,6 +55,16 @@
     var mpWantedCache = { t: -1e9, data: [], loading: false };          // GET /board/wanted (60s TTL)
     var mpScoresCache = { t: -1e9, data: [], ok: false, loading: false }; // GET /board/scores (60s TTL)
 
+    // ── FRIEND RACE (phase 3) ────────────────────────────────
+    // Rides entirely inside the state packets the live relay already forwards
+    // (d.rn race-nonce · d.rp progress · d.rw win-nonce) — no server changes.
+    // First to gain RACE_GOAL px of road IN ONE UNBROKEN RUN wins: crashing
+    // resets your progress. Friend rooms only, so the big lobby stays chill.
+    var RACE_GOAL = 20000;      // px of road to win (~a solid minute of driving)
+    var mpRace = null;          // null | {id, state:"count"|"go"|"done", t, base, prog, winner, winName}
+    var mpRaceSeq = Math.floor(Math.random() * 1e6) + 1;  // my next race nonce
+    var mpForceSends = 0;       // send state NOW for a few ticks (race start/win)
+
     // ── TEMP DEBUG state (see mpDebugFake at the bottom) ─────
     var mpFakeMode = false;
     var mpFakeHonkT = 2.0;
@@ -98,6 +108,7 @@
         mpMyId = null;
         mpPeers = {};
         mpFakeMode = false;
+        mpRace = null; mpForceSends = 0;
         if (mpSock) { try { mpSock.onclose = null; mpSock.close(); } catch (e) {} mpSock = null; }
     }
 
@@ -152,7 +163,7 @@
                 for (var i = 0; i < msg.peers.length; i++) {
                     var pp = msg.peers[i];
                     mpAddPeer(pp.id, pp.name, pp.sk);
-                    if (pp.d) mpApplyState(pp.id, pp.d);
+                    if (pp.d) mpApplyState(pp.id, pp.d, true);   // snapshot — stale rn is NOT an invite
                 }
             }
         } else if (msg.t === "+") {             // peer joined
@@ -187,7 +198,7 @@
         return p;
     }
 
-    function mpApplyState(id, d) {
+    function mpApplyState(id, d, snap) {
         if (!id || id === mpMyId || !d) return;
         var p = mpPeers[id] || mpAddPeer(id, null, null);
         if (!p) return;
@@ -206,6 +217,18 @@
                 else p.di += err * 0.4;                 // small drift → soft-correct
             }
         }
+        // ── race fields (friend rooms) ──
+        // Only a HELLO SNAPSHOT'S nonce is swallowed as stale (it can predate us);
+        // any LIVE packet's new nonce is a genuine invite — including the first
+        // packet we ever see from that peer (a menu racer's very first send IS
+        // the race start).
+        if (typeof d.rn === "number") {
+            if (snap) { p.rn = d.rn; p.rnInit = true; }
+            else if (!p.rnInit || d.rn !== p.rn) { p.rn = d.rn; p.rnInit = true; mpRaceJoin(d.rn); }
+        }
+        if (typeof d.rp === "number") p.raceProg = d.rp;
+        if (typeof d.rw === "number" && mpRace && d.rw === mpRace.id && mpRace.state !== "done")
+            mpRaceWon(p.name || "A rider");
     }
 
     function mpPeerEvent(id, e) {
@@ -247,10 +270,119 @@
             vk: vk
         };
         if (vk === "borrowed") { d.ct = ct; d.co = co || "#E53935"; }
+        // race piggyback: nonce always rides once a race exists this session,
+        // progress while racing, win-nonce once won by me
+        if (mpRace) {
+            d.rn = mpRace.id;
+            if (mpRace.state === "go") d.rp = Math.round(mpRace.prog || 0);
+            if (mpRace.state === "done" && mpRace.winner === "me") d.rw = mpRace.id;
+        }
         mpSend({ t: "s", d: d });
     }
 
     // ── Lifecycle tick ───────────────────────────────────────
+    // ── FRIEND RACE lifecycle ────────────────────────────────
+    function mpRaceStart() {                    // panel button (friend rooms only)
+        if (!mpConnected || mpRoom === "lobby") return;
+        mpRaceSeq += 1 + Math.floor(Math.random() * 7);
+        mpRaceBegin(mpRaceSeq);
+        mpForceSends = 4;                       // shout the nonce out right away
+    }
+    function mpRaceJoin(id) { if (!mpRace || mpRace.id !== id) mpRaceBegin(id); }
+    function mpRaceBegin(id) {
+        mpRace = { id: id, state: "count", t: 0, lastBeep: 4, base: 0, prog: 0, winner: null, winName: "" };
+        mpPickerOpen = false;
+        try { playTone(392, 0.12, "square", 0.16); } catch (e) {}
+    }
+    function mpRaceWon(name) {
+        if (!mpRace || mpRace.state === "done") return;
+        mpRace.state = "done"; mpRace.winner = "peer"; mpRace.winName = name; mpRace.t = 0;
+        try { playTone(392, 0.14, "triangle", 0.16); setTimeout(function () { playTone(523, 0.2, "triangle", 0.16); }, 140); } catch (e) {}
+    }
+    function mpRaceUpdate(dt) {
+        if (!mpRace) return;
+        mpRace.t += dt;
+        if (mpRace.state === "count") {
+            var n = Math.ceil(3 - mpRace.t);
+            if (n < mpRace.lastBeep && n > 0) { mpRace.lastBeep = n; try { playTone(440, 0.09, "square", 0.16); } catch (e) {} }
+            if (mpRace.t >= 3) {
+                // GO! Menu-racers hop straight into a fresh run; mid-run racers
+                // race from where they are (progress counts from HERE).
+                if (state === "menu" && typeof resetGame === "function") { resetGame(); state = "playing"; }
+                mpRace.state = "go"; mpRace.t = 0;
+                mpRace.base = (typeof scrollOffset === "number") ? scrollOffset : 0;
+                mpRace.prog = 0;
+                try {
+                    playTone(660, 0.16, "triangle", 0.2, 880);
+                    if (typeof player !== "undefined" && player) spawnFloater(player.x, player.y - 50, "🏁 GO!", "#7CFC4F");
+                } catch (e) {}
+            }
+        } else if (mpRace.state === "go") {
+            var di = (typeof scrollOffset === "number") ? scrollOffset : 0;
+            if (di < mpRace.base) mpRace.base = di;      // wrecked → progress restarts (stakes!)
+            mpRace.prog = Math.max(0, di - mpRace.base);
+            if (mpRace.prog >= RACE_GOAL) {
+                mpRace.state = "done"; mpRace.winner = "me"; mpRace.winName = mpMyName(); mpRace.t = 0;
+                mpForceSends = 5;
+                try {
+                    playTone(523, 0.12, "triangle", 0.2); setTimeout(function () { playTone(784, 0.14, "triangle", 0.2); }, 120);
+                    setTimeout(function () { playTone(1047, 0.2, "triangle", 0.2); }, 260);
+                } catch (e) {}
+            }
+            if (mpRace.t > 300) mpRace = null;           // nobody finished — fizzle
+        } else if (mpRace.state === "done") {
+            if (mpRace.t > 6) mpRace = null;             // banner shown, race cleared
+        }
+    }
+    // Countdown / progress panel / winner banner — called from the HUD chip
+    // (driving + foot) and from the menu button, so a race is visible anywhere.
+    function mpDrawRace() {
+        if (!MP_URL || !mpRace) return;
+        if (mpRace.state === "count") {
+            var n = Math.ceil(3 - mpRace.t);
+            var frac = 1 - ((3 - mpRace.t) - (n - 1));   // 0→1 within this second
+            ctx.save();
+            ctx.fillStyle = "rgba(10,8,24,0.45)"; ctx.fillRect(0, 0, W, H);
+            drawText("🏁 FRIEND RACE!", W / 2, H * 0.32, "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+            var ps = 1 + (1 - frac) * 0.8;
+            ctx.translate(W / 2, H * 0.45); ctx.scale(ps, ps);
+            drawText(String(n), 0, 0, "bold 84px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#7E57C2", 10);
+            ctx.restore();
+            drawText("First to " + RACE_GOAL + " road — crash and you start over!", W / 2, H * 0.56,
+                "bold 13px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
+            return;
+        }
+        if (mpRace.state === "go") {
+            // compact live standings, top-left under the score
+            var rx = 14, ry = 92, rw2 = 150;
+            var rows = [{ name: mpMyName() + " (you)", prog: mpRace.prog, me: true }];
+            for (var id in mpPeers) {
+                var p = mpPeers[id];
+                if (typeof p.raceProg === "number") rows.push({ name: p.name, prog: p.raceProg, me: false });
+            }
+            rows.sort(function (a, b) { return b.prog - a.prog; });
+            ctx.save();
+            ctx.fillStyle = "rgba(10,8,24,0.6)"; roundRect(rx - 4, ry - 12, rw2 + 8, 18 + rows.length * 26, 8); ctx.fill();
+            drawText("🏁 RACE", rx, ry - 2, "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2, "left");
+            for (var i = 0; i < rows.length && i < 5; i++) {
+                var rr = rows[i], yy = ry + 12 + i * 26;
+                drawText(rr.name, rx, yy, "bold 9px 'Segoe UI', Arial, sans-serif", rr.me ? "#FFE082" : "#CFC4E8", "#000", 2, "left");
+                ctx.fillStyle = "rgba(0,0,0,0.5)"; roundRect(rx, yy + 4, rw2 - 8, 6, 3); ctx.fill();
+                var pp = clamp(rr.prog / RACE_GOAL, 0, 1);
+                ctx.fillStyle = rr.me ? "#7CFC4F" : "#B39DDB"; roundRect(rx, yy + 4, (rw2 - 8) * pp, 6, 3); ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
+        // done — winner banner (fades out over the last 2s)
+        var a = mpRace.t > 4 ? clamp(1 - (mpRace.t - 4) / 2, 0, 1) : 1;
+        ctx.save(); ctx.globalAlpha = a;
+        var meWon = mpRace.winner === "me";
+        drawText(meWon ? "🏆 YOU WIN THE RACE!" : "🏆 " + mpRace.winName + " WINS!", W / 2, H * 0.3,
+            "bold 26px 'Segoe UI', Arial, sans-serif", meWon ? "#FFD54F" : "#B39DDB", "#000", 6);
+        ctx.restore();
+    }
+
     function mpUpdate(dt) {
         if (!MP_URL) return;
         try {
@@ -267,10 +399,18 @@
                 mpPingTimer += dt;
                 if (mpPingTimer >= 25) { mpPingTimer = 0; mpSend({ t: "pi" }); }
             }
-            // Broadcast my state at ≤5 Hz, only while playing/footRun.
-            if (mpConnected && !mpFakeMode && (state === "playing" || state === "footRun")) {
+            // Race lifecycle (countdown → go → win/fizzle).
+            mpRaceUpdate(dt);
+            // Broadcast my state at ≤5 Hz while playing/footRun — plus during a
+            // race (so menu-racers still shout the nonce), plus a few forced
+            // sends around race start/win so those land instantly.
+            if (mpConnected && !mpFakeMode && (state === "playing" || state === "footRun" || mpRace)) {
                 mpSendTimer += dt;
-                if (mpSendTimer >= 0.2) { mpSendTimer = 0; mpSendState(); }
+                if (mpSendTimer >= 0.2 || mpForceSends > 0) {
+                    mpSendTimer = 0;
+                    if (mpForceSends > 0) mpForceSends--;
+                    mpSendState();
+                }
             }
 
             if (mpFakeMode) mpFakeMaintain(dt);
@@ -423,6 +563,7 @@
         r.connect = { x: gx0, y: btnY, w: colW, h: 48 };
         r.cancel = { x: gx0 + colW + gapX, y: btnY, w: colW, h: 48 };
         r.disconnect = { x: gx0, y: btnY, w: colW, h: 48 };
+        r.race = { x: gx0, y: btnY - 58, w: colW * 2 + gapX, h: 48 };
         r.close = { x: gx0 + colW + gapX, y: btnY, w: colW, h: 48 };
         return r;
     }
@@ -452,6 +593,10 @@
                     "12px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
             }
         }
+        // Friend rooms get the race starter (the big lobby stays chill).
+        if (mpConnected && mpRoom !== "lobby" && !mpRace)
+            drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🏁 START RACE — first to " + RACE_GOAL + "!",
+                { bg: "#FFB300", bgDark: "#E65100", small: true });
         drawButton(r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h, "DISCONNECT",
             { bg: "#EF5350", bgDark: "#B71C1C" });
         drawButton(r.close.x, r.close.y, r.close.w, r.close.h, "CLOSE",
@@ -526,6 +671,7 @@
         else { lbl = "🌐 SHARED ROAD"; bg = "#7E57C2"; bgD = "#4527A0"; }
         drawButton(b.x, b.y, b.w, b.h, lbl, { bg: bg, bgDark: bgD, small: true });
         if (mpPickerOpen) mpDrawPicker();
+        mpDrawRace();   // races stay visible on the menu too (countdown/banner)
     }
 
     function mpHandlePickerClick(click) {
@@ -534,6 +680,8 @@
         function tap() { if (typeof playClick === "function") playClick(); }
 
         if (mpWant) {   // connected / connecting panel
+            if (mpConnected && mpRoom !== "lobby" && !mpRace &&
+                pointInRect(cx, cy, r.race.x, r.race.y, r.race.w, r.race.h)) { mpRaceStart(); tap(); return; }
             if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) { mpDisconnect(); tap(); return; }
             if (pointInRect(cx, cy, r.close.x, r.close.y, r.close.w, r.close.h)) { mpPickerOpen = false; tap(); return; }
             return;
@@ -590,7 +738,9 @@
     // Tiny "🌐 n riders" chip for the driving / on-foot HUDs (top-center,
     // unobtrusive, only while connected).
     function mpStatusChip() {
-        if (!MP_URL || !mpConnected) return;
+        if (!MP_URL) return;
+        mpDrawRace();   // countdown / standings / winner banner over the HUD
+        if (!mpConnected) return;
         var n = mpRiderCount();
         var txt = "🌐 " + n + (n === 1 ? " rider" : " riders");
         ctx.save();
