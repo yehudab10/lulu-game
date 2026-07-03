@@ -48,6 +48,7 @@
     var wedBouquetT = 0;           // bouquet arc progress 0..1
     var wedBouquetCaught = null;   // null = pending, true/false once resolved
     var wedBouquetTossed = false;  // toss has begun
+    var wedCatchYelled = false;    // the synced "NOW — CATCH!" cue fired
     var wedBouquetX = 0, wedBouquetY = 0; // live bouquet position (for tap test)
     var wedRewardGiven = false;
 
@@ -190,7 +191,7 @@
         wedGlassStomped = false; wedGlassShake = 0; wedMazelT = 0;
         wedHoraT = 0;
         wedBouquetActive = false; wedBouquetT = 0; wedBouquetCaught = null;
-        wedBouquetTossed = false; wedRewardGiven = false;
+        wedBouquetTossed = false; wedRewardGiven = false; wedCatchYelled = false;
         wedBubble = ""; wedBubbleT = 0; wedLastIdx = {};
 
         // clear any stale input so the no-tap intro is smooth
@@ -373,8 +374,11 @@
             wedBouquetT = 0;
             wedBouquetCaught = null;
             playTone(784, 0.12, "triangle", 0.2, 1046);
-            wedBubble = "Bouquet incoming — CATCH, Lulu!";
-            wedBubbleT = 2.0; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
+            // Anticipation first — the actual "CATCH!" fires when the catch
+            // window really opens (it used to yell CATCH ~0.9s too early and
+            // bait a fumble tap).
+            wedBubble = "Here it comes…!";
+            wedBubbleT = 0.9; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
         }
 
         // ambient hora lines before the toss
@@ -392,6 +396,13 @@
 
             // catch window: tap while it's near Lulu (late in the arc)
             var nearLulu = wedBouquetT > 0.62;
+            // The moment the window opens, NOW we yell it (synced to the truth).
+            if (nearLulu && !wedCatchYelled) {
+                wedCatchYelled = true;
+                wedBubble = "NOW — CATCH! 💐";
+                wedBubbleT = 0.8; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
+                playTone(988, 0.08, "triangle", 0.2);
+            }
             if (wedBouquetCaught === null && (tapped)) {
                 if (nearLulu) wedCatchBouquet(true);
                 else wedCatchBouquet(false); // tapped too early → fumble

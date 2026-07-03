@@ -11836,6 +11836,14 @@
             ctx.translate(W / 2, H * 0.25);
             ctx.scale(bounce, bounce);
             drawText("PARKED! 🎉", 0, 0, "bold 42px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#0D47A1", 7);
+            // A flawless 3-star park finally gets its moment (the counter always
+            // tracked perfect runs — there was just never a celebration).
+            if (parkingResultStars >= 3) {
+                var ppop = 1 + Math.sin(gameTime * 8) * 0.06;
+                ctx.save(); ctx.scale(ppop, ppop);
+                drawText("✨ PERFECT PARK! ✨", 0, -44, "bold 20px 'Segoe UI', Arial, sans-serif", "#80D8FF", "#01579B", 5);
+                ctx.restore();
+            }
             drawText("ICE CREAM TIME!", 0, 38, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#0D47A1", 5);
             var starStr = parkingResultStars > 0 ? "⭐".repeat(parkingResultStars) + " · " : "";
             var payStr = starStr + "+" + parkingResultBonus + " coins" + (parkingChallengeMode ? "" : " · +500 score");
@@ -15647,8 +15655,20 @@
         // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
-        drawCoin(72, top + 36, gameTime);
+        var fchPop = 1 + Math.max(0, coinHudPulse) * 0.9;
+        ctx.save(); ctx.translate(72, top + 36); ctx.scale(fchPop, fchPop); drawCoin(0, 0, gameTime); ctx.restore();
         drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
+        // Collected coins arc to THIS counter on foot too (they used to fly to
+        // the driving HUD's corner — invisible out here).
+        for (var cfd = 0; cfd < coinFlys.length; cfd++) {
+            var cf = coinFlys[cfd]; if (cf.t < 0) continue;
+            var cp2 = Math.min(1, cf.t / cf.dur); cp2 = cp2 * cp2 * (3 - 2 * cp2);
+            var inv = 1 - cp2;
+            var fx = inv * inv * cf.sx + 2 * inv * cp2 * cf.cx + cp2 * cp2 * 72;
+            var fy = inv * inv * cf.sy + 2 * inv * cp2 * cf.cy + cp2 * cp2 * (top + 36);
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(0.6, 0.6); ctx.globalAlpha = 0.95;
+            drawCoin(0, 0, gameTime + cfd); ctx.restore();
+        }
 
         // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
         // sticker book uses), not a throwaway counter.
@@ -15673,10 +15693,23 @@
             drawText("🚨 COP CHASING — RUN! ⚡", W / 2, top + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
             var bw = 150, bx = W / 2 - bw / 2, by = top + 66;
             ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(bx, by, bw, 7, 3); ctx.fill();
+            // The bar tells the TRUTH now: it fills at the escape threshold (270),
+            // then a marker + "KEEP GOING" shows the hold-it phase — a full bar no
+            // longer promises an escape it hasn't earned yet.
             var gp = clamp(footChase.gap / 270, 0, 1);
             ctx.fillStyle = gp > 0.6 ? "#7CFC4F" : gp > 0.3 ? "#FFD740" : "#FF5252";
             roundRect(bx, by, bw * gp, 7, 3); ctx.fill();
-            drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            if (footChase.gap > 270) {
+                var hp = clamp(footChase.escapeT / 1.8, 0, 1);
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                roundRect(bx, by + 9, bw * hp, 3, 1.5); ctx.fill();
+                var kg = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 6));
+                ctx.globalAlpha = 0.55 + 0.45 * kg;
+                drawText("KEEP GOING! 🏃‍♀️", W / 2, by + 22, "bold 10px 'Segoe UI', Arial, sans-serif", "#B9F6CA", "#000", 2);
+                ctx.globalAlpha = 1;
+            } else {
+                drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            }
         }
 
         if (footHintT > 0) {
@@ -20478,6 +20511,7 @@
     var wedBouquetT = 0;           // bouquet arc progress 0..1
     var wedBouquetCaught = null;   // null = pending, true/false once resolved
     var wedBouquetTossed = false;  // toss has begun
+    var wedCatchYelled = false;    // the synced "NOW — CATCH!" cue fired
     var wedBouquetX = 0, wedBouquetY = 0; // live bouquet position (for tap test)
     var wedRewardGiven = false;
 
@@ -20620,7 +20654,7 @@
         wedGlassStomped = false; wedGlassShake = 0; wedMazelT = 0;
         wedHoraT = 0;
         wedBouquetActive = false; wedBouquetT = 0; wedBouquetCaught = null;
-        wedBouquetTossed = false; wedRewardGiven = false;
+        wedBouquetTossed = false; wedRewardGiven = false; wedCatchYelled = false;
         wedBubble = ""; wedBubbleT = 0; wedLastIdx = {};
 
         // clear any stale input so the no-tap intro is smooth
@@ -20803,8 +20837,11 @@
             wedBouquetT = 0;
             wedBouquetCaught = null;
             playTone(784, 0.12, "triangle", 0.2, 1046);
-            wedBubble = "Bouquet incoming — CATCH, Lulu!";
-            wedBubbleT = 2.0; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
+            // Anticipation first — the actual "CATCH!" fires when the catch
+            // window really opens (it used to yell CATCH ~0.9s too early and
+            // bait a fumble tap).
+            wedBubble = "Here it comes…!";
+            wedBubbleT = 0.9; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
         }
 
         // ambient hora lines before the toss
@@ -20822,6 +20859,13 @@
 
             // catch window: tap while it's near Lulu (late in the arc)
             var nearLulu = wedBouquetT > 0.62;
+            // The moment the window opens, NOW we yell it (synced to the truth).
+            if (nearLulu && !wedCatchYelled) {
+                wedCatchYelled = true;
+                wedBubble = "NOW — CATCH! 💐";
+                wedBubbleT = 0.8; wedBubbleX = W / 2; wedBubbleY = wedAisleBot - 40;
+                playTone(988, 0.08, "triangle", 0.2);
+            }
             if (wedBouquetCaught === null && (tapped)) {
                 if (nearLulu) wedCatchBouquet(true);
                 else wedCatchBouquet(false); // tapped too early → fumble
@@ -27991,6 +28035,7 @@
     var mpPingTimer = 0;        // keepalive throttle (25 s)
     var mpReconnectAt = 0;      // mpClock time of the next reconnect attempt
     var mpReconnectDelay = 1;   // backoff seconds (1,2,4,8… cap 10)
+    var mpWantSince = 0;        // mpClock when the player asked to connect
 
     // ── Picker / overlay UI state ────────────────────────────
     var mpPickerOpen = false;
@@ -28034,6 +28079,7 @@
     function mpConnect() {
         if (!MP_URL) return;
         mpWant = true;
+        mpWantSince = mpClock;      // for the "still trying…" hint on the panel
         mpEverConnected = true;     // opted in — board POSTs are now allowed this session
         mpConnected = false;
         mpPeers = {};
@@ -28382,6 +28428,13 @@
         var connecting = !mpConnected;
         drawText(connecting ? "… Connecting" : "✅ Connected", W / 2, cy,
             "bold 24px 'Segoe UI', Arial, sans-serif", connecting ? "#FFD54F" : "#69F0AE", "#000", 4);
+        // Been trying a while → say so instead of spinning silently forever.
+        if (connecting && mpClock - mpWantSince > 5) {
+            drawText("Can't reach the road — still retrying.", W / 2, cy + 100,
+                "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
+            drawText("Check your connection?", W / 2, cy + 116,
+                "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
+        }
         drawText("Room: " + (mpRoom === "lobby" ? "EVERYONE" : mpRoom.toUpperCase()), W / 2, cy + 40,
             "bold 15px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
         drawText("Riding as: " + mpMyName(), W / 2, cy + 66,
@@ -28459,11 +28512,15 @@
     function mpMenuButton() {
         if (!MP_URL) return;
         var b = mpMenuBtnRect();
-        var online = mpConnected;
-        drawButton(b.x, b.y, b.w, b.h,
-            online ? ("🌐 ONLINE · " + mpRiderCount()) : "🌐 SHARED ROAD",
-            { bg: online ? "#26A69A" : "#7E57C2",
-              bgDark: online ? "#00695C" : "#4527A0", small: true });
+        // Three honest states: idle / trying (pulsing amber) / online (teal).
+        var lbl, bg, bgD;
+        if (mpConnected) { lbl = "🌐 ONLINE · " + mpRiderCount(); bg = "#26A69A"; bgD = "#00695C"; }
+        else if (mpWant) {
+            var dots = ["·", "··", "···"][Math.floor((gameTime * 2) % 3)];
+            lbl = "🌐 CONNECTING " + dots; bg = "#FFB300"; bgD = "#E65100";
+        }
+        else { lbl = "🌐 SHARED ROAD"; bg = "#7E57C2"; bgD = "#4527A0"; }
+        drawButton(b.x, b.y, b.w, b.h, lbl, { bg: bg, bgDark: bgD, small: true });
         if (mpPickerOpen) mpDrawPicker();
     }
 

@@ -975,8 +975,20 @@
         // are what she's actually earning out here.
         drawText("🚶‍♀️ ON FOOT", 64, top + 13, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
         if (typeof mpStatusChip === "function") { try { mpStatusChip(); } catch (e) {} }
-        drawCoin(72, top + 36, gameTime);
+        var fchPop = 1 + Math.max(0, coinHudPulse) * 0.9;
+        ctx.save(); ctx.translate(72, top + 36); ctx.scale(fchPop, fchPop); drawCoin(0, 0, gameTime); ctx.restore();
         drawText("× " + runCoins, 86, top + 35, "bold 20px 'Segoe UI', Arial, sans-serif", C.coin, C.hudShadow, 4, "left");
+        // Collected coins arc to THIS counter on foot too (they used to fly to
+        // the driving HUD's corner — invisible out here).
+        for (var cfd = 0; cfd < coinFlys.length; cfd++) {
+            var cf = coinFlys[cfd]; if (cf.t < 0) continue;
+            var cp2 = Math.min(1, cf.t / cf.dur); cp2 = cp2 * cp2 * (3 - 2 * cp2);
+            var inv = 1 - cp2;
+            var fx = inv * inv * cf.sx + 2 * inv * cp2 * cf.cx + cp2 * cp2 * 72;
+            var fy = inv * inv * cf.sy + 2 * inv * cp2 * cf.cy + cp2 * cp2 * (top + 36);
+            ctx.save(); ctx.translate(fx, fy); ctx.scale(0.6, 0.6); ctx.globalAlpha = 0.95;
+            drawCoin(0, 0, gameTime + cfd); ctx.restore();
+        }
 
         // ⭐ stars (top-right) — the REAL, spendable star total (same ⭐ the
         // sticker book uses), not a throwaway counter.
@@ -1001,10 +1013,23 @@
             drawText("🚨 COP CHASING — RUN! ⚡", W / 2, top + 56, "bold 14px 'Segoe UI', Arial, sans-serif", pulse ? "#FF5252" : "#FFEB3B", "#000", 3);
             var bw = 150, bx = W / 2 - bw / 2, by = top + 66;
             ctx.fillStyle = "rgba(0,0,0,0.45)"; roundRect(bx, by, bw, 7, 3); ctx.fill();
+            // The bar tells the TRUTH now: it fills at the escape threshold (270),
+            // then a marker + "KEEP GOING" shows the hold-it phase — a full bar no
+            // longer promises an escape it hasn't earned yet.
             var gp = clamp(footChase.gap / 270, 0, 1);
             ctx.fillStyle = gp > 0.6 ? "#7CFC4F" : gp > 0.3 ? "#FFD740" : "#FF5252";
             roundRect(bx, by, bw * gp, 7, 3); ctx.fill();
-            drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            if (footChase.gap > 270) {
+                var hp = clamp(footChase.escapeT / 1.8, 0, 1);
+                ctx.fillStyle = "rgba(255,255,255,0.9)";
+                roundRect(bx, by + 9, bw * hp, 3, 1.5); ctx.fill();
+                var kg = 0.5 + 0.5 * Math.abs(Math.sin(gameTime * 6));
+                ctx.globalAlpha = 0.55 + 0.45 * kg;
+                drawText("KEEP GOING! 🏃‍♀️", W / 2, by + 22, "bold 10px 'Segoe UI', Arial, sans-serif", "#B9F6CA", "#000", 2);
+                ctx.globalAlpha = 1;
+            } else {
+                drawText("distance", W / 2, by + 18, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            }
         }
 
         if (footHintT > 0) {

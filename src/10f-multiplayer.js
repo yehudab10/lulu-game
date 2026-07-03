@@ -39,6 +39,7 @@
     var mpPingTimer = 0;        // keepalive throttle (25 s)
     var mpReconnectAt = 0;      // mpClock time of the next reconnect attempt
     var mpReconnectDelay = 1;   // backoff seconds (1,2,4,8… cap 10)
+    var mpWantSince = 0;        // mpClock when the player asked to connect
 
     // ── Picker / overlay UI state ────────────────────────────
     var mpPickerOpen = false;
@@ -82,6 +83,7 @@
     function mpConnect() {
         if (!MP_URL) return;
         mpWant = true;
+        mpWantSince = mpClock;      // for the "still trying…" hint on the panel
         mpEverConnected = true;     // opted in — board POSTs are now allowed this session
         mpConnected = false;
         mpPeers = {};
@@ -430,6 +432,13 @@
         var connecting = !mpConnected;
         drawText(connecting ? "… Connecting" : "✅ Connected", W / 2, cy,
             "bold 24px 'Segoe UI', Arial, sans-serif", connecting ? "#FFD54F" : "#69F0AE", "#000", 4);
+        // Been trying a while → say so instead of spinning silently forever.
+        if (connecting && mpClock - mpWantSince > 5) {
+            drawText("Can't reach the road — still retrying.", W / 2, cy + 100,
+                "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
+            drawText("Check your connection?", W / 2, cy + 116,
+                "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
+        }
         drawText("Room: " + (mpRoom === "lobby" ? "EVERYONE" : mpRoom.toUpperCase()), W / 2, cy + 40,
             "bold 15px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
         drawText("Riding as: " + mpMyName(), W / 2, cy + 66,
@@ -507,11 +516,15 @@
     function mpMenuButton() {
         if (!MP_URL) return;
         var b = mpMenuBtnRect();
-        var online = mpConnected;
-        drawButton(b.x, b.y, b.w, b.h,
-            online ? ("🌐 ONLINE · " + mpRiderCount()) : "🌐 SHARED ROAD",
-            { bg: online ? "#26A69A" : "#7E57C2",
-              bgDark: online ? "#00695C" : "#4527A0", small: true });
+        // Three honest states: idle / trying (pulsing amber) / online (teal).
+        var lbl, bg, bgD;
+        if (mpConnected) { lbl = "🌐 ONLINE · " + mpRiderCount(); bg = "#26A69A"; bgD = "#00695C"; }
+        else if (mpWant) {
+            var dots = ["·", "··", "···"][Math.floor((gameTime * 2) % 3)];
+            lbl = "🌐 CONNECTING " + dots; bg = "#FFB300"; bgD = "#E65100";
+        }
+        else { lbl = "🌐 SHARED ROAD"; bg = "#7E57C2"; bgD = "#4527A0"; }
+        drawButton(b.x, b.y, b.w, b.h, lbl, { bg: bg, bgDark: bgD, small: true });
         if (mpPickerOpen) mpDrawPicker();
     }
 

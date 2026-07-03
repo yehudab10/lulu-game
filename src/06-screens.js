@@ -212,6 +212,14 @@
             ctx.translate(W / 2, H * 0.25);
             ctx.scale(bounce, bounce);
             drawText("PARKED! 🎉", 0, 0, "bold 42px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#0D47A1", 7);
+            // A flawless 3-star park finally gets its moment (the counter always
+            // tracked perfect runs — there was just never a celebration).
+            if (parkingResultStars >= 3) {
+                var ppop = 1 + Math.sin(gameTime * 8) * 0.06;
+                ctx.save(); ctx.scale(ppop, ppop);
+                drawText("✨ PERFECT PARK! ✨", 0, -44, "bold 20px 'Segoe UI', Arial, sans-serif", "#80D8FF", "#01579B", 5);
+                ctx.restore();
+            }
             drawText("ICE CREAM TIME!", 0, 38, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFF", "#0D47A1", 5);
             var starStr = parkingResultStars > 0 ? "⭐".repeat(parkingResultStars) + " · " : "";
             var payStr = starStr + "+" + parkingResultBonus + " coins" + (parkingChallengeMode ? "" : " · +500 score");
