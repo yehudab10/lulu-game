@@ -763,6 +763,26 @@
         ctx.fillStyle = "#000";
         ctx.beginPath(); ctx.arc(17, 55, 1, 0, Math.PI * 2); ctx.arc(21, 55, 1, 0, Math.PI * 2); ctx.fill();
         drawText("HESHY", 19, 74, "bold 6px Arial", "#B71C1C", null, 0);
+        // Real online fugitive (from the async board) pinned below the gag posters,
+        // with their top charge. Silent fallback to just the gags when no data.
+        if (typeof mpWantedList === "function") {
+            try {
+                var rmw = mpWantedList();
+                if (rmw && rmw.length && rmw[0] && rmw[0].name) {
+                    var rmwe = rmw[0];
+                    ctx.fillStyle = "#FFF8E1"; roundRect(-40, 86, 80, 24, 2); ctx.fill();
+                    ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, 88, 1.6, 0, Math.PI * 2); ctx.fill();
+                    var rmName = ("" + rmwe.name).toUpperCase(), nfs = 7;
+                    ctx.font = "bold " + nfs + "px Arial";
+                    while (nfs > 5 && ctx.measureText(rmName).width > 74) { nfs -= 0.5; ctx.font = "bold " + nfs + "px Arial"; }
+                    drawText(rmName, 0, 95, "bold " + nfs + "px Arial", "#4A1A0A", null, 0);
+                    var rmChg = (rmwe.charges && rmwe.charges.length) ? ("" + rmwe.charges[0]) : "AT LARGE", cfs = 5;
+                    ctx.font = "bold " + cfs + "px Arial";
+                    while (cfs > 4 && ctx.measureText(rmChg).width > 74) { cfs -= 0.5; ctx.font = "bold " + cfs + "px Arial"; }
+                    drawText(rmChg, 0, 104, "bold " + cfs + "px Arial", "#B71C1C", null, 0);
+                }
+            } catch (e) {}
+        }
         // pin glints
         ctx.fillStyle = "#E53935";
         ctx.beginPath(); ctx.arc(-19, 41, 2, 0, Math.PI * 2); ctx.arc(19, 41, 2, 0, Math.PI * 2); ctx.fill();

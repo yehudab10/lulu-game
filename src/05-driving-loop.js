@@ -3127,6 +3127,7 @@
     // ── Update: Game Over ────────────────────────────────────
     function updateGameOver(dt) {
         gameOverAlpha = Math.min(gameOverAlpha + dt * 2, 1);
+        if (typeof mpPostScore === "function") { try { mpPostScore(); } catch (e) {} }
         // Clear residual angry-man/revenge-car state so they don't keep moving
         if (angryMan) angryMan = null;
         if (revengeCar) revengeCar = null;

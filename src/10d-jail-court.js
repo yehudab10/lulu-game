@@ -628,6 +628,7 @@
         if (save.wanted && save.wanted.length) list = list.concat(save.wanted);
         if (Math.random() < 0.5) list.push(randPick(EXTRA_CHARGES));
         list = list.filter(function (c, i) { return list.indexOf(c) === i; });
+        if (typeof mpPostWanted === "function") { try { mpPostWanted(list); } catch (e) {} }
         save.offenses = (save.offenses || 0) + 1;
         var strikes = save.convictions || 0;
         // Bail climbs with how wanted she is (priors + strikes).
@@ -2046,7 +2047,19 @@
         if (wantedPosterT <= 0 && typeof billboards !== "undefined") {
             wantedPosterT = rand(7, 12);
             var side = Math.random() < 0.5 ? -1 : 1;
-            billboards.push({ x: side > 0 ? W - 50 : 50, y: -120, side: side, msg: "WANTED: LULU", parallax: rand(0.7, 0.9), wanted: true });
+            // Sometimes the poster is a REAL recent online fugitive (from the async
+            // board) instead of Lulu — falls back to LULU when no board data.
+            var wMsg = "WANTED: LULU";
+            if (typeof mpWantedList === "function") {
+                try {
+                    var rw = mpWantedList();
+                    if (rw && rw.length && Math.random() < 0.5) {
+                        var rwe = rw[randInt(0, rw.length - 1)];
+                        if (rwe && rwe.name) wMsg = "WANTED: " + rwe.name;
+                    }
+                } catch (e) {}
+            }
+            billboards.push({ x: side > 0 ? W - 50 : 50, y: -120, side: side, msg: wMsg, parallax: rand(0.7, 0.9), wanted: true });
         }
         // The heat escalates by STAGE, not just volume: low stars trickle a few
         // cruisers; 3★ brings AGGRESSIVE hunter units that steer at her; 4★ adds a

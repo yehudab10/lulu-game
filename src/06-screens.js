@@ -641,6 +641,7 @@
 
         // Shared Road (multiplayer) button + its overlay — drawn LAST so the
         // name/room picker sits on top of everything. Guarded no-op offline.
+        if (typeof mpDrawLeaderboard === "function") { try { mpDrawLeaderboard(); } catch (e) {} }
         if (typeof mpMenuButton === "function") { try { mpMenuButton(); } catch (e) {} }
     }
 

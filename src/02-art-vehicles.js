@@ -1760,8 +1760,21 @@
             // height bars behind
             ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
             ctx.beginPath(); ctx.moveTo(-9, -22); ctx.lineTo(9, -22); ctx.moveTo(-9, -12); ctx.lineTo(9, -12); ctx.stroke();
-            ctx.fillStyle = "#B71C1C"; ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
-            ctx.fillText("REWARD: 1 KUGEL", 0, -2);
+            // Bottom line: a REAL online fugitive's name (from the async board) when
+            // the poster carries one, else the default reward gag.
+            var wName = (msg && msg.indexOf("WANTED: ") === 0) ? msg.substring(8) : "LULU";
+            ctx.fillStyle = "#B71C1C";
+            if (wName && wName !== "LULU") {
+                var wfs = 7;
+                ctx.font = "bold " + wfs + "px 'Segoe UI', Arial, sans-serif";
+                while (wfs > 5 && ctx.measureText(wName).width > 66) {
+                    wfs -= 0.5; ctx.font = "bold " + wfs + "px 'Segoe UI', Arial, sans-serif";
+                }
+                ctx.fillText(wName, 0, -2);
+            } else {
+                ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
+                ctx.fillText("REWARD: 1 KUGEL", 0, -2);
+            }
             ctx.restore();
             return;
         }

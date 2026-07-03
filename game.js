@@ -4624,8 +4624,21 @@
             // height bars behind
             ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
             ctx.beginPath(); ctx.moveTo(-9, -22); ctx.lineTo(9, -22); ctx.moveTo(-9, -12); ctx.lineTo(9, -12); ctx.stroke();
-            ctx.fillStyle = "#B71C1C"; ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
-            ctx.fillText("REWARD: 1 KUGEL", 0, -2);
+            // Bottom line: a REAL online fugitive's name (from the async board) when
+            // the poster carries one, else the default reward gag.
+            var wName = (msg && msg.indexOf("WANTED: ") === 0) ? msg.substring(8) : "LULU";
+            ctx.fillStyle = "#B71C1C";
+            if (wName && wName !== "LULU") {
+                var wfs = 7;
+                ctx.font = "bold " + wfs + "px 'Segoe UI', Arial, sans-serif";
+                while (wfs > 5 && ctx.measureText(wName).width > 66) {
+                    wfs -= 0.5; ctx.font = "bold " + wfs + "px 'Segoe UI', Arial, sans-serif";
+                }
+                ctx.fillText(wName, 0, -2);
+            } else {
+                ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
+                ctx.fillText("REWARD: 1 KUGEL", 0, -2);
+            }
             ctx.restore();
             return;
         }
@@ -10314,6 +10327,7 @@
     // ── Update: Game Over ────────────────────────────────────
     function updateGameOver(dt) {
         gameOverAlpha = Math.min(gameOverAlpha + dt * 2, 1);
+        if (typeof mpPostScore === "function") { try { mpPostScore(); } catch (e) {} }
         // Clear residual angry-man/revenge-car state so they don't keep moving
         if (angryMan) angryMan = null;
         if (revengeCar) revengeCar = null;
@@ -12251,6 +12265,7 @@
 
         // Shared Road (multiplayer) button + its overlay — drawn LAST so the
         // name/room picker sits on top of everything. Guarded no-op offline.
+        if (typeof mpDrawLeaderboard === "function") { try { mpDrawLeaderboard(); } catch (e) {} }
         if (typeof mpMenuButton === "function") { try { mpMenuButton(); } catch (e) {} }
     }
 
@@ -19301,6 +19316,26 @@
         ctx.fillStyle = "#000";
         ctx.beginPath(); ctx.arc(17, 55, 1, 0, Math.PI * 2); ctx.arc(21, 55, 1, 0, Math.PI * 2); ctx.fill();
         drawText("HESHY", 19, 74, "bold 6px Arial", "#B71C1C", null, 0);
+        // Real online fugitive (from the async board) pinned below the gag posters,
+        // with their top charge. Silent fallback to just the gags when no data.
+        if (typeof mpWantedList === "function") {
+            try {
+                var rmw = mpWantedList();
+                if (rmw && rmw.length && rmw[0] && rmw[0].name) {
+                    var rmwe = rmw[0];
+                    ctx.fillStyle = "#FFF8E1"; roundRect(-40, 86, 80, 24, 2); ctx.fill();
+                    ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, 88, 1.6, 0, Math.PI * 2); ctx.fill();
+                    var rmName = ("" + rmwe.name).toUpperCase(), nfs = 7;
+                    ctx.font = "bold " + nfs + "px Arial";
+                    while (nfs > 5 && ctx.measureText(rmName).width > 74) { nfs -= 0.5; ctx.font = "bold " + nfs + "px Arial"; }
+                    drawText(rmName, 0, 95, "bold " + nfs + "px Arial", "#4A1A0A", null, 0);
+                    var rmChg = (rmwe.charges && rmwe.charges.length) ? ("" + rmwe.charges[0]) : "AT LARGE", cfs = 5;
+                    ctx.font = "bold " + cfs + "px Arial";
+                    while (cfs > 4 && ctx.measureText(rmChg).width > 74) { cfs -= 0.5; ctx.font = "bold " + cfs + "px Arial"; }
+                    drawText(rmChg, 0, 104, "bold " + cfs + "px Arial", "#B71C1C", null, 0);
+                }
+            } catch (e) {}
+        }
         // pin glints
         ctx.fillStyle = "#E53935";
         ctx.beginPath(); ctx.arc(-19, 41, 2, 0, Math.PI * 2); ctx.arc(19, 41, 2, 0, Math.PI * 2); ctx.fill();
@@ -24611,6 +24646,7 @@
         if (save.wanted && save.wanted.length) list = list.concat(save.wanted);
         if (Math.random() < 0.5) list.push(randPick(EXTRA_CHARGES));
         list = list.filter(function (c, i) { return list.indexOf(c) === i; });
+        if (typeof mpPostWanted === "function") { try { mpPostWanted(list); } catch (e) {} }
         save.offenses = (save.offenses || 0) + 1;
         var strikes = save.convictions || 0;
         // Bail climbs with how wanted she is (priors + strikes).
@@ -26029,7 +26065,19 @@
         if (wantedPosterT <= 0 && typeof billboards !== "undefined") {
             wantedPosterT = rand(7, 12);
             var side = Math.random() < 0.5 ? -1 : 1;
-            billboards.push({ x: side > 0 ? W - 50 : 50, y: -120, side: side, msg: "WANTED: LULU", parallax: rand(0.7, 0.9), wanted: true });
+            // Sometimes the poster is a REAL recent online fugitive (from the async
+            // board) instead of Lulu — falls back to LULU when no board data.
+            var wMsg = "WANTED: LULU";
+            if (typeof mpWantedList === "function") {
+                try {
+                    var rw = mpWantedList();
+                    if (rw && rw.length && Math.random() < 0.5) {
+                        var rwe = rw[randInt(0, rw.length - 1)];
+                        if (rwe && rwe.name) wMsg = "WANTED: " + rwe.name;
+                    }
+                } catch (e) {}
+            }
+            billboards.push({ x: side > 0 ? W - 50 : 50, y: -120, side: side, msg: wMsg, parallax: rand(0.7, 0.9), wanted: true });
         }
         // The heat escalates by STAGE, not just volume: low stars trickle a few
         // cruisers; 3★ brings AGGRESSIVE hunter units that steer at her; 4★ adds a
@@ -27934,6 +27982,7 @@
     var mpSock = null;
     var mpWant = false;         // does the player WANT to be connected?
     var mpConnected = false;    // socket open AND hello received
+    var mpEverConnected = false; // opted in this session? gates all board POSTs
     var mpRoom = "lobby";       // "lobby" = EVERYONE; else an uppercased code
     var mpMyId = null;
     var mpPeers = {};           // id -> peer record
@@ -27947,6 +27996,15 @@
     var mpPickerOpen = false;
     var mpRoomKind = "everyone";   // "everyone" | "friend" (selection in the form)
     var mpCodeSlots = [0, 0, 0, 0]; // A-Z indices for the 4-letter friend code
+
+    // ── HUD chip pulse (rider count changes) ─────────────────
+    var mpChipPulse = 0;         // 1 → 0 over ~0.6s after the head-count changes
+    var mpLastRiderCount = -1;
+
+    // ── Async BOARD (phase 2: wanted posters + daily leaderboard) ─
+    var mpScorePosted = false;   // one score POST per run (re-armed after gameover)
+    var mpWantedCache = { t: -1e9, data: [], loading: false };          // GET /board/wanted (60s TTL)
+    var mpScoresCache = { t: -1e9, data: [], ok: false, loading: false }; // GET /board/scores (60s TTL)
 
     // ── TEMP DEBUG state (see mpDebugFake at the bottom) ─────
     var mpFakeMode = false;
@@ -27976,6 +28034,7 @@
     function mpConnect() {
         if (!MP_URL) return;
         mpWant = true;
+        mpEverConnected = true;     // opted in — board POSTs are now allowed this session
         mpConnected = false;
         mpPeers = {};
         mpReconnectDelay = 1;
@@ -28067,7 +28126,8 @@
                 m: 0, vk: "car", ct: 0, co: null,
                 x: W / 2, tx: W / 2, di: 0, sp: 0, seen: false,
                 lastPacket: mpClock, honkT: 0, waveT: 0,
-                sx: W / 2, sy: 0, rel: 0, onScreen: false
+                sx: W / 2, sy: 0, rel: 0, onScreen: false,
+                vis: 0, dropping: false   // 0→1 fade-in on first sight; →0 fade-out on drop
             };
             mpPeers[id] = p;
         } else {
@@ -28103,7 +28163,7 @@
         if (!p) return;
         if (e === "honk") {
             p.honkT = 1.1;
-            if (p.onScreen && Math.abs(p.rel) < 300) {
+            if (p.onScreen && Math.abs(p.rel) < 320) {
                 if (typeof playHonk === "function") playHonk();
                 if (typeof spawnFloater === "function") spawnFloater(p.sx, p.sy - 40, "📣", "#FFD54F");
             }
@@ -28165,15 +28225,33 @@
 
             if (mpFakeMode) mpFakeMaintain(dt);
 
-            // Advance interpolation + expire stale peers (no packet 6 s → drop).
+            // Advance interpolation + expire stale peers (no packet 6 s → fade out).
+            var fadeRate = dt / 0.4;   // 0.4 s to fully fade in / out
             for (var id in mpPeers) {
                 var p = mpPeers[id];
                 if (!mpFakeMode) p.di += (p.sp || 0) * dt;   // extrapolate distance
                 p.x = lerp(p.x, p.tx, clamp(dt * 8, 0, 1));  // ease lane x
                 if (p.honkT > 0) p.honkT -= dt;
                 if (p.waveT > 0) p.waveT -= dt;
-                if (mpClock - p.lastPacket > 6) delete mpPeers[id];
+                // Stale → start a graceful fade-out instead of popping away.
+                if (mpClock - p.lastPacket > 6) p.dropping = true;
+                var target = p.dropping ? 0 : 1;
+                if (p.vis < target) p.vis = Math.min(target, p.vis + fadeRate);
+                else if (p.vis > target) p.vis = Math.max(target, p.vis - fadeRate);
+                if (p.dropping && p.vis <= 0.01) delete mpPeers[id];
+                else if (mpClock - p.lastPacket > 9) delete mpPeers[id];   // hard safety
             }
+
+            // 🌐 rider-count chip: pulse briefly whenever the head-count changes.
+            var rc = mpRiderCount();
+            if (rc !== mpLastRiderCount) {
+                if (mpLastRiderCount >= 0) mpChipPulse = 1;
+                mpLastRiderCount = rc;
+            }
+            if (mpChipPulse > 0) mpChipPulse = Math.max(0, mpChipPulse - dt / 0.6);
+
+            // Score is posted once per run; re-arm the moment we leave game over.
+            if (typeof state !== "undefined" && state !== "gameover") mpScorePosted = false;
         } catch (e) {}
     }
 
@@ -28199,27 +28277,30 @@
         }
     }
 
-    function mpDrawNametag(cx, baseY, name) {
+    function mpDrawNametag(cx, baseY, name, a) {
+        if (a === undefined) a = 1;
+        // The subtle dark pill behind the text keeps names legible over any road.
         ctx.save();
         ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
         var tw = ctx.measureText(name).width;
         var w = tw + 12, h = 14, x = cx - w / 2, y = baseY - h;
-        ctx.globalAlpha = 0.92;
+        ctx.globalAlpha = 0.92 * a;
         ctx.fillStyle = "rgba(24,22,38,0.85)";
         roundRect(x, y, w, h, 7); ctx.fill();
         ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1;
         roundRect(x, y, w, h, 7); ctx.stroke();
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = a;
         drawText(name, cx, y + h / 2 + 0.5, "bold 9px 'Segoe UI', Arial, sans-serif", "#FFFFFF", null, 0);
         ctx.restore();
     }
 
-    function mpDrawEmojiBurst(x, y, emoji, t) {
+    function mpDrawEmojiBurst(x, y, emoji, t, a) {
+        if (a === undefined) a = 1;
         var p = clamp(1 - t / 1.1, 0, 1);   // 0 → 1 across the life
         var rise = p * 26;
         var scale = 1 + Math.sin(p * Math.PI) * 0.45;
         ctx.save();
-        ctx.globalAlpha = clamp(1.15 - p, 0, 1);
+        ctx.globalAlpha = clamp(1.15 - p, 0, 1) * a;
         drawText(emoji, x, y - rise, "bold " + Math.round(20 * scale) + "px Arial", "#FFF", "#000", 3);
         ctx.restore();
     }
@@ -28237,16 +28318,17 @@
             var gy = clamp(myY - rel * 0.55, -80, H + 80);
             p.sx = gx; p.sy = gy; p.onScreen = true;
 
+            var a = clamp(p.vis, 0, 1);   // fade-in on first sight / fade-out on drop
             ctx.save();
-            ctx.globalAlpha = 0.75;
+            ctx.globalAlpha = 0.75 * a;
             if (p.m === 1) drawLuluTopDown(gx, gy, mpClock * 6, null);   // walking ghost
             else mpDrawGhostVehicle(gx, gy, p);
             ctx.restore();
 
             var topY = gy - mpGhostHalfH(p) - 6;
-            mpDrawNametag(gx, topY, p.name);
-            if (p.honkT > 0) mpDrawEmojiBurst(gx, topY - 16, "📣", p.honkT);
-            else if (p.waveT > 0) mpDrawEmojiBurst(gx, topY - 16, "👋", p.waveT);
+            mpDrawNametag(gx, topY, p.name, a);
+            if (p.honkT > 0) mpDrawEmojiBurst(gx, topY - 16, "📣", p.honkT, a);
+            else if (p.waveT > 0) mpDrawEmojiBurst(gx, topY - 16, "👋", p.waveT, a);
         }
         ctx.globalAlpha = 1;
     }
@@ -28456,6 +28538,15 @@
         // Just BELOW the top HUD strip, centered — the strip's center is taken by
         // the lives hearts (driving) / title, so tuck the chip under it.
         var w = tw + 18, h = 20, x = W / 2 - w / 2, y = 54;
+        // Brief bulge + warm glow ring when the rider count just changed.
+        var pulse = clamp(mpChipPulse, 0, 1);
+        if (pulse > 0.001) {
+            var sc = 1 + 0.16 * Math.sin(pulse * Math.PI);
+            ctx.translate(W / 2, y + h / 2); ctx.scale(sc, sc); ctx.translate(-(W / 2), -(y + h / 2));
+            ctx.globalAlpha = 0.55 * pulse;
+            ctx.strokeStyle = "#FFECB3"; ctx.lineWidth = 2.5;
+            roundRect(x - 3, y - 3, w + 6, h + 6, 12); ctx.stroke();
+        }
         ctx.globalAlpha = 0.88;
         ctx.fillStyle = "rgba(38,166,154,0.85)";
         roundRect(x, y, w, h, 10); ctx.fill();
@@ -28463,6 +28554,128 @@
         roundRect(x, y, w, h, 10); ctx.stroke();
         ctx.globalAlpha = 1;
         drawText(txt, W / 2, y + h / 2, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#004D40", 2);
+        ctx.restore();
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ═══════════ ASYNC BOARD — wanted posters + leaderboard ══
+    // ════════════════════════════════════════════════════════
+    // A single global Durable Object reached over plain HTTPS (same Worker, new
+    // /board/* routes). Every call here is fire-and-forget + try/caught, and every
+    // POST is gated on the player having OPTED IN this session (mpEverConnected);
+    // GETs only run once a rider name has ever been chosen (save.mpName). Offline
+    // and never-joined players are never published and never fetch.
+
+    // The board lives on the same host as the socket, over HTTP(S): ws→http, wss→https.
+    function mpHttpBase() {
+        if (!MP_URL) return "";
+        return MP_URL.replace(/^ws/, "http");
+    }
+
+    // POST her name + top-3 charges (by severity) when she's jailed.
+    function mpPostWanted(charges) {
+        if (!MP_URL || !mpEverConnected || !save.mpName) return;
+        if (!charges || !charges.length) return;
+        try {
+            var list = charges.slice();
+            if (typeof chargeWeight === "function") {
+                list.sort(function (a, b) { return chargeWeight(b) - chargeWeight(a); });
+            }
+            list = list.slice(0, 3);
+            fetch(mpHttpBase() + "/board/wanted", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: save.mpName, charges: list })
+            }).then(function () { mpWantedCache.t = -1e9; })["catch"](function () {});
+        } catch (e) {}
+    }
+
+    // POST the final score once per run at game over.
+    function mpPostScore() {
+        if (mpScorePosted) return;
+        mpScorePosted = true;   // guard first — one attempt per run no matter what
+        if (!MP_URL || !mpEverConnected || !save.mpName) return;
+        try {
+            var sc = Math.round(typeof score === "number" ? score : 0);
+            if (sc < 0) sc = 0;
+            fetch(mpHttpBase() + "/board/score", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: save.mpName, score: sc })
+            }).then(function () { mpScoresCache.t = -1e9; })["catch"](function () {});
+        } catch (e) {}
+    }
+
+    // Cached (60s) list of recent real fugitives. [] when unavailable.
+    function mpWantedList() {
+        if (!MP_URL || !save.mpName) return [];
+        if (mpClock - mpWantedCache.t > 60 && !mpWantedCache.loading) {
+            mpWantedCache.t = mpClock;              // mark the attempt (don't spam)
+            mpWantedCache.loading = true;
+            try {
+                fetch(mpHttpBase() + "/board/wanted").then(function (r) { return r.json(); })
+                    .then(function (j) { mpWantedCache.data = (j && j.list) ? j.list : []; mpWantedCache.loading = false; })
+                    ["catch"](function () { mpWantedCache.loading = false; });
+            } catch (e) { mpWantedCache.loading = false; }
+        }
+        return mpWantedCache.data || [];
+    }
+
+    // Cached (60s) top scores for today. null until a fetch has SUCCEEDED.
+    function mpScoresList() {
+        if (!MP_URL || !save.mpName) return null;
+        if (mpClock - mpScoresCache.t > 60 && !mpScoresCache.loading) {
+            mpScoresCache.t = mpClock;
+            mpScoresCache.loading = true;
+            try {
+                fetch(mpHttpBase() + "/board/scores").then(function (r) { return r.json(); })
+                    .then(function (j) { mpScoresCache.data = (j && j.list) ? j.list : []; mpScoresCache.ok = true; mpScoresCache.loading = false; })
+                    ["catch"](function () { mpScoresCache.loading = false; });
+            } catch (e) { mpScoresCache.loading = false; }
+        }
+        return mpScoresCache.ok ? mpScoresCache.data : null;
+    }
+
+    // Compact "🏁 TODAY'S TOP RIDERS" panel for the MENU (top-left, above the car,
+    // clear of the title, the 🌐 button and the centered menu message). Only shows
+    // once a rider name exists AND the daily-scores fetch has succeeded.
+    function mpDrawLeaderboard() {
+        if (!MP_URL || !save.mpName) return;
+        var list = mpScoresList();
+        if (!list || !list.length) return;
+        var n = Math.min(5, list.length);
+        var headH = 20, rowH = 18, w = 178, x = 10, y = 150;
+        var h = headH + 4 + n * rowH + 6;
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = "rgba(24,22,38,0.82)";
+        roundRect(x, y, w, h, 12); ctx.fill();
+        ctx.strokeStyle = "rgba(255,213,79,0.55)"; ctx.lineWidth = 1.5;
+        roundRect(x, y, w, h, 12); ctx.stroke();
+        ctx.globalAlpha = 1;
+        drawText("🏁 TODAY'S TOP RIDERS", x + w / 2, y + 12,
+            "bold 10px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2);
+        for (var i = 0; i < n; i++) {
+            var e = list[i];
+            var ry = y + headH + 4 + i * rowH;
+            var ph = rowH - 3, mid = ry + ph / 2;
+            var mine = (e && e.name === save.mpName);
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = mine ? "rgba(126,87,194,0.55)" : "rgba(255,255,255,0.06)";
+            roundRect(x + 6, ry, w - 12, ph, 7); ctx.fill();
+            ctx.globalAlpha = 1;
+            drawText((i + 1) + ".", x + 14, mid, "bold 9px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0, "left");
+            var nm = (e && e.name) ? e.name : "Rider";
+            ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+            var maxNameW = w - 26 - 48;
+            if (ctx.measureText(nm).width > maxNameW) {
+                while (nm.length > 3 && ctx.measureText(nm + "…").width > maxNameW) nm = nm.slice(0, -1);
+                nm = nm + "…";
+            }
+            drawText(nm, x + 26, mid, "bold 9px 'Segoe UI', Arial, sans-serif", mine ? "#FFFFFF" : "#E1D5F5", null, 0, "left");
+            drawText(formatNum((e && e.score) || 0), x + w - 12, mid,
+                "bold 9px 'Segoe UI', Arial, sans-serif", "#FFD54F", null, 0, "right");
+        }
         ctx.restore();
     }
 
@@ -28500,13 +28713,13 @@
         var base = (typeof scrollOffset === "number") ? scrollOffset : 0;
         mpPeers.f1 = { id: "f1", name: "Cholent Boy", sk: "pink", m: 0, vk: "borrowed", ct: 7, co: "#FDD835",
             demoOffset: -240, demoAmp: 70, demoPhase: 0, x: 170, tx: 170, di: base - 240, sp: 0, seen: true,
-            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 170, sy: 0, rel: 0, onScreen: true };
+            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 170, sy: 0, rel: 0, onScreen: true, vis: 1, dropping: false };
         mpPeers.f2 = { id: "f2", name: "Rugelach Queen", sk: "pink", m: 0, vk: "car", ct: 0, co: null,
             demoOffset: 150, demoAmp: 60, demoPhase: 2, x: 300, tx: 300, di: base + 150, sp: 0, seen: true,
-            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 300, sy: 0, rel: 0, onScreen: true };
+            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 300, sy: 0, rel: 0, onScreen: true, vis: 1, dropping: false };
         mpPeers.f3 = { id: "f3", name: "Latke Legend", sk: "gold", m: 1, vk: "car", ct: 0, co: null,
             demoOffset: -40, demoAmp: 34, demoPhase: 4, x: 60, tx: 60, di: base - 40, sp: 0, seen: true,
-            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 60, sy: 0, rel: 0, onScreen: true };
+            lastPacket: mpClock, honkT: 0, waveT: 0, sx: 60, sy: 0, rel: 0, onScreen: true, vis: 1, dropping: false };
     }
 
     var lastDispatchState = null;
