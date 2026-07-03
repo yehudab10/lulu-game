@@ -10,10 +10,11 @@
     //
     // MP_URL is the WebSocket base. Production sets a wss:// Cloudflare Worker
     // URL. An EMPTY string ("") hides the whole feature (every hook no-ops).
-    // SHIPPING DEFAULT: "" (feature hidden) until the free Cloudflare Worker is
-    // deployed (see server/README.md) — then set the wss:// URL here.
+    // LIVE: the free Cloudflare Worker relay (deployed via the
+    // "Deploy Shared Road worker" GitHub Action; see server/README.md).
     // Local dev/testing: "ws://127.0.0.1:9977" with `node server/local-relay.js`.
-    var MP_URL = "";   // e.g. "wss://lulu-shared-road.<account>.workers.dev"
+    // Empty string ("") hides the whole feature.
+    var MP_URL = "wss://lulu-shared-road.lulu-boats-1f4cdd.workers.dev";
 
     // Curated, App-Store-safe, on-theme names (no free text).
     var CURATED_NAMES = [
