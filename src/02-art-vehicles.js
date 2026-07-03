@@ -1734,6 +1734,213 @@
         ctx.restore();
     }
 
+    // ── Procedural wanted-poster mugshot ─────────────────────
+    // A deterministic little booking photo derived purely from hashing a name
+    // string, so the SAME fugitive always wears the same face. Drawn to fit an
+    // `s`-px rounded square centred on (cx, cy): warm skin tones, six hairstyles
+    // (curly puff / bun / cap / sheitel bob / bald + beard / payos + black hat),
+    // varied hair colour, ~30% glasses, three expressions (sheepish grin /
+    // scowl / wide-eyed) and an optional freckle-or-blush detail — all framed by
+    // a classic height-chart background. Flat cartoon look (drawLuluPortrait is
+    // the quality bar). ES5, single shared scope.
+    var MUG_SKINS = ["#F6CDA6", "#EBB489", "#CF9A63", "#A16A3C"];         // 4 warm tones
+    var MUG_HAIRC = ["#3A2A1A", "#6B4423", "#8B5A2B", "#1A1A1A",           // dark→black
+                     "#A5673F", "#D9A441", "#B8B8B8"];                     // auburn, blonde, grey
+    var MUG_STYLES = ["puff", "bun", "cap", "bob", "baldbeard", "payoshat"];
+    function mugHash(str) {
+        var h = 2166136261;
+        str = "" + (str || "LULU");
+        for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = (h * 16777619) >>> 0; }
+        return h >>> 0;
+    }
+    // Each feature draws from an INDEPENDENT, well-mixed slice of the hash (a
+    // salted xorshift) so choices don't correlate — plain `h % n` on FNV low
+    // bits clusters badly, and signed `>>` can go negative. Always 0..n-1.
+    function mugPick(h, salt, n) {
+        var x = (h ^ Math.imul(salt, 0x9E3779B1)) >>> 0;
+        x ^= x >>> 15; x = Math.imul(x, 0x85EBCA77) >>> 0; x ^= x >>> 13;
+        return (x >>> 0) % n;
+    }
+    function drawMugshot(name, cx, cy, s) {
+        var h = mugHash(name);
+        var skin = MUG_SKINS[mugPick(h, 1, MUG_SKINS.length)];
+        var skinDk = shadeColor(skin, -30);
+        var style = MUG_STYLES[mugPick(h, 2, MUG_STYLES.length)];
+        var hairC = MUG_HAIRC[mugPick(h, 3, MUG_HAIRC.length)];
+        var hairDk = shadeColor(hairC, -30);
+        var glasses = mugPick(h, 4, 100) < 30;   // ~30%
+        var expr = mugPick(h, 5, 3);             // 0 grin · 1 scowl · 2 wide-eyed
+        var detail = mugPick(h, 6, 3);           // 0 none · 1 freckles · 2 blush
+        var eyeY = -3.5, eyeX = 4.6, my = 5;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(s / 48, s / 48);
+        ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+        // clip everything to a rounded booking card
+        roundRect(-24, -24, 48, 48, 4);
+        ctx.save();
+        ctx.clip();
+
+        // height-chart background
+        ctx.fillStyle = "#AEB9C2";
+        ctx.fillRect(-24, -24, 48, 48);
+        ctx.strokeStyle = "rgba(58,70,82,0.32)"; ctx.lineWidth = 0.8;
+        for (var gy = -18; gy <= 22; gy += 8) {
+            ctx.beginPath(); ctx.moveTo(-24, gy); ctx.lineTo(24, gy); ctx.stroke();
+        }
+        ctx.strokeStyle = "rgba(58,70,82,0.5)";
+        for (var ty = -20; ty <= 22; ty += 4) {
+            ctx.beginPath(); ctx.moveTo(-24, ty); ctx.lineTo(-21, ty); ctx.stroke();
+        }
+
+        // shoulders — orange booking jumpsuit
+        ctx.fillStyle = "#E67E22";
+        roundRect(-17, 13, 34, 18, 7); ctx.fill();
+        ctx.fillStyle = shadeColor("#E67E22", -26);        // collar V
+        ctx.beginPath(); ctx.moveTo(-6, 13); ctx.lineTo(0, 19); ctx.lineTo(6, 13); ctx.closePath(); ctx.fill();
+
+        // neck
+        ctx.fillStyle = skinDk;
+        roundRect(-5, 6, 10, 9, 3); ctx.fill();
+
+        // head + ears
+        ctx.fillStyle = skin;
+        ctx.beginPath(); ctx.arc(-11.5, -2, 2.4, 0, Math.PI * 2); ctx.arc(11.5, -2, 2.4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(0, -3, 12, 13.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(0,0,0,0.06)";               // soft face-edge shade
+        ctx.beginPath(); ctx.ellipse(6.5, 0, 5, 9.5, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── HAIR / HEADWEAR ──
+        if (style === "puff") {
+            ctx.fillStyle = hairC;
+            var puffs = [[-9, -10, 6], [0, -14, 7], [9, -10, 6], [-5, -15, 5], [5, -15, 5], [-12, -3, 5], [12, -3, 5]];
+            for (var pi = 0; pi < puffs.length; pi++) { ctx.beginPath(); ctx.arc(puffs[pi][0], puffs[pi][1], puffs[pi][2], 0, Math.PI * 2); ctx.fill(); }
+            ctx.fillStyle = shadeColor(hairC, 34);
+            ctx.beginPath(); ctx.arc(-2, -14, 2, 0, Math.PI * 2); ctx.arc(7, -12, 1.8, 0, Math.PI * 2); ctx.fill();
+        } else if (style === "bun") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.ellipse(0, -4, 12.5, 12, 0, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -15, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = shadeColor(hairC, 30);
+            ctx.beginPath(); ctx.ellipse(-4, -11, 4, 2, -0.4, 0, Math.PI * 2); ctx.fill();
+        } else if (style === "cap") {
+            ctx.fillStyle = hairC;                          // hair peeking at the sides
+            ctx.beginPath(); ctx.ellipse(0, -1, 12, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
+            var capC = mugPick(h, 7, 2) ? "#C62828" : "#1E88E5";
+            ctx.fillStyle = capC;                           // cap dome (rides above the brow)
+            ctx.beginPath(); ctx.ellipse(0, -8, 12.5, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-11, -8.5, 7.5, 2.4, -0.12, 0, Math.PI * 2); ctx.fill();  // brim, angled left
+            ctx.fillStyle = shadeColor(capC, 40);
+            ctx.beginPath(); ctx.arc(0, -15, 1.4, 0, Math.PI * 2); ctx.fill();               // button
+        } else if (style === "bob") {
+            ctx.fillStyle = hairC;
+            ctx.beginPath();
+            ctx.moveTo(-13, -4);
+            ctx.quadraticCurveTo(-15, -16, 0, -16);
+            ctx.quadraticCurveTo(15, -16, 13, -4);
+            ctx.lineTo(13, 6);
+            ctx.quadraticCurveTo(11, 10, 8, 9);
+            ctx.quadraticCurveTo(9, -2, 4, -6);
+            ctx.quadraticCurveTo(0, -8, -4, -6);
+            ctx.quadraticCurveTo(-9, -2, -8, 9);
+            ctx.quadraticCurveTo(-11, 10, -13, 6);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = shadeColor(hairC, 28);          // parting shine
+            ctx.beginPath(); ctx.ellipse(-5, -12, 3.5, 1.6, -0.4, 0, Math.PI * 2); ctx.fill();
+        } else if (style === "baldbeard") {
+            ctx.fillStyle = "rgba(255,255,255,0.16)";       // shiny pate
+            ctx.beginPath(); ctx.ellipse(-4, -9, 4.5, 2.6, -0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = hairC;                           // beard U around the jaw
+            ctx.beginPath();
+            ctx.moveTo(-11.5, -3);
+            ctx.quadraticCurveTo(-12, 11, 0, 13.5);
+            ctx.quadraticCurveTo(12, 11, 11.5, -3);
+            ctx.quadraticCurveTo(8, 3, 4, 3.5);
+            ctx.quadraticCurveTo(0, 5, -4, 3.5);
+            ctx.quadraticCurveTo(-8, 3, -11.5, -3);
+            ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, 3, 5, 1.8, 0, 0, Math.PI * 2); ctx.fill();  // mustache
+        } else {                                             // payoshat
+            ctx.strokeStyle = hairC; ctx.lineWidth = 2.4;    // side curls
+            ctx.beginPath();
+            ctx.moveTo(-10.5, -1); ctx.quadraticCurveTo(-13.5, 4, -10.5, 9);
+            ctx.moveTo(10.5, -1); ctx.quadraticCurveTo(13.5, 4, 10.5, 9);
+            ctx.stroke();
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.arc(-10.5, 10, 1.6, 0, Math.PI * 2); ctx.arc(10.5, 10, 1.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#161616";                       // black hat
+            ctx.beginPath(); ctx.ellipse(0, -9, 15, 3.4, 0, 0, Math.PI * 2); ctx.fill();  // brim
+            roundRect(-9, -20, 18, 11, 3); ctx.fill();       // crown
+            ctx.fillStyle = "#333";
+            roundRect(-9, -13, 18, 2.6, 1); ctx.fill();      // band
+        }
+
+        // ── EYES ──
+        if (expr === 2) {                                    // wide-eyed
+            ctx.fillStyle = "#FFF";
+            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 2.7, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 2.7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 1.3, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 1.3, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 1.5, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── EYEBROWS (expression) ──
+        ctx.strokeStyle = hairDk; ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        if (expr === 1) {                                    // scowl — angled down/in
+            ctx.moveTo(-eyeX - 2.6, eyeY - 5); ctx.lineTo(-eyeX + 2, eyeY - 3);
+            ctx.moveTo(eyeX + 2.6, eyeY - 5); ctx.lineTo(eyeX - 2, eyeY - 3);
+        } else if (expr === 0) {                             // sheepish — one raised
+            ctx.moveTo(-eyeX - 2, eyeY - 4.2); ctx.lineTo(-eyeX + 2, eyeY - 4.2);
+            ctx.moveTo(eyeX - 2, eyeY - 6); ctx.lineTo(eyeX + 2.4, eyeY - 4.8);
+        } else {                                             // wide — high arches
+            ctx.moveTo(-eyeX - 2, eyeY - 5); ctx.quadraticCurveTo(-eyeX, eyeY - 6.6, -eyeX + 2, eyeY - 5);
+            ctx.moveTo(eyeX - 2, eyeY - 5); ctx.quadraticCurveTo(eyeX, eyeY - 6.6, eyeX + 2, eyeY - 5);
+        }
+        ctx.stroke();
+
+        // ── MOUTH (expression) ──
+        ctx.strokeStyle = "#7A3B2E"; ctx.lineWidth = 1.5;
+        if (expr === 0) {                                    // grin
+            ctx.beginPath(); ctx.moveTo(-3.6, my); ctx.quadraticCurveTo(0, my + 3.2, 3.6, my); ctx.stroke();
+        } else if (expr === 1) {                             // frown
+            ctx.beginPath(); ctx.moveTo(-3.6, my + 1.6); ctx.quadraticCurveTo(0, my - 1.6, 3.6, my + 1.6); ctx.stroke();
+        } else {                                             // small "o"
+            ctx.fillStyle = "#7A3B2E"; ctx.beginPath(); ctx.ellipse(0, my + 0.5, 1.8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── DETAIL: freckles or blush ──
+        if (detail === 1) {
+            ctx.fillStyle = shadeColor(skin, -46);
+            var fr = [[-6, 1.5], [-3.6, 2.6], [6, 1.5], [3.6, 2.6]];
+            for (var fi = 0; fi < fr.length; fi++) { ctx.beginPath(); ctx.arc(fr[fi][0], fr[fi][1], 0.7, 0, Math.PI * 2); ctx.fill(); }
+        } else if (detail === 2) {
+            ctx.fillStyle = "rgba(255,120,140,0.4)";
+            ctx.beginPath(); ctx.ellipse(-6.5, 1.8, 3, 2, 0, 0, Math.PI * 2); ctx.ellipse(6.5, 1.8, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── GLASSES (~30%) ──
+        if (glasses) {
+            ctx.strokeStyle = "#2A2A2A"; ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.arc(-eyeX, eyeY, 3.2, 0, Math.PI * 2);
+            ctx.arc(eyeX, eyeY, 3.2, 0, Math.PI * 2);
+            ctx.moveTo(-eyeX + 3.2, eyeY); ctx.lineTo(eyeX - 3.2, eyeY);
+            ctx.moveTo(-eyeX - 3.2, eyeY); ctx.lineTo(-11, eyeY - 1);
+            ctx.moveTo(eyeX + 3.2, eyeY); ctx.lineTo(11, eyeY - 1);
+            ctx.stroke();
+        }
+
+        ctx.restore();                                       // drop the clip
+        ctx.strokeStyle = "rgba(40,30,20,0.5)"; ctx.lineWidth = 1.2;  // card frame
+        roundRect(-24, -24, 48, 48, 4); ctx.stroke();
+        ctx.restore();
+    }
+
     function drawBillboard(x, y, side, msg, wanted) {
         ctx.save();
         ctx.translate(x, y);
@@ -1750,19 +1957,24 @@
             ctx.fillStyle = "#E8DBB5"; roundRect(-37, -35, 74, 38, 2); ctx.fill();
             ctx.fillStyle = "#3E2723"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
             ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif"; ctx.fillText("WANTED", 0, -31);
-            // mugshot
-            ctx.fillStyle = "#9E9E9E"; roundRect(-11, -27, 22, 20, 2); ctx.fill();
-            ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
-            ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 6.5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#1A1A1A";
-            ctx.beginPath(); ctx.arc(-2.3, -16, 1, 0, Math.PI * 2); ctx.arc(2.3, -16, 1, 0, Math.PI * 2); ctx.fill();
-            // height bars behind
-            ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.moveTo(-9, -22); ctx.lineTo(9, -22); ctx.moveTo(-9, -12); ctx.lineTo(9, -12); ctx.stroke();
-            // Bottom line: a REAL online fugitive's name (from the async board) when
-            // the poster carries one, else the default reward gag.
+            // A REAL online fugitive's name (from the async board) when the poster
+            // carries one, else the default reward gag.
             var wName = (msg && msg.indexOf("WANTED: ") === 0) ? msg.substring(8) : "LULU";
+            if (wName && wName !== "LULU") {
+                // Deterministic booking-photo face for the named fugitive.
+                drawMugshot(wName, 0, -17, 21);
+            } else {
+                // Default poster keeps Lulu's own little mugshot.
+                ctx.fillStyle = "#9E9E9E"; roundRect(-11, -27, 22, 20, 2); ctx.fill();
+                ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
+                ctx.beginPath(); ctx.arc(0, -18, 8, Math.PI, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 6.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#1A1A1A";
+                ctx.beginPath(); ctx.arc(-2.3, -16, 1, 0, Math.PI * 2); ctx.arc(2.3, -16, 1, 0, Math.PI * 2); ctx.fill();
+                // height bars behind
+                ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 0.5;
+                ctx.beginPath(); ctx.moveTo(-9, -22); ctx.lineTo(9, -22); ctx.moveTo(-9, -12); ctx.lineTo(9, -12); ctx.stroke();
+            }
             ctx.fillStyle = "#B71C1C";
             if (wName && wName !== "LULU") {
                 var wfs = 7;

@@ -73,6 +73,57 @@
     var mpRaceSeq = Math.floor(Math.random() * 1e6) + 1;  // my next race nonce
     var mpForceSends = 0;       // send state NOW for a few ticks (race start/win)
 
+    // ── PARTY PARKING (phase 2.9) ────────────────────────────
+    // In a FRIEND room the roadside lot is SEEDED BY THE ROOM CODE, so the whole
+    // party sees the same lot; each member's target spot comes from their stable
+    // position in the room roster (no overlaps); and members mid-parking appear
+    // in your lot as translucent ghosts (d.pk rides the verbatim-relayed state).
+    function mpHashStr(s) {
+        var h = 5381;
+        for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+        return h >>> 0;
+    }
+    function mpMulberry(seed) {
+        var a = seed >>> 0;
+        return function () {
+            a = (a + 0x6D2B79F5) >>> 0;
+            var t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    // Layout rng for the roadside lot: room-seeded in a friend room (shared lot
+    // for the party), otherwise a fresh random seed (different every pull-over).
+    function mpParkingRng() {
+        if (mpConnected && mpRoom !== "lobby") return mpMulberry(mpHashStr("lot:" + mpRoom.toUpperCase()));
+        return mpMulberry((Math.random() * 4294967296) >>> 0);
+    }
+    // My spot slot among the room roster (stable, collision-free for ≤ spots).
+    function mpParkingSpotIndex() {
+        if (!mpConnected || mpRoom === "lobby" || !mpMyId) return 0;
+        var ids = [mpMyId];
+        for (var k in mpPeers) ids.push(k);
+        ids.sort();
+        for (var i = 0; i < ids.length; i++) if (ids[i] === mpMyId) return i;
+        return 0;
+    }
+    // Party members mid-parking, drawn into MY lot as translucent nametagged cars.
+    function mpDrawParkingGhosts() {
+        if (!MP_URL || !mpConnected || mpRoom === "lobby") return;
+        for (var id in mpPeers) {
+            var p = mpPeers[id];
+            if (!p.pk || (mpClock - (p.pkT || -99)) > 3) continue;
+            ctx.save();
+            ctx.globalAlpha = 0.55;
+            ctx.translate(p.pk.x, p.pk.y);
+            ctx.rotate((p.pk.r || 0) + Math.PI / 2);
+            mpDrawGhostVehicle(0, 0, p);
+            ctx.restore();
+            mpDrawNametag(p.pk.x, p.pk.y - 34, p.name, 0.8);
+        }
+    }
+
     // ── TEMP DEBUG state (see mpDebugFake at the bottom) ─────
     var mpFakeMode = false;
     var mpFakeHonkT = 2.0;
@@ -235,6 +286,7 @@
             else if (!p.rnInit || d.rn !== p.rn) { p.rn = d.rn; p.rnInit = true; mpRaceJoin(d.rn); }
         }
         if (typeof d.rp === "number") p.raceProg = d.rp;
+        if (d.pk) { p.pk = d.pk; p.pkT = mpClock; } else p.pk = null;
         if (typeof d.rw === "number" && mpRace && d.rw === mpRace.id && mpRace.state !== "done")
             mpRaceWon(p.name || "A rider");
     }
@@ -278,6 +330,11 @@
             vk: vk
         };
         if (vk === "borrowed") { d.ct = ct; d.co = co || "#E53935"; }
+        // parking piggyback: my lot position while I'm parking (party ghosts)
+        if (state === "parking" && typeof parkingCar !== "undefined" && parkingCar) {
+            d.pk = { x: Math.round(parkingCar.x), y: Math.round(parkingCar.y),
+                     r: Math.round((parkingCar.rot || 0) * 100) / 100 };
+        }
         // race piggyback: nonce always rides once a race exists this session,
         // progress while racing, win-nonce once won by me
         if (mpRace) {
@@ -416,7 +473,7 @@
             // Broadcast my state at ≤5 Hz while playing/footRun — plus during a
             // race (so menu-racers still shout the nonce), plus a few forced
             // sends around race start/win so those land instantly.
-            if (mpConnected && !mpFakeMode && (state === "playing" || state === "footRun" || mpRace)) {
+            if (mpConnected && !mpFakeMode && (state === "playing" || state === "footRun" || state === "parking" || mpRace)) {
                 mpSendTimer += dt;
                 if (mpSendTimer >= 0.2 || mpForceSends > 0) {
                     mpSendTimer = 0;
@@ -479,34 +536,35 @@
         }
     }
 
-    // "YOUR CREW" strip on the menu — everyone in your room, as their actual
-    // ride + name, so a party feels like a party before anyone even drives.
+    // "YOUR CREW" strip on the menu — your own car + everyone else in your room,
+    // as their actual ride + name, so a party feels like a party before anyone
+    // even drives. Shown whenever CONNECTED (even solo — you're always there) and
+    // parked at the TOP, just under the title, centred horizontally.
     function mpDrawParty() {
         if (!MP_URL || !mpConnected || state !== "menu") return;
-        var ids = [];
-        for (var k in mpPeers) ids.push(k);
-        if (!ids.length) return;
+        // You are always the first slot; peers follow (cap the strip at 5).
         var members = [{ name: mpMyName() + " (you)", p: { vk: "car", sk: save.selectedSkin, ct: 0, co: null, m: 0 } }];
-        for (var i = 0; i < ids.length && members.length < 5; i++) {
-            var pr = mpPeers[ids[i]];
-            members.push({ name: pr.name, p: pr });
+        for (var k in mpPeers) {
+            if (members.length >= 5) break;
+            members.push({ name: mpPeers[k].name, p: mpPeers[k] });
         }
-        var stripY = H - 132;
-        var slotW = Math.min(96, (W - 40) / members.length);
-        var x0 = W / 2 - (slotW * members.length) / 2 + slotW / 2;
+        var stripY = H * 0.225;
+        var slotW = Math.min(84, (W - 44) / members.length);
+        var totalW = slotW * members.length;
+        var x0 = W / 2 - totalW / 2 + slotW / 2;
         ctx.save();
-        ctx.fillStyle = "rgba(10,8,24,0.55)";
-        roundRect(W / 2 - (slotW * members.length) / 2 - 10, stripY - 58, slotW * members.length + 20, 104, 12); ctx.fill();
-        drawText("👥 YOUR CREW" + (mpRoom !== "lobby" ? " — room " + mpRoom.toUpperCase() : ""), W / 2, stripY - 44,
+        ctx.fillStyle = "rgba(10,8,24,0.5)";
+        roundRect(W / 2 - totalW / 2 - 10, stripY - 26, totalW + 20, 78, 12); ctx.fill();
+        drawText("👥 YOUR CREW" + (mpRoom !== "lobby" ? " · ROOM " + mpRoom.toUpperCase() : ""), W / 2, stripY - 14,
             "bold 10px 'Segoe UI', Arial, sans-serif", "#B39DDB", "#000", 2);
         for (var m = 0; m < members.length; m++) {
             var mx = x0 + m * slotW;
             ctx.save();
-            ctx.translate(mx, stripY + 4);
-            ctx.scale(0.5, 0.5);
+            ctx.translate(mx, stripY + 16);
+            ctx.scale(0.44, 0.44);
             try { mpDrawGhostVehicle(0, 0, members[m].p); } catch (e) {}
             ctx.restore();
-            mpDrawNametag(mx, stripY + 42, members[m].name, 1);
+            mpDrawNametag(mx, stripY + 46, members[m].name, 1);
         }
         ctx.restore();
     }
@@ -907,7 +965,9 @@
         var list = mpScoresList();
         if (!list || !list.length) return;
         var n = Math.min(5, list.length);
-        var headH = 20, rowH = 18, w = 178, x = 10, y = 150;
+        // Sits down-left, BELOW the centred "YOUR CREW" strip (which now lives up
+        // top just under the title) so the two panels never overlap.
+        var headH = 20, rowH = 18, w = 178, x = 10, y = 252;
         var h = headH + 4 + n * rowH + 6;
         ctx.save();
         ctx.globalAlpha = 0.92;

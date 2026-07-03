@@ -772,14 +772,19 @@
                     var rmwe = rmw[0];
                     ctx.fillStyle = "#FFF8E1"; roundRect(-40, 86, 80, 24, 2); ctx.fill();
                     ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(0, 88, 1.6, 0, Math.PI * 2); ctx.fill();
+                    // A little booking-photo mugshot for the real fugitive, pinned at
+                    // the left; name + top charge sit to its right.
+                    var rmHasMug = (typeof drawMugshot === "function");
+                    if (rmHasMug) { try { drawMugshot(rmwe.name, -28, 98, 18); } catch (e) { rmHasMug = false; } }
+                    var rmTx = rmHasMug ? 9 : 0, rmMaxW = rmHasMug ? 54 : 74;
                     var rmName = ("" + rmwe.name).toUpperCase(), nfs = 7;
                     ctx.font = "bold " + nfs + "px Arial";
-                    while (nfs > 5 && ctx.measureText(rmName).width > 74) { nfs -= 0.5; ctx.font = "bold " + nfs + "px Arial"; }
-                    drawText(rmName, 0, 95, "bold " + nfs + "px Arial", "#4A1A0A", null, 0);
+                    while (nfs > 5 && ctx.measureText(rmName).width > rmMaxW) { nfs -= 0.5; ctx.font = "bold " + nfs + "px Arial"; }
+                    drawText(rmName, rmTx, 95, "bold " + nfs + "px Arial", "#4A1A0A", null, 0);
                     var rmChg = (rmwe.charges && rmwe.charges.length) ? ("" + rmwe.charges[0]) : "AT LARGE", cfs = 5;
                     ctx.font = "bold " + cfs + "px Arial";
-                    while (cfs > 4 && ctx.measureText(rmChg).width > 74) { cfs -= 0.5; ctx.font = "bold " + cfs + "px Arial"; }
-                    drawText(rmChg, 0, 104, "bold " + cfs + "px Arial", "#B71C1C", null, 0);
+                    while (cfs > 4 && ctx.measureText(rmChg).width > rmMaxW) { cfs -= 0.5; ctx.font = "bold " + cfs + "px Arial"; }
+                    drawText(rmChg, rmTx, 104, "bold " + cfs + "px Arial", "#B71C1C", null, 0);
                 }
             } catch (e) {}
         }
