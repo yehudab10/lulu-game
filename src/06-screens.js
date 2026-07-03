@@ -647,9 +647,14 @@
         drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
             "11px 'Segoe UI', Arial, sans-serif", "#DDD", "#333", 2);
 
+        // Version tag, tucked in the bottom-right corner.
+        if (typeof GAME_VERSION !== "undefined")
+            drawText("v" + GAME_VERSION, W - 8, H - 10, "10px 'Segoe UI', Arial, sans-serif", "rgba(255,255,255,0.55)", "#333", 2, "right");
+
         // Shared Road (multiplayer) button + its overlay — drawn LAST so the
         // name/room picker sits on top of everything. Guarded no-op offline.
         if (typeof mpDrawLeaderboard === "function") { try { mpDrawLeaderboard(); } catch (e) {} }
+        if (typeof mpDrawParty === "function") { try { mpDrawParty(); } catch (e) {} }
         if (typeof mpMenuButton === "function") { try { mpMenuButton(); } catch (e) {} }
     }
 

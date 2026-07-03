@@ -44,7 +44,14 @@
     // ── Picker / overlay UI state ────────────────────────────
     var mpPickerOpen = false;
     var mpRoomKind = "everyone";   // "everyone" | "friend" (selection in the form)
-    var mpCodeSlots = [0, 0, 0, 0]; // A-Z indices for the 4-letter friend code
+    // Friend-code slots start RANDOM each session (everyone defaulting to AAAA
+    // meant strangers all landed in the same "private" room). Dial the wheel to
+    // enter a friend's code, or 🎲 reroll for a fresh one to share.
+    var mpCodeSlots = [Math.floor(Math.random() * 26), Math.floor(Math.random() * 26),
+                       Math.floor(Math.random() * 26), Math.floor(Math.random() * 26)];
+    function mpRerollCode() {
+        for (var i = 0; i < 4; i++) mpCodeSlots[i] = Math.floor(Math.random() * 26);
+    }
 
     // ── HUD chip pulse (rider count changes) ─────────────────
     var mpChipPulse = 0;         // 1 → 0 over ~0.6s after the head-count changes
@@ -58,9 +65,10 @@
     // ── FRIEND RACE (phase 3) ────────────────────────────────
     // Rides entirely inside the state packets the live relay already forwards
     // (d.rn race-nonce · d.rp progress · d.rw win-nonce) — no server changes.
-    // First to gain RACE_GOAL px of road IN ONE UNBROKEN RUN wins: crashing
-    // resets your progress. Friend rooms only, so the big lobby stays chill.
-    var RACE_GOAL = 20000;      // px of road to win (~a solid minute of driving)
+    // Progress is CUMULATIVE road gained since GO: crashes/jail don't erase it,
+    // they just cost you driving time (so staying out of trouble IS the meta).
+    // Friend rooms only, so the big lobby stays chill.
+    var RACE_GOAL = 200000;     // px of road to win — a proper endurance race
     var mpRace = null;          // null | {id, state:"count"|"go"|"done", t, base, prog, winner, winName}
     var mpRaceSeq = Math.floor(Math.random() * 1e6) + 1;  // my next race nonce
     var mpForceSends = 0;       // send state NOW for a few ticks (race start/win)
@@ -290,7 +298,7 @@
     }
     function mpRaceJoin(id) { if (!mpRace || mpRace.id !== id) mpRaceBegin(id); }
     function mpRaceBegin(id) {
-        mpRace = { id: id, state: "count", t: 0, lastBeep: 4, base: 0, prog: 0, winner: null, winName: "" };
+        mpRace = { id: id, state: "count", t: 0, lastBeep: 4, lastDi: 0, prog: 0, winner: null, winName: "" };
         mpPickerOpen = false;
         try { playTone(392, 0.12, "square", 0.16); } catch (e) {}
     }
@@ -310,7 +318,7 @@
                 // race from where they are (progress counts from HERE).
                 if (state === "menu" && typeof resetGame === "function") { resetGame(); state = "playing"; }
                 mpRace.state = "go"; mpRace.t = 0;
-                mpRace.base = (typeof scrollOffset === "number") ? scrollOffset : 0;
+                mpRace.lastDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
                 mpRace.prog = 0;
                 try {
                     playTone(660, 0.16, "triangle", 0.2, 880);
@@ -318,9 +326,12 @@
                 } catch (e) {}
             }
         } else if (mpRace.state === "go") {
+            // Cumulative: bank every forward px; a reset (crash/new run) just
+            // rebases — you keep what you earned, you lost the time.
             var di = (typeof scrollOffset === "number") ? scrollOffset : 0;
-            if (di < mpRace.base) mpRace.base = di;      // wrecked → progress restarts (stakes!)
-            mpRace.prog = Math.max(0, di - mpRace.base);
+            var dd = di - mpRace.lastDi;
+            if (dd > 0 && dd < 3000) mpRace.prog += dd;   // sane forward gain only
+            mpRace.lastDi = di;
             if (mpRace.prog >= RACE_GOAL) {
                 mpRace.state = "done"; mpRace.winner = "me"; mpRace.winName = mpMyName(); mpRace.t = 0;
                 mpForceSends = 5;
@@ -329,7 +340,7 @@
                     setTimeout(function () { playTone(1047, 0.2, "triangle", 0.2); }, 260);
                 } catch (e) {}
             }
-            if (mpRace.t > 300) mpRace = null;           // nobody finished — fizzle
+            if (mpRace.t > 1500) mpRace = null;          // 25-min fizzle failsafe
         } else if (mpRace.state === "done") {
             if (mpRace.t > 6) mpRace = null;             // banner shown, race cleared
         }
@@ -348,7 +359,7 @@
             ctx.translate(W / 2, H * 0.45); ctx.scale(ps, ps);
             drawText(String(n), 0, 0, "bold 84px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#7E57C2", 10);
             ctx.restore();
-            drawText("First to " + RACE_GOAL + " road — crash and you start over!", W / 2, H * 0.56,
+            drawText("First to " + (RACE_GOAL / 1000) + "k road — crashes cost TIME, not progress!", W / 2, H * 0.56,
                 "bold 13px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
             return;
         }
@@ -367,8 +378,9 @@
             for (var i = 0; i < rows.length && i < 5; i++) {
                 var rr = rows[i], yy = ry + 12 + i * 26;
                 drawText(rr.name, rx, yy, "bold 9px 'Segoe UI', Arial, sans-serif", rr.me ? "#FFE082" : "#CFC4E8", "#000", 2, "left");
-                ctx.fillStyle = "rgba(0,0,0,0.5)"; roundRect(rx, yy + 4, rw2 - 8, 6, 3); ctx.fill();
                 var pp = clamp(rr.prog / RACE_GOAL, 0, 1);
+                drawText(Math.floor(pp * 100) + "%", rx + rw2 - 8, yy, "bold 9px 'Segoe UI', Arial, sans-serif", rr.me ? "#7CFC4F" : "#B0A8C8", "#000", 2, "right");
+                ctx.fillStyle = "rgba(0,0,0,0.5)"; roundRect(rx, yy + 4, rw2 - 8, 6, 3); ctx.fill();
                 ctx.fillStyle = rr.me ? "#7CFC4F" : "#B39DDB"; roundRect(rx, yy + 4, (rw2 - 8) * pp, 6, 3); ctx.fill();
             }
             ctx.restore();
@@ -467,6 +479,38 @@
         }
     }
 
+    // "YOUR CREW" strip on the menu — everyone in your room, as their actual
+    // ride + name, so a party feels like a party before anyone even drives.
+    function mpDrawParty() {
+        if (!MP_URL || !mpConnected || state !== "menu") return;
+        var ids = [];
+        for (var k in mpPeers) ids.push(k);
+        if (!ids.length) return;
+        var members = [{ name: mpMyName() + " (you)", p: { vk: "car", sk: save.selectedSkin, ct: 0, co: null, m: 0 } }];
+        for (var i = 0; i < ids.length && members.length < 5; i++) {
+            var pr = mpPeers[ids[i]];
+            members.push({ name: pr.name, p: pr });
+        }
+        var stripY = H - 132;
+        var slotW = Math.min(96, (W - 40) / members.length);
+        var x0 = W / 2 - (slotW * members.length) / 2 + slotW / 2;
+        ctx.save();
+        ctx.fillStyle = "rgba(10,8,24,0.55)";
+        roundRect(W / 2 - (slotW * members.length) / 2 - 10, stripY - 58, slotW * members.length + 20, 104, 12); ctx.fill();
+        drawText("👥 YOUR CREW" + (mpRoom !== "lobby" ? " — room " + mpRoom.toUpperCase() : ""), W / 2, stripY - 44,
+            "bold 10px 'Segoe UI', Arial, sans-serif", "#B39DDB", "#000", 2);
+        for (var m = 0; m < members.length; m++) {
+            var mx = x0 + m * slotW;
+            ctx.save();
+            ctx.translate(mx, stripY + 4);
+            ctx.scale(0.5, 0.5);
+            try { mpDrawGhostVehicle(0, 0, members[m].p); } catch (e) {}
+            ctx.restore();
+            mpDrawNametag(mx, stripY + 42, members[m].name, 1);
+        }
+        ctx.restore();
+    }
+
     function mpDrawNametag(cx, baseY, name, a) {
         if (a === undefined) a = 1;
         // The subtle dark pill behind the text keeps names legible over any road.
@@ -559,6 +603,7 @@
             r.slotDown.push({ x: sx, y: slotsY + 70, w: slotW, h: 26 });
         }
         r.slotsY = slotsY;
+        r.reroll = { x: W / 2 - 60, y: slotsY + 102, w: 120, h: 26 };
         var btnY = panelY + panelH - 60;
         r.connect = { x: gx0, y: btnY, w: colW, h: 48 };
         r.cancel = { x: gx0 + colW + gapX, y: btnY, w: colW, h: 48 };
@@ -595,7 +640,7 @@
         }
         // Friend rooms get the race starter (the big lobby stays chill).
         if (mpConnected && mpRoom !== "lobby" && !mpRace)
-            drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🏁 START RACE — first to " + RACE_GOAL + "!",
+            drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🏁 START RACE — first to " + (RACE_GOAL / 1000) + "k!",
                 { bg: "#FFB300", bgDark: "#E65100", small: true });
         drawButton(r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h, "DISCONNECT",
             { bg: "#EF5350", bgDark: "#B71C1C" });
@@ -650,6 +695,12 @@
                 ctx.fillStyle = "#4A4270"; roundRect(dn.x, dn.y, dn.w, dn.h, 6); ctx.fill();
                 drawText("▼", dn.x + dn.w / 2, dn.y + dn.h / 2, "bold 12px Arial", "#D1C4E9", null, 0);
             }
+            // 🎲 fresh random code (the default is already random per session)
+            ctx.fillStyle = "#3B3357"; roundRect(r.reroll.x, r.reroll.y, r.reroll.w, r.reroll.h, 8); ctx.fill();
+            drawText("🎲 new code", r.reroll.x + r.reroll.w / 2, r.reroll.y + r.reroll.h / 2,
+                "bold 11px 'Segoe UI', Arial, sans-serif", "#D1C4E9", "#000", 2);
+            drawText("Share this code with friends — or dial in theirs", W / 2, r.reroll.y + r.reroll.h + 14,
+                "9px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
         }
         // Connect / Cancel
         drawButton(r.connect.x, r.connect.y, r.connect.w, r.connect.h, "CONNECT",
@@ -700,6 +751,7 @@
                 if (pointInRect(cx, cy, r.slotUp[s].x, r.slotUp[s].y, r.slotUp[s].w, r.slotUp[s].h)) { mpCodeSlots[s] = (mpCodeSlots[s] + 1) % 26; tap(); return; }
                 if (pointInRect(cx, cy, r.slots[s].x, r.slots[s].y, r.slots[s].w, r.slots[s].h)) { mpCodeSlots[s] = (mpCodeSlots[s] + 1) % 26; tap(); return; }
                 if (pointInRect(cx, cy, r.slotDown[s].x, r.slotDown[s].y, r.slotDown[s].w, r.slotDown[s].h)) { mpCodeSlots[s] = (mpCodeSlots[s] + 25) % 26; tap(); return; }
+                if (pointInRect(cx, cy, r.reroll.x, r.reroll.y, r.reroll.w, r.reroll.h)) { mpRerollCode(); tap(); return; }
             }
         }
         // Connect
