@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.2.0";
+    var GAME_VERSION = "1.3.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -27,15 +27,26 @@
     var PARKING_UNLOCK_COST = 1000; // one-time coin cost to unlock Parking Challenge
 
     // ── Skins ────────────────────────────────────────────────
+    // Each skin carries four driving-feel multipliers (all centered on 1.0 —
+    // Classic Pink is the exact baseline): top (top speed), acc (acceleration),
+    // grip (handling/steering), brake (braking). `flavor` is showroom ad copy.
     var SKINS = {
-        pink:    { name: "Classic Pink",  price: 0,   body: "#E91E63", light: "#F48FB1", dark: "#AD1457", stripe: null },
-        purple:  { name: "Royal Purple",  price: 100, body: "#9C27B0", light: "#CE93D8", dark: "#6A1B9A", stripe: null },
-        orange:  { name: "Sunset Glow",   price: 150, body: "#FF9800", light: "#FFCC80", dark: "#E65100", stripe: null },
-        blue:    { name: "Ocean Blue",    price: 200, body: "#2196F3", light: "#81D4FA", dark: "#0D47A1", stripe: null },
-        green:   { name: "Lime Zest",     price: 250, body: "#8BC34A", light: "#C5E1A5", dark: "#558B2F", stripe: null },
-        red:     { name: "Racing Red",    price: 300, body: "#F44336", light: "#FFCDD2", dark: "#B71C1C", stripe: "#FFFFFF" },
-        gold:    { name: "Golden Lux",    price: 500, body: "#FFC107", light: "#FFE082", dark: "#FF6F00", stripe: "#FFFFFF" },
-        ninja:   { name: "Black Ninja",   price: 750, body: "#212121", light: "#616161", dark: "#000000", stripe: "#E91E63" }
+        pink:    { name: "Classic Pink",  price: 0,    body: "#E91E63", light: "#F48FB1", dark: "#AD1457", stripe: null,
+                   top: 1.00, acc: 1.00, grip: 1.00, brake: 1.00, flavor: "The original — sweet, steady, and pretty in pink." },
+        purple:  { name: "Royal Purple",  price: 150,  body: "#9C27B0", light: "#CE93D8", dark: "#6A1B9A", stripe: null,
+                   top: 1.05, acc: 1.05, grip: 1.05, brake: 1.05, flavor: "Royalty rides easy: a smidge better at everything." },
+        orange:  { name: "Sunset Glow",   price: 300,  body: "#FF9800", light: "#FFCC80", dark: "#E65100", stripe: null,
+                   top: 1.10, acc: 1.30, grip: 0.85, brake: 0.90, flavor: "Launches like a rocket, corners like a shopping cart." },
+        blue:    { name: "Ocean Blue",    price: 450,  body: "#2196F3", light: "#81D4FA", dark: "#0D47A1", stripe: null,
+                   top: 0.95, acc: 0.90, grip: 1.10, brake: 1.25, flavor: "The family wagon that stops on a dime." },
+        green:   { name: "Lime Zest",     price: 600,  body: "#8BC34A", light: "#C5E1A5", dark: "#558B2F", stripe: null,
+                   top: 0.90, acc: 1.00, grip: 1.35, brake: 1.10, flavor: "Hugs every corner like Bubbe at the front door." },
+        red:     { name: "Racing Red",    price: 900,  body: "#F44336", light: "#FFCDD2", dark: "#B71C1C", stripe: "#FFFFFF",
+                   top: 1.25, acc: 1.15, grip: 0.85, brake: 0.85, flavor: "Zero to zoom before the light turns green." },
+        gold:    { name: "Golden Lux",    price: 1500, body: "#FFC107", light: "#FFE082", dark: "#FF6F00", stripe: "#FFFFFF",
+                   top: 1.30, acc: 0.90, grip: 0.90, brake: 1.05, flavor: "Heavy, hushed, and unapologetically fancy." },
+        ninja:   { name: "Black Ninja",   price: 2500, body: "#212121", light: "#616161", dark: "#000000", stripe: "#E91E63",
+                   top: 1.18, acc: 1.15, grip: 1.18, brake: 1.15, flavor: "Silent, sleek, and good at absolutely everything." }
     };
 
     // ── Save System ──────────────────────────────────────────
@@ -4600,19 +4611,28 @@
         ctx.restore();
     }
 
-    // ── Procedural wanted-poster mugshot ─────────────────────
-    // A deterministic little booking photo derived purely from hashing a name
-    // string, so the SAME fugitive always wears the same face. Drawn to fit an
-    // `s`-px rounded square centred on (cx, cy): warm skin tones, six hairstyles
-    // (curly puff / bun / cap / sheitel bob / bald + beard / payos + black hat),
-    // varied hair colour, ~30% glasses, three expressions (sheepish grin /
-    // scowl / wide-eyed) and an optional freckle-or-blush detail — all framed by
-    // a classic height-chart background. Flat cartoon look (drawLuluPortrait is
-    // the quality bar). ES5, single shared scope.
-    var MUG_SKINS = ["#F6CDA6", "#EBB489", "#CF9A63", "#A16A3C"];         // 4 warm tones
-    var MUG_HAIRC = ["#3A2A1A", "#6B4423", "#8B5A2B", "#1A1A1A",           // dark→black
-                     "#A5673F", "#D9A441", "#B8B8B8"];                     // auburn, blonde, grey
-    var MUG_STYLES = ["puff", "bun", "cap", "bob", "baldbeard", "payoshat"];
+    // ── Procedural wanted-poster mugshot: it's ALWAYS LULU IN A DISGUISE ──
+    // In-universe every "player" is Lulu, so every fugitive on the wanted board
+    // is the SAME pink-car woman working through a stack of cheap aliases. So
+    // drawMugshot renders ONE fixed canonical Lulu face (fair peachy skin, rosy
+    // blush, big brown sparkly eyes, a can't-help-it little smile) and then
+    // layers 1–3 name-derived DISGUISE props on top: obviously-fake wigs in
+    // wrong colours (blue beehive / green bob / giant afro / askew blonde
+    // sheitel / pigtails), dollar-store / groucho / monocle / novelty eyewear, a
+    // peeling stick-on 'stache or drawn-on beauty mark, and headwear (cap pulled
+    // low, babushka, inexplicable party hat, floppy sun hat). Everything stays a
+    // deterministic function of the name string (mugHash + salted mugPick) so
+    // the SAME alias always wears the SAME disguise forever. The tell that it's
+    // her every single time: identical face, blush, eyes and that unrepentant
+    // smile. It must NOT read the local player's salon choices
+    // (save.luluHair / save.luluHairStyle) — those aliases are OTHER players, so
+    // only Lulu's stock look is used. Flat cartoon look (drawLuluPortrait in
+    // src/06 is the quality bar). ES5, single shared scope.
+    var LULU_MUG_SKIN = "#FFD9C0";                                        // her canonical peachy skin
+    var LULU_MUG_HAIR = "#3E2723";                                        // her canonical dark-brown hair
+    // Wig colours by index: 0 natural dark · 1 blue beehive · 2 green bob ·
+    // 3 orange afro · 4 cheap blonde sheitel · 5 magenta pigtails.
+    var MUG_WIGC = ["#3E2723", "#2E7DF6", "#3FB65B", "#FB8C00", "#E7CB63", "#C24DBE"];
     function mugHash(str) {
         var h = 2166136261;
         str = "" + (str || "LULU");
@@ -4629,15 +4649,28 @@
     }
     function drawMugshot(name, cx, cy, s) {
         var h = mugHash(name);
-        var skin = MUG_SKINS[mugPick(h, 1, MUG_SKINS.length)];
-        var skinDk = shadeColor(skin, -30);
-        var style = MUG_STYLES[mugPick(h, 2, MUG_STYLES.length)];
-        var hairC = MUG_HAIRC[mugPick(h, 3, MUG_HAIRC.length)];
-        var hairDk = shadeColor(hairC, -30);
-        var glasses = mugPick(h, 4, 100) < 30;   // ~30%
-        var expr = mugPick(h, 5, 3);             // 0 grin · 1 scowl · 2 wide-eyed
-        var detail = mugPick(h, 6, 3);           // 0 none · 1 freckles · 2 blush
+        var wig  = mugPick(h, 2, 6);   // 0 natural · 1 beehive · 2 green bob · 3 afro · 4 blonde sheitel askew · 5 pigtails
+        var eyew = mugPick(h, 4, 5);   // 0 none · 1 shades · 2 groucho · 3 monocle · 4 novelty specs
+        var face = mugPick(h, 6, 4);   // 0 none · 1 peeling 'stache · 2 beauty mark · 3 goatee
+        var head = mugPick(h, 8, 5);   // 0 none · 1 cap low · 2 babushka · 3 party hat · 4 sun hat
+        var expr = mugPick(h, 5, 4);   // 0 unbothered · 1 wink · 2 mid-laugh · 3 deadpan
+        // Groucho brings its own moustache — don't stack a stick-on under it.
+        if (eyew === 2 && face === 1) face = 0;
+        // Every alias wears at LEAST one prop (else it's just bare-faced Lulu).
+        if (wig === 0 && eyew === 0 && face === 0 && head === 0) eyew = 1;
+        var hairC = MUG_WIGC[wig];
         var eyeY = -3.5, eyeX = 4.6, my = 5;
+        // Lulu's unmistakable eye — big white, warm-brown iris, tiny sparkle.
+        function mugEye(ex) {
+            ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.ellipse(ex, eyeY, 2.9, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#7A4A2B"; ctx.beginPath(); ctx.arc(ex, eyeY + 0.2, 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#241208"; ctx.beginPath(); ctx.arc(ex, eyeY + 0.2, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FFFFFF"; ctx.beginPath(); ctx.arc(ex - 0.8, eyeY - 0.8, 0.7, 0, Math.PI * 2); ctx.fill();
+        }
+        function mugArcEye(ex, cyy, a0, a1) {   // a happy closed curve (wink / laugh)
+            ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 1.3;
+            ctx.beginPath(); ctx.arc(ex, cyy, 2.6, a0, a1); ctx.stroke();
+        }
 
         ctx.save();
         ctx.translate(cx, cy);
@@ -4668,137 +4701,280 @@
         ctx.beginPath(); ctx.moveTo(-6, 13); ctx.lineTo(0, 19); ctx.lineTo(6, 13); ctx.closePath(); ctx.fill();
 
         // neck
-        ctx.fillStyle = skinDk;
+        ctx.fillStyle = shadeColor(LULU_MUG_SKIN, -14);
         roundRect(-5, 6, 10, 9, 3); ctx.fill();
 
-        // head + ears
-        ctx.fillStyle = skin;
+        // ── BACK WIG VOLUME (behind the head) — obvious fake, wrong colour ──
+        if (wig === 3) {                                     // giant orange afro cloud
+            ctx.fillStyle = hairC;
+            var af = [[-11, -6, 8], [11, -6, 8], [-9, -15, 8], [9, -15, 8], [0, -18, 9], [-14, -2, 6], [14, -2, 6], [0, -4, 11]];
+            for (var ai = 0; ai < af.length; ai++) { ctx.beginPath(); ctx.arc(af[ai][0], af[ai][1], af[ai][2], 0, Math.PI * 2); ctx.fill(); }
+        } else if (wig === 2) {                              // green bob body
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.ellipse(0, -1, 15, 14, 0, 0, Math.PI * 2); ctx.fill();
+        } else if (wig === 5) {                              // pigtail puffs
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.arc(-13, 2, 6, 0, Math.PI * 2); ctx.arc(13, 2, 6, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // head + ears — THE fixed canonical Lulu face (identical every poster)
+        ctx.fillStyle = LULU_MUG_SKIN;
         ctx.beginPath(); ctx.arc(-11.5, -2, 2.4, 0, Math.PI * 2); ctx.arc(11.5, -2, 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.ellipse(0, -3, 12, 13.5, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(0,0,0,0.06)";               // soft face-edge shade
+        ctx.fillStyle = "rgba(244,170,140,0.26)";           // soft warm face-edge shade
         ctx.beginPath(); ctx.ellipse(6.5, 0, 5, 9.5, 0, 0, Math.PI * 2); ctx.fill();
 
-        // ── HAIR / HEADWEAR ──
-        if (style === "puff") {
-            ctx.fillStyle = hairC;
-            var puffs = [[-9, -10, 6], [0, -14, 7], [9, -10, 6], [-5, -15, 5], [5, -15, 5], [-12, -3, 5], [12, -3, 5]];
-            for (var pi = 0; pi < puffs.length; pi++) { ctx.beginPath(); ctx.arc(puffs[pi][0], puffs[pi][1], puffs[pi][2], 0, Math.PI * 2); ctx.fill(); }
-            ctx.fillStyle = shadeColor(hairC, 34);
-            ctx.beginPath(); ctx.arc(-2, -14, 2, 0, Math.PI * 2); ctx.arc(7, -12, 1.8, 0, Math.PI * 2); ctx.fill();
-        } else if (style === "bun") {
-            ctx.fillStyle = hairC;
-            ctx.beginPath(); ctx.ellipse(0, -4, 12.5, 12, 0, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(0, -15, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = shadeColor(hairC, 30);
-            ctx.beginPath(); ctx.ellipse(-4, -11, 4, 2, -0.4, 0, Math.PI * 2); ctx.fill();
-        } else if (style === "cap") {
-            ctx.fillStyle = hairC;                          // hair peeking at the sides
-            ctx.beginPath(); ctx.ellipse(0, -1, 12, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
-            var capC = mugPick(h, 7, 2) ? "#C62828" : "#1E88E5";
-            ctx.fillStyle = capC;                           // cap dome (rides above the brow)
-            ctx.beginPath(); ctx.ellipse(0, -8, 12.5, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(-11, -8.5, 7.5, 2.4, -0.12, 0, Math.PI * 2); ctx.fill();  // brim, angled left
-            ctx.fillStyle = shadeColor(capC, 40);
-            ctx.beginPath(); ctx.arc(0, -15, 1.4, 0, Math.PI * 2); ctx.fill();               // button
-        } else if (style === "bob") {
+        // ── FRONT WIG / HAIR framing the face ──
+        if (wig === 0) {                                     // natural dark centre-part swoop
             ctx.fillStyle = hairC;
             ctx.beginPath();
-            ctx.moveTo(-13, -4);
-            ctx.quadraticCurveTo(-15, -16, 0, -16);
-            ctx.quadraticCurveTo(15, -16, 13, -4);
-            ctx.lineTo(13, 6);
-            ctx.quadraticCurveTo(11, 10, 8, 9);
-            ctx.quadraticCurveTo(9, -2, 4, -6);
-            ctx.quadraticCurveTo(0, -8, -4, -6);
-            ctx.quadraticCurveTo(-9, -2, -8, 9);
-            ctx.quadraticCurveTo(-11, 10, -13, 6);
+            ctx.moveTo(-12, -3);
+            ctx.quadraticCurveTo(-14, -17, 0, -16.5);
+            ctx.quadraticCurveTo(14, -17, 12, -3);
+            ctx.quadraticCurveTo(9, -10, 4, -11);
+            ctx.quadraticCurveTo(0, -13, -4, -11);
+            ctx.quadraticCurveTo(-9, -10, -12, -3);
             ctx.closePath(); ctx.fill();
-            ctx.fillStyle = shadeColor(hairC, 28);          // parting shine
-            ctx.beginPath(); ctx.ellipse(-5, -12, 3.5, 1.6, -0.4, 0, Math.PI * 2); ctx.fill();
-        } else if (style === "baldbeard") {
-            ctx.fillStyle = "rgba(255,255,255,0.16)";       // shiny pate
-            ctx.beginPath(); ctx.ellipse(-4, -9, 4.5, 2.6, -0.4, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = hairC;                           // beard U around the jaw
+            ctx.fillStyle = shadeColor(hairC, 30);           // glossy part shine
+            ctx.beginPath(); ctx.ellipse(-5, -12, 3, 1.4, -0.4, 0, Math.PI * 2); ctx.fill();
+        } else if (wig === 1) {                              // blue beehive tower
+            ctx.fillStyle = hairC;
             ctx.beginPath();
-            ctx.moveTo(-11.5, -3);
-            ctx.quadraticCurveTo(-12, 11, 0, 13.5);
-            ctx.quadraticCurveTo(12, 11, 11.5, -3);
-            ctx.quadraticCurveTo(8, 3, 4, 3.5);
-            ctx.quadraticCurveTo(0, 5, -4, 3.5);
-            ctx.quadraticCurveTo(-8, 3, -11.5, -3);
+            ctx.moveTo(-12, -4);
+            ctx.quadraticCurveTo(-16, -22, 0, -25);
+            ctx.quadraticCurveTo(16, -22, 12, -4);
+            ctx.quadraticCurveTo(8, -11, 0, -11);
+            ctx.quadraticCurveTo(-8, -11, -12, -4);
             ctx.closePath(); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(0, 3, 5, 1.8, 0, 0, Math.PI * 2); ctx.fill();  // mustache
-        } else {                                             // payoshat
-            ctx.strokeStyle = hairC; ctx.lineWidth = 2.4;    // side curls
+            ctx.strokeStyle = shadeColor(hairC, 36); ctx.lineWidth = 1;   // swirl lines
             ctx.beginPath();
-            ctx.moveTo(-10.5, -1); ctx.quadraticCurveTo(-13.5, 4, -10.5, 9);
-            ctx.moveTo(10.5, -1); ctx.quadraticCurveTo(13.5, 4, 10.5, 9);
+            ctx.moveTo(-8, -8); ctx.quadraticCurveTo(0, -12, 8, -8);
+            ctx.moveTo(-7, -15); ctx.quadraticCurveTo(0, -19, 7, -15);
             ctx.stroke();
+        } else if (wig === 2) {                              // green bob — curtains + blunt fringe
             ctx.fillStyle = hairC;
-            ctx.beginPath(); ctx.arc(-10.5, 10, 1.6, 0, Math.PI * 2); ctx.arc(10.5, 10, 1.6, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#161616";                       // black hat
-            ctx.beginPath(); ctx.ellipse(0, -9, 15, 3.4, 0, 0, Math.PI * 2); ctx.fill();  // brim
-            roundRect(-9, -20, 18, 11, 3); ctx.fill();       // crown
-            ctx.fillStyle = "#333";
-            roundRect(-9, -13, 18, 2.6, 1); ctx.fill();      // band
+            roundRect(-15, -13, 5, 21, 3); ctx.fill();
+            roundRect(10, -13, 5, 21, 3); ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-14, -7);
+            ctx.quadraticCurveTo(-15, -17, 0, -17);
+            ctx.quadraticCurveTo(15, -17, 14, -7);
+            ctx.quadraticCurveTo(7, -9, 0, -8.5);
+            ctx.quadraticCurveTo(-7, -9, -14, -7);
+            ctx.closePath(); ctx.fill();
+        } else if (wig === 3) {                              // afro — fuzzy front hairline
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.ellipse(0, -11, 12, 6, 0, Math.PI, Math.PI * 2); ctx.fill();
+            var afb = [[-9, -13, 3], [-3, -15, 3.4], [3, -15, 3.4], [9, -13, 3]];
+            for (var afi = 0; afi < afb.length; afi++) { ctx.beginPath(); ctx.arc(afb[afi][0], afb[afi][1], afb[afi][2], 0, Math.PI * 2); ctx.fill(); }
+        } else if (wig === 4) {                              // cheap blonde sheitel, sitting ASKEW
+            ctx.save();
+            ctx.translate(0.6, -1); ctx.rotate(0.13);        // crooked — that's the tell
+            ctx.fillStyle = hairC;
+            ctx.beginPath();
+            ctx.moveTo(-13, -2);
+            ctx.quadraticCurveTo(-15, -18, 0, -18);
+            ctx.quadraticCurveTo(15, -18, 13, -2);
+            ctx.lineTo(12, 8);
+            ctx.quadraticCurveTo(9, 5, 8, -2);
+            ctx.quadraticCurveTo(6, -8, 0, -8);
+            ctx.quadraticCurveTo(-6, -8, -8, -2);
+            ctx.quadraticCurveTo(-9, 5, -12, 8);
+            ctx.closePath(); ctx.fill();
+            ctx.fillStyle = shadeColor(hairC, 26);           // brassy highlight
+            ctx.beginPath(); ctx.ellipse(-5, -12, 4, 1.6, -0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            ctx.fillStyle = LULU_MUG_HAIR;                   // sliver of her REAL hair peeking out
+            ctx.beginPath(); ctx.ellipse(-10, 5, 2.6, 2, 0.3, 0, Math.PI * 2); ctx.fill();
+        } else {                                             // wig 5 — pigtails: top hair, centre part, ties
+            ctx.fillStyle = hairC;
+            ctx.beginPath(); ctx.ellipse(0, -8, 12, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = shadeColor(hairC, -24); ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(0, -9); ctx.stroke();
+            ctx.fillStyle = "#FF4081";                       // hair ties
+            ctx.beginPath(); ctx.arc(-13, -2, 1.8, 0, Math.PI * 2); ctx.arc(13, -2, 1.8, 0, Math.PI * 2); ctx.fill();
         }
 
-        // ── EYES ──
-        if (expr === 2) {                                    // wide-eyed
-            ctx.fillStyle = "#FFF";
-            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 2.7, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 2.7, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = "#1A1A1A";
-            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 1.3, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 1.3, 0, Math.PI * 2); ctx.fill();
-        } else {
-            ctx.fillStyle = "#1A1A1A";
-            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 1.5, 0, Math.PI * 2); ctx.arc(eyeX, eyeY, 1.5, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // ── EYEBROWS (expression) ──
-        ctx.strokeStyle = hairDk; ctx.lineWidth = 1.4;
+        // ── Rosy blush — Lulu's signature, on EVERY alias ──
+        ctx.fillStyle = "rgba(255,150,170,0.55)";
         ctx.beginPath();
-        if (expr === 1) {                                    // scowl — angled down/in
-            ctx.moveTo(-eyeX - 2.6, eyeY - 5); ctx.lineTo(-eyeX + 2, eyeY - 3);
-            ctx.moveTo(eyeX + 2.6, eyeY - 5); ctx.lineTo(eyeX - 2, eyeY - 3);
-        } else if (expr === 0) {                             // sheepish — one raised
-            ctx.moveTo(-eyeX - 2, eyeY - 4.2); ctx.lineTo(-eyeX + 2, eyeY - 4.2);
-            ctx.moveTo(eyeX - 2, eyeY - 6); ctx.lineTo(eyeX + 2.4, eyeY - 4.8);
-        } else {                                             // wide — high arches
-            ctx.moveTo(-eyeX - 2, eyeY - 5); ctx.quadraticCurveTo(-eyeX, eyeY - 6.6, -eyeX + 2, eyeY - 5);
-            ctx.moveTo(eyeX - 2, eyeY - 5); ctx.quadraticCurveTo(eyeX, eyeY - 6.6, eyeX + 2, eyeY - 5);
+        ctx.ellipse(-7, 2.2, 3.2, 2.2, 0, 0, Math.PI * 2);
+        ctx.ellipse(7, 2.2, 3.2, 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ── Eyebrows (her own warm brown; shaped by expression) ──
+        ctx.strokeStyle = "#6B4A32"; ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        if (expr === 3) {                                    // deadpan — flat
+            ctx.moveTo(-eyeX - 2.4, eyeY - 5.4); ctx.lineTo(-eyeX + 2.2, eyeY - 5.4);
+            ctx.moveTo(eyeX - 2.2, eyeY - 5.4); ctx.lineTo(eyeX + 2.4, eyeY - 5.4);
+        } else {                                             // gentle arches
+            ctx.moveTo(-eyeX - 2.4, eyeY - 4.8); ctx.quadraticCurveTo(-eyeX, eyeY - 6.4, -eyeX + 2.2, eyeY - 5);
+            ctx.moveTo(eyeX - 2.2, eyeY - 5); ctx.quadraticCurveTo(eyeX, eyeY - 6.4, eyeX + 2.4, eyeY - 4.8);
         }
         ctx.stroke();
 
-        // ── MOUTH (expression) ──
-        ctx.strokeStyle = "#7A3B2E"; ctx.lineWidth = 1.5;
-        if (expr === 0) {                                    // grin
-            ctx.beginPath(); ctx.moveTo(-3.6, my); ctx.quadraticCurveTo(0, my + 3.2, 3.6, my); ctx.stroke();
-        } else if (expr === 1) {                             // frown
-            ctx.beginPath(); ctx.moveTo(-3.6, my + 1.6); ctx.quadraticCurveTo(0, my - 1.6, 3.6, my + 1.6); ctx.stroke();
-        } else {                                             // small "o"
-            ctx.fillStyle = "#7A3B2E"; ctx.beginPath(); ctx.ellipse(0, my + 0.5, 1.8, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+        // ── Eyes (big & bright — always hers; expression varies) ──
+        if (expr === 1) {                                    // wink at the camera
+            mugEye(-eyeX); mugArcEye(eyeX, eyeY - 1, 0.15 * Math.PI, 0.85 * Math.PI);
+        } else if (expr === 2) {                             // mid-laugh — scrunched ^^
+            mugArcEye(-eyeX, eyeY + 1.6, 1.15 * Math.PI, 1.85 * Math.PI);
+            mugArcEye(eyeX, eyeY + 1.6, 1.15 * Math.PI, 1.85 * Math.PI);
+        } else {                                             // 0 unbothered / 3 deadpan — both open
+            mugEye(-eyeX); mugEye(eyeX);
+            if (expr === 3) {                                // heavy half-lids
+                ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(-eyeX - 2.8, eyeY - 1.2); ctx.lineTo(-eyeX + 2.8, eyeY - 1.2);
+                ctx.moveTo(eyeX - 2.8, eyeY - 1.2); ctx.lineTo(eyeX + 2.8, eyeY - 1.2);
+                ctx.stroke();
+            }
         }
 
-        // ── DETAIL: freckles or blush ──
-        if (detail === 1) {
-            ctx.fillStyle = shadeColor(skin, -46);
-            var fr = [[-6, 1.5], [-3.6, 2.6], [6, 1.5], [3.6, 2.6]];
-            for (var fi = 0; fi < fr.length; fi++) { ctx.beginPath(); ctx.arc(fr[fi][0], fr[fi][1], 0.7, 0, Math.PI * 2); ctx.fill(); }
-        } else if (detail === 2) {
-            ctx.fillStyle = "rgba(255,120,140,0.4)";
-            ctx.beginPath(); ctx.ellipse(-6.5, 1.8, 3, 2, 0, 0, Math.PI * 2); ctx.ellipse(6.5, 1.8, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
-        }
+        // ── Tiny nose + freckles (part of HER, always) ──
+        ctx.fillStyle = "rgba(214,150,120,0.55)";
+        ctx.beginPath(); ctx.ellipse(0, 1.4, 1.2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(180,110,80,0.5)";
+        ctx.beginPath(); ctx.arc(-8.5, 3, 0.5, 0, Math.PI * 2); ctx.arc(8.5, 3, 0.5, 0, Math.PI * 2); ctx.fill();
 
-        // ── GLASSES (~30%) ──
-        if (glasses) {
-            ctx.strokeStyle = "#2A2A2A"; ctx.lineWidth = 1.1;
+        // ── Mouth — she is ALWAYS a little bit smiling (she'll do it again) ──
+        ctx.strokeStyle = "#C44E63"; ctx.lineWidth = 1.5;
+        if (expr === 2) {                                    // open laugh
+            ctx.fillStyle = "#8E3B4A";
+            ctx.beginPath(); ctx.moveTo(-3.6, my - 0.4); ctx.quadraticCurveTo(0, my + 4.6, 3.6, my - 0.4); ctx.quadraticCurveTo(0, my + 1.2, -3.6, my - 0.4); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath(); ctx.moveTo(-2.8, my - 0.2); ctx.quadraticCurveTo(0, my + 1, 2.8, my - 0.2); ctx.quadraticCurveTo(0, my + 0.2, -2.8, my - 0.2); ctx.closePath(); ctx.fill();
+        } else if (expr === 3) {                             // deadpan — one corner still curls up
+            ctx.beginPath(); ctx.moveTo(-3.4, my + 0.9); ctx.quadraticCurveTo(1, my + 0.3, 3.8, my - 1.2); ctx.stroke();
+        } else {                                             // gentle knowing smile
+            ctx.beginPath(); ctx.moveTo(-3.6, my); ctx.quadraticCurveTo(0, my + 3, 3.6, my); ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(255,140,160,0.4)";             // lower-lip blush
+        ctx.beginPath(); ctx.ellipse(0, my + 3.2, 2.6, 1, 0, 0, Math.PI * 2); ctx.fill();
+
+        // ── FACIAL disguise ──
+        if (face === 1) {                                    // peeling stick-on moustache
+            ctx.fillStyle = "#3A2A1A";
             ctx.beginPath();
-            ctx.arc(-eyeX, eyeY, 3.2, 0, Math.PI * 2);
-            ctx.arc(eyeX, eyeY, 3.2, 0, Math.PI * 2);
-            ctx.moveTo(-eyeX + 3.2, eyeY); ctx.lineTo(eyeX - 3.2, eyeY);
-            ctx.moveTo(-eyeX - 3.2, eyeY); ctx.lineTo(-11, eyeY - 1);
-            ctx.moveTo(eyeX + 3.2, eyeY); ctx.lineTo(11, eyeY - 1);
+            ctx.moveTo(-4.6, my - 1.4);
+            ctx.quadraticCurveTo(-2.2, my - 3.2, 0, my - 1.4);
+            ctx.quadraticCurveTo(2.2, my - 3.2, 4.6, my - 1.4);
+            ctx.quadraticCurveTo(2.4, my - 0.1, 0, my - 1);
+            ctx.quadraticCurveTo(-2.4, my - 0.1, -4.6, my - 1.4);
+            ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "#3A2A1A"; ctx.lineWidth = 0.8;   // one corner peeling off the skin
+            ctx.beginPath(); ctx.moveTo(4.4, my - 1.4); ctx.lineTo(6, my - 3); ctx.stroke();
+            ctx.beginPath(); ctx.arc(6.1, my - 3.1, 0.7, 0, Math.PI * 2); ctx.fill();
+        } else if (face === 2) {                             // drawn-on beauty mark
+            ctx.fillStyle = "#2A1A12";
+            ctx.beginPath(); ctx.arc(4.6, 4.6, 0.9, 0, Math.PI * 2); ctx.fill();
+        } else if (face === 3) {                             // obviously stuck-on goatee
+            ctx.fillStyle = "#3A2A1A";
+            ctx.beginPath();
+            ctx.moveTo(-2.6, my + 3);
+            ctx.quadraticCurveTo(0, my + 7, 2.6, my + 3);
+            ctx.quadraticCurveTo(0, my + 4.4, -2.6, my + 3);
+            ctx.closePath(); ctx.fill();
+        }
+
+        // ── EYEWEAR disguise ──
+        if (eyew === 1) {                                    // dollar-store sunglasses
+            ctx.fillStyle = "#181818";
+            roundRect(-eyeX - 3.3, eyeY - 2.6, 6.6, 5, 2); ctx.fill();
+            roundRect(eyeX - 3.3, eyeY - 2.6, 6.6, 5, 2); ctx.fill();
+            ctx.strokeStyle = "#181818"; ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.moveTo(-eyeX + 3.3, eyeY - 0.4); ctx.lineTo(eyeX - 3.3, eyeY - 0.4);
+            ctx.moveTo(-eyeX - 3.3, eyeY - 1); ctx.lineTo(-11, eyeY - 2);
+            ctx.moveTo(eyeX + 3.3, eyeY - 1); ctx.lineTo(11, eyeY - 2);
             ctx.stroke();
+            ctx.fillStyle = "rgba(255,255,255,0.28)";        // cheap lens glare
+            ctx.beginPath(); ctx.ellipse(-eyeX - 1, eyeY - 1, 1.3, 0.7, -0.5, 0, Math.PI * 2); ctx.ellipse(eyeX - 1, eyeY - 1, 1.3, 0.7, -0.5, 0, Math.PI * 2); ctx.fill();
+        } else if (eyew === 2) {                             // GROUCHO — brows + rims + big nose + 'stache
+            ctx.fillStyle = "#241812";
+            roundRect(-eyeX - 3.4, eyeY - 4.2, 6.8, 2.2, 1); ctx.fill();
+            roundRect(eyeX - 3.4, eyeY - 4.2, 6.8, 2.2, 1); ctx.fill();
+            ctx.strokeStyle = "#241812"; ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(-eyeX, eyeY, 3.4, 0, Math.PI * 2);
+            ctx.arc(eyeX, eyeY, 3.4, 0, Math.PI * 2);
+            ctx.moveTo(-eyeX + 3.4, eyeY); ctx.lineTo(eyeX - 3.4, eyeY);
+            ctx.moveTo(-eyeX - 3.4, eyeY); ctx.lineTo(-11, eyeY - 1);
+            ctx.moveTo(eyeX + 3.4, eyeY); ctx.lineTo(11, eyeY - 1);
+            ctx.stroke();
+            ctx.fillStyle = "#E8A98A";                        // bulbous fake nose
+            ctx.beginPath(); ctx.ellipse(0, 2.4, 3.2, 4, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(0,0,0,0.10)";
+            ctx.beginPath(); ctx.arc(1.2, 3.4, 1, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#241812";                        // bushy 'stache
+            ctx.beginPath();
+            ctx.moveTo(-5, my - 0.4);
+            ctx.quadraticCurveTo(-2.5, my - 3, 0, my - 0.8);
+            ctx.quadraticCurveTo(2.5, my - 3, 5, my - 0.4);
+            ctx.quadraticCurveTo(2.5, my + 1.8, 0, my + 0.6);
+            ctx.quadraticCurveTo(-2.5, my + 1.8, -5, my - 0.4);
+            ctx.closePath(); ctx.fill();
+        } else if (eyew === 3) {                             // monocle + dangling chain
+            ctx.fillStyle = "rgba(230,240,255,0.20)";
+            ctx.beginPath(); ctx.arc(eyeX, eyeY, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#D4AF37"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(eyeX, eyeY, 3.4, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = "#B8972E"; ctx.lineWidth = 0.6;
+            ctx.beginPath(); ctx.moveTo(eyeX + 3, eyeY + 1.6); ctx.quadraticCurveTo(9, 6, 8, 11); ctx.stroke();
+        } else if (eyew === 4) {                             // big round novelty specs
+            ctx.strokeStyle = "#20262E"; ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.arc(-eyeX, eyeY, 3.6, 0, Math.PI * 2);
+            ctx.arc(eyeX, eyeY, 3.6, 0, Math.PI * 2);
+            ctx.moveTo(-eyeX + 3.6, eyeY); ctx.lineTo(eyeX - 3.6, eyeY);
+            ctx.moveTo(-eyeX - 3.6, eyeY); ctx.lineTo(-11, eyeY - 1.5);
+            ctx.moveTo(eyeX + 3.6, eyeY); ctx.lineTo(11, eyeY - 1.5);
+            ctx.stroke();
+            ctx.fillStyle = "rgba(180,220,255,0.16)";
+            ctx.beginPath(); ctx.arc(-eyeX, eyeY, 3.4, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeX, eyeY, 3.4, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ── HEADWEAR disguise (over the hair) ──
+        if (head === 1) {                                    // baseball cap pulled LOW
+            var capC2 = mugPick(h, 9, 2) ? "#C62828" : "#1565C0";
+            ctx.fillStyle = capC2;
+            ctx.beginPath(); ctx.ellipse(0, -6, 13, 10, 0, Math.PI, Math.PI * 2); ctx.fill();
+            roundRect(-13, -7, 26, 3, 1); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-10, -5.5, 8, 2.6, -0.14, 0, Math.PI); ctx.fill();   // brim over brow
+            ctx.fillStyle = shadeColor(capC2, 40);
+            ctx.beginPath(); ctx.arc(0, -14, 1.4, 0, Math.PI * 2); ctx.fill();                // button
+        } else if (head === 2) {                             // babushka / headscarf
+            var scC = mugPick(h, 9, 3);
+            var scarfC = scC === 0 ? "#D81B60" : (scC === 1 ? "#00897B" : "#FBC02D");
+            ctx.fillStyle = scarfC;
+            ctx.beginPath();
+            ctx.moveTo(-13, -1);
+            ctx.quadraticCurveTo(-15, -18, 0, -18);
+            ctx.quadraticCurveTo(15, -18, 13, -1);
+            ctx.quadraticCurveTo(8, -8, 0, -7.5);
+            ctx.quadraticCurveTo(-8, -8, -13, -1);
+            ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.arc(12, 0, 2.4, 0, Math.PI * 2); ctx.fill();                 // side knot
+            ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(16, 6); ctx.lineTo(12, 4.5); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.7)";         // polka dots
+            ctx.beginPath(); ctx.arc(-6, -10, 1, 0, Math.PI * 2); ctx.arc(2, -13, 1, 0, Math.PI * 2); ctx.arc(7, -8, 1, 0, Math.PI * 2); ctx.fill();
+        } else if (head === 3) {                             // inexplicable PARTY hat
+            ctx.fillStyle = "#7E57C2";
+            ctx.beginPath(); ctx.moveTo(-8, -12); ctx.lineTo(0, -27); ctx.lineTo(8, -12); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1;  // zigzag streamer
+            ctx.beginPath(); ctx.moveTo(-6, -16); ctx.lineTo(-1, -18); ctx.lineTo(-5, -20.5); ctx.lineTo(0, -22.5); ctx.stroke();
+            ctx.fillStyle = "#FF7043";                        // pom-pom
+            ctx.beginPath(); ctx.arc(0, -27, 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 0.6;   // chin strap (why so serious)
+            ctx.beginPath(); ctx.moveTo(-7, -11); ctx.quadraticCurveTo(0, 12, 7, -11); ctx.stroke();
+        } else if (head === 4) {                             // big floppy sun hat
+            ctx.fillStyle = "#EAD79A";
+            ctx.beginPath(); ctx.ellipse(0, -7, 18, 5, 0, 0, Math.PI * 2); ctx.fill();        // wide brim
+            ctx.fillStyle = shadeColor("#EAD79A", -16);
+            ctx.beginPath(); ctx.ellipse(0, -11, 9, 5.5, 0, Math.PI, Math.PI * 2); ctx.fill(); // crown
+            ctx.fillStyle = "#C97BA0";                        // ribbon band
+            roundRect(-9, -10, 18, 2, 1); ctx.fill();
         }
 
         ctx.restore();                                       // drop the clip
@@ -6225,6 +6401,8 @@
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special
+    var shopDetail = null; // Garage: skin key of the open showroom detail view, or null
+    var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
 
@@ -7943,6 +8121,15 @@
         ctx.restore();
     }
 
+    // Garage stats: look up a driving-feel multiplier for the car Lulu is
+    // ACTUALLY driving. They apply only to her OWN car (playerVehicle === null);
+    // borrowed rides / the steamroller / commandeered cop-cars keep their own
+    // feel, so return a neutral 1 for anything that isn't her car.
+    function luluStat(k) {
+        if (typeof playerVehicle !== "undefined" && playerVehicle && playerVehicle !== "car") return 1;
+        var sk = SKINS[save.selectedSkin]; return (sk && sk[k]) || 1;
+    }
+
     function updatePlaying(dt) {
         // Lulu on foot reuses this whole real-world simulation (so NOTHING is
         // missing) — only the player-car bits below are branched on `onFoot`.
@@ -7954,11 +8141,14 @@
         var footScore0 = onFoot ? score : 0;
 
         gameTime += dt;
-        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Garage stats bend HER car's pace: acc quickens the speed ramp, top
+        // raises the ceiling (capped by MAX_SPEED * top). luluStat() is a no-op
+        // (returns 1) on foot / in a borrowed ride, so those feel unchanged.
+        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP * luluStat("acc"), MAX_SPEED * luluStat("top"));
         // Speed control: up = run, down = slow (on foot the LEFT buttons).
         var speedMod = 1;
-        if (keys.up) speedMod = onFoot ? 2.0 : 1.6;
-        else if (keys.down) speedMod = onFoot ? 0.4 : 0.5;
+        if (keys.up) speedMod = onFoot ? 2.0 : 1.6 * (0.9 + 0.1 * luluStat("acc"));
+        else if (keys.down) speedMod = onFoot ? 0.4 : Math.max(0.3, 0.5 / luluStat("brake"));
         // Splashed a puddle → brief slowdown (nitro below can still override it).
         if (wetTimer > 0) { wetTimer = Math.max(0, wetTimer - dt); speedMod = Math.min(speedMod, 0.6); }
         // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
@@ -8031,7 +8221,7 @@
         var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
         player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
-        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
+        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10 * luluStat("grip")) * dt));
         player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
 
         // ── Steamroller: tick its diesel; keep the pancaked-wreck wake rolling.
@@ -9321,7 +9511,10 @@
         // MAX_SPEED), so a fixed threshold like ">520" wrongly flagged her late-game
         // even while braking. Tie it to the current cruise instead, and NEVER count
         // braking as speeding (the speed trap is meant to be dodgeable by slowing).
-        var cruiseNow = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Mirror the SAME garage-stat factors used to compute HER gameSpeed above,
+        // so a genuinely faster car's natural cruise isn't perpetually flagged as
+        // "speeding" — the trap stays about flooring it past your own flow.
+        var cruiseNow = Math.min(BASE_SPEED + gameTime * SPEED_RAMP * luluStat("acc"), MAX_SPEED * luluStat("top"));
         var speeding = (state !== "footRun") && !keys.down && (keys.up || gameSpeed > cruiseNow * 1.06);
         for (var i = roadCops.length - 1; i >= 0; i--) {
             var cop = roadCops[i];
@@ -9407,6 +9600,12 @@
         // enough — only actively flooring it (boost) opens a gap; cruising lets
         // him slowly reel you in, braking lets him catch fast. This keeps the
         // chase tense at any speed instead of ending instantly when you're fast.
+        // DIVERGES from HER speed sites ON PURPOSE: this paces the pursuing cruiser
+        // (a WORLD-difficulty knob), so it stays on the UNMODIFIED formula and does
+        // NOT read luluStat. If we scaled it by her garage stats the cop would just
+        // match whatever car she bought, erasing the whole point of a fast getaway
+        // car. Left fixed, a high-top ride genuinely out-cruises the law while a
+        // low-top one must floor it to open a gap — a fair, sane reward for speed.
         var baseSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
         var copCruise = baseSpeed * 1.16;   // slightly faster cruise so long chases don't go slack
         copChase.gap += (gameSpeed - copCruise) * dt * 0.7;
@@ -10824,7 +11023,7 @@
             // via the road pull-over (Q / EXIT). SHOP etc. keep their positions.
             // SHOP button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
-                state = "shop"; shopTab = "skins"; playClick(); return;
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
             }
             // Distracted mode toggle (if unlocked)
             if (save.distractedUnlocked &&
@@ -10862,22 +11061,55 @@
     // ── Update: Shop ─────────────────────────────────────────
     function updateShop(dt) {
         menuBounce += dt;
+        if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
 
-        if (consumePause()) { state = "menu"; playClick(); return; }
+        if (consumePause()) { shopDetail = null; state = "menu"; playClick(); return; }
         var click = consumeClick();
         if (!click) return;
 
-        // Back button
-        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) {
-            state = "menu"; playClick(); return;
+        // Garage showroom detail view is open → ALL clicks route here.
+        if (shopDetail) {
+            var dk = shopDetail, dsk = SKINS[dk];
+            var r = shopDetailRects();
+            var dOwned = save.ownedSkins.indexOf(dk) >= 0;
+            // Close (✕) or any tap outside the panel → back to the grid.
+            if (pointInRect(click.x, click.y, r.closeX, r.closeY, r.closeW, r.closeH) ||
+                !pointInRect(click.x, click.y, r.px, r.py, r.pw, r.ph)) {
+                shopDetail = null; playClick(); return;
+            }
+            // Primary action button (BUY / EQUIP).
+            if (pointInRect(click.x, click.y, r.btnX, r.btnY, r.btnW, r.btnH)) {
+                if (dOwned) {
+                    if (save.selectedSkin === dk) { playClick(); }   // already equipped
+                    else {
+                        save.selectedSkin = dk; persistSave(); playBuy();
+                        lastBoughtMessage = dsk.name + " equipped!"; lastBoughtTimer = 1.5;
+                    }
+                } else if (save.totalCoins >= dsk.price) {
+                    save.totalCoins -= dsk.price;
+                    save.ownedSkins.push(dk);
+                    save.selectedSkin = dk;
+                    persistSave(); playBuy();
+                    lastBoughtMessage = dsk.name + " purchased!"; lastBoughtTimer = 1.5;
+                } else {
+                    playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2;
+                }
+                return;
+            }
+            return;   // absorb any other tap inside the panel
         }
 
-        // Tabs
+        // Back button
+        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) {
+            shopDetail = null; state = "menu"; playClick(); return;
+        }
+
+        // Tabs (switching tabs closes any open detail view)
         var tabY = 100, tabH = 44, tabW = W / 3;
-        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopTab = "skins"; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopTab = "powerups"; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopTab = "special"; playClick(); return; }
+        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; shopTab = "powerups"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; shopTab = "special"; playClick(); return; }
 
         // Items
         if (shopTab === "skins") {
@@ -10886,25 +11118,8 @@
                 var col = i % 2, row = Math.floor(i / 2);
                 var cx = 20 + col * 230, cy = 165 + row * 145;
                 if (pointInRect(click.x, click.y, cx, cy, 210, 130)) {
-                    var key = skinKeys[i];
-                    var skin = SKINS[key];
-                    if (save.ownedSkins.indexOf(key) >= 0) {
-                        save.selectedSkin = key; persistSave(); playBuy();
-                        lastBoughtMessage = skin.name + " equipped!";
-                        lastBoughtTimer = 1.5;
-                    } else if (save.totalCoins >= skin.price) {
-                        save.totalCoins -= skin.price;
-                        save.ownedSkins.push(key);
-                        save.selectedSkin = key;
-                        persistSave(); playBuy();
-                        lastBoughtMessage = skin.name + " purchased!";
-                        lastBoughtTimer = 1.5;
-                    } else {
-                        playDeny();
-                        lastBoughtMessage = "Not enough coins!";
-                        lastBoughtTimer = 1.2;
-                    }
-                    return;
+                    // Tapping a card opens the showroom detail view (buy/equip lives there).
+                    shopDetail = skinKeys[i]; shopDetailT = 0; playClick(); return;
                 }
             }
         } else if (shopTab === "powerups") {
@@ -12752,7 +12967,7 @@
 
         // Tabs
         var tabY = 100, tabH = 44, tabW = W / 3;
-        var tabs = [["skins", "Skins"], ["powerups", "Power-Ups"], ["special", "Special"]];
+        var tabs = [["skins", "Garage"], ["powerups", "Power-Ups"], ["special", "Special"]];
         for (var ti = 0; ti < 3; ti++) {
             var key = tabs[ti][0], lbl = tabs[ti][1];
             var active = shopTab === key;
@@ -12767,6 +12982,9 @@
         if (shopTab === "skins") drawSkinsTab();
         else if (shopTab === "powerups") drawPowerupsTab();
         else if (shopTab === "special") drawSpecialTab();
+
+        // Garage showroom detail view — a full-screen overlay ON TOP of the grid.
+        if (shopTab === "skins" && shopDetail) drawSkinDetail(shopDetail);
 
         // Toast message
         if (lastBoughtTimer > 0) {
@@ -12788,6 +13006,41 @@
         ctx.restore();
     }
 
+    // Map a driving-feel multiplier to a 0..1 bar fill. Centering on 0.7..1.4
+    // makes the real spread between cars read clearly (baseline 1.0 → ~0.43).
+    function statFill(mult) { return clamp(((mult || 1) - 0.7) / 0.7, 0, 1); }
+
+    // A one-word "class" chip for a car, from whichever stat stands out most.
+    function skinClass(sk) {
+        var stats = [["SPEED", sk.top || 1], ["ACCEL", sk.acc || 1], ["GRIP", sk.grip || 1], ["BRAKES", sk.brake || 1]];
+        var best = stats[0], maxv = -9, minv = 9;
+        for (var i = 0; i < stats.length; i++) {
+            if (stats[i][1] > best[1]) best = stats[i];
+            if (stats[i][1] > maxv) maxv = stats[i][1];
+            if (stats[i][1] < minv) minv = stats[i][1];
+        }
+        if (maxv - minv < 0.12) return "ALL-ROUNDER";
+        return best[0];
+    }
+
+    // The 4 stats in display order, shared by card strip + detail panel.
+    var SKIN_STAT_ROWS = [["TOP SPEED", "top"], ["ACCELERATION", "acc"], ["HANDLING", "grip"], ["BRAKES", "brake"]];
+
+    // Compact 4-notch stat strip drawn on a garage card (quick spec glance).
+    function drawStatStrip(sk, midX, topY) {
+        var n = 4, bw = 9, gap = 6, totW = n * bw + (n - 1) * gap;
+        var sx = midX - totW / 2, h = 14;
+        for (var i = 0; i < 4; i++) {
+            var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
+            var f = statFill(mult), bx = sx + i * (bw + gap);
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            roundRect(bx, topY, bw, h, 3); ctx.fill();
+            var fh = h * f;
+            ctx.fillStyle = "#FFD54F";
+            roundRect(bx, topY + (h - fh), bw, fh, 3); ctx.fill();
+        }
+    }
+
     function drawSkinsTab() {
         var skinKeys = Object.keys(SKINS);
         for (var i = 0; i < skinKeys.length; i++) {
@@ -12799,32 +13052,217 @@
             var equipped = save.selectedSkin === key;
             var canAfford = save.totalCoins >= skin.price;
 
-            // Card
+            // Card frame
             ctx.fillStyle = equipped ? "#FFC107" : (owned ? "#66BB6A" : "#546E7A");
             roundRect(cx, cy, 210, 130, 10); ctx.fill();
-            ctx.fillStyle = equipped ? "#FFA000" : (owned ? "#388E3C" : "#37474F");
-            roundRect(cx, cy, 210, 130, 10);
-            ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.stroke();
-            ctx.fillStyle = "#263238";
-            roundRect(cx + 5, cy + 5, 200, 90, 6); ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = equipped ? "#FFA000" : (owned ? "#388E3C" : "#37474F");
+            roundRect(cx, cy, 210, 130, 10); ctx.stroke();
+            // Preview well (subtle vertical gradient reads like a lit stage)
+            var pw = ctx.createLinearGradient(0, cy + 5, 0, cy + 77);
+            pw.addColorStop(0, "#37444E"); pw.addColorStop(1, "#1c262c");
+            ctx.fillStyle = pw;
+            roundRect(cx + 5, cy + 5, 200, 72, 6); ctx.fill();
+
+            // Class chip (top-left of the well)
+            var chip = skinClass(skin);
+            ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+            var chW = ctx.measureText(chip).width + 12;
+            ctx.fillStyle = "rgba(255,215,0,0.9)";
+            roundRect(cx + 9, cy + 9, chW, 14, 7); ctx.fill();
+            drawText(chip, cx + 9 + chW / 2, cy + 16, "bold 9px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
 
             // Car preview
             ctx.save();
-            ctx.translate(cx + 105, cy + 50);
-            ctx.scale(0.85, 0.85);
-            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 1);
+            ctx.translate(cx + 105, cy + 44);
+            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 0.72);
             ctx.restore();
 
-            // Name
-            drawText(skin.name, cx + 105, cy + 110, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
-            // Status
-            if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
-            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
+            // EQUIPPED tick badge (top-right of the well)
+            if (equipped) {
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath(); ctx.arc(cx + 194, cy + 16, 10, 0, Math.PI * 2); ctx.fill();
+                drawText("✓", cx + 194, cy + 16, "bold 13px Arial", "#1a1400", null, 0);
+            }
+
+            // Name + stat strip
+            drawText(skin.name, cx + 105, cy + 89, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            drawStatStrip(skin, cx + 105, cy + 98);
+
+            // Status line
+            if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#1a1400", null, 0);
+            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#123010", null, 0);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
-                drawText("💰 " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
+                drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
         }
+    }
+
+    // ── Garage showroom: shared rects for the detail overlay (used by both the
+    //    draw + the click router, so they never drift apart). ──
+    function shopDetailRects() {
+        var pw = W - 36, px = 18, py = 92, ph = 700;
+        return {
+            px: px, py: py, pw: pw, ph: ph,
+            closeX: px + pw - 48, closeY: py + 10, closeW: 40, closeH: 40,
+            btnW: 260, btnH: 54, btnX: W / 2 - 130, btnY: py + ph - 74
+        };
+    }
+
+    // ── Garage showroom: full-screen rotating-turntable detail view. ──
+    function drawSkinDetail(key) {
+        var sk = SKINS[key];
+        var r = shopDetailRects();
+        var owned = save.ownedSkins.indexOf(key) >= 0;
+        var equipped = save.selectedSkin === key;
+        var canAfford = save.totalCoins >= sk.price;
+
+        // Dim the grid behind, then the showroom panel.
+        ctx.fillStyle = "rgba(8,12,16,0.78)";
+        ctx.fillRect(0, 0, W, H);
+        var pg = ctx.createLinearGradient(0, r.py, 0, r.py + r.ph);
+        pg.addColorStop(0, "#33424C"); pg.addColorStop(1, "#1a232a");
+        ctx.fillStyle = pg;
+        roundRect(r.px, r.py, r.pw, r.ph, 16); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = "#FFC107";
+        roundRect(r.px, r.py, r.pw, r.ph, 16); ctx.stroke();
+
+        // Close (✕) button.
+        ctx.fillStyle = "#455A64";
+        roundRect(r.closeX, r.closeY, r.closeW, r.closeH, 10); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = "#263238";
+        roundRect(r.closeX, r.closeY, r.closeW, r.closeH, 10); ctx.stroke();
+        drawText("✕", r.closeX + r.closeW / 2, r.closeY + r.closeH / 2 + 1, "bold 20px Arial", "#ECEFF1", null, 0);
+
+        // ── Turntable showroom ──────────────────────────────────
+        var cxs = W / 2, cys = r.py + 168;
+        var ang = menuBounce * 0.45;   // slow ~0.45 rad/s spin
+
+        // Stage backing glow
+        ctx.save();
+        var glow = ctx.createRadialGradient(cxs, cys - 10, 12, cxs, cys - 10, 190);
+        glow.addColorStop(0, "rgba(255,220,120,0.16)");
+        glow.addColorStop(1, "rgba(255,220,120,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(r.px, r.py, r.pw, 340);
+        ctx.restore();
+
+        // Podium disc (fixed) with a rotating specular wedge → reads as 3D turntable.
+        ctx.save();
+        ctx.translate(cxs, cys + 46);
+        ctx.scale(1, 0.34);
+        var disc = ctx.createRadialGradient(0, -20, 12, 0, 0, 150);
+        disc.addColorStop(0, "#63707B"); disc.addColorStop(0.72, "#3c4852"); disc.addColorStop(1, "#28313a");
+        ctx.fillStyle = disc;
+        ctx.beginPath(); ctx.arc(0, 0, 150, 0, Math.PI * 2); ctx.fill();
+        // rotating light wedge sweeping the disc
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 150, ang - 0.4, ang + 0.4); ctx.closePath();
+        var wedge = ctx.createRadialGradient(0, 0, 20, 0, 0, 150);
+        wedge.addColorStop(0, "rgba(255,255,255,0)"); wedge.addColorStop(1, "rgba(255,255,255,0.22)");
+        ctx.fillStyle = wedge; ctx.fill();
+        // gold rim highlight
+        ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,193,7,0.55)";
+        ctx.beginPath(); ctx.arc(0, 0, 147, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+
+        // Soft elliptical shadow (fixed while the car spins).
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.32)";
+        ctx.beginPath(); ctx.ellipse(cxs, cys + 44, 92, 22, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        // The car, drawn LARGE on an oblique/tilted plane so its top-down art
+        // rotates like a 3/4 showroom turntable instead of a flat spinning sticker.
+        ctx.save();
+        ctx.translate(cxs, cys);
+        ctx.transform(1, 0, 0, 0.6, 0, 0);   // vertical squash → 3/4 view tilt
+        ctx.rotate(ang);
+        drawLuluCar(0, 0, 0, false, menuBounce, false, key, 2.2);
+        ctx.restore();
+
+        // Specular sweep across the car — a rotating light streak synced to spin.
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.translate(cxs, cys - 6);
+        ctx.rotate(Math.sin(ang) * 0.5);
+        var streak = ctx.createLinearGradient(-70, 0, 70, 0);
+        streak.addColorStop(0, "rgba(255,255,255,0)");
+        streak.addColorStop(0.5, "rgba(255,255,255,0.14)");
+        streak.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = streak;
+        ctx.fillRect(-70, -96, 140, 192);
+        ctx.restore();
+
+        // A couple of drifting sparkles for showroom sheen.
+        for (var s = 0; s < 2; s++) {
+            var sp = menuBounce * (0.8 + s * 0.5) + s * 2.1;
+            var spx = cxs + Math.cos(sp) * (70 + s * 24);
+            var spy = cys - 40 + Math.sin(sp * 1.3) * 34;
+            var twk = 0.4 + 0.6 * Math.abs(Math.sin(sp * 3));
+            ctx.save();
+            ctx.globalAlpha = twk;
+            var rr = 2 + twk * 2.5;
+            var glint = ctx.createRadialGradient(spx, spy, 0, spx, spy, rr);
+            glint.addColorStop(0, "rgba(255,248,208,0.9)");
+            glint.addColorStop(1, "rgba(255,248,208,0)");
+            ctx.fillStyle = glint;
+            ctx.beginPath(); ctx.arc(spx, spy, rr, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        // ── Name + flavor ───────────────────────────────────────
+        drawText(sk.name, W / 2, r.py + 316, "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+        ctx.save();
+        var chip2 = skinClass(sk);
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        var chW2 = ctx.measureText(chip2).width + 18;
+        ctx.fillStyle = "rgba(255,193,7,0.92)";
+        roundRect(W / 2 - chW2 / 2, r.py + 330, chW2, 18, 9); ctx.fill();
+        drawText(chip2, W / 2, r.py + 340, "bold 11px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
+        ctx.restore();
+        drawText(sk.flavor, W / 2, r.py + 366, "italic 13px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
+
+        // ── Stat panel: 4 animated bars with a baseline notch ───
+        var animP = clamp(shopDetailT / 0.5, 0, 1);
+        animP = 1 - (1 - animP) * (1 - animP);   // ease-out
+        var bx = W / 2 - 150, bw = 300, bh = 13, statTop = r.py + 392, gap = 40;
+        var baseF = statFill(1);   // where baseline 1.0 sits on every bar
+        for (var si = 0; si < 4; si++) {
+            var lab = SKIN_STAT_ROWS[si][0], mult = sk[SKIN_STAT_ROWS[si][1]] || 1;
+            var ry = statTop + si * gap;
+            // label + delta-vs-baseline readout
+            drawText(lab, bx, ry, "bold 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2, "left");
+            var pct = Math.round((mult - 1) * 100);
+            var pcol = pct > 0 ? "#8BC34A" : (pct < 0 ? "#EF9A9A" : "#B0BEC5");
+            drawText((pct > 0 ? "+" : "") + pct + "%", bx + bw, ry, "bold 11px Arial", pcol, "#000", 2, "right");
+            // track
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            roundRect(bx, ry + 8, bw, bh, bh / 2); ctx.fill();
+            // gold fill (animated)
+            var fw = bw * statFill(mult) * animP;
+            if (fw > 2) {
+                var fg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+                fg.addColorStop(0, "#FFA000"); fg.addColorStop(1, "#FFE082");
+                ctx.fillStyle = fg;
+                roundRect(bx, ry + 8, fw, bh, bh / 2); ctx.fill();
+            }
+            // baseline notch
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.fillRect(bx + bw * baseF - 1, ry + 6, 2, bh + 4);
+        }
+
+        // ── Action buttons ──────────────────────────────────────
+        var label, bgc, bgd, txtc = "#FFF";
+        if (equipped) { label = "✓ EQUIPPED"; bgc = "#4CAF50"; bgd = "#2E7D32"; }
+        else if (owned) { label = "EQUIP"; bgc = "#42A5F5"; bgd = "#1565C0"; }
+        else if (canAfford) { label = "BUY  💰 " + formatNum(sk.price); bgc = "#FFC107"; bgd = "#FF8F00"; txtc = "#1a1400"; }
+        else { label = "💰 " + formatNum(sk.price) + "  — need more"; bgc = "#8D5B5B"; bgd = "#5D3A3A"; }
+        ctx.fillStyle = bgc;
+        roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = bgd;
+        roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.stroke();
+        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
     }
 
     function drawPowerupsTab() {

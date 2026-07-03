@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.2.0";
+    var GAME_VERSION = "1.3.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -25,15 +25,26 @@
     var PARKING_UNLOCK_COST = 1000; // one-time coin cost to unlock Parking Challenge
 
     // ── Skins ────────────────────────────────────────────────
+    // Each skin carries four driving-feel multipliers (all centered on 1.0 —
+    // Classic Pink is the exact baseline): top (top speed), acc (acceleration),
+    // grip (handling/steering), brake (braking). `flavor` is showroom ad copy.
     var SKINS = {
-        pink:    { name: "Classic Pink",  price: 0,   body: "#E91E63", light: "#F48FB1", dark: "#AD1457", stripe: null },
-        purple:  { name: "Royal Purple",  price: 100, body: "#9C27B0", light: "#CE93D8", dark: "#6A1B9A", stripe: null },
-        orange:  { name: "Sunset Glow",   price: 150, body: "#FF9800", light: "#FFCC80", dark: "#E65100", stripe: null },
-        blue:    { name: "Ocean Blue",    price: 200, body: "#2196F3", light: "#81D4FA", dark: "#0D47A1", stripe: null },
-        green:   { name: "Lime Zest",     price: 250, body: "#8BC34A", light: "#C5E1A5", dark: "#558B2F", stripe: null },
-        red:     { name: "Racing Red",    price: 300, body: "#F44336", light: "#FFCDD2", dark: "#B71C1C", stripe: "#FFFFFF" },
-        gold:    { name: "Golden Lux",    price: 500, body: "#FFC107", light: "#FFE082", dark: "#FF6F00", stripe: "#FFFFFF" },
-        ninja:   { name: "Black Ninja",   price: 750, body: "#212121", light: "#616161", dark: "#000000", stripe: "#E91E63" }
+        pink:    { name: "Classic Pink",  price: 0,    body: "#E91E63", light: "#F48FB1", dark: "#AD1457", stripe: null,
+                   top: 1.00, acc: 1.00, grip: 1.00, brake: 1.00, flavor: "The original — sweet, steady, and pretty in pink." },
+        purple:  { name: "Royal Purple",  price: 150,  body: "#9C27B0", light: "#CE93D8", dark: "#6A1B9A", stripe: null,
+                   top: 1.05, acc: 1.05, grip: 1.05, brake: 1.05, flavor: "Royalty rides easy: a smidge better at everything." },
+        orange:  { name: "Sunset Glow",   price: 300,  body: "#FF9800", light: "#FFCC80", dark: "#E65100", stripe: null,
+                   top: 1.10, acc: 1.30, grip: 0.85, brake: 0.90, flavor: "Launches like a rocket, corners like a shopping cart." },
+        blue:    { name: "Ocean Blue",    price: 450,  body: "#2196F3", light: "#81D4FA", dark: "#0D47A1", stripe: null,
+                   top: 0.95, acc: 0.90, grip: 1.10, brake: 1.25, flavor: "The family wagon that stops on a dime." },
+        green:   { name: "Lime Zest",     price: 600,  body: "#8BC34A", light: "#C5E1A5", dark: "#558B2F", stripe: null,
+                   top: 0.90, acc: 1.00, grip: 1.35, brake: 1.10, flavor: "Hugs every corner like Bubbe at the front door." },
+        red:     { name: "Racing Red",    price: 900,  body: "#F44336", light: "#FFCDD2", dark: "#B71C1C", stripe: "#FFFFFF",
+                   top: 1.25, acc: 1.15, grip: 0.85, brake: 0.85, flavor: "Zero to zoom before the light turns green." },
+        gold:    { name: "Golden Lux",    price: 1500, body: "#FFC107", light: "#FFE082", dark: "#FF6F00", stripe: "#FFFFFF",
+                   top: 1.30, acc: 0.90, grip: 0.90, brake: 1.05, flavor: "Heavy, hushed, and unapologetically fancy." },
+        ninja:   { name: "Black Ninja",   price: 2500, body: "#212121", light: "#616161", dark: "#000000", stripe: "#E91E63",
+                   top: 1.18, acc: 1.15, grip: 1.18, brake: 1.15, flavor: "Silent, sleek, and good at absolutely everything." }
     };
 
     // ── Save System ──────────────────────────────────────────

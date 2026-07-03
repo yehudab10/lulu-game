@@ -388,6 +388,15 @@
         ctx.restore();
     }
 
+    // Garage stats: look up a driving-feel multiplier for the car Lulu is
+    // ACTUALLY driving. They apply only to her OWN car (playerVehicle === null);
+    // borrowed rides / the steamroller / commandeered cop-cars keep their own
+    // feel, so return a neutral 1 for anything that isn't her car.
+    function luluStat(k) {
+        if (typeof playerVehicle !== "undefined" && playerVehicle && playerVehicle !== "car") return 1;
+        var sk = SKINS[save.selectedSkin]; return (sk && sk[k]) || 1;
+    }
+
     function updatePlaying(dt) {
         // Lulu on foot reuses this whole real-world simulation (so NOTHING is
         // missing) — only the player-car bits below are branched on `onFoot`.
@@ -399,11 +408,14 @@
         var footScore0 = onFoot ? score : 0;
 
         gameTime += dt;
-        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Garage stats bend HER car's pace: acc quickens the speed ramp, top
+        // raises the ceiling (capped by MAX_SPEED * top). luluStat() is a no-op
+        // (returns 1) on foot / in a borrowed ride, so those feel unchanged.
+        var baseGameSpeed = onFoot ? FOOT_WALK_SPEED : Math.min(BASE_SPEED + gameTime * SPEED_RAMP * luluStat("acc"), MAX_SPEED * luluStat("top"));
         // Speed control: up = run, down = slow (on foot the LEFT buttons).
         var speedMod = 1;
-        if (keys.up) speedMod = onFoot ? 2.0 : 1.6;
-        else if (keys.down) speedMod = onFoot ? 0.4 : 0.5;
+        if (keys.up) speedMod = onFoot ? 2.0 : 1.6 * (0.9 + 0.1 * luluStat("acc"));
+        else if (keys.down) speedMod = onFoot ? 0.4 : Math.max(0.3, 0.5 / luluStat("brake"));
         // Splashed a puddle → brief slowdown (nitro below can still override it).
         if (wetTimer > 0) { wetTimer = Math.max(0, wetTimer - dt); speedMod = Math.min(speedMod, 0.6); }
         // Nitro (from gas-station fuel cans): turbo speed, shielded, and you plow
@@ -476,7 +488,7 @@
         var steerSpeed = onFoot ? 360 : 300;
         player.targetX += steerInput * steerSpeed * dt;
         player.targetX = clamp(player.targetX, onFoot ? 22 : ROAD_L + CAR_W / 2 + 4, onFoot ? W - 22 : ROAD_R - CAR_W / 2 - 4);
-        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10) * dt));
+        player.x = lerp(player.x, player.targetX, Math.min(1, (onFoot ? 12 : 10 * luluStat("grip")) * dt));
         player.tilt = onFoot ? 0 : lerp(player.tilt, steerInput * 0.08, Math.min(1, 8 * dt));
 
         // ── Steamroller: tick its diesel; keep the pancaked-wreck wake rolling.
@@ -1766,7 +1778,10 @@
         // MAX_SPEED), so a fixed threshold like ">520" wrongly flagged her late-game
         // even while braking. Tie it to the current cruise instead, and NEVER count
         // braking as speeding (the speed trap is meant to be dodgeable by slowing).
-        var cruiseNow = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
+        // Mirror the SAME garage-stat factors used to compute HER gameSpeed above,
+        // so a genuinely faster car's natural cruise isn't perpetually flagged as
+        // "speeding" — the trap stays about flooring it past your own flow.
+        var cruiseNow = Math.min(BASE_SPEED + gameTime * SPEED_RAMP * luluStat("acc"), MAX_SPEED * luluStat("top"));
         var speeding = (state !== "footRun") && !keys.down && (keys.up || gameSpeed > cruiseNow * 1.06);
         for (var i = roadCops.length - 1; i >= 0; i--) {
             var cop = roadCops[i];
@@ -1852,6 +1867,12 @@
         // enough — only actively flooring it (boost) opens a gap; cruising lets
         // him slowly reel you in, braking lets him catch fast. This keeps the
         // chase tense at any speed instead of ending instantly when you're fast.
+        // DIVERGES from HER speed sites ON PURPOSE: this paces the pursuing cruiser
+        // (a WORLD-difficulty knob), so it stays on the UNMODIFIED formula and does
+        // NOT read luluStat. If we scaled it by her garage stats the cop would just
+        // match whatever car she bought, erasing the whole point of a fast getaway
+        // car. Left fixed, a high-top ride genuinely out-cruises the law while a
+        // low-top one must floor it to open a gap — a fair, sane reward for speed.
         var baseSpeed = Math.min(BASE_SPEED + gameTime * SPEED_RAMP, MAX_SPEED);
         var copCruise = baseSpeed * 1.16;   // slightly faster cruise so long chases don't go slack
         copChase.gap += (gameSpeed - copCruise) * dt * 0.7;
@@ -3269,7 +3290,7 @@
             // via the road pull-over (Q / EXIT). SHOP etc. keep their positions.
             // SHOP button
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 130, 220, 54)) {
-                state = "shop"; shopTab = "skins"; playClick(); return;
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
             }
             // Distracted mode toggle (if unlocked)
             if (save.distractedUnlocked &&
@@ -3307,22 +3328,55 @@
     // ── Update: Shop ─────────────────────────────────────────
     function updateShop(dt) {
         menuBounce += dt;
+        if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
 
-        if (consumePause()) { state = "menu"; playClick(); return; }
+        if (consumePause()) { shopDetail = null; state = "menu"; playClick(); return; }
         var click = consumeClick();
         if (!click) return;
 
-        // Back button
-        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) {
-            state = "menu"; playClick(); return;
+        // Garage showroom detail view is open → ALL clicks route here.
+        if (shopDetail) {
+            var dk = shopDetail, dsk = SKINS[dk];
+            var r = shopDetailRects();
+            var dOwned = save.ownedSkins.indexOf(dk) >= 0;
+            // Close (✕) or any tap outside the panel → back to the grid.
+            if (pointInRect(click.x, click.y, r.closeX, r.closeY, r.closeW, r.closeH) ||
+                !pointInRect(click.x, click.y, r.px, r.py, r.pw, r.ph)) {
+                shopDetail = null; playClick(); return;
+            }
+            // Primary action button (BUY / EQUIP).
+            if (pointInRect(click.x, click.y, r.btnX, r.btnY, r.btnW, r.btnH)) {
+                if (dOwned) {
+                    if (save.selectedSkin === dk) { playClick(); }   // already equipped
+                    else {
+                        save.selectedSkin = dk; persistSave(); playBuy();
+                        lastBoughtMessage = dsk.name + " equipped!"; lastBoughtTimer = 1.5;
+                    }
+                } else if (save.totalCoins >= dsk.price) {
+                    save.totalCoins -= dsk.price;
+                    save.ownedSkins.push(dk);
+                    save.selectedSkin = dk;
+                    persistSave(); playBuy();
+                    lastBoughtMessage = dsk.name + " purchased!"; lastBoughtTimer = 1.5;
+                } else {
+                    playDeny(); lastBoughtMessage = "Not enough coins!"; lastBoughtTimer = 1.2;
+                }
+                return;
+            }
+            return;   // absorb any other tap inside the panel
         }
 
-        // Tabs
+        // Back button
+        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) {
+            shopDetail = null; state = "menu"; playClick(); return;
+        }
+
+        // Tabs (switching tabs closes any open detail view)
         var tabY = 100, tabH = 44, tabW = W / 3;
-        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopTab = "skins"; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopTab = "powerups"; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopTab = "special"; playClick(); return; }
+        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; shopTab = "powerups"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; shopTab = "special"; playClick(); return; }
 
         // Items
         if (shopTab === "skins") {
@@ -3331,25 +3385,8 @@
                 var col = i % 2, row = Math.floor(i / 2);
                 var cx = 20 + col * 230, cy = 165 + row * 145;
                 if (pointInRect(click.x, click.y, cx, cy, 210, 130)) {
-                    var key = skinKeys[i];
-                    var skin = SKINS[key];
-                    if (save.ownedSkins.indexOf(key) >= 0) {
-                        save.selectedSkin = key; persistSave(); playBuy();
-                        lastBoughtMessage = skin.name + " equipped!";
-                        lastBoughtTimer = 1.5;
-                    } else if (save.totalCoins >= skin.price) {
-                        save.totalCoins -= skin.price;
-                        save.ownedSkins.push(key);
-                        save.selectedSkin = key;
-                        persistSave(); playBuy();
-                        lastBoughtMessage = skin.name + " purchased!";
-                        lastBoughtTimer = 1.5;
-                    } else {
-                        playDeny();
-                        lastBoughtMessage = "Not enough coins!";
-                        lastBoughtTimer = 1.2;
-                    }
-                    return;
+                    // Tapping a card opens the showroom detail view (buy/equip lives there).
+                    shopDetail = skinKeys[i]; shopDetailT = 0; playClick(); return;
                 }
             }
         } else if (shopTab === "powerups") {

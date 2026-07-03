@@ -705,7 +705,7 @@
 
         // Tabs
         var tabY = 100, tabH = 44, tabW = W / 3;
-        var tabs = [["skins", "Skins"], ["powerups", "Power-Ups"], ["special", "Special"]];
+        var tabs = [["skins", "Garage"], ["powerups", "Power-Ups"], ["special", "Special"]];
         for (var ti = 0; ti < 3; ti++) {
             var key = tabs[ti][0], lbl = tabs[ti][1];
             var active = shopTab === key;
@@ -720,6 +720,9 @@
         if (shopTab === "skins") drawSkinsTab();
         else if (shopTab === "powerups") drawPowerupsTab();
         else if (shopTab === "special") drawSpecialTab();
+
+        // Garage showroom detail view — a full-screen overlay ON TOP of the grid.
+        if (shopTab === "skins" && shopDetail) drawSkinDetail(shopDetail);
 
         // Toast message
         if (lastBoughtTimer > 0) {
@@ -741,6 +744,41 @@
         ctx.restore();
     }
 
+    // Map a driving-feel multiplier to a 0..1 bar fill. Centering on 0.7..1.4
+    // makes the real spread between cars read clearly (baseline 1.0 → ~0.43).
+    function statFill(mult) { return clamp(((mult || 1) - 0.7) / 0.7, 0, 1); }
+
+    // A one-word "class" chip for a car, from whichever stat stands out most.
+    function skinClass(sk) {
+        var stats = [["SPEED", sk.top || 1], ["ACCEL", sk.acc || 1], ["GRIP", sk.grip || 1], ["BRAKES", sk.brake || 1]];
+        var best = stats[0], maxv = -9, minv = 9;
+        for (var i = 0; i < stats.length; i++) {
+            if (stats[i][1] > best[1]) best = stats[i];
+            if (stats[i][1] > maxv) maxv = stats[i][1];
+            if (stats[i][1] < minv) minv = stats[i][1];
+        }
+        if (maxv - minv < 0.12) return "ALL-ROUNDER";
+        return best[0];
+    }
+
+    // The 4 stats in display order, shared by card strip + detail panel.
+    var SKIN_STAT_ROWS = [["TOP SPEED", "top"], ["ACCELERATION", "acc"], ["HANDLING", "grip"], ["BRAKES", "brake"]];
+
+    // Compact 4-notch stat strip drawn on a garage card (quick spec glance).
+    function drawStatStrip(sk, midX, topY) {
+        var n = 4, bw = 9, gap = 6, totW = n * bw + (n - 1) * gap;
+        var sx = midX - totW / 2, h = 14;
+        for (var i = 0; i < 4; i++) {
+            var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
+            var f = statFill(mult), bx = sx + i * (bw + gap);
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            roundRect(bx, topY, bw, h, 3); ctx.fill();
+            var fh = h * f;
+            ctx.fillStyle = "#FFD54F";
+            roundRect(bx, topY + (h - fh), bw, fh, 3); ctx.fill();
+        }
+    }
+
     function drawSkinsTab() {
         var skinKeys = Object.keys(SKINS);
         for (var i = 0; i < skinKeys.length; i++) {
@@ -752,32 +790,217 @@
             var equipped = save.selectedSkin === key;
             var canAfford = save.totalCoins >= skin.price;
 
-            // Card
+            // Card frame
             ctx.fillStyle = equipped ? "#FFC107" : (owned ? "#66BB6A" : "#546E7A");
             roundRect(cx, cy, 210, 130, 10); ctx.fill();
-            ctx.fillStyle = equipped ? "#FFA000" : (owned ? "#388E3C" : "#37474F");
-            roundRect(cx, cy, 210, 130, 10);
-            ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.stroke();
-            ctx.fillStyle = "#263238";
-            roundRect(cx + 5, cy + 5, 200, 90, 6); ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = equipped ? "#FFA000" : (owned ? "#388E3C" : "#37474F");
+            roundRect(cx, cy, 210, 130, 10); ctx.stroke();
+            // Preview well (subtle vertical gradient reads like a lit stage)
+            var pw = ctx.createLinearGradient(0, cy + 5, 0, cy + 77);
+            pw.addColorStop(0, "#37444E"); pw.addColorStop(1, "#1c262c");
+            ctx.fillStyle = pw;
+            roundRect(cx + 5, cy + 5, 200, 72, 6); ctx.fill();
+
+            // Class chip (top-left of the well)
+            var chip = skinClass(skin);
+            ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+            var chW = ctx.measureText(chip).width + 12;
+            ctx.fillStyle = "rgba(255,215,0,0.9)";
+            roundRect(cx + 9, cy + 9, chW, 14, 7); ctx.fill();
+            drawText(chip, cx + 9 + chW / 2, cy + 16, "bold 9px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
 
             // Car preview
             ctx.save();
-            ctx.translate(cx + 105, cy + 50);
-            ctx.scale(0.85, 0.85);
-            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 1);
+            ctx.translate(cx + 105, cy + 44);
+            drawLuluCar(0, 0, 0, false, menuBounce, false, key, 0.72);
             ctx.restore();
 
-            // Name
-            drawText(skin.name, cx + 105, cy + 110, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
-            // Status
-            if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
-            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#000", null, 0);
+            // EQUIPPED tick badge (top-right of the well)
+            if (equipped) {
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath(); ctx.arc(cx + 194, cy + 16, 10, 0, Math.PI * 2); ctx.fill();
+                drawText("✓", cx + 194, cy + 16, "bold 13px Arial", "#1a1400", null, 0);
+            }
+
+            // Name + stat strip
+            drawText(skin.name, cx + 105, cy + 89, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2);
+            drawStatStrip(skin, cx + 105, cy + 98);
+
+            // Status line
+            if (equipped) drawText("EQUIPPED", cx + 105, cy + 124, "bold 11px Arial", "#1a1400", null, 0);
+            else if (owned) drawText("Tap to equip", cx + 105, cy + 124, "bold 11px Arial", "#123010", null, 0);
             else {
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
-                drawText("💰 " + skin.price, cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
+                drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
         }
+    }
+
+    // ── Garage showroom: shared rects for the detail overlay (used by both the
+    //    draw + the click router, so they never drift apart). ──
+    function shopDetailRects() {
+        var pw = W - 36, px = 18, py = 92, ph = 700;
+        return {
+            px: px, py: py, pw: pw, ph: ph,
+            closeX: px + pw - 48, closeY: py + 10, closeW: 40, closeH: 40,
+            btnW: 260, btnH: 54, btnX: W / 2 - 130, btnY: py + ph - 74
+        };
+    }
+
+    // ── Garage showroom: full-screen rotating-turntable detail view. ──
+    function drawSkinDetail(key) {
+        var sk = SKINS[key];
+        var r = shopDetailRects();
+        var owned = save.ownedSkins.indexOf(key) >= 0;
+        var equipped = save.selectedSkin === key;
+        var canAfford = save.totalCoins >= sk.price;
+
+        // Dim the grid behind, then the showroom panel.
+        ctx.fillStyle = "rgba(8,12,16,0.78)";
+        ctx.fillRect(0, 0, W, H);
+        var pg = ctx.createLinearGradient(0, r.py, 0, r.py + r.ph);
+        pg.addColorStop(0, "#33424C"); pg.addColorStop(1, "#1a232a");
+        ctx.fillStyle = pg;
+        roundRect(r.px, r.py, r.pw, r.ph, 16); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = "#FFC107";
+        roundRect(r.px, r.py, r.pw, r.ph, 16); ctx.stroke();
+
+        // Close (✕) button.
+        ctx.fillStyle = "#455A64";
+        roundRect(r.closeX, r.closeY, r.closeW, r.closeH, 10); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = "#263238";
+        roundRect(r.closeX, r.closeY, r.closeW, r.closeH, 10); ctx.stroke();
+        drawText("✕", r.closeX + r.closeW / 2, r.closeY + r.closeH / 2 + 1, "bold 20px Arial", "#ECEFF1", null, 0);
+
+        // ── Turntable showroom ──────────────────────────────────
+        var cxs = W / 2, cys = r.py + 168;
+        var ang = menuBounce * 0.45;   // slow ~0.45 rad/s spin
+
+        // Stage backing glow
+        ctx.save();
+        var glow = ctx.createRadialGradient(cxs, cys - 10, 12, cxs, cys - 10, 190);
+        glow.addColorStop(0, "rgba(255,220,120,0.16)");
+        glow.addColorStop(1, "rgba(255,220,120,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(r.px, r.py, r.pw, 340);
+        ctx.restore();
+
+        // Podium disc (fixed) with a rotating specular wedge → reads as 3D turntable.
+        ctx.save();
+        ctx.translate(cxs, cys + 46);
+        ctx.scale(1, 0.34);
+        var disc = ctx.createRadialGradient(0, -20, 12, 0, 0, 150);
+        disc.addColorStop(0, "#63707B"); disc.addColorStop(0.72, "#3c4852"); disc.addColorStop(1, "#28313a");
+        ctx.fillStyle = disc;
+        ctx.beginPath(); ctx.arc(0, 0, 150, 0, Math.PI * 2); ctx.fill();
+        // rotating light wedge sweeping the disc
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.arc(0, 0, 150, ang - 0.4, ang + 0.4); ctx.closePath();
+        var wedge = ctx.createRadialGradient(0, 0, 20, 0, 0, 150);
+        wedge.addColorStop(0, "rgba(255,255,255,0)"); wedge.addColorStop(1, "rgba(255,255,255,0.22)");
+        ctx.fillStyle = wedge; ctx.fill();
+        // gold rim highlight
+        ctx.lineWidth = 5; ctx.strokeStyle = "rgba(255,193,7,0.55)";
+        ctx.beginPath(); ctx.arc(0, 0, 147, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+
+        // Soft elliptical shadow (fixed while the car spins).
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.32)";
+        ctx.beginPath(); ctx.ellipse(cxs, cys + 44, 92, 22, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        // The car, drawn LARGE on an oblique/tilted plane so its top-down art
+        // rotates like a 3/4 showroom turntable instead of a flat spinning sticker.
+        ctx.save();
+        ctx.translate(cxs, cys);
+        ctx.transform(1, 0, 0, 0.6, 0, 0);   // vertical squash → 3/4 view tilt
+        ctx.rotate(ang);
+        drawLuluCar(0, 0, 0, false, menuBounce, false, key, 2.2);
+        ctx.restore();
+
+        // Specular sweep across the car — a rotating light streak synced to spin.
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.translate(cxs, cys - 6);
+        ctx.rotate(Math.sin(ang) * 0.5);
+        var streak = ctx.createLinearGradient(-70, 0, 70, 0);
+        streak.addColorStop(0, "rgba(255,255,255,0)");
+        streak.addColorStop(0.5, "rgba(255,255,255,0.14)");
+        streak.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = streak;
+        ctx.fillRect(-70, -96, 140, 192);
+        ctx.restore();
+
+        // A couple of drifting sparkles for showroom sheen.
+        for (var s = 0; s < 2; s++) {
+            var sp = menuBounce * (0.8 + s * 0.5) + s * 2.1;
+            var spx = cxs + Math.cos(sp) * (70 + s * 24);
+            var spy = cys - 40 + Math.sin(sp * 1.3) * 34;
+            var twk = 0.4 + 0.6 * Math.abs(Math.sin(sp * 3));
+            ctx.save();
+            ctx.globalAlpha = twk;
+            var rr = 2 + twk * 2.5;
+            var glint = ctx.createRadialGradient(spx, spy, 0, spx, spy, rr);
+            glint.addColorStop(0, "rgba(255,248,208,0.9)");
+            glint.addColorStop(1, "rgba(255,248,208,0)");
+            ctx.fillStyle = glint;
+            ctx.beginPath(); ctx.arc(spx, spy, rr, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        }
+
+        // ── Name + flavor ───────────────────────────────────────
+        drawText(sk.name, W / 2, r.py + 316, "bold 26px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+        ctx.save();
+        var chip2 = skinClass(sk);
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        var chW2 = ctx.measureText(chip2).width + 18;
+        ctx.fillStyle = "rgba(255,193,7,0.92)";
+        roundRect(W / 2 - chW2 / 2, r.py + 330, chW2, 18, 9); ctx.fill();
+        drawText(chip2, W / 2, r.py + 340, "bold 11px 'Segoe UI', Arial, sans-serif", "#1a1400", null, 0);
+        ctx.restore();
+        drawText(sk.flavor, W / 2, r.py + 366, "italic 13px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2);
+
+        // ── Stat panel: 4 animated bars with a baseline notch ───
+        var animP = clamp(shopDetailT / 0.5, 0, 1);
+        animP = 1 - (1 - animP) * (1 - animP);   // ease-out
+        var bx = W / 2 - 150, bw = 300, bh = 13, statTop = r.py + 392, gap = 40;
+        var baseF = statFill(1);   // where baseline 1.0 sits on every bar
+        for (var si = 0; si < 4; si++) {
+            var lab = SKIN_STAT_ROWS[si][0], mult = sk[SKIN_STAT_ROWS[si][1]] || 1;
+            var ry = statTop + si * gap;
+            // label + delta-vs-baseline readout
+            drawText(lab, bx, ry, "bold 11px 'Segoe UI', Arial, sans-serif", "#CFD8DC", "#000", 2, "left");
+            var pct = Math.round((mult - 1) * 100);
+            var pcol = pct > 0 ? "#8BC34A" : (pct < 0 ? "#EF9A9A" : "#B0BEC5");
+            drawText((pct > 0 ? "+" : "") + pct + "%", bx + bw, ry, "bold 11px Arial", pcol, "#000", 2, "right");
+            // track
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            roundRect(bx, ry + 8, bw, bh, bh / 2); ctx.fill();
+            // gold fill (animated)
+            var fw = bw * statFill(mult) * animP;
+            if (fw > 2) {
+                var fg = ctx.createLinearGradient(bx, 0, bx + bw, 0);
+                fg.addColorStop(0, "#FFA000"); fg.addColorStop(1, "#FFE082");
+                ctx.fillStyle = fg;
+                roundRect(bx, ry + 8, fw, bh, bh / 2); ctx.fill();
+            }
+            // baseline notch
+            ctx.fillStyle = "rgba(255,255,255,0.55)";
+            ctx.fillRect(bx + bw * baseF - 1, ry + 6, 2, bh + 4);
+        }
+
+        // ── Action buttons ──────────────────────────────────────
+        var label, bgc, bgd, txtc = "#FFF";
+        if (equipped) { label = "✓ EQUIPPED"; bgc = "#4CAF50"; bgd = "#2E7D32"; }
+        else if (owned) { label = "EQUIP"; bgc = "#42A5F5"; bgd = "#1565C0"; }
+        else if (canAfford) { label = "BUY  💰 " + formatNum(sk.price); bgc = "#FFC107"; bgd = "#FF8F00"; txtc = "#1a1400"; }
+        else { label = "💰 " + formatNum(sk.price) + "  — need more"; bgc = "#8D5B5B"; bgd = "#5D3A3A"; }
+        ctx.fillStyle = bgc;
+        roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = bgd;
+        roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.stroke();
+        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
     }
 
     function drawPowerupsTab() {

@@ -1049,6 +1049,8 @@
 
     // Shop UI state
     var shopTab = "skins"; // skins, powerups, special
+    var shopDetail = null; // Garage: skin key of the open showroom detail view, or null
+    var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
 
