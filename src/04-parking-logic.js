@@ -3,6 +3,8 @@
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         nearChain = 0; nearChainT = 0; recordBannerT = 0; pbWarned = false; pbBroken = false;
+        // First-ever run → the guided tutorial (decides for itself; skippable).
+        if (typeof tutMaybeStart === "function") tutMaybeStart();
         // ── Daily streak: the FIRST run of each day pays out, and consecutive
         //    days stack the bonus (25 × streak, capped at ×7). Miss a day and
         //    the streak starts over. ──

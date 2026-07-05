@@ -103,6 +103,10 @@
         // Paused keeps whatever was playing (handled in updatePaused)
         if (musicTrack && state !== "paused") startMusic(musicTrack);
 
+        // First-drive tutorial peeks at taps (its SKIP pill) before the scene
+        // update runs, so it must tick first. No-op unless it's active.
+        if (state === "playing" && typeof updateTutorial === "function" && tutActive) updateTutorial(dt);
+
         if (state === "charSelect") updateCharSelect(dt);
         else if (state === "menu") updateMenu(dt);
         else if (state === "playing") updatePlaying(dt);
@@ -179,6 +183,9 @@
         else if (state === "stickerBook") drawStickerBook();
         else if (state === "avigailScene") drawAvigailScene();
         else if (state === "salon") drawSalon();
+
+        // Tutorial card + skip pill overlay the driving HUD.
+        if (state === "playing" && typeof drawTutorial === "function" && tutActive) drawTutorial();
 
         if (hitZoomed) ctx.restore();
 

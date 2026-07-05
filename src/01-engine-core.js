@@ -76,6 +76,7 @@
             erVisits: 0,       // trips to the ER → "frequent flyer" gag
             dayNum: 0,         // last day (epoch days) a run was started → daily streak
             streak: 0,         // consecutive-day play streak (drives the daily bonus)
+            tutorialDone: false, // finished (or skipped) the first-drive tutorial
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
