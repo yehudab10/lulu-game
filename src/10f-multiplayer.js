@@ -634,7 +634,8 @@
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
         var baseY = H * 0.50;
-        var y = baseY + (save.distractedUnlocked ? 188 : 136);
+        // Stack: PLAY, SHOP, [QUESTS +50 if unlocked], [DISTRACTED +52 if unlocked].
+        var y = baseY + 136 + (questsUnlocked() ? 50 : 0) + (save.distractedUnlocked ? 52 : 0);
         return { x: W / 2 - 110, y: y, w: 220, h: 46 };
     }
 

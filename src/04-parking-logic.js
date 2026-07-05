@@ -3,6 +3,7 @@
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
         nearChain = 0; nearChainT = 0; recordBannerT = 0; pbWarned = false; pbBroken = false;
+        runBanked = false; footQuestAccum = 0; footQuestT = 0;   // weekly-quest run bookkeeping
         // First-ever run → the guided tutorial (decides for itself; skippable).
         if (typeof tutMaybeStart === "function") tutMaybeStart();
         // ── Daily streak: the FIRST run of each day pays out, and consecutive
@@ -302,6 +303,7 @@
     // never costing the player anything (it overlaps gameplay harmlessly).
     function triggerHeshy() {
         heshy = { t: 0, dur: 4.5 };
+        questAdd("heshy2", 1);   // weekly quest: find Heshy
         invincibleTimer = Math.max(invincibleTimer, 4.5); // shield for the cameo
         spawnFloater(player.x, player.y - 40, "😎 HESHY!", "#4FC3F7");
         // goofy splash + a sunglasses-cool two-note sting
@@ -1017,6 +1019,7 @@
                     parkingZoom = 1;
                     if (parkingFromPullover) {
                         // Pulled over → she steps out + walks off, THEN foot world.
+                        questAdd("parks3", 1);   // weekly quest: pull-over park completed
                         beginParkingWalkout(); return;
                     }
                     if (parkingChallengeMode) {

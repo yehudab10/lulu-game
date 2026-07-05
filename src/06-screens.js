@@ -656,12 +656,40 @@
         // SHOP button
         drawButton(W / 2 - 110, H * 0.50 + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
 
+        // QUESTS button (unlocks at 200k lifetime score). qOff shoves everything
+        // below down by 50 when it's present — the SAME offset the update handler
+        // and mpMenuBtnRect() use, so the whole stack stays in sync.
+        var qUnlocked = questsUnlocked();
+        var qOff = qUnlocked ? 50 : 0;
+        if (qUnlocked) {
+            var qY = H * 0.50 + 136;
+            // Parchment/purple styling to set it apart from PLAY/SHOP.
+            drawButton(W / 2 - 110, qY, 220, 44, "📜 QUESTS", { bg: "#B39DDB", bgDark: "#5E35B1", small: true });
+            // Pulsing gold "!" badge when a reward is ready to claim.
+            if (questAnyClaimable()) {
+                var bp = 0.5 + 0.5 * Math.sin(menuBounce * 6);
+                ctx.save();
+                ctx.shadowColor = "rgba(255,215,0," + (0.5 + 0.4 * bp) + ")"; ctx.shadowBlur = 8 + 8 * bp;
+                ctx.fillStyle = "#FFD700";
+                ctx.beginPath(); ctx.arc(W / 2 + 104, qY + 4, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+                drawText("!", W / 2 + 104, qY + 5, "bold 18px Arial", "#4527A0", null, 0);
+            }
+        }
+
         // Distracted mode toggle
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.50 + 136, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+        }
+
+        // Locked teaser: a subtle grey progress line toward the 200k unlock.
+        if (!qUnlocked && (save.lifetimeScore || 0) > 0) {
+            var qPct = Math.floor((save.lifetimeScore || 0) / 200000 * 100);
+            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.76,
+                "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
 
         // High scores

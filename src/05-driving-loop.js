@@ -285,6 +285,7 @@
             if (Math.random() > chance) continue;
             if (o.type === "car" && !o.mal && (!o.behavior || o.behavior === "normal")) {
                 o.dodged = true; o.dodgeDir = o.x <= player.x ? -1 : 1;
+                questAdd("honks10", 1);   // weekly quest: honk-scare a car
                 if (Math.random() < 0.4) { o.comment = randPick(HONK_REACT); o.commentT = 1.3; }
             } else if (o.type === "ped") {
                 o.vx = (o.x <= player.x ? -1 : 1) * rand(85, 150); // scurry off the road
@@ -474,6 +475,12 @@
             }
         }
         scrollOffset += gameSpeed * dt;
+        // On-foot distance feeds the "Stretch Those Legs" quest — accumulate and
+        // flush to the (persisting) week total ~1×/sec, never per frame.
+        if (onFoot) {
+            footQuestAccum += gameSpeed * dt; footQuestT += dt;
+            if (footQuestT >= 1) { questAdd("footDist", Math.floor(footQuestAccum)); footQuestAccum -= Math.floor(footQuestAccum); footQuestT = 0; }
+        }
         // "Liquid courage" from the bar: while it lasts and she's actually
         // DRIVING, she's shielded and rakes in double points (tipsy-but-fearless).
         if (!onFoot && courageT > 0) {
@@ -686,6 +693,7 @@
                 uncleWalker = null;   // scrolled past ungreeted → just cull, no penalty
             } else if (!uncleWalker.greeted && Math.abs(uncleWalker.y - player.y) < 70) {
                 uncleWalker.greeted = true;
+                questAdd("uncles3", 1);   // weekly quest: greet an uncle
                 var uData = null;
                 for (var uu = 0; uu < UNCLES.length; uu++) {
                     if (UNCLES[uu].id === uncleWalker.id) { uData = UNCLES[uu]; break; }
@@ -971,6 +979,7 @@
                 o.comment = randPick(AVIGAIL_ROAD_TAUNTS); o.commentT = 2.4;
                 spawnFloater(player.x, player.y - 30, randPick(LULU_ROAD_REPLIES), "#F48FB1");
                 if (typeof bumpAvigailRel === "function") bumpAvigailRel(1);
+                questAdd("avigail3", 1);   // weekly quest: share the road with Avigail
             }
 
             // Regular drivers occasionally (by chance) swerve aside when Lulu gets
@@ -1126,6 +1135,7 @@
                     // Chain it: each close call inside the window is worth more
                     // and pushes the 🔥 score multiplier higher (capped ×3).
                     nearChain++; nearChainT = 6;
+                    questBest("chain6", nearChain);   // weekly quest: 6-chain daredevil
                     score += (15 + 5 * Math.min(nearChain - 1, 8)) * scoreMult;
                     spawnFloater((o.x + player.x) / 2, player.y - 8,
                         nearChain >= 2 ? "WHOOSH! 🔥×" + nearChain : "WHOOSH!", "#80D8FF");
@@ -1165,6 +1175,7 @@
                 if (aabb(m.x, m.y, m.hitW, m.hitH, ob.x, ob.y, ob.hitW, ob.hitH)) {
                     spawnCrashBurst(ob.x, ob.y, true);
                     playExplosion();
+                    if (ob.type === "car") questAdd("missiles8", 1);   // weekly quest: missile a car
                     obstacles.splice(oi, 1);
                     missiles.splice(mi, 1);
                     score += 50;
@@ -1432,6 +1443,7 @@
                 }
                 if (tollBooth && !tollBooth.paid && tollBooth.y > player.y - 8) {
                     tollBooth.paid = true;
+                    questAdd("tolls4", 1);   // weekly quest: pass a toll booth
                     score += 60 * scoreMult;
                     spawnFloater(player.x, player.y - 40, "🎫 TOLL!", "#FFD54F");
                     playCoin();
@@ -1960,6 +1972,7 @@
                 spawnFloater(player.x, player.y - 50, "Lost 'em! 😎", "#7CFC4F");
                 playTone(659, 0.1, "triangle", 0.2);
                 setTimeout(function () { playTone(988, 0.12, "triangle", 0.2); }, 90);
+                questAdd("escapes2", 1);   // weekly quest: escape a cop chase
                 copChase = null;
                 spontaneousChaseCool = rand(12, 20);   // breather before the next call-in
                 postEscapeGrace = 5;   // hard breather: NO cop (trap/APB/recognition) can pounce for a few seconds
@@ -3292,6 +3305,8 @@
     // ── Update: Game Over ────────────────────────────────────
     function updateGameOver(dt) {
         gameOverAlpha = Math.min(gameOverAlpha + dt * 2, 1);
+        // Bank this run ONCE: lifetime score (unlock progress) + run-scope quests.
+        bankRunStats();
         if (typeof mpPostScore === "function") { try { mpPostScore(); } catch (e) {} }
         // Clear residual angry-man/revenge-car state so they don't keep moving
         if (angryMan) angryMan = null;
@@ -3344,6 +3359,7 @@
     var menuMsg = "", menuMsgTimer = 0;
     function updateMenu(dt) {
         menuBounce += dt;
+        if (questsUnlocked()) questState();   // touch quests so a weekly rollover persists on the menu
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
         if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         updateDecorations(dt, 80);
@@ -3367,11 +3383,18 @@
             if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 74, 220, 54)) {
                 state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
             }
+            // QUESTS button (unlocks at 200k lifetime score). Same qOff shove as
+            // drawMenu + mpMenuBtnRect() so the whole stack stays aligned.
+            var qOff = questsUnlocked() ? 50 : 0;
+            if (questsUnlocked() &&
+                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
+                state = "quests"; playClick(); return;
+            }
             // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
             // controls, 2× score) — locked out in friend rooms so shared
             // leaderboards and races stay fair.
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44)) {
                 if (!distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
                     menuMsg = "📱 No distracted mode in friend rooms"; menuMsgTimer = 2.2;
                     playDeny(); return;

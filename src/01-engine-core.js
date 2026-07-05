@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.5.0";
+    var GAME_VERSION = "1.6.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -50,10 +50,17 @@
     // ── Save System ──────────────────────────────────────────
     var SAVE_KEY = "luluSaveV2";
     var save = loadSave();
+    // Veterans who already posted a high score get lifetime-score credit toward
+    // the 200k quest unlock, so the feature isn't gated behind a fresh grind.
+    if (!save.lifetimeScore && save.highScore > 0) save.lifetimeScore = save.highScore;
+    // Weekly-quests unlock gate: 200,000 cumulative score across all runs.
+    function questsUnlocked() { return (save.lifetimeScore || 0) >= 200000; }
 
     function defaultSave() {
         return {
             highScore: 0,
+            lifetimeScore: 0, // cumulative score across every finished run → gates weekly quests
+            quests: null,     // { week, prog, best, claimed, notified } — reset weekly (see 06b-quests.js)
             totalCoins: 0,
             ownedSkins: ["pink"],
             selectedSkin: "pink",
