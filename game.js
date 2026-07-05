@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.4.0";
+    var GAME_VERSION = "1.4.1";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -25929,7 +25929,10 @@
         { p: "raphael", accent: "#FFCC80", lines: ["Throw the book!\n...kidding. Mostly. 😏", "In MY day: a fine\nand a HANDSHAKE.", "Feh. Where's\nHillel? *grumble*"] },
         { p: "bubbe",   accent: "#D7C29A", lines: ["She didn't EAT\ntoday! Mercy! 🍲", "My LULULEH wouldn't\nhurt a FLY!", "I'll bake the judge\na cholent — DEAL?"] },
         { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] },
-        { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] }
+        { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] },
+        { p: "yedidya", accent: "#FFF3E0", lines: ["Objection! Raw milk\ncures whatever THIS is!", "She needs a COW,\nnot a courtroom! 🥛", "She's family — and\nSINGLE, your honor. Hint."] },
+        { p: "burry",   accent: "#A5D6A7", lines: ["Chill, your honor...\nit's all good, man 😎", "In Vegas this isn't\neven a CRIME, cuz 🎲", "Mindy, you filming\nthis? ...for the kids."] },
+        { p: "shuey",   accent: "#B3E5FC", lines: ["As a doctor, I advise\n...leniency? 🩺", "Go easy — rough year.\nDivorce, then my CAT. 😿", "Avraham, wave to\nAunt Lulu! 👋"] }
     ];
     // Once the rivalry has truly thawed (rel ≥ 65), Avigail shows up FOR her.
     var AVIGAIL_FRIEND_LINES = ["She's with ME,\nyour honor. 💜", "Objection! She's\nmy best friend!", "Free her — we have\na NAIL appointment. 💅"];
@@ -28162,6 +28165,7 @@
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
                     : type === "hillel" ? "#BBDEFB" : type === "fayge" ? "#5C6BC0" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
                     : type === "rabbi" ? "#1A1A1A" : type === "clown" ? "#E53935" : type === "kid" ? "#FFB74D" : type === "oldman" ? "#6D4C41"
+                    : type === "yedidya" ? "#2E2A26" : type === "burry" ? "#00897B" : type === "shuey" ? "#4DB6AC"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -28331,6 +28335,46 @@
             ctx.fillStyle = "#0D1B5E"; ctx.beginPath(); ctx.ellipse(cx, cy - hr * 0.7, hr * 1.05, hr * 0.4, 0, 0, Math.PI * 2); ctx.fill(); // cap
             ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.ellipse(cx, cy - hr * 0.95, hr * 0.9, hr * 0.5, 0, Math.PI, 0); ctx.fill();
             ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.85, hr * 0.16, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "yedidya") {
+            // Uncle Yedidya — black yeshivish hat + scruffy uneven black beard, a
+            // "no needle" pin on the collar. (The raw-milk, no-vaccines uncle.)
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(cx, cy + hr * 0.14, hr * 0.98, 0.04 * Math.PI, 0.96 * Math.PI); ctx.closePath(); ctx.fill();   // beard
+            var ytuf = [[-0.72, 0.92], [-0.32, 1.14], [0.14, 1.1], [0.56, 0.96]];   // messy jaw tufts
+            for (var yt = 0; yt < ytuf.length; yt++) { ctx.beginPath(); ctx.arc(cx + hr * ytuf[yt][0], cy + hr * ytuf[yt][1], hr * 0.2, 0, Math.PI * 2); ctx.fill(); }
+            ctx.fillRect(cx - hr * 0.92, cy - hr * 0.15, hr * 0.2, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.15, hr * 0.2, hr * 0.6);   // sideburns
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(cx - hr * 1.15, cy - hr * 0.66, hr * 2.3, hr * 0.22);   // hat brim
+            ctx.fillStyle = "#0A0A0A"; roundRect(cx - hr * 0.8, cy - hr * 1.3, hr * 1.6, hr * 0.72, 3); ctx.fill();   // hat crown
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white shirt
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx + hr * 0.5, cy + hr * 0.74, hr * 0.17, 0, Math.PI * 2); ctx.fill();   // no-vax pin
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx + hr * 0.4, cy + hr * 0.84); ctx.lineTo(cx + hr * 0.6, cy + hr * 0.64); ctx.stroke();
+        } else if (type === "burry") {
+            // Uncle Burry — clean-shaven, dark shades, chill; green haze wisps
+            // drifting up beside him. (The high, Vegas-bound uncle.)
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.98, Math.PI, 0); ctx.fill();   // short hair
+            ctx.fillStyle = "#1A1A1A";   // sunglasses
+            roundRect(cx - hr * 0.64, cy - hr * 0.2, hr * 0.5, hr * 0.34, 3); ctx.fill();
+            roundRect(cx + hr * 0.14, cy - hr * 0.2, hr * 0.5, hr * 0.34, 3); ctx.fill();
+            ctx.fillRect(cx - hr * 0.14, cy - hr * 0.1, hr * 0.28, hr * 0.06);   // bridge
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(cx - hr * 0.56, cy - hr * 0.16, hr * 0.16, hr * 0.08);   // lens glint
+            ctx.fillStyle = "#00897B"; roundRect(cx - 5, cy + hr * 0.55, 10, hr * 0.55, 2); ctx.fill();   // tropical shirt
+            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(cx - 2, cy + hr * 0.72, 1.3, 0, Math.PI * 2); ctx.arc(cx + 3, cy + hr * 0.92, 1.3, 0, Math.PI * 2); ctx.fill();   // shirt flowers
+            ctx.fillStyle = "rgba(130,220,130,0.45)";   // chill green wisps
+            ctx.beginPath(); ctx.arc(cx + hr * 0.98, cy - hr * 0.5 - (gameTime * 7 % 12), hr * 0.14, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + hr * 1.08, cy - hr * 0.15 - (gameTime * 5 % 9), hr * 0.1, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "shuey") {
+            // Uncle Shuey — Burry but older/greyer, doctor (stethoscope), light
+            // stubble, downcast, a single tear. (Divorced, cat R.I.P.)
+            ctx.fillStyle = "#6D6257"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.96, Math.PI, 0); ctx.fill();   // greying hair
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(cx - hr * 0.9, cy - hr * 0.36, hr * 0.22, hr * 0.42); ctx.fillRect(cx + hr * 0.68, cy - hr * 0.36, hr * 0.22, hr * 0.42);   // grey temples
+            ctx.fillStyle = "rgba(80,70,60,0.26)"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.3, hr * 0.66, 0.12 * Math.PI, 0.88 * Math.PI); ctx.closePath(); ctx.fill();   // stubble (mouth drawn on top below)
+            ctx.strokeStyle = "#6D6257"; ctx.lineWidth = 1.4;   // worried/sad brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.4); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.28); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.28); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.4); ctx.stroke();
+            ctx.fillStyle = "#ECEFF1"; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.4, 8); ctx.fill();   // white coat collar over teal scrubs
+            ctx.strokeStyle = "#455A64"; ctx.lineWidth = 1.6;   // stethoscope
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.3, cy + hr * 0.52); ctx.quadraticCurveTo(cx, cy + hr * 1.08, cx + hr * 0.3, cy + hr * 0.52); ctx.stroke();
+            ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.56, hr * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(cx + hr * 0.36, cy + hr * 0.18, hr * 0.1, 0, Math.PI * 2); ctx.fill();   // a tear
         } else {                                    // lulu
             ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
             ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 1.05, Math.PI, 0); ctx.fill();
@@ -28664,6 +28708,27 @@
         "The cafeteria food here? The SODIUM, feh — I'd sooner fast, honestly.",
         "Hold Chani a moment? ...oh. The whole arm's in a cast. Never mind! 🤱"
     ];
+    var YEDIDYA_ER = [
+        "You're only sick because they PASTEURIZE everything! Raw milk, refuah shleimah! 🥛",
+        "No shots. NO SHOTS. I'll sign whatever waiver — just keep the needles AWAY.",
+        "I brought a jug from the farm. Room temperature, unfiltered, totally illegal. Drink up!",
+        "Forty-two, single, and NEVER been vaccinated. Picture of health, kein ayin hara.",
+        "This IV? Probably GMO. I'll go find you an organic one, hold on."
+    ];
+    var BURRY_ER = [
+        "Whoaa, you okay cuz? ...I brought gummies. The, uh, LEGAL kind. 😎",
+        "We're driving to Vegas tomorrow. Heal up quick and COME with, man!",
+        "Mindy says refuah shleimah. The kids drew you a card... it's in the van somewhere.",
+        "So chill in here. Great vibes. Little beepy, but great vibes.",
+        "You want the desert air, cuz. Dry heat fixes EVERYTHING. Ask my guy."
+    ];
+    var SHUEY_ER = [
+        "As a doctor, this is nothing. As your uncle... rough year though, huh? Me too.",
+        "First the divorce, then Fluffy passed... but hey. At least I've got Avraham.",
+        "*sniffs* I'm not crying. Doctors don't cry. ...Avraham, say hi to Aunt Lulu.",
+        "I'd write you a prescription but honestly? Some things they don't make a pill for.",
+        "Take it from me: buckle up, drive slow, and hug your cat while you still can. 😿"
+    ];
     // Expand a character's line list into individual cameo entries.
     function erCameoSet(who, p, body, accent, sub, lines, extra) {
         var out = [];
@@ -28685,7 +28750,10 @@
         erCameoSet("BOZO THE CLOWN", "clown", "clown", "#FF8A80", "🤡 lost from the kids' ward", CLOWN_ER),
         erCameoSet("SOME KID", "kid", "kid", "#A5D6A7", "🧒 a little fan, kind of", KID_ER),
         erCameoSet("A NOSY ZAIDY", "oldman", "oldman", "#B0BEC5", "👴 unimpressed by your generation", OLDMAN_ER),
-        erCameoSet("SISTER FAYGE", "fayge", "fayge", "#80CBC4", "🧂 your sister — anti-salt, plus baby Chani", FAYGE_ER)
+        erCameoSet("SISTER FAYGE", "fayge", "fayge", "#80CBC4", "🧂 your sister — anti-salt, plus baby Chani", FAYGE_ER),
+        erCameoSet("UNCLE YEDIDYA", "yedidya", "yedidya", "#FFE0B2", "🥛 your uncle — raw milk, no vaccines, still single", YEDIDYA_ER),
+        erCameoSet("UNCLE BURRY", "burry", "burry", "#A5D6A7", "😎 your chill uncle — Lakewood→Vegas, wife + kids", BURRY_ER),
+        erCameoSet("UNCLE SHUEY", "shuey", "shuey", "#B3E5FC", "🩺 your uncle — a doctor; divorced, cat R.I.P.", SHUEY_ER)
     );
     // Build the (possibly empty) bedside-visit script for this ER trip.
     function buildErVisit() {
@@ -29679,6 +29747,50 @@
             face();
             ctx.fillStyle = "#26A69A"; ctx.beginPath(); ctx.arc(0, -18.5, 8.4, Math.PI * 1.04, -0.04); ctx.fill();   // teal tichel
             ctx.fillStyle = "#00897B"; ctx.beginPath(); ctx.moveTo(7.5, -20); ctx.lineTo(11.5, -14); ctx.lineTo(6.5, -15); ctx.closePath(); ctx.fill();   // scarf knot
+        } else if (kind === "yedidya") {
+            erLegs("#2E2A26", "#1A1A1A", t);
+            ctx.fillStyle = "#2E2A26"; roundRect(-11, -9, 22, 22, 5); ctx.fill();          // dark coat
+            ctx.fillStyle = "#FFF"; roundRect(-3, -8, 6, 14, 1); ctx.fill();               // white shirt
+            ctx.fillStyle = "#2E2A26"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            ctx.fillStyle = "rgba(245,245,245,0.95)"; roundRect(9, -1, 8, 12, 2); ctx.fill();   // jug of raw milk
+            ctx.fillStyle = "#A1887F"; ctx.fillRect(9, 2, 8, 2.4);                          // label band
+            face();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -11, 6.6, 0.02 * Math.PI, 0.98 * Math.PI); ctx.closePath(); ctx.fill();   // scruffy black beard
+            ctx.beginPath(); ctx.arc(-4.5, -8.5, 1.7, 0, Math.PI * 2); ctx.arc(4.5, -8.5, 1.7, 0, Math.PI * 2); ctx.arc(0, -6, 1.8, 0, Math.PI * 2); ctx.fill();   // messy tufts
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(-10, -22, 20, 3); roundRect(-7, -30, 14, 9, 2); ctx.fill();   // black hat
+        } else if (kind === "burry") {
+            erLegs("#6D4C41", "#8D6E63", t);
+            ctx.fillStyle = "#00897B"; roundRect(-12, -9, 24, 21, 6); ctx.fill();          // tropical shirt
+            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(-5, -2, 1.6, 0, Math.PI * 2); ctx.arc(4, 3, 1.6, 0, Math.PI * 2); ctx.arc(-1, 7, 1.6, 0, Math.PI * 2); ctx.fill();   // shirt flowers
+            ctx.fillStyle = "#00897B"; roundRect(-14, -5, 5, 13, 2); ctx.fill(); roundRect(9, -5, 5, 13, 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -16, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 7.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -20, 8, Math.PI, 0); ctx.fill();   // short hair
+            ctx.fillStyle = "#1A1A1A"; roundRect(-6.5, -18, 5, 4, 1); ctx.fill(); roundRect(1.5, -18, 5, 4, 1); ctx.fill(); ctx.fillRect(-1.5, -16.5, 3, 1);   // shades
+            ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(-5.5, -17.5, 1.6, 1);   // lens glint
+            if (talking) { ctx.fillStyle = "#5D2A2A"; ctx.beginPath(); ctx.ellipse(0, -11, 1.6, mo, 0, 0, Math.PI * 2); ctx.fill(); }
+            else { ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(0, -12, 2, 0.1 * Math.PI, 0.9 * Math.PI); ctx.stroke(); }   // chill grin
+            ctx.fillStyle = "rgba(130,220,130,0.4)"; ctx.beginPath(); ctx.arc(12, -22 - ((t * 10) % 8), 1.8, 0, Math.PI * 2); ctx.fill();   // green wisp
+        } else if (kind === "shuey") {
+            erLegs("#4DB6AC", "#00695C", t);   // scrub pants
+            ctx.fillStyle = "#4DB6AC"; roundRect(-11, -9, 22, 21, 6); ctx.fill();          // teal scrubs
+            ctx.fillStyle = "#ECEFF1"; roundRect(-12, -9, 24, 6, 3); ctx.fill();           // white coat shoulders
+            ctx.fillStyle = "#4DB6AC"; roundRect(-13, -5, 5, 13, 2); ctx.fill(); roundRect(8, -5, 5, 13, 2); ctx.fill();
+            ctx.strokeStyle = "#37474F"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(-4, -6); ctx.quadraticCurveTo(0, 5, 4, -6); ctx.stroke();   // stethoscope
+            ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(4, -5, 1.6, 0, Math.PI * 2); ctx.fill();
+            face();
+            ctx.fillStyle = "#6D6257"; ctx.beginPath(); ctx.arc(0, -19.5, 8, Math.PI, 0); ctx.fill();   // greying hair
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(-8, -18, 2.6, 4.5); ctx.fillRect(5.4, -18, 2.6, 4.5);   // grey temples
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(3, -13, 1.1, 0, Math.PI * 2); ctx.fill();   // a tear
+            // little Avraham at his side
+            ctx.save(); ctx.translate(-16, 8); ctx.scale(0.62, 0.62);
+            erLegs("#3949AB", "#FFFFFF", t);
+            ctx.fillStyle = "#66BB6A"; roundRect(-9, -8, 18, 16, 5); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -15, 7, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -15, 5.6, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2, -15, 0.9, 0, Math.PI * 2); ctx.arc(2, -15, 0.9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.arc(0, -18, 5.6, Math.PI, 0); ctx.fill();
+            ctx.restore();
         } else if (kind === "cop") {
             drawAngryMan(0, 0, t, talking ? "talk" : "listen", 1, true); ctx.restore();
             drawText(name || "OFFICER", x, y + 34, "bold 8px 'Segoe UI', Arial, sans-serif", col || "#5C6BC0", "#FFF", 2);

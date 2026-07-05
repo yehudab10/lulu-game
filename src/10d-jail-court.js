@@ -167,7 +167,10 @@
         { p: "raphael", accent: "#FFCC80", lines: ["Throw the book!\n...kidding. Mostly. 😏", "In MY day: a fine\nand a HANDSHAKE.", "Feh. Where's\nHillel? *grumble*"] },
         { p: "bubbe",   accent: "#D7C29A", lines: ["She didn't EAT\ntoday! Mercy! 🍲", "My LULULEH wouldn't\nhurt a FLY!", "I'll bake the judge\na cholent — DEAL?"] },
         { p: "avigail", accent: "#CE93D8", lines: ["Guilty, guilty.\n...just my opinion. 💅", "I drove here\nPERFECTLY, by the way.", "Should I livestream\nthe verdict? 🤳"] },
-        { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] }
+        { p: "fayge",   accent: "#80CBC4", lines: ["She's a GOOD girl!\n...hold the salt. 🧂", "Order! Baby Chani\nis trying to NAP! 👶", "Acquit her — and\nNO sodium, feh!"] },
+        { p: "yedidya", accent: "#FFF3E0", lines: ["Objection! Raw milk\ncures whatever THIS is!", "She needs a COW,\nnot a courtroom! 🥛", "She's family — and\nSINGLE, your honor. Hint."] },
+        { p: "burry",   accent: "#A5D6A7", lines: ["Chill, your honor...\nit's all good, man 😎", "In Vegas this isn't\neven a CRIME, cuz 🎲", "Mindy, you filming\nthis? ...for the kids."] },
+        { p: "shuey",   accent: "#B3E5FC", lines: ["As a doctor, I advise\n...leniency? 🩺", "Go easy — rough year.\nDivorce, then my CAT. 😿", "Avraham, wave to\nAunt Lulu! 👋"] }
     ];
     // Once the rivalry has truly thawed (rel ≥ 65), Avigail shows up FOR her.
     var AVIGAIL_FRIEND_LINES = ["She's with ME,\nyour honor. 💜", "Objection! She's\nmy best friend!", "Free her — we have\na NAIL appointment. 💅"];
@@ -2400,6 +2403,7 @@
                     : type === "tammy" ? "#26A69A" : type === "avigail" ? "#7E57C2" : type === "bubbe" ? "#8D6E63"
                     : type === "hillel" ? "#BBDEFB" : type === "fayge" ? "#5C6BC0" : type === "raphael" ? "#6A1B9A" : type === "abba" ? "#4E342E"
                     : type === "rabbi" ? "#1A1A1A" : type === "clown" ? "#E53935" : type === "kid" ? "#FFB74D" : type === "oldman" ? "#6D4C41"
+                    : type === "yedidya" ? "#2E2A26" : type === "burry" ? "#00897B" : type === "shuey" ? "#4DB6AC"
                     : type === "cellmate" ? "#ECEFF1" : type === "cop" ? "#1A237E" : "#37474F";
         ctx.fillStyle = clothes; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.55, 10); ctx.fill();
         if (type === "lulu" || type === "cellmate") {   // prison stripes on the shoulders
@@ -2569,6 +2573,46 @@
             ctx.fillStyle = "#0D1B5E"; ctx.beginPath(); ctx.ellipse(cx, cy - hr * 0.7, hr * 1.05, hr * 0.4, 0, 0, Math.PI * 2); ctx.fill(); // cap
             ctx.fillStyle = "#1A237E"; ctx.beginPath(); ctx.ellipse(cx, cy - hr * 0.95, hr * 0.9, hr * 0.5, 0, Math.PI, 0); ctx.fill();
             ctx.fillStyle = "#FFD54F"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.85, hr * 0.16, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "yedidya") {
+            // Uncle Yedidya — black yeshivish hat + scruffy uneven black beard, a
+            // "no needle" pin on the collar. (The raw-milk, no-vaccines uncle.)
+            ctx.fillStyle = "#1A1A1A";
+            ctx.beginPath(); ctx.arc(cx, cy + hr * 0.14, hr * 0.98, 0.04 * Math.PI, 0.96 * Math.PI); ctx.closePath(); ctx.fill();   // beard
+            var ytuf = [[-0.72, 0.92], [-0.32, 1.14], [0.14, 1.1], [0.56, 0.96]];   // messy jaw tufts
+            for (var yt = 0; yt < ytuf.length; yt++) { ctx.beginPath(); ctx.arc(cx + hr * ytuf[yt][0], cy + hr * ytuf[yt][1], hr * 0.2, 0, Math.PI * 2); ctx.fill(); }
+            ctx.fillRect(cx - hr * 0.92, cy - hr * 0.15, hr * 0.2, hr * 0.6); ctx.fillRect(cx + hr * 0.72, cy - hr * 0.15, hr * 0.2, hr * 0.6);   // sideburns
+            ctx.fillStyle = "#1A1A1A"; ctx.fillRect(cx - hr * 1.15, cy - hr * 0.66, hr * 2.3, hr * 0.22);   // hat brim
+            ctx.fillStyle = "#0A0A0A"; roundRect(cx - hr * 0.8, cy - hr * 1.3, hr * 1.6, hr * 0.72, 3); ctx.fill();   // hat crown
+            ctx.fillStyle = "#FFF"; roundRect(cx - 4, cy + hr * 0.55, 8, hr * 0.55, 1); ctx.fill();   // white shirt
+            ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(cx + hr * 0.5, cy + hr * 0.74, hr * 0.17, 0, Math.PI * 2); ctx.fill();   // no-vax pin
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(cx + hr * 0.4, cy + hr * 0.84); ctx.lineTo(cx + hr * 0.6, cy + hr * 0.64); ctx.stroke();
+        } else if (type === "burry") {
+            // Uncle Burry — clean-shaven, dark shades, chill; green haze wisps
+            // drifting up beside him. (The high, Vegas-bound uncle.)
+            ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.98, Math.PI, 0); ctx.fill();   // short hair
+            ctx.fillStyle = "#1A1A1A";   // sunglasses
+            roundRect(cx - hr * 0.64, cy - hr * 0.2, hr * 0.5, hr * 0.34, 3); ctx.fill();
+            roundRect(cx + hr * 0.14, cy - hr * 0.2, hr * 0.5, hr * 0.34, 3); ctx.fill();
+            ctx.fillRect(cx - hr * 0.14, cy - hr * 0.1, hr * 0.28, hr * 0.06);   // bridge
+            ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(cx - hr * 0.56, cy - hr * 0.16, hr * 0.16, hr * 0.08);   // lens glint
+            ctx.fillStyle = "#00897B"; roundRect(cx - 5, cy + hr * 0.55, 10, hr * 0.55, 2); ctx.fill();   // tropical shirt
+            ctx.fillStyle = "#FFEB3B"; ctx.beginPath(); ctx.arc(cx - 2, cy + hr * 0.72, 1.3, 0, Math.PI * 2); ctx.arc(cx + 3, cy + hr * 0.92, 1.3, 0, Math.PI * 2); ctx.fill();   // shirt flowers
+            ctx.fillStyle = "rgba(130,220,130,0.45)";   // chill green wisps
+            ctx.beginPath(); ctx.arc(cx + hr * 0.98, cy - hr * 0.5 - (gameTime * 7 % 12), hr * 0.14, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx + hr * 1.08, cy - hr * 0.15 - (gameTime * 5 % 9), hr * 0.1, 0, Math.PI * 2); ctx.fill();
+        } else if (type === "shuey") {
+            // Uncle Shuey — Burry but older/greyer, doctor (stethoscope), light
+            // stubble, downcast, a single tear. (Divorced, cat R.I.P.)
+            ctx.fillStyle = "#6D6257"; ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 0.96, Math.PI, 0); ctx.fill();   // greying hair
+            ctx.fillStyle = "#9E9E9E"; ctx.fillRect(cx - hr * 0.9, cy - hr * 0.36, hr * 0.22, hr * 0.42); ctx.fillRect(cx + hr * 0.68, cy - hr * 0.36, hr * 0.22, hr * 0.42);   // grey temples
+            ctx.fillStyle = "rgba(80,70,60,0.26)"; ctx.beginPath(); ctx.arc(cx, cy + hr * 0.3, hr * 0.66, 0.12 * Math.PI, 0.88 * Math.PI); ctx.closePath(); ctx.fill();   // stubble (mouth drawn on top below)
+            ctx.strokeStyle = "#6D6257"; ctx.lineWidth = 1.4;   // worried/sad brows
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.5, cy - hr * 0.4); ctx.lineTo(cx - hr * 0.16, cy - hr * 0.28); ctx.moveTo(cx + hr * 0.16, cy - hr * 0.28); ctx.lineTo(cx + hr * 0.5, cy - hr * 0.4); ctx.stroke();
+            ctx.fillStyle = "#ECEFF1"; roundRect(cx - s * 0.36, cy + hr * 0.55, s * 0.72, s * 0.4, 8); ctx.fill();   // white coat collar over teal scrubs
+            ctx.strokeStyle = "#455A64"; ctx.lineWidth = 1.6;   // stethoscope
+            ctx.beginPath(); ctx.moveTo(cx - hr * 0.3, cy + hr * 0.52); ctx.quadraticCurveTo(cx, cy + hr * 1.08, cx + hr * 0.3, cy + hr * 0.52); ctx.stroke();
+            ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(cx + hr * 0.32, cy + hr * 0.56, hr * 0.12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "rgba(130,200,240,0.9)"; ctx.beginPath(); ctx.arc(cx + hr * 0.36, cy + hr * 0.18, hr * 0.1, 0, Math.PI * 2); ctx.fill();   // a tear
         } else {                                    // lulu
             ctx.fillStyle = (typeof save !== "undefined" && save.luluHair) || "#8B5A2B";
             ctx.beginPath(); ctx.arc(cx, cy - hr * 0.25, hr * 1.05, Math.PI, 0); ctx.fill();
