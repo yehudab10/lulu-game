@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.4.2";
+    var GAME_VERSION = "1.5.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -76,6 +76,8 @@
             convictions: 0,    // guilty verdicts → strike system (3rd strike = real jail)
             offenses: 0,       // times booked → rising bail
             erVisits: 0,       // trips to the ER → "frequent flyer" gag
+            dayNum: 0,         // last day (epoch days) a run was started → daily streak
+            streak: 0,         // consecutive-day play streak (drives the daily bonus)
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
@@ -6673,6 +6675,41 @@
             ctx.fillStyle = cHot; roundRect(64, 70, 96 * cwp, 5, 2.5); ctx.fill();
         }
 
+        // Close-call chain badge — the daredevil score multiplier from shaving
+        // past traffic. Sits under the coin combo; heats up as the chain grows.
+        if (nearChain >= 2 && nearChainT > 0) {
+            var nMult = 1 + 0.25 * Math.min(nearChain, 8);
+            var nHot = nearChain >= 6 ? "#FF5252" : nearChain >= 4 ? "#FF9800" : "#80D8FF";
+            var nPulse = 1 + 0.06 * Math.sin(gameTime * 9);
+            ctx.save();
+            ctx.translate(70, 88);
+            ctx.scale(nPulse, nPulse);
+            drawText("😤 ×" + (Math.round(nMult * 100) / 100) + " CLOSE CALLS", 0, 0,
+                "bold 13px 'Segoe UI', Arial, sans-serif", nHot, "#000", 3, "left");
+            ctx.restore();
+            var nwp = clamp(nearChainT / 6, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(64, 96, 96, 5, 2.5); ctx.fill();
+            ctx.fillStyle = nHot; roundRect(64, 96, 96 * nwp, 5, 2.5); ctx.fill();
+        }
+
+        // 🏆 NEW RECORD banner — pops when the run crosses the old high score.
+        if (recordBannerT > 0) {
+            var rbIn = clamp((3.0 - recordBannerT) / 0.35, 0, 1);
+            var rbScale = easeOutBack(rbIn) * (1 + 0.03 * Math.sin(gameTime * 8));
+            var rbAlpha = recordBannerT < 0.5 ? recordBannerT / 0.5 : 1;
+            ctx.save();
+            ctx.globalAlpha = rbAlpha;
+            ctx.translate(W / 2, 120);
+            ctx.scale(rbScale, rbScale);
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            roundRect(-128, -24, 256, 48, 14); ctx.fill();
+            ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2.5;
+            roundRect(-128, -24, 256, 48, 14); ctx.stroke();
+            drawText("🏆 NEW RECORD!", 0, -2, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+            drawText("passing " + formatNum(save.highScore), 0, 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
+            ctx.restore();
+        }
+
         // Hearts — lives can exceed the starting 3 now. Show up to 6 across
         // (empty slots up to MAX_LIVES so damage still reads clearly), then
         // collapse to a single heart + "×N" so it never runs off-screen.
@@ -7185,6 +7222,19 @@
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        nearChain = 0; nearChainT = 0; recordBannerT = 0; pbWarned = false; pbBroken = false;
+        // ── Daily streak: the FIRST run of each day pays out, and consecutive
+        //    days stack the bonus (25 × streak, capped at ×7). Miss a day and
+        //    the streak starts over. ──
+        var dayNum = Math.floor(Date.now() / 86400000);
+        if (save.dayNum !== dayNum) {
+            save.streak = (save.dayNum === dayNum - 1) ? (save.streak || 0) + 1 : 1;
+            save.dayNum = dayNum;
+            var streakPay = 25 * Math.min(save.streak, 7);
+            save.totalCoins += streakPay; persistSave();
+            spawnFloater(W / 2, H * 0.42, "🔥 Day " + save.streak + " streak! +" + streakPay + " 💰", "#FFD700");
+            if (save.streak >= 2) spawnFloater(W / 2, H * 0.42 + 30, "come back tomorrow for more!", "#FFE082");
+        }
         boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         roadDramas = []; carCrashCooldown = rand(7, 16);
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
@@ -8591,6 +8641,15 @@
     var coinComboT = 0;       // >0 while the combo window is open
     var coinComboFx = 0;      // >0 briefly after a pickup (pop animation)
 
+    // Close-call chain — stringing near-misses together builds a score
+    // multiplier (up to ×3). One hit and it's gone: risk IS the reward.
+    var nearChain = 0;        // consecutive close-call count
+    var nearChainT = 0;       // seconds left to extend the chain
+    // Personal-best race — crossing the old high score mid-run is an EVENT.
+    var recordBannerT = 0;    // "NEW RECORD" banner timer
+    var pbWarned = false;     // fired the "almost there" heads-up this run
+    var pbBroken = false;     // already celebrated this run
+
     // Grant a few seconds of collision immunity when re-entering the driving
     // world from a sub-scene (parking / Avigail / salon / tablet), so the player
     // isn't instantly hit by an obstacle that was already on top of the car.
@@ -8804,11 +8863,35 @@
             invincibleTimer = Math.max(invincibleTimer, 0.25);
             if (courageT <= 0) spawnFloater(player.x, player.y - 40, "🍺 courage wore off", "#CE93D8");
         }
-        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1);
+        var closeCallMult = (!onFoot && nearChainT > 0) ? 1 + 0.25 * Math.min(nearChain, 8) : 1;
+        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1) * closeCallMult;
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         // Walking doesn't rack up DRIVING score (foot has its own coins/stars) —
         // otherwise the invisible foot stretch silently inflates the score.
         if (!onFoot) score += gameSpeed * dt * 0.08 * scoreMult;
+
+        // Close-call chain window ticks down; letting it lapse drops the chain.
+        if (nearChainT > 0) { nearChainT -= dt; if (nearChainT <= 0) nearChain = 0; }
+        if (recordBannerT > 0) recordBannerT -= dt;
+        // ── Personal-best race: beating your old high score IS an event —
+        //    confetti + banner the moment you cross it, a nudge at 90%. ──
+        if (!onFoot && save.highScore > 400) {
+            if (!pbBroken && score > save.highScore) {
+                pbBroken = true; recordBannerT = 3.0;
+                for (var cf = 0; cf < 36; cf++) {
+                    particles.push({ x: rand(ROAD_L, ROAD_R), y: rand(-20, H * 0.35),
+                        vx: rand(-45, 45), vy: rand(60, 170), life: 0, maxLife: rand(0.9, 1.7),
+                        size: rand(3, 6), color: randPick(["#FFD700", "#FF80AB", "#80D8FF", "#A5D6A7", "#FFAB91"]),
+                        gravity: 50 });
+                }
+                playTone(523, 0.12, "triangle", 0.16, 660);
+                setTimeout(function () { playTone(784, 0.16, "triangle", 0.16, 1046); }, 140);
+            } else if (!pbWarned && !pbBroken && score > save.highScore * 0.9) {
+                pbWarned = true;
+                spawnFloater(player.x, player.y - 64, "🏁 90% of your best — keep going!", "#FFD54F");
+                playTone(587, 0.1, "sine", 0.12, 740);
+            }
+        }
 
         // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
@@ -9422,8 +9505,12 @@
                 var dxNM = Math.abs(o.x - player.x);
                 if (dyNM < CAR_H * 0.55 && dxNM > (CAR_W + o.hitW) * 0.5 && dxNM < CAR_W * 1.05) {
                     o.nearMissed = true;
-                    score += 15 * scoreMult;
-                    spawnFloater((o.x + player.x) / 2, player.y - 8, "WHOOSH!", "#80D8FF");
+                    // Chain it: each close call inside the window is worth more
+                    // and pushes the 🔥 score multiplier higher (capped ×3).
+                    nearChain++; nearChainT = 6;
+                    score += (15 + 5 * Math.min(nearChain - 1, 8)) * scoreMult;
+                    spawnFloater((o.x + player.x) / 2, player.y - 8,
+                        nearChain >= 2 ? "WHOOSH! 🔥×" + nearChain : "WHOOSH!", "#80D8FF");
                     // small spark line in the gap between the two cars
                     var sside = o.x < player.x ? -1 : 1;
                     for (var nm = 0; nm < 5; nm++) {
@@ -9435,7 +9522,8 @@
                             size: rand(1.5, 3), color: "#B3E5FC", gravity: 0
                         });
                     }
-                    playTone(720, 0.05, "sine", 0.06, 1100);
+                    // Pitch climbs with the chain — you can HEAR the streak build.
+                    playTone(720 + Math.min(nearChain, 8) * 55, 0.05, "sine", 0.06, 1100 + Math.min(nearChain, 8) * 55);
                     // The buzzed driver reacts by chance: a honk or a rude remark.
                     if (!o.behavior || o.behavior === "normal") {
                         var reactRoll = Math.random();
@@ -9932,6 +10020,9 @@
         // On foot she's NOT in a car: getting clipped by traffic knocks her
         // down (lose a life); tripping on cones/animals is just a stumble.
         if (state === "footRun") { footKnockout(obj); return; }
+        // Any hit torches the close-call chain — that's the deal.
+        if (nearChain >= 3) spawnFloater(player.x, player.y - 58, "🔥 chain lost!", "#FF8A80");
+        nearChain = 0; nearChainT = 0;
         lives--;
         invincibleTimer = INVINCIBLE_TIME;
         shakeTimer = 0.4;
@@ -13371,9 +13462,51 @@
                 drawText("★ NEW HIGH SCORE! ★", 0, 0,
                     "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#333", 4);
                 ctx.restore();
+            } else if (save.highScore > 0 && Math.floor(score) >= save.highScore * 0.85) {
+                // Fell just short of the PB — say HOW close, because "97% of
+                // your best" is exactly what makes a player hit RESTART.
+                var pbPct = Math.min(99, Math.floor(score / save.highScore * 100));
+                var scPulse = 0.95 + Math.sin(gameTime * 5) * 0.05;
+                ctx.save();
+                ctx.translate(W / 2, H * 0.61);
+                ctx.scale(scPulse, scPulse);
+                drawText("SO CLOSE — " + pbPct + "% of your best!", 0, 0,
+                    "bold 18px 'Segoe UI', Arial, sans-serif", "#FF9800", "#333", 3);
+                ctx.restore();
             } else if (save.highScore > 0) {
                 drawText("Best: " + formatNum(save.highScore), W / 2, H * 0.61,
                     "bold 16px 'Segoe UI', Arial, sans-serif", "#AAA", "#333", 3);
+            }
+
+            // Next-ride progress — the bank crawling toward the cheapest car you
+            // don't own yet keeps a concrete goal in front of every run.
+            var nextKey = null, nextSkin = null, skKeys = Object.keys(SKINS);
+            for (var nk = 0; nk < skKeys.length; nk++) {
+                var cand = SKINS[skKeys[nk]];
+                if (save.ownedSkins.indexOf(skKeys[nk]) < 0 && (!nextSkin || cand.price < nextSkin.price)) {
+                    nextKey = skKeys[nk]; nextSkin = cand;
+                }
+            }
+            if (nextSkin) {
+                var npX = W / 2 - 130, npY = H * 0.64, npW = 260;
+                var npP = clamp(save.totalCoins / nextSkin.price, 0, 1);
+                drawText("next ride: " + nextSkin.name, W / 2, npY - 2,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#333", 2);
+                ctx.fillStyle = "rgba(0,0,0,0.45)";
+                roundRect(npX, npY + 6, npW, 10, 5); ctx.fill();
+                if (npP > 0.02) {
+                    var npg = ctx.createLinearGradient(npX, 0, npX + npW, 0);
+                    npg.addColorStop(0, nextSkin.dark); npg.addColorStop(1, nextSkin.body);
+                    ctx.fillStyle = npg;
+                    roundRect(npX, npY + 6, npW * npP, 10, 5); ctx.fill();
+                }
+                ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1;
+                roundRect(npX, npY + 6, npW, 10, 5); ctx.stroke();
+                drawText(npP >= 1
+                        ? "💰 " + formatNum(nextSkin.price) + " — it's waiting in the shop!"
+                        : formatNum(save.totalCoins) + " / " + formatNum(nextSkin.price) + " 💰",
+                    W / 2, npY + 26, "bold 11px 'Segoe UI', Arial, sans-serif",
+                    npP >= 1 ? "#FFD700" : "#ECEFF1", "#333", 2);
             }
 
             // Rewarded ad: opt-in "watch for coins". Only renders in the native
@@ -13919,7 +14052,9 @@
         roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.fill();
         ctx.lineWidth = 3; ctx.strokeStyle = bgd;
         roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.stroke();
-        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
+        // NB: outline width 0 falls back to drawText's default 4 — so dark text
+        // on the gold BUY button must pass a null outline, not width 0.
+        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, (equipped || owned) ? "#000" : null, 3);
     }
 
     // ── Shop item cards (Power-Ups + Special): shared layout so the draw and

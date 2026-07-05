@@ -765,6 +765,41 @@
             ctx.fillStyle = cHot; roundRect(64, 70, 96 * cwp, 5, 2.5); ctx.fill();
         }
 
+        // Close-call chain badge — the daredevil score multiplier from shaving
+        // past traffic. Sits under the coin combo; heats up as the chain grows.
+        if (nearChain >= 2 && nearChainT > 0) {
+            var nMult = 1 + 0.25 * Math.min(nearChain, 8);
+            var nHot = nearChain >= 6 ? "#FF5252" : nearChain >= 4 ? "#FF9800" : "#80D8FF";
+            var nPulse = 1 + 0.06 * Math.sin(gameTime * 9);
+            ctx.save();
+            ctx.translate(70, 88);
+            ctx.scale(nPulse, nPulse);
+            drawText("😤 ×" + (Math.round(nMult * 100) / 100) + " CLOSE CALLS", 0, 0,
+                "bold 13px 'Segoe UI', Arial, sans-serif", nHot, "#000", 3, "left");
+            ctx.restore();
+            var nwp = clamp(nearChainT / 6, 0, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.35)"; roundRect(64, 96, 96, 5, 2.5); ctx.fill();
+            ctx.fillStyle = nHot; roundRect(64, 96, 96 * nwp, 5, 2.5); ctx.fill();
+        }
+
+        // 🏆 NEW RECORD banner — pops when the run crosses the old high score.
+        if (recordBannerT > 0) {
+            var rbIn = clamp((3.0 - recordBannerT) / 0.35, 0, 1);
+            var rbScale = easeOutBack(rbIn) * (1 + 0.03 * Math.sin(gameTime * 8));
+            var rbAlpha = recordBannerT < 0.5 ? recordBannerT / 0.5 : 1;
+            ctx.save();
+            ctx.globalAlpha = rbAlpha;
+            ctx.translate(W / 2, 120);
+            ctx.scale(rbScale, rbScale);
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            roundRect(-128, -24, 256, 48, 14); ctx.fill();
+            ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2.5;
+            roundRect(-128, -24, 256, 48, 14); ctx.stroke();
+            drawText("🏆 NEW RECORD!", 0, -2, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 5);
+            drawText("passing " + formatNum(save.highScore), 0, 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
+            ctx.restore();
+        }
+
         // Hearts — lives can exceed the starting 3 now. Show up to 6 across
         // (empty slots up to MAX_LIVES so damage still reads clearly), then
         // collapse to a single heart + "×N" so it never runs off-screen.

@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.4.2";
+    var GAME_VERSION = "1.5.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -74,6 +74,8 @@
             convictions: 0,    // guilty verdicts → strike system (3rd strike = real jail)
             offenses: 0,       // times booked → rising bail
             erVisits: 0,       // trips to the ER → "frequent flyer" gag
+            dayNum: 0,         // last day (epoch days) a run was started → daily streak
+            streak: 0,         // consecutive-day play streak (drives the daily bonus)
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }

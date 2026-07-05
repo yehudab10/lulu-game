@@ -458,9 +458,51 @@
                 drawText("★ NEW HIGH SCORE! ★", 0, 0,
                     "bold 22px 'Segoe UI', Arial, sans-serif", "#FFD700", "#333", 4);
                 ctx.restore();
+            } else if (save.highScore > 0 && Math.floor(score) >= save.highScore * 0.85) {
+                // Fell just short of the PB — say HOW close, because "97% of
+                // your best" is exactly what makes a player hit RESTART.
+                var pbPct = Math.min(99, Math.floor(score / save.highScore * 100));
+                var scPulse = 0.95 + Math.sin(gameTime * 5) * 0.05;
+                ctx.save();
+                ctx.translate(W / 2, H * 0.61);
+                ctx.scale(scPulse, scPulse);
+                drawText("SO CLOSE — " + pbPct + "% of your best!", 0, 0,
+                    "bold 18px 'Segoe UI', Arial, sans-serif", "#FF9800", "#333", 3);
+                ctx.restore();
             } else if (save.highScore > 0) {
                 drawText("Best: " + formatNum(save.highScore), W / 2, H * 0.61,
                     "bold 16px 'Segoe UI', Arial, sans-serif", "#AAA", "#333", 3);
+            }
+
+            // Next-ride progress — the bank crawling toward the cheapest car you
+            // don't own yet keeps a concrete goal in front of every run.
+            var nextKey = null, nextSkin = null, skKeys = Object.keys(SKINS);
+            for (var nk = 0; nk < skKeys.length; nk++) {
+                var cand = SKINS[skKeys[nk]];
+                if (save.ownedSkins.indexOf(skKeys[nk]) < 0 && (!nextSkin || cand.price < nextSkin.price)) {
+                    nextKey = skKeys[nk]; nextSkin = cand;
+                }
+            }
+            if (nextSkin) {
+                var npX = W / 2 - 130, npY = H * 0.64, npW = 260;
+                var npP = clamp(save.totalCoins / nextSkin.price, 0, 1);
+                drawText("next ride: " + nextSkin.name, W / 2, npY - 2,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#333", 2);
+                ctx.fillStyle = "rgba(0,0,0,0.45)";
+                roundRect(npX, npY + 6, npW, 10, 5); ctx.fill();
+                if (npP > 0.02) {
+                    var npg = ctx.createLinearGradient(npX, 0, npX + npW, 0);
+                    npg.addColorStop(0, nextSkin.dark); npg.addColorStop(1, nextSkin.body);
+                    ctx.fillStyle = npg;
+                    roundRect(npX, npY + 6, npW * npP, 10, 5); ctx.fill();
+                }
+                ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1;
+                roundRect(npX, npY + 6, npW, 10, 5); ctx.stroke();
+                drawText(npP >= 1
+                        ? "💰 " + formatNum(nextSkin.price) + " — it's waiting in the shop!"
+                        : formatNum(save.totalCoins) + " / " + formatNum(nextSkin.price) + " 💰",
+                    W / 2, npY + 26, "bold 11px 'Segoe UI', Arial, sans-serif",
+                    npP >= 1 ? "#FFD700" : "#ECEFF1", "#333", 2);
             }
 
             // Rewarded ad: opt-in "watch for coins". Only renders in the native
@@ -1006,7 +1048,9 @@
         roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.fill();
         ctx.lineWidth = 3; ctx.strokeStyle = bgd;
         roundRect(r.btnX, r.btnY, r.btnW, r.btnH, 12); ctx.stroke();
-        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, "#000", equipped || owned ? 3 : 0);
+        // NB: outline width 0 falls back to drawText's default 4 — so dark text
+        // on the gold BUY button must pass a null outline, not width 0.
+        drawText(label, r.btnX + r.btnW / 2, r.btnY + r.btnH / 2 + 1, "bold 20px 'Segoe UI', Arial, sans-serif", txtc, (equipped || owned) ? "#000" : null, 3);
     }
 
     // ── Shop item cards (Power-Ups + Special): shared layout so the draw and

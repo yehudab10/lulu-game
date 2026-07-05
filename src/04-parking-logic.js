@@ -2,6 +2,19 @@
         player.x = W / 2; player.targetX = W / 2; player.tilt = 0;
         score = 0; runCoins = 0; lives = MAX_LIVES;
         coinCombo = 0; coinComboT = 0; coinComboFx = 0;
+        nearChain = 0; nearChainT = 0; recordBannerT = 0; pbWarned = false; pbBroken = false;
+        // ── Daily streak: the FIRST run of each day pays out, and consecutive
+        //    days stack the bonus (25 × streak, capped at ×7). Miss a day and
+        //    the streak starts over. ──
+        var dayNum = Math.floor(Date.now() / 86400000);
+        if (save.dayNum !== dayNum) {
+            save.streak = (save.dayNum === dayNum - 1) ? (save.streak || 0) + 1 : 1;
+            save.dayNum = dayNum;
+            var streakPay = 25 * Math.min(save.streak, 7);
+            save.totalCoins += streakPay; persistSave();
+            spawnFloater(W / 2, H * 0.42, "🔥 Day " + save.streak + " streak! +" + streakPay + " 💰", "#FFD700");
+            if (save.streak >= 2) spawnFloater(W / 2, H * 0.42 + 30, "come back tomorrow for more!", "#FFE082");
+        }
         boostLock = false; brakeLock = false;   // cruise-lock resets each new run
         roadDramas = []; carCrashCooldown = rand(7, 16);
         busStopT = 0; busKidTimer = rand(4, 8); busKids = 0;
