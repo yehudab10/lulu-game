@@ -768,6 +768,10 @@
     function drawStatStrip(sk, midX, topY) {
         var n = 4, bw = 9, gap = 6, totW = n * bw + (n - 1) * gap;
         var sx = midX - totW / 2, h = 14;
+        // Dark backing pill so the gold fills read on ANY card color — on the
+        // equipped (gold) card the bare notches used to melt into the card.
+        ctx.fillStyle = "rgba(16,22,28,0.5)";
+        roundRect(sx - 5, topY - 3, totW + 10, h + 6, 7); ctx.fill();
         for (var i = 0; i < 4; i++) {
             var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
             var f = statFill(mult), bx = sx + i * (bw + gap);

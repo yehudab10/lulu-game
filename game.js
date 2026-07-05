@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.4.1";
+    var GAME_VERSION = "1.4.2";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -6010,6 +6010,32 @@
             ctx.fillStyle = parkingLotStyle.tint;
             ctx.fillRect(0, 144, W, H - 144);
         }
+        // Worn-asphalt detail — oil stains, tire scuffs, and a patch seam, laid
+        // out deterministically per lot (hash of the sign text) so the big grey
+        // field between the bays and the road doesn't read as an empty void.
+        var lotSeed = 7;
+        if (parkingLotStyle && parkingLotStyle.sign) {
+            for (var lc = 0; lc < parkingLotStyle.sign.length; lc++) lotSeed = (lotSeed * 31 + parkingLotStyle.sign.charCodeAt(lc)) & 0xffff;
+        }
+        for (var gd = 0; gd < 7; gd++) {
+            var gs = (lotSeed * (gd + 3) * 2654435761) >>> 0;
+            var gx2 = 30 + (gs % 1000) / 1000 * (W - 60);
+            var gy2 = 250 + ((gs >> 10) % 1000) / 1000 * (H - 470);
+            var kind = gs % 3;
+            if (kind === 0) {          // oil stain
+                ctx.fillStyle = "rgba(30,36,44,0.28)";
+                ctx.beginPath(); ctx.ellipse(gx2, gy2, 16 + gs % 14, 8 + (gs >> 4) % 7, (gs % 62) / 10, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "rgba(30,36,44,0.18)";
+                ctx.beginPath(); ctx.ellipse(gx2 + 12, gy2 + 4, 6, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+            } else if (kind === 1) {   // tire scuff pair
+                ctx.strokeStyle = "rgba(40,46,54,0.30)"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(gx2 - 22, gy2 + 8); ctx.quadraticCurveTo(gx2, gy2 - 4, gx2 + 24, gy2 - 2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(gx2 - 22, gy2 + 20); ctx.quadraticCurveTo(gx2, gy2 + 8, gx2 + 24, gy2 + 10); ctx.stroke();
+            } else {                    // lighter repaved patch
+                ctx.fillStyle = "rgba(255,255,255,0.05)";
+                roundRect(gx2 - 24, gy2 - 10, 48 + gs % 30, 20 + (gs >> 6) % 14, 4); ctx.fill();
+            }
+        }
 
         // White parking lines (between cars + at edges of zone)
         ctx.strokeStyle = "#F5F5DC";
@@ -6087,10 +6113,15 @@
         // so the lot reads a touch different each time.
         if (parkingLotStyle && parkingLotStyle.sign) {
             ctx.save();
+            // Size the board to the text — "CUSTOMERS ONLY" is much wider than
+            // "P-2" and a fixed 48px board clipped the long variants to garbage.
+            var sgTxt = "🅿 " + parkingLotStyle.sign;
+            ctx.font = "bold 8px Arial";
+            var sgW = Math.max(48, ctx.measureText(sgTxt).width + 14);
             ctx.fillStyle = "#37474F"; ctx.fillRect(232, 96, 3, 44);   // post
-            ctx.fillStyle = "#1565C0"; roundRect(210, 84, 48, 18, 3); ctx.fill();
-            ctx.strokeStyle = "#0D47A1"; ctx.lineWidth = 1.5; roundRect(210, 84, 48, 18, 3); ctx.stroke();
-            drawText("🅿 " + parkingLotStyle.sign, 234, 93, "bold 8px Arial", "#FFFFFF", null, 0);
+            ctx.fillStyle = "#1565C0"; roundRect(234 - sgW / 2, 84, sgW, 18, 3); ctx.fill();
+            ctx.strokeStyle = "#0D47A1"; ctx.lineWidth = 1.5; roundRect(234 - sgW / 2, 84, sgW, 18, 3); ctx.stroke();
+            drawText(sgTxt, 234, 93, "bold 8px Arial", "#FFFFFF", null, 0);
             ctx.restore();
         }
     }
@@ -13650,6 +13681,10 @@
     function drawStatStrip(sk, midX, topY) {
         var n = 4, bw = 9, gap = 6, totW = n * bw + (n - 1) * gap;
         var sx = midX - totW / 2, h = 14;
+        // Dark backing pill so the gold fills read on ANY card color — on the
+        // equipped (gold) card the bare notches used to melt into the card.
+        ctx.fillStyle = "rgba(16,22,28,0.5)";
+        roundRect(sx - 5, topY - 3, totW + 10, h + 6, 7); ctx.fill();
         for (var i = 0; i < 4; i++) {
             var mult = sk[SKIN_STAT_ROWS[i][1]] || 1;
             var f = statFill(mult), bx = sx + i * (bw + gap);
