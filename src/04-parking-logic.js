@@ -51,6 +51,7 @@
         // Avigail + salon
         avigailWalker = null; avigailSpawnTimer = rand(30, 55);
         avigailInCar = false; pointMult = 1;
+        uncleWalker = null; uncleRotil = 0;
         salonSigns = []; salonSpawnTimer = rand(40, 70);
         // Reset Dina + parking state leaks (per QA + Bug Hunter)
         parkingChallengeMode = false;

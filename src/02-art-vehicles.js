@@ -1398,6 +1398,291 @@
         ctx.restore();
     }
 
+    // ── The Uncles: rare rotating roadside cameo ─────────────
+    // Three recurring uncle characters that Lulu waves to on the shoulder.
+    // Personality lives BOTH in the art (below) and these quip lists. Rotation
+    // + spawn/greet logic is in 05-driving-loop.js; state in 03-art-parking-hud.js.
+    var UNCLES = [
+        { id: "yedidya", name: "Uncle Yedidya", color: "#FFF3E0", quips: [
+            "Fresh from the cow — no pasteurizing!",
+            "Vaccines? I don't DO shots.",
+            "Forty-two and fabulous... still looking though.",
+            "Swig of raw milk? It's ORGANIC."
+        ] },
+        { id: "burry", name: "Uncle Burry", color: "#A5D6A7", quips: [
+            "Lakewood to Vegas, baby! 🎲",
+            "Mindy packed the kids, I packed... the vibes.",
+            "So chill. So blessed.",
+            "Desert's callin', cousin."
+        ] },
+        { id: "shuey", name: "Uncle Shuey", color: "#B3E5FC", quips: [
+            "Rough year... the divorce, then the cat.",
+            "Just me and Avraham now.",
+            "I'm a doctor, but I couldn't save Fluffy. 😿",
+            "Say hi to your uncle, Avraham."
+        ] }
+    ];
+
+    // Dispatch a roadside uncle by id.
+    function drawUncle(u) {
+        if (u.id === "yedidya") drawUncleYedidya(u.x, u.y, u.walkTime);
+        else if (u.id === "burry") drawUncleBurry(u.x, u.y, u.walkTime);
+        else if (u.id === "shuey") drawUncleShuey(u.x, u.y, u.walkTime);
+    }
+
+    // Shared: a plain little standing "companion" figure (kids / wife) at (dx,dy)
+    // scaled down. skin/hair/shirt customizable so groups read clearly.
+    function drawUncleBuddy(dx, dy, scale, shirt, hair, walkTime, isGirl) {
+        ctx.save();
+        ctx.translate(dx, dy);
+        ctx.scale(scale, scale);
+        var sw = Math.sin(walkTime * 9 + dx) * 3;
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath(); ctx.ellipse(0, 15, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // legs
+        ctx.fillStyle = "#3E4A54";
+        roundRect(-4, 3 - sw, 3.4, 12 + sw, 2); ctx.fill();
+        roundRect(0.6, 3 + sw, 3.4, 12 - sw, 2); ctx.fill();
+        ctx.fillStyle = "#212121";
+        roundRect(-5, 14 - sw, 5, 3.5, 1.5); ctx.fill();
+        roundRect(0, 14 + sw, 5, 3.5, 1.5); ctx.fill();
+        // body
+        ctx.fillStyle = shadeColor(shirt, -35); roundRect(-7, -6, 14, 13, 4); ctx.fill();
+        ctx.fillStyle = shirt; roundRect(-6, -5, 12, 11, 3); ctx.fill();
+        // arms
+        ctx.fillStyle = shirt;
+        roundRect(-8.5, -4, 3, 9, 1.5); ctx.fill();
+        roundRect(5.5, -4, 3, 9, 1.5); ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(-7, 5, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(7, 5, 2, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -11, 6.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -11, 5.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = hair;
+        ctx.beginPath(); ctx.arc(0, -13, 5.6, Math.PI, Math.PI * 2); ctx.fill();
+        if (isGirl) { ctx.beginPath(); ctx.arc(-6, -9, 2.6, 0, Math.PI * 2); ctx.arc(6, -9, 2.6, 0, Math.PI * 2); ctx.fill(); }
+        // eyes
+        ctx.fillStyle = "#FFF";
+        ctx.beginPath(); ctx.arc(-1.9, -11, 1.2, 0, Math.PI * 2); ctx.arc(1.9, -11, 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A";
+        ctx.beginPath(); ctx.arc(-1.9, -11, 0.6, 0, Math.PI * 2); ctx.arc(1.9, -11, 0.6, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    }
+
+    // Uncle Yedidya — scruffy black beard, glass jug of RAW milk, "NO 💉" pin,
+    // bare ring finger. The single-over-40 raw-milk anti-vaxxer uncle.
+    function drawUncleYedidya(x, y, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        var legSwing = Math.sin(walkTime * 9) * 3;
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(0, 17, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // legs (black slacks)
+        ctx.fillStyle = "#263238";
+        roundRect(-5, 5 - legSwing, 4.4, 14 + legSwing, 2); ctx.fill();
+        roundRect(0.6, 5 + legSwing, 4.4, 14 - legSwing, 2); ctx.fill();
+        ctx.fillStyle = "#111"; roundRect(-6, 17 - legSwing, 6, 4, 2); ctx.fill(); roundRect(0, 17 + legSwing, 6, 4, 2); ctx.fill();
+        // long dark coat body
+        ctx.fillStyle = "#1C2733"; roundRect(-10, -8, 20, 20, 6); ctx.fill();
+        ctx.fillStyle = "#2C3A48"; roundRect(-9, -7, 18, 18, 5); ctx.fill();
+        // white shirt collar V
+        ctx.fillStyle = "#ECEFF1";
+        ctx.beginPath(); ctx.moveTo(-3, -7); ctx.lineTo(0, -1); ctx.lineTo(3, -7); ctx.closePath(); ctx.fill();
+        // "NO shots" pin on lapel (red circle + syringe + slash)
+        ctx.fillStyle = "#E53935"; ctx.beginPath(); ctx.arc(-5.5, -3, 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#FFF"; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(-7, -4.4); ctx.lineTo(-4, -1.6); ctx.stroke(); // syringe
+        ctx.strokeStyle = "#B71C1C"; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(-7.6, -1); ctx.lineTo(-3.4, -5); ctx.stroke(); // NO slash
+        // right arm holding a milk jug
+        ctx.fillStyle = "#2C3A48"; roundRect(6, -6, 4.4, 12, 2); ctx.fill();
+        ctx.fillStyle = "#4E5D6B"; roundRect(-11, -6, 4.4, 13, 2); ctx.fill(); // left arm (bare hand shown low)
+        // LEFT hand — bare ring finger (single!)
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(-9, 8, 2.6, 0, Math.PI * 2); ctx.fill();
+        // the RAW milk jug in right hand
+        ctx.save();
+        ctx.translate(11, 6);
+        ctx.fillStyle = "rgba(255,255,255,0.55)"; roundRect(-3.5, -9, 8, 12, 2.5); ctx.fill();   // glass
+        ctx.fillStyle = "#FFFDF7"; roundRect(-3, -4, 7, 6.5, 2); ctx.fill();                       // milk fill
+        ctx.fillStyle = "rgba(255,255,255,0.75)"; ctx.fillRect(-3, -10, 6, 2.5);                   // cap
+        ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(4, -6, 2.6, -Math.PI * 0.5, Math.PI * 0.5); ctx.stroke();         // handle
+        ctx.fillStyle = "#C62828"; ctx.font = "bold 4px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("RAW", 0.5, -1);
+        ctx.restore();
+        // hand on jug
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(9, 8, 2.6, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -14, 8.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 7, 0, Math.PI * 2); ctx.fill();
+        // black hat (yeshivish)
+        ctx.fillStyle = "#0A0A0A";
+        ctx.beginPath(); ctx.ellipse(0, -19, 10.5, 2.6, 0, 0, Math.PI * 2); ctx.fill();     // brim
+        roundRect(-7, -26, 14, 8, 3); ctx.fill();                                            // crown
+        ctx.fillStyle = "#1A1A1A"; ctx.fillRect(-7, -20.5, 14, 2);
+        // eyes
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-2.6, -14.5, 1.4, 0, Math.PI * 2); ctx.arc(2.6, -14.5, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -14.5, 0.8, 0, Math.PI * 2); ctx.arc(2.6, -14.5, 0.8, 0, Math.PI * 2); ctx.fill();
+        // scruffy half-messy black beard (uneven clumps)
+        ctx.fillStyle = "#141414";
+        var bd = [[-6, -9], [-3, -7], [0, -6], [3, -7], [6, -9], [-5, -6], [5, -6], [-1.5, -4.5], [2, -4.5], [0, -3]];
+        for (var bi = 0; bi < bd.length; bi++) {
+            ctx.beginPath(); ctx.arc(bd[bi][0], bd[bi][1], 2.6 + (bi % 3) * 0.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // Uncle Burry — clean-shaven, shades, chill droopy smile, green haze,
+    // wife Mindy + little kids + a stack of "VEGAS" moving boxes.
+    function drawUncleBurry(x, y, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        // green mellow haze around him
+        var hz = ctx.createRadialGradient(0, -6, 4, 0, -6, 34);
+        hz.addColorStop(0, "rgba(120,200,120,0.34)");
+        hz.addColorStop(0.6, "rgba(120,200,120,0.16)");
+        hz.addColorStop(1, "rgba(120,200,120,0)");
+        ctx.fillStyle = hz; ctx.beginPath(); ctx.arc(0, -6, 32, 0, Math.PI * 2); ctx.fill();
+        // drifting smoke wisps
+        ctx.strokeStyle = "rgba(200,230,200,0.55)"; ctx.lineWidth = 1.4;
+        for (var sm = 0; sm < 2; sm++) {
+            var ph = walkTime * 1.3 + sm * 1.5;
+            ctx.beginPath();
+            ctx.moveTo(9 + sm * 3, -16);
+            ctx.quadraticCurveTo(13 + Math.sin(ph) * 4, -24, 9 + sm * 3 + Math.sin(ph + 1) * 3, -32);
+            ctx.stroke();
+        }
+        // Mindy (pretty wife) to his left + kids clustered, boxes to the right
+        drawUncleBuddy(-19, 2, 0.78, "#E91E63", "#4E342E", walkTime, true);   // Mindy
+        drawUncleBuddy(-11, 8, 0.5, "#42A5F5", "#3E2723", walkTime + 0.5, false); // kid
+        drawUncleBuddy(-24, 9, 0.46, "#FFB300", "#5D4037", walkTime + 1.1, false); // kid
+        drawUncleBuddy(-15, 11, 0.42, "#66BB6A", "#3E2723", walkTime + 1.7, true); // kid
+        // VEGAS moving boxes stacked to his right
+        ctx.save();
+        ctx.translate(20, 8);
+        ctx.fillStyle = "#C89B6C"; roundRect(-9, -2, 18, 12, 1.5); ctx.fill();
+        ctx.fillStyle = "#B5875A"; roundRect(-7, -12, 14, 11, 1.5); ctx.fill();
+        ctx.strokeStyle = "rgba(90,60,30,0.5)"; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(-9, 3); ctx.lineTo(9, 3); ctx.moveTo(-7, -6.5); ctx.lineTo(7, -6.5); ctx.stroke();
+        ctx.fillStyle = "#7B4B1E"; ctx.font = "bold 5px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText("VEGAS", 0, 4); ctx.fillText("VEGAS", 0, -6);
+        // a couple of dice on top
+        ctx.fillStyle = "#FFF"; roundRect(-6, -16, 5, 5, 1); ctx.fill(); roundRect(1, -16, 5, 5, 1); ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.beginPath(); ctx.arc(-3.5, -13.5, 0.7, 0, Math.PI * 2); ctx.arc(3.5, -14.5, 0.7, 0, Math.PI * 2); ctx.arc(3.5, -12.5, 0.7, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // Burry himself
+        var legSwing = Math.sin(walkTime * 8) * 2.5;
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(0, 17, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#455A64";
+        roundRect(-5, 5 - legSwing, 4.4, 14 + legSwing, 2); ctx.fill();
+        roundRect(0.6, 5 + legSwing, 4.4, 14 - legSwing, 2); ctx.fill();
+        ctx.fillStyle = "#212121"; roundRect(-6, 17 - legSwing, 6, 4, 2); ctx.fill(); roundRect(0, 17 + legSwing, 6, 4, 2); ctx.fill();
+        // loose tropical shirt
+        ctx.fillStyle = shadeColor("#26A69A", -35); roundRect(-10, -8, 20, 19, 6); ctx.fill();
+        ctx.fillStyle = "#26A69A"; roundRect(-9, -7, 18, 17, 5); ctx.fill();
+        // palm-leaf pattern dabs
+        ctx.fillStyle = "rgba(255,241,118,0.7)";
+        ctx.beginPath(); ctx.arc(-4, -2, 1.3, 0, Math.PI * 2); ctx.arc(3, 2, 1.3, 0, Math.PI * 2); ctx.arc(5, -4, 1.3, 0, Math.PI * 2); ctx.fill();
+        // relaxed arms
+        ctx.fillStyle = "#26A69A"; roundRect(-11.5, -6, 4.2, 12, 2); ctx.fill(); roundRect(7.3, -6, 4.2, 12, 2); ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(-9.5, 7, 2.6, 0, Math.PI * 2); ctx.arc(9.5, 7, 2.6, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -14, 8.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 7, 0, Math.PI * 2); ctx.fill();
+        // short hair + kippah
+        ctx.fillStyle = "#3E2723"; ctx.beginPath(); ctx.arc(0, -16, 7, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5D4037"; ctx.beginPath(); ctx.ellipse(0, -20.5, 4.2, 2, 0, Math.PI, 0); ctx.fill();
+        // sunglasses
+        ctx.fillStyle = "#111";
+        roundRect(-6.5, -15.5, 5, 3.6, 1.4); ctx.fill();
+        roundRect(1.5, -15.5, 5, 3.6, 1.4); ctx.fill();
+        ctx.fillRect(-1.5, -14.4, 3, 1.2);
+        ctx.fillStyle = "rgba(120,220,160,0.5)"; ctx.fillRect(-5.6, -15, 3.2, 1.2); ctx.fillRect(2.4, -15, 3.2, 1.2);
+        // droopy chill smile
+        ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(0, -11, 3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        ctx.restore();
+    }
+
+    // Uncle Shuey — like Burry but older/greyer, a DOCTOR (scrubs + stethoscope
+    // + head mirror), melancholy. Son Avraham holds his hand; a translucent cat
+    // angel (halo + wings) floats above.
+    function drawUncleShuey(x, y, walkTime) {
+        ctx.save();
+        ctx.translate(x, y);
+        // floating translucent cat angel above him
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.translate(6, -34 + Math.sin(walkTime * 2) * 3);
+        // halo
+        ctx.strokeStyle = "#FFF59D"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.ellipse(0, -7, 4.5, 1.8, 0, 0, Math.PI * 2); ctx.stroke();
+        // wings
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.beginPath(); ctx.ellipse(-6, -1, 3.5, 2, -0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(6, -1, 3.5, 2, 0.5, 0, Math.PI * 2); ctx.fill();
+        // cat body/head
+        ctx.fillStyle = "rgba(176,190,197,0.9)";
+        ctx.beginPath(); ctx.ellipse(0, 2, 5, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, -2, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(150,165,175,0.95)";
+        ctx.beginPath(); ctx.moveTo(-3.5, -4.5); ctx.lineTo(-2, -1.5); ctx.lineTo(-4.8, -1.8); ctx.closePath(); ctx.fill(); // ear
+        ctx.beginPath(); ctx.moveTo(3.5, -4.5); ctx.lineTo(2, -1.5); ctx.lineTo(4.8, -1.8); ctx.closePath(); ctx.fill();   // ear
+        // sad closed eyes 😿
+        ctx.strokeStyle = "#37474F"; ctx.lineWidth = 0.8; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-2.4, -2.6); ctx.lineTo(-0.8, -1.8); ctx.moveTo(2.4, -2.6); ctx.lineTo(0.8, -1.8); ctx.stroke();
+        // tear
+        ctx.fillStyle = "rgba(129,212,250,0.9)"; ctx.beginPath(); ctx.arc(-1.6, -0.6, 0.9, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // little Avraham holding his (left) hand
+        drawUncleBuddy(-14, 5, 0.62, "#5C6BC0", "#3E2723", walkTime + 0.7, false);
+        // Shuey himself
+        var legSwing = Math.sin(walkTime * 7) * 2;
+        ctx.fillStyle = "rgba(0,0,0,0.22)";
+        ctx.beginPath(); ctx.ellipse(0, 17, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // scrub pants
+        ctx.fillStyle = "#2E7D8A";
+        roundRect(-5, 5 - legSwing, 4.4, 14 + legSwing, 2); ctx.fill();
+        roundRect(0.6, 5 + legSwing, 4.4, 14 - legSwing, 2); ctx.fill();
+        ctx.fillStyle = "#ECEFF1"; roundRect(-6, 17 - legSwing, 6, 4, 2); ctx.fill(); roundRect(0, 17 + legSwing, 6, 4, 2); ctx.fill(); // white clogs
+        // teal scrub top
+        ctx.fillStyle = shadeColor("#26A69A", -50); roundRect(-10, -8, 20, 19, 6); ctx.fill();
+        ctx.fillStyle = "#3AAFA9"; roundRect(-9, -7, 18, 17, 5); ctx.fill();
+        // scrub V-neck
+        ctx.strokeStyle = "#2E7D8A"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-3.5, -7); ctx.lineTo(0, -2); ctx.lineTo(3.5, -7); ctx.stroke();
+        // chest pocket
+        ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 0.8; ctx.strokeRect(2, 1, 5, 5);
+        // arms
+        ctx.fillStyle = "#3AAFA9"; roundRect(-11.5, -6, 4.2, 12, 2); ctx.fill(); roundRect(7.3, -6, 4.2, 12, 2); ctx.fill();
+        ctx.fillStyle = C.skin;
+        ctx.beginPath(); ctx.arc(-9.5, 7, 2.6, 0, Math.PI * 2); ctx.arc(9.5, 7, 2.6, 0, Math.PI * 2); ctx.fill();
+        // stethoscope around neck
+        ctx.strokeStyle = "#263238"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-4, -6); ctx.quadraticCurveTo(0, 3, 5, 5); ctx.moveTo(4, -6); ctx.quadraticCurveTo(6, 2, 5, 5); ctx.stroke();
+        ctx.fillStyle = "#90A4AE"; ctx.beginPath(); ctx.arc(5, 6, 1.8, 0, Math.PI * 2); ctx.fill();
+        // head
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(0, -14, 8.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -14, 7, 0, Math.PI * 2); ctx.fill();
+        // greying hair + light stubble
+        ctx.fillStyle = "#8D9499"; ctx.beginPath(); ctx.arc(0, -16, 7, Math.PI, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(120,130,135,0.5)";
+        ctx.beginPath(); ctx.arc(-4, -9.5, 3.2, 0, Math.PI * 2); ctx.arc(4, -9.5, 3.2, 0, Math.PI * 2); ctx.arc(0, -8, 3.2, 0, Math.PI * 2); ctx.fill();
+        // head mirror (doctor) on forehead
+        ctx.fillStyle = "#CFD8DC"; ctx.beginPath(); ctx.arc(0, -19, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#607D8B"; ctx.beginPath(); ctx.arc(0, -19, 1.2, 0, Math.PI * 2); ctx.fill();
+        // sad eyes + downturned mouth
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-2.6, -14, 1.4, 0, Math.PI * 2); ctx.arc(2.6, -14, 1.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1A1A1A"; ctx.beginPath(); ctx.arc(-2.6, -13.4, 0.8, 0, Math.PI * 2); ctx.arc(2.6, -13.4, 0.8, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#5D2A2A"; ctx.lineWidth = 1.2; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(0, -8.5, 3, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke(); // frown
+        ctx.restore();
+    }
+
     // ── Drawing: Animals ─────────────────────────────────────
     function drawDuck(x, y, walkFrame) {
         ctx.save();

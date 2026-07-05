@@ -1180,6 +1180,10 @@
     var avigailResolved = false;
     var pointMult = 1;              // overall score multiplier from Avigail
 
+    // ── The Uncles: rare rotating roadside cameo ─────────────
+    var uncleWalker = null;         // {id, x, y, walkTime, greeted} the current roadside uncle
+    var uncleRotil = 0;             // rotation index into UNCLES (which uncle is next)
+
     // ── Salon mode ───────────────────────────────────────────
     var salonSigns = [];
     var salonSpawnTimer = rand(40, 70);

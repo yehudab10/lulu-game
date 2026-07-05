@@ -636,6 +636,40 @@
                 else { avigailWalker = null; startAvigailScene(); return; }
             }
         }
+        // 👨 Uncle sighting — a rare roadside cameo that ROTATES through the three
+        // uncles (Yedidya → Burry → Shuey). Modeled on Heshy's proximity drive-by,
+        // NOT Avigail's lane collision, so it can never cause a crash. He stands on
+        // the GRASS SHOULDER (off the drivable road). Works on foot too.
+        if (tickSpawn("uncle", dt) && !uncleWalker && gameTime > 15) {
+            var uSide = Math.random() < 0.5 ? -1 : 1;
+            var uX = uSide < 0 ? rand(28, Math.max(32, ROAD_L - 30)) : rand(ROAD_R + 30, W - 28);
+            uncleWalker = { id: UNCLES[uncleRotil].id, x: uX, y: -70, walkTime: 0, greeted: false };
+            uncleRotil = (uncleRotil + 1) % 3;
+        }
+        if (uncleWalker) {
+            uncleWalker.y += gameSpeed * 0.6 * dt;   // a touch slower than traffic — Lulu passes him
+            uncleWalker.walkTime += dt;
+            if (uncleWalker.y > H + 80) {
+                uncleWalker = null;   // scrolled past ungreeted → just cull, no penalty
+            } else if (!uncleWalker.greeted && Math.abs(uncleWalker.y - player.y) < 70) {
+                uncleWalker.greeted = true;
+                var uData = null;
+                for (var uu = 0; uu < UNCLES.length; uu++) {
+                    if (UNCLES[uu].id === uncleWalker.id) { uData = UNCLES[uu]; break; }
+                }
+                if (uData) {
+                    // Quips are full sentences — render them screen-centered
+                    // (subtitle style) at his height so no line ever clips off
+                    // the edge when he's on the shoulder.
+                    spawnFloater(W / 2, uncleWalker.y - 44, randPick(uData.quips), uData.color);
+                    runCoins += 8; save.totalCoins += 8; persistSave();   // small friendly tip
+                    spawnFloater(player.x, player.y - 40, "👋 +8 💰", "#FFD700");
+                    spawnCoinSparkle(uncleWalker.x, uncleWalker.y);
+                    if (typeof playCoin === "function") playCoin();
+                    if (typeof playTone === "function") playTone(660, 0.12, "sine", 0.2, 880);
+                }
+            }
+        }
         // The SALON is now a BUILDING she enters ON FOOT (a foot-world door), not a
         // road sign — handled in the foot world, so nothing spawns on the road here.
         // Decorative parked vehicles on the grass shoulder (each with a "story").
@@ -4120,6 +4154,25 @@
             ctx.scale(apulse, apulse);
             drawText("AVIGAIL!", 0, 0, "bold 12px 'Segoe UI', Arial, sans-serif", "#CE93D8", "#000", 3);
             ctx.restore();
+        }
+        // 👨 Uncle sighting (rotating cameo) + floating nametag + subtle wave hint
+        if (uncleWalker) {
+            drawUncle(uncleWalker);
+            var uName = "Uncle";
+            for (var un = 0; un < UNCLES.length; un++) {
+                if (UNCLES[un].id === uncleWalker.id) { uName = UNCLES[un].name; break; }
+            }
+            // Keep the label + hint on-screen when he's near a shoulder edge.
+            var uLabelX = clamp(uncleWalker.x, 46, W - 46);
+            drawText(uName, uLabelX, uncleWalker.y - 50,
+                "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            if (!uncleWalker.greeted) {
+                ctx.save();
+                ctx.globalAlpha = 0.6 + Math.sin(gameTime * 6) * 0.2;
+                drawText("👋 say hi!", uLabelX, uncleWalker.y - 63,
+                    "bold 9px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 2);
+                ctx.restore();
+            }
         }
 
         for (var k = 0; k < obstacles.length; k++) {

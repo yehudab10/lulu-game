@@ -25,7 +25,8 @@
         toll:        { first: [45, 90],  every: [60, 120], chance: 0.55 }, // 🎫 toll-booth gauntlet
         train:       { first: [55, 110], every: [70, 140], chance: 0.55 }, // 🚂 railroad crossing
         driveThru:   { first: [35, 80],  every: [55, 110], chance: 0.55 }, // 🍔 drive-thru bonus
-        parade:      { first: [60, 120], every: [90, 170], chance: 0.45 }  // 🎉 parade / marathon crowd
+        parade:      { first: [60, 120], every: [90, 170], chance: 0.45 }, // 🎉 parade / marathon crowd
+        uncle:       { first: [35, 90],  every: [80, 150], chance: 0.4 }   // 👨 Uncle sighting
     };
 
     // Per-event countdown timers, (re)initialized at the start of each run.
