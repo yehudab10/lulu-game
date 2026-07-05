@@ -586,6 +586,12 @@
         ctx.strokeStyle = "rgba(255,210,80," + (0.55 + 0.4 * pulse) + ")"; ctx.lineWidth = 2;
         roundRect(bx, by, bw, bh, 8); ctx.stroke();
         drawText("🚨 UNDER ARREST 🚨", W / 2, by + bh / 2, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
+        // Name the charge(s) right under the banner so the arrest, like the
+        // pull-over, always states exactly what she's being booked for.
+        if (arrest && arrest.charges && arrest.charges.length) {
+            var chg = arrest.charges.slice(0, 2).join(" + ");
+            drawText("for " + chg, W / 2, by + bh + 12, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
+        }
     }
 
     // Two cuff rings + chain that pop in and snap together (t: 0→1).
@@ -2100,10 +2106,10 @@
         if (wl >= 5) {
             fugChopperX = lerp(fugChopperX || player.x, player.x, Math.min(1, 2.2 * dt));
             fugitiveSpot += dt * 1.1;
-            if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚁 SPOTLIGHT — FLOOR IT!"); return; }
+            if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚁 SPOTLIGHT — FLOOR IT!", null, "ESCAPE FROM CUSTODY"); return; }
             return;
         }
-        if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 RECOGNIZED — DRIVE!"); return; } }
+        if (seen) { fugitiveSpot += dt * (1 + wl * 0.35); if (fugitiveSpot > bustAt) { fugitiveSpot = 0; if (typeof beginCopChase === "function") beginCopChase(player.x, "🚨 RECOGNIZED — DRIVE!", null, "ESCAPE FROM CUSTODY"); return; } }
         else fugitiveSpot = Math.max(0, fugitiveSpot - dt * 0.8);
     }
 

@@ -550,7 +550,7 @@
         // drive them and you're clean; only getting run down books the theft. This
         // keeps a single hijack from leaving her hunted forever.
         if (watcher && typeof beginCopChase === "function") {
-            beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!", ["GRAND THEFT AUTO", "JOYRIDING"]);
+            beginCopChase(player.x, "🚨 GRAND THEFT AUTO — DRIVE!", ["GRAND THEFT AUTO", "JOYRIDING"], "GRAND THEFT AUTO");
         }
     }
     function footHotwireFail(h) {

@@ -1051,7 +1051,7 @@
                 var patSpeeding = !onFoot && (keys.up || gameSpeed > 520);
                 if (patSpeeding && !copChase && !copBust && Math.abs(o.y - player.y) < 175) {
                     o.spot = (o.spot || 0) + dt;
-                    if (o.spot > 0.7) { beginCopChase(o.x, o.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!"); obstacles.splice(i, 1); continue; }
+                    if (o.spot > 0.7) { beginCopChase(o.x, o.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!", null, "SPEEDING"); obstacles.splice(i, 1); continue; }
                 } else { o.spot = Math.max(0, (o.spot || 0) - dt * 1.5); }
             } else if (o.type === "car" && o.behavior === "pulled") {
                 // Busted: drift to the shoulder, slow down, and bicker with the cop.
@@ -1092,8 +1092,8 @@
                         // A roadside cop converts into the chaser; a patrol car just
                         // lights up from where it is (no obstacle-array splice here,
                         // so the ped index below stays valid).
-                        if (roadWitness) startCopChase(roadWitness);
-                        else if (patrolWitness) beginCopChase(patrolWitness.x, "🚨 BUSTED!");
+                        if (roadWitness) startCopChase(roadWitness, "RECKLESS ENDANGERMENT");
+                        else if (patrolWitness) beginCopChase(patrolWitness.x, "🚨 BUSTED!", null, "RECKLESS ENDANGERMENT");
                         obstacles.splice(i, 1);
                     }
                     continue; // on foot she just walks among them (talk via the hand button)
@@ -1539,7 +1539,7 @@
                         }
                     }
                     if (watcher && !copChase && !copBust && !onFoot) {
-                        beginCopChase(watcher.x, "🚨 BUS SIGN!");
+                        beginCopChase(watcher.x, "🚨 BUS SIGN!", null, "PASSING A STOPPED SCHOOL BUS");
                         spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
                     }
                 } else if (busStop.signOut) {
@@ -1567,7 +1567,7 @@
                     var gw = copInView();
                     if (!gw) { for (var gp = 0; gp < obstacles.length; gp++) { if (obstacles[gp].behavior === "patrol") { gw = obstacles[gp]; break; } } }
                     if (gw && !copChase && !copBust && !onFoot) {
-                        beginCopChase(gw.x, "🚨 CROSSING!");
+                        beginCopChase(gw.x, "🚨 CROSSING!", null, "BLOWING PAST A CROSSING GUARD");
                         spawnFloater(player.x, player.y - 72, randPick(COP_BUS_SNARK), "#FFD54F");
                     }
                 } else {
@@ -1897,7 +1897,7 @@
                         var apbMsg = speeding
                             ? randPick(["📻 SPEEDING REPORTED — PURSUE!", "📻 RECKLESS DRIVER — ALL UNITS!", "🚨 APB ON A PINK CAR!"])
                             : randPick(["🚨 APB ON A PINK CAR!", "🚓 SOMEONE CALLED IT IN!", "📻 SHE'S BACK AT IT — GO GO GO!"]);
-                        beginCopChase(player.x, apbMsg);
+                        beginCopChase(player.x, apbMsg, null, speeding ? "RECKLESS DRIVING" : "FAILURE TO PULL OVER");
                         spontaneousChaseCool = rand(15, 24) - Math.min(lvl, 7);   // next window (shorter at high levels)
                     } else {
                         spontaneousChaseCool = rand(4, 7);                          // recheck soon
@@ -1918,7 +1918,7 @@
             }
             // Driving calmly makes her harder to spot — slowing down should feel safer,
             // not punished. Flooring it past a cop gets her made fast.
-            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!"); } }
+            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!", (save.wanted || []).slice(0, 3), "OUTSTANDING WARRANT"); } }
             else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
             wantedPatrolT -= dt;
             if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
@@ -1930,8 +1930,13 @@
 
     // Start a chase from any x with a custom alert (used by roadside cops,
     // patrol cars, and bus-stop violations).
-    function beginCopChase(x, msg, charges) {
-        copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null };
+    function beginCopChase(x, msg, charges, reason) {
+        // `reason` is a short, plain-language charge ("SPEEDING", "HIT AND RUN",
+        // "GRAND THEFT AUTO"…) carried all the way into the pull-over exchange so
+        // it always states exactly WHY she's being stopped. Falls back to the
+        // charges list, then a generic reckless-driving.
+        copChase = { gap: 160, x: x, siren: 0, escapeT: 0, charges: charges || null,
+                     reason: reason || (charges && charges.length ? charges[0] : null) };
         // Give her a moment to open a gap before the high-heat hazards start — at
         // 5★ the chase used to fire and a K9/missile could land in the same breath.
         if (typeof copK9T !== "undefined") { copK9T = Math.max(copK9T, 3); copMslT = Math.max(copMslT, 3); }
@@ -1940,11 +1945,11 @@
         playTone(680, 0.25, "sawtooth", 0.14, 460);
         setTimeout(function () { playTone(460, 0.25, "sawtooth", 0.14, 680); }, 240);
     }
-    function startCopChase(cop) {
+    function startCopChase(cop, reason) {
         cop.busted = true;
         var idx = roadCops.indexOf(cop);
         if (idx >= 0) roadCops.splice(idx, 1); // it's now the chaser, not a parked cop
-        beginCopChase(cop.x, "🚨 SPEED TRAP!");
+        beginCopChase(cop.x, "🚨 SPEED TRAP!", null, reason || "SPEEDING");
     }
 
     function updateCopChase(dt) {
@@ -1984,6 +1989,28 @@
 
     var COP_LINE_DUR = 1.55;  // seconds each dialogue line lingers (tap to skip)
 
+    // The plain-language charge for the CURRENT stop, in priority order: an
+    // escape in progress, the chase's carried charges, the chase's reason, an
+    // open wanted file, then a generic fallback. Shown out loud + on a plaque so
+    // the pull-over ALWAYS states exactly why she's being stopped.
+    function bustReasonText(chaseReason, charges) {
+        if (prisonClothes) return "ESCAPE FROM CUSTODY";
+        if (charges && charges.length) return charges.slice(0, 2).join(" + ");
+        if (chaseReason) return chaseReason;
+        if (typeof isWanted === "function" && isWanted() && save.wanted && save.wanted.length) return save.wanted.slice(0, 2).join(" + ");
+        return "RECKLESS DRIVING";
+    }
+    // Split a charge phrase onto ~16-char lines so the spoken bubble stays tidy.
+    function wrapCharge(s) {
+        var words = s.split(" "), out = [], cur = "";
+        for (var i = 0; i < words.length; i++) {
+            var t = cur ? cur + " " + words[i] : words[i];
+            if (t.length > 16 && cur) { out.push(cur); cur = words[i]; } else cur = t;
+        }
+        if (cur) out.push(cur);
+        return out.join("\n");
+    }
+
     function startCopBust() {
         var fromLeft = player.x > W / 2;
         // Pick the OUTCOME first (preserving the old odds: 10% impound, ~22% let
@@ -1994,12 +2021,20 @@
         // who's run down, ALWAYS ends in a booking — so the SCENE matches the result
         // (no "Bubbe knows him / bribe works" free scene that then jails her anyway).
         var chargeCarry = copChase ? copChase.charges : null;
+        var chaseReason = copChase ? copChase.reason : null;
         if (chargeCarry || prisonClothes) outcome = "ticket";
         var pool = COP_SCENES.filter(function (s) { return s.outcome === outcome; });
         var scene = randPick(pool);
+        // Work out WHY she's being stopped and put it FIRST — a definite opening
+        // line, before the (randomized, comedic) scene plays. Build a fresh lines
+        // array so the shared COP_SCENES template is never mutated.
+        var reasonText = bustReasonText(chaseReason, chargeCarry);
+        var openLine = ["cop", "You're pulled\nover for:\n" + wrapCharge(reasonText)];
+        var lines = [openLine].concat(scene.lines);
         copBust = {
             phase: 0, timer: 1.0, copY: player.y + 96, man: null, fromLeft: fromLeft,
-            outcome: outcome, title: scene.title, lines: scene.lines, bustCharges: chargeCarry,
+            outcome: outcome, title: scene.title, lines: lines, bustCharges: chargeCarry,
+            reasonText: reasonText,
             line: 0, lineT: 0, resolveT: 0, knockT: 0
         };
         copChase = null;
@@ -2251,6 +2286,20 @@
             drawText(apProg, W / 2, H * 0.12, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 6);
         }
 
+        // Persistent CHARGE plaque — always on screen through the whole stop, so
+        // the reason is unmistakable no matter which comedic scene plays.
+        if (copBust.reasonText) {
+            ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
+            var rw = Math.max(180, ctx.measureText(copBust.reasonText).width + 44);
+            var rx = W / 2 - rw / 2, ry = H * 0.055;
+            ctx.fillStyle = "rgba(20,10,10,0.82)";
+            roundRect(rx, ry, rw, 34, 9); ctx.fill();
+            ctx.strokeStyle = "#FF5252"; ctx.lineWidth = 2;
+            roundRect(rx, ry, rw, 34, 9); ctx.stroke();
+            drawText("⚠️ CHARGE: " + copBust.reasonText, W / 2, ry + 17,
+                "bold 15px 'Segoe UI', Arial, sans-serif", "#FFCDD2", "#000", 3);
+        }
+
         // The exchange — show whoever is speaking this beat, as a bubble over
         // their head (cop) or over her car (Lulu).
         if (copBust.phase === 2 && copBust.man) {
@@ -2280,7 +2329,7 @@
             ctx.restore();
             var sub = copBust.outcome === "free" ? "Back on the road! 🚗"
                     : copBust.outcome === "walk" ? "No car? She'll WALK to Bubbe's..."
-                    : "Caught speeding!";
+                    : "Booked for " + (copBust.reasonText || "reckless driving") + "!";
             drawText(sub, W / 2, H * 0.15 + 32, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
         }
     }
@@ -3195,7 +3244,7 @@
         }
         if (witness && !copChase && !copBust) {
             if (typeof addWanted === "function") addWanted(["VEHICULAR DESTRUCTION", "JOYRIDING A STEAMROLLER"]);
-            beginCopChase(player.x, "🚨 VEHICULAR DESTRUCTION!");
+            beginCopChase(player.x, "🚨 VEHICULAR DESTRUCTION!", null, "DRIVING A STOLEN STEAMROLLER");
         }
     }
     // The pancaked wrecks she leaves behind scroll off with the road.
