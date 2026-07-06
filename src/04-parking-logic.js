@@ -56,6 +56,15 @@
         // THE JOURNEY: every run restarts the tour at stop 0 (Bubbe, always reachable).
         tripStopIdx = 0; tripLegStart = 0; tripCycle = 0; tripArrival = null;
         tripStopsThisRun = 0; tripPostponeUntil = 0; tripEndedWell = false; tripLastStopName = "";
+        // STORY TRIP: resume from the last banked checkpoint instead of Bubbe. Cruise
+        // leaves the 0s above (it has no journey layer at all). Then queue the
+        // "LEG n/5" intro banner for this leg (a no-op in cruise).
+        if (typeof runMode !== "undefined" && runMode === "story") {
+            tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            tripCycle = save.storyCycle || 0;
+        }
+        if (typeof legBannerT !== "undefined") legBannerT = 0;
+        if (typeof queueLegIntro === "function") queueLegIntro();
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         // Last-line guard: distracted mode never runs inside a friend room
         // (reverse controls + 2× score would poison shared scores/races).

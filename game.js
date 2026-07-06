@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.7.0";
+    var GAME_VERSION = "1.8.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -88,6 +88,9 @@
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
+            storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
+            storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
+            mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
@@ -2885,7 +2888,10 @@
         spawnTimers[name] -= dt;
         if (spawnTimers[name] > 0) return false;
         spawnTimers[name] = rand(c.every[0], c.every[1]);
-        return Math.random() < c.chance;
+        // STORY mode nudges a few leg-themed events more common (cruise = ×1).
+        var eff = c.chance * (typeof storySpawnBias === "function" ? storySpawnBias(name) : 1);
+        if (eff > 0.95) eff = 0.95;
+        return Math.random() < eff;
     }
 
     // Shared cute face for Lulu's car — used by both the driving game and the
@@ -6720,6 +6726,26 @@
             ctx.restore();
         }
 
+        // 📖 STORY leg-intro banner — same pop-in style, queued at each story
+        // run start ("LEG n/5 — NEXT STOP: …"). Guarded: never present in cruise.
+        if (typeof legBannerT !== "undefined" && legBannerT > 0) {
+            var lbIn = clamp((2.5 - legBannerT) / 0.35, 0, 1);
+            var lbScale = easeOutBack(lbIn) * (1 + 0.03 * Math.sin(gameTime * 8));
+            var lbAlpha = legBannerT < 0.5 ? legBannerT / 0.5 : 1;
+            ctx.save();
+            ctx.globalAlpha = lbAlpha;
+            ctx.translate(W / 2, 120);
+            ctx.scale(lbScale, lbScale);
+            ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
+            var lbW = Math.max(160, ctx.measureText(legBannerText).width + 40);
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.fill();
+            ctx.strokeStyle = legBannerColor; ctx.lineWidth = 2.5;
+            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.stroke();
+            drawText(legBannerText, 0, 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            ctx.restore();
+        }
+
         // Hearts — lives can exceed the starting 3 now. Show up to 6 across
         // (empty slots up to MAX_LIVES so damage still reads clearly), then
         // collapse to a single heart + "×N" so it never runs off-screen.
@@ -7290,6 +7316,15 @@
         // THE JOURNEY: every run restarts the tour at stop 0 (Bubbe, always reachable).
         tripStopIdx = 0; tripLegStart = 0; tripCycle = 0; tripArrival = null;
         tripStopsThisRun = 0; tripPostponeUntil = 0; tripEndedWell = false; tripLastStopName = "";
+        // STORY TRIP: resume from the last banked checkpoint instead of Bubbe. Cruise
+        // leaves the 0s above (it has no journey layer at all). Then queue the
+        // "LEG n/5" intro banner for this leg (a no-op in cruise).
+        if (typeof runMode !== "undefined" && runMode === "story") {
+            tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            tripCycle = save.storyCycle || 0;
+        }
+        if (typeof legBannerT !== "undefined") legBannerT = 0;
+        if (typeof queueLegIntro === "function") queueLegIntro();
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         // Last-line guard: distracted mode never runs inside a friend room
         // (reverse controls + 2× score would poison shared scores/races).
@@ -8905,6 +8940,7 @@
         // Close-call chain window ticks down; letting it lapse drops the chain.
         if (nearChainT > 0) { nearChainT -= dt; if (nearChainT <= 0) nearChain = 0; }
         if (recordBannerT > 0) recordBannerT -= dt;
+        if (typeof legBannerT !== "undefined" && legBannerT > 0) legBannerT -= dt;
         // ── Personal-best race: beating your old high score IS an event —
         //    confetti + banner the moment you cross it, a nudge at 90%. ──
         if (!onFoot && save.highScore > 400) {
@@ -11833,28 +11869,37 @@
         // Shared Road button + its name/room overlay get first crack at the tap.
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         if (click) {
-            // PLAY button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
-                resetGame(); gotoState("playing"); playClick(); return;
+            var baseY = H * 0.50;
+            // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
+            if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
+                runMode = "cruise"; resetGame(); gotoState("playing"); playClick();
+                if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
+                return;
             }
-            // PARKING button removed from the menu — parking is now reached only
-            // via the road pull-over (Q / EXIT); the stack is compacted to match.
-            // SHOP button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 74, 220, 54)) {
-                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+            // 📖 STORY TRIP — the journey with checkpoints. Solo-flavored: NOT
+            // auto-connected (a live socket is simply left alone).
+            if (pointInRect(click.x, click.y, W / 2 - 110, baseY + 72, 220, 50)) {
+                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
             }
-            // QUESTS button (unlocks at 200k lifetime score). Same qOff shove as
-            // drawMenu + mpMenuBtnRect() so the whole stack stays aligned.
-            var qOff = questsUnlocked() ? 50 : 0;
-            if (questsUnlocked() &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
-                state = "quests"; playClick(); return;
+            // ── SHOP + QUESTS split row (SHOP full-width when quests locked) ──
+            var rowY = baseY + 134;
+            if (questsUnlocked()) {
+                if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 106, 48)) {
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                }
+                if (pointInRect(click.x, click.y, W / 2 + 4, rowY, 106, 48)) {
+                    state = "quests"; playClick(); return;
+                }
+            } else {
+                if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 220, 48)) {
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                }
             }
             // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
             // controls, 2× score) — locked out in friend rooms so shared
             // leaderboards and races stay fair.
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, baseY + 194, 220, 40)) {
                 if (!distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
                     menuMsg = "📱 No distracted mode in friend rooms"; menuMsgTimer = 2.2;
                     playDeny(); return;
@@ -11876,16 +11921,20 @@
                 if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
                 return;
             }
-            // Default: any click in upper area starts game
+            // Default: any click in upper area starts game (cruise quick start).
             if (click.y > H * 0.3 && click.y < H * 0.45) {
-                resetGame(); state = "playing"; playClick(); return;
+                runMode = "cruise"; resetGame(); state = "playing"; playClick();
+                if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
+                return;
             }
         }
         if (consumeAction()) {
             // With the Shared Road overlay open, keyboard-start must not fire
             // behind it (mpMenuClick(null) returns true iff the overlay is open).
             if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
-            resetGame(); state = "playing";
+            // Keyboard/any-action quick start is CRUISE (+ auto Shared Road).
+            runMode = "cruise"; resetGame(); state = "playing";
+            if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
         }
     }
 
@@ -13130,6 +13179,36 @@
           greet: "You DROVE it?! Lakewood to VEGAS, baby! Mindy, the kids — LULU'S HERE! 🎲", accent: "#A5D6A7" }
     ];
 
+    // ── Run mode ─────────────────────────────────────────────────
+    // "cruise" = endless PLAY (no journey layer, auto-connects to Shared Road).
+    // "story"  = STORY TRIP (the journey, with persistent checkpoints).
+    var runMode = "cruise";
+
+    // Leg-intro banner (STORY only) — a 2.5s centered pop-in at run start.
+    var legBannerT = 0, legBannerText = "", legBannerColor = "#FFF";
+    function queueLegIntro() {
+        if (runMode !== "story") { legBannerT = 0; return; }
+        var stop = TRIP_STOPS[tripStopIdx];
+        legBannerT = 2.5;
+        legBannerText = "LEG " + (tripStopIdx + 1) + "/5 — NEXT STOP: " + stop.name;
+        legBannerColor = stop.accent;
+    }
+
+    // Per-leg world flavor (STORY only) — a subtle spawn multiplier keyed to the
+    // current leg's theme. Returns 1 in cruise mode / for unrelated events.
+    function storySpawnBias(name) {
+        if (runMode !== "story") return 1;
+        var idx = tripStopIdx;
+        if (idx === 1 && name === "heshyPool") return 3;    // Heshy's Pool leg
+        if (idx === 2 && name === "iceCream") return 3;      // The Beach leg
+        if (idx === 3 && name === "avigailCar") return 3;    // Avigail's Place leg
+        if (idx === 4) {                                     // Viva Vegas leg
+            if (name === "toll") return 2;
+            if (name === "parade") return 2;
+        }
+        return 1;
+    }
+
     // ── Run state (reset per run in resetGame) ───────────────────
     var tripStopIdx = 0;          // index into TRIP_STOPS (the leg in progress)
     var tripLegStart = 0;         // scrollOffset when this leg began
@@ -13151,6 +13230,7 @@
 
     // ── Leg progress + arrival trigger (hooked from updatePlaying) ──
     function updateJourney(dt) {
+        if (runMode !== "story") return;          // cruise has NO journey layer at all
         if (state !== "playing") return;         // works in BOTH drive & foot mode
         var rem = tripRemaining();
         if (rem > 0) return;
@@ -13199,6 +13279,20 @@
             tripLastStopName = stop.name;
             if ((save.tripBest || 0) < tripStopsThisRun) save.tripBest = tripStopsThisRun;
             if (stop.id === "avigail" && typeof bumpAvigailRel === "function") bumpAvigailRel(4);
+            // STORY checkpoint: reaching a stop banks campaign progress so the NEXT
+            // story run resumes from the following leg (dying mid-leg keeps the last
+            // reached checkpoint — we write here, at arrival, not at trip end).
+            if (runMode === "story") {
+                var reached = tripStopIdx;   // 0..4, the leg we just completed
+                if (reached >= TRIP_STOPS.length - 1) {   // Vegas — the tour finale
+                    save.storyStop = 0;
+                    save.storyCycle = (save.storyCycle || 0) + 1;
+                    tripArrival.storyComplete = true;
+                    tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                } else {
+                    save.storyStop = reached + 1;
+                }
+            }
             persistSave();
             playCoin();
             // a warm little arrival jingle (C–E–G)
@@ -13280,13 +13374,20 @@
 
         // banner
         var pop = easeOutBack(clamp(t / 0.5, 0, 1));
+        var finale = !!tripArrival.storyComplete;
         ctx.save();
         ctx.translate(W / 2, H * 0.10);
         ctx.scale(pop, pop);
-        drawText("YOU MADE IT!", 0, 0, "bold 34px 'Segoe UI', Arial, sans-serif", "#FFF", "#5D4037", 6);
+        drawText(finale ? "🏆 STORY COMPLETE!" : "YOU MADE IT!", 0, 0,
+            "bold " + (finale ? 28 : 34) + "px 'Segoe UI', Arial, sans-serif",
+            finale ? "#FFD700" : "#FFF", "#5D4037", 6);
         ctx.restore();
         drawText(stop.icon + "  " + stop.name, W / 2, H * 0.155,
             "bold 22px 'Segoe UI', Arial, sans-serif", stop.accent, "#3E2723", 5);
+        if (finale) {
+            drawText("TOUR " + tripArrival.tourNum + " unlocked — longer roads, same mishpacha",
+                W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
+        }
 
         // greet card (speech quote)
         var greet = tripStopGreet(stop);
@@ -13522,6 +13623,7 @@
     // ── HUD journey pill (called from drawHUD) ───────────────────
     function drawJourneyPill() {
         if (typeof tripStopIdx === "undefined" || typeof TRIP_STOPS === "undefined") return;
+        if (runMode !== "story") return;          // cruise shows no distance pill
         if (state !== "playing") return;
         // Yield the center-top strip to any active buff/gauge so nothing overlaps.
         if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer" && typeof dozerTimer !== "undefined" && dozerTimer > 0) return;
@@ -13538,16 +13640,17 @@
         var prog = clamp(1 - rem / legD, 0, 1);
         var close = rem <= 2500;
         var pulse = close ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
-        var pw = 156, ph = 22, px = W / 2 - pw / 2, py = 46;
+        // ~15% smaller + a softer bg — the owner found the old pill a touch distracting.
+        var pw = 133, ph = 19, px = W / 2 - pw / 2, py = 46;
 
         ctx.save();
         if (pulse !== 1) { ctx.translate(W / 2, py + ph / 2); ctx.scale(pulse, pulse); ctx.translate(-(W / 2), -(py + ph / 2)); }
-        ctx.fillStyle = "rgba(15,20,30,0.72)";
-        roundRect(px, py, pw, ph, 11); ctx.fill();
+        ctx.fillStyle = "rgba(15,20,30,0.65)";
+        roundRect(px, py, pw, ph, 10); ctx.fill();
         ctx.strokeStyle = stop.accent; ctx.lineWidth = 1.5;
-        roundRect(px, py, pw, ph, 11); ctx.stroke();
+        roundRect(px, py, pw, ph, 10); ctx.stroke();
         var label = stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m"));
-        drawText(label, W / 2, py + ph / 2 - 1, "bold 12px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
+        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
         // progress bar underneath
         var bw = pw - 14, bx = px + 7, by = py + ph + 2;
         ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(bx, by, bw, 4, 2); ctx.fill();
@@ -13561,7 +13664,8 @@
         var n = TRIP_STOPS.length;
         var stampW = 26, gap = 8, totW = n * stampW + (n - 1) * gap;
         var sx = W / 2 - totW / 2;
-        var rowY = H * 0.82 - 44;
+        // Sits below the (now taller) menu stack — PLAY/STORY/SHOP|QUESTS/DISTRACTED/SHARED ROAD.
+        var rowY = H * 0.80;
         for (var i = 0; i < n; i++) {
             var stop = TRIP_STOPS[i];
             var got = save.postcards.indexOf(stop.id) >= 0;
@@ -13577,7 +13681,7 @@
             }
         }
         drawText("✈️ furthest trip: " + (save.tripBest || 0) + " stop" + ((save.tripBest || 0) === 1 ? "" : "s"),
-            W / 2, H * 0.82 - 20, "bold 11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
+            W / 2, rowY + 28, "bold 11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
     }
 
     function drawParkingIntro() {
@@ -14244,47 +14348,61 @@
             ctx.globalAlpha = 1;
         }
 
-        // PLAY button
-        drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
-        // PARKING button intentionally NOT drawn — parking is reached via the
-        // road pull-over now; the stack below is compacted to close the gap
-        // (the 🌐 Shared Road button rect follows suit in 10f).
-        // SHOP button
-        drawButton(W / 2 - 110, H * 0.50 + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
+        // ── Two-mode stack (kept in exact sync with updateMenu + mpMenuBtnRect) ──
+        //   baseY+0    ▶ PLAY        220×60   (cruise: endless + auto Shared Road)
+        //   baseY+72   📖 STORY TRIP 220×50   (the journey, with checkpoints)
+        //   baseY+134  SHOP | QUESTS row h48  (SHOP full-width when quests locked)
+        //   baseY+194  DISTRACTED    220×40   (if unlocked)
+        //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
+        var baseY = H * 0.50;
+        // ▶ PLAY
+        drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
 
-        // QUESTS button (unlocks at 200k lifetime score). qOff shoves everything
-        // below down by 50 when it's present — the SAME offset the update handler
-        // and mpMenuBtnRect() use, so the whole stack stays in sync.
+        // 📖 STORY TRIP — parchment/book styling to set it apart from PLAY.
+        var storyY = baseY + 72;
+        drawButton(W / 2 - 110, storyY, 220, 50, "📖 STORY TRIP", { bg: "#C9A66B", bgDark: "#7B5E3B", small: true });
+        // caption: the next stop this story run would resume at (+ TOUR n once cycled)
+        if (typeof TRIP_STOPS !== "undefined") {
+            var nIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            var cap = "next: " + TRIP_STOPS[nIdx].name;
+            if ((save.storyCycle || 0) > 0) cap += " · TOUR " + ((save.storyCycle || 0) + 1);
+            drawText(cap, W / 2, storyY + 50 + 9, "10px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#4E342E", 2);
+        }
+
+        // ── SHOP + QUESTS split row ──
         var qUnlocked = questsUnlocked();
-        var qOff = qUnlocked ? 50 : 0;
+        var rowY = baseY + 134;
         if (qUnlocked) {
-            var qY = H * 0.50 + 136;
-            // Parchment/purple styling to set it apart from PLAY/SHOP.
-            drawButton(W / 2 - 110, qY, 220, 44, "📜 QUESTS", { bg: "#B39DDB", bgDark: "#5E35B1", small: true });
-            // Pulsing gold "!" badge when a reward is ready to claim.
+            drawButton(W / 2 - 110, rowY, 106, 48, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
+            drawButton(W / 2 + 4, rowY, 106, 48, "📜 QUESTS", { bg: "#B39DDB", bgDark: "#5E35B1", small: true });
+            // Pulsing gold "!" badge on the (smaller) quests button when claimable.
             if (questAnyClaimable()) {
                 var bp = 0.5 + 0.5 * Math.sin(menuBounce * 6);
                 ctx.save();
                 ctx.shadowColor = "rgba(255,215,0," + (0.5 + 0.4 * bp) + ")"; ctx.shadowBlur = 8 + 8 * bp;
                 ctx.fillStyle = "#FFD700";
-                ctx.beginPath(); ctx.arc(W / 2 + 104, qY + 4, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(W / 2 + 100, rowY + 6, 11, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
-                drawText("!", W / 2 + 104, qY + 5, "bold 18px Arial", "#4527A0", null, 0);
+                drawText("!", W / 2 + 100, rowY + 7, "bold 16px Arial", "#4527A0", null, 0);
             }
+        } else {
+            // Locked → SHOP stays full-width; no quests button.
+            drawButton(W / 2 - 110, rowY, 220, 48, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
         }
 
-        // Distracted mode toggle
+        // Distracted mode toggle (fixed slot; quests no longer shove the stack).
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, baseY + 194, 220, 40, label, { bg: c1, bgDark: c2, small: true });
         }
 
-        // Locked teaser: a subtle grey progress line toward the 200k unlock.
+        // Locked teaser: a subtle grey progress line toward the 200k unlock. Tucked
+        // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.
         if (!qUnlocked && (save.lifetimeScore || 0) > 0) {
             var qPct = Math.floor((save.lifetimeScore || 0) / 200000 * 100);
-            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.76,
+            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.93,
                 "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
 
@@ -14294,7 +14412,7 @@
 
         // High scores
         if (save.highScore > 0 || save.parkingBestLevel > 0) {
-            var bestY = H * 0.82;
+            var bestY = H * 0.865;
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {
@@ -31608,9 +31726,30 @@
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
         var baseY = H * 0.50;
-        // Stack: PLAY, SHOP, [QUESTS +50 if unlocked], [DISTRACTED +52 if unlocked].
-        var y = baseY + 136 + (questsUnlocked() ? 50 : 0) + (save.distractedUnlocked ? 52 : 0);
-        return { x: W / 2 - 110, y: y, w: 220, h: 46 };
+        // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
+        // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
+        // row now, so only distracted shoves this button down.
+        var y = baseY + 194 + (save.distractedUnlocked ? 48 : 0);
+        return { x: W / 2 - 110, y: y, w: 220, h: 44 };
+    }
+
+    // ── Cruise auto-connect ──────────────────────────────────
+    // The default ▶ PLAY silently joins the EVERYONE lobby (non-blocking; the run
+    // starts instantly and the socket resolves in the background). Respects an
+    // explicit opt-out (save.mpAutoOff). Never called from STORY mode.
+    function mpAutoConnect() {
+        if (!MP_URL) return;
+        if (save.mpAutoOff) return;              // player explicitly chose solo
+        if (mpConnected || mpWant || mpSock) return;   // already on / trying
+        try {
+            if (!save.mpName) {
+                save.mpName = CURATED_NAMES[Math.floor(Math.random() * CURATED_NAMES.length)];
+                persistSave();
+            }
+            mpRoom = "lobby";                    // EVERYONE
+            mpRoomKind = "everyone";
+            mpConnect();                         // reuse the normal connect path
+        } catch (e) { /* silent solo on any failure */ }
     }
 
     // One layout, shared by the draw + hit-test so they never drift apart.
@@ -31772,7 +31911,10 @@
         if (mpWant) {   // connected / connecting panel
             if (mpConnected && mpRoom !== "lobby" && !mpRace &&
                 pointInRect(cx, cy, r.race.x, r.race.y, r.race.w, r.race.h)) { mpRaceStart(); tap(); return; }
-            if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) { mpDisconnect(); tap(); return; }
+            if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) {
+                // Explicit choice: stay solo — cruise won't silently reconnect.
+                mpDisconnect(); save.mpAutoOff = true; persistSave(); tap(); return;
+            }
             if (pointInRect(cx, cy, r.close.x, r.close.y, r.close.w, r.close.h)) { mpPickerOpen = false; tap(); return; }
             return;
         }
@@ -31796,6 +31938,7 @@
         // Connect
         if (pointInRect(cx, cy, r.connect.x, r.connect.y, r.connect.w, r.connect.h)) {
             if (!save.mpName) { save.mpName = CURATED_NAMES[0]; persistSave(); }
+            save.mpAutoOff = false; persistSave();   // opting IN re-enables cruise auto-connect
             if (mpRoomKind === "friend") {
                 var code = "";
                 for (var k = 0; k < 4; k++) code += String.fromCharCode(65 + mpCodeSlots[k]);

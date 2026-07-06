@@ -800,6 +800,26 @@
             ctx.restore();
         }
 
+        // 📖 STORY leg-intro banner — same pop-in style, queued at each story
+        // run start ("LEG n/5 — NEXT STOP: …"). Guarded: never present in cruise.
+        if (typeof legBannerT !== "undefined" && legBannerT > 0) {
+            var lbIn = clamp((2.5 - legBannerT) / 0.35, 0, 1);
+            var lbScale = easeOutBack(lbIn) * (1 + 0.03 * Math.sin(gameTime * 8));
+            var lbAlpha = legBannerT < 0.5 ? legBannerT / 0.5 : 1;
+            ctx.save();
+            ctx.globalAlpha = lbAlpha;
+            ctx.translate(W / 2, 120);
+            ctx.scale(lbScale, lbScale);
+            ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
+            var lbW = Math.max(160, ctx.measureText(legBannerText).width + 40);
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.fill();
+            ctx.strokeStyle = legBannerColor; ctx.lineWidth = 2.5;
+            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.stroke();
+            drawText(legBannerText, 0, 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            ctx.restore();
+        }
+
         // Hearts — lives can exceed the starting 3 now. Show up to 6 across
         // (empty slots up to MAX_LIVES so damage still reads clearly), then
         // collapse to a single heart + "×N" so it never runs off-screen.

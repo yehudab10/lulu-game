@@ -501,6 +501,7 @@
         // Close-call chain window ticks down; letting it lapse drops the chain.
         if (nearChainT > 0) { nearChainT -= dt; if (nearChainT <= 0) nearChain = 0; }
         if (recordBannerT > 0) recordBannerT -= dt;
+        if (typeof legBannerT !== "undefined" && legBannerT > 0) legBannerT -= dt;
         // ── Personal-best race: beating your old high score IS an event —
         //    confetti + banner the moment you cross it, a nudge at 90%. ──
         if (!onFoot && save.highScore > 400) {
@@ -3429,28 +3430,37 @@
         // Shared Road button + its name/room overlay get first crack at the tap.
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         if (click) {
-            // PLAY button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50, 220, 60)) {
-                resetGame(); gotoState("playing"); playClick(); return;
+            var baseY = H * 0.50;
+            // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
+            if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
+                runMode = "cruise"; resetGame(); gotoState("playing"); playClick();
+                if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
+                return;
             }
-            // PARKING button removed from the menu — parking is now reached only
-            // via the road pull-over (Q / EXIT); the stack is compacted to match.
-            // SHOP button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 74, 220, 54)) {
-                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+            // 📖 STORY TRIP — the journey with checkpoints. Solo-flavored: NOT
+            // auto-connected (a live socket is simply left alone).
+            if (pointInRect(click.x, click.y, W / 2 - 110, baseY + 72, 220, 50)) {
+                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
             }
-            // QUESTS button (unlocks at 200k lifetime score). Same qOff shove as
-            // drawMenu + mpMenuBtnRect() so the whole stack stays aligned.
-            var qOff = questsUnlocked() ? 50 : 0;
-            if (questsUnlocked() &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136, 220, 44)) {
-                state = "quests"; playClick(); return;
+            // ── SHOP + QUESTS split row (SHOP full-width when quests locked) ──
+            var rowY = baseY + 134;
+            if (questsUnlocked()) {
+                if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 106, 48)) {
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                }
+                if (pointInRect(click.x, click.y, W / 2 + 4, rowY, 106, 48)) {
+                    state = "quests"; playClick(); return;
+                }
+            } else {
+                if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 220, 48)) {
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                }
             }
             // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
             // controls, 2× score) — locked out in friend rooms so shared
             // leaderboards and races stay fair.
             if (save.distractedUnlocked &&
-                pointInRect(click.x, click.y, W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44)) {
+                pointInRect(click.x, click.y, W / 2 - 110, baseY + 194, 220, 40)) {
                 if (!distractedMode && typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") {
                     menuMsg = "📱 No distracted mode in friend rooms"; menuMsgTimer = 2.2;
                     playDeny(); return;
@@ -3472,16 +3482,20 @@
                 if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
                 return;
             }
-            // Default: any click in upper area starts game
+            // Default: any click in upper area starts game (cruise quick start).
             if (click.y > H * 0.3 && click.y < H * 0.45) {
-                resetGame(); state = "playing"; playClick(); return;
+                runMode = "cruise"; resetGame(); state = "playing"; playClick();
+                if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
+                return;
             }
         }
         if (consumeAction()) {
             // With the Shared Road overlay open, keyboard-start must not fire
             // behind it (mpMenuClick(null) returns true iff the overlay is open).
             if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
-            resetGame(); state = "playing";
+            // Keyboard/any-action quick start is CRUISE (+ auto Shared Road).
+            runMode = "cruise"; resetGame(); state = "playing";
+            if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
         }
     }
 

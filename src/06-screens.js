@@ -662,47 +662,61 @@
             ctx.globalAlpha = 1;
         }
 
-        // PLAY button
-        drawButton(W / 2 - 110, H * 0.50, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
-        // PARKING button intentionally NOT drawn — parking is reached via the
-        // road pull-over now; the stack below is compacted to close the gap
-        // (the 🌐 Shared Road button rect follows suit in 10f).
-        // SHOP button
-        drawButton(W / 2 - 110, H * 0.50 + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00" });
+        // ── Two-mode stack (kept in exact sync with updateMenu + mpMenuBtnRect) ──
+        //   baseY+0    ▶ PLAY        220×60   (cruise: endless + auto Shared Road)
+        //   baseY+72   📖 STORY TRIP 220×50   (the journey, with checkpoints)
+        //   baseY+134  SHOP | QUESTS row h48  (SHOP full-width when quests locked)
+        //   baseY+194  DISTRACTED    220×40   (if unlocked)
+        //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
+        var baseY = H * 0.50;
+        // ▶ PLAY
+        drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
 
-        // QUESTS button (unlocks at 200k lifetime score). qOff shoves everything
-        // below down by 50 when it's present — the SAME offset the update handler
-        // and mpMenuBtnRect() use, so the whole stack stays in sync.
+        // 📖 STORY TRIP — parchment/book styling to set it apart from PLAY.
+        var storyY = baseY + 72;
+        drawButton(W / 2 - 110, storyY, 220, 50, "📖 STORY TRIP", { bg: "#C9A66B", bgDark: "#7B5E3B", small: true });
+        // caption: the next stop this story run would resume at (+ TOUR n once cycled)
+        if (typeof TRIP_STOPS !== "undefined") {
+            var nIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            var cap = "next: " + TRIP_STOPS[nIdx].name;
+            if ((save.storyCycle || 0) > 0) cap += " · TOUR " + ((save.storyCycle || 0) + 1);
+            drawText(cap, W / 2, storyY + 50 + 9, "10px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#4E342E", 2);
+        }
+
+        // ── SHOP + QUESTS split row ──
         var qUnlocked = questsUnlocked();
-        var qOff = qUnlocked ? 50 : 0;
+        var rowY = baseY + 134;
         if (qUnlocked) {
-            var qY = H * 0.50 + 136;
-            // Parchment/purple styling to set it apart from PLAY/SHOP.
-            drawButton(W / 2 - 110, qY, 220, 44, "📜 QUESTS", { bg: "#B39DDB", bgDark: "#5E35B1", small: true });
-            // Pulsing gold "!" badge when a reward is ready to claim.
+            drawButton(W / 2 - 110, rowY, 106, 48, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
+            drawButton(W / 2 + 4, rowY, 106, 48, "📜 QUESTS", { bg: "#B39DDB", bgDark: "#5E35B1", small: true });
+            // Pulsing gold "!" badge on the (smaller) quests button when claimable.
             if (questAnyClaimable()) {
                 var bp = 0.5 + 0.5 * Math.sin(menuBounce * 6);
                 ctx.save();
                 ctx.shadowColor = "rgba(255,215,0," + (0.5 + 0.4 * bp) + ")"; ctx.shadowBlur = 8 + 8 * bp;
                 ctx.fillStyle = "#FFD700";
-                ctx.beginPath(); ctx.arc(W / 2 + 104, qY + 4, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(W / 2 + 100, rowY + 6, 11, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
-                drawText("!", W / 2 + 104, qY + 5, "bold 18px Arial", "#4527A0", null, 0);
+                drawText("!", W / 2 + 100, rowY + 7, "bold 16px Arial", "#4527A0", null, 0);
             }
+        } else {
+            // Locked → SHOP stays full-width; no quests button.
+            drawButton(W / 2 - 110, rowY, 220, 48, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
         }
 
-        // Distracted mode toggle
+        // Distracted mode toggle (fixed slot; quests no longer shove the stack).
         if (save.distractedUnlocked) {
             var label = "DISTRACTED: " + (distractedMode ? "ON" : "OFF");
             var c1 = distractedMode ? "#FF80AB" : "#9E9E9E";
             var c2 = distractedMode ? "#C2185B" : "#616161";
-            drawButton(W / 2 - 110, H * 0.50 + 136 + qOff, 220, 44, label, { bg: c1, bgDark: c2, small: true });
+            drawButton(W / 2 - 110, baseY + 194, 220, 40, label, { bg: c1, bgDark: c2, small: true });
         }
 
-        // Locked teaser: a subtle grey progress line toward the 200k unlock.
+        // Locked teaser: a subtle grey progress line toward the 200k unlock. Tucked
+        // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.
         if (!qUnlocked && (save.lifetimeScore || 0) > 0) {
             var qPct = Math.floor((save.lifetimeScore || 0) / 200000 * 100);
-            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.76,
+            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.93,
                 "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
 
@@ -712,7 +726,7 @@
 
         // High scores
         if (save.highScore > 0 || save.parkingBestLevel > 0) {
-            var bestY = H * 0.82;
+            var bestY = H * 0.865;
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {

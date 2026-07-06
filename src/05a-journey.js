@@ -25,6 +25,36 @@
           greet: "You DROVE it?! Lakewood to VEGAS, baby! Mindy, the kids — LULU'S HERE! 🎲", accent: "#A5D6A7" }
     ];
 
+    // ── Run mode ─────────────────────────────────────────────────
+    // "cruise" = endless PLAY (no journey layer, auto-connects to Shared Road).
+    // "story"  = STORY TRIP (the journey, with persistent checkpoints).
+    var runMode = "cruise";
+
+    // Leg-intro banner (STORY only) — a 2.5s centered pop-in at run start.
+    var legBannerT = 0, legBannerText = "", legBannerColor = "#FFF";
+    function queueLegIntro() {
+        if (runMode !== "story") { legBannerT = 0; return; }
+        var stop = TRIP_STOPS[tripStopIdx];
+        legBannerT = 2.5;
+        legBannerText = "LEG " + (tripStopIdx + 1) + "/5 — NEXT STOP: " + stop.name;
+        legBannerColor = stop.accent;
+    }
+
+    // Per-leg world flavor (STORY only) — a subtle spawn multiplier keyed to the
+    // current leg's theme. Returns 1 in cruise mode / for unrelated events.
+    function storySpawnBias(name) {
+        if (runMode !== "story") return 1;
+        var idx = tripStopIdx;
+        if (idx === 1 && name === "heshyPool") return 3;    // Heshy's Pool leg
+        if (idx === 2 && name === "iceCream") return 3;      // The Beach leg
+        if (idx === 3 && name === "avigailCar") return 3;    // Avigail's Place leg
+        if (idx === 4) {                                     // Viva Vegas leg
+            if (name === "toll") return 2;
+            if (name === "parade") return 2;
+        }
+        return 1;
+    }
+
     // ── Run state (reset per run in resetGame) ───────────────────
     var tripStopIdx = 0;          // index into TRIP_STOPS (the leg in progress)
     var tripLegStart = 0;         // scrollOffset when this leg began
@@ -46,6 +76,7 @@
 
     // ── Leg progress + arrival trigger (hooked from updatePlaying) ──
     function updateJourney(dt) {
+        if (runMode !== "story") return;          // cruise has NO journey layer at all
         if (state !== "playing") return;         // works in BOTH drive & foot mode
         var rem = tripRemaining();
         if (rem > 0) return;
@@ -94,6 +125,20 @@
             tripLastStopName = stop.name;
             if ((save.tripBest || 0) < tripStopsThisRun) save.tripBest = tripStopsThisRun;
             if (stop.id === "avigail" && typeof bumpAvigailRel === "function") bumpAvigailRel(4);
+            // STORY checkpoint: reaching a stop banks campaign progress so the NEXT
+            // story run resumes from the following leg (dying mid-leg keeps the last
+            // reached checkpoint — we write here, at arrival, not at trip end).
+            if (runMode === "story") {
+                var reached = tripStopIdx;   // 0..4, the leg we just completed
+                if (reached >= TRIP_STOPS.length - 1) {   // Vegas — the tour finale
+                    save.storyStop = 0;
+                    save.storyCycle = (save.storyCycle || 0) + 1;
+                    tripArrival.storyComplete = true;
+                    tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                } else {
+                    save.storyStop = reached + 1;
+                }
+            }
             persistSave();
             playCoin();
             // a warm little arrival jingle (C–E–G)
@@ -175,13 +220,20 @@
 
         // banner
         var pop = easeOutBack(clamp(t / 0.5, 0, 1));
+        var finale = !!tripArrival.storyComplete;
         ctx.save();
         ctx.translate(W / 2, H * 0.10);
         ctx.scale(pop, pop);
-        drawText("YOU MADE IT!", 0, 0, "bold 34px 'Segoe UI', Arial, sans-serif", "#FFF", "#5D4037", 6);
+        drawText(finale ? "🏆 STORY COMPLETE!" : "YOU MADE IT!", 0, 0,
+            "bold " + (finale ? 28 : 34) + "px 'Segoe UI', Arial, sans-serif",
+            finale ? "#FFD700" : "#FFF", "#5D4037", 6);
         ctx.restore();
         drawText(stop.icon + "  " + stop.name, W / 2, H * 0.155,
             "bold 22px 'Segoe UI', Arial, sans-serif", stop.accent, "#3E2723", 5);
+        if (finale) {
+            drawText("TOUR " + tripArrival.tourNum + " unlocked — longer roads, same mishpacha",
+                W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
+        }
 
         // greet card (speech quote)
         var greet = tripStopGreet(stop);
@@ -417,6 +469,7 @@
     // ── HUD journey pill (called from drawHUD) ───────────────────
     function drawJourneyPill() {
         if (typeof tripStopIdx === "undefined" || typeof TRIP_STOPS === "undefined") return;
+        if (runMode !== "story") return;          // cruise shows no distance pill
         if (state !== "playing") return;
         // Yield the center-top strip to any active buff/gauge so nothing overlaps.
         if (typeof playerVehicle !== "undefined" && playerVehicle === "dozer" && typeof dozerTimer !== "undefined" && dozerTimer > 0) return;
@@ -433,16 +486,17 @@
         var prog = clamp(1 - rem / legD, 0, 1);
         var close = rem <= 2500;
         var pulse = close ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
-        var pw = 156, ph = 22, px = W / 2 - pw / 2, py = 46;
+        // ~15% smaller + a softer bg — the owner found the old pill a touch distracting.
+        var pw = 133, ph = 19, px = W / 2 - pw / 2, py = 46;
 
         ctx.save();
         if (pulse !== 1) { ctx.translate(W / 2, py + ph / 2); ctx.scale(pulse, pulse); ctx.translate(-(W / 2), -(py + ph / 2)); }
-        ctx.fillStyle = "rgba(15,20,30,0.72)";
-        roundRect(px, py, pw, ph, 11); ctx.fill();
+        ctx.fillStyle = "rgba(15,20,30,0.65)";
+        roundRect(px, py, pw, ph, 10); ctx.fill();
         ctx.strokeStyle = stop.accent; ctx.lineWidth = 1.5;
-        roundRect(px, py, pw, ph, 11); ctx.stroke();
+        roundRect(px, py, pw, ph, 10); ctx.stroke();
         var label = stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m"));
-        drawText(label, W / 2, py + ph / 2 - 1, "bold 12px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
+        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
         // progress bar underneath
         var bw = pw - 14, bx = px + 7, by = py + ph + 2;
         ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(bx, by, bw, 4, 2); ctx.fill();
@@ -456,7 +510,8 @@
         var n = TRIP_STOPS.length;
         var stampW = 26, gap = 8, totW = n * stampW + (n - 1) * gap;
         var sx = W / 2 - totW / 2;
-        var rowY = H * 0.82 - 44;
+        // Sits below the (now taller) menu stack — PLAY/STORY/SHOP|QUESTS/DISTRACTED/SHARED ROAD.
+        var rowY = H * 0.80;
         for (var i = 0; i < n; i++) {
             var stop = TRIP_STOPS[i];
             var got = save.postcards.indexOf(stop.id) >= 0;
@@ -472,5 +527,5 @@
             }
         }
         drawText("✈️ furthest trip: " + (save.tripBest || 0) + " stop" + ((save.tripBest || 0) === 1 ? "" : "s"),
-            W / 2, H * 0.82 - 20, "bold 11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
+            W / 2, rowY + 28, "bold 11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
     }

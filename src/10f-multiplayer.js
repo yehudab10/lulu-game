@@ -634,9 +634,30 @@
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
         var baseY = H * 0.50;
-        // Stack: PLAY, SHOP, [QUESTS +50 if unlocked], [DISTRACTED +52 if unlocked].
-        var y = baseY + 136 + (questsUnlocked() ? 50 : 0) + (save.distractedUnlocked ? 52 : 0);
-        return { x: W / 2 - 110, y: y, w: 220, h: 46 };
+        // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
+        // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
+        // row now, so only distracted shoves this button down.
+        var y = baseY + 194 + (save.distractedUnlocked ? 48 : 0);
+        return { x: W / 2 - 110, y: y, w: 220, h: 44 };
+    }
+
+    // ── Cruise auto-connect ──────────────────────────────────
+    // The default ▶ PLAY silently joins the EVERYONE lobby (non-blocking; the run
+    // starts instantly and the socket resolves in the background). Respects an
+    // explicit opt-out (save.mpAutoOff). Never called from STORY mode.
+    function mpAutoConnect() {
+        if (!MP_URL) return;
+        if (save.mpAutoOff) return;              // player explicitly chose solo
+        if (mpConnected || mpWant || mpSock) return;   // already on / trying
+        try {
+            if (!save.mpName) {
+                save.mpName = CURATED_NAMES[Math.floor(Math.random() * CURATED_NAMES.length)];
+                persistSave();
+            }
+            mpRoom = "lobby";                    // EVERYONE
+            mpRoomKind = "everyone";
+            mpConnect();                         // reuse the normal connect path
+        } catch (e) { /* silent solo on any failure */ }
     }
 
     // One layout, shared by the draw + hit-test so they never drift apart.
@@ -798,7 +819,10 @@
         if (mpWant) {   // connected / connecting panel
             if (mpConnected && mpRoom !== "lobby" && !mpRace &&
                 pointInRect(cx, cy, r.race.x, r.race.y, r.race.w, r.race.h)) { mpRaceStart(); tap(); return; }
-            if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) { mpDisconnect(); tap(); return; }
+            if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) {
+                // Explicit choice: stay solo — cruise won't silently reconnect.
+                mpDisconnect(); save.mpAutoOff = true; persistSave(); tap(); return;
+            }
             if (pointInRect(cx, cy, r.close.x, r.close.y, r.close.w, r.close.h)) { mpPickerOpen = false; tap(); return; }
             return;
         }
@@ -822,6 +846,7 @@
         // Connect
         if (pointInRect(cx, cy, r.connect.x, r.connect.y, r.connect.w, r.connect.h)) {
             if (!save.mpName) { save.mpName = CURATED_NAMES[0]; persistSave(); }
+            save.mpAutoOff = false; persistSave();   // opting IN re-enables cruise auto-connect
             if (mpRoomKind === "friend") {
                 var code = "";
                 for (var k = 0; k < 4; k++) code += String.fromCharCode(65 + mpCodeSlots[k]);

@@ -46,5 +46,8 @@
         spawnTimers[name] -= dt;
         if (spawnTimers[name] > 0) return false;
         spawnTimers[name] = rand(c.every[0], c.every[1]);
-        return Math.random() < c.chance;
+        // STORY mode nudges a few leg-themed events more common (cruise = ×1).
+        var eff = c.chance * (typeof storySpawnBias === "function" ? storySpawnBias(name) : 1);
+        if (eff > 0.95) eff = 0.95;
+        return Math.random() < eff;
     }

@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.7.0";
+    var GAME_VERSION = "1.8.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -86,6 +86,9 @@
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
+            storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
+            storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
+            mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
