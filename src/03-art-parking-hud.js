@@ -812,11 +812,20 @@
             ctx.scale(lbScale, lbScale);
             ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
             var lbW = Math.max(160, ctx.measureText(legBannerText).width + 40);
+            // Second (smaller) line: this chapter's optional TASK. Widens/heightens
+            // the banner when present (STORY leg-tasks only; empty in cruise).
+            var lbTask = (typeof legBannerTask !== "undefined") ? legBannerTask : "";
+            if (lbTask) {
+                ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+                lbW = Math.max(lbW, ctx.measureText(lbTask).width + 34);
+            }
+            var lbH = lbTask ? 62 : 44;
             ctx.fillStyle = "rgba(0,0,0,0.6)";
-            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.fill();
+            roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.fill();
             ctx.strokeStyle = legBannerColor; ctx.lineWidth = 2.5;
-            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.stroke();
-            drawText(legBannerText, 0, 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.stroke();
+            drawText(legBannerText, 0, lbTask ? -6 : 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            if (lbTask) drawText(lbTask, 0, 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             ctx.restore();
         }
 

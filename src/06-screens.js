@@ -701,7 +701,7 @@
         // caption: the next stop this story run would resume at (+ TOUR n once cycled)
         if (typeof TRIP_STOPS !== "undefined") {
             var nIdx = (save.storyStop || 0) % TRIP_STOPS.length;
-            var cap = "next: " + TRIP_STOPS[nIdx].name;
+            var cap = "map · next: " + TRIP_STOPS[nIdx].name;
             if ((save.storyCycle || 0) > 0) cap += " · TOUR " + ((save.storyCycle || 0) + 1);
             drawText(cap, W / 2, storyY + 50 + 9, "10px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#4E342E", 2);
         }

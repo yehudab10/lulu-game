@@ -93,6 +93,8 @@
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
+            storyStars: {},    // STORY TRIP: chapter-task stars earned, keyed by stop id
+
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
             cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
@@ -6743,11 +6745,20 @@
             ctx.scale(lbScale, lbScale);
             ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
             var lbW = Math.max(160, ctx.measureText(legBannerText).width + 40);
+            // Second (smaller) line: this chapter's optional TASK. Widens/heightens
+            // the banner when present (STORY leg-tasks only; empty in cruise).
+            var lbTask = (typeof legBannerTask !== "undefined") ? legBannerTask : "";
+            if (lbTask) {
+                ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+                lbW = Math.max(lbW, ctx.measureText(lbTask).width + 34);
+            }
+            var lbH = lbTask ? 62 : 44;
             ctx.fillStyle = "rgba(0,0,0,0.6)";
-            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.fill();
+            roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.fill();
             ctx.strokeStyle = legBannerColor; ctx.lineWidth = 2.5;
-            roundRect(-lbW / 2, -22, lbW, 44, 13); ctx.stroke();
-            drawText(legBannerText, 0, 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.stroke();
+            drawText(legBannerText, 0, lbTask ? -6 : 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
+            if (lbTask) drawText(lbTask, 0, 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
             ctx.restore();
         }
 
@@ -7328,7 +7339,14 @@
         // leaves the 0s above (it has no journey layer at all). Then queue the
         // "LEG n/5" intro banner for this leg (a no-op in cruise).
         if (typeof runMode !== "undefined" && runMode === "story") {
-            tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            // STORY MAP launch: if the map picked a specific chapter, drive THAT leg
+            // (then consume the request); otherwise resume from the banked checkpoint.
+            if (typeof storyLaunchLeg !== "undefined" && storyLaunchLeg >= 0) {
+                tripStopIdx = storyLaunchLeg % TRIP_STOPS.length;
+                storyLaunchLeg = -1;
+            } else {
+                tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            }
             tripCycle = save.storyCycle || 0;
         }
         if (typeof legBannerT !== "undefined") legBannerT = 0;
@@ -9599,6 +9617,9 @@
                     // and pushes the 🔥 score multiplier higher (capped ×3).
                     nearChain++; nearChainT = 6;
                     questBest("chain6", nearChain);   // weekly quest: 6-chain daredevil
+                    // CHAPTER TASK (Heshy leg): track the best close-call chain.
+                    if (runMode === "story" && typeof storyTask !== "undefined" && storyTask &&
+                        storyTask.id === "heshy" && nearChain > storyTask.bestChain) storyTask.bestChain = nearChain;
                     score += (15 + 5 * Math.min(nearChain - 1, 8)) * scoreMult;
                     spawnFloater((o.x + player.x) / 2, player.y - 8,
                         nearChain >= 2 ? "WHOOSH! 🔥×" + nearChain : "WHOOSH!", "#80D8FF");
@@ -10117,6 +10138,8 @@
         if (nearChain >= 3) spawnFloater(player.x, player.y - 58, "🔥 chain lost!", "#FF8A80");
         nearChain = 0; nearChainT = 0;
         lives--;
+        // CHAPTER TASK (Vegas leg): losing a heart forfeits "guard the pot".
+        if (runMode === "story" && typeof storyTask !== "undefined" && storyTask && storyTask.id === "vegas") storyTask.heartLost = true;
         invincibleTimer = INVINCIBLE_TIME;
         shakeTimer = 0.4;
         shakeIntensity = 6;
@@ -11930,10 +11953,10 @@
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
-            // 📖 STORY TRIP — the journey with checkpoints. Solo-flavored: NOT
-            // auto-connected (a live socket is simply left alone).
+            // 📖 STORY TRIP — opens the STORY MAP (pick a chapter to drive) instead
+            // of launching directly. Solo-flavored: NOT auto-connected.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY + 72, 220, 50)) {
-                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
+                gotoState("storyMap"); playClick(); return;
             }
             // ── SHOP + QUESTS split row (SHOP full-width when quests locked) ──
             var rowY = baseY + 134;
@@ -12917,6 +12940,8 @@
         // STORY BEATS scripted-event world entities (Heshy crosser / gulls / boxes).
         // Self-guards (no-op unless a story event is active); vehicles draw above.
         if (typeof drawStoryEvent === "function") drawStoryEvent();
+        // CHAPTER TASK (beach leg) runaway-gear pickups — self-guards; no-op elsewhere.
+        if (typeof drawStoryGear === "function") drawStoryGear();
 
         // Shared Road ghosts — other real players sharing the highway (drawn
         // under Lulu so she always reads on top). Guarded no-op offline.
@@ -13231,12 +13256,16 @@
     // dist = the scrollOffset distance for THAT leg (per-leg, not cumulative).
     var TRIP_STOPS = [
         { id: "bubbe",   name: "BUBBE'S HOUSE",   icon: "🏡", dist: 56000, reward: 60,
+          task: "Grocery run: collect 40 coins on the way",
           greet: "LULULEH! You made it! Come, EAT — the cholent's hot! 🍲", accent: "#FFCC80" },
         { id: "heshy",   name: "HESHY'S POOL",    icon: "🏊", dist: 74000, reward: 80,
+          task: "Impress Heshy: chain 3 close calls",
           greet: "CANNONBAAALL! 💦 ...oh hey Lulu! Towel? Snack? Floatie?", accent: "#80D8FF" },
         { id: "beach",   name: "THE BEACH",       icon: "🏖️", dist: 103000, reward: 100,
+          task: "Catch the sisters' runaway beach gear (3)",
           greet: "Salt air, seagulls, zero traffic. You EARNED this, Bruck.", accent: "#FFE082" },
         { id: "avigail", name: "AVIGAIL'S PLACE", icon: "💅", dist: 131000, reward: 125,
+          task: "Stay classy: don't bump Avigail's car",
           greet: function () {
               var r = (typeof avigailRel === "function") ? avigailRel() : 50;
               if (r >= 65) return "BESTIE! I made spritzers! 💜";
@@ -13244,6 +13273,7 @@
               return "Oh. It's you. Cute car, I guess. Come in, whatever. 💅";
           }, accent: "#CE93D8" },
         { id: "vegas",   name: "VIVA VEGAS",      icon: "🎲", dist: 177000, reward: 200,
+          task: "Guard the pot: arrive without losing a heart",
           greet: "You DROVE it?! Lakewood to VEGAS, baby! Mindy, the kids — LULU'S HERE! 🎲", accent: "#A5D6A7" }
     ];
 
@@ -13253,14 +13283,23 @@
     var runMode = "cruise";
 
     // Leg-intro banner (STORY only) — a 2.5s centered pop-in at run start.
-    var legBannerT = 0, legBannerText = "", legBannerColor = "#FFF";
+    var legBannerT = 0, legBannerText = "", legBannerColor = "#FFF", legBannerTask = "";
     function queueLegIntro() {
-        if (runMode !== "story") { legBannerT = 0; return; }
+        if (runMode !== "story") { legBannerT = 0; legBannerTask = ""; return; }
         var stop = TRIP_STOPS[tripStopIdx];
         legBannerT = 2.5;
         legBannerText = "LEG " + (tripStopIdx + 1) + "/5 — NEXT STOP: " + stop.name;
         legBannerColor = stop.accent;
+        // Second (smaller) banner line: this chapter's optional TASK (⭐ + coins).
+        legBannerTask = stop.task ? ("⭐ " + stop.task) : "";
     }
+
+    // ── STORY MAP launch: which leg the map asked us to drive (−1 = none) ──
+    // resetGame (04) seeds tripStopIdx from this when set, else from save.storyStop.
+    var storyLaunchLeg = -1;
+    // ── CHAPTER TASK: per-leg optional goal, armed at leg start, scored at arrival.
+    var storyTask = null;      // { id, goal, ...per-task tracking }
+    var storyGear = [];        // beach-leg runaway gear pickups (kite/ball/hat)
 
     // Per-leg world flavor (STORY only) — a subtle spawn multiplier keyed to the
     // current leg's theme. Returns 1 in cruise mode / for unrelated events.
@@ -13309,6 +13348,7 @@
         updateStoryEvent(dt);
         maybeFireStoryEvent();
         if (storyBoonT > 0) storyBoonT -= dt;
+        updateStoryGear(dt);   // beach-leg runaway gear (self-guards; no-op elsewhere)
 
         // ── ARRIVAL PULL-IN: once triggered, keep her SAFE and let the world coast
         //    to a crawl (the speed damp lives next to parkExit in 05-driving-loop),
@@ -13334,6 +13374,7 @@
             tripMile50 = true;
             spawnFloater(player.x, player.y - 50, "🏁 halfway to " + stop.name + "!", stop.accent);
             if (typeof playTone === "function") playTone(523, 0.09, "sine", 0.12);
+            storyTaskMilestone();   // a light task-progress nudge at the halfway mark
         }
         if (!tripMile85 && prog >= 0.85 && rem > 0) {
             tripMile85 = true;
@@ -13378,6 +13419,9 @@
         if (!tripArrival.claimed) {
             tripArrival.claimed = true;
             var stop = tripArrival.stop;
+            // Snapshot leg-end coins BEFORE the arrival reward so Bubbe's "collect
+            // 40 coins on the way" task counts only coins earned driving the leg.
+            if (runMode === "story" && storyTask) storyTask.legEndCoins = runCoins;
             runCoins += stop.reward;
             save.totalCoins += stop.reward;
             if (!save.postcards) save.postcards = [];
@@ -13392,12 +13436,39 @@
             if (runMode === "story") {
                 var reached = tripStopIdx;   // 0..4, the leg we just completed
                 if (reached >= TRIP_STOPS.length - 1) {   // Vegas — the tour finale
-                    save.storyStop = 0;
-                    save.storyCycle = (save.storyCycle || 0) + 1;
-                    tripArrival.storyComplete = true;
-                    tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                    // CYCLE RULE: only bank a NEW tour when Vegas was the FRONTIER —
+                    // i.e. save.storyStop was already 4 (the leg you unlocked by
+                    // clearing chapter 4). A Vegas REPLAY after completion (storyStop
+                    // already wrapped to 0, or sitting below 4 because you jumped here
+                    // from the map) must NOT re-increment the cycle or wrap again.
+                    if ((save.storyStop || 0) >= TRIP_STOPS.length - 1) {
+                        save.storyStop = 0;
+                        save.storyCycle = (save.storyCycle || 0) + 1;
+                        tripArrival.storyComplete = true;
+                        tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                    }
+                    // else: replay of an already-cleared Vegas — no cycle bump, no regress.
                 } else {
-                    save.storyStop = reached + 1;
+                    // CHECKPOINTS ONLY MOVE FORWARD: replaying an early chapter must
+                    // never regress a player who's already further along the tour.
+                    if (reached + 1 > (save.storyStop || 0)) save.storyStop = reached + 1;
+                }
+                // ── CHAPTER TASK scoring: met + unstarred → star + 40💰; met but
+                //    already starred → no bonus; not met → a tiny grey note. ──
+                if (storyTask) {
+                    tripArrival.taskId = storyTask.id;
+                    tripArrival.taskMet = storyTaskMet();
+                    if (tripArrival.taskMet) {
+                        if (!save.storyStars) save.storyStars = {};
+                        if (!save.storyStars[storyTask.id]) {
+                            save.storyStars[storyTask.id] = true;
+                            tripArrival.taskBonus = 40;
+                            runCoins += 40; save.totalCoins += 40;
+                            tripArrival.taskNewStar = true;
+                        } else {
+                            tripArrival.taskAlready = true;
+                        }
+                    }
                 }
                 // FIRST arrival unlocks endless cruise + the whole Shared Road stack.
                 if (!save.cruiseUnlocked) {
@@ -13572,6 +13643,24 @@
             var uy = ry + 52;
             for (var ui = 0; ui < uLines.length; ui++) {
                 drawText(uLines[ui], W / 2, uy + ui * 17, uFont, "#7CFC4F", "#1B3A1B", 3);
+            }
+        }
+
+        // CHAPTER TASK result — one compact line above the boon (story only).
+        if (tripArrival.taskId) {
+            var tky = H * 0.665;
+            if (tripArrival.taskNewStar) {
+                var tkp = 0.92 + 0.08 * Math.sin(t * 7);
+                ctx.save(); ctx.translate(W / 2, tky); ctx.scale(tkp, tkp);
+                drawText("⭐ CHAPTER TASK DONE!  +" + tripArrival.taskBonus + " 💰", 0, 0,
+                    "bold 15px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 4);
+                ctx.restore();
+            } else if (tripArrival.taskAlready) {
+                drawText("task done ✓ (already starred)", W / 2, tky,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#1B3A1B", 3);
+            } else if (tripArrival.taskMet === false) {
+                drawText("task: not this time", W / 2, tky,
+                    "bold 11px 'Segoe UI', Arial, sans-serif", "#90A4AE", "#263238", 2);
             }
         }
 
@@ -13916,6 +14005,97 @@
         storyCallPending = true;
         storyCallDelay = 2.6;   // ~2.5s after the leg begins (banner runs 2.5s)
         storyCallT = 0;
+        armStoryTask();         // arm this leg's optional CHAPTER TASK
+    }
+
+    // ── CHAPTER TASK: arm the current leg's optional goal. One distinct task per
+    //    stop; each snapshots whatever it needs at leg start. STORY-only. ──
+    function armStoryTask() {
+        storyTask = null; storyGear = [];
+        if (runMode !== "story") return;
+        var id = TRIP_STOPS[tripStopIdx].id;
+        if (id === "bubbe")   storyTask = { id: id, goal: 40, coinStart: runCoins };           // coins gained this leg
+        else if (id === "heshy")   storyTask = { id: id, goal: 3, bestChain: 0 };              // max close-call chain
+        else if (id === "beach")   storyTask = { id: id, goal: 3, gear: 0, gearSpawned: 0,     // gear caught
+                                                 gearPlan: [0.30, 0.50, 0.70] };
+        else if (id === "avigail") storyTask = { id: id, aviBumped: false };                    // no-bump flag
+        else if (id === "vegas")   storyTask = { id: id, heartLost: false };                    // no heart lost
+    }
+
+    // Is this leg's task satisfied RIGHT NOW? (evaluated at arrival)
+    function storyTaskMet() {
+        if (!storyTask) return false;
+        var id = storyTask.id;
+        if (id === "bubbe")   { var end = (storyTask.legEndCoins != null) ? storyTask.legEndCoins : runCoins;
+                                return (end - storyTask.coinStart) >= storyTask.goal; }
+        if (id === "heshy")   return storyTask.bestChain >= storyTask.goal;
+        if (id === "beach")   return storyTask.gear >= storyTask.goal;
+        if (id === "avigail") return !storyTask.aviBumped;   // race never fired → still false → DONE
+        if (id === "vegas")   return !storyTask.heartLost;
+        return false;
+    }
+
+    // A light one-off progress nudge, fired from the 50% leg milestone.
+    function storyTaskMilestone() {
+        if (runMode !== "story" || !storyTask) return;
+        var id = storyTask.id, msg = "";
+        if (id === "bubbe")   msg = "🛒 groceries: " + (runCoins - storyTask.coinStart) + "/" + storyTask.goal + " 💰";
+        else if (id === "heshy")   msg = "🔥 close calls: " + storyTask.bestChain + "/" + storyTask.goal;
+        else if (id === "beach")   msg = "🏖️ beach gear: " + storyTask.gear + "/" + storyTask.goal;
+        else if (id === "avigail") msg = storyTask.aviBumped ? "💅 oops — keep it classy!" : "💅 staying classy!";
+        else if (id === "vegas")   msg = storyTask.heartLost ? "🎲 careful — protect the pot!" : "🎲 hearts safe so far!";
+        if (msg) spawnFloater(player.x, player.y - 74, msg, "#FFE082");
+    }
+
+    // Beach leg only: spawn/steer-to-collect 3 runaway gear pickups (fuelCan-style
+    // entities), spread across 30-70% of the leg. Drive-mode; STORY-only.
+    function updateStoryGear(dt) {
+        if (runMode !== "story" || !storyTask || storyTask.id !== "beach") return;
+        if (state === "footRun") return;
+        var legD = tripLegDist();
+        var prog = clamp(1 - tripRemaining() / legD, 0, 1);
+        var plan = storyTask.gearPlan;
+        while (storyTask.gearSpawned < plan.length && prog >= plan[storyTask.gearSpawned] && tripPullInT <= 0) {
+            var k = storyTask.gearSpawned;   // 0=kite, 1=beach ball, 2=sun hat
+            storyGear.push({ x: LANES[randInt(0, 2)] + rand(-14, 14), y: -40, kind: k,
+                             hitW: 20, hitH: 20, collected: false, bob: rand(0, 6.28) });
+            storyTask.gearSpawned++;
+        }
+        for (var i = storyGear.length - 1; i >= 0; i--) {
+            var g = storyGear[i];
+            g.y += gameSpeed * dt; g.bob += dt;
+            if (g.y > H + 50) { storyGear.splice(i, 1); continue; }
+            if (!g.collected && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, g.x, g.y, g.hitW, g.hitH)) {
+                g.collected = true; storyTask.gear++;
+                var names = ["Dina's kite", "the beach ball", "the sun hat"];
+                spawnFloater(g.x, g.y, "🏖️ " + names[g.kind] + "! " + storyTask.gear + "/" + storyTask.goal, "#FFE082");
+                spawnCoinSparkle(g.x, g.y);
+                runCoins += 5; save.totalCoins += 5; persistSave();
+                if (typeof playCoin === "function") playCoin();
+                storyGear.splice(i, 1);
+            }
+        }
+    }
+
+    // World-layer draw for the beach gear (called from drawPlaying, next to
+    // drawStoryEvent). Small glowing pickup discs with the item emoji.
+    function drawStoryGear() {
+        if (runMode !== "story" || !storyGear || storyGear.length === 0) return;
+        var emos = ["🪁", "🏖️", "👒"];
+        for (var i = 0; i < storyGear.length; i++) {
+            var g = storyGear[i]; if (g.collected) continue;
+            var yb = g.y + Math.sin(g.bob * 3) * 3;
+            ctx.save(); ctx.translate(g.x, yb);
+            ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(0, 16, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+            var pulse = 0.6 + 0.4 * Math.sin(gameTime * 5 + g.kind);
+            ctx.globalAlpha = 0.35 + 0.25 * pulse;
+            ctx.fillStyle = "#FFE082"; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "rgba(20,26,38,0.75)"; ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#FFCA28"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.stroke();
+            drawText(emos[g.kind], 0, 1, "18px Arial", "#FFF", null, 0);
+            ctx.restore();
+        }
     }
 
     // ── Feature 1: the phone-call card ───────────────────────────
@@ -14109,7 +14289,10 @@
             var a = se.aviCar;
             var present = a && obstacles.indexOf(a) >= 0;
             if (present) {
-                if (!se.bumped && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, a.x, a.y, a.hitW || 36, a.hitH || 64)) se.bumped = true;
+                if (!se.bumped && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, a.x, a.y, a.hitW || 36, a.hitH || 64)) {
+                    se.bumped = true;
+                    if (storyTask && storyTask.id === "avigail") storyTask.aviBumped = true;   // CHAPTER TASK: classy = no bump
+                }
                 if (!se.said1 && se.t > 0.9) { se.said1 = true; a.comment = "Race you to MY house 💅"; a.commentT = 2.6; }
                 if (!se.said2 && se.t > 3.2) { se.said2 = true; a.comment = "Loser buys the spritzers!"; a.commentT = 2.8; }
                 if (se.t > 4.6) { a.speedMult -= dt * 0.9; if (a.speedMult < -1.1) a.speedMult = -1.1; }
@@ -14287,6 +14470,186 @@
             drawText(binfo.emoji, bcx, bcy + 2, "30px Arial", "#FFF", null, 0);
             drawText("✓ " + binfo.label, bcx, bcy + br.h * 0.5 + 12, "bold 11px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#1B3A1B", 3);
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  STORY MAP  (state "storyMap") — tapping 📖 STORY TRIP opens a
+    //  winding road-map of the 5 stops. Tap an unlocked chapter to
+    //  drive it. STORY-only; never touches cruise. Music: "lulu" group.
+    // ═══════════════════════════════════════════════════════════
+    var storyMapDeniedIdx = -1, storyMapDeniedT = 0;   // brief shake on a locked-node tap
+
+    // Node centres along a winding S-curve from lower-left → upper-right, the
+    // stops placed roughly evenly and alternating sides. Node radius ~34.
+    function storyMapNodes() {
+        var nodes = [], n = TRIP_STOPS.length;
+        var topY = H * 0.30, botY = H * 0.82;
+        for (var i = 0; i < n; i++) {
+            var f = (n > 1) ? i / (n - 1) : 0;                 // 0 (bottom) → 1 (top)
+            var y = botY + (topY - botY) * f;
+            var baseX = W * 0.20 + W * 0.60 * f;               // trend rightward as we climb
+            var side = (i % 2 === 0) ? -1 : 1;                 // alternate off the trend line
+            var x = clamp(baseX + side * W * 0.14, W * 0.16, W * 0.84);
+            nodes.push({ x: x, y: y, r: 34, idx: i, stop: TRIP_STOPS[i] });
+        }
+        return nodes;
+    }
+
+    // "done" | "current" | "locked" for a given node index.
+    function storyMapNodeState(i) {
+        var ss = save.storyStop || 0, cyc = save.storyCycle || 0;
+        // Frontier wrapped after a full tour → EVERY leg replayable (node 0 is NEXT).
+        if (cyc > 0 && ss === 0) return i === 0 ? "current" : "done";
+        if (i < ss) return "done";
+        if (i === ss) return "current";
+        return "locked";
+    }
+
+    function updateStoryMap(dt) {
+        menuBounce += dt;
+        if (storyMapDeniedT > 0) storyMapDeniedT -= dt;
+        var click = consumeClick();
+        if (!click) return;
+        // Back → menu.
+        if (pointInRect(click.x, click.y, 16, 14, 80, 44)) { gotoState("menu"); playClick(); return; }
+        // Node taps.
+        var nodes = storyMapNodes();
+        for (var i = 0; i < nodes.length; i++) {
+            var nd = nodes[i];
+            var dx = click.x - nd.x, dy = click.y - nd.y;
+            if (dx * dx + dy * dy <= (nd.r + 12) * (nd.r + 12)) {
+                if (storyMapNodeState(i) === "locked") {
+                    storyMapDeniedIdx = i; storyMapDeniedT = 0.4;
+                    if (typeof playDeny === "function") playDeny();
+                    spawnFloater(nd.x, nd.y - nd.r - 12, "🔒 finish earlier stops first", "#FF8A80");
+                    return;
+                }
+                // Launch this chapter.
+                storyLaunchLeg = i;
+                runMode = "story";
+                resetGame();
+                gotoState("playing");
+                if (typeof playClick === "function") playClick();
+                return;
+            }
+        }
+    }
+
+    function drawStoryMap() {
+        // Warm dusk gradient backdrop.
+        var g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, "#3A2C4E"); g.addColorStop(0.45, "#7B4B57"); g.addColorStop(1, "#C98A5A");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        // Soft low sun glow behind the road.
+        var sun = ctx.createRadialGradient(W * 0.7, H * 0.30, 10, W * 0.7, H * 0.30, H * 0.4);
+        sun.addColorStop(0, "rgba(255,224,130,0.35)"); sun.addColorStop(1, "rgba(255,224,130,0)");
+        ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
+
+        var nodes = storyMapNodes();
+
+        // ── The winding ROAD (thick asphalt polyline through the nodes) ──
+        ctx.save();
+        ctx.lineJoin = "round"; ctx.lineCap = "round";
+        // asphalt
+        ctx.strokeStyle = "#2B3038"; ctx.lineWidth = 44;
+        ctx.beginPath(); ctx.moveTo(nodes[0].x, nodes[0].y + 40);
+        for (var a = 0; a < nodes.length; a++) ctx.lineTo(nodes[a].x, nodes[a].y);
+        ctx.lineTo(nodes[nodes.length - 1].x, nodes[nodes.length - 1].y - 40);
+        ctx.stroke();
+        // subtle edge highlight
+        ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 46;
+        ctx.stroke();
+        // dashed gold centreline
+        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 3; ctx.setLineDash([14, 14]);
+        ctx.beginPath(); ctx.moveTo(nodes[0].x, nodes[0].y + 40);
+        for (var b = 0; b < nodes.length; b++) ctx.lineTo(nodes[b].x, nodes[b].y);
+        ctx.lineTo(nodes[nodes.length - 1].x, nodes[nodes.length - 1].y - 40);
+        ctx.stroke(); ctx.setLineDash([]);
+        ctx.restore();
+
+        // ── Stop NODES ──
+        for (var i = 0; i < nodes.length; i++) {
+            var nd = nodes[i], st = storyMapNodeState(i), stop = nd.stop;
+            var starred = !!(save.storyStars && save.storyStars[stop.id]);
+            var cx = nd.x, cy = nd.y;
+            // denied shake
+            if (storyMapDeniedIdx === i && storyMapDeniedT > 0) cx += Math.sin(storyMapDeniedT * 50) * 5;
+            var isCur = (st === "current");
+            var r = nd.r * (isCur ? 1.12 : 1);
+
+            // ring
+            ctx.save();
+            if (isCur) {
+                var pulse = 0.5 + 0.5 * Math.sin(menuBounce * 5);
+                ctx.shadowColor = "rgba(255,213,79," + (0.5 + 0.4 * pulse) + ")"; ctx.shadowBlur = 12 + 10 * pulse;
+                ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 4 + 1.5 * pulse;
+            } else if (st === "done") {
+                ctx.strokeStyle = "#66BB6A"; ctx.lineWidth = 4;
+            } else {
+                ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 3;
+            }
+            // badge fill
+            ctx.fillStyle = (st === "locked") ? "rgba(30,34,42,0.85)" : "rgba(24,30,44,0.92)";
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+
+            // icon (dimmed when locked)
+            ctx.save();
+            if (st === "locked") ctx.globalAlpha = 0.4;
+            drawText(stop.icon, cx, cy + 1, "30px Arial", "#FFF", null, 0);
+            ctx.restore();
+
+            // status glyphs
+            if (st === "done") {
+                ctx.fillStyle = "#66BB6A"; ctx.beginPath(); ctx.arc(cx + r * 0.72, cy - r * 0.72, 11, 0, Math.PI * 2); ctx.fill();
+                drawText("✓", cx + r * 0.72, cy - r * 0.72 + 1, "bold 14px Arial", "#FFF", null, 0);
+            }
+            if (starred) {
+                drawText("⭐", cx - r * 0.72, cy - r * 0.72, "18px Arial", "#FFD700", null, 0);
+            }
+            if (st === "locked") {
+                drawText("🔒", cx, cy - r - 6, "16px Arial", "#FFF", null, 0);
+            }
+            if (isCur) {
+                // NEXT chip above the node
+                var chW = 46, chX = cx - chW / 2, chY = cy - r - 24;
+                ctx.fillStyle = "#FFD54F"; roundRect(chX, chY, chW, 18, 9); ctx.fill();
+                drawText("NEXT", cx, chY + 9, "bold 11px 'Segoe UI', Arial, sans-serif", "#3E2723", null, 0);
+            }
+
+            // name + task lines beside/below the node
+            var nameC = (st === "locked") ? "rgba(255,255,255,0.45)" : "#FFF5E6";
+            drawText(stop.name, cx, cy + r + 14, "bold 12px 'Segoe UI', Arial, sans-serif", nameC, "#000", 3);
+            if (st !== "locked" && stop.task) {
+                var tLines = tripWrap("⭐ " + stop.task, "10px 'Segoe UI', Arial, sans-serif", 150);
+                for (var tl = 0; tl < tLines.length && tl < 2; tl++) {
+                    drawText(tLines[tl], cx, cy + r + 30 + tl * 13, "10px 'Segoe UI', Arial, sans-serif",
+                        starred ? "#FFE082" : "#CFD8DC", "#000", 2);
+                }
+            }
+        }
+
+        // ── Header ──
+        var cyc = save.storyCycle || 0;
+        drawText("📖 THE ROAD TO VEGAS", W / 2, 40, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#3E2723", 5);
+        if (cyc > 0) {
+            var tourTxt = "TOUR " + (cyc + 1);
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var twd = ctx.measureText(tourTxt).width + 22;
+            var txx = W / 2 - twd / 2, tyy = 56;
+            ctx.fillStyle = "#7B5E3B"; roundRect(txx, tyy, twd, 20, 10); ctx.fill();
+            ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1.5; roundRect(txx, tyy, twd, 20, 10); ctx.stroke();
+            drawText(tourTxt, W / 2, tyy + 10, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 2);
+        }
+        drawBackButton(16, 14);
+
+        // ── Footer hint ──
+        drawText("tap a stop to drive that chapter — ⭐ = chapter task done", W / 2, H - 22,
+            "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF5E6", "#3E2723", 3);
+
+        drawParticles();
+        drawFloaters();
     }
 
     function drawParkingIntro() {
@@ -14992,7 +15355,7 @@
         // caption: the next stop this story run would resume at (+ TOUR n once cycled)
         if (typeof TRIP_STOPS !== "undefined") {
             var nIdx = (save.storyStop || 0) % TRIP_STOPS.length;
-            var cap = "next: " + TRIP_STOPS[nIdx].name;
+            var cap = "map · next: " + TRIP_STOPS[nIdx].name;
             if ((save.storyCycle || 0) > 0) cap += " · TOUR " + ((save.storyCycle || 0) + 1);
             drawText(cap, W / 2, storyY + 50 + 9, "10px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#4E342E", 2);
         }
@@ -18926,6 +19289,8 @@
         spawnCrashBurst(player.x, player.y, false);
         if (!deadly) { invincibleTimer = 0.7; footMood = "panic"; spawnFloater(player.x, player.y - 30, "oof!", "#FFF"); return; }
         lives--;
+        // CHAPTER TASK (Vegas leg): a knockout on foot also forfeits "guard the pot".
+        if (runMode === "story" && typeof storyTask !== "undefined" && storyTask && storyTask.id === "vegas") storyTask.heartLost = true;
         invincibleTimer = 2.0; footMood = "panic";   // match the other re-entry shields so a 2nd car can't instantly re-clip her
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");
@@ -33016,7 +33381,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "quests" || state === "exitScene" || state === "arrival") musicTrack = "lulu";
+            state === "quests" || state === "exitScene" || state === "arrival" || state === "storyMap") musicTrack = "lulu";
         else if (state === "footRun" || state === "footInterior") musicTrack = "walking";   // on-foot theme
         else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
         else if (state === "courtroom") musicTrack = "court";  // courtroom theme
@@ -33052,6 +33417,7 @@
         else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "footWedding") updateFootWedding(dt);
         else if (state === "arrival") updateArrival(dt);
+        else if (state === "storyMap") updateStoryMap(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "quests") updateQuests(dt);
@@ -33098,6 +33464,7 @@
         else if (state === "footInterior") drawFootInterior();
         else if (state === "footWedding") drawFootWedding();
         else if (state === "arrival") drawArrival();
+        else if (state === "storyMap") drawStoryMap();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "quests") drawQuests();

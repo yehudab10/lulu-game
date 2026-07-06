@@ -61,7 +61,14 @@
         // leaves the 0s above (it has no journey layer at all). Then queue the
         // "LEG n/5" intro banner for this leg (a no-op in cruise).
         if (typeof runMode !== "undefined" && runMode === "story") {
-            tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            // STORY MAP launch: if the map picked a specific chapter, drive THAT leg
+            // (then consume the request); otherwise resume from the banked checkpoint.
+            if (typeof storyLaunchLeg !== "undefined" && storyLaunchLeg >= 0) {
+                tripStopIdx = storyLaunchLeg % TRIP_STOPS.length;
+                storyLaunchLeg = -1;
+            } else {
+                tripStopIdx = (save.storyStop || 0) % TRIP_STOPS.length;
+            }
             tripCycle = save.storyCycle || 0;
         }
         if (typeof legBannerT !== "undefined") legBannerT = 0;

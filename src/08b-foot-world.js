@@ -646,6 +646,8 @@
         spawnCrashBurst(player.x, player.y, false);
         if (!deadly) { invincibleTimer = 0.7; footMood = "panic"; spawnFloater(player.x, player.y - 30, "oof!", "#FFF"); return; }
         lives--;
+        // CHAPTER TASK (Vegas leg): a knockout on foot also forfeits "guard the pot".
+        if (runMode === "story" && typeof storyTask !== "undefined" && storyTask && storyTask.id === "vegas") storyTask.heartLost = true;
         invincibleTimer = 2.0; footMood = "panic";   // match the other re-entry shields so a 2nd car can't instantly re-clip her
         playWompWomp();
         spawnFloater(player.x, player.y - 30, lives > 0 ? "OW! watch it!" : "💫", "#FF8A80");

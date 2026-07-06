@@ -1145,6 +1145,9 @@
                     // and pushes the 🔥 score multiplier higher (capped ×3).
                     nearChain++; nearChainT = 6;
                     questBest("chain6", nearChain);   // weekly quest: 6-chain daredevil
+                    // CHAPTER TASK (Heshy leg): track the best close-call chain.
+                    if (runMode === "story" && typeof storyTask !== "undefined" && storyTask &&
+                        storyTask.id === "heshy" && nearChain > storyTask.bestChain) storyTask.bestChain = nearChain;
                     score += (15 + 5 * Math.min(nearChain - 1, 8)) * scoreMult;
                     spawnFloater((o.x + player.x) / 2, player.y - 8,
                         nearChain >= 2 ? "WHOOSH! 🔥×" + nearChain : "WHOOSH!", "#80D8FF");
@@ -1663,6 +1666,8 @@
         if (nearChain >= 3) spawnFloater(player.x, player.y - 58, "🔥 chain lost!", "#FF8A80");
         nearChain = 0; nearChainT = 0;
         lives--;
+        // CHAPTER TASK (Vegas leg): losing a heart forfeits "guard the pot".
+        if (runMode === "story" && typeof storyTask !== "undefined" && storyTask && storyTask.id === "vegas") storyTask.heartLost = true;
         invincibleTimer = INVINCIBLE_TIME;
         shakeTimer = 0.4;
         shakeIntensity = 6;
@@ -3476,10 +3481,10 @@
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
-            // 📖 STORY TRIP — the journey with checkpoints. Solo-flavored: NOT
-            // auto-connected (a live socket is simply left alone).
+            // 📖 STORY TRIP — opens the STORY MAP (pick a chapter to drive) instead
+            // of launching directly. Solo-flavored: NOT auto-connected.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY + 72, 220, 50)) {
-                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
+                gotoState("storyMap"); playClick(); return;
             }
             // ── SHOP + QUESTS split row (SHOP full-width when quests locked) ──
             var rowY = baseY + 134;
@@ -4463,6 +4468,8 @@
         // STORY BEATS scripted-event world entities (Heshy crosser / gulls / boxes).
         // Self-guards (no-op unless a story event is active); vehicles draw above.
         if (typeof drawStoryEvent === "function") drawStoryEvent();
+        // CHAPTER TASK (beach leg) runaway-gear pickups — self-guards; no-op elsewhere.
+        if (typeof drawStoryGear === "function") drawStoryGear();
 
         // Shared Road ghosts — other real players sharing the highway (drawn
         // under Lulu so she always reads on top). Guarded no-op offline.

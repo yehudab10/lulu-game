@@ -87,7 +87,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "quests" || state === "exitScene" || state === "arrival") musicTrack = "lulu";
+            state === "quests" || state === "exitScene" || state === "arrival" || state === "storyMap") musicTrack = "lulu";
         else if (state === "footRun" || state === "footInterior") musicTrack = "walking";   // on-foot theme
         else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
         else if (state === "courtroom") musicTrack = "court";  // courtroom theme
@@ -123,6 +123,7 @@
         else if (state === "footInterior") updateFootInterior(dt);
         else if (state === "footWedding") updateFootWedding(dt);
         else if (state === "arrival") updateArrival(dt);
+        else if (state === "storyMap") updateStoryMap(dt);
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "quests") updateQuests(dt);
@@ -169,6 +170,7 @@
         else if (state === "footInterior") drawFootInterior();
         else if (state === "footWedding") drawFootWedding();
         else if (state === "arrival") drawArrival();
+        else if (state === "storyMap") drawStoryMap();
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "quests") drawQuests();

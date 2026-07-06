@@ -91,6 +91,8 @@
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
+            storyStars: {},    // STORY TRIP: chapter-task stars earned, keyed by stop id
+
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
             cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
