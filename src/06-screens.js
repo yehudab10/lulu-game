@@ -932,6 +932,14 @@
         for (var i = 0; i < skinKeys.length; i++) {
             var col = i % 2, row = Math.floor(i / 2);
             var cx = 20 + col * 230, cy = 165 + row * 145;
+            // Cards pop in with a small stagger (shared motion language with
+            // the story map + quests) — scale around each card's own center.
+            var gPop = easeOutBack(clamp((shopGridT - 0.03 - i * 0.05) / 0.26, 0, 1));
+            if (gPop <= 0.01) continue;
+            ctx.save();
+            ctx.translate(cx + 105, cy + 65);
+            ctx.scale(gPop, gPop);
+            ctx.translate(-(cx + 105), -(cy + 65));
             var key = skinKeys[i];
             var skin = SKINS[key];
             var owned = save.ownedSkins.indexOf(key) >= 0;
@@ -981,6 +989,7 @@
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
                 drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
+            ctx.restore();   // closes the pop-in transform for this card
         }
     }
 

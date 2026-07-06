@@ -1152,6 +1152,7 @@
     var shopTab = "skins"; // skins, powerups, special
     var shopDetail = null; // Garage: skin key of the open showroom detail view, or null
     var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
+    var shopGridT = 0;     // garage-grid open timer (drives the card pop-in stagger)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
     var buyPopId = null;   // which shop item's owned-count pill just popped

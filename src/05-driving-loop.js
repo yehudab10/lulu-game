@@ -3449,7 +3449,7 @@
             }
             // 🛒 SHOP (full-width)
             if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY + 74, 220, 54)) {
-                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
@@ -3491,14 +3491,14 @@
             var rowY = baseY + 134;
             if (questsUnlocked()) {
                 if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 106, 48)) {
-                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
                 }
                 if (pointInRect(click.x, click.y, W / 2 + 4, rowY, 106, 48)) {
-                    state = "quests"; playClick(); return;
+                    state = "quests"; questScreenT = 0; playClick(); return;
                 }
             } else {
                 if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 220, 48)) {
-                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
                 }
             }
             // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
@@ -3553,6 +3553,7 @@
     // ── Update: Shop ─────────────────────────────────────────
     function updateShop(dt) {
         menuBounce += dt;
+        shopGridT += dt;                     // drives the garage-card pop-in stagger
         if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
         if (buyPopTimer > 0) buyPopTimer -= dt;   // owned-count pill pop/flash
@@ -3600,7 +3601,7 @@
 
         // Tabs (switching tabs closes any open detail view)
         var tabY = 100, tabH = 44, tabW = W / 3;
-        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; playClick(); return; }
+        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; shopGridT = 0; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; shopTab = "powerups"; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; shopTab = "special"; playClick(); return; }
 

@@ -256,7 +256,18 @@
             "600 14px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#1a2228", 3);
 
         // Quest cards.
-        for (var i = 0; i < cards.length; i++) drawQuestCard(cards[i]);
+        // Cards pop in with a small stagger (same motion language as the
+        // story map's nodes) — scale around each card's own center.
+        for (var i = 0; i < cards.length; i++) {
+            var qPop = easeOutBack(clamp((questScreenT - 0.05 - i * 0.08) / 0.28, 0, 1));
+            if (qPop <= 0.01) continue;
+            ctx.save();
+            ctx.translate(cards[i].x + cards[i].w / 2, cards[i].y + cards[i].h / 2);
+            ctx.scale(qPop, qPop);
+            ctx.translate(-(cards[i].x + cards[i].w / 2), -(cards[i].y + cards[i].h / 2));
+            drawQuestCard(cards[i]);
+            ctx.restore();
+        }
 
         // All-done celebration line.
         if (allClaimed && cards.length > 0) {

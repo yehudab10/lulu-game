@@ -7085,6 +7085,7 @@
     var shopTab = "skins"; // skins, powerups, special
     var shopDetail = null; // Garage: skin key of the open showroom detail view, or null
     var shopDetailT = 0;   // detail-view open timer (drives the stat-bar fill-in animation)
+    var shopGridT = 0;     // garage-grid open timer (drives the card pop-in stagger)
     var lastBoughtMessage = "";
     var lastBoughtTimer = 0;
     var buyPopId = null;   // which shop item's owned-count pill just popped
@@ -11921,7 +11922,7 @@
             }
             // 🛒 SHOP (full-width)
             if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY + 74, 220, 54)) {
-                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
@@ -11963,14 +11964,14 @@
             var rowY = baseY + 134;
             if (questsUnlocked()) {
                 if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 106, 48)) {
-                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
                 }
                 if (pointInRect(click.x, click.y, W / 2 + 4, rowY, 106, 48)) {
-                    state = "quests"; playClick(); return;
+                    state = "quests"; questScreenT = 0; playClick(); return;
                 }
             } else {
                 if (pointInRect(click.x, click.y, W / 2 - 110, rowY, 220, 48)) {
-                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+                    state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; shopGridT = 0; playClick(); return;
                 }
             }
             // Distracted mode toggle (if unlocked). It's a solo cheat (reverse
@@ -12025,6 +12026,7 @@
     // ── Update: Shop ─────────────────────────────────────────
     function updateShop(dt) {
         menuBounce += dt;
+        shopGridT += dt;                     // drives the garage-card pop-in stagger
         if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
         if (buyPopTimer > 0) buyPopTimer -= dt;   // owned-count pill pop/flash
@@ -12072,7 +12074,7 @@
 
         // Tabs (switching tabs closes any open detail view)
         var tabY = 100, tabH = 44, tabW = W / 3;
-        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; playClick(); return; }
+        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; shopGridT = 0; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; shopTab = "powerups"; playClick(); return; }
         if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; shopTab = "special"; playClick(); return; }
 
@@ -15916,6 +15918,14 @@
         for (var i = 0; i < skinKeys.length; i++) {
             var col = i % 2, row = Math.floor(i / 2);
             var cx = 20 + col * 230, cy = 165 + row * 145;
+            // Cards pop in with a small stagger (shared motion language with
+            // the story map + quests) — scale around each card's own center.
+            var gPop = easeOutBack(clamp((shopGridT - 0.03 - i * 0.05) / 0.26, 0, 1));
+            if (gPop <= 0.01) continue;
+            ctx.save();
+            ctx.translate(cx + 105, cy + 65);
+            ctx.scale(gPop, gPop);
+            ctx.translate(-(cx + 105), -(cy + 65));
             var key = skinKeys[i];
             var skin = SKINS[key];
             var owned = save.ownedSkins.indexOf(key) >= 0;
@@ -15965,6 +15975,7 @@
                 var col2 = canAfford ? "#FFD700" : "#EF5350";
                 drawText("💰 " + formatNum(skin.price), cx + 105, cy + 124, "bold 14px Arial", col2, "#000", 2);
             }
+            ctx.restore();   // closes the pop-in transform for this card
         }
     }
 
@@ -17132,7 +17143,18 @@
             "600 14px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#1a2228", 3);
 
         // Quest cards.
-        for (var i = 0; i < cards.length; i++) drawQuestCard(cards[i]);
+        // Cards pop in with a small stagger (same motion language as the
+        // story map's nodes) — scale around each card's own center.
+        for (var i = 0; i < cards.length; i++) {
+            var qPop = easeOutBack(clamp((questScreenT - 0.05 - i * 0.08) / 0.28, 0, 1));
+            if (qPop <= 0.01) continue;
+            ctx.save();
+            ctx.translate(cards[i].x + cards[i].w / 2, cards[i].y + cards[i].h / 2);
+            ctx.scale(qPop, qPop);
+            ctx.translate(-(cards[i].x + cards[i].w / 2), -(cards[i].y + cards[i].h / 2));
+            drawQuestCard(cards[i]);
+            ctx.restore();
+        }
 
         // All-done celebration line.
         if (allClaimed && cards.length > 0) {
