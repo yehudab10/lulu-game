@@ -457,6 +457,8 @@
         }
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
+        // STORY arrival PULL-IN: the world visibly eases to a crawl as she rolls up to a stop.
+        if (typeof tripPullInT !== "undefined" && tripPullInT > 0) gameSpeed *= clamp(1 - tripPullInT / 1.1, 0.12, 1);
         // On foot, walking up to a parked car: the world coasts to a halt so she
         // visibly STOPS at it before the hotwire (then stays stopped through it).
         if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
@@ -1881,7 +1883,7 @@
             var inView = cop.y > 60 && cop.y < H - 40;
             if (!copChase && !copBust && !cop.busted && inView && speeding && postEscapeGrace <= 0) {
                 cop.spot += dt; // a short fuse so you can brake to avoid it
-                if (cop.spot >= 0.65) { startCopChase(cop); continue; }
+                if (cop.spot >= 0.65 && !tutorialCalm()) { startCopChase(cop); continue; }
             } else {
                 cop.spot = Math.max(0, cop.spot - dt * 1.5);
             }
@@ -1895,7 +1897,7 @@
                 var lvl = Math.floor(gameTime / 30);
                 if (lvl >= 2) {
                     var fireChance = clamp(0.14 + 0.07 * (lvl - 2), 0, 0.65) * (speeding ? 1.4 : 0.55) * (distractedMode ? 1.35 : 1);
-                    if (Math.random() < fireChance) {
+                    if (Math.random() < fireChance && !tutorialCalm()) {
                         // Don't accuse her of speeding if she's actually crawling — pick
                         // a speed-themed call only when she's truly fast.
                         var apbMsg = speeding
@@ -1922,7 +1924,7 @@
             }
             // Driving calmly makes her harder to spot — slowing down should feel safer,
             // not punished. Flooring it past a cop gets her made fast.
-            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!", (save.wanted || []).slice(0, 3), "OUTSTANDING WARRANT"); } }
+            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7 && !tutorialCalm()) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!", (save.wanted || []).slice(0, 3), "OUTSTANDING WARRANT"); } }
             else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
             wantedPatrolT -= dt;
             if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
@@ -3429,11 +3431,45 @@
         if (click) consumeAction();
         // Shared Road button + its name/room overlay get first crack at the tap.
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
+        // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
+        //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
+        if (click && !save.cruiseUnlocked) {
+            var lBaseY = H * 0.50;
+            // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
+            if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY, 220, 60)) {
+                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
+            }
+            // 🛒 SHOP (full-width)
+            if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY + 74, 220, 54)) {
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+            }
+            // Mute button
+            if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
+                audioMuted = !audioMuted;
+                if (audioMuted) stopMusic();
+                else { var lprev = musicState; musicState = null; if (lprev) startMusic(lprev); else startMusic("lulu"); }
+                playClick(); return;
+            }
+            // Secret Dina corner (5 quick taps top-left)
+            if (pointInRect(click.x, click.y, 0, 0, 70, 70)) {
+                menuSecretTaps++; menuSecretT = 1.4;
+                if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
+                return;
+            }
+            // Quick start: only a tap on the car itself (upper strip) starts the story —
+            // taps elsewhere (e.g. where 🌐 used to be) do nothing.
+            if (click.y > H * 0.3 && click.y < H * 0.45) {
+                runMode = "story"; resetGame(); state = "playing"; playClick(); return;
+            }
+            return;   // any other tap on the locked menu is a no-op
+        }
         if (click) {
             var baseY = H * 0.50;
             // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
-                runMode = "cruise"; resetGame(); gotoState("playing"); playClick();
+                runMode = "cruise";
+                if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+                resetGame(); gotoState("playing"); playClick();
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
@@ -3484,7 +3520,9 @@
             }
             // Default: any click in upper area starts game (cruise quick start).
             if (click.y > H * 0.3 && click.y < H * 0.45) {
-                runMode = "cruise"; resetGame(); state = "playing"; playClick();
+                runMode = "cruise";
+                if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+                resetGame(); state = "playing"; playClick();
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
@@ -3493,8 +3531,12 @@
             // With the Shared Road overlay open, keyboard-start must not fire
             // behind it (mpMenuClick(null) returns true iff the overlay is open).
             if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
+            // Locked (onboarding) → keyboard/any-action quick start is the STORY.
+            if (!save.cruiseUnlocked) { runMode = "story"; resetGame(); state = "playing"; return; }
             // Keyboard/any-action quick start is CRUISE (+ auto Shared Road).
-            runMode = "cruise"; resetGame(); state = "playing";
+            runMode = "cruise";
+            if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+            resetGame(); state = "playing";
             if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
         }
     }

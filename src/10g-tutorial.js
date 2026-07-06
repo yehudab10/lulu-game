@@ -12,6 +12,7 @@
     var tutSteerAcc = 0, tutSpeedHeld = 0, tutLastX = 0, tutCoins0 = 0;
 
     var TUT_STEPS = [
+        { icon: "🏡", title: "ROAD TRIP!",   a: "You're driving to Bubbe's for Shabbos —", b: "watch the bar up top. Hot cholent awaits!", min: 3.4, timeout: 3.4 },
         { icon: "🕹️", title: "STEER",       a: "Drag anywhere (or ◀ ▶ keys)", b: "to weave through traffic.",          min: 1.2, timeout: 99 },
         { icon: "⏫",  title: "SPEED",       a: "Hold BOOST / BRAKE — bottom left.", b: "Double-tap either to LOCK it.", min: 1.2, timeout: 12, point: "boost" },
         { icon: "🪙",  title: "COINS",       a: "Grab coins — quick pickups", b: "chain into a COMBO multiplier.",      min: 1.2, timeout: 10 },
@@ -28,6 +29,11 @@
     }
 
     function tutSkipRect() { return { x: W - 126, y: SAFE_TOP + 64, w: 112, h: 30 }; }
+
+    // While the first-drive tutorial runs, AMBIENT cop heat is suppressed so a new
+    // player can learn in peace. Consequence chases (hit-and-run, bus sign, GTA…)
+    // still fire — this only calms speed traps / spontaneous APBs / wanted-recognition.
+    function tutorialCalm() { return typeof tutActive !== "undefined" && tutActive; }
 
     function tutFinish(skipped) {
         tutActive = false;
@@ -48,15 +54,18 @@
         tutT += dt;
         if (tutDoneFx > 0) tutDoneFx -= dt;
         var done = false;
-        if (tutStep === 0) { tutSteerAcc += Math.abs(player.x - tutLastX); tutLastX = player.x; done = tutSteerAcc > 130; }
-        else if (tutStep === 1) { if (keys.up || keys.down) tutSpeedHeld += dt; done = tutSpeedHeld > 0.7; }
-        else if (tutStep === 2) { done = runCoins > tutCoins0; }
-        else if (tutStep === 3) { done = nearChain > 0; }
-        // steps 4-5 are info beats: min === timeout → they simply play out.
+        // NOTE: indices are +1 vs the old set — a "ROAD TRIP!" info beat is now step 0,
+        // so STEER/SPEED/COINS/CLOSE-CALLS shifted to 1/2/3/4.
+        if (tutStep === 1) { tutSteerAcc += Math.abs(player.x - tutLastX); done = tutSteerAcc > 130; }
+        else if (tutStep === 2) { if (keys.up || keys.down) tutSpeedHeld += dt; done = tutSpeedHeld > 0.7; }
+        else if (tutStep === 3) { done = runCoins > tutCoins0; }
+        else if (tutStep === 4) { done = nearChain > 0; }
+        // step 0 + steps 5-6 are info beats: min === timeout → they simply play out.
+        tutLastX = player.x;   // always track x so entering the STEER step sees no stale jump
         var st = TUT_STEPS[tutStep];
         if (tutT >= st.min && (done || tutT >= st.timeout)) {
             tutStep++; tutT = 0; tutDoneFx = 0.5;
-            if (tutStep === 2) tutCoins0 = runCoins;   // count only coins grabbed DURING the step
+            if (tutStep === 3) tutCoins0 = runCoins;   // count only coins grabbed DURING the coins step
             if (tutStep >= TUT_STEPS.length) { tutFinish(false); return; }
             playTone(660, 0.08, "sine", 0.1, 880);
         }

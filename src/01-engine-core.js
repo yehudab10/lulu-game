@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.8.0";
+    var GAME_VERSION = "1.9.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -53,6 +53,9 @@
     // Veterans who already posted a high score get lifetime-score credit toward
     // the 200k quest unlock, so the feature isn't gated behind a fresh grind.
     if (!save.lifetimeScore && save.highScore > 0) save.lifetimeScore = save.highScore;
+    // Story-first onboarding: VETERANS (any prior progress) keep their full menu —
+    // the cruise/Shared-Road lock is only for genuinely fresh players.
+    if (!save.cruiseUnlocked && (save.highScore > 0 || save.tripBest > 0 || (save.postcards && save.postcards.length))) save.cruiseUnlocked = true;
     // Weekly-quests unlock gate: 200,000 cumulative score across all runs.
     function questsUnlocked() { return (save.lifetimeScore || 0) >= 200000; }
 
@@ -89,6 +92,8 @@
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
+            cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
+            cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }

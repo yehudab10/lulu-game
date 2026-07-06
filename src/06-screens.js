@@ -669,8 +669,31 @@
         //   baseY+194  DISTRACTED    220×40   (if unlocked)
         //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
         var baseY = H * 0.50;
+
+        // ── STORY-FIRST ONBOARDING: locked menu is a dead-simple PLAY (=story) +
+        //    SHOP. No STORY-TRIP button, no 🌐 (its draw is gated in 10f), no modes. ──
+        if (!save.cruiseUnlocked) {
+            drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+            drawButton(W / 2 - 110, baseY + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
+        } else {
+
         // ▶ PLAY
         drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // Pulsing "NEW!" badge until the player's first cruise run.
+        if (!save.cruisePlayed) {
+            var np = 0.5 + 0.5 * Math.sin(menuBounce * 6);
+            ctx.save();
+            ctx.translate(W / 2 + 90, baseY + 5);
+            ctx.rotate(0.16);
+            ctx.scale(1 + 0.08 * np, 1 + 0.08 * np);
+            ctx.shadowColor = "rgba(255,82,82," + (0.4 + 0.4 * np) + ")"; ctx.shadowBlur = 8 + 8 * np;
+            ctx.fillStyle = "#FF5252";
+            roundRect(-27, -13, 54, 24, 8); ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1.5; roundRect(-27, -13, 54, 24, 8); ctx.stroke();
+            drawText("NEW!", 0, 1, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#B71C1C", 2);
+            ctx.restore();
+        }
 
         // 📖 STORY TRIP — parchment/book styling to set it apart from PLAY.
         var storyY = baseY + 72;
@@ -711,6 +734,8 @@
             var c2 = distractedMode ? "#C2185B" : "#616161";
             drawButton(W / 2 - 110, baseY + 194, 220, 40, label, { bg: c1, bgDark: c2, small: true });
         }
+
+        }   // ── end unlocked-menu stack (cruiseUnlocked) ──
 
         // Locked teaser: a subtle grey progress line toward the 200k unlock. Tucked
         // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.

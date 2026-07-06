@@ -56,6 +56,7 @@
         // THE JOURNEY: every run restarts the tour at stop 0 (Bubbe, always reachable).
         tripStopIdx = 0; tripLegStart = 0; tripCycle = 0; tripArrival = null;
         tripStopsThisRun = 0; tripPostponeUntil = 0; tripEndedWell = false; tripLastStopName = "";
+        if (typeof tripPullInT !== "undefined") { tripPullInT = 0; tripMile50 = false; tripMile85 = false; }
         // STORY TRIP: resume from the last banked checkpoint instead of Bubbe. Cruise
         // leaves the 0s above (it has no journey layer at all). Then queue the
         // "LEG n/5" intro banner for this leg (a no-op in cruise).

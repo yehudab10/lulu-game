@@ -64,6 +64,9 @@
     var tripPostponeUntil = 0;    // scrollOffset gate after a chase-postponed arrival
     var tripEndedWell = false;    // TRIP COMPLETE flag → recolors the game-over screen
     var tripLastStopName = "";    // name of the most-recent stop reached this run
+    var tripPullInT = 0;          // >0 while easing to a crawl into a stop (story) — 0..1.1 then arrival
+    var tripMile50 = false;       // per-leg: "halfway" floater fired?
+    var tripMile85 = false;       // per-leg: "next exit!" floater fired?
 
     function tripCycleMult() { return Math.pow(1.5, tripCycle || 0); }
     function tripLegDist() { return TRIP_STOPS[tripStopIdx].dist * tripCycleMult(); }
@@ -78,7 +81,38 @@
     function updateJourney(dt) {
         if (runMode !== "story") return;          // cruise has NO journey layer at all
         if (state !== "playing") return;         // works in BOTH drive & foot mode
+
+        // ── ARRIVAL PULL-IN: once triggered, keep her SAFE and let the world coast
+        //    to a crawl (the speed damp lives next to parkExit in 05-driving-loop),
+        //    then fire the arrival exactly as before once it plays out. ──
+        if (tripPullInT > 0) {
+            tripPullInT += dt;
+            invincibleTimer = Math.max(invincibleTimer, 0.4);
+            if (tripPullInT >= 1.1) {
+                tripPullInT = 0;
+                tripArrival = { stop: TRIP_STOPS[tripStopIdx], t: 0, phase: 0, claimed: false, newPostcard: false };
+                state = "arrival";
+            }
+            return;
+        }
+
+        var legD = tripLegDist();
         var rem = tripRemaining();
+
+        // ── LEG MILESTONES (once each): a warm heads-up mid-leg + near the exit. ──
+        var stop = TRIP_STOPS[tripStopIdx];
+        var prog = clamp(1 - rem / legD, 0, 1);
+        if (!tripMile50 && prog >= 0.5 && rem > 0) {
+            tripMile50 = true;
+            spawnFloater(player.x, player.y - 50, "🏁 halfway to " + stop.name + "!", stop.accent);
+            if (typeof playTone === "function") playTone(523, 0.09, "sine", 0.12);
+        }
+        if (!tripMile85 && prog >= 0.85 && rem > 0) {
+            tripMile85 = true;
+            spawnFloater(player.x, player.y - 50, stop.icon + " " + stop.name + " — next exit!", stop.accent);
+            if (typeof playTone === "function") playTone(659, 0.09, "sine", 0.12);
+        }
+
         if (rem > 0) return;
         // Fugitive / mid-bust? Can't stop with heat on her — postpone the arrival.
         var heat = (typeof copChase !== "undefined" && copChase) ||
@@ -92,10 +126,9 @@
             }
             return;
         }
-        // Arrive. The scene grants immunity on return; entry needs nothing volatile
-        // cleared (we only arrive when calm — no chase / bust / fugitive).
-        tripArrival = { stop: TRIP_STOPS[tripStopIdx], t: 0, phase: 0, claimed: false, newPostcard: false };
-        state = "arrival";
+        // Calm at the finish → begin the smooth PULL-IN (replaces the hard cut).
+        // The arrival fires from the pull-in branch above once it completes.
+        tripPullInT = 0.0001;
     }
 
     // ── Shared button rects (draw + click never drift) ───────────
@@ -138,6 +171,12 @@
                 } else {
                     save.storyStop = reached + 1;
                 }
+                // FIRST arrival unlocks endless cruise + the whole Shared Road stack.
+                if (!save.cruiseUnlocked) {
+                    save.cruiseUnlocked = true;
+                    tripArrival.unlockedCruise = true;
+                    spawnConfetti(W / 2, H * 0.30, 50);   // an extra celebratory burst
+                }
             }
             persistSave();
             playCoin();
@@ -149,6 +188,8 @@
         }
         // gentle ongoing confetti drift
         if (Math.random() < dt * 3) spawnConfetti(rand(W * 0.15, W * 0.85), H * 0.12, 6);
+        // extra celebratory drift while the cruise-unlock line is up
+        if (tripArrival.unlockedCruise && Math.random() < dt * 4) spawnConfetti(rand(W * 0.2, W * 0.8), H * 0.10, 8);
 
         var click = consumeClick();
         if (click) {
@@ -159,6 +200,7 @@
                 if (tripStopIdx >= TRIP_STOPS.length) { tripStopIdx = 0; tripCycle = (tripCycle || 0) + 1; }
                 tripLegStart = scrollOffset;
                 tripPostponeUntil = scrollOffset;
+                tripPullInT = 0; tripMile50 = false; tripMile85 = false;   // fresh leg → re-arm milestones
                 tripArrival = null;
                 invincibleTimer = Math.max(invincibleTimer, 2.5);
                 state = "playing";
@@ -271,6 +313,17 @@
         } else {
             drawText("stop #" + tripStopsThisRun + " this trip", W / 2, ry + 26,
                 "bold 13px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#000", 2);
+        }
+
+        // First-arrival CRUISE UNLOCK — a distinct green line that fits between the
+        // reward readout and the two buttons (buttons sit at H*0.80 / H*0.88).
+        if (tripArrival.unlockedCruise) {
+            var uFont = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var uLines = tripWrap("🔓 SHARED ROAD unlocked — cruise with everyone online, back at the menu!", uFont, W - 84);
+            var uy = ry + 52;
+            for (var ui = 0; ui < uLines.length; ui++) {
+                drawText(uLines[ui], W / 2, uy + ui * 17, uFont, "#7CFC4F", "#1B3A1B", 3);
+            }
         }
 
         // buttons
@@ -485,7 +538,8 @@
         if (rem < 0) rem = 0;
         var prog = clamp(1 - rem / legD, 0, 1);
         var close = rem <= 2500;
-        var pulse = close ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
+        var pulling = (typeof tripPullInT !== "undefined" && tripPullInT > 0);
+        var pulse = (close || pulling) ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
         // ~15% smaller + a softer bg — the owner found the old pill a touch distracting.
         var pw = 133, ph = 19, px = W / 2 - pw / 2, py = 46;
 
@@ -495,13 +549,24 @@
         roundRect(px, py, pw, ph, 10); ctx.fill();
         ctx.strokeStyle = stop.accent; ctx.lineWidth = 1.5;
         roundRect(px, py, pw, ph, 10); ctx.stroke();
-        var label = stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m"));
-        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
+        var label = pulling ? (stop.icon + " ARRIVED!")
+                            : (stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m")));
+        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", (close || pulling) ? "#FFE082" : "#FFF", "#000", 3);
         // progress bar underneath
         var bw = pw - 14, bx = px + 7, by = py + ph + 2;
         ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(bx, by, bw, 4, 2); ctx.fill();
         ctx.fillStyle = stop.accent; roundRect(bx, by, bw * prog, 4, 2); ctx.fill();
         ctx.restore();
+
+        // A small fading "pulling in… <icon>" tag over the car during the pull-in.
+        if (pulling && typeof player !== "undefined" && player) {
+            var pa = clamp(1 - tripPullInT / 1.1, 0, 1);
+            ctx.save();
+            ctx.globalAlpha = 0.35 + 0.65 * pa;
+            drawText("pulling in… " + stop.icon, player.x, player.y - 62,
+                "bold 14px 'Segoe UI', Arial, sans-serif", stop.accent, "#000", 3);
+            ctx.restore();
+        }
     }
 
     // ── Menu postcards strip (called from drawMenu) ──────────────

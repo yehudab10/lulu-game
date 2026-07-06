@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.8.0";
+    var GAME_VERSION = "1.9.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -55,6 +55,9 @@
     // Veterans who already posted a high score get lifetime-score credit toward
     // the 200k quest unlock, so the feature isn't gated behind a fresh grind.
     if (!save.lifetimeScore && save.highScore > 0) save.lifetimeScore = save.highScore;
+    // Story-first onboarding: VETERANS (any prior progress) keep their full menu —
+    // the cruise/Shared-Road lock is only for genuinely fresh players.
+    if (!save.cruiseUnlocked && (save.highScore > 0 || save.tripBest > 0 || (save.postcards && save.postcards.length))) save.cruiseUnlocked = true;
     // Weekly-quests unlock gate: 200,000 cumulative score across all runs.
     function questsUnlocked() { return (save.lifetimeScore || 0) >= 200000; }
 
@@ -91,6 +94,8 @@
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
+            cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
+            cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }
@@ -7316,6 +7321,7 @@
         // THE JOURNEY: every run restarts the tour at stop 0 (Bubbe, always reachable).
         tripStopIdx = 0; tripLegStart = 0; tripCycle = 0; tripArrival = null;
         tripStopsThisRun = 0; tripPostponeUntil = 0; tripEndedWell = false; tripLastStopName = "";
+        if (typeof tripPullInT !== "undefined") { tripPullInT = 0; tripMile50 = false; tripMile85 = false; }
         // STORY TRIP: resume from the last banked checkpoint instead of Bubbe. Cruise
         // leaves the 0s above (it has no journey layer at all). Then queue the
         // "LEG n/5" intro banner for this leg (a no-op in cruise).
@@ -8896,6 +8902,8 @@
         }
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
+        // STORY arrival PULL-IN: the world visibly eases to a crawl as she rolls up to a stop.
+        if (typeof tripPullInT !== "undefined" && tripPullInT > 0) gameSpeed *= clamp(1 - tripPullInT / 1.1, 0.12, 1);
         // On foot, walking up to a parked car: the world coasts to a halt so she
         // visibly STOPS at it before the hotwire (then stays stopped through it).
         if (onFoot && typeof footApproach !== "undefined" && footApproach) gameSpeed *= clamp(1 - footApproach.t / 0.4, 0, 1);
@@ -10320,7 +10328,7 @@
             var inView = cop.y > 60 && cop.y < H - 40;
             if (!copChase && !copBust && !cop.busted && inView && speeding && postEscapeGrace <= 0) {
                 cop.spot += dt; // a short fuse so you can brake to avoid it
-                if (cop.spot >= 0.65) { startCopChase(cop); continue; }
+                if (cop.spot >= 0.65 && !tutorialCalm()) { startCopChase(cop); continue; }
             } else {
                 cop.spot = Math.max(0, cop.spot - dt * 1.5);
             }
@@ -10334,7 +10342,7 @@
                 var lvl = Math.floor(gameTime / 30);
                 if (lvl >= 2) {
                     var fireChance = clamp(0.14 + 0.07 * (lvl - 2), 0, 0.65) * (speeding ? 1.4 : 0.55) * (distractedMode ? 1.35 : 1);
-                    if (Math.random() < fireChance) {
+                    if (Math.random() < fireChance && !tutorialCalm()) {
                         // Don't accuse her of speeding if she's actually crawling — pick
                         // a speed-themed call only when she's truly fast.
                         var apbMsg = speeding
@@ -10361,7 +10369,7 @@
             }
             // Driving calmly makes her harder to spot — slowing down should feel safer,
             // not punished. Flooring it past a cop gets her made fast.
-            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!", (save.wanted || []).slice(0, 3), "OUTSTANDING WARRANT"); } }
+            if (seenW) { wantedSpot += dt * (speeding ? 1.2 : 0.55); if (wantedSpot > 0.7 && !tutorialCalm()) { wantedSpot = 0; beginCopChase(player.x, "🚨 THAT'S HER — WANTED!", (save.wanted || []).slice(0, 3), "OUTSTANDING WARRANT"); } }
             else wantedSpot = Math.max(0, wantedSpot - dt * 0.8);
             wantedPatrolT -= dt;
             if (wantedPatrolT <= 0) { wantedPatrolT = rand(5, 9); if (typeof spawnPatrolCar === "function") spawnPatrolCar(); }
@@ -11868,11 +11876,45 @@
         if (click) consumeAction();
         // Shared Road button + its name/room overlay get first crack at the tap.
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
+        // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
+        //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
+        if (click && !save.cruiseUnlocked) {
+            var lBaseY = H * 0.50;
+            // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
+            if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY, 220, 60)) {
+                runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
+            }
+            // 🛒 SHOP (full-width)
+            if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY + 74, 220, 54)) {
+                state = "shop"; shopTab = "skins"; shopDetail = null; shopDetailT = 0; playClick(); return;
+            }
+            // Mute button
+            if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
+                audioMuted = !audioMuted;
+                if (audioMuted) stopMusic();
+                else { var lprev = musicState; musicState = null; if (lprev) startMusic(lprev); else startMusic("lulu"); }
+                playClick(); return;
+            }
+            // Secret Dina corner (5 quick taps top-left)
+            if (pointInRect(click.x, click.y, 0, 0, 70, 70)) {
+                menuSecretTaps++; menuSecretT = 1.4;
+                if (menuSecretTaps >= 5) { menuSecretTaps = 0; gotoState("charSelect"); playClick(); }
+                return;
+            }
+            // Quick start: only a tap on the car itself (upper strip) starts the story —
+            // taps elsewhere (e.g. where 🌐 used to be) do nothing.
+            if (click.y > H * 0.3 && click.y < H * 0.45) {
+                runMode = "story"; resetGame(); state = "playing"; playClick(); return;
+            }
+            return;   // any other tap on the locked menu is a no-op
+        }
         if (click) {
             var baseY = H * 0.50;
             // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
-                runMode = "cruise"; resetGame(); gotoState("playing"); playClick();
+                runMode = "cruise";
+                if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+                resetGame(); gotoState("playing"); playClick();
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
@@ -11923,7 +11965,9 @@
             }
             // Default: any click in upper area starts game (cruise quick start).
             if (click.y > H * 0.3 && click.y < H * 0.45) {
-                runMode = "cruise"; resetGame(); state = "playing"; playClick();
+                runMode = "cruise";
+                if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+                resetGame(); state = "playing"; playClick();
                 if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
                 return;
             }
@@ -11932,8 +11976,12 @@
             // With the Shared Road overlay open, keyboard-start must not fire
             // behind it (mpMenuClick(null) returns true iff the overlay is open).
             if (typeof mpMenuClick === "function" && mpMenuClick(null)) return;
+            // Locked (onboarding) → keyboard/any-action quick start is the STORY.
+            if (!save.cruiseUnlocked) { runMode = "story"; resetGame(); state = "playing"; return; }
             // Keyboard/any-action quick start is CRUISE (+ auto Shared Road).
-            runMode = "cruise"; resetGame(); state = "playing";
+            runMode = "cruise";
+            if (!save.cruisePlayed) { save.cruisePlayed = true; persistSave(); }
+            resetGame(); state = "playing";
             if (typeof mpAutoConnect === "function") { try { mpAutoConnect(); } catch (e) {} }
         }
     }
@@ -13218,6 +13266,9 @@
     var tripPostponeUntil = 0;    // scrollOffset gate after a chase-postponed arrival
     var tripEndedWell = false;    // TRIP COMPLETE flag → recolors the game-over screen
     var tripLastStopName = "";    // name of the most-recent stop reached this run
+    var tripPullInT = 0;          // >0 while easing to a crawl into a stop (story) — 0..1.1 then arrival
+    var tripMile50 = false;       // per-leg: "halfway" floater fired?
+    var tripMile85 = false;       // per-leg: "next exit!" floater fired?
 
     function tripCycleMult() { return Math.pow(1.5, tripCycle || 0); }
     function tripLegDist() { return TRIP_STOPS[tripStopIdx].dist * tripCycleMult(); }
@@ -13232,7 +13283,38 @@
     function updateJourney(dt) {
         if (runMode !== "story") return;          // cruise has NO journey layer at all
         if (state !== "playing") return;         // works in BOTH drive & foot mode
+
+        // ── ARRIVAL PULL-IN: once triggered, keep her SAFE and let the world coast
+        //    to a crawl (the speed damp lives next to parkExit in 05-driving-loop),
+        //    then fire the arrival exactly as before once it plays out. ──
+        if (tripPullInT > 0) {
+            tripPullInT += dt;
+            invincibleTimer = Math.max(invincibleTimer, 0.4);
+            if (tripPullInT >= 1.1) {
+                tripPullInT = 0;
+                tripArrival = { stop: TRIP_STOPS[tripStopIdx], t: 0, phase: 0, claimed: false, newPostcard: false };
+                state = "arrival";
+            }
+            return;
+        }
+
+        var legD = tripLegDist();
         var rem = tripRemaining();
+
+        // ── LEG MILESTONES (once each): a warm heads-up mid-leg + near the exit. ──
+        var stop = TRIP_STOPS[tripStopIdx];
+        var prog = clamp(1 - rem / legD, 0, 1);
+        if (!tripMile50 && prog >= 0.5 && rem > 0) {
+            tripMile50 = true;
+            spawnFloater(player.x, player.y - 50, "🏁 halfway to " + stop.name + "!", stop.accent);
+            if (typeof playTone === "function") playTone(523, 0.09, "sine", 0.12);
+        }
+        if (!tripMile85 && prog >= 0.85 && rem > 0) {
+            tripMile85 = true;
+            spawnFloater(player.x, player.y - 50, stop.icon + " " + stop.name + " — next exit!", stop.accent);
+            if (typeof playTone === "function") playTone(659, 0.09, "sine", 0.12);
+        }
+
         if (rem > 0) return;
         // Fugitive / mid-bust? Can't stop with heat on her — postpone the arrival.
         var heat = (typeof copChase !== "undefined" && copChase) ||
@@ -13246,10 +13328,9 @@
             }
             return;
         }
-        // Arrive. The scene grants immunity on return; entry needs nothing volatile
-        // cleared (we only arrive when calm — no chase / bust / fugitive).
-        tripArrival = { stop: TRIP_STOPS[tripStopIdx], t: 0, phase: 0, claimed: false, newPostcard: false };
-        state = "arrival";
+        // Calm at the finish → begin the smooth PULL-IN (replaces the hard cut).
+        // The arrival fires from the pull-in branch above once it completes.
+        tripPullInT = 0.0001;
     }
 
     // ── Shared button rects (draw + click never drift) ───────────
@@ -13292,6 +13373,12 @@
                 } else {
                     save.storyStop = reached + 1;
                 }
+                // FIRST arrival unlocks endless cruise + the whole Shared Road stack.
+                if (!save.cruiseUnlocked) {
+                    save.cruiseUnlocked = true;
+                    tripArrival.unlockedCruise = true;
+                    spawnConfetti(W / 2, H * 0.30, 50);   // an extra celebratory burst
+                }
             }
             persistSave();
             playCoin();
@@ -13303,6 +13390,8 @@
         }
         // gentle ongoing confetti drift
         if (Math.random() < dt * 3) spawnConfetti(rand(W * 0.15, W * 0.85), H * 0.12, 6);
+        // extra celebratory drift while the cruise-unlock line is up
+        if (tripArrival.unlockedCruise && Math.random() < dt * 4) spawnConfetti(rand(W * 0.2, W * 0.8), H * 0.10, 8);
 
         var click = consumeClick();
         if (click) {
@@ -13313,6 +13402,7 @@
                 if (tripStopIdx >= TRIP_STOPS.length) { tripStopIdx = 0; tripCycle = (tripCycle || 0) + 1; }
                 tripLegStart = scrollOffset;
                 tripPostponeUntil = scrollOffset;
+                tripPullInT = 0; tripMile50 = false; tripMile85 = false;   // fresh leg → re-arm milestones
                 tripArrival = null;
                 invincibleTimer = Math.max(invincibleTimer, 2.5);
                 state = "playing";
@@ -13425,6 +13515,17 @@
         } else {
             drawText("stop #" + tripStopsThisRun + " this trip", W / 2, ry + 26,
                 "bold 13px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#000", 2);
+        }
+
+        // First-arrival CRUISE UNLOCK — a distinct green line that fits between the
+        // reward readout and the two buttons (buttons sit at H*0.80 / H*0.88).
+        if (tripArrival.unlockedCruise) {
+            var uFont = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var uLines = tripWrap("🔓 SHARED ROAD unlocked — cruise with everyone online, back at the menu!", uFont, W - 84);
+            var uy = ry + 52;
+            for (var ui = 0; ui < uLines.length; ui++) {
+                drawText(uLines[ui], W / 2, uy + ui * 17, uFont, "#7CFC4F", "#1B3A1B", 3);
+            }
         }
 
         // buttons
@@ -13639,7 +13740,8 @@
         if (rem < 0) rem = 0;
         var prog = clamp(1 - rem / legD, 0, 1);
         var close = rem <= 2500;
-        var pulse = close ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
+        var pulling = (typeof tripPullInT !== "undefined" && tripPullInT > 0);
+        var pulse = (close || pulling) ? (1 + 0.05 * Math.sin(gameTime * 8)) : 1;
         // ~15% smaller + a softer bg — the owner found the old pill a touch distracting.
         var pw = 133, ph = 19, px = W / 2 - pw / 2, py = 46;
 
@@ -13649,13 +13751,24 @@
         roundRect(px, py, pw, ph, 10); ctx.fill();
         ctx.strokeStyle = stop.accent; ctx.lineWidth = 1.5;
         roundRect(px, py, pw, ph, 10); ctx.stroke();
-        var label = stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m"));
-        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", close ? "#FFE082" : "#FFF", "#000", 3);
+        var label = pulling ? (stop.icon + " ARRIVED!")
+                            : (stop.icon + " " + (close ? "ALMOST THERE!" : (formatNum(Math.round(rem)) + "m")));
+        drawText(label, W / 2, py + ph / 2 - 1, "bold 11px 'Segoe UI', Arial, sans-serif", (close || pulling) ? "#FFE082" : "#FFF", "#000", 3);
         // progress bar underneath
         var bw = pw - 14, bx = px + 7, by = py + ph + 2;
         ctx.fillStyle = "rgba(0,0,0,0.4)"; roundRect(bx, by, bw, 4, 2); ctx.fill();
         ctx.fillStyle = stop.accent; roundRect(bx, by, bw * prog, 4, 2); ctx.fill();
         ctx.restore();
+
+        // A small fading "pulling in… <icon>" tag over the car during the pull-in.
+        if (pulling && typeof player !== "undefined" && player) {
+            var pa = clamp(1 - tripPullInT / 1.1, 0, 1);
+            ctx.save();
+            ctx.globalAlpha = 0.35 + 0.65 * pa;
+            drawText("pulling in… " + stop.icon, player.x, player.y - 62,
+                "bold 14px 'Segoe UI', Arial, sans-serif", stop.accent, "#000", 3);
+            ctx.restore();
+        }
     }
 
     // ── Menu postcards strip (called from drawMenu) ──────────────
@@ -14355,8 +14468,31 @@
         //   baseY+194  DISTRACTED    220×40   (if unlocked)
         //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
         var baseY = H * 0.50;
+
+        // ── STORY-FIRST ONBOARDING: locked menu is a dead-simple PLAY (=story) +
+        //    SHOP. No STORY-TRIP button, no 🌐 (its draw is gated in 10f), no modes. ──
+        if (!save.cruiseUnlocked) {
+            drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+            drawButton(W / 2 - 110, baseY + 74, 220, 54, "🛒 SHOP", { bg: "#FFC107", bgDark: "#FF6F00", small: true });
+        } else {
+
         // ▶ PLAY
         drawButton(W / 2 - 110, baseY, 220, 60, "▶ PLAY", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // Pulsing "NEW!" badge until the player's first cruise run.
+        if (!save.cruisePlayed) {
+            var np = 0.5 + 0.5 * Math.sin(menuBounce * 6);
+            ctx.save();
+            ctx.translate(W / 2 + 90, baseY + 5);
+            ctx.rotate(0.16);
+            ctx.scale(1 + 0.08 * np, 1 + 0.08 * np);
+            ctx.shadowColor = "rgba(255,82,82," + (0.4 + 0.4 * np) + ")"; ctx.shadowBlur = 8 + 8 * np;
+            ctx.fillStyle = "#FF5252";
+            roundRect(-27, -13, 54, 24, 8); ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = "#FFF"; ctx.lineWidth = 1.5; roundRect(-27, -13, 54, 24, 8); ctx.stroke();
+            drawText("NEW!", 0, 1, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#B71C1C", 2);
+            ctx.restore();
+        }
 
         // 📖 STORY TRIP — parchment/book styling to set it apart from PLAY.
         var storyY = baseY + 72;
@@ -14397,6 +14533,8 @@
             var c2 = distractedMode ? "#C2185B" : "#616161";
             drawButton(W / 2 - 110, baseY + 194, 220, 40, label, { bg: c1, bgDark: c2, small: true });
         }
+
+        }   // ── end unlocked-menu stack (cruiseUnlocked) ──
 
         // Locked teaser: a subtle grey progress line toward the 200k unlock. Tucked
         // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.
@@ -31725,6 +31863,8 @@
 
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
+        // Onboarding lock: Shared Road is unreachable until the first Bubbe arrival.
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return { x: -9999, y: -9999, w: 0, h: 0 };
         var baseY = H * 0.50;
         // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
         // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
@@ -31889,6 +32029,7 @@
 
     function mpMenuButton() {
         if (!MP_URL) return;
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return;   // onboarding: 🌐 hidden until first arrival
         var b = mpMenuBtnRect();
         // Three honest states: idle / trying (pulsing amber) / online (teal).
         var lbl, bg, bgD;
@@ -31958,6 +32099,7 @@
     // return true iff the overlay is open (blocks the menu's keyboard-start).
     function mpMenuClick(click) {
         if (!MP_URL) return false;
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return false;   // onboarding: picker unreachable
         if (!click) return mpPickerOpen;
         if (mpPickerOpen) { mpHandlePickerClick(click); return true; }  // scrim swallows all
         var b = mpMenuBtnRect();
@@ -32183,6 +32325,7 @@
     var tutSteerAcc = 0, tutSpeedHeld = 0, tutLastX = 0, tutCoins0 = 0;
 
     var TUT_STEPS = [
+        { icon: "🏡", title: "ROAD TRIP!",   a: "You're driving to Bubbe's for Shabbos —", b: "watch the bar up top. Hot cholent awaits!", min: 3.4, timeout: 3.4 },
         { icon: "🕹️", title: "STEER",       a: "Drag anywhere (or ◀ ▶ keys)", b: "to weave through traffic.",          min: 1.2, timeout: 99 },
         { icon: "⏫",  title: "SPEED",       a: "Hold BOOST / BRAKE — bottom left.", b: "Double-tap either to LOCK it.", min: 1.2, timeout: 12, point: "boost" },
         { icon: "🪙",  title: "COINS",       a: "Grab coins — quick pickups", b: "chain into a COMBO multiplier.",      min: 1.2, timeout: 10 },
@@ -32199,6 +32342,11 @@
     }
 
     function tutSkipRect() { return { x: W - 126, y: SAFE_TOP + 64, w: 112, h: 30 }; }
+
+    // While the first-drive tutorial runs, AMBIENT cop heat is suppressed so a new
+    // player can learn in peace. Consequence chases (hit-and-run, bus sign, GTA…)
+    // still fire — this only calms speed traps / spontaneous APBs / wanted-recognition.
+    function tutorialCalm() { return typeof tutActive !== "undefined" && tutActive; }
 
     function tutFinish(skipped) {
         tutActive = false;
@@ -32219,15 +32367,18 @@
         tutT += dt;
         if (tutDoneFx > 0) tutDoneFx -= dt;
         var done = false;
-        if (tutStep === 0) { tutSteerAcc += Math.abs(player.x - tutLastX); tutLastX = player.x; done = tutSteerAcc > 130; }
-        else if (tutStep === 1) { if (keys.up || keys.down) tutSpeedHeld += dt; done = tutSpeedHeld > 0.7; }
-        else if (tutStep === 2) { done = runCoins > tutCoins0; }
-        else if (tutStep === 3) { done = nearChain > 0; }
-        // steps 4-5 are info beats: min === timeout → they simply play out.
+        // NOTE: indices are +1 vs the old set — a "ROAD TRIP!" info beat is now step 0,
+        // so STEER/SPEED/COINS/CLOSE-CALLS shifted to 1/2/3/4.
+        if (tutStep === 1) { tutSteerAcc += Math.abs(player.x - tutLastX); done = tutSteerAcc > 130; }
+        else if (tutStep === 2) { if (keys.up || keys.down) tutSpeedHeld += dt; done = tutSpeedHeld > 0.7; }
+        else if (tutStep === 3) { done = runCoins > tutCoins0; }
+        else if (tutStep === 4) { done = nearChain > 0; }
+        // step 0 + steps 5-6 are info beats: min === timeout → they simply play out.
+        tutLastX = player.x;   // always track x so entering the STEER step sees no stale jump
         var st = TUT_STEPS[tutStep];
         if (tutT >= st.min && (done || tutT >= st.timeout)) {
             tutStep++; tutT = 0; tutDoneFx = 0.5;
-            if (tutStep === 2) tutCoins0 = runCoins;   // count only coins grabbed DURING the step
+            if (tutStep === 3) tutCoins0 = runCoins;   // count only coins grabbed DURING the coins step
             if (tutStep >= TUT_STEPS.length) { tutFinish(false); return; }
             playTone(660, 0.08, "sine", 0.1, 880);
         }

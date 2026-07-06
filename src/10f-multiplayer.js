@@ -633,6 +633,8 @@
 
     // ── Menu button + name/room picker overlay ───────────────
     function mpMenuBtnRect() {
+        // Onboarding lock: Shared Road is unreachable until the first Bubbe arrival.
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return { x: -9999, y: -9999, w: 0, h: 0 };
         var baseY = H * 0.50;
         // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
         // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
@@ -797,6 +799,7 @@
 
     function mpMenuButton() {
         if (!MP_URL) return;
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return;   // onboarding: 🌐 hidden until first arrival
         var b = mpMenuBtnRect();
         // Three honest states: idle / trying (pulsing amber) / online (teal).
         var lbl, bg, bgD;
@@ -866,6 +869,7 @@
     // return true iff the overlay is open (blocks the menu's keyboard-start).
     function mpMenuClick(click) {
         if (!MP_URL) return false;
+        if (typeof save !== "undefined" && !save.cruiseUnlocked) return false;   // onboarding: picker unreachable
         if (!click) return mpPickerOpen;
         if (mpPickerOpen) { mpHandlePickerClick(click); return true; }  // scrim swallows all
         var b = mpMenuBtnRect();
