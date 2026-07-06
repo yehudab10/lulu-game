@@ -494,7 +494,7 @@
             if (courageT <= 0) spawnFloater(player.x, player.y - 40, "🍺 courage wore off", "#CE93D8");
         }
         var closeCallMult = (!onFoot && nearChainT > 0) ? 1 + 0.25 * Math.min(nearChain, 8) : 1;
-        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1) * closeCallMult;
+        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1) * closeCallMult * (typeof storyBoonT !== "undefined" && storyBoonT > 0 && !onFoot ? 2 : 1);
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         // Walking doesn't rack up DRIVING score (foot has its own coins/stars) —
         // otherwise the invisible foot stretch silently inflates the score.
@@ -1074,6 +1074,9 @@
                 // Waiting school kids are never a collision — they board only via
                 // the bus's STOP sign. Just let them scroll past.
             } else if (aabb(player.x, player.y, CAR_W * 0.7 * rideHitScale, CAR_H * 0.7 * rideHitScale, o.x, o.y, o.hitW, o.hitH)) {
+                // Scripted gag vans (Ima convoy / Burry box-drop) are INTANGIBLE by
+                // design — they pace/lead her as a bit, not as a wall. Pass through.
+                if (o.ghost) { continue; }
                 if (o.type === "ped") {
                     if (!onFoot) {
                         var roadWitness = (!copChase && !copBust) ? copInView() : null;
@@ -1131,7 +1134,7 @@
                     continue;
                 }
                 if (invincibleTimer <= 0) hitPlayer(o);
-            } else if (o.type === "car" && !o.nearMissed && invincibleTimer <= 0) {
+            } else if (o.type === "car" && !o.nearMissed && !o.ghost && invincibleTimer <= 0) {
                 // ── Near-miss "whoosh" reward: barely dodge an enemy car ──
                 // Trigger once per car, when it's roughly alongside us but not touching.
                 var dyNM = Math.abs(o.y - player.y);
@@ -4381,6 +4384,10 @@
                 if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 30, o.comment);
             } else if (o.type === "car" && o.behavior === "dozer") {
                 drawSteamroller(o.x, o.y, 0, gameTime);
+            } else if (o.type === "car" && (o.behavior === "ima" || o.behavior === "burryvan" || o.behavior === "icetruck")) {
+                // STORY BEATS scripted vehicles (self-contained; no-op outside story).
+                drawStoryVehicle(o);
+                if (o.commentT > 0 && o.comment) drawCarComment(o.x, o.y - 44, o.comment);
             } else if (o.type === "car") {
                 if (o.crashed) {
                     drawRoadWreck(o);
@@ -4452,6 +4459,10 @@
 
         // On foot: parked (stealable) cars + building doors sit in the world.
         if (onFoot) drawFootWorld();
+
+        // STORY BEATS scripted-event world entities (Heshy crosser / gulls / boxes).
+        // Self-guards (no-op unless a story event is active); vehicles draw above.
+        if (typeof drawStoryEvent === "function") drawStoryEvent();
 
         // Shared Road ghosts — other real players sharing the highway (drawn
         // under Lulu so she always reads on top). Guarded no-op offline.

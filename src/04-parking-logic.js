@@ -66,6 +66,13 @@
         }
         if (typeof legBannerT !== "undefined") legBannerT = 0;
         if (typeof queueLegIntro === "function") queueLegIntro();
+        // STORY BEATS: fresh run wipes call/event/boon state, then arms leg 0's call
+        // + event (armStoryLeg is a no-op in cruise). Boon does NOT persist.
+        if (typeof storyCallT !== "undefined") {
+            storyCallT = 0; storyCallDelay = 0; storyCallPending = false; storyCallStop = 0; storyCallLine = "";
+            storyEvent = null; storyEventDone = false; storyBoonT = 0; tripBoon = null;
+        }
+        if (typeof armStoryLeg === "function") armStoryLeg();
         if (typeof clearWanted === "function") clearWanted();   // a fresh run starts with a clean record
         // Last-line guard: distracted mode never runs inside a friend room
         // (reverse controls + 2× score would poison shared scores/races).

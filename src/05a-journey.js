@@ -82,6 +82,12 @@
         if (runMode !== "story") return;          // cruise has NO journey layer at all
         if (state !== "playing") return;         // works in BOTH drive & foot mode
 
+        // STORY BEATS layers (all self-guard on story + playing).
+        updateStoryCall(dt);
+        updateStoryEvent(dt);
+        maybeFireStoryEvent();
+        if (storyBoonT > 0) storyBoonT -= dt;
+
         // ── ARRIVAL PULL-IN: once triggered, keep her SAFE and let the world coast
         //    to a crawl (the speed damp lives next to parkExit in 05-driving-loop),
         //    then fire the arrival exactly as before once it plays out. ──
@@ -193,6 +199,25 @@
 
         var click = consumeClick();
         if (click) {
+            // ── ARRIVAL BOON tap (checked BEFORE the buttons; once, while untapped) ──
+            if (!tripArrival.boonTaken) {
+                var boonR = tripBoonRect();
+                if (pointInRect(click.x, click.y, boonR.x, boonR.y, boonR.w, boonR.h)) {
+                    tripArrival.boonTaken = true;
+                    var binfo = tripBoonInfo(tripStopIdx);
+                    tripBoon = { id: binfo.id, label: binfo.label };
+                    spawnConfetti(boonR.x + boonR.w / 2, boonR.y + boonR.h / 2, 26);
+                    if (typeof playTone === "function") { playTone(659, 0.1, "sine", 0.16); setTimeout(function () { playTone(988, 0.12, "sine", 0.16); }, 90); }
+                    // VEGAS dice pays out INSTANTLY (the finale treat) — nothing to apply later.
+                    if (binfo.id === "dice") {
+                        var roll = randInt(25, 100);
+                        runCoins += roll; save.totalCoins += roll; persistSave();
+                        spawnFloater(boonR.x + boonR.w / 2, boonR.y - 12, "🎲 rolled +" + roll + " 💰", "#FFD54F");
+                        tripBoon.paid = true;
+                    }
+                    return;   // consume this tap (don't fall through to the buttons)
+                }
+            }
             var r = tripBtnRects();
             if (pointInRect(click.x, click.y, r.keep.x, r.keep.y, r.keep.w, r.keep.h)) {
                 // KEEP DRIVING → advance to the next stop (wrap + cycle mult)
@@ -201,6 +226,8 @@
                 tripLegStart = scrollOffset;
                 tripPostponeUntil = scrollOffset;
                 tripPullInT = 0; tripMile50 = false; tripMile85 = false;   // fresh leg → re-arm milestones
+                if (typeof armStoryLeg === "function") armStoryLeg();       // arm next leg's call + event
+                applyTripBoon();                                            // spend a tapped arrival treat
                 tripArrival = null;
                 invincibleTimer = Math.max(invincibleTimer, 2.5);
                 state = "playing";
@@ -325,6 +352,9 @@
                 drawText(uLines[ui], W / 2, uy + ui * 17, uFont, "#7CFC4F", "#1B3A1B", 3);
             }
         }
+
+        // ARRIVAL BOON — one glowing tappable treat that powers the next leg.
+        drawTripBoon(t);
 
         // buttons
         var r = tripBtnRects();
@@ -593,4 +623,446 @@
         }
         drawText("✈️ furthest trip: " + (save.tripBest || 0) + " stop" + ((save.tripBest || 0) === 1 ? "" : "s"),
             W / 2, rowY + 28, "bold 11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  STORY BEATS  — three STORY-MODE-ONLY layers on top of the
+    //  journey: (1) a phone CALL from your destination at each leg's
+    //  start, (2) ONE scripted ROAD EVENT mid-leg, (3) an ARRIVAL
+    //  BOON you tap to power the next leg. Everything self-guards on
+    //  runMode === "story"; cruise/multiplayer stay byte-identical.
+    // ═══════════════════════════════════════════════════════════
+
+    var STORY_CALL_DUR = 4.6;               // seconds the call card stays up
+    var storyCallT = 0;                     // >0 while the call card is showing (counts down)
+    var storyCallDelay = 0;                 // >0 counting down before the call slides in
+    var storyCallPending = false;           // a call is armed for this leg but not shown yet
+    var storyCallStop = 0;                  // which TRIP_STOPS index the call is for
+    var storyCallLine = "";                 // the personality line for the pending/active call
+    var storyEvent = null;                  // the active scripted road event (per-leg), or null
+    var storyEventDone = false;             // per-leg: has this leg's event already fired?
+    var storyBoonT = 0;                     // >0 = spritzer ×2-score buff active (drive only)
+    var tripBoon = null;                    // { id, label } tapped at arrival, applied on KEEP DRIVING
+
+    // Per-stop CALL identity (portrait/icon + accent). Beach has no person → 🐦.
+    function storyCallInfo(idx) {
+        var id = TRIP_STOPS[idx].id;
+        if (id === "bubbe")   return { name: "BUBBE",     portrait: "bubbe",   color: "#FFCC80" };
+        if (id === "heshy")   return { name: "HESHY",     portrait: "heshy",   color: "#80D8FF" };
+        if (id === "beach")   return { name: "THE BEACH", icon: "🐦",           color: "#FFE082" };
+        if (id === "avigail") return { name: "AVIGAIL",   portrait: "avigail", color: "#CE93D8" };
+        return { name: "BURRY", portrait: "burry", color: "#A5D6A7" };
+    }
+
+    // Pick the leg's call line (Avigail's is rivalry-aware like her arrival greet).
+    function pickStoryCallLine(idx) {
+        var id = TRIP_STOPS[idx].id;
+        if (id === "bubbe") return randPick([
+            "Drive nice, bubbeleh — the cholent waits for NO ONE.",
+            "You ate? Eat. Then drive. Then eat again.",
+            "Moishy the officer says hi. DON'T make him pull you over."]);
+        if (id === "heshy") return randPick([
+            "The pool is PERFECT. Bring goggles. Bring snacks. Bring MORE snacks.",
+            "I'm practicing my cannonball. The neighbors called twice!"]);
+        if (id === "beach") return randPick([
+            "*SQUAWK* (translation: the beach awaits)",
+            "*aggressive seagull noises*"]);
+        if (id === "avigail") {
+            var r = (typeof avigailRel === "function") ? avigailRel() : 50;
+            if (r >= 65) return "Bestie! I made spritzers AND snacks. Drive fast but like, safely 💜";
+            if (r <= 35) return "Don't scratch my curb when you park. It's imported.";
+            return "You're actually coming? ...I'll set a plate. 💅";
+        }
+        return randPick([
+            "Cuz! The desert's calling. Mindy says bring sunscreen. The kids say bring SNACKS.",
+            "Vegas baby! ...wait, which exit is Vegas?"]);
+    }
+
+    // Arm the current leg's story beats (call + event). Called at every leg-start
+    // site (resetGame seeding + KEEP DRIVING advance), mirroring queueLegIntro.
+    function armStoryLeg() {
+        if (runMode !== "story") return;
+        // Sweep out any lingering GAG vans from the previous leg (they're intangible
+        // and pace the player, so they'd never scroll off on their own).
+        for (var i = obstacles.length - 1; i >= 0; i--) {
+            var b = obstacles[i].behavior;
+            if (b === "ima" || b === "burryvan") obstacles.splice(i, 1);
+        }
+        storyEvent = null; storyEventDone = false;
+        storyCallStop = tripStopIdx;
+        storyCallLine = pickStoryCallLine(tripStopIdx);
+        storyCallPending = true;
+        storyCallDelay = 2.6;   // ~2.5s after the leg begins (banner runs 2.5s)
+        storyCallT = 0;
+    }
+
+    // ── Feature 1: the phone-call card ───────────────────────────
+    function storyCallRect() {
+        var w = W - 44, h = 84, x = W / 2 - w / 2, y = H * 0.15;
+        return { x: x, y: y, w: w, h: h };
+    }
+
+    function updateStoryCall(dt) {
+        if (runMode !== "story") return;
+        if (storyCallPending) {
+            storyCallDelay -= dt;
+            // Only fire once the leg banner has fully faded (no visual overlap).
+            if (storyCallDelay <= 0 && (typeof legBannerT === "undefined" || legBannerT <= 0)) {
+                storyCallPending = false;
+                storyCallT = STORY_CALL_DUR;
+                if (typeof playTone === "function") { playTone(660, 0.09, "sine", 0.12); setTimeout(function () { playTone(880, 0.09, "sine", 0.10); }, 130); }
+            }
+            return;
+        }
+        if (storyCallT > 0) {
+            storyCallT -= dt;
+            // Tap-to-dismiss — PEEK the click only inside the card rect, so a tap
+            // anywhere else still reaches the driving HUD untouched.
+            if (typeof clickQueue !== "undefined" && clickQueue) {
+                var r = storyCallRect();
+                if (pointInRect(clickQueue.x, clickQueue.y, r.x, r.y, r.w, r.h)) {
+                    clickQueue = null;
+                    if (storyCallT > 0.28) storyCallT = 0.28;   // quick fade-out
+                }
+            }
+        }
+    }
+
+    function drawStoryCall() {
+        if (runMode !== "story") return;
+        if (state !== "playing") return;
+        if (storyCallT <= 0) return;
+        var info = storyCallInfo(storyCallStop);
+        var r = storyCallRect();
+        var age = STORY_CALL_DUR - storyCallT;
+        var slide = easeOutBack(clamp(age / 0.35, 0, 1));
+        var fade = clamp(storyCallT / 0.5, 0, 1) * clamp(age / 0.1, 0, 1);
+        var offx = (1 - slide) * -(r.w + 60);
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.translate(offx, 0);
+        // card
+        ctx.fillStyle = "rgba(18,24,36,0.94)";
+        roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill();
+        ctx.strokeStyle = info.color; ctx.lineWidth = 2.5;
+        roundRect(r.x, r.y, r.w, r.h, 16); ctx.stroke();
+        // avatar (clipped to a circle)
+        var acx = r.x + 44, acy = r.y + r.h / 2, ar = 28;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(acx, acy, ar, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+        ctx.fillStyle = "rgba(255,255,255,0.08)"; ctx.fillRect(acx - ar, acy - ar, ar * 2, ar * 2);
+        if (info.icon) {
+            drawText(info.icon, acx, acy + 2, "34px Arial", "#FFF", null, 0);
+        } else if (info.portrait === "heshy") {
+            tripDrawHeshy(acx, acy + 4, gameTime);
+        } else {
+            drawPortrait(info.portrait, acx, acy, 78, Math.sin(gameTime * 5) > 0);
+        }
+        ctx.restore();
+        ctx.strokeStyle = info.color; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(acx, acy, ar, 0, Math.PI * 2); ctx.stroke();
+        // title + line
+        var tx = r.x + 84;
+        drawText("📞 " + info.name, tx, r.y + 24, "bold 15px 'Segoe UI', Arial, sans-serif", info.color, "#000", 3, "left");
+        var lines = tripWrap(storyCallLine, "bold 12px 'Segoe UI', Arial, sans-serif", r.w - 100);
+        for (var i = 0; i < lines.length && i < 3; i++) {
+            drawText(lines[i], tx, r.y + 44 + i * 16, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF5E6", "#000", 3, "left");
+        }
+        ctx.restore();
+    }
+
+    // ── Feature 2: the scripted mid-leg road event ───────────────
+    function nearestLaneIdx(x) {
+        var best = 0, bd = 1e9;
+        for (var i = 0; i < 3; i++) { var d = Math.abs(LANES[i] - x); if (d < bd) { bd = d; best = i; } }
+        return best;
+    }
+    function removeObstacle(o) { var ix = obstacles.indexOf(o); if (ix >= 0) obstacles.splice(ix, 1); }
+
+    // Fires ONCE at ~60% of a leg (see maybeFireStoryEvent). Each event reuses
+    // existing entities/art and keeps its own light state on `storyEvent`.
+    function fireStoryEvent(idx) {
+        storyEventDone = true;
+        var se = { kind: idx, t: 0 };
+        var pcLane = nearestLaneIdx(player.x);
+        if (idx === 0) {
+            // IMA CONVOY — a warm minivan paces her, then peels away. INTANGIBLE:
+            // it's a gag, not a wall (ghost flag → collision loop skips it).
+            var vlane = pcLane === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1;
+            var van = { type: "car", x: LANES[vlane], y: player.y, color: "#A1887F", carType: 0,
+                behavior: "ima", ghost: true, hitW: 0, hitH: 0, speedMult: 0, comment: null, commentT: 0 };
+            obstacles.push(van); se.van = van;
+        } else if (idx === 1) {
+            // CANNONBALL CROSSING — Heshy sprints across (decorative crosser, no hitbox).
+            se.crossers = [{ x: -40, y: player.y - rand(90, 150), vx: 250 }];
+            if (typeof playHonk === "function") playHonk();
+        } else if (idx === 2) {
+            // SEAGULL SQUADRON → ICE CREAM CONVOY.
+            se.gulls = []; se.convoySpawned = false;
+            var n = randInt(6, 8);
+            for (var g = 0; g < n; g++) se.gulls.push({ x: rand(30, W - 30), y: -30 - g * rand(20, 60), vx: rand(-20, 20), vy: rand(300, 400), t: rand(0, 3) });
+            spawnFloater(W / 2, H * 0.4, "smell that salt air! 🌊", "#4FC3F7");
+        } else if (idx === 3) {
+            // RACE YOU THERE — Avigail's coupe pulls parallel (COLLIDABLE as normal).
+            var alane = pcLane === 1 ? (Math.random() < 0.5 ? 0 : 2) : 1;
+            var aHb = carHitbox(6);
+            var aviCar = { type: "car", x: LANES[alane], y: player.y - 10, color: "#7E57C2", carType: 6,
+                behavior: "avigail", hitW: aHb.hw, hitH: aHb.hh, speedMult: 0, lane: alane,
+                taunted: true, swerveT: 0, spillT: 0, comment: null, commentT: 0 };
+            obstacles.push(aviCar); se.aviCar = aviCar;
+        } else {
+            // BURRY'S BOX DROP — an intangible (ghost) moving van drops pickups.
+            var blane = randInt(0, 2);
+            var bvan = { type: "car", x: LANES[blane], y: player.y - 270, color: "#8D6E63", carType: 0,
+                behavior: "burryvan", ghost: true, hitW: 0, hitH: 0, speedMult: 0, comment: "VEGAS OR BUST!", commentT: 3.5 };
+            obstacles.push(bvan);
+            se.van = bvan; se.boxes = []; se.dropped = 0; se.nextBox = 0.8;
+            se.boxLabels = ["caught the lava lamp!", "the dice clock!", "Mindy's blender!", "a kid's shoe??"];
+        }
+        storyEvent = se;
+        if (typeof playTone === "function") playTone(500, 0.08, "triangle", 0.1, 700);
+    }
+
+    function maybeFireStoryEvent() {
+        if (runMode !== "story") return;
+        if (storyEventDone || storyEvent) return;
+        if (state === "footRun") return;   // road event is drive-mode only (onFoot is a local of updatePlaying)
+        if (state !== "playing") return;
+        if (tripPullInT > 0) return;
+        // Heat on her? DELAY (don't consume the per-leg flag) — it fires when clear.
+        var heat = (typeof copChase !== "undefined" && copChase) ||
+                   (typeof copBust !== "undefined" && copBust) ||
+                   (typeof prisonClothes !== "undefined" && prisonClothes);
+        if (heat) return;
+        var legD = tripLegDist();
+        var prog = clamp(1 - tripRemaining() / legD, 0, 1);
+        if (prog >= 0.6) fireStoryEvent(tripStopIdx);
+    }
+
+    function updateStoryEvent(dt) {
+        if (!storyEvent) return;
+        var se = storyEvent, kind = se.kind;
+        se.t += dt;
+        if (kind === 0) {                       // IMA CONVOY
+            var v = se.van;
+            if (v) {
+                if (!se.said1 && se.t > 1.0) { se.said1 = true; v.comment = "Two hands on the wheel!"; v.commentT = 3.0; }
+                if (!se.said2 && se.t > 3.6) { se.said2 = true; v.comment = "Call your Bubbe when you arrive!!"; v.commentT = 3.2; }
+                if (se.t > 6.2) {
+                    if (!se.honked && typeof playHonk === "function") { se.honked = true; playHonk(); }
+                    v.speedMult -= dt * 0.9; if (v.speedMult < -0.9) v.speedMult = -0.9;
+                }
+                if (v.y < -150) { removeObstacle(v); storyEvent = null; }
+            } else storyEvent = null;
+        } else if (kind === 1) {                // CANNONBALL CROSSING
+            for (var i = se.crossers.length - 1; i >= 0; i--) {
+                var c = se.crossers[i];
+                c.x += c.vx * dt;
+                if (c.x > W + 44) {
+                    spawnFloater(W / 2, c.y - 30, "CANNONBALL PRACTIIIICE! 💦", "#80D8FF");
+                    if (typeof playHonk === "function") playHonk();
+                    spawnSplash(c.x - 40, c.y);
+                    se.crossers.splice(i, 1);
+                }
+            }
+            if (se.crossers.length === 0) storyEvent = null;
+        } else if (kind === 2) {                // GULLS → ICE CREAM CONVOY
+            for (var gi = se.gulls.length - 1; gi >= 0; gi--) {
+                var gg = se.gulls[gi];
+                gg.t += dt; gg.y += gg.vy * dt; gg.x += gg.vx * dt;
+                if (gg.y > H + 70) se.gulls.splice(gi, 1);
+            }
+            if (!se.convoySpawned && se.t > 2.4) {
+                se.convoySpawned = true;
+                var lane = randInt(0, 2);
+                for (var k = 0; k < 3; k++) {
+                    var ty = -70 - k * 180;
+                    obstacles.push({ type: "car", x: LANES[lane], y: ty, color: "#F8BBD0", carType: 0,
+                        behavior: "icetruck", hitW: 40, hitH: 66, speedMult: rand(0.42, 0.5), lane: lane, comment: null, commentT: 0 });
+                    coinEntities.push({ x: LANES[lane] + rand(-12, 12), y: ty - 48, hitW: 16, hitH: 16, collected: false });
+                }
+            }
+            if (se.convoySpawned && se.gulls.length === 0) storyEvent = null;
+        } else if (kind === 3) {                // RACE YOU THERE
+            var a = se.aviCar;
+            var present = a && obstacles.indexOf(a) >= 0;
+            if (present) {
+                if (!se.bumped && aabb(player.x, player.y, CAR_W * 0.7, CAR_H * 0.7, a.x, a.y, a.hitW || 36, a.hitH || 64)) se.bumped = true;
+                if (!se.said1 && se.t > 0.9) { se.said1 = true; a.comment = "Race you to MY house 💅"; a.commentT = 2.6; }
+                if (!se.said2 && se.t > 3.2) { se.said2 = true; a.comment = "Loser buys the spritzers!"; a.commentT = 2.8; }
+                if (se.t > 4.6) { a.speedMult -= dt * 0.9; if (a.speedMult < -1.1) a.speedMult = -1.1; }
+                if (a.y < -150) { removeObstacle(a); present = false; }
+            }
+            if (!present) {
+                if (!se.awarded) {
+                    se.awarded = true;
+                    if (!se.bumped && typeof bumpAvigailRel === "function") bumpAvigailRel(2);
+                }
+                storyEvent = null;
+            }
+        } else if (kind === 4) {                // BURRY'S BOX DROP
+            for (var bi = se.boxes.length - 1; bi >= 0; bi--) {
+                var bx = se.boxes[bi];
+                bx.y += gameSpeed * dt; bx.bob += dt;
+                if (bx.y > H + 50) { se.boxes.splice(bi, 1); continue; }
+                if (state !== "footRun" && aabb(player.x, player.y, CAR_W, CAR_H * 0.8, bx.x, bx.y, bx.hitW, bx.hitH)) {
+                    runCoins += 6; save.totalCoins += 6; persistSave();
+                    spawnFloater(bx.x, bx.y, se.boxLabels[bx.li] + " +6", "#FFD54F");
+                    spawnCoinSparkle(bx.x, bx.y);
+                    if (typeof playCoin === "function") playCoin();
+                    se.boxes.splice(bi, 1);
+                }
+            }
+            var bv = se.van;
+            if (bv) {
+                if (se.t >= se.nextBox && se.dropped < 4 && se.t < 8) {
+                    se.nextBox += 1.7;
+                    se.boxes.push({ x: bv.x + rand(-6, 6), y: bv.y + 34, hitW: 22, hitH: 22, li: se.dropped, bob: rand(0, 6.28) });
+                    se.dropped++;
+                }
+                if (se.t > 8.2) { bv.speedMult -= dt * 0.9; if (bv.speedMult < -0.9) bv.speedMult = -0.9; }
+                if (bv.y < -150) { removeObstacle(bv); se.van = null; }
+            }
+            if (!se.van && se.boxes.length === 0) storyEvent = null;
+        }
+    }
+
+    // Box-truck / minivan art shared by the intangible gag vans + the ice-cream
+    // convoy. Drawn from the obstacle draw loop (behavior branch in 05).
+    function drawStoryVehicle(o) {
+        ctx.save();
+        ctx.translate(o.x, o.y);
+        ctx.fillStyle = "rgba(0,0,0,0.20)";
+        ctx.beginPath(); ctx.ellipse(3, 6, 24, 36, 0, 0, Math.PI * 2); ctx.fill();
+        var body, trim;
+        if (o.behavior === "icetruck") { body = "#FFFFFF"; trim = "#AD1457"; }
+        else if (o.behavior === "burryvan") { body = "#8D6E63"; trim = "#4E342E"; }
+        else { body = "#A1887F"; trim = "#6D4C41"; }   // ima minivan (warm)
+        ctx.fillStyle = body; roundRect(-23, -36, 46, 74, 9); ctx.fill();
+        ctx.strokeStyle = trim; ctx.lineWidth = 2; roundRect(-23, -36, 46, 74, 9); ctx.stroke();
+        ctx.fillStyle = "#81D4FA"; roundRect(-15, 20, 30, 12, 4); ctx.fill();   // windshield (front toward bottom)
+        ctx.fillStyle = "#222";
+        roundRect(-26, -22, 6, 14, 2); ctx.fill(); roundRect(20, -22, 6, 14, 2); ctx.fill();
+        roundRect(-26, 14, 6, 14, 2); ctx.fill(); roundRect(20, 14, 6, 14, 2); ctx.fill();
+        if (o.behavior === "icetruck") {
+            ctx.fillStyle = "#F8BBD0"; roundRect(-23, -8, 46, 18, 0); ctx.fill();
+            drawText("🍦", 0, -47, "20px Arial", "#AD1457", null, 0);
+            drawText("ICE CREAM", 0, 0, "bold 7px 'Segoe UI', Arial, sans-serif", "#AD1457", null, 0);
+        } else if (o.behavior === "burryvan") {
+            ctx.fillStyle = "#6D4C41"; roundRect(-16, -48, 32, 14, 3); ctx.fill();
+            drawText("VEGAS", 0, -8, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 2);
+            drawText("OR BUST", 0, 4, "bold 8px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 2);
+        } else {   // ima minivan — cargo box on the roof + a mom silhouette
+            ctx.fillStyle = "#5D4037"; roundRect(-14, -50, 28, 12, 3); ctx.fill();
+            ctx.strokeStyle = "#3E2723"; ctx.lineWidth = 1; roundRect(-14, -50, 28, 12, 3); ctx.stroke();
+            ctx.fillStyle = "#4E342E"; ctx.beginPath(); ctx.arc(0, 26, 5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    // World-layer draw for the standalone event entities (crossers/gulls/boxes).
+    // Vehicles (ima/burry/ice-cream) draw via the obstacle loop's behavior branch.
+    function drawStoryEvent() {
+        if (!storyEvent) return;
+        var se = storyEvent;
+        if (se.kind === 1 && se.crossers) {
+            for (var i = 0; i < se.crossers.length; i++) drawStoryHeshyCrosser(se.crossers[i]);
+        } else if (se.kind === 2 && se.gulls) {
+            for (var g = 0; g < se.gulls.length; g++) {
+                var gg = se.gulls[g];
+                // soft ground shadow below the bird
+                ctx.fillStyle = "rgba(0,0,0,0.16)";
+                ctx.beginPath(); ctx.ellipse(gg.x, gg.y + 40, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+                // simple white gull (a flapping "M")
+                var fl = Math.sin(gg.t * 14) * 6;
+                ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 3; ctx.lineCap = "round";
+                ctx.beginPath();
+                ctx.moveTo(gg.x - 12, gg.y + fl); ctx.lineTo(gg.x, gg.y - 3); ctx.lineTo(gg.x + 12, gg.y + fl); ctx.stroke();
+            }
+        } else if (se.kind === 4 && se.boxes) {
+            for (var b = 0; b < se.boxes.length; b++) drawStoryBox(se.boxes[b]);
+        }
+    }
+
+    function drawStoryHeshyCrosser(c) {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        // inner tube
+        ctx.fillStyle = "#FF7043"; ctx.beginPath(); ctx.arc(0, 6, 20, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#29B6F6"; ctx.beginPath(); ctx.arc(0, 6, 10, 0, Math.PI * 2); ctx.fill();
+        // body
+        ctx.fillStyle = "#0288D1"; roundRect(-8, -10, 16, 22, 5); ctx.fill();
+        // head + green cap
+        ctx.fillStyle = C.skin; ctx.beginPath(); ctx.arc(0, -16, 9, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#43A047"; ctx.beginPath(); ctx.arc(0, -17, 9.5, Math.PI * 1.03, Math.PI * 1.97); ctx.fill();
+        // pumping legs
+        ctx.strokeStyle = C.skin; ctx.lineWidth = 4; ctx.lineCap = "round";
+        var sw = Math.sin(c.x * 0.1) * 6;
+        ctx.beginPath();
+        ctx.moveTo(-4, 12); ctx.lineTo(-6 + sw, 22);
+        ctx.moveTo(4, 12); ctx.lineTo(6 - sw, 22); ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawStoryBox(b) {
+        ctx.save();
+        ctx.translate(b.x, b.y + Math.sin(b.bob * 3) * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.beginPath(); ctx.ellipse(0, 15, 12, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#8D6E63"; roundRect(-12, -12, 24, 24, 4); ctx.fill();
+        ctx.strokeStyle = "#5D4037"; ctx.lineWidth = 2; roundRect(-12, -12, 24, 24, 4); ctx.stroke();
+        // 5 dice pips
+        ctx.fillStyle = "#FFF";
+        var pips = [[-6, -6], [6, -6], [0, 0], [-6, 6], [6, 6]];
+        for (var i = 0; i < pips.length; i++) { ctx.beginPath(); ctx.arc(pips[i][0], pips[i][1], 2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+    }
+
+    // ── Feature 3: arrival boons ─────────────────────────────────
+    function tripBoonInfo(idx) {
+        var id = TRIP_STOPS[idx].id;
+        if (id === "bubbe")   return { id: "cholent",  emoji: "🍲", label: "Bubbe's cholent" };
+        if (id === "heshy")   return { id: "floatie",  emoji: "🛟", label: "floatie shield" };
+        if (id === "beach")   return { id: "icecream", emoji: "🍦", label: "ice cream" };
+        if (id === "avigail") return { id: "spritzer", emoji: "🥂", label: "spritzer" };
+        return { id: "dice", emoji: "🎲", label: "lucky dice" };
+    }
+    function tripBoonRect() {
+        var s = 74; return { x: W / 2 - s / 2, y: H * 0.70, w: s, h: s };
+    }
+    // Applied on KEEP DRIVING (dice already paid on tap). Announced with a floater.
+    function applyTripBoon() {
+        if (!tripBoon || tripBoon.applied) return;
+        tripBoon.applied = true;
+        var id = tripBoon.id;
+        if (id === "cholent") { lives = Math.min(lives + 1, 9); spawnFloater(player.x, player.y - 50, "Bubbe's cholent: +1 ❤️", "#FFCC80"); }
+        else if (id === "floatie") { invincibleTimer = Math.max(invincibleTimer, 8); spawnFloater(player.x, player.y - 50, "floatie shield: 8s 🛡️", "#80D8FF"); }
+        else if (id === "icecream") { nitroTimer = Math.max(nitroTimer, 5); spawnFloater(player.x, player.y - 50, "sugar rush! 🍦💨", "#F8BBD0"); }
+        else if (id === "spritzer") { storyBoonT = 15; spawnFloater(player.x, player.y - 50, "spritzer confidence: ×2 ✨", "#CE93D8"); }
+        tripBoon = null;
+    }
+    // Drawn inside drawArrival's backdrop area.
+    function drawTripBoon(t) {
+        var binfo = tripBoonInfo(tripStopIdx);
+        var br = tripBoonRect();
+        var bcx = br.x + br.w / 2, bcy = br.y + br.h / 2;
+        if (!tripArrival.boonTaken) {
+            var bp = 0.5 + 0.5 * Math.sin(t * 4);
+            ctx.save();
+            ctx.strokeStyle = tripArrival.stop.accent; ctx.globalAlpha = 0.5 + 0.4 * bp; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(bcx, bcy, br.w * 0.5 + 4 + bp * 6, 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "rgba(20,26,38,0.92)"; ctx.beginPath(); ctx.arc(bcx, bcy, br.w * 0.5, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = tripArrival.stop.accent; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(bcx, bcy, br.w * 0.5, 0, Math.PI * 2); ctx.stroke();
+            ctx.restore();
+            drawText(binfo.emoji, bcx, bcy + 2, "40px Arial", "#FFF", null, 0);
+            ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6);
+            drawText("tap!", bcx, bcy + br.h * 0.5 + 12, "bold 12px 'Segoe UI', Arial, sans-serif", tripArrival.stop.accent, "#000", 3);
+            ctx.restore();
+        } else {
+            ctx.save(); ctx.globalAlpha = 0.9;
+            ctx.fillStyle = "rgba(20,26,38,0.6)"; ctx.beginPath(); ctx.arc(bcx, bcy, br.w * 0.44, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+            drawText(binfo.emoji, bcx, bcy + 2, "30px Arial", "#FFF", null, 0);
+            drawText("✓ " + binfo.label, bcx, bcy + br.h * 0.5 + 12, "bold 11px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#1B3A1B", 3);
+        }
     }

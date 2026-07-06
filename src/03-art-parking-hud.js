@@ -880,6 +880,8 @@
         // THE JOURNEY: compact leg-progress pill (top-center, under the hearts).
         // Self-guards; yields the center strip to any active buff/gauge.
         if (typeof drawJourneyPill === "function") drawJourneyPill();
+        // STORY BEATS: the leg-start phone-call card (self-guards on story + playing).
+        if (typeof drawStoryCall === "function") drawStoryCall();
 
         // Passenger buff timer
         if (passengerTimer > 0) {
