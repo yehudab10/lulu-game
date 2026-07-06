@@ -648,6 +648,19 @@
         ctx.restore();
         drawLuluCar(W / 2, carY, Math.sin(menuBounce * 2) * 0.05, false, menuBounce, distractedMode);
 
+        // Idling exhaust — three little puffs looping up from the tailpipe so
+        // the menu car reads as RUNNING, not parked. Deterministic (no state).
+        ctx.save();
+        for (var xp = 0; xp < 3; xp++) {
+            var xph = (menuBounce * 0.55 + xp / 3) % 1;
+            var xpx = W / 2 - 12 + Math.sin((menuBounce + xp) * 3) * 3;
+            var xpy = carY + 46 + xph * 30;
+            ctx.globalAlpha = (1 - xph) * 0.22;
+            ctx.fillStyle = "#ECEFF1";
+            ctx.beginPath(); ctx.arc(xpx, xpy, 3 + xph * 6, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+
         // Coin balance top-right
         drawCoin(W - 100, 36, menuBounce);
         drawText(formatNum(save.totalCoins), W - 85, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");

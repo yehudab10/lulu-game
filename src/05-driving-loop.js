@@ -3484,6 +3484,7 @@
             // 📖 STORY TRIP — opens the STORY MAP (pick a chapter to drive) instead
             // of launching directly. Solo-flavored: NOT auto-connected.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY + 72, 220, 50)) {
+                if (typeof storyMapT !== "undefined") storyMapT = 0;   // replay the node pop-in
                 gotoState("storyMap"); playClick(); return;
             }
             // ── SHOP + QUESTS split row (SHOP full-width when quests locked) ──

@@ -1050,7 +1050,7 @@
     function fireStoryTalk(idx) {
         storyTalkDone = true;
         var id = TRIP_STOPS[idx].id;
-        storyTalk = { id: id, lines: storyTalkScript(id), idx: 0, t: 0 };
+        storyTalk = { id: id, lines: storyTalkScript(id), idx: 0, t: 0, lineT: 0 };
         if (typeof playTone === "function") { playTone(620, 0.08, "sine", 0.12); setTimeout(function () { playTone(830, 0.08, "sine", 0.10); }, 120); }
         state = "storyTalk";
     }
@@ -1071,14 +1071,38 @@
         if (prog >= 0.35) fireStoryTalk(tripStopIdx);
     }
 
+    // Typewriter speed (chars/sec) + how many chars of the current line are shown.
+    var STORY_TALK_CPS = 42;
+    function storyTalkShownChars() {
+        if (!storyTalk) return 0;
+        var ln = storyTalk.lines[storyTalk.idx];
+        if (!ln) return 0;
+        var n = Math.floor(storyTalk.lineT * STORY_TALK_CPS);
+        if (n >= ln.text.length) return ln.text.length;
+        // Never split a surrogate pair (emoji) mid-reveal.
+        var c = ln.text.charCodeAt(n - 1);
+        if (n > 0 && c >= 0xD800 && c <= 0xDBFF) n = Math.max(0, n - 1);
+        return n;
+    }
+
     function updateStoryTalk(dt) {
         if (!storyTalk) { state = "playing"; return; }
         storyTalk.t += dt;
+        storyTalk.lineT += dt;
         if (typeof updateParticles === "function") updateParticles(dt);
         var adv = false;
         if (consumeClick()) adv = true;
         if (consumeAction()) adv = true;
         if (!adv) return;
+        // First tap while the line is still typing COMPLETES it; the next
+        // tap advances — the standard visual-novel rhythm.
+        var cur = storyTalk.lines[storyTalk.idx];
+        if (cur && storyTalkShownChars() < cur.text.length) {
+            storyTalk.lineT = 999;
+            if (typeof playClick === "function") playClick();
+            return;
+        }
+        storyTalk.lineT = 0;
         storyTalk.idx++;
         if (storyTalk.idx >= storyTalk.lines.length) {
             var wasAvigail = (storyTalk.id === "avigail");
@@ -1092,12 +1116,13 @@
         if (typeof playClick === "function") playClick();
     }
 
-    // Render one speaker into a clipped circle avatar (radius R).
-    function storyTalkAvatar(spk, acx, acy, R) {
+    // Render one speaker into a clipped circle avatar (radius R). `speaking`
+    // syncs the mouth flap to the typewriter — quiet once the line lands.
+    function storyTalkAvatar(spk, acx, acy, R, speaking) {
         ctx.save();
         ctx.beginPath(); ctx.arc(acx, acy, R, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
         ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fillRect(acx - R, acy - R, R * 2, R * 2);
-        var talking = Math.sin(gameTime * 5) > 0;
+        var talking = speaking && Math.sin(gameTime * 9) > -0.2;
         if (spk.heshy) { tripDrawHeshy(acx, acy + R * 0.12, gameTime); }
         else if (spk.lulu) { var sl = R / 44; drawLuluPortrait(acx, acy + 8 * sl, gameTime, sl); }
         else if (spk.dina) { var sd = R / 44; drawDinaPortrait(acx, acy + 4 * sd, gameTime, sd); }
@@ -1117,7 +1142,9 @@
         var spk = storyTalkSpeaker(line.who);
         var t = storyTalk.t;
         var cardW = W - 40, cardX = 20;
-        var cardH = 184, cardY = H - cardH - 46;
+        // The card slides up from below when the scene opens.
+        var slideIn = easeOutBack(clamp(t / 0.32, 0, 1));
+        var cardH = 184, cardY = H - cardH - 46 + (1 - slideIn) * (cardH + 90);
 
         // card
         ctx.fillStyle = "rgba(18,24,36,0.96)";
@@ -1134,26 +1161,32 @@
         roundRect(chX, chY, chW, 22, 11); ctx.fill();
         drawText(chip, chX + chW / 2, chY + 11, "bold 11px 'Segoe UI', Arial, sans-serif", "#3E2723", null, 0);
 
-        // portrait (upper-left)
+        // portrait (upper-left) — mouth flaps only while the line is typing out
+        var shownN = storyTalkShownChars();
+        var typing = shownN < line.text.length;
         var R = 34, acx = cardX + 30 + R, acy = cardY + 48;
-        storyTalkAvatar(spk, acx, acy, R);
+        storyTalkAvatar(spk, acx, acy, R, typing);
 
         // speaker name (gold), phone-framed lines get the 📞 prefix
         var nm = (line.phone ? "📞 " : "") + spk.name;
         drawText(nm, acx + R + 16, cardY + 40, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#3E2723", 4, "left");
 
-        // body text (white), wrapped, up to 4 lines
+        // body text (white), wrapped, up to 4 lines — TYPEWRITER reveal.
+        // Wrap the FULL text (so lines never reflow mid-reveal), then only
+        // draw up to the revealed character count.
         var tFont = "bold 15px 'Segoe UI', Arial, sans-serif";
         var tl = tripWrap(line.text, tFont, cardW - 40);
-        var ty0 = cardY + 96, lineH = 21;
-        for (var i = 0; i < tl.length && i < 4; i++) {
-            drawText(tl[i], cardX + 22, ty0 + i * lineH, tFont, "#FFF5E6", "#000", 3, "left");
+        var ty0 = cardY + 96, lineH = 21, left = shownN;
+        for (var i = 0; i < tl.length && i < 4 && left > 0; i++) {
+            var seg = tl[i].length <= left ? tl[i] : tl[i].substring(0, left);
+            drawText(seg, cardX + 22, ty0 + i * lineH, tFont, "#FFF5E6", "#000", 3, "left");
+            left -= tl[i].length + 1;   // +1 for the swallowed wrap-space
         }
 
-        // advance pulse
+        // advance pulse — "tap ▸▸" fast-forwards while typing, "tap ▸" advances
         var pulse = 0.55 + 0.45 * Math.sin(t * 6);
         ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * pulse;
-        drawText("tap ▸", cardX + cardW - 22, cardY + cardH - 18,
+        drawText(typing ? "tap ▸▸" : "tap ▸", cardX + cardW - 22, cardY + cardH - 18,
             "bold 14px 'Segoe UI', Arial, sans-serif", spk.color, "#000", 3, "right");
         ctx.restore();
 
@@ -1471,6 +1504,7 @@
     //  drive it. STORY-only; never touches cruise. Music: "lulu" group.
     // ═══════════════════════════════════════════════════════════
     var storyMapDeniedIdx = -1, storyMapDeniedT = 0;   // brief shake on a locked-node tap
+    var storyMapT = 0;   // seconds since the map opened — drives the node pop-in stagger
 
     // Node centres along a winding S-curve from lower-left → upper-right, the
     // stops placed roughly evenly and alternating sides. Node radius ~34.
@@ -1500,6 +1534,7 @@
 
     function updateStoryMap(dt) {
         menuBounce += dt;
+        storyMapT += dt;
         if (storyMapDeniedT > 0) storyMapDeniedT -= dt;
         var click = consumeClick();
         if (!click) return;
@@ -1538,6 +1573,27 @@
         sun.addColorStop(0, "rgba(255,224,130,0.35)"); sun.addColorStop(1, "rgba(255,224,130,0)");
         ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
 
+        // Dusk sky life: a few early twinkling stars up top + two slow clouds.
+        ctx.save();
+        for (var sk = 0; sk < 9; sk++) {
+            var stx = ((sk * 97 + 31) % 100) / 100 * W;
+            var sty = ((sk * 53 + 17) % 100) / 100 * H * 0.18 + 8;
+            ctx.globalAlpha = 0.25 + 0.45 * Math.abs(Math.sin(menuBounce * 1.4 + sk * 1.9));
+            ctx.fillStyle = "#FFF8E1";
+            ctx.fillRect(stx, sty, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+        for (var cl = 0; cl < 2; cl++) {
+            var clx = ((menuBounce * (7 + cl * 4) + cl * 260) % (W + 200)) - 100;
+            var cly = H * (0.06 + cl * 0.07);
+            ctx.fillStyle = "rgba(255,236,217,0.13)";
+            ctx.beginPath();
+            ctx.ellipse(clx, cly, 58, 14, 0, 0, Math.PI * 2);
+            ctx.ellipse(clx + 30, cly - 8, 34, 11, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
         var nodes = storyMapNodes();
 
         // ── The winding ROAD (thick asphalt polyline through the nodes) ──
@@ -1552,23 +1608,26 @@
         // subtle edge highlight
         ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 46;
         ctx.stroke();
-        // dashed gold centreline
+        // dashed gold centreline — MARCHING toward Vegas (animated dash offset)
         ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 3; ctx.setLineDash([14, 14]);
+        ctx.lineDashOffset = (menuBounce * 24) % 28;
         ctx.beginPath(); ctx.moveTo(nodes[0].x, nodes[0].y + 40);
         for (var b = 0; b < nodes.length; b++) ctx.lineTo(nodes[b].x, nodes[b].y);
         ctx.lineTo(nodes[nodes.length - 1].x, nodes[nodes.length - 1].y - 40);
-        ctx.stroke(); ctx.setLineDash([]);
+        ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
         ctx.restore();
 
-        // ── Stop NODES ──
+        // ── Stop NODES (staggered pop-in when the map opens) ──
         for (var i = 0; i < nodes.length; i++) {
             var nd = nodes[i], st = storyMapNodeState(i), stop = nd.stop;
+            var popN = easeOutBack(clamp((storyMapT - 0.1 - i * 0.09) / 0.3, 0, 1));
+            if (popN <= 0.01) continue;
             var starred = !!(save.storyStars && save.storyStars[stop.id]);
             var cx = nd.x, cy = nd.y;
             // denied shake
             if (storyMapDeniedIdx === i && storyMapDeniedT > 0) cx += Math.sin(storyMapDeniedT * 50) * 5;
             var isCur = (st === "current");
-            var r = nd.r * (isCur ? 1.12 : 1);
+            var r = nd.r * (isCur ? 1.12 : 1) * popN;
 
             // ring
             ctx.save();
@@ -1587,11 +1646,13 @@
             ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
             ctx.restore();
 
-            // icon (dimmed when locked)
+            // icon (dimmed when locked; scales with the pop-in)
             ctx.save();
             if (st === "locked") ctx.globalAlpha = 0.4;
-            drawText(stop.icon, cx, cy + 1, "30px Arial", "#FFF", null, 0);
+            ctx.globalAlpha *= popN;
+            drawText(stop.icon, cx, cy + 1, Math.max(8, Math.round(30 * popN)) + "px Arial", "#FFF", null, 0);
             ctx.restore();
+            if (popN < 0.85) continue;   // glyphs/labels arrive once the badge has landed
 
             // status glyphs
             if (st === "done") {
@@ -1611,15 +1672,40 @@
                 drawText("NEXT", cx, chY + 9, "bold 11px 'Segoe UI', Arial, sans-serif", "#3E2723", null, 0);
             }
 
-            // name + task lines beside/below the node
+            // name + task lines beside/below the node, on a soft backing pill so
+            // they stay legible over the road/sky no matter where the node sits.
             var nameC = (st === "locked") ? "rgba(255,255,255,0.45)" : "#FFF5E6";
+            var tLines = (st !== "locked" && stop.task)
+                ? tripWrap("⭐ " + stop.task, "10px 'Segoe UI', Arial, sans-serif", 150) : [];
+            if (tLines.length > 2) tLines = tLines.slice(0, 2);
+            // measure the widest line for the pill
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var blockW = ctx.measureText(stop.name).width;
+            ctx.font = "10px 'Segoe UI', Arial, sans-serif";
+            for (var tm = 0; tm < tLines.length; tm++) blockW = Math.max(blockW, ctx.measureText(tLines[tm]).width);
+            var blockH = 20 + tLines.length * 13;
+            ctx.fillStyle = "rgba(24,16,30,0.55)";
+            roundRect(cx - blockW / 2 - 8, cy + r + 4, blockW + 16, blockH, 8); ctx.fill();
             drawText(stop.name, cx, cy + r + 14, "bold 12px 'Segoe UI', Arial, sans-serif", nameC, "#000", 3);
-            if (st !== "locked" && stop.task) {
-                var tLines = tripWrap("⭐ " + stop.task, "10px 'Segoe UI', Arial, sans-serif", 150);
-                for (var tl = 0; tl < tLines.length && tl < 2; tl++) {
-                    drawText(tLines[tl], cx, cy + r + 30 + tl * 13, "10px 'Segoe UI', Arial, sans-serif",
-                        starred ? "#FFE082" : "#CFD8DC", "#000", 2);
-                }
+            for (var tl = 0; tl < tLines.length; tl++) {
+                drawText(tLines[tl], cx, cy + r + 30 + tl * 13, "10px 'Segoe UI', Arial, sans-serif",
+                    starred ? "#FFE082" : "#CFD8DC", "#000", 2);
+            }
+
+            // "You are here" — Lulu's own car idles beside the NEXT stop's node,
+            // bobbing gently with a soft headlight glow. Makes the map feel like
+            // she's really parked on this road, not looking at a chart.
+            if (isCur && popN >= 0.99) {
+                var mkX = cx - r - 28, mkY = cy + 20 + Math.sin(menuBounce * 2.4) * 3;
+                ctx.save();
+                var hg = ctx.createRadialGradient(mkX, mkY, 4, mkX, mkY, 42);
+                hg.addColorStop(0, "rgba(255,236,150,0.30)"); hg.addColorStop(1, "rgba(255,236,150,0)");
+                ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(mkX, mkY, 42, 0, Math.PI * 2); ctx.fill();
+                ctx.translate(mkX, mkY);
+                ctx.rotate(0.5);
+                ctx.scale(0.46, 0.46);
+                drawLuluCar(0, 0, 0, false, menuBounce, false);
+                ctx.restore();
             }
         }
 
