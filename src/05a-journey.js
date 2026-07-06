@@ -91,6 +91,17 @@
         return (typeof stop.greet === "function") ? stop.greet() : stop.greet;
     }
 
+    // STORY-only arrival beat: a small second line under the greet that advances
+    // the plot (the pot, the floatie, Morgan, Avigail, the Vegas surprise).
+    function tripStoryBeat(id) {
+        if (id === "bubbe")   return "*hands over the POT* Guard it with your LIFE. Or at least both hands.";
+        if (id === "heshy")   return "*throws floatie in your trunk* Fountain research, here we come.";
+        if (id === "beach")   return "*Morgan is rescued, sandy but fine* Dina says you're a hero.";
+        if (id === "avigail") return "*gets in* If anyone asks, I was never stranded.";
+        if (id === "vegas")   return "*the whole mishpacha jumps out* SURPRIIIISE! ...wait, WE'RE the surprise!";
+        return "";
+    }
+
     // ── Leg progress + arrival trigger (hooked from updatePlaying) ──
     function updateJourney(dt) {
         if (runMode !== "story") return;          // cruise has NO journey layer at all
@@ -102,6 +113,8 @@
         maybeFireStoryEvent();
         if (storyBoonT > 0) storyBoonT -= dt;
         updateStoryGear(dt);   // beach-leg runaway gear (self-guards; no-op elsewhere)
+        maybeFireStoryTalk();  // ~35% mid-leg dialogue interlude (opens state "storyTalk")
+        if (state === "storyTalk") return;   // interlude took the frame
 
         // ── ARRIVAL PULL-IN: once triggered, keep her SAFE and let the world coast
         //    to a crawl (the speed damp lives next to parkExit in 05-driving-loop),
@@ -346,17 +359,47 @@
         drawText(stop.icon + "  " + stop.name, W / 2, H * 0.155,
             "bold 22px 'Segoe UI', Arial, sans-serif", stop.accent, "#3E2723", 5);
         if (finale) {
-            drawText("TOUR " + tripArrival.tourNum + " unlocked — longer roads, same mishpacha",
-                W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
+            // Backing pill so this reads over the neon VEGAS sign behind it.
+            var tourTxt = "TOUR " + tripArrival.tourNum + " unlocked — longer roads, same mishpacha";
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var tourW = ctx.measureText(tourTxt).width + 24;
+            ctx.fillStyle = "rgba(20,12,30,0.78)";
+            roundRect(W / 2 - tourW / 2, H * 0.20 - 12, tourW, 24, 12); ctx.fill();
+            drawText(tourTxt, W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
         }
 
-        // greet card (speech quote)
-        var greet = tripStopGreet(stop);
-        var gFont = "bold 15px 'Segoe UI', Arial, sans-serif";
-        var lines = tripWrap(greet, gFont, W - 96);
-        var lineH = 21, cardPadY = 14;
-        var cardH = lines.length * lineH + cardPadY * 2;
-        var cardW = W - 56, cardX = W / 2 - cardW / 2, cardY = H * 0.47;
+        // greet card (speech quote) — STORY appends a small plot BEAT under the
+        // greet; the Vegas FINALE swaps the whole card for the EPILOGUE.
+        var cardPadY = 14;
+        var cardW = W - 56, cardX = W / 2 - cardW / 2, cardY = H * (finale ? 0.42 : 0.47);
+        var block = [];   // {text, font, color, ol, ow, h}
+        if (finale) {
+            var epiBeat = tripStoryBeat("vegas");
+            var epiPara = "The pot made it. The cholent happened. Heshy found the fountains. Avigail caught the bouquet — wrong party, still counts. And Burry cried twice. (He says it was the desert air.)";
+            var bF = "italic 12px 'Segoe UI', Arial, sans-serif";
+            var pF = "13px 'Segoe UI', Arial, sans-serif";
+            var eF = "bold 15px 'Segoe UI', Arial, sans-serif";
+            var bl = tripWrap(epiBeat, bF, cardW - 36);
+            for (var q0 = 0; q0 < bl.length; q0++) block.push({ text: bl[q0], font: bF, color: "#FFE0B2", ol: "#000", ow: 2, h: 16 });
+            var pl = tripWrap(epiPara, pF, cardW - 36);
+            for (var q1 = 0; q1 < pl.length; q1++) block.push({ text: pl[q1], font: pF, color: "#FFF5E6", ol: "#000", ow: 3, h: 17 });
+            block.push({ text: "THE END — until Tour 2 🎲", font: eF, color: "#FFD54F", ol: "#5D4037", ow: 4, h: 24 });
+        } else {
+            var greet = tripStopGreet(stop);
+            var gFont = "bold 15px 'Segoe UI', Arial, sans-serif";
+            var gl = tripWrap(greet, gFont, W - 96);
+            for (var g0 = 0; g0 < gl.length; g0++) block.push({ text: gl[g0], font: gFont, color: "#FFF5E6", ol: "#000", ow: 3, h: 21 });
+            if (runMode === "story") {
+                var beat = tripStoryBeat(stop.id);
+                if (beat) {
+                    var beF = "italic 12px 'Segoe UI', Arial, sans-serif";
+                    var bel = tripWrap(beat, beF, W - 96);
+                    for (var b0 = 0; b0 < bel.length; b0++) block.push({ text: bel[b0], font: beF, color: "#FFE0B2", ol: "#000", ow: 2, h: 16 });
+                }
+            }
+        }
+        var cardH = cardPadY * 2;
+        for (var ch0 = 0; ch0 < block.length; ch0++) cardH += block[ch0].h;
         ctx.fillStyle = "rgba(20,26,38,0.9)";
         roundRect(cardX, cardY, cardW, cardH, 14); ctx.fill();
         ctx.strokeStyle = stop.accent; ctx.lineWidth = 2;
@@ -368,9 +411,11 @@
         ctx.lineTo(W / 2 + 12, cardY + 1);
         ctx.lineTo(W / 2, cardY - 14);
         ctx.closePath(); ctx.fill();
-        for (var li = 0; li < lines.length; li++) {
-            drawText(lines[li], W / 2, cardY + cardPadY + li * lineH + lineH / 2,
-                gFont, "#FFF5E6", "#000", 3);
+        var cyText = cardY + cardPadY;
+        for (var li = 0; li < block.length; li++) {
+            cyText += block[li].h / 2;
+            drawText(block[li].text, W / 2, cyText, block[li].font, block[li].color, block[li].ol, block[li].ow);
+            cyText += block[li].h / 2;
         }
 
         // reward line + postcard
@@ -722,24 +767,23 @@
     function pickStoryCallLine(idx) {
         var id = TRIP_STOPS[idx].id;
         if (id === "bubbe") return randPick([
-            "Drive nice, bubbeleh — the cholent waits for NO ONE.",
-            "You ate? Eat. Then drive. Then eat again.",
-            "Moishy the officer says hi. DON'T make him pull you over."]);
+            "Come straight here, Lululeh — I have a MISSION for you.",
+            "The kugel is in the oven and I have NEWS. Drive."]);
         if (id === "heshy") return randPick([
-            "The pool is PERFECT. Bring goggles. Bring snacks. Bring MORE snacks.",
-            "I'm practicing my cannonball. The neighbors called twice!"]);
+            "It's about Vegas... we need to talk. Poolside. Obviously.",
+            "Bring goggles. And your listening ears."]);
         if (id === "beach") return randPick([
-            "*SQUAWK* (translation: the beach awaits)",
-            "*aggressive seagull noises*"]);
+            "*SQUAWK* (a seagull has stolen someone's sandwich)",
+            "*URGENT seagull noises re: a buried plushie*"]);
         if (id === "avigail") {
             var r = (typeof avigailRel === "function") ? avigailRel() : 50;
-            if (r >= 65) return "Bestie! I made spritzers AND snacks. Drive fast but like, safely 💜";
-            if (r <= 35) return "Don't scratch my curb when you park. It's imported.";
-            return "You're actually coming? ...I'll set a plate. 💅";
+            if (r >= 65) return "Bestie, my engine's making a noise like your singing. Come quick 💜";
+            if (r <= 35) return "I do NOT need help. But if you HAPPENED to drive by...";
+            return "Hypothetically, if my car exploded, what's your ETA?";
         }
         return randPick([
-            "Cuz! The desert's calling. Mindy says bring sunscreen. The kids say bring SNACKS.",
-            "Vegas baby! ...wait, which exit is Vegas?"]);
+            "Cuz, the van's packed! Mostly. The kids packed themselves. Send help.",
+            "Mindy says drive safe. The kids say drive FAST. I say SNACKS."]);
     }
 
     // Arm the current leg's story beats (call + event). Called at every leg-start
@@ -753,6 +797,7 @@
             if (b === "ima" || b === "burryvan") obstacles.splice(i, 1);
         }
         storyEvent = null; storyEventDone = false;
+        storyTalk = null; storyTalkDone = false;   // re-arm this leg's dialogue interlude
         storyCallStop = tripStopIdx;
         storyCallLine = pickStoryCallLine(tripStopIdx);
         storyCallPending = true;
@@ -924,6 +969,201 @@
             drawText(lines[i], tx, r.y + 44 + i * 16, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFF5E6", "#000", 3, "left");
         }
         ctx.restore();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  MID-LEG DIALOGUE INTERLUDE  (state "storyTalk") — a short PAUSE
+    //  scene ~35% into each leg: the road freezes (drawn dimmed under a
+    //  card), a portrait plays 3-5 scripted lines, tap to advance, last
+    //  tap resumes "playing" with a 2s shield. STORY-only; one per leg.
+    // ═══════════════════════════════════════════════════════════
+    var storyTalk = null;         // { id, lines:[{who,phone,text}], idx, t } while up
+    var storyTalkDone = false;    // per-leg: has this leg's interlude already played?
+
+    // The authored per-leg script (Avigail's is relationship-aware, chosen here so
+    // the +6 bump applied AFTER the interlude reflects the pre-interlude rel).
+    function storyTalkScript(id) {
+        if (id === "bubbe") return [
+            { who: "bubbe", phone: true, text: "Lululeh. Listen close. The POT comes to Vegas." },
+            { who: "lulu",  phone: true, text: "The heirloom pot?? The one Zaidy schlepped from—" },
+            { who: "bubbe", phone: true, text: "Sunday we surprise Burry. The whole mishpacha. The pot MAKES the cholent that makes the party." },
+            { who: "lulu",  phone: true, text: "No pressure or anything!!" },
+            { who: "bubbe", phone: true, text: "Pressure? You're a BRUCK. Drive." }
+        ];
+        if (id === "heshy") return [
+            { who: "heshy", text: "Lulu. Real talk. Vegas has... NO water." },
+            { who: "lulu",  text: "Heshy. They have POOLS. Famous ones. With FOUNTAINS." },
+            { who: "heshy", text: "...fountains?" },
+            { who: "lulu",  text: "Dancing ones. CHOREOGRAPHED." },
+            { who: "heshy", text: "...Pack the floatie. I'M IN. 🏊" }
+        ];
+        if (id === "beach") return [
+            { who: "dina",  phone: true, text: "LULU. Emergency. Morgan is IN THE SAND." },
+            { who: "lulu",  phone: true, text: "How deep are we talking?" },
+            { who: "dina",  phone: true, text: "Tail-deep. Tammy says it's 'fine.' It is NOT fine." },
+            { who: "fayge", phone: true, text: "(background) Nobody panic! Chani's napping!" },
+            { who: "lulu",  phone: true, text: "Morgan rescue squad, en route. NOBODY digs without me." }
+        ];
+        if (id === "avigail") {
+            var r = (typeof avigailRel === "function") ? avigailRel() : 50;
+            if (r <= 35) return [
+                { who: "avigail", text: "Don't. Say. Anything." },
+                { who: "lulu",    text: "Wasn't gonna. ...Jumper cables?" },
+                { who: "avigail", text: "...Fine. But this never happened." },
+                { who: "lulu",    text: "What never happened? 😇" }
+            ];
+            if (r >= 65) return [
+                { who: "avigail", text: "BESTIE. My car did a thing." },
+                { who: "lulu",    text: "A smoking thing." },
+                { who: "avigail", text: "Get me to my own party?" },
+                { who: "lulu",    text: "Hop in, drama queen. 💜" }
+            ];
+            return [
+                { who: "avigail", text: "Of COURSE you'd drive by right now." },
+                { who: "lulu",    text: "Need a hand, or just an audience?" },
+                { who: "avigail", text: "...Both. Obviously." },
+                { who: "lulu",    text: "Buckle up, frenemy." }
+            ];
+        }
+        // vegas
+        return [
+            { who: "burry", phone: true, text: "Cuz... everyone's really coming? For ME?" },
+            { who: "lulu",  phone: true, text: "The WHOLE mishpacha. Even Avigail." },
+            { who: "burry", phone: true, text: "I told Mindy this town never surprised me once. ...I gotta write a toast. What rhymes with 'Lakewood'?" },
+            { who: "lulu",  phone: true, text: "Focus on the ROAD— wait, that's me. GOTTA GO!" }
+        ];
+    }
+
+    // Speaker identity (name colour + which portrait renderer to use).
+    function storyTalkSpeaker(who) {
+        if (who === "bubbe")   return { name: "BUBBE",   color: "#FFCC80", port: "bubbe" };
+        if (who === "lulu")    return { name: "LULU",    color: "#FF9EC4", lulu: true };
+        if (who === "heshy")   return { name: "HESHY",   color: "#80D8FF", heshy: true };
+        if (who === "dina")    return { name: "DINA",    color: "#F48FB1", dina: true };
+        if (who === "fayge")   return { name: "FAYGE",   color: "#9FA8DA", port: "fayge" };
+        if (who === "avigail") return { name: "AVIGAIL", color: "#CE93D8", port: "avigail" };
+        if (who === "burry")   return { name: "BURRY",   color: "#A5D6A7", port: "burry" };
+        return { name: "?", color: "#FFFFFF", port: "kid" };
+    }
+
+    // Fire the interlude (opens the scene). Snapshots the leg's script.
+    function fireStoryTalk(idx) {
+        storyTalkDone = true;
+        var id = TRIP_STOPS[idx].id;
+        storyTalk = { id: id, lines: storyTalkScript(id), idx: 0, t: 0 };
+        if (typeof playTone === "function") { playTone(620, 0.08, "sine", 0.12); setTimeout(function () { playTone(830, 0.08, "sine", 0.10); }, 120); }
+        state = "storyTalk";
+    }
+
+    // Trigger check — story only, once per leg, at >=35%, calm & drive-mode.
+    function maybeFireStoryTalk() {
+        if (runMode !== "story") return;
+        if (storyTalkDone || storyTalk) return;
+        if (state !== "playing") return;    // drive-mode only (foot never reaches here)
+        if (tripPullInT > 0) return;
+        // Heat on her? retry until clear (never consumes the per-leg flag).
+        var heat = (typeof copChase !== "undefined" && copChase) ||
+                   (typeof copBust !== "undefined" && copBust) ||
+                   (typeof prisonClothes !== "undefined" && prisonClothes);
+        if (heat) return;
+        var legD = tripLegDist();
+        var prog = clamp(1 - tripRemaining() / legD, 0, 1);
+        if (prog >= 0.35) fireStoryTalk(tripStopIdx);
+    }
+
+    function updateStoryTalk(dt) {
+        if (!storyTalk) { state = "playing"; return; }
+        storyTalk.t += dt;
+        if (typeof updateParticles === "function") updateParticles(dt);
+        var adv = false;
+        if (consumeClick()) adv = true;
+        if (consumeAction()) adv = true;
+        if (!adv) return;
+        storyTalk.idx++;
+        if (storyTalk.idx >= storyTalk.lines.length) {
+            var wasAvigail = (storyTalk.id === "avigail");
+            storyTalk = null;
+            state = "playing";
+            invincibleTimer = Math.max(invincibleTimer, 2.0);
+            if (wasAvigail && typeof bumpAvigailRel === "function") bumpAvigailRel(6);
+            if (typeof playClick === "function") playClick();
+            return;
+        }
+        if (typeof playClick === "function") playClick();
+    }
+
+    // Render one speaker into a clipped circle avatar (radius R).
+    function storyTalkAvatar(spk, acx, acy, R) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(acx, acy, R, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
+        ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fillRect(acx - R, acy - R, R * 2, R * 2);
+        var talking = Math.sin(gameTime * 5) > 0;
+        if (spk.heshy) { tripDrawHeshy(acx, acy + R * 0.12, gameTime); }
+        else if (spk.lulu) { var sl = R / 44; drawLuluPortrait(acx, acy + 8 * sl, gameTime, sl); }
+        else if (spk.dina) { var sd = R / 44; drawDinaPortrait(acx, acy + 4 * sd, gameTime, sd); }
+        else { drawPortrait(spk.port, acx, acy, R * 2.8, talking); }
+        ctx.restore();
+        ctx.strokeStyle = spk.color; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(acx, acy, R, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    function drawStoryTalk() {
+        // Frozen driving world underneath, then a dark scrim (like paused).
+        if (typeof drawPlaying === "function") drawPlaying();
+        ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(0, 0, W, H);
+        if (!storyTalk) return;
+        var line = storyTalk.lines[storyTalk.idx];
+        if (!line) return;
+        var spk = storyTalkSpeaker(line.who);
+        var t = storyTalk.t;
+        var cardW = W - 40, cardX = 20;
+        var cardH = 184, cardY = H - cardH - 46;
+
+        // card
+        ctx.fillStyle = "rgba(18,24,36,0.96)";
+        roundRect(cardX, cardY, cardW, cardH, 18); ctx.fill();
+        ctx.strokeStyle = spk.color; ctx.lineWidth = 2.5;
+        roundRect(cardX, cardY, cardW, cardH, 18); ctx.stroke();
+
+        // chapter / LEG STORY chip riding the top edge
+        var stop = TRIP_STOPS[tripStopIdx];
+        var chip = (stop ? stop.icon + "  " : "") + "LEG STORY";
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        var chW = ctx.measureText(chip).width + 22, chX = cardX + 18, chY = cardY - 12;
+        ctx.fillStyle = stop ? stop.accent : "#FFD54F";
+        roundRect(chX, chY, chW, 22, 11); ctx.fill();
+        drawText(chip, chX + chW / 2, chY + 11, "bold 11px 'Segoe UI', Arial, sans-serif", "#3E2723", null, 0);
+
+        // portrait (upper-left)
+        var R = 34, acx = cardX + 30 + R, acy = cardY + 48;
+        storyTalkAvatar(spk, acx, acy, R);
+
+        // speaker name (gold), phone-framed lines get the 📞 prefix
+        var nm = (line.phone ? "📞 " : "") + spk.name;
+        drawText(nm, acx + R + 16, cardY + 40, "bold 16px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#3E2723", 4, "left");
+
+        // body text (white), wrapped, up to 4 lines
+        var tFont = "bold 15px 'Segoe UI', Arial, sans-serif";
+        var tl = tripWrap(line.text, tFont, cardW - 40);
+        var ty0 = cardY + 96, lineH = 21;
+        for (var i = 0; i < tl.length && i < 4; i++) {
+            drawText(tl[i], cardX + 22, ty0 + i * lineH, tFont, "#FFF5E6", "#000", 3, "left");
+        }
+
+        // advance pulse
+        var pulse = 0.55 + 0.45 * Math.sin(t * 6);
+        ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * pulse;
+        drawText("tap ▸", cardX + cardW - 22, cardY + cardH - 18,
+            "bold 14px 'Segoe UI', Arial, sans-serif", spk.color, "#000", 3, "right");
+        ctx.restore();
+
+        // progress dots (which line of how many)
+        var n = storyTalk.lines.length, dotY = cardY + cardH - 16, dotGap = 13;
+        var dotX0 = cardX + 22;
+        for (var d = 0; d < n; d++) {
+            ctx.fillStyle = (d <= storyTalk.idx) ? spk.color : "rgba(255,255,255,0.2)";
+            ctx.beginPath(); ctx.arc(dotX0 + d * dotGap, dotY, 3.2, 0, Math.PI * 2); ctx.fill();
+        }
     }
 
     // ── Feature 2: the scripted mid-leg road event ───────────────
@@ -1386,6 +1626,9 @@
         // ── Header ──
         var cyc = save.storyCycle || 0;
         drawText("📖 THE ROAD TO VEGAS", W / 2, 40, "bold 22px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#3E2723", 5);
+        // Warm one-line story blurb (drops below the TOUR chip when it's shown).
+        drawText("Burry's leaving Lakewood. Bubbe has a plan. You have a car.",
+            W / 2, cyc > 0 ? 88 : 64, "italic 12px 'Segoe UI', Arial, sans-serif", "#E8D6C4", "#3E2723", 3);
         if (cyc > 0) {
             var tourTxt = "TOUR " + (cyc + 1);
             ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
