@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.11.1";
+    var GAME_VERSION = "1.12.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -1330,7 +1330,12 @@
                   dark: 0.06, weather: null, puddleMul: 1.1, flower: 0.08, bare: false, fog: true },
         heatwave: { name: "Heat Wave 🥵", sky: ["#FFE08A", "#FFC85E", "#FBA94C"], grass: "#B8A24E",
                   trees: ["#9C8A3C", "#A8923F", "#B89C44"], bushes: ["#B89C44", "#A8923F", "#9C8A3C"],
-                  dark: 0, weather: "dust", puddleMul: 0.3, flower: 0.04, bare: false, heat: true }
+                  dark: 0, weather: "dust", puddleMul: 0.3, flower: 0.04, bare: false, heat: true },
+        // Story-exclusive golden hour (Avigail's boutique aesthetic). NOT in
+        // SEASON_ORDER — cruise never rolls it; only setSeason("dusk") reaches it.
+        dusk:   { name: "Dusk 🌆", sky: ["#F6A5C0", "#C97BA4", "#8E5D9F"], grass: "#5E7A52",
+                  trees: ["#3E5E3A", "#4A6B44", "#57784E"], bushes: ["#57784E", "#4A6B44", "#3E5E3A"],
+                  dark: 0.16, weather: null, puddleMul: 1, flower: 0.12, bare: false }
     };
     var SEASON_ORDER = ["spring", "fall", "winter", "rain", "storm", "night", "fog", "heatwave"];
     var SEASON_DISTANCE = 24000;  // px of travel between season changes (longer = rarer)
@@ -1387,7 +1392,9 @@
         // Hold the forced bright sky steady through scenic biomes — no random
         // flip to rain/snow/night mid-bridge or mid-beach. The deferred change
         // simply fires once the crossing ends (back on the rural road).
-        if (scrollOffset >= seasonNextAt && zone !== "bridge" && zone !== "beach") changeSeason();
+        // STORY chapter sets HOLD their directed season — cruise rotates as usual.
+        if (scrollOffset >= seasonNextAt && zone !== "bridge" && zone !== "beach" &&
+            !(typeof storySeasonHold === "function" && storySeasonHold())) changeSeason();
         var cfg = SEASONS[season];
         // spawn weather
         var rate = cfg.weather === "rain" ? 95 : cfg.weather === "snow" ? 30
@@ -1606,20 +1613,32 @@
     function updateZone(dt, speed) {
         if (zone === "rural") {
             if (scrollOffset >= zoneNextAt) {
+                // STORY chapter DIRECTION (null in cruise): may bias scenic odds /
+                // force a scenic or city kind for the leg's set. Cruise = unchanged.
+                var zb = (typeof storyZoneBias === "function") ? storyZoneBias() : null;
+                var scenicProb = 0.2, scenicKind = null, cityKind = null;
+                if (zb) {
+                    if (typeof zb.scenic === "number") scenicProb = zb.scenic;
+                    if (zb.scenicKind) scenicKind = zb.scenicKind;
+                    if (zb.cityKind) cityKind = zb.cityKind;
+                }
+                var held = (typeof storySeasonHold === "function" && storySeasonHold());
                 // ~1-in-5 visits is a scenic crossing instead of a city. The first
-                // visit is never scenic so a fresh session reaches a city promptly.
-                if (citiesSeen > 0 && Math.random() < 0.2) {
-                    zone = randPick(ZONE_SCENIC);
+                // visit is never scenic so a fresh session reaches a city promptly
+                // (a forced scenic kind skips that requirement — the leg WANTS it).
+                if ((scenicKind || citiesSeen > 0) && Math.random() < scenicProb) {
+                    zone = scenicKind || randPick(ZONE_SCENIC);
                     zoneEndsAt = scrollOffset + rand(5500, 8000);
-                    setSeason("summer"); // bright skies over the water & sand
+                    if (!held) setSeason("summer"); // bright skies over the water & sand
                 } else {
                     // Every city is a fresh weighted random roll — no zone is ever
-                    // forced (the bar district just has a slightly higher weight).
-                    zone = pickCityZone();
+                    // forced (the bar district just has a slightly higher weight);
+                    // a story leg may PREFER a district (70%) to dress its set.
+                    zone = (cityKind && Math.random() < 0.7) ? cityKind : pickCityZone();
                     citiesSeen++;
                     zoneEndsAt = scrollOffset + rand(7000, 11000); // long enough to feel it
                     // Atmospheric pairing: a city often brings a fitting sky.
-                    if (ZONE_SEASON[zone] && Math.random() < 0.6) setSeason(randPick(ZONE_SEASON[zone]));
+                    if (ZONE_SEASON[zone] && Math.random() < 0.6 && !held) setSeason(randPick(ZONE_SEASON[zone]));
                 }
                 cityBuildTimer = 0;
                 policeLotCount = 0;   // fresh zone → it can grow a lot or two again
@@ -1627,7 +1646,10 @@
         } else {
             if (scrollOffset >= zoneEndsAt) {
                 zone = "rural";
-                zoneNextAt = scrollOffset + ZONE_RURAL_GAP + rand(-3000, 5000);
+                // STORY: a leg's set can stretch the quiet rural gap (bubbe = +30%).
+                var zb2 = (typeof storyZoneBias === "function") ? storyZoneBias() : null;
+                var gapMul = (zb2 && typeof zb2.ruralGapMul === "number") ? zb2.ruralGapMul : 1;
+                zoneNextAt = scrollOffset + (ZONE_RURAL_GAP + rand(-3000, 5000)) * gapMul;
             }
             // Only city zones grow buildings; scenic biomes use shoulder deco.
             if (zone !== "bridge" && zone !== "beach") {
@@ -1662,7 +1684,8 @@
         var cityish = zone !== "rural" && zone !== "bridge" && zone !== "beach";
         folkTimer -= dt;
         if (cityish && folkTimer <= 0 && sidewalkFolk.length < 5) {
-            folkTimer = rand(1.6, 3.2);
+            // STORY: a leg's set can thicken foot traffic (bubbe erev-Shabbos = ×0.5).
+            folkTimer = rand(1.6, 3.2) * ((typeof storyFolkMul === "function") ? storyFolkMul() : 1);
             var side = Math.random() < 0.5 ? -1 : 1;
             var sx = side < 0 ? rand(Math.max(20, ROAD_L - 34), Math.max(24, ROAD_L - 14)) : rand(ROAD_R + 14, ROAD_R + 34);
             var f = { x: sx, y: -26, side: side, dir: Math.random() < 0.6 ? 1 : -1,

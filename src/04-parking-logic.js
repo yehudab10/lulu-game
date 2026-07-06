@@ -109,6 +109,10 @@
         shakeIntensity = 0;
         initSeason();
         initZone();
+        // STORY chapter SET: initSeason() reset the sky to summer — re-force this
+        // leg's directed season now so a fresh run opens in its chapter's mood.
+        // (No-op in cruise / a subsequent cruise run has no leak.)
+        if (typeof armStorySeason === "function") armStorySeason();
         initDecorations();
     }
 

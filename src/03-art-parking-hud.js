@@ -812,20 +812,34 @@
             ctx.scale(lbScale, lbScale);
             ctx.font = "bold 15px 'Segoe UI', Arial, sans-serif";
             var lbW = Math.max(160, ctx.measureText(legBannerText).width + 40);
-            // Second (smaller) line: this chapter's optional TASK. Widens/heightens
-            // the banner when present (STORY leg-tasks only; empty in cruise).
+            // Stacked lines: title, then this chapter's optional TASK, then the
+            // chapter SET's art-direction VIBE. Each widens/heightens the pill;
+            // all empty in cruise (banner only shows in story).
+            var lbLines = [{ t: legBannerText, f: "bold 15px 'Segoe UI', Arial, sans-serif", c: legBannerColor, ow: 4, h: 22 }];
             var lbTask = (typeof legBannerTask !== "undefined") ? legBannerTask : "";
             if (lbTask) {
                 ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
                 lbW = Math.max(lbW, ctx.measureText(lbTask).width + 34);
+                lbLines.push({ t: lbTask, f: "bold 11px 'Segoe UI', Arial, sans-serif", c: "#FFE082", ow: 3, h: 18 });
             }
-            var lbH = lbTask ? 62 : 44;
+            var lbVibe = (typeof legBannerVibe !== "undefined") ? legBannerVibe : "";
+            if (lbVibe) {
+                ctx.font = "italic 10px 'Segoe UI', Arial, sans-serif";
+                lbW = Math.max(lbW, ctx.measureText(lbVibe).width + 30);
+                lbLines.push({ t: lbVibe, f: "italic 10px 'Segoe UI', Arial, sans-serif", c: "#FFD1E0", ow: 3, h: 15 });
+            }
+            var lbH = 22;   // top+bottom padding
+            for (var lbi = 0; lbi < lbLines.length; lbi++) lbH += lbLines[lbi].h;
             ctx.fillStyle = "rgba(0,0,0,0.6)";
             roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.fill();
             ctx.strokeStyle = legBannerColor; ctx.lineWidth = 2.5;
             roundRect(-lbW / 2, -22, lbW, lbH, 13); ctx.stroke();
-            drawText(legBannerText, 0, lbTask ? -6 : 1, "bold 15px 'Segoe UI', Arial, sans-serif", legBannerColor, "#000", 4);
-            if (lbTask) drawText(lbTask, 0, 16, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFE082", "#000", 3);
+            var lbCy = -22 + 11;   // cursor: top edge + half the padding
+            for (var lbj = 0; lbj < lbLines.length; lbj++) {
+                var ln = lbLines[lbj];
+                drawText(ln.t, 0, lbCy + ln.h / 2, ln.f, ln.c, "#000", ln.ow);
+                lbCy += ln.h;
+            }
             ctx.restore();
         }
 

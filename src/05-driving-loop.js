@@ -743,7 +743,8 @@
         // Billboards
         billboardTimer -= dt;
         if (billboardTimer <= 0) {
-            billboardTimer = rand(8, 18);
+            // STORY: Vegas run-in (post neon-flip) comes thick with billboards (×0.4).
+            billboardTimer = rand(8, 18) * ((typeof storyBillboardMul === "function") ? storyBillboardMul() : 1);
             spawnBillboard();
         }
         // Ima's text messages — random buzz with phone icon
@@ -4472,6 +4473,9 @@
         if (typeof drawStoryEvent === "function") drawStoryEvent();
         // CHAPTER TASK (beach leg) runaway-gear pickups — self-guards; no-op elsewhere.
         if (typeof drawStoryGear === "function") drawStoryGear();
+        // STORY chapter-set AMBIENCE (beach gull flyovers / dusk fireflies) —
+        // purely decorative; self-guards on runMode/leg (no-op in cruise).
+        if (typeof drawStoryAmbient === "function") drawStoryAmbient();
 
         // Shared Road ghosts — other real players sharing the highway (drawn
         // under Lulu so she always reads on top). Guarded no-op offline.
