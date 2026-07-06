@@ -429,9 +429,18 @@
             var a = Math.min((gameOverAlpha - 0.3) / 0.4, 1);
             ctx.globalAlpha = a;
 
-            var goShake = Math.sin(gameTime * 12) * (1 - a) * 5;
-            drawText("GAME OVER", W / 2 + goShake, H * 0.22,
-                "bold 52px 'Segoe UI', Arial, sans-serif", "#F44336", "#333", 6);
+            // THE JOURNEY: ending on "CALL IT A TRIP" is a WIN, not a death — gold
+            // title + a warm "she made it to <stop>" line, no sad shake.
+            if (typeof tripEndedWell !== "undefined" && tripEndedWell) {
+                drawText("TRIP COMPLETE! 🎉", W / 2, H * 0.20,
+                    "bold 34px 'Segoe UI', Arial, sans-serif", "#FFD700", "#5D4037", 6);
+                drawText("she made it to " + (tripLastStopName || "her stop") + "! 🏁", W / 2, H * 0.26,
+                    "bold 16px 'Segoe UI', Arial, sans-serif", "#FFE082", "#333", 3);
+            } else {
+                var goShake = Math.sin(gameTime * 12) * (1 - a) * 5;
+                drawText("GAME OVER", W / 2 + goShake, H * 0.22,
+                    "bold 52px 'Segoe UI', Arial, sans-serif", "#F44336", "#333", 6);
+            }
 
             drawText("SCORE", W / 2, H * 0.33,
                 "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
@@ -449,6 +458,11 @@
                 "bold 18px 'Segoe UI', Arial, sans-serif", C.coin, "#333", 3);
             drawText("Total bank: " + formatNum(save.totalCoins), W / 2, H * 0.52,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE082", "#333", 2);
+            // THE JOURNEY: how far this run got (shown on normal deaths too).
+            if (typeof tripStopsThisRun !== "undefined" && tripStopsThisRun > 0) {
+                drawText("🏁 stops reached: " + tripStopsThisRun, W / 2, H * 0.555,
+                    "bold 14px 'Segoe UI', Arial, sans-serif", "#A5D6A7", "#333", 3);
+            }
 
             if (Math.floor(score) >= save.highScore && save.highScore > 0) {
                 var pulse = 0.9 + Math.sin(gameTime * 6) * 0.1;
@@ -691,6 +705,10 @@
             drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.76,
                 "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
+
+        // THE JOURNEY: collected-postcards strip (stamps for each stop) just above
+        // the high-score block. Self-guards on save.postcards being non-empty.
+        if (typeof drawPostcardsStrip === "function") drawPostcardsStrip();
 
         // High scores
         if (save.highScore > 0 || save.parkingBestLevel > 0) {

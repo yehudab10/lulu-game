@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.6.1";
+    var GAME_VERSION = "1.7.0";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -84,6 +84,8 @@
             dayNum: 0,         // last day (epoch days) a run was started → daily streak
             streak: 0,         // consecutive-day play streak (drives the daily bonus)
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
+            postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
+            tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             lockup: null       // persisted jail/serving/fugitive state (survives a refresh)
         };
     }

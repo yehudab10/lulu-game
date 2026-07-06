@@ -475,6 +475,9 @@
             }
         }
         scrollOffset += gameSpeed * dt;
+        // THE JOURNEY: advance the named-stop tour (drive + foot). Layer on top —
+        // it can flip state to "arrival" but never touches the sim underneath.
+        if (typeof updateJourney === "function") updateJourney(dt);
         // On-foot distance feeds the "Stretch Those Legs" quest — accumulate and
         // flush to the (persisting) week total ~1×/sec, never per frame.
         if (onFoot) {
@@ -3377,6 +3380,10 @@
             }
         }
         updateParticles(dt);
+        // THE JOURNEY: a WIN ending rains celebratory confetti instead of gloom.
+        if (typeof tripEndedWell !== "undefined" && tripEndedWell && gameOverAlpha > 0.3 && Math.random() < dt * 2.2) {
+            spawnConfetti(rand(W * 0.15, W * 0.85), -10, 10);
+        }
         var click = consumeClick();
         if (click) {
             // Rewarded ad button (native only — gated by an actually-loaded ad)

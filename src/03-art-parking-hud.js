@@ -857,6 +857,10 @@
             ctx.fillStyle = "#FFD740"; roundRect(W / 2 - 38, cy0 + 9, 76 * clamp(courageT / 20, 0, 1), 4, 2); ctx.fill();
         }
 
+        // THE JOURNEY: compact leg-progress pill (top-center, under the hearts).
+        // Self-guards; yields the center strip to any active buff/gauge.
+        if (typeof drawJourneyPill === "function") drawJourneyPill();
+
         // Passenger buff timer
         if (passengerTimer > 0) {
             var pctP = passengerTimer / 30;
