@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.12.0";
+    var GAME_VERSION = "1.12.1";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -363,12 +363,16 @@
         court:   "court.mp3",
         walking: "walking.mp3",
         er1:     "er1.mp3",
-        er2:     "er2.mp3"
+        er2:     "er2.mp3",
+        // Story-chapter driving themes (also mixed into the cruise playlist).
+        storyrelax:    "story-relax.mp3",
+        storyelectric: "story-electric.mp3",
+        storybeach:    "story-beach.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.
     var MUSIC_PLAYLISTS = {
-        lulu: ["lulu.mp3", "luludriving.mp3"]
+        lulu: ["lulu.mp3", "luludriving.mp3", "story-relax.mp3", "story-electric.mp3"]
     };
     var musicElements = {};       // cached looping Audio() per single-file track
     var playlistEls = {};         // track → [Audio, ...] for playlist tracks
@@ -13353,14 +13357,23 @@
     //  cruise/multiplayer stay byte-identical.
     // ═══════════════════════════════════════════════════════════
     var STORY_SETS = {
-        bubbe:   { season: "fall",     vibe: "🍂 Friday afternoon — erev Shabbos rush" },
-        heshy:   { season: "summer",   vibe: "☀️ high summer — pool weather" },
-        beach:   { season: "summer",   vibe: "🌊 sea breeze — gulls overhead" },
-        avigail: { season: "dusk",     vibe: "🌆 golden dusk — boutique hour" },
-        vegas:   { season: "heatwave", nightAt: 0.55, vibe: "🌵 desert heat → 🌃 neon night" }
+        bubbe:   { season: "fall",     music: "storyrelax",    vibe: "🍂 Friday afternoon — erev Shabbos rush" },
+        heshy:   { season: "summer",   music: "storybeach",    vibe: "☀️ high summer — pool weather" },
+        beach:   { season: "summer",   music: "storybeach",    vibe: "🌊 sea breeze — gulls overhead" },
+        avigail: { season: "dusk",     music: "storyrelax",    vibe: "🌆 golden dusk — boutique hour" },
+        vegas:   { season: "heatwave", music: "storyelectric", nightAt: 0.55, vibe: "🌵 desert heat → 🌃 neon night" }
     };
     // Per-leg one-shot latch for the Vegas heat→neon flip (reset in armStoryLeg).
     var storyVegasFlipped = false;
+
+    // The chapter's driving theme (consulted by the game loop's music chain).
+    // Null outside story mode → the normal per-state track applies.
+    function storyMusicTrack() {
+        if (runMode !== "story") return null;
+        var stop = TRIP_STOPS[tripStopIdx];
+        var set = stop && STORY_SETS[stop.id];
+        return (set && set.music) || null;
+    }
 
     // Force the current leg's directed season. Called from armStoryLeg (KEEP
     // DRIVING advance) AND from resetGame AFTER initSeason() — which resets to
@@ -33973,6 +33986,14 @@
                  state === "cookieCatch" || state === "stickerBook") musicTrack = "dina";
         else if (state === "avigailScene") musicTrack = "avigail";
         else if (state.indexOf("salon") === 0) musicTrack = "salon";
+        // STORY chapter themes: while actually driving a story leg (and through
+        // its interludes/arrivals/crashes, so the theme never stutters), the
+        // leg's own track replaces the default driving playlist.
+        if ((state === "playing" || state === "storyTalk" || state === "arrival" || state === "crash") &&
+            typeof storyMusicTrack === "function") {
+            var smt = storyMusicTrack();
+            if (smt) musicTrack = smt;
+        }
         // Paused keeps whatever was playing (handled in updatePaused)
         if (musicTrack && state !== "paused") startMusic(musicTrack);
 

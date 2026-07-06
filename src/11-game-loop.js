@@ -101,6 +101,14 @@
                  state === "cookieCatch" || state === "stickerBook") musicTrack = "dina";
         else if (state === "avigailScene") musicTrack = "avigail";
         else if (state.indexOf("salon") === 0) musicTrack = "salon";
+        // STORY chapter themes: while actually driving a story leg (and through
+        // its interludes/arrivals/crashes, so the theme never stutters), the
+        // leg's own track replaces the default driving playlist.
+        if ((state === "playing" || state === "storyTalk" || state === "arrival" || state === "crash") &&
+            typeof storyMusicTrack === "function") {
+            var smt = storyMusicTrack();
+            if (smt) musicTrack = smt;
+        }
         // Paused keeps whatever was playing (handled in updatePaused)
         if (musicTrack && state !== "paused") startMusic(musicTrack);
 

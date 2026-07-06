@@ -58,14 +58,23 @@
     //  cruise/multiplayer stay byte-identical.
     // ═══════════════════════════════════════════════════════════
     var STORY_SETS = {
-        bubbe:   { season: "fall",     vibe: "🍂 Friday afternoon — erev Shabbos rush" },
-        heshy:   { season: "summer",   vibe: "☀️ high summer — pool weather" },
-        beach:   { season: "summer",   vibe: "🌊 sea breeze — gulls overhead" },
-        avigail: { season: "dusk",     vibe: "🌆 golden dusk — boutique hour" },
-        vegas:   { season: "heatwave", nightAt: 0.55, vibe: "🌵 desert heat → 🌃 neon night" }
+        bubbe:   { season: "fall",     music: "storyrelax",    vibe: "🍂 Friday afternoon — erev Shabbos rush" },
+        heshy:   { season: "summer",   music: "storybeach",    vibe: "☀️ high summer — pool weather" },
+        beach:   { season: "summer",   music: "storybeach",    vibe: "🌊 sea breeze — gulls overhead" },
+        avigail: { season: "dusk",     music: "storyrelax",    vibe: "🌆 golden dusk — boutique hour" },
+        vegas:   { season: "heatwave", music: "storyelectric", nightAt: 0.55, vibe: "🌵 desert heat → 🌃 neon night" }
     };
     // Per-leg one-shot latch for the Vegas heat→neon flip (reset in armStoryLeg).
     var storyVegasFlipped = false;
+
+    // The chapter's driving theme (consulted by the game loop's music chain).
+    // Null outside story mode → the normal per-state track applies.
+    function storyMusicTrack() {
+        if (runMode !== "story") return null;
+        var stop = TRIP_STOPS[tripStopIdx];
+        var set = stop && STORY_SETS[stop.id];
+        return (set && set.music) || null;
+    }
 
     // Force the current leg's directed season. Called from armStoryLeg (KEEP
     // DRIVING advance) AND from resetGame AFTER initSeason() — which resets to

@@ -29,7 +29,10 @@ const ASSETS = [
   "court.mp3",
   "walking.mp3",
   "er1.mp3",
-  "er2.mp3"
+  "er2.mp3",
+  "story-relax.mp3",
+  "story-electric.mp3",
+  "story-beach.mp3"
 ];
 
 fs.rmSync(OUT, { recursive: true, force: true });

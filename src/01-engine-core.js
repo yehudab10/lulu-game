@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.12.0";
+    var GAME_VERSION = "1.12.1";
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -361,12 +361,16 @@
         court:   "court.mp3",
         walking: "walking.mp3",
         er1:     "er1.mp3",
-        er2:     "er2.mp3"
+        er2:     "er2.mp3",
+        // Story-chapter driving themes (also mixed into the cruise playlist).
+        storyrelax:    "story-relax.mp3",
+        storyelectric: "story-electric.mp3",
+        storybeach:    "story-beach.mp3"
     };
     // Some tracks are PLAYLISTS — they play through in sequence then repeat the
     // sequence, instead of looping a single song forever.
     var MUSIC_PLAYLISTS = {
-        lulu: ["lulu.mp3", "luludriving.mp3"]
+        lulu: ["lulu.mp3", "luludriving.mp3", "story-relax.mp3", "story-electric.mp3"]
     };
     var musicElements = {};       // cached looping Audio() per single-file track
     var playlistEls = {};         // track → [Audio, ...] for playlist tracks
