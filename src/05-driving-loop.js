@@ -3443,7 +3443,7 @@
         // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
         //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
         if (click && !save.cruiseUnlocked) {
-            var lBaseY = H * 0.50;
+            var lBaseY = menuBaseY();
             // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
             if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY, 220, 60)) {
                 runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
@@ -3473,7 +3473,7 @@
             return;   // any other tap on the locked menu is a no-op
         }
         if (click) {
-            var baseY = H * 0.50;
+            var baseY = menuBaseY();
             // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
                 runMode = "cruise";

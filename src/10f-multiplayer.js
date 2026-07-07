@@ -635,7 +635,7 @@
     function mpMenuBtnRect() {
         // Onboarding lock: Shared Road is unreachable until the first Bubbe arrival.
         if (typeof save !== "undefined" && !save.cruiseUnlocked) return { x: -9999, y: -9999, w: 0, h: 0 };
-        var baseY = H * 0.50;
+        var baseY = menuBaseY();
         // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
         // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
         // row now, so only distracted shoves this button down.

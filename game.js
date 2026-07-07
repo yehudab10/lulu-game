@@ -19,7 +19,15 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.12.1";
+    var GAME_VERSION = "1.12.2";
+
+    // Menu button-stack anchor + compact flag. On TALL phone canvases the
+    // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
+    // H=700 clamp) it rides higher so the full stack + info block fit with no
+    // overlaps. Shared by drawMenu, updateMenu AND the Shared Road button so
+    // the draw/click rects can never drift apart.
+    function menuCompact() { return H < 860; }
+    function menuBaseY() { return Math.round(H * (menuCompact() ? 0.44 : 0.50)); }
     var BASE_SPEED = 210;
     var MAX_SPEED = 620;
     var SPEED_RAMP = 7;
@@ -11961,7 +11969,7 @@
         // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
         //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
         if (click && !save.cruiseUnlocked) {
-            var lBaseY = H * 0.50;
+            var lBaseY = menuBaseY();
             // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
             if (pointInRect(click.x, click.y, W / 2 - 110, lBaseY, 220, 60)) {
                 runMode = "story"; resetGame(); gotoState("playing"); playClick(); return;
@@ -11991,7 +11999,7 @@
             return;   // any other tap on the locked menu is a no-op
         }
         if (click) {
-            var baseY = H * 0.50;
+            var baseY = menuBaseY();
             // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
                 runMode = "cruise";
@@ -14098,6 +14106,10 @@
     // ── Menu postcards strip (called from drawMenu) ──────────────
     function drawPostcardsStrip() {
         if (!save.postcards || save.postcards.length <= 0) return;
+        // On short canvases (iPad hits the H=700 clamp) there is no room
+        // between the taller stack and the high-score block — skip the strip
+        // rather than overlap buttons. The story map still shows everything.
+        if (typeof menuCompact === "function" && menuCompact()) return;
         var n = TRIP_STOPS.length;
         var stampW = 26, gap = 8, totW = n * stampW + (n - 1) * gap;
         var sx = W / 2 - totW / 2;
@@ -15893,7 +15905,7 @@
         //   baseY+134  SHOP | QUESTS row h48  (SHOP full-width when quests locked)
         //   baseY+194  DISTRACTED    220×40   (if unlocked)
         //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
-        var baseY = H * 0.50;
+        var baseY = menuBaseY();   // shared with updateMenu + mpMenuBtnRect (iPad-safe)
 
         // ── STORY-FIRST ONBOARDING: locked menu is a dead-simple PLAY (=story) +
         //    SHOP. No STORY-TRIP button, no 🌐 (its draw is gated in 10f), no modes. ──
@@ -15966,17 +15978,22 @@
         // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.
         if (!qUnlocked && (save.lifetimeScore || 0) > 0) {
             var qPct = Math.floor((save.lifetimeScore || 0) / 200000 * 100);
-            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.93,
+            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2,
+                menuCompact() ? H - 44 : H * 0.93,
                 "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
 
         // THE JOURNEY: collected-postcards strip (stamps for each stop) just above
-        // the high-score block. Self-guards on save.postcards being non-empty.
+        // the high-score block. Self-guards on save.postcards being non-empty
+        // (and hides itself on compact/iPad-height canvases).
         if (typeof drawPostcardsStrip === "function") drawPostcardsStrip();
 
-        // High scores
+        // High scores — on compact (iPad-height) canvases anchor BELOW the
+        // tallest possible button stack instead of a fixed screen fraction.
         if (save.highScore > 0 || save.parkingBestLevel > 0) {
-            var bestY = H * 0.865;
+            var bestY = menuCompact()
+                ? menuBaseY() + 194 + (save.distractedUnlocked ? 48 : 0) + 60
+                : H * 0.865;
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {
@@ -28570,25 +28587,55 @@
             } catch (e) {}
         }
 
+        // ── App Tracking Transparency (Apple Guideline 2.1) ──────
+        // The AdMob SDK links Apple's ATT framework, so iOS REQUIRES the
+        // permission prompt to actually appear before any data that could
+        // track the user is collected — i.e. BEFORE the SDK initializes.
+        // Ask only when the user hasn't answered yet; a denial is fine (the
+        // IDFA comes back zeroed and AdMob serves non-personalized ads).
+        // Resolves no matter what so ads/init can never be wedged by ATT.
+        function requestATT(AdMob) {
+            try {
+                if (!AdMob.trackingAuthorizationStatus || !AdMob.requestTrackingAuthorization) {
+                    return Promise.resolve();
+                }
+                return Promise.resolve(AdMob.trackingAuthorizationStatus())
+                    .then(function (info) {
+                        if (info && info.status === "notDetermined") {
+                            return Promise.resolve(AdMob.requestTrackingAuthorization())
+                                .catch(function () {});
+                        }
+                    })
+                    .catch(function () {});
+            } catch (e) { return Promise.resolve(); }
+        }
+
         function init() {
             var AdMob = plugin(); if (!AdMob) return; // web → stay silent
-            try {
-                var p = AdMob.initialize({
-                    initializeForTesting: ADMOB.isTesting,
-                    testingDevices: ADMOB.testingDevices
-                });
-                Promise.resolve(p).then(function () {
-                    ready = true;
-                    prepInterstitial();
-                    prepRewarded();
-                    // Reward event (string is stable across plugin v6–v8).
-                    try {
-                        AdMob.addListener("onRewardedVideoAdReward", function () {
-                            if (rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+            // Small delay so the app is fully ACTIVE before the ATT sheet is
+            // requested — asking during the launch transition can silently
+            // no-op on some iOS versions (the exact bug Apple flagged).
+            setTimeout(function () {
+                try {
+                    requestATT(AdMob).then(function () {
+                        var p = AdMob.initialize({
+                            initializeForTesting: ADMOB.isTesting,
+                            testingDevices: ADMOB.testingDevices
                         });
-                    } catch (e) {}
-                }).catch(function () {}); // ads unavailable → game continues fine
-            } catch (e) {}
+                        Promise.resolve(p).then(function () {
+                            ready = true;
+                            prepInterstitial();
+                            prepRewarded();
+                            // Reward event (string is stable across plugin v6–v8).
+                            try {
+                                AdMob.addListener("onRewardedVideoAdReward", function () {
+                                    if (rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+                                });
+                            } catch (e) {}
+                        }).catch(function () {}); // ads unavailable → game continues fine
+                    });
+                } catch (e) {}
+            }, 1200);
         }
 
         return {
@@ -31586,7 +31633,7 @@
         "This IV? Probably GMO. I'll go find you an organic one, hold on."
     ];
     var BURRY_ER = [
-        "Whoaa, you okay cuz? ...I brought gummies. The, uh, LEGAL kind. 😎",
+        "Whoaa, you okay cuz? ...I brought snacks. Hospital vending machines are a RACKET. 😎",
         "We're driving to Vegas tomorrow. Heal up quick and COME with, man!",
         "Mindy says refuah shleimah. The kids drew you a card... it's in the van somewhere.",
         "So chill in here. Great vibes. Little beepy, but great vibes.",
@@ -33313,7 +33360,7 @@
     function mpMenuBtnRect() {
         // Onboarding lock: Shared Road is unreachable until the first Bubbe arrival.
         if (typeof save !== "undefined" && !save.cruiseUnlocked) return { x: -9999, y: -9999, w: 0, h: 0 };
-        var baseY = H * 0.50;
+        var baseY = menuBaseY();
         // Stack (synced with drawMenu + updateMenu): PLAY, STORY, SHOP|QUESTS row,
         // [DISTRACTED +48 if unlocked], then 🌐 SHARED ROAD. Quests share the SHOP
         // row now, so only distracted shoves this button down.

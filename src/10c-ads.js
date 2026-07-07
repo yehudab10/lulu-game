@@ -58,25 +58,55 @@
             } catch (e) {}
         }
 
+        // ── App Tracking Transparency (Apple Guideline 2.1) ──────
+        // The AdMob SDK links Apple's ATT framework, so iOS REQUIRES the
+        // permission prompt to actually appear before any data that could
+        // track the user is collected — i.e. BEFORE the SDK initializes.
+        // Ask only when the user hasn't answered yet; a denial is fine (the
+        // IDFA comes back zeroed and AdMob serves non-personalized ads).
+        // Resolves no matter what so ads/init can never be wedged by ATT.
+        function requestATT(AdMob) {
+            try {
+                if (!AdMob.trackingAuthorizationStatus || !AdMob.requestTrackingAuthorization) {
+                    return Promise.resolve();
+                }
+                return Promise.resolve(AdMob.trackingAuthorizationStatus())
+                    .then(function (info) {
+                        if (info && info.status === "notDetermined") {
+                            return Promise.resolve(AdMob.requestTrackingAuthorization())
+                                .catch(function () {});
+                        }
+                    })
+                    .catch(function () {});
+            } catch (e) { return Promise.resolve(); }
+        }
+
         function init() {
             var AdMob = plugin(); if (!AdMob) return; // web → stay silent
-            try {
-                var p = AdMob.initialize({
-                    initializeForTesting: ADMOB.isTesting,
-                    testingDevices: ADMOB.testingDevices
-                });
-                Promise.resolve(p).then(function () {
-                    ready = true;
-                    prepInterstitial();
-                    prepRewarded();
-                    // Reward event (string is stable across plugin v6–v8).
-                    try {
-                        AdMob.addListener("onRewardedVideoAdReward", function () {
-                            if (rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+            // Small delay so the app is fully ACTIVE before the ATT sheet is
+            // requested — asking during the launch transition can silently
+            // no-op on some iOS versions (the exact bug Apple flagged).
+            setTimeout(function () {
+                try {
+                    requestATT(AdMob).then(function () {
+                        var p = AdMob.initialize({
+                            initializeForTesting: ADMOB.isTesting,
+                            testingDevices: ADMOB.testingDevices
                         });
-                    } catch (e) {}
-                }).catch(function () {}); // ads unavailable → game continues fine
-            } catch (e) {}
+                        Promise.resolve(p).then(function () {
+                            ready = true;
+                            prepInterstitial();
+                            prepRewarded();
+                            // Reward event (string is stable across plugin v6–v8).
+                            try {
+                                AdMob.addListener("onRewardedVideoAdReward", function () {
+                                    if (rewardCb) { var cb = rewardCb; rewardCb = null; cb(); }
+                                });
+                            } catch (e) {}
+                        }).catch(function () {}); // ads unavailable → game continues fine
+                    });
+                } catch (e) {}
+            }, 1200);
         }
 
         return {

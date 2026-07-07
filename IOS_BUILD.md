@@ -100,3 +100,38 @@ npm i -D @capacitor/assets
 # put a 1024x1024 icon.png (and optional splash.png) in ./assets, then:
 npx capacitor-assets generate --ios
 ```
+
+---
+
+## App Review compliance (read before every submission)
+
+### App Tracking Transparency (fixes the July 2026 Guideline 2.1 rejection)
+The AdMob SDK links Apple's ATT framework, so the tracking-permission prompt
+MUST actually appear. As of v1.12.2, `Ads.init()` (src/10c-ads.js) requests
+tracking authorization ~1.2s after launch — BEFORE `AdMob.initialize()` — and
+only when the user hasn't answered yet. Denial is fine (non-personalized ads).
+codemagic.yaml injects `NSUserTrackingUsageDescription` into Info.plist.
+
+**Replying to the rejection:** record a screen capture on a physical iPhone of
+(1) fresh install (or Settings → Privacy & Security → Tracking → reset), (2)
+launching the game, (3) the ATT sheet appearing over the menu ~1–2s in, (4)
+tapping either choice and playing normally. Attach it in the App Store Connect
+message thread AND keep a copy in the App Review Information notes.
+
+### App Store Connect settings (owner tasks — not in code)
+- **App Privacy** (needs Account Holder/Admin): declare tracking = YES.
+  Data types: Identifiers → Device ID, and Advertising Data; purposes:
+  Third-Party Advertising; "used for tracking" = Yes. (This matches AdMob
+  with personalized ads. Do NOT declare "no tracking" while AdMob ships.)
+- **Age rating**: answer the questionnaire towards a 12+ rating —
+  Cartoon/Fantasy Violence: Infrequent/Mild; Alcohol/Tobacco/Drug References:
+  Infrequent/Mild (the bar scene / "liquid courage"); Simulated Gambling: None
+  (the Vegas dice boon has no wager); Profanity/Crude Humor: Infrequent/Mild.
+- **Multiplayer**: no accounts, no free-text chat, curated names only, no UGC —
+  nothing extra to declare.
+
+### Orientation / iPad
+codemagic.yaml locks the app to portrait on iPhone AND iPad (both portrait
+variants) with `UIRequiresFullScreen` — reviewers can't reach the web build's
+"rotate your phone" nag. The canvas clamps logical H to ≥700 on iPad; menus
+switch to a compact layout below H=860 (see menuBaseY()/menuCompact()).

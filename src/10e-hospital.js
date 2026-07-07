@@ -180,7 +180,7 @@
         "This IV? Probably GMO. I'll go find you an organic one, hold on."
     ];
     var BURRY_ER = [
-        "Whoaa, you okay cuz? ...I brought gummies. The, uh, LEGAL kind. 😎",
+        "Whoaa, you okay cuz? ...I brought snacks. Hospital vending machines are a RACKET. 😎",
         "We're driving to Vegas tomorrow. Heal up quick and COME with, man!",
         "Mindy says refuah shleimah. The kids drew you a card... it's in the van somewhere.",
         "So chill in here. Great vibes. Little beepy, but great vibes.",

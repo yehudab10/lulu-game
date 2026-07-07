@@ -799,6 +799,10 @@
     // ── Menu postcards strip (called from drawMenu) ──────────────
     function drawPostcardsStrip() {
         if (!save.postcards || save.postcards.length <= 0) return;
+        // On short canvases (iPad hits the H=700 clamp) there is no room
+        // between the taller stack and the high-score block — skip the strip
+        // rather than overlap buttons. The story map still shows everything.
+        if (typeof menuCompact === "function" && menuCompact()) return;
         var n = TRIP_STOPS.length;
         var stampW = 26, gap = 8, totW = n * stampW + (n - 1) * gap;
         var sx = W / 2 - totW / 2;

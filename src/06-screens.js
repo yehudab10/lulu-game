@@ -681,7 +681,7 @@
         //   baseY+134  SHOP | QUESTS row h48  (SHOP full-width when quests locked)
         //   baseY+194  DISTRACTED    220×40   (if unlocked)
         //   baseY+194(+48) 🌐 SHARED ROAD     (mpMenuBtnRect, in 10f)
-        var baseY = H * 0.50;
+        var baseY = menuBaseY();   // shared with updateMenu + mpMenuBtnRect (iPad-safe)
 
         // ── STORY-FIRST ONBOARDING: locked menu is a dead-simple PLAY (=story) +
         //    SHOP. No STORY-TRIP button, no 🌐 (its draw is gated in 10f), no modes. ──
@@ -754,17 +754,22 @@
         // low so it clears the 🌐 SHARED ROAD button even with distracted unlocked.
         if (!qUnlocked && (save.lifetimeScore || 0) > 0) {
             var qPct = Math.floor((save.lifetimeScore || 0) / 200000 * 100);
-            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2, H * 0.93,
+            drawText("📜 quests unlock at 200,000 lifetime score — " + qPct + "%", W / 2,
+                menuCompact() ? H - 44 : H * 0.93,
                 "11px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#26323a", 2);
         }
 
         // THE JOURNEY: collected-postcards strip (stamps for each stop) just above
-        // the high-score block. Self-guards on save.postcards being non-empty.
+        // the high-score block. Self-guards on save.postcards being non-empty
+        // (and hides itself on compact/iPad-height canvases).
         if (typeof drawPostcardsStrip === "function") drawPostcardsStrip();
 
-        // High scores
+        // High scores — on compact (iPad-height) canvases anchor BELOW the
+        // tallest possible button stack instead of a fixed screen fraction.
         if (save.highScore > 0 || save.parkingBestLevel > 0) {
-            var bestY = H * 0.865;
+            var bestY = menuCompact()
+                ? menuBaseY() + 194 + (save.distractedUnlocked ? 48 : 0) + 60
+                : H * 0.865;
             drawText("Best Run: " + formatNum(save.highScore), W / 2, bestY,
                 "bold 14px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#333", 3);
             if (save.parkingBestLevel > 0) {
