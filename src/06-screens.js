@@ -390,25 +390,90 @@
         // overlay
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, W, H);
-        drawText("PAUSED", W / 2, H / 2 - 130, "bold 60px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
+        drawText("PAUSED", W / 2, H / 2 - 140, "bold 60px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
 
+        // Re-stacked to fit a 5th button and still clear the footer on the
+        // compact iPad canvas (H clamps to 700). Resume stays the primary CTA.
         // Resume button
-        drawButton(W / 2 - 110, H / 2 - 55, 220, 56, "▶ RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        drawButton(W / 2 - 110, H / 2 - 88, 220, 54, "▶ RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // Edit Controls button — opens the movable-controls editor.
+        drawButton(W / 2 - 110, H / 2 - 26, 220, 46, "🎛 EDIT CONTROLS", { bg: "#7E57C2", bgDark: "#4527A0", small: true });
         // Music toggle button
         var musicLabel = musicMuted ? "♪ MUSIC: OFF" : "♪ MUSIC: ON";
         var mc1 = musicMuted ? "#9E9E9E" : "#42A5F5";
         var mc2 = musicMuted ? "#616161" : "#0D47A1";
-        drawButton(W / 2 - 110, H / 2 + 13, 220, 52, musicLabel, { bg: mc1, bgDark: mc2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 26, 220, 46, musicLabel, { bg: mc1, bgDark: mc2, small: true });
         // SFX toggle button
         var sfxLabel = audioMuted ? "🔇 SOUND: OFF" : "🔊 SOUND: ON";
         var sc1 = audioMuted ? "#9E9E9E" : "#FFC107";
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
-        drawButton(W / 2 - 110, H / 2 + 75, 220, 52, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
         // Quit button
-        drawButton(W / 2 - 110, H / 2 + 137, 220, 52, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
-            W / 2, H / 2 + 210, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+            W / 2, H / 2 + 184, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+    }
+
+    // ── Draw: Movable-Controls editor (state === "editControls") ─────────
+    // Icon for one movable control, reusing the exact HUD drawIconButton calls
+    // so the editor preview matches the live buttons. Stateful ones (siren) use
+    // a simplified fixed variant; pepper reuses its custom canister art.
+    function drawEditCtrlIcon(key, r) {
+        if (key === "pause")        drawIconButton(r.x, r.y, r.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+        else if (key === "boost")   drawIconButton(r.x, r.y, r.w, "▲",  { bg: "#FFC107", bgDark: "#FF6F00" });
+        else if (key === "brake")   drawIconButton(r.x, r.y, r.w, "▼",  { bg: "#90CAF9", bgDark: "#1565C0" });
+        else if (key === "missile") drawIconButton(r.x, r.y, r.w, "🚀", { bg: "#F44336", bgDark: "#B71C1C" });
+        else if (key === "honk")    drawIconButton(r.x, r.y, r.w, "📣", { bg: "#FFC107", bgDark: "#FF6F00" });
+        else if (key === "pepper")  { drawIconButton(r.x, r.y, r.w, "", { bg: "#FF7043", bgDark: "#BF360C" }); drawPepperSprayCan(r.x + r.w / 2, r.y + r.w / 2, r.w * 0.30); }
+        else if (key === "cop")     drawIconButton(r.x, r.y, r.w, "🚨", { bg: "#EF5350", bgDark: "#B71C1C" });
+    }
+    function drawEditControls() {
+        // Frozen backdrop = the scene we paused from (same routing as drawPaused).
+        if (prevState === "parking") drawParking();
+        else if (prevState === "cookieCatch") drawCookieCatch();
+        else drawPlaying();
+        // dim scrim
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, W, H);
+        // title + subtitle
+        drawText("🎛 EDIT CONTROLS", W / 2, SAFE_TOP + 80, "bold 30px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+        drawText("drag any button where you want it", W / 2, SAFE_TOP + 112, "15px 'Segoe UI', Arial, sans-serif", "#E0E0E0", "#000", 3);
+
+        // The 7 movable buttons at their LIVE rects, each with a pulsing dashed
+        // gold outline + a tiny label. The grabbed one draws 1.1× with a glow.
+        var pulse = 0.5 + 0.5 * Math.abs(Math.sin(editT * 3));
+        var list = editCtrlList();
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i], r = it.rect, dragging = (editDragKey === it.key);
+            ctx.save();
+            if (dragging) {
+                var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+                ctx.translate(cx, cy); ctx.scale(1.1, 1.1); ctx.translate(-cx, -cy);
+                ctx.shadowColor = "rgba(255,215,0,0.9)"; ctx.shadowBlur = 26;
+            }
+            drawEditCtrlIcon(it.key, r);
+            ctx.restore();
+            // dashed pulsing outline
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,215,0," + (dragging ? 1 : pulse) + ")";
+            ctx.lineWidth = dragging ? 3.5 : 2.5;
+            ctx.setLineDash([7, 5]);
+            ctx.lineDashOffset = -editT * 26;
+            var pad = dragging ? 6 : 3;
+            roundRect(r.x - pad, r.y - pad, r.w + pad * 2, r.h + pad * 2, 15); ctx.stroke();
+            ctx.restore();
+            // label beneath
+            drawText(it.label, r.x + r.w / 2, r.y + r.h + 13, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        }
+
+        // Fixed chrome
+        var ch = editChromeRects();
+        drawButton(ch.reset.x, ch.reset.y, ch.reset.w, ch.reset.h, "↺ RESET", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+        drawButton(ch.done.x, ch.done.y, ch.done.w, ch.done.h, "✓ DONE", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // footer note
+        drawText("steering is still drag-anywhere — only buttons move",
+            W / 2, ch.done.y - 16, "12px 'Segoe UI', Arial, sans-serif", "#CFCFCF", "#000", 2);
     }
 
     // ── Draw: Game Over ──────────────────────────────────────

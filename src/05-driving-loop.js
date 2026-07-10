@@ -2522,23 +2522,28 @@
         var click = consumeClick();
         if (click) {
             // Resume button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 55, 220, 56)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 88, 220, 54)) {
                 state = prevState; playClick(); resumeMusic(); consumeAction(); return;
             }
+            // Edit Controls — open the movable-controls editor. prevState is kept
+            // intact so the editor can return here (and a later Resume still works).
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 26, 220, 46)) {
+                editDragKey = null; state = "editControls"; playClick(); consumeAction(); return;
+            }
             // Music toggle
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 13, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 26, 220, 46)) {
                 musicMuted = !musicMuted;
                 if (musicMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
             // SFX toggle
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 75, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 74, 220, 46)) {
                 audioMuted = !audioMuted;
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
             // Quit button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 137, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 // Cookie Catch is a bedroom activity — quit back to the bedroom.
                 if (prevState === "cookieCatch") { cookie = null; enterDinaHome(); playClick(); consumeAction(); return; }
@@ -2553,6 +2558,103 @@
             resumeMusic();
             return;
         }
+    }
+
+    // ── MOVABLE CONTROLS editor (state === "editControls") ───────────────
+    // Drag any of the 7 HUD control buttons to a new home. The rects being
+    // dragged ARE the live PAUSE_RECT/HONK_RECT/... objects, so moving them
+    // here moves the real draw + input targets in both driving and foot modes.
+    // On release the button's new CENTER is persisted as a W,H fraction.
+    var editDragKey = null;              // key of the control currently grabbed
+    var editDragDX = 0, editDragDY = 0;  // grab offset (finger → rect top-left)
+    var editT = 0;                       // local animation clock (pulse / dashes)
+
+    // The 7 movable controls, freshly bound to the CURRENT rect objects each
+    // call (recomputeLayout replaces them wholesale, so never cache the list).
+    function editCtrlList() {
+        return [
+            { key: "pause",   rect: PAUSE_RECT,        label: "pause" },
+            { key: "boost",   rect: MOBILE_BOOST_RECT, label: "boost·run" },
+            { key: "brake",   rect: MOBILE_BRAKE_RECT, label: "brake·slow" },
+            { key: "missile", rect: MISSILE_RECT,      label: "missile" },
+            { key: "honk",    rect: HONK_RECT,         label: "honk·interact" },
+            { key: "pepper",  rect: PEPPER_RECT,       label: "pepper" },
+            { key: "cop",     rect: COP_RECT,          label: "siren" }
+        ];
+    }
+    // Fixed editor chrome — RESET (top-right, under the notch) + DONE (bottom).
+    function editChromeRects() {
+        return {
+            reset: { x: W - 12 - 120, y: SAFE_TOP + 12, w: 120, h: 42 },
+            done:  { x: W / 2 - 110, y: H - SAFE_BOTTOM - 54 - 16, w: 220, h: 54 }
+        };
+    }
+    function editRectFor(key) {
+        var list = editCtrlList();
+        for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i].rect;
+        return null;
+    }
+    // Persist the grabbed control's new CENTER as a fraction of W,H.
+    function finalizeEditDrag() {
+        var r = editRectFor(editDragKey);
+        if (r) {
+            if (!save.ctrlLayout) save.ctrlLayout = {};
+            save.ctrlLayout[editDragKey] = { fx: (r.x + r.w / 2) / W, fy: (r.y + r.h / 2) / H };
+            persistSave();
+            playTone(560, 0.05, "sine", 0.06);   // soft confirm blip
+        }
+        editDragKey = null;
+    }
+    function finishEditor() {
+        recomputeLayout();   // paranoia: re-clamp everything to the live viewport
+        persistSave();
+        editDragKey = null;
+        state = "paused";
+        playClick();
+    }
+    function updateEditControls(dt) {
+        editT += dt;
+        var click = consumeClick();
+        if (click) {
+            var ch = editChromeRects();
+            // DONE
+            if (pointInRect(click.x, click.y, ch.done.x, ch.done.y, ch.done.w, ch.done.h)) {
+                consumeAction(); finishEditor(); return;
+            }
+            // RESET — wipe the custom layout, back to stock (no denied-shake).
+            if (pointInRect(click.x, click.y, ch.reset.x, ch.reset.y, ch.reset.w, ch.reset.h)) {
+                save.ctrlLayout = null; persistSave(); recomputeLayout();
+                editDragKey = null; playClick();
+                spawnFloater(W / 2, H / 2, "layout reset", "#FFD54F");
+                consumeAction(); return;
+            }
+            // Otherwise: begin dragging a control if the tap landed on one (+10 slop).
+            if (editDragKey === null) {
+                var list = editCtrlList();
+                for (var i = 0; i < list.length; i++) {
+                    var r = list[i].rect;
+                    if (pointInRect(click.x, click.y, r.x - 10, r.y - 10, r.w + 20, r.h + 20)) {
+                        editDragKey = list[i].key;
+                        editDragDX = click.x - r.x;
+                        editDragDY = click.y - r.y;
+                        break;
+                    }
+                }
+            }
+            consumeAction();
+        }
+        // Live follow while the pointer is held down (touchX/touchY null on release).
+        if (editDragKey !== null && touchX !== null) {
+            var dr = editRectFor(editDragKey);
+            if (dr) {
+                dr.x = clamp(touchX - editDragDX, 6, W - dr.w - 6);
+                dr.y = clamp(touchY - editDragDY, SAFE_TOP + 6, H - SAFE_BOTTOM - dr.h - 6);
+            }
+        }
+        // Release → commit the new position.
+        if (editDragKey !== null && touchX === null) finalizeEditDrag();
+        // Hardware pause key doubles as DONE inside the editor.
+        if (consumePause()) { finishEditor(); return; }
     }
 
     // ── Update: Crash ────────────────────────────────────────

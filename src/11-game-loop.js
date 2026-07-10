@@ -40,6 +40,7 @@
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
             var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
+                            editControls: 1,
                             arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, exitScene: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
@@ -109,8 +110,9 @@
             var smt = storyMusicTrack();
             if (smt) musicTrack = smt;
         }
-        // Paused keeps whatever was playing (handled in updatePaused)
-        if (musicTrack && state !== "paused") startMusic(musicTrack);
+        // Paused (and the controls editor, which sits on top of the frozen
+        // paused scene) keep whatever track was already playing — never restart.
+        if (musicTrack && state !== "paused" && state !== "editControls") startMusic(musicTrack);
 
         // First-drive tutorial peeks at taps (its SKIP pill) before the scene
         // update runs, so it must tick first. No-op unless it's active.
@@ -120,6 +122,7 @@
         else if (state === "menu") updateMenu(dt);
         else if (state === "playing") updatePlaying(dt);
         else if (state === "paused") updatePaused(dt);
+        else if (state === "editControls") updateEditControls(dt);
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "copStop") updateCopStop(dt);
@@ -168,6 +171,7 @@
         else if (state === "menu") drawMenu();
         else if (state === "playing") drawPlaying();
         else if (state === "paused") drawPaused();
+        else if (state === "editControls") drawEditControls();
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
         else if (state === "copStop") drawCopStop();

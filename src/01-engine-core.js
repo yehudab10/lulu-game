@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.12.2";
+    var GAME_VERSION = "1.13.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -101,6 +101,7 @@
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
             storyStars: {},    // STORY TRIP: chapter-task stars earned, keyed by stop id
 
+            ctrlLayout: null,  // MOVABLE CONTROLS: player's custom HUD button layout — {pause,boost,brake,missile,honk,pepper,cop:{fx,fy}} (button CENTER as fractions of W,H). null = stock layout.
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
             cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
@@ -569,6 +570,26 @@
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
         PARK_REV_RECT     = { x: W - 76,  y: bot - 96,  w: 64, h: 64 };
+
+        // ── MOVABLE CONTROLS: apply the player's saved custom layout ──────
+        // save.ctrlLayout maps a control key → {fx,fy} = the button CENTER as
+        // a fraction of W,H. Any missing key keeps its default slot above.
+        // Fractions (not pixels) so a layout built on a phone lands
+        // proportionally on an iPad (H 700 vs 1043). Each override is clamped
+        // fully on-screen inside the safe-area insets. With ctrlLayout === null
+        // this whole block no-ops, so the output stays byte-identical to stock.
+        if (save.ctrlLayout) {
+            var ctrlRects = {
+                pause: PAUSE_RECT, boost: MOBILE_BOOST_RECT, brake: MOBILE_BRAKE_RECT,
+                missile: MISSILE_RECT, honk: HONK_RECT, pepper: PEPPER_RECT, cop: COP_RECT
+            };
+            for (var ck in ctrlRects) {
+                var cl = save.ctrlLayout[ck], cr = ctrlRects[ck];
+                if (!cl || !cr) continue;
+                cr.x = clamp(cl.fx * W - cr.w / 2, 6, W - cr.w - 6);
+                cr.y = clamp(cl.fy * H - cr.h / 2, SAFE_TOP + 6, H - SAFE_BOTTOM - cr.h - 6);
+            }
+        }
     }
     // Full-bleed responsive sizing — re-measured whenever iOS changes the
     // viewport (which it does late and repeatedly on launch / rotation).
@@ -841,7 +862,8 @@
                 tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
-                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
+                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome" ||
+                     state === "editControls")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;
                     touchY = pos.y;
@@ -885,6 +907,11 @@
         }
     }, { passive: false });
 
+    // Desktop drag support for the Movable-Controls editor. Touch already drives
+    // touchX/touchY via the steer-tracking path (editControls is in the state
+    // list); the mouse never did, so a held-mouse drag needs these three hooks.
+    // Scoped to state === "editControls" so ordinary gameplay clicks are untouched.
+    var editMouseDown = false;
     canvas.addEventListener("mousedown", function (e) {
         getAudio();
         audioUnlocked = true;
@@ -893,6 +920,16 @@
         clickQueue = pos;
         queueAction();
         tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
+        if (state === "editControls") { editMouseDown = true; touchX = pos.x; touchY = pos.y; }
+    });
+    canvas.addEventListener("mousemove", function (e) {
+        if (editMouseDown && state === "editControls") {
+            var pos = screenToCanvas(e.clientX, e.clientY);
+            touchX = pos.x; touchY = pos.y;
+        }
+    });
+    window.addEventListener("mouseup", function () {
+        if (editMouseDown) { editMouseDown = false; touchX = null; touchY = null; }
     });
 
     // Tap-feedback ripple: a quick expanding ring where the finger landed. The

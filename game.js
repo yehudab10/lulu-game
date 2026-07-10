@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.12.2";
+    var GAME_VERSION = "1.13.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -103,6 +103,7 @@
             storyCycle: 0,     // STORY TRIP: full tours completed (drives "TOUR n" + longer roads)
             storyStars: {},    // STORY TRIP: chapter-task stars earned, keyed by stop id
 
+            ctrlLayout: null,  // MOVABLE CONTROLS: player's custom HUD button layout — {pause,boost,brake,missile,honk,pepper,cop:{fx,fy}} (button CENTER as fractions of W,H). null = stock layout.
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
             cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
@@ -571,6 +572,26 @@
         PARK_RIGHT_RECT   = { x: 88,      y: bot - 96,  w: 64, h: 64 };
         PARK_FWD_RECT     = { x: W - 152, y: bot - 96,  w: 64, h: 64 };
         PARK_REV_RECT     = { x: W - 76,  y: bot - 96,  w: 64, h: 64 };
+
+        // ── MOVABLE CONTROLS: apply the player's saved custom layout ──────
+        // save.ctrlLayout maps a control key → {fx,fy} = the button CENTER as
+        // a fraction of W,H. Any missing key keeps its default slot above.
+        // Fractions (not pixels) so a layout built on a phone lands
+        // proportionally on an iPad (H 700 vs 1043). Each override is clamped
+        // fully on-screen inside the safe-area insets. With ctrlLayout === null
+        // this whole block no-ops, so the output stays byte-identical to stock.
+        if (save.ctrlLayout) {
+            var ctrlRects = {
+                pause: PAUSE_RECT, boost: MOBILE_BOOST_RECT, brake: MOBILE_BRAKE_RECT,
+                missile: MISSILE_RECT, honk: HONK_RECT, pepper: PEPPER_RECT, cop: COP_RECT
+            };
+            for (var ck in ctrlRects) {
+                var cl = save.ctrlLayout[ck], cr = ctrlRects[ck];
+                if (!cl || !cr) continue;
+                cr.x = clamp(cl.fx * W - cr.w / 2, 6, W - cr.w - 6);
+                cr.y = clamp(cl.fy * H - cr.h / 2, SAFE_TOP + 6, H - SAFE_BOTTOM - cr.h - 6);
+            }
+        }
     }
     // Full-bleed responsive sizing — re-measured whenever iOS changes the
     // viewport (which it does late and repeatedly on launch / rotation).
@@ -843,7 +864,8 @@
                 tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
                 if (steerTouchId === null &&
                     (state === "playing" || state === "dinaRun" || state === "footRun" ||
-                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome")) {
+                     state === "footInterior" || state === "cookieCatch" || state === "dinaHome" ||
+                     state === "editControls")) {
                     steerTouchId = t.identifier;
                     touchX = pos.x;
                     touchY = pos.y;
@@ -887,6 +909,11 @@
         }
     }, { passive: false });
 
+    // Desktop drag support for the Movable-Controls editor. Touch already drives
+    // touchX/touchY via the steer-tracking path (editControls is in the state
+    // list); the mouse never did, so a held-mouse drag needs these three hooks.
+    // Scoped to state === "editControls" so ordinary gameplay clicks are untouched.
+    var editMouseDown = false;
     canvas.addEventListener("mousedown", function (e) {
         getAudio();
         audioUnlocked = true;
@@ -895,6 +922,16 @@
         clickQueue = pos;
         queueAction();
         tapFx.push({ x: pos.x, y: pos.y, t: 0 }); if (tapFx.length > 6) tapFx.shift();
+        if (state === "editControls") { editMouseDown = true; touchX = pos.x; touchY = pos.y; }
+    });
+    canvas.addEventListener("mousemove", function (e) {
+        if (editMouseDown && state === "editControls") {
+            var pos = screenToCanvas(e.clientX, e.clientY);
+            touchX = pos.x; touchY = pos.y;
+        }
+    });
+    window.addEventListener("mouseup", function () {
+        if (editMouseDown) { editMouseDown = false; touchX = null; touchY = null; }
     });
 
     // Tap-feedback ripple: a quick expanding ring where the finger landed. The
@@ -11048,23 +11085,28 @@
         var click = consumeClick();
         if (click) {
             // Resume button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 55, 220, 56)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 88, 220, 54)) {
                 state = prevState; playClick(); resumeMusic(); consumeAction(); return;
             }
+            // Edit Controls — open the movable-controls editor. prevState is kept
+            // intact so the editor can return here (and a later Resume still works).
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 - 26, 220, 46)) {
+                editDragKey = null; state = "editControls"; playClick(); consumeAction(); return;
+            }
             // Music toggle
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 13, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 26, 220, 46)) {
                 musicMuted = !musicMuted;
                 if (musicMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
             // SFX toggle
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 75, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 74, 220, 46)) {
                 audioMuted = !audioMuted;
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
             // Quit button
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 137, 220, 52)) {
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 // Cookie Catch is a bedroom activity — quit back to the bedroom.
                 if (prevState === "cookieCatch") { cookie = null; enterDinaHome(); playClick(); consumeAction(); return; }
@@ -11079,6 +11121,103 @@
             resumeMusic();
             return;
         }
+    }
+
+    // ── MOVABLE CONTROLS editor (state === "editControls") ───────────────
+    // Drag any of the 7 HUD control buttons to a new home. The rects being
+    // dragged ARE the live PAUSE_RECT/HONK_RECT/... objects, so moving them
+    // here moves the real draw + input targets in both driving and foot modes.
+    // On release the button's new CENTER is persisted as a W,H fraction.
+    var editDragKey = null;              // key of the control currently grabbed
+    var editDragDX = 0, editDragDY = 0;  // grab offset (finger → rect top-left)
+    var editT = 0;                       // local animation clock (pulse / dashes)
+
+    // The 7 movable controls, freshly bound to the CURRENT rect objects each
+    // call (recomputeLayout replaces them wholesale, so never cache the list).
+    function editCtrlList() {
+        return [
+            { key: "pause",   rect: PAUSE_RECT,        label: "pause" },
+            { key: "boost",   rect: MOBILE_BOOST_RECT, label: "boost·run" },
+            { key: "brake",   rect: MOBILE_BRAKE_RECT, label: "brake·slow" },
+            { key: "missile", rect: MISSILE_RECT,      label: "missile" },
+            { key: "honk",    rect: HONK_RECT,         label: "honk·interact" },
+            { key: "pepper",  rect: PEPPER_RECT,       label: "pepper" },
+            { key: "cop",     rect: COP_RECT,          label: "siren" }
+        ];
+    }
+    // Fixed editor chrome — RESET (top-right, under the notch) + DONE (bottom).
+    function editChromeRects() {
+        return {
+            reset: { x: W - 12 - 120, y: SAFE_TOP + 12, w: 120, h: 42 },
+            done:  { x: W / 2 - 110, y: H - SAFE_BOTTOM - 54 - 16, w: 220, h: 54 }
+        };
+    }
+    function editRectFor(key) {
+        var list = editCtrlList();
+        for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i].rect;
+        return null;
+    }
+    // Persist the grabbed control's new CENTER as a fraction of W,H.
+    function finalizeEditDrag() {
+        var r = editRectFor(editDragKey);
+        if (r) {
+            if (!save.ctrlLayout) save.ctrlLayout = {};
+            save.ctrlLayout[editDragKey] = { fx: (r.x + r.w / 2) / W, fy: (r.y + r.h / 2) / H };
+            persistSave();
+            playTone(560, 0.05, "sine", 0.06);   // soft confirm blip
+        }
+        editDragKey = null;
+    }
+    function finishEditor() {
+        recomputeLayout();   // paranoia: re-clamp everything to the live viewport
+        persistSave();
+        editDragKey = null;
+        state = "paused";
+        playClick();
+    }
+    function updateEditControls(dt) {
+        editT += dt;
+        var click = consumeClick();
+        if (click) {
+            var ch = editChromeRects();
+            // DONE
+            if (pointInRect(click.x, click.y, ch.done.x, ch.done.y, ch.done.w, ch.done.h)) {
+                consumeAction(); finishEditor(); return;
+            }
+            // RESET — wipe the custom layout, back to stock (no denied-shake).
+            if (pointInRect(click.x, click.y, ch.reset.x, ch.reset.y, ch.reset.w, ch.reset.h)) {
+                save.ctrlLayout = null; persistSave(); recomputeLayout();
+                editDragKey = null; playClick();
+                spawnFloater(W / 2, H / 2, "layout reset", "#FFD54F");
+                consumeAction(); return;
+            }
+            // Otherwise: begin dragging a control if the tap landed on one (+10 slop).
+            if (editDragKey === null) {
+                var list = editCtrlList();
+                for (var i = 0; i < list.length; i++) {
+                    var r = list[i].rect;
+                    if (pointInRect(click.x, click.y, r.x - 10, r.y - 10, r.w + 20, r.h + 20)) {
+                        editDragKey = list[i].key;
+                        editDragDX = click.x - r.x;
+                        editDragDY = click.y - r.y;
+                        break;
+                    }
+                }
+            }
+            consumeAction();
+        }
+        // Live follow while the pointer is held down (touchX/touchY null on release).
+        if (editDragKey !== null && touchX !== null) {
+            var dr = editRectFor(editDragKey);
+            if (dr) {
+                dr.x = clamp(touchX - editDragDX, 6, W - dr.w - 6);
+                dr.y = clamp(touchY - editDragDY, SAFE_TOP + 6, H - SAFE_BOTTOM - dr.h - 6);
+            }
+        }
+        // Release → commit the new position.
+        if (editDragKey !== null && touchX === null) finalizeEditDrag();
+        // Hardware pause key doubles as DONE inside the editor.
+        if (consumePause()) { finishEditor(); return; }
     }
 
     // ── Update: Crash ────────────────────────────────────────
@@ -15614,25 +15753,90 @@
         // overlay
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, W, H);
-        drawText("PAUSED", W / 2, H / 2 - 130, "bold 60px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
+        drawText("PAUSED", W / 2, H / 2 - 140, "bold 60px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 6);
 
+        // Re-stacked to fit a 5th button and still clear the footer on the
+        // compact iPad canvas (H clamps to 700). Resume stays the primary CTA.
         // Resume button
-        drawButton(W / 2 - 110, H / 2 - 55, 220, 56, "▶ RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        drawButton(W / 2 - 110, H / 2 - 88, 220, 54, "▶ RESUME", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // Edit Controls button — opens the movable-controls editor.
+        drawButton(W / 2 - 110, H / 2 - 26, 220, 46, "🎛 EDIT CONTROLS", { bg: "#7E57C2", bgDark: "#4527A0", small: true });
         // Music toggle button
         var musicLabel = musicMuted ? "♪ MUSIC: OFF" : "♪ MUSIC: ON";
         var mc1 = musicMuted ? "#9E9E9E" : "#42A5F5";
         var mc2 = musicMuted ? "#616161" : "#0D47A1";
-        drawButton(W / 2 - 110, H / 2 + 13, 220, 52, musicLabel, { bg: mc1, bgDark: mc2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 26, 220, 46, musicLabel, { bg: mc1, bgDark: mc2, small: true });
         // SFX toggle button
         var sfxLabel = audioMuted ? "🔇 SOUND: OFF" : "🔊 SOUND: ON";
         var sc1 = audioMuted ? "#9E9E9E" : "#FFC107";
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
-        drawButton(W / 2 - 110, H / 2 + 75, 220, 52, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
         // Quit button
-        drawButton(W / 2 - 110, H / 2 + 137, 220, 52, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
-            W / 2, H / 2 + 210, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+            W / 2, H / 2 + 184, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+    }
+
+    // ── Draw: Movable-Controls editor (state === "editControls") ─────────
+    // Icon for one movable control, reusing the exact HUD drawIconButton calls
+    // so the editor preview matches the live buttons. Stateful ones (siren) use
+    // a simplified fixed variant; pepper reuses its custom canister art.
+    function drawEditCtrlIcon(key, r) {
+        if (key === "pause")        drawIconButton(r.x, r.y, r.w, "❚❚", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
+        else if (key === "boost")   drawIconButton(r.x, r.y, r.w, "▲",  { bg: "#FFC107", bgDark: "#FF6F00" });
+        else if (key === "brake")   drawIconButton(r.x, r.y, r.w, "▼",  { bg: "#90CAF9", bgDark: "#1565C0" });
+        else if (key === "missile") drawIconButton(r.x, r.y, r.w, "🚀", { bg: "#F44336", bgDark: "#B71C1C" });
+        else if (key === "honk")    drawIconButton(r.x, r.y, r.w, "📣", { bg: "#FFC107", bgDark: "#FF6F00" });
+        else if (key === "pepper")  { drawIconButton(r.x, r.y, r.w, "", { bg: "#FF7043", bgDark: "#BF360C" }); drawPepperSprayCan(r.x + r.w / 2, r.y + r.w / 2, r.w * 0.30); }
+        else if (key === "cop")     drawIconButton(r.x, r.y, r.w, "🚨", { bg: "#EF5350", bgDark: "#B71C1C" });
+    }
+    function drawEditControls() {
+        // Frozen backdrop = the scene we paused from (same routing as drawPaused).
+        if (prevState === "parking") drawParking();
+        else if (prevState === "cookieCatch") drawCookieCatch();
+        else drawPlaying();
+        // dim scrim
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, W, H);
+        // title + subtitle
+        drawText("🎛 EDIT CONTROLS", W / 2, SAFE_TOP + 80, "bold 30px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
+        drawText("drag any button where you want it", W / 2, SAFE_TOP + 112, "15px 'Segoe UI', Arial, sans-serif", "#E0E0E0", "#000", 3);
+
+        // The 7 movable buttons at their LIVE rects, each with a pulsing dashed
+        // gold outline + a tiny label. The grabbed one draws 1.1× with a glow.
+        var pulse = 0.5 + 0.5 * Math.abs(Math.sin(editT * 3));
+        var list = editCtrlList();
+        for (var i = 0; i < list.length; i++) {
+            var it = list[i], r = it.rect, dragging = (editDragKey === it.key);
+            ctx.save();
+            if (dragging) {
+                var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+                ctx.translate(cx, cy); ctx.scale(1.1, 1.1); ctx.translate(-cx, -cy);
+                ctx.shadowColor = "rgba(255,215,0,0.9)"; ctx.shadowBlur = 26;
+            }
+            drawEditCtrlIcon(it.key, r);
+            ctx.restore();
+            // dashed pulsing outline
+            ctx.save();
+            ctx.strokeStyle = "rgba(255,215,0," + (dragging ? 1 : pulse) + ")";
+            ctx.lineWidth = dragging ? 3.5 : 2.5;
+            ctx.setLineDash([7, 5]);
+            ctx.lineDashOffset = -editT * 26;
+            var pad = dragging ? 6 : 3;
+            roundRect(r.x - pad, r.y - pad, r.w + pad * 2, r.h + pad * 2, 15); ctx.stroke();
+            ctx.restore();
+            // label beneath
+            drawText(it.label, r.x + r.w / 2, r.y + r.h + 13, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+        }
+
+        // Fixed chrome
+        var ch = editChromeRects();
+        drawButton(ch.reset.x, ch.reset.y, ch.reset.w, ch.reset.h, "↺ RESET", { bg: "#90A4AE", bgDark: "#455A64", small: true });
+        drawButton(ch.done.x, ch.done.y, ch.done.w, ch.done.h, "✓ DONE", { bg: "#66BB6A", bgDark: "#2E7D32" });
+        // footer note
+        drawText("steering is still drag-anywhere — only buttons move",
+            W / 2, ch.done.y - 16, "12px 'Segoe UI', Arial, sans-serif", "#CFCFCF", "#000", 2);
     }
 
     // ── Draw: Game Over ──────────────────────────────────────
@@ -33972,6 +34176,7 @@
             // action-consequence flips (crash flash handles those), pause/resume
             // (would hide the menu), or while a gotoState fade is already running.
             var NO_WIPE = { crash: 1, gameover: 1, copBust: 1, copStop: 1, paused: 1,
+                            editControls: 1,
                             arrest: 1, jailCell: 1, courtroom: 1, hospital: 1, exitScene: 1,
                             footRun: 1, footInterior: 1, footWedding: 1 };
             if (lastDispatchState !== null && !NO_WIPE[state] && !NO_WIPE[lastDispatchState] &&
@@ -34041,8 +34246,9 @@
             var smt = storyMusicTrack();
             if (smt) musicTrack = smt;
         }
-        // Paused keeps whatever was playing (handled in updatePaused)
-        if (musicTrack && state !== "paused") startMusic(musicTrack);
+        // Paused (and the controls editor, which sits on top of the frozen
+        // paused scene) keep whatever track was already playing — never restart.
+        if (musicTrack && state !== "paused" && state !== "editControls") startMusic(musicTrack);
 
         // First-drive tutorial peeks at taps (its SKIP pill) before the scene
         // update runs, so it must tick first. No-op unless it's active.
@@ -34052,6 +34258,7 @@
         else if (state === "menu") updateMenu(dt);
         else if (state === "playing") updatePlaying(dt);
         else if (state === "paused") updatePaused(dt);
+        else if (state === "editControls") updateEditControls(dt);
         else if (state === "crash") updateCrash(dt);
         else if (state === "copBust") updateCopBust(dt);
         else if (state === "copStop") updateCopStop(dt);
@@ -34100,6 +34307,7 @@
         else if (state === "menu") drawMenu();
         else if (state === "playing") drawPlaying();
         else if (state === "paused") drawPaused();
+        else if (state === "editControls") drawEditControls();
         else if (state === "crash") drawCrash();
         else if (state === "copBust") drawCopBust();
         else if (state === "copStop") drawCopStop();
