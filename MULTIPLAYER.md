@@ -64,6 +64,64 @@ the frozen relay forwards `d` verbatim and needs no awareness of them.
 - event: `{"t":"e","e":"honk"}` | `{"t":"e","e":"wave"}`
 - ping: `{"t":"pi"}` (30s keepalive; server echoes `{"t":"po"}`)
 
+## PARTY WAVE 2 — real player-to-player interactions
+Four features, all riding the FROZEN relay. BONK + SLIPSTREAM are pure
+client-side self-detection (nothing new on the wire — each client independently
+tests the same geometry). TAG + EMOTES piggyback new fields inside the
+verbatim-relayed `d` packet. All live in `src/10f-multiplayer.js`; the only
+non-10f touches are three tiny guarded hooks (see "Client integration points").
+
+- **BONK! physical ghosts** (`mpBonkUpdate`): FRIEND rooms only, `state ===
+  "playing"`, both cars in drive mode (`m === 0`). Each frame, for every visible
+  ghost, test `|gx − player.x| < 44 && |gy − player.y| < 60`. On overlap START
+  (edge-triggered via `p.bonkOverlap`, with a 0.6 s per-peer `p.bonkCd` floor) I
+  get shoved AWAY laterally: `player.targetX ± 54` (clamped to road) + a tilt
+  kick + "BONK!" floater + sparkle burst + low thunk (`playTone(150,…)`) +
+  `Haptic.medium`. NO damage, NO invincibility. Symmetric: the peer self-detects
+  the same overlap and bounces themselves — no coordination, nothing broadcast.
+- **SLIPSTREAM draft** (`mpDraftMult`): FRIEND rooms only. When a peer ghost is
+  AHEAD (`120 < rel < 420`) and `|peer.x − player.x| < 34` for 1 s continuous →
+  DRAFTING → `gameSpeed × 1.08` (applied via ONE guarded line in
+  `05-driving-loop.js` beside the other gameSpeed multipliers). Drops after 0.7 s
+  out of the window. Wind-line particles stream past my car; a "💨 SLIPSTREAM"
+  HUD chip shows; whoosh tone + `Haptic.light` on activation. Stacks with convoy.
+- **TAG mode** (`mpTag*`): FRIEND rooms, 2+ riders. A "🏷 TAG" button in the
+  connected panel (own row above the race/switch button) starts a 90 s game.
+  Self-declaration over three piggyback fields:
+  - `d.it = [n, gid]` — broadcast every packet by whoever is IT; `n` increments
+    on every tag. `gid` is a game id (`mpTagNewId`: time · hashed id · random).
+  - `d.tgo = gid` — the STARTER announces the game for ~4 s (like `d.pb`), so
+    late joiners learn it even if they missed the first `d.it`.
+  - `d.tgr = [gid, secs]` — each client shouts its total it-time for ~4 s at
+    timeout; everyone renders a results card (least it-time wins, missing
+    reporters show "?"). Winner tone; state clears ~8 s after results.
+  PASSING: if I'm NOT it and the IT ghost overlaps me (slightly bigger box,
+  `54×70`) → `mpTagBecomeIt` bumps `n`, I broadcast `d.it=[n+1,gid]`
+  (`mpForceSends`), big "YOU'RE IT! 🏷" banner + `Haptic.heavy` + tone; the old IT
+  drops the marker on receiving `n+1`. A 1.2 s `tagGuardUntil` (reset on every
+  marker change) blocks instant tag-backs / machine-gunning while overlapping.
+  Conflict SELF-HEAL (deterministic everywhere): higher `n` wins; equal `n` →
+  higher peer id wins. VISUALS: the IT ghost/car wears a pulsing red halo + "· IT"
+  on the nametag; HUD chip reads "🏷 TAG — you're IT! Ns" or "avoid <name>! Ns".
+  Each client accumulates its own it-time locally (`myItTime`). BONK still fires
+  during a pass (bounce + tag together). Room switch / disconnect clears all tag
+  state (like races). Duration is `mpTag.dur` (default `MP_TAG_DUR = 90`), a live
+  field so tests can shrink it without a code change.
+- **EMOTE WHEEL** (`mpEmote*`, all rooms incl. lobby): LONG-PRESS the honk button
+  (hold ≥350 ms; a quick tap still honks — decided at touchend, see below) opens a
+  radial fan of 6 curated emotes (😂 ❤️ 😱 🏁 🐢 🔥) around the LIVE (movable)
+  `HONK_RECT`, clamped on-screen. Tap one → `mpSendEmote` broadcasts
+  `d.em = [nonce, idx]` (~2 s, `mpForceSends`) + a big emoji burst over MY car;
+  peers de-dupe per nonce and burst it over my ghost (`p.emT`/`p.emEmoji`, reuses
+  `mpDrawEmojiBurst`). Slot selection picks the NEAREST slot (not first-match) so
+  adjacent discs never mis-fire. Tap elsewhere / 3 s timeout → close. While open,
+  `mpEmoteUpdate` (runs BEFORE `updatePlaying`) peeks + consumes `clickQueue` and
+  kills any drag-steer so taps can't leak into steering/honk/weapons.
+
+- **`d` piggyback fields (wave 2):** `em:[nonce,idx]` emote · `it:[n,gid]` tag
+  marker · `tgo:gid` tag announce · `tgr:[gid,secs]` tag results. Max payload
+  with every field maximally active ≈ 213 bytes (well under the 2 KB cap).
+
 Server → client:
 - hello: `{"t":"h","id":"a7","peers":[{"id":"b2","name":"…","sk":"…","d":{…}}]}`
 - peer joined: `{"t":"+","id":"b2","name":"…","sk":"…"}`
@@ -90,6 +148,16 @@ Honk event → 📣 floater at that ghost + honk sfx if within 300 px.
   `mpUpdate(dt)`, `mpDrawGhosts()` in drawPlaying world layer,
   `mpMenuButton()` draw + `mpMenuClick(click)` in the menu,
   `mpStatusChip()` in HUDs.
+- Wave-2 hooks (all guarded, added minimally):
+  - `05-driving-loop.js`: `if (typeof mpDraftMult === "function") gameSpeed *=
+    mpDraftMult();` (beside the other gameSpeed multipliers) for SLIPSTREAM; and
+    `mpDrawHudOverlay()` right after `drawHUD()` (screen-space, driving only) for
+    the emote wheel + my emote burst + slipstream wind-lines + my TAG halo/banner.
+  - `01-engine-core.js` (the one permitted input hook): the honk button no longer
+    queues a honk at touchstart. It stashes `honkTouchId` + `honkDownAt`
+    (mirroring `boostTouchId`); `releaseTouchId` decides on touchend — held
+    <350 ms → `honkQueued` (unchanged honk), else → `emoteWheelOpen` (when
+    `MP_URL` is set). Keyboard honk (`h`) is untouched.
 - Menu flow: 🌐 SHARED ROAD button → name picker (curated grid) → EVERYONE
   or FRIEND CODE → connect. Disconnect on entering menu/gameover keeps the
   socket (presence persists across runs); full disconnect via the button.

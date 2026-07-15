@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.14.0";
+    var GAME_VERSION = "1.15.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -663,6 +663,12 @@
     var steerTouchId = null;
     var boostTouchId = null;
     var brakeTouchId = null;
+    // Shared Road emote wheel (mp Feature 4): the honk button doubles as an emote
+    // opener. We can't tell honk-from-emote at touchstart, so — mirroring the
+    // boostTouchId pattern — we stash the touch id + press time and decide on
+    // release (quick tap <350ms → honk, unchanged; hold ≥350ms → open the wheel).
+    var honkTouchId = null;
+    var honkDownAt = 0;
     // "Cruise control" — double-tap the run/slow button to LOCK it on (for big
     // screens / pros who don't want to hold). boost*Lock keeps keys.up/down set
     // after release; *DblT is the short double-tap window.
@@ -836,7 +842,9 @@
             } else if (btn === "siren") {
                 sirenQueued = true;
             } else if (btn === "honk") {
-                honkQueued = true;
+                // Defer the honk-vs-emote decision to touchend (see honkTouchId).
+                honkTouchId = t.identifier;
+                honkDownAt = (window.performance && performance.now) ? performance.now() : Date.now();
             } else if (btn === "exit") {
                 exitQueued = true;
             } else if (btn === "boost") {
@@ -899,6 +907,15 @@
 
     function releaseTouchId(id) {
         if (id === steerTouchId) { steerTouchId = null; touchX = null; touchY = null; }
+        if (id === honkTouchId) {
+            // Quick tap → honk (original behavior). Hold ≥350ms → open the Shared
+            // Road emote wheel (only when the mp feature is enabled; otherwise a
+            // long hold just honks too, so it can never get "stuck open").
+            var held = ((window.performance && performance.now) ? performance.now() : Date.now()) - honkDownAt;
+            if (held >= 350 && typeof MP_URL !== "undefined" && MP_URL) emoteWheelOpen = true;
+            else honkQueued = true;
+            honkTouchId = null;
+        }
         if (id === boostTouchId) { keys.up = boostLock; boostTouchId = null; } // stays on if locked
         if (id === brakeTouchId) { keys.down = brakeLock; brakeTouchId = null; }
         if (id === parkLeftTouchId)  { keys.left = false;  parkLeftTouchId = null; }

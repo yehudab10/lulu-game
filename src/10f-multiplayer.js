@@ -94,6 +94,48 @@
     var mpRecordSentAt = -1e9;  // mpClock when the record was noted (drop pb after ~4s)
     var mpToasts = [];          // [{name, score, t}] incoming peer-record toasts
 
+    // ════════════════════════════════════════════════════════
+    // ═══════════ PARTY WAVE 2 — real player interactions ═════
+    // ════════════════════════════════════════════════════════
+    // All four ride the FROZEN relay: BONK/SLIPSTREAM are pure client-side
+    // self-detection (nothing new on the wire); TAG + EMOTES piggyback new fields
+    // inside the verbatim-relayed `d` packet (d.em / d.it / d.tgo / d.tgr).
+
+    // ── BONK! physical ghosts (Feature 1, friend rooms) ──────
+    // My car overlapping a peer ghost bounces me away — comedy physics, no damage.
+    // Symmetric: each side self-detects the same overlap. Per-peer cooldown stops
+    // riding-alongside from machine-gunning bonks. (cooldown stored on p.bonkCd.)
+
+    // ── SLIPSTREAM draft (Feature 2, friend rooms) ───────────
+    // Tucking behind a friend ahead (120<rel<420, |dx|<34) for 1s → gameSpeed +8%.
+    var mpDraftT = 0;           // continuous in-window seconds (pre-activation)
+    var mpDraftGrace = 0;       // seconds out of window while active
+    var mpDraftActive = false;
+    function mpDraftMult() { return mpDraftActive ? 1.08 : 1; }
+
+    // ── TAG mode (Feature 3, friend rooms, 2+) ───────────────
+    // A together-game over the frozen relay via self-declaration + nonce ordering.
+    // d.it=[n,gid] (broadcast by whoever is IT; n increments on every tag) ·
+    // d.tgo=gid (starter announces the game for ~4s) · d.tgr=[gid,secs] (each
+    // client shouts its total it-time at timeout for ~4s). Conflict self-heal:
+    // higher n wins; equal n → higher peer id wins (deterministic everywhere).
+    var MP_TAG_DUR = 90;        // seconds a tag game runs (each client times locally)
+    var mpTag = null;           // null | {gid,n,itIsMe,itPeer,t,dur,myItTime,participants,
+                                //          tgoAt,over,resultsSentAt,resultsT,results{}}
+    var mpTagBanner = null;     // {text, sub, t} brief "YOU'RE IT!" / "TAGGED!" banner
+
+    // ── EMOTE WHEEL (Feature 4, all rooms) ───────────────────
+    // Long-press the honk button → radial fan of 6 curated emotes. Tap → burst
+    // over my car + broadcast d.em=[nonce,idx]; peers de-dupe per nonce + burst it
+    // over my ghost. Quick honk tap is unchanged (see 01-engine-core touchend).
+    var EMOTES = ["😂", "❤️", "😱", "🏁", "🐢", "🔥"];
+    var emoteWheelOpen = false;   // set true by the 01 touchend long-press handler
+    var emoteWheelT = 0;          // seconds the wheel has been open (auto-close at 3s)
+    var mpEmoteNonce = Math.floor(Math.random() * 1e6) + 1;
+    var mpMyEmote = null;         // {n, idx, at} — piggybacked in d.em for ~2s
+    var mpMyBurstEmoji = null;    // local emoji burst over MY car
+    var mpMyBurstT = 0;           // remaining life (1.1 → 0), like a ghost honkT
+
     // ── PARTY PARKING (phase 2.9) ────────────────────────────
     // In a FRIEND room the roadside lot is SEEDED BY THE ROOM CODE, so the whole
     // party sees the same lot; each member's target spot comes from their stable
@@ -190,6 +232,9 @@
         mpFakeMode = false;
         mpRace = null; mpForceSends = 0;
         convoyActive = false; convoyT = 0; convoyGrace = 0;
+        mpTag = null; mpTagBanner = null;
+        mpDraftActive = false; mpDraftT = 0; mpDraftGrace = 0;
+        emoteWheelOpen = false;
         mpSwitchTo = null;
         if (mpSock) { try { mpSock.onclose = null; mpSock.close(); } catch (e) {} mpSock = null; }
     }
@@ -220,6 +265,9 @@
                 spawnFloater(player.x, player.y - 50, "🏁 race cancelled — left the room", "#FFAB91");
         }
         convoyActive = false; convoyT = 0; convoyGrace = 0;
+        // Leaving the room ends any live TAG game + slipstream too (like the race).
+        mpTag = null; mpTagBanner = null;
+        mpDraftActive = false; mpDraftT = 0; mpDraftGrace = 0;
         // Close the current socket without scheduling a reconnect off THIS close.
         if (mpSock) { try { mpSock.onclose = null; mpSock.close(); } catch (e) {} mpSock = null; }
         mpConnected = false;
@@ -370,6 +418,27 @@
             if (snap) { p.pbNonce = d.pb[0]; }
             else if (p.pbNonce !== d.pb[0]) { p.pbNonce = d.pb[0]; mpPushRecordToast(p.name, d.pb[1]); }
         }
+        // ── EMOTE (d.em=[nonce,idx]) — de-duped per peer nonce, burst over ghost ──
+        // A hello snapshot's nonce is swallowed (stale); any LIVE new nonce bursts once.
+        if (d.em && d.em.length === 2 && typeof d.em[0] === "number") {
+            if (snap) { p.emNonce = d.em[0]; }
+            else if (p.emNonce !== d.em[0]) {
+                p.emNonce = d.em[0];
+                p.emT = 1.1; p.emEmoji = EMOTES[d.em[1]] || "❤️";
+            }
+        }
+        // ── TAG marker (d.it=[n,gid]) — only the current IT player broadcasts it ──
+        if (d.it && d.it.length === 2 && typeof d.it[0] === "number" && !snap) {
+            mpTagApplyMarker(id, d.it[0], d.it[1]);
+        }
+        // ── TAG announce (d.tgo=gid) — starter shouts the game into existence ──
+        if (typeof d.tgo === "number" && !snap) mpTagLearn(id, d.tgo);
+        // ── TAG results (d.tgr=[gid,secs]) — each client's total it-time at timeout ──
+        if (d.tgr && d.tgr.length === 2 && typeof d.tgr[0] === "number" && !snap && mpTag && mpTag.gid === d.tgr[0]) {
+            mpTag.results[id] = { name: p.name, secs: Math.max(0, d.tgr[1] || 0) };
+            mpTag.participants[id] = 1;
+            if (!mpTag.over) { mpTag.over = true; mpTag.resultsT = 0; if (mpTag.resultsSentAt < 0) mpTagBroadcastResults(); }
+        }
     }
 
     function mpPeerEvent(id, e) {
@@ -441,6 +510,16 @@
         }
         // record piggyback: [nonce, score] for ~4s after I beat my high score
         if (mpMyRecord && (mpClock - mpRecordSentAt) < 4) d.pb = [mpMyRecord.n, mpMyRecord.v];
+        // emote piggyback: [nonce, idx] for ~2s after I fire an emote
+        if (mpMyEmote && (mpClock - mpMyEmote.at) < 2) d.em = [mpMyEmote.n, mpMyEmote.idx];
+        // TAG piggybacks: IT marker while I'm it; the starter's game announce for
+        // 4s; my final it-time for 4s once the game times out.
+        if (mpTag) {
+            if (mpTag.itIsMe && !mpTag.over) d.it = [mpTag.n, mpTag.gid];
+            if (!mpTag.over && (mpClock - mpTag.tgoAt) < 4) d.tgo = mpTag.gid;
+            if (mpTag.over && mpTag.resultsSentAt >= 0 && (mpClock - mpTag.resultsSentAt) < 4)
+                d.tgr = [mpTag.gid, Math.round(mpTag.myItTime)];
+        }
         mpSend({ t: "s", d: d });
     }
 
@@ -592,6 +671,8 @@
                 p.x = lerp(p.x, p.tx, clamp(dt * 8, 0, 1));  // ease lane x
                 if (p.honkT > 0) p.honkT -= dt;
                 if (p.waveT > 0) p.waveT -= dt;
+                if (p.emT > 0) p.emT -= dt;
+                if (p.bonkCd > 0) p.bonkCd -= dt;
                 // Stale → start a graceful fade-out instead of popping away.
                 if (mpClock - p.lastPacket > 6) p.dropping = true;
                 var target = p.dropping ? 0 : 1;
@@ -634,6 +715,14 @@
                     spawnFloater(player.x, player.y - 50, "convoy ended", "#B0A8C8");
                 convoyActive = false; convoyT = 0; convoyGrace = 0;
             }
+
+            // ── PARTY WAVE 2 per-frame drivers ──
+            mpBonkUpdate(dt);      // Feature 1 — bounce off + (during TAG) pass the marker
+            mpDraftUpdate(dt);     // Feature 2 — slipstream draft window → +8%
+            mpTagUpdate(dt);       // Feature 3 — timers, results, expiry
+            mpEmoteUpdate(dt);     // Feature 4 — wheel timeout + tap consumption
+            if (mpMyBurstT > 0) mpMyBurstT -= dt;
+            if (mpTagBanner) { mpTagBanner.t += dt; if (mpTagBanner.t > 2.4) mpTagBanner = null; }
 
             // ── record toasts age out (~3s each) ──
             for (var ti = mpToasts.length - 1; ti >= 0; ti--) {
@@ -751,6 +840,17 @@
             p.sx = gx; p.sy = gy; p.onScreen = true;
 
             var a = clamp(p.vis, 0, 1);   // fade-in on first sight / fade-out on drop
+            // TAG: the IT player's ghost wears a pulsing red halo so you know to run.
+            var peerIsIt = (mpTag && !mpTag.over && !mpTag.itIsMe && mpTag.itPeer === id);
+            if (peerIsIt) {
+                var hp = 0.5 + 0.5 * Math.sin(mpClock * 7);
+                ctx.save();
+                ctx.globalAlpha = (0.45 + 0.4 * hp) * a;
+                ctx.strokeStyle = "#FF1744"; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.arc(gx, gy, mpGhostHalfH(p) + 12 + hp * 4, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = "rgba(255,23,68,0.12)"; ctx.fill();
+                ctx.restore();
+            }
             ctx.save();
             ctx.globalAlpha = 0.75 * a;
             if (p.m === 1) drawLuluTopDown(gx, gy, mpClock * 6, null);   // walking ghost
@@ -758,8 +858,9 @@
             ctx.restore();
 
             var topY = gy - mpGhostHalfH(p) - 6;
-            mpDrawNametag(gx, topY, p.name, a);
-            if (p.honkT > 0) mpDrawEmojiBurst(gx, topY - 16, "📣", p.honkT, a);
+            mpDrawNametag(gx, topY, (peerIsIt ? "🏷 " : "") + p.name + (peerIsIt ? " · IT" : ""), a);
+            if (p.emT > 0) mpDrawEmojiBurst(gx, topY - 16, p.emEmoji || "❤️", p.emT, a);
+            else if (p.honkT > 0) mpDrawEmojiBurst(gx, topY - 16, "📣", p.honkT, a);
             else if (p.waveT > 0) mpDrawEmojiBurst(gx, topY - 16, "👋", p.waveT, a);
         }
         ctx.globalAlpha = 1;
@@ -831,6 +932,8 @@
         r.cancel = { x: gx0 + colW + gapX, y: btnY, w: colW, h: 48 };
         r.disconnect = { x: gx0, y: btnY, w: colW, h: 48 };
         r.race = { x: gx0, y: btnY - 58, w: colW * 2 + gapX, h: 48 };
+        // TAG starter sits on its own row just above the race/switch button.
+        r.tag = { x: gx0, y: btnY - 58 - 54, w: colW * 2 + gapX, h: 44 };
         r.close = { x: gx0 + colW + gapX, y: btnY, w: colW, h: 48 };
         return r;
     }
@@ -904,6 +1007,19 @@
         } else if (mpConnected && mpRoom !== "lobby" && !mpRace) {
             drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🏁 START RACE — first to " + (RACE_GOAL / 1000) + "k!",
                 { bg: "#FFB300", bgDark: "#E65100", small: true });
+        }
+        // TAG starter (friend rooms, 2+ riders, no game running) — its own row.
+        if (mpConnected && mpRoom !== "lobby" && target === mpRoom) {
+            if (mpTag) {
+                drawText("🏷 TAG in progress…", W / 2, r.tag.y + r.tag.h / 2,
+                    "bold 12px 'Segoe UI', Arial, sans-serif", "#FF8A80", "#000", 3);
+            } else if (mpPeerCount() >= 1) {
+                drawButton(r.tag.x, r.tag.y, r.tag.w, r.tag.h, "🏷 TAG — 90s, don't be IT!",
+                    { bg: "#EC407A", bgDark: "#AD1457", small: true });
+            } else {
+                drawText("🏷 TAG needs another rider in the room", W / 2, r.tag.y + r.tag.h / 2,
+                    "11px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
+            }
         }
         drawButton(r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h, "DISCONNECT",
             { bg: "#EF5350", bgDark: "#B71C1C" });
@@ -996,6 +1112,7 @@
         drawButton(b.x, b.y, b.w, b.h, lbl, { bg: bg, bgDark: bgD, small: true });
         if (mpPickerOpen) mpDrawPicker();
         mpDrawRace();   // races stay visible on the menu too (countdown/banner)
+        if (!mpPickerOpen) mpDrawTag();      // tag banner / results visible on the menu too
         if (!mpPickerOpen) mpDrawToasts();   // record toasts (not under the scrim)
     }
 
@@ -1023,6 +1140,9 @@
                 if (target !== mpRoom) { mpSwitchRoom(target, mpRoomKind); tap(); return; }
                 if (mpConnected && mpRoom !== "lobby" && !mpRace) { mpRaceStart(); tap(); return; }
             }
+            // TAG starter (only when the form points at the CURRENT room, 2+ riders).
+            if (target === mpRoom && mpConnected && mpRoom !== "lobby" && !mpTag && mpPeerCount() >= 1 &&
+                pointInRect(cx, cy, r.tag.x, r.tag.y, r.tag.w, r.tag.h)) { mpTagStart(); tap(); return; }
             if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) {
                 // Explicit choice: stay solo — cruise won't silently reconnect.
                 mpDisconnect(); save.mpAutoOff = true; persistSave(); tap(); return;
@@ -1087,6 +1207,7 @@
     function mpStatusChip() {
         if (!MP_URL) return;
         mpDrawRace();   // countdown / standings / winner banner over the HUD
+        mpDrawTag();    // TAG banner / results card over the HUD
         if (!mpConnected) return;
         var n = mpRiderCount();
         var txt = "🌐 " + n + (n === 1 ? " rider" : " riders");
@@ -1132,7 +1253,371 @@
             ctx.restore();
         }
 
+        // Stacked status chips below the convoy row: slipstream + tag.
+        var chipY = y + h + 4 + (convoyActive ? 22 : 0);
+        if (mpDraftActive) {
+            chipY = mpDrawMiniChip("💨 SLIPSTREAM", chipY, "rgba(2,119,189,0.9)", "#01579B");
+        }
+        if (mpTag && !mpTag.over) {
+            var left = Math.max(0, Math.ceil((mpTag.dur || MP_TAG_DUR) - mpTag.t));
+            var tTxt = mpTag.itIsMe
+                ? "🏷 TAG — you're IT! " + left + "s"
+                : "🏷 TAG — avoid " + mpTagItName() + "! " + left + "s";
+            mpDrawMiniChip(tTxt, chipY, mpTag.itIsMe ? "rgba(198,40,40,0.92)" : "rgba(84,110,122,0.92)",
+                mpTag.itIsMe ? "#B71C1C" : "#37474F");
+        }
+
         mpDrawToasts();   // party record toasts, top-center over the HUD
+    }
+
+    // A small centered pill chip (used by the slipstream + tag status rows).
+    // Returns the y for the NEXT chip below it.
+    function mpDrawMiniChip(txt, cyp, bg, shadow) {
+        ctx.save();
+        ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+        var ctw = ctx.measureText(txt).width;
+        var cw = ctw + 16, ch = 18, cxp = W / 2 - cw / 2;
+        var pulse = 0.85 + 0.15 * Math.sin(mpClock * 5);
+        ctx.globalAlpha = 0.92 * pulse;
+        ctx.fillStyle = bg;
+        roundRect(cxp, cyp, cw, ch, 9); ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1;
+        roundRect(cxp, cyp, cw, ch, 9); ctx.stroke();
+        ctx.globalAlpha = 1;
+        drawText(txt, W / 2, cyp + ch / 2, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFFFFF", shadow, 2);
+        ctx.restore();
+        return cyp + ch + 4;
+    }
+
+    // ════════════════════════════════════════════════════════
+    // ═══════════ PARTY WAVE 2 — logic + rendering ════════════
+    // ════════════════════════════════════════════════════════
+
+    // ── BONK! (Feature 1) ────────────────────────────────────
+    // My car overlapping a peer ghost bounces me laterally (comedy physics, no
+    // damage). Also the contact that PASSES the tag marker during a TAG game.
+    function mpSpawnBonkSparkle(x, y) {
+        if (typeof particles === "undefined") return;
+        for (var i = 0; i < 10; i++) {
+            var ang = (Math.PI * 2 / 10) * i + rand(-0.2, 0.2);
+            var spd = rand(80, 200);
+            particles.push({ x: x, y: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+                life: rand(0.3, 0.5), maxLife: 0.5, size: rand(2, 5),
+                color: randPick(["#FFF176", "#FFD54F", "#FFFFFF", "#FFAB40"]), gravity: 60 });
+        }
+    }
+    function mpBonkUpdate(dt) {
+        if (!mpConnected || mpRoom === "lobby") return;   // friend rooms only
+        if (state !== "playing") return;                  // driving only (footRun excluded)
+        if (typeof player === "undefined" || !player) return;
+        var myDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
+        var myY = player.y;
+        var cw2 = (typeof CAR_W === "number") ? CAR_W : 46;
+        var roadL = (typeof ROAD_L === "number") ? ROAD_L : 40;
+        var roadR = (typeof ROAD_R === "number") ? ROAD_R : W - 40;
+        for (var id in mpPeers) {
+            var p = mpPeers[id];
+            if (p.m !== 0) { p.bonkOverlap = false; continue; }   // both must be driving (m=0)
+            var rel = mpWrap(p.di - myDi);
+            if (Math.abs(rel) >= MP_VIS) { p.bonkOverlap = false; continue; }
+            var gx = p.x;
+            var gy = clamp(myY - rel * 0.55, -80, H + 80);
+            var dx = Math.abs(gx - player.x), dy = Math.abs(gy - player.y);
+            var overlap = (dx < 44 && dy < 60);
+            var tagOverlap = (dx < 54 && dy < 70);   // slightly bigger box for a tag pass
+            // TAG pass takes precedence (but the bounce still fires too — feels right).
+            // The tagGuard (set on every marker change) blocks instant tag-backs.
+            if (tagOverlap && mpTag && !mpTag.over && !mpTag.itIsMe && mpTag.itPeer === id &&
+                mpClock > (mpTag.tagGuardUntil || 0)) mpTagBecomeIt();
+            if (overlap && !p.bonkOverlap && (!p.bonkCd || p.bonkCd <= 0)) {
+                var dir = (player.x >= gx) ? 1 : -1;   // shove AWAY from the ghost
+                player.targetX = clamp(player.targetX + dir * 54, roadL + cw2 / 2 + 4, roadR - cw2 / 2 - 4);
+                if (typeof player.tilt === "number") player.tilt += dir * 0.22;
+                p.bonkCd = 0.6;                        // per-peer cooldown (no machine-gunning)
+                var contactX = (player.x + gx) / 2, contactY = (player.y + gy) / 2;
+                if (typeof spawnFloater === "function") spawnFloater(contactX, contactY - 10, "BONK!", "#FFD54F");
+                mpSpawnBonkSparkle(contactX, contactY);
+                try { playTone(150, 0.12, "square", 0.22, 90); } catch (e) {}
+                if (typeof Haptic !== "undefined") Haptic.medium("bonk");
+            }
+            p.bonkOverlap = overlap;
+        }
+    }
+
+    // ── SLIPSTREAM (Feature 2) ───────────────────────────────
+    function mpDraftUpdate(dt) {
+        var eligible = (mpConnected && mpRoom !== "lobby" && state === "playing" &&
+                        typeof player !== "undefined" && player);
+        if (eligible) {
+            var myDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
+            var inWin = false;
+            for (var id in mpPeers) {
+                var p = mpPeers[id];
+                if (p.m !== 0) continue;
+                var rel = mpWrap(p.di - myDi);          // >0 = the friend is AHEAD of me
+                if (rel > 120 && rel < 420 && Math.abs(p.x - player.x) < 34) { inWin = true; break; }
+            }
+            if (inWin) {
+                mpDraftGrace = 0; mpDraftT += dt;
+                if (!mpDraftActive && mpDraftT >= 1) {
+                    mpDraftActive = true;
+                    try { playTone(520, 0.16, "sine", 0.14, 900); } catch (e) {}
+                    if (typeof Haptic !== "undefined") Haptic.light("draft");
+                    if (typeof spawnFloater === "function") spawnFloater(player.x, player.y - 60, "💨 SLIPSTREAM!", "#4FC3F7");
+                }
+            } else if (mpDraftActive) {
+                mpDraftGrace += dt;
+                if (mpDraftGrace >= 0.7) { mpDraftActive = false; mpDraftT = 0; mpDraftGrace = 0; }
+            } else {
+                mpDraftT = 0;
+            }
+        } else {
+            mpDraftActive = false; mpDraftT = 0; mpDraftGrace = 0;
+        }
+    }
+
+    // ── TAG (Feature 3) ──────────────────────────────────────
+    function mpTagNewId() {
+        var base = Math.floor(mpClock * 1000) & 0x7fffff;
+        var idh = mpMyId ? (mpHashStr(mpMyId) & 0xff) : ((Math.random() * 256) | 0);
+        return (base * 256 + idh) >>> 0;
+    }
+    function mpTagInit(gid) {
+        mpTag = { gid: gid, n: 0, itIsMe: false, itPeer: null, t: 0, dur: MP_TAG_DUR,
+                  myItTime: 0, participants: {}, tgoAt: -1e9, over: false,
+                  resultsSentAt: -1, resultsT: 0, results: {}, wonTone: false,
+                  tagGuardUntil: mpClock + 1.2 };   // brief no-tag-backs grace after any marker change
+        return mpTag;
+    }
+    function mpTagStart() {                              // panel button — I become IT
+        if (!mpConnected || mpRoom === "lobby") return;
+        var g = mpTagInit(mpTagNewId());
+        g.n = 1; g.itIsMe = true; g.itPeer = null; g.tgoAt = mpClock;
+        if (mpMyId) g.participants[mpMyId] = 1;
+        mpForceSends = Math.max(mpForceSends, 5);        // shout marker + announce now
+        mpPickerOpen = false;
+        mpTagBanner = { text: "🏷 TAG! You're IT", sub: "Bump a friend to pass it — 90s!", t: 0 };
+        try { playTone(392, 0.12, "square", 0.16); setTimeout(function () { playTone(523, 0.14, "triangle", 0.16); }, 130); } catch (e) {}
+        if (typeof Haptic !== "undefined") Haptic.heavy("tagstart");
+    }
+    function mpTagLearn(id, gid) {                       // d.tgo announce
+        if (mpTag) { if (mpTag.gid === gid) { mpTag.participants[id] = 1; if (mpMyId) mpTag.participants[mpMyId] = 1; } return; }
+        mpTagInit(gid);
+        mpTag.participants[id] = 1; if (mpMyId) mpTag.participants[mpMyId] = 1;
+        mpTagBanner = { text: "🏷 TAG started!", sub: "Avoid whoever's IT — 90s!", t: 0 };
+        try { playTone(440, 0.1, "square", 0.14); } catch (e) {}
+    }
+    function mpTagApplyMarker(id, n, gid) {              // d.it marker from the IT player
+        if (!mpTag) mpTagInit(gid);
+        else if (mpTag.gid !== gid) return;             // a different live game — ignore
+        mpTag.participants[id] = 1; if (mpMyId) mpTag.participants[mpMyId] = 1;
+        if (n > mpTag.n) {
+            mpTag.n = n; mpTag.itIsMe = false; mpTag.itPeer = id;
+            mpTag.tagGuardUntil = mpClock + 1.2;         // I just learned a new IT — no instant tag-back
+        }
+        else if (n === mpTag.n) {                        // tie self-heal: higher peer id wins
+            if (mpTag.itIsMe) { if (mpMyId && id > mpMyId) { mpTag.itIsMe = false; mpTag.itPeer = id; } }
+            else if (mpTag.itPeer !== id) { mpTag.itPeer = (mpTag.itPeer && id > mpTag.itPeer) ? id : (mpTag.itPeer || id); }
+        }
+        // n < mpTag.n → stale, ignore.
+    }
+    function mpTagBecomeIt() {                           // I got bumped by the IT player
+        if (!mpTag || mpTag.over || mpTag.itIsMe) return;
+        mpTag.n += 1; mpTag.itIsMe = true; mpTag.itPeer = null;
+        mpForceSends = Math.max(mpForceSends, 5);
+        mpTagBanner = { text: "YOU'RE IT! 🏷", sub: "Pass it back — bump a friend!", t: 0 };
+        try { playTone(311, 0.14, "square", 0.2); setTimeout(function () { playTone(415, 0.16, "sawtooth", 0.18); }, 120); } catch (e) {}
+        if (typeof Haptic !== "undefined") Haptic.heavy("tagged");
+    }
+    function mpTagBroadcastResults() {
+        if (!mpTag) return;
+        mpTag.resultsSentAt = mpClock;
+        if (mpMyId) mpTag.results[mpMyId] = { name: mpMyName() + " (you)", secs: Math.round(mpTag.myItTime) };
+        mpForceSends = Math.max(mpForceSends, 5);
+    }
+    function mpTagUpdate(dt) {
+        if (!mpTag) return;
+        if (!mpConnected || mpRoom === "lobby") { mpTag = null; return; }   // eligibility lost
+        if (!mpTag.over) {
+            mpTag.t += dt;
+            if (mpTag.itIsMe) mpTag.myItTime += dt;
+            if (mpTag.t >= (mpTag.dur || MP_TAG_DUR)) {
+                mpTag.over = true; mpTag.resultsT = 0;
+                mpTagBroadcastResults();
+                try { playTone(523, 0.16, "triangle", 0.18); } catch (e) {}
+            }
+        } else {
+            mpTag.resultsT += dt;
+            if (mpTag.resultsT > 8) mpTag = null;         // results shown → clear all state
+        }
+    }
+    function mpTagItName() {
+        if (!mpTag) return "a rider";
+        if (mpTag.itIsMe) return mpMyName();
+        var p = mpPeers[mpTag.itPeer];
+        return p ? p.name : "a rider";
+    }
+    function mpDrawTag() {
+        if (!MP_URL || !mpTag) return;
+        // Brief tag banner (started / you're it / tagged).
+        if (mpTagBanner) {
+            var ba = (mpTagBanner.t < 0.2) ? mpTagBanner.t / 0.2 : clamp(1 - (mpTagBanner.t - 1.8) / 0.6, 0, 1);
+            ctx.save(); ctx.globalAlpha = clamp(ba, 0, 1);
+            drawText(mpTagBanner.text, W / 2, H * 0.34, "bold 30px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 6);
+            drawText(mpTagBanner.sub, W / 2, H * 0.34 + 30, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFE0B2", "#000", 3);
+            ctx.restore();
+        }
+        if (!mpTag.over) return;
+        // Results card — least it-time wins; missing reporters show "?".
+        var rows = [];
+        for (var pid in mpTag.results) rows.push(mpTag.results[pid]);
+        for (var q in mpTag.participants) {
+            if (mpTag.results[q] || q === mpMyId) continue;
+            var pp = mpPeers[q];
+            rows.push({ name: pp ? pp.name : "Rider", secs: null });
+        }
+        rows.sort(function (a, b) {
+            var av = (a.secs === null) ? 1e9 : a.secs, bv = (b.secs === null) ? 1e9 : b.secs;
+            return av - bv;
+        });
+        var n = Math.min(rows.length, 6);
+        var cardW = 264, rowH = 26, cardH = 66 + n * rowH;
+        var cx = W / 2 - cardW / 2, cy = H * 0.22;
+        var appear = clamp(mpTag.resultsT / 0.3, 0, 1);
+        ctx.save(); ctx.globalAlpha = appear;
+        ctx.fillStyle = "rgba(20,16,40,0.94)";
+        roundRect(cx, cy, cardW, cardH, 16); ctx.fill();
+        ctx.strokeStyle = "#FF5252"; ctx.lineWidth = 3;
+        roundRect(cx, cy, cardW, cardH, 16); ctx.stroke();
+        drawText("🏷 TAG — FINAL", W / 2, cy + 22, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 4);
+        drawText("least time as IT wins", W / 2, cy + 42, "11px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
+        for (var i = 0; i < n; i++) {
+            var rr = rows[i], ry = cy + 58 + i * rowH, mid = ry + rowH / 2;
+            var win = (i === 0 && rr.secs !== null);
+            drawText((win ? "🏆 " : (i + 1) + ". ") + rr.name, cx + 14, mid,
+                "bold 12px 'Segoe UI', Arial, sans-serif", win ? "#FFE082" : "#E1D5F5", "#000", 2, "left");
+            drawText(rr.secs === null ? "?" : rr.secs + "s", cx + cardW - 14, mid,
+                "bold 12px 'Segoe UI', Arial, sans-serif", win ? "#7CFC4F" : "#CFC4E8", "#000", 2, "right");
+        }
+        ctx.restore();
+        if (!mpTag.wonTone && mpTag.resultsT > 0.3) {
+            mpTag.wonTone = true;
+            try { playTone(523, 0.12, "triangle", 0.18); setTimeout(function () { playTone(784, 0.16, "triangle", 0.18); }, 120); } catch (e) {}
+        }
+    }
+
+    // ── EMOTE WHEEL (Feature 4) ──────────────────────────────
+    // The 6 slots fan into the upper-left quadrant of the (movable, LIVE-read)
+    // honk button so they always land on-screen.
+    function mpEmoteSlots() {
+        var r = (typeof HONK_RECT !== "undefined" && HONK_RECT) ? HONK_RECT : { x: W - 78, y: H - 168, w: 64, h: 64 };
+        var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+        var R = 100, slots = [];   // wide enough that the 6 slots don't crowd each other
+        var a0 = -92 * Math.PI / 180, a1 = -208 * Math.PI / 180;   // up → left (screen y down)
+        for (var i = 0; i < EMOTES.length; i++) {
+            var t = (EMOTES.length === 1) ? 0 : i / (EMOTES.length - 1);
+            var ang = a0 + (a1 - a0) * t;
+            slots.push({ x: clamp(cx + Math.cos(ang) * R, 30, W - 30),
+                         y: clamp(cy + Math.sin(ang) * R, 30, H - 30), emoji: EMOTES[i], idx: i });
+        }
+        return slots;
+    }
+    function mpSendEmote(idx) {
+        mpEmoteNonce++;
+        mpMyEmote = { n: mpEmoteNonce, idx: idx, at: mpClock };
+        if (mpForceSends < 2) mpForceSends = 2;
+        mpMyBurstEmoji = EMOTES[idx] || "❤️"; mpMyBurstT = 1.1;
+        try { playTone(660, 0.1, "triangle", 0.16, 900); } catch (e) {}
+        if (typeof Haptic !== "undefined") Haptic.light("emote");
+    }
+    // Runs from mpUpdate (BEFORE updatePlaying) so a wheel tap can't leak into
+    // steering / honk / weapons. Peeks + consumes clickQueue like other overlays.
+    function mpEmoteUpdate(dt) {
+        if (!emoteWheelOpen) return;
+        emoteWheelT += dt;
+        if (state !== "playing") { emoteWheelOpen = false; emoteWheelT = 0; return; }
+        // A quick honk-button re-tap while open = center tap → close (no honk).
+        if (typeof honkQueued !== "undefined" && honkQueued) { honkQueued = false; emoteWheelOpen = false; emoteWheelT = 0; return; }
+        var click = (typeof clickQueue !== "undefined") ? clickQueue : null;
+        if (click) {
+            clickQueue = null;
+            if (typeof actionQueued !== "undefined") actionQueued = false;
+            steerTouchId = null; touchX = null; touchY = null;   // kill any drag-steer this tap began
+            // Pick the NEAREST slot within reach (not the first match — slot hit
+            // discs can overlap, and first-match would bias toward low indices).
+            var slots = mpEmoteSlots(), hit = -1, best = 42 * 42;
+            for (var i = 0; i < slots.length; i++) {
+                var s = slots[i], ddx = click.x - s.x, ddy = click.y - s.y, d2 = ddx * ddx + ddy * ddy;
+                if (d2 < best) { best = d2; hit = i; }
+            }
+            if (hit >= 0) mpSendEmote(hit);
+            emoteWheelOpen = false; emoteWheelT = 0;
+            return;
+        }
+        if (emoteWheelT > 3) { emoteWheelOpen = false; emoteWheelT = 0; }
+    }
+    function mpDrawEmoteWheel() {
+        if (!emoteWheelOpen) return;
+        var r = (typeof HONK_RECT !== "undefined" && HONK_RECT) ? HONK_RECT : { x: W - 78, y: H - 168, w: 64, h: 64 };
+        var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+        var slots = mpEmoteSlots();
+        ctx.save();
+        ctx.globalAlpha = 0.28; ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+        for (var i = 0; i < slots.length; i++) {
+            var s = slots[i];
+            ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(s.x, s.y); ctx.stroke();
+            var pop = 1 + 0.08 * Math.sin(mpClock * 6 + i);
+            ctx.beginPath(); ctx.arc(s.x, s.y, 25 * pop, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(43,37,64,0.96)"; ctx.fill();
+            ctx.strokeStyle = "#7E57C2"; ctx.lineWidth = 2.5; ctx.stroke();
+            drawText(s.emoji, s.x, s.y + 1, "24px Arial", "#FFFFFF", null, 0);
+        }
+        ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(126,87,194,0.96)"; ctx.fill();
+        drawText("📣", cx, cy + 1, "20px Arial", "#FFFFFF", null, 0);
+        ctx.restore();
+        drawText("tap an emote · tap away to close", W / 2, 44,
+            "bold 11px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
+    }
+
+    // Screen-space party FX over the HUD (driving only). Called after drawHUD.
+    function mpDrawHudOverlay() {
+        if (!MP_URL || state !== "playing") return;
+        var havePlayer = (typeof player !== "undefined" && player);
+        // My own IT halo — obvious I'm the one to avoid.
+        if (mpTag && !mpTag.over && mpTag.itIsMe && havePlayer) {
+            var hp = 0.5 + 0.5 * Math.sin(mpClock * 7);
+            ctx.save(); ctx.globalAlpha = 0.45 + 0.4 * hp;
+            ctx.strokeStyle = "#FF1744"; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(player.x, player.y, 46 + hp * 5, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = "rgba(255,23,68,0.10)"; ctx.fill();
+            ctx.restore();
+            drawText("🏷 IT", player.x, player.y - 56, "bold 14px 'Segoe UI', Arial, sans-serif", "#FF5252", "#000", 4);
+        }
+        // Slipstream wind-lines streaming past my car while drafting.
+        if (mpDraftActive && havePlayer) {
+            ctx.save();
+            ctx.globalAlpha = 0.5; ctx.strokeStyle = "#B3E5FC"; ctx.lineWidth = 2; ctx.lineCap = "round";
+            for (var i = 0; i < 6; i++) {
+                var off = ((mpClock * 900 + i * 130) % 240);
+                var lx = player.x + (i % 2 ? 1 : -1) * (18 + (i * 7) % 26);
+                var ly = player.y - 60 + off;
+                ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 22); ctx.stroke();
+            }
+            ctx.restore();
+        }
+        // My emote burst (big) over my car.
+        if (mpMyBurstT > 0 && mpMyBurstEmoji && havePlayer) {
+            var qv = clamp(1 - mpMyBurstT / 1.1, 0, 1);
+            ctx.save(); ctx.globalAlpha = clamp(1.15 - qv, 0, 1);
+            var sc = 1 + Math.sin(qv * Math.PI) * 0.7;
+            drawText(mpMyBurstEmoji, player.x, player.y - 50 - qv * 34, "bold " + Math.round(30 * sc) + "px Arial", "#FFFFFF", "#000", 4);
+            ctx.restore();
+        }
+        // The radial emote wheel on top of everything.
+        mpDrawEmoteWheel();
     }
 
     // ════════════════════════════════════════════════════════

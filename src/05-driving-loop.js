@@ -457,6 +457,8 @@
         }
         // Coasting to a stop as she pulls over to step out.
         if (parkExit) gameSpeed *= clamp(1 - parkExit.t / parkExit.dur, 0, 1);
+        // Shared Road SLIPSTREAM (mp Feature 2): drafting a friend ahead = +8% (no-op otherwise).
+        if (typeof mpDraftMult === "function") gameSpeed *= mpDraftMult();
         // STORY arrival PULL-IN: the world visibly eases to a crawl as she rolls up to a stop.
         if (typeof tripPullInT !== "undefined" && tripPullInT > 0) gameSpeed *= clamp(1 - tripPullInT / 1.1, 0.12, 1);
         // On foot, walking up to a parked car: the world coasts to a halt so she
@@ -4739,6 +4741,9 @@
         drawSeasonFx();
         if (onFoot) { drawFootHUD(); return; }
         drawHUD();
+        // Shared Road party FX drawn OVER the HUD in screen space (emote wheel +
+        // my emote burst, slipstream wind-lines, TAG halo/banner/results). No-op offline.
+        if (typeof mpDrawHudOverlay === "function") { try { mpDrawHudOverlay(); } catch (e) {} }
 
         // Re-entry grace indicator: a soft shield bubble around the car + a
         // "SAFE" countdown, so the player knows they have a moment to react
