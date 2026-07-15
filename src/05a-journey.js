@@ -272,6 +272,7 @@
         // Apply rewards exactly ONCE, the frame the scene opens.
         if (!tripArrival.claimed) {
             tripArrival.claimed = true;
+            if (typeof Haptic !== "undefined") Haptic.success("arrive");
             var stop = tripArrival.stop;
             // Snapshot leg-end coins BEFORE the arrival reward so Bubbe's "collect
             // 40 coins on the way" task counts only coins earned driving the leg.
@@ -351,6 +352,7 @@
                 var boonR = tripBoonRect();
                 if (pointInRect(click.x, click.y, boonR.x, boonR.y, boonR.w, boonR.h)) {
                     tripArrival.boonTaken = true;
+                    if (typeof Haptic !== "undefined") Haptic.medium("boon");
                     var binfo = tripBoonInfo(tripStopIdx);
                     tripBoon = { id: binfo.id, label: binfo.label };
                     spawnConfetti(boonR.x + boonR.w / 2, boonR.y + boonR.h / 2, 26);

@@ -135,3 +135,10 @@ codemagic.yaml locks the app to portrait on iPhone AND iPad (both portrait
 variants) with `UIRequiresFullScreen` — reviewers can't reach the web build's
 "rotate your phone" nag. The canvas clamps logical H to ≥700 on iPad; menus
 switch to a compact layout below H=860 (see menuBaseY()/menuCompact()).
+
+## Haptics
+`@capacitor/haptics` ships in package.json — `npx cap sync ios` (already in
+the codemagic workflow) bundles it automatically; no extra Info.plist keys.
+The in-game Haptic bridge (src/10h-haptics.js) throttles per-channel, falls
+back to navigator.vibrate on Android web, no-ops on desktop/iOS Safari, and
+respects the pause-menu "📳 HAPTICS" toggle (save.hapticsOff).

@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.13.0";
+    var GAME_VERSION = "1.13.1";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -97,6 +97,7 @@
             dayNum: 0,         // last day (epoch days) a run was started → daily streak
             streak: 0,         // consecutive-day play streak (drives the daily bonus)
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
+            hapticsOff: false, // pause-menu toggle for vibration feedback
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
@@ -199,11 +200,13 @@
     }
 
     function playCoin() {
+        if (typeof Haptic !== "undefined") Haptic.light("coin");
         playTone(880, 0.08, "sine", 0.18, 1320);
         setTimeout(function () { playTone(1320, 0.08, "sine", 0.15, 1760); }, 60);
     }
     // Coins LEAVING the bank — a descending "cha-ching... aww" cash-register drop.
     function playCoinLoss() {
+        if (typeof Haptic !== "undefined") Haptic.medium("coinloss");
         playTone(1320, 0.08, "sine", 0.16, 660);
         setTimeout(function () { playTone(660, 0.12, "sine", 0.14, 440); }, 70);
     }
@@ -223,6 +226,7 @@
     }
 
     function playWompWomp() {
+        if (typeof Haptic !== "undefined") Haptic.error("womp");
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var notes = [392, 349, 311, 261]; // descending sad trombone
@@ -246,6 +250,7 @@
     }
 
     function playExplosion() {
+        if (typeof Haptic !== "undefined") Haptic.heavy("boom");
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var bufferSize = Math.floor(ac.sampleRate * 0.6);
@@ -282,16 +287,24 @@
     }
 
     function playMissile() {
+        if (typeof Haptic !== "undefined") Haptic.medium("missile");
         playTone(200, 0.4, "sawtooth", 0.15, 600);
     }
 
-    function playClick() { playTone(700, 0.04, "square", 0.08); }
+    function playClick() {
+        if (typeof Haptic !== "undefined") Haptic.selection();
+        playTone(700, 0.04, "square", 0.08);
+    }
     function playBuy() {
+        if (typeof Haptic !== "undefined") Haptic.success("buy");
         playTone(523, 0.08, "triangle", 0.2);
         setTimeout(function () { playTone(659, 0.08, "triangle", 0.2); }, 70);
         setTimeout(function () { playTone(784, 0.12, "triangle", 0.2); }, 140);
     }
-    function playDeny() { playTone(180, 0.15, "square", 0.15); }
+    function playDeny() {
+        if (typeof Haptic !== "undefined") Haptic.warning("deny");
+        playTone(180, 0.15, "square", 0.15);
+    }
 
     // ── Extra SFX (per Audio Engineer recommendations) ───────
     function makeNoiseBuffer(ac, dur) {
@@ -9072,6 +9085,7 @@
         if (!onFoot && save.highScore > 400) {
             if (!pbBroken && score > save.highScore) {
                 pbBroken = true; recordBannerT = 3.0;
+                if (typeof Haptic !== "undefined") Haptic.success("record");
                 for (var cf = 0; cf < 36; cf++) {
                     particles.push({ x: rand(ROAD_L, ROAD_R), y: rand(-20, H * 0.35),
                         vx: rand(-45, 45), vy: rand(60, 170), life: 0, maxLife: rand(0.9, 1.7),
@@ -9708,6 +9722,7 @@
                     // Chain it: each close call inside the window is worth more
                     // and pushes the 🔥 score multiplier higher (capped ×3).
                     nearChain++; nearChainT = 6;
+                    if (nearChain >= 2 && typeof Haptic !== "undefined") Haptic.light("chain");
                     questBest("chain6", nearChain);   // weekly quest: 6-chain daredevil
                     // CHAPTER TASK (Heshy leg): track the best close-call chain.
                     if (runMode === "story" && typeof storyTask !== "undefined" && storyTask &&
@@ -10226,6 +10241,7 @@
         // On foot she's NOT in a car: getting clipped by traffic knocks her
         // down (lose a life); tripping on cones/animals is just a stumble.
         if (state === "footRun") { footKnockout(obj); return; }
+        if (typeof Haptic !== "undefined") Haptic.heavy("hit");
         // Any hit torches the close-call chain — that's the deal.
         if (nearChain >= 3) spawnFloater(player.x, player.y - 58, "🔥 chain lost!", "#FF8A80");
         nearChain = 0; nearChainT = 0;
@@ -11105,8 +11121,14 @@
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
-            // Quit button
+            // Haptics toggle (native buzz; web falls back to navigator.vibrate)
             if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
+                save.hapticsOff = !save.hapticsOff; persistSave();
+                if (!save.hapticsOff && typeof Haptic !== "undefined") Haptic.medium("toggle");
+                playClick(); consumeAction(); return;
+            }
+            // Quit button
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 170, 220, 46)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 // Cookie Catch is a bedroom activity — quit back to the bedroom.
                 if (prevState === "cookieCatch") { cookie = null; enterDinaHome(); playClick(); consumeAction(); return; }
@@ -13718,6 +13740,7 @@
         // Apply rewards exactly ONCE, the frame the scene opens.
         if (!tripArrival.claimed) {
             tripArrival.claimed = true;
+            if (typeof Haptic !== "undefined") Haptic.success("arrive");
             var stop = tripArrival.stop;
             // Snapshot leg-end coins BEFORE the arrival reward so Bubbe's "collect
             // 40 coins on the way" task counts only coins earned driving the leg.
@@ -13797,6 +13820,7 @@
                 var boonR = tripBoonRect();
                 if (pointInRect(click.x, click.y, boonR.x, boonR.y, boonR.w, boonR.h)) {
                     tripArrival.boonTaken = true;
+                    if (typeof Haptic !== "undefined") Haptic.medium("boon");
                     var binfo = tripBoonInfo(tripStopIdx);
                     tripBoon = { id: binfo.id, label: binfo.label };
                     spawnConfetti(boonR.x + boonR.w / 2, boonR.y + boonR.h / 2, 26);
@@ -15772,10 +15796,13 @@
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
         drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
         // Quit button
-        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        var hapLabel = save.hapticsOff ? "📳 HAPTICS: OFF" : "📳 HAPTICS: ON";
+        var hp1 = save.hapticsOff ? "#9E9E9E" : "#26A69A", hp2 = save.hapticsOff ? "#616161" : "#00695C";
+        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 170, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
-            W / 2, H / 2 + 184, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+            W / 2, H / 2 + 232, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
     }
 
     // ── Draw: Movable-Controls editor (state === "editControls") ─────────
@@ -33310,6 +33337,7 @@
                 // race from where they are (progress counts from HERE).
                 if (state === "menu" && typeof resetGame === "function") { resetGame(); state = "playing"; }
                 mpRace.state = "go"; mpRace.t = 0;
+                if (typeof Haptic !== "undefined") Haptic.medium("racego");
                 mpRace.lastDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
                 mpRace.prog = 0;
                 try {
@@ -34133,6 +34161,77 @@
         drawText("Skip tutorial ✕", r.x + r.w / 2, r.y + r.h / 2 + 1,
             "bold 11px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2);
     }
+
+
+    // ══════════════════════════════════════════════════════════
+    // ═══════════════════ HAPTIC FEEDBACK ══════════════════════
+    // ══════════════════════════════════════════════════════════
+    // Tactile juice at three impact levels + notification patterns.
+    //  • Native (Capacitor iOS/Android): @capacitor/haptics — the real
+    //    Taptic engine (impact Light/Medium/Heavy, notification
+    //    Success/Warning/Error, selection ticks).
+    //  • Web fallback: navigator.vibrate patterns (Android browsers;
+    //    iOS Safari has no vibration API → silently no-ops).
+    // Every call is throttled per-channel (a coin-combo shouldn't buzz
+    // the phone into a massage chair), gated by save.hapticsOff (pause
+    // menu toggle), and try/caught so haptics can never break the game.
+    var Haptic = (function () {
+        function plugin() {
+            try {
+                if (typeof window === "undefined" || !window.Capacitor) return null;
+                var cap = window.Capacitor;
+                if (!cap.isNativePlatform || !cap.isNativePlatform()) return null;
+                return (cap.Plugins && cap.Plugins.Haptics) || null;
+            } catch (e) { return null; }
+        }
+        function off() { return !!(typeof save !== "undefined" && save && save.hapticsOff); }
+
+        // Per-channel throttle: channel → earliest next allowed time (ms clock).
+        var nextAt = {};
+        function gate(channel, minGapMs) {
+            var now = Date.now();
+            if (nextAt[channel] && now < nextAt[channel]) return false;
+            nextAt[channel] = now + (minGapMs || 70);
+            return true;
+        }
+
+        function impact(style, channel, gapMs, webPattern) {
+            if (off() || !gate(channel || style, gapMs)) return;
+            var hp = plugin();
+            try {
+                if (hp && hp.impact) { hp.impact({ style: style }); return; }
+                if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(webPattern);
+            } catch (e) {}
+        }
+        function notify(type, channel, gapMs, webPattern) {
+            if (off() || !gate(channel || type, gapMs)) return;
+            var hp = plugin();
+            try {
+                if (hp && hp.notification) { hp.notification({ type: type }); return; }
+                if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(webPattern);
+            } catch (e) {}
+        }
+
+        return {
+            // Impacts — the physical "thunk" levels.
+            light:  function (ch) { impact("LIGHT",  ch || "light",  70,  8); },
+            medium: function (ch) { impact("MEDIUM", ch || "medium", 110, 18); },
+            heavy:  function (ch) { impact("HEAVY",  ch || "heavy",  160, 35); },
+            // Notifications — patterned feedback for outcomes.
+            success: function (ch) { notify("SUCCESS", ch || "success", 250, [12, 40, 18]); },
+            warning: function (ch) { notify("WARNING", ch || "warning", 250, [18, 40, 18]); },
+            error:   function (ch) { notify("ERROR",   ch || "error",   250, [24, 50, 24, 50, 24]); },
+            // Selection tick — the faintest touch, for UI taps.
+            selection: function () {
+                if (off() || !gate("sel", 60)) return;
+                var hp = plugin();
+                try {
+                    if (hp && hp.selectionStart) { hp.selectionStart(); if (hp.selectionChanged) hp.selectionChanged(); if (hp.selectionEnd) hp.selectionEnd(); return; }
+                    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(5);
+                } catch (e) {}
+            }
+        };
+    })();
 
     var lastDispatchState = null;
     var enterFadeT = 0;   // brief fade-in for cutscene scenes that skip the iris wipe

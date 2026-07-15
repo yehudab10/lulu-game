@@ -381,6 +381,7 @@
                 // race from where they are (progress counts from HERE).
                 if (state === "menu" && typeof resetGame === "function") { resetGame(); state = "playing"; }
                 mpRace.state = "go"; mpRace.t = 0;
+                if (typeof Haptic !== "undefined") Haptic.medium("racego");
                 mpRace.lastDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
                 mpRace.prog = 0;
                 try {

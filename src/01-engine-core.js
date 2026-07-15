@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.13.0";
+    var GAME_VERSION = "1.13.1";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -95,6 +95,7 @@
             dayNum: 0,         // last day (epoch days) a run was started → daily streak
             streak: 0,         // consecutive-day play streak (drives the daily bonus)
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
+            hapticsOff: false, // pause-menu toggle for vibration feedback
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
@@ -197,11 +198,13 @@
     }
 
     function playCoin() {
+        if (typeof Haptic !== "undefined") Haptic.light("coin");
         playTone(880, 0.08, "sine", 0.18, 1320);
         setTimeout(function () { playTone(1320, 0.08, "sine", 0.15, 1760); }, 60);
     }
     // Coins LEAVING the bank — a descending "cha-ching... aww" cash-register drop.
     function playCoinLoss() {
+        if (typeof Haptic !== "undefined") Haptic.medium("coinloss");
         playTone(1320, 0.08, "sine", 0.16, 660);
         setTimeout(function () { playTone(660, 0.12, "sine", 0.14, 440); }, 70);
     }
@@ -221,6 +224,7 @@
     }
 
     function playWompWomp() {
+        if (typeof Haptic !== "undefined") Haptic.error("womp");
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var notes = [392, 349, 311, 261]; // descending sad trombone
@@ -244,6 +248,7 @@
     }
 
     function playExplosion() {
+        if (typeof Haptic !== "undefined") Haptic.heavy("boom");
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var bufferSize = Math.floor(ac.sampleRate * 0.6);
@@ -280,16 +285,24 @@
     }
 
     function playMissile() {
+        if (typeof Haptic !== "undefined") Haptic.medium("missile");
         playTone(200, 0.4, "sawtooth", 0.15, 600);
     }
 
-    function playClick() { playTone(700, 0.04, "square", 0.08); }
+    function playClick() {
+        if (typeof Haptic !== "undefined") Haptic.selection();
+        playTone(700, 0.04, "square", 0.08);
+    }
     function playBuy() {
+        if (typeof Haptic !== "undefined") Haptic.success("buy");
         playTone(523, 0.08, "triangle", 0.2);
         setTimeout(function () { playTone(659, 0.08, "triangle", 0.2); }, 70);
         setTimeout(function () { playTone(784, 0.12, "triangle", 0.2); }, 140);
     }
-    function playDeny() { playTone(180, 0.15, "square", 0.15); }
+    function playDeny() {
+        if (typeof Haptic !== "undefined") Haptic.warning("deny");
+        playTone(180, 0.15, "square", 0.15);
+    }
 
     // ── Extra SFX (per Audio Engineer recommendations) ───────
     function makeNoiseBuffer(ac, dur) {

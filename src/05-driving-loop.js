@@ -509,6 +509,7 @@
         if (!onFoot && save.highScore > 400) {
             if (!pbBroken && score > save.highScore) {
                 pbBroken = true; recordBannerT = 3.0;
+                if (typeof Haptic !== "undefined") Haptic.success("record");
                 for (var cf = 0; cf < 36; cf++) {
                     particles.push({ x: rand(ROAD_L, ROAD_R), y: rand(-20, H * 0.35),
                         vx: rand(-45, 45), vy: rand(60, 170), life: 0, maxLife: rand(0.9, 1.7),
@@ -1145,6 +1146,7 @@
                     // Chain it: each close call inside the window is worth more
                     // and pushes the 🔥 score multiplier higher (capped ×3).
                     nearChain++; nearChainT = 6;
+                    if (nearChain >= 2 && typeof Haptic !== "undefined") Haptic.light("chain");
                     questBest("chain6", nearChain);   // weekly quest: 6-chain daredevil
                     // CHAPTER TASK (Heshy leg): track the best close-call chain.
                     if (runMode === "story" && typeof storyTask !== "undefined" && storyTask &&
@@ -1663,6 +1665,7 @@
         // On foot she's NOT in a car: getting clipped by traffic knocks her
         // down (lose a life); tripping on cones/animals is just a stumble.
         if (state === "footRun") { footKnockout(obj); return; }
+        if (typeof Haptic !== "undefined") Haptic.heavy("hit");
         // Any hit torches the close-call chain — that's the deal.
         if (nearChain >= 3) spawnFloater(player.x, player.y - 58, "🔥 chain lost!", "#FF8A80");
         nearChain = 0; nearChainT = 0;
@@ -2542,8 +2545,14 @@
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
-            // Quit button
+            // Haptics toggle (native buzz; web falls back to navigator.vibrate)
             if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
+                save.hapticsOff = !save.hapticsOff; persistSave();
+                if (!save.hapticsOff && typeof Haptic !== "undefined") Haptic.medium("toggle");
+                playClick(); consumeAction(); return;
+            }
+            // Quit button
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 170, 220, 46)) {
                 if (inTabletMode) { inTabletMode = false; state = "dinaHome"; playClick(); consumeAction(); return; }
                 // Cookie Catch is a bedroom activity — quit back to the bedroom.
                 if (prevState === "cookieCatch") { cookie = null; enterDinaHome(); playClick(); consumeAction(); return; }

@@ -409,10 +409,13 @@
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
         drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
         // Quit button
-        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
+        var hapLabel = save.hapticsOff ? "📳 HAPTICS: OFF" : "📳 HAPTICS: ON";
+        var hp1 = save.hapticsOff ? "#9E9E9E" : "#26A69A", hp2 = save.hapticsOff ? "#616161" : "#00695C";
+        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 170, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
-            W / 2, H / 2 + 184, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
+            W / 2, H / 2 + 232, "14px 'Segoe UI', Arial, sans-serif", "#DDD", "#000", 2);
     }
 
     // ── Draw: Movable-Controls editor (state === "editControls") ─────────
