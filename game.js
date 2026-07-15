@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.13.1";
+    var GAME_VERSION = "1.14.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -9070,7 +9070,7 @@
             if (courageT <= 0) spawnFloater(player.x, player.y - 40, "🍺 courage wore off", "#CE93D8");
         }
         var closeCallMult = (!onFoot && nearChainT > 0) ? 1 + 0.25 * Math.min(nearChain, 8) : 1;
-        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1) * closeCallMult * (typeof storyBoonT !== "undefined" && storyBoonT > 0 && !onFoot ? 2 : 1);
+        var scoreMult = (distractedMode && !onFoot ? 2 : 1) * pointMult * (courageT > 0 && !onFoot ? 2 : 1) * closeCallMult * (typeof storyBoonT !== "undefined" && storyBoonT > 0 && !onFoot ? 2 : 1) * (typeof mpConvoyMult === "function" ? mpConvoyMult() : 1);
         var coinMult = (passengerTimer > 0 ? 2 : 1) * pointMult;
         // Walking doesn't rack up DRIVING score (foot has its own coins/stars) —
         // otherwise the invisible foot stretch silently inflates the score.
@@ -9085,6 +9085,7 @@
         if (!onFoot && save.highScore > 400) {
             if (!pbBroken && score > save.highScore) {
                 pbBroken = true; recordBannerT = 3.0;
+                if (typeof mpNoteRecord === "function") mpNoteRecord(Math.floor(score));
                 if (typeof Haptic !== "undefined") Haptic.success("record");
                 for (var cf = 0; cf < 36; cf++) {
                     particles.push({ x: rand(ROAD_L, ROAD_R), y: rand(-20, H * 0.35),
@@ -33038,6 +33039,27 @@
     var mpRaceSeq = Math.floor(Math.random() * 1e6) + 1;  // my next race nonce
     var mpForceSends = 0;       // send state NOW for a few ticks (race start/win)
 
+    // ── ROOM SWITCH (Feature 1) ──────────────────────────────
+    // While CONNECTED you can re-pick EVERYONE/FRIEND (+ a code) and SWITCH
+    // rooms without opting out. mpSwitchTo holds the target label while in flight.
+    var mpSwitchTo = null;      // null | "EVERYONE" | "ABCD" — shown while switching
+
+    // ── CONVOY BONUS (Feature 2, friend rooms only) ──────────
+    // Driving near a party member for 2s continuous → ×1.5 score, holds until
+    // 3s with nobody in range. Lobby is excluded (fairness — social rooms only).
+    var convoyT = 0;            // continuous in-range seconds (pre-activation)
+    var convoyGrace = 0;        // seconds since last peer in range (while active)
+    var convoyActive = false;
+    function mpConvoyMult() { return convoyActive ? 1.5 : 1; }
+
+    // ── PARTY RECORD TOASTS (Feature 3, all rooms) ───────────
+    // When I beat my own high score mid-run the party hears about it: I piggyback
+    // d.pb=[nonce,score] for a few seconds; peers toast it once per new nonce.
+    var mpRecordNonce = 0;      // bumps each time I set a personal best
+    var mpMyRecord = null;      // {v:score, n:nonce} — piggybacked while fresh
+    var mpRecordSentAt = -1e9;  // mpClock when the record was noted (drop pb after ~4s)
+    var mpToasts = [];          // [{name, score, t}] incoming peer-record toasts
+
     // ── PARTY PARKING (phase 2.9) ────────────────────────────
     // In a FRIEND room the roadside lot is SEEDED BY THE ROOM CODE, so the whole
     // party sees the same lot; each member's target spot comes from their stable
@@ -33133,7 +33155,53 @@
         mpPeers = {};
         mpFakeMode = false;
         mpRace = null; mpForceSends = 0;
+        convoyActive = false; convoyT = 0; convoyGrace = 0;
+        mpSwitchTo = null;
         if (mpSock) { try { mpSock.onclose = null; mpSock.close(); } catch (e) {} mpSock = null; }
+    }
+
+    // The room the picker form currently points at (EVERYONE → "lobby", else the
+    // dialed 4-letter code). Used to label CONNECT vs SWITCH and to switch to.
+    function mpTargetRoom() {
+        if (mpRoomKind === "friend") {
+            var code = "";
+            for (var k = 0; k < 4; k++) code += String.fromCharCode(65 + mpCodeSlots[k]);
+            return code;
+        }
+        return "lobby";
+    }
+    function mpRoomLabel(room) { return (room === "lobby") ? "EVERYONE" : String(room).toUpperCase(); }
+
+    // SWITCH rooms while staying connected (Feature 1): close the socket cleanly
+    // WITHOUT opting out (mpWant/auto stay intact — this is a switch, not a
+    // DISCONNECT), point at the new room, clear peers + any live race, reset the
+    // reconnect/backoff machinery, and reconnect immediately via the normal path.
+    function mpSwitchRoom(room, kind) {
+        if (!MP_URL) return;
+        // Cancel an in-flight race — you're leaving the room it lived in.
+        if (mpRace) {
+            var wasLive = (mpRace.state !== "done");
+            mpRace = null; mpForceSends = 0;
+            if (wasLive && typeof spawnFloater === "function" && typeof player !== "undefined" && player)
+                spawnFloater(player.x, player.y - 50, "🏁 race cancelled — left the room", "#FFAB91");
+        }
+        convoyActive = false; convoyT = 0; convoyGrace = 0;
+        // Close the current socket without scheduling a reconnect off THIS close.
+        if (mpSock) { try { mpSock.onclose = null; mpSock.close(); } catch (e) {} mpSock = null; }
+        mpConnected = false;
+        mpMyId = null;
+        mpPeers = {};
+        mpFakeMode = false;
+        // Point at the target and reconnect right now (keep mpWant/auto intact).
+        mpRoom = room;
+        mpRoomKind = kind;
+        mpWant = true;
+        mpEverConnected = true;
+        mpWantSince = mpClock;
+        mpReconnectDelay = 1;               // reset backoff so it can't fight us
+        mpReconnectAt = mpClock;
+        mpSwitchTo = mpRoomLabel(room);
+        mpOpenSocket();
     }
 
     function mpOpenSocket() {
@@ -33182,6 +33250,7 @@
         if (msg.t === "h") {                    // hello — our id + current peers
             mpMyId = msg.id;
             mpConnected = true;
+            mpSwitchTo = null;                  // switch (if any) has landed
             mpPeers = {};
             // Joining a friend room switches distracted mode OFF (solo cheat —
             // reverse controls + 2× score would poison shared scores/races).
@@ -33260,6 +33329,13 @@
         if (d.pk) { p.pk = d.pk; p.pkT = mpClock; } else p.pk = null;
         if (typeof d.rw === "number" && mpRace && d.rw === mpRace.id && mpRace.state !== "done")
             mpRaceWon(p.name || "A rider");
+        // ── record toast (d.pb=[nonce,score]) — de-duped per peer nonce ──
+        // A hello SNAPSHOT'S nonce is swallowed (stale — the record predates us);
+        // any LIVE packet with a nonce new for this peer fires exactly one toast.
+        if (d.pb && d.pb.length === 2 && typeof d.pb[0] === "number") {
+            if (snap) { p.pbNonce = d.pb[0]; }
+            else if (p.pbNonce !== d.pb[0]) { p.pbNonce = d.pb[0]; mpPushRecordToast(p.name, d.pb[1]); }
+        }
     }
 
     function mpPeerEvent(id, e) {
@@ -33275,6 +33351,22 @@
             p.waveT = 1.1;
             if (p.onScreen && typeof spawnFloater === "function") spawnFloater(p.sx, p.sy - 40, "👋", "#FFF176");
         }
+    }
+
+    // ── PARTY RECORD TOASTS (Feature 3) ──────────────────────
+    // Called from the driving loop's pbBroken celebration: stamp a one-shot
+    // record so the next few state packets carry d.pb and the party gets toasted.
+    function mpNoteRecord(score) {
+        if (!MP_URL) return;
+        mpRecordNonce++;
+        mpMyRecord = { v: Math.floor(score || 0), n: mpRecordNonce };
+        mpRecordSentAt = mpClock;
+        if (mpForceSends < 3) mpForceSends = 3;   // shout it out right away
+    }
+    function mpPushRecordToast(name, score) {
+        mpToasts.push({ name: name || "A rider", score: Math.floor(score || 0), t: 0 });
+        while (mpToasts.length > 4) mpToasts.shift();
+        try { playTone(880, 0.09, "triangle", 0.14, 1180); } catch (e) {}
     }
 
     // Broadcast my own state (≤5 Hz, only while actually driving/walking).
@@ -33313,6 +33405,8 @@
             if (mpRace.state === "go") d.rp = Math.round(mpRace.prog || 0);
             if (mpRace.state === "done" && mpRace.winner === "me") d.rw = mpRace.id;
         }
+        // record piggyback: [nonce, score] for ~4s after I beat my high score
+        if (mpMyRecord && (mpClock - mpRecordSentAt) < 4) d.pb = [mpMyRecord.n, mpMyRecord.v];
         mpSend({ t: "s", d: d });
     }
 
@@ -33471,6 +33565,46 @@
                 else if (p.vis > target) p.vis = Math.max(target, p.vis - fadeRate);
                 if (p.dropping && p.vis <= 0.01) delete mpPeers[id];
                 else if (mpClock - p.lastPacket > 9) delete mpPeers[id];   // hard safety
+            }
+
+            // ── CONVOY bonus (friend rooms only, driving) ──
+            var convoyEligible = (mpConnected && mpRoom !== "lobby" && state === "playing");
+            if (convoyEligible) {
+                var cnear = false;
+                var cMyDi = (typeof scrollOffset === "number") ? scrollOffset : 0;
+                for (var cid in mpPeers) {
+                    if (Math.abs(mpWrap(mpPeers[cid].di - cMyDi)) < 500) { cnear = true; break; }
+                }
+                if (cnear) {
+                    convoyGrace = 0;
+                    convoyT += dt;
+                    if (!convoyActive && convoyT >= 2) {
+                        convoyActive = true;
+                        if (typeof spawnFloater === "function" && typeof player !== "undefined" && player)
+                            spawnFloater(player.x, player.y - 60, "🚗🚗 CONVOY! ×1.5 score", "#7CFC4F");
+                        try { playTone(660, 0.14, "triangle", 0.2, 880); } catch (e) {}
+                        if (typeof Haptic !== "undefined") Haptic.medium("convoy");
+                    }
+                } else if (convoyActive) {
+                    convoyGrace += dt;
+                    if (convoyGrace >= 3) {
+                        convoyActive = false; convoyT = 0; convoyGrace = 0;
+                        if (typeof spawnFloater === "function" && typeof player !== "undefined" && player)
+                            spawnFloater(player.x, player.y - 50, "convoy ended", "#B0A8C8");
+                    }
+                } else {
+                    convoyT = 0;   // continuity broken before activation
+                }
+            } else {
+                if (convoyActive && typeof spawnFloater === "function" && typeof player !== "undefined" && player)
+                    spawnFloater(player.x, player.y - 50, "convoy ended", "#B0A8C8");
+                convoyActive = false; convoyT = 0; convoyGrace = 0;
+            }
+
+            // ── record toasts age out (~3s each) ──
+            for (var ti = mpToasts.length - 1; ti >= 0; ti--) {
+                mpToasts[ti].t += dt;
+                if (mpToasts[ti].t > 3) mpToasts.splice(ti, 1);
             }
 
             // 🌐 rider-count chip: pulse briefly whenever the head-count changes.
@@ -33667,39 +33801,109 @@
         return r;
     }
 
+    // Friend-code wheel (▲ letter ▼ ×4 + 🎲 reroll). Shared by the disconnected
+    // picker AND the connected switch panel so the two never drift apart.
+    function mpDrawFriendSlots(r) {
+        drawText("Tap a letter to change it", W / 2, r.slotsY - 12,
+            "10px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
+        for (var s = 0; s < 4; s++) {
+            var up = r.slotUp[s], sl = r.slots[s], dn = r.slotDown[s];
+            ctx.fillStyle = "#4A4270"; roundRect(up.x, up.y, up.w, up.h, 6); ctx.fill();
+            drawText("▲", up.x + up.w / 2, up.y + up.h / 2, "bold 12px Arial", "#D1C4E9", null, 0);
+            ctx.fillStyle = "#1F1A30"; roundRect(sl.x, sl.y, sl.w, sl.h, 6); ctx.fill();
+            ctx.strokeStyle = "#7E57C2"; ctx.lineWidth = 2; roundRect(sl.x, sl.y, sl.w, sl.h, 6); ctx.stroke();
+            drawText(String.fromCharCode(65 + mpCodeSlots[s]), sl.x + sl.w / 2, sl.y + sl.h / 2,
+                "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+            ctx.fillStyle = "#4A4270"; roundRect(dn.x, dn.y, dn.w, dn.h, 6); ctx.fill();
+            drawText("▼", dn.x + dn.w / 2, dn.y + dn.h / 2, "bold 12px Arial", "#D1C4E9", null, 0);
+        }
+        ctx.fillStyle = "#3B3357"; roundRect(r.reroll.x, r.reroll.y, r.reroll.w, r.reroll.h, 8); ctx.fill();
+        drawText("🎲 new code", r.reroll.x + r.reroll.w / 2, r.reroll.y + r.reroll.h / 2,
+            "bold 11px 'Segoe UI', Arial, sans-serif", "#D1C4E9", "#000", 2);
+        drawText("Share this code with friends — or dial in theirs", W / 2, r.reroll.y + r.reroll.h + 14,
+            "9px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
+    }
+
     function mpDrawConnectedPanel(r) {
         var cy = r.panelY + 130;
         var connecting = !mpConnected;
-        drawText(connecting ? "… Connecting" : "✅ Connected", W / 2, cy,
+        var switching = connecting && !!mpSwitchTo;
+        drawText(switching ? "🔀 Switching…" : (connecting ? "… Connecting" : "✅ Connected"), W / 2, cy,
             "bold 24px 'Segoe UI', Arial, sans-serif", connecting ? "#FFD54F" : "#69F0AE", "#000", 4);
-        // Been trying a while → say so instead of spinning silently forever.
-        if (connecting && mpClock - mpWantSince > 5) {
-            drawText("Can't reach the road — still retrying.", W / 2, cy + 100,
-                "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
-            drawText("Check your connection?", W / 2, cy + 116,
+        if (switching) {
+            drawText("→ " + mpSwitchTo, W / 2, cy + 24,
+                "bold 14px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
+        } else if (connecting && mpClock - mpWantSince > 5) {
+            // Been trying a while → say so instead of spinning silently forever.
+            drawText("Can't reach the road — still retrying.", W / 2, cy + 22,
                 "11px 'Segoe UI', Arial, sans-serif", "#FFAB91", "#000", 2);
         }
-        drawText("Room: " + (mpRoom === "lobby" ? "EVERYONE" : mpRoom.toUpperCase()), W / 2, cy + 40,
+        drawText("Room: " + mpRoomLabel(mpRoom), W / 2, cy + 48,
             "bold 15px 'Segoe UI', Arial, sans-serif", "#E1D5F5", "#000", 3);
-        drawText("Riding as: " + mpMyName(), W / 2, cy + 66,
+        drawText("Riding as: " + mpMyName(), W / 2, cy + 72,
             "bold 14px 'Segoe UI', Arial, sans-serif", "#CFC4E8", "#000", 2);
         if (mpConnected) {
-            drawText("🌐 " + mpRiderCount() + " riders on the road", W / 2, cy + 98,
-                "bold 16px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 3);
+            drawText("🌐 " + mpRiderCount() + " riders on the road", W / 2, cy + 96,
+                "bold 15px 'Segoe UI', Arial, sans-serif", "#80CBC4", "#000", 3);
             var pnames = mpPeerNames();
-            for (var i = 0; i < pnames.length && i < 6; i++) {
-                drawText("• " + pnames[i], W / 2, cy + 128 + i * 22,
+            for (var i = 0; i < pnames.length && i < 3; i++) {
+                drawText("• " + pnames[i], W / 2, cy + 118 + i * 18,
                     "12px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
             }
         }
-        // Friend rooms get the race starter (the big lobby stays chill).
-        if (mpConnected && mpRoom !== "lobby" && !mpRace)
+        // ── Switch room WITHOUT disconnecting (Feature 1) ──
+        drawText("— Switch room —", W / 2, r.everyone.y - 14,
+            "bold 10px 'Segoe UI', Arial, sans-serif", "#B39DDB", "#000", 2);
+        drawButton(r.everyone.x, r.everyone.y, r.everyone.w, r.everyone.h, "🌍 EVERYONE",
+            { bg: mpRoomKind === "everyone" ? "#26A69A" : "#546E7A",
+              bgDark: mpRoomKind === "everyone" ? "#00695C" : "#37474F", small: true });
+        drawButton(r.friend.x, r.friend.y, r.friend.w, r.friend.h, "🔑 FRIEND CODE",
+            { bg: mpRoomKind === "friend" ? "#FF7043" : "#546E7A",
+              bgDark: mpRoomKind === "friend" ? "#BF360C" : "#37474F", small: true });
+        if (mpRoomKind === "friend") mpDrawFriendSlots(r);
+        // The big button reads SWITCH when the form points at a DIFFERENT room;
+        // otherwise the friend-room race starter sits in that slot as before.
+        var target = mpTargetRoom();
+        if (target !== mpRoom) {
+            drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🔀 SWITCH TO " + mpRoomLabel(target),
+                { bg: "#FFB300", bgDark: "#E65100", small: true });
+        } else if (mpConnected && mpRoom !== "lobby" && !mpRace) {
             drawButton(r.race.x, r.race.y, r.race.w, r.race.h, "🏁 START RACE — first to " + (RACE_GOAL / 1000) + "k!",
                 { bg: "#FFB300", bgDark: "#E65100", small: true });
+        }
         drawButton(r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h, "DISCONNECT",
             { bg: "#EF5350", bgDark: "#B71C1C" });
         drawButton(r.close.x, r.close.y, r.close.w, r.close.h, "CLOSE",
             { bg: "#90A4AE", bgDark: "#455A64", small: true });
+    }
+
+    // Party record toasts — top-center, stacked, gold on a dark pill. Drawn from
+    // the same spots as the race UI (HUD + menu) so they show during play.
+    function mpDrawToasts() {
+        if (!MP_URL || !mpToasts.length) return;
+        var shown = 0;
+        for (var i = 0; i < mpToasts.length && shown < 2; i++) {
+            var tt = mpToasts[i];
+            var a = 1;
+            if (tt.t < 0.25) a = tt.t / 0.25;
+            else if (tt.t > 2.5) a = clamp(1 - (tt.t - 2.5) / 0.5, 0, 1);
+            var txt = "🎉 " + tt.name + " set a record: " + formatNum(tt.score) + "!";
+            var y = 100 + shown * 30;
+            ctx.save();
+            ctx.font = "bold 12px 'Segoe UI', Arial, sans-serif";
+            var tw = ctx.measureText(txt).width;
+            var w = Math.min(tw + 22, W - 24), h = 24, x = W / 2 - w / 2;
+            ctx.globalAlpha = 0.92 * a;
+            ctx.fillStyle = "rgba(24,18,40,0.9)";
+            roundRect(x, y, w, h, 12); ctx.fill();
+            ctx.strokeStyle = "rgba(255,213,79,0.6)"; ctx.lineWidth = 1.5;
+            roundRect(x, y, w, h, 12); ctx.stroke();
+            ctx.globalAlpha = a;
+            drawText(txt, W / 2, y + h / 2, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
+            ctx.restore();
+            shown++;
+        }
+        ctx.globalAlpha = 1;
     }
 
     function mpDrawPicker() {
@@ -33735,27 +33939,7 @@
             { bg: mpRoomKind === "friend" ? "#FF7043" : "#546E7A",
               bgDark: mpRoomKind === "friend" ? "#BF360C" : "#37474F", small: true });
         // Friend-code slots (tap letter or ▲▼ to cycle — no keyboard)
-        if (mpRoomKind === "friend") {
-            drawText("Tap a letter to change it", W / 2, r.slotsY - 12,
-                "10px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
-            for (var s = 0; s < 4; s++) {
-                var up = r.slotUp[s], sl = r.slots[s], dn = r.slotDown[s];
-                ctx.fillStyle = "#4A4270"; roundRect(up.x, up.y, up.w, up.h, 6); ctx.fill();
-                drawText("▲", up.x + up.w / 2, up.y + up.h / 2, "bold 12px Arial", "#D1C4E9", null, 0);
-                ctx.fillStyle = "#1F1A30"; roundRect(sl.x, sl.y, sl.w, sl.h, 6); ctx.fill();
-                ctx.strokeStyle = "#7E57C2"; ctx.lineWidth = 2; roundRect(sl.x, sl.y, sl.w, sl.h, 6); ctx.stroke();
-                drawText(String.fromCharCode(65 + mpCodeSlots[s]), sl.x + sl.w / 2, sl.y + sl.h / 2,
-                    "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3);
-                ctx.fillStyle = "#4A4270"; roundRect(dn.x, dn.y, dn.w, dn.h, 6); ctx.fill();
-                drawText("▼", dn.x + dn.w / 2, dn.y + dn.h / 2, "bold 12px Arial", "#D1C4E9", null, 0);
-            }
-            // 🎲 fresh random code (the default is already random per session)
-            ctx.fillStyle = "#3B3357"; roundRect(r.reroll.x, r.reroll.y, r.reroll.w, r.reroll.h, 8); ctx.fill();
-            drawText("🎲 new code", r.reroll.x + r.reroll.w / 2, r.reroll.y + r.reroll.h / 2,
-                "bold 11px 'Segoe UI', Arial, sans-serif", "#D1C4E9", "#000", 2);
-            drawText("Share this code with friends — or dial in theirs", W / 2, r.reroll.y + r.reroll.h + 14,
-                "9px 'Segoe UI', Arial, sans-serif", "#B0A8C8", null, 0);
-        }
+        if (mpRoomKind === "friend") mpDrawFriendSlots(r);
         // Connect / Cancel
         drawButton(r.connect.x, r.connect.y, r.connect.w, r.connect.h, "CONNECT",
             { bg: "#66BB6A", bgDark: "#2E7D32" });
@@ -33778,6 +33962,7 @@
         drawButton(b.x, b.y, b.w, b.h, lbl, { bg: bg, bgDark: bgD, small: true });
         if (mpPickerOpen) mpDrawPicker();
         mpDrawRace();   // races stay visible on the menu too (countdown/banner)
+        if (!mpPickerOpen) mpDrawToasts();   // record toasts (not under the scrim)
     }
 
     function mpHandlePickerClick(click) {
@@ -33785,9 +33970,25 @@
         var cx = click.x, cy = click.y;
         function tap() { if (typeof playClick === "function") playClick(); }
 
-        if (mpWant) {   // connected / connecting panel
-            if (mpConnected && mpRoom !== "lobby" && !mpRace &&
-                pointInRect(cx, cy, r.race.x, r.race.y, r.race.w, r.race.h)) { mpRaceStart(); tap(); return; }
+        if (mpWant) {   // connected / connecting panel — also the room switcher
+            // Re-pick the room kind (EVERYONE | FRIEND CODE) for a switch.
+            if (pointInRect(cx, cy, r.everyone.x, r.everyone.y, r.everyone.w, r.everyone.h)) { mpRoomKind = "everyone"; tap(); return; }
+            if (pointInRect(cx, cy, r.friend.x, r.friend.y, r.friend.w, r.friend.h)) { mpRoomKind = "friend"; tap(); return; }
+            if (mpRoomKind === "friend") {
+                for (var fs = 0; fs < 4; fs++) {
+                    if (pointInRect(cx, cy, r.slotUp[fs].x, r.slotUp[fs].y, r.slotUp[fs].w, r.slotUp[fs].h)) { mpCodeSlots[fs] = (mpCodeSlots[fs] + 1) % 26; tap(); return; }
+                    if (pointInRect(cx, cy, r.slots[fs].x, r.slots[fs].y, r.slots[fs].w, r.slots[fs].h)) { mpCodeSlots[fs] = (mpCodeSlots[fs] + 1) % 26; tap(); return; }
+                    if (pointInRect(cx, cy, r.slotDown[fs].x, r.slotDown[fs].y, r.slotDown[fs].w, r.slotDown[fs].h)) { mpCodeSlots[fs] = (mpCodeSlots[fs] + 25) % 26; tap(); return; }
+                }
+                if (pointInRect(cx, cy, r.reroll.x, r.reroll.y, r.reroll.w, r.reroll.h)) { mpRerollCode(); tap(); return; }
+            }
+            // The r.race slot is SWITCH when the form points at a different room,
+            // else the friend-room race starter — mirror the draw's branching.
+            var target = mpTargetRoom();
+            if (pointInRect(cx, cy, r.race.x, r.race.y, r.race.w, r.race.h)) {
+                if (target !== mpRoom) { mpSwitchRoom(target, mpRoomKind); tap(); return; }
+                if (mpConnected && mpRoom !== "lobby" && !mpRace) { mpRaceStart(); tap(); return; }
+            }
             if (pointInRect(cx, cy, r.disconnect.x, r.disconnect.y, r.disconnect.w, r.disconnect.h)) {
                 // Explicit choice: stay solo — cruise won't silently reconnect.
                 mpDisconnect(); save.mpAutoOff = true; persistSave(); tap(); return;
@@ -33878,6 +34079,26 @@
         ctx.globalAlpha = 1;
         drawText(txt, W / 2, y + h / 2, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#004D40", 2);
         ctx.restore();
+
+        // Convoy bonus chip (pulsing gently) tucked just under the rider chip.
+        if (convoyActive) {
+            var ctxt = "🚗🚗 ×1.5";
+            ctx.save();
+            ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+            var ctw = ctx.measureText(ctxt).width;
+            var cw = ctw + 16, ch = 18, cxp = W / 2 - cw / 2, cyp = y + h + 4;
+            var cpulse = 0.85 + 0.15 * Math.sin(mpClock * 5);
+            ctx.globalAlpha = 0.9 * cpulse;
+            ctx.fillStyle = "rgba(46,125,50,0.9)";
+            roundRect(cxp, cyp, cw, ch, 9); ctx.fill();
+            ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = 1;
+            roundRect(cxp, cyp, cw, ch, 9); ctx.stroke();
+            ctx.globalAlpha = 1;
+            drawText(ctxt, W / 2, cyp + ch / 2, "bold 11px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#1B5E20", 2);
+            ctx.restore();
+        }
+
+        mpDrawToasts();   // party record toasts, top-center over the HUD
     }
 
     // ════════════════════════════════════════════════════════

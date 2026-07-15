@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.13.1";
+    var GAME_VERSION = "1.14.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the

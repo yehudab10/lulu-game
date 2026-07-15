@@ -36,6 +36,31 @@ Client → server:
     `pk` (<3 s) draw as translucent ghosts in the shared lot. Friend rooms
     seed the lot layout from the room code (`mpParkingRng`) and each member
     gets a distinct target bay by roster order (`mpParkingSpotIndex`).
+  - record toast: `pb:[nonce, score]` — sent for ~4 s after the local player
+    beats their own high score mid-run (`mpNoteRecord`, fired from the driving
+    loop's `pbBroken` celebration). Peers de-dupe per sender nonce and show a
+    one-shot "🎉 <name> set a record" toast (`mpApplyState` → `mpToasts` →
+    `mpDrawToasts`). Dropped after ~4 s so late joiners don't see stale toasts;
+    hello-snapshot nonces are swallowed (never re-toasted). You never toast your
+    own record — the local `recordBannerT` banner already fires.
+
+## Client-only party features (verbatim relay, no server changes)
+All of these ride inside the relayed `d` packet or exist purely client-side —
+the frozen relay forwards `d` verbatim and needs no awareness of them.
+- **Switch rooms while connected** (`mpSwitchRoom`): the Shared Road picker's
+  connected panel exposes the EVERYONE|FRIEND toggle + code wheel; when the form
+  points at a different room the big button reads "🔀 SWITCH". Switching closes
+  the socket WITHOUT setting `save.mpAutoOff` (keeps `mpWant`/cruise-auto intact),
+  points `mpRoom`/`mpRoomKind` at the target, clears `mpPeers`, cancels any live
+  race (with a floater), resets the reconnect backoff, and reconnects on the
+  normal path. Plain CONNECT (from disconnected) and DISCONNECT (sets
+  `mpAutoOff`) are unchanged.
+- **Convoy bonus** (`mpConvoyMult`): FRIEND rooms only. `state === "playing"`,
+  not on foot, with ≥1 peer ghost within `|rel| < 500` px for 2 s continuous →
+  ×1.5 score multiplier (drops after 3 s with nobody in range). Applied via the
+  driving loop's `scoreMult` (`* mpConvoyMult()`). Lobby is excluded for fairness
+  even though scores still post to the daily board (social play is encouraged).
+  A "🚗🚗 ×1.5" HUD chip shows while active.
 - event: `{"t":"e","e":"honk"}` | `{"t":"e","e":"wave"}`
 - ping: `{"t":"pi"}` (30s keepalive; server echoes `{"t":"po"}`)
 
