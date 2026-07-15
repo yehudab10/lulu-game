@@ -1708,8 +1708,10 @@
     // "done" | "current" | "locked" for a given node index.
     function storyMapNodeState(i) {
         var ss = save.storyStop || 0, cyc = save.storyCycle || 0;
-        // Frontier wrapped after a full tour → EVERY leg replayable (node 0 is NEXT).
-        if (cyc > 0 && ss === 0) return i === 0 ? "current" : "done";
+        // Once ANY tour has been completed, every leg has already been earned —
+        // no node ever locks again, even after storyStop wraps/advances on a
+        // later tour. The current stop still gets its "current/NEXT" marker.
+        if (cyc > 0) return (i === ss) ? "current" : "done";
         if (i < ss) return "done";
         if (i === ss) return "current";
         return "locked";

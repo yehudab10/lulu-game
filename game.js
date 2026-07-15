@@ -15176,8 +15176,10 @@
     // "done" | "current" | "locked" for a given node index.
     function storyMapNodeState(i) {
         var ss = save.storyStop || 0, cyc = save.storyCycle || 0;
-        // Frontier wrapped after a full tour → EVERY leg replayable (node 0 is NEXT).
-        if (cyc > 0 && ss === 0) return i === 0 ? "current" : "done";
+        // Once ANY tour has been completed, every leg has already been earned —
+        // no node ever locks again, even after storyStop wraps/advances on a
+        // later tour. The current stop still gets its "current/NEXT" marker.
+        if (cyc > 0) return (i === ss) ? "current" : "done";
         if (i < ss) return "done";
         if (i === ss) return "current";
         return "locked";
@@ -16116,9 +16118,15 @@
         }
         ctx.restore();
 
-        // Coin balance top-right
-        drawCoin(W - 100, 36, menuBounce);
-        drawText(formatNum(save.totalCoins), W - 85, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");
+        // Coin balance top-right — right-aligned so a wide balance can't run
+        // under the mute button; the coin icon sits just left of the
+        // measured text width so it never overlaps the digits either.
+        var menuCoinFont = "bold 22px 'Segoe UI', Arial, sans-serif";
+        var menuCoinTxt = formatNum(save.totalCoins);
+        ctx.font = menuCoinFont;
+        var menuCoinW = ctx.measureText(menuCoinTxt).width;
+        drawCoin(W - 72 - menuCoinW - 16, 36, menuBounce);
+        drawText(menuCoinTxt, W - 72, 38, menuCoinFont, C.coin, "#000", 4, "right");
 
         // Mute button
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
@@ -16253,8 +16261,9 @@
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
 
-        // Controls hint
-        drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
+        // Controls hint — keyboard wording only makes sense on desktop.
+        drawText(isTouchDevice ? "drag to steer · hold ⏫ / ⏬ to speed · double-tap to lock"
+                                : "← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
             "11px 'Segoe UI', Arial, sans-serif", "#DDD", "#333", 2);
 
         // Version tag, tucked in the bottom-right corner.
@@ -34114,6 +34123,9 @@
     function drawTutorial() {
         if (!tutActive || state !== "playing") return;
         var st = TUT_STEPS[tutStep];
+        // STEER step's keyboard parenthetical is desktop-only — touch players
+        // never see "◀ ▶ keys" since there's no keyboard to press.
+        var stA = (tutStep === 1 && isTouchDevice) ? "Drag anywhere" : st.a;
         var cardW = W - 56, cardX = 28, cardH = 92;
         // Sits above the bottom control buttons, below the action.
         var cardY = H - 322;
@@ -34136,7 +34148,7 @@
         drawText(st.icon, cardX + 42, cardY + 47, "34px Arial", "#FFF", null, 0);
         // Title + two text lines
         drawText(st.title, cardX + 86, cardY + 24, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
-        drawText(st.a, cardX + 86, cardY + 46, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
+        drawText(stA, cardX + 86, cardY + 46, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
         drawText(st.b, cardX + 86, cardY + 64, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
         // Step pips
         for (var i = 0; i < TUT_STEPS.length; i++) {

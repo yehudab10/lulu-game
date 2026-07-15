@@ -74,6 +74,9 @@
     function drawTutorial() {
         if (!tutActive || state !== "playing") return;
         var st = TUT_STEPS[tutStep];
+        // STEER step's keyboard parenthetical is desktop-only — touch players
+        // never see "◀ ▶ keys" since there's no keyboard to press.
+        var stA = (tutStep === 1 && isTouchDevice) ? "Drag anywhere" : st.a;
         var cardW = W - 56, cardX = 28, cardH = 92;
         // Sits above the bottom control buttons, below the action.
         var cardY = H - 322;
@@ -96,7 +99,7 @@
         drawText(st.icon, cardX + 42, cardY + 47, "34px Arial", "#FFF", null, 0);
         // Title + two text lines
         drawText(st.title, cardX + 86, cardY + 24, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 3, "left");
-        drawText(st.a, cardX + 86, cardY + 46, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
+        drawText(stA, cardX + 86, cardY + 46, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
         drawText(st.b, cardX + 86, cardY + 64, "bold 12.5px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 2, "left");
         // Step pips
         for (var i = 0; i < TUT_STEPS.length; i++) {

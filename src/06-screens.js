@@ -729,9 +729,15 @@
         }
         ctx.restore();
 
-        // Coin balance top-right
-        drawCoin(W - 100, 36, menuBounce);
-        drawText(formatNum(save.totalCoins), W - 85, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");
+        // Coin balance top-right — right-aligned so a wide balance can't run
+        // under the mute button; the coin icon sits just left of the
+        // measured text width so it never overlaps the digits either.
+        var menuCoinFont = "bold 22px 'Segoe UI', Arial, sans-serif";
+        var menuCoinTxt = formatNum(save.totalCoins);
+        ctx.font = menuCoinFont;
+        var menuCoinW = ctx.measureText(menuCoinTxt).width;
+        drawCoin(W - 72 - menuCoinW - 16, 36, menuBounce);
+        drawText(menuCoinTxt, W - 72, 38, menuCoinFont, C.coin, "#000", 4, "right");
 
         // Mute button
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
@@ -866,8 +872,9 @@
         ctx.fillRect(0, 0, W, H);
         ctx.restore();
 
-        // Controls hint
-        drawText("← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
+        // Controls hint — keyboard wording only makes sense on desktop.
+        drawText(isTouchDevice ? "drag to steer · hold ⏫ / ⏬ to speed · double-tap to lock"
+                                : "← → steer · ↑ boost · ↓ slow · M missile · P pause", W / 2, H * 0.97,
             "11px 'Segoe UI', Arial, sans-serif", "#DDD", "#333", 2);
 
         // Version tag, tucked in the bottom-right corner.
