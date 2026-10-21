@@ -42,12 +42,18 @@ How it works:
 | file | contents |
 |------|----------|
 | `01-engine-core.js`      | constants, skins, save system, audio, canvas/input, math/draw utils, particles, decorations, road |
-| `01b-spawn-tuning.js`    | **SPAWN_CONFIG** — easily-editable rarity/timing for random roadside events (parking, Avigail, salon, sasquatch, Heshy pool, hearts) + `tickSpawn` |
+| `01b-spawn-tuning.js`    | **SPAWN_CONFIG** — easily-editable rarity/timing for random roadside events (parking, Avigail, salon, sasquatch, Heshy pool, hearts, Ima's call …) + `tickSpawn` |
 | `02-art-vehicles.js`     | Lulu's car art + enemy cars, obstacles, pedestrians, animals, missiles, signs, sasquatch, cop car |
 | `03-art-parking-hud.js`  | parking-scene art, security camera, damage decals, buttons, HUD, parking level config |
 | `04-parking-logic.js`    | resetGame, spawners, parking minigame setup/update/result, challenge flow |
 | `05-driving-loop.js`     | updatePlaying + paused/crash/gameover/menu/shop updates, drawPlaying, drawCrash |
+| `05a-journey.js`         | **THE JOURNEY / STORY** — named trip stops (`TRIP_STOPS`), arrival scene + rewards (scaled per tour, tour jackpot), story map, chapter tasks, story calls/interludes |
+| `05b-ima-call.js`        | **Ima is calling** — mid-drive phone call: honk to decline, or pick up (flipped steering) for gas money |
 | `06-screens.js`          | parking/paused/gameover/menu/shop draws, shop cards, Lulu/Dina portraits |
+| `06b-quests.js`          | Weekly quests (unlock at 200k lifetime score); `questAdd`/`questBest` hooks also feed scrapbook lifetime stats |
+| `06c-scrapbook.js`       | **Lulu's Scrapbook** (📒 under the menu mute): lifetime `save.stats`, badges (`BADGES`), rap sheet, ER punch card, Avigail meter, records, save-code backup/restore |
+| `06d-bling.js`           | **Bling ✨** shop tab: custom horns (`HORNS`, `playPlayerHorn`) + car decorations (`DECOR`, `drawCarDecor`) |
+| `06e-holidays.js`        | Jewish holidays from the device's Hebrew calendar (Intl): menu greeting + daily gift, Chanukah menorah, Purim hat + grogger |
 | `07-dina-world.js`       | character select, Dina/mom top-down sprites, school bus intro |
 | `08-dina-run.js`         | Dina's run-home scene + hazards + dinaCaught ending |
 | `08b-foot-world.js`      | **Lulu on Foot** — GTA-lite walking world when her car is wrecked. Foot mode (`state === "footRun"`) **reuses the real driving sim** — `updatePlaying`/`drawPlaying` branch on `onFoot = (state === "footRun")`, so NOTHING is missing (all traffic/cops/animals/toll/train/parade/signs/coins). She walks (run/slow on the LEFT) the full width incl. sidewalks, is **NOT invincible** (clipped by a car → `footKnockout`, lose a life, 0 → game over). Hand button (RIGHT / `E`) does context interactions: talk to peds, pet animals, ENTER buildings (→ interiors), BORROW a parked car (→ driving; in front of a cop → `beginCopChase`). Smooth no-tap intro. This fragment is the foot LAYER only (`updateFootExtras`/`drawFootWorld`/`drawFootHUD`/`drawFootIntro`/`footKnockout`) + the `footInterior` dispatch contract |
@@ -59,10 +65,31 @@ How it works:
 | `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |
 | `10b-cookie-catch.js`    | Cookie Catch minigame (Dina's bedroom snack activity) |
+| `10c-ads.js`             | AdMob wrapper — no-op on the web, real ads only in the native iOS app |
+| `10d-jail-court.js`      | Arrest → jail cell → courtroom (visual-novel dialogue) → escape / fugitive |
+| `10e-hospital.js`        | The ER — a softer landing than game over (diagnosis, medical bill) |
+| `10f-multiplayer.js`     | **Shared Road** multiplayer presence (ghost cars, rooms, races, leaderboards) — guarded no-op offline |
+| `10g-tutorial.js`        | First-drive tutorial (six learn-by-doing steps) |
+| `10h-haptics.js`         | Haptic feedback (Capacitor Taptic engine, `navigator.vibrate` on the web) |
 | `11-game-loop.js`        | main gameLoop + init + IIFE close |
 
 ## Testing
 
 Syntax / sync check: `node build.js --check`.
-For behavior, serve locally (`http-server -p 8099 -c-1`) and drive the canvas
+
+**Smoke test — run it before every push to main:** `npm run smoke`
+(`node scripts/smoke.js`). It boots the game in headless Chromium (needs the
+`playwright` package; in the cloud container use
+`NODE_PATH=/opt/node-tools/node_modules`), visits every scene through its real
+entry function, mashes random input, and fails on any error the game loop
+swallowed (`Lulu frame error`) — plus behavior checks for past bugs. Filter with
+`SMOKE_ONLY=<regex>`; `--shots` saves a screenshot per scene to `smoke-shots/`.
+It injects a test-only `window.__lulu(code)` eval hook into the *served* copy
+of game.js, so tests can call any internal function — the file on disk is never
+touched. When adding a scene or fixing a bug, add a SCENES entry or a CHECKS
+entry there. GitHub Actions runs it on every push to main
+(`.github/workflows/smoke.yml`); Pages deploys regardless, so a red ❌ means
+the live site needs a fix right away.
+
+For hands-on behavior, serve locally (`npm run serve`) and drive the canvas
 in a browser — scenes are click/keyboard driven.

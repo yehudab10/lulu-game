@@ -1,5 +1,11 @@
 # 🤖 AGENT HANDOFF — read this first
 
+> **⚠️ Partly historical (written around v9).** The game is now v1.19+ and the
+> source lives in `src/` fragments, not a hand-edited `game.js`. For the current
+> layout, build, deploy and test workflow, **`CLAUDE.md` is the source of
+> truth** (fragment map, `node build.js`, `npm run smoke`). The notes below on
+> the user, tone, characters and gotchas are still useful background.
+
 Hello, future me. This is the context dump for **Lulu's Road Trip**, a browser game I (Claude) have been building for a non-technical user across many sessions. Read this before touching anything — it'll save you hours of rediscovery.
 
 ---
