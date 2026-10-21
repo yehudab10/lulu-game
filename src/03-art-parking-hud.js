@@ -905,6 +905,7 @@
         if (typeof drawJourneyPill === "function") drawJourneyPill();
         // STORY BEATS: the leg-start phone-call card (self-guards on story + playing).
         if (typeof drawStoryCall === "function") drawStoryCall();
+        drawImaCall();
 
         // Passenger buff timer
         if (passengerTimer > 0) {

@@ -530,7 +530,8 @@
 
         // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
-        if (distractedMode && !onFoot) steerInput = -steerInput;
+        // Distracted Mode and being on the phone with Ima both flip the wheel (both = normal).
+        if (!onFoot && (!!distractedMode !== imaCallTalking())) steerInput = -steerInput;
         // While hotwiring a car she stands STILL (so she isn't wandering into traffic).
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) { steerInput = 0; player.targetX = player.x; }
         // Walking up to a car → auto-steer toward it and stop right alongside.
@@ -773,6 +774,9 @@
             imaText.t += dt;
             if (imaText.t > imaText.dur) imaText = null;
         }
+        // 📞 Ima's phone CALL (05b-ima-call.js) — runs before the honk handler
+        // because a honk while it rings/talks is the decline / hang-up.
+        updateImaCall(dt, onFoot);
 
         // Missile firing
         if (consumeMissile()) fireMissile();
@@ -2261,7 +2265,7 @@
     // Cutscenes use this so the pulled-over / crashed / arrested vehicle matches
     // what she was actually behind the wheel of — not always the pink car.
     function drawPlayerVehicleAt(x, y, rot, time, blinking) {
-        if (!playerVehicle) { drawLuluCar(x, y, rot, blinking, time, distractedMode); return; }
+        if (!playerVehicle) { drawLuluCar(x, y, rot, blinking, time, distractedMode || imaCallTalking()); return; }
         ctx.save();
         ctx.translate(x, y);
         if (rot) ctx.rotate(rot);
@@ -2270,7 +2274,7 @@
         else if (playerVehicle === "cop") drawCopCar(0, 0, time * 3);
         else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, time);
         else if (playerVehicle === "borrowed") drawEnemyCar(0, 0, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
-        else drawLuluCar(0, 0, 0, blinking, time, distractedMode);
+        else drawLuluCar(0, 0, 0, blinking, time, distractedMode || imaCallTalking());
         ctx.restore();
     }
 
@@ -3550,6 +3554,7 @@
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
         if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         menuBadgeTick(dt);   // scrapbook: record + toast newly earned badges
+        holidayMenuTick();   // 🕎 once-a-day holiday gift (after any badge toast)
         updateDecorations(dt, 80);
         var click = consumeClick();
         // A tap queues BOTH a click and an action. Drop the paired action as soon as

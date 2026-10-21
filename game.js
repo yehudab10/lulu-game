@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.18.0";
+    var GAME_VERSION = "1.19.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -3030,7 +3030,8 @@
         train:       { first: [55, 110], every: [70, 140], chance: 0.55 }, // 🚂 railroad crossing
         driveThru:   { first: [35, 80],  every: [55, 110], chance: 0.55 }, // 🍔 drive-thru bonus
         parade:      { first: [60, 120], every: [90, 170], chance: 0.45 }, // 🎉 parade / marathon crowd
-        uncle:       { first: [35, 90],  every: [80, 150], chance: 0.4 }   // 👨 Uncle sighting
+        uncle:       { first: [35, 90],  every: [80, 150], chance: 0.4 },  // 👨 Uncle sighting
+        imaCall:     { first: [45, 110], every: [110, 200], chance: 0.45 } // 📞 Ima calls — honk to decline, or pick up (flipped steering, +gas money)
     };
 
     // Per-event countdown timers, (re)initialized at the start of each run.
@@ -3648,6 +3649,8 @@
 
         // Car bling (shop "Bling ✨" tab) rides on top of everything.
         drawCarDecor(decor === undefined ? save.decor : decor, hw, hh, time);
+        // Holiday touches (menorah / Purim hat) on Lulu's OWN car only.
+        if (decor === undefined) drawHolidayCarDecor(hw, hh, time);
 
         ctx.globalAlpha = 1;
         ctx.restore();
@@ -6998,6 +7001,7 @@
         if (typeof drawJourneyPill === "function") drawJourneyPill();
         // STORY BEATS: the leg-start phone-call card (self-guards on story + playing).
         if (typeof drawStoryCall === "function") drawStoryCall();
+        drawImaCall();
 
         // Passenger buff timer
         if (passengerTimer > 0) {
@@ -7542,6 +7546,7 @@
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
+        imaCall = null;
         sasquatchPassenger = 0;
         honkChain = 0; honkChainResetTimer = 0;
         // Avigail + salon
@@ -9181,7 +9186,8 @@
 
         // Steering — on foot she walks the FULL width (road + sidewalks).
         var steerInput = getSteer(player.x);
-        if (distractedMode && !onFoot) steerInput = -steerInput;
+        // Distracted Mode and being on the phone with Ima both flip the wheel (both = normal).
+        if (!onFoot && (!!distractedMode !== imaCallTalking())) steerInput = -steerInput;
         // While hotwiring a car she stands STILL (so she isn't wandering into traffic).
         if (onFoot && typeof footHotwire !== "undefined" && footHotwire) { steerInput = 0; player.targetX = player.x; }
         // Walking up to a car → auto-steer toward it and stop right alongside.
@@ -9424,6 +9430,9 @@
             imaText.t += dt;
             if (imaText.t > imaText.dur) imaText = null;
         }
+        // 📞 Ima's phone CALL (05b-ima-call.js) — runs before the honk handler
+        // because a honk while it rings/talks is the decline / hang-up.
+        updateImaCall(dt, onFoot);
 
         // Missile firing
         if (consumeMissile()) fireMissile();
@@ -10912,7 +10921,7 @@
     // Cutscenes use this so the pulled-over / crashed / arrested vehicle matches
     // what she was actually behind the wheel of — not always the pink car.
     function drawPlayerVehicleAt(x, y, rot, time, blinking) {
-        if (!playerVehicle) { drawLuluCar(x, y, rot, blinking, time, distractedMode); return; }
+        if (!playerVehicle) { drawLuluCar(x, y, rot, blinking, time, distractedMode || imaCallTalking()); return; }
         ctx.save();
         ctx.translate(x, y);
         if (rot) ctx.rotate(rot);
@@ -10921,7 +10930,7 @@
         else if (playerVehicle === "cop") drawCopCar(0, 0, time * 3);
         else if (playerVehicle === "dozer") drawSteamroller(0, 0, 0, time);
         else if (playerVehicle === "borrowed") drawEnemyCar(0, 0, (borrowedCar && borrowedCar.color) || "#E53935", (borrowedCar && borrowedCar.carType) || 0);
-        else drawLuluCar(0, 0, 0, blinking, time, distractedMode);
+        else drawLuluCar(0, 0, 0, blinking, time, distractedMode || imaCallTalking());
         ctx.restore();
     }
 
@@ -12201,6 +12210,7 @@
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
         if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
         menuBadgeTick(dt);   // scrapbook: record + toast newly earned badges
+        holidayMenuTick();   // 🕎 once-a-day holiday gift (after any badge toast)
         updateDecorations(dt, 80);
         var click = consumeClick();
         // A tap queues BOTH a click and an action. Drop the paired action as soon as
@@ -15507,6 +15517,122 @@
         drawFloaters();
     }
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  IMA IS CALLING  (driving only — tuned in SPAWN_CONFIG.imaCall)
+    //  The phone rings mid-drive. HONK to say "I'm DRIVING, Ima!" (she's
+    //  proud: +10). Let it ring and Lulu picks up — while she's on the phone
+    //  the steering is FLIPPED (same as Distracted Mode) for the whole chat,
+    //  but Ima sends gas money at the end (+30). Honk mid-call to hang up.
+    // ══════════════════════════════════════════════════════════════════════
+    var IMA_CALL_LINES = [
+        "Hi mamele! Are you EATING?", "Did you call Bubbe back?",
+        "Are you wearing a sweater? It's cold!", "Tammy says hi. Don't tell Esti.",
+        "Who is this Avigail I keep hearing about?", "Abba wants to know if the car's okay.",
+        "Pick up challah on the way home!", "Your cousin got engaged! Just saying.",
+        "Did Dina tell you about her sticker book?", "Wait — are you DRIVING right now?!"
+    ];
+    var IMA_RING_DUR = 2.4, IMA_TALK_DUR = 7.2, IMA_DONE_DUR = 2.2;
+    var imaCall = null;   // { phase: "ring"|"talk"|"done", t, lines[], result }
+
+    function imaCallTalking() { return !!(imaCall && imaCall.phase === "talk"); }
+    function imaCallRect() { var w = W - 44; return { x: W / 2 - w / 2, y: H * 0.15, w: w, h: 84 }; }
+
+    function imaCallCanStart(onFoot) {
+        if (onFoot || imaCall || imaText) return false;
+        if (typeof tutActive !== "undefined" && tutActive) return false;
+        if (typeof copChase !== "undefined" && copChase) return false;
+        if (typeof storyCallT !== "undefined" && (storyCallT > 0 || storyCallPending)) return false;
+        if (typeof legBannerT !== "undefined" && legBannerT > 0) return false;
+        // Flipped steering would be unfair in a friend-room race.
+        if (typeof mpConnected !== "undefined" && mpConnected && mpRoom !== "lobby") return false;
+        return gameTime > 30;
+    }
+
+    function endImaCall(result) {
+        var pay = result === "full" ? 30 : 10;
+        imaCall.phase = "done"; imaCall.t = 0; imaCall.result = result; imaCall.pay = pay;
+        save.totalCoins += pay; runCoins += pay;
+        statAdd(result === "full" ? "imaCalls" : "imaDeclines", 1);
+        persistSave();
+        if (typeof player !== "undefined" && player) spawnFloater(player.x, player.y - 56, "+" + pay + " 💰 from Ima", "#FF80AB");
+        playCoin();
+    }
+
+    // Called from updatePlaying (before the honk handler, so a honk during the
+    // call is the decline/hang-up — not a Honk Symphony note).
+    function updateImaCall(dt, onFoot) {
+        if (!imaCall) {
+            if (tickSpawn("imaCall", dt) && imaCallCanStart(onFoot)) {
+                var pool = IMA_CALL_LINES.slice(), lines = [];
+                for (var i = 0; i < 3; i++) lines.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+                imaCall = { phase: "ring", t: 0, lines: lines, ringBeat: 0 };
+            }
+            return;
+        }
+        imaCall.t += dt;
+        if (imaCall.phase === "ring") {
+            imaCall.ringBeat -= dt;
+            if (imaCall.ringBeat <= 0) {   // brrring-brrring
+                imaCall.ringBeat = 0.8;
+                playTone(880, 0.08, "sine", 0.12);
+                setTimeout(function () { playTone(988, 0.08, "sine", 0.12); }, 110);
+                if (typeof Haptic !== "undefined") Haptic.light("imaRing");
+            }
+            if (consumeHonk()) { endImaCall("declined"); return; }
+            if (imaCall.t >= IMA_RING_DUR) { imaCall.phase = "talk"; imaCall.t = 0; playTone(660, 0.06, "triangle", 0.12); }
+        } else if (imaCall.phase === "talk") {
+            if (consumeHonk()) { endImaCall("hungup"); return; }
+            if (imaCall.t >= IMA_TALK_DUR) endImaCall("full");
+        } else if (imaCall.t >= IMA_DONE_DUR) {
+            imaCall = null;
+        }
+    }
+
+    function drawImaCall() {
+        if (!imaCall || state !== "playing") return;
+        var r = imaCallRect(), t = imaCall.t;
+        var fadeIn = imaCall.phase === "ring" ? clamp(t / 0.25, 0, 1) : 1;
+        var fadeOut = imaCall.phase === "done" ? clamp((IMA_DONE_DUR - t) / 0.4, 0, 1) : 1;
+        var buzz = imaCall.phase === "ring" ? Math.sin(t * 60) * 2.5 * (Math.sin(t * 7.8) > 0 ? 1 : 0) : 0;
+        ctx.save();
+        ctx.globalAlpha = fadeIn * fadeOut;
+        ctx.translate(buzz, 0);
+        ctx.fillStyle = "rgba(18,24,36,0.94)";
+        roundRect(r.x, r.y, r.w, r.h, 16); ctx.fill();
+        ctx.strokeStyle = "#FF80AB"; ctx.lineWidth = 2.5;
+        roundRect(r.x, r.y, r.w, r.h, 16); ctx.stroke();
+        // avatar: a pink phone bubble (rings while ringing)
+        var acx = r.x + 44, acy = r.y + r.h / 2;
+        ctx.fillStyle = "#F06292"; ctx.beginPath(); ctx.arc(acx, acy, 28, 0, Math.PI * 2); ctx.fill();
+        if (imaCall.phase === "ring") {
+            var wv = (t * 1.6) % 1;
+            ctx.strokeStyle = "rgba(255,128,171," + (1 - wv) + ")"; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(acx, acy, 28 + wv * 14, 0, Math.PI * 2); ctx.stroke();
+        }
+        drawText(imaCall.phase === "talk" ? "🗣️" : "📞", acx, acy + 1, "28px Arial", "#FFF", null, 0);
+        var tx = r.x + 86, tw = r.w - 100;
+        if (imaCall.phase === "ring") {
+            drawText("📞 IMA is calling…", tx, r.y + 26, "bold 18px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 3, "left");
+            drawText("📣 HONK = \"I'm DRIVING, Ima!\"", tx, r.y + 52, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "left");
+            drawText("…or let it ring to pick up", tx, r.y + 70, "13px 'Segoe UI', Arial, sans-serif", "#B0BEC5", "#000", 2, "left");
+        } else if (imaCall.phase === "talk") {
+            var li = Math.min(imaCall.lines.length - 1, Math.floor(t / (IMA_TALK_DUR / imaCall.lines.length)));
+            drawText("IMA (on the phone)", tx, r.y + 20, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+            drawText(imaCall.lines[li], tx, r.y + 42, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "left");
+            drawText("🔄 steering's flipped! · 📣 honk to hang up", tx, r.y + 64, "12px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 2, "left");
+            ctx.fillStyle = "rgba(255,255,255,0.15)"; roundRect(tx, r.y + 74, tw, 5, 2.5); ctx.fill();
+            ctx.fillStyle = "#FF80AB"; roundRect(tx, r.y + 74, tw * clamp(t / IMA_TALK_DUR, 0, 1), 5, 2.5); ctx.fill();
+        } else {
+            var msg = imaCall.result === "full" ? "Love you! Gas money's on the way 💸"
+                    : imaCall.result === "declined" ? "Good girl — eyes on the road! 👀"
+                    : "Hung up on your MOTHER?! …drive safe. 💋";
+            drawText("IMA", tx, r.y + 24, "bold 13px 'Segoe UI', Arial, sans-serif", "#FF80AB", "#000", 2, "left");
+            drawText(msg, tx, r.y + 46, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2, "left");
+            drawText("+" + imaCall.pay + " 💰", tx, r.y + 68, "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 3, "left");
+        }
+        ctx.restore();
+    }
+
     function drawParkingIntro() {
         var t = 1 - parkingTransitionTimer / parkingTransitionDuration;
         if (t < 0.5) {
@@ -16256,6 +16382,8 @@
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
         // 📒 Scrapbook (full menu only) — sits right under the mute button
         drawScrapbookMenuButton();
+        // 🕎 Holiday greeting pill (top-center) while a holiday is on
+        drawHolidayGreeting();
         // (No visible 'back to sister picker' — Dina lives behind a secret 5-tap on
         //  the top-left corner. A faint dot hints at it for those in the know.)
         if (menuSecretTaps > 0) {
@@ -17931,6 +18059,9 @@
         { id: "uncles10",  icon: "👨", name: "Uncle Bingo",      desc: "Bump into the uncles 10 times",      prog: function () { return [stat("uncles3"), 10]; } },
         { id: "heshy5",    icon: "🏊", name: "Pool Patrol",      desc: "Find Heshy 5 times",                 prog: function () { return [stat("heshy2"), 5]; } },
         { id: "salon",     icon: "💇", name: "Fabio's Muse",     desc: "Get a makeover at the salon",        test: function () { return stat("salon") >= 1 || save.luluHair !== "#8B5A2B"; } },
+        { id: "imaCalls",  icon: "📞", name: "Ima's Favorite",   desc: "Stay on the phone with Ima 3 times", prog: function () { return [stat("imaCalls"), 3]; } },
+        { id: "eyesRoad",  icon: "👀", name: "Eyes on the Road", desc: "Honk to decline Ima's call",         test: function () { return stat("imaDeclines") >= 1; } },
+        { id: "holiday",   icon: "🕎", name: "Holiday Spirit",   desc: "Open a holiday gift in the game",    test: function () { return stat("holidayGifts") >= 1; } },
         { id: "garage",    icon: "🏎️", name: "Full Garage",      desc: "Own every car in the shop",          prog: function () { return [(save.ownedSkins || []).length, skinCount()]; } },
         { id: "hornsAll",  icon: "🎺", name: "DJ Lulu",          desc: "Own every horn in the Bling shop",   prog: function () { return [(save.ownedHorns || ["beep"]).length, HORNS.length]; } },
         { id: "blingAll",  icon: "💎", name: "Bling Queen",      desc: "Own every piece of car bling",       prog: function () { return [(save.ownedDecor || []).length, DECOR.length]; } },
@@ -18451,7 +18582,10 @@
     // Lulu's honk. `note` is the Honk-Symphony pitch (262 = first honk).
     function playPlayerHorn(note, hornId) {
         var id = hornId || save.horn || "beep";
-        if (id === "beep" || !blingDef("horn", id)) { playHonkPitched(note); return; }
+        if (id === "beep" || !blingDef("horn", id)) {
+            if (holidayIs("purim")) playGrogger(); else playHonkPitched(note);   // 🎭 Purim: the stock horn is a grogger
+            return;
+        }
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var k = clamp((note || 262) / 262, 1, 2), t = ac.currentTime, o, i;
@@ -18681,6 +18815,138 @@
         }
         blingSel = null;
         return false;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  JEWISH HOLIDAYS — read live from the device's Hebrew calendar (Intl),
+    //  so there's no date table to keep updating. During a holiday:
+    //   · a greeting pill on the menu + a once-a-day gift toast,
+    //   · Chanukah: a menorah on Lulu's car with tonight's candles lit,
+    //   · Purim: a party hat on the car and the stock horn becomes a GROGGER.
+    //  If the browser has no Hebrew calendar, holidays simply never trigger.
+    // ══════════════════════════════════════════════════════════════════════
+    var HOLIDAYS = [
+        { id: "roshHashana", month: ["Tishri"], day: 1, days: 2, emoji: "🍎", greeting: "Shana Tova!", gift: 18, from: "Bubbe's honey-cake money" },
+        { id: "sukkot",      month: ["Tishri"], day: 15, days: 9, emoji: "🌿", greeting: "Chag Sameach!", gift: 18, from: "Gelt from the sukkah" },
+        { id: "chanukah",    month: ["Kislev"], day: 25, days: 8, emoji: "🕎", greeting: "Happy Chanukah!", gift: 18, from: "Chanukah gelt from Bubbe" },
+        { id: "purim",       month: ["Adar", "Adar II"], day: 14, days: 2, emoji: "🎭", greeting: "Freilichen Purim!", gift: 36, from: "Mishloach manot from Avigail" },
+        { id: "pesach",      month: ["Nisan"], day: 15, days: 8, emoji: "🫓", greeting: "Chag Pesach Sameach!", gift: 36, from: "You found the afikoman" }
+    ];
+    var holidayTestDate = null;   // smoke tests pin a date here
+    var hebFmt = null;
+    function hebrewMD(d) {
+        try {
+            if (!hebFmt) hebFmt = new Intl.DateTimeFormat("en-u-ca-hebrew", { month: "long", day: "numeric" });
+            var parts = hebFmt.formatToParts(d), m = null, day = null;
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === "month") m = parts[i].value;
+                if (parts[i].type === "day") day = parseInt(parts[i].value, 10);
+            }
+            return (m && day) ? { m: m, d: day } : null;
+        } catch (e) { return null; }
+    }
+    // The holiday running today (local date) → { h, dayNum (1-based), key } or null.
+    var holidayCache = null, holidayCacheKey = "";
+    function currentHoliday() {
+        var now = holidayTestDate || new Date();
+        var key = now.getFullYear() + "-" + now.getMonth() + "-" + now.getDate();
+        if (key === holidayCacheKey) return holidayCache;
+        holidayCacheKey = key; holidayCache = null;
+        // Walk back up to 8 days looking for a holiday's first day.
+        for (var back = 0; back < 9 && !holidayCache; back++) {
+            var md = hebrewMD(new Date(now.getFullYear(), now.getMonth(), now.getDate() - back, 12));
+            if (!md) return null;   // no Hebrew calendar on this device
+            for (var i = 0; i < HOLIDAYS.length; i++) {
+                var h = HOLIDAYS[i];
+                if (h.day === md.d && h.month.indexOf(md.m) >= 0 && back < h.days) {
+                    holidayCache = { h: h, dayNum: back + 1, key: h.id + ":" + key };
+                    break;
+                }
+            }
+        }
+        return holidayCache;
+    }
+    function holidayIs(id) { var c = currentHoliday(); return !!(c && c.h.id === id); }
+
+    // Menu: once per holiday day, hand out the gift (after any badge toast).
+    function holidayMenuTick() {
+        var c = currentHoliday();
+        if (!c || save.holidayGiftKey === c.key || menuMsgTimer > 0) return;
+        save.holidayGiftKey = c.key;
+        save.totalCoins += c.h.gift;
+        statAdd("holidayGifts", 1);
+        persistSave();
+        menuMsg = c.h.emoji + " " + c.h.from + "! +" + c.h.gift + " 💰";
+        menuMsgTimer = 3;
+        playTone(659, 0.1, "triangle", 0.2);
+        setTimeout(function () { playTone(784, 0.1, "triangle", 0.2); }, 110);
+        setTimeout(function () { playTone(1046, 0.14, "triangle", 0.2); }, 220);
+    }
+    function drawHolidayGreeting() {
+        var c = currentHoliday();
+        if (!c) return;
+        var txt = c.h.emoji + " " + c.h.greeting + (c.h.id === "chanukah" ? " Night " + c.dayNum : "");
+        ctx.font = "bold 14px 'Segoe UI', Arial, sans-serif";
+        var w = ctx.measureText(txt).width + 24, x = W / 2 - 40 - w / 2;
+        ctx.fillStyle = "rgba(13,71,161,0.82)"; roundRect(x, 18, w, 26, 13); ctx.fill();
+        ctx.strokeStyle = "#FFD54F"; ctx.lineWidth = 1.5; roundRect(x, 18, w, 26, 13); ctx.stroke();
+        drawText(txt, x + w / 2, 31, "bold 14px 'Segoe UI', Arial, sans-serif", "#FFF8E1", null, 0);
+    }
+
+    // Holiday car decor — Lulu's OWN car only (drawLuluCar calls this when no
+    // explicit decor was passed). Sits on the trunk when roof bling is worn.
+    function drawHolidayCarDecor(hw, hh, time) {
+        var c = currentHoliday();
+        if (!c) return;
+        var roofTaken = save.decor === "bow" || save.decor === "crown" || save.decor === "surf";
+        var y = roofTaken ? hh - 4 : 6;
+        ctx.save();
+        if (c.h.id === "chanukah") {
+            var lit = Math.min(8, c.dayNum);
+            ctx.translate(0, y);
+            ctx.strokeStyle = "#B8860B"; ctx.lineWidth = 2; ctx.lineCap = "round";
+            ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(13, 0); ctx.moveTo(0, 0); ctx.lineTo(0, 6); ctx.moveTo(-5, 6); ctx.lineTo(5, 6); ctx.stroke();
+            var xs = [-13, -10, -7, -4, 4, 7, 10, 13];
+            ctx.lineWidth = 1.6;
+            for (var i = 0; i < 8; i++) {
+                ctx.strokeStyle = "#90CAF9"; ctx.beginPath(); ctx.moveTo(xs[i], 0); ctx.lineTo(xs[i], -5); ctx.stroke();
+                // candles are lit right-to-left as the nights go on (newest on the left)
+                if (i >= 8 - lit) drawHolidayFlame(xs[i], -7, time + i);
+            }
+            ctx.strokeStyle = "#90CAF9"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -8); ctx.stroke();   // shamash
+            drawHolidayFlame(0, -10, time + 9);
+        } else if (c.h.id === "purim") {
+            ctx.translate(0, y);
+            ctx.fillStyle = "#AB47BC"; ctx.strokeStyle = "#4A148C"; ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.moveTo(-8, 5); ctx.lineTo(0, -12); ctx.lineTo(8, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#FFEB3B";
+            ctx.beginPath(); ctx.arc(-3, 1, 1.4, 0, Math.PI * 2); ctx.arc(2, -4, 1.2, 0, Math.PI * 2); ctx.arc(3, 2, 1.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#FF4081"; ctx.beginPath(); ctx.arc(0, -13, 2.6 + Math.sin(time * 6) * 0.4, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+    }
+    function drawHolidayFlame(x, y, t) {
+        var f = 1 + Math.sin(t * 13) * 0.18;
+        ctx.fillStyle = "#FFB300";
+        ctx.beginPath(); ctx.ellipse(x, y, 1.4 * f, 2.4 * f, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#FFF59D";
+        ctx.beginPath(); ctx.ellipse(x, y + 0.5, 0.6, 1.1, 0, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Purim: the stock horn is a grogger (a quick wooden ratchet).
+    function playGrogger() {
+        if (audioMuted) return;
+        var ac = getAudio(); if (!ac) return;
+        var t = ac.currentTime;
+        for (var i = 0; i < 9; i++) {
+            var o = ac.createOscillator(), g = ac.createGain();
+            o.type = "square"; o.frequency.setValueAtTime(140 + (i % 2) * 40, t + i * 0.045);
+            g.gain.setValueAtTime(0.0001, t + i * 0.045);
+            g.gain.exponentialRampToValueAtTime(0.14, t + i * 0.045 + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.045 + 0.035);
+            o.connect(g).connect(ac.destination);
+            o.start(t + i * 0.045); o.stop(t + i * 0.045 + 0.04);
+        }
     }
 
     function updateCharSelect(dt) {

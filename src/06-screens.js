@@ -747,6 +747,8 @@
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
         // 📒 Scrapbook (full menu only) — sits right under the mute button
         drawScrapbookMenuButton();
+        // 🕎 Holiday greeting pill (top-center) while a holiday is on
+        drawHolidayGreeting();
         // (No visible 'back to sister picker' — Dina lives behind a secret 5-tap on
         //  the top-left corner. A faint dot hints at it for those in the know.)
         if (menuSecretTaps > 0) {

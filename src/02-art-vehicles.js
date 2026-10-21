@@ -590,6 +590,8 @@
 
         // Car bling (shop "Bling ✨" tab) rides on top of everything.
         drawCarDecor(decor === undefined ? save.decor : decor, hw, hh, time);
+        // Holiday touches (menorah / Purim hat) on Lulu's OWN car only.
+        if (decor === undefined) drawHolidayCarDecor(hw, hh, time);
 
         ctx.globalAlpha = 1;
         ctx.restore();

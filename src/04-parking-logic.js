@@ -89,6 +89,7 @@
         honkCooldown = 0;
         kidsInCar = false;
         imaText = null; imaTextTimer = rand(35, 75);
+        imaCall = null;
         sasquatchPassenger = 0;
         honkChain = 0; honkChainResetTimer = 0;
         // Avigail + salon

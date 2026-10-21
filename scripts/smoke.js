@@ -90,6 +90,9 @@ const SCENES = [
   ["scrapbook crew",        "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 2", 2],
   ["scrapbook stats",       "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 3", 2],
   ["story finale (tour 2)",  "save.cruiseUnlocked = true; save.storyStop = 4; save.storyCycle = 1; runMode = 'story'; resetGame(); tripStopIdx = 4; tripArrival = { stop: TRIP_STOPS[4], t: 0, phase: 0, claimed: false, newPostcard: false }; state = 'arrival'", 4],
+  ["Ima call (drive)",      "save.cruiseUnlocked = true; runMode = 'cruise'; resetGame(); state = 'playing'; gameTime = 40; imaCall = { phase: 'ring', t: 0, lines: IMA_CALL_LINES.slice(0, 3), ringBeat: 0 }", 6],
+  ["chanukah menu + drive", "holidayTestDate = new Date(2026, 11, 9, 12); save.cruiseUnlocked = true; state = 'menu'", 6],
+  ["purim drive (grogger)", "holidayTestDate = new Date(2027, 2, 23, 12); save.decor = 'crown'; runMode = 'cruise'; resetGame(); state = 'playing'", 5],
   ["sister picker",         "state = 'charSelect'", 2],
   ["dina bus",              "startDinaMode()", 3],
   ["dina run",              "startDinaMode(); startDinaRun()", 6],
@@ -205,6 +208,24 @@ const CHECKS = [
       "tripStopIdx = 4; tripArrival = { stop: TRIP_STOPS[4], t: 0, phase: 0, claimed: false, newPostcard: false }; state = 'arrival'; " +
       "updateArrival(0.016); tripArrival.reward + '/' + tripArrival.jackpot + '/' + save.storyCycle");
     if (r !== "300/500/2") throw new Error("reward/jackpot/cycle = " + r);
+  }],
+  ["Ima's call: honk declines (+10); a full call flips steering then pays +30", async (page, ev) => {
+    const d = await ev("save.cruiseUnlocked = true; runMode = 'cruise'; resetGame(); state = 'playing'; save.totalCoins = 0; " +
+      "imaCall = { phase: 'ring', t: 0, lines: ['a', 'b', 'c'], ringBeat: 0 }; honkQueued = true; updateImaCall(0.016, false); " +
+      "imaCall.result + '/' + save.totalCoins");
+    if (d !== "declined/10") throw new Error("decline: " + d);
+    const f = await ev("imaCall = { phase: 'talk', t: 0, lines: ['a', 'b', 'c'], ringBeat: 0 }; var talking = imaCallTalking(); " +
+      "for (var i = 0; i < 500; i++) updateImaCall(0.016, false); talking + '/' + imaCall.result + '/' + save.totalCoins + '/' + imaCallTalking()");
+    if (f !== "true/full/40/false") throw new Error("full call: " + f);
+  }],
+  ["holidays: Chanukah night 3 detected, gift once per day; none on a plain day", async (page, ev) => {
+    const r = await ev("holidayTestDate = new Date(2026, 11, 7, 12); var c = currentHoliday(); save.totalCoins = 0; menuMsgTimer = 0; " +
+      "holidayMenuTick(); menuMsgTimer = 0; holidayMenuTick(); c.h.id + '/' + c.dayNum + '/' + save.totalCoins");
+    if (r !== "chanukah/3/18") throw new Error("chanukah: " + r);
+    const p = await ev("holidayTestDate = new Date(2027, 2, 23, 12); (currentHoliday() || {h:{}}).h.id");
+    if (p !== "purim") throw new Error("purim 2027 (Adar II) not detected: " + p);
+    const n = await ev("holidayTestDate = new Date(2026, 9, 21, 12); String(currentHoliday())");
+    if (n !== "null") throw new Error("plain day returned " + n);
   }],
   ["tablet mode can't leak past the menu", async (page, ev) => {
     await ev("inTabletMode = true; runMode = 'cruise'; resetGame(); state = 'playing'");

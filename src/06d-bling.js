@@ -58,7 +58,10 @@
     // Lulu's honk. `note` is the Honk-Symphony pitch (262 = first honk).
     function playPlayerHorn(note, hornId) {
         var id = hornId || save.horn || "beep";
-        if (id === "beep" || !blingDef("horn", id)) { playHonkPitched(note); return; }
+        if (id === "beep" || !blingDef("horn", id)) {
+            if (holidayIs("purim")) playGrogger(); else playHonkPitched(note);   // 🎭 Purim: the stock horn is a grogger
+            return;
+        }
         if (audioMuted) return;
         var ac = getAudio(); if (!ac) return;
         var k = clamp((note || 262) / 262, 1, 2), t = ac.currentTime, o, i;
