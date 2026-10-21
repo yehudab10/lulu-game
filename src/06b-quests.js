@@ -120,6 +120,7 @@
     // Gameplay hook — WEEK scope. No-op unless unlocked, active, and still advancing
     // an unclaimed/uncompleted target (so it only persists on real progress).
     function questAdd(id, n) {
+        statAdd(id, n);   // scrapbook lifetime counter — ticks even while quests are locked
         if (!questsUnlocked() || n <= 0 || !questIsActive(id)) return;
         var def = questDef(id);
         if (!def || def.scope !== "week") return;
@@ -135,6 +136,7 @@
     // Gameplay hook — RUN scope. Records the best single-run value live; only
     // persists on completion (run end persists the rest via bankRunStats()).
     function questBest(id, v) {
+        statBest(id, v);   // scrapbook all-time best
         if (!questsUnlocked() || !questIsActive(id)) return;
         var def = questDef(id);
         if (!def || def.scope !== "run") return;

@@ -1643,6 +1643,7 @@
                                                  : bountyFor(court.charges);
                 }
                 if (court.verdict !== "dismissed") { save.convictions = (save.convictions || 0) + 1; persistSave(); }
+                else { statAdd("dismissed", 1); persistSave(); }
                 var vt = court.bribeFlop ? "Hmph — THAT'S your offer? Just a small fine then. Now scram. 😒 (💰" + court.fine + ")"
                        : court.verdict === "dismissed" ? (opt.bribe ? "Case... 'dismissed.' *quietly pockets the envelope* 🤫" : "CASE DISMISSED! Now get outta my court. 🎉")
                        : court.verdict === "jail" ? (strikes >= 2 ? "THREE STRIKES! You're doing HARD time! ⛓️" : "GUILTY! Off to the clink, missy! ⛓️")

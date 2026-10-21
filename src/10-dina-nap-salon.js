@@ -785,6 +785,7 @@
     function startSalonScene() {
         prevState = "playing";
         state = "salon";
+        statAdd("salon", 1);
         salonPhase = 0;
         salonTimer = 0;
         salonPendingColor = null;

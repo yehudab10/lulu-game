@@ -92,7 +92,7 @@
         var musicTrack = null;
         if (state === "charSelect" || state === "menu" || state === "playing" ||
             state === "crash" || state === "copBust" || state === "copStop" || state === "gameover" || state === "shop" ||
-            state === "quests" || state === "exitScene" || state === "arrival" || state === "storyMap" ||
+            state === "quests" || state === "scrapbook" || state === "exitScene" || state === "arrival" || state === "storyMap" ||
             state === "storyTalk") musicTrack = "lulu";
         else if (state === "footRun" || state === "footInterior") musicTrack = "walking";   // on-foot theme
         else if (state === "hospital") musicTrack = erMusic;   // one of the two ER songs, picked per visit
@@ -144,6 +144,7 @@
         else if (state === "gameover") updateGameOver(dt);
         else if (state === "shop") updateShop(dt);
         else if (state === "quests") updateQuests(dt);
+        else if (state === "scrapbook") updateScrapbook(dt);
         else if (state === "parkingIntro") updateParkingIntro(dt);
         else if (state === "parking") updateParking(dt);
         else if (state === "parkingResult") updateParkingResult(dt);
@@ -198,6 +199,7 @@
         else if (state === "gameover") drawGameOver();
         else if (state === "shop") drawShop();
         else if (state === "quests") drawQuests();
+        else if (state === "scrapbook") drawScrapbook();
         else if (state === "parkingIntro") drawParkingIntro();
         else if (state === "parking") drawParking();
         else if (state === "parkingResult") drawParkingResult();

@@ -3549,6 +3549,7 @@
         if (questsUnlocked()) questState();   // touch quests so a weekly rollover persists on the menu
         if (menuMsgTimer > 0) menuMsgTimer -= dt;
         if (menuSecretT > 0) { menuSecretT -= dt; if (menuSecretT <= 0) menuSecretTaps = 0; }
+        menuBadgeTick(dt);   // scrapbook: record + toast newly earned badges
         updateDecorations(dt, 80);
         var click = consumeClick();
         // A tap queues BOTH a click and an action. Drop the paired action as soon as
@@ -3593,6 +3594,8 @@
         }
         if (click) {
             var baseY = menuBaseY();
+            // 📒 Scrapbook (icon under the mute button)
+            if (scrapbookMenuClick(click)) return;
             // ▶ PLAY (cruise) — endless, no journey layer, auto-join Shared Road.
             if (pointInRect(click.x, click.y, W / 2 - 110, baseY, 220, 60)) {
                 runMode = "cruise";

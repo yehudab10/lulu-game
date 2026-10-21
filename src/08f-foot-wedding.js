@@ -184,6 +184,7 @@
     // ════════════════════════════════════════════════════════════
     function startFootWedding() {
         state = "footWedding";
+        statAdd("weddings", 1);
         wedPhase = 0; wedTime = 0; wedPhaseT = 0;
         wedExiting = false; wedExitT = 0;
         wedAisleProg = 0; wedPetalCool = 0; wedPetalCount = 0;

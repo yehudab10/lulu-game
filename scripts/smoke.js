@@ -83,6 +83,10 @@ const SCENES = [
   ["police precinct",       "runMode = 'cruise'; resetGame(); startFootWorld('carWreck'); enterFootInterior('police')", 4],
   ["beach",                 "runMode = 'cruise'; resetGame(); startFootWorld('carWreck'); enterFootInterior('beach')", 4],
   ["wedding",               "runMode = 'cruise'; resetGame(); startFootWorld('carWreck'); startFootWedding()", 6],
+  ["scrapbook badges",      "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 0", 3],
+  ["scrapbook record",      "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 1", 2],
+  ["scrapbook crew",        "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 2", 2],
+  ["scrapbook stats",       "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 3", 2],
   ["sister picker",         "state = 'charSelect'", 2],
   ["dina bus",              "startDinaMode()", 3],
   ["dina run",              "startDinaMode(); startDinaRun()", 6],
@@ -144,6 +148,29 @@ const CHECKS = [
     await page.waitForTimeout(200);
     const r = await ev("shakeIntensity + '/' + flashA(0.8)");
     if (r !== "0/0.2") throw new Error("shake/flash in calm mode = " + r);
+  }],
+  ["lifetime stats tick even while quests are locked", async (page, ev) => {
+    const n = await ev("save.lifetimeScore = 0; questAdd('honks10', 2); questBest('chain6', 5); stat('honks10') + '/' + statB('chain6')");
+    if (n !== "2/5") throw new Error("stats after hooks = " + n);
+  }],
+  ["scrapbook save code round-trips (and restores via LOAD CODE)", async (page, ev) => {
+    const same = await ev("save.totalCoins = 999; save.mpName = 'Lulu 💖'; var c = saveToCode(); " +
+      "JSON.stringify(codeToSave(c)) === JSON.stringify(save)");
+    if (!same) throw new Error("code didn't round-trip");
+    const code = await ev("saveToCode()");
+    await ev("save.totalCoins = 1; persistSave(); save.cruiseUnlocked = true; openScrapbook(); scrapTab = 3");
+    page.on("dialog", d => d.type() === "prompt" ? d.accept(code) : d.accept());
+    await page.waitForTimeout(300);
+    const r = await ev("JSON.stringify(scrapBackupRects().load)");
+    const box = await page.locator("#gameCanvas").boundingBox();
+    const sc = box.height / (await ev("H")), L = JSON.parse(r);
+    await Promise.all([
+      page.waitForNavigation({ timeout: 8000 }),
+      page.mouse.click(box.x + (L.x + L.w / 2) * sc, box.y + (L.y + L.h / 2) * sc),
+    ]);
+    await page.waitForFunction(() => typeof window.__lulu === "function");
+    const c2 = await ev("save.totalCoins + '/' + save.mpName");
+    if (c2 !== "999/Lulu 💖") throw new Error("after LOAD CODE: " + c2);
   }],
   ["tablet mode can't leak past the menu", async (page, ev) => {
     await ev("inTabletMode = true; runMode = 'cruise'; resetGame(); state = 'playing'");
