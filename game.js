@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.17.0";
+    var GAME_VERSION = "1.18.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -115,6 +115,10 @@
             ownedHorns: ["beep"],
             decor: "none",     // BLING: equipped car decoration id ("none" = bare)
             ownedDecor: [],
+            dinaBest: 0,       // DINA: best run haul (coins + stickers, before the win bonus)
+            dinaMedals: null,  // DINA: { gold, silver, bronze } run medal counts
+            cookieBest: 0,     // DINA: Cookie Catch best round (coins caught)
+            storyTaskTour: {}, // STORY: chapter task id → last tour index its bonus was paid on
             stats: {},         // SCRAPBOOK: lifetime counters (keyed by the quest ids that feed them) + stats.best
             badges: null,      // SCRAPBOOK: earned badge ids (null until the first sync snapshots them)
             scrapSeen: 0,      // SCRAPBOOK: badges.length when the scrapbook was last opened (drives the 📒 dot)
@@ -13834,8 +13838,13 @@
             // Snapshot leg-end coins BEFORE the arrival reward so Bubbe's "collect
             // 40 coins on the way" task counts only coins earned driving the leg.
             if (runMode === "story" && storyTask) storyTask.legEndCoins = runCoins;
-            runCoins += stop.reward;
-            save.totalCoins += stop.reward;
+            // Replaying the tour pays more: TOUR 2 = 1.5×, TOUR 3 = 2× … capped at 3×.
+            var tourIdx = runMode === "story" ? (save.storyCycle || 0) : 0;   // read BEFORE a Vegas finale bumps it
+            var tourMult = 1 + 0.5 * Math.min(tourIdx, 4);
+            tripArrival.reward = Math.round(stop.reward * tourMult);
+            tripArrival.tourMult = tourMult;
+            runCoins += tripArrival.reward;
+            save.totalCoins += tripArrival.reward;
             if (!save.postcards) save.postcards = [];
             if (save.postcards.indexOf(stop.id) < 0) { save.postcards.push(stop.id); tripArrival.newPostcard = true; }
             tripStopsThisRun++;
@@ -13858,6 +13867,9 @@
                         save.storyCycle = (save.storyCycle || 0) + 1;
                         tripArrival.storyComplete = true;
                         tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                        // TOUR JACKPOT: 250 per tour finished (cap 1,000).
+                        tripArrival.jackpot = Math.min(1000, 250 * save.storyCycle);
+                        runCoins += tripArrival.jackpot; save.totalCoins += tripArrival.jackpot;
                     }
                     // else: replay of an already-cleared Vegas — no cycle bump, no regress.
                 } else {
@@ -13872,14 +13884,22 @@
                     tripArrival.taskMet = storyTaskMet();
                     if (tripArrival.taskMet) {
                         if (!save.storyStars) save.storyStars = {};
+                        if (!save.storyTaskTour || typeof save.storyTaskTour !== "object") save.storyTaskTour = {};
+                        var paidTour = save.storyTaskTour[storyTask.id];
                         if (!save.storyStars[storyTask.id]) {
                             save.storyStars[storyTask.id] = true;
                             tripArrival.taskBonus = 40;
                             runCoins += 40; save.totalCoins += 40;
                             tripArrival.taskNewStar = true;
+                        } else if (tourIdx > 0 && paidTour !== tourIdx) {
+                            // Already starred, but this is a NEW tour → the task pays again (scaled).
+                            tripArrival.taskBonus = Math.round(40 * tourMult);
+                            runCoins += tripArrival.taskBonus; save.totalCoins += tripArrival.taskBonus;
+                            tripArrival.taskTourAgain = true;
                         } else {
                             tripArrival.taskAlready = true;
                         }
+                        save.storyTaskTour[storyTask.id] = tourIdx;
                     }
                 }
                 // FIRST arrival unlocks endless cruise + the whole Shared Road stack.
@@ -14013,6 +14033,13 @@
             ctx.fillStyle = "rgba(20,12,30,0.78)";
             roundRect(W / 2 - tourW / 2, H * 0.20 - 12, tourW, 24, 12); ctx.fill();
             drawText(tourTxt, W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
+            if (tripArrival.jackpot) {
+                var jp = 0.94 + 0.06 * Math.sin(t * 6);
+                ctx.save(); ctx.translate(W / 2, H * 0.20 + 26); ctx.scale(jp, jp);
+                drawText("🎰 TOUR JACKPOT  +" + formatNum(tripArrival.jackpot) + " 💰", 0, 0,
+                    "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#3E2723", 4);
+                ctx.restore();
+            }
         }
 
         // greet card (speech quote) — STORY appends a small plot BEAT under the
@@ -14067,7 +14094,8 @@
 
         // reward line + postcard
         var ry = cardY + cardH + 26;
-        drawText("+" + stop.reward + " 💰", W / 2, ry,
+        var shownReward = tripArrival.reward || stop.reward;
+        drawText("+" + shownReward + " 💰" + ((tripArrival.tourMult || 1) > 1 ? "  (tour ×" + tripArrival.tourMult + ")" : ""), W / 2, ry,
             "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD700", "#5D4037", 5);
         if (tripArrival.newPostcard) {
             var pcPulse = 0.9 + 0.1 * Math.sin(t * 6);
@@ -14100,6 +14128,9 @@
                 drawText("⭐ CHAPTER TASK DONE!  +" + tripArrival.taskBonus + " 💰", 0, 0,
                     "bold 15px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 4);
                 ctx.restore();
+            } else if (tripArrival.taskTourAgain) {
+                drawText("⭐ TASK DONE AGAIN THIS TOUR!  +" + tripArrival.taskBonus + " 💰", W / 2, tky,
+                    "bold 14px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 4);
             } else if (tripArrival.taskAlready) {
                 drawText("task done ✓ (already starred)", W / 2, tky,
                     "bold 12px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#1B3A1B", 3);
@@ -17884,6 +17915,7 @@
         { id: "missile25", icon: "🚀", name: "Demolition Diva",  desc: "Missile 25 cars",                    prog: function () { return [stat("missiles8"), 25]; } },
         { id: "bubbe",     icon: "🏡", name: "Bubbe's Favorite", desc: "Make it to Bubbe's house",           test: function () { return hasPostcard("bubbe") || (save.storyStop || 0) > 0 || (save.storyCycle || 0) > 0; } },
         { id: "vegas",     icon: "🎲", name: "Viva Las Vegas",   desc: "Finish the Road to Vegas",           test: function () { return (save.storyCycle || 0) >= 1; } },
+        { id: "tours3",    icon: "🗺️", name: "Tour Guide",       desc: "Finish the Road to Vegas 3 times",   prog: function () { return [save.storyCycle || 0, 3]; } },
         { id: "postcards", icon: "📮", name: "Postcard Pro",     desc: "Collect all 5 postcards",            prog: function () { return [(save.postcards || []).length, 5]; } },
         { id: "stars5",    icon: "⭐", name: "Teacher's Pet",    desc: "Earn all 5 chapter stars",           prog: function () { return [storyStarCount(), 5]; } },
         { id: "streak7",   icon: "📅", name: "Every Day Driver", desc: "Play 7 days in a row",               prog: function () { return [save.streak || 0, 7]; } },
@@ -17903,7 +17935,8 @@
         { id: "hornsAll",  icon: "🎺", name: "DJ Lulu",          desc: "Own every horn in the Bling shop",   prog: function () { return [(save.ownedHorns || ["beep"]).length, HORNS.length]; } },
         { id: "blingAll",  icon: "💎", name: "Bling Queen",      desc: "Own every piece of car bling",       prog: function () { return [(save.ownedDecor || []).length, DECOR.length]; } },
         { id: "walk10k",   icon: "🚶", name: "Leg Day",          desc: "Walk 10,000 on foot",                prog: function () { return [stat("footDist"), 10000]; } },
-        { id: "sister",    icon: "🎒", name: "Secret Sister",    desc: "Found the hidden sister",            secret: true, test: function () { return (save.dinaRunsPlayed || 0) > 0; } }
+        { id: "sister",    icon: "🎒", name: "Secret Sister",    desc: "Found the hidden sister",            secret: true, test: function () { return (save.dinaRunsPlayed || 0) > 0; } },
+        { id: "dinaGold",  icon: "🥇", name: "Speedy Sister",    desc: "Win a gold medal racing home",       secret: true, test: function () { return !!(save.dinaMedals && save.dinaMedals.gold); } }
     ];
     function badgeEarned(b) {
         try {
@@ -19710,13 +19743,42 @@
     // into Lulu's world (coins) and the star total (stickers). Winning the race
     // adds a tidy bonus. dinaRunBanked* hold the amounts for the result screen.
     var dinaRunBankedCoins = 0, dinaRunBankedStars = 0, dinaRunWinBonus = 0;
+    var dinaRunMedal = null, dinaRunHaul = 0, dinaRunNewBest = false;
+    // Every run earns a medal (it's a kids' mode — no empty-handed endings):
+    // 🥇 win with a 10+ haul · 🥈 a win OR a 10+ haul · 🥉 anything else.
+    var DINA_MEDAL_HAUL = 10;
     function bankDinaRunRewards(won) {
         dinaRunWinBonus = won ? 25 : 0;
         dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
         dinaRunBankedStars = dinaStickers;
         save.totalCoins += dinaRunBankedCoins;
         save.totalCoins = (save.totalCoins || 0) + dinaRunBankedStars;
+        dinaRunHaul = dinaCoinsRun + dinaStickers;
+        var big = dinaRunHaul >= DINA_MEDAL_HAUL;
+        dinaRunMedal = (won && big) ? "gold" : (won || big) ? "silver" : "bronze";
+        if (!save.dinaMedals || typeof save.dinaMedals !== "object") save.dinaMedals = { gold: 0, silver: 0, bronze: 0 };
+        save.dinaMedals[dinaRunMedal] = (save.dinaMedals[dinaRunMedal] || 0) + 1;
+        dinaRunNewBest = dinaRunHaul > (save.dinaBest || 0) && (save.dinaBest || 0) > 0;
+        if (dinaRunHaul > (save.dinaBest || 0)) save.dinaBest = dinaRunHaul;
         persistSave();
+    }
+
+    // A ribboned medal for the porch result screen.
+    function drawDinaMedal(cx, cy, kind, t) {
+        var col = kind === "gold" ? ["#FFE082", "#FFB300", "#8D6E00"] : kind === "silver" ? ["#ECEFF1", "#B0BEC5", "#546E7A"] : ["#FFCCBC", "#D7834F", "#7B3F1D"];
+        var sw = Math.sin(t * 3) * 0.08;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(sw);
+        ctx.fillStyle = "#E91E63"; ctx.beginPath(); ctx.moveTo(-14, -46); ctx.lineTo(-4, -14); ctx.lineTo(4, -14); ctx.lineTo(-6, -46); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#42A5F5"; ctx.beginPath(); ctx.moveTo(14, -46); ctx.lineTo(4, -14); ctx.lineTo(-4, -14); ctx.lineTo(6, -46); ctx.closePath(); ctx.fill();
+        var g = ctx.createRadialGradient(-6, -6, 2, 0, 0, 24);
+        g.addColorStop(0, col[0]); g.addColorStop(1, col[1]);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = col[2]; ctx.lineWidth = 3; ctx.stroke();
+        drawText(kind === "gold" ? "1" : kind === "silver" ? "2" : "3", 0, 1, "bold 22px 'Segoe UI', Arial, sans-serif", col[2], null, 0);
+        var sp = (t * 0.7) % 1;
+        ctx.fillStyle = "rgba(255,255,255," + (0.9 * (1 - sp)) + ")";
+        ctx.beginPath(); ctx.arc(-10 + sp * 18, -10 + sp * 6, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     }
 
     // Lane switch with keyboard or buttons
@@ -20373,6 +20435,18 @@
         roundRect(40, 30, W - 80, 50, 12); ctx.fill();
         drawText(dinaEnding === "ran" ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗",
             W / 2, 56, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+
+        // Medal + personal-best haul (top-right of the porch).
+        if (dinaRunMedal) {
+            var mp = easeOutBack(clamp(dinaRunTimer / 0.6, 0, 1));
+            ctx.save(); ctx.translate(W - 66, 140); ctx.scale(mp, mp);
+            drawDinaMedal(0, 0, dinaRunMedal, dinaRunTimer);
+            ctx.restore();
+            drawText(dinaRunMedal === "gold" ? "GOLD!" : dinaRunMedal === "silver" ? "SILVER!" : "BRONZE!", W - 66, 180,
+                "bold 15px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            drawText(dinaRunNewBest ? "⭐ NEW BEST HAUL: " + dinaRunHaul + "!" : "Haul " + dinaRunHaul + " · best " + (save.dinaBest || 0),
+                W / 2, H - 102, "bold 15px 'Segoe UI', Arial, sans-serif", dinaRunNewBest ? "#FFEB3B" : "#E1F5FE", "#000", 3);
+        }
 
         // Rewards banked into the shared bank (carries over to Lulu's world)
         var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";
@@ -27120,6 +27194,7 @@
         // every return from the sticker book / Cookie Catch — an infinite-coin tap.)
         state = "dinaHome";
         dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down", hover: null };
+        momVisit = null; momVisitCooldown = rand(8, 14);   // Mom checks in soon after Dina gets home
         homeMessageTimer = 0;
         dinaRunTimer = 0; // reset for star pulse / nap / morgan timers
     }
@@ -27136,8 +27211,71 @@
         door:    { x: 8,   y: 90,  w: 70, h: 130, label: "Go back outside?",    action: "outside" }
     };
 
+    // ── Mom pops in ─────────────────────────────────────────
+    // Every 20–35s Mom steps in through the bedroom door, says something, and
+    // heads back to the kitchen. Tap her for a hug (+1 coin, once per visit).
+    var MOM_LINES = [
+        "Dina! Dinner in 5 minutes!", "Did you do your homework, sweetie?",
+        "Who wants rugelach? 🥐", "Don't forget to give Morgan a hug!",
+        "Is Lulu home yet? She's not answering!", "Lights out at 8, mamele!",
+        "Bubbe called — she says hi! 👵", "I love you to the moon! 🌙",
+        "Who left the milk out? 🥛", "Shabbos clothes are on the chair!"
+    ];
+    var momVisit = null, momVisitCooldown = 12;
+    var MOM_DOOR = { x: 46, y: 200 }, MOM_SPOT = { x: 124, y: 262 };
+    function updateMomVisit(dt) {
+        if (!momVisit) {
+            momVisitCooldown -= dt;
+            if (momVisitCooldown <= 0) momVisit = { phase: 0, t: 0, line: randPick(MOM_LINES), hugged: false, hugT: 0 };
+            return;
+        }
+        momVisit.t += dt;
+        if (momVisit.hugT > 0) momVisit.hugT -= dt;
+        if (momVisit.phase === 0 && momVisit.t > 0.9) { momVisit.phase = 1; momVisit.t = 0; playTone(660, 0.07, "sine", 0.12); }
+        else if (momVisit.phase === 1 && momVisit.t > 4.2) { momVisit.phase = 2; momVisit.t = 0; }
+        else if (momVisit.phase === 2 && momVisit.t > 0.9) { momVisit = null; momVisitCooldown = rand(20, 35); }
+    }
+    function momVisitPos() {
+        var k = momVisit.phase === 0 ? momVisit.t / 0.9 : momVisit.phase === 1 ? 1 : 1 - momVisit.t / 0.9;
+        k = clamp(k, 0, 1);
+        return { x: MOM_DOOR.x + (MOM_SPOT.x - MOM_DOOR.x) * k, y: MOM_DOOR.y + (MOM_SPOT.y - MOM_DOOR.y) * k };
+    }
+    // Returns true when a tap lands on Mom (hug).
+    function momVisitTap(click) {
+        if (!momVisit || momVisit.phase === 2) return false;
+        var p = momVisitPos();
+        if (Math.abs(click.x - p.x) > 30 || click.y < p.y - 50 || click.y > p.y + 30) return false;
+        if (!momVisit.hugged) {
+            momVisit.hugged = true;
+            save.totalCoins += 1; persistSave();
+            spawnFloater(p.x, p.y - 50, "+1 💰 hug!", "#FF80AB");
+        }
+        momVisit.hugT = 1.6;
+        momVisit.line = "Love you too, Dina! 💕";
+        if (momVisit.phase === 1) momVisit.t = Math.min(momVisit.t, 2.4);   // linger a little
+        playTone(784, 0.08, "triangle", 0.16);
+        setTimeout(function () { playTone(988, 0.1, "triangle", 0.16); }, 90);
+        return true;
+    }
+    function drawMomVisit() {
+        if (!momVisit) return;
+        var p = momVisitPos();
+        var walking = momVisit.phase !== 1;
+        drawMomTopDown(p.x, p.y, walking ? momVisit.t * 6 : 0);
+        if (momVisit.hugT > 0) {
+            for (var h = 0; h < 3; h++) {
+                var hp = (1.6 - momVisit.hugT + h * 0.25) % 1.6 / 1.6;
+                ctx.globalAlpha = 1 - hp;
+                drawText("💗", p.x - 14 + h * 14, p.y - 40 - hp * 30, "16px Arial", "#FFF", null, 0);
+            }
+            ctx.globalAlpha = 1;
+        }
+        if (momVisit.phase === 1) drawSpeechBubble(p.x + 60, p.y - 62, momVisit.line, momVisit.t * 4);
+    }
+
     function updateDinaHome(dt) {
         if (!dinaHome) dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down" };
+        updateMomVisit(dt);
         var speed = 100;
         var dx = 0, dy = 0;
         if (keys.left) dx -= 1;
@@ -27181,6 +27319,7 @@
         }
         // Tap on object directly
         var click = consumeClick();
+        if (click && momVisitTap(click)) { consumeAction(); return; }
         if (click) {
             for (var k2 in HOME_OBJECTS) {
                 var o2 = HOME_OBJECTS[k2];
@@ -27561,6 +27700,9 @@
         ctx.beginPath(); ctx.arc(sb.x + 50, sb.y + 28, 5, 0, Math.PI * 2); ctx.fill();
         drawText("☺", sb.x + 50, sb.y + 30, "bold 7px Arial", "#FFF", null, 0);
 
+        // ─── Mom (when she pops in) ───
+        drawMomVisit();
+
         // ─── DINA herself ───
         drawDinaTopDown(dinaHome.x, dinaHome.y, dinaHome.walkTime, dinaHome.facing, "morgan");
 
@@ -27590,7 +27732,7 @@
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
         drawText("💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
-        drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
+        drawText(momVisit ? "Mom: here! 👋" : "Mom: kitchen", W - 12, 20, "bold 12px Arial", momVisit ? "#FFD54F" : "#B8E0D2", "#000", 2, "right");
 
         // ─── Footer hint ───
         drawText(isTouchDevice ? "Drag to walk · tap an item to interact"
@@ -27917,6 +28059,7 @@
             if (p.life <= 0) sticker.sparkle.splice(s, 1);
         }
 
+        if (sticker.clearArmT > 0) sticker.clearArmT -= dt;
         var click = consumeClick();
         if (!click) return;
 
@@ -27929,15 +28072,24 @@
             return;
         }
         // Clear-page button (bottom-right)
+        // Two taps: the first arms it ("Sure?"), the second within 2.5s wipes the page.
         if (pointInRect(click.x, click.y, W - 110, H - 52, 100, 40)) {
             if (save.stickerBook.length > 0) {
-                save.stickerBook = [];
-                persistSave();
-                sticker.msg = "Cleared the page!"; sticker.msgT = 1.6;
-                playTone(300, 0.12, "square", 0.14);
+                if (sticker.clearArmT > 0) {
+                    save.stickerBook = [];
+                    persistSave();
+                    sticker.clearArmT = 0;
+                    sticker.msg = "Cleared the page!"; sticker.msgT = 1.6;
+                    playTone(300, 0.12, "square", 0.14);
+                } else {
+                    sticker.clearArmT = 2.5;
+                    sticker.msg = "Tap 🗑 again to clear EVERYTHING"; sticker.msgT = 2.5;
+                    playTone(520, 0.08, "triangle", 0.14);
+                }
             }
             return;
         }
+        if (sticker.clearArmT > 0) sticker.clearArmT = 0;   // any other tap disarms it
 
         // Tray row (bottom): pick up a sticker to place
         var tray = stickerTrayLayout();
@@ -28098,11 +28250,12 @@
 
         // Back + Clear buttons
         drawIconButton(20, 56, 36, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
-        ctx.fillStyle = "#EF9A9A";
+        var armed = sticker.clearArmT > 0;
+        ctx.fillStyle = armed ? "#E53935" : "#EF9A9A";
         roundRect(W - 110, H - 52, 100, 40, 10); ctx.fill();
         ctx.strokeStyle = "#C62828"; ctx.lineWidth = 2;
         roundRect(W - 110, H - 52, 100, 40, 10); ctx.stroke();
-        drawText("🗑 Clear", W - 60, H - 32, "bold 13px Arial", "#FFFFFF", "#000", 2);
+        drawText(armed ? "🗑 Sure?" : "🗑 Clear", W - 60, H - 32, "bold 13px Arial", "#FFFFFF", "#000", 2);
     }
 
     var dinaNapTucked = false;      // false: "tap to tuck in"; true: drifting off
@@ -29509,6 +29662,9 @@
     function endCookieCatch(why) {
         cookie.phase = why;       // "done" (time up) or "oops" (out of lives)
         cookie.endT = 0;
+        // Personal best (coins caught in one round).
+        cookie.prevBest = save.cookieBest || 0;
+        if (cookie.score > cookie.prevBest) { save.cookieBest = cookie.score; cookie.newBest = cookie.prevBest > 0; persistSave(); }
         // Drain any tap/action still queued from gameplay so the result screen
         // doesn't instantly auto-dismiss — it waits for a fresh tap.
         consumeAction(); clickQueue = null;
@@ -29669,8 +29825,16 @@
                 "bold 14px Arial", "#FFE0B2", "#000", 2);
             drawText((net >= 0 ? "Profit +💰" : "Lost 💰") + Math.abs(net), W / 2, H / 2 + 26,
                 "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
+            if (cookie.newBest) {
+                var nbp = 1 + 0.06 * Math.sin(cookie.endT * 7);
+                ctx.save(); ctx.translate(W / 2, H / 2 - 150); ctx.scale(nbp, nbp);
+                drawText("🏆 NEW BEST!", 0, 0, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 5);
+                ctx.restore();
+            }
+            drawText("Best round: 💰" + Math.max(save.cookieBest || 0, cookie.score), W / 2, H / 2 + 58,
+                "bold 14px Arial", "#FFE0B2", "#000", 2);
             if (cookie.endT > 1.0) {
-                drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);
+                drawText("Tap to head back", W / 2, H / 2 + 92, "15px Arial", "#FFFFFF", "#000", 2);
             }
         }
     }

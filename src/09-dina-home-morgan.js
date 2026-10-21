@@ -4,6 +4,7 @@
         // every return from the sticker book / Cookie Catch — an infinite-coin tap.)
         state = "dinaHome";
         dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down", hover: null };
+        momVisit = null; momVisitCooldown = rand(8, 14);   // Mom checks in soon after Dina gets home
         homeMessageTimer = 0;
         dinaRunTimer = 0; // reset for star pulse / nap / morgan timers
     }
@@ -20,8 +21,71 @@
         door:    { x: 8,   y: 90,  w: 70, h: 130, label: "Go back outside?",    action: "outside" }
     };
 
+    // ── Mom pops in ─────────────────────────────────────────
+    // Every 20–35s Mom steps in through the bedroom door, says something, and
+    // heads back to the kitchen. Tap her for a hug (+1 coin, once per visit).
+    var MOM_LINES = [
+        "Dina! Dinner in 5 minutes!", "Did you do your homework, sweetie?",
+        "Who wants rugelach? 🥐", "Don't forget to give Morgan a hug!",
+        "Is Lulu home yet? She's not answering!", "Lights out at 8, mamele!",
+        "Bubbe called — she says hi! 👵", "I love you to the moon! 🌙",
+        "Who left the milk out? 🥛", "Shabbos clothes are on the chair!"
+    ];
+    var momVisit = null, momVisitCooldown = 12;
+    var MOM_DOOR = { x: 46, y: 200 }, MOM_SPOT = { x: 124, y: 262 };
+    function updateMomVisit(dt) {
+        if (!momVisit) {
+            momVisitCooldown -= dt;
+            if (momVisitCooldown <= 0) momVisit = { phase: 0, t: 0, line: randPick(MOM_LINES), hugged: false, hugT: 0 };
+            return;
+        }
+        momVisit.t += dt;
+        if (momVisit.hugT > 0) momVisit.hugT -= dt;
+        if (momVisit.phase === 0 && momVisit.t > 0.9) { momVisit.phase = 1; momVisit.t = 0; playTone(660, 0.07, "sine", 0.12); }
+        else if (momVisit.phase === 1 && momVisit.t > 4.2) { momVisit.phase = 2; momVisit.t = 0; }
+        else if (momVisit.phase === 2 && momVisit.t > 0.9) { momVisit = null; momVisitCooldown = rand(20, 35); }
+    }
+    function momVisitPos() {
+        var k = momVisit.phase === 0 ? momVisit.t / 0.9 : momVisit.phase === 1 ? 1 : 1 - momVisit.t / 0.9;
+        k = clamp(k, 0, 1);
+        return { x: MOM_DOOR.x + (MOM_SPOT.x - MOM_DOOR.x) * k, y: MOM_DOOR.y + (MOM_SPOT.y - MOM_DOOR.y) * k };
+    }
+    // Returns true when a tap lands on Mom (hug).
+    function momVisitTap(click) {
+        if (!momVisit || momVisit.phase === 2) return false;
+        var p = momVisitPos();
+        if (Math.abs(click.x - p.x) > 30 || click.y < p.y - 50 || click.y > p.y + 30) return false;
+        if (!momVisit.hugged) {
+            momVisit.hugged = true;
+            save.totalCoins += 1; persistSave();
+            spawnFloater(p.x, p.y - 50, "+1 💰 hug!", "#FF80AB");
+        }
+        momVisit.hugT = 1.6;
+        momVisit.line = "Love you too, Dina! 💕";
+        if (momVisit.phase === 1) momVisit.t = Math.min(momVisit.t, 2.4);   // linger a little
+        playTone(784, 0.08, "triangle", 0.16);
+        setTimeout(function () { playTone(988, 0.1, "triangle", 0.16); }, 90);
+        return true;
+    }
+    function drawMomVisit() {
+        if (!momVisit) return;
+        var p = momVisitPos();
+        var walking = momVisit.phase !== 1;
+        drawMomTopDown(p.x, p.y, walking ? momVisit.t * 6 : 0);
+        if (momVisit.hugT > 0) {
+            for (var h = 0; h < 3; h++) {
+                var hp = (1.6 - momVisit.hugT + h * 0.25) % 1.6 / 1.6;
+                ctx.globalAlpha = 1 - hp;
+                drawText("💗", p.x - 14 + h * 14, p.y - 40 - hp * 30, "16px Arial", "#FFF", null, 0);
+            }
+            ctx.globalAlpha = 1;
+        }
+        if (momVisit.phase === 1) drawSpeechBubble(p.x + 60, p.y - 62, momVisit.line, momVisit.t * 4);
+    }
+
     function updateDinaHome(dt) {
         if (!dinaHome) dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down" };
+        updateMomVisit(dt);
         var speed = 100;
         var dx = 0, dy = 0;
         if (keys.left) dx -= 1;
@@ -65,6 +129,7 @@
         }
         // Tap on object directly
         var click = consumeClick();
+        if (click && momVisitTap(click)) { consumeAction(); return; }
         if (click) {
             for (var k2 in HOME_OBJECTS) {
                 var o2 = HOME_OBJECTS[k2];
@@ -445,6 +510,9 @@
         ctx.beginPath(); ctx.arc(sb.x + 50, sb.y + 28, 5, 0, Math.PI * 2); ctx.fill();
         drawText("☺", sb.x + 50, sb.y + 30, "bold 7px Arial", "#FFF", null, 0);
 
+        // ─── Mom (when she pops in) ───
+        drawMomVisit();
+
         // ─── DINA herself ───
         drawDinaTopDown(dinaHome.x, dinaHome.y, dinaHome.walkTime, dinaHome.facing, "morgan");
 
@@ -474,7 +542,7 @@
             "bold 13px 'Segoe UI', Arial, sans-serif", "#FFFFFF", "#000", 3);
         drawText("💰 " + formatNum(save.totalCoins), 12, 20,
             "bold 12px Arial", "#FFD700", "#000", 2, "left");
-        drawText("Mom: kitchen", W - 12, 20, "bold 11px Arial", "#B8E0D2", "#000", 2, "right");
+        drawText(momVisit ? "Mom: here! 👋" : "Mom: kitchen", W - 12, 20, "bold 12px Arial", momVisit ? "#FFD54F" : "#B8E0D2", "#000", 2, "right");
 
         // ─── Footer hint ───
         drawText(isTouchDevice ? "Drag to walk · tap an item to interact"

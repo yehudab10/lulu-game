@@ -160,6 +160,9 @@
     function endCookieCatch(why) {
         cookie.phase = why;       // "done" (time up) or "oops" (out of lives)
         cookie.endT = 0;
+        // Personal best (coins caught in one round).
+        cookie.prevBest = save.cookieBest || 0;
+        if (cookie.score > cookie.prevBest) { save.cookieBest = cookie.score; cookie.newBest = cookie.prevBest > 0; persistSave(); }
         // Drain any tap/action still queued from gameplay so the result screen
         // doesn't instantly auto-dismiss — it waits for a fresh tap.
         consumeAction(); clickQueue = null;
@@ -320,8 +323,16 @@
                 "bold 14px Arial", "#FFE0B2", "#000", 2);
             drawText((net >= 0 ? "Profit +💰" : "Lost 💰") + Math.abs(net), W / 2, H / 2 + 26,
                 "bold 34px 'Segoe UI', Arial, sans-serif", net >= 0 ? "#7CFC4F" : "#FF8A80", "#000", 5);
+            if (cookie.newBest) {
+                var nbp = 1 + 0.06 * Math.sin(cookie.endT * 7);
+                ctx.save(); ctx.translate(W / 2, H / 2 - 150); ctx.scale(nbp, nbp);
+                drawText("🏆 NEW BEST!", 0, 0, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 5);
+                ctx.restore();
+            }
+            drawText("Best round: 💰" + Math.max(save.cookieBest || 0, cookie.score), W / 2, H / 2 + 58,
+                "bold 14px Arial", "#FFE0B2", "#000", 2);
             if (cookie.endT > 1.0) {
-                drawText("Tap to head back", W / 2, H / 2 + 78, "15px Arial", "#FFFFFF", "#000", 2);
+                drawText("Tap to head back", W / 2, H / 2 + 92, "15px Arial", "#FFFFFF", "#000", 2);
             }
         }
     }

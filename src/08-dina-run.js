@@ -173,13 +173,42 @@
     // into Lulu's world (coins) and the star total (stickers). Winning the race
     // adds a tidy bonus. dinaRunBanked* hold the amounts for the result screen.
     var dinaRunBankedCoins = 0, dinaRunBankedStars = 0, dinaRunWinBonus = 0;
+    var dinaRunMedal = null, dinaRunHaul = 0, dinaRunNewBest = false;
+    // Every run earns a medal (it's a kids' mode — no empty-handed endings):
+    // 🥇 win with a 10+ haul · 🥈 a win OR a 10+ haul · 🥉 anything else.
+    var DINA_MEDAL_HAUL = 10;
     function bankDinaRunRewards(won) {
         dinaRunWinBonus = won ? 25 : 0;
         dinaRunBankedCoins = dinaCoinsRun + dinaRunWinBonus;
         dinaRunBankedStars = dinaStickers;
         save.totalCoins += dinaRunBankedCoins;
         save.totalCoins = (save.totalCoins || 0) + dinaRunBankedStars;
+        dinaRunHaul = dinaCoinsRun + dinaStickers;
+        var big = dinaRunHaul >= DINA_MEDAL_HAUL;
+        dinaRunMedal = (won && big) ? "gold" : (won || big) ? "silver" : "bronze";
+        if (!save.dinaMedals || typeof save.dinaMedals !== "object") save.dinaMedals = { gold: 0, silver: 0, bronze: 0 };
+        save.dinaMedals[dinaRunMedal] = (save.dinaMedals[dinaRunMedal] || 0) + 1;
+        dinaRunNewBest = dinaRunHaul > (save.dinaBest || 0) && (save.dinaBest || 0) > 0;
+        if (dinaRunHaul > (save.dinaBest || 0)) save.dinaBest = dinaRunHaul;
         persistSave();
+    }
+
+    // A ribboned medal for the porch result screen.
+    function drawDinaMedal(cx, cy, kind, t) {
+        var col = kind === "gold" ? ["#FFE082", "#FFB300", "#8D6E00"] : kind === "silver" ? ["#ECEFF1", "#B0BEC5", "#546E7A"] : ["#FFCCBC", "#D7834F", "#7B3F1D"];
+        var sw = Math.sin(t * 3) * 0.08;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(sw);
+        ctx.fillStyle = "#E91E63"; ctx.beginPath(); ctx.moveTo(-14, -46); ctx.lineTo(-4, -14); ctx.lineTo(4, -14); ctx.lineTo(-6, -46); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#42A5F5"; ctx.beginPath(); ctx.moveTo(14, -46); ctx.lineTo(4, -14); ctx.lineTo(-4, -14); ctx.lineTo(6, -46); ctx.closePath(); ctx.fill();
+        var g = ctx.createRadialGradient(-6, -6, 2, 0, 0, 24);
+        g.addColorStop(0, col[0]); g.addColorStop(1, col[1]);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = col[2]; ctx.lineWidth = 3; ctx.stroke();
+        drawText(kind === "gold" ? "1" : kind === "silver" ? "2" : "3", 0, 1, "bold 22px 'Segoe UI', Arial, sans-serif", col[2], null, 0);
+        var sp = (t * 0.7) % 1;
+        ctx.fillStyle = "rgba(255,255,255," + (0.9 * (1 - sp)) + ")";
+        ctx.beginPath(); ctx.arc(-10 + sp * 18, -10 + sp * 6, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     }
 
     // Lane switch with keyboard or buttons
@@ -836,6 +865,18 @@
         roundRect(40, 30, W - 80, 50, 12); ctx.fill();
         drawText(dinaEnding === "ran" ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗",
             W / 2, 56, "bold 18px 'Segoe UI', Arial, sans-serif", "#FFD700", "#000", 4);
+
+        // Medal + personal-best haul (top-right of the porch).
+        if (dinaRunMedal) {
+            var mp = easeOutBack(clamp(dinaRunTimer / 0.6, 0, 1));
+            ctx.save(); ctx.translate(W - 66, 140); ctx.scale(mp, mp);
+            drawDinaMedal(0, 0, dinaRunMedal, dinaRunTimer);
+            ctx.restore();
+            drawText(dinaRunMedal === "gold" ? "GOLD!" : dinaRunMedal === "silver" ? "SILVER!" : "BRONZE!", W - 66, 180,
+                "bold 15px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 3);
+            drawText(dinaRunNewBest ? "⭐ NEW BEST HAUL: " + dinaRunHaul + "!" : "Haul " + dinaRunHaul + " · best " + (save.dinaBest || 0),
+                W / 2, H - 102, "bold 15px 'Segoe UI', Arial, sans-serif", dinaRunNewBest ? "#FFEB3B" : "#E1F5FE", "#000", 3);
+        }
 
         // Rewards banked into the shared bank (carries over to Lulu's world)
         var bonusStr = dinaRunWinBonus > 0 ? "  (+" + dinaRunWinBonus + " win bonus!)" : "";

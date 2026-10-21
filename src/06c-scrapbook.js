@@ -39,6 +39,7 @@
         { id: "missile25", icon: "🚀", name: "Demolition Diva",  desc: "Missile 25 cars",                    prog: function () { return [stat("missiles8"), 25]; } },
         { id: "bubbe",     icon: "🏡", name: "Bubbe's Favorite", desc: "Make it to Bubbe's house",           test: function () { return hasPostcard("bubbe") || (save.storyStop || 0) > 0 || (save.storyCycle || 0) > 0; } },
         { id: "vegas",     icon: "🎲", name: "Viva Las Vegas",   desc: "Finish the Road to Vegas",           test: function () { return (save.storyCycle || 0) >= 1; } },
+        { id: "tours3",    icon: "🗺️", name: "Tour Guide",       desc: "Finish the Road to Vegas 3 times",   prog: function () { return [save.storyCycle || 0, 3]; } },
         { id: "postcards", icon: "📮", name: "Postcard Pro",     desc: "Collect all 5 postcards",            prog: function () { return [(save.postcards || []).length, 5]; } },
         { id: "stars5",    icon: "⭐", name: "Teacher's Pet",    desc: "Earn all 5 chapter stars",           prog: function () { return [storyStarCount(), 5]; } },
         { id: "streak7",   icon: "📅", name: "Every Day Driver", desc: "Play 7 days in a row",               prog: function () { return [save.streak || 0, 7]; } },
@@ -58,7 +59,8 @@
         { id: "hornsAll",  icon: "🎺", name: "DJ Lulu",          desc: "Own every horn in the Bling shop",   prog: function () { return [(save.ownedHorns || ["beep"]).length, HORNS.length]; } },
         { id: "blingAll",  icon: "💎", name: "Bling Queen",      desc: "Own every piece of car bling",       prog: function () { return [(save.ownedDecor || []).length, DECOR.length]; } },
         { id: "walk10k",   icon: "🚶", name: "Leg Day",          desc: "Walk 10,000 on foot",                prog: function () { return [stat("footDist"), 10000]; } },
-        { id: "sister",    icon: "🎒", name: "Secret Sister",    desc: "Found the hidden sister",            secret: true, test: function () { return (save.dinaRunsPlayed || 0) > 0; } }
+        { id: "sister",    icon: "🎒", name: "Secret Sister",    desc: "Found the hidden sister",            secret: true, test: function () { return (save.dinaRunsPlayed || 0) > 0; } },
+        { id: "dinaGold",  icon: "🥇", name: "Speedy Sister",    desc: "Win a gold medal racing home",       secret: true, test: function () { return !!(save.dinaMedals && save.dinaMedals.gold); } }
     ];
     function badgeEarned(b) {
         try {

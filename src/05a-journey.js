@@ -277,8 +277,13 @@
             // Snapshot leg-end coins BEFORE the arrival reward so Bubbe's "collect
             // 40 coins on the way" task counts only coins earned driving the leg.
             if (runMode === "story" && storyTask) storyTask.legEndCoins = runCoins;
-            runCoins += stop.reward;
-            save.totalCoins += stop.reward;
+            // Replaying the tour pays more: TOUR 2 = 1.5×, TOUR 3 = 2× … capped at 3×.
+            var tourIdx = runMode === "story" ? (save.storyCycle || 0) : 0;   // read BEFORE a Vegas finale bumps it
+            var tourMult = 1 + 0.5 * Math.min(tourIdx, 4);
+            tripArrival.reward = Math.round(stop.reward * tourMult);
+            tripArrival.tourMult = tourMult;
+            runCoins += tripArrival.reward;
+            save.totalCoins += tripArrival.reward;
             if (!save.postcards) save.postcards = [];
             if (save.postcards.indexOf(stop.id) < 0) { save.postcards.push(stop.id); tripArrival.newPostcard = true; }
             tripStopsThisRun++;
@@ -301,6 +306,9 @@
                         save.storyCycle = (save.storyCycle || 0) + 1;
                         tripArrival.storyComplete = true;
                         tripArrival.tourNum = save.storyCycle + 1;   // the tour just unlocked
+                        // TOUR JACKPOT: 250 per tour finished (cap 1,000).
+                        tripArrival.jackpot = Math.min(1000, 250 * save.storyCycle);
+                        runCoins += tripArrival.jackpot; save.totalCoins += tripArrival.jackpot;
                     }
                     // else: replay of an already-cleared Vegas — no cycle bump, no regress.
                 } else {
@@ -315,14 +323,22 @@
                     tripArrival.taskMet = storyTaskMet();
                     if (tripArrival.taskMet) {
                         if (!save.storyStars) save.storyStars = {};
+                        if (!save.storyTaskTour || typeof save.storyTaskTour !== "object") save.storyTaskTour = {};
+                        var paidTour = save.storyTaskTour[storyTask.id];
                         if (!save.storyStars[storyTask.id]) {
                             save.storyStars[storyTask.id] = true;
                             tripArrival.taskBonus = 40;
                             runCoins += 40; save.totalCoins += 40;
                             tripArrival.taskNewStar = true;
+                        } else if (tourIdx > 0 && paidTour !== tourIdx) {
+                            // Already starred, but this is a NEW tour → the task pays again (scaled).
+                            tripArrival.taskBonus = Math.round(40 * tourMult);
+                            runCoins += tripArrival.taskBonus; save.totalCoins += tripArrival.taskBonus;
+                            tripArrival.taskTourAgain = true;
                         } else {
                             tripArrival.taskAlready = true;
                         }
+                        save.storyTaskTour[storyTask.id] = tourIdx;
                     }
                 }
                 // FIRST arrival unlocks endless cruise + the whole Shared Road stack.
@@ -456,6 +472,13 @@
             ctx.fillStyle = "rgba(20,12,30,0.78)";
             roundRect(W / 2 - tourW / 2, H * 0.20 - 12, tourW, 24, 12); ctx.fill();
             drawText(tourTxt, W / 2, H * 0.20, "bold 12px 'Segoe UI', Arial, sans-serif", "#FFE082", "#3E2723", 3);
+            if (tripArrival.jackpot) {
+                var jp = 0.94 + 0.06 * Math.sin(t * 6);
+                ctx.save(); ctx.translate(W / 2, H * 0.20 + 26); ctx.scale(jp, jp);
+                drawText("🎰 TOUR JACKPOT  +" + formatNum(tripArrival.jackpot) + " 💰", 0, 0,
+                    "bold 15px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#3E2723", 4);
+                ctx.restore();
+            }
         }
 
         // greet card (speech quote) — STORY appends a small plot BEAT under the
@@ -510,7 +533,8 @@
 
         // reward line + postcard
         var ry = cardY + cardH + 26;
-        drawText("+" + stop.reward + " 💰", W / 2, ry,
+        var shownReward = tripArrival.reward || stop.reward;
+        drawText("+" + shownReward + " 💰" + ((tripArrival.tourMult || 1) > 1 ? "  (tour ×" + tripArrival.tourMult + ")" : ""), W / 2, ry,
             "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD700", "#5D4037", 5);
         if (tripArrival.newPostcard) {
             var pcPulse = 0.9 + 0.1 * Math.sin(t * 6);
@@ -543,6 +567,9 @@
                 drawText("⭐ CHAPTER TASK DONE!  +" + tripArrival.taskBonus + " 💰", 0, 0,
                     "bold 15px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 4);
                 ctx.restore();
+            } else if (tripArrival.taskTourAgain) {
+                drawText("⭐ TASK DONE AGAIN THIS TOUR!  +" + tripArrival.taskBonus + " 💰", W / 2, tky,
+                    "bold 14px 'Segoe UI', Arial, sans-serif", "#FFEB3B", "#5D4037", 4);
             } else if (tripArrival.taskAlready) {
                 drawText("task done ✓ (already starred)", W / 2, tky,
                     "bold 12px 'Segoe UI', Arial, sans-serif", "#7CFC4F", "#1B3A1B", 3);

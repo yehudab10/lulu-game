@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.17.0";
+    var GAME_VERSION = "1.18.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -113,6 +113,10 @@
             ownedHorns: ["beep"],
             decor: "none",     // BLING: equipped car decoration id ("none" = bare)
             ownedDecor: [],
+            dinaBest: 0,       // DINA: best run haul (coins + stickers, before the win bonus)
+            dinaMedals: null,  // DINA: { gold, silver, bronze } run medal counts
+            cookieBest: 0,     // DINA: Cookie Catch best round (coins caught)
+            storyTaskTour: {}, // STORY: chapter task id → last tour index its bonus was paid on
             stats: {},         // SCRAPBOOK: lifetime counters (keyed by the quest ids that feed them) + stats.best
             badges: null,      // SCRAPBOOK: earned badge ids (null until the first sync snapshots them)
             scrapSeen: 0,      // SCRAPBOOK: badges.length when the scrapbook was last opened (drives the 📒 dot)

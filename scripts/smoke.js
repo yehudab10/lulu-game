@@ -89,10 +89,13 @@ const SCENES = [
   ["scrapbook record",      "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 1", 2],
   ["scrapbook crew",        "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 2", 2],
   ["scrapbook stats",       "save.cruiseUnlocked = true; openScrapbook(); scrapTab = 3", 2],
+  ["story finale (tour 2)",  "save.cruiseUnlocked = true; save.storyStop = 4; save.storyCycle = 1; runMode = 'story'; resetGame(); tripStopIdx = 4; tripArrival = { stop: TRIP_STOPS[4], t: 0, phase: 0, claimed: false, newPostcard: false }; state = 'arrival'", 4],
   ["sister picker",         "state = 'charSelect'", 2],
   ["dina bus",              "startDinaMode()", 3],
   ["dina run",              "startDinaMode(); startDinaRun()", 6],
   ["dina bedroom",          "enterDinaHome()", 4],
+  ["dina bedroom + Mom",    "enterDinaHome(); momVisitCooldown = 0", 4],
+  ["dina medal screen",     "startDinaMode(); dinaCoinsRun = 9; dinaStickers = 4; dinaEnding = 'ran'; bankDinaRunRewards(true); state = 'dinaCaught'; dinaRunTimer = 0", 3],
   ["morgan",                "enterDinaHome(); state = 'dinaMorgan'", 3],
   ["nap",                   "enterDinaHome(); state = 'dinaNap'", 3],
   ["cookie catch",          "save.totalCoins = 500; enterDinaHome(); startCookieCatch()", 5],
@@ -183,6 +186,25 @@ const CHECKS = [
     await ev("HORNS.forEach(function (h) { playPlayerHorn(330, h.id); }); 1");
     await ev("save.horn = 'shofar'; runMode = 'cruise'; resetGame(); state = 'playing'; honkQueued = true");
     await page.waitForTimeout(300);
+  }],
+  ["dina: medals + best haul, Mom's hug pays once, sticker Clear needs 2 taps", async (page, ev) => {
+    const m = await ev("startDinaMode(); dinaCoinsRun = 9; dinaStickers = 4; bankDinaRunRewards(true); " +
+      "var a = dinaRunMedal + '/' + save.dinaMedals.gold + '/' + save.dinaBest; " +
+      "dinaCoinsRun = 2; dinaStickers = 0; bankDinaRunRewards(false); a + ' ' + dinaRunMedal");
+    if (m !== "gold/1/13 bronze") throw new Error("medals: " + m);
+    const hug = await ev("save.totalCoins = 10; enterDinaHome(); momVisit = { phase: 1, t: 0, line: 'hi', hugged: false, hugT: 0 }; " +
+      "var p = momVisitPos(); momVisitTap({ x: p.x, y: p.y - 10 }); momVisitTap({ x: p.x, y: p.y - 10 }); save.totalCoins");
+    if (hug !== 11) throw new Error("coins after two hugs: " + hug);
+    const clr = await ev("save.stickerBook = [{ kind: 'star', x: 100, y: 200, rot: 0, scale: 1 }]; startStickerBook(); " +
+      "clickQueue = { x: W - 60, y: H - 32 }; updateStickerBook(0.016); var n1 = save.stickerBook.length; " +
+      "clickQueue = { x: W - 60, y: H - 32 }; updateStickerBook(0.016); n1 + '/' + save.stickerBook.length");
+    if (clr !== "1/0") throw new Error("sticker clear: " + clr);
+  }],
+  ["story: tour 2 pays 1.5× + a jackpot at Vegas", async (page, ev) => {
+    const r = await ev("save.cruiseUnlocked = true; save.storyStop = 4; save.storyCycle = 1; runMode = 'story'; resetGame(); " +
+      "tripStopIdx = 4; tripArrival = { stop: TRIP_STOPS[4], t: 0, phase: 0, claimed: false, newPostcard: false }; state = 'arrival'; " +
+      "updateArrival(0.016); tripArrival.reward + '/' + tripArrival.jackpot + '/' + save.storyCycle");
+    if (r !== "300/500/2") throw new Error("reward/jackpot/cycle = " + r);
   }],
   ["tablet mode can't leak past the menu", async (page, ev) => {
     await ev("inTabletMode = true; runMode = 'cruise'; resetGame(); state = 'playing'");

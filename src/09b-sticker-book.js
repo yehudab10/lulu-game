@@ -39,6 +39,7 @@
             if (p.life <= 0) sticker.sparkle.splice(s, 1);
         }
 
+        if (sticker.clearArmT > 0) sticker.clearArmT -= dt;
         var click = consumeClick();
         if (!click) return;
 
@@ -51,15 +52,24 @@
             return;
         }
         // Clear-page button (bottom-right)
+        // Two taps: the first arms it ("Sure?"), the second within 2.5s wipes the page.
         if (pointInRect(click.x, click.y, W - 110, H - 52, 100, 40)) {
             if (save.stickerBook.length > 0) {
-                save.stickerBook = [];
-                persistSave();
-                sticker.msg = "Cleared the page!"; sticker.msgT = 1.6;
-                playTone(300, 0.12, "square", 0.14);
+                if (sticker.clearArmT > 0) {
+                    save.stickerBook = [];
+                    persistSave();
+                    sticker.clearArmT = 0;
+                    sticker.msg = "Cleared the page!"; sticker.msgT = 1.6;
+                    playTone(300, 0.12, "square", 0.14);
+                } else {
+                    sticker.clearArmT = 2.5;
+                    sticker.msg = "Tap 🗑 again to clear EVERYTHING"; sticker.msgT = 2.5;
+                    playTone(520, 0.08, "triangle", 0.14);
+                }
             }
             return;
         }
+        if (sticker.clearArmT > 0) sticker.clearArmT = 0;   // any other tap disarms it
 
         // Tray row (bottom): pick up a sticker to place
         var tray = stickerTrayLayout();
@@ -220,9 +230,10 @@
 
         // Back + Clear buttons
         drawIconButton(20, 56, 36, "◀", { bg: "#A8E6CF", bgDark: "#388E3C" });
-        ctx.fillStyle = "#EF9A9A";
+        var armed = sticker.clearArmT > 0;
+        ctx.fillStyle = armed ? "#E53935" : "#EF9A9A";
         roundRect(W - 110, H - 52, 100, 40, 10); ctx.fill();
         ctx.strokeStyle = "#C62828"; ctx.lineWidth = 2;
         roundRect(W - 110, H - 52, 100, 40, 10); ctx.stroke();
-        drawText("🗑 Clear", W - 60, H - 32, "bold 13px Arial", "#FFFFFF", "#000", 2);
+        drawText(armed ? "🗑 Sure?" : "🗑 Clear", W - 60, H - 32, "bold 13px Arial", "#FFFFFF", "#000", 2);
     }
