@@ -19,7 +19,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.15.1";
+    var GAME_VERSION = "1.15.2";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -99,6 +99,7 @@
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
             hapticsOff: false, // pause-menu toggle for vibration feedback
             musicMuted: false, // pause-menu MUSIC toggle (remembered across launches)
+            calmFx: null,      // pause-menu CALM toggle: true/false once chosen; null = follow the OS "reduce motion" setting
             audioMuted: false, // pause-menu / menu SOUND toggle (master mute, remembered)
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
@@ -166,6 +167,15 @@
         if (save.parkingTotalStars < 0) save.parkingTotalStars = 0;
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
     }
+    // CALM SCREEN (comfort setting): no screen shake, no zoom punch, and every
+    // full-screen flash (crash, lightning, camera, salon pulse) dimmed to a
+    // gentle glow. Until the player picks, it follows the OS "reduce motion".
+    var osReducedMotion = false;
+    try { osReducedMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) {}
+    function calmFx() { return typeof save.calmFx === "boolean" ? save.calmFx : osReducedMotion; }
+    // Scale a full-screen flash's alpha down to a soft glow in calm mode.
+    function flashA(a) { return calmFx() ? a * 0.25 : a; }
+
     // Remember the MUSIC / SOUND toggles between launches.
     function persistAudioPrefs() {
         save.musicMuted = !!musicMuted;
@@ -1634,7 +1644,7 @@
             while (ly < lightningStrike.y) { ly += rand(20, 42); lx += rand(-18, 18); ctx.lineTo(lx, ly); }
             ctx.stroke(); ctx.lineCap = "butt";
         }
-        if (lightningFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + (lightningFlash * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (lightningFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(lightningFlash * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     function drawNightFx() {
@@ -11173,8 +11183,13 @@
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
-            // Haptics toggle (native buzz; web falls back to navigator.vibrate)
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
+            // Calm screen toggle (right half of the haptics row): no shake, soft flashes
+            if (pointInRect(click.x, click.y, W / 2 + 4, H / 2 + 122, 106, 46)) {
+                save.calmFx = !calmFx(); persistSave();
+                playClick(); consumeAction(); return;
+            }
+            // Haptics toggle (left half; native buzz, web falls back to navigator.vibrate)
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 106, 46)) {
                 save.hapticsOff = !save.hapticsOff; persistSave();
                 if (!save.hapticsOff && typeof Haptic !== "undefined") Haptic.medium("toggle");
                 playClick(); consumeAction(); return;
@@ -13357,7 +13372,7 @@
         }
 
         if (flashTimer > 0) {
-            ctx.fillStyle = "rgba(255,0,0," + (flashTimer / 0.15 * 0.3) + ")";
+            ctx.fillStyle = "rgba(255,0,0," + flashA(flashTimer / 0.15 * 0.3) + ")";
             ctx.fillRect(-20, -20, W + 40, H + 40);
         }
 
@@ -15852,10 +15867,14 @@
         var sc1 = audioMuted ? "#9E9E9E" : "#FFC107";
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
         drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
-        // Quit button
-        var hapLabel = save.hapticsOff ? "📳 HAPTICS: OFF" : "📳 HAPTICS: ON";
+        // Haptics | Calm screen share one row (two half-width toggles)
+        var hapLabel = save.hapticsOff ? "📳 BUZZ: OFF" : "📳 BUZZ: ON";
         var hp1 = save.hapticsOff ? "#9E9E9E" : "#26A69A", hp2 = save.hapticsOff ? "#616161" : "#00695C";
-        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 122, 106, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        var calmOn = calmFx();
+        drawButton(W / 2 + 4, H / 2 + 122, 106, 46, calmOn ? "🌙 CALM: ON" : "🌙 CALM: OFF",
+            { bg: calmOn ? "#5C6BC0" : "#9E9E9E", bgDark: calmOn ? "#283593" : "#616161", small: true });
+        // Quit button
         drawButton(W / 2 - 110, H / 2 + 170, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",
@@ -28440,7 +28459,7 @@
             drawButton(250, 470, 170, 56, "← PICK AGAIN", { bg: "#90A4AE", bgDark: "#546E7A", small: true });
         } else if (salonPhase === 4) {
             // Processing: foils + beat-driven ticker + white pulses
-            var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
+            var pulse = flashA(Math.abs(Math.sin(salonTimer * 4)) * 0.3);
             ctx.fillStyle = "rgba(255,255,255," + pulse + ")";
             ctx.fillRect(0, 0, W, H);
             // first beat: Fabio's hot take on the chosen color, then the process beats
@@ -30116,7 +30135,7 @@
             beard: clamp(jail.days / Math.max(1, jail.total), 0, 1), workFx: jail.workFx || 0 } : null;
         drawCellRoom(rt, rb, serving ? Math.min(jail.total, jail.days) : 0, servePose);
 
-        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
 
         // ── serving the sentence ──
         if (serving) {
@@ -30257,7 +30276,7 @@
         // title + flash + tap
         drawText("📸 BOOKING & INTAKE", W / 2, 44, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
         drawText("Inmate " + (jail.inmate || "#0613") + " — say cheese!", W / 2, 70, "bold 13px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 3);
-        if (jail.camFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + clamp(jail.camFlash / 0.4, 0, 1) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (jail.camFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(clamp(jail.camFlash / 0.4, 0, 1)) + ")"; ctx.fillRect(0, 0, W, H); }
         var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 5));
         ctx.globalAlpha = bl; drawText("tap to continue ▸", W / 2, H - 40, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2); ctx.globalAlpha = 1;
     }
@@ -35170,9 +35189,14 @@
 
         ctx.clearRect(0, 0, W, H);
 
+        // CALM SCREEN: every shake site translates by shakeIntensity, so zeroing
+        // it here (after the updates that set it, before the draws) stills them all.
+        var calm = calmFx();
+        if (calm) shakeIntensity = 0;
+
         // Zoom punch during hit-stop: the whole scene bulges ~5% from center,
         // easing out as the freeze thaws. Overlays (flash/fade) stay unzoomed.
-        var hitZoomed = hitStopT > 0;
+        var hitZoomed = hitStopT > 0 && !calm;
         if (hitZoomed) {
             var hz = 1 + 0.05 * clamp(hitStopT / 0.14, 0, 1);
             ctx.save();
@@ -35231,7 +35255,7 @@
         // Blinding white impact flash on a fatal crash (over the scene, under
         // the scene-fade/iris so transitions still read).
         if (crashFlash > 0) {
-            ctx.fillStyle = "rgba(255,255,255," + (clamp(crashFlash / 0.4, 0, 1) * 0.9) + ")";
+            ctx.fillStyle = "rgba(255,255,255," + flashA(clamp(crashFlash / 0.4, 0, 1) * 0.9) + ")";
             ctx.fillRect(0, 0, W, H);
         }
 

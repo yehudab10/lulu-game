@@ -1147,7 +1147,7 @@
             beard: clamp(jail.days / Math.max(1, jail.total), 0, 1), workFx: jail.workFx || 0 } : null;
         drawCellRoom(rt, rb, serving ? Math.min(jail.total, jail.days) : 0, servePose);
 
-        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + (jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (jail.flash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(jail.flash / 0.3 * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
 
         // ── serving the sentence ──
         if (serving) {
@@ -1288,7 +1288,7 @@
         // title + flash + tap
         drawText("📸 BOOKING & INTAKE", W / 2, 44, "bold 24px 'Segoe UI', Arial, sans-serif", "#FFD54F", "#000", 5);
         drawText("Inmate " + (jail.inmate || "#0613") + " — say cheese!", W / 2, 70, "bold 13px 'Segoe UI', Arial, sans-serif", "#ECEFF1", "#000", 3);
-        if (jail.camFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + clamp(jail.camFlash / 0.4, 0, 1) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (jail.camFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(clamp(jail.camFlash / 0.4, 0, 1)) + ")"; ctx.fillRect(0, 0, W, H); }
         var bl = 0.4 + 0.6 * Math.abs(Math.sin(gameTime * 5));
         ctx.globalAlpha = bl; drawText("tap to continue ▸", W / 2, H - 40, "bold 13px 'Segoe UI', Arial, sans-serif", "#FFF", "#000", 2); ctx.globalAlpha = 1;
     }

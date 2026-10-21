@@ -1184,7 +1184,7 @@
             drawButton(250, 470, 170, 56, "← PICK AGAIN", { bg: "#90A4AE", bgDark: "#546E7A", small: true });
         } else if (salonPhase === 4) {
             // Processing: foils + beat-driven ticker + white pulses
-            var pulse = Math.abs(Math.sin(salonTimer * 4)) * 0.3;
+            var pulse = flashA(Math.abs(Math.sin(salonTimer * 4)) * 0.3);
             ctx.fillStyle = "rgba(255,255,255," + pulse + ")";
             ctx.fillRect(0, 0, W, H);
             // first beat: Fabio's hot take on the chosen color, then the process beats

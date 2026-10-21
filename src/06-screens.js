@@ -408,10 +408,14 @@
         var sc1 = audioMuted ? "#9E9E9E" : "#FFC107";
         var sc2 = audioMuted ? "#616161" : "#FF6F00";
         drawButton(W / 2 - 110, H / 2 + 74, 220, 46, sfxLabel, { bg: sc1, bgDark: sc2, small: true });
-        // Quit button
-        var hapLabel = save.hapticsOff ? "📳 HAPTICS: OFF" : "📳 HAPTICS: ON";
+        // Haptics | Calm screen share one row (two half-width toggles)
+        var hapLabel = save.hapticsOff ? "📳 BUZZ: OFF" : "📳 BUZZ: ON";
         var hp1 = save.hapticsOff ? "#9E9E9E" : "#26A69A", hp2 = save.hapticsOff ? "#616161" : "#00695C";
-        drawButton(W / 2 - 110, H / 2 + 122, 220, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        drawButton(W / 2 - 110, H / 2 + 122, 106, 46, hapLabel, { bg: hp1, bgDark: hp2, small: true });
+        var calmOn = calmFx();
+        drawButton(W / 2 + 4, H / 2 + 122, 106, 46, calmOn ? "🌙 CALM: ON" : "🌙 CALM: OFF",
+            { bg: calmOn ? "#5C6BC0" : "#9E9E9E", bgDark: calmOn ? "#283593" : "#616161", small: true });
+        // Quit button
         drawButton(W / 2 - 110, H / 2 + 170, 220, 46, "QUIT TO MENU", { bg: "#EF5350", bgDark: "#B71C1C", small: true });
 
         drawText(isTouchDevice ? "Tap RESUME to keep playing" : "Press P or ESC to resume",

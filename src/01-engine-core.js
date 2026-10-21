@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.15.1";
+    var GAME_VERSION = "1.15.2";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -97,6 +97,7 @@
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
             hapticsOff: false, // pause-menu toggle for vibration feedback
             musicMuted: false, // pause-menu MUSIC toggle (remembered across launches)
+            calmFx: null,      // pause-menu CALM toggle: true/false once chosen; null = follow the OS "reduce motion" setting
             audioMuted: false, // pause-menu / menu SOUND toggle (master mute, remembered)
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
@@ -164,6 +165,15 @@
         if (save.parkingTotalStars < 0) save.parkingTotalStars = 0;
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
     }
+    // CALM SCREEN (comfort setting): no screen shake, no zoom punch, and every
+    // full-screen flash (crash, lightning, camera, salon pulse) dimmed to a
+    // gentle glow. Until the player picks, it follows the OS "reduce motion".
+    var osReducedMotion = false;
+    try { osReducedMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) {}
+    function calmFx() { return typeof save.calmFx === "boolean" ? save.calmFx : osReducedMotion; }
+    // Scale a full-screen flash's alpha down to a soft glow in calm mode.
+    function flashA(a) { return calmFx() ? a * 0.25 : a; }
+
     // Remember the MUSIC / SOUND toggles between launches.
     function persistAudioPrefs() {
         save.musicMuted = !!musicMuted;
@@ -1632,7 +1642,7 @@
             while (ly < lightningStrike.y) { ly += rand(20, 42); lx += rand(-18, 18); ctx.lineTo(lx, ly); }
             ctx.stroke(); ctx.lineCap = "butt";
         }
-        if (lightningFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + (lightningFlash * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (lightningFlash > 0) { ctx.fillStyle = "rgba(255,255,255," + flashA(lightningFlash * 0.5) + ")"; ctx.fillRect(0, 0, W, H); }
     }
 
     function drawNightFx() {

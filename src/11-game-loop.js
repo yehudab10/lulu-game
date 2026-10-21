@@ -162,9 +162,14 @@
 
         ctx.clearRect(0, 0, W, H);
 
+        // CALM SCREEN: every shake site translates by shakeIntensity, so zeroing
+        // it here (after the updates that set it, before the draws) stills them all.
+        var calm = calmFx();
+        if (calm) shakeIntensity = 0;
+
         // Zoom punch during hit-stop: the whole scene bulges ~5% from center,
         // easing out as the freeze thaws. Overlays (flash/fade) stay unzoomed.
-        var hitZoomed = hitStopT > 0;
+        var hitZoomed = hitStopT > 0 && !calm;
         if (hitZoomed) {
             var hz = 1 + 0.05 * clamp(hitStopT / 0.14, 0, 1);
             ctx.save();
@@ -223,7 +228,7 @@
         // Blinding white impact flash on a fatal crash (over the scene, under
         // the scene-fade/iris so transitions still read).
         if (crashFlash > 0) {
-            ctx.fillStyle = "rgba(255,255,255," + (clamp(crashFlash / 0.4, 0, 1) * 0.9) + ")";
+            ctx.fillStyle = "rgba(255,255,255," + flashA(clamp(crashFlash / 0.4, 0, 1) * 0.9) + ")";
             ctx.fillRect(0, 0, W, H);
         }
 

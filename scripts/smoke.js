@@ -139,6 +139,12 @@ const CHECKS = [
     const bad = await page.evaluate(() => localStorage.getItem("luluSaveV2_corrupt"));
     if (bad !== "{not json") throw new Error("corrupt text wasn't parked");
   }],
+  ["CALM screen stills shake and softens flashes", async (page, ev) => {
+    await ev("save.calmFx = true; runMode = 'cruise'; resetGame(); state = 'playing'; shakeTimer = 1; shakeIntensity = 12");
+    await page.waitForTimeout(200);
+    const r = await ev("shakeIntensity + '/' + flashA(0.8)");
+    if (r !== "0/0.2") throw new Error("shake/flash in calm mode = " + r);
+  }],
   ["tablet mode can't leak past the menu", async (page, ev) => {
     await ev("inTabletMode = true; runMode = 'cruise'; resetGame(); state = 'playing'");
     await page.waitForTimeout(200);

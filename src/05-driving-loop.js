@@ -2548,8 +2548,13 @@
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
-            // Haptics toggle (native buzz; web falls back to navigator.vibrate)
-            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 220, 46)) {
+            // Calm screen toggle (right half of the haptics row): no shake, soft flashes
+            if (pointInRect(click.x, click.y, W / 2 + 4, H / 2 + 122, 106, 46)) {
+                save.calmFx = !calmFx(); persistSave();
+                playClick(); consumeAction(); return;
+            }
+            // Haptics toggle (left half; native buzz, web falls back to navigator.vibrate)
+            if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 122, 106, 46)) {
                 save.hapticsOff = !save.hapticsOff; persistSave();
                 if (!save.hapticsOff && typeof Haptic !== "undefined") Haptic.medium("toggle");
                 playClick(); consumeAction(); return;
@@ -4732,7 +4737,7 @@
         }
 
         if (flashTimer > 0) {
-            ctx.fillStyle = "rgba(255,0,0," + (flashTimer / 0.15 * 0.3) + ")";
+            ctx.fillStyle = "rgba(255,0,0," + flashA(flashTimer / 0.15 * 0.3) + ")";
             ctx.fillRect(-20, -20, W + 40, H + 40);
         }
 
