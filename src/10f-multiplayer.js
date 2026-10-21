@@ -761,7 +761,7 @@
         else if (vk === "borrowed") drawEnemyCar(x, y, p.co || "#E53935", (typeof p.ct === "number") ? p.ct : 0);
         else {   // "car" = a Lulu-style car in their chosen skin
             var sk = (p.sk && SKINS[p.sk]) ? p.sk : "pink";
-            drawLuluCar(x, y, 0, false, mpClock, false, sk, 1, false);
+            drawLuluCar(x, y, 0, false, mpClock, false, sk, 1, false, "none");
         }
     }
 

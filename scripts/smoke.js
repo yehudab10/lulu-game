@@ -65,6 +65,8 @@ const SCENES = [
   ["cruise drive",          "runMode = 'cruise'; resetGame(); state = 'playing'", 8],
   ["story map",             "save.cruiseUnlocked = true; state = 'storyMap'", 3],
   ["shop",                  "state = 'shop'; shopTab = 'skins'; shopDetail = null", 4],
+  ["shop bling",            "save.totalCoins = 3000; state = 'shop'; shopTab = 'bling'", 5],
+  ["drive with every bling", "save.ownedDecor = DECOR.map(function (d) { return d.id; }); save.decor = 'unicorn'; save.horn = 'cucaracha'; runMode = 'cruise'; resetGame(); state = 'playing'", 5],
   ["quests",                "save.lifetimeScore = 300000; state = 'quests'; questScreenT = 0", 3],
   ["pause menu",            "runMode = 'cruise'; resetGame(); prevState = 'playing'; state = 'paused'", 3],
   ["parking minigame",      "runMode = 'cruise'; resetGame(); state = 'playing'; triggerParkingMinigame()", 5],
@@ -171,6 +173,16 @@ const CHECKS = [
     await page.waitForFunction(() => typeof window.__lulu === "function");
     const c2 = await ev("save.totalCoins + '/' + save.mpName");
     if (c2 !== "999/Lulu 💖") throw new Error("after LOAD CODE: " + c2);
+  }],
+  ["bling: 1st tap previews, 2nd tap buys + equips; every horn plays", async (page, ev) => {
+    const r = await ev("save.totalCoins = 1000; state = 'shop'; shopTab = 'bling'; " +
+      "var L = blingLayout(), c = L.cells.filter(function (x) { return x.it.id === 'crown'; })[0], tap = { x: c.x + 5, y: c.y + 5 }; " +
+      "blingClick(tap); var a = save.totalCoins + '/' + (save.decor || 'none'); blingClick(tap); " +
+      "a + ' → ' + save.totalCoins + '/' + save.decor + '/' + blingOwned('decor', 'crown')");
+    if (r !== "1000/none → 550/crown/true") throw new Error("purchase flow: " + r);
+    await ev("HORNS.forEach(function (h) { playPlayerHorn(330, h.id); }); 1");
+    await ev("save.horn = 'shofar'; runMode = 'cruise'; resetGame(); state = 'playing'; honkQueued = true");
+    await page.waitForTimeout(300);
   }],
   ["tablet mode can't leak past the menu", async (page, ev) => {
     await ev("inTabletMode = true; runMode = 'cruise'; resetGame(); state = 'playing'");

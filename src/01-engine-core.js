@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.16.0";
+    var GAME_VERSION = "1.17.0";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -109,6 +109,10 @@
             mpAutoOff: false,  // SHARED ROAD: player explicitly opted OUT of cruise auto-connect
             cruiseUnlocked: false, // ONBOARDING: endless cruise + Shared Road stay LOCKED until the first Bubbe arrival
             cruisePlayed: false,   // ONBOARDING: has a cruise run ever been started? (drives the pulsing NEW! badge)
+            horn: "beep",      // BLING: equipped horn id (see HORNS in 06d-bling.js)
+            ownedHorns: ["beep"],
+            decor: "none",     // BLING: equipped car decoration id ("none" = bare)
+            ownedDecor: [],
             stats: {},         // SCRAPBOOK: lifetime counters (keyed by the quest ids that feed them) + stats.best
             badges: null,      // SCRAPBOOK: earned badge ids (null until the first sync snapshots them)
             scrapSeen: 0,      // SCRAPBOOK: badges.length when the scrapbook was last opened (drives the 📒 dot)

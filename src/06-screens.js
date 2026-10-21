@@ -930,9 +930,9 @@
         drawText(formatNum(save.totalCoins), W - 86, 38, "bold 22px 'Segoe UI', Arial, sans-serif", C.coin, "#000", 4, "left");
 
         // Tabs
-        var tabY = 100, tabH = 44, tabW = W / 3;
-        var tabs = [["skins", "Garage"], ["powerups", "Power-Ups"], ["special", "Special"]];
-        for (var ti = 0; ti < 3; ti++) {
+        var tabY = 100, tabH = 44, tabW = W / 4;
+        var tabs = [["skins", "Garage"], ["powerups", "Power-Ups"], ["special", "Special"], ["bling", "Bling ✨"]];
+        for (var ti = 0; ti < 4; ti++) {
             var key = tabs[ti][0], lbl = tabs[ti][1];
             var active = shopTab === key;
             ctx.fillStyle = active ? "#FFC107" : "#546E7A";
@@ -946,6 +946,7 @@
         if (shopTab === "skins") drawSkinsTab();
         else if (shopTab === "powerups") drawPowerupsTab();
         else if (shopTab === "special") drawSpecialTab();
+        else if (shopTab === "bling") { drawBlingTab(); drawParticles(); }
 
         // Garage showroom detail view — a full-screen overlay ON TOP of the grid.
         if (shopTab === "skins" && shopDetail) drawSkinDetail(shopDetail);

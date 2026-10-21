@@ -803,7 +803,7 @@
             honkChainResetTimer = 1.5;
             // Notes of a C-major scale: each successive honk = next note up
             var notes = [262, 294, 330, 349, 392, 440, 494, 523];
-            playHonkPitched(notes[honkChain - 1]);
+            playPlayerHorn(notes[honkChain - 1]);   // equipped horn (shop "Bling ✨"), pitched by the chain
             honkCooldown = 0.32;
             // Show "+chain" floater on big chains
             if (honkChain >= 4) spawnFloater(player.x, player.y - 40, "♪ " + honkChain + "x!", "#FFEB3B");
@@ -3680,6 +3680,7 @@
         if (shopDetail) shopDetailT += dt;   // drives the detail stat-bar fill-in
         if (lastBoughtTimer > 0) lastBoughtTimer -= dt;
         if (buyPopTimer > 0) buyPopTimer -= dt;   // owned-count pill pop/flash
+        updateParticles(dt);                      // bling purchase confetti
 
         if (consumePause()) { shopDetail = null; state = "menu"; playClick(); return; }
         var click = consumeClick();
@@ -3723,10 +3724,13 @@
         }
 
         // Tabs (switching tabs closes any open detail view)
-        var tabY = 100, tabH = 44, tabW = W / 3;
-        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; shopTab = "skins"; shopGridT = 0; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; shopTab = "powerups"; playClick(); return; }
-        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; shopTab = "special"; playClick(); return; }
+        var tabY = 100, tabH = 44, tabW = W / 4;
+        if (pointInRect(click.x, click.y, 0, tabY, tabW, tabH)) { shopDetail = null; blingSel = null; shopTab = "skins"; shopGridT = 0; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW, tabY, tabW, tabH)) { shopDetail = null; blingSel = null; shopTab = "powerups"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW * 2, tabY, tabW, tabH)) { shopDetail = null; blingSel = null; shopTab = "special"; playClick(); return; }
+        if (pointInRect(click.x, click.y, tabW * 3, tabY, tabW, tabH)) { shopDetail = null; blingSel = null; shopTab = "bling"; playClick(); return; }
+
+        if (shopTab === "bling") { blingClick(click); return; }
 
         // Items
         if (shopTab === "skins") {

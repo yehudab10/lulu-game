@@ -161,7 +161,9 @@
         ctx.fillRect(-1.2, fy + 4.8, 2.4, 0.6);
     }
 
-    function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale, empty) {
+    // decor: car-bling id to wear (undefined → the player's equipped save.decor;
+    // pass "none" for cars that aren't Lulu's own, e.g. Shared Road peers).
+    function drawLuluCar(x, y, tilt, blinking, time, distracted, skinKey, scale, empty, decor) {
         var skin = SKINS[skinKey || save.selectedSkin] || SKINS.pink;
         var sc = scale || 1;
         ctx.save();
@@ -585,6 +587,9 @@
                 size: rand(2, 4), color: "rgba(200,200,200,0.7)", gravity: 0
             });
         }
+
+        // Car bling (shop "Bling ✨" tab) rides on top of everything.
+        drawCarDecor(decor === undefined ? save.decor : decor, hw, hh, time);
 
         ctx.globalAlpha = 1;
         ctx.restore();

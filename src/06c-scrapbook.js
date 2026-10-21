@@ -55,6 +55,8 @@
         { id: "heshy5",    icon: "🏊", name: "Pool Patrol",      desc: "Find Heshy 5 times",                 prog: function () { return [stat("heshy2"), 5]; } },
         { id: "salon",     icon: "💇", name: "Fabio's Muse",     desc: "Get a makeover at the salon",        test: function () { return stat("salon") >= 1 || save.luluHair !== "#8B5A2B"; } },
         { id: "garage",    icon: "🏎️", name: "Full Garage",      desc: "Own every car in the shop",          prog: function () { return [(save.ownedSkins || []).length, skinCount()]; } },
+        { id: "hornsAll",  icon: "🎺", name: "DJ Lulu",          desc: "Own every horn in the Bling shop",   prog: function () { return [(save.ownedHorns || ["beep"]).length, HORNS.length]; } },
+        { id: "blingAll",  icon: "💎", name: "Bling Queen",      desc: "Own every piece of car bling",       prog: function () { return [(save.ownedDecor || []).length, DECOR.length]; } },
         { id: "walk10k",   icon: "🚶", name: "Leg Day",          desc: "Walk 10,000 on foot",                prog: function () { return [stat("footDist"), 10000]; } },
         { id: "sister",    icon: "🎒", name: "Secret Sister",    desc: "Found the hidden sister",            secret: true, test: function () { return (save.dinaRunsPlayed || 0) > 0; } }
     ];
