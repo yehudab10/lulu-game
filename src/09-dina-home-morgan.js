@@ -1,6 +1,7 @@
     function enterDinaHome() {
-        save.totalCoins += dinaCoinsRun;
-        persistSave();
+        // Run coins are banked once by bankDinaRunRewards() at the finish line.
+        // (Adding dinaCoinsRun here too double-paid every run, and re-paid it on
+        // every return from the sticker book / Cookie Catch — an infinite-coin tap.)
         state = "dinaHome";
         dinaHome = { x: 240, y: 600, walkTime: 0, facing: "down", hover: null };
         homeMessageTimer = 0;

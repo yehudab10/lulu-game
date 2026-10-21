@@ -1,0 +1,36 @@
+# Plays the whole game headlessly on every push / PR (scripts/smoke.js):
+# game.js must be in sync with src/, every scene must run without a frame
+# error, and the behavior checks must pass. GitHub Pages deploys main
+# directly, so this can't block a deploy — a red ❌ on the commit means the
+# live site has a problem to fix right away.
+name: Smoke test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: game.js matches src/
+        run: node build.js --check
+
+      - name: Install Playwright + Chromium
+        # Kept out of package.json so the iOS build (Codemagic) never pulls it.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" playwright@1.56.1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Play every scene
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
+        run: node scripts/smoke.js

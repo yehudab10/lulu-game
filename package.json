@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node build.js",
     "check": "node build.js --check",
+    "smoke": "node scripts/smoke.js",
     "copy:web": "node scripts/copy-web.js",
     "serve": "npx http-server -p 8099 -c-1",
     "add:ios": "npm run build && npm run copy:web && npx cap add ios",

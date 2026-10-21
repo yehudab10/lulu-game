@@ -74,6 +74,10 @@
             } else if (state === "menu" || state === "charSelect" || state === "gameover") {
                 boostLock = false; brakeLock = false;
             }
+            // Reaching a real menu means any tablet-in-Dina's-room game is over —
+            // otherwise a tablet run that exited via jail/foot/etc. would leave the
+            // flag set and a later normal Quit would drop Lulu into Dina's bedroom.
+            if (state === "menu" || state === "charSelect") inTabletMode = false;
             // Dropping back onto the sidewalk (from an interior / the wedding /
             // a fresh foot start) → a 2s shield so a car sitting right on her
             // can't clip her the instant she reappears.

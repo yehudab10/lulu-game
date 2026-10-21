@@ -2538,13 +2538,13 @@
             }
             // Music toggle
             if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 26, 220, 46)) {
-                musicMuted = !musicMuted;
+                musicMuted = !musicMuted; persistAudioPrefs();
                 if (musicMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
             // SFX toggle
             if (pointInRect(click.x, click.y, W / 2 - 110, H / 2 + 74, 220, 46)) {
-                audioMuted = !audioMuted;
+                audioMuted = !audioMuted; persistAudioPrefs();
                 if (audioMuted) pauseMusic(); else resumeMusic();
                 playClick(); consumeAction(); return;
             }
@@ -3568,7 +3568,7 @@
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
-                audioMuted = !audioMuted;
+                audioMuted = !audioMuted; persistAudioPrefs();
                 if (audioMuted) stopMusic();
                 else { var lprev = musicState; musicState = null; if (lprev) startMusic(lprev); else startMusic("lulu"); }
                 playClick(); return;
@@ -3629,7 +3629,7 @@
             }
             // Mute button
             if (pointInRect(click.x, click.y, W - 60, 14, 44, 44)) {
-                audioMuted = !audioMuted;
+                audioMuted = !audioMuted; persistAudioPrefs();
                 if (audioMuted) stopMusic();
                 else { var prev = musicState; musicState = null; if (prev) startMusic(prev); else startMusic("lulu"); }
                 playClick();

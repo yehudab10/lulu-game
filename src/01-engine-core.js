@@ -17,7 +17,7 @@
     var PLAYER_Y = H - 170;
     var MAX_LIVES = 3;
     // Shown bottom-right of the menu. Bump when shipping meaningful updates.
-    var GAME_VERSION = "1.15.0";
+    var GAME_VERSION = "1.15.1";
 
     // Menu button-stack anchor + compact flag. On TALL phone canvases the
     // stack sits at the vertical middle; on SHORT canvases (an iPad hits the
@@ -96,6 +96,8 @@
             streak: 0,         // consecutive-day play streak (drives the daily bonus)
             tutorialDone: false, // finished (or skipped) the first-drive tutorial
             hapticsOff: false, // pause-menu toggle for vibration feedback
+            musicMuted: false, // pause-menu MUSIC toggle (remembered across launches)
+            audioMuted: false, // pause-menu / menu SOUND toggle (master mute, remembered)
             postcards: [],     // THE JOURNEY: stop ids ever collected (persists forever)
             tripBest: 0,       // THE JOURNEY: most stops reached in a single run
             storyStop: 0,      // STORY TRIP: last checkpoint — index of the NEXT leg to run (0..4)
@@ -110,23 +112,39 @@
         };
     }
 
-    function loadSave() {
+    // A copy of the last save that loaded cleanly lives under SAVE_KEY + "_bak"
+    // (refreshed once per launch). If the main save ever fails to parse, we fall
+    // back to that copy and park the broken text under "_corrupt" instead of
+    // silently starting over and overwriting it on the next persistSave().
+    function parseSaveText(raw) {
+        if (!raw) return null;
         try {
-            var raw = localStorage.getItem(SAVE_KEY);
-            if (!raw) {
-                // migrate old high score
-                var oldHigh = parseInt(localStorage.getItem("luluHighScore")) || 0;
-                var s = defaultSave();
-                s.highScore = oldHigh;
-                return s;
-            }
             var parsed = JSON.parse(raw);
-            var def = defaultSave();
-            for (var k in def) if (!(k in parsed)) parsed[k] = def[k];
-            return parsed;
-        } catch (e) {
-            return defaultSave();
+            return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : null;
+        } catch (e) { return null; }
+    }
+    function loadSave() {
+        var raw = null;
+        try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+        if (!raw) {
+            // migrate old high score
+            var oldHigh = 0;
+            try { oldHigh = parseInt(localStorage.getItem("luluHighScore")) || 0; } catch (e) {}
+            var s = defaultSave();
+            s.highScore = oldHigh;
+            return s;
         }
+        var parsed = parseSaveText(raw);
+        if (parsed) {
+            try { localStorage.setItem(SAVE_KEY + "_bak", raw); } catch (e) {}
+        } else {
+            try { localStorage.setItem(SAVE_KEY + "_corrupt", raw); } catch (e) {}
+            try { parsed = parseSaveText(localStorage.getItem(SAVE_KEY + "_bak")); } catch (e) {}
+            if (!parsed) return defaultSave();
+        }
+        var def = defaultSave();
+        for (var k in def) if (!(k in parsed)) parsed[k] = def[k];
+        return parsed;
     }
 
     // ── Avigail rivalry↔friendship meter (persists) ──────────────────────────
@@ -145,6 +163,12 @@
         if (save.totalCoins < 0) save.totalCoins = 0;
         if (save.parkingTotalStars < 0) save.parkingTotalStars = 0;
         try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+    }
+    // Remember the MUSIC / SOUND toggles between launches.
+    function persistAudioPrefs() {
+        save.musicMuted = !!musicMuted;
+        save.audioMuted = !!audioMuted;
+        persistSave();
     }
 
     // ── Colors ───────────────────────────────────────────────
@@ -171,7 +195,7 @@
 
     // ── Sound System (Web Audio) ─────────────────────────────
     var audioCtx = null;
-    var audioMuted = false;
+    var audioMuted = !!save.audioMuted;   // persisted — see persistAudioPrefs()
 
     function getAudio() {
         if (!audioCtx) {
@@ -399,7 +423,7 @@
     var playlistIdx = {};         // track → current index in its playlist
     var currentMusicTrack = null; // file-track name currently selected
     var currentMusicEl = null;
-    var musicMuted = false;       // separate from SFX mute; toggled in pause menu
+    var musicMuted = !!save.musicMuted; // separate from SFX mute; toggled in pause menu (persisted)
     var musicState = null;        // kept for compatibility with old references
     var MUSIC_VOLUME = 0.5;
     var audioUnlocked = false;    // becomes true after first user gesture
@@ -985,9 +1009,17 @@
     // ── Background / foreground: silence music when the app is backgrounded ──
     // On iOS the HTML5 <audio> music keeps playing after you swipe the app away
     // unless we explicitly pause it. Pause on hide, resume on return.
+    // Scenes with a pause menu auto-pause when the app/tab goes away, so a run
+    // can't keep driving (the loop still ticks via setTimeout when hidden) and
+    // crash while nobody's watching.
+    var AUTO_PAUSE_STATES = { playing: 1, footRun: 1, parking: 1, cookieCatch: 1 };
     function onAppHidden() {
         pauseMusic();
         if (audioCtx && audioCtx.state === "running") { try { audioCtx.suspend(); } catch (e) {} }
+        if (typeof state !== "undefined" && AUTO_PAUSE_STATES[state]) {
+            prevState = state;
+            state = "paused";
+        }
     }
     function onAppVisible() {
         if (audioCtx && audioCtx.state === "suspended") { try { audioCtx.resume(); } catch (e) {} }

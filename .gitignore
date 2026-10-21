@@ -9,3 +9,6 @@ android/
 
 # Claude Code harness state (agent worktrees, session data) — not source.
 .claude/
+
+# scripts/smoke.js --shots output
+smoke-shots/
