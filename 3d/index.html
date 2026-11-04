@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#7fc8f8">
+    <meta name="description" content="Lulu's Road Trip in 3D: drive Lulu's pink convertible to Bubbe's house. Works with a game controller, keyboard or touch.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta property="og:title" content="Lulu's Road Trip 3D">
+    <meta property="og:description" content="Grab a controller and drive Lulu to Bubbe's house!">
+    <meta property="og:url" content="https://lulu.boats/3d/">
+    <title>Lulu's Road Trip 3D</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='25' y='15' width='50' height='75' rx='12' fill='%23E91E63'/%3E%3Crect x='30' y='25' width='40' height='25' rx='6' fill='%2381D4FA'/%3E%3Ccircle cx='35' cy='38' r='3' fill='%23222'/%3E%3Ccircle cx='65' cy='38' r='3' fill='%23222'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap">
+    <link rel="stylesheet" href="style3d.css">
+    <script type="importmap">
+    { "imports": { "three": "./vendor/three/build/three.module.min.js",
+                   "three/addons/": "./vendor/three/examples/jsm/" } }
+    </script>
+</head>
+<body>
+    <canvas id="scene"></canvas>
+
+    <!-- ── driving HUD ─────────────────────────────────────── -->
+    <div id="hud" class="hidden">
+        <div class="hud-tl">
+            <div id="hearts" class="pill">❤️❤️❤️</div>
+            <div class="pill"><span class="coin"></span><b id="coins">0</b></div>
+            <div class="pill score">SCORE <b id="score">0</b></div>
+        </div>
+        <div class="hud-top">
+            <div class="trip">
+                <span class="trip-from">🚗</span>
+                <div class="trip-bar"><div id="tripFill"></div><div id="tripCar">🚙</div></div>
+                <span class="trip-to">🏡</span>
+            </div>
+            <div id="tripLabel">BUBBE'S HOUSE · 3.0 mi</div>
+        </div>
+        <div class="hud-tr">
+            <button id="pauseBtn" class="round-btn" aria-label="Pause">❚❚</button>
+        </div>
+        <div class="hud-br">
+            <div class="speedo">
+                <div id="mph">0</div><div class="unit">MPH</div>
+                <div class="boost"><div id="boostFill"></div></div>
+                <div class="boost-label">NITRO <span id="boostKey"></span></div>
+            </div>
+        </div>
+        <div id="toasts"></div>
+        <div id="banner" class="hidden"></div>
+        <div id="padHint" class="hidden"></div>
+        <div id="flash"></div>
+    </div>
+
+    <!-- ── touch controls (phones / tablets) ───────────────── -->
+    <div id="touch" class="hidden">
+        <div id="stickZone"><div id="stickBase"><div id="stickKnob"></div></div><span>STEER</span></div>
+        <div class="pedals">
+            <button id="tBoost" class="tbtn small">🔥<small>NITRO</small></button>
+            <button id="tHonk" class="tbtn small">📣<small>HONK</small></button>
+            <button id="tCam" class="tbtn small">🎥<small>CAM</small></button>
+            <button id="tBrake" class="tbtn pedal brake">BRAKE</button>
+            <button id="tGas" class="tbtn pedal gas">GAS</button>
+        </div>
+    </div>
+
+    <!-- ── screens ──────────────────────────────────────────── -->
+    <div id="screen" class="screen">
+        <div class="card" id="screenCard"></div>
+    </div>
+
+    <div id="loading" class="screen">
+        <div class="card loading-card">
+            <div class="logo"><span class="l1">LULU'S</span><span class="l2">ROAD TRIP</span><span class="l3">3D</span></div>
+            <div class="loadbar"><div id="loadFill"></div></div>
+            <div id="loadText">Warming up the engine…</div>
+        </div>
+    </div>
+
+    <noscript><p style="padding:2em;font:18px sans-serif">Lulu's Road Trip 3D needs JavaScript.</p></noscript>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

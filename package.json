@@ -11,7 +11,8 @@
     "serve": "npx http-server -p 8099 -c-1",
     "add:ios": "npm run build && npm run copy:web && npx cap add ios",
     "sync:ios": "npm run build && npm run copy:web && npx cap sync ios",
-    "open:ios": "npx cap open ios"
+    "open:ios": "npx cap open ios",
+    "smoke:3d": "node scripts/smoke3d.js"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",

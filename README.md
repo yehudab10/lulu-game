@@ -6,6 +6,8 @@ no framework.
 
 **🎮 Play it at: [lulu.boats](https://lulu.boats)** · also on iOS as a native app.
 
+**🕹️ New: [Lulu's Road Trip 3D](https://lulu.boats/3d/) (beta)** — the road trip in 3D, playable with a game controller. See [`3d/README.md`](3d/README.md).
+
 ## What's inside
 - 🚗 Endless driving with traffic, cops, animals, tolls, trains, parades and roadside cameos
 - 📖 **The Road to Vegas** — a five-stop story with chapter tasks, phone calls and replayable tours

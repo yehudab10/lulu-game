@@ -35,3 +35,8 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
         run: node scripts/smoke.js
+
+      - name: Drive the 3D version with a (fake) controller
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
+        run: node scripts/smoke3d.js
