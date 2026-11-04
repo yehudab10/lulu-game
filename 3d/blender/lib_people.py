@@ -35,8 +35,27 @@ def _c(spec, key, default):
     return spec.get(key, default) or default
 
 
+# Material names a person uses. Every person needs its OWN materials with these
+# exact names (the game recolours by name), but lib.mat() caches by name - so
+# before building a person we retire the previous person's materials. The
+# runner exports each asset right after building it, so this is safe as long as
+# each asset (builder) holds ONE person.
+PERSON_MATS = ["Skin", "Hair", "Top", "Bottom", "Shoes", "Eye", "Cheek", "Mouth", "EyeShine", "Tights", "HairTie",
+               "Glasses", "Shades", "Beard", "Kippah", "Hat", "HatBand", "Black", "Badge", "ChefHat", "Tiara", "Veil",
+               "Headband", "Bow", "Gold", "Scarf", "Apron", "Tie", "White", "LabCoat", "Vest"]
+
+
+def _fresh_materials():
+    for nm in PERSON_MATS:
+        m = bpy.data.materials.get(nm)
+        if m is not None:
+            m.name = nm + "~prev"
+        MATS.pop(nm, None)
+
+
 def build_person(name, spec=None):
     spec = spec or {}
+    _fresh_materials()
     coll = scene_coll(name)
     root = root_empty(coll, name)
     H = spec.get("height", 1.62)
