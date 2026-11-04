@@ -12,3 +12,7 @@ android/
 
 # scripts/smoke.js --shots output
 smoke-shots/
+
+# Blender asset build cache
+__pycache__/
+*.blend1
