@@ -274,3 +274,68 @@ a.back2d { color: var(--pink-dark); font-weight: 700; }
     .hud-top { width: 40vw; top: max(70px, env(safe-area-inset-top)); }
     .controls { grid-template-columns: 1fr; }
 }
+
+/* ── foundation additions ────────────────────────────────── */
+:root { --hud-scale: 1; }
+#hud { font-size: calc(16px * var(--hud-scale)); }
+.hud-tl, .hud-top, .hud-tr, .hud-br { transform-origin: top left; }
+.hud-br { transform-origin: bottom right; }
+.hud-tl { zoom: var(--hud-scale); }
+.hud-br .speedo { zoom: var(--hud-scale); }
+
+/* feature HUD slots */
+.hud-slot { position: absolute; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 150px); left: max(12px, env(safe-area-inset-left)); align-items: flex-start; }
+.hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 64px); left: 50%; transform: translateX(-50%); align-items: center; }
+.hud-slot.right { top: calc(max(12px, env(safe-area-inset-top)) + 60px); right: max(12px, env(safe-area-inset-right)); align-items: flex-end; }
+.hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 40px); left: 50%; transform: translateX(-50%); align-items: center; }
+body.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 170px); }
+body.touch .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 100px); }
+.hud-slot > * { pointer-events: auto; }
+.hud-chip { background: var(--glass); border-radius: 999px; padding: 5px 12px; font-weight: 700; font-size: 15px; box-shadow: var(--shadow); white-space: nowrap; }
+.prompt { background: rgba(43, 27, 46, 0.82); color: #fff; border-radius: 999px; padding: 8px 18px; font-weight: 700; font-size: 17px; white-space: nowrap; }
+.prompt .glyph { background: #fff; color: var(--ink); }
+
+/* extra feature touch buttons (missile, pepper spray, interact…) */
+#touchExtra { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 300px);
+    display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+@media (min-aspect-ratio: 1/1) { #touchExtra { right: auto; left: max(190px, calc(env(safe-area-inset-left) + 180px)); bottom: max(16px, env(safe-area-inset-bottom)); flex-direction: row; } }
+
+/* wider cards, settings rows, 3-column controls */
+.card.wide { width: min(820px, 100%); }
+.settings { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.btn.setting { width: 100%; justify-content: space-between; font-size: 16px; padding: 11px 14px; }
+.btn.setting b { background: rgba(255,255,255,.9); color: var(--ink); border-radius: 999px; padding: 2px 10px; font-size: 14px; }
+@media (max-width: 600px) { .settings { grid-template-columns: 1fr; } }
+.controls.ctl3 { grid-template-columns: 1.4fr 1fr 1fr; }
+.controls.ctl3 > div { display: block; }
+.tagline { font-size: 15px !important; }
+.tagline .coin { width: 14px; height: 14px; vertical-align: -2px; }
+a.btn { text-decoration: none; }
+
+/* ── TV / console mode (PS5, Xbox, smart TVs): 10-foot UI ── */
+body.tv { cursor: none; }
+body.tv.cursor { cursor: auto; }
+body.tv .hud-tl, body.tv .hud-top, body.tv .hud-tr, body.tv .hud-br { margin: 3vh 3vw; }
+body.tv .pill { font-size: 26px; padding: 8px 20px; }
+body.tv #hearts { font-size: 30px; }
+body.tv .hud-top { width: min(640px, 44vw); }
+body.tv .trip { font-size: 30px; } body.tv .trip-bar { height: 18px; } body.tv #tripLabel { font-size: 20px; }
+body.tv .speedo { width: 180px; } body.tv #mph { font-size: 66px; } body.tv .unit, body.tv .boost-label { font-size: 16px; }
+body.tv .toast { font-size: 40px; } body.tv .toast.big { font-size: 56px; }
+body.tv #banner { font-size: 34px; padding: 22px 36px; } body.tv #banner small { font-size: 22px; }
+body.tv #padHint, body.tv .prompt { font-size: 22px; padding: 10px 24px; }
+body.tv .glyph { min-width: 32px; height: 32px; font-size: 18px; }
+body.tv .screen { padding: 5vh 5vw; }
+body.tv .card { width: min(900px, 100%); padding: 32px 40px; border-radius: 34px; }
+body.tv .card.wide { width: min(1300px, 100%); }
+body.tv .card h2 { font-size: 44px; } body.tv .card p { font-size: 24px; } body.tv .card .quote { font-size: 28px; }
+body.tv .btn { width: min(520px, 100%); font-size: 28px; padding: 18px 24px; border-radius: 22px; }
+body.tv .btn.setting { font-size: 22px; } body.tv .btn.setting b { font-size: 20px; }
+body.tv .btn.focus { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(233, 30, 99, 0.6), 0 6px 0 rgba(0,0,0,.22); }
+body.tv .logo .l1 { font-size: 84px; } body.tv .logo .l2 { font-size: 60px; } body.tv .logo .l3 { font-size: 28px; }
+body.tv .controls { font-size: 20px; } body.tv .stat b { font-size: 34px; } body.tv .stat span { font-size: 16px; }
+body.tv .pad-status { font-size: 22px; }
+body.tv .hud-slot.left { top: calc(3vh + 210px); left: 3vw; }
+body.tv .hud-chip { font-size: 22px; padding: 8px 18px; }
+@media (min-aspect-ratio: 5/4) { body.tv.title-mode .card { width: min(720px, 48vw); } }

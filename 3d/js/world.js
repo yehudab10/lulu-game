@@ -1,9 +1,13 @@
 // The world: an endless, gently winding 4-lane country road generated in
 // 200 m chunks just ahead of the car (and recycled behind it), lined with
 // Blender-made trees and houses, power lines, coin trails, speed traps, road
-// signs — and Bubbe's house at the end of the first leg.
+// signs. Features add set pieces through the "chunk:build" event, change the
+// look with world.biomeAt / setSky, and keep roadside space free with reserve().
 import * as THREE from "three";
 import { models, instanced, cloneWithColors, findNodes } from "./models.js";
+import { emit } from "./core/ctx.js";
+
+const _tint = new THREE.Color();
 
 export const STEP = 2;            // metres between road centre-line samples
 export const LANE = 3.5;
@@ -11,7 +15,6 @@ export const HALF_ROAD = 7;       // 4 lanes
 export const SHOULDER = 8.8;      // edge of the gravel shoulder
 export const CHUNK = 200;         // metres per scenery chunk
 const AHEAD = 640, BEHIND = 160;
-export const GOAL = 4800;         // Bubbe's house (≈3 miles)
 
 // Our lanes are on the RIGHT (positive d); oncoming traffic on the left.
 export const LANES_OURS = [LANE / 2, LANE * 1.5];
@@ -295,72 +298,35 @@ class Chunk {
         this.addMesh(ribbon(road, this.s0, this.s1, HALF_ROAD - 0.05, SHOULDER, 0.02, 10), M.shoulder);
         this.addMesh(ribbon(road, this.s0, this.s1, -SHOULDER, -HALF_ROAD + 0.05, 0.02, 10), M.shoulder);
 
-        const nearGoal = Math.abs(this.s0 + CHUNK / 2 - GOAL) < 260;
         const nearStart = this.s0 < 120;
-
-        // trees & bushes
-        const spots = { treeRound: [], treePine: [], bush: [] };
-        const dense = rnd() < 0.35;
-        const count = dense ? 54 : 34;
-        for (let i = 0; i < count; i++) {
-            const s = this.s0 + rnd() * CHUNK;
-            const side = rnd() < 0.5 ? -1 : 1;
-            const d = side * (13.5 + Math.pow(rnd(), 1.5) * 80);
-            road.point(s, d, p);
-            if (nearGoal && side > 0 && Math.abs(s - GOAL) < 60) continue; // keep Bubbe's yard clear
-            if (this.tooCloseToRoad(road, p.x, p.z, s, 12.5)) continue;
-            const r = rnd();
-            const type = r < 0.48 ? "treeRound" : r < 0.82 ? "treePine" : "bush";
-            const scale = (type === "bush" ? 0.8 : 0.85) + rnd() * 0.6;
-            spots[type].push({ x: p.x, z: p.z, rot: rnd() * 6.28, scale });
-            if (type !== "bush") this.colliders.push({ x: p.x, z: p.z, r: 0.5 * scale, kind: "tree" });
-        }
+        const biome = world.biomeAt(this.s0 + CHUNK / 2);
+        this.biome = biome;
         const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), v = new THREE.Vector3();
         const up = new THREE.Vector3(0, 1, 0);
-        for (const type of Object.keys(spots)) {
-            const list = spots[type];
-            if (!list.length) continue;
-            const inst = instanced(models[type], list.length, ["Leaves", "PineLeaves"]);
-            const col = new THREE.Color();
-            list.forEach((t, i) => {
-                q.setFromAxisAngle(up, t.rot);
-                mtx.compose(v.set(t.x, 0, t.z), q, sc.setScalar(t.scale));
-                inst.set(i, mtx);
-                const base = type === "treePine" ? "#2F8F46" : "#6CC24A";
-                col.set(base).offsetHSL((rnd() - 0.5) * 0.05, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08);
-                inst.color(i, type === "treePine" ? "PineLeaves" : "Leaves", col);
-            });
-            inst.finish();
-            this.group.add(inst.group);
-            this.disposables.push(inst);
-        }
 
-        // houses (not at the very start, not in Bubbe's block)
-        if (!nearStart && !nearGoal) {
-            const nh = rnd() < 0.55 ? 1 + Math.floor(rnd() * 3) : 0;
-            const list = [];
+        // houses first (not at the very start, not in reserved stretches) so trees can avoid them
+        const houseSpots = [];
+        if (!nearStart && biome.houses > 0) {
+            const nh = rnd() < biome.houses ? 1 + Math.floor(rnd() * 3) : 0;
             for (let i = 0; i < nh; i++) {
                 const s = this.s0 + 20 + rnd() * (CHUNK - 40);
                 const side = rnd() < 0.5 ? -1 : 1;
                 const d = side * (23 + rnd() * 10);
+                if (world.isReserved(s, d, 22)) continue;
                 road.point(s, d, p);
                 if (this.tooCloseToRoad(road, p.x, p.z, s, 20)) continue;
-                const tooNear = this.colliders.some(c => c.kind === "house" && Math.hypot(c.x - p.x, c.z - p.z) < 14);
-                if (tooNear) continue;
+                if (houseSpots.some(hh => Math.hypot(hh.x - p.x, hh.z - p.z) < 14)) continue;
                 const h = road.at(s).h;
-                list.push({ x: p.x, z: p.z, rot: facingRoad(h, side), walls: WALLS[Math.floor(rnd() * WALLS.length)], roof: ROOFS[Math.floor(rnd() * ROOFS.length)] });
+                houseSpots.push({ x: p.x, z: p.z, s, d, rot: facingRoad(h, side), walls: biome.walls[Math.floor(rnd() * biome.walls.length)], roof: biome.roofs[Math.floor(rnd() * biome.roofs.length)] });
                 this.colliders.push({ x: p.x, z: p.z, r: 5.2, kind: "house" });
                 // a driveway out to the road
                 const drive = ribbon(road, s - 1.6, s + 1.6, side > 0 ? SHOULDER : -Math.abs(d) + 3, side > 0 ? Math.abs(d) - 3 : -SHOULDER, 0.025, 10);
                 this.addMesh(drive, M.drive);
             }
-            // drop trees that ended up inside a house
-            if (list.length) {
-                const houses = this.colliders.filter(c => c.kind === "house");
-                this.colliders = this.colliders.filter(c => c.kind !== "tree" || !houses.some(hh => Math.hypot(hh.x - c.x, hh.z - c.z) < 7));
-                const inst = instanced(models.house, list.length, ["Walls", "Roof"]);
+            if (houseSpots.length) {
+                const inst = instanced(models[biome.houseModel || "house"], houseSpots.length, ["Walls", "Roof"]);
                 const col = new THREE.Color();
-                list.forEach((hh, i) => {
+                houseSpots.forEach((hh, i) => {
                     q.setFromAxisAngle(up, hh.rot);
                     mtx.compose(v.set(hh.x, 0, hh.z), q, sc.setScalar(1));
                     inst.set(i, mtx);
@@ -372,12 +338,56 @@ class Chunk {
                 this.disposables.push(inst);
             }
         }
+        this.houses = houseSpots;
+
+        // trees & bushes (biome mix; features can register more types, e.g. palms)
+        const mix = Object.entries(biome.trees).filter(([t, w]) => w > 0 && models[SCENERY[t] ? SCENERY[t].model : t]);
+        const total = mix.reduce((acc, [, w]) => acc + w, 0);
+        const spots = {};
+        const dense = rnd() < 0.35;
+        const count = Math.round((dense ? 54 : 34) * biome.density);
+        for (let i = 0; i < count && total > 0; i++) {
+            const s = this.s0 + rnd() * CHUNK;
+            const side = rnd() < 0.5 ? -1 : 1;
+            const d = side * (13.5 + Math.pow(rnd(), 1.5) * 80);
+            if (world.isReserved(s, d, 4)) continue;
+            road.point(s, d, p);
+            if (this.tooCloseToRoad(road, p.x, p.z, s, 12.5)) continue;
+            if (houseSpots.some(hh => Math.hypot(hh.x - p.x, hh.z - p.z) < 8)) continue;
+            let r = rnd() * total, type = mix[0][0];
+            for (const [t, w] of mix) { if ((r -= w) <= 0) { type = t; break; } }
+            const def = SCENERY[type] || { collide: type === "bush" ? 0 : 0.5, scale: type === "bush" ? [0.8, 1.4] : [0.85, 1.45] };
+            const scale = def.scale[0] + rnd() * (def.scale[1] - def.scale[0]);
+            (spots[type] = spots[type] || []).push({ x: p.x, z: p.z, rot: rnd() * 6.28, scale });
+            if (def.collide) this.colliders.push({ x: p.x, z: p.z, r: def.collide * scale, kind: "tree" });
+        }
+        for (const type of Object.keys(spots)) {
+            const list = spots[type];
+            const def = SCENERY[type];
+            const modelKey = def ? def.model : type;
+            const tints = def ? def.tint : ["Leaves", "PineLeaves"];
+            const inst = instanced(models[modelKey], list.length, tints);
+            const col = new THREE.Color();
+            list.forEach((t, i) => {
+                q.setFromAxisAngle(up, t.rot);
+                mtx.compose(v.set(t.x, 0, t.z), q, sc.setScalar(t.scale));
+                inst.set(i, mtx);
+                for (const tn of tints) {
+                    const base = (def && def.colors && def.colors[tn]) || (tn === "PineLeaves" ? "#2F8F46" : "#6CC24A");
+                    col.set(base).offsetHSL((rnd() - 0.5) * 0.05, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08);
+                    inst.color(i, tn, col);
+                }
+            });
+            inst.finish();
+            this.group.add(inst.group);
+            this.disposables.push(inst);
+        }
 
         // power poles + wires on the right
         const POLE_GAP = 46;
         const poles = [];
-        for (let s = Math.ceil(this.s0 / POLE_GAP) * POLE_GAP; s < this.s1; s += POLE_GAP) {
-            if (nearGoal && Math.abs(s - GOAL) < 40) continue;
+        for (let s = Math.ceil(this.s0 / POLE_GAP) * POLE_GAP; s < this.s1 && biome.poles; s += POLE_GAP) {
+            if (world.isReserved(s, 11.5, 6)) continue;
             poles.push(s);
         }
         if (poles.length) {
@@ -416,7 +426,7 @@ class Chunk {
 
         // coin trails
         if (!nearStart) {
-            const trails = 1 + (rnd() < 0.6 ? 1 : 0);
+            const trails = Math.round((1 + (rnd() < 0.6 ? 1 : 0)) * biome.coins);
             for (let t = 0; t < trails; t++) {
                 const start = this.s0 + 15 + rnd() * (CHUNK - 90);
                 const risky = rnd() < 0.22;
@@ -439,14 +449,6 @@ class Chunk {
                 this.hearts.push({ x: p.x, z: p.z, s, taken: false });
             }
         }
-        if (this.coins.length) {
-            this.coinMesh = new THREE.InstancedMesh(G.coin, M.coin, this.coins.length);
-            this.coinMesh.castShadow = true;
-            this.group.add(this.coinMesh);
-            this.disposables.push(this.coinMesh);
-            this.updateCoins(0);
-            this.coinMesh.computeBoundingSphere();
-        }
         for (const ht of this.hearts) {
             const g = new THREE.Group();
             for (const part of G.heartParts) {
@@ -465,7 +467,7 @@ class Chunk {
         }
 
         // speed trap: a parked cop with a speed-limit sign 170 m before it
-        if (this.k % 6 === 4 && !nearGoal) {
+        if (world.config.speedTraps && this.k % 6 === 4 && !world.isReserved(this.s0 + 120, 10.4, 8)) {
             const s = this.s0 + 120;
             this.addSign(world, { s: s - 170, d: 10.2, lines: ["SPEED", "LIMIT", "70"], bg: "#ffffff", fg: "#111111", w: 1.6, h: 2.0, tw: 256, th: 320 });
             road.point(s, 10.4, p);
@@ -477,9 +479,30 @@ class Chunk {
             this.traps.push({ s, triggered: false, obj: cop });
         }
 
-        // Bubbe's house + finish arch
-        if (GOAL >= this.s0 && GOAL < this.s1) this.buildBubbe(world);
+        // features add their own set pieces (stops, toll plazas, events…)
+        emit("chunk:build", { chunk: this, world, rnd, s0: this.s0, s1: this.s1, biome });
+
+        // coins last, so chunk:build listeners can add their own to this.coins
+        if (this.coins.length) {
+            this.coinMesh = new THREE.InstancedMesh(G.coin, M.coin, this.coins.length);
+            this.coinMesh.castShadow = true;
+            this.group.add(this.coinMesh);
+            this.disposables.push(this.coinMesh);
+            this.updateCoins(0);
+            this.coinMesh.computeBoundingSphere();
+        }
     }
+
+    /** For "chunk:build" listeners: add an object to this chunk (removed with it). */
+    add(obj) { this.group.add(obj); return obj; }
+    /** Free a geometry / material / instanced helper when the chunk is recycled. */
+    own(thing) { this.disposables.push(thing); return thing; }
+    /** A static obstacle circle the car bumps into ({x, z, r, kind}). */
+    addCollider(c) { this.colliders.push(c); return c; }
+    /** fn(time, dt) every frame while the chunk is alive. */
+    onAnimate(fn) { this.anim.push({ fn }); }
+    /** A road sign (same look as the built-in ones). */
+    sign(world, def) { this.addSign(world, def); }
 
     addSign(world, sign) {
         const M = materials(), G = geometry();
@@ -509,66 +532,6 @@ class Chunk {
         this.colliders.push({ x: p.x, z: p.z, r: 0.3, kind: "sign" });
     }
 
-    buildBubbe(world) {
-        const { road } = world;
-        const M = materials(), G = geometry();
-        const p = {};
-        const h = road.at(GOAL).h;
-        road.point(GOAL, 27, p);
-        const house = cloneWithColors(models.bubbeHouse);
-        house.position.set(p.x, 0, p.z);
-        house.rotation.y = facingRoad(h, 1);
-        this.group.add(house);
-        this.colliders.push({ x: p.x, z: p.z, r: 6.4, kind: "house" });
-        this.addMesh(ribbon(road, GOAL - 2, GOAL + 2, SHOULDER, 17, 0.025, 10), M.drive);
-
-        // Bubbe herself, waving by the gate
-        road.point(GOAL, 15.6, p);
-        const bubbe = cloneWithColors(models.bubbe);
-        bubbe.position.set(p.x, 0, p.z);
-        bubbe.rotation.y = facingRoad(h, 1) - 0.5;
-        bubbe.scale.setScalar(1.6);
-        this.group.add(bubbe);
-        const arm = findNodes(bubbe, "Arm_Wave")[0];
-        world.bubbe = { obj: bubbe, arm, base: arm ? arm.rotation.clone() : null };
-
-        // finish arch over the road with balloons
-        const arch = new THREE.Group();
-        const ap = road.at(GOAL);
-        arch.position.set(ap.x, 0, ap.z);
-        arch.rotation.y = h + Math.PI;
-        const postGeo = new THREE.CylinderGeometry(0.22, 0.22, 7.6, 10);
-        for (const s of [-1, 1]) {
-            const post = new THREE.Mesh(postGeo, new THREE.MeshStandardMaterial({ color: s > 0 ? "#E91E63" : "#FFC107", roughness: 0.5 }));
-            post.position.set(s * 9.6, 3.8, 0);
-            post.castShadow = true;
-            arch.add(post);
-            const cols = ["#FF4081", "#FFD740", "#40C4FF", "#B388FF", "#69F0AE"];
-            for (let b = 0; b < 5; b++) {
-                const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10),
-                    new THREE.MeshStandardMaterial({ color: cols[b], roughness: 0.3, emissive: cols[b], emissiveIntensity: 0.15 }));
-                ball.scale.y = 1.2;
-                ball.position.set(s * 9.6 + Math.cos(b * 1.3) * 0.9, 7.9 + b * 0.35, Math.sin(b * 1.3) * 0.9);
-                ball.castShadow = true;
-                arch.add(ball);
-                this.anim.push({ obj: ball, base: ball.position.y, ph: b + s });
-            }
-        }
-        this.disposables.push(postGeo);
-        const banner = new THREE.Mesh(new THREE.BoxGeometry(18.8, 2.2, 0.12), [
-            materials().metal, materials().metal, materials().metal, materials().metal,
-            new THREE.MeshStandardMaterial({ map: signTexture(["🏡 BUBBE'S HOUSE 🏡"], "#E91E63", "#ffffff", 1024, 128), roughness: 0.6 }),
-            new THREE.MeshStandardMaterial({ map: signTexture(["DRIVE SAFE, LULULEH!"], "#E91E63", "#ffffff", 1024, 128), roughness: 0.6 }),
-        ]);
-        banner.position.y = 6.6;
-        banner.castShadow = true;
-        arch.add(banner);
-        this.disposables.push(banner.geometry);
-        this.group.add(arch);
-        this.colliders.push({ x: ap.x - Math.cos(h) * 9.6, z: ap.z + Math.sin(h) * 9.6, r: 0.35, kind: "pole" });
-        this.colliders.push({ x: ap.x + Math.cos(h) * 9.6, z: ap.z - Math.sin(h) * 9.6, r: 0.35, kind: "pole" });
-    }
-
     updateCoins(time) {
         if (!this.coinMesh) return;
         const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
@@ -589,14 +552,40 @@ class Chunk {
             ht.obj.rotation.y = time * 2.2;
             ht.obj.position.y = 1.3 + Math.sin(time * 3) * 0.15;
         }
-        for (const a of this.anim) a.obj.position.y = a.base + Math.sin(time * 1.6 + a.ph) * 0.18;
+        for (const a of this.anim) {
+            if (a.fn) { try { a.fn(time); } catch (e) { console.error("[chunk anim]", e); a.fn = null; } }
+            else if (a.obj) a.obj.position.y = a.base + Math.sin(time * 1.6 + a.ph) * 0.18;
+        }
     }
 
     dispose(scene) {
+        emit("chunk:dispose", { chunk: this });
         scene.remove(this.group);
-        for (const d of this.disposables) d.dispose();
+        for (const d of this.disposables) if (d && d.dispose) d.dispose();
     }
 }
+
+// ── scenery types features can add (palms, cacti, neon signs…) ─────────
+const SCENERY = {};
+/**
+ * registerScenery("palm", { model: "palm", collide: 0.4, scale: [0.9, 1.3], tint: ["PalmLeaves"], colors: {PalmLeaves: "#3fa34d"} })
+ * then use it in a biome's `trees` mix: { palm: 0.6, bush: 0.4 }.
+ */
+export function registerScenery(type, def) {
+    SCENERY[type] = Object.assign({ collide: 0.5, scale: [0.85, 1.4], tint: [], colors: {} }, def);
+}
+
+const DEFAULT_BIOME = Object.freeze({
+    name: "suburbs",
+    trees: { treeRound: 0.48, treePine: 0.34, bush: 0.18 },
+    density: 1,          // tree count multiplier
+    houses: 0.55,        // chance a chunk has 1–3 houses
+    houseModel: "house",
+    walls: WALLS, roofs: ROOFS,
+    poles: true,         // power poles + wires on the right
+    coins: 1,            // coin-trail multiplier
+    ground: "#ffffff",   // tint multiplied onto the grass texture (#fff = green grass)
+});
 
 // ── the world ──────────────────────────────────────────────────────────
 export class World {
@@ -605,19 +594,53 @@ export class World {
         this.seed = seed;
         this.road = new Road(seed);
         this.chunks = new Map();
-        this.bubbe = null;
+        this.config = { speedTraps: true };
+        this.reserved = [];
+        // Road signs: {s, d, lines, bg, fg, w, h}. Add yours with addSign() before
+        // the chunk at that distance is built (i.e. at init or ~700 m ahead).
         this.signs = [
             { s: 50, d: 10.6, lines: ["LEAVING", "LAKEWOOD"], bg: "#1f7a46" },
             { s: 70, d: -10.6, lines: ["WELCOME TO", "LAKEWOOD"], bg: "#1f7a46" },
-            { s: GOAL - 3200, d: 10.6, lines: ["BUBBE'S HOUSE", "2 MI"], bg: "#1f7a46" },
-            { s: GOAL - 1600, d: 10.6, lines: ["BUBBE'S HOUSE", "1 MI"], bg: "#1f7a46" },
-            { s: GOAL - 600, d: 10.6, lines: ["BUBBE'S HOUSE", "EXIT NOW!"], bg: "#E91E63" },
-            { s: GOAL + 900, d: 10.6, lines: ["LAS VEGAS", "2,511 MI"], bg: "#1f7a46" },
-            { s: 2300, d: 10.6, lines: ["HESHY'S POOL", "8 MI"], bg: "#1f7a46" },
         ];
         this.buildGround();
         this.buildSky();
         this.time = 0;
+        this.groundTint = new THREE.Color("#ffffff");
+    }
+
+    /**
+     * The biome at distance s. Features (the journey) REPLACE this function:
+     *   world.biomeAt = s => ({ ...world.defaultBiome(), trees: { palm: 1 }, houses: 0.2, ground: "#f3e3b0" })
+     */
+    biomeAt(s) { return DEFAULT_BIOME; }
+    defaultBiome() { return { ...DEFAULT_BIOME, trees: { ...DEFAULT_BIOME.trees } }; }
+
+    /** Keep a stretch of roadside clear of random scenery (for a set piece). side: 1 right, -1 left, 0 both. */
+    reserve(s0, s1, side = 0, dMin = 0, dMax = 999) { this.reserved.push({ s0, s1, side, dMin, dMax }); }
+    isReserved(s, d, margin = 0) {
+        for (const r of this.reserved) {
+            if (s < r.s0 - margin || s > r.s1 + margin) continue;
+            if (r.side && Math.sign(d) !== r.side) continue;
+            const ad = Math.abs(d);
+            if (ad >= r.dMin - margin && ad <= r.dMax + margin) return true;
+        }
+        return false;
+    }
+    clearReserved() { this.reserved.length = 0; }
+
+    addSign(def) { this.signs.push(def); }
+
+    /** Sky gradient + fog colour (journey: dusk at the beach, night in Vegas…). */
+    setSky({ top, mid, bottom, fog, fogNear, fogFar } = {}) {
+        const u = this.sky.material.uniforms;
+        if (top) u.top.value.set(top);
+        if (mid) u.mid.value.set(mid);
+        if (bottom) u.bottom.value.set(bottom);
+        if (this.scene.fog) {
+            if (fog) this.scene.fog.color.set(fog);
+            if (fogNear) this.scene.fog.near = fogNear;
+            if (fogFar) this.scene.fog.far = fogFar;
+        }
     }
 
     buildGround() {
@@ -687,9 +710,11 @@ export class World {
         this.clouds.position.set(camPos.x, 0, camPos.z);
         this.clouds.rotation.y += dt * 0.004;
 
-        if (this.bubbe && this.bubbe.arm && this.bubbe.base) {
-            this.bubbe.arm.rotation.z = this.bubbe.base.z + Math.sin(this.time * 7) * 0.45;
-        }
+        // ease the grass tint toward the current biome's ground colour
+        const want = this.biomeAt(playerS).ground || "#ffffff";
+        _tint.set(want);
+        this.groundTint.lerp(_tint, Math.min(1, dt * 0.6 + (buildBudget > 1 ? 1 : 0)));
+        this.ground.material.color.copy(this.groundTint);
     }
 
     /** Build everything near the start before the first frame. */
@@ -707,3 +732,6 @@ export class World {
         }
     }
 }
+
+// helpers for features building their own roadside set pieces
+export { ribbon, signTexture, facingRoad, materials as worldMaterials, mulberry32, canvasTex };

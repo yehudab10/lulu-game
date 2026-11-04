@@ -9,10 +9,19 @@ import { CAR_CIRCLES, CAR_RADIUS, CAR_HALF_W } from "./car.js";
 
 const PAINTS = ["#42A5F5", "#FFFFFF", "#FFCA28", "#66BB6A", "#EF5350", "#8D6E63", "#9E9E9E", "#26C6DA", "#263238", "#FF8A65", "#BA68C8"];
 const KINDS = {
-    sedan: { len: 4.4, halfW: 0.9, circles: [1.3, -1.3], r: 0.95, mass: 1.2 },
-    van:   { len: 4.9, halfW: 0.97, circles: [1.5, -1.5], r: 1.0, mass: 1.5 },
-    truck: { len: 7.5, halfW: 1.2, circles: [-2.6, 0, 2.6], r: 1.25, mass: 4.0 },
+    sedan: { len: 4.4, halfW: 0.9, circles: [1.3, -1.3], r: 0.95, mass: 1.2, model: "sedan", paint: true },
+    van:   { len: 4.9, halfW: 0.97, circles: [1.5, -1.5], r: 1.0, mass: 1.5, model: "van", paint: true },
+    truck: { len: 7.5, halfW: 1.2, circles: [-2.6, 0, 2.6], r: 1.25, mass: 4.0, model: "truck", paint: true },
+    cop:   { len: 4.4, halfW: 0.9, circles: [1.3, -1.3], r: 0.95, mass: 1.4, model: "cop", paint: false },
 };
+
+/**
+ * Add a vehicle kind (Avigail's car, ice-cream truck, school bus, parade float…).
+ * spec: { len, halfW, circles: [offsets along length], r, mass, model: <models key>,
+ *         paint: bool (random Paint colour) | colors: {MatName: "#hex"} }
+ */
+export function registerKind(name, spec) { KINDS[name] = Object.assign({ circles: [0], r: 1, mass: 1.2, paint: false }, spec); }
+export function kindSpec(name) { return KINDS[name]; }
 
 export class Traffic {
     constructor(scene, world) {
@@ -20,9 +29,16 @@ export class Traffic {
         this.world = world;
         this.road = world.road;
         this.cars = [];
-        this.pool = { sedan: [], van: [], truck: [] };
         this.tmp = {};
         this.spawnT = 0;
+        // Tunables features may change (e.g. a quiet desert leg, a busy Vegas strip).
+        this.config = {
+            enabled: true,          // random spawning on/off (scripted add() still works)
+            ours: 5, oncoming: 3,   // base counts; difficulty adds up to +4 each
+            mix: { sedan: 0.58, van: 0.28, truck: 0.14 },
+            honkMoves: true,
+        };
+        this.pool = {};
     }
 
     clear() {
@@ -30,12 +46,17 @@ export class Traffic {
         this.cars = [];
     }
 
+    remove(c) {
+        const i = this.cars.indexOf(c);
+        if (i >= 0) { this.cars.splice(i, 1); this.release(c); }
+    }
+
     make(kind) {
-        const pool = this.pool[kind];
+        const pool = this.pool[kind] || (this.pool[kind] = []);
         if (pool.length) return pool.pop();
-        const paint = PAINTS[Math.floor(Math.random() * PAINTS.length)];
-        const colors = kind === "truck" ? { Paint: paint } : { Paint: paint };
-        const obj = cloneWithColors(models[kind], colors);
+        const spec = KINDS[kind];
+        const colors = spec.colors || (spec.paint ? { Paint: PAINTS[Math.floor(Math.random() * PAINTS.length)] } : null);
+        const obj = cloneWithColors(models[spec.model || kind], colors);
         const wheels = findNodes(obj, "Wheel_").map(w => { w.rotation.order = "YXZ"; return w; });
         const heads = [];
         obj.traverse(o => { if (o.isMesh && o.material.name === "Headlight") { o.material = o.material.clone(); heads.push(o.material); } });
@@ -44,7 +65,8 @@ export class Traffic {
 
     release(c) {
         this.scene.remove(c.obj);
-        this.pool[c.kind].push({ obj: c.obj, kind: c.kind, wheels: c.wheels, heads: c.heads, spec: c.spec });
+        if (c.onRemove) { try { c.onRemove(c); } catch (e) { console.error(e); } }
+        (this.pool[c.kind] || (this.pool[c.kind] = [])).push({ obj: c.obj, kind: c.kind, wheels: c.wheels, heads: c.heads, spec: c.spec });
     }
 
     laneFree(s, d, dir, gap) {
@@ -56,12 +78,14 @@ export class Traffic {
     }
 
     spawn(playerS, difficulty) {
-        const ours = this.cars.filter(c => c.dir > 0 && !c.hit && c.s > playerS - 50).length;
-        const onc = this.cars.filter(c => c.dir < 0 && !c.hit && c.s > playerS - 50).length;
-        const maxOurs = 5 + Math.floor(difficulty * 4);
-        const maxOnc = 3 + Math.floor(difficulty * 4);
-        const r = Math.random();
-        const kind = r < 0.58 ? "sedan" : r < 0.86 ? "van" : "truck";
+        const cfg = this.config;
+        if (!cfg.enabled) return;
+        const ours = this.cars.filter(c => c.dir > 0 && !c.hit && !c.ai && c.s > playerS - 50).length;
+        const onc = this.cars.filter(c => c.dir < 0 && !c.hit && !c.ai && c.s > playerS - 50).length;
+        const maxOurs = cfg.ours + Math.floor(difficulty * 4);
+        const maxOnc = cfg.oncoming + Math.floor(difficulty * 4);
+        let r = Math.random() * Object.values(cfg.mix).reduce((a, b) => a + b, 0), kind = "sedan";
+        for (const [k, w] of Object.entries(cfg.mix)) { if ((r -= w) <= 0) { kind = k; break; } }
         if (ours < maxOurs && Math.random() < 0.6) {
             const d = LANES_OURS[Math.floor(Math.random() * 2)];
             const s = playerS + 320 + Math.random() * 240;
@@ -73,12 +97,21 @@ export class Traffic {
         }
     }
 
-    add(kind, s, d, dir, speed) {
+    /**
+     * Put a car on the road. opts:
+     *   ai(dt, car, traffic) — custom driver (chasing cop, Avigail…): set car.s/d/speed/dTarget
+     *        yourself (or car.x/z/h with car.free = true for off-road driving) — default lane AI is skipped
+     *   data — anything you like (stored as car.data) · onRemove(car) · noNearMiss
+     *   immune — crashes don't knock it into a spin (heavy / scripted vehicles)
+     */
+    add(kind, s, d, dir, speed, opts = {}) {
         const c = this.make(kind);
         Object.assign(c, {
             s, d, dTarget: d, dir, speed, want: speed, base: speed, hit: false, hitT: 0,
             vx: 0, vz: 0, spinV: 0, h: 0, x: 0, z: 0, passed: false, lon: null,
-            honked: false, flash: 0, laneCooldown: 0,
+            honked: false, flash: 0, laneCooldown: 0, free: false,
+            ai: opts.ai || null, data: opts.data || {}, onRemove: opts.onRemove || null,
+            noNearMiss: !!opts.noNearMiss, immune: !!opts.immune, keep: !!opts.keep,
         });
         this.scene.add(c.obj);
         this.place(c, 0);
@@ -87,6 +120,12 @@ export class Traffic {
     }
 
     place(c, dt) {
+        if (c.free) {   // custom AI drives in world space
+            c.obj.position.set(c.x, 0, c.z);
+            c.obj.rotation.y = c.h;
+            for (const w of c.wheels) w.rotation.x += c.speed * dt / 0.34;
+            return;
+        }
         const p = this.road.point(c.s, c.d, this.tmp);
         const lane = (c.dTarget - c.d);
         const yawOff = Math.atan2(lane > 0 ? 1.2 : lane < 0 ? -1.2 : 0, Math.max(c.speed, 1)) * (Math.abs(lane) > 0.05 ? 1 : 0);
@@ -105,10 +144,10 @@ export class Traffic {
         if (this.spawnT <= 0) { this.spawn(playerS, difficulty); this.spawnT = 0.35; }
 
         // honk: the car ahead in Lulu's lane gets out of the way
-        if (honked) {
+        if (honked && this.config.honkMoves) {
             let best = null, bestGap = 55;
             for (const c of this.cars) {
-                if (c.hit || c.dir < 0) continue;
+                if (c.hit || c.dir < 0 || c.ai) continue;
                 const gap = c.s - playerS;
                 if (gap > 2 && gap < bestGap && Math.abs(c.d - playerD) < 2.2) { best = c; bestGap = gap; }
             }
@@ -139,6 +178,9 @@ export class Traffic {
                 c.obj.position.set(c.x, 0, c.z);
                 c.obj.rotation.y = c.h;
                 c.s = this.road.nearest(c.x, c.z, c.s, this.tmp).s;
+            } else if (c.ai) {
+                try { c.ai(dt, c, this); } catch (e) { console.error("[traffic ai]", e); c.ai = null; }
+                this.place(c, dt);
             } else {
                 // follow the car ahead in the same lane
                 let ahead = null, gap = 1e9;
@@ -184,7 +226,7 @@ export class Traffic {
             if (res) events.push(res);
 
             // ── near miss ──
-            if (!c.hit && !c.passed) {
+            if (!c.hit && !c.passed && !c.noNearMiss) {
                 const dx = c.x - player.pos.x, dz = c.z - player.pos.z;
                 const lon = dx * fx + dz * fz;
                 const lat = dx * rx + dz * rz;
@@ -203,7 +245,7 @@ export class Traffic {
         for (let i = this.cars.length - 1; i >= 0; i--) {
             const c = this.cars[i];
             const rel = c.s - playerS;
-            if (rel < -160 || rel > 900 || (c.hit && c.hitT > 12 && rel < -40)) {
+            if (!c.keep && (rel < -160 || rel > 900 || (c.hit && c.hitT > 12 && rel < -40))) {
                 this.release(c);
                 this.cars.splice(i, 1);
             }
@@ -246,7 +288,7 @@ export class Traffic {
         const j = -(1.3) * vn / (1 / mP + 1 / mC);
         player.applyImpulse(nx * j / mP, nz * j / mP, (best.po > 0 ? 1 : -1) * (nx * -Math.cos(ph) + nz * Math.sin(ph)) * j * 0.05);
         const impact = -vn;
-        if (impact > 3.5 && c.kind !== "truck" || impact > 9) {
+        if (!c.immune && (impact > 3.5 && c.kind !== "truck" || impact > 9)) {
             if (!c.hit) {
                 c.hit = true; c.hitT = 0;
                 c.vx = cvx; c.vz = cvz;
@@ -257,6 +299,6 @@ export class Traffic {
         } else if (!c.hit) {
             c.speed = Math.max(0, c.speed - impact);
         }
-        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
+        return { type: "crash", impact, kind: c.kind, oncoming: c.dir < 0, car: c, x: (player.pos.x + c.x) / 2, z: (player.pos.z + c.z) / 2 };
     }
 }

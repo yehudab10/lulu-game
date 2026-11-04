@@ -1,27 +1,60 @@
 // Loads the Blender-made .glb models (3d/assets, built by 3d/blender/make_assets.py)
 // and turns them into ready-to-use templates: shadows on, glass made see-through,
 // per-car recolouring, wheel lookup, and cheap instancing for scenery.
+//
+// Features register their own models:
+//     registerModels({ heshyPool: "heshy_pool", heshy: "heshy" });             // lazy
+//     registerModels({ palm: "palm_tree" }, { preload: true });                // loaded at boot
+//     await ensureModels(["heshyPool", "heshy"]);  models.heshyPool …
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const FILES = {
+const FILES = {};
+const PRELOAD = new Set();
+
+// The core set — always loaded at boot.
+registerModels({
     lulu: "lulu_car", sedan: "sedan", cop: "cop_car", van: "van", truck: "truck",
-    treeRound: "tree_round", treePine: "tree_pine", bush: "bush",
-    house: "house", bubbeHouse: "bubbe_house", bubbe: "bubbe",
-};
+    treeRound: "tree_round", treePine: "tree_pine", bush: "bush", house: "house",
+    luluPerson: "lulu_person", dinaPerson: "dina_person",
+}, { preload: true });
+// Used by the journey's first stop.
+registerModels({ bubbeHouse: "bubbe_house", bubbe: "bubbe" }, { preload: true });
 
 export const models = {};
+const pending = new Map();
+const loader = new GLTFLoader();
 
-export async function loadModels(onProgress) {
-    const loader = new GLTFLoader();
-    const entries = Object.entries(FILES);
-    let done = 0;
-    await Promise.all(entries.map(async ([key, file]) => {
-        const gltf = await loader.loadAsync(`assets/${file}.glb`);
+/** Map model keys → asset file names (without .glb). */
+export function registerModels(map, { preload = false } = {}) {
+    for (const [k, f] of Object.entries(map)) {
+        FILES[k] = f;
+        if (preload) PRELOAD.add(k);
+    }
+}
+
+function loadOne(key) {
+    if (models[key]) return Promise.resolve(models[key]);
+    if (pending.has(key)) return pending.get(key);
+    const file = FILES[key];
+    if (!file) return Promise.reject(new Error(`unknown model "${key}" (registerModels first)`));
+    const p = loader.loadAsync(`assets/${file}.glb`).then(gltf => {
         models[key] = prepare(gltf.scene);
-        done++;
-        if (onProgress) onProgress(done / entries.length);
-    }));
+        pending.delete(key);
+        return models[key];
+    });
+    pending.set(key, p);
+    return p;
+}
+
+/** Load models by key (cached). */
+export function ensureModels(keys) { return Promise.all(keys.map(loadOne)); }
+
+/** Boot: load everything registered with preload: true. */
+export async function loadModels(onProgress) {
+    const keys = [...PRELOAD];
+    let done = 0;
+    await Promise.all(keys.map(k => loadOne(k).then(() => { done++; if (onProgress) onProgress(done / keys.length); })));
     return models;
 }
 
@@ -36,8 +69,10 @@ function prepare(root) {
             o.castShadow = false;
         } else if (m.name === "GlassTint") {
             m.metalness = 0.3; m.roughness = 0.12;
+        } else if (/^Water/.test(m.name)) {
+            m.transparent = true; m.opacity = 0.82; o.castShadow = false;
         }
-        if (/Headlight|Taillight|LightRed|LightBlue|Window/.test(m.name)) o.castShadow = false;
+        if (/Headlight|Taillight|LightRed|LightBlue|Window|Neon/.test(m.name)) o.castShadow = false;
     });
     return root;
 }

@@ -81,6 +81,51 @@ export class PlayerCar {
                 this.taillights.push(o.material);
             }
         });
+        // Attachment points (Blender empties "Anchor_*"): hood, deck, front, rear,
+        // head (Lulu's head — hats), dash, passenger, mirrorL, mirrorR.
+        this.anchors = {};
+        this.model.traverse(o => { if (o.name && o.name.startsWith("Anchor_")) this.anchors[o.name.slice(7).replace(/\d+$/, "")] = o; });
+        this.driver = findNodes(this.model, "Driver")[0] || null;
+        this.hairs = findNodes(this.model, "Hair_");
+        // per-car hair material so the salon can recolour it
+        this.hairMats = [];
+        for (const h of this.hairs) h.traverse(o => {
+            if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); }
+        });
+        if (this.hairColor) this.setHair(this.hairColor, this.hairStyle);
+        for (const [slot, obj] of Object.entries(this.attached || {})) if (obj) this.attach(slot, obj);
+    }
+
+    /** Recolour Lulu's hair and (optionally) pick a style ("sheitel" or any Hair_<style> in the model). */
+    setHair(color, style) {
+        this.hairColor = color;
+        if (color) for (const m of this.hairMats) m.color.set(color);
+        if (style) {
+            this.hairStyle = style;
+            const has = this.hairs.some(h => h.name.startsWith("Hair_" + style));
+            for (const h of this.hairs) h.visible = has ? h.name.startsWith("Hair_" + style) : h.name.startsWith("Hair_sheitel");
+        }
+    }
+
+    /** Show / hide Lulu in the driver's seat (she's out of the car on foot). */
+    showDriver(on) {
+        if (this.driver) this.driver.visible = on;
+        for (const h of this.hairs) h.visible = on && (h.name.startsWith("Hair_" + (this.hairStyle || "sheitel")) ||
+            (!this.hairs.some(x => x.name.startsWith("Hair_" + this.hairStyle)) && h.name.startsWith("Hair_sheitel")));
+        if (this.attached && this.attached.head) this.attached.head.visible = on;
+    }
+
+    /**
+     * Attach an object to an anchor slot (replacing what was there). Survives skin changes.
+     *   car.attach("deck", unicornHorn);  car.attach("deck", null) removes it.
+     */
+    attach(slot, obj) {
+        this.attached = this.attached || {};
+        const prev = this.attached[slot];
+        if (prev && prev !== obj && prev.parent) prev.parent.remove(prev);
+        this.attached[slot] = obj;
+        const a = this.anchors && this.anchors[slot];
+        if (obj && a) a.add(obj);
     }
 
     place(x, z, h) {
