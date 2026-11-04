@@ -12223,6 +12223,8 @@
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
         //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
+        // 🕹️ 3D version (top-right, under the scrapbook) — works on the locked menu too
+        if (click && typeof menu3dClick === "function" && menu3dClick(click)) return;
         if (click && !save.cruiseUnlocked) {
             var lBaseY = menuBaseY();
             // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
@@ -16244,6 +16246,25 @@
     }
 
     // ── Draw: Menu ───────────────────────────────────────────
+    // ── 🕹️ 3D version link (menu, top-right column) ──────────────────────
+    // Same save: coins, cars, items and the scrapbook carry over to the 3D game.
+    function menu3dBtnY() { return save.cruiseUnlocked ? 118 : 66; }
+    function draw3dMenuButton() {
+        var x = W - 60, y = menu3dBtnY(), s = 44;
+        drawIconButton(x, y, s, "🕹️", { bg: "#F48FB1", bgDark: "#AD1457" });
+        var p = 0.5 + 0.5 * Math.sin(menuBounce * 4);
+        drawText("3D", x + s / 2, y + s + 9, "bold 12px Arial", "#FFFFFF", "rgba(0,0,0," + (0.45 + 0.2 * p) + ")", 3);
+    }
+    function menu3dClick(click) {
+        if (!pointInRect(click.x, click.y, W - 60, menu3dBtnY(), 44, 52)) return false;
+        playClick();
+        try { persistSave(); } catch (e) {}
+        // the iOS app bundles only the 2D game; on the web this opens /3d/
+        if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) location.href = "https://lulu.boats/3d/";
+        else location.href = "3d/";
+        return true;
+    }
+
     function drawMenu() {
         ctx.fillStyle = C.grass1;
         ctx.fillRect(0, 0, W, H);
@@ -16382,6 +16403,8 @@
         drawIconButton(W - 60, 14, 44, audioMuted ? "🔇" : "🔊", { bg: "#FFFFFF", bgDark: "#BDBDBD" });
         // 📒 Scrapbook (full menu only) — sits right under the mute button
         drawScrapbookMenuButton();
+        // 🕹️ 3D — the 3D version (lulu.boats/3d), under the scrapbook
+        draw3dMenuButton();
         // 🕎 Holiday greeting pill (top-center) while a holiday is on
         drawHolidayGreeting();
         // (No visible 'back to sister picker' — Dina lives behind a secret 5-tap on

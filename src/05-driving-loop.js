@@ -3567,6 +3567,8 @@
         if (click && typeof mpMenuClick === "function" && mpMenuClick(click)) return;
         // ── STORY-FIRST ONBOARDING: until the first Bubbe arrival the menu is a
         //    dead-simple PLAY (=the story) + SHOP. No modes, no Shared Road. ──
+        // 🕹️ 3D version (top-right, under the scrapbook) — works on the locked menu too
+        if (click && typeof menu3dClick === "function" && menu3dClick(click)) return;
         if (click && !save.cruiseUnlocked) {
             var lBaseY = menuBaseY();
             // ▶ PLAY — PLAY *is* the story here (no mode naming anywhere).
