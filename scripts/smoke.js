@@ -109,6 +109,35 @@ const SCENES = [
 // Behavior checks: [name, async fn(page, ev) → throws on failure]. `ev` runs
 // code inside the game. Each gets a fresh page + save, like the scenes.
 const CHECKS = [
+  ["a game controller steers, boosts, honks and clicks menus", async (page, ev) => {
+    await page.evaluate(() => {
+      const pad = { id: "DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)", index: 0, connected: true,
+        mapping: "standard", axes: [0, 0, 0, 0], buttons: Array.from({ length: 18 }, () => ({ pressed: false, value: 0 })) };
+      window.__pad2d = pad;
+      navigator.getGamepads = () => [pad];
+    });
+    const press = async (i, on) => { await page.evaluate(([i, on]) => { const b = window.__pad2d.buttons[i]; b.pressed = on; b.value = on ? 1 : 0; }, [i, on]); await page.waitForTimeout(120); };
+    await ev("runMode = 'cruise'; resetGame(); state = 'playing'");
+    await page.waitForTimeout(200);
+    await press(15, true);
+    if (!(await ev("keys.right"))) throw new Error("D-pad → didn't steer right");
+    await press(15, false);
+    if (await ev("keys.right")) throw new Error("releasing D-pad → didn't release");
+    await press(7, true);
+    if (!(await ev("keys.up"))) throw new Error("R2 didn't boost");
+    await press(7, false);
+    await press(9, true); await press(9, false);
+    if ((await ev("state")) !== "paused") throw new Error("Options didn't pause (state " + (await ev("state")) + ")");
+    // pointer: in the pause menu the left stick moves it and ✕ clicks where it is
+    const before = await ev("padGP.cursor.x + ',' + padGP.cursor.y");
+    await page.evaluate(() => { window.__pad2d.axes[0] = 1; });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => { window.__pad2d.axes[0] = 0; });
+    const after = await ev("padGP.cursor.x + ',' + padGP.cursor.y");
+    if (before === after) throw new Error("stick didn't move the menu pointer");
+    await press(0, true); await press(0, false);
+    if (!(await ev("padGP.connected"))) throw new Error("controller not detected");
+  }],
   ["Dina's run coins bank once (no sticker-book farming)", async (page, ev) => {
     await ev("save.totalCoins = 100; dinaCoinsRun = 50; enterDinaHome(); startStickerBook(); enterDinaHome(); enterDinaHome()");
     const c = await ev("save.totalCoins");

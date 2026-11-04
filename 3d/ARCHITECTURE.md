@@ -7,7 +7,8 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
 ```
 3d/
   index.html  style3d.css                   page + HUD markup + base styles
-  js/main.js                                boot, renderer, main loop, settings
+  js/main.js                                tiny bootstrap: WebGL check → import app.js (else index.html's fallback card)
+  js/app.js                                 renderer, boot, main loop, settings
   js/core/ctx.js                            ctx object, events, hooks, states, menus, actors
   js/core/save.js                           3D save, per-feature store(), SHARED 2D save + wallet
   js/core/driving.js                        run lifecycle, driving sim, damage/wreck, coins, states intro/playing/wrecked/gameover
@@ -17,6 +18,7 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/core/people.js                         animate Blender-built people (walk, wave, talk, cheer, sit, dance)
   js/core/sets.js                           self-contained 3D scenes for interiors/minigames (makeSet, makeRoom, textPlane)
   js/core/platform.js                       PS5 / console / TV detection, TV mode
+  js/features/dualsense/                    DualSense light bar + adaptive triggers + heart LEDs (WebHID)
   js/world.js  car.js  traffic.js           road + scenery chunks, Lulu's car, traffic
   js/input.js  audio.js  hud.js  models.js  controller/keyboard/touch, sound, HUD + menus, model loading
   js/features/<id>/index.js                 ← ONE DIRECTORY PER FEATURE (imported by features/index.js)

@@ -71,6 +71,7 @@ How it works:
 | `10f-multiplayer.js`     | **Shared Road** multiplayer presence (ghost cars, rooms, races, leaderboards) — guarded no-op offline |
 | `10g-tutorial.js`        | First-drive tutorial (six learn-by-doing steps) |
 | `10h-haptics.js`         | Haptic feedback (Capacitor Taptic engine, `navigator.vibrate` on the web) |
+| `10i-gamepad.js`         | **Game controller** (Gamepad API: PS5 DualSense/Xbox/Switch): pad → the same `keys`/queues as the keyboard, a stick-driven pointer that clicks canvas menus with ✕/A, haptics → rumble; plus mouse/console-cursor drag steering |
 | `11-game-loop.js`        | main gameLoop + init + IIFE close |
 
 ## 🕹️ 3D version — `3d/` (lulu.boats/3d)

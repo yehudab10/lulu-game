@@ -13,6 +13,8 @@
         // effects (the impact flash) finish on schedule regardless of slow-mo.
         updateBtnPressFx(dt);
         updateTapFx(dt);
+        // Game controller (10i-gamepad.js): maps the pad onto keys/queues + a menu pointer.
+        if (typeof gamepadUpdate === "function") gamepadUpdate(dt);
         // Shared Road (multiplayer) lifecycle — a guarded no-op unless the
         // player has explicitly joined from the menu. Never touches offline play.
         if (typeof mpUpdate === "function") { try { mpUpdate(dt); } catch (e) {} }
@@ -238,6 +240,8 @@
         drawSceneFade();
         // Iris wipe for hard scene cuts (on top of the fade)
         drawStateTransition();
+        // Controller pointer + first-connect hint (only while a pad is in use).
+        if (typeof drawGamepadCursor === "function") drawGamepadCursor();
       } catch (e) {
         // Never let one bad frame kill the loop (which would freeze the whole
         // app until a restart). Log it and keep going — input stays responsive.

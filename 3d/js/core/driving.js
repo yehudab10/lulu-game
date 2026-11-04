@@ -361,6 +361,7 @@ registerState("intro", {
     hud: true, touch: true, pausable: true, driving: true,
     enter() {
         ctx.G.countdown = 3;
+        H.setBoost(ctx.G.boost, input.device === "touch" ? "" : glyph("boost"));
         H.banner(`<b>3</b>`, 900);
         if (!ctx.G.musicSet) A.setMusic("../luludriving.mp3");
     },

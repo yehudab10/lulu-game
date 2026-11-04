@@ -318,6 +318,8 @@ body.tv { cursor: none; }
 body.tv.cursor { cursor: auto; }
 body.tv .hud-tl, body.tv .hud-top, body.tv .hud-tr, body.tv .hud-br { margin: 3vh 3vw; }
 body.tv .pill { font-size: 26px; padding: 8px 20px; }
+body.tv .pill.score { font-size: 18px; } body.tv .pill.score b { font-size: 28px; }
+body.tv .coin { width: 24px; height: 24px; }
 body.tv #hearts { font-size: 30px; }
 body.tv .hud-top { width: min(640px, 44vw); }
 body.tv .trip { font-size: 30px; } body.tv .trip-bar { height: 18px; } body.tv #tripLabel { font-size: 20px; }

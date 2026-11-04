@@ -80,6 +80,41 @@
     </div>
 
     <noscript><p style="padding:2em;font:18px sans-serif">Lulu's Road Trip 3D needs JavaScript.</p></noscript>
+    <!-- Old / console browsers (e.g. the PS5's built-in one) may have no WebGL, no ES
+         modules or no import maps: explain and point to the 2D game instead of
+         sitting on the loading screen forever. Plain ES5 on purpose. -->
+    <script>
+    (function () {
+        var ua = navigator.userAgent || "";
+        var ps = /PlayStation/i.test(ua);
+        window.__lulu3dFallback = function (why) {
+            var box = document.getElementById("loading");
+            if (!box || box.getAttribute("data-fallback")) return;
+            box.setAttribute("data-fallback", why);
+            box.className = "screen";
+            var msg = why === "webgl"
+                ? (ps ? "The PlayStation's built-in browser can't show 3D graphics (no WebGL)." : "This browser can't show 3D graphics (WebGL is off or missing).")
+                : (ps ? "The PlayStation's built-in browser is too old for the 3D version." : "This browser is too old to run the 3D version.");
+            box.innerHTML = '<div class="card loading-card">' +
+                '<div class="logo"><span class="l1">LULU\'S</span><span class="l2">ROAD TRIP</span><span class="l3">3D</span></div>' +
+                '<p><b>' + msg + '</b></p>' +
+                '<p>' + (ps ? "Play the 2D game here, or play the 3D version on a computer, phone or tablet — your PS5 controller works there too (pair it by Bluetooth)." :
+                    "Try the latest Chrome, Edge, Safari or Firefox, or turn on hardware acceleration — or play the 2D game.") + '</p>' +
+                '<div class="menu"><a class="btn pink focus" id="fallback2d" href="../">▶ Play the 2D game</a></div></div>';
+            var a = document.getElementById("fallback2d");
+            if (a && a.focus) a.focus();
+            document.addEventListener("keydown", function (e) { if (e.keyCode === 13) location.href = "../"; });
+        };
+        var modules = "noModule" in document.createElement("script");
+        var importMaps = window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports("importmap");
+        if (!modules || !importMaps) {
+            document.addEventListener("DOMContentLoaded", function () { window.__lulu3dFallback("old"); });
+        } else {
+            // the module bootstrap sets __lulu3dBooted as soon as it runs
+            setTimeout(function () { if (!window.__lulu3dBooted) window.__lulu3dFallback("old"); }, 20000);
+        }
+    })();
+    </script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
