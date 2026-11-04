@@ -392,6 +392,39 @@ def build_npc_kid():
                         sleeves="short"))
 
 
+# ── the recurring cast (shared by every feature so they look the same everywhere) ─
+def build_avigail():
+    # Lulu's frenemy: long dark hair, purple outfit, gold jewellery, sunglasses, very glam.
+    return build_person("AvigailPerson", dict(hair="long", hair_color="#1A1A1A", skin="#C68642", top="#7E57C2",
+                        bottom="skirt", bottom_color="#5E35B1", shoes="#FFD700",
+                        extras=["sunglasses", "earrings", "necklace"], extra_colors={"Gold": "#FFD700"}))
+
+
+def build_heshy():
+    # Heshy: the pool guy - kippah, big grin, a belly, bright swim shirt + trunks.
+    return build_person("HeshyPerson", dict(hair="short", hair_color="#3E2723", top="#FF5252", sleeves="short",
+                        bottom="pants", bottom_color="#29B6F6", shoes="#FFB300", width=1.15,
+                        extras=["kippah", "belly"], extra_colors={"Kippah": "#29B6F6"}))
+
+
+def build_ima():
+    # Ima (Mom): dark sheitel, purple top, long skirt.
+    return build_person("ImaPerson", dict(hair="sheitel", hair_color="#3E2723", top="#8E24AA", bottom="skirt",
+                        bottom_color="#37474F", shoes="#212121", extras=["necklace"]))
+
+
+def build_cop_person():
+    return build_person("CopPerson", dict(hair="short", hair_color="#4E342E", top="#1A237E", bottom="pants",
+                        bottom_color="#1A237E", shoes="#111111", width=1.1, extras=["police_hat", "badge"]))
+
+
+def build_hillel():
+    # Hillel the insurance adjuster: grey suit, tie, glasses, beard, clipboard energy.
+    return build_person("HillelPerson", dict(hair="short", hair_color="#4E342E", top="#37474F", bottom="pants",
+                        bottom_color="#37474F", shoes="#1A1A1A", extras=["glasses", "beard", "tie", "kippah"],
+                        extra_colors={"Beard": "#5D2A2A", "Tie": "#90CAF9", "Kippah": "#1A1A1A"}))
+
+
 ASSETS = [
     ("lulu_car", build_lulu_car),
     ("sedan", lambda: build_sedan("Sedan")),
@@ -409,4 +442,9 @@ ASSETS = [
     ("npc_woman", build_npc_woman),
     ("npc_man", build_npc_man),
     ("npc_kid", build_npc_kid),
+    ("avigail_person", build_avigail),
+    ("heshy_person", build_heshy),
+    ("ima_person", build_ima),
+    ("cop_person", build_cop_person),
+    ("hillel_person", build_hillel),
 ]

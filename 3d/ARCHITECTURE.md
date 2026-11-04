@@ -167,7 +167,11 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
   Water* translucent; Headlight/Taillight/LightRed/LightBlue/Neon* emissive & animatable).
 * People: `build_person(name, spec)` → Body + Arm_L/Arm_R (shoulder pivot) + Leg_L/Leg_R (hip pivot).
   Animate with `spawnPerson(key, {colors, scale})` → `person.update(dt, {walk, wave, talk, cheer, sit, point, dance})`, `person.face(x, z, dt)`.
-  Core already has `luluPerson`, `dinaPerson`, `npcWoman`, `npcMan`, `npcKid` (recolour `Top`/`Bottom`/`Hair` for crowds).
+  Core already has `luluPerson`, `dinaPerson` (preloaded) and, lazily (`ensureModels`), the recurring cast
+  `avigailPerson`, `heshyPerson`, `imaPerson`, `copPerson`, `hillelPerson` plus townsfolk `npcWoman`, `npcMan`,
+  `npcKid` (recolour `Top`/`Bottom`/`Hair` for crowds). **Use these for the recurring characters** so Avigail,
+  Heshy, Ima, cops and Hillel look the same in every feature. Prefix your own model keys/files with your
+  feature id (`law_judge`, `garage_unicorn`) so they never collide.
 
 ## World (`js/world.js`)
 * Road coordinates: `s` = metres along the road, `d` = metres to the RIGHT of the centre line.

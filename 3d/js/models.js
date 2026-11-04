@@ -18,6 +18,12 @@ registerModels({
     treeRound: "tree_round", treePine: "tree_pine", bush: "bush", house: "house",
     luluPerson: "lulu_person", dinaPerson: "dina_person",
 }, { preload: true });
+// The recurring cast + townsfolk (lazy: await ensureModels([...]) before spawning).
+registerModels({
+    npcWoman: "npc_woman", npcMan: "npc_man", npcKid: "npc_kid",
+    avigailPerson: "avigail_person", heshyPerson: "heshy_person", imaPerson: "ima_person",
+    copPerson: "cop_person", hillelPerson: "hillel_person",
+});
 // Used by the journey's first stop.
 registerModels({ bubbeHouse: "bubbe_house", bubbe: "bubbe" }, { preload: true });
 
