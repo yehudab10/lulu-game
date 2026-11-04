@@ -246,3 +246,37 @@ Run ONLY yours, serialized with the other agents:
 Look at your screenshots in `smoke-shots/3d-<id>-*.png`. The game advances 1/30 s per
 frame in `?test` mode (≈3–6 fps in software WebGL) — wait with `t.frames(n)` / `t.until(...)`.
 `t.game(expr)` evaluates with `ctx` and `L3` (= `window.__lulu3d`: startRun, setState, damage, addCoins, emit…) in scope.
+
+## Cross-feature contracts
+
+Features talk to each other only through these `ctx` services and events. Provide yours at
+import time (`ctx.law = {...}`); always null-check others (`if (ctx.foot) ctx.foot.start("carWreck")`),
+and keep working sensibly when another feature is missing.
+
+| service | owner | API |
+|---|---|---|
+| `ctx.foot` | foot | `start(reason, opts)` — Lulu climbs out and walks (reasons: `carWreck`, `crashReprieve`, `droveOff`, `copWalk`, `jailbreak`, `parked`) · `active` |
+| `ctx.interiors[id]` | interiors | `{ name, emoji, enter({ exit }) }` — foot shows a door and calls `enter({ exit: () => back to walking })`. ids: `bar`, `school`, `hospital`, `police`, `beach` |
+| `ctx.law` | law | `startChase(reason)` · `arrest(charges[], opts)` · `wanted` (0–5) |
+| `ctx.er` | cameos | `admit(reason)` — the ER visit (a softer landing than game over) |
+| `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
+| `ctx.phone` | journey | `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car phone UI (Ima's calls use it) |
+| `ctx.parking` | parking | `start(opts)` — pull over into the parking minigame |
+| `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
+| `ctx.garage` | garage | `items()` (counts), `use(id)` |
+
+Events between features: `item:use` {id: "missile" | "pepper" | "shield", x, z} (garage → law
+reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `foot:start`/`foot:end`,
+`parking:result` {stars, coins}, `avigail:rel` {rel}, `stat` {id, n} (use the 2D quest/stat ids from
+`src/06b-quests.js` when one fits — grep `questAdd("` in the 2D fragment you are porting).
+
+**Out of hearts (`hooks.wreck`) priorities:** law **30** (claims only when a cop/cop car caused
+the wreck → arrest), cameos **10** (claims every other wreck and plays the 2D crash aftermath: the
+angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~35%), lets her walk
+on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
+
+**Title menu orders:** story 10 · cruise 20 · shop 30 · Dina 35 · parking challenge 40 ·
+scrapbook 50 · quests 55 · Shared Road 60 · car 70 · controls 80 · settings 85 · 2D 99.
+
+**Hair:** the salon (cameos) adds styles with `car.addHairStyle(style, obj)` and registers
+`luluPerson_<style>` models for on-foot Lulu; foot uses `models["luluPerson_" + style] || models.luluPerson`.

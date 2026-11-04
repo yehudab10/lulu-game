@@ -92,7 +92,9 @@ export class PlayerCar {
         for (const h of this.hairs) h.traverse(o => {
             if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); }
         });
-        if (this.hairColor) this.setHair(this.hairColor, this.hairStyle);
+        for (const [style, obj] of Object.entries(this.extraHair || {})) { this.model.add(obj); this.hairs.push(obj);
+            obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") this.hairMats.push(o.material); }); }
+        if (this.hairColor || this.hairStyle) this.setHair(this.hairColor, this.hairStyle);
         for (const [slot, obj] of Object.entries(this.attached || {})) if (obj) this.attach(slot, obj);
     }
 
@@ -105,6 +107,21 @@ export class PlayerCar {
             const has = this.hairs.some(h => h.name.startsWith("Hair_" + style));
             for (const h of this.hairs) h.visible = has ? h.name.startsWith("Hair_" + style) : h.name.startsWith("Hair_sheitel");
         }
+    }
+
+    /**
+     * Add a hairstyle to the car's Lulu (the salon). `obj` is positioned in car-model
+     * space (same frame as the Blender car); it's named Hair_<style> and recoloured
+     * by setHair like the built-in sheitel. Survives skin changes.
+     */
+    addHairStyle(style, obj) {
+        this.extraHair = this.extraHair || {};
+        this.extraHair[style] = obj;
+        obj.name = "Hair_" + style;
+        obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+        this.model.add(obj);
+        if (!this.hairs.includes(obj)) this.hairs.push(obj);
+        this.setHair(this.hairColor, this.hairStyle || "sheitel");
     }
 
     /** Show / hide Lulu in the driver's seat (she's out of the car on foot). */

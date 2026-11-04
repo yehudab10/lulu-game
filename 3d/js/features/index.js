@@ -7,7 +7,8 @@ import "./garage/index.js";      // shop (skins, items), Bling (horns, decoratio
 import "./parking/index.js";     // the parking minigame + parking challenge
 import "./roadevents/index.js";  // tolls, trains, parades, animals, construction, ice cream, drive-thru, hitchhikers…
 import "./cameos/index.js";      // Avigail (car + porch), the salon, sasquatch, Heshy's pool, Uncle, the ER
-import "./foot/index.js";        // Lulu on Foot + interiors (bar, school, hospital, police, beach) + the wedding
+import "./foot/index.js";        // Lulu on Foot: walking the road world, peds, animals, borrowing cars, the wedding
+import "./interiors/index.js";   // foot interiors: the bar, school, hospital waiting room, police precinct, beach boardwalk
 import "./dina/index.js";        // Dina's world: school bus, run home, bedroom, Morgan, sticker book, cookie catch, nap
 import "./meta/index.js";        // scrapbook, badges, weekly quests, daily streak, holidays, tutorial
 import "./multiplayer/index.js"; // Shared Road: ghost cars from 2D + 3D players, rooms, races

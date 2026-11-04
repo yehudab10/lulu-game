@@ -27,6 +27,17 @@ export const ctx = {
     dialogOpen: false,
     actors: [],
     trip: null,       // { label(): string, progress(): 0..1 } — the HUD trip bar (journey feature)
+    // Cross-feature services (see ARCHITECTURE.md › Cross-feature contracts). A feature
+    // assigns its object at import time; callers must check it exists first.
+    foot: null,       // foot:        { start(reason, opts), active }
+    interiors: {},    // interiors:   id → { name, emoji, enter({ exit }) }
+    law: null,        // law:         { startChase(reason), arrest(charges, opts), wanted }
+    er: null,         // cameos:      { admit(reason) }
+    phone: null,      // journey:     { call({ from, emoji, lines, onAnswer, onDecline }) }
+    parking: null,    // parking:     { start(opts) }
+    journey: null,    // journey:     { stop(), stopIndex, mode }
+    avigail: null,    // cameos:      { rel(), bump(d) }
+    garage: null,     // garage:      { items(), use(id) }
 };
 
 // ── events ────────────────────────────────────────────────────────────────
