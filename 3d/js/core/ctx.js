@@ -40,6 +40,14 @@ export const ctx = {
     garage: null,     // garage:      { items(), use(id) }
 };
 
+// ── test gating ───────────────────────────────────────────────────────────
+// In ?test mode, RANDOM / surprise content (road events, cameos, cop patrols,
+// holiday popups, the tutorial…) must stay off so every feature's test stays
+// deterministic. A test opts in with ?test&enable=roadevents,cameos.
+const ENABLED = new Set((new URLSearchParams(location.search).get("enable") || "").split(",").filter(Boolean));
+/** True unless this is a test run that didn't opt in to feature `id`. Gate random spawns with it. */
+ctx.enabled = id => !ctx.TEST || ENABLED.has(id) || ENABLED.has("all");
+
 // ── events ────────────────────────────────────────────────────────────────
 const listeners = new Map();
 /** Subscribe. Returns an unsubscribe function. */

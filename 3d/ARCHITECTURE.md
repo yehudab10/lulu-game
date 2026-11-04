@@ -236,9 +236,14 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 (`unlockAudio()` already happened by the time gameplay runs).
 
 ## Testing
+**Determinism rule:** gate every RANDOM or surprise thing you add (spawned events, cameos,
+patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's always true in
+the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
+its module export. Never put a blocking modal in the title → Story Trip → playing path.
+
 `scripts/tests3d/<id>.js`:
 ```js
-module.exports = { name: "garage", save2d: { totalCoins: 5000 }, async run(t) {
+module.exports = { name: "garage", query: "&enable=garage", save2d: { totalCoins: 5000 }, async run(t) {
   await t.click(/Shop/); t.check("shop opens", await t.L(`!!document.querySelector(".shop")`));
   await t.game(`L3.startRun({ mode: "cruise" })`); await t.until(`__lulu3d.state === "playing"`, "drives");
   await t.tap(12); await t.frames(30); t.check("missile fired", await t.game(`ctx.G.missilesFired > 0`));
