@@ -1196,8 +1196,10 @@ function startFootChase(from) {
 function caught() {
     const charges = (ctx.law && Array.isArray(ctx.law.charges) && ctx.law.charges.length) ? ctx.law.charges.slice() : ["EVADING ARREST", "RESISTING ARREST"];
     if (ctx.law && ctx.law.arrest) {
+        // law places its own Lulu at this spot for the arrest scene (onFoot + x/z/h)
+        const at = F && F.pos ? { x: F.pos.x, z: F.pos.z, h: F.h || 0 } : {};
         end("arrest");
-        try { ctx.law.arrest(charges, { foot: true }); } catch (e) { console.error(e); }
+        try { ctx.law.arrest(charges, Object.assign({ foot: true, onFoot: true }, at)); } catch (e) { console.error(e); }
         return;
     }
     footStartArrest();
