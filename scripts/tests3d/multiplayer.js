@@ -168,7 +168,8 @@ async function body(t) {
   const myDi2 = (fr.last && fr.last.di) || myDi;
   await fr.pump(600, () => ({ di: myDi2 + 2000, x: 205, rn: 4242 }));
   if (!await t.until(`${S}.race && ${S}.race.id === 4242`, "joins the friend race")) return;
-  t.check("joins the friend race (countdown)", await t.L(`/FRIEND RACE/.test(document.getElementById("mpOverlay").textContent)`));
+  // the overlay updates on the next HUD frame — wait for it rather than checking the same instant
+  t.check("joins the friend race (countdown)", await t.until(`/FRIEND RACE/.test((document.getElementById("mpOverlay") || {}).textContent || "")`, "friend race overlay", 5000));
   await t.shot("race-count");
   await t.until(`${S}.race && ${S}.race.state === "go"`, "race GO");
   await fr.pump(1200, () => ({ rp: 50000 }));
