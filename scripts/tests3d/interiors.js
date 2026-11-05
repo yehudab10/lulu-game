@@ -38,6 +38,16 @@ module.exports = {
       await t.tap(0);
       return near === id;
     }
+    async function sweep(room) {          // teleport next to every hotspot: its prompt must win there
+      const ids = await t.game(`__it.room().hots.map(h => h.id)`);
+      const bad = [];
+      for (const id of ids) {
+        await t.game(`__it.at(${JSON.stringify(id)})`); await t.frames(2);
+        const n = await t.game(`__it.near()`);
+        if (n !== id) bad.push(`${id}→${n}`);
+      }
+      t.check(`${room}: all ${ids.length} hotspots reachable`, bad.length === 0, bad.join(", "));
+    }
     async function advance(max = 12) {   // click through any open dialogue lines
       for (let i = 0; i < max; i++) {
         if (!await t.game(`ctx.dialogOpen`)) { await t.frames(3); if (!await t.game(`ctx.dialogOpen`)) return; }
@@ -56,6 +66,8 @@ module.exports = {
       t.check("bar: state + set view", await t.game(`ctx.state === "interior" && ctx.view !== null`));
       await t.frames(20);
       await t.shot("bar-enter");
+      await sweep("bar");
+      await t.game(`(() => { const r = __it.room(), s = r.spots.lulu; r.lulu.obj.position.set(s.x, 0, s.z); })()`);
       // walk with the stick (up = into the room)
       const z0 = await t.game(`__it.room().lulu.obj.position.z`);
       await t.stick(0.3, -1); await t.frames(20); await t.stick(0, 0); await t.frames(4);
@@ -115,6 +127,7 @@ module.exports = {
     if (ONLY.includes("school") && await enter("school")) {
       await t.frames(16);
       await t.shot("school-enter");
+      await sweep("school");
       let w0 = await t.L(W);
       await use("bake", "school: bake sale"); await t.frames(6); await advance(); await t.frames(40);
       let w1 = await t.L(W);
@@ -133,6 +146,7 @@ module.exports = {
     if (ONLY.includes("hospital") && await enter("hospital")) {
       await t.frames(16);
       await t.shot("hospital-enter");
+      await sweep("hospital");
       await t.game(`window.__interiors.force.vend = "snack"`);
       let w0 = await t.L(W);
       await use("vending", "hospital: SNAX"); await t.frames(6); await advance(); await t.frames(40);
@@ -154,6 +168,7 @@ module.exports = {
     if (ONLY.includes("police") && await enter("police")) {
       await t.frames(16);
       await t.shot("police-enter");
+      await sweep("police");
       let w0 = await t.L(W);
       await use("coffee", "police: coffee"); await t.frames(6); await advance(); await t.frames(40);
       t.check("police: precinct coffee +30", (await t.L(W)) - w0 === 30);
@@ -190,6 +205,7 @@ module.exports = {
     if (ONLY.includes("beach") && await enter("beach")) {
       await t.frames(16);
       await t.shot("beach-enter");
+      await sweep("beach");
       let w0 = await t.L(W);
       await use("icecream", "beach: ice cream"); await t.frames(6); await advance(); await t.frames(40);
       t.check("beach: ice cream +25 and a ⭐", (await t.L(W)) - w0 === 26);
