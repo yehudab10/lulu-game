@@ -1,0 +1,36 @@
+# The FULL 3D test suite: every feature's scripts/tests3d/*.js (journey, law,
+# garage, parking, multiplayer, roadevents, cameos, foot, interiors, dina, meta…).
+# It plays each feature through with a fake controller in software WebGL, which
+# takes a couple of hours, so it runs on demand (Actions → "3D full suite" →
+# Run workflow) rather than on every push. Pick a subset with `only`.
+name: 3D full suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma list of test files (e.g. law,journey). Empty = all."
+        required: false
+        default: ""
+
+jobs:
+  smoke3d:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" playwright@1.56.1
+          "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Play every 3D feature
+        env:
+          NODE_PATH: ${{ runner.temp }}/pw/node_modules
+          SMOKE3D_ONLY: ${{ inputs.only }}
+        run: node scripts/smoke3d.js

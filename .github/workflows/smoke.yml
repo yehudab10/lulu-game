@@ -38,7 +38,11 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
         run: node scripts/smoke.js
 
+      # Every push: the quick 3D checks (core driving + PS5/TV platform). The
+      # full per-feature suite takes ~2 h in software WebGL, so it has its own
+      # manual workflow: .github/workflows/smoke3d-full.yml
       - name: Drive the 3D version with a (fake) controller
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
+          SMOKE3D_ONLY: core,platform
         run: node scripts/smoke3d.js
