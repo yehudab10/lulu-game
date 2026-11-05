@@ -87,12 +87,14 @@ function render() {
         const li = Math.min(cur.lines.length - 1, Math.floor(cur.t / (cur.talk / cur.lines.length)));
         html += `<div class="nm">${cur.flip ? cur.from + " (on the phone)" : "📞 " + cur.from}</div><div class="ln">${cur.lines[li] || ""}</div>`;
         if (cur.talkSub) html += `<div class="sub">${cur.talkSub.replace("{honk}", h)}</div>`;
-        html += `<div class="bar"><i style="width:${Math.min(100, cur.t / cur.talk * 100).toFixed(0)}%"></i></div>`;
+        html += `<div class="bar"><i></i></div>`;
     } else {
         html += `<div class="nm">${cur.from}</div><div class="ln">${cur.doneMsg || ""}</div>${cur.pay ? `<div class="pay">+${cur.pay} 💰</div>` : ""}`;
     }
     html += "</div>";
     if (card.dataset.h !== html) { card.dataset.h = html; card.innerHTML = html; }
+    const bar = cur.phase === "talk" && card.querySelector(".bar i");
+    if (bar) bar.style.width = Math.min(100, cur.t / cur.talk * 100).toFixed(1) + "%";
 }
 
 function finish(result) {

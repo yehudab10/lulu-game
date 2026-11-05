@@ -105,6 +105,7 @@ registerState("storyTalk", {
     enter({ i }) {
         talk.i = i; talk.phase = "pull"; talk.t = 0;
         const id = STOPS[i].id;
+        talk.prevInv = ctx.G.invT || 0;
         ctx.G.invT = Math.max(ctx.G.invT, 99);
         SFX.chime(620, 830);
         H.banner(`${STOPS[i].icon} <b>LEG STORY</b><small>${IN_PERSON[id] ? "pulling over…" : "📞 incoming call — pulling over"}</small>`, 1800);
@@ -138,7 +139,7 @@ registerState("storyTalk", {
     },
     exit() {
         if (ctx.dialogOpen) closeDialog();
-        ctx.G.invT = Math.min(ctx.G.invT, 2.0);
+        ctx.G.invT = Math.max(2.0, (talk.prevInv || 0) - talk.t);   // a 2 s shield back on the road (2D)
         const dispose = () => {
             if (talk.person) { const o = talk.person.obj; setTimeout(() => o.parent && o.parent.remove(o), 7000); }
             for (const e of talk.extra) setTimeout(() => e.parent && e.parent.remove(e), 7000);

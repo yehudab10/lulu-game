@@ -125,7 +125,8 @@ function buildSet() {
     set.sun.position.set(-14, 22, 10);
     set.sun.intensity = 2.2;
     set.sun.color.set("#ffd2a0");
-    Object.assign(set.sun.shadow.camera, { left: -26, right: 26, top: 22, bottom: -22 });
+    Object.assign(set.sun.shadow.camera, { left: -26, right: 26, top: 22, bottom: -22, far: 90 });
+    set.sun.shadow.camera.updateProjectionMatrix();
     // the table: a painted map of the trip (suburb green → coast blue → dusk lilac → desert sand)
     const tex = set.own(canvasTex(1024, 640, (g, w, h) => {
         const grd = g.createLinearGradient(0, h, w, 0);

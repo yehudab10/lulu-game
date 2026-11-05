@@ -158,18 +158,26 @@ def build_mesa():
     root = root_empty(coll, "JMesa")
     cols = [mat("Mesa1", "#B5573A", rough=1), mat("Mesa2", "#D98E5A", rough=1), mat("Mesa3", "#C1693C", rough=1), mat("MesaTop", "#E2A66E", rough=1)]
     parts = []
-    # an irregular footprint, stacked strata that step inward
-    base = [(-30, -14), (-12, -22), (10, -20), (28, -10), (32, 6), (18, 18), (-6, 20), (-26, 12)]
+    # an irregular footprint; strata that step inward with ragged, eroded edges
+    import random
+    rnd = random.Random(7)
+    n = 14
+    base = []
+    for k in range(n):
+        a = k / n * math.pi * 2
+        r = 26 + rnd.uniform(-6, 7)
+        base.append((math.cos(a) * r * 1.25, math.sin(a) * r * 0.75))
     z = 0.0
-    for i, (hh, shrink) in enumerate(((9, 1.0), (8, 0.86), (9, 0.74), (6, 0.66))):
-        pts = [(x * shrink, y * shrink) for x, y in base]
+    for i, (hh, shrink) in enumerate(((10, 1.0), (9, 0.84), (8, 0.7), (5, 0.62))):
+        lo_pts = [(x * shrink * rnd.uniform(0.97, 1.03), y * shrink * rnd.uniform(0.97, 1.03)) for x, y in base]
+        hi_pts = [(x * rnd.uniform(0.9, 0.98), y * rnd.uniform(0.9, 0.98)) for x, y in lo_pts]
         bm = bmesh.new()
-        lo = [bm.verts.new((x, y, z)) for x, y in pts]
-        hi = [bm.verts.new((x * 0.97, y * 0.97, z + hh)) for x, y in pts]
+        lo = [bm.verts.new((x, y, z)) for x, y in lo_pts]
+        hi = [bm.verts.new((x, y, z + hh + rnd.uniform(-0.8, 0.8))) for x, y in hi_pts]
         bm.faces.new(list(reversed(lo)))
         bm.faces.new(hi)
-        for k in range(len(pts)):
-            j = (k + 1) % len(pts)
+        for k in range(n):
+            j = (k + 1) % n
             bm.faces.new((lo[k], lo[j], hi[j], hi[k]))
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         parts.append(Part(coll, "stratum", bm, cols[i % 3] if i < 3 else cols[3], smooth=False))
