@@ -118,35 +118,40 @@ def build_purim_hat():
 
 
 def build_grogger():
+    """A big kids' grogger: a wooden handle, a brass ratchet gear and a painted
+    noise-box on an arm that whirls around the handle ("Grogger_Spin")."""
     coll = scene_coll("MetaGrogger")
     root = root_empty(coll, "MetaGrogger")
     RED = mat("GroggerRed", "#E53935", rough=0.45)
     BLUE = mat("GroggerBlue", "#1E88E5", rough=0.45)
     STAR = mat("GroggerStar", "#FFD54F", rough=0.4, metal=0.3)
+    hz = 0.26                      # top of the handle
     handle = [
-        Part(coll, "handle", bm_cyl(0.022, 0.026, 0.2, 12), WOOD, loc=(0, 0, 0.1)),
-        Part(coll, "knob", bm_sphere(0.032, 0.032, 0.026), WOOD, loc=(0, 0, 0.012)),
-        Part(coll, "axle", bm_cyl(0.012, 0.012, 0.09, 10), GOLD, loc=(0, 0, 0.24)),
+        Part(coll, "handle", bm_cyl(0.022, 0.027, hz - 0.02, 12), WOOD, loc=(0, 0, (hz - 0.02) / 2 + 0.01)),
+        Part(coll, "knob", bm_sphere(0.034, 0.034, 0.028), WOOD, loc=(0, 0, 0.014)),
+        Part(coll, "grip", bm_torus(0.025, 0.006, 14, 5), RED, loc=(0, 0, 0.09)),
+        Part(coll, "grip2", bm_torus(0.025, 0.006, 14, 5), RED, loc=(0, 0, 0.13)),
+        Part(coll, "gear", bm_cyl(0.042, 0.042, 0.03, 16), GOLD, loc=(0, 0, hz)),
+        Part(coll, "axle", bm_cyl(0.012, 0.012, 0.1, 10), GOLD, loc=(0, 0, hz + 0.04)),
     ]
-    # the ratchet gear at the top of the handle
-    handle.append(Part(coll, "gear", bm_cyl(0.04, 0.04, 0.03, 16), GOLD, loc=(0, 0, 0.215)))
     for t in range(10):
         a = t * 2 * math.pi / 10
-        handle.append(Part(coll, "tooth", bm_box(0.016, 0.014, 0.03), GOLD, loc=(0.045 * math.cos(a), 0.045 * math.sin(a), 0.215),
+        handle.append(Part(coll, "tooth", bm_box(0.018, 0.014, 0.03), GOLD, loc=(0.048 * math.cos(a), 0.048 * math.sin(a), hz),
                            rot=(0, 0, a)))
     bake(handle, "MetaGrogger_handle", coll, parent=root)
-    # the spinning box (pivot on the handle axis)
-    piv = (0, 0, 0.25)
+    # the spinning part (pivot on the handle axis)
+    pz = hz + 0.05
     spin = [
-        Part(coll, "arm", bm_box(0.2, 0.03, 0.025), WOOD, loc=(0.1, 0, 0.25)).bevel(0.008, 2),
-        Part(coll, "box", bm_box(0.11, 0.07, 0.11), RED, loc=(0.21, 0, 0.25)).bevel(0.012, 2),
-        Part(coll, "panel", bm_box(0.112, 0.074, 0.05), BLUE, loc=(0.21, 0, 0.25)),
-        Part(coll, "clapper", bm_box(0.12, 0.012, 0.06), WOOD, loc=(0.06, 0.03, 0.25)),
+        Part(coll, "hub", bm_cyl(0.026, 0.026, 0.05, 12), WOOD, loc=(0, 0, pz)),
+        Part(coll, "arm", bm_box(0.15, 0.032, 0.03), WOOD, loc=(0.08, 0, pz)).bevel(0.008, 2),
+        Part(coll, "box", bm_box(0.15, 0.09, 0.15), RED, loc=(0.2, 0, pz)).bevel(0.016, 2),
+        Part(coll, "panel", bm_box(0.153, 0.094, 0.06), BLUE, loc=(0.2, 0, pz)),
+        Part(coll, "clapper", bm_box(0.13, 0.012, 0.07), WOOD, loc=(0.07, 0.035, pz), rot=(0, 0, 0.25)),
     ]
     for s in (-1, 1):
-        spin.append(Part(coll, "star", bm_text("*", 0.07, 0.01), STAR, loc=(0.21, s * 0.04, 0.25),
+        spin.append(Part(coll, "star", bm_text("*", 0.11, 0.012), STAR, loc=(0.2, s * 0.05, pz + 0.01),
                          rot=(math.pi / 2 * -s, 0, 0), smooth=False))
-    bake_at(spin, "Grogger_Spin", coll, root, piv)
+    bake_at(spin, "Grogger_Spin", coll, root, (0, 0, pz))
     return coll
 
 
@@ -186,36 +191,40 @@ def build_lulav():
     coll = scene_coll("MetaLulav")
     root = root_empty(coll, "MetaLulav")
     PALM = mat("PalmFrond", "#7CB342", rough=0.6)
+    PALM2 = mat("PalmFrondDark", "#558B2F", rough=0.6)
     MYRTLE = mat("Myrtle", "#2E7D32", rough=0.6)
     WILLOW = mat("Willow", "#AED581", rough=0.6)
     HOLDER = mat("Holder", "#C8A04A", rough=0.75)
     ETROG = mat("Etrog", "#F9D71C", rough=0.55)
     parts = []
-    # lulav leaning back over the seat (tilt about X: the top goes toward +Y, the rear)
-    tilt = 0.32
-    def up(z, dx=0.0):
-        return (dx, z * math.sin(tilt), z * math.cos(tilt))
-    parts.append(limb(coll, "spine", up(0.0), up(0.95), 0.013, PALM))
-    for i in range(7):   # the closed frond: long blades hugging the spine
-        dx = (i - 3) * 0.006
-        parts.append(limb(coll, "blade", up(0.05, dx), up(0.82 + 0.02 * (i % 3), dx * 1.8), 0.007, PALM))
+    # the lulav leans back over the seat (its top toward +Y, the rear of the car)
+    tilt = 0.3
+    def up(z, dx=0.0, dy=0.0):
+        return (dx, dy + z * math.sin(tilt), z * math.cos(tilt))
+    L = 1.05
+    parts.append(limb(coll, "spine", up(0.0), up(L), 0.02, PALM2))
+    # the closed frond: flat blades hugging the spine, fanning a little toward the tip
+    for i in range(9):
+        dx = (i - 4) * 0.011
+        z0, z1 = 0.16, L - 0.05 - 0.03 * abs(i - 4)
+        p = Part(coll, "blade", bm_box(0.022, 0.006, z1 - z0), PALM if i % 2 else PALM2, loc=up((z0 + z1) / 2, dx * 1.3), rot=(-tilt, 0, 0))
+        parts.append(p)
     # holder (koishikel) at the bottom
-    parts.append(Part(coll, "holder", bm_cyl(0.032, 0.03, 0.16, 12), HOLDER, loc=up(0.12), rot=(-tilt, 0, 0)))
+    parts.append(Part(coll, "holder", bm_cyl(0.04, 0.036, 0.2, 12), HOLDER, loc=up(0.14), rot=(-tilt, 0, 0)))
     for k in range(3):
-        parts.append(Part(coll, "band", bm_torus(0.033, 0.004, 14, 4), WOOD, loc=up(0.06 + k * 0.06), rot=(-tilt, 0, 0)))
-    # hadass (myrtle) on the right, aravah (willow) on the left
-    for j in range(9):
-        z = 0.22 + j * 0.035
+        parts.append(Part(coll, "band", bm_torus(0.041, 0.005, 14, 4), WOOD, loc=up(0.07 + k * 0.07), rot=(-tilt, 0, 0)))
+    # hadass (myrtle, three-leaf whorls) on the right, aravah (willow) on the left
+    for j in range(10):
+        z = 0.26 + j * 0.04
+        for s in (-1, 0, 1):
+            parts.append(Part(coll, "myrtle", bm_sphere(0.016, 0.006, 0.026, 6, 4), MYRTLE, loc=up(z, -0.055 + s * 0.016, -0.012), rot=(-tilt, 0, s * 0.7)))
+    for j in range(5):
+        z = 0.28 + j * 0.08
         for s in (-1, 1):
-            p = up(z, -0.03 + s * 0.012)
-            parts.append(Part(coll, "myrtle", bm_sphere(0.012, 0.005, 0.02, 6, 4), MYRTLE, loc=p, rot=(-tilt, 0, s * 0.7)))
-    for j in range(4):
-        z = 0.24 + j * 0.07
-        p = up(z, 0.035)
-        parts.append(Part(coll, "willow", bm_sphere(0.008, 0.004, 0.05, 6, 4), WILLOW, loc=p, rot=(-tilt, 0, -0.35)))
-    # the etrog resting at the foot of the lulav
-    parts.append(Part(coll, "etrog", bm_sphere(0.045, 0.045, 0.065, 16, 12), ETROG, loc=(0.12, -0.04, 0.045), rot=(0, 1.2, 0.3)))
-    parts.append(Part(coll, "pitam", bm_cyl(0.006, 0.002, 0.018, 6), WOOD, loc=(0.18, -0.055, 0.03), rot=(0, 1.2, 0.3)))
+            parts.append(Part(coll, "willow", bm_sphere(0.011, 0.004, 0.07, 6, 4), WILLOW, loc=up(z, 0.05 + s * 0.012, -0.01), rot=(-tilt, 0, s * 0.3)))
+    # the etrog resting by the foot of the lulav
+    parts.append(Part(coll, "etrog", bm_sphere(0.055, 0.055, 0.08, 16, 12), ETROG, loc=(0.15, -0.06, 0.055), rot=(0, 1.25, 0.3)))
+    parts.append(Part(coll, "pitam", bm_cyl(0.007, 0.002, 0.022, 6), WOOD, loc=(0.225, -0.08, 0.035), rot=(0, 1.25, 0.3)))
     bake(parts, "MetaLulav_body", coll, parent=root)
     return coll
 

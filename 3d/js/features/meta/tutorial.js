@@ -10,6 +10,7 @@ import { input, glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { resume } from "../../core/screens.js";
 import { tone, note } from "./util.js";
+import { metaHudBox } from "./progress.js";
 
 export const M = store("meta", { tutorialDone: false });
 
@@ -43,9 +44,9 @@ const STEPS = [
 
 css("meta-tut", `
 #metaTutBox { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 46px);
-  pointer-events: none; z-index: 3; }
+  pointer-events: none; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 body.touch #metaTutBox { bottom: auto; top: calc(max(12px, env(safe-area-inset-top)) + 104px); }
-@media (max-aspect-ratio: 1/1) { body.touch #metaTutBox { top: calc(max(12px, env(safe-area-inset-top)) + 206px); } }
+@media (max-aspect-ratio: 1/1) { body.touch #metaTutBox { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 body.tv #metaTutBox { bottom: calc(3vh + 64px); }
 #metaTutBox .skip { pointer-events: auto; }
 .meta-tut { position: relative; display: flex; gap: 12px; align-items: center; width: min(460px, 92vw); padding: 10px 14px 18px 10px;
@@ -114,8 +115,7 @@ function render(force) {
     const newStep = T.shown !== T.step;
     T.key = key; T.shown = T.step;
     if (!el || !el.isConnected) {
-        let box = document.getElementById("metaTutBox");
-        if (!box) { box = document.createElement("div"); box.id = "metaTutBox"; document.getElementById("hud").appendChild(box); }
+        const box = metaHudBox();
         el = document.createElement("div");
         el.className = "meta-tut";
         box.appendChild(el);

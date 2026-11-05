@@ -38,7 +38,7 @@ seedQuests.notified[q0.id] = true;
 
 // A still close-up of Lulu's car (freezes the game, hides the menus/HUD for the shot).
 async function closeup(t, label, { back, side, up, lookBack = 0, lookSide = 0, lookUp = 1.1, fov = 40 }) {
-  await t.game(`(() => { const T = ctx.THREE, c = ctx.car, cam = new T.PerspectiveCamera(${fov}, innerWidth / innerHeight, 0.05, 400);
+  await t.game(`(() => { const T = ctx.THREE, c = ctx.car, cam = new T.PerspectiveCamera(${fov}, innerWidth / innerHeight, 0.05, 2400);
     const f = new T.Vector3(Math.sin(c.h), 0, Math.cos(c.h)), r = new T.Vector3(-Math.cos(c.h), 0, Math.sin(c.h));
     cam.position.copy(c.pos).addScaledVector(f, ${-back}).addScaledVector(r, ${side}); cam.position.y = ${up};
     const L = c.pos.clone().addScaledVector(f, ${-lookBack}).addScaledVector(r, ${lookSide}); cam.lookAt(L.x, ${lookUp}, L.z);
@@ -121,6 +121,10 @@ module.exports = {
     t.check("○ goes back to the Stats tab", await t.L(`!!document.querySelector("#mbStats")`));
     await t.tap(1); await t.frames(3);
     t.check("○ closes the scrapbook to the title", await t.game(`ctx.state === "title"`) && await t.L(`!!document.getElementById("metaScrapbook")`));
+    t.check("…with the cursor back on 📒 Scrapbook", await t.L(`document.getElementById("metaScrapbook").classList.contains("focus")`));
+    await t.tap(17); await t.frames(3);
+    t.check("the touchpad (map) opens the scrapbook", await t.L(`!!document.querySelector(".card.meta-book")`));
+    await t.tap(1); await t.frames(3);
 
     // ── portrait phone + TV layouts of the scrapbook ──
     await t.page.setViewportSize({ width: 390, height: 780 });

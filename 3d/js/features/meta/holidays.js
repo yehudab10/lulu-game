@@ -19,15 +19,16 @@ import { questAdd } from "./progress.js";
 
 export const HOLIDAYS = [
     { id: "roshHashana", month: ["Tishri"], day: 1, days: 2, emoji: "🍎", greeting: "Shana Tova!", gift: 18, from: "Bubbe's honey-cake money",
-      model: "metaHoney", slots: ["dash", "passenger"] },
+      model: "metaHoney", slots: ["deck", "dash"], scale: { deck: 2.1, dash: 1.2 } },
     { id: "sukkot", month: ["Tishri"], day: 15, days: 9, emoji: "🌿", greeting: "Chag Sameach!", gift: 18, from: "Gelt from the sukkah",
-      model: "metaLulav", slots: ["passenger", "deck"] },
+      model: "metaLulav", slots: ["passenger", "deck"], scale: { passenger: 1.25, deck: 1.1 } },
     { id: "chanukah", month: ["Kislev"], day: 25, days: 8, emoji: "🕎", greeting: "Happy Chanukah!", gift: 18, from: "Chanukah gelt from Bubbe",
-      model: "metaMenorah", slots: ["deck", "hood"] },
+      model: "metaMenorah", slots: ["deck", "hood"], scale: { deck: 1.3, hood: 1.15 } },
     { id: "purim", month: ["Adar", "Adar II"], day: 14, days: 2, emoji: "🎭", greeting: "Freilichen Purim!", gift: 36, from: "Mishloach manot from Avigail",
-      model: "metaPurimHat", slots: ["head", "deck"], extra: { model: "metaGrogger", slots: ["passenger", "dash"] } },
+      model: "metaPurimHat", slots: ["head", "deck"], scale: { head: 1, deck: 1.6 },
+      extra: { model: "metaGrogger", slots: ["passenger", "dash"], scale: { passenger: 1.5, dash: 0.8 } } },
     { id: "pesach", month: ["Nisan"], day: 15, days: 8, emoji: "🫓", greeting: "Chag Pesach Sameach!", gift: 36, from: "You found the afikoman",
-      model: "metaMatzah", slots: ["passenger", "dash"] },
+      model: "metaMatzah", slots: ["passenger", "dash"], scale: { passenger: 1.4, dash: 0.9 } },
 ];
 registerModels({
     metaMenorah: "meta_menorah", metaPurimHat: "meta_purim_hat", metaGrogger: "meta_grogger",
@@ -123,10 +124,10 @@ function clearDecor() {
     }
     decor.length = 0;
 }
-function makeItem(key, slots, kind, c) {
+function makeItem(key, slots, kind, c, scale) {
     const obj = models[key].clone(true);
     obj.name = "MetaHoliday_" + kind;
-    const d = { obj, slots, kind };
+    const d = { obj, slots, kind, scale: scale || null };
     if (kind === "menorah") {
         const lit = Math.min(8, c.dayNum);
         d.flames = [];
@@ -144,15 +145,13 @@ function makeItem(key, slots, kind, c) {
             d.flames.push({ f, ph: n * 1.7 + 0.3, base: f.scale.clone() });
         }
         d.lit = lit;
-        obj.scale.setScalar(1.3);      // reads from the chase cam
         obj.position.y = 0.05;         // clear of the rear-deck humps
     } else if (kind === "hat") {
         obj.rotation.set(-0.12, 0, 0.22);
     } else if (kind === "grogger") {
         d.spin = findNodes(obj, "Grogger_Spin")[0] || null;
         d.spinV = 0;
-        obj.rotation.set(0, 0.6, -0.18);
-        obj.scale.setScalar(1.6);      // a giant novelty grogger
+        obj.rotation.set(0, 0.6, -0.12);   // a giant novelty grogger (see the slot scales)
     } else if (kind === "lulav") {
         obj.rotation.y = 0.25;
     }
@@ -170,8 +169,8 @@ async function applyDecor() {
     try { await ensureModels(keys); } catch (e) { console.error("[meta] holiday models", e); return; }
     if (decorFor !== want) return;
     const kind = { metaMenorah: "menorah", metaPurimHat: "hat", metaHoney: "honey", metaLulav: "lulav", metaMatzah: "matzah" }[c.h.model];
-    makeItem(c.h.model, c.h.slots, kind, c);
-    if (c.h.extra) makeItem(c.h.extra.model, c.h.extra.slots, "grogger", c);
+    makeItem(c.h.model, c.h.slots, kind, c, c.h.scale);
+    if (c.h.extra) makeItem(c.h.extra.model, c.h.extra.slots, "grogger", c, c.h.extra.scale);
     placeDecor();
 }
 function placeDecor() {
@@ -184,6 +183,7 @@ function placeDecor() {
         if (slot) taken.add(slot);
         if (a && d.obj.parent !== a) a.add(d.obj);
         else if (!a && d.obj.parent) d.obj.parent.remove(d.obj);
+        if (slot !== d.slot && d.scale) d.obj.scale.setScalar(d.scale[slot] || 1);   // bigger where it must read from the chase cam
         d.slot = slot || null;
         // the hat (and anything else on Lulu's head) leaves with her when she's on foot
         if (slot === "head") d.obj.visible = !car.driver || car.driver.visible;

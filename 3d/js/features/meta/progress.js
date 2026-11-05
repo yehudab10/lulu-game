@@ -12,6 +12,7 @@
 import { ctx, on, emit, hook } from "../../core/ctx.js";
 import { shared, wallet, flushShared } from "../../core/save.js";
 import * as H from "../../hud.js";
+import { input } from "../../input.js";
 import { now, PX_PER_M, fmt, note, chime, tone, distStr } from "./util.js";
 
 export const QUEST_UNLOCK = 200000;
@@ -262,14 +263,20 @@ on("run:end", ({ score = 0, G = ctx.G } = {}) => {
 
 // ── daily streak: the FIRST run of each day pays 25 × streak (capped ×7) ──
 let streakEl = null, streakUntil = 0;
+/** Our HUD stack on touch screens (core's centre slot sits under the touch speed pill / trip bar there). */
+export function metaHudBox() {
+    let box = document.getElementById("metaTutBox");
+    if (!box) { box = document.createElement("div"); box.id = "metaTutBox"; document.getElementById("hud").appendChild(box); }
+    return box;
+}
 function showStreak(streak, pay) {
-    const slot = H.hudSlot("center");
+    const slot = input.device === "touch" ? metaHudBox() : H.hudSlot("center");
     if (streakEl) streakEl.remove();
     streakEl = document.createElement("div");
     streakEl.className = "meta-streak";
     streakEl.innerHTML = `<b>🔥 Day ${streak} streak! +${pay} <span class="coin"></span></b>` +
         (streak >= 2 ? `<small>come back tomorrow for more!</small>` : `<small>play again tomorrow to grow it!</small>`);
-    slot.appendChild(streakEl);
+    slot.prepend(streakEl);
     streakUntil = ctx.time + 6.5;   // game time: covers the 3-2-1 and the first seconds of driving
 }
 hook("hud", () => {
