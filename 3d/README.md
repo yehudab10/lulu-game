@@ -1,83 +1,71 @@
-# Lulu's Road Trip 3D (beta)
+# Lulu's Road Trip 3D
 
-**Play:** [lulu.boats/3d](https://lulu.boats/3d/) · works with a game controller, keyboard or touch.
+**Play:** [lulu.boats/3d](https://lulu.boats/3d/) — with a game controller (PS5 DualSense,
+Xbox, Switch Pro…), keyboard, or touch. There's also a 🕹️ **3D** button on the 2D game's menu.
 
-A 3D take on the road trip: drive Lulu's convertible (with Lulu in it) down a
-winding four-lane country road to **Bubbe's house**, about 3 miles away. Dodge
-traffic and oncoming cars, grab coin trails (risky ones in the oncoming lane are
-worth double), chain close calls to fill the nitro, honk slowpokes out of your
-lane, and don't get flashed by the speed traps. After Bubbe's it's an endless cruise.
+The whole 2D game, rebuilt in 3D. The coin wallet, cars, items, hairstyle, Avigail friendship,
+scrapbook, quests, sticker book and lifetime stats are **shared with the 2D game**: earn coins in
+one, spend them in the other.
 
-The car you picked in the 2D game's shop (Classic Pink, Racing Red…) shows up
-here too, with the same handling stats. The 3D version only *reads* the 2D save;
-its own progress lives in `localStorage["lulu3dSave"]`.
+## What's in it
+
+| | |
+|---|---|
+| 📖 **Story Trip** | Lakewood → Bubbe's house → Heshy's pool → the beach → Avigail's place → Viva Vegas on one continuous road; the scenery, sky, traffic and music change each leg (autumn suburbs, pool town, the coast, golden-dusk boutiques, desert, the neon Strip at night). Arrival cutscenes with Bubbe, Heshy, Dina, Avigail and the Vegas family; chapter tasks + stars, postcards, tours with bigger payouts, a 3D story map, story calls and interludes, and **Ima's calls** (honk to decline, or take the call with flipped steering for gas money). |
+| 🛣️ **Cruise** | Endless driving with traffic both ways, coin trails, close calls, nitro, handbrake drifts. |
+| 🚓 **Cops & court** | Hidden speed traps, patrols, K9s, helicopters, pursuits that try to box you in, pull-overs, arrest → precinct → jail cell (escape, bail, lawyers) → a full courtroom visual novel (Avigail testifies for or against you), the 3-strikes rule, fugitive mode. |
+| 🛒 **Shop & bling** | All 8 cars with real handling stats, missiles, pepper spray, the Bubble Shield, Distracted Mode, 6 custom horns, 7 car decorations — in a 3D showroom. |
+| 🚧 **Road events** | Toll plazas, railroad crossings with real trains, parades and marathons, animals (ducks, raccoons, ostriches), construction zones, the steamroller you can commandeer, hitchhikers who ride along, ice-cream trucks, drive-thrus, school buses, ambulances, drunk/texting drivers… |
+| 💅 **Cameos** | Avigail driving around and her porch visits (friendship meter), Fabio's salon (new hairstyle + colour), sasquatch, Heshy's pool, the uncles, the crash aftermath (the angry driver, the revenge car, Hillel the adjuster) and **the ER**. |
+| 🚶‍♀️ **Lulu on Foot** | When the car's done for (or you pull onto the shoulder): walk the real road, talk to people, pet animals, busk, borrow cars (hotwire!), Main Street doors into **the bar, the cheder, the hospital, the police precinct and the beach boardwalk** — and, rarely, **Avigail's wedding**. |
+| 🅿️ **Parking** | Pull over to park, or the 10-level Parking Challenge, with security cameras, dents and stars. |
+| 👧 **Dina's world** | The school bus, the run home (beat Mom!), Dina's bedroom, Morgan, the sticker book, the nap and Cookie Catch. |
+| 📒 **Scrapbook & quests** | Badges, rap sheet, ER punch card, Avigail meter, records, save-code backup (works across 2D/3D), weekly quests, the daily streak, Jewish holidays (Chanukah menorah on the car, Purim hat + grogger, Sukkot, Pesach, Rosh Hashana), and a first-drive tutorial. |
+| 🌐 **Shared Road** | See other players — from the 2D *and* the 3D game — as ghost cars; friend rooms, races, emotes, the leaderboard. |
 
 ## Controls
 
-| | Controller (Xbox · PlayStation · Switch Pro) | Keyboard | Touch |
-|---|---|---|---|
-| Steer | left stick (analog) / D-pad | ← → / A D | left thumb stick |
-| Gas | RT · R2 · ZR (analog), or A | ↑ / W | GAS |
-| Brake / reverse | LT · L2 · ZL (analog), or B | ↓ / S | BRAKE |
-| Handbrake drift | X · □ · Y | Space | — |
-| Nitro | RB · R1 · R | Shift | NITRO |
-| Horn | LB · L1 · L | H | HONK |
-| Camera (chase / far / Lulu's eyes) | Y · △ · X, or View | C | CAM |
-| Look around / behind | right stick / click R3 | V (behind) | — |
-| Pause | Start / Options / + | P / Esc | ❚❚ |
+| | PS5 / PS4 | Xbox | Keyboard | Touch |
+|---|---|---|---|---|
+| Steer / walk | left stick, D-pad | left stick, D-pad | ← → / A D (WASD on foot) | thumb stick |
+| Gas · brake/reverse | R2 · L2 (analog), ✕ · ○ | RT · LT, A · B | ↑ · ↓ / W · S | GAS · BRAKE |
+| Handbrake drift | □ | X | Space | — |
+| Nitro · horn | R1 · L1 | RB · LB | Shift · H | NITRO · HONK |
+| Missile · item | D-pad ↑ · ↓ | D-pad ↑ · ↓ | M · G | 🚀 · 🧴 |
+| Interact (on foot) | ✕ | A | E | ✋ |
+| Camera · look | △ · right stick (R3 = behind) | Y · right stick | C · V | CAM |
+| Map / scrapbook · pause | touchpad · OPTIONS | View · Start | Tab · P/Esc | 📒 · ❚❚ |
 
-Menus work with the D-pad or stick plus A, or the arrow keys plus Enter. The
-controller **rumbles** on crashes, rumble strips, grass and nitro, and the brake
-trigger kicks under hard braking on Xbox impulse triggers. Rumble works in
-Chrome and Edge; Safari doesn't expose it yet. Browsers don't count controller
-buttons as a "user gesture", so sound starts after the first click, tap or key press.
+Menus: D-pad/stick to move, ✕/A to pick, ○/B to go back, L1/R1 to switch tabs.
+The controller **rumbles** (crashes, rumble strips, nitro…). On Chrome/Edge on a computer,
+Settings → **DualSense lights & triggers** also makes the light bar match Lulu's car (red/blue in a
+chase), shows your hearts on the player LEDs and adds adaptive-trigger resistance.
+**TV mode** (auto on console/TV browsers, or in Settings) enlarges everything for the couch.
+Sound starts after the first click/tap/key (browsers don't count controller buttons as a "gesture").
+
+**PlayStation 5 note:** the PS5's built-in browser is hidden and can't run WebGL games, so the page
+shows a card pointing to the 2D game there. A native PS5 version would need Sony's developer
+program (PlayStation Partners) and a port to a console engine.
 
 ## How it's built
 
-No bundler: `index.html` loads ES modules straight from `js/`, plus a vendored
-copy of three.js r170 (`vendor/three/`), so it runs offline and on GitHub Pages as-is.
+Plain ES modules + a vendored three.js r170 — no bundler, no build step. A small core
+(`js/core/`) and one module per feature (`js/features/<id>/`) that plug in through events, hooks,
+states and services. **Read [`ARCHITECTURE.md`](ARCHITECTURE.md)** for the full contract.
 
-| file | what |
-|---|---|
-| `js/main.js` | boot, game rules (hearts, coins, close calls, nitro, speed traps, arrival), camera rigs, screens, main loop |
-| `js/car.js` | Lulu's car: arcade physics (grip, drift, off-road, impacts), suspension feel, wheels, skid marks, particles, nitro flames; skins shared with the 2D shop |
-| `js/world.js` | the road (a bounded-heading spline that never loops), 200 m scenery chunks streamed ahead/recycled behind, trees/houses/poles/wires/signs, coins, speed traps, Bubbe's house + arch, sky, clouds |
-| `js/traffic.js` | same-way and oncoming traffic: lane following, lane changes, honk reactions, headlight flashing, crash physics, near-miss detection |
-| `js/input.js` | Gamepad API + keyboard + touch → one set of controls; rumble; per-controller button glyphs |
-| `js/audio.js` | WebAudio engine (fake 5-speed gearbox), wind, tire squeal, horn, coins, crashes; music reuses `../luludriving.mp3` |
-| `js/hud.js` | DOM HUD and controller-navigable menus |
-| `js/models.js` | loads the `.glb`s, recolouring, wheel lookup, instancing |
-
-### The 3D models come from Blender
-
-Every model in `assets/` comes out of **`blender/make_assets.py`**, which builds
-them all from code: the pink convertible with Lulu driving (sheitel, rosy cheeks,
-shades on her head), sedans, minivans, a box truck, a cop car with a light bar,
-round and pine trees, bushes, houses (with a mezuzah on every door), Bubbe's
-yellow house with a picket fence, and Bubbe herself (with a waving arm). The
-script also saves an editable **`blender/lulu_assets.blend`**.
+Every model (219 of them: cars, people, buildings, props, whole sets like the courtroom, the bar
+and the Vegas Strip) is built **from code in Blender** by `blender/assets_<id>.py`, exported to
+`assets/*.glb`, with an editable `blender/blend/<id>.blend` per module:
 
 ```sh
-blender -b -P 3d/blender/make_assets.py              # rebuild every .glb (+ the .blend)
-blender -b -P 3d/blender/make_assets.py -- --render  # …and render blender/preview.jpg
-# no Blender app?  pip install bpy  &&  python 3d/blender/make_assets.py
+blender -b -P 3d/blender/make_assets.py                    # rebuild everything
+blender -b -P 3d/blender/make_assets.py -- --only journey  # one module
+# no Blender app?  pip install bpy  &&  python 3d/blender/make_assets.py [--only <id>]
 ```
-
-The game relies on these conventions: units are metres; the car's front is
-Blender −Y; the wheels are objects named `Wheel_FL/FR/RL/RR` with their origin
-at the hub; the steering wheel is its own object (`SteeringWheel`); and
-materials are matched by name (`Body`/`BodyLight`/`BodyDark` take the skin
-colour, `Paint` the traffic colour, `Walls`/`Roof` vary per house, and
-`Headlight`/`Taillight`/`LightRed`/`LightBlue` are animated).
-
-![Lulu's car rendered in Blender](blender/preview.jpg)
 
 ## Testing
 
-`npm run smoke:3d` (`node scripts/smoke3d.js`; add `--shots` to save
-screenshots to `smoke-shots/3d-*.png`) boots the page in headless Chromium
-with software WebGL. It plugs in a fake Xbox controller and plays: it starts
-from the menu with A, drives with RT and the stick, fires the nitro, switches
-cameras, takes a head-on crash (checking for a lost heart and rumble), pauses
-with Start, and drives under Bubbe's arch. In `?test` mode the game advances a
-fixed 1/30 s per frame, so the test is deterministic even at a few fps.
+`npm run smoke:3d` runs every `scripts/tests3d/*.js` in headless Chromium with a fake controller
+(`SMOKE3D_ONLY=core,law` for a subset, `--shots` for screenshots). The whole suite takes a couple
+of hours in software WebGL, so CI runs `core,platform` on every push and the full suite on demand
+(GitHub → Actions → **3D full suite** → Run workflow).
