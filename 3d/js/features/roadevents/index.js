@@ -163,6 +163,17 @@ on("honk", () => {
 
 // buffs that change how the car drives
 hook("controls", ctl => {
+    const ap = svc.autopilot;                         // test / cutscene helper: hold a lane at a speed
+    if (ap) {
+        const car = ctx.car, tgt = ctx.world.road.point(car.s + 12, ap.d, {});
+        let diff = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z) - car.h;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        ctl.steer = clamp(-diff * 3, -1, 1);
+        ctl.throttle = car.speed < ap.speed ? 0.7 : 0;
+        ctl.brake = car.vF > ap.speed + 2 ? 0.6 : 0;
+        ctl.analog = true;
+    }
     if (buffs.nitro > 0) input.boost = true;        // the turbo holds the nitro down for you
     if (wet.t > 0) ctl.throttle *= 0.6;              // 2D: a splash slows you for 0.7 s
 }, 4);
@@ -208,6 +219,8 @@ on("boot", () => {
 const svc = {
     /** false = no random spawning (tests force events with spawn()). */
     auto: true,
+    /** { d, speed } → steer along lane d at `speed` m/s (tests, cutscenes); null = the player drives. */
+    autopilot: null,
     /** Spawn any event now: ctx.roadevents.spawn("train", { s: ctx.car.s + 300 }). */
     spawn,
     /** Names of every event that can be spawned. */

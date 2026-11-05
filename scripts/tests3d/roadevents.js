@@ -19,15 +19,16 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "playing"`, "drive starts")) return;
 
     // put the car at (s, d) heading down the road at `v` m/s, traffic cleared
-    const tp = (s, d, v = 0) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {});
+    const tp = (s, d, v = 0, ap = true) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {});
       ctx.traffic.clear(); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d};
-      ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.G.invT = 0; ctx.G.hearts = 3; ctx.cam.snap(); return true; })()`);
+      ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.G.invT = 0; ctx.G.hearts = 3; ctx.cam.snap();
+      ctx.roadevents.autopilot = ${ap && v > 0} ? { d: ${d}, speed: ${v} } : null; return true; })()`);
     const S = () => g(`ctx.car.s`);
     let s0 = 400;
 
     // ── passengers: bonk a walker → 2× coins ─────────────────────────────
     if (part("passenger")) {
-      await tp(s0, 1.75, 9);
+      await tp(s0, 1.75, 9, false);
       await g(`ctx.roadevents.spawn("pedestrian", { s: ${s0 + 16}, d: 1.75, cross: false, kind: "walker" }).then(p => (p.vs = 0, true))`);
       await t.until(`window.__lulu3d.ctx.roadevents.passengers >= 1`, "a bonked walker flies into the passenger seat", 60000);
       t.check("a bonked walker flies into the passenger seat", await g(`ctx.roadevents.passengers`) >= 1);
@@ -39,7 +40,7 @@ module.exports = {
       await t.shot("passenger");
       // the hitchhiker: honk (L1) and he hops in, +15
       s0 = (await S()) + 30;
-      await tp(s0, 5.25, 4);
+      await tp(s0, 5.25, 4, false);
       await g(`ctx.roadevents.spawn("hitchhiker", { s: ${s0 + 35}, side: 1 })`);
       await t.frames(8);
       await t.shot("hitchhiker");
@@ -56,20 +57,16 @@ module.exports = {
       s0 = (await S()) + 200;
       await g(`ctx.roadevents.spawn("toll", { s: ${s0 + 120}, open: [0, 1] }).then(T => (window.__toll = T, true))`);
       await tp(s0 + 40, 2.3, 12);
-      await t.hold(7, 0.35);
       await t.frames(12);
       await t.shot("toll-approach");
       await t.until(`window.__toll && window.__toll.paid`, "driving through an open toll lane pays", 90000);
-      await t.hold(7, 0);
       t.check("driving through an open toll lane pays", await g(`window.__toll.paid === true`));
       t.check("…without losing a heart", await g(`ctx.G.hearts`) === 3, `hearts ${await g(`ctx.G.hearts`)}`);
       // a closed gate costs a heart
       s0 = (await S()) + 260;
       await g(`ctx.roadevents.spawn("toll", { s: ${s0 + 60}, open: [2] }).then(T => (window.__toll2 = T, true))`);
       await tp(s0 + 30, 2.3, 14);
-      await t.hold(7, 0.4);
       await t.until(`window.__toll2 && window.__toll2.passed`, "reaches the closed gate", 90000);
-      await t.hold(7, 0);
       await t.frames(4);
       t.check("crashing a closed toll gate costs a heart", await g(`ctx.G.hearts`) === 2, `hearts ${await g(`ctx.G.hearts`)}`);
       t.check("…and the arm goes flying", await g(`ctx.G.roadevents.tollGatesSmashed`) === 1);
@@ -81,7 +78,7 @@ module.exports = {
       s0 = (await S()) + 300;
       await g(`ctx.roadevents.spawn("train", { s: ${s0 + 40}, cars: 4 }).then(T => (window.__train = T, true))`);
       await tp(s0, 1.75, 0);
-      await t.hold(6, 1);
+
       await t.frames(10);
       t.check("the crossing lights start and the gates come down", await t.until(`window.__train && window.__train.lights`, "lights on", 60000));
       await t.until(`window.__train.gate < 0.2`, "gates down", 60000);
@@ -90,7 +87,7 @@ module.exports = {
       await t.shot("train-passing");
       t.check("waiting at the gates pays (+100)", await g(`window.__train.waited === true`));
       t.check("the train didn't hit her", await g(`!window.__train.hit && ctx.G.hearts > 0`));
-      await t.hold(6, 0);
+
     }
 
     // ── drive-thru, ice-cream truck, ice-cream stand ─────────────────────
@@ -123,7 +120,7 @@ module.exports = {
       s0 = (await S()) + 260;
       await g(`ctx.roadevents.spawn("parade", { s: ${s0 + 30}, now: true, kind: "parade" }).then(E => (window.__pa = E, true))`);
       await tp(s0, 3.5, 0);
-      await t.hold(6, 1);
+
       await t.frames(50);
       await t.shot("parade");
       t.check("the parade streams across the road", await g(`window.__pa.started && window.__pa.marchers.length > 3`), `${await g(`window.__pa.marchers.length`)} marchers`);
@@ -134,7 +131,7 @@ module.exports = {
       await t.frames(60);
       await t.shot("duck-parade");
       t.check("letting the ducklings cross pays (+150)", await t.until(`window.__dp.waited`, "duck wait", 90000));
-      await t.hold(6, 0);
+
       // a raccoon in the road at speed costs a heart
       s0 = (await S()) + 200;
       await tp(s0, 1.75, 16);
@@ -165,13 +162,11 @@ module.exports = {
       const sNow = await S();
       await tp(sNow + 4, 5.25, 9);
       await g(`ctx.traffic.add("sedan", ${sNow + 20}, 5.25, 1, 2) && true`);
-      await t.hold(7, 1);
       await t.until(`(window.__lulu3d.ctx.G.roadevents.crushes || 0) >= 1`, "the steamroller flattens a car", 60000);
       t.check("the steamroller flattens a car", await g(`ctx.G.roadevents.crushes`) >= 1);
       t.check("…and Lulu takes no damage", await g(`ctx.G.hearts`) === hearts);
       await t.frames(10);
       await t.shot("steamroller");
-      await t.hold(7, 0);
       await g(`ctx.roadevents.endSteamroller()`);
       t.check("out of diesel → back in her own car", await g(`ctx.roadevents.vehicle === null && ctx.car.model.visible`));
     }
@@ -226,6 +221,7 @@ module.exports = {
       t.check("the SPAWN_CONFIG timers spawn events by themselves", await g(`(ctx.G.roadevents.driveThrus || 0) > ${dt0}`), JSON.stringify(await g(`ctx.G.roadevents`)));
       await g(`ctx.roadevents.auto = false`);
     }
+    await g(`ctx.roadevents.autopilot = null`);
     t.check("still driving at the end", await g(`["playing", "wrecked"].includes(ctx.state)`), await g(`ctx.state`));
   },
 };

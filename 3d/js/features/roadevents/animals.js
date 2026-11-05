@@ -19,9 +19,9 @@ import { defineEvent, inc, count, live } from "./state.js";
 import { K, need, pt, rnd, pick, clamp, findNodes, carTouches, blockers, bubble, sfx, stat, tone, burst, models, cloneWithColors } from "./common.js";
 
 const SPEC = {
-    duck:    { model: "duck", scale: 1.6, r: 0.4, v: [1.6, 2.4], feathers: [1, 0.92, 0.3], swing: 0.6, freq: 11 },
-    raccoon: { model: "raccoon", scale: 1.4, r: 0.5, v: [2.6, 4.0], feathers: [0.55, 0.6, 0.65], swing: 0.55, freq: 9 },
-    ostrich: { model: "ostrich", scale: 1.05, r: 0.55, v: [5.0, 8.0], feathers: [0.15, 0.15, 0.15], swing: 0.75, freq: 7 },
+    duck:    { model: "duck", scale: 2.2, r: 0.4, v: [1.6, 2.4], feathers: [1, 0.92, 0.3], swing: 0.6, freq: 11 },
+    raccoon: { model: "raccoon", scale: 1.75, r: 0.5, v: [2.6, 4.0], feathers: [0.55, 0.6, 0.65], swing: 0.55, freq: 9 },
+    ostrich: { model: "ostrich", scale: 1.15, r: 0.55, v: [5.0, 8.0], feathers: [0.15, 0.15, 0.15], swing: 0.75, freq: 7 },
 };
 const _q = new THREE.Quaternion(), _e = new THREE.Euler();
 
