@@ -101,51 +101,20 @@ const talk = { i: -1, phase: "", t: 0, person: null, extra: [], from: new THREE.
 const IN_PERSON = { heshy: "heshyPerson", avigail: "avigailPerson" };
 
 registerState("storyTalk", {
-    hud: true, touch: false, driving: true, pausable: false,
+    hud: false, touch: false, driving: true, pausable: false,
     enter({ i }) {
         talk.i = i; talk.phase = "pull"; talk.t = 0;
-        const id = STOPS[i].id;
         talk.prevInv = ctx.G.invT || 0;
         ctx.G.invT = Math.max(ctx.G.invT, 99);
         SFX.chime(620, 830);
-        H.banner(`${STOPS[i].icon} <b>LEG STORY</b><small>${IN_PERSON[id] ? "pulling over…" : "📞 incoming call — pulling over"}</small>`, 1800);
         ctx.cam.snap();
-        // in-person scenes: Heshy / Avigail (+ her smoking car) wait on the shoulder ahead
-        const key = IN_PERSON[id];
-        if (key && models[key]) {
-            const road = ctx.world.road, s = ctx.car.s + Math.max(30, ctx.car.speed * 1.8);
-            const p = road.point(s, 11.2, {}), h = road.at(s).h;
-            const per = spawnPerson(key, { scale: 1.05 });
-            per.obj.position.set(p.x, 0, p.z);
-            per.obj.rotation.y = h + Math.PI;
-            ctx.scene.add(per.obj);
-            talk.person = per;
-            if (id === "avigail") {
-                const carKey = models.journey_avigail_car ? "journey_avigail_car" : null;
-                if (carKey) {
-                    const car = cloneWithColors(models[carKey]);
-                    const q = road.point(s + 7, 11.6, {});
-                    car.position.set(q.x, 0, q.z); car.rotation.y = h + 0.25;
-                    ctx.scene.add(car);
-                    talk.extra.push(car);
-                }
-            }
-            if (id === "heshy" && models.journey_floatie) {
-                const ring = cloneWithColors(models.journey_floatie);
-                ring.scale.setScalar(0.34); ring.rotation.x = Math.PI / 2; ring.position.y = 0.95;
-                per.obj.add(ring);
-            }
-        }
     },
     exit() {
         if (ctx.dialogOpen) closeDialog();
         ctx.G.invT = Math.max(2.0, (talk.prevInv || 0) - talk.t);   // a 2 s shield back on the road (2D)
-        const dispose = () => {
-            if (talk.person) { const o = talk.person.obj; setTimeout(() => o.parent && o.parent.remove(o), 7000); }
-            for (const e of talk.extra) setTimeout(() => e.parent && e.parent.remove(e), 7000);
-            talk.person = null; talk.extra = [];
-        };
-        dispose();
+        if (talk.person) { const o = talk.person.obj; setTimeout(() => o.parent && o.parent.remove(o), 7000); }
+        for (const e of talk.extra) setTimeout(() => e.parent && e.parent.remove(e), 7000);
+        talk.person = null; talk.extra = [];
         showPhoneProp(false);
     },
     update(dt, P) {
@@ -156,42 +125,68 @@ registerState("storyTalk", {
             const tgt = road.point(car.s + 14, 7.9, {});
             const want = Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z);
             let diff = want - car.h; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2;
-            updateDriving(dt, {}, false, { steer: THREE.MathUtils.clamp(-diff * 3, -1, 1), throttle: 0, brake: car.speed > 3 ? 0.55 : 1, handbrake: false, analog: true });
-            if ((car.speed < 0.6 && talk.t > 0.6) || talk.t > 4.2) { talk.phase = "talk"; runScript(); }
+            updateDriving(dt, {}, false, { steer: THREE.MathUtils.clamp(-diff * 3, -1, 1), throttle: 0, brake: car.speed > 3 ? 0.65 : 1, handbrake: false, analog: true });
+            if ((car.speed < 0.6 && talk.t > 0.6) || talk.t > 4.2) { talk.phase = "talk"; meet(); runScript(); }
         } else {
             updateDriving(dt, {}, false, { steer: 0, throttle: 0, brake: 1, handbrake: false, analog: true });
         }
         if (talk.person) {
             talk.person.face(car.pos.x, car.pos.z, dt);
-            talk.person.update(dt, { talk: talk.speaking === STOPS[talk.i].id, wave: talk.phase === "pull" });
+            talk.person.update(dt, { talk: talk.speaking === STOPS[talk.i].id, wave: talk.t < 1.2 });
         }
         if (talk.extra.length && STOPS[talk.i].id === "avigail") {
             talk.smokeT -= dt;
             if (talk.smokeT <= 0) {
                 talk.smokeT = 0.12;
                 const c = talk.extra[0].position;
-                car.fx.emit(c.x + (Math.random() - 0.5) * 0.6, 1.1, c.z + Math.sin(talk.extra[0].rotation.y) * 1.8, (Math.random() - 0.5) * 0.4, 1.6, (Math.random() - 0.5) * 0.4, 1.0, 2.0, [0.45, 0.45, 0.48]);
+                car.fx.emit(c.x + (Math.random() - 0.5) * 0.6, 1.1, c.z, (Math.random() - 0.5) * 0.4, 1.6, (Math.random() - 0.5) * 0.4, 1.0, 2.0, [0.45, 0.45, 0.48]);
             }
         }
     },
     camera(dt) {
-        const car = ctx.car, h = car.h;
-        const fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
+        const car = ctx.car, h = car.h, portrait = ctx.camera.aspect < 1;
+        const fx = Math.sin(h), fz = Math.cos(h), lx = Math.cos(h), lz = -Math.sin(h);   // forward, left
         if (talk.person) {
             // a side shot from the road framing Lulu and whoever's on the shoulder
             const p = talk.person.obj.position;
-            const mx = (car.pos.x + p.x) / 2, mz = (car.pos.z + p.z) / 2;
-            talk.from.set(mx - rx * 9 - fx * 3, 3.0, mz - rz * 9 - fz * 3);
-            talk.look.set(mx, 1.4, mz);
+            const mx = (car.pos.x + p.x) / 2, mz = (car.pos.z + p.z) / 2, D = portrait ? 14 : 8;
+            talk.from.set(mx + lx * D - fx * 2.5, 2.6, mz + lz * D - fz * 2.5);
+            talk.look.set(mx, 1.2, mz);
         } else {
-            // close on Lulu in the driver's seat, phone to her ear
-            talk.from.set(car.pos.x - rx * 3.2 + fx * 2.6, 1.9, car.pos.z - rz * 3.2 + fz * 2.6);
-            talk.look.set(car.pos.x - rx * 0.38 - fx * 0.3, 1.45, car.pos.z - rz * 0.38 - fz * 0.3);
+            // close on Lulu in the driver's seat (she sits on the left), phone to her ear
+            const D = portrait ? 5 : 3.2;
+            talk.from.set(car.pos.x + lx * D + fx * 2.6, 1.9, car.pos.z + lz * D + fz * 2.6);
+            talk.look.set(car.pos.x + lx * 0.38 - fx * 0.3, 1.45, car.pos.z + lz * 0.38 - fz * 0.3);
         }
         ctx.cam.cinematic(talk.from, talk.look, dt, 1.8, 46);
         return true;
     },
 });
+
+/** In-person scenes: Heshy / Avigail (+ her smoking car) are waiting on the shoulder where Lulu stops. */
+function meet() {
+    const id = STOPS[talk.i].id, key = IN_PERSON[id];
+    if (!key || !models[key]) return;
+    const car = ctx.car, road = ctx.world.road, s = car.s + 6.5;
+    const p = road.point(s, 11.0, {});
+    const per = spawnPerson(key, { scale: 1.05 });
+    per.obj.position.set(p.x, 0, p.z);
+    per.obj.rotation.y = road.at(s).h + Math.PI;
+    ctx.scene.add(per.obj);
+    talk.person = per;
+    if (id === "heshy" && models.journey_floatie) {
+        const ring = cloneWithColors(models.journey_floatie);
+        ring.scale.setScalar(0.34); ring.position.y = 0.95;
+        per.obj.add(ring);
+    }
+    if (id === "avigail" && models.journey_avigail_car) {
+        const c = cloneWithColors(models.journey_avigail_car);
+        const q = road.point(s + 6, 11.4, {});
+        c.position.set(q.x, 0, q.z); c.rotation.y = road.at(s).h + 0.25;
+        ctx.scene.add(c);
+        talk.extra.push(c);
+    }
+}
 
 async function runScript() {
     const i = talk.i, id = STOPS[i].id;
@@ -281,8 +276,8 @@ function imaConvoy() {
         update(dt) {
             p.t += dt;
             if (p.t < 1.4) p.ds += (0 - p.ds) * Math.min(1, dt * 1.6);
-            if (!said1 && p.t > 1.0) { said1 = true; b = bubble(van, "Two hands on the wheel!", 3.6, "#FF80AB"); H.toast("🚐 Ima's convoy!", "pink"); }
-            if (!said2 && p.t > 3.6) { said2 = true; if (b) b.remove(); b = bubble(van, "Call your Bubbe when you arrive!!", 3.6, "#FF80AB"); }
+            if (!said1 && p.t > 1.0) { said1 = true; b = bubble(van, "Two hands on the wheel!", 3.4, "#FF80AB", 0.8); H.toast("🚐 Ima's convoy!", "pink"); }
+            if (!said2 && p.t > 3.6) { said2 = true; if (b) b.remove(); b = bubble(van, "Call your Bubbe when you arrive!!", 3.4, "#FF80AB", 0.8); }
             if (p.t > 6.2) {
                 if (!honked) { honked = true; SFX.honk(); if (b) { b.remove(); b = null; } }
                 p.speedAdd = Math.max(-9, p.speedAdd - dt * 6);
@@ -303,7 +298,7 @@ function cannonball() {
     const heshy = spawnPerson("heshyPerson", { scale: 1.05 });
     if (models.journey_floatie) {
         const ring = cloneWithColors(models.journey_floatie);
-        ring.scale.setScalar(0.34); ring.rotation.x = Math.PI / 2; ring.position.y = 0.95;
+        ring.scale.setScalar(0.34); ring.position.y = 0.95;
         heshy.obj.add(ring);
     }
     ctx.scene.add(heshy.obj);
@@ -311,7 +306,7 @@ function cannonball() {
     let pool = null;
     if (models.journey_floatie) {
         pool = cloneWithColors(models.journey_floatie, { TubeOrange: "#29B6F6" });
-        pool.scale.setScalar(1.25); pool.rotation.x = Math.PI / 2; pool.position.y = 0.3;
+        pool.scale.setScalar(1.25); pool.position.y = 0.3;
         const q = road.point(s, -12, {});
         pool.position.x = q.x; pool.position.z = q.z;
         const water = new THREE.Mesh(new THREE.CircleGeometry(1.1, 20).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: "#4FC3F7", roughness: 0.1 }));
@@ -465,8 +460,8 @@ function raceYouThere() {
     }
     addActor({
         update(dt) {
-            if (!said1 && t > 0.9) { said1 = true; b = bubble(car.obj, "Race you to MY house 💅", 3.0, "#CE93D8"); }
-            if (!said2 && t > 3.2) { said2 = true; if (b) b.remove(); b = bubble(car.obj, "Loser buys the spritzers!", 3.0, "#CE93D8"); }
+            if (!said1 && t > 0.9) { said1 = true; b = bubble(car.obj, "Race you to MY house 💅", 2.8, "#CE93D8", 0.75); }
+            if (!said2 && t > 3.2) { said2 = true; if (b) b.remove(); b = bubble(car.obj, "Loser buys the spritzers!", 2.8, "#CE93D8", 0.75); }
             if (t > 6 && b) { b.remove(); b = null; }
             if (avi) avi.update(dt, { sit: true, talk: t < 4.6, wave: t > 4.6 && t < 6 });
             const gone = !ctx.traffic.cars.includes(car) || car.s - ctx.car.s > 260 || car.hit && car.hitT > 4;

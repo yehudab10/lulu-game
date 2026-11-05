@@ -91,7 +91,7 @@ const PAL = {
     coast:  { top: "#2A9DF4", mid: "#9BE1FF", bottom: "#F0FBFF", fog: "#CFEFFF", near: 150, far: 620, hemiSky: "#d6f2ff", hemiGround: "#c9b98a", hemiI: 1.45, sun: "#fffbef", sunI: 2.75, sunOff: [-30, 74, -36], night: 0 },
     dusk:   { top: "#3B2A6B", mid: "#E07A5F", bottom: "#FFC46B", fog: "#E9A57E", near: 120, far: 560, hemiSky: "#ffc7a8", hemiGround: "#5a4a6a", hemiI: 1.15, sun: "#ffad6b", sunI: 2.2, sunOff: [-70, 26, -44], night: 0.25 },
     desert: { top: "#3F86D4", mid: "#F3C98B", bottom: "#FFE7B0", fog: "#F2D7A6", near: 150, far: 640, hemiSky: "#ffe9c4", hemiGround: "#a07040", hemiI: 1.35, sun: "#fff0d0", sunI: 3.0, sunOff: [-34, 78, -22], night: 0 },
-    strip:  { top: "#0D0221", mid: "#311B4D", bottom: "#8E3B76", fog: "#2A1638", near: 90, far: 520, hemiSky: "#8a78d8", hemiGround: "#2a1838", hemiI: 0.95, sun: "#b8b0ff", sunI: 0.7, sunOff: [-30, 60, -40], night: 1 },
+    strip:  { top: "#0D0221", mid: "#311B4D", bottom: "#8E3B76", fog: "#2A1638", near: 90, far: 520, hemiSky: "#9a88e8", hemiGround: "#3a2248", hemiI: 1.15, sun: "#b8b0ff", sunI: 0.7, sunOff: [-30, 60, -40], night: 1 },
 };
 let DEFAULT_PAL = null;
 const colorCache = new Map();
@@ -268,7 +268,12 @@ on("boot", () => {
         sun: "#" + L.sun.color.getHexString(), sunI: L.sun.intensity, sunOff: L.sunOffset.toArray(), night: 0,
     };
     Object.assign(DEFAULT_TRAFFIC, { ours: ctx.traffic.config.ours, oncoming: ctx.traffic.config.oncoming });
-    w.biomeAt = s => { syncReserves(); return BIOMES[regionAt(s).key] || BIOMES.fall; };
+    w.biomeAt = s => {
+        syncReserves();
+        const b = BIOMES[regionAt(s).key] || BIOMES.fall;
+        // a house model that hasn't loaded yet (slow network) → plain houses for that chunk
+        return models[b.houseModel] ? b : (b._fallback || (b._fallback = Object.assign({}, b, { houseModel: "house" })));
+    };
     for (let i = 0; i < N_STOPS; i++) {
         w.reserve(0, 0, 1, 9, 95);       // the property (+ trees, houses, poles, speed traps)
         w.reserve(0, 0, -1, 9, 13);      // the gate's left post
@@ -487,7 +492,6 @@ function buildProperty(i, S, chunk, world) {
             if (splash) splash.getWorldPosition(B); else B.copy(pool.position);
             const ring = cloneWithColors(models.journey_floatie);
             ring.scale.setScalar(0.34);
-            ring.rotation.x = Math.PI / 2;
             ring.position.y = 0.95;
             let splashed = false;
             const heshy = addPerson(chunk, "heshyPerson", A.x, A.z, toRoad, 1.05, (t, per) => {
@@ -776,9 +780,9 @@ on("chunk:build", ({ chunk, world, rnd, s0, s1 }) => {
     }
     // the Strip: neon signs (and casino towers on the skyline)
     if (reg === "strip" && models.journey_neon_sign) {
-        const n = 1 + Math.floor(rnd() * 2);
+        const n = 2 + Math.floor(rnd() * 2);
         for (let k = 0; k < n; k++) {
-            const s = s0 + 30 + rnd() * (s1 - s0 - 60), side = rnd() < 0.5 ? -1 : 1, d = side * (15 + rnd() * 4);
+            const s = s0 + 20 + (k + rnd() * 0.8) * (s1 - s0 - 40) / n, side = k % 2 ? -1 : 1, d = side * (14.5 + rnd() * 4);
             if (world.isReserved(s, d, 10)) continue;
             const sign = cloneWithColors(models.journey_neon_sign);
             place(sign, road, s, d, side);

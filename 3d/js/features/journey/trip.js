@@ -27,12 +27,21 @@ css("journey-trip", `
 #banner .jleg .vb { font-size: 14px; font-style: italic; opacity: .75; font-weight: 600; }
 .hud-chip.jtask { background: rgba(18,24,36,.78); color: #FFF5E6; border: 2px solid var(--acc, #FFD54F); font-size: 14px; }
 .hud-chip.jtask.met { background: rgba(255,213,79,.95); color: #3E2723; }
-.card.jarr { width: min(620px, 100%); }
+.card.jarr { width: min(560px, 100%); padding: 14px 18px 16px; }
+@media (min-aspect-ratio: 5/4) and (min-width: 820px) {
+  .screen:has(.card.jarr) { justify-content: flex-start; padding-left: max(3vw, 18px); background: linear-gradient(90deg, rgba(43,27,46,.4), rgba(43,27,46,0) 62%); }
+  .card.jarr { width: min(500px, 48vw); }
+}
+.card.jarr .menu { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.card.jarr .menu .btn { width: auto; padding: 9px 16px; font-size: 16px; }
+.card.jarr .menu .btn#jKeep { width: 100%; font-size: 19px; padding: 12px 16px; }
+.jarr .line { font-size: 13.5px; font-weight: 600; opacity: .75; margin: 4px 0 0; }
+.jarr .line b { opacity: 1; color: var(--ink); }
 .jarr .top { font-size: 34px; font-weight: 700; color: var(--pink); text-shadow: 0 3px 0 rgba(0,0,0,.12); line-height: 1; margin-top: 2px; }
 .jarr .top.fin { color: #E6A700; font-size: 30px; }
 .jarr .stopname { font-size: 22px; font-weight: 700; margin: 4px 0 2px; color: var(--ink); }
 .jarr .stopname span { background: var(--acc); border-radius: 999px; padding: 2px 14px; }
-.jarr .quote { text-align: left; position: relative; border: 2.5px solid var(--acc); }
+.jarr .quote { text-align: left; position: relative; border: 2.5px solid var(--acc); font-size: 17px; padding: 9px 13px; margin: 8px 0; }
 .jarr .quote small { display: block; font-size: 13px; opacity: .6; margin-top: 2px; }
 .jarr .beat { display: block; font-size: 14.5px; font-style: italic; color: #8D5A2B; margin-top: 6px; font-weight: 600; }
 .jarr .epi { font-size: 15px; line-height: 1.45; background: #fff8e8; border-radius: 16px; padding: 10px 14px; text-align: left; }
@@ -46,8 +55,8 @@ css("journey-trip", `
 .jarr .pill2.star { background: #FFEB3B; color: #5D4037; }
 .jarr .tour { display: inline-block; background: #3E2723; color: #FFE082; border-radius: 999px; padding: 3px 14px; font-weight: 700; font-size: 14px; margin: 4px 0; }
 .jarr .jack { font-size: 22px; font-weight: 700; color: #E6A700; animation: jpulse 1s infinite alternate; }
-.btn.jboon { width: min(420px, 100%); background: linear-gradient(135deg, var(--acc), #fff3); color: var(--ink); border: 3px dashed rgba(0,0,0,.18); margin: 8px auto 0; }
-.btn.jboon .em { font-size: 30px; }
+.btn.jboon { width: 100%; background: linear-gradient(135deg, var(--acc), #fff3); color: var(--ink); border: 3px dashed rgba(0,0,0,.18); margin: 8px auto 0; padding: 7px 14px; font-size: 17px; }
+.btn.jboon .em { font-size: 26px; }
 .btn.jboon small { display: block; font-size: 12.5px; font-weight: 600; opacity: .75; }
 .btn.jboon.taken { background: #DCEDC8; color: #2E7D32; border-style: solid; }
 .jarr .stats .stat b { font-size: 20px; }
@@ -478,8 +487,9 @@ function arrivalHtml(D) {
     else if (D.taskMet === false) rw.push(`<span class="pill2 grey">task: not this time</span>`);
     if (D.unlockedCruise) rw.push(`<span class="pill2 green">🔓 ENDLESS CRUISE + SHARED ROAD unlocked — back at the menu!</span>`);
     lines.push(`<div class="rw">${rw.join("")}</div>`);
-    lines.push(statsHtml(`<div class="stat"><b>${fmtTime(D.legTime)}</b><span>LEG TIME${D.fastest ? " 🏆" : ""}</span></div>`));
-    lines.push(`<p class="fine">Arrival bonus +${D.bonus} (${"❤️".repeat(Math.max(0, ctx.G.hearts))} left${ctx.G.tickets ? `, ${ctx.G.tickets} speeding ticket${ctx.G.tickets > 1 ? "s" : ""} 🙈` : ""})</p>`);
+    const G = ctx.G, mi = ((ctx.car.s - (G.startS || 0)) / 1609).toFixed(1);
+    lines.push(`<p class="line">score <b>${Math.floor(G.score).toLocaleString()}</b> · <b>${G.coins}</b> coins · <b>${mi}</b> mi · leg <b>${fmtTime(D.legTime)}</b>${D.fastest ? " 🏆" : ""}
+        · arrival bonus <b>+${D.bonus}</b> (${"❤️".repeat(Math.max(0, G.hearts))}${G.tickets ? `, ${G.tickets} ticket${G.tickets > 1 ? "s" : ""} 🙈` : ""})</p>`);
     const b = st.boon;
     if (D.boon) lines.push(`<button class="btn jboon taken nav" id="jBoon"><span class="em">${b.emoji}</span><span>✓ ${b.label}${D.boon.id === "dice" ? ` — rolled +${D.boon.roll} 💰` : ""}<small>${b.id === "dice" ? "paid out!" : "ready for the next leg"}</small></span></button>`);
     else lines.push(`<button class="btn jboon nav" id="jBoon"><span class="em">${b.emoji}</span><span>Take ${b.label}!<small>${b.desc}</small></span></button>`);
@@ -550,6 +560,8 @@ registerState("arrivedScreen", {
     camera(dt) {
         _from.copy(arr.shotFrom).lerp(arr.shotLook, 0.14);
         ctx.cam.cinematic(_from, arr.shotLook, dt, 1.2, 52);
+        // the card sits on the left on wide screens → turn so the stop shows on the right
+        if (ctx.camera.aspect > 1.25 && window.innerWidth >= 820) ctx.camera.rotateY(0.34);
         return true;
     },
 });

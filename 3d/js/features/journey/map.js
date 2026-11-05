@@ -51,7 +51,7 @@ css("journey-map", `
 .jmapc .menu .btn { width: auto; padding: 9px 22px; font-size: 16px; }
 @keyframes jmShake { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 @media (max-width: 640px) { .jmap .row { gap: 4px; } .jm-node .ic { font-size: 22px; } .jm-node .nm { font-size: 9.5px; } .jmap h2 { font-size: 19px; } .jmap .blurb { font-size: 12px; } .jmap .info { padding: 6px 10px; } .jmap .info .big { font-size: 26px; } }
-@media (max-height: 520px) { .jmap .blurb { display: none; } .jm-node .ic { font-size: 22px; } .jmap .info { min-height: 0; margin-top: 6px; } }
+@media (max-height: 640px) { .jmap .blurb { display: none; } .jm-node .ic { font-size: 22px; } .jm-node { padding: 6px 4px 4px; } .jmap .info { min-height: 0; margin-top: 6px; padding: 5px 12px; } .jmap .info .big { font-size: 26px; } .jmap h2 { font-size: 20px; } }
 body.tv .card.jmapc { width: min(1400px, 100%); } body.tv .jm-node .ic { font-size: 48px; } body.tv .jm-node .nm { font-size: 18px; }
 body.tv .jmap h2 { font-size: 36px; } body.tv .jmap .info b { font-size: 24px; } body.tv .jmap .info .tk { font-size: 20px; }
 `);
@@ -390,7 +390,7 @@ registerState("storyMap", {
         const want = new THREE.Vector3(M.look.x - 1 + Math.sin(M.t * 0.15) * 1.2, portrait ? 21 : 12.5, M.look.z + (portrait ? 17 : 12.5));
         M.camPos.lerp(want, Math.min(1, dt * 2.5));
         cam.position.copy(M.camPos);
-        cam.lookAt(M.look.x, 0, M.look.z + (portrait ? 3 : 2.2));
+        cam.lookAt(M.look.x, 0, M.look.z + (portrait ? 6 : 4.4));
         // life: marching centre line, pulsing current pad, bobbing car, minis bob in when focused
         M.dash.offset.y = -M.t * 0.8;
         const s2cur = M.nexts.findIndex(n => n.visible);

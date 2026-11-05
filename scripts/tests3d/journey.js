@@ -25,7 +25,7 @@ module.exports = {
       await tp(S - 150, 24);
       if (!await t.until(`__lulu3d.state === "arriving"`, `reaches stop ${i}`)) return false;
       await t.frames(40);
-      await t.shot(`arrive-${label}`);
+      await shot(`arrive-${label}`);
       for (let k = 0; k < 14 && await t.L(`__lulu3d.state`) === "arriving"; k++) { await t.tap(0); await t.frames(4); }
       if (!await t.until(`__lulu3d.state === "arrivedScreen"`, `arrival screen ${i}`)) return false;
       await t.frames(6);
@@ -37,10 +37,12 @@ module.exports = {
       await t.until(`document.getElementById("dialog").classList.contains("open")`, `${label} dialogue opens`);
       await t.frames(20);
       if (re) t.check(`${label} interlude line`, await t.L(`${re}.test(document.querySelector("#dialog .text").textContent)`));
-      await t.shot(`interlude-${label}`);
+      await shot(`interlude-${label}`);
       for (let k = 0; k < 24 && await t.L(`__lulu3d.state`) === "storyTalk"; k++) { await t.tap(0); await t.frames(3); }
       return t.check(`back on the road after the ${label} interlude`, await t.L(`__lulu3d.state`) === "playing");
     }
+    /** Screenshot with the invincibility blink off (the test keeps Lulu invincible while it teleports). */
+    const shot = async label => { await G(`ctx.G.invT = 0`); await t.frames(2); await t.shot(label); await G(`ctx.G.invT = 1e6`); };
     const skipBeats = (talk, event) => G(`(ctx.journey.debug.beats.talkDone = ${talk}, ctx.journey.debug.beats.eventDone = ${event}, true)`);
 
     await t.frames(10);
@@ -49,7 +51,7 @@ module.exports = {
     t.check("Story Trip is the first title item", /Story Trip/.test(items[0]), items[0]);
     t.check("cruise is locked for a fresh player (2D onboarding rule)", !items.some(x => /Cruise/.test(x)));
     t.check("title shows the next stop", await t.L(`/Next stop:.*BUBBE/.test((document.querySelector(".jtitle") || {}).textContent)`));
-    await t.shot("title");
+    await shot("title");
 
     // ── Story Trip → leg 1 ──
     await t.tap(0);
@@ -59,12 +61,12 @@ module.exports = {
     await t.hold(7, 0.6);
     await t.frames(30);
     t.check("leg intro banner", await t.L(`/LEG 1\\/5/.test(document.getElementById("banner").textContent)`));
-    await t.shot("leg-banner");
+    await shot("leg-banner");
     const called = await t.until(`!!document.querySelector(".jphone")`, "Bubbe calls as the leg starts", 90000);
     if (called) {
       t.check("story call from Bubbe", await t.L(`/BUBBE/.test(document.querySelector(".jphone").textContent)`));
       await t.frames(8);
-      await t.shot("story-call");
+      await shot("story-call");
     }
     t.check("chapter task chip: groceries", await t.L(`/Groceries/.test((document.querySelector(".jtask") || {}).textContent)`));
     await t.until(`!__lulu3d.ctx.phone.busy()`, "story call ends", 60000);
@@ -74,7 +76,7 @@ module.exports = {
     await G(`ctx.journey.debug.imaCall() && true`);
     await t.frames(4);
     t.check("Ima rings", await G(`ctx.phone.active && ctx.phone.active.phase === "ring"`));
-    await t.shot("ima-ring");
+    await shot("ima-ring");
     await t.tap(4);                   // L1 / LB = horn
     t.check("a honk declines", await G(`ctx.phone.active && ctx.phone.active.result === "declined"`));
     await t.until(`!__lulu3d.ctx.phone.busy()`, "declined call clears");
@@ -86,7 +88,7 @@ module.exports = {
     t.check("steering is flipped while Lulu talks", await G(`ctx.phone.flipped === true`));
     t.check("Lulu holds the phone to her ear", await G(`ctx.car.anchors.head.children.length > 0`));
     await t.frames(6);
-    await t.shot("ima-talk");
+    await shot("ima-talk");
     await t.until(`!__lulu3d.ctx.phone.talking`, "the call finishes", 60000);
     t.check("a full chat pays +30 gas money", (await G(`ctx.G.coins`)) - c0 === 30);
     t.check("steering back to normal", await G(`ctx.phone.flipped === false`));
@@ -103,12 +105,12 @@ module.exports = {
     await tp(await legS(0.62), 22);
     await t.frames(50);
     t.check("road event fired (Ima's convoy)", await G(`ctx.journey.debug.beats.eventDone === true`));
-    await t.shot("ima-convoy");
+    await shot("ima-convoy");
 
     // ── arrive at Bubbe's ──
     const w0 = await t.L(`(${SAVE}.totalCoins || 0)`);
     if (!await arrive(0, "bubbe")) return;
-    await t.shot("arrived-bubbe");
+    await shot("arrived-bubbe");
     let sv = await t.L(SAVE);
     t.check("postcard collected", (sv.postcards || []).includes("bubbe"));
     t.check("checkpoint: storyStop = 1", sv.storyStop === 1, `storyStop ${sv.storyStop}`);
@@ -133,9 +135,9 @@ module.exports = {
     await interlude("heshy", "/Real talk/");
     await tp(await legS(0.62), 22);
     await t.frames(45);
-    await t.shot("cannonball");
+    await shot("cannonball");
     if (!await arrive(1, "heshy")) return;
-    await t.shot("arrived-heshy");
+    await shot("arrived-heshy");
     await t.click(/Keep driving/);
 
     // ── leg 3: the beach — the runaway gear ──
@@ -143,16 +145,16 @@ module.exports = {
     await tp(await legS(0.31), 20);
     await t.until(`__lulu3d.ctx.journey.debug.gear.length > 0`, "beach gear spawns at 30%");
     await t.frames(10);
-    await t.shot("beach-gear");
+    await shot("beach-gear");
     for (let k = 0; k < 3; k++) {
       const g = await G(`(() => { const g = ctx.journey.debug.gear[0]; return g ? { s: g.s, d: g.d } : null; })()`);
       if (g) { await tp(g.s - 2.5, 4, g.d); await t.frames(20); }
-      if (k === 0) { await tp(await legS(0.51), 20); await t.until(`__lulu3d.ctx.journey.debug.gear.length > 0`, "next gear spawns"); await t.frames(30); await t.shot("coast"); }
+      if (k === 0) { await tp(await legS(0.51), 20); await t.until(`__lulu3d.ctx.journey.debug.gear.length > 0`, "next gear spawns"); await t.frames(30); await shot("coast"); }
       if (k === 1) { await tp(await legS(0.71), 20); await t.until(`__lulu3d.ctx.journey.debug.gear.length > 0`, "last gear spawns"); }
     }
     t.check("caught all 3 pieces of beach gear", await G(`ctx.journey.task.met === true`), await G(`ctx.journey.task.line`));
     if (!await arrive(2, "beach")) return;
-    await t.shot("arrived-beach");
+    await shot("arrived-beach");
     await t.click(/Keep driving/);
 
     // ── leg 4: Avigail's place — stranded Avigail, the race, don't bump her car ──
@@ -161,43 +163,43 @@ module.exports = {
     await interlude("avigail", "/car|BESTIE|Say/");
     await tp(await legS(0.5), 22);
     await t.frames(30);
-    await t.shot("dusk");
+    await shot("dusk");
     await G(`ctx.journey.debug.fireEvent(3)`);
     await t.frames(30);
     t.check("Avigail races alongside", await G(`ctx.traffic.cars.some(c => c.data && c.data.journeyAvi)`));
-    await t.shot("avigail-race");
+    await shot("avigail-race");
     await G(`L3.emit("crash", { kind: "journey_avigail", impact: 4 })`);
     t.check("bumping Avigail's car fails the task", await G(`ctx.journey.task.met === false`));
     if (!await arrive(3, "avigail")) return;
     t.check("Avigail's greeting matches the friendship (bestie)", await t.L(`/BESTIE|spritzers|whatever|Obsessed/.test(document.getElementById("screenCard").textContent)`));
     t.check("task: not this time", await t.L(`/not this time/.test(document.getElementById("screenCard").textContent)`));
-    await t.shot("arrived-avigail");
+    await shot("arrived-avigail");
     await t.click(/Keep driving/);
 
     // ── leg 5: Viva Vegas — desert heat → Burry's box drop → neon night ──
     await skipBeats(true, false);
     await tp(await legS(0.3), 24);
     await t.frames(40);
-    await t.shot("desert");
+    await shot("desert");
     await tp(await legS(0.62), 22);
     await t.frames(60);
     t.check("Burry's box drop fired", await G(`ctx.journey.debug.beats.eventDone === true`));
-    await t.shot("box-drop");
+    await shot("box-drop");
     await tp(await legS(0.85), 24);
     await t.frames(40);
     t.check("night falls over the Strip", await G(`ctx.journey.env === "strip"`));
-    await t.shot("strip");
+    await shot("strip");
     const cyc0 = (await t.L(SAVE)).storyCycle || 0;
     if (!await arrive(4, "vegas")) return;
     sv = await t.L(SAVE);
     t.check("STORY COMPLETE banks a new tour", (sv.storyCycle || 0) === cyc0 + 1 && sv.storyStop === 0, `cycle ${sv.storyCycle}, stop ${sv.storyStop}`);
     t.check("tour jackpot shown", await t.L(`/TOUR JACKPOT \\+250/.test(document.getElementById("screenCard").textContent)`));
     t.check("all 5 postcards", (sv.postcards || []).length === 5);
-    await t.shot("arrived-vegas");
+    await shot("arrived-vegas");
     // phone portrait: the (long) finale card still fits and scrolls
     await t.page.setViewportSize({ width: 390, height: 844 });
     await t.frames(8);
-    await t.shot("arrived-vegas-portrait");
+    await shot("arrived-vegas-portrait");
     t.check("portrait: Keep cruising button reachable", await t.L(`(() => { const b = document.getElementById("jKeep"); return !!b && b.getBoundingClientRect().width > 100; })()`));
     await t.page.setViewportSize({ width: 960, height: 540 });
     await t.frames(4);
@@ -214,11 +216,11 @@ module.exports = {
     await t.click(/Road to Vegas/);
     if (await t.until(`__lulu3d.state === "storyMap"`, "the story map opens")) {
       await t.frames(30);
-      await t.shot("map");
+      await shot("map");
       await t.tap(15); await t.tap(15);   // D-pad → twice: Bubbe → Heshy → the beach
       await t.frames(20);
       t.check("map info follows the focused stop", await t.L(`/THE BEACH/.test(document.getElementById("jmInfo").textContent)`));
-      await t.shot("map-beach");
+      await shot("map-beach");
       await t.tap(0);
       if (await t.until(`__lulu3d.state === "playing"`, "map launches the beach chapter")) {
         t.check("beach leg on the tour-2 road (×1.5)", await G(`ctx.journey.stopIndex === 2 && Math.abs(ctx.journey.stopS(2) - 1.5 * 19972) < 3`));
@@ -229,13 +231,13 @@ module.exports = {
     await t.boot();
     await t.frames(5);
     t.check("after a reload: TOUR 2 + postcards on the title", await t.L(`/TOUR 2/.test(document.querySelector(".jtitle").textContent) && document.querySelectorAll(".jtitle .stamp:not(.no)").length === 5`));
-    await t.shot("title-tour2");
+    await shot("title-tour2");
     // the map in phone portrait and on a TV
     await t.page.setViewportSize({ width: 390, height: 844 });
     await t.click(/Road to Vegas/);
     if (await t.until(`__lulu3d.state === "storyMap"`, "map opens (portrait)")) {
       await t.frames(25);
-      await t.shot("map-portrait");
+      await shot("map-portrait");
       t.check("portrait: all five chapter buttons visible", await t.L(`[...document.querySelectorAll(".jm-node")].filter(b => b.getBoundingClientRect().width > 40).length === 5`));
       await t.tap(1);
       await t.until(`__lulu3d.state === "title"`, "○ backs out of the map");
@@ -245,7 +247,7 @@ module.exports = {
     await t.click(/Road to Vegas/);
     if (await t.until(`__lulu3d.state === "storyMap"`, "map opens (TV)")) {
       await t.frames(25);
-      await t.shot("map-tv");
+      await shot("map-tv");
     }
   },
 };
