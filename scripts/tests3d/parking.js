@@ -124,7 +124,8 @@ module.exports = {
       t.check("hands off to Lulu on foot (droveOff)", true);
     } else if (!await t.until(`__lulu3d.state === "playing"`, "back on the road (no foot feature here)")) return;
     const c1 = await t.game(`ctx.G.coins`), sc1 = await t.game(`ctx.G.score`);
-    t.check("pull-over pays 50 + 15 = 65 coins and +500 score", c1 - c0 === 65 && sc1 - sc0 >= 500, `+${c1 - c0} coins, +${Math.round(sc1 - sc0)} score`);
+    // ≥: the window also covers driving / walking, where road coins and other features can add a few
+    t.check("pull-over pays 50 + 15 = 65 coins and +500 score", c1 - c0 >= 65 && c1 - c0 <= 75 && sc1 - sc0 >= 500, `+${c1 - c0} coins, +${Math.round(sc1 - sc0)} score`);
     await t.frames(10);
     await t.shot("after-pullover");
 
