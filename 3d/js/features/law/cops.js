@@ -174,6 +174,14 @@ function onCopCrash(u, e) {
 
 /** Free-mode driver for our cruisers: pursue / box in / pull over / haul away / give up. */
 function driveUnit(dt, c, u) {
+    const px = c.x, pz = c.z, ph = c.h, ps = c.s;
+    steerUnit(dt, c, u);
+    // never let a bad frame poison the cruiser (or anything that reads it) with NaN
+    if (!Number.isFinite(c.x) || !Number.isFinite(c.z) || !Number.isFinite(c.h) || !Number.isFinite(c.speed)) {
+        c.x = px; c.z = pz; c.h = Number.isFinite(ph) ? ph : 0; c.s = Number.isFinite(ps) ? ps : ctx.car.s; c.speed = 0;
+    }
+}
+function steerUnit(dt, c, u) {
     const road = ctx.world.road, car = ctx.car;
     u.t += dt;
     road.nearest(c.x, c.z, c.s, tmpN);
@@ -199,8 +207,8 @@ function driveUnit(dt, c, u) {
         if (Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70) tD = clamp(ld, -5.25, 5.25);
         u.vmax = 34 + heat * 2 + (ls - c.s > 160 ? 4 : 0);
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
-        tD = u.pullD;
-        const err = u.stopS - c.s;
+        tD = Number.isFinite(u.pullD) ? u.pullD : 7.9;
+        const err = (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
         vT = clamp(err * 1.1, 0, 22);
         if (err < 0.4) vT = 0;
         u.vmax = 30;
@@ -870,7 +878,7 @@ export function startFlavour() {
     const victim = ctx.traffic.cars.find(c => !c.hit && !c.ai && c.dir > 0 && c.s > car.s + 110 && c.s < car.s + 280 && !(c.data && c.data.law));
     if (!victim) return null;
     const u = addUnit(victim.s - 16, victim.d, 1, victim.speed + 4, { mode: "chase" });
-    u.mode = "pull"; u.pullD = 7.9; u.siren = true; u.flavour = victim; u.talkT = 0;
+    u.mode = "pull"; u.pullD = 7.9; u.stopS = victim.s - 7.5; u.siren = true; u.flavour = victim; u.talkT = 0;
     victim.keep = true;
     victim.ai = (dt, c) => {
         c.dTarget = 7.9;

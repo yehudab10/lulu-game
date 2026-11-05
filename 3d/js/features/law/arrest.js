@@ -38,7 +38,7 @@ registerState("lawArrest", {
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {
             st.unit = scriptedCruiser(28, data.onFoot ? 5.25 : ctx.car.d);
-            st.unit.mode = "pull"; st.unit.pullD = data.onFoot ? 5.25 : ctx.car.d;
+            st.unit.mode = "pull"; st.unit.pullD = data.onFoot ? 5.25 : ctx.car.d; st.unit.stopS = ctx.car.s - 7.4;
         }
         st.unit.siren = true;
         if (!st.unit.car.ai) { st.unit.car.free = true; st.unit.car.ai = (dt, c) => driveUnit(dt, c, st.unit); }
@@ -196,7 +196,7 @@ async function script(f) {
     UI.fadeTo(true, 700);
     await f.sleep(0.75);
     check(f);
-    const sResume = u.car ? u.car.s + 60 : ctx.car.s + 200;
+    const sResume = u.car && Number.isFinite(u.car.s) ? u.car.s + 60 : ctx.car.s + 200;
     setState("lawJail", { charges: st.charges, arrive: true, sResume });
     UI.fadeTo(false, 500);
 }

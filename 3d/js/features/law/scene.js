@@ -74,6 +74,7 @@ export function lulu(jumpsuit = false) {
 /** Step a person toward (x, z). Returns true once there. */
 export function walkTo(p, x, z, speed, dt, opts = {}) {
     const o = p.obj;
+    if (!Number.isFinite(x) || !Number.isFinite(z)) { p.update(dt, opts); return true; }
     const dx = x - o.position.x, dz = z - o.position.z;
     const d = Math.hypot(dx, dz);
     if (d < 0.08) { p.update(dt, opts); return true; }

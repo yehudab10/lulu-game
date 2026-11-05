@@ -322,7 +322,7 @@ def build_court():
     parts.append(cyl(coll, "seal", 1.1, 0.12, c.GOLD, (0, y1 - 0.08, 4.4), segs=32, axis="Y"))
     parts.append(cyl(coll, "sealin", 0.85, 0.14, mat("SealBlue", "#22396B", rough=0.5), (0, y1 - 0.1, 4.4), segs=32, axis="Y"))
     parts.append(text(coll, "sealtxt", "⚖", 0.9, c.GOLD, (0, y1 - 0.2, 4.35), extrude=0.03))
-    parts.append(text(coll, "motto", "IN JUSTICE WE TRUST (MOSTLY)", 0.26, c.GOLD, (0, y1 - 0.08, 3.05), extrude=0.01))
+    parts.append(text(coll, "motto", "IN JUSTICE WE TRUST (MOSTLY)", 0.26, c.GOLD, (0, y1 - 0.08, 5.85), extrude=0.01))
     # flags
     for s, col in ((-1, "#1E3A8A"), (1, "#7A1F2B")):
         parts.append(cyl(coll, "flagpole", 0.045, 3.6, c.GOLD, (s * 3.2, BY + 0.6, 2.25)))

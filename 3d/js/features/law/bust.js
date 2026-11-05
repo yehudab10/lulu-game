@@ -72,7 +72,7 @@ registerState("lawBust", {
         rumble(0.4, 0.6, 300, true);
         A.duckMusic(0.15);
         if (u && u.car) {
-            u.mode = "pull"; u.siren = true; u.pullD = 7.9;
+            u.mode = "pull"; u.siren = true; u.pullD = 7.9; u.stopS = ctx.car.s - 7.2;
             if (!u.car.ai) { u.car.free = true; u.car.ai = (dt, c) => driveUnit(dt, c, u); }
         }
         flow = runFlow(f => script(f, data));
@@ -189,7 +189,7 @@ async function script(f, data) {
     }
     const wasBribe = /BRIBE/.test(scene.title);
     let ch = data.charges && data.charges.length ? data.charges.slice()
-        : wasBribe ? ["ATTEMPTED BRIBERY", "SPEEDING"]
+        : wasBribe ? ["ATTEMPTED BRIBERY", rt === "RECKLESS DRIVING" ? "SPEEDING" : rt]
         : rt === "SPEEDING" || rt === "RECKLESS DRIVING" ? ["SPEEDING", "RECKLESS DRIVING"] : [rt, "RECKLESS DRIVING"];
     for (const c of data.extra || []) if (!ch.includes(c)) ch.push(c);
     st.keepCop = true;

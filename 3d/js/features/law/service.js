@@ -84,7 +84,7 @@ export function resumeDriving({ s = null, fugitive = false, banner = "", onPlace
         return;
     }
     const G = ctx.G, car = ctx.car, road = ctx.world.road;
-    const s0 = Math.max(12, s != null ? s : car.s + 120);
+    const s0 = Math.max(12, Number.isFinite(s) ? s : Number.isFinite(car.s) ? car.s + 120 : 12);
     const p = road.point(s0, 1.75, {});
     ctx.traffic.clear();
     L.units.length = 0;

@@ -51,15 +51,15 @@ function buildExt() {
     const far = new THREE.Mesh(own(new THREE.PlaneGeometry(260, 3)), own(new THREE.MeshStandardMaterial({ color: "#b9b3a6", roughness: 0.95 })));
     far.rotation.x = -Math.PI / 2; far.position.set(0, 0.03, 16.2); set.add(far);
     // a few trees + hedges so it sits in the neighbourhood
-    const trees = [[-16, -1], [-22, 3], [16, -2], [23, 2], [-30, -6], [31, -5], [-12, 19], [8, 21], [26, 20]];
+    const trees = [[-16, -1], [-22, 3], [16, -2], [23, 2], [-30, -6], [31, -5], [-14, 24], [-30, 22], [30, 26]];
     trees.forEach(([x, z], i) => {
         const t = cloneWithColors(i % 2 ? models.treePine : models.treeRound);
         t.position.set(x, 0, z); t.scale.setScalar(1.1 + (i % 3) * 0.15); set.add(t);
     });
     for (const x of [-6.5, -4.5, 4.5, 6.5]) { const b = cloneWithColors(models.bush); b.position.set(x, 0, 1.4); b.scale.setScalar(1.1); set.add(b); }
     // the courthouse sign that covers PRECINCT 18½ when she walks out of court
-    const courtSign = textPlane(["COUNTY COURTHOUSE"], { w: 6.2, h: 0.9, bg: "#2a2f45", fg: "#F3D27A", font: 72 });
-    courtSign.position.set(0, 5.75, 2.36); courtSign.visible = false; set.add(courtSign);
+    const courtSign = textPlane(["COUNTY COURTHOUSE"], { w: 6.5, h: 1.0, bg: "#2a2f45", fg: "#F3D27A", font: 72 });
+    courtSign.position.set(0, 5.75, 2.46); courtSign.visible = false; set.add(courtSign);
     // the cruiser + Lulu's own car
     const cruiser = cloneWithColors(models.cop);
     const crig = rig(cruiser);
@@ -581,8 +581,8 @@ function updateServe(dt, P) {
     sv.lifeT -= dt;
     if (sv.lifeT <= 0) { sv.lifeT = rand(6, 9); UI.toast(pick(JAIL_LIFE), ""); }
     J.tally.count = Math.min(150, sv.days);
-    UI.caption("⛓️ SERVING YOUR SENTENCE", SERVE_ACTS[sv.act]);
-    UI.progress(sv.days / sv.total, `DAY ${sv.days} / ${sv.total} · mash ${glyph("confirm")} (or tap) to do your time · car impounded — you walk out free 🚶‍♀️`);
+    UI.caption("⛓️ SERVING YOUR SENTENCE", `${SERVE_ACTS[sv.act]} · mash ${glyph("confirm")} (or tap) to do your time`);
+    UI.progress(sv.days / sv.total, `DAY ${sv.days} / ${sv.total} · car impounded — you'll walk out 🚶‍♀️`);
 }
 
 // ── animation of the cast ────────────────────────────────────────────────
@@ -601,7 +601,7 @@ function animate(dt) {
     if (pose.who === "intake") {
         faceYaw(me, pose.profile ? Math.PI / 2 : 0, dt, 6);
         me.update(dt, {});
-        _v.set(0, 1.02, 0.2).applyMatrix4(me.obj.matrixWorld);
+        _v.set(0, 1.04, 0.36).applyMatrix4(me.obj.matrixWorld);
         j.placard.position.copy(_v);
         j.placard.rotation.y = me.obj.rotation.y;
     } else if (pose.who === "bunk") {
