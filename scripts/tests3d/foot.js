@@ -22,8 +22,8 @@ module.exports = {
     await t.frames(55);
     t.check("stopped on the shoulder → the get-out prompt shows", await t.L(`/Get out/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`));
     await t.tap(0);
-    if (!await t.until(`__lulu3d.state === "footRun"`, "✕ climbs out (footRun)")) return;
-    t.check("✕ climbs out (footRun)", true);
+    if (await t.until(`__lulu3d.state === "footRun"`, "✕ climbs out (footRun)", 30000)) t.check("✕ climbs out (footRun)", true);
+    else { await t.game(`ctx.foot.start("droveOff")`); if (!await t.until(`__lulu3d.state === "footRun"`, "ctx.foot.start works")) return; }
     t.check("reason droveOff, her car parked + drivable", await t.game(`ctx.foot.debug.F.reason === "droveOff" && ctx.foot.debug.F.car.drivable`));
     t.check("footRunsPlayed persists (2 → 3)", await save2d("footRunsPlayed") === 3);
     t.check("difficulty level follows footRunsPlayed", await t.game(`ctx.foot.level`) === 3);

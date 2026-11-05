@@ -380,6 +380,13 @@ on("pause", e => {   // keep our overlays off the pause menu
 // ── pulling onto the shoulder and climbing out (the 2D "EXIT" button) ────
 function updateDriveOff(dt, P, controlsOn) {
     const car = ctx.car, G = ctx.G;
+    // (✕ is also the gas button on a pad, so act on the prompt that was showing BEFORE this press)
+    if (driveOff.shown && P.interact && ctx.state === "playing") {
+        driveOff.t = 0; driveOff.shown = false;
+        H.prompt("");
+        start("droveOff");
+        return;
+    }
     const ok = ctx.state === "playing" && controlsOn && !chaseActive && !G.arrived && !(ctx.law && ctx.law.chasing) &&
         Math.abs(car.d) > 6.4 && car.speed < 0.8 && input.throttle < 0.05;
     driveOff.t = ok ? driveOff.t + dt : 0;
@@ -387,11 +394,6 @@ function updateDriveOff(dt, P, controlsOn) {
     if (show !== driveOff.shown) {
         driveOff.shown = show;
         H.prompt(show ? `${glyph("interact")} 🚶‍♀️ Get out &amp; walk` : "");
-    }
-    if (show && P.interact) {
-        driveOff.t = 0; driveOff.shown = false;
-        H.prompt("");
-        start("droveOff");
     }
 }
 
