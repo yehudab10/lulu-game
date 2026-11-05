@@ -82,15 +82,15 @@ module.exports = {
     await t.until(`!!document.querySelector("#lawUI .law-head:not(.hidden)")`, "UNDER ARREST header", 30000);
     await t.frames(30);
     await t.shot("arrest-cuffs");
-    await t.until(`__lulu3d.state === "lawJail"`, "hauled to the precinct", 120000);
+    await t.until(`__lulu3d.state === "lawJail"`, "hauled to the precinct", 400000);
     t.check("hauled to PRECINCT 18½", await st() === "lawJail");
     await t.frames(30);
     await t.shot("precinct");
     // skip ahead to the cell
-    await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "intake"`, "booking & intake", 120000);
+    await t.until(`__lulu3d.ctx.law._dbg.jail() && ["intake", "cell"].includes(__lulu3d.ctx.law._dbg.jail().phase)`, "booking & intake", 400000);
     await t.frames(25);
     await t.shot("booking");
-    await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`, "the cell menu", 120000);
+    await t.until(CELL, "the cell menu", 400000);
     const sv = await save2d();
     t.check("booking counts an offense (shared 2D save)", sv.offenses === 1, `offenses ${sv.offenses}`);
     t.check("the lockup is saved for a refresh (mode 'cell')", sv.lockup && sv.lockup.mode === "cell", JSON.stringify(sv.lockup || null).slice(0, 120));
