@@ -21,12 +21,12 @@ registerState("dinaNap", {
         Object.assign(N, { t: 0, tucked: false, tuckT: 0, awarded: false, tap: false });
         const d = Home.dina;
         // tuck the walking Dina into bed: on her back, head on the pillow
-        d.obj.position.set(SPOTS.bed.x, 0.8, SPOTS.bed.z + 0.38);
+        d.obj.position.set(SPOTS.bed.x, 0.84, SPOTS.bed.z + 0.38);
         d.obj.rotation.set(-Math.PI / 2, 0, 0);
         d.update(0, {});
         if (rm.quilt) {
             N.quiltY = rm.quilt.position.y; N.quiltS = rm.quilt.scale.z;
-            rm.quilt.position.y = N.quiltY + 0.16;
+            rm.quilt.position.y = N.quiltY + 0.24;
             rm.quilt.scale.z = 0.6;
         }
         // Morgan, tucked in beside her
@@ -72,7 +72,7 @@ registerState("dinaNap", {
             const want = N.tucked ? 1.04 : 0.6;
             rm.quilt.scale.z += (want - rm.quilt.scale.z) * Math.min(1, dt * 4);
             const breath = Math.sin(N.t * (N.tucked ? 1.6 : 2.4)) * (N.tucked ? 0.012 : 0.008);
-            rm.quilt.position.y = N.quiltY + 0.16 + breath;
+            rm.quilt.position.y = N.quiltY + 0.24 + breath;
         }
         d.update(dt, { sit: false });
         // award once she's actually rested

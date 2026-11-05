@@ -94,6 +94,7 @@ function html() {
         </div>
         <div class="ds-foot">
             ${runs > 0 ? `<button class="ds-room" id="dsRoom">🏠 Straight to Dina's room</button>` : ""}
+            <div class="tammy" style="font-style:normal;font-weight:700;font-size:16px">${isTouch() ? "Tap a sister to play!" : `${g("move")} pick a sister · ${g("confirm")} play`}</div>
             <div class="tammy">🏥 (Tammy's working a shift — she's a nurse)</div>
         </div>`;
 }

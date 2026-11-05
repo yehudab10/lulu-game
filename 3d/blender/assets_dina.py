@@ -411,8 +411,9 @@ def build_props():
           Part(coll, "arm", bm_box(0.3, 0.03, 0.03), METAL, loc=(0, 0, 0.27))]
     for k in range(6):
         a = k * math.pi * 2 / 6
-        arc = Part(coll, "arc", bm_arc(0.55, 0.014, math.pi, -0.16 * math.pi, 14, 5), WATER, loc=(0, 0, 0.27), rot=(0, 0, a))
+        arc = Part(coll, "arc", bm_arc(0.55, 0.011, math.pi, -0.2 * math.pi, 14, 5), WATER, loc=(0, 0, 0.27), rot=(0, 0, a))
         arc.ob.data.transform(Matrix.Translation((0.55, 0, 0)))
+        arc.ob.data.transform(Matrix.Diagonal((1.0, 1.0, 0.5, 1.0)))
         hp.append(arc)
     bake_at(hp, "SprinklerHead", coll, g, (0, 0, 0.24))
 

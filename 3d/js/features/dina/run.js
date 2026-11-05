@@ -65,7 +65,7 @@ function makeHazard(type, u, z) {
         case "greenblatt": {
             const p = spawnPerson("dinaGreenblatt");
             const paddle = prop("dinaProps", "StopPaddle");
-            paddle.rotation.x = -Math.PI / 2;
+            paddle.rotation.x = Math.PI / 2;   // upright once her arm points forward
             attach(p, "Arm_R", paddle, 0, -0.44, 0.02);
             hz.person = p;
             o = p.obj;
@@ -242,7 +242,7 @@ registerState("dinaRun", {
 
         // ONE source of truth for motion (2D: dinaScrollY)
         let mult = sprint ? 2.0 : slow ? 0.5 : 1.0;
-        if (d.stumble > 0) { mult *= 0.3; d.stumble -= dt; }
+        if (d.stumble > 0) { mult *= 0.3; d.stumble = Math.max(0, d.stumble - dt); }
         R.speed = BASE * mult;
         R.z += R.speed * dt;
         R.distance = Math.min(R.z / RUN_LEN, 1);
