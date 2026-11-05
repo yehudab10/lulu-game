@@ -189,6 +189,10 @@ module.exports = {
     t.check("time served clears the lockup", !(await save2d()).lockup);
 
     // ── a cop-caused wreck is claimed by law (priority 30) ──
+    // With the foot feature present her car is impounded after time served, so she walks
+    // out (as in 2D); start a fresh drive for the rest of the test either way.
+    await t.until(`["playing", "footRun"].includes(__lulu3d.state)`, "back outside after serving", 300000);
+    if (await st() !== "playing") await t.game(`L3.startRun({ mode: "cruise" })`);
     await t.until(`__lulu3d.state === "playing"`, "driving", 300000);
     await t.game(`(ctx.G.invT = 0, ctx.G.hearts = 1, L3.damage(1, "Rammed a cruiser", "cop"))`);
     await t.until(`__lulu3d.state === "lawArrest"`, "wrecking against a cop → arrest", 60000);
