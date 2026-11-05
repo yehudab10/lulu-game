@@ -71,16 +71,19 @@ module.exports = {
     t.check("chapter task chip: groceries", await t.L(`/Groceries/.test((document.querySelector(".jtask") || {}).textContent)`));
     await t.until(`!__lulu3d.ctx.phone.busy()`, "story call ends", 60000);
 
-    // ── Ima is calling: HONK declines (+10) ──
+    // ── Ima is calling: HONK declines (+10) ── (Lulu parks first so road coins / speed traps don't muddy the count)
+    await t.hold(7, 0);
+    await G(`(ctx.car.vx = 0, ctx.car.vz = 0, ctx.traffic.clear(), ctx.traffic.config.enabled = false, true)`);
+    await t.frames(4);
     let c0 = await G(`ctx.G.coins`);
     await G(`ctx.journey.debug.imaCall() && true`);
     await t.frames(4);
     t.check("Ima rings", await G(`ctx.phone.active && ctx.phone.active.phase === "ring"`));
     await shot("ima-ring");
     await t.tap(4);                   // L1 / LB = horn
-    t.check("a honk declines", await G(`ctx.phone.active && ctx.phone.active.result === "declined"`));
+    t.check("a honk declines (+10, she's proud)", await G(`ctx.phone.active && ctx.phone.active.result === "declined" && ctx.phone.active.pay === 10`));
     await t.until(`!__lulu3d.ctx.phone.busy()`, "declined call clears");
-    t.check("declining pays +10 (she's proud)", (await G(`ctx.G.coins`)) - c0 === 10);
+    t.check("declining pays +10 into the run's coins", (await G(`ctx.G.coins`)) - c0 === 10, `${c0} → ${await G(`ctx.G.coins`)}`);
     // let it ring → Lulu picks up → flipped steering → +30 gas money
     c0 = await G(`ctx.G.coins`);
     await G(`ctx.journey.debug.imaCall() && true`);
@@ -90,8 +93,10 @@ module.exports = {
     await t.frames(6);
     await shot("ima-talk");
     await t.until(`!__lulu3d.ctx.phone.talking`, "the call finishes", 60000);
-    t.check("a full chat pays +30 gas money", (await G(`ctx.G.coins`)) - c0 === 30);
+    t.check("a full chat pays +30 gas money", (await G(`ctx.G.coins`)) - c0 === 30, `${c0} → ${await G(`ctx.G.coins`)}`);
     t.check("steering back to normal", await G(`ctx.phone.flipped === false`));
+    await G(`(ctx.traffic.config.enabled = true, true)`);
+    await t.hold(7, 0.6);
 
     // ── chapter task: 40 coins on the grocery run ──
     await G(`L3.addCoins(40, "test")`);
