@@ -163,12 +163,11 @@ module.exports = {
     await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 2`, "the hora", 60000);
     await t.frames(40);
     await t.shot("wedding-hora");
-    await t.until(`__lulu3d.ctx.foot.debug.weddingState().bq > 0.7`, "the bouquet flies toward Lulu", 60000);
-    await t.shot("wedding-bouquet");
+    await t.until(`__lulu3d.ctx.foot.debug.weddingState().bq > 0.66`, "the bouquet flies toward Lulu", 60000);
     await t.tap(0);
     t.check("✕ in the window catches the bouquet", await t.game(`ctx.foot.debug.weddingState().caught === true`));
     await t.frames(6);
-    await t.shot("wedding-caught");
+    await t.shot("wedding-bouquet-caught");
     if (await t.until(`__lulu3d.state === "footRun"`, "back to walking after the wedding", 60000)) t.check("back to walking after the wedding", true);
     await t.frames(40);
     t.check("bouquet reward: +41 (40 💰 + 1 ⭐)", await wallet() - w1 >= 41, `${w1} → ${await wallet()}`);
@@ -190,7 +189,9 @@ module.exports = {
     await t.L(`document.body.classList.remove("tv")`);
 
     // ── out of hearts on foot → game over (ER forced off) ──
-    await t.game(`(() => { ctx.foot.force.er = false; ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F; const c = ctx.traffic.add("truck", F.s - 16, F.d, 1, 20); c.data.footAttn = false; })()`);
+    await t.game(`(() => { ctx.foot.force.er = false; ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F;
+      const r = ctx.world.road, p = r.point(F.s + 40, 3.5, {}); F.pos.set(p.x, 0, p.z); F.s += 40; F.d = 3.5; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+      const c = ctx.traffic.add("truck", F.s - 16, 3.5, 1, 20); c.data.footAttn = false; })()`);
     if (await t.until(`__lulu3d.state === "gameover"`, "last heart on foot → game over", 60000)) {
       t.check("last heart on foot → game over", true);
       t.check("foot ended", await t.game(`!ctx.foot.active`));

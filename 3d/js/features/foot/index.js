@@ -108,7 +108,8 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #footHot .hint { margin-top: 6px; font-size: 14px; opacity: .85; }
 #footWash { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; background: #000; transition: opacity .25s; }
 body.tv #footHot { width: min(760px, 70vw); } body.tv #footHot .ttl { font-size: 28px; } body.tv .foot-chip { font-size: 22px; }
-@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 130px); } }
+@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 130px); }
+  body.onfoot.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 `);
 const hot = document.createElement("div");
 hot.id = "footHot";
@@ -245,7 +246,7 @@ function makeCarStub(pos, h, { drivable }) {
     const kind = "foot_wreck_" + key;
     if (!kindSpec(kind)) registerKind(kind, { len: 4.4, halfW: 0.95, circles: [1.15, -1.15], r: 0.95, mass: 3, model: key });
     const near = rd.nearest(pos.x, pos.z, ctx.car.s, {});
-    const c = T.add(kind, near.s, near.d, near.d >= 0 ? 1 : -1, 0, { ai: cc => { cc.speed = 0; }, data: { footStub: true }, noNearMiss: true });
+    const c = T.add(kind, near.s, near.d, near.d >= 0 ? 1 : -1, 0, { ai: (dt, cc) => { cc.speed = 0; }, data: { footStub: true }, noNearMiss: true });
     c.free = true; c.x = pos.x; c.z = pos.z; c.h = h;
     T.place(c, 0);
     c.obj.traverse(o => {
@@ -722,7 +723,7 @@ function updateIntro(dt) {
     if (!F.introSaid && prog > 0.32) { F.introSaid = true; bubble(o, F.introLine, 3.2); }
     if (t >= T) {
         F.phase = "walk"; F.phaseT = 0;
-        ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
+        if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
         F.hintT = 6;
     }
 }

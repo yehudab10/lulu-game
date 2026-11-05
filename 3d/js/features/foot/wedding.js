@@ -577,7 +577,7 @@ function updateCamera(dt) {
         _look.set(HORA.x * 0.4 + lp.x * 0.6, 1.8, HORA.z * 0.6 + lp.z * 0.4 - 1);
     } else if (W.phase >= 2) {
         const a = W.t * 0.25;
-        _from.set(HORA.x + Math.sin(a) * 8.5, 3.6, HORA.z + Math.cos(a) * 8.5);
+        _from.set(HORA.x + Math.sin(a) * 8.5, 2.7, HORA.z + Math.cos(a) * 8.5);
         _look.set(HORA.x, 1.4, HORA.z);
     }
     if (portrait) _from.lerp(_look, -0.35);
