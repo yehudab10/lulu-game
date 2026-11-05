@@ -208,6 +208,7 @@ export function armLeg(i, fresh = false) {
     G.goText = "";
     armTask(i);
     setTripIcon(st.icon);
+    G.music = st.music;          // other features' scenes restore ctx.G.music when they finish
     A.setMusic(st.music);
     warmLeg(i);
     emit("journey:leg", { index: i, stop: st, fresh });
