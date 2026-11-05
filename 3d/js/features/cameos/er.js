@@ -354,6 +354,7 @@ registerState("cameosER", {
         fade(1, 0);
         (E.loading || Promise.resolve()).then(() => {
             if (!E || ctx.state !== "cameosER") return;
+            if (!models.cameos_erProps) { fade(0, 0.4); discharge(E, { hearts: 1, banner: "🩹 <b>Patched up!</b>" }); return; }
             if (!set) buildSet();
             setupCast(E);
             set.show();

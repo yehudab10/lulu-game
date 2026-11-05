@@ -146,6 +146,18 @@ module.exports = {
       await t.frames(12);
       t.check("focusing a style previews it on Lulu (live)", await t.game(`ctx.cameos.salon.salonState().preview === "bouncy"`));
       await t.shot("salon-style");
+      // the side panel must not break phone portrait or TV mode
+      await t.page.setViewportSize({ width: 390, height: 780 });
+      await t.frames(6);
+      await t.shot("salon-style-portrait");
+      t.check("portrait: the style panel fits on screen", await t.L(`(() => { const r = document.getElementById("screenCard").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()`));
+      await t.page.setViewportSize({ width: 1280, height: 720 });
+      await t.L(`document.body.classList.add("tv")`);
+      await t.frames(6);
+      await t.shot("salon-style-tv");
+      await t.L(`document.body.classList.remove("tv")`);
+      await t.page.setViewportSize({ width: 960, height: 540 });
+      await t.frames(4);
       await t.tap(0);
       await t.until(`!!document.querySelector(".swatch")`, "the colour picker opens");
       await t.tap(13); await t.tap(13);  // ↓ ↓ → PINK

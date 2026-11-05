@@ -13,6 +13,7 @@
 // Then: the ambulance gets there first (~35%, ctx.er.admit) or game over.
 import { ctx, on, hook, emit, registerState, setState, pick, rand, wrapAngle, MPH } from "../../core/ctx.js";
 import { registerModels, ensureModels } from "../../models.js";
+import { save3d } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
 import { addCoins } from "../../core/driving.js";
 import { say, closeDialog } from "../../core/dialog.js";
@@ -170,8 +171,6 @@ registerState("cameosCrash", {
             f.userData.ph = i * 2.1;
             S.group.add(f); S.fires.push(f);
         }
-        S.light = new THREE.PointLight("#FF8A3D", 4, 12, 1.5);
-        S.group.add(S.light);
         S.ext = carExtent();
         runCrash(S).catch(e => { console.error("[cameos crash]", e); endScene(S, "gameover"); });
     },
@@ -196,8 +195,6 @@ registerState("cameosCrash", {
             f.position.set(car.pos.x + fwd.x * (1.3 + i * 0.25) + (i - 1) * 0.35 * fwd.z, 1.05 + i * 0.1, car.pos.z + fwd.z * (1.3 + i * 0.25) - (i - 1) * 0.35 * fwd.x);
             f.scale.set(0.9 * fl, 1.3 * fl, 1);
         });
-        S.light.position.set(car.pos.x + fwd.x * 1.5, 1.6, car.pos.z + fwd.z * 1.5);
-        S.light.intensity = 3 + Math.sin(ctx.time * 23) * 1.2 + Math.random();
         if ((S.smokeT -= dt) <= 0) {
             S.smokeT = 0.08;
             const g = 0.3 + Math.random() * 0.25;
@@ -225,6 +222,10 @@ registerState("cameosCrash", {
             _w.set(mx, 1.1, mz);
             ctx.cam.cinematic(_v, _w, dt, 1.8, 50);
         }
+        // impact shake (the driving camera's shake doesn't run during cutscenes)
+        const G = ctx.G, calm = save3d.settings.calm;
+        if (G.shake > 0 && !calm) ctx.camera.position.add(_w.set((Math.random() - 0.5) * G.shake * 0.5, (Math.random() - 0.5) * G.shake * 0.3, (Math.random() - 0.5) * G.shake * 0.5));
+        G.shake = Math.max(0, (G.shake || 0) - dt * 1.8);
         return true;
     },
 });
