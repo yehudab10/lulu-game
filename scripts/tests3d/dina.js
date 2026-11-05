@@ -204,5 +204,30 @@ module.exports = {
     await t.tap(1);
     if (await t.until(`__lulu3d.state === "title"`, "○ returns to the title")) t.check("○ returns to the title", true);
     t.check("Dina's layer is cleaned up", await t.L(`document.getElementById("dinaLayer").classList.contains("off")`));
+
+    // ── layouts: a phone held upright (touch) and TV mode ──
+    await t.page.setViewportSize({ width: 390, height: 844 });
+    await t.L(`__lulu3d.input.device = "touch"`);
+    await t.click(/Dina/);
+    if (!await t.until(`__lulu3d.state === "dinaSelect"`, "portrait: picker")) return;
+    await t.frames(6);
+    await t.shot("portrait-select");
+    await t.click(/Straight to Dina's room/);
+    if (await t.until(`__lulu3d.state === "dinaHome"`, "portrait: straight to Dina's room")) t.check("'Straight to Dina's room' works", true);
+    await t.frames(8);
+    t.check("portrait bedroom shows the touch stick", await t.L(`!document.getElementById("touch").classList.contains("hidden")`));
+    await t.shot("portrait-bedroom");
+    await t.game(`L3.setState("dinaRun")`);
+    await t.frames(10);
+    t.check("portrait run relabels the pedals SPRINT / SLOW", await t.L(`document.body.classList.contains("dina-run") && getComputedStyle(document.getElementById("tGas"), "::after").content.includes("SPRINT")`));
+    await t.shot("portrait-run");
+    await t.page.setViewportSize({ width: 1280, height: 720 });
+    await t.L(`(__lulu3d.input.device = "gamepad", document.body.classList.add("tv"))`);
+    await t.frames(8);
+    await t.shot("tv-run");
+    await t.L(`document.body.classList.remove("tv")`);
+    await t.tap(9);
+    await t.click(/Title/);
+    if (await t.until(`__lulu3d.state === "title"`, "pause → title from the run")) t.check("pause → title from the run", true);
   },
 };
