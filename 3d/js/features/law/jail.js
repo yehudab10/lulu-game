@@ -249,6 +249,7 @@ async function main(f, data) {
     check(f);
     st.j = book(data.charges);
     emit("law:booked", { charges: st.j.charges, bail: st.j.bail });
+    emit("arrest", { charges: st.j.charges });   // multiplayer's WANTED-poster board listens for this
     await intake(f);
     await cellPhase(f);
 }

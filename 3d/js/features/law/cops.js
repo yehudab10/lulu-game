@@ -115,8 +115,10 @@ export function speeding() {
     const G = ctx.G;
     return !ctx.foot?.active && input.brake < 0.3 && (ctx.car.speed * MPH > SPEEDING_MPH || G.boosting);
 }
+/** The tutorial (meta) keeps ambient cop heat off, like the 2D tutorialCalm(). */
+function calm() { try { return !!(ctx.meta && ctx.meta.calm && ctx.meta.calm()); } catch (e) { return false; } }
 function canPounce() {
-    return L.grace <= 0 && L.hold <= 0 && !L.chase && ctx.state === "playing" && !(ctx.G.tutorial);
+    return L.grace <= 0 && L.hold <= 0 && !L.chase && ctx.state === "playing" && !(ctx.G.tutorial) && !calm();
 }
 export function activeUnits() { return L.units.filter(u => u.car && !u.car.hit && u.mode === "chase"); }
 function nearestUnit(list = L.units, onlyChase = false) {
@@ -533,7 +535,7 @@ function bust(u) {
 // ── random cop events while driving ──────────────────────────────────────
 function updateRandom(dt, controlsOn) {
     const G = ctx.G;
-    if (!controlsOn || !ctx.enabled("law") || L.hold > 0) return;
+    if (!controlsOn || !ctx.enabled("law") || L.hold > 0 || calm()) return;
     // hidden traps
     if (config.traps && tickSpawn(dt) && G.runTime > 15 && !L.chase && L.traps.length < 2) spawnTrap();
     // patrol cars cruising the road (rare)

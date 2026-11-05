@@ -2,7 +2,7 @@
 //   ctx.law.startChase(reason, opts)   — borrowed cars on foot, the steamroller, a stopped school bus…
 //   ctx.law.arrest(charges[], opts)    — straight to the arrest cinematic (ER bill-skipping, a foot chase lost…)
 //   ctx.law.wanted                     — heat 0–5 (chase stars / fugitive stars / 1 with open warrants)
-// plus: chasing · fugitive · warrants · addWarrant() · clearHeat() · copNear() · report() · pullOver() · hold() · config
+// plus: chasing · fugitive · warrants · addWarrant()/addWanted() · clearHeat() · copNear() · report() · pullOver() · hold() · config
 // and resumeDriving(), which every "you're free" exit uses to put Lulu back on the road.
 import { ctx, setState } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
@@ -48,6 +48,8 @@ export const law = {
     get fugitive() { return !!L.fug; },
     get warrants() { return S.wanted.slice(); },
     addWarrant(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },
+    /** alias (cameos uses this name) */
+    addWanted(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },
     /** Shake the heat (a disguise on foot, a long lay-low): ends the fugitive stretch + any chase. */
     clearHeat(msg = "🥸 New look — nobody recognises you!") {
         if (L.chase) endChase("disguise");
