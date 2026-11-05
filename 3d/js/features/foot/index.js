@@ -371,6 +371,11 @@ hook("runStart", () => { if (F) end("runStart"); restoreCar(); driveOff.t = 0; }
 on("title", () => { if (F) end("title"); restoreCar(); });
 on("skin", () => { if (shell) restoreCar(); });
 on("wreck", () => { ensureModels(LAZY).catch(() => {}); });   // get the townsfolk loading early
+on("pause", e => {   // keep our overlays off the pause menu
+    const p = !!(e && e.paused);
+    hot.style.visibility = p ? "hidden" : "";
+    if (p) showBubbles(false);
+});
 
 // ── pulling onto the shoulder and climbing out (the 2D "EXIT" button) ────
 function updateDriveOff(dt, P, controlsOn) {

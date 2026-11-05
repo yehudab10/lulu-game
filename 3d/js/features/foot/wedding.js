@@ -9,7 +9,7 @@
 //     a timing press ("NOW — CATCH! 💐"). Caught = +40 💰 +1 ⭐, else +15 💰.
 //   3 → back to walking. Every phase auto-advances, so it always ends.
 import * as THREE from "three";
-import { ctx, registerState, setState, css, emit } from "../../core/ctx.js";
+import { ctx, on, registerState, setState, css, emit } from "../../core/ctx.js";
 import { models, registerModels, ensureModels, cloneWithColors, findNodes, instanced } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { makeSet } from "../../core/sets.js";
@@ -63,6 +63,8 @@ let tapFlag = false;
 ui.addEventListener("pointerdown", e => { if (e.target.classList.contains("pz")) return; e.preventDefault(); tapFlag = true; A.unlockAudio(); });
 ui.querySelector(".pz").addEventListener("click", () => pause());
 const $ = sel => ui.querySelector(sel);
+// the pause menu sits underneath our overlay: get out of its way
+on("pause", e => { ui.style.visibility = e && e.paused ? "hidden" : ""; if (e && e.paused) showBubbles(false); });
 
 let W = null;
 
