@@ -151,7 +151,7 @@ export function quietRoad(radius = 140) {
     if (trafficWas === null) trafficWas = tr.config.enabled;
     tr.config.enabled = false;
     for (const c of tr.cars.slice()) {
-        if (c.data && c.data.law) continue;
+        if ((c.data && c.data.law) || c.ai || c.keep) continue;   // never touch other features' scripted vehicles
         if (Math.abs(c.s - ctx.car.s) < radius) tr.remove(c);
     }
 }
