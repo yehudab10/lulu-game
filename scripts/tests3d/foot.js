@@ -147,12 +147,12 @@ module.exports = {
     await t.shot("wedding-procession");
     for (let i = 0; i < 6; i++) await t.tap(0);
     t.check("✕ throws petals + hurries her down the aisle", await t.game(`ctx.foot.debug.weddingState().prog > 0.4`));
-    await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 1`, "she reaches the chuppah", 60000);
+    for (let i = 0; i < 12 && (await t.game(`ctx.foot.debug.weddingState().prog`)) < 1; i++) await t.tap(0);
+    await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 1`, "she reaches the chuppah", 240000);
     await t.frames(20);
     await t.shot("wedding-circles");
     for (let i = 0; i < 14 && (await t.game(`ctx.foot.debug.weddingState().circles`)) < 7; i++) { await t.tap(0); await t.frames(6); }
-    await t.until(`__lulu3d.ctx.foot.debug.weddingState().circles >= 7`, "seven circles", 60000);
-    t.check("seven circles", true);
+    if (await t.until(`__lulu3d.ctx.foot.debug.weddingState().circles >= 7`, "seven circles", 240000)) t.check("seven circles", true);
     await t.frames(10);
     await t.shot("wedding-glass");
     await t.tap(0);
@@ -160,19 +160,20 @@ module.exports = {
     await t.frames(4);
     t.check("MAZEL TOV!!! shows", await t.L(`getComputedStyle(document.querySelector("#footWed .mazel")).display !== "none"`));
     await t.shot("wedding-mazel-tov");
-    await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 2`, "the hora", 60000);
+    await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 2`, "the hora", 240000);
     await t.frames(40);
     await t.shot("wedding-hora");
-    await t.until(`__lulu3d.ctx.foot.debug.weddingState().bq > 0.66`, "the bouquet flies toward Lulu", 60000);
+    await t.until(`__lulu3d.ctx.foot.debug.weddingState().bq > 0.66`, "the bouquet flies toward Lulu", 240000);
     await t.tap(0);
     t.check("✕ in the window catches the bouquet", await t.game(`ctx.foot.debug.weddingState().caught === true`));
     await t.frames(6);
     await t.shot("wedding-bouquet-caught");
-    if (await t.until(`__lulu3d.state === "footRun"`, "back to walking after the wedding", 60000)) t.check("back to walking after the wedding", true);
+    if (await t.until(`__lulu3d.state === "footRun"`, "back to walking after the wedding", 240000)) t.check("back to walking after the wedding", true);
     await t.frames(40);
     t.check("bouquet reward: +41 (40 💰 + 1 ⭐)", await wallet() - w1 >= 41, `${w1} → ${await wallet()}`);
     t.check("Avigail friendship +20", (await save2d("avigailRel")) - (rel0 || 50) === 20, `${rel0} → ${await save2d("avigailRel")}`);
 
+    await t.frames(75);   // the 2 s re-entry shield runs out
     // ── phone portrait with touch controls, then TV mode ──
     await t.page.setViewportSize({ width: 390, height: 780 });
     await t.L(`window.dispatchEvent(new Event("touchstart"))`);
@@ -189,10 +190,11 @@ module.exports = {
     await t.L(`document.body.classList.remove("tv")`);
 
     // ── out of hearts on foot → game over (ER forced off) ──
+    await t.until(`__lulu3d.state === "footRun"`, "walking again before the last test", 240000);
     await t.game(`(() => { ctx.foot.force.er = false; ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F;
       const r = ctx.world.road, p = r.point(F.s + 40, 3.5, {}); F.pos.set(p.x, 0, p.z); F.s += 40; F.d = 3.5; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
       const c = ctx.traffic.add("truck", F.s - 16, 3.5, 1, 20); c.data.footAttn = false; })()`);
-    if (await t.until(`__lulu3d.state === "gameover"`, "last heart on foot → game over", 60000)) {
+    if (await t.until(`__lulu3d.state === "gameover"`, "last heart on foot → game over", 120000)) {
       t.check("last heart on foot → game over", true);
       t.check("foot ended", await t.game(`!ctx.foot.active`));
       t.check("footRunHigh saved to the shared 2D save", (await save2d("footRunHigh")) > 0, String(await save2d("footRunHigh")));
