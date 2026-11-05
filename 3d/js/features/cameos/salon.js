@@ -348,8 +348,9 @@ registerState("cameosSalon", {
             S.lulus[st.style] = p;
         }
         S.fabio = spawnPerson("cameos_fabio");
-        S.fabio.obj.position.set(0.95, 0, -1.75);
-        S.fabio.obj.rotation.y = -2.3;
+        S.fabio.obj.position.set(-0.9, 0, -1.7);
+        S.fabio.obj.rotation.y = 2.3;
+        room.chair.rotation.y = Math.PI;
         S.scissors = inHand(S.fabio, prop("cameos_props", "Scissors"), "R", [0, -0.46, 0.06]);
         set.add(S.fabio.obj);
         showStyle(S, h.style);
@@ -384,8 +385,16 @@ registerState("cameosSalon", {
         // Fabio: snip-snip, sway, and a little dance while the colour takes
         const fab = S.fabio;
         fab.update(dt, { talk: !S.dance, dance: S.dance, point: S.phase === 2 || S.phase === 3 });
-        fab.obj.position.x = 0.95 + Math.sin(S.t * 3) * 0.08;
-        if (S.dance) { fab.obj.position.x = Math.sin(S.t * 1.6) * 1.1; fab.obj.position.z = -1.6 + Math.cos(S.t * 1.6) * 0.25; }
+        fab.obj.position.x = -0.9 + Math.sin(S.t * 3) * 0.08;
+        if (S.dance) { fab.obj.position.x = Math.sin(S.t * 1.6) * 0.9; fab.obj.position.z = -2.95 + Math.cos(S.t * 1.6) * 0.12; }   // dancing in front of her (and in the mirror)
+        else fab.obj.position.z = -1.7;
+        // the reveal: the chair spins round to face us
+        if (S.phase === 5) {
+            S.spin = Math.min(1, (S.spin || 0) + dt * 1.1);
+            const ry = Math.PI * (1 - ease(S.spin));
+            room.chair.rotation.y = ry;
+            for (const p of Object.values(S.lulus)) p.obj.rotation.y = ry;
+        }
         fab.face(lulu.obj.position.x, lulu.obj.position.z, dt, 4);
         if (S.scissors && Math.sin(S.t * 6) > 0.92 && S.phase >= 1) sfx.snip();
         // twinkling vanity bulbs
@@ -401,7 +410,7 @@ registerState("cameosSalon", {
         // camera: wide on arrival, then behind the chair looking into the mirror, then the big reveal
         const c = S.cam;
         if (S.phase === 0) c.to(2.6, 2.1, 2.4, 0, 1.2, -2.6, dt, 1.4);
-        else if (S.phase === 5) c.to(-0.55 + Math.sin(S.t * 0.4) * 0.3, 1.45, -3.2, 0, 1.25, -2.15, dt, 1.6);
+        else if (S.phase === 5) c.to(1.3, 1.7, 0.9, 0.65, 1.1, -2.2, dt, 1.4);
         else c.to(1.25, 1.6, -0.75, -0.2, 1.3, -3.84, dt, 1.8);
         room.mirror.render(ctx.renderer, set.scene, set.camera);
     },

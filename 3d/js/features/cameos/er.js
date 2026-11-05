@@ -656,6 +656,8 @@ function escapeTick(e, dt) {
 function bust(e) {
     const s = e.esc, gag = e.caughtGag.visual;
     s.done = true;
+    for (const b of e.bubbles) b.dispose();
+    e.bubbles = [];
     // they drag her back into the room either way
     const r = s.run;
     r.obj.visible = true; r.obj.rotation.set(0, 0, 0); r.obj.position.set(0.2, 0, 0.4);
