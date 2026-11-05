@@ -15,7 +15,7 @@
 import * as THREE from "three";
 import { ctx, registerState, setState, emit, on, css } from "../../core/ctx.js";
 import { makeSet } from "../../core/sets.js";
-import { store, saveSoon, shared, wallet } from "../../core/save.js";
+import { store, saveSoon, shared, wallet, save3d } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
 import { models, ensureModels, registerModels, findNodes } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
@@ -288,10 +288,14 @@ export class Room {
         return this.inHand;
     }
 
-    pointLight(name, color, intensity = 6, distance = 9, decay = 1.6) {
+    /** A point light at Light_<name>. optional lights are skipped (kept off-scene) on low quality / consoles. */
+    pointLight(name, color, intensity = 6, distance = 9, decay = 1.6, optional = false) {
         const at = this.lightSpots[name];
         const l = new THREE.PointLight(color, intensity, distance, decay);
         if (at) l.position.copy(at);
+        const q = save3d.settings.quality, pf = ctx.platform || {};
+        const low = q === "low" || (q === "auto" && (pf.console || pf.tv));
+        if (optional && low) return l;
         this.set.add(l);
         this.lightsList.push(l);
         return l;

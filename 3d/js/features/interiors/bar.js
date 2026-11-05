@@ -312,8 +312,8 @@ export default defineInterior({
         set.hemi.color.set("#8a6a9a"); set.hemi.groundColor.set("#3a2028"); set.hemi.intensity = 1.0;
         set.sun.color.set("#ffcfa0"); set.sun.intensity = 0.7;
         d.pendants = [0, 1, 2].map(k => rt.pointLight("pendant" + k, "#ffc98a", 9, 7));
-        d.neon = [rt.pointLight("neonTitle", "#ff4fa3", 7, 7), rt.pointLight("neonChaim", "#40c4ff", 6, 6), rt.pointLight("neonOpen", "#69f0ae", 4, 5)];
-        d.juke = rt.pointLight("juke", "#ffb300", 4, 5);
+        d.neon = [rt.pointLight("neonTitle", "#ff4fa3", 7, 7, 1.6, true), rt.pointLight("neonChaim", "#40c4ff", 6, 6, 1.6, true), rt.pointLight("neonOpen", "#69f0ae", 4, 5, 1.6, true)];
+        d.juke = rt.pointLight("juke", "#ffb300", 4, 5, 1.6, true);
         d.disco = rt.pointLight("disco", "#ff80ff", 4, 8);
         d.neonMats = [];
         rt.root.traverse(o => { if (o.isMesh && /^Neon(Pink|Blue|Green)/.test(o.material.name) && !d.neonMats.includes(o.material)) d.neonMats.push(o.material); });
