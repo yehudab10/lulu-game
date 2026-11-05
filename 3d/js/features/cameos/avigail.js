@@ -81,7 +81,7 @@ hook("update", (dt, P, controlsOn) => {
             if ((c.data.bubT -= dt) <= 0) { c.data.bub.dispose(); c.data.bub = null; }
         }
         if (!controlsOn || c.hit || c.data.taunted) continue;
-        if (Math.abs(c.s - car.s) < 11 && Math.abs(c.d - car.d) < 7) {
+        if (c.s - car.s < 26 && c.s - car.s > -6 && Math.abs(c.d - car.d) < 7) {   // as Lulu closes in (she is still in view)
             c.data.taunted = true;
             carBubble(c, pick(AVIGAIL_ROAD_TAUNTS));
             setTimeout(() => H.toast(pick(LULU_ROAD_REPLIES), "pink"), 700);
@@ -397,8 +397,8 @@ registerState("cameosPorch", {
         // camera: a wide establishing shot, then over Lulu's shoulder, drifting in as the chat warms up
         const k = Math.min(1, p.steps / 6);
         if (p.t < 2.0) p.cam.to(-3.4, 2.6, 8.5, 0, 1.4, 0, dt, 1.2);
-        else if (p.done) p.cam.to(2.2, 1.9, 5.2, 0, 1.3, 0, dt, 1.5);
-        else p.cam.to(1.25 - k * 0.35, 1.9, 4.6 - k * 0.9, -0.15, 1.45, -0.4, dt, 1.8);
+        else if (p.done) p.cam.to(2.4, 2.3, 6.0, 0, 0.75, 0, dt, 1.5);
+        else p.cam.to(1.5 - k * 0.3, 2.25, 5.6 - k * 0.6, -0.1, 0.6, -0.3, dt, 1.8);   // subjects sit above the dialogue box
     },
 });
 

@@ -193,7 +193,7 @@ export async function spawnHeshy(opts = {}) {
             hes.face(ctx.car.pos.x, ctx.car.pos.z, dt, 2);
             hes.update(dt, { wave: near && !triggered, cheer: jumpT >= 0, talk: near });
             sign.visible = near && !triggered; if (sign.visible) sign.tick(dt);
-            if (!triggered && Math.abs(rs) < 10 && ctx.state === "playing") { triggered = true; jumpT = 0; triggerHeshy(hes, yard); }
+            if (!triggered && rs < 24 && rs > -10 && ctx.state === "playing") { triggered = true; jumpT = 0; triggerHeshy(hes, yard); }
             if (jumpT >= 0) {                  // CANNONBALL
                 jumpT += dt;
                 const k = clamp(jumpT / 1.1, 0, 1);
@@ -317,10 +317,12 @@ export async function spawnUncle(opts = {}) {
             if (cat) { cat.position.y = 2.15 + Math.sin(t * 1.7) * 0.12; cat.rotation.y = Math.sin(t * 0.8) * 0.4; }
             tag.visible = near; if (near) tag.tick(dt);
             quipT -= dt;
-            if (!greeted && Math.abs(rs) < 8 && ctx.state === "playing") {
+            if (!greeted && rs < 30 && rs > -8 && ctx.state === "playing") {
                 greeted = true; quipT = 3.2;
                 stat("uncles3", 1);                // weekly quest: greet an uncle
-                tag.setText(pick(u.quips)); tag.userData.age = 0;
+                const quip = pick(u.quips);
+                tag.setText(quip); tag.userData.age = 0;
+                H.banner(`👨 <b>${u.name}</b><small>“${quip}”</small>`, 2600);
                 addCoins(8, "uncle");              // a small friendly tip
                 H.toast("👋 +8 💰", "gold");
                 sfx.coin(); tone(660, 0.12, "sine", 0.2, 880);

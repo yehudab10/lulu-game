@@ -201,7 +201,7 @@ export function bubble(text, { bg = "#ffffff", fg = "#2b1b2e", tail = true, size
         sp.userData.age += dt;
         const d = camera ? camera.position.distanceTo(sp.getWorldPosition(_w)) : 10;
         const pop = Math.min(1, sp.userData.age * 6);
-        const s = clamp(d * 0.11, 1.0, 6) * sp.userData.base * (0.6 + 0.4 * ease(pop));
+        const s = clamp(d * 0.17, 1.2, 10) * sp.userData.base * (0.6 + 0.4 * ease(pop));
         sp.scale.set(s * 2.1, s * 2.1 * BUBBLE_H / BUBBLE_W, 1);
     };
     sp.dispose = () => { tex.dispose(); mat.dispose(); if (sp.parent) sp.parent.remove(sp); };
