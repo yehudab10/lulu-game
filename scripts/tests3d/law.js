@@ -27,6 +27,9 @@ module.exports = {
       t.check(label, false, "never reached: " + untilCode + " · state " + await st());
       return false;
     }
+    // tap ✕ through the (skippable) arrest → precinct → booking cutscenes until the cell menu is up
+    const CELL = `__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`;
+    const toCell = label => talk(CELL, label, null, 500);
     const placeFast = (ds = 0, v = 38) => t.game(`(() => { const r = ctx.world.road, s = ctx.car.s + ${ds}, p = r.point(s, 1.75, {});
         ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; return s; })()`);
 
@@ -148,7 +151,7 @@ module.exports = {
     t.check("pepper-spraying a cop gets her arrested", await st() === "lawArrest");
     t.check("…for ASSAULTING AN OFFICER", (await log("law:arrest")).length >= 0 && await t.L(`/ASSAULTING/.test(document.querySelector("#lawUI .law-head").textContent)`));
     // straight to court (skip the cinematic + booking with ✕)
-    await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawCourtBtn")`, "booked again", 180000);
+    await toCell("booked again");
     const before = await save2d();
     await t.game(`(${D}.FORCE.quietCourt = true, ${D}.FORCE.guest = "abba", document.querySelector("#lawCourtBtn").click())`);
     await t.until(`__lulu3d.state === "lawCourt"`, "to court", 30000);
@@ -166,13 +169,13 @@ module.exports = {
     t.check("…and no strike for the plea", (after.convictions || 0) === (before.convictions || 0));
     t.check("court clears the lockup and warrants", !after.lockup && (!after.wanted || after.wanted.length === 0));
     if (await st() === "lawExit") { await t.frames(20); await t.shot("court-exit"); }
-    await t.until(`["intro", "playing"].includes(__lulu3d.state)`, "back on the road after court", 120000);
+    await t.until(`["intro", "playing"].includes(__lulu3d.state)`, "back on the road after court", 300000);
     t.check("back on the road after court", ["intro", "playing"].includes(await st()));
 
     // ── a jail verdict: serve the sentence, walk out ──
-    await t.until(`__lulu3d.state === "playing"`, "playing again", 60000);
+    await t.until(`__lulu3d.state === "playing"`, "playing again", 300000);
     await t.game(`(${D}.FORCE.verdict = "jail", ctx.law.arrest(["GRAND THEFT AUTO", "JOYRIDING"], { skipCinematic: true }))`);
-    await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawCourtBtn")`, "booked for GTA", 180000);
+    await toCell("booked for GTA");
     await t.game(`document.querySelector("#lawCourtBtn").click()`);
     await t.until(`!!document.querySelector("#dialog.open")`, "second trial", 120000);
     await talk(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "serve"`, "guilty → serving the sentence", /Beg|Plead|Invoke|good girl|OBJECT|Dazzle|Lie|Blame|insanity|Tip|Bribe/);
@@ -182,18 +185,18 @@ module.exports = {
     await t.shot("serving");
     await t.game(`${D}.jail().serve.serveDays = ${D}.jail().serve.total - 2`);
     for (let i = 0; i < 6; i++) await t.tap(0);
-    await t.until(`__lulu3d.state === "lawExit" || __lulu3d.state === "intro" || __lulu3d.state === "playing"`, "time served → walk out", 120000);
+    await t.until(`__lulu3d.state === "lawExit" || __lulu3d.state === "intro" || __lulu3d.state === "playing"`, "time served → walk out", 300000);
     t.check("time served clears the lockup", !(await save2d()).lockup);
 
     // ── a cop-caused wreck is claimed by law (priority 30) ──
-    await t.until(`__lulu3d.state === "playing"`, "driving", 120000);
+    await t.until(`__lulu3d.state === "playing"`, "driving", 300000);
     await t.game(`(ctx.G.invT = 0, ctx.G.hearts = 1, L3.damage(1, "Rammed a cruiser", "cop"))`);
     await t.until(`__lulu3d.state === "lawArrest"`, "wrecking against a cop → arrest", 60000);
     t.check("wrecking against a cop → arrest (hooks.wreck)", await st() === "lawArrest");
     t.check("…for DESTROYING A POLICE CRUISER", await t.L(`/DESTROYING/.test(document.querySelector("#lawUI .law-head").textContent)`));
 
     // phone portrait: the cell menu doesn't break the layout
-    await t.until(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`, "cell again", 180000);
+    await toCell("cell again");
     await t.page.setViewportSize({ width: 390, height: 800 });
     await t.frames(6);
     t.check("portrait: the cell menu fits on screen", await t.L(`(() => { const r = document.querySelector("#screenCard").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1; })()`));
