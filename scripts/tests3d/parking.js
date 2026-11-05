@@ -92,7 +92,7 @@ module.exports = {
     await t.game(`(() => { ctx.traffic.clear(); ctx.traffic.config.enabled = false; const r = ctx.world.road, p = r.point(300, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 300; ctx.car.vx = Math.sin(p.h) * 7; ctx.car.vz = Math.cos(p.h) * 7; })()`);
     await t.hold(6, 0.35);
     await t.frames(60);
-    t.check("crawling in the outer lane offers 🅿️ Pull over", await t.L(`/Pull over/.test((document.getElementById("slot-bottom") || {}).textContent || "")`));
+    t.check("crawling in the outer lane offers 🅿️ Pull over", await t.L(`/pull over/i.test((document.getElementById("slot-bottom") || {}).textContent || "")`));
     await t.shot("pullover-prompt");
     await t.hold(6, 0);
     const c0 = await t.game(`ctx.G.coins`), sc0 = await t.game(`ctx.G.score`);
@@ -109,7 +109,7 @@ module.exports = {
     const nParked = await t.game(`${S}.L.parked.length`);
     t.check("roadside lot: 2–4 parked cars", nParked >= 2 && nParked <= 4, `${nParked}`);
     // a 1-star park (dinged gently first)
-    await t.game(`${S}.touched = true; ${S}.perfect = false`);
+    await t.game(`(${S}.touched = true, ${S}.perfect = false)`);
     await t.game(`(() => { const s = ${S}, L = s.L, c = s.lot.car; c.place((L.zx0 + L.zx1) / 2, (Math.max(L.curbZ, L.zz0) + L.zz1) / 2, -Math.PI / 2); })()`);
     if (!await t.until(`${S}.phase === "result"`, "pull-over park")) return;
     t.check("pull-over park: ⭐ (touched a car)", await t.game(`${S}.stars`) === 1);

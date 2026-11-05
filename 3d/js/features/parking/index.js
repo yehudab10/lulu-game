@@ -589,7 +589,7 @@ function success() {
     emit("stat", { id: "parks", n: 1 });
     if (stars === 3) emit("stat", { id: "perfectParks", n: 1 });
     emit("parking:result", { stars, coins: bonus, level: S.level, mode: S.challenge ? "challenge" : "casual", ok: true });
-    showBubble(S.lot.car.obj, "YAY ICE CREAM!", 3.4, 99, false);
+    showBubble(S.lot.car.obj, "YAY ICE CREAM!", 2.5, 99, false, -2.2);
     PH.hint("");
     PH.holdBar(0);
     PH.vignette(0);
@@ -860,10 +860,10 @@ registerState("parkingEnd", {
 });
 
 // ── speech bubbles ─────────────────────────────────────────────────────────
-function showBubble(obj, text, y = 2.4, life = 2, temp = true) {
+function showBubble(obj, text, y = 2.4, life = 2, temp = true, side = 0) {
     removeBubble();
     const sp = LOT.bubbleSprite(text, { w: text.length > 12 ? 3.4 : 2.6 });
-    sp.position.set(0, y, 0);
+    sp.position.set(side, y, 0);
     sp.scale.multiplyScalar(1 / (obj.scale.x || 1));
     obj.add(sp);
     S.bubble = { sprite: sp, baseY: y, life, temp };
