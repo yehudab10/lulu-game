@@ -13,7 +13,7 @@
 //   build(rt), tick?(rt, dt), beforeLeave?(rt) → Promise (e.g. the precinct sneak-out)
 // }
 import * as THREE from "three";
-import { ctx, registerState, setState, emit, css } from "../../core/ctx.js";
+import { ctx, registerState, setState, emit, on, css } from "../../core/ctx.js";
 import { makeSet } from "../../core/sets.js";
 import { store, saveSoon, shared, wallet } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
@@ -103,6 +103,8 @@ addTouchButton({ id: "intLeave", emoji: "🚪", label: "LEAVE", action: "back", 
 let cur = null;           // the Room Lulu is in
 let prevStick2d = false;
 export const current = () => cur;
+// keep the controls hint in step with whatever the player picks up (pad ↔ keys ↔ touch)
+on("device", () => { const h = cur && cur.chip && cur.chip.querySelector(".int-hint"); if (h) h.innerHTML = cur.hintHtml(); });
 
 /** Register an interior: ctx.interiors[def.id] = { name, emoji, enter({ exit }) }. */
 export function defineInterior(def) {
