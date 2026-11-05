@@ -2,7 +2,7 @@
 // SFX (ported from the 2D game's playTone family), Dina's own DOM layer (HUD
 // bar, speech bubbles, floaters, prompts), posing helpers and pointer picking.
 import * as THREE from "three";
-import { ctx, css } from "../../core/ctx.js";
+import { ctx, css, on } from "../../core/ctx.js";
 import { save3d, shared, wallet } from "../../core/save.js";
 import { registerModels, ensureModels, models, cloneWithColors } from "../../models.js";
 import { input, glyph } from "../../input.js";
@@ -55,6 +55,15 @@ export const S2 = {
     },
     coins() { return wallet.coins; },
 };
+
+/** The 💰 balance for HUDs (wallet.coins re-reads the 2D save; cache it between changes). */
+let coinCache = null, coinT = 0;
+on("wallet", () => { coinCache = null; });
+on("shared:changed", () => { coinCache = null; });
+export function coinsNow() {
+    if (coinCache === null || ctx.time - coinT > 1) { coinCache = wallet.coins; coinT = ctx.time; }
+    return coinCache;
+}
 
 // ── RNG: real randomness in the game, seeded in ?test runs (deterministic) ─
 let seed = 1234567;

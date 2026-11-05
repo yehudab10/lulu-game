@@ -447,6 +447,7 @@ function finish(won) {
 }
 
 const C = { t: 0, medal: null, res: null };
+const PORCH_Z = HOME_Z - 7.0;   // on the front path, just below the porch steps
 const MEDAL_COLS = { gold: ["#FFC107", "#8D6E00"], silver: ["#CFD8DC", "#546E7A"], bronze: ["#D7834F", "#7B3F1D"] };
 const CONFETTI = ["#FF4FA3", "#FFD700", "#4FC3F7", "#7CFC4F", "#FF8A65", "#BA68C8"];
 
@@ -458,26 +459,28 @@ registerState("dinaCaught", {
         clearHazards();
         C.t = 0; C.res = res;
         const d = st.dina, m = st.mom;
-        const porchZ = HOME_Z - 5.5;
+        const porchZ = PORCH_Z;
         d.obj.visible = true;
-        d.obj.position.set(res.won ? 0 : 0.35, 0.25, porchZ);
+        d.obj.position.set(res.won ? 0 : 0.4, 0, porchZ);
         d.obj.rotation.set(0, Math.PI, 0);
         m.obj.visible = !res.won;
-        m.obj.position.set(-0.45, 0.25, porchZ + 0.1);
+        m.obj.position.set(-0.3, 0, porchZ + 0.1);
         m.obj.rotation.set(0, Math.PI, 0);
         // the medal, hovering by the door
         const md = prop("dinaProps", "Medal");
         const mats = ownMaterials(md, ["MedalMetal", "MedalRim"]);
         const [c1, c2] = MEDAL_COLS[res.medal];
         mats.MedalMetal.color.set(c1); mats.MedalRim.color.set(c2);
+        mats.MedalMetal.metalness = 0.35; mats.MedalMetal.roughness = 0.3;
+        mats.MedalMetal.emissive.set(c1); mats.MedalMetal.emissiveIntensity = 0.28;
         for (const n of [1, 2, 3]) { const k = node(md, "Num" + n); if (k) k.visible = n === { gold: 1, silver: 2, bronze: 3 }[res.medal]; }
-        md.position.set(-1.6, 1.9, porchZ - 0.4);
+        md.position.set(-1.25, 1.35, porchZ - 0.3);
         md.scale.setScalar(0.001);
         md.rotation.y = Math.PI;
         st.scene.add(md);
         C.medal = md;
         st.cam.snap = true;
-        if (res.won) for (let i = 0; i < 60; i++) st.fx.emit(rand(-3, 3), rand(3, 5), porchZ + rand(-2.5, 1), rand(-0.6, 0.6), rand(-1, 0.5), rand(-0.5, 0.5), 0.13, rand(2, 3.5), randPick(CONFETTI), 1.2);
+        if (res.won) for (let i = 0; i < 60; i++) st.fx.emit(rand(-3, 3), rand(3, 5), porchZ + rand(-2.5, 1.5), rand(-0.6, 0.6), rand(-1, 0.5), rand(-0.5, 0.5), 0.13, rand(2, 3.5), randPick(CONFETTI), 1.2);
         document.body.classList.add("dina-result-on");
         L.show();
         const title = res.won ? "YOU MADE IT HOME! 🏆" : "MOM CAUGHT UP! 🤗";
@@ -505,22 +508,23 @@ registerState("dinaCaught", {
         C.t += dt;
         st.fx.update(dt);
         H.menuInput(P);
-        const porchZ = HOME_Z - 5.5;
+        if (ctx.state !== "dinaCaught") return;     // "Go inside" / "Race again" already switched scenes
+        const porchZ = PORCH_Z;
         if (res.won) {
             // victory hops that settle, then hands up
             const jump = Math.abs(Math.sin(C.t * 6)) * 0.45 * Math.max(0, 1 - C.t / 2.2);
-            d.obj.position.y = 0.25 + jump;
+            d.obj.position.y = jump;
             d.update(dt, { cheer: C.t < 2.6, wave: C.t >= 2.6 });
             if (C.t < 2.0 && Math.random() < 0.5) st.fx.emit(rand(-3, 3), 4.5, porchZ + rand(-2, 1), rand(-0.4, 0.4), -0.5, 0, 0.13, 3, randPick(CONFETTI), 1.2);
         } else {
             // holding hands with Mom
             d.update(dt, { talk: C.t < 2 });
-            poseLimb(d, "Arm_L", -0.25, 0.55);
+            poseLimb(d, "Arm_L", -0.3, 0.9);
             m.update(dt, { talk: C.t > 1 && C.t < 3 });
-            poseLimb(m, "Arm_R", -0.2, -0.42);
+            poseLimb(m, "Arm_R", -0.3, -0.3);
         }
         const msg = res.won ? "I BEAT YOU,\nMOM!" : "Fine,\nlet's walk\ntogether.";
-        bubble("dina", msg, _p.set(d.obj.position.x, d.obj.position.y + 1.55, porchZ), st.set.camera);
+        bubble("dina", msg, _p.set(d.obj.position.x, d.obj.position.y + 1.45, porchZ), st.set.camera);
         bubblesDone();
         if (C.medal) {
             const k = clamp(C.t / 0.6, 0, 1);
@@ -529,7 +533,7 @@ registerState("dinaCaught", {
             C.medal.rotation.z = Math.sin(C.t * 3) * 0.08;
         }
         const portrait = st.set.camera.aspect < 1;
-        camTo(_p.set(-0.3, 2.1, porchZ - (portrait ? 8.5 : 6.4) + Math.min(C.t, 6) * 0.12), _l.set(-0.3, 1.45, porchZ + 0.5), dt, 2, 50);
+        camTo(_p.set(-0.45, portrait ? 2.2 : 1.75, porchZ - (portrait ? 6.2 : 4.4) + Math.min(C.t, 6) * 0.08), _l.set(-0.45, portrait ? 0.2 : 0.3, porchZ + 0.6), dt, 2, 50);
         st.sunFollow(0, porchZ);
         if (C.t > 14) setState("dinaHome", { from: "run" });   // a gentle auto "tap to enter home"
     },

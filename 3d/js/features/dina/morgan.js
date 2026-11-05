@@ -22,6 +22,7 @@ const _p = new THREE.Vector3(), _v = new THREE.Vector3();
 
 function build() {
     const set = makeSet({ light: "indoor", sky: "#FFF4E0" });
+    set.hemi.color.set("#FFFFFF"); set.sun.color.set("#FFFFFF");
     const own = (...a) => set.own(...a);
     const sc = set.scene;
     const mat = o => own(new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.95 }, o)));
@@ -40,7 +41,7 @@ function build() {
     // pillows
     for (const [x, z, c, s] of [[-0.85, -0.7, "#FFFFFF", 1], [0.9, -0.75, "#B8E0D2", 0.9], [-1.5, -1.1, "#E1BEE7", 0.8]]) {
         const p = new THREE.Mesh(own(new THREE.SphereGeometry(0.3, 18, 12)), mat({ color: c }));
-        p.scale.set(1.3 * s, 0.55 * s, 0.9 * s); p.position.set(x, 0.15 * s, z); p.castShadow = true; sc.add(p);
+        p.scale.set(0.9 * s, 0.4 * s, 0.6 * s); p.position.set(x * 1.1, 0.11 * s, z); p.castShadow = true; sc.add(p);
     }
     const morgan = cloneWithColors(models.dinaMorgan);
     sc.add(morgan);
@@ -57,7 +58,8 @@ function build() {
         const f = new THREE.Mesh(own(new THREE.SphereGeometry(0.016, 10, 8)), skin);
         f.scale.set(1, 1, 1.9); f.position.set(-0.03 + i * 0.02, 0.012, -0.05); hand.add(f);
     }
-    const sleeve = new THREE.Mesh(own(new THREE.CylinderGeometry(0.05, 0.06, 1, 14)), mat({ color: "#A8E6CF", roughness: 0.9 }));
+    const sleeve = new THREE.Mesh(own(new THREE.CylinderGeometry(0.03, 0.038, 1, 14)), mat({ color: "#A8E6CF", roughness: 0.9 }));
+    hand.scale.setScalar(0.8);
     sc.add(hand, sleeve);
     // heart sprites (one texture per colour, reused)
     const heartTex = HEART_COLS.map(c => own(canvasTexture(64, 64, (x) => { x.fillStyle = c; x.font = "700 56px Arial"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("♥", 32, 36); })));
@@ -158,11 +160,11 @@ registerState("dinaMorgan", {
         if (celebrate) tgt.set(0.28, 0.12, 0.35);
         S.hand.position.lerp(tgt, Math.min(1, dt * 10));
         S.hand.rotation.set(-0.5, 0.4, 0.2);
-        const elbow = _v.set(0.85, -0.35, 1.0);
+        const elbow = _v.set(0.55, -0.12, 0.45);
         S.sleeve.position.copy(S.hand.position).add(elbow).multiplyScalar(0.5);
         S.sleeve.scale.y = S.hand.position.distanceTo(elbow);
         S.sleeve.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), elbow.clone().sub(S.hand.position).normalize());
-        S.sleeve.position.lerp(S.hand.position, 0.1);
+
 
         // hearts
         if (celebrate && Math.random() > 0.4) heart(_v.set(rand(-0.6, 0.6), -0.05, rand(-0.1, 0.25)), 1, true);

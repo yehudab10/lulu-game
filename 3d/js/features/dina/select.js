@@ -19,7 +19,7 @@ body.dina-select-on .screen { background: none; }
 .dina-select .ds-title { align-self: center; background: rgba(0,0,0,.35); color: #fff; border-radius: 16px; padding: 6px 22px;
   font-size: 32px; font-weight: 700; text-shadow: 0 3px 0 #7A2A5C; animation: dsbob 2.1s ease-in-out infinite; }
 @keyframes dsbob { 50% { transform: translateY(-4px); } }
-.dina-select .ds-cards { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; }
+.dina-select .ds-cards { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; margin-top: auto; margin-bottom: 8px; }
 .dina-select .ds-card { flex: 0 1 300px; border: 5px solid var(--acc); border-radius: 20px; background: linear-gradient(#FFFDF8, #FCEAF1);
   padding: 0 0 10px; cursor: pointer; font: 600 15px var(--font); color: #555; box-shadow: 4px 6px 0 rgba(0,0,0,.25); overflow: hidden;
   display: flex; flex-direction: column; align-items: stretch; text-align: center; }
@@ -141,6 +141,7 @@ registerState("dinaSelect", {
         const S = SEL.set;
         SEL.t += dt;
         H.menuInput(P);
+        if (ctx.state !== "dinaSelect" || !SEL.set) return;
         const f = document.querySelector("#screenCard .focus");
         SEL.focus = f && f.id === "dsLulu" ? "lulu" : "dina";
         // the focused sister waves; both bob
@@ -159,8 +160,8 @@ registerState("dinaSelect", {
         });
         S.conf.instanceMatrix.needsUpdate = true;
         const cam = S.set.camera, portrait = cam.aspect < 1;
-        cam.position.set(Math.sin(SEL.t * 0.2) * 0.3, portrait ? 1.9 : 1.35, portrait ? 7.4 : 4.6);
-        cam.lookAt(0, portrait ? 1.0 : 0.95, 0);
+        cam.position.set(Math.sin(SEL.t * 0.2) * 0.3, portrait ? 1.6 : 1.15, portrait ? 7.4 : 4.4);
+        cam.lookAt(0, portrait ? 0.45 : 0.5, 0);
         cam.fov = portrait ? 58 : 50; cam.updateProjectionMatrix();
     },
 });

@@ -161,8 +161,10 @@ function buildStreet() {
     const trees = [];
     let side = 0;
     for (let z = -40; z < RUN_LEN - 6; z += 12) {
-        trees.push([side++ % 2 ? 2.75 : -3.15, z + rand(-1, 1), rand(0.68, 0.82)]);
-        if (rnd() < 0.5) trees.push([rand(-9, -7), z + 6, rand(0.8, 1.05)]);     // in the front yards
+        const atStop = z > -26 && z < 16;    // keep the bus stop + schoolyard open
+        if (!atStop) trees.push([side % 2 ? 2.75 : -3.15, z + rand(-1, 1), rand(0.68, 0.82)]);
+        side++;
+        if (!atStop && rnd() < 0.5) trees.push([rand(-9, -7), z + 6, rand(0.8, 1.05)]);     // in the front yards
         trees.push([rand(14, 16), z + 3, rand(0.8, 1.1)]);
     }
     const T = instanced(models.treeRound, trees.length, ["Leaves"]);

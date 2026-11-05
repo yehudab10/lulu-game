@@ -89,7 +89,7 @@ function buildKitchen() {
         const f = new THREE.Mesh(own(new THREE.BoxGeometry(w2, h2, 0.06)), frameMat);
         f.position.set(-0.76 + x, 2.25 + y, -2.85); sc.add(f);
     }
-    const beam = new THREE.Mesh(own(new THREE.PlaneGeometry(1.6, 5.2)), own(new THREE.MeshBasicMaterial({ color: "#FFE082", transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })));
+    const beam = new THREE.Mesh(own(new THREE.PlaneGeometry(1.6, 5.2)), own(new THREE.MeshBasicMaterial({ color: "#FFE082", transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })));
     beam.position.set(0.1, 1.4, -1.0); beam.rotation.set(-0.85, 0, -0.25); sc.add(beam);
     // Dina + her plate
     const dina = spawnPerson("dinaPerson");
@@ -182,7 +182,7 @@ registerState("dinaCookie", {
             CK.endT += dt;
             if (!CK.shown && CK.endT > 0.8) showResult();
             else if (CK.shown && !H.screenOpen()) showResult();
-            if (CK.shown) H.menuInput(P);
+            if (CK.shown) { H.menuInput(P); if (ctx.state !== "dinaCookie" || !K.set) return; }
         } else {
             // plate: stick / D-pad / ← → (360 px/s), or follow the finger / mouse
             CK.plateX += input.moveX * 360 * dt;

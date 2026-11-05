@@ -27,12 +27,11 @@ module.exports = {
     await t.tap(0);
     if (!await t.until(`__lulu3d.state === "dinaBus"`, "✕ on Dina starts the bus intro")) return;
     t.check("✕ on Dina starts the bus intro", true);
-    await t.frames(66);
-    await t.shot("bus-arrives");
-    await t.frames(80);
-    await t.shot("bus-girls");
-    await t.frames(55);
-    await t.shot("bus-dina");
+    const busAt = async (sec, shot) => { await t.until(`__lulu3d.ctx.dina.debug.bus.t > ${sec}`, "bus intro reaches " + sec + " s"); await t.shot(shot); };
+    await busAt(2.3, "bus-arrives");
+    await busAt(5.3, "bus-girls");
+    await busAt(6.4, "bus-wheres-mom");
+    await busAt(7.45, "bus-hmph");
     await t.tap(0);   // skip
     if (!await t.until(`__lulu3d.state === "dinaRun"`, "✕ skips to the run")) return;
     t.check("✕ skips to the run", true);
@@ -69,6 +68,21 @@ module.exports = {
     t.check("medal + best saved to the shared save", await S(`s.dinaMedals && s.dinaMedals["${res.medal}"] === 1 && s.dinaBest === ${res.haul}`));
     t.check("coins + stickers + win bonus banked", await S(`s.totalCoins`) === 200 + res.banked, `${await S(`s.totalCoins`)} vs ${200 + res.banked}`);
     await t.shot("porch");
+
+    // ── race again: run #2 is harder, and this time Mom catches up ──
+    await t.click(/Race home again/);
+    if (!await t.until(`__lulu3d.state === "dinaRun"`, "'Race home again' restarts the run")) return;
+    t.check("'Race home again' restarts the run", true);
+    t.check("run #2 is harder (dinaDiff 1.12)", await t.game(`ctx.dina.run.level === 2 && Math.abs(ctx.dina.run.diff - 1.12) < 1e-9`));
+    await t.game(`(ctx.dina.run.mom.distance = 0.12, ctx.dina.run.mom.sayTimer = 0.9)`);
+    await t.frames(12);
+    await t.shot("run-mom-close");
+    await t.game(`ctx.dina.run.mom.distance = 0`);
+    if (!await t.until(`__lulu3d.state === "dinaCaught"`, "Mom catching up ends the run")) return;
+    const res2 = await t.game(`ctx.dina.run.result`);
+    t.check("Mom caught up: no win bonus, still a medal", res2 && !res2.won && res2.winBonus === 0 && ["silver", "bronze"].includes(res2.medal), JSON.stringify(res2));
+    await t.frames(30);
+    await t.shot("porch-walked");
 
     // ── the bedroom ──
     await t.tap(0);

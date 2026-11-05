@@ -14,7 +14,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { room, SPOTS, ROOM } from "./room.js";
 import {
-    L, bubble, bubblesDone, floater, updateFloaters, sfx, rand, randPick, clamp, g, isTouch, holdPose,
+    L, bubble, bubblesDone, floater, updateFloaters, sfx, rand, randPick, clamp, g, isTouch, holdPose, coinsNow,
     bindPointer, unbindPointer, pickAt, pointerPlane,
 } from "./common.js";
 
@@ -137,7 +137,7 @@ registerState("dinaHome", {
 
         // ── HUD + labels ──
         const mv = Home.momVisit;
-        L.hud(`<span class="t">🏠 Dina's Bedroom</span><span class="chip gold">💰 ${wallet.coins.toLocaleString()}</span>
+        L.hud(`<span class="t">🏠 Dina's Bedroom</span><span class="chip gold">💰 ${coinsNow().toLocaleString()}</span>
             <span class="chip" style="color:${mv ? "#FFD54F" : "#B8E0D2"}">${mv ? "Mom: here! 👋" : "Mom: kitchen"}</span>`);
         const camera = rm.set.camera;
         if (hover) bubble("hover", `${hover.label}${isTouch() ? ` <span class="glyph">TAP</span>` : g("interact")}`, _p.set(...hover.anchor), camera, "label");
@@ -151,7 +151,7 @@ registerState("dinaHome", {
         const portrait = camera.aspect < 1;
         const tx = o.position.x * (portrait ? 0.75 : 0.32), tz = o.position.z * 0.3 - 0.5;
         _l.set(tx, 0.55, tz);
-        _p.set(tx, portrait ? 7.4 : 5.6, tz + (portrait ? 9.2 : 7.0));
+        _p.set(tx, portrait ? 7.4 : 5.0, tz + (portrait ? 9.2 : 6.3));
         if (cam.snap) { cam.pos.copy(_p); cam.look.copy(_l); cam.snap = false; }
         cam.pos.lerp(_p, Math.min(1, dt * 3)); cam.look.lerp(_l, Math.min(1, dt * 3));
         camera.position.copy(cam.pos); camera.lookAt(cam.look);

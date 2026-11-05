@@ -605,6 +605,7 @@ def build_room():
         q.append(Part(coll, "patchY", bm_box(1.36, 0.02, 0.082), PATCH, loc=(0, y, 0.701), smooth=False))
     for s in (-1, 1):
         q.append(Part(coll, "drape", bm_box(0.05, 1.6, 0.34), QUILT, loc=(s * 0.69, -0.3, 0.54)).bevel(0.02, 2))
+    q.append(Part(coll, "drapeF", bm_box(1.38, 0.05, 0.34), QUILT, loc=(0, -1.09, 0.54)).bevel(0.02, 2))
     q.append(Part(coll, "fold", bm_box(1.4, 0.36, 0.12), MINT, loc=(0, -0.92, 0.74)).bevel(0.05, 3))
     bake_at(q, "Quilt", coll, g, (0, -1.1, 0.7))
 

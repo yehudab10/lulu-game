@@ -147,7 +147,7 @@ function buildRoom() {
     }));
     const viewDay = plane(1.36, 1.56, own(new THREE.MeshBasicMaterial({ map: day })), SPOTS.window.x, SPOTS.window.y, -d / 2 + 0.02);
     const viewNight = plane(1.36, 1.56, own(new THREE.MeshBasicMaterial({ map: night, transparent: true, opacity: 0 })), SPOTS.window.x, SPOTS.window.y, -d / 2 + 0.03);
-    const beamMat = own(new THREE.MeshBasicMaterial({ color: "#FFE99A", transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    const beamMat = own(new THREE.MeshBasicMaterial({ color: "#FFE99A", transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
     const beamGeo = own(new THREE.BufferGeometry());
     const wx = SPOTS.window.x, wy = SPOTS.window.y, wz = -d / 2 + 0.05;
     beamGeo.setAttribute("position", new THREE.Float32BufferAttribute([
@@ -228,7 +228,7 @@ function buildRoom() {
             for (const m of walls) m.color.copy(white).lerp(nightCol, k * 0.75);
             floorMat.color.copy(white).lerp(nightCol, k * 0.6);
             viewNight.material.opacity = k;
-            beamMat.opacity = 0.22 * (1 - k) + 0.1 * k;
+            beamMat.opacity = 0.12 * (1 - k) + 0.08 * k;
             beamMat.color.set(k > 0.5 ? "#C9D6FF" : "#FFE99A");
             pool.material.opacity = 0.25 * (1 - k * 0.5);
             if (lampMats.LampShade) lampMats.LampShade.emissiveIntensity = 1.6 * ((1 - k) * 0.9 + 0.1);

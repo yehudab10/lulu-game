@@ -161,11 +161,12 @@ registerState("dinaBus", {
 
         // camera: wide on the arrival → the door → Dina → behind her for the run
         const dz = d.obj.position.z;
-        if (t < 1.7) camTo(_p.set(-5.5, 2.5, 9.5), _l.set(3.8, 1.5, -5), dt, 2.5, 52);
+        if (t < 1.7) camTo(_p.set(-2.4, 2.1, 13), _l.set(3.6, 1.4, -10), dt, 2.5, 52);
         else if (t < 4.5) camTo(_p.set(-3.0, 1.8, 6.2), _l.set(3.2, 1.25, 0.6), dt, 1.6, 50);
         else if (t < 6.0) camTo(_p.set(-2.4, 1.6, 4.6), _l.copy(d.obj.position).add(_w.set(0.6, 0.85, 0)), dt, 2, 50);
         else if (t < 8.0) camTo(_p.set(0.5, 1.25, 3.0), _l.set(0, 0.95, 0.2), dt, 2.2, 48);
-        else camTo(_p.set(d.obj.position.x * 0.55, 2.9, dz - 5.0), _l.set(0, 0.85, dz + 4.5), dt, 2.4, 58);
+        else if (t < 8.6) camTo(_p.set(-2.8, 2.2, dz - 0.6), _l.set(0.6, 1.0, dz + 3), dt, 2.6, 56);   // swing round her side…
+        else camTo(_p.set(d.obj.position.x * 0.55, 2.9, dz - 5.0), _l.set(0, 0.85, dz + 4.5), dt, 2.6, 58);   // …to behind her
         st.sunFollow(0, dz);
 
         if (P.confirm || P.start || P.back || B.tapped) { B.tapped = false; setState("dinaRun", { fromBus: true, skipped: true }); }
@@ -203,5 +204,6 @@ function updateGirls(dt, st) {
     }
 }
 
+export const busState = B;
 /** Tap anywhere skips (the canvas pointer handler in index.js sets this). */
 export function busTapped() { B.tapped = true; }

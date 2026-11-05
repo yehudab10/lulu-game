@@ -24,7 +24,7 @@ import { disposeRoom } from "./room.js";
 import { Home, homeDisposed, Tablet } from "./home.js";
 import { R, debugSpawn } from "./run.js";
 import { CK } from "./cookie.js";
-import { busTapped } from "./bus.js";
+import { busTapped, busState } from "./bus.js";
 import "./select.js";
 import "./morgan.js";
 import "./nap.js";
@@ -52,7 +52,7 @@ ctx.dina = {
     get cookie() { return CK; },
     get home_() { return Home; },
     get tablet() { return Tablet.on; },
-    debug: { spawn: debugSpawn },
+    debug: { spawn: debugSpawn, bus: busState },
 };
 
 // ── title + pause menu ───────────────────────────────────────────────────
