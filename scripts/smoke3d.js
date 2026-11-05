@@ -84,15 +84,26 @@ async function runFile(browser, base, file) {
     },
     async frames(n) {
       const f0 = await L(`__lulu3d.frames`);
-      await page.waitForFunction(f => window.__lulu3d.frames >= f, f0 + n, { polling: 16, timeout: 120000 });
+      await page.waitForFunction(f => window.__lulu3d.frames >= f, f0 + n, { polling: 16, timeout: 30 * 60000 });
     },
+    /** Wait for an expression to become truthy. `timeout` is GAME time in ms (test mode runs
+     *  30 frames per game second), so a busy CPU can't fail a correct test; a wall-clock cap
+     *  (30 min, or 3× timeout before the game has booted) still catches real hangs. */
     async until(code, label, timeout = 90000) {
-      try { await page.waitForFunction(code, null, { timeout, polling: 100 }); return true; }
-      catch (e) {
-        const st = await L(`window.__lulu3d ? __lulu3d.state + " @ frame " + __lulu3d.frames : "not booted"`).catch(() => "?");
-        t.check(label, false, "timed out in state " + st);
-        return false;
+      const frames = () => L(`window.__lulu3d ? __lulu3d.frames : -1`).catch(() => -1);
+      const f0 = await frames();
+      const maxFrames = Math.ceil(timeout / 1000 * 30);
+      const wallCap = Date.now() + (f0 < 0 ? timeout * 3 : Math.max(timeout * 3, 30 * 60000));
+      for (;;) {
+        const ok = await L(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
+        if (ok) return true;
+        const f = await frames();
+        if ((f0 >= 0 && f >= 0 && f - f0 > maxFrames) || Date.now() > wallCap) break;
+        await page.waitForTimeout(100);
       }
+      const st = await L(`window.__lulu3d ? __lulu3d.state + " @ frame " + __lulu3d.frames : "not booted"`).catch(() => "?");
+      t.check(label, false, "timed out in state " + st);
+      return false;
     },
     /** Hold a pad button for 2 frames, release, wait 2 frames.
      *  0 A/✕ 1 B/○ 2 X/□ 3 Y/△ 4 LB/L1 5 RB/R1 6 LT/L2 7 RT/R2 8 View/Share 9 Start/Options 10 L3 11 R3 12-15 D-pad ↑↓←→ 17 touchpad */
