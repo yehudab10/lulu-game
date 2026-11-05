@@ -391,10 +391,12 @@ function updateDriveOff(dt, P, controlsOn) {
         Math.abs(car.d) > 6.4 && car.speed < 0.8 && input.throttle < 0.05;
     driveOff.t = ok ? driveOff.t + dt : 0;
     const show = driveOff.t > 1.3;
-    if (show !== driveOff.shown) {
-        driveOff.shown = show;
-        H.prompt(show ? `${glyph("interact")} 🚶‍♀️ Get out &amp; walk` : "");
-    }
+    // Re-assert every frame while offered (H.prompt de-dupes), and tell the parking
+    // pull-over to stand down: stopped on the shoulder = walk, crawling = park.
+    if (ctx.foot) ctx.foot.offering = show;
+    if (show) H.prompt(`${glyph("interact")} 🚶‍♀️ Get out &amp; walk`);
+    else if (driveOff.shown) H.prompt("");
+    driveOff.shown = show;
 }
 
 // a wreck nobody else claimed (no cameos / law feature present): the 2D crash

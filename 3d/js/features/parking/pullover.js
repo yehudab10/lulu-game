@@ -32,7 +32,7 @@ function canPullOver() {
     const G = ctx.G;
     if (ctx.state !== "playing" || !ctx.parking) return false;
     if (PO.chase || G.noPullOver || G.wreckInfo && G.hearts <= 0) return false;
-    if (ctx.foot && ctx.foot.active) return false;
+    if (ctx.foot && (ctx.foot.active || ctx.foot.offering)) return false;   // stopped on the shoulder → foot's "Get out & walk" owns ✕
     if (ctx.law && ctx.law.chasing) return false;
     return Math.abs(ctx.car.d) > 3.5;          // over in a side lane / on the shoulder
 }
