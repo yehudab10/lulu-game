@@ -195,7 +195,7 @@ async function body(t) {
   await fr.pump(1400);
   const tgo = fr.got.find(d => typeof d.tgo === "number");
   t.check("TAG announced (d.tgo) with me IT (d.it)", !!tgo && fr.got.some(d => d.it && d.it[0] === 1));
-  await fr.pump(800, () => ({ it: [2, tgo.tgo] }));
+  await fr.pump(800, () => ({ it: [2, tgo.tgo], x: 100 }));
   t.check("their higher marker makes them IT", await t.game(`${S}.tag && !${S}.tag.itIsMe`));
   await t.game(`(() => { const r = ctx.world.road, p = r.point(ctx.car.s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.d = 1.75; ctx.mp._debug.tag.tagGuardUntil = 0; })()`);
   await fr.pump(1200, p => ({ di: (p.last && p.last.di) || myDi3, x: 275 }));
