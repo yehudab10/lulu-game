@@ -34,7 +34,6 @@ import { startWedding, weddingState } from "./wedding.js";
 const WALK = 3.4, RUN = 7.6;        // m/s (the 2D walk was 150 px/s cruise, ×2 running)
 const LULU_R = 0.32;
 const BUBBE_S = 4800;               // Bubbe's house (56,000 px in 2D)
-const PX = 11.7;                    // 2D px per metre (the footDist quest counts 2D px)
 
 const LAZY = ["npcWoman", "npcMan", "npcKid", "avigailPerson", "copPerson",
     "foot_booth", "foot_ambulance", "foot_bus", "foot_dozer", "foot_duck", "foot_raccoon", "foot_ostrich"];
@@ -1610,8 +1609,8 @@ function saveFrac(f, force) {
     if (v > (shared.get().footRunHigh || 0)) shared.update(s => { s.footRunHigh = Math.max(s.footRunHigh || 0, v); });
 }
 function flushDist(f) {
-    const px = Math.floor(f.distAcc * PX);
-    if (px >= 1) { emit("stat", { id: "footDist", n: px }); f.distAcc -= px / PX; }
+    const m = Math.floor(f.distAcc);   // metres (meta converts for the 2D "walk 3,000" quest)
+    if (m >= 1) { emit("stat", { id: "footDist", n: m }); f.distAcc -= m; }
 }
 function stats(dt) {
     F.statT += dt;
@@ -1655,6 +1654,11 @@ ctx.foot = {
     get level() { return F ? F.level : (shared.get().footRunsPlayed || 0); },
     get phase() { return F ? F.phase : null; },
     get pos() { return F ? F.pos : null; },
+    /** Lulu's on-foot Object3D / Person (people.js) while walking. */
+    get obj() { return F && F.lulu ? F.lulu.obj : null; },
+    get person() { return F ? F.lulu : null; },
+    /** The borrowed ride she's driving (null in her own car): { kind, vtype, color }. */
+    get vehicle() { return shell ? { kind: shell.key, vtype: shell.vtype, color: shell.colors && shell.colors.Paint || null } : null; },
     get borrowed() { return shell ? shell.vtype : null; },
     /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(). Returns a remover. */
     addSpot(spot) { spotList.push(spot); return () => { const i = spotList.indexOf(spot); if (i >= 0) spotList.splice(i, 1); }; },
