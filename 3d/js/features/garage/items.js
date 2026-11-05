@@ -651,7 +651,7 @@ function setPhone(on) {
             // held up in Lulu's right hand, screen toward her face (anchor = left mirror)
             p.position.set(-0.75, 0.44, -0.22);
             p.rotation.set(0.35, Math.PI - 0.3, 0);
-            p.scale.setScalar(1.6);
+            p.scale.setScalar(1.3);
             phone.userData.slot = "mirrorL";
         }
         car.attach("mirrorL", phone);

@@ -744,6 +744,7 @@ body.gx-open .screen { background: linear-gradient(90deg, rgba(0,0,0,0) 40%, rgb
   .card.gx-card { width: 100%; max-height: 61vh; border-radius: 24px; }
 }
 .gx { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; gap: 8px; }
+.gx > * { flex-shrink: 0; } .gx > .gx-body { flex-shrink: 1; min-height: 96px; }
 .gx-top { display: flex; align-items: center; gap: 10px; }
 .gx-top h2 { flex: 1; margin: 0 !important; font-size: 26px !important; color: #FFD700; text-shadow: 0 3px 0 rgba(0,0,0,.4); letter-spacing: .06em; }
 .gx-back { border: none; border-radius: 14px; background: #546E7A; color: #fff; font: 700 15px var(--font); padding: 7px 11px; cursor: pointer; display: flex; gap: 6px; align-items: center; }
@@ -751,7 +752,7 @@ body.gx-open .screen { background: linear-gradient(90deg, rgba(0,0,0,0) 40%, rgb
 .gx-coins { display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,.35); border-radius: 999px; padding: 5px 12px; font-size: 18px; color: #FFE082; }
 .gx-tabs { display: flex; gap: 6px; align-items: center; justify-content: center; }
 .gx-tk .glyph { background: rgba(255,255,255,.9); color: var(--ink); }
-.gx-tab { flex: 1; border: none; border-radius: 14px; padding: 8px 6px; font: 700 15px var(--font); background: #455A64; color: #ECEFF1; cursor: pointer; }
+.gx-tab { flex: 1; white-space: nowrap; border: none; border-radius: 14px; padding: 8px 6px; font: 700 15px var(--font); background: #455A64; color: #ECEFF1; cursor: pointer; }
 .gx-tab.on { background: linear-gradient(#FFD54F, #FFB300); color: #1a1400; box-shadow: 0 3px 0 rgba(0,0,0,.3); }
 .gx-body { overflow: auto; min-height: 0; flex: 1 1 auto; padding: 4px 3px 6px; overscroll-behavior: contain; }
 .gx-sec { font-size: 13px; font-weight: 700; color: #FFE082; letter-spacing: .04em; margin: 4px 0 6px; text-align: left; }
@@ -814,6 +815,7 @@ body.gx-open .screen { background: linear-gradient(90deg, rgba(0,0,0,0) 40%, rgb
   .gx-tab { padding: 5px; font-size: 13px; }
 }
 body.tv .card.gx-card { width: min(1000px, 52vw); padding: 24px 28px; }
+@media (max-height: 700px) { body.tv .gx-flavor, body.tv .gx-hint { display: none; } body.tv .card.gx-card { padding: 14px 18px; } }
 body.tv .gx-top h2 { font-size: 40px !important; } body.tv .gx-coins { font-size: 26px; } body.tv .gx-tab { font-size: 22px; padding: 12px; }
 body.tv .gx-it { font-size: 17px; padding: 12px 6px; border-radius: 18px; } body.tv .gx-it b { font-size: 17px; } body.tv .gx-it small { font-size: 15px; }
 body.tv .gx-sw { width: 52px; height: 52px; } body.tv .gx-ico { font-size: 42px; } body.tv .gx-dh b { font-size: 28px; }
