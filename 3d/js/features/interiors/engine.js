@@ -214,7 +214,8 @@ export class Room {
             const n = o.name || "";
             if (!/^(Spot|Col|Light|Fx)_/.test(n)) return;
             o.getWorldPosition(V);
-            const key = n.slice(n.indexOf("_") + 1);
+            // (sets built in one Blender session get ".001"-style duplicate suffixes → "Spot_door001")
+            const key = n.slice(n.indexOf("_") + 1).replace(/\.?\d{3}$/, "");
             if (n.startsWith("Spot_")) this.spots[key] = { x: V.x, y: V.y, z: V.z, ry: o.rotation.y };
             else if (n.startsWith("Fx_")) this.fxs[key] = { x: V.x, y: V.y, z: V.z, ry: o.rotation.y, node: o };
             else if (n.startsWith("Light_")) this.lightSpots[key] = V.clone();

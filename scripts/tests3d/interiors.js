@@ -20,7 +20,7 @@ module.exports = {
       go(id, after) { window.__exited = 0; return ctx.interiors[id].enter({ exit: () => { window.__exited++; L3.setState(after || "title"); } }); },
       // teleport Lulu next to a hotspot and face it
       at(id) { const r = this.room(), h = r.hots.find(h => h.id === id); if (!h) return false;
-        const x = h.x, z = h.z;
+        const who = h.track && h.who && r.byId[h.who], x = who ? who.p.obj.position.x : h.x, z = who ? who.p.obj.position.z : h.z;
         const o = r.lulu.obj; o.position.x = x; o.position.z = z + Math.min(h.r * 0.5, 0.6); r.collide(o.position, 0.32);
         o.rotation.y = Math.atan2(x - o.position.x, z - o.position.z); return true; },
       near: () => { const r = window.__interiors.room; return r && r.near ? r.near.id : null; },
