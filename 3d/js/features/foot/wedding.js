@@ -396,7 +396,10 @@ function stomp() {
     rumble(0.9, 0.9, 360, true);
     const mz = $(".mazel");
     mz.style.display = "block"; mz.style.animation = "none"; void mz.offsetWidth; mz.style.animation = "";
-    setTimeout(() => { if (W) mz.style.display = "none"; }, 2400);
+    // hide after 2.4 s of GAME time (not wall clock), so slow devices still see it
+    const hideAt = ctx.time + 2.4;
+    const hide = () => { if (!W) return; if (ctx.time >= hideAt) mz.style.display = "none"; else setTimeout(hide, 50); };
+    setTimeout(hide, 50);
     bubble(W.bride.obj, "MAZEL TOV!!!", 2.4, { cls: "big" });
     for (const gu of W.guests) gu.cheerT = 2.2 + Math.random();
 }

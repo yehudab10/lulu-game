@@ -158,7 +158,7 @@ module.exports = {
     await t.tap(0);
     t.check("✕ stomps the glass", await t.game(`ctx.foot.debug.weddingState().stomped`));
     await t.frames(4);
-    t.check("MAZEL TOV!!! shows", await t.L(`getComputedStyle(document.querySelector("#footWed .mazel")).display !== "none"`));
+    t.check("MAZEL TOV!!! shows", await t.until(`(() => { const m = document.querySelector("#footWed .mazel"); return !!m && getComputedStyle(m).display !== "none"; })()`, "MAZEL TOV banner", 4000));
     await t.shot("wedding-mazel-tov");
     await t.until(`__lulu3d.ctx.foot.debug.weddingState().phase === 2`, "the hora", 240000);
     await t.frames(40);
