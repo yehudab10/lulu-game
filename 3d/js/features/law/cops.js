@@ -21,7 +21,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { SPAWN, SPEEDING_MPH, APB_FAST, APB_SLOW } from "./data.js";
+import { SPAWN, SPEEDING_MPH, APB_FAST, APB_SLOW, COP_PULLOVER } from "./data.js";
 import { rand, pick, clamp, S, stat, patchLockup, clearLockup, fugitiveStars } from "./rules.js";
 
 registerModels({ lawBillboard: "law_billboard", lawK9: "law_k9", lawMissile: "law_missile", lawChopper: "law_chopper" });
@@ -394,6 +394,7 @@ function updatePatrols(dt, controlsOn) {
             if (!c.ai) c.ai = (d, cc) => driveUnit(d, cc, u);
         }
         if (u.mode === "giveup" && (u.t > 22 || car.s - c.s > 170)) { c.keep = false; }
+        if (u.flavour) updateFlavourUnit(dt, u);
         if (u.mode !== "patrol" && !u.hunter) continue;
         if (!controlsOn || !canPounce()) { u.spot = Math.max(0, u.spot - dt); continue; }
         const dist = Math.hypot(c.x - car.pos.x, c.z - car.pos.z);
@@ -545,6 +546,9 @@ function updateRandom(dt, controlsOn) {
             } else L.apbCool = 6;
         }
     }
+    // flavour: a cruiser pulls somebody ELSE over up ahead
+    L.flavourT -= dt;
+    if (L.flavourT <= 0 && !L.chase) { L.flavourT = rand(45, 80); startFlavour(); }
     // the open-warrant file: any cop who gets a look at her gives chase
     const wanted = S.wanted;
     if (wanted.length && !L.fug && canPounce()) {
@@ -860,7 +864,37 @@ export function update(dt, P, controlsOn) {
 }
 
 /** Driving HUD: stars, PURSUIT / FUGITIVE tag, meters. */
+// ── flavour: somebody else gets pulled over (2D COP_PULLOVER bickering) ──
+export function startFlavour() {
+    const car = ctx.car;
+    const victim = ctx.traffic.cars.find(c => !c.hit && !c.ai && c.dir > 0 && c.s > car.s + 110 && c.s < car.s + 280 && !(c.data && c.data.law));
+    if (!victim) return null;
+    const u = addUnit(victim.s - 16, victim.d, 1, victim.speed + 4, { mode: "chase" });
+    u.mode = "pull"; u.pullD = 7.9; u.siren = true; u.flavour = victim; u.talkT = 0;
+    victim.keep = true;
+    victim.ai = (dt, c) => {
+        c.dTarget = 7.9;
+        c.d += Math.sign(7.9 - c.d) * Math.min(Math.abs(7.9 - c.d), 2 * dt);
+        c.speed = Math.max(0, c.speed - 6 * dt);
+        c.s += c.speed * dt;
+    };
+    return u;
+}
+function updateFlavourUnit(dt, u) {
+    const v = u.flavour, car = ctx.car;
+    u.stopS = v.s - 7.5;
+    const rel = car.s - v.s;
+    u.talkT -= dt;
+    if (Math.abs(rel) < 60 && u.talkT <= 0 && v.obj) {
+        u.talkT = 2.6;
+        u.flip = !u.flip;
+        UI.bubble("pull" + (u.id || (u.id = Math.random())), u.flip || !u.car ? v.obj : u.car.obj, pick(COP_PULLOVER), { y: 2.3, sec: 2.4 });
+    }
+    if (rel > 140) { v.keep = false; if (u.car) u.car.keep = false; u.flavour = null; u.mode = "park"; }
+}
+
 export function hud() {
+    UI.updateBubbles(ctx.camera);
     const ch = L.chase, f = L.fug;
     if (!ch && !f && L.radar < 0.02 && !S.wanted.length) { UI.wantedHud(null); return; }
     const info = { stars: 0, tag: "", fug: !!f, blink: false };
@@ -874,7 +908,7 @@ export function hud() {
 /** Clear the road side of the law (new run / title). Traffic + actors are cleared by core. */
 export function resetRunState() {
     L.chase = null; L.units.length = 0; L.traps.length = 0; L.spawnT = {}; L.grace = 0; L.apbCool = 22;
-    L.wantedSpot = 0; L.wantedPatrolT = rand(4, 7); L.pending = null; L.radar = 0; L.chopper = null;
+    L.wantedSpot = 0; L.wantedPatrolT = rand(4, 7); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60);
     X.sirenOff();
     UI.wantedHud(null);
 }

@@ -3,7 +3,7 @@
 // offenses, escapes, the open-warrant file `wanted`, and `lockup` — an
 // unfinished cell / sentence / fugitive stretch that survives a refresh in
 // either version). Same formulas and numbers as src/10d-jail-court.js.
-import { emit } from "../../core/ctx.js";
+import { ctx, emit } from "../../core/ctx.js";
 import { shared, wallet, flushShared } from "../../core/save.js";
 import { CHARGE_WEIGHT, BOUNTY_CAP, CHARGE_DIALOGUE, CHARGE_DEFENSE, LAWYER_TIERS, ABBA_TIER } from "./data.js";
 
@@ -19,7 +19,10 @@ export const S = {
     get escapes() { return shared.get().escapes || 0; },
     get wanted() { const w = shared.get().wanted; return Array.isArray(w) ? w : []; },
     get lockup() { const l = shared.get().lockup; return l && typeof l === "object" ? l : null; },
-    get avigailRel() { const r = shared.get().avigailRel; return typeof r === "number" ? r : 50; },
+    get avigailRel() {
+        if (ctx.avigail && ctx.avigail.rel) { try { return ctx.avigail.rel(); } catch (e) { /* fall back to the save */ } }
+        const r = shared.get().avigailRel; return typeof r === "number" ? r : 50;
+    },
 };
 export function bump(field, n = 1) { shared.update(s => { s[field] = (s[field] || 0) + n; }); }
 
