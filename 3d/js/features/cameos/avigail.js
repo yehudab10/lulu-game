@@ -14,7 +14,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import {
     THREE, models, cloneWithColors, findNodes, shared, bubble, loadModels, clamp, ease, wait, stat, chips, caption, clearCaptions,
-    fade, sfx, SetCam, luluOnFoot, prop, inHand, roadPoint,
+    fade, sfx, SetCam, luluOnFoot, prop, inHand, roadPoint, stripClear,
 } from "./common.js";
 import { resumeDriving } from "./resume.js";
 
@@ -106,7 +106,9 @@ function lightsOf(obj) {
 async function spawnPulled(opts = {}) {
     if (!await loadModels(["cameos_avigailCar", "avigailPerson", "copPerson", "cameos_props"])) return null;
     const car = ctx.car, road = ctx.world.road;
-    const S = opts.s ?? car.s + rand(330, 420);
+    let S = opts.s ?? car.s + rand(330, 420);
+    // the shoulder must be free of poles / parked cops for the traffic stop
+    for (let k = 0; k < 12 && !stripClear(S - 11, S + 3, 9.6, 12.6); k++) S += 9;
     const d = 10.4;
     const root = new THREE.Group();
     const h = road.at(S).h;

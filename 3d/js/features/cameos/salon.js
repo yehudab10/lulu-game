@@ -17,7 +17,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import {
     THREE, models, cloneWithColors, findNodes, shared, loadModels, clamp, ease, wait, stat, caption, clearCaptions, chips,
-    fade, sfx, SetCam, prop, inHand, onBody, findSpot, sidePanel, luluHair,
+    fade, sfx, SetCam, prop, inHand, onBody, findSpot, stripClear, sidePanel, luluHair,
 } from "./common.js";
 import { resumeDriving } from "./resume.js";
 
@@ -106,7 +106,12 @@ export async function spawnSalonShop(opts = {}) {
     if (shop && !opts.force) return null;
     if (!await loadModels(["cameos_salonFront"])) return null;
     const car = ctx.car, road = ctx.world.road;
-    const spot = opts.spot || findSpot(car.s + (opts.ahead || 330), car.s + (opts.ahead || 330) + 140, 1, 21.5, 23, 8.5);
+    const a = opts.ahead || 330;
+    let spot = opts.spot || null;
+    for (let k = 0; k < 8 && !spot; k++) {
+        const sp = findSpot(car.s + a, car.s + a + 140, 1, 21.5, 23, 8.5);
+        if (sp && stripClear(sp.s - 7.5, sp.s + 7.5, SHOULDER + 0.6, sp.d - 4.5)) spot = sp;   // no power pole in the lot
+    }
     if (!spot) return null;
     const S = spot.s, D = spot.d;
     const root = new THREE.Group();
@@ -430,7 +435,7 @@ async function runSalon(S) {
     while (salon === S && !color) {
         caption("💇‍♂️ And zee SILHOUETTE, darling?", "pink");
         const cur = Math.max(0, SALON_STYLES.findIndex(x => x.style === S.style));
-        const si = await panel(`<h2>💇 Chez Fabio</h2><p>And zee <b>SILHOUETTE</b>, darling?</p><p class="fine">${glyph("up")}${glyph("down")} preview · ${glyph("confirm")} pick</p>`,
+        const si = await panel(`<h2>💇 Chez Fabio</h2><p>And zee <b>SILHOUETTE</b>, darling?</p><p class="fine">${glyph("move")} preview on Lulu · ${glyph("confirm")} pick</p>`,
             SALON_STYLES.map(st => ({ label: `${st.icon} ${st.label}`, cls: "pink" })),
             i => { if (i >= 0 && i < 3) showStyle(S, SALON_STYLES[i].style, S.color); }, cur);
         clearCaptions();

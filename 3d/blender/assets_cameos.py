@@ -566,10 +566,10 @@ def build_heshy_pool():
              Part(coll, "signPost", bm_box(0.08, 0.08, 1.1), mat("Wood", "#8D6E63"), loc=(-3.2, -3.0, 0.55), smooth=False),
              Part(coll, "signBoard", bm_box(1.4, 0.06, 0.5), mat("WoodLight", "#D7B98E"), loc=(-3.2, -3.05, 1.05), smooth=False),
              Part(coll, "signTxt", txt("HESHY'S POOL", 0.15), mat("SignInk", "#0277BD"), loc=(-3.2, -3.09, 1.05), rot=(math.pi / 2, 0, 0), smooth=False)]
-    for i in range(8):
-        a = i / 8 * math.pi * 2
-        parts.append(Part(coll, "umb", bm_cyl(0.0, 1.5, 0.5, 3), mat("Umb%d" % (i % 2), "#E91E63" if i % 2 else "#FFFFFF", rough=0.6),
-                          loc=(-2.4 + math.cos(a) * 0.01, 1.6 + math.sin(a) * 0.01, 2.35), rot=(0, 0, a), smooth=False))
+    # striped beach umbrella: alternating pink / white canopy bands
+    for i, (r1, r2, z) in enumerate(((1.5, 1.1, 2.25), (1.1, 0.7, 2.4), (0.7, 0.3, 2.55), (0.3, 0.04, 2.68))):
+        parts.append(Part(coll, "umb", bm_cyl(r1, r2, 0.15, 20), mat("Umb%d" % (i % 2), "#E91E63" if i % 2 == 0 else "#FFFFFF", rough=0.6),
+                          loc=(-2.4, 1.6, z), smooth=False))
     # beach ball (stripes)
     cols = ("#FF5252", "#FFFFFF", "#FFEB3B", "#FFFFFF", "#42A5F5", "#FFFFFF")
     for i in range(6):

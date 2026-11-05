@@ -133,6 +133,17 @@ export function findSpot(s0, s1, side, dMin, dMax, r) {
     }
     return null;
 }
+/** Is a roadside strip [s0, s1] × [d0, d1] clear of colliders (poles, parked cops, trees…)? */
+export function stripClear(s0, s1, d0, d1, r = 1.2) {
+    const road = ctx.world.road;
+    for (let s = s0; s <= s1 + 0.01; s += 2.5) {
+        for (let d = d0; d <= d1 + 0.01; d += 2) {
+            const p = road.point(s, d, _p);
+            if (!spotClear(p.x, p.z, r)) return false;
+        }
+    }
+    return true;
+}
 export function placeFacingRoad(obj, s, d) {
     const p = ctx.world.road.point(s, d, {});
     obj.position.set(p.x, 0, p.z);
