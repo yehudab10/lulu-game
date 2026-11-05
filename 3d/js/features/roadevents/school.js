@@ -36,7 +36,7 @@ export async function spawnBusStop(opts = {}) {
     const kids = [];
     for (let i = 0, n = rint(2, 4); i < n; i++) {
         const k = spawnPerson("npcKid", { colors: personColors() });
-        place(k.obj, s - 3.5 + rnd(-1.5, 1.5), rnd(9.5, 11.5), rnd(-1.5, 1.5));
+        place(k.obj, s - 3.5 + rnd(-1.5, 1.5), rnd(9.5, 11.5), -Math.PI / 2 + rnd(-0.8, 0.8));
         P.add(k.obj);
         kids.push({ p: k, vd: rnd(0.4, 0.8) });
     }

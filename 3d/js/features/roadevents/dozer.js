@@ -13,13 +13,16 @@ import { addCoins, addScore } from "../../core/driving.js";
 import { spawnPerson } from "../../core/people.js";
 import { registerKind } from "../../traffic.js";
 import { shared } from "../../core/save.js";
-import { input, rumble, glyph } from "../../input.js";
+import { input, rumble, glyph, addTouchButton } from "../../input.js";
 import * as H from "../../hud.js";
 import { PAY, DOZER_TOP, CRUSH_LINES } from "./config.js";
 import { defineEvent, inc, count } from "./state.js";
 import { K, need, pt, place, rnd, pick, clamp, claimSlot, reserve, findNodes, marker, sfx, stat, burst, smoke, loop, copWitness, models, cloneWithColors } from "./common.js";
 import { addCone } from "./construction.js";
 
+const drivers = new WeakSet();   // pooled roller objects that already have a worker in the cab
+let nearRoller = false;
+let touchBtn = null;
 export const D = { active: false, t: 0, max: PAY.dozerSecs, obj: null, lulu: null, stats: null, pre: { vx: 0, vz: 0 }, chased: false, loop: null, drum: null };
 
 registerKind("roadevents_roller", { len: 4.8, halfW: 1.15, circles: [1.5, -1.0], r: 1.2, mass: 6, model: K("steamroller"), paint: false });
@@ -58,11 +61,14 @@ export async function spawnParkedRoller(opts = {}) {
             label.el.style.visibility = Math.sin(E.t * 6) > -0.3 ? "visible" : "hidden";
             const dx = obj.position.x - car.pos.x, dz = obj.position.z - car.pos.z, dist = Math.hypot(dx, dz);
             const near = ahead > -6 && ahead < 45 && ctx.state === "playing" && !D.active;
+            nearRoller = near;
+            if (!touchBtn) touchBtn = addTouchButton({ id: "re_roller", emoji: "🚜", label: "HOP IN", action: "interact", visible: () => nearRoller && ctx.state === "playing" });
             if (near) H.prompt(`🚜 Drive into the steamroller — or ${glyph("interact")} — to commandeer it!`);
             else if (E.prompted) H.prompt("");
             E.prompted = near;
             if (near && (dist < 4.4 || (input.pressed.interact && dist < 14))) {
                 E.taken = true;
+                nearRoller = false;
                 H.prompt("");
                 label.remove();
                 obj.visible = false;
@@ -70,7 +76,7 @@ export async function spawnParkedRoller(opts = {}) {
             }
             return car.s < s + 160;
         },
-        dispose() { if (obj.parent) obj.parent.remove(obj); label.remove(); slot.release(); inc("steamroller", -1); if (E.prompted) H.prompt(""); },
+        dispose() { nearRoller = false; if (obj.parent) obj.parent.remove(obj); label.remove(); slot.release(); inc("steamroller", -1); if (E.prompted) H.prompt(""); },
     });
     return E;
 }
@@ -210,13 +216,13 @@ export async function spawnRollerNpc(opts = {}) {
     const s = opts.s != null ? opts.s : car.s + rnd(260, 380);
     const d = opts.d != null ? opts.d : pick([1.75, 5.25]);
     const c = ctx.traffic.add("roadevents_roller", s, d, 1, opts.speed || rnd(3.5, 5), { immune: true, data: { roller: true } });
-    if (!c.obj.userData.reDriver) {
+    if (!drivers.has(c.obj)) {
         const drv = spawnPerson(K("worker"));
         const seatA = findNodes(c.obj, "Anchor_seat")[0];
         (seatA || c.obj).add(drv.obj);
         drv.obj.position.set(0, -0.36, 0);
         drv.update(0, { sit: true });
-        c.obj.userData.reDriver = drv;
+        drivers.add(c.obj);
     }
     count("rollersNpc");
     return c;

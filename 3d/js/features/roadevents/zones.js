@@ -52,7 +52,7 @@ export function scheduleZone(kind, opts = {}) {
     }
     if (kind === "construction") {
         reserve(s0, s1, 1, 8.8, 14);
-        startWorkZone(s0, s1);
+        startWorkZone(s0, s1).catch(e => console.error(e));
         spawnParkedRoller({ s: s0 + rnd(110, 190) }).catch(e => console.error(e));
     } else if (kind === "gas") {
         spawnGasStation({ s: s0 + rnd(90, 160) }).catch(e => console.error(e));

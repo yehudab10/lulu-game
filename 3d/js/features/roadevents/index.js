@@ -144,7 +144,7 @@ hook("update", (dt, P, controlsOn) => {
     updateBuffs(dt, controlsOn);
     if (wet.t > 0) wet.t = Math.max(0, wet.t - dt);
     if (R.honkT > 0) { R.honkT -= dt; if (R.honkT <= 0) R.honkChain = 0; }
-    if (controlsOn) { busChatter(dt); politeDodges(); }
+    if (controlsOn && ctx.enabled(ID)) { busChatter(dt); politeDodges(); }
     const auto = canSpawn() && svc.auto && controlsOn;
     updateZones(dt, auto);
     if (auto) scheduler(dt);

@@ -180,7 +180,8 @@ export function addPed(opts = {}) {
             const car = ctx.car;
             // kids (and anyone in a crowd) jump out of the way of a fast car
             const ahead = ped.s - car.s, lat = Math.abs(ped.d - car.d);
-            if (kid && !ped.scared && ahead > 0 && ahead < Math.max(8, car.speed * 0.9) && lat < 4 && car.speed > 4) {
+            const roller = ctx.roadevents && ctx.roadevents.vehicle === "steamroller";
+            if ((kid || roller) && !ped.scared && ahead > 0 && ahead < Math.max(8, car.speed * 0.9) && lat < 4 && car.speed > 4) {
                 ped.scared = 1;
                 ped.vx = (ped.d >= car.d ? 1 : -1) * 5.5;
                 bubble(pick(["EEK!", "AAH!", "Whoa!!", "Mommy!"]), p.obj, { t: 1.2, y: 1.6 });
@@ -207,7 +208,7 @@ export function addPed(opts = {}) {
             return true;
         },
         collide(car) {
-            if (ped.gone || kid || ctx.state !== "playing") return null;
+            if (ped.gone || kid || ped.scared || ctx.state !== "playing") return null;
             const pos = p.obj.position;
             const fx = Math.sin(car.h), fz = Math.cos(car.h);
             let hit = false;

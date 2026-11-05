@@ -458,7 +458,10 @@ export function makePiece(name) {
         add(obj) { group.add(obj); return obj; },
         disposePiece() {
             if (group.parent) group.parent.remove(group);
-            group.traverse(o => { if (o.userData && o.userData.geo) o.userData.geo.dispose(); });
+            group.traverse(o => {
+                if (o.userData && o.userData.geo) o.userData.geo.dispose();
+                if (o.userData && o.userData.mats) for (const m of Object.values(o.userData.mats)) m.dispose();
+            });
             for (const x of owned) { try { x.dispose(); } catch (e) { /* ignore */ } }
             for (const fn of extras) { try { fn(); } catch (e) { console.error(e); } }
         },
@@ -501,4 +504,7 @@ export function resetCommon() {
     funnels.clear();
     clearBubbles();
 }
-on("state", ({ to }) => { if (to === "title" || to === "gameover") clearBubbles(); });
+on("state", ({ to }) => {
+    if (to === "title" || to === "gameover") clearBubbles();
+    layer.classList.toggle("off", !(ctx.states[to] && ctx.states[to].hud));
+});

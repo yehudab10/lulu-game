@@ -126,7 +126,7 @@ export async function spawnIceTruck(opts = {}) {
     const kids = [];
     for (let i = 0, n = rint(2, 3); i < n; i++) {
         const k = spawnPerson("npcKid", { colors: personColors() });
-        place(k.obj, s + rnd(-2.2, 2.2), side * rnd(8.4, 9.1), side > 0 ? Math.PI / 2 : -Math.PI / 2);
+        place(k.obj, s + rnd(-2.2, 2.2), side * rnd(8.4, 9.1), side > 0 ? -Math.PI / 2 : Math.PI / 2);
         k.obj.rotation.y += rnd(-0.4, 0.4);
         P.add(k.obj);
         kids.push(k);
