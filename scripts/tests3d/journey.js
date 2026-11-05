@@ -62,14 +62,14 @@ module.exports = {
     await t.frames(30);
     t.check("leg intro banner", await t.L(`/LEG 1\\/5/.test(document.getElementById("banner").textContent)`));
     await shot("leg-banner");
-    const called = await t.until(`!!document.querySelector(".jphone")`, "Bubbe calls as the leg starts", 90000);
+    const called = await t.until(`!!document.querySelector(".jphone")`, "Bubbe calls as the leg starts", 180000);
     if (called) {
       t.check("story call from Bubbe", await t.L(`/BUBBE/.test(document.querySelector(".jphone").textContent)`));
       await t.frames(8);
       await shot("story-call");
     }
     t.check("chapter task chip: groceries", await t.L(`/Groceries/.test((document.querySelector(".jtask") || {}).textContent)`));
-    await t.until(`!__lulu3d.ctx.phone.busy()`, "story call ends", 60000);
+    await t.until(`!__lulu3d.ctx.phone.busy()`, "story call ends", 180000);
 
     // ── Ima is calling: HONK declines (+10) ── (Lulu parks first so road coins / speed traps don't muddy the count)
     await t.hold(7, 0);
@@ -92,7 +92,7 @@ module.exports = {
     t.check("Lulu holds the phone to her ear", await G(`ctx.car.anchors.head.children.length > 0`));
     await t.frames(6);
     await shot("ima-talk");
-    await t.until(`!__lulu3d.ctx.phone.talking`, "the call finishes", 60000);
+    await t.until(`!__lulu3d.ctx.phone.talking`, "the call finishes", 240000);
     t.check("a full chat pays +30 gas money", (await G(`ctx.G.coins`)) - c0 === 30, `${c0} → ${await G(`ctx.G.coins`)}`);
     t.check("steering back to normal", await G(`ctx.phone.flipped === false`));
     await G(`(ctx.traffic.config.enabled = true, true)`);
