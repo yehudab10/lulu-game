@@ -1287,6 +1287,7 @@ function frame() {
         onRoad = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, showCar, decorate);
         hornsNearby();
+        farewells();
         dashTick(dt);
         copTick();
         if (ctx.state === "partyLobby") { renderLobby(false); STG.tick(dt); }
@@ -1336,5 +1337,10 @@ on("party:host", e => {
 on("party:player", e => {
     if (!N.want || !e || !e.p || !N.connected) return;
     if (e.joined && performance.now() - N.connectedAt > 1500) H.toast(`🎉 ${e.p.n || "A friend"} joined the party`, "pink");
-    else if (e.left) H.toast(`👋 ${e.p.n || "A friend"} left`, "");
+    else if (e.back && e.p.saidBye) { e.p.saidBye = false; H.toast(`📶 ${e.p.n || "A friend"} is back!`, "pink"); }
 });
+/** A dropped socket usually comes straight back: only say goodbye after 5 s. */
+function farewells() {
+    const t = performance.now();
+    for (const p of N.players.values()) if (p.left && !p.saidBye && t - p.leftAt > 5000) { p.saidBye = true; H.toast(`👋 ${p.n || "A friend"} left the party`, ""); }
+}

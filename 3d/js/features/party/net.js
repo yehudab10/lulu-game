@@ -170,6 +170,7 @@ function peerJoined(rid, name) {
     if (!uid || uid === N.uid) return;
     N.byRid.set(rid, uid);
     const p = player(uid);
+    if (p.left) emit("party:player", { p, back: true });
     p.rid = rid; p.left = false;
     if (!p.n) p.n = String(name).slice(0, String(name).lastIndexOf("|"));
 }
