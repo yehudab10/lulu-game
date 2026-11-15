@@ -167,6 +167,7 @@ body.title-mode .card.meta-book, body.title-mode .card.meta-quests { width: min(
 .meta-holiday { display: inline-block; margin: 6px auto 2px; background: rgba(13,71,161,.86); color: #FFF8E1; border: 1.5px solid #FFD54F;
   border-radius: 999px; padding: 4px 14px; font-weight: 700; font-size: 15px; }
 .meta-line { font-size: 13px; font-weight: 600; opacity: .8; margin-top: 4px; }
+.btn.row .meta-chip, .home-tiles .meta-chip { background: rgba(43,27,46,.08); }
 
 /* the daily-streak pill under the trip bar */
 .meta-streak { background: linear-gradient(#FFF8E1, #FFE082); color: #5D4037; border: 2px solid #FFB300; border-radius: 16px; padding: 7px 18px;

@@ -49,6 +49,7 @@ body.touch #metaTutBox { bottom: auto; top: calc(max(12px, env(safe-area-inset-t
 @media (max-aspect-ratio: 1/1) { body.touch #metaTutBox { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 body.tv #metaTutBox { bottom: calc(3vh + 64px); }
 #metaTutBox .skip { pointer-events: auto; }
+body.dialog-open #metaTutBox { visibility: hidden; }
 .meta-tut { position: relative; display: flex; gap: 12px; align-items: center; width: min(460px, 92vw); padding: 10px 14px 18px 10px;
   background: rgba(20,28,36,.88); border: 2.5px solid rgba(255,193,7,.85); border-radius: 18px; color: #ECEFF1;
   box-shadow: 0 6px 22px rgba(0,0,0,.3); animation: metaTutIn .3s cubic-bezier(.2,1.6,.4,1); }

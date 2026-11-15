@@ -207,7 +207,7 @@ let chip = null, chipN = -1;
 function ensureChip() {
     if (chip && chip.isConnected) return chip;
     chip = document.createElement("div");
-    chip.className = "hud-chip pl-chip";
+    chip.className = "hud-chip pl-chip hud-secondary";     // a per-drive collectible: hidden by Settings › HUD: Clean
     chip.innerHTML = `${DREIDEL_SVG}<b>0</b>`;
     chip.title = "Golden dreidels this drive";
     H.hudSlot("left").appendChild(chip);

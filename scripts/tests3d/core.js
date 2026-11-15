@@ -70,11 +70,11 @@ module.exports = {
       t.check("A on the arrival screen keeps cruising", await t.game(`ctx.state === "playing"`));
     }
 
-    // settings screen opens from the title and is navigable
+    // settings screen opens from the title (⚙️ More) and is navigable
     await t.tap(9); await t.frames(2);
-    await t.game(`(document.querySelector("#screenCard .btn.purple") || {}).click && [...document.querySelectorAll("#screenCard .btn")].find(b => /Title/.test(b.textContent)).click()`);
+    await t.click(/Title screen/);
     await t.until(`__lulu3d.state === "title"`, "back to the title screen");
-    await t.game(`[...document.querySelectorAll("#screenCard .btn")].find(b => /Settings/.test(b.textContent)).click()`);
+    await t.click(/Settings/);
     t.check("settings screen opens", await t.L(`!!document.querySelector("#set_quality")`));
     await t.tap(13); await t.tap(0);  // D-pad down + A on a setting
     t.check("settings stay open after toggling", await t.L(`!!document.querySelector("#set_quality")`));

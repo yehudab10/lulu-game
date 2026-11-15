@@ -11,6 +11,11 @@ import { LULU, LULU_LEG } from "./lines.js";
 import { draw, quiet, clamp, nightness, chance } from "./util.js";
 import { showLulu, luluBubble, bannerUp } from "./bubbles.js";
 import { talk, lookAt } from "./rig.js";
+import { save3d } from "../../core/save.js";
+
+/** Settings › Lulu's chatter: "chatty" talks more often, "quiet" keeps only the big moments. */
+const CHAT = { chatty: { gap: 0.55, chance: 1.3 }, normal: { gap: 1, chance: 1 }, quiet: { gap: 1.8, chance: 1 } };
+const chatter = () => (save3d.settings && save3d.settings.chatter) || "normal";
 
 // prio: 1 small talk · 2 normal · 3 big moment (cuts in) — chance per trigger — cd: seconds before that category again
 export const CAT = {
@@ -98,10 +103,12 @@ export function say(cat, info = {}, { force = false, delay = 0, line = null } = 
     if (!canTalk()) return false;
     const now = ctx.time;
     if (!force) {
+        const ch = chatter(), k = CHAT[ch] || CHAT.normal;
+        if (ch === "quiet" && c.prio < 3) return false;
         if ((D.cd[cat] || 0) > now) return false;
-        if (!chance(c.chance)) { D.cd[cat] = now + 1.5; return false; }
+        if (!chance(Math.min(1, c.chance * k.chance))) { D.cd[cat] = now + 1.5; return false; }
         const since = now - D.last;
-        if (since < (c.prio >= 3 ? 3 : c.prio === 2 ? D.gap * 0.8 : D.gap)) return false;
+        if (since < (c.prio >= 3 ? 3 : (c.prio === 2 ? D.gap * 0.8 : D.gap) * k.gap)) return false;
         if (luluBubble().on && c.prio < 3) return false;
     }
     const text = line || lineFor(cat, info);

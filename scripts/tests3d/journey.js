@@ -47,7 +47,7 @@ module.exports = {
 
     await t.frames(10);
     // ── title ──
-    const items = await t.L(`[...document.querySelectorAll("#screenCard .menu .btn")].map(b => b.textContent)`);
+    const items = await t.titleItems();
     t.check("Story Trip is the first title item", /Story Trip/.test(items[0]), items[0]);
     t.check("cruise is locked for a fresh player (2D onboarding rule)", !items.some(x => /Cruise/.test(x)));
     t.check("title shows the next stop", await t.L(`/Next stop:.*BUBBE/.test((document.querySelector(".jtitle") || {}).textContent)`));
@@ -215,7 +215,7 @@ module.exports = {
     await t.tap(9); await t.frames(2);
     await t.click(/Title/);
     await t.until(`__lulu3d.state === "title"`, "back to the title");
-    const items2 = await t.L(`[...document.querySelectorAll("#screenCard .menu .btn")].map(b => b.textContent)`);
+    const items2 = await t.titleItems();
     t.check("cruise unlocked on the title", items2.some(x => /Cruise/.test(x)));
     t.check("title shows TOUR 2", await t.L(`/TOUR 2/.test(document.querySelector(".jtitle").textContent)`));
     await t.click(/Road to Vegas/);

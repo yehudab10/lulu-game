@@ -76,11 +76,11 @@ export const holidayIs = id => { const c = currentHoliday(); return !!(c && c.h.
 
 // ── title greeting + the once-a-day gift ─────────────────────────────────
 addMenuItem("titleInfo", {
-    id: "metaHoliday", order: 5,
+    id: "metaHoliday", order: 5, bar: true,
     visible: () => !!currentHoliday(),
     label: () => {
         const c = currentHoliday();
-        return `<div class="meta-holiday">${c.h.emoji} ${c.h.greeting}${c.h.id === "chanukah" ? ` · Night ${c.dayNum}` : ""}</div>`;
+        return `<span class="meta-holiday">${c.h.emoji} ${c.h.greeting}${c.h.id === "chanukah" ? ` · Night ${c.dayNum}` : ""}</span>`;
     },
 });
 export function holidayGiftTick() {

@@ -51,8 +51,8 @@ export function canPhoto() {
     return !!def.pausable;
 }
 
-addMenuItem("pause", { id: "playPhoto", order: 12, cls: "pink", label: "📸 Photo mode", visible: canPhoto, action: () => openPhoto("pause") });
-addMenuItem("title", { id: "playPhoto", order: 65, cls: "alt", label: "📸 Photo mode", action: () => openPhoto("title") });
+addMenuItem("pause", { id: "playPhoto", order: 12, group: "tools", cls: "pink", label: "📸 Photo mode", visible: canPhoto, action: () => openPhoto("pause") });
+addMenuItem("title", { id: "playPhoto", order: 65, group: "garage", cls: "alt", label: "📸 Photo mode", sub: "pose Lulu and the car, snap a postcard", action: () => openPhoto("title") });
 
 const $ = id => document.getElementById(id);
 export function openPhoto(from = "pause") {

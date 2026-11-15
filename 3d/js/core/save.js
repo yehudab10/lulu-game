@@ -29,10 +29,10 @@ function writeJSON(key, obj) {
 // ── 3D save ───────────────────────────────────────────────────────────────
 export const save3d = Object.assign({
     best: 0, bestTime: 0, arrivals: 0, cam: 0, music: true, sound: true,
-    settings: { quality: "auto", vibration: true, invertLook: false, steerSens: 1, calm: false, tv: "auto", hud: 1 },
+    settings: { quality: "auto", vibration: true, invertLook: false, steerSens: 1, calm: false, tv: "auto", hud: 1, hudMode: "full", chatter: "normal" },
     f: {},            // per-feature namespaces (see store())
 }, readJSON(KEY3D) || {});
-save3d.settings = Object.assign({ quality: "auto", vibration: true, invertLook: false, steerSens: 1, calm: false, tv: "auto", hud: 1 }, save3d.settings || {});
+save3d.settings = Object.assign({ quality: "auto", vibration: true, invertLook: false, steerSens: 1, calm: false, tv: "auto", hud: 1, hudMode: "full", chatter: "normal" }, save3d.settings || {});
 save3d.f = save3d.f || {};
 
 let dirty = false;

@@ -28,6 +28,7 @@ css("dialog", `
 #dialog .opt.focus { background: var(--pink); color: #fff; transform: scale(1.02); }
 @keyframes dlgIn { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 body.tv #dialog { width: min(1100px, calc(100% - 10vw)); bottom: 6vh; }
+body.dialog-open #padHint, body.dialog-open .hud-slot.bottom { visibility: hidden; }
 body.tv #dialog .text { font-size: 28px; } body.tv #dialog .opt { font-size: 24px; } body.tv #dialog .who { width: 88px; height: 88px; font-size: 54px; }
 `);
 
@@ -45,6 +46,7 @@ export function setDialogGlyph(fn) { glyphFn = fn; }
 function open(name, text, opts = {}) {
     el.classList.add("open");
     ctx.dialogOpen = true;
+    document.body.classList.add("dialog-open");      // bottom-of-screen HUD bits step aside
     $who.textContent = opts.emoji || "💬";
     $who.style.background = opts.bg || "#fff";
     $name.textContent = name || "";
@@ -57,6 +59,7 @@ function open(name, text, opts = {}) {
 function close() {
     el.classList.remove("open");
     ctx.dialogOpen = false;
+    document.body.classList.remove("dialog-open");
     cur = null;
 }
 

@@ -60,7 +60,7 @@ try {
 
 // ── title screen ─────────────────────────────────────────────────────────
 addMenuItem("title", {
-    id: "metaScrapbook", order: 50, cls: "alt",
+    id: "metaScrapbook", order: 50, group: "book", cls: "alt", short: "Badges", sub: "badges · rap sheet · crew · stats",
     label: () => {
         const S = shared.get(), t = badgeTotals(S);
         return `📒 Scrapbook <span class="meta-chip">🏆 ${t.got}/${t.tot}</span>${scrapHasNew(S) ? '<span class="meta-dot">!</span>' : ""}`;
@@ -68,7 +68,7 @@ addMenuItem("title", {
     action: () => openScrapbook("title"),
 });
 addMenuItem("title", {
-    id: "metaQuests", order: 55, cls: "purple",
+    id: "metaQuests", order: 55, group: "book", cls: "purple", short: "Quests",
     label: () => {
         if (!questsUnlocked()) return `📜 Quests <span class="meta-chip">🔒 ${Math.floor(Math.min(1, lifetimeScore() / QUEST_UNLOCK) * 100)}%</span>`;
         return `📜 Weekly Quests${questAnyClaimable() ? '<span class="meta-dot gold">!</span>' : ""}`;
@@ -77,17 +77,17 @@ addMenuItem("title", {
 });
 // the streak nudge on the title card
 addMenuItem("titleInfo", {
-    id: "metaStreak", order: 6,
+    id: "metaStreak", order: 6, bar: true,
     visible: () => { const S = shared.get(); return (S.streak || 0) > 0 && (S.dayNum === dayNum() || S.dayNum === dayNum() - 1); },
     label: () => {
         const S = shared.get(), today = S.dayNum === dayNum();
-        return `<div class="meta-line">🔥 ${S.streak}-day streak${today ? "!" : ` — drive today for +${25 * Math.min((S.streak || 0) + 1, 7)} 💰`}</div>`;
+        return `<span class="meta-line" title="Daily streak">🔥 ${S.streak}${today ? "-day streak" : ` · drive today: +${25 * Math.min((S.streak || 0) + 1, 7)} 💰`}</span>`;
     },
 });
 
 // ── pause menu ───────────────────────────────────────────────────────────
-addMenuItem("pause", { id: "metaPauseScrap", order: 40, label: "📒 Scrapbook", action: () => openScrapbook("pause") });
-addMenuItem("pause", { id: "metaPauseQuests", order: 45, cls: "purple",
+addMenuItem("pause", { id: "metaPauseScrap", order: 40, group: "tools", label: "📒 Scrapbook", action: () => openScrapbook("pause") });
+addMenuItem("pause", { id: "metaPauseQuests", order: 45, group: "tools", cls: "purple",
     label: () => `📜 Quests${questAnyClaimable() ? '<span class="meta-dot gold">!</span>' : ""}`, action: () => openQuests("pause") });
 
 // ── badge toasts (title + run end) and the holiday gift ──────────────────

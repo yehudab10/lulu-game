@@ -116,7 +116,7 @@ export function wreck(why, source = "crash") {
     const G = ctx.G;
     G.wreckInfo = { why, source };
     ctx.car.spin += (Math.random() < 0.5 ? -1 : 1) * 5;
-    H.banner(`💥 <b>WRECKED!</b><small>${why || "Lulu's car has had enough"}</small>`, 2400);
+    H.banner(`💥 <b>WRECKED!</b><small>${why || "Lulu's car has had enough"}</small>`, 2400, { prio: 2 });
     A.sfxHorn(false);
     emit("wreck", G.wreckInfo);
     setState("wrecked", G.wreckInfo);
@@ -362,17 +362,18 @@ registerState("intro", {
     enter() {
         ctx.G.countdown = 3;
         H.setBoost(ctx.G.boost, input.device === "touch" ? "" : glyph("boost"));
-        H.banner(`<b>3</b>`, 900);
+        H.clearNotices();
+        H.banner(`<b>3</b>`, 900, { key: "countdown" });
         if (!ctx.G.musicSet) A.setMusic("../luludriving.mp3");
     },
     update(dt, P) {
         const G = ctx.G;
         const prev = G.countdown;
         G.countdown = 3 - Math.floor(ctx.stateT / 0.8);
-        if (G.countdown !== prev && G.countdown > 0) { H.banner(`<b>${G.countdown}</b>`, 700); A.sfxCloseCall(0); rumble(0.1, 0.2, 80); }
+        if (G.countdown !== prev && G.countdown > 0) { H.banner(`<b>${G.countdown}</b>`, 700, { key: "countdown" }); A.sfxCloseCall(0); rumble(0.1, 0.2, 80); }
         updateDriving(dt, {}, false);
         if (ctx.stateT >= 2.4) {
-            H.banner(`<b>GO!</b>${G.goText ? `<small>${G.goText}</small>` : ""}`, 1200);
+            H.banner(`<b>GO!</b>${G.goText ? `<small>${G.goText}</small>` : ""}`, 1200, { key: "countdown" });
             A.sfxCloseCall(6);
             rumble(0.3, 0.6, 200, true);
             setState("playing");

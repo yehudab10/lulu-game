@@ -941,14 +941,10 @@ function updateCam(dt) {
 // ── title menu: 🅿️ Parking Challenge (order 40, unlock 1,000 coins) ────────
 function unlocked() { return !!shared.get().parkingUnlocked; }
 addMenuItem("title", {
-    id: "parking", order: 40, cls: "alt",
+    id: "parking", order: 40, group: "play", cls: "alt",
+    sub: () => unlocked() ? ((shared.get().parkingBestLevel || 0) > 0 ? `best: level ${shared.get().parkingBestLevel} of 10` : "ten levels of parallel parking") : "unlock once, play forever",
     label: () => unlocked() ? "🅿️ Parking Challenge" : `🅿️ Parking Challenge 🔒 ${UNLOCK_COST.toLocaleString()}`,
     action: () => { if (unlocked()) start({ challenge: true }); else showUnlock(); },
-});
-addMenuItem("titleInfo", {
-    id: "parkingBest",
-    visible: () => (shared.get().parkingBestLevel || 0) > 0,
-    label: () => `<p class="fine" style="color:#1565C0;opacity:.85">🅿 Best Level: ${shared.get().parkingBestLevel}</p>`,
 });
 
 function showUnlock() {

@@ -96,6 +96,10 @@ css("meta-toast", `
 @keyframes metaToastIn { from { transform: translateY(-14px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes metaToastOut { to { transform: translateY(-10px); opacity: 0; } }
 body.tv #metaToast .mt { font-size: 26px; padding: 12px 28px; }
+/* the home card sits on the left in landscape: notices go top-right, over the scenery */
+@media (min-aspect-ratio: 5/4) and (min-width: 820px) {
+  body.title-mode:not(.meta-open) #metaToast { left: auto; right: max(24px, 3vw); transform: none; width: auto; max-width: 42vw; align-items: flex-end; }
+}
 `);
 let toastBox = null;
 const queue = [];

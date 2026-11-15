@@ -113,12 +113,20 @@ async function runFile(browser, base, file) {
     async key(k) { await page.keyboard.press(k); await t.frames(2); },
     /** Evaluate an expression inside the game: t.game("ctx.G.hearts"). `ctx` and `L3` (= window.__lulu3d) are in scope. */
     game: code => L(`(() => { const L3 = window.__lulu3d, ctx = L3.ctx; return (${code}); })()`),
-    /** Click the first button on the open screen whose text matches. */
+    /** Click the first button on the open screen whose text matches. A title item tucked into
+     *  a sub-menu (🚗 Garage, 📒 Scrapbook, ⚙️ More…) is revealed first; the group tiles
+     *  themselves only match when nothing else does. */
     async click(re) {
-      const ok = await L(`(() => { const b = [...document.querySelectorAll("#screenCard button, #dialog button, #screenCard .nav")].find(b => ${re}.test(b.textContent)); if (b) b.click(); return !!b; })()`);
+      const find = groups => `[...document.querySelectorAll("#screenCard button, #dialog button, #screenCard .nav")].find(b => ${groups ? "true" : "!b.dataset.groupTile"} && ${re}.test(b.textContent))`;
+      const tryClick = groups => L(`(() => { const b = ${find(groups)}; if (b) b.click(); return !!b; })()`);
+      let ok = await tryClick(false);
+      if (!ok && await L(`!!(window.__lulu3d && __lulu3d.revealMenuItem && __lulu3d.revealMenuItem("title", ${re}))`)) ok = await tryClick(false);
+      if (!ok) ok = await tryClick(true);
       await t.frames(2);
       return ok;
     },
+    /** Every title item (any group), as plain text — for "the title lists X" checks. */
+    titleItems: () => L(`window.__lulu3d && __lulu3d.titleLabels ? __lulu3d.titleLabels().map(i => i.label) : []`),
     async shot(label) {
       if (!SHOTS) return;
       fs.mkdirSync(path.join(ROOT, "smoke-shots"), { recursive: true });
