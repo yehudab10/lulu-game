@@ -9,7 +9,7 @@ import { ctx, on, emit, hook, MPH } from "../../core/ctx.js";
 import { SHOULDER } from "../../world.js";
 import { LULU, LULU_LEG } from "./lines.js";
 import { draw, quiet, clamp, nightness, chance } from "./util.js";
-import { showLulu, luluBubble } from "./bubbles.js";
+import { showLulu, luluBubble, bannerUp } from "./bubbles.js";
 import { talk } from "./rig.js";
 
 // prio: 1 small talk · 2 normal · 3 big moment (cuts in) — chance per trigger — cd: seconds before that category again
@@ -76,7 +76,7 @@ export function say(cat, info = {}, { force = false, delay = 0, line = null } = 
     if (!force && !ctx.enabled("banter")) return false;
     const c = CAT[cat] || { prio: 2, chance: 1, cd: 0 };
     if (delay > 0) {
-        if (!D.pending || (CAT[D.pending.cat] || c).prio <= c.prio) D.pending = { cat, info, force, line, at: ctx.time + delay };
+        if (!D.pending || (CAT[D.pending.cat] || c).prio <= c.prio) D.pending = { cat, info, force, line, at: ctx.time + delay, born: ctx.time };
         return true;
     }
     if (!canTalk()) return false;
@@ -85,7 +85,7 @@ export function say(cat, info = {}, { force = false, delay = 0, line = null } = 
         if ((D.cd[cat] || 0) > now) return false;
         if (!chance(c.chance)) { D.cd[cat] = now + 1.5; return false; }
         const since = now - D.last;
-        if (since < (c.prio >= 3 ? 3 : c.prio === 2 ? D.gap * 0.6 : D.gap)) return false;
+        if (since < (c.prio >= 3 ? 3 : c.prio === 2 ? D.gap * 0.8 : D.gap)) return false;
         if (luluBubble().on && c.prio < 3) return false;
     }
     const text = line || lineFor(cat, info);
@@ -107,8 +107,9 @@ export function tickLulu(dt) {
     if (!ctx.enabled("banter")) return;
     const car = ctx.car, G = ctx.G;
     if (D.pending && ctx.time >= D.pending.at) {
-        const p = D.pending; D.pending = null;
-        say(p.cat, p.info, { force: p.force, line: p.line });
+        const p = D.pending;
+        if (bannerUp() && ctx.time - p.born < 9) p.at = ctx.time + 0.4;      // let the leg card / GO! go first
+        else { D.pending = null; say(p.cat, p.info, { force: p.force, line: p.line }); }
     }
     if (ctx.state !== "playing") return;
     const sp = car.speed;

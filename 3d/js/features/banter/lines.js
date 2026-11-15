@@ -151,7 +151,7 @@ export const LULU = {
         "Every dent is a story. I'm out of stories.",
         "From now on I'm a GRANDMA driver.",
         "Please please please no more bumps.",
-        "If I wreck this, Ima will kill me. Lovingly.",
+        "If I wreck this, Ima will plotz.",
     ],
     copChase: [
         "I was doing the speed limit… in my HEART.",

@@ -97,6 +97,17 @@ module.exports = {
     }
     await t.shot("lulu-line");
 
+    // ── 3b. "Lulu's eyes": her head is the camera, so the bubble parks low on the left ──
+    await t.tap(3); await t.tap(3);
+    t.check("first-person camera", await g(`ctx.cam.name === "Lulu's eyes"`));
+    await g(`(ctx.banter.resetThrottle(), ctx.banter.say("Look, Ima — both hands on the wheel!"), ctx.banter.gesture("hi", 1.5), true)`);
+    await t.frames(10);
+    const fr = (await g(`ctx.banter.rects()`)).find(r => r.who === "lulu");
+    t.check("first person: the bubble still shows, in the left half", !!fr && fr.x + fr.w <= vw / 2 + 2, fr ? `x ${fr.x.toFixed(0)}–${(fr.x + fr.w).toFixed(0)} y ${fr.y.toFixed(0)}` : "none");
+    await t.shot("first-person");
+    await t.tap(3);
+    t.check("back to the chase cam", await g(`ctx.cam.name === "Chase cam"`));
+
     // ── 4. never while paused ──────────────────────────────────────────────
     await g(`ctx.banter.say("Testing, testing!")`);
     await t.frames(2);
@@ -131,6 +142,17 @@ module.exports = {
     await t.frames(3);
     t.check("a near-missed driver shakes a fist", (await g(`ctx.banter.npc.fists`)) > f0 && (await g(`ctx.banter.arms()`)).includes("fist"));
 
+    // ── 6b. stuck behind a slow driver: she waves Lulu by ─────────────────
+    s0 = (await S()) + 60;
+    await tp(s0, 1.75, 10.5);
+    await g(`(ctx.banter.autopilot = { d: 1.75, speed: 10.5 }, window.__slow = ctx.traffic.add("sedan", ${s0 + 17}, 1.75, 1, 9.5), true)`);
+    const wb0 = await g(`ctx.banter.npc.waveBys`);
+    await t.until(`window.__lulu3d.ctx.banter.npc.waveBys > ${wb0}`, "a slow driver waves her by", 8000);
+    t.check("a slow driver waves her by", (await g(`ctx.banter.npc.waveBys`)) > wb0 && (await g(`ctx.banter.arms()`)).includes("waveBy"));
+    await t.frames(6);
+    await t.shot("wave-by");
+    await g(`(ctx.banter.autopilot = null, true)`);
+
     // ── 7. billboards: forced, then streamed with the road, then recycled ─
     s0 = (await S()) + 80;
     await tp(s0, 1.75, 0);
@@ -140,11 +162,6 @@ module.exports = {
     await g(`ctx.banter.billboard("kugel", 70, -1)`);
     await t.frames(4);
     await t.shot("billboards");
-    // after dark the boards light up
-    await g(`(window.__sunI = ctx.lights.sun.intensity, window.__hemiI = ctx.lights.hemi.intensity, ctx.lights.sun.intensity = 0.6, ctx.lights.hemi.intensity = 0.35, true)`);
-    await t.frames(3);
-    await t.shot("billboards-night");
-    await g(`(ctx.lights.sun.intensity = window.__sunI, ctx.lights.hemi.intensity = window.__hemiI, true)`);
     const placed0 = await g(`ctx.banter.billboards.placed`);
     let s = await S();
     for (let i = 0; i < 24; i++) {
@@ -179,6 +196,15 @@ module.exports = {
       await t.frames(3);
       await t.shot("onlooker");
     }
+
+    // ── 8b. a Story Trip leg: she says where she's headed ─────────────────
+    await g(`L3.startRun({ mode: "story" })`);
+    await t.until(`__lulu3d.state === "playing"`, "story drive starts");
+    await t.until(`window.__lulu3d.ctx.banter.lulu.lastCat === "leg"`, "she says where the Story Trip leg is going", 8000);
+    t.check("she says where the Story Trip leg is going", (await g(`ctx.banter.lulu.lastCat`)) === "leg", await g(`ctx.banter.lulu.lastLine`));
+    await g(`ctx.banter.billboard("kugel", 48, -1)`);
+    await t.frames(6);
+    await t.shot("story");
 
     // ── 9. back to the title: everything tidied away ───────────────────────
     await g(`L3.setState("title")`);

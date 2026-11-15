@@ -133,6 +133,7 @@ function rig(car) {
             const part = new THREE.Mesh(g, m.material);
             part.name = "BanterPart";
             part.castShadow = m.castShadow; part.receiveShadow = m.receiveShadow;
+            part.userData = Object.assign({}, m.userData);   // e.g. law's jumpsuit swap remembers the real shirt
             holder[p].add(part);
             R.parts++;
         }

@@ -101,13 +101,13 @@ export const ADS = [
 function lawyer() {
     const s = shared.get(), c = s.convictions || 0, o = s.offenses || 0;
     const base = { bg: ["#ECEFF1", "#CFD8DC"], ink: "#263238", accent: "#6D4C41", art: "gavel" };
-    if (c >= 5) return Object.assign(base, { key: "lawyer4", head: "THANK YOU, LULU!", sub: "WE BOUGHT A BOAT", small: "— Goldberg & Goldberg, your lawyers",
+    if (c >= 5) return Object.assign(base, { key: "lawyer4", head: "THANK YOU, LULU!", sub: "WE BOUGHT A BOAT", small: "— Feldman, Feldman & Oy, your lawyers",
         strip: "10th ARREST FREE!", react: ["They bought a BOAT?!", "I'm basically funding their retirement."] });
-    if (c >= 2) return Object.assign(base, { key: "lawyer3", head: "LULU! IT'S US!", sub: "YOUR LAWYERS", small: "Please. Slow. Down. — Goldberg & Goldberg",
+    if (c >= 2) return Object.assign(base, { key: "lawyer3", head: "LULU! IT'S US!", sub: "YOUR LAWYERS", small: "Please. Slow. Down. — Feldman, Feldman & Oy",
         react: ["They know my NAME?!", "Hi guys! Miss me?"] });
-    if (c >= 1 || o >= 1) return Object.assign(base, { key: "lawyer2", head: "ARRESTED? AGAIN?", sub: "GOLDBERG & GOLDBERG", small: "We do payment plans. And rugelach.",
+    if (c >= 1 || o >= 1) return Object.assign(base, { key: "lawyer2", head: "ARRESTED? AGAIN?", sub: "FELDMAN, FELDMAN & OY", small: "We do payment plans. And rugelach.",
         react: ["AGAIN? It was ONE time! …ish.", "Payment plans. Noted."] });
-    return Object.assign(base, { key: "lawyer1", head: "GOLDBERG & GOLDBERG", sub: "ATTORNEYS AT LAW", small: "Arrested? You won't be. You're a good girl.",
+    return Object.assign(base, { key: "lawyer1", head: "FELDMAN, FELDMAN & OY", sub: "ATTORNEYS AT LAW", small: "Arrested? You won't be. You're a good girl.",
         react: ["Don't need 'em! …probably.", "Good girl. That's me."] });
 }
 function avigail() {
@@ -129,9 +129,12 @@ export function resolve(ad) {
 export function adById(id) { return ADS.find(a => a.id === id) || null; }
 
 // ── texture ────────────────────────────────────────────────────────────────
-/** Paint the billboard face for a resolved design (the caller caches it). */
+/** Paint the billboard face for a resolved design (the caller caches it). Half size on
+ *  phones / consoles (GPU memory), drawn in the same 1024×512 layout either way. */
+const LOW = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches || /PlayStation|Xbox|Nintendo|SMART-TV|Tizen|Web0S/i.test(navigator.userAgent);
 export function adTexture(d) {
-    const t = canvasTex(1024, 512, (g, w, h) => paint(g, w, h, d), false);
+    const k = LOW ? 0.5 : 1;
+    const t = canvasTex(1024 * k, 512 * k, g => { g.scale(k, k); paint(g, 1024, 512, d); }, false);
     t.anisotropy = 4;
     return t;
 }

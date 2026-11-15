@@ -13,7 +13,7 @@
 // everything random — bubbles, other drivers' reactions, onlookers,
 // billboards — is gated by ctx.enabled("banter") so other tests stay
 // deterministic. Debug / test hooks live on ctx.banter.
-import { ctx, on, hook } from "../../core/ctx.js";
+import { ctx, on, hook, wrapAngle } from "../../core/ctx.js";
 import { quiet, knobs } from "./util.js";
 import { updateBubbles, setHeadSource, bubbleRects, npcBubble, luluBubble, hideLulu } from "./bubbles.js";
 import { headWorld, rigInfo, gesture, lookAt, flinch, jolt } from "./rig.js";
@@ -35,6 +35,18 @@ hook("hud", dt => {
     updateBubbles(dt, !quiet());
 }, -10);
 on("state", ({ to }) => { if (to !== "playing") updateBubbles(0, false); });
+
+// tests: hold lane d at a speed (ctx.banter.autopilot = { d, speed })
+hook("controls", ctl => {
+    const ap = ctx.banter.autopilot;
+    if (!ap) return;
+    const car = ctx.car, tgt = ctx.world.road.point(car.s + 12, ap.d, {});
+    const diff = wrapAngle(Math.atan2(tgt.x - car.pos.x, tgt.z - car.pos.z) - car.h);
+    ctl.steer = Math.max(-1, Math.min(1, -diff * 3));
+    ctl.throttle = car.speed < ap.speed ? 0.7 : 0;
+    ctl.brake = car.vF > ap.speed + 1.5 ? 0.5 : 0;
+    ctl.analog = true;
+}, 3);
 
 const r4 = q => [q.x, q.y, q.z, q.w].map(v => +v.toFixed(4));
 ctx.banter = {
@@ -66,5 +78,6 @@ ctx.banter = {
     peds: () => npcPeds.filter(p => p.on).map(p => ({ s: Math.round(p.s), d: +p.d.toFixed(2), kid: !!p.look.kid, react: p.react })),
     /** Tests: every dice roll succeeds; forget the throttle and cooldowns. */
     knobs,
+    autopilot: null,
     resetThrottle() { luluState.last = -99; luluState.cd = {}; hideLulu(); return true; },
 };

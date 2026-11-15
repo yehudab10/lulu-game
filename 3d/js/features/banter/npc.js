@@ -69,7 +69,7 @@ function armOut(car, mode, dur = 1.8) {
     }
     a.car = car; a.mode = mode; a.t = 0; a.dur = dur;
     a.obj.position.set(m[0], m[1], m[2]);
-    a.obj.scale.setScalar(car.kind === "truck" ? 1.45 : 1.25);
+    a.obj.scale.setScalar(car.kind === "truck" ? 1.7 : 1.5);   // cartoon-big: it has to read from the chase cam
     car.obj.add(a.obj);
     return a;
 }

@@ -66,6 +66,27 @@ function pop(inner) { inner.style.animation = "none"; void inner.offsetWidth; in
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 
+// The HUD stacks Lulu's bubble must not cover (re-measured a few times a second, not every frame).
+const hudAvoid = { t: -1, rects: [] };
+function hudRects() {
+    const now = performance.now();
+    if (now - hudAvoid.t < 300) return hudAvoid.rects;
+    hudAvoid.t = now;
+    hudAvoid.rects.length = 0;
+    for (const id of ["slot-center", "slot-left"]) {
+        const el = document.getElementById(id);
+        if (!el || !el.childElementCount) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 1 && r.height > 1) hudAvoid.rects.push({ id, l: r.left, r: r.right, t: r.top, b: r.bottom });
+    }
+    return hudAvoid.rects;
+}
+/** Is the driving banner (leg card, "GO!") up right now? Lines wait for it. */
+export function bannerUp() {
+    const b = document.getElementById("banner");
+    return !!b && !b.classList.contains("hidden") && b.offsetParent !== null;
+}
+
 // ── Lulu's bubble ───────────────────────────────────────────────────────────
 const L = Object.assign(makeEl("bn-lulu"), { on: false, t: 0, dur: 0, w: 0, h: 0, text: "", cat: "", x: -1, y: -1, n: 0 });
 let headFn = null;     // (out Vector3) → Lulu's head in world space (the rig provides it)
@@ -100,6 +121,13 @@ function placeLulu(W, Hh) {
     const tailX = L.w * 0.86;
     x = clamp(x, tailX + 10, W * 0.46 - (L.w - tailX));
     y = clamp(y, L.h + 74, Hh - 40);
+    // step around the HUD stacks: left of the centre one if there's room, else below it
+    for (const r of hudRects()) {
+        const bl = x - tailX, bt = y - L.h - 11;
+        if (bl > r.r + 6 || bl + L.w < r.l - 6 || bt > r.b + 6 || bt + L.h < r.t - 6) continue;
+        if (r.id === "slot-center" && r.l - 8 - L.w >= 8) x = r.l - 8 - L.w + tailX;
+        else y = Math.min(Hh - 40, r.b + 8 + L.h + 11);
+    }
     if (Math.abs(x - L.x) < 0.4 && Math.abs(y - L.y) < 0.4) return;
     L.x = x; L.y = y;
     L.el.style.transform = `translate(${(x - tailX).toFixed(1)}px, ${(y - L.h - 11).toFixed(1)}px)`;
@@ -137,7 +165,7 @@ function placeNpc(b, W, Hh) {
     if (!(_v.z < 1 && dist < 110 && Math.abs(_v.x) < 1.15 && Math.abs(_v.y) < 1.15)) { b.el.style.opacity = "0"; return; }
     b.el.style.opacity = "";
     const x = (_v.x + 1) / 2 * W, y = (1 - _v.y) / 2 * Hh;
-    const sc = clamp(24 / dist, 0.72, 1.08);
+    const sc = clamp(24 / dist, 0.72, 1);
     b.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${sc.toFixed(2)})`;
 }
 
