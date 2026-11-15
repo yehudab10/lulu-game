@@ -545,6 +545,8 @@ body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 
     .pm-exit { margin-top: 8px; }
     .pm-main .btn { min-height: 44px; padding: 8px 14px; }
 }
+/* touch players tap the buttons themselves: no "A" / "Back" glyph pills inside them, no L1/R1 hints */
+body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
 /* ── touch HUD: nothing may sit on the touch buttons, the speedo or the trip bar ── */
 /* landscape: feature chips (items, wanted) run in a row under the pause button, above the
    NITRO / HONK column; toasts slide in just left of the pedal column */

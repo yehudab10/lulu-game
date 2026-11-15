@@ -7,6 +7,8 @@ css("meta", `
 body.title-mode.meta-open .screen { justify-content: center !important; padding-left: 16px !important; }
 body.title-mode .card.meta-book, body.title-mode .card.meta-quests { width: min(900px, 100%); }
 .card.nopop { animation: none !important; }
+/* short screens (phones on their side): the long book / quest cards scroll — keep ⬅ Back in reach */
+@media (max-height: 520px) { .card.meta-book > .menu, .card.meta-quests > .menu { position: sticky; bottom: -12px; margin-top: 8px; padding-bottom: 4px; z-index: 3; } }
 .card.meta-book, .card.meta-quests { width: min(900px, 100%); text-align: left; position: relative; }
 
 /* ── scrapbook ── */

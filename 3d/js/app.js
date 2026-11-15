@@ -113,7 +113,9 @@ async function boot() {
         if (!connected) pause();
         emit("pad", { connected });
     };
+    document.body.classList.toggle("dev-touch", input.device === "touch");
     input.onDeviceChange = d => {
+        document.body.classList.toggle("dev-touch", d === "touch");      // menus drop the button-glyph pills for fingers
         H.setBoost(ctx.G.boost || 0, d === "touch" ? "" : glyph("boost"));
         const def = ctx.states[ctx.state];
         if (def) H.showTouch(!!def.touch && d === "touch");
