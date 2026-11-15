@@ -39,7 +39,8 @@ export function addRamp(chunk, s, d, k) {
     obj.position.set(p.x, 0, p.z);
     obj.rotation.y = p.h;
     if (chunk) chunk.add(obj); else ctx.scene.add(obj);
-    const r = { s, d, k, obj, chunk, lane: Math.abs(d) < 7 };
+    const r = { s, d, k, obj, chunk, lane: Math.abs(d) < 7,
+        other: LANES_OURS.reduce((a, l) => Math.abs(l - d) > Math.abs(a - d) ? l : a, LANES_OURS[0]) };   // the lane traffic moves over to
     ramps.push(r);
     return r;
 }
@@ -233,6 +234,7 @@ function applyVisual(dt = 0) {
     const active = J.y > 0.0005 || J.spin !== 0 || Math.abs(J.pitch) > 0.0005 || Math.abs(J.roll) > 0.0005 || J.land > 0;
     if (!active && !J.dirty) return;
     J.dirty = active;
+    if (!active) { J.y = 0; J.pitch = 0; J.roll = 0; lift.y = 0; }   // settle on exactly zero
     m.position.y = J.y;
     m.rotation.order = "YXZ";
     m.rotation.set(J.pitch, J.spin, J.roll);
@@ -344,10 +346,19 @@ hook("hud", dt => {
     const st = ctx.state;
     if (st !== "playing" && st !== "wrecked") { J.k = 0; return; }
     const want = J.air || J.onRamp ? 1 : 0;
-    J.k += (want - J.k) * Math.min(1, dt * (want ? 6 : 2.4));
+    if (!ctx.paused) J.k += (want - J.k) * Math.min(1, dt * (want ? 6 : 2.4));   // (the hud hook runs while paused too: hold still)
     if (J.k < 0.003 && J.y < 0.003) { J.k = 0; return; }
     const camera = ctx.camera, car = ctx.car;
-    if (ctx.cam && ctx.cam.mode === 2) { camera.position.y += J.y; return; }   // Lulu's eyes ride up with her
+    if (ctx.cam && ctx.cam.mode === 2) {
+        // Lulu's eyes: ride the car model itself (lift, pitch and the spin) — level if "calm screen" is on
+        if (save3d.settings.calm || !car.model || (!J.air && !J.onRamp && J.spin === 0 && J.y < 0.001)) { camera.position.y += J.y; return; }
+        car.obj.updateMatrixWorld(true);
+        camera.position.set(0.38, 1.68, -0.06).applyMatrix4(car.model.matrixWorld);
+        _look.set(0.38, 1.6, 6).applyMatrix4(car.model.matrixWorld);
+        camera.up.set(0, 1, 0);
+        camera.lookAt(_look);
+        return;
+    }
     const e = J.air ? Math.sin(clamp(J.airT / Math.max(0.35, J.airPred), 0, 1) * Math.PI) : 0;
     const sw = save3d.settings.calm ? 0 : e * clamp(J.airPred, 0, 1.3);
     camera.getWorldDirection(_dir);
@@ -369,7 +380,7 @@ function steerTrafficAroundRamps() {
     const cs = ctx.car.s;
     for (const r of ramps) {
         if (!r.lane || Math.abs(r.s - cs) > 600) continue;
-        const other = LANES_OURS.reduce((a, l) => Math.abs(l - r.d) > Math.abs(a - r.d) ? l : a, LANES_OURS[0]);
+        const other = r.other;
         for (const c of T.cars) {
             if (c.hit || c.ai || c.free || c.dir < 0) continue;
             const gap = r.s - c.s;

@@ -125,6 +125,7 @@ export function closePhoto() {
 function teardown(next, external) {
     const sv = PH.saved;
     PH.on = false;
+    PH.lastPhoto = null;            // a full-size PNG data URL is a few MB: don't keep it around
     clearPose();
     if (H.screenOpen()) H.hideScreen();
     if (ui) ui.root.classList.add("hidden");
@@ -206,6 +207,8 @@ function pad() {
 const bval = (gp, i) => gp.buttons[i] ? (gp.buttons[i].value || (gp.buttons[i].pressed ? 1 : 0)) : 0;
 
 function photoUpdate(dt, P) {
+    // a line of dialogue popped up (a timer-driven script)? hand the scene back so it can be read
+    if (ctx.dialogOpen) { closePhoto(); return; }
     PH.t += dt;
     PH.lock = Math.max(0, PH.lock - dt);
     updatePose(dt);
@@ -465,7 +468,8 @@ body.play-photo > :not(#scene):not(#screen):not(#pp-root):not(script):not(style)
 .pp-view img { width: 100%; max-height: 52vh; object-fit: contain; border: 8px solid #fff; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.25); background: #fff; }
 .pp-empty { padding: 26px 0; opacity: .8; }
 @media (max-width: 700px) {
-  .pp-btn { min-width: 48px; padding: 5px 5px 4px; font-size: 10px; } .pp-btn .e { font-size: 18px; } .pp-btn .l { max-width: 60px; }
+  .pp-bar { gap: 4px; padding: 6px; }
+  .pp-btn { min-width: 42px; padding: 4px 3px 3px; font-size: 9.5px; border-radius: 12px; } .pp-btn .e { font-size: 17px; } .pp-btn .l { max-width: 56px; }
   .pp-btn .glyph { display: none; } .pp-btn.snap { width: 62px; height: 62px; order: -1; margin: 0 calc(50% - 31px) 4px; }
   .pp-album { grid-template-columns: repeat(2, 1fr); } .pp-help { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 150px); }
   .pp-top { max-width: calc(100vw - 20px); }
@@ -475,7 +479,7 @@ body.tv .pp-help { font-size: 19px; bottom: calc(3vh + 132px); }
 body.tv .pp-bar { bottom: 3vh; }
 body.tv .pp-btn { min-width: 96px; font-size: 16px; border-radius: 18px; padding: 8px 12px 6px; } body.tv .pp-btn .e { font-size: 30px; }
 body.tv .pp-btn .glyph { min-width: 28px; height: 26px; font-size: 14px; } body.tv .pp-btn .l { max-width: 130px; }
-body.tv .pp-btn.snap { width: 104px; height: 104px; } body.tv .pp-btn.snap .e { font-size: 40px; }
+body.tv .pp-btn.snap { width: 104px; height: 104px; border-radius: 50%; } body.tv .pp-btn.snap .e { font-size: 40px; }
 body.tv .pp-note { font-size: 24px; top: calc(3vh + 70px); } body.tv .pp-th { font-size: 18px; }
 `);
 
@@ -613,7 +617,16 @@ function bindPointer(el) {
 }
 
 // test / debug access
+const setBy = (list, id, cur) => { const i = list.findIndex(x => x.id === id); return i < 0 ? cur : i; };
 export const photo = {
     get on() { return PH.on; }, get state() { return PH; },
     open: openPhoto, close: closePhoto, snap, cycleFilter, cycleFrame, cyclePose, openAlbum, canPhoto,
+    setFilter(id) { PH.filter = setBy(FILTERS, id, PH.filter); applyFilter(); refreshUI(); return FILTERS[PH.filter].id; },
+    setFrame(id) { const i = setBy(FRAMES, id, PH.frame); if (frameOk(FRAMES[i])) PH.frame = i; refreshUI(); return FRAMES[PH.frame].id; },
+    setPose(id) {
+        const list = posesFor(PH.poseKind), i = list.findIndex(p => p.id === id);
+        if (i >= 0) { PH.pose = i; setPose(PH.poseKind, id); refreshUI(); }
+        return list[PH.pose] ? list[PH.pose].id : null;
+    },
+    get filterId() { return FILTERS[PH.filter].id; }, get frameId() { return FRAMES[PH.frame].id; },
 };

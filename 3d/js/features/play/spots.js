@@ -43,6 +43,9 @@ on("chunk:build", ({ chunk, world, s0, s1 }) => {
         for (let t = 0; t < 4; t++) {
             const s = s0 + 35 + r() * 110, w = r();
             const d = w < 0.38 ? 5.25 : w < 0.72 ? 1.75 : 7.85;       // right lane, left lane, shoulder
+            // a fairly straight stretch, so the landing stays on the road (shoulder ramps: well clear of the poles)
+            const bend = Math.abs(world.road.at(s + 60).h - world.road.at(s - 6).h);
+            if (bend > (d > 7 ? 0.08 : 0.16)) continue;
             if (!free(s - 70, s + 70, d > 7) || coinsIn(s - 12, s + 48, d - 2, d + 2)) continue;
             placeRamp(chunk, world, s, d, k);
             busy.push([s - 70, s + 70]);

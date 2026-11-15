@@ -121,11 +121,11 @@ function poseArm(arm, S, E, H, { open = false, peace = false } = {}) {
         arm.fingers[i].visible = arm.tips[i].visible = peace;
         if (!peace) continue;
         _d.subVectors(H, E).normalize();
-        _a.copy(H).addScaledVector(_d, 0.03);
-        _b.copy(_d).applyAxisAngle(_c.set(0, 0, 1), i ? 0.32 : -0.32);
-        _b.multiplyScalar(0.1).add(_a);
-        setLimb(arm.fingers[i], _a, _b, 0.017);
-        arm.tips[i].position.copy(_b); arm.tips[i].scale.setScalar(0.018);
+        _a.copy(H).addScaledVector(_d, 0.035);
+        _b.copy(_d).applyAxisAngle(_c.set(0, 0, 1), i ? 0.36 : -0.36);
+        _b.multiplyScalar(0.12).add(_a);
+        setLimb(arm.fingers[i], _a, _b, 0.021);
+        arm.tips[i].position.copy(_b); arm.tips[i].scale.setScalar(0.022);
     }
 }
 

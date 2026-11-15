@@ -83,6 +83,17 @@ module.exports = {
     t.check("she keeps driving", await G(`ctx.car.speed > 5 && ctx.state === "playing"`), String(await G(`ctx.car.speed`)));
     t.check("the car model is back on the road", Math.abs(await G(`ctx.car.model.position.y`)) < 0.01 && Math.abs(await G(`ctx.car.model.rotation.y`)) < 0.05);
     t.check("jump stats saved", (await G(`ctx.play.save.jumps`)) >= 1 && (await G(`ctx.play.save.bestAir`)) > 0.8);
+    // the same ramp again from "Lulu's eyes": the first-person camera rides the jump
+    await t.hold(7, 0);
+    await G(`(() => { ctx.traffic.clear(); while (ctx.cam.mode !== 2) ctx.cam.cycle(); })()`);
+    await place(10, 1.75, 27);
+    await t.hold(7, 1);
+    if (await t.until(`__lulu3d.ctx.play.jump.air && __lulu3d.ctx.play.jump.y > 1.5`, "first-person: takes off again", 8000)) {
+      t.check("Lulu's eyes rise with the car", (await G(`ctx.camera.position.y`)) > 2.9, String(await G(`ctx.camera.position.y`)));
+      await t.shot("ramp-eyes");
+    }
+    await t.until(`!__lulu3d.ctx.play.jump.air`, "first-person: lands", 8000);
+    await G(`(() => { while (ctx.cam.mode !== 0) ctx.cam.cycle(); })()`);
     await t.hold(7, 0);
 
     // ── 📸 photo mode from the pause menu ──
@@ -137,10 +148,11 @@ module.exports = {
     await t.until(`(${save3}).f.play.album.length >= 1`, "album persisted in lulu3dSave");
 
     // more looks for the screenshots
-    for (const [f, fr, label] of [[2, 2, "vintage-hearts"], [3, 3, "noir-polaroid"], [4, 4, "pink-wanted"], [5, 0, "pop"]]) {
-      await G(`(ctx.play.photo.state.filter = ${f} - 1, ctx.play.photo.cycleFilter(1), ctx.play.photo.state.frame = ${fr} - 1, ctx.play.photo.cycleFrame(1))`);
-      if (fr === 4) t.check("WANTED frame is offered (she has a rap sheet)", await G(`ctx.play.photo.state.frame === 4`));
-      await G(`ctx.play.photo.cyclePose(1)`);
+    const P = `ctx.play.photo`;
+    for (const [f, fr, pose, label] of [["vintage", "hearts", "peace", "vintage-hearts"], ["noir", "polaroid", "shades", "noir-polaroid"],
+      ["pop", "stickers", "hands", "pop-stickers"], ["pink", "wanted", "wave", "pink-wanted"]]) {
+      const got = await G(`[${P}.setFilter("${f}"), ${P}.setFrame("${fr}"), ${P}.setPose("${pose}")].join(",")`);
+      t.check(`look: ${f} + ${fr} + ${pose}`, got === `${f},${fr},${pose}`, got);
       await t.frames(8);
       await t.shot("photo-" + label);
     }
@@ -153,9 +165,9 @@ module.exports = {
 
     // close-ups for the screenshots: each pose from the front, a dreidel, the ramp, a clean (UI hidden) frame
     const aim = (code, label, n = 8) => G(`(() => { const s = ctx.play.photo.state; s.t = 2; s.roll = 0; ${code} })()`).then(() => t.frames(n)).then(() => t.shot(label));
-    await G(`(ctx.play.photo.state.filter = -1, ctx.play.photo.cycleFilter(1), ctx.play.photo.state.frame = -1, ctx.play.photo.cycleFrame(1))`);
-    for (const p of [1, 2, 3, 4]) {
-      await G(`(ctx.play.photo.state.pose = ${p} - 1, ctx.play.photo.cyclePose(1))`);
+    await G(`(${P}.setFilter("natural"), ${P}.setFrame("none"))`);
+    for (const p of ["wave", "peace", "shades", "hands"]) {
+      await G(`${P}.setPose("${p}")`);
       await aim(`s.yaw = ctx.car.h + 0.62; s.pitch = 0.16; s.dist = 3.6; s.rise = 0.45; s.target.set(ctx.car.pos.x, 0.85, ctx.car.pos.z);`, "pose-" + p);
     }
     const pd = await G(`ctx.play.debug.pose()`);
@@ -166,7 +178,10 @@ module.exports = {
     await G(`ctx.play.debug.spawnRamp(30, 1.75)`);
     await aim(`const r = ctx.play.debug.ramps[ctx.play.debug.ramps.length - 1].obj;
       s.target.set(r.position.x, 0.6, r.position.z); s.yaw = r.rotation.y + Math.PI + 0.75; s.pitch = 0.32; s.dist = 9; s.rise = 0;`, "closeup-ramp", 10);
-    await G(`(() => { const s = ctx.play.photo.state; s.target.set(ctx.car.pos.x, 0.85, ctx.car.pos.z); s.yaw = ctx.car.h + Math.PI + 0.5; s.pitch = 0.3; s.dist = 7; s.rise = 0; s.frame = 0; ctx.play.photo.cycleFrame(1); })()`);
+    t.check("a parked truck spot on the shoulder", await G(`ctx.play.debug.spawnTruck(48)`));
+    await aim(`const p = ctx.world.road.point(ctx.car.s + 48, 8.75, {});
+      s.target.set(p.x, 1.2, p.z); s.yaw = p.h + 0.55; s.pitch = 0.2; s.dist = 13; s.rise = 0;`, "closeup-truck", 10);
+    await G(`(() => { const s = ctx.play.photo.state; s.target.set(ctx.car.pos.x, 0.85, ctx.car.pos.z); s.yaw = ctx.car.h + Math.PI + 0.5; s.pitch = 0.3; s.dist = 7; s.rise = 0; ${P}.setFrame("postcard"); })()`);
     await t.tap(13);
     t.check("D-pad ↓ hides the photo UI", await t.L(`document.getElementById("pp-ui").classList.contains("off")`));
     await t.frames(6);
@@ -204,5 +219,24 @@ module.exports = {
     await t.frames(40);
     const planned = await G(`({ dreidels: ctx.play.debug.dreidels.filter(d => d.k >= 0).length, ramps: ctx.play.debug.ramps.filter(r => r.k >= 0).length })`);
     t.check("random spots: golden dreidels down the road", planned.dreidels > 0, JSON.stringify(planned));
+
+    // ── photo mode on foot: Lulu poses with the people.js gestures, and the walk resumes ──
+    if (await G(`!!(ctx.foot && ctx.foot.start)`)) {
+      await G(`ctx.foot.start("droveOff")`);
+      if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot (walking)", 60000)) {
+        const fp0 = await G(`ctx.foot.obj.position.toArray()`);
+        t.check("photo mode opens on foot", await G(`ctx.play.openPhoto("debug") && ctx.state === "playPhoto"`));
+        t.check("…with on-foot poses", await G(`ctx.play.photo.state.poseKind === "foot" && ctx.play.photo.setPose("dance") === "dance"`));
+        await G(`(() => { const s = ctx.play.photo.state, o = ctx.foot.obj; s.t = 2; s.yaw = o.rotation.y + 0.4; s.pitch = 0.15; s.dist = 3.4; s.rise = 0; })()`);
+        await t.frames(12);
+        await t.shot("photo-foot-dance");
+        await t.tap(1);
+        t.check("○ goes straight back to the walk", await G(`ctx.state === "footRun" && ctx.foot.phase === "walk" && !ctx.paused`));
+        t.check("…exactly where she stood", await G(`ctx.foot.obj.position.toArray()`).then(p => p.every((v, i) => Math.abs(v - fp0[i]) < 1e-9)));
+        await t.stick(0, -1); await t.frames(15); await t.stick(0, 0);
+        const fp1 = await G(`ctx.foot.obj.position.toArray()`);
+        t.check("…and she can keep walking", Math.hypot(fp1[0] - fp0[0], fp1[2] - fp0[2]) > 0.5);
+      }
+    }
   },
 };

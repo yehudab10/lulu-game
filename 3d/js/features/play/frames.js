@@ -124,8 +124,10 @@ export const FRAMES = [
     { id: "postcard", name: "Postcard", emoji: "💌" },
     { id: "hearts", name: "Hearts", emoji: "💖" },
     { id: "polaroid", name: "Polaroid", emoji: "🖼️" },
+    { id: "stickers", name: "Stickers", emoji: "⭐" },
     { id: "wanted", name: "WANTED", emoji: "🤠", needs: info => info.rap },
 ];
+const EMOJI = `"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
 
 const ROUND = `"Fredoka", "Arial Rounded MT Bold", ui-rounded, system-ui, sans-serif`;
 const SCRIPT = `"Brush Script MT", "Segoe Script", "Snell Roundhand", "Apple Chancery", cursive`;
@@ -328,6 +330,47 @@ function drawPolaroid(g, w, h, info) {
     g.restore();
 }
 
+/** A die-cut sticker: white backing, soft shadow, an emoji on top. */
+function sticker(g, x, y, r, rot, emoji) {
+    g.save();
+    g.translate(x, y); g.rotate(rot);
+    g.shadowColor = "rgba(40,0,30,0.3)"; g.shadowBlur = r * 0.3; g.shadowOffsetY = r * 0.1;
+    g.fillStyle = "#FFFFFF";
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+    g.shadowColor = "transparent";
+    g.font = `${r * 1.32}px ${EMOJI}`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(emoji, 0, r * 0.08);
+    g.restore();
+}
+function labelSticker(g, x, y, text, size, rot, bg, fg) {
+    g.save();
+    g.translate(x, y); g.rotate(rot);
+    g.font = `800 ${size}px ${ROUND}`;
+    const tw = g.measureText(text).width, pw = tw + size * 1.3, ph = size * 1.75;
+    g.shadowColor = "rgba(40,0,30,0.3)"; g.shadowBlur = size * 0.35; g.shadowOffsetY = size * 0.12;
+    g.fillStyle = "#FFFFFF";
+    g.beginPath(); g.roundRect(-pw / 2 - size * 0.22, -ph / 2 - size * 0.22, pw + size * 0.44, ph + size * 0.44, ph * 0.5); g.fill();
+    g.shadowColor = "transparent";
+    g.fillStyle = bg;
+    g.beginPath(); g.roundRect(-pw / 2, -ph / 2, pw, ph, ph * 0.42); g.fill();
+    g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(text, 0, size * 0.06);
+    g.restore();
+}
+function drawStickers(g, w, h, info) {
+    const u = Math.min(w, h) / 100;
+    sticker(g, 9 * u, 10 * u, 6.5 * u, -0.25, "💖");
+    sticker(g, 19 * u, 6.5 * u, 3.6 * u, 0.3, "⭐");
+    sticker(g, w - 10 * u, 11 * u, 6 * u, 0.2, "🌈");
+    sticker(g, w - 21 * u, 7 * u, 3.4 * u, -0.2, "✨");
+    sticker(g, w - 11 * u, h - 12 * u, 8 * u, -0.12, "🚗");
+    sticker(g, w - 25 * u, h - 7 * u, 4 * u, 0.25, "🍭");
+    sticker(g, 7 * u, h * 0.45, 4.2 * u, 0.15, "😎");
+    labelSticker(g, 22 * u, h - 10 * u, "LULU WAS HERE ✌", 3.6 * u, -0.07, "#FF4FA3", "#FFFFFF");
+    labelSticker(g, w * 0.5, 6.5 * u, info.place === "the open road" ? "ROAD TRIP!!" : info.place.toUpperCase(), 2.8 * u, 0.03, "#FFE45C", "#6A1B4D");
+}
+
 function drawWanted(g, w, h, info) {
     const u = Math.min(w, h) / 100, side = 5 * u, top = 17 * u, bot = 13 * u;
     g.save();
@@ -382,6 +425,7 @@ export function compositeOverlay(g, w, h, filter, frame, info) {
         if (frame.id === "postcard") drawPostcard(g, w, h, info);
         else if (frame.id === "hearts") drawHearts(g, w, h, info);
         else if (frame.id === "polaroid") drawPolaroid(g, w, h, info);
+        else if (frame.id === "stickers") drawStickers(g, w, h, info);
         else if (frame.id === "wanted") drawWanted(g, w, h, info);
     } finally { g.restore(); }
 }
