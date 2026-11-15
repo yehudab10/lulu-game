@@ -118,7 +118,8 @@ on("honk", () => {
     d.bnHonkT = now;
     lookAt(best, 1.2);
     if (pendingReply && pendingReply.car === best) { pendingReply.n = d.bnHonks; return; }
-    pendingReply = { car: best, dT0: best.dTarget, at: now + 0.55 + Math.random() * 0.25, n: d.bnHonks, checked: false };
+    // with roadevents on, its own quick quip may come first: answer after it has faded
+    pendingReply = { car: best, dT0: best.dTarget, at: now + (ctx.enabled("roadevents") ? 1.2 : 0.55) + Math.random() * 0.25, n: d.bnHonks };
 });
 
 function reply(p) {
@@ -136,7 +137,7 @@ function reply(p) {
     const words = !(moved && ctx.enabled("roadevents")) || chance(0.6);
     if (words) npcBubble(line(cat, NPC[cat]), c.obj, { dur: 2.5, y: BUB_Y[c.kind] || 2.2, cls });
     if (mode) armOut(c, mode, 1.9);
-    if (Math.random() < horn) npcHorn(c.kind, clamp(1 - (c.s - ctx.car.s) / 70, 0.25, 1), c.kind === "truck" ? 2 : 2);
+    if (Math.random() < horn) npcHorn(c.kind, clamp(1 - (c.s - ctx.car.s) / 70, 0.25, 1), 2);
     npcState.replies++;
     npcState.lastReply = { cat, kind: c.kind, words, moved };
     if (cls === "angry" && words) say("comeback", {}, { delay: 1.5 });

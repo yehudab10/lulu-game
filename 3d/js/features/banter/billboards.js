@@ -146,7 +146,8 @@ function pickDesign() {
     let list = leg >= 0 && Math.random() < 0.65 ? ADS.filter(a => a.legs && a.legs.includes(leg)) : [];
     if (!list.length) list = ADS.filter(a => a.generic);
     const fresh = list.filter(a => !recent.includes(a.id));
-    const ad = draw("ads:" + leg + ":" + fresh.length, fresh.length ? fresh : list);
+    const from = fresh.length ? fresh : list;
+    const ad = from[Math.floor(Math.random() * from.length)];
     recent.push(ad.id);
     while (recent.length > 8) recent.shift();
     return ad;

@@ -153,6 +153,18 @@ module.exports = {
     await t.shot("wave-by");
     await g(`(ctx.banter.autopilot = null, true)`);
 
+    // ── 6c. a cop car: up ahead she gets nervous, right behind she checks the mirror ──
+    s0 = (await S()) + 60;
+    await tp(s0, 1.75, 12);
+    await g(`(ctx.banter.resetThrottle(), ctx.banter.autopilot = { d: 1.75, speed: 12 }, ctx.traffic.add("cop", ${s0 + 45}, 5.25, 1, 12), ctx.traffic.add("cop", ${s0 - 18}, 5.25, 1, 12), true)`);
+    await t.until(`window.__lulu3d.ctx.banter.lulu.lastCat === "spotCop"`, "she spots the cop car ahead", 4000);
+    t.check("she spots the cop car ahead", (await g(`ctx.banter.lulu.lastCat`)) === "spotCop", await g(`ctx.banter.lulu.lastLine`));
+    let mirror = 0;
+    for (let i = 0; i < 32 && mirror <= 0.4; i++) { await t.frames(4); mirror = Math.max(mirror, Math.abs((await g(`ctx.banter.pose()`)).head[1])); }
+    t.check("…and keeps checking on the one behind her", mirror > 0.4, `head yaw quat.y ${mirror.toFixed(3)}`);
+    await t.shot("cops");
+    await g(`(ctx.banter.autopilot = null, true)`);
+
     // ── 7. billboards: forced, then streamed with the road, then recycled ─
     s0 = (await S()) + 80;
     await tp(s0, 1.75, 0);

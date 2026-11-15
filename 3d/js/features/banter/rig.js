@@ -155,7 +155,7 @@ const A = {
     gL: null, gR: null,                  // arm gestures {kind, t, dur}
     look: null,                          // {target: Vector3 | Object3D | {x,z}, t, dur}
     glanceT: 3, glance: 0, glanceYaw: 0,
-    cop: false, copT: 0,
+    cop: false, copT: 0, copBehind: false, scanT: 0,
     titleWaveT: 4,
     rnd: seeded(7),
 };
@@ -303,6 +303,17 @@ export function updateRig(dt, mode = "drive") {
 
     // where she looks: cops in a chase > something interesting > little idle glances
     let look = null;
+    if (mode === "drive" && !A.cop) {
+        A.scanT -= dt;
+        if (A.scanT <= 0) {       // a cop car right behind her? (cheap: twice a second)
+            A.scanT = 0.5; A.copBehind = false;
+            for (const c of ctx.traffic.cars) {
+                const gap = c.s - car.s;
+                if (gap < -4 && gap > -38 && !c.hit && (c.kind === "cop" || /K9/.test(c.kind) || (c.data && c.data.cop))) { A.copBehind = true; break; }
+            }
+        }
+        if (A.copBehind) { A.copT += dt; if (A.copT % 3.4 < 0.85) look = 1.6; }    // nervous mirror checks
+    }
     if (A.cop && mode === "drive") {
         A.copT += dt;
         const ph = A.copT % 2.6;
@@ -436,7 +447,7 @@ on("crash", e => { if (e && e.impact > 1.5 && ctx.state === "playing") jolt(Math
 on("damage", () => { jolt(1.3); gesture("up", 0.7); });
 on("coin", ({ why }) => {
     const G = ctx.G;
-    if (why === "road" && G.coinStreak > 0 && G.coinStreak % 6 === 0) { gesture("shimmy", 0.9); vibe(0.8); }
+    if (why === "road" && G.coinStreak > 0 && G.coinStreak % 6 === 5) { gesture("shimmy", 0.9); vibe(0.8); }
 });
 on("cop:chase", ({ active }) => { A.cop = !!active; A.copT = 0; });
 on("speedTrap", ({ ticketed, trap }) => {

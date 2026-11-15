@@ -10,7 +10,7 @@ import { SHOULDER } from "../../world.js";
 import { LULU, LULU_LEG } from "./lines.js";
 import { draw, quiet, clamp, nightness, chance } from "./util.js";
 import { showLulu, luluBubble, bannerUp } from "./bubbles.js";
-import { talk } from "./rig.js";
+import { talk, lookAt } from "./rig.js";
 
 // prio: 1 small talk · 2 normal · 3 big moment (cuts in) — chance per trigger — cd: seconds before that category again
 export const CAT = {
@@ -46,13 +46,29 @@ export const CAT = {
     comeback:        { prio: 1, chance: 0.35, cd: 20 },
     thanks:          { prio: 2, chance: 0.8, cd: 15 },
     billboard:       { prio: 1, chance: 0.45, cd: 18 },
+    spotAvigail:     { prio: 2, chance: 0.85, cd: 40 },
+    spotCop:         { prio: 2, chance: 0.6, cd: 40 },
+    spotBus:         { prio: 2, chance: 0.7, cd: 40 },
+    spotAmbulance:   { prio: 2, chance: 0.8, cd: 30 },
+    spotIcecream:    { prio: 2, chance: 0.8, cd: 40 },
 };
 
 const D = {
     last: -99, gap: 9, cd: {}, count: 0, lastLine: "", lastCat: "", byCat: {},
     pending: null, phone: false, chase: false, chaseT: 0,
-    boringT: 0, boringAt: 40, wrongT: 0, offT: 0, speedyT: 0, driftT: 0, nightSaid: false, honks: [],
+    boringT: 0, boringAt: 40, wrongT: 0, offT: 0, speedyT: 0, driftT: 0, nightSaid: false, honks: [], spotT: 0,
 };
+
+/** What kind of special someone is this traffic car? (→ a "spot…" category) */
+function spotCat(c) {
+    const k = c.kind || "";
+    if (/avigail/i.test(k)) return "spotAvigail";
+    if (/icecream/i.test(k)) return "spotIcecream";
+    if (/ambulance/i.test(k)) return "spotAmbulance";
+    if (/bus/i.test(k)) return "spotBus";
+    if (k === "cop" || /K9/.test(k) || (c.data && c.data.cop)) return D.chase ? null : "spotCop";
+    return null;
+}
 export const luluState = D;
 
 function lineFor(cat, info) {
@@ -133,12 +149,25 @@ export function tickLulu(dt) {
     // a chase that goes on and on
     if (D.chase) { D.chaseT += dt; if (D.chaseT > 9) { D.chaseT = 0; say("copChaseOngoing"); } }
     if (G.combo > 0) busy();
+    // someone special up ahead (twice a second is plenty)
+    D.spotT -= dt;
+    if (D.spotT <= 0) {
+        D.spotT = 0.5;
+        for (const c of ctx.traffic.cars) {
+            if (c.hit || c.data.bnSpot) continue;
+            const gap = c.s - car.s;
+            if (gap < 8 || gap > 70) continue;
+            c.data.bnSpot = true;
+            const cat = spotCat(c);
+            if (cat && say(cat)) { lookAt(c, 1.6); break; }
+        }
+    }
 }
 
 // ── events ──────────────────────────────────────────────────────────────────
 // reset first thing in a new run (before the journey arms its leg and says where we're going)
 hook("runStart", () => {
-    Object.assign(D, { pending: null, chase: false, chaseT: 0, boringT: 0, boringAt: 40, wrongT: 0, offT: 0, speedyT: 0, driftT: 0, nightSaid: false, honks: [], last: -99, phone: false });
+    Object.assign(D, { pending: null, cd: {}, chase: false, chaseT: 0, boringT: 0, boringAt: 40, wrongT: 0, offT: 0, speedyT: 0, driftT: 0, nightSaid: false, honks: [], last: -99, phone: false });
 }, 100);
 on("run:start", ({ mode }) => { if (mode === "cruise") say("opener", {}, { delay: 3.4 }); });
 on("journey:leg", ({ stop }) => { if (stop && stop.id) say("leg", { id: stop.id }, { delay: 3.4 }); });
@@ -158,7 +187,7 @@ on("honk", () => {
 on("boost", () => { busy(); say("boost"); });
 on("coin", ({ why }) => {
     const G = ctx.G;
-    if (why === "road" && G.coinStreak > 0 && G.coinStreak % 8 === 0) { busy(); say("coinStreak"); }
+    if (why === "road" && G.coinStreak > 0 && G.coinStreak % 6 === 5) { busy(); say("coinStreak"); }
 });
 on("stat", ({ id }) => {
     if (id === "cones") { busy(); say("cone"); }
