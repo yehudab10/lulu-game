@@ -235,6 +235,9 @@ module.exports = {
 
     // ── phones (touch): nothing on the driving HUD overlaps anything else ──
     await padEvent(false);
+    await t.frames(2);
+    t.check("a controller dropping mid-drive pauses and says why", await g(`ctx.paused`) && await t.L(`/Controller disconnected/.test(document.getElementById("screenCard").textContent)`));
+    await t.click(/Resume/);
     await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
     await H(`(H.hideBanner(), true)`);
     for (const [name, w, h] of [["landscape", 844, 390], ["portrait", 390, 844]]) {
