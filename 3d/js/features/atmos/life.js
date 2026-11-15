@@ -223,6 +223,7 @@ export const BANNERS = [
     "MAZEL TOV ON YOUR DRIVING!", "DID YOU CALL BUBBE BACK?", "HONK IF YOU LOVE CHOLENT",
 ];
 let plane = null;
+const BANNER_W = 34, BANNER_H = 5.2;
 const bannerTex = new Map();
 function bannerTexture(text) {
     if (bannerTex.has(text)) return bannerTex.get(text);
@@ -269,7 +270,7 @@ function buildPlane() {
     g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
     // the banner: a waving strip (vertex shader), rope from the tail
     const bannerMat = new THREE.MeshLambertMaterial({ map: bannerTexture(BANNERS[0]), side: THREE.DoubleSide });
-    const bu = { uTime: { value: 0 }, uLead: { value: 1 }, uLen: { value: 30 } };
+    const bu = { uTime: { value: 0 }, uLead: { value: 1 }, uLen: { value: BANNER_W } };
     bannerMat.onBeforeCompile = sh => {
         Object.assign(sh.uniforms, bu);
         sh.vertexShader = "uniform float uTime; uniform float uLead; uniform float uLen;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
@@ -278,7 +279,7 @@ function buildPlane() {
             transformed.y += sin(transformed.x * uLead * 0.3 + uTime * 5.0) * 0.12 * fromLead;`);
     };
     bannerMat.customProgramCacheKey = () => "atmosBanner";
-    const banner = new THREE.Mesh(new THREE.PlaneGeometry(30, 4.6, 44, 2), bannerMat);
+    const banner = new THREE.Mesh(new THREE.PlaneGeometry(BANNER_W, BANNER_H, 44, 2), bannerMat);
     banner.frustumCulled = false;
     const ropeGeo = new THREE.BufferGeometry();
     ropeGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(12), 3).setUsage(THREE.DynamicDrawUsage));
@@ -326,17 +327,23 @@ function updatePlane(dt) {
     if (plane.waggle > 0) plane.waggle = Math.max(0, plane.waggle - dt);
     b.rotateZ(Math.sin(plane.t * 0.5) * 0.06 - plane.dir * 0.04 + (plane.waggle > 0 ? Math.sin(plane.waggle * 9) * 0.45 * Math.min(1, plane.waggle) : 0));
     plane.prop.rotation.z += dt * 55;
-    // banner behind the tail, facing back down the road at us
-    const lead = 3.2 + 7, half = 15;
-    const cx = p.x - nx * (lead + half), cz = p.z - nz * (lead + half);
-    plane.banner.position.set(cx, y - 0.5, cz);
-    plane.banner.rotation.set(0, h + Math.PI, 0);
+    // the banner trails behind the tail, turned (a little) to face the camera so it reads
+    const lead = 3.2 + 7, half = BANNER_W / 2;
+    const ex = p.x - nx * lead, ez = p.z - nz * lead;               // the rope's end = the banner's lead edge
+    const back = h + Math.PI;
+    let turn = Math.atan2(S.camPos.x - ex, S.camPos.z - ez) - back;
+    while (turn > Math.PI) turn -= Math.PI * 2;
+    while (turn < -Math.PI) turn += Math.PI * 2;
+    const yaw = back + clamp(turn, -0.7, 0.7);
+    const lx = Math.cos(yaw) * plane.dir, lz = -Math.sin(yaw) * plane.dir;   // local +x · dir = toward the lead edge
+    plane.banner.position.set(ex - lx * half, y - 0.5, ez - lz * half);
+    plane.banner.rotation.set(0, yaw, 0);
     plane.bu.uTime.value = S.time;
     plane.bu.uLead.value = plane.dir;       // local +x is road-right: the lead edge is +x when flying right
     // rope: tail → top + bottom of the lead edge
     const r = plane.rope.geometry.attributes.position.array;
-    const tx = p.x - nx * 3.0, tz = p.z - nz * 3.0, ex = p.x - nx * lead, ez = p.z - nz * lead;
-    r.set([tx, y + 0.1, tz, ex, y - 0.5 + 2.3, ez, tx, y + 0.1, tz, ex, y - 0.5 - 2.3, ez]);
+    const tx = p.x - nx * 3.0, tz = p.z - nz * 3.0, hh = BANNER_H / 2;
+    r.set([tx, y + 0.1, tz, ex, y - 0.5 + hh, ez, tx, y + 0.1, tz, ex, y - 0.5 - hh, ez]);
     plane.rope.geometry.attributes.position.needsUpdate = true;
     const dist = Math.hypot(p.x - S.camPos.x, p.z - S.camPos.z);
     sfx.propLoop(clamp(1.25 - dist / 230) * (ctx.view ? 0 : 1));

@@ -120,7 +120,7 @@ export function skyTick() {
     V2.copy(S.moonDir); if (V2.y < 0.45) { V2.y = 0.45; V2.normalize(); }
     S.lightDir.copy(V2).lerp(V1, S.day).normalize();
     S.night = Math.max(S.w * S.todNight + (1 - S.w) * S.baseNight, S.baseNight);
-    if (!cruise) return;       // Story & co.: the journey owns the light — we only read it
+    if (!cruise) { if (sig) skyRestore(); return; }   // Story & co.: the journey owns the light — we only read it
 
     // blend: base → day cycle (w) → weather → lightning
     const w = S.w;

@@ -90,6 +90,15 @@ module.exports = {
     I = await info();
     t.check("snow falls and settles", I.weather.snowVisible && I.weather.snowCover > 0.5, `cover ${I.weather.snowCover.toFixed(2)}`);
     await t.shot("snow");
+    // an interior set (ctx.view) hides it all, coming back brings it back
+    await g(`(window.__set = new ctx.THREE.Scene(), ctx.view = { scene: window.__set, camera: ctx.camera }, true)`);
+    await t.frames(4);
+    I = await info();
+    t.check("an interior (ctx.view) hides the weather", !I.active && !I.weather.snowVisible, `active ${I.active} snow ${I.weather.snowVisible}`);
+    await g(`(ctx.view = null, true)`);
+    await t.frames(4);
+    I = await info();
+    t.check("…and it comes back outside", I.active && I.weather.snowVisible);
     await g(`ctx.atmos.debug.weather("clear", 1, true)`);
 
     // ── ambient life ───────────────────────────────────────────────────
@@ -111,6 +120,18 @@ module.exports = {
     I = await info();
     t.check("honking scatters the birds", I.life.scattered >= 1 && I.life.flying > 0, `scattered ${I.life.scattered}, flying ${I.life.flying}`);
     await t.shot("birds-scatter");
+
+    // on foot (the foot feature): the world keeps its weather, the car's lights go out
+    if (await g(`!!(ctx.foot && ctx.foot.start)`)) {
+      await g(`(ctx.atmos.debug.time("night"), ctx.atmos.debug.weather("rain", 0.7, true), ctx.foot.start("droveOff"), true)`);
+      if (await t.until(`__lulu3d.state === "footRun"`, "Lulu climbs out and walks", 30000)) {
+        await t.frames(30);
+        I = await info();
+        t.check("on foot: rain + night go on, no headlights", I.active && I.weather.rainVisible && I.night > 0.9 && I.lights.spot <= 0,
+          `active ${I.active} rain ${I.weather.rainVisible} spot ${I.lights.spot}`);
+        await t.shot("on-foot-rain");
+      }
+    }
 
     // ── back to the title: everything off, nothing leaks ───────────────
     await g(`(ctx.atmos.debug.weather("rain", 1, true), ctx.atmos.debug.time("night"), true)`);

@@ -325,6 +325,7 @@ export function lightsTick(dt) {
     if (windowScanT <= 0) {
         windowScanT = 3; scanWindows();
         if (!spot && ctx.enabled("atmos") && wantSpot()) addSpot();   // quality raised in Settings
+        else if (spot && !wantSpot()) { ctx.scene.remove(spot, spot.target); spot.dispose(); spot = null; }   // …or lowered
     }
     setWindows(smooth(0.3, 0.85, S.night));
 
@@ -357,7 +358,7 @@ export function lightsTick(dt) {
         let beams = 0;
         for (const c of ctx.traffic.cars) {
             const o = c.obj;
-            if (!o.parent) continue;
+            if (!o.parent || (c.data && c.data.footStub)) continue;     // (her parked car on foot stays dark — it has hazards)
             const dx = o.position.x - cam.x, dz = o.position.z - cam.z;
             if (dx * dx + dz * dz > 420 * 420) continue;
             const L = lightPoints(models[(c.spec && c.spec.model) || c.kind]);
