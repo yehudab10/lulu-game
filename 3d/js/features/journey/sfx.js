@@ -3,10 +3,11 @@
 // arrival jingle, slot-machine dice). Its own small AudioContext, created only
 // after core audio has been unlocked by a user gesture.
 import { audio } from "../../audio.js";
+import { ctx as game } from "../../core/ctx.js";
 
 let ac = null, out = null;
 function ctx() {
-    if (!audio.ready) return null;
+    if (!audio.ready || game.skipping) return null;
     if (!ac) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;

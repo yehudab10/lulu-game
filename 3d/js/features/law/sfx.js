@@ -12,7 +12,7 @@ import { audio } from "../../audio.js";
 let ac = null, out = null, siren = null, noise = null;
 
 function ready() {
-    if (ctx.TEST) return false;
+    if (ctx.TEST || ctx.skipping) return false;
     if (!ac) {
         if (!audio.ready) return false;
         const AC = window.AudioContext || window.webkitAudioContext;

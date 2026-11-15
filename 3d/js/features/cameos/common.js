@@ -273,7 +273,7 @@ export function sidePanel(on) { document.body.classList.toggle("cameos-panel", !
 // ── a tiny synth for cameo stings (knocks, womp-womps, splashes) ─────────
 let ac = null, out = null;
 function audio() {
-    if (save3d.sound === false) return null;
+    if ((save3d.sound === false || ctx.skipping)) return null;
     try {
         if (!ac) {
             const AC = window.AudioContext || window.webkitAudioContext;

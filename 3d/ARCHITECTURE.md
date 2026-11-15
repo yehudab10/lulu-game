@@ -104,9 +104,18 @@ registerState("myScene", {
   enter(data, prev) {}, exit(next) {},
   update(dt, P) {},  // P = edge-triggered input this frame (see Input)
   camera(dt) { return true; },   // own the driving-scene camera (cutscenes); omit for default
+  skip: true,        // a CUTSCENE: show the ⏭ Skip pill (or a () => bool, e.g. only some phases)
+  onSkip() {},       // optional: called when the player skips (for anything waiting on real time)
 });
 setState("myScene", { any: "data" });
 ```
+**⏭ Skip** (`core/skip.js`): in a `skip` state the player can hold ○/B (Backspace), click the
+pill, or pick "Skip this scene" in the pause menu. Skipping FAST-FORWARDS your scene behind a veil
+(many game-time steps per frame, dialogue lines advance themselves) so every side effect still
+happens in order; it stops at a `choose()`, a `showScreen` card, a state change, or when `skip()`
+turns false. So: time your beats in GAME time (`ctx.time`/`dt`, a Flow's `sleep`), not
+`setTimeout`. A cutscene inside another state: `ctx.cutscene.begin(id, {onSkip})` … `end(id)`.
+`ctx.skipping` is true meanwhile (keep sound effects quiet).
 Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journey's
 `arriving` / `arrivedScreen`. To drive the car from your state call
 `updateDriving(dt, P, controlsOn, ctlOverride)` from `core/driving.js`.
@@ -222,6 +231,9 @@ current device (PlayStation symbols on a DualSense). `addTouchButton({id, emoji,
 controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update while a screen is open),
 `H.refreshFocus()` after re-rendering part of a card, `H.toast(text, "gold"|"pink"|"red"|"big")`,
 `H.banner(html, ms)`, `H.hudSlot("left"|"center"|"right"|"bottom")`, `H.prompt(html)`, `H.flash()`.
+**Keep pop-ups off the road:** toasts are a feed on the right edge; while driving/walking
+(`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
+"center" slot. Don't add your own big centred text over the road in those states — use these.
 Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [opts])` → index,
 `await script([[who, text], …], {emoji: {who: "👵"}})`. While a line is open, input goes to the dialogue.
 

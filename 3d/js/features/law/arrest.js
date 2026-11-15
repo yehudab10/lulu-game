@@ -24,7 +24,7 @@ let flow = null, st = null;
 export const JAIL_MODELS = ["copPerson", "lawCell", "lawBooking", "lawStation", "lawCellmate", "lawCart"];
 
 registerState("lawArrest", {
-    hud: false, touch: false, pausable: true, driving: true,
+    hud: false, touch: false, pausable: true, driving: true, skip: true,
     enter(data) {
         endChase("arrest");
         quietRoad(180);

@@ -59,9 +59,9 @@ css("multiplayer", `
 #mpOverlay .count b { font-size: 30px; color: #FFD54F; text-shadow: 0 3px 0 #000; }
 #mpOverlay .count .n { font-size: 110px; font-weight: 700; line-height: 1.1; text-shadow: 0 6px 0 #7E57C2; }
 #mpOverlay .count small { font-size: 15px; font-weight: 700; color: #E1D5F5; text-shadow: 0 2px 0 #000; }
-#mpOverlay .ban { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-size: 34px; font-weight: 700; text-shadow: 0 4px 0 #000; transition: opacity .3s; }
+#mpOverlay .ban { position: absolute; left: 0; right: 0; top: calc(max(12px, env(safe-area-inset-top)) + 128px); text-align: center; font-size: 28px; font-weight: 700; text-shadow: 0 4px 0 #000; transition: opacity .3s; }
 #mpOverlay .ban small { display: block; font-size: 17px; color: #FFE0B2; margin-top: 4px; text-shadow: 0 2px 0 #000; }
-#mpOverlay .ban.tag { color: #FF5252; top: 36%; }
+#mpOverlay .ban.tag { color: #FF5252; top: calc(max(12px, env(safe-area-inset-top)) + 176px); }
 #mpOverlay .toasts { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 96px); transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; }
 #mpOverlay .toasts div { background: rgba(24,18,40,.9); border: 1.5px solid rgba(255,213,79,.6); color: #FFD54F; border-radius: 999px; padding: 4px 14px; font-weight: 700; font-size: 14px; white-space: nowrap; }
 #mpOverlay .results { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); background: rgba(20,16,40,.94); border: 3px solid #FF5252; border-radius: 18px; padding: 12px 18px; min-width: 260px; }

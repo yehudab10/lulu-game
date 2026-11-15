@@ -4,6 +4,7 @@
 // jukebox's klezmer loop.
 import * as THREE from "three";
 import { save3d } from "../../core/save.js";
+import { ctx as game } from "../../core/ctx.js";
 import { audio as coreAudio } from "../../audio.js";
 
 // ── particles ────────────────────────────────────────────────────────────
@@ -153,7 +154,7 @@ export class Bubbles {
 // ── a tiny synth (the 2D game's playTone, plus a klezmer jukebox loop) ───
 let ac = null, out = null;
 function actx() {
-    if (save3d.sound === false) return null;
+    if ((save3d.sound === false || game.skipping)) return null;
     if (!ac) {
         if (!coreAudio.ready) return null;      // wait for the first gesture (the core unlocks it)
         const AC = window.AudioContext || window.webkitAudioContext;

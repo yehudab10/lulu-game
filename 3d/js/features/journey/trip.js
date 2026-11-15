@@ -437,7 +437,7 @@ function snapToSpot() {
 }
 
 registerState("arriving", {
-    hud: true, touch: false, driving: true, pausable: false,
+    hud: true, touch: false, driving: true, pausable: false, skip: true,
     enter() { ctx.cam.snap(); },
     update(dt, P) {
         arr.t += dt; focus.t = arr.t;

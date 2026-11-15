@@ -142,7 +142,7 @@ function lightsOf(obj) {
 }
 
 registerState("cameosCrash", {
-    hud: false, touch: false, pausable: false, world: true,
+    hud: false, touch: false, pausable: false, world: true, skip: true,
     enter(data) {
         const car = ctx.car, G = ctx.G;
         const c = data.cause || { kind: "other" };

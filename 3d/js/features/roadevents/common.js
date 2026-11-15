@@ -233,7 +233,7 @@ export function updateBubbles(dt) {
 // ── a tiny synth for the sounds core audio doesn't have (bells, horns, quacks, jingles) ──
 let ac = null, out = null, noiseBuf = null;
 function actx() {
-    if (save3d.sound === false || !A.audio.ready) return null;
+    if ((save3d.sound === false || ctx.skipping) || !A.audio.ready) return null;
     try {
         if (!ac) {
             const AC = window.AudioContext || window.webkitAudioContext;

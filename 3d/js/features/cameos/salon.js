@@ -330,7 +330,7 @@ function makeLulu(style, color) {
 }
 
 registerState("cameosSalon", {
-    hud: false, touch: false, pausable: true, world: false,
+    hud: false, touch: false, pausable: true, world: false, skip: true,
     enter(data) {
         if (!set) buildSet();
         const h = luluHair();

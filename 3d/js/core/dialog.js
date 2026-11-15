@@ -94,6 +94,17 @@ export async function script(lines, { emoji = {}, color = {} } = {}) {
 }
 
 export function isOpen() { return !!cur; }
+/** Is a CHOICE waiting for the player? */
+export function isChoiceOpen() { return !!(cur && cur.options); }
+/** ⏭ Skip: finish the open LINE at once (no sound). Returns false for a choice — the player must pick. */
+export function dialogFastForward() {
+    if (!cur) return true;
+    if (cur.options) return false;
+    const r = cur.resolve, keep = cur.keep;
+    if (!keep) close(); else cur = null;
+    r(0);
+    return true;
+}
 export function closeDialog() { const r = cur && cur.resolve; close(); if (r) r(-1); }
 
 function setFocus(i, sound = true) {

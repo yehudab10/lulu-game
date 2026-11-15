@@ -45,7 +45,7 @@ function doorStepWorld(out) {
 }
 
 registerState("dinaBus", {
-    hud: false, touch: false, pausable: false, world: false,
+    hud: false, touch: false, pausable: false, world: false, skip: true,
     enter() {
         const st = cast();
         st.set.show();

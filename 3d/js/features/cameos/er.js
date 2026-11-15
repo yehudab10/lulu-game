@@ -195,7 +195,7 @@ ctx.er = { admit, visits: erVisits, get active() { return !!E; } };
 // ── the ambulance ride-in (in the driving world) ─────────────────────────
 let amb = null;
 registerState("cameosAmbulance", {
-    hud: false, touch: false, pausable: false, world: true,
+    hud: false, touch: false, pausable: false, world: true, skip: true,
     enter() {
         amb = { t: 0, obj: null, s: 0, speed: 21, lights: [], leaving: false, cam: { from: new THREE.Vector3(), look: new THREE.Vector3() } };
         A.setMusic(null);
@@ -345,7 +345,7 @@ function bedLulu() {
 }
 
 registerState("cameosER", {
-    hud: false, touch: false, pausable: true, world: false,
+    hud: false, touch: false, pausable: true, world: false, skip: true,
     enter() {
         if (!E) { setState("title"); return; }
         E.ready = false;

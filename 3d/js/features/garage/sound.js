@@ -7,6 +7,7 @@
 // small AudioContext, unlocked by the same user gestures and muted with the
 // game's Sound setting (save3d.sound).
 import { save3d } from "../../core/save.js";
+import { ctx as game } from "../../core/ctx.js";
 
 let ac = null, out = null, noise = null;
 
@@ -32,7 +33,7 @@ window.addEventListener("keydown", unlock, { passive: true });
 window.addEventListener("touchend", unlock, { passive: true });
 
 function ready() {
-    if (save3d.sound === false) return null;
+    if ((save3d.sound === false || game.skipping)) return null;
     const a = ensure();
     return a && a.state === "running" ? a : null;
 }

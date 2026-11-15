@@ -128,19 +128,23 @@ html, body {
 .boost-label { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.7; }
 .boost-label .glyph { font-size: 11px; }
 
+/* Pop-ups stay OFF the road: toasts are a slim feed down the right edge, and while
+   driving / walking (body.in-play) banners are a compact card under the trip bar. */
 #toasts {
-    position: absolute; left: 50%; top: 26%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    position: absolute; right: max(12px, env(safe-area-inset-right)); top: 34%;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 5px; max-width: 46vw;
 }
 .toast {
-    font-weight: 700; font-size: 26px; color: #fff; white-space: nowrap;
-    text-shadow: 0 3px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(0, 0, 0, 0.25);
-    animation: toast 1.6s ease-out forwards;
+    font-weight: 700; font-size: 19px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    background: linear-gradient(90deg, rgba(20,14,32,0), rgba(20,14,32,.5) 22%); border-radius: 999px; padding: 3px 12px 3px 26px;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+    animation: toastR 1.75s ease-out forwards;
 }
 .toast.gold { color: #FFE082; }
 .toast.pink { color: #FFC1E0; }
 .toast.red { color: #FF8A80; }
-.toast.big { font-size: 38px; }
+.toast.big { font-size: 24px; }
+body.touch #toasts { top: 22%; }
 
 #banner {
     position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);
@@ -149,6 +153,13 @@ html, body {
     animation: pop 0.35s cubic-bezier(.2, 1.6, .4, 1);
 }
 #banner small { display: block; font-size: 15px; font-weight: 600; opacity: 0.7; margin-top: 4px; }
+/* in play it lives at the top of the "center" HUD slot (under the trip bar) */
+#banner.compact { position: static; transform: none; padding: 7px 18px; border-radius: 16px; font-size: 17px; max-width: min(560px, 70vw);
+    background: rgba(255, 250, 244, 0.9); animation: bannerDrop .38s cubic-bezier(.2, 1.5, .4, 1); }
+#banner.compact small { font-size: 13px; margin-top: 1px; }
+@keyframes bannerDrop { from { transform: translateY(-14px) scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes toastR { 0% { opacity: 0; transform: translateX(40px); } 10% { opacity: 1; transform: translateX(-4px); }
+    18% { transform: none; } 78% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-12px); } }
 
 #padHint {
     position: absolute; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -324,8 +335,9 @@ body.tv #hearts { font-size: 30px; }
 body.tv .hud-top { width: min(640px, 44vw); }
 body.tv .trip { font-size: 30px; } body.tv .trip-bar { height: 18px; } body.tv #tripLabel { font-size: 20px; }
 body.tv .speedo { width: 180px; } body.tv #mph { font-size: 66px; } body.tv .unit, body.tv .boost-label { font-size: 16px; }
-body.tv .toast { font-size: 40px; } body.tv .toast.big { font-size: 56px; }
+body.tv .toast { font-size: 30px; } body.tv .toast.big { font-size: 38px; }
 body.tv #banner { font-size: 34px; padding: 22px 36px; } body.tv #banner small { font-size: 22px; }
+body.tv #banner.compact { font-size: 26px; padding: 10px 26px; } body.tv #banner.compact small { font-size: 18px; }
 body.tv #padHint, body.tv .prompt { font-size: 22px; padding: 10px 24px; }
 body.tv .glyph { min-width: 32px; height: 32px; font-size: 18px; }
 body.tv .screen { padding: 5vh 5vw; }

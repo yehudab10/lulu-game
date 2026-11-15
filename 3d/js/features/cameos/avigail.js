@@ -351,7 +351,7 @@ export async function startPorch(opts = {}) {
 
 // three.js frame: the porch faces +Z (Blender −Y); the house interior is −Z.
 registerState("cameosPorch", {
-    hud: false, touch: false, pausable: true, world: false,
+    hud: false, touch: false, pausable: true, world: false, skip: true,
     enter(data, prev) {
         if (!set) buildSet();
         const p = porch = { loading: false, t: 0, doorOpen: 0, wantOpen: false, expr: "suspicious", step: 0, steps: 0, total: 0,

@@ -452,7 +452,7 @@ const MEDAL_COLS = { gold: ["#FFC107", "#8D6E00"], silver: ["#CFD8DC", "#546E7A"
 const CONFETTI = ["#FF4FA3", "#FFD700", "#4FC3F7", "#7CFC4F", "#FF8A65", "#BA68C8"];
 
 registerState("dinaCaught", {
-    hud: false, touch: false, pausable: false, world: false,
+    hud: false, touch: false, pausable: false, world: false, skip: true,
     enter(res) {
         const st = cast();
         st.set.show();

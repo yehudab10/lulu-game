@@ -102,7 +102,7 @@ function build() {
 // ── state ────────────────────────────────────────────────────────────────
 let st = null, flow = null;
 registerState("lawCourt", {
-    hud: false, touch: false, pausable: true, world: false,
+    hud: false, touch: false, pausable: true, world: false, skip: true,
     enter(data) {
         UI.hideAll();
         st = { data, t: 0, speaker: null, gavel: 0, guestT: 0, guestCool: 0 };

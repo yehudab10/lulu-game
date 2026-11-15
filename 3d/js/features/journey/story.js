@@ -101,7 +101,7 @@ const talk = { i: -1, phase: "", t: 0, person: null, extra: [], from: new THREE.
 const IN_PERSON = { heshy: "heshyPerson", avigail: "avigailPerson" };
 
 registerState("storyTalk", {
-    hud: false, touch: false, driving: true, pausable: false,
+    hud: false, touch: false, driving: true, pausable: false, skip: true,
     enter({ i }) {
         talk.i = i; talk.phase = "pull"; talk.t = 0;
         talk.prevInv = ctx.G.invT || 0;

@@ -45,7 +45,7 @@ function unlock() {
 }
 for (const ev of ["pointerdown", "keydown", "touchend"]) window.addEventListener(ev, unlock, { passive: true });
 function audio() {
-    if (save3d.sound === false || !ac || ac.state !== "running") return null;
+    if ((save3d.sound === false || ctx.skipping) || !ac || ac.state !== "running") return null;
     return ac;
 }
 export function tone(freq, dur = 0.1, type = "triangle", vol = 0.2, delay = 0, slideTo = 0) {

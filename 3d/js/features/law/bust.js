@@ -59,7 +59,7 @@ function reasonText(reason, charges, fugitive) {
 
 let flow = null, st = null;
 registerState("lawBust", {
-    hud: false, touch: false, pausable: true, driving: true,
+    hud: false, touch: false, pausable: true, driving: true, skip: true,
     enter(data) {
         const u = data.unit;
         st = { u, data, t: 0, stop: false, walking: false, talking: false, done: false, phase: "pull" };
@@ -233,7 +233,7 @@ export function pullOver() {
     return true;
 }
 registerState("lawStop", {
-    hud: false, touch: false, pausable: true, driving: true,
+    hud: false, touch: false, pausable: true, driving: true, skip: true,
     enter(data) {
         const c = data.target;
         const r = Math.random();

@@ -5,6 +5,7 @@
 import { ctx, registerState, setState, addMenuItem, menuItems, emit } from "./ctx.js";
 import { save3d, saveSoon, shared, wallet } from "./save.js";
 import { cam } from "./camera.js";
+import { canSkip, skipNow } from "./skip.js";
 import { startRun, autopilot } from "./driving.js";
 import { SKINS } from "../car.js";
 import { input, glyph, glyphSet } from "../input.js";
@@ -157,6 +158,7 @@ export function showPauseMenu() {
 
 addMenuItem("pause", { id: "resume", order: 0, cls: "", label: "▶ Resume", action: resume });
 addMenuItem("pause", { id: "camera", order: 10, label: () => `🎥 Camera: ${cam.name}`, action: b => { cam.cycle(); b.innerHTML = `🎥 Camera: ${cam.name}`; } });
+addMenuItem("pause", { id: "skip", order: 5, cls: "pink", label: "⏭ Skip this scene", visible: () => canSkip(true), action: () => { resume(); skipNow(); } });
 addMenuItem("pause", { id: "controls", order: 30, label: "🎮 Controls", action: () => showControls(showPauseMenu) });
 addMenuItem("pause", { id: "settings", order: 35, label: "⚙️ Settings", action: () => showSettings(showPauseMenu) });
 addMenuItem("pause", { id: "restart", order: 80, cls: "pink", label: "↺ Restart", visible: () => ctx.states[ctx.state] && ctx.states[ctx.state].driving,

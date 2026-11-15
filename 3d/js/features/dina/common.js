@@ -79,7 +79,7 @@ export function easeOutBack(t) { const c = 1.70158; return 1 + (c + 1) * Math.po
 // ── SFX: the 2D game's synth helpers (playTone, playDogBark, playSchoolBell…) ─
 let ac = null, out = null;
 function audioCtx() {
-    if (save3d.sound === false) return null;
+    if ((save3d.sound === false || ctx.skipping)) return null;
     if (!ac) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;

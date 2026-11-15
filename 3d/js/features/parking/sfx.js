@@ -3,10 +3,11 @@
 // It keeps its own AudioContext (core/audio.js doesn't export its synth), only
 // starts after the first user gesture, and respects the Sound setting.
 import { save3d } from "../../core/save.js";
+import { ctx as game } from "../../core/ctx.js";
 
 let ac = null, out = null;
 function ready() {
-    if (save3d.sound === false) return false;
+    if ((save3d.sound === false || game.skipping)) return false;
     if (!ac) {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return false;

@@ -229,6 +229,7 @@ export function setMusic(src) {
     music.dataset.src = src;
     music.loop = true;
     music.volume = 0.32;
+    music.muted = muted;
     if (musicOn && ctx) music.play().catch(() => {});
 }
 

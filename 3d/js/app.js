@@ -13,6 +13,7 @@ import * as A from "./audio.js";
 import * as H from "./hud.js";
 import { cam } from "./core/camera.js";
 import { dialogUpdate, setDialogGlyph } from "./core/dialog.js";
+import { skipInput, skipping, skipBefore, skipAfter, FF_DT, FF_STEPS } from "./core/skip.js";
 import { pause } from "./core/screens.js";
 import { resetRun, startRun, endRun, damage, addCoins } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
@@ -74,7 +75,9 @@ function resize() {
 window.addEventListener("resize", resize);
 
 // HUD + touch controls follow the current state
+const IN_PLAY = new Set(["playing", "footRun", "arriving"]);   // free driving / walking: pop-ups stay off the road
 setChromeHandler(def => {
+    document.body.classList.toggle("in-play", IN_PLAY.has(ctx.state));
     H.showHud(!!def.hud);
     H.showTouch(!!def.touch && input.device === "touch");
     if (!def.hud) H.padHint("");
@@ -129,15 +132,23 @@ function loop(now) {
     if (dt > 0.05) dt = 0.05;           // below 20 fps the game slows down rather than tunnelling
     if (ctx.TEST) dt = 1 / 30;          // smoke test: deterministic game time per frame
     if (dt <= 0) return;
-    ctx.time += dt;
-    ctx.stateT += dt;
     ctx.frames++;
 
     updateInput(dt);
-    let P = input.pressed;
+    const P = input.pressed;
     if ((P.confirm || P.start || P.honk) && !A.audio.ready) A.unlockAudio();
     if (P.music) { save3d.music = A.toggleMusic(); H.toast(save3d.music ? "🎵 Music on" : "🔇 Music off"); }
 
+    skipInput(dt);                      // the ⏭ pill (hold ○/B, Backspace, or click it)
+    if (skipping()) { fastForward(P); return; }
+    step(dt, P);
+    present(dt);
+}
+
+/** One step of game time: input → the current state → world + camera → HUD. */
+function step(dt, P) {
+    ctx.time += dt;
+    ctx.stateT += dt;
     const def = ctx.states[ctx.state];
     try {
         if (ctx.dialogOpen) { dialogUpdate(dt, P); P = {}; }
@@ -162,10 +173,31 @@ function loop(now) {
         sun.target.position.copy(ctx.car.pos);
     }
     if (cur && cur.hud) updateHud(dt);
+}
+
+function present(dt) {
     refreshTouchButtons();
     const v = ctx.view;
     renderer.render(v ? v.scene : scene, v ? v.camera : camera);
-    adaptQuality(dt);
+    if (!ctx.skipping) adaptQuality(dt);
+}
+
+/** ⏭ Skipping a cutscene: many game-time steps this frame, letting the scene's async
+ *  scripts take their next beat between steps (they continue on microtasks). */
+async function fastForward(P) {
+    const t0 = performance.now();
+    try {
+        for (let i = 0; i < FF_STEPS; i++) {
+            if (!skipBefore()) break;
+            step(FF_DT, i ? {} : P);
+            for (let k = 0; k < 8; k++) await null;
+            if (!skipAfter(FF_DT)) break;
+            if (!ctx.TEST && performance.now() - t0 > 14) break;
+        }
+    } catch (e) {
+        console.error("Lulu3D skip error", e);
+    }
+    present(FF_DT);
 }
 
 function updateHud(dt) {

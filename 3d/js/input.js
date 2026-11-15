@@ -43,7 +43,7 @@ export const input = {
     lookX: 0, lookY: 0, lookBack: false,
     // 2-D movement (left stick / WASD / arrows / touch stick): on foot, Dina, menus
     moveX: 0, moveY: 0,
-    interactHeld: false, fireHeld: false,
+    interactHeld: false, fireHeld: false, backHeld: false,
     // edge-triggered, valid for the frame after update(): confirm back up down navLeft
     // navRight start pause honk camera boost fire item interact map tabPrev tabNext music
     pressed: {},
@@ -219,7 +219,7 @@ export function updateInput(dt) {
     let honk = keys.has("honk");
     let lookX = 0, lookY = 0, lookBack = keys.has("lookBack");
     let moveX = steer, moveY = (keys.has("brake") ? 1 : 0) - (keys.has("gas") ? 1 : 0);
-    let interactHeld = keys.has("interact"), fireHeld = keys.has("fire");
+    let interactHeld = keys.has("interact"), fireHeld = keys.has("fire"), backHeld = keys.has("back");
     if (P.confirm) P.interact = true;
     if (P.left) P.navLeft = true;
     if (P.right) P.navRight = true;
@@ -261,6 +261,7 @@ export function updateInput(dt) {
         lookX = curve(ax(2));
         lookY = curve(ax(3));
         lookBack = lookBack || down(11);
+        backHeld = backHeld || down(1);
 
         if (edge(4)) P.honk = true;
         if (edge(3) || edge(8)) P.camera = true;
@@ -318,6 +319,7 @@ export function updateInput(dt) {
     input.moveX = Math.max(-1, Math.min(1, moveX));
     input.moveY = Math.max(-1, Math.min(1, moveY));
     input.interactHeld = interactHeld;
+    input.backHeld = backHeld;     // ○/B or Backspace held (hold-to-skip cutscenes)
     input.fireHeld = fireHeld;
     input.pressed = P;
 }

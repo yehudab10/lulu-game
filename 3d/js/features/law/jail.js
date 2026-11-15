@@ -191,6 +191,7 @@ function book(charges) {
 
 registerState("lawJail", {
     hud: false, touch: false, pausable: true, world: false,
+    skip: () => !!st && ["load", "arrive", "intake"].includes(st.phase),   // the ride in + booking (not the cell)
     enter(data) {
         document.body.classList.add("law-scene");
         UI.hideAll();
@@ -741,7 +742,7 @@ function animateExt(dt) {
 // ── walking out: lawExit ─────────────────────────────────────────────────
 let xst = null, xflow = null;
 registerState("lawExit", {
-    hud: false, touch: false, pausable: true, world: false,
+    hud: false, touch: false, pausable: true, world: false, skip: true,
     enter(data) {
         UI.hideAll();
         xst = { data, t: 0, walkers: [], car: null };

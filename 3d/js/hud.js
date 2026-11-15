@@ -38,12 +38,18 @@ export function toast(text, cls = "") {
     t.className = "toast " + cls;
     t.textContent = text;
     el.toasts.appendChild(t);
-    while (el.toasts.children.length > 3) el.toasts.firstChild.remove();
-    setTimeout(() => t.remove(), 1700);
+    while (el.toasts.children.length > 4) el.toasts.firstChild.remove();
+    setTimeout(() => t.remove(), 1800);
 }
 
 let bannerTimer = 0;
 export function banner(html, ms = 2200) {
+    // While driving / walking it tucks under the trip bar (top of the "center" slot) so it
+    // never covers the road; elsewhere (countdown, wrecked, interiors…) it stays centre stage.
+    const compact = document.body.classList.contains("in-play");
+    const home = compact ? hudSlot("center") : el.hud;
+    if (el.banner.parentNode !== home) { if (compact) home.prepend(el.banner); else home.insertBefore(el.banner, el.padHint); }
+    el.banner.classList.toggle("compact", compact);
     el.banner.innerHTML = html;
     el.banner.classList.remove("hidden");
     el.banner.style.animation = "none"; void el.banner.offsetWidth; el.banner.style.animation = "";
