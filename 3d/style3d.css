@@ -545,6 +545,26 @@ body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 
     .pm-exit { margin-top: 8px; }
     .pm-main .btn { min-height: 44px; padding: 8px 14px; }
 }
+/* ── touch HUD: nothing may sit on the touch buttons, the speedo or the trip bar ── */
+/* landscape: feature chips (items, wanted) run in a row under the pause button, above the
+   NITRO / HONK column; toasts slide in just left of the pedal column */
+@media (min-aspect-ratio: 1/1) {
+    body.touch .hud-slot.right { flex-direction: row-reverse; flex-wrap: wrap; align-items: flex-start; max-width: 46vw; top: calc(max(12px, env(safe-area-inset-top)) + 58px); }
+    body.touch #toasts { top: 30%; right: calc(max(16px, env(safe-area-inset-right)) + 172px); max-width: 34vw; }
+}
+/* portrait: one row of pills, the trip bar under it, feature chips below that,
+   extra touch buttons (🚀 fire…) on the left above NITRO, clear of the speedo */
+@media (max-aspect-ratio: 1/1) {
+    body.touch .hud-tl { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 96px); }
+    body.touch .hud-tl .pill { padding: 5px 11px; font-size: 16px; }
+    body.touch .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 62px); width: calc(100% - 32px); }
+    body.touch .hud-slot.left, body.touch .hud-slot.right, body.touch .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 122px); }
+    body.touch .hud-slot.center { max-width: 58vw; }
+    body.touch #banner.compact { max-width: 58vw; font-size: 15px; }
+    body.touch #toasts { top: 40%; max-width: 62vw; }
+    body.touch #touchExtra { right: auto; left: max(24px, env(safe-area-inset-left)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + 258px); }
+    body.touch.hud-clean .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 122px); }
+}
 /* portrait phones: full-width card, comfortable taps */
 @media (max-width: 520px) and (max-aspect-ratio: 1/1) {
     .card.title-card { padding: 12px 14px 14px; }

@@ -80,6 +80,7 @@ css("garage", `
 .gx-nbar { display: block; width: 100%; height: 9px; border-radius: 999px; background: rgba(0,0,0,.12); overflow: hidden; }
 .gx-nbar i { display: block; height: 100%; border-radius: 999px; }
 .gx-hud { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+@media (min-aspect-ratio: 1/1) { body.touch .gx-hud { flex-direction: row-reverse; flex-wrap: wrap; } }   /* phones on their side: one row, clear of the touch buttons */
 .gx-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 15px; }
 .gx-chip .glyph { min-width: 20px; height: 20px; font-size: 10px; }
 .gx-chip.pink { background: rgba(255,128,171,.92); color: #fff; }

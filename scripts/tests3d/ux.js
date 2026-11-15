@@ -232,5 +232,34 @@ module.exports = {
     await t.frames(3);
     n = await H(`H.notifyState()`);
     t.check("…and it shows once the dialogue closes", n.toasts.some(x => /balloon/.test(x.text)) && /BALLOONS/.test((n.banner || {}).text || ""), JSON.stringify(n));
+
+    // ── phones (touch): nothing on the driving HUD overlaps anything else ──
+    await padEvent(false);
+    await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+    await H(`(H.hideBanner(), true)`);
+    for (const [name, w, h] of [["landscape", 844, 390], ["portrait", 390, 844]]) {
+      await t.page.setViewportSize({ width: w, height: h });
+      await g(`(ctx.applySettings(), true)`);
+      await t.frames(8);
+      const clash = await t.L(`(() => {
+        const groups = { pills: ".hud-tl .pill", trip: ".hud-top", pause: "#pauseBtn", speedo: ".hud-br .speedo", stick: "#stickBase",
+          pedals: ".pedals .tbtn", extra: "#touchExtra button", chips: "#slot-right .gx-chip, #slot-right .law-wanted > *" };
+        const boxes = [];
+        for (const [g, sel] of Object.entries(groups)) for (const e of document.querySelectorAll(sel)) {
+          const r = e.getBoundingClientRect();
+          if (r.width > 2 && r.height > 2 && getComputedStyle(e).visibility !== "hidden") boxes.push({ g, r, n: (e.id || e.textContent || "").trim().slice(0, 12) });
+        }
+        const out = [];
+        for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+          const a = boxes[i], b = boxes[j];
+          if (a.g === b.g) continue;
+          const ox = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left), oy = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
+          if (ox > 2 && oy > 2) out.push(a.g + ":" + a.n + " × " + b.g + ":" + b.n);
+        }
+        return { out, n: boxes.length, touch: document.body.classList.contains("touch") };
+      })()`);
+      t.check(`touch ${name}: the driving HUD doesn't overlap itself`, clash.touch && clash.out.length === 0, `${clash.n} boxes; ${clash.out.join(" | ")}`);
+      await t.shot(`hud-touch-${name}`);
+    }
   },
 };
