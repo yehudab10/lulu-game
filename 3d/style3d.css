@@ -489,7 +489,7 @@ body.tv .home { gap: 16px; }
 body.tv .home-bar > *:not(.hb-sp) { font-size: 22px; padding: 6px 16px; }
 body.tv .home-bar .coin { width: 22px; height: 22px; }
 body.tv .home .logo .l1 { font-size: 72px; } body.tv .home .logo .l2 { font-size: 50px; } body.tv .home .logo .l3 { font-size: 22px; }
-body.tv .tile { width: 100%; }
+body.tv .tile, body.tv .btn.row, body.tv .btn.setting, body.tv .btn.sm, body.tv .pm-main .btn { width: 100%; }
 body.tv .tile.hero { min-height: 120px; } body.tv .tile.hero .t-ic { font-size: 60px; } body.tv .tile.hero .t-l { font-size: 40px; } body.tv .tile.hero .t-s { font-size: 20px; }
 body.tv .home-tiles { gap: 14px; } body.tv .home-tiles .tile { min-height: 108px; }
 body.tv .home-tiles .tile .t-ic { font-size: 38px; } body.tv .home-tiles .tile .t-l { font-size: 24px; } body.tv .home-tiles .tile .t-s { font-size: 16px; }
