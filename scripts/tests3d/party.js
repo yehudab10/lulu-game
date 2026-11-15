@@ -104,7 +104,63 @@ module.exports = {
   },
 };
 
+/**
+ * Phase 1 — the netcode alone, no browser: three copies of features/party/net.js
+ * (imports stubbed) in this Node process against the same local relay. Precise and
+ * fast: clock agreement, acked reliable events, state replication, de-duplicated
+ * broadcasts, the relay's rate limit, host migration, reconnect as the same player.
+ */
+async function netChecks(t) {
+  const fs = require("fs"), os = require("os"), { pathToFileURL } = require("url");
+  const src = fs.readFileSync(path.join(__dirname, "..", "..", "3d", "js", "features", "party", "net.js"), "utf8")
+    .replace(`import { ctx, emit } from "../../core/ctx.js";`, `const ctx = { TEST: true, enabled: () => true }; const emit = (n, p) => { const f = globalThis.__partyNetLog; if (f) f(n, p); };`)
+    .replace(`import { shared } from "../../core/save.js";`, `const shared = { get: () => ({ mpName: "Kugel Kid" }), update: () => {} };`)
+    .replace(`const QS = new URLSearchParams(location.search);`, `const QS = new URLSearchParams("?test&mpurl=${URL}");`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "partynet-"));
+  const file = path.join(dir, "net.mjs");
+  fs.writeFileSync(file, src);
+  const url = pathToFileURL(file).href;
+  const [X, Y, Z] = [await import(url + "?x"), await import(url + "?y"), await import(url + "?z")];
+  const all = [X, Y, Z];
+  const hostEvents = [];
+  for (const M of all) M.onHostEvent((uid, k, a) => hostEvents.push([M.N.uid, uid, k]));
+  let bc = 0;
+  globalThis.__partyNetLog = (n, p) => { if (n === "party:bc" && p.k === "c") bc++; };
+  const iv = setInterval(() => { for (const M of all) { M.N.mode = 3; M.N.pose = [1000, 175, 2000, 0, 0, 0, 0, 0]; try { M.tick(); } catch (e) { } } }, 16);
+  try {
+    const code = X.newCode();
+    X.start(code, true); await sleep(400);
+    Y.start(code, false); Z.start(code, false); await sleep(2500);
+    t.check("net: guests find the host, roster of 3", Y.N.host === X.N.uid && Z.N.host === X.N.uid && X.N.roster.length === 3);
+    const dY = Y.clock() - X.clock(), dZ = Z.clock() - X.clock();
+    t.check("net: party clock agrees across peers (< 5 ms)", Y.clockSynced() && Z.clockSynced() && Math.abs(dY) < 5 && Math.abs(dZ) < 5, `${dY.toFixed(2)} / ${dZ.toFixed(2)} ms`);
+    Y.sendEvent("fin", 7, 12345); await sleep(800);
+    t.check("net: a reliable event reaches the host exactly once and is acked", hostEvents.filter(e => e[1] === Y.N.uid && e[2] === "fin").length === 1 && Y.N.pending.length === 0);
+    X.setA({ k: "race", id: 5, ph: "go", t0: Math.round(X.clock() + 3000), seed: 9, ps: X.members() }); await sleep(600);
+    t.check("net: the host's activity state replicates", Y.N.A.id === 5 && Z.N.A.t0 === X.N.A.t0);
+    Y.broadcast("c", 3); await sleep(1800);
+    t.check("net: a broadcast arrives once per friend (de-duplicated)", bc === 2, `${bc}`);
+    const s0 = X.N.seq; await sleep(2000);
+    const rate = (X.N.seq - s0) / 2;
+    t.check("net: snapshots stay under the relay's 8/s", rate >= 5 && rate <= 7.5, `${rate}/s`);
+    const oldHost = X.N.uid;
+    X.stop(true); await sleep(4000);
+    const hosts = [Y, Z].filter(M => M.N.isHost);
+    t.check("net: host leaves → exactly one new host, same timeline", hosts.length === 1 && Y.N.host === Z.N.host && Y.N.host !== oldHost && Z.N.A.id === 5 && Math.abs(Y.clock() - Z.clock()) < 10);
+    const nh = hosts[0] || Y, og = nh === Y ? Z : Y, ogUid = og.N.uid;
+    og.blink(); await sleep(2500);
+    const rec = nh.N.players.get(ogUid);
+    t.check("net: a dropped socket reconnects as the same player", og.N.connected && og.N.drops >= 1 && !!rec && !rec.left && nh.N.roster.includes(ogUid));
+  } finally {
+    clearInterval(iv);
+    for (const M of all) M.stop(true);
+    globalThis.__partyNetLog = null;
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (e) { }
+  }
+}
+
 async function body(t, guests) {
+  await netChecks(t);
   await t.frames(4);
   const titleBtns = await t.L(`[...document.querySelectorAll("#screenCard .btn")].map(b => b.textContent)`);
   t.check("title has ONE multiplayer entry: 🎉 Party with friends", titleBtns.some(x => /Party with friends/.test(x)) && !titleBtns.some(x => /Shared Road/.test(x)), titleBtns.join(" / ").slice(0, 200));

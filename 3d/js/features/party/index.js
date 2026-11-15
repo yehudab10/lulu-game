@@ -866,6 +866,7 @@ function dashSetup(A) {
     if (models.play_dreidel) {
         DASH.inst = instanced(models.play_dreidel, DASH_N, []);
         DASH.inst.finish();
+        for (const im of DASH.inst.group.children) im.frustumCulled = false;   // spread over 2 km: no stale bounding sphere
         ctx.scene.add(DASH.inst.group);
     }
     DASH.pop = new Array(DASH_N).fill(0);
@@ -908,15 +909,15 @@ function dashTick(dt) {
 const BAR = { geo: null, red: null, blue: null, mine: null };
 function lightBar() {
     if (!BAR.geo) {
-        BAR.geo = new THREE.BoxGeometry(0.5, 0.16, 0.26);
+        BAR.geo = new THREE.BoxGeometry(0.62, 0.22, 0.34);
         BAR.red = new THREE.MeshStandardMaterial({ color: "#ff1744", emissive: "#ff1744", emissiveIntensity: 2 });
         BAR.blue = new THREE.MeshStandardMaterial({ color: "#2979ff", emissive: "#2979ff", emissiveIntensity: 2 });
     }
     const g = new THREE.Group();
     const r = new THREE.Mesh(BAR.geo, BAR.red), b = new THREE.Mesh(BAR.geo, BAR.blue);
-    r.position.x = 0.28; b.position.x = -0.28;
+    r.position.x = 0.33; b.position.x = -0.33;
     g.add(r, b);
-    g.position.set(0, 1.42, -0.55);
+    g.position.set(0, 1.62, -0.35);
     return g;
 }
 function copTick() {
@@ -967,9 +968,9 @@ hook("hud", dt => {
         const board = `<div class="t">${ACTS[A.k].emoji} ${A.k === "dash" ? "DREIDELS" : "TIME AS COP"}</div>` + rows.map(r => `<div class="r${r.me ? " me" : ""}"><i style="background:${R.skinHex(r.sk)}"></i><span class="n">${r.cop ? "🚓 " : ""}${U.esc(r.name)}</span><span class="v">${A.k === "dash" ? "✨ " + r.n : Math.round(r.n / 1000) + "s"}</span></div>`).join("");
         let chip = "", cls = "";
         if (ctx.state === "partyGrid") chip = "";
-        else if (A.k === "dash") { const me = rows.find(r => r.me); chip = `✨ ${clockTxt} · you've got <b>${me ? me.n : 0}</b>`; cls = "gold"; }
-        else if (A.cop === N.uid) { chip = clock() < A.guard ? `🚓 YOU'RE THE COP! (head start…) · ${clockTxt}` : `🚓 YOU'RE THE COP! Bump a friend · ${clockTxt}`; cls = "pink"; }
-        else { chip = `🚓 Avoid ${U.esc(displayName(A.cop))}! · ${clockTxt}`; cls = ""; }
+        else if (A.k === "dash") { const me = rows.find(r => r.me); chip = `✨ You've got <b>${me ? me.n : 0}</b>${left < 10 ? ` · ${clockTxt}!` : ""}`; cls = "gold"; }
+        else if (A.cop === N.uid) { chip = clock() < A.guard ? `🚓 YOU'RE THE COP! (head start…)` : `🚓 YOU'RE THE COP! Bump a friend`; cls = "pink"; }
+        else { chip = `🚓 Avoid ${U.esc(displayName(A.cop))}!`; cls = ""; }
         U.hud(board, chip, cls);
     } else if (A.k === "trip") {
         const rows = NET.members().map(u => { const me = u === N.uid, rc = R.cars.get(u), p = N.players.get(u);
@@ -1283,8 +1284,8 @@ function frame() {
         if (N.connected && N.host && !N.isHost && N.roster.length >= NET.MAX_PLAYERS && !N.roster.includes(N.uid) && performance.now() - N.connectedAt > 4000) {
             leave(); H.toast("😕 That party is full (8 friends max)", "red"); return;
         }
-        const road = !ctx.view && N.A.k !== "lobby";
-        R.updateCars(dt, p => road && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip"), decorate);
+        onRoad = !ctx.view && N.A.k !== "lobby";
+        R.updateCars(dt, showCar, decorate);
         hornsNearby();
         dashTick(dt);
         copTick();
@@ -1296,6 +1297,9 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
+let onRoad = false;
+/** Draw this friend on the road? (same activity, actually driving / parked, and we're looking at the road) */
+function showCar(p) { return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip"); }
 function decorate(rc, p) {
     rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) });
 }

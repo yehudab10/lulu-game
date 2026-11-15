@@ -100,6 +100,7 @@ body.tv .pt-keys { width: min(620px, 100%); } body.tv .pt-keys .btn { font-size:
 body.tv .pt-lobby { width: min(760px, 100%) !important; } body.tv .pt-opts .btn, body.tv .pt-acts .btn { font-size: 22px; } body.tv .pt-crew span { font-size: 20px; }
 body.tv #ptBoard { font-size: 20px; min-width: 240px; } body.tv #ptBoard .t { font-size: 16px; } body.tv #ptChip { font-size: 22px; }
 body.tv #ptWheel .disc { font-size: 24px; height: 76px; min-width: 96px; } body.tv #ptWheel .disc.e { font-size: 44px; }
+@media (max-width: 600px), (max-height: 520px) { .pt-acts .btn small, .pt-link, .pt-lobby .pt-h { display: none; } .pt-acts .btn { padding: 9px 4px; } .pt-lobby .pt-opts { margin-top: 8px; } .pt-lobby .pt-acts { margin-top: 8px; } }
 @media (max-width: 600px) { #ptChip.place { display: none !important; } #ptBoard { min-width: 0; font-size: 12px; } #ptBoard .r .n { max-width: 84px; } #ptCount .n { font-size: 92px; } .pt-code span { width: 44px; height: 54px; font-size: 32px; line-height: 54px; } }
 `);
 
