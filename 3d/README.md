@@ -35,8 +35,11 @@ one, spend them in the other.
 | Interact (on foot) | ✕ | A | E | ✋ |
 | Camera · look | △ · right stick (R3 = behind) | Y · right stick | C · V | CAM |
 | Map / scrapbook · pause | touchpad · OPTIONS | View · Start | Tab · P/Esc | 📒 · ❚❚ |
+| Skip a cutscene | hold ○ | hold B | hold Backspace | tap ⏭ SKIP |
 
-Menus: D-pad/stick to move, ✕/A to pick, ○/B to go back, L1/R1 to switch tabs.
+Menus: D-pad/stick to move, ✕/A to pick, ○/B to go back, L1/R1 to switch tabs. Every cutscene
+(arrests, court, the crash aftermath, the ER, arrivals…) has a small ⏭ SKIP pill in the corner — it
+fast-forwards to the next choice, so you never miss a decision (also in the pause menu).
 The controller **rumbles** (crashes, rumble strips, nitro…). On Chrome/Edge on a computer,
 Settings → **DualSense lights & triggers** also makes the light bar match Lulu's car (red/blue in a
 chase), shows your hearts on the player LEDs and adds adaptive-trigger resistance.
