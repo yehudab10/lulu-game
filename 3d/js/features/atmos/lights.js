@@ -258,7 +258,7 @@ function buildLamps(chunk, world) {
         rec.cols.push(chunk.addCollider({ x: p.x, z: p.z, r: 0.22, kind: "pole" }));
         // the bulb hangs 2.08 m toward the road; its pool of light a little further in
         const fx = Math.sin(rot), fz = Math.cos(rot);
-        rec.lamps.push({ x: p.x + fx * 2.08, y: 7.12, z: p.z + fz * 2.08, px: p.x + fx * 3.6, pz: p.z + fz * 3.6, h: p.h });
+        rec.lamps.push({ x: p.x + fx * 2.08, y: 7.12, z: p.z + fz * 2.08, px: p.x + fx * 4.6, pz: p.z + fz * 4.6, h: p.h });
     });
     body.computeBoundingSphere(); bulb.computeBoundingSphere(); cone.computeBoundingSphere();
     const group = new THREE.Group();
