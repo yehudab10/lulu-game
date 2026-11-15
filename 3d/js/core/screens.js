@@ -299,12 +299,12 @@ export function showSettings(back, focusId = null) {
         ${row("quality", "🖼️ Graphics", S.quality.toUpperCase())}
         ${row("tv", "📺 TV / console mode", S.tv.toUpperCase())}
         ${row("hud", "🔠 HUD size", Math.round(S.hud * 100) + "%")}
-        ${row("hudMode", "🧹 HUD", S.hudMode === "clean" ? "CLEAN" : "FULL")}
-        ${row("calm", "🫶 Calm screen (no shake)", S.calm ? "ON" : "OFF")}
-        ${sect("🔊 Sound")}
+        ${row("hudMode", "🧹 HUD style", S.hudMode === "clean" ? "CLEAN" : "FULL")}
+        ${sect("🔊 Sound & comfort")}
         ${row("music", "🎵 Music", A.audio.musicOn ? "ON" : "OFF")}
         ${row("sound", "🔊 Sound", save3d.sound ? "ON" : "OFF")}
         ${row("chatter", "💬 Lulu's chatter", cap(S.chatter || "normal").toUpperCase())}
+        ${row("calm", "🫶 Calm screen (no shake)", S.calm ? "ON" : "OFF")}
         ${sect("🎮 Controls")}
         ${row("vibration", "📳 Controller rumble", S.vibration ? "ON" : "OFF")}
         ${row("steer", "🛞 Steering", Math.round(S.steerSens * 100) + "%")}

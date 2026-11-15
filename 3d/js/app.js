@@ -209,7 +209,7 @@ function updateHud(dt) {
     H.setScore(G.score);
     H.setBoost(G.boost);
     if (ctx.trip) H.setTrip(ctx.trip.progress(), ctx.trip.label());
-    else H.setTrip(1, `CRUISE · ${((car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`);
+    else H.setTrip(1, `CRUISE · ${Math.max(0, (car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`);
     let hint = "";
     if (ctx.state === "playing" && !ctx.TEST) {
         // Browsers don't count controller buttons as a "user gesture", so sound

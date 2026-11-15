@@ -266,7 +266,7 @@ body.touch #toasts { top: 22%; }
 .btn.focus { outline: none; box-shadow: var(--ring), 0 4px 0 rgba(0, 0, 0, 0.18); transform: scale(1.03); position: relative; z-index: 1; }
 .btn:active { transform: translateY(3px); }
 .btn .glyph { background: rgba(255, 255, 255, 0.92); color: var(--ink); }
-.btn.alt .glyph, .btn.purple .glyph, .btn.ghost .glyph, .tile:not(.hero) .glyph { background: var(--ink); color: #fff; }
+.btn.alt .glyph, .btn.purple .glyph, .btn.ghost .glyph, .btn.row .glyph, .tile:not(.hero) .glyph { background: var(--ink); color: #fff; }
 
 .glyph {
     display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 6px;
@@ -460,6 +460,7 @@ body.tv .hud-chip { font-size: 22px; padding: 8px 18px; }
 .pm-main .btn { width: 100%; }
 .pm-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp2); margin-top: var(--sp3); }
 .btn.sm { width: 100%; font-size: 16px; padding: 8px 10px; min-height: var(--tap); }
+.pm-tools .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .pm-exit { display: flex; gap: var(--sp2); margin-top: var(--sp3); }
 .pm-exit .btn { flex: 1; }
 
@@ -540,6 +541,7 @@ body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 
     .card.settings-card h2, .card.pause-card h2 { font-size: 22px; margin-bottom: 6px; }
     .card.pause-card { width: min(560px, 100%); }
     .pm-tools { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 8px; }
+    .pm-tools .btn:last-child:nth-child(odd) { grid-column: auto; }
     .pm-exit { margin-top: 8px; }
     .pm-main .btn { min-height: 44px; padding: 8px 14px; }
 }

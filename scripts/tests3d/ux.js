@@ -77,16 +77,19 @@ module.exports = {
     t.check("the sub-menu fits 720p", f.ok, JSON.stringify(f));
     await t.shot("garage-720");
     await t.tap(13);
-    t.check("D-pad moves within the sub-menu", await focusId() === "distracted");
+    t.check("D-pad moves within the sub-menu", await focusId() === "skin");
     await t.tap(5);
     t.check("R1 → the next tab (📒 Scrapbook)", await view() === "book");
     await t.shot("book-720");
     await t.tap(4);
-    t.check("L1 → back to the Garage, focus remembered", await view() === "garage" && await focusId() === "distracted");
+    t.check("L1 → back to the Garage, focus remembered", await view() === "garage" && await focusId() === "skin");
     await t.tap(1);
     t.check("○ goes home, focus back on the Garage tile", await view() === "home" && await focusId() === "tg_garage");
     await t.tap(0);
-    t.check("re-opening the Garage remembers the row", await focusId() === "distracted");
+    t.check("re-opening the Garage remembers the row", await focusId() === "skin");
+    await t.tap(0);
+    t.check("switching the car refreshes its row in place", await t.L(`/Car: Royal Purple/.test(document.getElementById("skin").textContent)`) && await focusId() === "skin");
+    await navTo("distracted");
     await t.tap(0);
     t.check("a toggle refreshes its row in place", await t.L(`/Distracted: ON/.test(document.getElementById("distracted").textContent)`) && await focusId() === "distracted");
     await t.tap(0);
@@ -129,12 +132,14 @@ module.exports = {
     await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.tv = "off"; })`);
     await g(`(ctx.applySettings(), L3.setState("title"), true)`);
     // no controller → a small footer hint instead of the chip
-    await t.L(`(window.__pad.connected = false, navigator.getGamepads = () => [null, null, null, null], 0)`);
+    const padEvent = on => t.L(`(() => { window.__pad.connected = ${on}; navigator.getGamepads = () => [${on ? "window.__pad" : "null"}, null, null, null];
+      const e = new Event("gamepad${on ? "" : "dis"}connected"); e.gamepad = window.__pad; window.dispatchEvent(e); return 0; })()`);
+    await padEvent(false);
     await t.frames(4);
     await g(`(L3.setState("title"), true)`);
     await t.frames(2);
     t.check("no pad → a small 'Got a controller?' footer", await t.L(`/Got a controller/.test((document.querySelector(".home-foot") || {}).textContent || "") && !document.querySelector(".home-bar .pad-status")`));
-    await t.L(`(window.__pad.connected = true, navigator.getGamepads = () => [window.__pad, null, null, null], 0)`);
+    await padEvent(true);
     await t.frames(4);
 
     // ── the pause menu ───────────────────────────────────────────────────────
@@ -158,7 +163,7 @@ module.exports = {
 
     // ── settings: HUD Full / Clean, Lulu's chatter ──────────────────────────
     await t.click(/Settings/);
-    await t.click(/HUD\b(?! size)/);
+    await t.click(/HUD style/);
     t.check("HUD: Clean → body.hud-clean, setting saved", await t.L(`document.body.classList.contains("hud-clean")`) && await t.L(`import("./js/core/save.js").then(m => m.save3d.settings.hudMode)`) === "clean");
     const chat = [];
     for (let i = 0; i < 3; i++) { await t.click(/chatter/); chat.push(await t.L(`import("./js/core/save.js").then(m => m.save3d.settings.chatter)`)); }
