@@ -418,10 +418,12 @@ body.tv .hud-chip { font-size: 22px; padding: 8px 18px; }
 .home-groups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp2); }
 .home-groups[data-n="1"] { grid-template-columns: 1fr; }
 .home-groups[data-n="2"], .home-groups[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.tile.grp { background: var(--btn3); color: var(--ink); box-shadow: none; padding: 8px 10px; gap: 8px; min-height: 52px; }
+.tile.grp { background: var(--btn3); color: var(--ink); box-shadow: none; padding: 8px 8px; gap: 3px; min-height: 52px;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.tile.grp .t-tx { align-items: center; max-width: 100%; }
 .tile.grp .t-ic { font-size: 22px; }
 .tile.grp .t-l { font-size: 15px; display: flex; align-items: center; gap: 4px; }
-.tile.grp .t-s { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.grp .t-s { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .tg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #FF5252; box-shadow: 0 0 0 2px #fff; }
 
 .home-notes { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-xs); text-align: center; }
@@ -525,7 +527,7 @@ body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 
     .home-tiles .tile .t-tx { align-items: flex-start; }
     .home-tiles .tile .t-ic { font-size: 20px; }
     .home-tiles .tile .t-l { font-size: 14px; }
-    .tile.grp { min-height: var(--tap); padding: 6px 8px; }
+    .tile.grp { min-height: var(--tap); padding: 6px 8px; flex-direction: row; gap: 6px; }
     .tile.grp .t-s { display: none; }
     .tile.grp .t-l { font-size: 14px; }
     body.title-mode .card.title-card.tsub-card { width: min(560px, 70vw); }
@@ -545,8 +547,6 @@ body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 
 @media (max-width: 520px) and (max-aspect-ratio: 1/1) {
     .card.title-card { padding: 12px 14px 14px; }
     .home .logo .l1 { font-size: 40px; } .home .logo .l2 { font-size: 28px; }
-    .tile.grp { flex-direction: column; text-align: center; gap: 2px; }
-    .tile.grp .t-tx { align-items: center; }
     .tile.grp .t-s { display: none; }
     .settings { grid-template-columns: 1fr; }
 }

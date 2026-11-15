@@ -63,7 +63,7 @@ module.exports = {
     for (const it of labels) {
       await g(`L3.openView(${JSON.stringify(it.group === "play" ? "home" : it.group)})`);
       await t.frames(1);
-      if (!await t.L(`(() => { const b = document.querySelector("#screenCard [data-ti=${JSON.stringify(it.id)}]"); return !!b && b.offsetParent !== null; })()`)) unreachable.push(it.id);
+      if (!await t.L(`(() => { const b = document.querySelector("#screenCard [data-ti='${it.id}']"); return !!b && b.offsetParent !== null; })()`)) unreachable.push(it.id);
     }
     t.check("…and on screen in its group", unreachable.length === 0, unreachable.join(","));
     await g(`L3.openView("home", "story")`);

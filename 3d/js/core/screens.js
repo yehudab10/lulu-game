@@ -92,7 +92,7 @@ function tileHtml(i, info, cls) {
 function groupTileHtml(g, items) {
     const G = TITLE_GROUPS[g], list = items.filter(i => (g === "play" ? T.overflow.includes(i.id) : groupOf(i) === g));
     const names = list.map(shortName).filter(Boolean);
-    const sub = names.slice(0, 3).join(" · ") + (names.length > 3 ? " …" : "");
+    const sub = names.slice(0, 2).join(" · ");
     const dot = list.some(i => attention(i.label)) ? '<span class="tg-dot"></span>' : "";
     return `<button class="btn tile grp" id="tg_${g}" data-tg="${g}" data-group-tile="${g}"><span class="t-ic">${G.icon}</span><span class="t-tx"><span class="t-l">${G.name}${dot}</span><span class="t-s">${esc(sub)}</span></span></button>`;
 }
@@ -244,10 +244,10 @@ registerState("title", {
 
 // core title items (features add Story Trip, Shop, Scrapbook, Dina…)
 addMenuItem("title", { id: "cruise", order: 20, group: "play", label: "🛣️ Cruise", sub: () => save3d.best ? `endless · best ${save3d.best.toLocaleString()}` : "the endless highway", action: () => startRun({ mode: "cruise" }) });
-addMenuItem("title", { id: "skin", order: 70, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
+addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
     sub: () => { const n = ownedSkins().length; return n > 1 ? `${n} cars in the garage · ${glyph("confirm")} to switch` : "buy more cars in the shop"; }, action: cycleSkin });
-addMenuItem("title", { id: "controls", order: 80, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
-addMenuItem("title", { id: "settings", order: 85, group: "more", label: "⚙️ Settings", sub: "graphics · HUD · sound · chatter", action: () => showSettings(() => showTitle(true)) });
+addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
+addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "graphics · HUD · sound · chatter", action: () => showSettings(() => showTitle(true)) });
 addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "2D game", label: "🕹️ The 2D game", sub: "same coins, same cars", action: () => { location.href = "../"; } });
 
 function ownedSkins() {

@@ -26,7 +26,7 @@ import { shopDebug } from "./shop.js";
 // ── title menu ───────────────────────────────────────────────────────────
 addMenuItem("title", { id: "shop", order: 30, group: "garage", cls: "gx-gold", label: "🛒 Shop", sub: nextRideHtml, action: () => setState("shop", { tab: "cars" }) });
 addMenuItem("title", {
-    id: "distracted", order: 31, group: "garage", cls: "purple", sub: "phone in hand: 2× score, reversed steering",
+    id: "distracted", order: 72, group: "garage", cls: "purple", sub: "phone in hand: 2× score, reversed steering",
     visible: () => inv.distractedUnlocked,
     label: () => `📱 Distracted: ${distracted() ? "ON" : "OFF"}`,
     action: btn => { setDistracted(!distracted()); S.sfxPhone(); if (btn) btn.innerHTML = `📱 Distracted: ${distracted() ? "ON" : "OFF"}`; },
