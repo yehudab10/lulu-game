@@ -67,7 +67,11 @@ class Glows {
     }
 }
 
-// ── Pools: additive light decals lying on the road ───────────────────────
+// ── Pools: soft additive light decals lying on the road ──────────────────
+// Every pool fades smoothly to nothing at its rim, is warm-white, peaks low
+// (additive ≈0.3 — a lit patch of asphalt, never a painted disc) and is clipped to
+// the road + shoulder (|d| ≤ 8.8 m), so light never floats out over the grass.
+const POOL_PEAK = 0.42;   // a safety cap only — the intensities below peak around 0.25–0.3 on their own
 class Pools {
     constructor(max) {
         this.max = max; this.n = 0;
@@ -77,37 +81,43 @@ class Pools {
         this.p = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);   // x, z, heading, kind
         this.s = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);   // half width, half length, intensity, _
         this.c = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3).setUsage(THREE.DynamicDrawUsage);
-        g.setAttribute("iPos", this.p); g.setAttribute("iSize", this.s); g.setAttribute("iCol", this.c);
+        this.r = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2).setUsage(THREE.DynamicDrawUsage);   // road d of the centre, heading − road heading
+        g.setAttribute("iPos", this.p); g.setAttribute("iSize", this.s); g.setAttribute("iCol", this.c); g.setAttribute("iRoad", this.r);
         g.instanceCount = 0;
         this.geo = g;
         this.mat = new THREE.ShaderMaterial({
             transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
             polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6,
-            uniforms: { uWet: { value: 0 }, uFogNear: { value: 100 }, uFogFar: { value: 600 } },
-            vertexShader: `attribute vec4 iPos; attribute vec4 iSize; attribute vec3 iCol; uniform float uFogNear; uniform float uFogFar;
-                varying vec2 vUv; varying vec3 vC; varying float vK; varying float vF;
+            uniforms: { uWet: { value: 0 }, uFogNear: { value: 100 }, uFogFar: { value: 600 }, uPeak: { value: POOL_PEAK } },
+            vertexShader: `attribute vec4 iPos; attribute vec4 iSize; attribute vec3 iCol; attribute vec2 iRoad; uniform float uFogNear; uniform float uFogFar;
+                varying vec2 vUv; varying vec3 vC; varying float vK; varying float vF; varying float vD;
                 void main() {
                     vec2 l = vec2(position.x * iSize.x, position.z * iSize.y);
                     float c = cos(iPos.z), s = sin(iPos.z);
                     // heading h: local +z → forward (sin h, cos h), local +x → (cos h, -sin h) — a proper
-                    // rotation (det +1) so the quad keeps facing up (pools are symmetric left/right)
+                    // rotation (det +1) so the quad keeps facing up
                     vec3 w = vec3(iPos.x + l.y * s + l.x * c, 0.07, iPos.y + l.y * c - l.x * s);
+                    // how far right of the road's centre line this corner is (the road is ~straight over a pool)
+                    vD = iRoad.x - cos(iRoad.y) * l.x - sin(iRoad.y) * l.y;
                     vUv = position.xz; vC = iCol * iSize.z; vK = iPos.w;
                     vec4 mv = viewMatrix * vec4(w, 1.0);
                     vF = 1.0 - smoothstep(uFogNear, uFogFar, -mv.z) * 0.9;
                     gl_Position = projectionMatrix * mv;
                 }`,
-            fragmentShader: `uniform float uWet; varying vec2 vUv; varying vec3 vC; varying float vK; varying float vF;
+            fragmentShader: `uniform float uWet; uniform float uPeak; varying vec2 vUv; varying vec3 vC; varying float vK; varying float vF; varying float vD;
                 void main() {
                     float a;
-                    if (vK < 0.5) { float r = length(vUv); a = pow(max(0.0, 1.0 - r), 1.7); }
-                    else {   // a headlight beam: bright near the car, spreading + fading down the road
+                    if (vK < 0.5) {      // a lamp's pool: gaussian-ish core, exactly 0 at the rim
+                        float r = length(vUv);
+                        a = exp(-r * r * 3.0) * (1.0 - smoothstep(0.55, 1.0, r));
+                    } else {             // a headlight beam: brightest a few metres ahead, spreading + fading down the road
                         float t = vUv.y * 0.5 + 0.5;
-                        float spread = mix(0.35, 1.0, t);
-                        float x = abs(vUv.x) / spread;
-                        a = smoothstep(1.0, 0.45, x) * smoothstep(0.0, 0.12, t) * pow(1.0 - t, 1.2);
+                        float x = abs(vUv.x) / mix(0.4, 1.0, t);
+                        a = (1.0 - smoothstep(0.25, 1.0, x)) * smoothstep(0.0, 0.18, t) * pow(1.0 - t, 1.5);
                     }
-                    gl_FragColor = vec4(vC * a * vF * (1.0 + uWet * 0.7), 1.0);
+                    a *= 1.0 - smoothstep(8.2, 9.0, abs(vD));       // only on the asphalt + shoulder
+                    vec3 col = min(vC * a * vF * (1.0 + uWet * 0.4), vec3(uPeak));
+                    gl_FragColor = vec4(col, 1.0);
                 }`,
         });
         this.mesh = new THREE.Mesh(g, this.mat);
@@ -116,17 +126,19 @@ class Pools {
         this.mesh.visible = false;
     }
     begin() { this.n = 0; }
-    add(x, z, h, kind, hw, hl, r, g, b, k) {
+    /** A pool at (x, z) facing heading h; dc = its centre's road offset d, dh = h − the road's heading there. */
+    add(x, z, h, kind, hw, hl, r, g, b, k, dc = 0, dh = 0) {
         if (this.n >= this.max || k < 0.004) return;
         const i = this.n++;
-        const P = this.p.array, Sz = this.s.array, C = this.c.array;
+        const P = this.p.array, Sz = this.s.array, C = this.c.array, R = this.r.array;
         P[i * 4] = x; P[i * 4 + 1] = z; P[i * 4 + 2] = h; P[i * 4 + 3] = kind;
         Sz[i * 4] = hw; Sz[i * 4 + 1] = hl; Sz[i * 4 + 2] = k;
         C[i * 3] = r; C[i * 3 + 1] = g; C[i * 3 + 2] = b;
+        R[i * 2] = dc; R[i * 2 + 1] = dh;
     }
     end() {
         this.geo.instanceCount = this.n;
-        this.p.needsUpdate = this.s.needsUpdate = this.c.needsUpdate = true;
+        this.p.needsUpdate = this.s.needsUpdate = this.c.needsUpdate = this.r.needsUpdate = true;
         this.mesh.visible = this.n > 0;
         this.mat.uniforms.uWet.value = S.wet;
         const F = ctx.scene.fog;
@@ -258,7 +270,7 @@ function buildLamps(chunk, world) {
         rec.cols.push(chunk.addCollider({ x: p.x, z: p.z, r: 0.22, kind: "pole" }));
         // the bulb hangs 2.08 m toward the road; its pool of light a little further in
         const fx = Math.sin(rot), fz = Math.cos(rot);
-        rec.lamps.push({ x: p.x + fx * 2.08, y: 7.12, z: p.z + fz * 2.08, px: p.x + fx * 4.6, pz: p.z + fz * 4.6, h: p.h });
+        rec.lamps.push({ x: p.x + fx * 2.08, y: 7.12, z: p.z + fz * 2.08, px: p.x + fx * 4.6, pz: p.z + fz * 4.6, h: p.h, dc: sp.d - sp.side * 4.6 });
     });
     body.computeBoundingSphere(); bulb.computeBoundingSphere(); cone.computeBoundingSphere();
     const group = new THREE.Group();
@@ -319,6 +331,7 @@ function setWindows(g) {
 
 // ── per-frame ─────────────────────────────────────────────────────────────
 const HEAD = [1, 0.93, 0.78], TAIL = [1, 0.12, 0.1];
+const WARM_HEAD = [1, 0.95, 0.86], WARM_LAMP = [1, 0.9, 0.76];   // warm WHITE light on the asphalt, not yellow paint
 export function lightsTick(dt) {
     const car = ctx.car, cam = S.camPos;
     windowScanT -= dt;
@@ -342,7 +355,9 @@ export function lightsTick(dt) {
         // the beam on the road: weaker where the journey's own beams already show (the Strip)
         const beam = lights * (1 - S.baseNight * 0.55) * (S.fp ? 0.75 : 1);
         const fx = Math.sin(car.h), fz = Math.cos(car.h);
-        pools.add(car.pos.x + fx * 14.5, car.pos.z + fz * 14.5, car.h, 1, 4.6, 13, 1, 0.9, 0.72, beam * 0.62);
+        const dh = car.h - ctx.world.road.at(car.s, P0).h;
+        pools.add(car.pos.x + fx * 14.5, car.pos.z + fz * 14.5, car.h, 1, 4.6, 13, WARM_HEAD[0], WARM_HEAD[1], WARM_HEAD[2], beam * 0.36,
+            car.d - Math.sin(dh) * 14.5, dh);
     }
     if (spot) {
         const on = lights > 0.01 && !onFoot && car.obj.visible !== false;
@@ -370,7 +385,9 @@ export function lightsTick(dt) {
             if (!c.hit && beams < 14 && L.head.length) {
                 beams++;
                 const fx = Math.sin(h), fz = Math.cos(h);
-                pools.add(o.position.x + fx * 12, o.position.z + fz * 12, h, 1, 3.8, 10, 1, 0.9, 0.72, lights * 0.4);
+                const dh = h - ctx.world.road.at(c.s, P0).h;
+                pools.add(o.position.x + fx * 12, o.position.z + fz * 12, h, 1, 3.8, 10, WARM_HEAD[0], WARM_HEAD[1], WARM_HEAD[2], lights * 0.3,
+                    (c.d || 0) - Math.sin(dh) * 12, dh);
             }
         }
     }
@@ -389,7 +406,7 @@ export function lightsTick(dt) {
                 const dx = l.x - cam.x, dz = l.z - cam.z;
                 if (dx * dx + dz * dz > 360 * 360) continue;
                 glows.add(l.x, l.y, l.z, 1.05, 1, 0.84, 0.55, lamp * 0.9);
-                pools.add(l.px, l.pz, l.h, 0, 7.2, 7.2, 1, 0.82, 0.52, lamp * 0.95);
+                pools.add(l.px, l.pz, l.h, 0, 7.4, 7.4, WARM_LAMP[0], WARM_LAMP[1], WARM_LAMP[2], lamp * 0.3, l.dc, 0);
             }
         }
     }
