@@ -72,6 +72,7 @@ const P = {
     trace: null, joinMsg: "", lostShown: false, shareMsg: "",
 };
 const rate = { r: 1, g: -1, w: 0 };
+const _cf = new THREE.Vector3(), _cl = new THREE.Vector3();
 const tmp = {}, tmpA = {}, poseArr = [0, 0, 0, 0, 0, 0, 0, 0];
 const PARTY_STATES = new Set(["partyLobby", "partyGrid", "partyWait", "partySpectate", "partyResults"]);
 const inPartyRun = () => N.want && ctx.G.mode === "party";
@@ -91,7 +92,7 @@ ctx.party = {
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
-    hostParty, joinParty, leave, openHub,
+    hostParty, joinParty, join: code => joinParty(code), leave, openHub,
     trafficAt: (T0, s0, s1) => T.trafficAt(T0, s0, s1),
     trafficLive: () => T.trafficLive(),
     _debug: { N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
@@ -99,6 +100,8 @@ ctx.party = {
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
         place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
         stageCars: () => STG.carCount(),
+        dash: () => DASH.spots,
+        bbPlan: () => [...BB.plan].filter(([k, p]) => p).map(([k, p]) => `${k}:${p.s.toFixed(1)}:${p.side}:${p.id}`),
         traffic: T.PT },
 };
 
@@ -223,12 +226,12 @@ function openHub() {
         <p class="pt-sub">${can ? "Drive together on the same road — up to 8 friends." : "Private parties need an internet connection."}</p>`;
     const buttons = [];
     if (can) {
-        buttons.push({ id: "pt_host", cls: "pt-big", label: `🎉 Host a party ${glyph("confirm")}<small>get a code + an invite link</small>`, action: hostParty });
-        buttons.push({ id: "pt_join", cls: "purple", label: `🔑 Join with a code<small>type your friend's 4 letters</small>`, action: () => openJoin() });
+        buttons.push({ id: "pt_host", cls: "pt-big", label: `<span>🎉 Host a party ${glyph("confirm")}</span><small>get a code + an invite link</small>`, action: hostParty });
+        buttons.push({ id: "pt_join", cls: "purple", label: `<span>🔑 Join with a code</span><small>type your friend's 4 letters</small>`, action: () => openJoin() });
     }
     // the cross-play Shared Road (2D + 3D), folded in here as the secondary option
-    if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `🌐 Open road${mp ? ` · ${ctx.mp.riders} online` : ""}<small>everyone, incl. 2D players</small>`, action: () => ctx.mp.open("party") });
-    buttons.push({ id: "pt_back", cls: "alt", label: `Back ${glyph("back")}`, action: () => showTitle(true) });
+    if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `<span>🌐 Open road${mp ? ` · ${ctx.mp.riders} online` : ""}</span><small>everyone, incl. 2D players</small>`, action: () => ctx.mp.open("party") });
+    buttons.push({ id: "pt_back", cls: "alt", label: `<span>Back ${glyph("back")}</span>`, action: () => showTitle(true) });
     H.showScreen(html, buttons, { onBack: () => showTitle(true), focus: buttons[0].id, cls: "pt-card pt-hub" });
 }
 function openJoin(code = "", msg = "", msgCls = "") {
@@ -367,6 +370,7 @@ function beginRun(s, d, speed) {
     bbReserveAhead(s + 950, s);
     P.internal = true;
     try { resetRun({ mode: "party", s }); } finally { P.internal = false; }
+    ctx.traffic.config.enabled = false;
     placeCar(s, d, speed);
     emit("run:start", { mode: "party", opts: { s, party: true } });
 }
@@ -556,14 +560,26 @@ registerState("partyLobby", {
         AU.updateEngine(0, 0, 0, 0, false, false);
         U.setChatKeys(false);
         renderLobby(true);
+        warmShaders();
     },
     exit() { document.body.classList.remove("party-stage"); STG.hide(); H.hideScreen(); },
     update(dt, P_) { H.menuInput(P_); },
 });
 
+/** Compile the road's shaders while we wait (lobby / countdown), so GO isn't a hitch —
+ *  someone who joined straight from a link may never have drawn the road yet. */
+let warmAt = -1e9;
+function warmShaders() {
+    const r = ctx.renderer;
+    if (!r || performance.now() - warmAt < 2000) return;
+    warmAt = performance.now();
+    try { if (r.compileAsync) r.compileAsync(ctx.scene, ctx.camera).catch(() => { }); else r.compile(ctx.scene, ctx.camera); } catch (e) { /* best effort */ }
+}
+
 registerState("partyGrid", {
     hud: true, touch: true, pausable: true, driving: true,
     enter() {
+        warmShaders();
         AU.setMusic("../luludriving.mp3");
         ctx.G.musicSet = true;
         H.setBoost(ctx.G.boost, input.device === "touch" ? "" : glyph("boost"));
@@ -633,7 +649,7 @@ registerState("partyResults", {
         U.countdown(null); U.closeWheel(); U.setChatKeys(false); U.hideHud();
         AU.updateEngine(0, 0, 0, 0, false, false);
         AU.sfxHorn(false);
-        if (data.podium) STG.show("podium"); else STG.hide();
+        if (data.podium) STG.show("podium"); else { STG.hide(); if (ctx.cam) ctx.cam.snap(); }
         P.resKey = "";
         renderResults(true);
     },
@@ -653,8 +669,9 @@ registerState("partyResults", {
     camera(dt) {
         if (N.A.k !== "trip" || STG.shown()) return false;
         const S = tripEnd(), road = ctx.world.road;
-        const from = road.point(S - 6, -9, {}), look = road.point(S - 2, 11, {});
-        ctx.cam.cinematic(new THREE.Vector3(from.x, 7.5, from.z), new THREE.Vector3(look.x, 1.4, look.z), dt, 1.2, 52);
+        // just past the gate, across the road: the parked line of friends with Bubbe's house behind
+        const from = road.point(S - 43, -12.5, tmpA), fx = from.x, fz = from.z, look = road.point(S + 4, 14, tmp);
+        ctx.cam.cinematic(_cf.set(fx, 8.2, fz), _cl.set(look.x, 1.6, look.z), dt, 0.6, 50);
         return true;
     },
 });
@@ -941,7 +958,7 @@ hook("hud", dt => {
         const mi = rows.findIndex(r => r.me);
         const toGo = Math.max(0, GRID_S + RACE_LEN - car.s);
         const board = `<div class="t">🏁 RACE</div>` + rows.slice(0, 8).map((r, i) => `<div class="r${r.me ? " me" : ""}${r.dim ? " dim" : ""}"><span>${i + 1}</span><i style="background:${R.skinHex(r.sk)}"></i><span class="n">${U.esc(r.name)}</span><span class="v">${r.fin != null ? "🏁 " + fmtRace(r.fin - A.t0) : r.me ? "" : fmtGap(r.s - car.s)}</span></div>`).join("");
-        const chip = P.me.finished ? `🏁 FINISHED · <b>${ordinal(P.me.place || mi + 1)}</b>` : ctx.state === "partyGrid" ? "" : `<b>${ordinal(mi + 1)}</b> of ${rows.length} · ${toGo >= 1000 ? (toGo / 1000).toFixed(1) + " km" : Math.round(toGo) + " m"} to go`;
+        const chip = P.me.finished ? `🏁 FINISHED · <b>${ordinal(P.me.place || mi + 1)}</b>` : ctx.state === "partyGrid" || rows.length < 2 ? "" : `<b>${ordinal(mi + 1)}</b> of ${rows.length}${toGo < 300 ? " · the flag's right there!" : ""}`;
         U.hud(board, chip, P.me.finished ? "gold" : "place");
     } else if (A.k === "dash" || A.k === "tag") {
         const left = Math.max(0, (A.t0 + A.dur - clock()) / 1000);

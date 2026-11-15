@@ -13,7 +13,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const PORT = 21000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = `&enable=party,atmos&mpurl=${encodeURIComponent(URL)}`;
+const Q = `&enable=party,atmos,play&mpurl=${encodeURIComponent(URL)}`;
 let relay = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -74,6 +74,17 @@ async function hostUntil(t, code, what, ms = 90000) {
 async function clickSel(t, sel) { const ok = await t.L(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (b) b.click(); return !!b; })()`); await sleep(250); return ok; }
 /** party clock − wall clock, averaged — same machine, so the pages' answers must agree. */
 const OFFSET = `(() => { let a = 0; for (let i = 0; i < 5; i++) a += ctx.party.clock() - (performance.timeOrigin + performance.now()); return a / 5; })()`;
+
+/** Per built road chunk: its billboards, golden dreidels and ramps (all must match across screens). */
+const WORLD = `(() => {
+  const out = {};
+  for (const ch of ctx.world.activeChunks()) out[ch.k] = { bb: [], dr: [], rp: [] };
+  for (const b of ctx.banter.activeBillboards()) { const k = Math.floor(b.chunkS / 200); if (out[k]) out[k].bb.push(b.key + "@" + b.s + ":" + b.side); }
+  for (const d of ctx.play.debug.dreidels) if (out[d.k]) out[d.k].dr.push(d.s.toFixed(1) + ":" + d.d.toFixed(2));
+  for (const r of ctx.play.debug.ramps) if (out[r.k]) out[r.k].rp.push(r.s.toFixed(1) + ":" + r.d.toFixed(2));
+  for (const k in out) for (const x of ["bb", "dr", "rp"]) out[k][x].sort();
+  return out;
+})()`;
 
 module.exports = {
   name: "party",
@@ -151,10 +162,11 @@ async function body(t, guests) {
   const spread = Math.max(...offs) - Math.min(...offs);
   t.check("synced start: every screen agrees on the party clock (≤ 30 ms)", spread < 30, `offset spread ${spread.toFixed(1)} ms`);
   t.check("synced start: same scheduled GO everywhere", gos.every(g => g && g.t0 === gos[0].t0), JSON.stringify(gos.map(g => g && g.t0)));
-  t.check("synced start: GO fired at (or just after) t0 on each screen", gos.every(g => g && g.party >= g.t0 - 1 && g.party - g.t0 < 1500), JSON.stringify(gos.map(g => g && Math.round(g.party - g.t0))));
+  // (the first frame at/after t0 — in software WebGL with three pages that can be a while; never early)
+  t.check("synced start: GO never fires early on any screen", gos.every(g => g && g.party >= g.t0 - 1), `first frame after t0: ${JSON.stringify(gos.map(g => g && Math.round(g.party - g.t0)))} ms`);
 
-  // everyone holds their lane at a cruise (banter's test autopilot)
-  for (const [i, p] of pages.entries()) await p.game(`(ctx.banter.autopilot = { d: ${[1.75, 5.25, 1.75][i]}, speed: 24 }, true)`);
+  // everyone holds their lane at a cruise (banter's test autopilot), already rolling
+  for (const [i, p] of pages.entries()) await p.game(`(ctx.banter.autopilot = { d: ${[1.75, 5.25, 1.75][i]}, speed: 24 }, ctx.party._debug.place(${[90, 82, 74][i]}, ${[1.75, 5.25, 1.75][i]}, 22))`);
   await sleep(2500);
   await t.game(`ctx.party._debug.trace(true)`);
   await sleep(6000);
@@ -173,7 +185,14 @@ async function body(t, guests) {
     }
     if (pts.length > 1) moved = Math.max(moved, pts[pts.length - 1].s - pts[0].s);
   }
-  t.check("remote cars stream and move", tr.length === 2 && moved > 2, `${tr.length} cars, moved ${moved.toFixed(1)} m over ${samples} frames`);
+  // where each friend really is vs where the host draws them (drawn ~150–450 ms of party time in the past)
+  const gap2 = [];
+  for (const g of [A, B]) {
+    const me = await g.game(`({ u: ctx.party.uid, s: ctx.car.s })`);
+    const drawn = await t.game(`(() => { const rc = ctx.party._debug.cars.get(${JSON.stringify(me.u)}); return rc && rc.shown ? rc.s : null; })()`);
+    gap2.push(drawn == null ? 999 : Math.abs(me.s - drawn));
+  }
+  t.check("remote cars stream and move with their drivers", tr.length === 2 && moved > 0.2 && gap2.every(x => x < 6), `${tr.length} cars, moved ${moved.toFixed(1)} m over ${samples} frames; drawn vs actual ${gap2.map(x => x.toFixed(2)).join(", ")} m`);
   t.check("smooth: no frame-to-frame jump beyond what speed allows", worst <= 0 && latJump <= 0, `worst excess ${worst.toFixed(2)} m, lateral ${latJump.toFixed(2)} m`);
   t.check("smooth: no snaps while streaming", snaps === 0, `${snaps} snaps`);
   await t.shot("race-hud");
@@ -195,6 +214,17 @@ async function body(t, guests) {
   t.check("random features off in a party", await t.game(`!ctx.enabled("roadevents") && !ctx.enabled("cameos") && !ctx.enabled("law") && ctx.enabled("party")`));
   const skies = [];
   for (const p of pages) skies.push(await p.game(`ctx.atmos ? { c: ctx.atmos.clock, w: ctx.atmos.weather, m: ctx.atmos.info().mode, pc: ctx.party.atmosClock(), pw: ctx.party.atmosWeather().kind } : null`));
+  // the rest of the shared world: banter's billboards (party-seeded spots), play's ramps + golden dreidels (seeded per chunk)
+  const sameWorld = async label => {
+    const worlds = [];
+    for (const p of pages) worlds.push(await p.game(WORLD));
+    const common = worlds.map(w => Object.keys(w)).reduce((a, b) => a.filter(k => b.includes(k)));
+    const pick = w => JSON.stringify(common.map(k => w[k]));
+    const n = common.reduce((acc, k) => acc + worlds[0][k].bb.length + worlds[0][k].dr.length + worlds[0][k].rp.length, 0);
+    t.check(`same world (${label}): billboards, ramps + golden dreidels identical on every screen`, common.length >= 3 && worlds.every(w => pick(w) === pick(worlds[0])),
+      `${common.length} shared chunks, ${n} set pieces`);
+  };
+  await sameWorld("start");
   t.check("same sky: atmos day + weather come from the party clock", skies.every(x => x && x.m === "cruise" && Math.abs(x.pc - skies[0].pc) < 0.003 && x.pw === skies[0].pw && Math.abs(x.c - x.pc) < 0.01),
     JSON.stringify(skies.map(x => x && [x.m, +x.c.toFixed(4), x.w])));
 
@@ -214,6 +244,7 @@ async function body(t, guests) {
   for (const [i, p] of pages.entries()) await p.game(`(ctx.banter.autopilot = { d: ${[1.75, 5.25, 1.75][i]}, speed: 30 }, ctx.party._debug.place(${2560 - 40 - i * 12}, ${[1.75, 5.25, 1.75][i]}, 26))`);
   for (const p of pages) if (!await p.until(`ctx.state === "partyResults"`, "race results for everyone", 90000)) return;
   t.check("results: everyone finished with a time", await t.game(`Object.keys(ctx.party.activity.fin).length === 3`));
+  await sameWorld("finish");
   t.check("results podium shows 3 cars + the standings", await t.game(`ctx.party._debug.stageCars() === 3`) && await t.L(`document.querySelectorAll("#screenCard .pt-res > div").length === 3`));
   t.check("host gets Rematch / Back to lobby", await t.L(`!!document.getElementById("pt_again") && !!document.getElementById("pt_lobby")`));
   t.check("guests wait for the host (no host buttons)", await A.L(`!document.getElementById("pt_again") && /picks what's next/.test(document.getElementById("screenCard").textContent)`));
@@ -266,6 +297,46 @@ async function body(t, guests) {
   t.check("group arrival card + 📸 group photo", await t.L(`/Bubbe/.test(document.getElementById("screenCard").textContent)`) && (await t.game(`!ctx.play`) || await t.L(`!!document.getElementById("pt_photo")`)));
   await sleep(1500);
   await t.shot("arrival");
+
+  // ── DREIDEL DASH: first claim wins (both grab the same dreidel at once) ──
+  const uids = { [await pages[0].game(`ctx.party.uid`)]: pages[0], [await NH.game(`ctx.party.uid`)]: NH, [await OG.game(`ctx.party.uid`)]: OG };
+  await NH.game(`ctx.party._debug.start("dash")`);
+  for (const p of trio) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "dash"`, "dash: GO", 40000)) return;
+  const spots = await NH.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`);
+  const sameSpots = JSON.stringify(await OG.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`)) === JSON.stringify(spots);
+  t.check("dash: the golden dreidels are in the same places on every screen", sameSpots && spots.length > 20);
+  await OG.game(`ctx.party._debug.place(${spots[0][0] - 1}, ${spots[0][1]}, 3)`);
+  await pages[0].game(`ctx.party._debug.place(${spots[1][0]}, ${spots[1][1]}, 0)`);
+  await NH.game(`ctx.party._debug.place(${spots[1][0]}, ${spots[1][1]}, 0)`);
+  for (const p of trio) await p.until(`ctx.party.activity.got && ctx.party.activity.got[0] != null && ctx.party.activity.got[1] != null`, "dash: claims settled", 30000);
+  const gots = [];
+  for (const p of trio) gots.push(JSON.stringify(await p.game(`[ctx.party.activity.got[0], ctx.party.activity.got[1]]`)));
+  const g01 = JSON.parse(gots[0]);
+  t.check("dash: the host's call is final and everyone agrees (one winner per dreidel)", gots.every(x => x === gots[0]) && g01[0] === await OG.game(`ctx.party.uid`) && !!uids[g01[1]], gots[0]);
+  await t.shot("dash");
+  await NH.game(`ctx.party._debug.setA(Object.assign({}, ctx.party.activity, { dur: 1 }))`);
+  for (const p of trio) if (!await p.until(`ctx.state === "partyResults" && ctx.party.activity.k === "dash"`, "dash: results", 40000)) return;
+  t.check("dash: results rank by dreidels", await t.L(`/✨ 1/.test(document.querySelector("#screenCard .pt-res").textContent)`));
+
+  // ── COP TAG: the cop bumps a friend → they're the cop ──
+  await NH.game(`ctx.party._debug.start("tag")`);
+  for (const p of trio) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "tag"`, "tag: GO", 40000)) return;
+  const cop0 = await NH.game(`ctx.party.activity.cop`);
+  const copPage = uids[cop0], victimPage = trio.find(p => p !== copPage);
+  t.check("tag: someone is the cop (light bar on)", !!copPage && await copPage.game(`ctx.car.tilt.children.some(c => c.children.length === 2 && c.visible)`));
+  await copPage.until(`ctx.party.clock() > ctx.party.activity.guard`, "tag: head start over", 20000);
+  const vs = await victimPage.game(`({ s: ctx.car.s, d: ctx.car.d })`);
+  await victimPage.game(`ctx.party._debug.place(${vs.s.toFixed(2)}, ${vs.d.toFixed(2)}, 0)`);
+  await copPage.game(`ctx.party._debug.place(${vs.s.toFixed(2)}, ${(vs.d > 3 ? vs.d - 1.3 : vs.d + 1.3).toFixed(2)}, 0)`);
+  for (const p of trio) await p.until(`ctx.party.activity.n >= 1`, "tag: the tag goes through", 40000);
+  const copNow = [];
+  for (const p of trio) copNow.push(await p.game(`ctx.party.activity.cop`));
+  t.check("tag: bump → the friend is the cop now, on every screen", copNow.every(c => c === copNow[0]) && copNow[0] !== cop0, JSON.stringify([cop0, copNow]));
+  await t.shot("tag");
+  await NH.game(`ctx.party._debug.setA(Object.assign({}, ctx.party.activity, { dur: 1 }))`);
+  for (const p of trio) if (!await p.until(`ctx.state === "partyResults" && ctx.party.activity.k === "tag"`, "tag: results", 40000)) return;
+  t.check("tag: results rank by time as cop", await t.L(`/as cop/.test(document.querySelector("#screenCard .pt-res").textContent)`));
+  await NH.game(`ctx.party._debug.toLobby()`);
 
   // portrait phone: the lobby card fits
   await t.game(`ctx.party.leave()`);

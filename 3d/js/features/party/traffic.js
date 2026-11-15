@@ -35,6 +35,7 @@ export const PT = { seed: 1, U0s: 0, t0: 0, on: false, cars: new Map(), t: 0 };
 export function configure(seed, t0ms, startS) {
     PT.seed = seed >>> 0; PT.t0 = t0ms / 1000; PT.startS = startS;
     clearTraffic();
+    if (ctx.traffic) ctx.traffic.config.enabled = false;   // before the first frame: the core spawner must never add a local-only car
 }
 
 /** The car in lane L slot k, or null. Pure. */
@@ -116,6 +117,8 @@ export function syncTraffic(aroundS) {
         PT.cars.set(w.key, c);
     }
     for (const [key, c] of PT.cars) if (!keep.has(key)) { PT.cars.delete(key); tr.remove(c); }
+    // anything that isn't ours (a stray random spawn) would exist on ONE screen only
+    for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if (!c.data || !c.data.party) tr.remove(c); }
 }
 
 /** Not driving (spectating / podium): still place our cars where the clock says. */

@@ -16,6 +16,7 @@ css("party", `
 .pt-hub .btn { width: min(380px, 100%); }
 .pt-hub .btn small, .pt-card .btn small.d { display: block; font-size: 12px; font-weight: 600; opacity: .85; letter-spacing: .02em; }
 .pt-hub .btn { flex-direction: column; gap: 2px; }
+.pt-hub .btn > span, .pt-lobby .btn > span { display: inline-flex; align-items: center; gap: 10px; }
 .pt-code { display: flex; gap: 8px; justify-content: center; margin: 6px 0 4px; }
 .pt-code span { width: 50px; height: 60px; border-radius: 12px; background: #2b1b2e; color: #FFD54F; font: 700 38px/60px var(--font);
   box-shadow: inset 0 0 0 3px #7E57C2, 0 4px 0 rgba(0,0,0,.2); }
@@ -99,7 +100,7 @@ body.tv .pt-keys { width: min(620px, 100%); } body.tv .pt-keys .btn { font-size:
 body.tv .pt-lobby { width: min(760px, 100%) !important; } body.tv .pt-opts .btn, body.tv .pt-acts .btn { font-size: 22px; } body.tv .pt-crew span { font-size: 20px; }
 body.tv #ptBoard { font-size: 20px; min-width: 240px; } body.tv #ptBoard .t { font-size: 16px; } body.tv #ptChip { font-size: 22px; }
 body.tv #ptWheel .disc { font-size: 24px; height: 76px; min-width: 96px; } body.tv #ptWheel .disc.e { font-size: 44px; }
-@media (max-width: 600px) { #ptBoard { min-width: 0; font-size: 12px; } #ptBoard .r .n { max-width: 84px; } #ptCount .n { font-size: 92px; } .pt-code span { width: 44px; height: 54px; font-size: 32px; line-height: 54px; } }
+@media (max-width: 600px) { #ptChip.place { display: none !important; } #ptBoard { min-width: 0; font-size: 12px; } #ptBoard .r .n { max-width: 84px; } #ptCount .n { font-size: 92px; } .pt-code span { width: 44px; height: 54px; font-size: 32px; line-height: 54px; } }
 `);
 
 export const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);

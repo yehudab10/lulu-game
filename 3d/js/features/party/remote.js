@@ -130,7 +130,7 @@ export class Bubble extends Label {
         const p = 1 - Math.max(0, this.life) / 2.6;
         const pop = p < 0.08 ? p / 0.08 : 1;
         this.sp.position.y = baseY + Math.min(0.4, p * 2);
-        this.sp.material.opacity = this.life < 0.4 ? Math.max(0, this.life / 0.4) : 1;
+        this.sp.material.opacity = (this.life < 0.4 ? Math.max(0, this.life / 0.4) : 1) * (this.fade == null ? 1 : this.fade);
         this.sp.scale.set(this.base * this.k * pop, this.base * this.aspect * this.k * pop, 1);
     }
 }
@@ -397,13 +397,16 @@ function step(rc, p, dt, road, cam) {
     const honk = !!(o.f & 4);
     if (honk && !rc.honkWas) { rc.pop.show("📣"); rc.v.wave(); rc.honked = true; }
     rc.honkWas = honk;
-    // sprites stay readable at a distance
+    // sprites stay readable at a distance — and get out of the way when a car is right by the camera
     const dist = Math.hypot(tmpP.x - cam.x, tmpP.z - cam.z);
     const kk = Math.max(1, Math.min(4, dist / 14));
+    const near = Math.max(0, Math.min(1, (dist - 7) / 8));
     rc.tag.sp.scale.set(rc.tag.base * kk, rc.tag.base * rc.tag.aspect * kk, 1);
-    rc.tag.sp.visible = dist < 320;
+    rc.tag.sp.visible = dist < 320 && near > 0.02;
+    rc.tag.sp.material.opacity = near;
     rc.tag.sp.position.y = 2.6 + (kk - 1) * 0.12;
     rc.bubble.k = Math.min(2.6, kk);
+    rc.bubble.fade = 0.35 + 0.65 * near;
     rc.bubble.update(dt, 3.5 + (kk - 1) * 0.35);
     rc.pop.update(dt, 2.2, Math.min(2.5, kk));
     if (rc.bonkCd > 0) rc.bonkCd -= dt;

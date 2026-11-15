@@ -236,13 +236,13 @@ export function tick(dt, { cardSide = "left" } = {}) {
     const podium = S.mode === "podium";
     const span = n ? Math.max(8, maxX - minX + 6) : 10;
     const portrait = aspect < 1;
-    const dist = (podium ? 15 : 13) + span * (portrait ? 0.95 : 0.42);
+    const dist = (podium ? 10.5 : 13) + span * (portrait ? 0.95 : 0.42);
     const cx = n ? (minX + maxX) / 2 : 0;
     const sway = Math.sin(S.t * 0.25) * 0.08;
     const yaw = sway + (cardSide === "left" && !portrait ? -0.12 : 0);
-    cam.position.set(cx + Math.sin(yaw) * dist, (podium ? 6.2 : 6.8) + (portrait ? 4 : 0), 2 + Math.cos(yaw) * dist);
+    cam.position.set(cx + Math.sin(yaw) * dist, (podium ? 5.2 : 6.8) + (portrait ? 4 : 0), 2 + Math.cos(yaw) * dist);
     // aim off-centre so the lineup sits beside (or above) the menu card
-    const offX = cardSide === "left" && !portrait ? -span * 0.42 - 2 : 0;
+    const offX = cardSide === "left" && !portrait ? -span * (podium ? 0.5 : 0.42) - (podium ? 2.6 : 2) : 0;
     const offY = portrait ? -4.2 : 0;
     cam.lookAt(cx + offX, 1.2 + offY + (podium ? 0.6 : 0), -2.5);
     cam.fov = portrait ? 62 : 46;
