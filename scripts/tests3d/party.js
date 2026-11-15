@@ -13,7 +13,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const PORT = 21000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = `&enable=party&mpurl=${encodeURIComponent(URL)}`;
+const Q = `&enable=party,atmos&mpurl=${encodeURIComponent(URL)}`;
 let relay = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -193,6 +193,10 @@ async function body(t, guests) {
   t.check("same traffic: every live car on every screen sits where the shared clock says", liveN > 6 && liveBad === 0 && common > 2, `${liveN} live cars, ${liveBad} off, ${common} shared host↔A`);
   t.check("party traffic is immune (no random spawns)", await t.game(`ctx.traffic.config.enabled === false && ctx.traffic.cars.every(c => c.data && c.data.party)`));
   t.check("random features off in a party", await t.game(`!ctx.enabled("roadevents") && !ctx.enabled("cameos") && !ctx.enabled("law") && ctx.enabled("party")`));
+  const skies = [];
+  for (const p of pages) skies.push(await p.game(`ctx.atmos ? { c: ctx.atmos.clock, w: ctx.atmos.weather, m: ctx.atmos.info().mode, pc: ctx.party.atmosClock(), pw: ctx.party.atmosWeather().kind } : null`));
+  t.check("same sky: atmos day + weather come from the party clock", skies.every(x => x && x.m === "cruise" && Math.abs(x.pc - skies[0].pc) < 0.003 && x.pw === skies[0].pw && Math.abs(x.c - x.pc) < 0.01),
+    JSON.stringify(skies.map(x => x && [x.m, +x.c.toFixed(4), x.w])));
 
   // ── BONK: guest A pulls up right beside the host (both stop) ──
   for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: ctx.car.d, speed: 0 }, true)`);

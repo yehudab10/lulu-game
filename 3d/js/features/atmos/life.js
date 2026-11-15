@@ -509,6 +509,7 @@ function updateLeaves(dt) {
 // ═══ the schedule ═════════════════════════════════════════════════════════
 function schedule(dt) {
     if (!ctx.enabled("atmos") || !(ctx.state === "playing" || ctx.state === "footRun")) return;
+    if (ctx.party && ctx.party.active) return;     // random flocks / planes / balloons would differ per friend in a party
     const calm = S.rain < 0.1 && S.fog < 0.15 && S.snow < 0.3;
     const day = S.day > 0.6 && S.night < 0.4;
     for (const k in T) T[k] -= dt;

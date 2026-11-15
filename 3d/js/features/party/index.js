@@ -41,6 +41,7 @@ import * as AU from "../../audio.js";
 import { resume, showTitle } from "../../core/screens.js";
 import { SKINS, CAR_CIRCLES, CAR_RADIUS } from "../../car.js";
 import { signTexture } from "../../world.js";
+import { models, instanced } from "../../models.js";
 import * as NET from "./net.js";
 import { N, clock } from "./net.js";
 import * as R from "./remote.js";
@@ -57,8 +58,11 @@ const TRIP_GRACE = 150000;           // ms after the first arrival before the tr
 const ACTS = {
     trip: { emoji: "🏡", name: "Road Trip", blurb: "Convoy to Bubbe's together", go: "Convoy to Bubbe's house!" },
     race: { emoji: "🏁", name: "Race", blurb: "Grid start · 2.5 km to the flag", go: "First to the flag wins!" },
+    dash: { emoji: "✨", name: "Dreidel Dash", blurb: "75 s · grab the most golden dreidels", go: "Grab the golden dreidels!" },
+    tag: { emoji: "🚓", name: "Cop Tag", blurb: "Bump to tag · least time as cop wins", go: "Don't get caught!" },
 };
-const ORDER = ["trip", "race"];
+const ORDER = ["trip", "race", "dash", "tag"];
+const DASH_MS = 75000, TAG_MS = 90000, DASH_N = 34;
 
 // ── local session state ──────────────────────────────────────────────────
 const P = {
@@ -96,6 +100,22 @@ ctx.party = {
         place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
         stageCars: () => STG.carCount(),
         traffic: T.PT },
+};
+
+// the sky: atmos runs its Cruise day + weather from these in a party (same for everyone)
+const DAY_S = 540, WX_BLOCK = 100;
+ctx.party.atmosClock = () => {
+    const seed = NET.worldSeed();
+    const start = 0.04 + ((seed % 1000) / 1000) * 0.3;              // every party starts in daylight
+    return ((start + clock() / 1000 / DAY_S) % 1 + 1) % 1;
+};
+ctx.party.atmosWeather = () => {
+    const b = Math.floor(clock() / 1000 / WX_BLOCK);
+    if (b < 1) return { kind: "clear", strength: 1 };                // a sunny first impression
+    const r = h01(NET.worldSeed() + 7, b), r2 = h01(NET.worldSeed() + 8, b);
+    if (r < 0.62) return { kind: "clear", strength: 1 };
+    if (r < 0.86) return { kind: "rain", strength: 0.5 + r2 * 0.5 };
+    return { kind: "fog", strength: 0.7 + r2 * 0.3 };
 };
 
 // random features stay off in a party (every friend must see the same world)
@@ -177,6 +197,8 @@ function leave(toTitle = true) {
 function disconnectSharedRoad() { try { if (ctx.mpNet && ctx.mp && ctx.mp.connected !== undefined && (ctx.mpNet.MP.want || ctx.mpNet.MP.connected)) ctx.mpNet.disconnect(false); } catch (e) { /* optional */ } }
 
 function teardown() {
+    dashSetup(null);
+    if (BAR.mine) BAR.mine.visible = false;
     R.clearCars();
     T.releaseTraffic();
     clearProps();
@@ -227,8 +249,11 @@ addTouchButton({ id: "partyChat", emoji: "💬", label: "CHAT", action: "partyCh
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick) {
     if (!N.isHost || !ACTS[k]) return false;
-    const A = N.A;
-    NET.setA({ k, id: (A.id | 0) + 1, ph: "go", t0: Math.round(clock() + 5200), seed: (Math.random() * 4294967295) >>> 0, ps: NET.members(), pick: k, fin: {}, arr: {} });
+    const A = N.A, ps = NET.members(), t0 = Math.round(clock() + 5200), id = (A.id | 0) + 1;
+    const next = { k, id, ph: "go", t0, seed: (Math.random() * 4294967295) >>> 0, ps, pick: k, fin: {}, arr: {} };
+    if (k === "dash") Object.assign(next, { dur: DASH_MS, got: {} });
+    if (k === "tag") Object.assign(next, { dur: TAG_MS, cop: ps[id % ps.length], n: 0, since: t0, ct: {}, guard: t0 + 3000 });
+    NET.setA(next);
     return true;
 }
 function hostToLobby() {
@@ -243,8 +268,17 @@ NET.onHostEvent((uid, k, a) => {
         NET.setA(Object.assign({}, A, { fin: Object.assign({}, A.fin, { [uid]: a[1] | 0 }) }));
     } else if (k === "arr" && A.k === "trip" && A.ph === "go" && !(A.arr && A.arr[uid])) {
         NET.setA(Object.assign({}, A, { arr: Object.assign({}, A.arr, { [uid]: [a[1] | 0, a[2] | 0] }) }));
-    } else if (k === "in" && A.k === "trip" && A.ps && !A.ps.includes(uid)) {
+    } else if (k === "in" && A.k !== "race" && A.ps && !A.ps.includes(uid)) {
         NET.setA(Object.assign({}, A, { ps: A.ps.concat([uid]) }));
+    } else if (k === "claim" && A.k === "dash" && A.ph === "go") {
+        const i = a[1] | 0;
+        if (i >= 0 && i < DASH_N && (A.got || {})[i] == null) NET.setA(Object.assign({}, A, { got: Object.assign({}, A.got, { [i]: uid }) }));
+    } else if (k === "tag" && A.k === "tag" && A.ph === "go") {
+        const t = clock(), victim = a[2];
+        if (A.n === (a[1] | 0) && A.cop === uid && victim !== uid && NET.members().includes(victim) && t >= A.guard) {
+            const ct = Object.assign({}, A.ct, { [uid]: ((A.ct || {})[uid] || 0) + Math.round(t - A.since) });
+            NET.setA(Object.assign({}, A, { cop: victim, n: A.n + 1, since: Math.round(t), ct, guard: Math.round(t + 2500), by: uid }));
+        }
     }
 });
 function hostTick() {
@@ -258,6 +292,14 @@ function hostTick() {
         const first = times.length ? Math.min(...times) : 0;
         if ((crew.length && crew.every(u => A.fin && A.fin[u] != null)) || (first && t > first + RACE_GRACE) || t > A.t0 + 8 * 60000)
             NET.setA(Object.assign({}, A, { ph: "done", endAt: Math.round(t) }));
+    } else if (A.k === "dash") {
+        if (t > A.t0 + A.dur || Object.keys(A.got || {}).length >= DASH_N) NET.setA(Object.assign({}, A, { ph: "done", endAt: Math.round(t) }));
+    } else if (A.k === "tag") {
+        if (t > A.t0 + A.dur) {
+            const end = A.t0 + A.dur;
+            const ct = Object.assign({}, A.ct, { [A.cop]: ((A.ct || {})[A.cop] || 0) + Math.round(Math.max(0, end - A.since)) });
+            NET.setA(Object.assign({}, A, { ph: "done", endAt: Math.round(t), ct }));
+        }
     } else if (A.k === "trip") {
         const arr = Object.values(A.arr || {}).map(x => x[0]);
         const first = arr.length ? Math.min(...arr) : 0;
@@ -303,7 +345,9 @@ function enterActivity(A) {
     H.hideScreen();
     const idx = (A.ps || []).indexOf(N.uid);
     const late = idx < 0 || clock() > A.t0 + 1500;
-    P.me = { finished: false, arrived: false, late, coins: 0, place: 0 };
+    P.me = { finished: false, arrived: false, late, coins: 0, place: 0, pend: {}, tagSent: -1 };
+    P.copN = A.n;
+    dashSetup(A.k === "dash" ? A : null);
     P.convoy.on = false; P.convoy.t = P.convoy.grace = 0;
     clearProps();
     T.configure(A.seed, A.t0, GRID_S);
@@ -537,7 +581,8 @@ registerState("partyGrid", {
         } else {
             U.countdown(null);
             P.goAt = { party: clock(), wall: Date.now(), t0: A.t0, id: A.id };
-            H.banner(`<b>GO!</b><small>${act.go}</small>`, 1200);
+            const sub = A.k === "tag" ? (A.cop === N.uid ? "🚓 You're the cop — 3 s head start for them!" : `🚓 ${U.esc(displayName(A.cop))} is the cop — scatter!`) : act.go;
+            H.banner(`<b>GO!</b><small>${sub}</small>`, 1600);
             tone(660, 0.18, "triangle", 0.2, 990); rumble(0.3, 0.6, 200, true);
             setState("playing");
         }
@@ -571,7 +616,7 @@ registerState("partySpectate", {
             car.obj.visible = false;
             T.placeOnly(rc.s, dt);
         }
-        caption(rc ? `👀 Watching <b>${U.esc(displayName(rc.uid))}</b> · ${glyph("navLeft")}${glyph("navRight")} switch · you're in the next one!` : "👀 Spectating — you're in the next one!");
+        caption(rc ? `👀 Watching <b>${U.esc(displayName(rc.uid))}</b> · ◀ ▶ switch · you're in the next one!` : "👀 Spectating — you're in the next one!");
     },
     camera(dt) {
         const rc = P.spectate && R.cars.get(P.spectate.uid);
@@ -716,6 +761,7 @@ hook("update", (dt, P_, controlsOn) => {
             }
         }
     }
+    if (A.k === "dash" && A.ph === "go" && ctx.state === "playing" && t >= A.t0) dashClaims();
     // convoy (road trip): a friend within 45 m for 2 s → coins ×2
     if (A.k === "trip") {
         let near = false;
@@ -760,6 +806,12 @@ function bonks(dt) {
             tone(150, 0.12, "square", 0.22, 90);
             rumble(0.5, 0.6, 180, true);
             emit("stat", { id: "partyBonks", n: 1 });
+            // Cop Tag: the cop's own screen reports the tag; the host arbitrates
+            const A = N.A;
+            if (A.k === "tag" && A.ph === "go" && A.cop === N.uid && P.me.tagSent !== A.n && clock() >= A.guard) {
+                P.me.tagSent = A.n;
+                NET.sendEvent("tag", A.id, A.n, rc.uid);
+            }
         }
         rc.bonking = true;
     }
@@ -767,6 +819,111 @@ function bonks(dt) {
 
 function sparkle(x, z) { if (ctx.car && ctx.car.fx) ctx.car.fx.burst(x, 1.2, z, 26, 4, [1, 0.85, 1], 0.6, 0.9); }
 R.setPoof(sparkle);
+
+// ── Dreidel Dash + Cop Tag ───────────────────────────────────────────────
+function scoreRows(A) {
+    const rows = (A.ps || []).filter(u => u === N.uid || N.players.has(u)).map(u => ({ uid: u, name: displayName(u), sk: skinOf(u), me: u === N.uid, cop: A.k === "tag" && A.cop === u, n: 0 }));
+    if (A.k === "dash") { for (const i in A.got || {}) { const r = rows.find(x => x.uid === A.got[i]); if (r) r.n++; } rows.sort((a, b) => b.n - a.n); }
+    else {
+        for (const r of rows) r.n = ((A.ct || {})[r.uid] || 0) + (A.ph === "go" && A.cop === r.uid ? Math.max(0, clock() - A.since) : 0);
+        rows.sort((a, b) => a.n - b.n);
+    }
+    return rows;
+}
+
+// the golden dreidels: seeded spots (same everywhere), one instanced mesh, the host says who got each
+const DASH = { inst: null, spots: [], id: -1, m: new THREE.Matrix4(), q: new THREE.Quaternion(), v: new THREE.Vector3(), sc: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), pop: [] };
+function dashSetup(A) {
+    if (DASH.inst) { DASH.inst.group.removeFromParent(); DASH.inst.dispose(); DASH.inst = null; }
+    DASH.spots.length = 0; DASH.id = -1;
+    if (!A) return;
+    DASH.id = A.id;
+    const lanes = [-5.25, -1.75, 1.75, 5.25, 8.0];
+    for (let i = 0; i < DASH_N; i++) {
+        const s = GRID_S + 70 + i * 52 + h01(A.seed, i * 3) * 30;
+        const d = lanes[Math.floor(h01(A.seed + 1, i) * lanes.length)];
+        DASH.spots.push({ s, d, x: 0, z: 0 });
+    }
+    const road = ctx.world.road;
+    for (const sp of DASH.spots) { const p = road.point(sp.s, sp.d, {}); sp.x = p.x; sp.z = p.z; }
+    if (models.play_dreidel) {
+        DASH.inst = instanced(models.play_dreidel, DASH_N, []);
+        DASH.inst.finish();
+        ctx.scene.add(DASH.inst.group);
+    }
+    DASH.pop = new Array(DASH_N).fill(0);
+}
+function dashTaken(i) { const A = N.A; return (A.got && A.got[i] != null) || !!(P.me.pend && P.me.pend[i]); }
+function dashClaims() {
+    const car = ctx.car, A = N.A;
+    for (let i = 0; i < DASH.spots.length; i++) {
+        const sp = DASH.spots[i];
+        if (dashTaken(i)) continue;
+        const dx = sp.x - car.pos.x, dz = sp.z - car.pos.z;
+        if (dx * dx + dz * dz > 6.5) continue;
+        P.me.pend[i] = true;                         // vanish now (snappy); the host confirms who was first
+        DASH.pop[i] = 0.35;
+        NET.sendEvent("claim", A.id, i);
+        car.fx.burst(sp.x, 1.2, sp.z, 18, 4, [1, 0.85, 0.25], 0.45, 0.7);
+        tone(880 + (Object.keys(P.me.pend).length % 6) * 90, 0.09, "triangle", 0.16, 1320);
+        rumble(0, 0.3, 60);
+    }
+}
+function dashTick(dt) {
+    const A = N.A;
+    if (!DASH.inst || A.k !== "dash" || A.id !== DASH.id || ctx.view) { if (DASH.inst) DASH.inst.group.visible = false; return; }
+    DASH.inst.group.visible = true;
+    const t = ctx.time;
+    for (let i = 0; i < DASH.spots.length; i++) {
+        const sp = DASH.spots[i];
+        let sc = 1;
+        if (dashTaken(i)) { DASH.pop[i] = Math.max(0, DASH.pop[i] - dt); sc = DASH.pop[i] > 0 ? 1 + (0.35 - DASH.pop[i]) * 2 : 0; }
+        DASH.q.setFromAxisAngle(DASH.up, t * 4 + i);
+        DASH.m.compose(DASH.v.set(sp.x, 0.9 + Math.sin(t * 3 + i) * 0.18, sp.z), DASH.q, DASH.sc.setScalar(sc * 1.6));
+        DASH.inst.set(i, DASH.m);
+    }
+    for (const im of DASH.inst.group.children) im.instanceMatrix.needsUpdate = true;
+    // someone else got one I was going for
+    if (A.got) for (const i in P.me.pend) if (A.got[i] != null && A.got[i] !== N.uid) { delete P.me.pend[i]; H.toast(`⚡ ${displayName(A.got[i])} got it first!`, ""); }
+}
+
+// the cop's light bar (red / blue, flashing) — on a friend's car or on mine
+const BAR = { geo: null, red: null, blue: null, mine: null };
+function lightBar() {
+    if (!BAR.geo) {
+        BAR.geo = new THREE.BoxGeometry(0.5, 0.16, 0.26);
+        BAR.red = new THREE.MeshStandardMaterial({ color: "#ff1744", emissive: "#ff1744", emissiveIntensity: 2 });
+        BAR.blue = new THREE.MeshStandardMaterial({ color: "#2979ff", emissive: "#2979ff", emissiveIntensity: 2 });
+    }
+    const g = new THREE.Group();
+    const r = new THREE.Mesh(BAR.geo, BAR.red), b = new THREE.Mesh(BAR.geo, BAR.blue);
+    r.position.x = 0.28; b.position.x = -0.28;
+    g.add(r, b);
+    g.position.set(0, 1.42, -0.55);
+    return g;
+}
+function copTick() {
+    const A = N.A, live = A.k === "tag" && A.ph !== "done" && !ctx.view;
+    const flash = Math.floor(performance.now() / 160) % 2;
+    if (BAR.red) { BAR.red.emissiveIntensity = flash ? 3.2 : 0.4; BAR.blue.emissiveIntensity = flash ? 0.4 : 3.2; }
+    for (const rc of R.cars.values()) {
+        const want = live && A.cop === rc.uid;
+        if (want && !rc.bar) { rc.bar = lightBar(); rc.v.tilt.add(rc.bar); }
+        if (rc.bar) rc.bar.visible = want;
+    }
+    const me = live && A.cop === N.uid && ctx.car;
+    if (me && !BAR.mine) { BAR.mine = lightBar(); ctx.car.tilt.add(BAR.mine); }
+    if (BAR.mine) BAR.mine.visible = !!me;
+    if (A.k === "tag" && A.n !== P.copN) {
+        const was = P.copN;
+        P.copN = A.n;
+        if (was != null && A.ph === "go" && A.id === P.actId) {
+            if (A.cop === N.uid) { H.banner(`<b>🚓 YOU'RE THE COP!</b><small>${U.esc(displayName(A.by || ""))} got you — bump someone!</small>`, 1800); AU.sfxSiren(1.2); rumble(0.6, 0.8, 300, true); }
+            else if (A.by === N.uid) { H.toast(`🚓 Tagged ${displayName(A.cop)}! Run!`, "gold"); tone(523, 0.12, "triangle", 0.2, 784); }
+            else H.toast(`🚓 ${displayName(A.cop)} is the cop now!`, "");
+        }
+    }
+}
 
 // ── the HUD ──────────────────────────────────────────────────────────────
 hook("hud", dt => {
@@ -786,6 +943,17 @@ hook("hud", dt => {
         const board = `<div class="t">🏁 RACE</div>` + rows.slice(0, 8).map((r, i) => `<div class="r${r.me ? " me" : ""}${r.dim ? " dim" : ""}"><span>${i + 1}</span><i style="background:${R.skinHex(r.sk)}"></i><span class="n">${U.esc(r.name)}</span><span class="v">${r.fin != null ? "🏁 " + fmtRace(r.fin - A.t0) : r.me ? "" : fmtGap(r.s - car.s)}</span></div>`).join("");
         const chip = P.me.finished ? `🏁 FINISHED · <b>${ordinal(P.me.place || mi + 1)}</b>` : ctx.state === "partyGrid" ? "" : `<b>${ordinal(mi + 1)}</b> of ${rows.length} · ${toGo >= 1000 ? (toGo / 1000).toFixed(1) + " km" : Math.round(toGo) + " m"} to go`;
         U.hud(board, chip, P.me.finished ? "gold" : "place");
+    } else if (A.k === "dash" || A.k === "tag") {
+        const left = Math.max(0, (A.t0 + A.dur - clock()) / 1000);
+        const clockTxt = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")}`;
+        const rows = scoreRows(A);
+        const board = `<div class="t">${ACTS[A.k].emoji} ${A.k === "dash" ? "DREIDELS" : "TIME AS COP"}</div>` + rows.map(r => `<div class="r${r.me ? " me" : ""}"><i style="background:${R.skinHex(r.sk)}"></i><span class="n">${r.cop ? "🚓 " : ""}${U.esc(r.name)}</span><span class="v">${A.k === "dash" ? "✨ " + r.n : Math.round(r.n / 1000) + "s"}</span></div>`).join("");
+        let chip = "", cls = "";
+        if (ctx.state === "partyGrid") chip = "";
+        else if (A.k === "dash") { const me = rows.find(r => r.me); chip = `✨ ${clockTxt} · you've got <b>${me ? me.n : 0}</b>`; cls = "gold"; }
+        else if (A.cop === N.uid) { chip = clock() < A.guard ? `🚓 YOU'RE THE COP! (head start…) · ${clockTxt}` : `🚓 YOU'RE THE COP! Bump a friend · ${clockTxt}`; cls = "pink"; }
+        else { chip = `🚓 Avoid ${U.esc(displayName(A.cop))}! · ${clockTxt}`; cls = ""; }
+        U.hud(board, chip, cls);
     } else if (A.k === "trip") {
         const rows = NET.members().map(u => { const me = u === N.uid, rc = R.cars.get(u), p = N.players.get(u);
             return { me, name: displayName(u), sk: skinOf(u), s: me ? car.s : rc && rc.shown ? rc.s : null, arr: A.arr && A.arr[u], st: me ? "" : p ? R.status(p) : "" }; });
@@ -822,6 +990,7 @@ on("boot", () => {
             if (!inPartyRun()) return base ? base.progress() : 1;
             const A = N.A, s = ctx.car.s;
             if (A.k === "race") return (s - GRID_S) / RACE_LEN;
+            if (A.dur) return Math.max(0, Math.min(1, (clock() - A.t0) / A.dur));
             if (A.k === "trip") return (s - GRID_S) / (tripEnd() - 48 - GRID_S);
             return 1;
         },
@@ -830,6 +999,7 @@ on("boot", () => {
             const A = N.A, s = ctx.car.s;
             const icon = document.querySelector(".trip-to");
             if (A.k === "race") { if (icon && icon.textContent !== "🏁") icon.textContent = "🏁"; const r = Math.max(0, GRID_S + RACE_LEN - s); return `🏁 PARTY RACE · ${r >= 1000 ? (r / 1000).toFixed(1) + " km" : Math.round(r) + " m"} to the flag`; }
+            if (A.dur) { const e = ACTS[A.k].emoji; if (icon && icon.textContent !== e) icon.textContent = e; const left = Math.max(0, (A.t0 + A.dur - clock()) / 1000); return `${e} ${ACTS[A.k].name.toUpperCase()} · ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")} left`; }
             if (icon && icon.textContent !== "🏡") icon.textContent = "🏡";
             return `🏡 BUBBE'S HOUSE · ${(Math.max(0, tripEnd() - s) / 1609).toFixed(1)} mi`;
         },
@@ -984,6 +1154,10 @@ function resultRows(A) {
         const win = rows[0] && rows[0].t;
         return rows.map((r, i) => Object.assign(r, { place: i, val: r.t == null ? "DNF" : i === 0 ? fmtRace(r.t) : "+" + ((r.t - win) / 1000).toFixed(1) + "s" }));
     }
+    if (A.k === "dash" || A.k === "tag") {
+        const rows = scoreRows(A);
+        return rows.map((r, i) => Object.assign(r, { place: i, t: 1, val: A.k === "dash" ? `✨ ${r.n}` : `🚓 ${Math.round(r.n / 1000)}s as cop` }));
+    }
     const arr = A.arr || {};
     const rows = (A.ps || []).map(u => ({ uid: u, name: displayName(u), sk: skinOf(u), me: u === N.uid, t: arr[u] ? arr[u][0] - A.t0 : null, coins: arr[u] ? arr[u][1] : 0 }));
     rows.sort((a, b) => (a.t != null) !== (b.t != null) ? (a.t != null ? -1 : 1) : (a.t || 0) - (b.t || 0));
@@ -998,14 +1172,17 @@ function renderResults(force) {
     const rows = resultRows(A);
     const medal = ["🏆", "🥈", "🥉"];
     const all = A.k === "trip" && rows.every(r => r.t != null);
-    const title = A.k === "race" ? (rows[0] && rows[0].me && rows[0].t != null ? "🏆 You won the race!" : `🏁 ${rows[0] ? U.esc(rows[0].name) : ""} wins!`) : all ? "🏡 Everyone made it to Bubbe's!" : "🏡 At Bubbe's house!";
-    const sub = A.k === "race" ? "Party race · 2.5 km" : `"Come in, come in — the cholent's hot!" — Bubbe 👵`;
-    const list = `<div class="pt-res">${rows.map(r => `<div class="${r.me ? "me" : ""}"><b>${A.k === "race" && r.t != null ? (medal[r.place] || r.place + 1) : A.k === "trip" && r.t != null ? r.place + 1 : "·"}</b><span class="n"><i style="background:${R.skinHex(r.sk)}"></i>${U.esc(r.name)}${r.me ? " (you)" : ""}</span><span class="t">${r.val}</span></div>`).join("")}</div>`;
+    const won = rows[0] && rows[0].me;
+    const title = A.k === "trip" ? (all ? "🏡 Everyone made it to Bubbe's!" : "🏡 At Bubbe's house!")
+        : A.k === "race" && !(rows[0] && rows[0].t != null) ? "🏁 Race over!"
+        : won ? `🏆 You win${A.k === "race" ? " the race" : ""}!` : `${ACTS[A.k].emoji} ${rows[0] ? U.esc(rows[0].name) : ""} wins!`;
+    const sub = A.k === "race" ? "Party race · 2.5 km" : A.k === "dash" ? "Dreidel Dash · most golden dreidels" : A.k === "tag" ? "Cop Tag · least time as the cop" : `"Come in, come in — the cholent's hot!" — Bubbe 👵`;
+    const list = `<div class="pt-res">${rows.map(r => `<div class="${r.me ? "me" : ""}"><b>${A.k !== "trip" && r.t != null ? (medal[r.place] || r.place + 1) : A.k === "trip" && r.t != null ? r.place + 1 : "·"}</b><span class="n"><i style="background:${R.skinHex(r.sk)}"></i>${U.esc(r.name)}${r.me ? " (you)" : ""}</span><span class="t">${r.val}</span></div>`).join("")}</div>`;
     const html = `<h2>${title}</h2><p class="pt-sub">${sub}</p>${list}${N.isHost ? "" : `<div class="pt-status">👑 ${U.esc(displayName(N.host))} picks what's next…</div>`}`;
     const btns = [];
     if (A.k === "trip" && ctx.play && ctx.play.openPhoto) btns.push({ id: "pt_photo", cls: N.isHost ? "pink" : "pt-big pink", label: `📸 Group photo`, action: () => ctx.play.openPhoto("pause") });
     if (N.isHost) {
-        if (A.k === "race") btns.unshift({ id: "pt_again", cls: "pt-big", label: `🔁 Rematch ${glyph("confirm")}`, action: () => hostStart("race") });
+        if (A.k !== "trip") btns.unshift({ id: "pt_again", cls: "pt-big", label: `🔁 ${A.k === "race" ? "Rematch" : "Play again"} ${glyph("confirm")}`, action: () => hostStart(A.k) });
         else btns.unshift({ id: "pt_again", cls: "pt-big", label: `🏁 Race next ${glyph("confirm")}`, action: () => { P.pick = "race"; hostStart("race"); } });
         btns.push({ id: "pt_lobby", cls: "purple", label: "🏠 Back to the lobby", action: hostToLobby });
     }
@@ -1092,6 +1269,8 @@ function frame() {
         const road = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, p => road && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip"), decorate);
         hornsNearby();
+        dashTick(dt);
+        copTick();
         if (ctx.state === "partyLobby") { renderLobby(false); STG.tick(dt); }
         else if (ctx.state === "partyResults") { renderResults(false); STG.tick(dt); }
         U.wheelTick(dt, ctx.state === "playing" && ctx.G.mode === "party" && !ctx.paused && !ctx.dialogOpen);
