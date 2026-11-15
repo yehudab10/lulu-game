@@ -21,6 +21,8 @@ one, spend them in the other.
 | 🅿️ **Parking** | Pull over to park, or the 10-level Parking Challenge, with security cameras, dents and stars. |
 | 👧 **Dina's world** | The school bus, the run home (beat Mom!), Dina's bedroom, Morgan, the sticker book, the nap and Cookie Catch. |
 | 📒 **Scrapbook & quests** | Badges, rap sheet, ER punch card, Avigail meter, records, save-code backup (works across 2D/3D), weekly quests, the daily streak, Jewish holidays (Chanukah menorah on the car, Purim hat + grogger, Sukkot, Pesach, Rosh Hashana), and a first-drive tutorial. |
+| 😄 **Lulu's personality** | Lulu is alive at the wheel — she bops to the music, leans into turns, flinches at near misses, waves when she honks, checks her mirror with a cop behind — and talks: hundreds of one-liners for close calls, nitro, cones, chases, boring stretches and every Story Trip leg. Honk and the other drivers answer back; oncoming drivers panic when you're in their lane. 28 funny billboards along the road (the lawyer ad gets more desperate the more you get arrested). |
+| 📸 **Photo mode & stunts** | Pause → 📸 Photo mode: free camera, filters (Golden Hour, Vintage, Noir, Pink Dream…), frames (postcard, Polaroid, WANTED…), Lulu poses, save a PNG + a little album. ✨ Golden dreidels to collect (every 18 — chai! — pays out), and 🛹 stunt ramps: airtime, mid-air spins, LEAPFROG over cars. |
 | 🌐 **Shared Road** | See other players — from the 2D *and* the 3D game — as ghost cars; friend rooms, races, emotes, the leaderboard. |
 
 ## Controls
@@ -56,7 +58,7 @@ Plain ES modules + a vendored three.js r170 — no bundler, no build step. A sma
 (`js/core/`) and one module per feature (`js/features/<id>/`) that plug in through events, hooks,
 states and services. **Read [`ARCHITECTURE.md`](ARCHITECTURE.md)** for the full contract.
 
-Every model (219 of them: cars, people, buildings, props, whole sets like the courtroom, the bar
+Every model (221 of them: cars, people, buildings, props, whole sets like the courtroom, the bar
 and the Vegas Strip) is built **from code in Blender** by `blender/assets_<id>.py`, exported to
 `assets/*.glb`, with an editable `blender/blend/<id>.blend` per module:
 

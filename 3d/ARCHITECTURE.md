@@ -287,6 +287,9 @@ and keep working sensibly when another feature is missing.
 | `ctx.parking` | parking | `start(opts)` — pull over into the parking minigame |
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
+| `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
+| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
+| `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Events between features: `item:use` {id: "missile" | "pepper" | "shield", x, z} (garage → law
 reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `foot:start`/`foot:end`,
@@ -299,7 +302,16 @@ angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~3
 on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
 
 **Title menu orders:** story 10 · cruise 20 · shop 30 · Dina 35 · parking challenge 40 ·
-scrapbook 50 · quests 55 · Shared Road 60 · car 70 · controls 80 · settings 85 · 2D 99.
+scrapbook 50 · quests 55 · Shared Road 60 · 📸 photo mode 65 · car 70 · controls 80 · settings 85 · 2D 99.
+**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · controls 30 · settings 35 · restart 80 · title 90.
+
+**Lulu's in-car rig (banter):** at runtime the car's `Driver` mesh is carved into `BanterBody`,
+`BanterHead`, `BanterArmL`, `BanterArmR` pivots (meshes named `BanterPart`, original materials, so
+matching by material name — law's jumpsuit, the salon — still works). In driving states the rig drives
+`Hair_*` and `Anchor_head`. Photo-mode poses (play) hide arm pieces by position, so they work on either.
+
+**Runtime wrappers (play):** stunt jumps wrap `ctx.traffic.collide` (no hit when she's above a car →
+LEAPFROG) and `ctx.states.playing.update` (slow-mo `dt` scale, exactly 1 outside a jump).
 
 **Hair:** the salon (cameos) adds styles with `car.addHairStyle(style, obj)` and registers
 `luluPerson_<style>` models for on-foot Lulu; foot uses `models["luluPerson_" + style] || models.luluPerson`.
