@@ -15,4 +15,5 @@ import "./multiplayer/index.js"; // Shared Road: ghost cars from 2D + 3D players
 import "./dualsense/index.js";   // PS5 DualSense extras: light bar + adaptive triggers (WebHID)
 import "./play/index.js";        // playground: 📸 photo mode, ✨ golden dreidels, 🛹 stunt ramps
 import "./banter/index.js";      // personality: Lulu alive at the wheel, her one-liners, the road talks back, funny billboards
+import "./atmos/index.js";       // atmosphere: Cruise day/night cycle, weather (rain, fog, snow, rainbows), birds, banner planes, balloons, leaves
 import "./party/index.js";       // 🎉 Party with friends: host / join by code or link, a 3D lobby, Road Trip together, races (seeded shared world)
