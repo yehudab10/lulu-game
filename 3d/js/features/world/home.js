@@ -1,0 +1,459 @@
+// features/world/home.js — LULU'S STREET: the cul-de-sac at the very start of the
+// road (s ≈ 0, Lakewood) with her house, the pink car in the driveway, Dina on
+// the porch step, Mr. Pinsky watering his lawn across the street, a minivan
+// doing a lap of the cul-de-sac now and then — and the title screen's camera on
+// all of it. Coming back to the title brings her home: she drives up the street
+// and parks nose-in in front of the garage.
+//
+// The street is ONE persistent group in the driving scene (it's at the world's
+// origin, so a run that starts at s = 12 drives right past it); it hides itself
+// once the car is ~900 m away. Colliders live in chunk 0 like any other house.
+import * as THREE from "three";
+import { ctx, on, emit } from "../../core/ctx.js";
+import { save3d, shared } from "../../core/save.js";
+import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
+import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER } from "../../world.js";
+import { spawnPerson } from "../../core/people.js";
+import * as A from "../../audio.js";
+import { Path, Ride, ease } from "./path.js";
+
+export const S_HOME = 30;          // the house (centre) along the road
+export const D_HOME = 21;          // … and to the right of the centre line
+const CUL = { x: 0, z: -4, r: 13, island: 3.2 };   // the cul-de-sac (the road starts at the origin heading +Z)
+
+const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3();
+const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
+
+/** Everything about the home street. */
+export const home = {
+    ready: false,
+    group: null, house: null,
+    park: null,        // {x, z, h, s, d} — the car's parked pose (nose to the garage)
+    anchors: {},       // world positions: dina, window, table, lulu
+    people: {},        // dina, lulu, pinsky (Person)
+    phase: "parked",   // "parked" | "arriving" | "away"
+    ride: null, arriveT: 0,
+    luluT: 0,          // Lulu's walk from the car door to her spot after parking
+    van: null, vanT: 0, vanPath: null,
+    deco: {}, decoFor: null,
+    camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), camSnap: true,
+    titleT: 0,
+};
+
+// ── building the street (once, at boot) ─────────────────────────────────
+function roadPt(s, d) { return ctx.world.road.point(s, d, {}); }
+function headingAt(s) { return ctx.world.road.at(s).h; }
+
+let MATS = null;
+function mats() {
+    if (MATS) return MATS;
+    const asphalt = new THREE.MeshStandardMaterial({ color: "#5f636b", roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const curb = new THREE.MeshStandardMaterial({ color: "#c9c4b8", roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const lawn = new THREE.MeshStandardMaterial({ color: "#6fb64c", roughness: 1 });
+    MATS = { asphalt, curb, lawn };
+    return MATS;
+}
+
+function addHouseClone(group, s, side, walls, roof) {
+    const p = roadPt(s, side * 23), h = headingAt(s);
+    const o = cloneWithColors(models.house, { Walls: walls, Roof: roof });
+    o.position.set(p.x, 0, p.z);
+    o.rotation.y = facingRoad(h, side);
+    group.add(o);
+    // its driveway
+    const M0 = worldMaterials();
+    const drive = new THREE.Mesh(ribbon(ctx.world.road, s + 4.5, s + 7.5, side > 0 ? SHOULDER : -19, side > 0 ? 19 : -SHOULDER, 0.025, 10), M0.drive);
+    drive.receiveShadow = true;
+    group.add(drive);
+    return { x: p.x, z: p.z };
+}
+
+function buildStreet() {
+    const world = ctx.world, road = world.road;
+    const g = new THREE.Group();
+    g.name = "WorldHome";
+    const M = mats(), M0 = worldMaterials();
+
+    // the cul-de-sac: an asphalt bulb + curb ring + a grassy island with a tree
+    const bulb = new THREE.Mesh(new THREE.CircleGeometry(CUL.r, 40), M.asphalt);
+    bulb.rotation.x = -Math.PI / 2; bulb.position.set(CUL.x, 0.026, CUL.z); bulb.receiveShadow = true;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(CUL.r, CUL.r + 1.6, 40, 1, Math.PI * 0.08, Math.PI * 1.84), M.curb);
+    ring.rotation.x = -Math.PI / 2; ring.rotation.z = Math.PI / 2; ring.position.set(CUL.x, 0.022, CUL.z); ring.receiveShadow = true;
+    const island = new THREE.Mesh(new THREE.CylinderGeometry(CUL.island, CUL.island + 0.15, 0.22, 28), M.lawn);
+    island.position.set(CUL.x, 0.11, CUL.z); island.receiveShadow = true;
+    g.add(bulb, ring, island);
+    if (models.treeRound) {
+        const tree = cloneWithColors(models.treeRound, { Leaves: "#E07A3A" });
+        tree.position.set(CUL.x, 0.2, CUL.z); tree.scale.setScalar(1.05);
+        g.add(tree);
+    }
+
+    // Lulu's house
+    const hp = roadPt(S_HOME, D_HOME), h = headingAt(S_HOME);
+    const house = cloneWithColors(models.world_home);
+    house.position.set(hp.x, 0, hp.z);
+    house.rotation.y = facingRoad(h, 1);
+    g.add(house);
+    house.updateMatrixWorld(true);
+    const A = {};
+    for (const n of ["park", "dina", "window", "table", "lulu"]) {
+        const node = findNodes(house, "Anchor_" + n)[0];
+        A[n] = node ? node.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(hp.x, 0, hp.z);
+        if (node) A[n + "Node"] = node;
+    }
+    home.anchors = A;
+    home.house = house;
+    for (const k of ["sukkah", "chanukah"]) {
+        const d = findNodes(house, "Deco_" + k)[0];
+        if (d) { d.visible = false; home.deco[k] = d; }
+    }
+    // the parked pose: nose to the garage
+    const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
+    home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y + Math.PI), s: near.s, d: near.d };
+    // the driveway from the shoulder up to the garage
+    const drive = new THREE.Mesh(ribbon(road, near.s - 1.9, near.s + 1.9, SHOULDER, near.d + 3.6, 0.025, 10), M0.drive);
+    drive.receiveShadow = true;
+    g.add(drive);
+
+    // the neighbours: across the street (Mr. Pinsky's) and next door
+    home.neighbours = [
+        addHouseClone(g, S_HOME - 2, -1, "#DCEDC8", "#455A8C"),
+        addHouseClone(g, S_HOME + 36, 1, "#E3F2FD", "#8D6E63"),
+        addHouseClone(g, S_HOME + 40, -1, "#FFF9C4", "#C0504D"),
+    ];
+
+    ctx.scene.add(g);
+    home.group = g;
+    home.hp = { x: hp.x, z: hp.z };
+
+    // keep random trees off the lots (both sides), from the cul-de-sac to the next-door house
+    world.reserve(-30, S_HOME + 52, 0, 8.9, 42);
+
+    // people (Dina + Lulu are preloaded by core; Mr. Pinsky is lazy)
+    try {
+        const dina = spawnPerson("dinaPerson");
+        dina.obj.position.copy(A.dina);
+        dina.obj.rotation.y = house.rotation.y;
+        g.add(dina.obj);
+        home.people.dina = dina;
+    } catch (e) { console.warn("[world] dina", e); }
+    makeLulu();
+    ensureModels(["npcMan"]).then(() => {
+        const p = spawnPerson("npcMan", { colors: { Top: "#7CB342", Bottom: "#5D4037", Hair: "#9E9E9E" } });
+        const pos = roadPt(S_HOME - 6, -14.5);
+        p.obj.position.set(pos.x, 0, pos.z);
+        p.obj.rotation.y = facingRoad(headingAt(S_HOME), -1);
+        g.add(p.obj);
+        home.people.pinsky = p;
+    }).catch(() => {});
+    // the minivan that laps the cul-de-sac (journey's model, lazy)
+    ensureModels(["journey_minivan"]).then(() => {
+        const van = cloneWithColors(models.journey_minivan);
+        van.visible = false;
+        g.add(van);
+        home.van = van;
+        home.vanWheels = findNodes(van, "Wheel_");
+    }).catch(() => {});
+    home.vanPath = vanLoop();
+    home.ready = true;
+}
+
+/** Lulu on foot (her hairstyle + colour, like foot does). Rebuilt when they change. */
+function makeLulu() {
+    const s2 = shared.get();
+    const key = s2.luluHairStyle && models["luluPerson_" + s2.luluHairStyle] ? "luluPerson_" + s2.luluHairStyle : "luluPerson";
+    const sig = key + "|" + (s2.luluHair || "");
+    if (home.people.lulu && home.luluSig === sig) return home.people.lulu;
+    const old = home.people.lulu;
+    try {
+        const p = spawnPerson(key, { colors: s2.luluHair ? { Hair: s2.luluHair } : null });
+        if (old) { p.obj.position.copy(old.obj.position); p.obj.rotation.copy(old.obj.rotation); p.obj.visible = old.obj.visible; old.obj.removeFromParent(); }
+        else p.obj.visible = false;
+        home.group.add(p.obj);
+        home.people.lulu = p;
+        home.luluSig = sig;
+    } catch (e) { console.warn("[world] lulu", e); }
+    return home.people.lulu;
+}
+
+/** The minivan's lap: down the oncoming lane, round the island, back out. */
+function vanLoop() {
+    const pts = [];
+    for (let s = 120; s >= 14; s -= 8) pts.push(roadPt(s, -1.75));
+    const c = CUL, r = 7.6;
+    // counter-clockwise round the island, entering on the +x side (the left of the road heading +Z)
+    for (let k = 0; k <= 12; k++) {
+        const a = -0.15 + (k / 12) * (Math.PI + 0.3);
+        pts.push({ x: c.x + Math.cos(a) * r, z: c.z - Math.sin(a) * r });
+    }
+    for (let s = 14; s <= 140; s += 8) pts.push(roadPt(s, 1.75));
+    return new Path(pts);
+}
+
+// ── where things are ─────────────────────────────────────────────────────
+/** Lulu's spot next to the parked car (by the driver's door) and the door itself. */
+export function luluSpots(out = {}) {
+    const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), lx = Math.cos(P.h), lz = -Math.sin(P.h);
+    out.door = { x: P.x + lx * 1.25 + fx * 0.25, z: P.z + lz * 1.25 + fz * 0.25 };
+    out.idle = { x: P.x + lx * 2.1 + fx * 1.4, z: P.z + lz * 2.1 + fz * 1.4 };
+    return out;
+}
+const spots = {};
+
+/** Put the car in the driveway, Lulu beside it. */
+export function placeParked() {
+    const car = ctx.car, P = home.park;
+    car.place(P.x, P.z, P.h);
+    car.s = P.s; car.d = P.d;
+    car.updateVisual(0, ctx.time, { steer: 0, throttle: 0, brake: 0, handbrake: false }, false);
+    car.showDriver(false);
+    home.phase = "parked";
+    home.ride = null;
+    const L = makeLulu();
+    if (L) { luluSpots(spots); L.obj.position.set(spots.idle.x, 0, spots.idle.z); L.obj.visible = true; home.luluT = 99; }
+}
+
+/** Drive home from up the street and park (behind the title menu). */
+function startArrival() {
+    const P = home.park, s = P.s;
+    const fx = Math.sin(P.h), fz = Math.cos(P.h);
+    // down the street in the far lane, swing across, then straight in along the driveway
+    const pts = [roadPt(s + 46, -1.75), roadPt(s + 26, -1.75), roadPt(s + 10, -1.2), roadPt(s + 3, 4.5), roadPt(s + 0.6, 9.5),
+        { x: P.x - fx * 2.2, z: P.z - fz * 2.2 }, { x: P.x, z: P.z }];
+    home.ride = new Ride(new Path(pts), { v0: 12, v1: 0, vMin: 0.6 });
+    home.phase = "arriving";
+    home.arriveT = 0;
+    const car = ctx.car;
+    const p0 = home.ride.path.at(0);
+    car.place(p0.x, p0.z, p0.h);
+    car.showDriver(true);
+    ctx.world.prebuild(s);
+    if (home.people.lulu) home.people.lulu.obj.visible = false;
+}
+
+// ── holiday dressing (the meta feature reads the device's Hebrew calendar) ──
+function glowTexture() {
+    if (home.glowTex) return home.glowTex;
+    home.glowTex = canvasTex(64, 64, (g, w, h) => {
+        const grd = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+        grd.addColorStop(0, "rgba(255,230,160,1)"); grd.addColorStop(0.3, "rgba(255,190,90,0.5)"); grd.addColorStop(1, "rgba(255,170,60,0)");
+        g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    }, false);
+    return home.glowTex;
+}
+function clearExtras() {
+    for (const o of home.extras || []) { o.removeFromParent(); o.traverse(x => { if (x.isSprite) x.material.dispose(); }); }
+    home.extras = [];
+    home.flames = [];
+}
+/** Which holiday dressing is up right now ("sukkot", "chanukah", "purim", "pesach", "roshHashana" or ""). */
+export function holidayNow() {
+    try { const c = ctx.meta && ctx.meta.holiday ? ctx.meta.holiday() : null; return c ? { id: c.h.id, day: c.dayNum || 1 } : null; } catch (e) { return null; }
+}
+export async function applyHoliday() {
+    if (!home.ready) return;
+    const c = holidayNow();
+    const key = c ? c.id + ":" + c.day : "";
+    if (key === home.decoFor) return;
+    home.decoFor = key;
+    clearExtras();
+    for (const k of Object.keys(home.deco)) home.deco[k].visible = !!c && c.id === k;
+    if (!c) return emit("world:holiday", { id: null });
+    const extra = { chanukah: "metaMenorah", purim: "metaPurimHat", roshHashana: "metaHoney", pesach: "metaMatzah" }[c.id];
+    if (extra) {
+        try { await ensureModels([extra]); } catch (e) { return; }
+        if (home.decoFor !== key || !models[extra]) return;
+        const o = models[extra].clone(true);
+        o.name = "WorldHoliday_" + c.id;
+        if (c.id === "chanukah") {
+            // in the front window, tonight's candles lit (+ the shamash)
+            o.position.copy(home.anchors.window);
+            o.rotation.y = home.house.rotation.y;
+            o.scale.setScalar(1.25);
+            home.flames = [];
+            for (const f of findNodes(o, "Flame_")) {
+                const n = f.name.startsWith("Flame_S") ? 0 : parseInt(f.name.slice(6), 10);
+                f.visible = n === 0 || n <= Math.min(8, c.day);
+                if (!f.visible) continue;
+                const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+                s.scale.setScalar(0.18); s.position.y = 0.045;
+                f.add(s);
+                home.flames.push({ f, ph: n * 1.7, base: f.scale.clone() });
+            }
+            home.group.add(o);
+        } else if (c.id === "purim" && home.people.dina) {
+            // Dina's party hat
+            const body = findNodes(home.people.dina.obj, "Body")[0] || home.people.dina.obj;
+            o.scale.setScalar(0.8);
+            o.position.set(0, 1.12, 0.02);
+            o.rotation.set(-0.1, 0, 0.2);
+            body.add(o);
+        } else {
+            o.position.copy(home.anchors.table);
+            o.rotation.y = home.house.rotation.y + 0.4;
+            o.scale.setScalar(c.id === "pesach" ? 1.1 : 1.3);
+            home.group.add(o);
+        }
+        home.extras.push(o);
+    }
+    emit("world:holiday", { id: c.id });
+}
+
+// ── per frame on the title ───────────────────────────────────────────────
+const CHATTER_QUIET = () => (save3d.settings.chatter || "normal") === "quiet";
+
+/** Title: people, the minivan, the homecoming drive, the street's visibility. */
+export function homeTick(dt) {
+    if (!home.ready) return;
+    home.titleT += dt;
+    const car = ctx.car, P = home.park;
+    if (home.phase === "arriving" && home.ride) {
+        const done = home.ride.step(dt);
+        car.s = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, {}).s;
+        A.updateEngine(Math.abs(car.vF), 0.3, 0, 0, false, true);
+        if (done) {
+            placeParked();
+            A.updateEngine(0, 0, 0, 0, false, false);
+            // she climbs out and steps over to her spot
+            const L = home.people.lulu;
+            if (L) { luluSpots(spots); L.obj.position.set(spots.door.x, 0, spots.door.z); home.luluT = 0; }
+            emit("world:home", {});
+        }
+    }
+    peopleTick(dt);
+    vanTick(dt);
+    flameTick();
+}
+
+/** Dina, Lulu and Mr. Pinsky (title + the pull-out). */
+export function peopleTick(dt, mood = null) {
+    const { dina, lulu, pinsky } = home.people, t = ctx.time;
+    const arriving = home.phase === "arriving";
+    if (dina) {
+        if (mood === "bye" || mood === "go") dina.update(dt, { sit: false, wave: true, cheer: mood === "go" });
+        else if (arriving && home.ride && home.ride.m > home.ride.path.length * 0.5) dina.update(dt, { cheer: true });
+        else dina.update(dt, { sit: true, wave: Math.sin(t * 0.45) > 0.86 });
+        dina.obj.position.copy(home.anchors.dina);
+        if (mood || arriving) dina.face(car().pos.x, car().pos.z, dt, 4);
+        else dina.obj.rotation.y += wrap(home.house.rotation.y - dina.obj.rotation.y) * Math.min(1, dt * 2);
+    }
+    if (pinsky) {
+        const near = home.phase === "arriving" || mood;
+        pinsky.update(dt, near ? { wave: true } : { point: true });
+        if (near) pinsky.face(car().pos.x, car().pos.z, dt, 3);
+    }
+    if (lulu && lulu.obj.visible && !mood) {
+        luluSpots(spots);
+        if (home.luluT < 1) {
+            home.luluT += dt * 1.6;
+            const k = ease(home.luluT);
+            lulu.obj.position.set(spots.door.x + (spots.idle.x - spots.door.x) * k, 0, spots.door.z + (spots.idle.z - spots.door.z) * k);
+            lulu.face(spots.idle.x, spots.idle.z, dt, 10);
+            lulu.update(dt, { walk: 1.6 });
+        } else {
+            const d = home.anchors.dina;
+            lulu.face(d.x, d.z, dt, 3);
+            lulu.update(dt, { talk: Math.sin(t * 0.6) > -0.2, wave: Math.sin(t * 0.37 + 1) > 0.93 });
+        }
+    }
+}
+const car = () => ctx.car;
+
+function vanTick(dt) {
+    const van = home.van;
+    if (!van || !home.vanPath) return;
+    home.vanT += dt;
+    const PERIOD = 30, SPEED = 9;
+    const tt = (home.vanT + 22) % PERIOD;
+    const m = tt * SPEED;
+    if (m > home.vanPath.length) { van.visible = false; return; }
+    const p = home.vanPath.at(m);
+    van.visible = true;
+    van.position.set(p.x, 0, p.z);
+    van.rotation.y = p.h;
+    for (const w of home.vanWheels || []) w.rotation.x += SPEED * dt / 0.36;
+}
+
+function flameTick() {
+    const t = ctx.time;
+    for (const fl of home.flames || []) {
+        const k = 1 + Math.sin(t * 13 + fl.ph) * 0.16 + Math.sin(t * 29 + fl.ph * 2) * 0.06;
+        fl.f.scale.set(fl.base.x * (2 - k) * 0.95, fl.base.y * k, fl.base.z * (2 - k) * 0.95);
+    }
+}
+
+/** Hide the minivan outside the title; hide the whole street far from home. */
+export function streetVisibility() {
+    if (!home.ready) return;
+    const far = Math.abs(ctx.car.s - S_HOME) > 900 && ctx.camera.position.distanceToSquared(v1.set(home.hp.x, 0, home.hp.z)) > 810000;
+    home.group.visible = !far;
+    if (home.van && ctx.state !== "title") home.van.visible = false;
+}
+
+// ── the title camera ─────────────────────────────────────────────────────
+/** The shot of the house, car and porch (menu card on the left on wide screens). */
+export function titleShot(pos, look, t = ctx.time) {
+    const P = home.park, cam = ctx.camera, portrait = cam.aspect < 1;
+    const sway = Math.sin(t * 0.07) * 2.5;
+    const d = home.anchors.dina;
+    look.set((P.x * 0.55 + d.x * 0.45), 1.5, (P.z * 0.55 + d.z * 0.45));
+    if (portrait) {
+        const p = roadPt(P.s + 19 + sway, -3.5);
+        pos.set(p.x, 7.2 + Math.sin(t * 0.05), p.z);
+        look.y = 0.4;
+    } else {
+        const p = roadPt(P.s + 13.5 + sway, 1.2 + Math.sin(t * 0.05) * 1.2);
+        pos.set(p.x, 4.1 + Math.sin(t * 0.06) * 0.4, p.z);
+    }
+    return { pos, look, yawOffset: portrait ? 0 : cam.aspect > 1.25 ? 0.3 : 0.12 };
+}
+
+/** titleCamera hook: owns the title-screen camera while the home street is up. */
+export function titleCamera(dt, camera) {
+    if (!home.ready || ctx.state !== "title") return false;
+    const shot = titleShot(v2, v3);
+    const st = ctx.cam && ctx.cam.state;
+    if (home.camSnap) { home.camPos.copy(v2); home.camLook.copy(v3); home.camSnap = false; }
+    home.camPos.lerp(v2, Math.min(1, dt * 1.6));
+    home.camLook.lerp(v3, Math.min(1, dt * 1.8));
+    camera.position.copy(home.camPos);
+    camera.lookAt(home.camLook);
+    if (shot.yawOffset) camera.rotateY(shot.yawOffset);
+    camera.fov += (50 + (camera.aspect < 1 ? 12 : 0) - camera.fov) * Math.min(1, dt * 2);
+    camera.updateProjectionMatrix();
+    if (st) { st.pos.copy(camera.position); st.snap = false; }
+    return true;
+}
+
+// ── lifecycle ────────────────────────────────────────────────────────────
+on("boot", () => {
+    try { buildStreet(); } catch (e) { console.error("[world] home street", e); home.ready = false; return; }
+    applyHoliday();
+});
+// colliders: the houses + the island, in chunk 0 (like any roadside house)
+on("chunk:build", ({ chunk }) => {
+    if (chunk.k !== 0 || !home.ready) return;
+    const hp = home.hp, P = home.park;
+    const fx = Math.sin(home.house.rotation.y), fz = Math.cos(home.house.rotation.y);   // the house's front (to the road)
+    const rx = Math.cos(home.house.rotation.y), rz = -Math.sin(home.house.rotation.y);  // its +X (model)
+    chunk.addCollider({ x: hp.x + rx * 2.4, z: hp.z + rz * 2.4, r: 4.4, kind: "house" });
+    chunk.addCollider({ x: hp.x - rx * 2.4, z: hp.z - rz * 2.4, r: 4.4, kind: "house" });
+    const gx = P.x + fx * 3.9 * -1, gz = P.z + fz * 3.9 * -1;   // the garage, behind the parked car
+    chunk.addCollider({ x: gx - fx * 2.2, z: gz - fz * 2.2, r: 2.9, kind: "house" });
+    for (const n of home.neighbours) chunk.addCollider({ x: n.x, z: n.z, r: 5.2, kind: "house" });
+    chunk.addCollider({ x: CUL.x, z: CUL.z, r: CUL.island + 0.2, kind: "tree" });
+});
+
+/** Back to the title: home. First boot = already parked; after a run she drives up and parks. */
+export function onTitle(from) {
+    if (!home.ready) return;
+    home.camSnap = from === "loading" || home.camSnap;
+    makeLulu();
+    applyHoliday();
+    const car = ctx.car, P = home.park;
+    const dist = Math.hypot(car.pos.x - P.x, car.pos.z - P.z);
+    if (from === "loading" || !from) { placeParked(); return; }
+    if (dist < 1.5 && home.phase === "parked") { car.showDriver(false); return; }
+    if (from === "worldDepart") { placeParked(); return; }
+    startArrival();
+}
