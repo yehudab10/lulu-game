@@ -37,7 +37,7 @@ const DAY_SECONDS = 540;
 const saved = store("atmos", { clock: TIMES.morning });
 S.clock = typeof saved.clock === "number" ? ((saved.clock % 1) + 1) % 1 : TIMES.morning;
 
-let lastT = -1, shown = false, offDone = true, frozen = false, phase = "", saveT = 0, lightsSaid = false;
+let lastT = -1, shown = false, offDone = true, frozen = false, phase = "", saveT = 0, lightsSaid = false, ownClock = null;
 
 function hideAll() {
     skyRestore();
@@ -56,7 +56,14 @@ function tick(dt) {
     // a party (features/party) gets the Cruise day + weather too, but driven by the shared
     // party clock + seed so every friend sees the same sky (see ctx.party.atmos*)
     const party = !!(ctx.party && ctx.party.active && ctx.G.mode === "party" && ctx.party.atmosClock);
-    const mode = st === "title" || st === "loading" ? "off" : ctx.G.mode === "cruise" || party ? "cruise" : "base";
+    // a feature may drive the Cruise-style day itself: G.atmosClock() → 0..1 (shabbos: the sunset IS
+    // the deadline); G.atmosClear keeps the sky clear. The Cruise clock is put back afterwards.
+    const own = typeof ctx.G.atmosClock === "function" && st !== "title" && st !== "loading";
+    if (own) {
+        if (ownClock === null) ownClock = S.clock;
+        try { S.clock = ((ctx.G.atmosClock() % 1) + 1) % 1; } catch (e) { /* keep the last clock */ }
+    } else if (ownClock !== null) { S.clock = ownClock; ownClock = null; }
+    const mode = st === "title" || st === "loading" ? "off" : ctx.G.mode === "cruise" || party || own ? "cruise" : "base";
     S.mode = mode;
     if (mode === "off") {
         if (!offDone) {
@@ -85,7 +92,8 @@ function tick(dt) {
         const pw = ctx.party.atmosWeather();
         if (pw && (pw.kind !== W.kind || !W.forced)) { W.forced = true; W.party = true; startWeather(pw.kind, pw.strength, false, 9999); }
     } else if (W.party) { W.party = false; W.forced = false; }
-    if (!party && mode === "cruise" && S.dt && !frozen && (st === "playing" || st === "footRun" || st === "intro" || st === "wrecked")) {
+    if (own && ctx.G.atmosClear) { if (W.kind !== "clear" && !W.forced) startWeather("clear"); W.t = Math.max(W.t, 30); }
+    if (!party && !own && mode === "cruise" && S.dt && !frozen && (st === "playing" || st === "footRun" || st === "intro" || st === "wrecked")) {
         S.clock = (S.clock + S.dt / DAY_SECONDS) % 1;
         saveT += S.dt;
         if (saveT > 5) { saveT = 0; saved.clock = S.clock; saveSoon(); }
@@ -102,7 +110,7 @@ function tick(dt) {
     lightsTick(S.dt);
     weatherVisuals(S.dt);
     lifeTick(S.dt);
-    if (mode === "cruise") announcePhase();
+    if (mode === "cruise" && !own) announcePhase();
 }
 
 function announcePhase() {
@@ -145,7 +153,7 @@ on("run:start", () => {
     syncLamps();
     phase = ""; lightsSaid = false;
 });
-on("run:end", () => { saved.clock = S.clock; saveSoon(); });
+on("run:end", () => { saved.clock = ownClock !== null ? ownClock : S.clock; saveSoon(); });
 
 // ── the service (+ test / debug hooks) ────────────────────────────────────
 ctx.atmos = {

@@ -129,7 +129,7 @@ Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journ
   "🎲 More to play". `sub` = a subtitle line (string or fn); `short` = the name in its group tile's summary.
 - Title order guide: 10 story · 20 cruise · 30 shop · 32 car · 35 Dina · 40 parking challenge · 50 scrapbook ·
   55 quests · 57 💼 side jobs (book) · 60 🎉 party (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
-- `titleInfo` items: `bar: true` (a chip in the home top bar), `for: "<item id>"` (appended to that item's
+- `titleInfo` items: `bar: true` (a chip in the home top bar — bar orders: 4 🕯️ erev-Shabbos chip (Fridays) · 5 holiday · 6 streak), `for: "<item id>"` (appended to that item's
   subtitle) or `group: "<group>"` (a line atop that sub-menu); otherwise a small note at the foot of the home card.
 - pause `group`: `"main"` (full width), `"tools"` (2-column grid) or `"exit"` (quiet bottom row); default by
   order < 10 main · 10–69 tools · 70–89 main · ≥ 90 exit.
@@ -273,7 +273,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, shabbos and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -312,9 +312,10 @@ and keep working sensibly when another feature is missing.
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
 | `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
-| `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
+| `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title. A run may drive the Cruise-style day itself: set `G.atmosClock = () => 0..1` (+ `G.atmosClear = true` for a clear sky) and atmos runs its day/lamps off that clock in any mode, skips the phase toasts, and puts the Cruise clock back afterwards (shabbos uses it: the sunset IS the deadline) |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
+| `ctx.shabbos` | shabbos | `active` · `phase` ("drive" \| "arrive" \| "done" \| "late") · `left` (s to candles) · `total` · `dest` (Bubbe's house = `ctx.journey.stopS(0)`) · `start(via)` (a fresh rush, `G.mode = "shabbos"`) · `offer()` (Cruise: Ima's "Oy, it's erev Shabbos!" call; letting it ring turns the drive into the rush) · `friday()` · `records` · `debug.{date(iso), setLeft(s), setFrac(u), line(), props(), info()}` — 🕯️ Erev Shabbos Rush (`features/shabbos/`). Events `shabbos:start` {via, total, dest}, `shabbos:call` {i, result}, `shabbos:candles` {margin, pay}, `shabbos:late`, `shabbos:end` {made, margin}; stats `shabbosMade`, `shabbosLate`, `shabbosCandles`, `shabbosMargin` (best) |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
@@ -357,3 +358,16 @@ state `hustleResult` (a card; the car rolls to a stop behind it); a job that fai
 is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music while she's in the car (driving
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
+
+**Erev Shabbos Rush (shabbos):** a run in `G.mode = "shabbos"` from the start of the road to BUBBE'S HOUSE
+(the journey's stop 0, built in every mode — we only add Bubbe's door, the candle table and Ima on its transform).
+No new home tile: on Fridays (device clock, 12:00–19:59) a `titleInfo` **bar** chip (`#shabbosChip`, a `<button>`
+handled by a delegated click; the default title focus stays on the Story hero) starts it; on any day a rare Cruise
+event (`ctx.enabled("shabbos")`, once per run, ~8 % / 35 % on Fridays, only in daylight with ≥ 1.7 km to Bubbe's)
+is Ima's call — letting it ring arms the rush in place. The countdown is folded into the trip bar (shabbos wraps
+`ctx.trip` at boot and hands back to the journey's outside a rush); escalation writes `traffic.config` (restored
+after) and adds pooled props (≤ 2 storefronts on world-reserved slots, 1 LED trailer, ≤ 3 sidewalk people). During a
+rush the only Ima calls are the two scripted ones (a boot-time wrapper on `ctx.phone.call` drops other `from: "IMA"`
+calls; ours pass `shabbos: true`). States: `shabbosArrive` (⏭ skippable; beats in game time) and `shabbosResult`
+(the made-it / late card; Retry = `startRun({mode: "shabbos"})`, so pause → Restart and game over → Try again also
+restart the rush).
