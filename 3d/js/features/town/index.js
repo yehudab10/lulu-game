@@ -49,7 +49,7 @@ const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
 
 // ── state ────────────────────────────────────────────────────────────────
 const S = { active: false, def: null, T: null, road: null, chunk: null, exitS: 0, trans: null, ready: null, loaded: false,
-    savedTraffic: true, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: false, footYaw: null, tendT: 0, haz: [] };
+    savedTraffic: true, readLive: 0, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: false, footYaw: null, tendT: 0, haz: [] };
 const TOWN_OK = new Set(["playing", "wrecked", "footRun", "lawBust", "copStop", "playPhoto", "hustleResult"]);
 // highway content that has no business in a town (its random parts read the highway's s)
 const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey", "hustle", "play", "banter", "law", "dina"]);
@@ -67,9 +67,6 @@ css("town", `
 #townFade span { color: #fff; font: 700 clamp(22px, 4vw, 44px) Fredoka, Arial, sans-serif; letter-spacing: .04em; opacity: 0; transition: opacity .2s; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
 #townFade span small { display: block; text-align: center; font-size: .45em; font-weight: 600; opacity: .75; letter-spacing: .02em; margin-top: 4px; }
 #townFade.label span { opacity: 1; }
-.town-kvetch h3 { margin: 0 0 8px; font-size: 1.05em; }
-.town-kvetch p { margin: 0 0 8px; line-height: 1.25; }
-.town-kvetch small { opacity: .75; }
 `);
 const fade = document.createElement("div");
 fade.id = "townFade";
@@ -346,14 +343,19 @@ on("boot", () => {
     // the phone (if it has apps): the local news
     if (ctx.phone && ctx.phone.addApp) {
         try {
-            ctx.phone.addApp({ id: "town", icon: "🗞️", name: "Kvetch", order: 60, render(el) { el.innerHTML = kvetchHtml(); } });
+            ctx.phone.addApp({ id: "town", icon: "🗞️", name: "Kvetch", order: 70, color: "#5E35B1", color2: "#B39DDB",
+                visible: () => !(ctx.party && ctx.party.active),
+                badge: () => LIFE.live.length - S.readLive > 0 ? LIFE.live.length - S.readLive : null,
+                render(el) { S.readLive = LIFE.live.length; el.innerHTML = kvetchHtml(); } });
         } catch (e) { console.warn("[town] phone app", e); }
     }
 });
 function kvetchHtml() {
     const L = (S.def || townFor()).lines;
     const items = [...LIFE.live.slice(0, 6), ...L.KVETCH];
-    return `<div class="town-kvetch"><h3>🗞️ ${L.KVETCH_TITLE || "The Lakewood Kvetch"}</h3>${items.map(i => `<p><b>${i.h}</b><br><small>${i.b}</small></p>`).join("")}</div>`;
+    // the phone's row style (.lp-row / .lp-tx): focusable rows, so a controller can scroll the feed
+    return `<div class="town-kvetch"><div class="lp-note">🗞️ <b>${L.KVETCH_TITLE || "The Kvetch"}</b> · local news nobody asked for</div>${items.map((i, k) =>
+        `<button class="btn lp-row"><span class="lp-av">${k < LIFE.live.length ? "🚨" : "📰"}</span><span class="lp-tx"><b>${i.h}</b><small>${i.b}</small></span></button>`).join("")}</div>`;
 }
 
 // ── on foot: a steady walking frame on a grid ────────────────────────────

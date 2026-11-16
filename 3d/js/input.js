@@ -11,7 +11,10 @@
 //   Right stick ....... look around             R3 (click) . look behind
 //   Start / Options ... pause                   View / Create  car radio (next station)
 //   D-pad ↑ ........... fire (missile)          D-pad ↓ .... item (pepper spray / shield)
-//   A / ✕ on foot ..... interact                Touchpad / L3  map / scrapbook
+//   A / ✕ on foot ..... interact                Touchpad ... 📱 Lulu's phone (PlayStation)
+//   L3 ................ PlayStation: the story map shortcut · Xbox / Switch (no touchpad): 📱 the phone
+// The phone edge (P.phone) also sets P.map: where there's no phone (title, pause menu,
+// photo mode) the same button keeps its old "map · scrapbook · album" meaning.
 // In menus: D-pad / stick move, A/✕ select, B/○ back, LB/RB switch tabs.
 // Rumble: crashes, the rumble strips, off-road and nitro shake the controller
 // (Chrome / Edge; Safari doesn't expose vibration yet).
@@ -23,7 +26,7 @@ const KEYMAP = {
     Space: "handbrake", ShiftLeft: "boost", ShiftRight: "boost", KeyN: "boost",
     KeyH: "honk", KeyC: "camera", KeyP: "pause", Escape: "pause", KeyV: "lookBack",
     KeyM: "fire", KeyF: "fire", KeyG: "item", KeyE: "interact", KeyQ: "tabPrev", KeyR: "tabNext",
-    Tab: "map", KeyU: "music", KeyT: "radio",
+    Tab: "phone", KeyU: "music", KeyT: "radio",
     Enter: "confirm", NumpadEnter: "confirm", Backspace: "back",
     // PS5 / TV browsers and some remotes send these for the controller / remote
     BrowserBack: "back", GoBack: "back", MediaPlayPause: "pause", ContextMenu: "pause",
@@ -45,7 +48,7 @@ export const input = {
     moveX: 0, moveY: 0,
     interactHeld: false, fireHeld: false, backHeld: false,
     // edge-triggered, valid for the frame after update(): confirm back up down navLeft
-    // navRight start pause honk camera boost fire item interact map tabPrev tabNext music radio
+    // navRight start pause honk camera boost fire item interact map phone tabPrev tabNext music radio
     pressed: {},
     // which device the player is using right now: "keyboard" | "gamepad" | "touch"
     device: "keyboard",
@@ -273,7 +276,8 @@ export function updateInput(dt) {
         if (edge(13)) { P.down = true; P.item = true; }
         if (edge(4)) P.tabPrev = true;
         if (edge(5)) P.tabNext = true;
-        if (edge(17) || edge(10)) P.map = true;
+        if (edge(17)) P.phone = true;                                        // touchpad: 📱 the phone
+        if (edge(10)) { if (input.padKind === "ps") P.map = true; else P.phone = true; }   // L3: map (PS) / phone (no touchpad)
         if (edge(14)) P.navLeft = true;
         if (edge(15)) P.navRight = true;
         if (edge(5)) P.boost = true;
@@ -305,6 +309,7 @@ export function updateInput(dt) {
     if (touch.camEdge) { P.camera = true; touch.camEdge = false; }
     for (const a of touch.edges) P[a] = true;
     touch.edges.clear();
+    if (P.phone) P.map = true;           // no phone here (title, pause menu…) → the old map / scrapbook button
     if (touch.held.has("interact")) interactHeld = true;
     if (touch.held.has("fire")) fireHeld = true;
 
@@ -356,18 +361,18 @@ export function triggerRumble(left, right, ms) {
 const GLYPHS = {
     xbox: { confirm: "A", back: "B", gas: "RT", brake: "LT", handbrake: "X", camera: "Y", boost: "RB", honk: "LB",
         pause: "☰", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "A", map: "L3", radio: "View", tabPrev: "LB", tabNext: "RB" },
+        interact: "A", phone: "L3", radio: "View", tabPrev: "LB", tabNext: "RB" },
     ps: { confirm: "✕", back: "○", gas: "R2", brake: "L2", handbrake: "□", camera: "△", boost: "R1", honk: "L1",
         pause: "OPTIONS", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "✕", map: "TOUCHPAD", radio: "CREATE", tabPrev: "L1", tabNext: "R1" },
+        interact: "✕", phone: "TOUCHPAD", map: "L3", radio: "CREATE", tabPrev: "L1", tabNext: "R1" },
     nintendo: { confirm: "B", back: "A", gas: "ZR", brake: "ZL", handbrake: "Y", camera: "X", boost: "R", honk: "L",
         pause: "+", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "B", map: "L3", radio: "−", tabPrev: "L", tabNext: "R" },
+        interact: "B", phone: "L3", radio: "−", tabPrev: "L", tabNext: "R" },
     keyboard: { confirm: "Enter", back: "Esc", gas: "↑ / W", brake: "↓ / S", handbrake: "Space", camera: "C", boost: "Shift",
         honk: "H", pause: "P", look: "", lookBack: "V", steer: "← → / A D", music: "U", move: "WASD / arrows",
-        fire: "M", item: "G", interact: "E", map: "Tab", radio: "T", tabPrev: "Q", tabNext: "R" },
+        fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R" },
     touch: { confirm: "Tap", back: "Back", gas: "GAS", brake: "BRAKE", handbrake: "", camera: "CAM", boost: "NITRO",
-        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", map: "📒", radio: "📻",
+        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", phone: "📱", radio: "📻",
         tabPrev: "◀", tabNext: "▶" },
 };
 
