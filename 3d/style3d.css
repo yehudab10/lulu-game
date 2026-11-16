@@ -526,6 +526,10 @@ body.tv .settings .set-h { font-size: 17px; }
     body.tv .card h2 { font-size: 34px; }
     body.tv .card.pause-card { width: min(560px, 100%); }
 }
+@media (max-height: 820px) and (min-aspect-ratio: 5/4) {
+    body.tv.title-mode .card.title-card { width: min(780px, 54vw); }
+    body.tv .home-tiles[data-n="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 100%); }
 
 /* ══ Phones ════════════════════════════════════════════════════════════════ */

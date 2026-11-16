@@ -6,11 +6,11 @@
 // and the new settings (HUD: Full / Clean, Lulu's chatter).
 const today = Math.floor(Date.now() / 86400000);
 // every title item a seasoned player sees (Shared Road needs the online backend, not in tests)
-const ITEMS = ["story", "storyMap", "cruise", "shop", "distracted", "dina", "parking", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
+const ITEMS = ["story", "storyMap", "cruise", "shop", "distracted", "dina", "parking", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
 
 module.exports = {
   name: "ux",
-  query: "&enable=banter",
+  query: "&enable=banter,party",     // party: its 🎉 tile shows on the home screen (nothing connects until opted in)
   viewport: { width: 1280, height: 720 },
   save2d: {
     totalCoins: 12345, highScore: 52000, lifetimeScore: 250000, streak: 3, dayNum: today,
