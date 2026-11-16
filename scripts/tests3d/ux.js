@@ -109,7 +109,7 @@ module.exports = {
     t.check("…and ○ again goes home", await view() === "home" && await focusId() === "tg_more");
 
     // ── other screens / layouts ──────────────────────────────────────────────
-    const layouts = [["phone-landscape", 844, 390, false], ["phone-portrait", 390, 844, false], ["tv-1080", 1920, 1080, true]];
+    const layouts = [["phone-landscape", 844, 390, false], ["phone-portrait", 390, 844, false], ["tv-1080", 1920, 1080, true], ["tv-720", 1280, 720, true]];
     for (const [name, w, h, tv] of layouts) {
       await t.page.setViewportSize({ width: w, height: h });
       await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.tv = ${tv ? '"on"' : '"off"'}; })`);

@@ -505,6 +505,27 @@ body.tv .btn.sm { font-size: 24px; min-height: 70px; }
 body.tv .btn.ghost { font-size: 24px; }
 body.tv .settings .set-h { font-size: 17px; }
 @media (min-aspect-ratio: 5/4) { body.tv.title-mode .card.title-card { width: min(780px, 46vw); } }
+/* a console / TV browser at 720p: the same 10-foot layout, one notch smaller so the home screen still fits */
+@media (max-height: 820px) {
+    body.tv .screen { padding: 3vh 4vw; }
+    body.tv .card.title-card { padding: 16px 22px 18px; }
+    body.tv .home { gap: 10px; }
+    body.tv .home-bar > *:not(.hb-sp) { font-size: 18px; padding: 4px 12px; }
+    body.tv .home .logo .l1 { font-size: 50px; } body.tv .home .logo .l2 { font-size: 35px; } body.tv .home .logo .l3 { font-size: 17px; }
+    body.tv .tile.hero { min-height: 88px; } body.tv .tile.hero .t-ic { font-size: 44px; } body.tv .tile.hero .t-l { font-size: 30px; } body.tv .tile.hero .t-s { font-size: 16px; }
+    body.tv .home-tiles { gap: 10px; } body.tv .home-tiles .tile { min-height: 82px; }
+    body.tv .home-tiles .tile .t-ic { font-size: 28px; } body.tv .home-tiles .tile .t-l { font-size: 19px; } body.tv .home-tiles .tile .t-s { font-size: 13px; }
+    body.tv .home-groups { gap: 10px; } body.tv .tile.grp { min-height: 60px; }
+    body.tv .tile.grp .t-ic { font-size: 24px; } body.tv .tile.grp .t-l { font-size: 19px; } body.tv .tile.grp .t-s { font-size: 13px; }
+    body.tv .tile.hero .jtitle .nx { font-size: 16px; } body.tv .tile.hero .jtitle .stamp { width: 24px; height: 24px; font-size: 14px; }
+    body.tv .tsub-tab { font-size: 18px; min-height: 46px; }
+    body.tv .btn.row { min-height: 64px; padding: 8px 18px; } body.tv .row .t-ic { font-size: 30px; width: 40px; } body.tv .row .t-l { font-size: 22px; } body.tv .row .t-s { font-size: 15px; }
+    body.tv .btn { font-size: 22px; padding: 12px 20px; }
+    body.tv .btn.sm { font-size: 19px; min-height: 52px; }
+    body.tv .btn.setting { font-size: 18px; padding: 7px 14px; } body.tv .btn.setting b { font-size: 16px; }
+    body.tv .card h2 { font-size: 34px; }
+    body.tv .card.pause-card { width: min(560px, 100%); }
+}
 body.tv.title-mode .card.wide, body.tv .card.settings-card { width: min(1300px, 100%); }
 
 /* ══ Phones ════════════════════════════════════════════════════════════════ */
