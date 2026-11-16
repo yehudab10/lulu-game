@@ -81,5 +81,5 @@ blender -b -P 3d/blender/make_assets.py -- --only journey  # one module
 
 `npm run smoke:3d` runs every `scripts/tests3d/*.js` in headless Chromium with a fake controller
 (`SMOKE3D_ONLY=core,law` for a subset, `--shots` for screenshots). The whole suite takes a couple
-of hours in software WebGL, so CI runs `core,platform` on every push and the full suite on demand
+of hours in software WebGL, so CI runs `core,platform,skip,ux` on every push and the full suite on demand
 (GitHub → Actions → **3D full suite** → Run workflow).
