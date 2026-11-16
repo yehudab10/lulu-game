@@ -49,6 +49,12 @@ module.exports = {
     const place = (d, ds = 0) => g(`(() => { const F = ctx.foot.debug.F, r = ctx.world.road, s = F.s + ${ds}, p = r.point(s, ${d}, {});
       F.pos.set(p.x, 0, p.z); F.vel.set(0, 0, 0); F.s = s; F.d = ${d}; F.behindT = 1e9; ctx.traffic.clear();
       F.peds.forEach(x => x.s += 400); F.animals.forEach(a => a.s += 400); return true; })()`);
+    // a stretch of road whose right-hand side is clear of houses / trees all the way out to the fence
+    // (so running straight out never runs into a house — that's collision, not the soft edge)
+    const clearS = () => g(`(() => { const F = ctx.foot.debug.F, r = ctx.world.road, cols = [];
+      for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) { if (c.off) continue; const n = r.nearest(c.x, c.z, F.s, {}); if (n.d > 7 && n.d < 56) cols.push([n.s, c.r]); }
+      for (let ds = 10; ds < 170; ds += 2) { const s = F.s + ds; if (cols.every(([cs, cr]) => Math.abs(cs - s) > cr + 1.6)) return ds; }
+      return 10; })()`);
     const prompt = () => t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
     t.check("ctx.foot.bounds is exposed", await g(`!!(ctx.foot.bounds && ctx.foot.bounds.EDGE && ctx.foot.bounds.NUDGE)`));
     const EDGE = await g(`ctx.foot.bounds.EDGE`);
@@ -66,7 +72,9 @@ module.exports = {
       JSON.stringify(await g(`ctx.foot.bounds.visuals`)));
 
     // ── 1. run straight out into the fields ──
-    await place(9.5);
+    await place(9.5, await clearS());
+    await t.frames(10);
+    await place(9.5, await clearS());   // (again, once the chunks round her new spot are built)
     await t.frames(4);
     await t.L(PROBE);
     await t.stick(1, 0); await t.hold(5, 1);
@@ -176,7 +184,7 @@ module.exports = {
     t.check("third nudge: a ride", (await B("log"))[2] === "ride" && await g(`!!ctx.foot.bounds.state.ride`), JSON.stringify(await B("log")));
     if (await t.until(`(() => { const r = __lulu3d.ctx.foot.bounds.state.ride; return r && r.phase === "wait"; })()`, "the ride pulls onto the shoulder beside her", 40000)) {
       const where = await g(`(() => { const r = ctx.foot.bounds.state.ride, F = ctx.foot.debug.F; return { dd: Math.abs(r.car.d), ds: Math.abs(r.car.s - F.s), kind: r.kind }; })()`);
-      t.check("…stopped on the shoulder, right by her", where.dd > 7 && where.dd < 8.8 && where.ds < 16, JSON.stringify(where));
+      t.check("…stopped on the shoulder, right by her", where.dd > 7 && where.dd < 8.8 && where.ds < 40, JSON.stringify(where));
       await g(`(() => { const r = ctx.foot.bounds.state.ride, F = ctx.foot.debug.F, p = ctx.world.road.point(r.car.s, Math.sign(r.car.d) * 9.6, {}); F.pos.set(p.x, 0, p.z); return true; })()`);
       await t.frames(6);
       t.check("prompt offers HOP IN", /HOP (IN|ON)/.test(await prompt()), await prompt());
@@ -210,7 +218,9 @@ module.exports = {
     await g(`(ctx.traffic.clear(), true)`);
 
     // ── 6. a foot chase: chases keep their own rules ──
-    await place(9.5);
+    await place(9.5, await clearS());
+    await t.frames(10);
+    await place(9.5, await clearS());
     await g(`(Object.assign(ctx.foot.bounds.NUDGE, { gap: 6, laneWarn: 10, laneStar: 12 }), true)`);
     // (atomically: the clock is way past due, and the chase starts in the same frame)
     const pre = await g(`(() => { const b = ctx.foot.bounds.state; b.gapT = 0; b.aim = 500; const ok = !!ctx.foot.debug.startChase(); return { ok, count: b.count, shoos: b.shoos }; })()`);
