@@ -439,7 +439,7 @@ function startShoo(F, B, side, kind) {
     else { SFX.buzz(); floater(L1, "🦟🦟🦟 bzzzz", "#FFFFFF", 1.5, 2.8); bubble(L1, pick(LINES.mosquito), 2.2); }
     rumble(0.25, 0.4, 160);
     F.waveT = Math.max(F.waveT || 0, 1.0);    // arms up, flailing
-    if (B.shoos === 1) H.toast("🌾 Nothing out here but trouble — the fun's back by the road.", "gold");
+    if (B.shoos === 1) H.toast("🌾 Only geese out here. The fun’s by the road!", "gold");
     emit("foot:shoo", { kind });
     emit("stat", { id: "footShooed", n: 1 });
 }
