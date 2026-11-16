@@ -3,7 +3,7 @@
 //     the next run the same car (same paint, the driver at the wheel) pulls alongside, honks,
 //     yells a bubble; it tailgates / calls the cops; the grudge is rate-limited (never two runs
 //     in a row) and forgiven after a while;
-//   • a cab shift → a fare texts afterwards (ctx.phone.text, with a thread); texts are spaced out;
+//   • a cab shift → a fare texts afterwards (ctx.phone.text → a 💬 Messages thread per sender); texts are spaced out;
 //   • a 4★ chase → the next run's roadside has the WANTED: LULU billboard (and its variants);
 //   • small recognitions (the cop at 3+ arrests, Moishe's colours, the hitchhiker, Avigail) are
 //     once-a-run; the save round-trips through a reload and every list is capped; a 🎉 party
@@ -117,7 +117,7 @@ module.exports = {
     // (the hustle test drives a whole shift; here: two fares carried, then the shift ends)
     await g(`(() => { const j = ctx.hustle.job; j.i = 2; j.names = ["🤵", "🤳"]; j.paid = 2; return ctx.hustle.end("pass", "shift"); })()`);
     const q = await g(`ctx.memory.recall("texts")`);
-    t.check("the shift queues follow-up texts from the fares (thread per fare)", q.length === 2 && q.every(x => /^cab-(groom|influencer)$/.test(x.thread)), JSON.stringify(q.map(x => [x.from, x.thread, x.run])));
+    t.check("the shift queues follow-up texts from the fares it carried", q.length === 2 && q.every(x => /^(Mendel \(the groom\)|@LuxeLeah)$/.test(x.from)), JSON.stringify(q.map(x => [x.from, x.run])));
     await t.until(`__lulu3d.state === "hustleResult"`, "the result card", 20000);
     await t.tap(0);
     await t.until(`__lulu3d.state === "playing"`, "back to driving", 20000);
@@ -125,7 +125,9 @@ module.exports = {
     await g(`(${D}.TX.cool = 0, ${D}.M.texts.forEach(x => { x.run = ctx.memory.runs; x.after = 0; }), true)`);
     await t.until(`!!document.querySelector(".jtext")`, "a fare texts Lulu (ctx.phone.text)", 20000);
     const tx = await t.L(`document.querySelector(".jtext").textContent`);
-    t.check("…the groom's wedding photo / @LuxeLeah's tag", /MENDEL|LuxeLeah/.test(tx), tx);
+    t.check("…the groom's wedding photo / @LuxeLeah's tag", /Mendel|LuxeLeah/.test(tx), tx);
+    t.check("…and it lands in the phone's 💬 Messages, a thread named after the sender", await g(`!ctx.phone.inbox || ctx.phone.inbox.threads().some(th => /^(Mendel \(the groom\)|@LuxeLeah)$/.test(th.title) && !th.group)`),
+      JSON.stringify(await g(`ctx.phone.inbox ? ctx.phone.inbox.threads().map(th => th.title) : null`)));
     await t.frames(10);
     await t.shot("cab-text");
     await t.frames(20);
@@ -200,7 +202,7 @@ module.exports = {
     await t.frames(2);
     await g(`L3.startRun({ mode: "cruise" })`);
     await t.until(`__lulu3d.state === "playing"`, "run (avigail)");
-    t.check("Avigail texts about the news (a thread of her own)", await g(`ctx.memory.recall("texts").some(x => x.from === "AVIGAIL" && x.thread === "avigail")`));
+    t.check("Avigail texts about the news (her own Messages thread)", await g(`ctx.memory.recall("texts").some(x => x.from === "Avigail" && !x.thread)`));
     await g(`(${D}.knobs.always = false, true)`);
 
     // ── 📉 perf: busy Cruise (a fixed set of traffic), with / without the grudge car + poster ──

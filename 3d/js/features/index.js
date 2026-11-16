@@ -19,4 +19,5 @@ import "./atmos/index.js";       // atmosphere: Cruise day/night cycle, weather 
 import "./party/index.js";       // 🎉 Party with friends: host / join by code or link, a 3D lobby, Road Trip together, races (seeded shared world)
 import "./hustle/index.js";      // 💼 side hustles: GTA-style side jobs (Lulu Cab, The Getaway, Hot Delivery) + the 📻 car radio
 import "./streets/index.js";     // 🚗 street mayhem: carjack anything, bail out, wanted stars + search, roadblocks, Paint & Pray, smashable props
+import "./phone/index.js";       // 📱 Lulu's phone: one entry point for the extras (map, messages, radio, jobs, Paint & Pray, camera)
 import "./memory/index.js";      // 🧠 a world that remembers Lulu: grudges in traffic, texts from fares, WANTED billboards, recognitions

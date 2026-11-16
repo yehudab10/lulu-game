@@ -23,10 +23,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, addMenuItem } from "../../core/ctx.js";
 import { resume } from "../../core/screens.js";
-import { addTouchButton } from "../../input.js";
 import { J, startJob, finishJob, abandonJob, jobsTick } from "./jobs.js";
 import { M, offersTick, spawnMarker, phoneOffer, clearMarker, offerCooldown } from "./markers.js";
-import { radio, radioTick, station, inCar } from "./radio.js";
+import { radio, radioTick } from "./radio.js";
 import { updateBeacons, hideBeacons, beacons } from "./beacon.js";
 import { updateOwnSeat, clearOwnSeat } from "./rider.js";
 import { cabHold } from "./cab.js";
@@ -63,15 +62,8 @@ on("state", ({ to }) => {
     if (to !== "playing" && to !== "intro") jobHud(null);
 });
 
-// ── 📻 input: the touch chip + the pause menu (controller: View / Create · keyboard: T) ──
-addTouchButton({ id: "radio", emoji: "📻", label: "RADIO", action: "radio", visible: () => ctx.state === "playing" && inCar() && !ctx.paused });
-on("boot", () => { const b = document.getElementById("tx_radio"); if (b) b.classList.add("hud-secondary"); });
-addMenuItem("pause", {
-    id: "hustleRadio", order: 11, group: "tools", short: "Radio",
-    label: () => `📻 ${station().name}`,
-    visible: () => inCar(),
-    action: b => { radio.cycle(1); b.innerHTML = `📻 ${station().name}`; },
-});
+// ── 📻 input: controller View / Create · keyboard T · tap the ticker (radio.js) — and the
+// 📻 Radio app on Lulu's 📱 phone (features/phone), which replaced the touch chip and the pause item.
 addMenuItem("pause", {
     id: "hustleQuit", order: 78, group: "exit",
     label: () => `💼 Quit job${J.job ? ` (${J.job.def.emoji})` : ""}`,

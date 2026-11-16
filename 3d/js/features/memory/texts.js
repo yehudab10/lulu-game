@@ -2,7 +2,8 @@
 //
 // A small persistent queue (≤ 6). Each text is due in a run (this one after N s
 // of driving, or the next one) and goes out through ctx.phone.text (journey's
-// phone; the phone feature files every text in its Messages inbox by `thread`).
+// phone; the phone feature also files every text in 💬 Messages, one thread per sender:
+// `from` is the thread title, so it is a readable name. A `thread` makes a GROUP chat).
 // Never during a call, a chase, a job, on foot or the tutorial; ≥ 40 s apart,
 // at most 3 a run.
 //   • after a 🚕 cab shift: one or two of the fares (the groom's wedding photo,
@@ -103,7 +104,7 @@ function cabTexts(job) {
     met.slice(0, n).forEach((m, k) => {
         const L = T.FARE_TEXTS[m.fare.id];
         const msg = pick(m.ok ? L.ok : L.bad);
-        queueText({ from: L.from, emoji: L.emoji, color: L.color, msg, thread: "cab-" + m.fare.id }, { next: k > 0 || !chance(0.6) });
+        queueText({ from: L.from, emoji: L.emoji, color: L.color, msg }, { next: k > 0 || !chance(0.6) });
     });
 }
 /** The same star formula hustle's delivery uses (1★ when it never arrived). */
@@ -116,14 +117,14 @@ function deliveryText(job, e) {
     const L = T.DELIVERY_TEXTS[food.id];
     if (!L) return;
     const st = deliveryStars(job, e.result);
-    if (st <= 2 && chance(0.85)) queueText({ from: L.from, emoji: L.emoji, color: L.color, msg: pick(L.bad), thread: "delivery-" + food.id }, { next: !chance(0.5) });
-    else if (st >= 5 && chance(0.4)) queueText({ from: L.from, emoji: L.emoji, color: L.color, msg: pick(L.good), thread: "delivery-" + food.id }, { next: true });
+    if (st <= 2 && chance(0.85)) queueText({ from: L.from, emoji: L.emoji, color: L.color, msg: pick(L.bad) }, { next: !chance(0.5) });
+    else if (st >= 5 && chance(0.4)) queueText({ from: L.from, emoji: L.emoji, color: L.color, msg: pick(L.good) }, { next: true });
 }
 function getawayText(job, e) {
     if (!chance(0.75)) return;
     const lost = job.lost || 0;
     const msg = e.result !== "pass" ? pick(T.MOISHE_TEXTS.fail) : lost ? fill(pick(T.MOISHE_TEXTS.lost), { n: lost }) : pick(T.MOISHE_TEXTS.clean);
-    queueText({ from: "UNCLE MOISHE", emoji: "🕶️", color: "#37474F", msg, thread: "uncle-moishe" }, { next: !chance(0.4) });
+    queueText({ from: "Uncle Moishe", emoji: "🕶️", color: "#37474F", msg }, { next: !chance(0.4) });
 }
 
 // ── 💜 Avigail ────────────────────────────────────────────────────────────
@@ -143,6 +144,6 @@ export function aviRunStart() {
     const n = notoriety(), news = aviNews(n);
     if (!news || !chance(0.3) || !oncePerRun("aviText")) return;
     const msg = fill(pick(T.AVI_TEXT[news.key]), { n: news.n });
-    queueText({ from: "AVIGAIL", emoji: "💅", color: "#8E24AA", msg, thread: "avigail" }, { after: rand(50, 140) });
+    queueText({ from: "Avigail", emoji: "💅", color: "#8E24AA", msg }, { after: rand(50, 140) });
     aviSeen(n);
 }
