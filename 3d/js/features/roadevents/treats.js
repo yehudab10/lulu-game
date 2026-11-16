@@ -149,7 +149,7 @@ export async function spawnIceTruck(opts = {}) {
             kids.forEach((k, i) => k.update(dt, { cheer: Math.sin(E.t * 2 + i * 2) > 0, wave: i === 0 && Math.sin(E.t * 1.3) > 0.4 }));
             if (ahead < 240 && ahead > -20) {
                 E.noteT -= dt;
-                if (E.noteT <= 0) { E.noteT = 4.2; sfx.jingle(); bubble(pick(["♪ ♫ ♪", "♫ ♪", "♪ ♪ ♫"]), truck, { t: 2, y: 4.4, cls: "pink" }); }
+                if (E.noteT <= 0) { E.noteT = 4.2; sfx.jingle(truck); bubble(pick(["♪ ♫ ♪", "♫ ♪", "♪ ♪ ♫"]), truck, { t: 2, y: 4.4, cls: "pink" }); }
             }
             // kids dash across toward the truck (watch out! — they always dodge)
             if (!E.dashed && ahead < 150 && ctx.state === "playing") {

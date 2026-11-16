@@ -279,24 +279,29 @@ export function loop(freq = 90, type = "lowpass") {
         stop() { try { g.gain.setTargetAtTime(0, c.currentTime, 0.1); s.stop(c.currentTime + 0.4); } catch (e) { /* already stopped */ } },
     };
 }
+/** Positional (A.spatial) when `at` (an Object3D / {x,y,z}) is given and audio is up; false → use the flat synth. */
+function at3d(kind, at, opts) {
+    if (!at || !A.spatial.ready || save3d.sound === false || ctx.skipping) return false;
+    return !!A.spatial.play(kind, at, opts);
+}
 export const sfx = {
     coin: n => A.sfxCoin(n || 0),
     buy() { [784, 988, 1175].forEach((f, i) => tone(f, 0.12, "triangle", 0.12, i * 0.08)); },
     happy() { tone(523, 0.08, "triangle", 0.18); tone(784, 0.12, "triangle", 0.2, 0.08); },
-    bell(i) { tone(i % 2 ? 660 : 640, 0.22, "square", 0.05); tone(i % 2 ? 1320 : 1280, 0.15, "sine", 0.04); },
-    trainHorn(len = 0.9, when = 0) { for (const f of [311, 370, 466]) tone(f, len, "sawtooth", 0.035, when, f * 0.985); },
+    bell(i, at) { if (at3d("bell", at, { rate: i % 2 ? 1.015 : 0.985, key: "re-bell" })) return; tone(i % 2 ? 660 : 640, 0.22, "square", 0.05); tone(i % 2 ? 1320 : 1280, 0.15, "sine", 0.04); },
+    trainHorn(len = 0.9, when = 0, at = null) { if (at3d("trainHorn", at, { delay: when, dur: len + 0.12 })) return; for (const f of [311, 370, 466]) tone(f, len, "sawtooth", 0.035, when, f * 0.985); },
     quack() { tone(560, 0.09, "sawtooth", 0.07, 0, 380); tone(520, 0.1, "sawtooth", 0.06, 0.11, 360); },
-    jingle() { [659, 587, 523, 587, 659, 659, 659].forEach((f, i) => tone(f, 0.12, "square", 0.05, i * 0.14)); },
+    jingle(at) { if (at3d("jingle", at)) return; [659, 587, 523, 587, 659, 659, 659].forEach((f, i) => tone(f, 0.12, "square", 0.05, i * 0.14)); },
     crunch() { A.sfxCrash(0.6); tone(64, 0.24, "square", 0.12); },
     splash() { noise(0.35, 1400, 0.25, "bandpass", 0, 0.8); tone(280, 0.12, "sine", 0.06, 0, 120); },
     thud() { A.sfxBump(); noise(0.12, 300, 0.2, "lowpass"); },
     whistle() { tone(2100, 0.18, "sine", 0.08, 0, 2400); tone(2300, 0.28, "sine", 0.08, 0.2, 1900); },
     siren() { A.sfxSiren(1.2); },
-    honk() { tone(415, 0.18, "square", 0.05); tone(523, 0.18, "square", 0.05); },
+    honk(at) { if (at3d("horn", at, { rate: 0.95 + Math.random() * 0.12 })) return; tone(415, 0.18, "square", 0.05); tone(523, 0.18, "square", 0.05); },
     cheer() { noise(0.9, 1800, 0.12, "bandpass", 0, 0.5); },
     pop() { tone(880, 0.06, "sine", 0.1, 0, 1320); },
     engine(f = 80) { tone(f, 0.3, "sawtooth", 0.12); tone(f * 1.25, 0.4, "square", 0.08, 0.18); },
-    ambulance() { [900, 1320, 900, 1320].forEach((f, i) => tone(f, 0.18, "sine", 0.08, i * 0.2)); },
+    ambulance(at) { if (at3d("ambulance", at, { key: "re-amb" })) return; [900, 1320, 900, 1320].forEach((f, i) => tone(f, 0.18, "sine", 0.08, i * 0.2)); },
 };
 
 // ── particles in the world (Lulu's car owns the particle system) ────────────

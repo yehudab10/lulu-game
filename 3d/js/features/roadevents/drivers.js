@@ -106,7 +106,7 @@ export function updateDrivers(dt) {
                 d.honkT = (d.honkT == null ? rnd(0.8, 1.8) : d.honkT) - dt;
                 if (d.honkT <= 0) {
                     d.honkT = rnd(1.4, 3.0);
-                    if (near) { sfx.honk(); if (d.quipT <= 0) { d.quipT = 1.8; bubble(pick(RAGE_QUIPS), c.obj, { t: 1.8, y: 2.4, cls: "red" }); } }
+                    if (near) { sfx.honk(c.obj); if (d.quipT <= 0) { d.quipT = 1.8; bubble(pick(RAGE_QUIPS), c.obj, { t: 1.8, y: 2.4, cls: "red" }); } }
                 }
                 if (Math.random() < dt * 0.5) { const other = LANES_OURS.find(l => Math.abs(l - c.dTarget) > 1); if (other !== undefined) c.dTarget = other; }
                 break;
@@ -128,7 +128,7 @@ on("closeCall", () => {
     for (const c of ctx.traffic.cars) { const dd = Math.hypot(c.x - car.pos.x, c.z - car.pos.z); if (dd < bd && !c.hit) { bd = dd; best = c; } }
     if (!best || (best.data.beh && best.data.beh !== "drunk")) return;
     const r = Math.random();
-    if (r < 0.30) { sfx.honk(); bubble("BEEP! BEEP!", best.obj, { t: 1.5, y: 2.4 }); }
+    if (r < 0.30) { sfx.honk(best.obj); bubble("BEEP! BEEP!", best.obj, { t: 1.5, y: 2.4 }); }
     else if (r < 0.55) bubble(pick(RUDE_QUIPS), best.obj, { t: 2.0, y: 2.4 });
 });
 let honkSnap = null;
@@ -296,7 +296,7 @@ export async function spawnAmbulance(opts = {}) {
             if (blocking) {
                 c.want = Math.min(c.base, car.speed);
                 E.blockT += dt;
-                if (E.blockT > 1.5 && !E.honked) { E.honked = true; sfx.honk(); H.toast("🚑 Pull aside for the ambulance!", "red"); }
+                if (E.blockT > 1.5 && !E.honked) { E.honked = true; sfx.honk(c.obj); H.toast("🚑 Pull aside for the ambulance!", "red"); }
             } else {
                 c.want = c.base;
                 if (E.blockT > 0.5 && !E.thanked && gap > -2 && gap < 30) { E.thanked = true; addScore(50, "ambulance"); H.toast("🚑 Good citizen! +50", "gold"); stat("ambulancesCleared", 1); }
@@ -307,7 +307,7 @@ export async function spawnAmbulance(opts = {}) {
         const blink = Math.sin(E.t * 12) > 0;
         lights.forEach((m, i) => { m.emissiveIntensity = (i % 2 ? !blink : blink) ? 5 : 0.3; });
         E.sirenT -= dt;
-        if (E.sirenT <= 0 && Math.abs(c.s - car.s) < 180) { E.sirenT = 0.8; sfx.ambulance(); }
+        if (E.sirenT <= 0 && Math.abs(c.s - car.s) < 180) { E.sirenT = 0.8; sfx.ambulance(c.obj); }
     };
     const c = ctx.traffic.add("roadevents_ambulance", s, d, fromBehind ? 1 : -1, fromBehind ? 36 : 30, { ai, immune: true, data: { amb: true } });
     c.obj.traverse(o => { if (o.isMesh && /LightRed|LightBlue/.test(o.material.name)) { if (!o.userData.reOwn) { o.material = o.material.clone(); o.userData.reOwn = true; } lights.push(o.material); } });

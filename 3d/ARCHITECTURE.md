@@ -19,6 +19,8 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/core/sets.js                           self-contained 3D scenes for interiors/minigames (makeSet, makeRoom, textPlane)
   js/core/platform.js                       PS5 / console / TV detection, TV mode
   js/features/dualsense/                    DualSense light bar + adaptive triggers + heart LEDs (WebHID)
+  js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
+  js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
   js/world.js  car.js  traffic.js           road + scenery chunks, Lulu's car, traffic
   js/input.js  audio.js  hud.js  models.js  controller/keyboard/touch, sound, HUD + menus, model loading
   js/features/<id>/index.js                 ← ONE DIRECTORY PER FEATURE (imported by features/index.js)
@@ -267,6 +269,31 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 ../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
 
+**Positional audio — `A.spatial`** (`js/spatial.js`, on the core AudioContext, so Sound off mutes it).
+Sounds you can LOCATE: a fixed pool of voices (`src → env → lowpass → gain → PannerNode` equalpower →
+spatial bus → master), a hard cap (8 voices, 6 on phones/consoles; the quietest is stolen — loops go
+virtual and come back, one-shots are dropped), distance roll-off, a "behind you" lowpass (front/back
+without HRTF's cost), air absorption and a Doppler pitch shift from the distance rate. The listener
+sits on the camera's axes, 75 % of the way to Lulu (`ctx.car.pos`, which follows her on foot); app.js
+calls `A.spatial.update(dt, camera, focus, open)` after every render (closed = faded out: paused, a
+set (`ctx.view`) on screen, skipping). Nothing allocates per frame.
+```js
+A.spatial.ready                                  // false until the first gesture → play/loop return null: fall back to your flat sound
+A.spatial.play(kind, obj3d | {x, y, z}, { gain, rate, delay, dur, prio, key })  → handle | null   // one-shot (key: replaces the last with that key)
+const h = A.spatial.loop(kind, obj3d | {x, y, z}, { gain, rate, floor, prio })   → handle | null   // looping emitter
+h.set({ gain, rate, floor, kind }); h.stop(); h.alive; h.info()   // an Object3D target that leaves the scene ends it too
+A.spatial.define(kind, { gen: sr => Float32Array, loop, ref, max, gain, prio, lift, doppler })   // your own sound (synthesized once, 24 kHz)
+A.spatial.stopAll() · has(kind) · setMaxVoices(n) · stats() · list()
+```
+Kinds (defined by `features/feel/kinds.js`): `siren` `sirenYelp` `rotor` `ambulance` (loops), `whoosh`
+`whooshTruck` `horn` `hornVan` `hornCop` `hornTruck` `trainHorn` `bell` `jingle` `hubcap`, `scrape` (loop).
+Users: law (one siren loop per lit cruiser, `spatialSirens()`; the chopper's rotor), banter (`npcHorn(kind, vol,
+beeps, obj)`), roadevents (`sfx.bell/trainHorn/jingle/honk/ambulance(…, at)`), feel (passing traffic, the
+dragging bumper, the hubcap). For an ambience bed (a town square, a fountain) use `loop(kind, {x, y, z})`.
+**Music muffle:** `A.setMusicMuffle(0..1)` routes the music `<audio>` through a MediaElementSource → lowpass
+(only once a muffle is first asked for; cheap to call every frame); `A.musicMuffleInfo()`. Feel muffles it
+while Lulu is on foot. **Rain** (atmos `sfx.rainLoop(level, "car" | "foot")`): a drum on the car vs. the open-air hiss.
+
 ## Testing
 **Determinism rule:** gate every RANDOM or surprise thing you add (spawned events, cameos,
 patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's always true in
@@ -315,7 +342,18 @@ and keep working sensibly when another feature is missing.
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
+| `ctx.feel` | feel | `damage.{k, stage, info(), repair(why) → bool, hit(side), undo(n)}` — the wear on Lulu's own car (k = hits shown, stage 0–4: dents → cracked windshield → smoking hood → last heart: hubcap off + dragging bumper; never more than the hearts lost) · `debug.{wear(k, side), audio(), emitters(), passes(), muffle()}` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
+
+**Damage you can see (feel):** a lost heart (`damage` event) dents Lulu's car where the last `crash` (within
+0.3 s) landed — emit `crash` with `x, z` (or a `collider` / `car`) before calling `damage()` and the dent goes
+there (front / rear / left / right); otherwise the front. Only her own car (not on foot, not a borrowed /
+jacked ride); in a party it's local and cosmetic. Repairs: `run:start`, the title, `streets:paint` (Paint &
+Pray), the ER (`er:admit` → `cameos:resume`); `heart` undoes a stage; a garage/mechanic can call
+`ctx.feel.damage.repair(why)`. Cheap: the Body/Chrome geometry is cloned once and vertex-nudged, dents +
+scratches are projected decals in two pre-allocated buffers (2 draw calls), the crack is a quad under the
+car's `ws` node, the hubcap/bare hub are `feel_hubcap` / `feel_barehub` (Blender), smoke + sparks go into `car.fx`.
+Events: `feel:wear` {k, stage, side} (a hit or a heal changed the wear) · `feel:repair` {why} · `feel:hubcap` {x, z}.
 
 Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
 `streets:roadblock` {s, gap} · `streets:spiked` · `streets:paint` {cost, color, cleared} · `streets:smash` {kind, value, total, x, z} ·

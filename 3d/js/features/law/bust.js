@@ -13,7 +13,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, endChase, driveUnit } from "./cops.js";
+import { L, setRig, endChase, driveUnit, spatialSirens } from "./cops.js";
 import { COP_SCENES, BUST_TACTICS, COP_LINE_DUR, COP_STOP_SCENES } from "./data.js";
 import { pick, rand, S } from "./rules.js";
 import { runFlow, check, line, ask, person, walkTo, quietRoad, restoreRoad, V } from "./scene.js";
@@ -102,7 +102,7 @@ registerState("lawBust", {
             else { cop.face(car.pos.x, car.pos.z, dt, 6); cop.update(dt, { talk: st.talking }); }
         }
         if (flow) flow.tick(dt, P);
-        X.sirenUpdate(dt, 0.18, 0, "wail");
+        X.sirenUpdate(dt, spatialSirens() ? 0 : 0.18, 0, "wail");
     },
     camera(dt) {
         if (st && st.phase === "talk" && cast.cop) {

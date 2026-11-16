@@ -12,7 +12,7 @@ import { rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, scriptedCruiser, endChase, driveUnit } from "./cops.js";
+import { L, setRig, scriptedCruiser, endChase, driveUnit, spatialSirens } from "./cops.js";
 import { ARREST_LINES, LULU_ARREST_LINES, CUFF_LINES } from "./data.js";
 import { pick, chargeDialogueFor } from "./rules.js";
 import { runFlow, check, line, person, lulu, walkTo, cuffs, disposeCuffs, quietRoad, restoreRoad } from "./scene.js";
@@ -91,7 +91,7 @@ registerState("lawArrest", {
             UI.progress(Math.min(1, st.haulT / 4.4), "🚓 ———→ 🏛️ PRECINCT 18½");
         }
         if (flow) flow.tick(dt, P);
-        X.sirenUpdate(dt, st.hauling ? 0.5 : 0.2, 0, "wail");
+        X.sirenUpdate(dt, spatialSirens() ? 0 : st.hauling ? 0.5 : 0.2, 0, "wail");
     },
     camera(dt) {
         if (!st) return true;
