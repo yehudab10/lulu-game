@@ -27,6 +27,7 @@ one, spend them in the other.
 | 📸 **Photo mode & stunts** | Pause → 📸 Photo mode: free camera, filters (Golden Hour, Vintage, Noir, Pink Dream…), frames (postcard, Polaroid, WANTED…), Lulu poses, save a PNG + a little album. ✨ Golden dreidels to collect (every 18 — chai! — pays out), and 🛹 stunt ramps: airtime, mid-air spins, LEAPFROG over cars. |
 | 🎉 **Party with friends** | Up to 8 friends in the same 3D world: host a party (a 4-letter code + an invite link) or join one, meet in a 3D lobby (pick your name, car and horn, ready up), then play together — 🏡 **Road Trip** side by side to Bubbe's (convoy bonus, group arrival + group photo), 🏁 **Race** (grid start, live standings, podium, rematch), ✨ **Dreidel Dash** (75 s, grab the most golden dreidels) and 🚓 **Cop Tag** (bump to tag, least time as cop wins). Friends are real cars — they steer, brake, honk, wave and BONK you (no damage); quick chat with phrases and emotes; everyone sees the same traffic, billboards and sky. Late joiners slot right in, and if the host drops someone else takes over. |
 | 💼 **Side hustles** | GTA-style side jobs in Cruise — drive into a ringing ☎️ payphone or the 📋 HELP WANTED board on the shoulder, or take a call: 🚕 **Lulu Cab** (a shift of fares with personalities: the groom late for his own wedding, Gertie the emotional-support chicken, an influencer who tips for stunts, a retired driving instructor, "follow that car!"), 💰 **The Getaway** (Uncle Moishe's crew "withdraws" the bingo hall's jackpot: ★★★, lose the cops, reach the safehouse) and 🔥 **Hot Delivery** (cholent, kugel or pizza — bumps and jumps spill it, the customer reviews you). Pass / fail cards, a 💼 Side Jobs log in the Scrapbook. |
+| 📱 **Lulu's phone** | One GTA-style phone instead of a row of buttons: 🗺️ the story map (over your drive — ○ comes straight back), 💬 **Messages** (every text from the family lands here, in threads, with unread badges — plus the *Mishpacha 💕🙄* group chat where Ima, Bubbe and Heshy react to your run), 📻 the radio, 💼 side jobs (take one right from the phone in Cruise, see Shmuel's chop-shop order), 🎨 the nearest Paint & Pray booth and 📸 photo mode. Opening it pauses the game; the ☰ Menu on the phone is the full pause menu. |
 | 🕯️ **Erev Shabbos Rush** | It's Friday afternoon and Lulu's spending Shabbos at Bubbe's: get there before candle-lighting. The deadline is the sky — a long golden hour sinking into a pink sunset — and the countdown rides in the trip bar ("🕯️ Candles in 2:41"). It gets wilder as the sun drops: minivans everywhere, people rushing home on the sidewalks (challah, a jogger with the cholent pot, a man in a bekishe running for the mikvah), shops slamming their gates, a flashing "SHABBOS IN 2 MIN" trailer, Ima calling twice (hear her out and she stalls Bubbe), Lulu losing it. Make it and Bubbe's door opens, the candles are lit, coins by how early you were and the 🕯️ badge; miss it and, well, cold cholent. On **Fridays** (noon → evening on your device) a 🕯️ chip on the home screen starts it in one tap; any other day, keep an ear out for Ima ringing in Cruise: *"Oy, it's erev Shabbos!"* |
 | 📻 **Car radio** | LULU FM (the trip's own music), 🕺 SIMCHA 101.3, 🍸 SMOOTH 88.8, 🎙️ KVETCH 1450 AM (call-in shows: Ima, Bubbe, Heshy, Avigail and Uncle Moishe call in) and off — DJ chatter and parody ads on a small ticker. |
 | 🌐 **Open road** | Inside the party menu: the Shared Road — see players from the 2D *and* the 3D game as ghost cars; friend rooms, races, emotes, the leaderboard. |
@@ -43,11 +44,14 @@ one, spend them in the other.
 | Interact · carjack (on foot) | ✕ | A | E | ✋ |
 | Bail out of a moving car | hold △ | hold Y | E (above ~30 mph) | ✋ BAIL |
 | Camera · look | tap △ · right stick (R3 = behind) | tap Y · right stick | C · V | CAM |
-| Map / scrapbook · pause | touchpad (or L3) · OPTIONS | L3 · Start | Tab · P/Esc | 📒 · ❚❚ |
-| 📻 Car radio (next station) | CREATE | View | T | 📻 (or tap the radio ticker) |
+| 📱 Lulu's phone · pause | touchpad · OPTIONS | L3 · Start | Tab · P/Esc | 📱 (top right; its ☰ Menu = pause) |
+| 🗺️ Story map (shortcut) | L3 | 📱 › Map | 📱 › Map | 📱 › Map |
+| 📻 Car radio (next station) | CREATE | View | T | tap the radio ticker (or 📱 › Radio) |
 | Skip a cutscene | hold ○ | hold B | hold Backspace | tap ⏭ SKIP |
 | Party quick chat | hold D-pad ↑, aim with right stick | hold D-pad ↑ | hold F (or 1–8) | 💬 |
 
+The phone: D-pad/stick between the apps, ✕/A opens one, ○/B goes back (and closes it), the touchpad / L3 / Tab
+closes it too, OPTIONS / Start / Esc jumps to the pause menu; on touch tap an app, ‹ Back, or anywhere outside it.
 Menus: D-pad/stick to move, ✕/A to pick, ○/B to go back, L1/R1 to switch tabs. Every cutscene
 (arrests, court, the crash aftermath, the ER, arrivals…) has a small ⏭ SKIP pill in the corner — it
 fast-forwards to the next choice, so you never miss a decision (also in the pause menu).

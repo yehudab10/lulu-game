@@ -4,7 +4,9 @@
 //                    ringText, ringSub, talkSub, doneText(result), donePay(result),
 //                    onAnswer(), onDecline(), onHangUp(), onDone(result) }) → call | null
 //   ctx.phone.text({ from, emoji, color, msg, dur })   a text message bubble (no input)
-//   ctx.phone.active / .talking / .busy() / .hangUp()
+//   ctx.phone.active / .talking / .busy() / .hangUp() / .prop(on, pose)
+// features/phone extends this object (the 📱 phone screen, apps, the Messages inbox
+// that stores every text()) — see ARCHITECTURE.md › ctx.phone.
 //
 // A call rings (📣 HONK declines), then Lulu picks up and the lines play; with
 // flip: true the steering is FLIPPED while she talks (honk hangs up). The card
@@ -49,17 +51,20 @@ body.tv .jphone .nm { font-size: 22px; } body.tv .jphone .ln { font-size: 24px; 
 
 // ── the 3D phone in Lulu's hand ───────────────────────────────────────────
 let phoneObj = null;
-function showPhoneProp(on) {
+const POSES = {
+    ear: { p: [0.25, -0.3, 0.02], r: [0, 0.25, -0.2] },          // on a call
+    hold: { p: [0.1, -0.5, 0.34], r: [-0.95, 0.15, 0] },          // looking at it (📱 the phone screen)
+};
+function showPhoneProp(on, pose = "ear") {
     const car = ctx.car;
     if (!car || !car.anchors || !car.anchors.head) return;
     if (on && !phoneObj) {
         if (!models.journey_phone) { ensureModels(["journey_phone"]).catch(() => {}); return; }
         phoneObj = cloneWithColors(models.journey_phone);
         phoneObj.scale.setScalar(1.6);
-        phoneObj.position.set(0.25, -0.3, 0.02);
-        phoneObj.rotation.set(0, 0.25, -0.2);
     }
     if (!phoneObj) return;
+    if (on) { const P = POSES[pose] || POSES.ear; phoneObj.position.set(...P.p); phoneObj.rotation.set(...P.r); }
     if (on && phoneObj.parent !== car.anchors.head) car.anchors.head.add(phoneObj);
     if (!on && phoneObj.parent) phoneObj.parent.remove(phoneObj);
 }
@@ -177,6 +182,12 @@ export const phone = {
     get talking() { return !!(cur && cur.phase === "talk"); },
     get flipped() { return !!(cur && cur.phase === "talk" && cur.flip); },
     busy() { return !!cur; },
+    /** Lulu's 3D phone in her hand in the car: pose "ear" (a call) | "hold" (the phone screen). Off → back to the call's ear pose if she's still talking. */
+    prop(on, pose = "hold") {
+        if (!on && cur && cur.phase === "talk") showPhoneProp(true, "ear");
+        else if (on && cur && cur.phase === "talk") return;
+        else showPhoneProp(on, pose);
+    },
     /** End the current call now (no callbacks except onDone("interrupted")). */
     hangUp(silent = true) {
         if (!cur) return;
