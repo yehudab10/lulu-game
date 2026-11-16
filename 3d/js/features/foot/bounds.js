@@ -113,7 +113,7 @@ function edgesOn() { return !(ctx.town && ctx.town.active) && !(ctx.party && ctx
 function calm(F) { return edgesOn() && F.phase === "walk" && !chasing(F); }
 /** The nudges: calm, not mid-dialogue, and opted in (random surprises are test-gated). */
 function nudgesOn(F) {
-    return calm(F) && !ctx.dialogOpen && !H.screenOpen() && ctx.enabled("foot") && ctx.enabled("footbounds");
+    return calm(F) && !ctx.dialogOpen && !H.screenOpen() && !(ctx.phone && ctx.phone.isOpen) && ctx.enabled("foot") && ctx.enabled("footbounds");
 }
 function dry() { const b = ctx.world.biomeAt(ctx.car ? ctx.car.s : 0) || {}; return b.name === "desert" || b.name === "strip"; }
 
