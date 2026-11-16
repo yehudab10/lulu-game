@@ -11,7 +11,7 @@
 import * as THREE from "three";
 import { ctx, on, emit } from "../../core/ctx.js";
 import { save3d, shared } from "../../core/save.js";
-import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
+import { models, cloneWithColors, findNodes, ensureModels, instanced } from "../../models.js";
 import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import * as A from "../../audio.js";
@@ -54,18 +54,42 @@ function mats() {
     return MATS;
 }
 
-function addHouseClone(group, s, side, walls, roof) {
-    const p = roadPt(s, side * 23), h = headingAt(s);
-    const o = cloneWithColors(models.house, { Walls: walls, Roof: roof });
-    o.position.set(p.x, 0, p.z);
-    o.rotation.y = facingRoad(h, side);
-    group.add(o);
-    // its driveway
-    const M0 = worldMaterials();
-    const drive = new THREE.Mesh(ribbon(ctx.world.road, s + 4.5, s + 7.5, side > 0 ? SHOULDER : -19, side > 0 ? 19 : -SHOULDER, 0.025, 10), M0.drive);
-    drive.receiveShadow = true;
-    group.add(drive);
-    return { x: p.x, z: p.z };
+/** The neighbours' houses: one instanced set (a few draw calls for all three). */
+function addNeighbours(group, list) {
+    const inst = instanced(models.house, list.length, ["Walls", "Roof"]);
+    const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), col = new THREE.Color();
+    const out = list.map(([s, side, walls, roof], i) => {
+        const p = roadPt(s, side * 23);
+        q.setFromAxisAngle(up, facingRoad(headingAt(s), side));
+        inst.set(i, mtx.compose(v1.set(p.x, 0, p.z), q, one));
+        inst.color(i, "Walls", col.set(walls));
+        inst.color(i, "Roof", col.set(roof));
+        return { x: p.x, z: p.z, s, side };
+    });
+    inst.finish();
+    group.add(inst.group);
+    return out;
+}
+/** Every driveway on the street as ONE mesh (merged ribbons). */
+function mergedDriveways(list) {
+    const geos = list.map(([s0, s1, d0, d1]) => ribbon(ctx.world.road, s0, s1, d0, d1, 0.025, 10));
+    const pos = [], nor = [], uv = [], idx = [];
+    let base = 0;
+    for (const g of geos) {
+        pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); uv.push(...g.attributes.uv.array);
+        for (const i of g.index.array) idx.push(i + base);
+        base += g.attributes.position.count;
+        g.dispose();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeBoundingSphere();
+    const m = new THREE.Mesh(geo, worldMaterials().drive);
+    m.receiveShadow = true;
+    return m;
 }
 
 function buildStreet() {
@@ -110,17 +134,11 @@ function buildStreet() {
     // the parked pose: nose to the garage
     const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
     home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y + Math.PI), s: near.s, d: near.d };
-    // the driveway from the shoulder up to the garage
-    const drive = new THREE.Mesh(ribbon(road, near.s - 1.9, near.s + 1.9, SHOULDER, near.d + 3.6, 0.025, 10), M0.drive);
-    drive.receiveShadow = true;
-    g.add(drive);
-
     // the neighbours: across the street (Mr. Pinsky's) and next door
-    home.neighbours = [
-        addHouseClone(g, S_HOME - 2, -1, "#DCEDC8", "#455A8C"),
-        addHouseClone(g, S_HOME + 36, 1, "#E3F2FD", "#8D6E63"),
-        addHouseClone(g, S_HOME + 40, -1, "#FFF9C4", "#C0504D"),
-    ];
+    home.neighbours = addNeighbours(g, [[S_HOME - 2, -1, "#DCEDC8", "#455A8C"], [S_HOME + 36, 1, "#E3F2FD", "#8D6E63"], [S_HOME + 40, -1, "#FFF9C4", "#C0504D"]]);
+    // every driveway (ours up to the garage + the neighbours') in one mesh
+    g.add(mergedDriveways([[near.s - 1.9, near.s + 1.9, SHOULDER, near.d + 3.6]].concat(home.neighbours.map(n =>
+        [n.s + 4.5, n.s + 7.5, n.side > 0 ? SHOULDER : -19, n.side > 0 ? 19 : -SHOULDER]))));
 
     ctx.scene.add(g);
     home.group = g;
@@ -195,7 +213,7 @@ function vanLoop() {
 export function luluSpots(out = {}) {
     const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), lx = Math.cos(P.h), lz = -Math.sin(P.h);
     out.door = { x: P.x + lx * 1.25 + fx * 0.25, z: P.z + lz * 1.25 + fz * 0.25 };
-    out.idle = { x: P.x + lx * 2.1 + fx * 1.4, z: P.z + lz * 2.1 + fz * 1.4 };
+    out.idle = { x: P.x + lx * 1.9 - fx * 0.9, z: P.z + lz * 1.9 - fz * 0.9 };   // by the driver's door, clear of the headlights
     return out;
 }
 const spots = {};
@@ -405,7 +423,29 @@ export function titleShot(pos, look, t = ctx.time) {
         const p = roadPt(P.s + 13.5 + sway, 1.2 + Math.sin(t * 0.05) * 1.2);
         pos.set(p.x, 4.1 + Math.sin(t * 0.06) * 0.4, p.z);
     }
-    return { pos, look, yawOffset: portrait ? 0 : cam.aspect > 1.25 ? 0.3 : 0.12 };
+    return { pos, look };
+}
+
+/** Where on screen the subject should sit (NDC): the middle of the biggest area the menu card leaves free. */
+const free = { t: -1, nx: 0.45, ny: 0, cx: null, cy: 0 };
+export function freeSpot() {
+    if (ctx.time - free.t < 0.5 && free.t >= 0) return free;
+    free.t = ctx.time;
+    const W = window.innerWidth, Hh = window.innerHeight;
+    const card = typeof document !== "undefined" && document.getElementById("screenCard");
+    const r = card && card.offsetParent !== null ? card.getBoundingClientRect() : null;
+    if (!r || r.width < 10) { free.nx = 0; free.ny = 0; return free; }
+    const areas = [
+        { a: Math.max(0, W - r.right) * Hh, x: (r.right + W) / 2, y: Hh / 2 },
+        { a: Math.max(0, r.left) * Hh, x: r.left / 2, y: Hh / 2 },
+        { a: Math.max(0, Hh - r.bottom) * W * 1.15, x: W / 2, y: (r.bottom + Hh) / 2 },   // (the ground side reads best)
+        { a: Math.max(0, r.top) * W, x: W / 2, y: r.top / 2 },
+    ].sort((a, b) => b.a - a.a);
+    const best = areas[0];
+    if (best.a < W * Hh * 0.06) { free.nx = 0.35; free.ny = 0; return free; }
+    free.nx = Math.max(-0.8, Math.min(0.8, best.x / W * 2 - 1));
+    free.ny = Math.max(-0.8, Math.min(0.8, 1 - best.y / Hh * 2));
+    return free;
 }
 
 /** titleCamera hook: owns the title-screen camera while the home street is up. */
@@ -413,12 +453,18 @@ export function titleCamera(dt, camera) {
     if (!home.ready || ctx.state !== "title") return false;
     const shot = titleShot(v2, v3);
     const st = ctx.cam && ctx.cam.state;
-    if (home.camSnap) { home.camPos.copy(v2); home.camLook.copy(v3); home.camSnap = false; }
+    const snap = home.camSnap;
+    if (snap) { home.camPos.copy(v2); home.camLook.copy(v3); home.camSnap = false; }
     home.camPos.lerp(v2, Math.min(1, dt * 1.6));
     home.camLook.lerp(v3, Math.min(1, dt * 1.8));
     camera.position.copy(home.camPos);
     camera.lookAt(home.camLook);
-    if (shot.yawOffset) camera.rotateY(shot.yawOffset);
+    // turn the camera so the street sits in the space the menu card leaves free
+    const f = freeSpot(), tv = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    if (f.cx == null || snap) { f.cx = f.nx; f.cy = f.ny; }
+    f.cx += (f.nx - f.cx) * Math.min(1, dt * 3); f.cy += (f.ny - f.cy) * Math.min(1, dt * 3);
+    camera.rotateY(Math.atan(f.cx * tv * camera.aspect) * 0.92);
+    camera.rotateX(-Math.atan(f.cy * tv) * 0.92);
     camera.fov += (50 + (camera.aspect < 1 ? 12 : 0) - camera.fov) * Math.min(1, dt * 2);
     camera.updateProjectionMatrix();
     if (st) { st.pos.copy(camera.position); st.snap = false; }
