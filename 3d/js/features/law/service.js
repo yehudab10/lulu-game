@@ -7,7 +7,7 @@
 import { ctx, setState } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
 import * as H from "../../hud.js";
-import { L, config, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes } from "./cops.js";
+import { L, config, TUNE, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes, rig, setRig } from "./cops.js";
 import { S, addWanted, clearLockup, fugitiveStars } from "./rules.js";
 
 export const run = { live: false, mode: "cruise" };   // is a run in progress that an arrest interrupted?
@@ -45,6 +45,15 @@ export const law = {
         return S.wanted.length ? 1 : 0;
     },
     get chasing() { return !!L.chase; },
+    /** Mid-chase: the cops have lost sight of her and are SEARCHING (the stars flash). */
+    get searching() { return !!(L.chase && L.chase.searching); },
+    /** 0–1 how close she is to losing them (the "losing them…" meter). */
+    get searchProgress() { return L.chase ? L.chase.evade : 0; },
+    /** The pursuit tuning table (cop speed / sight / search time by stars). */
+    tune: TUNE,
+    /** A flashing police light bar for any cop-car Object3D (roadblocks…): { set(on, t) }. */
+    lightBar(obj) { const r = rig(obj); return { set: (on, t = ctx.time) => setRig(r, on, t) }; },
+
     get fugitive() { return !!L.fug; },
     get warrants() { return S.wanted.slice(); },
     addWarrant(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },

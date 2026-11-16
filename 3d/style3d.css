@@ -352,6 +352,7 @@ a.btn { text-decoration: none; }
 body.tv { cursor: none; }
 body.tv.cursor { cursor: auto; }
 body.tv .hud-tl, body.tv .hud-top, body.tv .hud-tr, body.tv .hud-br { margin: 3vh 3vw; }
+body.tv .hud-slot.right { top: calc(max(12px, env(safe-area-inset-top)) + 3vh + 58px); right: calc(max(12px, env(safe-area-inset-right)) + 3vw); }   /* under the TV-margined ❚❚, not on it */
 body.tv .pill { font-size: 26px; padding: 8px 20px; }
 body.tv .pill.score { font-size: 18px; } body.tv .pill.score b { font-size: 28px; }
 body.tv .coin { width: 24px; height: 24px; }

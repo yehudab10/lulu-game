@@ -41,8 +41,44 @@ export const L = {
     hold: 0,            // ctx.law.hold(): suspend random cop events (tutorials, cutscenes)
     pending: null,      // an arrest requested from inside an event, run next frame
     radar: 0,
+    threats: new Set(),  // live K9 dogs / missiles {kind, s, d} (the chase lab's driver dodges them)
 };
 export const config = { traps: true, patrols: true, apb: true };
+
+// ── pursuit tuning ───────────────────────────────────────────────────────
+// Measured with the chase lab (features/streets/lab.js: a getaway-driver bot +
+// a fast headless sim). GTA rules: cruisers are never faster than Lulu's own
+// (unboosted) top speed and never out-accelerate her, no rubber-banding, and
+// she escapes by breaking LINE OF SIGHT and staying hidden while they search.
+export const TUNE = {
+    copSpeed: [0, 0.92, 0.92, 0.94, 0.98, 1.0],   // cruiser top speed × Lulu's unboosted top, by stars
+    copAccel: 9,                                  // m/s² off the line, fading toward the top (like her engine)
+    sight: [0, 75, 90, 105, 120, 135],            // m a cruiser can spot her (× 0.75 at night)
+    search: [0, 8, 8, 8.5, 10, 11],               // s out of sight before they give up
+
+
+
+    searchGap: 40,                                // m — any closer and they still hear her
+    offRoad: 11,                                  // |d| where the line of sight cuts through roadside trees / houses
+    heatEvery: 40,                                // s of being SEEN before another star (not while hidden)
+    pitFrom: 3,                                   // PIT manoeuvres from 3★
+    reinforce: 6,                                 // s between reinforcements
+    chopperSight: 120,                            // m the chopper sees her by day (at night: only in its spotlight)
+    chopperSpeed: 0.86,                           // × Lulu's top: flat out (or nitro) she can outrun it
+};
+const topCache = new WeakMap();
+/** Lulu's top speed WITHOUT nitro for the car she's driving (m/s: what drag lets the engine reach). */
+export function luluTop() {
+    const st = ctx.car && ctx.car.stats;
+    if (!st) return 37;
+    let v = topCache.get(st);
+    if (v) return v;
+    const top = 42 * (st.top || 1), acc = 12.5 * (st.acc || 1);
+    let lo = 4, hi = top;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (acc * (1 - (m / top) ** 2) - (0.35 + 0.0016 * m * m) > 0) lo = m; else hi = m; }
+    topCache.set(st, lo);
+    return lo;
+}
 
 const tmpP = {}, tmpN = {}, tmpQ = {};
 const _v = new THREE.Vector3();
@@ -198,7 +234,7 @@ function steerUnit(dt, c, u) {
         if (u.slot === "rear2") { want = -15; side = ld > 3.5 ? -3.5 : 3.5; }
         else if (u.slot === "front") want = 11;
         else if (u.slot === "side") { want = -0.5; side = ld > 3.5 ? -3.3 : 3.3; }
-        if (u.slot === "rear" && heat >= 2 && u.pitT < 0) { want = -2.4; if (u.pitT < -1.6) u.pitT = rand(4, 7) - heat * 0.4; }
+        if (u.slot === "rear" && heat >= TUNE.pitFrom && u.pitT < 0) { want = -2.4; if (u.pitT < -1.6) u.pitT = rand(6, 9) - heat * 0.4; }
         const err = ls + want - c.s;
         vT = lv + clamp(err * 0.9, -12, 18);
         const behind = c.s < ls - 2;
@@ -207,7 +243,7 @@ function steerUnit(dt, c, u) {
         else tD = ld + side;
         if (u.slot === "side" && Math.abs(err) < 3) tD = ld + Math.sign(side) * 2.5;   // lean on her
         if (Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70) tD = clamp(ld, -5.25, 5.25);
-        u.vmax = 34 + heat * 2 + (ls - c.s > 160 ? 4 : 0);
+        u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
         tD = Number.isFinite(u.pullD) ? u.pullD : 7.9;
         const err = (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
@@ -227,7 +263,10 @@ function steerUnit(dt, c, u) {
             if (o === c || o.hit || (o.data && o.data.law)) continue;
             const dx = o.x - c.x, dz = o.z - c.z;
             const lon = dx * fx + dz * fz, lat = -dx * fz + dz * fx;
-            if (lon > -1 && lon < 7 + c.speed * 0.6 && Math.abs(lat) < 2.3) {
+            // a car Lulu just rattled with a near miss: the cruiser only reacts at the last moment
+            const look = o.data && o.data.spookT > ctx.time ? 2 + c.speed * 0.12 : 7 + c.speed * 0.6;
+            if (lon > -1 && lon < look && Math.abs(lat) < 2.3) {
+
                 const alt = [o.d - 3.5, o.d + 3.5].filter(x => Math.abs(x) <= 5.4).sort((a, b) => Math.abs(a - tD) - Math.abs(b - tD));
                 if (alt.length) tD = alt[0];
                 if (lon < 9 && o.dir > 0) vT = Math.min(vT, o.speed + 1);
@@ -250,7 +289,10 @@ function steerUnit(dt, c, u) {
     const v = Math.max(c.speed, 0.01);
     const maxYaw = Math.min(14 / v, v / 6, 2.0) * dt;
     c.h += clamp(dh, -maxYaw, maxYaw);
-    c.speed += clamp(vT - c.speed, -16 * dt, 10 * dt);
+    // a cruiser's engine pulls like hers: strong off the line, fading toward its top speed
+    const acc = u.mode === "chase" ? Math.max(1.2, TUNE.copAccel * (1 - (c.speed / (u.vmax * 1.12)) ** 2)) : 10;
+    c.speed += clamp(vT - c.speed, -16 * dt, acc * dt);
+
     c.speed = Math.max(0, c.speed);
     c.x += Math.sin(c.h) * c.speed * dt;
     c.z += Math.cos(c.h) * c.speed * dt;
@@ -434,10 +476,10 @@ export function beginChase(reason, opts = {}) {
     const charges = (opts.charges || []).slice();
     const heat = Math.max(1, opts.heat || (fug ? fugitiveStars(L.fug.t) : S.wanted.length ? 2 : 1));
     L.chase = { reason: reason || charges[0] || "RECKLESS DRIVING", charges, explicit: !!(opts.charges && opts.charges.length), heat, t: 0,
-        bust: 0, evade: 0, nextHeat: 22, k9T: 3, mslT: 3, reinfT: 0, fug };
+        bust: 0, evade: 0, nextHeat: TUNE.heatEvery, seenT: 0, seen: true, searching: false, k9T: rand(4, 6), mslT: rand(5, 7), reinfT: 0, fug };
     if (!L.chase.charges.length) L.chase.charges.push(L.chase.reason);
     if (opts.unit) { opts.unit.slot = "rear"; if (opts.unit.mode !== "chase") toChase(opts.unit, "rear"); opts.unit.hunter = false; opts.unit.siren = true; }
-    else spawnChaser("rear");
+    else spawnChaser("rear", "first");
     H.banner(`<b>${opts.msg || "🚨 BUSTED!"}</b><small>${L.chase.reason} · floor it to get away!</small>`, 2200);
     X.whoop();
     rumble(0.5, 0.7, 400, true);
@@ -446,35 +488,76 @@ export function beginChase(reason, opts = {}) {
     emit("cop:chase", { active: true, reason: L.chase.reason, heat });
     return true;
 }
-function spawnChaser(slot) {
+/** A cruiser joins the pursuit. how: "first" (right on her tail), "seen" (coming up behind), "search" (far back, hunting). */
+function spawnChaser(slot, how = "seen") {
     const car = ctx.car;
     const fromAhead = slot === "front" && Math.random() < 0.5;
-    const s = fromAhead ? car.s + rand(160, 220) : car.s - rand(70, 95);
+    const back = how === "first" ? rand(45, 60) : how === "search" ? rand(170, 230) : rand(85, 115);
+    const s = fromAhead ? car.s + rand(160, 220) : car.s - back;
     const d = fromAhead ? pick([-1.75, -5.25]) : pick(LANES_OURS);
-    const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : Math.max(20, car.speed + 4), { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
+    // (never faster than she can go: the first one only just closes in so it shows in the mirror)
+    const v = how === "search" ? car.speed * 0.85 : Math.min(luluTop(), Math.max(18, car.speed + (how === "first" ? 1.5 : 0)));
+    const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
     return u;
+}
+
+// ── line of sight ────────────────────────────────────────────────────────
+function nightness() { const a = ctx.atmos; return a && typeof a.night === "number" ? clamp(a.night, 0, 1) : 0; }
+/** Is the straight line from (ax, az) to Lulu clear? Not if it cuts across the roadside on a bend
+ *  (trees, houses) or a truck / bus is in the way. */
+function clearLine(ax, az, as, self) {
+    const car = ctx.car, road = ctx.world.road, bx = car.pos.x, bz = car.pos.z;
+    for (const k of [0.3, 0.55, 0.8]) {
+        road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, as + (car.s - as) * k, tmpN);
+        if (Math.abs(tmpN.d) > TUNE.offRoad) return false;
+    }
+    const lx = bx - ax, lz = bz - az, len2 = lx * lx + lz * lz || 1;
+    for (const o of ctx.traffic.cars) {
+        if (o === self || o.hit || !o.spec || o.spec.halfW < 1.1) continue;       // only trucks / buses / big rigs block the view
+        const t = ((o.x - ax) * lx + (o.z - az) * lz) / len2;
+        if (t < 0.08 || t > 0.92) continue;
+        const px = ax + lx * t - o.x, pz = az + lz * t - o.z;
+        if (px * px + pz * pz < (o.spec.halfW + 0.4) ** 2) return false;
+    }
+    return true;
+}
+/** Does this cruiser have eyes on her right now? */
+function unitSees(u, heat, night) {
+    const c = u.car;
+    if (!c || c.hit) return false;
+    const car = ctx.car, d = Math.hypot(car.pos.x - c.x, car.pos.z - c.z);
+    if (d > TUNE.sight[clamp(Math.round(heat), 1, 5)] * (1 - 0.25 * night)) return false;
+    return d < 22 || clearLine(c.x, c.z, c.s, c);
+}
+function chopperSees(night) {
+    const ch = L.chopper;
+    if (!ch) return false;
+    const car = ctx.car;
+    if (night > 0.5) return Math.hypot(ch.poolX - car.pos.x, ch.poolZ - car.pos.z) < 8;      // only what the spotlight's on
+    return Math.hypot(ch.x - car.pos.x, ch.z - car.pos.z) < TUNE.chopperSight;
 }
 const SLOTS = ["rear", "front", "side", "rear2"];
 function updateChase(dt, controlsOn) {
     const ch = L.chase, car = ctx.car;
     if (!controlsOn) return;
     ch.t += dt;
-    // heat climbs the longer she runs (fugitive heat follows her time on the lam)
+    // heat climbs while they've got eyes on her — not while she's hidden (fugitive heat follows her time on the lam)
     if (ch.fug && L.fug) ch.heat = Math.max(ch.heat, fugitiveStars(L.fug.t));
-    if (ch.t > ch.nextHeat && ch.heat < 5) { ch.heat++; ch.nextHeat = ch.t + 22; UI.say(`🚨 ${"★".repeat(ch.heat)} MORE UNITS!`, "red"); X.whoop(); }
+    if (!ch.searching) ch.seenT += dt;
+    if (ch.seenT > ch.nextHeat && ch.heat < 5) { ch.heat++; ch.nextHeat = ch.seenT + TUNE.heatEvery; UI.say(`🚨 ${"★".repeat(ch.heat)} MORE UNITS!`, "red"); X.whoop(); }
     // reinforcements by heat: 1 · 2 · 2 · 3 · 4 cruisers
     const want = [0, 1, 2, 2, 3, 4][ch.heat];
     const units = L.units.filter(u => u.mode === "chase" && u.car);
     ch.reinfT -= dt;
     if (units.length < want && ch.reinfT <= 0 && units.length < 4) {
         const taken = new Set(units.map(u => u.slot));
-        const slot = SLOTS.find(s => !taken.has(s) && (s !== "front" || ch.heat >= 3) && (s !== "side" || ch.heat >= 3)) || "rear2";
-        spawnChaser(slot);
-        ch.reinfT = 4;
+        const slot = SLOTS.find(s => !taken.has(s) && (s !== "front" || ch.heat >= 4) && (s !== "side" || ch.heat >= 4)) || "rear2";
+        spawnChaser(slot, ch.searching ? "search" : "seen");
+        ch.reinfT = TUNE.reinforce;
     }
-    // 3★+ the K9 dogs, 4★+ the missiles (2D cadences)
-    if (ch.heat >= 3) { ch.k9T -= dt; if (ch.k9T <= 0) { ch.k9T = Math.max(2.2, rand(4.5, 7) - ch.heat * 0.4); if (ctx.enabled("law")) spawnK9(); } }
-    if (ch.heat >= 4) { ch.mslT -= dt; if (ch.mslT <= 0) { ch.mslT = Math.max(2.4, rand(4, 6) - (ch.heat - 4) * 0.7); if (ctx.enabled("law")) fireMissile(); } }
+    // 3★+ the K9 dogs, 4★+ the missiles — only while they can see her, and dodgeable
+    if (ch.heat >= 3 && !ch.searching) { ch.k9T -= dt; if (ch.k9T <= 0) { ch.k9T = rand(8, 12) - (ch.heat - 3) * 1.5; if (ctx.enabled("law")) spawnK9(); } }
+    if (ch.heat >= 4 && !ch.searching) { ch.mslT -= dt; if (ch.mslT <= 0) { ch.mslT = rand(9, 13) - (ch.heat - 4) * 2; if (ctx.enabled("law")) fireMissile(); } }
     if (ch.heat >= 5) ensureChopper();
 
     // BUSTED meter: a cruiser on top of her while she's slow (or boxed in)
@@ -482,16 +565,26 @@ function updateChase(dt, controlsOn) {
     const close = units.filter(u => !u.car.hit && Math.hypot(u.car.x - car.pos.x, u.car.z - car.pos.z) < 12).length;
     const sp = car.speed;
     let fill = 0;
-    if (near && near.d < 10 && sp < 10) fill = 0.9 * (1 - sp / 10) + (close >= 2 ? 0.45 : 0);
+    // (a moment's slow-down in traffic isn't an arrest; sitting still next to a cruiser is)
+    if (near && near.d < 10 && sp < 9) fill = 0.6 * (1 - sp / 9) + (close >= 2 ? 0.35 : 0);
+
     if (near && near.d < 22 && sp < 2) fill = Math.max(fill, 1.2);
     ch.bust = clamp(ch.bust + (fill > 0 ? fill * dt : -0.5 * dt), 0, 1);
     if (ch.bust >= 1) { bust(near ? near.u : null); return; }
-    // EVADING meter: get far enough away from every cruiser (the chopper halves it)
+    // SEARCH (GTA): break every cruiser's line of sight — and the chopper's — and keep some distance;
+    // the stars flash while they look for her, and staying hidden long enough loses them. A glimpse
+    // only knocks the progress back a little.
+    const night = nightness();
+    let seen = chopperSees(night);
+    for (const u of units) if (!seen && unitSees(u, ch.heat, night)) seen = true;
     const gap = near ? near.d : 999;
-    const need = 80 + 15 * ch.heat;
-    if (gap > need || !units.some(u => !u.car.hit)) ch.evade = clamp(ch.evade + dt / (L.chopper ? 4.4 : 2.2), 0, 1);
-    else ch.evade = Math.max(0, ch.evade - dt * 0.6);
+    ch.seen = seen;
+    ch.searching = !seen && gap > TUNE.searchGap;
+    const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
+    if (ch.searching) ch.evade = clamp(ch.evade + dt / need, 0, 1);
+    else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
     if (ch.evade >= 1) escape();
+
 }
 
 function escape() {
@@ -530,6 +623,23 @@ function bust(u) {
     emit("cop:chase", { active: false, result: "busted", reason: ch.reason });
     setState("lawBust", { unit: u, reason: ch.reason, charges: ch.explicit ? ch.charges.slice() : null,
         extra: ch.charges.filter(c => c !== ch.reason), fugitive: !!L.fug });
+}
+
+// ── near misses rattle traffic: a car she just skimmed past swerves and brakes,
+//    and a cruiser right behind her reacts late (cop pile-ups shake the tail) ──
+export function spook() {
+    if (!L.chase) return;
+    const car = ctx.car, fx = Math.sin(car.h), fz = Math.cos(car.h);
+    for (const c of ctx.traffic.cars) {
+        if (c.hit || (c.data && c.data.law) || c.ai) continue;
+        const dx = c.x - car.pos.x, dz = c.z - car.pos.z, lon = dx * fx + dz * fz;
+        if (lon > 2 || lon < -12 || Math.abs(dx * -fz + dz * fx) > 5.5) continue;
+        c.data.spookT = ctx.time + 2.2;
+        c.want = Math.max(0, c.speed - 9);
+        const lanes = c.dir > 0 ? LANES_OURS : [-1.75, -5.25];
+        const other = lanes.find(l => Math.abs(l - c.dTarget) > 1);
+        if (other !== undefined && Math.random() < 0.6) { c.dTarget = other; c.laneCooldown = 3; }
+    }
 }
 
 // ── random cop events while driving ──────────────────────────────────────
@@ -732,11 +842,15 @@ export function spawnK9() {
     let t = 0, barkT = rand(0.3, 0.9), hit = false;
     X.bark();
     UI.say("🐕 K9 LOOSE!", "gold");
+    const threat = { kind: "k9", s, d };
+    L.threats.add(threat);
     addActor({
         update(dt) {
             t += dt;
             s -= 9 * dt;
-            d += (car.d - d) * Math.min(1, 0.9 * dt);     // soft homing — a lane change can shake the dog
+            // soft homing, and it commits to a line in the last few metres — a late lane change shakes the dog
+            if (s - car.s > 18) d += (car.d - d) * Math.min(1, 0.55 * dt);
+            threat.s = s; threat.d = d;
             road.point(s, d, tmpQ);
             const h = road.at(s).h + Math.PI;
             dog.position.set(tmpQ.x, Math.abs(Math.sin(t * 9)) * 0.12, tmpQ.z);
@@ -748,14 +862,17 @@ export function spawnK9() {
             if (barkT <= 0) { barkT = rand(0.6, 1.2); if (Math.abs(car.s - s) < 60) X.bark(); }
             return !hit && car.s - s < 40;
         },
+        dispose() { ctx.scene.remove(dog); L.threats.delete(threat); },
         collide(pc) {
             const dx = dog.position.x - pc.pos.x, dz = dog.position.z - pc.pos.z;
-            if (hit || dx * dx + dz * dz > 2.6 * 2.6 || ctx.G.invT > 0) return null;
+            if (hit || dx * dx + dz * dz > 1.9 * 1.9 || ctx.G.invT > 0) return null;
             hit = true;
-            UI.say("🐕 CHOMP!", "red");
-            return { impact: 8, why: "🐕 The K9 got your bumper!", source: "law:k9" };
+            // below 5★ the dog just hangs off the bumper: it slows her down (the cruisers close in), no heart
+            const heat = L.chase ? L.chase.heat : 5;
+            UI.say(heat >= 5 ? "🐕 CHOMP!" : "🐕 CHOMP! It's got the bumper!", "red");
+            pc.vx *= 0.6; pc.vz *= 0.6;
+            return { impact: 8, why: "🐕 The K9 got your bumper!", source: "law:k9", harmless: heat < 5 };
         },
-        dispose() { ctx.scene.remove(dog); },
     });
 }
 
@@ -771,11 +888,15 @@ export function fireMissile() {
     let t = 0, hit = false;
     X.missileLaunch();
     UI.say("🚀 INCOMING!", "red");
+    const threat = { kind: "missile", s, d };
+    L.threats.add(threat);
     addActor({
         update(dt) {
             t += dt;
             s -= 22 * dt;
-            d += (car.d - d) * Math.min(1, 1.25 * dt);
+            if (s - car.s > 32) d += (car.d - d) * Math.min(1, 0.8 * dt);      // locks on, then flies straight: a late lane change dodges it
+            threat.s = s; threat.d = d;
+
             road.point(s, d, tmpQ);
             const h = road.at(s).h + Math.PI;
             m.position.set(tmpQ.x, 1.0 + Math.sin(t * 7) * 0.05, tmpQ.z);
@@ -785,14 +906,15 @@ export function fireMissile() {
         },
         collide(pc) {
             const dx = m.position.x - pc.pos.x, dz = m.position.z - pc.pos.z;
-            if (hit || dx * dx + dz * dz > 2.4 * 2.4 || ctx.G.invT > 0) return null;
+            if (hit || dx * dx + dz * dz > 2.0 * 2.0 || ctx.G.invT > 0) return null;
+
             hit = true;
             X.boom();
             pc.fx.burst(m.position.x, 1, m.position.z, 30, 7, [1, 0.6, 0.2], 0.7, 0.8);
             pc.fx.burst(m.position.x, 1, m.position.z, 16, 3, [0.4, 0.4, 0.42], 1.6, 1.4);
             return { impact: 11, why: "🚀 A cop MISSILE?! Really?!", source: "law:missile" };
         },
-        dispose() { ctx.scene.remove(m); },
+        dispose() { ctx.scene.remove(m); L.threats.delete(threat); },
     });
 }
 
@@ -809,7 +931,7 @@ export function ensureChopper() {
     const pool = new THREE.Mesh(washGeo, new THREE.MeshBasicMaterial({ map: glow(), color: "#fff6c8", transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
     pool.rotation.x = -Math.PI / 2; pool.scale.setScalar(10);
     ctx.scene.add(g, cone, pool);
-    const ch = { g, r, rotor, tail, cone, pool, t: 0, x: ctx.car.pos.x, z: ctx.car.pos.z - 40, thumpT: 0 };
+    const ch = { g, r, rotor, tail, cone, pool, coneMat, t: 0, x: ctx.car.pos.x, z: ctx.car.pos.z - 40, thumpT: 0, poolX: ctx.car.pos.x, poolZ: ctx.car.pos.z };
     L.chopper = ch;
     H.banner(`<b>🚁 POLICE AIR UNIT</b><small>They've got eyes in the sky!</small>`, 2000);
     addActor({
@@ -818,16 +940,30 @@ export function ensureChopper() {
             ch.t += dt;
             const car = ctx.car;
             const tx = car.pos.x - Math.sin(car.h) * 8 + Math.cos(ch.t * 0.4) * 6, tz = car.pos.z - Math.cos(car.h) * 8;
-            ch.x += (tx - ch.x) * Math.min(1, dt * 1.6); ch.z += (tz - ch.z) * Math.min(1, dt * 1.6);
+            // it's quick, but flat out (or on nitro) she can outrun it
+            let mx = (tx - ch.x) * Math.min(1, dt * 1.6), mz = (tz - ch.z) * Math.min(1, dt * 1.6);
+            const step = Math.hypot(mx, mz), vmax = luluTop() * TUNE.chopperSpeed * dt;
+            if (step > vmax) { mx *= vmax / step; mz *= vmax / step; }
+            ch.x += mx; ch.z += mz;
             const y = 21 + Math.sin(ch.t * 1.3) * 1.2;
             g.position.set(ch.x, y, ch.z);
             g.rotation.set(0.12, car.h, Math.sin(ch.t * 0.9) * 0.06);   // nose (+Z) leans into the chase
             if (rotor) rotor.rotation.y += dt * 38;
             if (tail) tail.rotation.x += dt * 50;
             setRig(r, true, ctx.time * 1.4);
+            // the searchlight tracks her with a little lag and only reaches so far from the chopper
             const sway = Math.sin(ch.t * 1.1) * 2.5;
-            const px = car.pos.x + Math.cos(car.h) * sway, pz = car.pos.z - Math.sin(car.h) * sway;
+            let px = car.pos.x + Math.cos(car.h) * sway, pz = car.pos.z - Math.sin(car.h) * sway;
+            ch.poolX += (px - ch.poolX) * Math.min(1, dt * 3.2); ch.poolZ += (pz - ch.poolZ) * Math.min(1, dt * 3.2);
+            const rx = ch.poolX - ch.x, rz = ch.poolZ - ch.z, reach = Math.hypot(rx, rz);
+            if (reach > 30) { ch.poolX = ch.x + rx * 30 / reach; ch.poolZ = ch.z + rz * 30 / reach; }
+            px = ch.poolX; pz = ch.poolZ;
             pool.position.set(px, 0.08, pz);
+            // a faint shaft by day, a proper spotlight cone at night
+            const night = nightness();
+            coneMat.opacity = 0.035 + 0.2 * night;
+            pool.material.opacity = 0.22 + 0.6 * night;
+
             const sx = ch.x, sz = ch.z, sy = y - 0.9;
             const len = Math.hypot(px - sx, sy, pz - sz);
             cone.position.set((sx + px) / 2, sy / 2, (sz + pz) / 2);
@@ -909,7 +1045,12 @@ export function hud() {
     if (!ch && !f && L.radar < 0.02 && !S.wanted.length) { UI.wantedHud(null); return; }
     const info = { stars: 0, tag: "", fug: !!f, blink: false };
     if (f) { info.stars = fugitiveStars(f.t); info.tag = "🔒 FUGITIVE"; info.blink = true; info.spot = ch ? 0 : clamp(f.spot / Math.max(0.7, 1.6 - info.stars * 0.2), 0, 1); }
-    if (ch) { info.stars = Math.max(info.stars, ch.heat); info.tag = f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT"; info.bust = ch.bust; info.evade = ch.evade; info.blink = true; }
+    if (ch) {
+        info.stars = Math.max(info.stars, ch.heat);
+        info.search = !!ch.searching;
+        info.tag = ch.searching ? (f ? "🔒 FUGITIVE · SEARCHING" : "👀 SEARCHING…") : (f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT");
+        info.bust = ch.bust; info.evade = ch.evade; info.blink = !ch.searching;
+    }
     else if (!f && S.wanted.length) { info.tag = "⚠️ WANTED"; info.stars = 0; info.spot = clamp(L.wantedSpot / 0.7, 0, 1); }
     info.radar = ch ? 0 : L.radar;
     UI.wantedHud(info);
@@ -918,7 +1059,8 @@ export function hud() {
 /** Clear the road side of the law (new run / title). Traffic + actors are cleared by core. */
 export function resetRunState() {
     L.chase = null; L.units.length = 0; L.traps.length = 0; L.spawnT = {}; L.grace = 0; L.apbCool = 22;
-    L.wantedSpot = 0; L.wantedPatrolT = rand(4, 7); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60);
+    L.wantedSpot = 0; L.wantedPatrolT = rand(4, 7); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60); L.threats.clear();
+
     X.sirenOff();
     UI.wantedHud(null);
 }
