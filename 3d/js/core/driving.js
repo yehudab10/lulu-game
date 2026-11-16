@@ -306,7 +306,8 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
 
     A.updateEngine(car.vF, controlsOn ? ctl.throttle : 0, car.slip, offroad + (onShoulder && car.speed > 8 ? 0.4 : 0), G.boosting, true);
     A.sfxHorn(controlsOn && input.honkHeld && !G.customHorn);
-    car.updateVisual(dt, ctx.time, ctl, G.invT > 0);
+    // (no i-frame blink once she's wrecked: the fatal hit's invT would flicker the car + Lulu all through the spin-out)
+    car.updateVisual(dt, ctx.time, ctl, G.invT > 0 && ctx.state !== "wrecked");
     return rp;
 }
 

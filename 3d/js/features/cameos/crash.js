@@ -26,7 +26,14 @@ import { resumeDriving } from "./resume.js";
 registerModels({
     cameos_grandpa: "cameos_grandpa", cameos_business: "cameos_business", cameos_teen: "cameos_teen", cameos_tourist: "cameos_tourist",
     cameos_delivery: "cameos_delivery", cameos_hipster: "cameos_hipster", cameos_duck: "cameos_duck", cameos_raccoon: "cameos_raccoon",
+    roadevents_ostrich: "roadevents_ostrich",      // the crossing ostrich's own model (same key/file as roadevents)
 });
+// the furious kin, per species: model, scale, angry-hop height, label for the quote
+const SWARM = {
+    duck: { model: "cameos_duck", scale: 1.5, hop: 0.22, label: "ducks 🦆" },
+    raccoon: { model: "cameos_raccoon", scale: 1.25, hop: 0.22, label: "raccoons 🦝" },
+    ostrich: { model: "roadevents_ostrich", scale: 0.9, hop: 0.07, label: "ostriches 🦤", stomp: true },
+};
 
 // ── what the angry (or scared, or sad) driver yells ──────────────────────
 const CAR_YELLS = ["YOU WRECKED MY CAR!!", "MY INSURANCE!!", "20 YEARS, NO CLAIMS — GONE!", "DO YOU SEE THIS DENT?!", "I JUST WAXED THIS!!",
@@ -74,6 +81,16 @@ on("crash", e => { lastCrash = e; lastCrashT = ctx.time; if (e.car) e.__otherMph
 on("damage", info => { lastDamage = { info, crash: ctx.time - lastCrashT < 0.25 ? lastCrash : null, t: ctx.time }; });
 on("run:start", () => { lastDamage = null; cause = null; });
 
+/** Which animal it was: the hit's own report (roadevents: `animal`), else the words (why / source). */
+function speciesOf(e, info) {
+    const a = e && e.actor;
+    const named = [e && e.animal, a && a.animal && a.animal.type, a && a.species].find(x => typeof x === "string" && SWARM[x.toLowerCase()]);
+    if (named) return named.toLowerCase();
+    const words = [e && e.why, e && e.source, e && e.kind, info && info.why, info && info.source].filter(x => typeof x === "string").join(" ");
+    const m = /ostrich|raccoon/i.exec(words);
+    return m ? m[0].toLowerCase() : "duck";
+}
+
 /** What the final hit was: { kind: "car" | "animal" | "other", … } */
 export function classify(ld = lastDamage) {
     const e = ld && ld.crash, src = (ld && ld.info && ld.info.source) || "";
@@ -87,12 +104,12 @@ export function classify(ld = lastDamage) {
     }
     if (e && e.actor) {
         const a = e.actor;
-        const k = [e.source, e.kind, a.kind, a.animal, a.type, a.species].filter(x => typeof x === "string").join(" ");
-        if (ANIMAL_RE.test(k)) return { kind: "animal", species: /raccoon/i.test(k) ? "raccoon" : "duck", what: k };
+        const k = [e.source, e.kind, e.animal, a.kind, a.animal, a.type, a.species].filter(x => typeof x === "string").join(" ");
+        if (ANIMAL_RE.test(k)) return { kind: "animal", species: speciesOf(e, ld.info), what: k };
         return { kind: "other", what: e.source || a.kind || src };
     }
     if (e && e.collider) return { kind: "other", what: e.collider.kind || src };
-    if (ANIMAL_RE.test(src)) return { kind: "animal", species: /raccoon/i.test(src) ? "raccoon" : "duck", what: src };
+    if (ANIMAL_RE.test(src)) return { kind: "animal", species: speciesOf(null, ld && ld.info), what: src };
     return { kind: "other", what: src };
 }
 
@@ -101,7 +118,7 @@ on("wreck", () => {
     if (!ctx.enabled("cameos")) return;
     cause = classify();
     const keys = ["hillelPerson", "copPerson", "cameos_props"];
-    if (cause.kind === "animal") keys.push(cause.species === "raccoon" ? "cameos_raccoon" : "cameos_duck");
+    if (cause.kind === "animal") keys.push((SWARM[cause.species] || SWARM.duck).model);
     if (cause.kind === "car") {
         cause.type = cause.cop || /drunk|texting/.test(cause.behavior) ? null : pickW(STRANGER_TYPES);
         keys.push(cause.cop ? "copPerson" : cause.type ? cause.type.model : "npcMan");
@@ -540,8 +557,16 @@ async function grant(s, kind) {
 }
 
 // ── an animal: its furious kin ───────────────────────────────────────────
+const _fq = new THREE.Quaternion(), _fe = new THREE.Euler();
+/** Wings out to the sides (an ostrich's "arms"), after person.update() posed them. */
+function flap(p, a) {
+    for (const [n, sgn] of [["Arm_L", 1], ["Arm_R", -1]]) {
+        const l = p.limbs[n];
+        if (l) l.quaternion.copy(l.userData.base).multiply(_fq.setFromEuler(_fe.set(0, 0, sgn * a)));
+    }
+}
 async function animalScene(s) {
-    const car = ctx.car, key = s.cause.species === "raccoon" ? "cameos_raccoon" : "cameos_duck";
+    const car = ctx.car, sw = SWARM[s.cause.species] || SWARM.duck, key = sw.model;
     const n = 6 + Math.floor(Math.random() * 3);
     const dMin = s.ext + 1.5;
     s.shot = "orbit";
@@ -550,7 +575,8 @@ async function animalScene(s) {
         const ds = -4.5 + (Math.floor(i / 2) / Math.max(1, Math.ceil(n / 2) - 1)) * 9 + rand(-0.6, 0.6);
         let d = car.d + side * (dMin + rand(0, 1.6));
         if (Math.abs(d) > 11) d = car.d - side * (dMin + rand(0, 1.6));
-        const k = actor(key, { scale: key === "cameos_duck" ? 1.5 : 1.25 });
+        const k = actor(key, { scale: sw.scale });
+        k.key = key;
         k.s = car.s + ds; k.d = d; k.state = "taunt"; k.ph = rand(0, 6);
         placeOnRoad(k.obj, k.s, k.d);
         k.base = k.obj.position.clone();
@@ -559,12 +585,19 @@ async function animalScene(s) {
         k.extra = dt => {
             if (k.state !== "taunt") return;
             k.ph += dt;
-            k.obj.position.y = Math.abs(Math.sin(k.ph * 5)) * 0.22;      // angry little hops
+            if (sw.stomp) {
+                // an ostrich stomps in place, flapping its stubby wings
+                k.obj.position.y = Math.abs(Math.sin(k.ph * 7)) * sw.hop;
+                k.anim = { talk: true, walk: 1.4 };
+                flap(k.p, Math.max(0, Math.sin(k.ph * 9)) * 0.9);
+                return;
+            }
+            k.obj.position.y = Math.abs(Math.sin(k.ph * 5)) * sw.hop;     // angry little hops
             k.anim = { talk: true, cheer: Math.sin(k.ph * 2.3) > 0.4 };
         };
         s.kin.push(k);
     }
-    const species = s.cause.species === "raccoon" ? "raccoons 🦝" : "ducks 🦆";
+    const species = sw.label;
     let lastInsult = pick(ANIMAL_INSULTS);
     let bubbleT = 0, spawnT = 0.6;
     const t0 = ctx.time;

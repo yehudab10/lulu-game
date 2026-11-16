@@ -215,7 +215,7 @@ function buildRoom() {
     const R0 = { hemi: set.hemi.intensity, sun: set.sun.intensity };
     const nightCol = new THREE.Color("#4A4F8F"), white = new THREE.Color("#FFFFFF");
     return {
-        set, scene, bed, quilt, doorLeaf, morgan, sticker, tablet, stars, lampLight,
+        set, scene, bed, quilt, doorLeaf, morgan, sticker, tablet, pouf, stars, lampLight,
         dispose() { set.dispose(); },
         tick(dt, t) {
             drawTablet(dt);
