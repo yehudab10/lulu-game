@@ -128,7 +128,7 @@ Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journ
   Without `group`, the order decides: < 70 play · 70–79 garage · ≥ 80 more. More than 6 play tiles spill into
   "🎲 More to play". `sub` = a subtitle line (string or fn); `short` = the name in its group tile's summary.
 - Title order guide: 10 story · 20 cruise · 30 shop · 32 car · 35 Dina · 40 parking challenge · 50 scrapbook ·
-  55 quests · 60 🎉 party (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
+  55 quests · 57 💼 side jobs (book) · 60 🎉 party (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
 - `titleInfo` items: `bar: true` (a chip in the home top bar), `for: "<item id>"` (appended to that item's
   subtitle) or `group: "<group>"` (a line atop that sub-menu); otherwise a small note at the foot of the home card.
 - pause `group`: `"main"` (full width), `"tools"` (2-column grid) or `"exit"` (quiet bottom row); default by
@@ -233,8 +233,8 @@ to stop a crash with it costing a heart. `traffic.config = { enabled, ours, onco
 ## Input (`js/input.js`)
 `input.steer throttle brake handbrake boost honkHeld moveX moveY lookX lookY interactHeld fireHeld device padKind padConnected`.
 Edges in `P` (passed to update): `confirm back up down navLeft navRight start pause honk camera boost
-fire item interact map tabPrev tabNext`. Controller: ✕/A confirm+interact, ○/B back, D-pad ↑ fire,
-↓ item, L1/R1 tabs in menus, touchpad/View map. `glyph(action)` → the right button label for the
+fire item interact map tabPrev tabNext music radio`. Controller: ✕/A confirm+interact, ○/B back, D-pad ↑ fire,
+↓ item, L1/R1 tabs in menus, touchpad/L3 map, View/Create (button 8) `radio` (keyboard T). `glyph(action)` → the right button label for the
 current device (PlayStation symbols on a DualSense). `addTouchButton({id, emoji, label, action, visible})`.
 `input.stick2d = true` makes the touch stick 2-D (on foot / Dina). `rumble(strong, weak, ms)`.
 
@@ -262,7 +262,7 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 
 ## Audio (`js/audio.js`)
 `sfxCoin sfxCloseCall sfxBoost sfxCrash sfxBump sfxHorn(on) sfxSiren sfxFanfare sfxSelect sfxMove`,
-`setMusic(url)` — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
+`setMusic(url)` (`musicSrc()` = what's playing; the 📻 radio uses it to tell the game's pick from its own) — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
 ../parking.mp3 ../salon.mp3 ../wedding.mp3 ../prison.mp3 ../court.mp3 ../walking.mp3 ../er1.mp3 ../er2.mp3
 ../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
@@ -273,7 +273,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, streets and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -311,9 +311,10 @@ and keep working sensibly when another feature is missing.
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
-| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
+| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
+| `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
@@ -333,8 +334,8 @@ on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameov
 
 **Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
 inside its hub; its own title button shows only when the party feature is off).
-**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · settings 35 (the button guide is
-inside) · Shared Road 40 · restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
+**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📻 radio 11 · 📸 photo mode 12 · settings 35 (the button guide is
+inside) · Shared Road 40 · 💼 quit job 78 (exit row, only during a job) · restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
 
 **Lulu's in-car rig (banter):** at runtime the car's `Driver` mesh is carved into `BanterBody`,
 `BanterHead`, `BanterArmL`, `BanterArmR` pivots (meshes named `BanterPart`, original materials, so
@@ -346,3 +347,13 @@ LEAPFROG) and `ctx.states.playing.update` (slow-mo `dt` scale, exactly 1 outside
 
 **Hair:** the salon (cameos) adds styles with `car.addHairStyle(style, obj)` and registers
 `luluPerson_<style>` models for on-foot Lulu; foot uses `models["luluPerson_" + style] || models.luluPerson`.
+
+**Side hustles (hustle):** random offers (a ringing payphone / the HELP WANTED board 720 m up the road, or a
+`ctx.phone.call`) come only in Cruise, never in Story / a party / a chase / on foot / the tutorial, and only
+when `ctx.enabled("hustle")`. A job's UI is the objective line + a distance chip (`.hud-secondary`) at the
+top of the "center" slot and a pooled beacon in the world — nothing shows outside a job. Pass / fail is the
+state `hustleResult` (a card; the car rolls to a stop behind it); a job that fails while Lulu is elsewhere
+(busted → law's scenes, a wreck) shows its card the next time she's driving in the same run. The heist exit
+is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music while she's in the car (driving
+states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
+leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.

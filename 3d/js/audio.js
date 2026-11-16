@@ -233,6 +233,9 @@ export function setMusic(src) {
     if (musicOn && ctx) music.play().catch(() => {});
 }
 
+/** The music track playing now (its url as passed to setMusic) or null. */
+export function musicSrc() { return music ? music.dataset.src : null; }
+
 export function toggleMusic() {
     musicOn = !musicOn;
     if (music) { if (musicOn) music.play().catch(() => {}); else music.pause(); }

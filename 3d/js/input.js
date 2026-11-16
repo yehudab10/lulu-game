@@ -9,7 +9,7 @@
 //   X / □ ............. handbrake (drift!)      Y / △ ...... change camera
 //   RB / R1 ........... nitro boost             LB / L1 .... horn
 //   Right stick ....... look around             R3 (click) . look behind
-//   Start / Options ... pause                   View / Share  change camera
+//   Start / Options ... pause                   View / Create  car radio (next station)
 //   D-pad ↑ ........... fire (missile)          D-pad ↓ .... item (pepper spray / shield)
 //   A / ✕ on foot ..... interact                Touchpad / L3  map / scrapbook
 // In menus: D-pad / stick move, A/✕ select, B/○ back, LB/RB switch tabs.
@@ -23,7 +23,7 @@ const KEYMAP = {
     Space: "handbrake", ShiftLeft: "boost", ShiftRight: "boost", KeyN: "boost",
     KeyH: "honk", KeyC: "camera", KeyP: "pause", Escape: "pause", KeyV: "lookBack",
     KeyM: "fire", KeyF: "fire", KeyG: "item", KeyE: "interact", KeyQ: "tabPrev", KeyR: "tabNext",
-    Tab: "map", KeyU: "music",
+    Tab: "map", KeyU: "music", KeyT: "radio",
     Enter: "confirm", NumpadEnter: "confirm", Backspace: "back",
     // PS5 / TV browsers and some remotes send these for the controller / remote
     BrowserBack: "back", GoBack: "back", MediaPlayPause: "pause", ContextMenu: "pause",
@@ -45,7 +45,7 @@ export const input = {
     moveX: 0, moveY: 0,
     interactHeld: false, fireHeld: false, backHeld: false,
     // edge-triggered, valid for the frame after update(): confirm back up down navLeft
-    // navRight start pause honk camera boost fire item interact map tabPrev tabNext music
+    // navRight start pause honk camera boost fire item interact map tabPrev tabNext music radio
     pressed: {},
     // which device the player is using right now: "keyboard" | "gamepad" | "touch"
     device: "keyboard",
@@ -264,7 +264,8 @@ export function updateInput(dt) {
         backHeld = backHeld || down(1);
 
         if (edge(4)) P.honk = true;
-        if (edge(3) || edge(8)) P.camera = true;
+        if (edge(3)) P.camera = true;
+        if (edge(8)) P.radio = true;          // View / Create / − : the car radio (was a 2nd camera button)
         if (edge(9)) { P.pause = true; P.start = true; }
         if (edge(0)) { P.confirm = true; P.interact = true; }
         if (edge(1)) P.back = true;
@@ -355,18 +356,18 @@ export function triggerRumble(left, right, ms) {
 const GLYPHS = {
     xbox: { confirm: "A", back: "B", gas: "RT", brake: "LT", handbrake: "X", camera: "Y", boost: "RB", honk: "LB",
         pause: "☰", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "A", map: "View", tabPrev: "LB", tabNext: "RB" },
+        interact: "A", map: "L3", radio: "View", tabPrev: "LB", tabNext: "RB" },
     ps: { confirm: "✕", back: "○", gas: "R2", brake: "L2", handbrake: "□", camera: "△", boost: "R1", honk: "L1",
         pause: "OPTIONS", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "✕", map: "TOUCHPAD", tabPrev: "L1", tabNext: "R1" },
+        interact: "✕", map: "TOUCHPAD", radio: "CREATE", tabPrev: "L1", tabNext: "R1" },
     nintendo: { confirm: "B", back: "A", gas: "ZR", brake: "ZL", handbrake: "Y", camera: "X", boost: "R", honk: "L",
         pause: "+", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "B", map: "−", tabPrev: "L", tabNext: "R" },
+        interact: "B", map: "L3", radio: "−", tabPrev: "L", tabNext: "R" },
     keyboard: { confirm: "Enter", back: "Esc", gas: "↑ / W", brake: "↓ / S", handbrake: "Space", camera: "C", boost: "Shift",
         honk: "H", pause: "P", look: "", lookBack: "V", steer: "← → / A D", music: "U", move: "WASD / arrows",
-        fire: "M", item: "G", interact: "E", map: "Tab", tabPrev: "Q", tabNext: "R" },
+        fire: "M", item: "G", interact: "E", map: "Tab", radio: "T", tabPrev: "Q", tabNext: "R" },
     touch: { confirm: "Tap", back: "Back", gas: "GAS", brake: "BRAKE", handbrake: "", camera: "CAM", boost: "NITRO",
-        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", map: "📒",
+        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", map: "📒", radio: "📻",
         tabPrev: "◀", tabNext: "▶" },
 };
 
