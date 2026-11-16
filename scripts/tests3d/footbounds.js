@@ -196,21 +196,26 @@ module.exports = {
     }
 
     // ── 5. jaywalking down the lanes ──
+    await t.L(`import("./js/core/ctx.js").then(C => { const log = window.__fbLog = []; C.on("foot:end", e => log.push("end:" + e.why + "@" + C.ctx.state));
+      C.on("state", e => log.push(e.from + ">" + e.to)); return true; })`);
+    await t.frames(30);
     await g(`(ctx.traffic.clear(), ctx.foot.start("droveOff", { noIntro: true }))`);
     if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "back on foot")) return;
+    await t.frames(20);
+    if (!t.check("the walk sticks (no stray state change)", await g(`ctx.state === "footRun" && ctx.foot.active`), await t.L(`JSON.stringify(window.__fbLog)`))) return;
     await g(`(Object.assign(ctx.foot.bounds.NUDGE, { laneWarn: 3, laneStar: 3, gap: 4 }), ctx.foot.bounds.debug.aim(0), true)`);
     await place(3.5);
     await t.stick(0, -0.45);
     for (let i = 0; i < 60 && !(await g(`!!(ctx.foot.bounds.state.cop && ctx.foot.bounds.state.cop.phase === "wait")`)); i++) {
       await t.frames(10);
-      await g(`(() => { const F = ctx.foot.debug.F; if (Math.abs(F.d - 3.5) > 0.3) { const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); } F.behindT = 1e9; ctx.G.invT = 5; return true; })()`);
+      await g(`(() => { const F = ctx.foot.debug.F; if (!F) return false; if (Math.abs(F.d - 3.5) > 0.3) { const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); } F.behindT = 1e9; ctx.G.invT = 5; return true; })()`);
     }
-    t.check("walking down the lanes: a cop pulls up — Ma'am, this is a HIGHWAY", await g(`!!ctx.foot.bounds.state.cop && ctx.foot.bounds.state.warned`));
+    t.check("walking down the lanes: a cop pulls up — Ma'am, this is a HIGHWAY", await g(`!!(ctx.foot.bounds.state && ctx.foot.bounds.state.cop && ctx.foot.bounds.state.warned)`), await t.L(`JSON.stringify(window.__fbLog)`));
     await t.frames(8);
     await t.shot("cop-warning");
     for (let i = 0; i < 40 && !(await B("starred")); i++) {
       await t.frames(10);
-      await g(`(() => { const F = ctx.foot.debug.F; const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); ctx.G.invT = 5; return true; })()`);
+      await g(`(() => { const F = ctx.foot.debug.F; if (!F) return false; const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); ctx.G.invT = 5; return true; })()`);
     }
     t.check("…keep at it: a mild ★ (a JAYWALKING warrant)", await B("starred") && await g(`!ctx.law || ctx.law.warrants.includes("JAYWALKING")`), JSON.stringify(await g(`ctx.law && ctx.law.warrants`)));
     await t.stick(0, 0);
