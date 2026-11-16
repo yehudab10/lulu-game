@@ -11,8 +11,9 @@ module.exports = {
     distractedUnlocked: false, horn: "beep", ownedHorns: ["beep"], decor: "none", ownedDecor: [] },
   async run(t) {
     await t.frames(10);
-    t.check("title has the 🛒 Shop item", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Shop/.test(b.textContent))`));
-    t.check("title shows the next-ride nudge", await t.L(`!!document.querySelector(".gx-next")`));
+    t.check("title has the 🛒 Shop item", (await t.titleItems()).some(s => /Shop/.test(s)));
+    await t.game(`L3.openView("garage")`);     // 🚗 Garage sub-menu: the shop row carries the next-ride nudge
+    t.check("the Shop row shows the next-ride nudge", await t.L(`!!document.querySelector("#shop .gx-next")`));
 
     // ── open the shop ──
     await t.click(/Shop/);
@@ -91,7 +92,7 @@ module.exports = {
     // ○ back to the title
     await t.tap(1); await t.frames(3);
     t.check("○ leaves the shop", await t.game(`ctx.state === "title" && ctx.view === null`));
-    t.check("title shows the Distracted toggle", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Distracted: ON/.test(b.textContent))`));
+    t.check("title shows the Distracted toggle", (await t.titleItems()).some(s => /Distracted: ON/.test(s)));
 
     // ── drive ──
     await t.game(`L3.startRun({ mode: "cruise" })`);

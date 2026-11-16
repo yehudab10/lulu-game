@@ -24,27 +24,23 @@ import { fireMissile, usePepper, useShieldNow, setDistracted, distracted, garage
 import { shopDebug } from "./shop.js";
 
 // ── title menu ───────────────────────────────────────────────────────────
-addMenuItem("title", { id: "shop", order: 30, cls: "gx-gold", label: "🛒 Shop", action: () => setState("shop", { tab: "cars" }) });
+addMenuItem("title", { id: "shop", order: 30, group: "garage", cls: "gx-gold", label: "🛒 Shop", sub: nextRideHtml, action: () => setState("shop", { tab: "cars" }) });
 addMenuItem("title", {
-    id: "distracted", order: 31, cls: "purple",
+    id: "distracted", order: 72, group: "garage", cls: "purple", sub: "phone in hand: 2× score, reversed steering",
     visible: () => inv.distractedUnlocked,
     label: () => `📱 Distracted: ${distracted() ? "ON" : "OFF"}`,
     action: btn => { setDistracted(!distracted()); S.sfxPhone(); if (btn) btn.innerHTML = `📱 Distracted: ${distracted() ? "ON" : "OFF"}`; },
 });
-// "next ride" progress toward the cheapest car you don't own yet (2D game-over nudge)
-addMenuItem("titleInfo", {
-    id: "garage_next",
-    label: () => {
-        syncInv();
-        const next = SKIN_KEYS.filter(k => !inv.ownedSkins.includes(k)).sort((a, b) => SKIN_SHOP[a].price - SKIN_SHOP[b].price)[0];
-        if (!next) return "";
-        const sk = SKINS[next], price = SKIN_SHOP[next].price, have = wallet.coins;
-        const f = Math.max(0, Math.min(1, have / price));
-        return `<div class="gx-next"><span>next ride: <b>${sk.name}</b></span>
-            <div class="gx-nbar"><i style="width:${(f * 100).toFixed(0)}%;background:linear-gradient(90deg, ${sk.dark}, ${sk.body})"></i></div>
-            <span>${f >= 1 ? `💰 ${price.toLocaleString()} — it's waiting in the shop!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span></div>`;
-    },
-});
+// "next ride" progress toward the cheapest car you don't own yet (2D game-over nudge) — the Shop row's subtitle
+function nextRideHtml() {
+    syncInv();
+    const next = SKIN_KEYS.filter(k => !inv.ownedSkins.includes(k)).sort((a, b) => SKIN_SHOP[a].price - SKIN_SHOP[b].price)[0];
+    if (!next) return "cars · items · bling";
+    const sk = SKINS[next], price = SKIN_SHOP[next].price, have = wallet.coins;
+    const f = Math.max(0, Math.min(1, have / price));
+    return `<span class="gx-next"><span>next ride: <b>${sk.name}</b> · ${f >= 1 ? `💰 ${price.toLocaleString()} — it's waiting!` : `${have.toLocaleString()} / ${price.toLocaleString()} 💰`}</span>
+        <span class="gx-nbar"><i style="width:${(f * 100).toFixed(0)}%;background:linear-gradient(90deg, ${sk.dark}, ${sk.body})"></i></span></span>`;
+}
 
 // ── the service other features use ───────────────────────────────────────
 const FIELD = { missile: "missiles", missiles: "missiles", pepper: "pepperSpray", pepperSpray: "pepperSpray", shield: "shields", shields: "shields" };
@@ -81,9 +77,10 @@ css("garage", `
 .btn.gx-gold { background: linear-gradient(#FFC107, #FF8F00); color: #2b1b00; }
 .btn.gx-gold .glyph { background: rgba(0,0,0,.75); color: #fff; }
 .gx-next { margin: 8px auto 2px; width: min(320px, 100%); font-size: 13px; font-weight: 600; opacity: .85; display: flex; flex-direction: column; gap: 3px; align-items: center; }
-.gx-nbar { width: 100%; height: 9px; border-radius: 999px; background: rgba(0,0,0,.12); overflow: hidden; }
+.gx-nbar { display: block; width: 100%; height: 9px; border-radius: 999px; background: rgba(0,0,0,.12); overflow: hidden; }
 .gx-nbar i { display: block; height: 100%; border-radius: 999px; }
 .gx-hud { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+@media (min-aspect-ratio: 1/1) { body.touch .gx-hud { flex-direction: row-reverse; flex-wrap: wrap; } }   /* phones on their side: one row, clear of the touch buttons */
 .gx-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 15px; }
 .gx-chip .glyph { min-width: 20px; height: 20px; font-size: 10px; }
 .gx-chip.pink { background: rgba(255,128,171,.92); color: #fff; }

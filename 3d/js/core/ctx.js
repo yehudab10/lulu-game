@@ -143,10 +143,18 @@ export function currentState() { return ctx.states[ctx.state]; }
 // ── menus: features add buttons to the title / pause / other menus ────────
 const menus = new Map();
 /**
- * addMenuItem("title" | "pause" | <your menu>, {
+ * addMenuItem("title" | "pause" | "settings" | "titleInfo" | <your menu>, {
  *   id, order (lower = higher up), label: string | () => string, cls,
- *   visible: () => bool, action: (buttonEl) => void
+ *   visible: () => bool, action: (buttonEl) => void,
+ *   // optional, title / pause only (see core/screens.js › menu groups):
+ *   group: "play" | "garage" | "book" | "more"   (title)   ·   "main" | "tools" | "exit"   (pause)
+ *          — omitted → a default picked from `order` (menuGroup()), so old items still show up
+ *   sub:   string | () => string   — a small subtitle line under the label (title tiles / rows)
+ *   short: string                  — a 1–2 word name for group summaries ("Shop", "Quests")
  * })
+ * titleInfo items (html lines) may add `bar: true` (a chip in the home screen's top bar),
+ * `for: "<title item id>"` (appended to that item's subtitle) or `group: "<title group>"`
+ * (a line at the top of that sub-menu); with none of these they're a small note on the home card.
  */
 export function addMenuItem(menu, item) {
     if (!menus.has(menu)) menus.set(menu, []);
@@ -155,11 +163,34 @@ export function addMenuItem(menu, item) {
     list.sort((a, b) => a.order - b.order);
     menus.set(menu, list);
 }
+const val = v => typeof v === "function" ? v() : v;
 export function menuItems(menu) {
-    return (menus.get(menu) || []).filter(i => !i.visible || i.visible()).map(i => ({
-        id: i.id, cls: i.cls, action: i.action,
-        label: typeof i.label === "function" ? i.label() : i.label,
-    }));
+    return (menus.get(menu) || []).filter(i => { try { return !i.visible || i.visible(); } catch (e) { console.error(`[menu ${menu}] ${i.id}`, e); return false; } }).map(i => {
+        const o = {
+            id: i.id, cls: i.cls, action: i.action, order: i.order,
+            label: val(i.label),
+            group: menuGroup(menu, i),
+        };
+        if (i.sub !== undefined) { try { o.sub = val(i.sub) || ""; } catch (e) { console.error(`[menu ${menu}] ${i.id} sub`, e); o.sub = ""; } }
+        if (i.short) o.short = i.short;
+        if (i.bar) o.bar = true;
+        if (i.for) o.for = i.for;
+        return o;
+    });
+}
+/**
+ * Which group an item lives in. Explicit `group` wins; otherwise the documented
+ * order guide decides, so items that never heard of groups land somewhere sensible:
+ *   title: < 70 → "play" (the home screen) · 70–79 → "garage" · ≥ 80 → "more"
+ *   pause: < 10 → "main" · 10–69 → "tools" · 70–89 → "main" · ≥ 90 → "exit"
+ */
+export function menuGroup(menu, item) {
+    if (item.group) return item.group;
+    const o = item.order === undefined ? 50 : item.order;
+    if (menu === "title") return o < 70 ? "play" : o < 80 ? "garage" : "more";
+    if (menu === "pause") return o < 10 ? "main" : o < 70 ? "tools" : o < 90 ? "main" : "exit";
+    if (menu === "titleInfo") return "";
+    return "";
 }
 
 // ── actors: things on the road with their own update/collision ───────────

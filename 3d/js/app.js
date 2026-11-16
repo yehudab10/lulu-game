@@ -14,7 +14,7 @@ import * as H from "./hud.js";
 import { cam } from "./core/camera.js";
 import { dialogUpdate, setDialogGlyph } from "./core/dialog.js";
 import { skipInput, skipping, skipBefore, skipAfter, FF_DT, FF_STEPS } from "./core/skip.js";
-import { pause } from "./core/screens.js";
+import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, openView, titleView } from "./core/screens.js";
 import { resetRun, startRun, endRun, damage, addCoins } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import "./features/index.js";
@@ -62,6 +62,7 @@ function applySettings() {
     input.rumbleOn = S.vibration !== false;
     applyTvMode(S.tv === "on" || (S.tv === "auto" && (platform.tv || platform.console)));
     document.documentElement.style.setProperty("--hud-scale", S.hud || 1);
+    applyUiSettings();
     A.setMuted(save3d.sound === false);
     resize();
 }
@@ -112,7 +113,9 @@ async function boot() {
         if (!connected) pause();
         emit("pad", { connected });
     };
+    document.body.classList.toggle("dev-touch", input.device === "touch");
     input.onDeviceChange = d => {
+        document.body.classList.toggle("dev-touch", d === "touch");      // menus drop the button-glyph pills for fingers
         H.setBoost(ctx.G.boost || 0, d === "touch" ? "" : glyph("boost"));
         const def = ctx.states[ctx.state];
         if (def) H.showTouch(!!def.touch && d === "touch");
@@ -173,6 +176,7 @@ function step(dt, P) {
         sun.target.position.copy(ctx.car.pos);
     }
     if (cur && cur.hud) updateHud(dt);
+    H.notifyTick(dt);
 }
 
 function present(dt) {
@@ -207,7 +211,7 @@ function updateHud(dt) {
     H.setScore(G.score);
     H.setBoost(G.boost);
     if (ctx.trip) H.setTrip(ctx.trip.progress(), ctx.trip.label());
-    else H.setTrip(1, `CRUISE · ${((car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`);
+    else H.setTrip(1, `CRUISE · ${Math.max(0, (car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`);
     let hint = "";
     if (ctx.state === "playing" && !ctx.TEST) {
         // Browsers don't count controller buttons as a "user gesture", so sound
@@ -251,6 +255,8 @@ window.__lulu3d = {
     get car() { return ctx.car; }, get world() { return ctx.world; }, get traffic() { return ctx.traffic; },
     get game() { return ctx.G; }, get frames() { return ctx.frames; },
     start: (mode = "story") => startRun({ mode }),
+    // menus: reach any title / pause item, even one tucked into a sub-menu
+    openMenuItem, revealMenuItem, titleLabels, openView, get titleView() { return titleView(); }, H,
     renderer,
 };
 

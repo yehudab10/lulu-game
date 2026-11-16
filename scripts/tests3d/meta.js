@@ -66,9 +66,12 @@ module.exports = {
 
     // ── title: Chanukah greeting, gift, menorah, menu items ──
     t.check("title shows the Chanukah greeting (night 3)", await t.L(`/Happy Chanukah!.*Night 3/.test(document.querySelector("#screenCard").textContent)`));
+    t.check("the home screen's 📒 Scrapbook tile flags news", await t.L(`!!document.querySelector("#tg_book .tg-dot")`));
+    await t.game(`L3.openView("book")`);     // 📒 Scrapbook sub-menu
     t.check("📒 Scrapbook + 📜 Quests on the title", await t.L(`!!document.getElementById("metaScrapbook") && !!document.getElementById("metaQuests")`));
     t.check("scrapbook shows the new-badge dot", await t.L(`!!document.querySelector("#metaScrapbook .meta-dot")`));
     t.check("quests show the claimable dot", await t.L(`!!document.querySelector("#metaQuests .meta-dot")`));
+    await t.game(`L3.openView("home")`);
     await t.frames(40);
     let s = await S2();
     t.check("daily Chanukah gelt paid once (+18, holidayGifts stat)", s.totalCoins === 1018 && /^chanukah:/.test(s.holidayGiftKey || "") && s.stats.holidayGifts === 1,

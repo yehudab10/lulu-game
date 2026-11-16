@@ -56,7 +56,7 @@ ctx.dina = {
 };
 
 // ── title + pause menu ───────────────────────────────────────────────────
-addMenuItem("title", { id: "dina", order: 35, cls: "pink", label: () => `👧 Dina${S2.runsPlayed() > 0 ? " 🏠" : ""}`, action: start });
+addMenuItem("title", { id: "dina", order: 35, group: "play", cls: "pink", sub: () => S2.runsPlayed() > 0 ? "her street · her room" : "race home from the bus", label: "👧 Dina", action: start });
 addMenuItem("pause", {
     id: "dinaRoom", order: 86, cls: "alt", label: "🏠 Dina's room",
     visible: () => ["dinaRun", "dinaCookie"].includes(ctx.state),

@@ -7,6 +7,8 @@ css("meta", `
 body.title-mode.meta-open .screen { justify-content: center !important; padding-left: 16px !important; }
 body.title-mode .card.meta-book, body.title-mode .card.meta-quests { width: min(900px, 100%); }
 .card.nopop { animation: none !important; }
+/* short screens (phones on their side): the long book / quest cards scroll — keep ⬅ Back in reach */
+@media (max-height: 520px) { .card.meta-book > .menu, .card.meta-quests > .menu { position: sticky; bottom: -12px; margin-top: 8px; padding-bottom: 4px; z-index: 3; } }
 .card.meta-book, .card.meta-quests { width: min(900px, 100%); text-align: left; position: relative; }
 
 /* ── scrapbook ── */
@@ -167,6 +169,7 @@ body.title-mode .card.meta-book, body.title-mode .card.meta-quests { width: min(
 .meta-holiday { display: inline-block; margin: 6px auto 2px; background: rgba(13,71,161,.86); color: #FFF8E1; border: 1.5px solid #FFD54F;
   border-radius: 999px; padding: 4px 14px; font-weight: 700; font-size: 15px; }
 .meta-line { font-size: 13px; font-weight: 600; opacity: .8; margin-top: 4px; }
+.btn.row .meta-chip, .home-tiles .meta-chip { background: rgba(43,27,46,.08); }
 
 /* the daily-streak pill under the trip bar */
 .meta-streak { background: linear-gradient(#FFF8E1, #FFE082); color: #5D4037; border: 2px solid #FFB300; border-radius: 16px; padding: 7px 18px;

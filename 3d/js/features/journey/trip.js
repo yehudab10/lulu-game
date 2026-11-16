@@ -142,7 +142,7 @@ ctx.trip = {
     },
     label() {
         const G = ctx.G, car = ctx.car;
-        if (!isStory() || G.jDone) return `${G.jDone ? "ENDLESS CRUISE" : "CRUISE"} · ${((car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`;
+        if (!isStory() || G.jDone) return `${G.jDone ? "ENDLESS CRUISE" : "CRUISE"} · ${Math.max(0, (car.s - (G.startS || 0)) / 1609).toFixed(1)} mi`;
         const st = curStop();
         if (G.jArriving) return `${st.icon} ARRIVED!`;
         const rem = Math.max(0, stopAt(curLeg()) - car.s);

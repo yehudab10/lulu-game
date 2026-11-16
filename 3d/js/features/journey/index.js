@@ -38,6 +38,17 @@ css("journey-title", `
   background: rgba(30,40,55,.9); border: 2px solid var(--acc); }
 .jtitle .stamp.no { background: rgba(40,44,52,.18); border: 1px dashed rgba(0,0,0,.25); color: rgba(0,0,0,.35); font-size: 13px; font-weight: 700; }
 .jtitle .fb { font-size: 12px; opacity: .7; font-weight: 600; margin-left: 6px; }
+/* inside the home screen's pink hero tile */
+.tile.hero .jtitle { display: flex; flex-direction: column; gap: 5px; margin: 0; }
+.tile.hero .jtitle .nx { font-size: 14px; font-weight: 600; }
+.tile.hero .jtitle .nx b { color: #fff; }
+.tile.hero .jtitle .tour { background: rgba(255,255,255,.25); color: #fff; }
+.tile.hero .jtitle .stamps { justify-content: flex-start; gap: 4px; margin: 0; }
+.tile.hero .jtitle .stamp { width: 22px; height: 22px; border-radius: 6px; font-size: 13px; border-width: 1.5px; }
+.tile.hero .jtitle .stamp.no { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.5); color: rgba(255,255,255,.8); font-size: 11px; }
+.tile.hero .jtitle .fb { opacity: .95; margin-left: 4px; }
+.tile.hero .jtitle .lock { font-size: 12px; opacity: .9; margin: 0; }
+body.tv .tile.hero .jtitle .nx { font-size: 21px; } body.tv .tile.hero .jtitle .stamp { width: 32px; height: 32px; font-size: 19px; }
 .jtitle .lock { font-size: 13px; opacity: .75; margin-top: 4px; font-weight: 600; }
 .btn .jnew { background: #FF5252; color: #fff; border-radius: 8px; padding: 1px 7px; font-size: 12px; transform: rotate(8deg); animation: jnew 0.8s infinite alternate; }
 @keyframes jnew { from { transform: rotate(8deg) scale(1); } to { transform: rotate(8deg) scale(1.12); } }
@@ -56,33 +67,29 @@ on("boot", () => {
 export function cruiseUnlocked() { return !ctx.enabled("journey") || !!shared.get().cruiseUnlocked; }
 function hasProgress() { const s = shared.get(); return (s.storyStop || 0) > 0 || (s.storyCycle || 0) > 0 || (Array.isArray(s.postcards) && s.postcards.length > 0); }
 
-// ── title menu ────────────────────────────────────────────────────────────
-addMenuItem("title", { id: "story", order: 10, cls: "", label: () => `📖 Story Trip ${glyph("confirm")}`, action: () => startStory() });
-addMenuItem("title", { id: "storyMap", order: 12, cls: "alt", label: "🗺️ The Road to Vegas (map)", visible: hasProgress, action: () => openMap({ from: "title" }) });
+// ── title menu (the Story Trip is the home screen's hero tile; its subtitle = next stop + postcards) ──
+function storySub() {
+    const s = shared.get(), cyc = s.storyCycle || 0, nIdx = (s.storyStop || 0) % N_STOPS, st = STOPS[nIdx];
+    const pcs = Array.isArray(s.postcards) ? s.postcards : [];
+    const stars = Object.values(s.storyStars || {}).filter(Boolean).length;
+    let html = `<span class="jtitle"><span class="nx">Next stop: <b>${st.icon} ${st.name}</b> · leg ${nIdx + 1}/${N_STOPS}${cyc > 0 ? `<span class="tour">TOUR ${cyc + 1}</span>` : ""}</span>`;
+    if (pcs.length) {
+        html += `<span class="stamps">${STOPS.map(x => pcs.includes(x.id) ? `<span class="stamp" style="--acc:${x.accent}" title="${x.name}">${x.icon}</span>` : `<span class="stamp no">?</span>`).join("")}${stars ? `<span class="fb">⭐ ${stars}/5</span>` : ""}</span>`;
+    }
+    if (!cruiseUnlocked()) html += `<span class="lock">🔒 Endless cruise unlocks at Bubbe's house</span>`;
+    return html + "</span>";
+}
+addMenuItem("title", { id: "story", order: 10, group: "play", label: () => `📖 Story Trip ${glyph("confirm")}`, sub: storySub, action: () => startStory() });
+addMenuItem("title", { id: "storyMap", order: 12, group: "book", short: "Map", label: "🗺️ The Road to Vegas (map)", sub: "every stop, postcard and checkpoint", visible: hasProgress, action: () => openMap({ from: "title" }) });
 addMenuItem("title", {
-    id: "cruise", order: 20, cls: "",
+    id: "cruise", order: 20, group: "play",
     visible: cruiseUnlocked,
-    label: () => `🛣️ Cruise (endless)${ctx.enabled("journey") && !shared.get().cruisePlayed ? ' <span class="jnew">NEW!</span>' : ""}`,
+    label: () => `🛣️ Cruise${ctx.enabled("journey") && !shared.get().cruisePlayed ? ' <span class="jnew">NEW!</span>' : ""}`,
+    sub: () => save3d.best ? `endless · best ${save3d.best.toLocaleString()}` : "the endless highway",
     action: () => startRun({ mode: "cruise" }),
 });
 on("run:start", ({ mode }) => {
     if (mode === "cruise" && !shared.get().cruisePlayed) shared.update(s => { s.cruisePlayed = true; });
-});
-
-addMenuItem("titleInfo", {
-    id: "journey",
-    label: () => {
-        const s = shared.get(), cyc = s.storyCycle || 0, nIdx = (s.storyStop || 0) % N_STOPS, st = STOPS[nIdx];
-        const pcs = Array.isArray(s.postcards) ? s.postcards : [];
-        const stars = Object.values(s.storyStars || {}).filter(Boolean).length;
-        let html = `<div class="jtitle"><div class="nx">📖 Next stop: <b>${st.icon} ${st.name}</b> · leg ${nIdx + 1}/${N_STOPS}${cyc > 0 ? `<span class="tour">TOUR ${cyc + 1}</span>` : ""}</div>`;
-        if (pcs.length) {
-            html += `<div class="stamps">${STOPS.map(x => pcs.includes(x.id) ? `<span class="stamp" style="--acc:${x.accent}" title="${x.name}">${x.icon}</span>` : `<span class="stamp no">?</span>`).join("")}
-                <span class="fb">✈️ furthest trip: ${s.tripBest || 0} stop${(s.tripBest || 0) === 1 ? "" : "s"} · ⭐ ${stars}/5</span></div>`;
-        }
-        if (!cruiseUnlocked()) html += `<div class="lock">🔒 Endless cruise unlocks when you reach Bubbe's house</div>`;
-        return html + "</div>";
-    },
 });
 
 // test hooks (scripts/tests3d/journey.js) — harmless in the real game

@@ -19,7 +19,7 @@ module.exports = {
     await t.frames(6);
 
     // ── title: photo mode opens and comes back to the title ──
-    t.check("title has 📸 Photo mode", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Photo mode/.test(b.textContent))`));
+    t.check("title has 📸 Photo mode", (await t.titleItems()).some(s => /Photo mode/.test(s)));
     await t.click(/Photo mode/);
     t.check("photo mode opens from the title", await G(`ctx.state === "playPhoto" && !document.getElementById("pp-root").classList.contains("hidden")`));
     await t.frames(4);

@@ -12,18 +12,27 @@ module.exports = {
     t.check("PS5 browser → TV mode", await t.L(`document.body.classList.contains("tv")`));
     t.check("DualSense detected as PlayStation layout", await t.game(`L3.input.padKind`) === "ps");
     t.check("title shows the ✕ glyph", await t.L(`document.querySelector("#screenCard").textContent.includes("✕")`));
-    t.check("title says PlayStation layout", await t.L(`/PlayStation layout/.test(document.querySelector(".pad-status").textContent)`));
+    t.check("title says PlayStation layout", await t.L(`/PlayStation layout/.test(document.querySelector(".pad-status.on").title) && /PlayStation/.test(document.querySelector(".pad-status.on").textContent)`));
     await t.shot("tv-title");
 
-    // D-pad navigation through the title menu, then into Controls and back with ○
-    await t.tap(13); await t.tap(13); await t.tap(13);
+    // D-pad navigation on the home screen, then ⚙️ More → Controls and back with ○
+    const focus = () => t.L(`(document.querySelector("#screenCard .focus") || {}).id || ""`);
+    await t.tap(13);
     const focused = await t.L(`(document.querySelector("#screenCard .focus") || {}).textContent || ""`);
     t.check("D-pad moves the focus", !/Story Trip/.test(focused), focused.trim());
-    await t.click(/Controls/);
+    for (let i = 0; i < 8 && await focus() !== "tg_more"; i++) await t.tap(await t.L(`document.getElementById("tg_more").getBoundingClientRect().top > document.querySelector("#screenCard .focus").getBoundingClientRect().bottom - 2`) ? 13 : 15);
+    t.check("D-pad reaches ⚙️ More", await focus() === "tg_more");
+    await t.tap(0);
+    for (let i = 0; i < 4 && await focus() !== "controls"; i++) await t.tap(13);
+    await t.tap(0);
     t.check("controls screen lists PlayStation buttons", await t.L(`/R2/.test(document.querySelector("#screenCard").textContent) && /✕/.test(document.querySelector("#screenCard").textContent)`));
     await t.shot("tv-controls");
     await t.tap(1);
-    t.check("○ goes back to the title", await t.L(`/Story Trip/.test(document.querySelector("#screenCard").textContent)`));
+    t.check("○ goes back to ⚙️ More (Controls focused)", await focus() === "controls");
+    await t.tap(1);
+    t.check("○ again → the home screen", await t.L(`/Story Trip/.test(document.querySelector("#screenCard").textContent)`) && await focus() === "tg_more");
+    for (let i = 0; i < 6 && await focus() !== "story"; i++) await t.tap(12);
+    t.check("D-pad ↑ back to the Story Trip", await focus() === "story");
 
     // drive briefly in TV mode with the DualSense (R2 = gas)
     await t.tap(0);
