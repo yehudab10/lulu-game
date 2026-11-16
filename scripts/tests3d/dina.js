@@ -1,8 +1,37 @@
 // Dina's world: title → sister picker → school bus → the run home (hazards,
 // sprint, Mom) → porch + medal → bedroom (Mom's hug, sticker book, Morgan, nap,
-// Cookie Catch, the tablet) → back outside. Uses a PS5 DualSense layout.
+// Cookie Catch, the tablet) → back outside. Uses a PS5 DualSense layout. Every bedroom item is also
+// clicked with the real mouse at its on-screen spot (desktop + the phone touch layout) and hovered.
 const PS5 = "DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)";
 const save2d = () => `JSON.parse(localStorage.getItem("luluSaveV2") || "{}")`;
+// every bedroom item: the state using it leads to, and where Dina stands to reach it (home.js OBJECTS)
+const ITEMS = { tablet: "intro", morgan: "dinaMorgan", stickers: "dinaStickers", nap: "dinaNap", snack: "dinaCookie", outside: "dinaSelect" };
+const SPOT = { tablet: [0.15, 1.5], morgan: [-3.2, 1.85], stickers: [2.2, 1.8], nap: [3.2, -1.0], snack: [-2.15, 1.65], outside: [-4.15, -1.4] };
+/** An item's projected screen position (its bounding box centre) + what DOM element is on top there. */
+const itemAt = id => `import("./js/features/dina/room.js").then(R => {
+  const T = __lulu3d.ctx.THREE, rm = R.room();
+  const o = { tablet: rm.tablet, morgan: rm.morgan, stickers: rm.sticker, nap: rm.bed, snack: rm.scene.getObjectByName("SideTable"), outside: rm.scene.getObjectByName("RoomDoor") }["${id}"];
+  const c = new T.Box3().setFromObject(o).getCenter(new T.Vector3()).project(rm.set.camera);
+  const x = Math.round((c.x + 1) / 2 * innerWidth), y = Math.round((1 - c.y) / 2 * innerHeight), el = document.elementFromPoint(x, y);
+  return { x, y, on: x > 4 && y > 4 && x < innerWidth - 4 && y < innerHeight - 4, top: el ? (el.id ? "#" + el.id : el.tagName) : "none" };
+})`;
+/** Click every bedroom item with the REAL mouse at its projected position (walking Dina over when it's off-camera). */
+async function clickEveryItem(t, label) {
+  const dev = await t.game(`L3.input.device`);     // (the pad press that leaves the tablet flips it to "gamepad")
+  for (const id of Object.keys(ITEMS)) {
+    await t.game(`(L3.input.device = "${dev}", ctx.dina.home_.momCooldown = 999, L3.setState("dinaHome", { from: "outside" }))`);
+    await t.frames(8);
+    let p = await t.L(itemAt(id));
+    if (!p.on) { await t.game(`ctx.dina.home_.dina.obj.position.set(${SPOT[id][0]}, 0, ${SPOT[id][1]})`); await t.frames(45); p = await t.L(itemAt(id)); }
+    await t.page.mouse.click(p.x, p.y);
+    await t.frames(4);
+    const st = await t.game(`ctx.state`);
+    t.check(`${label}: a mouse click on ${id} uses it`, st === ITEMS[id] || (id === "tablet" && st === "playing"), `click at ${p.x},${p.y} (top: ${p.top}) → ${st}`);
+    if (id === "tablet" && await t.game(`ctx.dina.tablet`)) { await t.tap(9); await t.click(/Back to Dina's room/); }
+  }
+  await t.game(`(L3.input.device = "${dev}", L3.setState("dinaHome", { from: "outside" }))`);
+  await t.frames(6);
+}
 
 module.exports = {
   name: "dina",
@@ -194,6 +223,21 @@ module.exports = {
     await t.click(/Back to Dina's room/);
     if (await t.until(`__lulu3d.state === "dinaHome"`, "back in Dina's room")) t.check("back in Dina's room", true);
 
+    // ── the mouse: hovering an item lights it up + shows its label; clicking any item uses it ──
+    await t.game(`(ctx.dina.home_.momCooldown = 999, ctx.dina.home_.dina.obj.position.set(0.6, 0, 2.7))`);
+    await t.frames(30);
+    const book = await t.L(itemAt("stickers"));
+    await t.page.mouse.move(book.x - 60, book.y - 60);
+    await t.page.mouse.move(book.x, book.y, { steps: 4 });
+    await t.frames(4);
+    const hv = await t.L(`import("./js/features/dina/room.js").then(R => ({ ptr: __lulu3d.ctx.dina.home_.ptrHover, hot: document.body.classList.contains("dina-hot"),
+      cursor: getComputedStyle(document.getElementById("scene")).cursor, label: [...document.querySelectorAll("#dinaLayer .dl-bubble.label")].map(b => b.textContent).join(" | "),
+      glow: (R.room().sticker.userData.glow || []).some(g => g.m.emissive.r > 0.05) }))`);
+    t.check("hovering the sticker book: label + glow + pointer cursor", hv.ptr === "stickers" && hv.hot && hv.cursor === "pointer" && /Sticker book/.test(hv.label) && hv.glow, JSON.stringify(hv));
+    await t.shot("bedroom-hover");
+    await t.page.mouse.move(5, 5);
+    await clickEveryItem(t, "desktop");
+
     // ── the door: back outside to the sister picker, ○ to the title ──
     await at(-4.0, -1.4);
     await t.frames(3);
@@ -217,6 +261,9 @@ module.exports = {
     await t.frames(8);
     t.check("portrait bedroom shows the touch stick", await t.L(`!document.getElementById("touch").classList.contains("hidden")`));
     await t.shot("portrait-bedroom");
+    // the walk stick's big driving catch-zone (bottom-left 45% × 60%) used to swallow taps on Morgan / the cookies
+    t.check("the stick itself still takes touches", await t.L(`(() => { const r = document.getElementById("stickBase").getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!el && !!el.closest("#stickBase"); })()`));
+    await clickEveryItem(t, "phone portrait (touch layout)");
     await t.game(`L3.setState("dinaRun")`);
     await t.frames(10);
     t.check("portrait run relabels the pedals SPRINT / SLOW", await t.L(`document.body.classList.contains("dina-run") && getComputedStyle(document.getElementById("tGas"), "::after").content.includes("SPRINT")`));

@@ -300,7 +300,7 @@ and keep working sensibly when another feature is missing.
 
 | service | owner | API |
 |---|---|---|
-| `ctx.foot` | foot | `start(reason, opts)` — Lulu climbs out and walks (reasons: `carWreck`, `crashReprieve`, `droveOff`, `copWalk`, `jailbreak`, `parked`) · `active` |
+| `ctx.foot` | foot | `start(reason, opts)` — Lulu climbs out and walks (reasons: `carWreck`, `crashReprieve`, `droveOff`, `copWalk`, `jailbreak`, `parked`; `opts.noIntro` when your scene already showed her getting out — she starts on her feet, no second climb-out) · `active` |
 | `ctx.interiors[id]` | interiors | `{ name, emoji, enter({ exit }) }` — foot shows a door and calls `enter({ exit: () => back to walking })`. ids: `bar`, `school`, `hospital`, `police`, `beach` |
 | `ctx.law` | law | `startChase(reason)` · `arrest(charges[], opts)` · `wanted` (0–5) |
 | `ctx.er` | cameos | `admit(reason)` — the ER visit (a softer landing than game over) |

@@ -1,12 +1,37 @@
 // Cameos: Avigail (coupe taunt, pulled over, the porch visit + ride-along,
 // the friendship meter), the salon (style + colour → shared save → car hair),
 // the sasquatch, Heshy's pool, the uncles, the crash aftermath (revenge car →
-// ER, Hillel's insurance reprieve, the animal swarm) and the ER (bill,
+// ER, Hillel's insurance reprieve, the animal swarm — an ostrich's kin are ostriches — and a reprieve
+// climbs her out exactly once, with one smooth camera move) and the ER (bill,
 // punch card, the bill-skip escape). Driven with the fake controller through
 // the real entry points; random spawns are switched off (ctx.cameos.auto).
 //   CAMEOS_ONLY=salon,er  → run just those sections (development)
 const ONLY = process.env.CAMEOS_ONLY ? new RegExp("^(" + process.env.CAMEOS_ONLY.split(",").join("|") + ")$") : null;
 const want = n => !ONLY || ONLY.test(n);
+// What plays when Lulu gets out of the car (the owner saw a "double animation"): `exits` counts get-out
+// animations (the parking lot's walk-out + every foot session that hops out of the seat), `footStarts` the
+// foot:start events; once she's in the foot world, `maxJump` is the biggest one-frame camera move (a swoop)
+// and `minCam` how close the intro camera gets to her (it used to sit on top of a spun wreck).
+const EXIT_PROBE = `Promise.all([import("./js/core/ctx.js")]).then(([C]) => {
+  const ctx = C.ctx, P = window.__exit = { exits: 0, footStarts: 0, maxJump: 0, minCam: 99, on: true };
+  C.on("foot:start", () => { if (!P.on) return; P.footStarts++; const F = ctx.foot.debug.F; if (F.phase === "intro" && F.hopFrom.distanceTo(F.hopTo) > 0.5) P.exits++; P.f0 = ctx.frames; });
+  let last = null, park = null;
+  const tick = () => {
+    if (!P.on) return;
+    requestAnimationFrame(tick);
+    const ph = ctx.parking && ctx.parking._debug && ctx.parking._debug.active ? ctx.parking._debug.phase : null;
+    if (ph === "walkout" && park !== "walkout") P.exits++;
+    park = ph;
+    const F = ctx.foot && ctx.foot.debug.F, cp = ctx.camera.position;
+    if (F && ctx.state === "footRun" && !ctx.view && P.f0 != null && ctx.frames > P.f0 + 1 && F.t < 4) {
+      if (last) P.maxJump = Math.max(P.maxJump, +cp.distanceTo(last).toFixed(2));
+      if (F.phase === "intro") P.minCam = Math.min(P.minCam, +cp.distanceTo(F.lulu.obj.position).toFixed(2));
+      last = cp.clone();
+    } else last = null;
+  };
+  requestAnimationFrame(tick);
+  return true;
+})`;
 
 module.exports = {
   name: "cameos",
@@ -244,6 +269,50 @@ module.exports = {
       await t.until(`__lulu3d.state === "gameover"`, "the animal swarm ends in game over", 120000);
       t.check("game over quotes the furious kin", await t.L(`/— the (ducks|raccoons)/.test(document.querySelector("#screenCard .quote").textContent)`));
       await t.shot("animal-gameover");
+    }
+
+    if (want("ostrich")) {
+      // ── hit an OSTRICH (the real roadevents one): its furious kin are ostriches, not ducks ──
+      await drive();
+      const there = await t.game(`ctx.roadevents.spawn("ostrich", { s: ctx.car.s + 22, side: 1, d0: ctx.car.d, v: 0.01 }).then(A => !!A)`);
+      t.check("an ostrich stands in Lulu's lane", there);
+      await t.game(`(ctx.G.hearts = 1, ctx.G.invT = 0)`);
+      await t.until(`__lulu3d.state === "cameosCrash"`, "hitting the ostrich with the last heart → the aftermath", 90000);
+      t.check("the aftermath knows it was an ostrich", await t.game(`ctx.cameos.crash.crashScene().cause.species === "ostrich"`), String(await t.game(`JSON.stringify((ctx.cameos.crash.crashScene() || {}).cause || null)`)));
+      await t.until(`((__lulu3d.ctx.cameos.crash.crashScene() || {}).kin || []).length >= 6`, "the furious kin gather", 90000);
+      t.check("…its furious kin are OSTRICHES (the ostrich model)", await t.game(`ctx.cameos.crash.crashScene().kin.every(k => k.key === "roadevents_ostrich")`),
+        String(await t.game(`(ctx.cameos.crash.crashScene() || { kin: [] }).kin.map(k => k.key).join(",")`)));
+      await t.frames(30);
+      await t.shot("ostrich-swarm");
+      await t.until(`__lulu3d.state === "gameover"`, "the ostrich swarm ends in game over", 120000);
+      t.check("game over quotes the ostriches 🦤", await t.L(`/— the ostriches 🦤/.test(document.querySelector("#screenCard .quote").textContent)`),
+        await t.L(`(document.querySelector("#screenCard .quote") || {}).textContent || ""`));
+    }
+
+    if (want("exit")) {
+      // ── a crash reprieve → she climbs out ONCE: one get-out animation, one foot:start, one smooth camera
+      //    move (plain Cruise, then Story with the aftermath ⏭ skipped) ──
+      for (const [mode, skip] of [["cruise", false], ["story", true]]) {
+        const label = `${mode}${skip ? " + ⏭ skip" : ""}`;
+        await t.hold(7, 0);
+        await t.game(`(ctx.cameos.force = {}, L3.startRun({ mode: "${mode}" }))`);
+        await t.until(`__lulu3d.state === "playing"`, "drives");
+        await t.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear())`);
+        await t.L(EXIT_PROBE);
+        await t.game(`(ctx.cameos.force = { reprieve: "faint", mood: "scared" }, ctx.cameos.trigger("wreck", { kind: "car" }))`);
+        await t.hold(7, 0.55);
+        if (!await t.until(`__lulu3d.state === "cameosCrash"`, `${label}: wreck → aftermath`, 90000)) continue;
+        await t.hold(7, 0);
+        if (skip && await t.until(`document.getElementById("skipBtn").classList.contains("show")`, "the ⏭ pill shows in the aftermath")) await t.L(`document.getElementById("skipBtn").click()`);
+        if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.foot.debug.F.t > 3.6`, `${label}: reprieve → Lulu walks on`, 120000)) continue;
+        const P = await t.L(`({ ...window.__exit })`);
+        t.check(`${label}: exactly one get-out animation and one foot:start`, P.exits === 1 && P.footStarts === 1, JSON.stringify(P));
+        t.check(`${label}: one smooth camera move (framed from the road, no swoop into walking)`, P.minCam > 3.5 && P.maxJump < 1.5, JSON.stringify(P));
+        await t.L(`window.__exit.on = false`);
+        await t.shot(`exit-${mode}`);
+        await t.game(`(ctx.foot.end("test"), L3.setState("title"))`);
+        await t.frames(3);
+      }
     }
 
     if (want("escape")) {

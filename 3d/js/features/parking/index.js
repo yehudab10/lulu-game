@@ -799,7 +799,7 @@ function handOffToFoot() {
     car.showDriver(false);
     S.phase = "handoff"; S.t = 0;
     try {
-        ctx.foot.start("droveOff", { from: "parking", parked: true });
+        ctx.foot.start("droveOff", { from: "parking", parked: true, noIntro: true });   // she just walked out — no second climb-out
     } catch (e) {
         console.error("[parking] foot.start failed", e);
         returnToDriving("");

@@ -15,7 +15,7 @@ import * as H from "../../hud.js";
 import { room, SPOTS, ROOM } from "./room.js";
 import {
     L, bubble, bubblesDone, floater, updateFloaters, sfx, rand, randPick, clamp, g, isTouch, holdPose, coinsNow,
-    bindPointer, unbindPointer, pickAt, pointerPlane,
+    bindPointer, unbindPointer, pickAt, pointerPlane, toScreen,
 } from "./common.js";
 
 export const COOKIE_FEE = 10;
@@ -41,7 +41,7 @@ const BOXES = [[2.8, -4, 4.45, -1.58], [1.98, -3.85, 2.62, -3.25], [-4.35, -3.8,
 const ROUND = [[SPOTS.snacks.x, SPOTS.snacks.z, 0.42], [SPOTS.tablet.x, SPOTS.tablet.z, 0.45], [SPOTS.morgan.x, SPOTS.morgan.z, 0.35]];
 const MOM_DOOR = new THREE.Vector3(SPOTS.door.x + 0.2, 0, SPOTS.door.z), MOM_SPOT = new THREE.Vector3(-3.25, 0, -0.65);
 
-export const Home = { dina: null, mom: null, momVisit: null, momCooldown: 12, msgT: 0, hover: null, t: 0, walkTo: null, ptrDown: false };
+export const Home = { dina: null, mom: null, momVisit: null, momCooldown: 12, msgT: 0, hover: null, ptrHover: null, t: 0, walkTo: null, ptrDown: false };
 const _p = new THREE.Vector3(), _l = new THREE.Vector3(), _v = new THREE.Vector3();
 const cam = { pos: new THREE.Vector3(), look: new THREE.Vector3(), snap: true };
 
@@ -80,7 +80,7 @@ registerState("dinaHome", {
             Home.mom.obj.visible = false;
             Home.momCooldown = rand(8, 14);
         }
-        Home.t = 0; Home.msgT = 0; Home.walkTo = null; Home.ptrDown = false;
+        Home.t = 0; Home.msgT = 0; Home.walkTo = null; Home.ptrDown = false; Home.ptrHover = null;
         cam.snap = true;
         L.show();
         input.stick2d = true;
@@ -91,7 +91,9 @@ registerState("dinaHome", {
     exit() {
         unbindPointer();
         input.stick2d = false;
-        document.body.classList.remove("dina-room");
+        Home.ptrHover = null;
+        setGlow([]);
+        document.body.classList.remove("dina-room", "dina-hot");
         L.clear();
     },
     update(dt, P) {
@@ -120,9 +122,10 @@ registerState("dinaHome", {
 
         // ── what's Dina next to? (Mom first) ──
         let hover = null, best = 1e9;
-        if (Home.momVisit && Home.momVisit.phase !== 2) {
+        const mom = momItem();
+        if (mom) {
             const mp = Home.mom.obj.position, dm = Math.hypot(mp.x - o.position.x, mp.z - o.position.z);
-            if (dm < 1.4) { hover = { id: "mom", label: Home.momVisit.hugged ? "Hug Mom again?" : "Hug Mom? 💕", verb: "Hug", anchor: [mp.x, 2.25, mp.z] }; best = 0; }
+            if (dm < 1.4) { hover = mom; best = 0; }
         }
         if (!hover) for (const ob of OBJECTS) {
             const dd = Math.hypot(ob.x - o.position.x, ob.z - o.position.z);
@@ -141,6 +144,11 @@ registerState("dinaHome", {
             <span class="chip" style="color:${mv ? "#FFD54F" : "#B8E0D2"}">${mv ? "Mom: here! 👋" : "Mom: kitchen"}</span>`);
         const camera = rm.set.camera;
         if (hover) bubble("hover", `${hover.label}${isTouch() ? ` <span class="glyph">TAP</span>` : g("interact")}`, _p.set(...hover.anchor), camera, "label");
+        // the mouse over an item: the same label (and both glow — the one she's next to, the one under the pointer)
+        const ph = Home.ptrHover && Home.ptrHover !== (hover && hover.id) ? (Home.ptrHover === "mom" ? mom : OBJECTS.find(ob => ob.id === Home.ptrHover)) : null;
+        if (ph) bubble("ptr", `${ph.label} <span class="glyph">CLICK</span>`, _p.set(...ph.anchor), camera, "label");
+        else if (Home.ptrHover === "mom" && !mom) setPtrHover(null);
+        setGlow([hover && hover.id, Home.ptrHover].filter(Boolean), Home.t);
         if (mv && mv.phase === 1) bubble("mom", mv.line, _p.set(Home.mom.obj.position.x, 2.3, Home.mom.obj.position.z), camera);
         bubblesDone();
         updateFloaters(dt, camera);
@@ -250,27 +258,95 @@ export function trigger(action) {
 }
 
 // ── touch / mouse: tap an item (or Mom) to use it, drag to walk ──────────
+function momItem() {
+    const v = Home.momVisit;
+    if (!v || v.phase === 2 || !Home.mom) return null;
+    const mp = Home.mom.obj.position;
+    return { id: "mom", label: v.hugged ? "Hug Mom again?" : "Hug Mom? 💕", verb: "Hug", anchor: [mp.x, 2.25, mp.z] };
+}
+/** The clickable things: [id, [objects]] — the tablet's pouf counts as the tablet. */
+function targets() {
+    const rm = room();
+    const list = [
+        ["tablet", [rm.tablet, rm.pouf]], ["morgan", [rm.morgan]], ["stickers", [rm.sticker]], ["nap", [rm.bed]],
+        ["snack", [rm.scene.getObjectByName("SideTable")]], ["outside", [rm.scene.getObjectByName("RoomDoor")]],
+    ];
+    if (momItem()) list.unshift(["mom", [Home.mom.obj]]);
+    return list.map(([id, os]) => [id, os.filter(Boolean)]).filter(t => t[1].length);
+}
+const _box = new THREE.Box3(), _c = new THREE.Vector3(), _sc = {};
+/** An item's on-screen box (its 3D bounding box, projected), or null when it's off-camera. */
+function screenRect(objs, camera) {
+    _box.makeEmpty();
+    for (const o of objs) _box.expandByObject(o);
+    if (_box.isEmpty()) return null;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let i = 0; i < 8; i++) {
+        _c.set(i & 1 ? _box.max.x : _box.min.x, i & 2 ? _box.max.y : _box.min.y, i & 4 ? _box.max.z : _box.min.z);
+        if (!toScreen(_c, camera, _sc).visible) return null;
+        x0 = Math.min(x0, _sc.x); x1 = Math.max(x1, _sc.x); y0 = Math.min(y0, _sc.y); y1 = Math.max(y1, _sc.y);
+    }
+    return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+}
+/** Which item a click / tap means: the one it lands on, else the closest one whose on-screen box —
+ *  grown to a comfortable size (the tablet and sticker book are tiny on a phone) — holds it. */
+function pickItem(e) {
+    const camera = room().set.camera, list = targets();
+    const hits = pickAt(e, camera, list.flatMap(t => t[1]));
+    if (hits.length) for (let o = hits[0].object; o; o = o.parent) { const t = list.find(tt => tt[1].includes(o)); if (t) return t[0]; }
+    const finger = e.pointerType === "touch" || e.pointerType === "pen" || isTouch();
+    const pad = finger ? 20 : 14, min = finger ? 80 : 56;
+    let best = null, bd = 1;
+    for (const [id, os] of list) {
+        const r = screenRect(os, camera);
+        if (!r) continue;
+        const hw = Math.max(min, r.w + pad * 2) / 2, hh = Math.max(min, r.h + pad * 2) / 2;
+        const d = Math.max(Math.abs(e.clientX - r.cx) / hw, Math.abs(e.clientY - r.cy) / hh);
+        if (d <= bd) { bd = d; best = id; }
+    }
+    return best;
+}
+function setPtrHover(id) {
+    Home.ptrHover = id || null;
+    document.body.classList.toggle("dina-hot", !!id);
+}
+// a soft warm glow on the item Dina's next to / the mouse is over (each item gets its own materials once)
+const GLOW = new THREE.Color("#FFC98A"), _gc = new THREE.Color();
+let glowing = [];
+function glowMats(root) {
+    if (!root.userData.glow) {
+        const own = new Map();
+        root.traverse(o => {
+            if (!o.isMesh || !o.material || !o.material.emissive) return;
+            let m = own.get(o.material);
+            if (!m) { m = o.material.clone(); room().set.own(m); own.set(o.material, m); }
+            o.material = m;
+        });
+        root.userData.glow = [...own.values()].map(m => ({ m, c: m.emissive.clone(), i: m.emissiveIntensity }));
+    }
+    return root.userData.glow;
+}
+function setGlow(ids, t = 0) {
+    const want = ids.length ? targets().filter(tt => ids.includes(tt[0])).flatMap(tt => tt[1]) : [];
+    for (const r of glowing) if (!want.includes(r)) for (const gm of glowMats(r)) { gm.m.emissive.copy(gm.c); gm.m.emissiveIntensity = gm.i; }
+    const k = 0.2 + 0.1 * Math.sin(t * 6);
+    for (const r of want) for (const gm of glowMats(r)) { gm.m.emissive.copy(gm.c).multiplyScalar(gm.i).add(_gc.copy(GLOW).multiplyScalar(k)); gm.m.emissiveIntensity = 1; }
+    glowing = want;
+}
 function onDown(e) {
     if (ctx.state !== "dinaHome" || ctx.paused || ctx.dialogOpen) return;
-    const rm = room(), camera = rm.set.camera;
-    const targets = [
-        ["tablet", rm.tablet], ["morgan", rm.morgan], ["stickers", rm.sticker], ["nap", rm.bed],
-        ["snack", rm.scene.getObjectByName("SideTable")], ["outside", rm.scene.getObjectByName("RoomDoor")],
-    ];
-    if (Home.momVisit && Home.momVisit.phase !== 2) targets.unshift(["mom", Home.mom.obj]);
-    const objs = targets.map(t => t[1]).filter(Boolean);
-    const hits = pickAt(e, camera, objs);
-    if (hits.length) {
-        let o = hits[0].object;
-        while (o && !objs.includes(o)) o = o.parent;
-        const t = targets.find(tt => tt[1] === o);
-        if (t) { trigger(t[0]); return; }
-    }
+    const id = pickItem(e);
+    if (id) { setPtrHover(null); trigger(id); return; }
     Home.ptrDown = true;
     onMove(e);
 }
 function onMove(e) {
-    if (!Home.ptrDown || ctx.state !== "dinaHome") return;
+    if (ctx.state !== "dinaHome") return;
+    if (!Home.ptrDown) {
+        // a mouse hovering over an item lights it up and shows its label
+        if (e.pointerType === "mouse") setPtrHover(ctx.paused || ctx.dialogOpen || H.screenOpen() ? null : pickItem(e));
+        return;
+    }
     const p = pointerPlane(e, room().set.camera, 0, "y");
     if (p) Home.walkTo = { x: p.x, z: p.z };
 }
