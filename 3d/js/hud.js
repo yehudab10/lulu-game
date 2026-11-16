@@ -225,12 +225,12 @@ let menu = null;
  *   buttons: [{label, cls, action, id}] — appended as a vertical menu under html
  *   opts.onBack: B / Esc handler · opts.focus: initial focus index (or element id)
  *   opts.onTab(dir): LB/RB (Q/R) pressed — for tabbed screens · opts.wide: wider card
- *   opts.cls: extra class on the card
+ *   opts.cls: extra class on the card · opts.onPause: a pad's Start / OPTIONS pressed (else it acts as ✕; keyboard Esc / P stay ○ back)
  * Any other <button>/.nav inside `html` is focusable too; give it a click handler
  * (or use onClick in the returned card: card.querySelector(...)).
  * Returns the card element.
  */
-export function showScreen(html, buttons = [], { onBack = null, focus = 0, onTab = null, wide = false, cls = "" } = {}) {
+export function showScreen(html, buttons = [], { onBack = null, focus = 0, onTab = null, wide = false, cls = "", onPause = null } = {}) {
     el.screenCard.className = "card" + (wide ? " wide" : "") + (cls ? " " + cls : "");
     el.screenCard.innerHTML = html + (buttons.length ? '<div class="menu"></div>' : "");
     const box = el.screenCard.querySelector(".menu");
@@ -242,7 +242,7 @@ export function showScreen(html, buttons = [], { onBack = null, focus = 0, onTab
         e.addEventListener("click", () => { sfxSelect(); b.action(e); });
         box.appendChild(e);
     });
-    menu = { onBack, onTab, focusEl: null };
+    menu = { onBack, onTab, onPause, focusEl: null };
     el.screen.classList.remove("hidden");
     el.screenCard.style.animation = "none"; void el.screenCard.offsetWidth; el.screenCard.style.animation = "";
     const list = focusables();
@@ -338,7 +338,8 @@ function move(dx, dy) {
 export function menuInput(P) {
     if (!menu) return false;
     refreshFocus(true);
-    if (P.up) move(0, -1);
+    if (P.pause && !P.back && menu.onPause) { sfxMove(); menu.onPause(); }
+    else if (P.up) move(0, -1);
     else if (P.down) move(0, 1);
     else if (P.navLeft) move(-1, 0);
     else if (P.navRight) move(1, 0);
