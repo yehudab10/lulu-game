@@ -227,6 +227,8 @@ function steerUnit(dt, c, u) {
     const lv = Math.max(0, car.vF), ls = car.s, ld = car.d;
     let tD = c.d, vT = 0;
     const heat = L.chase ? L.chase.heat : 1;
+    // in a town the chase goes round corners: its street graph gives the route and the real gap
+    const route = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute ? ctx.town.copRoute(c, u) : null;
     if (u.mode === "chase") {
         u.pitT -= dt;
         let want = -7;             // where it wants to sit, relative to Lulu along the road
@@ -235,7 +237,7 @@ function steerUnit(dt, c, u) {
         else if (u.slot === "front") want = 11;
         else if (u.slot === "side") { want = -0.5; side = ld > 3.5 ? -3.3 : 3.3; }
         if (u.slot === "rear" && heat >= TUNE.pitFrom && u.pitT < 0) { want = -2.4; if (u.pitT < -1.6) u.pitT = rand(6, 9) - heat * 0.4; }
-        const err = ls + want - c.s;
+        const err = route ? route.gap + want : ls + want - c.s;
         vT = lv + clamp(err * 0.9, -12, 18);
         const behind = c.s < ls - 2;
         if (u.slot === "front" && behind) tD = ld + (ld > 3.5 ? -3.5 : 3.5);   // overtake in the other lane…
@@ -282,7 +284,8 @@ function steerUnit(dt, c, u) {
     vT = Math.min(vT, u.vmax);
     // steer: pure pursuit toward a look-ahead point in the target lane
     const la = Math.max(7, c.speed * 0.55);
-    road.point(c.s + la, tD, tmpP);
+    if (route) route.aim(la, tmpP);
+    else road.point(c.s + la, tD, tmpP);
     const want = Math.atan2(tmpP.x - c.x, tmpP.z - c.z);
     const dh = wrapAngle(want - c.h);
     if (Math.abs(dh) > 0.7) vT = Math.min(vT, 9);
@@ -497,6 +500,9 @@ function spawnChaser(slot, how = "seen") {
     const d = fromAhead ? pick([-1.75, -5.25]) : pick(LANES_OURS);
     // (never faster than she can go: the first one only just closes in so it shows in the mirror)
     const v = how === "search" ? car.speed * 0.85 : Math.min(luluTop(), Math.max(18, car.speed + (how === "first" ? 1.5 : 0)));
+    // in a town: join on its street grid (out of sight, or right where its patrol car saw her)
+    const tp = ctx.town && ctx.town.active && ctx.town.copSpawn ? ctx.town.copSpawn(how, fromAhead) : null;
+    if (tp) return addUnit(tp.s, tp.d, tp.dir, Math.min(v, 14), { mode: "chase", slot, k9: false });
     const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
     return u;
 }
@@ -507,7 +513,9 @@ function nightness() { const a = ctx.atmos; return a && typeof a.night === "numb
  *  (trees, houses) or a truck / bus is in the way. */
 function clearLine(ax, az, as, self) {
     const car = ctx.car, road = ctx.world.road, bx = car.pos.x, bz = car.pos.z;
-    for (const k of [0.3, 0.55, 0.8]) {
+    // in a town (features/town) its buildings are the occluders; on the highway, the roadside on a bend
+    if (ctx.town && ctx.town.active) { if (ctx.town.blocksSight(ax, az, bx, bz)) return false; }
+    else for (const k of [0.3, 0.55, 0.8]) {
         road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, as + (car.s - as) * k, tmpN);
         if (Math.abs(tmpN.d) > TUNE.offRoad) return false;
     }

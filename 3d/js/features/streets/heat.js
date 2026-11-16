@@ -119,8 +119,8 @@ function removeBlock(blk) {
 hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing") return;
     const law = ctx.law;
-    // (they set up roadblocks ahead whether or not they can see her right now)
-    if (law && law.chasing && law.wanted >= 3 && live()) {
+    // (they set up roadblocks ahead whether or not they can see her right now — not in a town's side streets)
+    if (law && law.chasing && law.wanted >= 3 && live() && !(ctx.town && ctx.town.active)) {
 
         HEAT.nextT -= dt;
         if (HEAT.nextT <= 0 && !HEAT.blocks.length && ctx.car.speed > 8) {

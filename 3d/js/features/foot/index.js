@@ -514,7 +514,9 @@ function footUpdate(dt, P) {
 
     // keep road coordinates, the invisible car anchor, and the world in step with her
     const near = rd.nearest(F.pos.x, F.pos.z, F.s, _n);
-    F.s = near.s; F.d = near.d; F.h = near.h;
+    F.s = near.s; F.d = near.d;
+    // (a town's streets meet at right angles: it keeps the walking frame steady round corners)
+    F.h = ctx.town && ctx.town.active && ctx.town.footYaw ? ctx.town.footYaw(F, near.h, dt) : near.h;
     const car = ctx.car;
     car.pos.set(F.pos.x, 0, F.pos.z);
     car.s = F.s; car.d = F.d; car.h = F.h;
