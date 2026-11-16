@@ -196,14 +196,16 @@ on("mp:riders", () => U.uiDirty());
 
 // ── HUD + menus ──────────────────────────────────────────────────────────
 hook("hud", () => U.hudTick());
+// With the party feature present, Shared Road lives in its hub ("🎉 Party with friends" → 🌐 Open road),
+// so the title has ONE multiplayer entry; without it, Shared Road keeps its own title button.
 addMenuItem("title", {
     id: "sharedroad", order: 60, cls: "purple",
     label: () => MP.connected ? `🌐 Online · ${N.riderCount()} rider${N.riderCount() === 1 ? "" : "s"}` : MP.want ? "🌐 Connecting…" : "🌐 Shared Road",
-    visible: () => N.allowed(),
+    visible: () => N.allowed() && !ctx.party,
     action: () => U.openSharedRoad("title"),
 });
 addMenuItem("pause", { id: "sharedroad", order: 40, label: () => MP.connected ? `🌐 Shared Road · ${N.riderCount()}` : "🌐 Shared Road",
-    visible: () => N.allowed(), action: () => U.openSharedRoad("pause") });
+    visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });
 addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => MP.connected && (me.driving || me.foot) });

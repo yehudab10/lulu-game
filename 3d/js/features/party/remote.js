@@ -1,0 +1,430 @@
+// features/party — friends as REAL cars: Lulu's convertible in their own skin
+// (opaque, shadows), wheels rolling + steering, the steering wheel turning,
+// brake lights, nitro flames, a hand out of the window to wave when they honk,
+// a nametag (👑 host · ✓ ready · ⏸ paused · 💤 away · 📶 lagging) and speech
+// bubbles for the curated quick-chat / emotes.
+//
+// Motion: every remote car is drawn ~150 ms in the past (adaptive to the
+// sender's packet rhythm + jitter) along the ROAD: s and d are Hermite-
+// interpolated between snapshots using the speeds the sender reported (in
+// metres per PARTY second, so it is right even when a slow device runs its
+// game slower than real time). Past the newest snapshot it extrapolates for
+// 0.3 s and then glides to a stop. Any discontinuity (a late packet, a
+// correction) is absorbed into an error offset that decays in ~0.12 s, so a
+// car never pops; only a real respawn (> 25 m) snaps — behind a sparkle poof.
+//
+// Performance: models are shared clones (cloneWithColors caches recoloured
+// materials), one taillight material per car, canvas sprites redrawn only
+// when their text changes, no per-frame allocations in the update path.
+import * as THREE from "three";
+import { ctx } from "../../core/ctx.js";
+import { models, cloneWithColors, findNodes } from "../../models.js";
+import { SKINS } from "../../car.js";
+import { now, clock, N, fresh } from "./net.js";
+
+const WHEEL_R = 0.34;
+
+// ── shared bits ──────────────────────────────────────────────────────────
+let flameTex = null;
+function flameTexture() {
+    if (flameTex) return flameTex;
+    const c = document.createElement("canvas");
+    c.width = c.height = 64;
+    const g = c.getContext("2d");
+    const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+    grd.addColorStop(0, "rgba(255,255,230,1)");
+    grd.addColorStop(0.35, "rgba(255,170,40,0.9)");
+    grd.addColorStop(1, "rgba(255,40,80,0)");
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 64, 64);
+    flameTex = new THREE.CanvasTexture(c);
+    return flameTex;
+}
+let armGeo = null, handGeo = null, armMat = null, sleeveMat = null;
+function armParts() {
+    if (!armGeo) {
+        armGeo = new THREE.CapsuleGeometry(0.075, 0.42, 4, 8); armGeo.translate(0, 0.28, 0);
+        handGeo = new THREE.SphereGeometry(0.105, 10, 8); handGeo.translate(0, 0.6, 0);
+        armMat = new THREE.MeshStandardMaterial({ color: "#F2C4A0", roughness: 0.7 });
+        sleeveMat = new THREE.MeshStandardMaterial({ color: "#E91E63", roughness: 0.8 });
+    }
+    return { armGeo, handGeo, armMat, sleeveMat };
+}
+
+/** A skin's paint for {Body, BodyLight, BodyDark}. */
+export function skinColors(key) { const s = SKINS[key] || SKINS.pink; return { Body: s.body, BodyLight: s.light, BodyDark: s.dark }; }
+export function skinHex(key) { return (SKINS[key] || SKINS.pink).body; }
+
+// ── a canvas sprite whose text we redraw only when it changes ────────────
+class Label {
+    constructor(w, h, scale, order = 9) {
+        this.c = document.createElement("canvas");
+        this.c.width = w; this.c.height = h;
+        this.tex = new THREE.CanvasTexture(this.c);
+        this.tex.colorSpace = THREE.SRGBColorSpace;
+        this.sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: this.tex, depthTest: false, transparent: true }));
+        this.sp.renderOrder = order;
+        this.base = scale;
+        this.aspect = h / w;
+        this.sp.scale.set(scale, scale * this.aspect, 1);
+        this.key = null;
+    }
+    dispose() { this.sp.removeFromParent(); this.tex.dispose(); this.sp.material.dispose(); }
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+
+/** Nametag: a dark pill with the player's colour dot, 👑 for the host, status badges. */
+export class NameTag extends Label {
+    constructor() { super(512, 112, 2.7); }
+    set(name, color, o) {
+        const host = !!(o && o.host), ready = !!(o && o.ready), status = (o && o.status) || "", me = !!(o && o.me);
+        if (this.key && this.n === name && this.col === color && this.h === host && this.r === ready && this.st === status && this.me === me) return;
+        this.key = true; this.n = name; this.col = color; this.h = host; this.r = ready; this.st = status; this.me = me;
+        const g = this.c.getContext("2d");
+        g.clearRect(0, 0, 512, 112);
+        const text = (host ? "👑 " : "") + name + (status ? " " + status : ready ? " ✓" : "");
+        g.font = "700 50px Fredoka, Arial, sans-serif";
+        const tw = Math.min(470, g.measureText(text).width + 92);
+        const x = 256 - tw / 2;
+        g.fillStyle = me ? "rgba(233,30,99,0.92)" : "rgba(24,22,38,0.86)";
+        roundRect(g, x, 12, tw, 82, 41); g.fill();
+        g.strokeStyle = "rgba(255,255,255,0.45)"; g.lineWidth = 4; g.stroke();
+        g.fillStyle = color; g.beginPath(); g.arc(x + 40, 53, 17, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "#fff"; g.lineWidth = 4; g.stroke();
+        g.fillStyle = "#fff"; g.textAlign = "left"; g.textBaseline = "middle";
+        g.fillText(text, x + 66, 55, tw - 80);
+        this.tex.needsUpdate = true;
+    }
+}
+
+/** A speech bubble ("Follow me!") or a big emoji over a car. */
+export class Bubble extends Label {
+    constructor() { super(512, 200, 3.3, 10); this.sp.visible = false; this.life = 0; }
+    show(text) {
+        this.life = 2.6;
+        this.sp.visible = true;
+        if (text === this.key) return;
+        this.key = text;
+        const g = this.c.getContext("2d");
+        g.clearRect(0, 0, 512, 200);
+        const emoji = [...text].length <= 2;
+        if (emoji) {
+            g.font = "140px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+            g.textAlign = "center"; g.textBaseline = "middle";
+            g.fillText(text, 256, 100);
+        } else {
+            g.font = "700 58px Fredoka, Arial, sans-serif";
+            const tw = Math.min(490, g.measureText(text).width + 60);
+            g.fillStyle = "#fff";
+            roundRect(g, 256 - tw / 2, 20, tw, 120, 50); g.fill();
+            g.beginPath(); g.moveTo(236, 138); g.lineTo(256, 182); g.lineTo(282, 138); g.fill();
+            g.strokeStyle = "rgba(43,27,46,0.25)"; g.lineWidth = 5; roundRect(g, 256 - tw / 2, 20, tw, 120, 50); g.stroke();
+            g.fillStyle = "#2b1b2e"; g.textAlign = "center"; g.textBaseline = "middle";
+            g.fillText(text, 256, 82, 470);
+        }
+        this.tex.needsUpdate = true;
+    }
+    update(dt, baseY) {
+        if (this.life <= 0) { this.sp.visible = false; return; }
+        this.life -= dt;
+        const p = 1 - Math.max(0, this.life) / 2.6;
+        const pop = p < 0.08 ? p / 0.08 : 1;
+        this.sp.position.y = baseY + Math.min(0.4, p * 2);
+        this.sp.material.opacity = (this.life < 0.4 ? Math.max(0, this.life / 0.4) : 1) * (this.fade == null ? 1 : this.fade);
+        this.sp.scale.set(this.base * this.k * pop, this.base * this.aspect * this.k * pop, 1);
+    }
+}
+
+// ── a car (used on the road, in the lobby and on the podium) ─────────────
+export class CarVisual {
+    constructor(skin = "pink") {
+        this.root = new THREE.Group();
+        this.tilt = new THREE.Group();
+        this.root.add(this.tilt);
+        this.wheels = [];
+        this.taillights = [];
+        this.roll = 0; this.steer = 0; this.pitch = 0; this.rollAng = 0;
+        this.waveT = 0;
+        this.setSkin(skin);
+        // nitro flames
+        const fm = new THREE.SpriteMaterial({ map: flameTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+        this.flames = new THREE.Group();
+        for (const x of [-0.42, 0.42]) { const s = new THREE.Sprite(fm); s.position.set(x, 0.45, -2.25); s.scale.set(0.55, 0.55, 1); this.flames.add(s); }
+        this.flames.visible = false;
+        this.flameMat = fm;
+        this.tilt.add(this.flames);
+    }
+    setSkin(skin) {
+        if (this.model && this.skin === skin) return;
+        if (this.model) this.tilt.remove(this.model);
+        for (const m of this.taillights) m.dispose();
+        this.skin = SKINS[skin] ? skin : "pink";
+        this.model = cloneWithColors(models.lulu, skinColors(this.skin));
+        this.tilt.add(this.model);
+        this.wheels = findNodes(this.model, "Wheel_").map(w => { w.rotation.order = "YXZ"; return { obj: w, front: /Wheel_F/.test(w.name) }; });
+        this.sw = findNodes(this.model, "SteeringWheel")[0] || null;
+        this.swBase = this.sw ? this.sw.quaternion.clone() : null;
+        this.taillights = [];
+        this.model.traverse(o => { if (o.isMesh && o.material.name === "Taillight") { o.material = o.material.clone(); this.taillights.push(o.material); } });
+        // only the default hairdo shows (salon styles are per-device add-ons)
+        const hairs = findNodes(this.model, "Hair_");
+        const has = hairs.some(h => h.name.startsWith("Hair_sheitel"));
+        for (const h of hairs) h.visible = has ? h.name.startsWith("Hair_sheitel") : h === hairs[0];
+        this.hairMats = [];
+        for (const h of hairs) h.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
+        if (this.hairColor) this.setHair(this.hairColor, true);
+        // the waving arm, at her outer shoulder
+        const head = findNodes(this.model, "Anchor_head")[0];
+        const hp = head ? head.getWorldPosition(new THREE.Vector3()).sub(this.model.getWorldPosition(new THREE.Vector3())) : new THREE.Vector3(0.38, 1.6, -0.1);
+        const A = armParts();
+        if (!this.arm) {
+            this.arm = new THREE.Group();
+            const a = new THREE.Mesh(A.armGeo, A.armMat), h = new THREE.Mesh(A.handGeo, A.armMat);
+            a.castShadow = h.castShadow = true;
+            this.arm.add(a, h);
+            this.arm.visible = false;
+        }
+        this.arm.position.set(hp.x + 0.26, hp.y - 0.38, hp.z + 0.02);
+        this.tilt.add(this.arm);
+    }
+    setHair(color, force) {
+        if (!color || (!force && color === this.hairColor)) return;
+        this.hairColor = color;
+        for (const m of this.hairMats || []) m.color.set(color);
+    }
+    /** Per frame: speed (m/s), steer −1..1, flags {brake, boost, wave}, accel/lat for body roll. */
+    animate(dt, speed, steer, brake, boost, accel = 0, lat = 0) {
+        this.steer += (steer - this.steer) * Math.min(1, dt * 10);
+        this.roll += speed * dt / WHEEL_R;
+        for (const w of this.wheels) {
+            w.obj.rotation.x = this.roll;
+            if (w.front) w.obj.rotation.y = -this.steer * 0.5 / (1 + Math.abs(speed) / 25);
+        }
+        if (this.sw) { _q.setFromAxisAngle(_up, this.steer * 1.6); this.sw.quaternion.copy(this.swBase).multiply(_q); }
+        for (const m of this.taillights) m.emissiveIntensity = brake ? 4.5 : 1.2;
+        this.flames.visible = !!boost;
+        if (boost) { const f = 0.75 + Math.random() * 0.5; for (const c of this.flames.children) c.scale.set(0.55 * f, 0.55 * f, 1); }
+        const tp = THREE.MathUtils.clamp(-accel * 0.0035, -0.06, 0.05), tr = THREE.MathUtils.clamp(-lat * 0.0042, -0.07, 0.07);
+        this.pitch += (tp - this.pitch) * Math.min(1, dt * 6);
+        this.rollAng += (tr - this.rollAng) * Math.min(1, dt * 6);
+        this.tilt.rotation.set(this.pitch, 0, this.rollAng);
+        // wave
+        if (this.waveT > 0) {
+            this.waveT -= dt;
+            this.arm.visible = true;
+            this.arm.rotation.set(0, 0, -0.55 + Math.sin(this.waveT * 13) * 0.4);
+        } else this.arm.visible = false;
+    }
+    wave(t = 1.3) { this.waveT = Math.max(this.waveT, t); }
+    dispose() {
+        this.root.removeFromParent();
+        for (const m of this.taillights) m.dispose();
+        this.flameMat.dispose();
+    }
+}
+const _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0);
+
+// ── emoji pop (📣 on a honk) ─────────────────────────────────────────────
+class Pop extends Label {
+    constructor() { super(128, 128, 1.4, 11); this.sp.visible = false; this.life = 0; }
+    show(e) {
+        this.life = 1.1;
+        if (this.key !== e) {
+            this.key = e;
+            const g = this.c.getContext("2d");
+            g.clearRect(0, 0, 128, 128);
+            g.font = "96px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif";
+            g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(e, 64, 70);
+            this.tex.needsUpdate = true;
+        }
+    }
+    update(dt, y, k) {
+        if (this.life <= 0) { this.sp.visible = false; return; }
+        this.life -= dt;
+        const p = 1 - Math.max(0, this.life) / 1.1;
+        const s = (1.2 + Math.sin(p * Math.PI) * 0.6) * k;
+        this.sp.visible = true;
+        this.sp.position.set(-1.1, y + p * 1.2, 0);
+        this.sp.scale.set(s, s, 1);
+        this.sp.material.opacity = Math.max(0, Math.min(1, 1.15 - p));
+    }
+}
+
+// ── a friend on the road ─────────────────────────────────────────────────
+export class RemoteCar {
+    constructor(p) {
+        this.uid = p.uid;
+        this.v = new CarVisual(p.sk);
+        this.tag = new NameTag();
+        this.tag.sp.position.y = 2.6;
+        this.bubble = new Bubble();
+        this.pop = new Pop();
+        this.v.root.add(this.tag.sp, this.bubble.sp, this.pop.sp);
+        this.v.root.visible = false;
+        ctx.scene.add(this.v.root);
+        // interpolation state
+        this.st = { init: false, rawS: 0, rawD: 0, vS: 0, vD: 0, errS: 0, errD: 0, lastT: 0, delay: 160, ivl: 143, jit: 20, lastSampleT: -1, lastArrive: 0 };
+        this.out = { s: 0, d: 0, vs: 0, vd: 0, yaw: 0, steer: 0, y: 0, f: 0, extrap: 0 };
+        this.s = 0; this.d = 0; this.x = 0; this.z = 0; this.h = 0; this.speed = 0; this.vx = 0; this.vz = 0;
+        this.shown = false; this.honkWas = false; this.bonkCd = 0; this.bonking = false;
+        this.trace = null;
+    }
+    dispose() { this.tag.dispose(); this.bubble.dispose(); this.pop.dispose(); this.v.dispose(); }
+}
+
+/** Hermite sample of a player's track at party time T (ms). Returns false if there's nothing yet. */
+export function sampleTrack(S, T, o) {
+    const n = S.length;
+    if (!n) return false;
+    const last = S[n - 1];
+    if (n === 1 || T >= last.t) {
+        // extrapolate: constant velocity for 0.3 s, then glide to a stop over 0.4 s
+        const dt = Math.max(0, (T - last.t) / 1000);
+        let e = dt, vk = 1;
+        if (dt > 0.3) { const u = Math.min(1, (dt - 0.3) / 0.4); e = 0.3 + (1 - (1 - u) * (1 - u)) * 0.2; vk = 1 - u; }
+        o.s = last.s + last.vs * e; o.d = last.d + last.vd * Math.min(e, 0.25);
+        o.vs = last.vs * vk; o.vd = dt > 0.25 ? 0 : last.vd;
+        o.yaw = last.yaw; o.steer = last.steer; o.y = last.y; o.f = last.f; o.extrap = dt;
+        return true;
+    }
+    let i = n - 2;
+    while (i > 0 && S[i].t > T) i--;
+    const a = S[i], b = S[i + 1];
+    if (T <= a.t) { o.s = a.s; o.d = a.d; o.vs = a.vs; o.vd = a.vd; o.yaw = a.yaw; o.steer = a.steer; o.y = a.y; o.f = a.f; o.extrap = 0; return true; }
+    const h = Math.max(0.001, (b.t - a.t) / 1000), u = (T - a.t) / (b.t - a.t);
+    hermite(a.s, b.s, a.vs, b.vs, h, u, o, "s", "vs", true);
+    hermite(a.d, b.d, clampV(a.vd), clampV(b.vd), h, u, o, "d", "vd", false);
+    o.yaw = a.yaw + (b.yaw - a.yaw) * u;
+    o.steer = a.steer + (b.steer - a.steer) * u;
+    o.y = a.y + (b.y - a.y) * u;
+    o.f = u < 0.5 ? a.f : b.f;
+    o.extrap = 0;
+    return true;
+}
+const clampV = v => Math.max(-8, Math.min(8, v));
+function hermite(p0, p1, m0, m1, h, u, o, k, kv, mono) {
+    const dp = p1 - p0;
+    let t0 = m0 * h, t1 = m1 * h;
+    if (mono) {
+        // Fritsch–Carlson: no overshoot (a car never rolls backwards between two snapshots)
+        if (Math.abs(dp) < 1e-6) { t0 = t1 = 0; }
+        else {
+            const al = t0 / dp, be = t1 / dp;
+            if (al < 0) t0 = 0; if (be < 0) t1 = 0;
+            const r = al * al + be * be;
+            if (r > 9) { const tau = 3 / Math.sqrt(r); t0 *= tau; t1 *= tau; }
+        }
+    }
+    const u2 = u * u, u3 = u2 * u;
+    o[k] = (2 * u3 - 3 * u2 + 1) * p0 + (u3 - 2 * u2 + u) * t0 + (-2 * u3 + 3 * u2) * p1 + (u3 - u2) * t1;
+    o[kv] = ((6 * u2 - 6 * u) * p0 + (3 * u2 - 4 * u + 1) * t0 + (-6 * u2 + 6 * u) * p1 + (3 * u2 - 2 * u) * t1) / h;
+}
+
+// ── the manager: one RemoteCar per party member on the road ──────────────
+export const cars = new Map();
+const tmpP = {};
+let lastClock = 0;
+
+/** Called every frame while the party drives. show(p) → should this player's car be on the road? */
+export function updateCars(dt, show, decorate) {
+    const road = ctx.world && ctx.world.road;
+    if (!road) return;
+    const T0 = clock();
+    const dtParty = lastClock ? Math.max(0, Math.min(0.5, (T0 - lastClock) / 1000)) : dt;
+    lastClock = T0;
+    const cam = ctx.camera.position;
+    for (const [uid, p] of N.players) {
+        let rc = cars.get(uid);
+        const want = show(p);
+        if (!want) { if (rc) { rc.v.root.visible = false; rc.shown = false; rc.st.init = false; } continue; }
+        if (!rc) { rc = new RemoteCar(p); cars.set(uid, rc); }
+        if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
+        if (p.hc) rc.v.setHair(p.hc);
+        step(rc, p, dtParty, road, cam);
+        if (decorate) decorate(rc, p);
+    }
+    for (const [uid, rc] of cars) if (!N.players.has(uid)) { poof(rc); rc.dispose(); cars.delete(uid); }
+}
+
+function step(rc, p, dt, road, cam) {
+    const st = rc.st, o = rc.out, S = p.samples;
+    // adaptive delay: the sender's rhythm + jitter (ms), eased so render time never jumps
+    if (S.length && S[S.length - 1].t !== st.lastSampleT) {
+        const t = S[S.length - 1].t, w = now();
+        if (st.lastSampleT >= 0) {
+            const ivl = t - st.lastSampleT, arr = w - st.lastArrive;
+            st.ivl += (Math.min(800, ivl) - st.ivl) * 0.15;
+            st.jit += (Math.min(400, Math.abs(arr - ivl)) - st.jit) * 0.15;
+        }
+        st.lastSampleT = t; st.lastArrive = w;
+    }
+    const want = Math.max(150, Math.min(450, st.ivl * 1.1 + st.jit * 2 + 15));
+    st.delay += (want - st.delay) * Math.min(1, dt * 1.5);
+    const T = clock() - st.delay;
+    if (!sampleTrack(S, T, o)) {
+        // nothing streamed yet: a hello-only player waits invisibly
+        rc.v.root.visible = false; rc.shown = false;
+        return;
+    }
+    // smooth corrections (see the header) / snap on a real respawn
+    const expS = st.rawS + st.vS * dt, expD = st.rawD + st.vD * dt;
+    if (!st.init || p.respawn || Math.abs(o.s - expS) > 25 || Math.abs(o.d - expD) > 12) {
+        if (st.init) poof(rc);
+        st.errS = st.errD = 0; st.init = true; p.respawn = false;
+        if (rc.trace) rc.trace.push({ T, snap: 1 });
+    } else {
+        st.errS -= o.s - expS; st.errD -= o.d - expD;
+    }
+    const k = Math.exp(-dt / 0.12);
+    st.errS *= k; st.errD *= k;
+    if (Math.abs(st.errS) < 1e-4) st.errS = 0;
+    if (Math.abs(st.errD) < 1e-4) st.errD = 0;
+    st.rawS = o.s; st.rawD = o.d; st.vS = o.vs; st.vD = o.vd;
+    const s = Math.max(0, o.s + st.errS), d = o.d + st.errD;
+    road.point(s, d, tmpP);
+    const h = tmpP.h + o.yaw;
+    const sp = Math.hypot(o.vs, o.vd);
+    const prevSpeed = rc.speed;
+    rc.s = s; rc.d = d; rc.x = tmpP.x; rc.z = tmpP.z; rc.h = h; rc.speed = o.vs;
+    const fx = Math.sin(tmpP.h), fz = Math.cos(tmpP.h), rx = -Math.cos(tmpP.h), rz = Math.sin(tmpP.h);
+    rc.vx = fx * o.vs + rx * o.vd; rc.vz = fz * o.vs + rz * o.vd;
+    rc.v.root.position.set(tmpP.x, Math.max(0, o.y), tmpP.z);
+    rc.v.root.rotation.y = h;
+    const accel = dt > 0 ? (o.vs - prevSpeed) / dt : 0;
+    rc.v.animate(dt, sp * Math.sign(o.vs || 1), o.steer, !!(o.f & 1), !!(o.f & 2), accel, o.vs * o.steer * 0.4);
+    rc.v.root.visible = true; rc.shown = true;
+    // honk → 📣 + a wave + their horn when close
+    const honk = !!(o.f & 4);
+    if (honk && !rc.honkWas) { rc.pop.show("📣"); rc.v.wave(); rc.honked = true; }
+    rc.honkWas = honk;
+    // sprites stay readable at a distance — and get out of the way when a car is right by the camera
+    const dist = Math.hypot(tmpP.x - cam.x, tmpP.z - cam.z);
+    const kk = Math.max(1, Math.min(4, dist / 14));
+    const near = Math.max(0, Math.min(1, (dist - 7) / 8));
+    rc.tag.sp.scale.set(rc.tag.base * kk, rc.tag.base * rc.tag.aspect * kk, 1);
+    rc.tag.sp.visible = dist < 320 && near > 0.02;
+    rc.tag.sp.material.opacity = near;
+    rc.tag.sp.position.y = 2.6 + (kk - 1) * 0.12;
+    rc.bubble.k = Math.min(2.6, kk);
+    rc.bubble.fade = 0.35 + 0.65 * near;
+    rc.bubble.update(dt, 3.5 + (kk - 1) * 0.35);
+    rc.pop.update(dt, 2.2, Math.min(2.5, kk));
+    if (rc.bonkCd > 0) rc.bonkCd -= dt;
+    if (rc.trace) rc.trace.push({ T: clock(), s, d, ex: o.extrap });
+}
+
+// a sparkle poof when a car (re)appears somewhere new
+let poofFn = null;
+export function setPoof(fn) { poofFn = fn; }
+function poof(rc) { if (poofFn && rc.shown) { try { poofFn(rc.x, rc.z); } catch (e) { /* cosmetic */ } } }
+
+export function hideCars() { for (const rc of cars.values()) { rc.v.root.visible = false; rc.shown = false; rc.st.init = false; } }
+export function clearCars() { for (const rc of cars.values()) rc.dispose(); cars.clear(); }
+
+/** Is this remote player's stream healthy right now? */
+export function status(p) {
+    if (p.f & 8) return "⏸";
+    if (p.f & 16) return "💤";
+    if (!fresh(p, 1200)) return "📶";
+    return "";
+}

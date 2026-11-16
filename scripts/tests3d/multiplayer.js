@@ -78,11 +78,13 @@ module.exports = {
 
 async function body(t) {
   await t.frames(6);
-  t.check("title lists 🌐 Shared Road", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Shared Road/.test(b.textContent))`));
+  // Shared Road lives in the party hub now (one multiplayer entry on the title)
+  t.check("title lists 🎉 Party with friends (Shared Road inside)", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Party with friends/.test(b.textContent))`));
   t.check("nothing connects until the player joins", await t.game(`!${S}.sock && !${S}.want`));
 
   // ── the screen: pick a curated name with the D-pad, connect to EVERYONE ──
-  await t.click(/Shared Road/);
+  await t.click(/Party with friends/);
+  await t.click(/Open road/);
   t.check("Shared Road screen with the 12 curated names", await t.L(`document.querySelectorAll("#screenCard .mp-names .btn").length === 12`));
   await t.click(/Kugel Kid/);
   t.check("picking a name saves it to the shared 2D save", await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).mpName === "Kugel Kid"`));
@@ -97,7 +99,9 @@ async function body(t) {
   t.check("sees the 2D player join", await t.game(`Object.values(ctx.mp._debug.peers)[0].name`) === "Latke Legend");
   await t.frames(4);
   await t.shot("connected");
-  await t.tap(1);   // ○ closes back to the title
+  await t.tap(1);   // ○ closes back to the party hub…
+  await t.frames(3);
+  await t.tap(1);   // …and ○ again to the title
   await t.frames(4);
   t.check("title shows YOUR CREW", await t.L(`/YOUR CREW/.test(document.querySelector("#screenCard").textContent)`));
 
@@ -230,7 +234,8 @@ async function body(t) {
 
   // ── disconnect = opt out; a cruise no longer auto-joins ──
   await t.game(`L3.setState("title")`);
-  await t.click(/Online|Shared Road/);
+  await t.click(/Party with friends/);
+  await t.click(/Open road/);
   await t.click(/Disconnect/);
   t.check("disconnect closes the socket + opts out", await t.game(`!${S}.want && !${S}.connected`) && await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).mpAutoOff === true`));
   await t.click(/Cancel/);
@@ -247,7 +252,8 @@ async function body(t) {
   await t.page.setViewportSize({ width: 390, height: 844 });
   await t.game(`L3.setState("title")`);
   await t.frames(3);
-  await t.click(/Online|Shared Road/);
+  await t.click(/Party with friends/);
+  await t.click(/Open road/);
   await t.game(`(${S}.roomKind = "friend")`);
   await t.click(/FRIEND CODE/);
   await t.frames(3);
