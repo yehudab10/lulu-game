@@ -363,7 +363,7 @@ function vanTick(dt) {
     const van = home.van;
     if (!van || !home.vanPath) return;
     home.vanT += dt;
-    const PERIOD = 30, SPEED = 9;
+    const PERIOD = 46, SPEED = 9;
     const tt = (home.vanT + 22) % PERIOD;
     const m = tt * SPEED;
     if (m > home.vanPath.length) { van.visible = false; return; }
@@ -455,5 +455,6 @@ export function onTitle(from) {
     if (from === "loading" || !from) { placeParked(); return; }
     if (dist < 1.5 && home.phase === "parked") { car.showDriver(false); return; }
     if (from === "worldDepart") { placeParked(); return; }
+    home.camSnap = true;          // she was somewhere else: cut to the street, then watch her drive up
     startArrival();
 }

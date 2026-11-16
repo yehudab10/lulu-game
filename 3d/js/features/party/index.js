@@ -122,7 +122,7 @@ ctx.party.atmosWeather = () => {
 };
 
 // random features stay off in a party (every friend must see the same world)
-const OFF = new Set(["roadevents", "cameos", "law", "journey", "meta", "foot", "interiors", "dina", "banter", "hustle", "streets"]);
+const OFF = new Set(["roadevents", "cameos", "law", "journey", "meta", "foot", "interiors", "dina", "banter", "hustle", "streets", "world"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
