@@ -17,3 +17,4 @@ import "./play/index.js";        // playground: 📸 photo mode, ✨ golden drei
 import "./banter/index.js";      // personality: Lulu alive at the wheel, her one-liners, the road talks back, funny billboards
 import "./atmos/index.js";       // atmosphere: Cruise day/night cycle, weather (rain, fog, snow, rainbows), birds, banner planes, balloons, leaves
 import "./party/index.js";       // 🎉 Party with friends: host / join by code or link, a 3D lobby, Road Trip together, races (seeded shared world)
+import "./streets/index.js";     // 🚗 street mayhem: carjack anything, bail out, wanted stars + search, roadblocks, Paint & Pray, smashable props

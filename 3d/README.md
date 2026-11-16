@@ -13,7 +13,8 @@ one, spend them in the other.
 |---|---|
 | 📖 **Story Trip** | Lakewood → Bubbe's house → Heshy's pool → the beach → Avigail's place → Viva Vegas on one continuous road; the scenery, sky, traffic and music change each leg (autumn suburbs, pool town, the coast, golden-dusk boutiques, desert, the neon Strip at night). Arrival cutscenes with Bubbe, Heshy, Dina, Avigail and the Vegas family; chapter tasks + stars, postcards, tours with bigger payouts, a 3D story map, story calls and interludes, and **Ima's calls** (honk to decline, or take the call with flipped steering for gas money). |
 | 🛣️ **Cruise** | Endless driving with traffic both ways, coin trails, close calls, nitro, handbrake drifts. |
-| 🚓 **Cops & court** | Hidden speed traps, patrols, K9s, helicopters, pursuits that try to box you in, pull-overs, arrest → precinct → jail cell (escape, bail, lawyers) → a full courtroom visual novel (Avigail testifies for or against you), the 3-strikes rule, fugitive mode. |
+| 🚓 **Cops & court** | Hidden speed traps, patrols, K9s, helicopters, pursuits that try to box you in, pull-overs, arrest → precinct → jail cell (escape, bail, lawyers) → a full courtroom visual novel (Avigail testifies for or against you), the 3-strikes rule, fugitive mode. GTA-style escapes: a clean ★ row, cruisers never faster than your car, and once you break their **line of sight** the stars flash while they search — stay hidden and you've lost them (at night the chopper only sees what its spotlight's on). |
+| 🚗 **Street mayhem** | **Carjack anything** on foot (the driver tumbles out, sees stars and gets up ANGRY) and drive THAT vehicle — box truck, minivan, sports car, even a cop car — each with its own handling; **bail out** of a moving car (dive, roll, it coasts on without you). 3★+ brings **roadblocks with spike strips** (flat tyres!). **🎨 Paint & Pray**: Moishe's drive-through spray booth — new colour, heat gone. **Smashable street props** (hydrant geysers, mailboxes, fruit stands, phone booths…) with a damage $ tally, and **Shmuel's Chop Shop** calls with orders ("a blue minivan, no questions"). |
 | 🛒 **Shop & bling** | All 8 cars with real handling stats, missiles, pepper spray, the Bubble Shield, Distracted Mode, 6 custom horns, 7 car decorations — in a 3D showroom. |
 | 🚧 **Road events** | Toll plazas, railroad crossings with real trains, parades and marathons, animals (ducks, raccoons, ostriches), construction zones, the steamroller you can commandeer, hitchhikers who ride along, ice-cream trucks, drive-thrus, school buses, ambulances, drunk/texting drivers… |
 | 💅 **Cameos** | Avigail driving around and her porch visits (friendship meter), Fabio's salon (new hairstyle + colour), sasquatch, Heshy's pool, the uncles, the crash aftermath (the angry driver, the revenge car, Hillel the adjuster) and **the ER**. |
@@ -36,8 +37,10 @@ one, spend them in the other.
 | Handbrake drift | □ | X | Space | — |
 | Nitro · horn | R1 · L1 | RB · LB | Shift · H | NITRO · HONK |
 | Missile · item | D-pad ↑ · ↓ | D-pad ↑ · ↓ | M · G | 🚀 · 🧴 |
-| Interact (on foot) | ✕ | A | E | ✋ |
-| Camera · look | △ · right stick (R3 = behind) | Y · right stick | C · V | CAM |
+| Interact · carjack (on foot) | ✕ | A | E | ✋ |
+| Bail out of a moving car | hold △ | hold Y | E (above ~30 mph) | ✋ BAIL |
+| Camera · look | tap △ · right stick (R3 = behind) | tap Y · right stick | C · V | CAM |
+
 | Map / scrapbook · pause | touchpad · OPTIONS | View · Start | Tab · P/Esc | 📒 · ❚❚ |
 | Skip a cutscene | hold ○ | hold B | hold Backspace | tap ⏭ SKIP |
 | Party quick chat | hold D-pad ↑, aim with right stick | hold D-pad ↑ | hold F (or 1–8) | 💬 |

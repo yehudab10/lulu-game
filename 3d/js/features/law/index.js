@@ -22,7 +22,7 @@ import * as H from "../../hud.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
 import { L, update, hud, resetRunState, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes, ensureCopModels, activeUnits,
-    spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper } from "./cops.js";
+    spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, spook } from "./cops.js";
 import { jailDebug } from "./jail.js";
 import { pullOver } from "./bust.js";
 import "./arrest.js";
@@ -60,6 +60,9 @@ on("run:start", ({ mode }) => {
 on("run:end", () => { run.live = false; });
 
 hook("update", (dt, P, controlsOn) => update(dt, P, controlsOn));
+// a near miss mid-chase rattles the car she skimmed — the cruiser behind may pile into it
+on("closeCall", () => { try { spook(); } catch (e) { console.error(e); } });
+
 hook("hud", () => hud());
 
 let booted = false;

@@ -269,7 +269,15 @@ const ROWS = [
     ["boost", "Nitro"], ["honk", "Horn"], ["camera", "Camera"], ["fire", "Fire missile"],
     ["item", "Use item"], ["interact", "Interact (on foot)"], ["map", "Map / scrapbook"], ["pause", "Pause"],
 ];
+/** Features add / relabel a row of the button guide: setControlRow("bail", "Bail out", "interact") (glyphs: input.js glyphSet). */
+export function setControlRow(action, label, after = null) {
+    const i = ROWS.findIndex(r => r[0] === action);
+    if (i >= 0) { ROWS[i][1] = label; return; }
+    const j = after ? ROWS.findIndex(r => r[0] === after) : -1;
+    ROWS.splice(j >= 0 ? j + 1 : ROWS.length, 0, [action, label]);
+}
 export function controlsHtml() {
+
     const pad = input.padConnected ? input.padKind : "ps";
     const G1 = glyphSet(pad), K = glyphSet("keyboard");
     const g = a => `<span class="glyph">${G1[a] || "—"}</span>`, k = a => `<span class="glyph k">${K[a] || "—"}</span>`;

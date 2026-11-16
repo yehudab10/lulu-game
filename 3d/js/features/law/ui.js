@@ -53,9 +53,15 @@ css("law", `
 #lawFade.on { opacity: 1; }
 #lawFade.flash { background: #fff; transition: none; }
 .law-wanted { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-.law-wanted .stars { font-size: 24px; letter-spacing: 2px; color: #FFD54F; text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 10px rgba(0,0,0,.4); }
-.law-wanted .stars.hot { color: #FF5252; }
-.law-wanted .stars i { font-style: normal; opacity: .35; }
+.law-wanted .stars { display: flex; gap: 2px; font-size: 26px; line-height: 1; }
+.law-wanted .stars b { font-weight: 400; color: #FFD54F; -webkit-text-stroke: 1px rgba(46,22,0,.9); text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.35); transition: color .2s; }
+.law-wanted .stars b.off { color: rgba(255,255,255,.14); -webkit-text-stroke: 1px rgba(0,0,0,.3); text-shadow: none; }
+.law-wanted .stars.hot b.on { color: #FF5252; }
+.law-wanted .stars.search b.on { animation: lawStarFlash .6s steps(2, jump-none) infinite; }
+.law-wanted .stars b.new { animation: lawStarPop .45s cubic-bezier(.2,1.8,.4,1); }
+@keyframes lawStarFlash { from { color: #FFF3C4; opacity: 1; } to { color: #90A4AE; opacity: .5; } }
+@keyframes lawStarPop { from { transform: scale(1.9); } to { transform: none; } }
+.law-wanted .tag.search { background: rgba(38,50,56,.88); }
 .law-wanted .tag { background: rgba(150,20,20,.88); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: 13px; letter-spacing: .06em; }
 .law-wanted .tag.fug { background: #E65100; }
 .law-wanted .tag.blink { animation: lawPulse .5s ease-in-out infinite alternate; }
@@ -66,7 +72,7 @@ css("law", `
 body.tv #lawUI .law-head { font-size: 30px; } body.tv #lawUI .law-cap { font-size: 46px; } body.tv #lawUI .law-cap small { font-size: 26px; }
 body.tv #lawUI .law-bubble { font-size: 24px; max-width: 420px; } body.tv #lawUI .law-toast { font-size: 36px; }
 body.tv #lawUI .law-meter { width: 320px; } body.tv #lawUI .law-meter .f { font-size: 18px; }
-body.tv .law-wanted .stars { font-size: 36px; } body.tv .law-wanted .tag { font-size: 20px; }
+body.tv .law-wanted .stars { font-size: 40px; } body.tv .law-wanted .tag { font-size: 20px; }
 @media (max-aspect-ratio: 1/1) { #lawUI .law-cap { font-size: 24px; top: 12%; } #lawUI .law-bar { top: calc(12% + 66px); }
   #lawUI .law-meter { width: 170px; } #lawUI .law-bubble { font-size: 14px; max-width: 200px; } }
 @keyframes lawPulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
@@ -210,10 +216,18 @@ export function wantedHud(info) {
         hudEl.className = "law-wanted";
         H.hudSlot("right").appendChild(hudEl);
     }
-    const stars = "★".repeat(info.stars) + `<i>${"★".repeat(5 - info.stars)}</i>`;
+    // a clean GTA-style star row: lit stars, dim slots; the lit ones FLASH while the cops search for her
+    const prev = +(hudEl.dataset.stars || 0);
+    const stars = Array.from({ length: 5 }, (_, i) => `<b class="${i < info.stars ? "on" : "off"}${i < info.stars && i >= prev && prev > 0 ? " new" : ""}">★</b>`).join("");
     const m = (frac, label, color) => frac > 0.02 ? `<div class="mtr"><div class="track"><div class="fill" style="width:${(frac * 100).toFixed(0)}%;background:${color}"></div></div><div class="lbl">${label}</div></div>` : "";
-    const html = `${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
-        ${info.stars ? `<div class="stars ${info.stars >= 4 ? "hot" : ""}">${stars}</div>` : ""}
-        ${m(info.bust || 0, "BUSTED", "#FF1744")}${m(info.evade || 0, "EVADING", "#69F0AE")}${m(info.spot || 0, "👀 SPOTTED", "#FF8A80")}${m(info.radar || 0, "📡 RADAR", "#FFD740")}`;
-    if (hudEl.dataset.h !== html) { hudEl.dataset.h = html; hudEl.innerHTML = html; }
+    const html = `${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.search ? "search" : info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
+        ${info.stars ? `<div class="stars ${info.stars >= 4 ? "hot" : ""} ${info.search ? "search" : ""}">${stars}</div>` : ""}
+        ${m(info.bust || 0, "BUSTED", "#FF1744")}${m(info.evade || 0, "LOSING THEM…", "#69F0AE")}${m(info.spot || 0, "👀 SPOTTED", "#FF8A80")}${m(info.radar || 0, "📡 RADAR", "#FFD740")}`;
+    if (hudEl.dataset.h !== html) {
+        hudEl.dataset.h = html; hudEl.innerHTML = html;
+        // the "new star" pop plays once
+        if (info.stars !== prev) requestAnimationFrame(() => hudEl && hudEl.querySelectorAll(".stars b.new").forEach(b => b.addEventListener("animationend", () => b.classList.remove("new"), { once: true })));
+    }
+    hudEl.dataset.stars = info.stars;
 }
+
