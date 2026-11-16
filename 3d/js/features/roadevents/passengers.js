@@ -44,7 +44,7 @@ export function seatRider(person, opts = {}) {
     person.obj.rotation.set(0, 0, 0);
     person.obj.scale.setScalar(opts.scale || (person.kid ? 0.95 : 0.86));
     w.add(person.obj);
-    const r = { person, bonus: opts.bonus !== false, keep: !!opts.keep, who: opts.who || "", waveT: rnd(2, 6) };
+    const r = { person, bonus: opts.bonus !== false, keep: !!opts.keep, who: opts.who || "", waveT: rnd(2, 6), pose: typeof opts.pose === "function" ? opts.pose : null };
     seat.riders.push(r);
     if (r.bonus) seat.t = Math.max(seat.t, opts.secs || PAY.passengerSecs);
     stat("passengers", 1);
@@ -83,6 +83,13 @@ function dropRider(r, quiet) {
         dispose() { if (obj.parent) obj.parent.remove(obj); },
     });
 }
+/** Take a seated person out of the car quietly (no hop-out, no wave): the caller animates them. */
+export function unseatRider(person) {
+    const r = seat.riders.find(x => x.person === person);
+    if (!r) return false;
+    dropRider(r, true);
+    return true;
+}
 export function clearRiders() {
     for (const r of seat.riders.slice()) dropRider(r, true);
     seat.riders.length = 0;
@@ -111,6 +118,7 @@ hook("update", (dt, P, controlsOn) => {
         r.waveT -= dt;
         const wave = r.waveT < 0;
         if (r.waveT < -1.6) r.waveT = rnd(4, 9);
+        if (r.pose) { let o = null; try { o = r.pose(dt); } catch (e) { o = null; } r.person.update(dt, o || { sit: true }); continue; }   // a feature drives this rider's pose (hustle)
         r.person.update(dt, { sit: true, wave, talk: r.waveT > 0 && r.waveT < 0.8 });
     }
 });

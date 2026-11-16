@@ -17,7 +17,7 @@ import * as H from "../../hud.js";
 import { SPAWN_CONFIG, OWN_SPAWNS, MIN_TIME, RATES, PAY } from "./config.js";
 import { EVENTS, R, live, tally, canSpawn } from "./state.js";
 import { ID, loadAll, need, rnd, clamp, governTraffic, updateBubbles, resetCommon } from "./common.js";
-import { seat, seatRider, ridersBonus, resetPassengers, honkHitch, honkScarePeds } from "./passengers.js";
+import { seat, seatRider, unseatRider, ridersBonus, resetPassengers, honkHitch, honkScarePeds } from "./passengers.js";
 import "./toll.js";
 import "./train.js";
 import "./treats.js";
@@ -237,10 +237,10 @@ const svc = {
     /** "steamroller" while Lulu is crushing cars in one, else null. */
     vehicle: null,
     commandeer, endSteamroller: () => endDozer(),
-    /** Passengers in Lulu's car (and the 2× coin window). seat(person, {bonus, secs, who}) seats a core Person. */
+    /** Passengers in Lulu's car (and the 2× coin window). seat(person, {bonus, secs, who, keep, pose(dt) → Person.update opts}) seats a core Person; unseat(person) takes them out quietly. */
     get passengers() { return seat.riders.length; },
     get passengerTime() { return seat.t; },
-    seat: seatRider, ridersBonus,
+    seat: seatRider, unseat: unseatRider, ridersBonus,
     /** Per-run counters (also on ctx.G.roadevents). */
     tally,
     loadModels: loadAll,
