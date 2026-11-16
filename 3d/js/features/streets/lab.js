@@ -11,6 +11,8 @@
 import { ctx, on, hook, setState, wrapAngle } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
 import { input } from "../../input.js";
+import { nearestGarage, PAINT } from "./paint.js";
+import { HEAT } from "./heat.js";
 
 const tmp = {};
 export const bot = { on: false, mode: "run", lane: 1.75, laneT: 0, oncoming: true, boost: true, skill: 1, dodge: true };
@@ -57,6 +59,17 @@ hook("controls", (ctl, dt) => {
         if (best !== bot.lane) bot.lane = best;
         bot.laneT = bot.skill >= 1 ? 0.8 : 0.8 + (1 - bot.skill) * 2.4;     // a sloppier driver reacts later
     }
+    // tactic: a roadblock ahead → take the shoulder and smash the barricade instead of the spikes
+    if (bot.tactics !== false) for (const b of HEAT.blocks) {
+        const gap = b.s - car.s;
+        if (gap > 6 && gap < 130) { bot.lane = car.d < 0 ? -8.1 : 8.1; bot.laneT = 0.6; }
+    }
+    // tactic: a Paint & Pray coming up → pull onto its apron and let Moishe do the rest
+    let paintAhead = null;
+    if (bot.paint && ctx.law && ctx.law.chasing) {
+        const n = nearestGarage();
+        if (n && n.built && n.dist > 9 && n.dist < 75) { paintAhead = n; bot.lane = 10.6; bot.laneT = 1; }
+    }
     const look = Math.max(10, car.speed * 0.75);
     road.point(car.s + look, bot.lane, tmp);
     const diff = wrapAngle(Math.atan2(tmp.x - car.pos.x, tmp.z - car.pos.z) - car.h);
@@ -65,6 +78,7 @@ hook("controls", (ctl, dt) => {
     const need = (car.speed * 0.9 + 8) * (bot.skill >= 1 ? 1 : 1 + (1 - bot.skill));
     ctl.throttle = room > need ? 1 : room > need * 0.6 ? 0.4 : 0;
     ctl.brake = room < need * 0.45 ? 0.7 : 0;
+    if (paintAhead) { ctl.throttle = car.speed < 15 ? 0.6 : 0; ctl.brake = car.speed > 20 ? 0.6 : 0; input.boost = false; return; }
     // nitro: plenty of road, or a cruiser breathing down her neck
     const L = ctx.law && ctx.law._dbg && ctx.law._dbg.L;
     let copNear = 999;
@@ -104,7 +118,11 @@ export function sim(opts = {}) {
         seenT: 0, searchT: 0, pits: 0, copHits: 0, bustPeak: 0, units: 0, copCrashes: 0, startGap: 0, minGap: 999, roadblocks: 0,
         copAvg: 0, gap5: 0, gap15: 0, gap30: 0, err: null };
     try {
-        startRun({ mode, s: opts.s != null ? opts.s : undefined });
+        // the Paint & Pray tactic needs a booth within reach: start the run ~1 km before one
+        let s0 = opts.s;
+        if (opts.paint && s0 == null) { const g = PAINT.garages.find(q => q.s > 1300 && !q.skip); if (g) s0 = g.s - 1000; }
+        startRun({ mode, s: s0 != null ? s0 : undefined });
+
         setState("playing");
         const car = ctx.car, road = ctx.world.road;
         const p = road.point(car.s, 1.75, {});
@@ -113,6 +131,9 @@ export function sim(opts = {}) {
         bot.on = true; bot.mode = "run"; bot.lane = 1.75; bot.laneT = 0; bot.skill = opts.skill != null ? opts.skill : 1;
         bot.oncoming = opts.oncoming != null ? !!opts.oncoming : bot.skill >= 1;     // the "average player" stays on her own side
         bot.dodge = opts.dodge != null ? !!opts.dodge : true;
+        bot.paint = !!opts.paint;
+        bot.tactics = opts.tactics !== false;
+
 
         ctx.G.boost = 0.35;
         for (let i = 0; i < warm * 30; i++) simStep(dt);
@@ -155,6 +176,7 @@ export function sim(opts = {}) {
             const lead = L.units.filter(u => u.car && u.mode === "chase" && !u.car.hit).map(u => Math.hypot(u.car.x - car.pos.x, u.car.z - car.pos.z)).sort((a, b) => a - b)[0];
             for (const [k, at] of [["gap5", 5], ["gap15", 15], ["gap30", 30]]) if (Math.abs(out.t - at) < dt / 2) out[k] = lead == null ? -1 : Math.round(lead);
             sumV += car.speed; n++;
+            if (ctx.state === "streetsPaint") { out.outcome = "painted"; break; }
             if (ctx.state === "lawBust" || ctx.state === "lawArrest" || ctx.state === "wrecked" || ctx.state === "lawJail") { out.outcome = ctx.state === "lawBust" ? "busted" : ctx.state === "wrecked" ? "wrecked" : "arrested"; break; }
             if (!L.chase && lastChaseEnd) { out.outcome = lastChaseEnd; break; }
         }

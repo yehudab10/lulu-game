@@ -156,7 +156,7 @@ export function skipInput(dt) {
     el.classList.toggle("lower", !!(def && def.hud));
     if (!can) { S.hold = 0; $fill.style.width = "0"; return; }
     const g = input.device === "gamepad" ? `hold ${glyph("back")}` : input.device === "keyboard" ? "hold ⌫" : "";
-    if (g !== S.glyph) { S.glyph = g; $g.textContent = g; }
+    if (g !== S.glyph) { S.glyph = g; $g.textContent = g.replace(/<[^>]*>/g, ""); }   // glyph() is HTML: the pill shows plain "hold B"
     if (!input.backHeld) S.armed = true;
     if (S.armed && input.backHeld) S.hold += dt;
     else S.hold = Math.max(0, S.hold - dt * 3);

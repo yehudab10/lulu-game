@@ -262,8 +262,11 @@ function finishJack(jk) {
     const seen = jk.cop ? (ctx.law ? (ctx.law.startChase("CARJACKING A POLICE CRUISER", { msg: "🚨 YOU JACKED A COP CAR?!", heat: 2 }), true) : false)
         : crime("CARJACKING", where.x, where.z, { msg: "🚨 CARJACKING — A COP SAW THAT!" });
     emit("streets:carjack", { kind: c.kind, model: R.model, color: ride.color, x: where.x, z: where.z, witnessed: !!seen });
-    toast(`🚗 CARJACKED! ${T.RIDE_HINT[c.kind] || ""}`, "gold", "streets:jack");
-    if (J.jacks === 1 || !S.hinted) { S.hinted = true; H.banner(`<b>🚗 IT'S YOURS NOW</b><small>${bailHint()} to bail out</small>`, 2600, { key: "streets:ride" }); }
+    // no blinking "shield" on a car she just took (it's standing still), one card says how it drives
+    ctx.G.invT = 0;
+    H.banner(`<b>🚗 CARJACKED!</b><small>${T.RIDE_HINT[c.kind] || ""}${!S.hinted ? ` · ${bailHint()} to bail out` : ""}</small>`, 2800, { key: "streets:ride" });
+    S.hinted = true;
+
     familyText();
 }
 const S = { hinted: false };
@@ -292,7 +295,7 @@ function victimActor(p, stars, ride, isCop) {
             const car = ctx.car, onFoot = ctx.foot && ctx.foot.active;
             const tgt = onFoot && ctx.foot.pos ? ctx.foot.pos : car.pos;
             dodge(V, dt);
-            if (V.dive) { updateDive(V, dt); return V.t < 16; }
+            if (V.dive) { updateDive(V, dt); return true; }
             if (V.phase === "down") {
                 o.rotation.x = -Math.PI / 2;
                 p.update(dt, {});
@@ -323,8 +326,9 @@ function victimActor(p, stars, ride, isCop) {
                 } else { p.face(tgt.x, tgt.z, dt, 3); p.update(dt, { talk: Math.sin(V.t * 2) > 0.5 }); }
             }
             holdTraffic(o);
-            const far = Math.hypot(o.position.x - car.pos.x, o.position.z - car.pos.z) > 150;
-            return !(far || V.t > 22);
+            // gone once she's well away (never popping out in front of her)
+            const dist = Math.hypot(o.position.x - car.pos.x, o.position.z - car.pos.z);
+            return !(dist > 150 || (V.t > 22 && dist > 60));
         },
         dispose() {
             ctx.scene.remove(o);
@@ -608,7 +612,9 @@ function bailCamera(dv, dt) {
     const F = ctx.foot.debug.F;
     if (!F) return false;
     const fx = Math.sin(dv.yaw), fz = Math.cos(dv.yaw), lx = Math.cos(dv.yaw), lz = -Math.sin(dv.yaw);
-    _cf.set(F.pos.x - fx * 6.5 + lx * 3.8, 2.8, F.pos.z - fz * 6.5 + lz * 3.8);
+    // from behind, on the car's side of her dive: her roll and the car rolling away in one shot
+    _cf.set(F.pos.x - fx * 6.5 - lx * 3.2, 2.8, F.pos.z - fz * 6.5 - lz * 3.2);
+
     _cl.set(F.pos.x + fx * 1.5, 0.7, F.pos.z + fz * 1.5);
     ctx.cam.cinematic(_cf, _cl, dt, 4, 54);
     return true;

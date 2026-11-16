@@ -119,7 +119,9 @@ function removeBlock(blk) {
 hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing") return;
     const law = ctx.law;
-    if (law && law.chasing && law.wanted >= 3 && !law.searching && live()) {
+    // (they set up roadblocks ahead whether or not they can see her right now)
+    if (law && law.chasing && law.wanted >= 3 && live()) {
+
         HEAT.nextT -= dt;
         if (HEAT.nextT <= 0 && !HEAT.blocks.length && ctx.car.speed > 8) {
             HEAT.nextT = rand(20, 28) - (law.wanted - 3) * 3;

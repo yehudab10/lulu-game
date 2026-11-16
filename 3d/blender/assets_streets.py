@@ -134,20 +134,22 @@ def build_paint():
     rnd = random.Random(7)
     for i in range(16):
         side = 1 if i % 2 == 0 else -1
-        y = rnd.uniform(-hy + 1.2, hy - 1.2)
-        z = rnd.uniform(0.8, H_W - 0.6) if side < 0 else rnd.uniform(2.75, 3.15)   # road side: a drippy band between the windows and the sign
+        # road side: small drips in a band between the two windows, under the sign
+        y = rnd.uniform(-hy + 1.2, hy - 1.2) if side < 0 else rnd.uniform(-3.2, 3.2)
+        z = rnd.uniform(0.8, H_W - 0.6) if side < 0 else rnd.uniform(2.6, 2.75)
         m = SPLATS[i % 4]
-        r = rnd.uniform(0.18, 0.4)
+        r = rnd.uniform(0.18, 0.4) if side < 0 else rnd.uniform(0.12, 0.2)
         parts.append(Part(coll, "splat", bm_sphere(0.04, r, r * 0.9, 10, 6), m, loc=(side * (hx + 0.005), y, z)))
         parts.append(Part(coll, "drip", bm_box(0.05, 0.08, r * 1.6), m, loc=(side * (hx + 0.01), y + rnd.uniform(-0.1, 0.1), z - r * 1.2)).bevel(0.02, 2))
     bake(parts, "PaintBooth", coll, parent=root)
 
     # the roadside neon sign (+X wall)
     sign = [
-        Part(coll, "board", bm_box(0.16, 9.0, 1.5), SIGN_BG, loc=(hx + 0.12, 0, H_W - 0.2)).bevel(0.06, 2),
-        Part(coll, "boardTrim", bm_box(0.1, 9.2, 1.7), TRIM, loc=(hx + 0.06, 0, H_W - 0.2)).bevel(0.05, 2),
-        Part(coll, "txt", bm_text("PAINT & PRAY", 0.82, 0.03), SIGN_TXT, loc=(hx + 0.21, 0, H_W - 0.07), rot=(math.pi / 2, 0, math.pi / 2), smooth=False),
-        Part(coll, "txt2", bm_text("NEW COLOR · NO QUESTIONS", 0.3, 0.02), SIGN_TXT2, loc=(hx + 0.21, 0, H_W - 0.72), rot=(math.pi / 2, 0, math.pi / 2), smooth=False),
+        # (below the roof overhang, so the whole board reads from the road)
+        Part(coll, "board", bm_box(0.16, 9.0, 1.3), SIGN_BG, loc=(hx + 0.12, 0, 3.62)).bevel(0.06, 2),
+        Part(coll, "boardTrim", bm_box(0.1, 9.2, 1.46), TRIM, loc=(hx + 0.06, 0, 3.62)).bevel(0.05, 2),
+        Part(coll, "txt", bm_text("PAINT & PRAY", 0.72, 0.03), SIGN_TXT, loc=(hx + 0.21, 0, 3.78), rot=(math.pi / 2, 0, math.pi / 2), smooth=False),
+        Part(coll, "txt2", bm_text("NEW COLOR · NO QUESTIONS", 0.26, 0.02), SIGN_TXT2, loc=(hx + 0.21, 0, 3.2), rot=(math.pi / 2, 0, math.pi / 2), smooth=False),
     ]
     bake(sign, "PaintSign", coll, parent=root)
 

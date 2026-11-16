@@ -51,10 +51,10 @@ export const config = { traps: true, patrols: true, apb: true };
 // (unboosted) top speed and never out-accelerate her, no rubber-banding, and
 // she escapes by breaking LINE OF SIGHT and staying hidden while they search.
 export const TUNE = {
-    copSpeed: [0, 0.9, 0.93, 0.96, 0.99, 1.0],    // cruiser top speed × Lulu's unboosted top, by stars
+    copSpeed: [0, 0.9, 0.91, 0.94, 0.98, 1.0],    // cruiser top speed × Lulu's unboosted top, by stars
     copAccel: 9,                                  // m/s² off the line, fading toward the top (like her engine)
     sight: [0, 75, 90, 105, 120, 135],            // m a cruiser can spot her (× 0.75 at night)
-    search: [0, 7, 7.5, 9, 10, 11],               // s out of sight before they give up
+    search: [0, 7, 7, 8, 9.5, 11],                // s out of sight before they give up
 
 
     searchGap: 40,                                // m — any closer and they still hear her
@@ -494,7 +494,8 @@ function spawnChaser(slot, how = "seen") {
     const back = how === "first" ? rand(45, 60) : how === "search" ? rand(170, 230) : rand(85, 115);
     const s = fromAhead ? car.s + rand(160, 220) : car.s - back;
     const d = fromAhead ? pick([-1.75, -5.25]) : pick(LANES_OURS);
-    const v = how === "search" ? car.speed * 0.85 : Math.max(18, car.speed + (how === "first" ? 3 : 0));
+    // (never faster than she can go: the first one only just closes in so it shows in the mirror)
+    const v = how === "search" ? car.speed * 0.85 : Math.min(luluTop(), Math.max(18, car.speed + (how === "first" ? 1.5 : 0)));
     const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
     return u;
 }
@@ -549,7 +550,7 @@ function updateChase(dt, controlsOn) {
     ch.reinfT -= dt;
     if (units.length < want && ch.reinfT <= 0 && units.length < 4) {
         const taken = new Set(units.map(u => u.slot));
-        const slot = SLOTS.find(s => !taken.has(s) && (s !== "front" || ch.heat >= 4) && (s !== "side" || ch.heat >= 3)) || "rear2";
+        const slot = SLOTS.find(s => !taken.has(s) && (s !== "front" || ch.heat >= 4) && (s !== "side" || ch.heat >= 4)) || "rear2";
         spawnChaser(slot, ch.searching ? "search" : "seen");
         ch.reinfT = TUNE.reinforce;
     }
@@ -563,7 +564,9 @@ function updateChase(dt, controlsOn) {
     const close = units.filter(u => !u.car.hit && Math.hypot(u.car.x - car.pos.x, u.car.z - car.pos.z) < 12).length;
     const sp = car.speed;
     let fill = 0;
-    if (near && near.d < 10 && sp < 10) fill = 0.9 * (1 - sp / 10) + (close >= 2 ? 0.45 : 0);
+    // (a moment's slow-down in traffic isn't an arrest; sitting still next to a cruiser is)
+    if (near && near.d < 10 && sp < 9) fill = 0.6 * (1 - sp / 9) + (close >= 2 ? 0.35 : 0);
+
     if (near && near.d < 22 && sp < 2) fill = Math.max(fill, 1.2);
     ch.bust = clamp(ch.bust + (fill > 0 ? fill * dt : -0.5 * dt), 0, 1);
     if (ch.bust >= 1) { bust(near ? near.u : null); return; }

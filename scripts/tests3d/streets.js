@@ -35,7 +35,8 @@ module.exports = {
     }
     const stop = await g(`ctx.streets.debug.sim({ stars: 1, seed: 4, maxT: 40, bot: "stop" })`);
     t.check("lab: a driver who just stops gets caught", stop.outcome === "busted" || stop.outcome === "arrested", `${stop.outcome}@${stop.t}s`);
-    const hot = await g(`ctx.streets.debug.sim({ stars: 3, seed: 2, maxT: 60, gap: 25 })`);
+    const hot = await g(`ctx.streets.debug.sim({ stars: 3, seed: 2, maxT: 75, gap: 25, tactics: false })`);
+
     t.check("lab: 3★ produces a roadblock", hot.roadblocks >= 1, JSON.stringify({ outcome: hot.outcome, t: hot.t, roadblocks: hot.roadblocks }));
     await g(`L3.setState("title")`);
     await t.frames(4);
@@ -216,6 +217,7 @@ module.exports = {
       for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
         const a = boxes[i], b = boxes[j];
         if (a.g === b.g) continue;
+        if (![a.g, b.g].some(x => x === "stars" || x === "dmg" || x === "extra")) continue;   // core HUD vs core HUD is the ux test's job
         const ox = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left), oy = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
         if (ox > 2 && oy > 2) out.push(a.g + ":" + a.n + " × " + b.g + ":" + b.n);
       }

@@ -387,7 +387,7 @@ function startGeyser(x, z) {
     let g = geysers.find(q => !q.on);
     if (!g) {
         if (geysers.length >= 3) g = geysers[0];
-        else { g = { mesh: new THREE.Mesh(geyserGeo, geyserMat) }; g.mesh.castShadow = false; geysers.push(g); }
+        else { g = { mesh: new THREE.Mesh(geyserGeo, geyserMat.clone()) }; g.mesh.castShadow = false; geysers.push(g); }
     }
     Object.assign(g, { on: true, x, z, t: 0, dur: 7, hopped: false });
     g.mesh.position.set(x, 0.85, z);
@@ -409,6 +409,10 @@ function stepGeysers(dt) {
             if (Math.random() < 0.5) car.fx.emit(g.x + rand(-1.5, 1.5), 0.1, g.z + rand(-1.5, 1.5), 0, 0.3, 0, 0.7, 0.6, [0.7, 0.85, 1]);
         }
         const dist = Math.hypot(car.pos.x - g.x, car.pos.z - g.z);
+        // the camera passing through the water column mustn't turn the whole screen into a sheet of glass
+        const cd = ctx.camera ? Math.hypot(ctx.camera.position.x - g.x, ctx.camera.position.z - g.z) : 99;
+        g.mesh.material.opacity = 0.55 * clamp((cd - 0.8) / 3.5, 0.08, 1);
+
         loud = Math.max(loud, clamp(1 - dist / 45, 0, 1) * up * down);
         // drive through it: WHEEE — the car gets bounced
         if (hgt > 1 && dist < 1.6 && ctx.state === "playing" && hop.y <= 0.001) {
