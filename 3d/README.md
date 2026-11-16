@@ -24,7 +24,8 @@ one, spend them in the other.
 | 🌦️ **Atmosphere** | Cruise has a ~9-minute day: golden hour, sunsets, starry nights with headlights, street lamps and glowing windows. Weather rolls in — rain with wipers and wet roads, thunderstorms, fog banks, snow at Chanukah, a rainbow after the rain. Birds that scatter when you honk, banner planes with messages from the family, hot-air balloons, autumn leaves. Story keeps each leg's own look. |
 | 😄 **Lulu's personality** | Lulu is alive at the wheel — she bops to the music, leans into turns, flinches at near misses, waves when she honks, checks her mirror with a cop behind — and talks: hundreds of one-liners for close calls, nitro, cones, chases, boring stretches and every Story Trip leg. Honk and the other drivers answer back; oncoming drivers panic when you're in their lane. 28 funny billboards along the road (the lawyer ad gets more desperate the more you get arrested). |
 | 📸 **Photo mode & stunts** | Pause → 📸 Photo mode: free camera, filters (Golden Hour, Vintage, Noir, Pink Dream…), frames (postcard, Polaroid, WANTED…), Lulu poses, save a PNG + a little album. ✨ Golden dreidels to collect (every 18 — chai! — pays out), and 🛹 stunt ramps: airtime, mid-air spins, LEAPFROG over cars. |
-| 🌐 **Shared Road** | See other players — from the 2D *and* the 3D game — as ghost cars; friend rooms, races, emotes, the leaderboard. |
+| 🎉 **Party with friends** | Up to 8 friends in the same 3D world: host a party (a 4-letter code + an invite link) or join one, meet in a 3D lobby (pick your name, car and horn, ready up), then play together — 🏡 **Road Trip** side by side to Bubbe's (convoy bonus, group arrival + group photo), 🏁 **Race** (grid start, live standings, podium, rematch), ✨ **Dreidel Dash** (75 s, grab the most golden dreidels) and 🚓 **Cop Tag** (bump to tag, least time as cop wins). Friends are real cars — they steer, brake, honk, wave and BONK you (no damage); quick chat with phrases and emotes; everyone sees the same traffic, billboards and sky. Late joiners slot right in, and if the host drops someone else takes over. |
+| 🌐 **Open road** | Inside the party menu: the Shared Road — see players from the 2D *and* the 3D game as ghost cars; friend rooms, races, emotes, the leaderboard. |
 
 ## Controls
 
@@ -39,6 +40,7 @@ one, spend them in the other.
 | Camera · look | △ · right stick (R3 = behind) | Y · right stick | C · V | CAM |
 | Map / scrapbook · pause | touchpad · OPTIONS | View · Start | Tab · P/Esc | 📒 · ❚❚ |
 | Skip a cutscene | hold ○ | hold B | hold Backspace | tap ⏭ SKIP |
+| Party quick chat | hold D-pad ↑, aim with right stick | hold D-pad ↑ | hold F (or 1–8) | 💬 |
 
 Menus: D-pad/stick to move, ✕/A to pick, ○/B to go back, L1/R1 to switch tabs. Every cutscene
 (arrests, court, the crash aftermath, the ER, arrivals…) has a small ⏭ SKIP pill in the corner — it

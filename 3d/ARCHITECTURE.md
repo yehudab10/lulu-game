@@ -123,7 +123,7 @@ Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journ
 ### Menus
 `addMenuItem("title" | "pause" | "settings" | "titleInfo" | <your own>, { id, order, label, cls, visible, action })`.
 Title order guide: 10 story · 20 cruise · 30–60 features (shop 30, Dina 35, parking 40,
-scrapbook 50, quests 55, shared road 60) · 70 car · 80 controls · 85 settings · 99 2D.
+scrapbook 50, quests 55, 🎉 party 60 — Shared Road lives inside its hub) · 70 car · 80 controls · 85 settings · 99 2D.
 `cls`: "" (green) | "alt" (brown) | "pink" | "purple". `titleInfo` items add HTML lines to the title card.
 
 ### Actors (things on the road)
@@ -254,6 +254,10 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's always true in
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
+The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
+law, journey, meta, foot, interiors, dina and banter's random parts, so every friend's world stays identical
+(traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
+`ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -290,6 +294,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
 | `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
+| `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Events between features: `item:use` {id: "missile" | "pepper" | "shield", x, z} (garage → law
@@ -303,8 +308,10 @@ angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~3
 on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
 
 **Title menu orders:** story 10 · cruise 20 · shop 30 · Dina 35 · parking challenge 40 ·
-scrapbook 50 · quests 55 · Shared Road 60 · 📸 photo mode 65 · car 70 · controls 80 · settings 85 · 2D 99.
-**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · controls 30 · settings 35 · restart 80 · title 90.
+scrapbook 50 · quests 55 · 🎉 Party with friends 60 (🌐 Shared Road is inside its hub; its own title button
+shows only when the party feature is off) · 📸 photo mode 65 · car 70 · controls 80 · settings 85 · 2D 99.
+**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · controls 30 · settings 35 · Shared Road 40 ·
+restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
 
 **Lulu's in-car rig (banter):** at runtime the car's `Driver` mesh is carved into `BanterBody`,
 `BanterHead`, `BanterArmL`, `BanterArmR` pivots (meshes named `BanterPart`, original materials, so
