@@ -51,10 +51,11 @@ export const config = { traps: true, patrols: true, apb: true };
 // (unboosted) top speed and never out-accelerate her, no rubber-banding, and
 // she escapes by breaking LINE OF SIGHT and staying hidden while they search.
 export const TUNE = {
-    copSpeed: [0, 0.9, 0.91, 0.94, 0.98, 1.0],    // cruiser top speed × Lulu's unboosted top, by stars
+    copSpeed: [0, 0.92, 0.92, 0.94, 0.98, 1.0],   // cruiser top speed × Lulu's unboosted top, by stars
     copAccel: 9,                                  // m/s² off the line, fading toward the top (like her engine)
     sight: [0, 75, 90, 105, 120, 135],            // m a cruiser can spot her (× 0.75 at night)
-    search: [0, 7, 7, 8, 9.5, 11],                // s out of sight before they give up
+    search: [0, 8, 8, 8.5, 10, 11],               // s out of sight before they give up
+
 
 
     searchGap: 40,                                // m — any closer and they still hear her
