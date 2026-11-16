@@ -671,6 +671,152 @@ def build_fiddler():
                         extra_colors={"Hat": "#37474F", "Vest": "#B71C1C", "Beard": "#4E342E"}))
 
 
+# ── the edge of the world (bounds.js): fence line, sign, tall grass, mud, the goose ──
+def build_fence():
+    """One 4 m split-rail farm-fence section along X (x = -2 .. 2), a post at x = -2, barbed wire on top."""
+    coll = scene_coll("FootFence")
+    root = root_empty(coll, "FootFence")
+    WOOD = mat("FenceWood", "#8A6A4F", rough=0.95)
+    RAIL = mat("FenceRail", "#A1835F", rough=0.95)
+    WIRE = mat("FenceWire", "#8E9499", rough=0.4, metal=0.6)
+    parts = [box(coll, "post", (0.16, 0.16, 1.45), WOOD, (-2.0, 0, 0.72), bev=0.02),
+             box(coll, "postCap", (0.2, 0.2, 0.05), WOOD, (-2.0, 0, 1.47), rot=(0.1, 0.12, 0))]
+    for z, tilt in ((0.5, 0.025), (0.98, -0.02)):
+        parts.append(box(coll, "rail", (4.05, 0.09, 0.13), RAIL, (0, 0.03, z), rot=(0, tilt, 0), bev=0.02))
+    # a strand of barbed wire with little barbs
+    parts.append(limb(coll, "wire", (-2.0, -0.02, 1.32), (2.0, -0.02, 1.29), 0.008, WIRE))
+    for k in range(5):
+        x = -1.6 + k * 0.8
+        parts.append(box(coll, "barb", (0.05, 0.05, 0.05), WIRE, (x, -0.02, 1.31), rot=(0.6, 0.6, 0)))
+    bake(parts, "FootFence_body", coll, parent=root)
+    return coll
+
+
+def bm_text_lo(body, size):
+    """Flat, low-resolution text (a roadside sign far from the camera doesn't need smooth curves)."""
+    cu = bpy.data.curves.new("txt", "FONT")
+    cu.body = body
+    cu.size = size
+    cu.align_x = "CENTER"
+    cu.align_y = "CENTER"
+    cu.resolution_u = 2
+    tmp = bpy.data.objects.new("txt", cu)
+    bpy.context.scene.collection.objects.link(tmp)
+    bpy.context.view_layer.update()
+    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+    bpy.data.objects.remove(tmp)
+    bpy.data.curves.remove(cu)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bpy.data.meshes.remove(me)
+    return bm
+
+
+def build_trespass():
+    """A hand-painted NO TRESPASSING sign on a post (front = -Y, facing the road)."""
+    coll = scene_coll("FootTrespass")
+    root = root_empty(coll, "FootTrespass")
+    WOOD = mat("FenceWood", "#8A6A4F", rough=0.95)
+    BOARD = mat("SignWhite", "#F5F0E1", rough=0.8)
+    RED = mat("SignRed", "#C62828", rough=0.6)
+    INK = mat("SignInk", "#212121", rough=0.6)
+    parts = [box(coll, "post", (0.14, 0.14, 2.1), WOOD, (0, 0.1, 1.05), bev=0.02),
+             box(coll, "board", (1.9, 0.06, 1.0), BOARD, (0, 0, 1.6), rot=(0, 0.04, 0), bev=0.02),
+             box(coll, "border", (1.98, 0.05, 1.08), RED, (0, 0.025, 1.6), rot=(0, 0.04, 0))]
+    T = lambda txt, sz, m, z: Part(coll, "txt", bm_text_lo(txt, sz), m, loc=(0, -0.035, z), rot=(math.pi / 2, 0.04, 0), smooth=False)
+    parts.append(T("NO TRESPASSING", 0.24, RED, 1.82))
+    parts.append(T("THIS MEANS YOU,", 0.15, INK, 1.56))
+    parts.append(T("LULU", 0.24, INK, 1.33))
+    bake(parts, "FootTrespass_body", coll, parent=root)
+    return coll
+
+
+def build_grass():
+    """A waist-high clump of field grass (blades lean out from the middle) with a few seed heads."""
+    coll = scene_coll("FootGrass")
+    root = root_empty(coll, "FootGrass")
+    BLADE = mat("TallGrass", "#8DB255", rough=0.9)
+    SEED = mat("GrassSeed", "#D8C27A", rough=0.9)
+    parts = []
+    n = 11
+    for k in range(n):
+        a = k / n * math.tau + (k % 3) * 0.37
+        r = 0.08 + (k % 4) * 0.05
+        h = 0.85 + ((k * 7) % 5) * 0.12
+        lean = 0.22 + (k % 3) * 0.08
+        b = Part(coll, "blade", bm_cyl(0.045, 0.004, h, 4), BLADE, loc=(math.cos(a) * r, math.sin(a) * r, h / 2),
+                 rot=(-math.sin(a) * lean, math.cos(a) * lean, a), smooth=False)
+        parts.append(b)
+        if k % 3 == 0:
+            tip = (math.cos(a) * (r + lean * h * 0.95), math.sin(a) * (r + lean * h * 0.95), h * 0.97)
+            parts.append(sph(coll, "seed", 0.03, SEED, tip, ry=0.03, rz=0.09, u=6, v=4))
+    bake(parts, "FootGrass_body", coll, parent=root)
+    return coll
+
+
+def bm_blob(rx, ry, n, z, wob, seed):
+    """A flat irregular disc (puddles, mud) at height z."""
+    bm = bmesh.new()
+    c = bm.verts.new((0, 0, z))
+    ring = []
+    for k in range(n):
+        a = k / n * math.tau
+        w = 1 + wob * (math.sin(a * 3 + seed) * 0.6 + math.sin(a * 5 + seed * 2.3) * 0.4)
+        ring.append(bm.verts.new((math.cos(a) * rx * w, math.sin(a) * ry * w, z)))
+    for k in range(n):
+        bm.faces.new((c, ring[k], ring[(k + 1) % n]))
+    return bm
+
+
+def build_mud():
+    """A squelchy mud patch (~5 x 3.4 m): wet brown, darker middle, a couple of shiny puddles + boot prints."""
+    coll = scene_coll("FootMud")
+    root = root_empty(coll, "FootMud")
+    MUD = mat("Mud", "#6B4A33", rough=0.55)
+    DARK = mat("MudDark", "#4A3222", rough=0.35)
+    WET = mat("MudWater", "#8C7A62", rough=0.08, metal=0.1)
+    parts = [Part(coll, "mud", bm_blob(2.5, 1.7, 22, 0.035, 0.18, 0.4), MUD, smooth=False),
+             Part(coll, "dark", bm_blob(1.6, 1.0, 18, 0.045, 0.22, 1.7), DARK, loc=(0.2, 0.1, 0), smooth=False)]
+    for (x, y, rx, ry, sd) in ((-0.7, 0.3, 0.55, 0.35, 2.1), (0.9, -0.4, 0.4, 0.28, 3.3)):
+        parts.append(Part(coll, "puddle", bm_blob(rx, ry, 14, 0.055, 0.15, sd), WET, loc=(x, y, 0), smooth=False))
+    for k in range(4):   # somebody (Lulu?) already lost a shoe in here once
+        parts.append(sph(coll, "print", 0.09, DARK, (-1.6 + k * 0.55, 0.9 - (k % 2) * 0.25, 0.05), ry=0.14, rz=0.012, u=8, v=4))
+    bake(parts, "FootMud_body", coll, parent=root)
+    return coll
+
+
+def build_goose():
+    """A Canada goose with attitude: Wing_L / Wing_R (pivot at the shoulder) flap, Neck (pivot at its base) pumps."""
+    coll = scene_coll("FootGoose")
+    root = root_empty(coll, "FootGoose")
+    BODY = mat("GooseBody", "#8A7B6A", rough=0.85)
+    BELLY = mat("GooseBelly", "#D9D2C5", rough=0.85)
+    BLACK = mat("GooseBlack", "#1E1E1E", rough=0.6)
+    WHITE = mat("GooseWhite", "#FAFAFA", rough=0.7)
+    EYE = mat("EyeShine", "#FFFFFF", rough=0.2)
+    parts = [sph(coll, "body", 0.24, BODY, (0, 0.04, 0.34), ry=0.36, rz=0.2),
+             sph(coll, "belly", 0.2, BELLY, (0, -0.06, 0.28), ry=0.26, rz=0.15),
+             sph(coll, "tail", 0.11, BLACK, (0, 0.38, 0.38), ry=0.1, rz=0.06),
+             sph(coll, "rump", 0.12, WHITE, (0, 0.3, 0.3), ry=0.08, rz=0.08)]
+    bake(parts, "Body", coll, parent=root)
+    np = (0, -0.24, 0.42)
+    at = lambda x, y, z: (np[0] + x, np[1] + y, np[2] + z)
+    neck = [limb(coll, "neck", at(0, 0, 0), at(0, -0.1, 0.36), 0.055, BLACK),
+            sph(coll, "head", 0.085, BLACK, at(0, -0.14, 0.4), ry=0.11, rz=0.075),
+            sph(coll, "chin", 0.06, WHITE, at(0, -0.12, 0.37), ry=0.07, rz=0.045),
+            sph(coll, "bill", 0.04, BLACK, at(0, -0.26, 0.38), ry=0.07, rz=0.025)]
+    for sx in (-1, 1):
+        neck.append(sph(coll, "eye", 0.014, EYE, at(sx * 0.06, -0.19, 0.42)))
+    bake_at(neck, "Neck", coll, root, np)
+    for nm, sx in (("Wing_L", 1), ("Wing_R", -1)):
+        sp = (sx * 0.2, -0.12, 0.42)
+        w = [sph(coll, nm + "_w", 0.06, BODY, (sx * 0.24, 0.08, 0.4), ry=0.26, rz=0.13),
+             sph(coll, nm + "_tip", 0.045, BLACK, (sx * 0.26, 0.3, 0.42), ry=0.12, rz=0.06)]
+        bake_at(w, nm, coll, root, sp)
+    critter_legs(coll, root, 0.08, 0.17, 0.17, 0.02, BLACK, BLACK)
+    return coll
+
+
 ASSETS = [
     ("foot_bar", build_bar),
     ("foot_school", build_school),
@@ -697,4 +843,9 @@ ASSETS = [
     ("foot_aviel", build_aviel),
     ("foot_rabbi", build_rabbi),
     ("foot_fiddler", build_fiddler),
+    ("foot_fence", build_fence),
+    ("foot_trespass", build_trespass),
+    ("foot_grass", build_grass),
+    ("foot_mud", build_mud),
+    ("foot_goose", build_goose),
 ]

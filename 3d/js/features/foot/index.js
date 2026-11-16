@@ -30,6 +30,7 @@ import * as L from "./lines.js";
 import { bubble, floater, clearBubbles, showBubbles, updateBubbles, hasBubble } from "./bubbles.js";
 import { allDoors, refreshDoors, nextDoorAt } from "./street.js";
 import { startWedding, weddingState } from "./wedding.js";
+import * as B from "./bounds.js";
 
 const WALK = 3.4, RUN = 7.6;        // m/s (the 2D walk was 150 px/s cruise, ×2 running)
 const LULU_R = 0.32;
@@ -58,7 +59,7 @@ const BOTTOMS = ["#37474F", "#283593", "#212121", "#5D4037", "#1565C0", "#6A1B9A
 const HAIRS = ["#4E342E", "#3E2723", "#1A1A1A", "#8D6E63", "#D7B56D", "#BDBDBD", "#6D4C41"];
 
 // ── tiny helpers ─────────────────────────────────────────────────────────
-const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _p = {}, _n = {};
+const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _p = {}, _n = {}, _st = { x: 0, z: 0 };
 const PROXY = { pos: new THREE.Vector3(1e7, 0, 1e7), h: 0, vx: 0, vz: 0, speed: 0, applyImpulse() {} };
 function road() { return ctx.world.road; }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -125,6 +126,7 @@ let handBtn = null, exitBtn = null;
 
 // ── session ──────────────────────────────────────────────────────────────
 let F = null;               // the on-foot session (null when Lulu's in a car)
+B.attach(() => F);
 let shell = null;           // a borrowed vehicle's body riding on Lulu's car physics
 let driveOff = { t: 0, shown: false };
 let chaseActive = false;
@@ -235,6 +237,7 @@ function start(reason = "carWreck", opts = {}) {
         bubble(F.lulu.obj, F.introLine, 3.2);
         beginWalk();
     }
+    B.begin(F);                  // the soft edges out in the fields + the gentle nudges back into a car
     if (ctx.cam) ctx.cam.snap();
     setState("footRun", { start: true });
     emit("foot:start", { reason, level });
@@ -286,6 +289,7 @@ function end(why = "end") {
     if (!F) return;
     const f = F;
     F = null;
+    B.finish(f);
     if (f.script && f.script.abort) { try { f.script.abort(why); } catch (e) { console.error("[foot] script abort", e); } }
     const G = ctx.G, T = ctx.traffic;
     saveFrac(f, true);
@@ -537,6 +541,8 @@ function footUpdate(dt, P) {
         updateAvigail(dt);
         updateChase(dt);
         if (!F) return;
+        B.update(F, dt);
+        if (!F) return;
         if (F.phase === "walk") interact(P);
         if (!F) return;
         chatter(dt);
@@ -569,18 +575,18 @@ function walk(dt) {
     let wx = fx * -my + rx * mx, wz = fz * -my + rz * mx;
     const wl = Math.hypot(wx, wz);
     if (wl > 1) { wx /= wl; wz /= wl; }
-    const sp = (F.buskT > 0 ? 0 : (running ? RUN : WALK));
+    // turned round at the edge of the fields (a goose, a dog, a sprinkler…): she runs back toward the road
+    const shooed = B.steer(F, wx, wz, _st);
+    if (shooed) { wx = _st.x; wz = _st.z; }
+    const sp = (F.buskT > 0 && !shooed ? 0 : (running || shooed ? RUN : WALK)) * B.speedMul(F);   // tall grass, mud, sore feet
     _v.set(wx * sp, 0, wz * sp);
-    F.vel.lerp(_v, Math.min(1, dt * (mag > 0.05 ? 9 : 12)));
+    F.vel.lerp(_v, Math.min(1, dt * (mag > 0.05 || shooed ? 9 : 12)));
+    B.damp(F);                   // at the fence line she slides along it (no wall to grind against)
     F.pos.x += F.vel.x * dt;
     F.pos.z += F.vel.z * dt;
     collideStatic();
-    // an invisible fence far out in the fields (like the car's)
     const near = road().nearest(F.pos.x, F.pos.z, F.s, _n);
-    if (Math.abs(near.d) > 60) {
-        const push = (Math.abs(near.d) - 60) * Math.sign(near.d);
-        F.pos.x -= -Math.cos(near.h) * push; F.pos.z -= Math.sin(near.h) * push;
-    }
+    B.limit(F, near);            // safety net just inside the fence (the old far fence in the town / a party)
     if (near.s < 4) { F.pos.x += Math.sin(near.h) * (4 - near.s); F.pos.z += Math.cos(near.h) * (4 - near.s); }
     const speed = Math.hypot(F.vel.x, F.vel.z);
     if (speed > 0.25) L1.face(F.pos.x + F.vel.x, F.pos.z + F.vel.z, dt, 10);
@@ -1333,6 +1339,7 @@ function interact(P) {
         }
     }
     if (!P.interact) return;
+    B.engaged(F, pr ? pr.kind : "busk");     // doing something winds back the "get in a car already" clock
     if (!pr) { busk(); return; }
     doInteract(pr);
 }
@@ -1672,7 +1679,7 @@ function hud() {
     if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "foot-chip"; H.hudSlot("left").appendChild(chipEl); chipText = ""; }
     const f = frac(F), best = Math.max(shared.get().footRunHigh || 0, F.maxFrac);
     const label = ctx.G.mode === "story" && ctx.trip ? "trip" : "🏡";
-    const t = `🚶‍♀️ ON FOOT <small>· ${label} ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}`;
+    const t = `🚶‍♀️ ON FOOT <small>· ${label} ${Math.round(f * 100)}% · best ${Math.round(best * 100)}%</small>${F.coins ? ` <small>· 💰+${F.coins}</small>` : ""}${B.chip(F)}`;
     if (t !== chipText) { chipText = t; chipEl.innerHTML = t; }
     const ch = F.chase;
     if (ch && !ch.giveUp) {
@@ -1731,6 +1738,8 @@ ctx.foot = {
         return true;
     },
     end(why = "end") { if (F) end(why); },
+    /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
+    bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, tip, wreck } */
     force: {},
     debug: {
