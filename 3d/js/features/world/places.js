@@ -243,6 +243,11 @@ addPlace({
         }).catch(() => {});
     },
     host: sp => sp.anchors.attendant || Object.assign(local(sp, -1.2, -0.35), { y: 1.5 }),
+    cam(sp, t, pos, look) {
+        const c = local(sp, -9.5, 7.5), a = sp.anchors.attendant || local(sp, -1.2, -0.35);
+        pos.set(c.x, 3.4, c.z);
+        look.set((ctx.car.pos.x + a.x) / 2, 1.3, (ctx.car.pos.z + a.z) / 2);
+    },
     dur: 3.6,
     beats: [
         { t: 0.25, run: sp => { if (sp.people[0]) sp.people[0].mood = { talk: true }; sayAt(pick(["Fill 'er up? Nitro's on the house. The rugelach is two dollars.", "Yanky's Gas 'n' Go! Premium, regular, or 'Ima's paying'?", "You again! Your mother called. Twice. Here — free squeegee."]), hostObj(sp), { who: "Yanky" }); } },
@@ -275,10 +280,10 @@ addPlace({
     dur: 4.2,
     cam(sp, t, pos, look) {
         // from behind the car, out over the fence to the lake and the hills, panning slowly
-        const back = local(sp, 0, 8.5), view = sp.anchors.view || Object.assign(local(sp, 0, -30), { y: 2 });
+        const back = local(sp, 0, 11), view = sp.anchors.view || Object.assign(local(sp, 0, -30), { y: 2 });
         const pan = (ease(t / 4.2) - 0.5) * 14;
         const vv = local(sp, pan, -30);
-        pos.set(back.x, 4.2 - ease(t / 4.2) * 0.8, back.z);
+        pos.set(back.x, 5.4 - ease(t / 4.2) * 1.0, back.z);
         look.set(vv.x, 2.5, vv.z);
         return view;
     },

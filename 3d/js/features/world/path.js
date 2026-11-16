@@ -28,24 +28,32 @@ export class Path {
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 
 /**
- * A ride along a Path with an eased speed profile.
- *   new Ride(path, { reverse, v0, v1, dur })  → step(dt) moves ctx.car; done when m ≥ length.
- * Speed goes v0 → v1 linearly over the length (m/s); the time it takes follows from that.
+ * A ride along a Path with a time-based speed profile:
+ *   new Ride(path, { reverse, profile: "inout", dur })   ease in + out over `dur` s (backing out)
+ *   new Ride(path, { profile: "accel", v1 })             from rest to v1 m/s (pulling away; dur = 2L/v1)
+ *   new Ride(path, { profile: "decel", v0 })             from v0 m/s to a stop (parking; dur = 2L/v0)
+ * step(dt) poses ctx.car; `done` once the end is reached. finish() jumps to the end.
  */
 export class Ride {
-    constructor(path, { reverse = false, v0 = 0, v1 = 8, vMin = 1.5 } = {}) {
-        Object.assign(this, { path, reverse, v0, v1, vMin, m: 0, v: v0, done: false, prevH: null });
+    constructor(path, { reverse = false, profile = "inout", dur = 2, v0 = 10, v1 = 10 } = {}) {
+        const L = path.length;
+        Object.assign(this, { path, reverse, profile, t: 0, m: 0, v: 0, done: false, prevH: null });
+        this.dur = profile === "accel" ? 2 * L / Math.max(0.5, v1) : profile === "decel" ? 2 * L / Math.max(0.5, v0) : Math.max(0.2, dur);
         this.pt = {};
     }
-    speedAt(m) {
-        const k = Math.max(0, Math.min(1, m / this.path.length));
-        return Math.max(this.vMin, this.v0 + (this.v1 - this.v0) * k);
+    /** Distance + speed at time t. */
+    profileAt(t) {
+        const L = this.path.length, T = this.dur, k = Math.max(0, Math.min(1, t / T));
+        if (this.profile === "accel") return [L * k * k, 2 * L * k / T];
+        if (this.profile === "decel") return [L * (1 - (1 - k) * (1 - k)), 2 * L * (1 - k) / T];
+        return [L * k * k * (3 - 2 * k), 6 * L * k * (1 - k) / T];
     }
+    finish(car = ctx.car) { this.t = this.dur - 1 / 120; return this.step(1 / 120, car); }
     /** Advance and pose `car` (default ctx.car). Returns true once finished. */
     step(dt, car = ctx.car) {
         const prevV = this.v;
-        this.v = this.speedAt(this.m);
-        this.m = Math.min(this.path.length, this.m + this.v * dt);
+        this.t = Math.min(this.dur, this.t + dt);
+        [this.m, this.v] = this.profileAt(this.t);
         const p = this.path.at(this.m, this.pt);
         const h = this.reverse ? wrap(p.h + Math.PI) : p.h;
         const vF = this.reverse ? -this.v : this.v;
@@ -57,10 +65,12 @@ export class Ride {
         car.vx = Math.sin(h) * vF; car.vz = Math.cos(h) * vF;
         car.accelLong = dt > 0 ? (this.v - prevV) / dt * Math.sign(vF || 1) : 0;
         car.latAcc = vF * yaw;
-        const steer = Math.abs(vF) > 0.3 ? Math.max(-1, Math.min(1, yaw / vF * 2.6 * 1.6)) : 0;
+        const steer = Math.abs(vF) > 0.3 ? Math.max(-1, Math.min(1, yaw / vF * 4.2)) : 0;
         car.steerVal += (steer - car.steerVal) * Math.min(1, dt * 8);
-        car.updateVisual(dt, ctx.time, { steer, throttle: 0.4, brake: this.v1 < this.v0 ? 0.3 : 0, handbrake: false }, false);
-        this.done = this.m >= this.path.length - 1e-3;
+        car.updateVisual(dt, ctx.time, { steer, throttle: 0.4, brake: this.profile === "decel" ? 0.3 : 0, handbrake: false }, false);
+        const road = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, this.pt);
+        car.s = road.s; car.d = road.d;
+        this.done = this.t >= this.dur - 1e-6;
         return this.done;
     }
 }

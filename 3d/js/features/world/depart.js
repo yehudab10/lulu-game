@@ -41,10 +41,10 @@ function buildPaths() {
     const pt = (ss, d) => road.point(ss, d, {});
     // back out: rear first toward the road, swinging so she ends up facing +s
     const fx = Math.sin(P.h), fz = Math.cos(P.h);
-    const rev = new Path([{ x: P.x, z: P.z }, { x: P.x - fx * 3.5, z: P.z - fz * 3.5 }, pt(s - 1.2, 7.2), pt(s - 5.5, 4.6), pt(s - 9.5, 4.2)]);
-    const fwd = new Path([pt(s - 9.5, 4.2), pt(s - 5.5, 3.6), pt(s + 4, 2.1), pt(s + 14, 1.75), pt(s + 24, 1.75)]);
-    D.rev = new Ride(rev, { reverse: true, v0: 3.2, v1: 2.2, vMin: 1.2 });
-    D.fwd = new Ride(fwd, { v0: 1.5, v1: 12, vMin: 1.5 });
+    const rev = new Path([{ x: P.x, z: P.z }, { x: P.x - fx * 3.2, z: P.z - fz * 3.2 }, pt(s - 1.0, 6.6), pt(s - 4.5, 4.4), pt(s - 7.5, 4.0)]);
+    const fwd = new Path([pt(s - 7.5, 4.0), pt(s - 4, 3.4), pt(s + 3, 2.0), pt(s + 9, 1.75)]);
+    D.rev = new Ride(rev, { reverse: true, profile: "inout", dur: 2.1 });
+    D.fwd = new Ride(fwd, { profile: "accel", v1: 12 });
 }
 
 hook("runStart", (G, opts) => {
@@ -74,10 +74,9 @@ function finish() {
     if (ctx.state !== "worldDepart") return;
     const car = ctx.car, G = ctx.G;
     // land exactly at the end of the pull-out, rolling
-    if (!D.fwd.done) { D.rev.m = D.rev.path.length; D.fwd.m = D.fwd.path.length - 0.01; D.fwd.step(1 / 60); }
+    if (!D.fwd.done) D.fwd.finish();
     car.showDriver(true);
     if (home.people.lulu) home.people.lulu.obj.visible = false;
-    car.s = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, {}).s;
     G.lastS = car.s;
     // the chase cam takes over from where we are (no jump)
     chasePos(v1, v2);
@@ -138,7 +137,6 @@ registerState("worldDepart", {
             if (D.fwd.step(dt)) { finish(); return; }
         }
         if (D.phase === "rev" || D.phase === "fwd") {
-            car.s = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, {}).s;
             A.updateEngine(Math.abs(car.vF), D.phase === "fwd" ? 0.7 : 0.25, 0, 0, false, true);
         }
         // Dina + Mr. Pinsky see her off (a line from Dina, unless chatter is Quiet)
@@ -154,8 +152,8 @@ registerState("worldDepart", {
         const car = ctx.car, cam = ctx.camera, P = home.park;
         // three beats: the title shot → down by the driveway (a low 3/4 view) → the chase cam
         const road = ctx.world.road;
-        const total = WALK + IN + (D.rev ? D.rev.path.length / 2.7 : 3) + PAUSE;
-        let elapsed = D.phase === "walk" ? D.t : D.phase === "in" ? WALK + D.t : D.phase === "rev" ? WALK + IN + D.rev.m / 2.7 : D.phase === "pause" ? total - PAUSE + D.t : total;
+        const total = WALK + IN + (D.rev ? D.rev.dur : 2) + PAUSE;
+        const elapsed = D.phase === "walk" ? D.t : D.phase === "in" ? WALK + D.t : D.phase === "rev" ? WALK + IN + D.rev.t : D.phase === "pause" ? total - PAUSE + D.t : total;
         const k1 = ease(elapsed / (WALK + IN + 0.6));
         const low = road.point(P.s + 9, -1.5, {});
         v3.set(low.x, 2.3, low.z);
@@ -164,7 +162,7 @@ registerState("worldDepart", {
         D.look.copy(D.fromLook).lerp(v4, k1);
         if (D.phase === "fwd") {
             chasePos(v1, v2);
-            const k2 = ease(D.fwd.m / D.fwd.path.length * 1.15);
+            const k2 = ease(D.fwd.t / D.fwd.dur * 1.1);
             D.cam.lerp(v1, k2);
             D.look.lerp(v2, k2);
         }

@@ -154,6 +154,11 @@ function buildStreet() {
         dina.obj.rotation.y = house.rotation.y;
         g.add(dina.obj);
         home.people.dina = dina;
+        // how tall she is above her Body pivot (for the Purim hat)
+        dina.obj.updateMatrixWorld(true);
+        const body = findNodes(dina.obj, "Body")[0];
+        const top = new THREE.Box3().setFromObject(dina.obj).max.y;
+        home.dinaHat = { y: body ? top - body.getWorldPosition(v1).y : top - A.dina.y };
     } catch (e) { console.warn("[world] dina", e); }
     makeLulu();
     ensureModels(["npcMan"]).then(() => {
@@ -236,9 +241,9 @@ function startArrival() {
     const P = home.park, s = P.s;
     const fx = Math.sin(P.h), fz = Math.cos(P.h);
     // down the street in the far lane, swing across, then straight in along the driveway
-    const pts = [roadPt(s + 46, -1.75), roadPt(s + 26, -1.75), roadPt(s + 10, -1.2), roadPt(s + 3, 4.5), roadPt(s + 0.6, 9.5),
+    const pts = [roadPt(s + 34, -1.75), roadPt(s + 22, -1.75), roadPt(s + 10, -1.2), roadPt(s + 3, 4.5), roadPt(s + 0.6, 9.5),
         { x: P.x - fx * 2.2, z: P.z - fz * 2.2 }, { x: P.x, z: P.z }];
-    home.ride = new Ride(new Path(pts), { v0: 12, v1: 0, vMin: 0.6 });
+    home.ride = new Ride(new Path(pts), { profile: "decel", v0: 11 });
     home.phase = "arriving";
     home.arriveT = 0;
     const car = ctx.car;
@@ -275,7 +280,8 @@ export async function applyHoliday() {
     if (key === home.decoFor) return;
     home.decoFor = key;
     clearExtras();
-    for (const k of Object.keys(home.deco)) home.deco[k].visible = !!c && c.id === k;
+    const DECO = { sukkot: "sukkah", chanukah: "chanukah" };
+    for (const k of Object.keys(home.deco)) home.deco[k].visible = !!c && DECO[c.id] === k;
     if (!c) return emit("world:holiday", { id: null });
     const extra = { chanukah: "metaMenorah", purim: "metaPurimHat", roshHashana: "metaHoney", pesach: "metaMatzah" }[c.id];
     if (extra) {
@@ -302,8 +308,8 @@ export async function applyHoliday() {
         } else if (c.id === "purim" && home.people.dina) {
             // Dina's party hat
             const body = findNodes(home.people.dina.obj, "Body")[0] || home.people.dina.obj;
-            o.scale.setScalar(0.8);
-            o.position.set(0, 1.12, 0.02);
+            o.scale.setScalar(0.75);
+            o.position.set(0, (home.dinaHat ? home.dinaHat.y : 0.5) - 0.06, 0.02);
             o.rotation.set(-0.1, 0, 0.2);
             body.add(o);
         } else {
@@ -327,7 +333,6 @@ export function homeTick(dt) {
     const car = ctx.car, P = home.park;
     if (home.phase === "arriving" && home.ride) {
         const done = home.ride.step(dt);
-        car.s = ctx.world.road.nearest(car.pos.x, car.pos.z, car.s, {}).s;
         A.updateEngine(Math.abs(car.vF), 0.3, 0, 0, false, true);
         if (done) {
             placeParked();
