@@ -30,13 +30,13 @@ css("world-map", `
 body.tv .wmap .wp b { font-size: 22px; } body.tv .wmap .wp .l { font-size: 18px; }
 `);
 
-function html() {
+function html(phone = false) {
     const rows = Object.entries(LORE).map(([id, [icon, name, where, lore]]) => {
         const n = id === "home" ? 0 : saved.visits[id] || 0;
         const badge = id === "home" ? "" : n ? `✓ ×${n}` : "not yet";
         return `<div class="wp"><span class="i">${icon}</span><span><b>${name}</b> <small>· ${where}</small></span><span class="n">${badge}</span><span class="l">${lore}</span></div>`;
     }).join("");
-    return `<h2>🏡 Family &amp; places</h2><div class="wmap">${rows}</div><p class="fine">In Cruise, pull off into a driveway or a bay and stop to drop in.</p>`;
+    return `${phone ? "" : "<h2>🏡 Family &amp; places</h2>"}<div class="wmap">${rows}</div><p class="fine">In Cruise, pull off into a driveway or a bay and stop to drop in.</p>`;
 }
 
 /** Open the card. `back` runs when it closes. */
@@ -49,7 +49,7 @@ export function openFamilyMap(back) {
 const phoneApps = () => !!(ctx.phone && typeof ctx.phone.addApp === "function");
 on("boot", () => {
     if (!phoneApps()) return;
-    try { ctx.phone.addApp({ id: "family", icon: "🏡", name: "Family", order: 40, render(el) { el.innerHTML = html(); } }); } catch (e) { console.warn("[world] phone app", e); }
+    try { ctx.phone.addApp({ id: "family", icon: "🏡", name: "Family", order: 45, color: "#FF8A65", color2: "#C2185B", render(el) { el.innerHTML = html(true); } }); } catch (e) { console.warn("[world] phone app", e); }
 });
 addMenuItem("title", { id: "worldFamily", order: 58, group: "book", short: "Family", label: "🏡 Family & places", sub: "who lives where · who you've visited",
     visible: () => !phoneApps(), action: () => openFamilyMap() });

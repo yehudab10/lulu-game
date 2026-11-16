@@ -62,17 +62,16 @@ module.exports = {
     await g(`(window.__hg.visible = true, true)`);
     console.log(`  PERF title (home street): ${JSON.stringify(pTitle)} · without the street: ${JSON.stringify(pBare)}`);
 
-    // ── the family & places card (phone app if the phone is there, else the 📒 drawer) ──
     const viaPhone = await g(`!!(ctx.phone && ctx.phone.addApp)`);
-    if (viaPhone) t.check("family card opens (phone present)", await g(`ctx.places.openMap()`));
-    else t.check("family card opens from the 📒 drawer", await t.click(/Family & places/));
-    await t.frames(4);
-    t.check("it lists the family", await t.L(`!!document.querySelector(".wmap") && /Bubbe/.test(document.querySelector(".wmap").textContent)`));
-    await t.shot("family-map");
-    await t.tap(1);
-    await t.until(`__lulu3d.state === "title" && !document.querySelector(".wmap")`, "the card closes back to the title", 3000);
-    await g(`__lulu3d.openView("home")`);
-    await t.frames(3);
+    if (!viaPhone) {
+      t.check("family card opens from the 📒 drawer (no phone)", await t.click(/Family & places/));
+      await t.frames(4);
+      t.check("it lists the family", await t.L(`!!document.querySelector(".wmap") && /Bubbe/.test(document.querySelector(".wmap").textContent)`));
+      await t.tap(1);
+      await t.until(`__lulu3d.state === "title" && !document.querySelector(".wmap")`, "the card closes back to the title", 3000);
+      await g(`__lulu3d.openView("home")`);
+      await t.frames(3);
+    } else t.check("no extra title row when the phone has the app", !(await t.titleItems()).some(s => /Family & places/.test(s)));
 
     // ── Cruise from the title: the driveway pull-out → playing ──
     await g(`ctx.places.debug.clock(0.41)`);
@@ -91,6 +90,15 @@ module.exports = {
     t.check("the time of day carries into the drive", Math.abs(R.clock - 0.41) < 0.02, R.clock.toFixed(3));
     await t.frames(6);
     await t.shot("depart-handoff");
+    if (viaPhone) {
+      t.check("📱 the Family app is on the phone", (await g(`ctx.phone.apps()`)).includes("family"));
+      await g(`ctx.phone.openPhone("family")`);
+      await t.frames(6);
+      t.check("the family app lists who lives where", await t.L(`!!document.querySelector("#screenCard .wmap") && /Bubbe/.test(document.querySelector("#screenCard .wmap").textContent)`));
+      await t.shot("family-app");
+      await g(`ctx.phone.closePhone()`);
+      await t.frames(4);
+    }
     // busy Cruise perf (a stretch with traffic)
     await t.hold(7, 1);
     await t.frames(90);
