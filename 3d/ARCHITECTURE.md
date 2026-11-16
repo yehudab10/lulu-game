@@ -121,10 +121,22 @@ Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journ
 `updateDriving(dt, P, controlsOn, ctlOverride)` from `core/driving.js`.
 
 ### Menus
-`addMenuItem("title" | "pause" | "settings" | "titleInfo" | <your own>, { id, order, label, cls, visible, action })`.
-Title order guide: 10 story · 20 cruise · 30–60 features (shop 30, Dina 35, parking 40,
-scrapbook 50, quests 55, 🎉 party 60 — Shared Road lives inside its hub) · 70 car · 80 controls · 85 settings · 99 2D.
-`cls`: "" (green) | "alt" (brown) | "pink" | "purple". `titleInfo` items add HTML lines to the title card.
+`addMenuItem("title" | "pause" | "settings" | "titleInfo" | <your own>, { id, order, label, visible, action, group, sub, short })`.
+**The home screen is grouped** (keep it uncluttered — don't add info lines or buttons to the home card):
+- title `group`: `"play"` (a home tile; the first by order is the pink hero tile — Story Trip), `"garage"`,
+  `"book"` (scrapbook) or `"more"` (each a soft tile that opens a tabbed sub-menu; L1/R1 switch tabs, ○ backs out).
+  Without `group`, the order decides: < 70 play · 70–79 garage · ≥ 80 more. More than 6 play tiles spill into
+  "🎲 More to play". `sub` = a subtitle line (string or fn); `short` = the name in its group tile's summary.
+- Title order guide: 10 story · 20 cruise · 30 shop · 32 car · 35 Dina · 40 parking challenge · 50 scrapbook ·
+  55 quests · 60 🎉 party (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
+- `titleInfo` items: `bar: true` (a chip in the home top bar), `for: "<item id>"` (appended to that item's
+  subtitle) or `group: "<group>"` (a line atop that sub-menu); otherwise a small note at the foot of the home card.
+- pause `group`: `"main"` (full width), `"tools"` (2-column grid) or `"exit"` (quiet bottom row); default by
+  order < 10 main · 10–69 tools · 70–89 main · ≥ 90 exit.
+- The layout picks the colours: `cls` is ignored on the title and pause menus (it still works on your own
+  `showScreen` buttons). A `settings` event {id} fires after any settings change.
+- Tests: `__lulu3d.openMenuItem(menu, id)`, `revealMenuItem("title", re)`, `titleLabels()`, `openView(view)`;
+  the harness's `t.click(re)` reveals items tucked in groups, `t.titleItems()` lists every title label.
 
 ### Actors (things on the road)
 ```js
@@ -229,11 +241,17 @@ current device (PlayStation symbols on a DualSense). `addTouchButton({id, emoji,
 ## UI (`js/hud.js`, `js/core/dialog.js`)
 `H.showScreen(html, buttons, {onBack, onTab, focus, wide})` → card (all `<button>`/`.nav` are
 controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update while a screen is open),
-`H.refreshFocus()` after re-rendering part of a card, `H.toast(text, "gold"|"pink"|"red"|"big")`,
-`H.banner(html, ms)`, `H.hudSlot("left"|"center"|"right"|"bottom")`, `H.prompt(html)`, `H.flash()`.
+`H.refreshFocus()` after re-rendering part of a card, `H.setFocus(idOrEl)`, `H.toast(text, "gold"|"pink"|"red"|"big", {key, merge})`,
+`H.banner(html, ms, {prio, key})`, `H.hudSlot("left"|"center"|"right"|"bottom")`, `H.prompt(html)`, `H.flash()`.
 **Keep pop-ups off the road:** toasts are a feed on the right edge; while driving/walking
 (`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
 "center" slot. Don't add your own big centred text over the road in those states — use these.
+**The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
+sum (+5 💰 ×3 → "+15 💰"), at most 3 toasts show (extras wait, stale ones drop); banners show one at a time
+from a priority queue (`prio`; same `key` replaces), and nothing new pops up while a dialogue line or menu is
+open. **HUD style** (Settings → Full / Clean, `save3d.settings.hudMode`): Clean hides the score and anything
+with class `hud-secondary` — mark your optional HUD chips with it. **Lulu's chatter** (Chatty / Normal /
+Quiet, `save3d.settings.chatter`) is respected by banter.
 Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [opts])` → index,
 `await script([[who, text], …], {emoji: {who: "👵"}})`. While a line is open, input goes to the dialogue.
 
@@ -307,11 +325,10 @@ the wreck → arrest), cameos **10** (claims every other wreck and plays the 2D 
 angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~35%), lets her walk
 on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
 
-**Title menu orders:** story 10 · cruise 20 · shop 30 · Dina 35 · parking challenge 40 ·
-scrapbook 50 · quests 55 · 🎉 Party with friends 60 (🌐 Shared Road is inside its hub; its own title button
-shows only when the party feature is off) · 📸 photo mode 65 · car 70 · controls 80 · settings 85 · 2D 99.
-**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · controls 30 · settings 35 · Shared Road 40 ·
-restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
+**Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
+inside its hub; its own title button shows only when the party feature is off).
+**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📸 photo mode 12 · settings 35 (the button guide is
+inside) · Shared Road 40 · restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
 
 **Lulu's in-car rig (banter):** at runtime the car's `Driver` mesh is carved into `BanterBody`,
 `BanterHead`, `BanterArmL`, `BanterArmR` pivots (meshes named `BanterPart`, original materials, so

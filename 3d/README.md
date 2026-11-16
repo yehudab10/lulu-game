@@ -49,6 +49,9 @@ The controller **rumbles** (crashes, rumble strips, nitro…). On Chrome/Edge on
 Settings → **DualSense lights & triggers** also makes the light bar match Lulu's car (red/blue in a
 chase), shows your hearts on the player LEDs and adds adaptive-trigger resistance.
 **TV mode** (auto on console/TV browsers, or in Settings) enlarges everything for the couch.
+The home screen keeps it simple: the big pink 📖 Story Trip tile, four play tiles (Cruise, Dina, Parking,
+🎉 Party) and three drawers — 🚗 Garage, 📒 Scrapbook, ⚙️ More. Settings → **HUD style: Clean** hides the
+extras while you drive, and **Lulu's chatter** (Chatty / Normal / Quiet) sets how much she talks.
 Sound starts after the first click/tap/key (browsers don't count controller buttons as a "gesture").
 
 **PlayStation 5 note:** the PS5's built-in browser is hidden and can't run WebGL games, so the page

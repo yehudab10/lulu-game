@@ -16,7 +16,7 @@ jobs:
     # Pinned: ubuntu-latest moved to 26.04, which Playwright 1.56.1 can't
     # install Chromium on. Bump this together with the Playwright version.
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
@@ -44,5 +44,5 @@ jobs:
       - name: Drive the 3D version with a (fake) controller
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
-          SMOKE3D_ONLY: core,platform,skip
+          SMOKE3D_ONLY: core,platform,skip,ux
         run: node scripts/smoke3d.js
