@@ -227,25 +227,8 @@ on("boost", () => questAdd("boosts3d", 1));
 on("speedTrap", e => { if (e && !e.ticketed && e.mph > 5) questAdd("legalTraps3d", 1); });
 on("heart", e => questAdd("hearts3d", (e && e.n) || 1));
 
-// 📣 honk-scares: core's traffic moves the car ahead out of Lulu's lane on a
-// honk (no event for it), so snapshot the lanes at the honk and see who moved
-// over by the end of the same frame (honk-moved cars get a 4 s lane cooldown).
-let honkSnap = null, honkFrame = -1;
-on("honk", () => {
-    if (!ctx.traffic) return;
-    honkSnap = [];
-    for (const c of ctx.traffic.cars) if (c.dir > 0 && !c.ai) honkSnap.push([c, c.dTarget]);
-    honkFrame = ctx.frames;
-});
-hook("update", () => {
-    if (!honkSnap) return;
-    if (ctx.frames === honkFrame) {
-        for (const [c, d] of honkSnap) {
-            if (c.dTarget !== d && c.laneCooldown > 3.5 && c.laneCooldown <= 4.001) { questAdd("honks10", 1); break; }
-        }
-    }
-    honkSnap = null;
-});
+// 📣 honk-scares arrive as emit("stat", {id: "honks10"}) (above): garage's honkScare counts the cars
+// it scares, roadevents' checkHonkMoves counts the car core traffic moves over for the honk.
 
 // ── run end: bank lifetime score (unlock progress) + the run-scope quests ──
 on("run:end", ({ score = 0, G = ctx.G } = {}) => {

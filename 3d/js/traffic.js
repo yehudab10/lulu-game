@@ -147,7 +147,7 @@ export class Traffic {
         if (honked && this.config.honkMoves) {
             let best = null, bestGap = 55;
             for (const c of this.cars) {
-                if (c.hit || c.dir < 0 || c.ai) continue;
+                if (c.hit || c.dir < 0 || c.ai || c.laneCooldown > 3.5) continue;   // already swerving for this honk
                 const gap = c.s - playerS;
                 if (gap > 2 && gap < bestGap && Math.abs(c.d - playerD) < 2.2) { best = c; bestGap = gap; }
             }

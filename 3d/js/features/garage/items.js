@@ -191,6 +191,7 @@ function honkScare() {
         const other = LANES_OURS.find(l => Math.abs(l - c.dTarget) > 1);
         if (other !== undefined && tr.laneFree(c.s, other, 1, 12)) { c.dTarget = other; c.laneCooldown = 4; }
         else c.want = Math.min((c.want || c.speed) + 5, 30);
+        c.honkScared = ctx.frames;     // counted here — roadevents' checkHonkMoves won't count it again
         emit("stat", { id: "honks10", n: 1 });
         if (!said && Math.random() < 0.4) { said = true; H.toast(`🚗 "${pick(HONK_REACT)}"`); }
     }

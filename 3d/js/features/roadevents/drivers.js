@@ -138,7 +138,7 @@ export function checkHonkMoves() {
     if (!honkSnap) return;
     for (const c of ctx.traffic.cars) {
         const was = honkSnap.get(c);
-        if (was !== undefined && was !== c.dTarget && c.laneCooldown >= 3.9) {
+        if (was !== undefined && was !== c.dTarget && c.laneCooldown >= 3.9 && c.honkScared !== ctx.frames) {
             stat("honks10", 1);
             count("honkScares");
             if (Math.random() < 0.4 && ctx.enabled("roadevents")) bubble(pick(HONK_REACT), c.obj, { t: 1.3, y: 2.4 });
