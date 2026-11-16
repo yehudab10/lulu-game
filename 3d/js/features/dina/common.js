@@ -198,6 +198,12 @@ body.dina-run #tGas::after { content: "⚡ SPRINT"; font-size: 15px; }
 body.dina-run #tBrake::after { content: "🐢 SLOW"; font-size: 15px; }
 body.dina-run #stickZone span, body.dina-room #stickZone span { font-size: 0; }
 body.dina-run #stickZone span::after, body.dina-room #stickZone span::after { content: "MOVE"; font-size: 12px; }
+/* in the bedroom the stick only catches touches ON it — its big driving catch-zone (the bottom-left
+   45% × 60%) would swallow taps on Morgan and the cookie & milk; dragging on the room walks Dina anyway */
+body.dina-room #stickZone { pointer-events: none; }
+body.dina-room #stickBase { pointer-events: auto; }
+body.dina-hot #scene { cursor: pointer; }
+body.tv:not(.cursor).dina-hot #scene { cursor: none; }
 `);
 
 export const layer = document.createElement("div");

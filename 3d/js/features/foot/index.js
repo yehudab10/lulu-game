@@ -167,7 +167,9 @@ function swapLulu() {
 
 /**
  * Lulu climbs out and walks. reason: carWreck | crashReprieve | droveOff | copWalk | jailbreak | parked
- * opts: { line, crash (parked → the parking crash lines), noIntro }
+ * opts: { line, crash (parked → the parking crash lines), parked (her car's on the shoulder), noIntro (the caller already showed her getting out: no hop),
+ *         at {x, z} (where she stands), stubAi(dt, car) (drives the car she left behind), drivable }
+
  */
 function start(reason = "carWreck", opts = {}) {
     if (F && !F.suspended && ctx.state === "footRun") return false;
@@ -180,7 +182,7 @@ function start(reason = "carWreck", opts = {}) {
     const rd = road();
     const near = rd.nearest(car.pos.x, car.pos.z, car.s, {});
     let pos = car.pos.clone(), h = car.h;
-    if (reason === "parked") {   // her car is tucked in on the right shoulder
+    if (reason === "parked" || opts.parked) {   // her car is tucked in on the right shoulder
         rd.point(near.s, 8.0, _p);
         pos.set(_p.x, 0, _p.z); h = _p.h;
     }
@@ -203,14 +205,13 @@ function start(reason = "carWreck", opts = {}) {
     // Lulu, hopping out over the convertible's door toward the roadside
     F.lulu = makeLulu();
     ctx.scene.add(F.lulu.obj);
-    const out = Math.sign(near.d || 1);
+    const out = F.out = Math.sign(near.d || 1);
     const rr = rd.at(near.s);
     F.hopFrom = F.car ? F.car.stub.obj.localToWorld(new THREE.Vector3(0.38, 0.62, -0.06)) : pos.clone();
     F.hopTo = new THREE.Vector3(pos.x - Math.cos(rr.h) * out * 1.8, 0.05, pos.z + Math.sin(rr.h) * out * 1.8);
     if (!F.car) F.hopFrom.copy(F.hopTo);
-    // another feature already animated her out of the car (streets' bail-out dive): no hop, no title card
+    // where the caller's own animation put her (streets' bail-out dive lands her here)
     if (opts.at) F.hopTo.set(opts.at.x, 0.05, opts.at.z);
-    if (opts.noIntro) { F.hopFrom.copy(F.hopTo); F.phase = "walk"; F.introSaid = F.titleShown = true; }
     F.pos.copy(F.hopFrom);
     F.lulu.obj.position.copy(F.pos);
     F.lulu.obj.rotation.y = h;
@@ -218,11 +219,22 @@ function start(reason = "carWreck", opts = {}) {
     // world streaming, the sun's shadow box and the trip bar all follow HER
     car.obj.visible = false;
     car.vx = car.vz = car.vF = car.vR = car.spin = 0;
+    car.h = F.h;                 // the anchor faces down the ROAD (a wreck can leave the car facing any way) — the snap's camera yaw
     car.boosting = G.boosting = false;
     G.hearts = Math.max(G.hearts || 0, 1);
     G.invT = 2.0;
     H.setHearts(G.hearts, G.maxHearts);
     A.sfxHorn(false);
+    if (opts.noIntro) {
+        // the caller already showed her getting out (parking's walk-out): she starts on her feet beside the car
+        F.pos.copy(F.hopTo);
+        F.lulu.obj.position.copy(F.pos);
+        F.lulu.obj.rotation.y = F.h;
+        F.introSaid = F.titleShown = true;
+        G.invT = 0;              // no re-entry shield blink the moment she appears (she's out on the shoulder)
+        bubble(F.lulu.obj, F.introLine, 3.2);
+        beginWalk();
+    }
     if (ctx.cam) ctx.cam.snap();
     setState("footRun", { start: true });
     emit("foot:start", { reason, level });
@@ -743,11 +755,12 @@ function updateIntro(dt) {
         H.banner(`🚶‍♀️ <b>LULU ON FOOT</b><small>borrow a car to get back on the road</small>`, 2600);
     }
     if (!F.introSaid && prog > 0.32) { F.introSaid = true; bubble(o, F.introLine, 3.2); }
-    if (t >= T) {
-        F.phase = "walk"; F.phaseT = 0;
-        if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
-        F.hintT = 6;
-    }
+    if (t >= T) beginWalk();
+}
+function beginWalk() {
+    F.phase = "walk"; F.phaseT = 0;
+    if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
+    F.hintT = 6;
 }
 
 function updateStub(dt) {
@@ -774,13 +787,16 @@ function footCamera(dt) {
     }
     const cam = ctx.cam;
     if (F.phase === "intro") {
-        const ref = F.car ? F.car.stub : { x: F.pos.x, z: F.pos.z, h: F.h };
-        const fx = Math.sin(ref.h), fz = Math.cos(ref.h);
-        const out = Math.sign(F.d || 1);
+        // a 3/4 shot over her shoulder, in the ROAD's frame (a wreck leaves the car facing any way — framing
+        // off its heading parked the camera on top of the car), so when she starts walking the follow cam
+        // behind her only drifts a little instead of swinging round through the car
+        const ref = F.car ? F.car.stub : F.hopTo;
+        const fx = Math.sin(F.h), fz = Math.cos(F.h), out = F.out || 1;
         const rx = -Math.cos(F.h) * out, rz = Math.sin(F.h) * out;
-        shot.from.set(ref.x + fx * 6.5 + rx * 4.2, 2.6, ref.z + fz * 6.5 + rz * 4.2);
-        shot.look.set((ref.x + F.pos.x) / 2, 1.0, (ref.z + F.pos.z) / 2);
-        cam.cinematic(shot.from, shot.look, dt, 2.5, 50);
+        const mx = (ref.x + F.hopTo.x) / 2, mz = (ref.z + F.hopTo.z) / 2;
+        shot.from.set(mx - fx * 6.2 + rx * 2.4, 2.8, mz - fz * 6.2 + rz * 2.4);
+        shot.look.set(mx + fx * 1.5, 1.0, mz + fz * 1.5);
+        cam.cinematic(shot.from, shot.look, dt, 2.5, 52);
         return true;
     }
     if (F.phase === "arrest" && F.arrest) {

@@ -539,7 +539,8 @@ export function bail() {
     const reason = chasing && ctx.law._dbg && ctx.law._dbg.L.chase ? ctx.law._dbg.L.chase.reason : null;
     const ride = currentRide();
     const coast = coastAi(vx, vz);
-    if (!ctx.foot.start("bailout", { noIntro: true, at, drivable: true, stubAi: coast })) return false;
+    // (foot's noIntro: she starts on her feet with this line over her head — our dive below is the one animation)
+    if (!ctx.foot.start("bailout", { noIntro: true, at, drivable: true, stubAi: coast, line: pick(T.BAIL_LULU) })) return false;
     // running from the cops doesn't make the crime go away: it's on her file, and cops on foot know her face
     if (chasing && reason && ctx.law.addWarrant) ctx.law.addWarrant(reason);
     J.bails++;
@@ -595,7 +596,7 @@ function updateBail(dv, dt, F) {
         const k = (dv.t - dv.t0) / 0.5;
         o.rotation.z = Math.sin(k * 14) * 0.1 * (1 - k);
         p.update(dt, {});
-        if (!dv.said) { dv.said = true; luluSays(pick(T.BAIL_LULU), true); }
+
         o.position.set(F.pos.x, 0.05, F.pos.z);
         if (k >= 1) { o.rotation.z = 0; return false; }
         return true;
