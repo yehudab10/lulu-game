@@ -53,7 +53,10 @@ function tick(dt) {
     lastT = ctx.time;
     if (!ctx.enabled("atmos")) return;
     const st = ctx.state;
-    const mode = st === "title" || st === "loading" ? "off" : ctx.G.mode === "cruise" ? "cruise" : "base";
+    // a party (features/party) gets the Cruise day + weather too, but driven by the shared
+    // party clock + seed so every friend sees the same sky (see ctx.party.atmos*)
+    const party = !!(ctx.party && ctx.party.active && ctx.G.mode === "party" && ctx.party.atmosClock);
+    const mode = st === "title" || st === "loading" ? "off" : ctx.G.mode === "cruise" || party ? "cruise" : "base";
     S.mode = mode;
     if (mode === "off") {
         if (!offDone) {
@@ -77,7 +80,12 @@ function tick(dt) {
     try { S.biome = (ctx.world.biomeAt(ctx.car.s) || {}).name || ""; } catch (e) { S.biome = ""; }
 
     // the clock runs while you drive (or walk) in Cruise
-    if (mode === "cruise" && S.dt && !frozen && (st === "playing" || st === "footRun" || st === "intro" || st === "wrecked")) {
+    if (party) {
+        S.clock = ctx.party.atmosClock();
+        const pw = ctx.party.atmosWeather();
+        if (pw && (pw.kind !== W.kind || !W.forced)) { W.forced = true; W.party = true; startWeather(pw.kind, pw.strength, false, 9999); }
+    } else if (W.party) { W.party = false; W.forced = false; }
+    if (!party && mode === "cruise" && S.dt && !frozen && (st === "playing" || st === "footRun" || st === "intro" || st === "wrecked")) {
         S.clock = (S.clock + S.dt / DAY_SECONDS) % 1;
         saveT += S.dt;
         if (saveT > 5) { saveT = 0; saved.clock = S.clock; saveSoon(); }

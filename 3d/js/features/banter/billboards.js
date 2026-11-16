@@ -210,6 +210,7 @@ function planAhead() {
 }
 
 on("chunk:build", ({ chunk, s0, s1 }) => {
+    if (ctx.party && ctx.party.active) return;     // a party places its own (seeded, identical on every screen) via placeAt
     for (let i = plan.length - 1; i >= 0; i--) {
         const p = plan[i];
         if (p.s < s0 || p.s >= s1) continue;
@@ -254,6 +255,11 @@ export function tickBillboards(dt) {
         }
     }
 }
+
+/** Party mode (features/party): hang design `id` at road position s on `side` in `chunk` — the caller decides where, deterministically. */
+export function placeAt(chunk, s, side, id) { const d = adById(id); return d ? place(chunk, s, side, d) : null; }
+/** Designs that look the same on every device (no per-save dynamic text). */
+export function staticAdIds() { return ADS.filter(a => a.generic && !a.dynamic).map(a => a.id); }
 
 /** Debug / tests: hang billboard `id` (or a random one) `ahead` metres in front of Lulu, now. */
 export function forceBillboard(id = null, ahead = 60, side = 1) {

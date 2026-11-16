@@ -90,7 +90,9 @@ const UI = { open: false, back: null, lastRender: 0 };
 export function screenOpen() { return UI.open && H.screenOpen(); }
 
 export function openSharedRoad(from = "title") {
-    UI.back = from === "pause" ? () => { UI.open = false; showPauseMenu(); } : () => { UI.open = false; showTitle(true); };
+    UI.back = from === "pause" ? () => { UI.open = false; showPauseMenu(); }
+        : from === "party" && ctx.party && ctx.party.openHub ? () => { UI.open = false; ctx.party.openHub(); }
+        : () => { UI.open = false; showTitle(true); };
     UI.open = true;
     render("mp_go");
 }

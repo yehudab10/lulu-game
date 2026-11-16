@@ -19,7 +19,7 @@ import { updateBubbles, setHeadSource, bubbleRects, npcBubble, luluBubble, hideL
 import { headWorld, rigInfo, gesture, lookAt, flinch, jolt } from "./rig.js";
 import { tickLulu, say, luluState, CAT } from "./lulu.js";
 import { tickNpc, npcState, forceReply, forcePed, npcPeds, npcArms } from "./npc.js";
-import { tickBillboards, bbState, forceBillboard, billboards } from "./billboards.js";
+import { tickBillboards, bbState, forceBillboard, billboards, placeAt, staticAdIds } from "./billboards.js";
 
 setHeadSource(headWorld);
 
@@ -56,6 +56,9 @@ ctx.banter = {
     lulu: luluState, npc: npcState, billboards: bbState,
     /** Hang a billboard (id from ads.js, or random) `ahead` metres up the road. */
     billboard(id = null, ahead = 60, side = 1) { const b = forceBillboard(id, ahead, side); return b ? b.design.key : null; },
+    /** Party mode: hang design `id` in `chunk` at s / side (the party decides, seeded, so every friend sees the same boards). */
+    billboardAt(chunk, s, side, id) { const b = placeAt(chunk, s, side, id); return b ? b.design.key : null; },
+    staticAds: () => staticAdIds(),
     activeBillboards() { return billboards().map(b => ({ key: b.design.key, s: Math.round(b.s), side: b.side, chunkS: b.chunk ? b.chunk.s0 : null })); },
     /** Make traffic car #i (or the nearest ahead) answer as if honked at. */
     reply(car = null, n = 1) {
