@@ -277,7 +277,6 @@ export function setControlRow(action, label, after = null) {
     ROWS.splice(j >= 0 ? j + 1 : ROWS.length, 0, [action, label]);
 }
 export function controlsHtml() {
-
     const pad = input.padConnected ? input.padKind : "ps";
     const G1 = glyphSet(pad), K = glyphSet("keyboard");
     const g = a => `<span class="glyph">${G1[a] || "—"}</span>`, k = a => `<span class="glyph k">${K[a] || "—"}</span>`;
