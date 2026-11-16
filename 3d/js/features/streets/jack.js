@@ -281,11 +281,10 @@ function familyText() {
 // ── the yanked driver: dizzy, up, ANGRY (and never in harm's way) ────────
 function victimActor(p, stars, ride, isCop) {
     const o = p.obj;
-    const r = force.reaction || (isCop ? "call" : pick(["fist", "fist", "yell", "yell", "chase", "chase", "call"]));
+    const r = force.reaction || (isCop ? "yell" : pick(["fist", "fist", "yell", "yell", "chase", "chase", "call"]));
     const V = { p, stars, ride, r, t: 0, phase: "down", dive: null, said: false, s: 0, gone: false, called: false };
     const phone = r === "call" ? new THREE.Mesh(phoneGeo, phoneMat) : null;
     if (phone && p.limbs.Arm_R) { phone.position.set(0, -0.55, 0.06); p.limbs.Arm_R.add(phone); }
-    const rx0 = o.rotation.x;
     addActor({
         foot: true,
         update(dt) {
@@ -311,7 +310,8 @@ function victimActor(p, stars, ride, isCop) {
                 react(V, dt, tgt, isCop);
                 if (V.t - V.t0 > 5.2) { V.phase = "leave"; V.t0 = V.t; }
             } else {
-                // off to the sidewalk, muttering
+                // off to the sidewalk, muttering (standing up straight again)
+                o.rotation.x += (0 - o.rotation.x) * Math.min(1, dt * 6);
                 const near = ctx.world.road.nearest(o.position.x, o.position.z, car.s, _n);
                 const side = Math.sign(near.d || 1);
                 const want = side * 10.2;

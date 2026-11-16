@@ -94,9 +94,20 @@ def build_paint():
         Part(coll, "innerBack", bm_box(0.02, L_B - 0.6, H_W - 0.4), INNER, loc=(-hx + t + 0.01, 0, H_W / 2)),
         Part(coll, "ceiling", bm_box(W_B - 0.4, L_B - 0.4, 0.04), INNER, loc=(0, 0, H_W - 0.22)),
         Part(coll, "roof", bm_box(W_B + 0.5, L_B + 0.5, 0.3), ROOF, loc=(0, 0, H_W + 0.15)).bevel(0.06, 2),
-        Part(coll, "parapet", bm_box(W_B + 0.7, L_B + 0.7, 0.16), TRIM, loc=(0, 0, H_W + 0.38)).bevel(0.04, 2),
         Part(coll, "base", bm_box(W_B + 0.2, L_B + 0.2, 0.32), TRIM, loc=(0, 0, 0.16)),
     ]
+    # a yellow rim round the roof (not a slab), so the purple roof + mascot read from the road
+    for sx in (-1, 1):
+        parts.append(Part(coll, "rimL", bm_box(0.22, L_B + 0.7, 0.32), TRIM, loc=(sx * (W_B / 2 + 0.24), 0, H_W + 0.42)).bevel(0.04, 2))
+    for sy in (-1, 1):
+        parts.append(Part(coll, "rimE", bm_box(W_B + 0.7, 0.22, 0.32), TRIM, loc=(0, sy * (L_B / 2 + 0.24), H_W + 0.42)).bevel(0.04, 2))
+    # windows on the roadside wall (they glow a little: the booth lights are on)
+    WIN = mat("NeonWindow", "#B3E5FC", rough=0.2, emit=0.6)
+    for wy in (-5.0, 5.0):
+        parts.append(Part(coll, "winFrame", bm_box(0.12, 2.0, 1.3), TRIM, loc=(hx + 0.02, wy, 1.9)).bevel(0.03, 2))
+        parts.append(Part(coll, "win", bm_box(0.14, 1.7, 1.0), WIN, loc=(hx + 0.03, wy, 1.9)))
+        parts.append(Part(coll, "winBar", bm_box(0.16, 0.06, 1.0), TRIM, loc=(hx + 0.04, wy, 1.9)))
+
     # end walls with the door openings (left / right jambs + lintel), both ends
     jamb = (W_B - OPEN_W) / 2
     for ey in (-hy + t / 2, hy - t / 2):
@@ -124,7 +135,7 @@ def build_paint():
     for i in range(16):
         side = 1 if i % 2 == 0 else -1
         y = rnd.uniform(-hy + 1.2, hy - 1.2)
-        z = rnd.uniform(0.8, H_W - 0.6)
+        z = rnd.uniform(0.8, H_W - 0.6) if side < 0 else rnd.uniform(2.75, 3.15)   # road side: a drippy band between the windows and the sign
         m = SPLATS[i % 4]
         r = rnd.uniform(0.18, 0.4)
         parts.append(Part(coll, "splat", bm_sphere(0.04, r, r * 0.9, 10, 6), m, loc=(side * (hx + 0.005), y, z)))
@@ -318,7 +329,7 @@ def build_fruitstand():
     n = 6
     for k in range(n):
         x = -W / 2 - 0.1 + (W + 0.2) / n * (k + 0.5)
-        aw.append(Part(coll, "aw", bm_box((W + 0.2) / n, 1.3, 0.04), AW1 if k % 2 == 0 else AW2, loc=(x, -0.05, 2.12), rot=(-0.32, 0, 0)))
+        aw.append(Part(coll, "aw", bm_box((W + 0.2) / n, 1.3, 0.04), AW1 if k % 2 == 0 else AW2, loc=(x, -0.05, 2.12), rot=(0.32, 0, 0)))
         aw.append(Part(coll, "flap", bm_box((W + 0.2) / n, 0.04, 0.2), AW2 if k % 2 == 0 else AW1, loc=(x, -0.68, 1.84)))
     bake(aw, "Awning", coll, parent=root)
     return coll

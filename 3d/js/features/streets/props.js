@@ -59,8 +59,14 @@ function makePool(kind) {
     for (const im of inst.group.children) { im.frustumCulled = false; im.count = 0; }
     for (let i = 0; i < CAP[kind]; i++) inst.set(i, ZERO);
     inst.finish();
+    inst.group.visible = false;          // no draw calls for a kind that isn't on this stretch of road
     ctx.scene.add(inst.group);
-    return { inst, free: Array.from({ length: CAP[kind] }, (_, i) => CAP[kind] - 1 - i), used: 0, hi: 0, dirty: true };
+    return { inst, free: Array.from({ length: CAP[kind] }, (_, i) => CAP[kind] - 1 - i), taken: new Uint8Array(CAP[kind]), hi: 0, dirty: true };
+}
+function setHi(pool, h) {
+    pool.hi = h;
+    for (const im of pool.inst.group.children) im.count = h;
+    pool.inst.group.visible = h > 0;
 }
 export function loadProps() {
     if (PROPS.ready || PROPS.loading) return PROPS.loading;
@@ -75,15 +81,19 @@ function alloc(kind) {
     const pool = PROPS.pools[kind];
     if (!pool || !pool.free.length) return -1;
     const i = pool.free.pop();
-    pool.hi = Math.max(pool.hi, i + 1);
-    for (const im of pool.inst.group.children) im.count = pool.hi;
+    pool.taken[i] = 1;
+    if (i + 1 > pool.hi) setHi(pool, i + 1);
     return i;
 }
 function release(kind, i) {
     const pool = PROPS.pools[kind];
     if (!pool || i < 0) return;
     pool.inst.set(i, ZERO);
+    pool.taken[i] = 0;
     pool.free.push(i);
+    let h = pool.hi;
+    while (h > 0 && !pool.taken[h - 1]) h--;
+    if (h !== pool.hi) setHi(pool, h);
     pool.dirty = true;
 }
 function writeProp(pr) {
@@ -133,7 +143,7 @@ on("chunk:build", ({ chunk, world, s0, biome }) => {
     const mix = MIX[biome && biome.name] || MIX.suburbs;
     const rd = world.road;
     const list = [];
-    const clusters = rnd() < 0.8 ? 1 + (rnd() < 0.45 ? 1 : 0) : 0;
+    const clusters = rnd() < 0.85 ? 1 + (rnd() < 0.5 ? 1 : 0) : 0;
     for (let ci = 0; ci < clusters; ci++) {
         const side = rnd() < 0.55 ? 1 : -1;
         let s = s0 + 15 + rnd() * 150;
@@ -144,12 +154,15 @@ on("chunk:build", ({ chunk, world, s0, biome }) => {
             const d = side * (kind === "fence" ? 11.3 : kind === "fruitstand" ? 10.3 : 9.4 + rnd() * 0.9);
             if (world.isReserved(s, d, 2.5)) continue;
             rd.point(s, d, tmpR);
-            const h = tmpR.h, fx = Math.sin(h), fz = Math.cos(h);
+            const h = tmpR.h, fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
             let blocked = false;
             for (const c of chunk.colliders) {
                 const dx = c.x - tmpR.x, dz = c.z - tmpR.z;
-                if (c.kind === "house" ? Math.abs(dx * fx + dz * fz) < 4 : dx * dx + dz * dz < (c.r + 1.8) ** 2) { blocked = true; break; }
+                // a house's driveway runs out to the road on ITS side: keep that strip clear
+                const house = c.kind === "house" && Math.abs(dx * fx + dz * fz) < 4 && Math.sign(dx * rx + dz * rz) === Math.sign(d);
+                if (house || (c.kind !== "house" && dx * dx + dz * dz < (c.r + 1.8) ** 2)) { blocked = true; break; }
             }
+
             if (blocked) continue;
             const pr = newProp(kind, tmpR.x, tmpR.z, facingRoad(h, side), chunk);
             if (!pr) continue;
@@ -262,7 +275,7 @@ function initDebris() {
     const m2 = new THREE.MeshStandardMaterial({ roughness: 0.45 });
     deb.round = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), m2, ROUND_N);
     for (const im of [deb.box, deb.round]) {
-        im.frustumCulled = false; im.count = 0; im.castShadow = true;
+        im.frustumCulled = false; im.count = 0; im.castShadow = true; im.visible = false;
         im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         im.setColorAt(0, col("#ffffff"));
         ctx.scene.add(im);
@@ -323,6 +336,7 @@ function stepBits(list, im, dt, round) {
         n++;
     }
     im.count = n;
+    im.visible = n > 0;
     if (n) { im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
     return n;
 }
@@ -333,7 +347,8 @@ function clearDebris() {
 
     for (const d of deb.items) d.on = false;
     for (const d of deb.rItems) d.on = false;
-    if (deb.box) { deb.box.count = 0; deb.round.count = 0; }
+    if (deb.box) { deb.box.count = 0; deb.round.count = 0; deb.box.visible = deb.round.visible = false; }
+
 }
 
 // ── whole props tumbling away, settling, then shrinking out ─────────────

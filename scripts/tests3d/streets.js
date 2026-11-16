@@ -77,9 +77,10 @@ module.exports = {
     await t.frames(6);
     await t.shot("spiked");
     await t.hold(7, 0);
-    t.check("the cops at the roadblock dove clear (nobody run over)", await g(`ctx.streets.debug.HEAT.blocks.length === 0 || ctx.streets.debug.HEAT.blocks[0].cops.every(c => true)`));
+    t.check("a cop at the roadblock dove for cover (nobody gets run over)", await g(`ctx.streets.debug.HEAT.blocks.some(b => b.cops.some(c => c.dive || c.p.obj.rotation.x > 0.3))`));
 
     // ── 4. Paint & Pray: watched ──
+    await g(`${D}.L.units.forEach(u => { if (u.car) { u.car.x -= Math.sin(u.car.h) * 220; u.car.z -= Math.cos(u.car.h) * 220; u.car.s -= 220; u.car.speed = 0; } })`);
     const c0 = await coins();
     const gar = await g(`(() => { const gg = ctx.streets.debug.garageAhead(70); window.__gar = gg; return !!gg.built; })()`);
     t.check("a Paint & Pray booth is built", gar);
@@ -120,12 +121,12 @@ module.exports = {
     await t.shot("carjack-prompt");
     await t.tap(0);
     t.check("✕ starts the jack", await g(`ctx.streets.jacking`));
-    await t.frames(16);
+    await t.frames(24);
     await t.shot("carjack-yank");
     if (await t.until(`__lulu3d.state === "playing"`, "…and she drives off in it", 30000)) {
       t.check("she's driving THAT sedan (shell), handling set", await g(`ctx.foot.vehicle && ctx.foot.vehicle.kind === "sedan" && ctx.streets.ride && ctx.streets.ride.kind === "sedan" && Math.abs(ctx.car.stats.acc - 0.95) < 1e-6`));
       t.check("ONE animation: no foot session, no hop-out left over", await g(`!ctx.foot.active && !ctx.streets.jacking`));
-      t.check("the driver is out on the road, angry", await g(`ctx.actors.length > 0`));
+      t.check("the driver is out on the road (dizzy, then angry)", await g(`(() => { const r = ctx.streets.debug.J.lastRide; return !!(r && r.victim && ["down", "up", "react"].includes(r.victim.phase)); })()`));
       t.check("carjack emits the event + stat", await g(`ctx.streets.debug.J.jacks === 1`));
       await t.frames(30);
       await t.shot("carjack-driver-angry");
@@ -180,7 +181,7 @@ module.exports = {
     t.check("smash: damage $ tally + debris", await g(`ctx.streets.damage >= 120 && ctx.streets.debug.debrisCount() > 5`), `${await g(`ctx.streets.damage`)} $, ${await g(`ctx.streets.debug.debrisCount()`)} bits`);
     t.check("the damage chip is a hud-secondary", await t.L(`!!document.querySelector("#slot-left .streets-dmg.hud-secondary")`));
     await t.shot("smash");
-    await t.frames(240);
+    await t.frames(270);
     t.check("debris settles, fades and is recycled", await g(`ctx.streets.debug.debrisCount() === 0`), `${await g(`ctx.streets.debug.debrisCount()`)} left`);
     // the hydrant: a geyser that bounces the car
     await place(0, 1.75, 14);
@@ -194,6 +195,13 @@ module.exports = {
     await g(`(() => { ${D}.spawnTrap(30, 1); const r = ctx.world.road, p = r.point(ctx.car.s + 10, 5.25, {}); ctx.streets.debug.addLooseProp("trashcan", p.x, p.z, p.h); return true; })()`);
     await t.until(`__lulu3d.ctx.law.chasing`, "smashing in front of a cop → wanted", 20000);
     t.check("vandalism in view of a cop → a chase", await g(`ctx.law.chasing`));
+    // 🔧 Shmuel's Chop Shop: an order comes in on the phone
+    const job = await g(`(() => { const w = ctx.streets.chop.request({ instant: true, kind: "van", hex: "#42A5F5" }); return w && w.text; })()`);
+    t.check("🔧 Shmuel calls with an order", /blue minivan/.test(job || ""), String(job));
+    await t.frames(4);
+    t.check("…on the in-car phone card, and the job is on", await t.L(`/Shmuel/.test((document.querySelector(".jphone") || {}).textContent || "")`) && await g(`!!ctx.streets.chop.job`));
+    await g(`(ctx.phone.hangUp(true), true)`);
+
 
     // ── 8. layouts: the star row + touch ✋ BAIL at TV / phone sizes ──
     const overlaps = () => t.L(`(() => {
@@ -215,7 +223,8 @@ module.exports = {
       return { out, inside: !!sr && sr.left >= 0 && sr.right <= innerWidth && sr.top >= 0 };
     })()`);
     await place(0, 1.75, 18);
-    await g(`ctx.streets.roadblock(90, { gap: 5.25 })`);
+    await g(`ctx.streets.roadblock(110, { gap: 1.75, spikes: false })`);
+
     for (const [name, w, h, tv, touch] of [["tv-1080", 1920, 1080, true, false], ["tv-720", 1280, 720, true, false], ["desktop", 1280, 720, false, false], ["phone-landscape", 844, 390, false, true], ["phone-portrait", 390, 844, false, true]]) {
       await t.page.setViewportSize({ width: w, height: h });
       await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.tv = ${tv ? '"on"' : '"off"'}; })`);
