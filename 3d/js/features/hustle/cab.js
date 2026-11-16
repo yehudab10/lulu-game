@@ -292,7 +292,7 @@ function dropOff(job) {
     const onTime = !c.late;
     const left = onTime ? Math.max(0, c.T - c.rideT) : 0;
     const base = Math.round(rand(PAY.fare[0], PAY.fare[1]));
-    const tip = onTime ? Math.max(0, Math.round(c.tip + left * PAY.secTip * (c.fare.kind === "rush" ? 2 : 1))) : 0;
+    const tip = onTime ? Math.max(0, Math.round(c.tip + Math.min(left, 25) * PAY.secTip * (c.fare.kind === "rush" ? 2 : 1))) : 0;     // the speed tip caps at 25 s early
     if (onTime) { job.streak++; job.bestStreak = Math.max(job.bestStreak, job.streak); }
     const bonus = onTime && job.streak > 1 ? PAY.streak * (job.streak - 1) : 0;
     const pay = base + tip + bonus;

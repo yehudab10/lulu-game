@@ -185,7 +185,7 @@ function summary(job, result, why) {
     const st = stars(job);
     const base = Math.round(rand(PAY.delivery[0], PAY.delivery[1]));
     const food = Math.round(base * (0.35 + 0.65 * job.heat) * (1 - job.spill * 0.85));
-    const tip = Math.round(Math.max(0, job.T - job.rideT) * PAY.deliveryTip * (st >= 4 ? 1 : 0.4));
+    const tip = Math.round(Math.min(20, Math.max(0, job.T - job.rideT)) * PAY.deliveryTip * (st >= 4 ? 1 : 0.4));   // caps at 20 s early
     const pay = Math.max(5, food + tip);
     addCoins(pay, "hustle");
     addScore(600 + pay * 4, "hustle");
