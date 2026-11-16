@@ -86,16 +86,22 @@ module.exports = {
     await t.tap(8);
     t.check("→ back to LULU FM: the game's own track again", await st() === "auto" && /luludriving/.test(await audioSrc() || ""), await audioSrc());
     t.check("the station is in the 3D save", await t.L(`import("./js/core/save.js").then(m => m.save3d.f.hustle.station)`) === "auto");
-    // the pause-menu item
+    // the 📻 Radio app on Lulu's 📱 phone (it replaced the pause item + the touch chip)
     await t.tap(9);
-    t.check("pause: a 📻 radio item in the tools grid", await t.L(`!!document.querySelector(".pm-tools #hustleRadio")`));
-    await t.L(`document.querySelector("#hustleRadio").click()`);
-    await t.frames(2);
-    t.check("…it tunes the next station and relabels in place", await st() === "simcha" && await t.L(`/SIMCHA/.test(document.querySelector("#hustleRadio").textContent)`));
+    t.check("pause: no separate 📻 item any more (the 📱 phone has the radio)", await t.L(`!document.querySelector("#hustleRadio")`));
     let f = await t.L(`(() => { const c = document.getElementById("screenCard"); return c.scrollHeight <= c.clientHeight + 2; })()`);
     t.check("pause still fits 720p", f);
     await t.shot("pause");
     await t.tap(1);
+    if (await g(`!!(ctx.phone && ctx.phone.openPhone)`)) {
+      await g(`ctx.phone.openPhone("radio")`);
+      await t.frames(2);
+      await t.L(`document.querySelector('.lp-st[data-st="simcha"]').click()`);
+      await t.frames(2);
+      t.check("📱 › 📻 Radio tunes a station", await st() === "simcha" && await t.L(`/SIMCHA/.test(document.querySelector(".lp-now").textContent)`));
+      await g(`(ctx.phone.closePhone(), true)`);
+      await t.frames(2);
+    } else await g(`ctx.hustle.radio.tune("simcha")`);
     // Lulu's chatter: Quiet spaces the DJ talk / ads out
     const gapAfter = async mode => {
       await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.chatter = "${mode}"; })`);
@@ -270,7 +276,7 @@ module.exports = {
       t.check(`${name}: ticker off the road`, offRoad(r1), JSON.stringify(r1));
       t.check(`${name}: job HUD off the road`, offRoad(r2), JSON.stringify(r2));
       t.check(`${name}: ticker + job HUD on screen`, !!r1 && !!r2 && r1.x >= -1 && r1.r <= w + 1 && r2.x >= -1 && r2.r <= w + 1);
-      if (touch) t.check(`${name}: the 📻 touch chip shows`, await t.L(`(() => { const b = document.querySelector("#tx_radio"); return !!b && b.offsetParent !== null; })()`));
+      if (touch) t.check(`${name}: no 📻 touch chip (the radio is on the 📱 phone / tap the ticker)`, await t.L(`!document.querySelector("#tx_radio")`));
       await t.shot(`layout-${name}`);
     }
     await t.page.setViewportSize({ width: 1280, height: 720 });

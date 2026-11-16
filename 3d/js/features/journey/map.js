@@ -4,6 +4,9 @@
 // Lulu's car idling at the NEXT stop, ⭐ for chapter tasks, 🔒 for locked legs.
 // The chapter row underneath is a normal controller menu (D-pad ← → , ✕ drives
 // that chapter, ○ back); the camera glides to whichever stop is focused.
+// From Lulu's 📱 phone (from: "phone") the map opens OVER a live run: like photo
+// mode, the run is frozen underneath without setState (no exit/enter/state event)
+// and ○ puts her straight back where she was; picking a chapter ends that run.
 import * as THREE from "three";
 import { ctx, registerState, setState, css } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
@@ -327,6 +330,7 @@ function launch(i) {
         return;
     }
     H.hideScreen();
+    if (M.from === "phone") { softClose(); endRun("map"); }
     if (M.from === "arrived") endRun("map");
     startStory(i);
 }
@@ -341,7 +345,8 @@ function show() {
 }
 function back() {
     H.hideScreen();
-    if (M.from === "arrived") setState("arrivedScreen", { back: true });
+    if (M.from === "phone") softClose();
+    else if (M.from === "arrived") setState("arrivedScreen", { back: true });
     else setState("title");
 }
 let infoFor = -1;
@@ -376,6 +381,12 @@ registerState("storyMap", {
     exit(next) {
         if (set) set.hide();
         H.hideScreen();
+        if (soft && next !== soft.state) {
+            // someone switched state while the map sat over a frozen run: that run's state is left now
+            const fdef = ctx.states[soft.state];
+            soft = null;
+            if (fdef && fdef.exit) { try { fdef.exit(next); } catch (e) { console.error("[map exit]", e); } }
+        }
         if (next === "arrivedScreen") { const st = curStop(); if (st) A.setMusic(st.music); }
     },
     update(dt, P) {
@@ -409,6 +420,47 @@ registerState("storyMap", {
     },
 });
 
-/** Open the story map. opts.from: "title" (back → title) | "arrived" (back → the arrival screen). */
-export function openMap(opts = {}) { setState("storyMap", opts); }
+// ── over a live run (from the phone) ─────────────────────────────────────
+let soft = null;
+const $ = id => document.getElementById(id);
+function softOpen(opts) {
+    if (soft || ctx.state === "storyMap") return false;
+    const body = document.body.classList;
+    soft = { state: ctx.state, stateT: ctx.stateT, stateData: ctx.stateData, prevState: ctx.prevState, music: A.musicSrc(),
+        hudHidden: $("hud").classList.contains("hidden"), touchHidden: $("touch").classList.contains("hidden"),
+        bodyTouch: body.contains("touch"), inPlay: body.contains("in-play") };
+    A.sfxHorn(false);
+    A.updateEngine(0, 0, 0, 0, false, false);
+    ctx.prevState = ctx.state;
+    ctx.state = "storyMap";
+    ctx.stateT = 0;
+    ctx.stateData = opts;
+    H.showHud(false);
+    $("touch").classList.add("hidden");
+    body.remove("touch", "in-play");
+    ctx.states.storyMap.enter(opts);
+    return true;
+}
+function softClose() {
+    const sv = soft;
+    if (!sv) return;
+    soft = null;
+    if (set) set.hide();
+    H.hideScreen();
+    ctx.state = sv.state; ctx.stateT = sv.stateT; ctx.stateData = sv.stateData; ctx.prevState = sv.prevState;
+    const body = document.body.classList;
+    $("hud").classList.toggle("hidden", sv.hudHidden);
+    $("touch").classList.toggle("hidden", sv.touchHidden);
+    body.toggle("touch", sv.bodyTouch);
+    body.toggle("in-play", sv.inPlay);
+    if (A.musicSrc() !== sv.music) A.setMusic(sv.music);
+}
+
+/** Open the story map. opts.from: "title" (back → title) | "arrived" (back → the arrival screen)
+ *  | "phone" (over the live run; back → exactly where she was). */
+export function openMap(opts = {}) {
+    if (opts.from === "phone" && ctx.state !== "title") return softOpen(opts);
+    setState("storyMap", opts);
+    return true;
+}
 ctx.journey.openMap = openMap;

@@ -18,5 +18,6 @@ import "./banter/index.js";      // personality: Lulu alive at the wheel, her on
 import "./atmos/index.js";       // atmosphere: Cruise day/night cycle, weather (rain, fog, snow, rainbows), birds, banner planes, balloons, leaves
 import "./party/index.js";       // 🎉 Party with friends: host / join by code or link, a 3D lobby, Road Trip together, races (seeded shared world)
 import "./hustle/index.js";      // 💼 side hustles: GTA-style side jobs (Lulu Cab, The Getaway, Hot Delivery) + the 📻 car radio
-import "./streets/index.js";
-import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behind the title, the driveway pull-out, places to pull into     // 🚗 street mayhem: carjack anything, bail out, wanted stars + search, roadblocks, Paint & Pray, smashable props
+import "./streets/index.js";     // 🚗 street mayhem: carjack anything, bail out, wanted stars + search, roadblocks, Paint & Pray, smashable props
+import "./phone/index.js";       // 📱 Lulu's phone: one entry point for the extras (map, messages, radio, jobs, Paint & Pray, camera)
+import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behind the title, the driveway pull-out, places to pull into

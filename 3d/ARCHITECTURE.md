@@ -235,8 +235,11 @@ to stop a crash with it costing a heart. `traffic.config = { enabled, ours, onco
 ## Input (`js/input.js`)
 `input.steer throttle brake handbrake boost honkHeld moveX moveY lookX lookY interactHeld fireHeld device padKind padConnected`.
 Edges in `P` (passed to update): `confirm back up down navLeft navRight start pause honk camera boost
-fire item interact map tabPrev tabNext music radio`. Controller: ✕/A confirm+interact, ○/B back, D-pad ↑ fire,
-↓ item, L1/R1 tabs in menus, touchpad/L3 map, View/Create (button 8) `radio` (keyboard T). `glyph(action)` → the right button label for the
+fire item interact map phone tabPrev tabNext music radio`. Controller: ✕/A confirm+interact, ○/B back, D-pad ↑ fire,
+↓ item, L1/R1 tabs in menus, touchpad `phone` (Xbox / Switch have no touchpad: L3 is `phone` there; on a PlayStation
+pad L3 is `map`, the story-map shortcut), View/Create (button 8) `radio` (keyboard T), keyboard Tab `phone`.
+`P.phone` always sets `P.map` too, so where there's no phone (title, pause menu, photo mode) the button keeps its old
+"map · scrapbook · album" meaning. `H.showScreen(…, { onPause })` — Start / OPTIONS / Esc on that card (else they act as ✕ / ○). `glyph(action)` → the right button label for the
 current device (PlayStation symbols on a DualSense). `addTouchButton({id, emoji, label, action, visible})`.
 `input.stick2d = true` makes the touch stick 2-D (on foot / Dina). `rumble(strong, weak, ms)`.
 
@@ -308,7 +311,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
 | `ctx.er` | cameos | `admit(reason)` — the ER visit (a softer landing than game over) |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
-| `ctx.phone` | journey | `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car phone UI (Ima's calls use it) |
+| `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
 | `ctx.parking` | parking | `start(opts)` — pull over into the parking minigame |
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
@@ -349,7 +352,7 @@ from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 
 **Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
 inside its hub; its own title button shows only when the party feature is off).
-**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📻 radio 11 · 📸 photo mode 12 · settings 35 (the button guide is
+**Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📱 phone 11 (the radio lives in the phone now) · 📸 photo mode 12 · settings 35 (the button guide is
 inside) · Shared Road 40 · 💼 quit job 78 (exit row, only during a job) · restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
 
 **Lulu's in-car rig (banter):** at runtime the car's `Driver` mesh is carved into `BanterBody`,
@@ -372,3 +375,28 @@ state `hustleResult` (a card; the car rolls to a stop behind it); a job that fai
 is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music while she's in the car (driving
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
+
+**Lulu's phone (phone):** one GTA-style entry point for the extras, so features add an APP instead of a button.
+The phone opens in `playing` and `footRun` (touchpad / Tab / Xbox L3, the 📱 corner button — it takes the ❚❚ spot in
+those states; its ☰ Menu or Start/Esc is the pause menu — or the pause menu's 📱 Phone) and **pauses the game** exactly
+like the pause menu (`ctx.paused`, `pause` event). It's a `showScreen` card (class `lphone`), so focus is spatial:
+```js
+ctx.phone.addApp({ id: "lakewood", icon: "🏘️", name: "Lakewood", order: 70,
+  visible: () => !!ctx.town,                 // hide when it makes no sense (missing feature, a 🎉 party for random features)
+  badge: () => n || null,                    // a number / "!" on the icon (null = none)
+  open: () => …,                             // EITHER hand off to your own view (the phone closes first, the game resumes)
+  render(el, api, arg) { el.innerHTML = '<button class="btn lp-row">…</button>'; } });   // OR draw into the phone screen
+// api = { close(), back(), refresh(), toast(text), open(appId, arg) } · every <button> / .btn / .nav in el is focusable
+// optional app.back(api) → true when it handled ○ itself (a sub-view); optional color / color2 (the icon gradient)
+ctx.phone.openPhone(appId?, arg?) · ctx.phone.closePhone() · ctx.phone.isOpen · ctx.phone.apps() (visible ids)
+```
+Orders: 🗺️ map 10 · 💬 messages 20 · 📻 radio 30 · 💼 jobs 40 · 🎨 paint 50 · 📸 camera 60 — keep the grid ≤ ~8 apps.
+Styling helpers inside an app: `.btn.lp-row` (a row: `.lp-av` icon, `.lp-tx` with `<b>` + `<small>`, `.lp-meta`),
+`.lp-card`, `.lp-note`, `.lp-fine`, `.lp-empty`. **Inbox:** every `ctx.phone.text(…)` still pops the driving bubble
+AND is stored in 💬 Messages (thread = `thread` or `from`, case-insensitive; the last 50 in `store("phone")`), with
+unread badges on the app + the corner button; tapping the bubble opens its thread. `ctx.phone.inbox` = `{ post(opts)
+(store only, no bubble), unread(thread?), threads(), markRead(k), clear(), msgs }`. The family group chat is thread
+`"mishpacha"` (shown as *Mishpacha 💕🙄*; Ima / Bubbe / Heshy react at `run:end`, gated by `ctx.enabled("phone")`).
+Events: `phone:open` {app} · `phone:close` {how} · `phone:app` {app} · `phone:text` {from, thread, msg}.
+The story map opened from the phone (`ctx.journey.openMap({ from: "phone" })`) sits OVER the live run (frozen without
+`setState`, like photo mode); ○ returns to it exactly, and picking a chapter ends that run first.
