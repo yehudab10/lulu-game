@@ -20,7 +20,7 @@ import { ctx, on, hook, css } from "../../core/ctx.js";
 import { addTouchButton } from "../../input.js";
 import { setControlRow } from "../../core/screens.js";
 import { registerKind } from "../../traffic.js";
-import { live, need, flushCrimes, PROP_KINDS } from "./common.js";
+import { live, need, flushCrimes, PROP_KINDS, models } from "./common.js";
 import { bot, sim } from "./lab.js";
 import { J, RIDES, force, jackSpot, currentRide, canBail, bail, bailHint, startJack, nearestCandidate, jackable } from "./jack.js";
 import { HEAT, spawnRoadblock, layStrip, puncture, repairTyres } from "./heat.js";
@@ -97,6 +97,6 @@ ctx.streets = {
     chop: { request: chopRequest, get job() { return CHOP.job; } },
     /** Test knobs: { reaction: "fist"|"yell"|"chase"|"call", jack: true (spot without the gate), bail: true } */
     force,
-    debug: { bot, sim, J, HEAT, PROPS, PAINT, CHOP, loadProps, garageAhead, chopShopAhead, addLooseProp, PROP_KINDS, nearestCandidate, debrisCount, geysersOn },
+    debug: { bot, sim, J, HEAT, PROPS, PAINT, CHOP, loadProps, garageAhead, chopShopAhead, addLooseProp, PROP_KINDS, nearestCandidate, debrisCount, geysersOn, models },
 
 };

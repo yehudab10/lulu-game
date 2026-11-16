@@ -235,3 +235,6 @@ function reset() {
 }
 hook("runStart", reset);
 on("title", reset);
+// the roadblock kit loads in the background so a 3★ chase can throw one up the moment it's due
+on("boot", () => { if (live()) need(["barrier", "spikes", "copPerson"]).catch(() => {}); });
+

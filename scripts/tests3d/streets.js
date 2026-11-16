@@ -25,6 +25,8 @@ module.exports = {
     t.check("the button guide has carjack + bail out", await t.L(`import("./js/core/screens.js").then(m => /carjack/.test(m.controlsHtml()) && /Bail out/.test(m.controlsHtml()))`));
 
     // ── 1. the chase lab (headless sims: seeded traffic + law, a getaway bot) ──
+    await t.until(`__lulu3d.ctx.streets.debug.PROPS.ready && !!__lulu3d.ctx.streets.debug.models.streets_spikes`, "the street kit (props, barricades, spikes) loads", 60000);
+
     const budget = { 1: 45, 2: 60 };
     for (const stars of [1, 2]) {
       const runs = [];
