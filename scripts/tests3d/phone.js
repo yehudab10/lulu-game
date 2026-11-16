@@ -45,7 +45,6 @@ module.exports = {
     const muts = await t.L(`(window.__lpMO.disconnect(), window.__lpMut)`);
     t.check("…and nothing re-renders while it's idle (0 DOM mutations in 30 frames)", muts === 0, String(muts));
     await t.shot("desktop-home");
-    console.log("    cam:", JSON.stringify(await g(`({ mode: ctx.cam.mode, name: ctx.cam.name, camY: ctx.camera.position.y, carY: ctx.car.pos.y, prop: !!ctx.car.anchors && !!ctx.car.anchors.head && ctx.car.anchors.head.children.length })`)));
     await t.key("Tab");
     t.check("Tab again closes it", !(await isOpen()) && !(await g(`ctx.paused`)));
     await t.frames(6);
