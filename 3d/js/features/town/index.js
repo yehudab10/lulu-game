@@ -67,6 +67,9 @@ css("town", `
 #townFade span { color: #fff; font: 700 clamp(22px, 4vw, 44px) Fredoka, Arial, sans-serif; letter-spacing: .04em; opacity: 0; transition: opacity .2s; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
 #townFade span small { display: block; text-align: center; font-size: .45em; font-weight: 600; opacity: .75; letter-spacing: .02em; margin-top: 4px; }
 #townFade.label span { opacity: 1; }
+.town-kvetch h3 { margin: 0 0 8px; font-size: 1.05em; }
+.town-kvetch p { margin: 0 0 8px; line-height: 1.25; }
+.town-kvetch small { opacity: .75; }
 `);
 const fade = document.createElement("div");
 fade.id = "townFade";
@@ -380,6 +383,8 @@ ctx.town = {
     /** The street she's on (name) while in town. */
     get street() { const s = S.active && streetOfS(ctx.car.s); return s ? s.name : null; },
     /** Street names of the current (or next) town. */
+    /** The highway distance she left at (the town keeps the highway's look and weather from there). */
+    get highwayS() { return S.active ? S.exitS : null; },
     get streets() { return (S.def ? PL.STREETS : setPlan(townFor()).STREETS).map(s => s.name); },
     /** The buildings that block a line of sight: world-space rects {x0, z0, x1, z1}. */
     get occluders() { return PL.OCCLUDERS.map(r => ({ x0: r.x0 + PL.ORIGIN.x, x1: r.x1 + PL.ORIGIN.x, z0: r.z0 + PL.ORIGIN.z, z1: r.z1 + PL.ORIGIN.z })); },

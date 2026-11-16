@@ -207,6 +207,14 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
   `chunk.onAnimate(t => …)`, `chunk.sign(world, def)`, `chunk.coins` (push `{x, z, s, d, taken, value}` before end of build).
   Chunks are recycled ~160 m behind the car; the same chunk is rebuilt identically (seeded `rnd`).
 * `world.reserve(s0, s1, side, dMin, dMax)` keeps random trees/houses/poles out of a stretch.
+* **Districts** (features/town): `world.setDistrict({ road, chunks, ground })` takes the player off the
+  highway into a separate street network in the same scene. While one is set, `world.road` IS the
+  district's road (same `at / point / nearest` API, `s`/`d` along whichever street she's on),
+  `activeChunks()` yields the district's chunk-likes (`{s0, s1, colliders, coins, hearts, traps}`),
+  the highway's chunks stay built but hidden and stop streaming, and `traffic.road` follows
+  `world.road`. `world.highway` is always the highway's Road; `setDistrict(null)` puts everything back.
+  So code that asks `ctx.world.road` keeps working in a town; code that needs highway-only
+  behaviour checks `ctx.town && ctx.town.active`.
 * `world.addSign({s, d, lines:[...], bg, fg, w, h})` before that chunk is built (in `boot` or ≥700 m ahead).
 * `world.biomeAt = s => ({ ...world.defaultBiome(), trees: {...}, density, houses, houseModel, walls, roofs, poles, coins, ground: "#hex" })`.
 * `registerScenery("palm", { model, collide, scale: [a, b], tint: [matNames], colors: {Mat: "#hex"} })` then use it in a biome's trees mix.
@@ -221,7 +229,7 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
 → car `{obj, s, d, dTarget, speed, dir, x, z, h, hit, data, free}`. A custom `ai` drives it
 (change s/d/speed, or set `car.free = true` and drive x/z/h in world space). Set `car.onCrash = e => false`
 to stop a crash with it costing a heart. `traffic.config = { enabled, ours, oncoming, mix, honkMoves }`.
-`traffic.remove(car)`, `traffic.clear()`, `traffic.cars`.
+`traffic.remove(car)`, `traffic.clear()`, `traffic.cars`. `traffic.road` is a getter for `world.road` (a district's streets while one is active).
 
 ## Lulu's car (`js/car.js`)
 `car.pos (Vector3) car.h car.vx car.vz car.vF car.speed car.s car.d car.spin car.boosting`,
@@ -273,7 +281,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, town and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -315,6 +323,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
+| `ctx.town` | town | `active` · `id` / `name` · `street` (the street she's on) · `streets` · `occluders` (world rects) · `enter({town, speed})` / `leave(why)` (no ramp: tests/debug) · `load()` · for law: `blocksSight(ax, az, bx, bz)` · `copRoute(car)` → `{gap, aim(la, out)}` · `copSpawn(how)` → `{s, d, dir}` · for foot: `footYaw(F, roadH, dt)` · `towns` (the data) · `debug`. Events `town:enter` {town, exitS}, `town:leave` {town, why: highway \| wreck \| quiet \| reset}, `town:gossip` {kind, msg}, `town:talk` {id, line}, `town:stopSign`, `town:bump`, `town:geese`, `town:bike`; stats `townVisits`, `townStopSigns`, `townTalks`, `townGossip`, `townEscapes` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
@@ -357,3 +366,17 @@ state `hustleResult` (a card; the car rolls to a stop behind it); a job that fai
 is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music while she's in the car (driving
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
+
+**Towns (town):** a Cruise run has a town exit every few km (`towns/<id>.js` › `highway`). The town is a
+district (see World) built when she takes the ramp and disposed when she leaves; everything about a
+town is DATA in `features/town/towns/<id>.js` (streets with names and extents, block uses, landmarks,
+jams, signs, people + lines, traffic mix, the entry and the exits) read by a generic engine
+(`plan.js` → streets / crossings / blocks / graph / TownRoad). While she's in town `ctx.enabled()` is
+false for the highway's random content (roadevents, cameos, foot's spawners, interiors, journey, hustle,
+play, banter's random parts, law's random cops); chases, carjacking and walking still work through the
+district. Hooks into other features (all guarded by `ctx.town && ctx.town.active`): **law** —
+`clearLine` uses `ctx.town.blocksSight`, a chasing cruiser steers by `ctx.town.copRoute`, new
+cruisers join at `ctx.town.copSpawn`; **foot** — the walking frame comes from `ctx.town.footYaw`;
+**streets** — no roadblocks and the chop-shop order pauses in town. A scene the town can't host (jail,
+the ER, any set) first sends her back to the highway; out of hearts she's towed to the highway's
+shoulder and the usual aftermath plays there (`hooks.wreck` priority 40, never claims).

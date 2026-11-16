@@ -116,7 +116,7 @@ function drive(dt, c) {
                 if ((T.roll || T.waited > T.wait) && !boxBusy(node, c)) { T.waited = 0; beginTurn(c, T, st, node); }
             }
         }
-    } else if ((along - st.a1) * T.dir > -10 || (st.a0 - along) * T.dir > -10) {
+    } else if ((T.dir > 0 ? st.a1 - along : along - st.a0) < 10) {
         v = 0;   // the end of a dead-end stub (shouldn't happen): U-turn
         T.dir = -T.dir; c.dir = T.dir; c.d = c.dTarget = laneD(T.dir); T.node = nodeAhead(st, along, T.dir);
     }
@@ -208,8 +208,8 @@ function turning(dt, c, T) {
     const sl = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1, t = Math.min(1, u / sl);
     c.x = PL.ORIGIN.x + p0.x + (p1.x - p0.x) * t;
     c.z = PL.ORIGIN.z + p0.z + (p1.z - p0.z) * t;
-    const want = Math.atan2(p1.x - p0.x, p1.z - p0.z);
-    let dh = want - c.h; while (dh > Math.PI) dh -= Math.PI * 2; while (dh < -Math.PI) dh += Math.PI * 2;
+    const hw = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    let dh = hw - c.h; while (dh > Math.PI) dh -= Math.PI * 2; while (dh < -Math.PI) dh += Math.PI * 2;
     c.h += dh * Math.min(1, dt * 8);
 }
 function gapTurn(c) {

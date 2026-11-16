@@ -191,7 +191,8 @@ const DEFAULT_TRAFFIC = {};
 const TRAFFIC = { fall: [5, 3], pool: [5, 3], coast: [4, 3], dusk: [5, 3], desert: [3, 2], strip: [6, 4] };
 export function envTick(dt) {
     if (!ctx.world || !ctx.car) return;
-    const s = ctx.car.s;
+    // (in a town — features/town — the look stays the highway's, where she took the exit)
+    const s = ctx.town && ctx.town.active && ctx.town.highwayS != null ? ctx.town.highwayS : ctx.car.s;
     const p = paletteAt(s);
     applyPalette(p);
     env.key = p.key;

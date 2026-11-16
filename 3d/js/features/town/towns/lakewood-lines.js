@@ -134,6 +134,7 @@ export const BIKE_YELLS = ["Sorry!", "Coming through!", "LATE FOR SEDER!", "On y
 export const DRIVER_YELLS = ["Watch it, PINKY!", "Out-of-towner!", "It's a STOP SIGN!", "I have NINE KIDS in here!", "Learn to drive!"];
 
 // ── the Lakewood Kvetch (the phone's local news) ─────────────────────────
+export const KVETCH_TITLE = "The Lakewood Kvetch";
 export const KVETCH = [
     { h: "Route 9 still a parking lot", b: "Experts baffled. Residents not." },
     { h: "Town approves 400 townhouses", b: "On a lot the size of a sukkah." },
