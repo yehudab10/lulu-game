@@ -62,6 +62,18 @@ module.exports = {
     await g(`(window.__hg.visible = true, true)`);
     console.log(`  PERF title (home street): ${JSON.stringify(pTitle)} · without the street: ${JSON.stringify(pBare)}`);
 
+    // ── the family & places card (phone app if the phone is there, else the 📒 drawer) ──
+    const viaPhone = await g(`!!(ctx.phone && ctx.phone.addApp)`);
+    if (viaPhone) t.check("family card opens (phone present)", await g(`ctx.places.openMap()`));
+    else t.check("family card opens from the 📒 drawer", await t.click(/Family & places/));
+    await t.frames(4);
+    t.check("it lists the family", await t.L(`!!document.querySelector(".wmap") && /Bubbe/.test(document.querySelector(".wmap").textContent)`));
+    await t.shot("family-map");
+    await t.tap(1);
+    await t.until(`__lulu3d.state === "title" && !document.querySelector(".wmap")`, "the card closes back to the title", 3000);
+    await g(`__lulu3d.openView("home")`);
+    await t.frames(3);
+
     // ── Cruise from the title: the driveway pull-out → playing ──
     await g(`ctx.places.debug.clock(0.41)`);
     await t.frames(3);

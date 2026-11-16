@@ -15,6 +15,8 @@
 //   📍 places.js  Places you pull into from the road (Cruise): ⛽ Gas 'n' Go, 🌄 the
 //                 Lookout, and the family's driveways (Bubbe's, Heshy's pool, the beach,
 //                 Avigail's, Uncle Burry's). Stop in the bay → a short in-world beat.
+//   map.js        🏡 Family & places — a small card (a 📱 phone app when ctx.phone.addApp exists,
+//                 else a row in the 📒 Scrapbook drawer): who lives where, visits, family lore.
 //   path.js       scripted car paths (Catmull-Rom) + a kinematic ride helper.
 //
 // Continuity: the car is the same object all the way (paint, decor, dents stay); the
@@ -33,6 +35,7 @@ import * as H from "../../hud.js";
 import { home, homeTick, titleCamera, onTitle, streetVisibility, applyHoliday, placeParked, holidayNow, S_HOME } from "./home.js";
 import { departInfo } from "./depart.js";
 import { placesApi, reservePlaces } from "./places.js";
+import { openFamilyMap } from "./map.js";
 
 registerModels({ world_home: "world_home" }, { preload: true });
 registerModels({ world_gas: "world_gas", world_lookout: "world_lookout" });
@@ -75,6 +78,7 @@ on("state", ({ from, to }) => {
 on("run:start", () => streetVisibility());
 
 ctx.places = Object.assign(placesApi, {
+    openMap: back => openFamilyMap(back),
     home: {
         get ready() { return home.ready; },
         get phase() { return home.phase; },
