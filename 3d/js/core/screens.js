@@ -267,7 +267,7 @@ function cycleSkin() {
 const ROWS = [
     ["steer", "Steer"], ["gas", "Gas"], ["brake", "Brake · reverse"], ["handbrake", "Handbrake drift"],
     ["boost", "Nitro"], ["honk", "Horn"], ["camera", "Camera"], ["fire", "Fire missile"],
-    ["item", "Use item"], ["interact", "Interact (on foot)"], ["map", "Map / scrapbook"], ["pause", "Pause"],
+    ["item", "Use item"], ["interact", "Interact (on foot)"], ["map", "Map / scrapbook"], ["radio", "Car radio (next station)"], ["pause", "Pause"],
 ];
 export function controlsHtml() {
     const pad = input.padConnected ? input.padKind : "ps";

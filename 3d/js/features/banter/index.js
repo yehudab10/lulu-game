@@ -67,6 +67,8 @@ ctx.banter = {
         return !!c;
     },
     npcSay(text, car) { return !!npcBubble(text, (car || ctx.traffic.cars[0]).obj, { cls: "angry" }); },
+    /** A bubble over any Object3D (a passenger, a pedestrian…): opts { dur, y, cls: "nice" | "angry" | "cop" | "kid" | "truck" }. */
+    bubble(text, target, opts = {}) { return !!npcBubble(text, target, opts); },
     ped() { forcePed(); return npcPeds.filter(p => p.on).length; },
     rects: () => bubbleRects(),
     gesture, lookAt, flinch, jolt,
