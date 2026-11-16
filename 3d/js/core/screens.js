@@ -131,7 +131,7 @@ function groupHtml(g, items, info) {
     }).join("");
     return `<div class="tsub" data-title-seq="${T.seq}">
         <div class="tsub-head">${tabs.length > 1 ? `<span class="tsub-g">${glyph("tabPrev")}</span>` : ""}<div class="tsub-tabs">${tabs.map(t =>
-            `<button class="tsub-tab nonav${t === g ? " on" : ""}" id="tt_${t}" data-tt="${t}">${TITLE_GROUPS[t].icon} <span>${TITLE_GROUPS[t].name}</span></button>`).join("")}</div>${tabs.length > 1 ? `<span class="tsub-g">${glyph("tabNext")}</span>` : ""}</div>
+            `<button class="tsub-tab nonav${t === g ? " on" : ""}" id="tt_${t}" data-tt="${t}" data-group-tile="${t}">${TITLE_GROUPS[t].icon} <span>${TITLE_GROUPS[t].name}</span></button>`).join("")}</div>${tabs.length > 1 ? `<span class="tsub-g">${glyph("tabNext")}</span>` : ""}</div>
         ${head ? `<div class="tsub-info">${head}</div>` : ""}
         <div class="tsub-list">${rows}</div>
         <div class="tsub-foot"><button class="btn ghost" id="tBack">‹ Back ${glyph("back")}</button></div>
