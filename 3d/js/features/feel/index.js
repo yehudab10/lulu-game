@@ -45,7 +45,7 @@ function passing(dt) {
         if (c.feelPassed || Math.abs(side) > 10 || !c.obj) continue;
         const v = (along - prev) / dt;                    // − = it's coming back toward her (she's overtaking), + = it's overtaking her
         if (Math.abs(v) < 5 || Math.abs(v) > 120) continue;
-        const truck = c.kind === "truck" || ((kindSpec(c.kind) || {}).len || 0) > 6.2;
+        const spec = c.kind === "truck" ? null : kindSpec(c.kind), truck = c.kind === "truck" || !!(spec && spec.len > 6.2);
         const lead = truck ? 0.85 : 0.6;                  // ≈ the buffer's peak
         const tPass = -along / v;
         if (tPass < 0 || tPass > lead) continue;

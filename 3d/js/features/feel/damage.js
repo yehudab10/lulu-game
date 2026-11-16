@@ -480,6 +480,7 @@ function fx(x, y, z, vx, vy, vz, size, life, r, g, b) {
     P.size[i] = size; P.grow[i] = size * 1.4; P.life[i] = P.maxLife[i] = life;
 }
 
+const SCRAPE = { gain: 0, rate: 1 };          // reused every frame (no allocation)
 /** Per frame (driving / walking): smoke, sparks + scrape, the rolling hubcap, model swaps. */
 export function tickDamage(dt) {
     const car = ctx.car, G = ctx.G;
@@ -488,7 +489,8 @@ export function tickDamage(dt) {
     // never more wear than hearts lost (ER / jail / a reprieve hand some back)
     if (G && G.hearts > 0 && D.k > (G.maxHearts || 3) - G.hearts) { D.k = Math.max(0, (G.maxHearts || 3) - G.hearts); rebuild(); }
     updateHub(dt);
-    const visible = car.obj.visible !== false && car.model.visible !== false && D.k > 0;
+    // (car.obj.visible blinks with the i-frames — the damage doesn't stop for that; on foot the car is parked out of sight)
+    const visible = car.model.visible !== false && !(ctx.foot && ctx.foot.active) && D.k > 0;
     const sp = car.speed;
     // smoke from under the hood
     if (visible && D.stage >= 3) {
@@ -516,7 +518,7 @@ export function tickDamage(dt) {
             D.stats.sparks++;
         }
         if (!D.scrape && A.spatial.ready) D.scrape = A.spatial.loop("scrape", D.dragPt, { gain: 0 });
-        if (D.scrape) D.scrape.set({ gain: Math.min(1, sp / 25), rate: 0.85 + Math.min(0.4, sp / 80) });
+        if (D.scrape) { SCRAPE.gain = Math.min(1, sp / 25); SCRAPE.rate = 0.85 + Math.min(0.4, sp / 80); D.scrape.set(SCRAPE); }
     } else if (D.scrape) stopScrape();
 }
 
