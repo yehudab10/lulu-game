@@ -22,7 +22,7 @@ import { setControlRow } from "../../core/screens.js";
 import { registerKind } from "../../traffic.js";
 import { live, need, flushCrimes, PROP_KINDS, models } from "./common.js";
 import { bot, sim } from "./lab.js";
-import { J, RIDES, force, jackSpot, currentRide, canBail, bail, bailHint, startJack, nearestCandidate, jackable } from "./jack.js";
+import { J, RIDES, BIG_CAM, force, jackSpot, currentRide, canBail, bail, bailHint, startJack, nearestCandidate, jackable } from "./jack.js";
 import { HEAT, spawnRoadblock, layStrip, puncture, repairTyres } from "./heat.js";
 import { PROPS, loadProps, smashNear, addLooseProp, debrisCount, geysersOn } from "./props.js";
 import { PAINT, cost as paintCost, start as paintStart, garageAhead, nearestGarage, paintCar, restorePaint } from "./paint.js";
@@ -60,6 +60,8 @@ ctx.streets = {
     },
     /** Traffic kinds she can jack and how each drives: { sedan: { label, feel, handling }, van, truck, cop, streets_sports }. */
     rides: RIDES,
+    /** Ride model key → { d, h }: how much further back / higher the chase cam sits in a big ride (features/rides adds its own). */
+    cams: BIG_CAM,
     /** The jacked vehicle she's driving right now: { kind, color } | null. */
     get ride() { const r = currentRide(); return r ? { kind: r.kind, color: r.color } : null; },
     /** The carjack animation is playing. */

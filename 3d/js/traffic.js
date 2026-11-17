@@ -280,7 +280,7 @@ export class Traffic {
         const { nx, nz, pen } = best;
         const vrx = player.vx - cvx, vrz = player.vz - cvz;
         const vn = vrx * nx + vrz * nz;
-        const mP = 1, mC = c.spec.mass;
+        const mP = player.mass || 1, mC = c.spec.mass;   // a heavy ride (features/rides) shoves harder
         // separate
         const share = mC / (mP + mC);
         player.pos.x += nx * pen * share; player.pos.z += nz * pen * share;

@@ -171,13 +171,13 @@ export class PlayerCar {
         const off = env.offroad;
 
         // ── longitudinal ──
-        const top = 42 * st.top * (this.boosting ? 1.32 : 1) * (1 - off * 0.45);
+        const top = 42 * st.top * (this.boosting ? (st.nitroTop || 1.32) : 1) * (1 - off * 0.45);
         let a = 0;
         if (ctl.throttle > 0.02 && vF > -0.5) {
             const k = Math.max(0, 1 - Math.pow(Math.max(0, vF) / top, 2));
-            a += 12.5 * st.acc * ctl.throttle * k + (this.boosting ? 9 : 0);
+            a += 12.5 * st.acc * ctl.throttle * k + (this.boosting ? (st.nitroAcc || 9) : 0);
         } else if (this.boosting) {
-            a += 9;
+            a += st.nitroAcc || 9;
         }
         if (ctl.brake > 0.02) {
             if (vF > 0.6) a -= 26 * st.brake * ctl.brake;
