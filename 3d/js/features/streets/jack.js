@@ -116,7 +116,9 @@ function makeDoor(c) {
 function spawnVictim(c) {
     const key = c.kind === "cop" ? (models.copPerson ? "copPerson" : null) : pick(PEOPLE.filter(k => models[k]));
     if (!key || !models[key]) return null;
-    const p = spawnPerson(key, { colors: key === "copPerson" ? null : { Top: pick(TOPS), Bottom: pick(BOTTOMS), Hair: pick(HAIRS) } });
+    const colors = key === "copPerson" ? null : { Top: pick(TOPS), Bottom: pick(BOTTOMS), Hair: pick(HAIRS) };
+    const p = spawnPerson(key, { colors });
+    p.look = { key, colors };              // remembered (streets:carjack → features/memory's grudges)
     p.obj.rotation.order = "YXZ";
     p.obj.visible = false;
     ctx.scene.add(p.obj);
@@ -261,7 +263,7 @@ function finishJack(jk) {
     // seen by a cop? (a cop car is ALWAYS a crime — its owner is right there)
     const seen = jk.cop ? (ctx.law ? (ctx.law.startChase("CARJACKING A POLICE CRUISER", { msg: "🚨 YOU JACKED A COP CAR?!", heat: 2 }), true) : false)
         : crime("CARJACKING", where.x, where.z, { msg: "🚨 CARJACKING — A COP SAW THAT!" });
-    emit("streets:carjack", { kind: c.kind, model: R.model, color: ride.color, x: where.x, z: where.z, witnessed: !!seen });
+    emit("streets:carjack", { kind: c.kind, model: R.model, color: ride.color, x: where.x, z: where.z, witnessed: !!seen, driver: jk.victim ? jk.victim.look : null });
     // no blinking "shield" on a car she just took (it's standing still), one card says how it drives
     ctx.G.invT = 0;
     H.banner(`<b>🚗 CARJACKED!</b><small>${T.RIDE_HINT[c.kind] || ""}${!S.hinted ? ` · ${bailHint()} to bail out` : ""}</small>`, 2800, { key: "streets:ride" });

@@ -229,7 +229,7 @@ registerState("streetsPaint", {
             let diff = want - car.h; while (diff > Math.PI) diff -= Math.PI * 2; while (diff < -Math.PI) diff += Math.PI * 2;
             const vT = clamp(left * 0.9, 0, 9);
             updateDriving(dt, {}, false, { steer: clamp(-diff * 2.6, -1, 1), throttle: car.speed < vT ? 0.5 : 0, brake: car.speed > vT + 0.8 ? 0.9 : 0, handbrake: false, analog: true });
-            if (!P.said && P.tt > 0.5) { P.said = true; say("Moishe", pick(T.PAINT_HELLO), { emoji: "🧑‍🔧", color: "#4A148C", auto: 2.3 }); }
+            if (!P.said && P.tt > 0.5) { P.said = true; say("Moishe", (ctx.memory && ctx.memory.recognize("moishe", { color: P.color.name })) || pick(T.PAINT_HELLO), { emoji: "🧑‍🔧", color: "#4A148C", auto: 2.3 }); }
             if ((left < 0.8 && car.speed < 1.5) || P.tt > 4.2) { P.phase = "settle"; P.tt = 0; P.snapFrom = { x: car.pos.x, z: car.pos.z, h: car.h }; }
         } else if (P.phase === "settle") {
             // ease the last bit dead centre (no pop)

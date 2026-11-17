@@ -83,7 +83,7 @@ hook("update", (dt, P, controlsOn) => {
         if (!controlsOn || c.hit || c.data.taunted) continue;
         if (c.s - car.s < 26 && c.s - car.s > -6 && Math.abs(c.d - car.d) < 7) {   // as Lulu closes in (she is still in view)
             c.data.taunted = true;
-            carBubble(c, pick(AVIGAIL_ROAD_TAUNTS));
+            carBubble(c, (ctx.memory && ctx.memory.recognize("avigailRoad")) || pick(AVIGAIL_ROAD_TAUNTS));     // memory: her notoriety
             setTimeout(() => H.toast(pick(LULU_ROAD_REPLIES), "pink"), 700);
             bump(1);
             stat("avigail3", 1);      // weekly quest: share the road with Avigail
@@ -419,6 +419,9 @@ async function runPorch(p) {
     p.wantOpen = true;
     A.sfxSelect();
     await wait(0.6);
+    // features/memory: she's heard about Lulu's record (rate-limited, one line)
+    const rap = ctx.memory ? ctx.memory.recognize("avigailPorch") : "";
+    if (rap) { await say("Avigail", rap, Object.assign({}, AVI, { emoji: EXPR.smug, auto: 2.4 })); if (porch !== p) return; }
     const script = buildAvigailScript();
     p.total = script.length;
     for (let i = 0; i < script.length; i++) {
