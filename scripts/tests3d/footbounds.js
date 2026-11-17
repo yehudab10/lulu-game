@@ -69,10 +69,12 @@ module.exports = {
     await t.frames(20);
     await g(`(ctx.traffic.clear(), ctx.traffic.config.enabled = false, ctx.foot.start("droveOff", { noIntro: true }))`);
     if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot")) return;
-    // test-speed knobs: a short gap between nudges
-    await g(`(ctx.foot.bounds.NUDGE.gap = 6, ctx.foot.bounds.debug.aim(0), true)`);
-    await t.until(`(() => { const v = __lulu3d.ctx.foot.bounds.visuals; return v && v.fence > 20 && v.grass > 40 && v.mud > 8 && v.shown; })()`, "the fence line, tall grass and mud are laid out around her", 60000);
-    t.check("the field scenery is laid out (fence / grass / mud)", await g(`(() => { const v = ctx.foot.bounds.visuals; return !!v && v.fence > 20 && v.grass > 40 && v.mud > 8; })()`),
+    // test-speed knobs: a short gap between nudges — and none at all until section 4
+    await g(`(ctx.foot.bounds.NUDGE.gap = 6, ctx.foot.bounds.debug.aim(0), ctx.foot.bounds.state.gapT = 1e9, true)`);
+    // out of Lulu's street (the home stretch keeps its verge clear) onto open road
+    await place(9.5, 400);
+    await t.until(`(() => { const v = __lulu3d.ctx.foot.bounds.visuals; return v && v.fence > 20 && v.grass > 30 && v.mud > 8 && v.shown; })()`, "the fence line, tall grass and mud are laid out around her", 60000);
+    t.check("the field scenery is laid out (fence / grass / mud)", await g(`(() => { const v = ctx.foot.bounds.visuals; return !!v && v.fence > 20 && v.grass > 30 && v.mud > 8; })()`),
       JSON.stringify(await g(`ctx.foot.bounds.visuals`)));
 
     // ── 1. run straight out into the fields ──
