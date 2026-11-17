@@ -181,7 +181,7 @@ def build_home():
 
     # 🌿 the sukkah (Sukkot) in the side yard (+X): posts, striped cloth walls, schach on top, fruit
     sp = []
-    sx, sy = 9.0, -0.6
+    sx, sy = 8.4, -7.2   # out front on the lawn, where the street can see it
     CLOTH = mat("SukkahCloth", "#F5F0E1", rough=0.9)
     STRIPE = mat("SukkahStripe", "#2E7D9A", rough=0.9)
     SCHACH = mat("Schach", "#6B8E3A", rough=0.95)
