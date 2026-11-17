@@ -140,7 +140,8 @@ async function script(f, data) {
     st.phase = "talk";
     const rt = reasonText(data.reason, data.charges, data.fugitive);
     st.talking = true;
-    await line(f, "cop", `You're pulled over for: ${rt}.`, { auto: COP_LINE_DUR + 1.2 });
+    const again = ctx.memory ? ctx.memory.recognize("cop") : "";      // features/memory: "Oh, it's YOU again." at 3+ arrests
+    await line(f, "cop", `${again ? again + " " : ""}You're pulled over for: ${rt}.`, { auto: COP_LINE_DUR + 1.2 + (again ? 1 : 0) });
     // 3 — the outcome (2D odds: 10% impound · ~22% let off · the rest booked)
     const forced = !!(data.charges && data.charges.length) || data.fugitive;
     let outcome, scene, tactic = null;

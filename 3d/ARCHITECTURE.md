@@ -276,7 +276,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, memory and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -314,13 +314,14 @@ and keep working sensibly when another feature is missing.
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
-| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
+| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) · `addAd(def)` (another feature's billboard design, never random) · `billboardAt(chunk, s, side, id)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
 | `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
+| `ctx.memory` | memory | `grudges` (live list of remembered carjack victims `{id, name, key, colors, kind, color, run, seen, lastRun}`, ≤ 6) · `notoriety()` → `{score, level 0–4, title, arrests, mugshots, escapes, er, carjacks, maxStars, grudges}` · `remember(kind, data)` (`"grudge"` streets:carjack-shaped · `"poster"` {heat, why} owes a WANTED billboard · `"text"` queues a text · anything else → a capped log) · `recall(kind)` (a copy) · `recognize(who, info)` → a rate-limited line or `""` (`"cop"`, `"moishe"` {color}, `"hitch"` {event: pick\|pass\|drop}, `"avigailRoad"`, `"avigailPorch"`) · `spawnGrudge(rec?, {act, behind})` → Promise<car> (acts `yell` `tailgate` `brakecheck` `cops` `forgive`) · `canMeet()` · `forgive(rec)` · `text(t, {next, after})` · `poster(ahead, side, variant)` · `runs`. Events `memory:grudge` {name, kind, color, act, seen}, `memory:billboard` {variant, key, s, side} |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
-Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
+Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed, driver: {key, colors}} · `streets:bail` {speed, ride} ·
 `streets:roadblock` {s, gap} · `streets:spiked` · `streets:paint` {cost, color, cleared} · `streets:smash` {kind, value, total, x, z} ·
 `streets:crime` {charge} · `streets:chop` {kind, color, pay}; stats `carjacks`, `bailouts`, `roadblocks`, `spiked`, `resprays`, `propsSmashed`, `chopJobs`.
 
@@ -385,3 +386,14 @@ unread badges on the app + the corner button; tapping the bubble opens its threa
 Events: `phone:open` {app} · `phone:close` {how} · `phone:app` {app} · `phone:text` {from, thread, msg}.
 The story map opened from the phone (`ctx.journey.openMap({ from: "phone" })`) sits OVER the live run (frozen without
 `setState`, like photo mode); ○ returns to it exactly, and picking a chapter ends that run first.
+
+**World memory (memory):** a capped record in `save3d.f.memory` (≤ 6 grudges, ≤ 6 queued texts, ≤ 8 records per
+logged kind, ≤ 16 kinds, ≤ 5 paint colours) paid off in later runs, never on the HUD: the grudge car is a plain
+traffic car (`traffic.add` + a custom `ai`, Paint restyled and a seated `npcMan`/`npcWoman`/`copPerson`, both undone
+in `onRemove`; `onCrash` → no hearts), at most one visit a run, never two runs in a row for the same grudge,
+forgiven after three. Texts go out through `ctx.phone.text({ from, … })` — one 💬 Messages thread per sender, `from` is its title — (≥ 40 s apart, ≤ 3 a run, never during a
+call / chase / job / on foot). The WANTED poster is banter's pooled billboard with a design added through
+`ctx.banter.addAd({ id, dynamic })` (an ad's `art` may be a draw function) and hung with `ctx.banter.billboardAt`.
+Other features ask for recognitions in place of their usual line: law's pull-over (`recognize("cop")`), streets'
+Paint & Pray (`"moishe"`), roadevents' hitchhiker (`"hitch"` — it also records pick / pass / drop), cameos'
+Avigail coupe + porch (`"avigailRoad"`, `"avigailPorch"`).

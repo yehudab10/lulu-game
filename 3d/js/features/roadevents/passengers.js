@@ -71,7 +71,9 @@ function dropRider(r, quiet) {
     const car = ctx.car;
     burst(obj.position.x, 1.2, obj.position.z, 8, 2.5, [0.56, 0.64, 0.68], 0.4, 0.7);
     let t = 0;
-    if (Math.random() < 0.6) bubble(pick(["Thanks for the lift!", "Bye, Lulu! 👋", "Tell Bubbe I said hi!", "Mensch!"]), obj, { t: 2.4, y: 2.1 });
+    const known = r.who === "hitchhiker" && ctx.memory ? ctx.memory.recognize("hitch", { event: "drop" }) : "";     // features/memory
+    if (known) bubble(known, obj, { t: 3, y: 2.1 });
+    else if (Math.random() < 0.6) bubble(pick(["Thanks for the lift!", "Bye, Lulu! 👋", "Tell Bubbe I said hi!", "Mensch!"]), obj, { t: 2.4, y: 2.1 });
     addActor({
         foot: true,
         update(dt) {
@@ -320,7 +322,7 @@ export async function spawnHitchhiker(opts = {}) {
             p.update(dt, { point: true, wave: ahead < 50 && ahead > 0 && Math.sin(h.t * 2) > 0.6 });
             if (armL) armL.rotation.x -= 0.9;      // hold the BUBBE'S? sign up
             p.face(ctx.car.pos.x, ctx.car.pos.z, dt, 2);
-            if (ahead < -8 && !h.passed) { h.passed = true; bubble(pick(["Aw, c'mon!", "I'll walk… 😩", "Next time!"]), obj, { t: 2, y: 2.1 }); }
+            if (ahead < -8 && !h.passed) { h.passed = true; const known = ctx.memory ? ctx.memory.recognize("hitch", { event: "pass" }) : ""; bubble(known || pick(["Aw, c'mon!", "I'll walk… 😩", "Next time!"]), obj, { t: known ? 2.8 : 2, y: 2.1 }); }
             if (ahead < -60) return false;
             if (ahead > -2 && ahead < 70 && ctx.state === "playing") H.prompt(`🙋 ${glyph("honk")} Honk to pick up the hitchhiker!`);
             else if (h.prompted) H.prompt("");
@@ -342,7 +344,8 @@ export function honkHitch() {
     h.picked = true;
     if (h.prompted) H.prompt("");
     addCoins(PAY.hitch, "hitchhiker");
-    bubble(pick(HITCH_LINES), h.p.obj, { t: 2.6, y: 2.1, cls: "gold" });
+    const known = ctx.memory ? ctx.memory.recognize("hitch", { event: "pick" }) : "";     // features/memory
+    bubble(known || pick(HITCH_LINES), h.p.obj, { t: known ? 3.2 : 2.6, y: 2.1, cls: "gold" });
     H.toast(`🚗 +${PAY.hitch} 💰  2× coins!`, "gold");
     sfx.coin(4);
     rumble(0.2, 0.5, 120);
