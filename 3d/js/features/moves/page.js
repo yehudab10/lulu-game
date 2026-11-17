@@ -9,6 +9,7 @@ import { S, MOVES, MOVE, starsOf, saveSoon, fmtMult, reset, hideCallout } from "
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const fmt = n => Math.round(n || 0).toLocaleString();
+const pl = (n, one, many) => `${fmt(n)} ${Math.round(n || 0) === 1 ? one : many}`;
 let sel = "drift";
 
 /** The how-to line for the device in hand ({action} → that device's glyph). */
@@ -21,17 +22,17 @@ export function howTo(m, device = input.device) {
 function bestLine(m) {
     const b = S.best, q = S.q, n = S.n;
     switch (m.id) {
-        case "drift": return `${fmt(n.drift)} turbos · ${fmt(q.drift3)} purple`;
-        case "rocket": return `${fmt(n.rocket)} launches · ${fmt(q.perfect)} perfect`;
-        case "slingshot": return `${fmt(n.slingshot)} slingshots · best ${fmt(b.slingCombo)} in a combo`;
-        case "nearmiss": return `${fmt((n.nearmiss || 0) + (n.headon || 0))} shaves · wrong way ${(b.wrongway || 0).toFixed(1)} s`;
-        case "air": return `${fmt(n.air)} landed · best ${fmt(b.air)} tricks in one jump`;
-        case "bootleg": return `${fmt(n.bootleg)} bootleggers`;
-        case "pit": return `${fmt(n.pit)} cruisers spun`;
-        case "roll": return `${fmt(n.roll)} rolls · ${fmt(q.matador)} matadors`;
-        case "slide": return `${fmt(n.slide)} slides`;
-        case "vault": return `${fmt(n.vault)} vaults`;
-        case "combo": return b.comboMult ? `best ×${fmtMult(b.comboMult)} · ${fmt(b.comboScore)} pts · ${fmt(b.comboLen)} moves` : "no combo banked yet";
+        case "drift": return `${pl(n.drift, "turbo", "turbos")} · ${fmt(q.drift3)} purple`;
+        case "rocket": return `${pl(n.rocket, "launch", "launches")} · ${fmt(q.perfect)} perfect`;
+        case "slingshot": return `${pl(n.slingshot, "slingshot", "slingshots")} · best ${fmt(b.slingCombo)} in a combo`;
+        case "nearmiss": return `${pl((n.nearmiss || 0) + (n.headon || 0), "shave", "shaves")} · wrong way ${(b.wrongway || 0).toFixed(1)} s`;
+        case "air": return `${fmt(n.air)} landed · best ${pl(b.air, "trick", "tricks")} in one jump`;
+        case "bootleg": return pl(n.bootleg, "bootlegger", "bootleggers");
+        case "pit": return `${pl(n.pit, "cruiser", "cruisers")} spun`;
+        case "roll": return `${pl(n.roll, "roll", "rolls")} · ${pl(q.matador, "matador", "matadors")}`;
+        case "slide": return pl(n.slide, "slide", "slides");
+        case "vault": return pl(n.vault, "vault", "vaults");
+        case "combo": return b.comboMult ? `best ×${fmtMult(b.comboMult)} · ${fmt(b.comboScore)} pts · ${pl(b.comboLen, "move", "moves")}` : "no combo banked yet";
         default: return "";
     }
 }

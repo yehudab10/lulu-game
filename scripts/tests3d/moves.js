@@ -90,7 +90,7 @@ module.exports = {
     await G(`(ctx.G.invT = 0, L3.damage(0.5, "test bump", "test"), true)`);
     const br = await G(`${M}.debug.LOG[${M}.debug.LOG.length - 1]`);
     t.check("a crash → COMBO LOST (no bank)", await G(`${M}.combo.n === 0`) && br && br.type === "break", JSON.stringify(br));
-    await G(`(ctx.G.hearts = 3, ctx.G.invT = 0, true)`);
+    await G(`(ctx.G.hearts = 3, ctx.G.invT = 0, L3.H.setHearts(3, 3), true)`);
     await t.frames(70);
 
     // ── 💨 slipstream → slingshot (a truck that holds 9 m ahead) ──
@@ -111,7 +111,11 @@ module.exports = {
     // ── 😈 the wrong side of the road ──
     await place(700, -3.5, 24);
     await t.hold(7, 0.6);
-    await t.frames(70);
+    for (let i = 0; i < 6; i++) {               // the road curves: keep her in the oncoming lane
+      await t.frames(12);
+      await G(`(() => { const c = ctx.car, s = c.s, v = Math.max(20, c.vF); const p = ctx.world.road.point(s, -3.5, {}); c.place(p.x, p.z, p.h); c.s = s;
+        c.vx = Math.sin(p.h) * v; c.vz = Math.cos(p.h) * v; return true; })()`);
+    }
     t.check("the oncoming lanes hold a combo open", await G(`${M}.debug.W.t > 1.5`), String(await G(`${M}.debug.W.t`)));
     await place(780, 1.75, 24);
     await t.frames(3);
@@ -146,6 +150,7 @@ module.exports = {
     await t.shot("pit");
     await t.stick(0); await t.hold(7, 0);
     await G(`(ctx.traffic.remove(window.__cop), true)`);
+    await place(1200, 1.75, 10);
     await bankNow(); await t.frames(3);
 
     // ── 🛹 air tricks: a front flip off a ramp ──
@@ -178,7 +183,7 @@ module.exports = {
     await t.hold(7, 1);
     await t.until(`__lulu3d.ctx.play.jump.air`, "takes off again", 8000);
     await t.hold(7, 0);
-    await t.until(`__lulu3d.ctx.play.jump.vy < -3`, "falling", 8000);
+    await t.until(`__lulu3d.ctx.play.jump.vy < 0 && __lulu3d.ctx.play.jump.y < 2.6`, "falling, nearly down", 8000);
     await t.stick(0, 1);                        // a back flip far too late
     await t.frames(2);
     await t.stick(0, 0);
@@ -193,7 +198,10 @@ module.exports = {
     await t.frames(2);
     await G(`ctx.foot.start("droveOff")`);
     await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "Lulu's on foot", 15000);
-    await t.frames(4);
+    await t.stick(0, -1);                        // a few steps away from her own car (□ beside it would vault it)
+    await t.frames(30);
+    await t.stick(0, 0);
+    await t.frames(8);
     await t.tap(2);
     t.check("□ on foot → a dodge ROLL", await G(`${M}.debug.foot().kind === "roll"`), JSON.stringify(await G(`${M}.debug.foot()`)));
     await t.frames(3);
