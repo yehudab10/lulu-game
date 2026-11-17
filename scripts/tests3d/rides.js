@@ -164,6 +164,7 @@ module.exports = {
       t.check("bus: the chip shows the next stop", /Next stop/.test(await chip()), await chip());
       const c0 = await coins();
       await placeAt(await g(`${D}.bus.STOP.s`), 5.6, 0);
+      await g(`(ctx.G.invT = 0, true)`);              // (no post-boarding invincibility blink in the screenshot)
       await t.frames(30);
       const vis = await g(`(() => { const so = ctx.foot.shellObj; let v = !!so, o = so; while (o) { if (!o.visible) v = false; o = o.parent; }
         const cp = ctx.camera.position, p = ctx.car.pos; return { v, key: ctx.foot.vehicle && ctx.foot.vehicle.kind, cam: +Math.hypot(cp.x - p.x, cp.z - p.z).toFixed(1), camY: +cp.y.toFixed(1), inScene: !!(so && so.parent) }; })()`);
