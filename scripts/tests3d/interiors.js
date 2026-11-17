@@ -62,6 +62,12 @@ module.exports = {
     }
 
     // ── THE THIRSTY SCHOLAR ──────────────────────────────────────────
+    // the bar is entered mid-run (on foot), so start a real Cruise run first: the title now parks the
+    // car nose-in at Lulu's garage (features/world), and a bare title → "playing" would drive into it
+    if (ONLY.includes("bar")) {
+      await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
+      await t.until(`__lulu3d.state === "playing"`, "bar: a Cruise run is on the road", 30000);
+    }
     if (ONLY.includes("bar") && await enter("bar", "playing")) {
       t.check("bar: state + set view", await t.game(`ctx.state === "interior" && ctx.view !== null`));
       await t.frames(20);
