@@ -11,7 +11,14 @@ import { input, glyph, rumble } from "../../input.js";
 import * as H from "../../hud.js";
 import { tone } from "../parking/sfx.js";
 
-export const RIDE = { uid: null, t: 0, seats: new Map(), lost: 0 };
+export const RIDE = { uid: null, t: 0, seats: new Map(), lost: 0, hidden: null };
+/** The rider's own car out of sight (its children: core rewrites car.obj.visible every frame for the i-frame blink). */
+function hideCar(on) {
+    const o = ctx.car.obj;
+    if (on && !RIDE.hidden) { RIDE.hidden = o.children.filter(c => c.visible); for (const c of RIDE.hidden) c.visible = false; }
+    else if (on) { for (const c of RIDE.hidden) c.visible = false; }
+    else if (RIDE.hidden) { for (const c of RIDE.hidden) c.visible = true; RIDE.hidden = null; }
+}
 let E = null;
 export function initRide(engine) { E = engine; }
 
@@ -41,7 +48,7 @@ export function stopRide(quiet = false) {
     E.setRide(null);
     H.prompt("");
     const car = ctx.car, rc = ctx.party && ctx.party.remoteCar(uid);
-    car.obj.visible = true;
+    hideCar(false);
     if (rc && rc.shown) {
         // out on the passenger side, rolling at the car's speed
         const rx = -Math.cos(rc.h), rz = Math.sin(rc.h);
@@ -64,7 +71,7 @@ hook("update", (dt, P) => {
     RIDE.t += dt;
     if (P.interact && RIDE.t > 0.6) { stopRide(); return; }
     H.prompt(`${glyph("interact")} 🚪 Hop out`);
-    car.obj.visible = false;
+    hideCar(true);
     if (p && E.zoneOfPeer(p) !== E.zone()) {             // they took the exit: come along
         RIDE.lost += dt;
         if (RIDE.lost > 0.8) { RIDE.lost = 0; E.warpToFriend(RIDE.uid, true); }

@@ -263,13 +263,13 @@ async function partyRun(t, guests) {
   t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
   await sleep(3000);
   t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await g(`!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`));
-  const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.visible, d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
+  const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.children.some(c => c.visible), d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
   t.check("ride: the guest's car rides with the host's (camera follows it)", rideSt.shown && !rideSt.vis && rideSt.d < 1.5, JSON.stringify(rideSt));
   await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-openworld-ride-guest.png") }).catch(() => { });
   await t.shot("ride-host");
   await A.game(`ctx.openworld.hopOut()`);
   await sleep(1500);
-  t.check("ride: hop out → her own car again", await A.game(`ctx.car.obj.visible && !ctx.openworld.riding`));
+  t.check("ride: hop out → her own car again", await A.game(`ctx.car.obj.children.some(c => c.visible) && !ctx.openworld.riding`));
   await sleep(1500);
   t.check("ride: the seat empties on the host's screen", await g(`ctx.car.anchors.passenger.children.every(c => !c.visible || !c.parent || c.parent !== ctx.car.anchors.passenger) || ctx.car.anchors.passenger.children.length === 0`));
 
@@ -289,7 +289,11 @@ async function partyRun(t, guests) {
   const rp = await robP.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h })`);
   await robP.game(PLACE(rp.x, rp.z, rp.h));
   await copP.game(PLACE(rp.x - Math.sin(rp.h) * 4.2, rp.z - Math.cos(rp.h) * 4.2, rp.h));
-  if (!await done("cnr", "C&R: the bust ends it (one robber)")) return;
+  await sleep(2500);
+  const robUid = cnr.cop === hostUid ? guestUid : hostUid;
+  const cnrDbg = await copP.game(`({ touch: ctx.openworld.debug.touching(${JSON.stringify(robUid)}), seen: ctx.openworld.debug.posOf(${JSON.stringify(robUid)}), me: { x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h }, L: ctx.openworld.debug.CL.L, out: ctx.openworld.game.out, ph: ctx.openworld.game.ph, late: ctx.party.clock() - ctx.openworld.game.copGo })`);
+  const robNow = await robP.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
+  if (!await done("cnr", "C&R: the bust ends it (one robber) " + JSON.stringify({ cnrDbg, rp, robNow }).slice(0, 600))) return;
   const cnrEnd = await g(`({ out: ctx.openworld.game.out, cut: !!ctx.openworld.game.cut })`);
   await A.until(`ctx.openworld.debug.CL.lastTitle`, "guest has a C&R title", 10000);
   const cnrTitle = await A.game(`ctx.openworld.debug.CL.lastTitle`);

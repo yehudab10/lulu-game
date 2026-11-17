@@ -249,7 +249,25 @@ function warpToFriend(uid, quiet = false) {
 }
 
 // ── zones: entering / leaving a town ─────────────────────────────────────
-on("town:enter", e => { ROAM.exitS = e && e.exitS != null ? e.exitS : ctx.car.s; if (NP.pin && NP.pin.zone !== zone()) unpin(); });
+on("town:enter", e => {
+    ROAM.exitS = e && e.exitS != null ? e.exitS : ctx.car.s;
+    if (NP.pin && NP.pin.zone !== zone()) unpin();
+    if (roam()) seedFlock();
+});
+/** The town's geese / pigeons where the PARTY seed says (three.js eats Math.random for every clone's uuid, so the
+ *  town's own seeded build can drift between screens that cached different materials). */
+function seedFlock() {
+    const T = ctx.town, L = T && T.debug && T.debug.LIFE, plan = T && T.plan, spots = T && T.spots;
+    if (!L || !plan || !spots || !L.geese || !L.geese.length) return;
+    const FL = plan.def.flock || { spot: "lake" }, lake = spots[FL.spot];
+    if (!lake || lake.z0 == null) return;
+    const r = mulberry(hashStr("flock:" + T.id + ":" + ctx.party.seed));
+    for (const g of L.geese) {
+        const x = lake.x - 3 + r() * 6, z = lake.z0 + r() * (lake.z1 - lake.z0), h = r() * 6;
+        g.x = g.home.x = x; g.z = g.home.z = z; g.h = h; g.mode = "graze"; g.t = r() * 5;
+        g.obj.position.set(plan.ORIGIN.x + x, g.obj.position.y, plan.ORIGIN.z + z); g.obj.rotation.y = h;
+    }
+}
 on("town:leave", e => {
     ROAM.leftExit = ROAM.exitS; ROAM.leftT = ctx.time; ROAM.exitS = null;
     clearTownTraffic();
