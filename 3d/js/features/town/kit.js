@@ -2,7 +2,8 @@
 //
 //   Merge   every static piece (buildings, parked minivans, lamps, trees, stop signs…)
 //           is baked into per-area clusters of vertex-coloured geometry: one mesh per
-//           cluster per look (solid · no-shadow · glass · lit windows · lamp bulbs), so a
+//           cluster per look (solid · no-shadow · glass · lit windows · lamp bulbs · and the
+//           far looks for a city's skyline: no shadow, seen from much further away), so a
 //           block of houses + cars + lamps is 2–4 draw calls, frustum- and shadow-
 //           culled as a unit. Tints (Walls / Roof / Paint…) go into the vertex colours.
 //   Atlas   every bit of text in town (shop signs, banners, street blades, STOP…) is a
@@ -101,9 +102,9 @@ export class Merger {
                 for (const x of list) x.dispose();
                 if (!g) continue;
                 g.computeBoundingSphere();
-                const mesh = new THREE.Mesh(g, mats[look === "flat" ? "solid" : look]);
+                const mesh = new THREE.Mesh(g, mats[look === "flat" || look === "far" ? "solid" : look === "farglow" ? "glow" : look]);
                 mesh.castShadow = look === "solid";
-                mesh.receiveShadow = look !== "lit";
+                mesh.receiveShadow = look !== "lit" && look !== "far" && look !== "farglow";
                 mesh.matrixAutoUpdate = false;
                 mesh.userData.townLook = look;
                 mesh.userData.cell = list.cell;      // (for the town's distance + block-occlusion culling)

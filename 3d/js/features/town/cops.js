@@ -8,7 +8,7 @@
 //                                out of her sight unless it's the first one — or the town's
 //                                own patrol car that just saw her do it)
 import { ctx } from "../../core/ctx.js";
-import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodesAround, nodeAlong, pathNodes, segmentBlocked, blocked } from "./plan.js";
+import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodesAround, nodeAlong, pathNodes, segmentBlocked, blocked, sharedStreet } from "./plan.js";
 
 const _a = {}, _b = {}, _c = {}, _p = {};
 
@@ -28,7 +28,7 @@ function routeTo(fx, fz, fst, tx, tz, tst) {
         const path = a === b ? [a] : pathNodes(a, b);
         if (!path) continue;
         let len = Math.abs(nodeAlong(fst, a) - fa) + Math.abs(nodeAlong(tst, b) - ta);
-        for (let i = 1; i < path.length; i++) len += Math.abs(path[i].x - path[i - 1].x) + Math.abs(path[i].z - path[i - 1].z);
+        for (let i = 1; i < path.length; i++) len += Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z);
         if (!best || len < best.len) best = { path, len };
     }
     if (!best) { pts.push({ x: tx, z: tz }); return { pts, len: Math.hypot(tx - fx, tz - fz) }; }
@@ -37,8 +37,8 @@ function routeTo(fx, fz, fst, tx, tz, tst) {
         // a jammed stretch: the cruiser takes the oncoming lane through it
         let ox = 0, oz = 0;
         if (nx) {
-            const st = n.x === nx.x ? PL.STREETS[n.ns] : PL.STREETS[n.ew], dir = nodeAlong(st, nx) > nodeAlong(st, n) ? 1 : -1;
-            if (blocked(st.id, dir, n)) { const q = streetPoint(st, 0, -dir * (LANE + 0.5), _p), z = streetPoint(st, 0, 0, {}); ox = q.x - z.x; oz = q.z - z.z; }
+            const st = sharedStreet(n, nx), dir = nodeAlong(st, nx) > nodeAlong(st, n) ? 1 : -1;
+            if (blocked(st.id, dir, n) && !st.oneway) { const q = streetPoint(st, 0, -dir * (LANE + 0.5), _p), z = streetPoint(st, 0, 0, {}); ox = q.x - z.x; oz = q.z - z.z; }
         }
         pts.push({ x: n.x + ox, z: n.z + oz });
     }

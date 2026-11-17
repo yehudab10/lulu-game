@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────
-//  features/town — 🏙️ TOWNS YOU CAN TURN INTO (first one: LAKEWOOD. Nobody likes Lakewood.)
+//  features/town — 🏙️ TOWNS YOU CAN TURN INTO: LAKEWOOD (nobody likes Lakewood) and MIDWOOD,
+//  Brooklyn (nobody can PARK in Midwood). Cruise's exits alternate between them (towns/index.js).
 //
 //  How a town fits the road model: the highway is one endless Road in road coordinates
 //  (s along, d across) and every system — driving, traffic, cops, on foot, carjacking —
@@ -12,8 +13,10 @@
 //  (law: occluders + routing + spawn points; foot: a steady walking frame) instead of forks.
 //
 //    plan.js    the plan ENGINE: a town definition → streets, crossings, blocks, the graph, TownRoad
-//    towns/     the TOWNS as data (lakewood.js + its lines) — a second town is another file
+//    towns/     the TOWNS as data (lakewood.js, midwood.js + their lines) — townFor() picks per exit
 //    build.js   the scene: merged block clusters (kit.js), one sign atlas, lamps, the lake…
+//    rail.js    an embankment railway (Midwood's B/Q): berm, bridges, stations, the trains
+//    landmarks.js  boulevard malls, frontage strips, the college quad, the city skyline, barricades
 //    cars.js    the town's drivers (lane-following, 4-way stops, the circle) + the patrol car
 //    life.js    people (talk on foot), geese, e-bikes, speed bumps, stop signs, the group chat
 //    cops.js    what law asks: blocksSight / copRoute / copSpawn
@@ -32,8 +35,10 @@ import { save3d } from "../../core/save.js";
 import { models, ensureModels, registerModels } from "../../models.js";
 import { input } from "../../input.js";
 import * as H from "../../hud.js";
-import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
+import { PL, setPlan, TownRoad, LANE, street, streetOfS, streetPoint, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
 import { buildTown, BUILD_MODELS } from "./build.js";
+import { tickRail } from "./rail.js";
+import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
 import { blocksSight, copRoute, copSpawn } from "./cops.js";
@@ -41,21 +46,28 @@ import { X, planExit, clearExits, exitAt, onRamp } from "./exit.js";
 import { TOWNS, townFor } from "./towns/index.js";
 
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
+/** The models a town needs: Lakewood's set, or the town's own list (def.models). */
+const needsOf = def => def.models ? [...new Set(def.models)] : NEEDS;
 // our own models (key = file name), plus the two we borrow from roadevents / foot (same files, so no double load)
-registerModels(Object.fromEntries(NEEDS.filter(k => /^(town_|roadevents_school_bus$|foot_bus$)/.test(k)).map(k => [k, k])));
+const OWN = new Set(Object.values(TOWNS).flatMap(needsOf).concat(NEEDS).filter(k => /^(town_|roadevents_school_bus$|foot_bus$)/.test(k)));
+registerModels(Object.fromEntries([...OWN].map(k => [k, k])));
 
 // ── state ────────────────────────────────────────────────────────────────
-const S = { active: false, def: null, T: null, road: null, chunk: null, exitS: 0, trans: null, ready: null, loaded: false,
-    savedTraffic: true, readLive: 0, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: false, footYaw: null, tendT: 0, haz: [] };
+const S = { active: false, def: null, lastDef: null, T: null, road: null, chunk: null, exitS: 0, trans: null, ready: null, loaded: false, loads: {}, ok: {},
+    savedTraffic: true, readLive: 0, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: new Set(), footYaw: null, tendT: 0, haz: [] };
 const TOWN_OK = new Set(["playing", "wrecked", "footRun", "lawBust", "copStop", "playPhoto", "hustleResult"]);
 // highway content that has no business in a town (its random parts read the highway's s)
 const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey", "hustle", "play", "banter", "law", "dina", "memory", "world", "shabbos"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 
-function load() {
-    if (!S.ready) S.ready = ensureModels(NEEDS).then(() => { S.loaded = true; S.failed = false; }).catch(e => { console.warn("[town] models", e); S.ready = null; S.failed = true; });
-    return S.ready;
+/** Load a town's models (lazily, as her car nears its exit). S.loaded / S.ready: the first town's (Lakewood's). */
+function load(def = townFor(0)) {
+    const id = def.id;
+    if (!S.loads[id]) S.loads[id] = ensureModels(needsOf(def)).then(() => { S.ok[id] = true; S.failed = false; if (def === townFor(0)) S.loaded = true; })
+        .catch(e => { console.warn("[town] models", id, e); S.loads[id] = null; S.failed = true; });
+    if (def === townFor(0)) S.ready = S.loads[id];
+    return S.loads[id];
 }
 
 // ── the fade (the only "transition": ~1 s, in game time) ─────────────────
@@ -78,7 +90,7 @@ function setFade(a, label = null) {
 function beginTrans(kind, e = null) {
     if (S.trans) return;
     S.trans = { kind, e, t: 0, phase: "out" };
-    if (kind === "enter") load();
+    if (kind === "enter") load(e ? e.town : townFor(0));
 }
 function tickTrans(dt) {
     const tr = S.trans;
@@ -91,10 +103,10 @@ function tickTrans(dt) {
         if (tr.t >= 0.4) { tr.phase = "black"; tr.t = 0; }
     } else if (tr.phase === "black") {
         setFade(1, label);
-        if (tr.kind === "enter" && !S.loaded) {
+        if (tr.kind === "enter" && !S.ok[def.id]) {
             // (no connection? don't strand her behind a black screen: the exit's just "closed")
             if (S.failed || tr.t > 8) { S.trans = null; setFade(0); S.failed = false; H.toast(`🚧 ${def.name} is closed today (couldn't load it)`, "red"); return; }
-            load(); return;
+            load(def); return;
         }
         if (tr.t < 0.15) return;
         try { if (tr.kind === "enter") enterTown(tr.e); else leaveTown("highway"); }
@@ -125,11 +137,11 @@ function makeChunk(T) {
 // ── in / out ─────────────────────────────────────────────────────────────
 function enterTown(e = null, opts = {}) {
     if (S.active) return false;
-    const def = e ? e.town : (opts.town ? TOWNS[opts.town] : townFor());
-    if (!def) return false;
+    const def = e ? e.town : (opts.town ? TOWNS[opts.town] : townFor(0));
+    if (!def || !S.ok[def.id]) return false;
     const car = ctx.car, G = ctx.G, world = ctx.world, tr = ctx.traffic;
     setPlan(def);
-    S.def = def;
+    S.def = S.lastDef = def;
     S.exitS = e ? e.s : (opts.exitS != null ? opts.exitS : car.s);
     const T = S.T = buildTown(def);
     ctx.scene.add(T.root);
@@ -151,7 +163,14 @@ function enterTown(e = null, opts = {}) {
     G.lastS = Infinity;                       // no distance score on town streets (it's not a trip, it's a detour)
     // the town's drivers
     C.slow = new Set((def.bumps || []).map(b => street(b.street)).filter(Boolean).map(s => s.id));
-    for (const hz of def.hazards || []) { const hs = street(hz.street); if (hs) hazards(spawnHazard(hs.id, hz.along, hz.d)); }
+    C.routes = {};
+    for (const [kind, names] of Object.entries(def.routes || {})) C.routes[kind] = new Set(names.map(n => street(n)).filter(Boolean).map(s => s.id));
+    for (const hz of def.hazards || []) {
+        const hs = street(hz.street);
+        if (!hs) continue;
+        hazards(spawnHazard(hs.id, hz.along, hz.d, hz.kind));
+        if (!T.spots.hazards) { const p = S.road.point(hs.base + hz.along, hz.d, {}); T.spots.hazards = toLocal(p.x, p.z, {}); }
+    }
     for (const [kind, n] of Object.entries(def.traffic || {})) for (let i = 0; i < n; i++) {
         const sp = randomSpot(36, kind);
         if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 6 });
@@ -171,7 +190,7 @@ function enterTown(e = null, opts = {}) {
     H.banner(`<b>${def.emoji} ${def.lines.SIGNS.welcome[0]}</b><small>${def.lines.SIGNS.welcome.slice(1).join(" · ")}</small>`, 2800, { key: "town", prio: 2 });
     later(1.4, () => luluSay("enter", true));
     later(5, () => gossip("enter"));
-    if (!S.bubbe && def.lines.BUBBE) { S.bubbe = true; later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1)); }
+    if (!S.bubbe.has(def.id) && def.lines.BUBBE) { S.bubbe.add(def.id); later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1)); }
     emit("town:enter", { town: def.id, exitS: S.exitS });
     emit("stat", { id: "townVisits", n: 1 });
     return true;
@@ -188,6 +207,7 @@ function leaveTown(why = "highway") {
     if (!S.active) return false;
     const def = S.def, car = ctx.car, G = ctx.G, world = ctx.world, tr = ctx.traffic;
     stopLife();
+    SFX.rumbleStop();
     for (const h of S.haz) { if (h.grp.parent) h.grp.parent.remove(h.grp); h.m.dispose(); h.g.dispose(); }
     S.haz.length = 0;
     clearDrivers();
@@ -243,6 +263,7 @@ function tick(dt) {
     S.tendT -= dt;
     if (S.tendT <= 0) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
     for (const k of T.cranes) k.obj.rotation.y += k.speed * dt * (Math.sin(ctx.time * 0.1 + k.speed * 50) > -0.3 ? 1 : 0);
+    if (T.trains.length) tickRail(T, dt, ctx.camera.position, RAIL_HOOKS);
     // coins
     const t = ctx.time;
     T.coins.forEach((c, i) => {
@@ -272,10 +293,19 @@ function tick(dt) {
     }
 }
 
+// the B/Q: Lulu notices the first train, the group chat has opinions, doors chime as it leaves a station near her
+const RAIL_HOOKS = {
+    onPass(tr) { if (!LIFE.said.has("train")) { LIFE.said.add("train"); luluSay("train", true); later(3, () => gossip("train")); } emit("town:train", { line: tr.cfg.line }); },
+    onDepart(tr) {
+        const c = ctx.camera.position, d = Math.hypot(PL.ORIGIN.x + tr.obj.position.x - c.x, PL.ORIGIN.z + tr.z - c.z);
+        if (d < 90) SFX.chime(Math.max(0.2, 1 - d / 90));
+    },
+};
+
 // ── culling: a block of houses hides everything behind it ──────────────
 // (the frustum alone sees "through" the whole town from any street). Per merged cluster: hidden when
 // it's past its look's distance, or when every sample point is behind some other block.
-const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110 };
+const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110, far: 700, farglow: 700 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
 function cullClusters(T) {
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
@@ -308,11 +338,11 @@ hook("runStart", G => {
     if (S.active) leaveTown("reset");
     S.trans = null; setFade(0);
     clearExits();
-    S.bubbe = false;
+    S.bubbe.clear();
     if (eligible()) {
-        const def = townFor();
+        const def = townFor(0);
         planExit((G.startS || 0) + def.highway.first, def);
-        load();
+        load(def);
     }
 }, 20);
 on("title", () => { if (S.active) leaveTown("reset"); S.trans = null; setFade(0); clearExits(); });
@@ -323,10 +353,10 @@ hook("update", (dt, P, controlsOn) => {
     const car = ctx.car;
     // plan the next exit well ahead (before its chunks are built), drop the ones far behind
     const last = X.exits[X.exits.length - 1];
-    if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, last.town);
+    if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, townFor(X.exits.length));
     if (ctx.state !== "playing" || !controlsOn || S.trans) return;
     const e = exitAt(car.s);
-    if (e && e.s - car.s < 900) load();
+    if (e && e.s - car.s < 900) load(e.town);
     if (e && onRamp(e, car.s, car.d)) {
         if (ctx.hustle && ctx.hustle.job) { ctx.hustle.end("quit", `You took the ${e.town.name} exit. Nobody gets anywhere on time from there.`); return; }
         beginTrans("enter", e);
@@ -371,6 +401,7 @@ on("foot:start", () => {
 on("boot", () => {
     const R = ctx.streets && ctx.streets.rides;
     if (R && R.van && !R.town_van) R.town_van = Object.assign({}, R.van, { model: "town_minivan" });
+    if (R && R.sedan && !R.town_carsvc) R.town_carsvc = Object.assign({}, R.sedan, { model: "sedan", label: "🚕 JACK THE CAR SERVICE" });
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(talkSpot);
     // the phone (if it has apps): the local news
     if (ctx.phone && ctx.phone.addApp) {
@@ -383,7 +414,7 @@ on("boot", () => {
     }
 });
 function kvetchHtml() {
-    const L = (S.def || townFor()).lines;
+    const L = (S.def || S.lastDef || townFor(0)).lines;
     const items = [...LIFE.live.slice(0, 6), ...L.KVETCH];
     // the phone's row style (.lp-row / .lp-tx): focusable rows, so a controller can scroll the feed
     return `<div class="town-kvetch"><div class="lp-note">🗞️ <b>${L.KVETCH_TITLE || "The Kvetch"}</b> · local news nobody asked for</div>${items.map((i, k) =>
@@ -419,14 +450,17 @@ ctx.town = {
     /** Street names of the current (or next) town. */
     /** The highway distance she left at (the town keeps the highway's look and weather from there). */
     get highwayS() { return S.active ? S.exitS : null; },
-    get streets() { return (S.def ? PL.STREETS : setPlan(townFor()).STREETS).map(s => s.name); },
+    get streets() { return (S.def ? PL.STREETS : setPlan(townFor(0)).STREETS).map(s => s.name); },
     /** The buildings that block a line of sight: world-space rects {x0, z0, x1, z1}. */
     get occluders() { return PL.OCCLUDERS.map(r => ({ x0: r.x0 + PL.ORIGIN.x, x1: r.x1 + PL.ORIGIN.x, z0: r.z0 + PL.ORIGIN.z, z1: r.z1 + PL.ORIGIN.z })); },
-    /** Go into town now (no ramp; tests / debug). opts: { town, exitS, speed }. Models must be loaded (await ctx.town.load()). */
-    enter(opts = {}) { return S.loaded ? enterTown(null, opts) : false; },
+    /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be
+     *  loaded (await ctx.town.load(id)). */
+    enter(opts = {}) { return enterTown(null, opts); },
     /** Back to the highway now. why: "highway" (default) | "quiet" | "reset". */
     leave(why = "highway") { return leaveTown(why); },
-    load: () => load(),
+    load: id => load(id ? TOWNS[id] : townFor(0)),
+    /** Is this town's model set loaded? */
+    loaded: id => !!S.ok[id || townFor(0).id],
     get transitioning() { return !!S.trans; },
     blocksSight,
     copRoute: c => copRoute(c),
@@ -436,13 +470,13 @@ ctx.town = {
     debug: {
         S, C, LIFE, PL, X, gossip, luluSay, crime,
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
-        exitAhead(ahead = 320) {
-            const w = ctx.world, def = townFor();
+        exitAhead(ahead = 320, id = null) {
+            const w = ctx.world, def = id ? TOWNS[id] : townFor(0);
             const e = planExit(ctx.car.s + ahead, def);
             if (!e) return null;
             for (const [k, c] of [...w.chunks]) if (c.s1 > e.s - 760 && c.s0 < e.s + 220) { c.dispose(w.scene); w.chunks.delete(k); }
             w.prebuild(ctx.car.s);
-            load();
+            load(def);
             return e.s;
         },
         exits: () => X.exits.map(e => e.s),
@@ -455,6 +489,8 @@ ctx.town = {
             ctx.car.s = st.base + along; ctx.car.d = d;
             return true;
         },
+        /** A street point (LOCAL coords) of the current town: (name, along, d) → {x, z, h}. */
+        pt(name, along, d = 0) { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; },
         sees: (ax, az, bx, bz) => !blocksSight(ax, az, bx, bz),
         local: (x, z) => toLocal(x, z, {}),
         segmentBlocked,
