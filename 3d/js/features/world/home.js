@@ -421,8 +421,8 @@ export function titleShot(pos, look, t = ctx.time) {
     const d = home.anchors.dina;
     look.set((P.x * 0.55 + d.x * 0.45), 1.5, (P.z * 0.55 + d.z * 0.45));
     if (portrait) {
-        const p = roadPt(P.s + 19 + sway, -3.5);
-        pos.set(p.x, 7.2 + Math.sin(t * 0.05), p.z);
+        const p = roadPt(P.s + 25 + sway, -6);
+        pos.set(p.x, 9.5 + Math.sin(t * 0.05), p.z);
         look.y = 0.4;
     } else {
         const p = roadPt(P.s + 13.5 + sway, 1.2 + Math.sin(t * 0.05) * 1.2);
@@ -433,6 +433,7 @@ export function titleShot(pos, look, t = ctx.time) {
 
 /** Where on screen the subject should sit (NDC): the middle of the biggest area the menu card leaves free. */
 const free = { t: -1, nx: 0.45, ny: 0, cx: null, cy: 0 };
+if (typeof window !== "undefined") window.addEventListener("resize", () => { free.t = -1; free.cx = null; });
 export function freeSpot() {
     if (ctx.time - free.t < 0.5 && free.t >= 0) return free;
     free.t = ctx.time;
