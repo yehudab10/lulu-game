@@ -2,7 +2,7 @@
 //
 //   Merge   every static piece (buildings, parked minivans, lamps, trees, stop signs…)
 //           is baked into per-area clusters of vertex-coloured geometry: one mesh per
-//           cluster per look (solid · shiny · glass · lit windows · lamp bulbs), so a
+//           cluster per look (solid · no-shadow · glass · lit windows · lamp bulbs), so a
 //           block of houses + cars + lamps is 2–4 draw calls, frustum- and shadow-
 //           culled as a unit. Tints (Walls / Roof / Paint…) go into the vertex colours.
 //   Atlas   every bit of text in town (shop signs, banners, street blades, STOP…) is a
@@ -33,7 +33,6 @@ export function lookOf(mat) {
     if (/^(Window|ShopWindow)$/.test(n)) return "glow";
     if (/^(LampGlow|Neon)/.test(n)) return "lit";
     if (n === "Glass") return "glass";
-    if ((mat.metalness || 0) > 0.3 || (mat.roughness != null && mat.roughness < 0.3)) return "shiny";
     return "solid";
 }
 
@@ -59,16 +58,17 @@ function bakeGeometry(g, m, color) {
 
 /** Collects static pieces into clusters, then bakes them into a few meshes each. */
 export class Merger {
-    constructor(cell = 80) { this.cell = cell; this.clusters = new Map(); this.tris = 0; }
+    constructor(cell = 120) { this.cell = cell; this.clusters = new Map(); this.tris = 0; }
     bucket(x, z) {
         const k = Math.floor(x / this.cell) + "," + Math.floor(z / this.cell);
         let b = this.clusters.get(k);
-        if (!b) { b = { solid: [], shiny: [], glass: [], glow: [], lit: [] }; this.clusters.set(k, b); }
+        if (!b) { b = { solid: [], flat: [], glass: [], glow: [], lit: [] }; this.clusters.set(k, b); }
         return b;
     }
     /**
      * Add a template at world matrix `m`. tints: { MatName: "#hex" | THREE.Color }.
-     * opts: { dark: windows stay dark at night, skip: RegExp of node names to leave out, at: [x, z] cluster position }
+     * opts: { dark: windows stay dark at night, skip: RegExp of node names to leave out, at: [x, z] cluster position,
+     *         noShadow: casts no shadow (parked cars, the woods: their many triangles stay out of the shadow pass) }
      */
     add(template, m, tints = null, opts = {}) {
         const parts = partsOf(template);
@@ -78,6 +78,7 @@ export class Merger {
             if (opts.skip && opts.skip.test(p.node)) continue;
             let look = lookOf(p.mat);
             if (look === "glow" && opts.dark) look = "solid";
+            if (look === "solid" && opts.noShadow) look = "flat";
             const t = tints && tints[p.name];
             if (t) _c.set(t); else _c.copy(p.mat.color);
             _m.multiplyMatrices(m, p.local);
@@ -98,8 +99,8 @@ export class Merger {
                 for (const x of list) x.dispose();
                 if (!g) continue;
                 g.computeBoundingSphere();
-                const mesh = new THREE.Mesh(g, mats[look]);
-                mesh.castShadow = look === "solid" || look === "shiny";
+                const mesh = new THREE.Mesh(g, mats[look === "flat" ? "solid" : look]);
+                mesh.castShadow = look === "solid";
                 mesh.receiveShadow = look !== "lit";
                 mesh.matrixAutoUpdate = false;
                 mesh.userData.townLook = look;
@@ -115,8 +116,7 @@ export class Merger {
 /** The shared materials of the merged looks (one set per town build). */
 export function lookMaterials() {
     return {
-        solid: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0 }),
-        shiny: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.38, metalness: 0.45 }),
+        solid: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 }),
         glass: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.38, depthWrite: false }),
         glow: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.2, emissive: new THREE.Color("#ffc46b"), emissiveIntensity: 0 }),
         lit: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, emissive: new THREE.Color("#ffe2a8"), emissiveIntensity: 0.15 }),

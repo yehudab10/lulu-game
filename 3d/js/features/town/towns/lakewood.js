@@ -79,15 +79,15 @@ export default {
     ],
     highway: { first: 1500, every: 3600 },                // where the exits are, metres into a Cruise run
 
-    traffic: { town_van: 7, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
+    traffic: { town_van: 6, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
     speedLimitMph: 25, speedingMph: 48,
 
     // who you can meet, where (spots come from the build: pizza / hall / chair / lake / welcome / yeshiva)
     people: [
-        { id: "brooklyn", at: "pizza", off: [5, 0.6] }, { id: "pizza", at: "pizza", off: [-4, 0.2], line: 6 },
+        { id: "brooklyn", at: "pizza", off: [5, 0.6] }, { id: "pizza", at: "pizza", off: [-4, 0.2], line: 4 },
         { id: "monsey", at: "hall", off: [6, 0.4] }, { id: "local", at: "hall", off: [-9, 0.8] },
         { id: "chair", at: "chair" }, { id: "agent", at: "welcome", off: [4, -3] }, { id: "local", at: "yeshiva", off: [7, 0.4], alt: true },
     ],
-    bikes: 3, geese: 6,
+    bikes: 3, geese: 5,
     lines: L,
 };

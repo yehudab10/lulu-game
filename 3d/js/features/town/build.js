@@ -34,7 +34,7 @@ const DIMS = {
 
 /** The models a town build needs (load them first). */
 export const BUILD_MODELS = ["town_duplex", "town_townhouses", "town_shop", "town_pizza", "town_hall", "town_yeshiva", "town_frame", "town_crane",
-    "town_minivan", "town_lamp", "town_stop", "town_chair", "town_welcome", "town_billboard", "town_circle", "town_reeds", "roadevents_school_bus", "foot_bus",
+    "town_minivan", "town_minivan_lod", "town_lamp", "town_stop", "town_chair", "town_welcome", "town_billboard", "town_circle", "town_reeds", "roadevents_school_bus", "foot_bus",
     "treeRound", "treePine"];
 
 export function buildTown(def) {
@@ -47,7 +47,7 @@ export function buildTown(def) {
     const own = [];                     // geometries / materials / textures to dispose
     const mats = lookMaterials();
     own.push(...Object.values(mats));
-    const merge = new Merger(80);
+    const merge = new Merger(120);
     const atlas = new Atlas(2048);
     const colliders = [];
     const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [] };
@@ -83,6 +83,12 @@ export function buildTown(def) {
         const c = Math.cos(rot), s = Math.sin(rot);
         return { x: x + a.x * c + a.z * s, y: a.y, z: z - a.x * s + a.z * c };
     };
+    /** A parked minivan: the light LOD model, no shadow of its own, a soft dark patch under it instead. */
+    const parkedVan = (x, z, rot) => {
+        place("town_minivan_lod", x, z, rot, { Paint: pickOf(SILVER, R) }, { noShadow: true });
+        const b = new THREE.PlaneGeometry(2.3, 5.4); b.rotateX(-Math.PI / 2); b.rotateY(rot); b.translate(x, 0.05, z);
+        addColored(merge, b, "#4a4c50", x, z, "flat");
+    };
     const pt = (name, along, d) => { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; };
     const clearAt = (st, u, side) => (def.clearParking || []).some(c => c.street === st.name && u >= c.from && u <= c.to && (c.side == null || c.side === side));
 
@@ -107,7 +113,7 @@ export function buildTown(def) {
                 const cp = streetPoint(st, mid, side * (CURB + 0.08), {});
                 const g = new THREE.BoxGeometry(st.axis === "ns" ? 0.18 : len, 0.12, st.axis === "ns" ? len : 0.18);
                 g.translate(cp.x, 0.06, cp.z);
-                addColored(merge, g, "#B8B4AC", cp.x, cp.z);
+                addColored(merge, g, "#B8B4AC", cp.x, cp.z, "flat");
             }
             const m0 = open0 ? a0 : cuts[k] + 9.5, m1 = open1 ? a1 : cuts[k + 1] - 9.5;
             if (m1 - m0 > 2) {
@@ -202,10 +208,10 @@ export function buildTown(def) {
                 const cx = lotX - fr.nx * back, cz = lotZ - fr.nz * back;
                 if (it.key === "van") {         // a minivan in the driveway, nose to the street
                     const vx = lotX - fr.nx * 3.2, vz = lotZ - fr.nz * 3.2;
-                    place("town_minivan", vx, vz, fr.rot, { Paint: SILVER[Math.floor(R() * SILVER.length)] });
+                    parkedVan(vx, vz, fr.rot);
                     const dg = new THREE.PlaneGeometry(3.2, FRONT - WALK + 5.5); dg.rotateX(-Math.PI / 2); dg.rotateY(fr.rot);
                     dg.translate(lotX - fr.nx * 2.2, 0.04, lotZ - fr.nz * 2.2);
-                    addColored(merge, dg, "#B9B3A8", vx, vz);
+                    addColored(merge, dg, "#B9B3A8", vx, vz, "flat");
                     continue;
                 }
                 if (it.key === "buses") {       // the depot: school buses nose-in + its sign
@@ -288,10 +294,10 @@ export function buildTown(def) {
                         T.spots.chair = { x: w.x, z: w.z, cx: c.x, cz: c.z, rot: st.h - side * Math.PI / 2, street: st.id, along: u };
                         continue;
                     }
-                    if (R() < 0.33) continue;
+                    if (R() < 0.42) continue;
                     const p = streetPoint(st, u, side * PARK, {});
                     const rot = st.h + (side > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.05;
-                    place("town_minivan", p.x, p.z, rot, { Paint: pickOf(SILVER, R) });
+                    parkedVan(p.x, p.z, rot);
                     const fx = Math.sin(rot), fz = Math.cos(rot);
                     col(p.x + fx * 1.25, p.z + fz * 1.25, 1.0, "car"); col(p.x - fx * 1.25, p.z - fz * 1.25, 1.0, "car");
                     T.parked.push({ x: p.x, z: p.z, rot });
@@ -359,7 +365,7 @@ export function buildTown(def) {
             if (st.cross.some(c => Math.abs(c.a - u) < 9)) continue;      // the cross streets stay (barely) open
             const p = streetPoint(st, u, j.d, {});
             const rot = st.h + (j.d > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.12;
-            place("town_minivan", p.x, p.z, rot, { Paint: pickOf(SILVER, R) });
+            parkedVan(p.x, p.z, rot);
             const fx = Math.sin(rot), fz = Math.cos(rot);
             col(p.x + fx * 1.2, p.z + fz * 1.2, 1.0, "car"); col(p.x - fx * 1.2, p.z - fz * 1.2, 1.0, "car");
             T.jam.push({ x: p.x, z: p.z });
@@ -413,9 +419,9 @@ export function buildTown(def) {
         if (streetGap(mx + nx * 5, mz + nz * 5) < streetGap(mx - nx * 5, mz - nz * 5)) { nx = -nx; nz = -nz; }
         for (let k = 0; k <= n; k++) {
             const t = k / n;
-            for (const off of [0, 5.5]) {
+            for (const off of k % 2 ? [0] : [0, 6]) {
                 const x = x0 + (x1 - x0) * t + nx * off + (R() - 0.5) * 2, z = z0 + (z1 - z0) * t + nz * off + (R() - 0.5) * 2;
-                place(R() < 0.55 ? "treePine" : "treeRound", x, z, R() * 6.28, { Leaves: leaf(R), PineLeaves: R() < 0.5 ? "#2F8F46" : "#3C7D4A" }, { scale: 1.1 + R() * 0.5 });
+                place(R() < 0.55 ? "treePine" : "treeRound", x, z, R() * 6.28, { Leaves: leaf(R), PineLeaves: R() < 0.5 ? "#2F8F46" : "#3C7D4A" }, { scale: 1.1 + R() * 0.5, noShadow: true });
                 if (off === 0) col(x, z, 1.4, "tree");
             }
         }
@@ -436,7 +442,7 @@ export function buildTown(def) {
         root.add(water);
         (T.waters || (T.waters = [])).push(water);
         const sg = new THREE.PlaneGeometry(10, z1 - z0); sg.rotateX(-Math.PI / 2); sg.translate(x0 + 1, 0.025, (z0 + z1) / 2);
-        addColored(merge, sg, "#E3D3A6", x0, (z0 + z1) / 2);
+        addColored(merge, sg, "#E3D3A6", x0, (z0 + z1) / 2, "flat");
         for (let z = z0 + 6; z < z1 - 4; z += 2.4) col(x0 + 4.2, z, 1.4, "lake");
         for (let k = 0; k < 16; k++) place("town_reeds", x0 + 3 + R() * 3, z0 + 10 + R() * (z1 - z0 - 20), R() * 6, null, { scale: 0.8 + R() * 0.6 });
         if (W.geese) T.spots.lake = { x: x0 - 1.5, z: (z0 + z1) / 2, z0: z0 + 20, z1: z1 - 30, x0 };
@@ -531,14 +537,14 @@ function streetGap(x, z) {
 function leaf(R) { const L = ["#6CC24A", "#E8A33D", "#D9572B", "#C8B43A", "#7FB24A", "#B8452F"]; return L[Math.floor(R() * L.length)]; }
 
 /** A coloured geometry (BoxGeometry, PlaneGeometry…) into the merger's solid look. */
-function addColored(merge, g, hex, x, z) {
+function addColored(merge, g, hex, x, z, look = "solid") {
     const c = new THREE.Color(hex), n = g.attributes.position.count;
     const C = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { C[i * 3] = c.r; C[i * 3 + 1] = c.g; C[i * 3 + 2] = c.b; }
     g.setAttribute("color", new THREE.BufferAttribute(C, 3));
     g.deleteAttribute("uv");
     if (!g.index) { const idx = []; for (let i = 0; i < n; i++) idx.push(i); g.setIndex(idx); }
-    merge.addGeometry(g, "solid", x, z);
+    merge.addGeometry(g, look, x, z);
 }
 function poleAt(merge, x, z, h) {
     const g = new THREE.CylinderGeometry(0.05, 0.05, h, 6);

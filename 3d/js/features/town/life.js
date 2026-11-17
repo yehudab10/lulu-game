@@ -175,7 +175,7 @@ export function tickLife(dt) {
     // people: idle, talk, heckle her as she drives by; far ones are hidden (cheap LOD)
     for (const r of LIFE.people) {
         const o = r.p.obj, dc = Math.hypot(o.position.x - cam.x, o.position.z - cam.z);
-        o.visible = dc < 95;
+        o.visible = dc < 60;
         if (!o.visible) continue;
         if (r.talkT > 0) r.talkT -= dt;
         r.idle += dt;
@@ -255,6 +255,7 @@ function tickGeese(dt, lp, foot) {
         let dh = want - g.h; while (dh > Math.PI) dh -= Math.PI * 2; while (dh < -Math.PI) dh += Math.PI * 2;
         g.h += dh * Math.min(1, dt * 6);
         g.x += Math.sin(g.h) * sp * dt; g.z += Math.cos(g.h) * sp * dt;
+        g.obj.visible = Math.hypot(g.obj.position.x - ctx.camera.position.x, g.obj.position.z - ctx.camera.position.z) < 70;
         const y = g.mode === "fly" ? Math.sin(Math.max(0, g.fly) / 1.4 * Math.PI) * 2.2 : 0;
         g.obj.position.set(PL.ORIGIN.x + g.x, y, PL.ORIGIN.z + g.z);
         g.obj.rotation.y = g.h;

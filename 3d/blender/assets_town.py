@@ -331,9 +331,34 @@ def build_minivan():
             parts.append(Part(coll, "seatback", bm_box(0.42, 0.12, 0.38), seat, loc=(x, y + 0.26, 1.6), smooth=False))
     bake(parts, "TownMinivan_body", coll, parent=root)
     for nm, x, y in (("Wheel_FL", 0.84, -1.62), ("Wheel_FR", -0.84, -1.62), ("Wheel_RL", 0.84, 1.68), ("Wheel_RR", -0.84, 1.68)):
+        # one material per wheel (a draw call each on a moving car): a tyre with a moulded hub
         wp = [Part(coll, nm + "_t", bm_cyl(0.36, 0.36, 0.26, 12, "X"), S.TIRE, loc=(x, y, 0.36)),
-              Part(coll, nm + "_r", bm_cyl(0.2, 0.2, 0.28, 8, "X"), S.RIM, loc=(x, y, 0.36))]
+              Part(coll, nm + "_h", bm_cyl(0.16, 0.16, 0.29, 6, "X"), S.TIRE, loc=(x, y, 0.36))]
         bake_at(wp, nm, coll, root, (x, y, 0.36))
+    return coll
+
+
+def build_minivan_lod():
+    """The same minivan for the hundreds that are PARKED (merged into the town's static
+    clusters): same silhouette and paint, no bevels, no interior, dark glass, simple wheels."""
+    coll = scene_coll("TownMinivanLod")
+    root = root_empty(coll, "TownMinivanLod")
+    S = shared()
+    PAINT = mat("Paint", "#C3C8CE", rough=0.35, metal=0.35)
+    parts = [
+        Part(coll, "body", bm_box(1.96, 5.0, 0.8), PAINT, loc=(0, 0, 0.78), smooth=False),
+        Part(coll, "upper", bm_box(1.86, 3.6, 0.7), PAINT, loc=(0, 0.45, 1.5), smooth=False),
+        Part(coll, "hood", bm_box(1.88, 1.2, 0.34), PAINT, loc=(0, -1.85, 1.12), rot=(-0.28, 0, 0), smooth=False),
+        Part(coll, "wind", bm_box(1.74, 0.9, 0.06), S.TINT, loc=(0, -1.35, 1.55), rot=(-0.95, 0, 0), smooth=False),
+        Part(coll, "glass", bm_box(1.9, 3.1, 0.55), S.TINT, loc=(0, 0.45, 1.55), smooth=False),
+        Part(coll, "bumpers", bm_box(1.92, 5.24, 0.24), S.DARK, loc=(0, 0, 0.5), smooth=False),
+    ]
+    for sx in (-1, 1):
+        parts.append(Part(coll, "head", bm_box(0.42, 0.06, 0.16), S.HEAD, loc=(sx * 0.62, -2.5, 0.9), smooth=False))
+        parts.append(Part(coll, "tail", bm_box(0.18, 0.06, 0.55), S.TAIL, loc=(sx * 0.84, 2.5, 1.15), smooth=False))
+    for x, y in ((0.84, -1.62), (-0.84, -1.62), (0.84, 1.68), (-0.84, 1.68)):
+        parts.append(Part(coll, "wheel", bm_cyl(0.36, 0.36, 0.26, 8, "X"), S.TIRE, loc=(x, y, 0.36), smooth=False))
+    bake(parts, "TownMinivanLod_body", coll, parent=root)
     return coll
 
 
@@ -537,6 +562,7 @@ ASSETS = [
     ("town_frame", build_frame),
     ("town_crane", build_crane),
     ("town_minivan", build_minivan),
+    ("town_minivan_lod", build_minivan_lod),
     ("town_lamp", build_lamp),
     ("town_stop", build_stop),
     ("town_chair", build_chair),

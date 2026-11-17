@@ -35,6 +35,7 @@ export function spawnDriver(kind, street, along, dir, opts = {}) {
     T.node = nodeAhead(st, along, dir);
     C.cars.push(c);
     if (T.patrol) C.patrol = c;
+    lean(c);
     return c;
 }
 
@@ -44,12 +45,25 @@ export function spawnHazard(street, along, d) {
     const T = { town: true, street, dir: 1, mode: "park", hazard: true };
     const c = ctx.traffic.add("town_van", st.base + along, d, 1, 0, { ai: (dt, car) => { car.speed = 0; }, keep: true, data: { town: T, streetsHold: true }, noNearMiss: true });
     C.cars.push(c);
+    lean(c);
     C.hazards.push(c);
     return c;
 }
 
+/** Our own vehicles cast ONE shadow (the body paint), not one per wheel / seat / light: a third of the shadow pass. */
+const BODY = /^(Paint|BusYellow)$/;
+function lean(c) {
+    if (!/^town_/.test(c.kind) || c.obj.userData.townLean) return;
+    c.obj.userData.townLean = true;
+    c.obj.traverse(o => { if (o.isMesh) o.castShadow = BODY.test(o.material.name); });
+}
+/** Far-off town cars are hidden (the blocks hide most of them anyway). */
+export function lodDrivers(cam, far = 120) {
+    for (const c of C.cars) c.obj.visible = Math.abs(c.x - cam.x) < far && Math.abs(c.z - cam.z) < far;
+}
+
 export function clearDrivers() {
-    for (const c of C.cars) if (ctx.traffic.cars.includes(c)) ctx.traffic.remove(c);
+    for (const c of C.cars) { c.obj.visible = true; if (ctx.traffic.cars.includes(c)) ctx.traffic.remove(c); }
     C.cars.length = 0; C.hazards.length = 0; C.patrol = null;
 }
 

@@ -34,7 +34,7 @@ import { input } from "../../input.js";
 import * as H from "../../hud.js";
 import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked } from "./plan.js";
 import { buildTown, BUILD_MODELS } from "./build.js";
-import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers } from "./cars.js";
+import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
 import { blocksSight, copRoute, copSpawn } from "./cops.js";
 import { X, planExit, clearExits, exitAt, onRamp } from "./exit.js";
@@ -237,6 +237,7 @@ function tick(dt) {
     G.lastS = Infinity;
     for (let i = S.timers.length - 1; i >= 0; i--) if (ctx.time >= S.timers[i].at) { const t = S.timers.splice(i, 1)[0]; try { t.fn(); } catch (e) { console.error(e); } }
     tickLife(dt);
+    lodDrivers(ctx.camera.position);
     S.tendT -= dt;
     if (S.tendT <= 0) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
     for (const k of T.cranes) k.obj.rotation.y += k.speed * dt * (Math.sin(ctx.time * 0.1 + k.speed * 50) > -0.3 ? 1 : 0);
