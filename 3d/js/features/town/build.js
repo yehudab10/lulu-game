@@ -1,14 +1,24 @@
 // features/town — BUILD: turns the current plan + the town's data (towns/<id>.js) into one
 // scene graph, built when Lulu takes the exit and disposed when she leaves. Static stuff
-// goes through the kit's Merger (a few meshes per 80 m cluster) and the sign atlas (one
-// mesh); the only per-object meshes are the things that move (crane jibs, coins, glows).
+// goes through the kit's Merger (a few meshes per 60 m cluster) and the sign atlas (one
+// mesh); the only per-object meshes are the things that move (crane jibs, coins, glows,
+// the B/Q's trains).
+//
+// Everything reads the plan's per-street widths (st.curb / outer / walk / front / park), so a
+// wide avenue, a boulevard with malls + service roads, a one-way East street and a DIAGONAL
+// (Kings Highway) all build from the same code; a 4-sided block next to the diagonal is laid
+// out along its slanted face. Landmarks that aren't block faces live next door: rail.js (an
+// embankment railway, its bridges, stations and trains) and landmarks.js (the boulevard's
+// malls, frontage strips, a college quad, the skyline around a city town, barricades).
 //
 // Returns T = { root, colliders + near(x, z), coins, lamps, cranes, stops, bumps, spots, jam, … dispose() }.
 import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
 import { worldMaterials, canvasTex } from "../../world.js";
 import { Merger, Atlas, lookMaterials } from "./kit.js";
-import { PL, LANE, PARK, CURB, WALK, FRONT, STOP, street, streetPoint, nodeAlong, blockRect, rng } from "./plan.js";
+import { PL, LANE, WALK, FRONT, street, streetPoint, streetCoords, nodeAlong, blockPoly, rng, cutAt, otherAt, stopsAt } from "./plan.js";
+import { buildRail, RAIL_MODELS } from "./rail.js";
+import { buildBoulevards, buildStrip, buildSkyline, buildBarricades, wholeBlock, LANDMARK_MODELS } from "./landmarks.js";
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1), _p = new THREE.Vector3();
@@ -20,6 +30,9 @@ const TOWN_WALLS = ["#D7CCC8", "#ECE5D8", "#CFC8BC", "#F2EEE6", "#BFB7AC"];
 const SHOP_WALLS = ["#F2D7B6", "#E8C9C0", "#D6E4E0", "#F3E6C4", "#E1D5E7", "#D9E2EC"];
 const AWNINGS = ["#2E7D32", "#C62828", "#1A237E", "#6A1B9A", "#00695C", "#EF6C00", "#AD1457"];
 const SILVER = ["#C3C8CE", "#BEC3C9", "#C8CCD1", "#B9BEC4"];
+// Brooklyn: brick, stucco, limestone
+const BRICK = ["#9C4A3C", "#A85A44", "#8E3F33", "#B5654F", "#7F4436", "#B97A5B"];
+const STUCCO = ["#E8DCC4", "#DCCFB8", "#F1E7D3", "#CFC2AA", "#E6D3C3", "#D8D2C6"];
 
 // model key → { w (along the face), d (depth), prot (how far its front sticks out past the facade) }
 const DIMS = {
@@ -30,15 +43,31 @@ const DIMS = {
     town_hall: { w: 34, d: 22, prot: 4.3 },
     town_yeshiva: { w: 30, d: 18, prot: 1.2 },
     town_frame: { w: 24, d: 11, prot: 6.1 },
+    // Midwood
+    town_mw_house: { w: 12.5, d: 15, prot: 2.2 },
+    town_mw_rowhouse: { w: 15.6, d: 11, prot: 1.8 },
+    town_mw_apts: { w: 24, d: 16, prot: 1.4 },
+    town_mw_store: { w: 10, d: 13, prot: 1.5 },
+    town_mw_bakery: { w: 10, d: 13, prot: 1.5 },
+    town_mw_carbase: { w: 14, d: 12, prot: 6.5 },
+    town_mw_shul: { w: 18, d: 18, prot: 2.4 },
+};
+/** Which sign list a store face reads (and its sign style). */
+const STORE_STYLE = {
+    avej: { bg: "#FBF8F0", fg: ["#1A237E", "#6D4C41"] },
+    avem: { bg: "#FFFDE7", fg: ["#2E7D32", "#5D4037"] },
+    kh: { bg: "#FFFFFF", fg: ["#C62828", "#1565C0"] },
+    cia: { bg: "#FFD54F", fg: ["#1B1B1B", "#B71C1C"] },
 };
 
-/** The models a town build needs (load them first). */
+/** The models a town build needs (load them first). Lakewood's set (a town with def.models lists its own). */
 export const BUILD_MODELS = ["town_duplex", "town_townhouses", "town_shop", "town_pizza", "town_hall", "town_yeshiva", "town_frame", "town_crane",
     "town_minivan", "town_minivan_lod", "town_lamp", "town_stop", "town_chair", "town_welcome", "town_billboard", "town_circle", "town_reeds", "roadevents_school_bus", "foot_bus",
     "treeRound", "treePine"];
+export { RAIL_MODELS, LANDMARK_MODELS };
 
 export function buildTown(def) {
-    const R = rng(91);
+    const R = rng(def.seed || 91);
     const S = def.lines.SIGNS;
     const O = PL.ORIGIN;
     const root = new THREE.Group();
@@ -50,7 +79,7 @@ export function buildTown(def) {
     const merge = new Merger(60);
     const atlas = new Atlas(2048);
     const colliders = [];
-    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [] };
+    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], trains: [], anims: [] };
 
     const col = (lx, lz, r, kind = "town") => colliders.push({ x: O.x + lx, z: O.z + lz, r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
@@ -83,10 +112,16 @@ export function buildTown(def) {
         const c = Math.cos(rot), s = Math.sin(rot);
         return { x: x + a.x * c + a.z * s, y: a.y, z: z - a.x * s + a.z * c };
     };
-    /** A parked minivan: the light LOD model, no shadow of its own, a soft dark patch under it instead. */
-    const parkedVan = (x, z, rot) => {
-        place("town_minivan_lod", x, z, rot, { Paint: pickOf(SILVER, R) }, { noShadow: true });
-        const b = new THREE.PlaneGeometry(2.3, 5.4); b.rotateX(-Math.PI / 2); b.rotateY(rot); b.translate(x, 0.05, z);
+    /** A parked car: a light LOD model, no shadow of its own, a soft dark patch under it instead.
+     *  (Lakewood: always the silver minivan; a town's def.parked mixes models + paints.) */
+    const PARKED = def.parked || [{ key: "town_minivan_lod", w: 1, paints: SILVER }];
+    const PW = PARKED.reduce((a, p) => a + (p.w || 1), 0);
+    const parkedCar = (x, z, rot) => {
+        let P = PARKED[0];
+        if (PARKED.length > 1) { let r = R() * PW; for (const p of PARKED) { r -= p.w || 1; if (r <= 0) { P = p; break; } } }
+        place(P.key, x, z, rot, { Paint: pickOf(P.paints || SILVER, R) }, { noShadow: true });
+        const sedan = /sedan/.test(P.key);
+        const b = new THREE.PlaneGeometry(sedan ? 2.1 : 2.3, sedan ? 4.8 : 5.4); b.rotateX(-Math.PI / 2); b.rotateY(rot); b.translate(x, 0.05, z);
         addColored(merge, b, "#4a4c50", x, z, "flat");
     };
     const pt = (name, along, d) => { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; };
@@ -94,59 +129,81 @@ export function buildTown(def) {
 
     // ── ground: asphalt, markings, sidewalks, curbs ──────────────────────
     const asphalt = [], walks = [], marks = [];
-    const quad = (list, x0, z0, x1, z1, y, color) => list.push({ x0, z0, x1, z1, y, color });
+    /** A strip of street st between along u0 → u1 and lateral d0 → d1 (the far edge's alongs can differ: a slanted end). */
+    const strip = (list, st, u0, u1, d0, d1, y, color, u0b = u0, u1b = u1) => {
+        if (st.axis !== "diag" && u0 === u0b && u1 === u1b) {
+            const a = streetPoint(st, u0, d0, {}), b = streetPoint(st, u1, d1, {});
+            list.push({ x0: Math.min(a.x, b.x), z0: Math.min(a.z, b.z), x1: Math.max(a.x, b.x), z1: Math.max(a.z, b.z), y, color });
+        } else {
+            const P = (u, d) => { const p = streetPoint(st, u, d, {}); return [p.x, p.z]; };
+            list.push({ pts: [P(u0, d0), P(u1, d0), P(u1b, d1), P(u0b, d1)], y, color });
+        }
+    };
+    /** The along where a stretch of st ends at node n (on the side `dir` points away from), at lateral d,
+     *  `w` past the cross street's centre line. (A dead end: the street's own end.) */
+    const stretchEnd = (st, c, towardNode, d, w) => c ? cutAt(st, c.node, towardNode, d, w(otherAt(c.node, st.id))) : null;
     for (const st of PL.STREETS) {
         const { a0, a1 } = st;
-        if (st.axis === "ns") quad(asphalt, st.c - CURB, a0, st.c + CURB, a1, 0.03);
-        else quad(asphalt, a0, st.c - CURB, a1, st.c + CURB, 0.03);
+        strip(asphalt, st, a0, a1, -st.curb, st.curb, 0.03);
         // stretches between crossings (and out to the street's ends)
-        const cuts = [a0 - 1, ...st.cross.map(c => c.a), a1 + 1];
-        for (let k = 0; k < cuts.length - 1; k++) {
-            const open0 = k === 0, open1 = k === cuts.length - 2;
-            const u0 = open0 ? a0 : cuts[k] + CURB, u1 = open1 ? a1 : cuts[k + 1] - CURB;
-            if (u1 - u0 < 1) continue;
+        const cr = st.cross, n = cr.length;
+        for (let k = 0; k <= n; k++) {
+            const c0 = k > 0 ? cr[k - 1] : null, c1 = k < n ? cr[k] : null;
+            if (c0 && c1 === null && c0.a >= a1 - 1) continue;
+            if (c1 && c0 === null && c1.a <= a0 + 1) continue;
             for (const side of [-1, 1]) {
-                const dA = side * CURB, dB = side * WALK;
-                if (st.axis === "ns") quad(walks, Math.min(st.c - dA, st.c - dB), u0, Math.max(st.c - dA, st.c - dB), u1, 0.045);
-                else quad(walks, u0, Math.min(st.c + dA, st.c + dB), u1, Math.max(st.c + dA, st.c + dB), 0.045);
-                const mid = (u0 + u1) / 2, len = u1 - u0;
-                const cp = streetPoint(st, mid, side * (CURB + 0.08), {});
-                const g = new THREE.BoxGeometry(st.axis === "ns" ? 0.18 : len, 0.12, st.axis === "ns" ? len : 0.18);
+                const dA = side * st.outer, dB = side * st.walk;
+                const uA0 = c0 ? stretchEnd(st, c0, -1, dA, o => o.outer) : a0, uB0 = c0 ? stretchEnd(st, c0, -1, dB, o => o.outer) : a0;
+                const uA1 = c1 ? stretchEnd(st, c1, 1, dA, o => o.outer) : a1, uB1 = c1 ? stretchEnd(st, c1, 1, dB, o => o.outer) : a1;
+                if (uA1 - uA0 < 1 || uB1 - uB0 < 1) continue;
+                strip(walks, st, uA0, uA1, dA, dB, 0.045, null, uB0, uB1);
+                const mid = (uA0 + uA1) / 2, len = uA1 - uA0;
+                const cp = streetPoint(st, mid, side * (st.outer + 0.08), {});
+                const g = new THREE.BoxGeometry(0.18, 0.12, len); g.rotateY(st.h);
                 g.translate(cp.x, 0.06, cp.z);
                 addColored(merge, g, "#B8B4AC", cp.x, cp.z, "flat");
             }
-            const m0 = open0 ? a0 : cuts[k] + 9.5, m1 = open1 ? a1 : cuts[k + 1] - 9.5;
-            if (m1 - m0 > 2) {
-                for (const off of [-0.14, 0.14]) laneLine(marks, st, m0, m1, off, 0.11, "#F2C230");
-                for (const off of [-3.5, 3.5]) laneLine(marks, st, m0, m1, off, 0.09, "#E8E8E2");
+            // lane lines: a double yellow down the middle (not on a one-way), white at the parking lanes, dashed between two lanes
+            const lines = [];
+            if (!st.oneway) lines.push([-0.14, 0.11, "#F2C230"], [0.14, 0.11, "#F2C230"]);
+            if (st.lanes > 1) lines.push([-3.5, 0.1, "#E8E8E2", true], [3.5, 0.1, "#E8E8E2", true]);
+            if (st.parkLane) lines.push([-3.5 * st.lanes, 0.09, "#E8E8E2"], [3.5 * st.lanes, 0.09, "#E8E8E2"]);
+            if (st.boulevard) lines.push([-(st.svcIn + 3.5), 0.09, "#E8E8E2"], [st.svcIn + 3.5, 0.09, "#E8E8E2"]);
+            for (const [off, w, color, dash] of lines) {
+                const m0 = c0 ? stretchEnd(st, c0, -1, off, o => o.outer + 3.9) : a0, m1 = c1 ? stretchEnd(st, c1, 1, off, o => o.outer + 3.9) : a1;
+                if (m1 - m0 <= 2) continue;
+                if (!dash) laneLine(marks, st, m0, m1, off, w, color, strip);
+                else for (let u = m0; u < m1 - 1; u += 6) laneLine(marks, st, u, Math.min(m1, u + 3), off, w, color, strip);
             }
         }
     }
+    // the boulevard's malls + service roads, frontage strips, the skyline (landmarks.js) — they add to these lists
+    const B = { def, R, T, S, O, root, own, merge, atlas, mats, colliders, col, sign, place, anchorAt, anchorOf, parkedCar, pt, strip, asphalt, walks, marks,
+        addColored, poleAt, pickOf, layoutFace, placeFace, DIMS, BRICK, STUCCO, clearAt };
+    buildBoulevards(B);
     let circleGeo = null;
     if (PL.circle) {
         circleGeo = new THREE.CircleGeometry(15, 40);
         circleGeo.rotateX(-Math.PI / 2);
         circleGeo.translate(PL.circle.x, 0.034, PL.circle.z);
     }
-    // crosswalks, stop bars (a 4-way stop at every crossing but the circle)
+    // crosswalks, stop bars (a stop sign at every approach but the circle's and a priority road's)
     for (const n of PL.NODES) {
         for (const sid of [n.ns, n.ew]) {
-            const st = PL.STREETS[sid], na = nodeAlong(st, n);
+            const st = PL.STREETS[sid], cs = otherAt(n, sid), na = nodeAlong(st, n);
             for (const dir of [-1, 1]) {
-                const along = na - dir * STOP;
+                const along = cutAt(st, n, dir, dir * LANE, cs.outer + 2);
                 if (along < st.a0 || along > st.a1) continue;
-                const zc = na - dir * (CURB + 1.6);
-                for (let k = -4; k <= 4; k++) {
-                    const p = streetPoint(st, zc, k * 1.2, {});
-                    const hw = st.axis === "ns" ? 0.3 : 1.1, hd = st.axis === "ns" ? 1.1 : 0.3;
-                    quad(marks, p.x - hw, p.z - hd, p.x + hw, p.z + hd, 0.04, "#F2F2EE");
+                const kmax = Math.floor((st.curb - 0.8) / 1.2 + 1e-9);
+                for (let k = -kmax; k <= kmax; k++) {
+                    const zc = cutAt(st, n, dir, k * 1.2, cs.outer + 1.6);
+                    strip(marks, st, zc - 1.1, zc + 1.1, k * 1.2 - 0.3, k * 1.2 + 0.3, 0.04, "#F2F2EE");
                 }
-                if (n.circle) continue;
-                const p0 = streetPoint(st, along, dir * 0.4, {}), p1 = streetPoint(st, along, dir * (CURB - 0.2), {});
-                const bx0 = Math.min(p0.x, p1.x), bx1 = Math.max(p0.x, p1.x), bz0 = Math.min(p0.z, p1.z), bz1 = Math.max(p0.z, p1.z);
-                if (st.axis === "ns") quad(marks, bx0, bz0 - 0.25, bx1, bz1 + 0.25, 0.041, "#F2F2EE");
-                else quad(marks, bx0 - 0.25, bz0, bx1 + 0.25, bz1, 0.041, "#F2F2EE");
-                T.stops.push({ street: st.id, dir, along, node: n });
+                if (!stopsAt(st, n) || (st.oneway && dir !== st.oneway)) continue;
+                const dA = dir * 0.4, dB = dir * (st.curb - 0.2);
+                const uA = cutAt(st, n, dir, dA, cs.outer + 2), uB = cutAt(st, n, dir, dB, cs.outer + 2);
+                strip(marks, st, uA - 0.25, uA + 0.25, dA, dB, 0.041, "#F2F2EE", uB - 0.25, uB + 0.25);
+                T.stops.push({ street: st.id, dir, along, node: n, na });
             }
         }
     }
@@ -154,12 +211,13 @@ export function buildTown(def) {
     for (const b of def.bumps || []) {
         const st = street(b.street);
         if (!st) continue;
+        const half = Math.round(st.curb / 1.1);
         for (let u = st.a0 + 12; u < st.a1 - 10; u += b.every) {
             if (st.cross.some(c => Math.abs(c.a - u) < 13)) continue;
             T.bumps.push({ street: st.id, along: u });
             const p = streetPoint(st, u, 0, {});
-            for (let s = -5; s < 5; s++) {
-                const g = st.axis === "ns" ? new THREE.BoxGeometry(1.1, 0.1, 0.7) : new THREE.BoxGeometry(0.7, 0.1, 1.1);
+            for (let s = -half; s < half; s++) {
+                const g = new THREE.BoxGeometry(1.1, 0.1, 0.7); g.rotateY(st.h);
                 const q = streetPoint(st, u, (s + 0.5) * 1.1, {});
                 g.translate(q.x, 0.05, q.z);
                 addColored(merge, g, s % 2 ? "#F9C623" : "#2B2B2B", p.x, p.z);
@@ -184,95 +242,35 @@ export function buildTown(def) {
     const walkMat = new THREE.MeshStandardMaterial({ map: walkTex, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     const markMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
     own.push(asphaltMat, walkMat, markMat);
-    const ag = quadsGeo(asphalt, 9);
-    const asphaltMesh = new THREE.Mesh(circleGeo ? mergeTwo(ag, uvPlanar(circleGeo, 9)) : ag, asphaltMat);
-    const walkMesh = new THREE.Mesh(quadsGeo(walks, 3), walkMat);
-    const markMesh = new THREE.Mesh(quadsGeo(marks, 0, true), markMat);
-    for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
 
     // ── blocks: buildings along every face, solid behind a ring of colliders ──
-    let shopIdx = 0;
+    const counters = {};
     for (const b of PL.BLOCKS) {
-        const r = blockRect(b);
+        const lot = blockPoly(b);
         if (b.solid) {
-            const c = blockRect(b, FRONT + 1.4), step = 2.1, rad = 1.25;
-            for (let x = c.x0; x <= c.x1 + 0.01; x += step) { col(x, c.z0, rad, "house"); col(x, c.z1, rad, "house"); }
-            for (let z = c.z0 + step; z < c.z1; z += step) { col(c.x0, z, rad, "house"); col(c.x1, z, rad, "house"); }
+            const step = 2.1, rad = 1.25;
+            if (!b.quad) {
+                const c = blockPoly(b, 1.4), x0 = c[0][0], x1 = c[1][0], z0 = c[0][1], z1 = c[2][1];
+                for (let x = x0; x <= x1 + 0.01; x += step) { col(x, z0, rad, "house"); col(x, z1, rad, "house"); }
+                for (let z = z0 + step; z < z1; z += step) { col(x0, z, rad, "house"); col(x1, z, rad, "house"); }
+            } else {
+                const c = blockPoly(b, 1.4);
+                for (let i = 0; i < 4; i++) {
+                    const a = c[i], e = c[(i + 1) % 4], L = Math.hypot(e[0] - a[0], e[1] - a[1]);
+                    for (let u = 0; u < L; u += step) col(a[0] + (e[0] - a[0]) * u / L, a[1] + (e[1] - a[1]) * u / L, rad, "house");
+                }
+            }
         }
+        if (b.whole && wholeBlock(B, b, lot)) continue;
         for (const [face, kind] of Object.entries(b.faces)) {
-            const fr = faceFrame(r, face);
-            for (const it of layoutFace(kind, fr.len, R)) {
-                const D = DIMS[it.key] || { w: 10, d: 10, prot: 0 };
-                const back = D.prot + D.d / 2;       // centre's distance in from the lot line
-                const lotX = fr.ox + fr.ux * it.u, lotZ = fr.oz + fr.uz * it.u;
-                const cx = lotX - fr.nx * back, cz = lotZ - fr.nz * back;
-                if (it.key === "van") {         // a minivan in the driveway, nose to the street
-                    const vx = lotX - fr.nx * 3.2, vz = lotZ - fr.nz * 3.2;
-                    parkedVan(vx, vz, fr.rot);
-                    const dg = new THREE.PlaneGeometry(3.2, FRONT - WALK + 5.5); dg.rotateX(-Math.PI / 2); dg.rotateY(fr.rot);
-                    dg.translate(lotX - fr.nx * 2.2, 0.04, lotZ - fr.nz * 2.2);
-                    addColored(merge, dg, "#B9B3A8", vx, vz, "flat");
-                    continue;
-                }
-                if (it.key === "buses") {       // the depot: school buses nose-in + its sign
-                    for (let k = 0; k < 3; k++) {
-                        const u = it.u - 3.4 + k * 3.4;
-                        place("roadevents_school_bus", fr.ox + fr.ux * u - fr.nx * 8.5, fr.oz + fr.uz * u - fr.nz * 8.5, fr.rot, null, { skip: /^StopArm/ });
-                    }
-                    const sx = fr.ox + fr.ux * (it.u + 9) - fr.nx * 0.6, sz = fr.oz + fr.uz * (it.u + 9) - fr.nz * 0.6;
-                    poleAt(merge, sx - fr.ux * 1.8, sz - fr.uz * 1.8, 1.8); poleAt(merge, sx + fr.ux * 1.8, sz + fr.uz * 1.8, 1.8);
-                    sign({ lines: S.buses, bg: "#FFC107", fg: ["#1B1B1B", "#3E2723"], w: 1024, h: 256 }, sx, 2.3, sz, fr.rot, 4.2, 1.05, true);
-                    continue;
-                }
-                const tints = it.key === "town_duplex" ? { Walls: pickOf(SIDING, R), Roof: pickOf(ROOFS, R) }
-                    : it.key === "town_townhouses" ? { Walls: pickOf(TOWN_WALLS, R), Roof: pickOf(ROOFS, R) }
-                    : it.key === "town_shop" || it.key === "town_pizza" ? { Walls: pickOf(SHOP_WALLS, R), Awning: it.key === "town_pizza" ? "#C62828" : pickOf(AWNINGS, R) }
-                    : null;
-                // a duplex's deck sticks out on its model +X side: shift so the whole footprint fits the slot
-                const shift = it.key === "town_duplex" ? -1.5 : 0;
-                const sx = cx + Math.cos(fr.rot) * shift, sz = cz - Math.sin(fr.rot) * shift;
-                place(it.key, sx, sz, fr.rot, tints, { dark: R() < 0.32 });
-                const text = it.key === "town_shop" ? S.shops[shopIdx++ % S.shops.length]
-                    : it.key === "town_pizza" ? S.pizza : it.key === "town_hall" ? S.hall : it.key === "town_yeshiva" ? S.yeshiva
-                    : it.key === "town_frame" ? (kind === "construction2" ? S.construction2 : S.construction) : null;
-                const a = text && anchorAt(it.key, sx, sz, fr.rot);
-                if (a) {
-                    const big = it.key === "town_hall" ? [15.4, 1.45, 96] : it.key === "town_yeshiva" ? [11.4, 1.15, 104] : it.key === "town_frame" ? [11.6, 1.7, 150] : [10.0, 0.98, 100];
-                    const bg = it.key === "town_frame" ? "#FFFFFF" : it.key === "town_hall" ? "#1B1B1B" : "#FBF8F0";
-                    const fg = it.key === "town_frame" ? ["#B71C1C", "#1B5E20"] : it.key === "town_hall" ? ["#E8C766", "#F5F1E6"] : ["#2B1B2E", "#6D4C41"];
-                    sign({ lines: text, bg, fg, w: 1024, h: big[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
-                }
-                const spot = { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz };
-                if (it.key === "town_pizza") T.spots.pizza = spot;
-                if (it.key === "town_hall") T.spots.hall = spot;
-                if (it.key === "town_yeshiva") T.spots.yeshiva = spot;
-                if (it.key === "town_frame") {
-                    T.spots[kind] = spot;
-                    // a tower crane behind every construction lot (its jib slews: a separate object)
-                    const kx = cx - fr.nx * 14 + fr.ux * 6, kz = cz - fr.nz * 14 + fr.uz * 6;
-                    place("town_crane", kx, kz, fr.rot, null, { skip: /^Jib/ });
-                    const jibT = models.town_crane && findNodes(models.town_crane, "Jib")[0];
-                    if (jibT) {
-                        const jib = jibT.clone(true);
-                        jib.position.set(kx, 0, kz);
-                        jib.rotation.y = fr.rot + R() * 6;
-                        root.add(jib);
-                        T.cranes.push({ obj: jib, speed: (R() < 0.5 ? -1 : 1) * (0.05 + R() * 0.05) });
-                    }
-                }
-            }
-            if (kind === "homes" || kind === "townhouses") {   // yard trees between the sidewalk and the lots
-                for (let u = 6; u < fr.len - 4; u += 13 + R() * 6) {
-                    const tx = fr.ox + fr.ux * u + fr.nx * 1.6, tz = fr.oz + fr.uz * u + fr.nz * 1.6;
-                    place(R() < 0.8 ? "treeRound" : "treePine", tx, tz, R() * 6.28, { Leaves: leaf(R), PineLeaves: "#2F8F46" }, { scale: 0.75 + R() * 0.3 });
-                    col(tx, tz, 0.4, "tree");
-                }
-            }
+            for (const fr of railSplit(faceFrame(lot, face), def.rail)) placeFace(B, kind, fr, counters);
         }
     }
+    for (const sp of PL.STRIPS) buildStrip(B, sp, counters);
 
-    // ── street furniture: parked minivans, lamps ─────────────────────────
+    // ── street furniture: parked cars, lamps ─────────────────────────────
     const chair = def.chair && street(def.chair.street);
+    const parkSkip = 1 - (def.parkRate != null ? def.parkRate : 0.58);
     function lampAt(x, z, rot) {
         place("town_lamp", x, z, rot, null, { noShadow: true });
         col(x, z, 0.22, "pole");
@@ -280,42 +278,48 @@ export function buildTown(def) {
         T.lamps.push({ x: x + fx * 2.0, y: 6.2, z: z + fz * 2.0, gx: x + fx * 3.6, gz: z + fz * 3.6 });
     }
     for (const st of PL.STREETS) {
+        const lanesPark = [];
+        if (st.parkLane) lanesPark.push(st.park);
+        if (st.boulevard) lanesPark.push(st.svcPark);
         for (let k = 0; k < st.cross.length - 1; k++) {
-            const u0 = st.cross[k].a + 14, u1 = st.cross[k + 1].a - 14;
-            if (u1 - u0 < 6) continue;
-            for (const side of [-1, 1]) {
+            const n0 = st.cross[k].node, n1 = st.cross[k + 1].node;
+            for (const side of [-1, 1]) for (const pd of lanesPark) {
+                const u0 = cutAt(st, n0, -1, side * pd, otherAt(n0, st.id).outer + 8.4), u1 = cutAt(st, n1, 1, side * pd, otherAt(n1, st.id).outer + 8.4);
+                if (u1 - u0 < 6) continue;
                 for (let u = u0; u < u1; u += 6.6) {
                     if (clearAt(st, u, side)) continue;
                     if (chair === st && side === def.chair.side && Math.abs(u - def.chair.along) < 4) {
                         // THE one free spot in town… and a lawn chair is saving it
-                        const c = streetPoint(st, u, side * PARK, {}), w = streetPoint(st, u + 1.6, side * 7.2, {});
+                        const c = streetPoint(st, u, side * pd, {}), w = streetPoint(st, u + 1.6, side * (pd + 2.6), {});
                         place("town_chair", c.x, c.z, st.h + Math.PI / 2, null, { scale: 1.15 });
                         col(c.x, c.z, 0.45, "chair");
                         T.spots.chair = { x: w.x, z: w.z, cx: c.x, cz: c.z, rot: st.h - side * Math.PI / 2, street: st.id, along: u };
                         continue;
                     }
-                    if (R() < 0.42) continue;
-                    const p = streetPoint(st, u, side * PARK, {});
+                    if (R() < parkSkip) continue;
+                    const p = streetPoint(st, u, side * pd, {});
                     const rot = st.h + (side > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.05;
-                    parkedVan(p.x, p.z, rot);
+                    parkedCar(p.x, p.z, rot);
                     const fx = Math.sin(rot), fz = Math.cos(rot);
                     col(p.x + fx * 1.25, p.z + fz * 1.25, 1.0, "car"); col(p.x - fx * 1.25, p.z - fz * 1.25, 1.0, "car");
                     T.parked.push({ x: p.x, z: p.z, rot });
                 }
             }
+            const u0 = st.cross[k].a + 14, u1 = st.cross[k + 1].a - 14;
+            if (u1 - u0 < 6) continue;
             const side = (st.id + k) % 2 ? 1 : -1;      // a lamp at mid-block, alternating sides
-            const mid = (u0 + u1) / 2 + 6, lp = streetPoint(st, mid, side * (WALK - 0.4), {}), lc = streetPoint(st, mid, 0, {});
+            const mid = (u0 + u1) / 2 + 6, lp = streetPoint(st, mid, side * (st.walk - 0.4), {}), lc = streetPoint(st, mid, 0, {});
             lampAt(lp.x, lp.z, Math.atan2(lc.x - lp.x, lc.z - lp.z));
         }
     }
-    // stop signs (white STOP from the atlas), street blades + a lamp at each corner
+    // stop signs (white STOP from the atlas), street blades (+ ONE WAY arrows) + a lamp at each corner
     const stopUV = atlas.sign({ key: "STOP", w: 256, h: 256, draw: (g, w, h) => {
         g.fillStyle = "#FFFFFF"; g.textAlign = "center"; g.textBaseline = "middle";
         g.font = `800 ${h * 0.34}px Arial, sans-serif`; g.fillText("STOP", w / 2, h / 2 + 4, w * 0.86);
     } });
     for (const s of T.stops) {
         const st = PL.STREETS[s.street];
-        const p = streetPoint(st, s.along - s.dir * 1.2, s.dir * (CURB + 1.0), {});
+        const p = streetPoint(st, s.along - s.dir * 1.2, s.dir * (st.outer + 1.0), {});
         const face = st.h + (s.dir > 0 ? Math.PI : 0);     // faces the approaching driver
         place("town_stop", p.x, p.z, face, null, { noShadow: true });
         col(p.x, p.z, 0.14, "sign");
@@ -323,14 +327,32 @@ export function buildTown(def) {
         if (a) atlas.quad(stopUV, a.x + Math.sin(face) * 0.035, a.y, a.z + Math.cos(face) * 0.035, face, 0.62, 0.62);
         s.x = p.x; s.z = p.z;
     }
+    const oneWayUV = [1, -1].map(pointing => atlas.sign({ key: "ONEWAY" + pointing, w: 512, h: 160, draw: (g, w, h) => {
+        g.fillStyle = "#111111"; g.fillRect(4, 4, w - 8, h - 8);
+        g.fillStyle = "#FFFFFF"; g.save(); g.translate(w / 2, h / 2); g.scale(pointing, 1);
+        g.beginPath(); g.moveTo(-w * 0.44, -h * 0.17); g.lineTo(w * 0.2, -h * 0.17); g.lineTo(w * 0.2, -h * 0.36); g.lineTo(w * 0.45, 0); g.lineTo(w * 0.2, h * 0.36); g.lineTo(w * 0.2, h * 0.17); g.lineTo(-w * 0.44, h * 0.17); g.closePath(); g.fill();
+        g.restore();
+        g.fillStyle = "#111111"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${h * 0.26}px Arial, sans-serif`;
+        g.fillText(S.oneWay || "ONE WAY", w / 2 - pointing * w * 0.07, h / 2 + 2);
+    } }));
     for (const n of PL.NODES) {
         if (n.circle) continue;
-        const x = n.x + 7.4, z = n.z + 7.4;
+        const A = PL.STREETS[n.ns], Bs = PL.STREETS[n.ew];
+        // the corner between +A and +B (Lakewood: the NE corner, 7.4 m out each way)
+        const sn = Math.abs(A.ux * Bs.uz - A.uz * Bs.ux) || 1;
+        const x = n.x + Bs.ux * (A.outer + 1.8) / sn + A.ux * (Bs.outer + 1.8) / sn, z = n.z + Bs.uz * (A.outer + 1.8) / sn + A.uz * (Bs.outer + 1.8) / sn;
         poleAt(merge, x, z, 3.4);
         col(x, z, 0.12, "sign");
-        sign({ lines: [PL.STREETS[n.ns].name], bg: "#1E6B3C", fg: "#FFFFFF", w: 512, h: 96, radius: 8 }, x, 3.2, z, Math.PI / 2, 1.7, 0.32, true);
-        sign({ lines: [PL.STREETS[n.ew].name], bg: "#1E6B3C", fg: "#FFFFFF", w: 512, h: 96, radius: 8 }, x, 3.55, z, 0, 1.7, 0.32, true);
-        const lx = n.x - 7.6, lz = n.z - 7.6;
+        sign({ lines: [A.name], bg: "#1E6B3C", fg: "#FFFFFF", w: 512, h: 96, radius: 8 }, x, 3.2, z, A.h + Math.PI / 2, 1.7, 0.32, true);
+        sign({ lines: [Bs.name], bg: "#1E6B3C", fg: "#FFFFFF", w: 512, h: 96, radius: 8 }, x, 3.55, z, Bs.h - Math.PI / 2, 1.7, 0.32, true);
+        // a ONE WAY arrow under the blade of a one-way street (one cell per face, so it points the right way from both sides)
+        for (const [st, y] of [[A, 2.72], [Bs, 2.42]]) {
+            if (!st.oneway) continue;
+            const yaw = st.h + Math.PI / 2;     // the plate's +x runs along -u… so the arrow drawn pointing "−x" points along +u
+            atlas.quad(oneWayUV[st.oneway > 0 ? 1 : 0], x + Math.sin(yaw) * 0.03, y, z + Math.cos(yaw) * 0.03, yaw, 1.05, 0.33);
+            atlas.quad(oneWayUV[st.oneway > 0 ? 0 : 1], x - Math.sin(yaw) * 0.03, y, z - Math.cos(yaw) * 0.03, yaw + Math.PI, 1.05, 0.33);
+        }
+        const lx = n.x - Bs.ux * (A.outer + 2) / sn - A.ux * (Bs.outer + 2) / sn, lz = n.z - Bs.uz * (A.outer + 2) / sn - A.uz * (Bs.outer + 2) / sn;
         lampAt(lx, lz, Math.atan2(n.x - lx, n.z - lz));
     }
 
@@ -361,23 +383,28 @@ export function buildTown(def) {
     for (const j of def.jams || []) {
         const st = street(j.street);
         if (!st) continue;
+        const jam = [];
         for (let u = j.from; u < j.to; u += j.gap || 6.2) {
             if (st.cross.some(c => Math.abs(c.a - u) < 9)) continue;      // the cross streets stay (barely) open
             const p = streetPoint(st, u, j.d, {});
             const rot = st.h + (j.d > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.12;
-            parkedVan(p.x, p.z, rot);
+            parkedCar(p.x, p.z, rot);
             const fx = Math.sin(rot), fz = Math.cos(rot);
             col(p.x + fx * 1.2, p.z + fz * 1.2, 1.0, "car"); col(p.x - fx * 1.2, p.z - fz * 1.2, 1.0, "car");
-            T.jam.push({ x: p.x, z: p.z });
+            jam.push({ x: p.x, z: p.z });
         }
+        if (j.kind && jam.length) T.spots[j.kind] = Object.assign({}, jam[Math.floor(jam.length / 2)], { street: st.id, d: j.d });
+        else T.jam.push(...jam);
     }
+    if (T.jam.length && !T.spots.jam) T.spots.jam = T.jam[0];
     if (def.bandBus && models[def.bandBus.model]) {
-        const B = def.bandBus, st = street(B.street), p = streetPoint(st, B.along, B.d, {});
-        place(B.model, p.x, p.z, st.h, B.colors);
-        for (const o of [-3.6, -1.2, 1.2, 3.6]) { const q = streetPoint(st, B.along + o, B.d, {}); col(q.x, q.z, 1.3, "car"); }
-        if (B.lines) {
-            const s2 = streetPoint(st, B.along, B.d + 1.3, {});
-            sign({ lines: B.lines, bg: "#4A148C", fg: ["#FFD54F", "#F3E5F5"], w: 1024, h: 200 }, s2.x, 1.9, s2.z, st.h + Math.PI / 2, 6.4, 1.2);
+        const Bb = def.bandBus, st = street(Bb.street), p = streetPoint(st, Bb.along, Bb.d, {});
+        place(Bb.model, p.x, p.z, st.h + (Bb.dir < 0 ? Math.PI : 0), Bb.colors);
+        for (const o of [-3.6, -1.2, 1.2, 3.6]) { const q = streetPoint(st, Bb.along + o, Bb.d, {}); col(q.x, q.z, 1.3, "car"); }
+        if (Bb.lines) {
+            // the sign hangs on the bus's street side, facing the traffic going by
+            const sd = Bb.d < 0 ? -1 : 1, s2 = streetPoint(st, Bb.along, Bb.d - sd * 1.3, {});
+            sign({ lines: Bb.lines, bg: Bb.bg || "#4A148C", fg: Bb.fg || ["#FFD54F", "#F3E5F5"], w: 1024, h: 200 }, s2.x, 1.9, s2.z, st.h + sd * Math.PI / 2, 6.4, 1.2);
         }
         T.spots.band = { x: p.x, z: p.z };
     }
@@ -395,6 +422,18 @@ export function buildTown(def) {
         if (a) sign({ lines: w.lines, bg: "#1F5E3B", fg: ["#FFFFFF", "#FFE082", "#C8E6C9"], w: 1024, h: 440, radius: 12, border: "#E8D9A8" }, a.x + Math.sin(w.rot) * 0.02, a.y, a.z + Math.cos(w.rot) * 0.02, w.rot, 5.1, 2.15);
         T.spots.welcome = { x: p.x, z: p.z, rot: w.rot };
     }
+    const aspUV = atlas.sign({ key: "ASP", w: 360, h: 300, draw: (g, w, h) => {
+        // the broom-P: no parking during street cleaning
+        g.fillStyle = "#FFFFFF"; g.fillRect(3, 3, w - 6, h - 6);
+        g.strokeStyle = "#C62828"; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
+        g.fillStyle = "#C62828"; g.font = `800 ${h * 0.46}px Arial, sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("P", w * 0.27, h * 0.36);
+        g.strokeStyle = "#C62828"; g.lineWidth = 9; g.beginPath(); g.moveTo(w * 0.08, h * 0.64); g.lineTo(w * 0.46, h * 0.08); g.stroke();
+        g.fillStyle = "#6D4C41"; g.save(); g.translate(w * 0.43, h * 0.13); g.rotate(-0.98); g.fillRect(-4, -16, 30, 32); g.restore();
+        g.fillStyle = "#111111"; g.textAlign = "left"; g.font = `700 ${h * 0.12}px Arial, sans-serif`;
+        const L = S.asp || ["8:30–10 AM", "TUES & FRI", "(Yes, You.)"];
+        g.fillText(L[0], w * 0.52, h * 0.2, w * 0.45); g.fillText(L[1], w * 0.52, h * 0.38, w * 0.45);
+        g.fillStyle = "#C62828"; g.font = `italic 700 ${h * 0.11}px Arial, sans-serif`; g.textAlign = "center"; g.fillText(L[2] || "", w / 2, h * 0.82, w * 0.9);
+    } });
     for (const sg of def.signs || []) {
         const p = pt(sg.street, sg.along, sg.d);
         if (!p) continue;
@@ -404,6 +443,11 @@ export function buildTown(def) {
             poleAt(merge, p.x + Math.cos(sg.rot) * w * 0.32, p.z - Math.sin(sg.rot) * w * 0.32, 2.3);
             col(p.x, p.z, 0.3, "sign");
             sign({ lines: sg.lines, bg: "#1F7A46", fg: "#FFFFFF", w: 768, h: 300, border: "#FFFFFF" }, p.x, 2.65, p.z, sg.rot, w, w * 0.39, true);
+        } else if (sg.kind === "asp") {
+            poleAt(merge, p.x, p.z, 2.6);
+            col(p.x, p.z, 0.1, "sign");
+            atlas.quad(aspUV, p.x + Math.sin(sg.rot) * 0.03, 2.3, p.z + Math.cos(sg.rot) * 0.03, sg.rot, 0.6, 0.5);
+            atlas.quad(aspUV, p.x - Math.sin(sg.rot) * 0.03, 2.3, p.z - Math.cos(sg.rot) * 0.03, sg.rot + Math.PI, 0.6, 0.5);
         } else {
             poleAt(merge, p.x, p.z, 1.9 + sg.h * 0.5);
             col(p.x, p.z, 0.12, "sign");
@@ -447,6 +491,10 @@ export function buildTown(def) {
         for (let k = 0; k < 16; k++) place("town_reeds", x0 + 3 + R() * 3, z0 + 10 + R() * (z1 - z0 - 20), R() * 6, null, { scale: 0.8 + R() * 0.6 });
         if (W.geese) T.spots.lake = { x: x0 - 1.5, z: (z0 + z1) / 2, z0: z0 + 20, z1: z1 - 30, x0 };
     }
+    // the railway on its embankment, the skyline, the barricades (rail.js / landmarks.js)
+    if (def.rail) buildRail(B);
+    buildSkyline(B);
+    buildBarricades(B);
 
     // ── coins (a few trails to make the detour pay) ──────────────────────
     for (const ct of def.coins || []) {
@@ -461,6 +509,13 @@ export function buildTown(def) {
         const a = k / 10 * Math.PI * 2;
         T.coins.push({ x: O.x + PL.circle.x + Math.cos(a) * PL.circle.ring, z: O.z + PL.circle.z + Math.sin(a) * PL.circle.ring, s: 0, d: 0, taken: false, value: 2 });
     }
+
+    // ── ground meshes (after the landmarks added their pieces) ───────────
+    const ag = quadsGeo(asphalt, 9);
+    const asphaltMesh = new THREE.Mesh(circleGeo ? mergeTwo(ag, uvPlanar(circleGeo, 9)) : ag, asphaltMat);
+    const walkMesh = new THREE.Mesh(quadsGeo(walks, 3), walkMat);
+    const markMesh = new THREE.Mesh(quadsGeo(marks, 0, true), markMat);
+    for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
 
     // ── bake ─────────────────────────────────────────────────────────────
     const merged = merge.build(mats);
@@ -527,10 +582,11 @@ const pickOf = (list, R) => list[Math.floor(R() * list.length)];
 /** Distance (local) from a point to the nearest street centre line. */
 function streetGap(x, z) {
     let best = 1e9;
+    const c = {};
     for (const st of PL.STREETS) {
-        const along = st.axis === "ns" ? z : x, d = st.axis === "ns" ? x - st.c : z - st.c;
-        const a = Math.max(st.a0, Math.min(st.a1, along));
-        best = Math.min(best, Math.hypot(along - a, d));
+        streetCoords(st, x, z, c);
+        const a = Math.max(st.a0, Math.min(st.a1, c.along));
+        best = Math.min(best, Math.hypot(c.along - a, c.d));
     }
     return best;
 }
@@ -552,17 +608,22 @@ function poleAt(merge, x, z, h) {
     g.translate(x, h / 2, z);
     addColored(merge, g, "#9AA3AB", x, z, "flat");
 }
-function laneLine(list, st, u0, u1, d, w, color) {
-    const a = streetPoint(st, u0, d - w / 2, {}), b = streetPoint(st, u1, d + w / 2, {});
-    list.push({ x0: Math.min(a.x, b.x), z0: Math.min(a.z, b.z), x1: Math.max(a.x, b.x), z1: Math.max(a.z, b.z), y: 0.036, color });
+function laneLine(list, st, u0, u1, d, w, color, strip) {
+    strip(list, st, u0, u1, d - w / 2, d + w / 2, 0.036, color);
 }
-/** Axis-aligned flat quads → one geometry (planar UVs every `uvScale` m, or vertex colours). */
+/** Flat quads → one geometry (planar UVs every `uvScale` m, or vertex colours). A quad is an axis-aligned
+ *  {x0, z0, x1, z1} or any 4 corners {pts: [[x, z] ×4]} (a diagonal street's pieces). */
 function quadsGeo(list, uvScale, colors = false) {
     const n = list.length;
     const P = new Float32Array(n * 12), N = new Float32Array(n * 12), U = new Float32Array(n * 8), C = colors ? new Float32Array(n * 12) : null, I = [];
     const c = new THREE.Color();
     list.forEach((q, k) => {
-        const v = [[q.x0, q.z0], [q.x0, q.z1], [q.x1, q.z1], [q.x1, q.z0]];
+        let v = q.pts || [[q.x0, q.z0], [q.x0, q.z1], [q.x1, q.z1], [q.x1, q.z0]];
+        if (q.pts) {
+            // wind them so the face points up (the order the axis-aligned quads use)
+            const [a, b, d] = [v[0], v[1], v[2]];
+            if ((b[1] - a[1]) * (d[0] - a[0]) - (b[0] - a[0]) * (d[1] - a[1]) < 0) v = [v[0], v[3], v[2], v[1]];
+        }
         v.forEach(([x, z], i) => {
             P.set([x, q.y, z], k * 12 + i * 3);
             N.set([0, 1, 0], k * 12 + i * 3);
@@ -601,18 +662,30 @@ function mergeTwo(a, b) {
     return g;
 }
 
-/** A block face as a frame: origin at the face's start corner on the lot line, `u` along it, `n` out toward the street. */
-function faceFrame(r, face) {
-    const inset = 13;     // the side faces leave the corners to the front/back rows
-    if (face === "s") return { ox: r.x0, oz: r.z0, ux: 1, uz: 0, nx: 0, nz: -1, len: r.x1 - r.x0, rot: Math.PI };
-    if (face === "n") return { ox: r.x1, oz: r.z1, ux: -1, uz: 0, nx: 0, nz: 1, len: r.x1 - r.x0, rot: 0 };
-    if (face === "w") return { ox: r.x0, oz: r.z1 - inset, ux: 0, uz: -1, nx: -1, nz: 0, len: r.z1 - r.z0 - inset * 2, rot: -Math.PI / 2 };
-    return { ox: r.x1, oz: r.z0 + inset, ux: 0, uz: 1, nx: 1, nz: 0, len: r.z1 - r.z0 - inset * 2, rot: Math.PI / 2 };
+/** A block face as a frame: origin at the face's start corner on the lot line, `u` along it, `n` out toward
+ *  the street. (Corners counter-clockwise from SW: faces s · e · n · w; the side faces w / e leave the corners
+ *  to the front / back rows.) */
+function faceFrame(lot, face) {
+    const inset = face === "w" || face === "e" ? 13 : 0;
+    const i = "senw".indexOf(face), A = lot[i], Bc = lot[(i + 1) % 4];
+    const L = Math.hypot(Bc[0] - A[0], Bc[1] - A[1]), ux = (Bc[0] - A[0]) / L, uz = (Bc[1] - A[1]) / L;
+    const nx = uz, nz = -ux;
+    return { ox: A[0] + ux * inset, oz: A[1] + uz * inset, ux, uz, nx, nz, len: L - inset * 2, rot: Math.atan2(nx, nz) };
 }
-/** What stands along a face of `len` metres: [{key, u (centre along the face)}]. */
+/** A face the railway's embankment runs through becomes two faces, one each side of it. */
+function railSplit(fr, rail) {
+    if (!rail || Math.abs(fr.ux) < 0.3) return [fr];
+    const uc = (rail.x - fr.ox) / fr.ux;
+    if (uc <= 0 || uc >= fr.len) return [fr];
+    const gh = rail.base / 2 + 3, out = [];
+    if (uc - gh > 6) out.push(Object.assign({}, fr, { len: uc - gh }));
+    if (fr.len - uc - gh > 6) out.push(Object.assign({}, fr, { ox: fr.ox + fr.ux * (uc + gh), oz: fr.oz + fr.uz * (uc + gh), len: fr.len - uc - gh }));
+    return out;
+}
+/** What stands along a face of `len` metres: [{key, u (centre along the face), sign?, spot?}]. */
 function layoutFace(kind, len, R) {
     const out = [];
-    const fill = (keys, gapVan) => {
+    const fill = (keys, gapVan, gap = 0.8) => {
         let u = 0.5;
         while (u < len) {
             const key = keys[Math.floor(R() * keys.length)];
@@ -621,12 +694,18 @@ function layoutFace(kind, len, R) {
             out.push({ key, u: u + w / 2 });
             u += w;
             if (gapVan && u + 4 < len && R() < 0.5) { out.push({ key: "van", u: u + 1.9 }); u += 3.8; }
-            else u += 0.8;
+            else u += gap;
         }
         // centre what fitted
         const used = out.length ? Math.max(...out.map(o => o.u + (o.key === "van" ? 1.9 : DIMS[o.key].w / 2))) : 0;
         const shift = (len - used) / 2;
         for (const o of out) o.u += shift;
+    };
+    const centred = list => {     // a fixed row of keys, centred on the face (as many as fit)
+        let total = list.reduce((a, k) => a + DIMS[k].w + 0.6, -0.6);
+        while (list.length > 1 && total > len) { const k = list.pop(); total -= DIMS[k].w + 0.6; }
+        let u = (len - total) / 2;
+        for (const key of list) { out.push({ key, u: u + DIMS[key].w / 2 }); u += DIMS[key].w + 0.6; }
     };
     if (kind === "homes") fill(["town_duplex", "town_duplex", "town_townhouses"], true);
     else if (kind === "townhouses") fill(["town_townhouses"], true);
@@ -636,5 +715,120 @@ function layoutFace(kind, len, R) {
     else if (kind === "yeshiva") { out.push({ key: "town_yeshiva", u: len / 2 - 6 }, { key: "town_duplex", u: len / 2 + 19 }); }
     else if (kind === "construction" || kind === "construction2") { out.push({ key: "town_frame", u: len / 2 }); }
     else if (kind === "buses") { out.push({ key: "buses", u: len / 2 - 4 }); }
+    // Midwood
+    else if (kind === "mwhomes") fill(["town_mw_house", "town_mw_house", "town_mw_house", "town_mw_rowhouse"], false, 0.4);
+    else if (kind === "rowhouses") fill(["town_mw_rowhouse"], false, 0.3);
+    else if (kind === "shtiebel") { fill(["town_mw_house"], false, 0.4); for (const o of out) o.shtiebel = true; }
+    else if (kind === "pkwy") fill(["town_mw_house", "town_mw_apts", "town_mw_house"], false, 1.6);
+    else if (kind === "apts") fill(["town_mw_apts"], false, 0.8);
+    else if (STORE_STYLE[kind]) { fill(["town_mw_store"], false, 0.2); for (const o of out) o.list = kind; }
+    else if (kind === "mwpizza") centred(["town_mw_store", "town_pizza", "town_mw_store", "town_mw_store"]);
+    else if (kind === "bakery") centred(["town_mw_store", "town_mw_bakery", "town_mw_store"]);
+    else if (kind === "carsvc") centred(["town_mw_carbase", "town_mw_store", "town_mw_store"]);
+    else if (kind === "shul") centred(["town_mw_house", "town_mw_shul", "town_mw_house"]);
+    else if (kind === "school") centred(["town_yeshiva", "town_mw_house"]);
     return out;
+}
+
+/** Lay out one block face (or a frontage strip) of `kind` along the frame `fr` and place everything on it. */
+function placeFace(B, kind, fr, counters) {
+    const { R, T, S, merge, place, sign, anchorAt, parkedCar, col } = B;
+    const next = (key, list) => { const c = counters[key] || 0; counters[key] = c + 1; return list[c % list.length]; };
+    for (const it of layoutFace(kind, fr.len, R)) {
+        const D = DIMS[it.key] || { w: 10, d: 10, prot: 0 };
+        const back = D.prot + D.d / 2;       // centre's distance in from the lot line
+        const lotX = fr.ox + fr.ux * it.u, lotZ = fr.oz + fr.uz * it.u;
+        const cx = lotX - fr.nx * back, cz = lotZ - fr.nz * back;
+        if (it.key === "van") {         // a minivan in the driveway, nose to the street
+            const vx = lotX - fr.nx * 3.2, vz = lotZ - fr.nz * 3.2;
+            parkedCar(vx, vz, fr.rot);
+            const dg = new THREE.PlaneGeometry(3.2, FRONT - WALK + 5.5); dg.rotateX(-Math.PI / 2); dg.rotateY(fr.rot);
+            dg.translate(lotX - fr.nx * 2.2, 0.04, lotZ - fr.nz * 2.2);
+            addColored(merge, dg, "#B9B3A8", vx, vz, "flat");
+            continue;
+        }
+        if (it.key === "buses") {       // the depot: school buses nose-in + its sign
+            for (let k = 0; k < 3; k++) {
+                const u = it.u - 3.4 + k * 3.4;
+                place("roadevents_school_bus", fr.ox + fr.ux * u - fr.nx * 8.5, fr.oz + fr.uz * u - fr.nz * 8.5, fr.rot, null, { skip: /^StopArm/ });
+            }
+            const sx = fr.ox + fr.ux * (it.u + 9) - fr.nx * 0.6, sz = fr.oz + fr.uz * (it.u + 9) - fr.nz * 0.6;
+            poleAt(merge, sx - fr.ux * 1.8, sz - fr.uz * 1.8, 1.8); poleAt(merge, sx + fr.ux * 1.8, sz + fr.uz * 1.8, 1.8);
+            sign({ lines: S.buses, bg: "#FFC107", fg: ["#1B1B1B", "#3E2723"], w: 1024, h: 256 }, sx, 2.3, sz, fr.rot, 4.2, 1.05, true);
+            continue;
+        }
+        const k = it.key;
+        const tints = k === "town_duplex" ? { Walls: pickOf(SIDING, R), Roof: pickOf(ROOFS, R) }
+            : k === "town_townhouses" ? { Walls: pickOf(TOWN_WALLS, R), Roof: pickOf(ROOFS, R) }
+            : k === "town_shop" || k === "town_pizza" ? { Walls: pickOf(SHOP_WALLS, R), Awning: k === "town_pizza" ? "#C62828" : pickOf(AWNINGS, R) }
+            : k === "town_mw_house" ? { Walls: R() < 0.5 ? pickOf(B.BRICK, R) : pickOf(B.STUCCO, R), Roof: pickOf(ROOFS, R) }
+            : k === "town_mw_rowhouse" || k === "town_mw_apts" ? { Walls: pickOf(B.BRICK, R) }
+            : k === "town_mw_store" || k === "town_mw_bakery" ? { Walls: pickOf(B.BRICK, R), Awning: k === "town_mw_bakery" ? "#6D4C41" : pickOf(AWNINGS, R) }
+            : null;
+        // a duplex's deck sticks out on its model +X side: shift so the whole footprint fits the slot
+        const shift = k === "town_duplex" ? -1.5 : 0;
+        const sx = cx + Math.cos(fr.rot) * shift, sz = cz - Math.sin(fr.rot) * shift;
+        place(k, sx, sz, fr.rot, tints, { dark: R() < 0.32 });
+        let text = null, style = null;
+        if (k === "town_shop") text = next("shops", S.shops);
+        else if (k === "town_pizza") text = S.pizza;
+        else if (k === "town_hall") text = S.hall;
+        else if (k === "town_yeshiva") text = kind === "school" ? S.school : S.yeshiva;
+        else if (k === "town_frame") text = kind === "construction2" ? S.construction2 : S.construction;
+        else if (k === "town_mw_store") { text = next(it.list, S[it.list] || S.avej); style = STORE_STYLE[it.list]; }
+        else if (k === "town_mw_bakery") text = S.bakery;
+        else if (k === "town_mw_carbase") text = S.carService;
+        else if (k === "town_mw_shul") text = S.shul;
+        else if (k === "town_mw_apts") text = next("apts", S.apts);
+        const a = text && anchorAt(k, sx, sz, fr.rot);
+        if (a) {
+            const big = k === "town_hall" ? [15.4, 1.45, 96] : k === "town_yeshiva" ? [11.4, 1.15, 104] : k === "town_frame" ? [11.6, 1.7, 150]
+                : k === "town_mw_store" || k === "town_mw_bakery" ? [8.4, 0.9, 110] : k === "town_mw_carbase" ? [11.0, 1.1, 104] : k === "town_mw_shul" ? [9.6, 0.9, 96]
+                : k === "town_mw_apts" ? [3.0, 0.42, 140] : [10.0, 0.98, 100];
+            const bg = k === "town_frame" ? "#FFFFFF" : k === "town_hall" ? "#1B1B1B" : k === "town_mw_carbase" ? "#111111" : k === "town_mw_apts" ? "#1B3A2B" : k === "town_mw_shul" ? "#F3E9D2" : style ? style.bg : "#FBF8F0";
+            const fg = k === "town_frame" ? ["#B71C1C", "#1B5E20"] : k === "town_hall" ? ["#E8C766", "#F5F1E6"] : k === "town_mw_carbase" ? ["#FFD54F", "#FFFFFF"]
+                : k === "town_mw_apts" ? ["#E8C766"] : k === "town_mw_shul" ? ["#1A237E", "#5D4037"] : style ? style.fg : ["#2B1B2E", "#6D4C41"];
+            sign({ lines: text, bg, fg, w: 1024, h: big[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
+        }
+        if (it.shtiebel && R() < 0.6) {
+            // a shtiebel: a house with a little sign on the lawn
+            const text2 = next("shtiebels", S.shtiebels);
+            const px = lotX + fr.nx * 0.2 + fr.ux * 2.5, pz = lotZ + fr.nz * 0.2 + fr.uz * 2.5;
+            poleAt(merge, px - fr.ux * 0.8, pz - fr.uz * 0.8, 1.2); poleAt(merge, px + fr.ux * 0.8, pz + fr.uz * 0.8, 1.2);
+            sign({ lines: text2, bg: "#FFF8E1", fg: ["#1A237E", "#4E342E"], w: 640, h: 220, radius: 10 }, px + fr.nx * 0.03, 1.15, pz + fr.nz * 0.03, fr.rot, 2.0, 0.7, true);
+            if (!T.spots.shtiebel) T.spots.shtiebel = { x: px + fr.nx * 2, z: pz + fr.nz * 2, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz };
+        }
+        if (k === "town_mw_carbase") {     // the car-service base: its black sedans nose-in out front
+            for (const o of [-3.2, 0, 3.2]) {
+                const vx = lotX + fr.ux * o - fr.nx * 3.2, vz = lotZ + fr.uz * o - fr.nz * 3.2;
+                place("town_mw_sedan_lod", vx, vz, fr.rot + Math.PI, { Paint: o ? "#1C1C1E" : "#2B2D31" }, { noShadow: true });
+                col(vx, vz, 1.4, "car");
+            }
+        }
+        const spot = { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz };
+        const spotKey = k === "town_pizza" ? "pizza" : k === "town_hall" ? "hall" : k === "town_yeshiva" ? (kind === "school" ? "school" : "yeshiva")
+            : k === "town_mw_bakery" ? "bakery" : k === "town_mw_carbase" ? "carsvc" : k === "town_mw_shul" ? "shul" : it.list === "cia" ? "cia" : it.list === "kh" ? "kh" : null;
+        if (spotKey && !T.spots[spotKey]) T.spots[spotKey] = spot;
+        if (k === "town_frame") {
+            T.spots[kind] = spot;
+            // a tower crane behind every construction lot (its jib slews: a separate object)
+            const kx = cx - fr.nx * 14 + fr.ux * 6, kz = cz - fr.nz * 14 + fr.uz * 6;
+            place("town_crane", kx, kz, fr.rot, null, { skip: /^Jib/ });
+            const jibT = models.town_crane && findNodes(models.town_crane, "Jib")[0];
+            if (jibT) {
+                const jib = jibT.clone(true);
+                jib.position.set(kx, 0, kz);
+                jib.rotation.y = fr.rot + R() * 6;
+                B.root.add(jib);
+                T.cranes.push({ obj: jib, speed: (R() < 0.5 ? -1 : 1) * (0.05 + R() * 0.05) });
+            }
+        }
+    }
+    if (kind === "homes" || kind === "townhouses" || kind === "mwhomes" || kind === "rowhouses" || kind === "shtiebel") {   // yard / street trees between the sidewalk and the lots
+        for (let u = 6; u < fr.len - 4; u += 13 + R() * 6) {
+            const tx = fr.ox + fr.ux * u + fr.nx * 1.6, tz = fr.oz + fr.uz * u + fr.nz * 1.6;
+            place(R() < 0.8 ? "treeRound" : "treePine", tx, tz, R() * 6.28, { Leaves: leaf(R), PineLeaves: "#2F8F46" }, { scale: 0.75 + R() * 0.3 });
+            col(tx, tz, 0.4, "tree");
+        }
+    }
 }

@@ -8,13 +8,20 @@
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
-import { PL, LANE, STOP, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, blocked, rng } from "./plan.js";
+import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, blocked, rng, cutAt, otherAt, stopsAt } from "./plan.js";
 
 registerKind("town_van", { len: 5.0, halfW: 0.98, circles: [1.5, -1.5], r: 1.0, mass: 1.5, model: "town_minivan", colors: { Paint: "#C3C8CE" } });
 registerKind("town_bus", { len: 10.6, halfW: 1.25, circles: [-3.6, -1.2, 1.2, 3.6], r: 1.3, mass: 5, model: "roadevents_school_bus", paint: false });
+// Midwood's: the car service (a black sedan, "five minutes"), the city bus, the alternate-side street sweeper
+registerKind("town_carsvc", { len: 4.4, halfW: 0.9, circles: [1.3, -1.3], r: 0.95, mass: 1.2, model: "sedan", colors: { Paint: "#1C1C1E" } });
+registerKind("town_citybus", { len: 10.6, halfW: 1.25, circles: [-3.6, -1.2, 1.2, 3.6], r: 1.3, mass: 5, model: "foot_bus", colors: { BusBlue: "#1565C0", BusWhite: "#F2F2F2", BusYellow: "#FFC107" } });
+registerKind("town_sweeper", { len: 5.6, halfW: 1.15, circles: [1.6, -1.4], r: 1.15, mass: 3.5, model: "town_mw_sweeper", paint: false });
+const CRUISE = { town_bus: 7.5, town_citybus: 7, town_sweeper: 3.2 };
 
 const _l = {}, _p = {};
-export const C = { cars: [], patrol: null, rnd: rng(7), hazards: [], slow: new Set() };
+export const C = { cars: [], patrol: null, rnd: rng(7), hazards: [], slow: new Set(), routes: {} };
+/** The streets a kind may drive (def.routes: the city bus keeps to the avenues): a Set of street ids, or null = anywhere. */
+const routeOf = kind => C.routes[kind] || null;
 
 function laneD(dir) { return dir * LANE; }
 const isCircle = node => !!(node && node.circle);
@@ -25,8 +32,8 @@ export function spawnDriver(kind, street, along, dir, opts = {}) {
     const st = PL.STREETS[street];
     const T = {
         town: true, street, dir, mode: "drive", turn: null, waited: 0, stopFor: null,
-        cruise: opts.cruise || (kind === "town_bus" ? 7.5 : 8.5 + C.rnd() * 3.5),
-        roll: kind !== "town_bus" && C.rnd() < 0.4, wait: 0.5 + C.rnd() * 0.9, stuck: 0, patrol: kind === "cop",
+        cruise: opts.cruise || CRUISE[kind] || 8.5 + C.rnd() * 3.5,
+        roll: !CRUISE[kind] && C.rnd() < 0.4, wait: 0.5 + C.rnd() * 0.9, stuck: 0, patrol: kind === "cop",
     };
     const c = ctx.traffic.add(kind, st.base + along, laneD(dir), dir, opts.speed || 0, {
         ai: (dt, car) => drive(dt, car), keep: true,
@@ -40,10 +47,10 @@ export function spawnDriver(kind, street, along, dir, opts = {}) {
 }
 
 /** The parked-in-the-lane hazard vans in front of the wedding hall (stationary, jackable). */
-export function spawnHazard(street, along, d) {
-    const st = PL.STREETS[street];
-    const T = { town: true, street, dir: 1, mode: "park", hazard: true };
-    const c = ctx.traffic.add("town_van", st.base + along, d, 1, 0, { ai: (dt, car) => { car.speed = 0; }, keep: true, data: { town: T, streetsHold: true }, noNearMiss: true });
+export function spawnHazard(street, along, d, kind = "town_van") {
+    const st = PL.STREETS[street], dir = d < 0 ? -1 : 1;
+    const T = { town: true, street, dir, mode: "park", hazard: true };
+    const c = ctx.traffic.add(kind, st.base + along, d, dir, 0, { ai: (dt, car) => { car.speed = 0; }, keep: true, data: { town: T, streetsHold: true }, noNearMiss: true });
     C.cars.push(c);
     lean(c);
     C.hazards.push(c);
@@ -51,7 +58,7 @@ export function spawnHazard(street, along, d) {
 }
 
 /** Our own vehicles cast ONE shadow (the body paint), not one per wheel / seat / light: a third of the shadow pass. */
-const BODY = /^(Paint|BusYellow)$/;
+const BODY = /^(Paint|BusYellow|BusWhite|SweeperBody)$/;
 function lean(c) {
     if (!/^town_/.test(c.kind) || c.obj.userData.townLean) return;
     c.obj.userData.townLean = true;
@@ -94,14 +101,20 @@ function gapAhead(c, T, st) {
 /** Is anyone in (or about to be in) this intersection? */
 function boxBusy(node, self) {
     const nx = PL.ORIGIN.x + node.x, nz = PL.ORIGIN.z + node.z;
+    const r = node.r || 8, mine = self.data && self.data.town, side = !!mine && !PL.STREETS[mine.street].priority;
     for (const o of ctx.traffic.cars) {
         if (o === self || o.hit) continue;
         const T = o.data && o.data.town;
         if (T && T.mode === "turn" && T.turn.node === node) return true;
-        if (!T && Math.hypot(o.x - nx, o.z - nz) < 8) return true;
+        if (!T && Math.hypot(o.x - nx, o.z - nz) < r) return true;
+        // a side street waits for the priority road's traffic coming up to the crossing
+        if (side && T && T.mode === "drive" && o.speed > 2 && T.node === node && PL.STREETS[T.street].priority) {
+            const ost = PL.STREETS[T.street], gap = (nodeAlong(ost, node) - (o.s - ost.base)) * T.dir;
+            if (gap > 0 && gap < r + 22) return true;
+        }
     }
     const car = ctx.car;
-    return !(ctx.foot && ctx.foot.active) && Math.hypot(car.pos.x - nx, car.pos.z - nz) < 7 && car.speed > 1.5;
+    return !(ctx.foot && ctx.foot.active) && Math.hypot(car.pos.x - nx, car.pos.z - nz) < r - 1 && car.speed > 1.5;
 }
 
 function drive(dt, c) {
@@ -118,11 +131,15 @@ function drive(dt, c) {
     if (node) {
         const na = nodeAlong(st, node);
         const circle = isCircle(node);
-        const lineAt = na - T.dir * (circle ? RING_OUT : STOP);
+        const lineAt = circle ? na - T.dir * RING_OUT : cutAt(st, node, T.dir, laneD(T.dir), otherAt(node, st.id).outer + 2);
         const dist = (lineAt - along) * T.dir;
         if (circle) {
             if (dist < 18) v = Math.min(v, Math.max(4, dist * 0.6));       // "yield" (lol)
             if (dist < 0.4) beginTurn(c, T, st, node);
+        } else if (!stopsAt(st, node)) {
+            // the priority road: no stop sign, just ease off for the turn
+            if (dist < 20) v = Math.min(v, Math.max(5.5, dist * 0.5));
+            if (dist < 0.8) beginTurn(c, T, st, node);
         } else if (dist < 24) {
             v = Math.min(v, Math.max(T.roll ? 3.2 : 0, dist * 0.55));
             if (dist < 0.8 && (T.roll || c.speed < 0.5)) {
@@ -143,13 +160,15 @@ function drive(dt, c) {
 }
 
 function beginTurn(c, T, st, node) {
-    const moves = movesFrom(node).filter(m => m.node && !(m.street === T.street && m.dir === -T.dir) && !blocked(m.street, m.dir, node));
+    const R = routeOf(c.kind);
+    let moves = movesFrom(node).filter(m => m.node && !(m.street === T.street && m.dir === -T.dir) && !blocked(m.street, m.dir, node));
+    if (R) { const ok = moves.filter(m => R.has(m.street)); if (ok.length) moves = ok; }
     if (!moves.length) { T.dir = -T.dir; c.dir = T.dir; T.node = nodeAhead(st, c.s - st.base, T.dir); return; }
     const straight = moves.find(m => m.street === T.street);
     const m = straight && C.rnd() < 0.5 ? straight : moves[Math.floor(C.rnd() * moves.length)];
     const nst = PL.STREETS[m.street];
     const na = nodeAlong(nst, node);
-    const exitAlong = na + m.dir * (isCircle(node) ? RING_OUT : STOP + 1);
+    const exitAlong = isCircle(node) ? na + m.dir * RING_OUT : cutAt(nst, node, -m.dir, laneD(m.dir), otherAt(node, nst.id).outer + 3);
     // the path (local coords): from here to the new lane
     toLocal(c.x, c.z, _l);
     const a = { x: _l.x, z: _l.z };
@@ -242,8 +261,9 @@ function gapTurn(c) {
 /** A free spot on the grid for a new driver, at least `minD` m from Lulu: {street, along, dir}. */
 export function randomSpot(minD = 60, kind = "town_van") {
     const car = ctx.car;
+    const R = routeOf(kind), pool = R ? PL.STREETS.filter(s => R.has(s.id)) : PL.STREETS;
     for (let k = 0; k < 40; k++) {
-        const st = PL.STREETS[Math.floor(C.rnd() * PL.STREETS.length)];
+        const st = pool[Math.floor(C.rnd() * pool.length)];
         if (st.cross.length < 2) continue;
         const seg = Math.floor(C.rnd() * (st.cross.length - 1));
         const a0 = st.cross[seg].a, a1 = st.cross[seg + 1].a;
