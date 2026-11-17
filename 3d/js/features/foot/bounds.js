@@ -399,7 +399,7 @@ function terrain(F, B, dt) {
             B.said[zone] = true;
             const isDry = dry();
             if (!hasBubble(F.lulu.obj)) bubble(F.lulu.obj, pick(zone === "mud" ? (isDry ? LINES.sand : LINES.mud) : (isDry ? LINES.scrub : LINES.grass)), 2.4);
-            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 💩", "#D7B98E", 1.4, 2.7); SFX.squelch(); }
+            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 🥾", "#D7B98E", 1.4, 2.7); SFX.squelch(); }
         }
         B.zone = zone;
     }
