@@ -179,6 +179,8 @@ export function tickHelp(dt) {
     if (!V || V.dead) { CM.help = null; return; }
     const lp = luluPos(), dist = Math.hypot(V.car.x - lp.x, V.car.z - lp.z);
     const foot = onFoot();
+    // lost in the grid (a jam, a dead end, a goose): it turns up round the corner behind her instead
+    if (!h.stub && !foot && h.t > 18 && !h.hop && dist > 35) { h.hop = true; hopBehind(V); }
     if (h.t > 70) { cancelHelp(`${ORGS[h.org].emoji} They couldn't find you. (Lakewood has ONE street sign.)`); return; }
     if (h.kind === "gas") {
         if (dist < 12 && !foot) {
@@ -208,6 +210,14 @@ export function tickHelp(dt) {
     if (dist < 13 && ctx.car.speed < 2.5) { park(V, true); visitScene(h); return; }
     if (dist < 30 && ctx.car.speed > 9) h.fast = (h.fast || 0) + dt;
     if ((h.fast || 0) > 14) cancelHelp(ASSIST.cancel);
+}
+
+function hopBehind(V) {
+    const car = ctx.car, rd = ctx.world.road, n = rd.nearest(car.pos.x, car.pos.z, car.s, {});
+    const fwd = Math.sin(car.h) * Math.sin(n.h) + Math.cos(car.h) * Math.cos(n.h) >= 0 ? 1 : -1;
+    const s = n.s - fwd * 32, d = inTown() ? fwd * 1.75 : (fwd > 0 ? 5.25 : 1.75), p = rd.point(s, d, {});
+    const c = V.car;
+    c.x = p.x; c.z = p.z; c.h = fwd > 0 ? p.h : p.h + Math.PI; c.s = s; c.d = d; c.speed = 6;
 }
 
 // Chaverim notice a wrecked car sitting still in town and pull up unasked (once in a while)

@@ -121,7 +121,6 @@ export function tickBY(dt) {
     by.talkT -= dt;
     if (d < 12 && by.talkT <= 0 && !by.blend) { by.talkT = rand(5, 8); const g = pick(by.girls); if (g) bubble(g.p.obj, pick(BY.girls), 2.2, "kid"); }
     if (onFoot() && heat() && d < 40 && !by.blend) hintOnce("by", `<b>${BY.hint}</b><small>walk up to the line · ${glyph("interact")} ${BY.prompt}</small>`, 4200);
-    if (by.blend) tickBlend(by, dt);
     if (by.pursuer && !by.blend) {
         const P = by.pursuer;
         P.t += dt;
@@ -198,7 +197,7 @@ function disguise(B, on) {
 }
 function blendCam(by, dt) {
     const lp = ctx.foot.pos, S = by.spot;
-    _a.set(lp.x + S.nx * 8.5 - S.ux * 2.5, 3.0, lp.z + S.nz * 8.5 - S.uz * 2.5);
+    _a.set(lp.x + S.nx * 6.2 - S.ux * 2.2, 4.8, lp.z + S.nz * 6.2 - S.uz * 2.2);   // (high enough to clear the parked minivans)
     _b.set(lp.x + S.ux * 1.5, 1.1, lp.z + S.uz * 1.5);
     ctx.cam.cinematic(_a, _b, dt, 2.2, 52);
 }

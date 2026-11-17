@@ -148,7 +148,7 @@ export function luluSay(text, sec = 2.8) {
     if (!text || ctx.skipping) return false;
     try {
         if (onFoot() && ctx.foot.say && ctx.foot.obj) return !!ctx.foot.say(ctx.foot.obj, text, sec);
-        if (ctx.banter && ctx.banter.say && ctx.state === "playing") return !!ctx.banter.say("community", {}, { force: true, line: text });
+        if (ctx.banter && ctx.banter.say && ctx.state === "playing") return !!ctx.banter.say(text);      // (a raw line: banter says it as-is)
     } catch (e) { console.error("[community] say", e); }
     H.toast(`💬 ${text}`, "pink");
     return true;

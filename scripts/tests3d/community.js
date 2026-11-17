@@ -51,6 +51,8 @@ module.exports = {
       const E = await g(`ctx.town.debug.exitAhead(1100)`);
       t.check("an exit is planned ahead", typeof E === "number", String(E));
       t.check("ctx.town.exits lists it", await g(`ctx.town.exits.some(e => e.id === "lakewood" && Math.abs(e.s - ${E}) < 1)`));
+      // (planExit slides an exit clear of the pull-in places: put her ~900 m before it, in the approach zone)
+      await g(`(() => { const r = ctx.world.road, s = ${E} - 900, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = Math.sin(p.h) * 20; ctx.car.vz = Math.cos(p.h) * 20; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.L(`import("./js/core/driving.js").then(m => import("./js/core/ctx.js").then(c => c.hook("controls", (ctl, dt) => { if (window.__auto) Object.assign(ctl, m.autoDrive(dt, 5.25, 24)); }, 999)))`);
       await g(`(window.__auto = true, ${C}.debug.CM.hwT = 0.5, true)`);
       await t.until(`__lulu3d.ctx.community.vehicles.length > 0 || !!__lulu3d.ctx.community.debug.CM.scene`, "a Chaverim / Shomrim / Hatzalah sighting on the approach", 40000);
@@ -104,7 +106,7 @@ module.exports = {
       const c0 = await g(`ctx.G.coins`);
       await t.until(`!!__lulu3d.ctx.community.scene && __lulu3d.ctx.community.scene.phase === "work"`, "…a Chaverim car pulls up and the volunteer gets to work", 40000);
       // look at it
-      await g(`(() => { const s = ${C}.debug.CM.scene; const r = ctx.world.road, n = r.nearest(s.at.x, s.at.z, s.at.s, {}); const p = r.point(n.s - 22 * (s.at.side), 1.75 * s.at.side, {}); ctx.car.place(p.x, p.z, s.at.side > 0 ? p.h : p.h + Math.PI); ctx.car.s = n.s - 22 * s.at.side; ctx.car.d = 1.75 * s.at.side; ctx.cam.snap(); return true; })()`);
+      await g(`(() => { const s = ${C}.debug.CM.scene; const r = ctx.world.road, n = r.nearest(s.at.x, s.at.z, s.at.s, {}); const p = r.point(n.s - 12 * (s.at.side), 1.75 * s.at.side, {}); ctx.car.place(p.x, p.z, s.at.side > 0 ? p.h : p.h + Math.PI); ctx.car.s = n.s - 12 * s.at.side; ctx.car.d = 1.75 * s.at.side; ctx.cam.snap(); return true; })()`);
       await t.frames(20);
       await t.shot("chaverim-flat");
       await t.until(`__ev.some(e => e.startsWith("community:scene") && e.includes('"done"') && e.includes('"byLulu":true'))`, "…fixed: a mitzvah (byLulu)", 20000);
@@ -122,7 +124,7 @@ module.exports = {
       if (!ok) return;
       await g(`${C}.call("hatzalah", "scene")`);
       await t.until(`!!__lulu3d.ctx.community.scene && __lulu3d.ctx.community.scene.phase === "work"`, "Hatzalah is there (lights, siren) before she hangs up", 40000);
-      await g(`(() => { const s = ${C}.debug.CM.scene; const r = ctx.world.road, n = r.nearest(s.at.x, s.at.z, s.at.s, {}); const p = r.point(n.s - 18 * s.at.side, 1.75 * s.at.side, {}); ctx.car.place(p.x, p.z, s.at.side > 0 ? p.h : p.h + Math.PI); ctx.car.s = n.s - 18 * s.at.side; ctx.car.d = 1.75 * s.at.side; ctx.cam.snap(); return true; })()`);
+      await g(`(() => { const s = ${C}.debug.CM.scene; const r = ctx.world.road, n = r.nearest(s.at.x, s.at.z, s.at.s, {}); const p = r.point(n.s - 11 * s.at.side, 1.75 * s.at.side, {}); ctx.car.place(p.x, p.z, s.at.side > 0 ? p.h : p.h + Math.PI); ctx.car.s = n.s - 11 * s.at.side; ctx.car.d = 1.75 * s.at.side; ctx.cam.snap(); return true; })()`);
       await t.frames(15);
       await t.shot("hatzalah");
       await g(`${C}.debug.reset()`);
@@ -135,8 +137,9 @@ module.exports = {
       await stop();
       await g(`(ctx.G.hearts = 1, ctx.feel && ctx.feel.debug && ctx.feel.debug.wear ? ctx.feel.debug.wear(2) : 0, true)`);
       t.check("the app offers 'My car's banged up'", await g(`${C}.reasons("chaverim").includes("fix")`));
-      await g(`${C}.request("fix")`);
-      await t.until(`__lulu3d.state === "communityScene"`, "Chaverim pull up behind her → the fix-up scene", 40000);
+      t.check("request('fix') dispatches a Chaverim car", await g(`${C}.request("fix")`));
+      if (!await t.until(`__lulu3d.state === "communityScene"`, "Chaverim pull up behind her → the fix-up scene", 40000))
+        console.log("   DIAG", await g(`JSON.stringify({ help: ${C}.help, veh: ${C}.vehicles.map(v => [v.org, v.mode, Math.round(Math.hypot(v.x - ctx.car.pos.x, v.z - ctx.car.pos.z))]), speed: ctx.car.speed, chase: ${C}.chase, law: ctx.law.chasing })`));
       t.check("…and the town is still there (allowed state)", await g(`ctx.town.active`));
       await t.frames(50);
       await t.shot("chaverim-fix");
@@ -194,17 +197,6 @@ module.exports = {
       await g(`(${C}.debug.force.noHold = false, true)`);
     });
 
-    // ── 8. 911 on herself (while wanted) ──────────────────────────────────
-    await step("911", async () => {
-      if (!await inTown()) return;
-      await g(`(${C}.debug.reset(), ctx.law.addWarrant("JAYWALKING"), true)`);
-      t.check("wanted: 911 offers 'Report a pink convertible…' + 'Turn myself in'", await g(`${C}.reasons("police").includes("self") && ${C}.reasons("police").includes("surrender")`));
-      await g(`(ctx.law._dbg.L.grace = 0, ctx.law._dbg.L.hold = 0, ${C}.call("police", "self"))`);
-      await t.until(`__lulu3d.ctx.law.chasing`, "…the trace leads to the pink convertible: a chase", 20000);
-      await g(`(ctx.law.clearHeat("test"), true)`);
-      await t.frames(10);
-    });
-
     // ── 9. the Bais Yaakov: BLEND IN ─────────────────────────────────────
     await step("blend", async () => {
       if (!await inTown()) return;
@@ -239,6 +231,18 @@ module.exports = {
       await t.until(`__ev.some(e => e.startsWith("community:by") && e.includes('"win"'))`, "ten clean steps + a survived look: BLENDED IN", 40000);
       t.check("…the heat's off (no chase, no Shomrim)", await g(`!ctx.law.chasing && !${C}.chase`));
       await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "…and she walks on", 6000);
+    });
+
+    // ── 8. 911 on herself (while wanted) ──────────────────────────────────
+    await step("911", async () => {
+      if (!await inTown()) return;
+      await g(`ctx.law.addWarrant("JAYWALKING")`);
+      
+      t.check("wanted: 911 offers 'Report a pink convertible…' + 'Turn myself in'", await g(`${C}.reasons("police").includes("self") && ${C}.reasons("police").includes("surrender")`));
+      await g(`(ctx.law._dbg.L.grace = 0, ctx.law._dbg.L.hold = 0, ${C}.call("police", "self"))`);
+      await t.until(`__lulu3d.ctx.law.chasing`, "…the trace leads to the pink convertible: a chase", 20000);
+      await g(`(ctx.law.clearHeat("test"), true)`);
+      await t.frames(10);
     });
 
     // ── 10. layouts + HUD Clean, with a Shomrim chip up ────────────────────
