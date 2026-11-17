@@ -146,10 +146,12 @@ module.exports = {
       await t.until(`__lulu3d.state === "playing"`, "…back on the road", 30000);
       t.check("+❤️ (hearts 1 → 2)", await g(`ctx.G.hearts >= 2`), String(await g(`ctx.G.hearts`)));
       // Hatzalah for her
-      await g(`(ctx.G.hearts = 1, true)`);
-      await t.until(`!__lulu3d.ctx.community.help`, "the Chaverim car leaves", 20000);
-      await g(`${C}.request("patch")`);
-      await t.until(`__lulu3d.state === "communityScene"`, "Hatzalah patch-up scene", 40000);
+      // (no unasked Chaverim visit racing the call: she's hurt and parked, which is exactly when they offer)
+      await g(`(${C}.debug.CM.assistCool = 999, ctx.G.hearts = 1, true)`);
+      await t.until(`!__lulu3d.ctx.community.help && __lulu3d.state === "playing"`, "the Chaverim car leaves", 20000);
+      t.check("request('patch') dispatches Hatzalah", await g(`${C}.request("patch")`));
+      if (!await t.until(`__lulu3d.state === "communityScene"`, "Hatzalah patch-up scene", 40000))
+        console.log("   DIAG", await g(`JSON.stringify({ help: ${C}.help && { kind: ${C}.help.kind, phase: ${C}.help.phase, t: ${C}.help.t, hop: ${C}.help.hop }, veh: ${C}.vehicles.map(v => [v.org, v.mode, Math.round(Math.hypot(v.x - ctx.car.pos.x, v.z - ctx.car.pos.z))]), speed: ctx.car.speed, state: __lulu3d.state })`));
       await t.until(`__lulu3d.state === "playing"`, "…done", 30000);
       t.check("patched: +❤️", await g(`ctx.G.hearts >= 2`));
     });
