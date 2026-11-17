@@ -59,6 +59,10 @@ module.exports = {
     t.check("ctx.foot.bounds is exposed", await g(`!!(ctx.foot.bounds && ctx.foot.bounds.EDGE && ctx.foot.bounds.NUDGE)`));
     const EDGE = await g(`ctx.foot.bounds.EDGE`);
 
+    // a log of state changes + foot sessions ending (printed when something goes wrong)
+    await t.L(`import("./js/core/ctx.js").then(C => { const log = window.__fbLog = []; C.on("foot:end", e => log.push("end:" + e.why + "@" + C.ctx.state + " d=" + (C.ctx.car ? C.ctx.car.d.toFixed(1) : "?")));
+      C.on("state", e => log.push(e.from + ">" + e.to)); C.on("damage", e => log.push("damage:" + e.why)); return true; })`);
+    const fbLog = () => t.L(`JSON.stringify(window.__fbLog) + " state=" + __lulu3d.state`);
     // ── on foot, on a quiet road ──
     await g(`L3.startRun({ mode: "cruise" })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "drive starts")) return;
@@ -196,21 +200,22 @@ module.exports = {
     }
 
     // ── 5. jaywalking down the lanes ──
-    await t.L(`import("./js/core/ctx.js").then(C => { const log = window.__fbLog = []; C.on("foot:end", e => log.push("end:" + e.why + "@" + C.ctx.state));
-      C.on("state", e => log.push(e.from + ">" + e.to)); return true; })`);
+    await t.L(`(window.__fbLog.length = 0, true)`);
     await t.frames(30);
     await g(`(ctx.traffic.clear(), ctx.foot.start("droveOff", { noIntro: true }))`);
     if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "back on foot")) return;
     await t.frames(20);
-    if (!t.check("the walk sticks (no stray state change)", await g(`ctx.state === "footRun" && ctx.foot.active`), await t.L(`JSON.stringify(window.__fbLog)`))) return;
+    if (!t.check("the walk sticks (no stray state change)", await g(`ctx.state === "footRun" && ctx.foot.active && !!ctx.foot.bounds.state`), await fbLog())) return;
     await g(`(Object.assign(ctx.foot.bounds.NUDGE, { laneWarn: 3, laneStar: 3, gap: 4 }), ctx.foot.bounds.debug.aim(0), true)`);
     await place(3.5);
+    await t.frames(3);
+    if (!t.check("still on foot in the lanes", await g(`!!ctx.foot.bounds.state`), await fbLog())) return;
     await t.stick(0, -0.45);
-    for (let i = 0; i < 60 && !(await g(`!!(ctx.foot.bounds.state.cop && ctx.foot.bounds.state.cop.phase === "wait")`)); i++) {
+    for (let i = 0; i < 60 && !(await g(`!!(ctx.foot.bounds.state && ctx.foot.bounds.state.cop && ctx.foot.bounds.state.cop.phase === "wait")`)); i++) {
       await t.frames(10);
       await g(`(() => { const F = ctx.foot.debug.F; if (!F) return false; if (Math.abs(F.d - 3.5) > 0.3) { const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); } F.behindT = 1e9; ctx.G.invT = 5; return true; })()`);
     }
-    t.check("walking down the lanes: a cop pulls up — Ma'am, this is a HIGHWAY", await g(`!!(ctx.foot.bounds.state && ctx.foot.bounds.state.cop && ctx.foot.bounds.state.warned)`), await t.L(`JSON.stringify(window.__fbLog)`));
+    t.check("walking down the lanes: a cop pulls up — Ma'am, this is a HIGHWAY", await g(`!!(ctx.foot.bounds.state && ctx.foot.bounds.state.cop && ctx.foot.bounds.state.warned)`), await fbLog());
     await t.frames(8);
     await t.shot("cop-warning");
     for (let i = 0; i < 40 && !(await B("starred")); i++) {
