@@ -192,6 +192,8 @@ module.exports = {
     t.check("…with a retry", /Try again/.test(txt));
     await t.frames(90);                                     // (we jumped the clock: let the sky catch up to dusk)
     t.check("…the sun has set behind the card", (await g(`ctx.atmos.clock`)) > 0.49, await g(`ctx.atmos.clock`));
+    const top = await g(`(() => { const c = ctx.world.sky.material.uniforms.top.value; return +(c.r * 0.3 + c.g * 0.59 + c.b * 0.11).toFixed(3); })()`);
+    t.check("…and the sky really is dusk (not repainted to day)", top < 0.2, `top luminance ${top}`);
     await t.shot("late");
     await t.click(/Try again/);
     t.check("retry from the fail card", await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.shabbos.active`, "…drives again"));

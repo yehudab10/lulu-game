@@ -475,8 +475,17 @@ registerState("shabbosResult", {
         updateDriving(dt, {}, false, R.made ? { steer: 0, throttle: 0, brake: 1, handbrake: false, analog: true } : null);
         if (R.made) tickPorch(dt, { cheer: true });
     },
-    camera(dt) { return R.made ? porchCam(dt, 1) : false; },
+    // late: our own shot (behind the stopped car, out to the sunset). Without one, core falls back to
+    // the title camera hooks, where the journey repaints its daytime palette after atmos has ticked.
+    camera(dt) { return R.made ? porchCam(dt, 1) : lateCam(dt); },
 });
+function lateCam(dt) {
+    const car = ctx.car, fx = Math.sin(car.h), fz = Math.cos(car.h);
+    _from.set(car.pos.x - fx * 9, 3.4, car.pos.z - fz * 9);
+    _look.set(car.pos.x + fx * 40, 4.5, car.pos.z + fz * 40);
+    ctx.cam.cinematic(_from, _look, dt, 1.2, 55);
+    return true;
+}
 
 // ── the Friday chip on the home screen's top bar (one tap starts it) ─────
 addMenuItem("titleInfo", {
