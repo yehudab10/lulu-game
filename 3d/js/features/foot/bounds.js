@@ -738,9 +738,10 @@ function copWarn(F, B) {
             SFX.chirp();
             ctx.foot.say(rr.car.obj, pick(LINES.cop), 2.6, { cls: "cop" });
             H.toast("🚓 Jaywalking warning — stick to the shoulder", "red");
+            // the warning counts once it's been said; the clock to the ★ starts now
+            if (F.bx === B) { B.warned = true; B.laneT = 0; B.gapT = Math.max(B.gapT, NUDGE.gap); }
         },
     });
-    B.warned = true;
     B.laneT = 0;
     fired(B, "cop");
     return true;
@@ -748,6 +749,7 @@ function copWarn(F, B) {
 function jaywalkStar(F, B) {
     B.starred = true;
     B.laneT = 0;
+    F.chaseCool = Math.max(F.chaseCool || 0, 25);   // a MILD ★: a ticket on file, not a foot chase on the spot
     fired(B, "star");
     SFX.chirp();
     if (ctx.law && ctx.law.addWarrant) {
