@@ -382,7 +382,20 @@ district. Hooks into other features (all guarded by `ctx.town && ctx.town.active
 cruisers join at `ctx.town.copSpawn`; **foot** — the walking frame comes from `ctx.town.footYaw`;
 **streets** — no roadblocks and the chop-shop order pauses in town. A scene the town can't host (jail,
 the ER, any set) first sends her back to the highway; out of hearts she's towed to the highway's
-shoulder and the usual aftermath plays there (`hooks.wreck` priority 40, never claims).
+shoulder and the usual aftermath plays there (`hooks.wreck` priority 40, never claims). The group-chat
+gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets a 🗞️ **Kvetch** app
+(order 70: the town's parody local news + what Lulu just did).
+**Performance:** static pieces are merged by `kit.js` into vertex-coloured clusters (shadow casters in
+50 m cells, everything else in 120 m cells; one material per look), every bit of text is one atlas mesh,
+parked cars use the light `town_minivan_lod` (no shadow, a dark patch underneath), townsfolk cast no
+shadow, and far town cars / people / geese are hidden. The test (`scripts/tests3d/town.js`) logs
+`PERF busy cruise` vs `PERF town`.
+**A second town** (e.g. Midwood) is a new `features/town/towns/<id>.js` (+ its lines file) registered in
+`towns/index.js`: streets are axis-aligned lines with names and any spacing (service roads, wide avenues),
+`blocks` give each face a use, `circle` / `jams` / `blocked` / `hazards` / `water` / `woods` / `billboards`
+/ `signs` / `coins` / `people` / `traffic` / `entry` / `exits` / `highway` are all data. New block uses
+or landmark kinds (an elevated train, a college quad) are new cases in `build.js`'s `layoutFace` +
+models in `assets_town.py`; diagonal streets would need a non-axis street type in `plan.js`.
 
 **Lulu's phone (phone):** one GTA-style entry point for the extras, so features add an APP instead of a button.
 The phone opens in `playing` and `footRun` (touchpad / Tab / Xbox L3, the 📱 corner button — it takes the ❚❚ spot in
