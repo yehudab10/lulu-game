@@ -236,11 +236,13 @@ module.exports = {
     // a car whooshing past mid-roll → MATADOR (cars can't touch her mid-move)
     await G(`(() => { const F = ctx.foot.debug.F; window.__bull = ctx.traffic.add("sedan", F.s - 7, F.d + 1.4, 1, 16,
       { ai: (dt, c) => { c.s += 16 * dt; c.d = F.d + 1.4; } }); return true; })()`);
+    const hearts0 = await G(`ctx.G.hearts`);
     await t.frames(4);
     await t.tap(2);
     await t.until(`!__lulu3d.ctx.moves.debug.foot().on && __lulu3d.ctx.foot.phase !== "script"`, "the roll ends", 5000);
-    const ole = await G(`({ m: ${M}.save.q.matador || 0, hearts: ctx.G.hearts, n: ${M}.combo.n, foot: ${M}.combo.foot })`);
-    t.check("🐂 MATADOR: a car shot past mid-roll, no knockdown", ole.m >= 1 && ole.hearts === 3, JSON.stringify(ole));
+    await t.frames(10);
+    const ole = await G(`({ m: ${M}.save.q.matador || 0, hearts: ctx.G.hearts, phase: ctx.foot.phase, n: ${M}.combo.n, foot: ${M}.combo.foot })`);
+    t.check("🐂 MATADOR: a car shot past mid-roll, no knockdown", ole.m >= 1 && ole.hearts === hearts0 && ole.phase !== "knock", JSON.stringify(ole) + " hearts before " + hearts0);
     t.check("on-foot moves chain into a combo", ole.n >= 2 && ole.foot === true, JSON.stringify(ole));
     await G(`(ctx.traffic.remove(window.__bull), true)`);
     await bankNow(); await t.frames(3);
