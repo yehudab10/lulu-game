@@ -357,7 +357,7 @@ def build_minivan_lod():
         parts.append(Part(coll, "head", bm_box(0.42, 0.06, 0.16), S.HEAD, loc=(sx * 0.62, -2.5, 0.9), smooth=False))
         parts.append(Part(coll, "tail", bm_box(0.18, 0.06, 0.55), S.TAIL, loc=(sx * 0.84, 2.5, 1.15), smooth=False))
     for x, y in ((0.84, -1.62), (-0.84, -1.62), (0.84, 1.68), (-0.84, 1.68)):
-        parts.append(Part(coll, "wheel", bm_cyl(0.36, 0.36, 0.26, 8, "X"), S.TIRE, loc=(x, y, 0.36), smooth=False))
+        parts.append(Part(coll, "wheel", bm_box(0.26, 0.66, 0.66), S.TIRE, loc=(x, y, 0.33), smooth=False))
     bake(parts, "TownMinivanLod_body", coll, parent=root)
     return coll
 

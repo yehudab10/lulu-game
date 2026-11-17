@@ -274,7 +274,7 @@ export function buildTown(def) {
     // ── street furniture: parked minivans, lamps ─────────────────────────
     const chair = def.chair && street(def.chair.street);
     function lampAt(x, z, rot) {
-        place("town_lamp", x, z, rot);
+        place("town_lamp", x, z, rot, null, { noShadow: true });
         col(x, z, 0.22, "pole");
         const fx = Math.sin(rot), fz = Math.cos(rot);
         T.lamps.push({ x: x + fx * 2.0, y: 6.2, z: z + fz * 2.0, gx: x + fx * 3.6, gz: z + fz * 3.6 });
@@ -317,7 +317,7 @@ export function buildTown(def) {
         const st = PL.STREETS[s.street];
         const p = streetPoint(st, s.along - s.dir * 1.2, s.dir * (CURB + 1.0), {});
         const face = st.h + (s.dir > 0 ? Math.PI : 0);     // faces the approaching driver
-        place("town_stop", p.x, p.z, face);
+        place("town_stop", p.x, p.z, face, null, { noShadow: true });
         col(p.x, p.z, 0.14, "sign");
         const a = anchorAt("town_stop", p.x, p.z, face);
         if (a) atlas.quad(stopUV, a.x + Math.sin(face) * 0.035, a.y, a.z + Math.cos(face) * 0.035, face, 0.62, 0.62);
@@ -419,7 +419,7 @@ export function buildTown(def) {
         if (streetGap(mx + nx * 5, mz + nz * 5) < streetGap(mx - nx * 5, mz - nz * 5)) { nx = -nx; nz = -nz; }
         for (let k = 0; k <= n; k++) {
             const t = k / n;
-            for (const off of k % 2 ? [0] : [0, 6]) {
+            for (const off of k % 3 ? [0] : [0, 6]) {
                 const x = x0 + (x1 - x0) * t + nx * off + (R() - 0.5) * 2, z = z0 + (z1 - z0) * t + nz * off + (R() - 0.5) * 2;
                 place(R() < 0.55 ? "treePine" : "treeRound", x, z, R() * 6.28, { Leaves: leaf(R), PineLeaves: R() < 0.5 ? "#2F8F46" : "#3C7D4A" }, { scale: 1.1 + R() * 0.5, noShadow: true });
                 if (off === 0) col(x, z, 1.4, "tree");
@@ -549,7 +549,7 @@ function addColored(merge, g, hex, x, z, look = "solid") {
 function poleAt(merge, x, z, h) {
     const g = new THREE.CylinderGeometry(0.05, 0.05, h, 6);
     g.translate(x, h / 2, z);
-    addColored(merge, g, "#9AA3AB", x, z);
+    addColored(merge, g, "#9AA3AB", x, z, "flat");
 }
 function laneLine(list, st, u0, u1, d, w, color) {
     const a = streetPoint(st, u0, d - w / 2, {}), b = streetPoint(st, u1, d + w / 2, {});
@@ -619,7 +619,7 @@ function layoutFace(kind, len, R) {
             if (u + w > len + 0.5) break;
             out.push({ key, u: u + w / 2 });
             u += w;
-            if (gapVan && u + 4 < len && R() < 0.75) { out.push({ key: "van", u: u + 1.9 }); u += 3.8; }
+            if (gapVan && u + 4 < len && R() < 0.5) { out.push({ key: "van", u: u + 1.9 }); u += 3.8; }
             else u += 0.8;
         }
         // centre what fitted

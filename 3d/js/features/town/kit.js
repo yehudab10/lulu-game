@@ -58,12 +58,15 @@ function bakeGeometry(g, m, color) {
 
 /** Collects static pieces into clusters, then bakes them into a few meshes each. */
 export class Merger {
-    constructor(cell = 120) { this.cell = cell; this.clusters = new Map(); this.tris = 0; }
-    bucket(x, z) {
-        const k = Math.floor(x / this.cell) + "," + Math.floor(z / this.cell);
-        let b = this.clusters.get(k);
-        if (!b) { b = { solid: [], flat: [], glass: [], glow: [], lit: [] }; this.clusters.set(k, b); }
-        return b;
+    /** cell: cluster size (m); casters (the shadow-casting "solid" look) use castCell, so the shadow pass
+     *  around her only draws a few small clusters, not whole 120 m chunks of town. */
+    constructor(cell = 120, castCell = 50) { this.cell = cell; this.castCell = castCell; this.clusters = new Map(); this.tris = 0; }
+    list(x, z, look) {
+        const c = look === "solid" ? this.castCell : this.cell;
+        const k = look + ":" + Math.floor(x / c) + "," + Math.floor(z / c);
+        let l = this.clusters.get(k);
+        if (!l) { l = []; l.look = look; this.clusters.set(k, l); }
+        return l;
     }
     /**
      * Add a template at world matrix `m`. tints: { MatName: "#hex" | THREE.Color }.
@@ -72,8 +75,7 @@ export class Merger {
      */
     add(template, m, tints = null, opts = {}) {
         const parts = partsOf(template);
-        const e = m.elements;
-        const b = this.bucket(opts.at ? opts.at[0] : e[12], opts.at ? opts.at[1] : e[14]);
+        const e = m.elements, bx = opts.at ? opts.at[0] : e[12], bz = opts.at ? opts.at[1] : e[14];
         for (const p of parts) {
             if (opts.skip && opts.skip.test(p.node)) continue;
             let look = lookOf(p.mat);
@@ -82,18 +84,18 @@ export class Merger {
             const t = tints && tints[p.name];
             if (t) _c.set(t); else _c.copy(p.mat.color);
             _m.multiplyMatrices(m, p.local);
-            b[look].push(bakeGeometry(p.g, _m, _c));
+            this.list(bx, bz, look).push(bakeGeometry(p.g, _m, _c));
             this.tris += (p.g.index ? p.g.index.count : p.g.attributes.position.count) / 3;
         }
     }
     /** Add raw geometry (already in world space, with a colour attribute) to a look. */
-    addGeometry(g, look, x, z) { this.bucket(x, z)[look].push(g); this.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; }
+    addGeometry(g, look, x, z) { this.list(x, z, look).push(g); this.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; }
     /** Bake: → [THREE.Mesh] (one per cluster per look), using the shared look materials. */
     build(mats) {
         const out = [];
-        for (const b of this.clusters.values()) {
-            for (const look of Object.keys(b)) {
-                const list = b[look];
+        for (const list of this.clusters.values()) {
+            {
+                const look = list.look;
                 if (!list.length) continue;
                 const g = mergeGeometries(list, false);
                 for (const x of list) x.dispose();

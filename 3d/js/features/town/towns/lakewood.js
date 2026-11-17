@@ -84,7 +84,7 @@ export default {
 
     // who you can meet, where (spots come from the build: pizza / hall / chair / lake / welcome / yeshiva)
     people: [
-        { id: "brooklyn", at: "pizza", off: [5, 0.6] }, { id: "pizza", at: "pizza", off: [-4, 0.2], line: 4 },
+        { id: "brooklyn", at: "pizza", off: [5, 0.6] }, { id: "pizza", at: "pizza", off: [-4, 0.2], line: 3 },
         { id: "monsey", at: "hall", off: [6, 0.4] }, { id: "local", at: "hall", off: [-9, 0.8] },
         { id: "chair", at: "chair" }, { id: "agent", at: "welcome", off: [4, -3] }, { id: "local", at: "yeshiva", off: [7, 0.4], alt: true },
     ],

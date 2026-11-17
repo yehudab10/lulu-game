@@ -110,6 +110,7 @@ export function startLife(T, def) {
         const bike = cloneWithColors(models.town_ebike);
         grp.add(bike);
         const rider = spawnPerson("town_bochur");
+        rider.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
         rider.obj.position.set(0, 0.42, 0.18);
         grp.add(rider.obj);
         grp.rotation.order = "YXZ";
@@ -122,6 +123,7 @@ export function startLife(T, def) {
 function addPerson(key, x, z, face, colors, info) {
     if (!models[key]) return null;
     const p = spawnPerson(key, { colors: colors || null });
+    p.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
     p.obj.position.copy(W(x, z));
     p.obj.rotation.y = face;
     LIFE.T.root.parent.add(p.obj);
@@ -175,7 +177,7 @@ export function tickLife(dt) {
     // people: idle, talk, heckle her as she drives by; far ones are hidden (cheap LOD)
     for (const r of LIFE.people) {
         const o = r.p.obj, dc = Math.hypot(o.position.x - cam.x, o.position.z - cam.z);
-        o.visible = dc < 60;
+        o.visible = dc < 48;
         if (!o.visible) continue;
         if (r.talkT > 0) r.talkT -= dt;
         r.idle += dt;

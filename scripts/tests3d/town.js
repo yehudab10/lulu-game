@@ -184,6 +184,7 @@ module.exports = {
       await t.frames(40);
       const town = await perf(150);
       console.log("   PERF town", JSON.stringify(town));
+      console.log("   PERF town static", JSON.stringify(await g(`(() => { const T = ctx.town.debug.S.T; const by = {}; T.root.traverse(o => { if (o.isMesh && o.userData.townLook) { const k = o.userData.townLook; by[k] = (by[k] || 0) + o.geometry.index.count / 3; } }); return { tris: Math.round(T.tris), meshes: T.merged, by }; })()`)));
       t.check("town draw calls ≤ busy Cruise", town.calls <= busy.calls * 1.05, `${town.calls} vs ${busy.calls}`);
       t.check("town triangles ≤ busy Cruise", town.tris <= busy.tris * 1.05, `${town.tris} vs ${busy.tris}`);
       await g(`(window.__route = null, true)`);
