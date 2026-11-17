@@ -65,7 +65,7 @@ const ord = n => n + (n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n 
 const _pos = {};
 /** Where player uid is right now (world x/z), as THIS screen sees them — or null. */
 function posOf(uid) {
-    if (uid === me()) { const p = onFoot() && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos; return { x: p.x, z: p.z }; }
+    if (uid === me()) { const p = onFoot() && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos; _pos.x = p.x; _pos.z = p.z; return _pos; }
     if (!roam()) return null;
     const rc = ctx.party.remoteCar(uid);
     return rc && rc.shown ? { x: rc.x, z: rc.z } : null;
@@ -302,9 +302,13 @@ function startGame(k, starter, req) {
     setG(g);
     return true;
 }
-function hostTick() {
+let hostAt = -1e9;
+function hostTick(force = false) {
     const g = getG();
     if (!g || g.ph !== "go") return;
+    const w = performance.now();
+    if (!force && w - hostAt < 100) return;              // the end conditions at 10 Hz (a clone per check)
+    hostAt = w;
     const t = now(), ng = clone(g);
     const r = GAMES[g.k].tick(ng, t, members());
     if (r === true) { ng.ph = "done"; ng.endAt = Math.round(t); setG(ng); }
