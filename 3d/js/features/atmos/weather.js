@@ -460,7 +460,8 @@ export function weatherVisuals(dt) {
 
     // spray behind the wheels on a wet / snowy road
     spray(dt);
-    sfx.rainLoop(S.rain * (S.fp ? 1.15 : 0.85));
+    // in the car: a drum on the bodywork + a duller hiss; on foot: the open-air hiss
+    sfx.rainLoop(S.rain * (S.fp ? 1.15 : 0.85), ctx.state === "footRun" || (ctx.foot && ctx.foot.active) ? "foot" : "car");
 }
 
 // ── spray: our own soft mist sprites (pulled toward the camera so the road can't slice them) ──

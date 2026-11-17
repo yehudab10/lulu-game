@@ -17,9 +17,24 @@ const TAPER0 = -180, RAMP0 = -60, RAMP1 = 170;
 export const rampD = u => 8.75 + 0.0011 * Math.max(0, u - RAMP0) ** 2;
 const smooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
 
+/** Slide an exit forward until its signs, decel lane and ramp keep clear of every pull-in place
+ *  (features/world's ctx.places: Gas 'n' Go, the Lookout, the family's driveways…). */
+function clearOfPlaces(s) {
+    const P = ctx.places;
+    if (!P || !P.list || !P.at) return s;
+    let busy = [];
+    try { for (const p of P.list()) busy = busy.concat(P.at(p.id) || []); } catch (e) { return s; }
+    for (let k = 0; k < 30; k++) {
+        if (!busy.some(b => b > s - 760 && b < s + RAMP1 + 220)) return s;
+        s += 250;
+    }
+    return s;
+}
+
 /** Plan exit k of this run (+ its reservations and roadside signs). */
 export function planExit(s, town) {
     const w = ctx.world;
+    s = clearOfPlaces(s);
     if (!w || X.exits.some(e => Math.abs(e.s - s) < 50)) return null;
     const res = [];
     const reserve = (a, b, side, d0, d1) => { w.reserve(a, b, side, d0, d1); res.push(w.reserved[w.reserved.length - 1]); };

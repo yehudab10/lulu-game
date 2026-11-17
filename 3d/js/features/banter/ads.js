@@ -6,6 +6,8 @@
 // legs: Story Trip legs it belongs to (0 Bubbe · 1 Heshy · 2 beach · 3 Avigail · 4 Vegas);
 // generic: also in Cruise (and as filler on any leg). A design may be a
 // function of the shared save (the lawyers know how often you've been arrested).
+// `art` is a name in ART below, or a function (g, design) drawing around 0,0 —
+// other features add their own designs with ctx.banter.addAd (memory's WANTED poster).
 import { shared } from "../../core/save.js";
 import { canvasTex } from "../../world.js";
 
@@ -159,7 +161,7 @@ function paint(g, w, h, d) {
     g.strokeStyle = d.accent; g.lineWidth = 12; g.stroke();
     g.save(); g.beginPath(); g.arc(cx, cy, R - 6, 0, 7); g.clip();
     g.translate(cx, cy); g.scale(R / 150, R / 150);
-    try { (ART[d.art] || ART.star)(g, d); } catch (e) { /* a picture never breaks a billboard */ }
+    try { (typeof d.art === "function" ? d.art : ART[d.art] || ART.star)(g, d); } catch (e) { /* a picture never breaks a billboard */ }
     g.restore();
     // words
     const x0 = 400, x1 = 985, mid = (x0 + x1) / 2, tw = x1 - x0;

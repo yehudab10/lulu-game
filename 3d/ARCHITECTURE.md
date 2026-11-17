@@ -19,6 +19,8 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/core/sets.js                           self-contained 3D scenes for interiors/minigames (makeSet, makeRoom, textPlane)
   js/core/platform.js                       PS5 / console / TV detection, TV mode
   js/features/dualsense/                    DualSense light bar + adaptive triggers + heart LEDs (WebHID)
+  js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
+  js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
   js/world.js  car.js  traffic.js           road + scenery chunks, Lulu's car, traffic
   js/input.js  audio.js  hud.js  models.js  controller/keyboard/touch, sound, HUD + menus, model loading
   js/features/<id>/index.js                 ← ONE DIRECTORY PER FEATURE (imported by features/index.js)
@@ -129,7 +131,7 @@ Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journ
   "🎲 More to play". `sub` = a subtitle line (string or fn); `short` = the name in its group tile's summary.
 - Title order guide: 10 story · 20 cruise · 30 shop · 32 car · 35 Dina · 40 parking challenge · 50 scrapbook ·
   55 quests · 57 💼 side jobs (book) · 60 🎉 party (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
-- `titleInfo` items: `bar: true` (a chip in the home top bar), `for: "<item id>"` (appended to that item's
+- `titleInfo` items: `bar: true` (a chip in the home top bar — bar orders: 4 🕯️ erev-Shabbos chip (Fridays) · 5 holiday · 6 streak), `for: "<item id>"` (appended to that item's
   subtitle) or `group: "<group>"` (a line atop that sub-menu); otherwise a small note at the foot of the home card.
 - pause `group`: `"main"` (full width), `"tools"` (2-column grid) or `"exit"` (quiet bottom row); default by
   order < 10 main · 10–69 tools · 70–89 main · ≥ 90 exit.
@@ -150,6 +152,8 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
 `wreck(why, source)`, `heal(n)`, `addCoins(n, why)` (HUD + shared wallet),
 `addScore(n, why)`, `updateDriving(...)`, `updateActors(dt, onFoot)`, `roadPos()`,
 `autoDrive(dt, d, speed)` (returns a ctl that steers along lane d), `statsHtml(extra)`, `MAX_HEARTS`.
+A `runStart` hook may set `G.introState = "<state>"` to replace the 3-2-1 countdown with its own departure
+state (world's driveway pull-out); `startRun({ quick: true })` asks for the plain countdown.
 
 ## Saves (`js/core/save.js`)
 * `store("myFeature", defaults)` → your persistent object (3D save). Call `saveSoon()` after changing it.
@@ -278,13 +282,38 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 ../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
 
+**Positional audio — `A.spatial`** (`js/spatial.js`, on the core AudioContext, so Sound off mutes it).
+Sounds you can LOCATE: a fixed pool of voices (`src → env → lowpass → gain → PannerNode` equalpower →
+spatial bus → master), a hard cap (8 voices, 6 on phones/consoles; the quietest is stolen — loops go
+virtual and come back, one-shots are dropped), distance roll-off, a "behind you" lowpass (front/back
+without HRTF's cost), air absorption and a Doppler pitch shift from the distance rate. The listener
+sits on the camera's axes, 75 % of the way to Lulu (`ctx.car.pos`, which follows her on foot); app.js
+calls `A.spatial.update(dt, camera, focus, open)` after every render (closed = faded out: paused, a
+set (`ctx.view`) on screen, skipping). Nothing allocates per frame.
+```js
+A.spatial.ready                                  // false until the first gesture → play/loop return null: fall back to your flat sound
+A.spatial.play(kind, obj3d | {x, y, z}, { gain, rate, delay, dur, prio, key })  → handle | null   // one-shot (key: replaces the last with that key)
+const h = A.spatial.loop(kind, obj3d | {x, y, z}, { gain, rate, floor, prio })   → handle | null   // looping emitter
+h.set({ gain, rate, floor, kind }); h.stop(); h.alive; h.info()   // an Object3D target that leaves the scene ends it too
+A.spatial.define(kind, { gen: sr => Float32Array, loop, ref, max, gain, prio, lift, doppler })   // your own sound (synthesized once, 24 kHz)
+A.spatial.stopAll() · has(kind) · setMaxVoices(n) · stats() · list()
+```
+Kinds (defined by `features/feel/kinds.js`): `siren` `sirenYelp` `rotor` `ambulance` (loops), `whoosh`
+`whooshTruck` `horn` `hornVan` `hornCop` `hornTruck` `trainHorn` `bell` `jingle` `hubcap`, `scrape` (loop).
+Users: law (one siren loop per lit cruiser, `spatialSirens()`; the chopper's rotor), banter (`npcHorn(kind, vol,
+beeps, obj)`), roadevents (`sfx.bell/trainHorn/jingle/honk/ambulance(…, at)`), feel (passing traffic, the
+dragging bumper, the hubcap). For an ambience bed (a town square, a fountain) use `loop(kind, {x, y, z})`.
+**Music muffle:** `A.setMusicMuffle(0..1)` routes the music `<audio>` through a MediaElementSource → lowpass
+(only once a muffle is first asked for; cheap to call every frame); `A.musicMuffleInfo()`. Feel muffles it
+while Lulu is on foot. **Rain** (atmos `sfx.rainLoop(level, "car" | "foot")`): a drum on the car vs. the open-air hiss.
+
 ## Testing
 **Determinism rule:** gate every RANDOM or surprise thing you add (spawned events, cameos,
 patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's always true in
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets, town and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, memory, world, shabbos, town and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -322,19 +351,32 @@ and keep working sensibly when another feature is missing.
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode` |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
-| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
-| `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title |
+| `ctx.banter` | banter | `say(cat, opts)` · `billboard(…)` · `reply(car)` · `gesture(name)` · `bubble(text, object3D, {dur, y, cls})` (a pooled speech bubble over anyone) · `addAd(def)` (another feature's billboard design, never random) · `billboardAt(chunk, s, side, id)` — Lulu's one-liners (`banter:line` {cat, text}) and the in-car rig |
+| `ctx.atmos` | atmos | `night` (0–1), `clock` (0–1, the Cruise day), `weather`, `info()` · `debug.{time(name\|t), freeze, weather(kind, strength, instant), rainbow, strike, flock(kind), plane(text), balloon}` — in Cruise it blends the sky/fog/sun over journey's per-leg palette (Story keeps the leg's lighting), wets/snows the road + ground materials, lights house windows; all restored on the title. A run may drive the Cruise-style day itself: set `G.atmosClock = () => 0..1` (+ `G.atmosClear = true` for a clear sky) and atmos runs its day/lamps off that clock in any mode, skips the phase toasts, and puts the Cruise clock back afterwards (shabbos uses it: the sunset IS the deadline) |
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
 | `ctx.town` | town | `active` · `id` / `name` · `street` (the street she's on) · `streets` · `occluders` (world rects) · `enter({town, speed})` / `leave(why)` (no ramp: tests/debug) · `load()` · for law: `blocksSight(ax, az, bx, bz)` · `copRoute(car)` → `{gap, aim(la, out)}` · `copSpawn(how)` → `{s, d, dir}` · for foot: `footYaw(F, roadH, dt)` · `towns` (the data) · `debug`. Events `town:enter` {town, exitS}, `town:leave` {town, why: highway \| wreck \| quiet \| reset}, `town:gossip` {kind, msg}, `town:talk` {id, line}, `town:stopSign`, `town:bump`, `town:geese`, `town:bike`; stats `townVisits`, `townStopSigns`, `townTalks`, `townGossip`, `townEscapes` |
+| `ctx.memory` | memory | `grudges` (live list of remembered carjack victims `{id, name, key, colors, kind, color, run, seen, lastRun}`, ≤ 6) · `notoriety()` → `{score, level 0–4, title, arrests, mugshots, escapes, er, carjacks, maxStars, grudges}` · `remember(kind, data)` (`"grudge"` streets:carjack-shaped · `"poster"` {heat, why} owes a WANTED billboard · `"text"` queues a text · anything else → a capped log) · `recall(kind)` (a copy) · `recognize(who, info)` → a rate-limited line or `""` (`"cop"`, `"moishe"` {color}, `"hitch"` {event: pick\|pass\|drop}, `"avigailRoad"`, `"avigailPorch"`) · `spawnGrudge(rec?, {act, behind})` → Promise<car> (acts `yell` `tailgate` `brakecheck` `cops` `forgive`) · `canMeet()` · `forgive(rec)` · `text(t, {next, after})` · `poster(ahead, side, variant)` · `runs`. Events `memory:grudge` {name, kind, color, act, seen}, `memory:billboard` {variant, key, s, side} |
+| `ctx.places` | world | `add(def)` a pull-in place (`{id, name, icon, kind, where(mode) → [s…], d, bay: {half, d0, d1}, model, sign, colliders(spot), host(spot), cam(spot, t, pos, look), dur, beats: [{t, run(spot)}]}` — a town can register its own) · `get(id)` · `list()` · `spots()` (built ones near the car) · `at(id)` (positions this mode) · `visits(id)` · `inside` · `visit(key)` · `home {ready, phase: "parked" \| "arriving", park {x,z,h,s,d}, parked(), depart(), holiday(), decor, extras}` · `debug {clock(v), localClock(date), parkNow(), holiday()}`. Events `world:depart` {mode}, `world:home`, `world:visit` {id, s}, `world:holiday` {id} |
+| `ctx.feel` | feel | `damage.{k, stage, info(), repair(why) → bool, hit(side), undo(n)}` — the wear on Lulu's own car (k = hits shown, stage 0–4: dents → cracked windshield → smoking hood → last heart: hubcap off + dragging bumper; never more than the hearts lost) · `debug.{wear(k, side), audio(), emitters(), passes(), muffle()}` |
+| `ctx.shabbos` | shabbos | `active` · `phase` ("drive" \| "arrive" \| "done" \| "late") · `left` (s to candles) · `total` · `dest` (Bubbe's house = `ctx.journey.stopS(0)`) · `start(via)` (a fresh rush, `G.mode = "shabbos"`) · `offer()` (Cruise: Ima's "Oy, it's erev Shabbos!" call; letting it ring turns the drive into the rush) · `friday()` · `records` · `debug.{date(iso), setLeft(s), setFrac(u), line(), props(), info()}` — 🕯️ Erev Shabbos Rush (`features/shabbos/`). Events `shabbos:start` {via, total, dest}, `shabbos:call` {i, result}, `shabbos:candles` {margin, pay}, `shabbos:late`, `shabbos:end` {made, margin}; stats `shabbosMade`, `shabbosLate`, `shabbosCandles`, `shabbosMargin` (best) |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
-Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed} · `streets:bail` {speed, ride} ·
+**Damage you can see (feel):** a lost heart (`damage` event) dents Lulu's car where the last `crash` (within
+0.3 s) landed — emit `crash` with `x, z` (or a `collider` / `car`) before calling `damage()` and the dent goes
+there (front / rear / left / right); otherwise the front. Only her own car (not on foot, not a borrowed /
+jacked ride); in a party it's local and cosmetic. Repairs: `run:start`, the title, `streets:paint` (Paint &
+Pray), the ER (`er:admit` → `cameos:resume`); `heart` undoes a stage; a garage/mechanic can call
+`ctx.feel.damage.repair(why)`. Cheap: the Body/Chrome geometry is cloned once and vertex-nudged, dents +
+scratches are projected decals in two pre-allocated buffers (2 draw calls), the crack is a quad under the
+car's `ws` node, the hubcap/bare hub are `feel_hubcap` / `feel_barehub` (Blender), smoke + sparks go into `car.fx`.
+Events: `feel:wear` {k, stage, side} (a hit or a heal changed the wear) · `feel:repair` {why} · `feel:hubcap` {x, z}.
+
+Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed, driver: {key, colors}} · `streets:bail` {speed, ride} ·
 `streets:roadblock` {s, gap} · `streets:spiked` · `streets:paint` {cost, color, cleared} · `streets:smash` {kind, value, total, x, z} ·
 `streets:crime` {charge} · `streets:chop` {kind, color, pay}; stats `carjacks`, `bailouts`, `roadblocks`, `spiked`, `resprays`, `propsSmashed`, `chopJobs`.
 
 Events between features: `item:use` {id: "missile" | "pepper" | "shield", x, z} (garage → law
-
 reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `foot:start`/`foot:end`,
 `parking:result` {stars, coins}, `avigail:rel` {rel}, `stat` {id, n} (use the 2D quest/stat ids from
 `src/06b-quests.js` when one fits — grep `questAdd("` in the 2D fragment you are porting).
@@ -343,6 +385,18 @@ reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `
 the wreck → arrest), cameos **10** (claims every other wreck and plays the 2D crash aftermath: the
 angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~35%), lets her walk
 on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
+
+**The home street (world):** the title is a live scene, not an attract loop. `features/world` wraps the
+title state's `update` (menu input + its own tick instead of core's `autopilot`), owns the title camera
+(`titleCamera` hook at priority −1000, so every other titleCamera hook still runs first) and parks the car at
+`ctx.places.home.park` (`car.showDriver(false)`; on-foot Lulu stands beside it). Coming back to the title
+from anywhere else, the car drives up the street and parks. A run started FROM THE TITLE at the start of the
+road (Cruise, Story leg 1) gets the pull-out: a `runStart` hook (priority −100) sets **`G.introState =
+"worldDepart"`** and core's `startRun` enters that state instead of `intro` (a skippable state that hands over
+to `playing` with the car rolling in its lane and the chase cam where it'll be). `startRun({ quick: true })`,
+Restart / Try again, checkpoints and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
+function, set by world) keeps the day + weather running on the title on the device's clock; Cruise continues
+from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 
 **Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
 inside its hub; its own title button shows only when the party feature is off).
@@ -385,8 +439,9 @@ the ER, any set) first sends her back to the highway; out of hearts she's towed 
 shoulder and the usual aftermath plays there (`hooks.wreck` priority 40, never claims). The group-chat
 gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets a 🗞️ **Kvetch** app
 (order 70: the town's parody local news + what Lulu just did).
-**Performance:** static pieces are merged by `kit.js` into vertex-coloured clusters (shadow casters in
-50 m cells, everything else in 120 m cells; one material per look), every bit of text is one atlas mesh,
+**Performance:** static pieces are merged by `kit.js` into vertex-coloured 60 m clusters (one material per
+look), culled every few frames by distance and by the town's own blocks (a cluster is hidden when every
+sample point is behind another block), every bit of text is one atlas mesh,
 parked cars use the light `town_minivan_lod` (no shadow, a dark patch underneath), townsfolk cast no
 shadow, and far town cars / people / geese are hidden. The test (`scripts/tests3d/town.js`) logs
 `PERF busy cruise` vs `PERF town`.
@@ -396,6 +451,19 @@ shadow, and far town cars / people / geese are hidden. The test (`scripts/tests3
 / `signs` / `coins` / `people` / `traffic` / `entry` / `exits` / `highway` are all data. New block uses
 or landmark kinds (an elevated train, a college quad) are new cases in `build.js`'s `layoutFace` +
 models in `assets_town.py`; diagonal streets would need a non-axis street type in `plan.js`.
+
+**Erev Shabbos Rush (shabbos):** a run in `G.mode = "shabbos"` from the start of the road to BUBBE'S HOUSE
+(the journey's stop 0, built in every mode — we only add Bubbe's door, the candle table and Ima on its transform).
+No new home tile: on Fridays (device clock, 12:00–19:59) a `titleInfo` **bar** chip (`#shabbosChip`, a `<button>`
+handled by a delegated click; the default title focus stays on the Story hero) starts it; on any day a rare Cruise
+event (`ctx.enabled("shabbos")`, once per run, ~8 % / 35 % on Fridays, only in daylight with ≥ 1.7 km to Bubbe's)
+is Ima's call — letting it ring arms the rush in place. The countdown is folded into the trip bar (shabbos wraps
+`ctx.trip` at boot and hands back to the journey's outside a rush); escalation writes `traffic.config` (restored
+after) and adds pooled props (≤ 2 storefronts on world-reserved slots, 1 LED trailer, ≤ 3 sidewalk people). During a
+rush the only Ima calls are the two scripted ones (a boot-time wrapper on `ctx.phone.call` drops other `from: "IMA"`
+calls; ours pass `shabbos: true`). States: `shabbosArrive` (⏭ skippable; beats in game time) and `shabbosResult`
+(the made-it / late card; Retry = `startRun({mode: "shabbos"})`, so pause → Restart and game over → Try again also
+restart the rush).
 
 **Lulu's phone (phone):** one GTA-style entry point for the extras, so features add an APP instead of a button.
 The phone opens in `playing` and `footRun` (touchpad / Tab / Xbox L3, the 📱 corner button — it takes the ❚❚ spot in
@@ -421,3 +489,14 @@ unread badges on the app + the corner button; tapping the bubble opens its threa
 Events: `phone:open` {app} · `phone:close` {how} · `phone:app` {app} · `phone:text` {from, thread, msg}.
 The story map opened from the phone (`ctx.journey.openMap({ from: "phone" })`) sits OVER the live run (frozen without
 `setState`, like photo mode); ○ returns to it exactly, and picking a chapter ends that run first.
+
+**World memory (memory):** a capped record in `save3d.f.memory` (≤ 6 grudges, ≤ 6 queued texts, ≤ 8 records per
+logged kind, ≤ 16 kinds, ≤ 5 paint colours) paid off in later runs, never on the HUD: the grudge car is a plain
+traffic car (`traffic.add` + a custom `ai`, Paint restyled and a seated `npcMan`/`npcWoman`/`copPerson`, both undone
+in `onRemove`; `onCrash` → no hearts), at most one visit a run, never two runs in a row for the same grudge,
+forgiven after three. Texts go out through `ctx.phone.text({ from, … })` — one 💬 Messages thread per sender, `from` is its title — (≥ 40 s apart, ≤ 3 a run, never during a
+call / chase / job / on foot). The WANTED poster is banter's pooled billboard with a design added through
+`ctx.banter.addAd({ id, dynamic })` (an ad's `art` may be a draw function) and hung with `ctx.banter.billboardAt`.
+Other features ask for recognitions in place of their usual line: law's pull-over (`recognize("cop")`), streets'
+Paint & Pray (`"moishe"`), roadevents' hitchhiker (`"hitch"` — it also records pick / pass / drop), cameos'
+Avigail coupe + porch (`"avigailRoad"`, `"avigailPorch"`).

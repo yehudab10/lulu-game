@@ -13,7 +13,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, endChase, driveUnit } from "./cops.js";
+import { L, setRig, endChase, driveUnit, spatialSirens } from "./cops.js";
 import { COP_SCENES, BUST_TACTICS, COP_LINE_DUR, COP_STOP_SCENES } from "./data.js";
 import { pick, rand, S } from "./rules.js";
 import { runFlow, check, line, ask, person, walkTo, quietRoad, restoreRoad, V } from "./scene.js";
@@ -102,7 +102,7 @@ registerState("lawBust", {
             else { cop.face(car.pos.x, car.pos.z, dt, 6); cop.update(dt, { talk: st.talking }); }
         }
         if (flow) flow.tick(dt, P);
-        X.sirenUpdate(dt, 0.18, 0, "wail");
+        X.sirenUpdate(dt, spatialSirens() ? 0 : 0.18, 0, "wail");
     },
     camera(dt) {
         if (st && st.phase === "talk" && cast.cop) {
@@ -140,7 +140,8 @@ async function script(f, data) {
     st.phase = "talk";
     const rt = reasonText(data.reason, data.charges, data.fugitive);
     st.talking = true;
-    await line(f, "cop", `You're pulled over for: ${rt}.`, { auto: COP_LINE_DUR + 1.2 });
+    const again = ctx.memory ? ctx.memory.recognize("cop") : "";      // features/memory: "Oh, it's YOU again." at 3+ arrests
+    await line(f, "cop", `${again ? again + " " : ""}You're pulled over for: ${rt}.`, { auto: COP_LINE_DUR + 1.2 + (again ? 1 : 0) });
     // 3 — the outcome (2D odds: 10% impound · ~22% let off · the rest booked)
     const forced = !!(data.charges && data.charges.length) || data.fugitive;
     let outcome, scene, tactic = null;

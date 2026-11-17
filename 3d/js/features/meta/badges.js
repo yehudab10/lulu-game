@@ -60,6 +60,7 @@ export const BADGES = [
     { id: "miles100",  icon: "🛞", name: "Odometer Queen",   desc: "Drive 100 miles in 3D",                three: true, prog: S => [Math.floor(stat(S, "miles3d")), 100] },
     { id: "hustle10",  icon: "💼", name: "Side Hustler",     desc: "Finish 10 side jobs in 3D",            three: true, prog: S => [stat(S, "hustleJobs"), 10] },
     { id: "getaway",   icon: "💰", name: "Getaway Driver",   desc: "Pull off Uncle Moishe's bingo-hall job", three: true, test: S => stat(S, "hustleHeists") >= 1 },
+    { id: "candles",   icon: "🕯️", name: "Made It for Candles", desc: "Beat the sunset to Bubbe's on erev Shabbos", three: true, test: S => stat(S, "shabbosMade") >= 1 },
 ];
 
 export function badgeProg(b, S) { try { return b.prog ? b.prog(S) : null; } catch (e) { return null; } }

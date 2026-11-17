@@ -49,7 +49,7 @@ const S = { active: false, def: null, T: null, road: null, chunk: null, exitS: 0
     savedTraffic: true, readLive: 0, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: false, footYaw: null, tendT: 0, haz: [] };
 const TOWN_OK = new Set(["playing", "wrecked", "footRun", "lawBust", "copStop", "playPhoto", "hustleResult"]);
 // highway content that has no business in a town (its random parts read the highway's s)
-const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey", "hustle", "play", "banter", "law", "dina"]);
+const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey", "hustle", "play", "banter", "law", "dina", "memory", "world", "shabbos"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 

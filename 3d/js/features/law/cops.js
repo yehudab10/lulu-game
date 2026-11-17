@@ -978,10 +978,12 @@ export function ensureChopper() {
             cone.scale.set(1, len, 1);
             cone.lookAt(px, 0, pz); cone.rotateX(Math.PI / 2);
             ch.thumpT -= dt;
-            if (ch.thumpT <= 0) { ch.thumpT = 0.09; X.rotorThump(0.5); }
+            // the rotor: a located loop (behind / above her) once positional audio is up, else the flat thump
+            if (!ch.sp && A.spatial.ready) ch.sp = A.spatial.loop("rotor", g);
+            if (ch.thumpT <= 0) { ch.thumpT = 0.09; if (!ch.sp) X.rotorThump(0.5); }
             return true;
         },
-        dispose() { ctx.scene.remove(g, cone, pool); cone.geometry.dispose(); coneMat.dispose(); pool.material.dispose(); if (L.chopper === ch) L.chopper = null; },
+        dispose() { if (ch.sp) ch.sp = ch.sp.stop(); ctx.scene.remove(g, cone, pool); cone.geometry.dispose(); coneMat.dispose(); pool.material.dispose(); if (L.chopper === ch) L.chopper = null; },
     });
 }
 export function removeChopper() { L.chopper = null; }
@@ -1014,8 +1016,32 @@ export function update(dt, P, controlsOn) {
         }
     }
     if (L.chase && loud < 0.15) loud = Math.max(loud, 0.15);
-    X.sirenUpdate(dt, loud, closing, L.chase && L.chase.bust > 0.3 ? "yelp" : "wail");
+    // with positional audio every lit cruiser is its own located siren (you HEAR it closing
+    // from behind-left); the flat one is the fallback before the first gesture / without feel
+    X.sirenUpdate(dt, spatialSirens() ? 0 : loud, closing, L.chase && L.chase.bust > 0.3 ? "yelp" : "wail");
 }
+
+// ── positional sirens (A.spatial, kinds from features/feel) ──────────────
+const SIRENS = [];   // units holding a live spatial siren
+const sirenOn = u => !!(u.car && u.car.obj && u.siren && (u.mode === "chase" || u.mode === "pull"));
+/** Keep one looping, located siren per lit cruiser. Returns true while they carry the sound. */
+export function spatialSirens() {
+    const ok = A.spatial.ready && A.spatial.has("siren");
+    const yelp = !!(L.chase && L.chase.bust > 0.3);
+    if (ok) for (const u of L.units) {
+        if (!sirenOn(u) || (u.sp && u.sp.alive)) continue;
+        u.sp = A.spatial.loop(yelp ? "sirenYelp" : "siren", u.car.obj, { floor: L.chase ? 0.08 : 0 });
+        u.spYelp = yelp;
+        if (u.sp && !SIRENS.includes(u)) SIRENS.push(u);
+    }
+    for (let i = SIRENS.length - 1; i >= 0; i--) {
+        const u = SIRENS[i];
+        if (!ok || !sirenOn(u) || !u.sp || !u.sp.alive || !L.units.includes(u)) { if (u.sp) u.sp = u.sp.stop(); SIRENS.splice(i, 1); continue; }
+        if (u.spYelp !== yelp) { u.spYelp = yelp; u.sp.set(yelp ? YELP : WAIL); }   // closing in: wail → yelp
+    }
+    return SIRENS.length > 0;
+}
+const YELP = { kind: "sirenYelp" }, WAIL = { kind: "siren" };
 
 /** Driving HUD: stars, PURSUIT / FUGITIVE tag, meters. */
 // ── flavour: somebody else gets pulled over (2D COP_PULLOVER bickering) ──
