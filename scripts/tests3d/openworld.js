@@ -254,7 +254,20 @@ async function partyRun(t, guests) {
   await t.shot("party-app");
   await g(`ctx.phone.closePhone()`);
 
-  const settle = async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "go" && ctx.party.clock() > ctx.openworld.game.t0 + 300`, what, 40000)) return false; return true; };
+  // 🚗 ride along: the guest hops into the host's passenger seat
+  t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
+  await sleep(3000);
+  t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await g(`!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`));
+  t.check("ride: the guest's car rides with the host's (camera follows it)", await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return !!rc && rc.shown && !ctx.car.obj.visible && Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z) < 1.5; })()`));
+  await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-openworld-ride-guest.png") }).catch(() => { });
+  await t.shot("ride-host");
+  await A.game(`ctx.openworld.hopOut()`);
+  await sleep(1500);
+  t.check("ride: hop out → her own car again", await A.game(`ctx.car.obj.visible && !ctx.openworld.riding`));
+  await sleep(1500);
+  t.check("ride: the seat empties on the host's screen", await g(`ctx.car.anchors.passenger.children.every(c => !c.visible || !c.parent || c.parent !== ctx.car.anchors.passenger) || ctx.car.anchors.passenger.children.length === 0`));
+
+  const settle =async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "go" && ctx.party.clock() > ctx.openworld.game.t0 + 300`, what, 40000)) return false; return true; };
   const done = async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "done"`, what, 40000)) return false; return true; };
 
   // 🚓 COPS & ROBBERS — started by the GUEST from the phone

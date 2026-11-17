@@ -46,6 +46,7 @@ function partyHome(el, api) {
         if (host) html += row("owEnd", "✋", "End this game", "everyone gets the scoreboard");
         if (g.ps.includes(E.me()) && (g.at.zone || "") !== E.zone()) html += row("owBack", "🚀", "Warp back to the game", g.at.zone ? "it's in town" : "it's on the highway");
     }
+    if (E.riding()) html += row("owHopH", "🚪", `Hop out of ${esc(E.nameOf(E.riding()))}'s car`, "back in your own");
     html += `<div class="ow-sec">Friends</div>`;
     if (!mem.length) html += `<p class="lp-note">Nobody else yet — the code is <b>${esc(ctx.party.code)}</b>.</p>`;
     for (const u of mem) {
@@ -67,16 +68,20 @@ function partyHome(el, api) {
     on(el, "#owEnd", () => { E.endGameNow(); api.close(); });
     on(el, "#owBack", () => { api.close(); E.warpToGame(); });
     on(el, "#owLast", () => api.open("owparty", { results: true }));
+    on(el, "#owHopH", () => { api.close(); E.stopRide(); });
 }
 function townName(id) { const T = ctx.town && ctx.town.towns; return (T && T[id] && T[id].name) || id; }
 function friendView(el, api, uid) {
     const p = ctx.party.peer(uid), z = E.zoneOfPeer(p), pos = E.posOf(uid);
     const name = esc(E.nameOf(uid));
     el.innerHTML = `<div class="lp-card ow-head"><span class="lp-av">🚗</span><span class="lp-tx"><b>${name}</b><small>${z ? "in " + esc(townName(z)) : "on the highway"}${pos ? " · " + mi(d2(pos)) : ""}</small></span></div>
+        ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "hop in their passenger seat · ✕ to hop out")}
         ${row("owWarp", "🚀", `Catch up with ${name}`, "a puff of glitter and you're right behind them")}
         ${pos ? row("owPinF", "📍", `Pin ${name}`, "a beacon over their car until you meet up") : ""}
         ${row("owBackF", "‹", "Back", "")}`;
     on(el, "#owWarp", () => { api.close(); E.warpToFriend(uid); });
+    on(el, "#owRide", () => { const why = E.startRide(uid); if (why) api.toast(why); else api.close(); });
+    on(el, "#owHop", () => { api.close(); E.stopRide(); });
     on(el, "#owPinF", () => { E.pin({ uid, name: E.nameOf(uid), icon: "👯", x: 0, z: 0 }); api.close(); });
     on(el, "#owBackF", () => api.open("owparty", null));
 }

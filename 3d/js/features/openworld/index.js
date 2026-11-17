@@ -40,6 +40,7 @@ import * as HUD from "./hud.js";
 import { beacon, hideBeacon, hideBeacons, roofProp, tickProps, beaconCount } from "./marks.js";
 import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT } from "./towntraffic.js";
 import { registerApps } from "./apps.js";
+import { initRide, startRide, stopRide, riding, tickSeats, ridingWith } from "./ride.js";
 
 const SAVE = store("openworld", { best: {}, games: 0, wins: 0, snaps: 0, pins: 0 });
 const OFF = 20000;                 // the flat frame's s offset (towns sit south of the highway's start)
@@ -112,7 +113,7 @@ function registerRoam() {
         },
         label: icon => roamLabel(icon),
         progress: () => roamProgress(),
-        show: p => zoneOfPeer(p) === zone(),
+        show: p => zoneOfPeer(p) === zone() && !ridingWith(p),
         frame: p => (zoneOfPeer(p) ? FLAT : null),
         pose() {
             const z = zone();
@@ -236,13 +237,13 @@ function placeInTown(at, back) {
 }
 function sparkle(x, z) { if (ctx.car && ctx.car.fx) ctx.car.fx.burst(x, 1.2, z, 26, 4, [1, 0.85, 1], 0.6, 0.9); }
 /** Warp next to friend uid (the 👯 app's "Catch up"). */
-function warpToFriend(uid) {
+function warpToFriend(uid, quiet = false) {
     const p = roam() && members().includes(uid) ? ctx.party.peer(uid) : null;
     if (!p || !p.samples || !p.samples.length) { H.toast("📶 Can't see where they are yet", "red"); return false; }
     const sm = p.samples[p.samples.length - 1], z = zoneOfPeer(p);
     const at = z ? { zone: z, ex: (p.x && p.x.ex) || 0, x: -sm.d, z: sm.s - OFF, h: sm.yaw } : { zone: "", s: sm.s, d: sm.d };
     const ok = warpTo(at, 12);
-    if (ok) { H.toast(`🚀 Caught up with ${nameOf(uid)}!`, "pink"); emit("stat", { id: "owWarps", n: 1 }); }
+    if (ok && !quiet) { H.toast(`🚀 Caught up with ${nameOf(uid)}!`, "pink"); emit("stat", { id: "owWarps", n: 1 }); }
     return ok;
 }
 
@@ -471,6 +472,7 @@ function enterGame(g, key) {
     const mine = g.ps.includes(me()), t = now();
     if (!mine) { H.toast(`${GAMES[g.k].emoji} ${GAMES[g.k].name} started — you're watching (next one!)`, ""); return; }
     if (ctx.phone && ctx.phone.isOpen && ctx.phone.closePhone) { try { ctx.phone.closePhone(); } catch (e) { /* fine */ } }
+    if (riding()) stopRide(true);
     if (roam() && t < g.t0 + 1500 && CL.warped !== key) {
         CL.warped = key;
         const i = g.ps.indexOf(me()), cop = g.k === "cnr" && g.cop === me();
@@ -571,7 +573,7 @@ function siren(uid, obj) {
 }
 function stopSiren(uid) { const h = CL.sirens.get(uid); if (h) { try { h.stop(); } catch (e) { /* gone */ } } CL.sirens.delete(uid); }
 function stopSirens() { for (const uid of [...CL.sirens.keys()]) stopSiren(uid); }
-function decorateFriend(rc, p) { rc.noBonk = false; }
+function decorateFriend(rc, p) { rc.noBonk = p.uid === riding(); }
 
 // ── per driving frame: my claims, the town's party traffic, the solo clock ──
 hook("update", (dt, P, controlsOn) => {
@@ -657,22 +659,26 @@ function pinTick() {
 // ── lifecycle ────────────────────────────────────────────────────────────
 on("run:start", () => { SOLO.g = null; if (!party()) { unpin(); leaveGame(); } });
 on("title", () => { SOLO.g = null; unpin(); leaveGame(); clearTownTraffic(); });
-on("party:status", e => { if (e && e.want === false) { leaveGame(); clearTownTraffic(); CL.last = null; } });
+on("party:status", e => { if (e && e.want === false) { stopRide(true); leaveGame(); clearTownTraffic(); CL.last = null; } });
 on("state", ({ to }) => { if (to !== "playing" && to !== "footRun" && to !== "playPhoto") HUD.hideAll(); });
 
+let lastW = 0;
 function frame() {
     requestAnimationFrame(frame);
-    try { tickGames(); } catch (e) { console.error("[openworld] frame", e); }
+    const w = performance.now(), dt = lastW ? Math.min(0.1, (w - lastW) / 1000) : 1 / 60;
+    lastW = w;
+    try { tickGames(); if (party()) tickSeats(dt); } catch (e) { console.error("[openworld] frame", e); }
 }
 requestAnimationFrame(frame);
 
 // ── the service ──────────────────────────────────────────────────────────
 const E = {
     roam, party, me, now, zone, members, nameOf, skinHex, posOf, isHost, getG, requestGame, blockReason, endGameNow,
-    warpToFriend, warpToGame, pin, unpin, get pinned() { return NP.pin; }, townSights, findFriend, zoneOfPeer, GAMES, ORDER, CL, SAVE,
+    warpToFriend, warpToGame, startRide, stopRide, riding, setRide(uid) { if (uid) ROAM.extra.rd = uid; else delete ROAM.extra.rd; }, pin, unpin, get pinned() { return NP.pin; }, townSights, findFriend, zoneOfPeer, GAMES, ORDER, CL, SAVE,
     fmtRace: HUD.fmtRace,
 };
 registerApps(E);
+initRide(E);
 ctx.openworld = {
     /** Towns in a 🎉 party: only while the party free-roams (town/index.js asks). */
     partyTowns: () => roam(),
@@ -682,6 +688,10 @@ ctx.openworld = {
     start: k => requestGame(k),
     end: () => endGameNow(),
     warpTo: uid => warpToFriend(uid),
+    /** 🚗 Ride along in friend uid's passenger seat ("" or why not) · hop out. */
+    ride: uid => startRide(uid),
+    hopOut: () => stopRide(),
+    get riding() { return riding(); },
     pin, unpin, get pinned() { return NP.pin; },
     debug: {
         CL, SOLO, NP, TT, townCarsAt, townLive, beaconCount, sights: townSights, pins, hostTick, getG, here,
