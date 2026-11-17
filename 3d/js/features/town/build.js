@@ -729,6 +729,7 @@ function layoutFace(kind, len, R) {
     else if (kind === "carsvc") centred(["town_mw_carbase", "town_mw_store", "town_mw_store"]);
     else if (kind === "shul") centred(["town_mw_house", "town_mw_shul", "town_mw_house"]);
     else if (kind === "school") centred(["town_yeshiva", "town_mw_house"]);
+    for (const o of out) if (o.key === "town_mw_store" && !o.list) o.list = kind === "carsvc" ? "cia" : "avej";     // (the plain storefronts beside a landmark)
     return out;
 }
 
@@ -792,7 +793,7 @@ function placeFace(B, kind, fr, counters) {
             const bg = k === "town_frame" ? "#FFFFFF" : k === "town_hall" ? "#1B1B1B" : k === "town_mw_carbase" ? "#111111" : k === "town_mw_apts" ? "#1B3A2B" : k === "town_mw_shul" ? "#F3E9D2" : style ? style.bg : "#FBF8F0";
             const fg = k === "town_frame" ? ["#B71C1C", "#1B5E20"] : k === "town_hall" ? ["#E8C766", "#F5F1E6"] : k === "town_mw_carbase" ? ["#FFD54F", "#FFFFFF"]
                 : k === "town_mw_apts" ? ["#E8C766"] : k === "town_mw_shul" ? ["#1A237E", "#5D4037"] : style ? style.fg : ["#2B1B2E", "#6D4C41"];
-            sign({ lines: text, bg, fg, w: 1024, h: big[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
+            sign({ lines: text, bg, fg, w: style ? 640 : k === "town_mw_apts" ? 512 : 1024, h: Math.round(big[2] * (style ? 1.4 : 2)), radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, big[0], big[1]);
         }
         if (it.shtiebel && R() < 0.6) {
             // a shtiebel: a house with a little sign on the lawn
