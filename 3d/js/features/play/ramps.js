@@ -156,7 +156,11 @@ function touchdown(g) {
     const turns = J.spin / (Math.PI * 2);
     const full = Math.round(turns);
     const resid = (turns - full) * Math.PI * 2;
-    const clean = Math.abs(resid) < CLEAN;
+    // features/moves: landing halfway through a flip / barrel roll is a wobble too
+    let botch = false;
+    try { botch = !!(ctx.moves && ctx.moves.airBotched && ctx.moves.airBotched()); } catch (e) { botch = false; }
+    J.lastBotch = botch;
+    const clean = Math.abs(resid) < CLEAN && !botch;
     // whole turns are invisible: keep only the leftover angle and spring it back to straight
     J.spin = resid; J.spinV = 0;
     J.land = 1; J.landPow = clamp(impactV / 10, 0.25, 1.4);
