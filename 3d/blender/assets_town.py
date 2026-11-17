@@ -368,12 +368,12 @@ def build_lamp():
     coll = scene_coll("TownLamp")
     root = root_empty(coll, "TownLamp")
     POLE = mat("Pole", "#2F4F3E", rough=0.6, metal=0.3)
-    parts = [Part(coll, "base", bm_cyl(0.24, 0.3, 0.6, 10), POLE, loc=(0, 0, 0.3)),
-             Part(coll, "pole", bm_cyl(0.1, 0.13, 6.4, 8), POLE, loc=(0, 0, 3.5)),
-             Part(coll, "arm", bm_box(0.1, 2.1, 0.1), POLE, loc=(0, -1.0, 6.55)),
-             Part(coll, "curl", bm_torus(0.35, 0.05, 12, 5), POLE, loc=(0, -0.35, 6.25), rot=(0, math.pi / 2, 0)),
-             Part(coll, "head", bm_cyl(0.18, 0.42, 0.34, 10), mat("LampHead", "#263238", rough=0.5), loc=(0, -2.0, 6.42)),
-             Part(coll, "bulb", bm_cyl(0.36, 0.3, 0.1, 10), mat("LampGlow", "#FFE8B0", rough=0.3, emit=0.4), loc=(0, -2.0, 6.22))]
+    parts = [Part(coll, "base", bm_cyl(0.24, 0.3, 0.6, 6), POLE, loc=(0, 0, 0.3), smooth=False),
+             Part(coll, "pole", bm_cyl(0.1, 0.13, 6.4, 6), POLE, loc=(0, 0, 3.5), smooth=False),
+             Part(coll, "arm", bm_box(0.1, 2.1, 0.1), POLE, loc=(0, -1.0, 6.55), smooth=False),
+             Part(coll, "brace", bm_box(0.06, 0.9, 0.06), POLE, loc=(0, -0.4, 6.25), rot=(0.6, 0, 0), smooth=False),
+             Part(coll, "head", bm_cyl(0.18, 0.42, 0.34, 8), mat("LampHead", "#263238", rough=0.5), loc=(0, -2.0, 6.42), smooth=False),
+             Part(coll, "bulb", bm_cyl(0.36, 0.3, 0.1, 8), mat("LampGlow", "#FFE8B0", rough=0.3, emit=0.4), loc=(0, -2.0, 6.22), smooth=False)]
     bake(parts, "TownLamp_body", coll, parent=root)
     return coll
 

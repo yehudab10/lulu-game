@@ -58,14 +58,14 @@ function bakeGeometry(g, m, color) {
 
 /** Collects static pieces into clusters, then bakes them into a few meshes each. */
 export class Merger {
-    /** cell: cluster size (m); casters (the shadow-casting "solid" look) use castCell, so the shadow pass
-     *  around her only draws a few small clusters, not whole 120 m chunks of town. */
-    constructor(cell = 120, castCell = 50) { this.cell = cell; this.castCell = castCell; this.clusters = new Map(); this.tris = 0; }
+    /** cell: cluster size (m). Small cells let the town cull by distance and by its blocks (index.js), and keep
+     *  the shadow pass around her to a few clusters. */
+    constructor(cell = 60) { this.cell = cell; this.clusters = new Map(); this.tris = 0; }
     list(x, z, look) {
-        const c = look === "solid" ? this.castCell : this.cell;
-        const k = look + ":" + Math.floor(x / c) + "," + Math.floor(z / c);
+        const c = this.cell, i = Math.floor(x / c), j = Math.floor(z / c);
+        const k = look + ":" + i + "," + j;
         let l = this.clusters.get(k);
-        if (!l) { l = []; l.look = look; this.clusters.set(k, l); }
+        if (!l) { l = []; l.look = look; l.cell = { x0: i * c, z0: j * c, x1: (i + 1) * c, z1: (j + 1) * c }; this.clusters.set(k, l); }
         return l;
     }
     /**
@@ -106,6 +106,7 @@ export class Merger {
                 mesh.receiveShadow = look !== "lit";
                 mesh.matrixAutoUpdate = false;
                 mesh.userData.townLook = look;
+                mesh.userData.cell = list.cell;      // (for the town's distance + block-occlusion culling)
                 if (look === "glass") mesh.renderOrder = 2;
                 out.push(mesh);
             }

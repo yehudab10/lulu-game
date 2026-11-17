@@ -47,7 +47,7 @@ export function buildTown(def) {
     const own = [];                     // geometries / materials / textures to dispose
     const mats = lookMaterials();
     own.push(...Object.values(mats));
-    const merge = new Merger(120);
+    const merge = new Merger(60);
     const atlas = new Atlas(2048);
     const colliders = [];
     const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [] };
@@ -215,8 +215,8 @@ export function buildTown(def) {
                     continue;
                 }
                 if (it.key === "buses") {       // the depot: school buses nose-in + its sign
-                    for (let k = 0; k < 4; k++) {
-                        const u = it.u - 5.1 + k * 3.4;
+                    for (let k = 0; k < 3; k++) {
+                        const u = it.u - 3.4 + k * 3.4;
                         place("roadevents_school_bus", fr.ox + fr.ux * u - fr.nx * 8.5, fr.oz + fr.uz * u - fr.nz * 8.5, fr.rot, null, { skip: /^StopArm/ });
                     }
                     const sx = fr.ox + fr.ux * (it.u + 9) - fr.nx * 0.6, sz = fr.oz + fr.uz * (it.u + 9) - fr.nz * 0.6;
@@ -470,6 +470,7 @@ export function buildTown(def) {
     own.push(signMesh.geometry, signMesh.material, signMesh.material.map);
     T.tris = merge.tris;
     T.merged = merged.length;
+    T.clusters = merged;
 
     // coins: one instanced mesh (world space)
     const coinGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 18); coinGeo.rotateX(Math.PI / 2);

@@ -222,6 +222,22 @@ export function segmentBlocked(ax, az, bx, bz) {
     return false;
 }
 
+/** Like segmentBlocked, but blocks containing either end don't count (the camera can stand in a yard;
+ *  a cluster's sample point sits inside its own block). For the town's cluster culling. */
+export function sightBlocked(ax, az, bx, bz) {
+    const dx = bx - ax, dz = bz - az;
+    for (const r of PL.OCCLUDERS) {
+        if ((bx > r.x0 && bx < r.x1 && bz > r.z0 && bz < r.z1) || (ax > r.x0 && ax < r.x1 && az > r.z0 && az < r.z1)) continue;
+        let t0 = 0, t1 = 1;
+        if (Math.abs(dx) < 1e-9) { if (ax < r.x0 || ax > r.x1) continue; }
+        else { let ta = (r.x0 - ax) / dx, tb = (r.x1 - ax) / dx; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        if (Math.abs(dz) < 1e-9) { if (az < r.z0 || az > r.z1) continue; }
+        else { let ta = (r.z0 - az) / dz, tb = (r.z1 - az) / dz; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        return true;
+    }
+    return false;
+}
+
 /** Seeded RNG (a town is built the same every visit). */
 export function rng(seed) {
     let a = seed >>> 0;

@@ -32,7 +32,7 @@ import { save3d } from "../../core/save.js";
 import { models, ensureModels, registerModels } from "../../models.js";
 import { input } from "../../input.js";
 import * as H from "../../hud.js";
-import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked } from "./plan.js";
+import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
 import { buildTown, BUILD_MODELS } from "./build.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
@@ -239,6 +239,7 @@ function tick(dt) {
     for (let i = S.timers.length - 1; i >= 0; i--) if (ctx.time >= S.timers[i].at) { const t = S.timers.splice(i, 1)[0]; try { t.fn(); } catch (e) { console.error(e); } }
     tickLife(dt);
     lodDrivers(ctx.camera.position);
+    if ((S.cullN = (S.cullN || 0) + 1) % 3 === 1) cullClusters(T);
     S.tendT -= dt;
     if (S.tendT <= 0) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
     for (const k of T.cranes) k.obj.rotation.y += k.speed * dt * (Math.sin(ctx.time * 0.1 + k.speed * 50) > -0.3 ? 1 : 0);
@@ -269,6 +270,33 @@ function tick(dt) {
             if ((car.s - st.base - ex.at) * ex.dir > 0 && out > 1) { beginTrans("leave"); break; }
         }
     }
+}
+
+// ── culling: a block of houses hides everything behind it ──────────────
+// (the frustum alone sees "through" the whole town from any street). Per merged cluster: hidden when
+// it's past its look's distance, or when every sample point is behind some other block.
+const MAX_D = { flat: 170, solid: 300, glow: 230, lit: 230, glass: 120 };
+const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
+function cullClusters(T) {
+    const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
+    let shown = 0;
+    for (const m of T.clusters) {
+        const c = m.userData.cell;
+        if (!c) continue;
+        const nx = Math.max(c.x0, Math.min(c.x1, cam.x)), nz = Math.max(c.z0, Math.min(c.z1, cam.z));
+        const d = Math.hypot(nx - cam.x, nz - cam.z);
+        let vis = d <= (MAX_D[m.userData.townLook] || 250);
+        if (vis && d > 24) {
+            vis = false;
+            for (const [u, v] of SAMPLES) {
+                const px = c.x0 + (c.x1 - c.x0) * u, pz = c.z0 + (c.z1 - c.z0) * v;
+                if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
+            }
+        }
+        m.visible = vis;
+        if (vis) shown++;
+    }
+    T.shown = shown;
 }
 
 // ── hooks ────────────────────────────────────────────────────────────────
