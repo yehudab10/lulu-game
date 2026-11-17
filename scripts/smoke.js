@@ -4,7 +4,7 @@
 //   node scripts/smoke.js --shots    # also save a screenshot per scene to smoke-shots/
 //
 // What it does: serves the repo root on a throwaway local port, boots
-// index.html in headless Chromium with a FRESH save, then visits every major
+// classic.html (the 2D game) in headless Chromium with a FRESH save, then visits every major
 // scene through its real entry function (via a test-only hook injected into
 // the served copy of game.js — the file on disk is never touched) and mashes
 // random taps + keys in each one. It fails on any uncaught page error and on
@@ -46,7 +46,7 @@ function serve() {
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent(req.url.split("?")[0]);
     if (url === "/game.js") { res.writeHead(200, { "Content-Type": MIME[".js"] }); return res.end(game); }
-    const file = path.join(ROOT, url === "/" ? "index.html" : url);
+    const file = path.join(ROOT, url === "/" ? "classic.html" : url);
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404); return res.end();
     }
@@ -288,7 +288,7 @@ function seeded(seed) {
 
 (async () => {
   const server = await serve();
-  const base = "http://127.0.0.1:" + server.address().port + "/index.html";
+  const base = "http://127.0.0.1:" + server.address().port + "/classic.html";
   const browser = await chromium.launch();
   if (SHOTS) fs.mkdirSync(path.join(ROOT, "smoke-shots"), { recursive: true });
 

@@ -108,7 +108,7 @@ function homeHtml(items, info) {
     const notes = info.filter(x => !x.bar && !x.for && !x.group).map(x => x.label).filter(Boolean).join("");
     return `<div class="home" data-title-seq="${T.seq}">
         <div class="home-bar"><span class="hb coins" title="Coins (shared with the 2D game)"><span class="coin"></span><b>${wallet.coins.toLocaleString()}</b></span>${bar}<span class="hb-sp"></span>${input.padConnected ? controllerLine() : ""}</div>
-        <div class="logo"><span class="l1">LULU'S</span><span class="l2">ROAD TRIP</span><span class="l3">3D</span></div>
+        <div class="logo"><span class="l1">LULU'S</span><span class="l2">ROAD TRIP</span><span class="l3">2.0</span></div>
         ${hero ? `<div class="home-hero">${tileHtml(hero, info, "hero")}</div>` : ""}
         ${tiles.length ? `<div class="home-tiles" data-n="${tiles.length}">${tiles.map(i => tileHtml(i, info, "")).join("")}</div>` : ""}
         ${groups.length ? `<div class="home-groups" data-n="${groups.length}">${groups.map(g => groupTileHtml(g, items)).join("")}</div>` : ""}
@@ -248,7 +248,7 @@ addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", lab
     sub: () => { const n = ownedSkins().length; return n > 1 ? `${n} cars in the garage · ${glyph("confirm")} to switch` : "buy more cars in the shop"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });
 addMenuItem("title", { id: "settings", order: 80, group: "more", label: "⚙️ Settings", sub: "graphics · HUD · sound · chatter", action: () => showSettings(() => showTitle(true)) });
-addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "2D game", label: "🕹️ The 2D game", sub: "same coins, same cars", action: () => { location.href = "../"; } });
+addMenuItem("title", { id: "back2d", order: 99, group: "more", short: "Classic 2D", label: "🕹️ Classic 2D (legacy)", sub: "the original · same coins, same cars", action: () => { location.href = "../classic.html"; } });
 
 function ownedSkins() {
     const owned = (shared.get().ownedSkins || ["pink"]).filter(k => SKINS[k]);

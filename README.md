@@ -4,9 +4,14 @@ A cute Sneaky-Sasquatch-style driving game where Lulu tries not to crash — and
 gets into a LOT of trouble on the way to Vegas. Plain HTML5 canvas + JavaScript,
 no framework.
 
-**🎮 Play it at: [lulu.boats](https://lulu.boats)** · also on iOS as a native app.
+**🎮 Play it at: [lulu.boats](https://lulu.boats)** — that's **Lulu's Road Trip 2.0**, the 3D game
+(controller, keyboard or touch), and the version everything new goes into. See [`3d/README.md`](3d/README.md).
 
-**🕹️ New: [Lulu's Road Trip 3D](https://lulu.boats/3d/) (beta)** — the road trip in 3D, playable with a game controller. See [`3d/README.md`](3d/README.md).
+**🕹️ Classic 2D (legacy):** [lulu.boats/classic.html](https://lulu.boats/classic.html) — the original canvas game,
+linked from 2.0's ⚙️ More menu. Same coins and cars (shared save). It's frozen: no new features, only
+fixes if something breaks. The iOS native app still ships the classic game.
+
+_The rest of this README describes the classic 2D game._
 
 ## What's inside
 - 🚗 Endless driving with traffic, cops, animals, tolls, trains, parades and roadside cameos

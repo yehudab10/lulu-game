@@ -27,7 +27,8 @@ You'll do three things:
 On the new empty repo page, you'll see a line that says *"uploading an existing file"* — click it.
 
 Then drag **every file** from your `lulu game` folder into the upload box:
-- `index.html`
+- `index.html` (sends visitors to the 3D game in `3d/`)
+- `classic.html` (the classic 2D game)
 - `game.js`
 - `style.css`
 - `manifest.webmanifest`
