@@ -23,3 +23,4 @@ import "./phone/index.js";       // 📱 Lulu's phone: one entry point for the e
 import "./memory/index.js";      // 🧠 a world that remembers Lulu: grudges in traffic, texts from fares, WANTED billboards, recognitions
 import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behind the title, the driveway pull-out, places to pull into
 import "./feel/index.js";        // 🔊 feel: positional 3D audio (sirens, passing traffic, horns, the train…) + visible damage on Lulu's car
+import "./shabbos/index.js";     // 🕯️ Erev Shabbos Rush: beat the sunset to Bubbe's before candle-lighting (Friday title chip · a rare Cruise call)

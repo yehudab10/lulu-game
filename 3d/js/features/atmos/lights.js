@@ -238,7 +238,7 @@ function lampKit() {
 }
 const lampChunks = new Map();     // chunk → { group, ims: [], lamps: [{x, y, z, px, pz, h}] }
 const LAMP_GAP = { fall: 48, pool: 48, suburbs: 48, coast: 56, desert: 110 };
-function lampsWanted() { return ctx.enabled("atmos") && ctx.G && ctx.G.mode === "cruise"; }
+function lampsWanted() { return ctx.enabled("atmos") && ctx.G && (ctx.G.mode === "cruise" || typeof ctx.G.atmosClock === "function"); }
 
 function buildLamps(chunk, world) {
     if (lampChunks.has(chunk)) return;
