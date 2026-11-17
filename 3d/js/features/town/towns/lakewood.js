@@ -52,9 +52,9 @@ export default {
     chair: { street: "Forest Ave", along: P + 38, side: -1 },
     water: [{ x0: SPAN + 16, x1: SPAN + 170, z0: -40, z1: SPAN + 50, geese: true }],
     woods: [
-        [-26, -14, -26, SPAN - 12, 4.2], [-26, SPAN + 22, SPAN + 14, SPAN + 22, 4.4], [-26, -14, -12, -26, 3.6], [12, -26, SPAN + 12, -26, 4.4],
-        [-12, -26, -12, -100, 4.0], [12, -26, 12, -100, 4.0], [-26, SPAN - 12, -100, SPAN - 12, 4.0], [-26, SPAN + 22, -100, SPAN + 22, 4.0],
-        [-12, -100, 12, -100, 3.0], [-100, SPAN - 12, -100, SPAN + 22, 3.0],
+        [-26, -14, -26, SPAN - 12, 4.2], [-26, SPAN + 22, SPAN + 14, SPAN + 22, 4.4], [-26, -14, -16, -26, 3.6], [16, -26, SPAN + 12, -26, 4.4],
+        [-16, -26, -16, -104, 4.0], [16, -26, 16, -104, 4.0], [-26, SPAN - 12, -104, SPAN - 12, 4.0], [-26, SPAN + 22, -104, SPAN + 22, 4.0],
+        [-16, -104, 16, -104, 3.0], [-104, SPAN - 12, -104, SPAN + 22, 3.0],
     ],
     billboards: L.SIGNS.billboards.map((lines, k) => ({ x: -17, z: 40 + k * 95, rot: Math.PI / 2, lines })),
     welcome: { street: "Route 9", along: -40, d: 10.5, rot: Math.PI, lines: L.SIGNS.welcome },
@@ -72,7 +72,7 @@ export default {
     ],
 
     // the ramps: where the highway's off-ramp drops her, and the ways back out
-    entry: { street: "Route 9", along: -74, d: 1.75, dir: 1 },
+    entry: { street: "Route 9", along: -58, d: 1.75, dir: 1 },
     exits: [
         { street: "Route 9", dir: -1, at: -66, name: "Route 9 South" },
         { street: "County Line Rd", dir: -1, at: -66, name: "County Line Rd West" },

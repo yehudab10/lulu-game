@@ -407,7 +407,10 @@ export function buildTown(def) {
     }
     for (const [x0, z0, x1, z1, gap] of def.woods || []) {
         const len = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.floor(len / gap));
-        const nx = -(z1 - z0) / len, nz = (x1 - x0) / len;
+        let nx = -(z1 - z0) / len, nz = (x1 - x0) / len;
+        // the second row goes AWAY from the streets (a line's normal depends on which way it was drawn)
+        const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+        if (streetGap(mx + nx * 5, mz + nz * 5) < streetGap(mx - nx * 5, mz - nz * 5)) { nx = -nx; nz = -nz; }
         for (let k = 0; k <= n; k++) {
             const t = k / n;
             for (const off of [0, 5.5]) {
@@ -514,6 +517,16 @@ export function buildTown(def) {
 }
 
 const pickOf = (list, R) => list[Math.floor(R() * list.length)];
+/** Distance (local) from a point to the nearest street centre line. */
+function streetGap(x, z) {
+    let best = 1e9;
+    for (const st of PL.STREETS) {
+        const along = st.axis === "ns" ? z : x, d = st.axis === "ns" ? x - st.c : z - st.c;
+        const a = Math.max(st.a0, Math.min(st.a1, along));
+        best = Math.min(best, Math.hypot(along - a, d));
+    }
+    return best;
+}
 // ── helpers ──────────────────────────────────────────────────────────────
 function leaf(R) { const L = ["#6CC24A", "#E8A33D", "#D9572B", "#C8B43A", "#7FB24A", "#B8452F"]; return L[Math.floor(R() * L.length)]; }
 

@@ -262,7 +262,9 @@ function tick(dt) {
         const st = streetOfS(car.s);
         for (const ex of S.def.exits) {
             if (!st || st.name !== ex.street) continue;
-            if ((car.s - st.base - ex.at) * ex.dir > 0) { beginTrans("leave"); break; }
+            // past the ramp's mouth AND driving outward (not just arriving there off the entry ramp)
+            const out = (car.vx * Math.sin(st.h) + car.vz * Math.cos(st.h)) * ex.dir;
+            if ((car.s - st.base - ex.at) * ex.dir > 0 && out > 1) { beginTrans("leave"); break; }
         }
     }
 }

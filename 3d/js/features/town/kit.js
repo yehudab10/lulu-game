@@ -128,75 +128,86 @@ const FONT = `Fredoka, "Arial Rounded MT Bold", Arial, sans-serif`;
 export class Atlas {
     constructor(size = 2048) {
         this.size = size;
-        this.canvas = document.createElement("canvas");
-        this.canvas.width = this.canvas.height = size;
-        this.g = this.canvas.getContext("2d");
-        this.x = 0; this.y = 0; this.row = 0;
-        this.quads = [];   // {pos: [12], uv: [8]}
+        this.cells = [];     // every distinct sign (drawn at mesh() time, packed tallest-first)
+        this.quads = [];     // {cell, pos: [12], n: [3]}
         this.cache = new Map();
     }
-    /** Reserve a w × h px cell → {x, y, w, h} (shelf packing). */
-    cell(w, h) {
-        const pad = 4;
-        if (this.x + w + pad > this.size) { this.x = 0; this.y += this.row + pad; this.row = 0; }
-        if (this.y + h > this.size) { console.warn("[town] sign atlas full"); return { x: 0, y: 0, w, h }; }
-        const c = { x: this.x, y: this.y, w, h };
-        this.x += w + pad; this.row = Math.max(this.row, h);
-        return c;
-    }
     /**
-     * Draw a sign into a new cell (cached by key). spec: { lines: [..], bg, fg, w, h (px), border, radius,
-     * sizes: [px per line], font weights, transparent: true (no background) , draw(g, cell) custom }
+     * A sign cell (cached by key; drawn later, when everything is packed). spec: { lines: [..], bg, fg,
+     * w, h (px), border, radius, sizes: [px per line], key, draw(g, w, h) custom }
      */
     sign(spec) {
         const key = spec.key || JSON.stringify([spec.lines, spec.bg, spec.fg, spec.w, spec.h, spec.border, spec.sizes, spec.sub]);
         if (this.cache.has(key)) return this.cache.get(key);
-        const w = spec.w || 512, h = spec.h || 256, c = this.cell(w, h), g = this.g;
-        g.save();
-        g.translate(c.x, c.y);
-        g.beginPath(); g.rect(0, 0, w, h); g.clip();
-        if (spec.draw) spec.draw(g, w, h);
-        else {
-            const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
-            if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
-            if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
-            drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
-        }
-        g.restore();
-        const uv = { u0: c.x / this.size, v0: 1 - (c.y + h) / this.size, u1: (c.x + w) / this.size, v1: 1 - c.y / this.size };
-        this.cache.set(key, uv);
-        return uv;
+        const cell = { spec, w: spec.w || 512, h: spec.h || 256 };
+        this.cells.push(cell);
+        this.cache.set(key, cell);
+        return cell;
     }
-    /** A quad of width w × height h (m), centred at `center`, facing `normalYaw` (rotation.y; the quad's front = +Z), lifted `y`. */
-    quad(uv, cx, cy, cz, yaw, w, h, tilt = 0) {
+    /** A quad of w × h metres showing `cell`, centred at (cx, cy, cz), facing yaw (its front = +Z). */
+    quad(cell, cx, cy, cz, yaw, w, h, tilt = 0) {
         const hw = w / 2, hh = h / 2;
         const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(tilt, yaw, 0, "YXZ")).setPosition(cx, cy, cz);
-        const corners = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]];
         const pos = [];
-        for (const [x, y] of corners) { _v.set(x, y, 0).applyMatrix4(m); pos.push(_v.x, _v.y, _v.z); }
+        for (const [x, y] of [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]]) { _v.set(x, y, 0).applyMatrix4(m); pos.push(_v.x, _v.y, _v.z); }
         const nrm = _v.set(0, 0, 1).applyMatrix3(_n.setFromMatrix4(m)).normalize();
-        this.quads.push({ pos, uv: [uv.u0, uv.v0, uv.u1, uv.v0, uv.u1, uv.v1, uv.u0, uv.v1], n: [nrm.x, nrm.y, nrm.z] });
+        this.quads.push({ cell, pos, n: [nrm.x, nrm.y, nrm.z] });
     }
-    /** All the sign faces as one mesh. */
+    /** Shelf-pack every cell (tallest first) at `scale`; false if they don't fit. */
+    pack(scale) {
+        const pad = 4, S = this.size;
+        let x = 0, y = 0, row = 0;
+        for (const c of [...this.cells].sort((a, b) => b.h - a.h)) {
+            const w = Math.ceil(c.w * scale), h = Math.ceil(c.h * scale);
+            if (x + w > S) { x = 0; y += row + pad; row = 0; }
+            if (y + h > S) return false;
+            Object.assign(c, { x, y, pw: w, ph: h });
+            x += w + pad; row = Math.max(row, h);
+        }
+        return true;
+    }
+    /** Draw every cell into one canvas (shrunk to fit if need be), and all the sign faces as ONE mesh. */
     mesh() {
+        let scale = 1;
+        while (!this.pack(scale) && scale > 0.3) scale *= 0.9;
+        const S = this.size, canvas = document.createElement("canvas");
+        canvas.width = canvas.height = S;
+        const g = canvas.getContext("2d");
+        for (const c of this.cells) {
+            const spec = c.spec, w = c.w, h = c.h;
+            g.save();
+            g.translate(c.x, c.y); g.scale(c.pw / w, c.ph / h);
+            g.beginPath(); g.rect(0, 0, w, h); g.clip();
+            if (spec.draw) spec.draw(g, w, h);
+            else {
+                const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
+                if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
+                if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
+                drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
+            }
+            g.restore();
+            c.uv = [c.x / S, 1 - (c.y + c.ph) / S, (c.x + c.pw) / S, 1 - c.y / S];
+        }
+        this.scale = scale;
         const n = this.quads.length;
         const P = new Float32Array(n * 12), U = new Float32Array(n * 8), N = new Float32Array(n * 12), I = [];
         this.quads.forEach((q, k) => {
-            P.set(q.pos, k * 12); U.set(q.uv, k * 8);
+            const [u0, v0, u1, v1] = q.cell.uv;
+            P.set(q.pos, k * 12); U.set([u0, v0, u1, v0, u1, v1, u0, v1], k * 8);
             for (let i = 0; i < 4; i++) N.set(q.n, k * 12 + i * 3);
             I.push(k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3);
         });
-        const g = new THREE.BufferGeometry();
-        g.setAttribute("position", new THREE.BufferAttribute(P, 3));
-        g.setAttribute("normal", new THREE.BufferAttribute(N, 3));
-        g.setAttribute("uv", new THREE.BufferAttribute(U, 2));
-        g.setIndex(I);
-        g.computeBoundingSphere();
-        const tex = new THREE.CanvasTexture(this.canvas);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
+        geo.setAttribute("normal", new THREE.BufferAttribute(N, 3));
+        geo.setAttribute("uv", new THREE.BufferAttribute(U, 2));
+        geo.setIndex(I);
+        geo.computeBoundingSphere();
+        const tex = new THREE.CanvasTexture(canvas);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 8;
         const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.4, emissive: new THREE.Color("#ffffff"), emissiveMap: tex, emissiveIntensity: 0.12 });
-        const mesh = new THREE.Mesh(g, mat);
+        const mesh = new THREE.Mesh(geo, mat);
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         return mesh;
