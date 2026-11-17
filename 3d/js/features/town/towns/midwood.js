@@ -168,7 +168,7 @@ export default {
     people: [
         { id: "driver", at: "carsvc", off: [4, 0.8] }, { id: "mechanic", at: "cia", off: [2, 0.6] },
         { id: "bubby", at: "bench" }, { id: "roaster", at: "pizza", off: [7, 0.6] }, { id: "pizza", at: "pizza", off: [-4, 0.2], line: 4 },
-        { id: "bakery", at: "bakery", off: [-3, 0.3], line: 3 }, { id: "asp", at: "asp" }, { id: "commuter", at: "station", off: [2.5, 1.2] },
+        { id: "bakery", at: "bakery", off: [-3, 0.3], line: 3, friday: 8 }, { id: "asp", at: "asp" }, { id: "commuter", at: "station", off: [2.5, 1.2] },
         { id: "student", at: "college", off: [3, 2] }, { id: "gabbai", at: "shul", off: [3, 0.5] }, { id: "cousin", at: "welcome", off: [4, -3] },
     ],
     bikes: 3, bikeRider: "town_brooklyn", geese: 0,
@@ -184,7 +184,7 @@ export default {
         "town_mw_house", "town_mw_rowhouse", "town_mw_apts", "town_mw_store", "town_mw_bakery", "town_pizza", "town_mw_carbase", "town_mw_shul",
         "town_yeshiva", "town_mw_library", "town_mw_hall", "town_mw_station", "town_mw_train", "town_mw_bench", "town_mw_pigeon", "town_mw_barricade",
         "town_mw_sedan_lod", "town_mw_sweeper", "town_minivan", "town_minivan_lod", "town_lamp", "town_stop", "town_chair", "town_welcome", "town_billboard",
-        "foot_bus", "treeRound", "treePine", "sedan", "cop",
+        "foot_bus", "treeRound", "treePine", "sedan", "cop", "town_ebike",
         "town_mw_driver", "town_mw_bubby", "town_brooklyn", "town_local", "town_mom", "town_agent", "npcMan", "npcWoman", "npcKid",
     ],
     lines: L,

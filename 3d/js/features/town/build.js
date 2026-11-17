@@ -77,6 +77,7 @@ export function buildTown(def) {
     const mats = lookMaterials();
     own.push(...Object.values(mats));
     const merge = new Merger(60);
+    const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];
     const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], trains: [], anims: [] };
@@ -178,7 +179,7 @@ export function buildTown(def) {
         }
     }
     // the boulevard's malls + service roads, frontage strips, the skyline (landmarks.js) — they add to these lists
-    const B = { def, R, T, S, O, root, own, merge, atlas, mats, colliders, col, sign, place, anchorAt, anchorOf, parkedCar, pt, strip, asphalt, walks, marks,
+    const B = { def, R, T, S, O, root, own, merge, mergeFar, atlas, mats, colliders, col, sign, place, anchorAt, anchorOf, parkedCar, pt, strip, asphalt, walks, marks,
         addColored, poleAt, pickOf, layoutFace, placeFace, DIMS, BRICK, STUCCO, clearAt };
     buildBoulevards(B);
     let circleGeo = null;
@@ -327,14 +328,15 @@ export function buildTown(def) {
         if (a) atlas.quad(stopUV, a.x + Math.sin(face) * 0.035, a.y, a.z + Math.cos(face) * 0.035, face, 0.62, 0.62);
         s.x = p.x; s.z = p.z;
     }
-    const oneWayUV = [1, -1].map(pointing => atlas.sign({ key: "ONEWAY" + pointing, w: 512, h: 160, draw: (g, w, h) => {
+    let oneWayCells = null;     // (made on first use: a town without one-ways keeps its atlas as it was)
+    const oneWayUV = () => oneWayCells || (oneWayCells = [1, -1].map(pointing => atlas.sign({ key: "ONEWAY" + pointing, w: 512, h: 160, draw: (g, w, h) => {
         g.fillStyle = "#111111"; g.fillRect(4, 4, w - 8, h - 8);
         g.fillStyle = "#FFFFFF"; g.save(); g.translate(w / 2, h / 2); g.scale(pointing, 1);
         g.beginPath(); g.moveTo(-w * 0.44, -h * 0.17); g.lineTo(w * 0.2, -h * 0.17); g.lineTo(w * 0.2, -h * 0.36); g.lineTo(w * 0.45, 0); g.lineTo(w * 0.2, h * 0.36); g.lineTo(w * 0.2, h * 0.17); g.lineTo(-w * 0.44, h * 0.17); g.closePath(); g.fill();
         g.restore();
         g.fillStyle = "#111111"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${h * 0.26}px Arial, sans-serif`;
         g.fillText(S.oneWay || "ONE WAY", w / 2 - pointing * w * 0.07, h / 2 + 2);
-    } }));
+    } })));
     for (const n of PL.NODES) {
         if (n.circle) continue;
         const A = PL.STREETS[n.ns], Bs = PL.STREETS[n.ew];
@@ -349,8 +351,8 @@ export function buildTown(def) {
         for (const [st, y] of [[A, 2.72], [Bs, 2.42]]) {
             if (!st.oneway) continue;
             const yaw = st.h + Math.PI / 2;     // the plate's +x runs along -u… so the arrow drawn pointing "−x" points along +u
-            atlas.quad(oneWayUV[st.oneway > 0 ? 1 : 0], x + Math.sin(yaw) * 0.03, y, z + Math.cos(yaw) * 0.03, yaw, 1.05, 0.33);
-            atlas.quad(oneWayUV[st.oneway > 0 ? 0 : 1], x - Math.sin(yaw) * 0.03, y, z - Math.cos(yaw) * 0.03, yaw + Math.PI, 1.05, 0.33);
+            atlas.quad(oneWayUV()[st.oneway > 0 ? 1 : 0], x + Math.sin(yaw) * 0.03, y, z + Math.cos(yaw) * 0.03, yaw, 1.05, 0.33);
+            atlas.quad(oneWayUV()[st.oneway > 0 ? 0 : 1], x - Math.sin(yaw) * 0.03, y, z - Math.cos(yaw) * 0.03, yaw + Math.PI, 1.05, 0.33);
         }
         const lx = n.x - Bs.ux * (A.outer + 2) / sn - A.ux * (Bs.outer + 2) / sn, lz = n.z - Bs.uz * (A.outer + 2) / sn - A.uz * (Bs.outer + 2) / sn;
         lampAt(lx, lz, Math.atan2(n.x - lx, n.z - lz));
@@ -422,7 +424,7 @@ export function buildTown(def) {
         if (a) sign({ lines: w.lines, bg: "#1F5E3B", fg: ["#FFFFFF", "#FFE082", "#C8E6C9"], w: 1024, h: 440, radius: 12, border: "#E8D9A8" }, a.x + Math.sin(w.rot) * 0.02, a.y, a.z + Math.cos(w.rot) * 0.02, w.rot, 5.1, 2.15);
         T.spots.welcome = { x: p.x, z: p.z, rot: w.rot };
     }
-    const aspUV = atlas.sign({ key: "ASP", w: 360, h: 300, draw: (g, w, h) => {
+    const aspUV = () => atlas.sign({ key: "ASP", w: 360, h: 300, draw: (g, w, h) => {
         // the broom-P: no parking during street cleaning
         g.fillStyle = "#FFFFFF"; g.fillRect(3, 3, w - 6, h - 6);
         g.strokeStyle = "#C62828"; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
@@ -446,8 +448,8 @@ export function buildTown(def) {
         } else if (sg.kind === "asp") {
             poleAt(merge, p.x, p.z, 2.6);
             col(p.x, p.z, 0.1, "sign");
-            atlas.quad(aspUV, p.x + Math.sin(sg.rot) * 0.03, 2.3, p.z + Math.cos(sg.rot) * 0.03, sg.rot, 0.6, 0.5);
-            atlas.quad(aspUV, p.x - Math.sin(sg.rot) * 0.03, 2.3, p.z - Math.cos(sg.rot) * 0.03, sg.rot + Math.PI, 0.6, 0.5);
+            atlas.quad(aspUV(), p.x + Math.sin(sg.rot) * 0.03, 2.3, p.z + Math.cos(sg.rot) * 0.03, sg.rot, 0.6, 0.5);
+            atlas.quad(aspUV(), p.x - Math.sin(sg.rot) * 0.03, 2.3, p.z - Math.cos(sg.rot) * 0.03, sg.rot + Math.PI, 0.6, 0.5);
         } else {
             poleAt(merge, p.x, p.z, 1.9 + sg.h * 0.5);
             col(p.x, p.z, 0.12, "sign");
@@ -518,12 +520,12 @@ export function buildTown(def) {
     for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
 
     // ── bake ─────────────────────────────────────────────────────────────
-    const merged = merge.build(mats);
+    const merged = merge.build(mats).concat(mergeFar.build(mats));
     for (const m of merged) { root.add(m); own.push(m.geometry); }
     const signMesh = atlas.mesh();
     root.add(signMesh);
     own.push(signMesh.geometry, signMesh.material, signMesh.material.map);
-    T.tris = merge.tris;
+    T.tris = merge.tris + mergeFar.tris;
     T.merged = merged.length;
     T.clusters = merged;
 
@@ -723,7 +725,7 @@ function layoutFace(kind, len, R) {
     else if (kind === "apts") fill(["town_mw_apts"], false, 0.8);
     else if (STORE_STYLE[kind]) { fill(["town_mw_store"], false, 0.2); for (const o of out) o.list = kind; }
     else if (kind === "mwpizza") centred(["town_mw_store", "town_pizza", "town_mw_store", "town_mw_store"]);
-    else if (kind === "bakery") centred(["town_mw_store", "town_mw_bakery", "town_mw_store"]);
+    else if (kind === "bakery") centred(["town_mw_bakery", "town_mw_store", "town_mw_store"]);
     else if (kind === "carsvc") centred(["town_mw_carbase", "town_mw_store", "town_mw_store"]);
     else if (kind === "shul") centred(["town_mw_house", "town_mw_shul", "town_mw_house"]);
     else if (kind === "school") centred(["town_yeshiva", "town_mw_house"]);
@@ -734,6 +736,8 @@ function layoutFace(kind, len, R) {
 function placeFace(B, kind, fr, counters) {
     const { R, T, S, merge, place, sign, anchorAt, parkedCar, col } = B;
     const next = (key, list) => { const c = counters[key] || 0; counters[key] = c + 1; return list[c % list.length]; };
+    // a one-off landmark face split in two (the railway runs through it): the other half is ordinary shops
+    if ((kind === "bakery" && T.spots.bakery) || (kind === "mwpizza" && T.spots.pizza) || (kind === "carsvc" && T.spots.carsvc)) kind = "avej";
     for (const it of layoutFace(kind, fr.len, R)) {
         const D = DIMS[it.key] || { w: 10, d: 10, prot: 0 };
         const back = D.prot + D.d / 2;       // centre's distance in from the lot line
@@ -783,8 +787,8 @@ function placeFace(B, kind, fr, counters) {
         const a = text && anchorAt(k, sx, sz, fr.rot);
         if (a) {
             const big = k === "town_hall" ? [15.4, 1.45, 96] : k === "town_yeshiva" ? [11.4, 1.15, 104] : k === "town_frame" ? [11.6, 1.7, 150]
-                : k === "town_mw_store" || k === "town_mw_bakery" ? [8.4, 0.9, 110] : k === "town_mw_carbase" ? [11.0, 1.1, 104] : k === "town_mw_shul" ? [9.6, 0.9, 96]
-                : k === "town_mw_apts" ? [3.0, 0.42, 140] : [10.0, 0.98, 100];
+                : k === "town_mw_store" || k === "town_mw_bakery" ? [8.4, 0.9, 88] : k === "town_mw_carbase" ? [11.0, 1.1, 104] : k === "town_mw_shul" ? [9.6, 0.9, 96]
+                : k === "town_mw_apts" ? [3.0, 0.42, 56] : [10.0, 0.98, 100];
             const bg = k === "town_frame" ? "#FFFFFF" : k === "town_hall" ? "#1B1B1B" : k === "town_mw_carbase" ? "#111111" : k === "town_mw_apts" ? "#1B3A2B" : k === "town_mw_shul" ? "#F3E9D2" : style ? style.bg : "#FBF8F0";
             const fg = k === "town_frame" ? ["#B71C1C", "#1B5E20"] : k === "town_hall" ? ["#E8C766", "#F5F1E6"] : k === "town_mw_carbase" ? ["#FFD54F", "#FFFFFF"]
                 : k === "town_mw_apts" ? ["#E8C766"] : k === "town_mw_shul" ? ["#1A237E", "#5D4037"] : style ? style.fg : ["#2B1B2E", "#6D4C41"];
@@ -795,7 +799,7 @@ function placeFace(B, kind, fr, counters) {
             const text2 = next("shtiebels", S.shtiebels);
             const px = lotX + fr.nx * 0.2 + fr.ux * 2.5, pz = lotZ + fr.nz * 0.2 + fr.uz * 2.5;
             poleAt(merge, px - fr.ux * 0.8, pz - fr.uz * 0.8, 1.2); poleAt(merge, px + fr.ux * 0.8, pz + fr.uz * 0.8, 1.2);
-            sign({ lines: text2, bg: "#FFF8E1", fg: ["#1A237E", "#4E342E"], w: 640, h: 220, radius: 10 }, px + fr.nx * 0.03, 1.15, pz + fr.nz * 0.03, fr.rot, 2.0, 0.7, true);
+            sign({ lines: text2, bg: "#FFF8E1", fg: ["#1A237E", "#4E342E"], w: 512, h: 176, radius: 10 }, px + fr.nx * 0.03, 1.15, pz + fr.nz * 0.03, fr.rot, 2.0, 0.7, true);
             if (!T.spots.shtiebel) T.spots.shtiebel = { x: px + fr.nx * 2, z: pz + fr.nz * 2, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz };
         }
         if (k === "town_mw_carbase") {     // the car-service base: its black sedans nose-in out front

@@ -216,11 +216,11 @@ def build_bakery():
             t = (k - 4) / 4.0
             r = 0.75 * (1 - 0.45 * abs(t))
             y = 1.0 + 0.32 * math.sin(k * 1.4 + strand * 2.1)
-            parts.append(Part(coll, "braid", bm_sphere(r, r * 0.9, r * 0.8, 10, 7), TOP if (k + strand) % 2 else CRUST,
+            parts.append(Part(coll, "braid", bm_sphere(r, r * 0.9, r * 0.8, 7, 5), TOP if (k + strand) % 2 else CRUST,
                               loc=(t * 3.4, y + (strand - 1) * 0.3, 7.4 + 0.9 + r * 0.6 + 0.12 * strand), smooth=True))
     parts.append(B(coll, "stand", (0.3, 0.3, 0.9), m["DARK"], (0, 1.0, 7.8)))
     for k in range(4):   # the challah tower in the window
-        parts.append(Part(coll, "c", bm_sphere(0.55 - k * 0.08, 0.3, 0.22, 8, 6), CRUST, loc=(-1.3, fy + 0.35, 0.8 + k * 0.42), smooth=True))
+        parts.append(Part(coll, "c", bm_sphere(0.55 - k * 0.08, 0.3, 0.22, 6, 4), CRUST, loc=(-1.3, fy + 0.35, 0.8 + k * 0.42), smooth=True))
     bake(parts, "TownMwBakery_body", coll, parent=root)
     anchor(coll, root, "Anchor_sign", (0, fy - 0.12, 4.05))
     return coll

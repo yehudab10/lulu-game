@@ -26,7 +26,8 @@ export function buildRail(B) {
         if (st.axis === "ns" || Math.abs(st.ux) < 0.2) continue;
         const a = (x - st.px) / st.ux;
         if (a < st.a0 - 0.1 || a > st.a1 + 0.1) continue;
-        const zc = st.pz + st.uz * a, half = (st.walk + 0.7) / Math.abs(st.rz);
+        // (a diagonal street's edges climb across the berm's width: open the gap wide enough at both sides of it)
+        const zc = st.pz + st.uz * a, half = (st.walk + 0.7) / Math.abs(st.rz) + hb * Math.abs(st.uz / st.ux);
         gaps.push({ st, a, zc, z0: zc - half, z1: zc + half });
     }
     gaps.sort((p, q) => p.zc - q.zc);

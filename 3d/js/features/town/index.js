@@ -35,7 +35,7 @@ import { save3d } from "../../core/save.js";
 import { models, ensureModels, registerModels } from "../../models.js";
 import { input } from "../../input.js";
 import * as H from "../../hud.js";
-import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
+import { PL, setPlan, TownRoad, LANE, street, streetOfS, streetPoint, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
 import { buildTown, BUILD_MODELS } from "./build.js";
 import { tickRail } from "./rail.js";
 import * as SFX from "./sfx.js";
@@ -305,7 +305,7 @@ const RAIL_HOOKS = {
 // ── culling: a block of houses hides everything behind it ──────────────
 // (the frustum alone sees "through" the whole town from any street). Per merged cluster: hidden when
 // it's past its look's distance, or when every sample point is behind some other block.
-const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110 };
+const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110, far: 700, farglow: 700 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
 function cullClusters(T) {
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
@@ -489,6 +489,8 @@ ctx.town = {
             ctx.car.s = st.base + along; ctx.car.d = d;
             return true;
         },
+        /** A street point (LOCAL coords) of the current town: (name, along, d) → {x, z, h}. */
+        pt(name, along, d = 0) { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; },
         sees: (ax, az, bx, bz) => !blocksSight(ax, az, bx, bz),
         local: (x, z) => toLocal(x, z, {}),
         segmentBlocked,

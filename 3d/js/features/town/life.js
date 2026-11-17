@@ -88,7 +88,8 @@ export function startLife(T, def) {
         const person = addPerson(models[who.key] ? who.key : "npcMan", base.x, base.z, face, who.colors, { id: p.id, lines: who.lines, name: who.name, alt: p.alt, sit: !!spot.bench });
         // the pizza line: a queue down the sidewalk
         if (p.line && spot.ux != null) {
-            for (let k = 1; k <= p.line; k++) {
+            const n = (p.friday && new Date().getDay() === 5) ? p.friday : p.line;     // (Erev Shabbos: the challah line has its own zip code)
+            for (let k = 1; k <= n; k++) {
                 const key = pick(["npcMan", "npcWoman", "npcMan", "npcKid", "town_local"]);
                 addPerson(models[key] ? key : "npcMan", base.x - spot.ux * k * 0.95 * -1, base.z - spot.uz * k * 0.95 * -1, Math.atan2(spot.ux, spot.uz),
                     key === "town_local" ? null : { Top: pick(TOPS), Bottom: pick(BOTTOMS) }, { extra: true });

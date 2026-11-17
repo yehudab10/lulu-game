@@ -167,7 +167,7 @@ function clockFace(g, w, h) {
 
 // ── the skyline ──────────────────────────────────────────────────────────
 export function buildSkyline(B) {
-    const { def, R, merge, addColored, col, BRICK, STUCCO } = B;
+    const { def, R, mergeFar: merge, addColored, col, BRICK, STUCCO } = B;
     if (!def.skyline) return;
     const WALLS = [...BRICK, ...STUCCO, "#9E9E9E", "#A1887F", "#BCAAA4"];
     for (const [x0, z0, x1, z1] of def.skyline) {
@@ -184,23 +184,23 @@ export function buildSkyline(B) {
             const off = 6 + d / 2 + R() * 6;
             const x = x0 + ux * (u + w / 2) + nx * off, z = z0 + uz * (u + w / 2) + nz * off;
             const body = new THREE.BoxGeometry(d, h, w); body.rotateY(rot); body.translate(x, h / 2, z);
-            addColored(merge, body, WALLS[Math.floor(R() * WALLS.length)], x, z, "flat");
+            addColored(merge, body, WALLS[Math.floor(R() * WALLS.length)], x, z, "far");
             const cap = new THREE.BoxGeometry(d + 0.6, 0.6, w + 0.6); cap.rotateY(rot); cap.translate(x, h + 0.3, z);
-            addColored(merge, cap, "#D7CFC2", x, z, "flat");
+            addColored(merge, cap, "#D7CFC2", x, z, "far");
             // floors of windows (some lit at night, some not)
             for (let y = 3.4; y < h - 1.6; y += 3.2) {
                 const band = new THREE.BoxGeometry(d + 0.12, 1.15, w - 2.4); band.rotateY(rot); band.translate(x, y, z);
-                addColored(merge, band, "#33414F", x, z, R() < 0.7 ? "glow" : "flat");
+                addColored(merge, band, "#33414F", x, z, R() < 0.7 ? "farglow" : "far");
             }
             if (R() < 0.35) {       // a water tower on the roof (very New York)
                 const tx = x + (R() - 0.5) * d * 0.4, tz = z + (R() - 0.5) * w * 0.4;
                 const tank = new THREE.CylinderGeometry(1.7, 1.7, 3.2, 10); tank.translate(tx, h + 3.3, tz);
-                addColored(merge, tank, "#6D4C41", tx, tz, "flat");
+                addColored(merge, tank, "#6D4C41", tx, tz, "far");
                 const cone = new THREE.ConeGeometry(1.9, 1.3, 10); cone.translate(tx, h + 5.55, tz);
-                addColored(merge, cone, "#4E342E", tx, tz, "flat");
+                addColored(merge, cone, "#4E342E", tx, tz, "far");
                 for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
                     const leg = new THREE.BoxGeometry(0.16, 1.7, 0.16); leg.translate(tx + a * 1.2, h + 0.85, tz + b * 1.2);
-                    addColored(merge, leg, "#3E2723", tx, tz, "flat");
+                    addColored(merge, leg, "#3E2723", tx, tz, "far");
                 }
             }
             u += w + 1.5 + R() * 3;
