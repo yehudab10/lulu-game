@@ -64,6 +64,13 @@ add({
         return "";
     },
     update(dt, R, playing) { tick(dt, R, playing); },
+    // an off-duty ambulance in traffic ("returning to base") — jack it on foot
+    traffic: {
+        kind: "rides_ambulance", mix: 0.015, models: ["foot_ambulance"],
+        spec: { len: 6.0, halfW: 1.05, circles: [1.6, -1.4], r: 1.1, mass: 2.5, model: "foot_ambulance", paint: false },
+        jack: { model: "foot_ambulance", label: "🚑 JACK THE AMBULANCE", vtype: "ambulance", feel: "floaty", half: 1.01, fwd: 1.8, len: 1.0, y: [0.5, 1.75], paint: "AmbWhite",
+            handling: { top: 1.0, acc: 0.85, grip: 0.9, brake: 0.9 } },
+    },
 });
 
 // ── the run ──────────────────────────────────────────────────────────────
@@ -93,6 +100,9 @@ function wait(sec) {
 export function dispatch(ahead = rand(230, 300)) {
     const car = ctx.car;
     if (!models.npcMan || !models.npcWoman) return false;
+    if (RUN.patient) returnPerson(RUN.patient);
+    if (RUN.by) returnPerson(RUN.by);
+    RUN.patient = RUN.by = null;
     removeER();
     const side = 1, s = car.s + ahead;
     const p = borrowPerson(pick(["npcMan", "npcWoman"])), by = borrowPerson("npcWoman");

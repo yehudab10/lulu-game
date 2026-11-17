@@ -17,6 +17,7 @@ one, spend them in the other.
 | 📍 **Places to pull into** | In Cruise, pull off into a bay and stop: ⛽ **Gas 'n' Go** (Yanky tops up your nitro, rugelach = +1 ❤️), 🌄 **the Lookout** over the lake, and the family's own driveways (Bubbe's kugel, Heshy's floatie, Avigail, Uncle Burry's lucky chip). Each one is a short in-world moment, once per drive. The 📱 phone's 🏡 **Family** app shows who lives where, who you've dropped in on, and a line of family lore each. |
 | 🚓 **Cops & court** | Hidden speed traps, patrols, K9s, helicopters, pursuits that try to box you in, pull-overs, arrest → precinct → jail cell (escape, bail, lawyers) → a full courtroom visual novel (Avigail testifies for or against you), the 3-strikes rule, fugitive mode. GTA-style escapes: a clean ★ row, cruisers never faster than your car, and once you break their **line of sight** the stars flash while they search — stay hidden and you've lost them (at night the chopper only sees what its spotlight's on). |
 | 🚗 **Street mayhem** | **Carjack anything** on foot (the driver tumbles out, sees stars and gets up ANGRY) and drive THAT vehicle — box truck, minivan, sports car, even a cop car — each with its own handling; **bail out** of a moving car (dive, roll, it coasts on without you). 3★+ brings **roadblocks with spike strips** (flat tyres!). **🎨 Paint & Pray**: Moishe's drive-through spray booth — new colour, heat gone. **Smashable street props** (hydrant geysers, mailboxes, fruit stands, phone booths…) with a damage $ tally, and **Shmuel's Chop Shop** calls with orders ("a blue minivan, no questions"). |
+| 🚓 **Every ride is its own thing** | Whatever Lulu ends up driving brings its own weight, handling, horn and one trick — no new buttons: the horn IS the vehicle's horn, and holding it (X on a keyboard, one button on touch) is the trick. 🚓 **Cop car**: the siren makes traffic pull onto the shoulder, 📣 megaphone lines ("PULL OVER… just kidding. Unless?"), 🚨 pull someone over and play the cop (bribes, warnings, runners), 🛑 spike strips behind her in a chase — but a real cop who catches her at it calls it IMPERSONATING AN OFFICER. 🚑 **Ambulance**: dispatch sends her to a patient on the shoulder; stop beside them, then race the clock to St. Shloimy's ER bay (every bump costs the tip — "OW! The BUMPS!"), 🩹 patch herself up, and the ER remembers its favourite paramedic. 🍦 **Ice-cream truck**: pull over, play the jingle, kids come running with coins. 🚌 **City bus**: stop at the 🚏 stops, riders board and pay. 🚚 **Box truck**: small cars bounce off. 🏎️ **Sports car**: nitro hits harder. 🚕 **Taxi**: start a Lulu Cab shift, +50 % on fares. Taxis, ambulances, ice-cream trucks and buses now drive around in traffic — jack one. |
 | 🛒 **Shop & bling** | All 8 cars with real handling stats, missiles, pepper spray, the Bubble Shield, Distracted Mode, 6 custom horns, 7 car decorations — in a 3D showroom. |
 | 🚧 **Road events** | Toll plazas, railroad crossings with real trains, parades and marathons, animals (ducks, raccoons, ostriches), construction zones, the steamroller you can commandeer, hitchhikers who ride along, ice-cream trucks, drive-thrus, school buses, ambulances, drunk/texting drivers… |
 | 💅 **Cameos** | Avigail driving around and her porch visits (friendship meter), Fabio's salon (new hairstyle + colour), sasquatch, Heshy's pool, the uncles, the crash aftermath (the angry driver, the revenge car, Hillel the adjuster) and **the ER**. |
@@ -43,10 +44,11 @@ one, spend them in the other.
 | Steer / walk | left stick, D-pad | left stick, D-pad | ← → / A D (WASD on foot) | thumb stick |
 | Gas · brake/reverse | R2 · L2 (analog), ✕ · ○ | RT · LT, A · B | ↑ · ↓ / W · S | GAS · BRAKE |
 | Handbrake drift | □ | X | Space | — |
-| Nitro · horn | R1 · L1 | RB · LB | Shift · H | NITRO · HONK |
+| Nitro · horn (the siren / jingle in a cop car, ambulance, ice-cream truck) | R1 · L1 | RB · LB | Shift · H | NITRO · HONK |
 | Missile · item | D-pad ↑ · ↓ | D-pad ↑ · ↓ | M · G | 🚀 · 🧴 |
 | Interact · carjack (on foot) | ✕ | A | E | ✋ |
 | Bail out of a moving car | hold △ | hold Y | E (above ~30 mph) | ✋ BAIL |
+| Ride trick (🚨 pull over · 🛑 spikes · 🩹 patch up · 🚕 start a shift) | hold L1 | hold LB | X | the ride's button |
 | Camera · look | tap △ · right stick (R3 = behind) | tap Y · right stick | C · V | CAM |
 | 📱 Lulu's phone · pause | touchpad · OPTIONS | L3 · Start | Tab · P/Esc | 📱 (top right; its ☰ Menu = pause) |
 | 🗺️ Story map (shortcut) | L3 | 📱 › Map | 📱 › Map | 📱 › Map |
@@ -78,7 +80,7 @@ Plain ES modules + a vendored three.js r170 — no bundler, no build step. A sma
 (`js/core/`) and one module per feature (`js/features/<id>/`) that plug in through events, hooks,
 states and services. **Read [`ARCHITECTURE.md`](ARCHITECTURE.md)** for the full contract.
 
-Every model (223 of them: cars, people, buildings, props, whole sets like the courtroom, the bar
+Every model (227 of them: cars, people, buildings, props, whole sets like the courtroom, the bar
 and the Vegas Strip) is built **from code in Blender** by `blender/assets_<id>.py`, exported to
 `assets/*.glb`, with an editable `blender/blend/<id>.blend` per module:
 

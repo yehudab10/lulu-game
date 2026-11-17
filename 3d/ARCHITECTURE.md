@@ -305,7 +305,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets, memory, world, shabbos and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, memory, world, shabbos, rides and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -335,7 +335,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.foot` | foot | `start(reason, opts)` — Lulu climbs out and walks (reasons: `carWreck`, `crashReprieve`, `droveOff`, `copWalk`, `jailbreak`, `parked`, `bailout`; `opts.noIntro` when your scene already showed her getting out — she starts on her feet, no second climb-out; `at {x,z}` where she stands, `stubAi(dt, car)` to drive the car she left, `drivable`) · `active` · `script({update(dt,P,F) → true while running, camera?(dt), abort?(why)})` hands Lulu to your animation on foot · `drive(v)` puts her behind the wheel of `{vtype, key, colors, x, z, h, handling?}` (a borrowed-vehicle shell; `handling` = car stats while she drives it) · `shellObj` · `say(obj, text, sec)` · `addSpot(spot)` (`spot.short` = the ✋ button's label) |
 | `ctx.interiors[id]` | interiors | `{ name, emoji, enter({ exit }) }` — foot shows a door and calls `enter({ exit: () => back to walking })`. ids: `bar`, `school`, `hospital`, `police`, `beach` |
 | `ctx.law` | law | `startChase(reason, {heat, msg})` · `arrest(charges[], opts)` · `wanted` (0–5) · `chasing` · `searching` (lost sight of her: the stars flash) · `searchProgress` 0–1 · `clearHeat(msg)` · `copNear(x, z, r)` · `addWarrant(charges)` · `hold(sec)` · `lightBar(obj)` → `{set(on, t)}` · `tune` (the pursuit table: cop speed × her top speed, sight range, search time by ★ — tuned with the streets chase lab) |
-| `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
+| `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling — features/rides adds its fleet here) · `cams` (ride model key → {d, h}: a roomier chase cam for big rides) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
 | `ctx.er` | cameos | `admit(reason)` — the ER visit (a softer landing than game over) |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
 | `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
@@ -351,6 +351,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.places` | world | `add(def)` a pull-in place (`{id, name, icon, kind, where(mode) → [s…], d, bay: {half, d0, d1}, model, sign, colliders(spot), host(spot), cam(spot, t, pos, look), dur, beats: [{t, run(spot)}]}` — a town can register its own) · `get(id)` · `list()` · `spots()` (built ones near the car) · `at(id)` (positions this mode) · `visits(id)` · `inside` · `visit(key)` · `home {ready, phase: "parked" \| "arriving", park {x,z,h,s,d}, parked(), depart(), holiday(), decor, extras}` · `debug {clock(v), localClock(date), parkNow(), holiday()}`. Events `world:depart` {mode}, `world:home`, `world:visit` {id, s}, `world:holiday` {id} |
 | `ctx.feel` | feel | `damage.{k, stage, info(), repair(why) → bool, hit(side), undo(n)}` — the wear on Lulu's own car (k = hits shown, stage 0–4: dents → cracked windshield → smoking hood → last heart: hubcap off + dragging bumper; never more than the hearts lost) · `debug.{wear(k, side), audio(), emitters(), passes(), muffle()}` |
 | `ctx.shabbos` | shabbos | `active` · `phase` ("drive" \| "arrive" \| "done" \| "late") · `left` (s to candles) · `total` · `dest` (Bubbe's house = `ctx.journey.stopS(0)`) · `start(via)` (a fresh rush, `G.mode = "shabbos"`) · `offer()` (Cruise: Ima's "Oy, it's erev Shabbos!" call; letting it ring turns the drive into the rush) · `friday()` · `records` · `debug.{date(iso), setLeft(s), setFrac(u), line(), props(), info()}` — 🕯️ Erev Shabbos Rush (`features/shabbos/`). Events `shabbos:start` {via, total, dest}, `shabbos:call` {i, result}, `shabbos:candles` {margin, pay}, `shabbos:late`, `shabbos:end` {made, margin}; stats `shabbosMade`, `shabbosLate`, `shabbosCandles`, `shabbosMargin` (best) |
+| `ctx.rides` | rides | `add(def)` a ride keyed by the shell's model key (see **Rides** below — a town brings its own vehicles + tricks) · `get(id)` · `list()` · `forKey(key)` · `current` (the live ride `{id, def, key, obj, t, siren, data}` or null) · `id` · `siren` / `setSiren(on)` · `act()` → the trick on offer `{id, emoji, label, ready}` · `use(via)` · `horn()` · `holdsHorn` (holding the horn is the trick right now — Shared Road's emote wheel stands down) · `nudge(range)` (cars ahead move over) · `stats` · `debug.{board(id), R, yieldingCount(), amb, ice, bus}` — 🚓🚑🍦 every vehicle Lulu drives is its own thing (`features/rides/`). Events `rides:enter` {id, key}, `rides:exit` {id, why}, `rides:siren` {id, on}, `rides:horn` {id, kind}, `rides:ability` {id, act, via}, `rides:ticket` {seen, left}, `rides:impostor`, `rides:spikes` {left}, `rides:megaphone`, `rides:patient` {phase: dispatch \| pickup \| drop \| late, pay?}, `rides:jingle` {parked}, `rides:cone` {served}, `rides:busstop` {s, riders}, `rides:fares` {n}; stats `ridesTried`, `ridesTickets`, `ridesImpostor`, `ridesSpikes`, `ridesPatients`, `ridesPatientsLost`, `ridesPatchUps`, `ridesCones`, `ridesFares`, `ridesTaxiBonus` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 **Damage you can see (feel):** a lost heart (`damage` event) dents Lulu's car where the last `crash` (within
@@ -427,6 +428,40 @@ rush the only Ima calls are the two scripted ones (a boot-time wrapper on `ctx.p
 calls; ours pass `shabbos: true`). States: `shabbosArrive` (⏭ skippable; beats in game time) and `shabbosResult`
 (the made-it / late card; Retry = `startRun({mode: "shabbos"})`, so pause → Restart and game over → Try again also
 restart the rush).
+
+**Rides (rides):** whatever Lulu drives that isn't her own car is foot's borrowed-vehicle shell (`ctx.foot.shellObj`,
+`ctx.foot.vehicle.kind` = its model key) — jacked (streets), hotwired on foot, hailed. Every frame rides polls the
+shell and, when its key has a def, makes that ride live (and undoes it all when the shell goes):
+```js
+ctx.rides.add({
+  id: "cop", name: "Cop car", emoji: "🚓", keys: ["cop"],      // shell model keys this ride covers
+  handling: { top, acc, grip, brake },  // only when the shell brought none (a jacked ride already has streets' numbers)
+  mass: 1.4,                            // shove in traffic collisions (core: traffic.collide uses `player.mass || 1`)
+  sturdy: 1.2,                          // heavy: a crash with LIGHTER traffic below this damage power costs no heart
+  nitro: { top: 1.5, acc: 15, drain: 0.7 },   // car.stats.nitroTop / nitroAcc (core car.js, defaults 1.32 / 9)
+  feel: "heavy" | "floaty",             // steering lag (when streets' jacked-ride feel isn't already on it)
+  horn: "siren" | "jingle" | "air" | "plain" | R => …,   siren: "siren" | "ambulance" (spatial kind), lightBar: [x, y, z],
+  ability: R => ({ id, emoji, label, short, ready, why }) | null,   use(R, act, via),   // the ONE trick (return a reused object)
+  hint: R => html,                      // the first-time card (once per ride per save, store("rides").seen)
+  status: R => html | "",               // the chip's status line (a timer, metres to a stop…)
+  enter(R), exit(R, why), update(dt, R, playing),   onSiren(R, on),
+  traffic: { kind, spec, mix, models, jack: {streets RIDES row}, alsoKinds, cam: {d, h} },   // join traffic (live() only) + jackable
+});
+```
+**Input — no new buttons:** the horn (L1 / LB, H, HONK) IS the ride's horn — rides swallows `P.honk` in a `controls`
+hook (priority 60) before the driving sim sees it, except while a phone call rings / talks (honk = decline). Rides with
+a trick: TAP the horn = the horn (siren on/off…), HOLD it 0.42 s = the trick (glyph `rideAct`: "hold L1"); keyboard X;
+touch: one contextual button (`#tx_rides_act`) that exists only in a ride with a trick. The air horn emits `honk` with
+`{ ride }` (the garage then skips its own horn sound). HUD: one `.rides-hud` stack in the "right" slot (a status chip,
+the trick chip with its glyph, a blinking 🚨 while the siren's on) — empty outside a ride.
+**Siren:** law's `lightBar(shell)` strobes the ride's own LightRed/LightBlue, a spatial loop rides on her car, and
+every non-scripted traffic car (no `ai`) ahead in her direction eases onto the shoulder at ≤ 3.5 m/s, oncoming ones
+hug theirs — released (back to lane 2, `want = base`) once she's past or the siren goes off. Real cops: a siren near a
+cop for ~7 s, or a pull-over (`ctx.law.pullOver()` → law's `lawStop` copStop scene) in view of one →
+`startChase("IMPERSONATING AN OFFICER", {heat: 2})`; in a chase the cop car's trick is spike strips (`ctx.streets.spikes`).
+Random content (dispatch calls, kids, bus riders, the taxi / ambulance / ice-cream / bus fleet in traffic) is gated by
+`ctx.enabled("rides")`; in a 🎉 party the whole feature stays inert. Set pieces (the ER bay, bus shelters) go up past the
+built road with `world.reserve` (released when they're gone); people come from a small pool, one shared beacon.
 
 **Lulu's phone (phone):** one GTA-style entry point for the extras, so features add an APP instead of a button.
 The phone opens in `playing` and `footRun` (touchpad / Tab / Xbox L3, the 📱 corner button — it takes the ❚❚ spot in

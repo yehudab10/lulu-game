@@ -39,7 +39,11 @@ export function sirenTick(dt, R) {
     if (!R.siren) return;
     if (R.bar) R.bar.set(true, ctx.time);
     if (R.snd && !R.snd.alive) R.snd = null;
-    if (!R.snd && A.spatial && A.spatial.ready && !ctx.skipping) R.snd = A.spatial.loop(R.def.siren || "siren", ctx.car.obj, { gain: 0.6, prio: 4 });
+    R.sndT = (R.sndT || 0) - dt;
+    if (!R.snd && R.sndT <= 0 && A.spatial && A.spatial.ready && !ctx.skipping) {
+        R.sndT = 1;                     // (re)start the loop at most once a second
+        R.snd = A.spatial.loop(R.def.siren || "siren", ctx.car.obj, { gain: 0.6, prio: 4 });
+    }
     if (ctx.state === "playing") yieldTraffic();
 }
 
