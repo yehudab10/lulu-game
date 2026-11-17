@@ -250,6 +250,14 @@ module.exports = {
     await t.L(`document.body.classList.add("hud-clean")`);
     t.check("HUD Clean: name stays, numbers hide", await t.L(`getComputedStyle(document.querySelector("#mvCall .mv-s")).display === "none" && getComputedStyle(document.querySelector("#mvCall .mv-n")).display !== "none"`));
     await t.L(`document.body.classList.remove("hud-clean")`);
+    // the callout on a phone held upright: centred, on screen, clear of the trip bar
+    await t.page.setViewportSize({ width: 390, height: 780 });
+    await G(`ctx.moves.addMove("slide", 150, "🏃‍♀️ SLIDE!", { foot: true })`);
+    await t.frames(4);
+    const box = await t.L(`(() => { const r = document.querySelector("#mvCall").getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; })()`);
+    t.check("phone portrait: the callout fits on screen", box.l >= 0 && box.r <= 390 && box.t > 60 && box.b < 400, JSON.stringify(box));
+    await t.shot("callout-portrait");
+    await t.page.setViewportSize({ width: 960, height: 540 });
     await bankNow(); await t.frames(3);
 
     // ── perf ──
