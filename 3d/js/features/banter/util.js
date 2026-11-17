@@ -5,6 +5,7 @@
 import { ctx } from "../../core/ctx.js";
 import { save3d } from "../../core/save.js";
 import * as H from "../../hud.js";
+import { spatial } from "../../audio.js";
 
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -109,8 +110,14 @@ const unlock = () => { audio(); };
 window.addEventListener("pointerdown", unlock, { passive: true });
 window.addEventListener("keydown", unlock, { passive: true });
 
-/** "Beep beep!" from another car: kind picks the voice, vol 0..1 (by distance). */
-export function npcHorn(kind = "sedan", vol = 0.6, beeps = 2) {
+/** "Beep beep!" from another car: kind picks the voice, vol 0..1 (by distance).
+ *  With `obj` (the car's Object3D) and positional audio up, the honk comes FROM that car. */
+export function npcHorn(kind = "sedan", vol = 0.6, beeps = 2, obj = null) {
+    if (obj && spatial.ready && save3d.sound !== false && !ctx.skipping) {
+        const sk = kind === "truck" ? "hornTruck" : kind === "van" ? "hornVan" : kind === "cop" ? "hornCop" : "horn";
+        const len = kind === "truck" ? 0.42 : kind === "van" ? 0.15 : kind === "cop" ? 0.1 : 0.13;
+        if (spatial.play(sk, obj, { gain: 0.95, rate: sk === "horn" ? 0.95 + Math.random() * 0.15 : 1, dur: beeps === 1 ? len + 0.03 : 0 })) return;
+    }
     const a = audio();
     if (!a || vol < 0.05) return;
     const t0 = a.currentTime + 0.01;

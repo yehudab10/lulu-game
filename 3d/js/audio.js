@@ -1,5 +1,10 @@
 // All sound is synthesized with WebAudio (engine, wind, tires, horn, coins,
 // crashes) except the music, which reuses the 2D game's driving track.
+// Positional sounds (sirens, passing cars, horns, the train…) go through
+// `spatial` (./spatial.js) on this same AudioContext; the music can be muffled
+// (`setMusicMuffle`: a lowpass through a MediaElementSource — Lulu on foot).
+import { spatial, initSpatial } from "./spatial.js";
+export { spatial };
 
 let ctx = null, master = null, sfxBus = null;
 let engine = null, wind = null, screech = null, hornNodes = null;
@@ -42,6 +47,7 @@ export function unlockAudio() {
         buildEngine();
         buildWind();
         buildScreech();
+        initSpatial(ctx, master);
     }
     if (ctx.state === "suspended") ctx.resume().catch(() => {});
     if (musicOn && music && music.paused) music.play().catch(() => {});
@@ -244,6 +250,40 @@ export function toggleMusic() {
 
 export function duckMusic(v) {
     if (music) music.volume = v;
+}
+
+// ── muffled music (on foot the car radio is "out there") ────────────────
+// Routed through WebAudio only once a muffle is first asked for (the element plays
+// directly until then); each <audio> element gets its MediaElementSource once.
+let muffle = 0, mChain = null;
+const mSources = new WeakMap();
+/** 0 = clear … 1 = heavily muffled (lowpass ~450 Hz). Cheap to call every frame. */
+export function setMusicMuffle(amount = 0) {
+    amount = Math.max(0, Math.min(1, amount || 0));
+    if (!ctx) { muffle = amount; return; }
+    if (amount > 0.001 && music && ctx.state === "running" && (!mChain || mChain.el !== music)) routeMusic();
+    if (!mChain || Math.abs(amount - muffle) < 0.002) { muffle = amount; return; }
+    muffle = amount;
+    mChain.lp.frequency.setTargetAtTime(20000 * Math.pow(450 / 20000, amount), ctx.currentTime, 0.12);
+}
+function routeMusic() {
+    try {
+        if (!mChain) {
+            const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 20000; lp.Q.value = 0.7;
+            lp.connect(master);
+            mChain = { lp, el: null, src: null };
+        }
+        if (mChain.src) { try { mChain.src.disconnect(); } catch (e) { /* gone */ } }
+        let src = mSources.get(music);
+        if (!src) { src = ctx.createMediaElementSource(music); mSources.set(music, src); }
+        src.connect(mChain.lp);
+        mChain.src = src; mChain.el = music;
+        mChain.lp.frequency.setValueAtTime(20000 * Math.pow(450 / 20000, muffle), ctx.currentTime);
+    } catch (e) { console.warn("[audio] muffle", e); }
+}
+/** Debug / tests: the music chain's state. */
+export function musicMuffleInfo() {
+    return { muffle, routed: !!(mChain && mChain.el && mChain.el === music), target: Math.round(20000 * Math.pow(450 / 20000, muffle)) };
 }
 
 export function setMuted(m) {
