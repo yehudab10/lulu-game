@@ -52,7 +52,9 @@ export function resetRun(opts = {}) {
 export function startRun(opts = {}) {
     resetRun(opts);
     emit("run:start", { mode: ctx.G.mode, opts });
-    setState("intro", opts);
+    // a runStart hook may swap the 3-2-1 countdown for its own departure state (world: the driveway pull-out)
+    const intro = ctx.G.introState;
+    setState(intro && ctx.states[intro] ? intro : "intro", opts);
 }
 
 /** Close out a run (banks the best score, flushes the wallet). Safe to call twice. */

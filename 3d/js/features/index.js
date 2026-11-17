@@ -21,3 +21,4 @@ import "./hustle/index.js";      // 💼 side hustles: GTA-style side jobs (Lulu
 import "./streets/index.js";     // 🚗 street mayhem: carjack anything, bail out, wanted stars + search, roadblocks, Paint & Pray, smashable props
 import "./phone/index.js";       // 📱 Lulu's phone: one entry point for the extras (map, messages, radio, jobs, Paint & Pray, camera)
 import "./memory/index.js";      // 🧠 a world that remembers Lulu: grudges in traffic, texts from fares, WANTED billboards, recognitions
+import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behind the title, the driveway pull-out, places to pull into

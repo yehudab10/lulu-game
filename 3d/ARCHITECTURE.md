@@ -150,6 +150,8 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
 `wreck(why, source)`, `heal(n)`, `addCoins(n, why)` (HUD + shared wallet),
 `addScore(n, why)`, `updateDriving(...)`, `updateActors(dt, onFoot)`, `roadPos()`,
 `autoDrive(dt, d, speed)` (returns a ctl that steers along lane d), `statsHtml(extra)`, `MAX_HEARTS`.
+A `runStart` hook may set `G.introState = "<state>"` to replace the 3-2-1 countdown with its own departure
+state (world's driveway pull-out); `startRun({ quick: true })` asks for the plain countdown.
 
 ## Saves (`js/core/save.js`)
 * `store("myFeature", defaults)` → your persistent object (3D save). Call `saveSoon()` after changing it.
@@ -276,7 +278,7 @@ patrols, popups, tutorials, daily-gift dialogs) with `ctx.enabled("<id>")`. It's
 the real game; in `?test` runs it's false unless the test opts in with `query: "&enable=<id>"` in
 its module export. Never put a blocking modal in the title → Story Trip → playing path.
 The same gate keeps a 🎉 **party** fair: during a party `ctx.enabled()` is false for roadevents, cameos,
-law, journey, meta, foot, interiors, dina, hustle, streets, memory and banter's random parts, so every friend's world stays identical
+law, journey, meta, foot, interiors, dina, hustle, streets, memory, world and banter's random parts, so every friend's world stays identical
 (traffic, ramps, dreidels and billboards come from the party seed; atmos takes its clock + weather from
 `ctx.party`). Anything random you add must check `ctx.enabled("<id>")` (or `ctx.party.active`).
 
@@ -319,6 +321,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.party` | party | `active` (in a party), `connected`, `code`, `seed`, `clock()` (the shared party clock, s), `isHost`, `players`, `activity`, `hostParty()` / `joinParty(code)` / `leave()` / `openHub()`, `trafficAt(t)`, `atmosClock()` / `atmosWeather()` — Party with friends (`features/party/`: `net.js` netcode over relay protocol v1, `remote.js` friends' cars, `traffic.js` the seeded traffic, `stage.js` the lobby/podium). Events `party:status`, `party:act`, `party:host`, `party:player`, `party:bc`, `party:synced` |
 | `ctx.hustle` | hustle | `job` (the active side job `{id: "cab" \| "getaway" \| "delivery", phase, def…}` or null) · `start(id, opts)` · `end(result, why)` · `offer(id, "marker" \| "phone")` · `marker` · `hold(s)` (no random offers) · `radio` `{station, name, stations, cycle(dir), tune(id), state()}` · `log` · `openLog()`. Events `hustle:start` {id, via}, `hustle:end` {id, result, why, pay}, `hustle:heist`, `hustle:bag` {lost}, `hustle:radio` {station}. Riders sit in roadevents' seat (`ctx.roadevents.seat(person, {keep, pose})` / `unseat(person)`) |
 | `ctx.memory` | memory | `grudges` (live list of remembered carjack victims `{id, name, key, colors, kind, color, run, seen, lastRun}`, ≤ 6) · `notoriety()` → `{score, level 0–4, title, arrests, mugshots, escapes, er, carjacks, maxStars, grudges}` · `remember(kind, data)` (`"grudge"` streets:carjack-shaped · `"poster"` {heat, why} owes a WANTED billboard · `"text"` queues a text · anything else → a capped log) · `recall(kind)` (a copy) · `recognize(who, info)` → a rate-limited line or `""` (`"cop"`, `"moishe"` {color}, `"hitch"` {event: pick\|pass\|drop}, `"avigailRoad"`, `"avigailPorch"`) · `spawnGrudge(rec?, {act, behind})` → Promise<car> (acts `yell` `tailgate` `brakecheck` `cops` `forgive`) · `canMeet()` · `forgive(rec)` · `text(t, {next, after})` · `poster(ahead, side, variant)` · `runs`. Events `memory:grudge` {name, kind, color, act, seen}, `memory:billboard` {variant, key, s, side} |
+| `ctx.places` | world | `add(def)` a pull-in place (`{id, name, icon, kind, where(mode) → [s…], d, bay: {half, d0, d1}, model, sign, colliders(spot), host(spot), cam(spot, t, pos, look), dur, beats: [{t, run(spot)}]}` — a town can register its own) · `get(id)` · `list()` · `spots()` (built ones near the car) · `at(id)` (positions this mode) · `visits(id)` · `inside` · `visit(key)` · `home {ready, phase: "parked" \| "arriving", park {x,z,h,s,d}, parked(), depart(), holiday(), decor, extras}` · `debug {clock(v), localClock(date), parkNow(), holiday()}`. Events `world:depart` {mode}, `world:home`, `world:visit` {id, s}, `world:holiday` {id} |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 Street events (streets): `streets:carjack` {kind, model, color, x, z, witnessed, driver: {key, colors}} · `streets:bail` {speed, ride} ·
@@ -335,6 +338,18 @@ reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `
 the wreck → arrest), cameos **10** (claims every other wreck and plays the 2D crash aftermath: the
 angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~35%), lets her walk
 on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
+
+**The home street (world):** the title is a live scene, not an attract loop. `features/world` wraps the
+title state's `update` (menu input + its own tick instead of core's `autopilot`), owns the title camera
+(`titleCamera` hook at priority −1000, so every other titleCamera hook still runs first) and parks the car at
+`ctx.places.home.park` (`car.showDriver(false)`; on-foot Lulu stands beside it). Coming back to the title
+from anywhere else, the car drives up the street and parks. A run started FROM THE TITLE at the start of the
+road (Cruise, Story leg 1) gets the pull-out: a `runStart` hook (priority −100) sets **`G.introState =
+"worldDepart"`** and core's `startRun` enters that state instead of `intro` (a skippable state that hands over
+to `playing` with the car rolling in its lane and the chase cam where it'll be). `startRun({ quick: true })`,
+Restart / Try again, checkpoints and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
+function, set by world) keeps the day + weather running on the title on the device's clock; Cruise continues
+from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 
 **Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
 inside its hub; its own title button shows only when the party feature is off).

@@ -56,7 +56,11 @@ function tick(dt) {
     // a party (features/party) gets the Cruise day + weather too, but driven by the shared
     // party clock + seed so every friend sees the same sky (see ctx.party.atmos*)
     const party = !!(ctx.party && ctx.party.active && ctx.G.mode === "party" && ctx.party.atmosClock);
-    const mode = st === "title" || st === "loading" ? "off" : ctx.G.mode === "cruise" || party ? "cruise" : "base";
+    // the world feature's live home street keeps the day + weather on the title (on the device's clock)
+    let titleClock = null;
+    if (st === "title" && typeof ctx.atmos.titleClock === "function") { try { titleClock = ctx.atmos.titleClock(); } catch (e) { titleClock = null; } }
+    const mode = st === "loading" || (st === "title" && titleClock == null) ? "off" : ctx.G.mode === "cruise" || party || titleClock != null ? "cruise" : "base";
+    if (titleClock != null) S.clock = ((titleClock % 1) + 1) % 1;
     S.mode = mode;
     if (mode === "off") {
         if (!offDone) {
