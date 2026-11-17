@@ -240,6 +240,7 @@ module.exports = {
     const pre = await g(`(() => { const b = ctx.foot.bounds.state; b.gapT = 0; b.aim = 500; const ok = !!ctx.foot.debug.startChase(); return { ok, count: b.count, shoos: b.shoos }; })()`);
     const c0 = pre.count, sh0 = pre.shoos;
     t.check("a foot chase starts", pre.ok);
+    await t.frames(3);   // (let the probe see her new spot first: the teleport isn't a step)
     await t.L(`Object.assign(window.__fb, { maxStep: 0, stuck: 0, maxStuck: 0, maxD: 0 })`);
     await t.stick(1, 0); await t.hold(5, 1);
     const clog = [];

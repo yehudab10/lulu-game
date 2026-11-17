@@ -654,7 +654,10 @@ function pullUp(F, kind, { side, ahead = 4, onStop, wait = 4, data = {} }) {
 function pullAi(F, r, dt, c) {
     r.t += dt;
     if (r.phase === "in") {
-        const target = F.s + r.dir * r.ahead;
+        // aim for a spot just ahead of her; once close, commit to it (so a car pulling up beside
+        // a Lulu who keeps walking still comes to a stop instead of crawling along forever)
+        let target = r.stopS != null ? r.stopS : F.s + r.dir * r.ahead;
+        if (r.stopS == null && (target - c.s) * r.dir < 12) r.stopS = target;
         const dist = (target - c.s) * r.dir;
         const want = Math.min(16, Math.sqrt(2 * 5 * Math.max(0, dist)));
         c.speed += clamp(want - c.speed, -9 * dt, 6 * dt);
