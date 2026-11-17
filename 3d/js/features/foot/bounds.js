@@ -728,7 +728,7 @@ function hopIn(F, r) {
     ctx.traffic.remove(c);
     emit("stat", { id: "footRides", n: 1 });
     ctx.foot.drive(v);
-    H.toast(bus ? "🚌 Lakewood Local — now with a NEW driver!" : "🚗 Free ride! (She's driving. Of course she's driving.)", "gold");
+    H.toast(bus ? "🚌 The bus has a NEW driver!" : "🚗 Free ride! (She's driving, of course.)", "gold");
 }
 
 // "Ma'am, this is a HIGHWAY."
@@ -740,7 +740,7 @@ function copWarn(F, B) {
         onStop: rr => {
             SFX.chirp();
             ctx.foot.say(rr.car.obj, pick(LINES.cop), 2.6, { cls: "cop" });
-            H.toast("🚓 Jaywalking warning — stick to the shoulder", "red");
+            H.toast("🚓 Warning: use the SHOULDER", "red");
             // the warning counts once it's been said; the clock to the ★ starts now
             if (F.bx === B) { B.warned = true; B.laneT = 0; B.gapT = Math.max(B.gapT, NUDGE.gap); }
         },
@@ -757,8 +757,8 @@ function jaywalkStar(F, B) {
     SFX.chirp();
     if (ctx.law && ctx.law.addWarrant) {
         try { ctx.law.addWarrant(["JAYWALKING"]); } catch (e) { console.error(e); }
-        H.toast("⭐ JAYWALKING — it's on your record now. Mild. Embarrassing.", "red");
-    } else H.toast("🚓 Second warning. The shoulder, Lulu. THE SHOULDER.", "red");
+        H.toast("⭐ JAYWALKING. Mild. Embarrassing.", "red");
+    } else H.toast("🚓 THE SHOULDER, Lulu.", "red");
     emit("foot:crime", { charges: ["JAYWALKING"], seen: true });
 }
 
