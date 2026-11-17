@@ -592,7 +592,8 @@ export class World {
     constructor(scene, seed = 20261104) {
         this.scene = scene;
         this.seed = seed;
-        this.road = new Road(seed);
+        this.highway = new Road(seed);
+        this.district = null;
         this.chunks = new Map();
         this.config = { speedTraps: true };
         this.reserved = [];
@@ -613,6 +614,22 @@ export class World {
      *   world.biomeAt = s => ({ ...world.defaultBiome(), trees: { palm: 1 }, houses: 0.2, ground: "#f3e3b0" })
      */
     biomeAt(s) { return DEFAULT_BIOME; }
+
+    /** The road everything drives on: the highway, or (while one is active) a district's streets. */
+    get road() { return this.district ? this.district.road : this.highway; }
+
+    /**
+     * A DISTRICT takes the player off the highway into a separate street network in the
+     * same scene (features/town: Lakewood). While one is set, world.road is the district's
+     * road (same API: at / point / nearest, s + d along its streets), activeChunks() yields
+     * the district's chunk-likes ({s0, s1, colliders, coins, hearts, traps}), and the
+     * highway's chunks are kept but hidden and stop streaming. setDistrict(null) puts it back.
+     * district: { road, chunks: [], ground?: "#hex" }
+     */
+    setDistrict(d) {
+        this.district = d || null;
+        for (const c of this.chunks.values()) c.group.visible = !this.district;
+    }
     defaultBiome() { return { ...DEFAULT_BIOME, trees: { ...DEFAULT_BIOME.trees } }; }
 
     /** Keep a stretch of roadside clear of random scenery (for a set piece). side: 1 right, -1 left, 0 both. */
@@ -693,6 +710,7 @@ export class World {
     /** Stream chunks around the player; animate coins etc. */
     update(dt, playerS, camPos, buildBudget = 1) {
         this.time += dt;
+        if (this.district) { this.follow(dt, camPos, this.district.ground || "#ffffff", buildBudget); return; }
         const kMin = Math.max(0, Math.floor((playerS - BEHIND) / CHUNK));
         const kMax = Math.floor((playerS + AHEAD) / CHUNK);
         for (const [k, c] of this.chunks) {
@@ -703,26 +721,30 @@ export class World {
             if (!this.chunks.has(k)) { this.chunks.set(k, new Chunk(this, k)); built++; }
         }
         for (const c of this.chunks.values()) c.animate(this.time);
+        this.follow(dt, camPos, this.biomeAt(playerS).ground || "#ffffff", buildBudget);
+    }
 
+    /** Ground, sky and clouds ride along with the camera; the grass eases toward `ground`. */
+    follow(dt, camPos, ground, buildBudget = 1) {
         const P = this.groundPeriod;
         this.ground.position.set(Math.round(camPos.x / P) * P, 0, Math.round(camPos.z / P) * P);
         this.sky.position.copy(camPos);
         this.clouds.position.set(camPos.x, 0, camPos.z);
         this.clouds.rotation.y += dt * 0.004;
-
-        // ease the grass tint toward the current biome's ground colour
-        const want = this.biomeAt(playerS).ground || "#ffffff";
-        _tint.set(want);
+        _tint.set(ground);
         this.groundTint.lerp(_tint, Math.min(1, dt * 0.6 + (buildBudget > 1 ? 1 : 0)));
         this.ground.material.color.copy(this.groundTint);
     }
 
-    /** Build everything near the start before the first frame. */
+    /** Build everything near the start before the first frame (always the highway's chunks). */
     prebuild(playerS) {
+        const d = this.district;
+        this.district = null;
         this.update(0, playerS, new THREE.Vector3(), 99);
+        if (d) this.setDistrict(d);
     }
 
-    *activeChunks() { yield* this.chunks.values(); }
+    *activeChunks() { if (this.district) yield* this.district.chunks; else yield* this.chunks.values(); }
 
     resetCoins() {
         for (const c of this.chunks.values()) {

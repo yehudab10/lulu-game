@@ -6,14 +6,14 @@
 // next stop goes up. Miss one and it's "next time, maybe". Riders only appear while
 // the feature's random content is on (ctx.enabled("rides")), never in a party.
 import * as THREE from "three";
-import { ctx, emit } from "../../core/ctx.js";
+import { ctx, on, emit } from "../../core/ctx.js";
 import { addCoins } from "../../core/driving.js";
 import { facingRoad } from "../../world.js";
 import { rumble } from "../../input.js";
 import { saveSoon } from "../../core/save.js";
 import * as A from "../../audio.js";
 import { add, S } from "./registry.js";
-import { live, partyOn, need, models, pick, rand, pt, carLocal, bubble, luluSays, toast, stat,
+import { live, partyOn, inTown, need, models, pick, rand, pt, carLocal, bubble, luluSays, toast, stat,
     borrowPerson, returnPerson, beam, slotAhead, hornGlyph } from "./common.js";
 import * as T from "./lines.js";
 
@@ -110,11 +110,12 @@ export function placeStop(minAhead = 380, at = null) {
 function tick(dt, playing) {
     const car = ctx.car;
     beam.pulse(ctx.time);
+    if (inTown() && STOP.phase === "waiting") { retire(); STOP.phase = "wait"; STOP.t = 3; }
     if (STOP.old && car.s - STOP.old.s > 60) { dropShelter(STOP.old); STOP.old = null; }
     if (STOP.phase === "wait") {
         if (!playing) return;
         STOP.t -= dt;
-        if (STOP.t <= 0) { if (!live() || partyOn() || !placeStop()) STOP.t = 3; }
+        if (STOP.t <= 0) { if (!live() || partyOn() || inTown() || !placeStop()) STOP.t = 3; }
         return;
     }
     if (STOP.phase === "waiting") {
@@ -166,4 +167,6 @@ function pay() {
     retire();
     STOP.phase = "wait"; STOP.t = 3;
 }
+// the town's street grid: shelters go, the next stop waits for the highway
+on("town:enter", () => { if (STOP.phase !== "off") { clear(); STOP.phase = "wait"; STOP.t = 3; } });
 export const busDebug = { STOP, placeStop };

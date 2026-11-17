@@ -13,6 +13,8 @@ export const ID = "rides";
 export const live = () => ctx.enabled(ID);
 /** Nothing of ours runs in a party (the shared, seeded world must stay identical for every friend). */
 export const partyOn = () => !!(ctx.party && ctx.party.active);
+/** In a town district (features/town) the road is a street grid: no roadside set pieces there. */
+export const inTown = () => !!(ctx.town && ctx.town.active);
 
 registerModels({ rides_taxi: "rides_taxi", rides_er: "rides_er", rides_busstop: "rides_busstop", rides_cone: "rides_cone" });
 export function need(keys) { return ensureModels(keys); }

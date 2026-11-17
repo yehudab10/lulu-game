@@ -27,7 +27,6 @@ export class Traffic {
     constructor(scene, world) {
         this.scene = scene;
         this.world = world;
-        this.road = world.road;
         this.cars = [];
         this.tmp = {};
         this.spawnT = 0;
@@ -40,6 +39,9 @@ export class Traffic {
         };
         this.pool = {};
     }
+
+    /** The road the cars follow: the highway, or a district's streets while one is active (see World.setDistrict). */
+    get road() { return this.world.road; }
 
     clear() {
         for (const c of this.cars) this.release(c);

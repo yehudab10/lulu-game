@@ -16,7 +16,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { add, S } from "./registry.js";
 import { setSiren } from "./siren.js";
-import { live, partyOn, need, models, pick, rand, clamp, smooth, pt, carLocal, bubble, luluSays, toast, stat,
+import { live, partyOn, inTown, need, models, pick, rand, clamp, smooth, pt, carLocal, bubble, luluSays, toast, stat,
     borrowPerson, returnPerson, beam, slotAhead, hornGlyph, trickWords } from "./common.js";
 import * as T from "./lines.js";
 import * as THREE from "three";
@@ -127,12 +127,13 @@ function tick(dt, R, playing) {
     beam.pulse(ctx.time);
     tickTimers();
     if (RUN.owT > 0) RUN.owT -= dt;
+    if (inTown() && RUN.phase !== "wait" && RUN.phase !== "off") { toast("🚑 Dispatch: never mind — the town ambulance has it.", "", "rides:miss"); removeER(); wait(8); return; }
     switch (RUN.phase) {
         case "wait": {
             if (!playing) return;
             RUN.t -= dt;
             if (RUN.t > 0) return;
-            if (!live() || partyOn() || (ctx.law && ctx.law.chasing) || !dispatch()) RUN.t = 3;
+            if (!live() || partyOn() || inTown() || (ctx.law && ctx.law.chasing) || !dispatch()) RUN.t = 3;
             return;
         }
         case "pickup": {

@@ -10,9 +10,12 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..");
 const OUT = path.join(ROOT, "www");
 
-// Everything index.html actually loads at runtime.
+// Everything the 2D page actually loads at runtime. The native app still ships
+// the classic 2D game: its page lives at classic.html in the repo (the site's
+// index.html now sends visitors to the 3D game, 2.0) and is staged as www/index.html.
+const RENAME = { "classic.html": "index.html" };
 const ASSETS = [
-  "index.html",
+  "classic.html",
   "game.js",
   "style.css",
   "manifest.webmanifest",
@@ -42,7 +45,7 @@ let copied = 0;
 for (const f of ASSETS) {
   const src = path.join(ROOT, f);
   if (fs.existsSync(src)) {
-    fs.copyFileSync(src, path.join(OUT, f));
+    fs.copyFileSync(src, path.join(OUT, RENAME[f] || f));
     copied++;
   } else {
     console.warn("copy-web: WARNING missing asset " + f);
