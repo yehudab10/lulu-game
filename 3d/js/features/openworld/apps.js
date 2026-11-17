@@ -148,7 +148,7 @@ function exitsHere() {
     if (!plan || !plan.def.exits) return [];
     return plan.def.exits.map(e => {
         const st = plan.byName[e.street];
-        if (!st) return null;
+        if (!st || (st.axis !== "ns" && st.axis !== "ew")) return null;
         const along = e.at + e.dir * -10, d = e.dir * 1.75;
         const x = st.axis === "ns" ? st.c - d : along, z = st.axis === "ns" ? along : st.c + d;
         return { x: plan.ORIGIN.x + x, z: plan.ORIGIN.z + z, name: e.name || e.street };

@@ -369,6 +369,7 @@ function spotName(key, plan) {
 function onStreet(plan, lx, lz) {
     let best = null, bd = 1e9;
     for (const st of plan.STREETS) {
+        if (st.axis !== "ns" && st.axis !== "ew") continue;          // (a diagonal avenue: skip)
         const along = st.axis === "ns" ? lz : lx, d = st.axis === "ns" ? st.c - lx : lz - st.c;
         const a = Math.max(st.a0 + 8, Math.min(st.a1 - 8, along));
         const e = (along - a) ** 2 + d * d;
