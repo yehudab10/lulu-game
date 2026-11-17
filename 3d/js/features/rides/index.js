@@ -68,6 +68,8 @@ function enterRide(def, obj, v) {
     car.stats = st;
     R.stats = st;
     car.mass = def.mass || 1;
+    // rides that STOP on the shoulder for work (the ER bay, bus stops, ice cream) keep the parking pull-over prompt away
+    if (def.stops && ctx.G) { R.noPullOverWas = ctx.G.noPullOver; ctx.G.noPullOver = true; }
     S.rides[def.id] = (S.rides[def.id] || 0) + 1;
     saveSoon();
     try { if (def.enter) def.enter(R); } catch (e) { console.error("[rides] enter", def.id, e); }
@@ -85,6 +87,7 @@ function exitRide(why) {
     if (car) {
         if (car.stats === r.stats) car.stats = SKINS[car.skinKey] || car.stats;
         car.mass = 1;
+        if (r.def.stops && ctx.G) ctx.G.noPullOver = r.noPullOverWas;
     }
     showChip("");
     emit("rides:exit", { id: r.id, why });
@@ -193,7 +196,7 @@ function firstHint() {
     saveSoon();
     let txt = "";
     try { txt = def.hint(R); } catch (e) { console.error("[rides] hint", e); }
-    if (txt) H.banner(`<b>${def.emoji} ${def.name.toUpperCase()}</b><small>${txt}</small>`, 5200, { key: "rides:hint" });
+    if (txt) H.banner(`<b>${def.emoji} ${def.name.toUpperCase()}</b><small>${txt}</small>`, 5200, { key: "rides:hint", prio: 2 });
 }
 for (const [k, g] of Object.entries({ ps: "hold L1", xbox: "hold LB", nintendo: "hold L", keyboard: "X", touch: "⭐" })) {
     const set = glyphSet(k);

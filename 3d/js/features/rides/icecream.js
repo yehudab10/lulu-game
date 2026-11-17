@@ -37,6 +37,7 @@ HORN_KINDS.jingle = R => {
 add({
     id: "icecream", name: "Ice-cream truck", emoji: "🍦", keys: ["journey_icecream"],
     handling: { top: 0.68, acc: 0.6, grip: 0.85, brake: 0.7 }, mass: 3.2, sturdy: 1.0, feel: "heavy",
+    stops: true,
     horn: "jingle",
     hint: () => `Pull over to the right, STOP and ${hornGlyph()} play the jingle — kids come running with coins 🪙`,
     enter(R) {

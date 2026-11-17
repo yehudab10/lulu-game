@@ -30,6 +30,7 @@ const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 add({
     id: "ambulance", name: "Ambulance", emoji: "🚑", keys: ["foot_ambulance"], vtype: "ambulance",
     handling: { top: 1.0, acc: 0.85, grip: 0.9, brake: 0.9 }, mass: 2.5, feel: "floaty",
+    stops: true,
     horn: "siren", siren: "ambulance", lightBar: [0.4, 2.62, 1.3],
     hint: () => `${hornGlyph()} siren · drive to the 🚑 patient, STOP beside them, then rush them to the ER before the clock runs out · ${trickWords("🩹")} patch yourself up (+❤️)`,
     enter(R) {

@@ -27,6 +27,7 @@ const _v = new THREE.Vector3();
 add({
     id: "bus", name: "City bus", emoji: "🚌", keys: ["foot_bus"], vtype: "bus",
     handling: { top: 0.7, acc: 0.5, grip: 0.8, brake: 0.6 }, mass: 5, sturdy: 1.3, feel: "heavy",
+    stops: true,
     horn: "air",
     hint: () => `Line 18! Pull into the 🚏 stops on the right and STOP — riders board and pay · small cars bounce off · ${hornGlyph()} air horn`,
     enter() {

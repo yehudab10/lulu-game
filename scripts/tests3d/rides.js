@@ -18,7 +18,7 @@ module.exports = {
   async run(t) {
     const g = t.game;
     const st = () => g(`ctx.state`);
-    const coins = () => t.L(`(JSON.parse(localStorage.getItem("luluSaveV2") || "{}").totalCoins || 0)`);
+    const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
     const place = (ds, d, v = 0) => g(`(() => { const r = ctx.world.road, s = ctx.car.s + ${ds}, p = r.point(s, ${d}, {});
         ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = ${d}; ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; return s; })()`);
     const placeAt = (s, d, v = 0) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {});
@@ -54,7 +54,8 @@ module.exports = {
     if (await board("cop")) {
       t.check("cop: handling + weight (top 1.12, mass 1.4)", await g(`Math.abs(ctx.car.stats.top - 1.12) < 1e-6 && ctx.car.mass === 1.4`));
       await t.frames(20);
-      t.check("cop: a first-time hint card (banner)", await t.L(`/COP CAR/.test(document.body.textContent)`));
+      t.check("cop: a first-time hint card (banner)", await t.L(`/COP CAR/.test(document.body.textContent)`),
+        JSON.stringify(await t.L(`import("./js/hud.js").then(m => m.notifyState())`)) + " seen=" + await g(`!!${D}.S.seen.cop`));
       await g(`(globalThis.__ahead = ctx.traffic.add("sedan", ctx.car.s + 40, 1.75, 1, 6), globalThis.__onc = ctx.traffic.add("van", ctx.car.s + 90, -1.75, -1, 14), true)`);
       await t.frames(3);
       t.check("cop: the trick on offer is 🚨 PULL OVER (a car ahead)", (await g(`ctx.rides.act() && ctx.rides.act().id`)) === "pullover");
@@ -164,6 +165,9 @@ module.exports = {
       const c0 = await coins();
       await placeAt(await g(`${D}.bus.STOP.s`), 5.6, 0);
       await t.frames(30);
+      const vis = await g(`(() => { const so = ctx.foot.shellObj; let v = !!so, o = so; while (o) { if (!o.visible) v = false; o = o.parent; }
+        const cp = ctx.camera.position, p = ctx.car.pos; return { v, key: ctx.foot.vehicle && ctx.foot.vehicle.kind, cam: +Math.hypot(cp.x - p.x, cp.z - p.z).toFixed(1), camY: +cp.y.toFixed(1), inScene: !!(so && so.parent) }; })()`);
+      t.check("bus: the bus itself is on screen (shell visible, camera pulled back past its rear)", vis.v && vis.cam > 6, JSON.stringify(vis));
       await t.shot("bus-stop");
       await t.until(`__lulu3d.ctx.rides.debug.bus.STOP.phase === "wait"`, "bus: riders board and pay", 30000);
       t.check("bus: fares paid", (await coins()) > c0, `${c0} → ${await coins()}`);
