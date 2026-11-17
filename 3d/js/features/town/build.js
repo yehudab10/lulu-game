@@ -76,7 +76,7 @@ export function buildTown(def) {
     const own = [];                     // geometries / materials / textures to dispose
     const mats = lookMaterials();
     own.push(...Object.values(mats));
-    const merge = new Merger(60);
+    const merge = new Merger(def.cell || 60);       // (a bigger town can use bigger clusters: fewer draw calls)
     const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];

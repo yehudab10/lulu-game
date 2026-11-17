@@ -40,6 +40,7 @@ export default {
     s0: 500000,
     ground: "#ffffff",
     seed: 718,
+    cell: 84,                              // merge clusters (m): Midwood is ~1.5× Lakewood, so bigger cells keep the draw calls level
 
     streets: [
         ns("Ocean Pkwy", OP, -330, 300, { lanes: 2, park: false, boulevard: { mall: 6, service: 6.6 }, priority: true }),
