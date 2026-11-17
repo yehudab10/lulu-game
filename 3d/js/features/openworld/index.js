@@ -396,7 +396,7 @@ function townSights() {
 function streetCorners() {
     const T = ctx.town, plan = T && T.plan;
     if (!plan) return [];
-    return plan.NODES.filter(n => !n.circle).map(n => ({ x: plan.ORIGIN.x + n.x + 4, z: plan.ORIGIN.z + n.z + 4, name: `${plan.STREETS[n.ns].name} & ${plan.STREETS[n.ew].name}`, icon: "🚦" }));
+    return plan.NODES.filter(n => !n.circle && plan.STREETS[n.ns] && plan.STREETS[n.ew]).map(n => ({ x: plan.ORIGIN.x + n.x + 4, z: plan.ORIGIN.z + n.z + 4, name: `${plan.STREETS[n.ns].name} & ${plan.STREETS[n.ew].name}`, icon: "🚦" }));
 }
 /** Pins at least minD metres from here: town sights first (then corners); the highway: up the road. */
 function pins(minD, n, sightsOnly = false) {
