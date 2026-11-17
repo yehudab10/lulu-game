@@ -36,8 +36,23 @@ const quiet = () => save3d.sound === false || game.skipping || game.paused;
 
 function noiseSrc(a, buf) { const s = a.createBufferSource(); s.buffer = buf; s.loop = true; return s; }
 
-/** Continuous rain hiss (0..1), with a softer patter layer. */
-export function rainLoop(level) {
+let drops = null;
+/** Rain drops landing on a car: sparse decaying ticks (1.5 s loop), made once. */
+function dropsBuf(a) {
+    if (drops) return drops;
+    const n = Math.round(a.sampleRate * 1.5);
+    drops = a.createBuffer(1, n, a.sampleRate);
+    const d = drops.getChannelData(0), len = Math.round(a.sampleRate * 0.012);
+    for (let k = 0; k < 230; k++) {
+        const at = Math.floor(Math.random() * (n - len)), amp = 0.25 + Math.random() * 0.75;
+        for (let i = 0; i < len; i++) d[at + i] += (Math.random() * 2 - 1) * amp * Math.exp(-i / (len * 0.18));
+    }
+    return drops;
+}
+
+/** Continuous rain (0..1): a hiss + a softer patter, and where she is —
+ *  "car": drops drumming on the bodywork, the hiss dulled; "foot": the open-air hiss. */
+export function rainLoop(level, where = "car") {
     const a = ac || (level > 0.01 ? get() : null);
     if (!a) return;
     let L = loops.rain;
@@ -52,13 +67,22 @@ export function rainLoop(level) {
         const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 380; bp.Q.value = 0.7;
         const g2 = a.createGain(); g2.gain.value = 0;
         src2.connect(bp).connect(g2).connect(out);
-        src.start(); src2.start();
-        L = loops.rain = { g, g2 };
+        const src3 = noiseSrc(a, dropsBuf(a));                       // the drum on the car
+        const bp3 = a.createBiquadFilter(); bp3.type = "bandpass"; bp3.frequency.value = 1100; bp3.Q.value = 1.1;
+        const g3 = a.createGain(); g3.gain.value = 0;
+        src3.connect(bp3).connect(g3).connect(out);
+        src.start(); src2.start(); src3.start();
+        L = loops.rain = { g, g2, g3, lp };
     }
-    const v = quiet() ? 0 : level;
-    L.g.gain.setTargetAtTime(v * 0.075, a.currentTime, 0.4);
-    L.g2.gain.setTargetAtTime(v * 0.2, a.currentTime, 0.4);
+    const v = quiet() ? 0 : level, car = where !== "foot";
+    L.where = where;
+    L.g.gain.setTargetAtTime(v * 0.075 * (car ? 0.6 : 1.2), a.currentTime, 0.4);
+    L.g2.gain.setTargetAtTime(v * 0.2 * (car ? 0.75 : 1), a.currentTime, 0.4);
+    L.g3.gain.setTargetAtTime(car ? v * 0.5 : 0, a.currentTime, 0.3);
+    L.lp.frequency.setTargetAtTime(car ? 2600 : 7500, a.currentTime, 0.3);
 }
+/** Tests: which rain mix is playing ("car" | "foot" | null). */
+export function rainInfo() { return loops.rain ? { where: loops.rain.where, drum: loops.rain.g3.gain.value, hiss: loops.rain.g.gain.value } : null; }
 
 /** A propeller drone (0..1) for the banner plane. */
 export function propLoop(level) {

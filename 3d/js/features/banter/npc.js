@@ -137,7 +137,7 @@ function reply(p) {
     const words = !(moved && ctx.enabled("roadevents")) || chance(0.6);
     if (words) npcBubble(line(cat, NPC[cat]), c.obj, { dur: 2.5, y: BUB_Y[c.kind] || 2.2, cls });
     if (mode) armOut(c, mode, 1.9);
-    if (Math.random() < horn) npcHorn(c.kind, clamp(1 - (c.s - ctx.car.s) / 70, 0.25, 1), 2);
+    if (Math.random() < horn) npcHorn(c.kind, clamp(1 - (c.s - ctx.car.s) / 70, 0.25, 1), 2, c.obj);
     npcState.replies++;
     npcState.lastReply = { cat, kind: c.kind, words, moved };
     if (cls === "angry" && words) say("comeback", {}, { delay: 1.5 });
@@ -177,7 +177,7 @@ on("closeCall", () => {
     // roadevents has its own near-miss quips; without it, the driver yells too
     if (!ctx.enabled("roadevents") && chance(0.65)) {
         npcBubble(line("nearMiss", NPC.nearMiss), best.obj, { dur: 2.0, y: BUB_Y[best.kind] || 2.2, cls: "angry" });
-        if (Math.random() < 0.3) npcHorn(best.kind, 0.6, 2);
+        if (Math.random() < 0.3) npcHorn(best.kind, 0.6, 2, best.obj);
     }
 });
 

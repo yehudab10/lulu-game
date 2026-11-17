@@ -157,6 +157,12 @@ export async function spawnTrain(opts = {}) {
             c.obj.rotation.y = h - dir * Math.PI / 2;
         }
     }
+    // the crossing bell rings from the signal on Lulu's side of the tracks
+    function nearestSignal() {
+        let best = null, bd = Infinity;
+        for (const sg of signals) { const p = sg.sig.position, dx = p.x - ctx.car.pos.x, dz = p.z - ctx.car.pos.z, d = dx * dx + dz * dz; if (d < bd) { bd = d; best = sg.sig; } }
+        return best;
+    }
     function trainSpan() { // [min D, max D] occupied
         const a = T.front, b = T.front - dir * trainLen;
         return [Math.min(a, b), Math.max(a, b)];
@@ -205,10 +211,10 @@ export async function spawnTrain(opts = {}) {
             }
             if (T.lights) {
                 T.bellT -= dt;
-                if (T.bellT <= 0) { T.bellT = 0.42; sfx.bell(Math.floor(T.t / 0.42)); }
+                if (T.bellT <= 0) { T.bellT = 0.42; sfx.bell(Math.floor(T.t / 0.42), nearestSignal()); }
             }
             // horn: ― ― ○ ― as it approaches (2D's ding-ding, louder)
-            if (!T.horn[0] && toArrive < 7) { T.horn[0] = 1; sfx.trainHorn(0.9); sfx.trainHorn(0.9, 1.1); sfx.trainHorn(0.35, 2.2); sfx.trainHorn(1.4, 2.7); }
+            if (!T.horn[0] && toArrive < 7) { T.horn[0] = 1; const lo = consist[0].obj; sfx.trainHorn(0.9, 0, lo); sfx.trainHorn(0.9, 1.1, lo); sfx.trainHorn(0.35, 2.2, lo); sfx.trainHorn(1.4, 2.7, lo); }
             // rumble by distance
             const near = Math.max(0, Math.min(Math.abs(lo), Math.abs(hi), onRoad ? 0 : 1e9));
             const dist = Math.hypot(Math.abs(ahead), lo > 0 ? lo : hi < 0 ? -hi : 0);
@@ -220,7 +226,7 @@ export async function spawnTrain(opts = {}) {
                 addScore(PAY.trainWait, "train");
                 H.toast(`🚂 Patient driver! +${PAY.trainWait}`, "gold");
                 bubble(pick(ENGINEER_LINES), engineer.obj, { t: 2.6, y: 2.0, cls: "gold" });
-                sfx.trainHorn(0.3); sfx.trainHorn(0.3, 0.4);
+                sfx.trainHorn(0.3, 0, consist[0].obj); sfx.trainHorn(0.3, 0.4, consist[0].obj);
                 stat("trainsWaited", 1);
                 T.waveT = 3;
             }

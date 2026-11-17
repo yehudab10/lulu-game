@@ -183,6 +183,8 @@ function present(dt) {
     refreshTouchButtons();
     const v = ctx.view;
     renderer.render(v ? v.scene : scene, v ? v.camera : camera);
+    // positional audio follows the camera that just rendered (silent behind a set, paused or skipping)
+    A.spatial.update(dt, camera, ctx.car ? ctx.car.pos : null, !v && !ctx.paused && !ctx.skipping);
     if (!ctx.skipping) adaptQuality(dt);
 }
 

@@ -22,3 +22,4 @@ import "./streets/index.js";     // 🚗 street mayhem: carjack anything, bail o
 import "./phone/index.js";       // 📱 Lulu's phone: one entry point for the extras (map, messages, radio, jobs, Paint & Pray, camera)
 import "./memory/index.js";      // 🧠 a world that remembers Lulu: grudges in traffic, texts from fares, WANTED billboards, recognitions
 import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behind the title, the driveway pull-out, places to pull into
+import "./feel/index.js";        // 🔊 feel: positional 3D audio (sirens, passing traffic, horns, the train…) + visible damage on Lulu's car
