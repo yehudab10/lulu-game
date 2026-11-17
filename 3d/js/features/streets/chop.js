@@ -125,7 +125,7 @@ function deliver(shop) {
 }
 
 hook("update", (dt, P, controlsOn) => {
-    if (!controlsOn || ctx.state !== "playing") return;
+    if (!controlsOn || ctx.state !== "playing" || (ctx.town && ctx.town.active)) return;   // (a town detour pauses the order)
     const job = CHOP.job;
     if (!job) {
         if (!live() || ctx.G.mode === "party") return;

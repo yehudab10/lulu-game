@@ -377,6 +377,7 @@ function tick(dt, controlsOn) {
     if (!controlsOn) return;
     driftFx(dt);
     if (ctx.foot && ctx.foot.active) return;
+    if (ctx.town && ctx.town.active) { W.t = 0; DR.charge = 0; DR.car = null; bootTick(); return; }   // a town's grid: no lanes to read
     draftTick(dt);
     wrongTick(dt);
     bootTick();
