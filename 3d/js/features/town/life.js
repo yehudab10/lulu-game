@@ -177,7 +177,7 @@ export function tickLife(dt) {
     // people: idle, talk, heckle her as she drives by; far ones are hidden (cheap LOD)
     for (const r of LIFE.people) {
         const o = r.p.obj, dc = Math.hypot(o.position.x - cam.x, o.position.z - cam.z);
-        o.visible = dc < 48;
+        o.visible = dc < (r.extra ? 30 : 42);       // townsfolk are ~5k triangles each: only the near ones
         if (!o.visible) continue;
         if (r.talkT > 0) r.talkT -= dt;
         r.idle += dt;

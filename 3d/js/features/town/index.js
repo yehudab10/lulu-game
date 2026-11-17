@@ -275,7 +275,7 @@ function tick(dt) {
 // ── culling: a block of houses hides everything behind it ──────────────
 // (the frustum alone sees "through" the whole town from any street). Per merged cluster: hidden when
 // it's past its look's distance, or when every sample point is behind some other block.
-const MAX_D = { flat: 170, solid: 300, glow: 230, lit: 230, glass: 120 };
+const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
 function cullClusters(T) {
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
