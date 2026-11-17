@@ -90,11 +90,13 @@ export function starsOf(m) {
 
 // ── the STYLE COMBO ───────────────────────────────────────────────────────
 export const WINDOW = 3.0;               // seconds to land the next move
-const KIND_MAX = 16;
+/** Cost of our per-frame hooks (ms summed + frames), for the perf numbers in tests. Also a short log of banks / breaks. */
+export const PERF = { ms: 0, n: 0, max: 0 };
+export const LOG = [];
+function log(e) { LOG.push(e); if (LOG.length > 12) LOG.shift(); }
 export const C = {
     n: 0, pts: 0, mult: 1, t: 0, distinct: 0, last: "", rep: 0, foot: false,
     kinds: Object.create(null),          // id → count in this chain
-    linkT: 0,                            // > 0 while a link move (drift / draft / wrong lane) holds it open
 };
 function multOf() { return Math.min(12, 1 + 0.5 * (C.n - 1) + 0.5 * (C.distinct - 1)); }
 
@@ -157,6 +159,7 @@ export function bank(why = "time") {
         if (rec && C.mult >= 3) setTimeout(() => H.toast("🏆 New combo record!", "gold"), 0);
         firstTime("combo");
     }
+    log({ type: "bank", n: res.n, mult: res.mult, total: res.total, coins: res.coins, why });
     emit("moves:bank", res);
     reset();
     return res;
@@ -168,11 +171,12 @@ export function breakCombo(why = "crash") {
         H.toast(`💥 COMBO LOST ×${fmtMult(C.mult)}`, "red", { merge: false });
         callout("COMBO LOST", why === "botch" ? "bailed the landing" : "", "red", 1.2);
     }
+    log({ type: "break", n: C.n, mult: C.mult, why });
     emit("moves:break", { n: C.n, mult: C.mult, why });
     reset();
 }
 export function reset() {
-    C.n = 0; C.pts = 0; C.mult = 1; C.t = 0; C.distinct = 0; C.last = ""; C.rep = 0; C.foot = false; C.linkT = 0;
+    C.n = 0; C.pts = 0; C.mult = 1; C.t = 0; C.distinct = 0; C.last = ""; C.rep = 0; C.foot = false;
     for (const k in C.kinds) delete C.kinds[k];
 }
 /** Once per frame from the HUD tick: the combo window. */

@@ -19,12 +19,12 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import {
     S, C, live, clamp, lerp, touch, addMove, keepAlive, quality, bestOf, breakCombo, bank, reset,
-    rumble, triggerTick, flashPad, spark, callout, meter, TIER_RGB, TIER_CSS, TIER_NAME, firstTime,
+    rumble, triggerTick, flashPad, spark, callout, meter, TIER_RGB, TIER_CSS, TIER_NAME, firstTime, PERF,
 } from "./common.js";
 
 const WB = 2.56;                         // car.js WHEELBASE
 export const TUNE = {
-    drift: { minV: 13, keepV: 8.5, minSteer: 0.3, tiers: [0.8, 1.8, 3.0], yawOut: -0.06, yawIn: 0.52, angle: [0.3, 0.52] },
+    drift: { minV: 13, keepV: 8.5, minSteer: 0.3, tiers: [0.8, 1.8, 3.0], yawOut: -0.08, yawIn: 0.45, angle: [0.3, 0.52] },
     turbo: { dur: [0, 0.55, 0.95, 1.5], acc: [0, 7, 9.5, 12], pts: [0, 150, 350, 700] },
     rocket: { perfect: 0.45, early: 0.9, late: 0.3 },
     draft: { minV: 15, tail: [0.2, 11], lat: 1.15, charge: 1.3, out: 1.9 },
@@ -268,8 +268,9 @@ function draftTick(dt) {
             addMove("slingshot", big ? 450 : 300, big ? "💨 TRUCK SLINGSHOT!" : "💨 SLINGSHOT!", { color: "#B3E5FC" });
             return;
         }
-        DR.grace -= dt;
+        DR.grace -= dt;                         // a moment to swing out with the charge intact
         if (DR.grace <= 0 || c.hit || gap < -6) DR.car = null;
+        else return;
     }
     DR.charge = Math.max(0, DR.charge - dt * 0.8);
 }
@@ -362,6 +363,12 @@ hook("controls", (ctl, dt) => {
 
 hook("update", (dt, P, controlsOn) => {
     if (!ctx.car) return;
+    const t0 = performance.now();
+    tick(dt, controlsOn);
+    const ms = performance.now() - t0;
+    PERF.ms += ms; PERF.n++; if (ms > PERF.max) PERF.max = ms;
+}, -10);
+function tick(dt, controlsOn) {
     driftVisual(dt);
     if (!live()) { T.left = 0; return; }
     if (!driving()) { if (ctx.state !== "intro") T.left = 0; return; }
@@ -373,7 +380,7 @@ hook("update", (dt, P, controlsOn) => {
     draftTick(dt);
     wrongTick(dt);
     bootTick();
-}, -10);
+}
 
 on("state", ({ from, to }) => {
     if (to === "playing" && (from === "intro" || from === "worldDepart")) judgeLaunch(from);

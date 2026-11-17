@@ -29,7 +29,7 @@
 import { ctx, on, hook } from "../../core/ctx.js";
 import {
     S, C, MOVES, MOVE, live, addMove, keepAlive, bank, breakCombo, reset, tickCombo, tickCallout, hideCallout,
-    starsOf, callout, calloutInfo, WINDOW,
+    starsOf, callout, calloutInfo, WINDOW, PERF, LOG,
 } from "./common.js";
 import { D, T, R, DR, W, B, TUNE, turbo } from "./drive.js";
 import { X, AIR, airBotched } from "./air.js";
@@ -57,7 +57,7 @@ ctx.moves = {
     get drifting() { return D.on; },
     get driftTier() { return D.on ? D.tier : 0; },
     get turboLeft() { return T.left; },
-    debug: { D, T, R, DR, W, B, X, TUNE, AIR, FOOT, WINDOW, foot: footInfo, callout: calloutInfo },
+    debug: { D, T, R, DR, W, B, X, TUNE, AIR, FOOT, WINDOW, PERF, LOG, foot: footInfo, callout: calloutInfo },
 };
 
 // the 3D badges (meta's scrapbook): challenges for the keen
