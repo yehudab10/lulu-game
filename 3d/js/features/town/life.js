@@ -1,8 +1,10 @@
 // features/town — LIFE on the streets: the people (talk to them on foot; they heckle as
-// she drives by), the geese that run at cars, bochurim on e-bikes weaving through
-// traffic, speed bumps that rattle her teeth, the 4-way stops nobody stops at, the
-// patrol car that saw ALL of it, and the group chat that knew before she got home.
-// Everything here reads the town's data (def.people / geese / bikes / lines).
+// she drives by), the geese that run at cars (or a town's timid flock: Midwood's pigeons
+// under the bridge), bochurim on e-bikes weaving through traffic (or delivery bikes the
+// wrong way down a one-way), speed bumps that rattle her teeth, the 4-way stops nobody
+// stops at, one-way streets she goes down the wrong way, the patrol car that saw ALL of it,
+// and the group chat that knew before she got home.
+// Everything here reads the town's data (def.people / flock / geese / bikes / notices / lines).
 import * as THREE from "three";
 import { ctx, emit, pick } from "../../core/ctx.js";
 import { save3d } from "../../core/save.js";
@@ -16,7 +18,7 @@ import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodeAlong, mov
 import { C } from "./cars.js";
 
 export const LIFE = { on: false, T: null, def: null, people: [], geese: [], bikes: [], said: new Set(), told: {}, gossipT: 0, live: [],
-    bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 3, sightT: 0, witness: false, talk: null, honkT: 0, firstLines: [] };
+    bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 3, sightT: 0, witness: false, talk: null, honkT: 0, firstLines: [], wrongT: 0, wrongSt: null, wrongCalm: 0 };
 export const PEOPLE_MODELS = ["town_brooklyn", "town_local", "town_mom", "town_agent", "town_bochur", "town_goose", "town_ebike", "npcMan", "npcWoman", "npcKid"];
 
 const TOPS = ["#81C784", "#4FC3F7", "#FFB74D", "#F06292", "#9575CD", "#FFFFFF", "#4DB6AC", "#FFD54F", "#90A4AE"];
@@ -72,7 +74,7 @@ function bubble(obj, text, dur = 2.6, cls = "angry") {
 // ── setup / teardown ─────────────────────────────────────────────────────
 export function startLife(T, def) {
     stopLife();
-    Object.assign(LIFE, { on: true, T, def, said: new Set(), told: {}, gossipT: ctx.time + 3, bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 2, sightT: 0, witness: false, talk: null });
+    Object.assign(LIFE, { on: true, T, def, said: new Set(), told: {}, gossipT: ctx.time + 3, bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 2, sightT: 0, witness: false, talk: null, wrongT: 0, wrongSt: null, wrongCalm: 0 });
     const L = def.lines;
     // people at their spots
     for (const p of def.people || []) {
@@ -80,12 +82,14 @@ export function startLife(T, def) {
         const who = L.PEOPLE[p.id];
         if (!spot || !who) continue;
         const [u, n] = p.off || [0, 0];
-        const base = spot.ux != null ? { x: spot.x + spot.ux * u + spot.nx * n, z: spot.z + spot.uz * u + spot.nz * n } : { x: spot.x + u, z: spot.z + n };
-        const face = spot.cx != null ? Math.atan2(spot.cx - base.x, spot.cz - base.z) : spot.nx != null ? Math.atan2(spot.nx, spot.nz) : (spot.rot || 0) + Math.PI;
-        const person = addPerson(models[who.key] ? who.key : "npcMan", base.x, base.z, face, who.colors, { id: p.id, lines: who.lines, name: who.name, alt: p.alt });
+        let base = spot.ux != null ? { x: spot.x + spot.ux * u + spot.nx * n, z: spot.z + spot.uz * u + spot.nz * n } : { x: spot.x + u, z: spot.z + n };
+        let face = spot.cx != null ? Math.atan2(spot.cx - base.x, spot.cz - base.z) : spot.nx != null ? Math.atan2(spot.nx, spot.nz) : (spot.rot || 0) + Math.PI;
+        if (spot.bench) { face = spot.rot; base = { x: spot.x - Math.sin(face) * 0.12, z: spot.z - Math.cos(face) * 0.12 }; }     // sitting on it
+        const person = addPerson(models[who.key] ? who.key : "npcMan", base.x, base.z, face, who.colors, { id: p.id, lines: who.lines, name: who.name, alt: p.alt, sit: !!spot.bench });
         // the pizza line: a queue down the sidewalk
         if (p.line && spot.ux != null) {
-            for (let k = 1; k <= p.line; k++) {
+            const n = (p.friday && new Date().getDay() === 5) ? p.friday : p.line;     // (Erev Shabbos: the challah line has its own zip code)
+            for (let k = 1; k <= n; k++) {
                 const key = pick(["npcMan", "npcWoman", "npcMan", "npcKid", "town_local"]);
                 addPerson(models[key] ? key : "npcMan", base.x - spot.ux * k * 0.95 * -1, base.z - spot.uz * k * 0.95 * -1, Math.atan2(spot.ux, spot.uz),
                     key === "town_local" ? null : { Top: pick(TOPS), Bottom: pick(BOTTOMS) }, { extra: true });
@@ -93,23 +97,26 @@ export function startLife(T, def) {
             if (person) person.face = Math.atan2(spot.ux, spot.uz);
         }
     }
-    // geese on the shore
-    const lake = T.spots.lake;
-    if (lake && models.town_goose) for (let k = 0; k < (def.geese || 0); k++) {
-        const g = cloneWithColors(models.town_goose);
+    // geese on the shore (or the town's own flock: { model, spot, n, timid })
+    const FL = def.flock || { model: "town_goose", spot: "lake", n: def.geese || 0 };
+    const lake = T.spots[FL.spot];
+    LIFE.timid = !!FL.timid;
+    if (lake && models[FL.model]) for (let k = 0; k < (FL.n || 0); k++) {
+        const g = cloneWithColors(models[FL.model]);
         const x = lake.x - 3 + Math.random() * 6, z = lake.z0 + Math.random() * (lake.z1 - lake.z0);
         g.position.copy(W(x, z)); g.rotation.y = Math.random() * 6;
         T.root.parent.add(g);
         LIFE.geese.push({ obj: g, x, z, h: g.rotation.y, home: { x, z }, mode: "graze", t: Math.random() * 5, honkT: 0, neck: findNodes(g, "Neck")[0], wings: [findNodes(g, "Wing_L")[0], findNodes(g, "Wing_R")[0]], legs: [findNodes(g, "Leg_L")[0], findNodes(g, "Leg_R")[0]], fly: 0 });
     }
     // bochurim on e-bikes
-    if (models.town_ebike && models.town_bochur) for (let k = 0; k < (def.bikes || 0); k++) {
+    const rider = def.bikeRider || "town_bochur";
+    if (models.town_ebike && models[rider]) for (let k = 0; k < (def.bikes || 0); k++) {
         const st = PL.STREETS[(k * 3 + 1) % PL.STREETS.length];
         const along = st.cross.length ? (st.cross[0].a + st.cross[st.cross.length - 1].a) / 2 + k * 9 : 0;
         const grp = new THREE.Group();
         const bike = cloneWithColors(models.town_ebike);
         grp.add(bike);
-        const rider = spawnPerson("town_bochur");
+        const rider = spawnPerson(def.bikeRider || "town_bochur");
         rider.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
         rider.obj.position.set(0, 0.42, 0.18);
         grp.add(rider.obj);
@@ -181,7 +188,7 @@ export function tickLife(dt) {
         if (!o.visible) continue;
         if (r.talkT > 0) r.talkT -= dt;
         r.idle += dt;
-        r.p.update(dt, { talk: r.talkT > 0 || (r.extra && Math.sin(r.idle * 0.7) > 0.6), wave: r.waveT > 0 });
+        r.p.update(dt, { talk: r.talkT > 0 || (r.extra && Math.sin(r.idle * 0.7) > 0.6), wave: r.waveT > 0, sit: !!r.sit });
         if (r.waveT > 0) r.waveT -= dt;
         if (!foot && r.lines && ctx.time > r.heckleT) {
             const d = Math.hypot(o.position.x - lp.x, o.position.z - lp.z);
@@ -197,7 +204,7 @@ export function tickLife(dt) {
     tickGeese(dt, lp, foot);
     tickBikes(dt, lp, foot);
     tickJam(dt, lp, foot);
-    if (!foot) { tickBumps(dt); tickStops(dt); }
+    if (!foot) { tickBumps(dt); tickStops(dt); tickOneway(dt); }
     tickPatrol(dt, foot);
     tickNotices(lp, foot);
 }
@@ -219,6 +226,15 @@ function tickNotices(lp, foot) {
     if (S.chair) seen("chair", S.chair.x, S.chair.z, 16, "parking");
     for (const c of C.cars) if (c.kind === "town_bus") seen("bus", c.x - PL.ORIGIN.x, c.z - PL.ORIGIN.z, 16, "bus");
     for (const b of LIFE.bikes) seen("bike", b.obj.position.x - PL.ORIGIN.x, b.obj.position.z - PL.ORIGIN.z, 9, "bike");
+    // the town's own landmarks (def.notices: a build spot, or a kind of vehicle coming by)
+    for (const n of LIFE.def.notices || []) {
+        if (n.spot && S[n.spot]) seen(n.spot, S[n.spot].x, S[n.spot].z, n.r || 24, n.cat, n.big);
+        if (n.kind && !LIFE.said.has(n.kind)) for (const c of C.cars) if (c.kind === n.kind && Math.hypot(c.x - PL.ORIGIN.x - _l.x, c.z - PL.ORIGIN.z - _l.z) < (n.r || 24)) {
+            seen(n.kind, c.x - PL.ORIGIN.x, c.z - PL.ORIGIN.z, n.r || 24, n.cat, n.big);
+            if (n.gossip) gossip(n.gossip);
+            break;
+        }
+    }
 }
 
 // ── geese ────────────────────────────────────────────────────────────────
@@ -228,7 +244,14 @@ function tickGeese(dt, lp, foot) {
     for (const g of LIFE.geese) {
         g.t += dt;
         const dx = _l.x - g.x, dz = _l.z - g.z, dist = Math.hypot(dx, dz);
-        if (g.mode === "graze" && dist < 24 && ctx.enabled("town")) { g.mode = "charge"; g.chaseT = 0; if (!LIFE.said.has("geese")) { LIFE.said.add("geese"); luluSay("geese", true); } }
+        if (LIFE.timid) {
+            // pigeons don't charge: they burst up when she gets close, and come back to the same spot (it's THEIR spot)
+            if ((g.mode === "graze" || g.mode === "home") && dist < (foot ? 3.2 : 9)) {
+                g.mode = "fly"; g.fly = 1.6 + Math.random() * 0.8; SFX.coo(Math.max(0.2, 1 - dist / 30));
+                if (Math.random() < 0.3) bubble(g.obj, pick(LIFE.def.lines.GOOSE), 1.4);
+                if (!LIFE.said.has("geese")) { LIFE.said.add("geese"); luluSay("geese", true); gossip("geese"); emit("town:geese", {}); }
+            }
+        } else if (g.mode === "graze" && dist < 24 && ctx.enabled("town")) { g.mode = "charge"; g.chaseT = 0; if (!LIFE.said.has("geese")) { LIFE.said.add("geese"); luluSay("geese", true); } }
         let sp = 0, want = g.h;
         if (g.mode === "charge") {
             g.chaseT += dt;
@@ -351,7 +374,7 @@ function tickBumps() {
     if (!st || !prev || prev.st !== st) return;
     const along = car.s - st.base;
     for (const b of LIFE.T.bumps) {
-        if (b.street !== st.id || (prev.along - b.along) * (along - b.along) > 0 || Math.abs(car.d) > 5.6) continue;
+        if (b.street !== st.id || (prev.along - b.along) * (along - b.along) > 0 || Math.abs(car.d) > st.outer) continue;
         const sp = car.speed;
         if (sp < 3) continue;
         LIFE.bumps++;
@@ -379,7 +402,7 @@ function tickStops(dt) {
         if (dd > -2 && dd < dist) { dist = dd; stop = s; }
     }
     const a = LIFE.appr;
-    if (a && a.stop !== stop && a.dist < 3 && Math.abs(car.d) < 5.6) {
+    if (a && a.stop !== stop && a.dist < 3 && Math.abs(car.d) < st.outer) {
         // she just crossed a.stop's line
         if (a.minV > 3.2 && car.speed > 4.5) ranStop(a.stop);
         else if (a.minV <= 1.0) { ctx.G.score += 50; }
@@ -395,6 +418,23 @@ function ranStop(stop) {
     if (LIFE.stopsRun === 1 || Math.random() < 0.3) luluSay("stopSign");
     gossip("stopSign");
     if (patrolSees()) crime("RUNNING A STOP SIGN", "🚨 YOU RAN THE STOP — AND THE PATROL SAW!");
+}
+
+// ── one-way streets: the wrong way (delivery bikes do it; when SHE does it, the block notices) ──
+function tickOneway(dt) {
+    const car = ctx.car, st = streetOfS(car.s);
+    if (!st || !st.oneway || Math.abs(car.d) > st.curb + 1) { LIFE.wrongCalm += dt; if (LIFE.wrongCalm > 4) { LIFE.wrongT = 0; LIFE.wrongSt = null; } return; }
+    const v = (car.vx * Math.sin(st.h) + car.vz * Math.cos(st.h)) * st.oneway;
+    if (v > -3) { LIFE.wrongCalm += dt; if (LIFE.wrongCalm > 4) { LIFE.wrongT = 0; LIFE.wrongSt = null; } return; }
+    LIFE.wrongCalm = 0;
+    LIFE.wrongT += dt;
+    if (LIFE.wrongT < 1.3 || LIFE.wrongSt === st) return;
+    LIFE.wrongSt = st;
+    emit("town:oneway", { street: st.name });
+    emit("stat", { id: "townWrongWay", n: 1 });
+    luluSay("oneway");
+    gossip("oneway");
+    if (patrolSees()) crime("WRONG WAY ON A ONE-WAY", "🚨 WRONG WAY — AND THE PATROL SAW!");
 }
 
 // ── the patrol car ───────────────────────────────────────────────────────

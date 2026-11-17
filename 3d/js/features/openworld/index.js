@@ -208,8 +208,9 @@ function warpTo(at, back = 0) {
                 if (!T.active && !T.enter({ town: at.zone, exitS: at.ex || ROAM.exitS || car.s, speed: 0 })) { H.toast("🚧 Couldn't get into town — try again", "red"); return; }
                 placeInTown(at, back); done();
             };
-            const p = T.load && T.load();
-            if (p && p.then && !(T.debug && T.debug.S && T.debug.S.loaded)) { p.then(go).catch(() => { }); return true; }
+            const p = T.load && T.load(at.zone);
+            const ready = T.loaded ? T.loaded(at.zone) : !!(T.debug && T.debug.S && T.debug.S.loaded);
+            if (p && p.then && !ready) { p.then(go).catch(() => { }); return true; }
             go();
             return true;
         }
