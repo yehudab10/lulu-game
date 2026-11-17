@@ -222,14 +222,14 @@ module.exports = {
     t.check("walking down the lanes: a cop pulls up — Ma'am, this is a HIGHWAY", await g(`!!(ctx.foot.bounds.state && ctx.foot.bounds.state.cop && ctx.foot.bounds.state.warned)`), await fbLog());
     await t.frames(8);
     await t.shot("cop-warning");
-    for (let i = 0; i < 40 && !(await B("starred")); i++) {
-      await t.frames(10);
+    for (let i = 0; i < 130 && !(await B("starred")); i++) {
+      await t.frames(3);
       await g(`(() => { const F = ctx.foot.debug.F; if (!F) return false; const p = ctx.world.road.point(F.s, 3.5, {}); F.pos.set(p.x, 0, p.z); ctx.G.invT = 5; return true; })()`);
     }
     t.check("…keep at it: a mild ★ (a JAYWALKING warrant)", await B("starred") && await g(`!ctx.law || ctx.law.warrants.includes("JAYWALKING")`), JSON.stringify(await g(`ctx.law && ctx.law.warrants`)));
     await t.stick(0, 0);
     await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.wanted = []; }), true))`);
-    await g(`(ctx.traffic.clear(), true)`);
+    await g(`(() => { ctx.traffic.clear(); const F = ctx.foot.debug.F; if (F && F.chase) { ctx.scene.remove(F.chase.p.obj); F.chase = null; } return true; })()`);
 
     // ── 6. a foot chase: chases keep their own rules ──
     await place(9.5, await clearS());
