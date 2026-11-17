@@ -77,6 +77,7 @@ export function callOut(org, lines, then = null, done = "") {
 }
 
 function dispatch(org, kind) {
+    if ((ctx.law && ctx.law.chasing) || (CM.chase && org !== "shomrim")) { H.toast(`${ORGS[org].emoji} "Lose the cops first, THEN call us."`, ""); return; }
     if (busy()) { H.toast(`${ORGS[org].emoji} Somebody's already on the way!`, ""); return; }
     const lines = org === "chaverim" ? ["Chaverim, where are you? …Okay. Don't move. Somebody's two minutes away. Somebody's ALWAYS two minutes away."]
         : org === "hatzalah" ? ["Hatzalah. Where are you? …We see you. Turn around."]
@@ -133,6 +134,7 @@ export function registerApp() {
             const O = ORGS[org], list = reasons(org);
             el.innerHTML = `<div class="lp-card"><span class="lp-av" style="background:${O.color}">${O.emoji}</span><span class="lp-tx"><b>${esc(O.name)}</b><small>${esc(O.tag)}</small></span></div>`
                 + (busy() && org !== "police" ? `<p class="lp-note">🚗 Somebody's already on the way to you.</p>` : "")
+                + (ctx.law && ctx.law.chasing && org !== "police" ? `<p class="lp-note">🚓 Lose the cops first — nobody pulls up mid-chase.</p>` : "")
                 + (list.length ? list.map((r, i) => `<button class="btn lp-row" data-i="${i}"><span class="lp-av">${r.icon}</span><span class="lp-tx"><b>${esc(r.label)}</b><small>${esc(r.sub || "")}</small></span><span class="lp-meta">📞</span></button>`).join("") : `<p class="lp-empty">${esc(NOTHING)}</p>`)
                 + `<button class="btn lp-row lp-mini" id="cmBack">‹ Contacts</button>`;
             el.querySelectorAll("[data-i]").forEach(b => b.addEventListener("click", () => {

@@ -201,10 +201,10 @@ export function tickHelp(dt) {
         return;
     }
     if (foot) {
-        if (dist < 15 && ctx.state === "footRun") { park(V, true); visitScene(h); }
+        if (dist < 15 && ctx.state === "footRun" && !CM.chase) { park(V, true); visitScene(h); }
         return;
     }
-    if (ctx.state !== "playing") return;
+    if (ctx.state !== "playing" || (ctx.law && ctx.law.chasing) || CM.chase) return;     // (no pit stops mid-chase)
     if (dist < 13 && ctx.car.speed < 2.5) { park(V, true); visitScene(h); return; }
     if (dist < 30 && ctx.car.speed > 9) h.fast = (h.fast || 0) + dt;
     if ((h.fast || 0) > 14) cancelHelp(ASSIST.cancel);
@@ -226,7 +226,7 @@ function autoOffer(dt) {
 function visitScene(h) {
     const V = h.V, org = h.org, kind = h.kind;
     CM.help = null;
-    play({
+    const ok = play({
         kind, org,
         script: async (f, ss) => {
             const c = V.car, door = doorOf(c), win = windowSpot();
@@ -280,6 +280,7 @@ function visitScene(h) {
         },
         after() { if (V && !V.dead) later(0.6, () => leave(V)); emit("community:help", { kind, org, phase: "done" }); },
     });
+    if (!ok && V && !V.dead) leave(V);
 }
 function hoodSpot() {
     if (onFoot()) return windowSpot(_b);
@@ -311,7 +312,7 @@ function fixCar(kind) {
 function stubScene(h) {
     const V = h.V, stub = h.stub;
     CM.help = null;
-    play({
+    const ok = play({
         kind: "unlock", org: "chaverim",
         script: async (f, ss) => {
             const door = doorOf(V.car);
@@ -352,5 +353,6 @@ function stubScene(h) {
             emit("community:help", { kind: "unlock", org: "chaverim", phase: "done" });
         },
     });
+    if (!ok && V && !V.dead) leave(V);
 }
 export { inCar };

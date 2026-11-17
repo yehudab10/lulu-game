@@ -95,10 +95,11 @@ on("town:enter", () => {
     loadModels();
     CM.seen.clear();
     CM.sceneT = cfg.scenes.first;
+    CM.bySpot = null;
     CM.tendT = 1;
     ensureActor();
 });
-on("town:leave", () => { endScene(); cancelHelp(); endShomrim("left"); clearLine(); });
+on("town:leave", () => { endScene(); cancelHelp(); endShomrim("left"); clearLine(); CM.bySpot = null; });
 
 // crimes the Shomrim might see (they're always watching. ALWAYS.)
 on("town:stopSign", () => { if (inTown()) witness("RUNNING A STOP SIGN", 50, 0.2); });

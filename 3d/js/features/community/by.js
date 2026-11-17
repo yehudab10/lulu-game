@@ -93,7 +93,7 @@ export function clearLine() {
 export function tickBY(dt) {
     const cfg = townCfg();
     if (!cfg || !cfg.by) { if (CM.by) clearLine(); return; }
-    const spot = ctx.town.spot(cfg.by.spot);
+    const spot = CM.bySpot || (CM.bySpot = ctx.town.spot(cfg.by.spot));     // (cached per visit)
     if (!spot) return;
     const lp = luluPos(), d = Math.hypot(spot.x - lp.x, spot.z - lp.z);
     if (!CM.by) { if (d < 75 && CM.loaded) spawnLine(cfg, spot); return; }

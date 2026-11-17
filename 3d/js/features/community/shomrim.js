@@ -141,7 +141,8 @@ export function tickShomrim(dt) {
     const st = ctx.state;
     const close = foot ? near < 4.5 : near < 7.5;
     const slow = foot ? true : ctx.car.speed < 2.2;
-    if (close && slow && !(CM.force && CM.force.noHold) && (st === "playing" || st === "footRun") && !blending && !CM.help && !(ctx.foot && ctx.foot.active && ctx.foot.phase === "script")) {
+    // (in a cop chase the cruisers do the busting: a Shomrim hold is for when THEY lead)
+    if (close && slow && !(CM.force && CM.force.noHold) && !(ctx.law && ctx.law.chasing) && (st === "playing" || st === "footRun") && !blending && !CM.help && !(ctx.foot && ctx.foot.active && ctx.foot.phase === "script")) {
         ch.holdT += dt;
         if (ch.holdT > (foot ? 1.6 : 1.3)) { ch.holdT = 0; hold(ch); }
     } else ch.holdT = Math.max(0, ch.holdT - dt);
