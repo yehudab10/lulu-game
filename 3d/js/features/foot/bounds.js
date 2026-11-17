@@ -536,7 +536,9 @@ function nudges(F, B, dt) {
     // walking down the travel lanes
     if (ad < HALF_ROAD - 0.4) B.laneT += dt; else B.laneT = Math.max(0, B.laneT - dt * 0.5);
     if (B.gapT > 0) return;
-    if (!B.warned && B.laneT >= NUDGE.laneWarn && !B.cop) { if (copWarn(F, B)) return; }
+    // (only for a law-abiding Lulu: with a warrant out, a cop pulling up beside her is an arrest, not a nudge)
+    const clean = !(ctx.law && ctx.law.wanted > 0);
+    if (clean && !B.warned && B.laneT >= NUDGE.laneWarn && !B.cop) { if (copWarn(F, B)) return; }
     if (B.warned && !B.starred && B.laneT >= NUDGE.laneStar) { jaywalkStar(F, B); return; }
     if (B.aim < B.next) return;
     let kind = B.step === 0 ? "feet" : B.step === 1 ? "ima" : (B.step % 2 === 0 ? "ride" : "ima");

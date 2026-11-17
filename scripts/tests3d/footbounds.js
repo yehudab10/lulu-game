@@ -206,7 +206,11 @@ module.exports = {
     if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "back on foot")) return;
     await t.frames(20);
     if (!t.check("the walk sticks (no stray state change)", await g(`ctx.state === "footRun" && ctx.foot.active && !!ctx.foot.bounds.state`), await fbLog())) return;
+    // (a clean record: the jaywalking cop only stops a Lulu with no warrants out)
+    const w0 = await g(`ctx.law ? ctx.law.warrants : []`);
+    await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.wanted = []; }), true))`);
     await g(`(Object.assign(ctx.foot.bounds.NUDGE, { laneWarn: 3, laneStar: 3, gap: 4 }), ctx.foot.bounds.debug.aim(0), true)`);
+    if (w0.length) console.log("    (warrants cleared before the jaywalk check: " + JSON.stringify(w0) + ")");
     await place(3.5);
     await t.frames(3);
     if (!t.check("still on foot in the lanes", await g(`!!ctx.foot.bounds.state`), await fbLog())) return;
