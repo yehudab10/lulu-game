@@ -25,3 +25,4 @@ import "./world/index.js";       // 🌍 a world, not a menu: Lulu's street behi
 import "./feel/index.js";        // 🔊 feel: positional 3D audio (sirens, passing traffic, horns, the train…) + visible damage on Lulu's car
 import "./shabbos/index.js";     // 🕯️ Erev Shabbos Rush: beat the sunset to Bubbe's before candle-lighting (Friday title chip · a rare Cruise call)
 import "./town/index.js";        // 🏙️ towns you can turn into: Lakewood (an exit off the Cruise highway → a drivable grid of streets)
+import "./openworld/index.js";    // 🌍 open world: Free Roam with friends (highway + towns), party games from the 📱 (Cops & Robbers, Race to a Pin, Hot Kugel, Photo Hunt), 📍 Nearby
