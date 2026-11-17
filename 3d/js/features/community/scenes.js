@@ -77,7 +77,7 @@ function placeVictim(sc) {
             sc.prop = bike;
         }
     } else {
-        rd.point(a.s - a.side * 1.6, a.side * 6.5, _p2);
+        rd.point(a.s - a.side * 1.6, a.d + a.side * 1.9, _p2);
         o.position.set(_p2.x, 0, _p2.z);
         o.rotation.y = Math.atan2(a.x - _p2.x, a.z - _p2.z);
     }
@@ -217,7 +217,7 @@ export function tickScenes(dt) {
                 van.ai = (d2, c) => { c.speed = Math.min(sc.town ? 9 : 22, c.speed + 3 * d2); c.s += c.speed * c.dir * d2; c.d += clamp(c.dir * (sc.town ? 1.75 : 5.25) - c.d, -1.4 * d2, 1.4 * d2); c.dTarget = c.d; };
             }
         }
-        if (sc.t > 14 || (!sc.worker && (!sc.van || sc.vanGo) && sc.t > 6)) {
+        if (sc.t > 16 || (!sc.worker && (!sc.van || sc.vanGo) && sc.t > (sc.kind === "hurt" ? 11 : 6))) {
             if (sc.van && sc.vanGo) { const van = sc.van; sc.van = null; van.keep = false; van.data.communityScene = null; later(6, () => { if (ctx.traffic.cars.includes(van) && Math.hypot(van.x - luluPos().x, van.z - luluPos().z) > 50) ctx.traffic.remove(van); }); }
             endScene(sc);
         }

@@ -120,7 +120,7 @@ on("cop:chase", e => {
     const ch = CM.chase;
     if (e.active) {
         if (ch) { ch.lead = false; return; }
-        if (live() && Math.random() < 0.85) startShomrim(e.reason || "EVADING THE POLICE", { join: true });
+        if (live() && (CM.force.join || Math.random() < 0.85)) startShomrim(e.reason || "EVADING THE POLICE", { join: true });
         return;
     }
     if (ch && !ch.lead) endShomrim(e.result === "escaped" ? "escaped" : e.result === "busted" ? "busted" : "ended");

@@ -64,7 +64,7 @@ module.exports = {
     // ── 2. Lakewood: cruisers on the streets, the Bais Yaakov on Carpool Ln ──
     await step("town", async () => {
       if (!await inTown()) return;
-      await g(`(ctx.traffic.config.enabled = false, ctx.law.hold(200), true)`);
+      await g(`(ctx.traffic.config.enabled = false, ctx.law.hold(200), ${C}.debug.CM.assistCool = 1e9, true)`);
       t.check("📞 Call shows up in town", await g(`ctx.phone.apps().includes("community")`));
       await t.until(`__lulu3d.ctx.community.vehicles.filter(v => v.mode === "cruise").length >= 3`, "Chaverim / Shomrim / Hatzalah cruise the town", 20000);
       t.check("all three orgs are out", await g(`["chaverim", "shomrim", "hatzalah"].every(o => ${C}.vehicles.some(v => v.org === o))`), await g(`${C}.vehicles.map(v => v.org).join(",")`));
@@ -157,6 +157,7 @@ module.exports = {
       await g(`(${C}.debug.reset(), ${D}.place("Clifton Ave", 120, 1.75, 0, 1), true)`);
       await stop();
       const ok = await g(`${C}.shomrim("RUNNING A STOP SIGN", { withCops: 0 })`);
+      await g(`(${C}.debug.CM.chase ? ${C}.debug.CM.chase.callT = 99 : 0, ${C}.debug.CM.assistCool = 1e9, true)`);
       t.check("Shomrim start a chase (they lead: no cops yet)", ok && await g(`${C}.chase.lead === true && !ctx.law.chasing`));
       await t.frames(20);
       await t.shot("shomrim-lead");
@@ -178,7 +179,7 @@ module.exports = {
     // ── 7. a cop chase in town: Shomrim join + radio tips to the cops ─────
     await step("shomrim-join", async () => {
       if (!await inTown()) return;
-      await g(`(${C}.debug.reset(), ${C}.debug.CM.shCool = 0, ${D}.place("Madison Ave", 40, 1.75, 0, 1), true)`);
+      await g(`(${C}.debug.reset(), ${C}.debug.CM.shCool = 0, ${C}.debug.force.join = true, ${C}.debug.force.noHold = true, ${D}.place("Madison Ave", 40, 1.75, 0, 1), true)`);
       await g(`(ctx.law._dbg.L.grace = 0, ctx.law._dbg.L.hold = 0, ctx.law.startChase("RECKLESS DRIVING", { heat: 1 }))`);
       await t.until(`!!__lulu3d.ctx.community.chase || __ev.some(e => e.startsWith("community:shomrim") && e.includes('"join":true'))`, "Shomrim join the cop chase", 10000);
       t.check("…not leading (the cops are on it)", await g(`!!${C}.chase && ${C}.chase.lead === false`));
@@ -190,6 +191,7 @@ module.exports = {
       await g(`(ctx.law.clearHeat("test"), true)`);
       await t.frames(10);
       t.check("the chase ends → Shomrim go home", await g(`!${C}.chase`));
+      await g(`(${C}.debug.force.noHold = false, true)`);
     });
 
     // ── 8. 911 on herself (while wanted) ──────────────────────────────────
@@ -243,7 +245,7 @@ module.exports = {
     await step("layouts", async () => {
       if (!await inTown()) return;
       await g(`(${C}.debug.reset(), ${D}.place("Main St", 100, 1.75, 0, 1), true)`);
-      await g(`${C}.shomrim("SPEEDING IN A 25", { withCops: 0 })`);
+      await g(`(${C}.debug.force.noHold = true, ${C}.shomrim("SPEEDING IN A 25", { withCops: 0 }))`);
       await g(`(() => { const ch = ${C}.debug.CM.chase; if (ch) ch.callT = 99; return true; })()`);
       for (const [label, w, h] of [["tv", 1920, 1080], ["phone-portrait", 390, 844], ["phone-landscape", 844, 390]]) {
         await t.page.setViewportSize({ width: w, height: h });
@@ -255,7 +257,7 @@ module.exports = {
       await t.frames(8);
       await t.shot("hud-clean");
       await t.L(`(document.body.classList.remove("hud-clean"), true)`);
-      await g(`${C}.endShomrim("test")`);
+      await g(`(${C}.endShomrim("test"), ${C}.debug.force.noHold = false, true)`);
     });
 
     // ── 11. perf: Lakewood with the fleet + the line ─────────────────────
@@ -274,7 +276,7 @@ module.exports = {
       if (!await inTown()) return;
       await g(`(${C}.debug.reset(), ${C}.debug.CM.shCool = 0, ${D}.place("Clifton Ave", 180, 1.75, 0, 1), true)`);
       await stop();
-      await g(`(${C}.debug.force.hold = false, ${C}.shomrim("GRAND THEFT MINIVAN", { withCops: 0 }))`);
+      await g(`(${C}.debug.force.hold = false, ${C}.debug.CM.assistCool = 1e9, ${C}.shomrim("GRAND THEFT MINIVAN", { withCops: 0 }), ${C}.debug.CM.chase ? ${C}.debug.CM.chase.callT = 99 : 0, true)`);
       await t.until(`__lulu3d.state === "communityScene" && __lulu3d.ctx.dialogOpen`, "boxed in again", 40000);
       for (let i = 0; i < 12 && !(await t.L(`document.querySelectorAll("#dialog .opt").length > 0`)); i++) { await t.tap(0); await t.frames(6); }
       await t.click(/FLIP PHONE/);
