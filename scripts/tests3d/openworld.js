@@ -118,7 +118,9 @@ async function solo(t) {
   await t.shot("nearby-highway");
   await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].find(b => /Lakewood/.test(b.textContent)).click()`);
   await t.frames(6);
-  t.check("pinning closes the phone, shows a beacon + the chip with an arrow", await g(`!ctx.phone.isOpen && !!ctx.openworld.pinned && ctx.openworld.debug.beaconCount() === 1`) && await t.L(`getComputedStyle(document.getElementById("owChip")).display !== "none" && /Lakewood/.test(document.getElementById("owChip").textContent)`));
+  const pinSt = await g(`({ open: ctx.phone.isOpen, pin: !!ctx.openworld.pinned, beacons: ctx.openworld.debug.beaconCount() })`);
+  t.check("pinning closes the phone, shows a beacon", !pinSt.open && pinSt.pin && pinSt.beacons === 1, JSON.stringify(pinSt));
+  t.check("…and the chip with an arrow", await t.L(`getComputedStyle(document.getElementById("owChip")).display !== "none" && /Lakewood/.test(document.getElementById("owChip").textContent)`));
   await t.shot("pin-chip");
   await g(`ctx.openworld.unpin()`);
 
@@ -134,7 +136,7 @@ async function solo(t) {
   t.check("Nearby (town): solo time trial + photo hunt offered", await t.L(`!!document.querySelector('#lpApp [data-k="pin"]:not([disabled])') && !!document.querySelector('#lpApp [data-k="photo"]:not([disabled])')`));
   await t.shot("nearby-town");
   // pin a person → drive up to them → the pin clears
-  await t.L(`document.querySelector('#lpApp [data-pin="p0"]').click()`);
+  await t.L(`[...document.querySelectorAll('#lpApp [data-pin^="p"]')].pop().click()`);   // the farthest of the people listed
   await t.frames(4);
   const pn = await g(`ctx.openworld.pinned`);
   t.check("a person pinned (talk hint)", !!pn && pn.talk === true, JSON.stringify(pn).slice(0, 120));
@@ -197,6 +199,8 @@ async function solo(t) {
 // ── PARTY ────────────────────────────────────────────────────────────────
 async function partyRun(t, guests) {
   const g = t.game;
+  await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
+  await t.frames(6);
   await t.click(/Party with friends/);
   await t.click(/Host a party/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;

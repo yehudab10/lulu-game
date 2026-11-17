@@ -63,7 +63,9 @@ export function chip(html, cls = "", to = null) {
         D.chip.className = cls;
         D.chip.style.display = html ? "flex" : "none";
     }
+    const was = D.arrowTo;
     D.arrowTo = html && to ? to : null;
+    if (D.arrowTo && !was) lastArrow = "";             // a fresh target: write the distance on the next tick
     D.ar.style.display = D.arrowTo ? "" : "none";
 }
 export function board(html) {

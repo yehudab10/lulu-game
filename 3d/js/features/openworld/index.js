@@ -631,6 +631,8 @@ function boardHtml(g, h) {
 const NP = { pin: null };
 function pin(def) {
     if (!def || def.x == null) return false;
+    const lp = onFoot() && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos;
+    if (!def.uid && Math.hypot(lp.x - def.x, lp.z - def.z) < 15) { H.toast(`📍 ${def.name} is right here!`, "pink"); return true; }
     NP.pin = Object.assign({ zone: zone() }, def);
     SAVE.pins++; saveSoon();
     const p = pinPos();
