@@ -32,7 +32,7 @@ import { save3d } from "../../core/save.js";
 import { models, ensureModels, registerModels } from "../../models.js";
 import { input } from "../../input.js";
 import * as H from "../../hud.js";
-import { PL, setPlan, TownRoad, LANE, street, streetOfS, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
+import { PL, setPlan, TownRoad, LANE, PARK, street, streetOfS, streetPoint, headingOf, toLocal, segmentBlocked, sightBlocked } from "./plan.js";
 import { buildTown, BUILD_MODELS } from "./build.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
@@ -54,7 +54,10 @@ const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 
 function load() {
-    if (!S.ready) S.ready = ensureModels(NEEDS).then(() => { S.loaded = true; S.failed = false; }).catch(e => { console.warn("[town] models", e); S.ready = null; S.failed = true; });
+    // landmark models other features build (a town's `uses`): optional — without them the use's fallback stands there
+    const extra = [...new Set(Object.values(TOWNS).flatMap(t => Object.values(t.uses || {}).map(u => u.key)))];
+    if (!S.ready) S.ready = Promise.all([ensureModels(NEEDS), ...extra.map(k => ensureModels([k]).catch(() => null))])
+        .then(() => { S.loaded = true; S.failed = false; }).catch(e => { console.warn("[town] models", e); S.ready = null; S.failed = true; });
     return S.ready;
 }
 
@@ -433,6 +436,51 @@ ctx.town = {
     copSpawn: (how, fromAhead) => copSpawn(how, () => takePatrol()),
     footYaw,
     towns: TOWNS,
+    // ── for features that live IN a town (features/community…): small, read-mostly ──
+    /** The definition of the town she's in (data; don't mutate) — null on the highway. */
+    get def() { return S.active ? S.def : null; },
+    /** Let another feature's own state play in town (any other state sends her back to the highway first). */
+    allowState(name) { TOWN_OK.add(name); },
+    /** A named spot from the build, in WORLD coords (pizza, hall, chair, yeshiva, a `uses` landmark…): {x, z, rot, ux, uz, nx, nz} | null. */
+    spot(name) {
+        const p = S.active && S.T && S.T.spots[name];
+        return p ? Object.assign({}, p, { x: p.x + PL.ORIGIN.x, z: p.z + PL.ORIGIN.z, lx: p.x, lz: p.z }) : null;
+    },
+    /** The highway exits planned this run: [{ s, id, name }] (sorted by s). */
+    get exits() { return X.exits.map(e => ({ s: e.s, id: e.town.id, name: e.town.name })); },
+    /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */
+    addDriver(kind, { minD = 60, speed = 5 } = {}) {
+        if (!S.active) return null;
+        const sp = randomSpot(minD, kind);
+        if (!sp) return null;
+        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, { speed });
+        c.data.town.own = true;
+        return c;
+    },
+    /** A free stretch of kerb in a parking lane (no parked van, jam, chair or hazard on it), between minD and maxD m
+     *  from (near || her): { x, z, s, d, h, street, along, side } (world coords; d = the parking lane, h faces traffic's way). */
+    curbSpot({ len = 12, near = null, minD = 25, maxD = 140 } = {}) {
+        if (!S.active || !S.T) return null;
+        const T = S.T, O = PL.ORIGIN, at = near || ctx.car.pos, half = len / 2 + 3;
+        const busy = [...T.parked, ...T.jam];
+        if (T.spots.chair) busy.push({ x: T.spots.chair.cx, z: T.spots.chair.cz });
+        for (const c of ctx.traffic.cars) busy.push({ x: c.x - O.x, z: c.z - O.z });
+        let best = null, bs = -1e9;
+        for (const st of PL.STREETS) for (let k = 0; k < st.cross.length - 1; k++) {
+            const u0 = st.cross[k].a + 16 + half, u1 = st.cross[k + 1].a - 16 - half;
+            for (let u = u0; u <= u1; u += 4) for (const side of [-1, 1]) {
+                if ((S.def.clearParking || []).some(c => c.street === st.name && u > c.from - half && u < c.to + half)) continue;
+                const p = streetPoint(st, u, side * PARK, {});
+                const dist = Math.hypot(O.x + p.x - at.x, O.z + p.z - at.z);
+                if (dist < minD || dist > maxD) continue;
+                const hx = Math.sin(st.h), hz = Math.cos(st.h);
+                if (busy.some(b => { const dx = b.x - p.x, dz = b.z - p.z, lon = Math.abs(dx * hx + dz * hz), lat = Math.abs(-dx * hz + dz * hx); return lon < half && lat < 3.4; })) continue;
+                const sc = Math.random() * 30 - Math.abs(dist - (minD + maxD) / 2) * 0.2;
+                if (sc > bs) { bs = sc; best = { x: O.x + p.x, z: O.z + p.z, s: st.base + u, d: side * PARK, h: headingOf(st, side), street: st.name, along: u, side }; }
+            }
+        }
+        return best;
+    },
     debug: {
         S, C, LIFE, PL, X, gossip, luluSay, crime,
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches). */

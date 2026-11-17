@@ -267,7 +267,7 @@ export function tendDrivers(dt, want) {
     for (let i = C.cars.length - 1; i >= 0; i--) {
         const c = C.cars[i], T = c.data.town;
         if (!ctx.traffic.cars.includes(c)) { C.cars.splice(i, 1); if (C.patrol === c) C.patrol = null; continue; }
-        if (T.hazard) continue;
+        if (T.hazard || T.own) continue;      // (own: another feature's driver, ctx.town.addDriver — never respawned here)
         const far = Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70;
         const gone = (c.hit && c.hitT > 7) || (T.stuck > 25 && far) || (c.data.streetsJack && false);
         if (gone && far) {
@@ -280,7 +280,7 @@ export function tendDrivers(dt, want) {
         }
     }
     for (const [kind, n] of Object.entries(want)) {
-        const have = C.cars.filter(c => c.kind === kind && !c.data.town.hazard).length;
+        const have = C.cars.filter(c => c.kind === kind && !c.data.town.hazard && !c.data.town.own).length;
         if (have < n) { const sp = randomSpot(70, kind); if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 5 }); }
     }
 }
