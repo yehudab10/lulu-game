@@ -40,12 +40,9 @@ import { blocksSight, copRoute, copSpawn } from "./cops.js";
 import { X, planExit, clearExits, exitAt, onRamp } from "./exit.js";
 import { TOWNS, townFor } from "./towns/index.js";
 
-registerModels(Object.fromEntries([
-    "town_duplex", "town_townhouses", "town_shop", "town_pizza", "town_hall", "town_yeshiva", "town_frame", "town_crane", "town_minivan",
-    "town_lamp", "town_stop", "town_chair", "town_goose", "town_ebike", "town_welcome", "town_billboard", "town_circle", "town_reeds",
-    "town_bochur", "town_local", "town_mom", "town_brooklyn", "town_agent", "roadevents_school_bus", "foot_bus",
-].map(k => [k, k])));
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
+// our own models (key = file name), plus the two we borrow from roadevents / foot (same files, so no double load)
+registerModels(Object.fromEntries(NEEDS.filter(k => /^(town_|roadevents_school_bus$|foot_bus$)/.test(k)).map(k => [k, k])));
 
 // ── state ────────────────────────────────────────────────────────────────
 const S = { active: false, def: null, T: null, road: null, chunk: null, exitS: 0, trans: null, ready: null, loaded: false,
@@ -57,7 +54,7 @@ const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 
 function load() {
-    if (!S.ready) S.ready = ensureModels(NEEDS).then(() => { S.loaded = true; }).catch(e => { console.warn("[town] models", e); S.ready = null; });
+    if (!S.ready) S.ready = ensureModels(NEEDS).then(() => { S.loaded = true; S.failed = false; }).catch(e => { console.warn("[town] models", e); S.ready = null; S.failed = true; });
     return S.ready;
 }
 
@@ -94,7 +91,11 @@ function tickTrans(dt) {
         if (tr.t >= 0.4) { tr.phase = "black"; tr.t = 0; }
     } else if (tr.phase === "black") {
         setFade(1, label);
-        if (tr.kind === "enter" && !S.loaded) { load(); if (tr.t > 12) { S.trans = null; setFade(0); } return; }
+        if (tr.kind === "enter" && !S.loaded) {
+            // (no connection? don't strand her behind a black screen: the exit's just "closed")
+            if (S.failed || tr.t > 8) { S.trans = null; setFade(0); S.failed = false; H.toast(`🚧 ${def.name} is closed today (couldn't load it)`, "red"); return; }
+            load(); return;
+        }
         if (tr.t < 0.15) return;
         try { if (tr.kind === "enter") enterTown(tr.e); else leaveTown("highway"); }
         catch (err) { console.error("[town] transition", err); }
