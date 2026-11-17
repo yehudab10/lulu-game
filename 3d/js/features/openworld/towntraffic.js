@@ -26,6 +26,12 @@ export function planLoops(plan, seed) {
     }
     plan.BLOCKS.forEach((b, i) => {
         if (circ && [b.x0, b.x1].some(x => Math.abs(x - circ.x) < 1) && [b.z0, b.z1].some(z => Math.abs(z - circ.z) < 1)) return;
+        // a plain rectangle of grid streets whose one-ways (if any) run the loop's way (Midwood: E 8th / 15th / 16th)
+        if (b.sides) {
+            const dirs = { e: 1, n: -1, w: -1, s: 1 };
+            const bad = Object.entries(dirs).some(([f, dir]) => { const st = plan.STREETS[b.sides[f]]; return !st || st.axis === "diag" || (st.oneway && st.oneway !== dir); });
+            if (bad || (b.poly && b.poly.length !== 4)) return;
+        }
         const X0 = b.x0 + LANE, X1 = b.x1 - LANE, Z0 = b.z0 + LANE, Z1 = b.z1 - LANE;
         if (X1 - X0 < 4 * R || Z1 - Z0 < 4 * R) return;
         if (haz.some(p => p.x > X0 - 3 && p.x < X1 + 3 && p.z > Z0 - 3 && p.z < Z1 + 3 && (Math.abs(p.x - X0) < 3 || Math.abs(p.x - X1) < 3 || Math.abs(p.z - Z0) < 3 || Math.abs(p.z - Z1) < 3))) return;
