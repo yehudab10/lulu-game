@@ -35,7 +35,7 @@ export const RIDES = {
     streets_sports: { model: "streets_sports", label: "🏎️ JACK THE SPORTS CAR", vtype: "car", feel: "twitchy", half: 0.95, fwd: -0.1, len: 1.2, y: [0.34, 0.8],
         handling: { top: 1.32, acc: 1.45, grip: 0.92, brake: 1.2 } },
 };
-const BIG_CAM = { truck: { d: 3.4, h: 1.5 }, foot_bus: { d: 4.2, h: 1.9 }, foot_ambulance: { d: 1.2, h: 0.6 }, van: { d: 0.6, h: 0.3 }, foot_dozer: { d: 0.8, h: 0.6 } };
+export const BIG_CAM = { truck: { d: 3.4, h: 1.5 }, foot_bus: { d: 4.2, h: 1.9 }, foot_ambulance: { d: 1.2, h: 0.6 }, van: { d: 0.6, h: 0.3 }, foot_dozer: { d: 0.8, h: 0.6 } };
 export const force = {};      // tests: { reaction: "fist" | "yell" | "chase" | "call" }
 export const J = { active: null, jacks: 0, bails: 0, lastRide: null };
 
