@@ -1740,6 +1740,10 @@ ctx.foot = {
         return true;
     },
     end(why = "end") { if (F) end(why); },
+    /** The cop on foot (when she's WANTED): is one chasing her? · drop it (he gives up and walks off) · start one from {x, z}. */
+    get chasing() { return !!(F && F.chase && !F.chase.giveUp); },
+    dropChase() { if (F && F.chase && !F.chase.giveUp) { F.chase.giveUp = 2.5; F.chaseCool = 10; return true; } return false; },
+    startChase(from) { return !!(F && !F.chase && startFootChase(from)); },
     /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, tip, wreck } */

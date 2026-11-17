@@ -34,6 +34,12 @@ export default {
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
         "2,3": { all: "townhouses" },
+        "3,0": { faces: { n: "baisyaakov" } },
+    },
+    // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community)
+    uses: {
+        baisyaakov: { key: "community_baisyaakov", fallback: "town_yeshiva", dims: { w: 30, d: 16, prot: 3.1 }, u: -6, sign: L.SIGNS.baisYaakov,
+            signSize: [11.6, 1.2, 104], signFg: ["#1F2D63", "#7B1F4B"], with: [{ key: "town_duplex", u: 19 }] },
     },
 
     // landmarks

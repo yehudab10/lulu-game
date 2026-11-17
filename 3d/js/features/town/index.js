@@ -61,10 +61,13 @@ const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey"
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 
-/** Load a town's models (lazily, as her car nears its exit). S.loaded / S.ready: the first town's (Lakewood's). */
+/** Load a town's models (lazily, as her car nears its exit). S.loaded / S.ready: the first town's (Lakewood's).
+ *  Landmark models other features build (the town's `uses`) are optional — without them the use's fallback stands there. */
 function load(def = townFor(0)) {
     const id = def.id;
-    if (!S.loads[id]) S.loads[id] = ensureModels(needsOf(def)).then(() => { S.ok[id] = true; S.failed = false; if (def === townFor(0)) S.loaded = true; })
+    const extra = [...new Set(Object.values(def.uses || {}).map(u => u.key))];
+    if (!S.loads[id]) S.loads[id] = Promise.all([ensureModels(needsOf(def)), ...extra.map(k => ensureModels([k]).catch(() => null))])
+        .then(() => { S.ok[id] = true; S.failed = false; if (def === townFor(0)) S.loaded = true; })
         .catch(e => { console.warn("[town] models", id, e); S.loads[id] = null; S.failed = true; });
     if (def === townFor(0)) S.ready = S.loads[id];
     return S.loads[id];
@@ -467,6 +470,52 @@ ctx.town = {
     copSpawn: (how, fromAhead) => copSpawn(how, () => takePatrol()),
     footYaw,
     towns: TOWNS,
+    // ── for features that live IN a town (features/community…): small, read-mostly ──
+    /** The definition of the town she's in (data; don't mutate) — null on the highway. */
+    get def() { return S.active ? S.def : null; },
+    /** Let another feature's own state play in town (any other state sends her back to the highway first). */
+    allowState(name) { TOWN_OK.add(name); },
+    /** A named spot from the build, in WORLD coords (pizza, hall, chair, yeshiva, a `uses` landmark…): {x, z, rot, ux, uz, nx, nz} | null. */
+    spot(name) {
+        const p = S.active && S.T && S.T.spots[name];
+        return p ? Object.assign({}, p, { x: p.x + PL.ORIGIN.x, z: p.z + PL.ORIGIN.z, lx: p.x, lz: p.z }) : null;
+    },
+    /** The highway exits planned this run: [{ s, id, name }] (sorted by s). */
+    get exits() { return X.exits.map(e => ({ s: e.s, id: e.town.id, name: e.town.name })); },
+    /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */
+    addDriver(kind, { minD = 60, speed = 5 } = {}) {
+        if (!S.active) return null;
+        const sp = randomSpot(minD, kind);
+        if (!sp) return null;
+        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, { speed });
+        c.data.town.own = true;
+        return c;
+    },
+    /** A free stretch of kerb in a parking lane (no parked van, jam, chair or hazard on it), between minD and maxD m
+     *  from (near || her): { x, z, s, d, h, street, along, side } (world coords; d = the parking lane, h faces traffic's way). */
+    curbSpot({ len = 12, near = null, minD = 25, maxD = 140 } = {}) {
+        if (!S.active || !S.T) return null;
+        const T = S.T, O = PL.ORIGIN, at = near || ctx.car.pos, half = len / 2 + 3;
+        const busy = [...T.parked, ...T.jam];
+        if (T.spots.chair) busy.push({ x: T.spots.chair.cx, z: T.spots.chair.cz });
+        for (const c of ctx.traffic.cars) busy.push({ x: c.x - O.x, z: c.z - O.z });
+        let best = null, bs = -1e9;
+        for (const st of PL.STREETS) for (let k = 0; k < st.cross.length - 1; k++) {
+            const u0 = st.cross[k].a + 16 + half, u1 = st.cross[k + 1].a - 16 - half;
+            if (!st.parkLane) continue;
+            for (let u = u0; u <= u1; u += 4) for (const side of [-1, 1]) {
+                if ((S.def.clearParking || []).some(c => c.street === st.name && u > c.from - half && u < c.to + half)) continue;
+                const p = streetPoint(st, u, side * st.park, {});
+                const dist = Math.hypot(O.x + p.x - at.x, O.z + p.z - at.z);
+                if (dist < minD || dist > maxD) continue;
+                const hx = Math.sin(st.h), hz = Math.cos(st.h);
+                if (busy.some(b => { const dx = b.x - p.x, dz = b.z - p.z, lon = Math.abs(dx * hx + dz * hz), lat = Math.abs(-dx * hz + dz * hx); return lon < half && lat < 3.4; })) continue;
+                const sc = Math.random() * 30 - Math.abs(dist - (minD + maxD) / 2) * 0.2;
+                if (sc > bs) { bs = sc; best = { x: O.x + p.x, z: O.z + p.z, s: st.base + u, d: side * st.park, h: headingOf(st, side), street: st.name, along: u, side }; }
+            }
+        }
+        return best;
+    },
     debug: {
         S, C, LIFE, PL, X, gossip, luluSay, crime,
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
