@@ -278,7 +278,6 @@ function hostEvent(uid, kind, a) {
     const g = getG(), t = now();
     if (kind === "owg") {
         if (g && g.ph === "go") return;
-        if (g && g.ph === "done" && t - (g.endAt || 0) < 1500) return;      // a double-tapped rematch
         startGame(a[0], uid, a[1]);
         return;
     }

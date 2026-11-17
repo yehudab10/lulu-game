@@ -241,7 +241,8 @@ async function partyRun(t, guests) {
   t.check("town traffic: no random town drivers in a party", await g(`ctx.town.debug.C.cars.filter(c => !c.data.town.hazard).length === 0 && ctx.traffic.cars.every(c => c.data && (c.data.party || (c.data.town && c.data.town.hazard)))`));
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
-  t.check("townsfolk + geese: seeded the same on both screens (no e-bikes)", folk[0] === folk[1] && await g(`ctx.town.debug.LIFE.bikes.length === 0`), `${JSON.parse(folk[0]).length} placed`);
+  const fA = JSON.parse(folk[0]), fB = JSON.parse(folk[1]), diff = fA.map((x, i) => JSON.stringify(x) === JSON.stringify(fB[i]) ? null : i).filter(i => i != null);
+  t.check("townsfolk + geese: seeded the same on both screens (no e-bikes)", folk[0] === folk[1] && await g(`ctx.town.debug.LIFE.bikes.length === 0`), `${fA.length}/${fB.length} placed; differ at ${diff.slice(0, 6).map(i => i + ":" + JSON.stringify(fA[i]) + "≠" + JSON.stringify(fB[i])).join(" ")}`);
 
   // friends see each other on the streets: the guest catches up with the host
   const hostUid = await g(`ctx.party.uid`), guestUid = await A.game(`ctx.party.uid`);
@@ -262,7 +263,8 @@ async function partyRun(t, guests) {
   t.check("ride: the guest hops in", (await A.game(`ctx.openworld.ride(${JSON.stringify(hostUid)})`)) === "");
   await sleep(3000);
   t.check("ride: the host sees a Lulu in the passenger seat (and no guest car)", await g(`!!ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length > 0 && (() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`));
-  t.check("ride: the guest's car rides with the host's (camera follows it)", await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return !!rc && rc.shown && !ctx.car.obj.visible && Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z) < 1.5; })()`));
+  const rideSt = await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return { riding: ctx.openworld.riding, shown: !!rc && rc.shown, vis: ctx.car.obj.visible, d: rc ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(2) : -1, st: ctx.state }; })()`);
+  t.check("ride: the guest's car rides with the host's (camera follows it)", rideSt.shown && !rideSt.vis && rideSt.d < 1.5, JSON.stringify(rideSt));
   await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-openworld-ride-guest.png") }).catch(() => { });
   await t.shot("ride-host");
   await A.game(`ctx.openworld.hopOut()`);
@@ -288,7 +290,10 @@ async function partyRun(t, guests) {
   await robP.game(PLACE(rp.x, rp.z, rp.h));
   await copP.game(PLACE(rp.x - Math.sin(rp.h) * 4.2, rp.z - Math.cos(rp.h) * 4.2, rp.h));
   if (!await done("cnr", "C&R: the bust ends it (one robber)")) return;
-  t.check("C&R: busted on both screens; the cop wins", await g(`Object.values(ctx.openworld.game.out).includes("b")`) && /cop|busted/i.test(await A.game(`ctx.openworld.debug.CL.lastTitle`)));
+  const cnrEnd = await g(`({ out: ctx.openworld.game.out, cut: !!ctx.openworld.game.cut })`);
+  await A.until(`ctx.openworld.debug.CL.lastTitle`, "guest has a C&R title", 10000);
+  const cnrTitle = await A.game(`ctx.openworld.debug.CL.lastTitle`);
+  t.check("C&R: busted on both screens; the cop wins", Object.values(cnrEnd.out).includes("b") && /cop|busted/i.test(cnrTitle || ""), JSON.stringify(cnrEnd) + " " + cnrTitle);
   for (const p of pages) await p.until(`ctx.phone.isOpen && /Rematch/.test(document.getElementById("lpApp").textContent)`, "C&R scoreboard in the phone", 10000);
   await t.shot("cnr-results");
   for (const p of pages) await p.game(`ctx.phone.closePhone()`);
