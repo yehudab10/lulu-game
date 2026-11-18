@@ -194,6 +194,7 @@ async function roadTrip(t, guests) {
     t.check("porch on the host: the guest's party clock + state carry on", await A.game(`ctx.state === "playing" && ctx.party.clock() > ${a0} + 1500`));
     await t.shot("porch-host");
     await g(`(L3.setState("playing"), true)`);
+    await hostUntil(t, `ctx.state === "playing" && !ctx.dialogOpen`, "host: back from the porch, no dialogue left over", 30000);
   }
 
   // 5. shared traffic stays in sync with every roadside feature on
@@ -237,6 +238,8 @@ async function freeRoam(t, guests) {
   const g = t.game, A = guests[0];
   const pages = [{ label: "host", game: c => t.game(c), until: (c, w, ms) => hostUntil(t, c, w, ms), L: c => t.L(c), shot: n => t.shot(n) }, A];
   await g(`ctx.party._debug.toLobby()`);
+  await sleep(3000);
+  console.log("   (to lobby)", JSON.stringify(await g(`({ st: ctx.state, dialog: ctx.dialogOpen, paused: ctx.paused, k: ctx.party.activity.k, host: ctx.party.isHost, conn: ctx.party.connected })`)));
   for (const p of pages) if (!await p.until(`ctx.state === "partyLobby"`, "back to the lobby", 40000)) return;
   await clickSel(t, "#pt_act_roam");
   await clickSel(t, "#pt_go");
