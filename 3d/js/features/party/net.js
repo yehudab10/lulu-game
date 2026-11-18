@@ -79,6 +79,7 @@ export const N = {
     replies: [],                 // host: clock replies to send
     profile: { n: "", sk: "pink", hn: "beep", hc: "", rd: 0 },
     mode: 0, flags: 0, pose: null, extra: null,
+    xk: {},                      // per-feature extras (presence, foot pose, parked car, cops…) merged into d.x with `extra`
     full: false, lost: false, hostSince: 0,
 };
 // clock
@@ -104,7 +105,7 @@ export function start(code, host) {
     if (!shared.get().mpName || !NAMES.includes(shared.get().mpName)) shared.update(s => { s.mpName = NAMES[rint(0, NAMES.length - 1)]; });
     Object.assign(N, { want: true, code, room: ROOM_PREFIX + code, connected: false, rid: null, joinedAt: now(), connectedAt: 0, everConnected: false,
         reconnectAt: 0, backoff: 500, attempts: 0, host: null, epoch: 0, roster: [], A: { v: 0, k: "lobby", id: 0 }, isHost: false,
-        pending: [], bcast: [], seen: {}, acks: {}, replies: [], full: false, lost: false });
+        pending: [], bcast: [], seen: {}, acks: {}, replies: [], full: false, lost: false, xk: {} });
     N.players.clear(); N.byRid.clear();
     C.synced = false; C.samples.length = 0; C.pend.clear(); C.nextPing = 0;
     if (host) becomeHost(1, true);
@@ -451,7 +452,10 @@ function sendSnap(t) {
     if (pr.hc) d.hc = pr.hc;
     if (pr.rd) d.rd = 1;
     if (N.pose) d.p = N.pose;
-    if (N.extra) d.x = N.extra;
+    const xk = N.xk;
+    let hasXk = false;
+    for (const k in xk) { hasXk = true; break; }
+    if (N.extra || hasXk) d.x = hasXk ? Object.assign({}, N.extra, xk) : N.extra;
     if (N.pending.length) d.ev = N.pending.slice(0, 8).map(e => [e.n, e.k, ...e.a]);
     const live = N.bcast.filter(b => t - b.at < 1500);
     N.bcast = live;
@@ -468,9 +472,13 @@ function sendSnap(t) {
         d.H = H;
     }
     let s = JSON.stringify({ t: "s", d });
+    if (s.length > 1900 && d.x && hasXk) { d.x = Object.assign({}, N.extra, { pr: xk.pr }); s = JSON.stringify({ t: "s", d }); }   // the bulky extras go first (presence stays)
     if (s.length > 1900) { delete d.bc; delete d.x; s = JSON.stringify({ t: "s", d }); }
     try { if (sockOpen()) N.sock.send(s); } catch (e) { /* offline */ }
 }
+
+/** A per-feature extras key in my snapshots' `d.x` (null / undefined removes it). Keys are short: pr f pc v cp ws jk. */
+export function setX(k, v) { if (v == null) delete N.xk[k]; else N.xk[k] = v; }
 
 /** Send right now (e.g. the tab is about to be hidden), if the rate window allows. */
 export function flush() { if (N.connected && windowOk(now())) sendSnap(now()); }

@@ -47,6 +47,7 @@ import { N, clock } from "./net.js";
 import * as R from "./remote.js";
 import * as T from "./traffic.js";
 import * as STG from "./stage.js";
+import * as PS from "./presence.js";
 import * as U from "./ui.js";
 import { tone } from "../parking/sfx.js";
 
@@ -109,6 +110,20 @@ ctx.party = {
     peer: uid => N.players.get(uid) || null,
     fresh: (p, ms) => NET.fresh(p, ms),
     setExtra(x) { N.extra = x || null; },
+    // ── presence: what each friend is doing (see presence.js) ──
+    /** Say what I'm doing: { mode, icon, label } (e.g. { mode: "in", icon: "🍺", label: "in The Thirsty Scholar" });
+     *  null → back to the automatic one. Holds until my state changes (opts.sticky: until cleared). Safe outside a party. */
+    presence: (p, opts) => PS.setPresence(p, opts),
+    /** A friend's presence ({ mode, icon, label } | null) — or mine (uid omitted / mine). */
+    presenceOf(uid) { if (!uid || uid === N.uid) { const a = PS.myPresence(); return { mode: a[0], icon: a[1], label: a[2] }; } return PS.presenceOf(N.players.get(uid)); },
+    /** One short badge for a friend ("🚶‍♀️", "🍺", "🚨★★"…; "" while just driving). */
+    presenceBadge: uid => PS.presenceBadge(N.players.get(uid)),
+    /** A per-feature extras key in my snapshots (d.x[k]; null removes it). Keep it tiny. */
+    setX: (k, v) => NET.setX(k, v),
+    /** A shared party traffic car leaves the traffic for good (carjacked): gone for everyone, a local car on this screen. */
+    claimTraffic: c => claimTraffic(c),
+    /** Is shared traffic car `key` gone (jacked by someone)? */
+    trafficGone: key => T.PT.gone.has(key),
     displayName: uid => displayName(uid),
     skinOf: uid => skinOf(uid),
     skinHex: key => R.skinHex(key),
@@ -123,6 +138,9 @@ ctx.party = {
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
         place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
         stageCars: () => STG.carCount(),
+        /** what this screen draws for friend uid beyond their car: { parked, cops, tag } */
+        world: uid => PS.debugWorld(uid),
+        xk: () => JSON.parse(JSON.stringify(N.xk)),
         dash: () => DASH.spots,
         bbPlan: () => [...BB.plan].filter(([k, p]) => p).map(([k, p]) => `${k}:${p.s.toFixed(1)}:${p.side}:${p.id}`),
         traffic: T.PT },
@@ -145,7 +163,10 @@ ctx.party.atmosWeather = () => {
 };
 
 // random features stay off in a party (every friend must see the same world)
-const OFF = new Set(["roadevents", "cameos", "law", "journey", "meta", "foot", "interiors", "dina", "banter", "hustle", "streets", "memory", "world", "shabbos", "town", "community", "rides"]);
+// 🚶 foot · 🏠 interiors · 🚓 law are ON: personal (per player), with what friends need to see published as
+// presence / extras (presence.js). streets + rides keep their RANDOM content off, but their mechanics (carjack,
+// bail out, per-ride handling / horns / tricks) work in a party — ARCHITECTURE.md › party parity table.
+const OFF = new Set(["roadevents", "cameos", "journey", "meta", "dina", "banter", "hustle", "streets", "memory", "world", "shabbos", "town", "community", "rides"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
@@ -226,6 +247,8 @@ function teardown() {
     dashSetup(null);
     if (BAR.mine) BAR.mine.visible = false;
     R.clearCars();
+    PS.clearAll();
+    XP.jk.length = 0;
     T.releaseTraffic();
     clearProps();
     bbClear();
@@ -373,6 +396,7 @@ function enterActivity(A) {
     const idx = (A.ps || []).indexOf(N.uid);
     const late = idx < 0 || clock() > A.t0 + 1500;
     P.me = { finished: false, arrived: false, late, coins: 0, place: 0, pend: {}, tagSent: -1 };
+    XP.jk.length = 0; NET.setX("jk", null);
     P.copN = A.n;
     dashSetup(A.k === "dash" ? A : null);
     P.convoy.on = false; P.convoy.t = P.convoy.grace = 0;
@@ -734,11 +758,24 @@ hook("runStart", G => {
     if (G.mode !== "party") return;
     G.noDistracted = true;      // garage: no reversed-steering mode with friends
     G.noPullOver = true;        // parking: no pulling into the minigame mid-party
-    G.arrived = true;           // foot: no climbing out on the shoulder mid-party
+    // foot: climbing out to walk is fine on a road trip / in free roam — not mid-race or in a timed game
+    G.arrived = !!(N.want && N.A && (N.A.k === "race" || N.A.k === "dash" || N.A.k === "tag"));
     G.goText = "";
     if (!P.internal && N.want) P.respawn = true;   // the pause menu's ↺ Restart → respawn with the group
 }, 60);
-on("state", ({ to }) => {
+on("state", ({ from, to }) => {
+    // back from a personal scene (the station, the court, the ER…) that put her on the road with a 3-2-1:
+    // the party never stopped — straight back into it where that scene left her car
+    if (to === "intro" && !P.respawn && N.want && ctx.G.mode === "party" && from && !PARTY_STATES.has(from) && from !== "playing" && from !== "title") {
+        H.hideBanner();
+        const c = ctx.car;
+        placeCar(Math.max(GRID_S, c.s), c.d > 3.5 ? 5.25 : 1.75, 12);
+        reapplyPickups(null);
+        sparkle(c.pos.x, c.pos.z);
+        setState(P.me.finished || P.me.arrived ? "partyWait" : "playing");
+        H.toast("🎉 Back with the party!", "pink");
+        return;
+    }
     if (to === "intro" && P.respawn && N.want) {
         P.respawn = false;
         H.hideBanner();
@@ -826,7 +863,8 @@ function bonks(dt) {
     const fx = Math.sin(car.h), fz = Math.cos(car.h);
     const rr = CAR_RADIUS * 2;
     for (const rc of R.cars.values()) {
-        if (!rc.shown || rc.noBonk) { rc.bonking = false; continue; }
+        if (rc.shown && rc.foot && !ctx.foot?.active) { pedBonk(rc, dt); rc.bonking = false; continue; }
+        if (!rc.shown || rc.noBonk || rc.foot) { rc.bonking = false; continue; }
         const dx0 = rc.x - car.pos.x, dz0 = rc.z - car.pos.z;
         if (dx0 * dx0 + dz0 * dz0 > 36) { rc.bonking = false; continue; }
         const gx = Math.sin(rc.h), gz = Math.cos(rc.h);
@@ -1002,7 +1040,7 @@ hook("hud", dt => {
         U.hud(board, chip, cls);
     } else if (A.k === "trip") {
         const rows = NET.members().map(u => { const me = u === N.uid, rc = R.cars.get(u), p = N.players.get(u);
-            return { me, name: displayName(u), sk: skinOf(u), s: me ? car.s : rc && rc.shown ? rc.s : null, arr: A.arr && A.arr[u], st: me ? "" : p ? R.status(p) : "" }; });
+            return { me, name: displayName(u), sk: skinOf(u), s: me ? car.s : rc && rc.shown ? rc.s : null, arr: A.arr && A.arr[u], st: me ? "" : p ? R.status(p) || PS.presenceBadge(p) : "" }; });
         const board = `<div class="t">🏡 TO BUBBE'S</div>` + rows.map(r => `<div class="r${r.me ? " me" : ""}${r.s == null && !r.arr ? " dim" : ""}"><i style="background:${R.skinHex(r.sk)}"></i><span class="n">${U.esc(r.name)}</span><span class="v">${r.arr ? "🏡" : r.st || (r.me || r.s == null ? "" : fmtGap(r.s - car.s))}</span></div>`).join("");
         let chip = "", cls = "";
         if (P.me.arrived) { const wait = rows.filter(r => !r.arr && !r.me).length; chip = wait ? `🏡 You made it! Waiting for ${wait}…` : "🏡 Everyone's here!"; cls = "pink"; }
@@ -1260,26 +1298,36 @@ function publish() {
     const pr = N.profile;
     pr.n = c.name || NET.myName(); pr.sk = car.skinKey; pr.hn = c.horn; pr.hc = c.hair; pr.rd = P.ready ? 1 : 0;
     let m = N.mode;
+    const run = ctx.G && ctx.G.mode === "party" && N.A.k !== "lobby";
+    const foot = st === "footRun" && run && ctx.foot && ctx.foot.active && !!ctx.foot.pos;
     if (st === "partyLobby") m = 1;
     else if (st === "partyGrid") m = 2;
-    else if (st === "playing" && ctx.G.mode === "party") m = 3;
+    else if ((st === "playing" && ctx.G.mode === "party") || foot) m = 3;
     else if (st === "partyWait") m = 4;
     else if (st === "partySpectate") m = 5;
     else if (st === "partyResults") m = N.A.k === "trip" ? 4 : 6;
-    else if (st !== "playPhoto") m = 0;
+    else if (st === "playPhoto") { /* keep */ }
+    else if (run && st !== "title" && st !== "loading") m = 7;     // away in a personal scene (inside, jail, a cutscene): no pose, presence only
+    else m = 0;
     N.mode = m;
     if (m >= 2 && m <= 4 && car && ctx.world) {
         const act = ACTS[N.A.k], fr = act && act.pose ? act.pose() : null;   // (another frame: a town's streets)
         const h = fr ? fr.h : ctx.world.road.at(car.s, tmpA).h;
         const fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
         const k = rate.r;
-        const y = ctx.play && ctx.play.jump && ctx.play.jump.y > 0.02 ? ctx.play.jump.y : 0;
+        // on foot the car is an invisible anchor that follows her: publish HER (velocity, facing, a hop / vault)
+        const fv = foot ? ctx.foot.vel : null;
+        const vx = fv ? fv.x : car.vx, vz = fv ? fv.z : car.vz;
+        const yaw = foot && ctx.foot.facing != null ? ctx.foot.facing : car.h;
+        const y = foot ? Math.max(0, ((ctx.foot.obj && ctx.foot.obj.position.y) || 0.05) - 0.05)
+            : ctx.play && ctx.play.jump && ctx.play.jump.y > 0.02 ? ctx.play.jump.y : 0;
         poseArr[0] = Math.round((fr ? fr.s : car.s) * 10); poseArr[1] = Math.round((fr ? fr.d : car.d) * 100);
-        poseArr[2] = Math.round((car.vx * fx + car.vz * fz) * k * 100); poseArr[3] = Math.round((car.vx * rx + car.vz * rz) * k * 100);
-        poseArr[4] = Math.round(wrapAngle(car.h - h) * 1000); poseArr[5] = Math.round(car.steerVal * 100);
+        poseArr[2] = Math.round((vx * fx + vz * fz) * k * 100); poseArr[3] = Math.round((vx * rx + vz * rz) * k * 100);
+        poseArr[4] = Math.round(wrapAngle(yaw - h) * 1000); poseArr[5] = foot ? 0 : Math.round(car.steerVal * 100);
         poseArr[6] = Math.round(y * 100); poseArr[7] = P.rs;
         N.pose = poseArr;
     } else N.pose = null;
+    publishExtras(m, foot);
     let f = 0;
     const live = st === "playing" && !ctx.paused;
     if ((live && input.brake > 0.1 && car.vF > 0.5) || (car.accelLong < -4 && car.vF > 0.5) || st === "partyGrid") f |= 1;
@@ -1289,6 +1337,107 @@ function publish() {
     if (document.hidden) f |= 16;
     N.flags = f;
 }
+/** Everything friends need to draw what I'm doing beyond my pose (presence.js; ~10×/s, tiny arrays). */
+const XP = { at: -1e9, jk: [] };
+function publishExtras(m, foot) {
+    PS.publishPresence();
+    const w = performance.now();
+    if (w - XP.at < 90) return;
+    XP.at = w;
+    const inRun = m >= 2 && m <= 4 || m === 7;
+    const F = inRun ? ctx.foot : null, car = ctx.car;
+    NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0] : null);
+    const pk = F && F.active ? F.parkedCar : null;
+    NET.setX("pc", pk ? [Math.round(pk.x * 10), Math.round(pk.z * 10), Math.round(wrapAngle(pk.h) * 1000), pk.key === "lulu" ? 0 : pk.key, pk.paint || 0, pk.wrecked ? 1 : 0] : null);
+    const v = F && !foot && !F.active ? F.vehicle : null;
+    NET.setX("v", v && v.kind ? [v.kind, v.color || 0] : null);
+    const cops = inRun && m !== 7 && ctx.law && ctx.law.partyUnits ? ctx.law.partyUnits(3) : null;
+    NET.setX("cp", cops && cops.length ? cops : null);
+    const ws = inRun && ctx.law ? ctx.law.wanted | 0 : 0;
+    NET.setX("ws", ws > 0 ? ws : null);
+    const pr = PS.myPresence();
+    NET.setX("at", m === 7 && pr[0] === "in" && car ? [Math.round(car.pos.x * 10), Math.round(car.pos.z * 10)] : null);
+    NET.setX("jk", XP.jk.length ? XP.jk : null);
+}
+
+// ── carjacked party cars: gone for everyone ──────────────────────────────
+/** I took shared car c (streets' carjack): it leaves the shared traffic; on my screen it's a local car now. */
+function claimTraffic(c) {
+    const key = c && c.data && c.data.party;
+    if (!N.want || typeof key !== "string") return false;
+    T.goneCar(key, true);
+    c.data.party = null; c.data.local = true; c.data.wasParty = key; c.onRemove = null;
+    XP.jk.push(key); if (XP.jk.length > 6) XP.jk.shift();
+    NET.setX("jk", XP.jk.slice());
+    NET.broadcast("j", key);
+    return true;
+}
+/** A friend took shared car `key`: it vanishes here too (a poof where it was). */
+function dropShared(key) {
+    if (typeof key !== "string" || key.length > 40 || T.PT.gone.has(key)) return;
+    T.PT.gone.add(key);
+    const tr = ctx.traffic;
+    if (!tr) return;
+    for (const c of tr.cars.slice()) if (c.data && c.data.party === key) { sparkle(c.x, c.z); tr.remove(c); }
+    T.PT.cars.delete(key);
+}
+on("party:bc", ({ p, k, a }) => { if (k === "j" && inPartyRun() && p.aid === N.A.id) for (const key of a) dropShared(key); });
+
+// ── on foot in a party: the shared traffic keeps coming, coins stay shared, friends can knock her flat ──
+function footTick(dt) {
+    const car = ctx.car, A = N.A;
+    const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
+    if (!own) { bbReserveAhead(car.s + 950); T.syncTraffic(car.s); }
+    scanPickups();
+    const fp = ctx.foot.pos;
+    if (!fp || ctx.paused) return;
+    for (const rc of R.cars.values()) {
+        if (!rc.shown) continue;
+        const dx = fp.x - rc.x, dz = fp.z - rc.z;
+        if (dx * dx + dz * dz > 36) continue;
+        if (rc.foot) {                                       // two walkers: each screen steps its own Lulu half out of the way
+            const d = Math.hypot(dx, dz), rr = 0.66;
+            if (d < rr && d > 1e-4) { fp.x += dx / d * (rr - d) * 0.5; fp.z += dz / d * (rr - d) * 0.5; }
+            continue;
+        }
+        // a friend's car: slow → a shove, fast → she's knocked flat (no hearts lost in a party)
+        const fx = Math.sin(rc.h), fz = Math.cos(rc.h);
+        for (const co of CAR_CIRCLES) {
+            const qx = rc.x + fx * co, qz = rc.z + fz * co, ex = fp.x - qx, ez = fp.z - qz, rr = CAR_RADIUS + 0.32;
+            const d2 = ex * ex + ez * ez;
+            if (d2 >= rr * rr) continue;
+            const d = Math.sqrt(d2) || 1e-3;
+            fp.x = qx + ex / d * rr; fp.z = qz + ez / d * rr;
+            const sp = Math.hypot(rc.vx, rc.vz);
+            if (sp > 3.2 && (rc.footCd || 0) <= 0 && ctx.foot.bump) {
+                rc.footCd = 1.5;
+                ctx.foot.bump({ h: Math.atan2(rc.vx, rc.vz), speed: sp, who: displayName(rc.uid) });
+                emit("stat", { id: "partyBonks", n: 1 });
+            }
+            break;
+        }
+        if (rc.footCd > 0) rc.footCd -= dt;
+    }
+}
+/** Driving into a friend who's walking: on MY screen the car checks up and she gets the blame line;
+ *  on HER screen her own Lulu gets knocked flat (footTick) — each screen moves only its own player. */
+function pedBonk(rc, dt) {
+    const car = ctx.car, fx = Math.sin(car.h), fz = Math.cos(car.h);
+    let hit = false;
+    for (const a of CAR_CIRCLES) {
+        const dx = rc.x - (car.pos.x + fx * a), dz = rc.z - (car.pos.z + fz * a);
+        if (dx * dx + dz * dz < (CAR_RADIUS + 0.4) ** 2) { hit = true; break; }
+    }
+    if (rc.pedCd > 0) rc.pedCd -= dt;
+    if (!hit || rc.pedCd > 0) return;
+    rc.pedCd = 1.5;
+    const sp = Math.hypot(car.vx, car.vz);
+    if (sp > 3.2) { car.vx *= 0.55; car.vz *= 0.55; car.vF *= 0.55; }
+    H.toast(sp > 3.2 ? `😱 You bonked ${displayName(rc.uid)}! (they'll live)` : `🙋 Hi ${displayName(rc.uid)}!`, sp > 3.2 ? "gold" : "pink");
+    tone(sp > 3.2 ? 180 : 660, 0.1, "triangle", 0.18, sp > 3.2 ? 110 : 880);
+    if (sp > 3.2) rumble(0.4, 0.5, 160, true);
+}
+
 document.addEventListener("visibilitychange", () => {
     if (!N.want) return;
     if (document.hidden) N.flags |= 16; else N.flags &= ~16;
@@ -1317,6 +1466,9 @@ function frame() {
         }
         onRoad = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, showCar, decorate, frameOf);
+        PS.tick(dt, sameWorld, displayName);
+        if (inPartyRun()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x && Array.isArray(p.x.jk)) for (const key of p.x.jk) dropShared(key);
+        if (ctx.state === "footRun" && inPartyRun() && ctx.foot && ctx.foot.active) footTick(dt);
         hornsNearby();
         farewells();
         dashTick(dt);
@@ -1332,9 +1484,11 @@ requestAnimationFrame(frame);
 let onRoad = false;
 /** Draw this friend on the road? (same activity, actually driving / parked, and we're looking at the road) */
 function showCar(p) { const act = ACTS[N.A.k]; return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip") && (!act || !act.show || act.show(p)); }
+/** Is this friend in my world (same activity + zone, I'm looking at the road) — for their parked car, cops, tags. */
+function sameWorld(p) { const act = ACTS[N.A.k]; return onRoad && ctx.G && ctx.G.mode === "party" && p.aid === N.A.id && (p.m === 7 || (p.m >= 2 && p.m <= 4)) && (!act || !act.show || act.show(p)); }
 function frameOf(p) { const act = ACTS[N.A.k]; return act && act.frame ? act.frame(p) : null; }
 function decorate(rc, p) {
-    rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) });
+    rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) || PS.presenceBadge(p) });
     const act = ACTS[N.A.k];
     if (act && act.decorate) act.decorate(rc, p);
 }

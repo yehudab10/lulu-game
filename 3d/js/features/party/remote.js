@@ -18,7 +18,8 @@
 // when their text changes, no per-frame allocations in the update path.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
-import { models, cloneWithColors, findNodes } from "../../models.js";
+import { models, cloneWithColors, findNodes, ensureModels } from "../../models.js";
+import { spawnPerson } from "../../core/people.js";
 import { SKINS } from "../../car.js";
 import { now, clock, N, fresh } from "./net.js";
 
@@ -157,6 +158,7 @@ export class CarVisual {
     setSkin(skin) {
         if (this.model && this.skin === skin) return;
         if (this.model) this.tilt.remove(this.model);
+        if (this.ride) { this.ride.removeFromParent(); this.ride = null; this.rideKey = null; }
         for (const m of this.taillights) m.dispose();
         this.skin = SKINS[skin] ? skin : "pink";
         this.model = cloneWithColors(models.lulu, skinColors(this.skin));
@@ -187,6 +189,20 @@ export class CarVisual {
         this.arm.position.set(hp.x + 0.26, hp.y - 0.38, hp.z + 0.02);
         this.tilt.add(this.arm);
     }
+    /** A borrowed ride (a jacked truck, a hotwired bus…): its model instead of the convertible. key null → her own car. */
+    setRide(key, paint) {
+        const k = key ? key + "|" + (paint || "") : null;
+        if (k === this.rideKey) return;
+        if (key && !models[key]) { if (!this.rideLoading) { this.rideLoading = true; ensureModels([key]).catch(() => { }).finally(() => { this.rideLoading = false; }); } return; }
+        if (this.ride) { this.ride.removeFromParent(); this.ride = null; this.rideWheels = []; }
+        this.rideKey = k;
+        this.model.visible = !key;
+        if (!key) return;
+        this.ride = cloneWithColors(models[key], paint ? { Paint: paint } : null);
+        for (const n of [...findNodes(this.ride, "Driver"), ...findNodes(this.ride, "Hair_")]) n.visible = false;
+        this.rideWheels = findNodes(this.ride, "Wheel_").map(w => { w.rotation.order = "YXZ"; return w; });
+        this.tilt.add(this.ride);
+    }
     setHair(color, force) {
         if (!color || (!force && color === this.hairColor)) return;
         this.hairColor = color;
@@ -200,6 +216,7 @@ export class CarVisual {
             w.obj.rotation.x = this.roll;
             if (w.front) w.obj.rotation.y = -this.steer * 0.5 / (1 + Math.abs(speed) / 25);
         }
+        if (this.ride) for (const w of this.rideWheels) w.rotation.x = this.roll;
         if (this.sw) { _q.setFromAxisAngle(_up, this.steer * 1.6); this.sw.quaternion.copy(this.swBase).multiply(_q); }
         for (const m of this.taillights) m.emissiveIntensity = brake ? 4.5 : 1.2;
         this.flames.visible = !!boost;
@@ -267,6 +284,7 @@ export class RemoteCar {
         this.out = { s: 0, d: 0, vs: 0, vd: 0, yaw: 0, steer: 0, y: 0, f: 0, extrap: 0 };
         this.s = 0; this.d = 0; this.x = 0; this.z = 0; this.h = 0; this.speed = 0; this.vx = 0; this.vz = 0;
         this.shown = false; this.honkWas = false; this.bonkCd = 0; this.bonking = false;
+        this.foot = false; this.walker = null; this.walkerKey = ""; this.anim = 0;
         this.trace = null;
     }
     dispose() { this.tag.dispose(); this.bubble.dispose(); this.pop.dispose(); this.v.dispose(); }
@@ -342,6 +360,7 @@ export function updateCars(dt, show, decorate, frameOf) {
         if (!rc) { rc = new RemoteCar(p); cars.set(uid, rc); }
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
         if (p.hc) rc.v.setHair(p.hc);
+        setForm(rc, p);
         step(rc, p, dtParty, (frameOf && frameOf(p)) || road, cam);
         if (decorate) decorate(rc, p);
     }
@@ -393,10 +412,11 @@ function step(rc, p, dt, road, cam) {
     rc.v.root.position.set(tmpP.x, Math.max(0, o.y), tmpP.z);
     rc.v.root.rotation.y = h;
     const accel = dt > 0 ? (o.vs - prevSpeed) / dt : 0;
-    rc.v.animate(dt, sp * Math.sign(o.vs || 1), o.steer, !!(o.f & 1), !!(o.f & 2), accel, o.vs * o.steer * 0.4);
+    const honk = !!(o.f & 4);
+    if (rc.foot) animateWalker(rc, dt, sp, o, honk);
+    else rc.v.animate(dt, sp * Math.sign(o.vs || 1), o.steer, !!(o.f & 1), !!(o.f & 2), accel, o.vs * o.steer * 0.4);
     rc.v.root.visible = true; rc.shown = true;
     // honk → 📣 + a wave + their horn when close
-    const honk = !!(o.f & 4);
     if (honk && !rc.honkWas) { rc.pop.show("📣"); rc.v.wave(); rc.honked = true; }
     rc.honkWas = honk;
     // sprites stay readable at a distance — and get out of the way when a car is right by the camera
@@ -406,13 +426,58 @@ function step(rc, p, dt, road, cam) {
     rc.tag.sp.scale.set(rc.tag.base * kk, rc.tag.base * rc.tag.aspect * kk, 1);
     rc.tag.sp.visible = dist < 320 && near > 0.02;
     rc.tag.sp.material.opacity = near;
-    rc.tag.sp.position.y = 2.6 + (kk - 1) * 0.12;
+    rc.tag.sp.position.y = (rc.foot ? 2.35 : 2.6) + (kk - 1) * 0.12;
     rc.bubble.k = Math.min(2.6, kk);
     rc.bubble.fade = 0.35 + 0.65 * near;
     rc.bubble.update(dt, 3.5 + (kk - 1) * 0.35);
     rc.pop.update(dt, 2.2, Math.min(2.5, kk));
     if (rc.bonkCd > 0) rc.bonkCd -= dt;
     if (rc.trace) rc.trace.push({ T: clock(), s, d, ex: o.extrap });
+}
+
+// ── a friend ON FOOT: a walking Lulu (their hair, a disguise), the car body hidden ──
+// d.x.f = [anim, look]: anim 0 walk/run · 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance (busk)
+// · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk; look 0 · 1 jumpsuit · 2 old lady · 3 old man
+const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
+function setForm(rc, p) {
+    const f = p.x && Array.isArray(p.x.f) ? p.x.f : null;
+    const foot = !!f && !!models.luluPerson;
+    if (foot) {
+        const look = Math.max(0, Math.min(3, f[1] | 0)), key = look + "|" + (p.hc || "");
+        if (!rc.walker || rc.walkerKey !== key) {
+            if (rc.walker) rc.walker.obj.removeFromParent();
+            const colors = Object.assign(p.hc ? { Hair: p.hc } : {}, LOOKS[look]);
+            rc.walker = spawnPerson("luluPerson", { colors });
+            rc.walker.obj.rotation.order = "YXZ";
+            rc.walker.obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
+            rc.walkerKey = key;
+            rc.v.root.add(rc.walker.obj);
+        }
+        rc.anim = f[0] | 0;
+    }
+    if (foot !== rc.foot) {
+        rc.foot = foot;
+        rc.v.tilt.visible = !foot;
+        if (rc.walker) rc.walker.obj.visible = foot;
+        rc.noBonkFoot = foot;
+    }
+    // a borrowed ride (d.x.v = [model key, paint])
+    if (!foot) {
+        const v = p.x && Array.isArray(p.x.v) && typeof p.x.v[0] === "string" && /^[a-z_0-9]{2,24}$/.test(p.x.v[0]) ? p.x.v : null;
+        rc.v.setRide(v ? v[0] : null, v && typeof v[1] === "string" ? v[1].slice(0, 9) : null);
+    }
+}
+function animateWalker(rc, dt, sp, o, honk) {
+    const w = rc.walker;
+    if (!w) return;
+    const ob = w.obj, a = rc.anim;
+    const ease = k => Math.min(1, dt * k);
+    let rx = 0;
+    if (a === 1) { rc.rollA = (rc.rollA || 0) + dt * 12.5; rx = rc.rollA; }
+    else { rc.rollA = 0; rx = a === 2 ? -1.05 : a === 4 ? -1.5 : sp > 5.3 ? 0.14 : 0; }
+    ob.rotation.x = a === 1 ? rx : ob.rotation.x + (rx - ob.rotation.x) * ease(9);
+    ob.position.y = a === 1 ? 0.45 * (1 - Math.cos(rc.rollA)) : 0;
+    w.update(dt, { walk: a === 0 || a === 3 ? sp : 0, dance: a === 5, wave: a === 6 || honk, point: a === 7, sit: a === 8, talk: a === 9, cheer: a === 3 });
 }
 
 // a sparkle poof when a car (re)appears somewhere new

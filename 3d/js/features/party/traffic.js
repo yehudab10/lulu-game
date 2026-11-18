@@ -29,11 +29,16 @@ function h32(a, b, c) {
     return (h >>> 0) / 4294967296;
 }
 
-export const PT = { seed: 1, U0s: 0, t0: 0, on: false, cars: new Map(), t: 0 };
+export const PT = { seed: 1, U0s: 0, t0: 0, on: false, cars: new Map(), t: 0, gone: new Set() };
+/** Cars only THIS screen has, which the party sync must leave alone: her parked car (foot), her own cops (law),
+ *  a party car she's jacking (streets), anything a feature marks data.local. Everything else that isn't a
+ *  party car is a stray random spawn and goes. */
+export const localCar = c => !!(c.data && (c.data.local || c.data.footStub || c.data.law || c.data.streetsJack || c.data.streetsHold));
 
 /** Configure for an activity: seed, GO time (party ms) and the start line s (nothing of ours behind it at GO). */
 export function configure(seed, t0ms, startS) {
     PT.seed = seed >>> 0; PT.t0 = t0ms / 1000; PT.startS = startS;
+    PT.gone.clear();
     clearTraffic();
     if (ctx.traffic) ctx.traffic.config.enabled = false;   // before the first frame: the core spawner must never add a local-only car
 }
@@ -105,7 +110,7 @@ export function syncTraffic(aroundS) {
     const keep = new Set();
     for (const w of want) {
         keep.add(w.key);
-        if (PT.cars.has(w.key)) continue;
+        if (PT.cars.has(w.key) || PT.gone.has(w.key)) continue;
         const [Li, k] = w.key.split(":").map(Number);
         const c = tr.add(w.kind, w.s, w.d, w.dir, w.v, {
             ai, keep: true, immune: true,
@@ -118,7 +123,7 @@ export function syncTraffic(aroundS) {
     }
     for (const [key, c] of PT.cars) if (!keep.has(key)) { PT.cars.delete(key); tr.remove(c); }
     // anything that isn't ours (a stray random spawn) would exist on ONE screen only
-    for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if (!c.data || !c.data.party) tr.remove(c); }
+    for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if ((!c.data || !c.data.party) && !localCar(c)) tr.remove(c); }
 }
 
 /** Not driving (spectating / podium): still place our cars where the clock says. */
@@ -138,6 +143,21 @@ export function releaseTraffic() {
     clearTraffic();
     PT.on = false;
     if (ctx.traffic) ctx.traffic.config.enabled = true;
+}
+
+/**
+ * A party car leaves the shared traffic for good (it was carjacked): every screen drops key `key`
+ * (the jacker's own screen keeps the car object — it's hers now, a local car). Returns that car or null.
+ */
+export function goneCar(key, keepIt = false) {
+    if (typeof key !== "string" || key.length > 40) return null;
+    PT.gone.add(key);
+    const c = PT.cars.get(key) || null;
+    if (!c) return null;
+    PT.cars.delete(key);
+    if (keepIt) { c.data.party = null; c.data.local = true; c.data.wasParty = key; c.onRemove = null; return c; }
+    ctx.traffic.remove(c);
+    return c;
 }
 
 /** Live cars as the screen shows them: [{key, s, d, at (party ms of that position)}]. */

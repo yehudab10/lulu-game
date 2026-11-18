@@ -53,7 +53,8 @@ function partyHome(el, api) {
         const p = ctx.party.peer(u), z = E.zoneOfPeer(p), pos = E.posOf(u);
         const where = z ? `${z === E.zone() ? "here in" : "in"} ${esc(townName(z))}` : E.zone() ? "on the highway" : "on the highway";
         const meta = pos ? mi(d2(pos)) : z !== E.zone() ? (z ? "🏙️" : "🛣️") : "";
-        html += row("owF_" + u, "🚗", esc(E.nameOf(u)), where, meta, false, ` data-u="${esc(u)}"`);
+        const pr = doing(u);
+        html += row("owF_" + u, pr ? esc(pr.icon) : "🚗", esc(E.nameOf(u)), (pr ? esc(pr.label) + " · " : "") + where, meta, false, ` data-u="${esc(u)}"`);
     }
     html += `<div class="ow-sec">Games</div>`;
     for (const k of E.ORDER) {
@@ -71,10 +72,15 @@ function partyHome(el, api) {
     on(el, "#owHopH", () => { api.close(); E.stopRide(); });
 }
 function townName(id) { const T = ctx.town && ctx.town.towns; return (T && T[id] && T[id].name) || id; }
+/** What a friend is doing (party presence) when it's more than plain driving: { icon, label } | null. */
+function doing(uid) {
+    const pr = ctx.party && ctx.party.presenceOf ? ctx.party.presenceOf(uid) : null;
+    return pr && pr.label && !(pr.mode === "drive" && pr.icon === "🚗") ? pr : null;
+}
 function friendView(el, api, uid) {
     const p = ctx.party.peer(uid), z = E.zoneOfPeer(p), pos = E.posOf(uid);
-    const name = esc(E.nameOf(uid));
-    el.innerHTML = `<div class="lp-card ow-head"><span class="lp-av">🚗</span><span class="lp-tx"><b>${name}</b><small>${z ? "in " + esc(townName(z)) : "on the highway"}${pos ? " · " + mi(d2(pos)) : ""}</small></span></div>
+    const name = esc(E.nameOf(uid)), pr = doing(uid);
+    el.innerHTML = `<div class="lp-card ow-head"><span class="lp-av">${pr ? esc(pr.icon) : "🚗"}</span><span class="lp-tx"><b>${name}</b><small>${pr ? esc(pr.label) + " · " : ""}${z ? "in " + esc(townName(z)) : "on the highway"}${pos ? " · " + mi(d2(pos)) : ""}</small></span></div>
         ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "hop in their passenger seat · ✕ to hop out")}
         ${row("owWarp", "🚀", `Catch up with ${name}`, "a puff of glitter and you're right behind them")}
         ${pos ? row("owPinF", "📍", `Pin ${name}`, "a beacon over their car until you meet up") : ""}
