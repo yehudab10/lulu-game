@@ -29,3 +29,4 @@ import "./community/index.js";   // 🚨 community: Chaverim / Shomrim / Hatzala
 import "./rides/index.js";       // 🚓🚑🍦 rides: every vehicle Lulu drives has its own handling, horn and trick (siren, pull-overs, patients, ice cream, bus stops)
 import "./moves/index.js";       // 🏁 moves & tricks: drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, dodge/slide/vault on foot, the style combo + 🏁 Moves page
 import "./openworld/index.js";    // 🌍 open world: Free Roam with friends (highway + towns), party games from the 📱 (Cops & Robbers, Race to a Pin, Hot Kugel, Photo Hunt), 📍 Nearby
+import "./exits/index.js";       // 🛣️ highway exits & 🅿️ rest areas: service plazas off the Cruise/Story highway (food, gas, restrooms, a gift shop, Mendel's garage, travellers on foot) + the next-exit chip

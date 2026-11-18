@@ -175,8 +175,9 @@ ctx.party.atmosWeather = () => {
 // roadevents · cameos · world · hustle (seeded road plan), community (seeded in 🌍 Free Roam towns),
 // memory · banter · meta (personal), 🚶 foot · 🏠 interiors · 🚓 law (personal; what friends need to see goes
 // out as presence / extras — presence.js). streets + rides keep their RANDOM content off, but their mechanics
-// (carjack, bail out, per-ride handling / horns / tricks) work in a party. See ARCHITECTURE › the party parity table.
-const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides"]);
+// (carjack, bail out, per-ride handling / horns / tricks) work in a party. exits (rest areas) is solo-only.
+// See ARCHITECTURE › the party parity table.
+const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides", "exits"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
