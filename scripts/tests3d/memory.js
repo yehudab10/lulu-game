@@ -127,7 +127,8 @@ module.exports = {
     await t.until(`!!document.querySelector(".jtext")`, "a fare texts Lulu (ctx.phone.text)", 20000);
     const tx = await t.L(`document.querySelector(".jtext").textContent`);
     t.check("…the groom's wedding photo / @LuxeLeah's tag", /Mendel|LuxeLeah/.test(tx), tx);
-    t.check("…and it lands in the phone's 💬 Messages, a thread named after the sender", await g(`!ctx.phone.inbox || ctx.phone.inbox.threads().some(th => /^(Mendel \(the groom\)|@LuxeLeah)$/.test(th.title) && !th.group)`),
+    // (the names go in as a JSON list: a regex's \( inside this template string would lose its backslash)
+    t.check("…and it lands in the phone's 💬 Messages, a thread named after the sender", await g(`!ctx.phone.inbox || ctx.phone.inbox.threads().some(th => ${JSON.stringify(["Mendel (the groom)", "@LuxeLeah"])}.includes(th.title) && !th.group)`),
       JSON.stringify(await g(`ctx.phone.inbox ? ctx.phone.inbox.threads().map(th => th.title) : null`)));
     await t.frames(10);
     await t.shot("cab-text");
