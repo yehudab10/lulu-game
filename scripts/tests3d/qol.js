@@ -17,7 +17,7 @@ module.exports = {
       for (let i = 0; i < max; i++) { if (await t.game(code)) return true; await t.tap(0); }
       return t.check(label, false, "never reached: " + code + " · state " + await st());
     }
-    const viewLook = `(ctx.view && ctx.view.scene.userData.atmosLook) || null`;
+    const viewLook = `((__lulu3d.ctx.view && __lulu3d.ctx.view.scene.userData.atmosLook) || null)`;   // (t.until runs in the page: no ctx in scope)
 
     // ── 1. the touch pedal: REVERSE where it reverses ─────────────────────
     await t.game(`ctx.parking.start({ challenge: true, level: 1 })`);

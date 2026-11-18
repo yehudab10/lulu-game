@@ -218,11 +218,13 @@ registerState("lawJail", {
         st.t += dt;
         if (st.tapped) { P = Object.assign({}, P, { confirm: true, tap: true }); st.tapped = false; }
         if (H.screenOpen()) H.menuInput(P);
+        if (!st) return;          // a menu pick (✕ on Bail / Court / a lawyer) can leave the state right here
         if (flow) flow.tick(dt, st.phase === "pick" || st.phase === "serve" ? {} : P);
+        if (!st) return;
         if (st.phase === "pick") updatePick(dt, P);
         else if (st.phase === "serve") updateServe(dt, P);
         else if (st.phase === "cell" || st.phase === "lawyer") updateCell(dt);
-        animate(dt);
+        if (st) animate(dt);      // (the court timer / a pick can end the state too)
     },
 });
 
