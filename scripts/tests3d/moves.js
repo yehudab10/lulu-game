@@ -26,7 +26,7 @@ module.exports = {
         if (!await G(`${M}.drifting`)) break;
         await t.frames(8);
         await G(`(() => { const c = ctx.car, s = c.s, v = Math.max(18, c.vF); const p = ctx.world.road.point(s, 3.5, {}); c.place(p.x, p.z, p.h); c.s = s;
-          c.vx = Math.sin(p.h) * v; c.vz = Math.cos(p.h) * v; return true; })()`);
+          c.vx = Math.sin(p.h) * v; c.vz = Math.cos(p.h) * v; c.vF = v; return true; })()`);
       }
       return t.check(label, await G(`${M}.driftTier >= ${tier}`), JSON.stringify(await G(`${M}.debug.D`)));
     };
