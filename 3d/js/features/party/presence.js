@@ -69,7 +69,10 @@ export function myPresence() {
         const w = ctx.law ? ctx.law.wanted | 0 : 0;
         const v = ctx.foot && ctx.foot.vehicle;
         if (ctx.law && ctx.law.chasing) return ["chase", "🚨", `on the run ${"★".repeat(Math.max(1, w))}`];
-        if (v) return ["drive", rideIcon(v.kind, v.vtype), "driving a borrowed ride"];
+        if (v) {
+            const r = ctx.rides && ctx.rides.current, nm = r && r.def && r.def.name ? String(r.def.name).toLowerCase() : "";
+            return ["drive", rideIcon(v.kind, v.vtype), nm ? `driving a ${nm}` : "driving a “borrowed” ride"];
+        }
         return ["drive", "🚗", "driving"];
     }
     if (st === "interior") {

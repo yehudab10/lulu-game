@@ -211,3 +211,28 @@ verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
   `owb` [n, uid] the cop's bust · `owd` [n] stash delivered · `owk` [n, itN, uid] the kugel passed · `owp` [n, i] a snap.
 - town coins reuse the party's shared-pickup broadcast `"k"` with keys `"c-1:<i>"` (chunk −1 = the town's chunk).
 Bandwidth: unchanged rate (the party's ≤ 7 snapshots/s); events are a few per game.
+
+## 3D PARTY — presence + everything you can do alone (features/party/presence.js)
+Still protocol v1, still inside the verbatim-relayed `d` packet. **No server change.** `d.x` is now the
+activity extra (openworld's `{z, ex, rd}`) merged with per-feature keys (`ctx.party.setX(k, v)`), all optional:
+- `pr: [mode, icon, label]` — what I'm doing (presence): `drive` 🚗 · `chase` 🚨 on the run ★★ · `foot` 🚶‍♀️ ·
+  `in` 🍺 in The Thirsty Scholar · `law` 🚨 · `jail` 🚔 · `court` ⚖️ · `er` 🏥 · `scene` 🎬 · `lobby` / `done` / `watch`.
+  Any feature can set it (`ctx.party.presence({mode, icon, label})`); otherwise it follows my state. ≤ ~50 bytes.
+- `m = 7` (new mode): away in a personal scene (inside, jail, court, a cutscene) — no pose (`d.p` absent), friends
+  hide my car/walker and show the presence instead.
+- On foot `m` stays 3 and `d.p` is MY pose (position, walking velocity, facing, hop height) in the usual frame;
+  `f: [anim, look]` marks the walker: anim 0 walk · 1 roll · 2 slide · 3 vault · 4 knocked · 5 busk · 6 wave ·
+  7 busy · 8 sit · 9 talk; look 0 · 1 jumpsuit · 2 old lady · 3 old man.
+- `pc: [x×10, z×10, h×1000, key|0, paint|0, wrecked]` — the car I left while walking (world coords: the highway
+  is built from one fixed seed and a town sits at the same exit for everyone, so x/z mean the same on every screen).
+- `v: [modelKey, paint|0]` — I'm driving a borrowed / jacked ride: friends draw that model instead of my convertible.
+- `cp: [x×10, z×10, h×1000, …]` — up to 3 lit cruisers chasing / pulling me over (my own, personal cops):
+  friends draw puppet cruisers (law's light bar + a located siren, ≤ 2 sirens), ~200 ms in the past.
+- `ws: n` — my wanted stars (nametag `🚨★★`). `at: [x×10, z×10]` — where I went inside (the tag over the door).
+- `jk: [key, …]` (last 6) + ephemeral broadcast `"j"` key — shared traffic cars I carjacked: gone for everyone,
+  never re-added (late joiners learn it from `jk`).
+Rates: the extras refresh ≤ 10×/s and ride the normal ≤ 7 snapshots/s. Worst case (walking, parked car,
+3 cruisers, stars, a jacked list) ≈ 200 bytes on top of the pose; a snapshot over 1.9 KB drops the bulky
+extras first and keeps `pr`.
+Collisions stay self-detected (nothing on the wire): a walker's own screen knocks her flat when a friend's car
+hits her (no hearts in a party); the driver's screen checks up and says sorry; two walkers each step half aside.

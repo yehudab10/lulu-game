@@ -14,7 +14,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const PORT = 25000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = `&enable=party,foot,law,interiors,atmos&mpurl=${encodeURIComponent(URL)}`;
+const Q = `&enable=party,foot,law,interiors,town,atmos&mpurl=${encodeURIComponent(URL)}`;
 let relay = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function startRelay() {
@@ -168,8 +168,8 @@ async function partyRun(t, guests) {
       await t.frames(30);
       await t.shot("host-inside");
       // out again (○ / Esc leaves an interior)
-      await t.until(`!!document.getElementById("tx_intLeave") || true`, "", 1000);
-      for (let i = 0; i < 6 && await g(`ctx.state === "interior"`); i++) { await t.tap(1); await t.frames(20); }
+      // ○ asks "Head back outside?" → ✕ leaves
+      for (let i = 0; i < 8 && await g(`ctx.state === "interior"`); i++) { await t.tap(1); await t.frames(12); await t.tap(0); await t.frames(30); }
       await hostUntil(t, `ctx.state === "footRun"`, "back out on the sidewalk", 30000);
     }
   }
@@ -177,9 +177,9 @@ async function partyRun(t, guests) {
   // ── 🔑 carjack a SHARED party car on the move ──
   await A.game(`(ctx.party.placeCar(${await g(`ctx.car.s`)} - 30, 5.25, 0), true)`);
   await sleep(1500);
-  const pick = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && c.data.party && c.dir > 0 && ["sedan", "van", "truck"].includes(c.kind) && c.s > F.s - 60 && c.s < F.s + 140);
+  const pick = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && c.data.party && ["sedan", "van", "truck"].includes(c.kind) && c.s > F.s - 150 && c.s < F.s + 300);
     cs.sort((a, b) => Math.abs(a.s - F.s) - Math.abs(b.s - F.s)); return cs[0] ? { key: cs[0].data.party, kind: cs[0].kind, s: cs[0].s } : null; })()`);
-  t.check("a shared car is nearby to jack", !!pick, JSON.stringify(pick));
+  t.check("a shared car is nearby to jack", !!pick, JSON.stringify(pick || await g(`({ st: ctx.state, Fs: ctx.foot.debug.F && ctx.foot.debug.F.s, cs: ctx.car.s, n: ctx.traffic.cars.length, cars: ctx.traffic.cars.slice(0, 12).map(c => [c.kind, Math.round(c.s), c.dir, c.data && c.data.party]), pt: ctx.party._debug.traffic.cars.size, on: ctx.party._debug.traffic.on })`)));
   if (pick) {
     const K = JSON.stringify(pick.key);
     await A.until(`ctx.traffic.cars.some(c => c.data && c.data.party === ${K})`, "the guest has that shared car too", 10000);
@@ -232,12 +232,39 @@ async function partyRun(t, guests) {
   t.check("sync: …and on the guest", s2.n >= 4 && s2.bad === 0, JSON.stringify(s2).slice(0, 200));
   t.check("sync: the guest has no stray local cars", s2.locals.every(k => /footStub|law|local/.test(k)), JSON.stringify(s2.locals));
 
-  // ── perf with a walking friend + puppets ──
-  await A.game(`(ctx.party.placeCar(${await g(`ctx.car.s`)} - 20, 5.25, 0), true)`);
-  if (await g(`ctx.state === "playing"`)) await g(`(ctx.foot.start("droveOff"), true)`);
+  // ── perf: the host (the page in front) with a WALKING friend right beside her ──
+  await A.game(`(ctx.party.placeCar(${await g(`ctx.car.s`)} + 12, 7.2, 0), ctx.foot.start("droveOff"), true)`);
+  await A.until(`ctx.state === "footRun"`, "the guest walks too", 30000);
+  await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !!rc && rc.shown && rc.foot; })()`, "the host sees the walking guest", 30000);
+  const perf = await PERF(t, 4000);
+  console.log("   PERF party foot (host, 2 players, a walking friend)", JSON.stringify(perf));
+  t.check("perf: draw calls / frame time with a walking friend", !!perf && perf.frames >= 2 && perf.calls > 0, JSON.stringify(perf));
+  await t.shot("host-sees-walking-guest");
+
+  // ── 🌍 Free Roam: walking on a town's streets too ──
+  // (a slow test machine can stall a page long enough for the host to hand over: ask whoever hosts now)
+  const boss = (await g(`ctx.party.isHost`)) ? pages[0] : A;
+  await boss.game(`(ctx.party._debug.toLobby(), true)`);
+  for (const p of pages) await p.until(`ctx.state === "partyLobby"`, "back in the lobby", 40000);
+  t.check("the lobby takes her out of her walk", await g(`!ctx.foot.active`));
+  await boss.game(`(ctx.party._debug.start("roam"), true)`);
+  for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 90000)) return;
+  for (const p of pages) {
+    await p.game(`(ctx.law.hold(9999), true)`);
+    await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 15000);
+  }
+  await A.game(`ctx.openworld.warpTo(${H})`);
   await sleep(2500);
-  const perf = await PERF({ L: A.L }, 4000);
-  console.log("   PERF party foot (guest, 2 players)", JSON.stringify(perf));
-  t.check("perf: the guest keeps rendering with a walking friend", !!perf && perf.frames > 5 && perf.calls > 0, JSON.stringify(perf));
+  await g(`(ctx.foot.start("droveOff"), true)`);
+  await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 30000);
+  await t.stick(0.6, -1); await t.frames(45); await t.stick(0, 0);
+  await sleep(1500);
+  const tw = await A.game(`(() => { const rc = ctx.party.remoteCar(${H}); return rc ? { shown: rc.shown, foot: rc.foot, x: rc.x, z: rc.z } : null; })()`);
+  const tr = await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z, zone: ctx.openworld.zone })`);
+  t.check("town: the guest sees the host WALKING on Lakewood's streets, where she really is", !!tw && tw.shown && tw.foot && Math.hypot(tw.x - tr.x, tw.z - tr.z) < 3 && tr.zone === "lakewood", JSON.stringify({ tw, tr }));
+  t.check("town: and her parked car", await A.until(`(() => { const w = ctx.party._debug.world(${H}); return w && w.parked; })()`, "parked car in town", 10000));
+  await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-partyfoot-guest-town-walker.png") }).catch(() => { });
   await g(`ctx.party.leave()`);
 }

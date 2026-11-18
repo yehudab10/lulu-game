@@ -359,7 +359,7 @@ function hostTick() {
 }
 
 // ── following the host's activity state ──────────────────────────────────
-function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || (ctx.state === "playing" && ctx.G.mode === "party") || ctx.state === "intro"); }
+function inFlow() { return N.want && (PARTY_STATES.has(ctx.state) || ((ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party") || ctx.state === "intro"); }
 function followActivity() {
     const A = N.A;
     if (!A || !N.connected || !inFlow() || ctx.dialogOpen) return;
@@ -380,6 +380,7 @@ function followActivity() {
     if (A.ph === "done" && ctx.state !== "partyResults") showResults(A);
 }
 function goLobby() {
+    if (ctx.foot && ctx.foot.active) ctx.foot.end("party");      // (walking when the host called everyone back)
     if (ctx.paused) resume();
     H.hideScreen();
     clearProps();
@@ -1213,6 +1214,7 @@ function refreshLobbyBits() {
 
 // ── results ──────────────────────────────────────────────────────────────
 function showResults(A) {
+    if (ctx.foot && ctx.foot.active) ctx.foot.end("party");      // (still walking when it ended: back to her car for the photo)
     if (ctx.paused) resume();
     U.countdown(null);
     if (A.k === "trip") {
