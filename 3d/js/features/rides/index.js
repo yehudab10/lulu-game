@@ -23,7 +23,7 @@
 //  Input: the horn (L1 / H / HONK) is the ride's horn; the trick is HOLD the horn on a
 //  controller, X on a keyboard, one contextual touch button — nothing shows outside a ride.
 //  Random content (patients, kids, bus riders, extra traffic) is gated by ctx.enabled("rides");
-//  the whole feature is inert in a 🎉 party.
+//  in a 🎉 party the fleet stays out of the shared traffic; rides, tricks and their personal props are per player.
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, emit, css } from "../../core/ctx.js";
 import { input, glyphSet, addTouchButton, rumble } from "../../input.js";
@@ -52,7 +52,7 @@ function poll() {
     if (so === curObj) return;
     if (R) exitRide("swap");
     curObj = so;
-    if (!so || partyOn()) return;
+    if (!so) return;                                   // (in a 🎉 party too: handling, horns, tricks are per player)
     const v = ctx.foot.vehicle;
     const def = v && BY_KEY.get(v.kind);
     if (def) enterRide(def, so, v);

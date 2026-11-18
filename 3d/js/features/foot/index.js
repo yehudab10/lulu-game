@@ -62,6 +62,8 @@ const HAIRS = ["#4E342E", "#3E2723", "#1A1A1A", "#8D6E63", "#D7B56D", "#BDBDBD",
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _p = {}, _n = {}, _st = { x: 0, z: 0 };
 const PROXY = { pos: new THREE.Vector3(1e7, 0, 1e7), h: 0, vx: 0, vz: 0, speed: 0, applyImpulse() {} };
 function road() { return ctx.world.road; }
+/** In a 🎉 party: the traffic is shared (seeded, immune) and nobody loses hearts — a knock is comedy. */
+const partyOn = () => !!(ctx.party && ctx.party.active && ctx.G && ctx.G.mode === "party");
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function wanted() { return ((ctx.law && ctx.law.wanted) || 0) > 0 || (F && F.disguise === "prison"); }
 function avigailRel() {
@@ -661,7 +663,7 @@ function trafficStep(dt) {
     }
     // cars come up from behind her (the built-in spawner only adds them ahead)
     F.behindT -= dt;
-    if (F.behindT <= 0 && ctx.enabled("foot")) {
+    if (F.behindT <= 0 && ctx.enabled("foot") && !partyOn()) {      // (a party's traffic is the shared, seeded one)
         F.behindT = Math.max(1.6, 4.4 - F.level * 0.15) * rand(0.7, 1.3);
         const d = LANES_OURS[Math.random() < 0.5 ? 0 : 1];
         const s = F.s - 150;
@@ -701,6 +703,22 @@ function knockout(c, sp) {
     const fx = Math.sin(c.h), fz = Math.cos(c.h);
     if (G.invT > 0) {   // shielded: just a shove out of the way
         F.vel.set(fx * 4, 0, fz * 4);
+        return;
+    }
+    if (partyOn()) {
+        // with friends a knock is a pratfall: flat on her back, up again, no heart lost (the party's BONK rules)
+        G.invT = 2.0;
+        H.flash();
+        A.sfxBump();
+        rumble(0.8, 0.9, 380, true);
+        floater(F.lulu.obj, c.who ? `BONK! — ${c.who}!` : pick(["BONK! 💫", "OOF! 💫", "Watch it!! 💫"]), "#FFD54F", 1.4);
+        ctx.car.fx.burst(F.pos.x, 1.0, F.pos.z, 18, 4, [1, 0.94, 0.46], 0.45, 0.6);
+        if (F.hotwire) { F.hotwire = null; hot.classList.add("hidden"); }
+        F.approach = null; F.hail = null;
+        F.knock = { vx: fx * Math.min(7, sp * 0.35), vz: fz * Math.min(7, sp * 0.35), vy: 3.0, y: 0.05, fatal: false };
+        F.phase = "knock"; F.phaseT = 0;
+        F.vel.set(0, 0, 0);
+        emit("stat", { id: "footKnockouts", n: 1 });
         return;
     }
     G.hearts--;
@@ -1757,6 +1775,40 @@ ctx.foot = {
     get level() { return F ? F.level : (shared.get().footRunsPlayed || 0); },
     get phase() { return F ? F.phase : null; },
     get pos() { return F ? F.pos : null; },
+    /** Her walking velocity (world m/s) — null when she isn't on foot. */
+    get vel() { return F ? F.vel : null; },
+    /** What she's doing, as a small code for the party's friends (remote.js): 0 walk/run · 1 roll · 2 slide · 3 vault
+     *  · 4 knocked flat · 5 dance (busk) · 6 wave · 7 busy (hotwire / approach) · 8 sit (sliding into a car) · 9 talk. */
+    get animCode() {
+        if (!F) return 0;
+        const ph = F.phase;
+        if (ph === "knock") return 4;
+        if (ph === "hotwire" || ph === "approach") return 7;
+        if (ph === "hail") return 6;
+        if (ph === "script") {
+            const mv = ctx.moves && ctx.moves.debug && ctx.moves.debug.foot ? ctx.moves.debug.foot() : null;
+            if (mv && mv.on) return mv.kind === "roll" ? 1 : mv.kind === "slide" ? 2 : 3;
+            return 8;
+        }
+        if (F.buskT > 0) return 5;
+        if (F.waveT > 0) return 6;
+        if (F.peds.some(p => p.talkT > 0)) return 9;
+        return 0;
+    },
+    /** Her look on foot: 0 · 1 the jumpsuit (a jailbreak) · 2 old-lady / 3 old-man disguise. */
+    get lookCode() { return !F ? 0 : F.disguise === "prison" ? 1 : F.disguise === "oldLady" ? 2 : F.disguise === "oldMan" ? 3 : 0; },
+    /** The car she left on the road while she walks: { x, z, h, key ("lulu" | a ride's model), paint, wrecked } | null. */
+    get parkedCar() {
+        const c = F && F.car && F.car.stub;
+        if (!c || !ctx.traffic.cars.includes(c)) return null;
+        return { x: c.x, z: c.z, h: c.h, key: F.car.key, paint: (F.car.colors && F.car.colors.Paint) || null, wrecked: !!F.car.wrecked };
+    },
+    /** Something that isn't a traffic car hit her (a friend's car in a party): src = { h, speed, who? }. */
+    bump(src) {
+        if (!F || F.phase === "intro" || F.phase === "knock" || F.phase === "script" || F.phase === "arrest" || ctx.state !== "footRun") return false;
+        knockout({ h: src.h || 0, speed: src.speed || 6, ai: true, who: src.who || "" }, src.speed || 6);
+        return true;
+    },
     /** Lulu's on-foot Object3D / Person (people.js) while walking. */
     get obj() { return F && F.lulu ? F.lulu.obj : null; },
     get person() { return F ? F.lulu : null; },

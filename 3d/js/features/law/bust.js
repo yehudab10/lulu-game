@@ -225,7 +225,7 @@ export function pullOver() {
     const car = ctx.car;
     let best = null, bd = 1e9;
     for (const c of ctx.traffic.cars) {
-        if (c.hit || (c.data && c.data.law) || c.dir < 0) continue;
+        if (c.hit || c.immune || (c.data && (c.data.law || c.data.party)) || c.dir < 0) continue;   // (a party's shared cars never pull over)
         const gap = c.s - car.s;
         if (gap > 4 && gap < 60 && gap < bd) { bd = gap; best = c; }
     }

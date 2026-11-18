@@ -11,7 +11,8 @@ import { input, glyph } from "../../input.js";
 export const ID = "rides";
 /** Random / surprise content (patients, kids, extra traffic): off in ?test unless enabled, off in a 🎉 party. */
 export const live = () => ctx.enabled(ID);
-/** Nothing of ours runs in a party (the shared, seeded world must stay identical for every friend). */
+/** In a 🎉 party: no extra fleet in the (shared, seeded) traffic, but the ride she drives still has its handling, horn
+ *  and trick, and its personal props (patients, ice-cream kids, bus riders) appear on HER screen only. */
 export const partyOn = () => !!(ctx.party && ctx.party.active);
 /** In a town district (features/town) the road is a street grid: no roadside set pieces there. */
 export const inTown = () => !!(ctx.town && ctx.town.active);

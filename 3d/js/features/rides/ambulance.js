@@ -133,7 +133,7 @@ function tick(dt, R, playing) {
             if (!playing) return;
             RUN.t -= dt;
             if (RUN.t > 0) return;
-            if (!live() || partyOn() || inTown() || (ctx.law && ctx.law.chasing) || !dispatch()) RUN.t = 3;
+            if (!(live() || partyOn()) || inTown() || (ctx.law && ctx.law.chasing) || !dispatch()) RUN.t = 3;
             return;
         }
         case "pickup": {

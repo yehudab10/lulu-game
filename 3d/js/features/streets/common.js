@@ -11,6 +11,9 @@ import * as H from "../../hud.js";
 export const ID = "streets";
 /** Random / surprise content gate (off in ?test unless enabled, off in a party). */
 export const live = () => ctx.enabled(ID);
+/** In a 🎉 party: the random content stays off, but the mechanics (carjack, bail out) work — a jacked shared
+ *  traffic car leaves the traffic for everyone (ctx.party.claimTraffic). */
+export const partyOn = () => !!(ctx.party && ctx.party.active && ctx.G && ctx.G.mode === "party");
 
 // ── models (lazy) ───────────────────────────────────────────────────────
 export const PROP_KINDS = ["hydrant", "mailbox", "fruitstand", "trashcan", "newsbox", "fence", "phonebooth"];

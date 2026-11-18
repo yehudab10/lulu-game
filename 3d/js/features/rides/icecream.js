@@ -55,7 +55,7 @@ add({
         if (d.jingleT > 0) d.jingleT -= dt;
         if (Math.abs(car.s - d.stopS) > 120) { d.stopS = car.s; d.served = 0; d.cap = 3 + Math.floor(Math.random() * 3); }
         const parked = car.speed < 1.4 && car.d > 3.2;
-        if (playing && d.jingleT > 0 && parked && live() && !partyOn() && !inTown() && models.npcKid) {
+        if (playing && d.jingleT > 0 && parked && (live() || partyOn()) && !inTown() && models.npcKid) {
             d.spawnT -= dt;
             if (d.spawnT <= 0 && KIDS.length < 3 && d.served + comingCount() < d.cap) { spawnKid(); d.spawnT = rand(0.5, 1.1); }
         }

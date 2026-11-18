@@ -115,7 +115,7 @@ function tick(dt, playing) {
     if (STOP.phase === "wait") {
         if (!playing) return;
         STOP.t -= dt;
-        if (STOP.t <= 0) { if (!live() || partyOn() || inTown() || !placeStop()) STOP.t = 3; }
+        if (STOP.t <= 0) { if (!(live() || partyOn()) || inTown() || !placeStop()) STOP.t = 3; }
         return;
     }
     if (STOP.phase === "waiting") {

@@ -60,7 +60,27 @@ on("run:start", ({ mode }) => {
 });
 on("run:end", () => { run.live = false; });
 
-hook("update", (dt, P, controlsOn) => update(dt, P, controlsOn));
+hook("update", (dt, P, controlsOn) => { partyStandDown(); update(dt, P, controlsOn); });
+/**
+ * In a 🎉 party the law is personal (each player's own cops; friends see the cruisers on her tail as puppets),
+ * but it stands down for the party's games: a Race / Dreidel Dash / Cop Tag, and any 🌍 Free Roam game she's
+ * playing (🚓 Cops & Robbers has its own cop) — no new heat, and a pursuit already on winds down.
+ */
+function partyStandDown() {
+    const pt = ctx.party;
+    if (!pt || !pt.active || !ctx.G || ctx.G.mode !== "party") return;
+    const k = pt.activity && pt.activity.k;
+    let why = "";
+    if (k === "race" || k === "dash" || k === "tag") why = "race";
+    else {
+        const ow = ctx.openworld, g = ow && ow.debug && ow.debug.getG ? ow.debug.getG() : null;
+        if (g && g.ph === "go" && Array.isArray(g.ps) && g.ps.includes(pt.uid)) why = "game";
+    }
+    if (!why) return;
+    L.hold = Math.max(L.hold, 1);
+    L.partyHold = ctx.time + 1;
+    if (L.chase) { endChase(why); H.toast("🚓 The cops back off — game on!", ""); }
+}
 // a near miss mid-chase rattles the car she skimmed — the cruiser behind may pile into it
 on("closeCall", () => { try { spook(); } catch (e) { console.error(e); } });
 

@@ -18,7 +18,7 @@ import { CAMS } from "../../core/camera.js";
 import { spawnPerson } from "../../core/people.js";
 import { input, glyph, glyphSet, rumble } from "../../input.js";
 import * as H from "../../hud.js";
-import { models, need, live, clamp, lerp, rand, pick, smooth, easeOut, backOut, left, fwd, luluSays, npcSays, crime, toast, stat, sfx, dizzyStars, spinStars } from "./common.js";
+import { models, need, live, partyOn, clamp, lerp, rand, pick, smooth, easeOut, backOut, left, fwd, luluSays, npcSays, crime, toast, stat, sfx, dizzyStars, spinStars } from "./common.js";
 import * as T from "./lines.js";
 
 // ── what can be jacked, and how it drives ────────────────────────────────
@@ -54,6 +54,9 @@ function local(c, x, y, z, out = _v) {
 
 // ── candidates ───────────────────────────────────────────────────────────
 export function jackable(c) {
+    // a 🎉 party's shared traffic never stops for anyone: she jacks it on the move (it brakes for her on HER screen
+    // only once it's hers — ctx.party.claimTraffic takes it out of everyone's traffic first)
+    if (c && c.data && c.data.party) return partyOn() && !c.hit && !c.data.owTown && !!RIDES[c.kind];
     if (!c || c.hit || c.free || (c.ai && !(c.data && c.data.streetsHold)) || !RIDES[c.kind]) return false;
     if (c.data && (c.data.footStub || c.data.streetsJack)) return false;
     if (c.data && c.data.law && c.data.law.mode !== "patrol") return false;    // a pursuing cruiser won't stop for her
@@ -80,7 +83,7 @@ export function nearestCandidate() {
 export const jackSpot = {
     r: 3.4, short: "JACK",
     pos() {
-        cand = live() || force.jack ? nearestCandidate() : null;
+        cand = live() || partyOn() || force.jack ? nearestCandidate() : null;
         if (!cand) return null;
         const d = doorSpot(cand, _b);
         return { x: d.x, z: d.z };
@@ -129,6 +132,8 @@ export function startJack(c) {
     const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F;
     if (!F || J.active) return false;
     const R = RIDES[c.kind];
+    // a party's shared car: out of everyone's traffic first (a poof on friends' screens; hers from now on)
+    if (c.data && c.data.party && !(ctx.party && ctx.party.claimTraffic && ctx.party.claimTraffic(c))) return false;
     // the car stops where it is (it was already crawling or waiting for her)
     c.data.streetsJack = true;
     c.keep = true; c.noNearMiss = true;
@@ -493,7 +498,7 @@ function fitCamera() {
 
 // ── 🤸 bailing out ───────────────────────────────────────────────────────
 export function canBail() {
-    if (!(live() || force.bail) || !ctx.foot || !ctx.foot.start || ctx.foot.active || ctx.state !== "playing") return false;
+    if (!(live() || partyOn() || force.bail) || !ctx.foot || !ctx.foot.start || ctx.foot.active || ctx.state !== "playing") return false;
     const G = ctx.G;
     if (G.arrived || G.hearts <= 0 || J.active || (ctx.phone && ctx.phone.talking)) return false;
     if (ctx.roadevents && ctx.roadevents.vehicle) return false;    // the steamroller has its own exit
@@ -659,7 +664,8 @@ function coastAi(vx0, vz0) {
             if (o === c || o.hit) continue;
             const dx = o.x - c.x, dz = o.z - c.z;
             if (dx * dx + dz * dz > 2.3 * 2.3) continue;
-            o.hit = true; o.hitT = 0; o.vx = vx * 0.7; o.vz = vz * 0.7; o.spinV = (Math.random() < 0.5 ? -1 : 1) * Math.min(6, sp * 0.3);
+            // (an immune car — a 🎉 party's shared traffic — shrugs it off: only her empty car spins away)
+            if (!o.immune) { o.hit = true; o.hitT = 0; o.vx = vx * 0.7; o.vz = vz * 0.7; o.spinV = (Math.random() < 0.5 ? -1 : 1) * Math.min(6, sp * 0.3); }
             c.hit = true; c.hitT = 0; c.vx = vx * 0.3; c.vz = vz * 0.3; c.spinV = (Math.random() < 0.5 ? -1 : 1) * 3;
             sfx.thud();
             ctx.car.fx.burst(c.x, 1, c.z, 16, 3, [1, 0.8, 0.4], 0.6, 0.6);

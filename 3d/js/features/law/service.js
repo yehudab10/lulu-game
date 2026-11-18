@@ -107,6 +107,27 @@ export const law = {
     pullOver() { return pullOverFn ? pullOverFn() : false; },
     /** Keep random cop events away for `sec` seconds (tutorials, cutscenes). */
     hold(sec = 10) { L.hold = Math.max(L.hold, sec); },
+    /** The cops back off: any pursuit winds down (no arrest, no new charges) — a 🎉 party game starting, a race. */
+    standDown(why = "standDown") { if (!L.chase) return false; endChase(why); return true; },
+    /**
+     * For a 🎉 party's friends: up to n LIT cruisers near her (chasing / pulling her over / hauling her in),
+     * as one flat int array [x×10, z×10, heading×1000, …] in world space (party/presence.js draws them as puppets).
+     */
+    partyUnits(n = 3) {
+        const p = ctx.car && ctx.car.pos;
+        if (!p || !L.units.length) return null;
+        const list = [];
+        for (const u of L.units) {
+            const c = u.car;
+            if (!c || !u.siren || !(u.mode === "chase" || u.mode === "pull" || u.mode === "haul")) continue;
+            const d = Math.hypot(c.x - p.x, c.z - p.z);
+            if (d < 170 && Number.isFinite(c.x) && Number.isFinite(c.h)) list.push({ c, d });
+        }
+        if (!list.length) return null;
+        const out = [];                    // (in the units' own order: a friend's puppet #i stays the same cruiser)
+        for (const { c } of list.slice(0, n)) out.push(Math.round(c.x * 10), Math.round(c.z * 10), Math.round(c.h * 1000) % 6283);
+        return out;
+    },
     config,
     /** Someone who isn't a cruiser has eyes on her (a Shomrim radio tip, a chopper-cam…): mid-chase, the cops count
      *  her as SEEN for `sec` seconds (the search meter stops filling). Returns false when there's no chase. */

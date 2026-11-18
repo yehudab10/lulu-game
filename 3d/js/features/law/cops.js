@@ -273,6 +273,10 @@ function steerUnit(dt, c, u) {
                 if (alt.length) tD = alt[0];
                 if (lon < 9 && o.dir > 0) vT = Math.min(vT, o.speed + 1);
             }
+            if (Math.hypot(dx, dz) < 2.1 && o.immune) {      // a 🎉 party's shared car never spins on one screen only: the cruiser bounces off it
+                c.hit = true; c.hitT = 0; c.vx = -fx * c.speed * 0.25; c.vz = -fz * c.speed * 0.25; c.spinV = (Math.random() < 0.5 ? -1 : 1) * 3;
+                return;
+            }
             if (Math.hypot(dx, dz) < 2.1) {            // a real crash with traffic
                 o.hit = true; o.hitT = 0; o.vx = fx * c.speed * 0.6; o.vz = fz * c.speed * 0.6; o.spinV = (Math.random() < 0.5 ? -1 : 1) * 3;
                 c.hit = true; c.hitT = 0; c.vx = fx * c.speed * 0.4; c.vz = fz * c.speed * 0.4; c.spinV = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -719,7 +723,7 @@ function updateFugitive(dt, controlsOn) {
     if (f.t > 100 && !L.chase) { clearLockup(); endFugitive("😎 Laid low long enough — heat's off."); return; }
     f.saveT -= dt;
     if (f.saveT <= 0) { f.saveT = 1; patchLockup({ fugT: f.t }); }
-    if (!ctx.enabled("law")) return;
+    if (!ctx.enabled("law") || L.partyHold > ctx.time) return;      // (a 🎉 party race / game: law/index.js partyStandDown)
     // WANTED posters keep going up
     f.posterT -= dt;
     if (f.posterT <= 0) { f.posterT = rand(7, 12); spawnPoster(); }
