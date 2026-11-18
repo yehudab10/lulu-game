@@ -166,6 +166,8 @@ ctx.atmos = {
     get night() { return S.night; },
     get clock() { return S.clock; },
     get weather() { return W.kind; },
+    /** How wet the road is 0..1 (core/gfx.js puts the sky in a wet road). */
+    get wet() { return S.wet; },
     /** The world's current sky + light + weather (what the driving scene last showed) — see dress.js. */
     look,
     /** Dress an outdoor cutscene set in that sky: dress(set, { lamps: [[x, y, z]…], sky, stars, fog, lights, weather }). */
