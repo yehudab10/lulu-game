@@ -285,8 +285,12 @@ ctx.exits = {
         /** Plan a rest area `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
         restAhead(ahead = 900) {
             const w = ctx.world;
-            for (const o of RS.list.filter(o => Math.abs(o.s - (ctx.car.s + ahead)) < 2400)) dropRest(o);
-            const R = planRest(ctx.car.s + ahead, true);
+            // (clear of the town's interchanges; any rest area already near there makes way)
+            let at = ctx.car.s + ahead;
+            const T = ctx.town, sp = (T && T.span) || { a: -1500, b: 260 };
+            for (let k = 0; k < 40 && T && T.exits && T.exits.some(e => e.s + sp.b > at + LY.SPAN.a && e.s + sp.a < at + LY.SPAN.b); k++) at += 250;
+            for (const o of RS.list.filter(o => Math.abs(o.s - at) < 2400)) dropRest(o);
+            const R = planRest(at, true);
             if (!R) return null;
             for (const [k, c] of [...w.chunks]) if (c.s1 > R.s + LY.SPAN.a - 20 && c.s0 < R.s + LY.SPAN.b) { c.dispose(w.scene); w.chunks.delete(k); }
             w.prebuild(ctx.car.s);

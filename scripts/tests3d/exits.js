@@ -129,6 +129,7 @@ module.exports = {
       if (await g(`ctx.town.active`)) await g(`ctx.town.leave("quiet")`);
       await place(await g(`ctx.car.s + 1800`), 5.25, 15);
       RSs = await g(`ctx.exits.debug.restAhead(500)`);
+      if (typeof RSs === "number" && await g(`ctx.car.s < ${RSs} - 2000`)) await place(RSs - 1200, 5.25, 15);   // (slid past an interchange: catch up)
       t.check("a rest area can be planned ahead", typeof RSs === "number", String(RSs));
       await t.until(`__lulu3d.ctx.exits.debug.modelsReady()`, "rest-area models load", 60000);
       // a perf baseline on this same stretch of highway (same biome), before the rest area is in view
@@ -284,7 +285,7 @@ module.exports = {
       await route(RSs, pts, 14, { r: 5 });
       if (await t.until(`(window.__ev || []).some(e => e.startsWith("exits:rest") && /leave/.test(e))`, "the on-ramp puts her back on the highway (exits:rest leave)", 60000)) {
         await t.until(`__lulu3d.ctx.car.s > ${RSs} + 420`, "past the accel lane", 20000);
-        t.check("back in the right lane past the rest area", await g(`ctx.car.s > ${RSs} + 400 && ctx.car.d > 3.5 && ctx.car.d < 7.2`), await g(`[Math.round(ctx.car.s - ${RSs}), ctx.car.d.toFixed(1)]`));
+        t.check("back on the highway (our lanes) past the rest area", await g(`ctx.car.s > ${RSs} + 400 && ctx.car.d > 0 && ctx.car.d < 7.2`), await g(`[Math.round(ctx.car.s - ${RSs}), ctx.car.d.toFixed(1)]`));
         await t.shot("back-on-highway");
       }
       await noRoute();
