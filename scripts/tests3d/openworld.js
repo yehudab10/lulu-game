@@ -285,6 +285,7 @@ async function partyRun(t, guests) {
   t.check("C&R: same game + roles on both screens", JSON.stringify(await A.game(`[ctx.openworld.game.n, ctx.openworld.game.cop]`)) === JSON.stringify([cnr.n, cnr.cop]) && !!cnr.drop);
   const copP = cnr.cop === hostUid ? pages[0] : A, robP = copP === A ? pages[0] : A;
   t.check("C&R: the cop has the light bar, the robber the stash (on both screens)", await copP.game(`ctx.car.tilt.children.some(c => c.userData.kind === "cop" && c.visible)`) && await robP.game(`ctx.car.tilt.children.some(c => c.userData.kind === "stash" && c.visible)`));
+  t.check("C&R: both line up in town (the warp keeps them out of the on-ramp)", await copP.game(`ctx.openworld.zone === "lakewood"`) && await robP.game(`ctx.openworld.zone === "lakewood"`), JSON.stringify([await copP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z]`), await robP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z]`)]));
   await copP.until(`ctx.party.clock() > ctx.openworld.game.copGo + 200`, "cop head start over", 20000);
   await sleep(800);
   await t.shot("cnr");
@@ -293,7 +294,7 @@ async function partyRun(t, guests) {
   await copP.game(PLACE(rp.x - Math.sin(rp.h) * 4.2, rp.z - Math.cos(rp.h) * 4.2, rp.h));
   await sleep(2500);
   const robUid = cnr.cop === hostUid ? guestUid : hostUid;
-  const cnrDbg = await copP.game(`({ touch: ctx.openworld.debug.touching(${JSON.stringify(robUid)}), seen: ctx.openworld.debug.posOf(${JSON.stringify(robUid)}), me: { x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h }, L: ctx.openworld.debug.CL.L, out: ctx.openworld.game.out, ph: ctx.openworld.game.ph, late: ctx.party.clock() - ctx.openworld.game.copGo })`);
+  const cnrDbg = await copP.game(`({ zone: ctx.openworld.zone, touch: ctx.openworld.debug.touching(${JSON.stringify(robUid)}), seen: ctx.openworld.debug.posOf(${JSON.stringify(robUid)}), me: { x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h }, L: ctx.openworld.debug.CL.L, out: ctx.openworld.game.out, ph: ctx.openworld.game.ph, late: ctx.party.clock() - ctx.openworld.game.copGo })`);
   const robNow = await robP.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
   if (!await done("cnr", "C&R: the bust ends it (one robber) " + JSON.stringify({ cnrDbg, rp, robNow }).slice(0, 600))) return;
   const cnrEnd = await g(`({ out: ctx.openworld.game.out, cut: !!ctx.openworld.game.cut })`);
