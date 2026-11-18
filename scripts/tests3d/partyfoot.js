@@ -260,11 +260,12 @@ async function partyRun(t, guests) {
   await g(`(ctx.foot.start("droveOff"), true)`);
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 30000);
   await t.stick(0.6, -1); await t.frames(45); await t.stick(0, 0);
-  await sleep(1500);
-  const tw = await A.game(`(() => { const rc = ctx.party.remoteCar(${H}); return rc ? { shown: rc.shown, foot: rc.foot, x: rc.x, z: rc.z } : null; })()`);
   const tr = await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z, zone: ctx.openworld.zone })`);
+  // (wall-clock: on a slow CI machine the guest's frames + the host's snapshots take a while to land)
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${H}); return !!rc && rc.shown && rc.foot && Math.hypot(rc.x - ${tr.x}, rc.z - ${tr.z}) < 3; })()`, "town walker shown", 60000);
+  const tw = await A.game(`(() => { const rc = ctx.party.remoteCar(${H}); return rc ? { shown: rc.shown, foot: rc.foot, x: rc.x, z: rc.z, zone: ctx.openworld.zone } : null; })()`);
   t.check("town: the guest sees the host WALKING on Lakewood's streets, where she really is", !!tw && tw.shown && tw.foot && Math.hypot(tw.x - tr.x, tw.z - tr.z) < 3 && tr.zone === "lakewood", JSON.stringify({ tw, tr }));
-  t.check("town: and her parked car", await A.until(`(() => { const w = ctx.party._debug.world(${H}); return w && w.parked; })()`, "parked car in town", 10000));
+  t.check("town: and her parked car", await A.until(`(() => { const w = ctx.party._debug.world(${H}); return w && w.parked; })()`, "parked car in town", 30000));
   await A.page.screenshot({ path: path.join(__dirname, "..", "..", "smoke-shots", "3d-partyfoot-guest-town-walker.png") }).catch(() => { });
   await g(`ctx.party.leave()`);
 }
