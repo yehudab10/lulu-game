@@ -92,7 +92,8 @@ module.exports = {
     await t.hold(7, 0); await t.stick(0);
     await t.until(`__lulu3d.ctx.moves.combo.n === 0`, "the combo runs out and banks", 8000);
     const bk = await G(`${M}.debug.LOG[${M}.debug.LOG.length - 1]`);
-    t.check("banked: score × multiplier", bk && bk.type === "bank" && bk.n === 2 && bk.total > 0 && (await G(`ctx.G.score`)) > score0, JSON.stringify(bk));
+    // (n ≥ 2: on a fast machine more road goes by while it runs out — a close shave can join the chain)
+    t.check("banked: score × multiplier", bk && bk.type === "bank" && bk.n >= 2 && bk.mult >= 1.5 && bk.total > 0 && (await G(`ctx.G.score`)) > score0, JSON.stringify(bk));
     await t.shot("bank");
 
     // ── 💥 a crash loses the chain ──
