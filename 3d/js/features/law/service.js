@@ -113,9 +113,10 @@ export const law = {
 
     get fugitive() { return !!L.fug; },
     get warrants() { return S.wanted.slice(); },
-    addWarrant(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },
+    // (a NEW warrant is a fresh description: whatever new look she had this run, this one is on file now)
+    addWarrant(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); L.lowKey = false; },
     /** alias (cameos uses this name) */
-    addWanted(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },
+    addWanted(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); L.lowKey = false; },
     /** Shake the heat (a disguise on foot, a long lay-low): ends the fugitive stretch + any chase. */
     clearHeat(msg = "🥸 New look — nobody recognises you!", { lowKey = true } = {}) {
         if (L.chase) endChase("disguise");
