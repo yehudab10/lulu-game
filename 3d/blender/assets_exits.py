@@ -235,11 +235,11 @@ def build_kiosk():
 def build_garage():
     coll = scene_coll("ExitsGarage")
     root = root_empty(coll, "ExitsGarage")
-    WALL = mat("Walls", "#CFD8DC", rough=0.9)
-    ROOF = mat("Roof", "#546E7A", rough=0.8)
+    WALL = mat("GarageWalls", "#CFD8DC", rough=0.9)
+    ROOF = mat("GarageRoof", "#546E7A", rough=0.8)
     DOORM = mat("GarageDoor", "#90A4AE", rough=0.6, metal=0.3)
     INSIDE = mat("GarageDark", "#263238", rough=0.95)
-    BAND = mat("SignBand", "#E65100", rough=0.5)
+    BAND = mat("GarageBand", "#E65100", rough=0.5)
     W, D, H = 15.0, 10.0, 5.0
     parts = [Part(coll, "back", bm_box(W, 0.4, H), WALL, loc=(0, D / 2 - 0.2, H / 2), smooth=False),
              Part(coll, "roof", bm_box(W + 0.5, D + 0.5, 0.35), ROOF, loc=(0, 0, H + 0.17), smooth=False),

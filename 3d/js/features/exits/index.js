@@ -116,15 +116,18 @@ export function planRest(s, force = false) {
     ensureModels(MODELS).catch(() => {});
     return R;
 }
-function clearRests() {
+function dropRest(R) {
     const w = ctx.world;
-    for (const R of RS.list) {
-        R.alive = false;
-        if (!w) continue;
+    R.alive = false;
+    if (w) {
         for (const r of R.res) { const i = w.reserved.indexOf(r); if (i >= 0) w.reserved.splice(i, 1); }
         for (const sg of R.signs) { const i = w.signs.indexOf(sg); if (i >= 0) w.signs.splice(i, 1); }
     }
-    RS.list.length = 0;
+    const i = RS.list.indexOf(R);
+    if (i >= 0) RS.list.splice(i, 1);
+}
+function clearRests() {
+    for (const R of [...RS.list]) dropRest(R);
     RS.k = 0;
 }
 const restAt = s => RS.list.find(R => s > R.s + LY.TAPER0 - 20 && s < R.s + LY.ACC1 + 20) || null;
@@ -149,7 +152,7 @@ function resetState() {
     despawnCast();
     clearRests();
     if (RS.cue) { RS.cue = ""; H.prompt(""); }
-    RS.inside = null; RS.was = null; RS.ownPull = false;
+    RS.inside = null; RS.was = null; RS.ownPull = false; RS.retryS = 0;
     chip(null);
 }
 hook("runStart", G => {
@@ -163,7 +166,7 @@ on("title", resetState);
 hook("update", (dt, P, controlsOn) => {
     if (!RS.list.length || (ctx.town && ctx.town.active)) { if (RS.cue) cue(""); return; }
     const car = ctx.car, last = RS.list[RS.list.length - 1];
-    if (eligible() && car.s > last.s - 1200) planRest(last.s + REST.every);
+    if (eligible() && car.s > last.s - 1200 && car.s > (RS.retryS || 0)) { if (!planRest(Math.max(last.s + REST.every, car.s + 2000))) RS.retryS = car.s + 400; }
     // the decel-lane cue (a prompt, not a popup)
     const R = restAt(car.s);
     let html = "";
@@ -282,6 +285,7 @@ ctx.exits = {
         /** Plan a rest area `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
         restAhead(ahead = 900) {
             const w = ctx.world;
+            for (const o of RS.list.filter(o => Math.abs(o.s - (ctx.car.s + ahead)) < 2400)) dropRest(o);
             const R = planRest(ctx.car.s + ahead, true);
             if (!R) return null;
             for (const [k, c] of [...w.chunks]) if (c.s1 > R.s + LY.SPAN.a - 20 && c.s0 < R.s + LY.SPAN.b) { c.dispose(w.scene); w.chunks.delete(k); }

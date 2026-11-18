@@ -41,7 +41,14 @@ module.exports = {
     const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
     const offD = u => 8.9 + 18.1 * sm((u + 80) / 90), onD = u => 27 - 18.1 * sm((u - 222) / 100);
     const toTown = (outer) => { const pts = []; for (let u = -230; u <= (outer ? 100 : 140); u += 10) pts.push([u, u < -170 ? 5.25 : u < -60 ? 5.25 + (u + 170) / 110 * 3.5 : outer ? outerD(u) : rampD(u)]); return pts; };
-    const dialogOut = async () => { for (let i = 0; i < 10 && await g(`ctx.dialogOpen`); i++) { await t.tap(0); await t.frames(6); } };
+    // advance / close any dialogue (a stray ✕ that re-opens a menu gets "Just looking")
+    const dialogOut = async () => {
+      for (let i = 0; i < 16; i++) {
+        await t.frames(4);
+        if (!await g(`ctx.dialogOpen`)) { await t.frames(8); if (!await g(`ctx.dialogOpen`)) return; }
+        if (await t.L(`!!document.querySelector("#dialog .opt")`)) await t.click(/Just looking/); else await t.tap(0);
+      }
+    };
 
     t.check("ctx.exits service is registered", await g(`!!(ctx.exits && ctx.exits.spans && ctx.exits.debug && ctx.exits.debug.restAhead)`));
     t.check("party keeps exits (and the towns) OFF", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"exits"/.test(s) && /const OFF = new Set\\([^)]*"town"/.test(s))`));
