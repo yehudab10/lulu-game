@@ -394,9 +394,11 @@ export function showPauseMenu() {
 }
 
 addMenuItem("pause", { id: "resume", order: 0, group: "main", label: "▶ Resume", action: resume });
-addMenuItem("pause", { id: "camera", order: 10, group: "tools", label: () => `🎥 Camera: ${cam.name}`, action: b => { cam.cycle(); b.innerHTML = `🎥 Camera: ${cam.name}`; } });
+// (only where the chase / far / Lulu's-eyes cams apply: a driving state that doesn't run its own camera — not on foot, a set, a cutscene)
+addMenuItem("pause", { id: "camera", order: 10, group: "tools", label: () => `🎥 Camera: ${cam.name}`, visible: () => { const d = ctx.states[ctx.state]; return !!(d && d.driving && !d.camera && !ctx.view); }, action: b => { cam.cycle(); b.innerHTML = `🎥 Camera: ${cam.name}`; } });
 addMenuItem("pause", { id: "skip", order: 5, group: "main", label: "⏭ Skip this scene", visible: () => canSkip(true), action: () => { resume(); skipNow(); } });
 addMenuItem("pause", { id: "settings", order: 35, group: "tools", label: "⚙️ Settings", action: () => showSettings(showPauseMenu) });
-addMenuItem("pause", { id: "restart", order: 80, group: "exit", label: "↺ Restart", visible: () => ctx.states[ctx.state] && ctx.states[ctx.state].driving,
+// (not mid-cutscene: restarting during the arrest cinematic walked her out of the booking)
+addMenuItem("pause", { id: "restart", order: 80, group: "exit", label: "↺ Restart", visible: () => { const d = ctx.states[ctx.state]; return !!(d && d.driving && !d.camera); },
     action: () => { resume(); startRun({ mode: ctx.G.mode }); } });
 addMenuItem("pause", { id: "title", order: 90, group: "exit", label: "⌂ Title screen", action: () => { resume(); emit("quit", {}); setState("title"); } });

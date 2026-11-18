@@ -4,7 +4,7 @@
 // of the road) for 1.6 s — braking or just under ~25 mph — and a
 // "🅿️ Hold ✕ to pull over" prompt appears. HOLD ✕ / A (or E) for half a second
 // — a hold, so a quick ✕ meant for another feature (drive-thru, a hitchhiker…)
-// never hijacks — or tap the 🚶 EXIT CAR touch button, and Lulu eases onto the
+// never hijacks — or tap the 🅿️ PARK touch button, and Lulu eases onto the
 // nearer shoulder, braking to a stop
 // (invincible for the moment), then drops into the casual parking minigame:
 // ctx.parking.start({ from: "pullover" }). Not offered mid-chase (that would
@@ -34,6 +34,7 @@ function canPullOver() {
     if (PO.chase || G.noPullOver || G.wreckInfo && G.hearts <= 0) return false;
     if (ctx.foot && (ctx.foot.active || ctx.foot.offering)) return false;   // stopped on the shoulder → foot's "Get out & walk" owns ✕
     if (ctx.law && ctx.law.chasing) return false;
+    if (ctx.foot && ctx.foot.borrowed) return false;   // the lot only has HER car to park (in a borrowed ride, stopping on the shoulder offers "Get out & walk")
     return Math.abs(ctx.car.d) > 3.5;          // over in a side lane / on the shoulder
 }
 
@@ -54,7 +55,7 @@ hook("update", (dt, P, controlsOn) => {
     PO.slowT = slow ? PO.slowT + dt : Math.max(0, PO.slowT - dt * 2.5);
     PO.shown = PO.slowT > SHOW_AFTER;
     if (PO.shown) {
-        // touch: the dedicated EXIT CAR button is a tap; everything else is a hold
+        // touch: the dedicated 🅿️ PARK button is a tap; everything else is a hold
         if (P.interact && input.device === "touch") { startExit(); return; }
         PO.holdT = input.interactHeld && car.speed < PULL_MAX_MPS ? PO.holdT + dt : 0;
         const pct = Math.min(100, PO.holdT / HOLD_S * 100).toFixed(0);
@@ -96,4 +97,4 @@ hook("controls", (ctl) => {
 // she's invincible while pulling in (2D: invincibleTimer ≥ 0.3)
 hook("damage", () => (PO.exit ? false : undefined), 95);
 
-addTouchButton({ id: "pullover", emoji: "🚶", label: "EXIT CAR", action: "interact", visible: () => PO.shown && ctx.state === "playing" });
+addTouchButton({ id: "pullover", emoji: "🅿️", label: "PARK", action: "interact", visible: () => PO.shown && ctx.state === "playing" });

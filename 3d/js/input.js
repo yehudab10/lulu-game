@@ -389,7 +389,7 @@ const GLYPHS = {
         honk: "H", pause: "P", look: "", lookBack: "V", steer: "← → / A D", music: "U", move: "WASD / arrows",
         fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R", reverse: "↓ / S" },
     touch: { confirm: "Tap", back: "Back", gas: "GAS", brake: "BRAKE", handbrake: "", camera: "CAM", boost: "NITRO",
-        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", phone: "📱", radio: "📻",
+        honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🌶️", interact: "✋", phone: "📱", radio: "📻",
         tabPrev: "◀", tabNext: "▶", reverse: "REVERSE" },
 };
 
