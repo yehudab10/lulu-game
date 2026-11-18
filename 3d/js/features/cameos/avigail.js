@@ -335,7 +335,12 @@ function buildSet() {
     const back = new THREE.Mesh(set.own(new THREE.PlaneGeometry(90, 40)), set.own(new THREE.MeshBasicMaterial({ color: "#F6C9A8" })));
     back.position.set(0, 12, -14);
     set.add(back);
-    setParts = { house, door };
+    setParts = { house, door, back };
+}
+/** The porch wears the world's sky (atmos): night stays night, rain keeps raining. */
+function dressPorch() {
+    const lk = ctx.atmos && ctx.atmos.dress ? ctx.atmos.dress(set) : null;
+    if (lk) setParts.back.material.color.copy(ctx.atmos.look().bottom);
 }
 
 export async function startPorch(opts = {}) {
@@ -364,6 +369,7 @@ registerState("cameosPorch", {
         set.add(p.lulu.obj, p.her.obj);
         if (p.door) p.door.rotation.y = 0;
         set.show();
+        dressPorch();
         A.setMusic("../avigail.mp3");
         A.updateEngine(0, 0, 0, 0, false, false);
         A.sfxHorn(false);

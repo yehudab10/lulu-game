@@ -277,6 +277,7 @@ registerState("footWedding", {
         W.stomped = false; W.glassT = 0; W.horaT = 0; W.tossed = false; W.bq = null; W.caught = null; W.yelled = false;
         W.exitT = 0; W.leaving = false; W.reward = false;
         W.set.show();
+        if (ctx.atmos && ctx.atmos.dress) ctx.atmos.dress(W.set, { lamps: [[-2.4, 2.6, -1.2], [2.4, 2.6, -1.2]] });   // a wedding under the stars when it IS night
         ui.classList.add("on");
         $(".mazel").style.display = "none"; $(".gift").style.display = "none";
         $(".ttl small").textContent = (opts.rel || 0) >= 65 ? "(bestie seating 💜)" : "";

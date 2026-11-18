@@ -19,7 +19,7 @@ import * as THREE from "three";
 import { ctx, on, emit, registerState, setState, addMenuItem, wrapAngle } from "../../core/ctx.js";
 import { save3d, saveSoon, store, shared, wallet } from "../../core/save.js";
 import { addCoins, addScore } from "../../core/driving.js";
-import { input, glyph, rumble } from "../../input.js";
+import { input, glyph, rumble, setBrakePedal } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { showTitle, resume } from "../../core/screens.js";
@@ -70,7 +70,12 @@ function start(opts) {
     setState("parking", { from: S.from });
 }
 
+// The roadside lot is lit like the road she pulled off: atmos's look (the time of day +
+// weather the driving scene last showed — by now a set is up, so the live lights are
+// back to the leg's base palette and would read as daytime).
 function themeFromWorld() {
+    const lk = ctx.atmos && ctx.atmos.look ? ctx.atmos.look() : null;
+    if (lk) return lk.night > 0.6 ? "night" : lk.night > 0.22 ? "dusk" : "day";
     const sun = ctx.lights && ctx.lights.sun ? ctx.lights.sun.intensity : 2.6;
     return sun > 1.6 ? "day" : sun > 0.8 ? "dusk" : "night";
 }
@@ -104,6 +109,8 @@ function beginLevel() {
     }
     S.cfg = cfg; S.layout = layout;
     S.L = LOT.buildLevel(lot, { cfg, layout });
+    // the pull-over wears the world's sky (+ its rain / snow); a challenge level keeps its own look
+    if (ctx.atmos && ctx.atmos.dress) { if (S.challenge) ctx.atmos.undress(lot.set); else ctx.atmos.dress(lot.set, { stars: false }); }
     const car = LOT.syncLotCar(lot);
     car.place(LOT.lotX(W2_START.x), LOT.lotZ(W2_START.y), LOT.rotToH(-Math.PI));
     car.skids.clear();
@@ -261,6 +268,7 @@ function updateDrive(dt, P) {
     // controls → the same PlayerCar physics, with a lot speed governor
     const thr = input.throttle, brk = input.brake;
     const vF = car.vF;
+    setBrakePedal(vF);           // the touch pedal: BRAKE while rolling forward, REVERSE from a stop
     const ctl = {
         steer: clamp(input.steer * (save3d.settings.steerSens || 1), -1, 1),
         throttle: thr * 0.5 * clamp((MAXF - vF) / 1.2, 0, 1),
@@ -323,8 +331,8 @@ function updateDrive(dt, P) {
 }
 
 function hintText() {
-    if (input.device === "touch") return "Park between the two cars · STEER with the stick · GAS / BRAKE to move";
-    return `Park between the two cars · ${glyph("steer")} steer · ${glyph("gas")} forward · ${glyph("brake")} reverse`;
+    if (input.device === "touch") return "Park between the two cars · STEER with the stick · GAS forward · REVERSE back";
+    return `Park between the two cars · ${glyph("steer")} steer · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
 }
 
 function slowAlong(car, dv) {
