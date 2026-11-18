@@ -13,6 +13,7 @@ let noiseBuf = null;
 
 export const audio = {
     get ready() { return !!ctx && ctx.state === "running"; },
+    get started() { return !!ctx; },
     get musicOn() { return musicOn; },
 };
 
@@ -49,7 +50,8 @@ export function unlockAudio() {
         buildScreech();
         initSpatial(ctx, master);
     }
-    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    // "suspended" (autoplay policy) or iOS's "interrupted" (a call, an ad, the app backgrounded)
+    if (ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
     if (musicOn && music && music.paused) music.play().catch(() => {});
 }
 

@@ -30,3 +30,4 @@ import "./rides/index.js";       // 🚓🚑🍦 rides: every vehicle Lulu drive
 import "./moves/index.js";       // 🏁 moves & tricks: drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, dodge/slide/vault on foot, the style combo + 🏁 Moves page
 import "./openworld/index.js";    // 🌍 open world: Free Roam with friends (highway + towns), party games from the 📱 (Cops & Robbers, Race to a Pin, Hot Kugel, Photo Hunt), 📍 Nearby
 import "./exits/index.js";       // 🛣️ highway exits & 🅿️ rest areas: service plazas off the Cruise/Story highway (food, gas, restrooms, a gift shop, Mendel's garage, travellers on foot) + the next-exit chip
+import "./native/index.js";      // 📱 the iOS app (Capacitor): AdMob + App Tracking Transparency (ATT before init, an interstitial every 2nd game over, the 📺 rewarded button) + Taptic haptics — a no-op on the web

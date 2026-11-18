@@ -39,6 +39,9 @@ export function registerModels(map, { preload = false } = {}) {
     }
 }
 
+/** Every registered model key → its asset path (tests: the iOS bundle must hold them all). */
+export function modelFiles() { return Object.fromEntries(Object.entries(FILES).map(([k, f]) => [k, `assets/${f}.glb`])); }
+
 function loadOne(key) {
     if (models[key]) return Promise.resolve(models[key]);
     if (pending.has(key)) return pending.get(key);

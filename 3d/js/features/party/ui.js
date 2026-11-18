@@ -237,4 +237,8 @@ export async function shareInvite(code) {
     try { await navigator.clipboard.writeText(url); return "📋 Link copied — paste it to your friends!"; }
     catch (e) { return `Share this link: ${url}`; }
 }
-export function inviteUrl(code) { return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}`; }
+export function inviteUrl(code) {
+    // The iOS app runs at capacitor://localhost/3d/ — a link friends can open is the web game's.
+    if (!/^https?:$/.test(location.protocol)) return `https://lulu.boats/3d/?party=${code}`;
+    return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}`;
+}

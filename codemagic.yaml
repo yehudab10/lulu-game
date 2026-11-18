@@ -54,6 +54,9 @@ workflows:
         script: npm install
       - name: Build web bundle + stage www/
         script: |
+          # The app ships 2.0 (the 3D game): www/index.html forwards to www/3d/;
+          # the classic 2D game rides along at www/classic.html. copy-web.js
+          # FAILS the build if anything the 3D game references is missing.
           node build.js
           node scripts/copy-web.js
       - name: Generate the iOS native project (Capacitor)
@@ -93,18 +96,26 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :UIStatusBarHidden true" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$PLIST" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Set :UIViewControllerBasedStatusBarAppearance false" "$PLIST"
-          # Portrait-only, on iPhone AND iPad. Without this the reviewer can
-          # rotate an iPad to landscape and just sees the web build's "please
-          # rotate your phone" nag — a guaranteed design ding. iPad must list
-          # BOTH portrait variants, and UIRequiresFullScreen opts us out of
-          # iPad multitasking (which is what makes an orientation lock legal).
+          # Orientation: the app ships 2.0 (the 3D game), which lays out in
+          # portrait AND landscape (a 3D driving game plays best sideways), so:
+          #   iPhone — portrait + both landscapes (no upside-down: notch phones
+          #            don't support it);
+          #   iPad   — all four.
+          # (The classic 2D game, still reachable from ⚙️ More → Classic 2D,
+          # letterboxes its tall canvas in landscape.) UIRequiresFullScreen
+          # stays: it opts out of iPad multitasking / Split View, so the game
+          # always has the whole screen.
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:1 string UIInterfaceOrientationLandscapeLeft" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:2 string UIInterfaceOrientationLandscapeRight" "$PLIST"
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations~ipad" "$PLIST" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad array" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:0 string UIInterfaceOrientationPortrait" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:1 string UIInterfaceOrientationPortraitUpsideDown" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:2 string UIInterfaceOrientationLandscapeLeft" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations~ipad:3 string UIInterfaceOrientationLandscapeRight" "$PLIST"
           /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool true" "$PLIST" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Set :UIRequiresFullScreen true" "$PLIST"
       - name: Set audio session to .ambient (no background audio, obeys mute switch)

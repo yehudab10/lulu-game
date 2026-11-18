@@ -9,7 +9,8 @@ no framework.
 
 **🕹️ Classic 2D (legacy):** [lulu.boats/classic.html](https://lulu.boats/classic.html) — the original canvas game,
 linked from 2.0's ⚙️ More menu. Same coins and cars (shared save). It's frozen: no new features, only
-fixes if something breaks. The iOS native app still ships the classic game.
+fixes if something breaks. The iOS native app ships 2.0 too (with the classic game behind ⚙️ More) —
+see [IOS_BUILD.md](IOS_BUILD.md).
 
 _The rest of this README describes the classic 2D game._
 
