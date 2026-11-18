@@ -158,7 +158,7 @@ function exitsHere() {
 function roadAhead() {
     const car = ctx.car, road = ctx.world.road, s = car.s, out = [];
     const add = (sAt, d, icon, name, sub) => { if (sAt < s - 20 || sAt > s + 9000) return; const p = road.point(sAt, d, {}); out.push({ x: p.x, z: p.z, m: sAt - s, icon, name, sub }); };
-    if (ctx.town && ctx.town.exits) { const e = ctx.town.exits().filter(e => e.s > s - 40).sort((a, b) => a.s - b.s)[0]; if (e) add(e.s + 40, 11, e.emoji || "🏙️", `${e.name} exit`, "take the off-ramp into town"); }
+    if (ctx.town && ctx.town.exits) { const e = ctx.town.exits.filter(e => e.s > s - 40).sort((a, b) => a.s - b.s)[0]; if (e) add(e.s + 40, 11, e.emoji || "🏙️", `${e.name} exit`, "take the off-ramp into town"); }
     if (!E.party() && ctx.places && ctx.places.list) {
         try {
             for (const pl of ctx.places.list()) {

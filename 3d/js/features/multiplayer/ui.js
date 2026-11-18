@@ -310,7 +310,7 @@ export function wheelOpen() { return W.open; }
 /** Per frame while a run is on screen: hold-to-open, right-stick aim, release-to-send, timeout. */
 export function wheelTick(dt, inRun) {
     if (!inRun || !MP.connected) { W.holdT = 0; closeWheel(); return; }
-    if (input.honkHeld) {
+    if (input.honkHeld && !(ctx.rides && ctx.rides.holdsHorn)) {   // in a cop car / ambulance / taxi, holding the horn is the ride's trick
         W.holdT += dt;
         if (W.holdT > 0.35 && !W.open && input.device !== "touch") openWheel(true);
     } else {

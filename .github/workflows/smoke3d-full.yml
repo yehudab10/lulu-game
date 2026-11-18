@@ -1,8 +1,15 @@
 # The FULL 3D test suite: every feature's scripts/tests3d/*.js (journey, law,
 # garage, parking, multiplayer, roadevents, cameos, foot, interiors, dina, meta…).
 # It plays each feature through with a fake controller in software WebGL, which
-# takes a couple of hours, so it runs on demand (Actions → "3D full suite" →
-# Run workflow) rather than on every push. Pick a subset with `only`.
+# is slow (one machine: a couple of hours), so it runs on demand (Actions →
+# "3D full suite" → Run workflow) — SPLIT ACROSS MACHINES that run at the same
+# time: one test file per machine (up to 16), so the whole thing takes about as
+# long as the slowest file (~45 min) instead of the sum.
+#   only   — which test files (comma list, e.g. law,journey). Empty = all.
+#   groups — run exactly these groups in parallel, separated by ';'
+#            (e.g. "community;midwood;core,rides"). Overrides `only`.
+# Works on any branch (pick it in "Use workflow from"): push a test branch and
+# run it there before merging to main.
 name: 3D full suite
 
 on:
@@ -12,11 +19,49 @@ on:
         description: "Comma list of test files (e.g. law,journey). Empty = all."
         required: false
         default: ""
+      groups:
+        description: "Optional: exact parallel groups separated by ';' (e.g. community;midwood;core,rides). Overrides 'only'."
+        required: false
+        default: ""
 
 jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      groups: ${{ steps.plan.outputs.groups }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          ONLY: ${{ inputs.only }}
+          GROUPS: ${{ inputs.groups }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const MAX = 16;
+            const split = (s, sep) => (s || "").split(sep).map(x => x.trim()).filter(Boolean);
+            let groups = split(process.env.GROUPS, ";");
+            if (!groups.length) {
+              const all = fs.readdirSync("scripts/tests3d").filter(f => f.endsWith(".js")).map(f => f.slice(0, -3)).sort();
+              const files = split(process.env.ONLY, ",").length ? split(process.env.ONLY, ",") : all;
+              const n = Math.min(MAX, files.length);
+              groups = Array.from({ length: n }, () => []);
+              files.forEach((f, i) => groups[i % n].push(f));
+              groups = groups.map(g => g.join(","));
+            }
+            console.log("groups:", groups);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "groups=" + JSON.stringify(groups) + "\n");
+          '
+
   smoke3d:
+    needs: plan
+    name: ${{ matrix.group }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON(needs.plan.outputs.groups) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,8 +74,17 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/pw" playwright@1.56.1
           "$RUNNER_TEMP/pw/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Play every 3D feature
+      - name: Play ${{ matrix.group }}
         env:
           NODE_PATH: ${{ runner.temp }}/pw/node_modules
-          SMOKE3D_ONLY: ${{ inputs.only }}
-        run: node scripts/smoke3d.js
+          SMOKE3D_ONLY: ${{ matrix.group }}
+        run: node scripts/smoke3d.js --shots
+
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ strategy.job-index }}
+          path: smoke-shots/
+          if-no-files-found: ignore
+          retention-days: 7

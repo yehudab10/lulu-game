@@ -78,6 +78,13 @@ export const law = {
     /** Keep random cop events away for `sec` seconds (tutorials, cutscenes). */
     hold(sec = 10) { L.hold = Math.max(L.hold, sec); },
     config,
+    /** Someone who isn't a cruiser has eyes on her (a Shomrim radio tip, a chopper-cam…): mid-chase, the cops count
+     *  her as SEEN for `sec` seconds (the search meter stops filling). Returns false when there's no chase. */
+    spot(sec = 1) {
+        if (!L.chase) return false;
+        L.chase.tipT = Math.max(L.chase.tipT || 0, ctx.time + sec);
+        return true;
+    },
 };
 // test hook: internals + a log of law events (only read by the smoke test)
 Object.defineProperty(law, "_dbg", { enumerable: false, value: { L, FORCE, run, log: [] } });

@@ -585,6 +585,7 @@ function updateChase(dt, controlsOn) {
     const night = nightness();
     let seen = chopperSees(night);
     for (const u of units) if (!seen && unitSees(u, ch.heat, night)) seen = true;
+    if (!seen && ch.tipT > ctx.time) seen = true;       // ctx.law.spot(): a tip-off (features/community's Shomrim radio)
     const gap = near ? near.d : 999;
     ch.seen = seen;
     ch.searching = !seen && gap > TUNE.searchGap;

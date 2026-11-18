@@ -153,7 +153,7 @@ function nextExit() {
     if (!ctx.town || !ctx.town.exits || zone()) return null;
     const s = ctx.car.s;
     let best = null;
-    for (const e of ctx.town.exits()) if (e.s > s - 60 && (!best || e.s < best.s)) best = e;
+    for (const e of ctx.town.exits) if (e.s > s - 60 && (!best || e.s < best.s)) best = e;
     return best;
 }
 

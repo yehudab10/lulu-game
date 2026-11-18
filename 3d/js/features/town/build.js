@@ -684,9 +684,19 @@ function railSplit(fr, rail) {
     if (fr.len - uc - gh > 6) out.push(Object.assign({}, fr, { ox: fr.ox + fr.ux * (uc + gh), oz: fr.oz + fr.uz * (uc + gh), len: fr.len - uc - gh }));
     return out;
 }
-/** What stands along a face of `len` metres: [{key, u (centre along the face), sign?, spot?}]. */
-function layoutFace(kind, len, R) {
+/** What stands along a face of `len` metres: [{key, u (centre along the face), sign?, spot?}].
+ *  A town can name its own landmark uses as DATA — def.uses[kind] = { key, fallback, dims {w, d, prot}, u (offset
+ *  from the face's middle), sign [lines], signSize, signBg, signFg, spot (its T.spots name), tints, with [{key, u}] } —
+ *  e.g. Lakewood's Bais Yaakov (a model features/community builds; town loads it with the town's models). */
+function layoutFace(kind, len, R, def = null) {
     const out = [];
+    const use = def && def.uses && def.uses[kind];
+    if (use) {
+        const key = models[use.key] ? use.key : use.fallback;
+        if (key) out.push({ key, u: len / 2 + (use.u || 0), use: Object.assign({ dims: DIMS[key] }, use) });
+        for (const w of use.with || []) if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u });
+        return out;
+    }
     const fill = (keys, gapVan, gap = 0.8) => {
         let u = 0.5;
         while (u < len) {
@@ -739,8 +749,8 @@ function placeFace(B, kind, fr, counters) {
     const next = (key, list) => { const c = counters[key] || 0; counters[key] = c + 1; return list[c % list.length]; };
     // a one-off landmark face split in two (the railway runs through it): the other half is ordinary shops
     if ((kind === "bakery" && T.spots.bakery) || (kind === "mwpizza" && T.spots.pizza) || (kind === "carsvc" && T.spots.carsvc)) kind = "avej";
-    for (const it of layoutFace(kind, fr.len, R)) {
-        const D = DIMS[it.key] || { w: 10, d: 10, prot: 0 };
+    for (const it of layoutFace(kind, fr.len, R, B.def)) {
+        const D = DIMS[it.key] || (it.use && it.use.dims) || { w: 10, d: 10, prot: 0 };
         const back = D.prot + D.d / 2;       // centre's distance in from the lot line
         const lotX = fr.ox + fr.ux * it.u, lotZ = fr.oz + fr.uz * it.u;
         const cx = lotX - fr.nx * back, cz = lotZ - fr.nz * back;
@@ -760,6 +770,14 @@ function placeFace(B, kind, fr, counters) {
             const sx = fr.ox + fr.ux * (it.u + 9) - fr.nx * 0.6, sz = fr.oz + fr.uz * (it.u + 9) - fr.nz * 0.6;
             poleAt(merge, sx - fr.ux * 1.8, sz - fr.uz * 1.8, 1.8); poleAt(merge, sx + fr.ux * 1.8, sz + fr.uz * 1.8, 1.8);
             sign({ lines: S.buses, bg: "#FFC107", fg: ["#1B1B1B", "#3E2723"], w: 1024, h: 256 }, sx, 2.3, sz, fr.rot, 4.2, 1.05, true);
+            continue;
+        }
+        if (it.use) {                  // a landmark another feature models (the town's `uses`: data, see layoutFace)
+            const u = it.use;
+            place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false });
+            const a = u.sign && anchorAt(it.key, cx, cz, fr.rot);
+            if (a) { const g = u.signSize || [11.4, 1.15, 104]; sign({ lines: u.sign, bg: u.signBg || "#FBF8F0", fg: u.signFg || ["#1F2D63", "#6D4C41"], w: 1024, h: g[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, g[0], g[1]); }
+            T.spots[u.spot || kind] = { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, len: D.w };
             continue;
         }
         const k = it.key;

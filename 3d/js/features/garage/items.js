@@ -147,7 +147,8 @@ function footPose() {
 // ══════════════════════════════════════════════════════════════════════════
 //  HORNS + the Honk Symphony
 // ══════════════════════════════════════════════════════════════════════════
-on("honk", () => {
+on("honk", e => {
+    if (e && e.ride) return;          // a ride with its own horn (features/rides: the air horn) already sounded
     if (honk.cd > 0) return;
     honk.chain = Math.min(honk.chain + 1, 7);
     honk.t = 1.5;

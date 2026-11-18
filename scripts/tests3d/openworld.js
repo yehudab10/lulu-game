@@ -113,7 +113,7 @@ async function solo(t) {
   t.check("nothing on the HUD outside a game / pin", await t.L(`!document.getElementById("owChip") || getComputedStyle(document.getElementById("owChip")).display === "none"`));
 
   // Nearby on the highway: the next town exit
-  await t.until(`__lulu3d.ctx.town.exits().length > 0`, "a town exit is planned", 15000);
+  await t.until(`__lulu3d.ctx.town.exits.length > 0`, "a town exit is planned", 15000);
   await g(`ctx.phone.openPhone("nearby")`);
   await t.frames(4);
   t.check("Nearby (highway): the next Lakewood exit is listed", await t.L(`/Lakewood exit/.test(document.getElementById("lpApp").textContent)`), (await t.L(`document.getElementById("lpApp").textContent`)).slice(0, 160));
@@ -218,15 +218,15 @@ async function partyRun(t, guests) {
   const pages = [{ label: "host", game: c => t.game(c), until: (c, w, ms) => hostUntil(t, c, w, ms), L: c => t.L(c) }, A];
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 60000)) return;
   t.check("roam: the 👯 Party app appears", await g(`ctx.phone.apps().includes("owparty")`) && await A.game(`ctx.phone.apps().includes("owparty")`));
-  t.check("roam: towns are on for this party only", await g(`ctx.openworld.partyTowns() && ctx.town.exits().length > 0`));
+  t.check("roam: towns are on for this party only", await g(`ctx.openworld.partyTowns() && ctx.town.exits.length > 0`));
   const ex = [];
-  for (const p of pages) ex.push(JSON.stringify(await p.game(`ctx.town.exits().map(e => Math.round(e.s))`)));
+  for (const p of pages) ex.push(JSON.stringify(await p.game(`ctx.town.exits.map(e => Math.round(e.s))`)));
   t.check("roam: the same town exits on both screens", ex[0] === ex[1] && ex[0] !== "[]", ex.join(" / "));
 
   // both into Lakewood (no ramp needed in a test)
   for (const p of pages) {
     await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits()[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 10000);
   }
   await sleep(2500);
