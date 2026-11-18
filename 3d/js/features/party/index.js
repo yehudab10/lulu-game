@@ -23,9 +23,15 @@
 //  session (ctx.enabled → false for them), billboards are placed from the
 //  party seed, ramps + dreidels are already seeded per chunk.
 //
+//  Everything you can do alone works too, PERSONAL to each player: walking (foot), the
+//  interiors, the law (her own cops, jail, court), carjacking + bailing out, every ride's
+//  horn / trick. What friends need to see goes out as presence + snapshot extras
+//  (presence.js: a walking Lulu, her parked car, the cruisers on her tail, "🍺 in The
+//  Thirsty Scholar"); a jacked shared car is gone for everyone (claimTraffic).
+//
 //  Netcode: net.js (relay protocol v1, clock sync, host + migration, reliable
-//  events) · remote.js (interpolation + the cars) · stage.js (lobby/podium)
-//  · ui.js (screens, HUD, quick chat).
+//  events) · remote.js (interpolation + the cars / walkers) · stage.js (lobby/podium)
+//  · ui.js (screens, HUD, quick chat) · presence.js (what friends are doing).
 //
 //  Service: ctx.party = { active, code, seed, clock(), synced, isHost, players,
 //    activity, host(), join(code), leave(), openHub(), trafficAt(), … }

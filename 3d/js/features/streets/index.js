@@ -13,7 +13,8 @@
 //   lab.js     the chase lab (a getaway-driver bot + a headless pursuit sim — tests / tuning)
 //
 // Everything random (props, garages, roadblocks, chop-shop calls, family texts) is
-// gated by ctx.enabled("streets"): off in ?test unless enabled, off in a 🎉 party.
+// gated by ctx.enabled("streets"): off in ?test unless enabled, off in a 🎉 party (where carjack + bail still
+// work: a jacked shared car leaves everyone's traffic through ctx.party.claimTraffic).
 // Events: streets:carjack · streets:bail · streets:roadblock · streets:spiked · streets:paint ·
 // streets:smash · streets:crime · streets:chop (see ARCHITECTURE.md › Cross-feature contracts).
 import { ctx, on, hook, css } from "../../core/ctx.js";
