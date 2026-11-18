@@ -210,6 +210,7 @@ async function partyRun(t, guests) {
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
   guests.push(A);
   if (!await A.until(`ctx.state === "partyLobby" && ctx.party.connected && ctx.party.host`, "joins from the link", 180000)) return;
+  for (const P of [t.L, A.L]) await P(`import("./js/core/ctx.js").then(m => { window.__owLog = []; m.on("town:leave", e => __owLog.push("leave:" + e.why + "@" + m.ctx.state + ":" + Math.round(m.ctx.car.s))); m.on("state", e => __owLog.push("state:" + e.from + ">" + e.to)); })`);
   await hostUntil(t, `ctx.party.players.length === 2`, "two in the lobby");
   t.check("the lobby offers 🌍 Free Roam", await t.L(`!!document.getElementById("pt_act_roam")`));
   await clickSel(t, "#pt_act_roam");
@@ -284,8 +285,10 @@ async function partyRun(t, guests) {
   const cnr = await g(`ctx.openworld.game`);
   t.check("C&R: same game + roles on both screens", JSON.stringify(await A.game(`[ctx.openworld.game.n, ctx.openworld.game.cop]`)) === JSON.stringify([cnr.n, cnr.cop]) && !!cnr.drop);
   const copP = cnr.cop === hostUid ? pages[0] : A, robP = copP === A ? pages[0] : A;
+  for (const p of [copP, robP]) await p.until(`ctx.openworld.zone === "lakewood"`, "in town for C&R (or warped back to the game)", 20000);
+  await sleep(500);
   t.check("C&R: the cop has the light bar, the robber the stash (on both screens)", await copP.game(`ctx.car.tilt.children.some(c => c.userData.kind === "cop" && c.visible)`) && await robP.game(`ctx.car.tilt.children.some(c => c.userData.kind === "stash" && c.visible)`));
-  t.check("C&R: both line up in town (the warp keeps them out of the on-ramp)", await copP.game(`ctx.openworld.zone === "lakewood"`) && await robP.game(`ctx.openworld.zone === "lakewood"`), JSON.stringify([await copP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z]`), await robP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z]`)]));
+  t.check("C&R: both line up in town (the warp keeps them out of the on-ramp)", await copP.game(`ctx.openworld.zone === "lakewood"`) && await robP.game(`ctx.openworld.zone === "lakewood"`), JSON.stringify([await copP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z, (window.__owLog || []).slice(-8)]`), await robP.game(`[ctx.openworld.zone, ctx.car.pos.x, ctx.car.pos.z]`)]));
   await copP.until(`ctx.party.clock() > ctx.openworld.game.copGo + 200`, "cop head start over", 20000);
   await sleep(800);
   await t.shot("cnr");

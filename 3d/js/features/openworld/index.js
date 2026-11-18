@@ -499,6 +499,11 @@ function tickGames() {
         tone(660, 0.18, "triangle", 0.2, 990); rumble(0.3, 0.6, 200, true);
     }
     if (g.ph === "done" && CL.res !== key) { CL.res = key; finishGame(g); }
+    // a player who ended up in another zone mid-game (an on-ramp, a scene that sent her back to the highway): back in
+    if (g.ph === "go" && mine && roam() && t > g.t0 && (g.at.zone || "") !== zone() && ctx.state === "playing" && !ctx.paused) {
+        CL.away = (CL.away || 0) + 1;
+        if (CL.away > 45 && performance.now() - (CL.backAt || 0) > 4000) { CL.backAt = performance.now(); CL.away = 0; if (warpToGame()) H.toast(`🚀 Back to the ${GAMES[g.k].name}!`, "pink"); }
+    } else CL.away = 0;
     markers(g, t);
 }
 function roleLine(g) {
