@@ -124,6 +124,8 @@ module.exports = {
     await t.frames(5);
     t.check("next to a stopped car: ✕ CARJACK", await t.L(`/CARJACK/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`));
     await t.shot("carjack-prompt");
+    // (this driver phones it in — the one witness: a call-in later, not a chase now)
+    await g(`(ctx.streets.force.reaction = "call", true)`);
     await t.tap(0);
     t.check("✕ starts the jack", await g(`ctx.streets.jacking`));
     await t.frames(24);
@@ -133,12 +135,19 @@ module.exports = {
       t.check("ONE animation: no foot session, no hop-out left over", await g(`!ctx.foot.active && !ctx.streets.jacking`));
       t.check("the driver is out on the road (dizzy, then angry)", await g(`(() => { const r = ctx.streets.debug.J.lastRide; return !!(r && r.victim && ["down", "up", "react"].includes(r.victim.phase)); })()`));
       t.check("carjack emits the event + stat", await g(`ctx.streets.debug.J.jacks === 1`));
+      t.check("no cop saw the carjack → no chase", await g(`!ctx.law.chasing`));
       await t.frames(30);
       await t.shot("carjack-driver-angry");
       // drive off
       await t.hold(7, 1); await t.frames(25); await t.hold(7, 0);
       t.check("the jacked sedan drives", await g(`ctx.car.speed > 4`));
+      // the driver gets on the phone: a call-in (📞 REPORTED) — a cruiser will come LOOKING, nobody's on her tail yet
+      await t.until(`__lulu3d.ctx.law.reported`, "the yanked driver calls it in", 30000);
+      t.check("a driver's call = a call-in (REPORTED), not an instant chase", await g(`ctx.law.reported && !ctx.law.chasing`));
+      t.check("the HUD says 📞 REPORTED", await t.L(`/REPORTED|LOOKING/.test((document.querySelector(".law-wanted") || {}).textContent || "")`));
+      await t.shot("carjack-reported");
     }
+    await g(`(delete ctx.streets.force.reaction, true)`);
 
     // ── 6. bail out (hold △ / Y while moving) ──
     await place(30, 5.25, 24);
@@ -147,6 +156,7 @@ module.exports = {
     await t.hold(7, 0);
     if (await t.until(`__lulu3d.state === "footRun"`, "hold △ at speed: she bails out", 20000)) {
       t.check("bail: the dive is a foot 'script' (no foot hop intro)", await g(`ctx.foot.phase === "script"`));
+      t.check("ditching the reported car calls off the search", await g(`!ctx.law.reported`));
       const s0 = await g(`ctx.foot.debug.F.car.stub.s`);
       await t.frames(8);
       await t.shot("bail-dive");
@@ -253,5 +263,20 @@ module.exports = {
       t.check("touch ✋ BAIL bails out", await st() === "footRun");
     }
     await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "back on her feet", 30000);
+
+    // ── 9. a carjack a cop actually SEES (close, in plain view): that cop gives chase on the spot ──
+    await g(`(${D}.L.hold = 0, ${D}.L.grace = 0, true)`);
+    await g(`(() => { const F = ctx.foot.debug.F; ctx.traffic.cars.filter(c => !c.data.footStub).forEach(c => ctx.traffic.remove(c));
+      const c = ctx.traffic.add("sedan", F.s + 9, 5.25, 1, 0); c.want = 0; c.base = 0; window.__v2 = c;
+      const p = ctx.world.road.point(c.s + 0.1, 5.25 - 1.6, {}); F.pos.set(p.x, 0, p.z);
+      const u = ${D}.spawnPatrol({ fast: true, oncoming: false }), q = ctx.world.road.point(c.s + 22, 1.75, {});
+      Object.assign(u.car, { free: true, ai: () => {}, x: q.x, z: q.z, h: q.h, speed: 0 }); window.__wit = u; return true; })()`);
+    await t.frames(3);
+    t.check("a cop in plain view can see the jack (ctx.law.copSees)", await g(`ctx.law.copSees(window.__v2.x, window.__v2.z, 45)`));
+    t.check("ctx.streets.carjack() with a patrol watching", await g(`ctx.streets.carjack(window.__v2)`));
+    if (await t.until(`__lulu3d.state === "playing"`, "…she drives off in it", 30000)) {
+      t.check("a cop SAW it → an instant chase (CARJACKING), led by the cop who saw it",
+        await g(`ctx.law.chasing && /CARJACK/.test(${D}.L.chase.reason) && window.__wit.mode === "chase"`), await g(`${D}.L.chase && ${D}.L.chase.reason`));
+    }
   },
 };

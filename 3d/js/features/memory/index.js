@@ -5,7 +5,7 @@
 //  world in later runs — no menus, no HUD:
 //   grudge.js     😤 the driver she carjacked comes back in traffic (same car, same
 //                 paint, same face): honks, yells, tailgates / brake-checks / calls
-//                 the cops (1★) / forgives her
+//                 the cops (a call-in) / forgives her
 //   texts.js      📱 cab fares, delivery customers and Uncle Moishe text afterwards;
 //                 Avigail texts about Lulu's growing notoriety (ctx.phone.text)
 //   poster.js     🪧 "WANTED: LULU" billboards after a 4–5★ chase / an escape / a

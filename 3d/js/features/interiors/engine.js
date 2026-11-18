@@ -36,6 +36,10 @@ registerModels({
 
 /** This feature's own save: visit counts and mini-activity bests. */
 export const S = store("interiors", { visits: {}, danceBest: 0, castles: 0 });
+/** The one-off reward flags (`rt.used`), per interior, for the whole RUN: walking out and back in doesn't refill
+ *  the free coffee / seltzer / ice cream (that was an endless coin loop). A new run starts them fresh. */
+const RUN_USED = {};
+on("run:start", () => { for (const k of Object.keys(RUN_USED)) delete RUN_USED[k]; });
 
 export const GOLD = ["#FFD700", "#FFE082", "#FFF59D", "#FFB300"];
 export const CONFETTI = ["#FF4081", "#40C4FF", "#FFD740", "#7C4DFF", "#69F0AE"];
@@ -166,7 +170,7 @@ export class Room {
         this.camLook = new THREE.Vector3();
         this.yaw = (def.cam && def.cam.yaw) || 0;
         this.luluPose = null;
-        this.used = {};          // one-per-visit reward flags (the 2D barUsed / rewarded)
+        this.used = RUN_USED[def.id] || (RUN_USED[def.id] = {});   // one-off reward flags (the 2D barUsed / rewarded): once per interior per run
         this.data = {};          // scratch for the interior def
     }
 

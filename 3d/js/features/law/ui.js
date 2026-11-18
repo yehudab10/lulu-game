@@ -64,6 +64,12 @@ css("law", `
 .law-wanted .tag.search { background: rgba(38,50,56,.88); }
 .law-wanted .tag { background: rgba(150,20,20,.88); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: 13px; letter-spacing: .06em; }
 .law-wanted .tag.fug { background: #E65100; }
+.law-wanted .tag.warn { background: rgba(230,145,0,.92); color: #2b1600; }
+.law-wanted .tag.lost { background: rgba(27,120,60,.9); }
+.law-wanted .hint { max-width: 190px; font-size: 11px; font-weight: 700; color: #fff; text-align: right; line-height: 1.25;
+  text-shadow: 0 1px 0 #000, 0 0 6px rgba(0,0,0,.6); opacity: .92; }
+body.tv .law-wanted .hint { font-size: 17px; max-width: 300px; }
+@media (max-height: 520px) { .law-wanted .hint { display: none; } }
 .law-wanted .tag.blink { animation: lawPulse .5s ease-in-out infinite alternate; }
 .law-wanted .mtr { width: 150px; }
 .law-wanted .mtr .track { height: 8px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; }
@@ -220,9 +226,10 @@ export function wantedHud(info) {
     const prev = +(hudEl.dataset.stars || 0);
     const stars = Array.from({ length: 5 }, (_, i) => `<b class="${i < info.stars ? "on" : "off"}${i < info.stars && i >= prev && prev > 0 ? " new" : ""}">★</b>`).join("");
     const m = (frac, label, color) => frac > 0.02 ? `<div class="mtr"><div class="track"><div class="fill" style="width:${(frac * 100).toFixed(0)}%;background:${color}"></div></div><div class="lbl">${label}</div></div>` : "";
-    const html = `${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.search ? "search" : info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
+    const html = `${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.cls || ""} ${info.search ? "search" : info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
         ${info.stars ? `<div class="stars ${info.stars >= 4 ? "hot" : ""} ${info.search ? "search" : ""}">${stars}</div>` : ""}
-        ${m(info.bust || 0, "BUSTED", "#FF1744")}${m(info.evade || 0, "LOSING THEM…", "#69F0AE")}${m(info.spot || 0, "👀 SPOTTED", "#FF8A80")}${m(info.radar || 0, "📡 RADAR", "#FFD740")}`;
+        ${m(info.bust || 0, "BUSTED", "#FF1744")}${m(info.evade || 0, info.evadeLabel || "LOSING THEM…", "#69F0AE")}${m(info.spot || 0, "👀 SPOTTED", "#FF8A80")}${m(info.radar || 0, "📡 RADAR", "#FFD740")}
+        ${(info.meters || []).map(([f, l, c]) => m(Math.max(0.03, f), l, c)).join("")}${info.hint ? `<div class="hint hud-secondary">${info.hint}</div>` : ""}`;
     if (hudEl.dataset.h !== html) {
         hudEl.dataset.h = html; hudEl.innerHTML = html;
         // the "new star" pop plays once

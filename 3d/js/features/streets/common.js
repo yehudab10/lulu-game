@@ -70,22 +70,36 @@ export function npcSays(obj, text, { cls = "angry", always = false } = {}) {
 }
 
 // ── the law ─────────────────────────────────────────────────────────────
-/** A crime at (x, z): if a cop is close enough to SEE it, they give chase (or turn up the heat). */
-export function crime(charge, x, z, { msg = "🚨 A COP SAW THAT!", r = 60, force = false } = {}) {
+/**
+ * A crime at (x, z): only a cop who actually SEES it (within r, a clear line of sight) gives chase — the one who saw
+ * it pulls out after her (or it turns up the heat). force: no cop needed (the cop car's own owner…).
+ */
+export function crime(charge, x, z, { msg = "🚨 A COP SAW THAT!", r = 45, force = false } = {}) {
     const law = ctx.law;
     if (!law) return false;
-    if (!force && !(law.copNear && law.copNear(x, z, r))) return false;
-    if (ctx.state === "playing" || ctx.state === "intro") law.startChase(charge, { msg });
-    else pendingCrimes.push({ charge, msg });
+    const sees = law.copSees || law.copNear;
+    if (!force && !(sees && sees.call(law, x, z, r))) return false;
+    if (ctx.state === "playing" || ctx.state === "intro") law.startChase(charge, { msg, at: { x, z } });
+    else pendingCrimes.push({ charge, msg, at: { x, z } });
     emit("streets:crime", { charge, seen: true });
     return true;
+}
+/**
+ * A witness who isn't a cop (the yanked driver on the phone): no instant chase — a call-in. After a delay a
+ * cruiser comes looking for the car she's in (law's BOLO); without law's call-in, the old instant chase.
+ */
+export function phoneIn(charge, x, z, { msg = "📞 SOMEONE CALLED IT IN!" } = {}) {
+    const law = ctx.law;
+    if (!law) return false;
+    if (law.callIn) { const r = law.callIn(charge, { msg }); if (r) emit("streets:crime", { charge, seen: false, called: true }); return !!r; }
+    return crime(charge, x, z, { msg, force: true });
 }
 /** Crimes seen while she was on foot / in a cutscene: reported the moment she's driving again. */
 export const pendingCrimes = [];
 export function flushCrimes() {
     if (!pendingCrimes.length || ctx.state !== "playing" || !ctx.law) return;
     const list = pendingCrimes.splice(0);
-    for (const c of list) ctx.law.startChase(c.charge, { msg: c.msg });
+    for (const c of list) ctx.law.startChase(c.charge, { msg: c.msg, at: c.at });
 }
 
 // ── HUD helpers ─────────────────────────────────────────────────────────

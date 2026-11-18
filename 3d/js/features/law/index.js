@@ -21,7 +21,7 @@ import { ctx, on, hook, setState, addMenuItem, MPH } from "../../core/ctx.js";
 import * as H from "../../hud.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, update, hud, resetRunState, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes, ensureCopModels, activeUnits,
+import { L, update, hud, resetRunState, beginChase, endChase, copNear, copSees, endBolo, changeLook, escape, startFugitive, endFugitive, prisonClothes, ensureCopModels, activeUnits,
     spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, spook } from "./cops.js";
 import { jailDebug } from "./jail.js";
 import { pullOver } from "./bust.js";
@@ -79,8 +79,21 @@ function partyStandDown() {
     if (!why) return;
     L.hold = Math.max(L.hold, 1);
     L.partyHold = ctx.time + 1;
+    L.sus = 0;
+    if (L.bolo) endBolo("standDown");
     if (L.chase) { endChase(why); H.toast("🚓 The cops back off — game on!", ""); }
 }
+
+// ── shaking them: the ways out besides outrunning ────────────────────────
+// took a highway exit into a town while they'd lost sight of her: gone
+on("town:enter", e => {
+    if (!L.chase || !L.chase.searching || L.fug) return;
+    escape("town", `they never saw you take the exit${e && e.town ? " into " + e.town[0].toUpperCase() + e.town.slice(1) : ""}`);
+});
+// ditched the car they were told to look for (out on foot): the call-in's off
+on("foot:start", () => { if (L.bolo) endBolo("ditched", "🚶‍♀️ Ditched the car — they're looking for a car, not you."); });
+// jacked a car nobody saw her take: new wheels, new description
+on("streets:carjack", e => { if (e && !e.witnessed && e.kind !== "cop") changeLook("car"); });
 // a near miss mid-chase rattles the car she skimmed — the cruiser behind may pile into it
 on("closeCall", () => { try { spook(); } catch (e) { console.error(e); } });
 
@@ -91,6 +104,7 @@ on("state", ({ from, to, data }) => {
     if (to === "title") {
         run.live = false;
         if (L.chase) endChase("quit");
+        L.bolo = null; L.sus = 0;
         if (L.fug) { L.fug = null; prisonClothes(false); }
         UI.wantedHud(null);
         X.sirenOff();
@@ -147,7 +161,7 @@ on("crash", e => {
     const kind = String(e.kind || "");
     if (!/ped|person|walker|hitch|kid|jogger|crossing|guard/i.test(kind)) return;
     const p = ctx.car.pos;
-    if (!copNear(p.x, p.z, 70)) return;
+    if (!copSees(p.x, p.z, 70)) return;
     if (ctx.car.speed * MPH > 45 && ctx.G.invT <= 0) law.arrest(["HIT AND RUN", "RECKLESS ENDANGERMENT"]);
     else beginChase("RECKLESS ENDANGERMENT", { msg: "🚨 BUSTED!" });
 });

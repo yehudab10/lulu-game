@@ -36,7 +36,7 @@ module.exports = {
     t.check("ctx.law service is provided", await t.game(`!!ctx.law && typeof ctx.law.startChase === "function" && typeof ctx.law.arrest === "function"`));
     t.check("built-in speed traps are replaced", await t.game(`ctx.world.config.speedTraps === false`));
 
-    // ── a hidden speed trap catches her speeding ──
+    // ── a hidden speed trap: the first time she speeds past, a WARNING (petty heat builds slowly) ──
     await t.game(`L3.startRun({ mode: "cruise" })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await t.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear())`);
@@ -44,9 +44,18 @@ module.exports = {
     await t.frames(4);
     await t.shot("trap-hidden");
     await t.hold(7, 1);
-    await placeFast(0, 40);
-    await t.until(`__lulu3d.ctx.law.chasing`, "speeding past the hidden cop starts a chase", 60000);
-    t.check("speeding past the hidden cop starts a chase", await t.game(`ctx.law.chasing`));
+    await placeFast(0, 38);                      // ~85 mph: over the limit, not reckless (no nitro, < 92)
+    await t.until(`__lulu3d.ctx.law.suspicion > 0 || __lulu3d.ctx.law.chasing`, "speeding past the hidden cop: clocked", 60000);
+    t.check("first time past a speed trap = a ⚠️ WARNING, no chase", await t.game(`ctx.law.suspicion > 0 && !ctx.law.chasing`), String(await t.game(`ctx.law.suspicion`)));
+    t.check("no cop:chase yet (just the warning)", (await log("cop:chase")).length === 0);
+    await t.frames(6);
+    t.check("the HUD shows ⚠️ WARNING + the cooling-off meter", await t.L(`/WARNING/.test((document.querySelector(".law-wanted") || {}).textContent || "") && /COOLING/.test(document.querySelector(".law-wanted").textContent)`));
+    await t.shot("trap-warning");
+    // …she keeps speeding (the warning doesn't drain) and the next trap pulls out after her
+    await t.game(`${D}.spawnTrap(70, 1)`);
+    await placeFast(0, 38);
+    await t.until(`__lulu3d.ctx.law.chasing`, "speeding past a second trap while warned starts a chase", 60000);
+    t.check("speeding past a second trap while warned starts a chase", await t.game(`ctx.law.chasing`));
     t.check("cop:chase {active:true} is emitted", (await log("cop:chase")).some(e => e.active));
     t.check("a real cruiser is chasing", await t.game(`${D}.L.units.some(u => u.mode === "chase" && u.car && u.car.ai)`));
     await t.frames(40);
@@ -60,6 +69,97 @@ module.exports = {
     t.check("escape → cop:chase {active:false, result:'escaped'}", ended.some(e => e.result === "escaped"), JSON.stringify(ended.slice(-1)));
     t.check("escaping emits the 2D 'escapes2' stat", (await log("stat")).some(e => e.id === "escapes2"));
     await t.hold(7, 0);
+
+    // ════ HEAT: warnings drain, call-ins come looking, hiding / exits / a new look shake them ════
+    const hud = () => t.L(`(document.querySelector(".law-wanted") || {}).textContent || ""`);
+    const unitsBack = (m = 260) => t.game(`${D}.L.units.forEach(u => { if (u.car && u.mode === "chase") { u.car.x -= Math.sin(u.car.h) * ${m}; u.car.z -= Math.cos(u.car.h) * ${m}; u.car.s -= ${m}; u.car.speed = 0; } })`);
+    const hideOffRoad = (d = 14) => t.game(`(() => { const r = ctx.world.road, s = ctx.car.s, p = r.point(s, ${d}, {});
+        ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = ${d}; ctx.car.vx = 0; ctx.car.vz = 0; return true; })()`);
+    const pace = (behind = 12) => t.game(`(() => { const u = ${D}.spawnPatrol({ fast: true, oncoming: false });
+        u.car.free = true; u.car.ai = (dt, c) => { const p = ctx.car.pos, h = ctx.car.h; c.x = p.x - Math.sin(h) * ${behind}; c.z = p.z - Math.cos(h) * ${behind}; c.h = h; c.s = ctx.car.s - ${behind}; c.speed = ctx.car.speed; };
+        window.__pacer = u; return true; })()`);
+    const dropPacer = () => t.game(`(window.__pacer && window.__pacer.car && ctx.traffic.remove(window.__pacer.car), true)`);
+    const gameWait = async (sec, label) => { const t0 = await t.game(`ctx.time`); await t.until(`__lulu3d.ctx.time > ${t0 + sec}`, label, 120000); };
+    // (no random traps / patrols / dispatch complaints while we stage these)
+    await t.game(`(Object.assign(ctx.law.config, { traps: false, patrols: false, apb: false }), ctx.traffic.clear(), true)`);
+
+    // ── a warning drains while she drives clean ──
+    await placeFast(0, 18);
+    await t.game(`(${D}.L.grace = 0, ${D}.L.sus = 0.12, true)`);
+    await t.until(`__lulu3d.ctx.law.suspicion === 0`, "a warning drains while she drives clean", 60000);
+    t.check("a warning drains while she drives clean (no chase)", await t.game(`ctx.law.suspicion === 0 && !ctx.law.chasing`));
+
+    // ── a call-in (a witness phoned it in): no chase yet — a cruiser comes LOOKING, later ──
+    await t.game(`ctx.law.callIn("GRAND THEFT AUTO", { msg: "📞 TEST: SOMEONE CALLED IT IN", delay: 1.5 })`);
+    t.check("a call-in: 📞 REPORTED, nobody on her tail yet", await t.game(`ctx.law.reported && !ctx.law.chasing && ctx.law.wanted === 0`));
+    await t.frames(4);
+    t.check("the HUD says 📞 REPORTED", /REPORTED/.test(await hud()), await hud());
+    await t.shot("bolo-reported");
+    await t.until(`__lulu3d.ctx.law._dbg.L.bolo && __lulu3d.ctx.law._dbg.L.bolo.phase === "looking"`, "…after the delay a cruiser comes looking", 60000);
+    t.check("…unlit, and well back (not on her bumper)", await t.game(`(() => { const u = ${D}.L.bolo.unit, c = ctx.car.pos; return !!u && !u.siren && Math.hypot(u.car.x - c.x, u.car.z - c.z) > 120; })()`));
+    await t.frames(4);
+    t.check("the HUD says 🚓 LOOKING FOR YOU", /LOOKING FOR YOU/.test(await hud()), await hud());
+    await t.shot("bolo-looking");
+    // it gets a good look at the car → the chase is on
+    await t.game(`(() => { const u = ${D}.L.bolo.unit, c = ctx.car; Object.assign(u.car, { x: c.pos.x - Math.sin(c.h) * 16, z: c.pos.z - Math.cos(c.h) * 16, h: c.h, s: c.s - 16, speed: c.speed }); })()`);
+    await t.until(`__lulu3d.ctx.law.chasing`, "…it gets a good look: a chase", 30000);
+    t.check("the searching cruiser found her → a chase for the reported charge", await t.game(`ctx.law.chasing && ${D}.L.chase.reason === "GRAND THEFT AUTO" && !ctx.law.reported`));
+
+    // ── shake it by HIDING: out of sight, pull well off the road and stop — they drive right past ──
+    await unitsBack(260);
+    await hideOffRoad(14);
+    await t.until(`__lulu3d.ctx.law.hiding`, "pulled off & stopped out of sight: HIDING", 30000);
+    t.check("pulled off & stopped out of sight: ctx.law.hiding", await t.game(`ctx.law.hiding === "verge"`), String(await t.game(`ctx.law.hiding`)));
+    await t.frames(4);
+    t.check("the HUD says 🤫 HIDING… (stars flash)", /HIDING/.test(await hud()) && await t.L(`!!document.querySelector(".law-wanted .stars.search")`), await hud());
+    await t.shot("hiding");
+    const h0 = await t.game(`ctx.time`);
+    await t.until(`!__lulu3d.ctx.law.chasing`, "hiding loses them", 60000);
+    const took = (await t.game(`ctx.time`)) - h0;
+    t.check("hiding loses them fast (1★: ≤ 6 s, about half the open-road search)", (await log("cop:chase")).slice(-1)[0].result === "escaped" && took <= 6, `${took.toFixed(1)} s`);
+    t.check("…a lawHides stat", (await log("stat")).some(e => e.id === "lawHides"));
+    await t.frames(3);
+    t.check("the HUD shows 😎 LOST 'EM", /LOST/.test(await hud()), await hud());
+    await t.shot("lost-em");
+
+    // ── shake it by taking an EXIT while they're searching ──
+    await placeFast(0, 22);
+    await t.game(`(${D}.L.grace = 0, ctx.law.startChase("RECKLESS DRIVING", { msg: "🚨 TEST" }))`);
+    await t.frames(3);
+    await unitsBack(260);
+    await t.until(`__lulu3d.ctx.law.searching`, "out of sight: SEARCHING", 30000);
+    await t.game(`(L3.emit("town:enter", { town: "lakewood", exitS: ctx.car.s }), true)`);
+    await t.frames(2);
+    t.check("taking an exit while they search = LOST 'EM", await t.game(`!ctx.law.chasing`) && (await log("cop:chase")).slice(-1)[0].result === "escaped");
+
+    // ── a NEW LOOK (switching cars / paint / disguise) calls off a call-in ──
+    await t.game(`(${D}.L.grace = 0, ctx.law.callIn("GRAND THEFT AUTO", { delay: 30 }), true)`);
+    t.check("(a call-in is out)", await t.game(`ctx.law.reported`));
+    await t.game(`ctx.law.changeLook("car")`);
+    t.check("switching cars calls off the call-in — no chase", await t.game(`!ctx.law.reported && !ctx.law.chasing`));
+
+    // ── the warrant file: a patrol who gets a good look recognises her… unless she's changed her look ──
+    await t.game(`(${D}.L.lowKey = false, ${D}.L.grace = 0, ${D}.L.hold = 0, ctx.law.addWarrant(["JAYWALKING"]), true)`);
+    t.check("open warrants → ⚠️ WANTED (ctx.law.wanted 1)", await t.game(`ctx.law.wanted === 1`));
+    await placeFast(0, 18);
+    await pace(12);
+    await t.until(`__lulu3d.ctx.law.chasing`, "a patrol pacing her recognises her (OUTSTANDING WARRANT)", 60000);
+    t.check("a patrol with a good look recognises her (OUTSTANDING WARRANT)", await t.game(`ctx.law.chasing && ${D}.L.chase.reason === "OUTSTANDING WARRANT"`));
+    await t.game(`(ctx.law.standDown("test"), true)`);
+    await dropPacer();
+    await t.game(`(${D}.L.grace = 0, ctx.law.changeLook("paint"))`);
+    t.check("a new look: the warrant file doesn't know her this run (wanted 0, lowKey)", await t.game(`ctx.law.lowKey && ctx.law.wanted === 0`));
+    await t.frames(3);
+    t.check("the HUD says 🥸 LOW PROFILE", /LOW PROFILE/.test(await hud()), await hud());
+    await t.shot("low-profile");
+    await placeFast(0, 18);
+    await pace(12);
+    await gameWait(4, "a patrol paces her for 4 s");
+    t.check("…a patrol right behind her doesn't recognise the new look", await t.game(`!ctx.law.chasing`));
+    await dropPacer();
+    // tidy up for the rest of the test
+    await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.wanted = []; }), true))`);
+    await t.game(`(Object.assign(ctx.law.config, { traps: true, patrols: true, apb: true }), ${D}.L.lowKey = false, ${D}.L.sus = 0, true)`);
 
     // ── a second chase: she stops → BUSTED → the pull-over ──
     await t.game(`(${D}.L.grace = 0, ${D}.FORCE.bustOutcome = "ticket")`);

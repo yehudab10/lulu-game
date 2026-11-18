@@ -21,7 +21,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { SPAWN, SPEEDING_MPH, APB_FAST, APB_SLOW, COP_PULLOVER } from "./data.js";
+import { SPAWN, SPEEDING_MPH, APB_FAST, COP_PULLOVER, WARN_LINES, BOLO_MSG, LOOK_MSG } from "./data.js";
 import { rand, pick, clamp, S, stat, patchLockup, clearLockup, fugitiveStars } from "./rules.js";
 
 registerModels({ lawBillboard: "law_billboard", lawK9: "law_k9", lawMissile: "law_missile", lawChopper: "law_chopper" });
@@ -42,6 +42,14 @@ export const L = {
     pending: null,      // an arrest requested from inside an event, run next frame
     radar: 0,
     threats: new Set(),  // live K9 dogs / missiles {kind, s, d} (the chase lab's driver dodges them)
+    // ── heat before a chase (see notice / callIn / changeLook) ──
+    sus: 0,             // 0–1 petty heat: a cop clocked her (a WARNING); full → a chase. Drains while she drives clean
+    susT: -99,          // when the last warning landed
+    bolo: null,         // a witness CALLED IT IN: { charge, charges, msg, t (s until a cruiser's out), phase "called"|"looking", unit, look, seeT, desc }
+    lowKey: false,      // she changed her look since the warrants were filed (new car / paint / disguise): patrols don't know her
+    lowKeyT: -99,
+    lost: null,         // { t, how } — the "LOST 'EM" moment on the HUD after an escape
+    hint: 0,            // how many "how to hide" hints this run
 };
 export const config = { traps: true, patrols: true, apb: true };
 
@@ -54,7 +62,7 @@ export const TUNE = {
     copSpeed: [0, 0.92, 0.92, 0.94, 0.98, 1.0],   // cruiser top speed × Lulu's unboosted top, by stars
     copAccel: 9,                                  // m/s² off the line, fading toward the top (like her engine)
     sight: [0, 75, 90, 105, 120, 135],            // m a cruiser can spot her (× 0.75 at night)
-    search: [0, 8, 8, 8.5, 10, 11],               // s out of sight before they give up
+    search: [0, 6.5, 7, 8, 9.5, 11],              // s out of sight before they give up
 
 
 
@@ -65,6 +73,25 @@ export const TUNE = {
     reinforce: 6,                                 // s between reinforcements
     chopperSight: 120,                            // m the chopper sees her by day (at night: only in its spotlight)
     chopperSpeed: 0.86,                           // × Lulu's top: flat out (or nitro) she can outrun it
+    // hiding: stopped (≤ 4 m/s) off the asphalt / in a rest-area lot / down a town street while they SEARCH
+    hideClose: 10,                                // m — tucked away, engine off: a cruiser only spots her this close
+    hideGlimpse: 0.5,                             // s — one flashing past her hiding spot quicker than this never registers her
+    hideGap: 18,                                  // m — the "they can still hear her" gap while hidden (else searchGap)
+    hideMul: 2,                                   // × how fast the LOSING THEM meter fills while hidden
+    // petty heat (speeding past a trap / a patrol, a dispatch complaint): one WARNING, then a chase
+    susWarn: 0.55,                                // what one petty offense adds (two before it drains = a chase)
+    susDecay: 0.025,                              // per s of driving clean (not speeding): a warning drains in ~22 s
+    recklessMph: 92,                              // over this (or on nitro) past a cop there's no warning
+    // the open-warrant file: a patrol who gets a good look at her recognises her
+    warrantRange: 32,                             // m, with a clear line of sight
+    warrantSee: 1.6,                              // s of looking (twice as fast while she's speeding)
+    warrantPatrol: [14, 22],                      // s between the extra patrols a wanted driver draws (≤ 1 extra)
+    // a call-in (BOLO): a delay, then one unlit cruiser cruises up the road looking for her car
+    boloDelay: [8, 14],                           // s from the call to a cruiser on the road
+    boloLook: 35,                                 // s it looks before giving up
+    boloSee: 1.2,                                 // s in sight before it lights her up
+    boloSpeed: 32,                                // m/s it prowls at (~72 mph): drive clean and fast, or hide
+    escapeGrace: 10,                              // s after LOST 'EM before any cop can pounce again
 };
 const topCache = new WeakMap();
 /** Lulu's top speed WITHOUT nitro for the car she's driving (m/s: what drag lets the engine reach). */
@@ -173,6 +200,40 @@ export function copNear(x, z, r = 40) {
     for (const t of L.traps) if (!t.gone && Math.hypot(t.x - x, t.z - z) < r) return t;
     return null;
 }
+/**
+ * A cop who can actually SEE (x, z): within r with a clear line of sight (close up — 15 m — always).
+ * A searching (BOLO) cruiser or a downed one doesn't count. Returns the unit / trap, or null.
+ */
+export function copSees(x, z, r = 45) {
+    let best = null, bd = r;
+    for (const u of L.units) {
+        const c = u.car;
+        if (!c || c.hit || u.bolo) continue;
+        const d = Math.hypot(c.x - x, c.z - z);
+        if (d < bd && (d < 15 || clearLine(c.x, c.z, c.s, c, x, z))) { best = u; bd = d; }
+    }
+    for (const t of L.traps) {
+        if (t.gone) continue;
+        const d = Math.hypot(t.x - x, t.z - z);
+        if (d < bd && (d < 15 || clearLine(t.x, t.z, t.s, null, x, z))) { best = t; bd = d; }
+    }
+    return best;
+}
+/** Is she tucked away right now (stopped, out of the traffic)? "lot" | "town" | "verge" | "". */
+export function hiding() {
+    const car = ctx.car;
+    if (!car || car.speed > 4 || ctx.state !== "playing") return "";
+    if (ctx.exits && ctx.exits.inside) return "lot";
+    if (ctx.town && ctx.town.active) return "town";
+    if (Math.abs(car.d) > 9.2) return "verge";
+    return "";
+}
+/** What the cops would describe her by: the car she's in (her own / a borrowed shell) + its paint. */
+export function rideDesc() {
+    const sh = ctx.foot && ctx.foot.shellObj;
+    const pc = ctx.streets && ctx.streets.paint && ctx.streets.paint.color;
+    return (sh ? sh.uuid : "own") + "|" + (pc ? pc.name : "");
+}
 
 // ── cop cars (traffic cars with our AI) ──────────────────────────────────
 function addUnit(s, d, dir, speed, opts = {}) {
@@ -224,12 +285,20 @@ function steerUnit(dt, c, u) {
     u.t += dt;
     road.nearest(c.x, c.z, c.s, tmpN);
     c.s = tmpN.s; c.d = tmpN.d;
-    const lv = Math.max(0, car.vF), ls = car.s, ld = car.d;
+    let lv = Math.max(0, car.vF), ls = car.s, ld = car.d;
     let tD = c.d, vT = 0;
-    const heat = L.chase ? L.chase.heat : 1;
+    const ch = L.chase, heat = ch ? ch.heat : 1;
     // in a town the chase goes round corners: its street graph gives the route and the real gap
     const route = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute ? ctx.town.copRoute(c, u) : null;
-    if (u.mode === "chase") {
+    // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
+    // (pull off and stop out of sight, and they fly right past)
+    if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
+        lv = ch.last.v; ls = ch.last.s + ch.last.v * Math.min(ctx.time - ch.last.t, 20); ld = clamp(ch.last.d, -5.25, 5.25);
+    }
+    if (u.bolo) {                               // a call-in: one unlit cruiser prowls up the road looking for her car
+        tD = c.d > 3.5 ? 5.25 : 1.75; vT = TUNE.boloSpeed; u.vmax = route ? 14 : TUNE.boloSpeed;
+        if (route) { const err = route.gap - 6; vT = clamp(lv + err * 0.9, 0, 14); }
+    } else if (u.mode === "chase") {
         u.pitT -= dt;
         let want = -7;             // where it wants to sit, relative to Lulu along the road
         let side = 0;
@@ -401,34 +470,45 @@ function updateTraps(dt, controlsOn) {
     L.radar = 0;
     for (const t of L.traps) {
         if (t.gone) continue;
-        setRig(t.rig, false, 0);
+        if (t.flashT > 0) t.flashT -= dt;
+        setRig(t.rig, t.flashT > 0, ctx.time);           // (a warning: a burst of the lights, no chase)
         const rel = car.s - t.s;
         const inView = rel > -70 && rel < 12;
         if (inView) t.near = true;
-        if (controlsOn && canPounce() && inView && speeding()) {
+        if (controlsOn && canPounce() && inView && speeding() && !(t.noticeUntil > ctx.time)) {
             t.spot += dt;
             L.radar = Math.max(L.radar, t.spot / 0.65);
-            if (t.spot >= 0.65) { trapToChase(t); return; }
+            if (t.spot >= 0.65) {
+                t.spot = 0;
+                // a first offense is a WARNING (lights + radar chirp); already warned — or reckless — they pull out
+                const r = notice("SPEEDING", { msg: "🚨 SPEED TRAP!", warn: pick(WARN_LINES.trap), trap: t, src: t, amount: reckless() ? 1 : TUNE.susWarn });
+                if (r === "chase") return;
+                if (r === "warn") { t.flashT = 1.6; t.warned = true; }
+            }
         } else {
             t.spot = Math.max(0, t.spot - dt * 1.5);
             L.radar = Math.max(L.radar, t.spot / 0.65);
         }
         if (t.near && !t.passed && rel > 12) {
             t.passed = true;
-            if (controlsOn && !L.chase) { addScore(150, "legal"); H.toast("👮 Nice and legal! +150", "gold"); }
+            if (controlsOn && !L.chase && !t.warned) { addScore(150, "legal"); H.toast("👮 Nice and legal! +150", "gold"); }
         }
     }
 }
 /** The parked cruiser pulls out and becomes the pursuer. */
-function trapToChase(t) {
+function trapToChase(t) { beginChase("SPEEDING", { msg: "🚨 SPEED TRAP!", unit: trapUnit(t) }); }
+/** The hidden cruiser pulls out of its hiding spot as a chase unit (it's the one that saw her). */
+function trapUnit(t) {
     t.gone = true;
     t.obj.remove(t.cop);
     const u = addUnit(t.s, t.d, 1, 0, { mode: "chase" });
     const c = u.car;
     c.free = true; c.x = t.x; c.z = t.z; c.h = t.h;
     c.obj.position.set(c.x, 0, c.z); c.obj.rotation.y = c.h;
-    beginChase("SPEEDING", { msg: "🚨 SPEED TRAP!", unit: u });
+    return u;
 }
+/** Too fast to be a mistake: on nitro, or way over the limit. */
+function reckless() { return !!(ctx.G && ctx.G.boosting) || ctx.car.speed * MPH > TUNE.recklessMph; }
 
 // ── patrols ──────────────────────────────────────────────────────────────
 export function spawnPatrol(opts = {}) {
@@ -447,21 +527,29 @@ function updatePatrols(dt, controlsOn) {
         if (!u.car) continue;
         const c = u.car;
         const lit = u.siren && (u.mode === "chase" || u.mode === "pull" || u.mode === "haul" || u.mode === "park");
-        setRig(u.rig, lit || u.mode === "park", ctx.time + (u.phase || (u.phase = Math.random())));
+        if (u.blipT > 0) u.blipT -= dt;
+        setRig(u.rig, lit || u.mode === "park" || u.blipT > 0, ctx.time + (u.phase || (u.phase = Math.random())));
         if (c.hit && c.hitT > 2.8 && u.mode === "chase") {       // shake it off and get back in the chase
             c.hit = false; c.speed = 0; c.free = true; c.h = c.obj.rotation.y; u.downed = false;
             if (!c.ai) c.ai = (d, cc) => driveUnit(d, cc, u);
         }
         if (u.mode === "giveup" && (u.t > 22 || car.s - c.s > 170)) { c.keep = false; }
         if (u.flavour) updateFlavourUnit(dt, u);
-        if (u.mode !== "patrol" && !u.hunter) continue;
+        if ((u.mode !== "patrol" && !u.hunter) || u.bolo) continue;
         if (!controlsOn || !canPounce()) { u.spot = Math.max(0, u.spot - dt); continue; }
         const dist = Math.hypot(c.x - car.pos.x, c.z - car.pos.z);
-        const sees = dist < (u.hunter ? 45 : 34);
+        const sees = dist < (u.hunter ? 45 : 34) && (dist < 15 || clearLine(c.x, c.z, c.s, c));
         if (fug) continue;                  // the fugitive "recognised" meter handles these
-        if (sees && speeding()) {
+        if (sees && speeding() && !(u.noticeUntil > ctx.time)) {
             u.spot += dt;
-            if (u.spot > 0.7) { toChase(u, "rear"); beginChase("SPEEDING", { msg: u.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!", unit: u }); return; }
+            if (u.spot > 0.7) {
+                u.spot = 0;
+                // first time: the patrol flashes its lights (a WARNING); she keeps it up — or it's reckless — a chase
+                const r = notice("SPEEDING", { msg: u.k9 ? "🐕 K9 UNIT!" : "🚨 PATROL!", warn: pick(WARN_LINES.patrol), unit: u, src: u,
+                    amount: u.hunter || reckless() ? 1 : TUNE.susWarn });
+                if (r === "chase") return;
+                if (r === "warn") u.blipT = 1.6;
+            }
         } else u.spot = Math.max(0, u.spot - dt * 1.5);
     }
 }
@@ -481,9 +569,22 @@ export function beginChase(reason, opts = {}) {
     }
     const fug = !!L.fug;
     const charges = (opts.charges || []).slice();
+    // the cop who saw it (opts.at: where it happened) is the one who pulls out after her
+    if (!opts.unit && opts.at) opts.unit = witnessUnit(opts.at.x, opts.at.z);
+    // a call-in still out: its cruiser joins (it was looking for her anyway)
+    if (L.bolo) {
+        for (const c of L.bolo.charges) if (!charges.includes(c) && c !== reason) charges.push(c);
+        const bu = L.bolo.unit;
+        L.bolo = null;
+        if (bu && bu.car && bu !== opts.unit) { bu.bolo = false; bu.hunter = false; bu.siren = true; bu.slot = "rear2"; }
+        emit("law:bolo", { active: false, why: "chase" });
+    }
+    // a fresh description: whatever disguise she had, THIS car is what they're chasing now
+    L.sus = 0; L.lowKey = false; L.lost = null;
     const heat = Math.max(1, opts.heat || (fug ? fugitiveStars(L.fug.t) : S.wanted.length ? 2 : 1));
     L.chase = { reason: reason || charges[0] || "RECKLESS DRIVING", charges, explicit: !!(opts.charges && opts.charges.length), heat, t: 0,
-        bust: 0, evade: 0, nextHeat: TUNE.heatEvery, seenT: 0, seen: true, searching: false, k9T: rand(4, 6), mslT: rand(5, 7), reinfT: 0, fug };
+        bust: 0, evade: 0, nextHeat: TUNE.heatEvery, seenT: 0, seen: true, searching: false, hiding: "", k9T: rand(4, 6), mslT: rand(5, 7), reinfT: 0, fug,
+        last: { s: ctx.car.s, d: ctx.car.d, v: Math.max(0, ctx.car.vF), t: ctx.time } };
     if (!L.chase.charges.length) L.chase.charges.push(L.chase.reason);
     if (opts.unit) { opts.unit.slot = "rear"; if (opts.unit.mode !== "chase") toChase(opts.unit, "rear"); opts.unit.hunter = false; opts.unit.siren = true; }
     else spawnChaser("rear", "first");
@@ -510,17 +611,133 @@ function spawnChaser(slot, how = "seen") {
     const u = addUnit(s, d, fromAhead ? -1 : 1, fromAhead ? 20 : v, { mode: "chase", slot, k9: L.chase && L.chase.heat >= 4 && Math.random() < 0.4 });
     return u;
 }
+/** The cop who saw something at (x, z) — a patrol / a parked cruiser pulls out, a hidden trap leaves its bush. */
+function witnessUnit(x, z) {
+    const w = copSees(x, z, 75);
+    if (!w) return null;
+    if (w.car) return w.mode === "pull" || w.mode === "haul" ? null : w;
+    return w.cop && !w.gone ? trapUnit(w) : null;
+}
+
+// ── heat before a chase ──────────────────────────────────────────────────
+/**
+ * A petty offense a cop noticed (speeding past a trap / a patrol, a dispatcher's complaint, a town stop sign).
+ * The first one is a WARNING (L.sus fills; it drains while she drives clean); one more before it drains — or
+ * an `amount` of 1 (reckless) — and it's a chase: led by the cop who saw it (opts.unit / trap / witness: true),
+ * or, with nobody in sight, a call-in (BOLO). opts.src: a per-source 4 s cooldown (no double warnings).
+ * Returns "chase" | "warn" | "" (ignored: a chase is on, a hold, the tutorial).
+ */
+export function notice(charge, opts = {}) {
+    if (L.chase || L.hold > 0 || L.grace > 0 || calm() || (ctx.G && ctx.G.tutorial) || L.partyHold > ctx.time) return "";
+    if (opts.src && opts.src.noticeUntil > ctx.time) return "";
+    const amount = opts.amount != null ? opts.amount : TUNE.susWarn;
+    // (a warning stays live until it has drained: any offense meanwhile is the second strike)
+    if (amount >= 0.999 || L.sus > 0.04) {
+        L.sus = 0;
+        const unit = opts.unit || (opts.trap ? trapUnit(opts.trap) : null);
+        if (unit || opts.witness) beginChase(charge, { msg: opts.msg, unit, heat: opts.heat });
+        else callIn(charge, { msg: opts.msg });
+        return "chase";
+    }
+    L.sus = Math.min(0.95, L.sus + amount);
+    L.susT = ctx.time;
+    if (opts.src) opts.src.noticeUntil = ctx.time + 4;
+    H.banner(`<b>${opts.warn || pick(WARN_LINES.patrol)}</b><small>${charge.toLowerCase()} · ease off — once more and they chase</small>`, 2400, { key: "law:warn", prio: 2 });
+    X.chirp();
+    rumble(0.2, 0.4, 160);
+    emit("law:warning", { charge, heat: L.sus });
+    return "warn";
+}
+
+/**
+ * A witness phoned it in (a carjacked driver, a grudge, a dispatch complaint): nobody's chasing her YET.
+ * After TUNE.boloDelay one unlit cruiser comes up the road looking for the car she's in — if it gets a good
+ * look (TUNE.boloSee) it lights her up; if she changed cars / paint, ditched the car, or kept out of its way
+ * for TUNE.boloLook, they call it off. Returns "bolo" | "chase" (one's already on) | "".
+ */
+export function callIn(charge, opts = {}) {
+    if (L.chase) { if (charge && !L.chase.charges.includes(charge)) L.chase.charges.push(charge); return "chase"; }
+    if (calm() || (ctx.G && ctx.G.tutorial) || L.partyHold > ctx.time || !ctx.car) return "";
+    if (L.bolo) { if (charge && !L.bolo.charges.includes(charge)) L.bolo.charges.push(charge); return "bolo"; }
+    const delay = opts.delay != null ? opts.delay : rand(TUNE.boloDelay[0], TUNE.boloDelay[1]);
+    L.bolo = { charge: charge || "RECKLESS DRIVING", charges: [charge || "RECKLESS DRIVING"], msg: opts.msg || BOLO_MSG, t: delay, delay,
+        phase: "called", unit: null, look: TUNE.boloLook, seeT: 0, desc: rideDesc() };
+    H.banner(`<b>${L.bolo.msg}</b><small>a cruiser's on its way · change cars, hide, or keep clean</small>`, 2600, { key: "law:bolo", prio: 2 });
+    X.chirp();
+    emit("law:bolo", { active: true, charge: L.bolo.charge, delay });
+    return "bolo";
+}
+export function endBolo(why = "ended", msg = "") {
+    const b = L.bolo;
+    if (!b) return;
+    L.bolo = null;
+    const u = b.unit;
+    if (u && u.car) { u.bolo = false; u.hunter = false; u.mode = "giveup"; u.siren = false; u.t = 0; }
+    if (msg) H.toast(msg, "pink", { key: "law:bolo" });
+    emit("law:bolo", { active: false, why });
+}
+function updateBolo(dt, controlsOn) {
+    const b = L.bolo;
+    if (!b) return;
+    if (L.chase) { L.bolo = null; return; }
+    if (rideDesc() !== b.desc) { endBolo("switched", LOOK_MSG.car); return; }
+    if (!controlsOn || ctx.state !== "playing") return;
+    if (b.phase === "called") {
+        b.t -= dt;
+        if (b.t > 0 || L.hold > 0) return;
+        const car = ctx.car;
+        const tp = ctx.town && ctx.town.active && ctx.town.copSpawn ? ctx.town.copSpawn("search", false) : null;
+        const u = tp ? addUnit(tp.s, tp.d, tp.dir, 10, { mode: "chase" })
+            : addUnit(car.s - rand(170, 220), pick(LANES_OURS), 1, clamp(car.speed * 0.9, 18, TUNE.boloSpeed), { mode: "chase" });
+        u.bolo = true; u.hunter = true; u.siren = false;
+        b.unit = u; b.phase = "looking";
+        H.toast("🚓 A cruiser's out looking for your car…", "red", { key: "law:bolo" });
+        return;
+    }
+    const u = b.unit;
+    if (!u || !u.car || !L.units.includes(u)) { endBolo("lost"); return; }
+    const hide = hiding();
+    b.look -= dt * (hide ? 2 : 1);
+    if (unitSees(u, 1, nightness(), !!hide)) {
+        b.seeT += dt;
+        if (b.seeT >= TUNE.boloSee) {
+            const charges = b.charges.slice();
+            L.bolo = null;
+            u.bolo = false; u.hunter = false;
+            emit("law:bolo", { active: false, why: "found" });
+            beginChase(b.charge, { msg: "🚨 THAT'S THE CAR!", unit: u, charges });
+            return;
+        }
+    } else b.seeT = Math.max(0, b.seeT - dt * 0.5);
+    if (b.look <= 0) endBolo("gaveup", "📻 …they called off the search. 😎");
+}
+
+/**
+ * She changed what the cops would recognise (an unseen carjack / hotwire / a hailed ride, Paint & Pray, the
+ * quick-change booth): a call-in out for her old car is off, the warning heat is gone, and for the rest of the
+ * run patrols don't recognise her from the warrant file (a new chase gives them a fresh description).
+ */
+export function changeLook(how = "car") {
+    if (L.chase) return false;                 // (they're watching her do it: nothing to shake)
+    const had = !!(L.bolo || S.wanted.length || L.sus > 0.05);
+    if (L.bolo) endBolo("switched");
+    L.sus = 0; L.wantedSpot = 0;
+    L.lowKey = how; L.lowKeyT = ctx.time;
+    if (had && LOOK_MSG[how]) H.toast(LOOK_MSG[how], "pink", { key: "law:look" });
+    emit("law:look", { how, had });
+    return had;
+}
 
 // ── line of sight ────────────────────────────────────────────────────────
 function nightness() { const a = ctx.atmos; return a && typeof a.night === "number" ? clamp(a.night, 0, 1) : 0; }
-/** Is the straight line from (ax, az) to Lulu clear? Not if it cuts across the roadside on a bend
- *  (trees, houses) or a truck / bus is in the way. */
-function clearLine(ax, az, as, self) {
-    const car = ctx.car, road = ctx.world.road, bx = car.pos.x, bz = car.pos.z;
+/** Is the straight line from (ax, az) to Lulu (or to (bx, bz)) clear? Not if it cuts across the roadside on a
+ *  bend (trees, houses) or a truck / bus is in the way. */
+function clearLine(ax, az, as, self, bx = ctx.car.pos.x, bz = ctx.car.pos.z) {
+    const car = ctx.car, road = ctx.world.road;
     // in a town (features/town) its buildings are the occluders; on the highway, the roadside on a bend
     if (ctx.town && ctx.town.active) { if (ctx.town.blocksSight(ax, az, bx, bz)) return false; }
     else for (const k of [0.3, 0.55, 0.8]) {
-        road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, as + (car.s - as) * k, tmpN);
+        road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, Number.isFinite(as) ? as + (car.s - as) * k : car.s, tmpN);
         if (Math.abs(tmpN.d) > TUNE.offRoad) return false;
     }
     const lx = bx - ax, lz = bz - az, len2 = lx * lx + lz * lz || 1;
@@ -533,11 +750,12 @@ function clearLine(ax, az, as, self) {
     }
     return true;
 }
-/** Does this cruiser have eyes on her right now? */
-function unitSees(u, heat, night) {
+/** Does this cruiser have eyes on her right now? (hidden: she's stopped and tucked away — see hiding()) */
+function unitSees(u, heat, night, hidden = false) {
     const c = u.car;
     if (!c || c.hit) return false;
     const car = ctx.car, d = Math.hypot(car.pos.x - c.x, car.pos.z - c.z);
+    if (hidden) return d < TUNE.hideClose;      // (behind the bushes / between parked cars: only right up close)
     if (d > TUNE.sight[clamp(Math.round(heat), 1, 5)] * (1 - 0.25 * night)) return false;
     return d < 22 || clearLine(c.x, c.z, c.s, c);
 }
@@ -580,36 +798,57 @@ function updateChase(dt, controlsOn) {
     // (a moment's slow-down in traffic isn't an arrest; sitting still next to a cruiser is)
     if (near && near.d < 10 && sp < 9) fill = 0.6 * (1 - sp / 9) + (close >= 2 ? 0.35 : 0);
 
-    if (near && near.d < 22 && sp < 2) fill = Math.max(fill, 1.2);
+    // (sitting still near one = BUSTED — unless she's tucked away and they're searching: then only one right on top of her)
+    const tucked = ch.searching && hiding();
+    if (near && near.d < (tucked ? TUNE.hideClose : 22) && sp < 2) fill = Math.max(fill, 1.2);
     ch.bust = clamp(ch.bust + (fill > 0 ? fill * dt : -0.5 * dt), 0, 1);
     if (ch.bust >= 1) { bust(near ? near.u : null); return; }
     // SEARCH (GTA): break every cruiser's line of sight — and the chopper's — and keep some distance;
     // the stars flash while they look for her, and staying hidden long enough loses them. A glimpse
     // only knocks the progress back a little.
     const night = nightness();
-    let seen = chopperSees(night);
-    for (const u of units) if (!seen && unitSees(u, ch.heat, night)) seen = true;
+    // HIDING: stopped and tucked away (a rest-area lot, off the asphalt, down a town street) — harder to spot,
+    // and once they've lost her the meter runs twice as fast. Out on the open road she's just a parked target.
+    const hide = hiding();
+    const sky = chopperSees(night);
+    let seen = false;
+    for (const u of units) if (!seen && unitSees(u, ch.heat, night, !!hide)) seen = true;
+    // hidden: a cruiser flashing past for a split second doesn't register her (they drive right by)
+    if (hide && seen) { ch.glimpse = (ch.glimpse || 0) + dt; seen = ch.glimpse > TUNE.hideGlimpse; } else ch.glimpse = 0;
+    if (sky) seen = true;
     if (!seen && ch.tipT > ctx.time) seen = true;       // ctx.law.spot(): a tip-off (features/community's Shomrim radio)
     const gap = near ? near.d : 999;
+    if (seen) ch.last = { s: car.s, d: car.d, v: Math.max(0, car.vF), t: ctx.time };     // where they think she's heading
+    const wasSearching = ch.searching;
     ch.seen = seen;
-    ch.searching = !seen && gap > TUNE.searchGap;
+    ch.searching = !seen && gap > (hide ? TUNE.hideGap : TUNE.searchGap);
+    ch.hiding = ch.searching ? hide : "";
+    if (ch.searching && !wasSearching && L.hint < 1 && ch.t > 2) {
+        L.hint++;
+        H.toast("👀 They lost sight of you — pull off & stop out of sight, or take an exit!", "pink", { key: "law:hint" });
+    }
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
-    if (ch.searching) ch.evade = clamp(ch.evade + dt / need, 0, 1);
+    if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
-    if (ch.evade >= 1) escape();
+    if (ch.evade >= 1) escape(hide ? "hid" : "lost");
 
 }
 
-function escape() {
+/** She shook them. how: "lost" (out of sight long enough) · "hid" · "town" (took an exit unseen) · … */
+export function escape(how = "lost", msg = "") {
     const ch = L.chase;
+    if (!ch) return;
     endChase("escaped");
     UI.say("Lost 'em! 😎", "green");
-    H.banner(`<b>😎 LOST 'EM!</b><small>${ch.heat > 1 ? `${ch.heat}★ heat shaken off` : "Back to cruising"}</small>`, 2000);
+    const sub = msg || (how === "hid" ? "they drove right past you 🤫" : how === "town" ? "they never saw you take the exit" : "");
+    H.banner(`<b>😎 LOST 'EM!</b><small>${sub || (ch.heat > 1 ? `${ch.heat}★ heat shaken off` : "Back to cruising")}</small>`, 2200);
     X.lost();
     addScore(500 * ch.heat, "escape");
     stat("escapes2", 1);
-    L.apbCool = rand(12, 20);
-    L.grace = 5;
+    if (how === "hid") stat("lawHides", 1);
+    L.apbCool = rand(18, 28);
+    L.grace = TUNE.escapeGrace;
+    L.lost = { t: ctx.time + 3.5, how };
 }
 
 /** Wind down: cruisers kill the sirens and drift onto the shoulder. */
@@ -664,40 +903,40 @@ function updateRandom(dt, controlsOn) {
     // patrol cars cruising the road (rare)
     const patrols = L.units.filter(u => u.mode === "patrol").length;
     if (config.patrols && G.runTime > 20 && !L.chase && patrols < 1 && Math.random() < dt * 0.03) spawnPatrol({ k9: false });
-    // the APB: the longer the run, the more often a cruiser "gets the call"
-    if (config.apb && canPounce() && car().speed > 12) {
+    // the APB: somebody phones in a speeder. Only while she IS speeding (driving clean, nobody calls), and it
+    // goes through the same warning step: a first complaint is a warning, a second (or a warning already live)
+    // puts out a call-in — a cruiser comes looking, it doesn't appear on her bumper.
+    if (config.apb && canPounce() && car().speed > 12 && !L.bolo) {
         L.apbCool -= dt;
         if (L.apbCool <= 0) {
+            L.apbCool = rand(10, 16);
             const lvl = Math.floor(G.runTime / 30);
-            if (lvl >= 2) {
-                const fast = speeding();
-                const chance = clamp(0.14 + 0.07 * (lvl - 2), 0, 0.65) * (fast ? 1.4 : 0.55);
-                if (Math.random() < chance) {
-                    beginChase(fast ? "RECKLESS DRIVING" : "FAILURE TO PULL OVER", { msg: pick(fast ? APB_FAST : APB_SLOW) });
-                    L.apbCool = rand(15, 24) - Math.min(lvl, 7);
-                } else L.apbCool = rand(4, 7);
-            } else L.apbCool = 6;
+            if (lvl >= 2 && speeding() && Math.random() < clamp(0.1 + 0.04 * (lvl - 2), 0, 0.35)) {
+                notice("RECKLESS DRIVING", { msg: pick(APB_FAST), warn: pick(WARN_LINES.apb), src: L });
+            }
         }
     }
     // flavour: a cruiser pulls somebody ELSE over up ahead
     L.flavourT -= dt;
     if (L.flavourT <= 0 && !L.chase) { L.flavourT = rand(45, 80); startFlavour(); }
-    // the open-warrant file: any cop who gets a look at her gives chase
+    // the open-warrant file: a cop who gets a GOOD look at her (close, clear line of sight, a second or two)
+    // recognises her — unless she's changed her look since (L.lowKey: a new car, fresh paint, a disguise)
     const wanted = S.wanted;
-    if (wanted.length && !L.fug && canPounce()) {
-        const seen = L.units.some(u => u.car && u.mode === "patrol" && Math.hypot(u.car.x - car().pos.x, u.car.z - car().pos.z) < 40)
-            || L.traps.some(t => !t.gone && car().s - t.s > -60 && car().s - t.s < 10);
+    if (wanted.length && !L.fug && !L.lowKey && canPounce()) {
+        const p = car().pos;
+        const pu = L.units.find(u => u.car && !u.car.hit && u.mode === "patrol" && Math.hypot(u.car.x - p.x, u.car.z - p.z) < TUNE.warrantRange
+            && clearLine(u.car.x, u.car.z, u.car.s, u.car));
+        const seen = pu || L.traps.find(t => !t.gone && car().s - t.s > -45 && car().s - t.s < 8);
         if (seen) {
-            L.wantedSpot += dt * (speeding() ? 1.2 : 0.55);
-            if (L.wantedSpot > 0.7) {
+            L.wantedSpot += dt * (speeding() ? 2 : 1);
+            if (L.wantedSpot > TUNE.warrantSee) {
                 L.wantedSpot = 0;
-                const u = L.units.find(u => u.car && u.mode === "patrol");
-                beginChase("OUTSTANDING WARRANT", { msg: "🚨 THAT'S HER — WANTED!", charges: wanted.slice(0, 3), unit: u });
+                beginChase("OUTSTANDING WARRANT", { msg: "🚨 THAT'S HER — WANTED!", charges: wanted.slice(0, 3), unit: pu || trapUnit(seen) });
             }
         } else L.wantedSpot = Math.max(0, L.wantedSpot - dt * 0.8);
         L.wantedPatrolT -= dt;
-        if (L.wantedPatrolT <= 0) { L.wantedPatrolT = rand(5, 9); if (patrols < 2) spawnPatrol(); }
-    }
+        if (L.wantedPatrolT <= 0) { L.wantedPatrolT = rand(TUNE.warrantPatrol[0], TUNE.warrantPatrol[1]); if (patrols < 1) spawnPatrol(); }
+    } else if (L.lowKey) L.wantedSpot = 0;
 }
 const car = () => ctx.car;
 
@@ -1002,8 +1241,11 @@ export function update(dt, P, controlsOn) {
         endChase("safe");
         H.toast("🏡 Safe at Bubbe's! The cops back off.", "pink");
     }
+    // a warning drains while she drives clean (not while she keeps speeding)
+    if (L.sus > 0 && controlsOn && !L.chase) L.sus = Math.max(0, L.sus - (speeding() ? 0 : TUNE.susDecay * dt));
     updateTraps(dt, controlsOn);
     updatePatrols(dt, controlsOn);
+    updateBolo(dt, controlsOn);
     if (L.chase) updateChase(dt, controlsOn);
     updateFugitive(dt, controlsOn);
     updateRandom(dt, controlsOn);
@@ -1078,19 +1320,37 @@ function updateFlavourUnit(dt, u) {
     if (rel > 140) { v.keep = false; if (u.car) u.car.keep = false; u.flavour = null; u.mode = "park"; }
 }
 
+/**
+ * The star HUD says which stage she's in — and how to get out of it (the small hint line):
+ *   🚨 PURSUIT (they see her) · 👀 SEARCHING (stars flash: stay out of sight) · 🤫 HIDING (stopped, tucked away)
+ *   📞 REPORTED / 🚓 LOOKING FOR YOU (a call-in) · ⚠️ WARNING (petty heat, draining) · ⚠️ WANTED (warrants on file)
+ *   😎 LOST 'EM · 🥸 LOW PROFILE (a new look: the warrant file doesn't know her)
+ */
 export function hud() {
     UI.updateBubbles(ctx.camera);
-    const ch = L.chase, f = L.fug;
-    if (!ch && !f && L.radar < 0.02 && !S.wanted.length) { UI.wantedHud(null); return; }
-    const info = { stars: 0, tag: "", fug: !!f, blink: false };
-    if (f) { info.stars = fugitiveStars(f.t); info.tag = "🔒 FUGITIVE"; info.blink = true; info.spot = ch ? 0 : clamp(f.spot / Math.max(0.7, 1.6 - info.stars * 0.2), 0, 1); }
+    const ch = L.chase, f = L.fug, b = L.bolo;
+    const lost = L.lost && L.lost.t > ctx.time;
+    const fresh = L.lowKey && ctx.time - L.lowKeyT < 4 && S.wanted.length;
+    const warrants = S.wanted.length && !L.lowKey;
+    if (!ch && !f && !b && !lost && !fresh && L.sus <= 0.04 && L.radar < 0.02 && !warrants) { UI.wantedHud(null); return; }
+    const info = { stars: 0, tag: "", fug: !!f, blink: false, hint: "", meters: [] };
+    if (f) { info.stars = fugitiveStars(f.t); info.tag = "🔒 FUGITIVE"; info.blink = true; info.spot = ch ? 0 : clamp(f.spot / Math.max(0.7, 1.6 - info.stars * 0.2), 0, 1); info.hint = "the jumpsuit gives you away · Paint & Pray / a disguise"; }
     if (ch) {
         info.stars = Math.max(info.stars, ch.heat);
         info.search = !!ch.searching;
-        info.tag = ch.searching ? (f ? "🔒 FUGITIVE · SEARCHING" : "👀 SEARCHING…") : (f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT");
+        const hid = ch.searching && ch.hiding;
+        info.tag = ch.searching ? (f ? "🔒 FUGITIVE · SEARCHING" : hid ? "🤫 HIDING…" : "👀 SEARCHING…") : (f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT");
         info.bust = ch.bust; info.evade = ch.evade; info.blink = !ch.searching;
-    }
-    else if (!f && S.wanted.length) { info.tag = "⚠️ WANTED"; info.stars = 0; info.spot = clamp(L.wantedSpot / 0.7, 0, 1); }
+        info.evadeLabel = hid ? "🤫 HIDING…" : "LOSING THEM…";
+        info.hint = !ch.searching ? "break their line of sight" : hid ? "stay put — they're driving past" : "stay out of sight · pull off & stop · take an exit";
+    } else if (lost) { info.tag = "😎 LOST 'EM"; info.cls = "lost"; info.hint = "keep it clean for a bit"; }
+    else if (b) {
+        if (b.phase === "called") { info.tag = "📞 REPORTED"; info.meters.push([1 - b.t / (b.delay || 10), "🚓 ON ITS WAY", "#FFB74D"]); info.hint = "switch cars, hide, or keep clean"; }
+        else { info.tag = hiding() ? "🤫 HIDING…" : "🚓 LOOKING FOR YOU"; info.search = true; info.spot = clamp(b.seeT / TUNE.boloSee, 0, 1); info.meters.push([clamp(1 - b.look / TUNE.boloLook, 0, 1), "THEY GIVE UP…", "#69F0AE"]); info.hint = "out of its sight · pull off & stop · new car"; }
+        info.cls = "search";
+    } else if (!f && L.sus > 0.04) { info.tag = "⚠️ WARNING"; info.cls = "warn"; info.meters.push([L.sus / TUNE.susWarn, "COOLING OFF…", "#FFD740"]); info.hint = "once more and they chase · drive clean"; }
+    else if (!f && warrants) { info.tag = "⚠️ WANTED"; info.spot = clamp(L.wantedSpot / TUNE.warrantSee, 0, 1); info.hint = "patrols know your car · paint it or switch"; }
+    else if (!f && fresh) { info.tag = "🥸 LOW PROFILE"; info.cls = "lost"; info.hint = "the warrant file's looking for someone else"; }
     info.radar = ch ? 0 : L.radar;
     UI.wantedHud(info);
 }
@@ -1098,7 +1358,8 @@ export function hud() {
 /** Clear the road side of the law (new run / title). Traffic + actors are cleared by core. */
 export function resetRunState() {
     L.chase = null; L.units.length = 0; L.traps.length = 0; L.spawnT = {}; L.grace = 0; L.apbCool = 22;
-    L.wantedSpot = 0; L.wantedPatrolT = rand(4, 7); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60); L.threats.clear();
+    L.wantedSpot = 0; L.wantedPatrolT = rand(TUNE.warrantPatrol[0] * 0.5, TUNE.warrantPatrol[1] * 0.5); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60); L.threats.clear();
+    L.sus = 0; L.susT = -99; L.bolo = null; L.lowKey = false; L.lowKeyT = -99; L.lost = null; L.hint = 0;
 
     X.sirenOff();
     UI.wantedHud(null);

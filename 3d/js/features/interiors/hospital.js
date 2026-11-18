@@ -272,12 +272,13 @@ async function vending(rt) {
     tone(150, 0.08, "square", 0.08);
     const at = new THREE.Vector3(s.x - 0.1, 1.0, s.z - 0.6);
     const roll = force.vend || (Math.random() < 0.6 ? "snack" : "eat");
-    if (roll === "snack") {                 // 60%: a snack (+5)
+    if (roll === "snack") {                 // 60%: a snack (+5 the first time this run — after that just the snack)
         const sn = rt.prop("Snack");
         sn.position.set(s.x - 0.25, 1.3, s.z - 0.75);
         rt.add(sn);
         d.snack = { obj: sn, t: 0, y0: 1.3 };
-        rt.coins(5, "+5 💰 snack!", at);
+        if (!rt.used.snack) { rt.used.snack = true; rt.coins(5, "+5 💰 snack!", at); }
+        else H.toast("🍫 a snack! (no change, though)", "");
         rt.burst(at, ["#FFD700", "#FF8A65", "#FFF176"], 8, 1.6, 0.05);
     } else if (ctx.G.coins > 0) {           // 40%: it ATE a coin (only if she has run coins)
         ctx.G.coins = Math.max(0, ctx.G.coins - 1);

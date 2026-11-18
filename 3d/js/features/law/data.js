@@ -320,6 +320,24 @@ export const DEFENSE_POOL = [
 // ── chases ───────────────────────────────────────────────────────────────
 export const APB_FAST = ["📻 SPEEDING REPORTED — PURSUE!", "📻 RECKLESS DRIVER — ALL UNITS!", "🚨 APB ON A PINK CAR!"];
 export const APB_SLOW = ["🚨 APB ON A PINK CAR!", "🚓 SOMEONE CALLED IT IN!", "📻 SHE'S BACK AT IT — GO GO GO!"];
+/** Short reason keys other features pass to ctx.law.startChase → the charge the HUD / court shows. */
+export const REASON_CHARGES = {
+    borrowed: "GRAND THEFT AUTO", steamroller: "VEHICULAR DESTRUCTION", railroad: "RUNNING A RAILROAD GATE",
+    busStop: "PASSING A STOPPED SCHOOL BUS", crossingGuard: "BLOWING PAST A CROSSING GUARD", reckless: "RECKLESS ENDANGERMENT",
+};
+// ── heat: warnings, call-ins (BOLO), shaking them ────────────────────────
+export const WARN_LINES = {
+    trap: ["📡 CLOCKED — WARNING!", "📡 RADAR WARNING!"],
+    patrol: ["🚓 The patrol flashes its lights — WARNING!", "🚓 \"Slow it DOWN, ma'am!\""],
+    apb: ["📻 Dispatch: a speeding car's been reported…", "📻 Someone's complaining about your driving…"],
+};
+export const BOLO_MSG = "📞 SOMEONE CALLED IT IN";
+export const LOOK_MSG = {
+    car: "🔄 New wheels — they're looking for the other car!",
+    paint: "🎨 Fresh paint — nobody recognises you!",
+    disguise: "🥸 New look — nobody recognises you!",
+    clear: "😎 The heat's off — keep it low-key.",
+};
 export const PEPPER_COP = "😡 BIG mistake!";
 
 // Who speaks, for the dialogue box: name, emoji, colour.

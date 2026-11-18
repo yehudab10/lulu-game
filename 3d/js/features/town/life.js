@@ -417,7 +417,7 @@ function ranStop(stop) {
     emit("stat", { id: "townStopSigns", n: 1 });
     if (LIFE.stopsRun === 1 || Math.random() < 0.3) luluSay("stopSign");
     gossip("stopSign");
-    if (patrolSees()) crime("RUNNING A STOP SIGN", "🚨 YOU RAN THE STOP — AND THE PATROL SAW!");
+    if (patrolSees()) petty("RUNNING A STOP SIGN", "🚨 YOU RAN THE STOP — AND THE PATROL SAW!");
 }
 
 // ── one-way streets: the wrong way (delivery bikes do it; when SHE does it, the block notices) ──
@@ -434,7 +434,7 @@ function tickOneway(dt) {
     emit("stat", { id: "townWrongWay", n: 1 });
     luluSay("oneway");
     gossip("oneway");
-    if (patrolSees()) crime("WRONG WAY ON A ONE-WAY", "🚨 WRONG WAY — AND THE PATROL SAW!");
+    if (patrolSees()) petty("WRONG WAY ON A ONE-WAY", "🚨 WRONG WAY — AND THE PATROL SAW!");
 }
 
 // ── the patrol car ───────────────────────────────────────────────────────
@@ -457,11 +457,23 @@ export function crime(charge, msg, heat = 1) {
     gossip("cops");
     return true;
 }
+/** A PETTY one the patrol saw (a stop sign, the wrong way, speeding in the zone): law's warning step — the first
+ *  is a ⚠️ warning (lights, a look), another before it drains is the chase. Old law (no notice): straight to crime(). */
+export function petty(charge, msg) {
+    const law = ctx.law;
+    if (!law || !law.notice) return crime(charge, msg);
+    if (law.chasing || ctx.state !== "playing") return false;
+    LIFE.witness = true;
+    const r = law.notice(charge, { msg, witness: true, src: LIFE, warn: pick(["🚓 The patrol gives you a LOOK — warning!", "🚓 \"I'll let it go. ONCE.\""]) });
+    LIFE.witness = false;
+    if (r === "chase") gossip("cops");
+    return r === "chase";
+}
 function tickPatrol(dt, foot) {
     if (foot || !C.patrol || (ctx.law && ctx.law.chasing)) { LIFE.sightT = 0; return; }
     const mph = ctx.car.speed * 2.23694;
     if (mph > (LIFE.def.speedingMph || 48) && patrolSees(46)) {
         LIFE.sightT += dt;
-        if (LIFE.sightT > 0.7) { LIFE.sightT = 0; crime(`SPEEDING (${LIFE.def.speedLimitMph || 25} ZONE)`, `🚨 ${Math.round(mph)} IN A ${LIFE.def.speedLimitMph || 25}?!`); }
+        if (LIFE.sightT > 0.7) { LIFE.sightT = 0; petty(`SPEEDING (${LIFE.def.speedLimitMph || 25} ZONE)`, `🚨 ${Math.round(mph)} IN A ${LIFE.def.speedLimitMph || 25}?!`); }
     } else LIFE.sightT = Math.max(0, LIFE.sightT - dt);
 }

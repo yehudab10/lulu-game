@@ -4,7 +4,7 @@
 // colour. In a LATER run, rarely, the same car (same model, same paint, the same
 // person at the wheel) creeps up in the next lane, pulls alongside, honks and yells.
 // Then one of: just yells and leaves · tailgates her (brights flashing) · overtakes
-// and brake-checks · calls the cops (a mild 1★) · forgives her (the grudge is gone).
+// and brake-checks · calls the cops (a call-in: a cruiser comes looking) · forgives her (the grudge is gone).
 // A grudge shows up at most 3 times, never two runs in a row, one per run.
 //
 // The car is an ordinary traffic car (core traffic, pooled) restyled with the
@@ -220,7 +220,9 @@ function drive(E, dt, c) {
             if (E.pt > 3 && !E.said.called) {
                 E.said.called = true;
                 if (ctx.law && !ctx.law.chasing && ctx.state === "playing") {
-                    try { ctx.law.startChase("GRAND THEFT AUTO (HE SAYS)", { heat: 1, msg: `🚨 ${E.rec.name.toUpperCase()} CALLED IT IN!` }); } catch (e) { /* no law */ }
+                    // a phone call, not a cop on her bumper: law's call-in (a cruiser comes looking, later); old law → a 1★ chase
+                    const msg = `📞 ${E.rec.name.toUpperCase()} CALLED IT IN!`;
+                    try { if (ctx.law.callIn) ctx.law.callIn("GRAND THEFT AUTO (HE SAYS)", { msg }); else ctx.law.startChase("GRAND THEFT AUTO (HE SAYS)", { heat: 1, msg }); } catch (e) { /* no law */ }
                 }
             }
             if (E.pt > 3.6) go(E, "leave");

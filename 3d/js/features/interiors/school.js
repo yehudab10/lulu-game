@@ -6,6 +6,7 @@
 // windows. Lines from src/08d-foot-school-hospital.js.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
+import * as H from "../../hud.js";
 import { defineInterior, pool, pick, rand, randInt, GOLD } from "./engine.js";
 import { canvasPlane, drawLines, sfx, tone } from "./fx.js";
 
@@ -207,8 +208,8 @@ export default defineInterior({
                 rt.used.bake = true;
                 rt.coins(6, "+6 💰 rugelach run!", at);
                 rt.burst(at, ["#FFD700", "#FFCC80", "#A1674A"], 10, 2.0, 0.05);
-            } else {                           // …then a tiny star for repeat visits
-                rt.star(1, "+1 ⭐ one more nosh", at);
+            } else {                           // …then just a nosh (no more stars: it was an endless tap)
+                H.toast("🥐 one more nosh — on the house", "");
                 sfx.hop();
             }
         } });

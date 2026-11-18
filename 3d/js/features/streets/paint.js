@@ -4,8 +4,8 @@
 // it). Roll onto the apron and the cutscene takes the wheel: in you go, both
 // roll-up doors rattle down, the booth hisses and shakes, puffs of the NEW colour
 // leak out of the vents — and you roll out the far end freshly painted, tyres
-// fixed and the heat gone (the chase / fugitive stars; open court warrants stay,
-// that's between you and the judge). Costs coins (more with more stars); Moishe
+// fixed and the heat gone (the chase / fugitive stars / a call-in; open court warrants stay on file — only a judge
+// clears them — but no patrol recognises the new colour this run). Costs coins (more with more stars); Moishe
 // always has something to say. The whole scene runs on game time, so ⏭ skipping
 // fast-forwards it and every side effect still happens in order.
 import * as THREE from "three";
@@ -341,6 +341,8 @@ function payAndPaint(P) {
     P.warrants = !!(law && law.warrants && law.warrants.length);
     if (law) {
         try { law.clearHeat("🎨 Fresh paint — nobody recognises you!"); } catch (e) { console.error(e); }
+        // (a new colour = a new description: the warrant file / a call-in out for the old car don't know her this run)
+        try { if (law.changeLook) law.changeLook("paint"); } catch (e) { console.error(e); }
         if (law.hold) law.hold(18);          // (ticks down during the scene too)
     }
     PAINT.jobs++;

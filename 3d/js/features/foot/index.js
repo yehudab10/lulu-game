@@ -1245,6 +1245,12 @@ function copNearby(range) {
     return null;
 }
 
+/** A cop who can actually see her (law's line of sight), or any cop car right next to her. */
+function copSaw(range) {
+    if (ctx.law && ctx.law.copSees && ctx.law.copSees(F.pos.x, F.pos.z, range)) return true;
+    return !!copNearby(Math.min(range, 18));
+}
+
 function updateChase(dt) {
     if (!F.chase) {
         const recognisable = F.disguise !== "oldLady" && F.disguise !== "oldMan";
@@ -1399,7 +1405,7 @@ function interactables() {
 function interact(P) {
     const pr = interactables();
     F.prompt = pr;
-    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : (F.t > 4 && F.t < 16 ? `${glyph("interact")} 💃 busk for tips` : ""));
+    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : (F.t > 4 && F.t < 16 ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
         const has = !!pr;
         if (handBtn.classList.contains("has") !== has) {
@@ -1445,17 +1451,13 @@ function talkTo(ped) {
         bubble(F.lulu.obj, pick(L.FOOT_TALK_LULU), 2.0);
         A.sfxCloseCall(1);
     }
-    if (Math.random() < 0.3 || ctx.foot.force.tip) {
-        addCoins(1, "tip"); F.coins++;
-        floater(o, "+1 💰 tip", "#FFD700", 1.4, 2.4);
-        A.sfxCoin(0);
-    }
+    // (no tips: a chat is free — paying out per tap was an endless coin tap)
     emit("stat", { id: "footChats", n: 1 });
 }
 
 function pet(a) {
-    addCoins(1, "pet"); F.coins++;
-    floater(a.p.obj, pick(L.FOOT_PET_LINES) + " +1", "#FFB74D", 1.5, a.key === "foot_ostrich" ? 2.5 : 1.0);
+    // (pets pay in happiness only — a coin per pat was an endless coin tap)
+    floater(a.p.obj, pick(L.FOOT_PET_LINES), "#FFB74D", 1.5, a.key === "foot_ostrich" ? 2.5 : 1.0);
     A.sfxCloseCall(2);
     rumble(0.1, 0.3, 120);
     // it scoots off, delighted
@@ -1466,22 +1468,22 @@ function pet(a) {
     emit("stat", { id: "pets", n: 1 });
 }
 
-// With nothing nearby the hand button makes her busk/dance; passers-by tip.
+// With nothing nearby the hand button makes her busk/dance; passers-by cheer (applause only — no coins: it was spammable).
 function busk() {
     F.buskT = 1.6;
     bubble(F.lulu.obj, pick(L.FOOT_BUSK_LINES), 1.8);
     A.sfxCloseCall(3);
     const cols = [[1, 0.5, 0.67], [0.31, 0.76, 0.97], [1, 0.84, 0.31], [0.68, 0.84, 0.5]];
     for (let i = 0; i < 10; i++) ctx.car.fx.emit(F.pos.x + rand(-0.5, 0.5), 1.4, F.pos.z + rand(-0.5, 0.5), rand(-1.5, 1.5), rand(2, 4), rand(-1.5, 1.5), 0.35, 1.0, cols[i % 4]);
-    let tips = 0;
+    let fans = 0;
     for (const ped of F.peds) {
         const o = ped.p.obj;
-        if (Math.hypot(o.position.x - F.pos.x, o.position.z - F.pos.z) < 12) { tips++; bubble(o, "👏", 1.2); ped.talkT = 1.4; ped.cheerT = 1.0; }
+        if (Math.hypot(o.position.x - F.pos.x, o.position.z - F.pos.z) < 12) { fans++; bubble(o, "👏", 1.2); ped.talkT = 1.4; ped.cheerT = 1.0; }
     }
-    if (tips > 0) {
-        addCoins(tips, "busk"); F.coins += tips;
-        floater(F.lulu.obj, `+${tips} 💰 tips!`, "#FFD700", 1.6, 2.7);
-        A.sfxCoin(2);
+    if (fans > 0) {
+        floater(F.lulu.obj, fans > 2 ? "👏👏👏 the crowd LOVES it!" : "👏 a fan!", "#FFD700", 1.6, 2.7);
+        A.sfxCloseCall(4 + Math.min(fans, 4));
+        emit("stat", { id: "footBuskCheers", n: fans });
     }
 }
 
@@ -1491,8 +1493,12 @@ function doDisguise() {
     if (F.chase) { F.chase.giveUp = 2.5; }
     F.disguise = Math.random() < 0.5 ? "oldLady" : "oldMan";
     swapLulu();
+    // the heat's really off: any fugitive stretch / call-in ends, and the warrant file doesn't know this face this run
     if (ctx.law) {
-        try { if (ctx.law.clearWanted) ctx.law.clearWanted(); else ctx.law.wanted = 0; } catch (e) { /* read-only */ }
+        try {
+            if (ctx.law.clearHeat) ctx.law.clearHeat("");
+            if (ctx.law.changeLook) ctx.law.changeLook("disguise");
+        } catch (e) { console.error(e); }
     }
     emit("foot:disguise", { look: F.disguise });
     floater(F.lulu.obj, F.disguise === "oldLady" ? "👵 SWEET OLD LADY!" : "👴 OLD MAN DISGUISE!", "#7CFC4F", 2.0, 2.8);
@@ -1624,8 +1630,8 @@ function updateHotwire(dt, P) {
 }
 function finalizeBorrow(pc) {
     floater(F.lulu.obj, "🔓 HOTWIRED!", "#7CFC4F", 1.4);
-    // only a cop GENUINELY nearby (close enough to witness it) reacts
-    const watcher = copNearby(40);
+    // only a cop who actually SEES it (close, clear line of sight — or right next to her) reacts
+    const watcher = copSaw(40);
     const i = F.parked.indexOf(pc);
     if (i >= 0) F.parked.splice(i, 1);
     ctx.scene.remove(pc.obj);
@@ -1635,16 +1641,16 @@ function finalizeBorrow(pc) {
     H.toast(L.FOOT_HAIL_VEHICLE[pc.vtype] || "🔓 HOTWIRED!", "gold");
     if (watcher) {
         H.banner(`🚨 <b>GRAND THEFT AUTO — DRIVE!</b>`, 2200);
-        if (ctx.law && ctx.law.startChase) { try { ctx.law.startChase("borrowed"); } catch (e) { console.error(e); } }
+        if (ctx.law && ctx.law.startChase) { try { ctx.law.startChase("GRAND THEFT AUTO", { at: { x: pc.x, z: pc.z } }); } catch (e) { console.error(e); } }
         emit("foot:crime", { charges: ["GRAND THEFT AUTO", "JOYRIDING"], seen: true });
-    }
+    } else if (ctx.law && ctx.law.changeLook) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // new wheels, nobody saw
 }
 function hotwireFail(h) {
     floater(F.lulu.obj, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80", 1.8);
     beep(3);
     h.pc.busted = true; h.pc.alarmT = 2.5;
     F.hotwire = null; F.phase = "walk"; F.phaseT = 0;
-    if (copNearby(60)) {
+    if (copSaw(45)) {
         floater(F.lulu.obj, "👮 a cop SAW that — you're WANTED!", "#FF8A80", 2.0, 2.9);
         if (ctx.law && ctx.law.addWanted) { try { ctx.law.addWanted(["ATTEMPTED GRAND THEFT AUTO"]); } catch (e) { console.error(e); } }
         emit("foot:crime", { charges: ["ATTEMPTED GRAND THEFT AUTO"], seen: true });
@@ -1690,6 +1696,7 @@ function updateHail(dt) {
         ctx.traffic.remove(c);
         S.hailed++; saveSoon();
         enterCar(v);
+        if (ctx.law && ctx.law.changeLook && !ctx.law.chasing) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // a stranger's car: not what they're looking for
         H.toast(L.FOOT_HAIL_VEHICLE[vtype] || pick(L.FOOT_HAIL_OK), "gold");
     }
 }
@@ -1862,7 +1869,7 @@ ctx.foot = {
     startChase(from) { return !!(F && !F.chase && startFootChase(from)); },
     /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
     bounds: B.api,
-    /** Test / debug knobs: { avigail, er, hail, hotwire, tip, wreck } */
+    /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
     force: {},
     debug: {
         get F() { return F; },

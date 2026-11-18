@@ -6,7 +6,9 @@
 // or calls the cops), she slides in, the door slams — ONE continuous animation —
 // and she drives off in THAT vehicle (foot's borrowed-vehicle shell), with handling
 // to match: the box truck is a slug, the minivan floats, the sports car is a rocket
-// on a hair trigger. In view of a cop it's a wanted star (a cop car: two).
+// on a hair trigger. Only a cop who SEES it (close, clear line of sight) gives chase (a cop car: two stars,
+// always); a driver who phones it in puts out a call-in (law's BOLO: a cruiser comes looking, later); nobody
+// watching → nothing, and the cops lose her old car's description.
 //
 // Bail out of a moving car (hold △ / Y, E above ~30 mph, or the ✋ BAIL touch button):
 // she dives out the driver's door, tucks and rolls, and gets up on foot while the
@@ -18,7 +20,7 @@ import { CAMS } from "../../core/camera.js";
 import { spawnPerson } from "../../core/people.js";
 import { input, glyph, glyphSet, rumble } from "../../input.js";
 import * as H from "../../hud.js";
-import { models, need, live, partyOn, clamp, lerp, rand, pick, smooth, easeOut, backOut, left, fwd, luluSays, npcSays, crime, toast, stat, sfx, dizzyStars, spinStars } from "./common.js";
+import { models, need, live, partyOn, clamp, lerp, rand, pick, smooth, easeOut, backOut, left, fwd, luluSays, npcSays, crime, phoneIn, toast, stat, sfx, dizzyStars, spinStars } from "./common.js";
 import * as T from "./lines.js";
 
 // ── what can be jacked, and how it drives ────────────────────────────────
@@ -380,7 +382,7 @@ function react(V, dt, tgt, isCop) {
         V.called = true;
         // it only matters if she's still in THEIR car
         const ride = currentRide();
-        if (ride && ride === V.ride) crime("GRAND THEFT AUTO", o.position.x, o.position.z, { force: true, msg: "📞 THE DRIVER CALLED IT IN!" });
+        if (ride && ride === V.ride) phoneIn("GRAND THEFT AUTO", o.position.x, o.position.z, { msg: "📞 THE DRIVER CALLED IT IN!" });
     }
 }
 /** Pedestrians ALWAYS dive out of the way (Lulu's car, the coasting car she bailed from). */

@@ -139,7 +139,7 @@ module.exports = {
       let w1 = await t.L(W);
       t.check("school: bake sale +6 the first time", w1 - w0 === 6, `${w0} → ${w1}`);
       await use("bake", "school: bake sale again"); await t.frames(6); await advance(); await t.frames(40);
-      t.check("school: then +1 ⭐ one more nosh", (await t.L(W)) - w1 === 1);
+      t.check("school: then just a nosh — no more coins / stars (no endless tap)", (await t.L(W)) - w1 === 0, `${w1} → ${await t.L(W)}`);
       await use("morah", "school: Morah"); await t.frames(10);
       t.check("school: the Morah talks", await t.L(`/MORAH/i.test(document.querySelector("#dialog .name").textContent)`));
       await t.shot("school-morah");
@@ -161,6 +161,10 @@ module.exports = {
       w0 = await t.L(W);
       await use("vending", "hospital: SNAX again"); await t.frames(6); await advance(); await t.frames(40);
       t.check("hospital: …or it EATS a coin", (await t.L(W)) - w0 === -1);
+      await t.game(`window.__interiors.force.vend = "snack"`);
+      w0 = await t.L(W);
+      await use("vending", "hospital: SNAX a third time"); await t.frames(6); await advance(); await t.frames(40);
+      t.check("hospital: a second snack is just a snack (+5 is once a run)", (await t.L(W)) - w0 === 0, `${w0} → ${await t.L(W)}`);
       w0 = await t.L(W);
       await use("heshy", "hospital: Heshy"); await t.frames(10);
       await t.shot("hospital-heshy");
@@ -243,6 +247,10 @@ module.exports = {
       await t.key("e"); await t.frames(6);
       t.check("keyboard E uses a hotspot", await t.game(`ctx.dialogOpen`));
       await advance();
+      // walking back in doesn't refill the one-off rewards (once per interior per run — no in-and-out coin loop)
+      const wb = await t.L(W);
+      await use("bake", "school (again): bake sale"); await t.frames(6); await advance(); await t.frames(40);
+      t.check("school re-entered: the bake-sale coins don't pay twice", (await t.L(W)) === wb, `${wb} → ${await t.L(W)}`);
       await t.game(`window.__interiors.room.leave()`);
       await t.until(`__lulu3d.state === "title"`, "school (keyboard): leaves", 20000);
     }

@@ -69,20 +69,29 @@ module.exports = {
     t.check("the world streams around her (car anchor follows)", await t.game(`Math.abs(ctx.car.s - ctx.foot.debug.F.s) < 0.5`));
     await t.shot("walking");
 
-    // ── talk to a pedestrian (forced tip) ──
+    // ── talk to a pedestrian: bubbles + a chat stat, but NO coins (tips were an endless coin tap) ──
     await t.frames(30);
     const ped = await t.game(`(() => { const F = ctx.foot.debug.F; const p = ctx.foot.debug.spawnPed({ s: F.s + 1.2, d: F.d + 0.4, speed: 0, drunk: false }); return !!p; })()`);
     t.check("a pedestrian can stand next to her", ped);
     await t.frames(4);
     t.check("prompt offers 💬 TALK", await t.L(`/TALK/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`));
-    const w0 = await wallet();
-    await t.game(`ctx.foot.force.tip = true`);
+    const w0 = await wallet(), fc0 = await F("coins");
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__coinEv = []; m.on("coin", e => window.__coinEv.push(e.why)); return true; })`);
     await t.tap(0);
     t.check("talking pops speech bubbles", await t.L(`document.querySelectorAll("#footBubbles .fbub").length >= 2`));
     await t.shot("talk");
     await t.frames(40);
-    t.check("a tip lands in the shared wallet", await wallet() - w0 >= 1, `${w0} → ${await wallet()}`);
-    await t.game(`ctx.foot.force.tip = false`);
+    // talk again a few times (it used to pay 30% of the time)
+    for (let i = 0; i < 5; i++) { await t.game(`(() => { const p = ctx.foot.debug.F.peds.at(-1); if (p) p.talkT = 0; })()`); await t.tap(0); await t.frames(8); }
+    t.check("talking pays no coins (wallet + run tally unchanged)", await wallet() === w0 && await F("coins") === fc0, `${w0} → ${await wallet()}`);
+    // busk (the hand button with nothing to interact with): the peds cheer, no coins
+    await t.game(`(() => { const F = ctx.foot.debug.F; F.peds.forEach(p => p.s += 200); for (let i = 0; i < 3; i++) ctx.foot.debug.spawnPed({ s: F.s + 6 + i * 2, d: F.d + 3, speed: 0, drunk: false }); })()`);
+    await t.frames(4);
+    const pr0 = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+    t.check("nothing to interact with → the hand button busks", !/TALK|PET|HAIL|BORROW|GET BACK|CARJACK|ENTER/.test(pr0), pr0);
+    for (let i = 0; i < 4; i++) { await t.game(`ctx.foot.debug.F.buskT = 0`); await t.tap(0); await t.frames(6); }
+    t.check("busking: the crowd cheers (👏)", await t.L(`[...document.querySelectorAll("#footBubbles .fbub")].some(b => /👏/.test(b.textContent))`));
+    t.check("busking pays no coins either", await wallet() === w0 && await F("coins") === fc0, `${w0} → ${await wallet()}`);
 
     // ── pet an animal ──
     await t.game(`(() => { const F = ctx.foot.debug.F; ctx.foot.debug.F.peds.forEach(p => p.s += 200); })()`);
@@ -92,10 +101,13 @@ module.exports = {
       for (let i = 0; i < 4; i++) await t.game(`(() => { const a = ctx.foot.debug.F.animals.at(-1); a.wait = 9; a.ts = a.s; a.td = a.d; })()`);
       await t.frames(3);
       t.check("prompt offers 🐾 PET", await t.L(`/PET/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`));
-      const c0 = await F("coins");
+      const c0 = await F("coins"), pw0 = await wallet();
       await t.tap(0);
-      t.check("petting earns a coin", (await F("coins")) > c0);
+      await t.frames(3);
+      t.check("petting: the critter scoots off happy", await t.game(`ctx.foot.debug.F.animals.at(-1).petT > 0`));
+      t.check("petting pays no coins (it was an endless coin tap)", (await F("coins")) === c0 && await wallet() === pw0, `${pw0} → ${await wallet()}`);
       await t.shot("pet");
+      t.check("no 'tip' / 'busk' / 'pet' coin events on foot", await t.L(`!(window.__coinEv || []).some(w => /^(tip|busk|pet)$/.test(w))`), await t.L(`JSON.stringify(window.__coinEv || [])`));
     } else t.check("the duck model loads", false);
 
     // ── a car clips her: lose a heart, get knocked flat, get up ──

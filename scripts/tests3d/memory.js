@@ -88,10 +88,11 @@ module.exports = {
     t.check("tailgating: right behind her, in her lane, never inside her", tg.rel < -6 && tg.rel > -16 && tg.dd < 1, JSON.stringify(tg));
     await t.shot("grudge-tailgate");
     await t.until(`!__lulu3d.ctx.memory.debug.GR.enc || __lulu3d.ctx.memory.debug.GR.enc.phase === "leave"`, "…and drives off", 40000);
-    // the 1★ call (a second visit, forced)
+    // the call to the cops (a second visit, forced)
     await g(`(${D}.GR.enc && ctx.traffic.remove(${D}.GR.enc.car), ctx.memory.spawnGrudge(null, { act: "cops", behind: 12 }), true)`);
     await t.until(`(() => { const E = __lulu3d.ctx.memory.debug.GR.enc; return E && E.said && E.said.called; })()`, "a grudge calls the cops", 40000);
-    t.check("…a mild 1★ chase", await g(`!ctx.law || (ctx.law.chasing && ctx.law.wanted === 1)`), String(await g(`ctx.law && ctx.law.wanted`)));
+    // (a phone call, not a cop on her bumper: law's call-in — a cruiser comes looking later)
+    t.check("…a call-in (📞 REPORTED), no instant chase", await g(`!ctx.law || (ctx.law.reported && !ctx.law.chasing)`), String(await g(`ctx.law && [ctx.law.reported, ctx.law.chasing]`)));
     await g(`(ctx.law && ctx.law.clearHeat(""), true)`);
     await t.frames(4);
     rec = (await g(`ctx.memory.recall("grudge")`))[0];

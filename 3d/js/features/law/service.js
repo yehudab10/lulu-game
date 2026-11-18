@@ -7,7 +7,9 @@
 import { ctx, setState } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
 import * as H from "../../hud.js";
-import { L, config, TUNE, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes, rig, setRig } from "./cops.js";
+import { L, config, TUNE, beginChase, endChase, copNear, copSees, startFugitive, endFugitive, prisonClothes, rig, setRig,
+    notice, callIn, endBolo, changeLook, escape } from "./cops.js";
+import { REASON_CHARGES } from "./data.js";
 import { S, addWanted, clearLockup, fugitiveStars } from "./rules.js";
 
 export const run = { live: false, mode: "cruise", ride: null };   // is a run in progress that an arrest interrupted? (+ her wheels, below)
@@ -52,8 +54,33 @@ export const law = {
     /** Start (or escalate) a pursuit. reason: plain-language charge. opts: { msg, charges[], heat } */
     startChase(reason, opts = {}) {
         if (!ctx.car || !DRIVING_OK.has(ctx.state)) return false;
-        return beginChase(reason || "RECKLESS DRIVING", opts);
+        return beginChase(REASON_CHARGES[reason] || reason || "RECKLESS DRIVING", opts);
     },
+    /**
+     * A PETTY offense a cop saw (a stop sign, speeding in a zone…): the first is a ⚠️ WARNING that drains while she
+     * drives clean; another while it's live — or opts.amount ≥ 1 (reckless) — is a chase. opts: { msg, warn (the
+     * warning line), witness (a cop's right there: chase now; else a call-in), src (an object: 4 s cooldown), heat }.
+     * → "chase" | "warn" | "".
+     */
+    notice(charge, opts = {}) { return DRIVING_OK.has(ctx.state) ? notice(charge, opts) : ""; },
+    /**
+     * A witness phoned it in — no cop saw it: after a delay (opts.delay, else 8–14 s) an unlit cruiser comes up the road
+     * looking for the car she's in. Change cars / paint / ditch it, hide, or stay out of its sight and they call it off.
+     * → "bolo" | "chase" (one was on: the charge piles on) | "".
+     */
+    callIn(charge, opts = {}) { return callIn(REASON_CHARGES[charge] || charge, opts); },
+    /** A call-in is out (📞 REPORTED / 🚓 LOOKING FOR YOU). */
+    get reported() { return !!L.bolo; },
+    /** 0–1 the ⚠️ WARNING heat (petty offenses; draining). */
+    get suspicion() { return L.sus; },
+    /** She changed her look this run (a new car / paint / disguise): the warrant file doesn't know her. */
+    get lowKey() { return !!L.lowKey; },
+    /** Mid-chase she's tucked away out of sight ("lot" | "town" | "verge" | ""). */
+    get hiding() { return L.chase && L.chase.searching ? L.chase.hiding || "" : ""; },
+    /** She switched cars / painted / disguised unseen: drop the old description (see cops.js changeLook). how: car | paint | disguise. */
+    changeLook(how = "car") { return changeLook(how); },
+    /** Mid-chase and unseen: she got away (e.g. she took an exit into a town). → bool */
+    lose(how = "lost", msg = "") { if (!L.chase || !L.chase.searching) return false; escape(how, msg); return true; },
     /**
      * Arrest her now: the cinematic → booking → cell → court.
      * opts: { fromBust, onFoot, x, z, h (on-foot position), skipCinematic }
@@ -72,7 +99,7 @@ export const law = {
     get wanted() {
         if (L.chase) return L.chase.heat;
         if (L.fug) return fugitiveStars(L.fug.t);
-        return S.wanted.length ? 1 : 0;
+        return S.wanted.length && !L.lowKey ? 1 : 0;     // (warrants on file, unless she's changed her look this run)
     },
     get chasing() { return !!L.chase; },
     /** Mid-chase: the cops have lost sight of her and are SEARCHING (the stars flash). */
@@ -90,18 +117,24 @@ export const law = {
     /** alias (cameos uses this name) */
     addWanted(charges) { addWanted(Array.isArray(charges) ? charges : [charges]); },
     /** Shake the heat (a disguise on foot, a long lay-low): ends the fugitive stretch + any chase. */
-    clearHeat(msg = "🥸 New look — nobody recognises you!") {
+    clearHeat(msg = "🥸 New look — nobody recognises you!", { lowKey = true } = {}) {
         if (L.chase) endChase("disguise");
         if (L.fug) { clearLockup(); endFugitive(msg); }
+        if (L.bolo) endBolo("cleared");
+        L.sus = 0; L.wantedSpot = 0;
+        // the warrants stay on file (only a judge clears them) — but nobody out here recognises her this run
+        if (lowKey && S.wanted.length) { L.lowKey = L.lowKey || "clear"; L.lowKeyT = ctx.time; }
     },
     /** Is a cop (parked, patrolling or chasing) within r metres of (x, z)? */
     copNear(x, z, r = 40) { return !!copNear(x, z, r); },
-    /** A crime happened at (x, z): a cop who saw it gives chase (or arrests on the spot). */
+    /** Can a cop actually SEE (x, z) — within r, clear line of sight (≤ 15 m always)? */
+    copSees(x, z, r = 45) { return !!copSees(x, z, r); },
+    /** A crime happened at (x, z): a cop who SAW it gives chase (or arrests on the spot). */
     report(charge, { x, z, arrest = false, r = 60 } = {}) {
         if (x == null) { x = ctx.car.pos.x; z = ctx.car.pos.z; }
-        if (!copNear(x, z, r)) return false;
+        if (!copSees(x, z, r)) return false;
         if (arrest) return law.arrest([charge]);
-        return law.startChase(charge, { msg: "🚨 BUSTED!" });
+        return law.startChase(charge, { msg: "🚨 BUSTED!", at: { x, z } });
     },
     /** Lulu is driving a cruiser: pull over the car ahead (the 2D copStop). */
     pullOver() { return pullOverFn ? pullOverFn() : false; },
