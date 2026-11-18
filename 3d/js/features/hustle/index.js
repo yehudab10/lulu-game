@@ -19,7 +19,7 @@
 //  hustle:end {id, result, why, pay}, hustle:heist, hustle:bag {lost},
 //  hustle:radio {station}; lifetime stats via emit("stat") (hustleJobs, hustleFares,
 //  hustleHeists, hustleDeliveries, hustleCash + best hustle_fares / _streak / _take / _stars).
-//  Random offers + radio chatter are gated by ctx.enabled("hustle") (off in parties).
+//  Random offers + radio chatter are gated by ctx.enabled("hustle"). In a 🎉 party: party.js (seeded payphones).
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, addMenuItem } from "../../core/ctx.js";
 import { resume } from "../../core/screens.js";
@@ -35,6 +35,7 @@ import { LOG, openLog } from "./log.js";
 import { jobHud, tickerGone } from "./ui.js";
 import { rand } from "./util.js";
 import { TUNE } from "./data.js";
+import { partyDebug } from "./party.js";
 
 // ── per frame ─────────────────────────────────────────────────────────────
 hook("update", (dt, P, controlsOn) => {
@@ -88,5 +89,5 @@ ctx.hustle = {
     log: LOG,
     openLog,
     /** Tests / debug: internals. */
-    _dbg: { J, M, beacons, get pending() { return J.pending; }, get hist() { return J.hist.slice(); } },
+    _dbg: { J, M, beacons, get pending() { return J.pending; }, get hist() { return J.hist.slice(); }, party: partyDebug },
 };

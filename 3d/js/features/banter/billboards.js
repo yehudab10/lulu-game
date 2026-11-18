@@ -241,7 +241,7 @@ export function tickBillboards(dt) {
         if (G) G.lampMat.emissiveIntensity = 0.3 + n * 3.4;
     }
     if (!ctx.enabled("banter") || (ctx.state !== "playing" && ctx.state !== "intro")) return;
-    planAhead();
+    if (!(ctx.party && ctx.party.active)) planAhead();     // a 🎉 party hangs its own (seeded, features/party) — no dice here
     // Lulu reads them as she goes by
     const car = ctx.car;
     for (const b of active) {

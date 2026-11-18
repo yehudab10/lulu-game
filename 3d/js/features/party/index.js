@@ -40,7 +40,7 @@
 import * as THREE from "three";
 import { ctx, on, emit, hook, addMenuItem, registerState, setState, wrapAngle } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
-import { resetRun, updateDriving, autoDrive, addCoins } from "../../core/driving.js";
+import { resetRun, updateDriving, autoDrive, addCoins, endRun } from "../../core/driving.js";
 import { input, glyph, rumble, addTouchButton } from "../../input.js";
 import * as H from "../../hud.js";
 import * as AU from "../../audio.js";
@@ -55,6 +55,7 @@ import * as T from "./traffic.js";
 import * as STG from "./stage.js";
 import * as PS from "./presence.js";
 import * as U from "./ui.js";
+import * as PLAN from "./plan.js";
 import { tone } from "../parking/sfx.js";
 
 const QS = new URLSearchParams(location.search);
@@ -151,6 +152,7 @@ ctx.party = {
         bbPlan: () => [...BB.plan].filter(([k, p]) => p).map(([k, p]) => `${k}:${p.s.toFixed(1)}:${p.side}:${p.id}`),
         traffic: T.PT },
 };
+PLAN.install(ctx.party);      // rng / seeded / h01 / road (the seeded road plan: plan.js)
 
 // the sky: atmos runs its Cruise day + weather from these in a party (same for everyone)
 const DAY_S = 540, WX_BLOCK = 100;
@@ -168,11 +170,13 @@ ctx.party.atmosWeather = () => {
     return { kind: "fog", strength: 0.7 + r2 * 0.3 };
 };
 
-// random features stay off in a party (every friend must see the same world)
-// 🚶 foot · 🏠 interiors · 🚓 law are ON: personal (per player), with what friends need to see published as
-// presence / extras (presence.js). streets + rides keep their RANDOM content off, but their mechanics (carjack,
-// bail out, per-ride handling / horns / tricks) work in a party — ARCHITECTURE.md › party parity table.
-const OFF = new Set(["roadevents", "cameos", "journey", "meta", "dina", "banter", "hustle", "streets", "memory", "world", "shabbos", "town", "community", "rides"]);
+// random features stay off in a party (every friend must see the same world). The rest are ON but
+// party-aware: what everyone sees comes from the seed (plan.js / the party clock), what you DO is yours —
+// roadevents · cameos · world · hustle (seeded road plan), community (seeded in 🌍 Free Roam towns),
+// memory · banter · meta (personal), 🚶 foot · 🏠 interiors · 🚓 law (personal; what friends need to see goes
+// out as presence / extras — presence.js). streets + rides keep their RANDOM content off, but their mechanics
+// (carjack, bail out, per-ride handling / horns / tricks) work in a party. See ARCHITECTURE › the party parity table.
+const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
@@ -239,6 +243,7 @@ function joinParty(code) {
 }
 function leave(toTitle = true) {
     if (!N.want) { if (toTitle && ctx.state !== "title") setState("title"); return; }
+    closeRun("party");
     NET.stop(true);
     teardown();
     if (toTitle) {
@@ -387,6 +392,7 @@ function followActivity() {
 }
 function goLobby() {
     if (ctx.foot && ctx.foot.active) ctx.foot.end("party");      // (walking when the host called everyone back)
+    closeRun("party");
     if (ctx.paused) resume();
     H.hideScreen();
     clearProps();
@@ -425,8 +431,10 @@ function beginRun(s, d, speed) {
     bbReset();
     const first = ACTS[N.A.k] && ACTS[N.A.k].planFirst;    // the run plans its own world (town exits) before the billboards
     if (!first) bbReserveAhead(s + 950, s);
+    closeRun("party");
     P.internal = true;
     try { resetRun({ mode: "party", s }); } finally { P.internal = false; }
+    P.runLive = true;
     if (first) { disposeChunks(); bbReserveAhead(s + 950, s); }
     ctx.traffic.config.enabled = false;
     placeCar(s, d, speed);
@@ -469,6 +477,7 @@ function slotIn(A) {
 }
 
 function startSpectate() {
+    closeRun("party");
     P.spectate = { uid: null, t: 0 };
     disposeChunks();
     bbReset();
@@ -1219,8 +1228,17 @@ function refreshLobbyBits() {
 }
 
 // ── results ──────────────────────────────────────────────────────────────
+/** My party run is over (results / back to the lobby / leaving / the next game): bank it like any run —
+ *  run:end → lifetime score + miles, quests, badges, best (meta), the job / call wrap-ups. Once per run. */
+function closeRun(why) {
+    const G = ctx.G;
+    if (!P.runLive || G.mode !== "party" || G.ended) { P.runLive = false; return; }
+    P.runLive = false;
+    try { endRun(why); } catch (e) { console.error("[party] endRun", e); }
+}
 function showResults(A) {
     if (ctx.foot && ctx.foot.active) ctx.foot.end("party");      // (still walking when it ended: back to her car for the photo)
+    closeRun("party");
     if (ctx.paused) resume();
     U.countdown(null);
     if (A.k === "trip") {
@@ -1355,7 +1373,12 @@ function publishExtras(m, foot) {
     const inRun = m >= 2 && m <= 4 || m === 7;
     const F = inRun ? ctx.foot : null, car = ctx.car;
     NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0] : null);
-    const pk = F && F.active ? F.parkedCar : null;
+    const pr = PS.myPresence();
+    // a scene that takes her out of the car right where it stands (a pull-in place, a porch, a side job's scene):
+    // friends see her car parked there with the tag over it; jail / court / the ER are elsewhere (no car shown)
+    const here = m === 7 && !!car && /^(scene|in|job)$/.test(pr[0]);
+    let pk = F && F.active ? F.parkedCar : null;
+    if (!pk && here && F) { const v0 = F.vehicle; pk = { x: car.pos.x, z: car.pos.z, h: car.h, key: v0 && v0.kind ? v0.kind : "lulu", paint: v0 && v0.color, wrecked: false }; }
     NET.setX("pc", pk ? [Math.round(pk.x * 10), Math.round(pk.z * 10), Math.round(wrapAngle(pk.h) * 1000), pk.key === "lulu" ? 0 : pk.key, pk.paint || 0, pk.wrecked ? 1 : 0] : null);
     const v = F && !foot && !F.active ? F.vehicle : null;
     NET.setX("v", v && v.kind ? [v.kind, v.color || 0] : null);
@@ -1363,8 +1386,7 @@ function publishExtras(m, foot) {
     NET.setX("cp", cops && cops.length ? cops : null);
     const ws = inRun && ctx.law ? ctx.law.wanted | 0 : 0;
     NET.setX("ws", ws > 0 ? ws : null);
-    const pr = PS.myPresence();
-    NET.setX("at", m === 7 && pr[0] === "in" && car ? [Math.round(car.pos.x * 10), Math.round(car.pos.z * 10)] : null);
+    NET.setX("at", here ? [Math.round(car.pos.x * 10), Math.round(car.pos.z * 10)] : null);
     NET.setX("jk", XP.jk.length ? XP.jk : null);
 }
 

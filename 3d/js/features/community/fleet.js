@@ -26,10 +26,12 @@ const _n = {}, _p = {};
 const inTown = () => !!(ctx.town && ctx.town.active);
 
 // ── records ──────────────────────────────────────────────────────────────
-function track(car, org, mode, opts = {}) {
+export function track(car, org, mode, opts = {}) {
     const V = { car, org, mode, lights: !!opts.lights, siren: !!opts.siren, sp: null, rig: lightRig(car.obj), t: 0, phase: Math.random(),
         v: opts.v || 12, laneD: 1.75, go: null, onArrive: null, gapWant: -7, side: 0, vmax: 24, seen: false, data: {} };
     car.data.community = V;
+    // a 🎉 party: a responder / pursuer is MINE (a local car friends never see — the shared traffic keeps it)
+    if (ctx.party && ctx.party.active && !car.data.party) car.data.partyLocal = true;
     // a nudge from a volunteer never costs a heart; a real crash does
     car.onCrash = e => (e.impact > 9 ? undefined : false);
     const prev = car.onRemove;
@@ -114,6 +116,7 @@ export function respond(org, target, { gap = 7, lights = true, siren = false, v 
 
 /** Follow Lulu round the grid (or down the highway) and sit `gapWant` m off her (negative = behind). */
 export function pursue(V, { gapWant = -7, side = 0, vmax = null, lights = true } = {}) {
+    if (V.loop) return V;                    // (a 🎉 party's seeded cruiser never leaves its loop: party.js)
     const c = V.car;
     V.mode = "pursue"; V.gapWant = gapWant; V.side = side; V.lights = lights; V.t = 0;
     V.vmax = vmax || topSpeed() * 0.8;
@@ -123,7 +126,7 @@ export function pursue(V, { gapWant = -7, side = 0, vmax = null, lights = true }
 }
 /** Pull out and drive off (removed once she can't see it). */
 export function leave(V, { lights = false } = {}) {
-    if (!V || V.dead) return;
+    if (!V || V.dead || V.loop) return;
     const c = V.car;
     ctx.world.road.nearest(c.x, c.z, c.s, _n);
     const fwd = Math.sin(c.h) * Math.sin(_n.h) + Math.cos(c.h) * Math.cos(_n.h);
@@ -137,7 +140,7 @@ export function leave(V, { lights = false } = {}) {
 }
 /** Stop dead where it is (lights as asked): a parked car with its flashers going. */
 export function park(V, lights = true) {
-    if (!V || V.dead) return;
+    if (!V || V.dead || V.loop) return;
     V.mode = "stop"; V.lights = lights;
     V.car.keep = true;
     V.car.ai = (dt, cc) => { cc.speed = Math.max(0, cc.speed - 12 * dt); if (cc.free) { cc.x += Math.sin(cc.h) * cc.speed * dt; cc.z += Math.cos(cc.h) * cc.speed * dt; } else cc.s += cc.speed * cc.dir * dt; };

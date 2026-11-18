@@ -28,6 +28,7 @@ import { D, updateDozer, endDozer, commandeer } from "./dozer.js";
 import { busChatter } from "./school.js";
 import { updateDrivers, checkHonkMoves, politeDodges, tickFenderBenders, resetDrivers } from "./drivers.js";
 import "./roadside.js";
+import { partyDebug } from "./party.js";
 import { resetZones, updateZones, scheduleZone, buffs, nitro, courage, updateBuffs, resetBuffs } from "./zones.js";
 
 // ── SPAWN_CONFIG timers (2D initSpawnTimers / tickSpawn) ────────────────────
@@ -244,5 +245,7 @@ const svc = {
     /** Per-run counters (also on ctx.G.roadevents). */
     tally,
     loadModels: loadAll,
+    /** 🎉 party: the seeded plan + what this screen spawned from it (party.js). */
+    party: partyDebug,
 };
 ctx.roadevents = svc;

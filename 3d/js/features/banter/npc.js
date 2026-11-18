@@ -266,7 +266,7 @@ export function clearPeds() { for (const P of peds) if (P.on) despawnPed(P); }
 function updatePeds(dt, live) {
     if (pedModels !== 2) return;
     const car = ctx.car;
-    if (live) {
+    if (live && !(ctx.party && ctx.party.active)) {      // (a 🎉 party's walkers come from the seed: roadevents)
         pedT -= dt;
         if (pedT <= 0) { pedT = 9 + Math.random() * 13; if (car.speed > 5 && peds.filter(x => x.on).length < 2) spawnPed(); }
     }

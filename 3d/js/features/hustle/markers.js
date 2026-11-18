@@ -17,17 +17,28 @@ export const M = { marker: null, t: rand(...TUNE.firstOffer), offering: false };
 
 /** Which job a marker / call offers (getaway needs the law feature for its heat). */
 export function pickJob() {
-    const pool = ["cab", "cab", "delivery", "delivery", ...(ctx.law ? ["getaway"] : [])];
+    const pool = ["cab", "cab", "delivery", "delivery", ...(lawOn() ? ["getaway"] : [])];
     const last = J.last;
     const opts = pool.filter(j => j !== last);
     return pick(opts.length ? opts : pool);
 }
 
+/** The getaway needs the law (its heat) — and in a 🎉 party the law ON for the party. */
+export const lawOn = () => !!ctx.law && !(ctx.party && ctx.party.active && !ctx.enabled("law"));
+/** A 🎉 party's highway (Road Trip / 🌍 Free Roam, not in a town) with enough road left for a job. */
+export function partyRoad() {
+    const pa = ctx.party, A = pa && pa.active ? pa.activity : null;
+    if (!A || ctx.G.mode !== "party" || (A.k !== "trip" && A.k !== "roam")) return false;
+    if (ctx.town && ctx.town.active) return false;
+    if (A.k === "trip" && ctx.journey && ctx.journey.stopS && ctx.car.s > ctx.journey.stopS(0) - 1700) return false;
+    return true;
+}
 export function canOffer() {
     const G = ctx.G;
     if (!ctx.enabled("hustle") || ctx.state !== "playing" || ctx.paused) return false;
-    if (G.mode !== "cruise" || J.job || J.pending || M.marker || M.offering) return false;
-    if (ctx.party && ctx.party.active) return false;
+    const party = !!(ctx.party && ctx.party.active);
+    if (party ? !partyRoad() : G.mode !== "cruise") return false;
+    if (J.job || J.pending || M.marker || M.offering) return false;
     if (ctx.foot && ctx.foot.active) return false;
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted >= 2)) return false;
     if (ctx.meta && ctx.meta.calm && ctx.meta.calm()) return false;
@@ -43,6 +54,9 @@ export function offersTick(dt, controlsOn) {
     if (M.t > 0) return;
     M.t = rand(...TUNE.nextOffer);
     const id = pickJob();
+    // a 🎉 party: only MY phone rings at random (nobody else hears it) — the payphones + job boards on the
+    // road come from the party's seeded plan, so every friend drives past the same ones (party.js)
+    if (ctx.party && ctx.party.active) { if (id !== "delivery" && ctx.phone && Math.random() < TUNE.phoneChance) phoneOffer(id); return; }
     if (Math.random() < TUNE.phoneChance && id !== "delivery" && ctx.phone) phoneOffer(id);
     else spawnMarker(id);
 }

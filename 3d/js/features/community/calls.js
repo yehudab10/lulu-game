@@ -46,6 +46,8 @@ export function reasons(org) {
             out.push({ id: "geese", icon: "🦢", label: "Report the geese", sub: "they're organised", run: () => police("geese") });
         }
     }
+    // a 🎉 party without the law: nothing that would start a chase / an arrest
+    if (ctx.party && ctx.party.active && !ctx.enabled("law")) return out.filter(r => r.id !== "self" && r.id !== "surrender");
     return out;
 }
 
@@ -116,7 +118,7 @@ export function registerApp() {
     if (!ctx.phone || !ctx.phone.addApp) return;
     ctx.phone.addApp({
         id: "community", icon: "📞", name: "Call", order: 65, color: "#3949AB", color2: "#E53935",
-        visible: () => !!townCfg() && !(ctx.party && ctx.party.active),
+        visible: () => !!townCfg() && (!(ctx.party && ctx.party.active) || ctx.enabled("community")),
         badge: () => (CM.scene && CM.scene.phase === "wait" ? "!" : null),
         back(api) { if (CM.view) { CM.view = null; api.refresh(); return true; } return false; },
         render(el, api, arg) {

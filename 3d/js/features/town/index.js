@@ -511,12 +511,13 @@ ctx.town = {
     },
     /** A free stretch of kerb in a parking lane (no parked van, jam, chair or hazard on it), between minD and maxD m
      *  from (near || her): { x, z, s, d, h, street, along, side } (world coords; d = the parking lane, h faces traffic's way). */
-    curbSpot({ len = 12, near = null, minD = 25, maxD = 140 } = {}) {
+    curbSpot({ len = 12, near = null, minD = 25, maxD = 140, still = false } = {}) {
         if (!S.active || !S.T) return null;
         const T = S.T, O = PL.ORIGIN, at = near || ctx.car.pos, half = len / 2 + 3;
         const busy = [...T.parked, ...T.jam];
         if (T.spots.chair) busy.push({ x: T.spots.chair.cx, z: T.spots.chair.cz });
-        for (const c of ctx.traffic.cars) busy.push({ x: c.x - O.x, z: c.z - O.z });
+        // (still: only cars that are parked — a 🎉 party's seeded pick must not depend on where the traffic happens to be)
+        for (const c of ctx.traffic.cars) if (!still || c.speed < 0.3) busy.push({ x: c.x - O.x, z: c.z - O.z });
         let best = null, bs = -1e9;
         for (const st of PL.STREETS) for (let k = 0; k < st.cross.length - 1; k++) {
             const u0 = st.cross[k].a + 16 + half, u1 = st.cross[k + 1].a - 16 - half;

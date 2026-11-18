@@ -33,7 +33,7 @@ export const PT = { seed: 1, U0s: 0, t0: 0, on: false, cars: new Map(), t: 0, go
 /** Cars only THIS screen has, which the party sync must leave alone: her parked car (foot), her own cops (law),
  *  a party car she's jacking (streets), anything a feature marks data.local. Everything else that isn't a
  *  party car is a stray random spawn and goes. */
-export const localCar = c => !!(c.data && (c.data.local || c.data.footStub || c.data.law || c.data.streetsJack || c.data.streetsHold));
+export const localCar = c => !!(c.data && (c.data.local || c.data.partyLocal || c.data.footStub || c.data.law || c.data.streetsJack || c.data.streetsHold));
 
 /** Configure for an activity: seed, GO time (party ms) and the start line s (nothing of ours behind it at GO). */
 export function configure(seed, t0ms, startS) {
@@ -122,7 +122,10 @@ export function syncTraffic(aroundS) {
         PT.cars.set(w.key, c);
     }
     for (const [key, c] of PT.cars) if (!keep.has(key)) { PT.cars.delete(key); tr.remove(c); }
-    // anything that isn't ours (a stray random spawn) would exist on ONE screen only
+    // anything that isn't ours (a stray random spawn) would exist on ONE screen only — except a car a feature
+    // marked PERSONAL (data.partyLocal: my cab job's "follow that car", the Chaverim coming for MY flat; localCar():
+    // my parked car, my own cops, a car I'm jacking): it's mine alone, friends never see it, and party cars are
+    // immune to it, so it can't split the shared traffic
     for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if ((!c.data || !c.data.party) && !localCar(c)) tr.remove(c); }
 }
 
