@@ -229,7 +229,11 @@ function placeInTown(at, back) {
     if (!st) return;
     const dir = Math.cos((at.h || 0) - st.h) >= 0 ? 1 : -1;
     let along = n.s - st.base - dir * back;
-    const lo = st.a0 + 6, hi = st.a1 - 6;
+    let lo = st.a0 + 6, hi = st.a1 - 6;
+    for (const ex of (ctx.town.plan && ctx.town.plan.def.exits) || []) {      // never line up in an on-ramp's mouth
+        if (ex.street !== st.name) continue;
+        if (ex.dir < 0) lo = Math.max(lo, ex.at + 14); else hi = Math.min(hi, ex.at - 14);
+    }
     if (along < lo) along = Math.min(hi, lo + (lo - along));
     if (along > hi) along = Math.max(lo, hi - (along - hi));
     const d = dir * 1.75, p = road.point(st.base + along, d, {}), h = dir > 0 ? st.h : st.h + Math.PI;
