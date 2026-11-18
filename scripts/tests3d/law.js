@@ -122,6 +122,25 @@ module.exports = {
     t.check("the HUD shows 😎 LOST 'EM", /LOST/.test(await hud()), await hud());
     await t.shot("lost-em");
 
+    // ── the verge is no hiding place from a cruiser looking straight at her: off the asphalt, in plain view ──
+    await placeFast(0, 22);
+    await t.game(`(${D}.L.grace = 0, ${D}.L.hint2 = 0, ctx.law.startChase("RECKLESS DRIVING", { msg: "🚨 TEST" }))`);
+    await t.frames(3);
+    await hideOffRoad(10.5);                     // on the grass verge, no trees between her and the road
+    // the cruiser sits on the road 24 m back (a clear line; beyond the old 10 m "tucked away" range)
+    await t.game(`(() => { const u = ${D}.L.units.find(u => u.car && u.mode === "chase"), r = ctx.world.road, s = ctx.car.s - 24, p = r.point(s, 1.75, {});
+        window.__vu = u; window.__vai = u.car.ai; u.car.ai = (dt, c) => { c.x = p.x; c.z = p.z; c.h = p.h; c.s = s; c.speed = 0; }; return true; })()`);
+    await t.frames(20);
+    const verge = await t.game(`${D}.hideInfo()`);
+    t.check("on the verge with a cruiser 24 m away in clear view: NOT hiding (it notices her)", verge.kind === "" && verge.why === "seen", JSON.stringify(verge));
+    t.check("…she's seen: no SEARCHING, no HIDING", await t.game(`${D}.L.chase && ${D}.L.chase.seen && !ctx.law.searching && ctx.law.hiding === ""`));
+    // the same spot once the cruiser is far back (and can't see her): it counts
+    await t.game(`(() => { const u = window.__vu, r = ctx.world.road, s = ctx.car.s - 260, p = r.point(s, 1.75, {}); u.car.ai = (dt, c) => { c.x = p.x; c.z = p.z; c.h = p.h; c.s = s; c.speed = 0; }; return true; })()`);
+    await t.until(`__lulu3d.ctx.law.hiding === "verge"`, "the same verge with the cruiser 260 m back: HIDING", 15000);
+    t.check("…the same verge, the cruiser far back: HIDING (verge)", await t.game(`ctx.law.hiding === "verge"`));
+    await t.game(`(window.__vu && window.__vu.car && (window.__vu.car.ai = window.__vai), ctx.law.clearHeat("test"), true)`);
+    await t.frames(3);
+
     // ── shake it by taking an EXIT while they're searching ──
     await placeFast(0, 22);
     await t.game(`(${D}.L.grace = 0, ctx.law.startChase("RECKLESS DRIVING", { msg: "🚨 TEST" }))`);
