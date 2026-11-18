@@ -176,7 +176,7 @@ export function tickLulu(dt) {
 hook("runStart", () => {
     Object.assign(D, { pending: null, cd: {}, chase: false, chaseT: 0, boringT: 0, boringAt: 40, wrongT: 0, offT: 0, speedyT: 0, driftT: 0, nightSaid: false, honks: [], last: -99, phone: false });
 }, 100);
-on("run:start", ({ mode }) => { if (mode === "cruise") say("opener", {}, { delay: 3.4 }); });
+on("run:start", ({ mode }) => { if (mode === "cruise" || mode === "party") say("opener", {}, { delay: 3.4 }); });
 on("journey:leg", ({ stop }) => { if (stop && stop.id) say("leg", { id: stop.id }, { delay: 3.4 }); });
 on("closeCall", ({ oncoming, combo }) => {
     busy();

@@ -38,7 +38,7 @@ import { tone } from "../parking/sfx.js";
 import { GAMES, ORDER, winners } from "./games.js";
 import * as HUD from "./hud.js";
 import { beacon, hideBeacon, hideBeacons, roofProp, tickProps, beaconCount } from "./marks.js";
-import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT } from "./towntraffic.js";
+import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT, loopPoint } from "./towntraffic.js";
 import { registerApps } from "./apps.js";
 import { initRide, startRide, stopRide, riding, tickSeats, ridingWith } from "./ride.js";
 
@@ -744,6 +744,8 @@ ctx.openworld = {
     hopOut: () => stopRide(),
     get riding() { return riding(); },
     pin, unpin, get pinned() { return NP.pin; },
+    /** A party town's block loops, read-only (community runs its org cars on them): { loops, origin, point(L, u, out) } | null. */
+    townLoops: () => (TT.plan && TT.loops.length ? { loops: TT.loops, origin: TT.plan.ORIGIN, point: loopPoint, town: TT.town } : null),
     debug: {
         CL, SOLO, NP, TT, townCarsAt, townLive, beaconCount, sights: townSights, pins, hostTick, getG, here,
         /** tests: claim a game event as me (exactly what play() would send). */

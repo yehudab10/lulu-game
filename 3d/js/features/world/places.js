@@ -36,6 +36,9 @@ export function addPlace(def) {
 }
 const quiet = () => (save3d.settings.chatter || "normal") === "quiet";
 const modeNow = () => ctx.G.mode || "cruise";
+/** The modes that drive the one long road past the fixed places: Cruise, and a 🎉 party (the same spots for every
+ *  friend — they're constants, not dice; pulling in is personal). */
+const roadMode = mode => mode === "cruise" || mode === "party";
 function positions(place, mode) { try { return (place.where && place.where(mode)) || []; } catch (e) { return []; } }
 
 /** Say something over a person / point in the world (banter's bubble, else a toast). */
@@ -109,7 +112,7 @@ function inBay(spot) {
 function canVisit() {
     const G = ctx.G;
     if (ctx.state !== "playing" || !ctx.enabled("world") || G.ended || G.tutorial) return false;
-    if (ctx.party && ctx.party.active) return false;
+    if (ctx.party && ctx.party.active && G.mode !== "party") return false;
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted > 0)) return false;
     if (ctx.foot && ctx.foot.active) return false;
     return true;
@@ -146,7 +149,7 @@ on("run:start", () => { V.visited.clear(); leaveBay(); warm(); });
 on("state", ({ to }) => { if (to !== "playing" && to !== "worldVisit" && V.inside) leaveBay(); });
 
 function warm() {
-    if (!ctx.enabled("world") || modeNow() !== "cruise") return;
+    if (!ctx.enabled("world") || !roadMode(modeNow())) return;
     const keys = [...new Set([...PLACES.values()].map(p => p.model).filter(Boolean).concat(["npcMan"]))];
     ensureModels(keys).catch(() => {});
 }
@@ -159,6 +162,8 @@ export function visit(spot) {
     saveSoon();
     emit("stat", { id: "placeVisits", n: 1 });
     emit("world:visit", { id: spot.place.id, s: spot.s });
+    // a 🎉 party: friends see what I'm up to over my parked car (party's presence tag, if it's there)
+    if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "scene", label: spot.place.verb || spot.place.name, icon: spot.place.icon });
     setState("worldVisit", { spot: spot.key });
 }
 
@@ -204,7 +209,10 @@ registerState("worldVisit", {
         cam.updateProjectionMatrix();
         return true;
     },
-    exit() { if (ctx.cam) { ctx.cam.state.pos.copy(ctx.camera.position); ctx.cam.state.yaw = ctx.car.h; ctx.cam.state.snap = false; } },
+    exit() {
+        if (ctx.cam) { ctx.cam.state.pos.copy(ctx.camera.position); ctx.cam.state.yaw = ctx.car.h; ctx.cam.state.snap = false; }
+        if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence(null);
+    },
 });
 
 // ── the places ──────────────────────────────────────────────────────────
@@ -217,7 +225,7 @@ const hostObj = sp => {
 // ⛽ Gas 'n' Go — Yanky fills the tank (nitro to full) and hands over a rugelach (+1 ❤️ if she's hurt)
 addPlace({
     id: "gas", name: "Gas 'n' Go", icon: "⛽", verb: "fill up at Gas 'n' Go", model: "world_gas",
-    where: mode => mode === "cruise" ? GAS_AT : [],
+    where: mode => roadMode(mode) ? GAS_AT : [],
     d: 15.2, bay: { half: 9, d0: 8.6, d1: 14.6 },
     sign: { lines: ["GAS 'N' GO", "NEXT RIGHT"], bg: "#E53935" },
     colliders: sp => {
@@ -267,7 +275,7 @@ addPlace({
 // 🌄 The Lookout — pull in, the camera drifts out over the lake, Lulu has a moment
 addPlace({
     id: "lookout", name: "the Lookout", icon: "🌄", verb: "take in the view", model: "world_lookout",
-    where: mode => mode === "cruise" ? LOOK_AT : [],
+    where: mode => roadMode(mode) ? LOOK_AT : [],
     d: 15.2, bay: { half: 7.5, d0: 8.6, d1: 16 },
     sign: { lines: ["SCENIC", "LOOKOUT", "NEXT RIGHT"], bg: "#6D4C41" },
     colliders: sp => {
@@ -317,8 +325,11 @@ const FAMILY = {
         reply: ["Don't tell Bubbe about the chip.", "Love you, Uncle Burry. Wear sunscreen."] },
 };
 function familyStops(mode) {
-    if (mode !== "cruise" || !ctx.journey || !ctx.journey.stopS || !ctx.journey.stops) return [];
-    return ctx.journey.stops.map((st, i) => ({ id: st.id, s: ctx.journey.stopS(i) })).filter(x => FAMILY[x.id]);
+    if (!roadMode(mode) || !ctx.journey || !ctx.journey.stopS || !ctx.journey.stops) return [];
+    const list = ctx.journey.stops.map((st, i) => ({ id: st.id, s: ctx.journey.stopS(i) })).filter(x => FAMILY[x.id]);
+    // a party's 🏡 Road Trip ENDS at Bubbe's (the group arrival): no driveways from there on
+    if (mode === "party" && ctx.party && ctx.party.activity && ctx.party.activity.k === "trip") return list.filter(x => x.s < ctx.journey.stopS(0) - 200);
+    return list;
 }
 for (const id of Object.keys(FAMILY)) {
     const F = FAMILY[id];

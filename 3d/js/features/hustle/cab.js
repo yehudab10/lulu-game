@@ -236,7 +236,8 @@ function startRide(job) {
     c.T = c.fare.kind === "follow" ? FOLLOW_NEED + 42 : D / 23 * c.fare.time + 7;
     if (c.fare.kind === "follow") {
         const s = car.s + 75;
-        c.mark = ctx.traffic.add("hustle_mark", s, 5.25, 1, 25, { keep: true, data: { hustleMark: true }, ai: (dt, m) => markAi(c, dt, m) });
+        // (partyLocal: in a 🎉 party it's MY fare's car — only I see it, the shared traffic keeps it)
+        c.mark = ctx.traffic.add("hustle_mark", s, 5.25, 1, 25, { keep: true, data: { hustleMark: true, partyLocal: true }, ai: (dt, m) => markAi(c, dt, m) });
         c.mark.want = 25;
     } else {
         c.dropS = car.s + D;

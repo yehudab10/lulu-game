@@ -19,6 +19,7 @@ import { CM, on, onFoot, luluPos, rand, pick, clamp, bubble, luluSay, sfx, stat,
 import { spawnAt, pursue, leave, park, shomrimSees, KIND } from "./fleet.js";
 import { play, windowSpot, actor, busy as helpBusy } from "./help.js";
 import { SHOMRIM } from "./lines.js";
+import { shomrimParty } from "./party.js";
 
 const inTown = () => !!(ctx.town && ctx.town.active);
 const MPH = 2.23694;
@@ -27,7 +28,7 @@ let chip = null;
 /** Start (or pile onto) a Shomrim pursuit. opts: { lead (they called it, no cops yet), from (a V that saw it), join, msg } */
 export function startShomrim(reason, opts = {}) {
     const cfg = townCfg();
-    if (!cfg || !cfg.orgs.shomrim || !on() || !CM.loaded || !inTown()) return false;
+    if (!cfg || !cfg.orgs.shomrim || !(on() || shomrimParty()) || !CM.loaded || !inTown()) return false;
     const SH = CM.chase;
     if (SH) { if (reason && !SH.charges.includes(reason)) SH.charges.push(reason); return true; }
     if ((CM.shCool || 0) > ctx.time && !opts.join) return false;
@@ -38,7 +39,7 @@ export function startShomrim(reason, opts = {}) {
     // the car that saw it leads; more join out of sight on the grid
     const want = Math.max(1, Math.min(3, opts.join ? cfg.shomrim.join : 2));
     const first = opts.from || shomrimSees(ch.sight);
-    if (first && !first.dead) addUnit(ch, first, 0);
+    if (first && !first.dead && !first.loop) addUnit(ch, first, 0);     // (a party's loop cruiser radios it in; local units chase)
     while (ch.units.length < want) {
         const sp = ctx.town.copSpawn ? ctx.town.copSpawn(ch.units.length ? "seen" : "first") : null;
         if (!sp) break;
@@ -151,7 +152,7 @@ export function tickShomrim(dt) {
 // speeding past a Shomrim car (they're watching. they're ALWAYS watching)
 function watchSpeeding(dt) {
     const cfg = townCfg();
-    if (!cfg || !cfg.orgs.shomrim || !on() || ctx.state !== "playing" || onFoot() || (ctx.law && ctx.law.chasing)) { CM.speedT = 0; return; }
+    if (!cfg || !cfg.orgs.shomrim || !(on() || shomrimParty()) || ctx.state !== "playing" || onFoot() || (ctx.law && ctx.law.chasing)) { CM.speedT = 0; return; }
     const lim = (ctx.town.def && ctx.town.def.speedingMph) || 48;
     const mph = ctx.car.speed * MPH;
     if (mph > lim && shomrimSees(45)) {
@@ -162,7 +163,7 @@ function watchSpeeding(dt) {
 
 /** Something happened in town: a Shomrim car that saw it (or a guy "just parked on the corner") starts in. */
 export function witness(reason, r = 55, chance = 0.25) {
-    if (!townCfg() || !on()) return false;
+    if (!townCfg() || !(on() || shomrimParty())) return false;
     if (CM.chase) { if (!CM.chase.charges.includes(reason)) CM.chase.charges.push(reason); return true; }
     if (ctx.law && ctx.law.chasing) return false;
     const V = shomrimSees(r);

@@ -34,7 +34,7 @@
 import * as THREE from "three";
 import { ctx, on, emit, hook, addMenuItem, registerState, setState, wrapAngle } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
-import { resetRun, updateDriving, autoDrive, addCoins } from "../../core/driving.js";
+import { resetRun, updateDriving, autoDrive, addCoins, endRun } from "../../core/driving.js";
 import { input, glyph, rumble, addTouchButton } from "../../input.js";
 import * as H from "../../hud.js";
 import * as AU from "../../audio.js";
@@ -48,6 +48,7 @@ import * as R from "./remote.js";
 import * as T from "./traffic.js";
 import * as STG from "./stage.js";
 import * as U from "./ui.js";
+import * as PLAN from "./plan.js";
 import { tone } from "../parking/sfx.js";
 
 const QS = new URLSearchParams(location.search);
@@ -127,6 +128,7 @@ ctx.party = {
         bbPlan: () => [...BB.plan].filter(([k, p]) => p).map(([k, p]) => `${k}:${p.s.toFixed(1)}:${p.side}:${p.id}`),
         traffic: T.PT },
 };
+PLAN.install(ctx.party);      // rng / seeded / h01 / road (the seeded road plan: plan.js)
 
 // the sky: atmos runs its Cruise day + weather from these in a party (same for everyone)
 const DAY_S = 540, WX_BLOCK = 100;
@@ -144,8 +146,11 @@ ctx.party.atmosWeather = () => {
     return { kind: "fog", strength: 0.7 + r2 * 0.3 };
 };
 
-// random features stay off in a party (every friend must see the same world)
-const OFF = new Set(["roadevents", "cameos", "law", "journey", "meta", "foot", "interiors", "dina", "banter", "hustle", "streets", "memory", "world", "shabbos", "town", "community", "rides"]);
+// random features stay off in a party (every friend must see the same world). The rest are ON but
+// party-aware: what everyone sees comes from the seed (plan.js / the party clock), what you DO is yours —
+// roadevents · cameos · world · hustle (seeded road plan), community (seeded in 🌍 Free Roam towns),
+// memory · banter · meta (personal). See ARCHITECTURE › the party parity table.
+const OFF = new Set(["law", "journey", "foot", "interiors", "dina", "streets", "shabbos", "town", "rides"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
@@ -212,6 +217,7 @@ function joinParty(code) {
 }
 function leave(toTitle = true) {
     if (!N.want) { if (toTitle && ctx.state !== "title") setState("title"); return; }
+    closeRun("party");
     NET.stop(true);
     teardown();
     if (toTitle) {
@@ -357,6 +363,7 @@ function followActivity() {
     if (A.ph === "done" && ctx.state !== "partyResults") showResults(A);
 }
 function goLobby() {
+    closeRun("party");
     if (ctx.paused) resume();
     H.hideScreen();
     clearProps();
@@ -394,8 +401,10 @@ function beginRun(s, d, speed) {
     bbReset();
     const first = ACTS[N.A.k] && ACTS[N.A.k].planFirst;    // the run plans its own world (town exits) before the billboards
     if (!first) bbReserveAhead(s + 950, s);
+    closeRun("party");
     P.internal = true;
     try { resetRun({ mode: "party", s }); } finally { P.internal = false; }
+    P.runLive = true;
     if (first) { disposeChunks(); bbReserveAhead(s + 950, s); }
     ctx.traffic.config.enabled = false;
     placeCar(s, d, speed);
@@ -438,6 +447,7 @@ function slotIn(A) {
 }
 
 function startSpectate() {
+    closeRun("party");
     P.spectate = { uid: null, t: 0 };
     disposeChunks();
     bbReset();
@@ -1174,7 +1184,16 @@ function refreshLobbyBits() {
 }
 
 // ── results ──────────────────────────────────────────────────────────────
+/** My party run is over (results / back to the lobby / leaving / the next game): bank it like any run —
+ *  run:end → lifetime score + miles, quests, badges, best (meta), the job / call wrap-ups. Once per run. */
+function closeRun(why) {
+    const G = ctx.G;
+    if (!P.runLive || G.mode !== "party" || G.ended) { P.runLive = false; return; }
+    P.runLive = false;
+    try { endRun(why); } catch (e) { console.error("[party] endRun", e); }
+}
 function showResults(A) {
+    closeRun("party");
     if (ctx.paused) resume();
     U.countdown(null);
     if (A.k === "trip") {

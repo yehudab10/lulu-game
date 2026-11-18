@@ -159,7 +159,7 @@ on("run:start", () => {
     syncLamps();
     phase = ""; lightsSaid = false;
 });
-on("run:end", () => { saved.clock = ownClock !== null ? ownClock : S.clock; saveSoon(); });
+on("run:end", ({ G } = {}) => { if (G && G.mode === "party") return; saved.clock = ownClock !== null ? ownClock : S.clock; saveSoon(); });   // (a party's sky is the party's, not my Cruise day)
 
 // ── the service (+ test / debug hooks) ────────────────────────────────────
 ctx.atmos = {

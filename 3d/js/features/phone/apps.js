@@ -42,7 +42,8 @@ addApp({
 function jobsBlock() {
     const G = ctx.G, h = ctx.hustle;
     if (h.job) return null;
-    if (G.mode !== "cruise") return "Side jobs are a 🛣️ Cruise thing.";
+    if (partyOn() ? !(ctx.G.mode === "party" && ctx.party.activity && /^(trip|roam)$/.test(ctx.party.activity.k)) : G.mode !== "cruise") return partyOn() ? "Side jobs are for the 🏡 Road Trip + 🌍 Free Roam." : "Side jobs are a 🛣️ Cruise thing.";
+    if (partyOn() && ctx.town && ctx.town.active) return "Get back on the highway first 🛣️";
     if (!inCarNow()) return "Get back in a car first 🚗";
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted >= 2)) return "Lose the cops first 🚓";
     if (ctx.meta && ctx.meta.calm && ctx.meta.calm()) return "Finish the driving lesson first 📝";
@@ -54,7 +55,7 @@ function jobsBlock() {
 }
 addApp({
     id: "jobs", icon: "💼", name: "Jobs", order: 40, color: "#FFA000", color2: "#E65100",
-    visible: () => !!(ctx.hustle && ctx.hustle.start) && !partyOn(),
+    visible: () => !!(ctx.hustle && ctx.hustle.start) && (!partyOn() || ctx.enabled("hustle")),
     badge: () => (ctx.streets && ctx.streets.chop && ctx.streets.chop.job ? "!" : null),
     render(el, api) {
         const h = ctx.hustle, job = h.job, why = jobsBlock();
@@ -66,7 +67,7 @@ addApp({
             html += `<div class="lp-card lp-on"><span class="lp-av">${d.emoji || "💼"}</span><span class="lp-tx"><b>On the clock: ${esc(d.name || job.id)}</b><small>${esc(job.intro || d.blurb || "")}</small></span></div>
                 <button class="btn lp-row lp-mini" id="lpQuitJob">✋ Quit this job</button>`;
         } else {
-            const ids = ["cab", "delivery"].concat(ctx.law ? ["getaway"] : []);
+            const ids = ["cab", "delivery"].concat(ctx.law && !(partyOn() && !ctx.enabled("law")) ? ["getaway"] : []);
             html += ids.filter(id => JOBS[id]).map(id => { const d = JOBS[id]; return `<button class="btn lp-row lp-job" data-job="${id}"${why ? " disabled" : ""}><span class="lp-av" style="--c:${d.color}">${d.emoji}</span>
                 <span class="lp-tx"><b>${esc(d.name)}</b><small>${esc(d.blurb)}</small></span>${why ? "" : '<span class="lp-meta lp-go">Take it</span>'}</button>`; }).join("");
             if (why) html += `<p class="lp-note">${esc(why)}</p>`;

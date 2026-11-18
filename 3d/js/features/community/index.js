@@ -24,7 +24,8 @@
 //          community:by {phase, result} · community:call {org}
 //  Stats: communityChesed, communityHelped, communityPatched, communityCalls, communityShomrimChases,
 //         communityHolds, communityBlends, communityBlendTries, communitySelfReports, communitySurrenders
-//  Random content is gated by ctx.enabled("community") (off in ?test unless enabled, off in a party).
+//  Random content is gated by ctx.enabled("community") (off in ?test unless enabled). In a 🎉 party town
+//  (🌍 Free Roam) the cruisers + scenes come from the seed instead (party.js); help + calls are personal.
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, addActor } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
@@ -37,6 +38,7 @@ import { tickHelp, request, cancelHelp, sceneActive } from "./help.js";
 import { tickShomrim, startShomrim, endShomrim, witness } from "./shomrim.js";
 import { tickBY, bySpot, clearLine, bootBY, startBlend, heat } from "./by.js";
 import { registerApp, debugCall, reasons } from "./calls.js";
+import { tickParty, shomrimParty, partyDebug } from "./party.js";
 
 CM.save = store("community", { hints: {}, chesed: 0, blends: 0, holds: 0, calls: 0 });
 if (!CM.save.hints) CM.save.hints = {};
@@ -75,6 +77,7 @@ function tick(dt) {
     tickShomrim(dt);
     tickHelp(dt);
     tickBY(dt);
+    tickParty();
 }
 hook("runStart", G => {
     reset();
@@ -121,7 +124,7 @@ on("cop:chase", e => {
     const ch = CM.chase;
     if (e.active) {
         if (ch) { ch.lead = false; return; }
-        if (live() && (CM.force.join || Math.random() < 0.85)) startShomrim(e.reason || "EVADING THE POLICE", { join: true });
+        if ((live() || shomrimParty()) && (CM.force.join || Math.random() < 0.85)) startShomrim(e.reason || "EVADING THE POLICE", { join: true });
         return;
     }
     if (ch && !ch.lead) endShomrim(e.result === "escaped" ? "escaped" : e.result === "busted" ? "busted" : "ended");
@@ -160,7 +163,7 @@ ctx.community = {
     blend: opts => startBlend(CM.by, opts),
     get stats() { return Object.assign({}, CM.stats, { saved: { chesed: CM.save.chesed || 0, blends: CM.save.blends || 0, calls: CM.save.calls || 0 } }); },
     load: () => loadModels(),
-    debug: { CM, spawnCruiser, callFor, witness, shomrimSees, force: CM.force, reset },
+    debug: { CM, spawnCruiser, callFor, witness, shomrimSees, force: CM.force, reset, party: partyDebug },
 };
 // TODO(rides): when features/rides (vehicle-specific abilities) lands, register the three org
 // vehicles there (guarded: if (ctx.rides) …) so a jacked Shomrim Crown Vic gets its spotlight /

@@ -8,7 +8,7 @@
 //   "hitch"         the hitchhiker, info { event: "pick" | "pass" | "drop" } — records it too
 //   "avigailRoad"   Avigail's taunt from her coupe, about Lulu's notoriety
 //   "avigailPorch"  one line at the porch door
-import { M, CAP, dirty, live, chance, pick, fill, notoriety, oncePerRun, logPush } from "./data.js";
+import { M, CAP, dirty, personal as live, chance, pick, fill, notoriety, oncePerRun, logPush } from "./data.js";
 import { aviNews } from "./texts.js";
 import * as T from "./lines.js";
 

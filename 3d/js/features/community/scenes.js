@@ -31,8 +31,8 @@ export function startScene(kind = null, opts = {}) {
     kind = kind || pick(kinds);
     const def = SCENES[kind];
     if (!def) return null;
-    let at = null;
-    if (town) {
+    let at = opts.at || null;          // (a 🎉 party picks the kerb from its seed: party.js)
+    if (at) { /* given */ } else if (town) {
         const k = ctx.town.curbSpot({ len: kind === "hurt" ? 9 : 14, minD: opts.minD || 40, maxD: opts.maxD || 130, near: opts.near || null });
         if (!k) return null;
         at = { x: k.x, z: k.z, s: k.s, d: k.d, h: k.h, side: k.side, street: k.street };
@@ -40,7 +40,7 @@ export function startScene(kind = null, opts = {}) {
         const s = ctx.car.s + (opts.ahead || rand(280, 340)), p = ctx.world.road.point(s, 8.3, {});
         at = { x: p.x, z: p.z, s, d: 8.3, h: p.h, side: 1, street: null };
     }
-    const sc = { kind, def, org: def.org, at, town, phase: "wait", t: 0, callT: opts.callT != null ? opts.callT : rand(22, 36), called: false, byLulu: false,
+    const sc = { kind, def, org: def.org, at, town, phase: "wait", t: opts.t0 || 0, callT: opts.callT != null ? opts.callT : rand(22, 36), called: false, byLulu: false,
         pleadT: 0, van: null, haz: null, victim: null, worker: null, V: null, prop: null, said: 0 };
     // the stranded minivan (a stopped traffic car: crash into it, carjack it — it's real)
     if (kind !== "hurt") {

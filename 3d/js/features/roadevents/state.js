@@ -21,5 +21,6 @@ export function count(id, n = 1) { tally[id] = (tally[id] || 0) + n; }
 
 /** True when random road events may spawn right now. */
 export function canSpawn() {
-    return ctx.enabled("roadevents") && ctx.state === "playing" && !ctx.paused && !ctx.G.ended && !ctx.G.roadeventsOff;
+    // (a 🎉 party plans its events from the seed instead: party.js)
+    return ctx.enabled("roadevents") && ctx.state === "playing" && !ctx.paused && !ctx.G.ended && !ctx.G.roadeventsOff && !(ctx.party && ctx.party.active);
 }

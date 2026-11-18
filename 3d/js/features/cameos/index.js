@@ -17,12 +17,14 @@ import * as SL from "./salon.js";
 import * as RS from "./roadside.js";
 import * as CR from "./crash.js";
 import * as ER from "./er.js";
+import { partyDebug } from "./party.js";
 
 const T = new SpawnTimers(SPAWN_CONFIG);
 hook("runStart", () => T.reset());
 hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing") return;
     if (!ctx.enabled("cameos") || ctx.cameos.auto === false) return;
+    if (ctx.party && ctx.party.active) return;          // a 🎉 party plans its cameos from the seed (party.js)
     const t = ctx.G.runTime;
     if (T.tick("heshyPool", dt) && t > 12 && !RS.heshyOut()) RS.spawnHeshy();
     if (T.tick("avigailCar", dt) && t > 15 && !AV.avigailOut()) AV.spawnAvigailCar();
@@ -68,4 +70,5 @@ ctx.cameos = {
         }
     },
     avigail: AV, salon: SL, roadside: RS, crash: CR, er: ER,
+    party: partyDebug,
 };

@@ -100,7 +100,8 @@ export function tickBY(dt) {
     const by = CM.by;
     if (d > 95 && !by.blend) { clearLine(); return; }
     by.t += dt;
-    if (!by.blend) by.head += SPEED * dt;
+    // (a 🎉 party: the line walks on the party clock — the same girls in the same places on every screen)
+    if (!by.blend) by.head = ctx.party && ctx.party.active ? SPEED * ctx.party.clock() / 1000 : by.head + SPEED * dt;
     // the menahel looks along the line now and then (in the minigame it's the big moment)
     const m = by.menahel;
     if (m) {
