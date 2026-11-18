@@ -36,7 +36,7 @@ import { registerKind } from "../../traffic.js";
 import { audio } from "../../audio.js";
 import { glyph, rumble } from "../../input.js";
 import * as H from "../../hud.js";
-import { heal } from "../../core/driving.js";
+import { heal, pavedAt } from "../../core/driving.js";
 import { bubble, floater, hasBubble } from "./bubbles.js";
 
 /** The terrain bands (|d| in metres) — tune here. */
@@ -109,8 +109,10 @@ function road() { return ctx.world.road; }
 function chasing(F) { return !!(F.chase || (ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || F.disguise === "prison"); }
 /** The soft edges apply (not in the town / a party — they have their own streets and rules). */
 function edgesOn() { return !(ctx.town && ctx.town.active) && !(ctx.party && ctx.party.active); }
+/** On someone's grounds off the highway (a rest area's lot / lawn — core's paved registry): no wilderness there. */
+function onGrounds(F) { return Math.abs(F.d) > HALF_ROAD && pavedAt(F.s, F.d) >= 1; }
 /** Terrain + shoos (not during a chase: chases keep their own rules). */
-function calm(F) { return edgesOn() && F.phase === "walk" && !chasing(F); }
+function calm(F) { return edgesOn() && F.phase === "walk" && !chasing(F) && !onGrounds(F); }
 /** The nudges: calm, not mid-dialogue, and opted in (random surprises are test-gated). */
 function nudgesOn(F) {
     return calm(F) && !ctx.dialogOpen && !H.screenOpen() && !(ctx.phone && ctx.phone.isOpen) && ctx.enabled("foot") && ctx.enabled("footbounds");
@@ -343,7 +345,7 @@ export function steer(F, wx, wz, outV) {
  * smoothly to zero (she slides along it — no grinding). Also the town / party far fence.
  */
 export function damp(F) {
-    if (!F.bx || !edgesOn()) return;
+    if (!F.bx || !edgesOn() || onGrounds(F)) return;
     const ad = Math.abs(F.d), side = Math.sign(F.d) || 1;
     const start = EDGE.fence - 2.0, stop = EDGE.fence - 0.5;
     if (ad < start) return;
@@ -357,7 +359,7 @@ export function damp(F) {
 
 /** Position limit (after the move). The soft edges keep her well inside it; it's only a safety net. */
 export function limit(F, near) {
-    const lim = (F.bx && edgesOn()) ? EDGE.fence - 0.35 : EDGE.oldFence;
+    const lim = (F.bx && edgesOn() && !onGrounds(F)) ? EDGE.fence - 0.35 : EDGE.oldFence;
     const ad = Math.abs(near.d);
     if (ad <= lim) return;
     const push = (ad - lim) * Math.sign(near.d);
@@ -385,7 +387,7 @@ export function update(F, dt) {
         shooFx(F, B, dt);
         if (B.shoo.t >= B.shoo.dur || !calm(F)) { B.shoo = null; B.shooCool = 0.4; }
     }
-    if (!calm(F)) { B.zone = "busy"; return; }
+    if (!calm(F)) { B.zone = onGrounds(F) && F.phase === "walk" && !chasing(F) ? "grounds" : "busy"; return; }
     terrain(F, B, dt);
     nudges(F, B, dt);
 }
@@ -766,7 +768,7 @@ function jaywalkStar(F, B) {
 export const api = {
     EDGE, NUDGE,
     get state() { const F = current && current(); return F ? F.bx : null; },
-    /** Which band she's standing in: lanes | shoulder | verge | grass | mud (busy: a chase / a scripted moment). */
+    /** Which band she's standing in: lanes | shoulder | verge | grass | mud | grounds (a rest area's lot / lawn) (busy: a chase / a scripted moment). */
     get zone() { const F = current && current(); return F && F.bx ? F.bx.zone : null; },
     get visuals() { return V.built ? { fence: V.fence.group.children[0].count, grass: V.grass.group.children[0].count, mud: V.mud.group.children[0].count, shown: !!(V.group.parent && V.group.visible) } : null; },
     debug: {

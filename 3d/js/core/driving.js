@@ -156,6 +156,19 @@ function honkFromAfar() {
 }
 
 // ── the per-frame driving sim ─────────────────────────────────────────────
+/**
+ * Paved ground off the highway's asphalt (exit ramps, a rest area's lot…): features push
+ * predicates (s, d) → 0 (not theirs) | 1 (walkable grounds: a lawn, a picnic area — still grass
+ * for the car) | 2 (asphalt: the car drives it like road, no grass drag or shoulder rumble).
+ * Highway road coords only (ignored while a district is active).
+ */
+export const paved = [];
+/** The highest paved level any feature reports at highway (s, d): 0 | 1 | 2. */
+export function pavedAt(s, d) {
+    let best = 0;
+    for (const f of paved) { const v = +f(s, d) || 0; if (v > best) { best = v; if (best >= 2) break; } }
+    return best;
+}
 const tmpNear = {};
 /** Where the car is on the road: {s, d, h, absd, offroad 0..1, onShoulder}. */
 export function roadPos() {
@@ -163,10 +176,11 @@ export function roadPos() {
     const near = world.road.nearest(car.pos.x, car.pos.z, car.s, tmpNear);
     car.s = near.s; car.d = near.d;
     const absd = Math.abs(near.d);
+    const onPaved = paved.length && absd > HALF_ROAD - 0.2 && !world.district && pavedAt(near.s, near.d) >= 2;
     return {
         s: near.s, d: near.d, h: near.h, absd,
-        offroad: absd > SHOULDER ? Math.min(1, (absd - SHOULDER) / 1.2) : 0,
-        onShoulder: absd > HALF_ROAD - 0.2 && absd <= SHOULDER,
+        offroad: absd > SHOULDER && !onPaved ? Math.min(1, (absd - SHOULDER) / 1.2) : 0,
+        onShoulder: absd > HALF_ROAD - 0.2 && absd <= SHOULDER && !onPaved,
     };
 }
 

@@ -150,7 +150,7 @@ export default {
         { street: "Ocean Pkwy", dir: -1, at: -314, name: "Ocean Pkwy South" },
         { street: "Kings Hwy", dir: -1, at: khA(KH0) + 12, name: "Kings Hwy West" },
     ],
-    highway: { first: 2000, every: 3600 },
+    highway: { first: 2000, every: 3600, no: "9", label: "BROOKLYN", short: "Brooklyn" },
 
     traffic: { town_van: 4, town_carsvc: 3, town_citybus: 1, town_sweeper: 1, cop: 1 },
     routes: {

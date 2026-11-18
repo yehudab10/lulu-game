@@ -13,19 +13,19 @@
 //  (law: occluders + routing + spawn points; foot: a steady walking frame) instead of forks.
 //
 //    plan.js    the plan ENGINE: a town definition → streets, crossings, blocks, the graph, TownRoad
-//    towns/     the TOWNS as data (lakewood.js, midwood.js + their lines) — townFor() picks per exit
+//    towns/     the TOWNS as data (lakewood.js, midwood.js + their lines) — INTERCHANGE lists who every exit offers
 //    build.js   the scene: merged block clusters (kit.js), one sign atlas, lamps, the lake…
 //    rail.js    an embankment railway (Midwood's B/Q): berm, bridges, stations, the trains
 //    landmarks.js  boulevard malls, frontage strips, the college quad, the city skyline, barricades
 //    cars.js    the town's drivers (lane-following, 4-way stops, the circle) + the patrol car
 //    life.js    people (talk on foot), geese, e-bikes, speed bumps, stop signs, the group chat
 //    cops.js    what law asks: blocksSight / copRoute / copSpawn
-//    exit.js    the highway exit: signs, gantry, decel lane, the ramp; triggers the fade in
+//    exit.js    the highway interchange: signs, gantry, decel lane, one ramp that splits per town; triggers the fade in
 //    sfx.js     goose honks, minivan horns, the speed-bump THUNK
 //
 //  ctx.town { active, id, name, street, streets, occluders, enter(), leave(), blocksSight(),
 //             copRoute(), copSpawn(), footYaw(), towns, debug }
-//  Events: town:enter {town, exitS} · town:leave {town, why} · town:gossip {kind, msg} ·
+//  Events: town:exit {town, s, no} (she took a branch) · town:enter {town, exitS} · town:leave {town, why} · town:gossip {kind, msg} ·
 //          town:talk {id, line} · town:stopSign · town:bump · town:geese · town:bike
 //  Random content is gated by ctx.enabled("town") (off in ?test unless enabled, off in a party).
 // ─────────────────────────────────────────────────────────────────────────
@@ -42,8 +42,8 @@ import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
 import { blocksSight, copRoute, copSpawn } from "./cops.js";
-import { X, planExit, clearExits, exitAt, onRamp } from "./exit.js";
-import { TOWNS, townFor } from "./towns/index.js";
+import { X, planExit, clearExits, exitAt, rampPhase, SPAN } from "./exit.js";
+import { TOWNS, townFor, INTERCHANGE } from "./towns/index.js";
 
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
 /** The models a town needs: Lakewood's set, or the town's own list (def.models). */
@@ -341,14 +341,36 @@ hook("runStart", G => {
     if (S.active) leaveTown("reset");
     S.trans = null; setFade(0);
     clearExits();
+    if (S.cue) { S.cue = ""; H.prompt(""); }
     S.bubbe.clear();
     if (eligible()) {
-        const def = townFor(0);
-        planExit((G.startS || 0) + def.highway.first, def);
+        const def = INTERCHANGE.towns[0];
+        planExit((G.startS || 0) + def.highway.first, INTERCHANGE.towns);
         load(def);
     }
 }, 20);
-on("title", () => { if (S.active) leaveTown("reset"); S.trans = null; setFade(0); clearExits(); });
+on("title", () => { if (S.active) leaveTown("reset"); S.trans = null; setFade(0); clearExits(); cue(null); });
+
+// ── the ramp cue: a light, in-the-moment prompt (no popup) while she's in the decel lane / on the ramp ──
+const RP = {};
+function cue(e, ph) {
+    let html = "";
+    if (e && ph && ph.phase && ctx.state === "playing" && ctx.car.speed > 3) {
+        const [a, b] = e.towns, no = t => t.highway.no ? `<b>${t.highway.no}</b> ` : "";
+        if (ph.phase === "decel") html = e.two
+            ? `🛣️ EXIT ONLY · ${no(a)}${a.highway.short || a.name} · ${no(b)}${b.highway.short || b.name} <small>· steer left to stay on the highway</small>`
+            : `🛣️ EXIT ONLY · ${no(a)}${a.highway.short || a.name} <small>· steer left to stay on the highway</small>`;
+        else if (ph.phase === "ramp") html = e.two
+            ? `↖ ${no(a)}${(a.highway.label || a.name).toUpperCase()} &nbsp;·&nbsp; ${no(b)}${(b.highway.label || b.name).toUpperCase()} ↗`
+            : `↗ ${no(a)}${(a.highway.label || a.name).toUpperCase()}`;
+    }
+    if (html === (S.cue || "")) return;
+    const G = ctx.G;
+    if (html && !S.cue) { S.cuePull = G.noPullOver; G.noPullOver = true; }      // (no 🅿️ pull-over prompt fighting it on the ramp)
+    if (!html && S.cue && G) G.noPullOver = S.cuePull;
+    S.cue = html;
+    H.prompt(html);
+}
 
 hook("update", (dt, P, controlsOn) => {
     tickTrans(dt);
@@ -356,14 +378,21 @@ hook("update", (dt, P, controlsOn) => {
     const car = ctx.car;
     // plan the next exit well ahead (before its chunks are built), drop the ones far behind
     const last = X.exits[X.exits.length - 1];
-    if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, townFor(X.exits.length));
-    if (ctx.state !== "playing" || !controlsOn || S.trans) return;
+    if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, INTERCHANGE.towns);
+    if (ctx.state !== "playing" || !controlsOn || S.trans) { if (S.cue) cue(null); return; }
     const e = exitAt(car.s);
     if (e && e.s - car.s < 900) load(e.town);
-    if (e && onRamp(e, car.s, car.d)) {
-        if (ctx.hustle && ctx.hustle.job) { ctx.hustle.end("quit", `You took the ${e.town.name} exit. Nobody gets anywhere on time from there.`); return; }
-        beginTrans("enter", e);
-    }
+    const ph = e ? rampPhase(e, car.s, car.d, RP) : null;
+    cue(e, ph);
+    if (!ph || !ph.phase) return;
+    for (const t of e.towns) load(t);                 // she's heading for the ramp: every town it offers
+    if (ph.phase !== "branch") return;
+    const town = e.branches[ph.branch].town;
+    cue(null);
+    if (ctx.hustle && ctx.hustle.job) { ctx.hustle.end("quit", `You took the ${town.name} exit. Nobody gets anywhere on time from there.`); return; }
+    e.used++;
+    emit("town:exit", { town: town.id, s: e.s, no: town.highway.no || null });
+    beginTrans("enter", { s: e.s, town });
 });
 
 // out of hearts in town: she's towed back to the highway's shoulder, and the usual aftermath plays there
@@ -480,8 +509,10 @@ ctx.town = {
         const p = S.active && S.T && S.T.spots[name];
         return p ? Object.assign({}, p, { x: p.x + PL.ORIGIN.x, z: p.z + PL.ORIGIN.z, lx: p.x, lz: p.z }) : null;
     },
-    /** The highway exits planned this run: [{ s, id, name }] (sorted by s). */
-    get exits() { return X.exits.map(e => ({ s: e.s, id: e.town.id, name: e.town.name })); },
+    /** The highway exits planned this run, one row per town an interchange offers: [{ s, id, name, no, label, branch }] (sorted by s). */
+    get exits() { return X.exits.flatMap(e => e.branches.map(b => ({ s: e.s, id: b.town.id, name: b.town.name, no: b.town.highway.no || null, label: b.town.highway.label || b.town.name, branch: b.k }))); },
+    /** The stretch an exit's signs → ramps cover, relative to its s (features/exits keeps rest areas out of it). */
+    span: SPAN,
     /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */
     addDriver(kind, { minD = 60, speed = 5 } = {}) {
         if (!S.active) return null;
@@ -518,16 +549,18 @@ ctx.town = {
     },
     debug: {
         S, C, LIFE, PL, X, gossip, luluSay, crime,
-        /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
+        /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): the full interchange
+         *  (every town), or a one-town exit with its own signs when `id` names a town. */
         exitAhead(ahead = 320, id = null) {
-            const w = ctx.world, def = id ? TOWNS[id] : townFor(0);
-            const e = planExit(ctx.car.s + ahead, def);
+            const w = ctx.world, towns = id ? [TOWNS[id]] : INTERCHANGE.towns;
+            const e = planExit(ctx.car.s + ahead, towns);
             if (!e) return null;
-            for (const [k, c] of [...w.chunks]) if (c.s1 > e.s - 760 && c.s0 < e.s + 220) { c.dispose(w.scene); w.chunks.delete(k); }
+            for (const [k, c] of [...w.chunks]) if (c.s1 > e.s + SPAN.a - 20 && c.s0 < e.s + SPAN.b) { c.dispose(w.scene); w.chunks.delete(k); }
             w.prebuild(ctx.car.s);
-            load(def);
+            for (const t of towns) load(t);
             return e.s;
         },
+        rampPhase: (s = ctx.car.s, d = ctx.car.d) => { const e = exitAt(s); return e ? Object.assign({ s: e.s }, rampPhase(e, s, d)) : null; },
         exits: () => X.exits.map(e => e.s),
         /** Put her on a street: (name, along, d, speed, dir). */
         place(name, along, d = LANE, v = 0, dir = 1) {

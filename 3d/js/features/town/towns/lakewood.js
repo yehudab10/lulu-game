@@ -83,7 +83,7 @@ export default {
         { street: "Route 9", dir: -1, at: -66, name: "Route 9 South" },
         { street: "County Line Rd", dir: -1, at: -66, name: "County Line Rd West" },
     ],
-    highway: { first: 2000, every: 3600 },                // where the exits are, metres into a Cruise run
+    highway: { first: 2000, every: 3600, no: "91", label: "LAKEWOOD", short: "Lakewood" },   // where the exits are (metres into a Cruise run), exit number + sign name
 
     traffic: { town_van: 6, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
     speedLimitMph: 25, speedingMph: 48,
