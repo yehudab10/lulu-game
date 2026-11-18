@@ -143,7 +143,9 @@ function update(force = false) {
 // keep it in sync
 let acc = 0;
 on("boot", () => { autoConnect(); });
-ctx.dualsense = { connect, get connected() { return !!dev; } };
+ctx.dualsense = { connect, get connected() { return !!dev; },
+    /** Flash the light bar a colour for a moment (moves: the drift-turbo tier, a big combo). */
+    flash(rgb, sec = 0.3) { if (!dev || !Array.isArray(rgb)) return; flashT = sec; flashCol = rgb; update(true); } };
 const tick = () => {
     requestAnimationFrame(tick);
     if (!dev) return;
