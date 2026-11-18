@@ -105,7 +105,7 @@ export function planRest(s, force = false) {
     LY.STALLS.forEach((row, ri) => {
         for (let i = 0, u = row.u0 + LY.STALL_W / 2; u < row.u1; i++, u += LY.STALL_W) {
             const fam = ri === LY.FAMILY_STALL.row && i === LY.FAMILY_STALL.i;
-            if (!fam && rnd() > 0.42) continue;
+            if (!fam && rnd() > 0.3) continue;
             const key = fam ? "van" : rnd() < 0.68 ? "sedan" : "van";
             R.cars.push({ u, d: row.d, key, color: fam ? "#D7CCC8" : PAINTS[Math.floor(rnd() * PAINTS.length)] });
             R.colliders.push([u, row.d - 1.25, 1.2], [u, row.d + 1.25, 1.2]);

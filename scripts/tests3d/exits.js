@@ -283,7 +283,8 @@ module.exports = {
       pts.push([360, 7.5], [400, 5.6], [460, 5.25]);
       await route(RSs, pts, 14, { r: 5 });
       if (await t.until(`(window.__ev || []).some(e => e.startsWith("exits:rest") && /leave/.test(e))`, "the on-ramp puts her back on the highway (exits:rest leave)", 60000)) {
-        t.check("back in the right lane past the rest area", await g(`ctx.car.s > ${RSs} + 300 && ctx.car.d < 8.5`), await g(`[Math.round(ctx.car.s - ${RSs}), ctx.car.d.toFixed(1)]`));
+        await t.until(`__lulu3d.ctx.car.s > ${RSs} + 420`, "past the accel lane", 20000);
+        t.check("back in the right lane past the rest area", await g(`ctx.car.s > ${RSs} + 400 && ctx.car.d > 3.5 && ctx.car.d < 7.2`), await g(`[Math.round(ctx.car.s - ${RSs}), ctx.car.d.toFixed(1)]`));
         await t.shot("back-on-highway");
       }
       await noRoute();

@@ -61,6 +61,7 @@ export function spawnCast(R) {
         p.obj.position.set(_q.x, 0.05, _q.z);
         const f = at(R, pa.face[0], pa.face[1], "road", {});
         p.obj.rotation.y = Math.atan2(f.x - _q.x, f.z - _q.z);
+        p.obj.traverse(m => { if (m.isMesh) m.castShadow = false; });      // (travellers cast no shadow, like the townsfolk)
         ctx.scene.add(p.obj);
         LIFE.people.push({ id: pa.id, name: def.name, p, lines: def.lines && def.lines.length ? def.lines : null, k: 0, talkT: 0, waveT: 0, t: rand(0, 5), home: { x: _q.x, z: _q.z, h: p.obj.rotation.y } });
     }
@@ -102,7 +103,7 @@ export function tickLife(dt) {
     const cam = ctx.camera.position;
     for (const r of LIFE.people) {
         const o = r.p.obj;
-        o.visible = Math.hypot(o.position.x - cam.x, o.position.z - cam.z) < 55;
+        o.visible = Math.hypot(o.position.x - cam.x, o.position.z - cam.z) < 40;      // (~3–4k triangles each: only the near ones)
         if (!o.visible) continue;
         r.t += dt;
         if (r.talkT > 0) r.talkT -= dt;

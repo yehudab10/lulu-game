@@ -640,7 +640,7 @@ Drive-up bays go through `ctx.places` (`exits_pump`: nitro for coins; `exits_gar
 `ctx.feel.damage.repair("mechanic")`, and a flat via `ctx.streets.repairTyres()`); on foot one `ctx.foot.addSpot` spot picks the
 nearest thing (talk to travellers, the food court `choose()` menu, the restroom gag and the picnic sit in `ctx.foot.script`, the
 vending machine, the souvenir stand's deal of the day written to the shared save, Kugel the dog). The cast is pooled npcMan /
-npcWoman / npcKid (+ law's K9 as the dog) spawned only within ~250 m and hidden past 55 m from the camera. While she's in the lot
+npcWoman / npcKid (+ law's K9 as the dog) spawned only within ~250 m, casting no shadow and hidden past 40 m from the camera; parked cars are merged, shadowless. While she's in the lot
 `G.noPullOver` is set (stop = get out & walk, not the parking minigame). HUD: the decel-lane cue (a prompt) and the next-exit
 chip (`.exits-chip.hud-secondary` in the "center" slot, only ≤ 1 mi ahead — interchanges and rest areas). Gated by
 `ctx.enabled("exits")`; OFF in a 🎉 party. `scripts/tests3d/exits.js` covers passing / both branches / the rest area.
