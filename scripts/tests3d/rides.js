@@ -160,7 +160,7 @@ module.exports = {
       await t.L(`import("./js/models.js").then(m => m.ensureModels(["rides_busstop", "npcMan", "npcWoman", "npcKid"]))`);
       await g(`${D}.bus.placeStop(0, ctx.car.s + 40)`);
       t.check("bus: a 🚏 stop goes up with riders waiting", await g(`${D}.bus.STOP.phase === "waiting" && ${D}.bus.STOP.riders.length >= 1`));
-      await t.frames(6);
+      await t.frames(10);   // (the chip refreshes every 0.2 s = 6 frames: 6 can land a hair short)
       t.check("bus: the chip shows the next stop", /Next stop/.test(await chip()), await chip());
       const c0 = await coins();
       await placeAt(await g(`${D}.bus.STOP.s`), 5.6, 0);
