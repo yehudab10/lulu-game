@@ -90,9 +90,14 @@ module.exports = {
     t.check("two turbos chained: combo ×1.5", d3.n === 2 && Math.abs(d3.mult - 1.5) < 0.01 && d3.q3 === 1, JSON.stringify(d3));
     await t.shot("turbo");
     // an empty road while it runs out: passing traffic would keep feeding the chain close shaves (timing-dependent)
-    await G(`(window.__mvTraffic = ctx.traffic.config.enabled, ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+    // …and back in her own lane, straight: after a hard drift she may be on the wrong side, which
+    // (by design) keeps a combo alive for as long as she stays there
     await t.hold(7, 0); await t.stick(0);
-    await t.until(`__lulu3d.ctx.moves.combo.n === 0`, "the combo runs out and banks", 8000);
+    await G(`(() => { window.__mvTraffic = ctx.traffic.config.enabled; ctx.traffic.config.enabled = false; ctx.traffic.clear();
+      const car = ctx.car, r = ctx.world.road, v = Math.max(18, Math.hypot(car.vx, car.vz)), s = car.s + 10, p = r.point(s, 5.25, {});
+      car.place(p.x, p.z, p.h); car.s = s; car.d = 5.25; car.vx = Math.sin(p.h) * v; car.vz = Math.cos(p.h) * v; ctx.cam.snap(); return true; })()`);
+    if (!await t.until(`__lulu3d.ctx.moves.combo.n === 0`, "the combo runs out and banks", 8000))
+      console.log("   DIAG", JSON.stringify(await G(`({ combo: { n: ${M}.combo.n, t: ${M}.combo.t, kinds: ${M}.combo.kinds }, drifting: ${M}.drifting, d: ctx.car.d, vF: ctx.car.vF, state: __lulu3d.state })`)));
     const bk = await G(`${M}.debug.LOG[${M}.debug.LOG.length - 1]`);
     // (n ≥ 2: on a fast machine more road goes by while it runs out — a close shave can join the chain)
     t.check("banked: score × multiplier", bk && bk.type === "bank" && bk.n >= 2 && bk.mult >= 1.5 && bk.total > 0 && (await G(`ctx.G.score`)) > score0, JSON.stringify(bk));
