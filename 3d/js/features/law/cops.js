@@ -1341,7 +1341,7 @@ export function hud() {
         const hid = ch.searching && ch.hiding;
         info.tag = ch.searching ? (f ? "🔒 FUGITIVE · SEARCHING" : hid ? "🤫 HIDING…" : "👀 SEARCHING…") : (f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT");
         info.bust = ch.bust; info.evade = ch.evade; info.blink = !ch.searching;
-        info.evadeLabel = hid ? "🤫 HIDING…" : "LOSING THEM…";
+        info.evadeLabel = hid ? "THEY DRIVE PAST…" : "LOSING THEM…";
         info.hint = !ch.searching ? "break their line of sight" : hid ? "stay put — they're driving past" : "stay out of sight · pull off & stop · take an exit";
     } else if (lost) { info.tag = "😎 LOST 'EM"; info.cls = "lost"; info.hint = "keep it clean for a bit"; }
     else if (b) {
