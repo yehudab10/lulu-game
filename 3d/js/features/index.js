@@ -27,4 +27,5 @@ import "./shabbos/index.js";     // 🕯️ Erev Shabbos Rush: beat the sunset t
 import "./town/index.js";        // 🏙️ towns you can turn into: Lakewood (an exit off the Cruise highway → a drivable grid of streets)
 import "./community/index.js";   // 🚨 community: Chaverim / Shomrim / Hatzalah in town, the Bais Yaakov blend-in, 📞 calls
 import "./rides/index.js";       // 🚓🚑🍦 rides: every vehicle Lulu drives has its own handling, horn and trick (siren, pull-overs, patients, ice cream, bus stops)
+import "./moves/index.js";       // 🏁 moves & tricks: drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, dodge/slide/vault on foot, the style combo + 🏁 Moves page
 import "./openworld/index.js";    // 🌍 open world: Free Roam with friends (highway + towns), party games from the 📱 (Cops & Robbers, Race to a Pin, Hot Kugel, Photo Hunt), 📍 Nearby

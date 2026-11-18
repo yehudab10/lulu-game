@@ -19,7 +19,16 @@ import {
 import { fillPortraits } from "./portraits.js";
 import { models } from "../../models.js";
 
-const TABS = [["🏆", "Badges"], ["🚔", "Record"], ["💜", "Crew"], ["📊", "Stats"]];
+const BASE_TABS = [["🏆", "Badges"], ["🚔", "Record"], ["💜", "Crew"], ["📊", "Stats"]];
+// Other features add a page after the built-in four: addScrapbookTab({ id, icon, name, render(S) → html, wire?(card, rerender) })
+const EXTRA_TABS = [];
+let TABS = BASE_TABS.slice();
+export function addScrapbookTab(def) {
+    const i = EXTRA_TABS.findIndex(t => t.id === def.id);
+    if (i >= 0) EXTRA_TABS[i] = def; else EXTRA_TABS.push(def);
+    TABS = BASE_TABS.concat(EXTRA_TABS.map(t => [t.icon, t.name]));
+}
+const tabIndex = which => typeof which === "string" ? Math.max(0, BASE_TABS.length + EXTRA_TABS.findIndex(t => t.id === which)) : which;
 let from = "title";          // where Back returns: "title" | "pause"
 let tab = 0;
 let selBadge = null;
@@ -75,7 +84,7 @@ export function openScrapbook(where = "title", which = tab) {
     backFocus = where === "title" ? "metaScrapbook" : "metaPauseScrap";
     badgeSync();
     markScrapSeen();
-    tab = which;
+    tab = Math.min(TABS.length - 1, tabIndex(which));
     selBadge = null;
     renderScrapbook(`mbTab${tab}`, false);
 }
@@ -87,12 +96,14 @@ function renderScrapbook(focus, nopop = true) {
       <div class="mb-head"><h2>📒 LULU'S SCRAPBOOK</h2><div class="mb-sub">🏆 ${tots.got} / ${tots.tot} badges</div></div>
       <div class="mb-tabs"><span class="mb-g">${glyph("tabPrev")}</span>${TABS.map((t, i) =>
         `<button class="mb-tab${i === tab ? " on" : ""}" id="mbTab${i}" data-tab="${i}">${t[0]} <span>${t[1]}</span></button>`).join("")}<span class="mb-g">${glyph("tabNext")}</span></div>
-      <div class="mb-body">${[badgesTab, recordTab, crewTab, statsTab][tab](S)}</div>`;
+      <div class="mb-body">${tab < BASE_TABS.length ? [badgesTab, recordTab, crewTab, statsTab][tab](S) : EXTRA_TABS[tab - BASE_TABS.length].render(S)}</div>`;
     const card = open(html, [{ label: `⬅ Back ${glyph("back")}`, cls: "alt", id: "mbBack", action: goBack }],
         { onBack: goBack, onTab: d => switchTab(d), focus, cls: "meta-book" + (nopop ? " nopop" : ""), wide: true });
     card.querySelectorAll(".mb-tab").forEach(b => b.addEventListener("click", () => { const i = +b.dataset.tab; if (i !== tab) { tab = i; selBadge = null; tone(520, 0.04, "square", 0.05); renderScrapbook(`mbTab${tab}`); } }));
     if (tab === 0) wireBadges(card, S);
     if (tab === 3) wireStats(card);
+    const ext = EXTRA_TABS[tab - BASE_TABS.length];
+    if (ext && ext.wire) { try { ext.wire(card, f => renderScrapbook(f || `mbTab${tab}`)); } catch (e) { console.error("[meta] tab", ext.id, e); } }
     fillPortraits(card, portraitSpecs(S));
     emit("scrapbook:open", { tab });
     return card;
