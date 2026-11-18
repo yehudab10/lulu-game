@@ -255,8 +255,14 @@ async function partyRun(t, guests) {
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 90000);
   }
+  // (warp only once the host's town snapshots have landed — a warp to a friend still "on the highway" leaves town)
+  await A.until(`(() => { const p = ctx.party.peer(${H}); return !!p && p.x && p.x.z === "lakewood" && p.samples.length > 2; })()`, "the guest hears the host is in Lakewood", 120000);
   await A.game(`ctx.openworld.warpTo(${H})`);
   await sleep(2500);
+  if (!await A.game(`ctx.openworld.zone === "lakewood"`)) {
+    await A.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await A.until(`ctx.openworld.zone === "lakewood"`, "guest back in Lakewood", 60000);
+  }
   await g(`(ctx.foot.start("droveOff"), true)`);
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 120000);
   await t.stick(0.6, -1); await t.frames(45); await t.stick(0, 0);
