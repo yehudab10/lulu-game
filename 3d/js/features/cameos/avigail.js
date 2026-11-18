@@ -418,6 +418,7 @@ function updateChips(p) {
 
 async function runPorch(p) {
     await wait(0.8);
+    if (porch !== p) return;            // (the scene was left before the knock: no stray dialogue on the road)
     caption("*knock knock knock*", "gold", 2200);
     sfx.knock(); p.knocking = 0.8;
     await say("Lulu", "Knock knock! I KNOW you're home, Avigail.", { emoji: "💁‍♀️", color: "#E91E63", auto: 1.4 });

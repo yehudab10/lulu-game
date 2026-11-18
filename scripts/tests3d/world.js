@@ -171,8 +171,9 @@ module.exports = {
     await t.shot("lookout");
     await t.until(`__lulu3d.state === "playing"`, "back on the road after the lookout", 8000);
 
-    // ── the party keeps it off ──
-    t.check("party: world is in the OFF set", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"world"/.test(s))`));
+    // ── a 🎉 party: the same fixed places for every friend (pulling in is personal) ──
+    t.check("party: world is ON (not in the OFF set) and the places come in party mode", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"world"/.test(m[1]); })`)
+      && await g(`(() => { const G = ctx.G, was = G.mode; G.mode = "party"; try { return ctx.places.at("gas").includes(1300) && ctx.places.at("lookout").includes(2400); } finally { G.mode = was; } })()`));
 
     // ── holiday dressing (mocked dates) ──
     for (const [hol, day, check] of [["chanukah", 3, "chanukah"], ["sukkot", 2, "sukkah"], ["purim", 1, null]]) {

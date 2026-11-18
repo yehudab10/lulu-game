@@ -7,7 +7,7 @@
 //   • a 4★ chase → the next run's roadside has the WANTED: LULU billboard (and its variants);
 //   • small recognitions (the cop at 3+ arrests, Moishe's colours, the hitchhiker, Avigail) are
 //     once-a-run; the save round-trips through a reload and every list is capped; a 🎉 party
-//     switches it all off;
+//     keeps it personal (no grudge cars / posters in the shared world);
 //   • busy-Cruise frame time + draw calls with and without the grudge car + poster on screen.
 module.exports = {
   name: "memory",
@@ -34,12 +34,13 @@ module.exports = {
     t.check("notoriety reads the shared save (3 arrests, 2 ER visits)", n0.arrests === 3 && n0.er === 2 && n0.level >= 1, JSON.stringify(n0));
     t.check("the WANTED design is registered with banter (never random)", await g(`!!ctx.banter && ctx.banter.staticAds().indexOf("memWanted") < 0`));
 
-    // ── 🎉 party: everything off ────────────────────────────────────────────
+    // ── 🎉 party: personal only ────────────────────────────────────────────
     const partyOff = await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true;
         const r = { enabled: ctx.enabled("memory"), live: ${D}.live(), line: ctx.memory.recognize("cop") };
         N.want = was; return r; })()`);
-    t.check("a 🎉 party switches memory off (OFF set, no lines)", !partyOff.enabled && !partyOff.live && partyOff.line === "", JSON.stringify(partyOff));
-    t.check("party/index.js keeps memory in its OFF set", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"memory"/.test(s) && /"streets"/.test(s) && /"banter"/.test(s))`));
+    // (memory is PERSONAL in a party: it records + talks, but no grudge car / WANTED billboard in the shared world)
+    t.check("a 🎉 party: memory on but personal (no world surprises)", partyOff.enabled && !partyOff.live, JSON.stringify(partyOff));
+    t.check("party/index.js no longer keeps memory / banter in its OFF set", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"memory"/.test(m[1]) && !/"banter"/.test(m[1]) && /"streets"/.test(m[1]); })`));
 
     // ── 😤 1. a real carjack → remembered ───────────────────────────────────
     await g(`L3.startRun({ mode: "cruise" })`);

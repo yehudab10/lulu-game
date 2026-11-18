@@ -27,7 +27,6 @@ export function chaseEnded(e = {}) {
     if (e.active) { PS.chaseMax = Math.max(PS.chaseMax, (ctx.law && ctx.law.wanted) || 1); return; }
     const heat = Math.max(PS.chaseMax, (ctx.law && ctx.law.wanted) || 0);
     PS.chaseMax = 0;
-    if (ctx.party && ctx.party.active) return;
     if (heat > (M.maxStars || 0)) M.maxStars = Math.min(5, heat);
     const escaped = e.result === "escaped";
     if (escaped) M.escapes = (M.escapes || 0) + 1;
@@ -36,7 +35,7 @@ export function chaseEnded(e = {}) {
 }
 /** law:release {how}: a jailbreak earns a poster too. */
 export function released(e = {}) {
-    if (e.how === "escape" && !(ctx.party && ctx.party.active)) owe({ heat: Math.max(3, M.maxStars || 0), why: "jail" });
+    if (e.how === "escape") owe({ heat: Math.max(3, M.maxStars || 0), why: "jail" });
 }
 export function owe({ heat = 4, why = "stars" } = {}) {
     M.poster = { heat, why, run: M.runs, left: 2 };

@@ -211,3 +211,36 @@ verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
   `owb` [n, uid] the cop's bust · `owd` [n] stash delivered · `owk` [n, itN, uid] the kugel passed · `owp` [n, i] a snap.
 - town coins reuse the party's shared-pickup broadcast `"k"` with keys `"c-1:<i>"` (chunk −1 = the town's chunk).
 Bandwidth: unchanged rate (the party's ≤ 7 snapshots/s); events are a few per game.
+
+## 3D PARTY — the shared world (roadside events, cameos, places, side jobs, the orgs)
+**Nothing new on the wire. No server change.** Everything friends must agree on is a pure function of
+what every screen already has — the activity seed (`H.A.seed`), the party seed (`worldSeed`, from the
+code) and the party clock — so there is nothing to send:
+- **The road plan** (`3d/js/features/party/plan.js`, `ctx.party.road`): every 200 m chunk k of a party's
+  highway gets at most ONE big thing, picked by `mulberry32(hash("slot:" + k) ^ A.seed)` from the kinds
+  the features registered (`road.claim(id, {kind: weight(A)})`, at boot, in import order — the same on
+  every client). roadevents (🍦 ice-cream stand · 🍔 drive-thru · ⛽ gas station + nitro cans), cameos
+  (💜 Avigail on foot · 💇 Chez Fabio · 🛟 Heshy's pool · uncles · the sasquatch), hustle (☎️ payphone ·
+  📋 job board). The spot on the verge comes from `ctx.party.seeded(key, fn)` (Math.random seeded) over the
+  same chunk colliders. Small hazards (cones, puddles, potholes, animals, strollers, hitchhikers) hash their
+  own sub-slots (`ctx.party.rng("re:" + k)`). Every screen builds its OWN copy as its car gets near (set
+  pieces ~950 m out, before their chunks are built, so the roadside reservations agree). Race / Dash / Tag
+  get only the fair hazards. Things that drive or must stop the traffic stay out (party traffic can't react).
+- **Pull-in places** (Gas 'n' Go, the Lookout, family driveways) are fixed constants — on in a party
+  (a Road Trip ends at Bubbe's, so no driveways from there).
+- **A Free Roam town's orgs**: the Chaverim / Shomrim / Hatzalah cruisers ride openworld's seeded block
+  loops (a phase gap the minivans leave free, the vans' speed): pose = f(party seed, loop, party clock).
+  Roadside scenes run in 50 s windows of the party clock: kind, anchor landmark, kerb (seeded
+  `curbSpot({still: true})`, parked cars only) and the call-in time are all seeded. The Bais Yaakov line
+  walks on the party clock.
+- **Personal, never sent**: what a player does with any of it — a porch / salon / world visit / help
+  scene (a local state; the world doesn't pause for anyone: friends keep driving, the party traffic keeps
+  following the clock), rewards (coins, the 💜 meter, stats), side jobs + their riders / props, my phone,
+  memory (grudges, notoriety, texts), Lulu's lines, the scrapbook + quests. A car only I should see (my cab
+  fare's "follow that car", the volunteers coming for MY flat) carries `data.partyLocal` so the party's
+  traffic sync keeps it; party cars are immune to it.
+- **Two friends, one event**: each has their own copy (nothing in it is one-of-a-kind for the party), so no
+  host arbitration is needed. A friend in a scene shows over their parked car through `ctx.party.presence`
+  (the presence work), if it's there.
+- **A party run is banked** like any run: `endRun("party")` once (results, back to the lobby, leaving,
+  the next game) → run:end → lifetime score / miles / runs, run quests, badges.

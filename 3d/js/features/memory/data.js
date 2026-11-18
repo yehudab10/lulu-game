@@ -32,6 +32,8 @@ export const dirty = () => saveSoon();
 
 /** Random / surprise content: on in the game, opt-in in ?test, never in a 🎉 party. */
 export const live = () => ctx.enabled(ID) && !(ctx.party && ctx.party.active);
+/** Personal surprises nobody else sees (a recognition line, a text on HER phone): also in a 🎉 party. */
+export const personal = () => ctx.enabled(ID);
 /** Tests: every dice roll succeeds (knobs.always) or a fixed roll. */
 export const knobs = { always: false, act: null, variant: null };
 export const chance = p => knobs.always || Math.random() < p;

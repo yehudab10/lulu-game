@@ -31,21 +31,24 @@ import { RC, recognize, rememberPaint } from "./recognize.js";
 const party = () => !!(ctx.party && ctx.party.active);
 
 // ── what the world remembers ──────────────────────────────────────────────
-on("streets:carjack", e => { if (!party()) { addGrudge(e); logPush("carjack", { kind: e.kind, color: e.color || null, witnessed: !!e.witnessed }); } });
-on("streets:paint", e => { if (!party()) rememberPaint(e); });
+// (a 🎉 party remembers too — it's HER history; the grudge cars + WANTED posters it earns turn up in a later solo run)
+on("streets:carjack", e => { addGrudge(e); logPush("carjack", { kind: e.kind, color: e.color || null, witnessed: !!e.witnessed }); });
+on("streets:paint", e => rememberPaint(e));
 on("cop:chase", e => chaseEnded(e));
 on("law:release", e => released(e));
-on("law:booked", e => { if (!party()) logPush("booked", { charges: (e.charges || []).slice(0, 3) }); });
+on("law:booked", e => { logPush("booked", { charges: (e.charges || []).slice(0, 3) }); });
 on("hustle:start", () => onJobStart());
 on("hustle:end", e => onJobEnd(e));
 
 // ── run lifecycle ─────────────────────────────────────────────────────────
 on("run:start", () => {
     grudgeReset();
-    if (party()) { GR.sched = -1; PS.want = false; return; }
     M.runs = (M.runs || 0) + 1;
     dirty();
     textsRunStart();
+    // a 🎉 party: no grudge car in the shared traffic, no WANTED billboard (it'd reserve roadside space on ONE
+    // screen) — texts + recognition lines are personal, so they stay
+    if (party()) { GR.sched = -1; PS.want = false; aviRunStart(); return; }
     scheduleGrudge();
     posterRunStart();
     aviRunStart();

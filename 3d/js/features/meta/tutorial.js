@@ -81,7 +81,7 @@ export const tutorialActive = () => !!T;
 export const tutState = () => T;
 
 function wants() {
-    return ctx.enabled("meta") && !M.tutorialDone && !(save3d.best > 0) && !/dina|foot/i.test(ctx.G.mode || "");
+    return ctx.enabled("meta") && !M.tutorialDone && !(save3d.best > 0) && !/dina|foot|party/i.test(ctx.G.mode || "");   // (a party: friends are waiting — no lesson)
 }
 function start() {
     const G = ctx.G;

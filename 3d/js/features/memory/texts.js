@@ -12,7 +12,7 @@
 //   • after a 💰 getaway: Uncle Moishe
 //   • 💜 Avigail, when Lulu's notoriety has grown since she last said something
 import { ctx } from "../../core/ctx.js";
-import { M, CAP, dirty, live, knobs, chance, pick, rand, clamp, fill, notoriety, oncePerRun } from "./data.js";
+import { M, CAP, dirty, personal as live, knobs, chance, pick, rand, clamp, fill, notoriety, oncePerRun } from "./data.js";
 import * as T from "./lines.js";
 
 export const TX = { cool: 0, sent: 0, perRun: 0, lastSent: null, log: [] };

@@ -117,8 +117,10 @@ export function syncTraffic(aroundS) {
         PT.cars.set(w.key, c);
     }
     for (const [key, c] of PT.cars) if (!keep.has(key)) { PT.cars.delete(key); tr.remove(c); }
-    // anything that isn't ours (a stray random spawn) would exist on ONE screen only
-    for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if (!c.data || !c.data.party) tr.remove(c); }
+    // anything that isn't ours (a stray random spawn) would exist on ONE screen only — except a car a feature
+    // marked PERSONAL (data.partyLocal: my cab job's "follow that car", the Chaverim coming for MY flat): it's
+    // mine alone, friends never see it, and party cars are immune to it, so it can't split the shared traffic
+    for (let i = tr.cars.length - 1; i >= 0; i--) { const c = tr.cars[i]; if (!c.data || !(c.data.party || c.data.partyLocal)) tr.remove(c); }
 }
 
 /** Not driving (spectating / podium): still place our cars where the clock says. */
