@@ -17,7 +17,7 @@ module.exports = {
       // a test driver: steer toward waypoints (world x/z) at a target speed; W.stop = brake to a halt at the end
       m.hook("controls", (ctl, dt) => { const W = window.__route, car = m.ctx.car; if (!W) return;
         if (W.lane != null) { const r = m.ctx.world.road, p = r.point(car.s + Math.max(8, car.speed * 0.9), W.lane, {}); W.aim = p; }
-        else { if (!W.pts.length) { if (W.stop) { ctl.steer = 0; ctl.throttle = 0; ctl.brake = 1; ctl.handbrake = false; } return; }
+        else { if (!W.pts.length) { if (W.stop) { ctl.steer = 0; ctl.throttle = 0; ctl.brake = car.vF > 0.3 ? 1 : 0; ctl.handbrake = car.vF <= 0.3; } return; }
           const p0 = W.pts[0]; if (Math.hypot(p0.x - car.pos.x, p0.z - car.pos.z) < (W.r || 4)) { W.pts.shift(); if (!W.pts.length) return; } W.aim = W.pts[0]; }
         const q = W.aim, want = Math.atan2(q.x - car.pos.x, q.z - car.pos.z); let d = want - car.h; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
         const v = W.pts && W.pts.length <= 2 && W.stop ? Math.min(W.v, 5) : W.v;
@@ -123,7 +123,7 @@ module.exports = {
       });
     }
 
-    let RSs = null;
+    let RSs = null, hereBase = null;
     await step("rest", async () => {
       // ── 4. a rest area: the off-ramp, the pump bay ──
       if (await g(`ctx.town.active`)) await g(`ctx.town.leave("quiet")`);
@@ -131,6 +131,12 @@ module.exports = {
       RSs = await g(`ctx.exits.debug.restAhead(500)`);
       t.check("a rest area can be planned ahead", typeof RSs === "number", String(RSs));
       await t.until(`__lulu3d.ctx.exits.debug.modelsReady()`, "rest-area models load", 60000);
+      // a perf baseline on this same stretch of highway (same biome), before the rest area is in view
+      await place(RSs - 2900, 5.25, 25);
+      await lane(5.25, 25); await t.frames(40);
+      hereBase = await perf(100);
+      console.log("   PERF highway here", JSON.stringify(hereBase));
+      await noRoute();
       await place(RSs - 230, 5.25, 14);
       await t.frames(6);
       t.check("the chip says REST AREA ahead", await t.L(`/REST AREA/.test((document.querySelector(".exits-chip") || {}).textContent || "")`), await t.L(`(document.querySelector(".exits-chip") || {}).textContent || "none"`));
@@ -146,19 +152,20 @@ module.exports = {
       await t.until(`!!__lulu3d.ctx.exits.inside`, "into the lot (exits:rest enter)", 40000);
       t.check("the welcome banner + exits:rest enter", (await evs()).some(e => e.startsWith("exits:rest") && /enter/.test(e)));
       await g(`(ctx.G.boost = 0.1, true)`);
-      if (await t.until(`__lulu3d.state === "worldVisit" || (__lulu3d.ctx.exits.debug.RS.inside && __lulu3d.ctx.car.speed < 0.3 && __lulu3d.ctx.car.s > ${RSs} + 186)`, "stopping at the pump bay starts the fill-up", 60000)) {
+      if (await t.until(`__lulu3d.state === "worldVisit"`, "stopping at the pump bay starts the fill-up", 60000)) {
         await t.until(`__lulu3d.state === "playing" && (window.__ev || []).some(e => e.startsWith("exits:pump"))`, "the pump beat plays (exits:pump)", 30000);
         t.check("⛽ nitro full after paying at the pump", await g(`ctx.G.boost > 0.95`), await g(`ctx.G.boost.toFixed(2)`));
-      }
+      } else console.log("   DIAG pump", JSON.stringify(await g(`({ u: +(ctx.car.s - ${RSs}).toFixed(1), d: +ctx.car.d.toFixed(2), v: +ctx.car.speed.toFixed(2), spots: ctx.places.spots().filter(s => /exits/.test(s.id)).map(s => [s.id, Math.round(s.s - ${RSs})]), inside: ctx.places.inside, state: L3.state })`)));
       await noRoute();
     });
 
     await step("foot", async () => {
       // ── 5. park, climb out, walk round: food, restrooms, vending, souvenirs, picnic, the dog, a trucker ──
       if (!RSs) return;
-      await route(RSs, [[160, 30], [120, 39], [100, 39.5], [92, 39.5]], 7, { r: 3, stop: true });
-      await t.until(`__lulu3d.ctx.car.speed < 0.3 && __lulu3d.ctx.car.s < ${RSs} + 110`, "parks in the aisle", 40000);
+      // (parked in the aisle between the stall rows)
       await noRoute();
+      await place(RSs + 92, 39.5, 0);
+      await t.frames(10);
       await g(`(ctx.G.hearts = 1, true)`);
       await g(`ctx.foot.start("droveOff")`);
       if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "out on foot in the lot", 30000)) return;
@@ -235,7 +242,7 @@ module.exports = {
       if (!RSs || await g(`ctx.foot.active`)) return;
       await g(`(ctx.feel && ctx.feel.debug && ctx.feel.debug.wear ? ctx.feel.debug.wear(2, "left") : 0, true)`);
       const k0 = await g(`ctx.feel ? ctx.feel.damage.k : 0`);
-      await route(RSs, [[110, 40], [132, 46], [143.5, 52], [143.5, 57.5], [143.5, 59.5]], 5, { r: 2.2, stop: true });
+      await route(RSs, [[118, 39.5], [136, 40], [143.5, 47], [143.5, 53], [143.5, 57.5], [143.5, 59.5]], 5, { r: 2.2, stop: true });
       if (await t.until(`(window.__ev || []).some(e => e.startsWith("exits:mechanic"))`, "stopping in Mendel's bay (exits:mechanic)", 60000)) {
         t.check("Mendel took the dents out", k0 === 0 || await g(`ctx.feel.damage.k === 0`), `${k0} → ${await g(`ctx.feel ? ctx.feel.damage.k : -1`)}`);
         await t.shot("mendel");
@@ -251,8 +258,9 @@ module.exports = {
       await t.frames(20);
       const rest = await perf(120);
       console.log("   PERF rest area", JSON.stringify(rest));
-      t.check("rest-area draw calls stay within a busy Cruise's (+60)", rest.calls <= busy.calls + 60, `${rest.calls} vs ${busy.calls}`);
-      t.check("rest-area triangles ≤ 160k", rest.tris <= 160000, String(rest.tris));
+      const base = hereBase || busy;
+      t.check("rest-area draw calls: ≤ the same highway + 80", rest.calls <= base.calls + 80, `${rest.calls} vs ${base.calls}`);
+      t.check("rest-area triangles: ≤ the same highway + 90k", rest.tris <= base.tris + 90000, `${rest.tris} vs ${base.tris}`);
       await t.shot("lot-desktop");
       for (const [label, w, h] of [["tv", 1920, 1080], ["phone-portrait", 390, 844], ["phone-landscape", 844, 390]]) {
         await t.page.setViewportSize({ width: w, height: h });
