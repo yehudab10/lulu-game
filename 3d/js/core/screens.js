@@ -267,7 +267,7 @@ function cycleSkin() {
 const ROWS = [
     ["steer", "Steer"], ["gas", "Gas"], ["brake", "Brake · reverse"], ["handbrake", "Handbrake drift"],
     ["boost", "Nitro"], ["honk", "Horn"], ["camera", "Camera"], ["fire", "Fire missile"],
-    ["item", "Use item"], ["interact", "Interact (on foot)"], ["map", "Map / scrapbook"], ["radio", "Car radio (next station)"], ["pause", "Pause"],
+    ["item", "Pepper spray"], ["interact", "Interact (on foot)"], ["lookBack", "Look behind"], ["map", "Map / scrapbook"], ["radio", "Car radio (next station)"], ["pause", "Pause"],
 ];
 /** Features add / relabel a row of the button guide: setControlRow("bail", "Bail out", "interact") (glyphs: input.js glyphSet). */
 export function setControlRow(action, label, after = null) {

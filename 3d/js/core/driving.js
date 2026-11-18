@@ -8,10 +8,10 @@
 //   events: run:start, run:end, coin, closeCall, crash, damage, wreck, heart,
 //           speedTrap, honk, boost, stat
 import * as THREE from "three";
-import { ctx, emit, hook, runHooks, claimHooks, vetoHooks, registerState, setState, MPH, wrapAngle, pick, clearActors } from "./ctx.js";
+import { ctx, on, emit, hook, runHooks, claimHooks, vetoHooks, registerState, setState, MPH, wrapAngle, pick, clearActors } from "./ctx.js";
 import { save3d, saveSoon, wallet, shared, flushShared } from "./save.js";
 import { HALF_ROAD, SHOULDER } from "../world.js";
-import { input, rumble, triggerRumble, glyph } from "../input.js";
+import { input, rumble, triggerRumble, glyph, setBrakePedal } from "../input.js";
 import * as A from "../audio.js";
 import * as H from "../hud.js";
 
@@ -185,7 +185,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
         analog: input.device !== "keyboard",
     } : { steer: 0, throttle: 0, brake: 0.25, handbrake: false, analog: true });
     ctl.steer = Math.max(-1, Math.min(1, ctl.steer));
-    if (controlsOn) runHooks("controls", ctl, dt);
+    if (controlsOn) { runHooks("controls", ctl, dt); setBrakePedal(car.vF); }
 
     // nitro
     const wantBoost = controlsOn && input.boost && !G.noBoost;
@@ -388,6 +388,9 @@ registerState("playing", {
     hud: true, touch: true, pausable: true, driving: true,
     update(dt, P) { updateDriving(dt, P, true); },
 });
+
+// the touch BRAKE / REVERSE pedal goes back to BRAKE outside the driving states (Dina's run, menus…)
+on("state", ({ to }) => { const d = ctx.states[to]; if (to !== "parking" && !(d && d.driving)) setBrakePedal(0, "brake"); });
 
 registerState("wrecked", {
     hud: true, touch: false, pausable: false, driving: true,

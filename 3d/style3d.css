@@ -220,6 +220,7 @@ body.touch #toasts { top: 22%; }
 .tbtn.pedal { width: 92px; height: 120px; letter-spacing: 0.08em; }
 .tbtn.gas { grid-column: 2; grid-row: 3; background: linear-gradient(#66BB6A, #2E7D32); height: 140px; }
 .tbtn.brake { grid-column: 1; grid-row: 2 / span 2; background: linear-gradient(#EF5350, #B71C1C); }
+.tbtn.brake.rev { font-size: 13px; letter-spacing: 0.04em; background: linear-gradient(#FFA726, #E65100); }   /* the same pedal reversing (input.js setBrakePedal) */
 .tbtn.down { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); filter: brightness(1.1); }
 
 /* ── screens ─────────────────────────────────────────────── */

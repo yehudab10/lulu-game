@@ -193,6 +193,23 @@ export function addTouchButton(def) {
     touchButtons.push({ def, el: b });
     return b;
 }
+/**
+ * The touch BRAKE pedal also reverses (from a stop / rolling back) — its label says
+ * which one it does right now. `vF` = the forward speed (m/s) of the car the pedal
+ * drives; `mode` "reverse" | "brake" forces a label. A little hysteresis keeps it from
+ * flickering around a stop. The driving sim and the parking lot call it every frame.
+ */
+let pedalMode = "brake";
+export function setBrakePedal(vF, mode) {
+    const m = mode || (vF > 1.2 ? "brake" : vF < 0.6 ? "reverse" : pedalMode);
+    if (m === pedalMode) return m;
+    pedalMode = m;
+    const el = document.getElementById("tBrake");
+    if (el) { el.textContent = m === "reverse" ? "REVERSE" : "BRAKE"; el.classList.toggle("rev", m === "reverse"); }
+    return m;
+}
+export function brakePedal() { return pedalMode; }
+
 /** Called every frame by main.js: show only the buttons whose visible() is true. */
 export function refreshTouchButtons() {
     for (const t of touchButtons) {
@@ -361,19 +378,19 @@ export function triggerRumble(left, right, ms) {
 const GLYPHS = {
     xbox: { confirm: "A", back: "B", gas: "RT", brake: "LT", handbrake: "X", camera: "Y", boost: "RB", honk: "LB",
         pause: "☰", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "A", phone: "L3", radio: "View", tabPrev: "LB", tabNext: "RB" },
+        interact: "A", phone: "L3", radio: "View", tabPrev: "LB", tabNext: "RB", reverse: "LT" },
     ps: { confirm: "✕", back: "○", gas: "R2", brake: "L2", handbrake: "□", camera: "△", boost: "R1", honk: "L1",
         pause: "OPTIONS", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "✕", phone: "TOUCHPAD", map: "L3", radio: "CREATE", tabPrev: "L1", tabNext: "R1" },
+        interact: "✕", phone: "TOUCHPAD", map: "L3", radio: "CREATE", tabPrev: "L1", tabNext: "R1", reverse: "L2" },
     nintendo: { confirm: "B", back: "A", gas: "ZR", brake: "ZL", handbrake: "Y", camera: "X", boost: "R", honk: "L",
         pause: "+", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "B", phone: "L3", radio: "−", tabPrev: "L", tabNext: "R" },
+        interact: "B", phone: "L3", radio: "−", tabPrev: "L", tabNext: "R", reverse: "ZL" },
     keyboard: { confirm: "Enter", back: "Esc", gas: "↑ / W", brake: "↓ / S", handbrake: "Space", camera: "C", boost: "Shift",
         honk: "H", pause: "P", look: "", lookBack: "V", steer: "← → / A D", music: "U", move: "WASD / arrows",
-        fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R" },
+        fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R", reverse: "↓ / S" },
     touch: { confirm: "Tap", back: "Back", gas: "GAS", brake: "BRAKE", handbrake: "", camera: "CAM", boost: "NITRO",
         honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🧴", interact: "✋", phone: "📱", radio: "📻",
-        tabPrev: "◀", tabNext: "▶" },
+        tabPrev: "◀", tabNext: "▶", reverse: "REVERSE" },
 };
 
 export function glyph(action, device) {
