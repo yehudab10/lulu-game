@@ -45,7 +45,7 @@ module.exports = {
     };
 
     t.check("both towns are data (towns/lakewood.js + towns/midwood.js)", await g(`!!(ctx.town.towns.lakewood && ctx.town.towns.midwood)`));
-    t.check("Cruise's exits take turns: Lakewood, Midwood, Lakewood…", await t.L(`import("./js/features/town/towns/index.js").then(m => [0, 1, 2, 3].map(k => m.townFor(k).id).join(","))`) === "lakewood,midwood,lakewood,midwood");
+    t.check("every Cruise interchange offers both towns: Lakewood (inner branch), Midwood (outer)", await t.L(`import("./js/features/town/towns/index.js").then(m => m.INTERCHANGE.towns.map(t => t.id).join(","))`) === "lakewood,midwood");
 
     // ── 1. busy Cruise baseline + the second exit is Midwood's ───────────
     await g(`L3.startRun({ mode: "cruise" })`);
@@ -63,8 +63,8 @@ module.exports = {
       // drive (teleport) up to the first exit: the planner adds the next one, and it's Midwood's
       await g(`(() => { const e = ${D}.X.exits[0], r = ctx.world.road, s = e.s - 950, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; return true; })()`);
       await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 1`, "the next exit gets planned", 10000);
-      t.check("exit #1 → Lakewood, exit #2 → Midwood", await g(`${D}.X.exits.map(e => e.town.id).slice(0, 2).join(",")`) === "lakewood,midwood", await g(`${D}.X.exits.map(e => e.town.id).join(",")`));
-      t.check("Midwood's exit has its own signs (PARKING: LOL)", await g(`ctx.world.signs.some(s => /PARKING: LOL/.test(s.lines.join(" ")))`));
+      t.check("exits #1 and #2 both offer Lakewood + Midwood", await g(`${D}.X.exits.slice(0, 2).every(e => e.towns.map(t => t.id).join(",") === "lakewood,midwood")`), await g(`${D}.X.exits.map(e => e.towns.map(t => t.id).join("+")).join(",")`));
+      t.check("Midwood's branch has its own sign (PARALLEL PARK) + the interchange names BROOKLYN", await g(`ctx.world.signs.some(s => /PARALLEL PARK/.test(s.lines.join(" "))) && ctx.world.signs.some(s => /BROOKLYN/.test(s.lines.join(" ")))`));
     });
 
     await step("exit", async () => {
