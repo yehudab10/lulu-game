@@ -69,6 +69,8 @@ async function hostUntil(t, code, what, ms = 90000) {
 const clickSel = async (t, sel) => { const ok = await t.L(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (b) b.click(); return !!b; })()`); await sleep(250); return ok; };
 /** Put my car at world (x, z) facing h, stopped (an instant "drive there"). */
 const PLACE = (x, z, h = 0) => `(() => { const c = ctx.car, n = ctx.world.road.nearest(${x}, ${z}, null, {}); c.place(${x}, ${z}, ${h}); c.s = n.s; c.d = n.d; c.vx = c.vz = 0; c.vF = 0; return true; })()`;
+/** A clear spot in Lakewood: Lake Dr's southbound lane (no blocks east of it → no loop traffic, no jam). */
+const CLEAR = `(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"]; return { x: pl.ORIGIN.x + st.c + 1.75, z: pl.ORIGIN.z + 50, h: Math.PI }; })()`;
 const PERF = async (t, frames) => {
   await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
     window.__pf = { n: 0, calls: 0, tris: 0, maxCalls: 0, maxTris: 0 }; })()`);
@@ -117,7 +119,7 @@ async function solo(t) {
   t.check("Nearby (highway): the next Lakewood exit is listed", await t.L(`/Lakewood exit/.test(document.getElementById("lpApp").textContent)`), (await t.L(`document.getElementById("lpApp").textContent`)).slice(0, 160));
   await t.shot("nearby-highway");
   await t.L(`[...document.querySelectorAll("#lpApp [data-pin]")].find(b => /Lakewood/.test(b.textContent)).click()`);
-  await t.frames(6);
+  await t.frames(14);
   const pinSt = await g(`({ open: ctx.phone.isOpen, pin: !!ctx.openworld.pinned, beacons: ctx.openworld.debug.beaconCount() })`);
   t.check("pinning closes the phone, shows a beacon", !pinSt.open && pinSt.pin && pinSt.beacons === 1, JSON.stringify(pinSt));
   t.check("…and the chip with an arrow", await t.L(`getComputedStyle(document.getElementById("owChip")).display !== "none" && /Lakewood/.test(document.getElementById("owChip").textContent)`));
@@ -286,7 +288,7 @@ async function partyRun(t, guests) {
   await copP.until(`ctx.party.clock() > ctx.openworld.game.copGo + 200`, "cop head start over", 20000);
   await sleep(800);
   await t.shot("cnr");
-  const rp = await robP.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h })`);
+  const rp = await robP.game(CLEAR);
   await robP.game(PLACE(rp.x, rp.z, rp.h));
   await copP.game(PLACE(rp.x - Math.sin(rp.h) * 4.2, rp.z - Math.cos(rp.h) * 4.2, rp.h));
   await sleep(2500);
@@ -308,7 +310,7 @@ async function partyRun(t, guests) {
   await g(`ctx.party.clock() > ctx.openworld.game.guard`) || await hostUntil(t, `ctx.party.clock() > ctx.openworld.game.guard + 100`, "kugel guard", 10000);
   const it0 = await g(`ctx.openworld.game.it`);
   const holder = it0 === hostUid ? pages[0] : A, other = holder === A ? pages[0] : A;
-  const op = await other.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, h: ctx.car.h })`);
+  const op = await other.game(CLEAR);
   await other.game(PLACE(op.x, op.z, op.h));
   await holder.game(PLACE(op.x - Math.sin(op.h) * 4.2, op.z - Math.cos(op.h) * 4.2, op.h));
   for (const p of pages) await p.until(`ctx.openworld.game.itN >= 1`, "kugel: passed on contact", 30000);

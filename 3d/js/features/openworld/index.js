@@ -362,8 +362,23 @@ function requestGame(k) {
 }
 function here() {
     const c = ctx.car, z = zone();
-    if (z) return { zone: z, ex: Math.round(ROAM.exitS || 0), x: +c.pos.x.toFixed(1), z: +c.pos.z.toFixed(1), h: +c.h.toFixed(3) };
+    if (z) { const p = clearOfJams(c.pos.x, c.pos.z, c.h); return { zone: z, ex: Math.round(ROAM.exitS || 0), x: +p.x.toFixed(1), z: +p.z.toFixed(1), h: +c.h.toFixed(3) }; }
     return { zone: "", s: +c.s.toFixed(1), d: +c.d.toFixed(2) };
+}
+/** A town start spot that isn't inside one of the town's forever-jams (Route 9): the line-up goes behind the jam. */
+function clearOfJams(x, z, h) {
+    const plan = ctx.town && ctx.town.plan, out = { x, z };
+    if (!plan || !plan.def.jams) return out;
+    const n = ctx.world.road.nearest(x, z, null, {}), st = n.street;
+    if (!st || (st.axis !== "ns" && st.axis !== "ew")) return out;
+    const dir = Math.cos(h - st.h) >= 0 ? 1 : -1, along = n.s - st.base;
+    for (const j of plan.def.jams) {
+        if (j.street !== st.name || Math.sign(j.d) !== dir || along < j.from - 8 || along > j.to + 8) continue;
+        const a = dir > 0 ? j.from - 10 : j.to + 10, d = dir * 1.75;
+        const lx = st.axis === "ns" ? st.c - d : a, lz = st.axis === "ns" ? a : st.c + d;
+        out.x = plan.ORIGIN.x + lx; out.z = plan.ORIGIN.z + lz;
+    }
+    return out;
 }
 function endGameNow() {
     const g = getG();
