@@ -13,7 +13,8 @@
 //   ctx.meta.stat(id, n) / best(id, v)   same as emit("stat", {id, n}) / {id, best}
 //   ctx.meta.holiday() → {h, dayNum, key} | null · isHoliday(id) · holidayHat() → Promise<Object3D|null>
 //   ctx.meta.calm()   → true while the first-drive tutorial runs (keep ambient cop heat off)
-//   ctx.meta.openScrapbook(from) / openQuests(from)   ("title" | "pause")
+//   ctx.meta.openScrapbook(from, tab?) / openQuests(from)   ("title" | "pause"; tab = index or an added tab's id)
+//   ctx.meta.addScrapbookTab({ id, icon, name, render(S), wire?(card, rerender) }) · addBadge(def)   (moves adds 🏁 Moves + its badges)
 // Events emitted: quest:complete {id} · quest:claim {id, reward} · streak {streak, pay} ·
 //   holiday:gift {id, gift} · tutorial:done {skipped} · meta:banked {score}
 import { ctx, on, hook, addMenuItem } from "../../core/ctx.js";
@@ -28,7 +29,8 @@ import {
 import { badgeSync, badgeTotals, scrapHasNew } from "./badges.js";
 import { currentHoliday, holidayIs, holidayHat, holidayGiftTick } from "./holidays.js";
 import { tutorialCalm, tutorialActive, tutState } from "./tutorial.js";
-import { openScrapbook, openQuests } from "./screens.js";
+import { openScrapbook, openQuests, addScrapbookTab } from "./screens.js";
+import { BADGES } from "./badges.js";
 
 ctx.meta = {
     stat: (id, n = 1) => questAdd(id, n),
@@ -39,6 +41,10 @@ ctx.meta = {
     calm: () => tutorialCalm(),
     get tutorial() { return tutorialActive(); },
     openScrapbook, openQuests,
+    /** Another feature's scrapbook page: { id, icon, name, render(S) → html, wire?(card, rerender) } — open it with openScrapbook(from, id). */
+    addScrapbookTab,
+    /** Another feature's 3D badge (same shape as BADGES; `three: true` is implied). */
+    addBadge(b) { if (b && b.id && !BADGES.some(x => x.id === b.id)) BADGES.push(Object.assign({ three: true }, b)); },
     _tut: () => tutState(),
 };
 

@@ -239,7 +239,7 @@ module.exports = {
     // ── restore a code made by the 2D game (2D's own saveToCode) ──
     const code2d = twoD.saveToCode({ totalCoins: 4242, highScore: 777, ownedSkins: ["pink", "gold"], badges: ["firstRun"], scrapSeen: 1, stats: { honks10: 3 } });
     await t.click(/Scrapbook/); await t.frames(3);
-    await t.tap(4); await t.frames(3);   // L1 from Badges wraps to Stats
+    await t.L(`document.querySelector("#mbTab3").click()`); await t.frames(3);   // the Stats tab (other features may add tabs after it, e.g. 🏁 Moves)
     await t.L(`document.querySelector("#mbLoad").click()`); await t.frames(3);
     await t.L(`document.querySelector("#mbCodeIn").value = "nope"`);
     await t.click(/Load this save/);
