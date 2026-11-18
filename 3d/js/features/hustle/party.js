@@ -49,7 +49,7 @@ hook("update", (dt, _P, controlsOn) => {
 on("hustle:start", ({ id }) => {
     if (!(ctx.party && ctx.party.active) || !ctx.party.presence) return;
     const d = JOBS[id] || {};
-    ctx.party.presence({ mode: "job", label: `on a ${d.name || "side job"}`, icon: d.emoji || "💼" });
+    ctx.party.presence({ mode: "job", label: `on a ${d.name || "side job"}`, icon: d.emoji || "💼" }, { sticky: true });   // (until the job ends)
 });
 on("hustle:end", () => { if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence(null); });
 

@@ -162,9 +162,9 @@ export function visit(spot) {
     saveSoon();
     emit("stat", { id: "placeVisits", n: 1 });
     emit("world:visit", { id: spot.place.id, s: spot.s });
-    // a 🎉 party: friends see what I'm up to over my parked car (party's presence tag, if it's there)
-    if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "scene", label: spot.place.verb || spot.place.name, icon: spot.place.icon });
     setState("worldVisit", { spot: spot.key });
+    // a 🎉 party: friends see what I'm up to over my parked car (party's presence tag, if it's there — it holds for this state)
+    if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "scene", label: spot.place.verb || spot.place.name, icon: spot.place.icon });
 }
 
 registerState("worldVisit", {
@@ -211,7 +211,6 @@ registerState("worldVisit", {
     },
     exit() {
         if (ctx.cam) { ctx.cam.state.pos.copy(ctx.camera.position); ctx.cam.state.yaw = ctx.car.h; ctx.cam.state.snap = false; }
-        if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence(null);
     },
 });
 

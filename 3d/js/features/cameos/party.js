@@ -100,8 +100,7 @@ on("cameos:resume", () => { if (partyRun() && ctx.party.respawned) ctx.party.res
 const SCENES = { cameosPorch: { mode: "scene", label: "on Avigail's porch", icon: "💅" }, cameosSalon: { mode: "scene", label: "at Chez Fabio's salon", icon: "💇" } };
 on("state", ({ from, to }) => {
     if (!(ctx.party && ctx.party.active) || !ctx.party.presence) return;
-    if (SCENES[to]) ctx.party.presence(SCENES[to]);
-    else if (SCENES[from]) ctx.party.presence(null);
+    if (SCENES[to]) ctx.party.presence(SCENES[to]);      // (it lapses by itself when the state changes)
 });
 
 export const partyDebug = { log: P.log, done: P.done, spotFor };

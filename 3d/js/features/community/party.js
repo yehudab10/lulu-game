@@ -185,7 +185,6 @@ on("run:start", () => { PC.cars.clear(); PC.key = ""; PC.sceneW = -1; });
 on("state", ({ from, to }) => {
     if (!(ctx.party && ctx.party.active) || !ctx.party.presence) return;
     if (to === "communityScene") ctx.party.presence({ mode: "scene", label: "getting help from the volunteers", icon: "🚨" });
-    else if (from === "communityScene") ctx.party.presence(null);
 });
 
 export const partyDebug = {
