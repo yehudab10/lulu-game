@@ -618,7 +618,7 @@
                 e.comment = randPick(e.drunk ? FOOT_DRUNK_REPLY : FOOT_PED_REPLY); e.commentT = 2.4;
                 footChat = randPick(FOOT_TALK_LULU); footChatT = 2.0; playTone(520, 0.05, "sine", 0.08);
             }
-            if (Math.random() < 0.3) { footCoinsRun++; runCoins++; save.totalCoins++; persistSave(); spawnFloater(e.x, e.y - 24, "+1 💰 tip", "#FFD700"); playCoin(); }
+            // no tips for chatting: it was a bottomless coin farm (the wallet is shared with 2.0)
             return;
         }
         if (prompt.kind === "selfie") {
@@ -719,7 +719,8 @@
             var e = obstacles[o];
             if (e.type === "ped" && Math.abs(e.x - player.x) < 130 && Math.abs(e.y - player.y) < 150) { tips++; e.comment = "👏"; e.commentT = 1.2; }
         }
-        if (tips > 0) { footCoinsRun += tips; runCoins += tips; save.totalCoins += tips; persistSave(); spawnFloater(player.x, player.y - 52, "+" + tips + " 💰 tips!", "#FFD700"); playCoin(); }
+        // applause only, no coins: spamming it was a bottomless coin farm (the wallet is shared with 2.0)
+        if (tips > 0) { spawnFloater(player.x, player.y - 52, "👏 the crowd loves it!", "#FFD700"); }
     }
 
     // Walk into a "P" sign on foot → she just parks HERSELF between people.
