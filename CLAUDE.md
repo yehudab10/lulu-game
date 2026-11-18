@@ -100,7 +100,7 @@ scrapbook stats/badges, quests, sticker book… are SHARED with the 2D save**
 A small core (`3d/js/core/`) + one module per feature in `3d/js/features/<id>/`
 (journey, law, garage, parking, multiplayer, roadevents, cameos, foot,
 interiors, dina, meta, dualsense, play, banter, atmos, party, hustle, streets, memory, world, feel, shabbos, town, community, rides,
-moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo) plugged in through `3d/js/core/ctx.js`
+moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo, openworld — 🌍 Free Roam with friends + party games + 📍 Nearby) plugged in through `3d/js/core/ctx.js`
 (events, hooks, states, menus, actors, cross-feature services like `ctx.law`,
 `ctx.foot`, `ctx.er`) — **read `3d/ARCHITECTURE.md` first**. Towns you can turn into (`features/town`: Lakewood, Midwood — Cruise's exits
 alternate) are data in `features/town/towns/<id>.js` on one engine; see ARCHITECTURE › Towns. Models are

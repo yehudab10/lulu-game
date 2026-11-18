@@ -272,8 +272,9 @@ export class RemoteCar {
     dispose() { this.tag.dispose(); this.bubble.dispose(); this.pop.dispose(); this.v.dispose(); }
 }
 
-/** Hermite sample of a player's track at party time T (ms). Returns false if there's nothing yet. */
-export function sampleTrack(S, T, o) {
+/** Hermite sample of a player's track at party time T (ms). Returns false if there's nothing yet.
+ *  free = a 2-D frame (s, d are plain world axes — a town's streets): no lateral clamp, d extrapolates like s. */
+export function sampleTrack(S, T, o, free = false) {
     const n = S.length;
     if (!n) return false;
     const last = S[n - 1];
@@ -282,8 +283,8 @@ export function sampleTrack(S, T, o) {
         const dt = Math.max(0, (T - last.t) / 1000);
         let e = dt, vk = 1;
         if (dt > 0.3) { const u = Math.min(1, (dt - 0.3) / 0.4); e = 0.3 + (1 - (1 - u) * (1 - u)) * 0.2; vk = 1 - u; }
-        o.s = last.s + last.vs * e; o.d = last.d + last.vd * Math.min(e, 0.25);
-        o.vs = last.vs * vk; o.vd = dt > 0.25 ? 0 : last.vd;
+        o.s = last.s + last.vs * e; o.d = last.d + last.vd * (free ? e : Math.min(e, 0.25));
+        o.vs = last.vs * vk; o.vd = free ? last.vd * vk : dt > 0.25 ? 0 : last.vd;
         o.yaw = last.yaw; o.steer = last.steer; o.y = last.y; o.f = last.f; o.extrap = dt;
         return true;
     }
@@ -292,8 +293,8 @@ export function sampleTrack(S, T, o) {
     const a = S[i], b = S[i + 1];
     if (T <= a.t) { o.s = a.s; o.d = a.d; o.vs = a.vs; o.vd = a.vd; o.yaw = a.yaw; o.steer = a.steer; o.y = a.y; o.f = a.f; o.extrap = 0; return true; }
     const h = Math.max(0.001, (b.t - a.t) / 1000), u = (T - a.t) / (b.t - a.t);
-    hermite(a.s, b.s, a.vs, b.vs, h, u, o, "s", "vs", true);
-    hermite(a.d, b.d, clampV(a.vd), clampV(b.vd), h, u, o, "d", "vd", false);
+    hermite(a.s, b.s, a.vs, b.vs, h, u, o, "s", "vs", !free);
+    hermite(a.d, b.d, free ? a.vd : clampV(a.vd), free ? b.vd : clampV(b.vd), h, u, o, "d", "vd", false);
     o.yaw = a.yaw + (b.yaw - a.yaw) * u;
     o.steer = a.steer + (b.steer - a.steer) * u;
     o.y = a.y + (b.y - a.y) * u;
@@ -325,8 +326,9 @@ export const cars = new Map();
 const tmpP = {};
 let lastClock = 0;
 
-/** Called every frame while the party drives. show(p) → should this player's car be on the road? */
-export function updateCars(dt, show, decorate) {
+/** Called every frame while the party drives. show(p) → should this player's car be on the road?
+ *  frameOf(p) → a road-like {point(s, d, out), free} this player's pose is in (null: the world's road). */
+export function updateCars(dt, show, decorate, frameOf) {
     const road = ctx.world && ctx.world.road;
     if (!road) return;
     const T0 = clock();
@@ -340,7 +342,7 @@ export function updateCars(dt, show, decorate) {
         if (!rc) { rc = new RemoteCar(p); cars.set(uid, rc); }
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
         if (p.hc) rc.v.setHair(p.hc);
-        step(rc, p, dtParty, road, cam);
+        step(rc, p, dtParty, (frameOf && frameOf(p)) || road, cam);
         if (decorate) decorate(rc, p);
     }
     for (const [uid, rc] of cars) if (!N.players.has(uid)) { poof(rc); rc.dispose(); cars.delete(uid); }
@@ -361,7 +363,7 @@ function step(rc, p, dt, road, cam) {
     const want = Math.max(150, Math.min(450, st.ivl * 1.1 + st.jit * 2 + 15));
     st.delay += (want - st.delay) * Math.min(1, dt * 1.5);
     const T = clock() - st.delay;
-    if (!sampleTrack(S, T, o)) {
+    if (!sampleTrack(S, T, o, !!road.free)) {
         // nothing streamed yet: a hello-only player waits invisibly
         rc.v.root.visible = false; rc.shown = false;
         return;
