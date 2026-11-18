@@ -6,8 +6,14 @@
 import * as THREE from "three";
 import { models, instanced, cloneWithColors, findNodes } from "./models.js";
 import { emit } from "./core/ctx.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { ChunkMerger, restFilter } from "./merge.js";
+import { farLod } from "./lod.js";
 
 const _tint = new THREE.Color();
+const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cv = new THREE.Vector3(), _cs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0);
+/** Scenery further than this from the road's centre casts no shadow (the sun's shadow box is ±46 m around the car). */
+const SHADOW_D = 40;
 
 export const STEP = 2;            // metres between road centre-line samples
 export const LANE = 3.5;
@@ -180,6 +186,14 @@ function signTexture(lines, bg = "#1f7a46", fg = "#ffffff", w = 512, h = 256) {
     return t;
 }
 
+/** One material per sign texture (both are cached: the same sign text never makes a second one). */
+const signMats = new Map();
+function signMaterial(tex) {
+    let m = signMats.get(tex);
+    if (!m) signMats.set(tex, m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+    return m;
+}
+
 // ── shared materials / geometry ────────────────────────────────────────
 let MAT = null;
 function materials() {
@@ -213,7 +227,13 @@ function geometry() {
     const heartParts = [new THREE.SphereGeometry(0.33, 14, 10), new THREE.SphereGeometry(0.33, 14, 10), new THREE.ConeGeometry(0.47, 0.75, 14)];
     heartParts[0].translate(-0.24, 0.16, 0); heartParts[1].translate(0.24, 0.16, 0);
     heartParts[2].rotateZ(Math.PI); heartParts[2].translate(0, -0.3, 0);
-    GEO = { coin, pole, bar, heartParts, post: new THREE.CylinderGeometry(0.09, 0.09, 1, 8) };
+    const heart = mergeGeometries(heartParts.map(g => g.clone()), false);   // one draw call a heart
+    // the power pole as a tiny "model", so the chunk merger bakes it in with the trees
+    const poleTemplate = new THREE.Group();
+    const pm = new THREE.Mesh(pole, materials().pole), bm = new THREE.Mesh(bar, materials().pole);
+    pm.castShadow = bm.castShadow = true;
+    poleTemplate.add(pm, bm);
+    GEO = { coin, pole, bar, heartParts, heart, poleTemplate, post: new THREE.CylinderGeometry(0.09, 0.09, 1, 8) };
     return GEO;
 }
 
@@ -265,8 +285,31 @@ class Chunk {
         this.traps = [];
         this.disposables = [];
         this.anim = [];
+        this.group.name = "chunk";
         this.build(world);
+        this.bounds();
         world.scene.add(this.group);
+    }
+
+    /** Where the chunk's stuff is (centre + radius) for the draw-distance cull; anything drawn without
+     *  fog (a skyline meant to be seen from afar) keeps the chunk always drawn. */
+    bounds() {
+        const c = this.center = new THREE.Vector3(), b = new THREE.Box3(), s = new THREE.Sphere();
+        this.group.updateMatrixWorld(true);
+        let r = 0, n = 0;
+        this.noCull = false;
+        this.group.traverse(o => {
+            if (!o.geometry || !(o.isMesh || o.isLine || o.isPoints)) return;
+            for (const m of [].concat(o.material)) if (m && m.fog === false) this.noCull = true;
+            if (o.isInstancedMesh) { if (!o.boundingSphere) o.computeBoundingSphere(); s.copy(o.boundingSphere); }
+            else { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); s.copy(o.geometry.boundingSphere); }
+            s.applyMatrix4(o.matrixWorld);
+            if (!isFinite(s.radius)) return;
+            b.expandByPoint(s.center.clone().addScalar(s.radius)); b.expandByPoint(s.center.clone().subScalar(s.radius)); n++;
+        });
+        if (!n) { this.radius = 0; return; }
+        b.getCenter(c);
+        this.radius = b.getSize(s.center).length() / 2 + 20;   // (+ a margin: things added later, animated props)
     }
 
     addMesh(geo, mat, { cast = false, receive = true } = {}) {
@@ -295,14 +338,17 @@ class Chunk {
 
         // road + shoulders
         this.addMesh(ribbon(road, this.s0, this.s1, -HALF_ROAD, HALF_ROAD, 0.03, ROAD_TEX_LEN), M.road);
-        this.addMesh(ribbon(road, this.s0, this.s1, HALF_ROAD - 0.05, SHOULDER, 0.02, 10), M.shoulder);
-        this.addMesh(ribbon(road, this.s0, this.s1, -SHOULDER, -HALF_ROAD + 0.05, 0.02, 10), M.shoulder);
+        const sh = [ribbon(road, this.s0, this.s1, HALF_ROAD - 0.05, SHOULDER, 0.02, 10), ribbon(road, this.s0, this.s1, -SHOULDER, -HALF_ROAD + 0.05, 0.02, 10)];
+        this.addMesh(mergeGeometries(sh, false), M.shoulder);   // both shoulders: one draw call
+        for (const g of sh) g.dispose();
+        const drives = [];
 
         const nearStart = this.s0 < 120;
         const biome = world.biomeAt(this.s0 + CHUNK / 2);
         this.biome = biome;
         const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), v = new THREE.Vector3();
         const up = new THREE.Vector3(0, 1, 0);
+        const merger = new ChunkMerger();   // houses, trees, bushes, poles → a few merged meshes (merge.js)
 
         // houses first (not at the very start, not in reserved stretches) so trees can avoid them
         const houseSpots = [];
@@ -320,25 +366,17 @@ class Chunk {
                 houseSpots.push({ x: p.x, z: p.z, s, d, rot: facingRoad(h, side), walls: biome.walls[Math.floor(rnd() * biome.walls.length)], roof: biome.roofs[Math.floor(rnd() * biome.roofs.length)] });
                 this.colliders.push({ x: p.x, z: p.z, r: 5.2, kind: "house" });
                 // a driveway out to the road
-                const drive = ribbon(road, s - 1.6, s + 1.6, side > 0 ? SHOULDER : -Math.abs(d) + 3, side > 0 ? Math.abs(d) - 3 : -SHOULDER, 0.025, 10);
-                this.addMesh(drive, M.drive);
+                drives.push(ribbon(road, s - 1.6, s + 1.6, side > 0 ? SHOULDER : -Math.abs(d) + 3, side > 0 ? Math.abs(d) - 3 : -SHOULDER, 0.025, 10));
             }
-            if (houseSpots.length) {
-                const inst = instanced(models[biome.houseModel || "house"], houseSpots.length, ["Walls", "Roof"]);
-                const col = new THREE.Color();
-                houseSpots.forEach((hh, i) => {
-                    q.setFromAxisAngle(up, hh.rot);
-                    mtx.compose(v.set(hh.x, 0, hh.z), q, sc.setScalar(1));
-                    inst.set(i, mtx);
-                    inst.color(i, "Walls", col.set(hh.walls));
-                    inst.color(i, "Roof", col.set(hh.roof));
-                });
-                inst.finish();
-                this.group.add(inst.group);
-                this.disposables.push(inst);
+            const houseModel = models[biome.houseModel || "house"];
+            for (const hh of houseSpots) {
+                q.setFromAxisAngle(up, hh.rot);
+                mtx.compose(v.set(hh.x, 0, hh.z), q, sc.setScalar(1));
+                merger.add(houseModel, mtx, { Walls: hh.walls, Roof: hh.roof }, { cast: true });
             }
         }
         this.houses = houseSpots;
+        if (drives.length) { this.addMesh(mergeGeometries(drives, false), M.drive); for (const g of drives) g.dispose(); }   // the chunk's driveways: one draw call
 
         // trees & bushes (biome mix; features can register more types, e.g. palms)
         const mix = Object.entries(biome.trees).filter(([t, w]) => w > 0 && models[SCENERY[t] ? SCENERY[t].model : t]);
@@ -358,7 +396,7 @@ class Chunk {
             for (const [t, w] of mix) { if ((r -= w) <= 0) { type = t; break; } }
             const def = SCENERY[type] || { collide: type === "bush" ? 0 : 0.5, scale: type === "bush" ? [0.8, 1.4] : [0.85, 1.45] };
             const scale = def.scale[0] + rnd() * (def.scale[1] - def.scale[0]);
-            (spots[type] = spots[type] || []).push({ x: p.x, z: p.z, rot: rnd() * 6.28, scale });
+            (spots[type] = spots[type] || []).push({ x: p.x, z: p.z, rot: rnd() * 6.28, scale, far: Math.abs(d) > SHADOW_D });
             if (def.collide) this.colliders.push({ x: p.x, z: p.z, r: def.collide * scale, kind: "tree" });
         }
         for (const type of Object.keys(spots)) {
@@ -366,21 +404,16 @@ class Chunk {
             const def = SCENERY[type];
             const modelKey = def ? def.model : type;
             const tints = def ? def.tint : ["Leaves", "PineLeaves"];
-            const inst = instanced(models[modelKey], list.length, tints);
-            const col = new THREE.Color();
-            list.forEach((t, i) => {
+            for (const t of list) {
                 q.setFromAxisAngle(up, t.rot);
                 mtx.compose(v.set(t.x, 0, t.z), q, sc.setScalar(t.scale));
-                inst.set(i, mtx);
+                const tc = {};
                 for (const tn of tints) {
                     const base = (def && def.colors && def.colors[tn]) || (tn === "PineLeaves" ? "#2F8F46" : "#6CC24A");
-                    col.set(base).offsetHSL((rnd() - 0.5) * 0.05, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08);
-                    inst.color(i, tn, col);
+                    tc[tn] = new THREE.Color(base).offsetHSL((rnd() - 0.5) * 0.05, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08);
                 }
-            });
-            inst.finish();
-            this.group.add(inst.group);
-            this.disposables.push(inst);
+                merger.add(models[modelKey], mtx, tc, { cast: !t.far });   // (out in the fields: no shadow — outside the sun's box anyway)
+            }
         }
 
         // power poles + wires on the right
@@ -391,15 +424,12 @@ class Chunk {
             poles.push(s);
         }
         if (poles.length) {
-            const pm = new THREE.InstancedMesh(G.pole, M.pole, poles.length);
-            const bm = new THREE.InstancedMesh(G.bar, M.pole, poles.length);
-            pm.castShadow = bm.castShadow = true;
             const wirePts = [];
             poles.forEach((s, i) => {
                 const a = road.point(s, 11.5, {});
                 q.setFromAxisAngle(up, a.h);
                 mtx.compose(v.set(a.x, 0, a.z), q, sc.setScalar(1));
-                pm.setMatrixAt(i, mtx); bm.setMatrixAt(i, mtx);
+                merger.add(G.poleTemplate, mtx, null, { cast: true });
                 this.colliders.push({ x: a.x, z: a.z, r: 0.25, kind: "pole" });
                 // wires to the next pole (sagging)
                 const b = road.point(s + POLE_GAP, 11.5, {});
@@ -414,14 +444,23 @@ class Chunk {
                     }
                 }
             });
-            pm.computeBoundingSphere(); bm.computeBoundingSphere();
-            this.group.add(pm, bm);
-            this.disposables.push(pm, bm);
             const wg = new THREE.BufferGeometry();
             wg.setAttribute("position", new THREE.Float32BufferAttribute(wirePts, 3));
             const wires = new THREE.LineSegments(wg, M.wire);
             this.group.add(wires);
             this.disposables.push(wg);
+        }
+
+        // bake the static scenery: a few merged meshes + instanced copies of any parts that can't merge
+        const baked = merger.build();
+        for (const m of baked.meshes) { this.group.add(m); this.disposables.push(m.geometry); }
+        for (const r of baked.rest) {
+            const tints = [...new Set(r.list.flatMap(e => Object.keys(e.tints)))];
+            const inst = instanced(r.template, r.list.length, tints, restFilter);
+            r.list.forEach((e, i) => { inst.set(i, e.matrix); for (const tn of tints) if (e.tints[tn]) inst.color(i, tn, e.tints[tn]); });
+            inst.finish();
+            this.group.add(inst.group);
+            this.disposables.push(inst);
         }
 
         // coin trails
@@ -451,11 +490,9 @@ class Chunk {
         }
         for (const ht of this.hearts) {
             const g = new THREE.Group();
-            for (const part of G.heartParts) {
-                const m = new THREE.Mesh(part, M.heart);
-                m.castShadow = true;
-                g.add(m);
-            }
+            const m = new THREE.Mesh(G.heart, M.heart);
+            m.castShadow = true;
+            g.add(m);
             g.position.set(ht.x, 1.3, ht.z);
             ht.obj = g;
             this.group.add(g);
@@ -475,6 +512,7 @@ class Chunk {
             cop.position.set(p.x, 0, p.z);
             cop.rotation.y = road.at(s).h + 0.12;
             this.group.add(cop);
+            this.disposables.push(farLod(cop));     // one draw call while it's far away (lod.js)
             this.colliders.push({ x: p.x, z: p.z, r: 1.4, kind: "cop" });
             this.traps.push({ s, triggered: false, obj: cop });
         }
@@ -513,35 +551,38 @@ class Chunk {
         g.position.set(p.x, 0, p.z);
         g.rotation.y = h + Math.PI; // board faces oncoming drivers (us)
         const tex = signTexture(sign.lines, sign.bg, sign.fg, sign.tw, sign.th);
-        const board = new THREE.Mesh(new THREE.BoxGeometry(w, ht, 0.08), [
-            M.metal, M.metal, M.metal, M.metal,
-            new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }), M.metal,
-        ]);
-        board.position.y = 2.2 + ht / 2;
-        board.castShadow = true;
-        g.add(board);
+        // two draw calls a sign: the metal (board edges + back + posts, merged) and the printed face
+        const y = 2.2 + ht / 2;
+        const box = new THREE.BoxGeometry(w, ht, 0.08).translate(0, y, 0);
+        const idx = box.index.array, keep = [];
+        for (let i = 0; i < idx.length; i++) if (i < 24 || i >= 30) keep.push(idx[i]);   // (group 4 = the +Z face)
+        box.setIndex(keep); box.clearGroups();
+        const parts = [box];
         for (const off of (w > 2.5 ? [-w * 0.32, w * 0.32] : [0])) {
-            const post = new THREE.Mesh(G.post, M.metal);
-            post.scale.y = 2.2 + ht * 0.6;
-            post.position.set(off, post.scale.y / 2, 0.06);
-            post.castShadow = true;
-            g.add(post);
+            const sy = 2.2 + ht * 0.6;
+            parts.push(G.post.clone().scale(1, sy, 1).translate(off, sy / 2, 0.06));
         }
+        const metalGeo = mergeGeometries(parts, false);
+        for (const x of parts) x.dispose();
+        const metal = new THREE.Mesh(metalGeo, M.metal);
+        metal.castShadow = true;
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(w, ht).translate(0, y, 0.0405), signMaterial(tex));
+        g.add(metal, face);
         this.group.add(g);
-        this.disposables.push(board.geometry);
+        this.disposables.push(metalGeo, face.geometry);
         this.colliders.push({ x: p.x, z: p.z, r: 0.3, kind: "sign" });
     }
 
     updateCoins(time) {
         if (!this.coinMesh) return;
-        const mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
-        const up = new THREE.Vector3(0, 1, 0);
-        this.coins.forEach((c, i) => {
-            q.setFromAxisAngle(up, time * 3 + c.s * 0.1);
+        const mtx = _cm, q = _cq, v = _cv, sc = _cs, cs = this.coins;
+        for (let i = 0; i < cs.length; i++) {
+            const c = cs[i];
+            q.setFromAxisAngle(_UP, time * 3 + c.s * 0.1);
             const y = 1.05 + Math.sin(time * 4 + c.s) * 0.12;
             mtx.compose(v.set(c.x, y, c.z), q, sc.setScalar(c.taken ? 0 : c.value > 1 ? 1.25 : 1));
             this.coinMesh.setMatrixAt(i, mtx);
-        });
+        }
         this.coinMesh.instanceMatrix.needsUpdate = true;
     }
 
@@ -596,6 +637,7 @@ export class World {
         this.district = null;
         this.chunks = new Map();
         this.config = { speedTraps: true };
+        this.drawScale = 1;          // × the fog's far distance = how far chunks are drawn (core/quality.js: Low pulls it in)
         this.reserved = [];
         // Road signs: {s, d, lines, bg, fg, w, h}. Add yours with addSign() before
         // the chunk at that distance is built (i.e. at init or ~700 m ahead).
@@ -720,7 +762,14 @@ export class World {
         for (let k = kMin; k <= kMax && built < buildBudget; k++) {
             if (!this.chunks.has(k)) { this.chunks.set(k, new Chunk(this, k)); built++; }
         }
-        for (const c of this.chunks.values()) c.animate(this.time);
+        // draw distance: a chunk wholly beyond the fog (× the graphics tier's drawScale) isn't drawn —
+        // it would only be fog-coloured there anyway. (Its colliders, coins and animation carry on.)
+        const fog = this.scene.fog, far = Math.max(200, (fog ? fog.far : 2000) * this.drawScale);
+        for (const c of this.chunks.values()) {
+            c.animate(this.time);
+            const dx = c.center.x - camPos.x, dz = c.center.z - camPos.z;
+            c.group.visible = c.noCull || dx * dx + dz * dz < (far + c.radius) * (far + c.radius);
+        }
         this.follow(dt, camPos, this.biomeAt(playerS).ground || "#ffffff", buildBudget);
     }
 

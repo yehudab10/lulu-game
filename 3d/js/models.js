@@ -133,10 +133,11 @@ const whiteMats = new Map();
 /**
  * Instanced copies of a (multi-material) template: one InstancedMesh per part,
  * so a whole forest is a couple of draw calls. `tint` lists material names whose
- * colour varies per instance (set with .color()).
+ * colour varies per instance (set with .color()). `filter(part)` keeps only some parts
+ * ({ geometry, material, local, cast }) — merge.js instances the parts it can't bake.
  */
-export function instanced(template, count, tint = []) {
-    const parts = partsOf(template);
+export function instanced(template, count, tint = [], filter = null) {
+    const parts = filter ? partsOf(template).filter(filter) : partsOf(template);
     const group = new THREE.Group();
     const meshes = parts.map(p => {
         let mat = p.material;

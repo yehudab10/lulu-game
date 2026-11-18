@@ -52,9 +52,10 @@ export function dirFrom(azDeg, elDeg, out) {
     return out.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
 }
 
-/** The resolved quality setting (mirrors app.js applySettings). */
+/** The graphics tier in force (core/quality.js: the setting, or what AUTO picked). */
 const coarse = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 export function quality() {
+    if (ctx.gfx && ctx.gfx.tier) return ctx.gfx.tier;
     const q = save3d.settings && save3d.settings.quality;
     if (q && q !== "auto") return q;
     const p = ctx.platform || {};

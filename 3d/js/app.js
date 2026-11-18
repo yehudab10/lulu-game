@@ -17,6 +17,8 @@ import { skipInput, skipping, skipBefore, skipAfter, FF_DT, FF_STEPS } from "./c
 import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, openView, titleView } from "./core/screens.js";
 import { resetRun, startRun, endRun, damage, addCoins } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
+import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
+import { updateLods, LOD } from "./lod.js";
 import "./features/index.js";
 
 const MPH = 2.23694;
@@ -24,7 +26,6 @@ const MPH = 2.23694;
 // ── renderer / scene ────────────────────────────────────────────────────
 const canvas = document.getElementById("scene");
 const platform = detectPlatform();
-const coarse = matchMedia("(pointer: coarse)").matches;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !platform.console, powerPreference: "high-performance" });
 ctx.renderer = renderer;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -47,18 +48,25 @@ sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
 ctx.lights = { hemi, sun, sunOffset: new THREE.Vector3(-38, 70, -26) };
 
-let pixelRatio = 1, autoQuality = true;
+/** The graphics tier (core/quality.js) → renderer, shadows, LOD distance, draw distance. */
+function applyGraphics() {
+    const T = resolveTier(renderer, platform).T;
+    renderer.setPixelRatio(gfx.pixelRatio);
+    if (renderer.shadowMap.enabled !== T.shadows) {
+        renderer.shadowMap.enabled = T.shadows;
+        scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });   // (shadow code in / out of the shaders)
+    }
+    const size = T.shadowSize || 1024;
+    if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    const box = T.shadowBox || SH;
+    if (sun.shadow.camera.right !== box) { Object.assign(sun.shadow.camera, { left: -box, right: box, top: box, bottom: -box }); sun.shadow.camera.updateProjectionMatrix(); }
+    LOD.dist = T.lod;
+    if (ctx.world) ctx.world.drawScale = T.draw;
+    emit("gfx", { tier: gfx.tier });
+}
 function applySettings() {
     const S = save3d.settings;
-    const q = S.quality === "auto" ? (platform.console || platform.tv ? "low" : coarse ? "medium" : "high") : S.quality;
-    autoQuality = S.quality === "auto";
-    const dpr = window.devicePixelRatio || 1;
-    pixelRatio = q === "high" ? Math.min(dpr, 2) : q === "medium" ? Math.min(dpr, 1.5) : 1;
-    renderer.setPixelRatio(pixelRatio);
-    renderer.shadowMap.enabled = q !== "low";
-    const size = q === "high" ? 2048 : 1024;
-    if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-    scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+    applyGraphics();
     input.rumbleOn = S.vibration !== false;
     applyTvMode(S.tv === "on" || (S.tv === "auto" && (platform.tv || platform.console)));
     document.documentElement.style.setProperty("--hud-scale", S.hud || 1);
@@ -97,6 +105,7 @@ async function boot() {
     }
     const s2 = shared.get();
     ctx.world = new World(scene);
+    ctx.world.drawScale = gfx.T.draw;
     ctx.car = new PlayerCar(scene, SKINS[s2.selectedSkin] ? s2.selectedSkin : "pink");
     if (s2.luluHair) ctx.car.setHair(s2.luluHair, s2.luluHairStyle);
     ctx.traffic = new Traffic(scene, ctx.world);
@@ -126,11 +135,11 @@ async function boot() {
 
 // ── main loop ───────────────────────────────────────────────────────────
 let last = performance.now();
-const perf = { t: 0, frames: 0 };
 
 function loop(now) {
     requestAnimationFrame(loop);
-    let dt = (now - last) / 1000;
+    const t0 = performance.now(), interval = now - last;
+    let dt = interval / 1000;
     last = now;
     if (dt > 0.05) dt = 0.05;           // below 20 fps the game slows down rather than tunnelling
     if (ctx.TEST) dt = 1 / 30;          // smoke test: deterministic game time per frame
@@ -146,6 +155,7 @@ function loop(now) {
     if (skipping()) { fastForward(P); return; }
     step(dt, P);
     present(dt);
+    if (!ctx.TEST && !ctx.paused && !document.hidden) adaptQuality(interval, performance.now() - t0);
 }
 
 /** One step of game time: input → the current state → world + camera → HUD. */
@@ -172,20 +182,43 @@ function step(dt, P) {
     if (!ctx.view && ctx.world) {
         if (cur && cur.world !== false) ctx.world.update(dt, ctx.car.s, camera.position);
         try { cam.update(dt); } catch (e) { console.error("Lulu3D camera error", e); }
-        sun.position.copy(ctx.car.pos).add(ctx.lights.sunOffset);
-        sun.target.position.copy(ctx.car.pos);
+        placeSun(ctx.car.pos);
     }
     if (cur && cur.hud) updateHud(dt);
     H.notifyTick(dt);
 }
 
+/** The sun's shadow box follows Lulu, snapped to whole shadow-map texels (no shimmering edges as she drives). */
+const _ld = new THREE.Vector3(), _lr = new THREE.Vector3(), _lu = new THREE.Vector3(), _sp = new THREE.Vector3(), _UPV = new THREE.Vector3(0, 1, 0);
+function placeSun(p) {
+    const off = ctx.lights.sunOffset;
+    _ld.copy(off).normalize();
+    _lr.crossVectors(_ld, _UPV);
+    if (_lr.lengthSq() < 1e-6) _lr.set(1, 0, 0);
+    _lr.normalize();
+    _lu.crossVectors(_lr, _ld).normalize();
+    const texel = (sun.shadow.camera.right - sun.shadow.camera.left) / sun.shadow.mapSize.x;
+    const a = p.dot(_lr), b = p.dot(_lu);
+    _sp.copy(p).addScaledVector(_lr, Math.round(a / texel) * texel - a).addScaledVector(_lu, Math.round(b / texel) * texel - b);
+    sun.position.copy(_sp).add(off);
+    sun.target.position.copy(_sp);
+}
+
 function present(dt) {
     refreshTouchButtons();
     const v = ctx.view;
-    renderer.render(v ? v.scene : scene, v ? v.camera : camera);
+    if (v) renderer.render(v.scene, v.camera);
+    else {
+        updateLods(camera);
+        // LOW pulls the fog in to match its shorter draw distance (whoever set the fog this frame keeps their numbers)
+        const fog = scene.fog, k = gfx.T.draw;
+        let fn = 0, ff = 0;
+        if (fog && k < 1) { fn = fog.near; ff = fog.far; fog.near = fn * k; fog.far = ff * k; }
+        renderer.render(scene, camera);
+        if (fog && k < 1) { fog.near = fn; fog.far = ff; }
+    }
     // positional audio follows the camera that just rendered (silent behind a set, paused or skipping)
     A.spatial.update(dt, camera, ctx.car ? ctx.car.pos : null, !v && !ctx.paused && !ctx.skipping);
-    if (!ctx.skipping) adaptQuality(dt);
 }
 
 /** ⏭ Skipping a cutscene: many game-time steps this frame, letting the scene's async
@@ -230,19 +263,12 @@ function updateHud(dt) {
     runHooks("hud", dt);
 }
 
-// Drop the resolution a notch on slow devices so it stays smooth.
-function adaptQuality(dt) {
-    if (!autoQuality || ctx.TEST) return;
-    perf.t += dt; perf.frames++;
-    if (perf.t < 2) return;
-    const fps = perf.frames / perf.t;
-    perf.t = 0; perf.frames = 0;
-    if (fps < 40 && pixelRatio > 0.75) {
-        pixelRatio = Math.max(0.75, pixelRatio - 0.25);
-        renderer.setPixelRatio(pixelRatio);
-        if (pixelRatio <= 1 && renderer.shadowMap.enabled && fps < 30) renderer.shadowMap.enabled = false;
-        resize();
-    }
+// AUTO graphics: slide the resolution to hold 60 fps, and step down a tier if that isn't enough (core/quality.js).
+function adaptQuality(intervalMs, workMs) {
+    if (ctx.skipping) return;
+    const r = adaptFrame(intervalMs, workMs);
+    if (r === "res") { renderer.setPixelRatio(gfx.pixelRatio); resize(); }
+    else if (r === "tier") applySettings();
 }
 
 document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
@@ -265,7 +291,7 @@ window.__lulu3d = {
     start: (mode = "story") => startRun({ mode }),
     // menus: reach any title / pause item, even one tucked into a sub-menu
     openMenuItem, revealMenuItem, titleLabels, openView, get titleView() { return titleView(); }, H,
-    renderer,
+    renderer, gfx,
 };
 
 boot();

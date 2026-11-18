@@ -300,7 +300,7 @@ export class Room {
         const l = new THREE.PointLight(color, intensity, distance, decay);
         if (at) l.position.copy(at);
         const q = save3d.settings.quality, pf = ctx.platform || {};
-        const low = q === "low" || (q === "auto" && (pf.console || pf.tv));
+        const low = ctx.gfx ? ctx.gfx.tier === "low" : q === "low" || (q === "auto" && (pf.console || pf.tv));
         if (optional && low) return l;
         this.set.add(l);
         this.lightsList.push(l);

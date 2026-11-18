@@ -21,15 +21,16 @@ let lastCoins = -1, lastScore = -1, lastMph = -1;
 export function setCoins(n) { if (n !== lastCoins) { lastCoins = n; el.coins.textContent = n; } }
 export function setScore(n) { n = Math.floor(n); if (n !== lastScore) { lastScore = n; el.score.textContent = n.toLocaleString(); } }
 export function setSpeed(mph) { mph = Math.round(mph); if (mph !== lastMph) { lastMph = mph; el.mph.textContent = mph; } }
+let lastBoostW = "", lastBoostFull = null, lastTripF = -1;
 export function setBoost(frac, key) {
-    el.boostFill.style.width = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%";
-    el.boostFill.classList.toggle("full", frac >= 0.999);
+    const w = (Math.max(0, Math.min(1, frac)) * 100).toFixed(1) + "%", full = frac >= 0.999;
+    if (w !== lastBoostW) { lastBoostW = w; el.boostFill.style.width = w; }     // (only real changes touch the DOM)
+    if (full !== lastBoostFull) { lastBoostFull = full; el.boostFill.classList.toggle("full", full); }
     if (key !== undefined && el.boostKey.dataset.k !== key) { el.boostKey.dataset.k = key; el.boostKey.innerHTML = key; }
 }
 export function setTrip(frac, label) {
-    const f = Math.max(0, Math.min(1, frac)) * 100;
-    el.tripFill.style.width = f + "%";
-    el.tripCar.style.left = f + "%";
+    const f = Math.round(Math.max(0, Math.min(1, frac)) * 1000) / 10;
+    if (f !== lastTripF) { lastTripF = f; el.tripFill.style.width = f + "%"; el.tripCar.style.left = f + "%"; }
     if (el.tripLabel.textContent !== label) el.tripLabel.textContent = label;
 }
 

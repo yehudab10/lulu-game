@@ -303,7 +303,7 @@ export function showSettings(back, focusId = null) {
     const sect = t => `<div class="set-h">${t}</div>`;
     const html = `<h2>⚙️ Settings</h2><div class="settings">
         ${sect("🖼️ Screen")}
-        ${row("quality", "🖼️ Graphics", S.quality.toUpperCase())}
+        ${row("quality", "🖼️ Graphics", S.quality === "auto" && ctx.gfx ? `AUTO · ${ctx.gfx.tier.toUpperCase()}` : S.quality.toUpperCase())}
         ${row("tv", "📺 TV / console mode", S.tv.toUpperCase())}
         ${row("hud", "🔠 HUD size", Math.round(S.hud * 100) + "%")}
         ${row("hudMode", "🧹 HUD style", S.hudMode === "clean" ? "CLEAN" : "FULL")}
