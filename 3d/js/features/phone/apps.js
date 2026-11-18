@@ -67,7 +67,7 @@ addApp({
             html += `<div class="lp-card lp-on"><span class="lp-av">${d.emoji || "💼"}</span><span class="lp-tx"><b>On the clock: ${esc(d.name || job.id)}</b><small>${esc(job.intro || d.blurb || "")}</small></span></div>
                 <button class="btn lp-row lp-mini" id="lpQuitJob">✋ Quit this job</button>`;
         } else {
-            const ids = ["cab", "delivery"].concat(ctx.law && !(partyOn() && !ctx.enabled("law")) ? ["getaway"] : []);
+            const ids = ["cab", "delivery"].concat(ctx.law && !(partyOn() && !ctx.enabled("law")) ? ["getaway"] : [], h.listed ? h.listed() : []);
             html += ids.filter(id => JOBS[id]).map(id => { const d = JOBS[id]; return `<button class="btn lp-row lp-job" data-job="${id}"${why ? " disabled" : ""}><span class="lp-av" style="--c:${d.color}">${d.emoji}</span>
                 <span class="lp-tx"><b>${esc(d.name)}</b><small>${esc(d.blurb)}</small></span>${why ? "" : '<span class="lp-meta lp-go">Take it</span>'}</button>`; }).join("");
             if (why) html += `<p class="lp-note">${esc(why)}</p>`;

@@ -31,3 +31,4 @@ import "./moves/index.js";       // 🏁 moves & tricks: drift-boost tiers, rock
 import "./openworld/index.js";    // 🌍 open world: Free Roam with friends (highway + towns), party games from the 📱 (Cops & Robbers, Race to a Pin, Hot Kugel, Photo Hunt), 📍 Nearby
 import "./exits/index.js";       // 🛣️ highway exits & 🅿️ rest areas: service plazas off the Cruise/Story highway (food, gas, restrooms, a gift shop, Mendel's garage, travellers on foot) + the next-exit chip
 import "./native/index.js";      // 📱 the iOS app (Capacitor): AdMob + App Tracking Transparency (ATT before init, an interstitial every 2nd game over, the 📺 rewarded button) + Taptic haptics — a no-op on the web
+import "./underworld/index.js";   // 😈 underworld: crooked cops (the Kugel Fund), Velvel's no-questions garage, the Fixer's dirty jobs + heat, pickpockets, road-ragers, the gang car
