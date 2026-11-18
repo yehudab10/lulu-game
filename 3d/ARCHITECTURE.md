@@ -20,6 +20,7 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/core/platform.js                       PS5 / console / TV detection, TV mode
   js/features/dualsense/                    DualSense light bar + adaptive triggers + heart LEDs (WebHID)
   js/features/native/                       the iOS app (Capacitor): AdMob + ATT, Taptic haptics — a no-op on the web
+  js/features/heist/                        🏦 banks in the towns, cartoon robberies to foil, Lulu's own heist, road snatchers, the cops' stun nets + spike strips
   js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
   js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
   js/world.js  car.js  traffic.js           road + scenery chunks, Lulu's car, traffic
@@ -369,6 +370,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | openworld 🌍 | shared | (see Open world) |
 | native (ads) | **off** | `ads` is in party's OFF set and `ads.js` also checks `ctx.party.active`: no interstitial, no 📺 rewarded button with friends (haptics stay — they're personal) |
 | exits | **off** (rest areas); the town's interchanges stay | rest areas are a solo Cruise / Story thing (their cast, bays and planner read the reserved road); in a 🌍 Free Roam the town's interchanges (both towns at every exit) are planned from s = 0 from fixed data only (the places' constant spots), so every friend's ramps land on the same metre |
+| heist 🏦 | **off** | robberies, snatchers, car thieves, the cops' nets / spikes and Lulu's own heist are one player's random set pieces (a getaway car in the shared traffic, a bank job's chase). The bank building is town data, so it stands in a 🌍 Free Roam town, but its door stays shut. A party version would need: robberies from the road plan (`ctx.party.road.claim("heist", …)` + a seeded getaway route — a `partyLocal` car only the foiler drives, or a seeded loop car like openworld's), the foil credited to whoever stops it first (a host-validated event, like openworld's `owb`), and a co-op heist as its own lobby activity (`addActivity`: one driver, friends as lookouts, the chase personal to the driver) |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -421,6 +423,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.moves` | moves | (`features/moves/`) 🏁 the skill moves + the style combo: `on` (get/set — the Moves page switch; off in `?test` unless `&enable=moves`) · `combo` {n, pts, mult, t, distinct, kinds} · `addMove(id, pts, label, {color, foot})` (feed the combo from your feature) · `keepAlive(sec)` (a link: hold the combo open) · `bank(why)` · `break(why)` · `turbo(tier 1–3, src)` (a mini-turbo) · `airBotched()` (play's touchdown asks) · `footMove()` (start the on-foot roll / slide / vault) · `drifting` · `driftTier` · `turboLeft` · `stars(id)` · `list` · `openPage(from)` (📒 › 🏁 Moves) · `debug {D, T, R, DR, W, B, X, TUNE, AIR, FOOT, PERF, LOG, foot(), callout()}`. Events `moves:move` {id, pts, combo, mult} · `moves:bank` {n, mult, pts, total, coins, why} · `moves:break` {n, mult, why} · `moves:turbo` {tier, src} · `moves:drift` {on, dir \| tier} · `moves:pit` {car} · `moves:air` {tricks, flips, rolls, spins, clean}; stats `moves3d`, `movesTurbo1/2/3`, `movesPerfectStart`, `movesSlingshot`, `movesBootleg`, `movesPit`, `movesAirTricks`, `movesCombo3`, best `movesCombo` |
 | `ctx.meta` | meta | `stat(id, n)` / `best(id, v)` · `holiday()` · `calm()` · `openScrapbook(from, tab?)` (tab = an index or an added tab's id) · `openQuests(from)` · `addScrapbookTab({ id, icon, name, render(S) → html, wire?(card, rerender) })` (a page after Badges · Record · Crew · Stats) · `addBadge(def)` (a 3D badge, same shape as `BADGES`) |
 | `ctx.ads` | native | (`features/native/ads.js`, the iOS app's AdMob — a port of `src/10c-ads.js`: same ad unit IDs / `isTesting`) `native` (Capacitor + the AdMob plugin) · `ready` (initialized) · `att` (the ATT answer seen) · `rewardedReady` · `rewardedAvailable()` · `showRewarded(onReward)` · `debug.{S, ADMOB, log}`. Launch: ~1.2 s in it asks App Tracking Transparency (only while undetermined) and only THEN `AdMob.initialize` (Apple Guideline 2.1). Placements: entering `gameover` → an interstitial every 2nd time + the opt-in "📺 WATCH → +50 💰" button (`#adReward`, second on the card, only while an ad is loaded, one reward per game over). Never mid-drive, in a party or Dina's mode; on the web / in `?test` without `&enable=ads` it never touches anything. Event `ads:ready` {att}; stat `adRewards`. `ctx.native` {active, platform} · `ctx.haptics` {native, debug} (touch-play `rumble()` → `Capacitor.Plugins.Haptics.impact` HEAVY / MEDIUM / LIGHT, throttled per level, off with Settings → 📳 Rumble & haptics). Test: `scripts/tests3d/native.js` (boots the staged `www/3d/` with a fake Capacitor) |
+| `ctx.heist` | heist | `job` (Lulu's heist `{town, plan, bags, lost, phase: inside \| getaway \| pulled, stars}`) · `plan` (a cased bank / the tip `{town \| null, plan, via}`) · `robbery` / `snatcher` / `thief` (the live event) · `busy(except)` · `planHeist(town, planId)` · `cooldownLeft()` · `gear.{fireNet(from, {sure}), laySpikes(ahead, d), ripNet(), flatTyres(dur), netted, flat}` · `store` · `tune` / `pay` / `plans` · `debug.{robbery(opts), endRobbery, job, tip, snatch(mode), carTheft, enterBank, bypass(on)}` — 🏦 (`features/heist/`). Events `heist:robbery` {phase: staged \| start \| foiled \| escaped, where, how, pay}, `heist:job` {phase: tip \| plan \| start \| escaped \| busted \| failed}, `heist:snatch` {phase: approach \| dodged \| grab \| caught \| lost, n}, `heist:theft` {phase: warn \| stopped \| stolen \| recovered \| ditched}, `heist:gear` {kind: net \| spikes, phase}; stats `heistFoils`, `heistTackles`, `heistJobs`, `heistJobsClean`, `heistBusted`, `heistCased`, `heistBankVisits`, `heistSnatched`, `heistSnatchDodged`, `heistSnatchCaught`, `heistCarStolen`, `heistCarsRecovered`, `heistTheftStopped`, `heistNetted`, `heistSpiked`, best `heistBestPay` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 **Damage you can see (feel):** a lost heart (`damage` event) dents Lulu's car where the last `crash` (within
@@ -674,6 +677,29 @@ top-centre, with an arrow) + a score list (`#owBoard`, `.hud-secondary`), pooled
 (`marks.js`: 🚓 light bar, 🥘 kugel, 💰 stash); the scoreboard + 🔁 Rematch open in the phone. **Nearby** (📍 app,
 solo + party): people / landmarks / coins / exits in a town, the next exit + places + a ringing job on the highway
 → a pin (beacon + chip) that clears on arrival. Test: `scripts/tests3d/openworld.js` (logs `PERF party town`).
+
+**Banks, heists & robberies (heist):** CARTOON ONLY (the owner's call; 12+): the robbers' "weapons" are a banana, a water
+pistol, a baguette and a confetti blaster (`heist_props` Prop_* nodes), nobody is ever shot, nobody is hurt beyond the
+usual knock-down / heart rules, the cops bring a stun net and a spike strip. **The bank is town DATA**: `uses.bank` in
+`towns/lakewood.js` (Main St, beside the Simcha Palace) and `towns/midwood.js` (Avenue J, re-tinted limestone + a green roof)
+places `heist_bank` (merged by kit.js like any building: ~0 extra draw calls) with its sign in the town's atlas; `T.spots.bank`
+is its door. On foot ✋ ENTER (a `ctx.foot.addSpot`) opens the interiors engine's `bank` (`defineInterior` from
+`interiors/engine.js`; the town `allowState("interior")` — but only the bank keeps her in town, any other interior there still
+leaves it quietly). **Robberies** (`robbery.js`, gated `ctx.enabled("heist")`, Cruise only, never in a chase / a job / the
+tutorial): in a town the getaway car is a town driver started at the door (`ctx.town.addDriver(kind, { at, cruise })`, an additive
+option), on the highway it's a traffic car fleeing in its lanes at 0.8 × her top with a cosmetic cruiser (`ctx.law.lightBar` + an
+`A.spatial` siren) behind; `data.pit` lets features/moves PIT it (a one-word addition to its `isCop`), `onCrash → false` makes rams
+free; `ctx.law.hold()` every frame while it plays (helping is never a crime). **The job** (`job.js`): state `heistJob` (⏭, in game
+time; `ctx.town.allowState`) → `ctx.law.startChase("BANK HEIST (WITH A BANANA)", { heat })`; results come from `cop:chase` {result}
+(escaped / disguise / left / safe → paid; busted → wait for `law:arrest` or a talked-out pull-over) and `law:arrest`; a clean escape
+`ctx.law.addWarrant`s the charge. law's `data.js` carries the charge's weight, cop / Lulu lines, the lawyer's argument and
+`CHARGE_COURT` (prosecutor + judge lines, read by `rules.js courtLineFor` in court.js). **Snatchers** (`snatch.js`): the moped is a
+plain Object3D (never a traffic car — on foot that would knock her flat), the take is `min(45, 12 % of the wallet)` and catching
+him `wallet.add`s exactly that back (+ a bonus); the car thief swaps the `ai` of foot's parked-car stub (found via
+`ctx.foot.parkedCar`) for a lurching learner that brakes when she's within 5 m, and every ending leaves her car parked and
+drivable. **Gear** (`gear.js`): hooks only (`controls` / `update`), reads law's chasing cruisers from the traffic (`data.law.mode`),
+uses streets' `puncture()` for the flat when it's there and `ctx.feel.damage.hit()` for a dent. One objective chip
+(`.heist-chip`, sub-lines `.hud-secondary`) + one pooled beacon cone; no other HUD. Test: `scripts/tests3d/heist.js`.
 
 **Rest areas (exits):** a service plaza off the highway every ~7 km in Cruise and Story (`REST` in `exits/index.js`), planned
 ≥ 2 km ahead and slid clear of the town's interchanges, pull-in places, big reserved stretches and (Story) the family stops.

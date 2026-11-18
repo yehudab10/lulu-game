@@ -105,7 +105,7 @@ scrapbook stats/badges, quests, sticker book… are SHARED with the 2D save**
 A small core (`3d/js/core/`) + one module per feature in `3d/js/features/<id>/`
 (journey, law, garage, parking, multiplayer, roadevents, cameos, foot,
 interiors, dina, meta, dualsense, play, banter, atmos, party, hustle, streets, memory, world, feel, shabbos, town, community, rides, exits,
-moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo, openworld — 🌍 Free Roam with friends + party games + 📍 Nearby, exits, native — 📱 the iOS app: AdMob + ATT + Taptic haptics, a no-op on the web) plugged in through `3d/js/core/ctx.js`
+moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo, openworld — 🌍 Free Roam with friends + party games + 📍 Nearby, exits, native — 📱 the iOS app: AdMob + ATT + Taptic haptics, a no-op on the web, heist — 🏦 a bank in each town + cartoon robberies to foil + Lulu's own opt-in heist + road snatchers + the cops' stun nets / spike strips, cartoon only) plugged in through `3d/js/core/ctx.js`
 (events, hooks, states, menus, actors, cross-feature services like `ctx.law`,
 `ctx.foot`, `ctx.er`) — **read `3d/ARCHITECTURE.md` first**. Towns you can turn into (`features/town`: Lakewood, Midwood — every Cruise
 interchange offers both, one ramp that splits; rest areas off the highway are `features/exits`) are data in `features/town/towns/<id>.js` on one engine; see ARCHITECTURE › Towns. Models are

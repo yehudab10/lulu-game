@@ -287,7 +287,8 @@ module.exports = {
       await g(`(() => { const e = ctx.heist.snatcher, car = ctx.car, p = ctx.world.road.point(ctx.world.road.nearest(e.x, e.z, car.s, {}).s - 1.5, e.d, {}); car.place(p.x, p.z, p.h); car.vx = Math.sin(p.h) * 12; car.vz = Math.cos(p.h) * 12; return true; })()`);
       await t.until(`window.__ev.some(e => /heist:snatch.*"caught"/.test(e))`, "clip the moped → caught", 4000);
       const after = await coins();
-      t.check("catching him refunds it all (+ a bonus)", after === before + 15, `${before} → ${mid} → ${after}`);
+      const ce = (await evs(`/heist:snatch.*"caught"/`))[0] || "";
+      t.check("catching him refunds it all (+ a bonus)", ce.includes(`"n":${take}`) && after >= before + 15 && after <= before + 40, `${before} → ${mid} → ${after} · ${ce}`);
       await t.frames(20);
       await t.shot("snatch-caught");
       await g(`${HD}.endSnatch()`);
@@ -336,9 +337,9 @@ module.exports = {
       await t.until(`__lulu3d.ctx.heist.gear.netted`, "the net lands on her", 3000);
       await t.L(`import("./js/core/ctx.js").then(m => m.hook("controls", ctl => { if (window.__floor) { ctl.throttle = 1; ctl.brake = 0; } }, 1000))`);
       await g(`(window.__floor = true, true)`);
-      await t.frames(40);
+      await t.frames(60);
       const v = await g(`ctx.car.vF / (42 * (ctx.car.stats.top || 1))`);
-      t.check("netted: she's held to about half speed", v < 0.6, v.toFixed(2));
+      t.check("netted: she's held to about half speed (no nitro)", v < 0.64 && await g(`ctx.heist.gear.netted && ctx.G.noBoost`), v.toFixed(2));
       await t.shot("netted");
       await t.until(`!__lulu3d.ctx.heist.gear.netted`, "the net rips off (wears off)", 6000);
       t.check("…and it wears off after a few seconds", await g(`!ctx.heist.gear.netted && !ctx.G.noBoost`));

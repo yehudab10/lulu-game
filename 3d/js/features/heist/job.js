@@ -21,7 +21,7 @@ import { spawnPerson } from "../../core/people.js";
 import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { HEIST, PLANS, JOB, TUNE, BANK } from "./data.js";
-import { models, live, rand, pick, inTown, onFoot, distTo, stat, best, remember, luluSays, hold,
+import { models, need, live, rand, pick, inTown, onFoot, distTo, stat, best, remember, luluSays, hold,
     setChip, setBeacon, fmtM, sfx, confetti, burst } from "./common.js";
 
 export const S = store("heist", { lastJob: 0, jobs: 0, clean: 0, busted: 0, best: 0, cased: 0 });
@@ -47,6 +47,7 @@ export function blocked() {
 export function setPlan(town, planId = "classic", via = "inside") {
     if (blocked()) return false;
     J.plan = { town: town || null, plan: planById(planId), via, t: 0 };
+    need(["heistProps", "luluPerson"]);        // the confetti blaster, the rugelach, the money bags
     S.cased++; saveSoon();
     stat("heistCased", 1);
     emit("heist:job", { phase: "plan", town: town || "", plan: J.plan.plan.id, via });
