@@ -532,11 +532,17 @@ ctx.town = {
     /** The stretch an exit's signs → ramps cover, relative to its s (features/exits keeps rest areas out of it). */
     span: SPAN,
     /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */
-    addDriver(kind, { minD = 60, speed = 5 } = {}) {
+    addDriver(kind, { minD = 60, speed = 5, at = null, cruise = 0 } = {}) {
         if (!S.active) return null;
-        const sp = randomSpot(minD, kind);
+        // (at {x, z, dir?}: start in the lane of the street nearest that point — features/heist's getaway car at the bank)
+        let sp = null;
+        if (at && S.road) {
+            const n = S.road.nearest(at.x, at.z, undefined, {});
+            if (n && n.street) sp = { street: n.street.id, along: n.s - n.street.base, dir: at.dir || (n.d >= 0 ? 1 : -1) };
+        }
+        if (!sp) sp = randomSpot(minD, kind);
         if (!sp) return null;
-        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, { speed });
+        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, cruise > 0 ? { speed, cruise } : { speed });
         c.data.town.own = true;
         return c;
     },

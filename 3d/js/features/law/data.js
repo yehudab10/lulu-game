@@ -109,6 +109,9 @@ export const LULU_ARREST_LINES = ["I was barely OVER the limit!", "Do you KNOW w
 export const CUFF_LINES = ["🔗 *CLICK* — gotcha.", "🔗 Cuffs ON. Watch your head.",
     "🔗 You're goin' DOWNTOWN.", "🔗 Easy does it, Ms. Bruck."];
 export const CHARGE_DIALOGUE = [
+    // (features/heist: Lulu's cartoon bank job — first, so it wins over the RECKLESS / EVADING lines that ride along)
+    { key: "BANK HEIST", cop: ["A BANK job, Bruck?! With a CONFETTI cannon?!", "The teller says you were very polite. Still a felony.", "Rugelach is NOT a weapon, ma'am. …we checked."],
+        lulu: ["It was a WITHDRAWAL. A very enthusiastic withdrawal.", "The guard was ASLEEP. I was practically doing security.", "I left a lollipop! That's basically a deposit!"] },
     { key: "GRAND THEFT AUTO", cop: ["That car wasn't YOURS, Lulu!", "Boostin' cars now?! That's a FELONY!", "Hot-wire artist, huh? Cute. Cuffs."],
         lulu: ["I was just BORROWING it!", "It had the keys IN it! ...basically.", "Finders keepers is a LAW, no?"] },
     { key: "JOYRIDING", cop: ["Joyride's OVER, lead-foot.", "Fun's done. Out of the car."],
@@ -131,6 +134,7 @@ export const CHARGE_DIALOGUE = [
         lulu: ["I waved! That's basically cooperating!", "I thought it was a FAN. Of mine."] },
 ];
 export const CHARGE_DEFENSE = [
+    { key: "BANK HEIST", arg: "the 'weapon' was a confetti blaster, the 'loot' was rugelach-adjacent, and the guard slept through the entire alleged event." },
     { key: "GRAND THEFT AUTO", arg: "the so-called 'theft' was a spirited TEST-DRIVE — no intent to permanently deprive!" },
     { key: "JOYRIDING", arg: "'joyriding' implies JOY; my client will testify she felt only mild contentment." },
     { key: "PEPPER", arg: "the spray was a textbook reflexive act of SELF-DEFENSE." },
@@ -188,6 +192,12 @@ export const PROSECUTOR_LINES = ["The defendant is a MENACE, your honor!", "We h
     "The PEOPLE demand justice! And a refund!", "I've never seen a clearer case in my LIFE.",
     "Lock her up and lose the key. Then lose the LOCK.", "Exhibit A: her DRIVING. Exhibit B: her ATTITUDE.",
     "Three witnesses, your honor. All TERRIFIED.", "I rest my case. ...okay I don't, but LOOK at her."];
+/** Charge-specific courtroom lines (rules.js courtLineFor): the prosecutor's opener / the judge's intro for that charge. */
+export const CHARGE_COURT = [
+    { key: "BANK HEIST", prosecutor: ["Your honor, the defendant walked into a BANK, shouted 'a stick-up of RUGELACH,' and left in a cloud of CONFETTI!",
+        "Exhibit A: one confetti blaster. Exhibit B: one box of rugelach, half eaten. Exhibit C: a guard who 'didn't see a thing'… he was asleep."],
+        judge: ["A BANK heist. In MY county. With a PARTY CANNON. *rubs temples*", "I've seen everything now. Everything. Proceed."] },
+];
 export const JUDGE_INTROS = ["Order! ORDER in my court!", "This had BETTER be good...",
     "I haven't even had my coffee. Make it QUICK.", "Let's be brief — I tee off at noon.",
     "What FRESH nonsense is this?", "Ms. Bruck. AGAIN. We really must stop meeting like this.",
@@ -300,6 +310,7 @@ export const CHARGE_WEIGHT = {
     "ATTEMPTED BRIBERY": 2, "BRIBING A COURT OFFICIAL": 2, "CONTEMPT OF COURT": 2,
     "RUNNING FROM THE LAW": 3, "HIT AND RUN": 3, "JOYRIDING A STEAMROLLER": 3, "ESCAPE FROM CUSTODY": 3,
     "GRAND THEFT AUTO": 4, "VEHICULAR DESTRUCTION": 4,
+    "BANK HEIST": 4,                 // features/heist (matched by prefix: "BANK HEIST (WITH A BANANA)")
 };
 export const BOUNTY_CAP = 400;
 
