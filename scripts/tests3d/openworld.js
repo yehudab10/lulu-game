@@ -351,8 +351,10 @@ async function partyRun(t, guests) {
   for (const p of pages) if (await p.game(`ctx.phone.isOpen`)) await p.game(`ctx.phone.closePhone()`);
   // the party keeps the world going: leaving town in a party → back on the highway with friends hidden/shown by zone
   await A.game(`ctx.town.leave("highway")`);
-  await sleep(2500);
-  t.check("zones: a friend on the highway is hidden from the town (and vice versa)", await g(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`) && await A.game(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return !rc || !rc.shown; })()`));
+  // (wall-clock waits: on a slow CI machine the guest's next snapshots can take a few seconds to land)
+  const hidH = await hostUntil(t, `(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return !rc || !rc.shown; })()`, "zones: the host stops drawing the guest", 30000);
+  const hidG = await A.until(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(hostUid)}); return !rc || !rc.shown; })()`, "zones: the guest stops drawing the host", 30000);
+  t.check("zones: a friend on the highway is hidden from the town (and vice versa)", hidH && hidG);
   await A.game(`ctx.openworld.warpTo(${JSON.stringify(hostUid)})`);
   await A.until(`ctx.town.active`, "the 👯 warp takes her back into town", 20000);
   await t.game(`ctx.party.leave()`);

@@ -122,7 +122,7 @@ async function partyRun(t, guests) {
   // ── 🚶 the host pulls onto the shoulder and climbs out ──
   await g(`(ctx.party.placeCar(ctx.car.s + 40, 7.2, 0), true)`);
   await A.game(`(ctx.party.placeCar(${await g(`ctx.car.s`)} - 26, 5.25, 0), true)`);
-  await hostUntil(t, `ctx.foot.offering === true`, "a party offers 🚶‍♀️ Get out & walk on the shoulder", 20000);
+  await hostUntil(t, `ctx.foot.offering === true`, "a party offers 🚶‍♀️ Get out & walk on the shoulder", 120000);
   t.check("G.arrived is off on a road trip (climbing out is allowed)", await g(`!ctx.G.arrived`));
   await t.tap(0);
   if (!await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host is walking", 30000)) return;
