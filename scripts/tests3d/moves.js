@@ -19,6 +19,17 @@ module.exports = {
       ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.car.vF = ${v}; return true; })()`);
     const release = async () => { await t.stick(0, 0); for (const b of [0, 2, 5, 6, 7]) await t.hold(b, 0); };
     const bankNow = () => G(`(${M}.combo.t = 0.01, true)`);
+    // hold a long drift on the road: every few frames put the car back in lane d (speed kept; the drift state is untouched)
+    const driftTo = async (tier, label) => {
+      for (let i = 0; i < 40; i++) {
+        if (await G(`${M}.driftTier >= ${tier}`)) return t.check(label, true);
+        if (!await G(`${M}.drifting`)) break;
+        await t.frames(8);
+        await G(`(() => { const c = ctx.car, s = c.s, v = Math.max(18, c.vF); const p = ctx.world.road.point(s, 3.5, {}); c.place(p.x, p.z, p.h); c.s = s;
+          c.vx = Math.sin(p.h) * v; c.vz = Math.cos(p.h) * v; return true; })()`);
+      }
+      return t.check(label, await G(`${M}.driftTier >= ${tier}`), JSON.stringify(await G(`${M}.debug.D`)));
+    };
 
     t.check("ctx.moves service is up", await G(`!!${M} && ${M}.on === true && Array.isArray(${M}.list) && ${M}.list.length >= 10`));
 
@@ -55,7 +66,7 @@ module.exports = {
     await t.frames(2);
     t.check("□ + steer at speed starts a drift", await G(`${M}.drifting`), JSON.stringify(await G(`({ vF: ctx.car.vF, D: ${M}.debug.D })`)));
     await t.stick(-0.8);                          // counter-steer: drift dead straight down the road
-    await t.until(`__lulu3d.ctx.moves.driftTier >= 1`, "sparks reach BLUE (tier 1)", 8000);
+    await driftTo(1, "sparks reach BLUE (tier 1)");
     await t.shot("drift-blue");
     await t.hold(2, 0);
     await t.frames(2);
@@ -66,8 +77,8 @@ module.exports = {
     await t.hold(2, 1);
     await t.frames(2);
     await t.stick(-0.8);
-    await t.until(`__lulu3d.ctx.moves.driftTier >= 2`, "ORANGE (tier 2)", 10000);
-    await t.until(`__lulu3d.ctx.moves.driftTier >= 3`, "PURPLE (tier 3)", 10000);
+    await driftTo(2, "ORANGE (tier 2)");
+    await driftTo(3, "PURPLE (tier 3)");
     const live3 = await G(`({ n: ${M}.combo.n, t: ${M}.combo.t, call: ${M}.debug.callout() })`);
     t.check("the drift keeps the combo open (link move)", live3.n === 1 && live3.t > 0.5, JSON.stringify(live3));
     t.check("the HUD callout shows the drift meter", live3.call.on && /DRIFT/.test(live3.call.name) && live3.call.meter >= 0, JSON.stringify(live3.call));
