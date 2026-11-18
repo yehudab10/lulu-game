@@ -139,7 +139,7 @@ module.exports = {
       console.log("   PERF highway here", JSON.stringify(hereBase));
       await noRoute();
       await place(RSs - 230, 5.25, 14);
-      await t.frames(6);
+      await t.frames(14);          // (the chip refreshes every 0.25 s of game time)
       t.check("the chip says REST AREA ahead", await t.L(`/REST AREA/.test((document.querySelector(".exits-chip") || {}).textContent || "")`), await t.L(`(document.querySelector(".exits-chip") || {}).textContent || "none"`));
       const pts = [];
       for (let u = -220; u <= 10; u += 10) pts.push([u, u < -190 ? 5.25 : u < -80 ? 5.25 + (u + 190) / 110 * 3.6 : offD(u)]);
