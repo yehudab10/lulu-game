@@ -35,7 +35,7 @@ module.exports = {
     const stop = () => g(`(ctx.car.vx = ctx.car.vz = ctx.car.vF = 0, true)`);
 
     t.check("ctx.community service is registered", await g(`!!(${C} && ${C}.startScene && ${C}.call && ${C}.shomrim && ${C}.blend && ${C}.register)`));
-    t.check("party keeps community OFF", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"community"/.test(s))`));
+    t.check("party: community is ON (seeded in a 🌍 Free Roam town — partyworld tests it)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"community"/.test(m[1]); })`));
     t.check("Lakewood opts in (data registry); a town without an entry doesn't", await g(`!!${C}.config("lakewood") && !${C}.config("nowhere")`));
     t.check("law has the tip-off hook (ctx.law.spot)", await g(`typeof ctx.law.spot === "function"`));
     t.check("the town lets our scene state play in town", await g(`typeof ctx.town.allowState === "function" && typeof ctx.town.curbSpot === "function" && typeof ctx.town.addDriver === "function"`));

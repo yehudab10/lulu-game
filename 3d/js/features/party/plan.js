@@ -94,6 +94,8 @@ export function install(svc) {
     svc.road = {
         claim, slot,
         get span() { return span(); },
+        /** Who registered what ("id:kind" in registration order — the same on every screen). */
+        get kinds() { return REG.map(e => e.id + ":" + e.kind); },
         /** Every planned slot whose s is in [s0, s1] (tests compare screens with it). */
         list(s0, s1) { const out = []; for (let k = Math.floor(s0 / CHUNK); k <= Math.floor(s1 / CHUNK); k++) { const sl = slot(k); if (sl && sl.s >= s0 && sl.s <= s1) out.push(sl); } return out; },
         CHUNK,

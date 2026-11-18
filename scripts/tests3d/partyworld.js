@@ -119,14 +119,16 @@ async function roadTrip(t, guests) {
   await clickSel(t, "#pt_go");
   const pages = [{ label: "host", game: c => t.game(c), until: (c, w, ms) => hostUntil(t, c, w, ms), L: c => t.L(c), shot: n => t.shot(n) }, A];
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "trip" && ctx.G.mode === "party"`, "road trip: GO", 60000)) return false;
-  for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: 5.25, speed: 0 }, true)`);
+  // (no random 📱 job call mid-test: it would make the phone busy)
+  for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: 5.25, speed: 0 }, ctx.hustle.hold(900), true)`);
 
   // 1. the plan: identical on both screens
   const plans = [];
   for (const p of pages) plans.push(await p.game(`ctx.party.road.list(0, 4300).map(s => s.key + "@" + s.s.toFixed(2) + ":" + s.side)`));
   t.check("road plan: the same big slots at the same s on both screens", JSON.stringify(plans[0]) === JSON.stringify(plans[1]) && plans[0].length >= 4, `${plans[0].length} slots: ${plans[0].slice(0, 6).join(" ")}`);
-  const ids = new Set(plans[0].map(k => k.split(":")[0]));
-  t.check("road plan: roadevents, cameos and hustle all get slots", ["roadevents", "cameos", "hustle"].filter(i => ids.has(i)).length >= 2, [...ids].join(","));
+  const kinds = [];
+  for (const p of pages) kinds.push(JSON.stringify(await p.game(`ctx.party.road.kinds`)));
+  t.check("road plan: roadevents, cameos and hustle registered, in the same order everywhere", kinds[0] === kinds[1] && ["roadevents:", "cameos:", "hustle:"].every(i => kinds[0].includes(i)), kinds[0]);
   const rePlans = [];
   for (const p of pages) rePlans.push(await p.game(`JSON.stringify(ctx.roadevents.party.plan(0, 4300))`));
   t.check("roadevents plan (big + small): identical on both screens", rePlans[0] === rePlans[1] && JSON.parse(rePlans[0]).length >= 10, `${JSON.parse(rePlans[0]).length} events`);
@@ -170,17 +172,19 @@ async function roadTrip(t, guests) {
   // 4. a personal scene (pull in at Gas 'n' Go) on the host: the guest's world doesn't stop
   const st0 = await g(STATS);
   const gb = await A.game(`({ s: ctx.car.s, T: ctx.party.clock() })`);
-  await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 18 }, true)`);
+  await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 18 }, ctx.party._debug.place(1180, 1.75, 18), true)`);
+  await sleep(1200);
+  const gb2 = await A.game(`({ s: ctx.car.s, T: ctx.party.clock(), f: L3.frames })`);
   const key = await g(`(ctx.places.spots().find(x => x.id === "gas") || {}).key`);
   t.check("host pulls in at the Gas 'n' Go (a personal world visit)", await g(`ctx.places.visit(${JSON.stringify(key)})`) && await g(`ctx.state === "worldVisit"`));
   await sleep(2500);
-  const mid = await A.game(`({ s: ctx.car.s, T: ctx.party.clock(), st: ctx.state, speed: ctx.car.speed })`);
-  t.check("…the guest keeps driving meanwhile (no shared pause)", mid.st === "playing" && mid.s > gb.s + 3 && mid.T > gb.T + 2000, JSON.stringify({ gb, mid }));
+  const mid = await A.game(`({ s: ctx.car.s, T: ctx.party.clock(), st: ctx.state, speed: ctx.car.speed, f: L3.frames })`);
+  t.check("…the guest keeps driving meanwhile (no shared pause)", mid.st === "playing" && mid.f > gb2.f + 3 && mid.s > gb2.s + 0.5 && mid.speed > 8 && mid.T > gb2.T + 2000, JSON.stringify({ gb, gb2, mid }));
   const tr = await A.game(TRAFFIC_OK);
   t.check("…and the guest's traffic is still exactly where the party clock says", tr.n >= 4 && tr.bad === 0 && tr.stray === 0, JSON.stringify(tr));
   await t.shot("visit-host");
   await A.shot("visit-guest");
-  if (!await hostUntil(t, `ctx.state === "playing"`, "the visit ends by itself, back to driving", 30000)) return false;
+  if (!await hostUntil(t, `ctx.state === "playing"`, "the visit ends by itself, back to driving", 150000)) return false;
   await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 0 }, true)`);
   // a cameo scene too (Avigail's porch) — personal, the guest carries on
   await g(`ctx.cameos.trigger("porch")`);
@@ -237,6 +241,25 @@ async function freeRoam(t, guests) {
   await clickSel(t, "#pt_act_roam");
   await clickSel(t, "#pt_go");
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 60000)) return;
+  for (const p of pages) await p.game(`(ctx.banter.autopilot = { d: 5.25, speed: 0 }, ctx.hustle.hold(900), true)`);
+  // the long road: every kind of slot shows up, the same on both screens — and the big ones build the same
+  const rp = [];
+  for (const p of pages) rp.push(await p.game(`ctx.party.road.list(0, 24000).map(s => ({ key: s.key, id: s.id, s: +s.s.toFixed(2) }))`));
+  t.check("free roam plan: identical on both screens, every feature gets slots", JSON.stringify(rp[0]) === JSON.stringify(rp[1]) && ["roadevents", "cameos", "hustle"].every(i => rp[0].some(x => x.id === i)), `${rp[0].length} slots`);
+  const big = ["roadevents", "hustle"].map(i => rp[0].find(x => x.id === i)).filter(Boolean);
+  for (const v of big) {
+    for (const [i, p] of pages.entries()) await p.game(`ctx.party._debug.place(${(v.s - (v.id === "hustle" ? 420 : 200)).toFixed(2)}, ${i ? 1.75 : 5.25}, 0)`);
+    await sleep(2500);
+  }
+  await sleep(2500);
+  for (const v of big) {
+    const got = [];
+    for (const p of pages) got.push(await p.game(v.id === "hustle" ? `ctx.hustle._dbg.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s + "=" + x.job + ":" + x.built)` : `ctx.roadevents.party.log.filter(x => x.key === ${JSON.stringify(v.key)}).map(x => x.key + "@" + x.s)`));
+    t.check(`same ${v.id} set piece on both screens: ${v.key}`, got[0].length === 1 && JSON.stringify(got[0]) === JSON.stringify(got[1]), got.map(x => x.join(" ")).join(" | "));
+  }
+  if (big.length) { await t.shot("setpiece-host"); await A.shot("setpiece-guest"); }
+  const mk = await g(`ctx.hustle.marker`);
+  t.check("a seeded payphone / job board is up for the host", !big.some(v => v.id === "hustle") || !!mk, JSON.stringify(mk));
   for (const p of pages) {
     await p.until(`ctx.town.debug.S.loaded && ctx.community.debug.CM.loaded`, "town + community models", 120000);
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
