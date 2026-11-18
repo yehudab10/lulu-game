@@ -34,7 +34,8 @@ module.exports = {
     const r = await rect("#screenCard.lphone");
     t.check("desktop: a portrait handset in the bottom-right", !!r && r.r > r.w * 0.8 && r.b > r.h * 0.9 && r.b <= r.h + 1 && r.y >= 0 && (r.b - r.y) > (r.r - r.x) * 1.5, JSON.stringify(r));
     const apps = await g(`ctx.phone.apps()`);
-    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 8)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 8, apps.join(","));
+    // (other features add theirs: 📍 Nearby, 🏡 Family, 🗞️ Kvetch… — a full 3 × 3 grid; "every app icon visible" below checks it fits)
+    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 9, one 3 × 3 screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 9, apps.join(","));
     t.check("the grid shows them as big icons", await t.L(`document.querySelectorAll("#screenCard .lp-app").length`) === apps.length);
     const sA = await g(`ctx.car.s`);
     await t.frames(10);
@@ -56,14 +57,23 @@ module.exports = {
     await t.tap(17);
     t.check("controller touchpad opens the phone", await isOpen());
     t.check("…focus starts on the first app (🗺️ Map)", await focusApp() === "map", await focusApp());
+    // the grid runs in app order (map, messages, then whatever comes next — 📍 Nearby when openworld is in)
     await t.tap(15);
     t.check("D-pad → moves to 💬 Messages", await focusApp() === "messages", await focusApp());
     await t.tap(15);
-    t.check("D-pad → moves to 📻 Radio", await focusApp() === "radio", await focusApp());
+    t.check(`D-pad → moves to the third app (${apps[2]})`, await focusApp() === apps[2], await focusApp());
     await t.tap(13);
     const down = await focusApp();
-    t.check("D-pad ↓ moves to the next row", !!down && !["map", "messages", "radio"].includes(down), down);
-    await t.tap(12);
+    t.check("D-pad ↓ moves to the next row", !!down && !apps.slice(0, 3).includes(down), down);
+    // D-pad over to 📻 Radio wherever it sits on the grid (row first, then column)
+    const ri = apps.indexOf("radio"), cols = await t.L(`getComputedStyle(document.querySelector("#screenCard .lp-grid")).gridTemplateColumns.split(" ").length`);
+    for (let i = 0; i < 6; i++) {
+      const c = apps.indexOf(await focusApp());
+      if (c === ri || c < 0) break;
+      const dr = Math.floor(ri / cols) - Math.floor(c / cols);
+      await t.tap(dr < 0 ? 12 : dr > 0 ? 13 : ri % cols < c % cols ? 14 : 15);
+    }
+    t.check("D-pad gets to 📻 Radio", await focusApp() === "radio", await focusApp());
     await t.tap(0);
     t.check("✕ opens the focused app (📻 Radio)", await t.L(`!!document.querySelector("#screenCard .lp-appv .lp-st")`));
     await t.tap(1);

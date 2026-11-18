@@ -65,7 +65,9 @@ body.tv .hs-job { margin-top: calc(3vh + 8px); }     /* TV: the trip bar sits lo
 .hs-radio .tx:empty { display: none; }
 .hs-radio .tx b { color: #FFE082; font-weight: 700; }
 @keyframes hsEq { 0%, 100% { height: 3px; } 50% { height: 10px; } }
-body.tv .hs-radio { max-width: min(520px, 34vw); font-size: 20px; padding: 10px 16px 11px; margin-right: 3vw; border-radius: 18px; }
+/* TV: the right slot already carries the 3vw TV margin (no second one here), and ≤ 32vw keeps the card in the
+   right column at 720p, where it steps down under the centre job stack instead of being squeezed out */
+body.tv .hs-radio { max-width: min(520px, 32vw); font-size: 20px; padding: 10px 16px 11px; border-radius: 18px; }
 body.tv .hs-radio .st { font-size: 16px; } body.tv .hs-radio .st .eq { height: 14px; } body.tv .hs-radio .st .eq i { width: 4px; }
 .hs-radio.squeezed { display: none; }
 @media (max-width: 600px) { .hs-radio { max-width: 52vw; font-size: 11.5px; padding: 5px 9px 6px; } }

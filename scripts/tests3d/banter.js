@@ -13,14 +13,21 @@ module.exports = {
     t.check("service is up", await g(`!!ctx.banter && typeof ctx.banter.say === "function"`));
     await g(`(ctx.banter.knobs.always = true)`);
 
-    // ── the title screen: Lulu bops along on autopilot ─────────────────────
-    const tp0 = await g(`ctx.banter.pose()`);
-    await t.frames(12);
-    const tp1 = await g(`ctx.banter.pose()`);
-    t.check("driver rig carved into torso / head / arms", tp0.ok && !tp0.rigid && tp0.parts >= 4, JSON.stringify(tp0).slice(0, 160));
+    // ── the title screen: Lulu bops along at the wheel ──────────────────────
+    // (with world's home street up she's parked in the driveway, standing by the car — the rig rests;
+    // she bops on the title while she's driving home: checked in section 9)
     const diff = (a, b) => (a && b ? Math.max(...a.map((v, i) => Math.abs(v - b[i]))) : 0);
-    t.check("she moves on the title screen (bop / steer)", diff(tp0.head, tp1.head) > 0.002 || diff(tp0.armL, tp1.armL) > 0.002,
-      `head Δ${diff(tp0.head, tp1.head).toFixed(4)} arm Δ${diff(tp0.armL, tp1.armL).toFixed(4)}`);
+    const titleBop = async label => {
+      const a = await g(`ctx.banter.pose()`);
+      await t.frames(12);
+      const b = await g(`ctx.banter.pose()`);
+      t.check(label, diff(a.head, b.head) > 0.002 || diff(a.armL, b.armL) > 0.002, `head Δ${diff(a.head, b.head).toFixed(4)} arm Δ${diff(a.armL, b.armL).toFixed(4)}`);
+    };
+    const tp0 = await g(`ctx.banter.pose()`);
+    t.check("driver rig carved into torso / head / arms", tp0.ok && !tp0.rigid && tp0.parts >= 4, JSON.stringify(tp0).slice(0, 160));
+    const homeStreet = await g(`!!(ctx.places && ctx.places.home && ctx.places.home.ready && ctx.places.home.phase === "parked")`);
+    if (homeStreet) t.check("parked at home on the title: she's out of the car (no driver to animate)", await g(`ctx.car.driver.visible === false`));
+    else await titleBop("she moves on the title screen (bop / steer)");
 
     await g(`(ctx.banter.gesture("wave", 2.5), true)`);
     await t.frames(10);
@@ -221,6 +228,11 @@ module.exports = {
     // ── 9. back to the title: everything tidied away ───────────────────────
     await g(`L3.setState("title")`);
     await t.frames(4);
+    if (homeStreet) {
+      const home = await g(`({ phase: ctx.places.home.phase, driver: ctx.car.driver.visible })`);
+      t.check("back on the title she drives home, at the wheel", home.phase === "arriving" && home.driver === true, JSON.stringify(home));
+      if (home.phase === "arriving") await titleBop("she moves on the title screen (bop / steer) while she drives home");
+    }
     t.check("no bubbles on the title screen", (await g(`ctx.banter.rects().length`)) === 0);
     t.check("no arms left hanging out of windows", (await g(`ctx.banter.arms().length`)) === 0);
     t.check("onlookers go home", (await g(`ctx.banter.peds().length`)) === 0);
