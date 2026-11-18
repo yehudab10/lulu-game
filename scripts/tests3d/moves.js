@@ -89,12 +89,15 @@ module.exports = {
     t.check("PURPLE turbo is longer + stronger than BLUE", d3.tier === 3 && d3.left > 1.2 && d3.acc > d1.acc, `${JSON.stringify(d1)} → ${JSON.stringify(d3)}`);
     t.check("two turbos chained: combo ×1.5", d3.n === 2 && Math.abs(d3.mult - 1.5) < 0.01 && d3.q3 === 1, JSON.stringify(d3));
     await t.shot("turbo");
+    // an empty road while it runs out: passing traffic would keep feeding the chain close shaves (timing-dependent)
+    await G(`(window.__mvTraffic = ctx.traffic.config.enabled, ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
     await t.hold(7, 0); await t.stick(0);
     await t.until(`__lulu3d.ctx.moves.combo.n === 0`, "the combo runs out and banks", 8000);
     const bk = await G(`${M}.debug.LOG[${M}.debug.LOG.length - 1]`);
     // (n ≥ 2: on a fast machine more road goes by while it runs out — a close shave can join the chain)
     t.check("banked: score × multiplier", bk && bk.type === "bank" && bk.n >= 2 && bk.mult >= 1.5 && bk.total > 0 && (await G(`ctx.G.score`)) > score0, JSON.stringify(bk));
     await t.shot("bank");
+    await G(`(ctx.traffic.config.enabled = window.__mvTraffic !== false, true)`);
 
     // ── 💥 a crash loses the chain ──
     await G(`(L3.emit("closeCall", { oncoming: false, combo: 1 }), L3.emit("closeCall", { oncoming: true, combo: 2 }), true)`);
