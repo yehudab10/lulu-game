@@ -16259,9 +16259,8 @@
         if (!pointInRect(click.x, click.y, W - 60, menu3dBtnY(), 44, 52)) return false;
         playClick();
         try { persistSave(); } catch (e) {}
-        // the iOS app bundles only the 2D game; on the web this opens /3d/
-        if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) location.href = "https://lulu.boats/3d/";
-        else location.href = "3d/";
+        // the web AND the iOS app (which bundles 2.0 at www/3d/) open the 3D game next to this page
+        location.href = "3d/";
         return true;
     }
 

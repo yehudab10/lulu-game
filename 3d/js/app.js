@@ -249,6 +249,12 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) pause
 document.getElementById("pauseBtn").addEventListener("click", () => { A.unlockAudio(); pause(); });
 window.addEventListener("pointerdown", () => A.unlockAudio(), { passive: true });
 window.addEventListener("keydown", () => A.unlockAudio(), { passive: true });
+// iOS (Safari + the app's WKWebView) only counts touchend / click as the gesture that may
+// start audio — and after a phone call, an ad or the app going to the background its
+// AudioContext comes back "interrupted": the next touch resumes it.
+window.addEventListener("touchend", () => A.unlockAudio(), { passive: true });
+window.addEventListener("click", () => A.unlockAudio(), { passive: true });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && A.audio.started) A.unlockAudio(); });
 
 // test hook for scripts/smoke3d.js
 window.__lulu3d = {

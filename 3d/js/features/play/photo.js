@@ -343,12 +343,12 @@ export function snap() {
         PH.lastPhoto = url;
         PH.snaps++;
         const d = new Date(), pad2 = n => String(n).padStart(2, "0");
-        download(url, `lulu-road-trip-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}.png`);
+        if (!IN_APP) download(url, `lulu-road-trip-${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}-${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}.png`);
         const thumb = addToAlbum(c, w, h, f, fr);
         flash(thumb);
         sfx.shutter();
         rumble(0.15, 0.5, 90, true);
-        note("📸 Saved! (and added to your album)");
+        note(IN_APP ? "📸 Snapped! It's in your album (📒 → Share to save it)" : "📸 Saved! (and added to your album)");
         SAVE.photos++;
         saveSoon();
         stat("photos", 1);
@@ -359,6 +359,19 @@ export function snap() {
     }
     PH.busy = false;
     return url;
+}
+// The iOS app's WKWebView has no Downloads folder (an <a download> lands in the app's
+// sandbox, out of reach), so in the app a snap just goes to the album, and the album's
+// button opens the share sheet instead (Save Image · AirDrop · Messages).
+const IN_APP = (() => { try { return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); } catch (e) { return false; } })();
+async function shareImage(dataUrl, name) {
+    try {
+        const blob = await (await fetch(dataUrl)).blob();
+        const file = new File([blob], name, { type: blob.type || "image/jpeg" });
+        if (!(navigator.canShare && navigator.canShare({ files: [file] }))) return "😕 Sharing isn't available here";
+        await navigator.share({ files: [file], title: "Lulu's Road Trip" });
+        return "📤 Shared!";
+    } catch (e) { return e && e.name === "AbortError" ? "" : "😕 Couldn't share that one"; }
 }
 function download(url, name) {
     try {
@@ -392,7 +405,7 @@ function albumHtml() {
         return `<button class="pp-th nav" data-i="${i}"><img src="${p.img}" alt=""><span>${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · ${esc(p.place || "")}</span></button>`;
     }).join("");
     return `<h2>📒 Lulu's Photo Album</h2>
-        <p class="fine">Your last ${ALBUM_MAX} snaps live here on this device · full-size PNGs go to your downloads.</p>
+        <p class="fine">Your last ${ALBUM_MAX} snaps live here on this device · ${IN_APP ? "open one to share or save it." : "full-size PNGs go to your downloads."}</p>
         ${list.length ? `<div class="pp-album">${items}</div>` : `<p class="pp-empty">No photos yet — press ${glyph("confirm")} to snap one!</p>`}`;
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -412,7 +425,8 @@ function viewPhoto(i) {
     H.showScreen(`<h2>📸 ${esc(p.place || "Road trip")}</h2>
         <div class="pp-view"><img src="${p.img}" alt=""></div>
         <p class="fine">${d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} · ${esc(p.filter)} · ${esc(p.frame)}</p>`, [
-        { label: "⬇ Save this one", action: () => { download(p.img, `lulu-album-${i + 1}.jpg`); note("⬇ Saved"); } },
+        IN_APP ? { label: "📤 Share / save this one", action: () => { shareImage(p.img, `lulu-album-${i + 1}.jpg`).then(m => { if (m) note(m); }); } }
+            : { label: "⬇ Save this one", action: () => { download(p.img, `lulu-album-${i + 1}.jpg`); note("⬇ Saved"); } },
         { label: "🗑 Delete", cls: "pink", action: () => { SAVE.album.splice(i, 1); saveSoon(); openAlbum(); } },
         { label: `← Album ${glyph("back")}`, cls: "alt", action: () => openAlbum(i) },
     ], { onBack: () => openAlbum(i), wide: true });

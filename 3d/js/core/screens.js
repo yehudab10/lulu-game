@@ -313,7 +313,7 @@ export function showSettings(back, focusId = null) {
         ${row("chatter", "💬 Lulu's chatter", cap(S.chatter || "normal").toUpperCase())}
         ${row("calm", "🫶 Calm screen (no shake)", S.calm ? "ON" : "OFF")}
         ${sect("🎮 Controls")}
-        ${row("vibration", "📳 Controller rumble", S.vibration ? "ON" : "OFF")}
+        ${row("vibration", "📳 Rumble &amp; haptics", S.vibration ? "ON" : "OFF")}
         ${row("steer", "🛞 Steering", Math.round(S.steerSens * 100) + "%")}
         ${row("invert", "🔃 Invert look", S.invertLook ? "ON" : "OFF")}
         ${menuItems("settings").map(i => `<button class="btn alt setting nav" id="set_x_${i.id}">${i.label}</button>`).join("")}

@@ -27,6 +27,11 @@ jobs:
       - name: game.js matches src/
         run: node build.js --check
 
+      # The iOS app (Codemagic) bundles www/ — 2.0 at www/3d/ + the classic
+      # game. Fails if a file the 3D game references wouldn't be in the app.
+      - name: iOS app bundle (www/) has every file the 3D game references
+        run: node scripts/copy-web.js
+
       - name: Install Playwright + Chromium
         # Kept out of package.json so the iOS build (Codemagic) never pulls it.
         run: |

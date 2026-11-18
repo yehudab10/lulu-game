@@ -11,8 +11,13 @@ The original **2D canvas game is legacy**: its page is now **`classic.html`**
 (loads `game.js`, built from `src/`), linked from 2.0's ⚙️ More menu (“Classic
 2D”). **Do not port new features to it or keep it in sync with 3D** — touch
 `src/` only to fix something that's broken. The iOS native app (Capacitor)
-still ships the classic game: `scripts/copy-web.js` stages `classic.html` as
-`www/index.html`. The coin wallet/cars/etc. stay shared through the save.
+**ships 2.0 too**: `scripts/copy-web.js` stages the root `index.html` (→ `3d/`)
+as `www/index.html`, the 3D game as `www/3d/` (no blender/docs/.md) and the
+classic game beside it as `www/classic.html`, then fails loudly if anything the
+3D game references is missing. The app's AdMob/ATT + Taptic haptics live in
+`3d/js/features/native/` (see IOS_BUILD.md; test `scripts/tests3d/native.js`).
+The coin wallet/cars/etc. stay shared through the save (same
+`capacitor://localhost` origin as the old classic app).
 
 Served statically via GitHub Pages → **lulu.boats**. No framework, no bundler.
 
@@ -77,7 +82,7 @@ How it works:
 | `09b-sticker-book.js`    | Sticker Book minigame (spend ⭐ stars to decorate a scrapbook) |
 | `10-dina-nap-salon.js`   | Dina nap, Avigail scene (randomized), salon scene |
 | `10b-cookie-catch.js`    | Cookie Catch minigame (Dina's bedroom snack activity) |
-| `10c-ads.js`             | AdMob wrapper — no-op on the web, real ads only in the native iOS app |
+| `10c-ads.js`             | AdMob wrapper — no-op on the web, real ads only in the native iOS app (only if a player opens Classic 2D there; 2.0 has its own port in `3d/js/features/native/ads.js` — keep the IDs identical) |
 | `10d-jail-court.js`      | Arrest → jail cell → courtroom (visual-novel dialogue) → escape / fugitive |
 | `10e-hospital.js`        | The ER — a softer landing than game over (diagnosis, medical bill) |
 | `10f-multiplayer.js`     | **Shared Road** multiplayer presence (ghost cars, rooms, races, leaderboards) — guarded no-op offline |
@@ -100,7 +105,7 @@ scrapbook stats/badges, quests, sticker book… are SHARED with the 2D save**
 A small core (`3d/js/core/`) + one module per feature in `3d/js/features/<id>/`
 (journey, law, garage, parking, multiplayer, roadevents, cameos, foot,
 interiors, dina, meta, dualsense, play, banter, atmos, party, hustle, streets, memory, world, feel, shabbos, town, community, rides, exits,
-moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo, openworld — 🌍 Free Roam with friends + party games + 📍 Nearby) plugged in through `3d/js/core/ctx.js`
+moves — 🏁 drift-boost tiers, rocket starts, slipstream, air tricks, bootlegger, PIT, foot roll/slide/vault + the style combo, openworld — 🌍 Free Roam with friends + party games + 📍 Nearby, exits, native — 📱 the iOS app: AdMob + ATT + Taptic haptics, a no-op on the web) plugged in through `3d/js/core/ctx.js`
 (events, hooks, states, menus, actors, cross-feature services like `ctx.law`,
 `ctx.foot`, `ctx.er`) — **read `3d/ARCHITECTURE.md` first**. Towns you can turn into (`features/town`: Lakewood, Midwood — every Cruise
 interchange offers both, one ramp that splits; rest areas off the highway are `features/exits`) are data in `features/town/towns/<id>.js` on one engine; see ARCHITECTURE › Towns. Models are

@@ -3,6 +3,12 @@
 Everything below is ready to paste into App Store Connect. Replace the few
 **[IN BRACKETS]** bits with your real details.
 
+> ⚠️ **The app now ships 2.0 (the 3D game).** The description, promotional
+> text, review notes ("fully offline", "one-finger controls", "tap PLAY, choose
+> Dina…") and screenshot list below were written for the 1.0 classic 2D app —
+> refresh them for 2.0 before the next App Store submission (see IOS_BUILD.md →
+> "Moving the app to 2.0").
+
 ---
 
 ## 1. App Information  (My Apps → Lulu's Road Trip → App Information)

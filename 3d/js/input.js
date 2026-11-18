@@ -348,6 +348,11 @@ export function updateInput(dt) {
 }
 
 // ── rumble ─────────────────────────────────────────────────────────────
+// A native haptics sink (features/native: the iPhone's Taptic engine through
+// Capacitor's Haptics plugin — iOS has no navigator.vibrate). Touch play only;
+// the sink throttles itself. null on the web.
+let hapticSink = null;
+export function setHapticSink(fn) { hapticSink = fn || null; }
 let rumbleUntil = 0;
 export function rumble(strong, weak, ms, force) {
     if (input.rumbleOn === false) return;
@@ -358,6 +363,8 @@ export function rumble(strong, weak, ms, force) {
     const va = gp && gp.vibrationActuator;
     if (va && va.playEffect && input.device === "gamepad") {
         va.playEffect("dual-rumble", { startDelay: 0, duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+    } else if (input.device === "touch" && hapticSink) {
+        try { hapticSink(strong, weak, ms); } catch (e) { /* haptics never break the game */ }
     } else if (input.device === "touch" && navigator.vibrate && strong > 0.5) {
         navigator.vibrate(Math.min(ms, 120));
     }

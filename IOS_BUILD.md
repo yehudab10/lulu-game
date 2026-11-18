@@ -1,7 +1,9 @@
 # Shipping Lulu's Road Trip to the App Store (Capacitor wrapper)
 
-This wraps the **existing web game** (`index.html` + `game.js`) in a native iOS
-shell using [Capacitor](https://capacitorjs.com/), with **AdMob** ads. It is a
+This wraps the web game in a native iOS shell using
+[Capacitor](https://capacitorjs.com/), with **AdMob** ads. **The app ships
+Lulu's Road Trip 2.0 — the 3D game in `3d/`** — exactly like lulu.boats (the
+classic 2D game rides along behind ⚙️ More → "Classic 2D"). It is a
 **completely separate app** from anything else you have:
 
 - Its own **bundle id** (`boats.lulu.game` — change it if you like, but it must
@@ -21,34 +23,80 @@ identically on the web (ads are a no-op unless running inside the native app).
 |------|---------|
 | `package.json`            | Capacitor + AdMob dependencies and helper scripts |
 | `capacitor.config.json`   | App id, name, and AdMob config. `webDir` is `www/`. |
-| `scripts/copy-web.js`     | Stages the runtime web assets into `www/` for bundling |
-| `src/10c-ads.js`          | The ad manager (no-op on web; AdMob in the native app) |
+| `scripts/copy-web.js`     | Stages the runtime web assets into `www/` for bundling **and fails if a file the 3D game references is missing** |
+| `3d/js/features/native/`  | 2.0's native glue: AdMob + ATT (`ads.js`), Taptic haptics (`haptics.js`) — a no-op on the web |
+| `src/10c-ads.js`          | The classic 2D game's ad manager (same IDs; still active if a player opens Classic 2D in the app) |
+| `scripts/tests3d/native.js` | Boots the game from the staged `www/3d/` with a fake Capacitor: zero 404s, ATT before AdMob init, ad placements, haptics |
 | `codemagic.yaml`          | iOS build + TestFlight pipeline (workflow `ios-capacitor`) |
 | `www/`, `ios/`            | **Generated** (gitignored) — rebuilt on every build |
 
 ---
 
+## What the app bundles (`www/`, built by `scripts/copy-web.js`)
+
+```
+www/index.html          the repo's index.html: forwards to 3d/ (keeps ?query + #hash)
+www/3d/                 2.0: index.html, style3d.css, js/, vendor/ (three.js), assets/*.glb
+www/*.mp3               the music (the 3D game loads it as ../<name>.mp3)
+www/classic.html        the classic 2D game + game.js, style.css, icons, manifest
+```
+
+Left out: `3d/blender/`, `3d/docs/`, every `*.md`, `.blend` and `.py` file,
+`src/`, `server/`, `scripts/`. About **62 MB** (≈33 MB of models, ≈24 MB of
+music). After copying, the script checks every module import, the import map,
+`../*.mp3` and other asset paths, `<script>`/`<link>` tags and CSS `url()`s
+against `www/` and **exits 1** (failing the Codemagic build, and the GitHub
+smoke workflow) if anything is missing. `scripts/tests3d/native.js` goes
+further: it boots the game *from* `www/3d/` in headless Chromium with a fake
+Capacitor and asserts zero 404s, every registered model present, the save
+shared, and the ads / ATT / haptics flow.
+
+**Saves carry over.** The app's origin is `capacitor://localhost` for both
+`www/index.html` (where the classic app used to run) and `www/3d/`, so 2.0
+reads the same `localStorage.luluSaveV2` — coins, cars, items, hair, the
+scrapbook — that players built up in the classic app. Keep `3d/` exactly one
+level under `index.html` and never change the app's scheme / hostname
+(`capacitor.config.json` → `server`), or players lose their saves.
+
+**Links inside the app.** ⚙️ More → Classic 2D opens `../classic.html`, the 2D
+menu's 🕹️ 3D button opens `3d/`, and 2.0's no-WebGL fallback card links to
+`../classic.html` — all inside the bundle. A 🎉 party invite shares
+`https://lulu.boats/3d/?party=CODE` (friends open it on the web; app players
+type the code). 📸 Photo mode can't download inside WKWebView, so in the app a
+snap goes to the album and the album's button opens the iOS share sheet.
+
+**Fonts.** Fredoka comes from Google Fonts without blocking the first paint;
+offline (or until it arrives) the game falls back to SF Rounded (`ui-rounded`).
+
+**Audio.** iOS only unlocks WebAudio on `touchend` / `click`, and suspends it
+("interrupted") after a call, an ad or backgrounding — 2.0 resumes it on the
+next touch. codemagic.yaml keeps the `.ambient` audio session.
+
+**Multiplayer.** The relay (`wss://lulu-shared-road…workers.dev`, `server/`)
+has no Origin allow-list and its board API sends `Access-Control-Allow-Origin: *`,
+so the app's `capacitor://localhost` origin is accepted (checked against the
+live relay: `101 Switching Protocols` with `Origin: capacitor://localhost`).
+
+---
+
 ## Ads (AdMob)
 
-The game ships with **Google's official TEST ad unit IDs** in `src/10c-ads.js`
-(`ADMOB.*`). These are safe to tap during development.
+The REAL ad unit IDs + `isTesting: false` live in **two** places that must
+stay identical: `3d/js/features/native/ads.js` (`ADMOB` — what 2.0 shows) and
+`src/10c-ads.js` (the classic game, still active if a player opens Classic 2D
+in the app). The AdMob **App ID** is injected into Info.plist by codemagic.yaml.
 
-- **Interstitial** — shown on the *game-over* screen, every **2nd** loss
+- **Interstitial** — on the *game-over* card, every **2nd** game over
   (`ADMOB.interstitialEveryN`).
-- **Rewarded** — an opt-in "📺 WATCH → +50 ★" button on the game-over screen
-  (only appears when an ad is loaded).
+- **Rewarded** — an opt-in "📺 WATCH → +50 💰" button on the game-over card
+  (only while an ad is loaded; one reward per game over; reachable with the
+  controller's D-pad like any card button).
+- **Never** mid-drive, in a 🎉 party (`ads` is in party's OFF set, and
+  `ctx.party.active` is checked too), or in Dina's mode.
 
-### Before release — IMPORTANT
-1. Create an [AdMob](https://admob.google.com/) account + app, and make an
-   **Interstitial** and a **Rewarded** ad unit. Copy their IDs.
-2. In `src/10c-ads.js`, set `ADMOB.interstitialId` / `ADMOB.rewardedId` to your
-   real IDs and set **`isTesting: false`**.
-3. Put your AdMob **App ID** in the native app's `Info.plist` as
-   `GADApplicationIdentifier` (Capacitor/AdMob requires this — done on the Mac).
-4. Run `node build.js` and commit.
-
-> ⚠️ Tapping your **own live ads** gets the AdMob account banned. Keep
-> `isTesting: true` until you're truly shipping.
+> ⚠️ Tapping your **own live ads** gets the AdMob account banned. To test on
+> your own phone, add its AdMob test-device ID to `testingDevices` in both
+> files (printed in the Xcode console on the first ad request).
 
 > ⚠️ **App Store "Kids" category:** most ad SDKs are *banned* there. List this
 > under **Games → Casual/Arcade**, NOT the Kids category, to run ads. Use
@@ -107,14 +155,18 @@ npx capacitor-assets generate --ios
 
 ### App Tracking Transparency (fixes the July 2026 Guideline 2.1 rejection)
 The AdMob SDK links Apple's ATT framework, so the tracking-permission prompt
-MUST actually appear. As of v1.12.2, `Ads.init()` (src/10c-ads.js) requests
-tracking authorization ~1.2s after launch — BEFORE `AdMob.initialize()` — and
-only when the user hasn't answered yet. Denial is fine (non-personalized ads).
-codemagic.yaml injects `NSUserTrackingUsageDescription` into Info.plist.
+MUST actually appear. 2.0 does it exactly like the classic game did (v1.12.2):
+`3d/js/features/native/ads.js` asks for tracking authorization ~1.2 s after
+launch (over the loading / title screen) — BEFORE `AdMob.initialize()` — and
+only when the user hasn't answered yet (the AdMob plugin's
+`trackingAuthorizationStatus` / `requestTrackingAuthorization`, same as
+src/10c-ads.js). Denial is fine (non-personalized ads). codemagic.yaml injects
+`NSUserTrackingUsageDescription` into Info.plist. The order is covered by
+`scripts/tests3d/native.js`.
 
 **Replying to the rejection:** record a screen capture on a physical iPhone of
 (1) fresh install (or Settings → Privacy & Security → Tracking → reset), (2)
-launching the game, (3) the ATT sheet appearing over the menu ~1–2s in, (4)
+launching the game, (3) the ATT sheet appearing over the loading / title screen ~1–2s in, (4)
 tapping either choice and playing normally. Attach it in the App Store Connect
 message thread AND keep a copy in the App Review Information notes.
 
@@ -131,14 +183,37 @@ message thread AND keep a copy in the App Review Information notes.
   nothing extra to declare.
 
 ### Orientation / iPad
-codemagic.yaml locks the app to portrait on iPhone AND iPad (both portrait
-variants) with `UIRequiresFullScreen` — reviewers can't reach the web build's
-"rotate your phone" nag. The canvas clamps logical H to ≥700 on iPad; menus
-switch to a compact layout below H=860 (see menuBaseY()/menuCompact()).
+2.0 lays out in portrait AND landscape, so codemagic.yaml allows portrait +
+both landscapes on iPhone and all four orientations on iPad, and keeps
+`UIRequiresFullScreen` (no Split View / Slide Over). The status bar is hidden;
+the notch / Dynamic Island is handled with `viewport-fit=cover` +
+`env(safe-area-inset-*)` in `3d/style3d.css` (the HUD, touch controls and
+menus stay inside the safe area, left/right of the notch in landscape). The
+classic 2D game (⚙️ More → Classic 2D) letterboxes its tall canvas in landscape.
+
+### Moving the app to 2.0 — owner checklist (App Store Connect)
+- **Screenshots**: the listing still shows the 2D game. Upload new iPhone
+  (6.9" / 6.5") and iPad (13") screenshots of 2.0 — landscape shots are fine
+  now that the app rotates.
+- **Version**: bump the marketing version (e.g. 2.0) for the first 2.0 build —
+  codemagic only sets the build number (`agvtool new-version`), so set
+  `CFBundleShortVersionString` / MARKETING_VERSION yourself.
+- **What's New / description**: mention the 3D game, controller support and
+  that saves carry over.
+- **App Privacy**: unchanged — same AdMob SDK, same ATT prompt, same data
+  types (Device ID + Advertising Data, third-party advertising, used for
+  tracking). Multiplayer is the same relay as before (curated names, no
+  accounts, no free text).
+- **Age rating**: the existing answers still fit (same content).
+- **Review notes**: re-record the ATT screen capture on 2.0 (see above).
 
 ## Haptics
 `@capacitor/haptics` ships in package.json — `npx cap sync ios` (already in
 the codemagic workflow) bundles it automatically; no extra Info.plist keys.
-The in-game Haptic bridge (src/10h-haptics.js) throttles per-channel, falls
-back to navigator.vibrate on Android web, no-ops on desktop/iOS Safari, and
-respects the pause-menu "📳 HAPTICS" toggle (save.hapticsOff).
+2.0's feedback layer is `rumble()` in `3d/js/input.js` (crashes, bumps, nitro,
+the countdown): a controller rumbles through the Gamepad API, and in the app
+touch play goes to the Taptic engine (`3d/js/features/native/haptics.js`:
+HEAVY / MEDIUM / LIGHT impacts by strength, throttled per level; weak-only
+buzzes like the rumble strips stay silent). ⚙️ Settings → "📳 Rumble &
+haptics" turns both off. (The classic game keeps its own bridge,
+src/10h-haptics.js.)
