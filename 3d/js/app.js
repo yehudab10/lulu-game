@@ -19,6 +19,8 @@ import { resetRun, startRun, endRun, damage, addCoins } from "./core/driving.js"
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
 import { updateLods, LOD } from "./lod.js";
+import { gfxFrame } from "./core/gfx.js";
+import { Post } from "./core/post.js";
 import "./features/index.js";
 
 const MPH = 2.23694;
@@ -49,6 +51,7 @@ scene.add(hemi, sun, sun.target);
 ctx.lights = { hemi, sun, sunOffset: new THREE.Vector3(-38, 70, -26) };
 
 /** The graphics tier (core/quality.js) → renderer, shadows, LOD distance, draw distance. */
+let post = null;
 function applyGraphics() {
     const T = resolveTier(renderer, platform).T;
     renderer.setPixelRatio(gfx.pixelRatio);
@@ -62,6 +65,8 @@ function applyGraphics() {
     if (sun.shadow.camera.right !== box) { Object.assign(sun.shadow.camera, { left: -box, right: box, top: box, bottom: -box }); sun.shadow.camera.updateProjectionMatrix(); }
     LOD.dist = T.lod;
     if (ctx.world) ctx.world.drawScale = T.draw;
+    if (T.post && !post) post = new Post(renderer);          // HIGH: the bloom (core/post.js)
+    else if (!T.post && post) { post.dispose(); post = null; }
     emit("gfx", { tier: gfx.tier });
 }
 function applySettings() {
@@ -207,14 +212,15 @@ function placeSun(p) {
 function present(dt) {
     refreshTouchButtons();
     const v = ctx.view;
-    if (v) renderer.render(v.scene, v.camera);
+    if (v) (post || renderer).render(v.scene, v.camera);
     else {
         updateLods(camera);
+        gfxFrame(dt, camera);           // contact shadows, wind, reflections, exposure (core/gfx.js)
         // LOW pulls the fog in to match its shorter draw distance (whoever set the fog this frame keeps their numbers)
         const fog = scene.fog, k = gfx.T.draw;
         let fn = 0, ff = 0;
         if (fog && k < 1) { fn = fog.near; ff = fog.far; fog.near = fn * k; fog.far = ff * k; }
-        renderer.render(scene, camera);
+        (post || renderer).render(scene, camera);
         if (fog && k < 1) { fog.near = fn; fog.far = ff; }
     }
     // positional audio follows the camera that just rendered (silent behind a set, paused or skipping)

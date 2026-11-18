@@ -53,6 +53,8 @@ export function gpuName(renderer) {
 /** AUTO's first guess: { tier, reason }. */
 export function guessTier(gpu, platform = {}) {
     if (platform.console || platform.tv) return { tier: "low", reason: "console / TV" };
+    // (?test runs in software WebGL on purpose: they keep the desktop's tier, so every feature test sees the whole game)
+    if (ctx.TEST) gpu = "";
     if (/SwiftShader|llvmpipe|Software|Microsoft Basic Render/i.test(gpu)) return { tier: "low", reason: "software renderer" };
     if (/Mali-[GT]?[1-7]\d\b|Adreno \(TM\) [1-5]\d\d|PowerVR|Intel\(R\) (HD|UHD) Graphics [1-5]\d\d\b|GMA/i.test(gpu)) return { tier: "low", reason: "older GPU" };
     if (coarse) return { tier: "medium", reason: phone ? "phone" : "tablet / touch" };
