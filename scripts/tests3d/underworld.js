@@ -139,12 +139,12 @@ module.exports = {
     t.check("a package job starts", await g(`!!ctx.hustle.start("uw_package", { dist: 90 }) && ctx.hustle.job.id === "uw_package"`));
     await t.until(`!!__lulu3d.ctx.hustle.job && !!__lulu3d.ctx.hustle.job.crate`, "the crate waits at the dead drop", 20000);
     await g(`(ctx.banter.autopilot = null, true)`);
-    await g(`(() => { const j = ctx.hustle.job, n = ctx.world.road.nearest(j.at.x, j.at.z, ctx.car.s, {}); const p = ctx.world.road.point(n.s - 2, 8.4, {});
+    await g(`(() => { const j = ctx.hustle.job, n = { s: j.at.s }; const p = ctx.world.road.point(n.s - 2, 8.4, {});
         ctx.car.place(p.x, p.z, p.h); ctx.car.s = n.s - 2; ctx.car.d = 8.4; return true; })()`);
     await t.until(`__lulu3d.ctx.hustle.job && __lulu3d.ctx.hustle.job.phase === "deliver"`, "picked up the package", 20000);
     await t.frames(8);
     await t.shot("package-onboard");
-    await g(`(() => { const j = ctx.hustle.job, n = ctx.world.road.nearest(j.at.x, j.at.z, ctx.car.s, {}); ctx.world.prebuild && ctx.world.prebuild(n.s); const p = ctx.world.road.point(n.s - 2, 8.4, {});
+    await g(`(() => { const j = ctx.hustle.job, n = { s: j.at.s }; ctx.world.prebuild && ctx.world.prebuild(n.s); const p = ctx.world.road.point(n.s - 2, 8.4, {});
         ctx.car.place(p.x, p.z, p.h); ctx.car.s = n.s - 2; ctx.car.d = 8.4; return true; })()`);
     await t.until(`__lulu3d.state === "hustleResult"`, "delivered → the result card", 30000);
     t.check("…a pass, it paid, and the card reveals what was in it", await t.L(`/PACKAGE/.test(document.body.textContent) && /What was in it/.test(document.body.textContent)`) && (await coins()) > cz);
@@ -211,6 +211,8 @@ module.exports = {
     await t.frames(10);
     await t.shot("rager-tailgate");
     t.check("he's right on her bumper, in her lane", await g(`(() => { const E = ${D}.E, rel = E.car.s - ctx.car.s; return rel < -4 && rel > -16; })()`), JSON.stringify(await g(`({ rel: ${D}.E.car.s - ctx.car.s, d: ${D}.E.car.d, ph: ${D}.E.phase })`)));
+    await t.until(`(() => { const E = __lulu3d.ctx.underworld.debug.E; return E && (E.phase === "alongside" || E.phase === "bump") && Math.abs(E.car.s - __lulu3d.ctx.car.s) < 4; })()`, "…then pulls up alongside", 30000);
+    await t.shot("rager-alongside");
     await place(210, 1.75, 20);
     await t.until(`!!__lulu3d.ctx.underworld.debug.log.find(e => e.ev === "end" && e.kind === "rager")`, "she outruns him", 20000);
     t.check("OUTRUN: escaped + remembered as a rival", (await logOf("end")).some(e => e.kind === "rager" && e.result === "escaped") && await g(`ctx.underworld.rivals.some(r => r.kind === "rager" && r.escaped >= 1)`));
@@ -240,12 +242,13 @@ module.exports = {
     await t.frames(4);
 
     // ── 😎 the gang car: tails her, then gives up ────────────────────────
-    await g(`ctx.underworld.spawn("gang", { behind: 40, tail: 7 })`);
+    await g(`ctx.underworld.spawn("gang", { behind: 40, tail: 13 })`);
     await t.until(`(() => { const E = __lulu3d.ctx.underworld.debug.E; return E && E.phase === "tail"; })()`, "the gang car settles in behind her", 40000);
     await t.frames(20);
     const tail = await g(`(() => { const E = ${D}.E; return { rel: E.car.s - ctx.car.s, dd: Math.abs(E.car.d - ctx.car.d), paint: E.paint }; })()`);
     t.check("TAILING: ~24 m back in her lane", tail.rel < -14 && tail.rel > -34 && tail.dd < 1.2, JSON.stringify(tail));
-    await t.shot("gang-tail");
+    await t.until(`(() => { const E = __lulu3d.ctx.underworld.debug.E; return E && E.car && E.sideT < -0.8 && Math.abs(E.car.s - __lulu3d.ctx.car.s) < 5; })()`, "…and now and then pulls up alongside (water pistol, banana)", 30000);
+    await t.shot("gang-alongside");
     await t.until(`!!__lulu3d.ctx.underworld.debug.log.find(e => e.ev === "end" && e.kind === "gang")`, "…they give up", 40000);
     t.check("GIVES UP: “wrong pink convertible”", (await logOf("end")).some(e => e.kind === "gang" && e.how === "giveup"));
     await g(`(${D}.reset(false), true)`);

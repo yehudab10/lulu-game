@@ -52,7 +52,7 @@ export function shoulderCop(price = priceNow(), ahead = 230) {
         talk(who) { O.talking = who === "cop" || who === "feldman"; },
         tick(dt) { tickOffer(O, dt); },
     };
-    const q = pt(s - 13, 8.3);
+    const q = pt(s - 10, 8.3);
     O.pad.position.set(q.x, 0, q.z);
     O.padAt = { x: q.x, z: q.z };
     ctx.scene.add(O.pad);
@@ -61,7 +61,7 @@ export function shoulderCop(price = priceNow(), ahead = 230) {
         if (UW.offer !== O || O.done === "gone") return;
         const p = person("uw_krupnik", null, "copPerson");
         if (!p) return;
-        const w = pt(s - 3.2, 11.0);
+        const w = pt(s - 4.8, 10.8);
         p.obj.position.set(w.x, 0, w.z);
         p.obj.rotation.y = facingRoad(w.h, 1);
         ctx.scene.add(p.obj);

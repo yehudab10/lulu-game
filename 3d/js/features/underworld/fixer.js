@@ -75,7 +75,7 @@ function createPackage(opts = {}) {
         summary(result, why) { return summaryPackage(this, result, why); },
         dispose() {
             if (this.crate) { drop(this.crate); this.crate = null; }
-            if (this.onCar) { ctx.car.attach("passenger", this.prevSeat || null); this.onCar = null; }
+            if (this.onCar) { ctx.car.attach(this.slot, this.prevSeat || null); this.onCar = null; }
         },
     };
     need(["uw_package"]).then(ok => {
@@ -99,8 +99,9 @@ function tickPackage(job, dt) {
             if (models.uw_package) {
                 const c = cloneWithColors(models.uw_package);
                 c.scale.setScalar(0.85);
-                job.prevSeat = car.attached && car.attached.passenger;
-                car.attach("passenger", c);
+                job.slot = car.anchors && car.anchors.deck && !(car.attached && car.attached.deck) ? "deck" : "passenger";   // (strapped to the trunk)
+                job.prevSeat = car.attached && car.attached[job.slot];
+                car.attach(job.slot, c);
                 job.onCar = c;
             }
             job.at = spot(car.s + rand(950, 1250));

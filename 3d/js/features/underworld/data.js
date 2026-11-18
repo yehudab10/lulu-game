@@ -226,6 +226,7 @@ export const GANG = {
     banner: "😎 A {color} car is TAILING you…",
     sub: "lose it — or lead it past a cop so they pull it over",
     lines: ["Nice convertible. Shame if somebody… complimented it.", "The boss wants a WORD. Just one. It's 'hi'.", "We're not following you! We're… also going this way.", "*waves a water pistol menacingly*", "*a banana pointed out the window like a gun*"],
+    side: ["*waves a banana out the window* Bang. …it's a BANANA.", "*squirts a water pistol at your mirror* 💦", "Nice car. NICE car. Very… pink.", "*points two fingers at his eyes, then at you* …we're WATCHING. Also, your tyre's low."],
     again: ["It's HER again! Boss said bring her a fruit basket. As a THREAT."],
     lulu: ["Is that {color} car following me?", "Okay, they're DEFINITELY following me.", "Why is there a giant plush kugel on that roof?", "Is that a BANANA? Is he pointing a banana at me?"],
     giveUp: ["Boss says wrong pink convertible. Our bad! 👋", "We'll get you next time, Bruck! …we'll WAVE."],

@@ -130,6 +130,17 @@ function drive(E, dt, c) {
                 else if (E.kind !== "tail") say(E, pick(GANG.lines));
                 else lulu(pick(["They're still back there…", "Grey sedan. Sunglasses. Subtle.", "Lose them, Lulu!"]));
             }
+            // every so often the gang pulls up ALONGSIDE for a few seconds (so she can actually see them), then drops back
+            if (E.kind === "gang") {
+                if (E.sideT == null) E.sideT = rand(6, 8);
+                E.sideT -= dt;
+                if (E.sideT < 0) {
+                    wantD = other(car.d);
+                    if (Math.abs(c.d - wantD) < 0.8) wantS = car.s - 1.2;
+                    if (!E.said.side && Math.abs(c.s - car.s) < 4) { E.said.side = true; say(E, pick(GANG.side)); }
+                    if (E.sideT < -4) { E.sideT = rand(8, 11); E.said.side = false; }
+                }
+            }
             if (E.t > E.life && E.kind !== "tail") go(E, "giveup");
             break;
         // endings

@@ -78,24 +78,24 @@ export function stat(id, n = 1) {
 // ── coins (taken coins are capped and always come back) ──────────────────
 export function coins() { return wallet.coins; }
 /** Take up to n coins (never more than TUNE.coinCap). → what was taken. */
+// (like law's fines: out of the WALLET only — the run's coin counter never goes negative)
 export function takeCoins(n, why) {
     const k = Math.max(0, Math.min(Math.round(n), TUNE.coinCap, wallet.coins));
-    if (k > 0) addCoins(-k, why);
+    if (k > 0 && !wallet.spend(k)) return 0;
+    if (k > 0) log("coins", { n: -k, why });
     return k;
 }
 /** Give coins back (a refund: not counted as earnings). */
 export function refund(n, why = "refund") {
     if (!(n > 0)) return 0;
-    const G = ctx.G;
-    if (G) G.coins = (G.coins || 0) + n;
     wallet.add(n);
-    emit("coin", { n, why });
+    log("coins", { n, why });
     return n;
 }
 /** Pay for something (a bribe, a paint job). → bool */
 export function pay(n, why) {
-    if (wallet.coins < n) return false;
-    addCoins(-n, why);
+    if (wallet.coins < n || !wallet.spend(n)) return false;
+    log("coins", { n: -n, why });
     return true;
 }
 export function earn(n, why) { if (n > 0) addCoins(n, why); return n; }

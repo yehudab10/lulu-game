@@ -79,8 +79,9 @@ export function pickTick(dt, E) {
             p.face(E.x + vx * 10, E.z + vz * 10, dt, 10);
             p.update(dt, { walk: sp });
             if (E.runT > 0.6 && E.runT % 3 < dt) bubble(pick(PICK.run), p.obj, { cls: "kid", y: 1.9, dur: 1.6 });
-            if (dist < P.auto) tackle(E, "lulu");
-            else if (!E.shomer && (dist > P.getaway || E.runT > P.life)) gone(E);
+            // (a beat after the bump before she can grab him; never mid-phone-call to the Shomrim)
+            if (dist < P.auto && E.runT > 0.9) tackle(E, "lulu");
+            else if (!E.shomer && !ctx.dialogOpen && (dist > P.getaway || E.runT > P.life)) gone(E);
             break;
         }
         case "tackled": {

@@ -76,13 +76,15 @@ registerState("underworldDeal", {
     },
     camera(dt) {
         if (!D) return false;
-        // from the shoulder ahead of the car, looking back at her window and whoever she's talking to
+        // a two-shot from out on the road: her car and whoever she's talking to, side by side
         const car = ctx.car, road = ctx.world.road, o = D.offer;
-        road.point(car.s + 7.5, car.d + 3.2, tmp);
         const who = o.who && o.who();
-        if (who) { _b.set((who.x + car.pos.x) / 2, 1.2, (who.z + car.pos.z) / 2); }
-        else { road.point(car.s - 1, car.d + 1, tmpB); _b.set(tmpB.x, 1.15, tmpB.z); }
-        ctx.cam.cinematic(_a.set(tmp.x, 2.4, tmp.z), _b, dt, 1.8, 48);
+        let ms = car.s, md = car.d;
+        if (who) { road.nearest(who.x, who.z, car.s, tmpB); ms = (car.s + tmpB.s) / 2; md = (car.d + tmpB.d) / 2; }
+        road.point(ms - 2.5, md - 9.5, tmp);
+        _a.set(tmp.x, 2.9, tmp.z);
+        road.point(ms + 0.5, md, tmp);
+        ctx.cam.cinematic(_a, _b.set(tmp.x, 1.1, tmp.z), dt, 2.2, 50);
         return true;
     },
 });
