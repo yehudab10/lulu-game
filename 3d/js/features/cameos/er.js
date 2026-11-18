@@ -701,7 +701,9 @@ function discharge(e, { hearts = 1, banner = "" } = {}) {
         fade(0, 0.7);
         if (E !== e) return;
         if (e.prev === "title") { setState("title"); return; }
-        resumeDriving({ hearts, banner });
+        // the car she came in with only comes back if it really is hers (a crashed stolen ride / an impounded car: she walks out)
+        const f = ctx.foot, noCar = !!(f && f.start && (f.borrowed || f.ownCar === "gone"));
+        resumeDriving({ hearts, banner, onFoot: noCar });
     }, 420);
 }
 

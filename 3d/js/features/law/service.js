@@ -10,7 +10,37 @@ import * as H from "../../hud.js";
 import { L, config, TUNE, beginChase, endChase, copNear, startFugitive, endFugitive, prisonClothes, rig, setRig } from "./cops.js";
 import { S, addWanted, clearLockup, fugitiveStars } from "./rules.js";
 
-export const run = { live: false, mode: "cruise" };   // is a run in progress that an arrest interrupted?
+export const run = { live: false, mode: "cruise", ride: null };   // is a run in progress that an arrest interrupted? (+ her wheels, below)
+
+/**
+ * What became of her wheels when she was arrested — every release follows it (she only ever
+ * drives out in a car that's really hers and in one piece):
+ *   "own"       her own car, intact (driving it, or parked on the shoulder while she walked) → she drives it out
+ *   "wrecked"   her own car, totaled (the cop-caused wreck, the wreck she walked away from) → towed: she walks
+ *   "stolen"    a jacked / hotwired / hailed ride → it goes back to its owner: she walks
+ *   "impounded" no car before the arrest (an earlier impound, a jailbreak on foot)   → she walks
+ * Captured as she enters the law's scenes (law/index.js); null = nothing captured (a fresh run).
+ */
+export function captureRide(from) {
+    const f = ctx.foot, G = ctx.G || {};
+    let r;
+    if (f && (f.borrowed || f.vehicle)) r = "stolen";
+    else {
+        const own = f && f.ownCar ? f.ownCar : "ok";
+        if (own === "ok") r = from === "wrecked" || (G.hearts != null && G.hearts <= 0) ? "wrecked" : "own";
+        else r = own === "parked" ? "own" : own === "wrecked" ? "wrecked" : "impounded";
+    }
+    run.ride = r;
+    return r;
+}
+/** Does she get a car back on release? (No run in progress → a fresh drive in her own car.) */
+export function carBack() { return !run.live || !run.ride || run.ride === "own"; }
+/** The line that says why she's walking out on foot. */
+export function rideNote() {
+    return run.ride === "stolen" ? "The “borrowed” ride went back to its owner. 🚶‍♀️"
+        : run.ride === "wrecked" ? "Your car got towed to the impound — it's totaled. 🚧"
+        : run.ride === "impounded" ? "Your car's still in the impound. Walking it is. 🚶‍♀️" : "";
+}
 /** Test-only overrides (scripts/tests3d/law.js): bustOutcome, verdict, quietCourt, escapeKind. Empty in the game. */
 export const FORCE = {};
 let pullOverFn = null;
@@ -95,6 +125,9 @@ Object.defineProperty(law, "_dbg", { enumerable: false, value: { L, FORCE, run, 
  * or starts a fresh one when there is none (a lockup resumed after a refresh).
  */
 export function resumeDriving({ s = null, fugitive = false, banner = "", onPlaced = null } = {}) {
+    // a stolen ride is never handed back (it was evidence, then its owner's again)
+    if (ctx.foot && ctx.foot.dropRide) ctx.foot.dropRide();
+    run.ride = null;
     if (!run.live) {
         startRun({ mode: run.mode || "cruise" });
         if (fugitive && !L.fug) startFugitive(0);

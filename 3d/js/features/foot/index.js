@@ -167,8 +167,15 @@ function swapLulu() {
     F.lulu = p;
 }
 
+// Her OWN car this run — it outlives a walk, so whoever puts her back on the road (law's
+// release, the ER's discharge) can tell whether there's a car to give back:
+//   "ok"      she's in it (or nothing happened to it) · "parked" left on the road in one piece
+//   "wrecked" left on the road as a wreck · "gone" impounded / left far behind for a borrowed ride
+let ownCar = "ok";
+const CARLESS = new Set(["copWalk", "jailbreak", "discharged"]);   // reasons that start her with no car at all
+
 /**
- * Lulu climbs out and walks. reason: carWreck | crashReprieve | droveOff | copWalk | jailbreak | parked
+ * Lulu climbs out and walks. reason: carWreck | crashReprieve | droveOff | copWalk | jailbreak | parked | discharged
  * opts: { line, crash (parked → the parking crash lines), parked (her car's on the shoulder), noIntro (the caller already showed her getting out: no hop),
  *         at {x, z} (where she stands), stubAi(dt, car) (drives the car she left behind), drivable }
 
@@ -177,6 +184,10 @@ function start(reason = "carWreck", opts = {}) {
     if (F && !F.suspended && ctx.state === "footRun") return false;
     if (F) end("restart");
     if (!ctx.world || !ctx.car) return false;
+    // what happens to the wheels she's leaving (see ownCar)
+    if (CARLESS.has(reason)) { ownCar = "gone"; restoreCar(); }     // impounded / walked out of jail or the ER: no car, no stolen ride either
+    else if (!shell) ownCar = (reason === "droveOff" || reason === "parked" || !!opts.drivable) && !opts.crash ? "parked" : "wrecked";
+    // (out of a borrowed ride: her own car was already left behind — enterCar marked it "gone")
     if (ctx.G.hearts == null) resetRun({ mode: "cruise" });
     ensureModels(LAZY).catch(e => console.error("[foot] models", e));
     const G = ctx.G, car = ctx.car, T = ctx.traffic;
@@ -201,7 +212,7 @@ function start(reason = "carWreck", opts = {}) {
     };
     T.config.ours = 1;           // she isn't overtaking anything; cars come at her from behind (see trafficStep)
     // her car: parked (drivable) or wrecked, or gone (impounded / she broke out of jail)
-    if (reason !== "copWalk" && reason !== "jailbreak") {
+    if (!CARLESS.has(reason)) {
         F.car = makeCarStub(pos, h, { drivable: (reason === "droveOff" || reason === "parked" || !!opts.drivable) && !opts.crash, ai: opts.stubAi || null });
     }
     // Lulu, hopping out over the convertible's door toward the roadside
@@ -250,6 +261,7 @@ function introPool(reason, opts) {
     if (reason === "copWalk") return L.FOOT_INTRO_LINES.copWalk;
     if (reason === "droveOff") return L.FOOT_INTRO_LINES.droveOff;
     if (reason === "jailbreak") return L.FOOT_INTRO_LINES.jailbreak;
+    if (reason === "discharged") return L.FOOT_INTRO_LINES.discharged;
     return L.FOOT_INTRO_LINES.wreck;
 }
 
@@ -329,6 +341,7 @@ function enterCar(v) {
     const car = ctx.car, G = ctx.G, T = ctx.traffic;
     const ownStub = F && F.car && F.car.stub;
     end(v.own ? "own" : v.how || "car");
+    ownCar = v.own ? "ok" : "gone";      // into a borrowed ride: her own car stays behind
     if ((v.own || v.removeStub) && ownStub && T.cars.includes(ownStub)) T.remove(ownStub);
     restoreCar();
     car.place(v.x, v.z, v.h);
@@ -393,8 +406,8 @@ hook("controls", (ctl, dt) => {
         if (lm.sput > 0) ctl.throttle *= 0.15;
     }
 });
-hook("runStart", () => { if (F) end("runStart"); restoreCar(); driveOff.t = 0; });
-on("title", () => { if (F) end("title"); restoreCar(); });
+hook("runStart", () => { if (F) end("runStart"); restoreCar(); driveOff.t = 0; ownCar = "ok"; });
+on("title", () => { if (F) end("title"); restoreCar(); ownCar = "ok"; });
 on("skin", () => { if (shell) restoreCar(); });
 on("wreck", () => { ensureModels(LAZY).catch(() => {}); });   // get the townsfolk loading early
 on("pause", e => {   // keep our overlays off the pause menu
@@ -882,7 +895,7 @@ function spawnPed(opts = {}) {
     const ped = {
         p, s: ahead, d: opts.d != null ? opts.d : side * rand(9.4, 11.8), dir: Math.random() < 0.5 ? 1 : -1,
         speed: opts.speed != null ? opts.speed : (Math.random() < 0.3 ? 0 : rand(0.9, 1.5)),
-        drunk: opts.drunk != null ? opts.drunk : Math.random() < (nearBar() ? 0.3 : 0.1), talkT: 0, commentT: rand(1, 3), sway: Math.random() * 6,
+        key, kid: key === "npcKid", drunk: opts.drunk != null ? opts.drunk : Math.random() < (nearBar() ? 0.3 : 0.1), talkT: 0, commentT: rand(1, 3), sway: Math.random() * 6,
     };
     road().point(ped.s, ped.d, _p);
     p.obj.position.set(_p.x, 0.05, _p.z);
@@ -898,6 +911,17 @@ function updatePeds(dt) {
         const ped = F.peds[i], o = ped.p.obj;
         if (Math.abs(ped.s - F.s) > 95) { ctx.scene.remove(o); F.peds.splice(i, 1); continue; }
         const dx = F.pos.x - o.position.x, dz = F.pos.z - o.position.z, dist = Math.hypot(dx, dz);
+        if (ped.sprayT > 0) {
+            // pepper-sprayed: rubbing their eyes and stumbling off down the sidewalk, away from her
+            ped.sprayT -= dt;
+            ped.talkT = 0; ped.drunk = false;
+            ped.s += ped.dir * 3.2 * dt;
+            rd.point(ped.s, ped.d, _p);
+            o.position.set(_p.x, 0.05, _p.z);
+            o.rotation.y = _p.h + (ped.dir < 0 ? Math.PI : 0) + Math.sin(ctx.time * 9) * 0.25;
+            ped.p.update(dt, { walk: 3.2, wave: Math.sin(ctx.time * 7) > 0 });
+            continue;
+        }
         if (ped.talkT > 0) {
             ped.talkT -= dt;
             ped.p.face(F.pos.x, F.pos.z, dt);
@@ -928,6 +952,29 @@ function updatePeds(dt) {
             ped.p.update(dt, { walk: ped.speed, wave: ped.speed === 0 && dist < 6 && Math.sin(ctx.time + ped.sway) > 0.6 });
         }
     }
+}
+
+// ── pepper spray on foot (garage's usePepper picks the target through ctx.foot.sprayTargets) ──
+const PEPPERED = ["🤧 MY EYES!", "AGH — SPICY!", "Was that MACE?!", "I can't SEE!", "Why, Lulu, WHY?!", "*coughing fit*"];
+function pepperPed(ped, e) {
+    ped.sprayT = 3.6; ped.talkT = 0;
+    ped.dir = Math.sign(ped.s - F.s) || 1;          // stumbles off AWAY from her
+    const o = ped.p.obj;
+    e.line = pick(PEPPERED);
+    bubble(o, e.line, 2.2);
+    // a cop who sees it puts it on her sheet — and the next one on foot gives chase
+    if (ctx.law && ctx.law.copNear && ctx.law.copNear(o.position.x, o.position.z, 45)) {
+        if (ctx.law.addWarrant) ctx.law.addWarrant(["ASSAULT WITH PEPPER SPRAY"]);
+        floater(F.lulu.obj, "👮 A cop SAW that!", "#FF5252", 1.8);
+        F.chaseCool = Math.min(F.chaseCool, 0.5);
+    }
+}
+function pepperAnimal(a) {
+    a.scoot = 2.6; a.wait = 2.6;
+    a.ts = a.s + (Math.sign(a.s - F.s) || 1) * 9;
+    a.td = clamp(a.d + (Math.sign(a.d - F.d) || 1) * 4, -16, 16);
+    if (Math.abs(a.td) < 8.4) a.td = Math.sign(a.td || 1) * 8.4;
+    bubble(a.p.obj, "💨", 1.2);
 }
 
 const ANIMALS = { foot_duck: { r: 0.3, speed: 0.6 }, foot_raccoon: { r: 0.35, speed: 0.9 }, foot_ostrich: { r: 0.5, speed: 1.4 } };
@@ -1220,6 +1267,7 @@ function updateChase(dt) {
             return;
         }
     } else ch.escapeT = 0;
+    if (ch.sprayed) { caught(["ASSAULTING AN OFFICER", "PEPPER-SPRAYING A COP"]); return; }   // (garage: pepper spray on the cop on her tail)
     if (dist < 1.1 && F.phase === "walk") caught();
 }
 
@@ -1241,8 +1289,9 @@ function startFootChase(from) {
 
 // Run down by the cop: the law takes it from here (or, without it, a cruiser
 // pulls up and walks her into the precinct).
-function caught() {
-    const charges = (ctx.law && Array.isArray(ctx.law.charges) && ctx.law.charges.length) ? ctx.law.charges.slice() : ["EVADING ARREST", "RESISTING ARREST"];
+function caught(extra = null) {
+    let charges = (ctx.law && Array.isArray(ctx.law.charges) && ctx.law.charges.length) ? ctx.law.charges.slice() : ["EVADING ARREST", "RESISTING ARREST"];
+    if (extra) charges = extra.concat(charges.filter(c => !extra.includes(c)));
     if (ctx.law && ctx.law.arrest) {
         // law places its own Lulu at this spot for the arrest scene (onFoot + x/z/h)
         const at = F && F.pos ? { x: F.pos.x, z: F.pos.z, h: F.h || 0 } : {};
@@ -1714,6 +1763,21 @@ ctx.foot = {
     /** The borrowed ride she's driving (null in her own car): { kind, vtype, color }. */
     get vehicle() { return shell ? { kind: shell.key, vtype: shell.vtype, color: shell.colors && shell.colors.Paint || null } : null; },
     get borrowed() { return shell ? shell.vtype : null; },
+    /** Her OWN car this run: "ok" (she's in it / fine) | "parked" (left on the road, in one piece) | "wrecked" | "gone" (impounded / left behind). */
+    get ownCar() { return ownCar; },
+    /** The borrowed ride is gone (taken back, towed, kept as evidence): she's back in her own car's shell. */
+    dropRide() { const had = !!shell; restoreCar(); return had; },
+    /** Which way she's facing on foot (yaw; same frame as car.h) — null when she isn't walking. */
+    get facing() { return F && F.lulu ? F.lulu.obj.rotation.y : null; },
+    /** Who's around her on foot for the garage's pepper spray: [{ pos, kind: "person" | "animal" | "cop", kid, pepper(e) }]. */
+    sprayTargets() {
+        if (!F || F.phase !== "walk") return [];
+        const out = [];
+        for (const ped of F.peds) if (!(ped.sprayT > 0)) out.push({ pos: ped.p.obj.position, kind: "person", kid: !!ped.kid, pepper: e => pepperPed(ped, e) });
+        for (const a of F.animals) if (!(a.scoot > 0)) out.push({ pos: a.p.obj.position, kind: "animal", pepper: () => pepperAnimal(a) });
+        if (F.chase && !F.chase.giveUp && !F.chase.sprayed) out.push({ pos: F.chase.p.obj.position, kind: "cop", pepper: () => { if (F && F.chase) F.chase.sprayed = true; } });
+        return out;
+    },
     /** The borrowed ride's model (child of ctx.car.tilt), e.g. to repaint it; null in her own car. */
     get shellObj() { return shell ? shell.obj : null; },
     /** Put her behind the wheel of v = { vtype, key, colors, x, z, h, handling?, how } (ends the walk; "playing"). */

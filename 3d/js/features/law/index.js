@@ -29,7 +29,7 @@ import "./arrest.js";
 import "./jail.js";
 import "./court.js";
 import { S } from "./rules.js";
-import { law, run, setPullOver } from "./service.js";
+import { law, run, setPullOver, captureRide } from "./service.js";
 import { PEPPER_COP } from "./data.js";
 
 ctx.law = law;
@@ -51,6 +51,7 @@ on("boot", () => {
 // ── run lifecycle ────────────────────────────────────────────────────────
 hook("runStart", () => resetRunState());
 on("run:start", ({ mode }) => {
+    run.ride = null;
     run.live = true;
     run.mode = mode || "cruise";
     const lk = S.lockup;
@@ -66,7 +67,7 @@ on("closeCall", () => { try { spook(); } catch (e) { console.error(e); } });
 hook("hud", () => hud());
 
 let booted = false;
-on("state", ({ to }) => {
+on("state", ({ from, to, data }) => {
     if (to === "title") {
         run.live = false;
         if (L.chase) endChase("quit");
@@ -83,6 +84,8 @@ on("state", ({ to }) => {
         return;
     }
     booted = true;
+    // into the law's hands: note what became of her wheels (service.js captureRide) — every release follows it
+    if (LAW_STATES.has(to) && to !== "lawStop" && !LAW_STATES.has(from) && !(data && (data.resume || data.serve))) captureRide(from);
     // a car chase never follows her into a minigame, an interior or on foot
     if (L.chase && !DRIVING.has(to) && !LAW_STATES.has(to)) endChase("left");
     if (!DRIVING.has(to)) UI.wantedHud(null);
