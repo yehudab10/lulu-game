@@ -124,7 +124,7 @@ module.exports = {
       // ── 4b. hiding in town: a travel lane is NOT a hiding place; the kerb among parked cars, out of sight, is ──
       const LAW = `ctx.law._dbg`, P = `${D}.PL`;
       const hud = () => t.L(`(document.querySelector(".law-wanted") || {}).textContent || ""`);
-      await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law.clearHeat ? ctx.law.clearHeat("test") : null, ${LAW}.L.hint2 = 0, true)`);
+      await g(`(ctx.traffic.config.enabled = false, ctx.law.clearHeat ? ctx.law.clearHeat("test") : null, ${LAW}.L.hint2 = 0, true)`);
       t.check("Lakewood: every street has a parking lane with hiding spots at the kerb (among parked cars)", await g(`${P}.STREETS.every(st => { if (!st.parkLane) return false;
           for (let a = st.cross[0].a + 12; a < st.cross[st.cross.length - 1].a - 12; a += 3) for (const sd of [-1, 1]) { const p = ${D}.pt(st.name, a, sd * st.park), h = ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z); if (h.ok && h.spot === "kerb") return true; }
           return false; })`));
