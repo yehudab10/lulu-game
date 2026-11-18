@@ -323,7 +323,9 @@ async function partyRun(t, guests) {
   await t.shot("kugel");
   await g(`ctx.party.setA(Object.assign({}, ctx.party.activity, { g: Object.assign({}, ctx.openworld.game, { fuse: Math.round(ctx.party.clock() + 300), guard: 1e15 }) }))`);
   if (!await done("kugel", "kugel: the fuse blows")) return;
-  t.check("kugel: the holder at the bang loses", (await g(`ctx.openworld.game.loser`)) === (await g(`ctx.openworld.game.it`)) && /kugel|KABOOM/i.test(await A.game(`ctx.openworld.debug.CL.lastTitle`)));
+  await A.until(`/kugel|KABOOM/i.test(ctx.openworld.debug.CL.lastTitle || "")`, "guest has the kugel scoreboard", 15000);
+  const kEnd = await g(`({ loser: ctx.openworld.game.loser, it: ctx.openworld.game.it })`), kTitle = await A.game(`ctx.openworld.debug.CL.lastTitle`);
+  t.check("kugel: the holder at the bang loses", !!kEnd.loser && kEnd.loser === kEnd.it && /kugel|KABOOM/i.test(kTitle || ""), JSON.stringify(kEnd) + " " + kTitle);
   for (const p of pages) { await p.until(`ctx.phone.isOpen`, "kugel scoreboard", 10000); await p.game(`ctx.phone.closePhone()`); }
 
   // 📍 RACE TO A PIN — both finish → scoreboard → the guest's 🔁 Rematch
