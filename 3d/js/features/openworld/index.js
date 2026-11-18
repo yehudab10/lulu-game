@@ -425,6 +425,8 @@ function townSights() {
     for (const key of Object.keys(spots)) {
         const sp = spots[key];
         if (sp == null || sp.x == null) continue;
+        const S = plan.def.lines && plan.def.lines.SIGNS;
+        if (!SPOT_NAMES[key] && !(S && Array.isArray(S[key]))) continue;            // (internal spots: the jam, the hazards…)
         const p = onStreet(plan, sp.x, sp.z);
         if (p) out.push({ x: +p.x.toFixed(1), z: +p.z.toFixed(1), name: spotName(key, plan), icon: SPOT_NAMES[key] || "📍", key });
     }
