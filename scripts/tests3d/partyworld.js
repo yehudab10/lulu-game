@@ -175,8 +175,9 @@ async function roadTrip(t, guests) {
   await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 18 }, ctx.party._debug.place(1180, 1.75, 18), true)`);
   await sleep(1200);
   const gb2 = await A.game(`({ s: ctx.car.s, T: ctx.party.clock(), f: L3.frames })`);
-  const key = await g(`(ctx.places.spots().find(x => x.id === "gas") || {}).key`);
-  t.check("host pulls in at the Gas 'n' Go (a personal world visit)", await g(`ctx.places.visit(${JSON.stringify(key)})`) && await g(`ctx.state === "worldVisit"`));
+  // the real pull-in: into the bay, stop → the visit beat starts by itself
+  await g(`(ctx.banter.autopilot = null, ctx.party._debug.place(1300, 12.0, 0))`);
+  t.check("host pulls in at the Gas 'n' Go (a personal world visit)", await hostUntil(t, `ctx.state === "worldVisit"`, "host: the Gas 'n' Go visit starts", 60000));
   await sleep(2500);
   const mid = await A.game(`({ s: ctx.car.s, T: ctx.party.clock(), st: ctx.state, speed: ctx.car.speed, f: L3.frames })`);
   t.check("…the guest keeps driving meanwhile (no shared pause)", mid.st === "playing" && mid.f > gb2.f + 3 && mid.s > gb2.s + 0.5 && mid.speed > 8 && mid.T > gb2.T + 2000, JSON.stringify({ gb, gb2, mid }));
