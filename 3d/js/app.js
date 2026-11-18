@@ -160,7 +160,7 @@ function step(dt, P) {
         } else if (def) {
             if (P.pause && def.pausable) pause();
             else {
-                if (P.camera && def.driving) H.toast("🎥 " + cam.cycle());
+                if (P.camera && def.driving && !def.camera) H.toast("🎥 " + cam.cycle());   // (a cutscene runs its own camera)
                 if (def.update) def.update(dt, P);
             }
         }

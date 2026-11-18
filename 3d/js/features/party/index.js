@@ -95,6 +95,29 @@ ctx.party = {
     hostParty, joinParty, join: code => joinParty(code), leave, openHub,
     trafficAt: (T0, s0, s1) => T.trafficAt(T0, s0, s1),
     trafficLive: () => T.trafficLive(),
+    // ── for other features' party activities (openworld's 🌍 Free Roam) ──
+    /** Register a lobby activity: def = { emoji, name, blurb, go, init?(A) → extra A fields, slotIn?(A) → true when handled,
+     *  respawnAt?() → {s, d}, label?() / progress?() (trip bar), show?(p) / frame?(p) / decorate?(rc, p) (friends' cars),
+     *  pose?() → {s, d, h} (publish my pose in another frame), planFirst (the world is planned before the billboards),
+     *  ownTraffic?() → true while the activity runs its own traffic (no seeded highway cars) }. */
+    addActivity(k, def) { if (!k || !def || ACTS[k]) return false; ACTS[k] = def; ORDER.push(k); return true; },
+    sendEvent: (k, ...a) => NET.sendEvent(k, ...a),
+    broadcast: (k, ...a) => NET.broadcast(k, ...a),
+    onHostEvent: fn => NET.onHostEvent(fn),
+    setA: next => NET.setA(next),
+    members: () => NET.members(),
+    peer: uid => N.players.get(uid) || null,
+    fresh: (p, ms) => NET.fresh(p, ms),
+    setExtra(x) { N.extra = x || null; },
+    displayName: uid => displayName(uid),
+    skinOf: uid => skinOf(uid),
+    skinHex: key => R.skinHex(key),
+    remoteCar: uid => R.cars.get(uid) || null,
+    beginRun: (s, d, speed) => beginRun(s, d, speed),
+    placeCar: (s, d, speed) => placeCar(s, d, speed),
+    /** My car jumped somewhere new (a warp, another frame): friends snap behind a poof instead of sliding. */
+    respawned() { P.rs = (P.rs + 1) % 1000; P.lastS = ctx.car ? ctx.car.s : P.lastS; P.lastT = clock(); },
+    visuals: { CarVisual: R.CarVisual, NameTag: R.NameTag, Bubble: R.Bubble },
     _debug: { N, P, cars: R.cars, clockInfo: NET.clockInfo, blink: NET.blink, setA: NET.setA, start: hostStart, toLobby: hostToLobby, trace: on => {
         P.trace = on ? [] : null; for (const rc of R.cars.values()) rc.trace = on ? [] : null; return true; },
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
@@ -255,6 +278,7 @@ function hostStart(k = P.pick) {
     const A = N.A, ps = NET.members(), t0 = Math.round(clock() + 5200), id = (A.id | 0) + 1;
     const next = { k, id, ph: "go", t0, seed: (Math.random() * 4294967295) >>> 0, ps, pick: k, fin: {}, arr: {} };
     if (k === "dash") Object.assign(next, { dur: DASH_MS, got: {} });
+    if (ACTS[k].init) Object.assign(next, ACTS[k].init(next) || {});
     if (k === "tag") Object.assign(next, { dur: TAG_MS, cop: ps[id % ps.length], n: 0, since: t0, ct: {}, guard: t0 + 3000 });
     NET.setA(next);
     return true;
@@ -356,6 +380,7 @@ function enterActivity(A) {
     T.configure(A.seed, A.t0, GRID_S);
     if (A.k === "race") { addArch(GRID_S + 7, ["START"], "#2E7D32"); addArch(GRID_S + RACE_LEN, ["🏁 FINISH 🏁"], "#212121", true); }
     if (A.k === "race" && late) { startSpectate(); return; }
+    if (late && ACTS[A.k].slotIn && ACTS[A.k].slotIn(A)) return;
     if (late) { slotIn(A); return; }
     const row = Math.floor(idx / 2), lane = idx % 2;
     beginRun(GRID_S - row * 8.5, lane ? 5.25 : 1.75, 0);
@@ -367,9 +392,11 @@ function beginRun(s, d, speed) {
     PK.seen.clear();
     disposeChunks();
     bbReset();
-    bbReserveAhead(s + 950, s);
+    const first = ACTS[N.A.k] && ACTS[N.A.k].planFirst;    // the run plans its own world (town exits) before the billboards
+    if (!first) bbReserveAhead(s + 950, s);
     P.internal = true;
     try { resetRun({ mode: "party", s }); } finally { P.internal = false; }
+    if (first) { disposeChunks(); bbReserveAhead(s + 950, s); }
     ctx.traffic.config.enabled = false;
     placeCar(s, d, speed);
     emit("run:start", { mode: "party", opts: { s, party: true } });
@@ -715,7 +742,8 @@ on("state", ({ to }) => {
     if (to === "intro" && P.respawn && N.want) {
         P.respawn = false;
         H.hideBanner();
-        const s = Math.max(GRID_S, P.lastS - 4), d = 5.25;
+        const at = ACTS[N.A.k] && ACTS[N.A.k].respawnAt ? ACTS[N.A.k].respawnAt() : null;
+        const s = at ? at.s : Math.max(GRID_S, P.lastS - 4), d = at ? at.d : 5.25;
         placeCar(s, d, 0);
         reapplyPickups(null);
         sparkle(ctx.car.pos.x, ctx.car.pos.z);
@@ -739,8 +767,8 @@ hook("update", (dt, P_, controlsOn) => {
     P_.fire = false; P_.item = false;                  // missiles / pepper would hit traffic on ONE screen only
     if (P_.partyChat) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); }
     const car = ctx.car, A = N.A, t = clock();
-    bbReserveAhead(car.s + 950);
-    T.syncTraffic(car.s);
+    const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
+    if (!own) { bbReserveAhead(car.s + 950); T.syncTraffic(car.s); }
     scanPickups();
     bonks(dt);
     // finish / arrival (crossing time interpolated inside the frame on the party clock)
@@ -798,7 +826,7 @@ function bonks(dt) {
     const fx = Math.sin(car.h), fz = Math.cos(car.h);
     const rr = CAR_RADIUS * 2;
     for (const rc of R.cars.values()) {
-        if (!rc.shown) { rc.bonking = false; continue; }
+        if (!rc.shown || rc.noBonk) { rc.bonking = false; continue; }
         const dx0 = rc.x - car.pos.x, dz0 = rc.z - car.pos.z;
         if (dx0 * dx0 + dz0 * dz0 > 36) { rc.bonking = false; continue; }
         const gx = Math.sin(rc.h), gz = Math.cos(rc.h);
@@ -1007,6 +1035,7 @@ on("boot", () => {
         progress() {
             if (!inPartyRun()) return base ? base.progress() : 1;
             const A = N.A, s = ctx.car.s;
+            if (ACTS[A.k] && ACTS[A.k].progress) return ACTS[A.k].progress();
             if (A.k === "race") return (s - GRID_S) / RACE_LEN;
             if (A.dur) return Math.max(0, Math.min(1, (clock() - A.t0) / A.dur));
             if (A.k === "trip") return (s - GRID_S) / (tripEnd() - 48 - GRID_S);
@@ -1016,6 +1045,7 @@ on("boot", () => {
             if (!inPartyRun()) return base ? base.label() : "";
             const A = N.A, s = ctx.car.s;
             const icon = document.querySelector(".trip-to");
+            if (ACTS[A.k] && ACTS[A.k].label) return ACTS[A.k].label(icon);
             if (A.k === "race") { if (icon && icon.textContent !== "🏁") icon.textContent = "🏁"; const r = Math.max(0, GRID_S + RACE_LEN - s); return `🏁 PARTY RACE · ${r >= 1000 ? (r / 1000).toFixed(1) + " km" : Math.round(r) + " m"} to the flag`; }
             if (A.dur) { const e = ACTS[A.k].emoji; if (icon && icon.textContent !== e) icon.textContent = e; const left = Math.max(0, (A.t0 + A.dur - clock()) / 1000); return `${e} ${ACTS[A.k].name.toUpperCase()} · ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, "0")} left`; }
             if (icon && icon.textContent !== "🏡") icon.textContent = "🏡";
@@ -1239,11 +1269,12 @@ function publish() {
     else if (st !== "playPhoto") m = 0;
     N.mode = m;
     if (m >= 2 && m <= 4 && car && ctx.world) {
-        const h = ctx.world.road.at(car.s, tmpA).h;
+        const act = ACTS[N.A.k], fr = act && act.pose ? act.pose() : null;   // (another frame: a town's streets)
+        const h = fr ? fr.h : ctx.world.road.at(car.s, tmpA).h;
         const fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
         const k = rate.r;
         const y = ctx.play && ctx.play.jump && ctx.play.jump.y > 0.02 ? ctx.play.jump.y : 0;
-        poseArr[0] = Math.round(car.s * 10); poseArr[1] = Math.round(car.d * 100);
+        poseArr[0] = Math.round((fr ? fr.s : car.s) * 10); poseArr[1] = Math.round((fr ? fr.d : car.d) * 100);
         poseArr[2] = Math.round((car.vx * fx + car.vz * fz) * k * 100); poseArr[3] = Math.round((car.vx * rx + car.vz * rz) * k * 100);
         poseArr[4] = Math.round(wrapAngle(car.h - h) * 1000); poseArr[5] = Math.round(car.steerVal * 100);
         poseArr[6] = Math.round(y * 100); poseArr[7] = P.rs;
@@ -1285,7 +1316,7 @@ function frame() {
             leave(); H.toast("😕 That party is full (8 friends max)", "red"); return;
         }
         onRoad = !ctx.view && N.A.k !== "lobby";
-        R.updateCars(dt, showCar, decorate);
+        R.updateCars(dt, showCar, decorate, frameOf);
         hornsNearby();
         farewells();
         dashTick(dt);
@@ -1300,9 +1331,12 @@ requestAnimationFrame(frame);
 
 let onRoad = false;
 /** Draw this friend on the road? (same activity, actually driving / parked, and we're looking at the road) */
-function showCar(p) { return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip"); }
+function showCar(p) { const act = ACTS[N.A.k]; return onRoad && p.aid === N.A.id && p.m >= 2 && p.m <= 4 && (ctx.state !== "partyResults" || N.A.k === "trip") && (!act || !act.show || act.show(p)); }
+function frameOf(p) { const act = ACTS[N.A.k]; return act && act.frame ? act.frame(p) : null; }
 function decorate(rc, p) {
     rc.tag.set(displayName(p.uid), R.skinHex(p.sk), { host: p.uid === N.host, status: R.status(p) });
+    const act = ACTS[N.A.k];
+    if (act && act.decorate) act.decorate(rc, p);
 }
 function hornsNearby() {
     for (const rc of R.cars.values()) {

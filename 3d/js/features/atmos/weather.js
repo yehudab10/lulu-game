@@ -80,11 +80,11 @@ function quadField(n, seedFn) {
 }
 const R01 = () => [Math.random(), Math.random(), Math.random(), Math.random()];
 
-const MAX_RAIN = 2600, MAX_SNOW = 2200, MAX_SPLASH = 170;
+export const MAX_RAIN = 2600, MAX_SNOW = 2200, MAX_SPLASH = 170;
 let rainMesh = null, snowMesh = null, splashMesh = null, screen = null, bolt = null, ground = null;
 const drift = new THREE.Vector2();
 
-function makeRain() {
+export function makeRain() {
     const mat = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false, fog: false,
         uniforms: { uTime: { value: 0 }, uAmount: { value: 0 }, uBox: { value: new THREE.Vector3(34, 18, 34) }, uDrift: { value: drift }, uFall: { value: 15 },
@@ -96,7 +96,7 @@ function makeRain() {
     m.frustumCulled = false; m.renderOrder = 8; m.visible = false;
     return m;
 }
-function makeSnow() {
+export function makeSnow() {
     const mat = new THREE.ShaderMaterial({
         transparent: true, depthWrite: false, fog: false,
         uniforms: { uTime: { value: 0 }, uAmount: { value: 0 }, uBox: { value: new THREE.Vector3(40, 20, 40) }, uDrift: { value: drift }, uFall: { value: 1.6 },

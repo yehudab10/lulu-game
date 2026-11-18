@@ -26,7 +26,7 @@ import { S, bump, rand, randInt, pick, clamp, bailFor, lawyerFee, lawyerTiers, s
     saveLockup, patchLockup, clearLockup, addWanted, stat } from "./rules.js";
 import { Shot, V, runFlow, check, person, lulu, walkTo, faceYaw, frameFor, cuffs, disposeCuffs, JUMPSUIT } from "./scene.js";
 import { rig, setRig, startFugitive } from "./cops.js";
-import { run, resumeDriving, FORCE } from "./service.js";
+import { run, resumeDriving, FORCE, carBack, rideNote } from "./service.js";
 
 registerModels({ lawStation: "law_station", lawCell: "law_cell", lawBooking: "law_booking", lawCellmate: "law_cellmate", lawCart: "law_cart" });
 const JAIL_KEYS = ["lawStation", "lawCell", "lawBooking", "lawCellmate", "lawCart", "copPerson"];
@@ -78,6 +78,9 @@ function extShow() {
         ext.skin = ctx.car.skinKey; }
     ext.set.show();
     ext.shot.cut();
+    // the precinct steps wear the world's sky — the time of day and the weather she was arrested in
+    // (the atmos clock stands still behind a set, so walking out shows the same sky as walking in)
+    ext.look = ctx.atmos && ctx.atmos.dress ? ctx.atmos.dress(ext.set, { lamps: [[-1.7, 3.1, 3.4], [1.7, 3.1, 3.4], [-9, 4.6, 7.2], [9, 4.6, 7.2]] }) : null;
     return ext;
 }
 function showDriverExt(on) {
@@ -215,11 +218,13 @@ registerState("lawJail", {
         st.t += dt;
         if (st.tapped) { P = Object.assign({}, P, { confirm: true, tap: true }); st.tapped = false; }
         if (H.screenOpen()) H.menuInput(P);
+        if (!st) return;          // a menu pick (✕ on Bail / Court / a lawyer) can leave the state right here
         if (flow) flow.tick(dt, st.phase === "pick" || st.phase === "serve" ? {} : P);
+        if (!st) return;
         if (st.phase === "pick") updatePick(dt, P);
         else if (st.phase === "serve") updateServe(dt, P);
         else if (st.phase === "cell" || st.phase === "lawyer") updateCell(dt);
-        animate(dt);
+        if (st) animate(dt);      // (the court timer / a pick can end the state too)
     },
 });
 
@@ -384,7 +389,8 @@ function tryBail() {
     H.hideScreen();
     st.cellDone = true;
     emit("law:release", { how: "bail", paid: j.bail });
-    setState("lawExit", { kind: "police", dest: "drive", caption: "💰 Out on bail — but still WANTED 'til court. 🚨", sResume: st.sResume });
+    // her own car (if it really is still hers and in one piece) is waiting out front; otherwise she walks
+    setState("lawExit", { kind: "police", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: "💰 Out on bail — but still WANTED 'til court. 🚨", sResume: st.sResume });
 }
 // the pause overlay borrows the menu card — put ours back when she resumes
 on("pause", ({ paused }) => {
@@ -528,7 +534,10 @@ async function escapeScript(f) {
     stat("jailbreaks", 1);
     emit("law:release", { how: "escape" });
     UI.caption("");
-    resumeDriving({ s: st.sResume, fugitive: true, banner: escapes > 1 ? `Break #${escapes} — they're FURIOUS now! 🚨` : "Cops will RECOGNIZE you..." });
+    const banner = escapes > 1 ? `Break #${escapes} — they're FURIOUS now! 🚨` : "Cops will RECOGNIZE you...";
+    // she drives off only in a car that's really hers and in one piece; otherwise she runs for it on foot (in the jumpsuit)
+    const foot = !carBack() && ctx.foot && ctx.foot.start;
+    resumeDriving({ s: st.sResume, fugitive: true, banner, onPlaced: foot ? () => ctx.foot.start("jailbreak") : null });
     startFugitive(heat);
 }
 
@@ -554,8 +563,8 @@ async function serveTime(f, sv) {
     clearLockup();
     UI.progress(null); UI.caption("");
     emit("law:release", { how: "served", days: total, fees });
-    // walks out of the jail doors — but her car's impounded, so she's on foot
-    setState("lawExit", { kind: "jail", dest: "foot", caption: fees > 0 ? `⛓️ Time served · −${fees} 💰 court costs` : "⛓️ Time served — you're free!", footReason: "copWalk", sResume: st.sResume });
+    // walks out of the jail doors — but her car's impounded (whatever she came in with), so she's on foot
+    setState("lawExit", { kind: "jail", dest: "foot", note: "Your car's in the impound — you'll have to find a ride. 🚶‍♀️", caption: fees > 0 ? `⛓️ Time served · −${fees} 💰 court costs` : "⛓️ Time served — you're free!", footReason: "copWalk", sResume: st.sResume });
 }
 function updateServe(dt, P) {
     const sv = st.serve;
@@ -785,7 +794,7 @@ async function exitScript(f, data) {
     e.shot.set(V(7, 3.0, 17), V(-0.8, 1.6, 4), 46).cut();
     const quips = drive ? ["Let's ROLL. 🚗", "Outta here!", "Freedom smells like exhaust.", "Back to the road, baby."]
         : ["Walking it is. 🚶‍♀️", "No car? No problem.", "Free... and on foot. Ugh."];
-    UI.caption(data.caption || "", pick(quips));
+    UI.caption(data.caption || "", (!drive && data.note) || pick(quips));      // on foot: why (the impound, a ride that wasn't hers)
     // down the steps toward the curb
     const w1 = { p: l, x: 0, z: 3.2, speed: 1.6 };
     xst.walkers.push(w1);

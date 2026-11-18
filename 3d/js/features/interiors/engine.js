@@ -208,6 +208,7 @@ export class Room {
         const root = this.root = models[def.model].clone(true);
         set.add(root);
         set.show();
+        if (def.outdoor && ctx.atmos && ctx.atmos.dress) ctx.atmos.dress(set);    // the beach at night is the beach at night
         root.updateMatrixWorld(true);
         this.spots = {}; this.cols = []; this.fxs = {}; this.lightSpots = {};
         root.traverse(o => {

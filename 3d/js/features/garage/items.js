@@ -139,9 +139,12 @@ function footActor() {
 }
 function footPose() {
     const f = ctx.foot;
-    const o = f.pos ? { position: f.pos, rotation: { y: f.h || 0 } } : (f.lulu && f.lulu.obj) || (f.person && f.person.obj) || f.obj || null;
-    if (!o || !o.position) return null;
-    return { pos: o.position, h: f.h != null ? f.h : (o.rotation ? o.rotation.y : 0) };
+    const o = f.obj || (f.person && f.person.obj) || null;
+    const pos = f.pos || (o && o.position);
+    if (!pos) return null;
+    // the way SHE faces (not the road's heading — that aimed every spray down the road, a whiff)
+    const h = typeof f.facing === "number" ? f.facing : o ? o.rotation.y : 0;
+    return { pos, h };
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -516,6 +519,13 @@ export function usePepper(pos = ctx.car && ctx.car.pos, h = ctx.car ? ctx.car.h 
         consider(p, ANIMAL_RE.test(k) || a.animal ? "animal" : "person", a, ANIMAL_RE.test(k) || a.animal ? 0 : 40);  // animals first (2D)
     }
     for (const c of ctx.traffic ? ctx.traffic.cars : []) if (c.kind === "cop" && !c.hit) consider(c, "cop", c, 20);
+    // on foot: the people, critters and the cop on her tail around her (they aren't road actors)
+    if (onFoot && ctx.foot && ctx.foot.sprayTargets) {
+        for (const t of ctx.foot.sprayTargets()) {
+            if (t.kid) continue;                                  // never the kids
+            consider(t.pos, t.kind, t, t.kind === "animal" ? 0 : t.kind === "cop" ? 20 : 40);
+        }
+    }
     const tx = bestPos ? bestPos.x : pos.x + fx0 * 7, tz = bestPos ? bestPos.z : pos.z + fz0 * 7;
     const e = { id: "pepper", x: pos.x, z: pos.z, tx, tz, dirX: fx0, dirZ: fz0, range: RANGE, onFoot,
         target: best, targetKind: bestKind, hit: false, handled: false, line: null };
@@ -677,18 +687,20 @@ let hudEl = null, hudKey = "";
 hook("hud", () => {
     if (!hudEl) { hudEl = document.createElement("div"); hudEl.className = "gx-hud"; H.hudSlot("right").appendChild(hudEl); }
     const g = G(), touch = input.device === "touch";
-    const showGlyph = !touch && isDriving();
+    const onFoot = !!(ctx.foot && ctx.foot.active) && !isDriving();
+    const showGlyph = !touch && isDriving(), sprayGlyph = !touch && (isDriving() || onFoot);   // the spray works on foot too; missiles don't
     const chips = [];
     if (g.distracted) chips.push(`<div class="hud-chip gx-chip pink">📱 DISTRACTED 2×</div>`);
-    if (inv.missiles > 0) chips.push(`<div class="hud-chip gx-chip">🚀 <b>${inv.missiles}</b>${showGlyph ? " " + glyph("fire") : ""}</div>`);
-    if (inv.pepperSpray > 0) chips.push(`<div class="hud-chip gx-chip">🌶️ <b>${inv.pepperSpray}</b>${showGlyph ? " " + glyph("item") : ""}</div>`);
-    if (inv.shields > 0) chips.push(`<div class="hud-chip gx-chip${g.shieldReady === false ? " dim" : ""}">🛡️ <b>${inv.shields}</b></div>`);
+    if (inv.missiles > 0) chips.push(`<div class="hud-chip gx-chip${onFoot ? " dim" : ""}">🚀 <b>${inv.missiles}</b>${showGlyph ? " " + glyph("fire") : ""}</div>`);
+    if (inv.pepperSpray > 0) chips.push(`<div class="hud-chip gx-chip">🌶️ <b>${inv.pepperSpray}</b>${sprayGlyph ? " " + glyph("item") : ""}</div>`);
+    if (inv.shields > 0) chips.push(`<div class="hud-chip gx-chip${g.shieldReady === false || onFoot ? " dim" : ""}">🛡️ <b>${inv.shields}</b></div>`);
     if (honk.chain > 0 && honk.t > 0) chips.push(`<div class="hud-chip gx-chip honk${honk.chain >= 5 ? " hot" : ""}" style="--p:${Math.max(0, Math.min(1, honk.t / 1.5)).toFixed(2)}">♪<b>${honk.chain}</b></div>`);
     const key = chips.join("") + (honk.chain > 0 ? Math.round(honk.t * 10) : "");
     if (key !== hudKey) { hudKey = key; hudEl.innerHTML = chips.join(""); }
 });
 
 addTouchButton({ id: "garage_missile", emoji: "🚀", label: "FIRE", action: "fire", visible: () => inv.missiles > 0 && isDriving() });
-addTouchButton({ id: "garage_pepper", emoji: "🌶️", label: "SPRAY", action: "item", visible: () => inv.pepperSpray > 0 && (isDriving() || !!(ctx.foot && ctx.foot.active)) });
+// (on foot only while she's actually walking — not inside a building / the wedding, where the spray can't fire)
+addTouchButton({ id: "garage_pepper", emoji: "🌶️", label: "SPRAY", action: "item", visible: () => inv.pepperSpray > 0 && (isDriving() || ctx.state === "footRun") });
 
 export { useShieldNow, decorHolder };

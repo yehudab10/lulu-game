@@ -23,7 +23,7 @@ import { PROSECUTOR_LINES, JUDGE_INTROS, OBJECTIONS, JUDGE_SUSTAIN, JUDGE_OVERRU
 import { S, bump, rand, pick, clamp, bountyFor, worstCharge, courtDramaTier, pleaFineFor, bribeCostFor, deliberate, chargeCoins,
     lawyerChargeArgument, clearWanted, clearLockup, sentenceDays, stat } from "./rules.js";
 import { Shot, V, runFlow, check, line, ask, person, lulu } from "./scene.js";
-import { FORCE } from "./service.js";
+import { FORCE, carBack, rideNote } from "./service.js";
 
 registerModels({ lawCourt: "law_court", lawJudge: "law_judge", lawProsecutor: "law_prosecutor", lawLawyer: "law_lawyer", lawAbba: "law_abba" });
 const COURT_KEYS = ["lawCourt", "lawJudge", "lawProsecutor", "lawLawyer", "lawAbba", "copPerson", "npcWoman", "npcMan", "npcKid",
@@ -347,7 +347,7 @@ async function trial(f, data) {
     check(f);
     UI.fadeTo(false, 400);
     if (verdict === "jail") { setState("lawJail", { serve: { days: 0, total: sentenceDays() }, sResume: data.sResume }); return; }
-    setState("lawExit", { kind: "court", dest: "drive", caption: verdict === "dismissed" ? "⚖️ DISMISSED — free to go!" : "💸 Fine paid. Drive safer!", sResume: data.sResume });
+    setState("lawExit", { kind: "court", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: verdict === "dismissed" ? "⚖️ DISMISSED — free to go!" : carBack() ? "💸 Fine paid. Drive safer!" : "💸 Fine paid — free to go!", sResume: data.sResume });
 }
 
 function pickEvent() { return Math.random() < 0.10 ? COURT_MISTRIAL : pick(COURT_EVENTS); }

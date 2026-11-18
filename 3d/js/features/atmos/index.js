@@ -32,6 +32,7 @@ import { lightsBoot, lightsTick, lightsHide, lightsInfo, syncLamps } from "./lig
 import { weatherBoot, weatherTick, weatherVisuals, weatherHide, weatherInfo, weatherReset, startWeather, strike, W } from "./weather.js";
 import { lifeTick, lifeClear, lifeHide, lifeShow, lifeInfo, spawnFlock, spawnPlane, spawnBalloon } from "./life.js";
 import * as sfx from "./sfx.js";
+import { snapshotLook, look, dress, undress } from "./dress.js";
 
 const DAY_SECONDS = 540;
 const saved = store("atmos", { clock: TIMES.morning });
@@ -115,6 +116,7 @@ function tick(dt) {
     weatherVisuals(S.dt);
     lifeTick(S.dt);
     if (mode === "cruise" && !own) announcePhase();
+    snapshotLook();          // what a cutscene set should look like if one opens now (dress.js)
 }
 
 function announcePhase() {
@@ -164,6 +166,10 @@ ctx.atmos = {
     get night() { return S.night; },
     get clock() { return S.clock; },
     get weather() { return W.kind; },
+    /** The world's current sky + light + weather (what the driving scene last showed) — see dress.js. */
+    look,
+    /** Dress an outdoor cutscene set in that sky: dress(set, { lamps: [[x, y, z]…], sky, stars, fog, lights, weather }). */
+    dress, undress,
     info() {
         return Object.assign({ mode: S.mode, active: S.active, clock: S.clock, phase: phaseName(S.clock), w: S.w, night: S.night, lightsOn: S.lightsOn,
             day: S.day, baseNight: S.baseNight, quality: S.quality, fp: S.fp, biome: S.biome, cloud: S.cloud, said: said.slice() },

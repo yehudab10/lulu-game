@@ -98,7 +98,7 @@ export default defineInterior({
     title: "🏖️ SHTRAND-BY-THE-SEA — BEACH", tagline: "Sun, sea, and Heshy",
     model: "interiorsBeach", models: ["interiorsLifeguard", "interiorsIceCream", "heshyPerson", "npcKid", "npcWoman"],
     music: "../story-beach.mp3",
-    light: "day", sky: "#8ED3FF", fog: [45, 140],
+    light: "day", sky: "#8ED3FF", fog: [45, 140], outdoor: true,     // outdoor: it wears the world's sky + weather (atmos.dress)
     bounds: { x0: -16.5, x1: 16.5, z0: -6.6, z1: 8.6 },
     cam: { dist: 8.6, height: 5.6, clampX: 5 },
     ground,

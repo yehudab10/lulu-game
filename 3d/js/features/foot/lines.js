@@ -77,6 +77,13 @@ export const FOOT_INTRO_LINES = {
         "Free! ...on foot. In THIS\noutfit. Keep moving.",
         "Act natural. Natural!\nNobody wears orange. Ugh.",
     ],
+    // (3D-only: out of the ER when the car she crashed was never hers — or is in the impound)
+    discharged: [
+        "Discharged! And the car?\nNot mine to begin with. 🙃",
+        "Patched up, no ride.\nThe universe is SPEAKING.",
+        "They kept the car. Fine.\nThese legs still work!",
+        "Tammy said walk it off.\nSo... walking.",
+    ],
 };
 
 // leaving a building on foot (the 2D exit-a-building quips)

@@ -196,3 +196,18 @@ Client behavior (only when opted in, all try/caught, all fire-and-forget):
 - The menu shows a small "🏁 TODAY'S TOP RIDERS" panel (top 5) from
   GET /board/scores (cached 60s), only when Shared Road has ever been used
   (save.mpName exists) and the fetch succeeds — otherwise nothing renders.
+
+## 3D PARTY — 🌍 Free Roam + party games (features/openworld)
+Rides the 3D party's netcode (`3d/js/features/party/net.js`: relay protocol v1, everything inside the
+verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
+- `d.x = { z, ex }` — my extras (the party's existing `N.extra` slot): `z` = the zone I'm in (`""` the
+  highway, else a town id like `"lakewood"`), `ex` = that town's highway exit s (for warps / late joins). ~25 bytes.
+- `d.p` (pose) in a town is published in a **flat frame**: `s = world z + 20000`, `d = −world x`, heading
+  frame 0 (receivers interpolate it 2-D: no lateral clamp, no corner snaps). Changing zone bumps the pose's
+  respawn counter (`d.p[7]`), so friends restart my track behind a poof instead of interpolating across frames.
+- `H.A.g` — the live party game (host state, replicated in every host snapshot like the rest of `A`): `{k, n, ph,
+  t0, at, ps, …}` + the game's fields (pin / drop / cop / out / it / itN / held / fuse / spots / got / fin). ≤ ~700 bytes.
+- reliable client → host events (`ev`, acked): `owg` [k, req] start a game · `owf` [n, t] reached the pin ·
+  `owb` [n, uid] the cop's bust · `owd` [n] stash delivered · `owk` [n, itN, uid] the kugel passed · `owp` [n, i] a snap.
+- town coins reuse the party's shared-pickup broadcast `"k"` with keys `"c-1:<i>"` (chunk −1 = the town's chunk).
+Bandwidth: unchanged rate (the party's ≤ 7 snapshots/s); events are a few per game.

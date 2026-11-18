@@ -48,7 +48,7 @@ export function reservedRight(a, b, dMin = 9, dMax = 60) {
     return w.reserved.some(r => r.side !== -1 && r.s1 > a && r.s0 < b && r.dMax > dMin && r.dMin < dMax && r.dMax - r.dMin > 12);
 }
 /** Is a sign spot taken (another set piece's reserve right there)? */
-function signBusy(s) { const w = ctx.world; return !!w && w.isReserved && (w.isReserved(s, 10.6, 6) || w.isReserved(s, 14, 6)); }
+function signBusy(s) { const w = ctx.world; return !(ctx.party && ctx.party.active) && !!w && w.isReserved && (w.isReserved(s, 10.6, 6) || w.isReserved(s, 14, 6)); }
 
 /** Slide an exit forward until its signs, decel lane and ramps keep clear of every pull-in place
  *  (features/world's ctx.places: Gas 'n' Go, the Lookout, the family's driveways…), every rest area
@@ -58,11 +58,13 @@ function clearOfPlaces(s) {
     let busy = [];
     try { if (P && P.list && P.at) for (const p of P.list()) busy = busy.concat(P.at(p.id) || []); } catch (e) { busy = []; }
     const spans = () => { try { return ctx.exits && ctx.exits.spans ? ctx.exits.spans() : []; } catch (e) { return []; } };
+    // (a 🎉 party plans from fixed data only — the places — so every friend's exits land on the same metre)
+    const party = !!(ctx.party && ctx.party.active);
     for (let k = 0; k < 60; k++) {
         const a = s + SPAN.a, b = s + SPAN.b;
         const clash = busy.some(x => x > s - 760 && x < s + RAMP1 + 220) ||
-            spans().some(o => o.b > a && o.a < b) ||
-            reservedRight(s + TAPER0 - 30, s + RAMP1 + 30);
+            (!party && spans().some(o => o.b > a && o.a < b)) ||
+            (!party && reservedRight(s + TAPER0 - 30, s + RAMP1 + 30));
         if (!clash) return s;
         s += 250;
     }

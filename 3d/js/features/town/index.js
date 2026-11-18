@@ -61,6 +61,10 @@ const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey"
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (S.active && TOWN_OFF.has(id)) ? false : baseEnabled(id);
 
+/** A 🎉 party that drives the open world (openworld's 🌍 Free Roam): towns are on, but every friend must
+ *  see the same town — no random drivers (openworld runs seeded block-loop traffic), seeded life, no e-bikes. */
+const partyTowns = () => !!(ctx.party && ctx.party.active && ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
+
 /** Load a town's models (lazily, as her car nears its exit). S.loaded / S.ready: the first town's (Lakewood's).
  *  Landmark models other features build (the town's `uses`) are optional — without them the use's fallback stands there. */
 function load(def = townFor(0)) {
@@ -174,11 +178,13 @@ function enterTown(e = null, opts = {}) {
         hazards(spawnHazard(hs.id, hz.along, hz.d, hz.kind));
         if (!T.spots.hazards) { const p = S.road.point(hs.base + hz.along, hz.d, {}); T.spots.hazards = toLocal(p.x, p.z, {}); }
     }
-    for (const [kind, n] of Object.entries(def.traffic || {})) for (let i = 0; i < n; i++) {
+    const party = partyTowns();
+    if (!party) for (const [kind, n] of Object.entries(def.traffic || {})) for (let i = 0; i < n; i++) {
         const sp = randomSpot(36, kind);
         if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 6 });
     }
-    startLife(T, def);
+    if (party) ctx.openworld.seeded(def.id, () => startLife(T, Object.assign({}, def, { bikes: 0 })));
+    else startLife(T, def);
     addActor({ foot: true, update: dt => { try { tick(dt); } catch (err) { console.error("[town] tick", err); } return S.active; } });
     // the trip bar becomes the street chip
     S.savedTrip = ctx.trip;
@@ -264,7 +270,7 @@ function tick(dt) {
     lodDrivers(ctx.camera.position);
     if ((S.cullN = (S.cullN || 0) + 1) % 3 === 1) cullClusters(T);
     S.tendT -= dt;
-    if (S.tendT <= 0) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
+    if (S.tendT <= 0 && !partyTowns()) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
     for (const k of T.cranes) k.obj.rotation.y += k.speed * dt * (Math.sin(ctx.time * 0.1 + k.speed * 50) > -0.3 ? 1 : 0);
     if (T.trains.length) tickRail(T, dt, ctx.camera.position, RAIL_HOOKS);
     // coins
@@ -335,6 +341,7 @@ function cullClusters(T) {
 // ── hooks ────────────────────────────────────────────────────────────────
 function eligible() {
     const G = ctx.G;
+    if (partyTowns()) return !G.tutorial;
     return G.mode === "cruise" && ctx.enabled("town") && !G.tutorial && !(ctx.party && ctx.party.active);
 }
 hook("runStart", G => {
@@ -345,7 +352,12 @@ hook("runStart", G => {
     S.bubbe.clear();
     if (eligible()) {
         const def = INTERCHANGE.towns[0];
-        planExit((G.startS || 0) + def.highway.first, INTERCHANGE.towns);
+        if (partyTowns()) {
+            // a party: the same interchanges for every friend (from the start of the road, not this run's start), all planned
+            // up to well past where this run starts so a late joiner's first chunks already have their ramps
+            let e = planExit(def.highway.first, INTERCHANGE.towns);
+            while (e && e.s < (G.startS || 0) + 1800) e = planExit(e.s + e.town.highway.every, INTERCHANGE.towns);
+        } else planExit((G.startS || 0) + def.highway.first, INTERCHANGE.towns);
         load(def);
     }
 }, 20);
@@ -485,6 +497,12 @@ ctx.town = {
     get streets() { return (S.def ? PL.STREETS : setPlan(townFor(0)).STREETS).map(s => s.name); },
     /** The buildings that block a line of sight: world-space rects {x0, z0, x1, z1}. */
     get occluders() { return PL.OCCLUDERS.map(r => ({ x0: r.x0 + PL.ORIGIN.x, x1: r.x1 + PL.ORIGIN.x, z0: r.z0 + PL.ORIGIN.z, z1: r.z1 + PL.ORIGIN.z })); },
+    /** The current town's plan (streets, blocks, nodes; local frame + ORIGIN) and its landmark spots (local), or null. */
+    get plan() { return S.active ? PL : null; },
+    get spots() { return S.active && S.T ? S.T.spots : null; },
+    get coins() { return S.active && S.T ? S.T.coins : null; },
+    /** The townsfolk you can talk to: [{id, name, x, z}] (world). */
+    people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],
     /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be
      *  loaded (await ctx.town.load(id)). */
     enter(opts = {}) { return enterTown(null, opts); },
@@ -509,8 +527,8 @@ ctx.town = {
         const p = S.active && S.T && S.T.spots[name];
         return p ? Object.assign({}, p, { x: p.x + PL.ORIGIN.x, z: p.z + PL.ORIGIN.z, lx: p.x, lz: p.z }) : null;
     },
-    /** The highway exits planned this run, one row per town an interchange offers: [{ s, id, name, no, label, branch }] (sorted by s). */
-    get exits() { return X.exits.flatMap(e => e.branches.map(b => ({ s: e.s, id: b.town.id, name: b.town.name, no: b.town.highway.no || null, label: b.town.highway.label || b.town.name, branch: b.k }))); },
+    /** The highway exits planned this run, one row per town an interchange offers: [{ s, id, name, town, emoji, no, label, branch }] (sorted by s). */
+    get exits() { return X.exits.flatMap(e => e.branches.map(b => ({ s: e.s, id: b.town.id, name: b.town.name, town: b.town.id, emoji: b.town.emoji, no: b.town.highway.no || null, label: b.town.highway.label || b.town.name, branch: b.k }))); },
     /** The stretch an exit's signs → ramps cover, relative to its s (features/exits keeps rest areas out of it). */
     span: SPAN,
     /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */

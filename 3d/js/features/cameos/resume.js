@@ -6,11 +6,12 @@ import { ctx, setState, emit } from "../../core/ctx.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 
-export function resumeDriving({ banner = "", hearts = null, s = null, speed = 13 } = {}) {
+export function resumeDriving({ banner = "", hearts = null, s = null, speed = 13, onFoot = false } = {}) {
     const { car, world, traffic } = ctx;
     const G = ctx.G;
     const S = s != null ? s : car.s;
-    const d = 1.75;
+    const d = onFoot ? 8.0 : 1.75;               // on foot: she starts on the shoulder, not in a live lane
+    if (onFoot) speed = 0;
     const p = world.road.point(S, d, {});
     car.place(p.x, p.z, p.h);
     car.s = S; car.d = d;
@@ -27,5 +28,7 @@ export function resumeDriving({ banner = "", hearts = null, s = null, speed = 13
     A.setMusic(G.music || "../luludriving.mp3");
     setState("playing");
     if (banner) H.banner(banner, 2600);
-    emit("cameos:resume", { s: S });
+    emit("cameos:resume", { s: S, onFoot });
+    // no car to give back (a stolen ride she crashed, an impounded car): she walks out instead
+    if (onFoot && ctx.foot && ctx.foot.start) ctx.foot.start("discharged");
 }
