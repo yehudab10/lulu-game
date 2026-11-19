@@ -23,7 +23,9 @@
 //  Input: the horn (L1 / H / HONK) is the ride's horn; the trick is HOLD the horn on a
 //  controller, X on a keyboard, one contextual touch button — nothing shows outside a ride.
 //  Random content (patients, kids, bus riders, extra traffic) is gated by ctx.enabled("rides");
-//  in a 🎉 party the fleet stays out of the shared traffic; rides, tricks and their personal props are per player.
+//  in a 🎉 party the fleet is SEEDED into the shared traffic (ctx.party.addTrafficKind: the same ambulance at the
+//  same place on every friend's screen — claim it / jack it like any shared car); rides, tricks and their personal
+//  props (patients, kids, riders) are per player.
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, emit, css } from "../../core/ctx.js";
 import { input, glyphSet, addTouchButton, rumble } from "../../input.js";
@@ -245,6 +247,8 @@ on("boot", () => {
     setControlRow("honk", "Horn · siren / jingle in a cop car, ambulance, ice-cream truck");
     setControlRow("rideAct", "Ride trick (cop car, ambulance, taxi)", "bail");
     for (const tr of FLEET) addJack(tr);
+    // a 🎉 party: the fleet rides the shared, seeded traffic (registered at boot: the same list on every screen)
+    if (ctx.party && ctx.party.addTrafficKind) for (const tr of FLEET) if (tr.mix) ctx.party.addTrafficKind(tr.kind, tr.mix, () => live());
 });
 
 // ── the fleet: taxis, ambulances, ice-cream trucks and buses join traffic (jackable) ──

@@ -38,7 +38,7 @@ import { tone } from "../parking/sfx.js";
 import { GAMES, ORDER, winners } from "./games.js";
 import * as HUD from "./hud.js";
 import { beacon, hideBeacon, hideBeacons, roofProp, tickProps, beaconCount } from "./marks.js";
-import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT, loopPoint } from "./towntraffic.js";
+import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT, loopPoint, townClaims } from "./towntraffic.js";
 import { registerApps } from "./apps.js";
 import { initRide, startRide, stopRide, riding, tickSeats, ridingWith } from "./ride.js";
 
@@ -130,6 +130,15 @@ function registerRoam() {
     });
 }
 registerRoam();
+// a town minivan / bus can be CLAIMED (party's carjack plumbing): it leaves its loop for everyone, parks for her
+if (ctx.party && ctx.party.claimKinds) ctx.party.claimKinds("tw", townClaims);
+// …and the yellow school bus on its loop is jackable too (streets' table of rides; town adds the minivan)
+on("boot", () => {
+    const R = ctx.streets && ctx.streets.rides;
+    if (R && R.truck && !R.town_bus) R.town_bus = Object.assign({}, R.truck, { model: "roadevents_school_bus", label: "🚌 JACK THE SCHOOL BUS", half: 1.27, fwd: 3.9, len: 1.0, y: [0.7, 2.2] });
+    const C = ctx.streets && ctx.streets.cams;
+    if (C && !C.roadevents_school_bus) C.roadevents_school_bus = { d: 4.2, h: 1.9 };
+});
 
 function roamLabel(icon) {
     const g = getG();
@@ -747,7 +756,7 @@ ctx.openworld = {
     /** A party town's block loops, read-only (community runs its org cars on them): { loops, origin, point(L, u, out) } | null. */
     townLoops: () => (TT.plan && TT.loops.length ? { loops: TT.loops, origin: TT.plan.ORIGIN, point: loopPoint, town: TT.town } : null),
     debug: {
-        CL, SOLO, NP, TT, townCarsAt, townLive, beaconCount, sights: townSights, pins, hostTick, getG, here,
+        CL, SOLO, NP, TT, townCarsAt, townLive, townClaims, beaconCount, sights: townSights, pins, hostTick, getG, here,
         /** tests: claim a game event as me (exactly what play() would send). */
         claim: (k, ...a) => send(k, ...a),
         touching, posOf,
