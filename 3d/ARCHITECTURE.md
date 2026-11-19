@@ -81,6 +81,8 @@ ctx.trip         // { label(), progress() } for the HUD trip bar (journey owns i
 | `crash` | {impact, kind, car?, collider?, actor?} | any bump (impact in m/s) |
 | `damage` | {power, why, source} | a heart was lost |
 | `wreck` | {why, source} | out of hearts (before the wrecked state) |
+| `knockout` | {n, banked, fee, where: car \| foot \| scene, why, source} | out of hearts was a KNOCK-OUT: the cost was just applied (see Run API) |
+| `score:bank` | {reason, score, best, G} | a knock-out banked the score so far (best + lifetime); the score starts over |
 | `heart` | {n} | healed |
 | `speedTrap` | {mph, ticketed, trap, handled} | passed a parked cop — set `handled = true` to take over |
 | `honk` / `boost` | {} | player honked / started nitro |
@@ -94,7 +96,7 @@ ctx.trip         // { label(), progress() } for the HUD trip bar (journey owns i
 | `controls` | (ctl, dt) | mutate `{steer, throttle, brake, handbrake}` before physics (Ima's call flips steering) |
 | `update` | (dt, P, controlsOn) | every frame of the driving sim (playing/intro/wrecked/arriving) |
 | `damage` | (info) → `false` vetoes | shields, invincibility items |
-| `wreck` | (info) → `true` claims | out of hearts: arrest, ER, Lulu on foot… (first claimer wins; return true only when you take over) |
+| `wreck` | (info) → `true` claims | out of hearts, after a ~1 s spin-out: an arrest (law), now and then the crash comedy (cameos)… (first claimer wins; return true only when you take over). Unclaimed = core's knock-out: back on her feet beside her car |
 | `runStart` | (G, opts) | add run fields, set `G.goText`, pick biomes |
 | `hud` | (dt) | every frame while the driving HUD shows |
 | `titleCamera` | (dt, camera) → true | own the title-screen camera |
@@ -122,7 +124,9 @@ happens in order; it stops at a `choose()`, a `showScreen` card, a state change,
 turns false. So: time your beats in GAME time (`ctx.time`/`dt`, a Flow's `sleep`), not
 `setTimeout`. A cutscene inside another state: `ctx.cutscene.begin(id, {onSkip})` … `end(id)`.
 `ctx.skipping` is true meanwhile (keep sound effects quiet).
-Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked`, `gameover`, plus journey's
+Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked` (the ~1 s spin-out before a knock-out), `gameover` (a card — no longer
+reached by running out of hearts; parking's challenge still ends with it), world's `worldPullOut` (pulling out of the
+home driveway — a driving state with its own camera until she's on the street), plus journey's
 `arriving` / `arrivedScreen`. To drive the car from your state call
 `updateDriving(dt, P, controlsOn, ctlOverride)` from `core/driving.js`.
 
@@ -156,8 +160,21 @@ Core calls `update` every driving frame (and on foot if `foot: true`) and turns
 `wreck(why, source)`, `heal(n)`, `addCoins(n, why)` (HUD + shared wallet),
 `addScore(n, why)`, `updateDriving(...)`, `updateActors(dt, onFoot)`, `roadPos()`,
 `autoDrive(dt, d, speed)` (returns a ctl that steers along lane d), `statsHtml(extra)`, `MAX_HEARTS`.
-A `runStart` hook may set `G.introState = "<state>"` to replace the 3-2-1 countdown with its own departure
-state (world's driveway pull-out); `startRun({ quick: true })` asks for the plain countdown.
+A `runStart` hook may set `G.introStart = opts => bool` (world: the run starts ON FOOT at home — it sets the state
+itself; `false` = it couldn't, count down) or `G.introState = "<state>"` to replace the 3-2-1 countdown;
+`startRun({ quick: true })` asks for the plain countdown. `startRun` ends a run that's still going first
+(`endRun("restart")`), and going to the title ends it too (`endRun("quit")`) — with no game-over card those are where
+`run:end` fires for an endless Cruise.
+**No game over — the knock-out** (`KO`, `knockout(info, {fee, hearts, where})`, `bankScore(reason)`,
+`recoverFromWreck(info)`): out of hearts in the car = `wreck` → ~1 s spin-out (`KO.spin`) → `hooks.wreck` claimers →
+otherwise `recoverFromWreck`: the cost, then `ctx.foot.start("knockout")` (she climbs out beside her patched-up,
+drivable car; ✋ back in) — or, with no foot feature, back in her lane rolling. Out of hearts ON FOOT = foot's
+knock-out (she sits up seeing stars and walks on; ~1 in 5 the ER instead). **What it costs (the rule):** the score
+so far is banked (best + lifetime + the scoreboard, `score:bank`) and starts over (combo too); hearts go back to full;
+a tow &amp; patch-up fee of `KO.feeBase` (10) + `KO.feeStep` (5) per earlier knock-out this run, capped at `KO.feeMax`
+(30) and never more than she has (the ER's bill replaces it; Hillel's insurance claim waives it). Nothing about it
+pays coins, and nothing resets a run's caps (G is NOT reset — couch coins, robbery caps, the one-a-run insurance
+payout stay spent). A cop's wreck is still law's arrest; warrants / fines / bail are untouched.
 **Paved ground off the highway** — `paved` (an array) / `pavedAt(s, d)` (the registry lives in `world.js`; `driving.js`
 re-exports it): features push predicates `(s, d) → 0 | 1 | 2 | 3` in highway road coords (ignored in a district).
 2 = asphalt: the car drives it like road (no grass drag, no shoulder rumble — a rest area's lot); 3 = a LANE off the highway
@@ -375,6 +392,9 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   driving scene (`models.js` `warmShaders` → `renderer.compileAsync(model, camera, scene)`), instead of mid-frame the
   first time it is drawn. (A set with its own lights still compiles on first show; only the party lobby warms the
   whole road — `party` `warmShaders`.)
+- **A run starts in the world, and never ends in a card:** from the title the camera glides down to Lulu on foot at
+  her porch (world › home street) and a knock-out puts her back on her feet beside her car (Run API › the knock-out) —
+  the world keeps running through both. Test: `scripts/tests3d/home.js`.
 Test: `scripts/tests3d/movement.js` + `movetouch.js` (the jump, low obstacles, the free camera + the car's held look, the
 button map per device, the phone layout); `scripts/tests3d/flow.js` (the picture moves ≤ 1.5 m between two frames across a car ↔ foot change; the hop-in;
 a teleport still cuts; leaving a town is a soft cut with no black).
@@ -463,7 +483,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 |---|---|---|
 | roadevents | **seeded** (Road Trip, 🌍 Free Roam; Race / Dash / Tag: hazards only) | `roadevents/party.js`: big set pieces (🍦 stand, 🍔 drive-thru, ⛽ station + nitro cans) from the road plan, small ones (cones, puddles, potholes, animals, strollers, hitchhikers) from per-chunk sub-slots — the same s on every screen, each screen builds its own copy; rewards personal. Off: anything that drives (ambulance, buses, ice-cream truck, drunk / texting drivers, steamroller, fender benders) or must stop the traffic (toll, train, parade, crossing guards, work zones) — party traffic is a pure function of the clock |
 | cameos | **seeded** + personal scenes | `cameos/party.js`: Avigail on foot, Chez Fabio, Heshy's pool, an uncle, the sasquatch from the road plan, their verge spot from `ctx.party.seeded`; the porch / salon scenes are YOUR states (no pause — friends keep driving); two friends at one cameo each get their own copy. Off: Avigail's coupe (it drives); the crash aftermath (no wrecks in a party) |
-| world | **shared constants**, personal pull-in | Gas 'n' Go / the Lookout / driveways are fixed spots (`where("party")`); a Road Trip has no driveways from Bubbe's on; the visit beat is yours |
+| world | **shared constants**, personal pull-in | Gas 'n' Go / the Lookout / driveways are fixed spots (`where("party")`); a Road Trip has no driveways from Bubbe's on; the visit beat is yours. The start at home on foot is solo only (`wantsDeparture`: a party keeps its own grid start) |
 | hustle | **seeded** markers, personal jobs | `hustle/party.js`: ☎️ payphones + 📋 boards from the road plan; taking one, the riders, props, pay are yours; my 📱 still rings at random (nobody else hears it); 💼 Jobs app on the party highway; the getaway only when the party has the law on. "Follow that car" is a `partyLocal` car |
 | community | **seeded** in a 🌍 Free Roam town, personal help | `community/party.js`: org cruisers on openworld's block loops (pure f(seed, loop, clock)); roadside scenes in 50 s windows of the party clock (kind, kerb, call-in time seeded); the Bais Yaakov line on the party clock; 📞 Call + help visits are yours (local responders); Shomrim chases only with the law on in the party (local cars; a loop cruiser never leaves its loop). Off: highway sightings (the party's highway traffic is the seeded conveyor) |
 | memory | **personal** | grudges, notoriety, the log, texts + recognition lines record / play in a party; grudge cars + WANTED billboards wait for a solo run (a local car in shared traffic / a roadside reservation on one screen) |
@@ -517,7 +537,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.interiors[id]` | interiors | `{ name, emoji, enter({ exit }) }` — foot shows a door and calls `enter({ exit: () => back to walking })`. ids: `bar`, `school`, `hospital`, `police`, `beach`, `home` (features/homes: any town house — a procedural Room, entered via `ctx.foot.handoff`) |
 | `ctx.law` | law | `startChase(reason, {heat, msg, at: {x, z} (the witness who saw it leads the chase)})` · **heat before a chase** (cops.js `notice` / `callIn` / `changeLook`): `notice(charge, {msg, warn, witness, src, amount})` a PETTY offense a cop saw — the first is a ⚠️ WARNING (`suspicion` 0–1, drains ~22 s of clean driving), another while it is live (or `amount` 1: reckless — nitro / > 92 mph) is the chase · `callIn(charge, {msg, delay})` a witness phoned it in: 📞 `reported`, after 8–14 s one unlit cruiser prowls up the road looking for the car she is in (sees her ~1 s → chase; she switches cars / paints / ditches it / keeps out of its way 35 s → called off) · `changeLook(how)` a new car / paint / disguise unseen: drops a call-in + the warning, and `lowKey` — the warrant file does not know her this run (`wanted` 0) · `copSees(x, z, r)` a cop with a clear line of sight (crimes only count when SEEN) · `hiding` mid-chase she is stopped (≤ 4 m/s) + tucked away while they search (`cops.js hideInfo()`): "lot" (a rest area's lot) / "verge" (> 9.2 m off the highway's centre line) / "town" (`ctx.town.hideSpot`: at the kerb among parked cars, or off the street surface — never a travel lane, a crossing or an empty kerb); verge + town also need no chasing cruiser with a clear line of sight within `tune.hideSeen` (25 m). Hidden, cruisers only spot her within 10 m and the LOSING THEM meter runs 2×; stopped somewhere that does not count, the HUD hint says why ("not hidden — park at the kerb or get out of sight"). Searching cruisers drive on to where she was heading (in a town: `ctx.town.searchPoint`, then crossing to crossing with `prowlPoint` — they do not know where she is) · `lose(how)` (unseen: she got away — `town:enter` while they search does it) · events `law:warning` {charge, heat}, `law:bolo` {active, charge | why}, `law:look` {how, had} · `arrest(charges[], opts)` · `wanted` (0–5) · `chasing` · `searching` (lost sight of her: the stars flash) · `searchProgress` 0–1 · `clearHeat(msg)` · `copNear(x, z, r)` · `addWarrant(charges)` · `hold(sec)` · `spot(sec)` (a tip-off — features/community's Shomrim radio: mid-chase she counts as SEEN for `sec`) · `trap(ahead, side)` (park a hidden speed trap up the road — another feature wants a cop around) · `clearWarning()` (wipe a live ⚠️) · `addCharge({key, name, weight, cop, lulu, defense, court, nudge})` (a feature's charge gets its own arrest lines, the lawyer's argument and a courtroom event that always plays — `chargeEvent(charges)`) · the pull-over asks `ctx.underworld.bustOffer()` before her tactics · `lightBar(obj)` → `{set(on, t)}` · `tune` (the pursuit table: cop speed × her top speed, sight range, search time by ★ — tuned with the streets chase lab)  **Releases follow her wheels:** `service.js` `captureRide()` notes at the arrest whether she was in her own intact car (`own`), a `stolen` ride, a `wrecked` car or none (`impounded`); bail / a fine / dismissal / a jailbreak hand back only her own car — otherwise she walks out (copWalk / the jumpsuit jailbreak on foot); served time always walks. The ER does the same (`discharged`). · for a 🎉 party: `partyUnits(n)` (her lit cruisers as `[x×10, z×10, h×1000, …]` for friends' puppets) · `standDown(why)` (a pursuit winds down — law/index.js does it during party races and Free Roam games) |
 | `ctx.streets` | streets | `carjack(car?)` (on foot) · `ride` {kind, color} · `jacking` · `canBail()` / `bail()` · `bailHint()` · `rides` (jackable kinds + handling — features/rides adds its fleet here) · `cams` (ride model key → {d, h}: a roomier chase cam for big rides) · `roadblock(ahead, {gap, spikes})` · `spikes(s, d)` · `flat` / `puncture()` / `repairTyres()` · `paint.{cost(), nearest(), enter(), repaint(color), color}` · `damage` ($ this drive) · `smashNear(x, z, r)` · `chop.{request(), job}` · `debug.sim({stars, seed, bot, gap})` (the chase lab) |
-| `ctx.er` | cameos | `admit(reason)` — the ER visit (a softer landing than game over) |
+| `ctx.er` | cameos | `admit(reason)` — the ER visit (now and then after a knock-out; its bill instead of the tow fee; a patch-up leaves 2 hearts, a bonus 3) |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
 | `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
 | `ctx.parking` | parking | `start(opts)` — pull over into the parking minigame |
@@ -542,7 +562,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.rides` | rides | `add(def)` a ride keyed by the shell's model key (see **Rides** below — a town brings its own vehicles + tricks) · `get(id)` · `list()` · `forKey(key)` · `current` (the live ride `{id, def, key, obj, t, siren, data}` or null) · `id` · `siren` / `setSiren(on)` · `act()` → the trick on offer `{id, emoji, label, ready}` · `use(via)` · `horn()` · `holdsHorn` (holding the horn is the trick right now — Shared Road's emote wheel stands down) · `nudge(range)` (cars ahead move over) · `stats` · `debug.{board(id), R, yieldingCount(), amb, ice, bus}` — 🚓🚑🍦 every vehicle Lulu drives is its own thing (`features/rides/`). Events `rides:enter` {id, key}, `rides:exit` {id, why}, `rides:siren` {id, on}, `rides:horn` {id, kind}, `rides:ability` {id, act, via}, `rides:ticket` {seen, left}, `rides:impostor`, `rides:spikes` {left}, `rides:megaphone`, `rides:patient` {phase: dispatch \| pickup \| drop \| late, pay?}, `rides:jingle` {parked}, `rides:cone` {served}, `rides:busstop` {s, riders}, `rides:fares` {n}; stats `ridesTried`, `ridesTickets`, `ridesImpostor`, `ridesSpikes`, `ridesPatients`, `ridesPatientsLost`, `ridesPatchUps`, `ridesCones`, `ridesFares`, `ridesTaxiBonus` |
 | `ctx.moves` | moves | (`features/moves/`) 🏁 the skill moves + the style combo: `on` (get/set — the Moves page switch; off in `?test` unless `&enable=moves`) · `combo` {n, pts, mult, t, distinct, kinds} · `addMove(id, pts, label, {color, foot})` (feed the combo from your feature) · `keepAlive(sec)` (a link: hold the combo open) · `bank(why)` · `break(why)` · `turbo(tier 1–3, src)` (a mini-turbo) · `airBotched()` (play's touchdown asks) · `footMove()` (start the on-foot roll / slide / vault) · `drifting` · `driftTier` · `turboLeft` · `stars(id)` · `list` · `openPage(from)` (📒 › 🏁 Moves) · `debug {D, T, R, DR, W, B, X, TUNE, AIR, FOOT, PERF, LOG, foot(), callout()}`. Events `moves:move` {id, pts, combo, mult} · `moves:bank` {n, mult, pts, total, coins, why} · `moves:break` {n, mult, why} · `moves:turbo` {tier, src} · `moves:drift` {on, dir \| tier} · `moves:pit` {car} · `moves:air` {tricks, flips, rolls, spins, clean}; stats `moves3d`, `movesTurbo1/2/3`, `movesPerfectStart`, `movesSlingshot`, `movesBootleg`, `movesPit`, `movesAirTricks`, `movesCombo3`, best `movesCombo` |
 | `ctx.meta` | meta | `stat(id, n)` / `best(id, v)` · `holiday()` · `calm()` · `openScrapbook(from, tab?)` (tab = an index or an added tab's id) · `openQuests(from)` · `addScrapbookTab({ id, icon, name, render(S) → html, wire?(card, rerender) })` (a page after Badges · Record · Crew · Stats) · `addBadge(def)` (a 3D badge, same shape as `BADGES`) |
-| `ctx.ads` | native | (`features/native/ads.js`, the iOS app's AdMob — a port of `src/10c-ads.js`: same ad unit IDs / `isTesting`) `native` (Capacitor + the AdMob plugin) · `ready` (initialized) · `att` (the ATT answer seen) · `rewardedReady` · `rewardedAvailable()` · `showRewarded(onReward)` · `debug.{S, ADMOB, log}`. Launch: ~1.2 s in it asks App Tracking Transparency (only while undetermined) and only THEN `AdMob.initialize` (Apple Guideline 2.1). Placements: entering `gameover` → an interstitial every 2nd time + the opt-in "📺 WATCH → +50 💰" button (`#adReward`, second on the card, only while an ad is loaded, one reward per game over). Never mid-drive, in a party or Dina's mode; on the web / in `?test` without `&enable=ads` it never touches anything. Event `ads:ready` {att}; stat `adRewards`. `ctx.native` {active, platform} · `ctx.haptics` {native, debug} (touch-play `rumble()` → `Capacitor.Plugins.Haptics.impact` HEAVY / MEDIUM / LIGHT, throttled per level, off with Settings → 📳 Rumble & haptics). Test: `scripts/tests3d/native.js` (boots the staged `www/3d/` with a fake Capacitor) |
+| `ctx.ads` | native | (`features/native/ads.js`, the iOS app's AdMob — a port of `src/10c-ads.js`: same ad unit IDs / `isTesting`) `native` (Capacitor + the AdMob plugin) · `ready` (initialized) · `att` (the ATT answer seen) · `rewardedReady` · `rewardedAvailable()` · `showRewarded(onReward)` · `debug.{S, ADMOB, log}`. Launch: ~1.2 s in it asks App Tracking Transparency (only while undetermined) and only THEN `AdMob.initialize` (Apple Guideline 2.1). Placements: every 2nd BREAK (a knock-out — the `knockout` event — or a `gameover` card; one counter, `interstitialEveryN`) → an interstitial: at a knock-out it waits until she's on her feet / on the road (`footRun` / `playing`, after the ER if it took her) and PAUSES the game while it shows (resumes when it closes). The opt-in "📺 WATCH → +50 💰": on a `gameover` card (`#adReward`, one per card) and, after a knock-out, on the ❚❚ pause menu (item `adReward`, one per knock-out, at most `REWARD_KO_MAX` = 3 a run). Never mid-drive, in a party or Dina's mode; on the web / in `?test` without `&enable=ads` it never touches anything. Event `ads:ready` {att}; stat `adRewards`. `ctx.native` {active, platform} · `ctx.haptics` {native, debug} (touch-play `rumble()` → `Capacitor.Plugins.Haptics.impact` HEAVY / MEDIUM / LIGHT, throttled per level, off with Settings → 📳 Rumble & haptics). Test: `scripts/tests3d/native.js` (boots the staged `www/3d/` with a fake Capacitor) |
 | `ctx.heist` | heist | `job` (Lulu's heist `{town, plan, bags, lost, phase: inside \| getaway \| pulled, stars}`) · `plan` (a cased bank / the tip `{town \| null, plan, via}`) · `robbery` / `snatcher` / `thief` (the live event) · `busy(except)` · `planHeist(town, planId)` · `cooldownLeft()` · `gear.{fireNet(from, {sure}), laySpikes(ahead, d), ripNet(), flatTyres(dur), netted, flat}` · `store` · `tune` / `pay` / `plans` · `debug.{robbery(opts), endRobbery, schedRobbery(), job, tip, snatch(mode), carTheft, enterBank, bypass(on)}` — 🏦 (`features/heist/`). Events `heist:robbery` {phase: staged \| start \| foiled \| escaped, where, how, pay}, `heist:job` {phase: tip \| plan \| start \| escaped \| busted \| failed}, `heist:snatch` {phase: approach \| dodged \| grab \| caught \| lost, n}, `heist:theft` {phase: warn \| stopped \| stolen \| recovered \| ditched}, `heist:gear` {kind: net \| spikes, phase}; stats `heistFoils`, `heistTackles`, `heistJobs`, `heistJobsClean`, `heistBusted`, `heistCased`, `heistBankVisits`, `heistSnatched`, `heistSnatchDodged`, `heistSnatchCaught`, `heistCarStolen`, `heistCarsRecovered`, `heistTheftStopped`, `heistNetted`, `heistSpiked`, best `heistBestPay` |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
@@ -565,20 +585,27 @@ reacts to pepper spray near a cop), `missile:hit` {car}, `cop:chase` {active}, `
 `parking:result` {stars, coins}, `avigail:rel` {rel}, `stat` {id, n} (use the 2D quest/stat ids from
 `src/06b-quests.js` when one fits — grep `questAdd("` in the 2D fragment you are porting).
 
-**Out of hearts (`hooks.wreck`) priorities:** law **30** (claims only when a cop/cop car caused
-the wreck → arrest), cameos **10** (claims every other wreck and plays the 2D crash aftermath: the
-angry man / Hillel the adjuster / animal swarm…, then sends Lulu to the ER (~35%), lets her walk
-on (`ctx.foot.start("crashReprieve")`, rare), or game over via `setState("gameover", {quote})`).
+**Out of hearts (`hooks.wreck`) priorities:** town **40** (tows her out of town, never claims), law **30** (claims
+only when a cop/cop car caused the wreck → arrest), cameos **10** (claims ~1 in 3 car / animal wrecks — never two
+knock-outs running, `ctx.cameos.force.scene` true/false for tests — and plays the 2D crash aftermath in the world:
+the angry man / Hillel the adjuster / animal swarm…; only the traffic within 90 m is cleared; skippable; it ends in the
+ER (~30%) or the knock-out beside her car), foot **1** (only `ctx.foot.force.wreck === true`: the old "borrow a car"
+walk-away). Unclaimed → core's knock-out (Run API).
 
 **The home street (world):** the title is a live scene, not an attract loop. `features/world` wraps the
 title state's `update` (menu input + its own tick instead of core's `autopilot`), owns the title camera
 (`titleCamera` hook at priority −1000, so every other titleCamera hook still runs first) and parks the car at
-`ctx.places.home.park` (`car.showDriver(false)`; on-foot Lulu stands beside it). Coming back to the title
-from anywhere else, the car drives up the street and parks. A run started FROM THE TITLE at the start of the
-road (Cruise, Story leg 1) gets the pull-out: a `runStart` hook (priority −100) sets **`G.introState =
-"worldDepart"`** and core's `startRun` enters that state instead of `intro` (a skippable state that hands over
-to `playing` with the car rolling in its lane and the chase cam where it'll be). `startRun({ quick: true })`,
-Restart / Try again, checkpoints and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
+`ctx.places.home.park` — NOSE-OUT in front of the garage (`car.showDriver(false)`; on-foot Lulu stands at the porch
+steps, chatting with Dina). Coming back to the title from anywhere else, the car drives up the street, stops past
+the driveway and backs in. **A run starts at home, on foot** (`world/depart.js`): a run started from the title
+(or the pause menu's Restart, `opts.restart`) at the start of the road (Cruise, Story leg 1, the 🕯️ Shabbos Rush) —
+a `runStart` hook (priority −100) sets **`G.introStart`** → `ctx.foot.start("home", {at, noIntro, camBlend, home})`:
+the camera glides in from the title shot to behind her, she walks at once (no countdown, no card), Ima stands in the
+doorway with one line (`imaPerson`), a pink marker bobs over the car, the first-ever start gets a gentler hint
+(`store("worldHome").starts`), Ima nudges once if she just stands there; no random townsfolk / busking / "get in a
+car" nudges on her own street (`home.quiet`). ✋ GET IN = foot's hop-in into the `worldPullOut` state (driving, its own
+camera from the lawn side so the chase cam isn't in the garage) → `playing` once she's on the street (no picture
+jump). `startRun({ quick: true })` (every test), checkpoints, mid-run starts and parties keep the instant 3-2-1. atmos: `ctx.atmos.titleClock` (a
 function, set by world) keeps the day + weather running on the title on the device's clock; Cruise continues
 from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 
@@ -597,7 +624,8 @@ air-steering at 5) turns the handbrake at speed into a kart drift (the wheel set
 angle on `car.model.rotation.y`, sparks go straight into `car.fx`'s buffers), assists the bootlegger (`car.spin`) and reads
 air-trick input; an `update` hook (priority −10, after play's) adds turbo acceleration after the physics step (and lights
 `car.boosting` flames — visual only, `G.boosting` stays the nitro's), slipstream, the wrong lane and the flip/roll
-rotation about the car's middle. The rocket start wraps `intro` / `worldDepart`'s `update` at boot to sample the gas.
+rotation about the car's middle. The rocket start wraps `intro`'s `update` at boot to sample the gas (a home start has no
+countdown, so no rocket start there; `worldDepart` is gone).
 PIT: a `crash` with a cruiser at its rear quarter (impact 0.8–8, so law's `onCopCrash` never costs a heart) sets
 `car.hit`, a directed `spinV` and `hitT = −2.5` (law shakes it off at 2.8 → ~5 s out). On foot each move is a
 `ctx.foot.script` (foot skips its car checks during a script — the i-frames). UI: one pooled `#mvCall` in `#hud`

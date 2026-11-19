@@ -55,7 +55,7 @@ module.exports = {
     t.check("the ramps + the lot are paved (core's paved registry has entries)", await t.L(`import("./js/core/driving.js").then(m => m.paved.length >= 2)`));
 
     // ── 1. a Cruise run: interchanges with both towns, rest areas clear of them ──
-    await g(`L3.startRun({ mode: "cruise" })`);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 0 && __lulu3d.ctx.exits.rests.length > 0`, "a Cruise run plans an interchange and a rest area", 10000);
     t.check("every interchange offers both towns (Lakewood · Midwood)", await g(`ctx.town.debug.X.exits.every(e => e.towns.map(t => t.id).join(",") === "lakewood,midwood")`), await g(`ctx.town.debug.X.exits.map(e => e.towns.map(t => t.id).join("+")).join(" | ")`));

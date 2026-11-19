@@ -118,7 +118,7 @@ export function familyLines(r) {
     if (G.newBest && r.score > 0) out.push(["Heshy", `NEW RECORD ${fmt(r.score)}!! legend 🏆`]);
     if (coins >= 150) out.push(["Heshy", `${fmt(coins)} coins?? venmo me 😎`]);
     if (mi >= 2) out.push(["Bubbe", `${mi.toFixed(1)} miles!! Did you EAT something? 🍲`]);
-    if (r.reason === "wreck" || r.reason === "gameover") out.push(["Ima", "Are you hurt?? Call me. CALL ME. 📞"]);
+    if (r.reason === "wreck" || r.reason === "gameover" || (r.G && r.G.knockouts)) out.push(["Ima", "Are you hurt?? Call me. CALL ME. 📞"]);
     if (!out.length) out.push(pick([["Ima", "Text me when you get there 💕"], ["Bubbe", "Drive safe, mamele 😘"], ["Heshy", "👍"]]));
     // (the family knows who the mystery singer Dovid Dov is — he's Lulu's brother — and tells NOBODY. Mostly.)
     if (out.length < 3) out.push(pick([["Heshy", "lol"], ["Bubbe", "Who taught her to drive like this? 🙄"], ["Ima", "Love you! Wear a sweater 🧥"],

@@ -244,6 +244,14 @@ on("run:end", ({ score = 0, G = ctx.G } = {}) => {
     emit("meta:banked", { score });
 });
 
+// a knock-out banks the score so far (core's bankScore — the run goes on, the score starts over): lifetime score too
+on("score:bank", ({ score = 0 } = {}) => {
+    if (!(score > 0)) return;
+    const wasLocked = !questsUnlocked();
+    shared.update(s => { s.lifetimeScore = lifeOf(s) + Math.floor(score); });
+    if (wasLocked && questsUnlocked()) { note("📜 WEEKLY QUESTS UNLOCKED! Check the title menu.", "gold"); chime([523, 659, 784, 1047], 0.12, 0.2); }
+});
+
 // ── daily streak: the FIRST run of each day pays 25 × streak (capped ×7) ──
 let streakEl = null, streakUntil = 0;
 /** Our HUD stack on touch screens (core's centre slot sits under the touch speed pill / trip bar there). */

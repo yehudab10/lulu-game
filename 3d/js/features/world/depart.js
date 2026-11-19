@@ -1,181 +1,222 @@
-// features/world/depart.js — THE DRIVEWAY PULL-OUT. Picking Cruise or the Story
-// Trip's first leg from the title doesn't cut to a 3-2-1 countdown on an empty
-// road any more: the camera swoops down from the title shot, Lulu hops in, backs
-// out of the driveway (Dina waving from the porch, Mr. Pinsky waving his hose),
-// and pulls away down the street — and the camera settles into the chase cam
-// exactly where it'll be when she gets the wheel. ~4 s, skippable (⏭ / hold ○),
-// and ✕ / A jumps straight to the road.
+// features/world/depart.js — A RUN STARTS AT HOME, ON FOOT (roadmap step 2).
 //
-// Wired through one tiny core hook: a runStart hook sets G.introState =
-// "worldDepart" (startRun then enters it instead of "intro"). Only when the run
-// is started FROM THE TITLE at the start of the road, outside a party and not
-// with opts.quick — Restart / Try again / checkpoints / parties keep the instant
-// countdown.
+// Picking Cruise, the Story Trip's first leg or the 🕯️ Shabbos Rush from the title doesn't
+// play a cutscene or a 3-2-1 any more: the camera pushes in from the title shot to behind
+// Lulu at the bottom of her porch steps, and she's yours at once (the on-foot game,
+// features/foot). Ima is in the doorway with one line, Dina waves from the step, the pink
+// car waits nose-out in the driveway with a little bobbing marker over it. Walk over, ✋
+// GET IN (foot's hop-in: the camera glides, no cut) — and driving off IS the run.
+// First-ever play gets a gentler hint (how to walk + ✋); standing about, Ima chimes in once.
+//
+// Wired through one core hook: a runStart hook sets G.introStart (startRun calls it instead of
+// setting "intro"). Only for a run started from the title (or the pause menu's Restart) at the
+// start of the road, outside a party, not with opts.quick — tests, checkpoints and parties keep
+// the plain countdown. The old pull-out cutscene state ("worldDepart") is gone.
 import * as THREE from "three";
-import { ctx, on, emit, hook, registerState, setState } from "../../core/ctx.js";
-import { save3d } from "../../core/save.js";
-import { CAMS } from "../../core/camera.js";
+import { ctx, on, emit, hook, registerState, setState, wrapAngle } from "../../core/ctx.js";
+import { updateDriving } from "../../core/driving.js";
+import { save3d, store, saveSoon } from "../../core/save.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { home, luluSpots, placeParked, peopleTick } from "./home.js";
-import { Path, Ride, ease } from "./path.js";
+import { home, luluSpots, placeParked, peopleTick, S_HOME } from "./home.js";
+import { SHOULDER } from "../../world.js";
 
-const D = { phase: "", t: 0, rev: null, fwd: null, from: new THREE.Vector3(), fromLook: new THREE.Vector3(), cam: new THREE.Vector3(), look: new THREE.Vector3(), said: false };
-const WALK = 0.55, IN = 0.2, PAUSE = 0.18;
-const v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), v4 = new THREE.Vector3();
+const HS = store("worldHome", { starts: 0, drives: 0 });
+const D = { live: false, t: 0, idleT: 0, said: 0, moved: false, first: false, marker: null, imaLine: "", left: false };
 const spots = {};
-const BYE = ["Bring me back a slushie!", "DRIVE SAFE! Ima said!", "Byeee Lulu!", "Don't forget Morgan's snacks!", "Honk when you get there!"];
 
-/** Should a run that's starting now begin with the pull-out? */
+const IMA = {
+    first: ["Lulu! The car's RIGHT THERE, mamele. Walk over and hop in! 🚗"],
+    any: ["Drive safe! Text me when you get there! 💕", "Your KEYS— oh, they're in the car. Of course they are.",
+        "Seatbelt! And take a SWEATER!", "Go, go — and drive SLOW, you hear me?", "Don't forget Dina's snacks! ...Fine, go.",
+        "Call Bubbe from the road! Hands-FREE!"],
+    story: ["Bubbe's expecting you for Shabbos! Don't make her wait!", "Give Bubbe a kiss from me! And DRIVE SAFE!"],
+    shabbos: ["Lulu! Candle-lighting is SOON! GO, GO, GO! 🕯️", "The cholent won't wait and neither will the sun! GO!"],
+    nudge: ["The CAR, Lulu! It's not going to drive ITSELF!", "Mamele, the car. Over there. The pink one. 🚗", "Nu? You're waiting for an engraved invitation?"],
+};
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+/** Should a run that's starting now begin at home on foot? */
 export function wantsDeparture(G, opts) {
-    if (!home.ready || ctx.state !== "title" || (opts && opts.quick)) return false;
+    if (!home.ready || (ctx.state !== "title" && !(opts && opts.restart)) || (opts && opts.quick)) return false;
     if (!ctx.enabled("world")) return false;
     if ((ctx.party && ctx.party.active) || G.mode === "party") return false;
+    if (!ctx.foot || typeof ctx.foot.start !== "function") return false;
     const s0 = opts && opts.s != null ? opts.s : 12;
     return s0 < 60;
 }
 
-function buildPaths() {
-    const road = ctx.world.road, P = home.park, s = P.s;
-    const pt = (ss, d) => road.point(ss, d, {});
-    // back out: rear first toward the road, swinging so she ends up facing +s
-    const fx = Math.sin(P.h), fz = Math.cos(P.h);
-    const rev = new Path([{ x: P.x, z: P.z }, { x: P.x - fx * 3.2, z: P.z - fz * 3.2 }, pt(s - 1.0, 6.6), pt(s - 4.5, 4.4), pt(s - 7.5, 4.0)]);
-    const fwd = new Path([pt(s - 7.5, 4.0), pt(s - 4, 3.4), pt(s + 3, 2.0), pt(s + 9, 1.75)]);
-    D.rev = new Ride(rev, { reverse: true, profile: "inout", dur: 2.1 });
-    D.fwd = new Ride(fwd, { profile: "accel", v1: 12 });
-}
-
 hook("runStart", (G, opts) => {
     if (!wantsDeparture(G, opts)) return;
-    G.introState = "worldDepart";
-    D.from.copy(ctx.camera.position);
-    ctx.camera.getWorldDirection(D.fromLook).multiplyScalar(20).add(D.from);
-    placeParked();                       // she starts by the car, whatever the title was doing
+    placeParked();                       // the car in the driveway, Lulu by the porch, whatever the title was doing
+    G.introStart = () => startAtHome(opts);
 }, -100);
 
-/** Where the chase cam will be for the car's current pose (so the hand-off is seamless). */
-function chasePos(out, look) {
-    const car = ctx.car, cfg = CAMS[ctx.cam ? ctx.cam.mode : 0] || CAMS[0];
-    const portrait = ctx.camera.aspect < 1;
-    if (cfg.fp) {   // Lulu's eyes: hand off from just behind instead
-        out.set(car.pos.x - Math.sin(car.h) * 6, 2.4, car.pos.z - Math.cos(car.h) * 6);
-        look.set(car.pos.x + Math.sin(car.h) * 4, 1.2, car.pos.z + Math.cos(car.h) * 4);
-        return;
-    }
-    const dist = cfg.dist * (portrait ? 1.25 : 1) + Math.min(car.speed, 45) * 0.025;
-    const height = cfg.height * (portrait ? 1.25 : 1);
-    out.set(car.pos.x - Math.sin(car.h) * dist, height, car.pos.z - Math.cos(car.h) * dist);
-    look.set(car.pos.x + Math.sin(car.h) * 4, cfg.look, car.pos.z + Math.cos(car.h) * 4);
+// ── the marker over the car: a small pink arrow, bobbing (a nudge, not a tutorial) ──
+function marker() {
+    if (D.marker) return D.marker;
+    const g = new THREE.Group();
+    const m = new THREE.MeshStandardMaterial({ color: "#FF4F9A", emissive: "#FF4F9A", emissiveIntensity: 0.6, roughness: 0.4 });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.6, 14), m);
+    cone.rotation.x = Math.PI;           // pointing down at the car
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 8, 20), m);
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.42;
+    g.add(cone, ring);
+    g.name = "HomeCarMarker";
+    g.visible = false;
+    home.group.add(g);
+    D.marker = g;
+    return g;
 }
 
-function finish() {
-    if (ctx.state !== "worldDepart") return;
-    const car = ctx.car, G = ctx.G;
-    // land exactly at the end of the pull-out, rolling
-    if (!D.fwd.done) D.fwd.finish();
-    car.showDriver(true);
-    if (home.people.lulu) home.people.lulu.obj.visible = false;
+function imaSay(text, dur = 3.2) {
+    const ima = home.people.ima;
+    if (!text || !ima || !ima.obj.visible) return false;
+    if ((save3d.settings.chatter || "normal") === "quiet" && D.said > 0) return false;
+    D.said++;
+    D.imaLine = text;
+    // (on foot her own bubbles show; banter's only while driving)
+    if (ctx.state === "footRun" && ctx.foot && ctx.foot.bubble) return !!ctx.foot.bubble(ima.obj, text, dur, { y: 2.0 });
+    if (ctx.banter && ctx.banter.bubble) return ctx.banter.bubble(text, ima.obj, { dur, y: 1.9, cls: "nice" });
+    H.toast(`👩 Ima: ${text}`, "pink");
+    return true;
+}
+
+/** The walk-to-the-car hint: gentle and longer the first time ever. */
+function hint() {
+    const touch = input.device === "touch";
+    if (D.first) return touch ? `Drag the WALK pad to your car 🚗 · then tap ✋ to hop in` : `Walk to your car 🚗 (${glyph("move") || "left stick"}) · ${glyph("interact")} to hop in`;
+    return touch ? "" : `${glyph("interact")} at the car to hop in 🚗`;
+}
+
+function startAtHome(opts) {
+    const G = ctx.G;
+    luluSpots(spots);
+    const L = home.people.lulu;
+    const face = L ? L.obj.rotation.y : 0;
+    if (L) L.obj.visible = false;
+    D.first = !HS.starts;
+    HS.starts++; saveSoon();
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false;
+    const ima = home.people.ima;
+    if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
+    const ok = ctx.foot.start("home", {
+        at: { x: spots.idle.x, z: spots.idle.z }, face, noIntro: true, drivable: true,
+        camBlend: ctx.state === "title" ? 1.1 : 0, line: "",
+        home: {
+            hazards: false,
+            hint, hintT: D.first ? 14 : 6,
+            quiet: F => F.s < S_HOME + 90 && F.s > -20,          // no random townsfolk / busking / "get in a car" nudges on her own street
+            onOwnCar: drove, driveState: "worldPullOut",
+        },
+    });
+    if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
+    H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
+    G.lastS = G.startS = ctx.car.s;
+    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : pick(IMA.any);
+    D.pendingLine = line;
+    emit("world:homeStart", { mode: G.mode, first: D.first });
+    return true;
+}
+
+/** She hopped into her own car at home: the run is on (no countdown — she's already rolling her own way). */
+function drove() {
+    const G = ctx.G, car = ctx.car;
+    D.live = false;
+    HS.drives++; saveSoon();
+    if (D.marker) D.marker.visible = false;
     G.lastS = car.s;
-    // the chase cam takes over from where we are (no jump)
-    chasePos(v1, v2);
-    const st = ctx.cam && ctx.cam.state;
-    ctx.camera.position.copy(v1);
-    ctx.camera.lookAt(v2);
-    if (st) { st.pos.copy(v1); st.yaw = car.h; st.snap = false; }
-    H.banner(`<b>GO!</b>${G.goText ? `<small>${G.goText}</small>` : ""}`, 1200, { key: "countdown" });
+    G.hint = null;
+    if (G.music) A.setMusic(G.music);
+    if (G.goText) H.banner(`<b>Let's go!</b><small>${G.goText}</small>`, 1800, { key: "countdown" });
     if (!ctx.skipping) A.sfxCloseCall(6);
     rumble(0.3, 0.6, 200, true);
+    if (!D.left) imaSay(pick(["Bye, mamele! Drive SAFE! 💕", "Text me when you get there!", "Love you! SLOW DOWN!"]), 2.4);
     emit("world:depart", { mode: G.mode });
-    setState("playing");
 }
 
-registerState("worldDepart", {
-    hud: false, touch: false, pausable: true, driving: false, world: true,
-    skip: true,
-    enter() {
-        const G = ctx.G;
-        G.countdown = 0;
-        H.clearNotices();
-        H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
-        if (!G.musicSet) A.setMusic("../luludriving.mp3");
-        buildPaths();
-        D.phase = "walk"; D.t = 0; D.said = false;
-        luluSpots(spots);
-        const L = home.people.lulu;
-        if (L) { L.obj.visible = true; }
-        D.cam.copy(D.from);
-        D.look.copy(D.fromLook);
-    },
-    exit() {
-        if (home.people.lulu) home.people.lulu.obj.visible = false;
-        A.updateEngine(0, 0, 0, 0, false, false);
-    },
+// (back on the title or into another driving state: the home start is over)
+on("state", ({ to }) => {
+    if (!D.live) return;
+    if (to === "footRun" || to === "playing") return;
+    if (to === "title" || ctx.states[to] && ctx.states[to].driving) { D.live = false; if (D.marker) D.marker.visible = false; }
+});
+on("foot:end", () => { if (D.marker) D.marker.visible = false; });
+
+hook("hud", dt => {
+    if (!home.ready) return;
+    const ima = home.people.ima;
+    if (ima && ima.obj.visible) {
+        ima.update(dt, { wave: ctx.state === "playing" || (Math.sin(ctx.time * 0.8) > 0.5), talk: !!D.imaLine && D.t < 3 });
+        if (ctx.state === "playing") ima.face(ctx.car.pos.x, ctx.car.pos.z, dt, 3);
+    }
+    if (!D.live || ctx.state !== "footRun") {
+        if (ctx.state === "playing" && home.group.visible && Math.abs(ctx.car.s - S_HOME) < 140) peopleTick(dt, "go");
+        return;
+    }
+    D.t += dt;
+    peopleTick(dt, "bye");
+    if (D.pendingLine && D.t > 0.6) { imaSay(D.pendingLine, D.first ? 4.5 : 3.2); D.pendingLine = null; }
+    const car = ctx.foot && ctx.foot.parkedCar;
+    const P = home.park, m = marker();
+    const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
+    const dist = Math.hypot((car ? car.x : P.x) - lulu.x, (car ? car.z : P.z) - lulu.z);
+    if (dist > 60 || Math.abs(ctx.car.s - S_HOME) > 120) D.left = true;      // she wandered off: no more nudging
+    m.visible = !D.left && dist > 2.6;
+    if (m.visible) m.position.set(car ? car.x : P.x, 2.3 + Math.sin(ctx.time * 3.2) * 0.18, car ? car.z : P.z), m.rotation.y += dt * 1.6;
+    // moved yet? if she just stands there a while, Ima says something (once)
+    if (input.moveX * input.moveX + input.moveY * input.moveY > 0.04) D.moved = true;
+    D.idleT = D.moved ? 0 : D.idleT + dt;
+    if (!D.left && D.said < 2 && D.idleT > (D.first ? 6 : 9)) { D.idleT = -99; imaSay(pick(IMA.nudge), 3); }
+});
+
+// ── pulling out of the driveway: she drives (it's "playing" in all but name), the camera looks up the street ──
+// The car is nose-out in front of the garage, so the chase cam would sit IN the garage: until she's out on the
+// road this state frames her from the lawn side, along the road — which IS the chase cam's view once she turns
+// onto the street, so the hand-over to "playing" doesn't move the picture.
+const PO = { yaw: 0, pos: new THREE.Vector3(), look: new THREE.Vector3(), v: new THREE.Vector3(), w: new THREE.Vector3() };
+registerState("worldPullOut", {
+    hud: true, touch: true, pausable: true, driving: true,
+    enter() { PO.yaw = ctx.world.road.at(ctx.car.s).h; PO.snap = true; },
     update(dt, P) {
-        const car = ctx.car;
-        D.t += dt;
-        if (P.confirm && ctx.stateT > 0.3 && !ctx.skipping) { finish(); return; }
-        const L = home.people.lulu;
-        if (D.phase === "walk") {
-            if (L) {
-                const k = Math.min(1, D.t / WALK);
-                const sx = L.obj.position.x, sz = L.obj.position.z;
-                L.obj.position.x += (spots.door.x - sx) * Math.min(1, dt * 9);
-                L.obj.position.z += (spots.door.z - sz) * Math.min(1, dt * 9);
-                L.face(spots.door.x, spots.door.z, dt, 12);
-                L.update(dt, { walk: 1.8 * (1 - k * 0.5) });
-            }
-            if (D.t >= WALK) { D.phase = "in"; D.t = 0; if (L) L.obj.visible = false; car.showDriver(true); if (!ctx.skipping) A.sfxBump(); }
-        } else if (D.phase === "in") {
-            if (D.t >= IN) { D.phase = "rev"; D.t = 0; }
-        } else if (D.phase === "rev") {
-            if (D.rev.step(dt)) { D.phase = "pause"; D.t = 0; }
-        } else if (D.phase === "pause") {
-            if (D.t >= PAUSE) { D.phase = "fwd"; D.t = 0; }
-        } else if (D.phase === "fwd") {
-            if (D.fwd.step(dt)) { finish(); return; }
-        }
-        if (D.phase === "rev" || D.phase === "fwd") {
-            A.updateEngine(Math.abs(car.vF), D.phase === "fwd" ? 0.7 : 0.25, 0, 0, false, true);
-        }
-        // Dina + Mr. Pinsky see her off (a line from Dina, unless chatter is Quiet)
-        peopleTick(dt, D.phase === "fwd" ? "go" : "bye");
-        if (!D.said && D.phase === "rev" && D.t > 0.3) {
-            D.said = true;
-            if ((save3d.settings.chatter || "normal") !== "quiet" && ctx.banter && ctx.banter.bubble && home.people.dina) {
-                ctx.banter.bubble(BYE[(ctx.frames >> 3) % BYE.length], home.people.dina.obj, { dur: 2.4, y: 1.6, cls: "kid" });
-            }
+        updateDriving(dt, P, true);
+        const car = ctx.car, rh = ctx.world.road.at(car.s).h;
+        const lined = Math.abs(wrapAngle(car.h - rh)) < 0.7;
+        const onRoad = Math.abs(car.d) < SHOULDER + 0.6;
+        if ((onRoad && lined) || Math.abs(car.d) < SHOULDER - 1.5 || Math.abs(car.s - home.park.s) > 30 || ctx.stateT > 15) {
+            const st = ctx.cam && ctx.cam.state;
+            if (st) { st.yaw = PO.yaw; st.pos.copy(ctx.camera.position); st.snap = false; }
+            // (lined up along the road, the chase cam is where this one already is; at an angle, glide over)
+            if (!lined && ctx.cam && ctx.cam.blend) ctx.cam.blend(0.8);
+            setState("playing");
         }
     },
     camera(dt) {
-        const car = ctx.car, cam = ctx.camera, P = home.park;
-        // three beats: the title shot → down by the driveway (a low 3/4 view) → the chase cam
-        const road = ctx.world.road;
-        const total = WALK + IN + (D.rev ? D.rev.dur : 2) + PAUSE;
-        const elapsed = D.phase === "walk" ? D.t : D.phase === "in" ? WALK + D.t : D.phase === "rev" ? WALK + IN + D.rev.t : D.phase === "pause" ? total - PAUSE + D.t : total;
-        const k1 = ease(elapsed / (WALK + IN + 0.6));
-        const low = road.point(P.s + 9, -1.5, {});
-        v3.set(low.x, 2.3, low.z);
-        v4.set(car.pos.x, 1.0, car.pos.z);
-        D.cam.copy(D.from).lerp(v3, k1);
-        D.look.copy(D.fromLook).lerp(v4, k1);
-        if (D.phase === "fwd") {
-            chasePos(v1, v2);
-            const k2 = ease(D.fwd.t / D.fwd.dur * 1.1);
-            D.cam.lerp(v1, k2);
-            D.look.lerp(v2, k2);
-        }
-        cam.position.copy(D.cam);
-        cam.lookAt(D.look);
-        const portrait = cam.aspect < 1;
-        const fov = D.phase === "fwd" ? 60 + (portrait ? 16 : 0) : 52 + (portrait ? 12 : 0);
-        cam.fov += (fov - cam.fov) * Math.min(1, dt * 2.5);
+        const car = ctx.car, cam = ctx.camera, rh = ctx.world.road.at(car.s).h;
+        // along the road's heading, eased toward the car's once she's turning onto it
+        const al = Math.abs(wrapAngle(car.h - rh));
+        PO.yaw += wrapAngle((al < 1.2 ? car.h : rh) - PO.yaw) * Math.min(1, dt * (al < 1.2 ? 3 : 6));
+        const portrait = cam.aspect < 1, dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
+        const rx = -Math.cos(rh), rz = Math.sin(rh);            // (toward the road from her lawn: −d)
+        const side = Math.max(0, Math.min(3, Math.abs(car.d) - SHOULDER)) * 0.9;
+        PO.v.set(car.pos.x - Math.sin(PO.yaw) * dist - rx * side * Math.sign(car.d || 1), up, car.pos.z - Math.cos(PO.yaw) * dist - rz * side * Math.sign(car.d || 1));
+        PO.w.set(car.pos.x + Math.sin(PO.yaw) * 4, 1.2, car.pos.z + Math.cos(PO.yaw) * 4);
+        if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }
+        PO.pos.lerp(PO.v, Math.min(1, dt * 5));
+        PO.look.lerp(PO.w, Math.min(1, dt * 6));
+        cam.position.copy(PO.pos);
+        cam.lookAt(PO.look);
+        const fov = 60 + (portrait ? 16 : 0) + Math.min(car.speed, 20) * 0.3;
+        cam.fov += (fov - cam.fov) * Math.min(1, dt * 3);
         cam.updateProjectionMatrix();
         if (ctx.cam) ctx.cam.state.pos.copy(cam.position);
         return true;
     },
 });
 
-/** Test / debug: is a departure running, and its phase. */
-export const departInfo = () => ({ phase: ctx.state === "worldDepart" ? D.phase : "", t: D.t });
+/** Test / debug: the home start's live state. */
+export const departInfo = () => ({
+    live: D.live, phase: D.live ? (ctx.state === "footRun" ? "walk" : ctx.state) : "", t: D.t, first: D.first, line: D.imaLine,
+    marker: !!(D.marker && D.marker.visible), ima: !!(home.people.ima && home.people.ima.obj.visible), starts: HS.starts, drives: HS.drives,
+});

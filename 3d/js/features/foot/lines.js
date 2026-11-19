@@ -44,6 +44,25 @@ export const FOOT_HIGHFIVE = ["✋ YEAH!", "Up top!", "Nailed it!", "👊 respec
 
 // What Lulu mutters when her ride dies and she's stuck on foot.
 export const FOOT_INTRO_LINES = {
+    // out of hearts in the car (core's knock-out): she climbs out of her patched-up car, dazed
+    knockout: [
+        "I'm FINE. I'm fine.\nIs my hair fine?",
+        "Ow. OK. Nobody\ntell Ima.",
+        "Did anyone see that?\n...Good.",
+        "The car's fine! I'm fine!\nThe tree is... less fine.",
+        "Walk it off, Lulu.\nWalk. It. Off.",
+        "I meant to do that.\nMostly.",
+        "Note to self: the brake\nis the OTHER pedal.",
+        "Mendel's Towing has me\non SPEED DIAL now. 🚛",
+    ],
+    // out of hearts on foot: she sits up seeing stars
+    getUp: [
+        "Who ordered the\nlittle birdies? 🐦",
+        "I'm up! I'm up!\nWhich way is up?",
+        "OK. Lesson learned.\nCars: big. Me: small.",
+        "Bubbe's soup will\nfix this.",
+        "I've had worse.\nAt a wedding.",
+    ],
     wreck: [
         "The car's a MEATBALL.\nTime to borrow one.",
         "Well. That's not buffing out.\nOn foot it is.",
