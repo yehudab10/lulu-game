@@ -16,7 +16,8 @@ export const FOOT_TALK_LULU = ["Hi! Have you seen a free car?", "Lovely weather 
     "Do these flats say 'desperate'?", "I'm not lost, I'm... scenic.", "Got bus fare? A bus? A horse?"];
 export const FOOT_PED_REPLY = ["Shalom! 👋", "...do I know you?", "Spare a nickel?", "Walk faster, lady!",
     "Nice day, eh?", "I'm late too!", "Mazel tov! ...for what? dunno.", "Cute bag!",
-    "You dropped your... no? okay.", "I LOVE your energy!", "Gut Shabbos! ...it's Tuesday.", "Move along, dear."];
+    "You dropped your... no? okay.", "I LOVE your energy!", "Gut Shabbos! ...it's Tuesday.", "Move along, dear.",
+    "Who IS Dovid Dov?! ...you'd tell me, right?"];
 export const FOOT_DRUNK_REPLY = ["Heyyy GORGEOUS! 🍻", "Marry me — I have a CAR! 🚗", "*hiccup* helloooo",
     "You're an ANGEL 😇", "Niiice walk!", "Call me! ...somehow", "Need a LIFT? 😏",
     "Are you a parking ticket? 'Cause FINE.", "I named a SHOT after you!", "You're like my ex but TALLER"];
@@ -25,7 +26,8 @@ export const FOOT_PET_LINES = ["Awww! 🐾", "Who's a good boy?!", "So FLUFFY!",
 export const AVIGAIL_WALK_LINES = ["Power walk, mama! 💪", "Did you SEE his sheitel?", "We should get coffee.",
     "I'm telling EVERYONE about this.", "Your form is terrible — but cute.", "Two girls, no car, BIG energy!",
     "Should we just steal a convertible?", "My feet hurt ALREADY.", "This is so much cardio.",
-    "Ooh, is that a SALON?", "Walk it off, queen. 👑", "I brought snacks. ...I ate them."];
+    "Ooh, is that a SALON?", "Walk it off, queen. 👑", "I brought snacks. ...I ate them.",
+    "Your brother's song is STUCK in my head. Sorry — 'Dovid Dov'. 🤫"];
 export const FOOT_PARK_GAG = ["Parallel parking... MYSELF! 🅿️", "Excuse me — squeezing IN.",
     "Nailed it. Between two yentas.", "No ticket for THIS spot!", "I fit! ...barely.", "Perfect form, no car needed."];
 export const FOOT_HAIL_OK = ["Thanks for the lift! 🚕", "You're a LIFESAVER!", "Bubbe's, and step on it!", "FINALLY, a ride!"];

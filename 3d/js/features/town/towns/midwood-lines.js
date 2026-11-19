@@ -114,7 +114,7 @@ export const GOSSIP = {
     crash: ["Fender bender on Avenue J. Both cars double-parked. During the crash.", "Pink car tapped a car service. The car service is around the corner. Arguing."],
     jack: ["Someone just drove off in a double-parked minivan. It had its hazards on. Hazards mean it's LEGAL??", "My car's gone. I double-parked for ONE SECOND. (It was 40 minutes.)"],
     sidewalk: ["She parked ON THE SIDEWALK on Avenue M. Honestly? Smart."],
-    honk: ["Who's honking on Ocean Pkwy?? (everyone. it's Ocean Pkwy.)", "Honking on Avenue J. In other news, the sun rose."],
+    honk: ["Who's honking on Ocean Pkwy?? (everyone. it's Ocean Pkwy.)", "Honking on Avenue J. In other news, the sun rose.", "Somebody on Avenue J swears Dovid Dov davens in his shul. EVERYBODY on Avenue J swears that."],
     geese: ["The Avenue M pigeon got another one 🐦", "Pigeon under the bridge is ON ONE today"],
     cops: ["Cops chasing a pink car down Coney Island Ave. Still faster than the B68.", "Police chase on Kings Hwy. They're stuck behind a bus. Everyone's stuck behind a bus."],
     leave: ["Pink car took Ocean Pkwy south. Her spot is open!! (there was no spot)", "She left. Somebody grab where she was double-parked."],

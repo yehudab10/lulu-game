@@ -120,7 +120,10 @@ export function familyLines(r) {
     if (mi >= 2) out.push(["Bubbe", `${mi.toFixed(1)} miles!! Did you EAT something? 🍲`]);
     if (r.reason === "wreck" || r.reason === "gameover") out.push(["Ima", "Are you hurt?? Call me. CALL ME. 📞"]);
     if (!out.length) out.push(pick([["Ima", "Text me when you get there 💕"], ["Bubbe", "Drive safe, mamele 😘"], ["Heshy", "👍"]]));
-    if (out.length < 3) out.push(pick([["Heshy", "lol"], ["Bubbe", "Who taught her to drive like this? 🙄"], ["Ima", "Love you! Wear a sweater 🧥"]]));
+    // (the family knows who the mystery singer Dovid Dov is — he's Lulu's brother — and tells NOBODY. Mostly.)
+    if (out.length < 3) out.push(pick([["Heshy", "lol"], ["Bubbe", "Who taught her to drive like this? 🙄"], ["Ima", "Love you! Wear a sweater 🧥"],
+        ["Heshy", "ur brother's song is stuck in my head AGAIN 🎤🤫"], ["Ima", "They played your brother on the radio. I told NOBODY. (I told Bubbe.) 🤫"],
+        ["Bubbe", "The whole shul asks me who is this Dovid Dov. I say nothing. I'm a VAULT 🤐"]]));
     const seen = new Set();
     return out.filter(([who]) => (seen.has(who) && out.length > 2 ? false : (seen.add(who), true))).slice(0, 3);
 }

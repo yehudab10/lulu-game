@@ -383,7 +383,11 @@ a teleport still cuts; leaving a town is a soft cut with no black).
 `sfxCoin sfxCloseCall sfxBoost sfxCrash sfxBump sfxHorn(on) sfxSiren sfxFanfare sfxSelect sfxMove`,
 `setMusic(url)` (a 0.7 s crossfade where the browser can set an element's volume — an iPhone can't, and there a set READS BACK for one task before it is 1 again, so audio.js never reads `el.volume`, counts its own levels, and stops every track that isn't the current one: test `music`; one kept `<audio>` per track; `musicSrc()` = what's playing; the 📻 radio uses it to tell the game's pick from its own) — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
 ../parking.mp3 ../salon.mp3 ../wedding.mp3 ../prison.mp3 ../court.mp3 ../walking.mp3 ../er1.mp3 ../er2.mp3
-../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
+../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`, plus the one song that is 3D-only, `../dont-wanna-be-frum.mp3`
+(“I Don't Wanna Be Frum” — Dovid Dov: the radio's 🎤 DOVID DOV FM station, `features/hustle/data.js`; a new root mp3 must also go in
+`scripts/copy-web.js`'s list or the iOS app won't have it). **Dovid Dov canon:** an anonymous singer nobody can identify — and Lulu's
+brother. Lulu, the family (Ima, Bubbe, Heshy) and close friends (Avigail) know and keep it quiet; strangers, DJs, billboards and town
+group chats only wonder who he is. Keep new lines on the right side of that. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
 
 **Positional audio — `A.spatial`** (`js/spatial.js`, on the core AudioContext, so Sound off mutes it).
@@ -749,7 +753,7 @@ drivers (`ctx.town.addDriver("van")`) with the `SpeakerKit` on its roof, a sign 
 synthesized freylekhs (`A.spatial.define("seasonsMusicVan")`, a loop on the van); taken off again in its `onRemove`
 (traffic cars are pooled); solo only (a party town's traffic is the party's). **The radio** (`features/hustle/radio.js`):
 `ctx.seasons.radioQuiet()` (the Three Weeks / Nine Days / the fasts in them, and only while the setting is on) → SIMCHA
-101.3 and SMOOTH 88.8 play no music, their DJs only talk (Three-Weeks lines + the talk station's babble); LULU FM (the
+101.3, SMOOTH 88.8 and DOVID DOV FM play no music, their DJs only talk (Three-Weeks lines + the talk station's babble); LULU FM (the
 game's soundtrack) and KVETCH 1450 AM are unchanged. **meta's car menorah** is built by `features/meta/menorah.js`
 `slimMenorah()` (2 body meshes + 1 instanced flame mesh + 1 glow Points: 34 draw calls + 7 shadow → 4 + 2, the same
 look; Lulu's window menorah on the home street uses it too).

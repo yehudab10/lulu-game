@@ -56,6 +56,10 @@ export const ADS = [
     { id: "sweater", generic: true, bg: ["#E8F5E9", "#C8E6C9"], ink: "#1B5E20", accent: "#E53935", art: "sweater",
         head: "IT'S COLD.", sub: "WEAR A SWEATER.", small: "— Your Mother",
         react: ["It's EIGHTY degrees, Ima.", "…fine. I'll wear the sweater."] },
+    // (the mystery singer is Lulu's brother: she knows, the billboard doesn't)
+    { id: "dovidDov", generic: true, bg: ["#263238", "#37474F"], ink: "#FFFFFF", accent: "#69F0AE", art: "mystery",
+        head: "WHO IS", sub: "DOVID DOV?", small: "One song. No face. 1-800-WHO-IS-HE",
+        react: ["I know EXACTLY who. Not telling. 🤫", "He's taller on the billboard. I mean — WHO? No idea."] },
     // ── leg 0: Bubbe's (erev Shabbos) ──
     { id: "kugel", generic: true, legs: [0], bg: ["#FFF8E1", "#FFE082"], ink: "#5D4037", accent: "#E65100", art: "kugel",
         head: "BUBBE'S KUGEL", sub: "YOU LOOK THIN.", strip: "2 MILES →", small: "Fresh from the oven since 1962",
@@ -288,6 +292,20 @@ const ART = {
         g.fillStyle = "#1565C0"; g.beginPath(); g.ellipse(-30, -62, 34, 14, 0, Math.PI, 0); g.fill();
         // rice
         g.fillStyle = "#FFFFFF"; rr(g, -110, 70, 210, 46, 20); g.fill(); g.strokeStyle = "#ECEFF1"; g.lineWidth = 4; g.stroke();
+    },
+    mystery(g) {
+        // a singer in silhouette: head, shoulders, a hat brim, and a big "?" where the face goes
+        g.fillStyle = "#101518";
+        g.beginPath(); g.ellipse(0, 96, 118, 74, 0, Math.PI, 0); g.fill();
+        g.beginPath(); g.arc(0, -22, 62, 0, 7); g.fill();
+        rr(g, -84, -78, 168, 16, 8); g.fill();
+        rr(g, -52, -128, 104, 58, 14); g.fill();
+        g.fillStyle = "#69F0AE"; g.font = `900 92px ${FONT}`; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText("?", 0, -10);
+        // a little microphone
+        g.strokeStyle = "#B0BEC5"; g.lineWidth = 9; g.lineCap = "round";
+        g.beginPath(); g.moveTo(96, 104); g.lineTo(80, 40); g.stroke();
+        g.fillStyle = "#ECEFF1"; g.beginPath(); g.arc(78, 28, 20, 0, 7); g.fill();
     },
     star(g) {
         g.fillStyle = "#FFC107"; star(g, 0, 0, 120, 52);
