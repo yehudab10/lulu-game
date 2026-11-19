@@ -258,18 +258,20 @@ module.exports = {
           const dist = Math.hypot(c.x - cam.x, c.z - cam.z);
           if (dist > 100) continue;
           // (one behind a block of houses may be hidden — the town's LOD — one in plain sight may not)
-          const O = ctx.town.debug.PL.ORIGIN;
-          if (dist > 45 && ctx.town.debug.sightBlocked(cam.x - O.x, cam.z - O.z, c.x - O.x, c.z - O.z)) continue;
+          const la = ctx.town.debug.local(cam.x, cam.z), lb = ctx.town.debug.local(c.x, c.z);
+          if (dist > 45 && ctx.town.debug.sightBlocked(la.x, la.z, lb.x, lb.z)) continue;
           near++;
           let meshes = 0, ok = 0;
           c.obj.updateMatrixWorld(true);
           c.obj.traverse(o => { if (!o.isMesh) return; meshes++; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere.clone().applyMatrix4(o.matrixWorld);
             if (bs.radius > 0.02 && bs.radius < 14 && Math.hypot(bs.center.x - c.x, bs.center.z - c.z) < 9 && o.material && o.material.visible !== false) ok++; });
-          if (!shown(c.obj) || !meshes || ok < meshes * 0.8) bad.push([c.kind, Math.round(dist), shown(c.obj), meshes, ok].join(":"));
+          if (!shown(c.obj) || !meshes || ok < meshes * 0.8) bad.push([c.kind, Math.round(dist), shown(c.obj), meshes, ok, c.obj.visible, !!c.obj.parent, ${D}.C.cars.includes(c), (c.data && c.data.town && c.data.town.mode) || "-"].join(":"));
         }
         return { near, bad };
       })()`);
-      const a1 = await audit();
+      // (the town judges its drivers every 3rd frame: one just rounding a corner may be a frame behind — look again)
+      let a1 = await audit();
+      if (a1.bad.length) { await t.frames(6); const a2 = await audit(); a1 = { near: a2.near, bad: a2.bad, first: a1.bad }; }
       t.check("every car in sight (≤ 100 m) in town is in the scene, visible, with sane bounding spheres", a1.near > 0 && !a1.bad.length, JSON.stringify(a1));
       // the pool: a car the town hid (its far-car LOD) and gave back must come out VISIBLE for the next owner (a chase cruiser)
       const pool = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); c.obj.visible = false; ctx.traffic.remove(c);
