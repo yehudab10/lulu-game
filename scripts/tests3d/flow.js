@@ -15,9 +15,10 @@ module.exports = {
   async run(t) {
     const g = t.game;
     // every frame: how far the picture moved since the last one (the hud hook runs after the camera)
-    await t.L(`import("./js/core/ctx.js").then(m => { const W = window.__cam = { on: false, max: 0, n: 0, last: null, hid: 0 };
+    await t.L(`import("./js/core/ctx.js").then(m => { const W = window.__cam = { on: false, max: 0, n: 0, last: null, hid: 0, hidF: 0 };
       m.hook("hud", () => { const p = m.ctx.camera.position; if (W.on && W.last) { W.max = Math.max(W.max, Math.hypot(p.x - W.last.x, p.y - W.last.y, p.z - W.last.z)); W.n++; } W.last = { x: p.x, y: p.y, z: p.z };
-        if (m.ctx.state === "playing" && !m.ctx.car.obj.visible) W.hid++; }); })`);
+        if (m.ctx.state === "playing" && !m.ctx.car.obj.visible) W.hid++;
+        if (m.ctx.state === "footRun" && m.ctx.foot && m.ctx.foot.obj && !m.ctx.foot.obj.visible) W.hidF++; }); })`);
     const watch = on => t.L(`(window.__cam.on = ${on}, window.__cam.max = 0, window.__cam.n = 0, true)`);
     const moved = () => t.L(`({ max: +window.__cam.max.toFixed(2), n: window.__cam.n })`);
 
@@ -40,6 +41,7 @@ module.exports = {
     await t.frames(30);
     let m = await moved();
     t.check("out of the car: the picture never jumps (≤ 1.5 m between two frames)", m.n > 20 && m.max <= 1.5, JSON.stringify(m));
+    t.check("she doesn't blink after climbing out (a courtesy shield, no flicker — photo mode can pose her at once)", await t.L(`window.__cam.hidF === 0`) && await g(`ctx.G.invT > 0`), String(await t.L(`window.__cam.hidF`)));
     await t.shot("out-of-the-car");
 
     // ── back in: she hops into the seat, then the camera glides ──

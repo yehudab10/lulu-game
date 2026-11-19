@@ -237,7 +237,7 @@ function start(reason = "carWreck", opts = {}) {
     car.h = F.h;                 // the anchor faces down the ROAD (a wreck can leave the car facing any way) — the snap's camera yaw
     car.boosting = G.boosting = false;
     G.hearts = Math.max(G.hearts || 0, 1);
-    G.invT = 2.0;
+    G.invT = 2.0; G.invSoft = true;        // (a courtesy shield as she climbs out: no blink — see line ~651)
     H.setHearts(G.hearts, G.maxHearts);
     A.sfxHorn(false);
     if (opts.noIntro) {
@@ -539,7 +539,7 @@ function resume(data) {
     F.vel.set(0, 0, 0);
     F.lulu.obj.rotation.x = 0;
     F.lulu.obj.position.copy(F.pos);
-    G.invT = Math.max(G.invT || 0, 2.0);   // shield on re-entry to the road
+    G.invT = Math.max(G.invT || 0, 2.0); G.invSoft = true;   // shield on re-entry to the road
     wash.style.opacity = "0";
     if (ctx.cam) ctx.cam.snap();
 }
@@ -550,6 +550,7 @@ function footUpdate(dt, P) {
     if (F.t < 0.25) { A.updateEngine(0, 0, 0, 0, false, false); A.sfxHorn(false); }   // (climbing out mid-drive-frame left them on)
     F.t += dt; F.phaseT += dt;
     G.invT = Math.max(0, (G.invT || 0) - dt);
+    if (G.invT <= 0) G.invSoft = false;
     if (F.buskT > 0) F.buskT -= dt;
     if (F.chaseCool > 0) F.chaseCool -= dt;
 
@@ -648,7 +649,8 @@ function walk(dt) {
     L1.update(dt, { walk: speed, dance: F.buskT > 0, wave: F.waveT > 0 });
     if (F.waveT > 0) F.waveT -= dt;
     // shield blink
-    L1.obj.visible = !(ctx.G.invT > 0 && F.phase === "walk" && Math.floor(ctx.time * 12) % 2 === 0 && ctx.G.invT < 1.9);
+    // (the blink says "just been hit": a courtesy shield — out of the car, out of a door: G.invSoft — doesn't flicker her)
+    L1.obj.visible = !(ctx.G.invT > 0 && !ctx.G.invSoft && F.phase === "walk" && Math.floor(ctx.time * 12) % 2 === 0 && ctx.G.invT < 1.9);
     F.distAcc += speed * dt;
 }
 
