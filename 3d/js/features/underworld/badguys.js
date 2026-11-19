@@ -92,7 +92,12 @@ function drive(E, dt, c) {
     switch (E.phase) {
         case "approach":
             wantS = car.s - (E.kind === "rager" ? 9 : TUNE.gang.gap);
-            wantD = c.s < car.s - 14 ? her : E.lane;
+            // slot in behind her once there's room (≥ 14 m back) and then FINISH the lane change: steering back out
+            // at 14 m left him sitting in the other lane, 9 m back, until he gave up (a race he usually won by luck)
+            if (c.s < car.s - 14) E.merge = true;
+            else if (c.s > car.s - 5 && Math.abs(c.d - her) > 1.2) E.merge = false;     // (alongside / ahead: not yet)
+            wantD = E.merge ? her : E.lane;
+            if (!E.merge) wantS = car.s - 18;                                           // …drop back first
             if (Math.abs(c.s - wantS) < 4 && Math.abs(c.d - her) < 0.6) go(E, E.kind === "rager" ? "tailgate" : "tail");
             else if (E.pt > 30) go(E, "leave");
             break;
