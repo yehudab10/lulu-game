@@ -122,23 +122,23 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
 
 ## 6. In-flight work (update me!)
 
-_Last updated 2026-11-19 (evening). All Claude agents are STOPPED; every branch below is pushed and
-up to date. Nobody is working on any of them right now — pick one up. Each branch is based on an older
-`main`: merge `origin/main` into it first._
+_Last updated 2026-11-19 (night). `ci/heist` is LANDED on `main` (🏦 banks, robberies to foil, Lulu's own heist,
+snatchers, nets + spike strips — see `3d/ARCHITECTURE.md` › Banks, heists & robberies). Nobody is working on the
+branches below right now — pick one up. Each is based on an older `main`: merge `origin/main` into it first
+(`features/index.js`, the ARCHITECTURE tables and the party `OFF` set will conflict with heist's rows — keep both)._
 
 | branch | what it is | where it stopped / what's left |
 |---|---|---|
-| `ci/heist` | 🏦 Banks in Lakewood + Midwood, foil cartoon robberies, Lulu's own opt-in heist (case → plan → getaway with a real cruiser chasing round town corners → jail/court), moped snatchers + car thieves, stun nets + spike strips. Off in party | **🔧 BEING FINISHED NOW (picked up 2026-11-19 01:00 UTC — leave it alone until this note goes).** Feature complete; last fix widened the tackle reach. Left: CI green on `heist`, then the groups `core,platform,skip,ux;heist;law;town;midwood;streets;foot;hustle;community;native;party`; look at the screenshots (cutscene camera, getaway car in a town lane); land on main |
 | `ci/underworld` | 🕶️ Crooked cop (Policeman's Kugel Fund bribe / Internal Affairs sting), Velvel's no-questions garage, the Fixer's dirty jobs + heat, pickpockets, road-ragers, a gang car; Shomrim/Chaverim tie-ins; tunables in one SPAWN-style block. Off in party | **Nearly done.** `underworld` test was 43/44 before the last fix (encounter trap). Left: re-run `underworld`, then `core,platform,skip,ux;underworld;law;town;streets;foot;hustle;community;memory;banter;native;party`; land on main |
 | `ci/townfix` | 🏘️ Town bugs (invisible cars, ghost parked cars → solid + hotwirable, carjacking town traffic in solo, nothing standing on the lanes/ramps) + realistic exits (taper, curved ramp, guardrails, T-junction with a stop sign + gas-station/"Welcome to" context, accel lane) | **Code done, unverified.** The last commit is a WIP save of test edits (town visibility judged from behind a town driver). Left: CI `core,platform,skip,ux;town;midwood;exits;streets;foot;openworld;partyfoot;law;native`, fix failures, land |
 | `ci/homes` | 🏠 Living towns (crowds, porches, lit windows, reactions) + breaking into houses: knock or sneak in, view-cone "?"→"!" detection, shocked residents, household items used on them with cartoon reactions, capped couch coins, burglary charge + call-in, residents remember her; docs done | **WIP, mostly built.** Last work: crowd lives near her, residents route through doorways. Left: finish/verify `homes` test, then `core,platform,skip,ux;homes;town;midwood;foot;interiors;law;memory;banter;openworld;partyfoot;native`; perf check in town; land |
 | `ci/party2` | 🎉 Party round 2: claim shared cars (they pull over identically on every screen) so carjacking works with friends; streets / rides / exits (rest areas) / town extras ON in a party; docs + parity table + wire format done | **WIP, mostly built.** Left: the flag-down test step (CI re-run pending), groups `core,platform,skip,ux;party;partyfoot;partyworld;openworld;multiplayer;streets;rides;exits;town;midwood;law;foot`; then, once heist/underworld/homes are on main, turn them on in a party too (personal/seeded) |
 | `ci/gfx` | ⚡ Performance + graphics: perf harness + leak tracker, no per-frame allocations, road-sign textures freed, contact shadows, bloom (only where supported), Auto/Low/Medium/High setting | **WIP.** Left: finish tiers + settings UI, before/after numbers + screenshots, then the FULL suite (`only` and `groups` empty) since render changes touch everything; land |
 
-Suggested order: heist → underworld → townfix → homes → party2 (it builds on the others) → gfx (touches
-everything, so land it last and re-run the full suite).
+Suggested order: underworld → townfix → homes → party2 (it builds on the others; heist is on main now, so party2
+can turn it on in a party) → gfx (touches everything, so land it last and re-run the full suite).
 
-Branches not listed (`ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
+Branches not listed (`ci/heist`, `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
 merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
@@ -147,6 +147,10 @@ merged — ignore them.
   spot (`core/hud.js` has no toast dismiss); a call-in cruiser in town still
   routes straight to her; bailing out mid-chase files a permanent warrant (2★ on
   later chases until court) — maybe too harsh.
+- Heist: off in a party (party2's job); robberies that start while she WALKS are capped at 2 a run
+  (`TUNE.robbery.footMax` — the tackle is the easy foil, keep it capped); the highway Quik-Mart robbery has no on-foot
+  version; tests that drive with no steering must keep distances short (a bend carries the car out of its lane —
+  that was the `heist` spike-strip flake).
 - Exits: ramp ends currently stop in an open field (being fixed on `ci/townfix`);
   rest-area props sit slightly off on tight bends; Kugel the dog bobs on a loop;
   rest areas aren't on the 🗺️ map; no test drives a rest area in Story mode.
