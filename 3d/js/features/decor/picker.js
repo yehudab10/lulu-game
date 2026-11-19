@@ -45,6 +45,7 @@ body.decor-picking .screen { align-items: flex-end; background: linear-gradient(
 body.tv .card.decor-card { width: min(1100px, 100%); padding: 18px 24px; }
 body.tv .dp-row { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 body.tv .dp-opt { min-height: 130px; } body.tv .dp-opt i { font-size: 40px; } body.tv .dp-opt b { font-size: 19px; } body.tv .dp-opt em { font-size: 17px; }
+body.tv .decor-card .menu .btn { font-size: 24px; padding: 12px 22px; }
 body.tv .dp-title { font-size: 28px; } body.tv .dp-coins { font-size: 22px; } body.tv .dp-desc { font-size: 20px; }
 `);
 

@@ -205,7 +205,7 @@ const doorSpot = {
         const w = at(DOOR.x, DOOR.z);
         // (the house loads while she's on the porch — but not in the run's first seconds: the camera's still gliding in)
         const reg = ctx.interiors && ctx.interiors[HOUSE_ID];
-        if (reg && reg.warm && ctx.time - FT.t > 1.6) { const p = ctx.foot.pos; if ((p.x - w.x) ** 2 + (p.z - w.z) ** 2 < 14 * 14) reg.warm(); }
+        if (reg && reg.warm && ctx.time - FT.t > 1.6) { const p = ctx.foot.pos; if ((p.x - w.x) ** 2 + (p.z - w.z) ** 2 < 9 * 9) reg.warm(); }
         return { x: w.x, z: w.z };
     },
     label: () => "🏠 GO INSIDE",
