@@ -11,6 +11,7 @@ import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "../models.js";
 
 const PARTS = ["Arm_L", "Arm_R", "Leg_L", "Leg_R", "Body", "Head"];
+const _q = new THREE.Quaternion(), _e = new THREE.Euler();
 
 export class Person {
     constructor(obj) {
@@ -39,9 +40,7 @@ export class Person {
         const breathe = Math.sin(this.t * 2.2) * 0.015;
         const rot = (node, x, z = 0, y = 0) => {
             if (!node) return;
-            const q = node.userData.base.clone();
-            q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, "XYZ")));
-            node.quaternion.copy(q);
+            node.quaternion.copy(node.userData.base).multiply(_q.setFromEuler(_e.set(x, y, z, "XYZ")));   // (no per-frame allocations)
         };
         let legL = s * swing, legR = -s * swing, armL = -s * swing * 0.8, armR = s * swing * 0.8, armLz = 0.06, armRz = -0.06;
         if (opts.sit) { legL = legR = -1.4; armL = armR = -0.5; }

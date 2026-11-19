@@ -27,6 +27,7 @@ export function skinFrom2D() {
 }
 
 const WHEEL_R = 0.34;
+const _swq = new THREE.Quaternion(), _UPY = new THREE.Vector3(0, 1, 0);   // (scratch: no per-frame allocations)
 const WHEELBASE = 2.56;
 export const CAR_CIRCLES = [1.15, -1.15]; // collision circles along the car's length
 export const CAR_RADIUS = 0.93;
@@ -280,8 +281,7 @@ export class PlayerCar {
             if (w.front) w.obj.rotation.y = -this.steerVal * 0.5 / (1 + this.speed / 25);
         }
         if (this.steeringWheel) {
-            const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.steerVal * 1.6);
-            this.steeringWheel.quaternion.copy(this.swBase).multiply(q);
+            this.steeringWheel.quaternion.copy(this.swBase).multiply(_swq.setFromAxisAngle(_UPY, this.steerVal * 1.6));
         }
         const braking = ctl.brake > 0.1 && this.vF > 0.5;
         for (const m of this.taillights) m.emissiveIntensity = braking ? 4.5 : 1.2;
