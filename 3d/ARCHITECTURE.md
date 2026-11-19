@@ -365,7 +365,11 @@ a teleport still cuts; leaving a town is a soft cut with no black).
 `sfxCoin sfxCloseCall sfxBoost sfxCrash sfxBump sfxHorn(on) sfxSiren sfxFanfare sfxSelect sfxMove`,
 `setMusic(url)` (a 0.7 s crossfade; one kept `<audio>` per track; `musicSrc()` = what's playing; the 📻 radio uses it to tell the game's pick from its own) — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
 ../parking.mp3 ../salon.mp3 ../wedding.mp3 ../prison.mp3 ../court.mp3 ../walking.mp3 ../er1.mp3 ../er2.mp3
-../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
+../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`, plus the one song that is 3D-only, `../dont-wanna-be-frum.mp3`
+(“I Don't Wanna Be Frum” — Dovid Dov: the radio's 🎤 DOVID DOV FM station, `features/hustle/data.js`; a new root mp3 must also go in
+`scripts/copy-web.js`'s list or the iOS app won't have it). **Dovid Dov canon:** an anonymous singer nobody can identify — and Lulu's
+brother. Lulu, the family (Ima, Bubbe, Heshy) and close friends (Avigail) know and keep it quiet; strangers, DJs, billboards and town
+group chats only wonder who he is. Keep new lines on the right side of that. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
 
 **Positional audio — `A.spatial`** (`js/spatial.js`, on the core AudioContext, so Sound off mutes it).
