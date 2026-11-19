@@ -259,7 +259,9 @@ module.exports = {
       console.log("   PERF town static", JSON.stringify(await g(`(() => { const T = ctx.town.debug.S.T; const by = {}; T.root.traverse(o => { if (o.isMesh && o.userData.townLook) { const k = o.userData.townLook; by[k] = (by[k] || 0) + o.geometry.index.count / 3; } }); return { tris: Math.round(T.tris), meshes: T.merged, by }; })()`)));
       // (this test's Cruise only enables town/streets/law/atmos — lighter than a real busy Cruise with road events,
       //  cameos and banter's people, which measured ~350–485 calls / 85–115k triangles at 1280×720)
-      t.check("town draw calls ≤ Cruise", town.calls <= busy.calls * 1.05, `${town.calls} vs ${busy.calls}`);
+      //  The highway's chunks are now merged (merge.js: ~35 % fewer draw calls than when this check was written), so the
+      //  yardstick moved, not the town: hold the town to the light Cruise's budget from then (~240) or today's, whichever is higher.
+      t.check("town draw calls ≤ Cruise (≤ 240, the light Cruise before merged chunks)", town.calls <= Math.max(busy.calls * 1.05, 240), `${town.calls} vs ${busy.calls}`);
       t.check("town triangles within a busy Cruise's budget (≤ 115k)", town.tris <= 115000, `${town.tris} (this test's light Cruise: ${busy.tris})`);
       await g(`(window.__route = null, true)`);
       await g(`${D}.place("Main St", 118, 1.75, 0, 1)`);

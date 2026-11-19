@@ -110,7 +110,7 @@ module.exports = {
           const mats = [].concat(o.material), k = (name || o.type) + " · " + (mats[0] && mats[0].name || (mats[0] && mats[0].type) || "");
           const g = o.geometry, n = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0), ic = o.isInstancedMesh ? o.count : (g.isInstancedBufferGeometry ? g.instanceCount : 1);
           const b = by[k] || (by[k] = { draws: 0, tris: 0, shadow: 0 }); b.draws += Math.max(1, g.groups.length || 1); b.tris += Math.round(n / 3 * ic); if (o.castShadow) b.shadow++; });
-        return Object.entries(by).sort((a, b) => b[1].draws - a[1].draws || b[1].tris - a[1].tris).slice(0, 14).map(([k, v]) => k + " = " + v.draws + "d/" + v.tris + "t" + (v.shadow ? "/" + v.shadow + "s" : "")); })`);
+        return Object.entries(by).sort((a, b) => b[1].draws - a[1].draws || b[1].tris - a[1].tris).slice(0, ${Math.max(14, +process.env.PERF3D_TOP || 0)}).map(([k, v]) => k + " = " + v.draws + "d/" + v.tris + "t" + (v.shadow ? "/" + v.shadow + "s" : "")); })`);
     const record = async (key, n) => { const m = await measure(n); if (process.env.PERF3D_TOP) { m.top = await breakdown(); for (const l of m.top) console.log(`      ${key}: ${l}`); } R.scenes[key] = m; console.log(`   PERF ${key} ${JSON.stringify(m)}`); await t.shot(`${TIER}-${key}`); return m; };
     const place = (s, d, v = 0) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d}; ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.car.vF = ${v}; ctx.world.prebuild(${s}); ctx.cam.snap && ctx.cam.snap(); return true; })()`);
     const want = k => SCENES.includes(k);
