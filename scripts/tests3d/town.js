@@ -313,10 +313,10 @@ module.exports = {
         // (from across the street, nose first into its side — along the kerb she'd hit the car parked behind it first;
         //  she starts on the centre line: from the far lane her tail reached into the far kerb's parking lane, and with
         //  the kerbs lined with minivans (features/homes) she bumped the car parked behind her instead)
+        await t.L(`import("./js/core/ctx.js").then(m => { if (!window.__phk) { window.__phk = true; m.on("town:parkedHit", e => window.__hits && window.__hits.push(e.impact)); } })`);
         await g(`(() => { const p = window.__pc, O = ${D}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {});
             const q = r.point(n.s, 0, {}), h = Math.atan2(P.x - q.x, P.z - q.z);
             ctx.car.place(q.x, q.z, h); ctx.car.vx = Math.sin(h) * 7; ctx.car.vz = Math.cos(h) * 7; ctx.car.vF = 7; ctx.car.s = n.s; window.__pc0 = [p.x, p.z]; window.__hits = []; return true; })()`);
-        await t.L(`import("./js/core/ctx.js").then(m => { if (!window.__phk) { window.__phk = true; m.on("town:parkedHit", e => window.__hits && window.__hits.push(e.impact)); } })`);
         await t.frames(45);
         const r = await g(`(() => { const p = window.__pc, O = ${D}.PL.ORIGIN; return { hits: window.__hits.length, moved: Math.hypot(p.x - window.__pc0[0], p.z - window.__pc0[1]), live: !!p.live, carGap: Math.hypot(O.x + p.x - ctx.car.pos.x, O.z + p.z - ctx.car.pos.z) }; })()`);
         t.check("driving into a parked car: she hits it (it's solid)", r.hits > 0 && r.carGap > 1.5, JSON.stringify(r));
