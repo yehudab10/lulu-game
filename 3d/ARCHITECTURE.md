@@ -264,6 +264,7 @@ mud / fence there, zone `"grounds"`).
   frame time. Test: `scripts/tests3d/gfx.js` (the setting by pad / keys / touch, saved + reloaded, each tier, bloom
   fallback, AUTO's step-down).
 * **The sun's shadow** follows Lulu snapped to whole shadow texels (no shimmering edges).
+* **Before / after numbers + screenshots** of this work: `3d/docs/gfx-perf.md`.
 * **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
   `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,
   Lakewood, on foot, the bar, a 🌍 Free Roam convoy — draw calls, triangles, JS ms (update vs render), DOM
