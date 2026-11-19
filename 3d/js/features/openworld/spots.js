@@ -128,7 +128,7 @@ function build() {
         const obj = P.kind === "arcade" ? makeArcade() : makeBoard();
         obj.position.set(x, 0, z);
         obj.rotation.y = Math.atan2(nx, nz);
-        obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });   // (the contact shadow grounds it: no shadow-pass cost)
         const tag = makeTag(P.kind === "arcade" ? "🕹️" : "📋");
         tag.position.set(x, 3.0, z);
         SP.group.add(obj, tag);
