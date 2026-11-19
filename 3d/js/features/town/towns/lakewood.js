@@ -87,6 +87,20 @@ export default {
         { street: "County Line Rd", dir: -1, at: -66, name: "County Line Rd West" },
     ],
     highway: { first: 2000, every: 3600, no: "91", label: "LAKEWOOD", short: "Lakewood" },   // where the exits are (metres into a Cruise run), exit number + sign name
+    // ATTACHED to the highway (towns/index.js attachedDef): at an interchange the town stands turned so that the inner
+    // branch's cross road runs straight on into Route 9 — no cut. `join` is the local point that meets the cross road's far
+    // end, `dir` the local heading of "away from the highway" there. What changes from the stand-alone layout: no County
+    // Line Rd West stub (the way out is back down Route 9 to the on-ramp), no trees across Route 9's south end.
+    attach: {
+        join: [0, -96], dir: 0,
+        streets: { "County Line Rd": { a0: -14 } },
+        woods: [
+            [-26, -14, -26, SPAN - 12, 4.2], [-26, SPAN + 22, SPAN + 14, SPAN + 22, 4.4], [-26, -14, -16, -26, 3.6], [16, -26, SPAN + 12, -26, 4.4],
+            [-16, -26, -16, -86, 4.0], [16, -26, 16, -86, 4.0], [-26, SPAN - 12, -26, SPAN + 22, 4.0],
+        ],
+        exits: [{ street: "Route 9", dir: -1, at: -66, name: "Route 9 South" }],
+        dropSigns: [L.SIGNS.exitWest],
+    },
 
     traffic: { town_van: 6, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
     parkRate: 0.74,                                       // minivans along every kerb (features/homes: a living town)

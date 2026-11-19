@@ -157,7 +157,8 @@ function exitsHere() {
         if (!st || (st.axis !== "ns" && st.axis !== "ew")) return null;
         const along = e.at + e.dir * -10, d = e.dir * 1.75;
         const x = st.axis === "ns" ? st.c - d : along, z = st.axis === "ns" ? along : st.c + d;
-        return { x: plan.ORIGIN.x + x, z: plan.ORIGIN.z + z, name: e.name || e.street };
+        const w = plan.world(x, z, {});
+        return { x: w.x, z: w.z, name: e.name || e.street };
     }).filter(Boolean);
 }
 /** On the highway: the next town exit, places to pull into, a ringing job, Paint & Pray. */

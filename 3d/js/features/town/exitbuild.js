@@ -94,11 +94,15 @@ export function strip(road, a, b, d0, d1, y, vScale = 12) {
 }
 /** A road running across the highway's direction (constant u): centre u = s − E, half width hw, d0 → d1. */
 function crossStrip(road, E, uc, hw, d0, d1, y, vScale = 12) {
+    // a STRAIGHT road square off the highway at E + uc (not two lines of constant u: on a bend those fan apart by metres
+    // out at the far end — where an attached town's first street carries straight on)
     const n = Math.max(2, Math.round((d1 - d0) / 3) + 1), pos = [], uv = [], idx = [];
     for (let k = 0; k < n; k++) {
         const d = d0 + (d1 - d0) * k / (n - 1);
-        road.point(E + uc - hw, d, _p); pos.push(_p.x, y, _p.z);
-        road.point(E + uc + hw, d, _p); pos.push(_p.x, y, _p.z);
+        road.point(E + uc, d, _p);
+        const fx = Math.sin(_p.h) * hw, fz = Math.cos(_p.h) * hw, x = _p.x, z = _p.z;
+        pos.push(x - fx, y, z - fz);
+        pos.push(x + fx, y, z + fz);
         uv.push(0, d / vScale, 1, d / vScale);
         if (k < n - 1) { const i = k * 2; idx.push(i, i + 1, i + 2, i + 1, i + 3, i + 2); }
     }
@@ -249,8 +253,15 @@ function signMesh(list) {
 // ── placing props (u, d, yaw: "along" faces +s · "back" faces −s (toward her as she drives up) · "out" faces +d ·
 //    "in" faces −d (toward the highway) · a number = radians on top of the road's heading) ──
 const YAW = { along: 0, back: Math.PI, out: -Math.PI / 2, in: Math.PI / 2 };
-function at(E, u, d, yaw = "back") {
+function at(E, u, d, yaw = "back", cu = null) {
     const road = ctx.world.highway;
+    if (cu != null) {
+        // by a cross road: placed off its straight centre line (du along the highway's heading there), so the houses
+        // line it the same on a bend as on a straight
+        road.point(E + cu, d, _p);
+        const du = u - cu;
+        return { x: _p.x + Math.sin(_p.h) * du, z: _p.z + Math.cos(_p.h) * du, h: _p.h, yaw: _p.h + (typeof yaw === "number" ? yaw : YAW[yaw]) };
+    }
     road.point(E + u, d, _p);
     return { x: _p.x, z: _p.z, h: _p.h, yaw: _p.h + (typeof yaw === "number" ? yaw : YAW[yaw]) };
 }
@@ -278,11 +289,11 @@ export function propsOf(e) {
         const c = b.cross, t = b.town, id = t.id, dEnd = b.dOf(b.stop);
         out.push({ key: "exits_stop", u: b.stop - 1.5, d: dEnd + HALF + 0.8, yaw: "back", face: "stop", r: 0.5 });
         out.push({ key: "exits_guide", u: c.u + XW + 2.6, d: dEnd, yaw: "back", face: "tee_" + id, r: 2.3 });
-        out.push({ key: "exits_welcome", u: c.u - XW - 3.4, d: 96, yaw: "in", face: "welcome_" + id, r: 2.9 });
-        out.push({ key: "exits_pylon", u: c.u + XW + 8, d: b.k ? 86 : 48, yaw: "back", face: "gas_" + id, face2: "price_" + id, r: 1.6 });
+        out.push({ key: "exits_welcome", u: c.u - XW - 3.4, d: 96, yaw: "in", face: "welcome_" + id, r: 2.9, cu: c.u });
+        out.push({ key: "exits_pylon", u: c.u + XW + 8, d: b.k ? 86 : 48, yaw: "back", face: "gas_" + id, face2: "price_" + id, r: 1.6, cu: c.u });
         // houses start along the road into town
         for (const [k, dd] of [[0, 106], [1, 126], [2, 146], [3, 166]]) for (const side of [-1, 1]) {
-            out.push({ key: "house", u: c.u + side * (XW + 12.5), d: dd + (side > 0 ? 6 : 0), yaw: side < 0 ? "along" : "back", r: 6, tint: { Walls: HOUSE_WALLS[(k * 2 + (side > 0) + b.k) % HOUSE_WALLS.length], Roof: HOUSE_ROOFS[(k + b.k) % HOUSE_ROOFS.length] } });
+            out.push({ key: "house", cu: c.u, u: c.u + side * (XW + 12.5), d: dd + (side > 0 ? 6 : 0), yaw: side < 0 ? "along" : "back", r: 6, tint: { Walls: HOUSE_WALLS[(k * 2 + (side > 0) + b.k) % HOUSE_WALLS.length], Roof: HOUSE_ROOFS[(k + b.k) % HOUSE_ROOFS.length] } });
         }
         out.push({ key: "treeRound", u: c.u - XW - 9, d: dEnd - 14, yaw: 0.6, r: 0.6 });
         out.push({ key: "treeRound", u: c.u - XW - 9, d: dEnd + 20, yaw: 1.4, r: 0.6 });
@@ -299,7 +310,7 @@ function buildProps(e, chunk, s0, s1) {
     const inChunk = u => E + u >= s0 && E + u < s1;
     for (const p of propsOf(e)) {
         if (!inChunk(p.u) || !models[p.key]) continue;
-        const q = at(E, p.u, p.d, p.yaw), m = mtxAt(q), tpl = models[p.key];
+        const q = at(E, p.u, p.d, p.yaw, p.cu), m = mtxAt(q), tpl = models[p.key];
         mg.add(tpl, m, p.tint || null, { at: [0, 0], noShadow: p.key === "house" || p.key === "treeRound" || p.key === "sedan" });
         const fx = Math.sin(q.yaw) * 0.03, fz = Math.cos(q.yaw) * 0.03;
         for (const [fk, an] of [[p.face, "Anchor_sign"], [p.face2, "Anchor_price"]]) {

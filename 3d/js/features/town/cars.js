@@ -8,7 +8,7 @@
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
-import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, blocked, rng, cutAt, otherAt, stopsAt, sightBlocked } from "./plan.js";
+import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, toWorld, wH, blocked, rng, cutAt, otherAt, stopsAt, sightBlocked } from "./plan.js";
 
 registerKind("town_van", { len: 5.0, halfW: 0.98, circles: [1.5, -1.5], r: 1.0, mass: 1.5, model: "town_minivan", colors: { Paint: "#C3C8CE" } });
 registerKind("town_bus", { len: 10.6, halfW: 1.25, circles: [-3.6, -1.2, 1.2, 3.6], r: 1.3, mass: 5, model: "roadevents_school_bus", paint: false });
@@ -18,7 +18,7 @@ registerKind("town_citybus", { len: 10.6, halfW: 1.25, circles: [-3.6, -1.2, 1.2
 registerKind("town_sweeper", { len: 5.6, halfW: 1.15, circles: [1.6, -1.4], r: 1.15, mass: 3.5, model: "town_mw_sweeper", paint: false });
 const CRUISE = { town_bus: 7.5, town_citybus: 7, town_sweeper: 3.2 };
 
-const _l = {}, _p = {};
+const _l = {}, _p = {}, _nw = {};
 export const C = { cars: [], patrol: null, rnd: rng(7), hazards: [], slow: new Set(), routes: {} };
 /** The streets a kind may drive (def.routes: the city bus keeps to the avenues): a Set of street ids, or null = anywhere. */
 const routeOf = kind => C.routes[kind] || null;
@@ -127,7 +127,7 @@ function footHold(dt, c, T) {
 
 /** Is anyone in (or about to be in) this intersection? */
 function boxBusy(node, self) {
-    const nx = PL.ORIGIN.x + node.x, nz = PL.ORIGIN.z + node.z;
+    const nw = toWorld(node.x, node.z, _nw), nx = nw.x, nz = nw.z;
     const r = node.r || 8, mine = self.data && self.data.town, side = !!mine && !PL.STREETS[mine.street].priority;
     for (const o of ctx.traffic.cars) {
         if (o === self || o.hit) continue;
@@ -267,9 +267,8 @@ function turning(dt, c, T) {
     i = Math.min(i, tr.pts.length - 1);
     const p0 = tr.pts[i - 1], p1 = tr.pts[i];
     const sl = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1, t = Math.min(1, u / sl);
-    c.x = PL.ORIGIN.x + p0.x + (p1.x - p0.x) * t;
-    c.z = PL.ORIGIN.z + p0.z + (p1.z - p0.z) * t;
-    const hw = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+    toWorld(p0.x + (p1.x - p0.x) * t, p0.z + (p1.z - p0.z) * t, c);
+    const hw = wH(Math.atan2(p1.x - p0.x, p1.z - p0.z));
     let dh = hw - c.h; while (dh > Math.PI) dh -= Math.PI * 2; while (dh < -Math.PI) dh += Math.PI * 2;
     c.h += dh * Math.min(1, dt * 8);
 }
@@ -286,9 +285,11 @@ function gapTurn(c) {
     return g;
 }
 
-/** A free spot on the grid for a new driver, at least `minD` m from Lulu: {street, along, dir}. */
-export function randomSpot(minD = 60, kind = "town_van") {
-    const car = ctx.car;
+/** A free spot on the grid for a new driver, at least `minD` m from Lulu: {street, along, dir}.
+ *  unseen: only where the camera can't see it pop in (behind a block, or > 260 m off). */
+export function randomSpot(minD = 60, kind = "town_van", unseen = false) {
+    const car = ctx.car, cam = ctx.camera.position;
+    if (unseen) toLocal(cam.x, cam.z, _cl);
     const R = routeOf(kind), pool = R ? PL.STREETS.filter(s => R.has(s.id)) : PL.STREETS;
     for (let k = 0; k < 40; k++) {
         const st = pool[Math.floor(C.rnd() * pool.length)];
@@ -301,8 +302,9 @@ export function randomSpot(minD = 60, kind = "town_van") {
         if (blocked(st.id, 1, st.cross[seg].node) && dir > 0) continue;
         if (blocked(st.id, -1, st.cross[seg + 1].node) && dir < 0) continue;
         const p = streetPoint(st, along, laneD(dir), _p);
-        const wx = PL.ORIGIN.x + p.x, wz = PL.ORIGIN.z + p.z;
+        const w = toWorld(p.x, p.z, _nw), wx = w.x, wz = w.z;
         if (Math.hypot(wx - car.pos.x, wz - car.pos.z) < minD) continue;
+        if (unseen && Math.hypot(wx - cam.x, wz - cam.z) < 260 && !sightBlocked(_cl.x, _cl.z, p.x, p.z)) continue;
         if (ctx.traffic.cars.some(o => Math.hypot(o.x - wx, o.z - wz) < (kind === "town_bus" ? 16 : 11))) continue;
         return { street: st.id, along, dir };
     }
@@ -319,7 +321,7 @@ export function tendDrivers(dt, want) {
         const far = Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70;
         const gone = (c.hit && c.hitT > 7) || (T.stuck > 25 && far) || (c.data.streetsJack && false);
         if (gone && far) {
-            const sp = randomSpot(70, c.kind);
+            const sp = randomSpot(70, c.kind, true);
             if (!sp) continue;
             ctx.traffic.remove(c);
             C.cars.splice(i, 1);
@@ -329,7 +331,7 @@ export function tendDrivers(dt, want) {
     }
     for (const [kind, n] of Object.entries(want)) {
         const have = C.cars.filter(c => c.kind === kind && !c.data.town.hazard && !c.data.town.own).length;
-        if (have < n) { const sp = randomSpot(70, kind); if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 5 }); }
+        if (have < n) { const sp = randomSpot(70, kind, true); if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 5 }); }
     }
 }
 

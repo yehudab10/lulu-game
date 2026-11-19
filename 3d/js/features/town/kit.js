@@ -96,7 +96,12 @@ export class Merger {
     addGeometry(g, look, x, z) { this.list(x, z, look).push(g); this.tris += (g.index ? g.index.count : g.attributes.position.count) / 3; }
     /** Bake: → [THREE.Mesh] (one per cluster per look), using the shared look materials. */
     build(mats) {
-        const out = [];
+        const out = [], g = this.buildSteps(mats, out);
+        while (!g.next().done);
+        return out;
+    }
+    /** build() a cluster at a time (a generator: yields after each merged mesh, pushes them onto `out`). */
+    *buildSteps(mats, out) {
         for (const list of this.clusters.values()) {
             {
                 const look = list.look;
@@ -117,10 +122,10 @@ export class Merger {
                 if (look === "glass") mesh.renderOrder = 2;
                 for (const t of tagged) (t.tag.parts || (t.tag.parts = [])).push({ mesh, start: t.start, count: t.count });
                 out.push(mesh);
+                yield "merge:" + look;
             }
         }
         this.clusters.clear();
-        return out;
     }
 }
 

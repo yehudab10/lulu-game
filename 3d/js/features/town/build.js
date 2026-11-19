@@ -16,7 +16,7 @@ import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
 import { worldMaterials, canvasTex } from "../../world.js";
 import { Merger, Atlas, lookMaterials } from "./kit.js";
-import { PL, LANE, WALK, FRONT, street, streetPoint, streetCoords, nodeAlong, blockPoly, rng, cutAt, otherAt, stopsAt } from "./plan.js";
+import { PL, wx, wz, LANE, WALK, FRONT, street, streetPoint, streetCoords, nodeAlong, blockPoly, rng, cutAt, otherAt, stopsAt } from "./plan.js";
 import { buildRail, RAIL_MODELS } from "./rail.js";
 import { buildBoulevards, buildStrip, buildSkyline, buildBarricades, wholeBlock, LANDMARK_MODELS } from "./landmarks.js";
 
@@ -66,13 +66,24 @@ export const BUILD_MODELS = ["town_duplex", "town_townhouses", "town_shop", "tow
     "treeRound", "treePine"];
 export { RAIL_MODELS, LANDMARK_MODELS };
 
+/** Build a town now (one frame). */
 export function buildTown(def) {
+    const g = buildTownSteps(def);
+    for (;;) { const r = g.next(); if (r.done) return r.value; }
+}
+/**
+ * The town build as STEPS (a generator: each `yield` is a place to stop for this frame) — index.js builds an
+ * attached town a few ms a frame as she nears its interchange. Every step reads the plan (PL): whoever advances it
+ * must have setPlan(def, at) for THIS town first. → (when done) T.
+ */
+export function* buildTownSteps(def) {
     const R = rng(def.seed || 91);
     const S = def.lines.SIGNS;
     const O = PL.ORIGIN;
     const root = new THREE.Group();
     root.name = "Town:" + def.id;
     root.position.set(O.x, 0, O.z);
+    root.rotation.y = PL.ROT;                       // (a town placed at an interchange is turned to meet its ramp)
     const own = [];                     // geometries / materials / textures to dispose
     const mats = lookMaterials();
     own.push(...Object.values(mats));
@@ -82,7 +93,7 @@ export function buildTown(def) {
     const colliders = [];
     const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], drives: [] };
 
-    const col = (lx, lz, r, kind = "town") => colliders.push({ x: O.x + lx, z: O.z + lz, r, kind });
+    const col = (lx, lz, r, kind = "town") => colliders.push({ x: wx(lx, lz), z: wz(lx, lz), r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
         const uv = atlas.sign(spec);
         atlas.quad(uv, x, y, z, yaw, w, h);
@@ -129,7 +140,7 @@ export function buildTown(def) {
         b.userData.tag = tag;
         addColored(merge, b, "#4a4c50", x, z, "flat");
         const fx = Math.sin(rot), fz = Math.cos(rot), off = sedan ? 1.15 : 1.25;
-        const cols = [1, -1].map(k => ({ x: O.x + x + fx * off * k, z: O.z + z + fz * off * k, r: sedan ? 0.95 : 1.0, kind: "car" }));
+        const cols = [1, -1].map(k => ({ x: wx(x + fx * off * k, z + fz * off * k), z: wz(x + fx * off * k, z + fz * off * k), r: sedan ? 0.95 : 1.0, kind: "car" }));
         colliders.push(...cols);
         const pc = { x, z, rot, key: P.key, paint, tag, cols, off, sedan };
         T.pcars.push(pc);
@@ -187,11 +198,13 @@ export function buildTown(def) {
                 else for (let u = m0; u < m1 - 1; u += 6) laneLine(marks, st, u, Math.min(m1, u + 3), off, w, color, strip);
             }
         }
+        yield "ground@201";
     }
     // the boulevard's malls + service roads, frontage strips, the skyline (landmarks.js) — they add to these lists
     const B = { def, R, T, S, O, root, own, merge, mergeFar, atlas, mats, colliders, col, sign, place, anchorAt, anchorOf, parkedCar, pt, strip, asphalt, walks, marks,
         addColored, poleAt, pickOf, layoutFace, placeFace, DIMS, BRICK, STUCCO, clearAt };
     buildBoulevards(B);
+    yield "ground@207";
     let circleGeo = null;
     if (PL.circle) {
         circleGeo = new THREE.CircleGeometry(15, 40);
@@ -217,6 +230,7 @@ export function buildTown(def) {
                 T.stops.push({ street: st.id, dir, along, node: n, na });
             }
         }
+        yield "ground@233";
     }
     // speed bumps
     for (const b of def.bumps || []) {
@@ -276,8 +290,9 @@ export function buildTown(def) {
         for (const [face, kind] of Object.entries(b.faces)) {
             for (const fr of railSplit(faceFrame(lot, face), def.rail)) placeFace(B, kind, fr, counters);
         }
+        yield "blocks@293";
     }
-    for (const sp of PL.STRIPS) buildStrip(B, sp, counters);
+    for (const sp of PL.STRIPS) { buildStrip(B, sp, counters); yield "blocks@295"; }
 
     // ── street furniture: parked cars, lamps ─────────────────────────────
     const chair = def.chair && street(def.chair.street);
@@ -320,6 +335,7 @@ export function buildTown(def) {
             const mid = (u0 + u1) / 2 + 6, lp = streetPoint(st, mid, side * (st.walk - 0.4), {}), lc = streetPoint(st, mid, 0, {});
             lampAt(lp.x, lp.z, Math.atan2(lc.x - lp.x, lc.z - lp.z));
         }
+        yield "street furniture@338";
     }
     // stop signs (white STOP from the atlas), street blades (+ ONE WAY arrows) + a lamp at each corner
     const stopUV = atlas.sign({ key: "STOP", w: 256, h: 256, draw: (g, w, h) => {
@@ -364,6 +380,7 @@ export function buildTown(def) {
         }
         const lx = n.x - Bs.ux * (A.outer + 2) / sn - A.ux * (Bs.outer + 2) / sn, lz = n.z - Bs.uz * (A.outer + 2) / sn - A.uz * (Bs.outer + 2) / sn;
         lampAt(lx, lz, Math.atan2(n.x - lx, n.z - lz));
+        yield "street furniture@383";
     }
 
     // ── the traffic circle: the island, its statue, YIELD — lol ───────────
@@ -477,6 +494,7 @@ export function buildTown(def) {
                 if (off === 0) col(x, z, 1.4, "tree");
             }
         }
+        yield "jams, the band bus, bill@497";
     }
     for (const W of def.water || []) {
         const { x0, x1, z0, z1 } = W;
@@ -500,8 +518,10 @@ export function buildTown(def) {
         if (W.geese) T.spots.lake = { x: x0 - 1.5, z: (z0 + z1) / 2, z0: z0 + 20, z1: z1 - 30, x0 };
     }
     // the railway on its embankment, the skyline, the barricades (rail.js / landmarks.js)
-    if (def.rail) buildRail(B);
+    yield "jams, the band bus, bill@521";
+    if (def.rail) { buildRail(B); yield "jams, the band bus, bill@522"; }
     buildSkyline(B);
+    yield "jams, the band bus, bill@524";
     buildBarricades(B);
 
     // ── coins (a few trails to make the detour pay) ──────────────────────
@@ -510,12 +530,13 @@ export function buildTown(def) {
         if (!st) continue;
         for (let k = 0; k < ct.n; k++) {
             const u = ct.from + k * 6, p = streetPoint(st, u, ct.d, {});
-            T.coins.push({ x: O.x + p.x, z: O.z + p.z, s: st.base + u, d: ct.d, taken: false, value: 1 });
+            T.coins.push({ x: wx(p.x, p.z), z: wz(p.x, p.z), s: st.base + u, d: ct.d, taken: false, value: 1 });
         }
     }
     if (PL.circle) for (let k = 0; k < 10; k++) {    // a ring of risky coins round the island (nobody yields)
         const a = k / 10 * Math.PI * 2;
-        T.coins.push({ x: O.x + PL.circle.x + Math.cos(a) * PL.circle.ring, z: O.z + PL.circle.z + Math.sin(a) * PL.circle.ring, s: 0, d: 0, taken: false, value: 2 });
+        const cx = PL.circle.x + Math.cos(a) * PL.circle.ring, cz = PL.circle.z + Math.sin(a) * PL.circle.ring;
+        T.coins.push({ x: wx(cx, cz), z: wz(cx, cz), s: 0, d: 0, taken: false, value: 2 });
     }
 
     // ── ground meshes (after the landmarks added their pieces) ───────────
@@ -526,7 +547,10 @@ export function buildTown(def) {
     for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
 
     // ── bake ─────────────────────────────────────────────────────────────
-    const merged = merge.build(mats).concat(mergeFar.build(mats));
+    yield "bake@550";
+    const merged = [];
+    yield* merge.buildSteps(mats, merged);
+    yield* mergeFar.buildSteps(mats, merged);
     for (const m of merged) { root.add(m); own.push(m.geometry); }
     const signMesh = atlas.mesh();
     root.add(signMesh);

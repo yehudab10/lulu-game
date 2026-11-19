@@ -11,7 +11,7 @@
 import * as THREE from "three";
 import { models } from "../../models.js";
 import { Merger } from "./kit.js";
-import { PL } from "./plan.js";
+import { PL, toLocal, toWorld } from "./plan.js";
 import * as SFX from "./sfx.js";
 
 export const RAIL_MODELS = ["town_mw_station", "town_mw_train", "town_mw_pigeon"];
@@ -166,7 +166,7 @@ function bulletTex(letter, color) {
 /** Per frame: run the trains. listen(x, z) → the camera / Lulu (world); hooks: { onPass(train), onStop(train, station) }. */
 export function tickRail(T, dt, cam, hooks = {}) {
     if (!T.trains.length) return;
-    const O = PL.ORIGIN;
+    const cl = toLocal(cam.x, cam.z, {}), _w = {};
     let loud = 0;
     for (const tr of T.trains) {
         const dir = tr.cfg.dir;
@@ -194,8 +194,8 @@ export function tickRail(T, dt, cam, hooks = {}) {
         }
         tr.obj.position.z = tr.z;
         // heard overhead: a rumble by distance to the nearest car of the train
-        const wx = O.x + tr.obj.position.x, wz = O.z + Math.max(tr.z - tr.half, Math.min(tr.z + tr.half, cam.z - O.z));
-        const dist = Math.hypot(wx - cam.x, wz - cam.z);
+        toWorld(tr.obj.position.x, Math.max(tr.z - tr.half, Math.min(tr.z + tr.half, cl.z)), _w);
+        const dist = Math.hypot(_w.x - cam.x, _w.z - cam.z);
         tr.obj.visible = dist < 320;
         if (tr.v > 0.5) loud = Math.max(loud, Math.max(0, 1 - dist / 150) * Math.min(1, tr.v / 10));
         if (!tr.seen && dist < 60 && hooks.onPass) { tr.seen = true; hooks.onPass(tr); }

@@ -158,6 +158,21 @@ export default {
         { street: "Kings Hwy", dir: -1, at: khA(KH0) + 12, name: "Kings Hwy West" },
     ],
     highway: { first: 2000, every: 3600, no: "9", label: "BROOKLYN", short: "Brooklyn" },
+    // ATTACHED to the highway (towns/index.js attachedDef): the outer branch's cross road runs on as AVENUE P to a corner
+    // with Ocean Pkwy's south end; Midwood stands turned so the Parkway runs back alongside the highway (the town behind
+    // the ramp, Lakewood ahead of it). No skyline across the south end (Avenue P runs there), Kings Hwy's west end is
+    // barricaded (it would point at the highway), and the way out is back along Avenue P to the interchange.
+    attach: {
+        join: [-378, -345], dir: Math.PI / 2,
+        streets: { "Ocean Pkwy": { a0: -359 } },
+        addStreets: [ew("Avenue P", -345, -378, OP, { grid: false })],
+        skyline: [
+            [-330, -322, -330, 340], [-312, 345, 215, 345], [232, -150, 232, 340], [-205, -250, 150, -170],
+        ],
+        barricades: [{ street: "Kings Hwy", along: khA(KH0) + 7, lines: ["KINGS HWY", "ROAD CLOSED", "(the highway's the other way)"] }],
+        exits: [{ street: "Avenue P", dir: -1, at: -372, name: "Avenue P" }],
+        dropSigns: [L.SIGNS.exitWest],
+    },
 
     traffic: { town_van: 4, town_carsvc: 3, town_citybus: 1, town_sweeper: 1, cop: 1 },
     routes: {

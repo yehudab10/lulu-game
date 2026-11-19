@@ -25,7 +25,10 @@ export const SLEN = 1000;
 export const HALF_PI = Math.PI / 2;
 
 /** The current town's plan (filled by setPlan). Modules read PL.* at call time. */
-export const PL = { def: null, ORIGIN: { x: 0, z: 0 }, S0: 500000, STREETS: [], NODES: [], BLOCKS: [], STRIPS: [], OCCLUDERS: [], byName: {}, circle: null };
+export const PL = { def: null, ORIGIN: { x: 0, z: 0 }, ROT: 0, COS: 1, SIN: 0, S0: 500000, STREETS: [], NODES: [], BLOCKS: [], STRIPS: [], OCCLUDERS: [], byName: {}, circle: null, APPROACH: null };
+/** Each def's computed plan (a town is planned once; switching between two built towns just swaps these in). */
+const PLANS = new Map();
+const PLAN_KEYS = ["def", "S0", "STREETS", "NODES", "BLOCKS", "STRIPS", "OCCLUDERS", "byName", "circle", "APPROACH"];
 
 /** A street's geometry from its data: direction, right vector, and every lateral width. */
 function makeStreet(s, id) {
@@ -62,10 +65,20 @@ function crossing(a, b) {
     return { x: a.px + a.ux * ta, z: a.pz + a.uz * ta, ta, tb };
 }
 
-export function setPlan(def) {
-    if (PL.def === def) return PL;
+/**
+ * Make `def` the current plan, placed at `at` = { x, z, rot } (world origin of the local frame + its yaw: a local
+ * heading h is world heading h + rot; local (lx, lz) → world ORIGIN + R(rot)·(lx, lz)). Without `at`: the town's
+ * own data origin, unrotated. Every town is laid out the same in its local frame wherever it stands.
+ */
+export function setPlan(def, at = null) {
+    const O = at || def.origin, rot = at && at.rot || 0;
+    if (PL.def === def && PL.ORIGIN.x === O.x && PL.ORIGIN.z === O.z && PL.ROT === rot) return PL;
+    PL.ORIGIN = { x: O.x, z: O.z };
+    PL.ROT = rot; PL.COS = Math.cos(rot); PL.SIN = Math.sin(rot);
+    if (PL.def === def) return PL;              // (same town, moved: the local plan stands as it is)
+    const cached = PLANS.get(def);
+    if (cached) { Object.assign(PL, cached); return PL; }
     PL.def = def;
-    PL.ORIGIN = def.origin;
     PL.S0 = def.s0 || 500000;
     PL.STREETS = def.streets.map(makeStreet);
     PL.byName = {};
@@ -100,8 +113,9 @@ export function setPlan(def) {
         if (n) { n.circle = true; PL.circle = Object.assign({ node: n, x: n.x, z: n.z }, def.circle); }
     }
     // blocks: between neighbouring parallel streets that actually bound the rectangle
-    const xs = [...new Set(PL.STREETS.filter(s => s.axis === "ns").map(s => s.c))].sort((p, q) => p - q);
-    const zs = [...new Set(PL.STREETS.filter(s => s.axis === "ew").map(s => s.c))].sort((p, q) => p - q);
+    // (a street with `grid: false` — an attached town's extra approach street — bounds no block and shifts no block key)
+    const xs = [...new Set(PL.STREETS.filter(s => s.axis === "ns" && s.data.grid !== false).map(s => s.c))].sort((p, q) => p - q);
+    const zs = [...new Set(PL.STREETS.filter(s => s.axis === "ew" && s.data.grid !== false).map(s => s.c))].sort((p, q) => p - q);
     const coverer = (axis, c, lo, hi) => PL.STREETS.find(s => s.axis === axis && s.c === c && s.a0 <= lo + 0.1 && s.a1 >= hi - 0.1);
     const faceUse = o => {
         const dflt = PL.def.blockDefault || "homes";
@@ -150,6 +164,12 @@ export function setPlan(def) {
     }).filter(Boolean);
     PL.OCCLUDERS = PL.BLOCKS.filter(b => b.solid).map(b => blockRect(b, FRONT + 1.2))
         .concat(PL.STRIPS.filter(sp => sp.st.axis !== "diag" && sp.solid !== false).map(sp => sp.rect));
+    // an ATTACHED town's approach: the interchange's cross road, from its T-junction to where the town's own drawn
+    // street takes over — a street of the plan (she drives it on the town's road) that the build never draws (the
+    // highway's interchange already did) and nothing else in town uses (no blocks, nodes, parking, people, drivers)
+    const ap = def.approach;
+    PL.APPROACH = ap ? Object.assign(makeStreet({ name: ap.name, axis: "diag", from: ap.from, to: ap.to, park: false, sidewalk: 1 }, PL.STREETS.length), { approach: true }) : null;
+    PLANS.set(def, Object.fromEntries(PLAN_KEYS.map(k => [k, PL[k]])));
     return PL;
 }
 
@@ -192,12 +212,21 @@ export function blockRect(b, inset = FRONT) {
 }
 
 // ── conversions ──────────────────────────────────────────────────────────
-export const toWorld = (lx, lz, out = {}) => { out.x = PL.ORIGIN.x + lx; out.z = PL.ORIGIN.z + lz; return out; };
-export const toLocal = (x, z, out = {}) => { out.x = x - PL.ORIGIN.x; out.z = z - PL.ORIGIN.z; return out; };
+// (three.js rotation.y convention: a local heading h is the world heading h + ROT — the town's root has rotation.y = ROT)
+export const toWorld = (lx, lz, out = {}) => { const x = lx, z = lz; out.x = PL.ORIGIN.x + x * PL.COS + z * PL.SIN; out.z = PL.ORIGIN.z - x * PL.SIN + z * PL.COS; return out; };
+export const toLocal = (x, z, out = {}) => { const dx = x - PL.ORIGIN.x, dz = z - PL.ORIGIN.z; out.x = dx * PL.COS - dz * PL.SIN; out.z = dx * PL.SIN + dz * PL.COS; return out; };
+/** World x / z of a local point (one coordinate at a time, for hot loops). */
+export const wx = (lx, lz) => PL.ORIGIN.x + lx * PL.COS + lz * PL.SIN;
+export const wz = (lx, lz) => PL.ORIGIN.z - lx * PL.SIN + lz * PL.COS;
+/** Local heading → world heading, and back. */
+export const wH = h => h + PL.ROT;
+export const lH = h => h - PL.ROT;
+/** A local direction (x, z) → world (in place on out). */
+export const dirWorld = (x, z, out = {}) => { out.x = x * PL.COS + z * PL.SIN; out.z = -x * PL.SIN + z * PL.COS; return out; };
 export function streetOfS(s) {
     if (s == null) return null;
     const k = Math.floor((s - PL.S0 + SLEN / 2) / SLEN);
-    return k >= 0 && k < PL.STREETS.length ? PL.STREETS[k] : null;
+    return k >= 0 && k < PL.STREETS.length ? PL.STREETS[k] : k === PL.STREETS.length && PL.APPROACH ? PL.APPROACH : null;
 }
 /** Local point on street st at `along`, lateral d. */
 export function streetPoint(st, along, d, out = {}) {
@@ -239,16 +268,12 @@ export class TownRoad {
     at(s, out = {}) {
         const st = streetOfS(s);
         if (!st) return this.highway.at(s, out);
-        streetPoint(st, s - st.base, 0, out);
-        out.x += PL.ORIGIN.x; out.z += PL.ORIGIN.z;
-        return out;
+        return worldOut(streetPoint(st, s - st.base, 0, out));
     }
     point(s, d, out = {}) {
         const st = streetOfS(s);
         if (!st) return this.highway.point(s, d, out);
-        streetPoint(st, s - st.base, d, out);
-        out.x += PL.ORIGIN.x; out.z += PL.ORIGIN.z;
-        return out;
+        return worldOut(streetPoint(st, s - st.base, d, out));
     }
     /** The street (x, z) is on. Sticky: stays on the hint's street while still in its corridor,
      *  so crossing an intersection doesn't flip her onto the cross street. */
@@ -260,17 +285,20 @@ export class TownRoad {
             if (Math.abs(_c.d) <= cur.walk + 0.9 && _c.along >= cur.a0 - 6 && _c.along <= cur.a1 + 6) return fill(out, cur, _c.along, _c.d);
         }
         let best = null, bd = 1e18, ba = 0, bdd = 0;
-        for (const st of PL.STREETS) {
+        for (let i = 0, n = PL.STREETS.length + (PL.APPROACH ? 1 : 0); i < n; i++) {
+            const st = i < PL.STREETS.length ? PL.STREETS[i] : PL.APPROACH;
             streetCoords(st, _l.x, _l.z, _c);
             const a = Math.max(st.a0, Math.min(st.a1, _c.along));
-            const e = (_c.along - a) * (_c.along - a) + _c.d * _c.d;
+            const e = (_c.along - a) * (_c.along - a) + _c.d * _c.d + (st.approach ? 0.01 : 0);    // (a tie: the town's own street)
             if (e < bd) { bd = e; best = st; ba = _c.along; bdd = _c.d; }
         }
         return fill(out, best, ba, bdd);
     }
     ensure() {}
 }
-function fill(out, st, along, d) { out.s = st.base + along; out.d = d; out.h = st.h; out.street = st; return out; }
+function fill(out, st, along, d) { out.s = st.base + along; out.d = d; out.h = st.h + PL.ROT; out.street = st; return out; }
+/** A local street point {x, z, h} → world, in place. */
+function worldOut(o) { const x = o.x, z = o.z; o.x = PL.ORIGIN.x + x * PL.COS + z * PL.SIN; o.z = PL.ORIGIN.z - x * PL.SIN + z * PL.COS; o.h += PL.ROT; return o; }
 
 // ── the graph ────────────────────────────────────────────────────────────
 /** Moves out of node n: [{street, dir, node (next crossing) | null, exit (index into def.exits) | undefined, len}] */
@@ -389,3 +417,8 @@ export function rng(seed) {
         return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
 }
+
+// (for features that hold the plan as `ctx.town.plan`: its local ↔ world conversions)
+PL.world = toWorld;
+PL.local = toLocal;
+PL.wh = wH;

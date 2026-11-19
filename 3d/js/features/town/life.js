@@ -14,7 +14,7 @@ import { rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import * as SFX from "./sfx.js";
-import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodeAlong, movesFrom, headingOf, segmentBlocked } from "./plan.js";
+import { PL, LANE, toLocal, toWorld, wH, streetOfS, streetPoint, streetCoords, nodeAlong, movesFrom, headingOf, segmentBlocked } from "./plan.js";
 import { C } from "./cars.js";
 
 export const LIFE = { on: false, T: null, def: null, people: [], geese: [], bikes: [], said: new Set(), told: {}, gossipT: 0, live: [],
@@ -24,7 +24,8 @@ export const PEOPLE_MODELS = ["town_brooklyn", "town_local", "town_mom", "town_a
 const TOPS = ["#81C784", "#4FC3F7", "#FFB74D", "#F06292", "#9575CD", "#FFFFFF", "#4DB6AC", "#FFD54F", "#90A4AE"];
 const BOTTOMS = ["#37474F", "#283593", "#212121", "#5D4037", "#1565C0", "#455A64"];
 const _v = new THREE.Vector3(), _l = {}, _c = {};
-const W = (lx, lz) => _v.set(PL.ORIGIN.x + lx, 0, PL.ORIGIN.z + lz);
+const _w = {};
+const W = (lx, lz) => { toWorld(lx, lz, _w); return _v.set(_w.x, 0, _w.z); };
 const chatter = () => (save3d.settings && save3d.settings.chatter) || "normal";
 const onFoot = () => !!(ctx.foot && ctx.foot.active && ctx.foot.pos);
 function luluPos() { return onFoot() ? ctx.foot.pos : ctx.car.pos; }
@@ -104,7 +105,7 @@ export function startLife(T, def) {
     if (lake && models[FL.model]) for (let k = 0; k < (FL.n || 0); k++) {
         const g = cloneWithColors(models[FL.model]);
         const x = lake.x - 3 + Math.random() * 6, z = lake.z0 + Math.random() * (lake.z1 - lake.z0);
-        g.position.copy(W(x, z)); g.rotation.y = Math.random() * 6;
+        g.position.copy(W(x, z)); g.rotation.y = Math.random() * 6;     // (a goose's h is LOCAL: rotation.y = wH(h) once it moves)
         T.root.parent.add(g);
         LIFE.geese.push({ obj: g, x, z, h: g.rotation.y, home: { x, z }, mode: "graze", t: Math.random() * 5, honkT: 0, neck: findNodes(g, "Neck")[0], wings: [findNodes(g, "Wing_L")[0], findNodes(g, "Wing_R")[0]], legs: [findNodes(g, "Leg_L")[0], findNodes(g, "Leg_R")[0]], fly: 0 });
     }
@@ -132,7 +133,7 @@ function addPerson(key, x, z, face, colors, info) {
     const p = spawnPerson(key, { colors: colors || null });
     p.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
     p.obj.position.copy(W(x, z));
-    p.obj.rotation.y = face;
+    p.obj.rotation.y = wH(face);
     LIFE.T.root.parent.add(p.obj);
     const rec = Object.assign({ p, x, z, face, k: 0, talkT: 0, heckleT: 0, idle: Math.random() * 6 }, info);
     LIFE.people.push(rec);
@@ -224,13 +225,14 @@ function tickNotices(lp, foot) {
     if (S.hall) seen("hall", S.hall.x, S.hall.z, 30, "hall");
     if (S.construction) seen("construction", S.construction.x, S.construction.z, 34, "construction");
     if (S.chair) seen("chair", S.chair.x, S.chair.z, 16, "parking");
-    for (const c of C.cars) if (c.kind === "town_bus") seen("bus", c.x - PL.ORIGIN.x, c.z - PL.ORIGIN.z, 16, "bus");
-    for (const b of LIFE.bikes) seen("bike", b.obj.position.x - PL.ORIGIN.x, b.obj.position.z - PL.ORIGIN.z, 9, "bike");
+    const lc = {};
+    for (const c of C.cars) if (c.kind === "town_bus") { toLocal(c.x, c.z, lc); seen("bus", lc.x, lc.z, 16, "bus"); }
+    for (const b of LIFE.bikes) { toLocal(b.obj.position.x, b.obj.position.z, lc); seen("bike", lc.x, lc.z, 9, "bike"); }
     // the town's own landmarks (def.notices: a build spot, or a kind of vehicle coming by)
     for (const n of LIFE.def.notices || []) {
         if (n.spot && S[n.spot]) seen(n.spot, S[n.spot].x, S[n.spot].z, n.r || 24, n.cat, n.big);
-        if (n.kind && !LIFE.said.has(n.kind)) for (const c of C.cars) if (c.kind === n.kind && Math.hypot(c.x - PL.ORIGIN.x - _l.x, c.z - PL.ORIGIN.z - _l.z) < (n.r || 24)) {
-            seen(n.kind, c.x - PL.ORIGIN.x, c.z - PL.ORIGIN.z, n.r || 24, n.cat, n.big);
+        if (n.kind && !LIFE.said.has(n.kind)) for (const c of C.cars) if (c.kind === n.kind && Math.hypot(toLocal(c.x, c.z, lc).x - _l.x, lc.z - _l.z) < (n.r || 24)) {
+            seen(n.kind, lc.x, lc.z, n.r || 24, n.cat, n.big);
             if (n.gossip) gossip(n.gossip);
             break;
         }
@@ -282,8 +284,9 @@ function tickGeese(dt, lp, foot) {
         g.x += Math.sin(g.h) * sp * dt; g.z += Math.cos(g.h) * sp * dt;
         g.obj.visible = Math.hypot(g.obj.position.x - ctx.camera.position.x, g.obj.position.z - ctx.camera.position.z) < 70;
         const y = g.mode === "fly" ? Math.sin(Math.max(0, g.fly) / 1.4 * Math.PI) * 2.2 : 0;
-        g.obj.position.set(PL.ORIGIN.x + g.x, y, PL.ORIGIN.z + g.z);
-        g.obj.rotation.y = g.h;
+        toWorld(g.x, g.z, _w);
+        g.obj.position.set(_w.x, y, _w.z);
+        g.obj.rotation.y = wH(g.h);
         const flap = g.mode === "charge" || g.mode === "fly" || g.mode === "flee";
         if (g.neck) g.neck.rotation.x = g.mode === "charge" ? -0.7 + Math.sin(g.t * 9) * 0.15 : g.mode === "peck" ? -1.0 + Math.abs(Math.sin(g.t * 12)) * 0.6 : Math.sin(g.t * 1.3) * 0.4 - 0.2;
         g.wings.forEach((w, i) => { if (w) w.rotation.y = flap ? (i ? -1 : 1) * (0.4 + Math.sin(g.t * 18) * 0.5) : 0; });
@@ -314,7 +317,8 @@ function tickBikes(dt, lp, foot) {
                 const m = moves.length ? pick(moves) : null;
                 if (m && m.street !== st.id) {
                     const nst = PL.STREETS[m.street];
-                    streetCoords(nst, b.obj.position.x - PL.ORIGIN.x, b.obj.position.z - PL.ORIGIN.z, _c);
+                    toLocal(b.obj.position.x, b.obj.position.z, _w);
+                    streetCoords(nst, _w.x, _w.z, _c);
                     b.st = nst; b.dir = m.dir; along = nodeAlong(nst, c.node) + m.dir * 0.6; b.d = _c.d;
                 } else if (!m) b.dir = -b.dir;
                 break;
@@ -326,12 +330,13 @@ function tickBikes(dt, lp, foot) {
         const lane = b.dir * (2.7 + Math.sin(b.t * 0.55) * 1.3) * (Math.sin(b.t * 0.13) > 0.85 ? -1 : 1);
         b.d += (lane - b.d) * Math.min(1, dt * 1.2);
         const p = streetPoint(b.st, b.along, b.d, _l);
-        const wx = PL.ORIGIN.x + p.x, wz = PL.ORIGIN.z + p.z;
+        toWorld(p.x, p.z, _w);
+        const wx = _w.x, wz = _w.z;
         const want = headingOf(b.st, b.dir) + (lane - b.d) * 0.06 * b.dir;
         let dh = want - b.h; while (dh > Math.PI) dh -= Math.PI * 2; while (dh < -Math.PI) dh += Math.PI * 2;
         b.h += dh * Math.min(1, dt * 5);
         b.obj.position.set(wx, 0, wz);
-        b.obj.rotation.y = b.h;
+        b.obj.rotation.y = wH(b.h);
         b.hitT = Math.max(0, b.hitT - dt);
         b.obj.rotation.z = b.hitT > 0 ? Math.sin(b.hitT * 18) * 0.25 : Math.sin(b.t * 0.55) * 0.06;
         for (const w of b.wheels) w.rotation.x += b.speed * dt / 0.34;
@@ -392,7 +397,7 @@ function tickBumps() {
 function tickStops(dt) {
     const car = ctx.car, st = streetOfS(car.s);
     if (!st) { LIFE.appr = null; return; }
-    const along = car.s - st.base, vAlong = (car.vx * Math.sin(st.h) + car.vz * Math.cos(st.h));
+    const along = car.s - st.base, vAlong = (car.vx * Math.sin(wH(st.h)) + car.vz * Math.cos(wH(st.h)));
     const dir = vAlong >= 0 ? 1 : -1;
     // the stop line ahead in her direction of travel
     let stop = null, dist = 1e9;
@@ -424,7 +429,7 @@ function ranStop(stop) {
 function tickOneway(dt) {
     const car = ctx.car, st = streetOfS(car.s);
     if (!st || !st.oneway || Math.abs(car.d) > st.curb + 1) { LIFE.wrongCalm += dt; if (LIFE.wrongCalm > 4) { LIFE.wrongT = 0; LIFE.wrongSt = null; } return; }
-    const v = (car.vx * Math.sin(st.h) + car.vz * Math.cos(st.h)) * st.oneway;
+    const v = (car.vx * Math.sin(wH(st.h)) + car.vz * Math.cos(wH(st.h))) * st.oneway;
     if (v > -3) { LIFE.wrongCalm += dt; if (LIFE.wrongCalm > 4) { LIFE.wrongT = 0; LIFE.wrongSt = null; } return; }
     LIFE.wrongCalm = 0;
     LIFE.wrongT += dt;
