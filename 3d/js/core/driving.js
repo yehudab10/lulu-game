@@ -171,6 +171,7 @@ export function roadPos() {
         s: near.s, d: near.d, h: near.h, absd,
         offroad: absd > SHOULDER && !onPaved ? Math.min(1, (absd - SHOULDER) / 1.2) : 0,
         onShoulder: absd > HALF_ROAD - 0.2 && absd <= SHOULDER && !onPaved,
+        paved: !!onPaved,
     };
 }
 
@@ -206,7 +207,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     // physics (sub-stepped)
     const n = Math.max(1, Math.ceil(dt / (1 / 120)));
     for (let i = 0; i < n; i++) car.step(dt / n, ctl, { offroad });
-    if (absd > 70) {   // invisible fence far out in the fields
+    if (absd > 70 && !rp.paved) {   // invisible fence far out in the fields (not on a road out there: an interchange's cross road)
         const push = (absd - 70) * Math.sign(rp.d);
         car.pos.x -= -Math.cos(rp.h) * push;
         car.pos.z -= Math.sin(rp.h) * push;

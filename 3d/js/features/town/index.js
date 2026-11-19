@@ -46,7 +46,7 @@ import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, ho
 import { dissolve } from "../../core/transition.js";
 import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } from "./cops.js";
 import { PK, setupParked, tickParked, clearParked } from "./parked.js";
-import { X, FIT, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
+import { X, FIT, exitClear, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
 import { propsOf, railsOf } from "./exitbuild.js";
 import { TOWNS, townFor, INTERCHANGE, attachedDef } from "./towns/index.js";
 
@@ -183,6 +183,17 @@ function placeAt(def, exitS, k, two = true) {
     const [fx, fz] = A.approach.from, co = Math.cos(rot), si = Math.sin(rot);
     return { def: A, at: { x: P.x - (fx * co + fz * si), z: P.z - (-fx * si + fz * co), rot }, k, exitS, cu: c.u, d0 };
 }
+/** A standing town's whole-town meshes (asphalt, sidewalks, paint, the sign atlas) and the rest of its root: not drawn
+ *  when the camera is far off (> 900 m) — nor its ground when she's inside ANOTHER town and it's more than 60 m off
+ *  (behind that town's blocks; the ground is flat, the clusters standing on it are culled on their own). */
+function cullStanding(en) {
+    const T = en.T, c = ctx.camera.position, p = localIn(en.at, c.x, c.z, {}), b = en.box;
+    const dist = Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.z0 - p.z, 0, p.z - b.z1));
+    T.root.visible = dist < 900;
+    T.coinMesh.visible = dist < 400;
+    const ground = dist < (S.att ? 60 : 900);
+    for (const m of T.ground || []) m.visible = ground;
+}
 /** A world point in a placement's local frame. */
 function localIn(at, x, z, out = {}) { const dx = x - at.x, dz = z - at.z, co = Math.cos(at.rot), si = Math.sin(at.rot); out.x = dx * co - dz * si; out.z = dx * si + dz * co; return out; }
 /** A town's footprint (local bbox of everything it builds: streets, woods, water, skyline), cached per def. */
@@ -284,7 +295,7 @@ function tendAttached(dt) {
     for (const e of X.exits) if (e.s - s < BUILD_FROM && s - e.s < ACC1) planBuilds(e);
     for (const en of [...S.built]) if (en !== S.att && (Math.abs(s - en.exitS) > DROP_PAST + BUILD_FROM || s - en.exitS > DROP_PAST)) dropBuilt(en);
     advanceBuilds();
-    if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => cullClusters(en.T, true));
+    if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
 }
 /** Where she is along the highway (in a town: by the exit she took). */
 const hwS = () => S.active ? S.exitS + (S.att ? S.att.cu : 0) : ctx.car.s;
@@ -305,6 +316,29 @@ function attachedFootIn() {
     if (S.active || S.trans || !S.built.length || !footing()) return;
     const P0 = herPos(), en = attachedAt(P0.x, P0.z);
     if (en) enterTown(null, { entry: en, drove: true });
+}
+/** In an attached town: is a sample point (world) hidden from the camera by this town's own blocks? */
+const _ca = {}, _cb = {};
+function hiddenByTown(x, z) {
+    if (!S.att || !S.occ) return false;
+    const c = ctx.camera.position;
+    localIn(S.att.at, c.x, c.z, _ca); localIn(S.att.at, x, z, _cb);
+    return sightBlocked(_ca.x, _ca.z, _cb.x, _cb.z, S.occ);
+}
+/** world.cullChunks asks (keepHighway): draw this highway chunk? Not when the town's blocks hide all of it (re-judged
+ *  every few frames per chunk). */
+const _hp = {};
+function seeChunk(c) {
+    const now = ctx.frames || 0;
+    if (c.townSee && now - c.townSee.f < 6) return c.townSee.v;
+    let v = false;
+    const hw = ctx.world.highway;
+    for (let i = 0; i <= 4 && !v; i++) for (const d of [-30, 0, 30]) {
+        hw.point(c.s0 + (c.s1 - c.s0) * i / 4, d, _hp);
+        if (!hiddenByTown(_hp.x, _hp.z)) { v = true; break; }
+    }
+    c.townSee = { f: now, v };
+    return v;
 }
 /** The ready attached town she's in (on its approach past the line, or inside its footprint), or null. */
 function attachedAt(x, z, line = 4) {
@@ -345,11 +379,13 @@ function enterTown(e = null, opts = {}) {
     S.att = en; S.at = en ? en.at : null;
     S.exitS = en ? en.exitS : e ? e.s : (opts.exitS != null ? opts.exitS : car.s);
     const T = S.T = en ? en.T : buildTown(def);
+    if (en) { T.root.visible = true; T.coinMesh.visible = true; for (const m of T.ground || []) m.visible = true; }
     setupParked(T);
     if (!en) { ctx.scene.add(T.root); ctx.scene.add(T.coinMesh); }
     S.road = new TownRoad(world.highway);
     S.chunk = makeChunk(T);
-    world.setDistrict({ road: S.road, chunks: [S.chunk], ground: def.ground, keepHighway: !!en });
+    S.occ = PL.OCCLUDERS;
+    world.setDistrict({ road: S.road, chunks: [S.chunk], ground: def.ground, keepHighway: !!en, see: en ? seeChunk : null });
     S.active = true;
     S.savedTraffic = tr.config.enabled;
     tr.config.enabled = false;
@@ -590,6 +626,7 @@ function samplesOf(m, T) {
     }
     return (m.userData.samples = out);
 }
+const _sw = {};
 function cullClusters(T, outside = false) {
     const MD = outside ? MAX_D_OUT : MAX_D;
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
@@ -602,7 +639,7 @@ function cullClusters(T, outside = false) {
         let vis = d <= (MD[m.userData.townLook] || 250);
         if (vis && d > 24) {
             vis = false;
-            for (const [px, pz] of samplesOf(m, T)) if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
+            for (const [px, pz] of samplesOf(m, T)) if (!sightBlocked(cam.x, cam.z, px, pz) && !(outside && S.att && hiddenByTown(toWorld(px, pz, _sw).x, _sw.z))) { vis = true; break; }
         }
         m.visible = vis;
         if (vis) shown++;
@@ -906,8 +943,8 @@ ctx.town = {
             let s0 = ctx.car.s + ahead;
             for (let k = 0; k < 80; k++) {
                 const a = ctx.car.s + ahead + k * 25, b = ctx.car.s + ahead - k * 25;
-                if (FIT.fits(a, towns)) { s0 = a; break; }
-                if (b > ctx.car.s + 240 && FIT.fits(b, towns)) { s0 = b; break; }
+                if (exitClear(a, towns) && !X.exits.some(e => Math.abs(e.s - a) < 900)) { s0 = a; break; }
+                if (b > ctx.car.s + 240 && exitClear(b, towns) && !X.exits.some(e => Math.abs(e.s - b) < 900)) { s0 = b; break; }
             }
             const e = planExit(s0, towns);
             if (!e) return null;
@@ -948,7 +985,7 @@ ctx.town = {
         placeAt: (id, exitS, k) => { const P = placeAt(TOWNS[id], exitS, k); return P ? { at: P.at, approach: P.def.approach, box: boxOf(P.def), cu: P.cu, d0: P.d0 } : null; },
         fits: (s) => FIT.fits(s, INTERCHANGE.towns),
         /** A local point of the town she's in (or the standing town `id`) → world. */
-        world(lx, lz, id = null) { const en = id ? S.built.find(b => b.def.id === id) : null; if (en) { const co = Math.cos(en.at.rot), si = Math.sin(en.at.rot); return { x: en.at.x + lx * co + lz * si, z: en.at.z - lx * si + lz * co }; } return toWorld(lx, lz, {}); },
+        world(lx, lz, id = null) { const en = id ? S.built.filter(b => b.def.id === id).sort((p, q) => Math.abs(p.exitS - hwS()) - Math.abs(q.exitS - hwS()))[0] : null; if (en) { const co = Math.cos(en.at.rot), si = Math.sin(en.at.rot); return { x: en.at.x + lx * co + lz * si, z: en.at.z - lx * si + lz * co }; } return toWorld(lx, lz, {}); },
     },
 };
 /** A build spot / home (local: x, z, rot, ux uz, nx nz, cx cz, lotX lotZ) → world (lx / lz keep the local point). */

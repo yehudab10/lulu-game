@@ -84,7 +84,7 @@ module.exports = {
       t.check("the next-exit chip shows both towns (≤ 1 mi ahead)", await t.L(`/EXIT.*91.*LAKEWOOD.*9.*BROOKLYN/.test((document.querySelector(".exits-chip") || {}).textContent || "")`), await t.L(`(document.querySelector(".exits-chip") || {}).textContent || "none"`));
       t.check("…as a .hud-secondary chip (HUD Clean hides it)", await t.L(`!!document.querySelector(".exits-chip.hud-secondary")`));
       // into the decel lane (the cue), then back into the right lane before the gore
-      await route(E, [[-260, 5.25], [-200, 6.2], [-150, 8.6], [-110, 8.7], [-70, 8.4], [-40, 6.2], [-10, 5.25], [80, 5.25], [260, 5.25]], 20, { r: 6 });
+      await route(E, [[-260, 5.25], [-200, 6.2], [-150, 8.6], [-110, 8.7], [-70, 8.4], [-40, 6.2], [-10, 5.25], [40, 5.25], [90, 5.25], [140, 5.25], [190, 5.25], [240, 5.25], [290, 5.25]], 20, { r: 6 });
       await t.until(`__lulu3d.ctx.car.s > ${E} - 120`, "drives down to the gantry", 40000);
       t.check("in the decel lane: the EXIT ONLY cue (steer left to stay on)", await t.until(`/EXIT ONLY/.test(__lulu3d.ctx.town.debug.S.cue || "") || __lulu3d.ctx.car.s > ${E} - 50`, "cue or past", 20000) && /EXIT ONLY/.test(await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`) + await g(`ctx.town.debug.S.cue || ""`)));
       await t.shot("decel-lane-gantry");
@@ -104,7 +104,7 @@ module.exports = {
         await g(`ctx.town.load("${id}")`);
         await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models load`, 60000);
         await place(E - 240, 5.25, 15);
-        await route(E, await toTown(E, outer), 16, { r: 6 });
+        await route(E, await toTown(E, outer), 11, { r: 6 });
         if (outer) {
           await t.until(`(() => { const p = __lulu3d.ctx.town.debug.rampPhase(); return p && p.phase === "ramp" || __lulu3d.ctx.town.active; })()`, "on the shared ramp", 40000);
           t.check("on the ramp: the cue names both branches", /LAKEWOOD.*BROOKLYN/.test(await g(`ctx.town.debug.S.cue || ""`)) || await g(`ctx.town.active`), await g(`ctx.town.debug.S.cue || ""`));

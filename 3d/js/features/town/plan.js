@@ -393,9 +393,9 @@ export function segmentBlocked(ax, az, bx, bz) {
 
 /** Like segmentBlocked, but blocks containing either end don't count (the camera can stand in a yard;
  *  a cluster's sample point sits inside its own block). For the town's cluster culling. */
-export function sightBlocked(ax, az, bx, bz) {
+export function sightBlocked(ax, az, bx, bz, occ = PL.OCCLUDERS) {
     const dx = bx - ax, dz = bz - az;
-    for (const r of PL.OCCLUDERS) {
+    for (const r of occ) {
         if ((bx > r.x0 && bx < r.x1 && bz > r.z0 && bz < r.z1) || (ax > r.x0 && ax < r.x1 && az > r.z0 && az < r.z1)) continue;
         let t0 = 0, t1 = 1;
         if (Math.abs(dx) < 1e-9) { if (ax < r.x0 || ax > r.x1) continue; }

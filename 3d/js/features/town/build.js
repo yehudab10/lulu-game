@@ -552,6 +552,7 @@ export function* buildTownSteps(def) {
     const markMesh = new THREE.Mesh(quadsGeo(marks, 0, true), markMat);
     yield "marks";
     for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
+    T.ground = [asphaltMesh, walkMesh, markMesh];       // (index.js hides a standing town's ground when it's far / behind another town)
 
     // ── bake ─────────────────────────────────────────────────────────────
     yield "bake@550";
@@ -563,6 +564,7 @@ export function* buildTownSteps(def) {
     const signMesh = yield* atlas.meshSteps();
     yield "atlas";
     root.add(signMesh);
+    T.ground.push(signMesh);
     own.push(signMesh.geometry, signMesh.material, signMesh.material.map);
     T.tris = merge.tris + mergeFar.tris;
     T.merged = merged.length;

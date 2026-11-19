@@ -900,6 +900,8 @@ export class World {
         for (const c of this.chunks.values()) {
             const dx = c.center.x - camPos.x, dz = c.center.z - camPos.z;
             c.group.visible = c.noCull || dx * dx + dz * dz < (far + c.radius) * (far + c.radius);
+            // (in a district that keeps the highway: it may hide a chunk it stands in front of — a town's blocks)
+            if (c.group.visible && this.district && this.district.see && !this.district.see(c)) c.group.visible = false;
         }
     }
 
