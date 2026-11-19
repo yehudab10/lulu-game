@@ -158,6 +158,7 @@ async function script(f) {
     st.walkers.push({ p: l, x: lp.x + Math.cos(car.h) * 0.9, z: lp.z - Math.sin(car.h) * 0.9, speed: 1.4 });
     st.phase = "cuff";
     await f.sleep(0.7);
+    check(f);      // (the state may have been left meanwhile: pause → title)
     // CUFFING — the rings snap on, *click*
     UI.caption(pick(CUFF_LINES));
     st.copPoint = true;

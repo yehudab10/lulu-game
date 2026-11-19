@@ -258,7 +258,7 @@ export function badTick(dt, E) {
     if (E.cop) copTick(dt, E);
     // gone: far enough away (or the pulled-over scene is well behind her)
     const rel = c.s - ctx.car.s;
-    if ((E.result && (rel > 320 || rel < -170)) || E.t > 140) removeCar(c);
+    if ((E.result && (rel > 320 || rel < -170)) || E.t > 240) removeCar(c);
 }
 
 function cleanup(E) {
