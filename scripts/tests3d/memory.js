@@ -40,7 +40,7 @@ module.exports = {
         N.want = was; return r; })()`);
     // (memory is PERSONAL in a party: it records + talks, but no grudge car / WANTED billboard in the shared world)
     t.check("a 🎉 party: memory on but personal (no world surprises)", partyOff.enabled && !partyOff.live, JSON.stringify(partyOff));
-    t.check("party/index.js no longer keeps memory / banter in its OFF set", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"memory"/.test(m[1]) && !/"banter"/.test(m[1]) && /"streets"/.test(m[1]); })`));
+    t.check("party/index.js no longer keeps memory / banter in its OFF set (journey still is: the regex found the set)", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"memory"/.test(m[1]) && !/"banter"/.test(m[1]) && /"journey"/.test(m[1]); })`));
 
     // ── 😤 1. a real carjack → remembered ───────────────────────────────────
     await g(`L3.startRun({ mode: "cruise" })`);
