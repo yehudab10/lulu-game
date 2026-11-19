@@ -72,21 +72,27 @@ module.exports = {
           window.__route = { pts, v: 15, r: 6 }; return true; })()`);
       await t.until(`__lulu3d.ctx.car.s > ${E} - 120`, "she drives down to the exit", 40000);
       await t.shot("exit-ramp");
-      // past COMMIT on the branch: town:exit, then she drives on to the T-junction's STOP sign before the fade
+      // past COMMIT on the branch: town:exit, then she drives on to the T-junction's STOP sign — and on through it:
+      // the towns stand right there (built in slices as she came up the highway), so there's no fade at all
       await t.until(`__lulu3d.ctx.town.debug.S.commit || __lulu3d.ctx.town.transitioning || __lulu3d.ctx.town.active`, "past COMMIT on the branch", 40000);
-      t.check("committing to the branch fires town:exit before the fade (she drives on to the T-junction)", (await evs()).some(e => e.startsWith("town:exit")) && await g(`!!ctx.town.debug.S.commit || ctx.town.transitioning`));
+      t.check("committing to the branch fires town:exit (she drives on to the T-junction)", (await evs()).some(e => e.startsWith("town:exit")) && await g(`!!ctx.town.debug.S.commit || ctx.town.transitioning`));
+      t.check("Lakewood + Midwood are built and standing at the interchange by then", await g(`ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1 && b.ready).length === 2`), JSON.stringify(await g(`ctx.town.standing`)));
+      await g(`(() => { const hw = ctx.world.highway, pts = window.__route.pts; for (const d of [44, 70, 110, 160, 210]) { const p = hw.point(${E} + 172.2, d, {}); pts.push({ x: p.x, z: p.z }); } window.__route.v = 11; return true; })()`);
+      await t.until(`__lulu3d.ctx.car.s > ${E} + 150`, "at the T", 40000);
       await t.shot("exit-tee");
-      if (!await t.until(`__lulu3d.ctx.town.active`, "steering onto the off-ramp takes her into town (town:enter)", 40000)) return;
-      await g(`(window.__route = null, true)`);
-      t.check("town:enter fired", (await evs()).some(e => e.startsWith("town:enter")));
-      t.check("in town: world.road is the TownRoad, still the 'playing' state", await g(`ctx.world.road.town === true && L3.state === "playing"`));
+      t.check("no fade at the STOP sign (the town is right there)", await g(`!ctx.town.transitioning`));
+      if (!await t.until(`__lulu3d.ctx.town.active`, "through the T and out the cross road: into town (town:enter)", 40000)) return;
+      t.check("town:enter fired — attached, she drove in", (await evs()).some(e => e.startsWith("town:enter") && /"drove":true/.test(e)));
+      t.check("in town: world.road is the TownRoad, still the 'playing' state", await g(`ctx.world.road.town === true && L3.state === "playing" && ctx.town.attached`));
       t.check("every sign fits the one atlas (readable scale)", await g(`ctx.town.debug.S.T.signs.scale >= 0.55 && ctx.town.debug.S.T.signs.cells.length > 20`), String(await g(`[ctx.town.debug.S.T.signs.scale.toFixed(2), ctx.town.debug.S.T.signs.cells.length]`)));
-      t.check("the highway's chunks are hidden, not streamed", await g(`[...ctx.world.chunks.values()].every(c => !c.group.visible)`));
+      t.check("the highway's chunks are still there (drawn, not streamed): she drove off it, it's behind her", await g(`[...ctx.world.chunks.values()].some(c => c.group.visible)`));
       t.check("the trip bar is a street chip (Route 9 · LAKEWOOD)", await t.L(`/Route 9 · LAKEWOOD/.test(document.getElementById("tripLabel").textContent)`), await t.L(`document.getElementById("tripLabel").textContent`));
-      await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
-      await t.frames(10);
+      await t.until(`!__lulu3d.ctx.town.debug.S.att || !window.__route.pts.length`, "on up Route 9", 40000);
       await t.shot("welcome");
       t.check("drivers are out (silver minivans, a bus, the patrol)", await g(`ctx.town.debug.C.cars.length >= 6 && ctx.traffic.cars.some(c => c.kind === "town_van")`), String(await g(`ctx.town.debug.C.cars.map(c => c.kind).join(",")`)));
+      await attached(t, g, E, perf);
+      // (the rest of this test drives the stand-alone town — ctx.town.enter() — the same engine, unturned)
+      await g(`(window.__route = null, ctx.town.leave("reset"), true)`);
     });
 
     await step("corner", async () => {
@@ -471,3 +477,57 @@ module.exports = {
 
   },
 };
+
+/** ONE WORLD: the attached towns' placement, Midwood by Avenue P, on foot across the line, the budget in an attached town. */
+async function attached(t, g, E, perf) {
+  const D = `ctx.town.debug`;
+  // placement: the inner cross road runs straight on into Route 9 (same line, same heading); both towns clear the highway
+  const pl = await g(`(() => { const P = ${D}.placeAt("lakewood", ${E}, 0), hw = ctx.world.highway, a = hw.point(${E} + P.cu, P.d0, {}), b = hw.point(${E} + P.cu, 160, {});
+    const w0 = ${D}.world(P.approach.from[0], P.approach.from[1], "lakewood"), w1 = ${D}.world(0, -96, "lakewood");
+    return { from: +Math.hypot(w0.x - a.x, w0.z - a.z).toFixed(2), r9: +Math.abs((b.x - a.x) * (w1.z - a.z) - (b.z - a.z) * (w1.x - a.x)) / Math.hypot(b.x - a.x, b.z - a.z) }; })()`);
+  t.check("attached: Lakewood's Route 9 continues the inner cross road (on its line, from its far end)", pl.from < 0.5 && pl.r9 < 0.5, JSON.stringify(pl));
+  t.check("…and every planned interchange has both towns ≥ 100 m clear of the highway", await g(`ctx.town.debug.exits().every(s => ${D}.fits(s))`));
+  t.check("the approach isn't somewhere to hide (a travel lane)", await g(`(() => { const P = ${D}.placeAt("lakewood", ${E}, 0), w = ${D}.world(P.approach.from[0], P.approach.from[1] + 30, "lakewood"); const h = ctx.town.hideSpot(w.x, w.z); return h && !h.ok && h.why === "lane"; })()`));
+  // the budget in an attached town (the highway's chunks and Midwood stand nearby): Main St east, the busiest view
+  await g(`(window.__route = null, ${D}.place("Main St", 60, 1.75, 6, 1))`);
+  await t.frames(40);
+  const town = await perf(120);
+  console.log("   PERF attached town", JSON.stringify(town));
+  t.check("attached town draw calls ≤ the stand-alone town's budget (240)", town.calls <= 240, String(town.calls));
+  t.check("attached town triangles ≤ 115k", town.tris <= 115000, String(town.tris));
+  await t.shot("attached-main-st");
+  // back out by Route 9 and the T, then Midwood: the outer branch's cross road runs on as Avenue P to Ocean Pkwy's corner
+  await g(`(ctx.town.leave("reset"), ${D}.exitAhead(700))`);
+  const E2 = await g(`${D}.exits().slice(-1)[0]`);
+  await g(`${D}.buildNow()`);
+  await t.until(`__lulu3d.ctx.town.standing.filter(b => Math.abs(b.exitS - ${E2}) < 1 && b.ready).length === 2 || (${D}.buildNow(), false)`, "Midwood + Lakewood built at the next interchange", 30000);
+  await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E2} + 122.2, 64, {}), q = hw.point(${E2} + 122.2, 90, {}), h = Math.atan2(q.x - p.x, q.z - p.z);
+    ctx.car.place(p.x, p.z, h); ctx.car.s = ${E2} + 122.2; ctx.car.d = 64; ctx.car.vx = Math.sin(h) * 8; ctx.car.vz = Math.cos(h) * 8; ctx.car.vF = 8; ctx.world.prebuild(${E2}); ctx.cam.snap();
+    const P = ${D}.placeAt("midwood", ${E2}, 1), pts = [];
+    for (const [x, z] of [[-470, -345], [-420, -345], [-372, -345], [-320, -345], [-268, -343], [-253, -330], [-252.5, -300], [-252.5, -250]]) pts.push(${D}.world(x, z, "midwood"));
+    window.__route = { pts, v: 9, r: 5 }; return true; })()`);
+  if (await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "the outer cross road takes her into Midwood (attached)", 40000)) {
+    t.check("…on Avenue P", await g(`ctx.town.street === "Avenue P" && ctx.town.attached`), await g(`ctx.town.street`));
+    await t.until(`__lulu3d.ctx.town.street === "Ocean Pkwy" || !window.__route.pts.length`, "round the corner onto Ocean Pkwy", 60000);
+    t.check("…round the corner onto Ocean Pkwy (Midwood stands behind the ramp)", await g(`ctx.town.street === "Ocean Pkwy"`), await g(`ctx.town.street`));
+    await t.shot("attached-midwood");
+  }
+  await g(`(window.__route = null, true)`);
+  // on foot across the line: out of the car at the inner T (the highway's road), walk out the cross road → in town; back → out
+  await g(`ctx.town.active ? ctx.town.leave("reset") : 0`);
+  await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E2} + 172.2, 38, {}); ctx.car.place(p.x, p.z, p.h - Math.PI / 2); ctx.car.s = ${E2} + 172.2; ctx.car.d = 38; ctx.world.prebuild(${E2}); ctx.cam.snap(); return true; })()`);
+  await t.frames(5);
+  await g(`(ctx.foot.start("droveOff"), true)`);
+  if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "on foot at the T", 8000)) {
+    t.check("on foot at the T: still the highway's road", await g(`!ctx.town.active`));
+    const walk = async (d0, d1) => { for (let d = d0; Math.sign(d1 - d0) * (d1 - d) > 0; d += Math.sign(d1 - d0) * 1.2) { await g(`(() => { const p = ctx.world.highway.point(${E2} + 172.2 - 1, ${d}, {}); ctx.foot.debug.F.pos.set(p.x, 0.05, p.z); return true; })()`); await t.frames(1); } };
+    await walk(40, 60);
+    await t.frames(3);
+    t.check("…walking out the cross road takes her into Lakewood (on foot, no cut)", await g(`ctx.town.active && ctx.town.attached && ctx.town.id === "lakewood" && L3.state === "footRun"`), await g(`[ctx.town.active, ctx.town.id, L3.state]`));
+    await walk(60, 40);
+    await t.frames(3);
+    t.check("…and walking back past the line, the highway's road again (her road position sane)", await g(`!ctx.town.active && ctx.foot.debug.F.s < ${E2} + 400 && ctx.foot.debug.F.s > ${E2}`), String(await g(`ctx.foot.debug.F.s`)));
+    await g(`(L3.setState("playing"), true)`);
+    await t.frames(3);
+  }
+}

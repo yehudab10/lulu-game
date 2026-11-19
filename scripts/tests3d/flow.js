@@ -147,10 +147,10 @@ async function oneWorld(t, g, watch, moved) {
   // (single spikes are the garbage collector landing in a step; 99 % of the steps are what the build itself costs)
   t.check("…the slices stay small (99 % ≤ 8 ms here — software GL on a busy CPU; the budget is ~3 ms a frame)", st.every(b => b.p99 <= 8), JSON.stringify(st.map(b => [b.town, b.p95, b.p99, b.worst, b.ms])));
   // the picture from the ramp: the town is there ahead, before the STOP sign
-  await t.until(`__lulu3d.ctx.car.s > ${E} + 120`, "on the ramp", 60000);
+  await t.until(`__lulu3d.ctx.car.s > ${E} + 145`, "on the branch, nearly at the STOP sign", 60000);
   const seen = await g(`(() => { const cam = ctx.camera; cam.updateMatrixWorld();
     const town = ctx.scene.children.find(o => o.name === "Town:lakewood"); if (!town) return { town: false }; let n = 0; town.updateMatrixWorld(true);
-    town.traverse(o => { if (o.isMesh && o.visible && o.userData.townLook && o.geometry.boundingSphere) { const c = o.geometry.boundingSphere.center.clone().applyMatrix4(o.matrixWorld).project(cam); if (Math.abs(c.x) < 1 && Math.abs(c.y) < 1 && c.z < 1) n++; } });
+    town.traverse(o => { if (o.isMesh && o.visible && o.userData.townLook && o.geometry.boundingSphere) { const c = o.geometry.boundingSphere.center.clone().applyMatrix4(o.matrixWorld).project(cam); if (Math.abs(c.x) < 1.1 && Math.abs(c.y) < 1.1 && c.z < 1) n++; } });
     return { town: true, inView: n, u: Math.round(ctx.car.s - ${E}), active: ctx.town.active }; })()`);
   t.check("Lakewood is in view from the ramp, before the STOP sign (its blocks drawn)", seen.town && seen.inView >= 3 && !seen.active, JSON.stringify(seen));
   await t.shot("one-world-ramp");

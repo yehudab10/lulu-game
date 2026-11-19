@@ -268,7 +268,7 @@ function finishBuild(en, T) {
     // (the coins stand still until she's in: tick() spins them)
     T.coins.forEach((c, i) => { _m.compose(_p.set(c.x, 1.05, c.z), _q.identity(), _s.setScalar(c.value > 1 ? 1.25 : 1)); T.coinMesh.setMatrixAt(i, _m); });
     T.coinMesh.instanceMatrix.needsUpdate = true;
-    cullClusters(T);
+    cullClusters(T, true);
     emit("town:built", { town: en.def.id, exitS: en.exitS, ms: +en.ms.toFixed(1), steps: en.steps, worst: +en.worst.toFixed(2) });
 }
 function dropBuilt(en) {
@@ -284,7 +284,7 @@ function tendAttached(dt) {
     for (const e of X.exits) if (e.s - s < BUILD_FROM && s - e.s < ACC1) planBuilds(e);
     for (const en of [...S.built]) if (en !== S.att && (Math.abs(s - en.exitS) > DROP_PAST + BUILD_FROM || s - en.exitS > DROP_PAST)) dropBuilt(en);
     advanceBuilds();
-    if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => cullClusters(en.T));
+    if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => cullClusters(en.T, true));
 }
 /** Where she is along the highway (in a town: by the exit she took). */
 const hwS = () => S.active ? S.exitS + (S.att ? S.att.cu : 0) : ctx.car.s;
@@ -567,6 +567,9 @@ const RAIL_HOOKS = {
 // (the frustum alone sees "through" the whole town from any street). Per merged cluster: hidden when
 // it's past its look's distance, or when every sample point is behind some other block.
 const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110, far: 700, farglow: 700 };
+// (a town STANDING by the road, seen from outside it — the ramp, the highway: its edge rows of woods / parked cars carry
+//  further, so it reads as a town ahead; its own outer blocks still hide what's behind them)
+const MAX_D_OUT = { flat: 240, solid: 380, glow: 260, lit: 260, glass: 110, far: 700, farglow: 700 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
 /** A cluster's sample points (local): its cell's corners / edges / centre, PLUS every street point inside it (the kerbs,
  *  the parking lanes, the centre line, every 10 m) — what a cluster shows lines the streets, and a cell's own 9 points can
@@ -587,7 +590,8 @@ function samplesOf(m, T) {
     }
     return (m.userData.samples = out);
 }
-function cullClusters(T) {
+function cullClusters(T, outside = false) {
+    const MD = outside ? MAX_D_OUT : MAX_D;
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
     let shown = 0;
     for (const m of T.clusters) {
@@ -595,7 +599,7 @@ function cullClusters(T) {
         if (!c) continue;
         const nx = Math.max(c.x0, Math.min(c.x1, cam.x)), nz = Math.max(c.z0, Math.min(c.z1, cam.z));
         const d = Math.hypot(nx - cam.x, nz - cam.z);
-        let vis = d <= (MAX_D[m.userData.townLook] || 250);
+        let vis = d <= (MD[m.userData.townLook] || 250);
         if (vis && d > 24) {
             vis = false;
             for (const [px, pz] of samplesOf(m, T)) if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }

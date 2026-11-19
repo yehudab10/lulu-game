@@ -40,7 +40,8 @@ module.exports = {
     const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
     const offD = u => 8.9 + 18.1 * sm((u + 80) / 90), onD = u => 27 - 18.1 * sm((u - 222) / 100);
     // the driving line onto a branch comes from the interchange's own layout (features/town/exit.js)
-    const toTown = (E, outer) => g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240)`);
+    // (down the ramp to the branch's STOP line — then through the T and out its cross road: the towns stand right there now)
+    const toTown = async (E, outer) => (await g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240)`)).concat(outer ? [[122.2, 82], [122.2, 110], [122.2, 150]] : [[172.2, 48], [172.2, 80], [172.2, 120]]);
     // advance / close any dialogue (a stray ✕ that re-opens a menu gets "Just looking")
     const dialogOut = async () => {
       for (let i = 0; i < 16; i++) {
