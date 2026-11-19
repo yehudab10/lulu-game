@@ -330,6 +330,25 @@ const RAIL_HOOKS = {
 // it's past its look's distance, or when every sample point is behind some other block.
 const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110, far: 700, farglow: 700 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
+/** A cluster's sample points (local): its cell's corners / edges / centre, PLUS every street point inside it (the kerbs,
+ *  the parking lanes, the centre line, every 10 m) — what a cluster shows lines the streets, and a cell's own 9 points can
+ *  all sit behind blocks while a parked car in it stands in plain sight down a cross street (that hid ~1 in 15 of them). */
+function samplesOf(m, T) {
+    if (m.userData.samples) return m.userData.samples;
+    const c = m.userData.cell, out = SAMPLES.map(([u, v]) => [c.x0 + (c.x1 - c.x0) * u, c.z0 + (c.z1 - c.z0) * v]);
+    // (and the parked cars themselves, in the clusters they're baked into)
+    if (m.userData.townLook === "flat") for (const pc of T.pcars) if (pc.x >= c.x0 && pc.x < c.x1 && pc.z >= c.z0 && pc.z < c.z1) out.push([pc.x, pc.z]);
+    const p = {};
+    for (const st of PL.STREETS) {
+        const ds = [0, st.park || st.curb || 3, -(st.park || st.curb || 3)];
+        if (st.boulevard && st.svcPark) ds.push(st.svcPark, -st.svcPark);
+        for (let a = st.a0; a <= st.a1; a += 10) for (const d of ds) {
+            streetPoint(st, a, d, p);
+            if (p.x >= c.x0 - 1 && p.x <= c.x1 + 1 && p.z >= c.z0 - 1 && p.z <= c.z1 + 1) out.push([p.x, p.z]);
+        }
+    }
+    return (m.userData.samples = out);
+}
 function cullClusters(T) {
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
     let shown = 0;
@@ -341,10 +360,7 @@ function cullClusters(T) {
         let vis = d <= (MAX_D[m.userData.townLook] || 250);
         if (vis && d > 24) {
             vis = false;
-            for (const [u, v] of SAMPLES) {
-                const px = c.x0 + (c.x1 - c.x0) * u, pz = c.z0 + (c.z1 - c.z0) * v;
-                if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
-            }
+            for (const [px, pz] of samplesOf(m, T)) if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
         }
         m.visible = vis;
         if (vis) shown++;

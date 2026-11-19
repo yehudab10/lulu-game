@@ -193,6 +193,23 @@ module.exports = {
       // the pool: a car the town hid (its far-car LOD) and gave back must come out VISIBLE for the next owner (a chase cruiser)
       const pool = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); c.obj.visible = false; ctx.traffic.remove(c);
           const c2 = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); const v = c2.obj.visible; ctx.traffic.remove(c2); return c2.obj === c.obj && v; })()`);
+      // the parked cars' merged clusters: one in plain sight (in view, no block between) is never culled away
+      let seen = 0, hid = [];
+      for (const [name, a0, a1] of await g(`${D}.PL.STREETS.map(s => [s.name, s.a0, s.a1])`)) for (const f of [0.2, 0.5, 0.8]) {
+        await g(`(${D}.place(${JSON.stringify(name)}, ${a0} + (${a1} - ${a0}) * ${f}, 1.75, 0, 1), ctx.cam.snap(), true)`);
+        await t.frames(7);
+        const r = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, cam = ctx.camera; cam.updateMatrixWorld();
+            const cl = ${D}.local(cam.position.x, cam.position.z), out = { seen: 0, bad: [] };
+            for (const p of T.pcars) { if (p.live || p.gone) continue; const d = Math.hypot(p.x - cl.x, p.z - cl.z); if (d > 120) continue;
+              const v = cam.position.clone().set(O.x + p.x, 1, O.z + p.z).project(cam); if (Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95 || v.z > 1 || v.z < -1) continue;
+              if (${D}.sightBlocked(cl.x, cl.z, p.x, p.z)) continue;
+              out.seen++;
+              const m = T.clusters.find(m => m.userData.townLook === "flat" && p.x >= m.userData.cell.x0 && p.x < m.userData.cell.x1 && p.z >= m.userData.cell.z0 && p.z < m.userData.cell.z1);
+              if (!m || !m.visible) out.bad.push(Math.round(d)); }
+            return out; })()`);
+        seen += r.seen; if (r.bad.length) hid.push(`${name}@${f}:${r.bad.join("/")}`);
+      }
+      t.check(`no parked car in plain sight is culled with its cluster (${seen} checked)`, seen > 50 && !hid.length, hid.slice(0, 6).join(" "));
       t.check("a pooled car body comes back visible (the town's far-car LOD can't leak an invisible cruiser)", pool);
       await t.shot("cars-visible");
     });
