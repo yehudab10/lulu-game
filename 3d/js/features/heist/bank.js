@@ -46,6 +46,9 @@ const def = defineInterior({
         rt.person("line0", "npcWoman", "line0", { colors: { Top: pick(tint) }, faceLulu: false, name: "A woman in line" });
         rt.person("line1", "npcMan", "line1", { colors: { Top: pick(tint) }, faceLulu: false, name: "A man in line" });
         rt.person("line2", "npcWoman", "line2", { colors: { Top: pick(tint), Hair: "#9E9E9E" }, faceLulu: false, name: "A bubbe in line" });
+        // (the line faces the teller's window, whatever the exported spot's rotation says)
+        const win = rt.spot("window") || rt.spot("teller");
+        if (win) for (const id of ["line0", "line1", "line2"]) rt.byId[id].p.face(win.x, win.z - 2, 1, 100);
 
         // ── hotspots ──
         rt.hot({ id: "teller", spot: "window", who: "teller", r: 1.5, label: "💬 Talk to the teller",
@@ -104,6 +107,7 @@ async function caseVault(rt) {
 function door() {
     if (!inTown() || (ctx.party && ctx.party.active) || !ctx.interiors || !ctx.interiors.bank) return null;
     if ((ctx.law && ctx.law.chasing) || (ctx.foot && ctx.foot.chasing)) return null;
+    if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return null;   // (✋ is the TACKLE right now, not the door)
     const sp = ctx.town.spot("bank");
     return sp ? { x: sp.x, z: sp.z } : null;
 }

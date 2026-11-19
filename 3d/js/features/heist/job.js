@@ -215,6 +215,9 @@ function getawayTick(dt) {
         if (ctx.state === "playing" && !(ctx.law && ctx.law.chasing)) { job.pulledT += dt; if (job.pulledT > 1.5) paid(job, "talked"); }
         return;
     }
+    // (a getaway with no chase any more and no result — e.g. an arrest that never got going): the job's off
+    if (job.phase === "getaway" && ctx.state === "playing" && !(ctx.law && ctx.law.chasing)) { job.idleT = (job.idleT || 0) + dt; if (job.idleT > 4) return failed(job, "lost"); }
+    else job.idleT = 0;
     const left = job.bags - job.lost;
     setChip("💰 THE GETAWAY · lose the cops", `💰 bags ${left}/${job.bags} · ${"★".repeat(Math.max(1, job.stars || 1))}${ctx.law && ctx.law.searching ? " · 👀 they lost sight of you!" : ""}`,
         ctx.law && ctx.law.chasing ? ctx.law.searchProgress : null, "#66BB6A");

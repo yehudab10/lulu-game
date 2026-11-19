@@ -319,7 +319,7 @@ function foil(ev, how) {
     const how2 = how === "tackle" ? "a flying tackle" : how === "pit" ? "a PIT maneuver" : how === "box" ? "boxed him in" : "three good rams";
     H.banner(`<b>🦸‍♀️ ROBBERY FOILED! +${pay} 💰</b><small>${how2}${clean ? " · not a scratch" : ""} · the cops take it from here</small>`, 3000, { key: "heist:robbery", prio: 3 });
     H.toast("🦸‍♀️ HERO OF THE BLOCK!", "gold", { key: "heist:hero" });
-    if (p) npcSays(p.obj, pick(ROBBERY.foiled), 2.6);
+    if (p) npcSays(p.obj, pick(ROBBERY.foiled).replace("{prop}", ev.prop.name.toLowerCase()), 2.6);
     setTimeout(() => { if (R.ev === ev) luluSays(pick(ROBBERY.hero), true); }, 1500);
     stat("heistFoils", 1);
     remember("foil", { where: ev.where, at: ev.spotName || "store", how, pay, town: ctx.town && ctx.town.id || "" });

@@ -107,7 +107,7 @@ export const ROBBERY = {
     banner: (where, prop) => `<b>🚨 ROBBERY AT ${where.toUpperCase()}!</b><small>a guy in stripes with ${prop} · stop the getaway car — ram it, PIT it or box it in</small>`,
     footBanner: (where) => `<b>🚨 ROBBERY AT ${where.toUpperCase()}!</b><small>✋ TACKLE him before he reaches the car!</small>`,
     lulu: ["Oh, NO you don't!", "Not in MY town!", "Somebody stop him! …fine, ME.", "Is that a BANANA?!", "Hold my kugel."],
-    foiled: ["*hands up* OK OK! It's a BANANA, officer!", "I want my lawyer. And my mother.", "Curse you, pink convertible!", "This is the worst getaway of my career. It was my first."],
+    foiled: ["*hands up* OK OK! It's {prop}, officer!", "I want my lawyer. And my mother.", "Curse you, pink convertible!", "This is the worst getaway of my career. It was my first."],
     cop: ["Nice driving, ma'am! We'll take it from here.", "Collar's ours. You're the hero of the day!", "Banana's evidence now. Thanks, Miss Bruck!"],
     escaped: "🚓 They got away… the cops have it from here.",
     hero: ["The whole block saw that. Ima's going to hear about it in nine minutes.", "Hero of the neighbourhood! Somebody get this woman a kugel.", "Caught a crook. In heels. Before lunch."],

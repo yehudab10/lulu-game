@@ -33,8 +33,8 @@ module.exports = {
       return t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === ${JSON.stringify(id)}`, `into ${id}`, 8000);
     };
     // park her car out on the street in front of the bank (sp + n·dist), facing it (for a shot) or along the street
-    const atBank = (dist = 15, face = true, v = 0) => g(`(() => { const sp = ctx.town.spot("bank"); if (!sp) return false; const car = ctx.car;
-        const x = sp.x + sp.nx * ${dist}, z = sp.z + sp.nz * ${dist}; const h = ${face} ? Math.atan2(-sp.nx, -sp.nz) : Math.atan2(sp.ux, sp.uz);
+    const atBank = (dist = 15, face = true, v = 0, along = 0) => g(`(() => { const sp = ctx.town.spot("bank"); if (!sp) return false; const car = ctx.car;
+        const x = sp.x + sp.nx * ${dist} + sp.ux * ${along}, z = sp.z + sp.nz * ${dist} + sp.uz * ${along}; const h = ${face} ? Math.atan2(-sp.nx, -sp.nz) : Math.atan2(sp.ux, sp.uz);
         car.place(x, z, h); car.vx = Math.sin(h) * ${v}; car.vz = Math.cos(h) * ${v}; const n = ctx.world.road.nearest(x, z, car.s, {}); car.s = n.s; car.d = n.d; ctx.cam.snap(); return true; })()`);
     const perf = async (frames) => {
       await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); }; }
@@ -75,8 +75,9 @@ module.exports = {
     await step("lakewood bank", async () => {
       if (!await town("lakewood")) return;
       t.check("Lakewood has a bank spot (T.spots.bank)", await g(`!!ctx.town.spot("bank")`));
+      const across = await g(`(() => { const sp = ctx.town.spot("bank"), n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {}); return Math.abs(n.d); })()`);
       t.check("heist_bank is loaded with the town's models", await t.L(`import("./js/models.js").then(m => !!m.models.heist_bank)`));
-      await atBank(18, true);
+      await atBank(Math.max(6, across + 3), true);      // (from the far lane: Main St is narrower than Avenue J)
       await t.frames(40);
       perfAt = await perf(60);
       console.log("   PERF heist lakewood at the bank", JSON.stringify(perfAt));
@@ -163,7 +164,7 @@ module.exports = {
       if (!await town("lakewood")) return;
       await g(`(ctx.law.clearHeat(), ctx.law.hold(2), true)`);
       await t.frames(10);
-      await atBank(30, false, 0);
+      await atBank(6, false, 0, -38);                    // in the street, a little way down from the bank
       const before = await coins();
       await g(`${HD}.robbery({ where: "town", spot: "bank", prop: "Banana" })`);
       await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "run"`, "the robber bursts out of the bank", 20000);
@@ -343,8 +344,10 @@ module.exports = {
       await t.shot("netted");
       await t.until(`!__lulu3d.ctx.heist.gear.netted`, "the net rips off (wears off)", 6000);
       t.check("…and it wears off after a few seconds", await g(`!ctx.heist.gear.netted && !ctx.G.noBoost`));
-      // the spike strip, dead ahead in her lane
-      t.check("a spike strip is tossed ahead", await g(`ctx.heist.gear.laySpikes(30, ctx.car.d)`));
+      // the spike strip, dead ahead in her lane (the chase wound down + an empty road, so nothing boxes her in first)
+      await g(`(() => { ctx.law.standDown("test"); ctx.traffic.clear(); const r = ctx.world.road, s = ctx.car.s, p = r.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 24; ctx.car.vz = Math.cos(p.h) * 24; return true; })()`);
+      await t.frames(2);
+      t.check("a spike strip is tossed ahead", await g(`ctx.heist.gear.laySpikes(30, 1.75)`));
       await t.until(`window.__ev.some(e => /heist:gear.*"spikes".*"hit"/.test(e))`, "over the spike strip → flat", 6000);
       t.check("spiked: a flat (streets' flat tyres or ours)", await g(`ctx.heist.gear.flat`));
       await t.shot("spiked");

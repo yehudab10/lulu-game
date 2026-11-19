@@ -2,7 +2,7 @@
 // target beacon (pooled), who-says-what (banter's bubble while driving, foot's on foot), props
 // in hands, stats, and a tiny WebAudio synth (alarm bell, confetti pop, net zap, moped buzz).
 import * as THREE from "three";
-import { ctx, emit, css } from "../../core/ctx.js";
+import { ctx, emit, css, hook, on } from "../../core/ctx.js";
 import { registerModels, ensureModels, models, cloneWithColors, findNodes } from "../../models.js";
 import { save3d } from "../../core/save.js";
 import { glyph } from "../../input.js";
@@ -118,6 +118,7 @@ export function setChip(text, sub = "", frac = null, color = "#FF4081") {
     if (chipState.frac !== fr) { const m = el.querySelector(".heist-meter"); m.style.display = fr == null ? "none" : ""; if (fr != null) m.firstChild.style.width = (fr * 100) + "%"; chipState.frac = fr; }
     if (chipState.color !== color) { el.style.setProperty("--hacc", color); chipState.color = color; }
     el.classList.add("on");
+    chipState.f = ctx.frames;
 }
 export const fmtM = m => `${Math.max(0, Math.round(m))} m`;
 export const g = a => glyph(a);
@@ -139,7 +140,15 @@ export function setBeacon(target, color = "#FF4081") {
     const p = target.isObject3D ? target.position : target;
     beacon.position.set(p.x, (p.y || 0) + (target.lift || 2.9) + Math.sin(ctx.time * 4) * 0.18, p.z);
     beacon.rotation.y += 0.04;
+    beacon.userData.f = ctx.frames;
 }
+// The chip and the beacon live only while someone keeps setting them: whatever isn't refreshed this frame goes away
+// (no stale objective after an event ends some unexpected way), and a state change clears both.
+hook("hud", () => {
+    if (chipState.text !== null && chipState.f !== ctx.frames && chipState.f !== ctx.frames - 1) setChip(null);
+    if (beacon && beacon.parent && beacon.userData.f !== ctx.frames && beacon.userData.f !== ctx.frames - 1) setBeacon(null);
+}, -50);
+on("state", () => { if (chipState.text !== null) setChip(null); if (beacon && beacon.parent) setBeacon(null); });
 
 // ── a tiny synth (its own context, like streets'; Sound off = silent) ──
 let ac = null, out = null;
