@@ -14,7 +14,7 @@
 //
 // Items (data below — add more freely):
 //   errand  (kind "place")  a real place you pull into: ⛽ Gas 'n' Go, 🌄 the Lookout, 🏡 Bubbe's
-//                           — done on world's `world:visit` {id}
+//                           — done on world's `world:visit` {id}; (kind "event") a town errand — `town:exit`
 //   job     (kind "job")    any side job passed (hustle's 📞 payphones / 📋 boards) — `hustle:end` result "pass"
 //   silly   (kind "stat")   counted from the shared `stat` events: pet an animal, 5 close calls,
 //                           chat with strangers on foot, pop into a shop on foot…
@@ -39,6 +39,7 @@ const ITEMS = {
         { id: "gas", kind: "place", place: "gas", icon: "⛽", text: "Fill up at Gas 'n' Go", ima: "fill up the tank — it's on EMPTY again" },
         { id: "lookout", kind: "place", place: "lookout", icon: "📸", text: "A photo of the lake for Bubbe (the Lookout)", ima: "send Bubbe a picture of the lake from the Lookout" },
         { id: "bubbe", kind: "place", place: "family_bubbe", icon: "🥖", text: "Drop off Bubbe's challah", ima: "drop the challah at Bubbe's" },
+        { id: "town", kind: "event", ev: "town:exit", icon: "👔", text: "Pick up Abba's dry cleaning in town (take an exit)", ima: "pick up Abba's dry cleaning in town" },
     ],
     job: [
         { id: "job", kind: "job", icon: "💼", text: "Earn some gelt: a side job (📞 payphone / 📋 board)", ima: "do a little job — gelt doesn't grow on trees" },
@@ -116,6 +117,8 @@ function bump(id, n = 1) {
 }
 on("world:visit", e => { for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "place" && e && e.id === it.place) bump(id); } });
 on("hustle:end", e => { if (e && e.result === "pass") for (const id of DAY.list) if ((byId(id) || {}).kind === "job") bump(id); });
+// (kind "event": done when its event fires — e.g. town:exit, she took an exit into a town)
+for (const ev of new Set(ALL.filter(x => x.kind === "event").map(x => x.ev))) on(ev, () => { for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "event" && it.ev === ev) bump(id); } });
 on("stat", e => { if (!e) return; for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "stat" && it.stat === e.id) bump(id, e.n || 1); } });
 
 // ── the HUD chip + the light column ──────────────────────────────────────

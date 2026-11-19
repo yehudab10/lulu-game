@@ -32,6 +32,7 @@ module.exports = {
     for (const id of ids) {
       const d = all.find(x => x.id === id);
       if (d.kind === "place") await g(`L3.emit("world:visit", { id: "${d.place}", s: 1300 })`);
+      else if (d.kind === "event") await g(`L3.emit("${d.ev}", { town: "lakewood", test: true })`);
       else if (d.kind === "job") { await g(`L3.emit("hustle:end", { id: "cab", result: "fail" })`); await g(`L3.emit("hustle:end", { id: "cab", result: "pass", pay: 20 })`); }
       else for (let i = 0; i < d.n; i++) await g(`L3.emit("stat", { id: "${d.stat}", n: 1 })`);
       await t.frames(3);
