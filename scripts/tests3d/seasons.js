@@ -46,10 +46,11 @@ module.exports = {
     const night = () => g(`(ctx.atmos.debug.time("night"), ctx.atmos.debug.freeze(true), true)`);
     const noon = () => g(`(ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), true)`);
     const perf = async frames => {
-      await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
-        window.__pf = { n: 0, calls: 0, tris: 0, maxCalls: 0, maxTris: 0 }; })()`);
+      await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles);
+          const D = __lulu3d.ctx.seasons.debug.D.stats; P.own = Math.max(P.own, D.calls); P.ownTris = Math.max(P.ownTris, D.tris); }; }
+        window.__pf = { n: 0, calls: 0, tris: 0, maxCalls: 0, maxTris: 0, own: 0, ownTris: 0 }; })()`);
       await t.frames(frames);
-      return t.L(`(() => { const P = window.__pf; window.__pf = null; return { frames: P.n, calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris }; })()`);
+      return t.L(`(() => { const P = window.__pf; window.__pf = null; return { frames: P.n, calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris, own: P.own, ownTris: P.ownTris }; })()`);
     };
 
     // ── the calendar (pure) ─────────────────────────────────────────────
@@ -153,22 +154,29 @@ module.exports = {
     await step("budget", async () => {
       if (!lakewoodOk) return;
       // the same pose with and without the dressing: a residential street at night (the worst case: every light on)
+      // (the town test's own ceilings are without homes' crowd: it has its own budget in the homes test)
       const h = await g(`ctx.town.homes.find(h => h.key === "town_duplex")`);
+      await g(`(ctx.homes.debug.stopCrowd(), true)`);
       await park(h.lotX + h.nx * 8.5 - h.ux * 20, h.lotZ + h.nz * 8.5 - h.uz * 20, Math.atan2(h.ux, h.uz));
       await night();
-      await t.frames(8);
-      const on = await perf(30);
-      const ds = await g(`Object.assign({}, ctx.seasons.debug.D.stats)`);
       await season("none");
       await t.frames(8);
       const off = await perf(30);
       await season("chanukah", 8);
       await t.frames(8);
-      const on8 = await perf(30);
-      console.log("   PERF seasons town (night)", JSON.stringify({ off, on, on8, dress: ds }));
-      t.check("budget: the dressing adds ≤ 12 draw calls", on8.calls - off.calls <= 12 && on.calls - off.calls <= 12, `off ${off.calls} → night5 ${on.calls} / night8 ${on8.calls}`);
-      t.check("budget: the dressing adds ≤ 9k triangles", on8.tris - off.tris <= 9000, `off ${off.tris} → ${on8.tris}`);
-      t.check("budget: a decorated Lakewood stays inside the town test's ceilings (≤ 240 calls, ≤ 115k triangles)", on8.calls <= 240 && on8.tris <= 115000, JSON.stringify(on8));
+      const on = await perf(30);
+      const ds = await g(`Object.assign({}, ctx.seasons.debug.D.stats)`);
+      await season("sukkos");
+      await noon();
+      await t.frames(8);
+      const sk = await perf(30);
+      await night();
+      console.log("   PERF seasons town", JSON.stringify({ off, chanukah8: on, sukkos: sk, dress: ds }));
+      // (what the dressing itself draws — the off → on totals also swing with the minivans driving in and out of view)
+      t.check("budget: the dressing draws ≤ 12 draw calls (Chanukah night 8 / Sukkos)", on.own <= 12 && sk.own <= 12, `chanukah ${on.own}, sukkos ${sk.own} (town ${off.calls} → ${on.calls} / ${sk.calls})`);
+      t.check("budget: the dressing draws ≤ 9k triangles", on.ownTris <= 9000 && sk.ownTris <= 9000, `chanukah ${on.ownTris}, sukkos ${sk.ownTris} (town ${off.tris} → ${on.tris} / ${sk.tris})`);
+      t.check("budget: a decorated Lakewood stays inside the town test's ceilings (≤ 240 calls, ≤ 115k triangles)", Math.max(on.calls, sk.calls) <= 240 && Math.max(on.tris, sk.tris) <= 115000, JSON.stringify({ on, sk }));
+      await g(`(ctx.homes.debug.startCrowd(), true)`);
     });
 
     // ── 🎭 Purim: the parade + mishloach manos ─────────────────────────
@@ -196,7 +204,7 @@ module.exports = {
     // ── 🔨🌿 Sukkos: going up, then done ──────────────────────────────
     await step("sukkos", async () => {
       if (!lakewoodOk) return;
-      await season("sukkosPrep", 2);
+      await season("sukkosPrep", 1);
       const fr = (await items("sukkahFrame")).length, dn = (await items("sukkah")).length;
       t.check("before Sukkos: frames going up (and a few finished)", fr >= 10 && fr > dn, `${fr} frames, ${dn} done`);
       t.check("before Sukkos: the lulav & esrog stall", (await items("Goods_Lulavim")).length >= 1);
@@ -332,8 +340,14 @@ module.exports = {
       await season("lagBaomer");
       const kinds = await g(`[...ctx.seasons.debug.D.kinds.keys()]`);
       t.check("every prop kind is on the wholesome list", kinds.every(k => WHOLESOME.test(k)), kinds.join(","));
-      await g(`(L3.input.device = "keyboard", L3.setState("dinaHome", { from: "outside" }))`);
+      await g(`L3.setState("title")`);
+      await t.frames(4);
+      await t.click(/Dina/);
+      await t.until(`__lulu3d.state === "dinaSelect"`, "Dina's picker");
+      await t.tap(0);
+      await t.until(`__lulu3d.state === "dinaBus" && !!__lulu3d.ctx.view`, "Dina's bus intro", 30000);
       await t.frames(10);
+      await t.shot("dina-bus");
       const inDina = await g(`(() => { const v = ctx.view; let n = 0; if (v && v.scene) v.scene.traverse(o => { if (/^Seasons/.test(o.name || "")) n++; }); return { view: !!v, n }; })()`);
       t.check("Dina's mode: her own world, no seasonal props in it", inDina.view && inDina.n === 0, JSON.stringify(inDina));
       await g(`L3.startRun({ mode: "cruise", quick: true })`);

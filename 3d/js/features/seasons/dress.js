@@ -155,6 +155,10 @@ class Glow {
         this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
         this.geo.setDrawRange(0, 0);
         this.mat = new THREE.PointsMaterial({ map: glowTexture(), size: G.size, color: "#FFD27A", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+        // far away a candle is still a dot of light (≥ ~2.5 css px): a whole street of windows reads as lit from the end of it
+        const minPx = (2.5 * ((ctx.renderer && ctx.renderer.getPixelRatio && ctx.renderer.getPixelRatio()) || 1)).toFixed(1);
+        this.mat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace("#include <fog_vertex>", `gl_PointSize = max(gl_PointSize, ${minPx});\n#include <fog_vertex>`); };
+        this.mat.customProgramCacheKey = () => "seasonsGlow" + minPx;
         this.pts = new THREE.Points(this.geo, this.mat);
         this.pts.frustumCulled = false; this.pts.visible = false; this.pts.renderOrder = 3;
         this.pts.name = "SeasonsGlow:" + kind;

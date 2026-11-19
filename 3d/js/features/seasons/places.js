@@ -152,8 +152,8 @@ export function planChunk(chunk, world, day, recipes) {
     }
     return { items: out, colliders };
 }
-// before Sukkos the share of sukkahs already finished grows day by day (11 Tishri → ~20 %, 14 → ~90 %)
-function sukkahDone(day) { const d = day.heb ? day.heb.d : 12; return Math.min(0.92, Math.max(0.15, (d - 10) * 0.24)); }
+// before Sukkos the share of sukkahs already finished grows day by day (11 Tishri → 15 %, 12 → 25 %, 13 → 50 %, 14 → 75 %)
+function sukkahDone(day) { const d = day.heb ? day.heb.d : 12; return Math.min(0.9, Math.max(0.15, (d - 11) * 0.25)); }
 
 function standItem(st, x, z, rot, id, extra = {}) {
     return Object.assign({ kind: "stand", x, y: 0, z, rot, lit: "lamp", goods: st.goods, sign: { lines: st.sign, bg: st.bg, fg: st.fg }, stand: id }, extra);

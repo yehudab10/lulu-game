@@ -109,7 +109,9 @@ def build_props():
     parts.append(B(bm_box(0.24, 0.24, 0.5), GOLD, (0, 0, H + 0.35)))   # the shamash stands taller
     parts.append(B(bm_cyl(0.07, 0.07, 0.18, 6), WHITE, (0, 0, H + 0.69)))
     bake(parts, "BigMenorah_body", coll, parent=pr)
-    for i, x in enumerate(bxs):
+    # a public menorah is lit by someone standing in FRONT of it (on the street side, facing it): their right is +X here,
+    # so candle 1 is at +X (the street sees the first lights on its right)
+    for i, x in enumerate(reversed(bxs)):
         _light(coll, pr, "Light_%d" % (i + 1), (x, 0, H + 0.42))
     _light(coll, pr, "Light_S", (0, 0, H + 0.82))
 
