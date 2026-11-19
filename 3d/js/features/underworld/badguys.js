@@ -69,7 +69,7 @@ export async function spawnBadCar(kind, opts = {}) {
         if (kind === "rager") banner(RAGER.banner, again ? `${rival.name} is BACK · ${RAGER.sub}` : RAGER.sub, 2800, "uw:enc");
         else banner(fill(GANG.banner, { color: E.paint }), again ? `${rival.name} again · ${GANG.sub}` : GANG.sub, 2800, "uw:enc");
         // a cop up the road makes "lead him past a cop" a real option (not every time)
-        if (ctx.law && ctx.law.trap && (UW.force.trap || Math.random() < 0.55)) ctx.law.trap(UW.force.trapAhead || rand(520, 700), 1);
+        if (ctx.law && ctx.law.trap && (UW.force.trap != null ? UW.force.trap : Math.random() < 0.55)) ctx.law.trap(UW.force.trapAhead || rand(520, 700), 1);
         stat(kind === "rager" ? "uwRagers" : "uwGangs");
         log("encounter", { kind, rival: rival && rival.name, again: !!again });
     }
