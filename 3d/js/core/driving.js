@@ -166,12 +166,12 @@ function rollingRecover() {
     if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(0.6); else ctx.cam.snap(); }
     setState("playing");
 }
-/** The default recovery after a knock-out in the car: on her feet beside it (foot), else rolling in her lane. */
+/** The default recovery after a knock-out in the car: on her feet beside it (foot; the picture glides from the spin-out), else rolling in her lane. */
 export function recoverFromWreck(info = {}) {
     const ko = knockout(info, { where: "car" });
     let ok = false;
     if (ctx.foot && typeof ctx.foot.start === "function") {
-        try { ok = ctx.foot.start("knockout", { drivable: true, camBlend: 0.7 }) !== false;     // (the picture glides from the spin-out) } catch (e) { console.error("[run] knockout → foot", e); }
+        try { ok = ctx.foot.start("knockout", { drivable: true, camBlend: 0.7 }) !== false; } catch (e) { console.error("[run] knockout → foot", e); }
     }
     if (!ok) rollingRecover();
     return ko;
