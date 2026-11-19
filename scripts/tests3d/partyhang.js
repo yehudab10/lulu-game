@@ -178,7 +178,10 @@ async function partyRun(t, guests) {
   await t.shot("arcade-card");
   const gpBefore = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, st: ctx.state })`);
   await t.L(`document.getElementById("owSpot_kugel").click()`);
-  await Hp.until(`ctx.openworld.game && ctx.openworld.game.ph === "in"`, "🥘 Hot Kugel: an invitation", 30000);
+  if (!await Hp.until(`ctx.openworld.game && (ctx.openworld.game.ph === "in" || ctx.openworld.game.ph === "off" || ctx.openworld.game.ph === "go")`, "🥘 Hot Kugel: an invitation", 30000))
+    console.log("   diag", JSON.stringify(await g(`({ g: ctx.openworld.game, mem: ctx.party.members(), host: ctx.party.isHost, card: !!document.getElementById("owSpot_kugel"), toasts: [...document.querySelectorAll(".toast")].map(e => e.textContent), why: ctx.openworld.debug.getG && ctx.openworld.debug.getG() })`)));
+  const g0 = await g(`ctx.openworld.game`);
+  t.check("🥘 Hot Kugel from the arcade opens an INVITATION (not a game everyone is pulled into)", !!g0 && g0.ph === "in", JSON.stringify(g0 && { ph: g0.ph, ps: g0.ps, why: g0.why }));
   await A.until(`ctx.openworld.game && ctx.openworld.game.ph === "in" && /join/i.test(document.getElementById("owChip").textContent)`, "the friend gets the invitation (a join chip)", 60000);
   const gInv = await A.game(`({ ps: ctx.openworld.game.ps, spot: ctx.openworld.game.spot, chip: document.getElementById("owChip").textContent, st: ctx.state, x: ctx.car.pos.x, z: ctx.car.pos.z })`);
   t.check("invitation: only the starter is in; the friend isn't moved or held (a join chip)", gInv.ps.length === 1 && gInv.ps[0] === hostUid && !!gInv.spot && gInv.st === "playing" && Math.hypot(gInv.x - gpBefore.x, gInv.z - gpBefore.z) < 3 && /join/i.test(gInv.chip), JSON.stringify(gInv));
