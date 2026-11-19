@@ -1,4 +1,6 @@
-# 🤖 AGENT HANDOFF — read this first
+# 🤖 AGENT HANDOFF — old background notes
+
+> **Start with `AGENTS.md`** (current rules, in-flight work, backlog) and `CLAUDE.md`.
 
 > **⚠️ Partly historical (written around v9).** The game is now v1.19+ and the
 > source lives in `src/` fragments, not a hand-edited `game.js`. For the current
