@@ -57,6 +57,7 @@ module.exports = {
     await step("calendar", async () => {
       const cases = [
         ["2026-11-19T12:00", "", 0, "an ordinary Thursday (9 Kislev)"],
+        ["2026-11-19T22:00", "", 0, "Thursday night (already Friday by the Hebrew day) → no Friday stall yet"],
         ["2026-11-20T15:00", "friday", 0, "Friday afternoon → the erev-Shabbos bustle"],
         ["2026-11-20T19:00", "shabbos", 0, "Friday night → Shabbos (candles)"],
         ["2026-12-04T15:00", "friday", 0, "erev Chanukah, before sunset: no candles yet"],

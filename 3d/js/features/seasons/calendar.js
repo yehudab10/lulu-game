@@ -220,8 +220,8 @@ function forcedDay(f, date) {
 function finish(out, ids, ch, date, fakeFriday = false) {
     const shabbos = out.wd === 6;
     const yomtov = isYomTov(out.heb.m, out.heb.d) && !ids.some(id => DAYS[id] && DAYS[id].kind === "fast");
-    // Friday afternoon (before sunset): the erev-Shabbos bustle
-    const erev = fakeFriday || (out.wd === 5 && !out.forced && date.getHours() >= 11);
+    // Friday afternoon (before sunset): the erev-Shabbos bustle — not Thursday night, though its Hebrew day is already Friday
+    const erev = fakeFriday || (out.wd === 5 && !out.forced && !out.evening && date.getHours() >= 11);
     const main = ids.find(id => DAYS[id] && DAYS[id].kind !== "mourning") || ids[0] || (erev ? "friday" : shabbos ? "shabbos" : null);
     return Object.assign(out, {
         ids, main, chanukah: ch, shabbos, yomtov, erev,
