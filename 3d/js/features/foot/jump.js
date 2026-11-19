@@ -32,6 +32,8 @@ export const JUMP = {
     hard: 8.5,          // m/s down = a hard landing (a short stagger)
     long: { vy: 0.8, speed: 1.08 },   // out of a slide: flatter, faster
     R: 0.32,
+    feet: 0.16,         // m past her middle her feet still stand on an edge (generous: no slipping off a bench)
+    stick: 0.35,        // landing ON something keeps this share of her run (she stops on it instead of sliding off)
 };
 /** Collider kinds with a height: top (m), stand (she can land + walk on it). Anything not here is solid. */
 export const LOW = {
@@ -79,7 +81,7 @@ function lowCircle(p, x, z, r, top, stand, reach, kind) {
     if (d2 >= rr * rr) return;
     if (top == null || top > reach) { pushC(p, x, z, r); return; }
     if (top > _g.over) { _g.over = top; _g.kind = kind; }
-    if (stand && d2 < r * r && top > _g.ground) _g.ground = top;
+    if (stand && d2 < (r + JUMP.feet) * (r + JUMP.feet) && top > _g.ground) _g.ground = top;     // (her feet reach a bit past her middle)
 }
 /** A car as two boxes (hood + roof): solid below each top, ground on top of it. */
 function carBox(p, x, z, h, D, reach) {
@@ -98,7 +100,7 @@ function carBox(p, x, z, h, D, reach) {
             return;
         }
         if (top > _g.over) { _g.over = top; _g.kind = "car"; }
-        if (Math.abs(al - mid) < half && Math.abs(ac) < w && top > _g.ground) _g.ground = top;
+        if (Math.abs(al - mid) < half + JUMP.feet * 0.6 && Math.abs(ac) < w + JUMP.feet * 0.6 && top > _g.ground) _g.ground = top;
     };
     box(-D.len, D.len, D.w, D.hood);
     if (D.roof > 0) box(D.r0, D.r1, D.w - 0.1, D.roof);
@@ -179,6 +181,7 @@ export function airStep(F, dt, P, g, canJump) {
         F.landP = Math.min(1, vImp / 12);
         F.landT = vImp > JUMP.hard ? 0.26 : 0.16;
         F.landHard = vImp > JUMP.hard;
+        if (F.ground > 0.2) { F.vel.x *= JUMP.stick; F.vel.z *= JUMP.stick; }
         return "land";
     }
     return null;

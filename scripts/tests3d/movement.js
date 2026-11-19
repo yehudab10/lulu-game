@@ -102,7 +102,7 @@ module.exports = {
 
     // ── a bench: jump up, stand on it ──
     await t.frames(20);
-    await putAhead("bench", 1.6, 0.55);
+    await putAhead("bench", 1.5, 0.55);
     await t.stick(0, -1); await t.frames(3); await t.hold(1, 1); await t.frames(10); await t.stick(0, 0); await t.frames(14); await t.hold(1, 0);
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the bench", 5000);
     const bench = await G(`({ y: ${FF}.y, g: ${FF}.ground })`);
@@ -120,7 +120,7 @@ module.exports = {
     await G(`(ctx.moves.combo.t = 0.01, true)`); await t.frames(3);
 
     // ── a parked car: hood, then roof ──
-    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 3.6, z: F.pos.z + Math.cos(y) * 3.6 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
+    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 2.5, z: F.pos.z + Math.cos(y) * 2.5 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
       const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y + Math.PI / 2; ctx.traffic.place(c, 0); return true; })()`);
     await t.frames(2);
     await t.stick(0, -1); await t.frames(4); await t.hold(1, 1); await t.frames(9); await t.stick(0, 0); await t.frames(14); await t.hold(1, 0);
