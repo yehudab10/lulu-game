@@ -54,7 +54,8 @@ const ROOT_FILES = [
   "er2.mp3",
   "story-relax.mp3",
   "story-electric.mp3",
-  "story-beach.mp3"
+  "story-beach.mp3",
+  "dont-wanna-be-frum.mp3"
 ];
 
 // The 3D game: these files + directories, recursively, minus the excludes.

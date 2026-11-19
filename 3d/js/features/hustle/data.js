@@ -210,7 +210,11 @@ export const OFFERS = {
 };
 
 // ── 📻 THE RADIO ──────────────────────────────────────────────────────────
-// Every track is one the game already ships (repo root mp3s) — no new audio.
+// The first three stations reuse music the game already ships (repo root mp3s).
+// DOVID DOV FM plays one real song — 'I Don't Wanna Be Frum' by Dovid Dov, the
+// anonymous singer who (in the game's world) is Lulu's brother: Lulu, the family
+// and her close friends know; strangers, DJs and billboards don't. Keep it that way
+// when adding lines (see DOVID below and the winks in banter/phone/town/foot).
 export const SONGS = {
     "../wedding.mp3": "'Siman Tov (Turbo Hora Mix)' — The Lakewood Five",
     "../story-electric.mp3": "'Neon Shabbos' — DJ Kugel",
@@ -220,6 +224,7 @@ export const SONGS = {
     "../salon.mp3": "'Blowout (Fabio's Theme)' — Hair Supply",
     "../avigail.mp3": "'Frenemies Forever' — Avi & the Gails",
     "../lulu.mp3": "the KVETCH 1450 hold music",
+    "../dont-wanna-be-frum.mp3": "'I Don't Wanna Be Frum' — Dovid Dov",
 };
 export const STATIONS = [
     { id: "auto", name: "LULU FM", emoji: "🎵", tag: "the trip's own soundtrack" },
@@ -232,6 +237,7 @@ export const STATIONS = [
             "Next hour: forty-five uninterrupted minutes of the Electric Slide. You're welcome.",
             "Request line's open! No, Uncle Moishe, we will NOT play the Macarena again.",
             "If you can hear this, you're too close to the speakers. Back up. Mazel tov.",
+            "Third request today for that Dovid Dov song. Who IS this guy? Dovid Dov, call in. We have questions.",
         ] },
     { id: "lounge", name: "SMOOTH 88.8", emoji: "🍸", tag: "music to schmooze by", dj: "Velvet Yossi",
         tracks: ["../story-relax.mp3", "../story-beach.mp3", "../salon.mp3", "../avigail.mp3"],
@@ -259,6 +265,19 @@ export const STATIONS = [
             [["DR. FEH", "Go ahead, caller."], ["AVIGAIL (CALLER)", "Shout-out to my best friend Lulu! …she owes me twenty dollars."]],
             [["DR. FEH", "First-time caller?"], ["UNCLE MOISHE (CALLER)", "Long-time businessman. Anybody need a slightly used bingo machine? No questions."]],
             [["DR. FEH", "Ask Bubbe! The question: is store-bought kugel a sin?"], ["BUBBE", "I'm not saying it is. I'm not saying it isn't."]],
+            [["DR. FEH", "Tonight's topic: who IS Dovid Dov? Caller, your theory."], ["CALLER", "It's my dentist. He hums while he drills."], ["DR. FEH", "Everybody's dentist hums. Next."]],
+            [["DR. FEH", "Ma'am, you say you KNOW who Dovid Dov is?"], ["IMA (CALLER)", "I'm not saying I know. I'm saying he should call his mother too."]],
+        ] },
+    { id: "dovid", name: "DOVID DOV FM", emoji: "🎤", tag: "one mystery singer. one song. on repeat.", dj: "DJ Ploni",
+        tracks: ["../dont-wanna-be-frum.mp3"],
+        lines: [
+            "Dovid Dov FM — one song, one singer, and not one clue who he is.",
+            "That was 'I Don't Wanna Be Frum'. Coming up next: 'I Don't Wanna Be Frum'.",
+            "Who is Dovid Dov? We asked. He sent back a shrug emoji. From a blocked number.",
+            "A caller says Dovid Dov is her dentist. Ma'am, that's the fourth dentist this week.",
+            "We'd love to interview him. Nobody has his number. Somebody's sister probably does.",
+            "Unconfirmed rumour: Dovid Dov has a sister with a pink convertible. Wildly unconfirmed.",
+            "If you ARE Dovid Dov: honk twice. …That could've been anyone. Never mind.",
         ] },
     { id: "off", name: "RADIO OFF", emoji: "📴", tag: "just the engine and your thoughts" },
 ];
@@ -274,6 +293,7 @@ export const ADS = [
     "🎰 VIVA VEGAS — what happens in Vegas gets posted by your cousin.",
     "🏋️ TUSH TONERS GYM — sit less, kvetch more. First month free.",
     "🚕 LULU CAB — we're hiring! Must have car, nerve, and a working horn.",
+    "🎤 WHO IS DOVID DOV? — $18 reward for real information. No more dentists, please.",
 ];
 /** Live news the talk station / DJs read when something's happening on the road. */
 export const NEWS = {
@@ -285,3 +305,11 @@ export const NEWS = {
 /** How Settings › Lulu's chatter shapes the radio talk (gap between messages × , ad odds ×). */
 export const CHATTER = { chatty: { gap: 0.6, ads: 1.2 }, normal: { gap: 1, ads: 1 }, quiet: { gap: 2.4, ads: 0.35 } };
 export const RADIO = { gap: [16, 26], songLen: [95, 140], firstMsg: [6, 10] };
+/** What Lulu says when her brother's song comes on (she knows; the DJ doesn't). At most one per `every` seconds. */
+export const DOVID = { every: 150, lulu: [
+    "That's my BROTHER. …You didn't hear that from me.",
+    "Nobody knows who Dovid Dov is. I know who Dovid Dov is. 🤫",
+    "I heard this song through a bedroom wall four hundred times. Still a banger.",
+    "The mystery singer. He still owes me a phone charger.",
+    "Turn it UP. And tell NOBODY whose brother that is.",
+] };

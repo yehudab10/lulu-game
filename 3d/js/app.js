@@ -94,7 +94,8 @@ function resize() {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     syncAllCameras();
 }
-window.addEventListener("resize", resize);
+// (a rotation / window resize empties the canvas too: draw it again at once rather than show it blank until the next frame)
+window.addEventListener("resize", () => { resize(); try { if (ctx.world && ctx.car) present(0); } catch (e) { /* next frame draws */ } });
 
 // HUD + touch controls follow the current state
 const IN_PLAY = new Set(["playing", "footRun", "arriving"]);   // free driving / walking: pop-ups stay off the road
@@ -166,6 +167,7 @@ function loop(now) {
 
     skipInput(dt);                      // the ⏭ pill (hold ○/B, Backspace, or click it)
     if (skipping()) { fastForward(P); return; }
+    applyGfxPending();                  // (AUTO graphics: a new resolution / tier, right before this frame is drawn)
     step(dt, P);
     present(dt);
     if (!ctx.TEST && !ctx.paused && !document.hidden) adaptQuality(interval, performance.now() - t0);
@@ -278,12 +280,24 @@ function updateHud(dt) {
 }
 
 // AUTO graphics: slide the resolution to hold 60 fps, and step down a tier if that isn't enough (core/quality.js).
+// The change itself waits for the START of the next frame, so the frame is drawn right after it, in the same task:
+// resizing a WebGL canvas empties it, and a canvas resized AFTER its frame was drawn is shown empty until the next
+// one — on an iPhone that is a white flash, every time AUTO slid the resolution.
+let gfxPending = null;
 function adaptQuality(intervalMs, workMs) {
     if (ctx.skipping) return;
     const r = adaptFrame(intervalMs, workMs);
-    if (r === "res") { renderer.setPixelRatio(gfx.pixelRatio); resize(); }
-    else if (r === "tier") applySettings();
+    if (r) gfxPending = r === "tier" || gfxPending === "tier" ? "tier" : "res";
 }
+function applyGfxPending() {
+    const r = gfxPending;
+    if (!r) return;
+    gfxPending = null;
+    if (r === "res") { renderer.setPixelRatio(gfx.pixelRatio); resize(); }
+    else applySettings();
+}
+/** Tests: AUTO asked for a change ("res" / "tier") — it lands at the top of the next frame. */
+ctx.gfxDebug = { queue(r) { gfxPending = r; return true; }, get pending() { return gfxPending; } };
 
 document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); });
 document.getElementById("pauseBtn").addEventListener("click", () => { A.unlockAudio(); pause(); });

@@ -17,7 +17,7 @@ import * as SFX from "./sfx.js";
 import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodeAlong, movesFrom, headingOf, segmentBlocked } from "./plan.js";
 import { C } from "./cars.js";
 
-export const LIFE = { on: false, T: null, def: null, people: [], geese: [], bikes: [], said: new Set(), told: {}, gossipT: 0, live: [],
+export const LIFE = { on: false, T: null, def: null, people: [], geese: [], bikes: [], said: new Set(), told: {}, gossipT: 0, visitN: -1, live: [],
     bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 3, sightT: 0, witness: false, talk: null, honkT: 0, firstLines: [], wrongT: 0, wrongSt: null, wrongCalm: 0 };
 export const PEOPLE_MODELS = ["town_brooklyn", "town_local", "town_mom", "town_agent", "town_bochur", "town_goose", "town_ebike", "npcMan", "npcWoman", "npcKid"];
 
@@ -54,7 +54,7 @@ export function gossip(kind, force = false) {
     if (!force && (ctx.time < LIFE.gossipT || n >= 2)) return false;
     LIFE.told["g:" + kind] = n + 1;
     LIFE.gossipT = ctx.time + 9;
-    const msg = L.GOSSIP[kind][n % L.GOSSIP[kind].length];
+    const msg = L.GOSSIP[kind][(n + LIFE.visitN) % L.GOSSIP[kind].length];      // (rotates per visit, so a kind's later lines get their turn)
     if (L.KVETCH_LIVE && L.KVETCH_LIVE[kind]) LIFE.live.unshift(Object.assign({ t: Date.now() }, L.KVETCH_LIVE[kind]));
     SFX.ping();
     try {
@@ -74,6 +74,7 @@ function bubble(obj, text, dur = 2.6, cls = "angry") {
 // ── setup / teardown ─────────────────────────────────────────────────────
 export function startLife(T, def) {
     stopLife();
+    LIFE.visitN++;
     Object.assign(LIFE, { on: true, T, def, said: new Set(), told: {}, gossipT: ctx.time + 3, bumps: 0, stopsRun: 0, prev: null, appr: null, yellT: 2, sightT: 0, witness: false, talk: null, wrongT: 0, wrongSt: null, wrongCalm: 0 });
     const L = def.lines;
     // people at their spots

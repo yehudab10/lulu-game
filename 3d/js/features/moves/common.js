@@ -63,16 +63,20 @@ export const MOVES = [
       stars: [S => [S.n.pit || 0, 1, "one PIT"], S => [S.n.pit || 0, 8, "8 PITs"], S => [S.best.pitCombo || 0, 2, "2 in one combo"]] },
     { id: "roll", icon: "🤸", name: "Dodge roll", where: "foot",
       blurb: "On foot: roll out of the way — a split second where cars can't touch her. Roll right past a car's bumper for a MATADOR!",
-      how: { pad: "on foot: {handbrake}", key: "on foot: Space", touch: "on foot: tap the road (2nd finger)" },
+      how: { pad: "on foot: {footMove}", key: "on foot: C", touch: "on foot: ROLL (or tap the road)" },
       stars: [S => [S.n.roll || 0, 1, "one roll"], S => [S.q.matador || 0, 1, "a MATADOR"], S => [S.q.matador || 0, 10, "10 matadors"]] },
     { id: "slide", icon: "🏃‍♀️", name: "Sprint slide", where: "foot",
       blurb: "Sprinting? The same button slides — fast, low and untouchable for a moment. Slide into a vault to chain them.",
-      how: { pad: "sprint ({boost}) + {handbrake}", key: "Shift + Space", touch: "full-tilt stick + tap the road" },
+      how: { pad: "sprint ({boost}) + {footMove} · {jump} mid-slide = LONG JUMP", key: "Shift + C · Space mid-slide = LONG JUMP", touch: "full-tilt stick + ROLL · JUMP mid-slide = LONG JUMP" },
       stars: [S => [S.n.slide || 0, 1, "one slide"], S => [S.n.slide || 0, 25, "25 slides"], S => [S.best.footCombo || 0, 5, "a ×5 combo on foot"]] },
     { id: "vault", icon: "🧗‍♀️", name: "Vault", where: "foot",
       blurb: "Running at a parked or stopped car? The same button hops right over the hood.",
-      how: { pad: "at a car: {handbrake}", key: "at a car: Space", touch: "at a car: tap the road" },
+      how: { pad: "at a car: {footMove}", key: "at a car: C", touch: "at a car: ROLL" },
       stars: [S => [S.n.vault || 0, 1, "one vault"], S => [S.n.vault || 0, 10, "10 vaults"], S => [S.best.vaultCombo || 0, 3, "3 in one combo"]] },
+    { id: "jump", icon: "🦘", name: "Jumps", where: "foot",
+      blurb: "On foot: jump (hold the button to go higher). Hop over a guardrail or a bench, land up on a bench or a parked car's hood — and from the hood up onto the roof. Jump out of a slide for a LONG JUMP; press roll in the air to roll out of the landing.",
+      how: { pad: "on foot: {jump} (hold = higher)", key: "on foot: Space (hold = higher)", touch: "on foot: JUMP" },
+      stars: [S => [(S.n.hop || 0) + (S.n.perch || 0), 1, "hop over or onto something"], S => [S.n.longjump || 0, 1, "a LONG JUMP out of a slide"], S => [S.q.roofs || 0, 3, "3 car roofs"]] },
     { id: "combo", icon: "🔗", name: "Style combo", where: "any", meta: true,
       blurb: "Every move inside a few seconds of the last one builds the combo — different moves raise the multiplier faster than repeats. Drifting, drafting and the wrong lane keep it alive. When it ends cleanly it banks: score × multiplier, nitro, and coins from ×3 up. A crash loses it.",
       how: { pad: "chain moves", key: "chain moves", touch: "chain moves" },
@@ -81,7 +85,8 @@ export const MOVES = [
 export const MOVE = Object.fromEntries(MOVES.map(m => [m.id, m]));
 /** Which move-page entry a combo move id counts toward (headon → nearmiss, wrongway → nearmiss…). */
 export const FAMILY = { drift: "drift", rocket: "rocket", slingshot: "slingshot", nearmiss: "nearmiss", headon: "nearmiss", wrongway: "nearmiss",
-    air: "air", bootleg: "bootleg", pit: "pit", roll: "roll", matador: "roll", slide: "slide", vault: "vault" };
+    air: "air", bootleg: "bootleg", pit: "pit", roll: "roll", matador: "roll", slide: "slide", vault: "vault",
+    hop: "jump", perch: "jump", longjump: "jump" };
 export function starsOf(m) {
     let n = 0;
     for (const g of m.stars) { const [c, t] = g(S); if (c >= t) n++; else break; }

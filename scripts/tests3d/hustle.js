@@ -8,7 +8,7 @@
 //  • 💰 The Getaway: the heist cutscene (⏭ skipped), ★★★ via ctx.law, lose them, the safehouse
 //  • a mission marker (payphone) you drive into; quitting from the pause menu
 //  • layouts: desktop, TV 1080 / 720, phone landscape + portrait (touch)
-const STATIONS = ["auto", "simcha", "lounge", "talk", "off"];
+const STATIONS = ["auto", "simcha", "lounge", "talk", "dovid", "off"];
 
 module.exports = {
   name: "hustle",
@@ -81,6 +81,22 @@ module.exports = {
     t.check("…still off the road", offRoad(tk), JSON.stringify(tk));
     await t.shot("radio-talk");
     t.check("an ad reads as an AD", await g(`ctx.hustle.radio.debugSay("ad")`) && await t.L(`/^\\s*AD\\b/.test(document.querySelector(".hs-radio .tx").textContent)`));
+    await t.tap(8);
+    // 🎤 DOVID DOV FM: one real song, the whole thing, on a loop; Lulu knows whose brother that is
+    t.check("→ DOVID DOV FM", await st() === "dovid");
+    t.check("…playing 'I Don't Wanna Be Frum'", await audioSrc() === "../dont-wanna-be-frum.mp3", await audioSrc());
+    t.check("…the ticker names the song and the singer", await t.L(`/I Don't Wanna Be Frum.*Dovid Dov/.test(document.querySelector(".hs-radio .tx").textContent)`), await t.L(`document.querySelector(".hs-radio .tx").textContent`));
+    t.check("…the song file is really there", await t.L(`fetch("../dont-wanna-be-frum.mp3").then(r => r.ok ? r.blob() : null).then(b => !!b && b.size > 1e6)`));
+    t.check("…the mystery DJ talks (he has no idea who Dovid Dov is)", await g(`ctx.hustle.radio.debugSay("dj")`) && await t.L(`/DJ PLONI|DJ Ploni/.test(document.querySelector(".hs-radio .tx").textContent)`));
+    if (await g(`!!(ctx.banter && ctx.banter.say)`)) {
+      await t.until(`(() => { const s = window.__lulu3d.ctx.hustle.radio.state(); return s.dovCool > 0; })()`, "Lulu lets it slip: that's her brother", 6000);
+      t.check("Lulu lets it slip (her brother's song)", /brother|Dovid Dov|mystery singer|bedroom wall/i.test(await g(`ctx.banter.line`) || ""), await g(`ctx.banter.line`));
+      await g(`ctx.hustle.radio.tune("talk")`);
+      await g(`ctx.hustle.radio.tune("dovid")`);
+      await t.frames(150);
+      t.check("…but not every time the song comes on", await g(`ctx.hustle.radio.state().dovT`) <= 0 && await g(`ctx.hustle.radio.state().dovCool`) > 100, JSON.stringify(await g(`(() => { const s = ctx.hustle.radio.state(); return [s.dovT, s.dovCool]; })()`)));
+    }
+    await t.shot("radio-dovid");
     await t.tap(8);
     t.check("→ RADIO OFF: no music", await st() === "off" && await audioSrc() === null);
     await t.tap(8);
