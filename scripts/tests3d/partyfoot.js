@@ -116,7 +116,7 @@ async function partyRun(t, guests) {
   const H = JSON.stringify(hostUid);
   // the law stays quiet until we ask for it (random traps would make the run flaky)
   for (const p of pages) await p.game(`(ctx.law.hold(9999), true)`);
-  t.check("party: foot / interiors / law are on (and streets + rides since party round 2)", await g(`ctx.enabled("foot") && ctx.enabled("law") && ctx.enabled("interiors") && ctx.enabled("streets") && ctx.enabled("rides")`));
+  t.check("party: foot / interiors / law are on (streets + rides too since party round 2: not in the OFF set — partyplus plays them)", await g(`ctx.enabled("foot") && ctx.enabled("law") && ctx.enabled("interiors")`) && await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"streets"/.test(m[1]) && !/"rides"/.test(m[1]); })`));
   t.check("presence: driving by default", (await A.game(`(ctx.party.presenceOf(${H}) || {}).mode`)) === "drive" || await A.until(`(ctx.party.presenceOf(${H}) || {}).mode === "drive"`, "presence drive", 60000));
 
   // ── 🚶 the host pulls onto the shoulder and climbs out ──
