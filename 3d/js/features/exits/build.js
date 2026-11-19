@@ -215,7 +215,7 @@ function buildProps(R, chunk, s0, s1) {
     post(16, 21.6, "back", C.monument[R.k % NAMES.length], 2.0, 1.0, 2.0);
     post(22, 50.8, "road", C.pets, 1.9, 0.95, 2.0);
     post(54, 49.0, "road", C.picnic, 1.9, 0.95, 2.0);
-    post(150, 24.0, "back", C.stay, 1.2, 0.9, 2.0);
+    post(150, LY.LOT_D0 - 1.1, "back", C.stay, 1.2, 0.9, 2.0);         // (on the verge, not in the drive aisle)
     for (const [u, d] of LY.LAMPS) if (inChunk(u)) mg.add(models.exits_lamp, matAt(R, u, d, "along"), null, { at: [0, 0] });
     for (const [u, d] of LY.TREES) if (inChunk(u) && models.treeRound) mg.add(models.treeRound, matAt(R, u, d, (u * 7) % 6.28), null, { at: [0, 0], noShadow: true });
     for (const c of R.cars) if (inChunk(c.u) && models[c.key]) mg.add(models[c.key], matAt(R, c.u, c.d, "right"), { Paint: c.color }, { at: [0, 0], noShadow: true });

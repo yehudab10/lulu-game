@@ -18,9 +18,11 @@
 //    rail.js    an embankment railway (Midwood's B/Q): berm, bridges, stations, the trains
 //    landmarks.js  boulevard malls, frontage strips, the college quad, the city skyline, barricades
 //    cars.js    the town's drivers (lane-following, 4-way stops, the circle) + the patrol car
+//    parked.js  the parked cars: solid, shoved when she bumps one, hotwirable on foot (lifted out of the merge)
 //    life.js    people (talk on foot), geese, e-bikes, speed bumps, stop signs, the group chat
 //    cops.js    what law asks: blocksSight / copRoute / copSpawn
-//    exit.js    the highway interchange: signs, gantry, decel lane, one ramp that splits per town; triggers the fade in
+//    exit.js    the highway interchange (the plan): signs, decel lane, one ramp that splits per town, T-junctions, the on-ramp
+//    exitbuild.js  …drawn: asphalt, paint, guardrails, the gantry, STOP signs, guide boards, a gas station, the first houses
 //    sfx.js     goose honks, minivan horns, the speed-bump THUNK
 //
 //  ctx.town { active, id, name, street, streets, occluders, enter(), leave(), blocksSight(),
@@ -42,7 +44,9 @@ import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
 import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } from "./cops.js";
-import { X, planExit, clearExits, exitAt, rampPhase, SPAN } from "./exit.js";
+import { PK, setupParked, tickParked, clearParked } from "./parked.js";
+import { X, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads } from "./exit.js";
+import { propsOf, railsOf } from "./exitbuild.js";
 import { TOWNS, townFor, INTERCHANGE } from "./towns/index.js";
 
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
@@ -131,9 +135,13 @@ function makeChunk(T) {
     g.name = "TownExtras";
     ctx.scene.add(g);
     S.extras = g;
+    // (on foot the colliders + range follow HER, not the car she left on another street: a street's s is its own
+    //  base + along, so the car's s says nothing about where she walks — she'd walk through every parked car and wall)
+    const foot = () => ctx.foot && ctx.foot.active && ctx.foot.pos ? ctx.foot : null;
     return {
-        k: -1, get s0() { return ctx.car.s - 100; }, get s1() { return ctx.car.s + 100; },
-        get colliders() { return T.near(ctx.car.pos.x, ctx.car.pos.z); },
+        k: -1, get s0() { const f = foot(); return (f && f.debug && f.debug.F ? f.debug.F.s : ctx.car.s) - 100; },
+        get s1() { return this.s0 + 200; },
+        get colliders() { const f = foot(), p = f ? f.pos : ctx.car.pos; return T.near(p.x, p.z); },
         coins: T.coins, hearts: [], traps: [], houses: [], anim: [], biome: { name: "town" }, group: g,
         add(o) { g.add(o); return o; }, own(x) { T.own.push(x); return x; }, addCollider(c) { T.colliders.push(c); return c; },
         addMesh(geo, mat) { const m = new THREE.Mesh(geo, mat); g.add(m); T.own.push(geo); return m; },
@@ -151,6 +159,7 @@ function enterTown(e = null, opts = {}) {
     S.def = S.lastDef = def;
     S.exitS = e ? e.s : (opts.exitS != null ? opts.exitS : car.s);
     const T = S.T = buildTown(def);
+    setupParked(T);
     ctx.scene.add(T.root);
     ctx.scene.add(T.coinMesh);
     S.road = new TownRoad(world.highway);
@@ -222,6 +231,7 @@ function leaveTown(why = "highway") {
     for (const h of S.haz) { if (h.grp.parent) h.grp.parent.remove(h.grp); h.m.dispose(); h.g.dispose(); }
     S.haz.length = 0;
     clearDrivers();
+    clearParked();
     tr.clear();
     tr.config.enabled = S.savedTraffic;
     world.setDistrict(null);
@@ -235,10 +245,13 @@ function leaveTown(why = "highway") {
     S.timers.length = 0;
     S.footYaw = null;
     if (why !== "reset") {
-        // back on the highway just past the exit, in the right lane (or on the shoulder after a wreck)
-        const s = S.exitS + 190, d = why === "wreck" ? 7.8 : 5.25;
+        // back on the highway: driving out, down the interchange's on-ramp (she merges in from the accel lane);
+        // otherwise just past the exit, in the right lane (or on the shoulder after a wreck)
+        const on = why === "highway" ? onRampSpot(S.exitS) : null;
+        const s = on ? on.s : S.exitS + 190, d = on ? on.d : why === "wreck" ? 7.8 : 5.25;
         const p = world.highway.point(s, d, {});
-        const v = why === "highway" ? Math.max(12, Math.min(28, car.speed)) : 0;
+        if (on) p.h = on.h;
+        const v = why === "highway" ? Math.max(11, Math.min(20, car.speed)) : 0;
         car.place(p.x, p.z, p.h);
         car.vx = Math.sin(p.h) * v; car.vz = Math.cos(p.h) * v; car.vF = v;
         car.s = s; car.d = d;
@@ -270,6 +283,7 @@ function tick(dt) {
     for (let i = S.timers.length - 1; i >= 0; i--) if (ctx.time >= S.timers[i].at) { const t = S.timers.splice(i, 1)[0]; try { t.fn(); } catch (e) { console.error(e); } }
     tickLife(dt);
     lodDrivers(ctx.camera.position);
+    tickParked(dt);
     if ((S.cullN = (S.cullN || 0) + 1) % 3 === 1) cullClusters(T);
     S.tendT -= dt;
     if (S.tendT <= 0 && !partyTowns()) { S.tendT = 1; tendDrivers(1, Object.assign({}, S.def.traffic, { cop: ctx.law && ctx.law.chasing ? 0 : (S.def.traffic.cop || 0) })); }
@@ -318,6 +332,25 @@ const RAIL_HOOKS = {
 // it's past its look's distance, or when every sample point is behind some other block.
 const MAX_D = { flat: 140, solid: 300, glow: 230, lit: 230, glass: 110, far: 700, farglow: 700 };
 const SAMPLES = [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]];
+/** A cluster's sample points (local): its cell's corners / edges / centre, PLUS every street point inside it (the kerbs,
+ *  the parking lanes, the centre line, every 10 m) — what a cluster shows lines the streets, and a cell's own 9 points can
+ *  all sit behind blocks while a parked car in it stands in plain sight down a cross street (that hid ~1 in 15 of them). */
+function samplesOf(m, T) {
+    if (m.userData.samples) return m.userData.samples;
+    const c = m.userData.cell, out = SAMPLES.map(([u, v]) => [c.x0 + (c.x1 - c.x0) * u, c.z0 + (c.z1 - c.z0) * v]);
+    // (and the parked cars themselves, in the clusters they're baked into)
+    if (m.userData.townLook === "flat") for (const pc of T.pcars) if (pc.x >= c.x0 && pc.x < c.x1 && pc.z >= c.z0 && pc.z < c.z1) out.push([pc.x, pc.z]);
+    const p = {};
+    for (const st of PL.STREETS) {
+        const ds = [0, st.park || st.curb || 3, -(st.park || st.curb || 3)];
+        if (st.boulevard && st.svcPark) ds.push(st.svcPark, -st.svcPark);
+        for (let a = st.a0; a <= st.a1; a += 10) for (const d of ds) {
+            streetPoint(st, a, d, p);
+            if (p.x >= c.x0 - 1 && p.x <= c.x1 + 1 && p.z >= c.z0 - 1 && p.z <= c.z1 + 1) out.push([p.x, p.z]);
+        }
+    }
+    return (m.userData.samples = out);
+}
 function cullClusters(T) {
     const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
     let shown = 0;
@@ -329,10 +362,7 @@ function cullClusters(T) {
         let vis = d <= (MAX_D[m.userData.townLook] || 250);
         if (vis && d > 24) {
             vis = false;
-            for (const [u, v] of SAMPLES) {
-                const px = c.x0 + (c.x1 - c.x0) * u, pz = c.z0 + (c.z1 - c.z0) * v;
-                if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
-            }
+            for (const [px, pz] of samplesOf(m, T)) if (!sightBlocked(cam.x, cam.z, px, pz)) { vis = true; break; }
         }
         m.visible = vis;
         if (vis) shown++;
@@ -348,7 +378,7 @@ function eligible() {
 }
 hook("runStart", G => {
     if (S.active) leaveTown("reset");
-    S.trans = null; setFade(0);
+    S.trans = null; setFade(0); S.commit = null;
     clearExits();
     if (S.cue) { S.cue = ""; H.prompt(""); }
     S.bubbe.clear();
@@ -363,13 +393,13 @@ hook("runStart", G => {
         load(def);
     }
 }, 20);
-on("title", () => { if (S.active) leaveTown("reset"); S.trans = null; setFade(0); clearExits(); cue(null); });
+on("title", () => { if (S.active) leaveTown("reset"); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
 
 // ── the ramp cue: a light, in-the-moment prompt (no popup) while she's in the decel lane / on the ramp ──
 const RP = {};
-function cue(e, ph) {
-    let html = "";
-    if (e && ph && ph.phase && ctx.state === "playing" && ctx.car.speed > 3) {
+function cue(e, ph, text = null) {
+    let html = text || "";
+    if (!text && e && ph && ph.phase && ctx.state === "playing" && ctx.car.speed > 3) {
         const [a, b] = e.towns, no = t => t.highway.no ? `<b>${t.highway.no}</b> ` : "";
         if (ph.phase === "decel") html = e.two
             ? `🛣️ EXIT ONLY · ${no(a)}${a.highway.short || a.name} · ${no(b)}${b.highway.short || b.name} <small>· steer left to stay on the highway</small>`
@@ -394,6 +424,15 @@ hook("update", (dt, P, controlsOn) => {
     const last = X.exits[X.exits.length - 1];
     if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, INTERCHANGE.towns);
     if (ctx.state !== "playing" || !controlsOn || S.trans) { if (S.cue) cue(null); return; }
+    // committed to a branch: she drives on down it to the STOP sign at its T-junction (the gas station, the
+    // welcome sign, the first houses) and the town fades in there — or as soon as she leaves the branch / dawdles
+    const K = S.commit;
+    if (K) {
+        const b = K.e.branches[K.k], u = car.s - K.e.s;
+        const off = exitAt(car.s) !== K.e || Math.abs(car.d - b.dOf(Math.min(u, b.stop))) > RAMP_HALF + 5;
+        if (u >= b.stop - 16 || off || ctx.time - K.t > 7) { S.commit = null; cue(null); beginTrans("enter", { s: K.e.s, town: b.town }); }
+        return;
+    }
     const e = exitAt(car.s);
     if (e && e.s - car.s < 900) load(e.town);
     const ph = e ? rampPhase(e, car.s, car.d, RP) : null;
@@ -406,7 +445,9 @@ hook("update", (dt, P, controlsOn) => {
     if (ctx.hustle && ctx.hustle.job) { ctx.hustle.end("quit", `You took the ${town.name} exit. Nobody gets anywhere on time from there.`); return; }
     e.used++;
     emit("town:exit", { town: town.id, s: e.s, no: town.highway.no || null });
-    beginTrans("enter", { s: e.s, town });
+    S.commit = { e, k: ph.branch, t: ctx.time };
+    cue(e, ph, `➡️ <b>${(town.highway.label || town.name).toUpperCase()}</b> <small>· stop sign ahead</small>`);
+    for (const t of e.towns) load(t);
 });
 
 // out of hearts in town: she's towed back to the highway's shoulder, and the usual aftermath plays there
@@ -448,6 +489,13 @@ on("boot", () => {
     const R = ctx.streets && ctx.streets.rides;
     if (R && R.van && !R.town_van) R.town_van = Object.assign({}, R.van, { model: "town_minivan" });
     if (R && R.sedan && !R.town_carsvc) R.town_carsvc = Object.assign({}, R.sedan, { model: "sedan", label: "🚕 JACK THE CAR SERVICE" });
+    // the big ones too: Lakewood's school bus, Midwood's city bus and the alternate-side sweeper
+    const HEAVY = { top: 0.7, acc: 0.5, grip: 0.8, brake: 0.6 };
+    if (R && !R.town_bus) R.town_bus = { model: "roadevents_school_bus", label: "🚌 JACK THE SCHOOL BUS", vtype: "bus", feel: "heavy", half: 1.26, fwd: 3.9, len: 1.0, y: [0.6, 2.4], paint: "BusYellow", handling: HEAVY };
+    if (R && !R.town_citybus) R.town_citybus = { model: "foot_bus", label: "🚌 JACK THE CITY BUS", vtype: "bus", feel: "heavy", half: 1.26, fwd: 4.3, len: 1.0, y: [0.6, 2.4], paint: "BusWhite", handling: HEAVY };
+    if (R && !R.town_sweeper) R.town_sweeper = { model: "town_mw_sweeper", label: "🧹 JACK THE STREET SWEEPER", vtype: "car", feel: "heavy", half: 1.15, fwd: 1.0, len: 1.0, y: [0.6, 2.0], paint: "SweeperBody", handling: { top: 0.55, acc: 0.5, grip: 0.9, brake: 0.7 } };
+    const CAM = ctx.streets && ctx.streets.cams;
+    if (CAM) { if (!CAM.roadevents_school_bus) CAM.roadevents_school_bus = { d: 4.2, h: 1.9 }; if (!CAM.town_mw_sweeper) CAM.town_mw_sweeper = { d: 1.2, h: 0.8 }; }
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(talkSpot);
     // the phone (if it has apps): the local news
     if (ctx.phone && ctx.phone.addApp) {
@@ -585,7 +633,7 @@ ctx.town = {
         return best;
     },
     debug: {
-        S, C, LIFE, PL, X, gossip, luluSay, crime,
+        S, C, LIFE, PL, X, PK, gossip, luluSay, crime,
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): the full interchange
          *  (every town), or a one-town exit with its own signs when `id` names a town. */
         exitAhead(ahead = 320, id = null) {
@@ -598,6 +646,17 @@ ctx.town = {
             return e.s;
         },
         rampPhase: (s = ctx.car.s, d = ctx.car.d) => { const e = exitAt(s); return e ? Object.assign({ s: e.s }, rampPhase(e, s, d)) : null; },
+        /** A driving line [[u, d]…] from the right lane down the decel lane onto branch k (to its stop line), for the exit at E. */
+        rampRoute: (E, k = 0, from = -300) => { const e = X.exits.find(x => Math.abs(x.s - E) < 1); return e ? rampRoute(e, k, from) : null; },
+        /** Exit E's far end as data: { props: [{key, u, d, r}], rails: [{a, b, pts}], roads, stops } (tests). */
+        exitLayout(E) {
+            const e = X.exits.find(x => Math.abs(x.s - E) < 1);
+            if (!e) return null;
+            return { props: propsOf(e).map(p => ({ key: p.key, u: p.at != null ? p.at : p.u, d: p.d, r: p.r, len: p.len || 0 })), roads: crossRoads(e),
+                rails: railsOf(e).map(r => ({ a: r.a, b: r.b, pts: Array.from({ length: Math.floor((r.b - r.a) / 4) + 1 }, (_, i) => [r.a + i * 4, r.dOf(r.a + i * 4)]) })),
+                stops: e.branches.map(b => ({ k: b.k, stop: b.stop, d: b.dOf(b.stop) })) };
+        },
+        laneAt: (E, u, d) => { const e = X.exits.find(x => Math.abs(x.s - E) < 1); return !!(e && laneAt(e, u, d)); },
         exits: () => X.exits.map(e => e.s),
         /** Put her on a street: (name, along, d, speed, dir). */
         place(name, along, d = LANE, v = 0, dir = 1) {
@@ -612,7 +671,7 @@ ctx.town = {
         pt(name, along, d = 0) { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; },
         sees: (ax, az, bx, bz) => !blocksSight(ax, az, bx, bz),
         local: (x, z) => toLocal(x, z, {}),
-        segmentBlocked,
+        segmentBlocked, sightBlocked,
     },
 };
 function takePatrol() {
