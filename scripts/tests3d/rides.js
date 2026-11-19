@@ -39,7 +39,7 @@ module.exports = {
     t.check("the fleet is jackable (streets' table) and the ice-cream truck gets a roomier camera",
       await g(`["rides_taxi", "rides_icecream", "journey_icecream", "rides_ambulance", "rides_bus"].every(k => !!ctx.streets.rides[k]) && !!ctx.streets.cams.journey_icecream`));
     t.check("the button guide has the ride trick", await t.L(`import("./js/core/screens.js").then(m => /Ride trick/.test(m.controlsHtml()))`));
-    t.check("party keeps rides off (shared world stays identical)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
+    t.check("party module loads (rides are ON in a party — partyplus tests the seeded fleet)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
     await g(`ctx.rides.add({ id: "testvan", name: "Test van", emoji: "🧪", keys: ["test_nothing"] })`);
     t.check("a town can add its own ride", await g(`ctx.rides.forKey("test_nothing").id === "testvan"`));
 
