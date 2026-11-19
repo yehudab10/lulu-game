@@ -342,7 +342,10 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   `before()` takes the other car off the road at the moment she lands. The courtesy shield after it sets
   `G.invSoft` (no blink; a real hit clears it).
 - **Back on the road after a scene:** a rolling start (moving + shielded), never the 3-2-1 — that is for a fresh run.
-- **Loading ahead:** `ctx.interiors[id].warm()` (foot calls it within 22 m of a door); a town loads from 900 m.
+- **Loading ahead:** `ctx.interiors[id].warm()` (foot calls it within 22 m of a door, heist at the bank, homes at a
+  front door); a town loads from 900 m. **A warmed building is a soft cut in and out**: `ready()` → `enterInterior`
+  builds the room in the same frame behind `dissolve` (`Room.loadNow`, `room.soft`), foot skips its black wash, and
+  leaving melts back the same way. Not ready yet → the old emoji-on-black loading fade.
 - **Music:** `setMusic` crossfades (0.7 s) and every track resumes where it left off.
 - **No build hitches:** a road chunk that enters the 640 m window is built a STEP at a time (`Chunk.build` is a
   generator: the road + scenery, the bake, then one `chunk:build` listener per step; `World.update` gives it ~3 ms a
