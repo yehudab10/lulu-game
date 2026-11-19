@@ -713,8 +713,8 @@ blob draw call), one leash line draw call, porch lights are one `Points` (lit by
 lights the houses). Kids / yard work go in at night, half the walkers stay home in the rain. Reactions: a wave / a line as she passes
 slowly, gossip once she's notorious (`ctx.memory.notoriety()`, a wanted level, a house she broke into this run), scatter (a jump
 sideways + a yell) from a car over 8.5 m/s heading at them, a yell at a `honk`. Sound: a synthesized `homesKids` spatial loop at the
-nearest kids' lawn, the `jingle` far off every ~minute. Perf budget (`scripts/tests3d/homes.js` logs `PERF town (crowd off/on)`):
-≤ +40 draw calls, ≤ +170k triangles, crowd tick ≤ 2 ms. **Doors:** door offsets per house model (`DOORS` in `homes/index.js`, from
+nearest kids' lawn, the `jingle` far off every ~minute. Perf budget (`scripts/tests3d/homes.js` logs `PERF town (crowd off/on)` + what the crowd itself draws, `ctx.homes.crowd().calls / .tris`):
+≤ 40 draw calls, ≤ 170k triangles of its own, crowd tick ≤ 2 ms. **Doors:** door offsets per house model (`DOORS` in `homes/index.js`, from
 the Blender builders) → one ✋ `ctx.foot.addSpot` for the nearest front door; a door's family is a pure hash of (town, house, door).
 The doorstep scene holds her in `ctx.foot.script` (knock → an answering resident at the door + dialogue; `choose()` menus). Going in
 is `ctx.foot.handoff("home", door)` → the interiors engine (`ctx.interiors.home`, `house.js`: `defineInterior` with a `build` that lays

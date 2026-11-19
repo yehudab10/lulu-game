@@ -630,5 +630,17 @@ export function crowdInfo() {
     for (const [k, r] of Object.entries(C.rigs)) { rigs[k] = r.n; tris += r.tris * r.n; }
     return { on: C.on, peds: C.peds.length, walkers: C.peds.filter(p => p.kind === "walker").length, porch: C.peds.filter(p => p.kind === "porch").length,
         bikes: C.peds.filter(p => p.kind === "bike").length, dogs: C.peds.filter(p => p.type === "dog").length, strollers: C.peds.filter(p => p.type === "stroller").length,
-        near: C.stats.near, far: C.stats.far, hidden: C.stats.hidden, ms: +C.stats.ms.toFixed(3), rigs, nearTris: Math.round(tris), types: [...new Set(C.peds.map(p => p.type))] };
+        near: C.stats.near, far: C.stats.far, hidden: C.stats.hidden, ms: +C.stats.ms.toFixed(3), rigs, nearTris: Math.round(tris), types: [...new Set(C.peds.map(p => p.type))],
+        ...crowdDraw() };
+}
+/** What the crowd itself puts on the GPU this frame: { calls, tris } (every drawn instanced rig part / the LOD figures /
+ *  blobs / leashes / porch lights — independent of the town's own cars driving in and out of view). */
+function crowdDraw() {
+    let calls = 0, tris = 0;
+    if (C.group) C.group.traverse(o => {
+        if (!o.visible) return;
+        if (o.isInstancedMesh) { if (o.count > 0) { calls++; const g = o.geometry; tris += ((g.index ? g.index.count : g.attributes.position.count) / 3) * o.count; } }
+        else if (o.isMesh || o.isPoints || o.isLineSegments) calls++;
+    });
+    return { calls, tris: Math.round(tris) };
 }

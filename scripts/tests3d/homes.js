@@ -80,12 +80,16 @@ module.exports = {
       await g(`${D}.stopCrowd()`); await t.frames(4);
       const off = await perf(60);
       await g(`${D}.startCrowd()`); await t.frames(10);
+      // (the crowd's own draw calls / triangles, sampled over the same frames: the off → on totals also swing with the
+      //  town's minivans driving in and out of view, so the budget is checked on what the crowd itself draws)
+      await t.L(`(() => { window.__cd = { n: 0, calls: 0, tris: 0, max: 0 }; const tick = () => { const D = window.__cd; if (!D) return; const c = __lulu3d.ctx.homes.crowd(); D.n++; D.calls += c.calls; D.tris += c.tris; D.max = Math.max(D.max, c.calls); requestAnimationFrame(tick); }; requestAnimationFrame(tick); })()`);
       const on = await perf(60);
+      const cd = await t.L(`(() => { const D = window.__cd; window.__cd = null; return { calls: Math.round(D.calls / Math.max(1, D.n)), max: D.max, tris: Math.round(D.tris / Math.max(1, D.n)) }; })()`);
       const ci2 = await g(`ctx.homes.crowd()`);
       console.log("   PERF town (crowd off)", JSON.stringify(off));
-      console.log("   PERF town (crowd on) ", JSON.stringify(on), "near", ci2.near, "far", ci2.far, "tick ms", ci2.ms);
-      t.check("perf budget: the crowd adds ≤ 40 draw calls", on.calls - off.calls <= 40, `${off.calls} → ${on.calls}`);
-      t.check("perf budget: ≤ 170k triangles more", on.tris - off.tris <= 170000, `${off.tris} → ${on.tris}`);
+      console.log("   PERF town (crowd on) ", JSON.stringify(on), "near", ci2.near, "far", ci2.far, "tick ms", ci2.ms, "· the crowd itself", JSON.stringify(cd));
+      t.check("perf budget: the crowd draws ≤ 40 draw calls", cd.max <= 40, `avg ${cd.calls}, max ${cd.max} (town ${off.calls} → ${on.calls})`);
+      t.check("perf budget: ≤ 170k triangles", cd.tris <= 170000, `${cd.tris} (town ${off.tris} → ${on.tris})`);
       t.check("perf budget: ≤ " + 26 + " full-rig peds, the crowd tick ≤ 2 ms", ci2.near <= 26 && ci2.ms <= 2, `${ci2.near} near, ${ci2.ms} ms`);
       await t.shot("crowd-street");
       // a honk → somebody yells; a speeding car → they scatter
@@ -265,7 +269,7 @@ module.exports = {
       await g(`ctx.town.debug.place("Avenue J", -120, 1.75, 0, 1)`);
       await t.frames(12);
       const p = await perf(45);
-      console.log("   PERF midwood (crowd on)", JSON.stringify(p), JSON.stringify(await g(`({ near: ctx.homes.crowd().near, far: ctx.homes.crowd().far, ms: ctx.homes.crowd().ms })`)));
+      console.log("   PERF midwood (crowd on)", JSON.stringify(p), JSON.stringify(await g(`(() => { const c = ctx.homes.crowd(); return { near: c.near, far: c.far, ms: c.ms, crowdCalls: c.calls, crowdTris: c.tris }; })()`)));
       await t.shot("midwood-crowd");
       await g(`(ctx.town.leave("reset"), L3.setState("title"), true)`);
       await t.frames(6);
