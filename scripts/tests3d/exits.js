@@ -5,7 +5,7 @@
 //   • a rest area: decel lane → off-ramp → the lot; the pump bay fills nitro for coins; out on foot: the food
 //     court heals, the restrooms gag, the vending machine, the souvenir stand, a picnic table, the dog, a trucker;
 //     back in the car, Mendel's bay takes the dents out; the on-ramp merges back onto the highway
-//   • perf (busy Cruise vs. the rest area), screenshots (desktop / TV / phone portrait + landscape), party keeps it OFF
+//   • perf (busy Cruise vs. the rest area), screenshots (desktop / TV / phone portrait + landscape), party turns it on (seeded; partyplus tests it)
 module.exports = {
   name: "exits",
   viewport: { width: 1280, height: 720 },
@@ -51,7 +51,7 @@ module.exports = {
     };
 
     t.check("ctx.exits service is registered", await g(`!!(ctx.exits && ctx.exits.spans && ctx.exits.debug && ctx.exits.debug.restAhead)`));
-    t.check("party keeps exits (and the towns) OFF", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"exits"/.test(s) && /const OFF = new Set\\([^)]*"town"/.test(s))`));
+    t.check("party: exits (seeded rest areas) and the towns are ON (not in the OFF set — partyplus tests them)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"exits"/.test(m[1]) && !/"town"/.test(m[1]); })`));
     t.check("the ramps + the lot are paved (core's paved registry has entries)", await t.L(`import("./js/core/driving.js").then(m => m.paved.length >= 2)`));
 
     // ── 1. a Cruise run: interchanges with both towns, rest areas clear of them ──

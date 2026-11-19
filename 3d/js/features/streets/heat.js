@@ -8,6 +8,9 @@
 //   • SPIKE STRIPS shred her tyres: the car wobbles and pulls, sparks fly off the
 //     rims, no nitro and a lower top speed — until the spare goes on (or Paint & Pray
 //     fixes it). Cruisers that follow her over the strip spin out.
+// In a 🎉 party a roadblock is PERSONAL (only the player with the heat gets one; its cruisers are data.partyLocal so
+// the party's traffic sync keeps them): the cruisers + barricades go on the SHOULDERS and the spike strip across the
+// lanes in her direction but the gap — never parked across a lane the shared (seeded, unstoppable) traffic drives.
 import * as THREE from "three";
 import { ctx, on, hook, emit, addActor } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
@@ -34,12 +37,14 @@ export function spawnRoadblock(ahead = 280, opts = {}) {
     const gap = opts.gap != null ? opts.gap : pick([1.75, 5.25]);
     const h = rd.at(s, tmp).h;
     const blk = { s, gap, units: [], cops: [], spikes: null, t: 0, said: false, barriers: [] };
+    const party = !!(ctx.party && ctx.party.active && ctx.G && ctx.G.mode === "party");
     // cruisers across every lane but the gap, nosed in at an angle like they skidded to a stop
+    // (a party: on the two shoulders instead — the shared traffic can't stop for them)
     let k = 0;
-    for (const d of LANES) {
+    for (const d of (party ? [-7.7, 7.7] : LANES)) {
         if (Math.abs(d - gap) < 0.5) continue;
         rd.point(s + (k % 2 ? 1.2 : -1.2), d, tmpB);
-        const c = T2.add("streets_rbcop", s, d, d < 0 ? -1 : 1, 0, { keep: true, noNearMiss: true, ai: (dt, cc) => { cc.speed = 0; }, data: { streetsBlock: blk, cop: true } });
+        const c = T2.add("streets_rbcop", s, d, d < 0 ? -1 : 1, 0, { keep: true, noNearMiss: true, ai: (dt, cc) => { cc.speed = 0; }, data: { streetsBlock: blk, cop: true, partyLocal: party } });
         c.free = true; c.x = tmpB.x; c.z = tmpB.z; c.h = h + (k % 2 ? 0.75 : -0.75) + (d < 0 ? Math.PI : 0);
         T2.place(c, 0);
         c.onCrash = e => (e.impact > 9 ? undefined : false);         // a nudge is free, ramming it costs a heart
@@ -49,7 +54,7 @@ export function spawnRoadblock(ahead = 280, opts = {}) {
     }
     // barricades on both shoulders (smashable), officers behind the cars
     for (const side of [-1, 1]) {
-        rd.point(s + 1.5, side * 7.9, tmpB);
+        rd.point(s + (party ? 9 : 1.5), side * 7.9, tmpB);
         const b = addLooseProp("barrier", tmpB.x, tmpB.z, h + Math.PI + (side > 0 ? 0.15 : -0.15));
 
         if (b) blk.barriers.push(b);
@@ -65,6 +70,7 @@ export function spawnRoadblock(ahead = 280, opts = {}) {
         }
     }
     if (opts.spikes !== false) blk.spikes = layStrip(s - 7, gap);
+    if (party && opts.spikes !== false) blk.spikes2 = layStrip(s - 7, gap > 3.5 ? 1.75 : 5.25);   // her other lane too: the gap is the shoulder
     HEAT.blocks.push(blk);
     addActor({
         update(dt) { return updateBlock(blk, dt); },
@@ -113,6 +119,7 @@ function removeBlock(blk) {
     for (const u of blk.units) if (ctx.traffic.cars.includes(u.c)) { u.bar && u.bar.set(false); ctx.traffic.remove(u.c); }
     for (const cop of blk.cops) ctx.scene.remove(cop.p.obj);
     if (blk.spikes) removeStrip(blk.spikes);
+    if (blk.spikes2) removeStrip(blk.spikes2);
 }
 
 // cadence: while she's SEEN at 3★+, one roadblock at a time, a breather between

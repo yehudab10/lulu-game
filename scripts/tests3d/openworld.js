@@ -245,7 +245,7 @@ async function partyRun(t, guests) {
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
   const fA = JSON.parse(folk[0]), fB = JSON.parse(folk[1]), diff = fA.map((x, i) => JSON.stringify(x) === JSON.stringify(fB[i]) ? null : i).filter(i => i != null);
-  t.check("townsfolk + geese: seeded the same on both screens (no e-bikes)", folk[0] === folk[1] && await g(`ctx.town.debug.LIFE.bikes.length === 0`), `${fA.length}/${fB.length} placed; differ at ${diff.slice(0, 6).map(i => i + ":" + JSON.stringify(fA[i]) + "≠" + JSON.stringify(fB[i])).join(" ")}`);
+  t.check("townsfolk + geese: seeded the same on both screens (e-bikes ride in a party since round 2 — partyplus)", folk[0] === folk[1], `${fA.length}/${fB.length} placed; differ at ${diff.slice(0, 6).map(i => i + ":" + JSON.stringify(fA[i]) + "≠" + JSON.stringify(fB[i])).join(" ")}`);
 
   // friends see each other on the streets: the guest catches up with the host
   const hostUid = await g(`ctx.party.uid`), guestUid = await A.game(`ctx.party.uid`);

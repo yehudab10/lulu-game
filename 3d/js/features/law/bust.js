@@ -249,11 +249,16 @@ export function pullOver() {
     if (ctx.state !== "playing") return false;
     const car = ctx.car;
     let best = null, bd = 1e9;
+    // (a 🎉 party's shared car can't just stop — it's a pure function of the party clock — so features/party CLAIMS it:
+    // it pulls over the same way on every friend's screen; a car she already claimed counts too)
+    const shared = c => !!(c.data && ((c.data.party && ctx.party && ctx.party.canClaim && ctx.party.canClaim(c)) || (c.data.partyClaim && c.data.local)));
     for (const c of ctx.traffic.cars) {
-        if (c.hit || c.immune || (c.data && (c.data.law || c.data.party)) || c.dir < 0) continue;   // (a party's shared cars never pull over)
+        const sh = shared(c);
+        if (c.hit || (c.immune && !sh) || (c.data && (c.data.law || (c.data.party && !sh) || (c.data.partyClaim && !sh))) || c.dir < 0) continue;
         const gap = c.s - car.s;
         if (gap > 4 && gap < 60 && gap < bd) { bd = gap; best = c; }
     }
+    if (best && best.data && best.data.party && !ctx.party.claim(best, { L: Math.max(14, best.speed * best.speed / 18), how: "stop" })) best = null;
     if (!best) { UI.say("🚨 No one to bust!", ""); X.deny(); return false; }
     setState("lawStop", { target: best });
     return true;

@@ -8,6 +8,9 @@
 // clears them — but no patrol recognises the new colour this run). Costs coins (more with more stars); Moishe
 // always has something to say. The whole scene runs on game time, so ⏭ skipping
 // fast-forwards it and every side effect still happens in order.
+// In a 🎉 party the booths come from the party's seeded road plan (ctx.party.road, kind streets:paint — the same
+// s on every friend's screen, planned ~1.4 km ahead so the world reserves them before their chunks are built);
+// the solo booths stand down. The drive-through is personal (friends keep driving; they see "🎨 at Paint & Pray").
 import * as THREE from "three";
 import { ctx, on, hook, emit, registerState, setState, addActor } from "../../core/ctx.js";
 import { updateDriving } from "../../core/driving.js";
@@ -47,16 +50,39 @@ function blocked(s, w) {
     for (let x = s - 45; x <= s + 45; x += 15) for (const d of [10, 14, 18, 24]) if (w.isReserved(x, d, 0)) return true;
     return false;
 }
-function addGarage(s, reserve) {
-    const g = { s, built: null, skip: false, cool: 0, sign: null };
+function addGarage(s, reserve, party = null) {
+    const g = { s, built: null, skip: false, cool: 0, sign: null, party, res: [] };
     if (reserve) {
         ctx.world.reserve(s - 34, s + 34, 1, SHOULDER - 0.3, 30);
-        PAINT.mine.add(ctx.world.reserved[ctx.world.reserved.length - 1]);
+        g.res.push(ctx.world.reserved[ctx.world.reserved.length - 1]);
         ctx.world.reserve(s - 262, s - 256, 1, 9.6, 12);          // the sign's spot
-        PAINT.mine.add(ctx.world.reserved[ctx.world.reserved.length - 1]);
+        g.res.push(ctx.world.reserved[ctx.world.reserved.length - 1]);
+        for (const r of g.res) PAINT.mine.add(r);
     }
     PAINT.garages.push(g);
     return g;
+}
+// ── 🎉 a party: the booths from the seeded road plan ─────────────────────
+const partyRun = () => !!(ctx.party && ctx.party.active && ctx.party.road && ctx.G && ctx.G.mode === "party");
+const fullAct = A => !!A && (A.k === "trip" || A.k === "roam");
+on("boot", () => {
+    if (ctx.party && ctx.party.road) ctx.party.road.claim("streets", { paint: A => (fullAct(A) && live() ? 0.9 : 0) });
+});
+function planParty() {
+    const s = ctx.car.s;
+    for (let k = Math.floor((s - 40) / 200); k <= Math.floor((s + 1400) / 200); k++) {
+        const sl = ctx.party.road.slot(k);
+        if (!sl || sl.id !== "streets" || sl.kind !== "paint" || PAINT.garages.some(g => g.party === sl.key)) continue;
+        addGarage(sl.s, true, sl.key);
+    }
+}
+function dropPartyGarages() {
+    const w = ctx.world;
+    for (const g of PAINT.garages.filter(g => g.party)) {
+        unbuild(g);
+        for (const r of g.res) { PAINT.mine.delete(r); const i = w ? w.reserved.indexOf(r) : -1; if (i >= 0) w.reserved.splice(i, 1); }
+    }
+    PAINT.garages = PAINT.garages.filter(g => !g.party);
 }
 /** Another feature's set piece (a journey stop, a Main Street block…) on the same stretch → skip this one. */
 function clash(g) {
@@ -375,11 +401,15 @@ export function restorePaint() {
 
 // ── lifecycle ───────────────────────────────────────────────────────────
 hook("update", () => {
-    if (!live() || !models[K("paint")]) return;
+    if (!live()) return;
+    const party = partyRun();
+    if (party) planParty();
+    if (!models[K("paint")]) return;
     const s = ctx.car.s;
     for (const g of PAINT.garages) {
+        if (!g.party !== !party) continue;                 // a party's booths only in a party, the solo ones only solo
         if (g.built || g.skip || s < g.s - 650 || s > g.s + 200) continue;
-        if (clash(g)) { g.skip = true; continue; }
+        if (!g.party && clash(g)) { g.skip = true; continue; }
         build(g);
     }
 });
@@ -388,7 +418,11 @@ on("boot", () => {
     plan();
     need(["paint", "owner"]).catch(e => console.error("[streets] paint models", e));
 });
-hook("runStart", () => { restorePaint(); PAINT.hinted.clear(); for (const g of PAINT.garages) g.cool = 0; });
+hook("runStart", G => {
+    restorePaint(); PAINT.hinted.clear(); dropPartyGarages();
+    for (const g of PAINT.garages) { g.cool = 0; if (G && G.mode === "party" && g.built) unbuild(g); }
+    if (G && G.mode === "party" && live()) need(["paint", "owner"]).catch(() => {});
+});
 on("skin", () => { painted.length = 0; PAINT.color = null; });
 on("title", () => restorePaint());
 
@@ -399,9 +433,9 @@ export function garageAhead(ahead = 120) {
     return g;
 }
 export function nearestGarage() {
-    const s = ctx.car.s;
+    const s = ctx.car.s, party = partyRun();
     let best = null;
-    for (const g of PAINT.garages) if (!g.skip && g.s > s - 20 && (!best || g.s < best.s)) best = g;
+    for (const g of PAINT.garages) if (!g.skip && !g.party === !party && g.s > s - 20 && (!best || g.s < best.s)) best = g;
     return best ? { s: best.s, dist: best.s - s, built: !!best.built, g: best } : null;
 }
 

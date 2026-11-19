@@ -51,12 +51,28 @@ function matches(ride, job) {
     return !!(ride && job && ride.kind === job.kind && sameColor(ride.color, job.hex));
 }
 
-/** One of the wanted cars turns up in traffic ahead now and then. */
+/** One of the wanted cars turns up in traffic ahead now and then.
+ *  (In a 🎉 party it's MINE alone — data.partyLocal — and rides a gap in the shared, seeded traffic at that lane's
+ *  speed, so nothing ever drives through it; step out in front of it / ram it to make it stop, like any car.) */
 function spawnTarget(job) {
     const T2 = ctx.traffic, car = ctx.car;
     if (!models[RIDES[job.kind].model]) return;
     const s = car.s + rand(260, 340), d = pick([1.75, 5.25]);
     if (!T2.laneFree(s, d, 1, 40)) return;
+    const party = !!(ctx.party && ctx.party.active && ctx.G.mode === "party");
+    if (party) {
+        const v = d > 3.5 ? 16 : 21.5;                      // (party/traffic.js's lane speeds)
+        if (ctx.party.trafficAt(ctx.party.clock(), s - 30, s + 30).some(o => Math.abs(o.d - d) < 1)) return;
+        const c = T2.add(job.kind, s, d, 1, v, { data: { partyLocal: true, chopTarget: true },
+            ai: (dt, cc) => { cc.speed = v; cc.s += v * dt; cc.d = cc.dTarget = d; } });
+        c.obj.traverse(o => {
+            if (!o.isMesh || !o.material || o.material.name !== "Paint") return;
+            if (!o.userData.chopOwn) { o.material = o.material.clone(); o.userData.chopOwn = true; }
+            o.material.color.set(job.hex);
+        });
+        c.data.partyLane = true;                              // (party/index.js: she can step out in front of it)
+        return;
+    }
     const c = T2.add(job.kind, s, d, 1, rand(12, 16));
     c.obj.traverse(o => {
         if (!o.isMesh || !o.material || o.material.name !== "Paint") return;
@@ -128,7 +144,7 @@ hook("update", (dt, P, controlsOn) => {
     if (!controlsOn || ctx.state !== "playing" || (ctx.town && ctx.town.active)) return;   // (a town detour pauses the order)
     const job = CHOP.job;
     if (!job) {
-        if (!live() || ctx.G.mode === "party") return;
+        if (!live()) return;                               // (a 🎉 party too: Shmuel only calls ME)
         CHOP.nextT -= dt;
         if (CHOP.nextT <= 0 && !(ctx.phone && ctx.phone.busy && ctx.phone.busy()) && !(ctx.law && ctx.law.chasing)) { CHOP.nextT = rand(100, 160); chopRequest(); }
         return;
