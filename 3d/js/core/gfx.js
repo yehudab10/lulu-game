@@ -143,7 +143,7 @@ function updateEnv(dt) {
     envScene();
     ENV.t += dt;
     const sig = skySig();
-    if (!ENV.rt || (ENV.t > (gfx.tier === "high" ? 2 : 6) && Math.abs(sig - ENV.sig) > 0.03)) { ENV.t = 0; ENV.sig = sig; rebuildEnv(); }
+    if (!ENV.rt || (ENV.t > (gfx.tier === "high" ? 2 : 15) && Math.abs(sig - ENV.sig) > 0.03)) { ENV.t = 0; ENV.sig = sig; rebuildEnv(); }
     // car paint (Lulu's + traffic; new cars get it on the next scan)
     ENV.scanT -= dt;
     if (ENV.scanT <= 0) {

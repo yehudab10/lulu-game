@@ -9,6 +9,7 @@ const SETTINGS = { quality: "auto", vibration: true, invertLook: false, steerSen
 module.exports = {
   name: "gfx",
   viewport: { width: 1280, height: 720 },
+  query: "&enable=atmos",
   save2d: { totalCoins: 100, ownedSkins: ["pink"], selectedSkin: "pink" },
   save3d: { best: 1000, settings: SETTINGS, f: { meta: { tutorialDone: true } } },
   async run(t) {
