@@ -220,7 +220,8 @@ async function partyRun(t, guests) {
     await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot again", 30000);
     const PUT = `(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.car.stub.s + 30, 8.4, {}); F.pos.set(p.x, 0, p.z); F.peds.forEach(x => x.s += 400); F.animals.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`;
     await g(PUT);
-    await hostUntil(t, `!!ctx.party._debug.flag()`, "a shared car coming her way to flag down", 60000);
+    const FDIAG = `(() => { const F = ctx.foot.debug.F, fp = ctx.foot.pos; return { phase: ctx.foot.phase, at: { s: +F.s.toFixed(1), d: +(F.d || 0).toFixed(1) }, cars: ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string").map(c => { const dx = fp.x - c.x, dz = fp.z - c.z, fx = Math.sin(c.h), fz = Math.cos(c.h); return { k: c.kind, s: Math.round(c.s), d: +c.d.toFixed(1), v: +c.speed.toFixed(1), lon: Math.round(dx * fx + dz * fz), lat: +(dx * fz - dz * fx).toFixed(1), ride: !!(ctx.streets.rides || {})[c.kind] }; }).filter(c => Math.abs(c.lon) < 120) }; })()`;
+    if (!await hostUntil(t, `!!ctx.party._debug.flag()`, "a shared car coming her way to flag down", 60000)) console.log("   FLAG cars", JSON.stringify(await g(FDIAG)).slice(0, 1500));
     await g(PUT);
     await t.frames(2);
     const promptOk = await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 20000);

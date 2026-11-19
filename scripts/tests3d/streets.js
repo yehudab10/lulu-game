@@ -21,7 +21,7 @@ module.exports = {
     const D = `ctx.law._dbg`;
 
     t.check("ctx.streets service is registered", await g(`!!(ctx.streets && ctx.streets.carjack && ctx.streets.bail && ctx.streets.roadblock && ctx.streets.paint && ctx.streets.smashNear)`));
-    t.check("party keeps streets off (shared world stays identical)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
+    t.check("party module loads (streets are ON in a party — partyplus tests it)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
     t.check("the button guide has carjack + bail out", await t.L(`import("./js/core/screens.js").then(m => /carjack/.test(m.controlsHtml()) && /Bail out/.test(m.controlsHtml()))`));
 
     // ── 1. the chase lab (headless sims: seeded traffic + law, a getaway bot) ──
