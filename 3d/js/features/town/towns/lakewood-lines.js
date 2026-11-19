@@ -70,7 +70,7 @@ export const LULU = {
 // ── the group chat (texts) ───────────────────────────────────────────────
 export const GROUP = { from: "LAKEWOOD MOMS (312)", emoji: "🗣️", color: "#7E57C2" };
 export const GOSSIP = {
-    enter: ["Is that Lulu's PINK car on Route 9?? 👀", "Pink convertible just came off the exit. Who's she visiting??"],
+    enter: ["Is that Lulu's PINK car on Route 9?? 👀", "Pink convertible just came off the exit. Who's she visiting??", "Pink car's back. Unrelated: does ANYONE know who this Dovid Dov is?? My kids won't stop singing it."],
     stopSign: ["Someone in a PINK car just blew the stop on Carpool. The whole town knew before she got home.", "PINK CAR. STOP SIGN. I have a video.", "She didn't even do the Lakewood half-stop. Not even the half."],
     bumps: ["Somebody took the Carpool Ln bumps at fifty. My kitchen shook.", "Pink car caught AIR on Carpool Ln 😳"],
     crash: ["Pink car hit a silver minivan. That narrows it down to… every minivan.", "Fender bender on Main. Nobody hurt. Everybody talking."],

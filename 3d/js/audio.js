@@ -53,6 +53,7 @@ export function unlockAudio() {
     // "suspended" (autoplay policy) or iOS's "interrupted" (a call, an ad, the app backgrounded)
     if (ctx.state !== "running" && ctx.state !== "closed") ctx.resume().catch(() => {});
     if (musicOn && music && music.paused) music.play().catch(() => {});
+    probeVolume();
 }
 
 function buildEngine() {
@@ -185,6 +186,25 @@ export function sfxBump() {
     blip(70, 0.18, "sine", 0.3, 0, 40);
 }
 
+/** On foot: a springy little "hup" (a jump; `h` 0–1 = how high she's going). */
+export function sfxJump(h = 1) {
+    blip(300 + h * 80, 0.16, "triangle", 0.12, 0, 620 + h * 160);
+}
+/** On foot: feet hitting the ground (p 0–1: a hop … a drop off a car roof). */
+export function sfxLand(p = 0.4) {
+    if (!ctx) return;
+    blip(120, 0.09 + p * 0.08, "sine", 0.12 + p * 0.22, 0, 55);
+    const t = ctx.currentTime;
+    const src = noiseSource();
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 500 + p * 500;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.05 + p * 0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12 + p * 0.1);
+    src.connect(lp).connect(g).connect(sfxBus);
+    src.start(t); src.stop(t + 0.3);
+}
+
 export function sfxHorn(on) {
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -235,21 +255,37 @@ export function sfxMove() { blip(440, 0.04, "square", 0.04); }
 const MUSIC_VOL = 0.32, XFADE = 0.7;       // s
 const tracks = new Map();                  // src → <audio>
 const fadeOuts = new Set();                // elements on their way out
-let musicVol = MUSIC_VOL, fadeIn = false, fadeTimer = null, canFade = null;
-function volumeWorks(el) {
-    if (canFade != null) return canFade;
-    try { const was = el.volume; el.volume = 0.5; canFade = Math.abs(el.volume - 0.5) < 0.01; el.volume = was; } catch (e) { canFade = false; }
-    return canFade;
+// What we last set each element's volume to. NEVER read el.volume back: on an iPhone a page can't set it, and a set
+// reads back for one task and is 1 again after — a fade that counted on the read never ended, so every track that
+// had been "faded out" kept playing under the next one.
+const level = new WeakMap();
+let musicVol = MUSIC_VOL, fadeIn = false, fadeTimer = null, canFade = null, probing = false;
+function setVol(el, v) { level.set(el, v); try { el.volume = v; } catch (e) { /* read-only volume */ } }
+const volOf = el => (level.has(el) ? level.get(el) : MUSIC_VOL);
+/** Once: can this browser set an element's volume at all? (Asked a moment after the set: see `level`.) Until we know, no crossfades. */
+function probeVolume() {
+    if (canFade != null || probing) return;
+    probing = true;
+    try {
+        const p = new Audio();
+        p.volume = 0.5;
+        setTimeout(() => { try { canFade = Math.abs(p.volume - 0.5) < 0.01; } catch (e) { canFade = false; } }, 150);
+    } catch (e) { canFade = false; }
 }
+let fadeLast = 0;
 function fadeStep() {
-    const step = 0.04 / XFADE;             // (40 ms ticks)
+    // by the clock, not by the tick: on a slow device the timer fires late, and the fade must still take XFADE
+    const t = performance.now(), dt = Math.min(0.3, Math.max(0.01, (t - fadeLast) / 1000));
+    fadeLast = t;
+    const step = dt / XFADE * MUSIC_VOL;
     for (const el of fadeOuts) {
-        el.volume = Math.max(0, el.volume - step * MUSIC_VOL);
-        if (el.volume <= 0.001) { el.pause(); fadeOuts.delete(el); }
+        const v = volOf(el) - step;
+        if (v <= 0.001) { el.pause(); setVol(el, 0); fadeOuts.delete(el); } else setVol(el, v);
     }
     if (fadeIn && music) {
-        music.volume = Math.min(musicVol, music.volume + step * MUSIC_VOL);
-        if (music.volume >= musicVol - 0.001) fadeIn = false;
+        const v = Math.min(musicVol, volOf(music) + step);
+        setVol(music, v);
+        if (v >= musicVol - 0.001) fadeIn = false;
     } else fadeIn = false;
     if (!fadeOuts.size && !fadeIn) { clearInterval(fadeTimer); fadeTimer = null; }
 }
@@ -257,19 +293,26 @@ export function setMusic(src) {
     if (music && music.dataset.src === src) return;
     const old = music;
     music = null; fadeIn = false;
+    probeVolume();
     if (!src) { if (old) old.pause(); return; }
     let el = tracks.get(src);
     if (!el) { el = new Audio(src); el.dataset.src = src; el.loop = true; tracks.set(src, el); }
     fadeOuts.delete(el);
-    const cross = !!old && musicOn && !!ctx && !muted && volumeWorks(el) && !old.paused;
+    const cross = !!old && musicOn && !!ctx && !muted && canFade === true && !old.paused;
     if (old) { if (cross) fadeOuts.add(old); else old.pause(); }
+    // one song at a time, whatever happened before: anything that isn't the new track or on its way out is stopped
+    for (const t of tracks.values()) if (t !== el && !fadeOuts.has(t) && !t.paused) t.pause();
     musicVol = MUSIC_VOL;
-    el.volume = cross ? 0 : MUSIC_VOL;
+    setVol(el, cross ? 0 : MUSIC_VOL);
     el.muted = muted;
     music = el;
     if (musicOn && ctx) el.play().catch(() => {});
-    if (cross) { fadeIn = true; if (!fadeTimer) fadeTimer = setInterval(fadeStep, 40); }
+    if (cross) { fadeIn = true; if (!fadeTimer) { fadeLast = performance.now(); fadeTimer = setInterval(fadeStep, 40); } }
 }
+/** Tests: ask again whether volume can be set (after a test swaps in a browser that can't). */
+export function debugReprobe() { canFade = null; probing = false; probeVolume(); }
+/** Tests: every music element that is sounding right now ([{src, vol}]) and whether this browser can fade. */
+export function musicPlaying() { return { canFade, fading: fadeOuts.size, playing: [...tracks.values()].filter(t => !t.paused).map(t => ({ src: t.dataset.src, vol: +volOf(t).toFixed(3) })) }; }
 
 /** The music track playing now (its url as passed to setMusic) or null. */
 export function musicSrc() { return music ? music.dataset.src : null; }
@@ -284,7 +327,7 @@ export function toggleMusic() {
 
 export function duckMusic(v) {
     musicVol = v;
-    if (music && !fadeIn) music.volume = v;        // (mid-crossfade the fade simply ends at the new level)
+    if (music && !fadeIn) setVol(music, v);        // (mid-crossfade the fade simply ends at the new level)
 }
 
 // ── muffled music (on foot the car radio is "out there") ────────────────

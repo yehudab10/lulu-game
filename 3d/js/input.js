@@ -13,6 +13,14 @@
 //   D-pad ↑ ........... fire (missile)          D-pad ↓ .... item (pepper spray / shield)
 //   A / ✕ on foot ..... interact                Touchpad ... 📱 Lulu's phone (PlayStation)
 //   L3 ................ PlayStation: the story map shortcut · Xbox / Switch (no touchpad): 📱 the phone
+// ON FOOT (input.foot, set by features/foot) a few buttons change meaning — the car's never do:
+//   B / ○ ............. JUMP (hold = higher)    X / □ ...... roll · slide · vault (features/moves)
+//   Right stick ....... FREE LOOK (it stays)    R3 ......... camera back behind her
+//   Y / △ ............. P.emote — RESERVED for the emote wheel (ci/hangout; tap = quick emote, hold = wheel)
+//   keyboard: Space jump · C roll · B emote (reserved) · mouse drag look · V camera behind her
+//   touch: the JUMP + ROLL buttons (#footPad), a drag anywhere on the picture looks around
+// Look drag (mouse on desktop, a finger on a phone): input.lookDX / lookDY (radians this frame) in every state;
+// core/camera.js turns it (and the right stick) into a camera that holds where the player leaves it.
 // The phone edge (P.phone) also sets P.map: where there's no phone (title, pause menu,
 // photo mode) the same button keeps its old "map · scrapbook · album" meaning.
 // In menus: D-pad / stick move, A/✕ select, B/○ back, LB/RB switch tabs.
@@ -26,7 +34,7 @@ const KEYMAP = {
     Space: "handbrake", ShiftLeft: "boost", ShiftRight: "boost", KeyN: "boost",
     KeyH: "honk", KeyC: "camera", KeyP: "pause", Escape: "pause", KeyV: "lookBack",
     KeyM: "fire", KeyF: "fire", KeyG: "item", KeyE: "interact", KeyQ: "tabPrev", KeyR: "tabNext",
-    Tab: "phone", KeyU: "music", KeyT: "radio",
+    Tab: "phone", KeyU: "music", KeyT: "radio", KeyB: "emote",
     Enter: "confirm", NumpadEnter: "confirm", Backspace: "back",
     // PS5 / TV browsers and some remotes send these for the controller / remote
     BrowserBack: "back", GoBack: "back", MediaPlayPause: "pause", ContextMenu: "pause",
@@ -37,6 +45,9 @@ const KEYCODES = { 37: "left", 38: "gas", 39: "right", 40: "brake", 13: "confirm
 const keys = new Set();
 const keyEdges = new Set();
 const touch = { steer: 0, moveY: 0, gas: false, brake: false, boost: false, honk: false, camEdge: false, edges: new Set(), held: new Set() };
+// a look drag on the picture (mouse / finger): pixels since the last frame
+const drag = { id: null, type: "", x: 0, y: 0, dx: 0, dy: 0, moved: 0, t0: 0 };
+const LOOK_PX = { mouse: 0.0058, touch: 0.0095, pen: 0.0075 };      // radians per CSS pixel
 let prevButtons = [];
 let navRepeat = { dir: 0, t: 0 };
 
@@ -44,11 +55,16 @@ export const input = {
     // continuous
     steer: 0, throttle: 0, brake: 0, handbrake: false, boost: false, honkHeld: false,
     lookX: 0, lookY: 0, lookBack: false,
+    // a look DRAG this frame (radians, mouse / finger on the picture) and whether one is held right now
+    lookDX: 0, lookDY: 0, lookDrag: false,
+    // on foot (features/foot sets it): Space / ○ / B jump, C / □ / X roll, △ / Y emote — see the header
+    foot: false, jumpHeld: false, rollHeld: false, emoteHeld: false,
     // 2-D movement (left stick / WASD / arrows / touch stick): on foot, Dina, menus
     moveX: 0, moveY: 0,
     interactHeld: false, fireHeld: false, backHeld: false,
     // edge-triggered, valid for the frame after update(): confirm back up down navLeft
     // navRight start pause honk camera boost fire item interact map phone tabPrev tabNext music radio
+    // + on foot: jump roll emote recentre
     pressed: {},
     // which device the player is using right now: "keyboard" | "gamepad" | "touch"
     device: "keyboard",
@@ -162,8 +178,48 @@ export function bindTouch() {
     document.getElementById("tCam").addEventListener("pointerdown", e => {
         e.preventDefault(); touch.camEdge = true; setDevice("touch");
     });
+    // on foot: JUMP + ROLL (shown by body.onfoot — features/foot)
+    for (const [id, act] of [["tJump", "jump"], ["tRoll", "roll"]]) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const on = e => { e.preventDefault(); touch.edges.add(act); touch.held.add(act); el.classList.add("down"); setDevice("touch"); };
+        const off = () => { touch.held.delete(act); el.classList.remove("down"); };
+        el.addEventListener("pointerdown", on);
+        el.addEventListener("pointerup", off);
+        el.addEventListener("pointercancel", off);
+        el.addEventListener("pointerleave", off);
+    }
+    bindLookDrag();
     window.addEventListener("touchstart", () => setDevice("touch"), { passive: true });
 }
+
+/** Drag the picture to look around: the mouse on a desktop (any button), a finger on a phone (anywhere on the
+ *  picture — the stick, the pedals and every button are their own elements, so they never start a look). */
+function bindLookDrag() {
+    const cv = document.getElementById("scene");
+    if (!cv) return;
+    cv.addEventListener("pointerdown", e => {
+        if (drag.id != null && drag.type === "touch" && e.pointerType === "touch") return;     // (a 2nd finger: moves' tap-the-road)
+        drag.id = e.pointerId; drag.type = e.pointerType || "mouse";
+        drag.x = e.clientX; drag.y = e.clientY; drag.moved = 0; drag.t0 = performance.now();
+        if (drag.type === "mouse") { try { cv.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } }
+    }, { passive: true });
+    cv.addEventListener("pointermove", e => {
+        if (e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        drag.x = e.clientX; drag.y = e.clientY;
+        drag.moved += Math.abs(dx) + Math.abs(dy);
+        if (drag.moved < 6) return;            // (a tap stays a tap)
+        drag.dx += dx; drag.dy += dy;
+        setDevice(drag.type === "touch" ? "touch" : "keyboard");
+    }, { passive: true });
+    const end = e => { if (e.pointerId === drag.id) { drag.id = null; } };
+    cv.addEventListener("pointerup", end, { passive: true });
+    cv.addEventListener("pointercancel", end, { passive: true });
+    cv.addEventListener("contextmenu", e => { if (input.foot) e.preventDefault(); });
+}
+/** Did the last finger / mouse press on the picture turn into a look drag? (moves asks before a tap-the-road roll) */
+export function lookDragged() { return drag.moved >= 6; }
 
 /**
  * Feature touch buttons (missile, pepper spray, interact hand…), shown in a
@@ -247,6 +303,15 @@ export function updateInput(dt) {
     if (P.brake) P.down = true;
     if (P.handbrake) P.confirm = true;
     if (P.pause) P.back = true;
+    // on foot the keyboard's Space is JUMP (the handbrake belongs to the car) and C is the roll · slide · vault
+    let jumpHeld = false, rollHeld = false, emoteHeld = keys.has("emote");
+    if (input.foot) {
+        jumpHeld = keys.has("handbrake"); handbrake = false;
+        if (P.handbrake) P.jump = true;
+        if (P.camera) P.roll = true;
+        rollHeld = keys.has("camera");
+        if (P.lookBack) P.recentre = true;
+    }
 
     // gamepad
     const gp = activePad();
@@ -276,6 +341,8 @@ export function updateInput(dt) {
         throttle = Math.max(throttle, rt);
         brake = Math.max(brake, lt);
         handbrake = handbrake || down(2);
+        rollHeld = rollHeld || down(2);
+        if (input.foot) { jumpHeld = jumpHeld || down(1); emoteHeld = emoteHeld || down(3); }
         boost = boost || down(5);
         honk = honk || down(4);
         lookX = curve(ax(2));
@@ -298,6 +365,12 @@ export function updateInput(dt) {
         if (edge(14)) P.navLeft = true;
         if (edge(15)) P.navRight = true;
         if (edge(5)) P.boost = true;
+        if (edge(2)) P.roll = true;
+        if (input.foot) {
+            if (edge(1)) P.jump = true;           // ○ / B: nothing else uses it while she walks (P.back stays for menus)
+            if (edge(3)) P.emote = true;          // △ / Y: reserved for the emote wheel (P.camera is still set: it does nothing on foot)
+            if (edge(11)) P.recentre = true;      // R3: the camera back behind her
+        }
 
         // left stick as menu navigation, with key-repeat
         const syRaw = ax(1);
@@ -329,6 +402,14 @@ export function updateInput(dt) {
     if (P.phone) P.map = true;           // no phone here (title, pause menu…) → the old map / scrapbook button
     if (touch.held.has("interact")) interactHeld = true;
     if (touch.held.has("fire")) fireHeld = true;
+    if (touch.held.has("jump")) jumpHeld = true;
+    if (touch.held.has("roll")) rollHeld = true;
+    // the look drag since the last frame (radians; invert-look is the camera's business)
+    const k = LOOK_PX[drag.type] || LOOK_PX.mouse;
+    input.lookDX = drag.dx * k; input.lookDY = drag.dy * k;
+    input.lookDrag = drag.id != null && drag.moved >= 6;
+    drag.dx = 0; drag.dy = 0;
+    input.jumpHeld = jumpHeld; input.rollHeld = rollHeld; input.emoteHeld = emoteHeld;
 
     input.steer = Math.max(-1, Math.min(1, steer));
     input.throttle = throttle;
@@ -385,19 +466,24 @@ export function triggerRumble(left, right, ms) {
 const GLYPHS = {
     xbox: { confirm: "A", back: "B", gas: "RT", brake: "LT", handbrake: "X", camera: "Y", boost: "RB", honk: "LB",
         pause: "☰", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "A", phone: "L3", radio: "View", tabPrev: "LB", tabNext: "RB", reverse: "LT" },
+        interact: "A", phone: "L3", radio: "View", tabPrev: "LB", tabNext: "RB", reverse: "LT",
+        jump: "B", footMove: "X", emote: "Y", recentre: "R3", freeLook: "R-stick" },
     ps: { confirm: "✕", back: "○", gas: "R2", brake: "L2", handbrake: "□", camera: "△", boost: "R1", honk: "L1",
         pause: "OPTIONS", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "✕", phone: "TOUCHPAD", map: "L3", radio: "CREATE", tabPrev: "L1", tabNext: "R1", reverse: "L2" },
+        interact: "✕", phone: "TOUCHPAD", map: "L3", radio: "CREATE", tabPrev: "L1", tabNext: "R1", reverse: "L2",
+        jump: "○", footMove: "□", emote: "△", recentre: "R3", freeLook: "R-stick" },
     nintendo: { confirm: "B", back: "A", gas: "ZR", brake: "ZL", handbrake: "Y", camera: "X", boost: "R", honk: "L",
         pause: "+", look: "R-stick", lookBack: "R3", steer: "L-stick", move: "L-stick", fire: "D-pad ↑", item: "D-pad ↓",
-        interact: "B", phone: "L3", radio: "−", tabPrev: "L", tabNext: "R", reverse: "ZL" },
+        interact: "B", phone: "L3", radio: "−", tabPrev: "L", tabNext: "R", reverse: "ZL",
+        jump: "A", footMove: "Y", emote: "X", recentre: "R3", freeLook: "R-stick" },
     keyboard: { confirm: "Enter", back: "Esc", gas: "↑ / W", brake: "↓ / S", handbrake: "Space", camera: "C", boost: "Shift",
         honk: "H", pause: "P", look: "", lookBack: "V", steer: "← → / A D", music: "U", move: "WASD / arrows",
-        fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R", reverse: "↓ / S" },
+        fire: "M", item: "G", interact: "E", phone: "Tab", radio: "T", tabPrev: "Q", tabNext: "R", reverse: "↓ / S",
+        jump: "Space", footMove: "C", emote: "B", recentre: "V", freeLook: "Mouse drag" },
     touch: { confirm: "Tap", back: "Back", gas: "GAS", brake: "BRAKE", handbrake: "", camera: "CAM", boost: "NITRO",
         honk: "HONK", pause: "❚❚", steer: "STEER", move: "STICK", fire: "🚀", item: "🌶️", interact: "✋", phone: "📱", radio: "📻",
-        tabPrev: "◀", tabNext: "▶", reverse: "REVERSE" },
+        tabPrev: "◀", tabNext: "▶", reverse: "REVERSE",
+        jump: "JUMP", footMove: "ROLL", emote: "😀", recentre: "", freeLook: "drag the picture" },
 };
 
 export function glyph(action, device) {
