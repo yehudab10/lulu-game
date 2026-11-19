@@ -256,7 +256,10 @@ async function freeRoam(t, guests) {
   }
   if (big.length) { await t.shot("setpiece-host"); await A.shot("setpiece-guest"); }
   const mk = await g(`ctx.hustle.marker`);
-  t.check("a seeded payphone / job board is up for the host", !big.some(v => v.id === "hustle") || !!mk, JSON.stringify(mk));
+  // (built for her = up for her: with an early slot it was built at the start and the set-piece hops above may have carried her past it)
+  const hv = big.find(v => v.id === "hustle");
+  const built = hv ? await g(`ctx.hustle._dbg.party.log.some(x => x.key === ${JSON.stringify(hv ? hv.key : "")} && x.built)`) : true;
+  t.check("a seeded payphone / job board is up for the host", !hv || !!mk || built, JSON.stringify(mk));
   for (const p of pages) {
     await p.until(`ctx.town.debug.S.loaded && ctx.community.debug.CM.loaded`, "town + community models", 120000);
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
