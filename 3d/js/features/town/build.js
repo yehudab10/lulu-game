@@ -80,7 +80,7 @@ export function buildTown(def) {
     const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];
-    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [] };
+    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [], homes: [], drives: [] };
 
     const col = (lx, lz, r, kind = "town") => colliders.push({ x: O.x + lx, z: O.z + lz, r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
@@ -763,6 +763,7 @@ function placeFace(B, kind, fr, counters) {
         if (it.key === "van") {         // a minivan in the driveway, nose to the street
             const vx = lotX - fr.nx * 3.2, vz = lotZ - fr.nz * 3.2;
             parkedCar(vx, vz, fr.rot);
+            T.drives.push({ x: vx, z: vz, rot: fr.rot });      // (features/homes: a dad washing the minivan)
             const dg = new THREE.PlaneGeometry(3.2, FRONT - WALK + 5.5); dg.rotateX(-Math.PI / 2); dg.rotateY(fr.rot);
             dg.translate(lotX - fr.nx * 2.2, 0.04, lotZ - fr.nz * 2.2);
             addColored(merge, dg, "#B9B3A8", vx, vz, "flat");
@@ -797,7 +798,11 @@ function placeFace(B, kind, fr, counters) {
         // a duplex's deck sticks out on its model +X side: shift so the whole footprint fits the slot
         const shift = k === "town_duplex" ? -1.5 : 0;
         const sx = cx + Math.cos(fr.rot) * shift, sz = cz - Math.sin(fr.rot) * shift;
-        place(k, sx, sz, fr.rot, tints, { dark: R() < 0.32 });
+        const dark = R() < 0.32;
+        place(k, sx, sz, fr.rot, tints, { dark });
+        // (features/homes: the front doors people live behind — model origin + frame, local coords)
+        if (k === "town_duplex" || k === "town_townhouses" || k === "town_mw_house" || k === "town_mw_rowhouse")
+            T.homes.push({ key: k, x: sx, z: sz, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, lotX, lotZ, w: D.w, dark, walls: tints && tints.Walls, face: kind });
         let text = null, style = null;
         if (k === "town_shop") text = next("shops", S.shops);
         else if (k === "town_pizza") text = S.pizza;
