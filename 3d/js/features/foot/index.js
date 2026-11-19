@@ -205,7 +205,8 @@ function start(reason = "carWreck", opts = {}) {
     if (reason === "parked" || opts.parked) {   // her car is tucked in on the right shoulder
         rd.point(near.s, 8.0, _p);
         pos.set(_p.x, 0, _p.z); h = _p.h;
-    } else if (near.s < 6 && reason !== "home") {   // (wrecked out past the start of the road: tow it back where she can walk to it)
+    } else if (near.s < 6 && (reason === "knockout" || reason === "carWreck") && !ctx.world.district && !(ctx.town && ctx.town.active)) {
+        // (knocked out past the start of the HIGHWAY — the cul-de-sac's end: tow it back where she can walk to it)
         rd.point(8, clamp(near.d, -8, 8), _p);
         pos.set(_p.x, 0, _p.z); h = _p.h;
         car.place(_p.x, _p.z, _p.h); car.s = 8;
