@@ -350,7 +350,10 @@ async function body(t, guests) {
 
   // ── DREIDEL DASH: first claim wins (both grab the same dreidel at once) ──
   const uids = { [await pages[0].game(`ctx.party.uid`)]: pages[0], [await NH.game(`ctx.party.uid`)]: NH, [await OG.game(`ctx.party.uid`)]: OG };
-  await NH.game(`ctx.party._debug.start("dash")`);
+  // (whoever hosts NOW: a slow runner can hand hosting over again during the arrival scene)
+  let starter = NH;
+  for (const p of trio) if (await p.game(`ctx.party.isHost`)) { starter = p; break; }
+  await starter.game(`ctx.party._debug.start("dash")`);
   for (const p of trio) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "dash"`, "dash: GO", 40000)) return;
   const spots = await NH.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`);
   const sameSpots = JSON.stringify(await OG.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`)) === JSON.stringify(spots);
