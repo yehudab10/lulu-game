@@ -37,7 +37,7 @@ module.exports = {
     const step = async (label, fn) => { try { return await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.stack || e).slice(0, 400)); return null; } };
     const info = () => g(`ctx.seasons.info()`);
     const items = kind => g(`ctx.seasons.debug.items(${kind ? JSON.stringify(kind) : ""})`);
-    const season = async (id, n = 1, opts = {}) => { await g(`ctx.seasons.debug.season(${JSON.stringify(id)}, ${n}, ${JSON.stringify(opts)})`); await t.until(`(() => { const i = __lulu3d.ctx.seasons.info(); return !i.want || i.sets.length > 0; })()`, `${id} dressed`, 30000); await t.frames(3); };
+    const season = async (id, n = 1, opts = {}) => { await g(`ctx.seasons.debug.season(${JSON.stringify(id)}, ${n}, ${JSON.stringify(opts)})`); await t.until(`(() => { const i = __lulu3d.ctx.seasons.info(); return !i.want || (!__lulu3d.ctx.seasons.debug.S.loading && i.kinds.length > 0); })()`, `${id} dressed`, 30000); await t.frames(3); };
     // a fixed camera for screenshots (the chase cam keeps running underneath)
     await t.L(`import("./js/core/ctx.js").then(m => { const o = m.ctx.cam.update.bind(m.ctx.cam); m.ctx.cam.update = dt => { o(dt); const c = window.__camAt; if (!c) return; const cam = m.ctx.camera; cam.position.set(c.x, c.y || 2.2, c.z); cam.lookAt(c.lx, c.ly || 1.6, c.lz); }; })`);
     const look = (x, z, lx, lz, y = 2.2, ly = 1.6) => g(`(window.__camAt = { x: ${x}, z: ${z}, lx: ${lx}, lz: ${lz}, y: ${y}, ly: ${ly} }, true)`);
