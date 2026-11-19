@@ -23,8 +23,8 @@ let E = null;                        // openworld's internals (index.js passes t
 const SP = { list: [], group: null, town: "", texs: [], mats: [], geos: [], near: null, carT: 0, shown: false, footRm: null, t: 0 };
 // what goes where: the first named spot a town has wins (data — a new town just needs one of these landmarks)
 const PLACES = [
-    { kind: "arcade", keys: ["pizza", "bakery"], u: -6.2, n: 0.4, name: t => t === "midwood" ? "the Slice of Sinai arcade" : "the Pizza Shmizza arcade" },
-    { kind: "board", keys: ["hall", "shul", "yeshiva", "welcome"], u: 5.8, n: 0.2, name: () => "the shul notice board" },
+    { kind: "arcade", keys: ["pizza", "bakery"], u: -7.5, n: 0.4, name: (t, k) => k === "pizza" ? (t === "midwood" ? "the Slice of Sinai arcade" : "the Pizza Shmizza arcade") : "the arcade on the avenue" },
+    { kind: "board", keys: ["hall", "shul", "yeshiva", "welcome"], u: 9.5, n: 0.2, name: (t, k) => k === "shul" ? "the shul notice board" : k === "hall" ? "the notice board by the hall" : "the town notice board" },
 ];
 
 function canvasTex(draw, w = 512, h = 256) {
@@ -118,8 +118,8 @@ function build() {
     SP.group.name = "owSpots";
     SP.town = T.id;
     for (const P of PLACES) {
-        let sp = null;
-        for (const k of P.keys) { sp = T.spot(k); if (sp) break; }
+        let sp = null, key = "";
+        for (const k of P.keys) { sp = T.spot(k); if (sp) { key = k; break; } }
         if (!sp) continue;
         const rot = sp.rot || 0;
         const nx = sp.nx != null ? sp.nx : Math.sin(rot), nz = sp.nz != null ? sp.nz : Math.cos(rot);
@@ -133,7 +133,7 @@ function build() {
         tag.position.set(x, 3.0, z);
         SP.group.add(obj, tag);
         // where she stands to use it: just in front of it
-        SP.list.push({ kind: P.kind, name: P.name(T.id), x, z, fx: x + nx * 1.1, fz: z + nz * 1.1, obj, tag });
+        SP.list.push({ kind: P.kind, name: P.name(T.id, key), x, z, fx: x + nx * 1.1, fz: z + nz * 1.1, obj, tag });
     }
     if (SP.list.length) ctx.scene.add(SP.group);
 }

@@ -155,19 +155,20 @@ async function partyRun(t, guests) {
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 30000);
   }
   await Hp.until(`ctx.openworld.debug.spots.SP.list.length >= 1`, "the town has its game spots", 30000);
-  const spots = await g(`ctx.openworld.debug.spots.SP.list.map(s => ({ kind: s.kind, name: s.name, fx: s.fx, fz: s.fz }))`);
+  const spots = await g(`ctx.openworld.debug.spots.SP.list.map(s => ({ kind: s.kind, name: s.name, x: s.x, z: s.z, fx: s.fx, fz: s.fz }))`);
   t.check("Lakewood: an arcade cabinet (+ a notice board)", spots.some(s => s.kind === "arcade"), JSON.stringify(spots));
   const arc = spots.find(s => s.kind === "arcade") || spots[0];
   // the friend parks ~70 m away (not pulled anywhere by what follows)
   const cl = await A.game(`(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"]; return { x: pl.ORIGIN.x + st.c + 1.75, z: pl.ORIGIN.z + 50, h: Math.PI }; })()`);
   await A.game(PLACE(cl.x, cl.z, cl.h));
   // the host drives up to it, hops out and walks up → ✋ PARTY GAMES
-  await g(PLACE(arc.fx, arc.fz, 0));
+  const un = { x: (arc.fx - arc.x) / 1.1, z: (arc.fz - arc.z) / 1.1 }, along = { x: un.z, z: -un.x };
+  await g(PLACE(arc.fx + along.x * 8 + un.x * 2, arc.fz + along.z * 8 + un.z * 2, 0));     // parked a few metres up the kerb
   await g(`ctx.foot.start("droveOff")`);
   await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host on foot by the arcade", 60000);
   await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${arc.fx}, 0, ${arc.fz}); F.vel.set(0, 0, 0); return true; })()`);
   await t.frames(6);
-  t.check("✋ PARTY GAMES at the cabinet", await t.L(`/PARTY GAMES/.test(document.body.textContent)`));
+  if (!await Hp.until(`/PARTY GAMES/.test(document.body.textContent)`, "✋ PARTY GAMES at the cabinet", 10000)) console.log("   diag", await t.L(`document.getElementById("prompt") ? document.getElementById("prompt").textContent : ""`), JSON.stringify(await g(`({ st: ctx.state, ph: ctx.foot.phase, p: ctx.foot.pos && [ctx.foot.pos.x, ctx.foot.pos.z] })`)));
   await t.shot("arcade-prompt");
   await t.tap(0);
   await Hp.until(`!!document.getElementById("owSpot_kugel")`, "the arcade card opens with the games", 20000);
