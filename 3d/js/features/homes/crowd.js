@@ -84,11 +84,14 @@ export function startCrowd(T, def, homes, opts = {}) {
         const len = streets.map(st => st.a1 - st.a0), total = len.reduce((a, b) => a + b, 0);
         const nW = Math.round(cfg.walkers * scale);
         const mix = Object.entries(cfg.mix), mixW = mix.reduce((a, [, w]) => a + w, 0);
+        // every town gets the signature walkers at least (a dice roll once left Lakewood with no dog at all)
+        const must = ["dog", "dog", "stroller", "scooter", "mail"].filter(t => cfg.mix[t]);
         for (let i = 0; i < nW; i++) {
             let r = R() * total, st = streets[0];
             for (let k = 0; k < streets.length; k++) { r -= len[k]; if (r <= 0) { st = streets[k]; break; } }
             let w = R() * mixW, type = mix[0][0];
             for (const [t, ww] of mix) { w -= ww; if (w <= 0) { type = t; break; } }
+            if (i < must.length) type = must[i];
             addWalker(type, st, st.a0 + 6 + R() * (st.a1 - st.a0 - 12), R() < 0.5 ? 1 : -1, R() < 0.5 ? 1 : -1, R);
         }
         // porches, lawns, driveways

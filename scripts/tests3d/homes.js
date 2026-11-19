@@ -89,7 +89,11 @@ module.exports = {
       t.check("perf budget: ≤ " + 26 + " full-rig peds, the crowd tick ≤ 2 ms", ci2.near <= 26 && ci2.ms <= 2, `${ci2.near} near, ${ci2.ms} ms`);
       await t.shot("crowd-street");
       // a honk → somebody yells; a speeding car → they scatter
-      await g(`ctx.emit ? 0 : 0`);
+      // (the horn reaches folks within 26 m — stop the car in the lane beside a walker first: the perf spot may have nobody near)
+      await g(`(() => { const C = ctx.homes.debug.CR, PL = ctx.town.debug.PL, p = C.peds.find(q => q.kind === "walker" && q.st && q.st.a1 - q.along > 30 && q.along - q.st.a0 > 30); if (!p) return false;
+        const c = ctx.town.debug.pt(p.st.name, p.along - p.dir * 8, p.side * 1.75), h = p.dir > 0 ? p.st.h : p.st.h + Math.PI;
+        ctx.car.place(PL.ORIGIN.x + c.x, PL.ORIGIN.z + c.z, h); ctx.car.vx = 0; ctx.car.vz = 0; ctx.car.vF = 0; C.honkT = 0; return true; })()`);
+      await t.frames(2);
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
       await t.frames(4);
       t.check("a honk: the nearest folks yell", (await evs(/homes:honked/)).length > 0);
