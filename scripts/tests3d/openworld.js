@@ -290,7 +290,7 @@ async function partyRun(t, guests) {
   };
   // 🚓 COPS & ROBBERS — started by the GUEST from the phone
   t.check("C&R: the guest asks, the host starts it (as an invitation)", (await A.game(`ctx.openworld.start("cnr")`)) === "");
-  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.ph === "in"`, "C&R: the host sees the invitation", 40000);
+  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.ph === "in" && /join/i.test(document.getElementById("owChip").textContent)`, "C&R: the host sees the invitation (a join chip)", 40000);
   const inv = await g(`({ ph: ctx.openworld.game.ph, ps: ctx.openworld.game.ps, chip: document.getElementById("owChip").textContent, st: ctx.state })`);
   t.check("C&R: an invitation — only the guest is in, the host isn't pulled in (still driving, a 'join' chip)", inv.ph === "in" && inv.ps.length === 1 && inv.ps[0] === guestUid && inv.st === "playing" && /join/i.test(inv.chip), JSON.stringify(inv));
   await g(`ctx.openworld.join()`);
