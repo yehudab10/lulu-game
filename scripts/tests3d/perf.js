@@ -26,7 +26,7 @@ const TIER = process.env.PERF3D_TIER || "high";
 const DRIVE = +(process.env.PERF3D_DRIVE || 40);
 const FRAMES = +(process.env.PERF3D_FRAMES || 60);
 const SCENES = (process.env.PERF3D_SCENES || "cruise,rain,rest,town,foot,interior,drive,party").split(",");
-const FEATURES = "roadevents,cameos,banter,atmos,world,town,exits,law,feel,streets,rides,community,memory,hustle,play,foot,interiors,party,openworld";
+const FEATURES = "bloom,roadevents,cameos,banter,atmos,world,town,exits,law,feel,streets,rides,community,memory,hustle,play,foot,interiors,party,openworld";
 const PORT = 25000 + (process.pid % 20000);
 const RELAY = `ws://127.0.0.1:${PORT}`;
 const Q = `&enable=${FEATURES}&mpurl=${encodeURIComponent(RELAY)}`;
@@ -200,11 +200,13 @@ module.exports = {
       await t.L(`import("three").then(THREE => { if (window.__lk) return; const K = window.__lk = { seen: new Map(), disposed: new Set(), top: null };
         for (const C of [THREE.BufferGeometry, THREE.Material, THREE.Texture]) { const d = C.prototype.dispose; C.prototype.dispose = function () { K.disposed.add(this.uuid); return d.apply(this, arguments); }; }
         const path = o => { const p = []; for (let a = o; a && p.length < 4; a = a.parent) if (a.name) p.push(a.name); return (p.reverse().join("/") || o.type); };
+        // (a texture's size / a material's map size + colour: tells a sign face from a billboard from a prop)
+        const desc = x => { const im = x.isTexture ? x.image : x.map && x.map.image; return (im && im.width ? " " + im.width + "×" + im.height : "") + (x.isMaterial && x.color ? " #" + x.color.getHexString() : ""); };
         K.scan = () => { const live = new Set(), top = {}; const sc = __lulu3d.ctx.scene;
           const key = ch => { if (ch.name) return ch.name; let f = ""; ch.traverse(o => { if (!f && o !== ch && o.name) f = o.name; }); return ch.type + (f ? "<" + f + ">" : ""); };
           const count = (k, ch) => { let n = 0; ch.traverse(() => n++); const e = top[k] || (top[k] = [0, 0]); e[0]++; e[1] += n; };
           for (const ch of sc.children) { if (ch.name === "chunk") { for (const c2 of ch.children) count("chunk>" + key(c2), c2); } else count(key(ch), ch); }
-          sc.traverse(o => { const add = (x, kind) => { if (!x || !x.uuid) return; live.add(x.uuid); if (!K.seen.has(x.uuid)) K.seen.set(x.uuid, { kind, at: path(o) + " · " + (kind === "geo" ? "" : (x.name || x.type)) }); };
+          sc.traverse(o => { const add = (x, kind) => { if (!x || !x.uuid) return; live.add(x.uuid); if (!K.seen.has(x.uuid)) K.seen.set(x.uuid, { kind, at: path(o) + " · " + (kind === "geo" ? (x.type || "") : (x.name || x.type)) + desc(x) }); };
             if (o.geometry) add(o.geometry, "geo"); for (const m of [].concat(o.material || [])) { add(m, "mat"); if (m) for (const k of ["map", "emissiveMap", "alphaMap", "normalMap"]) if (m[k]) add(m[k], "tex"); } });
           return { live, top }; };
         K.orphans = () => { const { live, top } = K.scan(); const by = {}; for (const [u, v] of K.seen) if (!live.has(u) && !K.disposed.has(u)) { const k = v.kind + " " + v.at; by[k] = (by[k] || 0) + 1; }

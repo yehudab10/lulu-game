@@ -257,7 +257,12 @@ mud / fence there, zone `"grounds"`).
 * **`core/gfx.js`** (before each driving render): contact shadows under Lulu's car + nearby traffic (one instanced
   mesh), the leaves' wind sway (stronger in rain), a PMREM of the current sky on car paint (`Paint` / `Body` /
   `CopPaint`…) and on the wet road (`ctx.atmos.wet`), the exposure lift at night. **`core/post.js`** (HIGH): a soft
-  bloom on anything brighter than white (headlights, neon, windows, nitro, the sun) + the tone mapping.
+  bloom on anything brighter than white (headlights, neon, windows, nitro, the sun) + the tone mapping. Only the scene goes
+  through the public `renderer.render`; the bloom passes (and the PMREM rebuild) use `ctx.rawRender` and `renderer.info`
+  is put back to the scene's numbers, so draw-call counts in tests / the perf harness are the game's. A `?test` run
+  has no bloom unless it opts in with `&enable=bloom` (`gfx`, `perf` do): in software WebGL it nearly doubles the
+  frame time. Test: `scripts/tests3d/gfx.js` (the setting by pad / keys / touch, saved + reloaded, each tier, bloom
+  fallback, AUTO's step-down).
 * **The sun's shadow** follows Lulu snapped to whole shadow texels (no shimmering edges).
 * **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
   `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,

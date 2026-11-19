@@ -69,8 +69,11 @@ function applyGraphics() {
     if (sun.shadow.camera.right !== box) { Object.assign(sun.shadow.camera, { left: -box, right: box, top: box, bottom: -box }); sun.shadow.camera.updateProjectionMatrix(); }
     LOD.dist = T.lod;
     if (ctx.world) ctx.world.drawScale = T.draw;
-    if (T.post && !post && Post.supported(renderer)) post = new Post(renderer, rawRender);   // HIGH: the bloom (core/post.js)
-    else if (!T.post && post) { post.dispose(); post = null; }
+    // HIGH: the bloom (core/post.js). A ?test run opts in with &enable=bloom (gfx, perf): in software WebGL it
+    // nearly doubles the frame time, which only slows every other test down
+    const wantPost = T.post && Post.supported(renderer) && ctx.enabled("bloom");
+    if (wantPost && !post) post = new Post(renderer, rawRender);
+    else if (!wantPost && post) { post.dispose(); post = null; }
     gfx.bloom = !!post;
     emit("gfx", { tier: gfx.tier });
 }
