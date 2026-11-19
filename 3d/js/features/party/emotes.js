@@ -86,7 +86,7 @@ export function play(i, opts = {}) {
         emit("stat", { id: "partyEmotes", n: 1 });
         emit("party:emote", { uid: N.uid || "me", i, id: E.id, me: true });
         // a friend emoted at me a moment ago? → a combo
-        for (const rc of R.cars.values()) if (rc.shown && rc.emote && rc.emote.t < 3) tryCombo(rc, rc.emote.i, i);
+        for (const rc of R.cars.values()) if (rc.shown && rc.emote && !rc.emote.local && rc.emote.t < 3) tryCombo(rc, rc.emote.i, i);
     }
     return true;
 }
@@ -101,12 +101,11 @@ function remoteEmote(rc, p) {
         if (!rc.emote && rc.emLast && rc.emLast.t < rc.emLast.dur) rc.emote = rc.emLast;
         return;
     }
-    rc.emKey = key;
     const i = e[0] | 0, E = EMOTES[i];
-    if (!E) return;
+    if (!E) { rc.emKey = key; return; }
     const w = performance.now();
-    if (w - (rc.emAt || -1e9) < 700) return;                                       // (a flood is just ignored)
-    rc.emAt = w;
+    if (w - (rc.emAt || -1e9) < 700) return;                                       // (a flood waits its turn)
+    rc.emKey = key; rc.emAt = w;
     rc.emote = rc.emLast = { i, t: 0, dur: E.dur || DUR, pose: E.pose, hop: E.hop || 0 };
     rc.bubble.show(E.say === E.e ? E.e : E.say);
     rc.pop.show(E.e);
