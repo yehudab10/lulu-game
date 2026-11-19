@@ -77,16 +77,12 @@ const clickSel = async (t, sel) => { const ok = await t.L(`(() => { const b = do
 const SYNC = `(() => { const live = ctx.party.trafficLive(); let bad = 0; for (const c of live) { const w = ctx.party.trafficAt(c.at, c.s - 5, c.s + 5).find(x => x.key === c.key); if (!w || Math.abs(w.s - c.s) > 0.05 || ctx.party.trafficGone(c.key)) bad++; }
   let cbad = 0; const cl = ctx.party.claimsLive(); for (const c of cl) { const p = ctx.party.claimPose(c.key, c.at); if (!p || Math.abs(p.s - c.s) > 0.05 || Math.abs(p.d - c.d) > 0.05) cbad++; }
   return { n: live.length, bad, claims: cl.length, cbad, locals: ctx.traffic.cars.filter(c => !(c.data && c.data.party)).map(c => Object.keys(c.data || {}).filter(k => c.data[k]).join("+")) }; })()`;
-/** a shared car of ours coming up behind s in lane d (dir +1), 70–260 m back */
-const APPROACHING = (s, d) => `(() => { const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && c.dir > 0 && Math.abs(c.d - ${d}) < 0.3 && c.s < ${s} - 70 && c.s > ${s} - 260 && ctx.streets.rides[c.kind]);
-  cs.sort((a, b) => b.s - a.s); return cs[0] ? { key: cs[0].data.party, s: cs[0].s, kind: cs[0].kind } : null; })()`;
-
-/** A spot with plenty of OUR-direction traffic coming up behind it. (The forward lanes only fill the road AHEAD of
- *  their start wave — nothing of ours sits behind the grid at GO — and that wave rolls up the road at lane speed: a
- *  test that teleports her to a fixed s after a slow boot can land behind it, where nothing of ours ever comes.)
- *  The 13th rearmost slow-lane car + 60 m (a dozen coming up behind), kept clear of the rest area at `avoid`. */
-const BUSY_S = (avoid = null) => `(() => { const T = ctx.party.clock() + 3000; const cs = ctx.party.trafficAt(T, 0, 60000).filter(c => c.dir > 0 && c.d > 3).sort((a, b) => a.s - b.s);
-  const c = cs[Math.min(cs.length - 1, 12)]; let s = c ? Math.round(c.s + 60) : 1500; const av = ${JSON.stringify(avoid)}; if (av != null && Math.abs(s - av) < 300) s = av + 420; return s; })()`;
+/** a shared car coming at s in lane d, 70–260 m off. (The steps use the ONCOMING lanes: our own lanes only fill the
+ *  road ahead of their start wave — nothing of ours sits behind the grid at GO — and that wave rolls up the road at
+ *  lane speed, so a test that teleports her to a fixed s after a slow boot can land behind it, where nothing of ours
+ *  ever comes up behind her. The oncoming lanes have no such wave.) */
+const APPROACHING = (s, d) => `(() => { const dir = ${d} > 0 ? 1 : -1; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && c.dir === dir && Math.abs(c.d - ${d}) < 0.3 && dir * (${s} - c.s) > 70 && dir * (${s} - c.s) < 260 && ctx.streets.rides[c.kind]);
+  cs.sort((a, b) => dir * (b.s - a.s)); return cs[0] ? { key: cs[0].data.party, s: cs[0].s, kind: cs[0].kind } : null; })()`;
 
 module.exports = {
   name: "partyplus",
@@ -167,26 +163,26 @@ async function partyRun(t, guests) {
   }
 
   // ── 🛑 CLAIM: the host steps out in front of a shared car ──
-  const hs0 = await g(BUSY_S(restS));
+  const hs0 = 1500;
   await g(`(ctx.party.placeCar(${hs0}, 7.4, 0), true)`);
   await A.game(`(ctx.party.placeCar(${hs0} - 30, 7.6, 0), true)`);
   await sleep(800);
   await g(`(ctx.foot.start("droveOff"), true)`);
   if (!await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host is walking", 30000)) return;
   await g(`(ctx.party._debug.claimCool(), true)`);
-  // stand in the slow lane, facing the traffic, until one is coming
+  // stand in the oncoming slow lane, facing the traffic, as one comes
   const fs = await g(`ctx.foot.debug.F.s`);
-  await hostUntil(t, `!!${APPROACHING(fs, 5.25)}`, "a shared car coming up the slow lane", 60000);
-  await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, 5.25, {}); F.pos.set(p.x, 0, p.z); F.d = 5.25; ctx.G.invT = 30; return true; })()`);
+  await hostUntil(t, `!!${APPROACHING(fs, -5.25)}`, "a shared car coming down the oncoming slow lane", 60000);
+  await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, -5.25, {}); F.pos.set(p.x, 0, p.z); F.d = -5.25; ctx.G.invT = 30; return true; })()`);
   const claimed = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine)`, "stepping out in front of a shared car claims it", 40000);
   let ck = null;
   if (claimed) {
     // back onto the shoulder (her own pratfalls are fine, the test wants her standing)
-    await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, 9.6, {}); F.pos.set(p.x, 0, p.z); return true; })()`);
+    await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, -9.6, {}); F.pos.set(p.x, 0, p.z); return true; })()`);
     const cl = (await g(`ctx.party._debug.claims()`)).find(c => c.mine);
     ck = cl.key;
     const K = JSON.stringify(ck);
-    t.check("claim: it brakes onto its own shoulder", Math.abs(cl.dS - 7.9) < 0.01 && cl.L > 8, JSON.stringify(cl));
+    t.check("claim: it brakes onto its own shoulder", Math.abs(Math.abs(cl.dS) - 7.9) < 0.01 && cl.L > 8, JSON.stringify(cl));
     t.check("claim: it left the shared conveyor (gone for the sync, not dead)", await g(`ctx.party.trafficGone(${K}) && !ctx.party._debug.claims().find(c => c.key === ${K}).dead`));
     await A.until(`ctx.party._debug.claims().some(c => c.key === ${K} && c.by === ${H})`, "the guest hears the claim", 30000);
     await A.until(`ctx.party.claimsLive().some(c => c.key === ${K})`, "the guest draws the claimed car", 30000);
@@ -219,13 +215,13 @@ async function partyRun(t, guests) {
 
   // ── ✋ FLAG one down from the shoulder → it stops beside her → 🚕 HOP IN ──
   if (await g(`ctx.state === "playing"`)) {
-    const s = await g(BUSY_S(restS));
-    await g(`(ctx.party.placeCar(${s}, 7.4, 0), true)`);
+    const s = await g(`ctx.car.s`);
+    await g(`(ctx.party.placeCar(${s} + 40, 7.4, 0), true)`);
     await A.game(`(ctx.party.placeCar(${s} + 10, 7.6, 0), true)`);
     await sleep(600);
     await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
     await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot again", 30000);
-    const PUT = `(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.car.stub.s + 30, 8.4, {}); F.pos.set(p.x, 0, p.z); F.peds.forEach(x => x.s += 400); F.animals.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`;
+    const PUT = `(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.car.stub.s + 30, -8.4, {}); F.pos.set(p.x, 0, p.z); F.peds.forEach(x => x.s += 400); F.animals.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`;
     await g(PUT);
     const FDIAG = `(() => { const F = ctx.foot.debug.F, fp = ctx.foot.pos; return { phase: ctx.foot.phase, at: { s: +F.s.toFixed(1), d: +(F.d || 0).toFixed(1) }, cars: ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string").map(c => { const dx = fp.x - c.x, dz = fp.z - c.z, fx = Math.sin(c.h), fz = Math.cos(c.h); return { k: c.kind, s: Math.round(c.s), d: +c.d.toFixed(1), v: +c.speed.toFixed(1), lon: Math.round(dx * fx + dz * fz), lat: +(dx * fz - dz * fx).toFixed(1), ride: !!(ctx.streets.rides || {})[c.kind] }; }).filter(c => Math.abs(c.lon) < 120) }; })()`;
     if (!await hostUntil(t, `!!ctx.party._debug.flag()`, "a shared car coming her way to flag down", 60000)) console.log("   FLAG cars", JSON.stringify(await g(FDIAG)).slice(0, 1500));
