@@ -356,6 +356,7 @@ function enterCar(v) {
     G.hearts = Math.max(G.hearts, 1);
     H.setHearts(G.hearts, G.maxHearts);
     G.invT = Math.max(G.invT || 0, 2.0);
+    G.invSoft = true;            // (a courtesy shield as she pulls away: no blink)
     G.lemon = v.lemon ? { type: v.lemon, drift: Math.random() < 0.5 ? -1 : 1, sput: 0 } : null;
     G.borrowed = v.own ? null : v.vtype;
     if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(0.6); else ctx.cam.snap(); }      // (the picture glides to the chase cam)

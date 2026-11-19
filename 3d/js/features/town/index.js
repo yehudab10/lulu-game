@@ -644,6 +644,8 @@ ctx.town = {
     },
     debug: {
         S, C, LIFE, PL, X, PK, gossip, luluSay, crime,
+        /** Start the ramp's transition now ("leave" from inside a town; "enter" needs an exit `e`): tests. */
+        trans: (kind, e = null) => { beginTrans(kind, e); return !!S.trans; },
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): the full interchange
          *  (every town), or a one-town exit with its own signs when `id` names a town. */
         exitAhead(ahead = 320, id = null) {

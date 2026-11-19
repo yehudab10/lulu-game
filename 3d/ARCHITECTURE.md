@@ -290,9 +290,29 @@ Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [op
 `enter → set.show()`, `exit → set.hide()` (or dispose), update the set camera yourself.
 **An OUTDOOR set that follows a drive must match the world's sky:** after `set.show()` call `ctx.atmos && ctx.atmos.dress(set, { lamps: [[x, y, z]…] })` (see ctx.atmos) — never a fixed daytime preset at night or sunshine in a storm.
 
+## Flow: no hard cuts (`js/core/camera.js`, `js/core/transition.js`)
+The owner's rule: the game should feel like ONE continuous place — nothing pops, cuts or blinks if it can glide.
+- **Same place, another camera** (car ↔ on foot, into / out of a roadside scene): `ctx.cam.blend(sec = 0.6)` instead of
+  `ctx.cam.snap()`. The rigs still jump (so the next rig is settled), but the PICTURE eases from the pose on screen to
+  wherever the next rig puts it. A jump of more than 70 m is a teleport and stays a cut, so it is safe to call anywhere.
+  `ctx.cam.blending` (tests). Keep `snap()` for a new run, a set → world return and anything behind a fade.
+- **Another place** (a town's street grid is far from the highway; a warp to a friend): `ctx.dissolve(swap, { ms })`
+  (`import { dissolve } from "…/core/transition.js"`) — the frame on screen is frozen onto an overlay, `swap()` runs
+  behind it (the teleport, the district swap, even a long building frame), the overlay melts over the new picture. Only
+  when the next place is READY (models loaded): a frozen frame that lasts seconds reads as a hang — a download still
+  wants a real fade with a label (the town keeps its black + name card for that case).
+- **Into a car:** `foot`'s `hopIn(v, { before, after })` — a 0.42 s hop into the seat, then `enterCar` + a blend;
+  `before()` takes the other car off the road at the moment she lands. The courtesy shield after it sets
+  `G.invSoft` (no blink; a real hit clears it).
+- **Back on the road after a scene:** a rolling start (moving + shielded), never the 3-2-1 — that is for a fresh run.
+- **Loading ahead:** `ctx.interiors[id].warm()` (foot calls it within 22 m of a door); a town loads from 900 m.
+- **Music:** `setMusic` crossfades (0.7 s) and every track resumes where it left off.
+Test: `scripts/tests3d/flow.js` (the picture moves ≤ 1.5 m between two frames across a car ↔ foot change; the hop-in;
+a teleport still cuts; leaving a town is a soft cut with no black).
+
 ## Audio (`js/audio.js`)
 `sfxCoin sfxCloseCall sfxBoost sfxCrash sfxBump sfxHorn(on) sfxSiren sfxFanfare sfxSelect sfxMove`,
-`setMusic(url)` (`musicSrc()` = what's playing; the 📻 radio uses it to tell the game's pick from its own) — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
+`setMusic(url)` (a 0.7 s crossfade; one kept `<audio>` per track; `musicSrc()` = what's playing; the 📻 radio uses it to tell the game's pick from its own) — reuse the 2D tracks: `../lulu.mp3 ../luludriving.mp3 ../dina.mp3 ../avigail.mp3
 ../parking.mp3 ../salon.mp3 ../wedding.mp3 ../prison.mp3 ../court.mp3 ../walking.mp3 ../er1.mp3 ../er2.mp3
 ../story-relax.mp3 ../story-electric.mp3 ../story-beach.mp3`. Synthesize new SFX with WebAudio if needed
 (`unlockAudio()` already happened by the time gameplay runs).
