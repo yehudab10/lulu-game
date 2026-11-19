@@ -218,7 +218,7 @@ module.exports = {
     await step("tackle", async () => {
       if (!await town("lakewood")) return;
       await g(`(ctx.law.clearHeat(), true)`);
-      await atBank(12, false);
+      await atBank(6, false, 0, -45);                     // (her car parked well down the street)
       await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "on foot for the tackle", 8000);
       await g(`${HD}.robbery({ where: "town", spot: "bank", prop: "Baguette" })`);

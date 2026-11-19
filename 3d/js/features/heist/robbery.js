@@ -160,7 +160,7 @@ function begin(ev) {
     npcSays(p.obj, pick(ev.prop.says), 2.4);
     setTimeout(() => { if (R.ev === ev) luluSays(pick(ROBBERY.lulu), true); }, 900);
     if (ctx.foot && ctx.foot.addSpot) {
-        ev.spotRm = ctx.foot.addSpot({ pos: () => (R.ev === ev && ev.phase === "run" && ev.robber ? ev.robber.obj.position : null), r: 2.8,
+        ev.spotRm = ctx.foot.addSpot({ pos: () => (R.ev === ev && ev.phase === "run" && ev.robber ? ev.robber.obj.position : null), r: 3.4,
             label: "🏈 TACKLE HIM!", short: "TACKLE", act: () => tackle(ev) });
     }
     emit("heist:robbery", { phase: "start", where: ev.where, at: ev.spotName || "store", prop: ev.prop.id });
