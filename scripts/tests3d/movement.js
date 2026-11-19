@@ -120,16 +120,18 @@ module.exports = {
     await G(`(ctx.moves.combo.t = 0.01, true)`); await t.frames(3);
 
     // ── a parked car: hood, then roof ──
-    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 2.5, z: F.pos.z + Math.cos(y) * 2.5 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
-      const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y + Math.PI / 2; ctx.traffic.place(c, 0); return true; })()`);
+    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 3.0, z: F.pos.z + Math.cos(y) * 3.0 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
+      const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y; ctx.traffic.place(c, 0); return true; })()`);
     await t.frames(2);
-    await t.stick(0, -1); await t.frames(4); await t.hold(1, 1); await t.frames(9); await t.stick(0, 0); await t.frames(14); await t.hold(1, 0);
+    // lengthwise: her side of the car is ~0.8 m ahead — a jump with the stick held all the way lands on the trunk / roof
+    await t.stick(0, -1); await t.hold(1, 1); await t.frames(4);
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the car", 5000);
+    await t.stick(0, 0); await t.hold(1, 0);
     const hood = await G(`${FF}.y`);
     t.check("a jump at a parked car lands her on it (hood / trunk ~0.95 m)", hood > 0.85 && hood < 1.5, hood.toFixed(2));
     await t.frames(4);
     // already on the roof? fine; else hop up from the hood
-    if (hood < 1.3) { await t.hold(1, 1); await t.frames(16); await t.hold(1, 0); await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); }
+    if (hood < 1.3) { await t.stick(0, -0.5); await t.hold(1, 1); await t.frames(4); await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); await t.stick(0, 0); await t.hold(1, 0); }
     const roof = await G(`${FF}.y`);
     t.check("…and another jump gets her up on the ROOF (1.45 m)", Math.abs(roof - 1.45) < 0.05, roof.toFixed(2));
     await t.shot("car-roof");

@@ -50,7 +50,7 @@ function lookInput(dt) {
     return _li;
 }
 // the free camera's state (on foot)
-const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0 };
+const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2 };
 const _t = new THREE.Vector3();
 
 export const cam = {
@@ -104,8 +104,10 @@ export const cam = {
      *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street). */
     orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null } = {}, dt = 1 / 60) {
         const camera = ctx.camera;
-        // the rig wasn't running last frame (a cutscene's shot, a script's camera): glide from that picture
-        if (FREE.frame < ctx.frames - 1 && !st.snap && !bl.on && !ctx.skipping) startBlend(0.45);
+        // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
+        // once and the PICTURE glides from what was on screen (a blend), so nothing swoops in from a stale spot
+        const fresh = FREE.frame < ctx.frames - 1;
+        if (fresh && !st.snap && !bl.on && !ctx.skipping) startBlend(0.45);
         FREE.frame = ctx.frames;
         const L = lookInput(dt);
         if (L.active) { FREE.idle = 0; FREE.reT = 0; FREE.n++; } else FREE.idle += dt;
@@ -120,10 +122,17 @@ export const cam = {
         }
         if (FREE.idle > LOOK.pitchBackAfter) FREE.pitch += (LOOK.pitch - FREE.pitch) * Math.min(1, dt * 0.5);
         const portrait = camera.aspect < 1;
-        const D0 = dist * (portrait ? 1.3 : 1);
-        _t.set(obj.position.x, (y == null ? obj.position.y : y) + look, obj.position.z);
-        if (st.snap) FREE.tgt.copy(_t);
-        else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 14); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 14); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
+        // (a closer framing — at a car, hotwiring — eases in rather than jumping)
+        if (st.snap || fresh) { FREE.dist = dist; FREE.look = look; }
+        else { FREE.dist += (dist - FREE.dist) * Math.min(1, dt * 4); FREE.look += (look - FREE.look) * Math.min(1, dt * 4); }
+        const D0 = FREE.dist * (portrait ? 1.3 : 1);
+        _t.set(obj.position.x, (y == null ? obj.position.y : y) + FREE.look, obj.position.z);
+        if (st.snap || fresh) FREE.tgt.copy(_t);
+        else if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > 2.5) {
+            // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides
+            if (!bl.on && !ctx.skipping) startBlend(0.35);
+            FREE.tgt.copy(_t);
+        } else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 12); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 12); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
         st.snap = false;
         const cp = Math.cos(FREE.pitch), sp = Math.sin(FREE.pitch), fx = Math.sin(FREE.yaw), fz = Math.cos(FREE.yaw);
         let D = D0;
