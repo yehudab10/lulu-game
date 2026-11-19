@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { models } from "../../models.js";
 import { facingRoad, offLanes, SHOULDER } from "../../world.js";
-import { RECIPES, TUNE } from "./data.js";
+import { RECIPES, TUNE, COSTUMES } from "./data.js";
 
 // ── tiny deterministic dice ──────────────────────────────────────────────
 export function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -95,6 +95,7 @@ function townFrame(h) {
 /** What stands in a house's front windows. */
 function windowItems(out, key, F, recipe, day, seed) {
     if (!recipe.windows) return;
+    if (recipe.windows === "candles" && !day.candles) return;      // (Yom Tov candles on the Yom Tov days only, not chol hamoed)
     const wins = frontWindows(key);
     const menorah = recipe.windows === "menorah";
     let candlesDone = 0;
@@ -263,8 +264,158 @@ export function recipesFor(day) {
     if (day.erev && !day.quiet) out.push({ id: "friday", recipe: RECIPES.friday });
     if (day.candles && !out.some(r => r.recipe.windows)) out.push({ id: "shabbos", recipe: { windows: "candles" } });
     // on a fast day / in the Three Weeks: nothing festive (the stall stays home; candles are still candles)
-    if (day.quiet) return out.filter(r => !r.recipe.stand || r.id === "shabbos").map(r => ({ id: r.id, recipe: { windows: r.recipe.windows === "candles" ? "candles" : undefined, ima: r.recipe.ima } }));
+    if (day.quiet) return out.filter(r => !r.recipe.stand || r.id === "shabbos").map(r => ({ id: r.id, recipe: { windows: r.recipe.windows === "candles" ? "candles" : undefined, ima: r.recipe.ima,
+        groups: (r.recipe.groups || []).filter(g => g === "white"), radio: r.recipe.radio } }));
     // one stall at a time (the first recipe that has one)
     let stall = false;
     return out.map(r => { if (!r.recipe.stand) return r; if (stall) return { id: r.id, recipe: Object.assign({}, r.recipe, { stand: null }) }; stall = true; return r; });
+}
+
+// ── people of the day (groups.js specs) ─────────────────────────────────
+const DARK = "#212121", HAIRS = ["#3E2723", "#5D4037", "#212121", "#6D4C41"], SHEITEL = ["#5D4037", "#3E2723", "#8D6E63", "#4E342E"];
+const TOPS = ["#5C6BC0", "#26A69A", "#8E24AA", "#EF6C00", "#43A047", "#EC407A", "#1E88E5"];
+const pickH = (list, ...k) => list[Math.floor(h01(...k) * list.length) % list.length];
+/** A sidewalk route through a town spot (its middle; n points to the street). */
+function walkRoute(sp, len, phase, speed) { return { x: sp.x + sp.nx * 1.4, z: sp.z + sp.nz * 1.4, ux: sp.ux, uz: sp.uz, nx: sp.nx, nz: sp.nz, len, phase, speed }; }
+/** The lawn in front of a landmark (the same spots the big menorah uses): {x, z, rot, sp}. */
+function lawn(T, along = 11) {
+    for (const [name, back, al] of [["hall", 2.2, along], ["shul", 1.25, along * 0.56], ["yeshiva", 0.8, along * 0.8], ["school", 0.8, along * 0.8]]) {
+        const sp = T.spot && T.spot(name);
+        if (!sp) continue;
+        const lot = { x: sp.x - sp.nx * 2.6, z: sp.z - sp.nz * 2.6 };
+        return { x: lot.x - sp.nx * back + sp.ux * al, z: lot.z - sp.nz * back + sp.uz * al, rot: Math.atan2(sp.nx, sp.nz), sp, name };
+    }
+    return null;
+}
+function townSpots(T) { return ["shul", "yeshiva", "hall", "pizza", "bakery", "school"].map(n => T.spot && T.spot(n)).filter(Boolean); }
+
+/** Groups for the town she's in (people walking / standing / dancing), plus any props they need. */
+export function groupsForTown(day, recipes) {
+    const T = ctx.town, groups = [], items = [];
+    if (!T || !T.active) return { groups, items };
+    const id0 = T.id || "town", wd = day.wd;
+    const want = new Set(recipes.flatMap(r => r.recipe.groups || []));
+    const spots = townSpots(T);
+    if (want.has("lulav") && wd !== 6) {
+        // 🌿 men + boys on their way to and from shul, a lulav in the right hand, the esrog in the left (not on Shabbos)
+        spots.slice(0, 3).forEach((sp, g) => {
+            const n = 1 + Math.floor(h01(id0, "lv", g) * 2);
+            const members = [{ look: "man", top: "#FFFFFF", bot: DARK, hair: pickH(HAIRS, id0, "lvh", g), R: "HeldLulav", L: "HeldEsrog" }];
+            for (let k = 0; k < n; k++) members.push({ look: "kid", top: "#FFFFFF", bot: DARK, hair: pickH(HAIRS, id0, "lvk", g, k), R: "HeldLulav", L: "HeldEsrog" });
+            groups.push({ mode: "walk", tag: "lulav", route: walkRoute(sp, 46, h01(id0, "lvp", g), 1.05), members });
+        });
+    }
+    if (want.has("white")) {
+        // 🕊️ Yom Kippur: families in white walking quietly to shul (machzor in hand)
+        spots.slice(0, 4).forEach((sp, g) => {
+            const members = [{ look: "man", top: "#FAFAFA", bot: "#F5F5F5", hair: pickH(HAIRS, id0, "wh", g), R: "Book" },
+                { look: "woman", top: "#FAFAFA", bot: "#ECEFF1", hair: pickH(SHEITEL, id0, "ws", g), R: "Book" }];
+            if (h01(id0, "wk", g) < 0.6) members.push({ look: "kid", top: "#FFFFFF", bot: "#455A64", hair: pickH(HAIRS, id0, "wkh", g) });
+            groups.push({ mode: "walk", tag: "white", route: walkRoute(sp, 40, h01(id0, "wp", g), 0.7), members });
+        });
+    }
+    if (want.has("tashlich") && wd !== 6) {
+        // 📖 Tashlich: at the lake's edge, siddurim open, facing the water (Lakewood; Midwood has no lake in the game)
+        const lk = T.spot && T.spot("lake");
+        if (lk) {
+            const members = [];
+            for (let j = 0; j < 9; j++) {
+                const look = j % 3 === 2 ? "kid" : h01(id0, "tl", j) < 0.45 ? "woman" : "man";
+                members.push({ look, top: look === "man" ? "#FFFFFF" : pickH(TOPS, id0, "tlt", j), bot: look === "woman" ? pickH(["#263238", "#37474F", "#4E342E"], id0, "tlb", j) : DARK,
+                    hair: look === "woman" ? pickH(SHEITEL, id0, "tls", j) : pickH(HAIRS, id0, "tlh", j), R: look === "kid" ? null : "Book", pose: look === "kid" ? "idle" : "book",
+                    x: lk.x + 3.0 + h01(id0, "tlx", j) * 0.8, z: lk.z + (j - 4) * 1.25, face: Math.PI / 2 });
+            }
+            groups.push({ mode: "stand", tag: "tashlich", members });
+        }
+    }
+    if (want.has("hakafos") && day.heb && day.heb.d === 23) {
+        // 📜 Simchas Torah: dancing in a ring on the lawn in front of the shul, the Torah in the middle, kids waving flags
+        const L = lawn(T, -9);
+        if (L) {
+            const members = [];
+            for (let j = 0; j < 9; j++) members.push({ look: j % 3 === 2 ? "kid" : "man", top: "#FFFFFF", bot: DARK, hair: pickH(HAIRS, id0, "hk", j) });
+            groups.push({ mode: "ring", tag: "hakafos", center: { x: L.x, z: L.z }, radius: 1.75, spin: 0.55, members,
+                middle: { look: "man", top: "#FFFFFF", bot: DARK, hair: "#BDBDBD", chest: "Torah", x: L.x, z: L.z } });
+            const kids = [];
+            for (let j = 0; j < 4; j++) {
+                const a = L.rot + (j - 1.5) * 0.55, r = 3.0;
+                const x = L.x + Math.sin(a) * r, z = L.z + Math.cos(a) * r;
+                kids.push({ look: "kid", top: pickH(TOPS, id0, "fk", j), bot: DARK, hair: pickH(HAIRS, id0, "fkh", j), R: "Flag", pose: "wave", x, z, face: Math.atan2(L.x - x, L.z - z) });
+            }
+            groups.push({ mode: "stand", tag: "flags", members: kids });
+        }
+    }
+    if (want.has("collectors")) {
+        // 🎭 Purim: costumed bochurim collecting tzedakah at a few front doors
+        const doors = ctx.homes && ctx.homes.homes ? ctx.homes.homes() : [];
+        const pickD = doors.map((d, j) => [h01(id0, "cd", j), d]).sort((a, b) => a[0] - b[0]).slice(0, 4).map(x => x[1]);
+        pickD.forEach((d, g) => {
+            const nx = d.ap.x - d.door.x, nz = d.ap.z - d.door.z, l = Math.hypot(nx, nz) || 1, n = { x: nx / l, z: nz / l }, u = { x: n.z, z: -n.x };
+            const face = Math.atan2(-n.x, -n.z);
+            const members = [0, 1].map(k => ({ look: "man", top: pickH(TOPS, id0, "ct", g, k), bot: DARK, hair: pickH(HAIRS, id0, "ch", g, k),
+                hat: COSTUMES[Math.floor(h01(id0, "cc", g, k) * COSTUMES.length) % COSTUMES.length], R: k === 0 ? "Pushke" : null, pose: k === 0 ? "hold" : "idle",
+                x: d.ap.x + u.x * (k ? 0.75 : -0.75) + n.x * 0.3, z: d.ap.z + u.z * (k ? 0.75 : -0.75) + n.z * 0.3, face }));
+            groups.push({ mode: "stand", tag: "collectors", members });
+        });
+    }
+    if (want.has("chametz")) {
+        // 🔥 erev Pesach: the burning barrel on the lawn, a firefighter keeping an eye on it, neighbours with their last bag of bread
+        const L = lawn(T, -9);
+        if (L) {
+            const u = { x: L.sp.ux, z: L.sp.uz }, n = { x: L.sp.nx, z: L.sp.nz };
+            items.push({ kind: "barrel", x: L.x, y: 0, z: L.z, rot: L.rot, lit: "fire" });
+            const P = (du, dn) => ({ x: L.x + u.x * du + n.x * dn, z: L.z + u.z * du + n.z * dn });
+            const ff = P(-1.4, 0.4), a = P(1.5, 0.9), b = P(2.1, -0.2);
+            groups.push({ mode: "stand", tag: "chametz", members: [
+                { look: "man", top: "#C8A26B", bot: "#C8A26B", hair: DARK, hat: "Hat_Fire", x: ff.x, z: ff.z, face: Math.atan2(L.x - ff.x, L.z - ff.z) },
+                { look: "man", top: "#FFFFFF", bot: DARK, hair: pickH(HAIRS, id0, "bh", 0), R: "BreadBag", x: a.x, z: a.z, face: Math.atan2(L.x - a.x, L.z - a.z) },
+                { look: "kid", top: pickH(TOPS, id0, "bt", 1), bot: DARK, hair: pickH(HAIRS, id0, "bh", 1), R: "BreadBag", x: b.x, z: b.z, face: Math.atan2(L.x - b.x, L.z - b.z) },
+            ] });
+        }
+    }
+    return { groups, items };
+}
+
+/** Groups by the highway for one road chunk (a pond for Tashlich, a chametz-burning barrel in a field). */
+export function groupsForChunk(chunk, world, day, recipes) {
+    const groups = [], items = [], colliders = [];
+    const want = new Set(recipes.flatMap(r => r.recipe.groups || []));
+    const burn = recipes.reduce((a, r) => Math.max(a, r.recipe.burn || 0), 0);
+    const seed = "c" + chunk.k + ":" + world.seed, road = world.highway || world.road;
+    const field = (tag, chance, dMin, dSpan) => {
+        if (!(h01(seed, tag) < chance)) return null;
+        const side = h01(seed, tag, "side") < 0.5 ? -1 : 1, s = chunk.s0 + 60 + h01(seed, tag, "s") * 80, d = side * (dMin + h01(seed, tag, "d") * dSpan);
+        const p = road.point(s, d, {});
+        if (world.isReserved(s, d, 12) || (chunk.houses || []).some(hh => Math.hypot(hh.x - p.x, hh.z - p.z) < 16)) return null;
+        return Object.assign(p, { side });
+    };
+    if (want.has("tashlich") && day.wd !== 6) {
+        const p = field("pond", 0.18, 34, 12);
+        if (p) {
+            items.push({ kind: "pond", x: p.x, y: 0, z: p.z, rot: 0 });
+            colliders.push({ x: p.x, z: p.z, r: 4.2, kind: "pond" });
+            const members = [];
+            for (let j = 0; j < 5; j++) {
+                // on the near bank (the side toward the road), facing the water
+                const a = Math.atan2(-p.side * Math.cos(p.h), p.side * Math.sin(p.h)) + (j - 2) * 0.32, r = 4.9;
+                const x = p.x + Math.sin(a) * r, z = p.z + Math.cos(a) * r, look = j === 4 ? "kid" : j % 2 ? "woman" : "man";
+                members.push({ look, top: look === "man" ? "#FFFFFF" : pickH(TOPS, seed, "pt", j), bot: look === "woman" ? "#37474F" : DARK, hair: look === "woman" ? pickH(SHEITEL, seed, "ps", j) : pickH(HAIRS, seed, "ph", j),
+                    R: look === "kid" ? null : "Book", pose: look === "kid" ? "idle" : "book", x, z, face: Math.atan2(p.x - x, p.z - z) });
+            }
+            groups.push({ mode: "stand", tag: "tashlich", members });
+        }
+    }
+    if (burn > 0) {
+        const p = field("burn", burn, 26, 8);
+        if (p) {
+            items.push({ kind: "barrel", x: p.x, y: 0, z: p.z, rot: 0, lit: "fire" });
+            colliders.push({ x: p.x, z: p.z, r: 0.9, kind: "barrel" });
+            const ff = { x: p.x + 1.6, z: p.z + 0.4 }, nb = { x: p.x - 1.3, z: p.z + 1.4 };
+            groups.push({ mode: "stand", tag: "chametz", members: [
+                { look: "man", top: "#C8A26B", bot: "#C8A26B", hair: DARK, hat: "Hat_Fire", x: ff.x, z: ff.z, face: Math.atan2(p.x - ff.x, p.z - ff.z) },
+                { look: "man", top: "#FFFFFF", bot: DARK, hair: pickH(HAIRS, seed, "bh"), R: "BreadBag", x: nb.x, z: nb.z, face: Math.atan2(p.x - nb.x, p.z - nb.z) },
+            ] });
+        }
+    }
+    return { groups, items, colliders };
 }

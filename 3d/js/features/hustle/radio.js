@@ -40,11 +40,24 @@ const R = {
 };
 
 export const station = () => BY_ID[S.station] || BY_ID.auto;
+// 🕯️ the Three Weeks / Nine Days (features/seasons): the music stations stay on air but play no music — their DJs just
+// talk (with the talk station's babble). LULU FM (the game's own soundtrack) and KVETCH 1450 AM are unchanged.
+const quiet = () => { try { return !!(ctx.seasons && ctx.seasons.radioQuiet && ctx.seasons.radioQuiet()); } catch (e) { return false; } };
+const silenced = st => (st.id === "simcha" || st.id === "lounge") && quiet();
+const QUIET_LINES = {
+    simcha: ["SIMCHA 101.3 — no music till after Tisha B'Av. DJ Shloimy's still here to keep you company. Quietly.",
+        "It's the Three Weeks, so no hora remix today. Here's the traffic instead, read nice and slow.",
+        "Request line's open! We can't play it — ask me again after Tisha B'Av.",
+        "Still here, still talking. Drive safe, be kind to the guy merging."],
+    lounge: ["Smooth 88.8 — no music for the Three Weeks. Just Velvet Yossi. Lean back.",
+        "Breathe in. Breathe out. In the quiet weeks we talk, smoothly.",
+        "Velvet Yossi here. No songs till after Tisha B'Av — a slow merge is still a classy merge."],
+};
 const chatter = () => CHATTER[(save3d.settings && save3d.settings.chatter) || "normal"] || CHATTER.normal;
 const vol = st => (st.bed || 0.32);
 export function inCar() { return IN_CAR.has(ctx.state) && !(ctx.foot && ctx.foot.active) && !ctx.view; }
 function track(st) {
-    if (!st.tracks || !st.tracks.length) return null;
+    if (!st.tracks || !st.tracks.length || silenced(st)) return null;
     const i = (R.idx[st.id] || 0) % st.tracks.length;
     return st.tracks[i];
 }
@@ -91,7 +104,7 @@ export function tune(id) {
     apply();
     const st = station();
     const song = st.tracks && st.tracks.length ? SONGS[track(st)] : "";
-    say(st, song ? `🎵 ${song}` : esc(st.tag), 3.2, true);
+    say(st, silenced(st) ? "🕯️ No music till after Tisha B'Av — just talk" : song ? `🎵 ${song}` : esc(st.tag), 3.2, true);
     R.msgT = Math.max(R.msgT, 7);
     if (document.body.classList.contains("hud-clean")) H.toast(`📻 ${st.name}`, "", { key: "hs-radio" });
     emit("hustle:radio", { station: id });
@@ -113,6 +126,7 @@ const secsFor = text => Math.min(9, 4.2 + text.length / 24);
 function nextMessage(st) {
     const ch = chatter();
     if (st.id === "off" || st.id === "auto") return null;
+    if (silenced(st)) return { lines: [[st.dj || "DJ", pick(QUIET_LINES[st.id])]] };
     // live news beats everything (once per event)
     const law = ctx.law;
     if (law && law.chasing && !R.news.chase && Math.random() < 0.8) { R.news.chase = true; return { lines: [["NEWS", pick(NEWS.chase)]] }; }
@@ -127,7 +141,7 @@ function showNext(st) {
     if (!q) return false;
     const html = q.ad ? `<b>AD</b> ${esc(q.ad)}` : `<b>${esc(q.who)}:</b> ${esc(q.text)}`;
     const ok = say(st, html, secsFor(q.ad || q.text));
-    if (ok && st.id === "talk" && !q.ad) SFX.babble(Math.min(14, 5 + Math.floor((q.text || "").length / 9)), /BUBBE|UNCLE|DR/.test(q.who || ""));
+    if (ok && (st.id === "talk" || silenced(st)) && !q.ad) SFX.babble(Math.min(14, 5 + Math.floor((q.text || "").length / 9)), /BUBBE|UNCLE|DR/.test(q.who || ""));
     return ok;
 }
 
@@ -149,7 +163,7 @@ export function radioTick(dt, P) {
     if (ctx.state !== "playing" || !inCar() || ctx.paused) return;
     if (st.id === "auto" || st.id === "off") return;
     // song rotation: fade out, next track, the DJ says what's on
-    if (st.tracks && st.tracks.length > 1) {
+    if (st.tracks && st.tracks.length > 1 && !silenced(st)) {
         R.songT -= dt;
         if (R.songT <= 0 && !R.fade) {
             R.songT = rand(...RADIO.songLen);
@@ -204,7 +218,7 @@ export const radio = {
     stations: STATIONS.map(s => s.id),
     cycle, tune,
     /** What the radio is doing (tests). */
-    state() { return { station: S.station, override: R.ov.on, src: musicSrc(), gameSrc: R.ov.gameSrc, msgT: +R.msgT.toFixed(1), showT: +R.showT.toFixed(1), queue: R.queue.length, log: R.log.slice() }; },
+    state() { return { station: S.station, quiet: silenced(station()), override: R.ov.on, src: musicSrc(), gameSrc: R.ov.gameSrc, msgT: +R.msgT.toFixed(1), showT: +R.showT.toFixed(1), queue: R.queue.length, log: R.log.slice() }; },
     /** Tests: say something now. */
     debugSay(kind = "dj") {
         const st = station();

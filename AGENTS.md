@@ -228,18 +228,19 @@ merged — ignore them.
 - `multiplayer` (the Shared Road relay test) has real-time checks that flaked on CI during gfx's runs — "2D player's ghost
   shows ~26 m ahead" / "di = s × 56000/4800" (a 1.5 s `peer.pump`) and "🏆 winner banner"; each passed on other runs of
   the same code. `party`'s BONK / race-results steps likewise. Re-run once before blaming a change.
-- Seasons (landed 2026-11-19): the sundown rollover is a per-month table for the north-east US (a player in Israel / LA
-  gets the new count up to ~2 h early or late); if the day changes mid-drive (sundown, midnight) everything is taken down
-  and put back in one go (the candle count can pop in view once); the parade's route is a straight 70 m of sidewalk through
-  the pizza shop / bakery spot and crosses the side streets (marchers walk over a crosswalk; cars don't stop for them);
-  the town stall stands on the strip between the sidewalk and the shop (it can touch a shop's awning); the parade is not
-  synced in a party (each screen starts it when it enters the town). **Left out on purpose (unsure it's right — the owner's
-  call):** blue-and-white string lights on houses (some frum families see them as a Christmas imitation), burning the
-  chametz on erev Pesach (fire in town), the crowd holding a lulav (homes' crowd isn't ours to dress — a `homes` hook
-  could), Simchas Torah dancing with flags, Tashlich by the water, people in white walking to shul on Yom Kippur, Purim
-  tzedakah collectors / music vans, the radio going quiet in the Three Weeks. Perf: meta's car menorah (the existing
-  Chanukah car decoration: 9 flame sprites + a multi-material model) costs ~30 draw calls by itself — the world dressing
-  costs ~0–6 (3d/docs/gfx-perf.md › Seasons); merging the car menorah is a cheap win before Chanukah.
+- Seasons (landed 2026-11-19; round 2 the same evening): the sundown rollover is a per-month table for the north-east
+  US (a player in Israel / LA gets the new count up to ~2 h early or late); if the day changes mid-drive (sundown,
+  midnight) everything is taken down and put back in one go (the candle count can pop in view once); the parade's route is
+  a straight 70 m of sidewalk through the pizza shop / bakery spot and crosses the side streets; the town stall stands on
+  the strip between the sidewalk and the shop (it can touch a shop's awning); the parade and the dancers aren't synced in a
+  party (each screen animates its own; where they stand is the same). Round 2 (the owner approved the details left out in
+  round 1): string lights, lulav walkers, Yom Kippur in white, Tashlich, Simchas Torah, Purim collectors + music van, the
+  chametz burning, the quieter radio, a slim car menorah — all in. **Still open (asked the owner):** which side the
+  candles are lit from (window menorahs from the lighter's right = the street's left; the big public menorah from the
+  front = the street's right); whether LULU FM (the game's own soundtrack) should also go quiet in the Three Weeks (today
+  only the radio's music stations do); Midwood has no water in the game, so no Tashlich there; hakafos only on 23 Tishri
+  (not the night of Shemini Atzeres, which some communities also do); no breadcrumbs at Tashlich; men + boys carry the
+  lulav (women may too); the chametz barrel burns all day of the 14th (really it's the morning); the music van is solo-only.
 - iOS: classic 2D letterboxes in landscape; the "Groceries" chip touches the
   speedometer for ~8 s in iPhone portrait; photo saving uses the share sheet
   (unverified on a real device).

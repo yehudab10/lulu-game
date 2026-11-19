@@ -74,10 +74,12 @@ export function baked(name, tints = null) {
             const c = new THREE.Color().copy(mat && mat.color ? mat.color : new THREE.Color(1, 1, 1));
             if (tints && tints[nm]) c.set(tints[nm]);
             (/^Flame/.test(nm) ? flame : solid).push({ g: o.geometry, m: local, c });
-        } else if (/^Light_/.test(o.name)) {
-            lights.push({ k: o.name.slice(6), p: new THREE.Vector3().setFromMatrixPosition(local) });
-        } else if (o.name === "Sign" || o.name === "Goods") {
-            anchors[o.name] = new THREE.Vector3().setFromMatrixPosition(local);
+        } else if (/^Light_(S|\d)/.test(o.name)) {
+            // (one file holds every prop, so the exporter numbers repeated names: Light_1.001 → "Light_1001" — the
+            //  candle is the first character)
+            lights.push({ k: /^Light_(S|\d)/.exec(o.name)[1], p: new THREE.Vector3().setFromMatrixPosition(local) });
+        } else if (/^(Sign|Goods)/.test(o.name) && !o.isMesh) {
+            anchors[/^Sign/.test(o.name) ? "Sign" : "Goods"] = new THREE.Vector3().setFromMatrixPosition(local);
         }
     });
     // lights in candle order: 1…8 then the shamash (S)
@@ -371,4 +373,13 @@ export function tick(dt, night, cam) {
     }
     if (D.wire && D.wire.line.visible) calls++;
     Object.assign(D.stats, { items, drawn, lights, tris: Math.round(tris), calls });
+}
+
+/** One prop as a plain Mesh on the shared material (a one-off: the music van's roof kit). The geometry is cached: don't dispose it. */
+export function propMesh(name) {
+    const b = baked(name);
+    if (!b || !b.geo) return null;
+    const mesh = new THREE.Mesh(b.geo, solidMat());
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    return { mesh, anchors: b.anchors };
 }

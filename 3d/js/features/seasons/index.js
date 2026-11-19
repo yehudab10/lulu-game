@@ -33,10 +33,12 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import { today, setDate, setForced, DAYS } from "./calendar.js";
 import { RECIPES, KIND_DEFS, TUNE, AGAIN } from "./data.js";
-import { planChunk, planTown, recipesFor } from "./places.js";
+import { planChunk, planTown, recipesFor, groupsForTown, groupsForChunk } from "./places.js";
 import { D, KINDS, addSet, dropSet, dropAll, tick as dressTick, hasSet } from "./dress.js";
 import { partyTick, partyDay } from "./party.js";
 import { paradeStart, paradeStop, paradeTick, paradeInfo } from "./parade.js";
+import { groupsAdd, groupsDrop, groupsClear, groupsTick, groupsInfo, groupsList, GROUP_MODELS } from "./groups.js";
+import { vanStart, vanStop, vanTick, vanInfo } from "./musicvan.js";
 
 registerModels({ seasonsProps: "seasons_props" });
 Object.assign(KINDS, KIND_DEFS);
@@ -74,22 +76,26 @@ function refresh(force = false) {
     takeDown();
     if (day && (day.main || "") !== (prevMain || "")) emit("seasons:day", { main: day.main, ids: day.ids.slice(), key: day.key });
     if (!S.want) return;
-    if (!models.seasonsProps) {
+    // (the people of the day need the townsfolk models too — loaded with the props, so nobody pops in later)
+    const need = ["seasonsProps"].concat(recipes.some(r => (r.recipe.groups || []).length) ? GROUP_MODELS : []).filter(k => !models[k]);
+    if (need.length) {
         if (S.loading) return;
         S.loading = true;
-        ensureModels(["seasonsProps"]).then(() => { S.loading = false; refresh(true); }).catch(e => { S.loading = false; console.warn("[seasons] models", e); });
+        ensureModels(need).then(() => { S.loading = false; refresh(true); }).catch(e => { S.loading = false; console.warn("[seasons] models", e); });
         return;
     }
     putUp();
 }
-const dresses = R => !!(R.windows || R.strings || R.big || R.stand || R.sukkah || R.baskets || R.kerb || R.bonfire || R.planters || R.parade);
+const dresses = R => !!(R.windows || R.strings || R.big || R.stand || R.sukkah || R.baskets || R.kerb || R.bonfire || R.planters || R.parade || (R.groups && R.groups.length) || R.burn || R.musicVan);
 
 function takeDown() {
     for (const [k, c] of S.chunks) { for (const col of c.cols) { const i = c.chunk.colliders.indexOf(col); if (i >= 0) c.chunk.colliders.splice(i, 1); } }
     S.chunks.clear();
     dropAll();
+    groupsClear();
     S.stands = [];
     paradeStop();
+    vanStop();
 }
 function putUp() {
     // the highway chunks already built (the ones still building get theirs from chunk:build)
@@ -103,11 +109,14 @@ function standKind(it) { if (it.kind === "stand") { const r = S.recipes.find(x =
 function dressChunk(chunk, world) {
     if (!S.want || !models.seasonsProps || hasSet("c" + chunk.k)) return;
     let plan;
-    try { plan = planChunk(chunk, world, S.day, S.recipes); } catch (e) { console.error("[seasons] chunk", e); return; }
-    if (!plan.items.length) return;
+    let gp = { groups: [], items: [], colliders: [] };
+    try { plan = planChunk(chunk, world, S.day, S.recipes); gp = groupsForChunk(chunk, world, S.day, S.recipes); } catch (e) { console.error("[seasons] chunk", e); return; }
+    if (!plan.items.length && !gp.items.length) return;
     plan.items.forEach(standKind);
-    const set = addSet("c" + chunk.k, plan.items, { vis: () => chunk.group.visible && !!chunk.group.parent });
-    const cols = plan.colliders.map(c => chunk.addCollider(c));
+    const vis = () => chunk.group.visible && !!chunk.group.parent;
+    const set = addSet("c" + chunk.k, plan.items.concat(gp.items), { vis });
+    if (gp.groups.length) groupsAdd("c" + chunk.k, gp.groups, { vis });
+    const cols = plan.colliders.concat(gp.colliders).map(c => chunk.addCollider(c));
     S.chunks.set(chunk.k, { chunk, cols });
     for (const it of set.items) if (it.stand) S.stands.push(it);
 }
@@ -115,23 +124,27 @@ on("chunk:build", ({ chunk, world }) => { if (S.want && world && chunk) dressChu
 on("chunk:dispose", ({ chunk }) => {
     if (!chunk) return;
     const c = S.chunks.get(chunk.k);
-    if (c && c.chunk === chunk) { S.chunks.delete(chunk.k); dropSet("c" + chunk.k); S.stands = S.stands.filter(it => it.set.key !== "c" + chunk.k); }
+    if (c && c.chunk === chunk) { S.chunks.delete(chunk.k); dropSet("c" + chunk.k); groupsDrop("c" + chunk.k); S.stands = S.stands.filter(it => it.set.key !== "c" + chunk.k); }
 });
 
 // ── a town ───────────────────────────────────────────────────────────────
 function dressTown() {
     if (!S.want || !models.seasonsProps || !ctx.town || !ctx.town.active) return;
     let plan;
-    try { plan = planTown(S.day, S.recipes); } catch (e) { console.error("[seasons] town", e); return; }
+    let gp = { groups: [], items: [] };
+    try { plan = planTown(S.day, S.recipes); gp = groupsForTown(S.day, S.recipes); } catch (e) { console.error("[seasons] town", e); return; }
     plan.items.forEach(standKind);
     const id = ctx.town.id;
-    const set = addSet("town", plan.items, { vis: () => !!(ctx.town && ctx.town.active && ctx.town.id === id) });
+    const vis = () => !!(ctx.town && ctx.town.active && ctx.town.id === id);
+    const set = addSet("town", plan.items.concat(gp.items), { vis });
+    if (gp.groups.length) groupsAdd("town", gp.groups, { vis });
     for (const it of set.items) if (it.stand) S.stands.push(it);
     if (S.recipes.some(r => r.recipe.parade)) paradeStart(S.day);
+    if (S.recipes.some(r => r.recipe.musicVan) && ctx.enabled("seasons")) vanStart();
     emit("seasons:dress", { where: id, n: plan.items.length });
 }
 on("town:enter", () => { if (S.want) dressTown(); notice("town"); });
-on("town:leave", () => { dropSet("town"); S.stands = S.stands.filter(it => it.set.key !== "town"); paradeStop(); });
+on("town:leave", () => { dropSet("town"); groupsDrop("town"); S.stands = S.stands.filter(it => it.set.key !== "town"); paradeStop(); vanStop(); });
 
 // ── noticing it: Ima's 📱 note (once a day) and Lulu's line (the first time she sees it) ──
 function dayKey() { return S.day ? (S.day.forced ? S.day.key : S.day.key) + ":" + (S.day.main || "") : ""; }
@@ -230,6 +243,8 @@ function frame(dt) {
     const night = ctx.atmos ? ctx.atmos.night || 0 : 0;
     dressTick(dt, night, _cam);
     paradeTick(dt);
+    groupsTick(dt, _cam);
+    vanTick();
     driveUp();
     if (S.noticeT > 0 && (S.noticeT -= dt) <= 0) { notice("run"); if (D.stats.drawn > 0 || D.stats.lights > 0) notice("see"); }
     else if (D.stats.drawn > 0 && S.day && SAVE.said.k !== dayKey()) notice("see");
@@ -279,10 +294,12 @@ ctx.seasons = {
     get main() { return S.day ? S.day.main : null; },
     get on() { return live(); },
     get dressed() { return S.want; },
+    /** The 📻 radio's music stations go quiet (the Three Weeks / Nine Days / the fasts in them) — features/hustle/radio.js asks. */
+    radioQuiet: () => live() && S.recipes.some(r => r.recipe.radio === "quiet"),
     info() {
         return { key: S.key, main: S.day && S.day.main, ids: S.day ? S.day.ids : [], heb: S.day && S.day.heb, chanukah: S.day && S.day.chanukah,
             recipes: S.recipes.map(r => r.id), want: S.want, sets: [...D.sets.keys()], stands: S.stands.length, kinds: [...D.kinds.keys()],
-            stats: Object.assign({}, D.stats), lit: D.lit, source: S.day && S.day.source, parade: paradeInfo(), treats: SAVE.treats | 0 };
+            stats: Object.assign({}, D.stats), groups: groupsInfo(), van: vanInfo(), lit: D.lit, source: S.day && S.day.source, parade: paradeInfo(), treats: SAVE.treats | 0 };
     },
     debug: {
         /** Preview a day: season("chanukah", 5) · season("purim") · season(null) = the real calendar. opts: { wd, eve }. */
@@ -297,6 +314,7 @@ ctx.seasons = {
         stands: () => S.stands.map(it => ({ x: it.x, z: it.z, rot: it.rot, id: it.stand, kind: it.kind, set: it.set.key })),
         /** String lights: { strings, bulbs } (sets in view or not). */
         strings: () => { let n = 0, b = 0; for (const s of D.sets.values()) for (const st of s.strings || []) { n++; b += st.pts.length / 3; } return { strings: n, bulbs: b, drawn: D.glows.bulb ? D.glows.bulb.n : 0 }; },
+        groups: () => groupsList(),
         items: kind => [...D.sets.values()].flatMap(s => s.items).filter(it => !kind || it.kind === kind).map(it => ({ kind: it.kind, x: it.x, y: it.y, z: it.z, s: it.s, lights: it.lights, set: it.set.key })),
         resetPaid() { SAVE.paid = {}; SAVE.said = {}; SAVE.ima = {}; saveSoon(); },
         D, S, SAVE,

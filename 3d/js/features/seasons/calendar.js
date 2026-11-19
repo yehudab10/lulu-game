@@ -76,6 +76,7 @@ export const DAYS = {
     taanisEsther: { name: "Taanis Esther", emoji: "📜", greet: "An easy fast — Purim tonight!", kind: "fast" },
     purim: { name: "Purim", emoji: "🎭", greet: "Freilichen Purim!", kind: "minor" },
     pesachPrep: { name: "Before Pesach", emoji: "🧹", greet: "Pesach cleaning!", kind: "prep" },
+    erevPesach: { name: "Erev Pesach", emoji: "🔥", greet: "Burning the chametz!", kind: "prep" },
     pesach: { name: "Pesach", emoji: "🫓", greet: "Chag Kasher V'Sameach!", kind: "chag" },
     lagBaomer: { name: "Lag BaOmer", emoji: "🔥", greet: "Happy Lag BaOmer!", kind: "minor" },
     shavuosPrep: { name: "Before Shavuos", emoji: "💐", greet: "Shavuos is coming!", kind: "prep" },
@@ -111,6 +112,8 @@ export function classify(m, d, wd, chanukahDay = 0) {
         else if (d >= 8 && d <= 13) out.push("purimPrep");
     }
     if (m === "Nisan") {
+        // the chametz is burned on the morning of the 14th — on Friday the 13th when the 14th is Shabbos
+        if ((d === 14 && wd !== 6) || (d === 13 && wd === 5)) out.push("erevPesach");
         if (d >= 1 && d <= 14) out.push("pesachPrep");
         else if (d >= 15 && d <= 22) out.push("pesach");
     }
@@ -194,7 +197,7 @@ function realDay(date) {
 const FAKE = {
     roshHashana: ["Tishri", 1], tzomGedaliah: ["Tishri", 3], yomKippur: ["Tishri", 10], sukkosPrep: ["Tishri", 12], sukkos: ["Tishri", 15],
     simchasTorah: ["Tishri", 23], chanukah: ["Kislev", 25], asaraBTeves: ["Tevet", 10], tuBishvat: ["Shevat", 15], purimPrep: ["Adar", 10],
-    taanisEsther: ["Adar", 13], purim: ["Adar", 14], pesachPrep: ["Nisan", 8], pesach: ["Nisan", 15], lagBaomer: ["Iyar", 18],
+    taanisEsther: ["Adar", 13], purim: ["Adar", 14], pesachPrep: ["Nisan", 8], erevPesach: ["Nisan", 14], pesach: ["Nisan", 15], lagBaomer: ["Iyar", 18],
     shavuosPrep: ["Sivan", 4], shavuos: ["Sivan", 6], tamuz17: ["Tamuz", 17], threeWeeks: ["Tamuz", 25], nineDays: ["Av", 5], tishaBav: ["Av", 9],
     shabbos: ["Heshvan", 20], friday: ["Heshvan", 19], none: ["Heshvan", 15],
 };
