@@ -44,6 +44,29 @@ TestFlight build on every push to `main`).
   blood, nobody hurt beyond the game's knock-down / lose-a-heart rules. Keeps the
   App Store **12+** rating. Dina's mode is strictly PG and never scary.
 
+## 2b. Where the game is going (the owner's roadmap — agreed 2026-11-19)
+
+**One line:** a small, dense, funny town-and-road world that you LIVE in, alone or with friends — "less a driving
+game, more an open world; a weird mixture of Roblox and Fortnite; everything flows". Not a bigger map: a more
+continuous one, where the car is something you use rather than the whole game. Every new piece is judged against that.
+
+| # | step | branch |
+|---|---|---|
+| 1 | **One continuous world** — towns joined to the highway (no cut), buildings you walk into without a loading screen, fields you can wander into | `ci/oneworld` |
+| 2 | **Start at home, on foot** — she walks out of her front door, the pink car is in the driveway (today the game opens with her already driving) | `ci/home` |
+| 3 | **No more "game over"** — knocked out = back on her feet at home / outside the hospital within a couple of seconds; no wall of cards, no countdown | `ci/home` |
+| 4 | **Jail, court and the ER are real places in town** — a precinct, a courthouse, a hospital she can walk past, be taken to and walk out of; the comedy stays, in the world, skippable | after 1 + 3 |
+| 5 | **Movement that's fun on its own** — a jump, a free-look camera, the roll / slide / vault moves made central | `ci/move` |
+| 6 | **A reason to play each day** — "a day in Lulu's life": Ima's errands, a job or two, something silly in town, as markers in the world (not menus), ending back at home | after 2 |
+| 7 | **The town as a hangout** — Free Roam with friends as the normal way to play, emotes, the party games started from spots in the world | `ci/hangout` |
+| 8 | **A world that follows the real calendar** — Chanukah lights across town, a Purim parade, sukkahs before Sukkos… (the device's Hebrew calendar) | `ci/seasons` |
+| 9 | **Somewhere for coins to go** — decorating Lulu's room / house, on top of cars and outfits | after 2 |
+
+**Deliberately NOT:** shooting / battle royale (tone + the 12+ rating — the cartoon chase humour is the strength);
+player-built worlds; a huge empty map (two rich towns and the road between them beat ten thin ones, and phones stay fast).
+The flow rules every step follows are in `3d/ARCHITECTURE.md` › Flow (no hard cuts, no blinking, no countdown after a
+scene, nothing built in one long frame). `ci/flow` step 1 already landed those tools.
+
 ## 3. Golden rules
 
 1. **Finished work goes straight to `main`** (that's how the site updates — the
