@@ -555,9 +555,9 @@ function tickGames() {
     const key = src + ":" + g.n + (g.ph === "in" ? "i" : g.ph === "off" ? "x" : "");
     if (key !== CL.key) enterGame(g, key);
     const t = now(), mine = g.ps.includes(me());
-    // an open invitation: walking / driving up to the spot opts me in
+    // an open invitation from a game spot: walking / driving up to the spot opts me in (one from the phone: the chip / 📱 only)
     if (g.ph === "in") {
-        if (roam() && !mine && (g.at.zone || "") === zone() && (ctx.state === "playing" || ctx.state === "footRun")) {
+        if (roam() && !mine && g.spot && (g.at.zone || "") === zone() && (ctx.state === "playing" || ctx.state === "footRun")) {
             const sp = invitePos(g), lp = onFoot() && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos;
             if (sp && Math.hypot(lp.x - sp.x, lp.z - sp.z) < JOIN_R) optIn(g);
         }
