@@ -3,7 +3,7 @@
 //   OFF SET   only journey / dina / shabbos / ads stay off with friends
 //   PLAN      the seeded rest area + Paint & Pray booths (ctx.party.road) are the same on both screens; the street
 //             props of a chunk match prop for prop
-//   FLEET     the rides fleet rides the SHARED traffic: the same ambulance at the same place at the same party time
+//   FLEET     the rides fleet rides the SHARED traffic: the same ambulance (or taxi…) at the same place at the same party time
 //   🛑 CLAIM  the host walks out in front of a shared car → it's CLAIMED: it brakes onto the shoulder and parks the
 //             same way on both screens (live poses = the pure claimPose) → she carjacks it → it's gone on both
 //             screens, and the guest sees the host driving that model
@@ -124,7 +124,7 @@ async function partyRun(t, guests) {
   // quiet the dice we don't test here: the law's traps, Shmuel's calls
   for (const p of pages) await p.game(`(ctx.law.hold(9999), ctx.streets.debug.CHOP.nextT = 1e9, true)`);
   t.check("party: streets · rides · exits · town are ON; journey · dina · shabbos · ads stay off",
-    await g(`ctx.enabled("streets") && ctx.enabled("rides") && ctx.enabled("exits") && ctx.enabled("town") && ctx.enabled("foot") && !ctx.enabled("journey") && !ctx.enabled("dina") && !ctx.enabled("shabbos") && !ctx.enabled("ads") && !ctx.enabled("heist")`));
+    await g(`ctx.enabled("streets") && ctx.enabled("rides") && ctx.enabled("exits") && ctx.enabled("town") && ctx.enabled("foot") && !ctx.enabled("journey") && !ctx.enabled("dina") && !ctx.enabled("shabbos") && !ctx.enabled("ads")`));
 
   // ── the seeded plan: rest area + Paint & Pray booths ──
   const plan = c => c.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s) + ":" + r.name), paint: ctx.party.road.list(0, 6000).filter(s => s.id === "streets").map(s => s.kind + "@" + s.s.toFixed(1)), slots: ctx.party.road.list(0, 6000).map(s => s.key).join(",") })`);
@@ -149,17 +149,21 @@ async function partyRun(t, guests) {
   const fleet = c => c.game(`ctx.party.trafficAt(${T0}, 0, 40000).filter(x => /^rides_|streets_sports/.test(x.kind)).map(x => x.key + ":" + x.kind + "@" + x.s.toFixed(2)).join(",")`);
   const f1 = await fleet(pages[0]), f2 = await fleet(A);
   t.check("fleet: ambulances / taxis / ice-cream trucks / buses in the shared traffic, the same on both screens", f1.length > 0 && f1 === f2 && /rides_ambulance/.test(f1), f1.slice(0, 200));
-  // drive both up to the nearest ambulance and see it live on both screens, on the clock
-  const amb = await g(`(() => { const T = ctx.party.clock() + 4000; const a = ctx.party.trafficAt(T, 300, 40000).filter(x => x.kind === "rides_ambulance" && x.dir > 0).sort((a, b) => a.s - b.s)[0]; return a ? { key: a.key, s: a.s, T } : null; })()`);
-  t.check("fleet: an ambulance up the road", !!amb);
+  // drive both up to the nearest fleet vehicle (an ambulance if there's one) SHORT OF BUBBE'S — teleporting past the
+  // trip's end (≈ 4.8 km) finishes the trip — and see it live on both screens, on the clock (either direction: our
+  // own lanes only fill the road ahead of their start wave)
+  const amb = await g(`(() => { const T = ctx.party.clock() + 4000; const end = (ctx.journey && ctx.journey.stopS ? ctx.journey.stopS(0) : 4800) - 500;
+    const fl = ctx.party.trafficAt(T, 300, end).filter(x => /^rides_/.test(x.kind)).sort((a, b) => (b.kind === "rides_ambulance") - (a.kind === "rides_ambulance") || a.s - b.s);
+    const a = fl[0]; return a ? { key: a.key, s: a.s, kind: a.kind, T } : null; })()`);
+  t.check("fleet: a fleet vehicle (an ambulance / taxi / ice-cream truck / bus) up the road, short of Bubbe's", !!amb, JSON.stringify(amb));
   if (amb) {
     const K = JSON.stringify(amb.key);
     for (const p of pages) await p.game(`(ctx.party.placeCar(${amb.s} - 60, 7.6, 0), true)`);
-    await hostUntil(t, `ctx.traffic.cars.some(c => c.data && c.data.party === ${K})`, "host: the ambulance is live", 60000);
-    await A.until(`ctx.traffic.cars.some(c => c.data && c.data.party === ${K})`, "guest: the ambulance is live", 60000);
+    await hostUntil(t, `ctx.traffic.cars.some(c => c.data && c.data.party === ${K})`, "host: the fleet vehicle is live", 60000);
+    await A.until(`ctx.traffic.cars.some(c => c.data && c.data.party === ${K})`, "guest: the fleet vehicle is live", 60000);
     const live = c => c.game(`(() => { const c = ctx.traffic.cars.find(c => c.data && c.data.party === ${K}); if (!c) return null; const w = ctx.party.trafficAt(c.data.at, c.s - 5, c.s + 5).find(x => x.key === ${K}); return { kind: c.kind, model: !!c.obj, ok: !!w && Math.abs(w.s - c.s) < 0.05 }; })()`);
     const l1 = await live(pages[0]), l2 = await live(A);
-    t.check("fleet: the SAME ambulance on both screens, exactly where the party clock says", !!l1 && !!l2 && l1.kind === "rides_ambulance" && l2.kind === "rides_ambulance" && l1.ok && l2.ok, JSON.stringify({ l1, l2 }));
+    t.check("fleet: the SAME vehicle on both screens, exactly where the party clock says", !!l1 && !!l2 && l1.kind === amb.kind && l2.kind === amb.kind && l1.ok && l2.ok, JSON.stringify({ l1, l2 }));
     await A.shot("guest-ambulance");
   }
 
@@ -232,8 +236,13 @@ async function partyRun(t, guests) {
     await t.frames(2);
     const promptOk = await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 20000);
     if (!promptOk) console.log("   FLAG diag", JSON.stringify(await g(`({ flag: ctx.party._debug.flag(), prompt: (document.querySelector("#slot-bottom .prompt") || {}).textContent, list: (ctx.foot.debug.interactables() || null) && [ctx.foot.debug.interactables()].map(p => p && { kind: p.kind, label: p.label, score: p.score }), phase: ctx.foot.phase, d: ctx.foot.debug.F.d })`)));
-    await t.tap(0);
-    const fl = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`, "flagging one down claims it (hail)", 15000);
+    // (press whenever the prompt is up — on a slow runner one car's window can close between seeing it and the tap)
+    const HAILED = `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`;
+    for (let i = 0, end = Date.now() + 45000; Date.now() < end && !(await g(HAILED)); i++) {
+      if (await g(`/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`)) await t.tap(0);
+      else { await g(PUT); await sleep(300); }
+    }
+    const fl = await hostUntil(t, HAILED, "flagging one down claims it (hail)", 5000);
     if (fl) {
       const fk = JSON.stringify((await g(`ctx.party._debug.claims()`)).find(c => c.mine && c.hail && !c.dead).key);
       await A.until(`ctx.party._debug.claims().some(c => c.key === ${fk} && c.hail)`, "the guest hears the hail claim", 30000);
@@ -313,7 +322,13 @@ async function partyRun(t, guests) {
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 60000);
   // a minivan on its loop: stand 16 m ahead of it on its path (wait for one to be live near her first —
   // only the loop cars around her are on the road, and right after she climbs out there may be none)
-  await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000);
+  // (walk her out in front of the nearest loop minivan by its PURE pose first — the live town cars are only the ones
+  //  near her, and where she climbed out there may be none)
+  const near = await g(`(() => { const F = ctx.foot.debug.F, T = ctx.party.clock() + 1500; const cs = ctx.openworld.debug.townCarsAt(T).filter(c => c.kind === "town_van");
+    cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
+    F.pos.set(c.x + Math.sin(c.h) * 30, 0, c.z + Math.cos(c.h) * 30); ctx.G.invT = 30; return c.key; })()`);
+  if (!await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000))
+    console.log("   TOWN diag", JSON.stringify({ near, live: await g(`ctx.traffic.cars.map(c => c.kind + ":" + (c.data && c.data.party) + ":" + (+c.speed).toFixed(1)).slice(0, 20)`), zone: await g(`ctx.openworld.zone`) }));
   const tw = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2);
     cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
     F.pos.set(c.x + Math.sin(c.h) * 16, 0, c.z + Math.cos(c.h) * 16); ctx.G.invT = 30; return { key: c.data.party }; })()`);

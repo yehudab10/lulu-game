@@ -16,7 +16,7 @@ import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import { TUNE, PAY, SNATCH, THEFT } from "./data.js";
 import { models, cloneWithColors, findNodes, need, live, rand, pick, clamp, pt, onFoot, luluPos, distTo, stat, remember,
-    luluSays, npcSays, setChip, setBeacon, fmtM, sfx, burst, inTown, g } from "./common.js";
+    luluSays, npcSays, setChip, setBeacon, fmtM, sfx, burst, inTown, g, freeMode } from "./common.js";
 
 const TS = TUNE.snatch, TT = TUNE.theft;
 const MODELS = ["heistMoped", "heistRobber", "heistProps"];
@@ -339,7 +339,7 @@ export function endTheft() {
 // ════════════════════════════════ the scheduler ════════════════════════
 function canStart() {
     const G = ctx.G;
-    if (!live() || !G || G.mode !== "cruise" || G.tutorial) return false;
+    if (!live("snatch") || !freeMode("snatch") || G.tutorial) return false;
     if (ctx.law && (ctx.law.chasing || (ctx.law.fugitive))) return false;
     if (ctx.heist && ctx.heist.busy && ctx.heist.busy("snatch")) return false;
     return true;

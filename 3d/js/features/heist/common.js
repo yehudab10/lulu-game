@@ -24,8 +24,25 @@ export async function need(keys) {
 }
 export const ready = keys => keys.every(k => !!models[k]);
 
-/** Random / surprise content gate: on in the game, off in ?test unless enabled, off in a 🎉 party. */
-export const live = () => ctx.enabled(ID) && !(ctx.party && ctx.party.active);
+/** In a 🎉 party only heist's PERSONAL bits run — the cops' stun net / spike strip in her own chase (law is personal
+ *  in a party), the moped snatcher (a scene prop, never in the traffic) and the thief at her own parked car (foot's
+ *  local stub) — and only on a 🏡 Road Trip / 🌍 Free Roam run, never while a party game (a race / dash / tag / a
+ *  Free Roam game she's in) is on. Robberies (a getaway car + a store building on one screen) and Lulu's own heist
+ *  stay solo: ARCHITECTURE › the party parity table says what they'd need. */
+export const PARTY_OK = new Set(["gear", "snatch"]);
+export const inParty = () => !!(ctx.party && ctx.party.active);
+export function partyFree() {
+    const pt = ctx.party, G = ctx.G;
+    if (!pt || !pt.active || !G || G.mode !== "party") return false;
+    const k = pt.activity && pt.activity.k;
+    if (k !== "trip" && k !== "roam") return false;
+    const ow = ctx.openworld, g = ow && ow.debug && ow.debug.getG ? ow.debug.getG() : null;
+    return !(g && g.ph === "go" && Array.isArray(g.ps) && g.ps.includes(pt.uid));
+}
+/** Random / surprise content gate: on in the game, off in ?test unless enabled; in a 🎉 party only `what` ∈ PARTY_OK. */
+export const live = (what = "") => ctx.enabled(ID) && (!inParty() || (PARTY_OK.has(what) && partyFree()));
+/** Free driving for `what`: solo Cruise, or (PARTY_OK bits) a party's Road Trip / Free Roam. */
+export const freeMode = (what = "") => !!ctx.G && (ctx.G.mode === "cruise" || (PARTY_OK.has(what) && partyFree()));
 
 export const rand = (a, b) => a + Math.random() * (b - a);
 export const randInt = (a, b) => Math.floor(rand(a, b + 1));
