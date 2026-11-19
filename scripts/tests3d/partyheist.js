@@ -5,14 +5,16 @@
 //   🛵 SNATCH the host stops on the shoulder → the scheduler sends a moped (a scene prop, never in the traffic): a
 //             HONK dodges it; too slow → he grabs a CAPPED share; clip him → it all comes back (+ the bonus)
 //   🚗 THEFT  she parks + walks off → a thief drives off in HER parked car (foot's local stub) → ✋ YANK HIM OUT
-//   🕸️ GEAR   a 4★ chase of her own: a stun net lands and wears off; a spike strip → a flat that wears off
+//   🫳 UNDERWORLD only its pickpocket runs with friends: on foot the scheduler sends one, he lifts a CAPPED amount,
+//             ✋ TACKLE → it all comes back; while she DRIVES no bad-guy car ever joins the shared traffic
+//   🕸️ GEAR   a 4★ chase of her own: a stun net lands and wears off; a spike strip → a flat
 //   SYNC      all the while the shared traffic sits exactly where the party clock says on both screens, the guest
 //             never freezes, has none of it (no snatcher / thief / net on the guest), and no stray local cars
 const { spawn } = require("child_process");
 const path = require("path");
 const PORT = 25000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = `&enable=party,foot,law,heist,streets,rides,world,atmos,phone&mpurl=${encodeURIComponent(URL)}`;
+const Q = `&enable=party,foot,law,heist,underworld,community,streets,rides,world,atmos,phone&mpurl=${encodeURIComponent(URL)}`;
 const SHOTS = path.join(__dirname, "..", "..", "smoke-shots");
 let relay = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -196,6 +198,46 @@ async function partyRun(t, guests) {
   }
   t.check("guest: no thief on the guest's screen", await A.game(`!ctx.heist.thief && !window.__ev.length`));
   await frozen("theft");
+
+  // ── 🫳 underworld: only the pickpocket, on foot ──
+  const UD = `ctx.underworld.debug`;
+  t.check("underworld: ON with friends, but only the pickpocket (no bad-guy cars / offers / Fixer)", await g(`ctx.enabled("underworld") && !ctx.underworld.live && ctx.underworld.liveFor("pickpocket")`));
+  if (await g(`ctx.state === "playing"`)) {
+    t.check("underworld: while she drives no bad guy can show up in a party", (await g(`ctx.underworld.why()`)) !== "", await g(`ctx.underworld.why()`));
+    await g(`ctx.underworld.spawn("rager").then(r => (window.__rager = r === null))`);
+    await t.frames(4);
+    t.check("underworld: a bad-guy car is refused (it would sit in the shared traffic on one screen)", await g(`window.__rager === true && !ctx.underworld.enc && !ctx.traffic.cars.some(c => c.data && c.data.uw)`));
+    const sp = await g(`Math.round(ctx.car.s) + 50`);
+    await g(`(ctx.party.placeCar(${sp}, 7.9, 0), true)`);
+    await sleep(500);
+    await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+  }
+  if (await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot for the pickpocket", 30000)) {
+    await t.L(`import("./js/models.js").then(m => m.ensureModels(["uw_pickpocket", "npcMan"]))`);
+    await g(`(ctx.foot.debug.F.t = 99, ctx.foot.debug.F.peds.forEach(x => x.s += 400), ${UD}.UW.runT = 999, ${UD}.UW.nextT = 0, ${UD}.UW.force.always = true, true)`);
+    const w0 = await coins();
+    if (await hostUntil(t, `!!ctx.underworld.debug.E && !!ctx.underworld.debug.E.p`, "on foot in a party: the scheduler sends a pickpocket", 60000)) {
+      await g(`(${UD}.UW.force.always = false, ${UD}.UW.nextT = 1e9, true)`);
+      await g(`(() => { const E = ${UD}.E, F = ctx.foot.pos; E.x = F.x + 0.6; E.z = F.z + 0.4; return true; })()`);
+      if (await hostUntil(t, `ctx.underworld.debug.E && ctx.underworld.debug.E.phase === "run"`, "the bump-and-lift", 60000)) {
+        const stolen = await g(`${UD}.E.stolen`), w1 = await coins();
+        t.check("he lifts a CAPPED amount (≤ 30)", stolen > 0 && stolen <= 30 && w0 - w1 === stolen, `${stolen} (${w0} → ${w1})`);
+        await t.shot("pickpocket");
+        await sync("a pickpocket on the run");
+        await g(`(() => { const E = ${UD}.E, F = ctx.foot.debug.F; const n = ctx.world.road.nearest(E.x, E.z, ctx.car.s, {}); const p = ctx.world.road.point(n.s - E.dir * 1.5, n.d, {}); F.pos.set(p.x, 0, p.z);
+          const pr = ctx.foot.debug.interactables(); if (pr && /TACKLE/.test(pr.label)) pr.ent.act(); else ${UD}.tackle(${UD}.E, "lulu"); return true; })()`);
+        await t.frames(6);
+        const w2 = await coins();
+        t.check("TACKLE: the coins come back (+ a little)", w2 >= w1 + stolen && w2 <= w1 + stolen + 10, `${w1} → ${w2} (stolen ${stolen})`);
+      }
+    }
+    t.check("guest: no pickpocket on the guest's screen (he's hers)", await A.game(`!ctx.underworld.debug.E`));
+    await g(`(() => { const c = ctx.foot.parkedCar, F = ctx.foot.debug.F; if (c) F.pos.set(c.x + Math.cos(c.h) * 1.8, 0.05, c.z - Math.sin(c.h) * 1.8); return true; })()`);
+    await t.frames(30);
+    await t.tap(0);
+    await hostUntil(t, `ctx.state === "playing" && !ctx.foot.active`, "back in her car after the pickpocket", 40000);
+  }
+  await frozen("pickpocket");
 
   // ── 🕸️ the cops' gear in a chase of her own ──
   if (await g(`ctx.state === "playing"`)) {

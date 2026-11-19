@@ -59,8 +59,23 @@ export const fill = (s, o) => String(s).replace(/\{(\w+)\}/g, (m, k) => (o[k] !=
 export const rate = () => (RATES[SAVE.rate] ?? 1) * (SPAWN.rate ?? 1);
 /** A chance scaled by the rate (capped). */
 export const chance = p => Math.random() < Math.min(0.97, p * rate());
-/** Is the underworld on right now? (?test opt-in, a 🎉 party turns it off — party's OFF set.) */
-export const live = () => ctx.enabled(ID) && !(ctx.party && ctx.party.active) && rate() > 0;
+/** In a 🎉 party only the underworld's PERSONAL bit runs: the 🫳 pickpocket on foot (a scene prop, her own wallet,
+ *  the coins always come home; the Shomrim who jog after him are hers too) — on a 🏡 Road Trip / 🌍 Free Roam run, never
+ *  while a party game (a race / dash / tag / a Free Roam game she's in) is on. The bad-guy CARS (a local car in the
+ *  shared traffic), Krupnik's / Velvel's roadside stops, the Fixer's jobs and the street's heat stay solo: ARCHITECTURE ›
+ *  the party parity table says what they'd need. */
+export const PARTY_OK = new Set(["pickpocket"]);
+export const inParty = () => !!(ctx.party && ctx.party.active);
+export function partyFree() {
+    const pt = ctx.party, G = ctx.G;
+    if (!pt || !pt.active || !G || G.mode !== "party") return false;
+    const k = pt.activity && pt.activity.k;
+    if (k !== "trip" && k !== "roam") return false;
+    const ow = ctx.openworld, g = ow && ow.debug && ow.debug.getG ? ow.debug.getG() : null;
+    return !(g && g.ph === "go" && Array.isArray(g.ps) && g.ps.includes(pt.uid));
+}
+/** Is the underworld on right now? (?test opt-in, Settings not Off; in a 🎉 party only `what` ∈ PARTY_OK.) */
+export const live = (what = "") => ctx.enabled(ID) && (!inParty() || (PARTY_OK.has(what) && partyFree())) && rate() > 0;
 export const inTown = () => !!(ctx.town && ctx.town.active);
 export const onFoot = () => !!(ctx.foot && ctx.foot.active);
 export const mode = () => (ctx.G && ctx.G.mode) || "";
