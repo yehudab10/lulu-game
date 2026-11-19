@@ -33,7 +33,7 @@ module.exports = {
     await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "Lulu's on foot", 15000);
     await G(`(ctx.traffic.config.enabled = false, ctx.law && ctx.law.hold && ctx.law.hold(300), true)`);
     // a few steps away from her car, out on the open shoulder
-    await t.stick(0, -1); await t.frames(20); await t.stick(0, 0); await t.frames(10);
+    await t.stick(0, -1); await t.frames(40); await t.stick(0, 0); await t.frames(10);
     t.check("input.foot is on while she walks", await t.L(`import("./js/input.js").then(I => I.input.foot === true)`) && await t.L(`document.body.classList.contains("onfoot")`));
 
     // ── the button map on each device ──
@@ -79,10 +79,14 @@ module.exports = {
     // ── a low obstacle: a guardrail stops her walking, a jump clears it ──
     const putAhead = (kind, dist, r) => G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const x = F.pos.x + Math.sin(y) * ${dist}, z = F.pos.z + Math.cos(y) * ${dist};
       const ch = ctx.world.activeChunks().find(c => Math.abs(c.s0 + 100 - F.s) < 120); window.__low = ch.addCollider({ x, z, r: ${r}, kind: "${kind}" }); return true; })()`);
-    const dropLow = () => G(`(window.__low && (window.__low.off = true), true)`);
+    const dropLow = () => G(`((window.__lows || [window.__low]).forEach(c => c && (c.off = true)), window.__lows = null, true)`);
+    // a guardrail across her path: a row of circles (one small circle she'd just walk round)
+    const railAhead = dist => G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const ch = ctx.world.activeChunks().find(c => Math.abs(c.s0 + 100 - F.s) < 120);
+      window.__lows = []; for (let k = -6; k <= 6; k++) { const x = F.pos.x + Math.sin(y) * ${dist} - Math.cos(y) * k * 0.5, z = F.pos.z + Math.cos(y) * ${dist} + Math.sin(y) * k * 0.5;
+        window.__lows.push(ch.addCollider({ x, z, r: 0.35, kind: "rail" })); } window.__low = window.__lows[6]; return true; })()`);
     // face the camera's way first (walk a step), then a rail 2 m ahead
     await t.stick(0, -0.5); await t.frames(6); await t.stick(0, 0); await t.frames(10);
-    await putAhead("rail", 2.2, 0.35);
+    await railAhead(2.2);
     const s0 = await G(`({ x: ${FF}.pos.x, z: ${FF}.pos.z, y: ctx.cam.free.yaw })`);
     await t.stick(0, -1); await t.frames(45); await t.stick(0, 0); await t.frames(4);
     const past = () => G(`(() => { const F = ${FF}; return (F.pos.x - window.__low.x) * Math.sin(${s0.y}) + (F.pos.z - window.__low.z) * Math.cos(${s0.y}); })()`);

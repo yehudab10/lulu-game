@@ -905,7 +905,13 @@ function updateIntro(dt) {
 function beginWalk() {
     F.phase = "walk"; F.phaseT = 0;
     // the free camera starts from the picture on screen (no swing), and from now on "up" is away from it
-    if (ctx.cam && ctx.cam.free) { ctx.cam.free.fromCamera(); F.camFree = true; F.looks0 = ctx.cam.free.looks; }
+    if (ctx.cam && ctx.cam.free) {
+        const fc = ctx.cam.free;
+        fc.fromCamera(); F.camFree = true; F.looks0 = fc.looks;
+        // (the climb-out shot looks a little across the road: square it up so "up" walks along the road — the 0.45 s
+        // glide into the free camera hides the turn)
+        for (const a of [F.h, F.h + Math.PI]) if (Math.abs(wrapAngle(a - fc.yaw)) < 0.5) fc.yaw = a;
+    }
     if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
     F.hintT = 6;
 }

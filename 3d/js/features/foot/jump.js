@@ -22,7 +22,7 @@ import * as A from "../../audio.js";
 
 export const JUMP = {
     h: 1.25,            // m, the button held to the top
-    cut: 0.5,           // let go while rising: the climb is cut to this share (a tap = a small hop)
+    cut: 0.35,          // let go while rising: the climb is cut to this share (a tap = a small hop)
     g: 25, fallG: 36,   // m/s² up / coming down (heavier on the way down: snappy, not floaty)
     maxFall: 22,
     coyote: 0.14,       // s after stepping off a ledge that a jump still counts
@@ -49,7 +49,14 @@ const CARS = [
 const carDims = key => { if (!key) return null; for (const [re, d] of CARS) if (re.test(key)) return d; return null; };
 export { carDims };
 
-const topOf = c => { if (c._lowT === undefined) { const l = LOW[c.kind]; c._lowT = l ? l.top : null; c._lowS = !!(l && l.stand); } return c._lowT; };
+const topOf = c => {
+    if (c._lowT === undefined) {
+        // (a "car" circle wider than a car's — a bus's chain, the car-service sedans' big rings — stays solid)
+        const l = c.kind === "car" && c.r > 1.1 ? null : LOW[c.kind];
+        c._lowT = l ? l.top : null; c._lowS = !!(l && l.stand);
+    }
+    return c._lowT;
+};
 
 /** Per-session vertical state on F (foot's session). */
 export function initAir(F) {
@@ -130,7 +137,7 @@ export { carBox, pushC };
 // ── the jump itself ─────────────────────────────────────────────────────────────────────────
 /** Launch now: opts.long (out of a slide: { vx, vz } her slide velocity). */
 export function launch(F, opts = {}) {
-    const v0 = Math.sqrt(2 * JUMP.g * JUMP.h);
+    const v0 = Math.sqrt(2 * JUMP.g * JUMP.h) + JUMP.g * 0.012;     // (+ a frame step's worth: the stepped arc peaks a bit low)
     F.vy = opts.long ? v0 * JUMP.long.vy : v0;
     if (opts.vx != null) { F.vel.x = opts.vx * (opts.long ? JUMP.long.speed : 1); F.vel.z = opts.vz * (opts.long ? JUMP.long.speed : 1); }
     F.air = true; F.airT = 0; F.coyote = 0; F.jumpBuf = 0; F.cut = false; F.from = F.ground; F.over = 0; F.overKind = ""; F.peak = F.y;
