@@ -240,7 +240,7 @@ export const CHOLENT_SEEN = ["THAT'S FOR SHABBOS!!", "Get your SPOON out of my C
 /** Consequences. */
 export const CHARGE = "BURGLARY (BREAKING & ENTERING)";
 export const CHARGE_EXTRA = { cholent: "STEALING CHOLENT", pan: "ASSAULT WITH A FRYING PAN", seltzer: "UNLAWFUL SPRITZING", balloon: "UNLAWFUL SPRITZING" };
-export const CALL_MSG = n => `📞 THE ${n.toUpperCase()}S CALLED IT IN`;
+export const CALL_MSG = n => `📞 THE ${(/(s|z|x|sh|ch)$/i.test(n) ? n + "es" : n + "s").toUpperCase()} CALLED IT IN`;
 export const CALL_LINES = ["Hello, Shomrim? There's a GIRL in my HOUSE. She has a SELTZER.", "Yes, Lakewood police? I'd like to report a... a SPRITZING.",
     "Hello? Chaverim? ...no, I don't need a jump start, I need a BURGLAR REMOVED.", "Officer? She ate the KUGEL. ALL of it."];
 /** Court: added to law's charge dialogue + defense at boot (law/data.js tables). */
@@ -257,7 +257,7 @@ export const TOWN_CFG = {
 // ── the living town: what people say ──
 export const PED = {
     wave: ["Good Shabbos!", "Hi!", "Gut voch!", "Hello, sheifele!", "Nice day!", "Hi Lulu!", "*waves*", "Shalom!"],
-    gossip: ["Is that THE Lulu?!", "That's her! The one from the group chat!", "Don't look. DON'T LOOK. It's HER.", "I heard she broke into the {fam}s'!",
+    gossip: ["Is that THE Lulu?!", "That's her! The one from the group chat!", "Don't look. DON'T LOOK. It's HER.", "I heard she broke into the {fam}' house!",
         "Lock your doors, Chani. It's Lulu.", "My cousin says she spritzes people.", "She's SHORTER than in the Kvetch."],
     scatter: ["AAAH!", "SLOW DOWN!!", "There are KIDS here!!", "Meshugene!!", "My STROLLER!!", "Who taught you to DRIVE?!"],
     honk: ["We HEAR you!", "It's a RESIDENTIAL street!", "Honking won't make the minivan move!", "SHHH! The baby's SLEEPING!", "Nice horn. Very LOUD.", "Gevalt, the NOISE!"],

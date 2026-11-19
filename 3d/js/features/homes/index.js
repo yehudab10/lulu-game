@@ -31,7 +31,7 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { tone } from "../interiors/fx.js";
 import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, crowdTalkSpot, crowdInfo, TUNE } from "./crowd.js";
-import { RUN, VISIT, prepare, roomInfo, applyItem, DEF } from "./house.js";
+import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural } from "./house.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 
 registerModels(Object.assign({ homesKit: "homes_kit", homesItems: "homes_items", homesStreet: "homes_street", homesMail: "homes_mail", homesDelivery: "homes_delivery" }, PEOPLE_MODELS));
@@ -120,7 +120,7 @@ const doorSpot = {
         for (const h of HS.homes) { const d = Math.hypot(h.ap.x - f.x, h.ap.z - f.z); if (d < bd) { bd = d; nearHome = h; } }
         return nearHome ? { x: nearHome.ap.x, z: nearHome.ap.z } : null;
     },
-    label() { return nearHome ? `🏠 THE ${nearHome.name.toUpperCase()}S` : null; },
+    label() { return nearHome ? `🏠 THE ${plural(nearHome.name).toUpperCase()}` : null; },
     act() { if (nearHome) doorMenu(nearHome); },
 };
 on("boot", () => {
@@ -184,7 +184,7 @@ async function doorMenu(home) {
     try {
         if (!sc) return;
         const rec = S.fam[home.key];
-        const i = await choose(`🏠 The ${home.name}s`, rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
+        const i = await choose(`🏠 The ${plural(home.name)}`, rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
             ["✊ Knock", "🔑 Try the door", "🪟 Sneak in a window", "✖ Leave it"], { emoji: "🏠" });
         if (i === 0) await knock(home, sc);
         else if (i === 1) {
@@ -215,7 +215,7 @@ async function knock(home, sc) {
         : (home.cast.find(k => k === (outcome === "meal" ? "mom" : "bubbe")) || home.cast.find(k => KINDS[k] && KINDS[k].adult) || "mom");
     if (kind) { await answerAt(sc, home, kind); tone(220, 0.12, "sine", 0.08, 330); }
     const lines = pick(KNOCK[outcome]);
-    const who = kind ? (home.names[kind] || `The ${home.name}s`) : "🏠";
+    const who = kind ? (home.names[kind] || `The ${plural(home.name)}`) : "🏠";
     emit("homes:knock", { key: home.key, outcome, who: kind });
     if (outcome.startsWith("again")) emit("homes:recognized", { key: home.key, how: "knock", good: outcome === "again_good" });
     HS.log.push({ ev: "knock", outcome, key: home.key });
@@ -284,7 +284,7 @@ function backOutside() {
     emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted });
     HS.log.push({ ev: "exit", key: home.key, exit: L.exit, reported: L.reported });
     // the group chat always knows
-    if (L.spotted && broke) groupText(L.reported ? `🚨 The ${home.name}s just called the Shomrim. Someone was IN THEIR HOUSE. With a ${L.used[0] || "seltzer"}.` : `👀 Chani says somebody was creeping around the ${home.name}s'. Lock your doors, ladies.`);
+    if (L.spotted && broke) groupText(L.reported ? `🚨 The ${plural(home.name)} just called the Shomrim. Someone was IN THEIR HOUSE. With a ${L.used[0] || "seltzer"}.` : `👀 Chani says somebody was creeping around the ${plural(home.name)}'. Lock your doors, ladies.`);
     if (L.reported) {
         const charges = [CHARGE, ...L.used.map(u => CHARGE_EXTRA[u]).filter(Boolean), ...(L.charges.includes("cholent") ? [CHARGE_EXTRA.cholent] : [])];
         reportCall(home, [...new Set(charges)], { msg: CALL_MSG(home.name) });
@@ -305,7 +305,7 @@ function reportCall(home, charges, { msg } = {}) {
     else if (law && law.copNear && law.copNear(at.x, at.z, 80)) cop = { x: at.x + home.nx * 18, z: at.z + home.nz * 18 };
     if (cop && ctx.foot && ctx.foot.active && ctx.foot.startChase) {
         chase = ctx.foot.startChase(cop, { charges });
-        if (chase) H.banner(`<b>🚨 A COP WAS RIGHT THERE!</b><small>the ${home.name}s pointed — RUN!</small>`, 2600, { key: "homes:cop", prio: 3 });
+        if (chase) H.banner(`<b>🚨 A COP WAS RIGHT THERE!</b><small>the ${plural(home.name)} pointed — RUN!</small>`, 2600, { key: "homes:cop", prio: 3 });
     }
     if (!chase && law && law.callIn) {
         for (const c of charges) law.callIn(c, { msg: msg || CALL_MSG(home.name) });

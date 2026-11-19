@@ -22,6 +22,8 @@ import { KINDS, ITEMS, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, 
     SOUVENIRS, CHOLENT, CHOLENT_SEEN, CALL_LINES, WINDOW_IN, WINDOW_OUT, DOOR_OUT } from "./data.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
+/** "Goldberg" → "Goldbergs", "Schwartz" → "Schwartzes". */
+export const plural = n => /(s|z|x|sh|ch)$/i.test(n) ? n + "es" : n + "s";
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
@@ -244,8 +246,8 @@ function build(rt) {
     rt.lulu.obj.position.set(start.x, 0, start.z);
     rt.lulu.obj.rotation.y = start.ry;
     // the title + presence (friends in a 🎉 party see "🏠 in the Goldbergs' house")
-    const label = `the ${home.name}s' house`;
-    DEF.name = `The ${home.name}s' house`; DEF.title = `🏠 THE ${home.name.toUpperCase()}S`;
+    const pl = plural(home.name), label = `the ${pl}' house`;
+    DEF.name = `The ${pl}' house`; DEF.title = `🏠 THE ${pl.toUpperCase()}`;
     if (ctx.interiors.home) ctx.interiors.home.name = DEF.name;
     rt.chip.querySelector(".int-title").textContent = DEF.title;
     try { if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "in", icon: "🏠", label: `in ${label}` }); } catch (e) { /* no party */ }
@@ -256,9 +258,10 @@ function build(rt) {
         if (hm.via === "window") rt.bubble(pick(WINDOW_IN), rt.lulu.obj, 2.6);
         else if (hm.mode === "sneak") rt.bubble("*tiptoes in* ...hello? 🤫", rt.lulu.obj, 2.2);
         else if (hm.mode === "kid") rt.bubble("*whispers* Thanks, kiddo. 🤫", rt.lulu.obj, 2.2);
-        if (hm.mode !== "guest") H.toast(`🤫 ${glyph("item")} crouch to sneak · grab things · use them on people`, "pink", { key: "homes:hint" });
+        if (hm.mode !== "guest") H.toast(`🤫 ${glyph("item").replace(/<[^>]+>/g, "")} crouch to sneak · grab things · use them on people`, "pink", { key: "homes:hint" });
     } });
     rt.extraEl.innerHTML = "";
+    if (ctx.G) { V.hint = ctx.G.hint; ctx.G.hint = ""; }        // (foot's "find a car" hint doesn't belong in a living room)
     emit("homes:enter", { key: home.key, name: home.name, mode: hm.mode, via: hm.via });
 }
 
@@ -639,9 +642,10 @@ function route(rt, r, x, z) {
     const V = rt.data.V, o = r.p.obj;
     const ri = V.rooms.findIndex(q => o.position.x >= q.x0 && o.position.x < q.x1), ti = V.rooms.findIndex(q => x >= q.x0 && x < q.x1);
     if (ri < 0 || ti < 0 || ri === ti) return { x, z };
-    const bx = ti > ri ? V.rooms[ri].x1 : V.rooms[ri].x0;
-    if (Math.abs(o.position.x - bx) < 0.6) return { x: bx + (ti > ri ? 0.8 : -0.8), z: 0.6 };
-    return { x: bx + (ti > ri ? -0.5 : 0.5), z: 0.6 };
+    const dir = ti > ri ? 1 : -1, bx = dir > 0 ? V.rooms[ri].x1 : V.rooms[ri].x0;
+    // first to the doorway (in this room), then straight through it
+    if (Math.abs(o.position.z - 0.6) > 0.45 || Math.abs(o.position.x - bx) > 0.75) return { x: bx - dir * 0.55, z: 0.6 };
+    return { x: bx + dir * 0.9, z: 0.6 };
 }
 function routine(rt, r, dt) {
     const o = r.p.obj;
@@ -699,7 +703,7 @@ function alarmAct(rt, r, dt) {
                 V.reported = true; r.state = "alarm"; V.caller = null;
                 if (r.prop) { r.prop.removeFromParent(); r.prop = null; }
                 rt.bubble("They're ON THEIR WAY! You hear me?! ON THEIR WAY!", o, 2.8);
-                H.toast(`📞 The ${V.home.name}s called it in!`, "red", { key: "homes:call" });
+                H.toast(`📞 The ${plural(V.home.name)} called it in!`, "red", { key: "homes:call" });
                 emit("homes:called", { key: V.home.key, name: V.home.name });
             }
             return;
@@ -773,8 +777,8 @@ function tickDarts(rt, dt) {
 function hud(rt, maxM, spotted) {
     const V = rt.data.V;
     let html;
-    if (V.mode === "guest") html = `<div class="int-meter">🍽️ A GUEST of the ${V.home.name}s<small style="display:block;font-weight:600;opacity:.8">behave… or don't</small></div>`;
-    else if (V.caller && V.caller.state === "calling") html = `<div class="int-meter">📞 THE ${V.home.name.toUpperCase()}S ARE CALLING IT IN!<div class="bar"><i style="width:${Math.round(V.callT / 5 * 100)}%;background:#FF6D00"></i></div><small style="display:block;font-weight:600">stop the caller — or get OUT</small></div>`;
+    if (V.mode === "guest") html = `<div class="int-meter">🍽️ A GUEST of the ${plural(V.home.name)}<small style="display:block;font-weight:600;opacity:.8">behave… or don't</small></div>`;
+    else if (V.caller && V.caller.state === "calling") html = `<div class="int-meter">📞 THE ${plural(V.home.name).toUpperCase()} ARE CALLING IT IN!<div class="bar"><i style="width:${Math.round(V.callT / 5 * 100)}%;background:#FF6D00"></i></div><small style="display:block;font-weight:600">stop the caller — or get OUT</small></div>`;
     else if (V.reported) html = `<div class="int-meter">🚨 REPORTED — get out!</div>`;
     else if (spotted) html = `<div class="int-meter">😱 SPOTTED!<small style="display:block;font-weight:600">${glyph("interact")} use something on them · or run</small></div>`;
     else html = `<div class="int-meter">${V.crouch ? "🤫 SNEAKING" : "🧍 STANDING"} <small style="font-weight:600;opacity:.85">· ${glyph("item")} ${V.crouch ? "stand" : "crouch"}</small><div class="bar"><i style="width:${Math.round(maxM * 100)}%;background:${maxM > 0.66 ? "#FF5252" : maxM > 0.3 ? "#FFAB40" : "#FFE082"}"></i></div><small style="display:block;font-weight:600;opacity:.8">👁 noticed</small></div>`;
@@ -792,6 +796,7 @@ function dispose(rt) {
     if (!V) return;
     VISIT.last = { key: V.home.key, name: V.home.name, home: V.home, mode: V.mode, startMode: V.hm.mode, via: V.hm.via, exit: V.exit, spotted: V.spotted, reported: V.reported,
         used: V.used.slice(), looted: V.looted.slice(), charges: V.charges.slice(), ate: V.ate, recognized: V.recognized, crouch: V.crouch };
+    if (ctx.G && V.hint) ctx.G.hint = V.hint;
     VISIT.cur = null;
     DEF.name = "a house"; DEF.title = "🏠 A HOUSE";
     if (ctx.interiors.home) ctx.interiors.home.name = DEF.name;

@@ -29,7 +29,7 @@ process.on("exit", () => { try { relay && relay.kill(); } catch (e) { } });
 module.exports = {
   name: "homes",
   viewport: { width: 1280, height: 720 },
-  query: `&enable=homes,town,law,foot,atmos,interiors&mpurl=${encodeURIComponent(URL)}`,
+  query: `&enable=homes,town,law,foot,atmos,interiors,party&mpurl=${encodeURIComponent(URL)}`,
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, pepperSpray: 3, mpName: "Kugel Kid" },
   async run(t) {
     const g = t.game, D = `ctx.homes.debug`;
@@ -93,8 +93,12 @@ module.exports = {
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
       await t.frames(4);
       t.check("a honk: the nearest folks yell", (await evs(/homes:honked/)).length > 0);
-      await g(`(() => { const p = ctx.homes.debug.CR.peds.find(q => q.kind === "walker" && q.dist < 60); if (!p) return false; const h = Math.atan2(p.x - ctx.car.pos.x, p.z - ctx.car.pos.z); ctx.car.place(p.x - Math.sin(h) * 6, p.z - Math.cos(h) * 6, h); ctx.car.vx = Math.sin(h) * 14; ctx.car.vz = Math.cos(h) * 14; ctx.car.vF = 14; return true; })()`);
-      await t.frames(4);
+      // a walker on the road's edge, her car 7 m behind it in the same direction at 14 m/s
+      await g(`(() => { const C = ctx.homes.debug.CR, PL = ctx.town.debug.PL, p = C.peds.find(q => q.kind === "walker" && q.st && q.st.a1 - q.along > 30 && q.along - q.st.a0 > 30); if (!p) return false;
+        p.flee = null; p.lat = p.st.curb + 0.4; p.want = p.lat;
+        const c = ctx.town.debug.pt(p.st.name, p.along - p.dir * 7, p.side * (p.st.curb - 1.2)), h = p.dir > 0 ? p.st.h : p.st.h + Math.PI;
+        ctx.car.place(PL.ORIGIN.x + c.x, PL.ORIGIN.z + c.z, h); ctx.car.vx = Math.sin(h) * 14; ctx.car.vz = Math.cos(h) * 14; ctx.car.vF = 14; window.__sc = p.id; return true; })()`);
+      await t.frames(3);
       t.check("a speeding car: peds scatter (AAH!)", (await evs(/homes:scatter/)).length > 0 || await g(`ctx.homes.debug.CR.peds.some(p => p.flee)`));
       await g(`(ctx.car.vx = 0, ctx.car.vz = 0, ctx.car.vF = 0, true)`);
     });
@@ -260,9 +264,10 @@ module.exports = {
     // ── 10. a 🎉 party: presence ──
     await step("party", async () => {
       await startRelay();
+      await g(`(L3.state !== "title" && L3.setState("title"), true)`); await t.frames(4);
       await t.click(/Party with friends/);
-      await t.click(/Host a party/);
-      if (!await t.until(`__lulu3d.ctx.state === "partyLobby" && __lulu3d.ctx.party.connected`, "host: lobby", 120000)) return;
+      if (!await t.click(/Host a party/)) await g(`(ctx.party.hostParty(), true)`);
+      if (!await t.until(`__lulu3d.ctx.state === "partyLobby" && __lulu3d.ctx.party.connected`, "host: lobby", 120000)) { await t.shot("party-fail"); return; }
       await t.L(`document.getElementById("pt_act_roam") && document.getElementById("pt_act_roam").click()`); await t.frames(4);
       await t.L(`document.getElementById("pt_go") && document.getElementById("pt_go").click()`);
       if (!await t.until(`__lulu3d.ctx.state === "playing" && __lulu3d.ctx.party.activity && __lulu3d.ctx.party.activity.k === "roam"`, "free roam", 120000)) return;

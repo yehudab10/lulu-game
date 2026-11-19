@@ -25,7 +25,7 @@ const PERSON = ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R"];
 const LOOKS = { man: "npcMan", woman: "npcWoman", kid: "npcKid", bochur: "town_bochur", mail: "homesMail", delivery: "homesDelivery" };
 const MAXR = { man: 12, woman: 14, kid: 14, bochur: 10, mail: 2, delivery: 6 };
 const PROPS = { Stroller: 6, Scooter: 6, Rocker: 8, Newspaper: 8, LemonadeStand: 3, Bucket: 4, Rake: 4, Shovel: 4, Hose: 4, HoseCoil: 4, LeafPile: 4, SnowPile: 4, MailBag: 2, DeliveryBag: 6, Kickball: 4 };
-export const TUNE = { NEAR: 30, FAR: 96, MAX_NEAR: 26, SCATTER: 8.5, SCATTER_V: 8.5 };
+export const TUNE = { NEAR: 30, FAR: 96, MAX_NEAR: 26, SCATTER: 8.5, SCATTER_V: 8.5, RECYCLE: 105, BACK: [34, 80] };
 
 export const C = { on: false, peds: [], rigs: {}, props: {}, dog: null, bike: null, lod: null, blobs: null, leash: null, lights: null, group: null,
     frame: 0, stats: { peds: 0, near: 0, far: 0, hidden: 0, ms: 0 }, said: 0, honkT: 0, kidsLoop: null, kidsAnchor: null, jingleT: 30, anchors: [], talk: null };
@@ -199,6 +199,34 @@ function stepWalker(p, dt) {
     p.speed += (p.base - p.speed) * Math.min(1, dt * 2);
 }
 
+/** Put a far-off walker / bike back on a sidewalk (street) 34–80 m from her, out of the way of the camera's middle. */
+function respawnNear(p, lp, _d) {
+    toLocalXZ(lp.x, lp.z);
+    const cam = ctx.camera.position, fx = ctx.car ? Math.sin(ctx.car.h) : 0, fz = ctx.car ? Math.cos(ctx.car.h) : 1;
+    for (let k = 0; k < 8; k++) {
+        const st = PL.STREETS[Math.floor(Math.random() * PL.STREETS.length)];
+        if (p.kind === "walker" && st.walk - st.outer < 1.5) continue;
+        const sc = streetCoords(st, _l.x, _l.z, {});
+        if (Math.abs(sc.d) > TUNE.BACK[1]) continue;
+        const off = (Math.random() < 0.5 ? -1 : 1) * (TUNE.BACK[0] + Math.random() * (TUNE.BACK[1] - TUNE.BACK[0]));
+        const along = Math.max(st.a0 + 8, Math.min(st.a1 - 8, sc.along + off));
+        const side = Math.random() < 0.5 ? -1 : 1, lat = p.kind === "walker" ? (st.outer + st.walk) / 2 : 0;
+        const pt = streetPoint(st, along, side * lat, _p), wx = PL.ORIGIN.x + pt.x, wz = PL.ORIGIN.z + pt.z;
+        const dl = Math.hypot(wx - lp.x, wz - lp.z);
+        if (dl < TUNE.BACK[0] - 4 || dl > TUNE.BACK[1] + 12) continue;
+        // not popping in right in front of the camera
+        const cx = wx - cam.x, cz = wz - cam.z, cd = Math.hypot(cx, cz);
+        if (cd < 50 && (cx * fx + cz * fz) / (cd || 1) > 0.5 && !sightBlocked(cam.x - PL.ORIGIN.x, cam.z - PL.ORIGIN.z, pt.x, pt.z)) continue;
+        p.st = st; p.along = along; p.dir = Math.random() < 0.5 ? 1 : -1; p.lastNode = null;
+        if (p.kind === "walker") { p.side = side; p.lat = lat; p.want = lat; place(p); p.h = headingOf(st, p.dir); }
+        else { p.h = headingOf(st, p.dir); bikePlace(p); }
+        p.gossiped = false;
+        return true;
+    }
+    return false;
+}
+const toLocalXZ = (x, z) => { _l.x = x - PL.ORIGIN.x; _l.z = z - PL.ORIGIN.z; return _l; };
+
 // ── porches / lawns / driveways (they stay put) ─────────────────────────
 function addPorch(type, h, R, drives) {
     const O = (u, n) => ({ x: h.lot.x + h.ux * u + h.nx * n, z: h.lot.z + h.uz * u + h.nz * n });
@@ -301,6 +329,8 @@ export function tickCrowd(dt) {
         if (!out) { nHid++; continue; }
         const dx = p.x - cam.x, dz = p.z - cam.z, d = Math.hypot(dx, dz);
         p.dist = d;
+        // the town lives where SHE is: a walker / e-bike that's drifted far off comes back round a corner near her
+        if ((p.kind === "walker" || p.kind === "bike") && (C.frame + i) % 8 === 0 && Math.hypot(p.x - lp.x, p.z - lp.z) > TUNE.RECYCLE && !p.flee) respawnNear(p, lp, d);
         const near = d < TUNE.NEAR && nNear < nearCap;
         p.acc += dt;
         if (near || (C.frame + i) % 3 === 0) {
@@ -468,7 +498,7 @@ function react(p, dt, lp, foot, fast, cfx, cfz) {
     // the gossip: is that THE Lulu?
     if (!p.gossiped && d < 10 && notoriety() >= 1 && Math.random() < 0.02) {
         p.gossiped = true; C.said = 5;
-        const line = pick(PED.gossip).replace("{fam}", C.burgled || "Goldberg");
+        const line = pick(PED.gossip).replace("{fam}", C.burgled ? (/(s|z|x|sh|ch)$/i.test(C.burgled) ? C.burgled + "es" : C.burgled + "s") : "Goldbergs");
         p.lookAt = { x: lp.x, z: lp.z }; p.lookAtT = 3; p.pointT = 1.6;
         sayAt(p, line, 2.6, "nice");
         emit("homes:gossip", { line }); emit("stat", { id: "homesGossip", n: 1 });
