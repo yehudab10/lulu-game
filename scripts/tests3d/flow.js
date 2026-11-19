@@ -5,6 +5,7 @@
 //   • getting back in: she hops INTO the seat (a "getin" phase), then the camera glides to the chase cam; the car
 //     doesn't flicker while her courtesy shield runs
 //   • a teleport is still a cut (cam.blend refuses a jump of more than 70 m)
+//   • the road ahead is built a step a frame (world.js Chunk.advance), never half-built near her
 //   • leaving a town whose models are loaded is a SOFT CUT (the frozen frame melts away; the black fade stays out)
 //   • a building's inside can be warmed ahead of the door
 module.exports = {
@@ -63,6 +64,20 @@ module.exports = {
     await t.frames(2);
     t.check("a 400 m jump is not blended (it cuts)", await g(`ctx.cam.blending === false && Math.hypot(ctx.camera.position.x - ctx.car.pos.x, ctx.camera.position.z - ctx.car.pos.z) < 20`));
     await watch(false);
+
+    // ── the road ahead is built in slices (not a whole 200 m chunk + every feature's set pieces in one frame) ──
+    await g(`(ctx.world.sliceLog = [], ctx.banter.autopilot = { d: 1.75, speed: 30 }, true)`);
+    const sA = await g(`ctx.car.s`);
+    await t.until(`__lulu3d.ctx.car.s > ${sA} + 450`, "450 m of road", 40000);
+    const sl = await g(`(() => { const w = ctx.world, per = {}; for (const [k] of w.sliceLog) per[k] = (per[k] || 0) + 1;
+      let near = true, ahead = 0; for (const c of w.chunks.values()) { if (c.building && c.s0 < ctx.car.s + 300) near = false; if (!c.building) ahead = Math.max(ahead, c.s1 - ctx.car.s); }
+      return { chunks: Object.keys(per).length, steps: Math.max(0, ...Object.values(per)), near, ahead: Math.round(ahead) }; })()`);
+    t.check("far chunks are built a step at a time (several steps each)", sl.chunks >= 1 && sl.steps >= 4, JSON.stringify(sl));
+    t.check("…nothing within 300 m of her is ever half-built, and the road is finished well ahead (≥ 400 m)", sl.near && sl.ahead >= 400, JSON.stringify(sl));
+    // a jump with no prebuild (a restart, a warp): what's near is built at once, not in slices
+    await g(`(() => { ctx.banter.autopilot = null; ctx.world.sliceLog = null; const r = ctx.world.road, s = ctx.car.s + 3000, p = r.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = 0; ctx.cam.snap(); return true; })()`);
+    await t.frames(4);
+    t.check("after a jump the chunk under her is whole within a few frames", await g(`(() => { const c = ctx.world.chunks.get(Math.floor(ctx.car.s / 200)); return !!c && !c.building; })()`));
 
     // ── leaving a town: the soft cut, no black ──
     await g(`(ctx.town.load("lakewood"), true)`);

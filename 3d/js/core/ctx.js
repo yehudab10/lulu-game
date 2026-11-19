@@ -60,6 +60,9 @@ export function off(name, fn) {
     const l = listeners.get(name);
     if (l) { const i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); }
 }
+/** The functions listening for `name`, in order (a copy) — for a caller that runs them one at a time across
+ *  frames (world.js builds a far chunk in slices: its "chunk:build" listeners don't all run in one frame). */
+export function listenersOf(name) { return (listeners.get(name) || []).slice(); }
 /** Fire an event. Listener errors are logged, never thrown into the caller. */
 export function emit(name, payload) {
     const l = listeners.get(name);

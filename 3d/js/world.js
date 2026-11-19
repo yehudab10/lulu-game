@@ -5,7 +5,7 @@
 // look with world.biomeAt / setSky, and keep roadside space free with reserve().
 import * as THREE from "three";
 import { models, instanced, cloneWithColors, findNodes } from "./models.js";
-import { emit } from "./core/ctx.js";
+import { ctx, emit, listenersOf } from "./core/ctx.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ChunkMerger, restFilter } from "./merge.js";
 import { farLod } from "./lod.js";
@@ -305,11 +305,15 @@ function facingRoad(h, side) {
     return side > 0 ? Math.atan2(Math.cos(h), -Math.sin(h)) : Math.atan2(-Math.cos(h), Math.sin(h));
 }
 
+/** Perf probe (tests / the console): set world.sliceLog = [] to collect [chunk, step, ms, name] per build step. */
+let SLICE_LOG = null;
+const SLICE_MS = 3;          // per frame, for a chunk that's built in slices
+const SLICE_NEAR = 300;      // m: a missing chunk this close to her is built at once (a restart, a warp)
 const WALLS = ["#FFE0B2", "#FFF3E0", "#E3F2FD", "#F8BBD0", "#DCEDC8", "#FFF9C4", "#E1BEE7", "#D7CCC8"];
 const ROOFS = ["#C0504D", "#5D6D7E", "#8D6E63", "#3E6B4F", "#455A8C", "#A0522D"];
 
 class Chunk {
-    constructor(world, k) {
+    constructor(world, k, sliced = false) {
         this.k = k;
         this.s0 = k * CHUNK;
         this.s1 = this.s0 + CHUNK;
@@ -321,9 +325,36 @@ class Chunk {
         this.disposables = [];
         this.anim = [];
         this.group.name = "chunk";
-        this.build(world);
+        if (sliced) {
+            // A far chunk is built a STEP at a time over several frames (World.update): a whole chunk plus every feature's
+            // set pieces in one frame is a hitch every 200 m on a phone. It is in the scene from the start; until it is
+            // done it is simply "always drawn" (bounds() needs everything in it).
+            const mid = world.road.at(this.s0 + CHUNK / 2);
+            this.center = new THREE.Vector3(mid.x, 0, mid.z);
+            this.radius = CHUNK; this.noCull = true;
+            this.steps = this.build(world);
+            world.scene.add(this.group);
+            return;
+        }
+        for (const _ of this.build(world)) { /* all of it, now */ }
         this.bounds();
         world.scene.add(this.group);
+    }
+    /** Is it still being built in slices? */
+    get building() { return !!this.steps; }
+    /** Carry on a sliced build for about `ms` (at least one step; Infinity = finish it now). → done? */
+    advance(ms = SLICE_MS) {
+        if (!this.steps) return true;
+        const t0 = performance.now();
+        for (;;) {
+            let r;
+            const t1 = SLICE_LOG ? performance.now() : 0;
+            try { r = this.steps.next(); } catch (e) { console.error("[chunk build]", e); r = { done: true }; }
+            if (SLICE_LOG) SLICE_LOG.push([this.k, this.stepN = (this.stepN || 0) + 1, +(performance.now() - t1).toFixed(1), r.value || (r.done ? "end" : "")]);
+            if (r.done) { this.steps = null; this.bounds(); return true; }
+            // (a ?test run takes exactly one step a frame — the same on every machine — unless it must finish)
+            if (ms !== Infinity && (ctx.TEST || performance.now() - t0 >= ms)) return false;
+        }
     }
 
     /** Where the chunk's stuff is (centre + radius) for the draw-distance cull; anything drawn without
@@ -365,7 +396,8 @@ class Chunk {
         return false;
     }
 
-    build(world) {
+    /** The whole build as a generator: each `yield` is a place a sliced build may stop for the frame. */
+    *build(world) {
         const { road } = world;
         const M = materials(), G = geometry();
         const rnd = mulberry32(this.k * 7919 + world.seed);
@@ -486,6 +518,7 @@ class Chunk {
             this.disposables.push(wg);
         }
 
+        yield "scenery";      // (the road is down, the scenery is placed)
         // bake the static scenery: a few merged meshes + instanced copies of any parts that can't merge
         const baked = merger.build();
         for (const m of baked.meshes) { this.group.add(m); this.disposables.push(m.geometry); }
@@ -552,8 +585,14 @@ class Chunk {
             this.traps.push({ s, triggered: false, obj: cop });
         }
 
-        // features add their own set pieces (stops, toll plazas, events…)
-        emit("chunk:build", { chunk: this, world, rnd, s0: this.s0, s1: this.s1, biome });
+        yield "bake";      // (the built-in scenery is baked + signs, the speed trap)
+        // features add their own set pieces (stops, toll plazas, events…) — one listener at a time, so a sliced build
+        // can spread them over frames (same order, same payload, errors logged: as emit("chunk:build") does)
+        const ev = { chunk: this, world, rnd, s0: this.s0, s1: this.s1, biome };
+        for (const fn of listenersOf("chunk:build")) {
+            try { fn(ev); } catch (e) { console.error("[event chunk:build]", e); }
+            yield "feature";
+        }
 
         // coins last, so chunk:build listeners can add their own to this.coins
         if (this.coins.length) {
@@ -666,6 +705,7 @@ class Chunk {
     }
 
     dispose(scene) {
+        this.steps = null;          // (a sliced build that never finished: it stops here)
         emit("chunk:dispose", { chunk: this });
         scene.remove(this.group);
         for (const d of this.disposables) if (d && d.dispose) d.dispose();
@@ -825,8 +865,21 @@ export class World {
             if (k < kMin || k > kMax) { c.dispose(this.scene); this.chunks.delete(k); }
         }
         let built = 0;
+        // a chunk that's being built in slices: carry on (finish it now if she is suddenly close, or on a prebuild)
+        let pend = this.pending && this.chunks.get(this.pending.k) === this.pending ? this.pending : null;
+        if (pend) {
+            const now = buildBudget > 1 || pend.s0 < playerS + SLICE_NEAR;
+            if (pend.advance(now ? Infinity : SLICE_MS)) pend = null; else built++;
+        }
+        this.pending = pend;
         for (let k = kMin; k <= kMax && built < buildBudget; k++) {
-            if (!this.chunks.has(k)) { this.chunks.set(k, new Chunk(this, k)); built++; }
+            if (this.chunks.has(k)) continue;
+            // far ahead (the normal case while driving): in slices; close by or prebuilding: all at once
+            const sliced = buildBudget === 1 && !this.pending && k * CHUNK >= playerS + SLICE_NEAR;
+            const c = new Chunk(this, k, sliced);
+            this.chunks.set(k, c);
+            if (sliced) this.pending = c;
+            built++;
         }
         // draw distance: a chunk wholly beyond the fog (× the graphics tier's drawScale) isn't drawn —
         // it would only be fog-coloured there anyway. (Its colliders, coins and animation carry on.)
@@ -858,6 +911,10 @@ export class World {
         this.update(0, playerS, new THREE.Vector3(), 99);
         if (d) this.setDistrict(d);
     }
+
+    /** (see SLICE_LOG) */
+    get sliceLog() { return SLICE_LOG; }
+    set sliceLog(v) { SLICE_LOG = v || null; }
 
     activeChunks() { return this.district ? this.district.chunks : this.chunks.values(); }   // (no generator: called every frame by many features)
 

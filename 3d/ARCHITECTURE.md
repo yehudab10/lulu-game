@@ -344,6 +344,12 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
 - **Back on the road after a scene:** a rolling start (moving + shielded), never the 3-2-1 — that is for a fresh run.
 - **Loading ahead:** `ctx.interiors[id].warm()` (foot calls it within 22 m of a door); a town loads from 900 m.
 - **Music:** `setMusic` crossfades (0.7 s) and every track resumes where it left off.
+- **No build hitches:** a road chunk that enters the 640 m window is built a STEP at a time (`Chunk.build` is a
+  generator: the road + scenery, the bake, then one `chunk:build` listener per step; `World.update` gives it ~3 ms a
+  frame — one step a frame in a `?test` run), so the worst frame is one step, not a whole chunk plus every feature's set
+  pieces. A missing chunk within 300 m of her (a restart, a warp) and `world.prebuild()` build at once, as before. A
+  `chunk:build` listener therefore must not assume the other listeners ran in the same frame, and `chunk.building` is
+  true until the last step. `world.sliceLog = []` collects `[chunk, step, ms, name]` (a perf probe).
 Test: `scripts/tests3d/flow.js` (the picture moves ≤ 1.5 m between two frames across a car ↔ foot change; the hop-in;
 a teleport still cuts; leaving a town is a soft cut with no black).
 
