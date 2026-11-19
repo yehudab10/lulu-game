@@ -12,11 +12,15 @@
 // QUICK-CHANGE booth, hotwire a parked car, hail a passing one, climb back into
 // her own parked car — or, with nothing around, busk for tips.
 //
+// Moving (ci/move): she walks RELATIVE TO THE CAMERA, which the player turns and which stays put (core/camera.js
+// `orbit`), and she JUMPS (jump.js: ○ / B · Space · the JUMP button) — over and onto the low things (benches, rails,
+// parked cars); □ / X · C · ROLL is features/moves' roll / slide / vault.
+//
 // Provides ctx.foot { start(reason, opts), active, level, addSpot(spot), meetAvigail(outcome) }.
 // Emits foot:start {reason, level} / foot:end {why, reason, coins}, stat footDist / weddings.
 import * as THREE from "three";
 import { ctx, on, emit, hook, registerState, setState, css, rand, pick, wrapAngle } from "../../core/ctx.js";
-import { store, saveSoon, shared } from "../../core/save.js";
+import { store, saveSoon, shared, save3d } from "../../core/save.js";
 import { updateActors, addCoins, heal, resetRun } from "../../core/driving.js";
 import { models, registerModels, ensureModels, cloneWithColors, findNodes } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
@@ -31,6 +35,7 @@ import { bubble, floater, clearBubbles, showBubbles, updateBubbles, hasBubble } 
 import { allDoors, refreshDoors, nextDoorAt } from "./street.js";
 import { startWedding, weddingState } from "./wedding.js";
 import * as B from "./bounds.js";
+import { JUMP, LOW, initAir, collideAll, carBox, carDims, pushC, airStep, landFx, launch } from "./jump.js";
 
 const WALK = 3.4, RUN = 7.6;        // m/s (the 2D walk was 150 px/s cruise, ×2 running)
 const LULU_R = 0.32;
@@ -43,7 +48,8 @@ registerModels({
     foot_duck: "foot_duck", foot_raccoon: "foot_raccoon", foot_ostrich: "foot_ostrich",
 });
 
-const S = store("foot", { walks: 0, borrowed: 0, hailed: 0, knockouts: 0, weddings: 0, bouquets: 0, bestFrac: 0 });
+const S = store("foot", { walks: 0, borrowed: 0, hailed: 0, knockouts: 0, weddings: 0, bouquets: 0, bestFrac: 0, coach: {} });
+if (!S.coach || typeof S.coach !== "object") S.coach = {};
 
 // parked rides: what the 2D game left on the shoulder, and how hard each one is to hotwire
 const VEH = {
@@ -85,7 +91,8 @@ function beep(n = 1) {
 css("foot", `
 body.onfoot .hud-br { display: none !important; }
 body.onfoot #touch .pedals { display: none !important; }
-body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom)); flex-direction: column; }
+body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-inset-right)); bottom: calc(max(22px, env(safe-area-inset-bottom)) + 106px) !important; flex-direction: column-reverse; align-items: flex-end; }
+@media (min-aspect-ratio: 1/1) { body.onfoot #touchExtra { right: calc(max(18px, env(safe-area-inset-right)) + 180px) !important; bottom: max(22px, env(safe-area-inset-bottom)) !important; flex-direction: row-reverse; align-items: flex-end; } }
 #tx_foot_hand { width: 96px; height: 96px; border-radius: 50%; font-size: 40px; background: rgba(46, 125, 50, 0.78); }
 #tx_foot_hand.has { background: rgba(255, 193, 7, 0.92); color: #2b1b2e; }
 #tx_foot_hand small { font-size: 11px; }
@@ -212,6 +219,7 @@ function start(reason = "carWreck", opts = {}) {
         attn: Math.max(0.35, 0.75 - level * 0.04), savedOurs: T.config.ours, hintT: 6,
         introDur: reason === "droveOff" ? 0.8 : 2.1, introLine: opts.line || pick(introPool(reason, opts)), introSaid: false, titleShown: false,
     };
+    initAir(F);                  // jump.js: her height, the jump + landing state
     T.config.ours = 1;           // she isn't overtaking anything; cars come at her from behind (see trafficStep)
     // her car: parked (drivable) or wrecked, or gone (impounded / she broke out of jail)
     if (!CARLESS.has(reason)) {
@@ -488,6 +496,7 @@ registerState("footRun", {
     enter(data = {}) {
         document.body.classList.add("onfoot");
         input.stick2d = true;
+        input.foot = true;           // ○ / B · Space jump, □ / X · C roll, △ / Y emote (input.js)
         const lbl = document.querySelector("#stickZone span");
         if (lbl) lbl.textContent = "WALK";
         ctx.view = null;
@@ -502,6 +511,7 @@ registerState("footRun", {
     exit(next) {
         document.body.classList.remove("onfoot");
         input.stick2d = false;
+        input.foot = false;
         const lbl = document.querySelector("#stickZone span");
         if (lbl) lbl.textContent = "STEER";
         H.prompt("");
@@ -537,11 +547,12 @@ function resume(data) {
     }
     F.phase = "walk"; F.phaseT = 0; F.enter = null;
     F.vel.set(0, 0, 0);
+    F.y = 0; F.vy = 0; F.air = false; F.launch = null;
     F.lulu.obj.rotation.x = 0;
     F.lulu.obj.position.copy(F.pos);
     G.invT = Math.max(G.invT || 0, 2.0); G.invSoft = true;   // shield on re-entry to the road
     wash.style.opacity = "0";
-    if (ctx.cam) ctx.cam.snap();
+    if (ctx.cam) { ctx.cam.snap(); if (ctx.cam.free) ctx.cam.free.yaw = F.lulu.obj.rotation.y; }
 }
 
 // ── per-frame ───────────────────────────────────────────────────────────
@@ -564,8 +575,9 @@ function footUpdate(dt, P) {
     else if (F.phase === "hotwire") updateHotwire(dt, P);
     else if (F.phase === "getin") updateGetIn(dt);
     else if (F.phase === "script") updateScript(dt, P);
-    else walk(dt);
+    else walk(dt, P);
     if (!F) return;
+    if (F.phase !== "walk" && (F.y || F.air)) { F.y = 0; F.vy = 0; F.air = false; }     // a scene took her: back on the ground
 
     // keep road coordinates, the invisible car anchor, and the world in step with her
     const near = rd.nearest(F.pos.x, F.pos.z, F.s, _n);
@@ -578,6 +590,7 @@ function footUpdate(dt, P) {
     car.vx = car.vz = 0;
     car.obj.visible = false;
     F.camYaw += wrapAngle(F.h - F.camYaw) * Math.min(1, dt * 2);
+    if (P.recentre && F.phase === "walk" && ctx.cam && ctx.cam.free) ctx.cam.free.recentre(F.lulu.obj.rotation.y);
 
     trafficStep(dt);
     if (!F) return;
@@ -618,12 +631,18 @@ function updateScript(dt, P) {
     if (!more) { F.script = null; F.phase = "walk"; F.phaseT = 0; F.vel.set(0, 0, 0); }
 }
 
-function walk(dt) {
+/** The yaw "up on the stick" means while she walks: the free camera's (third-person), else the road's. */
+function frameYaw() {
+    const c = ctx.cam && ctx.cam.free;
+    return c && F.camFree ? c.yaw : F.h;
+}
+function walk(dt, P = {}) {
     const L1 = F.lulu;
     let mx = ctx.dialogOpen ? 0 : input.moveX, my = ctx.dialogOpen ? 0 : input.moveY;
     const mag = Math.min(1, Math.hypot(mx, my));
     const running = input.boost || (input.device === "gamepad" && input.throttle > 0.5) || (input.device === "touch" && mag > 0.9);
-    const h = F.h;
+    // the stick is relative to the CAMERA (up = away from it), as in any third-person game
+    const h = F.frameYaw = frameYaw();
     const fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
     let wx = fx * -my + rx * mx, wz = fz * -my + rz * mx;
     const wl = Math.hypot(wx, wz);
@@ -633,43 +652,90 @@ function walk(dt) {
     if (shooed) { wx = _st.x; wz = _st.z; }
     const sp = (F.buskT > 0 && !shooed ? 0 : (running || shooed ? RUN : WALK)) * B.speedMul(F);   // tall grass, mud, sore feet
     _v.set(wx * sp, 0, wz * sp);
-    F.vel.lerp(_v, Math.min(1, dt * (mag > 0.05 || shooed ? 9 : 12)));
+    // on the ground she turns on a dime; in the air the stick only bends the flight a little
+    const grip = F.air ? JUMP.airCtl : (F.landT > 0 && F.landHard ? 3 : (mag > 0.05 || shooed ? 9 : 12));
+    if (F.air && mag < 0.05) _v.copy(F.vel);           // (let go mid-air: she keeps her momentum)
+    F.vel.lerp(_v, Math.min(1, dt * grip));
     B.damp(F);                   // at the fence line she slides along it (no wall to grind against)
     F.pos.x += F.vel.x * dt;
     F.pos.z += F.vel.z * dt;
-    collideStatic();
+    const g = collideStatic();
     const near = road().nearest(F.pos.x, F.pos.z, F.s, _n);
     B.limit(F, near);            // safety net just inside the fence (the old far fence in the town / a party)
     if (near.s < 4) { F.pos.x += Math.sin(near.h) * (4 - near.s); F.pos.z += Math.cos(near.h) * (4 - near.s); }
+    // the jump (jump.js): up, over, onto — and the landing
+    const canJump = !ctx.dialogOpen && !(F.buskT > 0) && !H.screenOpen();
+    const was = F.air;
+    const ev = airStep(F, dt, P, g, canJump);
+    if (ev === "jump") jumped();
+    else if (ev === "land") landed(was);
+    if (F.landT > 0) F.landT -= dt;
     const speed = Math.hypot(F.vel.x, F.vel.z);
-    if (speed > 0.25) L1.face(F.pos.x + F.vel.x, F.pos.z + F.vel.z, dt, 10);
-    L1.obj.position.set(F.pos.x, 0.05, F.pos.z);
-    L1.obj.rotation.x += ((speed > RUN * 0.7 ? 0.14 : 0) - L1.obj.rotation.x) * Math.min(1, dt * 6);
+    if (speed > 0.25) L1.face(F.pos.x + F.vel.x, F.pos.z + F.vel.z, dt, F.air ? 4 : 10);
+    // pose: a dip + a forward crouch as she lands, a lean when running
+    const lk = F.landT > 0 ? Math.sin(Math.min(1, F.landT / (F.landHard ? 0.26 : 0.16)) * Math.PI) : 0;
+    L1.obj.position.set(F.pos.x, 0.05 + F.y - lk * (0.05 + 0.08 * (F.landP || 0)), F.pos.z);
+    const lean = F.air ? (F.vy > 0 ? -0.12 : 0.1) : (speed > RUN * 0.7 ? 0.14 : 0) + lk * 0.3;
+    L1.obj.rotation.x += (lean - L1.obj.rotation.x) * Math.min(1, dt * (F.air ? 10 : 6));
     L1.obj.rotation.z = 0;
-    L1.update(dt, { walk: speed, dance: F.buskT > 0, wave: F.waveT > 0 });
+    L1.update(dt, { walk: F.air ? 0 : speed, dance: F.buskT > 0, wave: F.waveT > 0, air: F.air ? (F.vy > 0 ? 1 : -1) : 0 });
     if (F.waveT > 0) F.waveT -= dt;
     // shield blink
     // (the blink says "just been hit": a courtesy shield — out of the car, out of a door: G.invSoft — doesn't flicker her)
     L1.obj.visible = !(ctx.G.invT > 0 && !ctx.G.invSoft && F.phase === "walk" && Math.floor(ctx.time * 12) % 2 === 0 && ctx.G.invT < 1.9);
     F.distAcc += speed * dt;
 }
-
-function collideStatic() {
-    const p = F.pos;
-    for (const ch of ctx.world.activeChunks()) {
-        if (Math.abs(ch.s0 + 100 - F.s) > 220) continue;
-        for (const c of ch.colliders) {
-            if (c.off) continue;
-            const dx = p.x - c.x, dz = p.z - c.z, rr = c.r + LULU_R;
-            const d2 = dx * dx + dz * dz;
-            if (d2 >= rr * rr || d2 < 1e-8) continue;
-            const d = Math.sqrt(d2);
-            p.x = c.x + dx / d * rr; p.z = c.z + dz / d * rr;
+function jumped() {
+    if (F.jumps <= 1 || (S.coach.jump || 0) < 3) coachDid("jump");
+    B.engaged(F, "jump");
+    emit("foot:jump", { long: !!F.longJump, from: F.from });
+    emit("stat", { id: "footJumps", n: 1 });
+}
+/** Touchdown: feedback, and the style combo (features/moves) if she cleared or climbed something. */
+function landed() {
+    landFx(F);
+    const mv = ctx.moves;
+    const climbed = F.ground > 0.3 && F.ground > F.from + 0.2;
+    const cleared = F.over > 0.3 && F.ground < F.over - 0.2;
+    if (mv && mv.addMove && mv.on) {
+        if (F.longJump) mv.addMove("longjump", 220, "🦘 LONG JUMP!", { foot: true, color: "#FFD54F" });
+        else if (climbed) {
+            mv.addMove("perch", 140, F.ground > 1.3 ? "🚗 ON THE ROOF!" : "🧍‍♀️ UP TOP!", { foot: true, color: "#80DEEA" });
+            if (F.ground > 1.3 && mv.save && mv.save.q) mv.save.q.roofs = (mv.save.q.roofs || 0) + 1;
         }
+        else if (cleared) mv.addMove("hop", 100, `🦘 HOP${F.overKind === "car" ? " — OVER THE HOOD" : F.overKind === "rail" ? " — OVER THE RAIL" : ""}!`, { foot: true, color: "#80DEEA" });
     }
-    for (const pc of F.parked) pushOut(pc, pc.circles, pc.r);
-    if (F.booth) pushCircle(F.booth.x, F.booth.z, 0.95);
-    for (const ped of F.peds) pushCircle(ped.p.obj.position.x, ped.p.obj.position.z, 0.3);
+    if (climbed) emit("stat", { id: "footPerches", n: 1 });
+    emit("foot:land", { y: F.ground, hard: !!F.landHard, over: F.over, kind: F.overKind, long: !!F.longJump });
+    F.longJump = false;
+}
+
+/** Push her out of what's solid at her height (jump.js), find the ground under her. */
+function collideStatic() {
+    return collideAll(F, (p, reach) => {
+        if (F.booth) pushC(p, F.booth.x, F.booth.z, 0.95);
+        if (F.y < 1.6) for (const ped of F.peds) pushC(p, ped.p.obj.position.x, ped.p.obj.position.z, 0.3);
+        // a stopped car she can hop onto (her own, a stopped traffic car): two boxes, hood + roof
+        for (const c of ctx.traffic.cars) {
+            if (!standable(c)) continue;
+            const dx = c.x - p.x, dz = c.z - p.z;
+            if (dx * dx + dz * dz > 49) continue;
+            carBox(p, c.x, c.z, c.h, carDims(carKey(c)), reach);
+        }
+    });
+}
+/** A traffic car she can stand on: stopped, car-shaped (her own stub, a sedan / cop / van, a town minivan). */
+function carKey(c) { return c.data && c.data.footStub ? (F.car ? F.car.key : "lulu") : c.kind; }
+function standable(c) {
+    const sp = c.hit ? Math.hypot(c.vx, c.vz) : c.speed;
+    if (sp > 0.6) return false;
+    const k = carKey(c);
+    return !!carDims(k) && !/truck|bus|ambul|dozer/.test(k);
+}
+/** Roughly how tall a traffic car is (her feet above this = it passes under her). */
+function carTop(c) {
+    const D = carDims(carKey(c));
+    return D ? Math.max(D.hood, D.roof) : 9;
 }
 function pushCircle(x, z, r) {
     const p = F.pos, dx = p.x - x, dz = p.z - z, rr = r + LULU_R;
@@ -721,6 +787,8 @@ function trafficStep(dt) {
     for (const c of T.cars) {
         const dx0 = c.x - F.pos.x, dz0 = c.z - F.pos.z;
         if (dx0 * dx0 + dz0 * dz0 > 64) continue;
+        if (F.y > 0.05 && (F.y > carTop(c) || standable(c))) continue;     // she's above it / up on it (collideStatic's boxes)
+        if (standable(c) && F.phase === "walk") continue;
         const sp = c.hit ? Math.hypot(c.vx, c.vz) : c.speed;
         const fx = Math.sin(c.h), fz = Math.cos(c.h);
         for (const co of c.spec.circles) {
@@ -730,7 +798,7 @@ function trafficStep(dt) {
             if (d2 >= rr * rr) continue;
             const d = Math.sqrt(d2) || 1e-3;
             F.pos.x = qx + dx / d * rr; F.pos.z = qz + dz / d * rr;
-            if (sp > 3.2) { knockout(c, sp); return; }
+            if (sp > 3.2 && F.y < 0.5) { knockout(c, sp); return; }      // (up on a car that pulls away: she just slides off)
         }
     }
 }
@@ -836,6 +904,8 @@ function updateIntro(dt) {
 }
 function beginWalk() {
     F.phase = "walk"; F.phaseT = 0;
+    // the free camera starts from the picture on screen (no swing), and from now on "up" is away from it
+    if (ctx.cam && ctx.cam.free) { ctx.cam.free.fromCamera(); F.camFree = true; F.looks0 = ctx.cam.free.looks; }
     if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
     F.hintT = 6;
 }
@@ -884,8 +954,34 @@ function footCamera(dt) {
         return true;
     }
     const close = F.phase === "hotwire" || F.phase === "approach" || F.phase === "getin";
-    cam.follow(F.lulu.obj, { dist: close ? 4.4 : 6.3, height: close ? 2.3 : 3.0, look: 1.15, yaw: F.camYaw, fov: 58 }, dt);
+    if (!F.camFree || !cam.orbit) {
+        cam.follow(F.lulu.obj, { dist: close ? 4.4 : 6.3, height: close ? 2.3 : 3.0, look: 1.15, yaw: F.camYaw, fov: 58 }, dt);
+        return true;
+    }
+    // the FREE camera: where the player put it. It frames what she stands on (a bench, a car roof) and only some of
+    // a jump's height; while the look is left alone it straightens gently along the road / street she walks down.
+    F.camY += ((F.ground || 0) + Math.max(0, (F.y || 0) - (F.ground || 0)) * 0.4 - F.camY) * Math.min(1, dt * 6);
+    let dip = 0;
+    if (F.landT > 0 && !save3d.settings.calm) dip = Math.sin(Math.min(1, F.landT / (F.landHard ? 0.26 : 0.16)) * Math.PI) * (0.04 + 0.1 * (F.landP || 0));
+    cam.orbit(F.lulu.obj, { dist: close ? 4.8 : 6.6, look: close ? 1.05 : 1.2, fov: 58, y: F.camY - dip, auto: autoFollow() }, dt);
     return true;
+}
+/** Gentle auto-follow: only while she walks roughly "up" (away from the camera) and the camera is already within ~40°
+ *  of the road / street's direction — then it eases onto it, so walking along a bend keeps the road ahead. Pointing the
+ *  camera across the road, strafing, walking back toward it or standing still: it stays exactly where it is. */
+function autoFollow() {
+    if (F.phase !== "walk" || F.air) return null;
+    const mx = input.moveX, my = input.moveY, mag = Math.hypot(mx, my);
+    if (mag < 0.4 || Math.abs(Math.atan2(mx, -my)) > 0.6) return null;
+    const yaw = ctx.cam.free.yaw;
+    const axes = ctx.town && ctx.town.active ? 4 : 2;
+    let best = null, bd = 9;
+    for (let i = 0; i < axes; i++) {
+        const a = F.h + i * (Math.PI * 2 / axes), d = Math.abs(wrapAngle(a - yaw));
+        if (d < bd) { bd = d; best = a; }
+    }
+    if (bd > 0.7 || bd < 0.01) return null;
+    return { yaw: best, k: 0.9 * Math.min(1, Math.hypot(F.vel.x, F.vel.z) / WALK) };
 }
 
 // ── pickups ─────────────────────────────────────────────────────────────
@@ -1446,10 +1542,41 @@ function interactables() {
     return out[0] || null;
 }
 
+// ── the moves coach: the first few walks, the empty prompt line says what the buttons do — until she's done each ──
+function coachDid(k) { const n = S.coach[k] || 0; if (n < 99) { S.coach[k] = n + 1; saveSoon(); } }
+function coachHint() {
+    if (F.t < 1.2 || F.chase || ctx.dialogOpen) return "";
+    const c = S.coach, young = F.t < 45;
+    if (F.camFree && ctx.cam && ctx.cam.free && ctx.cam.free.looks > (F.looks0 || 0) && !F.lookedThisWalk) { F.lookedThisWalk = true; coachDid("look"); }
+    if ((c.jump || 0) < 3 && young) return `${glyph("jump")} JUMP${input.device === "touch" ? "" : " · hold = higher"}`;
+    if (F.near && (c.perch || 0) < 3) return `${glyph("jump")} hop up on the ${F.near}!`;
+    if ((c.look || 0) < 2 && young) return input.device === "touch" ? "👆 drag the picture to look around" : `${glyph("freeLook")} look around — it stays put`;
+    if (ctx.moves && ctx.moves.on && (c.roll || 0) < 2 && young) return `${glyph("footMove")} ROLL · while running: SLIDE · at a car: VAULT`;
+    return "";
+}
+/** Something low and standable close in front of her (for the coach). */
+function nearLow() {
+    const p = F.pos, y = F.lulu.obj.rotation.y, ax = p.x + Math.sin(y) * 1.4, az = p.z + Math.cos(y) * 1.4;
+    for (const ch of ctx.world.activeChunks()) {
+        if (Math.abs(ch.s0 + 100 - F.s) > 120) continue;
+        for (const c of ch.colliders) {
+            if (c.off || !LOW[c.kind] || !LOW[c.kind].stand) continue;
+            if ((c.x - ax) ** 2 + (c.z - az) ** 2 < (c.r + 0.9) ** 2) return c.kind === "car" ? "car" : c.kind === "chair" ? "chair" : "bench";
+        }
+    }
+    for (const pc of F.parked) if (carDims(pc.key) && (pc.x - ax) ** 2 + (pc.z - az) ** 2 < 9) return "car";
+    return "";
+}
+on("foot:land", ({ y }) => { if (F && y > 0.3) coachDid("perch"); });
+on("moves:move", ({ id }) => { if (id === "roll" || id === "slide" || id === "vault") coachDid("roll"); });
+
 function interact(P) {
     const pr = interactables();
     F.prompt = pr;
-    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : (F.t > 4 && F.t < 16 ? `${glyph("interact")} 💃 dance for the crowd` : ""));
+    F.nearT = (F.nearT || 0) - 1;
+    if (F.nearT <= 0) { F.nearT = 8; F.near = (S.coach.perch || 0) < 3 ? nearLow() : ""; }
+    const coach = pr ? "" : coachHint();
+    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
         const has = !!pr;
         if (handBtn.classList.contains("has") !== has) {
@@ -1848,11 +1975,12 @@ ctx.foot = {
     /** Her walking velocity (world m/s) — null when she isn't on foot. */
     get vel() { return F ? F.vel : null; },
     /** What she's doing, as a small code for the party's friends (remote.js): 0 walk/run · 1 roll · 2 slide · 3 vault
-     *  · 4 knocked flat · 5 dance (busk) · 6 wave · 7 busy (hotwire / approach) · 8 sit (sliding into a car) · 9 talk. */
+     *  · 4 knocked flat · 5 dance (busk) · 6 wave · 7 busy (hotwire / approach) · 8 sit (sliding into a car) · 9 talk · 10 in the air (a jump). */
     get animCode() {
         if (!F) return 0;
         const ph = F.phase;
         if (ph === "knock") return 4;
+        if (ph === "walk" && F.air) return 10;
         if (ph === "hotwire" || ph === "approach") return 7;
         if (ph === "hail") return 6;
         if (ph === "script") {
@@ -1865,6 +1993,8 @@ ctx.foot = {
         if (F.peds.some(p => p.talkT > 0)) return 9;
         return 0;
     },
+    /** How high her feet are (decimetres) — friends' walker rides up with her (a jump, a bench, a car roof). */
+    get heightCode() { return F && F.phase === "walk" ? Math.max(0, Math.min(40, Math.round((F.y || 0) * 10))) : 0; },
     /** Her look on foot: 0 · 1 the jumpsuit (a jailbreak) · 2 old-lady / 3 old-man disguise. */
     get lookCode() { return !F ? 0 : F.disguise === "prison" ? 1 : F.disguise === "oldLady" ? 2 : F.disguise === "oldMan" ? 3 : 0; },
     /** The car she left on the road while she walks: { x, z, h, key ("lulu" | a ride's model), paint, wrecked } | null. */
@@ -1879,6 +2009,17 @@ ctx.foot = {
         knockout({ h: src.h || 0, speed: src.speed || 6, ai: true, who: src.who || "" }, src.speed || 6);
         return true;
     },
+    /** In the air right now (a jump, stepping off a bench / a car). */
+    get airborne() { return !!(F && F.air); },
+    /** Her feet's height (m) and the ground under her (a bench 0.55, a car's hood / roof…). */
+    get height() { return F ? F.y || 0 : 0; },
+    get ground() { return F ? F.ground || 0 : 0; },
+    /** The yaw "up on the stick" walks toward (the free camera's) — moves' roll uses it too. */
+    get frameYaw() { return F ? (F.frameYaw != null ? F.frameYaw : F.h) : null; },
+    /** Jump now (features/moves' slide → LONG JUMP passes { long: true, vx, vz }): applied on her next walking frame. */
+    jump(opts = {}) { if (!F) return false; F.launch = opts; return true; },
+    /** jump.js's tuning + the low-obstacle table (kind → { top, stand }). */
+    JUMP, LOW,
     /** Lulu's on-foot Object3D / Person (people.js) while walking. */
     get obj() { return F && F.lulu ? F.lulu.obj : null; },
     get person() { return F ? F.lulu : null; },

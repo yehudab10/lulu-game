@@ -28,7 +28,7 @@ export class Person {
 
     /**
      * opts: walk (m/s, 0 = idle), wave (bool), talk (bool), cheer (bool, both arms up),
-     *       sit (bool), point (bool, right arm forward), dance (bool)
+     *       sit (bool), point (bool, right arm forward), dance (bool), air (0 = on the ground, > 0 rising, < 0 falling)
      */
     update(dt, opts = {}) {
         this.t += dt;
@@ -52,6 +52,11 @@ export class Person {
         if (opts.cheer) { armL = armR = -2.7 + Math.sin(this.t * 10) * 0.15; armLz = 0.25; armRz = -0.25; }
         if (opts.wave) { armR = -2.6; armRz = -0.35 + Math.sin(this.t * 9) * 0.45; }
         if (opts.point) { armR = -1.5; armRz = -0.05; }
+        if (opts.air) {
+            // in the air (a jump): knees tucked, arms flung up on the way up, out wide coming down
+            const up = opts.air > 0;
+            legL = -0.95; legR = 0.35; armL = armR = up ? -2.5 : -1.6; armLz = up ? 0.3 : 0.9; armRz = -armLz;
+        }
         rot(L.Leg_L, legL); rot(L.Leg_R, legR);
         rot(L.Arm_L, armL, armLz); rot(L.Arm_R, armR, armRz);
         if (L.Body) {

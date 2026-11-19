@@ -2,7 +2,12 @@
 // title-screen orbit, plus helpers features use for cutscenes and on-foot.
 //
 //   ctx.cam.cinematic(fromVec3, lookVec3, dt, lerp = 2)  — ease toward a shot
-//   ctx.cam.follow(object3D, { dist, height, look, yaw }, dt) — 3rd-person follow (on foot)
+//   ctx.cam.follow(object3D, { dist, height, look, yaw }, dt) — 3rd-person follow behind a yaw (a friend's car)
+//   ctx.cam.orbit(object3D, { dist, look, fov, y, auto: { yaw, k } }, dt) — the FREE camera on foot: the player
+//                      turns it (right stick, a mouse / finger drag) and it STAYS there; `auto` eases it toward
+//                      a yaw only while the player leaves the look alone. ctx.cam.free = its state (yaw, pitch…).
+// The LOOK controls (right stick + drag, invert-look, Settings › 🎥 Look speed) live here: in the car the look is
+// HELD (it stays where the stick leaves it for a moment, then drifts back behind the car); R3 / V looks behind.
 //   ctx.cam.snap()   — jump instead of easing on the next frame
 //   ctx.cam.blend(s) — like snap() for the rigs, but the PICTURE glides from where the camera is now to wherever
 //                      the next rig puts it, over s seconds (car ↔ on foot, into and out of a roadside cutscene).
@@ -25,6 +30,26 @@ const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _axis = new THREE.Vect
 const BLEND_MAX = 70;
 const bl = { on: false, fresh: false, t: 0, dur: 0.6, pos: new THREE.Vector3(), quat: new THREE.Quaternion(), fov: 60 };
 const ease = k => k * k * (3 - 2 * k);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ── the look controls ──────────────────────────────────────────────────
+/** rate: rad/s at full stick · hold: s the car's look stays put after you let go · back: its drift-back rate */
+export const LOOK = { rate: 2.9, pitchRate: 1.8, hold: 1.4, back: 1.6, carPitch: [-0.35, 0.55],
+    // the free camera on foot: pitch = the camera's elevation round her shoulders (rad)
+    pitch: 0.29, pitchMin: -0.28, pitchMax: 1.05, autoAfter: 1.2, pitchBackAfter: 3.5 };
+const _li = { yaw: 0, pitch: 0, active: false };
+/** This frame's look input (radians to turn): the right stick (a rate) + a mouse / finger drag (a delta). */
+function lookInput(dt) {
+    const S = save3d.settings, inv = S.invertLook ? -1 : 1, k = S.lookSens || 1;
+    const sx = input.lookX || 0, sy = input.lookY || 0, dx = input.lookDX || 0, dy = input.lookDY || 0;
+    _li.yaw = (-sx * LOOK.rate * dt - dx) * k;
+    _li.pitch = (sy * LOOK.pitchRate * dt + dy) * inv * k;
+    _li.active = !!(sx || sy || dx || dy || input.lookDrag);
+    return _li;
+}
+// the free camera's state (on foot)
+const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0 };
+const _t = new THREE.Vector3();
 
 export const cam = {
     get mode() { return st.mode; },
@@ -36,15 +61,14 @@ export const cam = {
         cam.snap();
         return CAMS[st.mode].name;
     },
-    snap() { st.snap = true; if (ctx.car) st.yaw = ctx.car.h; },
+    snap() { st.snap = true; if (ctx.car) st.yaw = ctx.car.h; st.lookYaw = 0; st.lookPitch = 0; },
     /** A soft cut: the rigs jump (as with snap), the picture glides there over `sec` seconds. */
     blend(sec = 0.6) {
         const camera = ctx.camera;
         cam.snap();
         if (!camera || ctx.view || ctx.skipping || !(sec > 0)) { bl.on = false; return; }
         // (a blend already running: leave from the pose on screen, which is what camera holds right now)
-        bl.pos.copy(camera.position); bl.quat.copy(camera.quaternion); bl.fov = camera.fov;
-        bl.on = true; bl.fresh = true; bl.t = 0; bl.dur = sec;
+        startBlend(sec);
     },
     get blending() { return bl.on; },
     /** Ease the camera toward a shot (cutscenes, arrivals). */
@@ -73,10 +97,75 @@ export const cam = {
         camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);
         camera.updateProjectionMatrix();
     },
+    /** The FREE third-person camera (on foot): it orbits obj at the player's yaw / pitch and stays where they leave it.
+     *  opts: dist (m), look (pivot height over her feet), fov, y (her height to frame — default obj.position.y),
+     *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street). */
+    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null } = {}, dt = 1 / 60) {
+        const camera = ctx.camera;
+        // the rig wasn't running last frame (a cutscene's shot, a script's camera): glide from that picture
+        if (FREE.frame < ctx.frames - 1 && !st.snap && !bl.on && !ctx.skipping) startBlend(0.45);
+        FREE.frame = ctx.frames;
+        const L = lookInput(dt);
+        if (L.active) { FREE.idle = 0; FREE.reT = 0; FREE.n++; } else FREE.idle += dt;
+        FREE.yaw = wrapAngle(FREE.yaw + L.yaw);
+        FREE.pitch = clamp(FREE.pitch + L.pitch, LOOK.pitchMin, LOOK.pitchMax);
+        if (FREE.reT > 0) {
+            FREE.reT -= dt;
+            FREE.yaw += wrapAngle(FREE.reYaw - FREE.yaw) * Math.min(1, dt * 9);
+            FREE.pitch += (LOOK.pitch - FREE.pitch) * Math.min(1, dt * 6);
+        } else if (auto && FREE.idle > LOOK.autoAfter) {
+            FREE.yaw = wrapAngle(FREE.yaw + wrapAngle(auto.yaw - FREE.yaw) * Math.min(1, dt * (auto.k || 0.8)));
+        }
+        if (FREE.idle > LOOK.pitchBackAfter) FREE.pitch += (LOOK.pitch - FREE.pitch) * Math.min(1, dt * 0.5);
+        const portrait = camera.aspect < 1;
+        const D0 = dist * (portrait ? 1.3 : 1);
+        _t.set(obj.position.x, (y == null ? obj.position.y : y) + look, obj.position.z);
+        if (st.snap) FREE.tgt.copy(_t);
+        else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 14); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 14); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
+        st.snap = false;
+        const cp = Math.cos(FREE.pitch), sp = Math.sin(FREE.pitch), fx = Math.sin(FREE.yaw), fz = Math.cos(FREE.yaw);
+        let D = D0;
+        if (FREE.tgt.y + sp * D < 0.4) D = Math.max(1.6, (FREE.tgt.y - 0.4) / -sp);      // looking up: slide in along the ground
+        camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D, FREE.tgt.z - fz * cp * D);
+        // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
+        camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);
+        camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);
+        camera.updateProjectionMatrix();
+        st.pos.copy(camera.position);
+        st.yaw = FREE.yaw;
+    },
+    /** The free camera's state: yaw / pitch (rad), idle (s since the player last looked), looks (how many frames they did). */
+    free: {
+        get yaw() { return FREE.yaw; }, set yaw(v) { FREE.yaw = wrapAngle(v); },
+        get pitch() { return FREE.pitch; }, set pitch(v) { FREE.pitch = clamp(v, LOOK.pitchMin, LOOK.pitchMax); },
+        get idle() { return FREE.idle; },
+        get looks() { return FREE.n; },
+        /** Is the free camera the one on screen (it ran last frame)? */
+        get on() { return FREE.frame >= ctx.frames - 1; },
+        /** Start from where the camera is looking right now (no swing when the rig takes over). */
+        fromCamera() {
+            const c = ctx.camera;
+            if (!c) return;
+            c.getWorldDirection(_t);
+            if (Math.hypot(_t.x, _t.z) > 1e-3) FREE.yaw = Math.atan2(_t.x, _t.z);
+            FREE.pitch = LOOK.pitch; FREE.idle = 9; FREE.reT = 0;
+        },
+        /** Swing it back behind a yaw (R3 / V on foot), over a moment. */
+        recentre(yaw) { FREE.reYaw = yaw; FREE.reT = 0.45; },
+        reset(yaw = 0, pitch = LOOK.pitch) { FREE.yaw = wrapAngle(yaw); FREE.pitch = pitch; FREE.idle = 9; FREE.reT = 0; },
+    },
     update(dt) { updateCamera(dt); applyBlend(dt); },
     state: st,
 };
 ctx.cam = cam;
+
+function startBlend(sec) {
+    const camera = ctx.camera;
+    if (!camera) return;
+    // (a blend already running: leave from the pose on screen, which is what camera holds right now)
+    bl.pos.copy(camera.position); bl.quat.copy(camera.quaternion); bl.fov = camera.fov;
+    bl.on = true; bl.fresh = true; bl.t = 0; bl.dur = sec;
+}
 
 /** After the rig has placed the camera: ease the picture from the pose cam.blend() captured to that placement. */
 function applyBlend(dt) {
@@ -100,13 +189,21 @@ const _q = new THREE.Quaternion();
 
 function updateCamera(dt) {
     const camera = ctx.camera, car = ctx.car, G = ctx.G;
-    // right stick look (springs back when released)
-    const inv = save3d.settings.invertLook ? -1 : 1;
-    const lx = input.lookX, ly = input.lookY * inv;
-    st.lookYaw += ((lx ? -lx * 2.2 : 0) - st.lookYaw) * Math.min(1, dt * (lx ? 6 : 3));
-    st.lookPitch += ((ly ? ly * 0.5 : 0) - st.lookPitch) * Math.min(1, dt * (ly ? 6 : 3));
-
     const def = ctx.states[ctx.state];
+    // the car's look: HELD — the right stick / a drag turns it and it stays a moment, then drifts back behind the car
+    // (outside a driving state it just settles to the middle; the free camera on foot keeps its own)
+    const L = lookInput(dt);
+    if (def && def.driving && L.active) {
+        st.lookIdle = 0;
+        st.lookYaw = wrapAngle(st.lookYaw + L.yaw);
+        st.lookPitch = clamp(st.lookPitch + L.pitch * 0.55, LOOK.carPitch[0], LOOK.carPitch[1]);
+    } else {
+        st.lookIdle = (st.lookIdle || 0) + dt;
+        const back = def && def.driving ? (st.lookIdle > LOOK.hold ? LOOK.back + Math.min(2, (ctx.car ? ctx.car.speed : 0) * 0.04) : 0) : 6;
+        st.lookYaw = wrapAngle(st.lookYaw - st.lookYaw * Math.min(1, dt * back));
+        st.lookPitch -= st.lookPitch * Math.min(1, dt * back);
+    }
+
     if (def && def.camera && def.camera(dt) === true) return;
 
     const shake = save3d.settings.calm ? 0 : (G.shake || 0);
