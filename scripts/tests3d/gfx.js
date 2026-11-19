@@ -81,6 +81,12 @@ module.exports = {
     t.check("LOW: no reflections, no sway", low && low.gfx && !low.gfx.env && low.gfx.sway === 0, JSON.stringify(low && low.gfx));
     const med = await drive("medium");
     t.check("MEDIUM drives: reflections on, the wet road shines", med && med.tier === "medium" && med.gfx && med.gfx.env && med.gfx.wetRoad && med.gfx.sway > 0, JSON.stringify(med));
+    // a sudden change of sky (night → noon at once) refreshes the reflection straight away, even on MEDIUM's slow cadence
+    await g(`(ctx.atmos.debug.weather("clear", 1, true), ctx.atmos.debug.time("noon"), true)`);
+    await t.frames(6);
+    const fresh = await t.L(`import("./js/core/gfx.js").then(m => m.gfxInfo())`);
+    t.check("MEDIUM: a sudden noon after night refreshes the sky reflection at once", fresh.env && fresh.envFresh, JSON.stringify(fresh));
+    await t.shot("noon-medium");
     const high = await drive("high");
     const bloom = await g(`!!L3.gfx.bloom`);
     const canBloom = await t.L(`(() => { const e = __lulu3d.renderer.extensions; return !!(e.has("EXT_color_buffer_float") || e.has("EXT_color_buffer_half_float")); })()`);

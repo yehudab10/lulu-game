@@ -143,7 +143,10 @@ function updateEnv(dt) {
     envScene();
     ENV.t += dt;
     const sig = skySig();
-    if (!ENV.rt || (ENV.t > (gfx.tier === "high" ? 2 : 15) && Math.abs(sig - ENV.sig) > 0.03)) { ENV.t = 0; ENV.sig = sig; rebuildEnv(); }
+    // (a slow drift — dusk, a cloud — refreshes every 2 s on HIGH, 15 s on MEDIUM; a sudden jump — a tunnel, a cut to
+    //  night, a storm rolling in instantly — at once, or the wet road would mirror a blue noon sky at night)
+    const diff = Math.abs(sig - ENV.sig);
+    if (!ENV.rt || diff > 0.4 || (ENV.t > (gfx.tier === "high" ? 2 : 15) && diff > 0.03)) { ENV.t = 0; ENV.sig = sig; rebuildEnv(); }
     // car paint (Lulu's + traffic; new cars get it on the next scan)
     ENV.scanT -= dt;
     if (ENV.scanT <= 0) {
@@ -183,5 +186,5 @@ export function gfxFrame(dt, camera) {
     ctx.renderer.toneMappingExposure = 1.05 + 0.13 * night;
 }
 export function gfxInfo() {
-    return { blobs: blobs ? blobs.count : 0, blobsOn: !!(blobs && blobs.visible), env: !!ENV.rt, painted: ENV.tagged.size, wetRoad: ENV.roadOn, sway: WIND.uSway.value, leaves: leafMaterials().length };
+    return { envFresh: !ENV.rt || !ctx.world || !ctx.world.sky || Math.abs(skySig() - ENV.sig) <= 0.4, blobs: blobs ? blobs.count : 0, blobsOn: !!(blobs && blobs.visible), env: !!ENV.rt, painted: ENV.tagged.size, wetRoad: ENV.roadOn, sway: WIND.uSway.value, leaves: leafMaterials().length };
 }
