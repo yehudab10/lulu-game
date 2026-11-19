@@ -114,5 +114,19 @@ module.exports = {
     await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = "auto"; __lulu3d.ctx.applySettings(); })`);
     await t.frames(10);
     t.check("after stepping down, AUTO runs MEDIUM for the session", await g(`L3.gfx.tier === "medium" && L3.gfx.setting === "auto"`), JSON.stringify(await g(`L3.gfx.info()`)));
+    // a new resolution empties the canvas: it must land right BEFORE a frame is drawn, never after (an iPhone showed
+    // the emptied canvas as a white flash every time AUTO slid the resolution)
+    const rs = await t.L(`new Promise(res => { const L3 = window.__lulu3d, r = L3.renderer, G = L3.gfx, ss = r.setSize; let at = null;
+      r.setSize = function () { at = r.info.render.frame; return ss.apply(r, arguments); };
+      const w0 = r.domElement.width;
+      G.pixelRatio = Math.max(G.T.prMin, G.pixelRatio - 0.2);
+      L3.ctx.gfxDebug.queue("res");
+      const same = r.domElement.width === w0;
+      const tick = () => { if (at == null) return requestAnimationFrame(tick); r.setSize = ss; res({ deferred: same, drawnAfter: r.info.render.frame > at, w0, w1: r.domElement.width, pending: L3.ctx.gfxDebug.pending }); };
+      requestAnimationFrame(tick); })`);
+    t.check("AUTO: a new resolution waits for the next frame…", rs.deferred && rs.w1 < rs.w0 && rs.pending === null, JSON.stringify(rs));
+    t.check("…and that frame is drawn right after it (the emptied canvas is never shown)", rs.drawnAfter === true, JSON.stringify(rs));
+    await g(`(L3.gfx.pixelRatio = L3.gfx.prCap, ctx.gfxDebug.queue("res"), true)`);
+    await t.frames(3);
   },
 };

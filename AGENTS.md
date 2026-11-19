@@ -112,7 +112,7 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
 - 3D tests run in **software WebGL and are slow** (the full suite is ~2 h on one
   machine). Don't run everything locally — use CI:
 - **CI (GitHub Actions):**
-  - `smoke.yml` runs on every push (2D smoke + `core,platform,skip,ux`).
+  - `smoke.yml` runs on every push (2D smoke + `core,platform,skip,ux,music`).
   - **"3D full suite"** (`smoke3d-full.yml`, manual) splits test files across up
     to 16 machines (~45 min). Inputs: `only` (comma list) or `groups`
     (`;`-separated groups, each on its own machine). Works on any branch:
@@ -170,6 +170,12 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- **iPhone traps (both bit the owner on 2026-11-19, neither shows in headless Chromium):** (1) a page can't set an
+  `<audio>` element's volume there, and a set READS BACK for one task before it is 1 again — never read `el.volume`
+  (audio.js counts its own levels; test `music` imitates it). (2) resizing the WebGL canvas empties it, and a canvas
+  resized after its frame was drawn shows blank (a white flash) until the next frame — resize only right before a
+  draw (app.js `applyGfxPending`; test `gfx`). The flash fix is UNVERIFIED on a real phone: if the owner still sees
+  flashes with ⚙️ Graphics on MEDIUM (no resolution sliding), look elsewhere.
 - Cops: the red "not hidden" toast can linger after she reaches a real hiding
   spot (`core/hud.js` has no toast dismiss); a call-in cruiser in town still
   routes straight to her; bailing out mid-chase files a permanent warrant (2★ on
