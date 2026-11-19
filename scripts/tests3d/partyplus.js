@@ -322,7 +322,13 @@ async function partyRun(t, guests) {
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 60000);
   // a minivan on its loop: stand 16 m ahead of it on its path (wait for one to be live near her first —
   // only the loop cars around her are on the road, and right after she climbs out there may be none)
-  await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000);
+  // (walk her out in front of the nearest loop minivan by its PURE pose first — the live town cars are only the ones
+  //  near her, and where she climbed out there may be none)
+  const near = await g(`(() => { const F = ctx.foot.debug.F, T = ctx.party.clock() + 1500; const cs = ctx.openworld.debug.townCarsAt(T).filter(c => c.kind === "town_van");
+    cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
+    F.pos.set(c.x + Math.sin(c.h) * 30, 0, c.z + Math.cos(c.h) * 30); ctx.G.invT = 30; return c.key; })()`);
+  if (!await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000))
+    console.log("   TOWN diag", JSON.stringify({ near, live: await g(`ctx.traffic.cars.map(c => c.kind + ":" + (c.data && c.data.party) + ":" + (+c.speed).toFixed(1)).slice(0, 20)`), zone: await g(`ctx.openworld.zone`) }));
   const tw = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2);
     cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
     F.pos.set(c.x + Math.sin(c.h) * 16, 0, c.z + Math.cos(c.h) * 16); ctx.G.invT = 30; return { key: c.data.party }; })()`);
