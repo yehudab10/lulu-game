@@ -60,9 +60,14 @@ module.exports = {
     t.check("home for dinner ends the day", await t.until(`__lulu3d.ctx.day.home`, "home", 3000));
     const w2 = await g(`L3.wallet.coins`);
     t.check("the dinner bonus (+40, once)", w2 - w1 === 40, `${w1} → ${w2}`);
-    await t.frames(20);
+    t.check("the day's ending: the home beat", (await g(`ctx.state`)) === "worldHomeBeat", await g(`ctx.state`));
+    await t.frames(40);
     await t.shot("home-for-dinner");
     t.check("the chip is gone", !(await g(`ctx.day.active`)) && (await t.L(`!document.querySelector(".day-chip")`)));
+    t.check("…then the title (the day — and the run — end at home)", await t.until(`__lulu3d.state === "title"`, "title", 8000));
+    t.check("…with the car parked in the driveway", await g(`ctx.places.home.parked()`));
+    await t.frames(10);
+    await t.shot("home-title");
 
     // the same day again: no new list, no pay
     await g(`L3.setState("title")`);

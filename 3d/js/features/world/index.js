@@ -34,7 +34,7 @@ import { ctx, on, hook } from "../../core/ctx.js";
 import { registerModels } from "../../models.js";
 import * as H from "../../hud.js";
 import { home, homeTick, titleCamera, onTitle, streetVisibility, applyHoliday, placeParked, holidayNow, S_HOME } from "./home.js";
-import { departInfo } from "./depart.js";
+import { departInfo, comeHome } from "./depart.js";
 import { placesApi, reservePlaces } from "./places.js";
 import { openFamilyMap } from "./map.js";
 
@@ -85,6 +85,8 @@ ctx.places = Object.assign(placesApi, {
         get phase() { return home.phase; },
         get park() { return home.park; },
         get people() { return home.people; },
+        /** The end of a day (features/day): park, walk up to the porch, the title. opts { line } (a banner). */
+        comeHome: opts => comeHome(opts),
         parked() { const c = ctx.car, P = home.park; return !!P && Math.hypot(c.pos.x - P.x, c.pos.z - P.z) < 0.6; },
         depart: departInfo,
         holiday: () => { const c = holidayNow(); return c ? c.id : null; },

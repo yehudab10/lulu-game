@@ -206,13 +206,11 @@ function homeTick(dt) {
     let pay = 0;
     if (!DAY.paid.includes("home")) { DAY.paid.push("home"); pay = PAY.home; addCoins(pay, "dayHome"); }
     emit("stat", { id: "dayDone", n: 1 });
-    if (!ctx.skipping) A.sfxFanfare && A.sfxFanfare();
-    H.banner(`🏠 <b>HOME FOR DINNER!</b><small>Ima's list, done${pay ? ` · +${pay} 💰` : ""} · see you tomorrow 💕</small>`, 3200, { prio: 2 });
-    const ima = ctx.places.home.people && ctx.places.home.people.ima;
-    if (ima && ctx.banter && ctx.banter.bubble) {
-        ima.obj.visible = true;
-        ctx.banter.bubble(pick(["My errand girl! Wash your hands, dinner's ready! 🍲", "Everything?! Who ARE you? Sit, eat!", "Bubbe called — she LOVED it. Now EAT."]), ima.obj, { dur: 3.4, y: 1.9, cls: "nice" });
-    }
+    if (!ctx.skipping && A.sfxFanfare) A.sfxFanfare();
+    const said = pick(["My errand girl! Wash your hands, dinner's ready! 🍲", "Everything?! Who ARE you? Sit, eat!", "Bubbe called — she LOVED it. Now EAT."]);
+    const banner = `🏠 <b>HOME FOR DINNER!</b><small>Ima: “${said}”${pay ? ` · +${pay} 💰` : ""}</small>`;
+    // the day's ending: park, walk up to the porch, the title (world's beat) — or just the banner without it
+    if (!(ctx.places.home.comeHome && ctx.places.home.comeHome({ line: banner }))) H.banner(banner, 3400, { prio: 2 });
     emit("day:home", { pay });
     S.active = false;
     clearChip(); hideBeacon();
