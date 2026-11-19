@@ -2,16 +2,17 @@
 // the menus are a light layer on top of it.
 //
 //   🏡 home.js    Lulu's street behind the title menu: the cul-de-sac at the start of the
-//                 road, her house (pink door, porch, garage), the pink car in the driveway,
-//                 Lulu chatting with Dina on the porch step, Mr. Pinsky watering across the
+//                 road, her house (pink door, porch, garage), the pink car nose-out in the driveway,
+//                 Lulu chatting with Dina at the porch steps, Mr. Pinsky watering across the
 //                 street, a minivan lapping the cul-de-sac. The sky follows the device's
 //                 clock (via atmos), lit windows at night, holiday dressing on the house
 //                 (a sukkah at Sukkot, a menorah in the window + blue/white lights at
 //                 Chanukah, Dina's Purim hat, honey / matzah on the porch table). Back to
 //                 the title = she drives home and parks.
-//   🚗 depart.js  Cruise / Story leg 1 from the title: Lulu hops in, backs out of the
-//                 driveway and pulls away; the camera swoops from the title shot into the
-//                 chase cam. Skippable (⏭ / hold ○), ✕ jumps straight to the road.
+//   🚶 depart.js  A RUN STARTS AT HOME, ON FOOT: Cruise / Story leg 1 / the Shabbos Rush from
+//                 the title (or Restart) — the camera pushes in behind Lulu at the porch steps,
+//                 Ima in the doorway, the car nose-out in the driveway; walk over, ✋ GET IN
+//                 (foot's hop-in) and driving off IS the run. No cutscene, no countdown.
 //   📍 places.js  Places you pull into from the road (Cruise): ⛽ Gas 'n' Go, 🌄 the
 //                 Lookout, and the family's driveways (Bubbe's, Heshy's pool, the beach,
 //                 Avigail's, Uncle Burry's). Stop in the bay → a short in-world beat.
@@ -24,8 +25,8 @@
 //
 // Service: ctx.places { add(def), get(id), list(), spots(), at(id), visits(id), inside, visit(key),
 //                       home: { ready, phase, park, parked(), depart: info() }, debug }
-// Events:  world:depart {mode} · world:home {} · world:visit {id, s} · world:holiday {id}
-// States:  worldDepart (skippable pull-out) · worldVisit (skippable pull-in beat)
+// Events:  world:homeStart {mode, first} · world:depart {mode} (she drove off) · world:home {} · world:visit {id, s} · world:holiday {id}
+// States:  worldVisit (skippable pull-in beat) — the run's start is foot's "footRun" (reason "home")
 // Gating:  the home street is always on (static, deterministic); the pull-out, the places
 //          and the live clock need ctx.enabled("world") (tests opt in with &enable=world;
 //          a party turns them off).

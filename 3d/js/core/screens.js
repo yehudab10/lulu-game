@@ -400,5 +400,5 @@ addMenuItem("pause", { id: "skip", order: 5, group: "main", label: "⏭ Skip thi
 addMenuItem("pause", { id: "settings", order: 35, group: "tools", label: "⚙️ Settings", action: () => showSettings(showPauseMenu) });
 // (not mid-cutscene: restarting during the arrest cinematic walked her out of the booking)
 addMenuItem("pause", { id: "restart", order: 80, group: "exit", label: "↺ Restart", visible: () => { const d = ctx.states[ctx.state]; return !!(d && d.driving && !d.camera); },
-    action: () => { resume(); startRun({ mode: ctx.G.mode }); } });
+    action: () => { resume(); startRun({ mode: ctx.G.mode, restart: true }); } });     // (restart: a fresh run starts at home on foot, like Play)
 addMenuItem("pause", { id: "title", order: 90, group: "exit", label: "⌂ Title screen", action: () => { resume(); emit("quit", {}); setState("title"); } });

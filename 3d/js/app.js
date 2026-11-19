@@ -2,8 +2,8 @@
 // main.js once WebGL is known to work. Game rules live in core/ (driving,
 // screens, camera…) and features/ (journey, law, garage, on foot, Dina…).
 import * as THREE from "three";
-import { ctx, emit, setState, setChromeHandler, trackCamera, syncAllCameras, runHooks } from "./core/ctx.js";
-import { save3d, shared } from "./core/save.js";
+import { ctx, emit, on, setState, setChromeHandler, trackCamera, syncAllCameras, runHooks } from "./core/ctx.js";
+import { save3d, shared, wallet } from "./core/save.js";
 import { loadModels } from "./models.js";
 import { World } from "./world.js";
 import { PlayerCar, SKINS } from "./car.js";
@@ -15,7 +15,7 @@ import { cam } from "./core/camera.js";
 import { dialogUpdate, setDialogGlyph } from "./core/dialog.js";
 import { skipInput, skipping, skipBefore, skipAfter, FF_DT, FF_STEPS } from "./core/skip.js";
 import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, openView, titleView } from "./core/screens.js";
-import { resetRun, startRun, endRun, damage, addCoins } from "./core/driving.js";
+import { resetRun, startRun, endRun, damage, addCoins, KO } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
 import { updateLods, LOD } from "./lod.js";
@@ -298,7 +298,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && A.
 
 // test hook for scripts/smoke3d.js
 window.__lulu3d = {
-    ctx, setState, startRun, resetRun, endRun, damage, addCoins, emit, input,
+    ctx, setState, startRun, resetRun, endRun, damage, addCoins, emit, on, input, wallet, KO,
     get state() { return ctx.state; },
     get car() { return ctx.car; }, get world() { return ctx.world; }, get traffic() { return ctx.traffic; },
     get game() { return ctx.G; }, get frames() { return ctx.frames; },
