@@ -294,8 +294,8 @@ ctx.seasons = {
         rebuild: () => refresh(true),
         /** Serve the nearest stall's treat (tests): → {coins, paid} | null. */
         treat(x, z) { const p = x != null ? { x, z } : (ctx.foot && ctx.foot.active && ctx.foot.pos) || ctx.car.pos; return treat(nearestStand(p.x, p.z, 1e9)); },
-        stands: () => S.stands.map(it => ({ x: it.x, z: it.z, id: it.stand, kind: it.kind })),
-        items: kind => [...D.sets.values()].flatMap(s => s.items).filter(it => !kind || it.kind === kind).map(it => ({ kind: it.kind, x: it.x, y: it.y, z: it.z, lights: it.lights, set: it.set.key })),
+        stands: () => S.stands.map(it => ({ x: it.x, z: it.z, rot: it.rot, id: it.stand, kind: it.kind, set: it.set.key })),
+        items: kind => [...D.sets.values()].flatMap(s => s.items).filter(it => !kind || it.kind === kind).map(it => ({ kind: it.kind, x: it.x, y: it.y, z: it.z, s: it.s, lights: it.lights, set: it.set.key })),
         resetPaid() { SAVE.paid = {}; SAVE.said = {}; SAVE.ima = {}; saveSoon(); },
         D, S, SAVE,
     },

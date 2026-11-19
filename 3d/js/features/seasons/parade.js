@@ -158,4 +158,4 @@ export function paradeTick(dt) {
         if (P.voice && nearP && near < 45 && A.spatial && A.spatial.ready && !ctx.skipping) { try { A.spatial.play("seasonsGrogger", nearP, { gain: 0.7 }); } catch (e) { /* no voice */ } }
     }
 }
-export const paradeInfo = () => ({ on: P.on, ready: P.ready, marchers: P.marchers.length, hats: Object.fromEntries(Object.entries(P.hats).map(([k, im]) => [k, im.count])), t: +P.t.toFixed(1) });
+export const paradeInfo = () => ({ route: P.route, on: P.on, ready: P.ready, marchers: P.marchers.length, hats: Object.fromEntries(Object.entries(P.hats).map(([k, im]) => [k, im.count])), t: +P.t.toFixed(1) });

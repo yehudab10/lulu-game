@@ -131,7 +131,7 @@ export function planChunk(chunk, world, day, recipes) {
                 const p = road.point(s, d, {});
                 if ((chunk.houses || []).some(hh => Math.hypot(hh.x - p.x, hh.z - p.z) < 9)) continue;
                 const rot = facingRoad(p.h, side);
-                out.push(standItem(R.stand, p.x, p.z, rot, id, { s, d }));
+                out.push(standItem(R.stand, p.x, p.z, rot, id, { roadS: s, roadD: d }));
                 colliders.push({ x: p.x, z: p.z, r: 1.4, kind: "stand" });
                 break;
             }
@@ -211,7 +211,7 @@ export function planTown(day, recipes) {
             for (const [name, along] of [["bakery", 7.5], ["pizza", 9.5], ["hall", -21], ["shul", -11]]) {
                 const sp = T.spot && T.spot(name);
                 if (!sp) continue;
-                const x = sp.x - sp.nx * 1.45 + sp.ux * along, z = sp.z - sp.nz * 1.45 + sp.uz * along;
+                const x = sp.x - sp.nx * 0.85 + sp.ux * along, z = sp.z - sp.nz * 0.85 + sp.uz * along;
                 const it = standItem(R.stand, x, z, Math.atan2(sp.nx, sp.nz), id);
                 out.push(it);
                 spots.push(it);

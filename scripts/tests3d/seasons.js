@@ -142,9 +142,9 @@ module.exports = {
         await t.shot("chanukah-lakewood-big-menorah-night");
       }
       if (stands[0]) {
-        const a = stands[0];
+        const a = stands.find(x => x.set === "town") || stands[0];
         await noon();
-        await look(a.x + Math.sin(0) * 0 + 6, a.z + 6, a.x, a.z, 2.0, 1.4);
+        await look(a.x + Math.sin(a.rot) * 7 + Math.cos(a.rot) * 2, a.z + Math.cos(a.rot) * 7 - Math.sin(a.rot) * 2, a.x, a.z, 2.0, 1.3);
         await t.frames(10);
         await t.shot("chanukah-lakewood-stall-day");
       }
@@ -190,14 +190,17 @@ module.exports = {
       t.check("purim: the hamantaschen stall", (await items("Goods_Hamantaschen")).length >= 1);
       t.check("purim: no menorahs left over", (await items("menorah")).length === 0);
       await noon();
-      const r = await g(`(() => { const s = ctx.seasons.debug.D.sets.get("parade"); const b = s && s.items[0]; return b ? { x: b.x, z: b.z } : null; })()`);
+      await t.frames(30);
+      const r = await g(`(() => { const s = ctx.seasons.debug.D.sets.get("parade"), b = s && s.items[0], R = ctx.seasons.info().parade.route; return b ? { x: b.x, z: b.z, R } : null; })()`);
       if (r) {
-        await look(r.x + 9, r.z + 9, r.x, r.z, 2.6, 1.2);
+        const R = r.R;
+        await look(r.x + R.nx * 9 + R.ux * 6, r.z + R.nz * 9 + R.uz * 6, r.x - R.ux * 4, r.z - R.uz * 4, 3.0, 1.2);
         await t.frames(14);
         await t.shot("purim-lakewood-parade-day");
       }
-      const d = await g(`(() => { const d = ctx.homes.homes()[3]; return d; })()`);
-      if (d) { await look(d.ap.x + (d.ap.x - d.door.x) * 2.5, d.ap.z + (d.ap.z - d.door.z) * 2.5, d.door.x, d.door.z, 1.9, 0.8); await t.frames(8); await t.shot("purim-lakewood-doorstep"); }
+      const bk = (await items("basket")).filter(i => i.set === "town")[4];
+      const d = bk && await g(`(() => { const b = ${JSON.stringify(bk || {})}; return ctx.homes.homes().map(d => Object.assign(d, { dd: Math.hypot(d.door.x - b.x, d.door.z - b.z) })).sort((a, c) => a.dd - c.dd)[0]; })()`);
+      if (d) { const nx = d.ap.x - d.door.x, nz = d.ap.z - d.door.z, l = Math.hypot(nx, nz) || 1; await look(bk.x + nx / l * 3.2, bk.z + nz / l * 3.2, bk.x, bk.z, 2.4, 0.5); await t.frames(8); await t.shot("purim-lakewood-doorstep"); }
       await unlook();
     });
 
@@ -213,7 +216,7 @@ module.exports = {
       t.check("Sukkos: sukkahs on the duplexes' decks", sk.filter(i => i.y > 3).length >= 10 && (await items("sukkahFrame")).length === 0, `${sk.length} (${sk.filter(i => i.y > 3).length} on decks)`);
       const h = await g(`ctx.town.homes.find(h => h.key === "town_duplex")`);
       await noon();
-      await look(h.lotX + h.nx * 10 + h.ux * 10, h.lotZ + h.nz * 10 + h.uz * 10, h.x - h.ux * 5, h.z - h.uz * 5, 3.0, 3.0);
+      await look(h.lotX + h.nx * 6 - h.ux * 12, h.lotZ + h.nz * 6 - h.uz * 12, h.x - h.ux * 7, h.z - h.uz * 7, 4.5, 3.6);
       await t.frames(10);
       await t.shot("sukkos-lakewood-deck-day");
       await night();
@@ -227,8 +230,8 @@ module.exports = {
       if (!lakewoodOk) return;
       await season("pesachPrep");
       t.check("before Pesach: the clean-out piled at the kerb", (await items("kerb")).length >= 15);
-      const k = (await items("kerb"))[2];
-      if (k) { await noon(); await look(k.x + 6, k.z + 5, k.x, k.z, 2.0, 0.5); await t.frames(8); await t.shot("pesach-lakewood-kerb-day"); await unlook(); }
+      const k = (await items("kerb")).filter(i => i.set === "town")[3];
+      if (k) { await noon(); await look(k.x + 4, k.z + 4, k.x, k.z, 2.6, 0.4); await t.frames(8); await t.shot("pesach-lakewood-kerb-day"); await unlook(); }
       await season("shavuos");
       t.check("Shavuos: planters by the doors + the cheesecake stall", (await items("planter")).length >= 15 && (await items("Goods_Cheesecake")).length >= 1);
       await season("friday");
@@ -304,8 +307,10 @@ module.exports = {
       await t.frames(10);
       await t.shot("chanukah-midwood-night");
       await season("sukkos");
-      t.check("midwood: sukkahs in the front yards", (await items("sukkah")).length >= 8);
+      const ms = (await items("sukkah")).filter(i => i.set === "town");
+      t.check("midwood: sukkahs in the front yards", ms.length >= 8, String(ms.length));
       await noon();
+      if (ms[2]) await look(ms[2].x + 8, ms[2].z + 8, ms[2].x, ms[2].z, 3.6, 1.2);
       await t.frames(8);
       await t.shot("sukkos-midwood-day");
       await unlook();
@@ -331,6 +336,29 @@ module.exports = {
         await look(b.x + 9, b.z + 9, b.x, b.z, 3.0, 0.8);
         await t.frames(10);
         await t.shot("lagbaomer-bonfire-night");
+        await unlook();
+      }
+    });
+
+    // ── a stall by the highway (about one road chunk in nine) ────────
+    await step("highway stall", async () => {
+      await season("chanukah", 6);
+      let st = [];
+      for (let i = 0; i < 14 && !st.length; i++) {
+        const s0 = 1200 + i * 700;
+        await g(`(() => { const r = ctx.world.road, p = r.point(${s0}, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s0}; ctx.car.d = 1.75; ctx.world.prebuild(${s0}); ctx.cam.snap(); return true; })()`);
+        await t.frames(4);
+        st = (await g(`ctx.seasons.debug.stands()`)).filter(x => /^c\d+$/.test(x.set));
+      }
+      const odd = (await items()).filter(i => !(i.s >= 0.5 && i.s <= 2));
+      t.check("every prop at a sane size", odd.length === 0, JSON.stringify(odd.slice(0, 3)));
+      t.check("a sufganiyot stall by the highway, off the road", st.length >= 1 && await g(`(() => { const s = ${JSON.stringify(st[0] || null)}; if (!s) return false; const n = ctx.world.highway.nearest(s.x, s.z, ctx.car.s); return Math.abs(n.d) > 12; })()`), JSON.stringify(st[0]));
+      if (st[0]) {
+        const a = st[0];
+        await noon();
+        await look(a.x + Math.sin(a.rot) * 8 + Math.cos(a.rot) * 3, a.z + Math.cos(a.rot) * 8 - Math.sin(a.rot) * 3, a.x, a.z, 2.2, 1.3);
+        await t.frames(8);
+        await t.shot("chanukah-highway-stall-day");
         await unlook();
       }
     });
