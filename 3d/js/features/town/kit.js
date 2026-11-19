@@ -57,6 +57,33 @@ function bakeGeometry(g, m, color) {
     return out;
 }
 
+/** A baked piece with just position + normal + colour (+ index): mergeSteps can take it. */
+const plainBake = g => { const k = Object.keys(g.attributes); return k.length === 3 && g.attributes.position && g.attributes.normal && g.attributes.color && g.attributes.position.itemSize === 3
+    && g.attributes.normal.itemSize === 3 && g.attributes.color.itemSize === 3 && !g.morphAttributes.position; };
+/** mergeGeometries for plain bakes, as a generator: yields every ~40k vertices copied → (return) the merged geometry. */
+function* mergeSteps(list) {
+    let nv = 0, ni = 0;
+    for (const g of list) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+    const P = new Float32Array(nv * 3), N = new Float32Array(nv * 3), C = new Float32Array(nv * 3), I = new (nv > 65535 ? Uint32Array : Uint16Array)(ni);
+    let v = 0, i = 0, since = 0;
+    for (const g of list) {
+        const n = g.attributes.position.count;
+        P.set(g.attributes.position.array.subarray(0, n * 3), v * 3);
+        N.set(g.attributes.normal.array.subarray(0, n * 3), v * 3);
+        C.set(g.attributes.color.array.subarray(0, n * 3), v * 3);
+        if (g.index) { const src = g.index.array, m = g.index.count; for (let k = 0; k < m; k++) I[i + k] = src[k] + v; i += m; }
+        else { for (let k = 0; k < n; k++) I[i + k] = v + k; i += n; }
+        v += n; since += n;
+        if (since > 40000) { since = 0; yield; }
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute("position", new THREE.BufferAttribute(P, 3));
+    out.setAttribute("normal", new THREE.BufferAttribute(N, 3));
+    out.setAttribute("color", new THREE.BufferAttribute(C, 3));
+    out.setIndex(new THREE.BufferAttribute(I, 1));
+    return out;
+}
+
 /** Collects static pieces into clusters, then bakes them into a few meshes each. */
 export class Merger {
     /** cell: cluster size (m). Small cells let the town cull by distance and by its blocks (index.js), and keep
@@ -109,7 +136,11 @@ export class Merger {
                 const tagged = [];
                 let at = 0;
                 for (const x of list) { const n = x.attributes.position.count; if (x.userData.tag) tagged.push({ tag: x.userData.tag, start: at, count: n }); at += n; }
-                const g = mergeGeometries(list, false);
+                // (a big cluster — a row of woods, a kerb of parked cars — is merged a slice at a time: index.js builds a
+                //  town over many frames, and one mergeGeometries of 100k+ vertices is a frame on its own)
+                let g = null;
+                if (list.every(plainBake)) { const it = mergeSteps(list); for (;;) { const r = it.next(); if (r.done) { g = r.value; break; } yield "merge:" + look + "…"; } }
+                else g = mergeGeometries(list, false);
                 for (const x of list) x.dispose();
                 if (!g) continue;
                 g.computeBoundingSphere();
@@ -196,12 +227,19 @@ export class Atlas {
     }
     /** Draw every cell into one canvas (shrunk to fit if need be), and all the sign faces as ONE mesh. */
     mesh() {
+        const g = this.meshSteps();
+        for (;;) { const r = g.next(); if (r.done) return r.value; }
+    }
+    /** mesh() a few signs at a time (a generator: drawing a town's every sign is a frame's work on its own) → (return) the mesh. */
+    *meshSteps() {
         let scale = 1;
         while (!this.pack(scale) && scale > 0.3) scale *= 0.9;
         const S = this.size, canvas = document.createElement("canvas");
         canvas.width = canvas.height = S;
         const g = canvas.getContext("2d");
+        let k = 0;
         for (const c of this.cells) {
+            if (++k % 6 === 0) yield "atlas";
             const spec = c.spec, w = c.w, h = c.h;
             g.save();
             g.translate(c.x, c.y); g.scale(c.pw / w, c.ph / h);

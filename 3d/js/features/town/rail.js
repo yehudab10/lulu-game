@@ -17,7 +17,7 @@ import * as SFX from "./sfx.js";
 export const RAIL_MODELS = ["town_mw_station", "town_mw_train", "town_mw_pigeon"];
 const CAR_LEN = 15.2, PIECE = 40;
 
-export function buildRail(B) {
+export function* buildRail(B) {
     const { def, T, merge, col, sign, place, atlas, addColored, own, root } = B;
     const RL = def.rail, x = RL.x, top = RL.top, hb = RL.base / 2, hd = RL.deck / 2;
     // where streets pass under: every street that crosses the line x = RL.x
@@ -38,6 +38,7 @@ export function buildRail(B) {
     // the berm between the gaps, in short pieces (each its own cluster, so culling works)
     let zPrev = RL.z0;
     for (const g of [...gaps, { z0: RL.z1, z1: RL.z1 }]) {
+        yield "rail";
         for (let za = zPrev; za < g.z0 - 0.1; za += PIECE) {
             const zb = Math.min(g.z0, za + PIECE);
             addColored(merge, bermGeo(x, za, zb, hb, hd, top), "#6F8F45", x, (za + zb) / 2);
@@ -47,6 +48,7 @@ export function buildRail(B) {
         zPrev = g.z1;
     }
     for (const g of gaps) {
+        yield "rail";
         // concrete abutments where the berm stops, a girder bridge between them
         for (const zz of [g.z0 - 0.5, g.z1 + 0.5]) {
             box(RL.base, top, 1.0, x, top / 2, zz, "#9E9A90");
@@ -63,6 +65,7 @@ export function buildRail(B) {
     }
     // tracks + tie beds + the fences along the top, in pieces
     for (let za = RL.z0; za < RL.z1; za += PIECE) {
+        yield "rail";
         const zb = Math.min(RL.z1, za + PIECE), zm = (za + zb) / 2, L = zb - za;
         for (const t of RL.tracks) {
             box(2.4, 0.08, L, x + t, top + 0.16, zm, "#5A4A3C", "flat");
@@ -81,6 +84,7 @@ export function buildRail(B) {
         }
     } });
     for (const sd of RL.stations || []) {
+        yield "rail";
         const g = gaps.find(q => q.st.name === sd.street);
         if (!g) continue;
         place("town_mw_station", x, g.zc, 0);

@@ -92,14 +92,14 @@ function clearOfPlaces(s, towns = null) {
     const spans = () => { try { return ctx.exits && ctx.exits.spans ? ctx.exits.spans() : []; } catch (e) { return []; } };
     // (a 🎉 party plans from fixed data only — the places — so every friend's exits land on the same metre)
     const party = !!(ctx.party && ctx.party.active);
-    for (let k = 0; k < 60; k++) {
+    for (let k = 0; k < 300; k++) {
         const a = s + SPAN.a, b = s + SPAN.b;
         const clash = busy.some(x => x > s - 760 && x < s + ACC1 + 80) ||
             (!party && spans().some(o => o.b > a && o.a < b)) ||
             (!party && reservedRight(s + TAPER0 - 30, s + ACC1 + 30)) ||
             (towns && FIT.fits && !FIT.fits(s, towns));
         if (!clash) return s;
-        s += 250;
+        s += 50;              // (fine steps: an attached town fits ~a third of the spots along the road — FIT)
     }
     return s;
 }

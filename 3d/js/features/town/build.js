@@ -288,11 +288,12 @@ export function* buildTownSteps(def) {
         }
         if (b.whole && wholeBlock(B, b, lot)) continue;
         for (const [face, kind] of Object.entries(b.faces)) {
-            for (const fr of railSplit(faceFrame(lot, face), def.rail)) placeFace(B, kind, fr, counters);
+            yield "face";
+            for (const fr of railSplit(faceFrame(lot, face), def.rail)) yield* placeFace(B, kind, fr, counters);
         }
         yield "blocks@293";
     }
-    for (const sp of PL.STRIPS) { buildStrip(B, sp, counters); yield "blocks@295"; }
+    for (const sp of PL.STRIPS) { yield* buildStrip(B, sp, counters); yield "strip"; }
 
     // ── street furniture: parked cars, lamps ─────────────────────────────
     const chair = def.chair && street(def.chair.street);
@@ -308,11 +309,13 @@ export function* buildTownSteps(def) {
         if (st.parkLane) lanesPark.push(st.park);
         if (st.boulevard) lanesPark.push(st.svcPark);
         for (let k = 0; k < st.cross.length - 1; k++) {
+            yield "parked";
             const n0 = st.cross[k].node, n1 = st.cross[k + 1].node;
             for (const side of [-1, 1]) for (const pd of lanesPark) {
                 const u0 = cutAt(st, n0, -1, side * pd, otherAt(n0, st.id).outer + 8.4), u1 = cutAt(st, n1, 1, side * pd, otherAt(n1, st.id).outer + 8.4);
                 if (u1 - u0 < 6) continue;
-                for (let u = u0; u < u1; u += 6.6) {
+                for (let u = u0, nCar = 0; u < u1; u += 6.6) {
+                    if (++nCar % 5 === 0) yield "parked";
                     if (clearAt(st, u, side)) continue;
                     if (chair === st && side === def.chair.side && Math.abs(u - def.chair.along) < 4) {
                         // THE one free spot in town… and a lawn chair is saving it
@@ -519,11 +522,12 @@ export function* buildTownSteps(def) {
     }
     // the railway on its embankment, the skyline, the barricades (rail.js / landmarks.js)
     yield "jams, the band bus, bill@521";
-    if (def.rail) { buildRail(B); yield "jams, the band bus, bill@522"; }
-    buildSkyline(B);
+    if (def.rail) yield* buildRail(B);
+    yield* buildSkyline(B);
     yield "jams, the band bus, bill@524";
     buildBarricades(B);
 
+    yield "barricades";
     // ── coins (a few trails to make the detour pay) ──────────────────────
     for (const ct of def.coins || []) {
         const st = street(ct.street);
@@ -542,8 +546,11 @@ export function* buildTownSteps(def) {
     // ── ground meshes (after the landmarks added their pieces) ───────────
     const ag = quadsGeo(asphalt, 9);
     const asphaltMesh = new THREE.Mesh(circleGeo ? mergeTwo(ag, uvPlanar(circleGeo, 9)) : ag, asphaltMat);
+    yield "asphalt";
     const walkMesh = new THREE.Mesh(quadsGeo(walks, 3), walkMat);
+    yield "walks";
     const markMesh = new THREE.Mesh(quadsGeo(marks, 0, true), markMat);
+    yield "marks";
     for (const m of [asphaltMesh, walkMesh, markMesh]) { m.receiveShadow = true; m.matrixAutoUpdate = false; root.add(m); own.push(m.geometry); }
 
     // ── bake ─────────────────────────────────────────────────────────────
@@ -552,7 +559,9 @@ export function* buildTownSteps(def) {
     yield* merge.buildSteps(mats, merged);
     yield* mergeFar.buildSteps(mats, merged);
     for (const m of merged) { root.add(m); own.push(m.geometry); }
-    const signMesh = atlas.mesh();
+    yield "merged";
+    const signMesh = yield* atlas.meshSteps();
+    yield "atlas";
     root.add(signMesh);
     own.push(signMesh.geometry, signMesh.material, signMesh.material.map);
     T.tris = merge.tris + mergeFar.tris;
@@ -579,6 +588,7 @@ export function* buildTownSteps(def) {
     T.halos.matrixAutoUpdate = false;
     T.halos.visible = false;
     root.add(T.halos);
+    yield "halos";
     const poolGeo = new THREE.PlaneGeometry(1, 1); poolGeo.rotateX(-Math.PI / 2);
     const poolMat = new THREE.MeshBasicMaterial({ map: glowTex, color: "#ffe6b8", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
     T.pools = new THREE.InstancedMesh(poolGeo, poolMat, Math.max(1, T.lamps.length));
@@ -588,6 +598,7 @@ export function* buildTownSteps(def) {
     own.push(glowTex, haloGeo, haloMat, poolGeo, poolMat, T.pools);
 
     // ── colliders: a coarse grid so a lookup only returns what's near ─────
+    yield "pools";
     const CELL = 24, grid = new Map();
     for (const c of colliders) {
         const m = c.r + 10;
@@ -774,12 +785,13 @@ function layoutFace(kind, len, R, def = null) {
 }
 
 /** Lay out one block face (or a frontage strip) of `kind` along the frame `fr` and place everything on it. */
-function placeFace(B, kind, fr, counters) {
+function* placeFace(B, kind, fr, counters) {
     const { R, T, S, merge, place, sign, anchorAt, parkedCar, col } = B;
     const next = (key, list) => { const c = counters[key] || 0; counters[key] = c + 1; return list[c % list.length]; };
     // a one-off landmark face split in two (the railway runs through it): the other half is ordinary shops
     if ((kind === "bakery" && T.spots.bakery) || (kind === "mwpizza" && T.spots.pizza) || (kind === "carsvc" && T.spots.carsvc)) kind = "avej";
     for (const it of layoutFace(kind, fr.len, R, B.def)) {
+        yield "item";
         const D = DIMS[it.key] || (it.use && it.use.dims) || { w: 10, d: 10, prot: 0 };
         const back = D.prot + D.d / 2;       // centre's distance in from the lot line
         const lotX = fr.ox + fr.ux * it.u, lotZ = fr.oz + fr.uz * it.u;

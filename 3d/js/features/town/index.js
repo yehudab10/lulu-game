@@ -253,7 +253,8 @@ function advanceBuilds(ms = BUILD_MS) {
         for (;;) {
             const a = performance.now(), r = en.gen.next(), dtm = performance.now() - a;
             en.steps++; en.ms += dtm; en.worst = Math.max(en.worst, dtm);
-            if (S.sliceLog) S.sliceLog.push([en.def.id, en.steps, +dtm.toFixed(2), r.value || "done"]);
+            (en.times || (en.times = [])).push(dtm);
+            if (S.sliceLog) S.sliceLog.push([en.def.id, en.steps, +dtm.toFixed(2), r.done ? "done" : String(r.value || "")]);
             if (r.done) { finishBuild(en, r.value); break; }
             if (performance.now() - t0 > ms) break;
         }
@@ -287,6 +288,24 @@ function tendAttached(dt) {
 }
 /** Where she is along the highway (in a town: by the exit she took). */
 const hwS = () => S.active ? S.exitS + (S.att ? S.att.cu : 0) : ctx.car.s;
+/** Where she is (on foot: her, not the car she left). */
+function herPos() { const f = ctx.foot && ctx.foot.active && ctx.foot.pos; return f || ctx.car.pos; }
+const footing = () => !!(ctx.foot && ctx.foot.active && ctx.foot.pos && ctx.state === "footRun");
+/** Out of an attached town by her own wheels / feet: back past the line by the T (or off cross-country). */
+function attachedOut() {
+    if (S.trans || !(ctx.state === "playing" && !(ctx.foot && ctx.foot.active) || footing())) return false;
+    const P0 = herPos(), p = localIn(S.att.at, P0.x, P0.z, {}), a = onApproach(S.def, p, {});
+    // (hysteresis: in at 4 m past the line / 2 m inside the footprint, out at 2 m / 20 m outside it and 25 m off the approach)
+    const out = (a.lat < 9 && a.along < 2) || (!inBox(S.att.box, p, BOX_PAD) && !(a.lat < 25 && a.along > -6 && a.along < a.len + 4));
+    if (out) leaveTown("highway", { drove: true });
+    return out;
+}
+/** Into an attached town on foot (driving in is the update hook's): an always-on actor, it runs while she walks. */
+function attachedFootIn() {
+    if (S.active || S.trans || !S.built.length || !footing()) return;
+    const P0 = herPos(), en = attachedAt(P0.x, P0.z);
+    if (en) enterTown(null, { entry: en, drove: true });
+}
 /** The ready attached town she's in (on its approach past the line, or inside its footprint), or null. */
 function attachedAt(x, z, line = 4) {
     const p = {}, a = {};
@@ -425,9 +444,12 @@ function leaveTown(why = "highway", opts = {}) {
     if (drove) {
         // she drove out along the approach: the highway's road under her again, nothing moves (she's on the cross road
         // by its T — the on-ramp is just past it)
-        const n = world.highway.nearest(car.pos.x, car.pos.z, S.exitS + (att ? att.cu : 0), {});
+        const hint = S.exitS + (att ? att.cu : 0), n = world.highway.nearest(car.pos.x, car.pos.z, hint, {});
         car.s = n.s; car.d = n.d;
         G.lastS = n.s;
+        // (on foot: her own road position too — a town s as a hint would send the highway's search 500 km down the road)
+        const F = ctx.foot && ctx.foot.active && ctx.foot.debug && ctx.foot.debug.F;
+        if (F && F.pos) { const m = world.highway.nearest(F.pos.x, F.pos.z, hint, {}); F.s = m.s; F.d = m.d; }
     } else if (why !== "reset") {
         // back on the highway: driving out, down the interchange's on-ramp (she merges in from the accel lane);
         // otherwise just past the exit, in the right lane (or on the shoulder after a wreck)
@@ -519,15 +541,7 @@ function tick(dt) {
     for (const c of [...ctx.traffic.cars]) if (c.data && c.data.hwPuppet && c.data.hwPuppet.gone) ctx.traffic.remove(c);
     // driving out of an ATTACHED town: back along the approach past the line by the T (or off cross-country) — the
     // highway's road takes over where she is
-    if (S.att) {
-        if (ctx.state === "playing" && !S.trans && !(ctx.foot && ctx.foot.active)) {
-            const p = localIn(S.att.at, car.pos.x, car.pos.z, {}), a = onApproach(S.def, p, {});
-            // (hysteresis: in at 4 m past the line / 2 m inside the footprint, out at 2 m / 20 m outside it and 25 m off the approach)
-            const out = (a.lat < 9 && a.along < 2) || (!inBox(S.att.box, p, BOX_PAD) && !(a.lat < 25 && a.along > -6 && a.along < a.len + 4));
-            if (out) leaveTown("highway", { drove: true });
-        }
-        return;
-    }
+    if (S.att) { attachedOut(); return; }
     // driving out of town: the ramps
     if (ctx.state === "playing" && !S.trans && !(ctx.foot && ctx.foot.active)) {
         const st = streetOfS(car.s);
@@ -601,6 +615,7 @@ function eligible() {
 hook("runStart", G => {
     if (S.active) leaveTown("reset");
     dropAllBuilt();
+    addActor({ foot: true, update: () => { try { if (S.active) { if (S.att && footing()) attachedOut(); } else attachedFootIn(); } catch (err) { console.error("[town] foot line", err); } return true; } });
     S.trans = null; setFade(0); S.commit = null;
     clearExits();
     if (S.cue) { S.cue = ""; H.prompt(""); }
@@ -804,6 +819,11 @@ ctx.town = {
     /** Is this town's model set loaded? */
     loaded: id => !!S.ok[id || townFor(0).id],
     get transitioning() { return !!S.trans; },
+    /** In a town that stands attached to the highway (she drove in off the interchange, or warped to one there). */
+    get attached() { return !!(S.active && S.att); },
+    /** The attached towns standing (or being built) by the road now: [{ town, exitS, k, ready, at: {x, z, rot}, steps, ms, worst }]. */
+    get standing() { return S.built.map(b => { const T = (b.times || []).slice().sort((p, q) => p - q), pc = f => T.length ? +T[Math.min(T.length - 1, Math.floor(T.length * f))].toFixed(2) : 0;
+        return { town: b.def.id, exitS: b.exitS, k: b.k, ready: b.ready, at: Object.assign({}, b.at), steps: b.steps, ms: +b.ms.toFixed(1), worst: +b.worst.toFixed(2), p95: pc(0.95), p99: pc(0.99) }; }); },
     blocksSight,
     /** A cruiser's route round the grid to her — or to `to` ({x, z, s} world: a searching cruiser's searchPoint / prowlPoint). */
     copRoute: (c, u, to) => copRoute(c, to || null),
@@ -878,7 +898,14 @@ ctx.town = {
          *  (every town), or a one-town exit with its own signs when `id` names a town. */
         exitAhead(ahead = 320, id = null) {
             const w = ctx.world, towns = id ? [TOWNS[id]] : INTERCHANGE.towns;
-            const e = planExit(ctx.car.s + ahead, towns);
+            // (the nearest spot to `ahead` where the attached towns fit — either way — so a test isn't sent kilometres on)
+            let s0 = ctx.car.s + ahead;
+            for (let k = 0; k < 80; k++) {
+                const a = ctx.car.s + ahead + k * 25, b = ctx.car.s + ahead - k * 25;
+                if (FIT.fits(a, towns)) { s0 = a; break; }
+                if (b > ctx.car.s + 240 && FIT.fits(b, towns)) { s0 = b; break; }
+            }
+            const e = planExit(s0, towns);
             if (!e) return null;
             for (const [k, c] of [...w.chunks]) if (c.s1 > e.s + SPAN.a - 20 && c.s0 < e.s + SPAN.b) { c.dispose(w.scene); w.chunks.delete(k); }
             w.prebuild(ctx.car.s);
@@ -912,6 +939,12 @@ ctx.town = {
         sees: (ax, az, bx, bz) => !blocksSight(ax, az, bx, bz),
         local: (x, z) => toLocal(x, z, {}),
         segmentBlocked, sightBlocked,
+        /** Attached towns: finish every build now (tests), where a town would stand at exit s on branch k, its footprint, the approach. */
+        buildNow: () => { for (let i = 0; i < 20 && S.built.some(b => !b.ready); i++) advanceBuilds(Infinity); return S.built.every(b => b.ready); },
+        placeAt: (id, exitS, k) => { const P = placeAt(TOWNS[id], exitS, k); return P ? { at: P.at, approach: P.def.approach, box: boxOf(P.def), cu: P.cu, d0: P.d0 } : null; },
+        fits: (s) => FIT.fits(s, INTERCHANGE.towns),
+        /** A local point of the town she's in (or the standing town `id`) → world. */
+        world(lx, lz, id = null) { const en = id ? S.built.find(b => b.def.id === id) : null; if (en) { const co = Math.cos(en.at.rot), si = Math.sin(en.at.rot); return { x: en.at.x + lx * co + lz * si, z: en.at.z - lx * si + lz * co }; } return toWorld(lx, lz, {}); },
     },
 };
 /** A build spot / home (local: x, z, rot, ux uz, nx nz, cx cz, lotX lotZ) → world (lx / lz keep the local point). */
