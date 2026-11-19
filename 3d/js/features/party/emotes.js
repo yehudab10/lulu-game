@@ -1,9 +1,10 @@
 // features/party — 👋 EMOTES + QUICK CHAT: gestures friends SEE on your puppet.
 //
 //  Eight slots, each a gesture (core/people.js poses) + a short, FIXED, friendly phrase — no free
-//  text anywhere (Dina-aged players). Hold D-pad ↑ (F / M) for the wheel, aim, let go · a quick
-//  tap = 👋 Hi! · 1–8 on a keyboard · the 😀 touch button. On foot (solo or with friends — D-pad ↑ has no
-//  other job on foot) and from the car with friends (where ↑ never fires a missile: party/index.js blanks it).
+//  text anywhere (Dina-aged players). Hold D-pad ↑ (F / M) — on foot also ci/move's EMOTE slot △ / Y (keyboard B,
+//  `input.emoteHeld`) once its input lands — for the wheel, aim with the right stick, let go · a quick tap = 👋 Hi! ·
+//  1–8 on a keyboard · the 😀 touch button. On foot (solo or with friends — D-pad ↑ has no other job on foot) and
+//  from the car with friends (where ↑ never fires a missile: party/index.js blanks it).
 //
 //  On the wire: my snapshot extras `d.x.e = [slot, seq]` for as long as the gesture plays (~2.6 s) — tiny,
 //  survives a dropped packet, and a late joiner sees it too. Friends' walkers play the pose; friends' cars wave
@@ -168,9 +169,11 @@ function greetings(dt) {
 // ── per frame (after the state's update: we pose her on top of what foot drew) ──
 hook("hud", dt => {
     const ok = allowed();
-    U.wheelTick(dt, ok);
+    U.wheelTick(dt, ok, onFootNow());
     U.setChatKeys(ok);
-    if (input.pressed.partyChat && ok) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); }
+    // the 😀 touch button (and, on a touch screen, the EMOTE edge): a tap opens / closes the wheel
+    const tap = input.pressed.partyChat || (input.pressed.emote && input.device === "touch");
+    if (tap && ok) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); }
     if (ME.bubble) ME.bubble.update(dt, 3.5);
     if (ME.i >= 0) {
         ME.t += dt;
@@ -198,7 +201,7 @@ U.setChatHandler(i => {
 }, EMOTES, () => play(IDX.hi));
 
 // the 😀 touch button (it replaces the old 💬 CHAT one: the wheel has the phrases too)
-addTouchButton({ id: "partyChat", emoji: "😀", label: "EMOTE", action: "partyChat", visible: () => allowed() });
+addTouchButton({ id: "partyChat", emoji: "😀", label: "EMOTE", action: "emote", visible: () => allowed() });
 
 on("boot", () => {
     ME.bubble = new R.Bubble(); ME.bubble.k = 1.2;

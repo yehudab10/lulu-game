@@ -32,7 +32,7 @@ import { ctx, on, emit, hook, setState } from "../../core/ctx.js";
 import { dissolve } from "../../core/transition.js";
 import { store, saveSoon } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
-import { rumble } from "../../input.js";
+import { rumble, input } from "../../input.js";
 import * as H from "../../hud.js";
 import * as AU from "../../audio.js";
 import { tone } from "../parking/sfx.js";
@@ -41,6 +41,7 @@ import * as HUD from "./hud.js";
 import { beacon, hideBeacon, hideBeacons, roofProp, tickProps, beaconCount } from "./marks.js";
 import { syncTownTraffic, clearTownTraffic, townCarsAt, townLive, TT, loopPoint, townClaims } from "./towntraffic.js";
 import { registerApps } from "./apps.js";
+import { initSpots, spotsDebug } from "./spots.js";
 import { initRide, startRide, stopRide, riding, tickSeats, ridingWith } from "./ride.js";
 
 const SAVE = store("openworld", { best: {}, games: 0, wins: 0, snaps: 0, pins: 0 });
@@ -105,7 +106,7 @@ function registerRoam() {
     if (!ctx.party || !ctx.party.addActivity) return;
     ctx.party.addActivity("roam", {
         emoji: "🌍", name: "Free Roam", blurb: "Highway + Lakewood together · games on 📱", go: "Go anywhere! 📱 👯 for games",
-        planFirst: true,
+        planFirst: true, noGrid: true,
         init: () => ({ g: null }),
         slotIn: A => { lateJoin(A); return true; },
         respawnAt() {
@@ -167,32 +168,44 @@ function nextExit() {
     return best;
 }
 
-/** Late to a free roam: land next to a friend (the host if we can see them), wherever they are. */
+/** Late to a free roam: land next to a friend — the one whose link I opened, else the host, else anyone —
+ *  wherever they are; if they're walking, she climbs out and walks over too (standing next to them, not a lane away). */
 function lateJoin(A) {
     const t = findFriend(A);
     if (t && t.zone) {
         ctx.party.beginRun(Math.max(GRID_S, (t.ex || 2000) + 190), 5.25, 0);
-        afterGo(() => warpTo(t, 14));
+        afterGo(() => { warpTo(t, t.foot ? 8 : 14); if (t.foot) afterWarp(() => joinOnFoot(t), t.zone); });
     } else if (t) {
-        ctx.party.beginRun(Math.max(GRID_S, t.s - 22), t.d > 3.5 ? 1.75 : 5.25, Math.min(25, Math.max(0, t.vs)));
+        ctx.party.beginRun(Math.max(GRID_S, t.s - (t.foot ? 10 : 22)), t.foot ? 5.25 : t.d > 3.5 ? 1.75 : 5.25, t.foot ? 0 : Math.min(25, Math.max(0, t.vs)));
+        if (t.foot) afterGo(() => joinOnFoot(t));
     } else ctx.party.beginRun(GRID_S, 5.25, 0);
     ctx.party.sendEvent("in", A.id);
     setState("playing");
-    H.banner(`<b>🌍 You're in!</b><small>${t ? `Right next to ${HUD.esc(nameOf(t.uid))}` : "Free roam — 📱 👯 for games"}</small>`, 2600);
+    H.banner(`<b>🌍 You're in!</b><small>${t ? `Right next to ${HUD.esc(nameOf(t.uid))}${t.foot ? " (they're on foot — hop out and say hi 👋)" : ""}` : "Free roam — 📱 👯 for games"}</small>`, 2600);
     tone(660, 0.12, "triangle", 0.16, 990);
 }
+/** The friend I joined is walking: climb out beside them (a parked car behind her, like any walk). */
+function joinOnFoot(t) {
+    if (!ctx.foot || !ctx.foot.start || ctx.state !== "playing" || onFoot()) return;
+    try { ctx.foot.start("droveOff", { line: `There's ${nameOf(t.uid)}! 👋` }); } catch (e) { console.error("[openworld] join on foot", e); }
+}
+// a step that waits until a warp (a soft cut, maybe a town download) has landed her
+let pendingWarp = null;
+function afterWarp(fn, zoneWanted = "") { pendingWarp = { fn, at: performance.now(), zone: zoneWanted }; }
 let pendingGo = null;
 function afterGo(fn) { pendingGo = fn; }
-/** A friend's latest place: {uid, zone, ex, s, d, vs, x, z, h} (host first). */
+/** A friend's latest place: {uid, zone, ex, s, d, vs, x, z, h, foot} (the friend whose link I opened first, then the host). */
 function findFriend(A) {
     const list = members().filter(u => u !== me());
-    list.sort((a, b) => (b === ctx.party.host) - (a === ctx.party.host));
+    const inv = ctx.party.inviter || "";
+    const rank = u => (u === inv ? 2 : 0) + (u === ctx.party.host ? 1 : 0);
+    list.sort((a, b) => rank(b) - rank(a));
     for (const u of list) {
         const p = ctx.party.peer(u);
         if (!p || !p.samples || !p.samples.length || (A && p.aid !== A.id) || p.m < 2 || p.m > 4) continue;
-        const sm = p.samples[p.samples.length - 1], z = zoneOfPeer(p);
-        if (z) return { uid: u, zone: z, ex: (p.x && p.x.ex) || 0, x: -sm.d, z: sm.s - OFF, h: sm.yaw, s: 0, d: 0, vs: 0 };
-        return { uid: u, zone: "", s: sm.s, d: sm.d, vs: sm.vs, x: 0, z: 0, h: 0 };
+        const sm = p.samples[p.samples.length - 1], z = zoneOfPeer(p), foot = !!(p.x && Array.isArray(p.x.f));
+        if (z) return { uid: u, zone: z, ex: (p.x && p.x.ex) || 0, x: -sm.d, z: sm.s - OFF, h: sm.yaw, s: 0, d: 0, vs: 0, foot };
+        return { uid: u, zone: "", s: sm.s, d: sm.d, vs: sm.vs, x: 0, z: 0, h: 0, foot };
     }
     return null;
 }
@@ -316,8 +329,15 @@ function hostEvent(uid, kind, a) {
     if (!/^ow/.test(kind)) return;
     const g = getG(), t = now();
     if (kind === "owg") {
-        if (g && g.ph === "go") return;
+        if (g && (g.ph === "go" || g.ph === "in")) return;
         startGame(a[0], uid, a[1]);
+        return;
+    }
+    // an invitation: a friend opts in (came over to the spot · tapped the chip · 📱 👯) / the starter starts it now / calls it off
+    if (kind === "owi" || kind === "owgo" || kind === "owx") {
+        if (!g || g.ph !== "in" || (a[0] | 0) !== g.n) return;
+        if (kind === "owi") { if (!g.ps.includes(uid)) { const ng = clone(g); ng.ps.push(uid); setG(ng); } }
+        else if (uid === g.by) setG(kind === "owgo" ? launch(clone(g), t) : Object.assign(clone(g), { ph: "off", why: "called off", endAt: Math.round(t) }));
         return;
     }
     if (!g || g.ph !== "go" || (a[0] | 0) !== g.n || !g.ps.includes(uid)) return;
@@ -331,22 +351,53 @@ function startGame(k, starter, req) {
     if (!G || !req || !req.at) return false;
     const prev = getG(), t = now();
     const mem = members();
-    const ps = [starter].concat(mem.filter(u => u !== starter));
     const n = ((prev && prev.n) || (roam() ? 0 : SOLO.n)) + 1;
     if (!roam()) SOLO.n = n;
-    const g = { k, n, ph: "go", t0: Math.round(t + (roam() ? 4500 : 3200)), at: req.at, ps };
-    const why = G.setup(g, req, mulberry(hashStr(k + ":" + n + ":" + t)));
-    if (why) { if (starter === me()) H.toast(why, "red"); return false; }
+    // With friends it's an INVITATION: the starter is in, everyone else opts in (drive / walk over to the spot, tap the
+    // chip, 📱 👯 → Join) within INVITE_MS — nobody is warped, held or pulled out of what they're doing.
+    if (roam() && mem.length > 1) {
+        setG({ k, n, ph: "in", at: req.at, ps: [starter], by: starter, spot: req.spot || null, until: Math.round(t + INVITE_MS), req });
+        return true;
+    }
+    const g = launch({ k, n, at: req.at, ps: [starter].concat(mem.filter(u => u !== starter)), by: starter, req }, t);
+    if (g.ph === "off") { if (starter === me()) H.toast(g.why, "red"); return false; }
     setG(g);
+    return true;
+}
+const INVITE_MS = 15000;           // an invitation stays open this long (or until everyone's in)
+const JOIN_R = 24;                 // coming this close to the spot opts you in
+/** An invitation (or a solo request) → the game itself: { ph: "go", … } or { ph: "off", why }. */
+function launch(g, t) {
+    const G = GAMES[g.k], mem = members();
+    const ps = g.ps.filter(u => mem.includes(u));
+    const ng = { k: g.k, n: g.n, ph: "go", t0: Math.round(t + (roam() ? 4500 : 3200)), at: g.at, ps, by: g.by, spot: g.spot || null };
+    if (ps.length < (G.min || 1)) return Object.assign(ng, { ph: "off", why: `${G.emoji} ${G.name} needs ${G.min} players — nobody else hopped in this time`, endAt: Math.round(t) });
+    const why = G.setup(ng, g.req, mulberry(hashStr(g.k + ":" + g.n + ":" + t)));
+    if (why) return Object.assign(ng, { ph: "off", why, endAt: Math.round(t) });
+    return ng;
+}
+/** Opt in to the invitation that's open (once). */
+function optIn(g = getG()) {
+    if (!g || g.ph !== "in" || g.ps.includes(me()) || CL.optSent === g.n) return false;
+    CL.optSent = g.n;
+    send("owi", g.n);
+    H.toast(`✅ You're in: ${GAMES[g.k].emoji} ${GAMES[g.k].name}!`, "gold");
+    tone(660, 0.1, "triangle", 0.16, 990);
+    emit("openworld:optin", { k: g.k, n: g.n });
     return true;
 }
 let hostAt = -1e9;
 function hostTick(force = false) {
     const g = getG();
-    if (!g || g.ph !== "go") return;
+    if (!g || (g.ph !== "go" && g.ph !== "in")) return;
     const w = performance.now();
     if (!force && w - hostAt < 100) return;              // the end conditions at 10 Hz (a clone per check)
     hostAt = w;
+    if (g.ph === "in") {                                 // the invitation closes: time's up, everyone's in, or the starter left
+        const t = now(), mem = members();
+        if (t >= g.until || mem.every(u => g.ps.includes(u)) || !mem.includes(g.by)) setG(launch(clone(g), t));
+        return;
+    }
     const t = now(), ng = clone(g);
     const r = GAMES[g.k].tick(ng, t, members());
     if (r === true) { ng.ph = "done"; ng.endAt = Math.round(t); setG(ng); }
@@ -360,23 +411,24 @@ function blockReason(k) {
     if (party() && !roam()) return "Games run in 🌍 Free Roam";
     if (!party() && !G.solo) return "Needs friends — 🎉 Party with friends on the home screen";
     if (roam() && members().length < (G.min || 1)) return `Needs ${G.min} players — invite a friend 👯`;
-    if (onFoot()) return "Get back in a car first 🚗";
-    if (ctx.state !== "playing") return "Get driving first 🚗";
+    if (ctx.state !== "playing" && !(ctx.state === "footRun" && onFoot())) return "Get driving first 🚗";   // (on foot: back in the car at GO)
     if (!party() && (ctx.G.mode === "story" || ctx.G.mode === "shabbos")) return "Free drive only — try 🛣️ Cruise";
     if (!party() && ctx.law && (ctx.law.chasing || ctx.law.wanted >= 2)) return "Lose the cops first 🚓";
     if (!party() && ctx.hustle && ctx.hustle.job) return "Finish your side job first 💼";
     const g = getG();
     if (g && g.ph === "go") return `${GAMES[g.k].emoji} ${GAMES[g.k].name} is already on`;
+    if (g && g.ph === "in") return `${GAMES[g.k].emoji} ${GAMES[g.k].name} is starting — join in!`;
     if (G.town && !zone()) return "Happens in town — take the exit 🏙️";
     return "";
 }
 /** Ask for game k (anyone: the host starts it from MY spot). → "" or the reason it didn't. */
-function requestGame(k) {
+function requestGame(k, opts = {}) {
     const why = blockReason(k);
     if (why) return why;
     const req = GAMES[k].request(X);
     if (typeof req === "string") return req;
-    req.at = here();
+    req.at = opts.at || here();
+    if (opts.spot) req.spot = { name: String(opts.spot.name).slice(0, 30), x: +(+opts.spot.x).toFixed(1), z: +(+opts.spot.z).toFixed(1) };
     send("owg", k, req);
     return "";
 }
@@ -500,9 +552,18 @@ function tickGames() {
     const g = getG();
     const src = roam() ? "p:" + ctx.party.code : "s";
     if (!g) { if (CL.n !== -1) leaveGame(); return; }
-    const key = src + ":" + g.n;
+    const key = src + ":" + g.n + (g.ph === "in" ? "i" : g.ph === "off" ? "x" : "");
     if (key !== CL.key) enterGame(g, key);
     const t = now(), mine = g.ps.includes(me());
+    // an open invitation: walking / driving up to the spot opts me in
+    if (g.ph === "in") {
+        if (roam() && !mine && (g.at.zone || "") === zone() && (ctx.state === "playing" || ctx.state === "footRun")) {
+            const sp = invitePos(g), lp = onFoot() && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos;
+            if (sp && Math.hypot(lp.x - sp.x, lp.z - sp.z) < JOIN_R) optIn(g);
+        }
+        markers(g, t);
+        return;
+    }
     // the 3-2-1 (it shows over a paused game too: the party never stops)
     if (g.ph === "go" && mine && t < g.t0 && ctx.state === "playing" && g.at.zone === zone()) {
         const G = GAMES[g.k], n = Math.ceil((g.t0 - t) / 1000);
@@ -533,9 +594,23 @@ function roleLine(g) {
 function enterGame(g, key) {
     CL.key = key; CL.n = g.n; CL.lastCount = null;
     CL.L = { fin: false, claimed: {}, snap: {}, passed: -1 };
+    const G = GAMES[g.k];
+    if (g.ph === "in") {
+        if (g.by !== me()) {
+            H.toast(`🎮 ${nameOf(g.by)} is starting ${G.emoji} ${G.name}${g.spot ? " at " + g.spot.name : ""} — come over to join!`, "pink", { key: "owinv" });
+            tone(523, 0.08, "triangle", 0.12); tone(784, 0.12, "triangle", 0.12, 0, 0.09);
+        } else H.toast(`🎮 ${G.emoji} ${G.name}: friends nearby can hop in — starts in ${Math.round(INVITE_MS / 1000)} s`, "pink", { key: "owinv" });
+        return;
+    }
+    if (g.ph === "off") {
+        if (g.ps.includes(me())) H.toast(g.why || "Called off", "red", { key: "owinv" });
+        hideBeacons("g:"); HUD.hideAll();
+        return;
+    }
     if (g.ph !== "go") return;
     const mine = g.ps.includes(me()), t = now();
-    if (!mine) { H.toast(`${GAMES[g.k].emoji} ${GAMES[g.k].name} started — you're watching (next one!)`, ""); return; }
+    if (!mine) { if (roam()) H.toast(`${G.emoji} ${G.name} started without you — catch the next one!`, ""); return; }
+    if (onFoot() && ctx.state === "footRun") backInCar();          // (opted in on foot: the car's back under her for GO)
     if (ctx.phone && ctx.phone.isOpen && ctx.phone.closePhone) { try { ctx.phone.closePhone(); } catch (e) { /* fine */ } }
     if (riding()) stopRide(true);
     if (roam() && t < g.t0 + 1500 && CL.warped !== key) {
@@ -547,6 +622,16 @@ function enterGame(g, key) {
     }
     emit("openworld:start", { k: g.k, n: g.n });
     emit("stat", { id: "owGames", n: 1 });
+}
+/** Where an invitation is: the spot it was started from, else the starter. */
+function invitePos(g) { return g.spot ? { x: g.spot.x, z: g.spot.z } : posOf(g.by); }
+/** Off her feet and back behind the wheel (a game she opted into on foot is about to start). */
+function backInCar() {
+    try {
+        const pk = ctx.foot.parkedCar, p = ctx.foot.pos;
+        if (pk && !pk.wrecked && pk.key === "lulu") ctx.foot.drive({ own: true, x: pk.x, z: pk.z, h: pk.h });
+        else ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 });
+    } catch (e) { console.error("[openworld] back in car", e); }
 }
 /** Back to the game I'm in (it moved to another zone without me). */
 function warpToGame() {
@@ -605,6 +690,12 @@ function showResults() {
 function markers(g, t) {
     const here = (g.at.zone || "") === zone() && !ctx.view;
     const live = g.ph === "go" && here;
+    if (g.ph === "in") {                                  // the invitation: a gold beacon over the spot
+        const p = here && invitePos(g);
+        if (p) beacon("g:inv", p.x, p.z, "#FFD54F", 3.6); else hideBeacons("g:");
+        tickProps(ctx.time, []);
+        return;
+    }
     if (!live) hideBeacons("g:");
     else if (g.k === "pin") beacon("g:pin", g.pin.x, g.pin.z, "#FFD54F", 4);
     else if (g.k === "cnr") beacon("g:drop", g.drop.x, g.drop.z, "#66BB6A", 4.5);
@@ -645,6 +736,10 @@ hook("update", (dt, P, controlsOn) => {
     if (!roam()) SOLO.ms += dt * 1000;
     if (roam() && zone() && ctx.town.plan) syncTownTraffic(zone(), ctx.town.plan, ctx.party.seed >>> 0);
     if (pendingGo && ctx.state === "playing") { const f = pendingGo; pendingGo = null; try { f(); } catch (e) { console.error("[openworld] go", e); } }
+    else if (pendingWarp && ctx.state === "playing" && performance.now() - pendingWarp.at > 700) {
+        const w = pendingWarp, landed = zone() === (w.zone || "");
+        if (landed || performance.now() - w.at > 30000) { pendingWarp = null; if (landed) { try { w.fn(); } catch (e) { console.error("[openworld] after warp", e); } } }
+    }
     const g = getG();
     if (g && g.ph === "go" && CL.L && g.ps.includes(me()) && ctx.state === "playing" && (g.at.zone || "") === zone()) {
         try { GAMES[g.k].play(g, me(), now(), X); } catch (e) { console.error("[openworld] play", e); }
@@ -670,6 +765,14 @@ hook("hud", dt => {
     hudT = 0.2;
     if (ctx.paused) return;
     const g = getG(), t = now();
+    if (g && g.ph === "in") {
+        const G = GAMES[g.k], left = Math.max(0, Math.ceil((g.until - t) / 1000)), mine = g.ps.includes(me());
+        const where = g.spot ? ` at ${HUD.esc(g.spot.name)}` : "", sp = (g.at.zone || "") === zone() ? invitePos(g) : null;
+        if (mine) HUD.chip(`✅ ${G.emoji} ${HUD.esc(G.name)}${where} · ${g.ps.length} in · starts in <b>${left}</b>${g.by === me() && g.ps.length >= (G.min || 1) ? ` · ${input.device === "touch" ? "tap" : "📱"} to start now` : ""}`, "green", g.by === me() ? null : sp, g.by === me() ? () => send("owgo", g.n) : null);
+        else HUD.chip(`🎮 ${HUD.esc(nameOf(g.by))}: ${G.emoji} ${HUD.esc(G.name)}${where} · ${left} s — <b>${input.device === "touch" ? "tap to join" : sp ? "come over or 📱 to join" : "📱 👯 to join"}</b>`, "gold", sp, () => optIn(g));
+        HUD.board("");
+        return;
+    }
     if (g && g.ph === "go" && CL.L && (g.at.zone || "") === zone()) {
         if (!g.ps.includes(me())) { HUD.chip(`👀 ${GAMES[g.k].emoji} ${GAMES[g.k].name} is on — you're in the next one`, ""); HUD.board(""); return; }
         if (t < g.t0) { HUD.chip(""); HUD.board(""); return; }
@@ -740,11 +843,12 @@ requestAnimationFrame(frame);
 
 // ── the service ──────────────────────────────────────────────────────────
 const E = {
-    roam, party, me, now, zone, members, nameOf, skinHex, posOf, isHost, getG, requestGame, blockReason, endGameNow,
+    roam, party, me, now, zone, members, nameOf, skinHex, posOf, isHost, getG, requestGame, blockReason, endGameNow, optIn, invitePos, send,
     warpToFriend, warpToGame, startRide, stopRide, riding, setRide(uid) { if (uid) ROAM.extra.rd = uid; else delete ROAM.extra.rd; }, pin, unpin, get pinned() { return NP.pin; }, townSights, findFriend, zoneOfPeer, GAMES, ORDER, CL, SAVE,
     fmtRace: HUD.fmtRace,
 };
 registerApps(E);
+on("boot", () => initSpots(E));
 initRide(E);
 ctx.openworld = {
     /** Towns in a 🎉 party: only while the party free-roams (town/index.js asks). */
@@ -752,7 +856,9 @@ ctx.openworld = {
     seeded,
     get zone() { return zone(); },
     get game() { const g = getG(); return g ? clone(g) : null; },
-    start: k => requestGame(k),
+    start: (k, opts) => requestGame(k, opts),
+    /** Opt in to the game invitation that's open (→ true when sent). */
+    join: () => optIn(),
     end: () => endGameNow(),
     warpTo: uid => warpToFriend(uid),
     /** 🚗 Ride along in friend uid's passenger seat ("" or why not) · hop out. */
@@ -766,6 +872,6 @@ ctx.openworld = {
         CL, SOLO, NP, TT, townCarsAt, townLive, townClaims, beaconCount, sights: townSights, pins, hostTick, getG, here,
         /** tests: claim a game event as me (exactly what play() would send). */
         claim: (k, ...a) => send(k, ...a),
-        touching, posOf,
+        touching, posOf, spots: spotsDebug,
     },
 };

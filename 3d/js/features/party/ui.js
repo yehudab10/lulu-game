@@ -4,7 +4,7 @@
 // no free text). Every screen is a showScreen card → D-pad + ✕/○ work,
 // prompts use glyph(); one big primary button per screen.
 import { ctx, css } from "../../core/ctx.js";
-import { glyph, input } from "../../input.js";
+import { glyph, glyphSet, input } from "../../input.js";
 import * as H from "../../hud.js";
 import { CODE_ABC, CODE_LEN } from "./net.js";
 
@@ -194,15 +194,23 @@ export function openWheel(byHold) {
     wheel.innerHTML = `<div class="scrim"></div>` + W.items.map((it, i) => {
         const a = -Math.PI / 2 + i * Math.PI * 2 / n;
         return `<button class="disc nav" data-i="${i}" style="left:${(Math.cos(a) * R * 1.35).toFixed(0)}px;top:${(Math.sin(a) * R).toFixed(0)}px"><b>${it.e}</b><span>${esc(it.say)}</span><small>${i + 1}</small></button>`;
-    }).join("") + `<div class="hub">${input.device === "gamepad" ? `R-stick, let go of ${glyph("fire")}` : input.device === "touch" ? "tap one" : "1–8 or click"}</div>`;
+    }).join("") + `<div class="hub">${input.device === "gamepad" ? `R-stick, let go of ${emoteGlyph()}` : input.device === "touch" ? "tap one" : "1–8 or click"}</div>`;
     wheel.classList.add("open");
+    document.body.classList.add("emote-wheel");        // (ci/move: no free-look while the right stick aims the wheel)
 }
-export function closeWheel() { if (!W.open) return; W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; }
+export function closeWheel() { if (!W.open) return; W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; document.body.classList.remove("emote-wheel"); }
 export const wheelOpen = () => W.open;
-/** Per frame. on = emotes allowed right now (with friends in the car · on foot). */
-export function wheelTick(dt, on) {
+/** The button that holds the wheel open: ci/move's EMOTE slot on foot (△ / Y, keyboard B: input.emoteHeld) once
+ *  the input has it, and D-pad ↑ / F (fire: never a missile with friends, unused on foot) everywhere. */
+export function emoteGlyph() {
+    const set = glyphSet && glyphSet("keyboard");
+    return set && set.emote && W.foot ? glyph("emote") : glyph("fire");
+}
+/** Per frame. on = emotes allowed right now (with friends in the car · on foot). foot = she's walking. */
+export function wheelTick(dt, on, foot = false) {
+    W.foot = !!foot;
     if (!on) { W.holdT = 0; W.armed = false; closeWheel(); return; }
-    if (input.fireHeld) {
+    if (input.fireHeld || (foot && input.emoteHeld)) {
         if (!W.holdT) W.armed = !W.open;
         W.holdT += dt;
         if (W.holdT > 0.18 && !W.open && input.device !== "touch") openWheel(true);
@@ -232,8 +240,8 @@ window.addEventListener("keydown", e => {
 });
 
 /** Copy / share the invite link. Returns a promise of the message to show. */
-export async function shareInvite(code) {
-    const url = inviteUrl(code);
+export async function shareInvite(code, uid) {
+    const url = inviteUrl(code, uid);
     const text = `Join my Lulu's Road Trip party! Code ${code}`;
     try {
         if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: "Lulu's Road Trip 3D", text, url }); return "📤 Invite sent!"; }
@@ -241,8 +249,10 @@ export async function shareInvite(code) {
     try { await navigator.clipboard.writeText(url); return "📋 Link copied — paste it to your friends!"; }
     catch (e) { return `Share this link: ${url}`; }
 }
-export function inviteUrl(code) {
+export function inviteUrl(code, uid) {
+    // (&with=<my player id>: whoever opens it lands right next to ME in 🌍 Free Roam, not just next to the host)
+    const w = uid && /^[A-Za-z0-9_-]{1,24}$/.test(uid) ? `&with=${uid}` : "";
     // The iOS app runs at capacitor://localhost/3d/ — a link friends can open is the web game's.
-    if (!/^https?:$/.test(location.protocol)) return `https://lulu.boats/3d/?party=${code}`;
-    return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}`;
+    if (!/^https?:$/.test(location.protocol)) return `https://lulu.boats/3d/?party=${code}${w}`;
+    return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}${w}`;
 }

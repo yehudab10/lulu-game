@@ -281,8 +281,19 @@ async function partyRun(t, guests) {
   const settle =async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "go" && ctx.party.clock() > ctx.openworld.game.t0 + 300`, what, 40000)) return false; return true; };
   const done = async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "done"`, what, 40000)) return false; return true; };
 
+  // a game with friends is an INVITATION now: the other screen sees it open, opts in (ctx.openworld.join = the chip /
+  // 📱 👯 Join / walking up to the spot), and it starts at once when everyone's in — nobody is pulled in unasked
+  const optIn = async (k, other, what) => {
+    if (!await other.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && (ctx.openworld.game.ph === "in" || ctx.openworld.game.ph === "go")`, what + ": the invitation arrives", 40000)) return false;
+    await other.game(`ctx.openworld.join()`);
+    return true;
+  };
   // 🚓 COPS & ROBBERS — started by the GUEST from the phone
-  t.check("C&R: the guest asks, the host starts it", (await A.game(`ctx.openworld.start("cnr")`)) === "");
+  t.check("C&R: the guest asks, the host starts it (as an invitation)", (await A.game(`ctx.openworld.start("cnr")`)) === "");
+  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.ph === "in"`, "C&R: the host sees the invitation", 40000);
+  const inv = await g(`({ ph: ctx.openworld.game.ph, ps: ctx.openworld.game.ps, chip: document.getElementById("owChip").textContent, st: ctx.state })`);
+  t.check("C&R: an invitation — only the guest is in, the host isn't pulled in (still driving, a 'join' chip)", inv.ph === "in" && inv.ps.length === 1 && inv.ps[0] === guestUid && inv.st === "playing" && /join/i.test(inv.chip), JSON.stringify(inv));
+  await g(`ctx.openworld.join()`);
   if (!await settle("cnr", "C&R: GO")) return;
   const cnr = await g(`ctx.openworld.game`);
   t.check("C&R: same game + roles on both screens", JSON.stringify(await A.game(`[ctx.openworld.game.n, ctx.openworld.game.cop]`)) === JSON.stringify([cnr.n, cnr.cop]) && !!cnr.drop);
@@ -312,6 +323,7 @@ async function partyRun(t, guests) {
 
   // 🥘 HOT KUGEL — a bump passes it, then the fuse blows
   t.check("kugel starts", (await g(`ctx.openworld.start("kugel")`)) === "");
+  await optIn("kugel", A, "kugel");
   if (!await settle("kugel", "kugel: GO")) return;
   await g(`ctx.party.clock() > ctx.openworld.game.guard`) || await hostUntil(t, `ctx.party.clock() > ctx.openworld.game.guard + 100`, "kugel guard", 10000);
   const it0 = await g(`ctx.openworld.game.it`);
@@ -332,6 +344,7 @@ async function partyRun(t, guests) {
 
   // 📍 RACE TO A PIN — both finish → scoreboard → the guest's 🔁 Rematch
   t.check("race to a pin starts", (await g(`ctx.openworld.start("pin")`)) === "");
+  await optIn("pin", A, "pin");
   if (!await settle("pin", "pin: GO")) return;
   const pin = await g(`ctx.openworld.game.pin`);
   t.check("pin: the same pin on both screens", JSON.stringify(await A.game(`ctx.openworld.game.pin`)) === JSON.stringify(pin));
@@ -342,6 +355,7 @@ async function partyRun(t, guests) {
   t.check("pin: the guest got there first", rows[0].startsWith(guestUid), rows.join(" | "));
   await A.until(`ctx.phone.isOpen && document.getElementById("owRematch")`, "guest scoreboard", 10000);
   await A.L(`document.getElementById("owRematch").click()`);
+  await optIn("pin", pages[0], "rematch");
   await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.k === "pin" && ctx.openworld.game.ph === "go"`, "the guest's rematch starts a new race", 20000);
   t.check("rematch: a new race (n + 1)", (await g(`ctx.openworld.game.n`)) > 0 && (await g(`ctx.openworld.game.ph`)) === "go");
   await sleep(4000);

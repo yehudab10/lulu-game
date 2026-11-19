@@ -103,7 +103,11 @@ ctx.party = {
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
-    hostParty, joinParty, join: code => joinParty(code), leave, openHub,
+    hostParty, hostRoam, joinParty, join: code => joinParty(code), leave, openHub,
+    /** Share / copy the invite link (it lands friends right next to ME in Free Roam). → a promise of the message. */
+    invite: () => U.shareInvite(N.code, N.uid),
+    /** Who sent the link I joined from (their uid, or "") — Free Roam drops me next to them. */
+    get inviter() { return P.with || ""; },
     trafficAt: (T0, s0, s1) => T.trafficAt(T0, s0, s1),
     trafficLive: () => T.trafficLive(),
     // ── for other features' party activities (openworld's 🌍 Free Roam) ──
@@ -253,16 +257,20 @@ function playerInfo(uid) {
 }
 
 // ── host / join / leave ──────────────────────────────────────────────────
-function hostParty() {
+/** Host a party. opts.act: start that activity as soon as we're connected (🌍 Free Roam — no lobby wall). */
+function hostParty(opts = {}) {
     if (!NET.allowed()) { H.toast("Parties need an internet connection", "red"); return false; }
     disconnectSharedRoad();
     const code = NET.newCode();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, true);
     P.ready = false; P.actId = N.A.id;
+    P.autoAct = opts && opts.act && ACTS[opts.act] ? opts.act : null;
     setState("partyLobby");
     return code;
 }
+/** 🌍 Hang out: host straight into Free Roam (friends who open the link land right next to you). */
+function hostRoam() { return hostParty({ act: ACTS.roam ? "roam" : null }); }
 function joinParty(code) {
     code = String(code || "").toUpperCase();
     if (!NET.allowed() || !NET.validCode(code)) return false;
@@ -303,7 +311,7 @@ function teardown() {
     U.setChatKeys(false);
     caption("");
     document.body.classList.remove("party-stage", "party-drive");
-    P.actId = -1; P.me = {}; P.ready = false; P.spectate = null;
+    P.actId = -1; P.me = {}; P.ready = false; P.spectate = null; P.autoAct = null;
 }
 
 // ── the hub (from the title) ─────────────────────────────────────────────
@@ -314,7 +322,8 @@ function openHub() {
         <p class="pt-sub">${can ? "Drive together on the same road — up to 8 friends." : "Private parties need an internet connection."}</p>`;
     const buttons = [];
     if (can) {
-        buttons.push({ id: "pt_host", cls: "pt-big", label: `<span>🎉 Host a party ${glyph("confirm")}</span><small>get a code + an invite link</small>`, action: hostParty });
+        if (ACTS.roam) buttons.push({ id: "pt_roam", cls: "pt-big", label: `<span>🌍 Hang out with friends ${glyph("confirm")}</span><small>straight into Free Roam · share the link, they pop up next to you</small>`, action: hostRoam });
+        buttons.push({ id: "pt_host", cls: ACTS.roam ? "" : "pt-big", label: `<span>🎉 Host a party lobby${ACTS.roam ? "" : " " + glyph("confirm")}</span><small>races, a road trip, dreidel dash, cop tag</small>`, action: () => hostParty() });
         buttons.push({ id: "pt_join", cls: "purple", label: `<span>🔑 Join with a code</span><small>type your friend's 4 letters</small>`, action: () => openJoin() });
     }
     // the cross-play Shared Road (2D + 3D), folded in here as the secondary option
@@ -339,7 +348,7 @@ addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick) {
     if (!N.isHost || !ACTS[k]) return false;
-    const A = N.A, ps = NET.members(), t0 = Math.round(clock() + 5200), id = (A.id | 0) + 1;
+    const A = N.A, ps = NET.members(), t0 = Math.round(clock() + (ACTS[k].noGrid ? 300 : 5200)), id = (A.id | 0) + 1;
     const next = { k, id, ph: "go", t0, seed: (Math.random() * 4294967295) >>> 0, ps, pick: k, fin: {}, arr: {} };
     if (k === "dash") Object.assign(next, { dur: DASH_MS, got: {} });
     if (ACTS[k].init) Object.assign(next, ACTS[k].init(next) || {});
@@ -452,6 +461,12 @@ function enterActivity(A) {
     if (late) { slotIn(A); return; }
     const row = Math.floor(idx / 2), lane = idx % 2;
     beginRun(GRID_S - row * 8.5, lane ? 5.25 : 1.75, 0);
+    if (ACTS[A.k].noGrid) {                            // (🌍 Free Roam: nothing to count down to — just go)
+        setState("playing");
+        H.banner(`<b>${ACTS[A.k].emoji} ${ACTS[A.k].name}</b><small>${ACTS[A.k].go}</small>`, 2600);
+        tone(660, 0.12, "triangle", 0.16, 990);
+        return;
+    }
     setState("partyGrid");
 }
 
@@ -1186,7 +1201,7 @@ function renderLobby(force) {
     const act = ACTS[pick];
     const tiles = ORDER.map(k => `<button class="btn${k === pick ? " sel" : ""}" id="pt_act_${k}">${ACTS[k].emoji} ${ACTS[k].name}<small>${ACTS[k].blurb}</small></button>`).join("");
     const html = `<div class="pt-row">${code}<button class="btn pt-invite" id="pt_inv">📤 Invite</button></div>
-        <div class="pt-link" id="pt_link">${U.esc(P.shareMsg || U.inviteUrl(N.code).replace(/^https?:\/\//, ""))}</div>
+        <div class="pt-link" id="pt_link">${U.esc(P.shareMsg || U.inviteUrl(N.code, N.uid).replace(/^https?:\/\//, ""))}</div>
         <div class="pt-crew" id="pt_crew"></div>
         <div class="pt-h">You</div>
         <div class="pt-opts"><button class="btn" id="pt_name"></button><button class="btn" id="pt_car"></button><button class="btn" id="pt_horn"></button></div>
@@ -1196,7 +1211,7 @@ function renderLobby(force) {
         <div class="pt-status" id="pt_status"></div>`;
     const card = H.showScreen(html, [], { onBack: backInLobby, focus: focusNow || P.lobbyFocus || "pt_go", cls: "pt-card pt-lobby" });
     const onc = (id, fn) => { const b = card.querySelector("#" + id); if (b) b.addEventListener("click", () => { AU.sfxSelect(); fn(b); }); };
-    onc("pt_inv", async () => { P.shareMsg = await U.shareInvite(N.code); const l = document.getElementById("pt_link"); if (l && P.shareMsg) l.textContent = P.shareMsg; if (P.shareMsg) H.toast(P.shareMsg, "gold"); });
+    onc("pt_inv", async () => { P.shareMsg = await U.shareInvite(N.code, N.uid); const l = document.getElementById("pt_link"); if (l && P.shareMsg) l.textContent = P.shareMsg; if (P.shareMsg) H.toast(P.shareMsg, "gold"); });
     onc("pt_name", () => { const i = NET.NAMES.indexOf(nameOf(N.uid)); NET.setMyName(NET.NAMES[(i + 1) % NET.NAMES.length]); P.cache.at = -1; names.at = -1; refreshLobbyBits(); });
     onc("pt_car", () => {
         const c = profileCache(), i = c.skins.indexOf(ctx.car.skinKey), next = c.skins[(i + 1) % c.skins.length];
@@ -1692,6 +1707,8 @@ function frame() {
         updateRate();
         publish();
         if (N.isHost) hostTick();
+        // hosted straight into an activity (🌍 Hang out): start it the moment we're the connected host
+        if (P.autoAct && N.isHost && N.connected && N.A && N.A.k === "lobby" && NET.clockSynced()) { const k = P.autoAct; P.autoAct = null; hostStart(k); }
         followActivity();
         // full? (the host's roster has no room for us)
         if (N.connected && N.host && !N.isHost && N.roster.length >= NET.MAX_PLAYERS && !N.roster.includes(N.uid) && performance.now() - N.connectedAt > 4000) {
@@ -1744,6 +1761,8 @@ function hornsNearby() {
 function autoJoin() {
     if (!NET.allowed()) return;
     const q = (QS.get("party") || "").toUpperCase();
+    const w = QS.get("with") || "";
+    if (/^[A-Za-z0-9_-]{1,24}$/.test(w)) P.with = w;
     if (NET.validCode(q)) { joinParty(q); return; }
     try {
         const s = JSON.parse(sessionStorage.getItem("luluParty") || "null");

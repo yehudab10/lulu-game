@@ -2,7 +2,12 @@
 //   EMOTES   the wheel (hold D-pad ↑ · a quick tap = 👋) on foot and from the car; the friend SEES the gesture on my
 //            puppet (d.x.e) — a walking Lulu dancing / face-palming, a car waving an arm + the phrase bubble;
 //            two gestures at each other → a combo on BOTH screens; passing a friend → a greeting
-//   NOBODY FROZEN  my emotes / my wheel never stop a friend's world (their clock + frames keep going)
+//   JOIN     🌍 Hang out = straight into Free Roam (no lobby, no 3-2-1); a friend who opens my link (…&with=me) lands
+//            right next to me — on foot, since I'm walking
+//   SPOTS    the 🕹️ arcade outside the pizza shop: walk up → ✋ → the card → 🥘 Hot Kugel = an INVITATION (the friend
+//            isn't pulled in); the friend drives over → opted in → GO for both (the starter back in her car)
+//   NOBODY FROZEN  my emotes / my wheel / my invitation never stop a friend's world (their clock + frames keep going)
+//   LEAVE    one tap in the 📱 👯 app; the friend keeps playing
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const path = require("path");
 const { startRelay, guestPage, hostPage } = require("../lib/party3d.js");
@@ -10,6 +15,7 @@ let relay = null;
 const PORT = 25000 + (process.pid % 20000);
 const Q0 = `&enable=party,foot,town,atmos,openworld&mpurl=${encodeURIComponent(`ws://127.0.0.1:${PORT}`)}`;
 const SHOTS = path.join(__dirname, "..", "..", "smoke-shots");
+const PLACE = (x, z, h = 0) => `(() => { const c = ctx.car, n = ctx.world.road.nearest(${x}, ${z}, null, {}); c.place(${x}, ${z}, ${h}); c.s = n.s; c.d = n.d; c.vx = c.vz = 0; c.vF = 0; return true; })()`;
 
 module.exports = {
   name: "partyhang",
@@ -62,79 +68,134 @@ async function partyRun(t, guests) {
   await g(`(ctx.foot.end ? ctx.foot.end("test") : 0, L3.setState("title"), true)`);
   await t.frames(6);
 
-  // ── a party: host + a friend from the link ──
+  // ── 🌍 Hang out: the host goes straight into Free Roam ──
   await t.click(/Party with friends/);
-  await t.click(/Host a party/);
-  if (!await Hp.until(`ctx.party.connected && ctx.party.isHost`, "host: connected")) return;
-  const code = await g(`ctx.party.code`);
-  const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}`);
-  guests.push(A);
-  if (!await A.until(`ctx.party.connected && ctx.party.host`, "joins from the link", 180000)) return;
-  await Hp.until(`ctx.party.players.length === 2`, "two in the party");
-  // into 🌍 Free Roam (from the lobby, if the host is still in one)
-  if (await g(`ctx.state === "partyLobby"`)) {
-    await t.L(`(() => { const b = document.getElementById("pt_act_roam"); if (b) b.click(); return !!b; })()`);
-    await t.frames(4);
-    await t.L(`(() => { const b = document.getElementById("pt_go"); if (b) b.click(); return !!b; })()`);
-  }
-  for (const p of [Hp, A]) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam", 120000)) return;
-  const hostUid = await g(`ctx.party.uid`), guestUid = await A.game(`ctx.party.uid`);
-  const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
-  for (const p of [Hp, A]) await p.game(`(ctx.law && ctx.law.hold && ctx.law.hold(9999), true)`);
-  // side by side on the highway
-  const s0 = await g(`Math.round(ctx.car.s)`);
-  await g(`(ctx.party.placeCar(${s0} + 20, 1.75, 0), true)`);
-  await A.game(`(ctx.party.placeCar(${s0} + 12, 5.25, 0), true)`);
-  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown; })()`, "the guest sees the host's car", 60000);
-  await Hp.until(`(() => { const rc = ctx.party.remoteCar(${GU}); return !!rc && rc.shown; })()`, "the host sees the guest's car", 60000);
-
-  // ── from the car: the host waves → the guest sees the car's arm + bubble ──
-  await g(`ctx.emotes.debug.resetCool()`);
-  t.check("party car: emotes allowed (↑ never fires a missile with friends)", await g(`ctx.emotes.allowed`));
-  t.check("host plays 🙌 from the car", await g(`ctx.emotes.play("cheer")`));
-  t.check("…it rides in my snapshot extras (d.x.e)", await g(`Array.isArray(ctx.party._debug.xk().e)`), JSON.stringify(await g(`ctx.party._debug.xk().e`)));
-  await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "cheer"; })()`, "the guest sees the host's 🙌 (car)", 60000);
-  t.check("guest: the host's car waves + shows the phrase", await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); return rc.v.waveT > 0 || rc.bubble.life > 0; })()`));
-  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-sees-car-emote.png") }).catch(() => { });
-
-  // ── a combo: both dance at each other ──
-  await g(`ctx.emotes.debug.resetCool()`); await A.game(`ctx.emotes.debug.resetCool()`);
-  await A.frames(90);
-  await g(`ctx.emotes.play("dance")`);
-  await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "dance"; })()`, "the guest sees the host dance", 60000);
-  await A.game(`ctx.emotes.play("dance")`);
-  await A.until(`!!ctx.emotes.lastCombo`, "guest: a DANCE-OFF combo", 30000);
-  await Hp.until(`!!ctx.emotes.lastCombo`, "host: a DANCE-OFF combo too (it saw both gestures)", 60000);
-  t.check("both screens call it the same combo", (await g(`ctx.emotes.lastCombo && ctx.emotes.lastCombo.t`)) === (await A.game(`ctx.emotes.lastCombo && ctx.emotes.lastCombo.t`)));
-
-  // ── on foot: the host climbs out and face-palms → the guest sees a walking Lulu doing it ──
+  t.check("the hub's first choice is 🌍 Hang out (Free Roam)", await t.L(`(() => { const b = document.querySelector("#screenCard button"); return !!b && b.id === "pt_roam"; })()`));
+  await t.L(`(() => { window.__states = []; import("./js/core/ctx.js").then(m => m.on("state", e => window.__states.push(e.to))); return true; })()`);
+  await t.L(`document.getElementById("pt_roam").click()`);
+  if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.G.mode === "party"`, "🌍 Hang out → driving in Free Roam", 120000)) return;
+  const hostStates = await t.L(`window.__states.slice()`);
+  t.check("no 3-2-1 grid on the way into Free Roam", !hostStates.includes("partyGrid"), hostStates.join(">"));
+  const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
+  t.check("my invite link carries me (…&with=)", await g(`(() => { const u = ctx.party.invite ? 1 : 0; return u; })()`) === 1);
+  for (const p of [Hp]) await p.game(`(ctx.law && ctx.law.hold && ctx.law.hold(9999), true)`);
+  // the host climbs out and walks a bit
   await g(`ctx.foot.start("parked")`);
   if (!await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks", 60000)) return;
-  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && rc.foot; })()`, "the guest sees a walker", 90000);
+
+  // ── a friend opens the link → lands right beside the host (on foot, she's walking) ──
+  const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);
+  guests.push(A);
+  await A.L(`(() => { window.__states = []; const tryHook = () => { if (!window.__lulu3d) return setTimeout(tryHook, 200); import("./js/core/ctx.js").then(m => m.on("state", e => window.__states.push(e.to))); }; tryHook(); return true; })()`);
+  if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && (ctx.state === "playing" || ctx.state === "footRun")`, "the link drops the friend straight into Free Roam", 240000)) return;
+  const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
+  t.check("guest: joined from my link (inviter = me)", (await A.game(`ctx.party.inviter`)) === hostUid);
+  await A.game(`(ctx.law && ctx.law.hold && ctx.law.hold(9999), true)`);
+  await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the friend climbs out to walk over (the host is on foot)", 90000);
+  const hp0 = await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z })`);
+  const gp0 = await A.game(`(() => { const p = ctx.foot.active && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos; return { x: p.x, z: p.z }; })()`);
+  t.check("guest lands right next to the host (≤ 30 m)", Math.hypot(hp0.x - gp0.x, hp0.z - gp0.z) < 30, JSON.stringify({ hp0, gp0 }));
+  t.check("guest: no lobby wall / 3-2-1 on the way in", !(await A.L(`(window.__states || []).includes("partyGrid")`)), JSON.stringify(await A.L(`window.__states`)));
+  await Hp.until(`(() => { const rc = ctx.party.remoteCar(${GU}); return !!rc && rc.shown; })()`, "the host sees the friend appear", 90000);
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && rc.foot; })()`, "the friend sees the host walking", 90000);
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-joined.png") }).catch(() => { });
+  // a greeting when she's next to me (both screens, each its own way)
+  await g(`ctx.emotes.debug.resetCool()`); await A.game(`ctx.emotes.debug.resetCool()`);
+  await A.game(`(() => { const F = ctx.foot.debug.F; F.pos.set(${hp0.x} + 2.5, 0, ${hp0.z} + 2.5); return true; })()`);
+  await A.until(`ctx.emotes.debug.ME.greet.has(${HU})`, "guest: a 👋 greeting next to the host", 60000);
+  await Hp.until(`ctx.emotes.debug.ME.greet.has(${GU})`, "host: a 👋 greeting too", 60000);
+
+  // ── on foot: the host face-palms (via the wheel) → the friend sees a walking Lulu do it ──
   await g(`ctx.emotes.debug.resetCool()`);
-  // the guest's world keeps going while the host emotes (nobody is frozen)
   const before = await A.game(`({ T: ctx.party.clock(), f: L3.frames })`);
-  await t.hold(12, 1); await t.frames(10);          // the host holds the wheel open…
+  await t.hold(12, 1); await t.frames(10);
   t.check("host on foot (party): the wheel is open", await t.L(`document.getElementById("ptWheel").classList.contains("open")`));
-  await t.L(`(__pad.axes[2] = 0.7, __pad.axes[3] = -0.7, true)`); await t.frames(3);
   await t.L(`(() => { const d = [...document.querySelectorAll("#ptWheel .disc")].find(b => /Oy vey/.test(b.textContent)); return d ? (d.click(), true) : false; })()`);
-  await t.hold(12, 0); await t.L(`(__pad.axes[2] = 0, __pad.axes[3] = 0, true)`); await t.frames(3);
+  await t.hold(12, 0); await t.frames(3);
   t.check("host: 🤦 Oy vey! plays on foot", (await g(`ctx.emotes.active && ctx.emotes.active.id`)) === "facepalm");
-  await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "facepalm"; })()`, "the guest sees the walker face-palm", 60000);
-  const pose = await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); const arm = rc.walker.limbs.Arm_R; return { foot: rc.foot, armX: arm ? +arm.rotation.x.toFixed(2) : null }; })()`);
-  t.check("guest: the walker's arm is up at her face", pose.foot && pose.armX != null && Math.abs(pose.armX) > 1.2, JSON.stringify(pose));
+  t.check("…it rides in my snapshot extras (d.x.e)", await g(`Array.isArray(ctx.party._debug.xk().e)`), JSON.stringify(await g(`ctx.party._debug.xk().e`)));
+  if (!await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "facepalm"; })()`, "the friend sees the walker face-palm", 60000))
+    console.log("   diag", JSON.stringify(await A.game(`(() => { const p = ctx.party.peer(${HU}), rc = ctx.party.remoteCar(${HU}); return { x: p && p.x, m: p && p.m, rc: rc && { shown: rc.shown, foot: rc.foot, key: rc.emKey, em: rc.emote, last: rc.emLast } }; })()`)), JSON.stringify(await g(`({ act: ctx.emotes.active, xk: ctx.party._debug.xk(), st: ctx.state })`)));
+  const pose = await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); const arm = rc.walker && rc.walker.limbs.Arm_R; return { foot: rc.foot, armX: arm ? +arm.rotation.x.toFixed(2) : null }; })()`);
+  t.check("friend: the walker's arm is up at her face", pose.foot && pose.armX != null && Math.abs(pose.armX) > 1.2, JSON.stringify(pose));
   await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-sees-facepalm.png") }).catch(() => { });
   await t.shot("host-facepalm");
   const after = await A.game(`({ T: ctx.party.clock(), f: L3.frames })`);
-  t.check("nobody frozen: the guest's frames + party clock kept going while the host emoted", after.f > before.f && after.T > before.T, JSON.stringify({ before, after }));
+  t.check("nobody frozen: the friend's frames + party clock kept going while the host emoted", after.f > before.f && after.T > before.T, JSON.stringify({ before, after }));
+  // a combo: both dance at each other
+  await g(`ctx.emotes.debug.resetCool()`); await A.game(`ctx.emotes.debug.resetCool()`);
+  await A.frames(60);
+  await g(`ctx.emotes.play("dance")`);
+  await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "dance"; })()`, "the friend sees the host dance", 60000);
+  await A.game(`ctx.emotes.play("dance")`);
+  await A.until(`!!ctx.emotes.lastCombo`, "friend: a DANCE-OFF combo", 30000);
+  await Hp.until(`!!ctx.emotes.lastCombo`, "host: the combo too (it saw both gestures)", 60000);
+  t.check("both screens call it the same combo", (await g(`ctx.emotes.lastCombo && ctx.emotes.lastCombo.t`)) === (await A.game(`ctx.emotes.lastCombo && ctx.emotes.lastCombo.t`)));
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-dance-off.png") }).catch(() => { });
 
-  // ── greetings: the guest walks up to the host (on foot too) ──
-  await A.game(`ctx.foot.start("parked")`);
-  await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the guest walks", 60000);
-  await A.game(`ctx.emotes.debug.resetCool()`);
-  const hp = await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z })`);
-  await A.game(`(() => { const F = ctx.foot.debug.F; F.pos.set(${hp.x} + 3, 0, ${hp.z} + 3); return true; })()`);
-  await A.until(`ctx.emotes.debug.ME.greet.has(${HU})`, "guest: a greeting when she reaches the host", 60000);
-  t.check("greeting: the guest waves (locally) at the host", await A.game(`(() => { const a = ctx.emotes.active; return !!a && a.id === "hi" && a.local; })()`) || true);
-  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-greeting.png") }).catch(() => { });
+  // ── back in the cars: an emote from the car = an arm out of the window + the phrase ──
+  const DRIVE = `(() => { const pk = ctx.foot.parkedCar, p = ctx.foot.pos; ctx.foot.drive(pk ? { own: true, x: pk.x, z: pk.z, h: pk.h } : { own: true, x: p.x, z: p.z, h: 0 }); return true; })()`;
+  await g(DRIVE); await A.game(DRIVE);
+  for (const p of [Hp, A]) await p.until(`ctx.state === "playing"`, "back behind the wheel", 30000);
+  const s0 = await g(`Math.round(ctx.car.s)`);
+  await g(`(ctx.party.placeCar(${s0} + 20, 1.75, 0), true)`);
+  await A.game(`(ctx.party.placeCar(${s0} + 12, 5.25, 0), true)`);
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && !rc.foot; })()`, "the friend sees the host's car", 60000);
+  await g(`ctx.emotes.debug.resetCool()`);
+  t.check("party car: emotes allowed (↑ never fires a missile with friends)", await g(`ctx.emotes.allowed`));
+  t.check("host plays 🙌 from the car", await g(`ctx.emotes.play("cheer")`));
+  await A.until(`(() => { const f = ctx.emotes.friend(${HU}); return !!f && f.id === "cheer"; })()`, "the friend sees the host's 🙌 (car)", 60000);
+  t.check("friend: the host's car waves + shows the phrase", await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); return rc.v.waveT > 0 || rc.bubble.life > 0; })()`));
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-sees-car-emote.png") }).catch(() => { });
+
+  // ── 🕹️ a game spot in town: the arcade outside the pizza shop ──
+  for (const p of [Hp, A]) {
+    await p.until(`ctx.town.debug.S.loaded && ctx.town.exits.length > 0`, "town models + exits", 120000);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 30000);
+  }
+  await Hp.until(`ctx.openworld.debug.spots.SP.list.length >= 1`, "the town has its game spots", 30000);
+  const spots = await g(`ctx.openworld.debug.spots.SP.list.map(s => ({ kind: s.kind, name: s.name, fx: s.fx, fz: s.fz }))`);
+  t.check("Lakewood: an arcade cabinet (+ a notice board)", spots.some(s => s.kind === "arcade"), JSON.stringify(spots));
+  const arc = spots.find(s => s.kind === "arcade") || spots[0];
+  // the friend parks ~70 m away (not pulled anywhere by what follows)
+  const cl = await A.game(`(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"]; return { x: pl.ORIGIN.x + st.c + 1.75, z: pl.ORIGIN.z + 50, h: Math.PI }; })()`);
+  await A.game(PLACE(cl.x, cl.z, cl.h));
+  // the host drives up to it, hops out and walks up → ✋ PARTY GAMES
+  await g(PLACE(arc.fx, arc.fz, 0));
+  await g(`ctx.foot.start("droveOff")`);
+  await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host on foot by the arcade", 60000);
+  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${arc.fx}, 0, ${arc.fz}); F.vel.set(0, 0, 0); return true; })()`);
+  await t.frames(6);
+  t.check("✋ PARTY GAMES at the cabinet", await t.L(`/PARTY GAMES/.test(document.body.textContent)`));
+  await t.shot("arcade-prompt");
+  await t.tap(0);
+  await Hp.until(`!!document.getElementById("owSpot_kugel")`, "the arcade card opens with the games", 20000);
+  await t.shot("arcade-card");
+  const gpBefore = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, st: ctx.state })`);
+  await t.L(`document.getElementById("owSpot_kugel").click()`);
+  await Hp.until(`ctx.openworld.game && ctx.openworld.game.ph === "in"`, "🥘 Hot Kugel: an invitation", 30000);
+  await A.until(`ctx.openworld.game && ctx.openworld.game.ph === "in"`, "the friend gets the invitation", 60000);
+  const gInv = await A.game(`({ ps: ctx.openworld.game.ps, spot: ctx.openworld.game.spot, chip: document.getElementById("owChip").textContent, st: ctx.state, x: ctx.car.pos.x, z: ctx.car.pos.z })`);
+  t.check("invitation: only the starter is in; the friend isn't moved or held (a join chip)", gInv.ps.length === 1 && gInv.ps[0] === hostUid && !!gInv.spot && gInv.st === "playing" && Math.hypot(gInv.x - gpBefore.x, gInv.z - gpBefore.z) < 3 && /join/i.test(gInv.chip), JSON.stringify(gInv));
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-invited.png") }).catch(() => { });
+  // the friend drives over → opted in → everyone's in → GO
+  await A.game(PLACE(arc.fx + 6, arc.fz + 6, 0));
+  await A.until(`ctx.openworld.game && ctx.openworld.game.ps.includes(${GU})`, "driving up to the spot opts the friend in", 30000);
+  for (const p of [Hp, A]) await p.until(`ctx.openworld.game && ctx.openworld.game.ph === "go" && ctx.openworld.game.k === "kugel"`, "🥘 GO once everyone's in", 40000);
+  await Hp.until(`ctx.state === "playing" && !ctx.foot.active`, "the host is back behind the wheel for the game", 30000);
+  t.check("both play: ps = host + friend", (await g(`ctx.openworld.game.ps.length`)) === 2);
+  await t.shot("kugel-from-the-arcade");
+  await g(`ctx.openworld.end()`);
+  for (const p of [Hp, A]) await p.until(`ctx.openworld.game && ctx.openworld.game.ph === "done"`, "the game ends", 30000);
+  for (const p of [Hp, A]) { await p.frames(10); if (await p.game(`ctx.phone.isOpen`)) await p.game(`ctx.phone.closePhone()`); }
+
+  // ── leave in one tap: 📱 👯 → 🚪 Leave the party; the host plays on ──
+  await A.game(`ctx.phone.openPhone("owparty")`);
+  await A.frames(4);
+  t.check("👯 app: Invite + Leave rows", await A.L(`!!document.getElementById("owInvite") && !!document.getElementById("owLeave")`));
+  await A.L(`document.getElementById("owLeave").click()`);
+  await A.until(`!ctx.party.active && ctx.state === "title"`, "one tap: the friend has left", 30000);
+  await Hp.until(`ctx.party.members().length === 1`, "the host sees the friend go", 120000);
+  t.check("the host keeps playing", await g(`ctx.party.active && (ctx.state === "playing" || ctx.state === "footRun")`));
 }
