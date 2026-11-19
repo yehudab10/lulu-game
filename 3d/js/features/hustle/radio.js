@@ -1,9 +1,12 @@
 // features/hustle — 📻 THE CAR RADIO.
 //
 //   LULU FM (default: whatever the game plays — each Story leg's music, the Cruise track)
-//   🕺 SIMCHA 101.3 · 🍸 SMOOTH 88.8 · 🎙️ KVETCH 1450 AM (talk + call-ins) · 📴 off
+//   🕺 SIMCHA 101.3 · 🍸 SMOOTH 88.8 · 🎙️ KVETCH 1450 AM (talk + call-ins) ·
+//   🎤 DOVID DOV FM (the whole of 'I Don't Wanna Be Frum', on a loop) · 📴 off
 //
-// The stations reuse the music the game already ships (no new audio). DJ chatter,
+// The first three reuse the music the game already ships; DOVID DOV FM has its own
+// song (the mystery singer is Lulu's brother — she says so, quietly, when it comes
+// on; the DJ has no idea). DJ chatter,
 // parody ads and call-in shows appear as a small, short-lived TICKER under the pause
 // button (top right: sky, never the road); Settings › Lulu's chatter → Quiet means
 // fewer ads and less talk, HUD style Clean hides the ticker (.hud-secondary).
@@ -16,7 +19,7 @@ import { ctx, on, emit } from "../../core/ctx.js";
 import { save3d, saveSoon, store } from "../../core/save.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { STATIONS, SONGS, ADS, NEWS, CHATTER, RADIO } from "./data.js";
+import { STATIONS, SONGS, ADS, NEWS, CHATTER, RADIO, DOVID } from "./data.js";
 import { tickerShow, tickerHide, tickerGone, tickerLayout, ticker, esc } from "./ui.js";
 import { rand, pick } from "./util.js";
 import * as SFX from "./sfx.js";
@@ -36,6 +39,7 @@ const R = {
     ov: { on: false, src: null, gameSrc: null },
     fade: null,           // { t, dur, from, to, then }
     lastAd: -99, news: {},
+    dovT: 0, dovCool: 0,  // Lulu's "that's my brother" aside: seconds until she says it / until she may again
     log: [],              // the last few ticker lines (tests)
 };
 
@@ -93,6 +97,7 @@ export function tune(id) {
     const song = st.tracks && st.tracks.length ? SONGS[track(st)] : "";
     say(st, song ? `🎵 ${song}` : esc(st.tag), 3.2, true);
     R.msgT = Math.max(R.msgT, 7);
+    R.dovT = id === "dovid" ? 3.4 : 0;
     if (document.body.classList.contains("hud-clean")) H.toast(`📻 ${st.name}`, "", { key: "hs-radio" });
     emit("hustle:radio", { station: id });
     return true;
@@ -101,7 +106,7 @@ export function tune(id) {
 /** Put a line on the ticker for `secs` (game time). */
 function say(st, html, secs, force = false) {
     if (!force && (!inCar() || ctx.state !== "playing" || ctx.paused)) return false;
-    tickerShow(st, html, st.id === "simcha" ? "#FF80AB" : st.id === "lounge" ? "#B39DDB" : st.id === "talk" ? "#FFD54F" : st.id === "off" ? "#90A4AE" : "#80DEEA");
+    tickerShow(st, html, st.id === "simcha" ? "#FF80AB" : st.id === "lounge" ? "#B39DDB" : st.id === "talk" ? "#FFD54F" : st.id === "dovid" ? "#A5D6A7" : st.id === "off" ? "#90A4AE" : "#80DEEA");
     R.showT = secs;
     R.log.push({ st: st.id, text: html.replace(/<[^>]+>/g, ""), t: +ctx.time.toFixed(1) });
     if (R.log.length > 20) R.log.shift();
@@ -148,6 +153,11 @@ export function radioTick(dt, P) {
     const st = station();
     if (ctx.state !== "playing" || !inCar() || ctx.paused) return;
     if (st.id === "auto" || st.id === "off") return;
+    // her brother's song is on: Lulu lets it slip (once in a while, never over the DJ)
+    if (R.dovCool > 0) R.dovCool -= dt;
+    if (st.id === "dovid" && R.dovT > 0 && (R.dovT -= dt) <= 0 && R.dovCool <= 0 && !ctx.dialogOpen && ctx.banter && ctx.banter.say) {
+        try { if (ctx.banter.say(pick(DOVID.lulu))) R.dovCool = DOVID.every; } catch (e) { /* no bubble: fine */ }
+    }
     // song rotation: fade out, next track, the DJ says what's on
     if (st.tracks && st.tracks.length > 1) {
         R.songT -= dt;
@@ -184,7 +194,7 @@ on("state", ({ to }) => {
     else { R.ov.on = false; R.queue.length = 0; }
     if (to !== "playing") { R.queue.length = 0; R.showT = 0; tickerHide(true); }     // the ticker is a driving thing
 });
-on("run:start", () => { R.news = {}; R.queue.length = 0; R.msgT = rand(...RADIO.firstMsg); tickerHide(true); });
+on("run:start", () => { R.news = {}; R.queue.length = 0; R.msgT = rand(...RADIO.firstMsg); R.dovT = S.station === "dovid" ? 9 : 0; tickerHide(true); });
 on("pause", ({ paused }) => {
     if (paused) { tickerHide(true); return; }
     const st = station();
@@ -204,7 +214,7 @@ export const radio = {
     stations: STATIONS.map(s => s.id),
     cycle, tune,
     /** What the radio is doing (tests). */
-    state() { return { station: S.station, override: R.ov.on, src: musicSrc(), gameSrc: R.ov.gameSrc, msgT: +R.msgT.toFixed(1), showT: +R.showT.toFixed(1), queue: R.queue.length, log: R.log.slice() }; },
+    state() { return { station: S.station, dovT: +R.dovT.toFixed(1), dovCool: +R.dovCool.toFixed(1), override: R.ov.on, src: musicSrc(), gameSrc: R.ov.gameSrc, msgT: +R.msgT.toFixed(1), showT: +R.showT.toFixed(1), queue: R.queue.length, log: R.log.slice() }; },
     /** Tests: say something now. */
     debugSay(kind = "dj") {
         const st = station();
