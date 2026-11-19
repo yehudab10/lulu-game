@@ -1,5 +1,9 @@
 # Lulu's Road Trip — dev notes
 
+> Several AI agents take turns on this repo: **`AGENTS.md`** has the shared rules, the
+> in-flight `ci/<name>` branches and the backlog. Keep its "In-flight work" table current,
+> and push work-in-progress to your `ci/<name>` branch after every commit.
+
 ## 🕹️ 2.0 = the 3D game. The 2D game is LEGACY.
 
 **Lulu's Road Trip 2.0 is the 3D game in `3d/`** — it's the main game and the
