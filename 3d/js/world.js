@@ -165,10 +165,14 @@ function grassTexture() {
     });
 }
 
-const signTexCache = new Map();
-function signTexture(lines, bg = "#1f7a46", fg = "#ffffff", w = 512, h = 256) {
+// Sign textures are cached by text + look. The road's own signs count their users and free the
+// texture (+ its material) when the last chunk showing it is recycled: a long drive passes a lot
+// of distinct mileage signs. A texture handed out to a feature (signTexture) is kept for good.
+const signTexCache = new Map();   // key → { key, tex, refs, ext }
+function signEntry(lines, bg = "#1f7a46", fg = "#ffffff", w = 512, h = 256) {
     const key = lines.join("|") + bg + fg + w + h;
-    if (signTexCache.has(key)) return signTexCache.get(key);
+    let e = signTexCache.get(key);
+    if (e) return e;
     const t = canvasTex(w, h, (g) => {
         g.fillStyle = bg;
         g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 26); g.fill();
@@ -182,8 +186,16 @@ function signTexture(lines, bg = "#1f7a46", fg = "#ffffff", w = 512, h = 256) {
             g.fillText(line, w / 2, h * (n === 1 ? 0.52 : 0.34 + i * (0.36 / Math.max(1, n - 1)) * (n > 2 ? 1 : 0.95)), w - 50);
         });
     }, false);
-    signTexCache.set(key, t);
-    return t;
+    signTexCache.set(key, e = { key, tex: t, refs: 0, ext: false });
+    return e;
+}
+function signTexture(lines, bg, fg, w, h) { const e = signEntry(lines, bg, fg, w, h); e.ext = true; return e.tex; }
+function releaseSign(e) {
+    if (--e.refs > 0 || e.ext || signTexCache.get(e.key) !== e) return;
+    signTexCache.delete(e.key);
+    const m = signMats.get(e.tex);
+    if (m) { m.dispose(); signMats.delete(e.tex); }
+    e.tex.dispose();
 }
 
 /** One material per sign texture (both are cached: the same sign text never makes a second one). */
@@ -550,7 +562,9 @@ class Chunk {
         const g = new THREE.Group();
         g.position.set(p.x, 0, p.z);
         g.rotation.y = h + Math.PI; // board faces oncoming drivers (us)
-        const tex = signTexture(sign.lines, sign.bg, sign.fg, sign.tw, sign.th);
+        const te = signEntry(sign.lines, sign.bg, sign.fg, sign.tw, sign.th), tex = te.tex;
+        te.refs++;
+        this.disposables.push({ dispose: () => releaseSign(te) });
         // two draw calls a sign: the metal (board edges + back + posts, merged) and the printed face
         const y = 2.2 + ht / 2;
         const box = new THREE.BoxGeometry(w, ht, 0.08).translate(0, y, 0);
