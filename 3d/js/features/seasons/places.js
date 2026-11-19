@@ -53,6 +53,35 @@ export function frontWindows(key) {
     return out;
 }
 
+// ── 🕎 blue-and-white string lights along a house's front eave ───────────
+const TOP = new Map();
+function modelTop(key) {
+    if (TOP.has(key)) return TOP.get(key);
+    const t = models[key];
+    const y = t ? new THREE.Box3().setFromObject(t).max.y : 0;
+    TOP.set(key, y);
+    return y;
+}
+const BLUE = [0.05, 0.22, 1.0], WHITE = [0.95, 0.97, 1];
+/** A string of bulbs scalloped along the front, just under the eave (above the top row of windows). */
+function stringItem(out, key, F) {
+    const w = frontWindows(key);
+    if (!w.length) return;
+    const x0 = Math.min(...w.map(o => o.x - o.w / 2)) - 0.9, x1 = Math.max(...w.map(o => o.x + o.w / 2)) + 0.9;
+    const top = Math.max(...w.map(o => o.y1)), roof = modelTop(key);
+    const y = roof > top + 0.4 ? Math.min(top + 0.55, roof - 0.25) : top + 0.3;
+    const z = Math.max(...w.map(o => o.z)) + 0.14;
+    const pts = [], cols = [], HOOK = 1.7, STEP = 0.4;
+    let i = 0;
+    for (let x = x0; x <= x1 + 1e-3; x += STEP, i++) {
+        const f = ((x - x0) % HOOK) / HOOK, sag = Math.sin(f * Math.PI) * 0.16;
+        const p = F.at(x, z);
+        pts.push(p.x, y - sag, p.z);
+        cols.push(...(i % 2 ? WHITE : BLUE));
+    }
+    out.push({ kind: "string", pts, cols });
+}
+
 // a house in the world: its origin, rotation and how to turn a model-local point into a world one
 function houseFrame(x, z, rot) {
     const c = Math.cos(rot), s = Math.sin(rot);
@@ -97,7 +126,9 @@ export function planChunk(chunk, world, day, recipes) {
         (chunk.houses || []).forEach((hh, i) => {
             const hs = seed + ":h" + i;
             const F = houseFrame(hh.x, hh.z, hh.rot);
-            windowItems(out, chunk.biome && chunk.biome.houseModel || "house", F, R, day, hs + id);
+            const hkey = chunk.biome && chunk.biome.houseModel || "house";
+            windowItems(out, hkey, F, R, day, hs + id);
+            if (R.strings && h01(hs, "str") < R.strings) stringItem(out, hkey, F);
             if (R.sukkah) {
                 const side = h01(hs, "sk") < 0.5 ? -1 : 1;
                 const up = R.sukkah === "done" || h01(hs, "up", day.heb && day.heb.d) < sukkahDone(day);
@@ -174,6 +205,7 @@ export function planTown(day, recipes) {
             const hs = id0 + ":" + i;
             const F = townFrame(h);
             windowItems(out, h.key, F, R, day, hs + id);
+            if (R.strings && h01(hs, "str") < R.strings) stringItem(out, h.key, F);
             if (R.sukkah) {
                 const up = R.sukkah === "done" || h01(hs, "up", day.heb && day.heb.d) < sukkahDone(day);
                 let p = null, y = 0;

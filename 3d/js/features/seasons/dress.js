@@ -104,6 +104,18 @@ function glowTexture() {
     return glowTex;
 }
 
+// a neutral (white) glow for the coloured string-light bulbs — the candles' warm one would turn blue into teal
+let bulbTex = null;
+function bulbTexture() {
+    if (bulbTex) return bulbTex;
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.22, "rgba(255,255,255,0.95)"); gr.addColorStop(0.5, "rgba(255,255,255,0.3)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    bulbTex = new THREE.CanvasTexture(c); bulbTex.colorSpace = THREE.SRGBColorSpace;
+    return bulbTex;
+}
+
 // ── a kind of prop: one InstancedMesh (+ one for its flames), filled with the nearest placements ──
 class Kind {
     constructor(root, id, b, { max = 32, R = 90, anim = null, live = false } = {}) {
@@ -145,7 +157,7 @@ class Kind {
 }
 
 // ── the lights: one Points per size ──────────────────────────────────────
-const GLOW = { candle: { size: 0.55, max: 9000 }, lamp: { size: 1.1, max: 600 }, fire: { size: 5.0, max: 64 } };
+const GLOW = { candle: { size: 0.55, max: 9000 }, lamp: { size: 1.1, max: 600 }, fire: { size: 5.0, max: 64 }, bulb: { size: 0.4, max: 16000, colors: true } };
 class Glow {
     constructor(root, kind) {
         const G = GLOW[kind];
@@ -153,8 +165,10 @@ class Glow {
         this.pos = new Float32Array(G.max * 3);
         this.geo = new THREE.BufferGeometry();
         this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+        // (string lights: each bulb its own colour — blue and white)
+        if (G.colors) { this.col = new Float32Array(G.max * 3); this.geo.setAttribute("color", new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage)); }
         this.geo.setDrawRange(0, 0);
-        this.mat = new THREE.PointsMaterial({ map: glowTexture(), size: G.size, color: "#FFD27A", transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+        this.mat = new THREE.PointsMaterial({ map: G.colors ? bulbTexture() : glowTexture(), size: G.size, color: G.colors ? "#FFFFFF" : "#FFD27A", vertexColors: !!G.colors, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
         // far away a candle is still a dot of light (≥ ~2.5 css px): a whole street of windows reads as lit from the end of it
         const minPx = (2.5 * ((ctx.renderer && ctx.renderer.getPixelRatio && ctx.renderer.getPixelRatio()) || 1)).toFixed(1);
         this.mat.onBeforeCompile = sh => { sh.vertexShader = sh.vertexShader.replace("#include <fog_vertex>", `gl_PointSize = max(gl_PointSize, ${minPx});\n#include <fog_vertex>`); };
@@ -166,10 +180,27 @@ class Glow {
         this.n = 0;
     }
     begin() { this.n = 0; }
-    push(x, y, z) { if (this.n >= this.max) return; const i = this.n++ * 3; this.pos[i] = x; this.pos[i + 1] = y; this.pos[i + 2] = z; }
-    end() { this.geo.setDrawRange(0, this.n); this.geo.attributes.position.needsUpdate = true; this.geo.attributes.position.addUpdateRange?.(0, this.n * 3); }
+    push(x, y, z, r, g, b) { if (this.n >= this.max) return; const i = this.n++ * 3; this.pos[i] = x; this.pos[i + 1] = y; this.pos[i + 2] = z; if (this.col) { this.col[i] = r; this.col[i + 1] = g; this.col[i + 2] = b; } }
+    end() { this.geo.setDrawRange(0, this.n); this.geo.attributes.position.needsUpdate = true; if (this.col) this.geo.attributes.color.needsUpdate = true; }
     show(o) { this.mat.opacity = o; this.pts.visible = o > 0.01 && this.n > 0; }
     dispose() { if (this.pts.parent) this.pts.parent.remove(this.pts); this.geo.dispose(); this.mat.dispose(); }
+}
+
+// ── the wire the string lights hang on: one LineSegments for the whole world ──
+class Wire {
+    constructor(root, max = 16000) {
+        this.max = max; this.pos = new Float32Array(max * 6); this.n = 0;
+        this.geo = new THREE.BufferGeometry();
+        this.geo.setAttribute("position", new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+        this.geo.setDrawRange(0, 0);
+        this.line = new THREE.LineSegments(this.geo, new THREE.LineBasicMaterial({ color: "#2F3B2F" }));
+        this.line.frustumCulled = false; this.line.visible = false; this.line.name = "SeasonsWire";
+        root.add(this.line);
+    }
+    begin() { this.n = 0; }
+    push(ax, ay, az, bx, by, bz) { if (this.n >= this.max) return; const i = this.n++ * 6; this.pos.set([ax, ay, az, bx, by, bz], i); }
+    end() { this.geo.setDrawRange(0, this.n * 2); this.geo.attributes.position.needsUpdate = true; this.line.visible = this.n > 0; }
+    dispose() { if (this.line.parent) this.line.parent.remove(this.line); this.geo.dispose(); this.line.material.dispose(); }
 }
 
 // ── the dresser ──────────────────────────────────────────────────────────
@@ -185,6 +216,7 @@ export function ensureRoot() {
     D.root = new THREE.Group(); D.root.name = "Seasons";
     ctx.scene.add(D.root);
     for (const k of Object.keys(GLOW)) D.glows[k] = new Glow(D.root, k);
+    D.wire = new Wire(D.root);
     return D.root;
 }
 function kind(id) {
@@ -207,8 +239,10 @@ function kind(id) {
 export function addSet(key, items, opts = {}) {
     dropSet(key);
     ensureRoot();
-    const set = { key, items: [], vis: opts.vis || null, signs: [] };
+    const set = { key, items: [], vis: opts.vis || null, signs: [], strings: [] };
     for (const it of items) {
+        // string lights: no prop, just bulbs (+ the wire between them): { kind: "string", pts: [x, y, z…], cols: [r, g, b…] }
+        if (it.kind === "string") { set.strings.push(it); continue; }
         const k = kind(it.kind);
         if (!k) continue;
         const e = Object.assign({ set, s: 1, y: 0, rot: 0 }, it);
@@ -244,6 +278,7 @@ export function dispose() {
     D.kinds.clear();
     for (const g of Object.values(D.glows)) g.dispose();
     D.glows = {};
+    if (D.wire) { D.wire.dispose(); D.wire = null; }
     for (const m of SIGN_MATS.values()) m.dispose();
     SIGN_MATS.clear();
     if (D.root && D.root.parent) D.root.parent.remove(D.root);
@@ -276,8 +311,16 @@ function makeSign(e, at, spec) {
 /** Re-collect every burning light (a set changed). */
 function collectLights() {
     for (const g of Object.values(D.glows)) g.begin();
+    if (D.wire) D.wire.begin();
     for (const set of D.sets.values()) {
         if (set.vis && !set.vis()) continue;
+        for (const st of set.strings) {
+            const P = st.pts, C = st.cols, B = D.glows.bulb;
+            for (let i = 0; i < P.length; i += 3) {
+                B.push(P[i], P[i + 1], P[i + 2], C[i], C[i + 1], C[i + 2]);
+                if (i && D.wire && !(st.breaks && st.breaks.has(i / 3))) D.wire.push(P[i - 3], P[i - 2] + 0.05, P[i - 1], P[i], P[i + 1] + 0.05, P[i + 2]);
+            }
+        }
         for (const e of set.items) {
             if (!e.lit || !e.k.b.lights.length) continue;
             const g = D.glows[e.lit];
@@ -293,6 +336,7 @@ function collectLights() {
         }
     }
     for (const g of Object.values(D.glows)) g.end();
+    if (D.wire) D.wire.end();
     D.glowDirty = false;
 }
 
@@ -320,10 +364,11 @@ export function tick(dt, night, cam) {
     D.lit = lit;
     let lights = 0;
     for (const g of Object.values(D.glows)) {
-        // fires burn all day (a little dimmer in the sun); candles + lamps show from dusk
-        const o = g.kind === "fire" ? 0.55 + 0.45 * lit : Math.min(1, Math.max(0, (lit - 0.12) * 1.6));
+        // fires burn all day (a little dimmer in the sun); string-light bulbs are faintly there by day; candles + lamps show from dusk
+        const o = g.kind === "fire" ? 0.55 + 0.45 * lit : g.kind === "bulb" ? 0.3 + 0.7 * Math.min(1, Math.max(0, (lit - 0.1) * 1.6)) : Math.min(1, Math.max(0, (lit - 0.12) * 1.6));
         g.show(o);
         if (g.pts.visible) { calls++; lights += g.n; }
     }
+    if (D.wire && D.wire.line.visible) calls++;
     Object.assign(D.stats, { items, drawn, lights, tris: Math.round(tris), calls });
 }

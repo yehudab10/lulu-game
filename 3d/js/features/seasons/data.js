@@ -11,12 +11,13 @@
 //   kerb      the pre-Pesach clean-out piled at the kerb
 //   bonfire   Lag BaOmer bonfires out in the fields off the highway
 //   planters  greenery + flowers on the porches (Shavuos)
+//   strings   the share of houses with blue-and-white string lights along the front eave (Chanukah)
 //   parade    the Purim costume parade on the town's main street
 //   ima       the 📱 note from Ima (once a day, the family chat) · lulu: what Lulu says the first time she sees it
 // No recipe = nothing changes in the world (fast days, the Three Weeks, Yom Kippur: quiet on purpose).
 export const RECIPES = {
     chanukah: {
-        windows: "menorah", upper: 0.5, big: true,
+        windows: "menorah", upper: 0.5, big: true, strings: 0.45,
         stand: { goods: "Goods_Donuts", awning: "#1E88E5", sign: ["SUFGANIYOT", "fresh jelly doughnuts"], bg: "#1565C0", fg: "#FFFFFF",
             treat: "🍩 GRAB A SUFGANIYAH", lines: ["🍩 Powdered sugar EVERYWHERE. Worth it.", "🍩 Jelly on my chin. Don't tell Avigail.", "🍩 The doughnut guy says I'm his best customer. I'm his ONLY customer."], coins: 10 },
         ima: n => `Tonight is night ${n} of Chanukah 🕎 Be home for candle lighting — Bubbe's making latkes!`,

@@ -17,6 +17,7 @@ import { input } from "../../input.js";
 import { Q, now, chime, grogger, metaToast } from "./util.js";
 import { questAdd } from "./progress.js";
 import { sunsetHour } from "../seasons/calendar.js";
+import { slimMenorah } from "./menorah.js";
 
 export const HOLIDAYS = [
     { id: "roshHashana", month: ["Tishri"], day: 1, days: 2, emoji: "🍎", greeting: "Shana Tova!", gift: 18, from: "Bubbe's honey-cake money",
@@ -127,10 +128,20 @@ function clearDecor() {
     for (const d of decor) {
         if (d.obj.parent) d.obj.parent.remove(d.obj);
         for (const s of d.glows || []) s.material.dispose();
+        if (d.slim) d.slim.dispose();
     }
     decor.length = 0;
 }
 function makeItem(key, slots, kind, c, scale) {
+    if (kind === "menorah") {
+        // the slim build (meta/menorah.js): ~4 draw calls instead of ~30, the same look
+        const lit = Math.min(8, c.dayNum);
+        const slim = slimMenorah(models[key], lit, glowTexture());
+        slim.obj.position.y = 0.05;    // clear of the rear-deck humps
+        const d = { obj: slim.obj, slots, kind, scale: scale || null, slim, lit };
+        decor.push(d);
+        return d;
+    }
     const obj = models[key].clone(true);
     obj.name = "MetaHoliday_" + kind;
     const d = { obj, slots, kind, scale: scale || null };
@@ -204,6 +215,7 @@ function tick(dt) {
     placeDecor();
     const t = ctx.time;
     for (const d of decor) {
+        if (d.slim) d.slim.tick(t);
         if (d.flames) for (const fl of d.flames) {
             const k = 1 + Math.sin(t * 13 + fl.ph) * 0.16 + Math.sin(t * 29 + fl.ph * 2) * 0.06;
             fl.f.scale.set(fl.base.x * (2 - k) * 0.95, fl.base.y * k, fl.base.z * (2 - k) * 0.95);

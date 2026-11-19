@@ -123,6 +123,8 @@ module.exports = {
       t.check("lakewood: a menorah in (almost) every house's front windows", n.length >= 80, `${n.length}`);
       const big = await items("bigMenorah");
       t.check("lakewood: the big menorah by the town hall, night 5", big.length === 1 && big[0].lights === 5, JSON.stringify(big));
+      const str = await g(`ctx.seasons.debug.strings()`);
+      t.check("lakewood: blue-and-white string lights along the eaves of a good share of the houses", str.strings >= 30 && str.drawn >= 600, JSON.stringify(str));
       const stands = await g(`ctx.seasons.debug.stands()`);
       t.check("lakewood: the sufganiyot stall + its doughnuts", stands.length >= 1 && (await items("Goods_Donuts")).length >= 1, JSON.stringify(stands));
       // the shots: a duplex at night, the big menorah, the stall (day + night)

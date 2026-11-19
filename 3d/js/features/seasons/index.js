@@ -82,7 +82,7 @@ function refresh(force = false) {
     }
     putUp();
 }
-const dresses = R => !!(R.windows || R.big || R.stand || R.sukkah || R.baskets || R.kerb || R.bonfire || R.planters || R.parade);
+const dresses = R => !!(R.windows || R.strings || R.big || R.stand || R.sukkah || R.baskets || R.kerb || R.bonfire || R.planters || R.parade);
 
 function takeDown() {
     for (const [k, c] of S.chunks) { for (const col of c.cols) { const i = c.chunk.colliders.indexOf(col); if (i >= 0) c.chunk.colliders.splice(i, 1); } }
@@ -295,6 +295,8 @@ ctx.seasons = {
         /** Serve the nearest stall's treat (tests): → {coins, paid} | null. */
         treat(x, z) { const p = x != null ? { x, z } : (ctx.foot && ctx.foot.active && ctx.foot.pos) || ctx.car.pos; return treat(nearestStand(p.x, p.z, 1e9)); },
         stands: () => S.stands.map(it => ({ x: it.x, z: it.z, rot: it.rot, id: it.stand, kind: it.kind, set: it.set.key })),
+        /** String lights: { strings, bulbs } (sets in view or not). */
+        strings: () => { let n = 0, b = 0; for (const s of D.sets.values()) for (const st of s.strings || []) { n++; b += st.pts.length / 3; } return { strings: n, bulbs: b, drawn: D.glows.bulb ? D.glows.bulb.n : 0 }; },
         items: kind => [...D.sets.values()].flatMap(s => s.items).filter(it => !kind || it.kind === kind).map(it => ({ kind: it.kind, x: it.x, y: it.y, z: it.z, s: it.s, lights: it.lights, set: it.set.key })),
         resetPaid() { SAVE.paid = {}; SAVE.said = {}; SAVE.ima = {}; saveSoon(); },
         D, S, SAVE,
