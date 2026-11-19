@@ -177,7 +177,8 @@ hook("hud", dt => {
     if (ME.i >= 0) {
         ME.t += dt;
         const foot = onFootNow(), E = EMOTES[ME.i];
-        const moving = foot && ctx.foot.vel && Math.hypot(ctx.foot.vel.x, ctx.foot.vel.z) > 1.4 && ME.t > 0.25;
+        // she walks off = it's over (the STICK, not her speed: two friends side by side nudge each other apart)
+        const moving = foot && Math.hypot(input.moveX || 0, input.moveY || 0) > 0.35 && ME.t > 0.25;
         if (ME.t > ME.dur || moving || !(foot || carNow())) stop();
         else if (foot) {
             const p = ctx.foot.person;
