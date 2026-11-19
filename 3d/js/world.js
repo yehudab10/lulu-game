@@ -807,7 +807,7 @@ export class World {
         if (d) this.setDistrict(d);
     }
 
-    *activeChunks() { if (this.district) yield* this.district.chunks; else yield* this.chunks.values(); }
+    activeChunks() { return this.district ? this.district.chunks : this.chunks.values(); }   // (no generator: called every frame by many features)
 
     resetCoins() {
         for (const c of this.chunks.values()) {

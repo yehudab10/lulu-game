@@ -83,12 +83,20 @@ export class Traffic {
     spawn(playerS, difficulty) {
         const cfg = this.config;
         if (!cfg.enabled) return;
-        const ours = this.cars.filter(c => c.dir > 0 && !c.hit && !c.ai && c.s > playerS - 50).length;
-        const onc = this.cars.filter(c => c.dir < 0 && !c.hit && !c.ai && c.s > playerS - 50).length;
+        // (counted in place, no arrays: this runs every frame)
+        let ours = 0, onc = 0;
+        for (let i = 0; i < this.cars.length; i++) {
+            const c = this.cars[i];
+            if (c.hit || c.ai || c.s <= playerS - 50) continue;
+            if (c.dir > 0) ours++; else if (c.dir < 0) onc++;
+        }
         const maxOurs = cfg.ours + Math.floor(difficulty * 4);
         const maxOnc = cfg.oncoming + Math.floor(difficulty * 4);
-        let r = Math.random() * Object.values(cfg.mix).reduce((a, b) => a + b, 0), kind = "sedan";
-        for (const [k, w] of Object.entries(cfg.mix)) { if ((r -= w) <= 0) { kind = k; break; } }
+        const mix = cfg.mix;
+        let tot = 0, kind = "sedan";
+        for (const k in mix) tot += mix[k];
+        let r = Math.random() * tot;
+        for (const k in mix) { if ((r -= mix[k]) <= 0) { kind = k; break; } }
         if (ours < maxOurs && Math.random() < 0.6) {
             const d = LANES_OURS[Math.floor(Math.random() * 2)];
             const s = playerS + 320 + Math.random() * 240;
