@@ -170,6 +170,12 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- **iPhone traps (both bit the owner on 2026-11-19, neither shows in headless Chromium):** (1) a page can't set an
+  `<audio>` element's volume there, and a set READS BACK for one task before it is 1 again — never read `el.volume`
+  (audio.js counts its own levels; test `music` imitates it). (2) resizing the WebGL canvas empties it, and a canvas
+  resized after its frame was drawn shows blank (a white flash) until the next frame — resize only right before a
+  draw (app.js `applyGfxPending`; test `gfx`). The flash fix is UNVERIFIED on a real phone: if the owner still sees
+  flashes with ⚙️ Graphics on MEDIUM (no resolution sliding), look elsewhere.
 - Cops: the red "not hidden" toast can linger after she reaches a real hiding
   spot (`core/hud.js` has no toast dismiss); a call-in cruiser in town still
   routes straight to her; bailing out mid-chase files a permanent warrant (2★ on
