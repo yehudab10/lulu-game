@@ -236,17 +236,24 @@ module.exports = {
     await t.shot("tv-mode");
     await t.L(`document.body.classList.remove("tv")`);
 
-    // ── out of hearts on foot → game over (ER forced off) ──
+    // ── out of hearts on foot → a KNOCK-OUT: she sits up and walks it off (no game over; ER forced off) ──
     await t.until(`__lulu3d.state === "footRun"`, "walking again before the last test", 240000);
-    await t.game(`(() => { ctx.foot.force.er = false; ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F;
+    await t.game(`(() => { ctx.foot.force.er = false; ctx.G.hearts = 1; ctx.G.invT = 0; window.__ko0 = ctx.G.knockouts || 0; const F = ctx.foot.debug.F;
       const r = ctx.world.road, p = r.point(F.s + 40, 3.5, {}); F.pos.set(p.x, 0, p.z); F.s += 40; F.d = 3.5; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
       const c = ctx.traffic.add("truck", F.s - 16, 3.5, 1, 20); c.data.footAttn = false; })()`);
-    if (await t.until(`__lulu3d.state === "gameover"`, "last heart on foot → game over", 120000)) {
-      t.check("last heart on foot → game over", true);
-      t.check("foot ended", await t.game(`!ctx.foot.active`));
-      t.check("footRunHigh saved to the shared 2D save", (await save2d("footRunHigh")) > 0, String(await save2d("footRunHigh")));
-      await t.shot("gameover");
+    let koed = await t.until(`(__lulu3d.ctx.G.knockouts || 0) > window.__ko0`, "last heart on foot → knocked out", 40000);
+    for (let i = 0; i < 2 && !koed; i++) {     // (the truck can miss her — a fresh one aimed at where she stands now)
+      await t.game(`(() => { ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+        const c = ctx.traffic.add("truck", F.s - 14, F.d, 1, 18); c.data.footAttn = false; })()`);
+      koed = await t.until(`(__lulu3d.ctx.G.knockouts || 0) > window.__ko0`, "last heart on foot → knocked out (again)", 40000);
     }
+    if (koed) {
+      t.check("last heart on foot → a knock-out, not game over", (await t.game(`ctx.state`)) !== "gameover");
+      t.check("…she gets up and walks on, hearts full", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.G.hearts === __lulu3d.ctx.G.maxHearts`, "up again", 20000));
+      t.check("footRunHigh saved to the shared 2D save", (await save2d("footRunHigh")) > 0, String(await save2d("footRunHigh")));
+      await t.shot("knockout");
+    }
+    await t.game(`(ctx.foot.end("test"), true)`);
 
     // ── pulled over into the roadside lot: she walks out of the parked car THERE, and the foot world picks
     //    up with her already on her feet — no second climb-out from the driver's seat ──

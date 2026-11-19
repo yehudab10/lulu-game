@@ -2,8 +2,10 @@
 // road (s ≈ 0, Lakewood) with her house, the pink car in the driveway, Dina on
 // the porch step, Mr. Pinsky watering his lawn across the street, a minivan
 // doing a lap of the cul-de-sac now and then — and the title screen's camera on
-// all of it. Coming back to the title brings her home: she drives up the street
-// and parks nose-in in front of the garage.
+// all of it. A run starts HERE, on foot (depart.js): Lulu at the bottom of the porch
+// steps, Ima in the doorway, the car parked NOSE-OUT in front of the garage so
+// driving off is just "go". Coming back to the title brings her home: she drives
+// up the street, backs into the driveway and walks back to the porch.
 //
 // The street is ONE persistent group in the driving scene (it's at the world's
 // origin, so a run that starts at s = 12 drives right past it); it hides itself
@@ -12,7 +14,7 @@ import * as THREE from "three";
 import { ctx, on, emit } from "../../core/ctx.js";
 import { save3d, shared } from "../../core/save.js";
 import { models, cloneWithColors, findNodes, ensureModels, instanced } from "../../models.js";
-import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER } from "../../world.js";
+import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER, paved } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import * as A from "../../audio.js";
 import { Path, Ride, ease } from "./path.js";
@@ -28,9 +30,10 @@ const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a
 export const home = {
     ready: false,
     group: null, house: null,
-    park: null,        // {x, z, h, s, d} — the car's parked pose (nose to the garage)
-    anchors: {},       // world positions: dina, window, table, lulu
-    people: {},        // dina, lulu, pinsky (Person)
+    park: null,        // {x, z, h, s, d} — the car's parked pose (in front of the garage, nose to the street)
+    anchors: {},       // world positions: dina, window, table, lulu, door (Ima's spot in the doorway)
+    people: {},        // dina, lulu, pinsky, ima (Person)
+    ride2: null,       // the homecoming's second leg (backing into the driveway)
     phase: "parked",   // "parked" | "arriving" | "away"
     ride: null, arriveT: 0,
     luluT: 0,          // Lulu's walk from the car door to her spot after parking
@@ -131,9 +134,15 @@ function buildStreet() {
         const d = findNodes(house, "Deco_" + k)[0];
         if (d) { d.visible = false; home.deco[k] = d; }
     }
-    // the parked pose: nose to the garage
+    // the parked pose: in front of the garage, NOSE OUT (backed in) — a run starts with her driving straight off
     const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
-    home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y + Math.PI), s: near.s, d: near.d };
+    home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y), s: near.s, d: near.d };
+    // the front door (Ima's spot, on the porch deck) and the bottom of the porch steps (where a run starts)
+    house.localToWorld(A.door = new THREE.Vector3(0.2, 0.4, 5.25));
+    house.localToWorld(A.steps = new THREE.Vector3(0.6, 0, 7.75));
+    // the driveway is asphalt for the car (no grass drag pulling out)
+    const dS = near.s, dD = near.d;
+    paved.push((s, d) => (s > dS - 2.2 && s < dS + 2.2 && d > SHOULDER - 0.2 && d < dD + 3.4) ? 2 : 0);
     // the neighbours: across the street (Mr. Pinsky's) and next door
     home.neighbours = addNeighbours(g, [[S_HOME - 2, -1, "#DCEDC8", "#455A8C"], [S_HOME + 36, 1, "#E3F2FD", "#8D6E63"], [S_HOME + 40, -1, "#FFF9C4", "#C0504D"]]);
     // every driveway (ours up to the garage + the neighbours') in one mesh
@@ -168,6 +177,15 @@ function buildStreet() {
         p.obj.rotation.y = facingRoad(headingAt(S_HOME), -1);
         g.add(p.obj);
         home.people.pinsky = p;
+    }).catch(() => {});
+    // Ima in the doorway (only for a run's start: she sees Lulu off)
+    ensureModels(["imaPerson"]).then(() => {
+        const p = spawnPerson("imaPerson");
+        p.obj.position.copy(A.door);
+        p.obj.rotation.y = house.rotation.y;
+        p.obj.visible = false;
+        g.add(p.obj);
+        home.people.ima = p;
     }).catch(() => {});
     // the minivan that laps the cul-de-sac (journey's model, lazy)
     ensureModels(["journey_minivan"]).then(() => {
@@ -214,11 +232,13 @@ function vanLoop() {
 }
 
 // ── where things are ─────────────────────────────────────────────────────
-/** Lulu's spot next to the parked car (by the driver's door) and the door itself. */
+/** door = beside the car's driver's door (where she climbs out); idle = her spot at the bottom of the porch steps,
+ *  chatting with Dina (where the title shows her and where a run starts). */
 export function luluSpots(out = {}) {
     const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), lx = Math.cos(P.h), lz = -Math.sin(P.h);
     out.door = { x: P.x + lx * 1.25 + fx * 0.25, z: P.z + lz * 1.25 + fz * 0.25 };
-    out.idle = { x: P.x + lx * 1.9 - fx * 0.9, z: P.z + lz * 1.9 - fz * 0.9 };   // by the driver's door, clear of the headlights
+    const st = home.anchors.steps || home.anchors.lulu;
+    out.idle = { x: st.x, z: st.z };
     return out;
 }
 const spots = {};
@@ -231,19 +251,20 @@ export function placeParked() {
     car.updateVisual(0, ctx.time, { steer: 0, throttle: 0, brake: 0, handbrake: false }, false);
     car.showDriver(false);
     home.phase = "parked";
-    home.ride = null;
+    home.ride = home.ride2 = null;
     const L = makeLulu();
     if (L) { luluSpots(spots); L.obj.position.set(spots.idle.x, 0, spots.idle.z); L.obj.visible = true; home.luluT = 99; }
 }
 
-/** Drive home from up the street and park (behind the title menu). */
+/** Drive home from up the street and back into the driveway (behind the title menu). */
 function startArrival() {
     const P = home.park, s = P.s;
     const fx = Math.sin(P.h), fz = Math.cos(P.h);
-    // down the street in the far lane, swing across, then straight in along the driveway
-    const pts = [roadPt(s + 34, -1.75), roadPt(s + 22, -1.75), roadPt(s + 10, -1.2), roadPt(s + 3, 4.5), roadPt(s + 0.6, 9.5),
-        { x: P.x - fx * 2.2, z: P.z - fz * 2.2 }, { x: P.x, z: P.z }];
+    // down the street in the far lane, past the driveway, a stop — then back in, swinging round so she's nose-out
+    const pts = [roadPt(s + 36, -1.75), roadPt(s + 22, -1.75), roadPt(s + 4, -1.5), roadPt(s - 7, -0.6)];
+    const back = [roadPt(s - 7, -0.6), roadPt(s - 3.2, 2.6), roadPt(s - 0.8, 7.2), { x: P.x + fx * 2.4, z: P.z + fz * 2.4 }, { x: P.x, z: P.z }];
     home.ride = new Ride(new Path(pts), { profile: "decel", v0: 11 });
+    home.ride2 = new Ride(new Path(back), { reverse: true, profile: "inout", dur: 2.6 });
     home.phase = "arriving";
     home.arriveT = 0;
     const car = ctx.car;
@@ -332,8 +353,13 @@ export function homeTick(dt) {
     home.titleT += dt;
     const car = ctx.car, P = home.park;
     if (home.phase === "arriving" && home.ride) {
-        const done = home.ride.step(dt);
+        let done = home.ride.step(dt);
         A.updateEngine(Math.abs(car.vF), 0.3, 0, 0, false, true);
+        if (done && home.ride2) {      // stopped past the driveway: now back in
+            home.arriveT += dt;
+            if (home.arriveT > 0.35) { home.ride = home.ride2; home.ride2 = null; }
+            done = false;
+        }
         if (done) {
             placeParked();
             A.updateEngine(0, 0, 0, 0, false, false);
@@ -368,7 +394,7 @@ export function peopleTick(dt, mood = null) {
     if (lulu && lulu.obj.visible && !mood) {
         luluSpots(spots);
         if (home.luluT < 1) {
-            home.luluT += dt * 1.6;
+            home.luluT += dt * 1.6 / Math.max(1, Math.hypot(spots.idle.x - spots.door.x, spots.idle.z - spots.door.z) * 0.6);
             const k = ease(home.luluT);
             lulu.obj.position.set(spots.door.x + (spots.idle.x - spots.door.x) * k, 0, spots.door.z + (spots.idle.z - spots.door.z) * k);
             lulu.face(spots.idle.x, spots.idle.z, dt, 10);
@@ -411,6 +437,7 @@ export function streetVisibility() {
     const far = Math.abs(ctx.car.s - S_HOME) > 900 && ctx.camera.position.distanceToSquared(v1.set(home.hp.x, 0, home.hp.z)) > 810000;
     home.group.visible = !far;
     if (home.van && ctx.state !== "title") home.van.visible = false;
+    if (home.people.ima && (far || ctx.state === "title")) home.people.ima.obj.visible = false;
 }
 
 // ── the title camera ─────────────────────────────────────────────────────
@@ -420,12 +447,13 @@ export function titleShot(pos, look, t = ctx.time) {
     const sway = Math.sin(t * 0.07) * 2.5;
     const d = home.anchors.dina;
     look.set((P.x * 0.55 + d.x * 0.45), 1.5, (P.z * 0.55 + d.z * 0.45));
+    // (from the cul-de-sac side, looking up the street: a run's start then pushes straight in behind Lulu)
     if (portrait) {
-        const p = roadPt(P.s + 25 + sway, -6);
+        const p = roadPt(P.s - 27 - sway, 3);
         pos.set(p.x, 9.5 + Math.sin(t * 0.05), p.z);
         look.y = 0.4;
     } else {
-        const p = roadPt(P.s + 13.5 + sway, 1.2 + Math.sin(t * 0.05) * 1.2);
+        const p = roadPt(P.s - 19 - sway, 4.2 + Math.sin(t * 0.05) * 1.2);
         pos.set(p.x, 4.1 + Math.sin(t * 0.06) * 0.4, p.z);
     }
     return { pos, look };

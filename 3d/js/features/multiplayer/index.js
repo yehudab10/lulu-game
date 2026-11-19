@@ -187,7 +187,7 @@ on("mp:honk", ({ peer }) => {
 
 // ── run lifecycle: cruise auto-join, daily leaderboard, wanted board ─────
 on("run:start", ({ mode }) => { if (mode === "cruise") N.autoConnect(); });
-on("run:end", ({ score }) => { N.postScore(score); });
+on("run:end", ({ score, bestStreak = 0 }) => { N.postScore(Math.max(score || 0, bestStreak)); });   // (knock-outs bank streaks: post the run's best)
 for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.charges) N.postWanted(e.charges); });
 // a friend race starts while we're on the title → hop into a cruise in time for GO
 on("mp:raceRun", () => { if (ctx.state === "title") { H.hideScreen(); startRun({ mode: "cruise" }); } });

@@ -1,6 +1,6 @@
 // 🌍 World: the title is Lulu's live street (house, parked pink car, Dina on the porch,
-// the sky on the device's clock), Cruise starts with the driveway pull-out → playing
-// (and ⏭ skips it, ✕ jumps it), quick starts stay instant, back to the title brings her
+// the sky on the device's clock), Cruise starts on foot at home → hop in → the street
+// (scripts/tests3d/home.js has the details), quick starts stay instant, back to the title brings her
 // home (she parks), pull-in places (Gas 'n' Go, the Lookout) work, holiday dressing
 // on the house (mocked dates), the party turns it off, and performance numbers.
 const VIEWS = [["desktop", 1280, 720], ["tv", 1920, 1080], ["phone-portrait", 390, 844], ["phone-landscape", 844, 390]];
@@ -73,21 +73,28 @@ module.exports = {
       await t.frames(3);
     } else t.check("no extra title row when the phone has the app", !(await t.titleItems()).some(s => /Family & places/.test(s)));
 
-    // ── Cruise from the title: the driveway pull-out → playing ──
+    // ── Cruise from the title: on foot at home (the 🏠 home test covers the walk in detail) → hop in → the street ──
     await g(`ctx.places.debug.clock(0.41)`);
     await t.frames(3);
     await t.click(/Cruise/);
-    t.check("Cruise starts the pull-out", await t.until(`__lulu3d.state === "worldDepart"`, "worldDepart", 4000));
-    t.check("the skip pill shows", await t.L(`document.getElementById("skipBtn").classList.contains("show")`));
-    await t.frames(30);
-    await t.shot("depart-reverse");
-    const ph = await g(`ctx.places.home.depart().phase`);
-    t.check("she's in the car and backing out", ["rev", "pause", "fwd"].includes(ph), ph);
-    if (!await t.until(`__lulu3d.state === "playing"`, "the pull-out hands over to playing", 15000)) return;
+    t.check("Cruise starts on foot at home", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.places.home.depart().live`, "home start", 4000));
+    await t.frames(20);
+    await t.shot("home-start");
+    t.check("✋ GET IN → her car", await g(`ctx.foot.debug.getIn()`));
+    if (!await t.until(`__lulu3d.state === "worldPullOut"`, "the driveway pull-out", 4000)) return;
+    await t.hold(7, 1);
+    for (let i = 0; i < 160 && (await state()) !== "playing"; i++) {
+      const p = await g(`(() => { const rh = ctx.world.road.at(ctx.car.s).h; return { d: ctx.car.d, dh: Math.atan2(Math.sin(ctx.car.h - rh), Math.cos(ctx.car.h - rh)) }; })()`);
+      await t.stick(p.d < 9.5 ? Math.max(-1, Math.min(1, p.dh * 2.5 - (p.d - 1.75) * 0.08)) : 0.9, 0);
+      await t.frames(1);
+    }
+    await t.stick(0, 0);
+    if (!await t.until(`__lulu3d.state === "playing"`, "out on the street → playing", 3000)) return;
     const R = await g(`({ d: ctx.car.d, v: ctx.car.speed, drv: ctx.car.driver.visible, mode: ctx.G.mode, clock: ctx.atmos.clock })`);
-    t.check("she's in her lane, rolling", R.d > 0.5 && R.d < 3.5 && R.v > 6, JSON.stringify(R));
+    t.check("she's on the road, rolling", Math.abs(R.d) < 9.5 && R.v > 3, JSON.stringify(R));
     t.check("Lulu is at the wheel", R.drv === true);
     t.check("the time of day carries into the drive", Math.abs(R.clock - 0.41) < 0.02, R.clock.toFixed(3));
+    await t.hold(7, 0);
     await t.frames(6);
     await t.shot("depart-handoff");
     if (viaPhone) {
@@ -107,33 +114,13 @@ module.exports = {
     console.log(`  PERF busy cruise: ${JSON.stringify(pCruise)}`);
     t.check("cruise perf measured", pCruise.calls > 0, JSON.stringify(pCruise));
 
-    // ── back to the title: she drives home and parks ──
+    // ── back to the title: she drives home and backs into the driveway ──
     await g(`L3.setState("title")`);
     await t.frames(4);
     t.check("back on the title she drives home", (await g(`ctx.places.home.phase`)) === "arriving");
     await t.frames(40);
     await t.shot("homecoming");
     t.check("…and parks in the driveway", await t.until(`__lulu3d.ctx.places.home.phase === "parked" && __lulu3d.ctx.places.home.parked()`, "parked again", 15000));
-
-    // ── ⏭ skip the pull-out ──
-    await g(`L3.startRun({ mode: "cruise" })`);
-    await t.until(`__lulu3d.state === "worldDepart"`, "pull-out again", 3000);
-    await t.frames(3);
-    const f0 = await g(`ctx.frames`);
-    await t.hold(1, 1);
-    await t.until(`__lulu3d.state === "playing"`, "holding ○ skips the pull-out", 4000);
-    await t.hold(1, 0);
-    t.check("skipped in a blink", (await g(`ctx.frames`)) - f0 < 45, `${(await g(`ctx.frames`)) - f0} frames`);
-    t.check("skipped run lands on the road", await g(`Math.abs(ctx.car.d - 1.75) < 1.5 && ctx.car.speed > 5`));
-
-    // ── ✕ jumps straight to the road ──
-    await g(`L3.setState("title")`);
-    await t.frames(3);
-    await g(`ctx.places.debug.parkNow()`);
-    await g(`L3.startRun({ mode: "cruise" })`);
-    await t.frames(14);
-    await t.tap(0);
-    t.check("✕ jumps the pull-out", await t.until(`__lulu3d.state === "playing"`, "✕ → playing", 300));
 
     // ── quick starts stay instant ──
     await g(`L3.setState("title")`);

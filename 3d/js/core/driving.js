@@ -2,6 +2,14 @@
 // wrecks, coins, close calls, speed traps, actors — and the states
 // "intro" (3-2-1 countdown), "playing", "wrecked" and "gameover".
 //
+// NO GAME OVER (roadmap step 3): out of hearts is a KNOCK-OUT, not the end of the run.
+// "wrecked" is a ~1 s spin-out; then a feature may claim it (law: a cop's wreck = an
+// arrest; cameos: now and then the crash comedy / the ER) and otherwise she is back on
+// her feet beside her patched-up car (foot "knockout") — the world keeps running. What a
+// knock-out costs (KO below): the score streak is banked (best + lifetime) and starts over,
+// a small capped tow fee, hearts back to full. The run itself only ends when she quits to
+// the title / restarts (or a mode ends it: Story's trip end, the Shabbos Rush, a party).
+//
 // Features extend it through ctx hooks/events (see 3d/ARCHITECTURE.md):
 //   hooks.controls(ctl, dt)   hooks.update(dt, P)   hooks.damage(info) → false cancels
 //   hooks.wreck(info) → true takes over   hooks.runStart(G)
@@ -50,12 +58,23 @@ export function resetRun(opts = {}) {
 
 /** Reset and start the 3-2-1 countdown. opts.mode = "cruise" | "story" | … */
 export function startRun(opts = {}) {
+    // (the run before this one ends here: Restart / a jail release bank it like quitting does)
+    if (ctx.G.started && !ctx.G.ended) endRun("restart");
     resetRun(opts);
+    ctx.G.started = true;
     emit("run:start", { mode: ctx.G.mode, opts });
-    // a runStart hook may swap the 3-2-1 countdown for its own departure state (world: the driveway pull-out)
+    // a runStart hook may swap the 3-2-1 countdown for its own start: G.introStart(opts) (world: on foot at
+    // home — it sets the state itself; false = it couldn't, count down) or G.introState (a departure state)
+    if (typeof ctx.G.introStart === "function") {
+        let ok = false;
+        try { ok = ctx.G.introStart(opts) !== false; } catch (e) { console.error("[run] introStart", e); }
+        if (ok) return;
+    }
     const intro = ctx.G.introState;
     setState(intro && ctx.states[intro] ? intro : "intro", opts);
 }
+// quitting to the title ends the run (there's no game-over card to do it any more)
+on("state", ({ to }) => { if (to === "title" && ctx.G.started && !ctx.G.ended) endRun("quit"); });
 
 /** Close out a run (banks the best score, flushes the wallet). Safe to call twice. */
 export function endRun(reason = "end") {
@@ -70,7 +89,7 @@ export function endRun(reason = "end") {
     shared.stat("runs3d", 1);
     shared.stat("miles3d", Math.max(0, Math.round((ctx.car.s - G.startS) / 160.9) / 10));
     flushShared();
-    emit("run:end", { reason, score, coins: G.coins, distance: ctx.car.s - G.startS, G });
+    emit("run:end", { reason, score, bestStreak: Math.max(score, G.bestStreak || 0), banked: G.banked || 0, coins: G.coins, distance: ctx.car.s - G.startS, G });
 }
 
 // ── scoring / pickups ─────────────────────────────────────────────────────
@@ -83,6 +102,80 @@ export function addCoins(n, why) {
     if (n > 0) emit("stat", { id: "coins", n });
 }
 export function addScore(n, why) { ctx.G.score += n; emit("score", { n, why }); }
+
+/** Bank the score so far (best score + lifetime, via "score:bank") and start the score over. Returns what was banked. */
+export function bankScore(reason = "knockout") {
+    const G = ctx.G;
+    const score = Math.max(0, Math.floor(G.score || 0));
+    G.score = 0; G.combo = 0; G.comboT = 0; G.coinStreak = 0;
+    if (!score) return 0;
+    const best = score > save3d.best;
+    if (best) { save3d.best = score; G.newBest = true; }
+    saveSoon();
+    shared.best("best3d", score);
+    G.banked = (G.banked || 0) + score;
+    G.bestStreak = Math.max(G.bestStreak || 0, score);
+    emit("score:bank", { reason, score, best, G });
+    return score;
+}
+
+// ── knocked out (out of hearts) — what it costs ───────────────────────────
+/** THE KNOCK-OUT RULE (tune here): the score streak is banked and starts over, hearts go back to full, and a tow &
+ *  patch-up fee of feeBase + feeStep per earlier knock-out this run, capped at feeMax and never more than she has. */
+export const KO = { feeBase: 10, feeStep: 5, feeMax: 30, spin: 1.1 };
+/**
+ * Apply the knock-out cost and announce it. opts: { fee: false (the ER's bill / an insurance reprieve instead),
+ * hearts: false (the ER sets them), where: "car" | "foot" | "scene" }. → { n, banked, fee }
+ */
+export function knockout(info = {}, { fee = true, hearts = true, where = "car" } = {}) {
+    const G = ctx.G;
+    G.knockouts = (G.knockouts || 0) + 1;
+    const banked = bankScore("knockout");
+    let paid = 0;
+    if (fee) {
+        const want = Math.min(KO.feeMax, KO.feeBase + KO.feeStep * (G.knockouts - 1));
+        paid = Math.max(0, Math.min(want, Math.floor(wallet.coins)));
+        if (paid) { wallet.add(-paid); G.coins = Math.max(0, (G.coins || 0) - paid); }
+    }
+    if (hearts) G.hearts = G.maxHearts || MAX_HEARTS;
+    G.hint = null;
+    G.invT = Math.max(G.invT || 0, 2); G.invSoft = true;
+    H.setHearts(Math.max(0, G.hearts), G.maxHearts);
+    const bits = [];
+    if (banked) bits.push(`score banked: ${banked.toLocaleString()}${G.newBest && banked >= save3d.best ? " 🏆" : ""}`);
+    if (paid) bits.push(`🚛 tow &amp; patch-up −${paid} 💰`);
+    H.banner(`💫 <b>BACK ON YOUR FEET</b>${bits.length ? `<small>${bits.join(" · ")}</small>` : ""}`, 2600, { prio: 2 });
+    const out = { n: G.knockouts, banked, fee: paid, where, why: info.why || null, source: info.source || null };
+    emit("knockout", out);
+    emit("stat", { id: "knockouts", n: 1 });
+    if (paid) emit("stat", { id: "towFees", n: paid });
+    return out;
+}
+
+/** No feature to stand her up (no foot feature): back in her lane, rolling, hearts full. */
+function rollingRecover() {
+    const { car, world, traffic } = ctx, G = ctx.G;
+    const near = world.road.nearest(car.pos.x, car.pos.z, car.s, {});
+    const p = world.road.point(near.s, 1.75, {});
+    car.place(p.x, p.z, p.h);
+    car.s = near.s; car.d = 1.75;
+    car.vx = Math.sin(p.h) * 10; car.vz = Math.cos(p.h) * 10;
+    car.showDriver(true); car.obj.visible = true;
+    for (const c of traffic.cars.slice()) if (!c.keep && Math.abs(c.s - near.s) < 40 && Math.abs(c.d - 1.75) < 2.5) traffic.remove(c);
+    G.invT = Math.max(G.invT || 0, 2.5); G.invSoft = true;
+    if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(0.6); else ctx.cam.snap(); }
+    setState("playing");
+}
+/** The default recovery after a knock-out in the car: on her feet beside it (foot; the picture glides from the spin-out), else rolling in her lane. */
+export function recoverFromWreck(info = {}) {
+    const ko = knockout(info, { where: "car" });
+    let ok = false;
+    if (ctx.foot && typeof ctx.foot.start === "function") {
+        try { ok = ctx.foot.start("knockout", { drivable: true, camBlend: 0.7 }) !== false; } catch (e) { console.error("[run] knockout → foot", e); }
+    }
+    if (!ok) rollingRecover();
+    return ko;
+}
 
 // ── damage & wrecks ───────────────────────────────────────────────────────
 /**
@@ -113,12 +206,12 @@ export function damage(power, why, source = "crash") {
     return true;
 }
 
-/** Out of hearts: spin out, then (after 2.6 s) let a feature claim it (arrest, ER, on foot…) or game over. */
+/** Out of hearts: spin out, then (after KO.spin s) let a feature claim it (arrest, the crash comedy…) or knock-out. */
 export function wreck(why, source = "crash") {
     const G = ctx.G;
     G.wreckInfo = { why, source };
     ctx.car.spin += (Math.random() < 0.5 ? -1 : 1) * 5;
-    H.banner(`💥 <b>WRECKED!</b><small>${why || "Lulu's car has had enough"}</small>`, 2400, { prio: 2 });
+    H.banner(`💥 <b>WRECKED!</b><small>${why || "Lulu's car has had enough"}</small>`, 1300, { prio: 2 });
     A.sfxHorn(false);
     emit("wreck", G.wreckInfo);
     setState("wrecked", G.wreckInfo);
@@ -403,13 +496,15 @@ registerState("wrecked", {
     hud: true, touch: false, pausable: false, driving: true,
     update(dt) {
         updateDriving(dt, {}, false);
-        if (ctx.stateT > 2.6) {
+        if (ctx.stateT > KO.spin) {
             const info = Object.assign({ G: ctx.G }, ctx.G.wreckInfo || {});
-            if (!claimHooks("wreck", info)) setState("gameover", info);
+            if (!claimHooks("wreck", info) && ctx.state === "wrecked") recoverFromWreck(info);
         }
     },
 });
 
+// (no longer reached by running out of hearts — see the knock-out above; kept for minigames that still end a run:
+//  parking's challenge, and anything a feature may want to close with a card)
 registerState("gameover", {
     hud: false, touch: false, world: true,
     enter(info) {
