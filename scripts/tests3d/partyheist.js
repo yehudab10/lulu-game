@@ -114,7 +114,9 @@ async function partyRun(t, guests) {
     t.check(`sync (${what}): the guest has no stray local cars`, s2.locals.every(k => /footStub|law|local|partyClaim|partyLocal/.test(k)), JSON.stringify(s2.locals));
   };
   const frozen = async what => {
-    const a = await A.game(`({ t: ctx.time, c: ctx.party.clock() })`); await sleep(1200); const b = await A.game(`({ t: ctx.time, c: ctx.party.clock() })`);
+    // (a crawling CI page can draw no frame in a fixed 1.2 s: give it up to 30 s to show it's alive)
+    const a = await A.game(`({ t: ctx.time, c: ctx.party.clock() })`); let b = a;
+    for (let i = 0; i < 25; i++) { await sleep(1200); b = await A.game(`({ t: ctx.time, c: ctx.party.clock() })`); if (b.t > a.t && b.c > a.c + 700) break; }
     t.check(`guest never frozen (${what})`, b.t > a.t && b.c > a.c + 700, JSON.stringify({ a, b }));
   };
 

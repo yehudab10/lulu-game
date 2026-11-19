@@ -336,8 +336,12 @@ async function partyRun(t, guests) {
   const it0 = await g(`ctx.openworld.game.it`);
   const holder = it0 === hostUid ? pages[0] : A, other = holder === A ? pages[0] : A;
   const op = await other.game(CLEAR);
-  await other.game(PLACE(op.x, op.z, op.h));
-  await holder.game(PLACE(op.x - Math.sin(op.h) * 4.2, op.z - Math.cos(op.h) * 4.2, op.h));
+  // (on a crawling runner the bump can miss — a friend's car still gliding in from its old spot: line them up again)
+  for (let k = 0; k < 3; k++) {
+    await other.game(PLACE(op.x, op.z, op.h));
+    await holder.game(PLACE(op.x - Math.sin(op.h) * 4.2, op.z - Math.cos(op.h) * 4.2, op.h));
+    if (await waitOn(holder.page || t.page, `ctx.openworld.game.itN >= 1`, 12000)) break;
+  }
   for (const p of pages) await p.until(`ctx.openworld.game.itN >= 1`, "kugel: passed on contact", 30000);
   t.check("kugel: the bump passed it (both screens agree)", (await g(`ctx.openworld.game.it`)) !== it0 && (await A.game(`ctx.openworld.game.it`)) === (await g(`ctx.openworld.game.it`)));
   await sleep(600);
