@@ -253,6 +253,13 @@ async function partyRun(t, guests) {
   const hostUid = await g(`ctx.party.uid`), guestUid = await A.game(`ctx.party.uid`);
   await A.game(`ctx.openworld.warpTo(${JSON.stringify(hostUid)})`);
   await sleep(3000);
+  // (a slow runner: wait until the warp has landed and its snapshots have reached the host — in game frames)
+  const realQ = `(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return rc && rc.shown ? { x: rc.x, z: rc.z } : null; })()`;
+  for (let i = 0; i < 30; i++) {
+    const sn = await g(realQ), rl = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, w: ctx.town.active })`);
+    if (sn && rl.w && Math.hypot(sn.x - rl.x, sn.z - rl.z) < 4) break;
+    await t.frames(10);
+  }
   const seen = await g(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return rc && rc.shown ? { x: rc.x, z: rc.z } : null; })()`);
   const real = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
   t.check("in town: the host sees the guest's car where it really is (flat frame)", !!seen && Math.hypot(seen.x - real.x, seen.z - real.z) < 4, JSON.stringify({ seen, real }));
