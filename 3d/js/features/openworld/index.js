@@ -364,7 +364,7 @@ function startGame(k, starter, req) {
     setG(g);
     return true;
 }
-const INVITE_MS = 15000;           // an invitation stays open this long (or until everyone's in)
+const INVITE_MS = ctx.TEST ? 45000 : 15000;   // an invitation stays open this long (or until everyone's in) — party-clock (real) ms: a crawling ?test page gets longer
 const JOIN_R = 24;                 // coming this close to the spot opts you in
 /** An invitation (or a solo request) → the game itself: { ph: "go", … } or { ph: "off", why }. */
 function launch(g, t) {
