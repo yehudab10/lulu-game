@@ -94,6 +94,26 @@ leak tracker (left the scene, never disposed): mat chunk · MeshStandardMaterial
   128×256 / 8×64 / 256×256 textures are the rest areas' ramp / dash / lot materials, built once
   and reused by every exit. The perf test fails on > 30 geometries / > 40 materials / > 6 textures.
 
+## 🕎 Seasons (`ci/seasons`, 2026-11-19) — the world dressed for Chanukah night 8
+
+`node scripts/perf3d.js` at MEDIUM, scenes cruise / rain / town / foot, main vs. the branch with the world dressing on
+(`PERF3D_ADD=seasons PERF3D_QUERY="&seasonDate=2026-12-11T19:00"` — the real calendar path pinned to the 8th night, so
+only the world dressing is measured, not meta's car menorah):
+
+| scene | draw calls | triangles | JS ms / frame | geometries |
+|---|---|---|---|---|
+| cruise | 196 → 196 | 75123 → 74271 (−1 %) | 5.31 → 4.96 | 268 → 298 |
+| rain (night) | 216 → 220 (+2 %) | 83127 → 82816 | 6.11 → 6.2 | 310 → 356 |
+| town (Main St) | 192 → 190 | 107440 → 110310 (+3 %) | 6.16 → 5.52 | 464 → 515 |
+| foot | 305 → 288 | 151535 → 146887 | 6.21 → 6.43 | 436 → 469 |
+
+(Traffic in view swings the totals by more than the dressing does.) What the dressing itself draws, from the `seasons`
+test on a Lakewood street at night (`ctx.seasons.info().stats`): Chanukah night 8 = 6 draw calls (menorahs, the big
+menorah, the stall, its goods, 2 light layers), 3.9k triangles, 620 menorahs / 5.6k candle lights in the town;
+Sukkos = 2 draw calls, 6.1k triangles. A decorated Lakewood: 198 calls / 106k triangles (ceilings 240 / 115k).
+Side note: meta's car menorah (the existing Chanukah car decoration, 9 flame sprites + a multi-material model)
+costs ~30 draw calls on its own (`?holiday=chanukah&holidayDay=8`: cruise 196 → 229) — worth merging some day.
+
 ## One world: towns attached to the highway (`ci/oneworld`, 2026-11-19)
 `node scripts/perf3d.js` (PERF3D_TIER=medium, PERF3D_SCENES=town,attached; this repo's 4-core cloud container, software GL):
 
