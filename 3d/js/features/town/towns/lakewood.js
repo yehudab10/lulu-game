@@ -85,7 +85,8 @@ export default {
     ],
     highway: { first: 2000, every: 3600, no: "91", label: "LAKEWOOD", short: "Lakewood" },   // where the exits are (metres into a Cruise run), exit number + sign name
 
-    traffic: { town_van: 6, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
+    traffic: { town_van: 9, town_bus: 1, cop: 1 },        // moving drivers (the parked, jammed and hazard ones are extra)
+    parkRate: 0.74,                                       // minivans along every kerb (features/homes: a living town)
     speedLimitMph: 25, speedingMph: 48,
 
     // who you can meet, where (spots come from the build: pizza / hall / chair / lake / welcome / yeshiva)

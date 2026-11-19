@@ -152,7 +152,7 @@ export default {
     ],
     highway: { first: 2000, every: 3600, no: "9", label: "BROOKLYN", short: "Brooklyn" },
 
-    traffic: { town_van: 4, town_carsvc: 3, town_citybus: 1, town_sweeper: 1, cop: 1 },
+    traffic: { town_van: 6, town_carsvc: 4, town_citybus: 1, town_sweeper: 1, cop: 1 },
     routes: {
         town_citybus: ["Coney Island Ave", "Kings Hwy", "Ocean Ave", "Avenue J", "Avenue M"],
         town_sweeper: ["E 8th St", "Avenue L", "Avenue K", "Avenue M", "E 15th St", "E 16th St"],

@@ -1314,6 +1314,7 @@ function startFootChase(from) {
 // Run down by the cop: the law takes it from here (or, without it, a cruiser
 // pulls up and walks her into the precinct).
 function caught(extra = null) {
+    if (!extra && F && F.chase && F.chase.charges) extra = F.chase.charges;     // (a chase started with its own charges: features/homes' burglary)
     let charges = (ctx.law && Array.isArray(ctx.law.charges) && ctx.law.charges.length) ? ctx.law.charges.slice() : ["EVADING ARREST", "RESISTING ARREST"];
     if (extra) charges = extra.concat(charges.filter(c => !extra.includes(c)));
     if (ctx.law && ctx.law.arrest) {
@@ -1866,7 +1867,15 @@ ctx.foot = {
     /** The cop on foot (when she's WANTED): is one chasing her? · drop it (he gives up and walks off) · start one from {x, z}. */
     get chasing() { return !!(F && F.chase && !F.chase.giveUp); },
     dropChase() { if (F && F.chase && !F.chase.giveUp) { F.chase.giveUp = 2.5; F.chaseCool = 10; return true; } return false; },
-    startChase(from) { return !!(F && !F.chase && startFootChase(from)); },
+    startChase(from, opts = {}) { const ch = F && !F.chase && startFootChase(from); if (ch && opts.charges) ch.charges = opts.charges.slice(); return !!ch; },
+    /** Walk into another feature's interior from your own ✋ spot (features/homes' houses): like a door — the interior's
+     *  exit() resumes the walk at `door` ({ s, d, side } road coords; the caller may move her after). */
+    handoff(id, door) {
+        if (!F || ctx.state !== "footRun" || !(ctx.interiors && ctx.interiors[id])) return false;
+        F.script = null; F.phase = "walk";
+        handoffInterior(id, door);
+        return true;
+    },
     /** The soft edges + nudges (bounds.js): { EDGE, NUDGE, state, zone, visuals, debug } */
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */

@@ -501,6 +501,10 @@ ctx.town = {
     get plan() { return S.active ? PL : null; },
     get spots() { return S.active && S.T ? S.T.spots : null; },
     get coins() { return S.active && S.T ? S.T.coins : null; },
+    /** The houses people live in (features/homes): [{ key (model), x, z (model origin), rot, ux, uz, nx (toward the street), nz, lotX, lotZ, w, dark, face }]
+     *  and the driveway minivans [{ x, z, rot }] — WORLD coords, in build order (stable per town). */
+    get homes() { return S.active && S.T && S.T.homes ? S.T.homes.map(h => Object.assign({}, h, { x: h.x + PL.ORIGIN.x, z: h.z + PL.ORIGIN.z, lotX: h.lotX + PL.ORIGIN.x, lotZ: h.lotZ + PL.ORIGIN.z })) : []; },
+    get drives() { return S.active && S.T && S.T.drives ? S.T.drives.map(d => ({ x: d.x + PL.ORIGIN.x, z: d.z + PL.ORIGIN.z, rot: d.rot })) : []; },
     /** The townsfolk you can talk to: [{id, name, x, z}] (world). */
     people: () => S.active ? LIFE.people.filter(r => r.lines).map(r => ({ id: r.id, name: r.name, x: r.p.obj.position.x, z: r.p.obj.position.z })) : [],
     /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be
