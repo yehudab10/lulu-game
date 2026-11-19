@@ -5,8 +5,8 @@
 //     (defineInterior "bank": the teller line, the napping guard, the vault door, the lollipop jar)
 //   • inside: talk to the teller / the line / the guard (asleep), a free lollipop, the founder's portrait,
 //     and 🔍 CASE THE VAULT → the (optional) plan for a cartoon heist (job.js)
-// The town lets the interior state play in it (ctx.town.allowState("interior")) — only for the bank: any
-// other interior in a town still sends her back to the highway, as before.
+// The town lets the interior state play in it (ctx.town.allowState("interior")) — only for the bank (and
+// features/homes' houses): any other interior in a town still sends her back to the highway, as before.
 import { ctx, on, setState } from "../../core/ctx.js";
 import { defineInterior, pool, pick } from "../interiors/engine.js";
 import { BANK, PLANS, JOB, TELLER, TELLER_BK, GUARD, LINE, FOUNDER, LOLLY, VAULT_OK } from "./data.js";
@@ -130,8 +130,10 @@ on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot({ pos: door, r: 2.6, label: () => `🏦 ENTER ${((BANK[townId()] || BANK.lakewood).name).toUpperCase()}`, short: "BANK", act: enterBank });
 });
-// only the bank plays inside a town: any other interior there still sends her back to the highway (the old way)
+// only the town's own buildings play inside a town — the bank and a house (features/homes' "home": its families
+// live on these streets) — any other interior there still sends her back to the highway (the old way)
+const TOWN_INTERIORS = new Set(["bank", "home"]);
 on("state", ({ to, data }) => {
-    if (to === "interior" && inTown() && !(data && data.id === "bank") && ctx.town.leave) ctx.town.leave("quiet");
+    if (to === "interior" && inTown() && !(data && TOWN_INTERIORS.has(data.id)) && ctx.town.leave) ctx.town.leave("quiet");
 });
 export { def as bankDef };
