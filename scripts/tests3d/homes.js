@@ -93,10 +93,11 @@ module.exports = {
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
       await t.frames(4);
       t.check("a honk: the nearest folks yell", (await evs(/homes:honked/)).length > 0);
-      // a walker on the road's edge, her car 7 m behind it in the same direction at 14 m/s
+      // a walker on the road's edge, her car 5 m behind it in the same direction at 14 m/s — in the travel lane
+      // (d ±1.75: the parking lane is lined with minivans now, and a parked one would stop her dead)
       await g(`(() => { const C = ctx.homes.debug.CR, PL = ctx.town.debug.PL, p = C.peds.find(q => q.kind === "walker" && q.st && q.st.a1 - q.along > 30 && q.along - q.st.a0 > 30); if (!p) return false;
         p.flee = null; p.lat = p.st.curb + 0.4; p.want = p.lat;
-        const c = ctx.town.debug.pt(p.st.name, p.along - p.dir * 7, p.side * (p.st.curb - 1.2)), h = p.dir > 0 ? p.st.h : p.st.h + Math.PI;
+        const c = ctx.town.debug.pt(p.st.name, p.along - p.dir * 5, p.side * 1.75), h = p.dir > 0 ? p.st.h : p.st.h + Math.PI;
         ctx.car.place(PL.ORIGIN.x + c.x, PL.ORIGIN.z + c.z, h); ctx.car.vx = Math.sin(h) * 14; ctx.car.vz = Math.cos(h) * 14; ctx.car.vF = 14; window.__sc = p.id; return true; })()`);
       await t.frames(3);
       t.check("a speeding car: peds scatter (AAH!)", (await evs(/homes:scatter/)).length > 0 || await g(`ctx.homes.debug.CR.peds.some(p => p.flee)`));
@@ -121,6 +122,8 @@ module.exports = {
       await t.shot("guest");
       await leave();
       t.check("out the front door: back on foot", await g(`L3.state === "footRun" && ctx.foot.active`));
+      // (heist's bank used to send her back to the highway from ANY other interior in a town — houses included)
+      t.check("…still in town (a house visit doesn't unload Lakewood)", await g(`ctx.town.active && ctx.homes.homes().length > 40`), JSON.stringify(await g(`({ town: ctx.town.active, doors: ctx.homes.homes().length })`)));
     });
 
     // ── 3. sneak in a window: detection ──
