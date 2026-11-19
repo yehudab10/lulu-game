@@ -294,14 +294,21 @@ module.exports = {
       // ── the parked cars are SOLID: she bumps one, it's shoved (and its alarm goes off) ──
       await g(`(ctx.law.hold(300), ${D}.place("Route 9", 40, -1.75, 0, -1), true)`);
       await t.frames(4);
-      const pk = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, car = ctx.car; let best = null, bd = 1e9;
-          for (const p of T.pcars) { if (p.gone) continue; const d = Math.hypot(O.x + p.x - car.pos.x, O.z + p.z - car.pos.z); if (d > 8 && d < bd) { bd = d; best = p; } }
+      // (a car with a clear run-up from the centre line: none of the others — a double-parked one in the lane, say — in the way)
+      const pk = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, car = ctx.car, r = ctx.world.road; let best = null, bd = 1e9;
+          const clear = p => { const P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, car.s, {}), q = r.point(n.s, 0, {});
+            const ex = P.x - q.x, ez = P.z - q.z, L2 = ex * ex + ez * ez || 1;
+            return !T.pcars.some(o => { if (o === p || o.gone) return false; const ox = O.x + o.x - q.x, oz = O.z + o.z - q.z, u = Math.max(0, Math.min(1, (ox * ex + oz * ez) / L2));
+              return Math.hypot(ox - ex * u, oz - ez * u) < 3.2; }); };
+          for (const p of T.pcars) { if (p.gone) continue; const d = Math.hypot(O.x + p.x - car.pos.x, O.z + p.z - car.pos.z); if (d > 8 && d < bd && clear(p)) { bd = d; best = p; } }
           if (!best) return null; window.__pc = best; return { x: O.x + best.x, z: O.z + best.z, rot: best.rot, n: T.pcars.length }; })()`);
       t.check("the town's parked cars are registered (tagged in the merge, two colliders each)", !!pk && pk.n > 100, JSON.stringify(pk));
       if (pk) {
-        // (from across the street, nose first into its side — along the kerb she'd hit the car parked behind it first)
+        // (from across the street, nose first into its side — along the kerb she'd hit the car parked behind it first;
+        //  she starts on the centre line: from the far lane her tail reached into the far kerb's parking lane, and with
+        //  the kerbs lined with minivans (features/homes) she bumped the car parked behind her instead)
         await g(`(() => { const p = window.__pc, O = ${D}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {});
-            const q = r.point(n.s, -Math.sign(n.d || 1) * 1.75, {}), h = Math.atan2(P.x - q.x, P.z - q.z);
+            const q = r.point(n.s, 0, {}), h = Math.atan2(P.x - q.x, P.z - q.z);
             ctx.car.place(q.x, q.z, h); ctx.car.vx = Math.sin(h) * 7; ctx.car.vz = Math.cos(h) * 7; ctx.car.vF = 7; ctx.car.s = n.s; window.__pc0 = [p.x, p.z]; window.__hits = []; return true; })()`);
         await t.L(`import("./js/core/ctx.js").then(m => { if (!window.__phk) { window.__phk = true; m.on("town:parkedHit", e => window.__hits && window.__hits.push(e.impact)); } })`);
         await t.frames(45);
