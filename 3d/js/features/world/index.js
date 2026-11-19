@@ -84,6 +84,7 @@ ctx.places = Object.assign(placesApi, {
         get ready() { return home.ready; },
         get phase() { return home.phase; },
         get park() { return home.park; },
+        get people() { return home.people; },
         parked() { const c = ctx.car, P = home.park; return !!P && Math.hypot(c.pos.x - P.x, c.pos.z - P.z) < 0.6; },
         depart: departInfo,
         holiday: () => { const c = holidayNow(); return c ? c.id : null; },

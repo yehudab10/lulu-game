@@ -96,7 +96,7 @@ function startAtHome(opts) {
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
-    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false;
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false; D.pendingLine2 = null;
     const ima = home.people.ima;
     if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
     const ok = ctx.foot.start("home", {
@@ -112,8 +112,11 @@ function startAtHome(opts) {
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
-    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : pick(IMA.any);
+    // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")
+    const dayLine = G.mode === "cruise" && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
+    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : dayLine || pick(IMA.any);
     D.pendingLine = line;
+    D.pendingLine2 = D.first && dayLine ? dayLine : null;
     emit("world:homeStart", { mode: G.mode, first: D.first });
     return true;
 }
@@ -155,7 +158,8 @@ hook("hud", dt => {
     }
     D.t += dt;
     peopleTick(dt, "bye");
-    if (D.pendingLine && D.t > 0.6) { imaSay(D.pendingLine, D.first ? 4.5 : 3.2); D.pendingLine = null; }
+    if (D.pendingLine && D.t > 0.6) { imaSay(D.pendingLine, D.first ? 4.5 : 4); D.pendingLine = null; }
+    if (D.pendingLine2 && D.t > 5.4) { imaSay(D.pendingLine2, 5); D.pendingLine2 = null; }
     const car = ctx.foot && ctx.foot.parkedCar;
     const P = home.park, m = marker();
     const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
@@ -166,7 +170,7 @@ hook("hud", dt => {
     // moved yet? if she just stands there a while, Ima says something (once)
     if (input.moveX * input.moveX + input.moveY * input.moveY > 0.04) D.moved = true;
     D.idleT = D.moved ? 0 : D.idleT + dt;
-    if (!D.left && D.said < 2 && D.idleT > (D.first ? 6 : 9)) { D.idleT = -99; imaSay(pick(IMA.nudge), 3); }
+    if (!D.left && D.said < 3 && D.idleT > (D.first ? 6 : 9)) { D.idleT = -99; imaSay(pick(IMA.nudge), 3); }
 });
 
 // ── pulling out of the driveway: she drives (it's "playing" in all but name), the camera looks up the street ──
