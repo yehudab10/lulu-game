@@ -136,7 +136,8 @@ async function partyRun(t, guests) {
   const restS = p1.rests.length ? +p1.rests[0].split(":")[0] : null;
 
   // ── seeded street props: both screens at the same stretch → the same props ──
-  for (const p of pages) await p.game(`(ctx.party.placeCar(700, 5.25, 0), true)`);
+  // (on the shoulder: parked IN the slow lane a shared car bumps her and she claims it as a ram)
+  for (const p of pages) await p.game(`(ctx.party.placeCar(700, 7.9, 0), true)`);
   await sleep(2500);
   const props = c => c.game(`ctx.streets.debug.PROPS.all.filter(p => !p.loose && p.s > 700 && p.s < 1300).map(p => p.kind + "@" + p.s.toFixed(1) + "/" + p.d.toFixed(1)).sort().join(",")`);
   const pr1 = await props(pages[0]), pr2 = await props(A);
@@ -170,16 +171,18 @@ async function partyRun(t, guests) {
   await g(`(ctx.foot.start("droveOff"), true)`);
   if (!await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host is walking", 30000)) return;
   await g(`(ctx.party._debug.claimCool(), true)`);
+  const before = JSON.stringify((await g(`ctx.party._debug.claims()`)).map(c => c.key));
   // stand in the oncoming slow lane, facing the traffic, as one comes
   const fs = await g(`ctx.foot.debug.F.s`);
   await hostUntil(t, `!!${APPROACHING(fs, -5.25)}`, "a shared car coming down the oncoming slow lane", 60000);
   await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, -5.25, {}); F.pos.set(p.x, 0, p.z); F.d = -5.25; ctx.G.invT = 30; return true; })()`);
-  const claimed = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine)`, "stepping out in front of a shared car claims it", 40000);
+  const NEW = `ctx.party._debug.claims().find(c => c.mine && !c.dead && !${before}.includes(c.key))`;
+  const claimed = await hostUntil(t, `!!${NEW}`, "stepping out in front of a shared car claims it", 40000);
   let ck = null;
   if (claimed) {
     // back onto the shoulder (her own pratfalls are fine, the test wants her standing)
     await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, -9.6, {}); F.pos.set(p.x, 0, p.z); return true; })()`);
-    const cl = (await g(`ctx.party._debug.claims()`)).find(c => c.mine);
+    const cl = await g(NEW);
     ck = cl.key;
     const K = JSON.stringify(ck);
     t.check("claim: it brakes onto its own shoulder", Math.abs(Math.abs(cl.dS) - 7.9) < 0.01 && cl.L > 8, JSON.stringify(cl));
