@@ -120,7 +120,11 @@ function rebuildEnv() {
     U.sun.value.copy(L.sunOffset).normalize();
     U.sunCol.value.copy(L.sun.color).multiplyScalar(Math.min(1, L.sun.intensity / 2.6));
     if (!ENV.pm) ENV.pm = new THREE.PMREMGenerator(ctx.renderer);
-    const rt = ENV.pm.fromScene(ENV.scene, 0, 0.1, 100);
+    // (its cube faces + blur passes go through the renderer's raw render: they're not the game's draw calls)
+    const r = ctx.renderer, pub = r.render;
+    let rt;
+    if (ctx.rawRender) r.render = ctx.rawRender;
+    try { rt = ENV.pm.fromScene(ENV.scene, 0, 0.1, 100); } finally { r.render = pub; }
     if (ENV.rt) ENV.rt.dispose();
     ENV.rt = rt;
     for (const m of ENV.tagged) m.envMap = rt.texture;

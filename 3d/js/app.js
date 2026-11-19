@@ -30,6 +30,10 @@ const canvas = document.getElementById("scene");
 const platform = detectPlatform();
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !platform.console, powerPreference: "high-performance" });
 ctx.renderer = renderer;
+// the renderer's own render, before anything wraps it: helper passes (bloom, the reflection map) use it so
+// whatever counts renderer.render calls (tests, the perf harness) sees only the game's scene renders
+const rawRender = renderer.render;
+ctx.rawRender = (s, c) => rawRender.call(renderer, s, c);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -65,8 +69,9 @@ function applyGraphics() {
     if (sun.shadow.camera.right !== box) { Object.assign(sun.shadow.camera, { left: -box, right: box, top: box, bottom: -box }); sun.shadow.camera.updateProjectionMatrix(); }
     LOD.dist = T.lod;
     if (ctx.world) ctx.world.drawScale = T.draw;
-    if (T.post && !post && Post.supported(renderer)) post = new Post(renderer);   // HIGH: the bloom (core/post.js)
+    if (T.post && !post && Post.supported(renderer)) post = new Post(renderer, rawRender);   // HIGH: the bloom (core/post.js)
     else if (!T.post && post) { post.dispose(); post = null; }
+    gfx.bloom = !!post;
     emit("gfx", { tier: gfx.tier });
 }
 function applySettings() {

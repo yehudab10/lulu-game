@@ -4,7 +4,7 @@
 //           fog distance (the fog comes in to match), far-LOD cars from 40 m, a third of the
 //           particles, no headlight spot light, no wind sway, no post FX, pixel ratio 1.
 //   MEDIUM  a 1024 shadow map over a tighter box, 85 % draw distance, LOD from 55 m, 60 % particles,
-//           the headlight spot, wind sway; no post FX; pixel ratio ≤ 1.5 (≤ 2 on a phone).
+//           the headlight spot, wind sway; no post FX; pixel ratio ≤ 1.5.
 //   HIGH    everything: a 2048 shadow map, full draw distance, LOD from 70 m, all the particles,
 //           wind sway, the bloom on lights / neon / nitro; pixel ratio ≤ 2.
 //   AUTO    picks a tier from the GPU (software renderers, integrated GPUs, phones, consoles / TVs)
@@ -37,7 +37,8 @@ export const gfx = {
     reason: "",
     demoted: null,          // AUTO stepped down from this tier this session
     capped30: false,
-    info() { return { setting: this.setting, tier: this.tier, pixelRatio: +this.pixelRatio.toFixed(2), prCap: this.prCap, gpu: this.gpu, reason: this.reason, demoted: this.demoted, capped30: this.capped30, fps: +A.fps.toFixed(1) }; },
+    bloom: false,           // HIGH's bloom is running (core/post.js; needs half-float render targets)
+    info() { return { setting: this.setting, tier: this.tier, pixelRatio: +this.pixelRatio.toFixed(2), prCap: this.prCap, gpu: this.gpu, reason: this.reason, bloom: !!this.bloom, demoted: this.demoted, capped30: this.capped30, fps: +A.fps.toFixed(1) }; },
 };
 ctx.gfx = gfx;
 
@@ -77,8 +78,8 @@ export function resolveTier(renderer, platform) {
     gfx.tier = tier;
     gfx.T = TIERS[tier];
     const dpr = window.devicePixelRatio || 1;
-    // a phone's small screen keeps its sharpness (≤ 2: the pixel count is still a laptop's); low stays at 1
-    const cap = tier === "low" ? 1 : phone ? 2 : gfx.T.pr;
+    // (the caps are main's old ones — MEDIUM ≤ 1.5 on a phone too: AUTO must never start a phone at more pixels than before)
+    const cap = tier === "low" ? 1 : gfx.T.pr;
     gfx.prCap = Math.min(dpr, cap);
     if (gfx.setting !== "auto" || !gfx.pixelRatio || gfx.pixelRatio > gfx.prCap || gfx.pixelRatio < gfx.T.prMin) gfx.pixelRatio = gfx.prCap;
     return gfx;

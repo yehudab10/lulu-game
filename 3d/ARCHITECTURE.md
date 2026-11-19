@@ -246,7 +246,7 @@ mud / fence there, zone `"grounds"`).
   = `{ setting, tier, T, pixelRatio, info() }`. Read `ctx.gfx.tier` (or atmos' `quality()`), never the raw setting.
   LOW: no shadow map (blob contact shadows instead), 65 % draw distance + the fog pulled in to match, LOD from 40 m,
   30 % particles, no headlight spot, no sway / reflections / bloom, pixel ratio 1. MEDIUM: 1024 shadows over ±38 m,
-  85 % draw distance, LOD 55 m, sway + reflections, ≤ 1.5 px ratio (≤ 2 on phones). HIGH: 2048 shadows, all of it,
+  85 % draw distance, LOD 55 m, sway + reflections, ≤ 1.5 px ratio. HIGH: 2048 shadows, all of it,
   bloom. AUTO guesses from the GPU / device (software GL, old mobile GPUs, consoles / TVs → LOW; phones, tablets,
   integrated GPUs → MEDIUM; else HIGH — `?test` runs keep the desktop guess), then holds 60 fps: the pixel ratio
   slides between the tier's floor and cap, and when the floor isn't enough it steps a tier down for the session

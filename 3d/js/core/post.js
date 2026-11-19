@@ -6,6 +6,10 @@
 //
 //   post.render(scene, camera)      instead of renderer.render (app.js, when the tier has post)
 //   post.dispose()                  dropping to a tier without it frees the targets
+//
+// Only the scene itself goes through the public renderer.render: the bloom passes use the renderer's
+// original render (rawRender, captured at boot), and renderer.info is put back to the scene's numbers
+// afterwards — so anything that counts draw calls (tests, the perf harness) sees the game, not the bloom.
 import * as THREE from "three";
 
 const VERT = "varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }";
@@ -57,8 +61,9 @@ export class Post {
     static supported(renderer) {
         try { const e = renderer.extensions; return !!(e.has("EXT_color_buffer_float") || e.has("EXT_color_buffer_half_float")); } catch (err) { return false; }
     }
-    constructor(renderer) {
+    constructor(renderer, rawRender) {
         this.r = renderer;
+        this.raw = rawRender || renderer.render;
         this.w = 0; this.h = 0;
         this.strength = 0.42;
         this.threshold = 1.0;
@@ -84,6 +89,8 @@ export class Post {
         const prev = r.getRenderTarget(), autoClear = r.autoClear;
         r.setRenderTarget(this.scene);
         r.render(scene, camera);
+        const info = r.info.render, calls = info.calls, tris = info.triangles, pts = info.points, lines = info.lines;
+        const raw = (s, c) => this.raw.call(r, s, c);
         r.autoClear = true;
         // bright pass + down the pyramid
         const D = this.down.m.uniforms;
@@ -92,7 +99,7 @@ export class Post {
         for (let i = 0; i < LEVELS; i++) {
             D.tSrc.value = src; D.uTexel.value.set(1 / sw, 1 / sh); D.uPre.value = i === 0 ? 1 : 0;
             r.setRenderTarget(this.mips[i]);
-            r.render(this.down.scene, qcam);
+            raw(this.down.scene, qcam);
             src = this.mips[i].texture; sw = this.mips[i].width; sh = this.mips[i].height;
         }
         // …and back up, adding each level into the one above it
@@ -101,14 +108,15 @@ export class Post {
         for (let i = LEVELS - 1; i > 0; i--) {
             U.tSrc.value = this.mips[i].texture; U.uTexel.value.set(1 / this.mips[i].width, 1 / this.mips[i].height);
             r.setRenderTarget(this.mips[i - 1]);
-            r.render(this.up.scene, qcam);
+            raw(this.up.scene, qcam);
         }
         r.autoClear = true;
         const C = this.comp.m.uniforms;
         C.tScene.value = this.scene.texture; C.tBloom.value = this.mips[0].texture; C.uStrength.value = this.strength;
         r.setRenderTarget(prev);
-        r.render(this.comp.scene, qcam);
+        raw(this.comp.scene, qcam);
         r.autoClear = autoClear;
+        info.calls = calls; info.triangles = tris; info.points = pts; info.lines = lines;
     }
     /** Free the render targets (the passes are tiny and stay). */
     dispose() {
