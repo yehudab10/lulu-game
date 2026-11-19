@@ -169,7 +169,7 @@ registerState("hustleResult", {
     enter(sum) {
         card = { t: 0, sum };
         J.pending = null;
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         A.sfxHorn(false);
         const again = sum.again !== false && sum.id !== "getaway";
         const d = JOBS[sum.id] || {};
@@ -198,7 +198,7 @@ function keep() {
     if (ctx.state !== "hustleResult") return;
     H.hideScreen();
     ctx.G.invT = Math.max(ctx.G.invT || 0, 1.5);
-    ctx.cam.snap();
+    ctx.cam.blend(0.6);
     setState("playing");
 }
 

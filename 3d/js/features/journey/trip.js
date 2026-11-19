@@ -433,12 +433,12 @@ function snapToSpot() {
     const T = arr.target, road = ctx.world.road, S = stopAt(arr.i);
     const h = road.at(S).h + 0.55;
     ctx.car.place(T.x, T.z, h);
-    ctx.cam.snap();
+    ctx.cam.blend(0.6);
 }
 
 registerState("arriving", {
     hud: true, touch: false, driving: true, pausable: false, skip: true,
-    enter() { ctx.cam.snap(); },
+    enter() { ctx.cam.blend(0.6); },
     update(dt, P) {
         arr.t += dt; focus.t = arr.t;
         if (arr.phase === "pull") {

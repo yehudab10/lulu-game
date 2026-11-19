@@ -251,7 +251,8 @@ function start(reason = "carWreck", opts = {}) {
         beginWalk();
     }
     B.begin(F);                  // the soft edges out in the fields + the gentle nudges back into a car
-    if (ctx.cam) ctx.cam.snap();
+    // (one move, no cut: the picture glides from the chase cam to her — a caller's own scene that ended elsewhere still cuts)
+    if (ctx.cam) { if (ctx.state === "playing" && ctx.cam.blend) ctx.cam.blend(0.7); else ctx.cam.snap(); }
     setState("footRun", { start: true });
     emit("foot:start", { reason, level });
     emit("stat", { id: "footWalks", n: 1 });
@@ -357,11 +358,43 @@ function enterCar(v) {
     G.invT = Math.max(G.invT || 0, 2.0);
     G.lemon = v.lemon ? { type: v.lemon, drift: Math.random() < 0.5 ? -1 : 1, sput: 0 } : null;
     G.borrowed = v.own ? null : v.vtype;
-    if (ctx.cam) ctx.cam.snap();
+    if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(0.6); else ctx.cam.snap(); }      // (the picture glides to the chase cam)
     setState("playing");
     A.setMusic("../luludriving.mp3");
     if (v.lemon === "tire") H.toast("🛠️ FLAT TIRE — it PULLS!", "red");
     else if (v.lemon === "engine") H.toast("🛠️ BAD ENGINE — it SPUTTERS!", "red");
+}
+
+// ── hopping in: one move from her feet into the driver's seat, then the car is hers (no cut) ──
+const HOP_IN = 0.42;      // s
+/** v as enterCar. opts.before() runs at the moment she lands in the seat (take the other car off the road),
+ *  opts.after() once she's driving. Anywhere a hop can't play (a script, far from the car) she's simply in. */
+function hopIn(v, opts = {}) {
+    const go = () => { if (opts.before) opts.before(); enterCar(v); if (opts.after) opts.after(); };
+    if (!F || ctx.state !== "footRun" || ctx.skipping || F.phase === "getin") return go();
+    const to = new THREE.Vector3(v.x + 0.38 * Math.cos(v.h) - 0.06 * Math.sin(v.h), 0.62, v.z - 0.38 * Math.sin(v.h) - 0.06 * Math.cos(v.h));
+    if (Math.hypot(to.x - F.pos.x, to.z - F.pos.z) > 7) return go();
+    F.getin = { v, opts, from: F.pos.clone(), to };
+    F.phase = "getin"; F.phaseT = 0;
+    F.vel.set(0, 0, 0);
+    F.hotwire = null; F.approach = null; F.hail = null;
+    hot.classList.add("hidden");
+    H.prompt("");
+    ctx.G.invT = Math.max(ctx.G.invT || 0, HOP_IN + 0.3);
+    A.sfxCloseCall(2);
+}
+function updateGetIn(dt) {
+    const g = F.getin, o = F.lulu.obj;
+    const k = clamp(F.phaseT / HOP_IN, 0, 1), e = k * k * (3 - 2 * k);
+    F.pos.lerpVectors(g.from, g.to, e);
+    o.position.set(F.pos.x, 0.05 + (g.to.y - 0.05) * e + Math.sin(e * Math.PI) * 0.45, F.pos.z);
+    o.rotation.y += wrapAngle(g.v.h - o.rotation.y) * Math.min(1, dt * 12);
+    F.lulu.update(dt, { walk: k < 0.7 ? 2.4 : 0, sit: k >= 0.7 });
+    if (k < 1) return;
+    F.getin = null;
+    if (g.opts.before) g.opts.before();
+    enterCar(g.v);
+    if (g.opts.after) g.opts.after();
 }
 
 function attachShell(v) {
@@ -527,6 +560,7 @@ function footUpdate(dt, P) {
     else if (F.phase === "approach") updateApproach(dt);
     else if (F.phase === "hail") updateHail(dt);
     else if (F.phase === "hotwire") updateHotwire(dt, P);
+    else if (F.phase === "getin") updateGetIn(dt);
     else if (F.phase === "script") updateScript(dt, P);
     else walk(dt);
     if (!F) return;
@@ -680,7 +714,7 @@ function trafficStep(dt) {
         if (e.type === "oncomingHonk" && F.phase === "walk") H.toast("📣 BEEP! Off the road, lady!", "red");
     }
     // cars vs. Lulu: slow ones shove her, fast ones knock her flat
-    if (F.phase === "intro" || F.phase === "knock" || F.phase === "arrest" || F.phase === "script") return;
+    if (F.phase === "intro" || F.phase === "knock" || F.phase === "arrest" || F.phase === "script" || F.phase === "getin") return;
     for (const c of T.cars) {
         const dx0 = c.x - F.pos.x, dz0 = c.z - F.pos.z;
         if (dx0 * dx0 + dz0 * dz0 > 64) continue;
@@ -845,7 +879,7 @@ function footCamera(dt) {
         cam.cinematic(shot.from, shot.look, dt, 2, 50);
         return true;
     }
-    const close = F.phase === "hotwire" || F.phase === "approach";
+    const close = F.phase === "hotwire" || F.phase === "approach" || F.phase === "getin";
     cam.follow(F.lulu.obj, { dist: close ? 4.4 : 6.3, height: close ? 2.3 : 3.0, look: 1.15, yaw: F.camYaw, fov: 58 }, dt);
     return true;
 }
@@ -1429,8 +1463,8 @@ function doInteract(pr) {
         case "disguise": return doDisguise();
         case "borrow": return startApproach(e);
         case "own": return F.car.key === "lulu"
-            ? enterCar({ own: true, x: e.x, z: e.z, h: e.h })
-            : enterCar({ vtype: F.car.vtype || "car", key: F.car.key, colors: F.car.colors, x: e.x, z: e.z, h: e.h, how: "own", removeStub: true, handling: F.car.handling || null });
+            ? hopIn({ own: true, x: e.x, z: e.z, h: e.h })
+            : hopIn({ vtype: F.car.vtype || "car", key: F.car.key, colors: F.car.colors, x: e.x, z: e.z, h: e.h, how: "own", removeStub: true, handling: F.car.handling || null });
 
         case "rip": bubble(F.lulu.obj, pick(["She's taking a nap.\nA... permanent nap. 😴", "RIP, little pink car. 🥀\nYou served me... okay.", "It's not a car now,\nit's modern ART."]), 2.4); return;
         case "talk": return talkTo(e);
@@ -1635,18 +1669,25 @@ function finalizeBorrow(pc) {
     floater(F.lulu.obj, "🔓 HOTWIRED!", "#7CFC4F", 1.4);
     // only a cop who actually SEES it (close, clear line of sight — or right next to her) reacts
     const watcher = copSaw(40);
-    const i = F.parked.indexOf(pc);
-    if (i >= 0) F.parked.splice(i, 1);
-    ctx.scene.remove(pc.obj);
     S.borrowed++; saveSoon();
     emit("stat", { id: "carsBorrowed", n: 1 });
-    enterCar({ vtype: pc.vtype, key: pc.key, colors: pc.colors, x: pc.x, z: pc.z, h: pc.h, lemon: pc.lemon, how: "car" });
-    H.toast(L.FOOT_HAIL_VEHICLE[pc.vtype] || "🔓 HOTWIRED!", "gold");
-    if (watcher) {
-        H.banner(`🚨 <b>GRAND THEFT AUTO — DRIVE!</b>`, 2200);
-        if (ctx.law && ctx.law.startChase) { try { ctx.law.startChase("GRAND THEFT AUTO", { at: { x: pc.x, z: pc.z } }); } catch (e) { console.error(e); } }
-        emit("foot:crime", { charges: ["GRAND THEFT AUTO", "JOYRIDING"], seen: true });
-    } else if (ctx.law && ctx.law.changeLook) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // new wheels, nobody saw
+    F.hotwire = null;
+    // she hops in (the parked car stays put until she's in the seat), then it's hers
+    hopIn({ vtype: pc.vtype, key: pc.key, colors: pc.colors, x: pc.x, z: pc.z, h: pc.h, lemon: pc.lemon, how: "car" }, {
+        before() {
+            const i = F ? F.parked.indexOf(pc) : -1;
+            if (i >= 0) F.parked.splice(i, 1);
+            ctx.scene.remove(pc.obj);
+        },
+        after() {
+            H.toast(L.FOOT_HAIL_VEHICLE[pc.vtype] || "🔓 HOTWIRED!", "gold");
+            if (watcher) {
+                H.banner(`🚨 <b>GRAND THEFT AUTO — DRIVE!</b>`, 2200);
+                if (ctx.law && ctx.law.startChase) { try { ctx.law.startChase("GRAND THEFT AUTO", { at: { x: pc.x, z: pc.z } }); } catch (e) { console.error(e); } }
+                emit("foot:crime", { charges: ["GRAND THEFT AUTO", "JOYRIDING"], seen: true });
+            } else if (ctx.law && ctx.law.changeLook) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // new wheels, nobody saw
+        },
+    });
 }
 function hotwireFail(h) {
     floater(F.lulu.obj, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80", 1.8);
@@ -1696,11 +1737,16 @@ function updateHail(dt) {
         c.obj.traverse(o => { if (!colors && o.isMesh && o.material.name === "Paint") colors = { Paint: "#" + o.material.color.getHexString() }; });
         const vtype = /cop/.test(c.kind) ? "cop" : "car";
         const v = { vtype, key: models[key] ? key : "sedan", colors, x: c.x, z: c.z, h: c.h, how: "hail" };
-        ctx.traffic.remove(c);
         S.hailed++; saveSoon();
-        enterCar(v);
-        if (ctx.law && ctx.law.changeLook && !ctx.law.chasing) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // a stranger's car: not what they're looking for
-        H.toast(L.FOOT_HAIL_VEHICLE[vtype] || pick(L.FOOT_HAIL_OK), "gold");
+        F.hail = null;
+        // she hops in (the stopped car waits for her), then it's hers
+        hopIn(v, {
+            before() { if (ctx.traffic.cars.includes(c)) ctx.traffic.remove(c); },
+            after() {
+                if (ctx.law && ctx.law.changeLook && !ctx.law.chasing) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }   // a stranger's car: not what they're looking for
+                H.toast(L.FOOT_HAIL_VEHICLE[vtype] || pick(L.FOOT_HAIL_OK), "gold");
+            },
+        });
     }
 }
 

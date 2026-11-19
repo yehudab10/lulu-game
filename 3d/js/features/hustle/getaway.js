@@ -246,7 +246,7 @@ registerState("hustleHeist", {
         Object.assign(CUT, { job, t: 0, crew: [], line: -1, done: false, chased: false });
         job.phase = "heist";
         job.heisted = true;
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         if (ctx.law && ctx.law.hold) ctx.law.hold(8);
         SFX.alarm(3.4);
         const hall = job.hall;

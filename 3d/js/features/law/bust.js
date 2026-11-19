@@ -67,7 +67,7 @@ registerState("lawBust", {
         quietRoad();
         UI.hideAll();
         UI.header(`🚨 PULLED OVER 🚨<small>${reasonText(data.reason, data.charges, data.fugitive)}</small>`);
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         X.chirp();
         rumble(0.4, 0.6, 300, true);
         A.duckMusic(0.15);
