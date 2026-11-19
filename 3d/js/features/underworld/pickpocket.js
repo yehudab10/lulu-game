@@ -53,6 +53,8 @@ export function pickTick(dt, E) {
         else { end(E, "won", "left"); finish(E); }
         return;
     }
+    // (tackled / held while she climbs back into a car: there's no "her on foot" to measure from — he just slinks off)
+    if (!F) { finish(E); return; }
     const road = ctx.world.road;
     const dx = F.x - E.x, dz = F.z - E.z, dist = Math.hypot(dx, dz);
     switch (E.phase) {

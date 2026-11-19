@@ -25,7 +25,7 @@ const heistOn = () => !!(ctx.heist && ctx.heist.job && ctx.heist.job.phase === "
 /** Is the gear in play right now (a chase she's driving in, hot enough)? */
 function gearOn(min) {
     if (!(ctx.law && ctx.law.chasing) || ctx.state !== "playing" || onFoot()) return false;
-    if (!(live() || heistOn())) return false;
+    if (!(live("gear") || heistOn())) return false;
     return (ctx.law.wanted || 0) >= (heistOn() ? Math.min(min, 3) : min);
 }
 /** The chasing cruisers (law's own traffic cars) — read-only. */
@@ -196,7 +196,7 @@ hook("update", (dt, P, controlsOn) => {
     } catch (e) { console.error("[heist gear]", e); }
 });
 // the kit loads as soon as a chase gets hot, so the first net / strip is ready when it's due
-on("cop:chase", e => { if (e && e.active && (live() || heistOn())) need(["heistNet", "heistSpikes"]); });
+on("cop:chase", e => { if (e && e.active && (live("gear") || heistOn())) need(["heistNet", "heistSpikes"]); });
 function clear() {
     if (GEAR.flight && GEAR.flight.obj.parent) GEAR.flight.obj.parent.remove(GEAR.flight.obj);
     GEAR.flight = null;

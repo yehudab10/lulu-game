@@ -276,7 +276,7 @@ on("crash", e => {
 // ── the payphone tip (Cruise, on the highway, rarely) ───────────────────
 function tipTick(dt) {
     const G = ctx.G;
-    if (J.plan || J.job || J.done || J.tipping || !live() || G.mode !== "cruise" || inTown() || G.tutorial) return;
+    if (J.plan || J.job || J.done || J.tipping || !live("job") || G.mode !== "cruise" || inTown() || G.tutorial) return;
     if (ctx.state !== "playing" || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.hustle && ctx.hustle.job)) return;
     if ((G.runTime || 0) < TUNE.tip.after) return;
     J.tipT -= dt;
