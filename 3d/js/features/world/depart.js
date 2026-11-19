@@ -76,6 +76,8 @@ function imaSay(text, dur = 3.2) {
     if ((save3d.settings.chatter || "normal") === "quiet" && D.said > 0) return false;
     D.said++;
     D.imaLine = text;
+    // (on foot her own bubbles show; banter's only while driving)
+    if (ctx.state === "footRun" && ctx.foot && ctx.foot.bubble) return !!ctx.foot.bubble(ima.obj, text, dur, { y: 2.0 });
     if (ctx.banter && ctx.banter.bubble) return ctx.banter.bubble(text, ima.obj, { dur, y: 1.9, cls: "nice" });
     H.toast(`👩 Ima: ${text}`, "pink");
     return true;

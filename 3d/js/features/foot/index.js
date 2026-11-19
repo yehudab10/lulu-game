@@ -1987,6 +1987,8 @@ ctx.foot = {
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
     force: {},
+    /** A speech bubble over anyone while she's on foot (foot's own bubbles — banter's only show while driving). */
+    bubble: (anchor, text, secs = 2.4, opts = {}) => bubble(anchor, text, secs, opts),
     debug: {
         get F() { return F; },
         spawnParked: o => F && spawnParked(o), spawnPed: o => F && spawnPed(o), spawnAnimal: o => F && spawnAnimal(o),
