@@ -718,8 +718,8 @@ usual knock-down / heart rules, the cops bring a stun net and a spike strip. **T
 `towns/lakewood.js` (Main St, beside the Simcha Palace) and `towns/midwood.js` (Avenue J, re-tinted limestone + a green roof)
 places `heist_bank` (merged by kit.js like any building: ~0 extra draw calls) with its sign in the town's atlas; `T.spots.bank`
 is its door. On foot ✋ ENTER (a `ctx.foot.addSpot`) opens the interiors engine's `bank` (`defineInterior` from
-`interiors/engine.js`; the town `allowState("interior")` — but only the bank keeps her in town, any other interior there still
-leaves it quietly). **Robberies** (`robbery.js`, gated `ctx.enabled("heist")`, Cruise only, never in a chase / a job / the
+`interiors/engine.js`; the town `allowState("interior")` — but only the town's own buildings keep her in town — the bank and features/homes' houses (`home`; `TOWN_INTERIORS` in `bank.js`) —
+any other interior there still leaves it quietly). **Robberies** (`robbery.js`, gated `ctx.enabled("heist")`, Cruise only, never in a chase / a job / the
 tutorial): in a town the getaway car is a town driver started at the door (`ctx.town.addDriver(kind, { at, cruise })`, an additive
 option), on the highway it's a traffic car fleeing in its lanes at 0.8 × her top with a cosmetic cruiser (`ctx.law.lightBar` + an
 `A.spatial` siren) behind — in a town that cruiser joins at `ctx.town.copSpawn` and chases the getaway car round the corners with `ctx.town.copRoute(c, u, target)` (the optional target: anything with `{x, z, s}`, default Lulu); `data.pit` lets features/moves PIT it (a one-word addition to its `isCop`), `onCrash → false` makes rams
