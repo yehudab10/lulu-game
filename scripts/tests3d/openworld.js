@@ -365,10 +365,12 @@ async function partyRun(t, guests) {
   const rows = await g(`ctx.openworld.debug.CL.lastRows.map(r => r.uid + ":" + r.val)`);
   t.check("pin: the guest got there first", rows[0].startsWith(guestUid), rows.join(" | "));
   await A.until(`ctx.phone.isOpen && document.getElementById("owRematch")`, "guest scoreboard", 10000);
+  const n0 = await g(`ctx.openworld.game.n`);
   await A.L(`document.getElementById("owRematch").click()`);
   await optIn("pin", pages[0], "rematch");
-  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.k === "pin" && ctx.openworld.game.ph === "go"`, "the guest's rematch starts a new race", 20000);
-  t.check("rematch: a new race (n + 1)", (await g(`ctx.openworld.game.n`)) > 0 && (await g(`ctx.openworld.game.ph`)) === "go");
+  // (both still stand by the old pin: the new race can be over a moment after GO — judge it by its number)
+  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.k === "pin" && ctx.openworld.game.n > ${n0} && (ctx.openworld.game.ph === "go" || ctx.openworld.game.ph === "done")`, "the guest's rematch starts a new race", 20000);
+  t.check("rematch: a new race (n + 1)", (await g(`ctx.openworld.game.n`)) === n0 + 1 && /^(go|done)$/.test(await g(`ctx.openworld.game.ph`)));
   await sleep(4000);
   const perf = await PERF(t, 40);
   console.log("   PERF party town (2 players)", JSON.stringify(perf));
