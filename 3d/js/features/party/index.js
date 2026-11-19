@@ -1448,6 +1448,7 @@ function claimShared(c, opts = {}) {
     if (!canClaim(c)) return false;
     const key = c.data.party, h = claimHandler(key), pl = h.plan(c, opts);
     if (opts.dS != null) pl.dS = opts.dS;
+    pl.L = Math.round(pl.L * 10) / 10; pl.dS = Math.round(pl.dS * 10) / 10;     // (what friends get: the same stop to the cm)
     const T0 = Math.round(clock()), hail = opts.hail ? 1 : 0;
     if (!h.add(key, T0, pl.L, pl.dS, N.uid, true, !!hail)) return false;
     const L10 = Math.round(pl.L * 10), d10 = Math.round(pl.dS * 10);

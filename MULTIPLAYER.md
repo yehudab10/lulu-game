@@ -269,3 +269,27 @@ Rates: the extras refresh ≤ 10×/s and ride the normal ≤ 7 snapshots/s. Wors
 extras first and keeps `pr`.
 Collisions stay self-detected (nothing on the wire): a walker's own screen knocks her flat when a friend's car
 hits her (no hearts in a party); the driver's screen checks up and says sorry; two walkers each step half aside.
+
+## 3D PARTY — claimed cars, the fleet, street mayhem, rest areas (features/party + streets / rides / exits)
+Still protocol v1, still inside the verbatim-relayed `d` packet. **No server change.** On the wire:
+- broadcast `"cl"` `[key, T0, L×10, dS×10, hail]` — I CLAIMED shared car `key` (I stepped out in front of it, flagged
+  it down, rammed it, pulled it over): from party time `T0` (ms) it brakes evenly to a stop `L` m on, easing to
+  `d = dS` (its shoulder; a town loop car: `dS` m toward the kerb). Every screen computes the same pose from that
+  + the clock (`traffic.js claimPose` / `towntraffic.js poseAt`) — nothing else is sent while it stops and parks.
+  First claim wins (earlier `T0`, then the smaller uid). `hail` = I flagged it down (🚕 HOP IN on my screen).
+- `d.x.cl: [key, T0, L×10, dS×10, hail, …]` — my last 4 claims (late joiners / a lost broadcast). ≤ ~120 bytes.
+- `"j"` + `d.x.jk` (unchanged) also end a claim: I drove off in it → gone for everyone (no poof: friends see my
+  car — that model, `d.x.v` — right where it was parked).
+- Keys: the conveyor's `"<lane>:<slot>"`, a 🌍 Free Roam town's loop cars `"tw:<town>:<loop>:<n>"` (now carrying
+  the town: the same loop number in two towns is two different cars).
+Nothing else is new on the wire — the rest is seeded from what every screen already has:
+- **the fleet** (taxi / ambulance / ice-cream truck / bus, streets' coupe) rides the shared conveyor: a slot's
+  kind is a pure hash of (activity seed, lane, slot) over the kinds registered at boot (`addTrafficKind`);
+- **street props** per chunk from `ctx.party.rng("streets:props:" + k)`; **🎨 Paint & Pray** booths from the
+  road plan (`road.claim("streets", {paint})`); **rest areas** at seeded spots (a Road Trip: one; Free Roam:
+  after ~every other interchange, `h01("exits:rest", E)`), and the road plan keeps clear of them;
+- personal, never sent: smashing props (a friend's car smashes them cosmetically on MY screen), roadblocks
+  (`partyLocal` cruisers on the shoulders), Shmuel's calls + his target car, the rest-area visit (presence
+  `["rest", "⛽", "at the <name>"]`), ride jobs, hotwiring foot's parked cars.
+Worst-case extras with claims ≈ 320 bytes on top of the pose — the 1.9 KB snapshot cap is untouched (over it,
+the bulky extras drop first as before).

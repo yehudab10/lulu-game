@@ -218,7 +218,7 @@ async function partyRun(t, guests) {
     await sleep(600);
     await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
     await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot again", 30000);
-    await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s, 8.2, {}); F.pos.set(p.x, 0, p.z); F.d = 8.2; F.peds.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`);
+    await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s + 15, 8.2, {}); F.pos.set(p.x, 0, p.z); F.s += 15; F.d = 8.2; F.peds.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`);
     await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 60000);
     await t.tap(0);
     const fl = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`, "flagging one down claims it (hail)", 15000);
@@ -260,7 +260,7 @@ async function partyRun(t, guests) {
 
   // ── ⛽ the rest area: personal visit, presence for friends ──
   if (restS != null) {
-    await g(`(ctx.party.placeCar(${restS} + 120, 33.3, 0), true)`);
+    await g(`(ctx.party.placeCar(${restS} + 120, 27, 0), true)`);
     await A.game(`(ctx.party.placeCar(${restS} - 40, 5.25, 0), true)`);
     await hostUntil(t, `ctx.exits.inside`, "the host is in the rest area lot", 30000);
     await A.until(`(ctx.party.presenceOf(${H}) || {}).mode === "rest"`, "the guest sees '⛽ at the …'", 60000);
