@@ -449,11 +449,17 @@ async function reprieveScene(s, kind) {
         f = clamp(f, 0.12, 0.9);
         const atFault = s.force.fault !== undefined ? !!s.force.fault : Math.random() < f;
         let line, report, amount;
+        // (one payout a run: knock-outs are cheap now, so a lucky claim mustn't become a way to farm coins)
+        const already = !!ctx.G.insurancePaid;
         if (atFault) {
             amount = 40 + Math.floor(Math.random() * 71);
             report = `You: ${c.luluSpeed}mph · Them: ${c.otherSpeed}mph · ${c.otherAhead ? "you hit the car in FRONT" : "you swerved into them"}`;
             line = pick([`Ran the numbers — this one's on YOU. Deductible's 💰${amount}, sorry kid.`, `Fault's yours, mathematically. 💰${amount} out of pocket, I'm afraid.`,
                 `You were doing ${c.luluSpeed}; they weren't. 💰${amount} deductible.`]);
+        } else if (already) {
+            amount = 0;
+            report = `Them: ${c.otherSpeed}mph · You: ${c.luluSpeed}mph · not your fault — but you already claimed today`;
+            line = pick(["Not your fault! ...But you filed a claim TODAY already. Denied. Rules are rules.", "Two claims in one day? The computer says no. 📋"]);
         } else {
             amount = 60 + Math.floor(Math.random() * 91);
             report = `Them: ${c.otherSpeed}mph · You: ${c.luluSpeed}mph · ${c.otherAhead ? "but they cut you off" : "they rear-ended YOU"}${c.oncoming ? ", oncoming" : ""}`;
@@ -462,10 +468,10 @@ async function reprieveScene(s, kind) {
         }
         sfx.sting();
         caption(`📋 ${report}`, "mint");
-        caption(atFault ? `⚖️ AT FAULT — 💰${amount} deductible` : `✅ NOT YOUR FAULT — 💰${amount} payout`, atFault ? "" : "gold");
+        caption(atFault ? `⚖️ AT FAULT — 💰${amount} deductible` : amount ? `✅ NOT YOUR FAULT — 💰${amount} payout` : "✅ NOT YOUR FAULT — 📋 claim denied (one a day)", atFault ? "" : "gold");
         // settle up the moment the verdict is read
         if (atFault) { const paid = charge(amount); H.toast(`📋 −${paid} deductible`, "red"); }
-        else { addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
+        else if (amount) { ctx.G.insurancePaid = true; addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
         s.hillel = { atFault, amount };
         man.say(atFault ? "HA! Told you!" : "...fine. FINE.", { bg: "#ECEFF1" });
         await say("Hillel", line, Object.assign({ auto: 2.6 }, HILLEL));
@@ -667,8 +673,8 @@ const OTHER_QUOTES = {
 function endScene(s, how) {
     if (S !== s || s.done) return;
     s.done = how;
-    emit("cameos:crashEnd", { how, cause: s.cause.kind, reprieve: s.granted || null });
     const quote = s.quote || OTHER_QUOTES[s.cause.what] || null;
+    emit("cameos:crashEnd", { how, cause: s.cause.kind, reprieve: s.granted || null, quote });
     if (how === "arrest") { ctx.law.arrest(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"], { from: "cameos" }); return; }
     if (how === "er") { knockout(s.info, { fee: false, hearts: false, where: "scene" }); ctx.er.admit("crash"); return; }
     // the knock-out (the tow's on Hillel when his claim went through)

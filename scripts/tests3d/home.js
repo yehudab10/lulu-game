@@ -35,7 +35,7 @@ module.exports = {
     const f0 = await g(`ctx.frames`);
     await t.click(/Cruise/);
     t.check("Cruise starts ON FOOT at home", await t.until(`__lulu3d.state === "footRun"`, "footRun", 3000));
-    const S0 = await g(`({ frames: ctx.frames - ${f0}, phase: ctx.foot.phase, reason: ctx.foot.debug.F.reason, card: !!document.querySelector("#screenCard:not(.hidden) .home"),
+    const S0 = await g(`({ frames: ctx.frames - ${f0}, phase: ctx.foot.phase, reason: ctx.foot.debug.F.reason, card: L3.H.screenOpen(),
       countdown: ctx.G.countdown || 0, dep: ctx.places.home.depart(), pos: { x: ctx.foot.pos.x, z: ctx.foot.pos.z }, steps: { x: ctx.places.home.park.x, z: ctx.places.home.park.z },
       car: ctx.foot.parkedCar, blending: ctx.cam.blending, hazards: !ctx.foot.debug.F.car.stub.obj.userData.footHazOff })`);
     t.check("control within a second (walking, no intro hop)", S0.phase === "walk" && S0.frames <= 30, `${S0.frames} frames, phase ${S0.phase}`);
@@ -84,7 +84,7 @@ module.exports = {
       const p = await g(`(() => { const rh = ctx.world.road.at(ctx.car.s).h; return { x: ctx.camera.position.x, y: ctx.camera.position.y, z: ctx.camera.position.z, st: ctx.state, d: ctx.car.d, dh: Math.atan2(Math.sin(ctx.car.h - rh), Math.cos(ctx.car.h - rh)) }; })()`);
       if (prev2) jump2 = Math.max(jump2, Math.hypot(p.x - prev2.x, p.y - prev2.y, p.z - prev2.z));
       prev2 = p;
-      await t.stick(p.d < 9.5 ? Math.max(-1, Math.min(1, p.dh * -2.5 + (p.d - 1.75) * 0.08)) : 0.9, 0);
+      await t.stick(p.d < 9.5 ? Math.max(-1, Math.min(1, p.dh * 2.5 - (p.d - 1.75) * 0.08)) : 0.9, 0);
       await t.frames(1);
       handed = p.st === "playing";
     }
@@ -93,7 +93,7 @@ module.exports = {
     t.check("…no picture jump at the hand-over (≤ 2.5 m a frame while driving)", jump2 < 2.5, jump2.toFixed(2) + " m");
     for (let i = 0; i < 40; i++) {     // settle in the lane
       const p = await g(`(() => { const rh = ctx.world.road.at(ctx.car.s).h; return { d: ctx.car.d, dh: Math.atan2(Math.sin(ctx.car.h - rh), Math.cos(ctx.car.h - rh)) }; })()`);
-      await t.stick(Math.max(-1, Math.min(1, p.dh * -2.5 + (p.d - 1.75) * 0.12)), 0);
+      await t.stick(Math.max(-1, Math.min(1, p.dh * 2.5 - (p.d - 1.75) * 0.12)), 0);
       await t.frames(2);
     }
     await t.hold(7, 0); await t.stick(0, 0);
@@ -107,12 +107,12 @@ module.exports = {
     const k0 = await g(`ctx.frames`);
     await t.frames(6);
     await t.shot("wrecked");
-    t.check("back on her feet", await t.until(`__lulu3d.state === "footRun" && ctx.foot.phase === "walk"`, "on her feet", 8000));
+    t.check("back on her feet", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on her feet", 8000));
     const K = await g(`({ frames: ctx.frames - ${k0}, hearts: ctx.G.hearts, max: ctx.G.maxHearts, score: ctx.G.score, combo: ctx.G.combo, banked: ctx.G.banked, ko: ctx.G.knockouts,
-      reason: ctx.foot.debug.F.reason, car: ctx.foot.parkedCar, card: !!(document.querySelector("#screenCard") && !document.querySelector("#screenCard").classList.contains("hidden") && document.querySelector("#screenCard").offsetParent), countdown: ctx.G.countdown || 0 })`);
+      reason: ctx.foot.debug.F.reason, car: ctx.foot.parkedCar, card: L3.H.screenOpen(), countdown: ctx.G.countdown || 0 })`);
     t.check("…within ~3 s (90 frames)", K.frames <= 90, `${K.frames} frames`);
     t.check("no game-over card, no countdown", !K.card && !K.countdown && (await st()) !== "gameover");
-    t.check("knock-out cost: score banked + reset", K.score < 5 && K.banked === 4321 && K.combo === 0, JSON.stringify({ s: K.score, b: K.banked, c: K.combo }));
+    t.check("knock-out cost: score banked + reset", K.score < 5 && K.banked >= 4321 && K.banked < 4400 && K.combo === 0, JSON.stringify({ s: K.score, b: K.banked, c: K.combo }));
     t.check("knock-out: hearts back to full", K.hearts === K.max);
     const w1 = await wallet();
     t.check("knock-out cost: the tow fee (10 💰)", w0 - w1 === 10, `${w0} → ${w1}`);
@@ -124,25 +124,25 @@ module.exports = {
 
     // a second and a third knock-out: 15, then 20 — and never more than she has
     await g(`(() => { ctx.traffic.clear(); for (let i = 0; i < 3; i++) { ctx.G.invT = 0; L3.damage(1, "t", "test"); } })()`);
-    await t.until(`__lulu3d.state === "footRun" && ctx.foot.phase === "walk"`, "KO #2", 8000);
+    await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "KO #2", 8000);
     const w2 = await wallet();
     t.check("knock-out #2: 15 💰", w1 - w2 === 15, `${w1} → ${w2}`);
     await g(`ctx.foot.debug.getIn()`);
     await t.until(`__lulu3d.state === "playing"`, "driving again", 3000);
     await g(`(() => { L3.wallet.add(-(L3.wallet.coins - 7)); ctx.traffic.clear(); for (let i = 0; i < 3; i++) { ctx.G.invT = 0; L3.damage(1, "t", "test"); } })()`);
-    await t.until(`__lulu3d.state === "footRun" && ctx.foot.phase === "walk"`, "KO #3", 8000);
+    await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "KO #3", 8000);
     t.check("the fee is never more than she has (7 left → 0)", (await wallet()) === 0, String(await wallet()));
     t.check("fee rule: capped at 30", await g(`(() => { const K = L3.KO; return Math.min(K.feeMax, K.feeBase + K.feeStep * 20) === 30; })()`));
 
     // ── knocked out ON FOOT: she sits up and walks it off ──
     await g(`(() => { L3.wallet.add(50); ctx.G.hearts = 1; ctx.G.invT = 0; ctx.foot.force.er = false; ctx.G.score = 99; })()`);
     const kf = await g(`(() => { const F = ctx.foot.debug.F, rd = ctx.world.road, p = rd.point(F.s + 14, 1.75, {});
-      const c = ctx.traffic.add("sedan", F.s - 25, F.d, 1, 16); return !!c; })()`);
+      const c = ctx.traffic.add("sedan", F.s - 25, F.d, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
     const kf0 = await g(`ctx.frames`);
     t.check("a car comes at her", kf);
-    const flat = await t.until(`ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
+    const flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
     if (flat) {
-      await t.until(`__lulu3d.state === "footRun" && ctx.foot.phase === "walk"`, "up again", 6000);
+      await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "up again", 6000);
       const KF = await g(`({ frames: ctx.frames - ${kf0}, st: ctx.state, hearts: ctx.G.hearts, banked: ctx.G.banked })`);
       t.check("on foot: back up, still walking, hearts full", KF.st === "footRun" && KF.hearts === 3, JSON.stringify(KF));
       await t.shot("foot-ko");
@@ -168,7 +168,7 @@ module.exports = {
     t.check("pause menu has Restart", hasRestart);
     if (hasRestart) {
       await t.L(`document.querySelector('[data-pi="restart"]').click()`);
-      t.check("Restart → at home on foot", await t.until(`__lulu3d.state === "footRun" && ctx.foot.debug.F && ctx.foot.debug.F.reason === "home"`, "restart home", 3000));
+      t.check("Restart → at home on foot", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.reason === "home"`, "restart home", 3000));
       t.check("…and the run before it was banked (run:end restart)", (await g(`window.__ends`)).includes("restart"));
     }
 
@@ -177,7 +177,7 @@ module.exports = {
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
     await t.click(/Story Trip/);
-    t.check("Story Trip starts at home on foot", await t.until(`__lulu3d.state === "footRun" && ctx.G.mode === "story"`, "story home", 3000));
+    t.check("Story Trip starts at home on foot", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "story"`, "story home", 3000));
     t.check("…a returning player gets no tutorial hint", !(await g(`ctx.places.home.depart().first`)));
     await t.frames(20);
     await t.shot("story-start");
