@@ -159,6 +159,15 @@ async function partyRun(t, guests) {
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 30000);
   }
   await Hp.until(`ctx.openworld.debug.spots.SP.list.length >= 1`, "the town has its game spots", 30000);
+  // (a town load can stall a slow CI page past the 4 s rule and hand hosting over: wait until both screens agree who hosts)
+  let agreed = null;
+  for (let i = 0; i < 40 && !agreed; i++) {
+    const a = await g(`ctx.party.host`), b = await A.game(`ctx.party.host`);
+    const ok = a && a === b && (await g(`ctx.party.isHost`)) === (a === hostUid) && (await A.game(`ctx.party.isHost`)) === (a === guestUid);
+    if (ok) agreed = a; else await A.frames(15);
+  }
+  if (agreed !== hostUid) console.log("   note: hosting is with", agreed === guestUid ? "the guest" : String(agreed), "after the town load");
+  await A.frames(30);
   const spots = await g(`ctx.openworld.debug.spots.SP.list.map(s => ({ kind: s.kind, name: s.name, x: s.x, z: s.z, fx: s.fx, fz: s.fz }))`);
   t.check("Lakewood: an arcade cabinet (+ a notice board)", spots.some(s => s.kind === "arcade"), JSON.stringify(spots));
   const arc = spots.find(s => s.kind === "arcade") || spots[0];
