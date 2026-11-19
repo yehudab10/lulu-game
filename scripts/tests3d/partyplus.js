@@ -124,7 +124,7 @@ async function partyRun(t, guests) {
   // quiet the dice we don't test here: the law's traps, Shmuel's calls
   for (const p of pages) await p.game(`(ctx.law.hold(9999), ctx.streets.debug.CHOP.nextT = 1e9, true)`);
   t.check("party: streets · rides · exits · town are ON; journey · dina · shabbos · ads stay off",
-    await g(`ctx.enabled("streets") && ctx.enabled("rides") && ctx.enabled("exits") && ctx.enabled("town") && ctx.enabled("foot") && !ctx.enabled("journey") && !ctx.enabled("dina") && !ctx.enabled("shabbos") && !ctx.enabled("ads") && !ctx.enabled("heist")`));
+    await g(`ctx.enabled("streets") && ctx.enabled("rides") && ctx.enabled("exits") && ctx.enabled("town") && ctx.enabled("foot") && !ctx.enabled("journey") && !ctx.enabled("dina") && !ctx.enabled("shabbos") && !ctx.enabled("ads")`));
 
   // ── the seeded plan: rest area + Paint & Pray booths ──
   const plan = c => c.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s) + ":" + r.name), paint: ctx.party.road.list(0, 6000).filter(s => s.id === "streets").map(s => s.kind + "@" + s.s.toFixed(1)), slots: ctx.party.road.list(0, 6000).map(s => s.key).join(",") })`);

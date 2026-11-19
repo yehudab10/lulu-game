@@ -19,9 +19,11 @@
 // Stats: heistFoils heistTackles heistJobs heistJobsClean heistBusted heistCased heistBankVisits heistLollipops
 //        heistSnatched heistSnatchDodged heistSnatchCaught heistCarStolen heistCarsRecovered heistTheftStopped
 //        heistNetted heistSpiked · best heistBestPay
-// Random content is gated by ctx.enabled("heist") (and is OFF in a 🎉 party: party/index.js OFF set).
+// Random content is gated by ctx.enabled("heist") + common.js live(what). In a 🎉 party only the PERSONAL bits run
+// (the cops' net / spikes in her own chase, the moped snatcher, the thief at her parked car) on a Road Trip / Free
+// Roam run; robberies and Lulu's own heist stay solo (ARCHITECTURE › the party parity table).
 import { ctx, on } from "../../core/ctx.js";
-import "./common.js";
+import { live } from "./common.js";
 import { R, stage, schedNow, cleanup as endRobbery } from "./robbery.js";
 import { J, S, setPlan, dropPlan, startJob, offerTip, cooldownLeft } from "./job.js";
 import { SN, CT, snatch, carTheft, endSnatch, endTheft } from "./snatch.js";
@@ -63,6 +65,8 @@ ctx.heist = {
         endTheft,
         enterBank,
         bankDef,
+        /** The random-content gate for one kind ("robbery" | "job" | "snatch" | "gear"): in a 🎉 party only the personal ones. */
+        live: what => live(what),
         /** Lift the one-a-run rule and the cooldown (tests). */
         bypass(on = true) { J.bypass = !!on; if (on) J.done = false; },
     },

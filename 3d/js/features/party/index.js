@@ -202,10 +202,11 @@ ctx.party.atmosWeather = () => {
 // via a CLAIMED shared car; roadblocks + chop-shop calls personal), rides (its fleet seeded into the shared traffic;
 // patients / kids / riders personal), exits (seeded rest areas; the visit personal), town (🌍 Free Roam's towns:
 // seeded life, personal geese / e-bikes). Story (journey), Dina's mode, the 🕯️ Shabbos Rush (it owns the run's goal
-// + sky) and ads (the iOS app's AdMob, features/native) stay off with friends. heist (robberies, snatchers, the
-// cops' nets / spikes, Lulu's own heist) is off for now: its events are one player's random set pieces.
+// + sky) and ads (the iOS app's AdMob, features/native) stay off with friends. heist: its PERSONAL
+// bits (the cops' nets / spikes in her own chase, the moped snatcher, the thief at her parked car) run on a Road Trip /
+// Free Roam; robberies + Lulu's own heist stay solo (heist/common.js live()).
 // See ARCHITECTURE › the party parity table.
-const OFF = new Set(["journey", "dina", "shabbos", "ads", "heist"]);
+const OFF = new Set(["journey", "dina", "shabbos", "ads"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
