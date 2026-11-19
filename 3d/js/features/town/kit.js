@@ -72,7 +72,8 @@ export class Merger {
     /**
      * Add a template at world matrix `m`. tints: { MatName: "#hex" | THREE.Color }.
      * opts: { dark: windows stay dark at night, skip: RegExp of node names to leave out, at: [x, z] cluster position,
-     *         noShadow: casts no shadow (parked cars, the woods: their many triangles stay out of the shadow pass) }
+     *         noShadow: casts no shadow (parked cars, the woods: their many triangles stay out of the shadow pass),
+     *         tag: an object — build() fills tag.parts with [{ mesh, start, count }] (its vertex ranges, so one piece can be hidden later) }
      */
     add(template, m, tints = null, opts = {}) {
         const parts = partsOf(template);
@@ -85,7 +86,9 @@ export class Merger {
             const t = tints && tints[p.name];
             if (t) _c.set(t); else _c.copy(p.mat.color);
             _m.multiplyMatrices(m, p.local);
-            this.list(bx, bz, look).push(bakeGeometry(p.g, _m, _c));
+            const bg = bakeGeometry(p.g, _m, _c);
+            if (opts.tag) bg.userData.tag = opts.tag;
+            this.list(bx, bz, look).push(bg);
             this.tris += (p.g.index ? p.g.index.count : p.g.attributes.position.count) / 3;
         }
     }
@@ -98,6 +101,9 @@ export class Merger {
             {
                 const look = list.look;
                 if (!list.length) continue;
+                const tagged = [];
+                let at = 0;
+                for (const x of list) { const n = x.attributes.position.count; if (x.userData.tag) tagged.push({ tag: x.userData.tag, start: at, count: n }); at += n; }
                 const g = mergeGeometries(list, false);
                 for (const x of list) x.dispose();
                 if (!g) continue;
@@ -109,11 +115,24 @@ export class Merger {
                 mesh.userData.townLook = look;
                 mesh.userData.cell = list.cell;      // (for the town's distance + block-occlusion culling)
                 if (look === "glass") mesh.renderOrder = 2;
+                for (const t of tagged) (t.tag.parts || (t.tag.parts = [])).push({ mesh, start: t.start, count: t.count });
                 out.push(mesh);
             }
         }
         this.clusters.clear();
         return out;
+    }
+}
+
+/** Hide (or show again) one tagged piece of a merged mesh: its vertices collapse onto its first one (no draw-call change). */
+export function hideTagged(tag, hide = true) {
+    for (const p of tag.parts || []) {
+        const pos = p.mesh.geometry.attributes.position;
+        if (hide && !p.saved) p.saved = pos.array.slice(p.start * 3, (p.start + p.count) * 3);
+        if (!hide && !p.saved) continue;
+        if (hide) { const x = pos.array[p.start * 3], y = pos.array[p.start * 3 + 1], z = pos.array[p.start * 3 + 2]; for (let i = p.start; i < p.start + p.count; i++) pos.setXYZ(i, x, y, z); }
+        else { pos.array.set(p.saved, p.start * 3); p.saved = null; }
+        pos.needsUpdate = true;
     }
 }
 

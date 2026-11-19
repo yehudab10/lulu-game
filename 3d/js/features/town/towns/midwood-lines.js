@@ -8,6 +8,8 @@
 // ── signs ────────────────────────────────────────────────────────────────
 export const SIGNS = {
     welcome: ["WELCOME TO MIDWOOD", "Parking: LOL", "Twinned with Lakewood (Lakewood did not agree)"],
+    tee: ["BROOKLYN · MIDWOOD →", "find parking: 45 min", "← DEAD END (like your parking spot)"],
+    gas: { name: ["AVENUE GAS", "CASH ONLY · NO BATHROOM"], prices: ["REG 5.89", "AIR $2", "PARKING: N/A"] },
     advance: ["BROOKLYN · MIDWOOD", "NEXT EXIT ½ MI", "PARKING: LOL"],
     gantry: ["EXIT 9 · OCEAN PKWY · MIDWOOD", "Brooklyn · Parking: LOL"],
     gore: ["MIDWOOD ↗", "EXIT"],

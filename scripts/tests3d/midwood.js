@@ -75,9 +75,8 @@ module.exports = {
       await g(`(() => { const r = ctx.world.road, s = ${E} - 380, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.vx = Math.sin(p.h) * 2; ctx.car.vz = Math.cos(p.h) * 2; return true; })()`);
       await t.frames(20);
       await t.shot("exit-gantry");
-      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = [];
-          for (let u = -300; u <= 140; u += 10) { const d = u < -170 ? 5.25 : u < -60 ? 5.25 + (u + 170) / 110 * 3.5 : 8.75 + 0.0011 * Math.max(0, u + 60) ** 2; const p = r.point(E + u, d, {}); pts.push({ x: p.x, z: p.z }); }
-          window.__route = { pts, v: 17, r: 6 }; return true; })()`);
+      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = ctx.town.debug.rampRoute(E, 0).map(([u, d]) => { const p = r.point(E + u, d, {}); return { x: p.x, z: p.z }; });
+          window.__route = { pts, v: 15, r: 6 }; return true; })()`);
       await t.until(`__lulu3d.ctx.car.s > ${E} - 120`, "she drives down to the exit", 40000);
       if (!await t.until(`__lulu3d.ctx.town.active`, "steering onto the MIDWOOD off-ramp takes her into town", 60000)) return;
       await g(`(window.__route = null, true)`);
@@ -249,6 +248,71 @@ module.exports = {
       await t.page.setViewportSize({ width: 1280, height: 720 });
     });
 
+    await step("cars-parked", async () => {
+      if (!await inMidwood()) return;
+      // ── every live car in Midwood is visible in the scene; the parked cars are solid and hotwirable ──
+      await g(`(ctx.law.hold(300), ${D}.place("Avenue J", 120, 1.75, 0, 1), true)`);
+
+      // (behind a town driver, 25 m back down its street, so there IS a car in sight to judge)
+      await g(`(() => { const c = ${D}.C.cars.find(c => !c.free && c.data.town.mode === "drive" && c.kind !== "cop"); if (!c) return false; ctx.traffic.config.enabled = false;
+          const f = { x: Math.sin(c.h), z: Math.cos(c.h) }; ctx.car.place(c.x - f.x * 25, c.z - f.z * 25, c.h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.car.s = c.s - 25 * c.dir; ctx.cam.snap(); return true; })()`);
+      await t.frames(12);
+      const a = await g(`(() => {
+        const cam = ctx.camera.position, bad = [];
+        const shown = o => { for (let x = o; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
+        let near = 0;
+        for (const c of ctx.traffic.cars) {
+          const dist = Math.hypot(c.x - cam.x, c.z - cam.z);
+          if (dist > 100) continue;
+          // (one behind a block of houses may be hidden — the town's LOD — one in plain sight may not)
+          const O = ctx.town.debug.PL.ORIGIN;
+          if (dist > 45 && ctx.town.debug.sightBlocked(cam.x - O.x, cam.z - O.z, c.x - O.x, c.z - O.z)) continue;
+          near++;
+          let meshes = 0, ok = 0;
+          c.obj.updateMatrixWorld(true);
+          c.obj.traverse(o => { if (!o.isMesh) return; meshes++; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+            if (bs.radius > 0.02 && bs.radius < 14 && Math.hypot(bs.center.x - c.x, bs.center.z - c.z) < 9) ok++; });
+          if (!shown(c.obj) || !meshes || ok < meshes * 0.8) bad.push([c.kind, Math.round(dist), shown(c.obj), meshes, ok].join(":"));
+        }
+        return { near, bad };
+      })()`);
+      t.check("Midwood: every car in sight (≤ 100 m) is in the scene, visible, with sane bounding spheres", a.near > 0 && !a.bad.length, JSON.stringify(a));
+      // the parked cars' merged clusters: one in plain sight (in view, no block between) is never culled away
+      let seen = 0, hid = [];
+      for (const [name, a0, a1] of await g(`${D}.PL.STREETS.map(s => [s.name, s.a0, s.a1])`)) for (const f of [0.2, 0.5, 0.8]) {
+        await g(`(${D}.place(${JSON.stringify(name)}, ${a0} + (${a1} - ${a0}) * ${f}, 1.75, 0, 1), ctx.cam.snap(), true)`);
+        await t.frames(7);
+        const r = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, cam = ctx.camera; cam.updateMatrixWorld();
+            const cl = ${D}.local(cam.position.x, cam.position.z), out = { seen: 0, bad: [] };
+            for (const p of T.pcars) { if (p.live || p.gone) continue; const d = Math.hypot(p.x - cl.x, p.z - cl.z); if (d > 120) continue;
+              const v = cam.position.clone().set(O.x + p.x, 1, O.z + p.z).project(cam); if (Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95 || v.z > 1 || v.z < -1) continue;
+              if (${D}.sightBlocked(cl.x, cl.z, p.x, p.z)) continue;
+              out.seen++;
+              const m = T.clusters.find(m => m.userData.townLook === "flat" && p.x >= m.userData.cell.x0 && p.x < m.userData.cell.x1 && p.z >= m.userData.cell.z0 && p.z < m.userData.cell.z1);
+              if (!m || !m.visible) out.bad.push(Math.round(d)); }
+            return out; })()`);
+        seen += r.seen; if (r.bad.length) hid.push(`${name}@${f}:${r.bad.join("/")}`);
+      }
+      t.check(`no parked car in plain sight is culled with its cluster (${seen} checked)`, seen > 50 && !hid.length, hid.slice(0, 6).join(" "));
+      t.check("Midwood's parked cars are solid + tagged (sedans and minivans)", await g(`(() => { const P = ${D}.S.T.pcars; return P.length > 100 && P.some(p => /sedan/.test(p.key)) && P.every(p => p.cols.length === 2 && p.tag.parts && p.tag.parts.length); })()`));
+      // on foot by a parked car-service sedan: ✋ HOTWIRE, and she drives off in a sedan
+      await g(`ctx.foot.start("droveOff")`);
+      if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot (Midwood parked)", 30000)) return;
+      const ok = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, F = ctx.foot.debug.F; let best = null, bd = 1e9;
+          for (const p of T.pcars) { if (p.gone || p.live || !/sedan/.test(p.key)) continue; const d = Math.hypot(O.x + p.x - F.pos.x, O.z + p.z - F.pos.z); if (d < bd) { bd = d; best = p; } }
+          if (!best) return false; window.__fp = best; F.pos.set(O.x + best.x + Math.cos(best.rot) * 1.7, 0, O.z + best.z - Math.sin(best.rot) * 1.7); return true; })()`);
+      if (!ok) { t.check("a parked sedan to hotwire", false); return; }
+      await t.frames(12);
+      const prompt = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+      t.check("next to a parked sedan: ✋ HOTWIRE CAR", /HOTWIRE/.test(prompt), prompt);
+      await g(`(ctx.foot.force.hotwire = true, true)`);
+      await t.tap(0);
+      for (let i = 0; i < 6 && await g(`ctx.foot.active`); i++) { await t.frames(12); await t.tap(0); }
+      await t.until(`__lulu3d.state === "playing"`, "…she drives off in it (Midwood)", 20000);
+      t.check("she drives off in the hotwired sedan; it's gone from the kerb", await g(`ctx.foot.vehicle && ctx.foot.vehicle.kind === "sedan" && window.__fp.gone && ctx.town.id === "midwood"`), JSON.stringify(await g(`[ctx.foot.vehicle, window.__fp.gone]`)));
+      await g(`(ctx.foot.force.hotwire = undefined, ctx.foot.dropRide(), true)`);
+    });
+
     await step("onramp", async () => {
       if (!await inMidwood()) return;
       const E = await g(`${D}.S.exitS`);
@@ -257,7 +321,7 @@ module.exports = {
       await route([["Ocean Pkwy", -310, -1.75], ["Ocean Pkwy", -328, -1.75]], 12, 3);
       if (await t.until(`!__lulu3d.ctx.town.active`, "driving south down Ocean Pkwy takes the on-ramp", 30000)) {
         t.check("town:leave fired (Midwood, why: highway)", (await evs()).some(e => e.startsWith("town:leave") && /midwood/.test(e) && /highway/.test(e)));
-        t.check("back on the highway, just past the exit", await g(`ctx.world.road.town !== true && Math.abs(ctx.car.s - (${E} + 190)) < 30`), String(await g(`Math.round(ctx.car.s)`)));
+        t.check("back on the highway: on the interchange's on-ramp", await g(`ctx.world.road.town !== true && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`)));
         t.check("Midwood's scene is disposed (and the trains with it)", await g(`!ctx.scene.children.some(o => /^Town:/.test(o.name))`));
         await g(`(window.__route = null, true)`);
         await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);

@@ -33,16 +33,20 @@ export const accelEdge = u => 7 + 3.9 * (1 - smooth((u - ON1) / (ACC1 - ON1)));
 export const inLot = (u, d) => u >= LOT0 - 2 && u <= LOT1 + 2 && d >= LOT_D0 - 1 && d <= LOT_D1 + 2;
 export const onLawn = (u, d) => u >= LAWN.u0 && u <= LAWN.u1 && d >= LAWN.d0 && d <= LAWN.d1;
 
-/** Ground type at (u, d): 0 not ours · 1 grounds (walkable, grass for a car) · 2 asphalt. */
+/** The lot's drive aisle (the lane from the off-ramp past the stalls to the pumps and the on-ramp): d range. */
+export const AISLE_D0 = LOT_D0 + 0.4, AISLE_D1 = 30.5;
+/** Ground type at (u, d): 0 not ours · 1 grounds (walkable, grass for a car) · 2 asphalt (the lot) · 3 a LANE (decel /
+ *  accel lane, a ramp, a painted gore, the drive aisle — core's `paved`: nothing may be placed on it). */
 export function groundAt(u, d) {
     if (u < TAPER0 - 2 || u > ACC1 + 2 || d < 6.5) return 0;
-    if (u <= RAMP0 + 2 && u >= TAPER0 && d <= decelEdge(u) + 0.3) return 2;
-    if (u >= RAMP0 - 2 && u <= RAMP1 + 4 && Math.abs(d - offD(u)) <= HALF + 0.3) return 2;
-    if (u >= RAMP0 && u <= RAMP0 + 62 && d > 7 && d < offD(u)) return 2;                   // the painted gore
+    if (u <= RAMP0 + 2 && u >= TAPER0 && d <= decelEdge(u) + 0.3) return 3;
+    if (u >= RAMP0 - 2 && u <= RAMP1 + 4 && Math.abs(d - offD(u)) <= HALF + 0.3) return 3;
+    if (u >= RAMP0 && u <= RAMP0 + 62 && d > 7 && d < offD(u)) return 3;                   // the painted gore
+    if (u >= LOT0 && u <= LOT1 && d >= AISLE_D0 && d <= AISLE_D1) return 3;                // the drive aisle
     if (u >= LOT0 && u <= LOT1 && d >= LOT_D0 && d <= LOT_D1) return onLawn(u, d) ? 1 : 2;
-    if (u >= ON0 - 4 && u <= ON1 + 2 && Math.abs(d - onD(u)) <= HALF + 0.3) return 2;
-    if (u >= ON1 - 62 && u <= ON1 && d > 7 && d < onD(u)) return 2;                         // the merge gore
-    if (u >= ON1 - 2 && u <= ACC1 && d <= accelEdge(u) + 0.3) return 2;
+    if (u >= ON0 - 4 && u <= ON1 + 2 && Math.abs(d - onD(u)) <= HALF + 0.3) return 3;
+    if (u >= ON1 - 62 && u <= ON1 && d > 7 && d < onD(u)) return 3;                         // the merge gore
+    if (u >= ON1 - 2 && u <= ACC1 && d <= accelEdge(u) + 0.3) return 3;
     if (u >= -10 && u <= LOT1 + 10 && d >= 11 && d <= 70) return 1;                        // the verges round the lot
     return 0;
 }

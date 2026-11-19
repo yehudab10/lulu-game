@@ -241,6 +241,16 @@ async function partyRun(t, guests) {
     n += live.length; bad += live.filter(x => !x).length;
   }
   t.check("town traffic: every live car sits where the shared clock says", n >= 12 && bad === 0, `${n} live, ${bad} off`);
+  // every live car is really in the scene with sane bounding spheres, and every one near the camera is drawn
+  // (party town traffic: openworld/towntraffic.js shows the ones within 140 m of the camera; judged on all of them,
+  //  since the shared clock may put none within 100 m of where the host stands)
+  const vis = await g(`(() => { const cam = ctx.camera.position, bad = []; let n = 0, near = 0;
+      const inScene = o => { for (let x = o.parent; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
+      for (const c of ctx.traffic.cars) { n++; const close = Math.abs(c.x - cam.x) < 120 && Math.abs(c.z - cam.z) < 120; if (close) near++; let m = 0, ok = 0; c.obj.updateMatrixWorld(true);
+        c.obj.traverse(o => { if (!o.isMesh) return; m++; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere.clone().applyMatrix4(o.matrixWorld); if (bs.radius > 0.02 && bs.radius < 14 && Math.hypot(bs.center.x - c.x, bs.center.z - c.z) < 9) ok++; });
+        if (!inScene(c.obj) || (close && !c.obj.visible) || !m || ok < m * 0.8) bad.push(c.kind + ":" + inScene(c.obj) + ":" + c.obj.visible + ":" + Math.round(Math.hypot(c.x - cam.x, c.z - cam.z))); }
+      return { n, near, bad }; })()`);
+  t.check("Free Roam town: every car is in the scene (sane size), every one near the camera visible", vis.n >= 6 && !vis.bad.length, JSON.stringify(vis));
   t.check("town traffic: no random town drivers in a party", await g(`ctx.town.debug.C.cars.filter(c => !c.data.town.hazard).length === 0 && ctx.traffic.cars.every(c => c.data && (c.data.party || (c.data.town && c.data.town.hazard)))`));
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
