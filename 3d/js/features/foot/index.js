@@ -828,7 +828,8 @@ function updateIntro(dt) {
         H.banner(`🚶‍♀️ <b>LULU ON FOOT</b><small>borrow a car to get back on the road</small>`, 2600);
     }
     if (!F.introSaid && prog > 0.32) { F.introSaid = true; bubble(o, F.introLine, 3.2); }
-    if (t >= T) beginWalk();
+    // (she's hers again as soon as she's on her feet — the banner and her line carry on while she walks)
+    if (t >= T * 0.6) beginWalk();
 }
 function beginWalk() {
     F.phase = "walk"; F.phaseT = 0;
@@ -1402,6 +1403,8 @@ function interactables() {
     };
     for (const dr of allDoors()) {
         const reg = ctx.interiors && ctx.interiors[dr.id];
+        // (walking up to a door: its inside starts loading now, so the step through is short)
+        if (reg && reg.warm && Math.hypot(dr.x - p.x, dr.z - p.z) < 22) reg.warm();
         consider("enter", dr, reg ? `🚪 ENTER ${L.FOOT_DOOR_NAME[dr.id] || dr.id.toUpperCase()}` : "🔒 CLOSED — back soon", dr.x, dr.z, 2.3);
     }
     if (F.booth) consider("disguise", F.booth, "🥸 DUCK IN — change your look", F.booth.fx, F.booth.fz, 2.2);

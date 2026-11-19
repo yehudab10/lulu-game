@@ -110,11 +110,20 @@ export const current = () => cur;
 // keep the controls hint in step with whatever the player picks up (pad ↔ keys ↔ touch)
 on("device", () => { const h = cur && cur.chip && cur.chip.querySelector(".int-hint"); if (h) h.innerHTML = cur.hintHtml(); });
 
-/** Register an interior: ctx.interiors[def.id] = { name, emoji, enter({ exit }) }. */
+/** Register an interior: ctx.interiors[def.id] = { name, emoji, enter({ exit }), warm() }. */
 export function defineInterior(def) {
     ctx.interiors[def.id] = {
         name: def.name, emoji: def.emoji,
         enter(opts = {}) { return enterInterior(def, opts); },
+        /** Fetch its models ahead of time (she's walking up to the door): the black between outside and inside is then
+         *  only the build, not the download. Safe to call again and again. */
+        warm() {
+            if (def._warm) return;
+            def._warm = true;
+            const hair = shared.get().luluHairStyle;
+            ensureModels([def.model, "interiorsProps", "luluPerson", ...(def.models || [])]).catch(() => { def._warm = false; });
+            if (hair) ensureModels(["luluPerson_" + hair]).catch(() => { /* not a registered style */ });
+        },
     };
     return def;
 }

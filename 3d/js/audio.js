@@ -228,17 +228,47 @@ export function sfxFanfare() {
 export function sfxSelect() { blip(660, 0.06, "square", 0.06); }
 export function sfxMove() { blip(440, 0.04, "square", 0.04); }
 
-// ── music ──────────────────────────────────────────────────────────────
+// ── music ────────────────────────────────────────────────────────────
+// A change of track is a short CROSSFADE (getting out of the car, walking into a scene…), and each track keeps its
+// own <audio> element, so it picks up where it left off instead of starting over. Where the browser won't let a
+// page set an element's volume (iOS), the switch is the old instant one.
+const MUSIC_VOL = 0.32, XFADE = 0.7;       // s
+const tracks = new Map();                  // src → <audio>
+const fadeOuts = new Set();                // elements on their way out
+let musicVol = MUSIC_VOL, fadeIn = false, fadeTimer = null, canFade = null;
+function volumeWorks(el) {
+    if (canFade != null) return canFade;
+    try { const was = el.volume; el.volume = 0.5; canFade = Math.abs(el.volume - 0.5) < 0.01; el.volume = was; } catch (e) { canFade = false; }
+    return canFade;
+}
+function fadeStep() {
+    const step = 0.04 / XFADE;             // (40 ms ticks)
+    for (const el of fadeOuts) {
+        el.volume = Math.max(0, el.volume - step * MUSIC_VOL);
+        if (el.volume <= 0.001) { el.pause(); fadeOuts.delete(el); }
+    }
+    if (fadeIn && music) {
+        music.volume = Math.min(musicVol, music.volume + step * MUSIC_VOL);
+        if (music.volume >= musicVol - 0.001) fadeIn = false;
+    } else fadeIn = false;
+    if (!fadeOuts.size && !fadeIn) { clearInterval(fadeTimer); fadeTimer = null; }
+}
 export function setMusic(src) {
     if (music && music.dataset.src === src) return;
-    if (music) { music.pause(); music = null; }
-    if (!src) return;
-    music = new Audio(src);
-    music.dataset.src = src;
-    music.loop = true;
-    music.volume = 0.32;
-    music.muted = muted;
-    if (musicOn && ctx) music.play().catch(() => {});
+    const old = music;
+    music = null; fadeIn = false;
+    if (!src) { if (old) old.pause(); return; }
+    let el = tracks.get(src);
+    if (!el) { el = new Audio(src); el.dataset.src = src; el.loop = true; tracks.set(src, el); }
+    fadeOuts.delete(el);
+    const cross = !!old && musicOn && !!ctx && !muted && volumeWorks(el) && !old.paused;
+    if (old) { if (cross) fadeOuts.add(old); else old.pause(); }
+    musicVol = MUSIC_VOL;
+    el.volume = cross ? 0 : MUSIC_VOL;
+    el.muted = muted;
+    music = el;
+    if (musicOn && ctx) el.play().catch(() => {});
+    if (cross) { fadeIn = true; if (!fadeTimer) fadeTimer = setInterval(fadeStep, 40); }
 }
 
 /** The music track playing now (its url as passed to setMusic) or null. */
@@ -246,12 +276,15 @@ export function musicSrc() { return music ? music.dataset.src : null; }
 
 export function toggleMusic() {
     musicOn = !musicOn;
+    for (const el of fadeOuts) el.pause();
+    fadeOuts.clear();
     if (music) { if (musicOn) music.play().catch(() => {}); else music.pause(); }
     return musicOn;
 }
 
 export function duckMusic(v) {
-    if (music) music.volume = v;
+    musicVol = v;
+    if (music && !fadeIn) music.volume = v;        // (mid-crossfade the fade simply ends at the new level)
 }
 
 // ── muffled music (on foot the car radio is "out there") ────────────────
@@ -275,10 +308,9 @@ function routeMusic() {
             lp.connect(master);
             mChain = { lp, el: null, src: null };
         }
-        if (mChain.src) { try { mChain.src.disconnect(); } catch (e) { /* gone */ } }
+        // (each element is routed ONCE and stays connected: tracks are kept, and one that's fading out still plays)
         let src = mSources.get(music);
-        if (!src) { src = ctx.createMediaElementSource(music); mSources.set(music, src); }
-        src.connect(mChain.lp);
+        if (!src) { src = ctx.createMediaElementSource(music); mSources.set(music, src); src.connect(mChain.lp); }
         mChain.src = src; mChain.el = music;
         mChain.lp.frequency.setValueAtTime(20000 * Math.pow(450 / 20000, muffle), ctx.currentTime);
     } catch (e) { console.warn("[audio] muffle", e); }
@@ -292,4 +324,5 @@ export function setMuted(m) {
     muted = m;
     if (master) master.gain.value = m ? 0 : 0.9;
     if (music) music.muted = m;
+    for (const el of fadeOuts) el.muted = m;
 }

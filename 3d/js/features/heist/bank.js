@@ -109,6 +109,8 @@ function door() {
     if ((ctx.law && ctx.law.chasing) || (ctx.foot && ctx.foot.chasing)) return null;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return null;   // (✋ is the TACKLE right now, not the door)
     const sp = ctx.town.spot("bank");
+    // (walking up to it: the inside starts loading now)
+    if (sp && ctx.foot && ctx.foot.pos && ctx.interiors.bank.warm && Math.hypot(sp.x - ctx.foot.pos.x, sp.z - ctx.foot.pos.z) < 22) ctx.interiors.bank.warm();
     return sp ? { x: sp.x, z: sp.z } : null;
 }
 export function enterBank() {
