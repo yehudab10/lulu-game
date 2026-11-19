@@ -237,7 +237,9 @@ merged — ignore them.
   call):** blue-and-white string lights on houses (some frum families see them as a Christmas imitation), burning the
   chametz on erev Pesach (fire in town), the crowd holding a lulav (homes' crowd isn't ours to dress — a `homes` hook
   could), Simchas Torah dancing with flags, Tashlich by the water, people in white walking to shul on Yom Kippur, Purim
-  tzedakah collectors / music vans, the radio going quiet in the Three Weeks.
+  tzedakah collectors / music vans, the radio going quiet in the Three Weeks. Perf: meta's car menorah (the existing
+  Chanukah car decoration: 9 flame sprites + a multi-material model) costs ~30 draw calls by itself — the world dressing
+  costs ~0–6 (3d/docs/gfx-perf.md › Seasons); merging the car menorah is a cheap win before Chanukah.
 - iOS: classic 2D letterboxes in landscape; the "Groceries" chip touches the
   speedometer for ~8 s in iPhone portrait; photo saving uses the share sheet
   (unverified on a real device).
