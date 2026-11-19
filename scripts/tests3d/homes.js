@@ -98,9 +98,12 @@ module.exports = {
       await g(`(() => { const C = ctx.homes.debug.CR, PL = ctx.town.debug.PL, p = C.peds.find(q => q.kind === "walker" && q.st && q.st.a1 - q.along > 30 && q.along - q.st.a0 > 30); if (!p) return false;
         p.flee = null; p.lat = p.st.curb + 0.4; p.want = p.lat;
         const c = ctx.town.debug.pt(p.st.name, p.along - p.dir * 5, p.side * 1.75), h = p.dir > 0 ? p.st.h : p.st.h + Math.PI;
+        C.said = 0;     // (the honk above just yelled: the crowd's one-voice-at-a-time cooldown would mute the AAH!)
         ctx.car.place(PL.ORIGIN.x + c.x, PL.ORIGIN.z + c.z, h); ctx.car.vx = Math.sin(h) * 14; ctx.car.vz = Math.cos(h) * 14; ctx.car.vF = 14; window.__sc = p.id; return true; })()`);
-      await t.frames(3);
-      t.check("a speeding car: peds scatter (AAH!)", (await evs(/homes:scatter/)).length > 0 || await g(`ctx.homes.debug.CR.peds.some(p => p.flee)`));
+      // (a jump aside lasts 0.75 s — on a slow software-GL frame that's only a couple of frames: watch each one)
+      let fled = false;
+      for (let k = 0; k < 8 && !fled; k++) { await t.frames(1); fled = (await evs(/homes:scatter/)).length > 0 || await g(`ctx.homes.debug.CR.peds.some(p => p.flee)`); }
+      t.check("a speeding car: peds scatter (AAH!)", fled);
       await g(`(ctx.car.vx = 0, ctx.car.vz = 0, ctx.car.vF = 0, true)`);
     });
 

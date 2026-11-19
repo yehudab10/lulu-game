@@ -98,12 +98,16 @@ on("town:enter", () => {
     ensureModels(CROWD_MODELS).then(() => {
         if (!ctx.town || !ctx.town.active || ctx.town.id !== id || HS.visit !== visit) return;
         startCrowd(null, ctx.town.def, HS.homes, { drives: ctx.town.drives || [] });
-        if (!HS.actor) {
-            HS.actor = true;
-            addActor({ foot: true, update: dt => { try { tickCrowd(dt); } catch (e) { console.error("[homes] crowd", e); } if (!CR.on) HS.actor = false; return CR.on; } });
-        }
+        crowdActor();
     }).catch(e => console.warn("[homes] crowd models", e));
 });
+/** The crowd's per-frame tick (an actor that ends itself once the crowd stops — so (re)start it with every crowd). */
+function crowdActor() {
+    if (HS.actor) return;
+    HS.actor = true;
+    addActor({ foot: true, update: dt => { try { tickCrowd(dt); } catch (e) { console.error("[homes] crowd", e); } if (!CR.on) HS.actor = false; return CR.on; },
+        dispose() { HS.actor = false; } });      // (cleared from outside — a new run: the next crowd adds it again)
+}
 on("town:leave", () => { stopCrowd(); HS.homes = []; HS.visit = (HS.visit || 0) + 1; });
 on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; CR.burgled = null; });
 on("honk", () => { if (CR.on) crowdHonk(); });
@@ -338,7 +342,7 @@ ctx.homes = {
         /** Put Lulu right in front of a resident (tests). */
         near(kind, dist = 1.0) { const c = VISIT.cur; const r = c && c.V.res.find(q => q.kind === kind); if (!r) return false; const o = r.p.obj; c.rt.lulu.obj.position.set(o.position.x + Math.sin(o.rotation.y) * dist, 0, o.position.z + Math.cos(o.rotation.y) * dist); return true; },
         report: (i, charges) => reportCall(HS.homes[i], charges || [CHARGE]),
-        startCrowd: () => { if (ctx.town && ctx.town.active) return startCrowd(null, ctx.town.def, HS.homes, { drives: ctx.town.drives || [] }); return false; },
+        startCrowd: () => { if (!(ctx.town && ctx.town.active)) return false; const r = startCrowd(null, ctx.town.def, HS.homes, { drives: ctx.town.drives || [] }); crowdActor(); return r; },
         stopCrowd,
         doors: () => HS.homes.length,
     },
