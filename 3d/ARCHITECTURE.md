@@ -231,7 +231,10 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   `world.road`. `world.highway` is always the highway's Road; `setDistrict(null)` puts everything back.
   So code that asks `ctx.world.road` keeps working in a town; code that needs highway-only
   behaviour checks `ctx.town && ctx.town.active`. `keepHighway: true` (a town ATTACHED to the highway, see Towns): the
-  highway's chunks stay drawn (culled to the fog like on the road — `world.cullChunks`), they just don't stream.
+  highway's chunks stay drawn (culled to the fog like on the road — `world.cullChunks` — and hidden behind the town's
+  blocks: `district.see(chunk)`), and with `highwayS` the highway keeps streaming round that s, every chunk in slices (a
+  warp into an attached town lands with nothing built there; `chunk:build` listeners that skip districts must let a
+  `keepHighway` one through — exitbuild / exits do).
 * `world.addSign({s, d, lines:[...], bg, fg, w, h})` before that chunk is built (in `boot` or ≥700 m ahead).
 * `world.biomeAt = s => ({ ...world.defaultBiome(), trees: {...}, density, houses, houseModel, walls, roofs, poles, coins, ground: "#hex" })`.
 * `registerScenery("palm", { model, collide, scale: [a, b], tint: [matNames], colors: {Mat: "#hex"} })` then use it in a biome's trees mix.
