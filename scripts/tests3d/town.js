@@ -14,7 +14,7 @@ module.exports = {
   async run(t) {
     const g = t.game;
     const D = `ctx.town.debug`;
-    await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["town:enter", "town:leave", "town:talk", "town:gossip", "cop:chase", "streets:carjack"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 80)));
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["town:exit", "town:enter", "town:leave", "town:talk", "town:gossip", "cop:chase", "streets:carjack"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 80)));
       // a test driver: steer toward waypoints (world x/z) at a target speed
       m.hook("controls", (ctl, dt) => { const W = window.__route; if (!W || !W.pts.length) return; const car = m.ctx.car;
         const p = W.pts[0]; if (Math.hypot(p.x - car.pos.x, p.z - car.pos.z) < (W.r || 4)) { W.pts.shift(); if (!W.pts.length) return; }
