@@ -41,6 +41,8 @@ const _li = { yaw: 0, pitch: 0, active: false };
 /** This frame's look input (radians to turn): the right stick (a rate) + a mouse / finger drag (a delta). */
 function lookInput(dt) {
     const S = save3d.settings, inv = S.invertLook ? -1 : 1, k = S.lookSens || 1;
+    // (ci/hangout's emote wheel is aimed with the right stick: no look while it's open)
+    if (document.body.classList.contains("emote-wheel")) { _li.yaw = _li.pitch = 0; _li.active = false; return _li; }
     const sx = input.lookX || 0, sy = input.lookY || 0, dx = input.lookDX || 0, dy = input.lookDY || 0;
     _li.yaw = (-sx * LOOK.rate * dt - dx) * k;
     _li.pitch = (sy * LOOK.pitchRate * dt + dy) * inv * k;
