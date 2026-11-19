@@ -8,6 +8,7 @@
 //     await ensureModels(["heshyPool", "heshy"]);  models.heshyPool …
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { ctx } from "./core/ctx.js";
 
 const FILES = {};
 const PRELOAD = new Set();
@@ -50,10 +51,21 @@ function loadOne(key) {
     const p = loader.loadAsync(`assets/${file}.glb`).then(gltf => {
         models[key] = prepare(gltf.scene);
         pending.delete(key);
+        warmShaders(models[key]);
         return models[key];
     });
     pending.set(key, p);
     return p;
+}
+
+/** A model that just loaded: get its shaders compiled BEFORE it is first drawn (the first sight of a new car, person
+ *  or building used to be a hitch while the GPU built its program mid-frame). A program depends on the scene's lights
+ *  and fog, so it is compiled as if the model stood in the driving scene; the browser does it off the main thread
+ *  where it can (three's compileAsync). Best effort: a set with its own lights still compiles on first show. */
+function warmShaders(root) {
+    const r = ctx.renderer;
+    if (!r || !r.compileAsync || !ctx.scene || !ctx.camera) return;
+    try { r.compileAsync(root, ctx.camera, ctx.scene).catch(() => { /* best effort */ }); } catch (e) { /* best effort */ }
 }
 
 /** Load models by key (cached). */

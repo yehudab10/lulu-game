@@ -350,6 +350,10 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   pieces. A missing chunk within 300 m of her (a restart, a warp) and `world.prebuild()` build at once, as before. A
   `chunk:build` listener therefore must not assume the other listeners ran in the same frame, and `chunk.building` is
   true until the last step. `world.sliceLog = []` collects `[chunk, step, ms, name]` (a perf probe).
+- **No first-sight hitches:** a model that finishes loading has its shaders compiled at once, as if it stood in the
+  driving scene (`models.js` `warmShaders` → `renderer.compileAsync(model, camera, scene)`), instead of mid-frame the
+  first time it is drawn. (A set with its own lights still compiles on first show; only the party lobby warms the
+  whole road — `party` `warmShaders`.)
 Test: `scripts/tests3d/flow.js` (the picture moves ≤ 1.5 m between two frames across a car ↔ foot change; the hop-in;
 a teleport still cuts; leaving a town is a soft cut with no black).
 
