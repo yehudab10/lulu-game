@@ -236,8 +236,13 @@ async function partyRun(t, guests) {
     await t.frames(2);
     const promptOk = await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 20000);
     if (!promptOk) console.log("   FLAG diag", JSON.stringify(await g(`({ flag: ctx.party._debug.flag(), prompt: (document.querySelector("#slot-bottom .prompt") || {}).textContent, list: (ctx.foot.debug.interactables() || null) && [ctx.foot.debug.interactables()].map(p => p && { kind: p.kind, label: p.label, score: p.score }), phase: ctx.foot.phase, d: ctx.foot.debug.F.d })`)));
-    await t.tap(0);
-    const fl = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`, "flagging one down claims it (hail)", 15000);
+    // (press whenever the prompt is up — on a slow runner one car's window can close between seeing it and the tap)
+    const HAILED = `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`;
+    for (let i = 0, end = Date.now() + 45000; Date.now() < end && !(await g(HAILED)); i++) {
+      if (await g(`/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`)) await t.tap(0);
+      else { await g(PUT); await sleep(300); }
+    }
+    const fl = await hostUntil(t, HAILED, "flagging one down claims it (hail)", 5000);
     if (fl) {
       const fk = JSON.stringify((await g(`ctx.party._debug.claims()`)).find(c => c.mine && c.hail && !c.dead).key);
       await A.until(`ctx.party._debug.claims().some(c => c.key === ${fk} && c.hail)`, "the guest hears the hail claim", 30000);
