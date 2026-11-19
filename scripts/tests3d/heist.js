@@ -8,7 +8,7 @@
 //   • a moped snatch is CAPPED and catching him refunds it (+ a bonus); a honk dodges one
 //   • a thief drives off in her parked car → ✋ yank him out → she gets back in her own car
 //   • the stun net + the spike strip slow her and wear off
-//   • perf (draw calls in town at the bank vs. elsewhere; the interior) · heist is OFF in a 🎉 party
+//   • perf (draw calls in town at the bank vs. elsewhere; the interior) · in a 🎉 party only its personal bits run (partyheist)
 module.exports = {
   name: "heist",
   viewport: { width: 1280, height: 720 },
@@ -59,7 +59,7 @@ module.exports = {
     }
 
     t.check("ctx.heist service is registered", await g(`!!(ctx.heist && ctx.heist.planHeist && ctx.heist.gear && ctx.heist.debug && ctx.heist.debug.robbery)`));
-    t.check("party keeps heist OFF (its OFF set)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"heist"/.test(s))`));
+    t.check("party: heist is ON (not in the OFF set) — only its personal bits run with friends (partyheist tests it)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"heist"/.test(m[1]); })`));
     t.check("the bank is TOWN DATA in both towns (uses.bank → heist_bank)", await g(`ctx.town.towns.lakewood.uses.bank.key === "heist_bank" && ctx.town.towns.midwood.uses.bank.key === "heist_bank"`));
     t.check("…on a block face of each town", await g(`Object.values(ctx.town.towns.lakewood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank")) && Object.values(ctx.town.towns.midwood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank"))`));
     t.check("the bank interior is registered with the interiors engine", await g(`!!(ctx.interiors.bank && ctx.interiors.bank.enter)`));

@@ -463,7 +463,7 @@ export function cleanup() {
 // ── the scheduler: Cruise — driving (the highway and the towns) or WALKING round a town (by a bank / shop
 //    door: that's where a ✋ tackle can happen); never in a chase / a job / the tutorial ──
 function sched(dt, force = false) {
-    if (R.ev || (!force && !live())) return false;
+    if (R.ev || (!force && !live("robbery"))) return false;
     const G = ctx.G, foot = onFoot();
     if (G.mode !== "cruise" || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return false;
     // (walking: at most T.footMax a run — an easy tackle by the door must not be a coin tap)

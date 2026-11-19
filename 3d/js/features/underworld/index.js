@@ -28,7 +28,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, addActor, addMenuItem, css } from "../../core/ctx.js";
 import { ID, SPAWN, TUNE, RATE_ORDER, RATE_LABEL, PAGE } from "./data.js";
-import { UW, SAVE, dirty, live, rand, pick, chance, rate, onFoot, inTown, chasing, calm, mode, stars, flushRemovals, tickTimers, clearTimers, later, log } from "./common.js";
+import { UW, SAVE, dirty, live, inParty, rand, pick, chance, rate, onFoot, inTown, chasing, calm, mode, stars, flushRemovals, tickTimers, clearTimers, later, log } from "./common.js";
 import { heat, heatLevel, addHeat, heatTick, applyAlert, alertOff } from "./heat.js";
 import { onWarning, offersTick, clearOffer, bustOffer, registerCharge, shoulderCop } from "./crooked.js";
 import { mechTick, clearShack, placeShack, hotTick } from "./mechanic.js";
@@ -45,16 +45,18 @@ UW.shomerAfter = shomerAfter;
 const weighted = w => { let r = Math.random() * Object.values(w).reduce((a, b) => a + b, 0); for (const [k, v] of Object.entries(w)) if ((r -= v) <= 0) return k; return Object.keys(w)[0]; };
 /** Could a bad guy show up right now? → "" or why not. */
 export function why() {
-    if (!live()) return "off";
+    const party = inParty();
+    if (!live(party ? "pickpocket" : "")) return "off";
     if (UW.enc || UW.loading) return "busy";
     if (UW.runT < SPAWN.firstAfter) return "early";
     if (chasing() || (ctx.law && ctx.law.reported)) return "chase";
     if (calm()) return "calm";
-    if (!/^(cruise|story)$/.test(mode())) return "mode";
+    if (!party && !/^(cruise|story)$/.test(mode())) return "mode";
     if (ctx.hustle && ctx.hustle.job) return "job";
     if (ctx.phone && ctx.phone.busy && ctx.phone.busy()) return "phone";
     if (ctx.dialogOpen || ctx.paused) return "dialog";
     if (ctx.state === "playing") {
+        if (party) return "party";       // (no bad-guy cars with friends: they'd sit in the shared traffic on one screen)
         if (onFoot() || inTown()) return "town";
         if (ctx.car.speed < 12) return "slow";
         return "";
@@ -63,18 +65,19 @@ export function why() {
     return "state";
 }
 function schedTick(dt) {
-    if (UW.enc || UW.loading || !live()) return;
+    if (UW.enc || UW.loading || !live(inParty() ? "pickpocket" : "")) return;
     UW.nextT -= dt;
     if (UW.nextT > 0) return;
     const w = why();
     if (w) { UW.nextT = 2; return; }
     if (!(UW.force.always || chance(SPAWN.roll))) { UW.nextT = rand(SPAWN.retry[0], SPAWN.retry[1]); return; }
     UW.nextT = rand(SPAWN.gap[0], SPAWN.gap[1]);
-    spawn(ctx.state === "footRun" ? weighted(SPAWN.foot) : weighted(SPAWN.drive));
+    spawn(ctx.state === "footRun" || inParty() ? weighted(SPAWN.foot) : weighted(SPAWN.drive));
 }
 /** A bad guy now: "rager" | "gang" (driving, highway) · "pickpocket" (on foot). → Promise<encounter | null> */
 export function spawn(kind, opts = {}) {
     if (kind === "pickpocket") return spawnPickpocket(opts);
+    if (inParty()) return Promise.resolve(null);      // (a bad-guy car never joins a party's shared traffic)
     return spawnBadCar(kind, opts);
 }
 
@@ -117,7 +120,7 @@ hook("runStart", () => {
     actor = null;
     ensureActor();
     applyAlert(true);
-    if ((SAVE.owed || 0) > 0 && live()) later(rand(20, 40), () => payOwed());   // (his mother keeps her word)
+    if ((SAVE.owed || 0) > 0 && live(inParty() ? "pickpocket" : "")) later(rand(20, 40), () => payOwed());   // (his mother keeps her word)
 }, 4);
 hook("update", () => { if (!actor || !ctx.actors.includes(actor)) ensureActor(); });
 on("state", ({ to }) => { if (to === "title" || to === "gameover") reset(true); });
@@ -190,8 +193,10 @@ ctx.underworld = {
     SPAWN, TUNE,
     /** law/bust.js: a crooked officer's offer at a pull-over (or null). */
     bustOffer,
-    /** Is the underworld on (enabled, not a party, Settings not Off)? */
+    /** Is the underworld on (enabled, Settings not Off; in a 🎉 party: false — only the pickpocket runs there)? */
     get live() { return live(); },
+    /** The gate for one kind ("pickpocket" | "" = the rest): in a 🎉 party only the pickpocket. */
+    liveFor: what => live(what),
     /** Why no bad guy can show up right now ("" = it could). */
     why,
     spawn,

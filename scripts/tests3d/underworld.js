@@ -47,9 +47,9 @@ module.exports = {
     t.check("ctx.underworld service + the SPAWN knobs", await g(`!!ctx.underworld && typeof ctx.underworld.bustOffer === "function" && ctx.underworld.SPAWN.firstAfter >= 60
       && Array.isArray(ctx.underworld.SPAWN.gap) && ctx.underworld.SPAWN.gap[0] >= 120 && ctx.underworld.TUNE.coinCap <= 30`));
     t.check("Settings has the 😈 Bad guys knob", await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("settings").some(i => i.id === "underworld"))`));
-    const party = await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return { en: ctx.enabled("underworld"), live: ctx.underworld.live }; } finally { N.want = was; } })()`);
-    t.check("🎉 a party turns the underworld OFF", !party.en && !party.live, JSON.stringify(party));
-    t.check("party/index.js lists underworld in its OFF set", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"underworld"/.test(s))`));
+    const party = await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return { en: ctx.enabled("underworld"), live: ctx.underworld.live, pick: ctx.underworld.liveFor("pickpocket") }; } finally { N.want = was; } })()`);
+    t.check("🎉 in a party only the pickpocket can run (on a Road Trip / Free Roam run — partyheist plays it); no bad-guy cars, offers, Fixer", party.en && !party.live && !party.pick, JSON.stringify(party));
+    t.check("party/index.js no longer lists underworld in its OFF set (underworld/common.js live(what) gates it)", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"underworld"/.test(m[1]); })`));
     t.check("the bribery charge has a courtroom scene (law.addCharge)", await g(`(() => { const ev = ctx.law.chargeEvent(["BRIBING AN OFFICER (KUGEL FUND)"]); return !!ev && ev.lines.length >= 3 && /KUGEL|kugel/.test(ev.lines.map(l => l.text).join(" ")); })()`));
 
     if (!await newRun("cruise starts")) return;

@@ -131,7 +131,7 @@ branches below right now — pick one up. Each is based on an older `main`: merg
 |---|---|---|
 | `ci/flow` | 🌊 Flow + open world (the owner: "less a driving game, more an open world — everything flows, fewer hard transitions, less choppy"). Step 1: `ctx.cam.blend(sec)` (the picture glides instead of cutting; > 70 m = still a cut), Lulu hops INTO the seat (`foot` `hopIn`), roadside scenes ease in, a rolling start after jail / court instead of the 3-2-1 | **🔧 BEING WORKED ON NOW by the coordinator session (2026-11-19 ~06:30 UTC).** Step 1 built, `foot` green locally; left: its test groups, land. Then (after `ci/gfx` lands, it rewrites `Chunk.build`): chunk building in time slices, a shared shader warm-up, an idle model preloader; then towns attached to the highway (no fade + teleport), interiors without a loading cut |
 | `ci/homes` | 🏠 Living towns (crowds, porches, lit windows, reactions) + breaking into houses: knock or sneak in, view-cone "?"→"!" detection, shocked residents, household items used on them with cartoon reactions, capped couch coins, burglary charge + call-in, residents remember her; docs done | **🔧 BEING FINISHED NOW (picked up 2026-11-19 04:00 UTC — leave it alone until this note goes).** Last work: crowd lives near her, residents route through doorways. Left: finish/verify `homes` test, then `core,platform,skip,ux;homes;town;midwood;foot;interiors;law;memory;banter;openworld;partyfoot;native`; perf check in town; land |
-| `ci/party3` | 🎉 Party round 3: features on `main` but still OFF with friends, one at a time. **heist** done on the branch (its personal bits — the cops' net / spikes in her own chase, the moped snatcher, the thief at her parked car — on in a party; robberies + her own heist stay solo, written up in the parity table; `partyheist` test passes locally) | **🔧 BEING WORKED ON NOW (2026-11-19 ~05:00 UTC).** Left: CI `core,platform,skip,ux;partyheist;heist;party;partyplus;partyfoot;law`, land; then `underworld` once it's on main, `homes` later |
+| `ci/party3` | 🎉 Party round 3 — **LANDED 2026-11-19 ~07:50** for what was on `main`: heist (personal bits) and underworld (the pickpocket only) are on with friends; each feature's parity row says what the rest would need. Nobody is on it now | **Left (pick it up any time):** `homes` once it lands — same recipe: `live(what)` with a `PARTY_OK` set + `partyFree()` (copy `heist/common.js`), remove it from party's `OFF` set, a parity row, a section in `scripts/tests3d/partyheist.js` (or its own party test). Robberies / bad-guy cars / roadside stops need the shared road plan — bigger jobs |
 | `ci/gfx` | ⚡ Performance + graphics: perf harness + leak tracker, no per-frame allocations, road-sign textures freed, contact shadows, bloom (only where supported), Auto/Low/Medium/High setting | **🔧 BEING FINISHED NOW (picked up 2026-11-19 03:51 UTC — lands LAST, after underworld/townfix/homes/party2).** Left: finish tiers + settings UI, before/after numbers + screenshots, then the FULL suite (`only` and `groups` empty) since render changes touch everything; land |
 
 Suggested order: homes → party3 (turns each landed feature on in a party) → gfx (touches everything, so land it last and re-run the full suite).
@@ -145,7 +145,7 @@ merged — ignore them.
   spot (`core/hud.js` has no toast dismiss); a call-in cruiser in town still
   routes straight to her; bailing out mid-chase files a permanent warrant (2★ on
   later chases until court) — maybe too harsh.
-- Heist: in a party only its personal bits are on (`ci/party3`); robberies that start while she WALKS are capped at 2 a run
+- Heist: in a party only its personal bits are on (robberies + her own bank job would need a road-plan slot, a host-validated foil and a co-op lobby activity — see the parity table); robberies that start while she WALKS are capped at 2 a run
   (`TUNE.robbery.footMax` — the tackle is the easy foil, keep it capped); the highway Quik-Mart robbery has no on-foot
   version; tests that drive with no steering must keep distances short (a bend carries the car out of its lane —
   that was the `heist` spike-strip flake).
@@ -167,6 +167,9 @@ merged — ignore them.
 - Underworld: off in a party; a pull-over has law's own 10 % "walk" outcome BEFORE the Kugel Fund offer (tests pin
   `ctx.law._dbg.FORCE.bustOutcome`); urgent on-foot actions (tackles, the purse clutch, the car-thief yank) are
   `ctx.foot.addSpot({ first: true })` so a door / a car in reach can't steal the ✋ button — use it for any new one.
+- Party tests (partyplus): on this repo's 4-core cloud container two game pages crawl (~0.1 game-s per real s), and
+  the ✋ FLAG IT DOWN press sometimes doesn't take there although the prompt shows (calling the spot's act() directly
+  works; on CI it passes) — not reproduced on a real device; worth a look if a player says flagging "does nothing".
 - Party tests wait in REAL time (`hostUntil` / `until` in `partyfoot.js`, `party.js`): a 2–3 page CI runner can drop to
   ~1 fps, and then a 6 s scene takes minutes ("bailed out… timed out in lawExit", "race results… timed out in
   partyWait", missing host buttons after a > 4 s stall hands hosting over). Same code failed twice then passed — re-run
