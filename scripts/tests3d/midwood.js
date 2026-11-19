@@ -237,7 +237,11 @@ module.exports = {
       if (!await inMidwood()) return;
       // ── every live car in Midwood is visible in the scene; the parked cars are solid and hotwirable ──
       await g(`(ctx.law.hold(300), ${D}.place("Avenue J", 120, 1.75, 0, 1), true)`);
-      await t.frames(20);
+
+      // (behind a town driver, 25 m back down its street, so there IS a car in sight to judge)
+      await g(`(() => { const c = ${D}.C.cars.find(c => !c.free && c.data.town.mode === "drive" && c.kind !== "cop"); if (!c) return false; ctx.traffic.config.enabled = false;
+          const f = { x: Math.sin(c.h), z: Math.cos(c.h) }; ctx.car.place(c.x - f.x * 25, c.z - f.z * 25, c.h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.car.s = c.s - 25 * c.dir; ctx.cam.snap(); return true; })()`);
+      await t.frames(12);
       const a = await g(`(() => {
         const cam = ctx.camera.position, bad = [];
         const shown = o => { for (let x = o; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
@@ -257,7 +261,7 @@ module.exports = {
         }
         return { near, bad };
       })()`);
-      t.check("Midwood: every car in sight (≤ 100 m) is in the scene, visible, with sane bounding spheres", !a.bad.length, JSON.stringify(a));
+      t.check("Midwood: every car in sight (≤ 100 m) is in the scene, visible, with sane bounding spheres", a.near > 0 && !a.bad.length, JSON.stringify(a));
       t.check("Midwood's parked cars are solid + tagged (sedans and minivans)", await g(`(() => { const P = ${D}.S.T.pcars; return P.length > 100 && P.some(p => /sedan/.test(p.key)) && P.every(p => p.cols.length === 2 && p.tag.parts && p.tag.parts.length); })()`));
       // on foot by a parked car-service sedan: ✋ HOTWIRE, and she drives off in a sedan
       await g(`ctx.foot.start("droveOff")`);

@@ -164,7 +164,11 @@ module.exports = {
       if (!await inTown()) return;
       // ── every live car in town has a visible mesh in the scene (no pooled body comes back hidden) ──
       await g(`${D}.place("Main St", 60, 1.75, 0, 1)`);
-      await t.frames(20);
+
+      // (behind a town driver, 25 m back down its street, so there IS a car in sight to judge)
+      await g(`(() => { const c = ${D}.C.cars.find(c => !c.free && c.data.town.mode === "drive" && c.kind !== "cop"); if (!c) return false; ctx.traffic.config.enabled = false;
+          const f = { x: Math.sin(c.h), z: Math.cos(c.h) }; ctx.car.place(c.x - f.x * 25, c.z - f.z * 25, c.h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.car.s = c.s - 25 * c.dir; ctx.cam.snap(); return true; })()`);
+      await t.frames(12);
       const audit = () => g(`(() => {
         const cam = ctx.camera.position, bad = [];
         const shown = o => { for (let x = o; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
@@ -185,7 +189,7 @@ module.exports = {
         return { near, bad };
       })()`);
       const a1 = await audit();
-      t.check("every car in sight (≤ 100 m) in town is in the scene, visible, with sane bounding spheres", !a1.bad.length, JSON.stringify(a1));
+      t.check("every car in sight (≤ 100 m) in town is in the scene, visible, with sane bounding spheres", a1.near > 0 && !a1.bad.length, JSON.stringify(a1));
       // the pool: a car the town hid (its far-car LOD) and gave back must come out VISIBLE for the next owner (a chase cruiser)
       const pool = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); c.obj.visible = false; ctx.traffic.remove(c);
           const c2 = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); const v = c2.obj.visible; ctx.traffic.remove(c2); return c2.obj === c.obj && v; })()`);
