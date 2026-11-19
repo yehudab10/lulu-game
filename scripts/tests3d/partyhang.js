@@ -10,7 +10,7 @@
 //   LEAVE    one tap in the 📱 👯 app; the friend keeps playing
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const path = require("path");
-const { startRelay, guestPage, hostPage } = require("../lib/party3d.js");
+const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 25000 + (process.pid % 20000);
 const Q0 = `&enable=party,foot,town,atmos,openworld&mpurl=${encodeURIComponent(`ws://127.0.0.1:${PORT}`)}`;
@@ -24,6 +24,7 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink", "gold"], selectedSkin: "pink", mpName: "Kugel Kid", luluHair: "#8D6E63" },
   async run(t) {
     relay = await startRelay(PORT);
+    setWallCap(6 * 60000);       // (a page that stops drawing fails this test in minutes, not hours)
     const guests = [];
     try { await partyRun(t, guests); }
     catch (e) { t.check("party run threw", false, String(e && e.stack || e).slice(0, 400)); }

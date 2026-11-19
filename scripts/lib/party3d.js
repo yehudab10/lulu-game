@@ -7,14 +7,19 @@
 // least 20 min) still catches a page that has stopped drawing altogether.
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const FPS = 30;
+let WALL_MIN = 20 * 60000;
+/** A test can lower the wall-clock floor of every wait (it then fails within minutes when a page stops drawing). */
+function setWallCap(ms) { WALL_MIN = ms; }
 
+/** page.evaluate that gives up after `ms` (a hung page would otherwise block the whole test run forever). */
+const evalT = (page, code, fallback, ms = 60000) => Promise.race([page.evaluate(code).catch(() => fallback), sleep(ms).then(() => fallback)]);
 async function waitOn(page, code, ms = 90000) {
-  const frames = () => page.evaluate(`window.__lulu3d ? __lulu3d.frames : -1`).catch(() => -1);
+  const frames = () => evalT(page, `window.__lulu3d ? __lulu3d.frames : -1`, -1);
   let f0 = await frames();
   const maxFrames = Math.ceil(ms / 1000 * FPS);
-  const cap = Date.now() + Math.max(ms * 3, 20 * 60000);
+  const cap = Date.now() + Math.max(ms * 3, WALL_MIN);
   for (;;) {
-    const ok = await page.evaluate(`(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
+    const ok = await evalT(page, `(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`, false);
     if (ok) return true;
     const f = await frames();
     if (f0 < 0 && f >= 0) f0 = f;                       // (the page booted while we waited: count from here)
@@ -70,7 +75,7 @@ async function guestPage(t, label, save2d, query, viewport = { width: 640, heigh
     frames: n => framesOn(page, n),
     async until(code, what, ms = 90000) {
       if (await waitOn(page, code, ms)) return true;
-      t.check(`${label}: ${what}`, false, "timed out in " + await page.evaluate(`window.__lulu3d && __lulu3d.state`).catch(() => "?"));
+      t.check(`${label}: ${what}`, false, "timed out in " + await page.evaluate(`window.__lulu3d && (__lulu3d.state + " @ frame " + __lulu3d.frames)`).catch(() => "?"));
       return false;
     },
   };
@@ -82,9 +87,9 @@ function hostPage(t) {
     L: c => t.L(c), game: c => t.game(c), frames: n => t.frames(n),
     async until(code, what, ms = 90000) {
       if (await waitOn(t.page, code, ms)) return true;
-      t.check(what, false, "timed out in " + await t.game(`ctx.state`).catch(() => "?"));
+      t.check(what, false, "timed out in " + await t.game(`ctx.state + " @ frame " + L3.frames`).catch(() => "?"));
       return false;
     },
   };
 }
-module.exports = { waitOn, framesOn, sleep, startRelay, guestPage, hostPage };
+module.exports = { waitOn, framesOn, sleep, startRelay, guestPage, hostPage, setWallCap };
