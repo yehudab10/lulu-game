@@ -20,6 +20,29 @@ export const LANE = 3.5;
 export const HALF_ROAD = 7;       // 4 lanes
 export const SHOULDER = 8.8;      // edge of the gravel shoulder
 export const CHUNK = 200;         // metres per scenery chunk
+
+/**
+ * Paved ground off the highway's asphalt (exit ramps, a rest area's lot…): features push predicates
+ * (s, d) → 0 (not theirs) | 1 (walkable grounds: a lawn, a picnic area — still grass for the car) |
+ * 2 (asphalt: the car drives it like road, no grass drag or shoulder rumble) | 3 (a LANE off the highway:
+ * a decel / accel lane, a ramp, a painted gore, a lot's drive aisle — asphalt she drives through, so nothing
+ * may ever stand on it). Highway road coords only (ignored while a district is active).
+ * THE RULE for anything placed beside the road: check offLanes() first (Chunk.addSign does, for every sign).
+ */
+export const paved = [];
+/** The highest paved level any feature reports at highway (s, d): 0 | 1 | 2 | 3. */
+export function pavedAt(s, d) {
+    let best = 0;
+    for (const f of paved) { const v = +f(s, d) || 0; if (v > best) { best = v; if (best >= 3) break; } }
+    return best;
+}
+/** Is a footprint (centre s, d; ±halfD across, ±halfS along) clear of every lane (paved 3)? */
+export function offLanes(s, d, halfD = 0.5, halfS = 0.5) {
+    if (!paved.length) return true;
+    const stepS = Math.max(0.5, halfS), stepD = Math.min(0.5, Math.max(0.1, halfD));
+    for (let a = -halfS; a <= halfS + 1e-6; a += stepS) for (let b = -halfD; b <= halfD + 1e-6; b += stepD) if (pavedAt(s + a, d + b) >= 3) return false;
+    return true;
+}
 const AHEAD = 640, BEHIND = 160;
 
 // Our lanes are on the RIGHT (positive d); oncoming traffic on the left.
@@ -556,7 +579,18 @@ class Chunk {
 
     addSign(world, sign) {
         const M = materials(), G = geometry();
-        const p = world.road.point(sign.s, sign.d, {});
+        // never on a lane (an exit's decel lane, a ramp, a gore — see `paved`): slide it out past the asphalt
+        let d = sign.d;
+        const half = (sign.w || 4.2) / 2 + 0.25;
+        if (!offLanes(sign.s, d, half, 0.4)) {
+            const dir = d < 0 ? -1 : 1;
+            let k = 1;
+            while (k <= 60 && !offLanes(sign.s, d + dir * k, half, 0.4)) k++;
+            if (k > 60) return;
+            d += dir * k;
+        }
+        sign.builtD = d;
+        const p = world.road.point(sign.s, d, {});
         const h = world.road.at(sign.s).h;
         const w = sign.w || 4.2, ht = sign.h || 2.1;
         const g = new THREE.Group();
@@ -576,12 +610,30 @@ class Chunk {
             const sy = 2.2 + ht * 0.6;
             parts.push(G.post.clone().scale(1, sy, 1).translate(off, sy / 2, 0.06));
         }
+        // an exit-number tab on top of the board, at its right end ("EXIT 91"): its metal joins the merged metal,
+        // its face is a ref-counted sign texture like the board's (freed with the chunk)
+        let tabFace = null;
+        if (sign.tab) {
+            const tw = Math.max(1.4, w * 0.42), th = 0.55;
+            const tx = w / 2 - tw / 2, ty = 2.2 + ht + th / 2 - 0.02;
+            const tb = new THREE.BoxGeometry(tw, th, 0.08).translate(tx, ty, 0);
+            const ti = tb.index.array, tk = [];
+            for (let i = 0; i < ti.length; i++) if (i < 24 || i >= 30) tk.push(ti[i]);
+            tb.setIndex(tk); tb.clearGroups();
+            parts.push(tb);
+            const tt = signEntry([sign.tab], sign.bg, sign.fg, 320, 112);
+            tt.refs++;
+            this.disposables.push({ dispose: () => releaseSign(tt) });
+            tabFace = new THREE.Mesh(new THREE.PlaneGeometry(tw, th).translate(tx, ty, 0.0405), signMaterial(tt.tex));
+            this.disposables.push(tabFace.geometry);
+        }
         const metalGeo = mergeGeometries(parts, false);
         for (const x of parts) x.dispose();
         const metal = new THREE.Mesh(metalGeo, M.metal);
         metal.castShadow = true;
         const face = new THREE.Mesh(new THREE.PlaneGeometry(w, ht).translate(0, y, 0.0405), signMaterial(tex));
         g.add(metal, face);
+        if (tabFace) g.add(tabFace);
         this.group.add(g);
         this.disposables.push(metalGeo, face.geometry);
         this.colliders.push({ x: p.x, z: p.z, r: 0.3, kind: "sign" });

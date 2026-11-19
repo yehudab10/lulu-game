@@ -5,6 +5,9 @@
 // ── signs ────────────────────────────────────────────────────────────────
 export const SIGNS = {
     welcome: ["WELCOME TO LAKEWOOD", "Pop.: Yes", "Est. traffic: always"],
+    // the interchange's T-junction (the guide board across the STOP sign) + the gas station there
+    tee: ["LAKEWOOD →", "Pop.: Yes · Parking: No", "← I-95 (it's not too late)"],
+    gas: { name: ["SHMULY'S GAS & GO", "KOSHER · CLOSED SHABBOS"], prices: ["REG 4.19", "KUGEL 6.99", "PARKING: LOL"] },
     advance: ["LAKEWOOD", "NEXT EXIT ½ MI", "(you've been warned)"],
     gantry: ["EXIT 91 · LAKEWOOD", "Pop.: Yes · Parking: No"],
     gore: ["LAKEWOOD ↗", "EXIT"],

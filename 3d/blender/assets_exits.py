@@ -22,6 +22,14 @@ Front = -Y (= +Z in three.js, faces the highway / the lot's drive aisle). Metres
                   Anchor_bay (where the car stops), Anchor_mendel, Anchor_sign.
   exits_dogrun    the pet area: a low fenced run (gap = the gate at the front), a hydrant, a bag post, a bench.
   exits_lamp      a lot light (8 m pole, two heads).
+  — the interchange's far end (features/town/exit*.js: every face's text is a quad from the game's sign atlas) —
+  exits_stop      a STOP sign on a post (red octagon, white rim); Anchor_sign = the face.
+  exits_guide     a big green guide sign on two I-beam posts (the T-junction's ← HIGHWAY · TOWN → board); Anchor_sign.
+  exits_welcome   a "Welcome to …" town sign: a cream board between two brick piers, a flower bed; Anchor_sign.
+  exits_pylon     a gas station's price pylon (two legs, a lit head, a price panel); Anchor_sign, Anchor_price.
+  exits_cushion   the crash cushion at the gore nose: a row of yellow sand barrels behind a striped nose.
+  exits_railend   a guardrail's flared end terminal (yellow / black chevrons), the rail starts at +Y 2 m.
+  exits_advisory  a yellow speed-advisory sign (RAMP 25 MPH) on a post; Anchor_sign.
 """
 from lib import *
 
@@ -313,6 +321,121 @@ def build_lamp():
     return coll
 
 
+# ── the interchange's far end: the T-junction, the gore, the roadside ──────
+def build_stop():
+    coll = scene_coll("ExitsStop")
+    root = root_empty(coll, "ExitsStop")
+    RED, WH = mat("StopRed", "#C62828", rough=0.5), mat("StopWhite", "#FAFAFA", rough=0.5)
+    parts = [Part(coll, "pole", bm_cyl(0.05, 0.05, 2.7, 6), GALV, loc=(0, 0.05, 1.35), smooth=False),
+             Part(coll, "rim", bm_cyl(0.44, 0.44, 0.03, 8, "Y"), WH, loc=(0, 0, 2.5), rot=(0, math.pi / 8, 0), smooth=False),
+             Part(coll, "oct", bm_cyl(0.4, 0.4, 0.05, 8, "Y"), RED, loc=(0, -0.01, 2.5), rot=(0, math.pi / 8, 0), smooth=False)]
+    bake(parts, "ExitsStop_body", coll, parent=root)
+    anchor(coll, root, "Anchor_sign", (0, -0.05, 2.5))
+    return coll
+
+
+def build_guide():
+    coll = scene_coll("ExitsGuide")
+    root = root_empty(coll, "ExitsGuide")
+    GREEN = mat("SignGreen", "#1F7A46", rough=0.6)
+    W, H = 4.4, 1.9
+    parts = [Part(coll, "board", bm_box(W, 0.1, H), GREEN, loc=(0, 0.06, 2.4 + H / 2), smooth=False)]
+    for x in (-W * 0.32, W * 0.32):
+        parts.append(Part(coll, "post", bm_box(0.16, 0.12, 2.4 + H), GALV, loc=(x, 0.16, (2.4 + H) / 2), smooth=False))
+        parts.append(Part(coll, "foot", bm_cyl(0.22, 0.24, 0.2, 8), CONC, loc=(x, 0.16, 0.1), smooth=False))
+    bake(parts, "ExitsGuide_body", coll, parent=root)
+    anchor(coll, root, "Anchor_sign", (0, -0.01, 2.4 + H / 2))
+    return coll
+
+
+def build_welcome():
+    coll = scene_coll("ExitsWelcome")
+    root = root_empty(coll, "ExitsWelcome")
+    BRICK = mat("Brick", "#B5654A", rough=0.95)
+    CREAM = mat("SignCream", "#F6EEDC", rough=0.7)
+    WOOD = mat("Wood", "#6D4C41", rough=0.8)
+    SOIL = mat("Soil", "#5D4037", rough=1.0)
+    parts = [Part(coll, "board", bm_box(4.2, 0.14, 1.5), CREAM, loc=(0, 0, 1.55), smooth=False),
+             Part(coll, "frame", bm_box(4.4, 0.1, 1.7), WOOD, loc=(0, 0.06, 1.55), smooth=False),
+             Part(coll, "bed", bm_box(5.6, 1.4, 0.18), SOIL, loc=(0, 0, 0.09), smooth=False)]
+    for x in (-2.4, 2.4):
+        parts.append(Part(coll, "pier", bm_box(0.45, 0.45, 2.5), BRICK, loc=(x, 0, 1.25), smooth=False))
+        parts.append(Part(coll, "cap", bm_box(0.6, 0.6, 0.12), CONC, loc=(x, 0, 2.56), smooth=False))
+    FL = [mat("FlowerRed", "#E53935", rough=0.6), mat("FlowerYellow", "#FDD835", rough=0.6), mat("FlowerPink", "#F06292", rough=0.6)]
+    LEAF = mat("Hedge", "#3E8E41", rough=0.9)
+    for k in range(9):
+        x = -2.0 + k * 0.5
+        parts.append(Part(coll, "shrub", bm_ico(0.2, 1), LEAF, loc=(x, -0.35, 0.3), smooth=False))
+        parts.append(Part(coll, "flower", bm_ico(0.08, 1), FL[k % 3], loc=(x + 0.1, -0.5, 0.42), smooth=False))
+    bake(parts, "ExitsWelcome_body", coll, parent=root)
+    anchor(coll, root, "Anchor_sign", (0, -0.08, 1.55))
+    return coll
+
+
+def build_pylon():
+    coll = scene_coll("ExitsPylon")
+    root = root_empty(coll, "ExitsPylon")
+    RED = mat("PylonRed", "#C62828", rough=0.5)
+    LIT = mat("LampGlow", "#FFF3D6", rough=0.3, emit=0.8)
+    PANEL = mat("PriceBlack", "#151515", rough=0.4)
+    parts = []
+    for x in (-1.0, 1.0):
+        parts.append(Part(coll, "leg", bm_box(0.35, 0.35, 7.0), GALV, loc=(x, 0, 3.5), smooth=False))
+    parts.append(Part(coll, "head", bm_box(2.8, 0.6, 1.8), RED, loc=(0, 0, 7.4), smooth=False))
+    parts.append(Part(coll, "glow", bm_box(2.6, 0.62, 0.18), LIT, loc=(0, 0, 6.42), smooth=False))
+    parts.append(Part(coll, "price", bm_box(2.6, 0.4, 1.7), PANEL, loc=(0, 0, 5.3), smooth=False))
+    parts.append(Part(coll, "base", bm_box(2.8, 0.8, 0.5), CONC, loc=(0, 0, 0.25), smooth=False))
+    bake(parts, "ExitsPylon_body", coll, parent=root)
+    anchor(coll, root, "Anchor_sign", (0, -0.31, 7.4))
+    anchor(coll, root, "Anchor_price", (0, -0.21, 5.3))
+    return coll
+
+
+def build_cushion():
+    coll = scene_coll("ExitsCushion")
+    root = root_empty(coll, "ExitsCushion")
+    YEL = mat("BarrelYellow", "#FFC400", rough=0.6)
+    BLK = mat("Black", "#1B1B1B", rough=0.5)
+    parts = []
+    # a wedge of barrels: 1, 2, 2, 3 back from the nose (+Y = toward the gore's wide end)
+    rows = [(0.0, [0.0]), (1.0, [-0.45, 0.45]), (2.0, [-0.45, 0.45]), (3.0, [-0.9, 0.0, 0.9])]
+    for y, xs in rows:
+        for x in xs:
+            parts.append(Part(coll, "barrel", bm_cyl(0.42, 0.4, 0.95, 10), YEL, loc=(x, y, 0.48), smooth=False))
+            parts.append(Part(coll, "lid", bm_cyl(0.3, 0.3, 0.06, 10), BLK, loc=(x, y, 0.98), smooth=False))
+    parts.append(Part(coll, "nose", bm_box(0.9, 0.06, 0.9), YEL, loc=(0, -0.48, 0.5), smooth=False))
+    for k in range(3):
+        parts.append(Part(coll, "stripe", bm_box(0.18, 0.07, 0.95), BLK, loc=(-0.3 + k * 0.3, -0.5, 0.5), rot=(0, 0.6, 0), smooth=False))
+    bake(parts, "ExitsCushion_body", coll, parent=root)
+    return coll
+
+
+def build_railend():
+    coll = scene_coll("ExitsRailend")
+    root = root_empty(coll, "ExitsRailend")
+    YEL = mat("BarrelYellow", "#FFC400", rough=0.6)
+    BLK = mat("Black", "#1B1B1B", rough=0.5)
+    parts = [Part(coll, "head", bm_box(0.5, 0.25, 0.6), YEL, loc=(0, 0, 0.62), smooth=False),
+             Part(coll, "flare", bm_box(0.08, 2.0, 0.32), GALV, loc=(0.12, 1.0, 0.66), rot=(0, 0, 0.12), smooth=False)]
+    for k in range(3):
+        parts.append(Part(coll, "chev", bm_box(0.1, 0.03, 0.55), BLK, loc=(-0.15 + k * 0.15, -0.13, 0.62), rot=(0, 0.5, 0), smooth=False))
+    for y in (0.6, 1.6):
+        parts.append(Part(coll, "post", bm_box(0.15, 0.15, 0.9), GALV, loc=(0.2, y, 0.45), smooth=False))
+    bake(parts, "ExitsRailend_body", coll, parent=root)
+    return coll
+
+
+def build_advisory():
+    coll = scene_coll("ExitsAdvisory")
+    root = root_empty(coll, "ExitsAdvisory")
+    YEL = mat("SignYellow", "#FFD600", rough=0.5)
+    parts = [Part(coll, "pole", bm_cyl(0.05, 0.05, 3.2, 6), GALV, loc=(0, 0.06, 1.6), smooth=False),
+             Part(coll, "board", bm_box(1.2, 0.05, 1.5), YEL, loc=(0, 0, 2.45), smooth=False)]
+    bake(parts, "ExitsAdvisory_body", coll, parent=root)
+    anchor(coll, root, "Anchor_sign", (0, -0.03, 2.45))
+    return coll
+
+
 ASSETS = [
     ("exits_gantry", build_gantry),
     ("exits_building", build_building),
@@ -324,4 +447,11 @@ ASSETS = [
     ("exits_garage", build_garage),
     ("exits_dogrun", build_dogrun),
     ("exits_lamp", build_lamp),
+    ("exits_stop", build_stop),
+    ("exits_guide", build_guide),
+    ("exits_welcome", build_welcome),
+    ("exits_pylon", build_pylon),
+    ("exits_cushion", build_cushion),
+    ("exits_railend", build_railend),
+    ("exits_advisory", build_advisory),
 ]

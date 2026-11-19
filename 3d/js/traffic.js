@@ -117,6 +117,9 @@ export class Traffic {
      */
     add(kind, s, d, dir, speed, opts = {}) {
         const c = this.make(kind);
+        // (a pooled body comes back as it was put away: a feature that hid it — a town's far-car LOD, a party's loop
+        //  cars — mustn't hand the next owner an invisible car)
+        c.obj.visible = true;
         Object.assign(c, {
             s, d, dTarget: d, dir, speed, want: speed, base: speed, hit: false, hitT: 0,
             vx: 0, vz: 0, spinV: 0, h: 0, x: 0, z: 0, passed: false, lon: null,
