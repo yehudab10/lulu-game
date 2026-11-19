@@ -8,8 +8,8 @@ import { ctx, setState } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
 import * as H from "../../hud.js";
 import { L, config, TUNE, beginChase, endChase, copNear, copSees, startFugitive, endFugitive, prisonClothes, rig, setRig,
-    notice, callIn, endBolo, changeLook, escape } from "./cops.js";
-import { REASON_CHARGES } from "./data.js";
+    notice, callIn, endBolo, changeLook, escape, spawnTrap } from "./cops.js";
+import { REASON_CHARGES, CHARGE_DIALOGUE, CHARGE_DEFENSE, CHARGE_WEIGHT } from "./data.js";
 import { S, addWanted, clearLockup, fugitiveStars } from "./rules.js";
 
 export const run = { live: false, mode: "cruise", ride: null };   // is a run in progress that an arrest interrupted? (+ her wheels, below)
@@ -45,6 +45,8 @@ export function rideNote() {
 }
 /** Test-only overrides (scripts/tests3d/law.js): bustOutcome, verdict, quietCourt, escapeKind. Empty in the game. */
 export const FORCE = {};
+/** Courtroom events other features' charges bring (law.addCharge({ court })): [{ key, ev }]. */
+export const CHARGE_EVENTS = [];
 let pullOverFn = null;
 export function setPullOver(fn) { pullOverFn = fn; }
 
@@ -163,6 +165,33 @@ export const law = {
         return out;
     },
     config,
+    /** Park a hidden speed-trap cruiser `ahead` metres up the road (another feature wants a cop around: underworld's
+     *  "lead the bad guy past a cop"). Never mid-chase / in a town. → bool */
+    trap(ahead = 300, side) {
+        if (L.chase || !ctx.car || (ctx.town && ctx.town.active)) return false;
+        try { return !!spawnTrap(ahead, side === undefined ? (Math.random() < 0.5 ? -1 : 1) : side); } catch (e) { console.error("[law] trap", e); return false; }
+    },
+    /** Wipe a live ⚠️ WARNING (a "donation" made it disappear). → bool (there was one) */
+    clearWarning() { const had = L.sus > 0.04; L.sus = 0; return had; },
+    /**
+     * Another feature's charge gets its own lines: { key (a substring of the charge), name + weight (bounty 1–4),
+     * cop: [arrest lines], lulu: [her replies], defense: "the lawyer's argument…", court: [{ who, p, text }…] (a courtroom
+     * EVENT that always plays when the charge is on the sheet), nudge: "help" | "hurt" | "none" }. First match wins, so
+     * these go before the built-in ones.
+     */
+    addCharge(def) {
+        if (!def || !def.key) return false;
+        if (def.cop || def.lulu) CHARGE_DIALOGUE.unshift({ key: def.key, cop: def.cop || ["You're under arrest."], lulu: def.lulu || ["…"] });
+        if (def.defense) CHARGE_DEFENSE.unshift({ key: def.key, arg: def.defense });
+        if (def.weight && def.name) CHARGE_WEIGHT[def.name] = def.weight;
+        if (def.court) CHARGE_EVENTS.push({ key: def.key, ev: { id: "charge:" + def.key, nudge: def.nudge || "none", lines: def.court } });
+        return true;
+    },
+    /** The courtroom event a charge sheet brings (court.js asks; see addCharge). */
+    chargeEvent(charges) {
+        for (const c of CHARGE_EVENTS) if ((charges || []).some(x => String(x).includes(c.key))) return c.ev;
+        return null;
+    },
     /** Someone who isn't a cruiser has eyes on her (a Shomrim radio tip, a chopper-cam…): mid-chase, the cops count
      *  her as SEEN for `sec` seconds (the search meter stops filling). Returns false when there's no chase. */
     spot(sec = 1) {

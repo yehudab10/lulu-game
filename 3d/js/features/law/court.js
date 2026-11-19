@@ -276,8 +276,10 @@ async function trial(f, data) {
 
     // ~40% (more for worse crimes) a courtroom EVENT interrupts
     const evChance = clamp(0.32 + 0.16 * tierD, 0.32, 0.9);
-    if (FORCE.event || (!FORCE.quietCourt && Math.random() < evChance)) {
-        let ev = await playEvent(f, court, FORCE.event ? [...COURT_EVENTS, COURT_MISTRIAL].find(e => e.id === FORCE.event) : null);
+    // (another feature's charge can bring its own scene — ctx.law.addCharge({ court }): it always plays)
+    const chargeEv = !FORCE.event && ctx.law && ctx.law.chargeEvent ? ctx.law.chargeEvent(court.charges) : null;
+    if (chargeEv || FORCE.event || (!FORCE.quietCourt && Math.random() < evChance)) {
+        let ev = await playEvent(f, court, chargeEv || (FORCE.event ? [...COURT_EVENTS, COURT_MISTRIAL].find(e => e.id === FORCE.event) : null));
         if (tierD >= 2 && !FORCE.event && Math.random() < 0.55) {
             let e2 = pickEvent(), guard = 0;
             while (e2.id === ev.id && guard++ < 6) e2 = pickEvent();

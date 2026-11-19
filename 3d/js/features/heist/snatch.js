@@ -85,7 +85,7 @@ function snatchTick(dt) {
             ev.phase = "warn"; ev.t = 0;
             H.banner(warnHtml(ev), Math.round(TS.warn * 1000) + 300, { key: "heist:snatch", prio: 3 });
             npcSays(ev.rider.obj, pick(SNATCH.creep), TS.warn);
-            if (ctx.foot && ctx.foot.addSpot) ev.spotRm = ctx.foot.addSpot({ pos: () => (SN.ev === ev && ev.phase === "warn" ? { x: ev.x, z: ev.z } : null), r: 6,
+            if (ctx.foot && ctx.foot.addSpot) ev.spotRm = ctx.foot.addSpot({ pos: () => (SN.ev === ev && ev.phase === "warn" ? { x: ev.x, z: ev.z } : null), r: 6, first: true,
                 label: "🫷 CLUTCH YOUR PURSE!", short: "PURSE", act: () => dodge(ev, "purse") });
         }
     } else if (ev.phase === "warn") {
@@ -260,7 +260,7 @@ function drive(ev) {
     c.ai = (dt, cc) => thiefAi(dt, cc, ev);
     H.banner(THEFT.gone, 3200, { key: "heist:theft", prio: 3 });
     luluSays(pick(["MY CAR!", "Hey! That's MINE!", "Oh you did NOT."]), true);
-    ev.spotRm = ctx.foot && ctx.foot.addSpot ? ctx.foot.addSpot({ pos: () => (CT.ev === ev && ev.phase === "drive" ? { x: c.x, z: c.z } : null), r: TT.yankR,
+    ev.spotRm = ctx.foot && ctx.foot.addSpot ? ctx.foot.addSpot({ pos: () => (CT.ev === ev && ev.phase === "drive" ? { x: c.x, z: c.z } : null), r: TT.yankR, first: true,
         label: "✋ YANK HIM OUT!", short: "YANK", act: () => yank(ev, "yank") }) : null;
     stat("heistCarStolen", 1);
     emit("heist:theft", { phase: "stolen" });

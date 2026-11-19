@@ -37,7 +37,7 @@ import { tickScenes, startScene, endScene, sceneSpot, callFor } from "./scenes.j
 import { tickHelp, request, cancelHelp, sceneActive } from "./help.js";
 import { tickShomrim, startShomrim, endShomrim, witness } from "./shomrim.js";
 import { tickBY, bySpot, clearLine, bootBY, startBlend, heat } from "./by.js";
-import { registerApp, debugCall, reasons } from "./calls.js";
+import { registerApp, debugCall, reasons, addReason, callOut } from "./calls.js";
 import { tickParty, shomrimParty, partyDebug } from "./party.js";
 
 CM.save = store("community", { hints: {}, chesed: 0, blends: 0, holds: 0, calls: 0 });
@@ -157,6 +157,11 @@ ctx.community = {
     /** Place a call as if from the 📞 app: (org, reason id) — see reasons(org). */
     call: (org, id) => debugCall(org, id),
     reasons: org => reasons(org).map(r => r.id),
+    /** Another feature's reason to call an org: fn() → { id, icon, label, sub, run } | null (asked each time the 📞 app
+     *  renders; a reason off-town also shows the app + that org). → an undo function. */
+    addReason,
+    /** Place a call as the 📞 app does: the in-car call card (or a dialogue on foot), then() when they hang up. */
+    callOut: (org, lines, then, done) => callOut(org, lines, then, done),
     request: (kind, opts) => request(kind, opts),
     shomrim: (reason, opts) => startShomrim(reason, opts),
     endShomrim: why => endShomrim(why),

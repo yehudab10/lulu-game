@@ -20,9 +20,24 @@ const G = () => ctx.G;
 const damaged = () => (G().hearts || 0) < (G().maxHearts || 3) || !!(ctx.feel && ctx.feel.damage && ctx.feel.damage.stage > 0) || !!(ctx.streets && ctx.streets.flat);
 const sceneFor = org => { const sc = CM.scene; return sc && sc.org === org && sc.phase === "wait" ? sc : null; };
 
+/** Reasons other features add (ctx.community.addReason): org → [fn() → reason | null]. */
+export const EXTRA = new Map();
+export function addReason(org, fn) {
+    if (!EXTRA.has(org)) EXTRA.set(org, []);
+    EXTRA.get(org).push(fn);
+    return () => { const l = EXTRA.get(org), i = l ? l.indexOf(fn) : -1; if (i >= 0) l.splice(i, 1); };
+}
+function extraFor(org) {
+    const out = [];
+    for (const fn of EXTRA.get(org) || []) { try { const r = fn(); if (r) out.push(r); } catch (e) { console.error("[community] reason", e); } }
+    return out;
+}
+/** Orgs with a reason from another feature right now (the 📞 app shows them even off-town). */
+export function extraOrgs() { return ["chaverim", "hatzalah", "shomrim"].filter(o => extraFor(o).length); }
+
 /** What she can call each org about, right now: [{ id, icon, label, sub, run }] */
 export function reasons(org) {
-    const out = [];
+    const out = extraFor(org);
     const sc = sceneFor(org);
     if (sc) out.push({ id: "scene", icon: sc.def.icon, label: `Report ${sc.def.label}`, sub: `${sc.at.street || "on the shoulder"} · a mitzvah`, run: () => callScene(sc) });
     if (org === "chaverim") {
@@ -118,15 +133,16 @@ export function registerApp() {
     if (!ctx.phone || !ctx.phone.addApp) return;
     ctx.phone.addApp({
         id: "community", icon: "📞", name: "Call", order: 65, color: "#3949AB", color2: "#E53935",
-        visible: () => !!townCfg() && (!(ctx.party && ctx.party.active) || ctx.enabled("community")),
+        visible: () => (!!townCfg() || extraOrgs().length > 0) && (!(ctx.party && ctx.party.active) || ctx.enabled("community")),
         badge: () => (CM.scene && CM.scene.phase === "wait" ? "!" : null),
         back(api) { if (CM.view) { CM.view = null; api.refresh(); return true; } return false; },
         render(el, api, arg) {
             if (arg && arg.org && CM.viewArg !== arg) { CM.view = arg.org; CM.viewArg = arg; }
             const cfg = townCfg(), org = CM.view;
             if (!org) {
-                const orgs = ["chaverim", "hatzalah", "shomrim", "police"].filter(o => o === "police" || (cfg && cfg.orgs[o]));
-                el.innerHTML = `<div class="lp-note">📞 <b>${esc((ctx.town && ctx.town.name) || "Town")}</b> · who you gonna call?</div>` + orgs.map(o => {
+                const xo = extraOrgs();
+                const orgs = ["chaverim", "hatzalah", "shomrim", "police"].filter(o => o === "police" || (cfg && cfg.orgs[o]) || xo.includes(o));
+                el.innerHTML = `<div class="lp-note">📞 <b>${esc((cfg && ctx.town && ctx.town.name) || "On the road")}</b> · who you gonna call?</div>` + orgs.map(o => {
                     const O = ORGS[o], n = reasons(o).length;
                     return `<button class="btn lp-row" data-org="${o}"><span class="lp-av" style="background:${O.color}">${O.emoji}</span><span class="lp-tx"><b>${esc(O.name)}</b><small>${esc(O.tag)}</small></span>${sceneFor(o) ? '<span class="lp-meta">!</span>' : n ? "" : ""}</button>`;
                 }).join("") + `<p class="lp-fine">Volunteer orgs, a hotline, and the actual police. Not affiliated with anyone real.</p>`;
