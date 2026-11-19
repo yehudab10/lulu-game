@@ -25,7 +25,7 @@ const { spawn } = require("child_process");
 const TIER = process.env.PERF3D_TIER || "high";
 const DRIVE = +(process.env.PERF3D_DRIVE || 40);
 const FRAMES = +(process.env.PERF3D_FRAMES || 60);
-const SCENES = (process.env.PERF3D_SCENES || "cruise,rain,rest,town,foot,interior,drive,party").split(",");
+const SCENES = (process.env.PERF3D_SCENES || "cruise,rain,rest,town,attached,foot,interior,drive,party").split(",");
 const FEATURES = "bloom,roadevents,cameos,banter,atmos,world,town,exits,law,feel,streets,rides,community,memory,hustle,play,foot,interiors,party,openworld";
 const PORT = 25000 + (process.pid % 20000);
 const RELAY = `ws://127.0.0.1:${PORT}`;
@@ -157,6 +157,27 @@ module.exports = {
       await g(`ctx.town.debug.place("Main St", 60, 1.75, 0, 1)`);
       await t.frames(40);
       await record("town");
+      await g(`ctx.town.leave("reset")`);
+      await t.frames(10);
+      await toPlaying();
+    });
+
+    // ── ONE WORLD: the T-junction with both towns standing in view, then an attached Lakewood (the highway's chunks drawn) ──
+    if (want("attached")) await step("attached", async () => {
+      await g(`(window.__perfDrive = 0, true)`);
+      await toPlaying();
+      await g(`(ctx.town.load("lakewood"), ctx.town.load("midwood"), true)`);
+      await t.until(`__lulu3d.ctx.town.loaded("lakewood") && __lulu3d.ctx.town.loaded("midwood")`, "both towns' models", 120000);
+      const E = await g(`ctx.town.debug.exitAhead(700)`);
+      await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E} + 160, 40, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${E} + 160; ctx.car.d = 40; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(${E}); ctx.cam.snap(); return true; })()`);
+      await t.until(`__lulu3d.ctx.town.standing.length >= 2 && (__lulu3d.ctx.town.debug.buildNow() || true) && __lulu3d.ctx.town.standing.every(b => b.ready)`, "both towns standing", 60000);
+      await t.frames(30);
+      await record("tee");
+      await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E} + 172.2, 60, {}), q = hw.point(${E} + 172.2, 80, {}); const h = Math.atan2(q.x - p.x, q.z - p.z); ctx.car.place(p.x, p.z, h); ctx.cam.snap(); return true; })()`);
+      if (!await t.until(`__lulu3d.ctx.town.active`, "into the attached Lakewood", 10000)) return;
+      await g(`ctx.town.debug.place("Main St", 60, 1.75, 0, 1)`);
+      await t.frames(40);
+      await record("attached");
       await g(`ctx.town.leave("reset")`);
       await t.frames(10);
       await toPlaying();
