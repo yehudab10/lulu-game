@@ -81,6 +81,13 @@ const SYNC = `(() => { const live = ctx.party.trafficLive(); let bad = 0; for (c
 const APPROACHING = (s, d) => `(() => { const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && c.dir > 0 && Math.abs(c.d - ${d}) < 0.3 && c.s < ${s} - 70 && c.s > ${s} - 260 && ctx.streets.rides[c.kind]);
   cs.sort((a, b) => b.s - a.s); return cs[0] ? { key: cs[0].data.party, s: cs[0].s, kind: cs[0].kind } : null; })()`;
 
+/** A spot with plenty of OUR-direction traffic coming up behind it. (The forward lanes only fill the road AHEAD of
+ *  their start wave — nothing of ours sits behind the grid at GO — and that wave rolls up the road at lane speed: a
+ *  test that teleports her to a fixed s after a slow boot can land behind it, where nothing of ours ever comes.)
+ *  The 13th rearmost slow-lane car + 60 m (a dozen coming up behind), kept clear of the rest area at `avoid`. */
+const BUSY_S = (avoid = null) => `(() => { const T = ctx.party.clock() + 3000; const cs = ctx.party.trafficAt(T, 0, 60000).filter(c => c.dir > 0 && c.d > 3).sort((a, b) => a.s - b.s);
+  const c = cs[Math.min(cs.length - 1, 12)]; let s = c ? Math.round(c.s + 60) : 1500; const av = ${JSON.stringify(avoid)}; if (av != null && Math.abs(s - av) < 300) s = av + 420; return s; })()`;
+
 module.exports = {
   name: "partyplus",
   viewport: { width: 1280, height: 720 },
@@ -160,7 +167,7 @@ async function partyRun(t, guests) {
   }
 
   // ── 🛑 CLAIM: the host steps out in front of a shared car ──
-  const hs0 = 1500;
+  const hs0 = await g(BUSY_S(restS));
   await g(`(ctx.party.placeCar(${hs0}, 7.4, 0), true)`);
   await A.game(`(ctx.party.placeCar(${hs0} - 30, 7.6, 0), true)`);
   await sleep(800);
@@ -212,8 +219,8 @@ async function partyRun(t, guests) {
 
   // ── ✋ FLAG one down from the shoulder → it stops beside her → 🚕 HOP IN ──
   if (await g(`ctx.state === "playing"`)) {
-    const s = await g(`ctx.car.s`);
-    await g(`(ctx.party.placeCar(${s} + 40, 7.4, 0), true)`);
+    const s = await g(BUSY_S(restS));
+    await g(`(ctx.party.placeCar(${s}, 7.4, 0), true)`);
     await A.game(`(ctx.party.placeCar(${s} + 10, 7.6, 0), true)`);
     await sleep(600);
     await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
@@ -305,8 +312,10 @@ async function partyRun(t, guests) {
   t.check("town: Kvetch (the local gossip app) is on the phone in a party town", await g(`!ctx.phone || !ctx.phone.apps || ctx.phone.apps().includes("town")`));
   await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
   await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "the host walks in Lakewood", 60000);
-  // a minivan on its loop: stand 18 m ahead of it on its path
-  const tw = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van");
+  // a minivan on its loop: stand 16 m ahead of it on its path (wait for one to be live near her first —
+  // only the loop cars around her are on the road, and right after she climbs out there may be none)
+  await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000);
+  const tw = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2);
     cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
     F.pos.set(c.x + Math.sin(c.h) * 16, 0, c.z + Math.cos(c.h) * 16); ctx.G.invT = 30; return { key: c.data.party }; })()`);
   t.check("town: a loop minivan nearby", !!tw);
