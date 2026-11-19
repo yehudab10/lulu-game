@@ -30,8 +30,12 @@
 //          exits:pump {result} · exits:mechanic {result}
 //  Stats: restStops, restMeals, restRestrooms, restSnacks, restKicks, restSouvenirs, restPicnics,
 //         restDogPets, restTalks, restFills, restRepairs
-//  Random content is gated by ctx.enabled("exits") (off in ?test unless enabled, OFF in a 🎉 party,
-//  where the party feature lists it).
+//  Random content is gated by ctx.enabled("exits") (off in ?test unless enabled).
+//  In a 🎉 party (🏡 Road Trip / 🌍 Free Roam) the rest areas are SEEDED — planned from fixed data + the party seed
+//  only, so every friend's plaza lands on the same metre: a Road Trip gets one on the way to Bubbe's, Free Roam one
+//  after about every other town interchange (E + 1600: its mile sign just past that exit's ramp, its merge just short
+//  of the next exit's mile sign). Pulling in, walking the lot and
+//  buying stuff are personal; friends see "⛽ at the Oy Vey-sis" over her car (ctx.party.presence).
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, emit, css, addActor, pick } from "../../core/ctx.js";
 import { paved } from "../../core/driving.js";
@@ -44,19 +48,25 @@ import { LIFE, PEOPLE_MODELS, saved, spawnCast, despawnCast, tickLife, restSpot,
 
 /** Where the rest areas go: the first this far into a run, then about every `every` metres. */
 export const REST = { first: 3900, every: 7300 };
-const RS = { list: [], inside: null, was: null, cue: "", cuePull: undefined, ownPull: false, savedPull: undefined, chipT: 0, k: 0 };
+const RS = { list: [], inside: null, was: null, cue: "", cuePull: undefined, ownPull: false, savedPull: undefined, chipT: 0, k: 0, done: new Set(), tripTried: false, presence: false };
 
 const mode = () => (ctx.G && ctx.G.mode) || "cruise";
 function eligible() {
     const G = ctx.G;
     return !!G && (G.mode === "cruise" || G.mode === "story") && ctx.enabled("exits") && !G.tutorial && !(ctx.party && ctx.party.active);
 }
+/** A 🎉 party run that gets rest areas (a Road Trip / 🌍 Free Roam — not a race / dash / tag). */
+function partyOk() {
+    const G = ctx.G, A = ctx.party && ctx.party.active && ctx.party.activity;
+    return !!G && G.mode === "party" && !!A && (A.k === "trip" || A.k === "roam") && ctx.enabled("exits");
+}
 const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 
 // ── planning ─────────────────────────────────────────────────────────────
 /** Is a rest area at s clear of the town's interchanges, pull-in places, reserved stretches, the story's stops? */
-function clearAt(s) {
-    const a = s + LY.SPAN.a, b = s + LY.SPAN.b;
+function clearAt(s, party = false) {
+    // (a party's rest sits snug between two interchanges: from its mile sign on — not the 40 m margin before it)
+    const a = s + LY.SPAN.a + (party ? 40 : 0), b = s + LY.SPAN.b;
     const T = ctx.town;
     if (T && T.exits) {
         const sp = T.span || { a: -1500, b: 260 };
@@ -66,6 +76,7 @@ function clearAt(s) {
     if (P && P.list && P.at) {
         try { for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > s - 320 && x < s + LY.ACC1 + 80) return false; } } catch (e) { /* none */ }
     }
+    if (party) return true;                 // (a party plans from fixed data only: the interchanges + the places)
     const w = ctx.world;
     if (w && w.reserved && w.reserved.some(r => r.side !== -1 && r.s1 > s + LY.TAPER0 - 40 && r.s0 < s + LY.ACC1 + 40 && r.dMax > 9 && r.dMin < 72 && r.dMax - r.dMin > 12)) return false;
     if (mode() === "story" && ctx.journey && ctx.journey.stopS) {
@@ -75,12 +86,12 @@ function clearAt(s) {
 }
 const signBusy = s => { const w = ctx.world; return !!w && (w.isReserved(s, 10.6, 6) || w.isReserved(s, 14, 6)); };
 /** Plan a rest area at (or slid forward from) s. */
-export function planRest(s, force = false) {
+export function planRest(s, force = false, nameK = null) {
     const w = ctx.world;
     if (!w) return null;
     if (!force) { let k = 0; while (k < 80 && !clearAt(s)) { s += 250; k++; } if (k >= 80) return null; }
     if (RS.list.some(R => Math.abs(R.s - s) < 600)) return null;
-    const k = RS.k++, rnd = mulberry(Math.round(s) * 31 + 7);
+    const k = nameK != null ? nameK : RS.k++, rnd = mulberry(Math.round(s) * 31 + 7);
     const R = { s, k, name: L.NAMES[k % L.NAMES.length], res: [], signs: [], alive: true, colliders: LY.colliderList(), cars: [], visited: false };
     const reserve = (a, b, side, d0, d1) => { w.reserve(a, b, side, d0, d1); R.res.push(w.reserved[w.reserved.length - 1]); };
     reserve(s + LY.TAPER0 - 30, s + LY.ACC1 + 30, 1, 7.2, 74);
@@ -155,15 +166,47 @@ function resetState() {
     RS.inside = null; RS.was = null; RS.ownPull = false; RS.retryS = 0;
     chip(null);
 }
+// ── 🎉 a party's rest areas: seeded, the same metre on every screen ─────
+const tripEnd = () => { try { if (ctx.journey && ctx.journey.stopS) return ctx.journey.stopS(0); } catch (e) { /* fall back */ } return 4800; };
+const restName = s => Math.floor(ctx.party.h01("exits:name", Math.round(s)) * 997);
+function planParty() {
+    const A = ctx.party.activity;
+    if (A.k === "trip") {
+        // one on the way to Bubbe's (its signs start ~1.4 km before it; its merge well short of her house)
+        if (RS.list.length || RS.tripTried) return;
+        RS.tripTried = true;
+        const end = tripEnd() - 900 - LY.SPAN.b;
+        for (let s = 2350 + Math.floor(ctx.party.h01("exits:rest", 0) * 400); s <= end; s += 250) {
+            if (clearAt(s, true)) { planRest(s, true, restName(s)); return; }
+        }
+        return;
+    }
+    // 🌍 Free Roam: after about every other town interchange, right between it and the next one's signs
+    const T = ctx.town;
+    if (!T || !T.exits) return;
+    const seen = new Set();
+    for (const e of T.exits) {
+        const E = Math.round(e.s);
+        if (seen.has(E)) continue;
+        seen.add(E);
+        if (RS.done.has(E)) continue;
+        RS.done.add(E);
+        const s = E + 1600;
+        if (ctx.party.h01("exits:rest", E) < 0.55 && clearAt(s, true)) planRest(s, true, restName(s));
+    }
+}
 hook("runStart", G => {
     resetState();
-    if (!eligible()) return;
-    planRest((G.startS || 0) + REST.first);
+    RS.tripTried = false; RS.done = new Set();
+    const party = partyOk();
+    if (!eligible() && !party) return;
+    if (party) planParty(); else planRest((G.startS || 0) + REST.first);
     addActor({ foot: true, update: dt => { try { tick(dt); } catch (e) { console.error("[exits] tick", e); } return true; } });
 }, 10);
 on("title", resetState);
 
 hook("update", (dt, P, controlsOn) => {
+    if (partyOk() && !(ctx.town && ctx.town.active)) planParty();
     if (!RS.list.length || (ctx.town && ctx.town.active)) { if (RS.cue) cue(""); return; }
     const car = ctx.car, last = RS.list[RS.list.length - 1];
     if (eligible() && car.s > last.s - 1200 && car.s > (RS.retryS || 0)) { if (!planRest(Math.max(last.s + REST.every, car.s + 2000))) RS.retryS = car.s + 400; }
@@ -213,6 +256,13 @@ function tick(dt) {
     } else if (!inside && RS.inside) {
         RS.inside = null;
         if (RS.ownPull && G) { G.noPullOver = false; RS.ownPull = false; }
+        if (RS.presence) { RS.presence = false; if (ctx.party && ctx.party.presence) ctx.party.presence(null); }
+    }
+    // a 🎉 party: friends see where she is ("⛽ at the Oy Vey-sis" over her car), driving round the lot or walking it
+    if (inside && ctx.party && ctx.party.active && ctx.party.presence && (ctx.state === "playing" || ctx.state === "footRun")) {
+        const pr = ctx.party.presenceOf();
+        if (!pr || pr.mode !== "rest") ctx.party.presence({ mode: "rest", icon: "⛽", label: `at the ${inside.name.short}` });
+        RS.presence = true;
     }
     // back on the highway (driving, past the merge)
     if (RS.was && !onFoot && ctx.state === "playing" && car.s > RS.was.s + LY.ON1 - 10 && car.d < 9) {
@@ -250,7 +300,7 @@ function nextAhead() {
     for (const R of RS.list) { const a = R.s - car.s; if (a > -60 && a < 1609 && (!best || a < best.a)) best = { kind: "rest", a, R }; }
     return best;
 }
-const eligibleHud = () => !!ctx.G && (ctx.G.mode === "cruise" || ctx.G.mode === "story");
+const eligibleHud = () => !!ctx.G && (ctx.G.mode === "cruise" || ctx.G.mode === "story" || (ctx.G.mode === "party" && partyOk()));
 const miles = a => a < 160 ? "NOW" : `${(a / 1609).toFixed(1)} mi`;
 function chip(n) {
     let html = "";
@@ -265,7 +315,7 @@ function chip(n) {
 // ── wiring ───────────────────────────────────────────────────────────────
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(restSpot);
-    registerBays(m => (m === "cruise" || m === "story") && ctx.enabled("exits") ? RS.list.map(R => R.s) : []);
+    registerBays(m => ((m === "cruise" || m === "story") && ctx.enabled("exits")) || (m === "party" && partyOk()) ? RS.list.map(R => R.s) : []);
 });
 on("state", ({ to }) => { if (to === "title" || to === "gameover") { if (RS.cue) cue(""); chip(null); } });
 

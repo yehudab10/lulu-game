@@ -10,6 +10,9 @@
 // their 200 m chunk (built in chunk:build from the chunk's own seed, freed in
 // chunk:dispose). A "damage $" tally runs per drive; smashing in front of a cop
 // gets you wanted. Props are random content: built only when ctx.enabled("streets").
+// In a 🎉 party they come from the party's seed (ctx.party.rng per chunk: every friend's chunk has the same props);
+// smashing one is personal (my bill, my cops) — a FRIEND's car ploughing through one smashes it on my screen too
+// (cosmetic: no bill, no crime), so nobody sees a friend drive through a standing hydrant.
 import * as THREE from "three";
 import { ctx, on, hook, emit, addActor, css } from "../../core/ctx.js";
 import { addScore } from "../../core/driving.js";
@@ -139,7 +142,8 @@ function dropProp(pr) {
 // ── placement: clusters along the sidewalk, from the chunk's own seed ────
 on("chunk:build", ({ chunk, world, s0, biome }) => {
     if (!live() || !PROPS.ready || s0 < 150) return;
-    const rnd = mulberry32(chunk.k * 7717 + 31);
+    const party = ctx.party && ctx.party.active && ctx.G && ctx.G.mode === "party" && ctx.party.rng;
+    const rnd = party ? ctx.party.rng("streets:props:" + chunk.k) : mulberry32(chunk.k * 7717 + 31);
     const mix = MIX[biome && biome.name] || MIX.suburbs;
     const rd = world.road;
     const list = [];
@@ -472,6 +476,11 @@ function tick(dt) {
     return true;
 }
 function smashByTraffic(pr) {
+    const fr = friendCars();
+    for (const c of fr) {                    // a friend's car (as this screen draws it): cosmetic, not on anyone's bill
+        if (Math.abs(c.x - pr.x) > 4 || Math.abs(c.z - pr.z) > 4 || Math.hypot(c.vx, c.vz) < 3) continue;
+        if (circlesHit(pr, c.x, c.z, 1.1)) { smash(pr, c.vx, c.vz, false); return; }
+    }
     for (const c of ctx.traffic.cars) {
         if (!(c.hit || (c.data && c.data.streetsCoast))) continue;
         if (Math.abs(c.x - pr.x) > 4 || Math.abs(c.z - pr.z) > 4) continue;
@@ -491,6 +500,13 @@ function pushOut(pr, p) {
     }
 }
 function startTicker() { addActor({ foot: true, update: tick }); }
+let frT = -1, frList = [];
+/** Friends' cars in a 🎉 party (refreshed once a frame). */
+function friendCars() {
+    if (!(ctx.party && ctx.party.active && ctx.party.friendCars)) return frList.length ? (frList = []) : frList;
+    if (frT !== ctx.time) { frT = ctx.time; frList = ctx.party.friendCars(); }
+    return frList;
+}
 
 /** Smash every prop within r metres of (x, z) — explosions, a heist getaway, the coasting car… */
 export function smashNear(x, z, r = 3, vx = 0, vz = 0) {

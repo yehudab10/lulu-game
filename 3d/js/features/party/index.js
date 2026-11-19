@@ -25,9 +25,11 @@
 //
 //  Everything you can do alone works too, PERSONAL to each player: walking (foot), the
 //  interiors, the law (her own cops, jail, court), carjacking + bailing out, every ride's
-//  horn / trick. What friends need to see goes out as presence + snapshot extras
-//  (presence.js: a walking Lulu, her parked car, the cruisers on her tail, "🍺 in The
-//  Thirsty Scholar"); a jacked shared car is gone for everyone (claimTraffic).
+//  horn / trick, street mayhem, the rest areas. What friends need to see goes out as presence +
+//  snapshot extras (presence.js: a walking Lulu, her parked car, the cruisers on her tail, "🍺 in
+//  The Thirsty Scholar"); a shared car she steps out in front of / flags down / rams is CLAIMED
+//  (it pulls over the same way on every screen — claimShared) and one she drives off is gone for
+//  everyone (claimTraffic).
 //
 //  Netcode: net.js (relay protocol v1, clock sync, host + migration, reliable
 //  events) · remote.js (interpolation + the cars / walkers) · stage.js (lobby/podium)
@@ -131,6 +133,24 @@ ctx.party = {
     claimTraffic: c => claimTraffic(c),
     /** Is shared traffic car `key` gone (jacked by someone)? */
     trafficGone: key => T.PT.gone.has(key),
+    /** Claim shared car c: it pulls over for me, the same way on every screen, and it's mine to jack / hop into.
+     *  opts: { L (stop distance m), dS (where it parks), hail (I flagged it: 🚕 HOP IN), how }. → true when it's stopping. */
+    claim: (c, opts) => claimShared(c, opts),
+    /** Could I claim shared car c right now (a Road Trip / 🌍 Free Roam run, streets on, a jackable kind, not gone)? */
+    canClaim: c => canClaim(c),
+    /** Another feature's shared cars can be claimed too: keys "<prefix>:…" go to handler
+     *  { add(key, T0, L, dS, by, mine, hail) → bool, kill(key) → car | null, plan(c, opts) → { L, dS }, claimed?(key) }. */
+    claimKinds(prefix, handler) { if (prefix && handler) CLAIM.H.set(String(prefix), handler); },
+    /** A feature's shared car (openworld's town loops) was bumped: she may have rammed it into pulling over. */
+    sharedCrash: (c, e) => onSharedCrash(c, e),
+    /** Live claimed cars on this screen (tests): [{ key, s, d, at, mine, kind, speed }] · the pure pose of a claim at T (ms). */
+    claimsLive: () => T.claimsLive(),
+    claimPose: (key, Tms) => T.claimPose(key, Tms, {}),
+    /** A special vehicle joins the SHARED traffic now and then (rides' fleet, streets' coupe): call at boot (the same
+     *  order on every screen). w = its share of all cars; on() → is it on (a feature switch, the same on every screen). */
+    addTrafficKind: (kind, w, on) => T.addKind(kind, w, on),
+    /** Friends' cars as this screen draws them (for cosmetic contact: streets' props): [{ x, z, vx, vz }]. */
+    friendCars() { const out = []; for (const rc of R.cars.values()) if (rc.shown && !rc.foot) out.push({ x: rc.x, z: rc.z, vx: rc.vx, vz: rc.vz }); return out; },
     displayName: uid => displayName(uid),
     skinOf: uid => skinOf(uid),
     skinHex: key => R.skinHex(key),
@@ -145,6 +165,10 @@ ctx.party = {
         /** tests: put my car at (s, d) rolling at speed (a respawn: friends see a poof, not a slide) */
         place(s, d = 1.75, speed = 0) { placeCar(s, d, speed); return true; },
         stageCars: () => STG.carCount(),
+        claims: () => [...T.PT.claims].map(([k, c]) => ({ key: k, T0: c.T0, L: c.L, dS: c.dS, by: c.by, mine: c.mine, hail: c.hail, dead: T.PT.dead.has(k) })),
+        claimCool: () => { CLAIM.cool = 0; return true; },
+        /** the ✋ FLAG IT DOWN candidate right now (tests) */
+        flag: () => { const fp = ctx.foot && ctx.foot.pos, f = fp ? flagCandidate(fp) : null; return f ? { key: f.c.data.party, lon: +f.lon.toFixed(1), lat: +f.lat.toFixed(1) } : null; },
         /** what this screen draws for friend uid beyond their car: { parked, cops, tag } */
         world: uid => PS.debugWorld(uid),
         xk: () => JSON.parse(JSON.stringify(N.xk)),
@@ -174,12 +198,14 @@ ctx.party.atmosWeather = () => {
 // party-aware: what everyone sees comes from the seed (plan.js / the party clock), what you DO is yours —
 // roadevents · cameos · world · hustle (seeded road plan), community (seeded in 🌍 Free Roam towns),
 // memory · banter · meta (personal), 🚶 foot · 🏠 interiors · 🚓 law (personal; what friends need to see goes
-// out as presence / extras — presence.js). streets + rides keep their RANDOM content off, but their mechanics
-// (carjack, bail out, per-ride handling / horns / tricks) work in a party. exits (rest areas) is solo-only.
-// ads (the iOS app's AdMob, features/native) never show with friends. heist (robberies, snatchers, the
+// out as presence / extras — presence.js), streets (seeded props + Paint & Pray booths from the road plan; carjack
+// via a CLAIMED shared car; roadblocks + chop-shop calls personal), rides (its fleet seeded into the shared traffic;
+// patients / kids / riders personal), exits (seeded rest areas; the visit personal), town (🌍 Free Roam's towns:
+// seeded life, personal geese / e-bikes). Story (journey), Dina's mode, the 🕯️ Shabbos Rush (it owns the run's goal
+// + sky) and ads (the iOS app's AdMob, features/native) stay off with friends. heist (robberies, snatchers, the
 // cops' nets / spikes, Lulu's own heist) is off for now: its events are one player's random set pieces.
 // See ARCHITECTURE › the party parity table.
-const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides", "exits", "ads", "heist"]);
+const OFF = new Set(["journey", "dina", "shabbos", "ads", "heist"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
@@ -413,6 +439,7 @@ function enterActivity(A) {
     const late = idx < 0 || clock() > A.t0 + 1500;
     P.me = { finished: false, arrived: false, late, coins: 0, place: 0, pend: {}, tagSent: -1 };
     XP.jk.length = 0; NET.setX("jk", null);
+    XC.length = 0; NET.setX("cl", null);
     P.copN = A.n;
     dashSetup(A.k === "dash" ? A : null);
     P.convoy.on = false; P.convoy.t = P.convoy.grace = 0;
@@ -1391,30 +1418,212 @@ function publishExtras(m, foot) {
     NET.setX("ws", ws > 0 ? ws : null);
     NET.setX("at", here ? [Math.round(car.pos.x * 10), Math.round(car.pos.z * 10)] : null);
     NET.setX("jk", XP.jk.length ? XP.jk : null);
+    NET.setX("cl", XC.length ? XC : null);
 }
 
-// ── carjacked party cars: gone for everyone ──────────────────────────────
-/** I took shared car c (streets' carjack): it leaves the shared traffic; on my screen it's a local car now. */
-function claimTraffic(c) {
+// ── claiming a SHARED car: it pulls over — the same way on every screen — and it's hers ──
+// A shared car never stops on its own (it's a pure function of the clock), so streets' carjack had only a
+// split second as one passed. Now when she steps out in front of one, flags one down (✋ FLAG IT DOWN), rams
+// one, or pulls one over in a cop car, she CLAIMS it: one broadcast ("cl": key, T0, L×10, dS×10, hail) + d.x.cl
+// for late joiners, and every screen takes it out of the conveyor and brakes it onto its shoulder by the same
+// pure formula (traffic.js claimPose). It's hers: only her copy can be jacked (or hopped into, when she flagged it
+// down); once she drives off in it it's gone for everyone ("j"), and friends see her in that model (d.x.v).
+// Keys are the conveyor's ("lane:slot"); another feature's shared cars register a handler for their prefix
+// (openworld's town loops: "tw:…").
+const CLAIM = { cool: 0, n: 0, H: new Map(), flag: null, hop: null, pending: null };
+const XC = [];                       // my last claims, flat for d.x.cl: [key, T0, L×10, dS×10, hail, …] (≤ 4)
+const HWY = {
+    add: (key, T0, L, dS, by, mine, hail) => T.addClaim(key, T0, L, dS, by, mine, hail),
+    kill: key => T.killClaim(key),
+    claimed: key => T.PT.claims.has(key),
+    /** brake evenly to a stop L m on (≤ ~8 m/s², or `opts.L`), onto the shoulder on its own side */
+    plan: (c, opts) => ({ L: Math.max(12, opts.L != null ? opts.L : c.speed * c.speed / 14), dS: Math.sign(c.d || 1) * T.SHOULDER_D }),
+};
+function claimHandler(key) { const k = String(key), i = k.indexOf(":"); return (i > 0 && CLAIM.H.get(k.slice(0, i))) || HWY; }
+/** Claims are a carjack thing: a 🏡 Road Trip / 🌍 Free Roam run (not a race / dash / tag) with streets on. */
+function claimRunOk() { const A = N.A; return inPartyRun() && !!A && A.id === P.actId && (A.k === "trip" || A.k === "roam") && ctx.enabled("streets"); }
+function canClaim(c) {
     const key = c && c.data && c.data.party;
-    if (!N.want || typeof key !== "string") return false;
-    T.goneCar(key, true);
-    c.data.party = null; c.data.local = true; c.data.wasParty = key; c.onRemove = null;
+    return typeof key === "string" && claimRunOk() && !c.hit && !T.PT.gone.has(key) && !T.PT.dead.has(key) &&
+        !(claimHandler(key).claimed && claimHandler(key).claimed(key)) && !!(ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]);
+}
+function claimShared(c, opts = {}) {
+    if (!canClaim(c)) return false;
+    const key = c.data.party, h = claimHandler(key), pl = h.plan(c, opts);
+    if (opts.dS != null) pl.dS = opts.dS;
+    pl.L = Math.round(pl.L * 10) / 10; pl.dS = Math.round(pl.dS * 10) / 10;     // (what friends get: the same stop to the cm)
+    const T0 = Math.round(clock()), hail = opts.hail ? 1 : 0;
+    if (!h.add(key, T0, pl.L, pl.dS, N.uid, true, !!hail)) return false;
+    const L10 = Math.round(pl.L * 10), d10 = Math.round(pl.dS * 10);
+    XC.push(key, T0, L10, d10, hail);
+    while (XC.length > 20) XC.splice(0, 5);
+    NET.setX("cl", XC.slice());
+    NET.broadcast("cl", key, T0, L10, d10, hail);
+    CLAIM.n++;
+    emit("party:claim", { key, how: opts.how || "stop", hail: !!hail });
+    emit("stat", { id: "partyClaims", n: 1 });
+    return true;
+}
+/** A friend's claims (a "cl" broadcast or their d.x.cl): the same pull-over on my screen. Idempotent. */
+function applyClaims(p, a) {
+    if (!Array.isArray(a)) return;
+    for (let i = 0; i + 5 <= a.length; i += 5) {
+        const key = a[i], T0 = +a[i + 1], L = +a[i + 2] / 10, dS = +a[i + 3] / 10;
+        if (typeof key !== "string" || key.length > 40 || !isFinite(T0) || !isFinite(L) || !isFinite(dS) || T.PT.dead.has(key)) continue;
+        claimHandler(key).add(key, T0, L, dS, p.uid, false, !!a[i + 4]);
+    }
+}
+on("party:bc", ({ p, k, a }) => { if (k === "cl" && inPartyRun() && p.aid === N.A.id) applyClaims(p, a); });
+function claimFeedback(c, how) {
+    const msg = how === "step" ? "🛑 SCREEEECH — it stopped for you!" : how === "ram" ? "💥 They're pulling over… go get it!" : how === "hail" ? "✋ They're pulling over for you!" : "🚨 Pulling over…";
+    H.toast(msg, "gold");
+    tone(how === "step" ? 1250 : 520, 0.22, "sawtooth", 0.05, how === "step" ? 900 : 520);
+    rumble(0.2, 0.3, 120);
+}
+/** On foot: she's out in front of a shared car (it can still stop) → claimed. */
+function claimStepTick(fp) {
+    if (CLAIM.cool > 0 || !claimRunOk() || ctx.foot.phase !== "walk") return;
+    for (const c of ctx.traffic.cars) {
+        const D = c.data;
+        const mine = !!(D && D.partyLane && D.partyLocal && !D.laneStop);       // a car only I have (Shmuel's target): a plain stop
+        if (!D || (typeof D.party !== "string" && !mine) || c.hit || c.speed < 3) continue;
+        const dx = fp.x - c.x, dz = fp.z - c.z;
+        if (Math.abs(dx) > 60 || Math.abs(dz) > 60) continue;
+        const fx = Math.sin(c.h), fz = Math.cos(c.h), lon = dx * fx + dz * fz, lat = dx * fz - dz * fx;
+        const need = c.speed * c.speed / 18 + 6, far = D.owTown ? 30 : 46;
+        if (Math.abs(lat) >= 1.7 || lon <= need || lon >= far) continue;
+        if (mine) { laneStop(c, lon - 6); claimFeedback(c, "step"); return; }
+        if (canClaim(c) && claimShared(c, { L: lon - 6, how: "step" })) { CLAIM.cool = 2.5; claimFeedback(c, "step"); }
+        return;
+    }
+}
+/** My own lane car (no friend has it) stops for me: brake evenly over L m onto the shoulder; then it's jackable. */
+function laneStop(c, L) {
+    const v0 = Math.max(1, c.speed), a = v0 * v0 / (2 * Math.max(4, L)), dS = Math.sign(c.d || 1) * T.SHOULDER_D;
+    c.data.laneStop = true; c.data.streetsHold = true;
+    c.ai = (dt, cc) => { cc.speed = Math.max(0, cc.speed - a * dt); cc.s += cc.speed * cc.dir * dt; cc.d += (dS - cc.d) * Math.min(1, dt * 1.4); cc.dTarget = cc.d; };
+}
+/** ✋ FLAG IT DOWN: a shared car coming her way, beside its path (on the shoulder / the kerb) → it stops right by her. */
+function flagCandidate(fp) {
+    if (!claimRunOk() || ctx.foot.phase !== "walk") return null;
+    let best = null, bl = 1e9;
+    for (const c of ctx.traffic.cars) {
+        const D = c.data;
+        if (!D || typeof D.party !== "string" || c.hit || c.speed < 3) continue;
+        const dx = fp.x - c.x, dz = fp.z - c.z;
+        if (Math.abs(dx) > 90 || Math.abs(dz) > 90) continue;
+        const fx = Math.sin(c.h), fz = Math.cos(c.h), lon = dx * fx + dz * fz, lat = dx * fz - dz * fx;
+        if (Math.abs(lat) < 1.9 || Math.abs(lat) > 7 || lon < c.speed * c.speed / 16 + 4 || lon > (D.owTown ? 45 : 85) || lon >= bl || !canClaim(c)) continue;
+        best = { c, lon, lat }; bl = lon;
+    }
+    return best;
+}
+const flagSpot = {
+    r: 2.6, short: "FLAG",
+    pos() {
+        const fp = ctx.foot && ctx.foot.pos;
+        CLAIM.flag = fp && N.want ? flagCandidate(fp) : null;
+        if (!CLAIM.flag) return null;
+        const c = CLAIM.flag.c, s = Math.sign(CLAIM.flag.lat) || 1;
+        return { x: fp.x - Math.cos(c.h) * s * 1.1, z: fp.z + Math.sin(c.h) * s * 1.1 };
+    },
+    label() { return CLAIM.flag ? "✋ FLAG IT DOWN" : null; },
+    act() {
+        const f = CLAIM.flag;
+        if (!f || !ctx.foot.active) return;
+        if (claimShared(f.c, { L: Math.max(f.c.speed * f.c.speed / 16 + 2, f.lon), hail: true, how: "hail" })) { CLAIM.cool = 2.5; claimFeedback(f.c, "hail"); if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "TAXI!! …or whatever you are!", 1.6); }
+    },
+};
+/** 🚕 HOP IN: the car she flagged down has stopped — the passenger side, no crime (the driver's door is a carjack). */
+function hopCandidate(fp) {
+    let best = null, bd = 3.6;
+    for (const [key, cl] of T.PT.claims) {
+        if (!cl.mine || !cl.hail || T.PT.dead.has(key)) continue;
+        const c = T.PT.ccars.get(key);
+        if (!c || c.speed > 0.5 || !ctx.traffic.cars.includes(c)) continue;
+        const R0 = ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind], half = (R0 && R0.half) || 0.95;
+        const x = c.x - Math.cos(c.h) * (half + 0.6), z = c.z + Math.sin(c.h) * (half + 0.6);    // her right = the passenger door
+        const d = Math.hypot(x - fp.x, z - fp.z);
+        if (d < bd) { bd = d; best = { c, x, z }; }
+    }
+    return best;
+}
+const hopSpot = {
+    r: 3.6, short: "HOP IN",
+    pos() { const fp = ctx.foot && ctx.foot.pos; CLAIM.hop = fp && N.want && inPartyRun() ? hopCandidate(fp) : null; return CLAIM.hop ? { x: CLAIM.hop.x, z: CLAIM.hop.z } : null; },
+    label() { return CLAIM.hop ? "🚕 HOP IN" : null; },
+    act() { if (CLAIM.hop) hopIn(CLAIM.hop.c); },
+};
+function hopIn(c) {
+    const R0 = ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind];
+    if (!R0 || !ctx.foot || !ctx.foot.drive || !claimTraffic(c, true)) return false;
+    let colors = null;
+    c.obj.traverse(o => { if (!colors && o.isMesh && o.material && o.material.name === "Paint" && R0.model !== "cop") colors = { Paint: "#" + o.material.color.getHexString() }; });
+    const v = { vtype: R0.vtype || "car", key: R0.model, colors, x: c.x, z: c.z, h: c.h, how: "hail", handling: R0.handling };
+    ctx.traffic.remove(c);
+    ctx.foot.drive(v);
+    if (ctx.law && ctx.law.changeLook && !ctx.law.chasing) { try { ctx.law.changeLook("car"); } catch (e) { console.error(e); } }
+    H.toast("🚕 \"Where to, lady?\" — \"Out. I'm driving.\"", "gold");
+    emit("stat", { id: "partyHails", n: 1 });
+    return true;
+}
+/** Rammed a shared car hard (driving): it pulls over — hers to jack once she's out. */
+function onSharedCrash(c, e) {
+    if (!e || e.impact < 5 || CLAIM.cool > 0 || ctx.state !== "playing" || (ctx.foot && ctx.foot.active)) return false;
+    if (!claimShared(c, { how: "ram" })) return false;
+    CLAIM.cool = 2.5;
+    claimFeedback(c, "ram");
+    return true;
+}
+T.PT.onCrash = onSharedCrash;
+on("boot", () => { if (ctx.foot && ctx.foot.addSpot) { ctx.foot.addSpot(flagSpot); ctx.foot.addSpot(hopSpot); } });
+
+// ── carjacked party cars: gone for everyone ──────────────────────────────
+/** I took shared car c (streets' carjack, or I hopped into the one I flagged down): it leaves the shared traffic
+ *  for good; on my screen it's a local car now (removed by whoever took it). */
+function claimTraffic(c, now = false) {
+    const D = c && c.data;
+    if (!N.want || !D) return false;
+    let key = null;
+    if (typeof D.partyClaim === "string") {
+        key = D.partyClaim;
+        const h = claimHandler(key), cl = h === HWY ? T.PT.claims.get(key) : null;
+        if (cl && !cl.mine) return false;                 // a friend's claim: not mine to take
+        // streets' jack is starting: it stays parked on friends' screens until she's in and away (streets:carjack);
+        // a cancelled jack hands it back to the claim (traffic.js syncClaims)
+        if (!now) { CLAIM.pending = { key, c }; return true; }
+        h.kill(key);
+    } else if (typeof D.party === "string") {
+        key = D.party;
+        const h = claimHandler(key);
+        if (h === HWY) T.goneCar(key, true); else h.kill(key);
+    } else return false;
+    D.party = null; D.partyClaim = null; D.owTown = false; D.local = true; D.wasParty = key; c.onRemove = null;
     XP.jk.push(key); if (XP.jk.length > 6) XP.jk.shift();
     NET.setX("jk", XP.jk.slice());
     NET.broadcast("j", key);
     return true;
 }
-/** A friend took shared car `key`: it vanishes here too (a poof where it was). */
+/** A friend took shared car `key`: it vanishes here too (a poof where it was — none for a car they'd claimed:
+ *  they're driving off in it right there). */
 function dropShared(key) {
-    if (typeof key !== "string" || key.length > 40 || T.PT.gone.has(key)) return;
-    T.PT.gone.add(key);
+    if (typeof key !== "string" || key.length > 40 || T.PT.dead.has(key)) return;
+    const h = claimHandler(key);
+    const claimed = !!(h.claimed && h.claimed(key));
+    if (h === HWY) T.killClaim(key); else h.kill(key);
+    T.PT.gone.add(key); T.PT.dead.add(key);
     const tr = ctx.traffic;
     if (!tr) return;
-    for (const c of tr.cars.slice()) if (c.data && c.data.party === key) { sparkle(c.x, c.z); tr.remove(c); }
+    for (const c of tr.cars.slice()) if (c.data && (c.data.party === key || c.data.partyClaim === key)) { if (!claimed) sparkle(c.x, c.z); tr.remove(c); }
     T.PT.cars.delete(key);
 }
 on("party:bc", ({ p, k, a }) => { if (k === "j" && inPartyRun() && p.aid === N.A.id) for (const key of a) dropShared(key); });
+// the jack of a car I'd claimed went through: now it's gone for everyone
+on("streets:carjack", () => {
+    const pd = CLAIM.pending;
+    CLAIM.pending = null;
+    if (pd && N.want && !ctx.traffic.cars.includes(pd.c)) claimTraffic(pd.c, true);
+});
 
 // ── on foot in a party: the shared traffic keeps coming, coins stay shared, friends can knock her flat ──
 function footTick(dt) {
@@ -1424,6 +1633,7 @@ function footTick(dt) {
     scanPickups();
     const fp = ctx.foot.pos;
     if (!fp || ctx.paused) return;
+    claimStepTick(fp);
     for (const rc of R.cars.values()) {
         if (!rc.shown) continue;
         const dx = fp.x - rc.x, dz = fp.z - rc.z;
@@ -1500,7 +1710,11 @@ function frame() {
         onRoad = !ctx.view && N.A.k !== "lobby";
         R.updateCars(dt, showCar, decorate, frameOf);
         PS.tick(dt, sameWorld, displayName);
-        if (inPartyRun()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x && Array.isArray(p.x.jk)) for (const key of p.x.jk) dropShared(key);
+        if (inPartyRun()) for (const p of N.players.values()) if (p.aid === N.A.id && p.x) {
+            if (Array.isArray(p.x.cl)) applyClaims(p, p.x.cl);
+            if (Array.isArray(p.x.jk)) for (const key of p.x.jk) dropShared(key);
+        }
+        if (CLAIM.cool > 0) CLAIM.cool -= dt;
         if (ctx.state === "footRun" && inPartyRun() && ctx.foot && ctx.foot.active) footTick(dt);
         hornsNearby();
         farewells();
