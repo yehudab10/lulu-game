@@ -23,7 +23,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, hook, addMenuItem } from "../../core/ctx.js";
 import { resume } from "../../core/screens.js";
-import { J, startJob, finishJob, abandonJob, jobsTick } from "./jobs.js";
+import { J, startJob, finishJob, abandonJob, jobsTick, registerJob } from "./jobs.js";
 import { M, offersTick, spawnMarker, phoneOffer, clearMarker, offerCooldown } from "./markers.js";
 import { radio, radioTick } from "./radio.js";
 import { updateBeacons, hideBeacons, beacons } from "./beacon.js";
@@ -34,7 +34,7 @@ import "./delivery.js";
 import { LOG, openLog } from "./log.js";
 import { jobHud, tickerGone } from "./ui.js";
 import { rand } from "./util.js";
-import { TUNE } from "./data.js";
+import { TUNE, JOBS } from "./data.js";
 import { partyDebug } from "./party.js";
 
 // ── per frame ─────────────────────────────────────────────────────────────
@@ -73,6 +73,7 @@ addMenuItem("pause", {
 });
 
 // ── the service ───────────────────────────────────────────────────────────
+const EXTRA = new Map();      // job id → listed() (register)
 ctx.hustle = {
     /** The active job ({ id: "cab" | "getaway" | "delivery", phase, … }) or null. */
     get job() { return J.job; },
@@ -85,6 +86,20 @@ ctx.hustle = {
     get marker() { const m = M.marker; return m ? { jobId: m.jobId, kind: m.kind, s: m.s, pad: m.pad, done: m.done } : null; },
     /** Hold off random offers for `s` seconds. */
     hold(s = 60) { offerCooldown(s); },
+    /**
+     * Another feature's job type (features/underworld's fixer): create(opts) → a job (see jobs.js), def = the JOBS row
+     * ({ id, emoji, name, color, from, fromEmoji, blurb }). opts.listed() → true while the 💼 Jobs app should list it.
+     * Payphones / the HELP WANTED board offer it through offer(id, "marker"); its own feature decides when.
+     */
+    register(id, create, def, { listed = null } = {}) {
+        if (!id || typeof create !== "function" || !def) return false;
+        JOBS[id] = Object.assign({ id }, def);
+        registerJob(id, create);
+        EXTRA.set(id, listed);
+        return true;
+    },
+    /** The registered extra job ids the 💼 Jobs app lists right now. */
+    listed() { return [...EXTRA].filter(([, fn]) => { try { return !fn || !!fn(); } catch (e) { return false; } }).map(([id]) => id); },
     radio,
     log: LOG,
     openLog,

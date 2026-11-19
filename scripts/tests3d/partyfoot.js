@@ -220,7 +220,8 @@ async function partyRun(t, guests) {
   await t.shot("host-jail");
   if (await hostUntil(t, `ctx.law._dbg.jail() && ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawBail")`, "the cell menu", 240000)) {
     await t.game(`document.querySelector("#lawBail").click()`);
-    await hostUntil(t, `(ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party"`, "bailed out: back in the party world", 120000);
+    // (a REAL-time wait, and a 2-page CI runner can drop to ~1 fps: the ~6 s walk out of the precinct is then minutes long)
+    await hostUntil(t, `(ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party"`, "bailed out: back in the party world", 420000);
     t.check("host: back in the party run (no 3-2-1 countdown)", await g(`ctx.G.mode === "party" && ["playing", "footRun"].includes(ctx.state)`), await g(`ctx.state`));
     await A.until(`(ctx.party.presenceOf(${H}) || {}).mode !== "jail"`, "presence clears the jail", 90000);
   }

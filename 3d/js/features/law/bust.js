@@ -152,6 +152,31 @@ async function script(f, data) {
         outcome = "ticket";
         scene = pick(COP_SCENES.filter(s => s.outcome === "ticket"));
     } else {
+        // features/underworld: sometimes this officer is open to a "donation" (pay → let off · an Internal Affairs
+        // sting → booked for bribery · no thanks → the usual pull-over below). Off in ?test unless underworld is enabled.
+        const deal = ctx.underworld && ctx.underworld.bustOffer ? ctx.underworld.bustOffer({ reason: rt }) : null;
+        if (deal) {
+            const say = async (who, text) => { st.talking = who === "cop"; await line(f, who, text, { auto: COP_LINE_DUR + text.length / 55, name: who === "cop" ? deal.name : undefined }); };
+            for (const [who, text] of deal.pitch) await say(who, text);
+            st.talking = false;
+            const r = deal.answer(await ask(f, "lulu", deal.ask, deal.options));
+            for (const [who, text] of r.lines) await say(who, text);
+            st.talking = false;
+            if (r.outcome !== "refuse") {
+                UI.header("");
+                UI.caption(r.title, r.sub);
+                if (r.outcome === "free") X.lost(); else X.wompWomp();
+                rumble(r.outcome === "free" ? 0.2 : 0.6, 0.5, 300, true);
+                emit("law:bust", { outcome: r.outcome === "free" ? "free" : "ticket", reason: rt, tactic: "kugelFund" });
+                await f.sleep(1.9, true);
+                check(f);
+                UI.caption("");
+                if (r.outcome === "free") { release(); return; }
+                st.keepCop = true;
+                law.arrest(r.charges, { fromBust: true });
+                return;
+            }
+        }
         // SHE picks how to play it
         const pool = BUST_TACTICS.filter(t => t.id !== "honest").sort(() => Math.random() - 0.5).slice(0, 3);
         pool.push(BUST_TACTICS.find(t => t.id === "honest"));

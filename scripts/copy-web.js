@@ -168,6 +168,15 @@ function checkRefs() {
         need(path.resolve(ext === ".css" ? path.dirname(file) : pageDir, u), file, "url()");
       }
     }
+    // registerModels({ key: "file", … }) → assets/<file>.glb: a model a feature loads by NAME (models.js adds the
+    // path + extension at runtime, so the string scan below can't see it). Literal maps only; comment lines skipped.
+    if (ext === ".js" && !/^vendor[\\/]/.test(path.relative(www3d, file))) {
+      for (const m of src.matchAll(/registerModels\(\s*\{([^}]*)\}/g)) {
+        const lineStart = src.lastIndexOf("\n", m.index) + 1;
+        if (/^\s*(\/\/|\*)/.test(src.slice(lineStart, m.index))) continue;
+        for (const p of m[1].matchAll(/[\w$]+\s*:\s*["']([\w-]+)["']/g)) need(path.join(www3d, "assets", p[1] + ".glb"), file, "registerModels");
+      }
+    }
     // (vendored three.js: imports only — its doc comments are full of example paths)
     if ((ext === ".js" || ext === ".mjs") && !/^vendor[\\/]/.test(path.relative(www3d, file))) {
       for (const m of src.matchAll(STR_RE)) {
