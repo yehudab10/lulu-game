@@ -326,8 +326,9 @@ function bootTick() {
     } else if (B.t > TUNE.boot.max) B.on = false;
 }
 
-// ── PIT maneuver (on a cruiser's crash with Lulu) ─────────────────────────
-const isCop = c => !!c && ((c.data && c.data.law) || c.kind === "cop" || c.kind === "lawK9car");
+// ── PIT maneuver (on a cruiser's crash with Lulu — or a heist getaway car's) ──
+// (data.pit: another feature's car that can be PIT'd too — features/heist's getaway car)
+const isCop = c => !!c && ((c.data && (c.data.law || c.data.pit)) || c.kind === "cop" || c.kind === "lawK9car");
 function tryPit(e) {
     const c = e.car, car = ctx.car, P = TUNE.pit;
     const imp = e.impact || 0;

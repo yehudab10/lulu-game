@@ -42,6 +42,7 @@ export const SIGNS = {
     toHighway: ["TO HIGHWAY", "(you'll be back)"],
     plaque: ["IN HONOR OF", "THE MINIVAN"],
     bandBus: ["THE MAZEL TONES", "simcha band · 11 players · 1 bus · 0 parking"],
+    bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
 };
 
 // ── Lulu ─────────────────────────────────────────────────────────────────

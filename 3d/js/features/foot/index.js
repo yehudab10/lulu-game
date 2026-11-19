@@ -1396,7 +1396,10 @@ function interactables() {
         const at = sp.pos ? sp.pos() : sp;
         if (!at) continue;
         const lbl = typeof sp.label === "function" ? sp.label() : sp.label;
-        if (lbl) consider("spot", sp, lbl, at.x, at.z, sp.r || 2.0);
+        if (!lbl) continue;
+        const n0 = out.length;
+        consider("spot", sp, lbl, at.x, at.z, sp.r || 2.0);
+        if (sp.first && out.length > n0) out[n0].score *= 0.2;      // (urgent: wins over a door / a car / a chat in reach)
     }
     out.sort((a, b) => a.score - b.score);
     return out[0] || null;
@@ -1853,7 +1856,8 @@ ctx.foot = {
     /** A speech bubble over any 3D object while she's on foot (opts.cls: "" | "pink" | "cop" | "drunk"). */
     say(obj, text, sec = 2.2, opts = {}) { return bubble(obj, text, sec, opts); },
 
-    /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(). Returns a remover. */
+    /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(); first (urgent: it
+     *  wins the ✋ button over other things in reach — a tackle). Returns a remover. */
     addSpot(spot) { spotList.push(spot); return () => { const i = spotList.indexOf(spot); if (i >= 0) spotList.splice(i, 1); }; },
     /** Bump into Avigail right now ("wedding" | "busy" | "join"; default: the 2D odds). */
     meetAvigail(outcome) {

@@ -77,7 +77,7 @@ export const law = {
     get suspicion() { return L.sus; },
     /** She changed her look this run (a new car / paint / disguise): the warrant file doesn't know her. */
     get lowKey() { return !!L.lowKey; },
-    /** Mid-chase she's tucked away out of sight ("lot" | "town" | "verge" | ""). */
+    /** Mid-chase she's tucked away out of sight ("lot" | "town" | "verge" | ""): see cops.js hideInfo() — a town street's travel lane never counts. */
     get hiding() { return L.chase && L.chase.searching ? L.chase.hiding || "" : ""; },
     /** She switched cars / painted / disguised unseen: drop the old description (see cops.js changeLook). how: car | paint | disguise. */
     changeLook(how = "car") { return changeLook(how); },

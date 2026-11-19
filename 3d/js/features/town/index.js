@@ -41,7 +41,7 @@ import { tickRail } from "./rail.js";
 import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
-import { blocksSight, copRoute, copSpawn } from "./cops.js";
+import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } from "./cops.js";
 import { X, planExit, clearExits, exitAt, rampPhase, SPAN } from "./exit.js";
 import { TOWNS, townFor, INTERCHANGE } from "./towns/index.js";
 
@@ -513,8 +513,14 @@ ctx.town = {
     loaded: id => !!S.ok[id || townFor(0).id],
     get transitioning() { return !!S.trans; },
     blocksSight,
-    copRoute: c => copRoute(c),
+    /** A cruiser's route round the grid to her — or to `to` ({x, z, s} world: a searching cruiser's searchPoint / prowlPoint). */
+    copRoute: (c, u, to) => copRoute(c, to || null),
     copSpawn: (how, fromAhead) => copSpawn(how, () => takePatrol()),
+    /** For law's hiding: could a car stopped at (x, z) be tucked away here? { ok, spot: kerb | mall | walk | yard | lane | junction, why: lane | empty }. */
+    hideSpot: (x, z) => S.active && S.T ? hideSpot(S.T, x, z) : null,
+    /** Where searching cruisers drive: on to where she was heading (the last sighting {s, h, v, t}) → {x, z, s}; then crossing to crossing around it. */
+    searchPoint: last => S.active ? searchPoint(last) : null,
+    prowlPoint: (at, c) => S.active ? prowlPoint(at, c) : null,
     footYaw,
     towns: TOWNS,
     // ── for features that live IN a town (features/community…): small, read-mostly ──
@@ -532,11 +538,17 @@ ctx.town = {
     /** The stretch an exit's signs → ramps cover, relative to its s (features/exits keeps rest areas out of it). */
     span: SPAN,
     /** Put a lane-following town driver of `kind` on the grid (≥ minD m from her). The town never respawns it: yours to remove. */
-    addDriver(kind, { minD = 60, speed = 5 } = {}) {
+    addDriver(kind, { minD = 60, speed = 5, at = null, cruise = 0 } = {}) {
         if (!S.active) return null;
-        const sp = randomSpot(minD, kind);
+        // (at {x, z, dir?}: start in the lane of the street nearest that point — features/heist's getaway car at the bank)
+        let sp = null;
+        if (at && S.road) {
+            const n = S.road.nearest(at.x, at.z, undefined, {});
+            if (n && n.street) sp = { street: n.street.id, along: n.s - n.street.base, dir: at.dir || (n.d >= 0 ? 1 : -1) };
+        }
+        if (!sp) sp = randomSpot(minD, kind);
         if (!sp) return null;
-        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, { speed });
+        const c = spawnDriver(kind, sp.street, sp.along, sp.dir, cruise > 0 ? { speed, cruise } : { speed });
         c.data.town.own = true;
         return c;
     },

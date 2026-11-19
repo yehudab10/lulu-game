@@ -22,7 +22,7 @@ import * as H from "../../hud.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
 import { L, update, hud, resetRunState, beginChase, endChase, copNear, copSees, endBolo, changeLook, escape, startFugitive, endFugitive, prisonClothes, ensureCopModels, activeUnits,
-    spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, spook } from "./cops.js";
+    spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, spook, hideInfo } from "./cops.js";
 import { jailDebug } from "./jail.js";
 import { pullOver } from "./bust.js";
 import "./arrest.js";
@@ -34,7 +34,7 @@ import { PEPPER_COP } from "./data.js";
 
 ctx.law = law;
 setPullOver(pullOver);
-Object.assign(law._dbg, { spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, startFugitive, jail: jailDebug });
+Object.assign(law._dbg, { spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, startFugitive, jail: jailDebug, hideInfo });
 for (const ev of ["cop:chase", "law:bust", "law:arrest", "law:booked", "law:verdict", "law:release", "stat"]) {
     on(ev, p => { const log = law._dbg.log; log.push(Object.assign({ ev }, p)); if (log.length > 80) log.shift(); });
 }

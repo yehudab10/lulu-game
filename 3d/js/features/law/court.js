@@ -20,7 +20,7 @@ import * as X from "./sfx.js";
 import * as UI from "./ui.js";
 import { PROSECUTOR_LINES, JUDGE_INTROS, OBJECTIONS, JUDGE_SUSTAIN, JUDGE_OVERRULE, COURT_REACTS, COURT_GALLERY_GUESTS,
     AVIGAIL_FRIEND_LINES, AVIGAIL_FRIEND_EVENT, COURT_EVENTS, COURT_MISTRIAL, DEFENSE_POOL, SPEAKERS } from "./data.js";
-import { S, bump, rand, pick, clamp, bountyFor, worstCharge, courtDramaTier, pleaFineFor, bribeCostFor, deliberate, chargeCoins,
+import { S, bump, rand, pick, clamp, bountyFor, worstCharge, courtLineFor, courtDramaTier, pleaFineFor, bribeCostFor, deliberate, chargeCoins,
     lawyerChargeArgument, clearWanted, clearLockup, sentenceDays, stat } from "./rules.js";
 import { Shot, V, runFlow, check, line, ask, person, lulu } from "./scene.js";
 import { FORCE, carBack, rideNote } from "./service.js";
@@ -232,9 +232,9 @@ async function trial(f, data) {
         : tierD === 2 ? ` ${worst} — the sheer AUDACITY, your honor!${more ? " (Also: " + listStr + ".)" : ""}`
         : tierD === 1 ? ` The charges: ${listStr}.`
         : ` ...just ${listStr}. *barely looks up* 🥱`;
-    await say(f, "judge", tierD >= 3 ? "A case like THIS in MY court?! *SLAMS gavel*" : pick(JUDGE_INTROS));
+    await say(f, "judge", tierD >= 3 ? "A case like THIS in MY court?! *SLAMS gavel*" : (courtLineFor(cl, "judge") || pick(JUDGE_INTROS)));
     if (tierD >= 3) bang(2);
-    await say(f, "prosecutor", pick(PROSECUTOR_LINES) + flourish);
+    await say(f, "prosecutor", (courtLineFor(cl, "prosecutor") || pick(PROSECUTOR_LINES)) + flourish);
     if (tierD >= 2) {
         crowdUproar(2.5);
         await say(f, "bailiff", "*the gallery ERUPTS — gasps, boos, a dropped kugel* 😱");

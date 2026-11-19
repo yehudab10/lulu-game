@@ -176,10 +176,12 @@ ctx.party.atmosWeather = () => {
 // memory · banter · meta (personal), 🚶 foot · 🏠 interiors · 🚓 law (personal; what friends need to see goes
 // out as presence / extras — presence.js). streets + rides keep their RANDOM content off, but their mechanics
 // (carjack, bail out, per-ride handling / horns / tricks) work in a party. exits (rest areas) is solo-only.
-// ads (the iOS app's AdMob, features/native) never show with friends. underworld (bad guys, shady deals, the fixer)
-// is solo: its bad-guy cars would sit in the shared traffic on one screen only.
+// ads (the iOS app's AdMob, features/native) never show with friends. heist (robberies, snatchers, the
+// cops' nets / spikes, Lulu's own heist) is off for now: its events are one player's random set pieces.
+// underworld (bad guys, shady deals, the fixer) is solo: its bad-guy cars would sit in the shared traffic
+// on one screen only.
 // See ARCHITECTURE › the party parity table.
-const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides", "exits", "ads", "underworld"]);
+const OFF = new Set(["journey", "dina", "streets", "shabbos", "town", "rides", "exits", "ads", "heist", "underworld"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 
