@@ -171,7 +171,7 @@ export function recoverFromWreck(info = {}) {
     const ko = knockout(info, { where: "car" });
     let ok = false;
     if (ctx.foot && typeof ctx.foot.start === "function") {
-        try { ok = ctx.foot.start("knockout", { drivable: true }) !== false; } catch (e) { console.error("[run] knockout → foot", e); }
+        try { ok = ctx.foot.start("knockout", { drivable: true, camBlend: 0.7 }) !== false;     // (the picture glides from the spin-out) } catch (e) { console.error("[run] knockout → foot", e); }
     }
     if (!ok) rollingRecover();
     return ko;

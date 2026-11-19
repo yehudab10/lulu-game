@@ -682,7 +682,7 @@ function endScene(s, how) {
     if (quote) H.toast(quote, "");
     const line = how === "reprieve" ? (REPRIEVE_MSG[s.granted] || null) : null;
     if (ctx.foot && typeof ctx.foot.start === "function" &&
-        ctx.foot.start("knockout", { drivable: true, from: "cameos", camBlend: 0.9, line: line ? line + "\nBack to the car!" : undefined }) !== false) return;
+        ctx.foot.start("knockout", { drivable: true, from: "cameos", line: line ? line + "\nBack to the car!" : undefined }) !== false) return;
     // no on-foot feature: somehow… the car still starts
     resumeDriving({ hearts: ctx.G.hearts, banner: `🔧 <b>Somehow… the car still starts!</b><small>${line || ""}</small>` });
 }
