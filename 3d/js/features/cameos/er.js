@@ -177,7 +177,7 @@ export function admit(reason = "crash", opts = {}) {
         discount: mood === "sweet" ? 0 : mood === "gossip" ? 0.5 : 1.15,
         tammyGreet: pick(TAMMY_GREET[mood]), tammyCare: pick(TAMMY_CARE[mood]),
         hillelVisited: visit.some(v => v.c.hillel), music: Math.random() < 0.5 ? "../er1.mp3" : "../er2.mp3",
-        hearts: ctx.G.hearts || 0,
+        hearts: Math.max(ctx.G.hearts || 0, (ctx.G.maxHearts || 3) - 1),     // (a knock-out: a patch-up = 2 hearts, a bonus = full)
     };
     const st = luluHair().style;
     const keys = ["cameos_erProps", "cameos_doctor", "cameos_tammy", "copPerson", "npcWoman", "cameos_props"];

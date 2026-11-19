@@ -10,12 +10,18 @@
 //   • an animal: its furious kin surround her hurling insults until revenge
 //     traffic flings them off the road (always game over, like the 2D game).
 //   • anything else (a tree, a pole…): straight to the aftermath.
-// Then: the ambulance gets there first (~35%, ctx.er.admit) or game over.
+// Then: the ambulance gets there first (~30%, ctx.er.admit) or she's back on her feet beside her
+// patched-up car (core's knock-out: score banked + a small tow fee — ctx.foot.start("knockout")).
+//
+// NO GAME OVER (roadmap step 3): this is a MOMENT now, not the chain every wreck went through.
+// It plays for ~1 in 3 knock-outs (a car or an animal; never two in a row; trees / poles go straight
+// to the knock-out), it's skippable (hold ○ / ⏭), and the world keeps running: only the traffic
+// right round the wreck is cleared (not the whole road), and nothing ends in a game-over card.
 import { ctx, on, hook, emit, registerState, setState, pick, rand, wrapAngle, MPH } from "../../core/ctx.js";
 import { registerModels, ensureModels } from "../../models.js";
 import { save3d } from "../../core/save.js";
 import { spawnPerson } from "../../core/people.js";
-import { addCoins } from "../../core/driving.js";
+import { addCoins, knockout } from "../../core/driving.js";
 import { say, closeDialog } from "../../core/dialog.js";
 import { rumble } from "../../input.js";
 import * as A from "../../audio.js";
@@ -128,10 +134,18 @@ on("wreck", () => {
     cause.loading = loadModels(keys);
 });
 
-// ── claim the wreck (law claims cop wrecks first at priority 30) ─────────
+// ── claim the wreck — now and then (law claims cop wrecks first at priority 30) ─────────
+/** How often a knock-out gets the crash comedy (a car / an animal; force.scene = true | false overrides). */
+export const SCENE_CHANCE = 0.35;
+on("knockout", e => { ctx.G.lastKoScene = !!(e && e.where === "scene"); });
 hook("wreck", info => {
     if (!ctx.enabled("cameos") || ctx.state !== "wrecked") return false;
-    setState("cameosCrash", { info, cause: cause || classify() });
+    const c = cause || classify();
+    const force = (ctx.cameos && ctx.cameos.force) || {};
+    const want = force.scene !== undefined ? !!force.scene
+        : c.kind !== "other" && !ctx.G.lastKoScene && Math.random() < SCENE_CHANCE;
+    if (!want) return false;
+    setState("cameosCrash", { info, cause: c });
     return true;
 }, 10);
 
@@ -166,10 +180,10 @@ registerState("cameosCrash", {
         S = { t: 0, cause: c, info: data.info || {}, ents: [], revenge: [], kin: [], quote: null, force: (ctx.cameos && ctx.cameos.force) || {},
             camA: Math.random() * Math.PI * 2, shot: "orbit", group: new THREE.Group(), fires: [], light: null, smokeT: 0, done: false };
         ctx.scene.add(S.group);
-        // everything stops: no new traffic, clear the road around the wreck
+        // no new traffic while it plays, and the road cleared round the wreck (only there — the rest of the road stays)
         S.trafficWas = ctx.traffic.config.enabled;
         ctx.traffic.config.enabled = false;
-        for (const t of ctx.traffic.cars.slice()) if (t !== c.car) ctx.traffic.remove(t);
+        for (const t of ctx.traffic.cars.slice()) if (t !== c.car && !t.keep && Math.abs(t.s - car.s) < 90) ctx.traffic.remove(t);
         A.updateEngine(0, 0, 0, 0, false, false);
         A.sfxHorn(false);
         A.setMusic(null);
@@ -189,7 +203,7 @@ registerState("cameosCrash", {
             S.group.add(f); S.fires.push(f);
         }
         S.ext = carExtent();
-        runCrash(S).catch(e => { console.error("[cameos crash]", e); endScene(S, "gameover"); });
+        runCrash(S).catch(e => { console.error("[cameos crash]", e); endScene(S, "ko"); });
     },
     exit() {
         if (!S) return;
@@ -435,11 +449,17 @@ async function reprieveScene(s, kind) {
         f = clamp(f, 0.12, 0.9);
         const atFault = s.force.fault !== undefined ? !!s.force.fault : Math.random() < f;
         let line, report, amount;
+        // (one payout a run: knock-outs are cheap now, so a lucky claim mustn't become a way to farm coins)
+        const already = !!ctx.G.insurancePaid;
         if (atFault) {
             amount = 40 + Math.floor(Math.random() * 71);
             report = `You: ${c.luluSpeed}mph · Them: ${c.otherSpeed}mph · ${c.otherAhead ? "you hit the car in FRONT" : "you swerved into them"}`;
             line = pick([`Ran the numbers — this one's on YOU. Deductible's 💰${amount}, sorry kid.`, `Fault's yours, mathematically. 💰${amount} out of pocket, I'm afraid.`,
                 `You were doing ${c.luluSpeed}; they weren't. 💰${amount} deductible.`]);
+        } else if (already) {
+            amount = 0;
+            report = `Them: ${c.otherSpeed}mph · You: ${c.luluSpeed}mph · not your fault — but you already claimed today`;
+            line = pick(["Not your fault! ...But you filed a claim TODAY already. Denied. Rules are rules.", "Two claims in one day? The computer says no. 📋"]);
         } else {
             amount = 60 + Math.floor(Math.random() * 91);
             report = `Them: ${c.otherSpeed}mph · You: ${c.luluSpeed}mph · ${c.otherAhead ? "but they cut you off" : "they rear-ended YOU"}${c.oncoming ? ", oncoming" : ""}`;
@@ -448,10 +468,10 @@ async function reprieveScene(s, kind) {
         }
         sfx.sting();
         caption(`📋 ${report}`, "mint");
-        caption(atFault ? `⚖️ AT FAULT — 💰${amount} deductible` : `✅ NOT YOUR FAULT — 💰${amount} payout`, atFault ? "" : "gold");
+        caption(atFault ? `⚖️ AT FAULT — 💰${amount} deductible` : amount ? `✅ NOT YOUR FAULT — 💰${amount} payout` : "✅ NOT YOUR FAULT — 📋 claim denied (one a day)", atFault ? "" : "gold");
         // settle up the moment the verdict is read
         if (atFault) { const paid = charge(amount); H.toast(`📋 −${paid} deductible`, "red"); }
-        else { addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
+        else if (amount) { ctx.G.insurancePaid = true; addCoins(amount, "insurance"); A.sfxCoin(4); H.toast(`📋 +${amount} payout!`, "gold"); }
         s.hillel = { atFault, amount };
         man.say(atFault ? "HA! Told you!" : "...fine. FINE.", { bg: "#ECEFF1" });
         await say("Hillel", line, Object.assign({ auto: 2.6 }, HILLEL));
@@ -635,34 +655,36 @@ async function animalScene(s) {
     s.quote = `"${lastInsult}" — the ${species}`;
     await wait(1.3);
     if (!alive(s)) return;
-    endScene(s, "gameover");      // an animal wreck is always game over (like the 2D game)
+    endScene(s, "ko");            // (in the 2D game an animal wreck was always game over; here she just limps back to her car)
 }
 
-// ── the aftermath fork: the ER (~35%) or game over ───────────────────────
+// ── the aftermath fork: the ER (~30%) or back on her feet ─────────────────
 function aftermath(s) {
     const c = s.cause;
     if (c.cop && ctx.law && ctx.law.arrest) { endScene(s, "arrest"); return; }
-    const er = s.force.er !== undefined ? !!s.force.er : Math.random() < 0.35;
-    endScene(s, er && ctx.er ? "er" : "gameover");
+    const er = s.force.er !== undefined ? !!s.force.er : Math.random() < 0.3;
+    endScene(s, er && ctx.er ? "er" : "ko");
 }
 
 const OTHER_QUOTES = {
     tree: "Lulu vs. a tree: the tree won. 🌳", pole: "The pole had the right of way. ⚡", house: "Somebody's living room has a new door. 🏠",
 };
+/** how: "ko" (back on her feet beside her car) | "reprieve" (the same, and Hillel's insurance pays the tow) | "er" | "arrest" */
 function endScene(s, how) {
     if (S !== s || s.done) return;
     s.done = how;
-    emit("cameos:crashEnd", { how, cause: s.cause.kind, reprieve: s.granted || null });
     const quote = s.quote || OTHER_QUOTES[s.cause.what] || null;
-    if (how === "reprieve") {
-        if (ctx.foot && typeof ctx.foot.start === "function") { ctx.foot.start("crashReprieve", { from: "cameos" }); return; }
-        // no on-foot feature: somehow… the car still starts
-        resumeDriving({ hearts: 1, banner: `🔧 <b>Somehow… the car still starts!</b><small>${REPRIEVE_MSG[s.granted] || ""}</small>` });
-        return;
-    }
+    emit("cameos:crashEnd", { how, cause: s.cause.kind, reprieve: s.granted || null, quote });
     if (how === "arrest") { ctx.law.arrest(["DESTROYING A POLICE CRUISER", "RECKLESS DRIVING"], { from: "cameos" }); return; }
-    if (how === "er") { ctx.er.admit("crash"); return; }
-    setState("gameover", quote ? { quote, why: s.info.why, source: s.info.source } : Object.assign({}, s.info, { G: undefined }));
+    if (how === "er") { knockout(s.info, { fee: false, hearts: false, where: "scene" }); ctx.er.admit("crash"); return; }
+    // the knock-out (the tow's on Hillel when his claim went through)
+    knockout(s.info, { fee: !(how === "reprieve" && s.granted === "insurance"), where: "scene" });
+    if (quote) H.toast(quote, "");
+    const line = how === "reprieve" ? (REPRIEVE_MSG[s.granted] || null) : null;
+    if (ctx.foot && typeof ctx.foot.start === "function" &&
+        ctx.foot.start("knockout", { drivable: true, from: "cameos", line: line ? line + "\nBack to the car!" : undefined }) !== false) return;
+    // no on-foot feature: somehow… the car still starts
+    resumeDriving({ hearts: ctx.G.hearts, banner: `🔧 <b>Somehow… the car still starts!</b><small>${line || ""}</small>` });
 }
 
 export function crashScene() { return S; }

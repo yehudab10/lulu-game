@@ -21,7 +21,7 @@
 import * as THREE from "three";
 import { ctx, on, emit, hook, registerState, setState, css, rand, pick, wrapAngle } from "../../core/ctx.js";
 import { store, saveSoon, shared, save3d } from "../../core/save.js";
-import { updateActors, addCoins, heal, resetRun } from "../../core/driving.js";
+import { updateActors, addCoins, heal, resetRun, knockout as runKnockout } from "../../core/driving.js";
 import { models, registerModels, ensureModels, cloneWithColors, findNodes } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { registerKind, kindSpec } from "../../traffic.js";
@@ -185,9 +185,14 @@ const CARLESS = new Set(["copWalk", "jailbreak", "discharged"]);   // reasons th
 
 /**
  * Lulu climbs out and walks. reason: carWreck | crashReprieve | droveOff | copWalk | jailbreak | parked | discharged
+ *   | knockout (out of hearts: she climbs out of her patched-up car, dazed — core's knock-out)
+ *   | home (a run's start: she's at her front door, the car parked in the driveway — features/world)
  * opts: { line, crash (parked → the parking crash lines), parked (her car's on the shoulder), noIntro (the caller already showed her getting out: no hop),
- *         at {x, z} (where she stands), stubAi(dt, car) (drives the car she left behind), drivable }
-
+ *         at {x, z} (where she stands), stubAi(dt, car) (drives the car she left behind), drivable,
+ *         face (yaw she stands facing), camBlend (s: glide the picture there from wherever the camera is),
+ *         home { frame(F, roadH, dt) → walking yaw, quiet() → no random townsfolk / nudges yet, onOwnCar() (after she hops in),
+ *                driveState (the driving state her own car's hop-in lands in, instead of "playing"),
+ *                hint (the first ✋ hint), hazards: false } }
  */
 function start(reason = "carWreck", opts = {}) {
     if (F && !F.suspended && ctx.state === "footRun") return false;
@@ -207,7 +212,13 @@ function start(reason = "carWreck", opts = {}) {
     if (reason === "parked" || opts.parked) {   // her car is tucked in on the right shoulder
         rd.point(near.s, 8.0, _p);
         pos.set(_p.x, 0, _p.z); h = _p.h;
+    } else if (near.s < 6 && (reason === "knockout" || reason === "carWreck") && !ctx.world.district && !(ctx.town && ctx.town.active)) {
+        // (knocked out past the start of the HIGHWAY — the cul-de-sac's end: tow it back where she can walk to it)
+        rd.point(8, clamp(near.d, -8, 8), _p);
+        pos.set(_p.x, 0, _p.z); h = _p.h;
+        car.place(_p.x, _p.z, _p.h); car.s = 8;
     }
+    const homeOpts = opts.home || null;
     F = {
         reason, level, t: 0, phase: "intro", phaseT: 0, handoff: null, suspended: null,
         lulu: null, pos: new THREE.Vector3(), vel: new THREE.Vector3(), s: near.s, d: near.d, h: rd.at(near.s).h, camYaw: rd.at(near.s).h,
@@ -217,13 +228,14 @@ function start(reason = "carWreck", opts = {}) {
         chatT: rand(2.5, 4.5), buskT: 0, parkCool: 4.5, pedCool: 0, animalCool: rand(4, 8), behindT: 2, boothCool: 3,
         avigailT: rand(14, 30), avigailDone: false, chaseCool: 3, disguise: reason === "jailbreak" ? "prison" : null,
         attn: Math.max(0.35, 0.75 - level * 0.04), savedOurs: T.config.ours, hintT: 6,
-        introDur: reason === "droveOff" ? 0.8 : 2.1, introLine: opts.line || pick(introPool(reason, opts)), introSaid: false, titleShown: false,
+        introDur: reason === "droveOff" ? 0.8 : reason === "knockout" ? 1.7 : 2.1, introLine: opts.line || pick(introPool(reason, opts)), introSaid: false, titleShown: false,
+        home: homeOpts,
     };
     initAir(F);                  // jump.js: her height, the jump + landing state
     T.config.ours = 1;           // she isn't overtaking anything; cars come at her from behind (see trafficStep)
     // her car: parked (drivable) or wrecked, or gone (impounded / she broke out of jail)
     if (!CARLESS.has(reason)) {
-        F.car = makeCarStub(pos, h, { drivable: (reason === "droveOff" || reason === "parked" || !!opts.drivable) && !opts.crash, ai: opts.stubAi || null });
+        F.car = makeCarStub(pos, h, { drivable: (reason === "droveOff" || reason === "parked" || !!opts.drivable) && !opts.crash, ai: opts.stubAi || null, hazards: !(homeOpts && homeOpts.hazards === false) });
     }
     // Lulu, hopping out over the convertible's door toward the roadside
     F.lulu = makeLulu();
@@ -252,15 +264,20 @@ function start(reason = "carWreck", opts = {}) {
         // the caller already showed her getting out (parking's walk-out): she starts on her feet beside the car
         F.pos.copy(F.hopTo);
         F.lulu.obj.position.copy(F.pos);
-        F.lulu.obj.rotation.y = F.h;
+        F.lulu.obj.rotation.y = opts.face != null ? opts.face : F.h;
         F.introSaid = F.titleShown = true;
         G.invT = 0;              // no re-entry shield blink the moment she appears (she's out on the shoulder)
-        bubble(F.lulu.obj, F.introLine, 3.2);
+        if (F.introLine) bubble(F.lulu.obj, F.introLine, 3.2);
         beginWalk();
     }
+    if (homeOpts && homeOpts.frame) { F.h = F.camYaw = homeOpts.frame(F, F.h, 0); car.h = F.h; }
     B.begin(F);                  // the soft edges out in the fields + the gentle nudges back into a car
     // (one move, no cut: the picture glides from the chase cam to her — a caller's own scene that ended elsewhere still cuts)
-    if (ctx.cam) { if (ctx.state === "playing" && ctx.cam.blend) ctx.cam.blend(0.7); else ctx.cam.snap(); }
+    if (ctx.cam) {
+        if (opts.camBlend && ctx.cam.blend) ctx.cam.blend(opts.camBlend);
+        else if (ctx.state === "playing" && ctx.cam.blend) ctx.cam.blend(0.7);
+        else ctx.cam.snap();
+    }
     setState("footRun", { start: true });
     emit("foot:start", { reason, level });
     emit("stat", { id: "footWalks", n: 1 });
@@ -268,6 +285,8 @@ function start(reason = "carWreck", opts = {}) {
 }
 
 function introPool(reason, opts) {
+    if (reason === "home") return [""];
+    if (reason === "knockout") return L.FOOT_INTRO_LINES.knockout;
     if (reason === "parked") return opts.crash ? L.FOOT_INTRO_LINES.parkingCrash : L.FOOT_INTRO_LINES.droveOff;
     if (reason === "copWalk") return L.FOOT_INTRO_LINES.copWalk;
     if (reason === "droveOff") return L.FOOT_INTRO_LINES.droveOff;
@@ -278,7 +297,7 @@ function introPool(reason, opts) {
 
 // Her car left on the road, as a stationary traffic "car" so the other drivers
 // slow down and steer round it (and so a later crash into it is a real crash).
-function makeCarStub(pos, h, { drivable, ai = null }) {
+function makeCarStub(pos, h, { drivable, ai = null, hazards = true }) {
     const T = ctx.traffic, rd = road();
     const key = shell ? shell.key : "lulu";
     const sk = SKINS[ctx.car.skinKey] || SKINS.pink;
@@ -295,6 +314,8 @@ function makeCarStub(pos, h, { drivable, ai = null }) {
         o.material.color.set(colors[o.material.name]);
     });
     for (const n of [...findNodes(c.obj, "Driver"), ...findNodes(c.obj, "Hair_")]) n.visible = false;
+    if (!hazards) c.obj.userData.footHazOff = true;
+    else delete c.obj.userData.footHazOff;
     if (!c.obj.userData.footHaz) {   // amber hazard blinkers on the rear corners
         const m = new THREE.MeshStandardMaterial({ color: "#FFB300", emissive: "#FFB300", emissiveIntensity: 2.5 });
         const g = new THREE.SphereGeometry(0.09, 10, 8);
@@ -368,7 +389,7 @@ function enterCar(v) {
     G.lemon = v.lemon ? { type: v.lemon, drift: Math.random() < 0.5 ? -1 : 1, sput: 0 } : null;
     G.borrowed = v.own ? null : v.vtype;
     if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(0.6); else ctx.cam.snap(); }      // (the picture glides to the chase cam)
-    setState("playing");
+    setState(v.state && ctx.states[v.state] ? v.state : "playing");     // (v.state: a driving state of the caller's — world's driveway pull-out)
     A.setMusic("../luludriving.mp3");
     if (v.lemon === "tire") H.toast("🛠️ FLAT TIRE — it PULLS!", "red");
     else if (v.lemon === "engine") H.toast("🛠️ BAD ENGINE — it SPUTTERS!", "red");
@@ -482,11 +503,10 @@ function updateDriveOff(dt, P, controlsOn) {
     driveOff.shown = show;
 }
 
-// a wreck nobody else claimed (no cameos / law feature present): the 2D crash
-// reprieve — sometimes she just climbs out and walks on
+// (a wreck nobody claims is core's knock-out now: recoverFromWreck → start("knockout") beside her patched-up car.
+//  ctx.foot.force.wreck === true still makes the old "the car's a meatball, borrow one" walk-away for tests.)
 hook("wreck", info => {
-    if (!ctx.enabled("foot") || ctx.foot.force.wreck === false) return false;
-    if (ctx.foot.force.wreck === true || Math.random() < 0.2) { start("carWreck"); return true; }
+    if (ctx.foot.force.wreck === true) { start("carWreck"); return true; }
     return false;
 }, 1);
 
@@ -583,7 +603,8 @@ function footUpdate(dt, P) {
     const near = rd.nearest(F.pos.x, F.pos.z, F.s, _n);
     F.s = near.s; F.d = near.d;
     // (a town's streets meet at right angles: it keeps the walking frame steady round corners)
-    F.h = ctx.town && ctx.town.active && ctx.town.footYaw ? ctx.town.footYaw(F, near.h, dt) : near.h;
+    F.h = F.home && F.home.frame ? F.home.frame(F, near.h, dt)
+        : ctx.town && ctx.town.active && ctx.town.footYaw ? ctx.town.footYaw(F, near.h, dt) : near.h;
     const car = ctx.car;
     car.pos.set(F.pos.x, 0, F.pos.z);
     car.s = F.s; car.d = F.d; car.h = F.h;
@@ -854,9 +875,10 @@ function updateKnock(dt) {
         k.vx *= Math.exp(-2 * dt); k.vz *= Math.exp(-2 * dt);
         k.vy -= 14 * dt; k.y = Math.max(0.05, k.y + k.vy * dt);
         o.rotation.x += (-1.5 - o.rotation.x) * Math.min(1, dt * 9);
-    } else if (t < 1.15) {
+    } else if (t < (k.dazed ? 1.7 : 1.15)) {      // (knocked out: a beat longer flat on her back, seeing stars)
         k.y += (0.2 - k.y) * Math.min(1, dt * 10);
         o.rotation.x = -1.5;
+        if (k.dazed && Math.random() < 0.25) ctx.car.fx.emit(F.pos.x + rand(-0.4, 0.4), 0.7, F.pos.z + rand(-0.4, 0.4), 0, 0.8, 0, 0.5, 0.25, [1, 0.9, 0.4]);
     } else {
         k.y += (0.05 - k.y) * Math.min(1, dt * 10);
         o.rotation.x += (0 - o.rotation.x) * Math.min(1, dt * 8);
@@ -864,22 +886,30 @@ function updateKnock(dt) {
     collideStatic();
     o.position.set(F.pos.x, k.y, F.pos.z);
     o.visible = true;
-    F.lulu.update(dt, { walk: 0, cheer: t > 1.15 && t < 1.5 && !k.fatal });
-    if (k.fatal && t > 1.3) { knockedOut(); return; }
-    if (t > 1.55) { o.rotation.x = 0; F.phase = "walk"; F.phaseT = 0; F.knock = null; }
+    F.lulu.update(dt, { walk: 0, cheer: t > 1.15 && t < 1.5 && !k.fatal && !k.dazed });
+    if (k.fatal && t > 1.0) { knockedOut(); return; }
+    if (t > (k.dazed ? 2.1 : 1.55)) { o.rotation.x = 0; F.phase = "walk"; F.phaseT = 0; F.knock = null; }
 }
 
-// Out of hearts on foot: sometimes the ER scoops her up, otherwise game over.
+// Out of hearts on foot: a KNOCK-OUT (core's rule: score banked + a small fee, hearts back) — now and then the ER
+// scoops her up (a moment, skippable; its bill instead of the fee), otherwise she sits up, sees stars, and walks it off.
+const ER_ON_FOOT = 0.2;
 function knockedOut() {
     const force = ctx.foot.force.er;
-    const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < 0.45));
+    const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < ER_ON_FOOT));
+    const info = { why: "Clipped by a car — on FOOT!", source: "foot" };
     if (er) {
+        runKnockout(info, { fee: false, hearts: false, where: "foot" });
         end("er");
-        try { ctx.er.admit("knockout"); } catch (e) { console.error(e); setState("gameover", {}); }
+        try { ctx.er.admit("knockout"); } catch (e) { console.error(e); ctx.G.hearts = ctx.G.maxHearts; start("discharged"); }
         return;
     }
-    end("gameover");
-    setState("gameover", { quote: `"Hit by a CAR? While WALKING?! Mamele, come home, I'm making soup." — Bubbe 📞` });
+    const ko = runKnockout(info, { where: "foot" });
+    F.knock.fatal = false;
+    F.knock.dazed = true;
+    floater(F.lulu.obj, "💫 ✨ 💫", "#FFD54F", 1.6);
+    bubble(F.lulu.obj, pick(L.FOOT_INTRO_LINES.getUp), 2.6);
+    emit("foot:knockout", { n: ko.n });
 }
 
 // ── the intro: she hops out over the door, the car smokes, LULU ON FOOT ──
@@ -894,7 +924,7 @@ function updateIntro(dt) {
     else if (F.car) F.lulu.face(F.car.stub.x, F.car.stub.z, dt, 3);
     F.lulu.update(dt, { walk: k < 1 ? 2 : 0, cheer: k < 0.5 && F.reason !== "droveOff" });
     const prog = t / T;
-    if (!F.titleShown && prog > 0.2 && F.reason !== "droveOff") {
+    if (!F.titleShown && prog > 0.2 && F.reason !== "droveOff" && F.reason !== "knockout") {
         F.titleShown = true;
         H.banner(`🚶‍♀️ <b>LULU ON FOOT</b><small>borrow a car to get back on the road</small>`, 2600);
     }
@@ -912,15 +942,17 @@ function beginWalk() {
         // glide into the free camera hides the turn)
         for (const a of [F.h, F.h + Math.PI]) if (Math.abs(wrapAngle(a - fc.yaw)) < 0.5) fc.yaw = a;
     }
-    if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
-    F.hintT = 6;
+    if (F.home && F.home.hint) ctx.G.hint = typeof F.home.hint === "function" ? F.home.hint() : F.home.hint;
+    else if (F.reason === "knockout") { if (input.device !== "touch") ctx.G.hint = `${glyph("interact")} near your car to hop back in 🚗 · or take a walk`; }
+    else if (input.device !== "touch") ctx.G.hint = `Find a car to “borrow” 🚗 · ${glyph("interact")} to interact · ${glyph("boost")} run`;
+    F.hintT = F.home && F.home.hintT ? F.home.hintT : 6;
 }
 
 function updateStub(dt) {
     const c = F.car && F.car.stub;
     if (!c || !ctx.traffic.cars.includes(c)) return;
     const haz = c.obj.userData.footHaz;
-    if (haz) { const on = Math.sin(ctx.time * 6) > 0; for (const b of haz) b.visible = on; }
+    if (haz) { const on = !c.obj.userData.footHazOff && Math.sin(ctx.time * 6) > 0; for (const b of haz) b.visible = on; }
     if (F.car.wrecked) {
         const dx = c.x - F.pos.x, dz = c.z - F.pos.z;
         if (dx * dx + dz * dz < 4900 && Math.random() < (F.phase === "intro" ? 0.9 : 0.4)) {
@@ -1020,8 +1052,9 @@ function pickups() {
 }
 
 // ── the people, animals and cars around her ─────────────────────────────
+function homeQuiet() { return !!(F.home && F.home.quiet && F.home.quiet(F)); }
 function spawners(dt) {
-    if (!ctx.enabled("foot")) return;
+    if (!ctx.enabled("foot") || homeQuiet()) return;
     F.pedCool -= dt;
     const want = 5 + Math.min(3, Math.floor(F.level / 3));
     if (F.pedCool <= 0 && F.peds.length < want && models.npcWoman && models.npcMan && models.npcKid) {
@@ -1521,7 +1554,7 @@ function interactables() {
     if (F.car && F.car.stub && ctx.traffic.cars.includes(F.car.stub)) {
         const c = F.car.stub;
         const ripLabel = F.car.key === "lulu" ? "💀 RIP, little pink car" : "💀 That one's had it";
-        consider(F.car.drivable ? "own" : "rip", c, F.car.drivable ? "🚗 GET BACK IN" : ripLabel, c.x, c.z, 3.3);
+        consider(F.car.drivable ? "own" : "rip", c, F.car.drivable ? (F.reason === "home" ? "🚗 GET IN — let's go!" : "🚗 GET BACK IN") : ripLabel, c.x, c.z, 3.3);
     }
     for (const ped of F.peds) consider("talk", ped, "💬 TALK", ped.p.obj.position.x, ped.p.obj.position.z, 2.1);
     for (const a of F.animals) consider("pet", a, "🐾 PET", a.p.obj.position.x, a.p.obj.position.z, a.key === "foot_ostrich" ? 2.4 : 1.9);
@@ -1582,7 +1615,7 @@ function interact(P) {
     F.nearT = (F.nearT || 0) - 1;
     if (F.nearT <= 0) { F.nearT = 8; F.near = (S.coach.perch || 0) < 3 ? nearLow() : ""; }
     const coach = pr ? "" : coachHint();
-    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 ? `${glyph("interact")} 💃 dance for the crowd` : ""));
+    H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 && !homeQuiet() ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
         const has = !!pr;
         if (handBtn.classList.contains("has") !== has) {
@@ -1592,7 +1625,7 @@ function interact(P) {
     }
     if (!P.interact) return;
     B.engaged(F, pr ? pr.kind : "busk");     // doing something winds back the "get in a car already" clock
-    if (!pr) { busk(); return; }
+    if (!pr) { if (!homeQuiet()) busk(); return; }
     doInteract(pr);
 }
 
@@ -1603,7 +1636,7 @@ function doInteract(pr) {
         case "disguise": return doDisguise();
         case "borrow": return startApproach(e);
         case "own": return F.car.key === "lulu"
-            ? hopIn({ own: true, x: e.x, z: e.z, h: e.h })
+            ? hopIn({ own: true, x: e.x, z: e.z, h: e.h, state: F.home && F.home.driveState }, F.home && F.home.onOwnCar ? { after: F.home.onOwnCar } : {})
             : hopIn({ vtype: F.car.vtype || "car", key: F.car.key, colors: F.car.colors, x: e.x, z: e.z, h: e.h, how: "own", removeStub: true, handling: F.car.handling || null });
 
         case "rip": bubble(F.lulu.obj, pick(["She's taking a nap.\nA... permanent nap. 😴", "RIP, little pink car. 🥀\nYou served me... okay.", "It's not a car now,\nit's modern ART."]), 2.4); return;
@@ -1948,6 +1981,7 @@ function clearChips() {
 }
 let chipText = "";
 function hud() {
+    if (F.reason === "home" && homeQuiet()) { if (chipEl) { chipEl.remove(); chipEl = null; } return; }    // (just stepping out of the house: no "ON FOOT" trip chip)
     if (!chipEl) { chipEl = document.createElement("div"); chipEl.className = "foot-chip"; H.hudSlot("left").appendChild(chipEl); chipText = ""; }
     const f = frac(F), best = Math.max(shared.get().footRunHigh || 0, F.maxFrac);
     const label = ctx.G.mode === "story" && ctx.trip ? "trip" : "🏡";
@@ -2101,11 +2135,15 @@ ctx.foot = {
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
     force: {},
+    /** A speech bubble over anyone while she's on foot (foot's own bubbles — banter's only show while driving). */
+    bubble: (anchor, text, secs = 2.4, opts = {}) => bubble(anchor, text, secs, opts),
     debug: {
         get F() { return F; },
         spawnParked: o => F && spawnParked(o), spawnPed: o => F && spawnPed(o), spawnAnimal: o => F && spawnAnimal(o),
         spawnAvigail: o => F && spawnAvigail(o), spawnBooth: o => F && spawnBooth(o), startChase: o => F && startFootChase(o),
         interactables: () => F && interactables(), nextDoorAt, weddingState, allDoors,
         wedding: () => { if (!F) return false; goWedding(); return true; },
+        /** Hop into her own car (as ✋ GET IN would) — tests. */
+        getIn: () => { if (!F || !F.car || !F.car.drivable || !F.car.stub) return false; doInteract({ kind: "own", ent: F.car.stub }); return true; },
     },
 };

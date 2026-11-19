@@ -212,7 +212,7 @@ module.exports = {
       await drive();
       const w0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
       const er0 = await shared("erVisits");
-      await t.game(`(ctx.cameos.force = { reprieve: false, er: true, intro: true, mood: "angry", visitor: "hillel", tammy: "scold" }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "car" }))`);
+      await t.game(`(ctx.cameos.force = { scene: true, reprieve: false, er: true, intro: true, mood: "angry", visitor: "hillel", tammy: "scold" }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "car" }))`);
       await t.until(`__lulu3d.state === "wrecked"`, "out of hearts → wrecked");
       await t.until(`__lulu3d.state === "cameosCrash"`, "the crash aftermath claims the wreck", 90000);
       t.check("the crash aftermath claims the wreck (hooks.wreck)", true);
@@ -249,7 +249,7 @@ module.exports = {
       // ── the rare reprieve: Hillel the (ex-)insurance adjuster settles the claim ──
       await drive();
       const c0 = await t.game(`ctx.G.coins`);
-      await t.game(`(ctx.cameos.force = { reprieve: "insurance", fault: false, mood: "angry" }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "car" }))`);
+      await t.game(`(ctx.cameos.force = { scene: true, reprieve: "insurance", fault: false, mood: "angry" }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "car" }))`);
       await t.until(`__lulu3d.state === "cameosCrash"`, "wreck → aftermath", 90000);
       await t.until(`/Hillel/i.test((document.querySelector("#dialog.open .name") || {}).textContent || "")`, "Hillel walks up to handle the claim", 90000);
       await t.frames(20);
@@ -257,18 +257,20 @@ module.exports = {
       await mash(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, 60);
       t.check("Hillel: not your fault → payout lands", (await t.game(`ctx.G.coins`)) - c0 >= 60, `+${(await t.game(`ctx.G.coins`)) - c0}`);
       t.check("second chance → Lulu carries on (foot, or the car if no foot feature)", await t.game(`ctx.state !== "gameover"`));
+      t.check("Hillel's claim pays the tow (no fee on that knock-out)", await t.game(`ctx.G.knockouts >= 1`));
     }
 
     if (want("animal")) {
-      // ── hit an animal: its furious kin surround her… until revenge traffic → game over ──
+      // ── hit an animal: its furious kin surround her… until revenge traffic → back on her feet (no game over) ──
       await drive();
-      await t.game(`(ctx.cameos.force = {}, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "animal" }))`);
+      await t.game(`(window.__crashEnd = null, L3.on("cameos:crashEnd", e => { window.__crashEnd = e; }), ctx.cameos.force = { scene: true }, ctx.G.invT = 0, ctx.cameos.trigger("wreck", { kind: "animal" }))`);
       await t.until(`__lulu3d.state === "cameosCrash"`, "animal wreck → aftermath", 90000);
       await t.frames(75);
       await t.shot("animal-swarm");
-      await t.until(`__lulu3d.state === "gameover"`, "the animal swarm ends in game over", 120000);
-      t.check("game over quotes the furious kin", await t.L(`/— the (ducks|raccoons)/.test(document.querySelector("#screenCard .quote").textContent)`));
-      await t.shot("animal-gameover");
+      await t.until(`__lulu3d.state === "footRun"`, "the animal swarm ends with her back on her feet", 120000);
+      t.check("no game-over card: a knock-out", await t.game(`ctx.state === "footRun" && ctx.G.knockouts >= 1 && !L3.H.screenOpen()`));
+      t.check("the toast quotes the furious kin", await t.game(`/— the (ducks|raccoons)/.test((window.__crashEnd || {}).quote || "")`), await t.game(`JSON.stringify(window.__crashEnd)`));
+      await t.shot("animal-ko");
     }
 
     if (want("ostrich")) {
@@ -276,7 +278,7 @@ module.exports = {
       await drive();
       const there = await t.game(`ctx.roadevents.spawn("ostrich", { s: ctx.car.s + 22, side: 1, d0: ctx.car.d, v: 0.01 }).then(A => !!A)`);
       t.check("an ostrich stands in Lulu's lane", there);
-      await t.game(`(ctx.G.hearts = 1, ctx.G.invT = 0)`);
+      await t.game(`(window.__crashEnd = null, L3.on("cameos:crashEnd", e => { window.__crashEnd = e; }), ctx.cameos.force = { scene: true }, ctx.G.hearts = 1, ctx.G.invT = 0)`);
       await t.until(`__lulu3d.state === "cameosCrash"`, "hitting the ostrich with the last heart → the aftermath", 90000);
       t.check("the aftermath knows it was an ostrich", await t.game(`ctx.cameos.crash.crashScene().cause.species === "ostrich"`), String(await t.game(`JSON.stringify((ctx.cameos.crash.crashScene() || {}).cause || null)`)));
       await t.until(`((__lulu3d.ctx.cameos.crash.crashScene() || {}).kin || []).length >= 6`, "the furious kin gather", 90000);
@@ -284,9 +286,8 @@ module.exports = {
         String(await t.game(`(ctx.cameos.crash.crashScene() || { kin: [] }).kin.map(k => k.key).join(",")`)));
       await t.frames(30);
       await t.shot("ostrich-swarm");
-      await t.until(`__lulu3d.state === "gameover"`, "the ostrich swarm ends in game over", 120000);
-      t.check("game over quotes the ostriches 🦤", await t.L(`/— the ostriches 🦤/.test(document.querySelector("#screenCard .quote").textContent)`),
-        await t.L(`(document.querySelector("#screenCard .quote") || {}).textContent || ""`));
+      await t.until(`__lulu3d.state === "footRun"`, "the ostrich swarm ends with her back on her feet", 120000);
+      t.check("the toast quotes the ostriches 🦤", await t.game(`/— the ostriches 🦤/.test((window.__crashEnd || {}).quote || "")`), await t.game(`JSON.stringify(window.__crashEnd)`));
     }
 
     if (want("exit")) {
@@ -299,7 +300,7 @@ module.exports = {
         await t.until(`__lulu3d.state === "playing"`, "drives");
         await t.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear())`);
         await t.L(EXIT_PROBE);
-        await t.game(`(ctx.cameos.force = { reprieve: "faint", mood: "scared" }, ctx.cameos.trigger("wreck", { kind: "car" }))`);
+        await t.game(`(ctx.cameos.force = { scene: true, reprieve: "faint", mood: "scared" }, ctx.cameos.trigger("wreck", { kind: "car" }))`);
         await t.hold(7, 0.55);
         if (!await t.until(`__lulu3d.state === "cameosCrash"`, `${label}: wreck → aftermath`, 90000)) continue;
         await t.hold(7, 0);

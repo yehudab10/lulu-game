@@ -6,14 +6,20 @@
 //     rejected the app once (Guideline 2.1) for a missing ATT prompt — the
 //     AdMob SDK links the ATT framework and Info.plist carries
 //     NSUserTrackingUsageDescription, so the sheet MUST appear.
-//   • Interstitial: every 2nd game over (the "gameover" state's card).
-//   • Rewarded: an opt-in "📺 WATCH → +50 💰" button on that card, shown only
-//     while an ad is actually loaded; one reward per game over.
-// Never mid-drive (only the game-over card), never in a 🎉 party ("ads" is in
-// party's OFF set and party.active is checked too), never in Dina's mode.
+//   • Interstitial: every 2nd BREAK — a knock-out (out of hearts: there's no game-over
+//     card in normal play any more, roadmap step 3) or a game-over card (parking's challenge
+//     still has one). At a knock-out the game PAUSES while the ad shows (she's back on her
+//     feet, so nothing can hit her behind it) and resumes when it closes.
+//   • Rewarded: an opt-in "📺 WATCH → +50 💰" button, shown only while an ad is actually
+//     loaded: on a game-over card (one per card), and after a knock-out on the ❚❚ pause menu
+//     (one per knock-out, at most REWARD_KO_MAX a run — a knock-out costs a small tow fee, so
+//     crashing on purpose for the reward stays capped).
+// Never mid-drive, never in a 🎉 party ("ads" is in party's OFF set and party.active is
+// checked too), never in Dina's mode.
 // On the web there is no Capacitor → every function is a silent no-op.
 // In ?test runs it stays off unless the test opts in with &enable=ads.
-import { ctx, on, emit } from "../../core/ctx.js";
+import { ctx, on, emit, addMenuItem } from "../../core/ctx.js";
+import { pause, resume } from "../../core/screens.js";
 import { wallet } from "../../core/save.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
@@ -30,7 +36,7 @@ export const ADMOB = {
     rewardedId:     "ca-app-pub-1477782549591980/2341243403", // real rewarded
     isTesting: false,        // false = LIVE ads (App Store release)
     testingDevices: [],      // add your device's test-device ID(s) to stay safe
-    interstitialEveryN: 2,   // show an interstitial every Nth game over
+    interstitialEveryN: 2,   // show an interstitial every Nth break (a knock-out or a game over)
     rewardCoins: 50,         // the rewarded ad's payout (the 2D game's +50 💰)
     attDelayMs: 1200,        // let the app become ACTIVE first: asking during the launch transition can silently no-op
 };
@@ -38,6 +44,7 @@ export const ADMOB = {
 const S = {
     started: false, ready: false, rewardedReady: false, showing: false,
     gameOvers: 0, interstitials: 0, rewards: 0,
+    knockouts: 0, koAd: false, koReward: false, koPaused: false,
     att: "unknown",          // the ATT status we saw: notDetermined → (asked) → authorized / denied / restricted
     rewardCb: null, rewardUsed: false,
     log: [],                 // for tests / debugging: "att:status", "att:request", "admob:init", "show:interstitial"…
@@ -47,15 +54,17 @@ const AdMob = () => plugin("AdMob");
 
 /** Allowed to touch the ad SDK at all? (native app; a ?test run must opt in) */
 function sdkAllowed() { return !!AdMob() && (!ctx.TEST || ctx.enabled("ads")); }
-/** Allowed to SHOW an ad right now? Only on the game-over card, never in a party or Dina's mode. */
-function placementOK() {
+/** Allowed to show an ad in this mode at all? (never in a party or Dina's mode) */
+function modeOK() {
     if (!sdkAllowed() || !S.ready) return false;
     if (!ctx.enabled("ads")) return false;                              // party's OFF set
     if (ctx.party && ctx.party.active) return false;                    // belt and braces
     if (ctx.dina && ctx.dina.active) return false;
     if (/^dina/.test(ctx.prevState || "") || (ctx.G && ctx.G.mode === "dina")) return false;
-    return ctx.state === "gameover" && !ctx.paused;
+    return true;
 }
+/** Allowed to SHOW an ad right now? On the game-over card. */
+function placementOK() { return modeOK() && ctx.state === "gameover" && !ctx.paused; }
 
 // ── App Tracking Transparency ────────────────────────────────────────────
 // The community AdMob plugin exposes ATT (trackingAuthorizationStatus /
@@ -145,6 +154,63 @@ function onGameOver() {
 
 /** True only in the app with a rewarded ad loaded, on a card where it may be offered. */
 export function rewardedAvailable() { return S.rewardedReady && !S.rewardUsed && placementOK(); }
+
+// ── knock-outs (out of hearts: no game-over card any more) ───────────────
+export const REWARD_KO_MAX = 3;
+on("knockout", () => {
+    if (!modeOK()) return;
+    S.knockouts++;
+    S.gameOvers++;                       // (one break counter: knock-outs + game-over cards → every Nth an interstitial)
+    S.koReward = true;                   // one 📺 reward per knock-out (pause menu), capped a run
+    if (S.gameOvers % ADMOB.interstitialEveryN === 0) S.koAd = true;
+});
+// shown once she's back on her feet / on the road (after the ER, if it took her): the game pauses behind it
+on("state", ({ to }) => {
+    if (!S.koAd || (to !== "footRun" && to !== "playing")) return;
+    S.koAd = false;
+    setTimeout(showKoInterstitial, 0);
+});
+function showKoInterstitial() {
+    if (!modeOK() || S.showing || (ctx.state !== "footRun" && ctx.state !== "playing")) return;
+    const ad = AdMob();
+    S.interstitials++;
+    S.showing = true;
+    note("show:interstitial");
+    note("ko:interstitial");
+    if (!ctx.paused) { pause(); S.koPaused = true; }
+    const done = () => {
+        S.showing = false;
+        if (S.koPaused && ctx.paused) resume();
+        S.koPaused = false;
+        prepInterstitial();
+    };
+    Promise.resolve(call(ad, "showInterstitial")).then(done, done);
+}
+/** The pause menu's 📺 after a knock-out. */
+function koRewardOK() {
+    const G = ctx.G || {};
+    return S.koReward && S.rewardedReady && modeOK() && (G.adRewards || 0) < REWARD_KO_MAX && !!ctx.paused && !S.showing;
+}
+addMenuItem("pause", {
+    id: "adReward", order: 6, group: "main",
+    label: () => `📺 WATCH → +${ADMOB.rewardCoins} 💰 <small>(after a knock-out)</small>`,
+    visible: () => koRewardOK(),
+    action: () => {
+        if (!koRewardOK()) return;
+        S.koReward = false;
+        const G = ctx.G;
+        G.adRewards = (G.adRewards || 0) + 1;
+        note("button:rewardedKO");
+        resume();
+        pause();                         // (re-open without the button while the ad plays)
+        showRewarded(() => {
+            S.rewards++;
+            wallet.add(ADMOB.rewardCoins);
+            emit("stat", { id: "adRewards", n: 1 });
+            H.toast(`+${ADMOB.rewardCoins} 💰 Thanks for watching!`, "gold");
+        });
+    },
+});
 
 /** Show the rewarded ad; onReward() fires once if the player earns it. */
 export function showRewarded(onReward) {
