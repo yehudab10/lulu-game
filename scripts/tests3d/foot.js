@@ -249,7 +249,7 @@ module.exports = {
     }
     if (koed) {
       t.check("last heart on foot → a knock-out, not game over", (await t.game(`ctx.state`)) !== "gameover");
-      t.check("…she gets up and walks on, hearts full", await t.until(`__lulu3d.state === "footRun" && ctx.foot.phase === "walk" && ctx.G.hearts === ctx.G.maxHearts`, "up again", 20000));
+      t.check("…she gets up and walks on, hearts full", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.G.hearts === __lulu3d.ctx.G.maxHearts`, "up again", 20000));
       t.check("footRunHigh saved to the shared 2D save", (await save2d("footRunHigh")) > 0, String(await save2d("footRunHigh")));
       await t.shot("knockout");
     }
