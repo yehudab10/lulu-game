@@ -180,7 +180,7 @@ export function dropPick(E) { if (E) { if (!E.result) end(E, "won", "reset"); fi
 
 // ── the ✋ TACKLE spot (foot's interact button) ───────────────────────────
 export const tackleSpot = {
-    r: P.tackleR, short: "TACKLE",
+    r: P.tackleR, short: "TACKLE", first: true,     // (urgent: it wins the ✋ button over a door / a car in reach)
     pos() { const E = UW.enc; return E && E.kind === "pickpocket" && E.phase === "run" && E.p ? { x: E.x, z: E.z } : null; },
     label() { return PICK.tackle; },
     act() { tackle(UW.enc, "lulu"); },

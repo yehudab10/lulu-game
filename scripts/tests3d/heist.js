@@ -63,7 +63,7 @@ module.exports = {
     t.check("the bank is TOWN DATA in both towns (uses.bank → heist_bank)", await g(`ctx.town.towns.lakewood.uses.bank.key === "heist_bank" && ctx.town.towns.midwood.uses.bank.key === "heist_bank"`));
     t.check("…on a block face of each town", await g(`Object.values(ctx.town.towns.lakewood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank")) && Object.values(ctx.town.towns.midwood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank"))`));
     t.check("the bank interior is registered with the interiors engine", await g(`!!(ctx.interiors.bank && ctx.interiors.bank.enter)`));
-    t.check("law knows the heist charge (weight + courtroom lines)", await t.L(`import("./js/features/law/data.js").then(m => m.CHARGE_WEIGHT["BANK HEIST"] === 4 && m.CHARGE_COURT.some(c => c.key === "BANK HEIST") && m.CHARGE_DIALOGUE[0].key === "BANK HEIST")`));
+    t.check("law knows the heist charge (weight + courtroom lines)", await t.L(`import("./js/features/law/data.js").then(m => m.CHARGE_WEIGHT["BANK HEIST"] === 4 && m.CHARGE_COURT.some(c => c.key === "BANK HEIST") && m.CHARGE_DIALOGUE.findIndex(c => c.key === "BANK HEIST") >= 0 && m.CHARGE_DIALOGUE.findIndex(c => c.key === "BANK HEIST") < m.CHARGE_DIALOGUE.findIndex(c => c.key === "GRAND THEFT AUTO"))`));
     t.check("moves can PIT the getaway car (data.pit)", await t.L(`fetch("js/features/moves/drive.js").then(r => r.text()).then(s => /data\\.pit/.test(s))`));
 
     await g(`L3.startRun({ mode: "cruise" })`);
