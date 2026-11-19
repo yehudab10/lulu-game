@@ -185,6 +185,25 @@ export function sfxBump() {
     blip(70, 0.18, "sine", 0.3, 0, 40);
 }
 
+/** On foot: a springy little "hup" (a jump; `h` 0–1 = how high she's going). */
+export function sfxJump(h = 1) {
+    blip(300 + h * 80, 0.16, "triangle", 0.12, 0, 620 + h * 160);
+}
+/** On foot: feet hitting the ground (p 0–1: a hop … a drop off a car roof). */
+export function sfxLand(p = 0.4) {
+    if (!ctx) return;
+    blip(120, 0.09 + p * 0.08, "sine", 0.12 + p * 0.22, 0, 55);
+    const t = ctx.currentTime;
+    const src = noiseSource();
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.value = 500 + p * 500;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.05 + p * 0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12 + p * 0.1);
+    src.connect(lp).connect(g).connect(sfxBus);
+    src.start(t); src.stop(t + 0.3);
+}
+
 export function sfxHorn(on) {
     if (!ctx) return;
     const t = ctx.currentTime;

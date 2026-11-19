@@ -267,7 +267,8 @@ function cycleSkin() {
 const ROWS = [
     ["steer", "Steer"], ["gas", "Gas"], ["brake", "Brake · reverse"], ["handbrake", "Handbrake drift"],
     ["boost", "Nitro"], ["honk", "Horn"], ["camera", "Camera"], ["fire", "Fire missile"],
-    ["item", "Pepper spray"], ["interact", "Interact (on foot)"], ["lookBack", "Look behind"], ["map", "Map / scrapbook"], ["radio", "Car radio (next station)"], ["pause", "Pause"],
+    ["item", "Pepper spray"], ["interact", "Interact (on foot)"], ["jump", "Jump (on foot · hold = higher)"], ["freeLook", "Look around (it stays put)"],
+    ["recentre", "On foot: camera behind her"], ["lookBack", "Look behind"], ["map", "Map / scrapbook"], ["radio", "Car radio (next station)"], ["pause", "Pause"],
 ];
 /** Features add / relabel a row of the button guide: setControlRow("bail", "Bail out", "interact") (glyphs: input.js glyphSet). */
 export function setControlRow(action, label, after = null) {
@@ -316,6 +317,7 @@ export function showSettings(back, focusId = null) {
         ${row("vibration", "📳 Rumble &amp; haptics", S.vibration ? "ON" : "OFF")}
         ${row("steer", "🛞 Steering", Math.round(S.steerSens * 100) + "%")}
         ${row("invert", "🔃 Invert look", S.invertLook ? "ON" : "OFF")}
+        ${row("lookSens", "🎥 Look speed", Math.round((S.lookSens || 1) * 100) + "%")}
         ${menuItems("settings").map(i => `<button class="btn alt setting nav" id="set_x_${i.id}">${i.label}</button>`).join("")}
         <button class="btn alt setting nav" id="set_controls"><span>🎮 Button guide</span><b>›</b></button>
     </div>`;
@@ -326,6 +328,7 @@ export function showSettings(back, focusId = null) {
     on("vibration", () => { S.vibration = !S.vibration; });
     on("steer", () => { const v = [0.6, 0.8, 1, 1.2, 1.4]; S.steerSens = v[(v.indexOf(S.steerSens) + 1) % v.length] || 1; });
     on("invert", () => { S.invertLook = !S.invertLook; });
+    on("lookSens", () => { const v = [0.6, 0.8, 1, 1.25, 1.6]; S.lookSens = v[(v.indexOf(S.lookSens || 1) + 1) % v.length] || 1; });
     on("calm", () => { S.calm = !S.calm; });
     on("music", () => { save3d.music = A.toggleMusic(); });
     on("sound", () => { save3d.sound = !save3d.sound; A.setMuted(!save3d.sound); });
