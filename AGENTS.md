@@ -170,6 +170,9 @@ merged — ignore them.
 - Party tests (partyplus): on this repo's 4-core cloud container two game pages crawl (~0.1 game-s per real s), and
   the ✋ FLAG IT DOWN press sometimes doesn't take there although the prompt shows (calling the spot's act() directly
   works; on CI it passes) — not reproduced on a real device; worth a look if a player says flagging "does nothing".
+- `shabbos` "tv-1080: the card fits" fails on CI (seen on `ci/gfx` twice and on `ci/flow` twice) and passes in the cloud
+  container — a DOM-layout check that depends on the runner's fonts; nobody has looked at whether the card really
+  overflows on a 1080p TV. `exits` takes ~1 h on a CI runner (1280×720 in software WebGL): give it its own group.
 - Party tests wait in REAL time (`hostUntil` / `until` in `partyfoot.js`, `party.js`): a 2–3 page CI runner can drop to
   ~1 fps, and then a 6 s scene takes minutes ("bailed out… timed out in lawExit", "race results… timed out in
   partyWait", missing host buttons after a > 4 s stall hands hosting over). Same code failed twice then passed — re-run
