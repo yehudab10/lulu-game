@@ -136,7 +136,7 @@ branches below right now — pick one up. Each is based on an older `main`: merg
 
 Suggested order: homes → party3 (turns each landed feature on in a party) → gfx (touches everything, so land it last and re-run the full suite).
 
-Branches not listed (`ci/heist`, `ci/underworld`, `ci/townfix`, `ci/party2`, `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
+Branches not listed (`ci/heist`, `ci/underworld`, `ci/townfix`, `ci/party2`, `ci/uwdiag` (a throwaway test-diagnostics branch that could not be deleted from a cloud session — never merge it), `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
 merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
