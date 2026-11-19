@@ -110,7 +110,8 @@ module.exports = {
     await t.until(`Math.hypot(__lulu3d.ctx.foot.debug.F.vel.x, __lulu3d.ctx.foot.debug.F.vel.z) > 3.3`, "walking", 3000);
     await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const x = F.pos.x + Math.sin(y) * 1.6, z = F.pos.z + Math.cos(y) * 1.6;
       const ch = [...ctx.world.activeChunks()].find(c => Math.abs(c.s0 + 100 - F.s) < 120); window.__low = ch.addCollider({ x, z, r: 0.55, kind: "bench" }); window.__lows = null; __btn(1, 1); return true; })()`);
-    await t.frames(3);
+    await t.until(`__lulu3d.ctx.foot.airborne && __lulu3d.ctx.foot.debug.F.vy < 0`, "past the top", 5000);
+    await t.stick(0, 0);                         // (let go of the stick in the air: she keeps her momentum)
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the bench", 5000);
     await letGo();
     const bench = await G(`({ y: ${FF}.y, g: ${FF}.ground })`);
@@ -132,8 +133,9 @@ module.exports = {
     await t.until(`Math.hypot(__lulu3d.ctx.foot.debug.F.vel.x, __lulu3d.ctx.foot.debug.F.vel.z) > 3.3`, "walking", 3000);
     await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 3.1, z: F.pos.z + Math.cos(y) * 3.1 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
       const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y; ctx.traffic.place(c, 0); __btn(1, 1); return true; })()`);
-    await t.frames(3);
-    // lengthwise: her side of the car is ~0.8 m ahead — a jump with the stick held all the way lands on the trunk / roof
+    // lengthwise: the car's back end ~0.9 m ahead — a running jump lands on the trunk / roof
+    await t.until(`__lulu3d.ctx.foot.airborne && __lulu3d.ctx.foot.debug.F.vy < 0`, "past the top", 5000);
+    await t.stick(0, 0);
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the car", 5000);
     await letGo();
     const hood = await G(`${FF}.y`);
