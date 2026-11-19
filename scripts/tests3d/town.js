@@ -113,6 +113,9 @@ module.exports = {
       t.check("the cruiser spawned on a town street", await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.car); return !!u && u.car.s > 499000; })()`));
       const route1 = await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.car); const r = ctx.town.copRoute(u.car); return r ? Math.round(r.gap) : -1; })()`);
       t.check("copRoute: a path through the grid", route1 > 0, `${route1} m`);
+      // (no town driver near the block for this: the cruiser is dropped onto Carpool Ln, and one it lands on or meets on
+      //  the way round is a 💥 cop pile-up — it sits there spun out, and the check below reads that as "never moved")
+      await g(`(() => { const o = ${D}.PL.ORIGIN; for (const c of ctx.traffic.cars.slice()) if (!(c.data && c.data.law) && Math.hypot(c.x - o.x - 20, c.z - o.z - 40) < 110) ctx.traffic.remove(c); return true; })()`);
       await g(`(() => { const u = ctx.law._dbg.L.units.find(u => u.car && u.mode === "chase"), o = ${D}.PL.ORIGIN, c = u.car;
           c.x = o.x + 40; c.z = o.z + 76 - 1.75; c.h = -Math.PI / 2; c.s = ${D}.PL.byName["Carpool Ln"].base + 40; c.speed = 0; window.__cop = c; return true; })()`);
       await t.until(`__lulu3d.ctx.law.searching`, "behind the block, the cops lose sight: SEARCHING", 6000);
