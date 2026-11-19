@@ -1407,7 +1407,7 @@ function publishExtras(m, foot) {
     XP.at = w;
     const inRun = m >= 2 && m <= 4 || m === 7;
     const F = inRun ? ctx.foot : null, car = ctx.car;
-    NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0] : null);
+    NET.setX("f", foot && F ? [F.animCode | 0, F.lookCode | 0, F.heightCode | 0] : null);     // (f[2]: her feet's height, dm — a jump, a bench, a car roof)
     const pr = PS.myPresence();
     // a scene that takes her out of the car right where it stands (a pull-in place, a porch, a side job's scene):
     // friends see her car parked there with the tag over it; jail / court / the ER are elsewhere (no car shown)

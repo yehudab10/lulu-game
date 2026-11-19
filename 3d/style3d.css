@@ -222,6 +222,14 @@ body.touch #toasts { top: 22%; }
 .tbtn.brake { grid-column: 1; grid-row: 2 / span 2; background: linear-gradient(#EF5350, #B71C1C); }
 .tbtn.brake.rev { font-size: 13px; letter-spacing: 0.04em; background: linear-gradient(#FFA726, #E65100); }   /* the same pedal reversing (input.js setBrakePedal) */
 .tbtn.down { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); filter: brightness(1.1); }
+/* on foot (body.onfoot — features/foot): a big JUMP under the right thumb, ROLL beside it */
+#footPad { display: none; position: absolute; right: max(18px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom));
+    align-items: flex-end; gap: 12px; pointer-events: auto; }
+body.onfoot #footPad { display: flex; }
+#footPad .tbtn { border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+#footPad .tbtn small { font-size: 10px; letter-spacing: 0.1em; margin-top: 3px; }
+#tJump { width: 92px; height: 92px; font-size: 34px; background: radial-gradient(circle at 40% 30%, #FF80AB, #E91E63 70%); }
+#tRoll { width: 64px; height: 64px; font-size: 24px; margin-bottom: 4px; background: rgba(0, 151, 167, 0.82); }
 
 /* ── screens ─────────────────────────────────────────────── */
 @media (min-aspect-ratio: 5/4) and (min-width: 820px) {

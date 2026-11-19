@@ -1,14 +1,16 @@
-// features/moves — ON FOOT. One button (□ / X / Space; touch: tap the road with a
-// second finger) does the right thing for the moment:
+// features/moves — ON FOOT. One button (□ / X · C · the ROLL button; touch: also a tap on the road) does the
+// right thing for the moment (the stick's direction is relative to the camera, like her walking):
 //   at a parked / stopped car, moving toward it → 🧗‍♀️ VAULT over the hood
 //   sprinting                                  → 🏃‍♀️ SPRINT SLIDE (fast, low)
 //   otherwise                                  → 🤸 DODGE ROLL (in the stick's direction)
 // Each one is a short foot script (ctx.foot.script): while it runs, cars can't touch
 // her (foot skips its car checks during a script) — the i-frames. Slip right past a
 // moving car's bumper during one for a MATADOR!
+// With the JUMP (features/foot/jump.js): the roll button pressed in the air rolls out of the landing (a chain);
+// the jump button mid-slide is a 🦘 LONG JUMP (foot scores it on landing); mid-roll it hops out of the roll.
 import * as THREE from "three";
 import { ctx, hook, on } from "../../core/ctx.js";
-import { input } from "../../input.js";
+import { input, lookDragged } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { live, clamp, touch, addMove, quality, rumble, callout, firstTime } from "./common.js";
@@ -20,7 +22,7 @@ export const FOOT = {
     matador: 2.3, runV: 6.0,
 };
 const R = 0.32;
-const M = { F: null, on: false, kind: "", t: 0, dur: 0, dx: 0, dz: 1, v: 0, x0: 0, z0: 0, x1: 0, z1: 0, yaw: 0, ole: false, baseScale: 1, prevHb: false, tap: false, n: 0 };
+const M = { F: null, on: false, kind: "", t: 0, dur: 0, dx: 0, dz: 1, v: 0, x0: 0, z0: 0, x1: 0, z1: 0, yaw: 0, ole: false, baseScale: 1, prevHb: false, tap: false, n: 0, pend: 0, landRoll: false };
 const _v = new THREE.Vector3();
 
 // touch: a quick tap on the road (the canvas — buttons and the stick are their own elements)
@@ -33,7 +35,7 @@ function bindTouch() {
         if (!tapStart || e.pointerId !== tapStart.id) return;
         const ok = performance.now() - tapStart.t < 320 && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 24;
         tapStart = null;
-        if (ok && ctx.state === "footRun") M.tap = true;
+        if (ok && ctx.state === "footRun" && !lookDragged()) M.tap = true;
     }, { passive: true });
 }
 on("boot", bindTouch);
@@ -79,7 +81,8 @@ function landPoint(F, t, dx, dz, out) {
 
 function begin(F) {
     // direction: the stick, else where she's moving, else where she faces
-    const h = F.h, fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
+    const fy = ctx.foot && ctx.foot.frameYaw;
+    const h = fy != null ? fy : F.h, fx = Math.sin(h), fz = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);
     let dx = fx * -input.moveY + rx * input.moveX, dz = fz * -input.moveY + rz * input.moveX;
     let l = Math.hypot(dx, dz);
     const sp = Math.hypot(F.vel.x, F.vel.z);
@@ -136,6 +139,13 @@ function step(dt, P, F) {
     const o = F.lulu.obj;
     M.t += dt;
     const k = clamp(M.t / M.dur, 0, 1);
+    // the jump button mid-move: out of a slide = a LONG JUMP, out of the back half of a roll = a hop
+    if (P && P.jump && M.kind !== "vault" && ctx.foot && ctx.foot.jump && (M.kind === "slide" ? k < 0.92 : k > 0.4)) {
+        const v = M.kind === "slide" ? M.v * (1 - (1 - FOOT.slide.end) * k) : M.v * (1 - 0.35 * k);
+        finish(F);
+        ctx.foot.jump({ long: M.kind === "slide", vx: M.dx * Math.max(v, FOOT.runV), vz: M.dz * Math.max(v, FOOT.runV) });
+        return false;
+    }
     if (M.kind === "vault") {
         const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
         F.pos.x = M.x0 + (M.x1 - M.x0) * e;
@@ -181,7 +191,8 @@ function finish(F) {
     M.on = false; M.F = null;
     const G = ctx.G;
     G.invT = Math.max(G.invT || 0, 0.25);       // a breath to get clear of a bumper
-    const name = M.kind === "vault" ? "🧗‍♀️ VAULT!" : M.kind === "slide" ? "🏃‍♀️ SLIDE!" : "🤸 ROLL!";
+    const name = M.kind === "vault" ? "🧗‍♀️ VAULT!" : M.kind === "slide" ? "🏃‍♀️ SLIDE!" : M.landRoll ? "🛬 LANDING ROLL!" : "🤸 ROLL!";
+    M.landRoll = false;
     addMove(M.kind, M.kind === "vault" ? 250 : M.kind === "slide" ? 150 : 100, name, { foot: true, color: "#80DEEA" });
     if (M.ole) {
         quality("matador");
@@ -194,10 +205,11 @@ function abort() {
     if (F && F.lulu) { const o = F.lulu.obj; o.rotation.x = 0; o.rotation.z = 0; o.rotation.order = "XYZ"; o.scale.y = M.baseScale; }
 }
 
-/** Start a move right now (the button, a touch tap, or a test). → bool */
+/** Start a move right now (the button, a touch tap, or a test). → bool (in the air: remembered, it rolls out of the landing) */
 export function footMove() {
     const foot = ctx.foot;
     if (!live() || !foot || ctx.state !== "footRun" || foot.phase !== "walk" || ctx.dialogOpen || ctx.paused || M.on) return false;
+    if (foot.airborne) { M.pend = 0.4; return false; }
     let started = false;
     const def = {
         update(dt, P, F) { if (!started) { started = true; begin(F); } return step(dt, P, F); },
@@ -209,15 +221,19 @@ export function footMove() {
     return true;
 }
 
-// the button: an edge of □ / X / Space (no core input change: handbrake is a held control)
-hook("hud", () => {
-    const hb = !!input.handbrake;
-    const edge = hb && !M.prevHb;
-    M.prevHb = hb;
+// the button: P.roll (□ / X · C · the ROLL touch button — input.js) or a tap on the road
+hook("hud", dt => {
+    const edge = !!(input.pressed && input.pressed.roll);
     const tap = M.tap;
     M.tap = false;
-    if (ctx.paused || ctx.state !== "footRun") return;
+    if (ctx.paused || ctx.state !== "footRun") { M.pend = 0; return; }
     if (edge || tap) footMove();
+    // pressed in the air: roll the moment her feet touch down (a chain: jump → landing roll)
+    if (M.pend > 0) {
+        M.pend -= dt;
+        const foot = ctx.foot;
+        if (foot && !foot.airborne && foot.phase === "walk" && !M.on) { M.pend = 0; M.landRoll = true; if (!footMove()) M.landRoll = false; }
+    }
 });
 on("state", ({ to }) => { if (to !== "footRun") { M.on = false; M.tap = false; } });
 
