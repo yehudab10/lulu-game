@@ -656,7 +656,8 @@ function eligible() {
 hook("runStart", G => {
     if (S.active) leaveTown("reset");
     dropAllBuilt();
-    addActor({ foot: true, update: () => { try { if (S.active) { if (S.att && footing()) attachedOut(); } else attachedFootIn(); } catch (err) { console.error("[town] foot line", err); } return true; } });
+    // (on foot: the line both ways, and the standing towns still build — the update hook only runs while she drives)
+    addActor({ foot: true, update: dt => { try { if (footing() && (S.built.length || X.exits.length)) tendAttached(dt); if (S.active) { if (S.att && footing()) attachedOut(); } else attachedFootIn(); } catch (err) { console.error("[town] foot line", err); } return true; } });
     S.trans = null; setFade(0); S.commit = null;
     clearExits();
     if (S.cue) { S.cue = ""; H.prompt(""); }

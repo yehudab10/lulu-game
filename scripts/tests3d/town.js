@@ -522,6 +522,7 @@ async function attached(t, g, E, perf) {
   await g(`ctx.town.active ? ctx.town.leave("reset") : 0`);
   await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E2} + 172.2, 38, {}); ctx.car.place(p.x, p.z, p.h - Math.PI / 2); ctx.car.s = ${E2} + 172.2; ctx.car.d = 38; ctx.world.prebuild(${E2}); ctx.cam.snap(); return true; })()`);
   await t.frames(5);
+  await t.until(`(__lulu3d.ctx.town.debug.buildNow(), __lulu3d.ctx.town.standing.filter(b => Math.abs(b.exitS - ${E2}) < 1 && b.ready).length === 2)`, "the towns stand at the T again", 20000);
   await g(`(ctx.foot.start("droveOff"), true)`);
   if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "on foot at the T", 8000)) {
     t.check("on foot at the T: still the highway's road", await g(`!ctx.town.active`));
