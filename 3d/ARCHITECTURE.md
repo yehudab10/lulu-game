@@ -231,6 +231,37 @@ mud / fence there, zone `"grounds"`).
 * `world.config.speedTraps` (bool) — the built-in parked-cop speed traps.
 * Exports for set pieces: `ribbon(road, s0, s1, d0, d1, y, vScale)`, `signTexture(lines, bg, fg, w, h)`,
   `worldMaterials()` (road, shoulder, drive, pole, metal, coin…), `canvasTex`, `mulberry32`, `HALF_ROAD`, `SHOULDER`, `LANE`, `CHUNK`.
+* **A chunk is cheap by construction:** its trees, bushes, houses and power poles are baked by `js/merge.js`
+  (`ChunkMerger`) into a few vertex-coloured meshes — one per look (roughness / metalness), split into
+  shadow-casting (|d| ≤ 40 m) and not, leaves on their own look (they sway: `core/gfx.js`). Parts with a texture,
+  transparency, a glow or an animatable name (Neon, LightRed…) stay instanced, so a feature's scenery keeps its look;
+  `Window` parts merge into a look that SHARES the template window's emissive (atmos lights it). Shoulders and
+  driveways are one mesh each, a sign is two (metal + face, one cached material per sign texture), a heart one.
+  A chunk wholly beyond the fog (× `world.drawScale`, the tier's draw distance) isn't drawn (`noCull` if it holds a
+  `fog: false` material).
+
+## Graphics & performance (`js/core/quality.js`, `gfx.js`, `post.js`, `js/lod.js`)
+* **Tiers** — ⚙️ Settings → 🖼️ Graphics cycles AUTO / HIGH / MEDIUM / LOW (`save3d.settings.quality`); `ctx.gfx`
+  = `{ setting, tier, T, pixelRatio, info() }`. Read `ctx.gfx.tier` (or atmos' `quality()`), never the raw setting.
+  LOW: no shadow map (blob contact shadows instead), 65 % draw distance + the fog pulled in to match, LOD from 40 m,
+  30 % particles, no headlight spot, no sway / reflections / bloom, pixel ratio 1. MEDIUM: 1024 shadows over ±38 m,
+  85 % draw distance, LOD 55 m, sway + reflections, ≤ 1.5 px ratio (≤ 2 on phones). HIGH: 2048 shadows, all of it,
+  bloom. AUTO guesses from the GPU / device (software GL, old mobile GPUs, consoles / TVs → LOW; phones, tablets,
+  integrated GPUs → MEDIUM; else HIGH — `?test` runs keep the desktop guess), then holds 60 fps: the pixel ratio
+  slides between the tier's floor and cap, and when the floor isn't enough it steps a tier down for the session
+  (a 30 fps-capped display isn't mistaken for a slow GPU). The `gfx` event fires after a change.
+* **Far LODs** (`lod.js`): `farLod(obj)` → past `LOD.dist` the model shows ONE merged vertex-coloured mesh
+  (traffic cars, the speed-trap cop); Headlight / LightRed / LightBlue / Neon / Glass parts stay real.
+  `updateLods(camera)` runs before each render. Parts a feature adds later are never touched.
+* **`core/gfx.js`** (before each driving render): contact shadows under Lulu's car + nearby traffic (one instanced
+  mesh), the leaves' wind sway (stronger in rain), a PMREM of the current sky on car paint (`Paint` / `Body` /
+  `CopPaint`…) and on the wet road (`ctx.atmos.wet`), the exposure lift at night. **`core/post.js`** (HIGH): a soft
+  bloom on anything brighter than white (headlights, neon, windows, nitro, the sun) + the tone mapping.
+* **The sun's shadow** follows Lulu snapped to whole shadow texels (no shimmering edges).
+* **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
+  `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,
+  Lakewood, on foot, the bar, a 🌍 Free Roam convoy — draw calls, triangles, JS ms (update vs render), DOM
+  mutations a frame — and a long drive that fails on geometries / textures / materials that leave the scene undisposed.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.

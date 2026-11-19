@@ -201,7 +201,9 @@ module.exports = {
         for (const C of [THREE.BufferGeometry, THREE.Material, THREE.Texture]) { const d = C.prototype.dispose; C.prototype.dispose = function () { K.disposed.add(this.uuid); return d.apply(this, arguments); }; }
         const path = o => { const p = []; for (let a = o; a && p.length < 4; a = a.parent) if (a.name) p.push(a.name); return (p.reverse().join("/") || o.type); };
         K.scan = () => { const live = new Set(), top = {}; const sc = __lulu3d.ctx.scene;
-          for (const ch of sc.children) { const k = (ch.name || ch.type); let n = 0; ch.traverse(() => n++); top[k] = (top[k] || 0) + n; }
+          const key = ch => { if (ch.name) return ch.name; let f = ""; ch.traverse(o => { if (!f && o !== ch && o.name) f = o.name; }); return ch.type + (f ? "<" + f + ">" : ""); };
+          const count = (k, ch) => { let n = 0; ch.traverse(() => n++); const e = top[k] || (top[k] = [0, 0]); e[0]++; e[1] += n; };
+          for (const ch of sc.children) { if (ch.name === "chunk") { for (const c2 of ch.children) count("chunk>" + key(c2), c2); } else count(key(ch), ch); }
           sc.traverse(o => { const add = (x, kind) => { if (!x || !x.uuid) return; live.add(x.uuid); if (!K.seen.has(x.uuid)) K.seen.set(x.uuid, { kind, at: path(o) + " · " + (kind === "geo" ? "" : (x.name || x.type)) }); };
             if (o.geometry) add(o.geometry, "geo"); for (const m of [].concat(o.material || [])) { add(m, "mat"); if (m) for (const k of ["map", "emissiveMap", "alphaMap", "normalMap"]) if (m[k]) add(m[k], "tex"); } });
           return { live, top }; };
@@ -218,7 +220,9 @@ module.exports = {
       await t.page.setViewportSize({ width: 1280, height: 720 });
       R.drive = S;
       const lk = await t.L(`window.__lk ? window.__lk.orphans() : null`);
-      if (lk) { R.orphans = lk.by; console.log("   ORPHANS (left the scene, never disposed): " + JSON.stringify(lk.by)); console.log("   SCENE growth (top-level → objects, start → end): " + JSON.stringify(Object.entries(lk.top).map(([k, n]) => [k, top0[k] || 0, n]).filter(([, a, b]) => b !== a).sort((a, b) => (b[2] - b[1]) - (a[2] - a[1])).slice(0, 16))); }
+      if (lk) { R.orphans = lk.by; console.log("   ORPHANS (left the scene, never disposed): " + JSON.stringify(lk.by)); const z = [0, 0];
+        R.growth = Object.entries(lk.top).map(([k, n]) => [k, (top0[k] || z).join("×"), n.join("×"), n[1] - (top0[k] || z)[1]]).filter(e => e[3] > 0).sort((a, b) => b[3] - a[3]).slice(0, 20);
+        console.log("   SCENE growth (what [entries × objects] start → end): " + JSON.stringify(R.growth)); }
       for (const s of S) console.log(`   DRIVE ${JSON.stringify(s)}`);
       // the first sample is after the start's chunks are built; compare the steady second half
       const mid = S[Math.floor(S.length / 2)], end = S[S.length - 1];
