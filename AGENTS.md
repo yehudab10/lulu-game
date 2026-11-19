@@ -131,11 +131,13 @@ branches below right now — pick one up. Each is based on an older `main`: merg
 |---|---|---|
 | `ci/flow` | 🌊 Flow + open world — the owner's direction for the game: "less a driving game, more an open world (a mix of Roblox and Fortnite) — everything flows, fewer hard transitions, less choppy". **Step 1 is LANDED** (see `3d/ARCHITECTURE.md` › Flow: `ctx.cam.blend`, `ctx.dissolve`, the hop-in, rolling starts, the music crossfade, `interiors.warm`; test `flow`) | **Next steps, none started — pick one, re-start the branch from `main`:** (a) AFTER `ci/gfx` lands (it rewrites `Chunk.build`): build road chunks in time slices (a ms budget per frame, not a whole 200 m chunk + 14 `chunk:build` listeners in one frame; `world.prebuild` too), a shared shader warm-up (`renderer.compileAsync` for sets / towns / lazy models — only the party lobby does it), an idle model preloader; (b) the remaining hard cuts: jail / court / ER sets (interiors are a soft cut now when the door warmed them), the wreck chain (2.6 s + all traffic deleted + a card), `quietRoad()` popping traffic at a pull-over, parking's white flash; (c) ONE WORLD: towns attached to the highway (today a town is a grid at a far origin, entered by a soft cut at the ramp's STOP sign), walking into shops without a set, fields you can wander into (the world is a ±50–70 m ribbon); (d) play like an open-world game: start on foot at home / in town, a jump + free-look, a quick respawn instead of game-over cards, Free Roam as the default. The owner was asked two taste questions (start on foot in a hub? keep jail / court / ER as full scenes or make them optional detours?) — check the chat / ask before (d) |
 | `ci/party3` | 🎉 Party round 3 — **LANDED 2026-11-19 ~07:50** for what was on `main`: heist (personal bits) and underworld (the pickpocket only) are on with friends; each feature's parity row says what the rest would need. Nobody is on it now | **Left (pick it up any time):** nothing for `homes` — it landed already ON with friends (never in the `OFF` set: the crowd is seeded in a 🌍 Free Roam town, a house is personal, presence "🏠 in the …s' house"; its parity row + the party section of `homes.js` cover it). Robberies / bad-guy cars / roadside stops need the shared road plan — bigger jobs |
-| `ci/gfx` | ⚡ Performance + graphics: perf harness + leak tracker, no per-frame allocations, road-sign textures freed, contact shadows, bloom (only where supported), Auto/Low/Medium/High setting | **🔧 BEING FINISHED NOW (picked up 2026-11-19 03:51 UTC — lands LAST, after underworld/townfix/homes/party2).** Left: finish tiers + settings UI, before/after numbers + screenshots, then the FULL suite (`only` and `groups` empty) since render changes touch everything; land |
 
-Suggested order: gfx (touches everything, so land it last and re-run the full suite).
+`ci/gfx` is **LANDED** (2026-11-19 ~12:10 UTC, on top of everything above incl. homes + flow step 1): ⚙️ Settings → 🖼️ Graphics AUTO / HIGH /
+MEDIUM / LOW, merged roadside scenery + far-car LODs (~25–40 % fewer draw calls on the highway), road-sign textures freed with their
+chunks, contact shadows, wind sway, sky reflections, bloom on HIGH; before/after numbers + screenshots in `3d/docs/gfx-perf.md`,
+the tiers in `3d/ARCHITECTURE.md` › Graphics & performance. Measure any perf change with `node scripts/perf3d.js`.
 
-Branches not listed (`ci/heist`, `ci/underworld`, `ci/townfix`, `ci/party2`, `ci/uwdiag` (a throwaway test-diagnostics branch that could not be deleted from a cloud session — never merge it), `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
+Branches not listed (`ci/gfx`, `ci/heist`, `ci/underworld`, `ci/townfix`, `ci/party2`, `ci/uwdiag` (a throwaway test-diagnostics branch that could not be deleted from a cloud session — never merge it), `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
 merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
@@ -186,6 +188,18 @@ merged — ignore them.
   before blaming your change; better: move those waits to frames.
 - Party tests: `partyworld` and `party` ("dash: claims settled") occasionally fail
   on slow CI runners because of the random party seed — re-run once.
+- Graphics (from `ci/gfx`, landed 2026-11-19): AUTO's first guess comes from the GPU's name (`core/quality.js`
+  `guessTier`) — never tried on a real phone yet: worth a look on the owner's iPhone (⚙️ Settings → 🖼️ Graphics shows
+  "AUTO · MEDIUM"). MEDIUM's sky reflections (car paint, the wet road) cost ~5 % frame time in software GL; if a phone
+  feels slow, make them HIGH-only. Far traffic cars (`lod.js`) cache their merged far copy per model + paint: a
+  feature that REPAINTS a traffic car after it was far away keeps the old colour beyond ~55 m (none does today).
+  Town e-bike riders / people are ~20 draw calls each — the next big draw-call win (a far LOD or instancing).
+  On LOW, flow's dissolve snapshot frame renders without LOW's pulled-in fog (one frozen frame).
+  Bloom is OFF in `?test` runs unless the URL has `&enable=bloom` (only `gfx` / `perf` do) — it nearly doubles
+  software-GL frame time. Measure with `node scripts/perf3d.js` (numbers: `3d/docs/gfx-perf.md`).
+- `multiplayer` (the Shared Road relay test) has real-time checks that flaked on CI during gfx's runs — "2D player's ghost
+  shows ~26 m ahead" / "di = s × 56000/4800" (a 1.5 s `peer.pump`) and "🏆 winner banner"; each passed on other runs of
+  the same code. `party`'s BONK / race-results steps likewise. Re-run once before blaming a change.
 - iOS: classic 2D letterboxes in landscape; the "Groceries" chip touches the
   speedometer for ~8 s in iPhone portrait; photo saving uses the share sheet
   (unverified on a real device).
