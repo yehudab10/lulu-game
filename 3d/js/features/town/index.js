@@ -21,7 +21,8 @@
 //    parked.js  the parked cars: solid, shoved when she bumps one, hotwirable on foot (lifted out of the merge)
 //    life.js    people (talk on foot), geese, e-bikes, speed bumps, stop signs, the group chat
 //    cops.js    what law asks: blocksSight / copRoute / copSpawn
-//    exit.js    the highway interchange: signs, gantry, decel lane, one ramp that splits per town; triggers the fade in
+//    exit.js    the highway interchange (the plan): signs, decel lane, one ramp that splits per town, T-junctions, the on-ramp
+//    exitbuild.js  …drawn: asphalt, paint, guardrails, the gantry, STOP signs, guide boards, a gas station, the first houses
 //    sfx.js     goose honks, minivan horns, the speed-bump THUNK
 //
 //  ctx.town { active, id, name, street, streets, occluders, enter(), leave(), blocksSight(),
@@ -636,7 +637,7 @@ ctx.town = {
         pt(name, along, d = 0) { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; },
         sees: (ax, az, bx, bz) => !blocksSight(ax, az, bx, bz),
         local: (x, z) => toLocal(x, z, {}),
-        segmentBlocked,
+        segmentBlocked, sightBlocked,
     },
 };
 function takePatrol() {

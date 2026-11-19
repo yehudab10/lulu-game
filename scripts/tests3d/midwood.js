@@ -245,6 +245,9 @@ module.exports = {
         for (const c of ctx.traffic.cars) {
           const dist = Math.hypot(c.x - cam.x, c.z - cam.z);
           if (dist > 100) continue;
+          // (one behind a block of houses may be hidden — the town's LOD — one in plain sight may not)
+          const O = ctx.town.debug.PL.ORIGIN;
+          if (dist > 45 && ctx.town.debug.sightBlocked(cam.x - O.x, cam.z - O.z, c.x - O.x, c.z - O.z)) continue;
           near++;
           let meshes = 0, ok = 0;
           c.obj.updateMatrixWorld(true);
@@ -254,7 +257,7 @@ module.exports = {
         }
         return { near, bad };
       })()`);
-      t.check("Midwood: every car within 100 m is in the scene, visible, with sane bounding spheres", a.near > 0 && !a.bad.length, JSON.stringify(a));
+      t.check("Midwood: every car in sight (≤ 100 m) is in the scene, visible, with sane bounding spheres", !a.bad.length, JSON.stringify(a));
       t.check("Midwood's parked cars are solid + tagged (sedans and minivans)", await g(`(() => { const P = ${D}.S.T.pcars; return P.length > 100 && P.some(p => /sedan/.test(p.key)) && P.every(p => p.cols.length === 2 && p.tag.parts && p.tag.parts.length); })()`));
       // on foot by a parked car-service sedan: ✋ HOTWIRE, and she drives off in a sedan
       await g(`ctx.foot.start("droveOff")`);

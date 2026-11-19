@@ -8,7 +8,7 @@
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
-import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, blocked, rng, cutAt, otherAt, stopsAt } from "./plan.js";
+import { PL, LANE, streetPoint, streetOfS, movesFrom, nodeAhead, nodeAlong, headingOf, toLocal, blocked, rng, cutAt, otherAt, stopsAt, sightBlocked } from "./plan.js";
 
 registerKind("town_van", { len: 5.0, halfW: 0.98, circles: [1.5, -1.5], r: 1.0, mass: 1.5, model: "town_minivan", colors: { Paint: "#C3C8CE" } });
 registerKind("town_bus", { len: 10.6, halfW: 1.25, circles: [-3.6, -1.2, 1.2, 3.6], r: 1.3, mass: 5, model: "roadevents_school_bus", paint: false });
@@ -64,9 +64,20 @@ function lean(c) {
     c.obj.userData.townLean = true;
     c.obj.traverse(o => { if (o.isMesh) o.castShadow = BODY.test(o.material.name); });
 }
-/** Far-off town cars are hidden (the blocks hide most of them anyway). */
-export function lodDrivers(cam, far = 120) {
-    for (const c of C.cars) c.obj.visible = Math.abs(c.x - cam.x) < far && Math.abs(c.z - cam.z) < far;
+/** Which town cars are drawn: the ones she can actually SEE — within `far` m down an open street (the old flat 120 m
+ *  box dropped a car 125 m down a long avenue that the houses beyond it still showed), none hidden behind a block of
+ *  houses (they cost a dozen draw calls each). Re-judged every few frames; anything close is always drawn. */
+let lodN = 0;
+const _cl = {}, _ol = {};
+export function lodDrivers(cam, far = 210, near = 45) {
+    if ((lodN = (lodN + 1) % 3) !== 1) return;
+    toLocal(cam.x, cam.z, _cl);
+    for (const c of C.cars) {
+        const d = Math.hypot(c.x - cam.x, c.z - cam.z);
+        let vis = d < near;
+        if (!vis && d < far) { toLocal(c.x, c.z, _ol); vis = !sightBlocked(_cl.x, _cl.z, _ol.x, _ol.z); }
+        c.obj.visible = vis;
+    }
 }
 
 export function clearDrivers() {

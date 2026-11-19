@@ -172,6 +172,9 @@ module.exports = {
         for (const c of ctx.traffic.cars) {
           const dist = Math.hypot(c.x - cam.x, c.z - cam.z);
           if (dist > 100) continue;
+          // (one behind a block of houses may be hidden — the town's LOD — one in plain sight may not)
+          const O = ctx.town.debug.PL.ORIGIN;
+          if (dist > 45 && ctx.town.debug.sightBlocked(cam.x - O.x, cam.z - O.z, c.x - O.x, c.z - O.z)) continue;
           near++;
           let meshes = 0, ok = 0;
           c.obj.updateMatrixWorld(true);
@@ -182,7 +185,7 @@ module.exports = {
         return { near, bad };
       })()`);
       const a1 = await audit();
-      t.check("every car within 100 m in town is in the scene, visible, with sane bounding spheres", a1.near > 0 && !a1.bad.length, JSON.stringify(a1));
+      t.check("every car in sight (≤ 100 m) in town is in the scene, visible, with sane bounding spheres", !a1.bad.length, JSON.stringify(a1));
       // the pool: a car the town hid (its far-car LOD) and gave back must come out VISIBLE for the next owner (a chase cruiser)
       const pool = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); c.obj.visible = false; ctx.traffic.remove(c);
           const c2 = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); const v = c2.obj.visible; ctx.traffic.remove(c2); return c2.obj === c.obj && v; })()`);

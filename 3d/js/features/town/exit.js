@@ -1,17 +1,18 @@
-// features/town — the EXITS on the Cruise highway. Each Cruise exit is an INTERCHANGE that offers
-// every town (towns/index.js › INTERCHANGE): advance signs (1 MI, ½ MI), an overhead gantry with an
-// EXIT ONLY board over the deceleration lane and a "↑ THRU TRAFFIC" board over the through lanes, a
-// dashed line that keeps the right lane going straight, the decel lane, ONE off-ramp that splits
-// after the gore (the inner branch → the first town, the outer → the second, a split sign at the
-// fork). Staying in lane always passes it; only a branch, well clear of the highway, takes her into
-// a town (index.js fades across), so a drift onto the shoulder or the decel lane never does: she can
-// steer back across the painted gore until the split. The ramps are paved (core's `paved` registry:
-// no grass drag on them). A one-town exit (tests / debug: `exitAhead(ahead, id)`) is the same with a
-// single ramp and that town's own signs.
-// Exits sit at fixed distances into a Cruise run (`highway: { first, every }`), planned ≥ 900 m ahead
-// so world.reserve() keeps the trees, houses and poles off the ramps, slid clear of pull-in places,
-// rest areas (features/exits) and reserved stretches (the coast's ocean, a family's house), and built
-// in chunk:build like every other set piece (same chunk → same ramps).
+// features/town — the EXITS on the Cruise highway: the PLAN (exitbuild.js draws it). Each Cruise exit is an
+// INTERCHANGE that offers every town (towns/index.js › INTERCHANGE), laid out like a real US exit: advance signs with
+// exit-number tabs (1 MI, ½ MI), a taper into a parallel deceleration lane (EXIT ONLY painted in it, the gantry's EXIT ONLY
+// board over it), the gore (painted, then grass with a crash cushion), a RAMP 25 MPH advisory, ONE off-ramp that S-curves
+// away and splits (the inner branch → the first town, the outer → the second), guardrails, and each branch ends at a STOP
+// line at a T-junction with a local cross road — a gas station, a "Welcome to …" sign, the first houses — where the town
+// fades in. The inner cross road's near end turns into the on-ramp back (a merge gore, an acceleration lane): driving out
+// of town puts her there. Staying in lane always passes it; only a branch past COMMIT takes her into a town, so a drift
+// onto the shoulder or the decel lane never does: she can steer back across the painted gore until the split. Every lane
+// is `paved` level 3 (core: the car drives it like road, and nothing may be placed on it). A one-town exit (tests / debug:
+// `exitAhead(ahead, id)`) is the same with a single branch and that town's own signs.
+// Exits sit at fixed distances into a Cruise run (`highway: { first, every }`), planned ≥ 900 m ahead so world.reserve()
+// keeps the trees, houses and poles off the ramps and cross roads, slid clear of pull-in places, rest areas
+// (features/exits) and reserved stretches (the coast's ocean, a family's house), and built in chunk:build like every
+// other set piece (same chunk → same ramps).
 import { ctx, on } from "../../core/ctx.js";
 import { registerModels, ensureModels } from "../../models.js";
 import { paved } from "../../core/driving.js";
