@@ -28,10 +28,13 @@ module.exports = {
 
     // ── passengers: bonk a walker → 2× coins ─────────────────────────────
     if (part("passenger")) {
+      // (the walker first — its model may still be loading — then roll at it; a grown-up: kids always jump clear)
+      await tp(s0, 1.75, 0, false);
+      await g(`ctx.roadevents.spawn("pedestrian", { s: ${s0 + 16}, d: 1.75, cross: false, kind: "walker", model: "npcMan" }).then(p => (p.vs = 0, window.__ped = p, true))`);
       await tp(s0, 1.75, 9, false);
-      await g(`ctx.roadevents.spawn("pedestrian", { s: ${s0 + 16}, d: 1.75, cross: false, kind: "walker" }).then(p => (p.vs = 0, true))`);
       await t.until(`window.__lulu3d.ctx.roadevents.passengers >= 1`, "a bonked walker flies into the passenger seat", 60000);
-      t.check("a bonked walker flies into the passenger seat", await g(`ctx.roadevents.passengers`) >= 1);
+      t.check("a bonked walker flies into the passenger seat", await g(`ctx.roadevents.passengers`) >= 1,
+        JSON.stringify(await g(`(() => { const p = window.__ped; return { car: [ctx.car.s, ctx.car.d, ctx.car.speed], ped: p && [p.s, p.d, p.kid, p.scared, p.gone, p.flying] }; })()`)));
       t.check("…and opens the 2× coin window", await g(`ctx.roadevents.passengerTime`) > 25);
       const c0 = await g(`ctx.G.coins`);
       await g(`(() => { ctx.G.coins += 1; L3.emit("coin", { n: 1, why: "road" }); return true; })()`);
