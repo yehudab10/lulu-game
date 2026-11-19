@@ -218,8 +218,13 @@ async function partyRun(t, guests) {
     await sleep(600);
     await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
     await hostUntil(t, `ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot again", 30000);
-    await g(`(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.s + 15, 8.2, {}); F.pos.set(p.x, 0, p.z); F.s += 15; F.d = 8.2; F.peds.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`);
-    await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 60000);
+    const PUT = `(() => { const F = ctx.foot.debug.F, p = ctx.world.road.point(F.car.stub.s + 30, 8.4, {}); F.pos.set(p.x, 0, p.z); F.peds.forEach(x => x.s += 400); F.animals.forEach(x => x.s += 400); F.parked.forEach(x => { x.s -= 500; x.busted = true; }); return true; })()`;
+    await g(PUT);
+    await hostUntil(t, `!!ctx.party._debug.flag()`, "a shared car coming her way to flag down", 60000);
+    await g(PUT);
+    await t.frames(2);
+    const promptOk = await hostUntil(t, `/FLAG IT DOWN/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "the prompt offers ✋ FLAG IT DOWN", 20000);
+    if (!promptOk) console.log("   FLAG diag", JSON.stringify(await g(`({ flag: ctx.party._debug.flag(), prompt: (document.querySelector("#slot-bottom .prompt") || {}).textContent, list: (ctx.foot.debug.interactables() || null) && [ctx.foot.debug.interactables()].map(p => p && { kind: p.kind, label: p.label, score: p.score }), phase: ctx.foot.phase, d: ctx.foot.debug.F.d })`)));
     await t.tap(0);
     const fl = await hostUntil(t, `ctx.party._debug.claims().some(c => c.mine && c.hail && !c.dead)`, "flagging one down claims it (hail)", 15000);
     if (fl) {

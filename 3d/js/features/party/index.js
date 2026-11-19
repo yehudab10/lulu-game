@@ -167,6 +167,8 @@ ctx.party = {
         stageCars: () => STG.carCount(),
         claims: () => [...T.PT.claims].map(([k, c]) => ({ key: k, T0: c.T0, L: c.L, dS: c.dS, by: c.by, mine: c.mine, hail: c.hail, dead: T.PT.dead.has(k) })),
         claimCool: () => { CLAIM.cool = 0; return true; },
+        /** the ✋ FLAG IT DOWN candidate right now (tests) */
+        flag: () => { const fp = ctx.foot && ctx.foot.pos, f = fp ? flagCandidate(fp) : null; return f ? { key: f.c.data.party, lon: +f.lon.toFixed(1), lat: +f.lat.toFixed(1) } : null; },
         /** what this screen draws for friend uid beyond their car: { parked, cops, tag } */
         world: uid => PS.debugWorld(uid),
         xk: () => JSON.parse(JSON.stringify(N.xk)),
