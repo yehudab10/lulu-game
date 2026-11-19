@@ -5,7 +5,7 @@
 //   • on foot: get out, talk to a local, carjack a (silver) minivan
 //   • the on-ramp: Route 9 South → back on the highway just past the exit
 //   • a random mash in town, perf numbers (busy Cruise vs. town), screenshots at
-//     desktop / TV / phone portrait / phone landscape, and party keeps it OFF.
+//     desktop / TV / phone portrait / phone landscape, and it is ON in a party (partyplus).
 module.exports = {
   name: "town",
   viewport: { width: 1280, height: 720 },
@@ -40,7 +40,7 @@ module.exports = {
     };
 
     t.check("ctx.town service is registered", await g(`!!(ctx.town && ctx.town.enter && ctx.town.leave && ctx.town.blocksSight && ctx.town.copRoute && ctx.town.copSpawn)`));
-    t.check("party keeps the town OFF", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"town"/.test(s))`));
+    t.check("party: the town is ON (not in the OFF set — partyplus tests it)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"town"/.test(m[1]); })`));
     t.check("the phone has the 🗞️ Kvetch app (local news)", await g(`!ctx.phone.addApp || (ctx.phone.apps ? ctx.phone.apps().includes("town") : true)`));
     t.check("the town is data: Lakewood's streets come from towns/lakewood.js", await g(`ctx.town.streets.includes("Route 9") && ctx.town.streets.includes("Main St") && !!ctx.town.towns.lakewood`));
 

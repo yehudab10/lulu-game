@@ -192,7 +192,9 @@ function enterTown(e = null, opts = {}) {
         const sp = randomSpot(36, kind);
         if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 6 });
     }
-    if (party) ctx.openworld.seeded(def.id, () => startLife(T, Object.assign({}, def, { bikes: 0 })));
+    // (a 🎉 party: seeded townsfolk + geese; the e-bikes start in seeded spots and then ride their own way on each
+    // friend's screen — personal, like the geese that charge HER: nothing anyone else's world depends on)
+    if (party) ctx.openworld.seeded(def.id, () => startLife(T, def));
     else startLife(T, def);
     addActor({ foot: true, update: dt => { try { tick(dt); } catch (err) { console.error("[town] tick", err); } return S.active; } });
     // the trip bar becomes the street chip
@@ -499,7 +501,7 @@ on("boot", () => {
     if (ctx.phone && ctx.phone.addApp) {
         try {
             ctx.phone.addApp({ id: "town", icon: "🗞️", name: "Kvetch", order: 70, color: "#5E35B1", color2: "#B39DDB",
-                visible: () => !(ctx.party && ctx.party.active),
+                visible: () => !(ctx.party && ctx.party.active) || !!S.active,      // (🌍 Free Roam: in a town)
                 badge: () => LIFE.live.length - S.readLive > 0 ? LIFE.live.length - S.readLive : null,
                 render(el) { S.readLive = LIFE.live.length; el.innerHTML = kvetchHtml(); } });
         } catch (e) { console.warn("[town] phone app", e); }

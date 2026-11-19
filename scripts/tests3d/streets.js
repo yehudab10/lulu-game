@@ -21,7 +21,7 @@ module.exports = {
     const D = `ctx.law._dbg`;
 
     t.check("ctx.streets service is registered", await g(`!!(ctx.streets && ctx.streets.carjack && ctx.streets.bail && ctx.streets.roadblock && ctx.streets.paint && ctx.streets.smashNear)`));
-    t.check("party keeps streets off (shared world stays identical)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
+    t.check("party module loads (streets are ON in a party — partyplus tests it)", await t.L(`import("./js/features/party/index.js").then(() => true)`));
     t.check("the button guide has carjack + bail out", await t.L(`import("./js/core/screens.js").then(m => /carjack/.test(m.controlsHtml()) && /Bail out/.test(m.controlsHtml()))`));
     // who's jackable in a TOWN: solo, the town's own drivers (lane AI + streetsHold) like any highway car; in a 🎉 party
     // the shared Free Roam loop cars (data.party + owTown) never, a party-local town car still yes

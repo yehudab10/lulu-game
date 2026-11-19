@@ -50,9 +50,10 @@ function span() {
     const A = N.A || {};
     return { s0: 560, s1: A.k === "trip" ? tripEnd() - 650 : 1e9 };
 }
-/** Something fixed is already there (a pull-in place, a town exit's ramp)? */
+/** Something fixed is already there (a pull-in place, a town exit's ramp, a seeded rest area — features/exits)? */
 function busyAt(s0, s1) {
     if (ctx.town && ctx.town.exits) for (const e of ctx.town.exits) if (e.s > s0 - 520 && e.s < s1 + 260) return true;
+    if (ctx.exits && ctx.exits.rests) { try { for (const r of ctx.exits.rests) if (r.s + 500 > s0 && r.s - 260 < s1) return true; } catch (e) { /* none */ } }
     if (ctx.places && ctx.places.list) {
         for (const p of ctx.places.list()) for (const s of ctx.places.at(p.id)) if (s > s0 - 160 && s < s1 + 160) return true;
     }

@@ -13,8 +13,11 @@
 //   lab.js     the chase lab (a getaway-driver bot + a headless pursuit sim — tests / tuning)
 //
 // Everything random (props, garages, roadblocks, chop-shop calls, family texts) is
-// gated by ctx.enabled("streets"): off in ?test unless enabled, off in a 🎉 party (where carjack + bail still
-// work: a jacked shared car leaves everyone's traffic through ctx.party.claimTraffic).
+// gated by ctx.enabled("streets"): off in ?test unless enabled. In a 🎉 party it's ON and party-aware: props +
+// Paint & Pray booths are seeded (the party's rng / road plan: the same for every friend), roadblocks + Shmuel's
+// calls are personal (data.partyLocal cars, only for the player with the heat), and the carjack works on a shared
+// car she CLAIMED (features/party: it pulls over the same way on every screen; gone for everyone once she drives
+// off in it — ctx.party.claimTraffic). Sports coupes join the shared traffic (ctx.party.addTrafficKind).
 // Events: streets:carjack · streets:bail · streets:roadblock · streets:spiked · streets:paint ·
 // streets:smash · streets:crime · streets:chop (see ARCHITECTURE.md › Cross-feature contracts).
 import { ctx, on, hook, css } from "../../core/ctx.js";
@@ -40,6 +43,7 @@ hook("runStart", () => {
 
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(jackSpot);
+    if (ctx.party && ctx.party.addTrafficKind) ctx.party.addTrafficKind("streets_sports", 0.04, () => live());
     if (live()) need(["npcMan", "npcWoman", "sports"]).catch(() => {});
     addTouchButton({ id: "streets_bail", emoji: "✋", label: "BAIL", action: "bail",
         visible: () => ctx.state === "playing" && canBail() && !!(currentRide() || (ctx.foot && ctx.foot.borrowed) || (ctx.law && ctx.law.wanted > 0)) });
