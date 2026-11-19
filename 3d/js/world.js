@@ -861,11 +861,15 @@ export class World {
     /** Stream chunks around the player; animate coins etc. */
     update(dt, playerS, camPos, buildBudget = 1) {
         this.time += dt;
-        if (this.district) {
-            if (this.district.keepHighway) this.cullChunks(camPos, this.district.highwayFar);
-            this.follow(dt, camPos, this.district.ground || "#ffffff", buildBudget);
+        const D = this.district;
+        if (D && !(D.keepHighway && D.highwayS != null)) {
+            if (D.keepHighway) this.cullChunks(camPos, D.highwayFar);
+            this.follow(dt, camPos, D.ground || "#ffffff", buildBudget);
             return;
         }
+        // (a district that keeps the highway — an attached town — streams the highway round where she left it, every
+        //  chunk in slices: she isn't on it, so nothing is "near her")
+        if (D) playerS = D.highwayS;
         const kMin = Math.max(0, Math.floor((playerS - BEHIND) / CHUNK));
         const kMax = Math.floor((playerS + AHEAD) / CHUNK);
         for (const [k, c] of this.chunks) {
@@ -875,22 +879,22 @@ export class World {
         // a chunk that's being built in slices: carry on (finish it now if she is suddenly close, or on a prebuild)
         let pend = this.pending && this.chunks.get(this.pending.k) === this.pending ? this.pending : null;
         if (pend) {
-            const now = buildBudget > 1 || pend.s0 < playerS + SLICE_NEAR;
+            const now = buildBudget > 1 || (!D && pend.s0 < playerS + SLICE_NEAR);
             if (pend.advance(now ? Infinity : SLICE_MS)) pend = null; else built++;
         }
         this.pending = pend;
         for (let k = kMin; k <= kMax && built < buildBudget; k++) {
             if (this.chunks.has(k)) continue;
             // far ahead (the normal case while driving): in slices; close by or prebuilding: all at once
-            const sliced = buildBudget === 1 && !this.pending && k * CHUNK >= playerS + SLICE_NEAR;
+            const sliced = buildBudget === 1 && !this.pending && (!!D || k * CHUNK >= playerS + SLICE_NEAR);
             const c = new Chunk(this, k, sliced);
             this.chunks.set(k, c);
             if (sliced) this.pending = c;
             built++;
         }
         for (const c of this.chunks.values()) c.animate(this.time);
-        this.cullChunks(camPos);
-        this.follow(dt, camPos, this.biomeAt(playerS).ground || "#ffffff", buildBudget);
+        this.cullChunks(camPos, D ? D.highwayFar : Infinity);
+        this.follow(dt, camPos, D ? D.ground || "#ffffff" : this.biomeAt(playerS).ground || "#ffffff", buildBudget);
     }
 
     /** Draw distance: a chunk wholly beyond the fog (× the graphics tier's drawScale; or `cap` m) isn't drawn —

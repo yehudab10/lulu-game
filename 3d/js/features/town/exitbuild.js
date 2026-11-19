@@ -472,7 +472,7 @@ function buildChunk(e, chunk, world, s0, s1) {
 }
 
 on("chunk:build", ({ chunk, world, s0, s1 }) => {
-    if (world.district) return;
+    if (world.district && !world.district.keepHighway) return;      // (an attached town keeps the highway streaming: build it whole)
     for (const e of X.exits) if (s1 > e.s + TAPER0 && s0 < e.s + ACC1 + 1) buildChunk(e, chunk, world, s0, s1);
 });
 on("chunk:dispose", ({ chunk }) => { chunk.dead = true; });

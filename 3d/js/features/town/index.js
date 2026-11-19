@@ -255,8 +255,8 @@ function planBuilds(e) {
     }
 }
 /** Advance the first unfinished build by ~ms (all of it when ms is Infinity). */
-function advanceBuilds(ms = BUILD_MS) {
-    const en = S.built.find(b => !b.ready);
+function advanceBuilds(ms = BUILD_MS, target = null) {
+    const en = target && !target.ready ? target : S.built.find(b => !b.ready);
     if (!en) return;
     const t0 = performance.now();
     withPlan(en, () => {
@@ -368,10 +368,9 @@ function enterTown(e = null, opts = {}) {
             const P = placeAt(base, opts.exitS, k);
             if (P) { en = Object.assign(P, { e: null, T: null, gen: null, ready: false, box: boxOf(P.def), ms: 0, steps: 0, worst: 0 }); S.built.push(en); }
         }
-        if (en && !en.ready) advanceBuilds(Infinity);
+        if (en && !en.ready) advanceBuilds(Infinity, en);
         if (en && !en.ready) en = null;
-        // (a warp lands her by the town: the highway's chunks round the interchange are built, so the way out is there)
-        if (en && opts.prebuild !== false) world.prebuild(en.exitS + en.cu);
+        // (a warp lands her by the town: the highway's chunks round the interchange stream in, in slices — district.highwayS)
     }
     const def = en ? en.def : base;
     setPlan(def, en ? en.at : null);
@@ -385,7 +384,7 @@ function enterTown(e = null, opts = {}) {
     S.road = new TownRoad(world.highway);
     S.chunk = makeChunk(T);
     S.occ = PL.OCCLUDERS;
-    world.setDistrict({ road: S.road, chunks: [S.chunk], ground: def.ground, keepHighway: !!en, see: en ? seeChunk : null });
+    world.setDistrict({ road: S.road, chunks: [S.chunk], ground: def.ground, keepHighway: !!en, see: en ? seeChunk : null, highwayS: en ? en.exitS + en.cu : null });
     S.active = true;
     S.savedTraffic = tr.config.enabled;
     tr.config.enabled = false;
