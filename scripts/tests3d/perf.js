@@ -17,7 +17,7 @@
 //   node scripts/perf3d.js                       # this file, prints the table, writes smoke-shots/perf3d-<tier>.json
 //   node scripts/perf3d.js --compare a.json b.json
 //   PERF3D_TIER=low|medium|high|auto  PERF3D_DRIVE=<game seconds> (120 for the full 2-minute drive)
-//   PERF3D_SCENES=cruise,rain,…  PERF3D_FRAMES=<frames per scene>  PERF3D_OUT=<file>
+//   PERF3D_SCENES=cruise,rain,…  PERF3D_FRAMES=<frames per scene>  PERF3D_OUT=<file>  PERF3D_ADD=<features>  PERF3D_QUERY=<&flags>
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
@@ -29,7 +29,8 @@ const SCENES = (process.env.PERF3D_SCENES || "cruise,rain,rest,town,foot,interio
 const FEATURES = "bloom,roadevents,cameos,banter,atmos,world,town,exits,law,feel,streets,rides,community,memory,hustle,play,foot,interiors,party,openworld";
 const PORT = 25000 + (process.pid % 20000);
 const RELAY = `ws://127.0.0.1:${PORT}`;
-const Q = `&enable=${FEATURES}&mpurl=${encodeURIComponent(RELAY)}`;
+// (PERF3D_ADD: more features to enable, PERF3D_QUERY: more URL flags — e.g. PERF3D_ADD=seasons PERF3D_QUERY="&season=chanukah&night=8")
+const Q = `&enable=${FEATURES}${process.env.PERF3D_ADD ? "," + process.env.PERF3D_ADD : ""}&mpurl=${encodeURIComponent(RELAY)}${process.env.PERF3D_QUERY || ""}`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SETTINGS = { quality: TIER, vibration: true, invertLook: false, steerSens: 1, calm: false, tv: "off", hud: 1, hudMode: "full", chatter: "normal" };
 
