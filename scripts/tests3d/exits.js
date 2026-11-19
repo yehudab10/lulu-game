@@ -141,6 +141,8 @@ module.exports = {
       t.check("…the far end has its roadside: STOP signs, guide boards, a gas station, Welcome signs, houses, crash cushions", ["exits_stop", "exits_guide", "exits_pylon", "exits_canopy", "exits_welcome", "house", "exits_cushion", "exits_advisory"].every(k => L.props.some(p => p.key === k)));
       // every prop / rail of the layout is off the lanes
       const scan = await t.L(`import("./js/world.js").then(W => { const c = __lulu3d.ctx, E = ${E}, L = c.town.debug.exitLayout(E), bad = [];
+          // (the road's nearest() searches ±120 m round its hint: refine it, so a collider 400 m on maps to the right spot)
+          const near = (x, z, h) => { const H = c.world.highway; let n = H.nearest(x, z, h, {}); for (let k = 0; k < 3; k++) n = H.nearest(x, z, n.s, {}); return n; };
           for (const p of L.props) if (!W.offLanes(E + p.u, p.d, Math.max(0.3, p.r * 0.7), Math.max(0.3, p.len ? p.len / 2 : p.r * 0.7))) bad.push(p.key + "@" + Math.round(p.u) + "," + p.d.toFixed(1));
           for (const r of L.rails) for (const [u, d] of r.pts) if (!W.offLanes(E + u, d, 0.15, 0.3)) bad.push("rail@" + Math.round(u) + "," + d.toFixed(1));
           // every sign on the road near it (ours, a rest area's, a road zone's…) — where it was BUILT
@@ -148,7 +150,7 @@ module.exports = {
           for (const sg of c.world.signs) { if (sg.s < E - 1500 || sg.s > E + 480) continue; signs++; const d = sg.builtD != null ? sg.builtD : sg.d; if (!W.offLanes(sg.s, d, (sg.w || 4.2) / 2, 0.4)) bad.push("sign:" + sg.lines.join(" ").slice(0, 24) + "@" + Math.round(sg.s - E)); }
           // and every static collider the chunks built there (anybody's tree, pole, house, prop, sign)
           let cols = 0;
-          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = c.world.highway.nearest(co.x, co.z, E, {}); if (n.s < E - 260 || n.s > E + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - E) + "," + n.d.toFixed(1)); }
+          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = near(co.x, co.z, E); if (n.s < E - 260 || n.s > E + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - E) + "," + n.d.toFixed(1)); }
           return { signs, cols, bad }; })`);
       t.check("no sign, prop, rail or collider overlaps the interchange's lanes (decel / ramps / gores / cross roads / on-ramp / accel)", !scan.bad.length && scan.cols > 20, JSON.stringify(scan).slice(0, 400));
       t.check("the exit-number tabs ride on the advance signs", await g(`ctx.world.signs.some(s => s.tab === "EXITS 91 · 9")`));
@@ -310,9 +312,10 @@ module.exports = {
       await place(RSs + 60, 27, 0);
       await t.frames(20);
       const scan = await t.L(`import("./js/world.js").then(W => { const c = __lulu3d.ctx, R = ${RSs}, bad = [];
+          const near = (x, z, h) => { const H = c.world.highway; let n = H.nearest(x, z, h, {}); for (let k = 0; k < 3; k++) n = H.nearest(x, z, n.s, {}); return n; };
           let signs = 0, cols = 0;
           for (const sg of c.world.signs) { if (sg.s < R - 1400 || sg.s > R + 500) continue; signs++; const d = sg.builtD != null ? sg.builtD : sg.d; if (!W.offLanes(sg.s, d, (sg.w || 4.2) / 2, 0.4)) bad.push("sign:" + sg.lines.join(" ").slice(0, 24) + "@" + Math.round(sg.s - R)); }
-          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = c.world.highway.nearest(co.x, co.z, R, {}); if (n.s < R - 220 || n.s > R + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - R) + "," + n.d.toFixed(1)); }
+          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = near(co.x, co.z, R); if (n.s < R - 220 || n.s > R + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - R) + "," + n.d.toFixed(1)); }
           return { signs, cols, bad }; })`);
       t.check("no sign, prop or collider stands on a rest area's lanes", !scan.bad.length && scan.cols > 40, JSON.stringify(scan).slice(0, 400));
     });
