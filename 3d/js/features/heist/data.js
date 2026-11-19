@@ -114,6 +114,7 @@ export const ROBBERY = {
     lulu: ["Oh, NO you don't!", "Not in MY town!", "Somebody stop him! …fine, ME.", "Is that a BANANA?!", "Hold my kugel."],
     foiled: ["*hands up* OK OK! It's {prop}, officer!", "I want my lawyer. And my mother.", "Curse you, pink convertible!", "This is the worst getaway of my career. It was my first."],
     cop: ["Nice driving, ma'am! We'll take it from here.", "Collar's ours. You're the hero of the day!", "Banana's evidence now. Thanks, Miss Bruck!"],
+    copTackle: ["Nice tackle, ma'am! We'll take it from here.", "A flying tackle?! In THOSE shoes?!", "We'll take it from here. …Do you play football?"],
     escaped: "🚓 They got away… the cops have it from here.",
     hero: ["The whole block saw that. Ima's going to hear about it in nine minutes.", "Hero of the neighbourhood! Somebody get this woman a kugel.", "Caught a crook. In heels. Before lunch."],
 };

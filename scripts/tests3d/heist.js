@@ -361,7 +361,8 @@ module.exports = {
       // the spike strip, dead ahead in her lane (the chase wound down + an empty road, so nothing boxes her in first)
       await g(`(() => { ctx.law.standDown("test"); ctx.traffic.clear(); const r = ctx.world.road, s = ctx.car.s, p = r.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = Math.sin(p.h) * 24; ctx.car.vz = Math.cos(p.h) * 24; return true; })()`);
       await t.frames(2);
-      t.check("a spike strip is tossed ahead", await g(`ctx.heist.gear.laySpikes(30, 1.75)`));
+      // (12 m ahead: nobody steers here, so on a bend 30 m of straight-line driving carried her out of the lane before the strip)
+      t.check("a spike strip is tossed ahead", await g(`ctx.heist.gear.laySpikes(12, 1.75)`));
       await t.until(`window.__ev.some(e => /heist:gear.*"spikes".*"hit"/.test(e))`, "over the spike strip → flat", 6000);
       t.check("spiked: a flat (streets' flat tyres or ours)", await g(`ctx.heist.gear.flat`));
       await t.shot("spiked");

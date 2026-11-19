@@ -432,7 +432,7 @@ function tick(dt) {
             cp.obj.position.set(o.x - Math.sin(c.h) * 4, 0, o.z - Math.cos(c.h) * 4);
             ctx.scene.add(cp.obj);
             ev.copPerson = cp;
-            npcSays(cp.obj, pick(ROBBERY.cop), 2.8, "cop");
+            npcSays(cp.obj, pick(ev.how === "tackle" ? ROBBERY.copTackle : ROBBERY.cop), 2.8, "cop");
         }
         if (ev.copPerson && p) {
             const cp = ev.copPerson, o = p.obj.position, q = cp.obj.position;
