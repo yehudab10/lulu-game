@@ -117,7 +117,7 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #footHot .hint { margin-top: 6px; font-size: 14px; opacity: .85; }
 #footWash { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; background: #000; transition: opacity .25s; }
 body.tv #footHot { width: min(760px, 70vw); } body.tv #footHot .ttl { font-size: 28px; } body.tv .foot-chip { font-size: 22px; }
-@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 130px); }
+@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 236px); }
   body.onfoot.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 `);
 const hot = document.createElement("div");
@@ -1554,7 +1554,7 @@ function coachHint() {
     if (F.t < 1.2 || F.chase || ctx.dialogOpen) return "";
     const c = S.coach, young = F.t < 45;
     if (F.camFree && ctx.cam && ctx.cam.free && ctx.cam.free.looks > (F.looks0 || 0) && !F.lookedThisWalk) { F.lookedThisWalk = true; coachDid("look"); }
-    if ((c.jump || 0) < 3 && young) return `${glyph("jump")} JUMP${input.device === "touch" ? "" : " · hold = higher"}`;
+    if ((c.jump || 0) < 3 && young) return input.device === "touch" ? "⤴ tap JUMP · hold it = higher" : `${glyph("jump")} JUMP · hold = higher`;
     if (F.near && (c.perch || 0) < 3) return `${glyph("jump")} hop up on the ${F.near}!`;
     if ((c.look || 0) < 2 && young) return input.device === "touch" ? "👆 drag the picture to look around" : `${glyph("freeLook")} look around — it stays put`;
     if (ctx.moves && ctx.moves.on && (c.roll || 0) < 2 && young) return `${glyph("footMove")} ROLL · while running: SLIDE · at a car: VAULT`;
