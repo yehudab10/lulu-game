@@ -6,7 +6,7 @@
 //     doesn't flicker while her courtesy shield runs
 //   • a teleport is still a cut (cam.blend refuses a jump of more than 70 m)
 //   • leaving a town whose models are loaded is a SOFT CUT (the frozen frame melts away; the black fade stays out)
-//   • a building's inside can be warmed ahead of the door
+//   • a building's inside can be warmed ahead of the door — then stepping in and out is a soft cut too (no black)
 module.exports = {
   name: "flow",
   query: "&enable=town",
@@ -85,5 +85,18 @@ module.exports = {
     // ── a building's inside can be warmed ahead of the door ──
     t.check("interiors can be warmed (ctx.interiors.<id>.warm)", await g(`typeof ctx.interiors.bar.warm === "function" && (ctx.interiors.bar.warm(), ctx.interiors.bar.warm(), true)`));
     await t.frames(10);
+
+    // ── a warmed building: in and out by a soft cut (the room is built in the same frame; its black never shows) ──
+    if (await t.until(`__lulu3d.ctx.interiors.bar.ready()`, "the bar's inside is loaded ahead of the door", 90000)) {
+      await t.L(`(window.__blackI = 0, window.__blkI = setInterval(() => { const f = document.getElementById("intFade"); if (f) window.__blackI = Math.max(window.__blackI, +f.style.opacity || 0); }, 10), true)`);
+      await g(`(window.__out = 0, ctx.interiors.bar.enter({ exit: () => { window.__out++; L3.setState("playing"); } }), true)`);
+      t.check("stepping in: the room is there at once", await g(`L3.state === "interior" && !!window.__interiors.room && window.__interiors.room.ready === true`));
+      await t.frames(20);
+      await t.shot("soft-door");
+      await g(`(window.__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "playing" && window.__out === 1`, "stepping out: back on the road at once", 6000);
+      await t.page.waitForTimeout(700);
+      t.check("…in and out without the black screen", await t.L(`(clearInterval(window.__blkI), window.__blackI === 0)`), String(await t.L(`window.__blackI`)));
+    }
   },
 };

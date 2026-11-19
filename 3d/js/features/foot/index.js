@@ -1571,10 +1571,15 @@ function updateEnter(dt) {
     F.lulu.face(_v.x, _v.z, dt, 10);
     F.lulu.obj.position.set(F.pos.x, 0.05, F.pos.z);
     F.lulu.update(dt, { walk: 2.2 });
-    wash.style.transition = "none";
-    wash.style.background = "#000";
-    wash.style.opacity = String(clamp((t - 0.3) / 0.45, 0, 1));
-    if (t > 0.8) handoffInterior(dr.id, dr);
+    // (the inside is loaded — the door warmed it: no black, the street melts into the room; else the old fade)
+    const reg = ctx.interiors && ctx.interiors[dr.id];
+    if (e.soft == null) e.soft = !!(reg && reg.ready && reg.ready());
+    if (!e.soft) {
+        wash.style.transition = "none";
+        wash.style.background = "#000";
+        wash.style.opacity = String(clamp((t - 0.3) / 0.45, 0, 1));
+    }
+    if (t > (e.soft ? 0.7 : 0.8)) handoffInterior(dr.id, dr);
 }
 function handoffInterior(id, door) {
     const reg = ctx.interiors && ctx.interiors[id];

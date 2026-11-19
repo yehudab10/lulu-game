@@ -17,6 +17,7 @@ import { ctx, registerState, setState, emit, on, css } from "../../core/ctx.js";
 import { makeSet } from "../../core/sets.js";
 import { store, saveSoon, shared, wallet, save3d } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
+import { dissolve } from "../../core/transition.js";
 import { models, ensureModels, registerModels, findNodes } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { say, choose, isOpen as dialogIsOpen, closeDialog } from "../../core/dialog.js";
@@ -110,27 +111,47 @@ export const current = () => cur;
 // keep the controls hint in step with whatever the player picks up (pad ↔ keys ↔ touch)
 on("device", () => { const h = cur && cur.chip && cur.chip.querySelector(".int-hint"); if (h) h.innerHTML = cur.hintHtml(); });
 
-/** Register an interior: ctx.interiors[def.id] = { name, emoji, enter({ exit }), warm() }. */
+/** Register an interior: ctx.interiors[def.id] = { name, emoji, enter({ exit }), warm(), ready() }. */
 export function defineInterior(def) {
     ctx.interiors[def.id] = {
         name: def.name, emoji: def.emoji,
         enter(opts = {}) { return enterInterior(def, opts); },
-        /** Fetch its models ahead of time (she's walking up to the door): the black between outside and inside is then
-         *  only the build, not the download. Safe to call again and again. */
+        /** Fetch its models ahead of time (she's walking up to the door): the step inside is then a SOFT CUT — the
+         *  street melts into the room — instead of a black screen. Safe to call again and again. → a promise */
         warm() {
-            if (def._warm) return;
-            def._warm = true;
-            const hair = shared.get().luluHairStyle;
-            ensureModels([def.model, "interiorsProps", "luluPerson", ...(def.models || [])]).catch(() => { def._warm = false; });
-            if (hair) ensureModels(["luluPerson_" + hair]).catch(() => { /* not a registered style */ });
+            const hair = shared.get().luluHairStyle || "";
+            if (def._warm && def._warmHair === hair) return def._warm;
+            def._warmHair = hair; def._warmed = null;
+            const hairP = hair ? ensureModels(["luluPerson_" + hair]).catch(() => { /* not a registered style */ }) : Promise.resolve();
+            const p = def._warm = Promise.all([ensureModels([def.model, "interiorsProps", "luluPerson", ...(def.models || [])]), hairP])
+                .then(() => { if (def._warm === p) def._warmed = hair; })
+                .catch(() => { if (def._warm === p) def._warm = null; });
+            return p;
         },
+        /** Is everything it needs loaded right now (warm() finished for the hair she has today)? */
+        ready() { return def._warmed === (shared.get().luluHairStyle || "") && roomKeys(def).all.every(k => !!models[k]); },
     };
     return def;
+}
+/** The models a room needs; Lulu's own hair style when that model is loaded. */
+function roomKeys(def) {
+    const s2 = shared.get(), hk = s2.luluHairStyle ? "luluPerson_" + s2.luluHairStyle : null;
+    const luluKey = hk && models[hk] ? hk : "luluPerson";
+    return { s2, luluKey, all: [def.model, "interiorsProps", luluKey, ...(def.models || [])] };
 }
 
 function enterInterior(def, opts) {
     if (cur) { console.warn("[interiors] already inside", cur.def.id); return false; }
     cur = new Room(def, opts || {});
+    const room = cur;
+    // Everything's loaded (the door warmed it): a SOFT CUT — the frame of the street melts into the room, no black.
+    if (!ctx.skipping && ctx.interiors[def.id].ready()) {
+        let ok = false;
+        dissolve(() => { setState("interior", { id: def.id }); ok = room.loadNow(); });
+        if (ok || room.disposed) return true;
+        room.load();          // (couldn't build in place: the loading path, behind its fade)
+        return true;
+    }
     setState("interior", { id: def.id });
     cur.load();
     return true;
@@ -183,6 +204,22 @@ export class Room {
         this.data = {};          // scratch for the interior def
     }
 
+    /** Everything is already loaded: build now — no fade (the caller's soft cut covers the frame). → built? */
+    loadNow() {
+        const k = roomKeys(this.def);
+        if (!k.all.every(x => !!models[x])) return false;
+        try { this.build(k.luluKey, k.s2); }
+        catch (e) { console.error("[interiors] build", e); return false; }
+        this.soft = true;            // (…and she leaves the same way)
+        this.ready = true;
+        this.fadeIn = 1;
+        setFade(0, "");
+        S.visits[this.def.id] = (S.visits[this.def.id] || 0) + 1;
+        saveSoon();
+        emit("stat", { id: "interiorVisits", n: 1 });
+        emit("interior:enter", { id: this.def.id });
+        return true;
+    }
     async load() {
         setFade(1, `${this.def.emoji}`);
         const s2 = shared.get();
@@ -419,8 +456,7 @@ export class Room {
         const id = this.def.id;
         if (cur === this) cur = null;
         this.dispose();
-        setFade(1);
-        fadeAway();
+        if (this.soft) setFade(0, ""); else { setFade(1); fadeAway(); }
         if (ctx.G) ctx.G.invT = Math.max(ctx.G.invT || 0, 2.0);   // 2D: a 2 s shield back on the street
         emit("interior:exit", { id });
         if (typeof cb === "function") {
@@ -456,6 +492,8 @@ export class Room {
         }
         if (this.t > 8 && this.chip) { const h = this.chip.querySelector(".int-hint"); if (h && !h.classList.contains("gone")) h.classList.add("gone"); }
         if (this.leaving) {
+            // (she came in by a soft cut: the room melts back into the street the same way)
+            if (this.soft && !ctx.skipping) { dissolve(() => this.finishLeave()); return; }
             this.leaveT += dt;
             setFade(Math.min(1, this.leaveT / 0.4));
             if (this.leaveT >= 0.42) this.finishLeave();
