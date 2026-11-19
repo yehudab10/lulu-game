@@ -122,7 +122,7 @@ registerState("heistJob", {
         }
         CUT.lulu = p;
         ctx.car.showDriver(false);
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         emit("heist:job", { phase: "start", town: job.town, plan: job.plan.id });
     },
     update(dt) {

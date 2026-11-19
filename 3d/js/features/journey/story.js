@@ -107,7 +107,7 @@ registerState("storyTalk", {
         talk.prevInv = ctx.G.invT || 0;
         ctx.G.invT = Math.max(ctx.G.invT, 99);
         SFX.chime(620, 830);
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
     },
     exit() {
         if (ctx.dialogOpen) closeDialog();

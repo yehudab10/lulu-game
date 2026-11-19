@@ -45,7 +45,7 @@ registerState("lawArrest", {
         }
         st.unit.siren = true;
         if (!st.unit.car.ai) { st.unit.car.free = true; st.unit.car.ai = (dt, c) => driveUnit(dt, c, st.unit); }
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         X.chirp();
         X.wompWomp();
         rumble(0.6, 0.6, 400, true);

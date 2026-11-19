@@ -32,7 +32,7 @@ registerState("communityScene", {
         SS = data && data.ss;
         if (!SS) return;
         SS.foot = false;
-        if (ctx.cam) ctx.cam.snap();
+        if (ctx.cam) ctx.cam.blend(0.6);
         H.prompt("");
         SS.flow = flow(f => SS.script(f, SS));
     },

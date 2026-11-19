@@ -43,6 +43,7 @@ import { tickRail } from "./rail.js";
 import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
 import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, honked, crime, patrolSees, talkSpot } from "./life.js";
+import { dissolve } from "../../core/transition.js";
 import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } from "./cops.js";
 import { PK, setupParked, tickParked, clearParked } from "./parked.js";
 import { X, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads } from "./exit.js";
@@ -110,6 +111,17 @@ function tickTrans(dt) {
     const def = tr.kind === "enter" ? (tr.e ? tr.e.town : townFor()) : S.def;
     const label = tr.kind === "enter" ? `${def.emoji} ${def.name}<small>${def.lines.SIGNS.welcome.slice(1).join(" · ")}</small>` : `🛣️ Back to the highway<small>${def.name} survived</small>`;
     if (tr.phase === "out") {
+        // Everything's loaded: a SOFT CUT — the last frame of the ramp melts into the town's street (or the street into
+        // the highway). The black + its label are only for when she still has to wait for the download.
+        if (!tr.hard && (tr.kind === "leave" || S.ok[def.id])) {
+            dissolve(() => {
+                try { if (tr.kind === "enter") enterTown(tr.e); else leaveTown("highway"); }
+                catch (err) { console.error("[town] transition", err); }
+            });
+            tr.phase = "in"; tr.soft = true; tr.t = 0;
+            return;
+        }
+        tr.hard = true;
         setFade(tr.t / 0.4, label);
         if (tr.t >= 0.4) { tr.phase = "black"; tr.t = 0; }
     } else if (tr.phase === "black") {
@@ -123,6 +135,8 @@ function tickTrans(dt) {
         try { if (tr.kind === "enter") enterTown(tr.e); else leaveTown("highway"); }
         catch (err) { console.error("[town] transition", err); }
         tr.phase = "in"; tr.t = 0;
+    } else if (tr.soft) {
+        if (tr.t >= 0.3) S.trans = null;         // (the melt is the overlay's own; `transitioning` just covers it)
     } else {
         setFade(1 - tr.t / 0.55, label);
         if (tr.t >= 0.55) { S.trans = null; setFade(0); }
@@ -561,7 +575,7 @@ ctx.town = {
      *  loaded (await ctx.town.load(id)). */
     enter(opts = {}) { return enterTown(null, opts); },
     /** Back to the highway now. why: "highway" (default) | "quiet" | "reset". */
-    leave(why = "highway") { return leaveTown(why); },
+    leave(why = "highway") { return why === "quiet" && S.active ? dissolve(() => leaveTown(why)) : leaveTown(why); },
     load: id => load(id ? TOWNS[id] : townFor(0)),
     /** Is this town's model set loaded? */
     loaded: id => !!S.ok[id || townFor(0).id],
@@ -634,6 +648,8 @@ ctx.town = {
     },
     debug: {
         S, C, LIFE, PL, X, PK, gossip, luluSay, crime,
+        /** Start the ramp's transition now ("leave" from inside a town; "enter" needs an exit `e`): tests. */
+        trans: (kind, e = null) => { beginTrans(kind, e); return !!S.trans; },
         /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): the full interchange
          *  (every town), or a one-town exit with its own signs when `id` names a town. */
         exitAhead(ahead = 320, id = null) {

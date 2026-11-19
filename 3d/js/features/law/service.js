@@ -7,6 +7,7 @@
 import { ctx, setState } from "../../core/ctx.js";
 import { startRun } from "../../core/driving.js";
 import * as H from "../../hud.js";
+import * as A from "../../audio.js";
 import { L, config, TUNE, beginChase, endChase, copNear, copSees, startFugitive, endFugitive, prisonClothes, rig, setRig,
     notice, callIn, endBolo, changeLook, escape, spawnTrap } from "./cops.js";
 import { REASON_CHARGES, CHARGE_DIALOGUE, CHARGE_DEFENSE, CHARGE_WEIGHT } from "./data.js";
@@ -237,7 +238,10 @@ export function resumeDriving({ s = null, fugitive = false, banner = "", onPlace
     if (fugitive) { if (!L.fug) startFugitive(0); } else if (L.fug) endFugitive();
     prisonClothes(!!L.fug);
     ctx.cam.snap();
-    G.goText = banner || G.goText;
-    if (onPlaced) { setState("playing"); onPlaced(); return; }
-    setState("intro");
+    if (onPlaced) { G.goText = banner || G.goText; setState("playing"); onPlaced(); return; }
+    // a ROLLING start: she's already moving and shielded for 6 s — the 3-2-1 is for a fresh run, not for getting
+    // back on the road after a scene
+    if (banner) H.toast(banner, "pink");
+    if (!G.musicSet) A.setMusic("../luludriving.mp3");
+    setState("playing");
 }

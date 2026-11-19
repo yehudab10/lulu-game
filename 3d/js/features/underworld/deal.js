@@ -29,7 +29,7 @@ registerState("underworldDeal", {
         D = { offer, t: 0, alive: true, after: [], done: false };
         A.duckMusic(0.18);
         H.prompt("");
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         const api = {
             get alive() { return !!(D && D.alive); },
             say: async (who, text, opts = {}) => {

@@ -97,7 +97,7 @@ export function damage(power, why, source = "crash") {
     const { car } = ctx;
     G.hearts--;
     G.crashes++;
-    G.invT = 2.2;
+    G.invT = 2.2; G.invSoft = false;       // (a real hit: the shield blinks)
     G.combo = 0;
     G.shake = 0.9;
     H.setHearts(G.hearts, G.maxHearts);
@@ -301,6 +301,7 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     G.comboT -= dt;
     if (G.comboT <= 0) G.combo = 0;
     G.invT = Math.max(0, G.invT - dt);
+    if (G.invT <= 0) G.invSoft = false;
 
     runHooks("update", dt, P, controlsOn);
 
@@ -313,7 +314,8 @@ export function updateDriving(dt, P, controlsOn, ctlOverride = null) {
     A.updateEngine(car.vF, controlsOn ? ctl.throttle : 0, car.slip, offroad + (onShoulder && car.speed > 8 ? 0.4 : 0), G.boosting, true);
     A.sfxHorn(controlsOn && input.honkHeld && !G.customHorn);
     // (no i-frame blink once she's wrecked: the fatal hit's invT would flicker the car + Lulu all through the spin-out)
-    car.updateVisual(dt, ctx.time, ctl, G.invT > 0 && ctx.state !== "wrecked");
+    // (…and none for a COURTESY shield — G.invSoft: she just hopped into a car — a blinking car there reads as a glitch)
+    car.updateVisual(dt, ctx.time, ctl, G.invT > 0 && !G.invSoft && ctx.state !== "wrecked");
     return rp;
 }
 

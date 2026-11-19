@@ -4,6 +4,9 @@
 //   ctx.cam.cinematic(fromVec3, lookVec3, dt, lerp = 2)  — ease toward a shot
 //   ctx.cam.follow(object3D, { dist, height, look, yaw }, dt) — 3rd-person follow (on foot)
 //   ctx.cam.snap()   — jump instead of easing on the next frame
+//   ctx.cam.blend(s) — like snap() for the rigs, but the PICTURE glides from where the camera is now to wherever
+//                      the next rig puts it, over s seconds (car ↔ on foot, into and out of a roadside cutscene).
+//                      A jump of more than BLEND_MAX metres is a teleport: that one stays a cut.
 // A state can own the camera by defining camera(dt) → true in registerState.
 import * as THREE from "three";
 import { ctx, wrapAngle, runHooks, claimHooks } from "./ctx.js";
@@ -18,6 +21,10 @@ export const CAMS = [
 
 const st = { mode: save3d.cam || 0, yaw: 0, lookYaw: 0, lookPitch: 0, pos: new THREE.Vector3(), orbit: 0, snap: true, look: new THREE.Vector3() };
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _axis = new THREE.Vector3();
+// a running blend (cam.blend): the pose the picture is leaving, and how far along it is
+const BLEND_MAX = 70;
+const bl = { on: false, fresh: false, t: 0, dur: 0.6, pos: new THREE.Vector3(), quat: new THREE.Quaternion(), fov: 60 };
+const ease = k => k * k * (3 - 2 * k);
 
 export const cam = {
     get mode() { return st.mode; },
@@ -30,6 +37,16 @@ export const cam = {
         return CAMS[st.mode].name;
     },
     snap() { st.snap = true; if (ctx.car) st.yaw = ctx.car.h; },
+    /** A soft cut: the rigs jump (as with snap), the picture glides there over `sec` seconds. */
+    blend(sec = 0.6) {
+        const camera = ctx.camera;
+        cam.snap();
+        if (!camera || ctx.view || ctx.skipping || !(sec > 0)) { bl.on = false; return; }
+        // (a blend already running: leave from the pose on screen, which is what camera holds right now)
+        bl.pos.copy(camera.position); bl.quat.copy(camera.quaternion); bl.fov = camera.fov;
+        bl.on = true; bl.fresh = true; bl.t = 0; bl.dur = sec;
+    },
+    get blending() { return bl.on; },
     /** Ease the camera toward a shot (cutscenes, arrivals). */
     cinematic(from, look, dt, rate = 2, fov = 50) {
         const camera = ctx.camera;
@@ -56,10 +73,30 @@ export const cam = {
         camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);
         camera.updateProjectionMatrix();
     },
-    update(dt) { updateCamera(dt); },
+    update(dt) { updateCamera(dt); applyBlend(dt); },
     state: st,
 };
 ctx.cam = cam;
+
+/** After the rig has placed the camera: ease the picture from the pose cam.blend() captured to that placement. */
+function applyBlend(dt) {
+    if (!bl.on) return;
+    const camera = ctx.camera;
+    if (bl.fresh) {
+        bl.fresh = false;
+        if (camera.position.distanceTo(bl.pos) > BLEND_MAX) { bl.on = false; return; }      // a teleport: cut
+    }
+    bl.t += dt;
+    const k = bl.t / bl.dur;
+    if (k >= 1) { bl.on = false; return; }
+    const e = ease(k);
+    camera.position.lerpVectors(bl.pos, camera.position, e);
+    _q.copy(camera.quaternion);
+    camera.quaternion.slerpQuaternions(bl.quat, _q, e);
+    camera.fov = bl.fov + (camera.fov - bl.fov) * e;
+    camera.updateProjectionMatrix();
+}
+const _q = new THREE.Quaternion();
 
 function updateCamera(dt) {
     const camera = ctx.camera, car = ctx.car, G = ctx.G;

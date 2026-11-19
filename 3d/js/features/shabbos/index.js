@@ -378,7 +378,7 @@ registerState("shabbosArrive", {
         }
         R.arr = { target: road.point(S - 3, 12.5, {}), talk: false, bless: false, scripted: false };
         setPorch(0, 0);
-        ctx.cam.snap();
+        ctx.cam.blend(0.6);
         A.sfxHorn(false);
         H.banner(`🏡 <b>BUBBE'S HOUSE!</b><small>${fmtTime(Math.floor(R.margin))} to spare 🕯️</small>`, 2400, { prio: 2, key: "shabbos" });
     },

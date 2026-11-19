@@ -29,6 +29,7 @@
 //    owd (delivered) owk (kugel pass) owp (snap) · party:bc "k" keys "c-1:i" = town coins
 // ─────────────────────────────────────────────────────────────────────────
 import { ctx, on, emit, hook, setState } from "../../core/ctx.js";
+import { dissolve } from "../../core/transition.js";
 import { store, saveSoon } from "../../core/save.js";
 import { addCoins } from "../../core/driving.js";
 import { rumble } from "../../input.js";
@@ -197,10 +198,16 @@ function findFriend(A) {
 }
 
 // ── warping (catch up with a friend · line up for a game) ────────────────
-/** Put my car `back` metres behind `at` = {zone, x, z, h} (a town) or {zone: "", s, d} (the highway). */
+/** Put my car `back` metres behind `at` = {zone, x, z, h} (a town) or {zone: "", s, d} (the highway).
+ *  A SOFT CUT: the place she's leaving melts into the place she lands (the frame a town takes to build hides behind it). */
 function warpTo(at, back = 0) {
     const T = ctx.town, car = ctx.car;
     if (!car || onFoot()) return false;
+    if (at.zone && T && !T.active && T.load && !(T.loaded ? T.loaded(at.zone) : true)) return warpNow(at, back);   // (still downloading: it cuts in when it arrives)
+    return dissolve(() => warpNow(at, back));
+}
+function warpNow(at, back = 0) {
+    const T = ctx.town, car = ctx.car;
     const done = () => {
         car.vx = car.vz = 0; car.vF = 0;
         if (ctx.cam) ctx.cam.snap();
