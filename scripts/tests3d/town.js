@@ -123,6 +123,78 @@ module.exports = {
       await t.frames(10);
     });
 
+    await step("hiding", async () => {
+      if (!await inTown()) return;
+      // ── 4b. hiding in town: a travel lane is NOT a hiding place; the kerb among parked cars, out of sight, is ──
+      const LAW = `ctx.law._dbg`, P = `${D}.PL`;
+      const hud = () => t.L(`(document.querySelector(".law-wanted") || {}).textContent || ""`);
+      await g(`(ctx.traffic.config.enabled = false, ctx.law.clearHeat ? ctx.law.clearHeat("test") : null, ${LAW}.L.hint2 = 0, true)`);
+      t.check("Lakewood: every street has a parking lane with hiding spots at the kerb (among parked cars)", await g(`${P}.STREETS.every(st => { if (!st.parkLane) return false;
+          for (let a = st.cross[0].a + 12; a < st.cross[st.cross.length - 1].a - 12; a += 3) for (const sd of [-1, 1]) { const p = ${D}.pt(st.name, a, sd * st.park), h = ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z); if (h.ok && h.spot === "kerb") return true; }
+          return false; })`));
+      t.check("…a travel lane never is", await g(`${P}.STREETS.every(st => { for (let a = st.a0; a < st.a1; a += 5) for (const d of [-1.75, 1.75]) { const p = ${D}.pt(st.name, a, d); if (ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z).ok) return false; } return true; })`));
+      t.check("…up on the sidewalk / a driveway apron is off the street", await g(`(() => { const p = ${D}.pt("Clifton Ave", 120, 9.6); return ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z).ok; })()`));
+      // a cruiser behind the block (Route 9 / Madison Ave are a block away from Clifton Ave)
+      const unit = `${LAW}.L.units.find(u => u.car && u.mode === "chase")`;
+      const putUnit = (name, along, d, h) => g(`(() => { const u = ${unit}; if (!u) return false; const st = ${P}.byName[${JSON.stringify(name)}], p = ${D}.pt(${JSON.stringify(name)}, ${along}, ${d}), o = ${P}.ORIGIN;
+          Object.assign(u.car, { x: o.x + p.x, z: o.z + p.z, h: ${h}, s: st.base + ${along}, speed: 0, hit: false }); return true; })()`);
+      // (1) stopped MID-LANE on Clifton Ave while they search: not hidden — and a cruiser coming down the street sees her
+      await g(`${D}.place("Clifton Ave", 120, 1.75, 0, 1)`);
+      await g(`(${LAW}.L.grace = 0, ${LAW}.L.hold = 0, ctx.law.startChase("RECKLESS DRIVING", { heat: 1 }))`);
+      await t.until(`!!__lulu3d.ctx.law._dbg.L.units.find(u => u.car && u.mode === "chase")`, "a cruiser joins (lane test)", 10000);
+      await putUnit("Route 9", 120, -1.75, 0);
+      await t.until(`__lulu3d.ctx.law.searching`, "behind the block: SEARCHING (lane test)", 8000);
+      await t.frames(60);
+      const laneInfo = await g(`${LAW}.hideInfo()`);
+      t.check("stopped mid-lane while they search: NOT hiding", await g(`ctx.law.searching && ctx.law.hiding === ""`) && laneInfo.why === "lane", JSON.stringify(laneInfo));
+      t.check("…the HUD says 👀 SEARCHING + 'not hidden — park at the kerb or get out of sight'", /SEARCHING/.test(await hud()) && /not hidden/.test(await hud()) && /kerb/.test(await hud()), await hud());
+      t.check("…and a toast says so (once)", await g(`${LAW}.L.hint2 === 1`));
+      await t.shot("hide-not-in-lane");
+      // a cruiser turns onto Clifton Ave 60 m up the street and drives toward her: it sees her
+      await putUnit("Clifton Ave", 180, -1.75, Math.PI);
+      await g(`(() => { const u = ${unit}; window.__ai0 = u.car.ai; u.car.ai = (dt, c) => { c.z -= 9 * dt; c.s -= 9 * dt; c.speed = 9; }; return true; })()`);
+      t.check("a cruiser driving down the street re-spots her in the travel lane", await t.until(`__lulu3d.ctx.law._dbg.L.chase && __lulu3d.ctx.law._dbg.L.chase.seen && !__lulu3d.ctx.law.searching`, "a passing cruiser re-spots her", 6000));
+      t.check("…from well beyond the 10 m 'tucked away' range", await g(`(() => { const u = ${unit}; return Math.hypot(u.car.x - ctx.car.pos.x, u.car.z - ctx.car.pos.z) > 25; })()`));
+      await g(`(() => { const u = ${unit}; if (u && window.__ai0) u.car.ai = window.__ai0; return true; })()`);
+      await g(`(ctx.law.clearHeat("test"), true)`);
+      await t.frames(5);
+
+      // (2) PARKED AT THE KERB among parked cars on Forest Ave, out of sight: hiding — and she loses them
+      const kerb = await g(`(() => { const st = ${P}.byName["Forest Ave"], T = ${D}.S.T, o = ${P}.ORIGIN;
+          for (let a = 96; a < 140; a += 1) for (const sd of [1, -1]) { const p = ${D}.pt("Forest Ave", a, sd * st.park), h = ctx.town.hideSpot(o.x + p.x, o.z + p.z);
+            if (!h.ok || h.spot !== "kerb") continue;
+            if (T.parked.some(q => Math.hypot(q.x - p.x, q.z - p.z) < 5.6)) continue;          // a free slot
+            return { a, d: sd * st.park, dir: sd }; }
+          return null; })()`);
+      t.check("there's a free kerb slot among parked cars on Forest Ave", !!kerb, JSON.stringify(kerb));
+      if (!kerb) return;
+      await g(`${D}.place("Madison Ave", 100, 1.75, 0, 1)`);           // seen here…
+      await g(`(${LAW}.L.grace = 0, ${LAW}.L.hold = 0, ctx.law.startChase("RECKLESS DRIVING", { heat: 1 }))`);
+      await t.until(`!!__lulu3d.ctx.law._dbg.L.units.find(u => u.car && u.mode === "chase")`, "a cruiser joins (kerb test)", 10000);
+      await putUnit("Route 9", 100, -1.75, 0);
+      await t.until(`__lulu3d.ctx.law.searching`, "behind the blocks: SEARCHING (kerb test)", 8000);
+      await g(`${D}.place("Forest Ave", ${kerb.a}, ${kerb.d}, 0, ${kerb.dir})`);   // …and slips round the block into a parking spot
+      const k0 = await g(`ctx.time`);
+      await t.until(`__lulu3d.ctx.law.hiding === "town"`, "parked at the kerb out of sight: HIDING", 6000);
+      const kerbInfo = await g(`${LAW}.hideInfo()`);
+      t.check("parked at the kerb among parked cars, out of sight: ctx.law.hiding = 'town' (kerb)", kerbInfo.kind === "town" && kerbInfo.spot === "kerb", JSON.stringify(kerbInfo));
+      await t.frames(3);
+      t.check("the HUD says 🤫 HIDING… + 'stay put'", /HIDING/.test(await hud()) && /stay put/.test(await hud()), await hud());
+      await t.shot("hide-kerb");
+      // a cruiser looking down Forest Ave from 55 m (a clear line, but she's one of the parked row): still hidden
+      const sv = await g(`(() => { const u = ${unit}; return { x: u.car.x, z: u.car.z, h: u.car.h, s: u.car.s }; })()`);
+      await putUnit("Forest Ave", kerb.a - 55, kerb.dir * 1.75, kerb.dir > 0 ? 0 : Math.PI);
+      await t.frames(6);
+      t.check("…a cruiser 55 m down the same street doesn't pick her out of the parked row", await g(`ctx.law.searching && ctx.law.hiding === "town"`), JSON.stringify(await g(`${LAW}.hideInfo()`)));
+      await g(`(() => { const u = ${unit}; Object.assign(u.car, ${JSON.stringify(sv)}, { speed: 0 }); return true; })()`);
+      await t.until(`!__lulu3d.ctx.law.chasing`, "hiding at the kerb loses them", 30000);
+      const took = (await g(`ctx.time`)) - k0;
+      t.check("hiding at the kerb loses them (1★: ≤ 6 s)", await g(`${LAW}.log.filter(e => e.ev === "cop:chase").slice(-1)[0].result === "escaped"`) && took <= 6, `${took.toFixed(1)} s`);
+      t.check("…counted as a hide (lawHides)", await g(`${LAW}.log.some(e => e.ev === "stat" && e.id === "lawHides")`));
+      await g(`(ctx.law.hold(200), true)`);
+      await t.frames(5);
+    });
+
     await step("foot", async () => {
       if (!await inTown()) return;
       // ── 5. on foot: talk to a local, carjack a minivan ───────────────────

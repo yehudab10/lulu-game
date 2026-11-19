@@ -30,14 +30,17 @@ export default {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
         "0,1": { faces: { n: "shops" } }, "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "shops" } },
-        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "2,2": { faces: { s: "hall" } }, "3,2": { faces: { s: "shops" } },
+        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "2,2": { faces: { s: "hall" } }, "3,2": { faces: { s: "bank" } },
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
         "2,3": { all: "townhouses" },
         "3,0": { faces: { n: "baisyaakov" } },
     },
-    // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community)
+    // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community),
+    // the bank on Main St beside the Simcha Palace (features/heist: a bank you can walk into, case, rob — or save)
     uses: {
+        bank: { key: "heist_bank", fallback: "town_shop", dims: { w: 20, d: 14, prot: 4.0 }, sign: L.SIGNS.bank, spot: "bank",
+            signSize: [11.4, 0.96, 92], signBg: "#F5F1E6", signFg: ["#1F3A5F", "#8D6E63"], with: [{ key: "town_shop", u: -17.5 }, { key: "town_shop", u: 17.5 }] },
         baisyaakov: { key: "community_baisyaakov", fallback: "town_yeshiva", dims: { w: 30, d: 16, prot: 3.1 }, u: -6, sign: L.SIGNS.baisYaakov,
             signSize: [11.6, 1.2, 104], signFg: ["#1F2D63", "#7B1F4B"], with: [{ key: "town_duplex", u: 19 }] },
     },

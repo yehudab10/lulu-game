@@ -177,6 +177,21 @@ module.exports = {
       }
     });
 
+    await step("hiding spots", async () => {
+      if (!await inMidwood()) return;
+      // ── 7b. where she can hide from a search in Midwood (ctx.town.hideSpot; law adds the line of sight) ──
+      await g(`(ctx.traffic.clear(), true)`);
+      const P = `${D}.PL`, at = (name, a, d) => `(() => { const p = ${D}.pt(${JSON.stringify(name)}, ${a}, ${d}); return ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z); })()`;
+      const kerbStreets = await g(`${P}.STREETS.filter(st => { const lanes = st.boulevard ? [st.svcPark] : st.parkLane ? [st.park] : [];
+          for (let a = st.cross[0].a + 12; a < st.cross[st.cross.length - 1].a - 12; a += 3) for (const sd of [-1, 1]) for (const pd of lanes) {
+            const p = ${D}.pt(st.name, a, sd * pd), h = ctx.town.hideSpot(${P}.ORIGIN.x + p.x, ${P}.ORIGIN.z + p.z); if (h.ok && h.spot === "kerb") return true; }
+          return false; }).map(st => st.name)`);
+      t.check("every Midwood street has kerb hiding spots among its parked cars (Ocean Pkwy: the service roads)", kerbStreets.length === await g(`${P}.STREETS.length`), kerbStreets.join(", "));
+      t.check("…a travel lane is never one (Coney Island Ave's 2 lanes, Ocean Pkwy's main road + service lane)", await g(`[${at("Coney Island Ave", 100, 1.75)}, ${at("Coney Island Ave", 100, -5.25)}, ${at("Ocean Pkwy", 100, 5.25)}, ${at("Ocean Pkwy", 100, -15.1)}].every(h => !h.ok)`));
+      t.check("…Ocean Pkwy's tree mall is", await g(`(${at("Ocean Pkwy", 100, 10)}).spot === "mall"`));
+      t.check("…E 8th's swept side (alternate-side parking) is an EMPTY kerb — not a hiding spot", await g(`(${at("E 8th St", 100, 4.6)}).why === "empty"`), JSON.stringify(await g(at("E 8th St", 100, 4.6))));
+    });
+
     await step("cops", async () => {
       if (!await inMidwood()) return;
       // ── 8. cops in Midwood: blocks hide her, the cruiser routes round them ──

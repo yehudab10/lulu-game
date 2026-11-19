@@ -48,6 +48,7 @@ export const SIGNS = {
         ["BAIS MEDRASH OF THE GARAGE", "Parking: inside, with the seforim"],
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
+    bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
     avej: [
         ["SHELF HELP SEFARIM", "Big books, small store"],
         ["THE GEFILTE STATION", "Fish · Fresh · Probably"],

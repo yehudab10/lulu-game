@@ -50,6 +50,7 @@ export const L = {
     lowKeyT: -99,
     lost: null,         // { t, how } — the "LOST 'EM" moment on the HUD after an escape
     hint: 0,            // how many "how to hide" hints this run
+    hint2: 0,           // …and "not hidden here" hints
 };
 export const config = { traps: true, patrols: true, apb: true };
 
@@ -73,7 +74,11 @@ export const TUNE = {
     reinforce: 6,                                 // s between reinforcements
     chopperSight: 120,                            // m the chopper sees her by day (at night: only in its spotlight)
     chopperSpeed: 0.86,                           // × Lulu's top: flat out (or nitro) she can outrun it
-    // hiding: stopped (≤ 4 m/s) off the asphalt / in a rest-area lot / down a town street while they SEARCH
+    // hiding: stopped (≤ 4 m/s) while they SEARCH, tucked away — in a rest-area lot, well off the asphalt and out of
+    // view, or in a town at the kerb among parked cars / off the street surface and out of every cruiser's line of
+    // sight (see hideInfo). A travel lane is never a hiding place.
+    hideSeen: 25,                                 // m — tucked away or not, a cruiser with a CLEAR line of sight this close sees her (× 0.75 at night)
+    prowl: 13,                                    // m/s — a searching cruiser in a town, crossing to crossing
     hideClose: 10,                                // m — tucked away, engine off: a cruiser only spots her this close
     hideGlimpse: 0.5,                             // s — one flashing past her hiding spot quicker than this never registers her
     hideGap: 18,                                  // m — the "they can still hear her" gap while hidden (else searchGap)
@@ -219,15 +224,54 @@ export function copSees(x, z, r = 45) {
     }
     return best;
 }
-/** Is she tucked away right now (stopped, out of the traffic)? "lot" | "town" | "verge" | "". */
-export function hiding() {
-    const car = ctx.car;
-    if (!car || car.speed > 4 || ctx.state !== "playing") return "";
-    if (ctx.exits && ctx.exits.inside) return "lot";
-    if (ctx.town && ctx.town.active) return "town";
-    if (Math.abs(car.d) > 9.2) return "verge";
-    return "";
+/** Is she tucked away right now (stopped, out of the traffic, out of sight)? "lot" | "town" | "verge" | "". */
+export function hiding() { return hideInfo().kind; }
+/** A chasing cruiser with a clear line of sight to her within `r` m (× 0.75 at night), or null. */
+function exposedTo(r) {
+    const p = ctx.car.pos;
+    r *= 1 - 0.25 * nightness();
+    for (const u of L.units) {
+        const c = u.car;
+        if (!c || c.hit || u.mode !== "chase") continue;
+        if (Math.hypot(c.x - p.x, c.z - p.z) < r && clearLine(c.x, c.z, c.s, c)) return u;
+    }
+    return null;
 }
+const HIDE_NO = { kind: "", why: "" };
+let hideCache = { t: -1, v: HIDE_NO };
+/**
+ * Where she is, hiding-wise: { kind: "lot" | "town" | "verge" | "", spot, why }. kind "" (not hidden) carries why:
+ *   "moving" (> 4 m/s) · "road" (on the highway's asphalt) · "lane" (a town street's travel lane / a crossing) ·
+ *   "empty" (a town kerb with no parked cars around her) · "seen" (a cruiser has a clear view of her, ≤ hideSeen m).
+ *   lot    a rest area's lot (a real lot: always counts)
+ *   verge  > 9.2 m off the highway's centre line, with no cruiser looking straight at her from up close
+ *   town   ctx.town.hideSpot: at the kerb among parked cars / off the street surface — and out of their sight
+ */
+export function hideInfo() {
+    const car = ctx.car;
+    if (!car || ctx.state !== "playing") return HIDE_NO;
+    if (hideCache.t === ctx.time && hideCache.x === car.pos.x && hideCache.z === car.pos.z) return hideCache.v;
+    let v;
+    if (car.speed > 4) v = { kind: "", why: "moving" };
+    else if (ctx.exits && ctx.exits.inside) v = { kind: "lot", spot: "lot" };
+    else if (ctx.town && ctx.town.active) {
+        const sp = ctx.town.hideSpot ? ctx.town.hideSpot(car.pos.x, car.pos.z) : null;
+        if (!sp || !sp.ok) v = { kind: "", why: sp ? sp.why : "lane", spot: sp ? sp.spot : "" };
+        else v = exposedTo(TUNE.hideSeen) ? { kind: "", why: "seen", spot: sp.spot } : { kind: "town", spot: sp.spot };
+    }
+    else if (Math.abs(car.d) <= 9.2) v = { kind: "", why: "road" };
+    else v = exposedTo(TUNE.hideSeen) ? { kind: "", why: "seen", spot: "verge" } : { kind: "verge", spot: "verge" };
+    hideCache = { t: ctx.time, x: car.pos.x, z: car.pos.z, v };
+    return v;
+}
+/** The HUD's "not hidden" line: why stopping HERE doesn't count (or "" when it does / she's moving). */
+const NOT_HIDDEN = {
+    lane: "🚫 not hidden — park at the kerb or get out of sight",
+    empty: "🚫 not hidden — an empty kerb: park between parked cars",
+    road: "🚫 not hidden — pull well off the road, out of sight",
+    seen: "🚫 not hidden — they can see you from there · get out of sight",
+};
+export function notHiddenHint() { const h = hideInfo(); return h.kind ? "" : NOT_HIDDEN[h.why] || ""; }
 /** What the cops would describe her by: the car she's in (her own / a borrowed shell) + its paint. */
 export function rideDesc() {
     const sh = ctx.foot && ctx.foot.shellObj;
@@ -271,6 +315,22 @@ function onCopCrash(u, e) {
     return e.impact > 8 ? undefined : false;
 }
 
+/** A searching cruiser in a town: drive to where she was heading when they lost her (ctx.town.searchPoint), then
+ *  check the crossings around it one by one (prowlPoint). They don't know where she is. → a copRoute, or null. */
+function prowlRoute(c, u, ch) {
+    if (!u.prowl || u.prowl.key !== ch.last.t) {
+        const to = ctx.town.searchPoint(ch.last);
+        if (!to) return ctx.town.copRoute(c, u);
+        u.prowl = { key: ch.last.t, to, at: { x: to.x, z: to.z }, n: 0 };
+    }
+    let r = ctx.town.copRoute(c, u, u.prowl.to);
+    if (r && r.gap < 12) {
+        const nx = ctx.town.prowlPoint(u.prowl.at, c);
+        if (nx) { u.prowl.to = nx; u.prowl.n++; r = ctx.town.copRoute(c, u, nx); }
+    }
+    return r;
+}
+
 /** Free-mode driver for our cruisers: pursue / box in / pull over / haul away / give up. */
 function driveUnit(dt, c, u) {
     const px = c.x, pz = c.z, ph = c.h, ps = c.s;
@@ -288,8 +348,12 @@ function steerUnit(dt, c, u) {
     let lv = Math.max(0, car.vF), ls = car.s, ld = car.d;
     let tD = c.d, vT = 0;
     const ch = L.chase, heat = ch ? ch.heat : 1;
-    // in a town the chase goes round corners: its street graph gives the route and the real gap
-    const route = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute ? ctx.town.copRoute(c, u) : null;
+    // in a town the chase goes round corners: its street graph gives the route and the real gap — and once they've
+    // lost her, the route goes where they THINK she is (on to where she was heading, then crossing to crossing)
+    const inTown = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute;
+    const prowling = inTown && ch && ch.searching && ch.last && !u.bolo && !!ctx.town.searchPoint;
+    if (!prowling) u.prowl = null;
+    const route = !inTown ? null : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
@@ -313,6 +377,7 @@ function steerUnit(dt, c, u) {
         else if (u.slot === "front") { tD = ld; vT = Math.min(vT, lv - 2.5); } // …then merge in front and brake-check
         else tD = ld + side;
         if (u.slot === "side" && Math.abs(err) < 3) tD = ld + Math.sign(side) * 2.5;   // lean on her
+        if (prowling && route) vT = clamp(4 + route.gap * 0.5, 4, TUNE.prowl);     // looking, not chasing: a steady prowl (any slot)
         if (Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70) tD = clamp(ld, -5.25, 5.25);
         u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
@@ -584,7 +649,7 @@ export function beginChase(reason, opts = {}) {
     const heat = Math.max(1, opts.heat || (fug ? fugitiveStars(L.fug.t) : S.wanted.length ? 2 : 1));
     L.chase = { reason: reason || charges[0] || "RECKLESS DRIVING", charges, explicit: !!(opts.charges && opts.charges.length), heat, t: 0,
         bust: 0, evade: 0, nextHeat: TUNE.heatEvery, seenT: 0, seen: true, searching: false, hiding: "", k9T: rand(4, 6), mslT: rand(5, 7), reinfT: 0, fug,
-        last: { s: ctx.car.s, d: ctx.car.d, v: Math.max(0, ctx.car.vF), t: ctx.time } };
+        last: { s: ctx.car.s, d: ctx.car.d, h: ctx.car.h, v: Math.max(0, ctx.car.vF), t: ctx.time } };
     if (!L.chase.charges.length) L.chase.charges.push(L.chase.reason);
     if (opts.unit) { opts.unit.slot = "rear"; if (opts.unit.mode !== "chase") toChase(opts.unit, "rear"); opts.unit.hunter = false; opts.unit.siren = true; }
     else spawnChaser("rear", "first");
@@ -807,7 +872,7 @@ function updateChase(dt, controlsOn) {
     // the stars flash while they look for her, and staying hidden long enough loses them. A glimpse
     // only knocks the progress back a little.
     const night = nightness();
-    // HIDING: stopped and tucked away (a rest-area lot, off the asphalt, down a town street) — harder to spot,
+    // HIDING: stopped and tucked away (a rest-area lot, off the asphalt out of view, a town kerb among parked cars) — harder to spot,
     // and once they've lost her the meter runs twice as fast. Out on the open road she's just a parked target.
     const hide = hiding();
     const sky = chopperSees(night);
@@ -818,15 +883,20 @@ function updateChase(dt, controlsOn) {
     if (sky) seen = true;
     if (!seen && ch.tipT > ctx.time) seen = true;       // ctx.law.spot(): a tip-off (features/community's Shomrim radio)
     const gap = near ? near.d : 999;
-    if (seen) ch.last = { s: car.s, d: car.d, v: Math.max(0, car.vF), t: ctx.time };     // where they think she's heading
+    if (seen) ch.last = { s: car.s, d: car.d, h: car.h, v: Math.max(0, car.vF), t: ctx.time };     // where they think she's heading
     const wasSearching = ch.searching;
     ch.seen = seen;
     ch.searching = !seen && gap > (hide ? TUNE.hideGap : TUNE.searchGap);
     ch.hiding = ch.searching ? hide : "";
     if (ch.searching && !wasSearching && L.hint < 1 && ch.t > 2) {
         L.hint++;
-        H.toast("👀 They lost sight of you — pull off & stop out of sight, or take an exit!", "pink", { key: "law:hint" });
+        H.toast(ctx.town && ctx.town.active ? "👀 They lost sight of you — park at the kerb between parked cars, or pull off the street, out of sight!"
+            : "👀 They lost sight of you — pull off & stop out of sight, or take an exit!", "pink", { key: "law:hint" });
     }
+    // stopped somewhere that DOESN'T count (a travel lane, an empty kerb, in plain view): say so, once a run
+    const why = ch.searching && !hide ? notHiddenHint() : "";
+    ch.exposedT = why ? (ch.exposedT || 0) + dt : 0;
+    if (why && ch.exposedT > 1.5 && L.hint2 < 1) { L.hint2 = (L.hint2 || 0) + 1; H.toast(why, "red", { key: "law:hint" }); }
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
     if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
@@ -1342,11 +1412,12 @@ export function hud() {
         info.tag = ch.searching ? (f ? "🔒 FUGITIVE · SEARCHING" : hid ? "🤫 HIDING…" : "👀 SEARCHING…") : (f ? "🔒 FUGITIVE · PURSUIT" : "🚨 PURSUIT");
         info.bust = ch.bust; info.evade = ch.evade; info.blink = !ch.searching;
         info.evadeLabel = hid ? "THEY DRIVE PAST…" : "LOSING THEM…";
-        info.hint = !ch.searching ? "break their line of sight" : hid ? "stay put — they're driving past" : "stay out of sight · pull off & stop · take an exit";
+        info.hint = !ch.searching ? "break their line of sight" : hid ? "stay put — they're driving past"
+            : notHiddenHint() || (ctx.town && ctx.town.active ? "stay out of sight · park at the kerb · pull off the street" : "stay out of sight · pull off & stop · take an exit");
     } else if (lost) { info.tag = "😎 LOST 'EM"; info.cls = "lost"; info.hint = "keep it clean for a bit"; }
     else if (b) {
         if (b.phase === "called") { info.tag = "📞 REPORTED"; info.meters.push([1 - b.t / (b.delay || 10), "🚓 ON ITS WAY", "#FFB74D"]); info.hint = "switch cars, hide, or keep clean"; }
-        else { info.tag = hiding() ? "🤫 HIDING…" : "🚓 LOOKING FOR YOU"; info.search = true; info.spot = clamp(b.seeT / TUNE.boloSee, 0, 1); info.meters.push([clamp(1 - b.look / TUNE.boloLook, 0, 1), "THEY GIVE UP…", "#69F0AE"]); info.hint = "out of its sight · pull off & stop · new car"; }
+        else { info.tag = hiding() ? "🤫 HIDING…" : "🚓 LOOKING FOR YOU"; info.search = true; info.spot = clamp(b.seeT / TUNE.boloSee, 0, 1); info.meters.push([clamp(1 - b.look / TUNE.boloLook, 0, 1), "THEY GIVE UP…", "#69F0AE"]); info.hint = notHiddenHint() || "out of its sight · pull off & stop · new car"; }
         info.cls = "search";
     } else if (!f && L.sus > 0.04) { info.tag = "⚠️ WARNING"; info.cls = "warn"; info.meters.push([L.sus / TUNE.susWarn, "COOLING OFF…", "#FFD740"]); info.hint = "once more and they chase · drive clean"; }
     else if (!f && warrants) { info.tag = "⚠️ WANTED"; info.spot = clamp(L.wantedSpot / TUNE.warrantSee, 0, 1); info.hint = "patrols know your car · paint it or switch"; }
@@ -1359,7 +1430,7 @@ export function hud() {
 export function resetRunState() {
     L.chase = null; L.units.length = 0; L.traps.length = 0; L.spawnT = {}; L.grace = 0; L.apbCool = 22;
     L.wantedSpot = 0; L.wantedPatrolT = rand(TUNE.warrantPatrol[0] * 0.5, TUNE.warrantPatrol[1] * 0.5); L.pending = null; L.radar = 0; L.chopper = null; L.flavourT = rand(35, 60); L.threats.clear();
-    L.sus = 0; L.susT = -99; L.bolo = null; L.lowKey = false; L.lowKeyT = -99; L.lost = null; L.hint = 0;
+    L.sus = 0; L.susT = -99; L.bolo = null; L.lowKey = false; L.lowKeyT = -99; L.lost = null; L.hint = 0; L.hint2 = 0;
 
     X.sirenOff();
     UI.wantedHud(null);
