@@ -19,6 +19,9 @@ module.exports = {
     await G(`(() => { const C = window.__lulu3d.ctx; window.__air = { peak: 0, on: false };
       const tick = () => { requestAnimationFrame(tick); const F = C.foot && C.foot.debug.F; if (!F || !window.__air.on) return;
         window.__air.peak = Math.max(window.__air.peak, F.y || 0); }; requestAnimationFrame(tick); return true; })()`);
+    // the stick + ○ in ONE instant (two separate presses can land a game frame apart → a different jump)
+    const runJump = (y = -1) => t.L(`(__pad.axes[0] = 0, __pad.axes[1] = ${y}, __btn(1, 1), 0)`);
+    const letGo = () => t.L(`(__pad.axes[0] = 0, __pad.axes[1] = 0, __btn(1, 0), 0)`);
     const peakReset = () => G(`(window.__air.peak = 0, window.__air.on = true, true)`);
     const peak = () => G(`window.__air.peak`);
 
@@ -102,9 +105,14 @@ module.exports = {
 
     // ── a bench: jump up, stand on it ──
     await t.frames(20);
-    await putAhead("bench", 1.5, 0.55);
-    await t.stick(0, -1); await t.frames(3); await t.hold(1, 1); await t.frames(10); await t.stick(0, 0); await t.frames(14); await t.hold(1, 0);
+    // walking steadily, then the bench appears 1.6 m ahead in the same instant she presses ○ (deterministic)
+    await t.stick(0, -1);
+    await t.until(`Math.hypot(__lulu3d.ctx.foot.debug.F.vel.x, __lulu3d.ctx.foot.debug.F.vel.z) > 3.3`, "walking", 3000);
+    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const x = F.pos.x + Math.sin(y) * 1.6, z = F.pos.z + Math.cos(y) * 1.6;
+      const ch = [...ctx.world.activeChunks()].find(c => Math.abs(c.s0 + 100 - F.s) < 120); window.__low = ch.addCollider({ x, z, r: 0.55, kind: "bench" }); window.__lows = null; __btn(1, 1); return true; })()`);
+    await t.frames(3);
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the bench", 5000);
+    await letGo();
     const bench = await G(`({ y: ${FF}.y, g: ${FF}.ground })`);
     t.check("she lands UP on the bench and stands there", Math.abs(bench.y - 0.55) < 0.02, JSON.stringify(bench));
     await t.shot("on-bench");
@@ -120,13 +128,14 @@ module.exports = {
     await G(`(ctx.moves.combo.t = 0.01, true)`); await t.frames(3);
 
     // ── a parked car: hood, then roof ──
-    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 3.0, z: F.pos.z + Math.cos(y) * 3.0 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
-      const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y; ctx.traffic.place(c, 0); return true; })()`);
-    await t.frames(2);
+    await t.stick(0, -1);
+    await t.until(`Math.hypot(__lulu3d.ctx.foot.debug.F.vel.x, __lulu3d.ctx.foot.debug.F.vel.z) > 3.3`, "walking", 3000);
+    await G(`(() => { const F = ${FF}, y = ctx.cam.free.yaw; const p = { x: F.pos.x + Math.sin(y) * 3.1, z: F.pos.z + Math.cos(y) * 3.1 }; const n = ctx.world.road.nearest(p.x, p.z, F.s, {});
+      const c = window.__pk = ctx.traffic.add("sedan", n.s, n.d, 1, 0, { ai: (dt, cc) => { cc.speed = 0; } }); c.free = true; c.x = p.x; c.z = p.z; c.h = y; ctx.traffic.place(c, 0); __btn(1, 1); return true; })()`);
+    await t.frames(3);
     // lengthwise: her side of the car is ~0.8 m ahead — a jump with the stick held all the way lands on the trunk / roof
-    await t.stick(0, -1); await t.hold(1, 1); await t.frames(4);
     await t.until(`!__lulu3d.ctx.foot.airborne`, "lands on the car", 5000);
-    await t.stick(0, 0); await t.hold(1, 0);
+    await letGo();
     const hood = await G(`${FF}.y`);
     t.check("a jump at a parked car lands her on it (hood / trunk ~0.95 m)", hood > 0.85 && hood < 1.5, hood.toFixed(2));
     await t.frames(4);
@@ -134,8 +143,9 @@ module.exports = {
     // (a hop toward the roof — a few tries: where on the trunk she landed varies a little with the machine's timing)
     for (let i = 0; i < 4 && await G(`${FF}.y < 1.3 && ${FF}.y > 0.5`); i++) {
       await G(`(() => { const F = ${FF}, c = window.__pk; F.lulu.obj.rotation.y = Math.atan2(c.x - F.pos.x, c.z - F.pos.z); ctx.cam.free.yaw = F.lulu.obj.rotation.y; return true; })()`);
-      await t.stick(0, -0.4); await t.hold(1, 1); await t.frames(4);
-      await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); await t.stick(0, 0); await t.hold(1, 0); await t.frames(3);
+      await t.until(`Math.hypot(__lulu3d.ctx.foot.debug.F.vel.x, __lulu3d.ctx.foot.debug.F.vel.z) < 0.05`, "standing still", 3000);
+      await runJump(-0.4); await t.frames(3);
+      await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); await letGo(); await t.frames(3);
     }
     const roof = await G(`${FF}.y`);
     t.check("…and another jump gets her up on the ROOF (1.45 m)", Math.abs(roof - 1.45) < 0.05, roof.toFixed(2));
