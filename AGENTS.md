@@ -52,7 +52,8 @@ continuous one, where the car is something you use rather than the whole game. E
 
 | # | step | branch |
 |---|---|---|
-| 1 | **One continuous world** — towns joined to the highway (no cut), buildings you walk into without a loading screen, fields you can wander into | `ci/oneworld` |
+| 1 | **One continuous world** — towns joined to the highway (no cut), buildings you walk into without a loading screen, fields you can wander into | `ci/hangout` | 🎉 THE TOWN AS A HANGOUT (roadmap 7) — Free Roam with friends as the normal way to play (join a link/code → straight next to your friend, late joiners just appear, one-tap leave), emotes friends see on your puppet (wave / dance / cheer / point / facepalm / mazel tov) + quick chat on foot, party games started from spots in each town (a notice board / arcade cabinet), greetings when you pass a friend | **being worked on now (started 2026-11-19, night)** — owns features/party, openworld, multiplayer + the emote / social layer. Lands piece by piece: emotes → join flow → game spots. Emote button: asks `ci/move` for a free slot / hold-for-wheel; joiner placement: decided with `ci/home` here. Don't pick it up while its last commit is < 1 h old |
+| `ci/oneworld` |
 | 2 | **Start at home, on foot** — she walks out of her front door, the pink car is in the driveway (today the game opens with her already driving) | `ci/home` |
 | 3 | **No more "game over"** — knocked out = back on her feet at home / outside the hospital within a couple of seconds; no wall of cards, no countdown | `ci/home` |
 | 4 | **Jail, court and the ER are real places in town** — a precinct, a courthouse, a hospital she can walk past, be taken to and walk out of; the comedy stays, in the world, skippable | after 1 + 3 |
