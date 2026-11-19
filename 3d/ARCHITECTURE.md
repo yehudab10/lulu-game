@@ -701,7 +701,7 @@ fight-backs (Bubbe's rolling pin dizzies Lulu — no hearts — the boy's foam d
 (`COUCH.runCap`), a souvenir, the cholent (+1 heart). Leaving (door / a window jump) → `backOutside()` puts her by the house, the family
 record (`store("homes").fam`, ≤ 60) and `ctx.memory.remember("homes", …)` update, the group chat texts, and a call → `ctx.law.callIn`
 per charge (📞 REPORTED) or, with a cop / the town patrol near, `ctx.foot.startChase(from, { charges })`. BURGLARY's court lines and
-weight are added to law's tables at boot (`law/data.js` `CHARGE_DIALOGUE` / `CHARGE_DEFENSE` / `CHARGE_WEIGHT`). Town hooks:
+weight are added to law's tables at boot (`law/data.js` `CHARGE_DIALOGUE` / `CHARGE_DEFENSE` / `CHARGE_WEIGHT`; the lists are in priority order — BURGLARY goes right under heist's BANK HEIST). Town hooks:
 `ctx.town.homes` / `ctx.town.drives` (build.js records them), `ctx.town.allowState("interior")`; foot hooks: `ctx.foot.handoff(id, door)`,
 `startChase(from, { charges })`.
 

@@ -132,8 +132,11 @@ on("boot", () => {
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     // BURGLARY in court: law's charge tables get our lines (law/data.js), added once
     import("../law/data.js").then(L => {
-        if (!L.CHARGE_DIALOGUE.some(d => d.key === COURT_DIALOGUE.key)) L.CHARGE_DIALOGUE.unshift(COURT_DIALOGUE);
-        if (!L.CHARGE_DEFENSE.some(d => d.key === COURT_DEFENSE.key)) L.CHARGE_DEFENSE.unshift(COURT_DEFENSE);
+        // (the lists are in priority order — the first charge that matches picks the lines: BURGLARY goes right under
+        //  heist's BANK HEIST, above car theft / speeding / evading)
+        const below = (list, key) => list.findIndex(d => d.key === key) + 1;
+        if (!L.CHARGE_DIALOGUE.some(d => d.key === COURT_DIALOGUE.key)) L.CHARGE_DIALOGUE.splice(below(L.CHARGE_DIALOGUE, "BANK HEIST"), 0, COURT_DIALOGUE);
+        if (!L.CHARGE_DEFENSE.some(d => d.key === COURT_DEFENSE.key)) L.CHARGE_DEFENSE.splice(below(L.CHARGE_DEFENSE, "BANK HEIST"), 0, COURT_DEFENSE);
         if (L.CHARGE_WEIGHT && L.CHARGE_WEIGHT.BURGLARY == null) Object.assign(L.CHARGE_WEIGHT, { "BURGLARY": 3, "STEALING CHOLENT": 1, "ASSAULT WITH A FRYING PAN": 2, "UNLAWFUL SPRITZING": 1 });
     }).catch(() => { /* no law feature */ });
     // the interiors registration (house.js) → wrap enter so we know when she's back outside, and where
