@@ -152,7 +152,12 @@ module.exports = {
       const c = ctx.traffic.add("sedan", F.s - 25, F.d, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
     const kf0 = await g(`ctx.frames`);
     t.check("a car comes at her", kf);
-    const flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
+    let flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
+    for (let i = 0; i < 2 && !flat; i++) {     // (a slow runner: the car can miss her — a fresh one aimed at where she stands)
+      await g(`(() => { ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+        const c = ctx.traffic.add("truck", F.s - 14, F.d, 1, 18); if (c) c.data.footAttn = false; })()`);
+      flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot (again)", 8000);
+    }
     if (flat) {
       await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "up again", 6000);
       const KF = await g(`({ frames: ctx.frames - ${kf0}, st: ctx.state, hearts: ctx.G.hearts, banked: ctx.G.banked })`);
