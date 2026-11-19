@@ -65,7 +65,7 @@ function applyGraphics() {
     if (sun.shadow.camera.right !== box) { Object.assign(sun.shadow.camera, { left: -box, right: box, top: box, bottom: -box }); sun.shadow.camera.updateProjectionMatrix(); }
     LOD.dist = T.lod;
     if (ctx.world) ctx.world.drawScale = T.draw;
-    if (T.post && !post) post = new Post(renderer);          // HIGH: the bloom (core/post.js)
+    if (T.post && !post && Post.supported(renderer)) post = new Post(renderer);   // HIGH: the bloom (core/post.js)
     else if (!T.post && post) { post.dispose(); post = null; }
     emit("gfx", { tier: gfx.tier });
 }

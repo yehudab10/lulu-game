@@ -60,9 +60,9 @@ function blobMesh() {
     return blobs;
 }
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0);
-function blob(i, x, z, h, len, wid, y = 0) {
+function blob(i, x, z, h, len, wid) {
     _q.setFromAxisAngle(_UP, h);
-    _m.compose(_p.set(x, 0.07 + Math.max(0, y) * 0, z), _q, _s.set(wid, 1, len));
+    _m.compose(_p.set(x, 0.07, z), _q, _s.set(wid, 1, len));
     blobs.setMatrixAt(i, _m);
 }
 function updateBlobs(camera) {

@@ -53,6 +53,10 @@ function pass(frag, uniforms, opts = {}) {
 }
 
 export class Post {
+    /** Rendering into a half-float target needs the colour-buffer-float extensions (else: no bloom, plain rendering). */
+    static supported(renderer) {
+        try { const e = renderer.extensions; return !!(e.has("EXT_color_buffer_float") || e.has("EXT_color_buffer_half_float")); } catch (err) { return false; }
+    }
     constructor(renderer) {
         this.r = renderer;
         this.w = 0; this.h = 0;
