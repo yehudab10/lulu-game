@@ -123,19 +123,18 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
 ## 6. In-flight work (update me!)
 
 _Last updated 2026-11-19 (night). `ci/heist` is LANDED on `main` (🏦 banks, robberies to foil, Lulu's own heist,
-snatchers, nets + spike strips — see `3d/ARCHITECTURE.md` › Banks, heists & robberies). `ci/party2` is LANDED too (🎉 claim shared cars so carjacking / ✋ flag-down / 🚕 hop-in work with friends; streets, rides, rest areas and the towns' extras are on in a party — ARCHITECTURE › the party parity table). Nobody is working on the
+snatchers, nets + spike strips — see `3d/ARCHITECTURE.md` › Banks, heists & robberies). `ci/townfix` is LANDED (🏘️ cars in town drawn by line of sight, solid + shove-able + hotwirable parked cars, town drivers jackable in solo, a real interchange: taper, decel lane, curved ramp + guardrails, a T-junction with a STOP sign, gas station and "Welcome to" sign, an on-ramp + accel lane; nothing stands on any lane — `world.offLanes`). `ci/party2` is LANDED too (🎉 claim shared cars so carjacking / ✋ flag-down / 🚕 hop-in work with friends; streets, rides, rest areas and the towns' extras are on in a party — ARCHITECTURE › the party parity table). Nobody is working on the
 branches below right now — pick one up. Each is based on an older `main`: merge `origin/main` into it first
 (`features/index.js`, the ARCHITECTURE tables and the party `OFF` set will conflict with heist's rows — keep both)._
 
 | branch | what it is | where it stopped / what's left |
 |---|---|---|
 | `ci/underworld` | 🕶️ Crooked cop (Policeman's Kugel Fund bribe / Internal Affairs sting), Velvel's no-questions garage, the Fixer's dirty jobs + heat, pickpockets, road-ragers, a gang car; Shomrim/Chaverim tie-ins; tunables in one SPAWN-style block. Off in party | **🔧 BEING FINISHED NOW (picked up 2026-11-19 03:50 UTC — leave it alone until this note goes).** `underworld` test was 43/44 before the last fix (encounter trap). Left: re-run `underworld`, then `core,platform,skip,ux;underworld;law;town;streets;foot;hustle;community;memory;banter;native;party`; land on main |
-| `ci/townfix` | 🏘️ Town bugs (invisible cars, ghost parked cars → solid + hotwirable, carjacking town traffic in solo, nothing standing on the lanes/ramps) + realistic exits (taper, curved ramp, guardrails, T-junction with a stop sign + gas-station/"Welcome to" context, accel lane) | **🔧 BEING FINISHED NOW (picked up 2026-11-19 04:05 UTC — leave it alone until this note goes).** Code done, unverified. The last commit is a WIP save of test edits (town visibility judged from behind a town driver). Left: CI `core,platform,skip,ux;town;midwood;exits;streets;foot;openworld;partyfoot;law;native`, fix failures, land |
 | `ci/homes` | 🏠 Living towns (crowds, porches, lit windows, reactions) + breaking into houses: knock or sneak in, view-cone "?"→"!" detection, shocked residents, household items used on them with cartoon reactions, capped couch coins, burglary charge + call-in, residents remember her; docs done | **🔧 BEING FINISHED NOW (picked up 2026-11-19 04:00 UTC — leave it alone until this note goes).** Last work: crowd lives near her, residents route through doorways. Left: finish/verify `homes` test, then `core,platform,skip,ux;homes;town;midwood;foot;interiors;law;memory;banter;openworld;partyfoot;native`; perf check in town; land |
 | `ci/party3` | 🎉 Party round 3: features on `main` but still OFF with friends, one at a time. **heist** done on the branch (its personal bits — the cops' net / spikes in her own chase, the moped snatcher, the thief at her parked car — on in a party; robberies + her own heist stay solo, written up in the parity table; `partyheist` test passes locally) | **🔧 BEING WORKED ON NOW (2026-11-19 ~05:00 UTC).** Left: CI `core,platform,skip,ux;partyheist;heist;party;partyplus;partyfoot;law`, land; then `underworld` once it's on main, `homes` later |
 | `ci/gfx` | ⚡ Performance + graphics: perf harness + leak tracker, no per-frame allocations, road-sign textures freed, contact shadows, bloom (only where supported), Auto/Low/Medium/High setting | **🔧 BEING FINISHED NOW (picked up 2026-11-19 03:51 UTC — lands LAST, after underworld/townfix/homes/party2).** Left: finish tiers + settings UI, before/after numbers + screenshots, then the FULL suite (`only` and `groups` empty) since render changes touch everything; land |
 
-Suggested order: underworld → townfix → homes → party3 (turns each landed feature on in a party) → gfx (touches everything, so land it last and re-run the full suite).
+Suggested order: underworld → homes → party3 (turns each landed feature on in a party) → gfx (touches everything, so land it last and re-run the full suite).
 
 Branches not listed (`ci/heist`, `ci/copheat`, `ci/exits`, `ci/partyfoot`, …) are already
 merged — ignore them.
@@ -150,9 +149,13 @@ merged — ignore them.
   (`TUNE.robbery.footMax` — the tackle is the easy foil, keep it capped); the highway Quik-Mart robbery has no on-foot
   version; tests that drive with no steering must keep distances short (a bend carries the car out of its lane —
   that was the `heist` spike-strip flake).
-- Exits: ramp ends currently stop in an open field (being fixed on `ci/townfix`);
-  rest-area props sit slightly off on tight bends; Kugel the dog bobs on a loop;
+- Exits: the interchange's far end (gas station, houses) is just scenery — you can't drive the cross roads, the town
+  fades in at the STOP sign; rest-area props sit slightly off on tight bends; Kugel the dog bobs on a loop;
   rest areas aren't on the 🗺️ map; no test drives a rest area in Story mode.
+- Towns (from `ci/townfix`): a parked car she shoves stays where it slid for the visit (no tow); hotwiring a town
+  parked car in a 🎉 party removes it only from her own kerb (friends still see it parked); test traps — the
+  exits lane scans must refine `nearest()`'s hint (it only searches ±120 m round it), and a cruiser dropped onto a
+  town street can land on a town driver (a 💥 cop pile-up: it sits there) — clear the spot first (`town` test does).
 - Party (round 2 landed 2026-11-19): our-direction traffic only exists AHEAD of the start wave (nothing of ours sits
   behind the grid at GO, and that wave rolls up the road at lane speed): she's always ahead of it while driving, but
   someone who dawdles near the start, or walks for minutes, can end up behind it — then only ONCOMING cars come by to
