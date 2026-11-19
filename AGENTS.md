@@ -112,7 +112,7 @@ SMOKE3D_ONLY=core,platform,law npm run smoke:3d   # 3D tests (needs playwright)
 - 3D tests run in **software WebGL and are slow** (the full suite is ~2 h on one
   machine). Don't run everything locally — use CI:
 - **CI (GitHub Actions):**
-  - `smoke.yml` runs on every push (2D smoke + `core,platform,skip,ux`).
+  - `smoke.yml` runs on every push (2D smoke + `core,platform,skip,ux,music`).
   - **"3D full suite"** (`smoke3d-full.yml`, manual) splits test files across up
     to 16 machines (~45 min). Inputs: `only` (comma list) or `groups`
     (`;`-separated groups, each on its own machine). Works on any branch:
