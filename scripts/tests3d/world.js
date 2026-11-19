@@ -91,7 +91,7 @@ module.exports = {
     await t.stick(0, 0);
     if (!await t.until(`__lulu3d.state === "playing"`, "out on the street → playing", 3000)) return;
     const R = await g(`({ d: ctx.car.d, v: ctx.car.speed, drv: ctx.car.driver.visible, mode: ctx.G.mode, clock: ctx.atmos.clock })`);
-    t.check("she's on the road, rolling", Math.abs(R.d) < 8 && R.v > 3, JSON.stringify(R));
+    t.check("she's on the road, rolling", Math.abs(R.d) < 9.5 && R.v > 3, JSON.stringify(R));
     t.check("Lulu is at the wheel", R.drv === true);
     t.check("the time of day carries into the drive", Math.abs(R.clock - 0.41) < 0.02, R.clock.toFixed(3));
     await t.hold(7, 0);

@@ -170,6 +170,13 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN still goes through town's own wreck hook
+  (towed out to the highway shoulder with a fade) — with one world (`ci/oneworld`) it could just stand her up in town
+  (`ctx.foot.start("knockout")` works there). The ER is still its own set (step 4 makes it a building). `moves`' rocket
+  start only samples the 3-2-1 now (a home start has no countdown). Parking's challenge still ends on a game-over
+  card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
+  grid (`ci/hangout` owns that); the start at home is solo.
+
 - Cops: the red "not hidden" toast can linger after she reaches a real hiding
   spot (`core/hud.js` has no toast dismiss); a call-in cruiser in town still
   routes straight to her; bailing out mid-chase files a permanent warrant (2★ on
