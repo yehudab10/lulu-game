@@ -120,7 +120,7 @@ export function stopCrowd() {
     if (C.leash) { C.leash.geometry.dispose(); C.leash.material.dispose(); }
     if (C.lights) { C.lights.geometry.dispose(); C.lights.material.dispose(); }
     if (C.group && C.group.parent) C.group.parent.remove(C.group);
-    Object.assign(C, { on: false, peds: [], rigs: {}, props: {}, dog: null, bike: null, lod: null, blobs: null, leash: null, lights: null, group: null, anchors: [], talk: null });
+    Object.assign(C, { on: false, peds: [], rigs: {}, props: {}, dog: null, bike: null, lod: null, blobs: null, leash: null, lights: null, group: null, anchors: [], talk: null, kids: [], kidsAnchor: null });
 }
 function blobTex() {
     const c = document.createElement("canvas"); c.width = c.height = 64;

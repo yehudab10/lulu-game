@@ -271,9 +271,8 @@ module.exports = {
       await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "town models", 90000);
       await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
       await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.homes.crowd().on`, "party town crowd", 60000);
-      const a = JSON.stringify(await g(`ctx.homes.debug.CR.peds.slice(0, 12).map(p => [p.type, Math.round(p.x), Math.round(p.z)])`));
-      await g(`${D}.startCrowd()`);
-      const b = JSON.stringify(await g(`ctx.homes.debug.CR.peds.slice(0, 12).map(p => [p.type, Math.round(p.x), Math.round(p.z)])`));
+      const ab = await g(`(() => { const f = () => JSON.stringify(ctx.homes.debug.CR.peds.slice(0, 16).map(p => [p.type, Math.round(p.x), Math.round(p.z)])); ${D}.startCrowd(); const a = f(); ${D}.startCrowd(); return [a, f()]; })()`);
+      const [a, b] = ab;
       t.check("Free Roam: the crowd is seeded from the party (the same layout every time)", a === b, a.slice(0, 120));
       await toDoor(2);
       await g(`ctx.homes.enter(2, "sneak", "door")`);

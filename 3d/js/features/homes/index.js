@@ -92,6 +92,7 @@ function buildDoors() {
 // ── town in / out ────────────────────────────────────────────────────────
 on("town:enter", () => {
     buildDoors();
+    ensureModels(["copPerson"]).catch(() => { });      // (a foot chase from a house: the cop on foot)
     if (!ctx.enabled("homes")) return;
     const id = HS.town, visit = (HS.visit = (HS.visit || 0) + 1);
     ensureModels(CROWD_MODELS).then(() => {
