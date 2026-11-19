@@ -303,6 +303,7 @@ async function body(t, guests) {
   await sameWorld("finish");
   t.check("results podium shows 3 cars + the standings", await t.game(`ctx.party._debug.stageCars() === 3`) && await t.L(`document.querySelectorAll("#screenCard .pt-res > div").length === 3`));
   t.check("host gets Rematch / Back to lobby", await t.L(`!!document.getElementById("pt_again") && !!document.getElementById("pt_lobby")`));
+  for (const [i, p] of pages.entries()) console.log("   DIAG page", i, JSON.stringify(await p.game(`({ state: ctx.state, stateT: +ctx.stateT.toFixed(1), isHost: ctx.party.isHost, host: ctx.party._debug.N.host, uid: ctx.party._debug.N.uid, epoch: ctx.party._debug.N.epoch, paused: !!ctx.paused, card: ((document.querySelector("#screenCard") || {}).textContent || "").slice(0, 200), btns: [...document.querySelectorAll("#screenCard button")].map(b => b.id || b.textContent.slice(0, 20)) })`).catch(e => String(e))));
   t.check("guests wait for the host (no host buttons)", await A.L(`!document.getElementById("pt_again") && /picks what's next/.test(document.getElementById("screenCard").textContent)`));
   for (const p of pages) await p.game(`(ctx.banter.autopilot = null, true)`);
   await t.frames(3);

@@ -220,7 +220,10 @@ async function partyRun(t, guests) {
   await t.shot("host-jail");
   if (await hostUntil(t, `ctx.law._dbg.jail() && ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawBail")`, "the cell menu", 240000)) {
     await t.game(`document.querySelector("#lawBail").click()`);
-    await hostUntil(t, `(ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party"`, "bailed out: back in the party world", 120000);
+    const okBail = await hostUntil(t, `(ctx.state === "playing" || ctx.state === "footRun") && ctx.G.mode === "party"`, "bailed out: back in the party world", 120000);
+    if (!okBail) console.log("   DIAG host", JSON.stringify(await t.game(`({ state: ctx.state, stateT: +ctx.stateT.toFixed(1), frames: L3.frames, paused: !!ctx.paused, dialog: !!ctx.dialogOpen, skipping: !!ctx.skipping, view: !!ctx.view, hidden: document.hidden, isHost: ctx.party.isHost, mode: ctx.G.mode, jail: (() => { try { const j = ctx.law._dbg.jail(); return j && { phase: j.phase }; } catch (e) { return String(e); } })(), screen: ((document.querySelector("#screenCard") || {}).textContent || "").slice(0, 160), dlg: ((document.querySelector("#dialog") || {}).textContent || "").slice(0, 160), lawUI: ((document.querySelector("#lawUI") || {}).textContent || "").slice(0, 200), menus: [...document.querySelectorAll(".open, .show")].map(e => e.id || e.className).slice(0, 12), models: (() => { try { return Object.keys(ctx.models || {}).length; } catch (e) { return -1; } })() })`).catch(e => String(e))));
+    if (!okBail) { await t.frames(60); console.log("   DIAG host +60f", JSON.stringify(await t.game(`({ state: ctx.state, stateT: +ctx.stateT.toFixed(1), frames: L3.frames })`).catch(e => String(e)))); }
+    if (!okBail) console.log("   DIAG errors", JSON.stringify((t.errors || []).slice(0, 5)));
     t.check("host: back in the party run (no 3-2-1 countdown)", await g(`ctx.G.mode === "party" && ["playing", "footRun"].includes(ctx.state)`), await g(`ctx.state`));
     await A.until(`(ctx.party.presenceOf(${H}) || {}).mode !== "jail"`, "presence clears the jail", 90000);
   }
