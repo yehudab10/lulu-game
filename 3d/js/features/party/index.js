@@ -58,6 +58,7 @@ import * as STG from "./stage.js";
 import * as PS from "./presence.js";
 import * as U from "./ui.js";
 import * as PLAN from "./plan.js";
+import "./emotes.js";
 import { tone } from "../parking/sfx.js";
 
 const QS = new URLSearchParams(location.search);
@@ -303,7 +304,6 @@ function teardown() {
     caption("");
     document.body.classList.remove("party-stage", "party-drive");
     P.actId = -1; P.me = {}; P.ready = false; P.spectate = null;
-    if (myBubble) myBubble.sp.visible = false;
 }
 
 // ── the hub (from the title) ─────────────────────────────────────────────
@@ -335,7 +335,6 @@ addMenuItem("title", {
 });
 addMenuItem("pause", { id: "partyLobby", order: 86, cls: "", label: "🏠 Everyone back to the lobby", visible: () => N.want && N.isHost && N.A.k !== "lobby", action: () => { resume(); hostToLobby(); } });
 addMenuItem("pause", { id: "partyLeave", order: 88, cls: "purple", label: "🚪 Leave the party", visible: () => N.want, action: () => leave() });
-addTouchButton({ id: "partyChat", emoji: "💬", label: "CHAT", action: "partyChat", visible: () => N.want && ctx.state === "playing" && ctx.G.mode === "party" });
 
 // ── host actions ─────────────────────────────────────────────────────────
 function hostStart(k = P.pick) {
@@ -850,7 +849,6 @@ hook("damage", () => (inPartyRun() ? false : undefined), 90);
 hook("update", (dt, P_, controlsOn) => {
     if (!inPartyRun()) return;
     P_.fire = false; P_.item = false;                  // missiles / pepper would hit traffic on ONE screen only
-    if (P_.partyChat) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); }
     const car = ctx.car, A = N.A, t = clock();
     const own = ACTS[A.k] && ACTS[A.k].ownTraffic && ACTS[A.k].ownTraffic();
     if (!own) { bbReserveAhead(car.s + 950); T.syncTraffic(car.s); }
@@ -1063,7 +1061,6 @@ hook("hud", dt => {
     // a paused party keeps the world going: ease to a stop, hold the lane
     if (ctx.paused && driving()) updateDriving(dt, {}, false, ctx.state === "partyWait" ? waitCtl(dt) : holdCtl(dt, 0));
     if (!driving()) { U.hideHud(); return; }
-    if (myBubble) myBubble.update(dt, 3.5);
     P.hudT = (P.hudT || 0) - dt;
     if (P.hudT > 0) return;
     P.hudT = 0.2;
@@ -1096,7 +1093,7 @@ hook("hud", dt => {
         U.hud(rows.length > 1 ? board : "", chip, cls);
     }
     // first seconds: how to chat
-    if (ctx.state === "playing" && ctx.G.runTime < 8 && !ctx.TEST) H.padHint(`💬 hold ${glyph("fire")} quick chat · ${glyph("honk")} honk + wave`);
+    if (ctx.state === "playing" && ctx.G.runTime < 8 && !ctx.TEST) H.padHint(`😀 hold ${glyph("fire")} emotes + quick chat · ${glyph("honk")} honk + wave`);
 }, -20);
 
 function standings() {
@@ -1140,20 +1137,11 @@ on("boot", () => {
     };
 });
 
-// ── quick chat + emotes (curated only) ──────────────────────────────────
-let myBubble = null;
-on("boot", () => { myBubble = new R.Bubble(); myBubble.k = 1.2; ctx.car.obj.add(myBubble.sp); });
-U.setChatHandler((txt, i) => {
-    if (!N.want) return;
-    NET.broadcast("c", i);
-    if (STG.shown()) STG.say(N.uid, txt);
-    else if (myBubble) myBubble.show(txt);
-    tone(660, 0.08, "triangle", 0.14, 900);
-    emit("stat", { id: "partyChats", n: 1 });
-});
+// ── quick chat + emotes: emotes.js (the wheel, gestures on friends' puppets, combos, greetings) ──
+// The old quick-chat broadcast ("c": an index into the old phrase list) is still shown when an older page sends it.
 on("party:bc", ({ p, k, a }) => {
     if (k !== "c") return;
-    const txt = U.ITEMS[a[0] | 0];
+    const txt = U.LEGACY[a[0] | 0];
     if (!txt) return;
     if (STG.shown()) { STG.say(p.uid, txt); return; }
     const rc = R.cars.get(p.uid);
@@ -1724,7 +1712,6 @@ function frame() {
         copTick();
         if (ctx.state === "partyLobby") { renderLobby(false); STG.tick(dt); }
         else if (ctx.state === "partyResults") { renderResults(false); STG.tick(dt); }
-        U.wheelTick(dt, ctx.state === "playing" && ctx.G.mode === "party" && !ctx.paused && !ctx.dialogOpen);
         if (P.trace) P.trace.push({ T: clock(), s: ctx.car.s });
     } catch (e) { console.error("[party] frame", e); }
 }

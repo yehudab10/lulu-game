@@ -361,6 +361,8 @@ export function updateCars(dt, show, decorate, frameOf) {
         if (rc.v.skin !== p.sk) rc.v.setSkin(p.sk);
         if (p.hc) rc.v.setHair(p.hc);
         setForm(rc, p);
+        if (emoteFn) { try { emoteFn(rc, p); } catch (e) { console.error("[party] emote", e); } }
+        if (rc.emote) { rc.emote.t += dtParty; if (rc.emote.t > rc.emote.dur) rc.emote = null; }
         step(rc, p, dtParty, (frameOf && frameOf(p)) || road, cam);
         if (decorate) decorate(rc, p);
     }
@@ -477,8 +479,18 @@ function animateWalker(rc, dt, sp, o, honk) {
     else { rc.rollA = 0; rx = a === 2 ? -1.05 : a === 4 ? -1.5 : sp > 5.3 ? 0.14 : 0; }
     ob.rotation.x = a === 1 ? rx : ob.rotation.x + (rx - ob.rotation.x) * ease(9);
     ob.position.y = a === 1 ? 0.45 * (1 - Math.cos(rc.rollA)) : 0;
+    const em = rc.emote && a === 0 ? rc.emote : null;                // an emote (emotes.js) plays over a plain walk
+    if (em) {
+        w.update(dt, Object.assign({ walk: sp }, em.pose));
+        if (em.hop) ob.position.y = Math.abs(Math.sin(em.t * 7)) * em.hop;
+        return;
+    }
     w.update(dt, { walk: a === 0 || a === 3 ? sp : 0, dance: a === 5, wave: a === 6 || honk, point: a === 7, sit: a === 8, talk: a === 9, cheer: a === 3 });
 }
+
+// a friend's emote (emotes.js reads d.x.e and sets rc.emote = { i, t, dur, pose, hop })
+let emoteFn = null;
+export function setEmoteFn(fn) { emoteFn = fn; }
 
 // a sparkle poof when a car (re)appears somewhere new
 let poofFn = null;

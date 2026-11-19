@@ -11,6 +11,7 @@
 //          🔁 Rematch from the guest) → perf numbers with two players in town.
 const { spawn } = require("child_process");
 const path = require("path");
+const { waitOn } = require("../lib/party3d.js");
 const PORT = 23000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
 const Q = `&enable=party,town,atmos&mpurl=${encodeURIComponent(URL)}`;
@@ -46,23 +47,14 @@ async function guestPage(t, label, save2d, query) {
     L: code => page.evaluate(code),
     game: code => page.evaluate(`(() => { const L3 = window.__lulu3d, ctx = L3.ctx; return (${code}); })()`),
     async until(code, what, ms = 90000) {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        const ok = await page.evaluate(`(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
-        if (ok) return true;
-        await sleep(150);
-      }
+      if (await waitOn(page, code, ms)) return true;   // GAME time (frames), not wall time: scripts/lib/party3d.js
       t.check(`${label}: ${what}`, false, "timed out");
       return false;
     },
   };
 }
 async function hostUntil(t, code, what, ms = 90000) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await t.game(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false)) return true;
-    await sleep(150);
-  }
+  if (await waitOn(t.page, code, ms)) return true;   // GAME time (frames), not wall time
   t.check(what, false, "timed out in " + await t.game(`ctx.state`).catch(() => "?"));
   return false;
 }
