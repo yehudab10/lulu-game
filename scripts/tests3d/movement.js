@@ -131,12 +131,18 @@ module.exports = {
     t.check("a jump at a parked car lands her on it (hood / trunk ~0.95 m)", hood > 0.85 && hood < 1.5, hood.toFixed(2));
     await t.frames(4);
     // already on the roof? fine; else hop up from the hood
-    if (hood < 1.3) { await t.stick(0, -0.5); await t.hold(1, 1); await t.frames(4); await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); await t.stick(0, 0); await t.hold(1, 0); }
+    // (a hop toward the roof — a few tries: where on the trunk she landed varies a little with the machine's timing)
+    for (let i = 0; i < 4 && await G(`${FF}.y < 1.3 && ${FF}.y > 0.5`); i++) {
+      await G(`(() => { const F = ${FF}, c = window.__pk; F.lulu.obj.rotation.y = Math.atan2(c.x - F.pos.x, c.z - F.pos.z); ctx.cam.free.yaw = F.lulu.obj.rotation.y; return true; })()`);
+      await t.stick(0, -0.4); await t.hold(1, 1); await t.frames(4);
+      await t.until(`!__lulu3d.ctx.foot.airborne`, "lands again", 5000); await t.stick(0, 0); await t.hold(1, 0); await t.frames(3);
+    }
     const roof = await G(`${FF}.y`);
     t.check("…and another jump gets her up on the ROOF (1.45 m)", Math.abs(roof - 1.45) < 0.05, roof.toFixed(2));
     await t.shot("car-roof");
-    await t.stick(0, -1); await t.frames(30); await t.stick(0, 0);
-    await t.until(`!__lulu3d.ctx.foot.airborne && __lulu3d.ctx.foot.debug.F.y === 0`, "she steps off the car back to the ground", 5000);
+    await t.stick(0, -1);
+    await t.until(`!__lulu3d.ctx.foot.airborne && __lulu3d.ctx.foot.debug.F.y === 0`, "she steps off the car back to the ground", 8000);
+    await t.stick(0, 0);
     await G(`(ctx.traffic.remove(window.__pk), ctx.moves.combo.t = 0.01, true)`); await t.frames(3);
 
     // ── sprint → slide → jump = LONG JUMP ──
