@@ -78,7 +78,9 @@ const OFFSET = `(() => { let a = 0; for (let i = 0; i < 5; i++) a += ctx.party.c
 /** Per built road chunk: its billboards, golden dreidels and ramps (all must match across screens). */
 const WORLD = `(() => {
   const out = {};
-  for (const ch of ctx.world.activeChunks()) out[ch.k] = { bb: [], dr: [], rp: [] };
+  // (a far chunk is built a step a frame — world.js Chunk.advance — so one screen can be a few frames behind another
+  //  on the newest one: compare the chunks that are finished)
+  for (const ch of ctx.world.activeChunks()) if (!ch.building) out[ch.k] = { bb: [], dr: [], rp: [] };
   for (const b of ctx.banter.activeBillboards()) { const k = Math.floor(b.chunkS / 200); if (out[k]) out[k].bb.push(b.key + "@" + b.s + ":" + b.side); }
   for (const d of ctx.play.debug.dreidels) if (out[d.k]) out[d.k].dr.push(d.s.toFixed(1) + ":" + d.d.toFixed(2));
   for (const r of ctx.play.debug.ramps) if (out[r.k]) out[r.k].rp.push(r.s.toFixed(1) + ":" + r.d.toFixed(2));
