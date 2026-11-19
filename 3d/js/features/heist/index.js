@@ -22,7 +22,7 @@
 // Random content is gated by ctx.enabled("heist") (and is OFF in a 🎉 party: party/index.js OFF set).
 import { ctx, on } from "../../core/ctx.js";
 import "./common.js";
-import { R, stage, cleanup as endRobbery } from "./robbery.js";
+import { R, stage, schedNow, cleanup as endRobbery } from "./robbery.js";
 import { J, S, setPlan, dropPlan, startJob, offerTip, cooldownLeft } from "./job.js";
 import { SN, CT, snatch, carTheft, endSnatch, endTheft } from "./snatch.js";
 import { GEAR, fireNet, laySpikes, ripNet, flatTyres, isFlat } from "./gear.js";
@@ -52,6 +52,8 @@ ctx.heist = {
         R, J, SN, CT, GEAR,
         robbery: opts => stage(Object.assign({ now: true }, opts || {})),
         endRobbery,
+        /** The robbery scheduler's next tick, now (true when one was staged). */
+        schedRobbery: schedNow,
         job: () => startJob(),
         dropPlan,
         tip: () => offerTip(),

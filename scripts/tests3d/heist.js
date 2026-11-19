@@ -221,12 +221,25 @@ module.exports = {
       await atBank(6, false, 0, -45);                     // (her car parked well down the street)
       await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
       await t.until(`__lulu3d.state === "footRun"`, "on foot for the tackle", 8000);
-      await g(`${HD}.robbery({ where: "town", spot: "bank", prop: "Baguette" })`);
-      await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "run"`, "a robber runs out (on foot)", 20000);
+      // walking round town: the scheduler starts one at a door NEAR her (a car needs it 35 m+ away), at most footMax a run
+      await g(`(() => { const sp = ctx.town.spot("bank"), F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * 4 + sp.ux * 16, 0.05, sp.z + sp.nz * 4 + sp.uz * 16); F.phase = "walk"; return true; })()`);
+      await t.frames(3);
+      t.check("walking: a third robbery in a run is never started (capped)", await g(`(() => { const R = ${HD}.R; R.footN = ctx.heist.tune.robbery.footMax; const r = ${HD}.schedRobbery(); R.footN = 0; return r === false && !ctx.heist.robbery; })()`));
+      t.check("walking near the bank, the scheduler stages a robbery there", await g(`${HD}.schedRobbery() === true && ctx.heist.robbery.where === "town" && ${HD}.R.footN === 1`));
+      if (!await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "run"`, "a robber runs out (on foot)", 20000)) return;
+      t.check("…staged for her on foot at the bank", await g(`ctx.heist.robbery.foot === true && ctx.heist.robbery.spotName === "bank"`));
+      const door = await g(`(() => { const o = ctx.heist.robbery.robber.obj.position; return { x: o.x, z: o.z }; })()`);
+      await t.frames(60);
+      t.check("he fights the money bag in the doorway for a few seconds (time to run over)", await g(`(() => { const ev = ctx.heist.robbery, o = ev && ev.robber && ev.robber.obj.position; return !!o && ev.phase === "run" && Math.hypot(o.x - ${door.x}, o.z - ${door.z}) < 0.5; })()`));
       await g(`(() => { const o = ctx.heist.robbery.robber.obj.position, F = ctx.foot.debug.F; F.pos.set(o.x + 0.8, 0.05, o.z + 0.8); F.phase = "walk"; return true; })()`);
+      // something else nearer in reach (a door, a parked car, her own car's GET BACK IN): the tackle still wins the ✋ button
+      await g(`(window.__rmSpot = ctx.foot.addSpot({ pos: () => { const q = ctx.foot.pos; return q ? { x: q.x + 0.5, z: q.z } : null; }, r: 2, label: "SOMETHING ELSE", act() { window.__wrongSpot = true; } }), true)`);
       await t.frames(2);
+      t.check("✋ offers the TACKLE over something nearer", /TACKLE/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`)));
       await t.tap(0);
       await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "foiled"`, "✋ TACKLE → foiled", 4000);
+      await g(`(window.__rmSpot(), true)`);
+      t.check("…and nothing else was pressed", !(await t.L(`!!window.__wrongSpot`)));
       t.check("the tackle foils it (how: tackle)", (await evs(`/heist:robbery.*"foiled".*"tackle"/`)).length === 1);
       await t.frames(20);
       await t.shot("tackle");

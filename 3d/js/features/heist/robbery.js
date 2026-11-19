@@ -8,7 +8,9 @@
 //                 getaway car flees up the lanes, a cruiser comes wailing up behind it
 //
 // Stop it: RAM it (3 rams), PIT it (features/moves: data.pit) or BOX IT IN (it sits stuck with her car
-// right there). On foot, before he reaches the car: ✋ TACKLE (foot's addSpot). Cops show up for the
+// right there). On foot, before he reaches the car: ✋ TACKLE (foot's addSpot) — walking round a town, one
+// starts at a door NEAR her (T.footR) and the robber fights his money bag in the doorway for T.footFumble
+// seconds, so there is time to run over. Cops show up for the
 // collar; they never chase Lulu for helping (ctx.law.hold while it plays; rams into the getaway car never
 // cost a heart). Pays PAY.foil (+ clean / tackle bonuses), a hero toast, stats, a memory line.
 import * as THREE from "three";
@@ -28,7 +30,7 @@ const MODELS = ["heistGetaway", "heistRobber", "heistProps", "copPerson"];
 const T = TUNE.robbery;
 const TOWN_SPOTS = ["bank", "pizza", "bakery", "hall"];
 
-export const R = { nextT: rand(T.first[0], T.first[1]), ev: null, store: null, log: [] };
+export const R = { nextT: rand(T.first[0], T.first[1]), ev: null, store: null, log: [], footN: 0 };
 
 /** Lulu's top speed WITHOUT nitro (what drag lets the engine reach) — the same sum law uses. */
 export function luluTop() {
@@ -82,8 +84,8 @@ function townSpot(force = null) {
     for (const n of names) {
         const sp = ctx.town.spot(n);
         if (!sp) continue;
-        const d = distTo(sp.x, sp.z);
-        if (force || (d > T.townR[0] && d < T.townR[1])) out.push({ name: n, sp, d });
+        const d = distTo(sp.x, sp.z), R0 = onFoot() ? T.footR : T.townR;     // (on foot: a door she can run to)
+        if (force || (d > R0[0] && d < R0[1])) out.push({ name: n, sp, d });
     }
     if (!out.length) return null;
     return out.find(o => o.name === "bank") || out[0];
@@ -136,6 +138,7 @@ function unbuiltAhead(min, half = 24) {
 // ── the robbery starts: the car at the kerb, the robber bursts out ──────
 function begin(ev) {
     ev.phase = "run"; ev.t = 0;
+    ev.foot = onFoot();
     // the getaway car, waiting at the kerb with the engine running
     const carData = { heist: true, pit: true, heistGetaway: true, partyLocal: true, local: true };
     if (ev.where === "town") {
@@ -155,12 +158,11 @@ function begin(ev) {
     ev.propObj = hold(p, ev.prop.id, { arm: "Arm_R", y: -0.47, z: 0.06, rx: -1.4 });
     ev.robber = p;
     sfx.bell(8);
-    ev.foot = onFoot();
     H.banner(ev.foot ? ROBBERY.footBanner(ev.label) : ROBBERY.banner(ev.label, ev.prop.name), 3200, { key: "heist:robbery", prio: 3 });
     npcSays(p.obj, pick(ev.prop.says), 2.4);
     setTimeout(() => { if (R.ev === ev) luluSays(pick(ROBBERY.lulu), true); }, 900);
     if (ctx.foot && ctx.foot.addSpot) {
-        ev.spotRm = ctx.foot.addSpot({ pos: () => (R.ev === ev && ev.phase === "run" && ev.robber ? ev.robber.obj.position : null), r: 3.4,
+        ev.spotRm = ctx.foot.addSpot({ pos: () => (R.ev === ev && ev.phase === "run" && ev.robber ? ev.robber.obj.position : null), r: 3.4, first: true,
             label: "🏈 TACKLE HIM!", short: "TACKLE", act: () => tackle(ev) });
     }
     emit("heist:robbery", { phase: "start", where: ev.where, at: ev.spotName || "store", prop: ev.prop.id });
@@ -173,11 +175,22 @@ function runRobber(dt, ev) {
     const lx = Math.cos(c.h), lz = -Math.sin(c.h);         // the car's LEFT (driver's door)
     const tx = c.x + lx * 1.3, tz = c.z + lz * 1.3;
     const dx = tx - p.obj.position.x, dz = tz - p.obj.position.z, d = Math.hypot(dx, dz);
-    if (d > 0.5 && ev.t < 6) {
-        const v = 4.6 * dt;
+    // she's on foot: he fights the money bag in the doorway first (her window to run over), then lugs it to the car
+    const fumble = ev.foot ? T.footFumble : 0, runV = ev.foot ? T.footRunV : 4.6;
+    if (ev.t < fumble) {
+        p.face(tx, tz, dt, 6);
+        p.update(dt, { talk: true });
+        p.obj.rotation.z = Math.sin(ctx.time * 16) * 0.07;
+        if (ev.propObj) ev.propObj.rotation.z = Math.sin(ctx.time * 12) * 0.4;
+        if (!ev.fumbled && ev.t > 2.3) { ev.fumbled = true; npcSays(p.obj, pick(ROBBERY.fumble), 1.9); }
+        return;
+    }
+    p.obj.rotation.z = 0;
+    if (d > 0.5 && ev.t < fumble + 6) {
+        const v = runV * dt;
         p.obj.position.x += dx / d * Math.min(v, d); p.obj.position.z += dz / d * Math.min(v, d);
         p.face(tx, tz, dt, 10);
-        p.update(dt, { walk: 4.6 });
+        p.update(dt, { walk: runV });
         if (ev.propObj) ev.propObj.rotation.z = Math.sin(ctx.time * 12) * 0.4;
         return;
     }
@@ -304,6 +317,7 @@ function tackle(ev) {
     ev.tackled = true;
     const o = ev.robber.obj;
     o.rotation.order = "YXZ";
+    o.rotation.z = 0;
     o.rotation.x = -1.45;
     o.position.y = 0.25;
     burst(o.position.x, 0.6, o.position.z, 14, 3, [1, 1, 1], 0.35, 0.7);
@@ -446,20 +460,28 @@ export function cleanup() {
     R.nextT = rand(T.every[0], T.every[1]);
 }
 
-// ── the scheduler: Cruise (the highway and the towns), never in a chase / a job / the tutorial ──
-hook("update", (dt, P, controlsOn) => {
-    if (R.ev || !controlsOn || ctx.state !== "playing" || !live()) return;
-    const G = ctx.G;
-    if (G.mode !== "cruise" || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return;
+// ── the scheduler: Cruise — driving (the highway and the towns) or WALKING round a town (by a bank / shop
+//    door: that's where a ✋ tackle can happen); never in a chase / a job / the tutorial ──
+function sched(dt, force = false) {
+    if (R.ev || (!force && !live())) return false;
+    const G = ctx.G, foot = onFoot();
+    if (G.mode !== "cruise" || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return false;
+    // (walking: at most T.footMax a run — an easy tackle by the door must not be a coin tap)
+    if (foot && (!inTown() || ctx.dialogOpen || ctx.foot.chasing || R.footN >= T.footMax)) return false;
     R.nextT -= dt;
-    if (R.nextT > 0) return;
-    R.nextT = rand(20, 35);     // (try again soon if nothing fits right now)
-    if (inTown()) stage({ where: "town" });
-    else if (!(ctx.exits && ctx.exits.inside)) stage({ where: "highway" });
-});
+    if (R.nextT > 0) return false;
+    R.nextT = foot ? rand(6, 10) : rand(20, 35);     // (try again soon if nothing fits right now)
+    if (inTown()) { const ok = stage({ where: "town" }); if (ok && foot) R.footN++; return ok; }
+    if (!foot && !(ctx.exits && ctx.exits.inside)) return stage({ where: "highway" });
+    return false;
+}
+/** Tests: the scheduler's next tick fires now (the random-content gate lifted for that one tick). */
+export function schedNow() { R.nextT = 0; return sched(0.1, true); }
+hook("update", (dt, P, controlsOn) => { if (controlsOn && ctx.state === "playing") sched(dt); });
 // the event itself ticks every frame of driving AND walking (footRun runs the HUD hook too, not the driving sim's)
 hook("hud", dt => {
     if (ctx.paused || (ctx.state !== "playing" && ctx.state !== "footRun")) return;
+    if (ctx.state === "footRun") sched(dt);
     try { tick(dt); } catch (e) { console.error("[heist robbery]", e); }
 });
 on("state", ({ to }) => {
@@ -468,6 +490,6 @@ on("state", ({ to }) => {
 });
 on("town:leave", () => { if (R.ev && R.ev.where === "town") cleanup(); });
 on("town:enter", () => { if (R.ev && R.ev.where === "highway") cleanup(); });
-hook("runStart", () => { cleanup(); if (R.store && R.store.actor) R.store.alive = false; R.nextT = rand(T.first[0], T.first[1]); R.log.length = 0; });
+hook("runStart", () => { cleanup(); if (R.store && R.store.actor) R.store.alive = false; R.nextT = rand(T.first[0], T.first[1]); R.log.length = 0; R.footN = 0; });
 on("title", () => cleanup());
 export const robberyTick = tick;

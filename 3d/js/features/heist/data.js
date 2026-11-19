@@ -10,7 +10,7 @@ export const ID = "heist";
 // Cars in the shop: 150 · 300 · 450 · 600 · 900 · 1500 (Golden Lux) · 2500 (Black Ninja).
 // Side jobs: a cab fare 26–40 (+ tips), Uncle Moishe's getaway 230–300 + 25/★, a chop-shop car 90–180.
 // Bail / fines: the bounty is 13 × the charges' weight (cap 400); the precinct fines window 50 + 40 a charge.
-// So: foiling a robbery ≈ a good cab fare; a clean cartoon heist ≈ 1.2–2× the getaway job (the risk is a
+// So: foiling a robbery ≈ a good cab fare (the easy on-foot tackle: at most TUNE.robbery.footMax a run); a clean cartoon heist ≈ 1.2–2× the getaway job (the risk is a
 // real 3–4★ chase, an arrest + a conviction, and a warrant that follows her), at most ONE a run and one
 // every HEIST.cooldownMin minutes — 3–6 clean heists for the Ninja, not one. A snatcher never takes more
 // than SNATCH.capFrac of the wallet, capped at SNATCH.cap coins, and catching him refunds it all + a bonus.
@@ -45,6 +45,10 @@ export const TUNE = {
         first: [70, 120],    // s of driving before the first robbery can happen (Cruise / a town)
         every: [140, 220],   // s between robberies
         townR: [35, 170],    // m: a town's bank / shop has to be this far from her to stage one
+        footR: [8, 30],      // …walking: the door has to be this close (she runs 7.6 m/s)
+        footFumble: 4,       // s the robber fights his money bag in the doorway when she's on foot (her window)
+        footMax: 2,          // robberies started while she's WALKING, a run (the tackle is the easy foil: capped)
+        footRunV: 3.8,       // m/s he lugs it to the car then (4.6 when she's driving: no tackle to be had)
         storeAhead: 720,     // m: the highway's mini-mart goes up this far ahead (before its chunk is built)
         trigger: 95,         // m from the store / bank when the robber bursts out
         rams: 3,             // rams to stop the getaway car (a PIT or boxing it in stops it at once)
@@ -106,6 +110,7 @@ export const STORE_NAMES = { bank: "the bank", pizza: "the pizza shop", bakery: 
 export const ROBBERY = {
     banner: (where, prop) => `<b>🚨 ROBBERY AT ${where.toUpperCase()}!</b><small>a guy in stripes with ${prop} · stop the getaway car — ram it, PIT it or box it in</small>`,
     footBanner: (where) => `<b>🚨 ROBBERY AT ${where.toUpperCase()}!</b><small>✋ TACKLE him before he reaches the car!</small>`,
+    fumble: ["The bag's STUCK in the door!", "Why is money so HEAVY?!", "Hold on — I dropped a twenty…", "Nobody look! I'm having a moment!"],
     lulu: ["Oh, NO you don't!", "Not in MY town!", "Somebody stop him! …fine, ME.", "Is that a BANANA?!", "Hold my kugel."],
     foiled: ["*hands up* OK OK! It's {prop}, officer!", "I want my lawyer. And my mother.", "Curse you, pink convertible!", "This is the worst getaway of my career. It was my first."],
     cop: ["Nice driving, ma'am! We'll take it from here.", "Collar's ours. You're the hero of the day!", "Banana's evidence now. Thanks, Miss Bruck!"],
