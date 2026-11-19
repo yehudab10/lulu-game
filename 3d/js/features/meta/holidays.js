@@ -16,6 +16,7 @@ import { registerModels, ensureModels, models, findNodes } from "../../models.js
 import { input } from "../../input.js";
 import { Q, now, chime, grogger, metaToast } from "./util.js";
 import { questAdd } from "./progress.js";
+import { sunsetHour } from "../seasons/calendar.js";
 
 export const HOLIDAYS = [
     { id: "roshHashana", month: ["Tishri"], day: 1, days: 2, emoji: "🍎", greeting: "Shana Tova!", gift: 18, from: "Bubbe's honey-cake money",
@@ -48,12 +49,17 @@ function hebrewMD(d) {
         return m && day ? { m, d: day } : null;
     } catch (e) { return null; }
 }
-const FORCED = Q.get("holiday");
-const FORCED_DAY = Math.max(1, parseInt(Q.get("holidayDay") || "1", 10) || 1);
+// (features/seasons' preview link — ?season=chanukah&night=5 — dresses Lulu's car for the same holiday)
+const SEASON_AS = { chanukah: "chanukah", purim: "purim", sukkos: "sukkot", roshHashana: "roshHashana", pesach: "pesach" };
+const FORCED = Q.get("holiday") || SEASON_AS[Q.get("season")] || null;
+const FORCED_DAY = Math.max(1, parseInt(Q.get("holidayDay") || Q.get("night") || "1", 10) || 1);
 let cache = null, cacheKey = "";
 /** The holiday running today (local date) → { h, dayNum (1-based), key } or null. */
 export function currentHoliday() {
-    const d = new Date(now());
+    // (a Jewish day starts at nightfall: after about sunset it's already tomorrow's date — the first Chanukah candle
+    //  is the evening of 24 Kislev, the same count the menorahs in the windows show: features/seasons/calendar.js)
+    const d0 = new Date(now());
+    const d = d0.getHours() + d0.getMinutes() / 60 >= sunsetHour(d0) ? new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + 1, 12) : d0;
     const key = d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
     if (FORCED) {
         const h = HOLIDAYS.find(x => x.id === FORCED);
