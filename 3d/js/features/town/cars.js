@@ -98,6 +98,22 @@ function gapAhead(c, T, st) {
     return gap;
 }
 
+/** Lulu on foot: a driver who stopped for her (she stepped out in front) waits a couple of seconds after she
+ *  steps aside, and one she walks right up to stays put — so she can get to the door and carjack it (streets
+ *  only takes a car that's stopped or crawling), the same as a highway car that braked for her. → holding */
+function footHold(dt, c, T) {
+    const F = ctx.foot && ctx.foot.active && ctx.foot.pos;
+    if (F && ctx.state === "footRun") {
+        const dx = F.x - c.x, dz = F.z - c.z, fx = Math.sin(c.h), fz = Math.cos(c.h);
+        const f = dx * fx + dz * fz, lat = Math.abs(-dx * fz + dz * fx);
+        if (Math.abs(f) < 4 && lat < 3.6 && c.speed < 6) T.footHold = 2.5;                 // she's right by its door
+        else if (f > 0 && f < 14 && lat < 2) T.footHold = Math.max(T.footHold || 0, 2.5);   // she's in its path
+    }
+    if (!(T.footHold > 0)) return false;
+    T.footHold -= dt;
+    return true;
+}
+
 /** Is anyone in (or about to be in) this intersection? */
 function boxBusy(node, self) {
     const nx = PL.ORIGIN.x + node.x, nz = PL.ORIGIN.z + node.z;
@@ -126,6 +142,7 @@ function drive(dt, c) {
     if (C.slow.has(T.street)) v = Math.min(v, 4.5);                 // speed bumps (the locals know)
     const gap = gapAhead(c, T, st);
     if (gap < 30) v = Math.min(v, Math.max(0, (gap - 6.5) * 0.7));
+    if (footHold(dt, c, T)) v = 0;
     // the corner ahead
     const node = T.node;
     if (node) {

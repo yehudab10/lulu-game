@@ -94,9 +94,10 @@ export function planRest(s, force = false) {
     sign(LY.SIGN_MILE, { lines: L.SIGNS.mile });
     sign(LY.SIGN_HALF, { lines: L.SIGNS.half });
     sign(LY.SIGN_NEXT, { lines: [L.SIGNS.next[0], L.SIGNS.next[1], R.name.short.toUpperCase()] });
-    for (const sg of [{ s: s + LY.RAMP0 + 6, d: 13.0, lines: L.SIGNS.gore, w: 2.6, h: 1.3, tw: 512, th: 256 },
-        { s: s + LY.ON0 - 18, d: LY.AISLE + 4.2, lines: L.SIGNS.back, w: 3.0, h: 1.5, tw: 512, th: 256 },
-        { s: s + 156, d: 31.5, lines: L.SIGNS.trucks, w: 2.8, h: 1.4, tw: 512, th: 256 }]) {
+    // (the gore sign on the grass past the painted gore; nothing stands on a lane — core's `paved`)
+    for (const sg of [{ s: s + LY.RAMP0 + 68, d: 15.0, lines: L.SIGNS.gore, w: 2.6, h: 1.3, tw: 512, th: 256 },
+        { s: s + LY.ON0 - 18, d: LY.AISLE_D1 + 2.1, lines: L.SIGNS.back, w: 3.0, h: 1.5, tw: 512, th: 256 },
+        { s: s + 156, d: 32.4, lines: L.SIGNS.trucks, w: 2.8, h: 1.4, tw: 512, th: 256 }]) {
         const def = Object.assign({ bg: "#1565C0" }, sg);
         w.addSign(def); R.signs.push(def);
     }

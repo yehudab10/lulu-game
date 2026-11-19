@@ -241,7 +241,15 @@ async function partyRun(t, guests) {
     n += live.length; bad += live.filter(x => !x).length;
   }
   t.check("town traffic: every live car sits where the shared clock says", n >= 12 && bad === 0, `${n} live, ${bad} off`);
-  t.check("town traffic: no random town drivers in a party", await g(`ctx.town.debug.C.cars.filter(c => !c.data.town.hazard).length === 0 && ctx.traffic.cars.every(c => c.data && (c.data.party || (c.data.town && c.data.town.hazard)))`));
+  // every live car near the camera is really drawn (in the scene, visible up its parent chain, sane bounding spheres)
+  const vis = await g(`(() => { const cam = ctx.camera.position, bad = []; let near = 0;
+      const shown = o => { for (let x = o; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
+      for (const c of ctx.traffic.cars) { if (Math.hypot(c.x - cam.x, c.z - cam.z) > 100) continue; near++; let m = 0, ok = 0; c.obj.updateMatrixWorld(true);
+        c.obj.traverse(o => { if (!o.isMesh) return; m++; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere.clone().applyMatrix4(o.matrixWorld); if (bs.radius > 0.02 && bs.radius < 14 && Math.hypot(bs.center.x - c.x, bs.center.z - c.z) < 9) ok++; });
+        if (!shown(c.obj) || !m || ok < m * 0.8) bad.push(c.kind + ":" + shown(c.obj)); }
+      return { near, bad }; })()`);
+  t.check("Free Roam town: every car within 100 m is in the scene and visible", vis.near > 0 && !vis.bad.length, JSON.stringify(vis));
+  t.check("town traffic: no random town drivers in a party",await g(`ctx.town.debug.C.cars.filter(c => !c.data.town.hazard).length === 0 && ctx.traffic.cars.every(c => c.data && (c.data.party || (c.data.town && c.data.town.hazard)))`));
   const folk = [];
   for (const p of pages) folk.push(JSON.stringify(await p.game(`ctx.town.debug.LIFE.people.map(r => [r.p.obj.position.x.toFixed(2), r.p.obj.position.z.toFixed(2)]).concat(ctx.town.debug.LIFE.geese.map(q => [q.home.x.toFixed(2), q.home.z.toFixed(2)]))`)));
   const fA = JSON.parse(folk[0]), fB = JSON.parse(folk[1]), diff = fA.map((x, i) => JSON.stringify(x) === JSON.stringify(fB[i]) ? null : i).filter(i => i != null);

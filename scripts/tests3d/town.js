@@ -67,11 +67,15 @@ module.exports = {
       await t.frames(20);
       await t.shot("exit-gantry");
       // steer: keep right, take the decel lane, follow the ramp
-      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = [];
-          for (let u = -300; u <= 140; u += 10) { const d = u < -170 ? 5.25 : u < -60 ? 5.25 + (u + 170) / 110 * 3.5 : 8.75 + 0.0011 * Math.max(0, u + 60) ** 2; const p = r.point(E + u, d, {}); pts.push({ x: p.x, z: p.z }); }
-          window.__route = { pts, v: 17, r: 6 }; return true; })()`);
+      // the driving line down the decel lane onto the inner branch (exit.js's layout), to the STOP sign
+      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = ctx.town.debug.rampRoute(E, 0).map(([u, d]) => { const p = r.point(E + u, d, {}); return { x: p.x, z: p.z }; });
+          window.__route = { pts, v: 15, r: 6 }; return true; })()`);
       await t.until(`__lulu3d.ctx.car.s > ${E} - 120`, "she drives down to the exit", 40000);
       await t.shot("exit-ramp");
+      // past COMMIT on the branch: town:exit, then she drives on to the T-junction's STOP sign before the fade
+      await t.until(`__lulu3d.ctx.town.debug.S.commit || __lulu3d.ctx.town.transitioning || __lulu3d.ctx.town.active`, "past COMMIT on the branch", 40000);
+      t.check("committing to the branch fires town:exit before the fade (she drives on to the T-junction)", (await evs()).some(e => e.startsWith("town:exit")) && await g(`!!ctx.town.debug.S.commit || ctx.town.transitioning`));
+      await t.shot("exit-tee");
       if (!await t.until(`__lulu3d.ctx.town.active`, "steering onto the off-ramp takes her into town (town:enter)", 40000)) return;
       await g(`(window.__route = null, true)`);
       t.check("town:enter fired", (await evs()).some(e => e.startsWith("town:enter")));
@@ -156,6 +160,121 @@ module.exports = {
       }
     });
 
+    await step("cars-visible", async () => {
+      if (!await inTown()) return;
+      // ── every live car in town has a visible mesh in the scene (no pooled body comes back hidden) ──
+      await g(`${D}.place("Main St", 60, 1.75, 0, 1)`);
+      await t.frames(20);
+      const audit = () => g(`(() => {
+        const cam = ctx.camera.position, bad = [];
+        const shown = o => { for (let x = o; x; x = x.parent) { if (x === ctx.scene) return true; if (!x.visible) return false; } return false; };
+        let near = 0;
+        for (const c of ctx.traffic.cars) {
+          const dist = Math.hypot(c.x - cam.x, c.z - cam.z);
+          if (dist > 100) continue;
+          near++;
+          let meshes = 0, ok = 0;
+          c.obj.updateMatrixWorld(true);
+          c.obj.traverse(o => { if (!o.isMesh) return; meshes++; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const bs = g.boundingSphere.clone().applyMatrix4(o.matrixWorld);
+            if (bs.radius > 0.02 && bs.radius < 14 && Math.hypot(bs.center.x - c.x, bs.center.z - c.z) < 9 && o.material && o.material.visible !== false) ok++; });
+          if (!shown(c.obj) || !meshes || ok < meshes * 0.8) bad.push([c.kind, Math.round(dist), shown(c.obj), meshes, ok].join(":"));
+        }
+        return { near, bad };
+      })()`);
+      const a1 = await audit();
+      t.check("every car within 100 m in town is in the scene, visible, with sane bounding spheres", a1.near > 0 && !a1.bad.length, JSON.stringify(a1));
+      // the pool: a car the town hid (its far-car LOD) and gave back must come out VISIBLE for the next owner (a chase cruiser)
+      const pool = await g(`(() => { const c = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); c.obj.visible = false; ctx.traffic.remove(c);
+          const c2 = ctx.traffic.add("cop", ctx.car.s + 30, 1.75, 1, 0, { keep: true, data: { local: true } }); const v = c2.obj.visible; ctx.traffic.remove(c2); return c2.obj === c.obj && v; })()`);
+      t.check("a pooled car body comes back visible (the town's far-car LOD can't leak an invisible cruiser)", pool);
+      await t.shot("cars-visible");
+    });
+
+    await step("parked", async () => {
+      if (!await inTown()) return;
+      // ── the parked cars are SOLID: she bumps one, it's shoved (and its alarm goes off) ──
+      await g(`(ctx.law.hold(300), ${D}.place("Route 9", 40, -1.75, 0, -1), true)`);
+      await t.frames(4);
+      const pk = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, car = ctx.car; let best = null, bd = 1e9;
+          for (const p of T.pcars) { if (p.gone) continue; const d = Math.hypot(O.x + p.x - car.pos.x, O.z + p.z - car.pos.z); if (d > 8 && d < bd) { bd = d; best = p; } }
+          if (!best) return null; window.__pc = best; return { x: O.x + best.x, z: O.z + best.z, rot: best.rot, n: T.pcars.length }; })()`);
+      t.check("the town's parked cars are registered (tagged in the merge, two colliders each)", !!pk && pk.n > 100, JSON.stringify(pk));
+      if (pk) {
+        // (from across the street, nose first into its side — along the kerb she'd hit the car parked behind it first)
+        await g(`(() => { const p = window.__pc, O = ${D}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {});
+            const q = r.point(n.s, -Math.sign(n.d || 1) * 1.75, {}), h = Math.atan2(P.x - q.x, P.z - q.z);
+            ctx.car.place(q.x, q.z, h); ctx.car.vx = Math.sin(h) * 7; ctx.car.vz = Math.cos(h) * 7; ctx.car.vF = 7; ctx.car.s = n.s; window.__pc0 = [p.x, p.z]; window.__hits = []; return true; })()`);
+        await t.L(`import("./js/core/ctx.js").then(m => { if (!window.__phk) { window.__phk = true; m.on("town:parkedHit", e => window.__hits && window.__hits.push(e.impact)); } })`);
+        await t.frames(45);
+        const r = await g(`(() => { const p = window.__pc, O = ${D}.PL.ORIGIN; return { hits: window.__hits.length, moved: Math.hypot(p.x - window.__pc0[0], p.z - window.__pc0[1]), live: !!p.live, carGap: Math.hypot(O.x + p.x - ctx.car.pos.x, O.z + p.z - ctx.car.pos.z) }; })()`);
+        t.check("driving into a parked car: she hits it (it's solid)", r.hits > 0 && r.carGap > 1.5, JSON.stringify(r));
+        t.check("…and it's shoved (lifted out of the merge as a real car, moved)", r.live && r.moved > 0.15, JSON.stringify(r));
+        await t.shot("parked-bump");
+      }
+      // on foot, on ANOTHER street than her car: she can't walk through a parked car, and ✋ hotwires it
+      await g(`(ctx.car.vx = ctx.car.vz = ctx.car.vF = 0, ${D}.place("Main St", 40, 1.75, 0, 1), true)`);
+      await t.frames(3);
+      await g(`ctx.foot.start("droveOff")`);
+      if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot (parked)", 30000)) return;
+      const q = await g(`(() => { const T = ${D}.S.T, O = ${D}.PL.ORIGIN, st = ${D}.PL.byName["Route 9"], F = ctx.foot.debug.F; let best = null, bd = 1e9;
+          for (const p of T.pcars) { if (p.gone || p.live) continue; const n = ctx.world.road.nearest(O.x + p.x, O.z + p.z, st.base + 100, {}); if (n.street !== st) continue; const dd = Math.abs(n.s - st.base - 110); if (dd < bd) { bd = dd; best = p; } }
+          if (!best) return null; window.__fp = best;
+          // stepping right into its side (inside the body, at the front wheel arch)
+          const fx = Math.sin(best.rot), fz = Math.cos(best.rot), lx = Math.cos(best.rot), lz = -Math.sin(best.rot);
+          F.pos.set(O.x + best.x + fx * 1.2 + lx * 0.5, 0, O.z + best.z + fz * 1.2 + lz * 0.5); return true; })()`);
+      if (!q) { t.check("a parked car on Route 9 to walk up to", false); return; }
+      await t.frames(4);
+      const out = await g(`(() => { const p = window.__fp, O = ${D}.PL.ORIGIN, F = ctx.foot.debug.F, dx = F.pos.x - (O.x + p.x), dz = F.pos.z - (O.z + p.z); return Math.abs(dx * Math.cos(p.rot) - dz * Math.sin(p.rot)); })()`);
+      t.check("on foot (a street away from her car), a parked car is solid: she's pushed out of its side", out > 1.15, out.toFixed(2));
+      await g(`(() => { const p = window.__fp, O = ${D}.PL.ORIGIN, F = ctx.foot.debug.F; F.pos.set(O.x + p.x + Math.cos(p.rot) * 1.7, 0, O.z + p.z - Math.sin(p.rot) * 1.7); return true; })()`);
+      await t.frames(12);
+      const prompt = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+      t.check("next to a parked car on foot: ✋ HOTWIRE CAR (like the highway's)", /HOTWIRE/.test(prompt), prompt);
+      await g(`(ctx.foot.force.hotwire = true, true)`);
+      await t.tap(0);
+      await t.until(`["hotwire", "approach"].includes(__lulu3d.ctx.foot.phase) || __lulu3d.state === "playing"`, "the hotwire starts", 8000);
+      for (let i = 0; i < 6 && await g(`ctx.foot.active`); i++) { await t.frames(12); await t.tap(0); }
+      await t.until(`__lulu3d.state === "playing"`, "…she drives off in it", 20000);
+      t.check("she hotwired a town parked car: driving it (the full model), gone from the kerb", await g(`ctx.foot.vehicle && ctx.foot.vehicle.kind === "town_minivan" && window.__fp.gone && ctx.town.active`), JSON.stringify(await g(`[ctx.foot.vehicle, window.__fp.gone]`)));
+      await g(`(ctx.foot.force.hotwire = undefined, ctx.foot.dropRide(), true)`);
+    });
+
+    await step("jack-traffic", async () => {
+      if (!await inTown()) return;
+      // ── carjack a MOVING town driver: step out in front, it stops and waits, walk to the door, ✕ ──
+      await g(`(ctx.law.hold(300), ctx.streets.force.reaction = "fist", window.__jw = null, true)`);
+      await t.L(`import("./js/core/ctx.js").then(m => { if (!window.__jwk) { window.__jwk = true; m.on("streets:carjack", e => { window.__jw = e; }); } })`);
+      // nobody's watching: the patrol goes home
+      await g(`(() => { const C = ${D}.C; if (C.patrol) { ctx.traffic.remove(C.patrol); C.cars.splice(C.cars.indexOf(C.patrol), 1); C.patrol = null; } ${D}.S.def.traffic.cop = 0; return true; })()`);
+      t.check("the town's big rides are jackable too (school bus, city bus, sweeper)", await g(`["town_van", "town_bus", "town_citybus", "town_sweeper", "town_carsvc"].every(k => !!ctx.streets.rides[k])`));
+      await g(`${D}.place("Main St", 30, 1.75, 0, 1)`);
+      await t.frames(2);
+      await g(`ctx.foot.start("droveOff")`);
+      if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot (jack)", 30000)) return;
+      let jacked = false;
+      for (let tries = 0; tries < 4 && !jacked; tries++) {
+        const c = await g(`(() => { const F = ctx.foot.debug.F; const c = ${D}.C.cars.find(c => c.kind === "town_van" && !c.free && !c.data.town.hazard && c.data.town.mode === "drive" && c.speed > 3);
+            if (!c) return null; const f = { x: Math.sin(c.h), z: Math.cos(c.h) }; F.pos.set(c.x + f.x * 16, 0, c.z + f.z * 16); window.__jc = c; return c.speed; })()`);
+        if (c == null) { await t.frames(30); continue; }
+        await t.until(`__lulu3d.ctx.foot.debug.F && window.__jc.speed < 0.5`, "the minivan stops for her", 12000);
+        await g(`(() => { const c = window.__jc, F = ctx.foot.debug.F, l = { x: Math.cos(c.h), z: -Math.sin(c.h) }, f = { x: Math.sin(c.h), z: Math.cos(c.h) }; F.pos.set(c.x + l.x * 1.6 + f.x * 0.6, 0, c.z + l.z * 1.6 + f.z * 0.6); return true; })()`);
+        await t.frames(20);
+        const pr = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
+        const still = await g(`window.__jc.speed < 0.5`);
+        t.check(`a town driver who stopped for her waits by the door (try ${tries + 1}): ✕ JACK`, /JACK/.test(pr) && still, `${pr} · speed ${(await g(`window.__jc.speed`)).toFixed(1)}`);
+        if (!/JACK/.test(pr)) continue;
+        await t.tap(0);
+        jacked = await g(`ctx.streets.jacking`);
+      }
+      if (!jacked) return;
+      if (await t.until(`__lulu3d.state === "playing"`, "…she drives off in it", 30000)) {
+        t.check("solo: she jacked a moving town minivan", await g(`ctx.streets.ride && ctx.streets.ride.kind === "town_van" && ctx.town.active`));
+        await t.frames(10);
+        t.check("…unwitnessed (no patrol in sight): no chase, no heat", await g(`!ctx.law.chasing && !!window.__jw && window.__jw.witnessed === false`), JSON.stringify(await g(`[ctx.law.chasing, window.__jw && window.__jw.witnessed]`)));
+      }
+      await g(`(ctx.streets.force.reaction = undefined, ctx.foot.dropRide(), ${D}.S.def.traffic.cop = 1, true)`);
+    });
+
     await step("onramp", async () => {
       if (!await inTown()) return;
       const E = await g(`ctx.town.debug.S.exitS`);
@@ -164,7 +283,12 @@ module.exports = {
       await route([[1.75, -60], [1.75, -90]], 12, 3);
       if (await t.until(`!__lulu3d.ctx.town.active`, "driving south out of town takes the on-ramp", 30000)) {
         t.check("town:leave fired (why: highway)", (await evs()).some(e => e.startsWith("town:leave") && /highway/.test(e)));
-        t.check("back on the highway, just past the exit she took", await g(`ctx.world.road.town !== true && Math.abs(ctx.car.s - (${E} + 190)) < 30 && Math.abs(ctx.car.d - 5.25) < 2`), String(await g(`[Math.round(ctx.car.s), ctx.car.d.toFixed(1)]`)));
+        t.check("back on the highway: on the interchange's on-ramp, heading down it to the merge", await g(`ctx.world.road.town !== true && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9 && ctx.car.speed > 5`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1), ctx.car.speed.toFixed(1)]`)));
+        t.check("…the on-ramp is paved road (a lane: nothing stands on it)", await t.L(`import("./js/core/driving.js").then(m => m.pavedAt(__lulu3d.ctx.car.s, __lulu3d.ctx.car.d) >= 3)`));
+        // follow the on-ramp down into the accel lane and merge into the right lane
+        await t.L(`import("./js/features/town/exit.js").then(m => { const c = __lulu3d.ctx, r = c.world.road, E = ${E}, pts = []; for (let u = Math.round(c.car.s - E) + 12; u <= 470; u += 10) { const d = u < m.ON1 ? m.onD(u) : u < 380 ? 9.1 - (u - m.ON1) / 80 * 3.85 : 5.25; const p = r.point(E + u, d, {}); pts.push({ x: p.x, z: p.z }); } window.__route = { pts, v: 18, r: 6 }; })`);
+        await t.until(`__lulu3d.ctx.car.s > ${E} + 440`, "down the on-ramp + the accel lane", 40000);
+        t.check("…and merges into the right lane past the accel lane", await g(`ctx.car.d > 3 && ctx.car.d < 7.2`), await g(`ctx.car.d.toFixed(2)`));
         t.check("the highway chunks are back", await g(`[...ctx.world.chunks.values()].every(c => c.group.visible) && ctx.world.chunks.size > 2`));
         t.check("the town's scene is disposed", await g(`!ctx.scene.children.some(o => /^Town:/.test(o.name))`));
         await g(`(window.__route = null, true)`);

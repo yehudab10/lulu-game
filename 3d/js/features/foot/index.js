@@ -311,7 +311,7 @@ function end(why = "end") {
     ctx.scene.remove(f.lulu.obj);
     for (const p of f.peds) ctx.scene.remove(p.p.obj);
     for (const a of f.animals) ctx.scene.remove(a.p.obj);
-    for (const pc of f.parked) ctx.scene.remove(pc.obj);
+    for (const pc of f.parked) { if (pc.ext) { if (pc.ext.drop) try { pc.ext.drop(pc); } catch (e) { console.error(e); } } else ctx.scene.remove(pc.obj); }
     if (f.booth) ctx.scene.remove(f.booth.obj);
     if (f.companion) ctx.scene.remove(f.companion.p.obj);
     if (f.walker) ctx.scene.remove(f.walker.p.obj);
@@ -1069,7 +1069,7 @@ function spawnParked(opts = {}) {
 function updateParked(dt) {
     for (let i = F.parked.length - 1; i >= 0; i--) {
         const pc = F.parked[i];
-        if (pc.s < F.s - 70 || pc.s > F.s + 240) { ctx.scene.remove(pc.obj); F.parked.splice(i, 1); continue; }
+        if (!pc.ext && (pc.s < F.s - 70 || pc.s > F.s + 240)) { ctx.scene.remove(pc.obj); F.parked.splice(i, 1); continue; }
         if (pc.lemon === "engine" && Math.random() < 0.3) {
             const fx = Math.sin(pc.h), fz = Math.cos(pc.h);
             ctx.car.fx.emit(pc.x + fx * 1.8 + rand(-0.2, 0.2), 1.05, pc.z + fz * 1.8, rand(-0.2, 0.2), rand(0.8, 1.5), rand(-0.2, 0.2), 1.1, 1.1, [0.5, 0.5, 0.52]);
@@ -1634,7 +1634,8 @@ function finalizeBorrow(pc) {
     const watcher = copSaw(40);
     const i = F.parked.indexOf(pc);
     if (i >= 0) F.parked.splice(i, 1);
-    ctx.scene.remove(pc.obj);
+    if (pc.ext) { if (pc.ext.taken) try { pc.ext.taken(pc); } catch (e) { console.error(e); } }
+    else ctx.scene.remove(pc.obj);
     S.borrowed++; saveSoon();
     emit("stat", { id: "carsBorrowed", n: 1 });
     enterCar({ vtype: pc.vtype, key: pc.key, colors: pc.colors, x: pc.x, z: pc.z, h: pc.h, lemon: pc.lemon, how: "car" });
@@ -1855,6 +1856,17 @@ ctx.foot = {
 
     /** Add an on-foot interactable: { x, z } or pos() → {x, z}; r; label (string | fn); act(). Returns a remover. */
     addSpot(spot) { spotList.push(spot); return () => { const i = spotList.indexOf(spot); if (i >= 0) spotList.splice(i, 1); }; },
+    /** Another feature's parked car she can hotwire (a town's kerbside cars): pc = { vtype ("car"…), key (the shell's model),
+     *  colors, obj (its Object3D — the owner adds / removes it), x, z, h, circles, r, ext: { taken(pc) when she drives off in it,
+     *  drop(pc) when her walk ends } } — never pruned by distance (the owner takes it back with the remover). → remover | null */
+    addParked(pc) {
+        if (!F || !pc || !pc.obj) return null;
+        pc.ext = pc.ext || {};
+        Object.assign(pc, { busted: false, lemon: pc.lemon || null, side: pc.side || 1, s: pc.s != null ? pc.s : F.s, d: pc.d || 0 });
+        F.parked.push(pc);
+        const f = F;
+        return () => { const i = f.parked.indexOf(pc); if (i >= 0) f.parked.splice(i, 1); };
+    },
     /** Bump into Avigail right now ("wedding" | "busy" | "join"; default: the 2D odds). */
     meetAvigail(outcome) {
         if (!F) return false;

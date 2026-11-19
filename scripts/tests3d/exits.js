@@ -37,10 +37,10 @@ module.exports = {
       await t.frames(frames);
       return t.L(`(() => { const P = window.__pf; window.__pf = null; return { frames: P.n, renderMs: +(P.ms / P.n).toFixed(1), frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris, cars: __lulu3d.traffic.cars.length }; })()`);
     };
-    const rampD = u => 8.75 + 0.0011 * Math.max(0, u + 60) ** 2, outerD = u => rampD(u) + 0.0025 * Math.max(0, u) ** 2;
     const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
     const offD = u => 8.9 + 18.1 * sm((u + 80) / 90), onD = u => 27 - 18.1 * sm((u - 222) / 100);
-    const toTown = (outer) => { const pts = []; for (let u = -230; u <= (outer ? 100 : 140); u += 10) pts.push([u, u < -170 ? 5.25 : u < -60 ? 5.25 + (u + 170) / 110 * 3.5 : outer ? outerD(u) : rampD(u)]); return pts; };
+    // the driving line onto a branch comes from the interchange's own layout (features/town/exit.js)
+    const toTown = (E, outer) => g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240)`);
     // advance / close any dialogue (a stray ✕ that re-opens a menu gets "Just looking")
     const dialogOut = async () => {
       for (let i = 0; i < 16; i++) {
@@ -103,7 +103,7 @@ module.exports = {
         await g(`ctx.town.load("${id}")`);
         await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models load`, 60000);
         await place(E - 240, 5.25, 15);
-        await route(E, toTown(outer), 16, { r: 6 });
+        await route(E, await toTown(E, outer), 16, { r: 6 });
         if (outer) {
           await t.until(`(() => { const p = __lulu3d.ctx.town.debug.rampPhase(); return p && p.phase === "ramp" || __lulu3d.ctx.town.active; })()`, "on the shared ramp", 40000);
           t.check("on the ramp: the cue names both branches", /LAKEWOOD.*BROOKLYN/.test(await g(`ctx.town.debug.S.cue || ""`)) || await g(`ctx.town.active`), await g(`ctx.town.debug.S.cue || ""`));
@@ -118,10 +118,62 @@ module.exports = {
         await t.shot(`in-${id}`);
         // leaving by the town's own exit routes still works (back just past the interchange)
         await g(`ctx.town.leave("highway")`);
-        t.check(`back on the highway past the interchange (${id})`, await g(`!ctx.town.active && Math.abs(ctx.car.s - (${E} + 190)) < 30`), await g(`Math.round(ctx.car.s - ${E})`));
+        t.check(`back on the highway from ${id}: on the interchange's on-ramp`, await g(`!ctx.town.active && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9`), await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`));
         await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
       });
     }
+
+    await step("interchange", async () => {
+      // ── 3b. a real interchange, and NOTHING stands on its lanes (signs, props, rails — anybody's) ──
+      if (await g(`ctx.town.active`)) await g(`ctx.town.leave("quiet")`);
+      await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
+      const s0 = await g(`ctx.car.s`);
+      await place(s0 + 1500, 5.25, 0);
+      const E = await g(`ctx.town.debug.exitAhead(900)`);
+      t.check("an interchange to look at", typeof E === "number", String(E));
+      if (typeof E !== "number") return;
+      // (stand by the gore so the chunks over the whole interchange are built)
+      await g(`(ctx.town.debug.S.commit = null, true)`);
+      await place(E + 40, 5.25, 0);
+      await t.frames(30);
+      const L = await g(`ctx.town.debug.exitLayout(${E})`);
+      t.check("the layout: a T-junction STOP line per branch, cross roads, guardrails", L && L.stops.length === 2 && L.roads.length === 2 && L.rails.length >= 4, JSON.stringify(L && { stops: L.stops, roads: L.roads.length, rails: L.rails.length }));
+      t.check("…the far end has its roadside: STOP signs, guide boards, a gas station, Welcome signs, houses, crash cushions", ["exits_stop", "exits_guide", "exits_pylon", "exits_canopy", "exits_welcome", "house", "exits_cushion", "exits_advisory"].every(k => L.props.some(p => p.key === k)));
+      // every prop / rail of the layout is off the lanes
+      const scan = await t.L(`import("./js/world.js").then(W => { const c = __lulu3d.ctx, E = ${E}, L = c.town.debug.exitLayout(E), bad = [];
+          for (const p of L.props) if (!W.offLanes(E + p.u, p.d, Math.max(0.3, p.r * 0.7), Math.max(0.3, p.len ? p.len / 2 : p.r * 0.7))) bad.push(p.key + "@" + Math.round(p.u) + "," + p.d.toFixed(1));
+          for (const r of L.rails) for (const [u, d] of r.pts) if (!W.offLanes(E + u, d, 0.15, 0.3)) bad.push("rail@" + Math.round(u) + "," + d.toFixed(1));
+          // every sign on the road near it (ours, a rest area's, a road zone's…) — where it was BUILT
+          let signs = 0;
+          for (const sg of c.world.signs) { if (sg.s < E - 1500 || sg.s > E + 480) continue; signs++; const d = sg.builtD != null ? sg.builtD : sg.d; if (!W.offLanes(sg.s, d, (sg.w || 4.2) / 2, 0.4)) bad.push("sign:" + sg.lines.join(" ").slice(0, 24) + "@" + Math.round(sg.s - E)); }
+          // and every static collider the chunks built there (anybody's tree, pole, house, prop, sign)
+          let cols = 0;
+          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = c.world.highway.nearest(co.x, co.z, E, {}); if (n.s < E - 260 || n.s > E + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - E) + "," + n.d.toFixed(1)); }
+          return { signs, cols, bad }; })`);
+      t.check("no sign, prop, rail or collider overlaps the interchange's lanes (decel / ramps / gores / cross roads / on-ramp / accel)", !scan.bad.length && scan.cols > 20, JSON.stringify(scan).slice(0, 400));
+      t.check("the exit-number tabs ride on the advance signs", await g(`ctx.world.signs.some(s => s.tab === "EXITS 91 · 9")`));
+      // the views + perf (a highway baseline on the same stretch first)
+      await place(E - 2600, 5.25, 0); await t.frames(20);
+      const base = await perf(60);
+      for (const [label, u, dx] of [["exit-taper", -280, "5.25"], ["exit-gore", -70, "9.1"], ["exit-split", 2, "m.rampD(2) + 1"], ["exit-tee-lakewood", 128, "m.rampD(128)"], ["exit-tee-brooklyn", 84, "m.outerD(84)"], ["exit-onramp", 196, "m.onD(196)"]]) {
+        // (the views only: a parked car past COMMIT mustn't start the fade into town)
+        const d = await t.L(`import("./js/features/town/exit.js").then(m => ${dx})`);
+        await g(`(ctx.town.debug.S.commit = null, true)`);
+        await place(E + u, d, 0);
+        if (label === "exit-onramp") await t.L(`import("./js/features/town/exit.js").then(m => { const c = __lulu3d.ctx; c.car.h -= Math.atan((m.onD(${u} + 1) - m.onD(${u} - 1)) / 2); c.cam.snap(); })`);
+        await t.frames(14);
+        await t.shot(label);
+        if (label === "exit-tee-lakewood") {
+          const here = await perf(60);
+          console.log("   PERF interchange (Lakewood T)", JSON.stringify(here), "vs highway", JSON.stringify(base));
+          t.check("interchange draw calls: ≤ the same highway + 60", here.calls <= base.calls + 60, `${here.calls} vs ${base.calls}`);
+          t.check("interchange triangles: ≤ the same highway + 80k", here.tris <= base.tris + 80000, `${here.tris} vs ${base.tris}`);
+        }
+      }
+      await g(`(ctx.town.debug.S.commit = null, true)`);
+      await place(E + 600, 5.25, 0);
+      await t.frames(5);
+    });
 
     let RSs = null, hereBase = null;
     await step("rest", async () => {
@@ -250,6 +302,19 @@ module.exports = {
       }
       await noRoute();
       await t.until(`__lulu3d.state === "playing"`, "drives on", 20000);
+    });
+
+    await step("rest-lanes", async () => {
+      // ── nothing on a rest area's lanes either (decel lane, off-ramp, the drive aisle, the on-ramp, the accel lane) ──
+      if (!RSs) return;
+      await place(RSs + 60, 27, 0);
+      await t.frames(20);
+      const scan = await t.L(`import("./js/world.js").then(W => { const c = __lulu3d.ctx, R = ${RSs}, bad = [];
+          let signs = 0, cols = 0;
+          for (const sg of c.world.signs) { if (sg.s < R - 1400 || sg.s > R + 500) continue; signs++; const d = sg.builtD != null ? sg.builtD : sg.d; if (!W.offLanes(sg.s, d, (sg.w || 4.2) / 2, 0.4)) bad.push("sign:" + sg.lines.join(" ").slice(0, 24) + "@" + Math.round(sg.s - R)); }
+          for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = c.world.highway.nearest(co.x, co.z, R, {}); if (n.s < R - 220 || n.s > R + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - R) + "," + n.d.toFixed(1)); }
+          return { signs, cols, bad }; })`);
+      t.check("no sign, prop or collider stands on a rest area's lanes", !scan.bad.length && scan.cols > 40, JSON.stringify(scan).slice(0, 400));
     });
 
     await step("perf", async () => {

@@ -10,7 +10,7 @@
 import * as THREE from "three";
 import { ctx, on, emit, hook, runHooks, claimHooks, vetoHooks, registerState, setState, MPH, wrapAngle, pick, clearActors } from "./ctx.js";
 import { save3d, saveSoon, wallet, shared, flushShared } from "./save.js";
-import { HALF_ROAD, SHOULDER } from "../world.js";
+import { HALF_ROAD, SHOULDER, paved, pavedAt } from "../world.js";
 import { input, rumble, triggerRumble, glyph, setBrakePedal } from "../input.js";
 import * as A from "../audio.js";
 import * as H from "../hud.js";
@@ -156,19 +156,9 @@ function honkFromAfar() {
 }
 
 // ── the per-frame driving sim ─────────────────────────────────────────────
-/**
- * Paved ground off the highway's asphalt (exit ramps, a rest area's lot…): features push
- * predicates (s, d) → 0 (not theirs) | 1 (walkable grounds: a lawn, a picnic area — still grass
- * for the car) | 2 (asphalt: the car drives it like road, no grass drag or shoulder rumble).
- * Highway road coords only (ignored while a district is active).
- */
-export const paved = [];
-/** The highest paved level any feature reports at highway (s, d): 0 | 1 | 2. */
-export function pavedAt(s, d) {
-    let best = 0;
-    for (const f of paved) { const v = +f(s, d) || 0; if (v > best) { best = v; if (best >= 2) break; } }
-    return best;
-}
+// Paved ground off the highway (exit ramps, a rest area's lot…): the registry lives in world.js (chunks keep
+// signs off the lanes with it); re-exported here, where features have always imported it from.
+export { paved, pavedAt, offLanes } from "../world.js";
 const tmpNear = {};
 /** Where the car is on the road: {s, d, h, absd, offroad 0..1, onShoulder}. */
 export function roadPos() {

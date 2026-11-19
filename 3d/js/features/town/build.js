@@ -80,7 +80,7 @@ export function buildTown(def) {
     const mergeFar = new Merger(150);     // the skyline: big cells, few draw calls
     const atlas = new Atlas(2048);
     const colliders = [];
-    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], trains: [], anims: [] };
+    const T = { def, root, colliders, coins: [], lamps: [], cranes: [], spots: {}, stops: [], bumps: [], jam: [], signs: atlas, mats, own, parked: [], pcars: [], trains: [], anims: [] };
 
     const col = (lx, lz, r, kind = "town") => colliders.push({ x: O.x + lx, z: O.z + lz, r, kind });
     const sign = (spec, x, y, z, yaw, w, h, twoSided = false) => {
@@ -117,13 +117,23 @@ export function buildTown(def) {
      *  (Lakewood: always the silver minivan; a town's def.parked mixes models + paints.) */
     const PARKED = def.parked || [{ key: "town_minivan_lod", w: 1, paints: SILVER }];
     const PW = PARKED.reduce((a, p) => a + (p.w || 1), 0);
+    // Every parked car is SOLID (two collider circles) and tagged (kit.js): parked.js can lift one out of the merged
+    // cluster — a nudge when she bumps it, a real car she can hotwire on foot — and put it back. → T.pcars entry
     const parkedCar = (x, z, rot) => {
         let P = PARKED[0];
         if (PARKED.length > 1) { let r = R() * PW; for (const p of PARKED) { r -= p.w || 1; if (r <= 0) { P = p; break; } } }
-        place(P.key, x, z, rot, { Paint: pickOf(P.paints || SILVER, R) }, { noShadow: true });
+        const paint = pickOf(P.paints || SILVER, R), tag = {};
+        place(P.key, x, z, rot, { Paint: paint }, { noShadow: true, tag });
         const sedan = /sedan/.test(P.key);
         const b = new THREE.PlaneGeometry(sedan ? 2.1 : 2.3, sedan ? 4.8 : 5.4); b.rotateX(-Math.PI / 2); b.rotateY(rot); b.translate(x, 0.05, z);
+        b.userData.tag = tag;
         addColored(merge, b, "#4a4c50", x, z, "flat");
+        const fx = Math.sin(rot), fz = Math.cos(rot), off = sedan ? 1.15 : 1.25;
+        const cols = [1, -1].map(k => ({ x: O.x + x + fx * off * k, z: O.z + z + fz * off * k, r: sedan ? 0.95 : 1.0, kind: "car" }));
+        colliders.push(...cols);
+        const pc = { x, z, rot, key: P.key, paint, tag, cols, off, sedan };
+        T.pcars.push(pc);
+        return pc;
     };
     const pt = (name, along, d) => { const st = street(name); return st ? streetPoint(st, along, d, {}) : null; };
     const clearAt = (st, u, side) => (def.clearParking || []).some(c => c.street === st.name && u >= c.from && u <= c.to && (c.side == null || c.side === side));
@@ -301,8 +311,6 @@ export function buildTown(def) {
                     const p = streetPoint(st, u, side * pd, {});
                     const rot = st.h + (side > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.05;
                     parkedCar(p.x, p.z, rot);
-                    const fx = Math.sin(rot), fz = Math.cos(rot);
-                    col(p.x + fx * 1.25, p.z + fz * 1.25, 1.0, "car"); col(p.x - fx * 1.25, p.z - fz * 1.25, 1.0, "car");
                     T.parked.push({ x: p.x, z: p.z, rot });
                 }
             }
@@ -391,8 +399,6 @@ export function buildTown(def) {
             const p = streetPoint(st, u, j.d, {});
             const rot = st.h + (j.d > 0 ? 0 : Math.PI) + (R() - 0.5) * 0.12;
             parkedCar(p.x, p.z, rot);
-            const fx = Math.sin(rot), fz = Math.cos(rot);
-            col(p.x + fx * 1.2, p.z + fz * 1.2, 1.0, "car"); col(p.x - fx * 1.2, p.z - fz * 1.2, 1.0, "car");
             jam.push({ x: p.x, z: p.z });
         }
         if (j.kind && jam.length) T.spots[j.kind] = Object.assign({}, jam[Math.floor(jam.length / 2)], { street: st.id, d: j.d });
