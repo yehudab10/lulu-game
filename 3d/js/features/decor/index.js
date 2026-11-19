@@ -32,7 +32,7 @@ import { buildOption, disposeObj } from "./props.js";
 import { openPicker, pickerTick, pickerOpen, closePicker, pickerSlot } from "./picker.js";
 import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
 
-const S = store("decor", { owned: {}, placed: {}, spent: 0, bought: 0, sets: [], visits: 0 });
+const S = store("decor", { owned: {}, placed: {}, spent: 0, bought: 0, sets: [], visits: 0, nudges: 0 });
 // (a hand-edited / old save: keep only what the catalogue knows)
 for (const k of Object.keys(S.owned)) if (!slotById(k) || !Array.isArray(S.owned[k])) delete S.owned[k];
 for (const k of Object.keys(S.placed)) if (!slotById(k)) delete S.placed[k];
@@ -293,6 +293,18 @@ function pickOutside(id) {
     openPicker(slot, pickerApi(), null);
     return true;
 }
+// the first couple of home starts before she's ever been in: one gentle toast that the house is open (gated: a popup)
+on("world:homeStart", () => {
+    if (S.visits > 0 || (S.nudges || 0) >= 2 || !ctx.enabled("decor") || !allowed()) return;
+    S.nudges = (S.nudges || 0) + 1; saveSoon();
+    const t0 = ctx.time;
+    const tick = () => {
+        if (ctx.state !== "footRun" || S.visits > 0) return;
+        if (ctx.time - t0 < 7) { setTimeout(tick, 500); return; }
+        H.toast("🛋️ Your house is open! ✋ at the front door — spend coins decorating", "pink", { key: "decorNudge" });
+    };
+    setTimeout(tick, 500);
+});
 on("foot:end", () => { if (pickerOpen() && !houseRoom()) closePicker(true); });
 
 // ── the service ──────────────────────────────────────────────────────────
