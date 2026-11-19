@@ -437,7 +437,8 @@ function step(rc, p, dt, road, cam) {
 
 // ── a friend ON FOOT: a walking Lulu (their hair, a disguise), the car body hidden ──
 // d.x.f = [anim, look]: anim 0 walk/run · 1 roll · 2 slide · 3 vault · 4 knocked flat · 5 dance (busk)
-// · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk; look 0 · 1 jumpsuit · 2 old lady · 3 old man
+// · 6 wave · 7 busy (hotwire / interact) · 8 sit (sliding into a car) · 9 talk · 10 in the air (a jump); look 0 · 1 jumpsuit
+// · 2 old lady · 3 old man; f[2] (optional) = her feet's height in decimetres (a jump, standing on a bench / a car roof)
 const LOOKS = [{}, { Top: "#FF6F00", Bottom: "#E65100" }, { Hair: "#CFCFCF", Top: "#C2185B", Bottom: "#8D6E63" }, { Hair: "#CFCFCF", Top: "#546E7A", Bottom: "#455A64" }];
 function setForm(rc, p) {
     const f = p.x && Array.isArray(p.x.f) ? p.x.f : null;
@@ -454,6 +455,7 @@ function setForm(rc, p) {
             rc.v.root.add(rc.walker.obj);
         }
         rc.anim = f[0] | 0;
+        rc.footY = Math.max(0, Math.min(4, (f[2] | 0) / 10));
     }
     if (foot !== rc.foot) {
         rc.foot = foot;
@@ -476,8 +478,10 @@ function animateWalker(rc, dt, sp, o, honk) {
     if (a === 1) { rc.rollA = (rc.rollA || 0) + dt * 12.5; rx = rc.rollA; }
     else { rc.rollA = 0; rx = a === 2 ? -1.05 : a === 4 ? -1.5 : sp > 5.3 ? 0.14 : 0; }
     ob.rotation.x = a === 1 ? rx : ob.rotation.x + (rx - ob.rotation.x) * ease(9);
-    ob.position.y = a === 1 ? 0.45 * (1 - Math.cos(rc.rollA)) : 0;
-    w.update(dt, { walk: a === 0 || a === 3 ? sp : 0, dance: a === 5, wave: a === 6 || honk, point: a === 7, sit: a === 8, talk: a === 9, cheer: a === 3 });
+    // her height rides in at ~10 Hz: ease toward it (a jump's arc, up on a bench / a car roof)
+    rc.jy = (rc.jy || 0) + ((rc.footY || 0) - (rc.jy || 0)) * ease(14);
+    ob.position.y = (a === 1 ? 0.45 * (1 - Math.cos(rc.rollA)) : 0) + rc.jy;
+    w.update(dt, { walk: a === 0 || a === 3 ? sp : 0, dance: a === 5, wave: a === 6 || honk, point: a === 7, sit: a === 8, talk: a === 9, cheer: a === 3, air: a === 10 ? 1 : 0 });
 }
 
 // a sparkle poof when a car (re)appears somewhere new
