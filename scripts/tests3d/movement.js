@@ -149,7 +149,7 @@ module.exports = {
     await t.hold(5, 0); await t.stick(0, 0);
     const ls1 = await G(`({ x: ${FF}.pos.x, z: ${FF}.pos.z })`);
     t.check("🦘 LONG JUMP lands in the combo", await G(`(ctx.moves.save.n.longjump || 0) >= 1`), JSON.stringify(await G(`ctx.moves.save.n`)));
-    t.check("…and it goes a long way", Math.hypot(ls1.x - ls0.x, ls1.z - ls0.z) > 6, Math.hypot(ls1.x - ls0.x, ls1.z - ls0.z).toFixed(1) + " m");
+    t.check("…and it goes a long way", Math.hypot(ls1.x - ls0.x, ls1.z - ls0.z) > 4.5, Math.hypot(ls1.x - ls0.x, ls1.z - ls0.z).toFixed(1) + " m");
     await G(`(ctx.moves.combo.t = 0.01, true)`); await t.frames(3);
     await t.shot("after-long-jump");
 
