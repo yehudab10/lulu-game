@@ -145,14 +145,17 @@ export function clone(key, colors) { return models[key] ? cloneWithColors(models
 
 // ── the driving world during a roadside cutscene ─────────────────────────
 let trafficWas = null;
-/** Stop new traffic and clear ordinary cars near Lulu so nothing ploughs into the scene. */
+/** Stop new traffic and clear ordinary cars near Lulu so nothing ploughs into the scene. Cars already AHEAD of her and
+ *  pulling away simply drive on (they can't reach the scene — and a car that vanishes in plain view is a hard cut). */
 export function quietRoad(radius = 140) {
     const tr = ctx.traffic;
     if (trafficWas === null) trafficWas = tr.config.enabled;
     tr.config.enabled = false;
+    const s0 = ctx.car.s;
     for (const c of tr.cars.slice()) {
         if ((c.data && c.data.law) || c.ai || c.keep) continue;   // never touch other features' scripted vehicles
-        if (Math.abs(c.s - ctx.car.s) < radius) tr.remove(c);
+        if (c.dir > 0 && !c.hit && c.s > s0 + 12 && c.speed > 9) continue;      // (on its way: let it go)
+        if (Math.abs(c.s - s0) < radius) tr.remove(c);
     }
 }
 export function restoreRoad() {

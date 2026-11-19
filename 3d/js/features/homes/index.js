@@ -122,6 +122,7 @@ const doorSpot = {
         const f = ctx.foot.pos;
         let bd = 2.6;
         for (const h of HS.homes) { const d = Math.hypot(h.ap.x - f.x, h.ap.z - f.z); if (d < bd) { bd = d; nearHome = h; } }
+        if (nearHome && ctx.interiors && ctx.interiors.home && ctx.interiors.home.warm) ctx.interiors.home.warm();     // (at a door: its inside loads now)
         return nearHome ? { x: nearHome.ap.x, z: nearHome.ap.z } : null;
     },
     label() { return nearHome ? `🏠 THE ${plural(nearHome.name).toUpperCase()}` : null; },
