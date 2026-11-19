@@ -46,11 +46,12 @@ function routeTo(fx, fz, fst, tx, tz, tst) {
     return { pts, len: best.len };
 }
 
-export function copRoute(c) {
-    const car = ctx.car;
-    const fst = streetOfS(c.s), tst = streetOfS(car.s);
+export function copRoute(c, to = null) {
+    // (to {x, z, s}: route to that instead of Lulu — features/heist's cruiser chasing a getaway car)
+    const car = ctx.car, tx = to ? to.x : car.pos.x, tz = to ? to.z : car.pos.z;
+    const fst = streetOfS(c.s), tst = streetOfS(to ? to.s : car.s);
     if (!fst || !tst) return null;
-    toLocal(c.x, c.z, _a); toLocal(car.pos.x, car.pos.z, _b);
+    toLocal(c.x, c.z, _a); toLocal(tx, tz, _b);
     const r = routeTo(_a.x, _a.z, fst, _b.x, _b.z, tst);
     const ax = _a.x, az = _a.z;
     return {

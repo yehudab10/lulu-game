@@ -513,7 +513,7 @@ ctx.town = {
     loaded: id => !!S.ok[id || townFor(0).id],
     get transitioning() { return !!S.trans; },
     blocksSight,
-    copRoute: c => copRoute(c),
+    copRoute: (c, u, to) => copRoute(c, to || null),
     copSpawn: (how, fromAhead) => copSpawn(how, () => takePatrol()),
     footYaw,
     towns: TOWNS,

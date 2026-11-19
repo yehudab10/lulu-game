@@ -172,8 +172,9 @@ module.exports = {
       await t.frames(8);
       await t.shot("robbery-town");
       await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "flee"`, "he's in the car — it peels out", 12000);
-      // box it in: her car parked across the lane right in front of it
       await t.frames(20);
+      t.check("a real cruiser chases the getaway car on the town's streets", await g(`!!(ctx.heist.robbery && ctx.heist.robbery.cop && ctx.heist.robbery.cop.ai)`));
+      // box it in: her car parked across the lane right in front of it
       await g(`(() => { const c = ctx.heist.robbery.car, car = ctx.car, fx = Math.sin(c.h), fz = Math.cos(c.h); car.place(c.x + fx * 7, c.z + fz * 7, c.h + Math.PI / 2); car.vx = car.vz = 0; ctx.cam.snap(); return true; })()`);
       await t.until(`__lulu3d.ctx.heist.robbery && __lulu3d.ctx.heist.robbery.phase === "foiled"`, "boxed in → ROBBERY FOILED", 12000);
       await t.frames(45);

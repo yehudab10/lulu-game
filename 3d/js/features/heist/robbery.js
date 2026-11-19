@@ -12,7 +12,7 @@
 // collar; they never chase Lulu for helping (ctx.law.hold while it plays; rams into the getaway car never
 // cost a heart). Pays PAY.foil (+ clean / tackle bonuses), a hero toast, stats, a memory line.
 import * as THREE from "three";
-import { ctx, on, hook, emit, addActor } from "../../core/ctx.js";
+import { ctx, on, hook, emit, addActor, wrapAngle } from "../../core/ctx.js";
 import { addCoins } from "../../core/driving.js";
 import { registerKind } from "../../traffic.js";
 import { spawnPerson } from "../../core/people.js";
@@ -227,7 +227,7 @@ function hwyAi(dt, c, ev) {
 // ── the cops (a cosmetic cruiser on the highway; a siren + a car at the end in town) ──
 function copsComing(ev) {
     sfx.siren(1.6);
-    if (ev.where !== "highway") return;
+    if (ev.where !== "highway") { townCop(ev); return; }
     const car = ctx.car;
     ev.cop = ctx.traffic.add("cop", Math.min(car.s, ev.car.s) - 110, 1.75, 1, Math.max(20, car.speed), {
         keep: true, noNearMiss: true, data: { heist: true, heistCop: true, partyLocal: true, local: true },
@@ -235,6 +235,40 @@ function copsComing(ev) {
     });
     ev.cop.onCrash = () => false;
     lightBar(ev, ev.cop);
+}
+/** In a town: a real cruiser joins on the street grid (law's spawn point) and chases the GETAWAY car round the
+ *  corners (the town's own router, ctx.town.copRoute(c, u, target)) — never her. */
+function townCop(ev) {
+    if (!models.cop || !ctx.town.copSpawn || !ctx.town.copRoute) return;
+    const sp = ctx.town.copSpawn("seen", false);
+    if (!sp) return;
+    ev.cop = ctx.traffic.add("cop", sp.s, sp.d, sp.dir || 1, 8, { keep: true, noNearMiss: true,
+        data: { heist: true, heistCop: true, local: true, partyLocal: true }, ai: (dt, c) => townCopAi(dt, c, ev) });
+    ev.cop.free = true;
+    ev.cop.onCrash = () => false;
+    lightBar(ev, ev.cop);
+}
+const _tn = {}, _tp = {};
+function townCopAi(dt, c, ev) {
+    const gc = ev.car;
+    const n = ctx.world.road.nearest(c.x, c.z, c.s, _tn);
+    c.s = n.s; c.d = n.d;
+    const route = gc && ctx.traffic.cars.includes(gc) ? ctx.town.copRoute(c, null, gc) : null;
+    let vT = 0;
+    if (route) {
+        const stopped = ev.phase !== "flee";
+        vT = stopped ? clamp((route.gap - 9) * 1.2, 0, 13) : clamp((gc.speed || 0) + (route.gap - 14) * 0.8, 0, 17);
+        route.aim(Math.max(6, c.speed * 0.55), _tp);
+        const dh = wrapAngle(Math.atan2(_tp.x - c.x, _tp.z - c.z) - c.h);
+        if (Math.abs(dh) > 0.7) vT = Math.min(vT, 7);
+        const v = Math.max(c.speed, 0.01), maxYaw = Math.min(14 / v, v / 5, 2.2) * dt;
+        c.h += clamp(dh, -maxYaw, maxYaw);
+    }
+    c.speed += clamp(vT - c.speed, -14 * dt, 8 * dt);
+    c.speed = Math.max(0, c.speed);
+    c.x += Math.sin(c.h) * c.speed * dt;
+    c.z += Math.cos(c.h) * c.speed * dt;
+    if (ev.bar) ev.bar.set(true);
 }
 function lightBar(ev, c) {
     try { if (ctx.law && ctx.law.lightBar) { ev.bar = ctx.law.lightBar(c.obj); ev.bar.set(true); } } catch (e) { /* */ }
