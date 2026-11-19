@@ -5,7 +5,7 @@
 // either version). Same formulas and numbers as src/10d-jail-court.js.
 import { ctx, emit } from "../../core/ctx.js";
 import { shared, wallet, flushShared } from "../../core/save.js";
-import { CHARGE_WEIGHT, BOUNTY_CAP, CHARGE_DIALOGUE, CHARGE_DEFENSE, LAWYER_TIERS, ABBA_TIER } from "./data.js";
+import { CHARGE_WEIGHT, BOUNTY_CAP, CHARGE_DIALOGUE, CHARGE_DEFENSE, CHARGE_COURT, LAWYER_TIERS, ABBA_TIER } from "./data.js";
 
 export const rand = (a, b) => a + Math.random() * (b - a);
 export const randInt = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
@@ -99,6 +99,11 @@ export function lawyerTiers(abbaAvailable) { return abbaAvailable ? [ABBA_TIER, 
 
 export function chargeDialogueFor(charges) {
     for (const d of CHARGE_DIALOGUE) for (const c of charges || []) if (c.includes(d.key)) return d;
+    return null;
+}
+/** A charge-specific courtroom line for `who` ("prosecutor" | "judge"), or null (→ the usual pool). */
+export function courtLineFor(charges, who) {
+    for (const d of CHARGE_COURT) if ((charges || []).some(c => c.includes(d.key)) && d[who] && d[who].length) return pick(d[who]);
     return null;
 }
 export function lawyerChargeArgument(tier, charges) {

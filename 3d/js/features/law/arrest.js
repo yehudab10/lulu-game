@@ -34,6 +34,9 @@ registerState("lawArrest", {
         st = { data, charges, t: 0, phase: data.fromBust ? "cuff" : "pull", unit: null, walkers: [], haulT: 0, hauling: false, lulu: null, cuffs: null };
         UI.header(`🚨 UNDER ARREST 🚨<small>for ${charges.slice(0, 2).join(" + ")}</small>`);
         ensureModels(JAIL_MODELS).catch(() => {});
+        // (a town can't host the arrest: it would send her back to the highway AFTER this enter — clearing the traffic,
+        //  the cruiser below with it. Leave first, so the cruiser is made on the highway.)
+        if (ctx.town && ctx.town.active && ctx.town.leave) ctx.town.leave("quiet");
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {
