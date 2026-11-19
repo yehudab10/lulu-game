@@ -115,7 +115,8 @@ module.exports = {
     await g(`(ctx.law._dbg.L.sus = 0, ${D}.reset(false), true)`);
 
     // ── 🚨 the pull-over: a paid "donation" lets her off ────────────────
-    await g(`(${D}.force.sting = false, ${D}.UW.crookCool = 0, ${D}.UW.lastHeat = 1, L3.setState("lawBust", { unit: null, reason: "SPEEDING" }), true)`);
+    // (law's own 10 % "walk" outcome comes before the offer: pin the pull-over to its normal branch, or 1 run in 5 walks off on foot)
+    await g(`(ctx.law._dbg.FORCE.bustOutcome = "ticket", ${D}.force.sting = false, ${D}.UW.crookCool = 0, ${D}.UW.lastHeat = 1, L3.setState("lawBust", { unit: null, reason: "SPEEDING" }), true)`);
     await talk(`[...document.querySelectorAll("#dialog .opt")].some(b => /Donate/.test(b.textContent) && b.style.visibility !== "hidden")`, "the officer offers the Kugel Fund at the window");
     await t.shot("bust-offer");
     await talk(`__lulu3d.state === "playing"`, "paid at the pull-over → let off", /Donate/);
@@ -127,7 +128,7 @@ module.exports = {
     t.check("pull-over sting: under arrest for BRIBING AN OFFICER (KUGEL FUND)", await st() === "lawArrest" && /KUGEL/.test(await t.L(`document.querySelector("#lawUI") ? document.querySelector("#lawUI").textContent : ""`) + JSON.stringify(arrested || {})),
       JSON.stringify(arrested));
     await t.shot("sting-arrest");
-    await g(`(${D}.force.sting = null, ${D}.force.offer = false, true)`);
+    await g(`(${D}.force.sting = null, ${D}.force.offer = false, delete ctx.law._dbg.FORCE.bustOutcome, true)`);
 
     // ── 🕶️ the Fixer: the package, end to end + heat ─────────────────────
     if (!await newRun("a fresh cruise for the Fixer")) return;
