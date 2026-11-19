@@ -73,3 +73,7 @@ export function rumble(vol) {
     rum.g.gain.setTargetAtTime(Math.min(1, vol) * 0.5, a.currentTime, 0.12);
 }
 export function rumbleStop() { if (rum) { try { rum.src.stop(); } catch (e) { /* stopped */ } rum = null; } }
+/** A bumped parked car's alarm: a few rising whoops (vol 0..1). */
+export function alarm(vol = 1) {
+    for (let k = 0; k < 4; k++) tone(620, 0.24, { type: "square", vol: 0.035 * vol, at: k * 0.28, slide: 1240, lp: 2200 });
+}

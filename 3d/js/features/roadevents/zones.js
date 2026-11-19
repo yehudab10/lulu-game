@@ -37,11 +37,23 @@ function pickZone() {
     for (const z of ZONES) { r -= ZONE_WEIGHT[z] || 1; if (r < 0) return z; }
     return ZONES[0];
 }
+/** Does [a, b] overlap a planned interchange (features/town) or rest area (features/exits)? */
+function exitsBusy(a, b) {
+    try {
+        const T = ctx.town, sp = T && T.span;
+        if (sp && T.exits && T.exits.some(e => e.s + sp.a + 1000 < b && e.s + sp.b > a)) return true;   // (the ramps, not the 1-mile sign)
+        if (ctx.exits && ctx.exits.spans && ctx.exits.spans().some(o => o.a + 1000 < b && o.b > a)) return true;
+    } catch (e) { /* no exits */ }
+    return false;
+}
 /** Plan the next zone (beyond the built world so its signs and set pieces fit). */
 export function scheduleZone(kind, opts = {}) {
     kind = kind || pickZone();
     const len = opts.len || rnd(ZONE_LEN[0], ZONE_LEN[1]);
-    const s0 = opts.s != null ? opts.s : Math.max(Z.next, builtEnd() + 160);
+    let s0 = opts.s != null ? opts.s : Math.max(Z.next, builtEnd() + 160);
+    // (a zone — its sign, the work zone's cones and rollers — never lands on an interchange or a rest area: those
+    //  have lanes off the highway where nothing may stand; slide it on past them)
+    if (opts.s == null) for (let k = 0; k < 12 && exitsBusy(s0 - 140, s0 + len); k++) s0 += 300;
     const s1 = s0 + len;
     R.zoneSched = { kind, s0, s1 };
     const sign = ZONE_SIGNS[kind];
