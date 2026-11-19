@@ -204,8 +204,10 @@ ctx.party.atmosWeather = () => {
 // seeded life, personal geese / e-bikes). Story (journey), Dina's mode, the 🕯️ Shabbos Rush (it owns the run's goal
 // + sky) and ads (the iOS app's AdMob, features/native) stay off with friends. heist (robberies, snatchers, the
 // cops' nets / spikes, Lulu's own heist) is off for now: its events are one player's random set pieces.
+// underworld (bad guys, shady deals, the fixer) is solo: its bad-guy cars would sit in the shared traffic
+// on one screen only.
 // See ARCHITECTURE › the party parity table.
-const OFF = new Set(["journey", "dina", "shabbos", "ads", "heist"]);
+const OFF = new Set(["journey", "dina", "shabbos", "ads", "heist", "underworld"]);
 const baseEnabled = ctx.enabled;
 ctx.enabled = id => (N.want && OFF.has(id)) ? false : baseEnabled(id);
 

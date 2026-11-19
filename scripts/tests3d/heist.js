@@ -63,7 +63,7 @@ module.exports = {
     t.check("the bank is TOWN DATA in both towns (uses.bank → heist_bank)", await g(`ctx.town.towns.lakewood.uses.bank.key === "heist_bank" && ctx.town.towns.midwood.uses.bank.key === "heist_bank"`));
     t.check("…on a block face of each town", await g(`Object.values(ctx.town.towns.lakewood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank")) && Object.values(ctx.town.towns.midwood.blocks).some(b => b.faces && Object.values(b.faces).includes("bank"))`));
     t.check("the bank interior is registered with the interiors engine", await g(`!!(ctx.interiors.bank && ctx.interiors.bank.enter)`));
-    t.check("law knows the heist charge (weight + courtroom lines)", await t.L(`import("./js/features/law/data.js").then(m => m.CHARGE_WEIGHT["BANK HEIST"] === 4 && m.CHARGE_COURT.some(c => c.key === "BANK HEIST") && m.CHARGE_DIALOGUE[0].key === "BANK HEIST")`));
+    t.check("law knows the heist charge (weight + courtroom lines)", await t.L(`import("./js/features/law/data.js").then(m => m.CHARGE_WEIGHT["BANK HEIST"] === 4 && m.CHARGE_COURT.some(c => c.key === "BANK HEIST") && m.CHARGE_DIALOGUE.findIndex(c => c.key === "BANK HEIST") >= 0 && m.CHARGE_DIALOGUE.findIndex(c => c.key === "BANK HEIST") < m.CHARGE_DIALOGUE.findIndex(c => c.key === "GRAND THEFT AUTO"))`));
     t.check("moves can PIT the getaway car (data.pit)", await t.L(`fetch("js/features/moves/drive.js").then(r => r.text()).then(s => /data\\.pit/.test(s))`));
 
     await g(`L3.startRun({ mode: "cruise" })`);
@@ -263,15 +263,17 @@ module.exports = {
       t.check("the arrest carries the heist charge", (await evs(`/law:arrest.*BANK HEIST/`)).length >= 1);
       const CELL = `__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`;
       await talk(CELL, "booking → the cell", null, 500);
-      await g(`(${LD}.FORCE.quietCourt = true, ${LD}.FORCE.guest = "abba", document.querySelector("#lawCourtBtn").click())`);
+      // (a FINE, whatever she pleads: a jail verdict serves time in the cell and walks her out on foot — this step then
+      //  waited its whole timeout for a drive that never came)
+      await g(`(${LD}.FORCE.quietCourt = true, ${LD}.FORCE.guest = "abba", ${LD}.FORCE.verdict = "fine", document.querySelector("#lawCourtBtn").click())`);
       await t.until(`__lulu3d.state === "lawCourt"`, "to court", 30000);
       const seen = [];
       await talk(`window.__ev && Array.from(document.querySelectorAll("#dialog")).some(d => /BANK|RUGELACH|CONFETTI|PARTY CANNON/.test(d.textContent))`, "the court speaks of the heist", null, 60, seen);
       t.check("the courtroom has heist lines (the charge / the confetti / the rugelach)", await t.L(`/BANK|RUGELACH|CONFETTI|PARTY CANNON/.test((document.querySelector("#dialog") || {}).textContent || "")`) || seen.some(s => /BANK|RUGELACH|CONFETTI/.test(s)));
       await t.shot("court");
       await talk(`["intro", "playing", "lawJail", "lawExit"].includes(__lulu3d.state) && !__lulu3d.ctx.dialogOpen`, "court ends", /Plea|plea|DEAL|deal/, 400);
-      await t.until(`["intro", "playing"].includes(__lulu3d.state)`, "back on the road after court", 300000);
-      await g(`${HD}.bypass(false)`);
+      await t.until(`["intro", "playing", "footRun"].includes(__lulu3d.state)`, "back on the road after court", 300000);
+      await g(`(delete ${LD}.FORCE.verdict, delete ${LD}.FORCE.quietCourt, delete ${LD}.FORCE.guest, ${HD}.bypass(false))`);
     });
 
     // ════ 8. the moped snatch: capped, a honk dodges it, catching him refunds it ════
