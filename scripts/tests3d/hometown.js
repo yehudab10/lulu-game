@@ -54,12 +54,12 @@ module.exports = {
     await g(`ctx.foot.debug.getIn()`);
     t.check("✋ GET IN → the pull-out", await t.until(`__lulu3d.state === "worldPullOut" || __lulu3d.state === "playing"`, "pull-out", 4000));
     t.check("…still in Midwood (the pull-out plays in town)", await g(`ctx.town.active && ctx.town.id === "midwood"`));
-    await t.L(`import("./js/core/driving.js").then(m => import("./js/core/ctx.js").then(c => c.hook("controls", (ctl, dt) => { if (window.__auto) Object.assign(ctl, { throttle: 0.6, steer: window.__steer || 0 }); }, 999)))`);
-    await g(`(window.__auto = true, true)`);
-    t.check("driving off: playing", await t.until(`__lulu3d.state === "playing"`, "playing", 8000));
-    await t.frames(60);
+    await t.shot("pull-out-cam");
+    await t.hold(7, 0.7);                 // (RT: the gas)
+    t.check("driving off: playing", await t.until(`__lulu3d.state === "playing"`, "playing", 12000), await g(`JSON.stringify({ st: L3.state, v: +ctx.car.speed.toFixed(2), vF: +ctx.car.vF.toFixed(2), d: +ctx.car.d.toFixed(2) })`));
+    await t.frames(30);
     await t.shot("pulling-out");
-    await g(`(window.__auto = false, true)`);
+    await t.hold(7, 0);
     t.check("…on a Midwood street now", await g(`ctx.town.active && ctx.town.id === "midwood" && !ctx.home.isFamily(ctx.car.pos.x, ctx.car.pos.z)`));
   },
 };

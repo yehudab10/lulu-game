@@ -218,7 +218,24 @@ registerState("worldPullOut", {
         // along the road's heading, eased toward the car's once she's turning onto it
         const al = Math.abs(wrapAngle(car.h - rh));
         PO.yaw += wrapAngle((al < 1.2 ? car.h : rh) - PO.yaw) * Math.min(1, dt * (al < 1.2 ? 3 : 6));
-        const portrait = cam.aspect < 1, dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
+        const portrait = cam.aspect < 1;
+        if (home.site === "town") {
+            // a town lot: neighbours' houses either side — the camera rides just behind + above her (over the garage roof),
+            // looking out over the hood at the street she pulls out onto (she's nose-out) — then the chase cam takes over
+            const fx = Math.sin(car.h), fz = Math.cos(car.h), back = portrait ? 6.2 : 5.2, hi = portrait ? 6.4 : 5.4;
+            PO.v.set(car.pos.x - fx * back, hi, car.pos.z - fz * back);
+            PO.w.set(car.pos.x + fx * 7, 0.6, car.pos.z + fz * 7);
+            if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }
+            PO.pos.lerp(PO.v, Math.min(1, dt * 5));
+            PO.look.lerp(PO.w, Math.min(1, dt * 6));
+            cam.position.copy(PO.pos);
+            cam.lookAt(PO.look);
+            cam.fov += (62 + (portrait ? 16 : 0) - cam.fov) * Math.min(1, dt * 3);
+            cam.updateProjectionMatrix();
+            if (ctx.cam) ctx.cam.state.pos.copy(cam.position);
+            return true;
+        }
+        const dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
         const rx = -Math.cos(rh), rz = Math.sin(rh);            // (toward the road from her lawn: −d)
         const side = Math.max(0, Math.min(3, Math.abs(car.d) - homeEdge())) * 0.9;
         PO.v.set(car.pos.x - Math.sin(PO.yaw) * dist - rx * side * Math.sign(car.d || 1), up, car.pos.z - Math.cos(PO.yaw) * dist - rz * side * Math.sign(car.d || 1));
