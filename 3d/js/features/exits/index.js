@@ -152,7 +152,7 @@ paved.push((s, d) => {
 });
 
 on("chunk:build", ({ chunk, world, s0, s1 }) => {
-    if (world.district) return;
+    if (world.district && !world.district.keepHighway) return;      // (an attached town keeps the highway streaming: build it whole)
     for (const R of RS.list) {
         if (R.s + LY.TAPER0 >= s1 || R.s + LY.ACC1 + 5 < s0) continue;
         try { buildChunk(R, chunk, world, s0, s1); } catch (e) { console.error("[exits] build", e); }

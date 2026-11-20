@@ -10,7 +10,7 @@
 import { ctx, emit } from "../../core/ctx.js";
 import { models, cloneWithColors } from "../../models.js";
 import { hideTagged } from "./kit.js";
-import { PL, toLocal } from "./plan.js";
+import { PL, toLocal, toWorld, wH } from "./plan.js";
 import * as SFX from "./sfx.js";
 
 export const PK = { T: null, live: new Set(), footT: 0, hits: 0, taken: 0 };
@@ -54,9 +54,9 @@ function settle(pc) {
     PK.live.delete(pc);
 }
 function syncCols(pc) {
-    const O = PL.ORIGIN, fx = Math.sin(pc.rot), fz = Math.cos(pc.rot);
-    pc.cols.forEach((c, i) => { const k = i ? -1 : 1; c.x = O.x + pc.x + fx * pc.off * k; c.z = O.z + pc.z + fz * pc.off * k; });
-    if (pc.fp) { pc.fp.x = O.x + pc.x; pc.fp.z = O.z + pc.z; pc.fp.h = pc.rot; }
+    const fx = Math.sin(pc.rot), fz = Math.cos(pc.rot);
+    pc.cols.forEach((c, i) => { const k = i ? -1 : 1; toWorld(pc.x + fx * pc.off * k, pc.z + fz * pc.off * k, c); });
+    if (pc.fp) { toWorld(pc.x, pc.z, pc.fp); pc.fp.h = wH(pc.rot); }
 }
 
 /** Her car hit it (a static collider's onHit, impact in m/s): shove it, rock it, set off the alarm. */
@@ -64,13 +64,14 @@ export function bump(pc, imp) {
     if (pc.gone || imp < 1.2 || !ctx.car) return;
     const L = lift(pc);
     if (!L) return;
-    const car = ctx.car, O = PL.ORIGIN, wx = O.x + pc.x, wz = O.z + pc.z;
-    let nx = wx - car.pos.x, nz = wz - car.pos.z;
+    // (all in the town's local frame: pc.x / pc.z / rot are local)
+    const car = ctx.car, cl = toLocal(car.pos.x, car.pos.z, {}), wx = pc.x, wz = pc.z;
+    let nx = wx - cl.x, nz = wz - cl.z;
     const n = Math.hypot(nx, nz) || 1; nx /= n; nz /= n;
     const k = Math.min(3.6, imp * 0.24) / (pc.sedan ? 1.2 : 1.5);
     L.vx += nx * k; L.vz += nz * k;
     // a hit off its middle swings it round (the contact's lever arm about the car's centre)
-    const rx = car.pos.x - wx, rz = car.pos.z - wz;
+    const rx = cl.x - wx, rz = cl.z - wz;
     L.spin = Math.max(-0.9, Math.min(0.9, L.spin + (rx * nz - rz * nx) * k * 0.09));
     L.rock = Math.min(0.12, L.rock + imp * 0.012);
     L.moved = true;
@@ -80,10 +81,10 @@ export function bump(pc, imp) {
 }
 
 function footPc(pc) {
-    const O = PL.ORIGIN;
+    const w = toWorld(pc.x, pc.z, {});
     return {
         vtype: "car", key: shellKey(pc.key), colors: { Paint: pc.paint }, obj: pc.live.obj,
-        x: O.x + pc.x, z: O.z + pc.z, h: pc.rot, circles: [pc.off, -pc.off], r: pc.sedan ? 0.95 : 1.0,
+        x: w.x, z: w.z, h: wH(pc.rot), circles: [pc.off, -pc.off], r: pc.sedan ? 0.95 : 1.0,
         ext: {
             taken: () => {        // she drove off in it: gone from the kerb for the rest of the visit
                 pc.gone = true; pc.fp = null; pc.rm = null;
@@ -102,7 +103,7 @@ function footPc(pc) {
 export function tickParked(dt) {
     const T = PK.T;
     if (!T) return;
-    const cam = ctx.camera.position, O = PL.ORIGIN;
+    const cam = toLocal(ctx.camera.position.x, ctx.camera.position.z, {});
     for (const pc of PK.live) {
         const L = pc.live;
         if (L.moved && (Math.abs(L.vx) + Math.abs(L.vz) + Math.abs(L.spin) > 0.004)) {
@@ -113,7 +114,7 @@ export function tickParked(dt) {
             syncCols(pc);
         }
         if (L.rock > 0.002) { L.rock *= Math.exp(-3 * dt); L.obj.rotation.z = Math.sin(ctx.time * 17) * L.rock; }
-        L.obj.visible = Math.abs(O.x + pc.x - cam.x) < SHOW && Math.abs(O.z + pc.z - cam.z) < SHOW;
+        L.obj.visible = Math.abs(pc.x - cam.x) < SHOW && Math.abs(pc.z - cam.z) < SHOW;
     }
     // on foot: the cars right by her join foot's parked cars (🚗 HOTWIRE CAR); the ones she's left go back
     PK.footT -= dt;

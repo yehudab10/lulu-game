@@ -66,7 +66,9 @@ export const MP = {
 };
 
 /** Allowed to touch the network at all? (test runs must opt in) */
-export function allowed() { return !!MP_URL && typeof WebSocket !== "undefined" && (!ctx.TEST || ctx.enabled("multiplayer")); }
+/** Allowed to touch the network at all? A ?test page only ever talks to a relay the test points it at (&mpurl=):
+ *  never the real one, even with &enable=all. */
+export function allowed() { return !!MP_URL && typeof WebSocket !== "undefined" && (!ctx.TEST || (ctx.enabled("multiplayer") && !!QS.get("mpurl"))); }
 export function myName() { return shared.get().mpName || CURATED_NAMES[0]; }
 export function setName(n) { if (CURATED_NAMES.includes(n)) shared.update(s => { s.mpName = n; }); }
 export function peerCount() { return Object.keys(MP.peers).length; }

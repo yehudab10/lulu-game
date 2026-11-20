@@ -62,7 +62,7 @@ const clickSel = async (t, sel) => { const ok = await t.L(`(() => { const b = do
 /** Put my car at world (x, z) facing h, stopped (an instant "drive there"). */
 const PLACE = (x, z, h = 0) => `(() => { const c = ctx.car, n = ctx.world.road.nearest(${x}, ${z}, null, {}); c.place(${x}, ${z}, ${h}); c.s = n.s; c.d = n.d; c.vx = c.vz = 0; c.vF = 0; return true; })()`;
 /** A clear spot in Lakewood: Lake Dr's southbound lane (no blocks east of it → no loop traffic, no jam). */
-const CLEAR = `(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"]; return { x: pl.ORIGIN.x + st.c + 1.75, z: pl.ORIGIN.z + 50, h: Math.PI }; })()`;
+const CLEAR = `(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"], w = pl.world(st.c + 1.75, 50, {}); return { x: w.x, z: w.z, h: pl.wh(Math.PI) }; })()`;
 const PERF = async (t, frames) => {
   await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
     window.__pf = { n: 0, calls: 0, tris: 0, maxCalls: 0, maxTris: 0 }; })()`);

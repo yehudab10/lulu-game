@@ -142,11 +142,15 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.45, CAM_MIN = 0.35;     // (closer than ~1.5 m the camera rises over her head instead: core/camera.js orbit)
+const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {};     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
-    let best = D;
+    let best = D, under = false;
+    const T = ctx.town, pl = T && T.active && T.plan;
+    // (in a town the BLOCK outlines below are the houses' real front line — the ring of circles round a block stands
+    //  ~1 m out in front of it, and hugging a wall the camera behind her kept catching those)
+    const blocks = !!(pl && pl.OCCLUDERS);
     for (const ch of ctx.world.activeChunks()) {
         if (Math.abs(ch.s0 + 100 - F.s) > 220) continue;
         for (const c of ch.colliders) {
@@ -155,18 +159,19 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
                 // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
                 // (a trunk merely between them doesn't pull it in: it would pop in and out past every street tree)
-                const R = Math.max(2.2, c.r + 1.2), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
-                if (ey < 1.9 || ey > 7 || ex * ex + ez * ez > R * R) continue;
+                const R = canopyR(c), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
                 const ox = tgt.x - c.x, oz = tgt.z - c.z, cc = ox * ox + oz * oz - R * R;
-                if (cc <= 0) { best = Math.min(best, 0.6); continue; }      // (she's under it herself: right behind her)
+                if (cc <= 0) { under = true; continue; }      // (she's under it herself: the camera stays back, out past the leaves)
+                if (ey < 1.5 || ey > 8.5 || ex * ex + ez * ez > R * R) continue;
                 const b = ox * dx + oz * dz, disc = b * b - h2 * cc;
                 if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
                 continue;
             }
-            if (c.r < 0.8 || topOf(c) != null) continue;
-            const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + CAM_PAD;
-            const cc = ox * ox + oz * oz - R * R;
-            if (cc <= 0) continue;                       // (the pivot is in its pad: she's against it — no wall between)
+            if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house")) continue;
+            const ox = tgt.x - c.x, oz = tgt.z - c.z;
+            let R = c.r + CAM_PAD, cc = ox * ox + oz * oz - R * R;
+            // (she's right up against it — the pivot is inside its pad: the wall itself still counts)
+            if (cc <= 0) { R = c.r + 0.05; cc = ox * ox + oz * oz - R * R; if (cc <= 0) continue; }
             const b = ox * dx + oz * dz;
             if (b >= 0) continue;                        // pointing away from it
             const disc = b * b - h2 * cc;
@@ -175,12 +180,14 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             if (t < best && tgt.y + dy * t < (c.kind === "house" ? 7.5 : 4.5)) best = t;
         }
     }
-    const T = ctx.town;
-    const pl = T && T.active && T.plan;
-    if (pl && pl.OCCLUDERS) {
-        const O = pl.ORIGIN, ax = tgt.x - O.x, az = tgt.z - O.z;
+    if (blocks) {
+        // (the blocks are in the town's LOCAL frame — an attached town is turned to its interchange: PL.local / ROT)
+        const L = pl.local(tgt.x, tgt.z, _cl), ax = L.x, az = L.z, wx = dx, wz = dz;
+        dx = wx * pl.COS - wz * pl.SIN; dz = wx * pl.SIN + wz * pl.COS;
         for (const r of pl.OCCLUDERS) {
-            const x0 = r.x0 - CAM_PAD, x1 = r.x1 + CAM_PAD, z0 = r.z0 - CAM_PAD, z1 = r.z1 + CAM_PAD;
+            let p = CAM_PAD;
+            if (ax > r.x0 - p && ax < r.x1 + p && az > r.z0 - p && az < r.z1 + p) p = 0.05;     // (right up against it)
+            const x0 = r.x0 - p, x1 = r.x1 + p, z0 = r.z0 - p, z1 = r.z1 + p;
             if (ax > x0 && ax < x1 && az > z0 && az < z1) continue;
             let t0 = 0, t1 = best;
             if (Math.abs(dx) < 1e-9) { if (ax < x0 || ax > x1) continue; }
@@ -190,8 +197,13 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             if (tgt.y + dy * t0 < 8) best = t0;
         }
     }
-    return best >= D ? D : Math.max(CAM_MIN, best);
+    const d = best >= D ? D : Math.max(CAM_MIN, best);
+    // (under a tree, a camera pulled in close must not rise over her head — that's up into the leaves)
+    return under ? { d, noLift: true } : d;
 }
+/** How far a tree's leaves reach from its trunk (tree_round's canopy is ~2.2 m × its scale; the colliders don't carry the
+ *  scale: the highway's are 0.48 × scale, a town's street trees (0.4) stay ≤ ~1.05×, its boulevard / park ones go to ~1.5×). */
+const canopyR = c => Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4));
 
 // ── the jump itself ─────────────────────────────────────────────────────────────────────────
 /** Launch now: opts.long (out of a slide: { vx, vz } her slide velocity). */

@@ -113,3 +113,20 @@ menorah, the stall, its goods, 2 light layers), 3.9k triangles, 620 menorahs / 5
 Sukkos = 2 draw calls, 6.1k triangles. A decorated Lakewood: 198 calls / 106k triangles (ceilings 240 / 115k).
 Side note: meta's car menorah (the existing Chanukah car decoration, 9 flame sprites + a multi-material model)
 costs ~30 draw calls on its own (`?holiday=chanukah&holidayDay=8`: cruise 196 → 229) — worth merging some day.
+
+## One world: towns attached to the highway (`ci/oneworld`, 2026-11-19)
+`node scripts/perf3d.js` (PERF3D_TIER=medium, PERF3D_SCENES=town,attached; this repo's 4-core cloud container, software GL):
+
+| scene | draw calls | triangles | JS ms |
+|---|---|---|---|
+| town — the stand-alone Lakewood (far origin, highway hidden) | 176 | 103 666 | 5.8 |
+| tee — the inner T-junction, both towns standing in view | 272 | 113 765 | 8.3 |
+| attached — Main St in an attached Lakewood (the interchange in view down Route 9) | 214 | 117 813 | 6.5 |
+
+For scale: the exits test measures the highway itself by an interchange at 250–270 calls / 180–255k triangles.
+The **build** of a standing town (`town:built`, `ctx.town.standing`) is spread over 600 (Lakewood) – 1100 (Midwood)
+steps at ~3 ms a frame from 900 m out: 95 % of the steps ≤ 1 ms and 99 % ≤ 3–5 ms here (≈ 180 + 280 ms of CPU in all,
+which used to be one frame at the STOP sign); the odd 10–20 ms step is the garbage collector landing in it. What keeps it
+cheap to look at: a standing town is culled per cluster against its own blocks (its edge rows carry further from
+outside: `MAX_D_OUT`), its ground + sign atlas aren't drawn > 900 m off or behind the town she's in, and in an
+attached town the highway's chunks hide behind its blocks (`district.see`).

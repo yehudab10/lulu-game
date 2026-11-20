@@ -772,11 +772,14 @@ export class World {
      * road (same API: at / point / nearest, s + d along its streets), activeChunks() yields
      * the district's chunk-likes ({s0, s1, colliders, coins, hearts, traps}), and the
      * highway's chunks are kept but hidden and stop streaming. setDistrict(null) puts it back.
-     * district: { road, chunks: [], ground?: "#hex" }
+     * district: { road, chunks: [], ground?: "#hex", keepHighway?: true }
+     * keepHighway (a town ATTACHED to the highway at an interchange): the highway's chunks stay in view (drawn
+     * out to the fog like on the highway, but no streaming) — she drove off it, it's still there behind her.
      */
     setDistrict(d) {
         this.district = d || null;
-        for (const c of this.chunks.values()) c.group.visible = !this.district;
+        const show = !this.district || !!this.district.keepHighway;
+        for (const c of this.chunks.values()) c.group.visible = show;
     }
     defaultBiome() { return { ...DEFAULT_BIOME, trees: { ...DEFAULT_BIOME.trees } }; }
 
@@ -858,7 +861,15 @@ export class World {
     /** Stream chunks around the player; animate coins etc. */
     update(dt, playerS, camPos, buildBudget = 1) {
         this.time += dt;
-        if (this.district) { this.follow(dt, camPos, this.district.ground || "#ffffff", buildBudget); return; }
+        const D = this.district;
+        if (D && !(D.keepHighway && D.highwayS != null)) {
+            if (D.keepHighway) this.cullChunks(camPos, D.highwayFar);
+            this.follow(dt, camPos, D.ground || "#ffffff", buildBudget);
+            return;
+        }
+        // (a district that keeps the highway — an attached town — streams the highway round where she left it, every
+        //  chunk in slices: she isn't on it, so nothing is "near her")
+        if (D) playerS = D.highwayS;
         const kMin = Math.max(0, Math.floor((playerS - BEHIND) / CHUNK));
         const kMax = Math.floor((playerS + AHEAD) / CHUNK);
         for (const [k, c] of this.chunks) {
@@ -868,28 +879,34 @@ export class World {
         // a chunk that's being built in slices: carry on (finish it now if she is suddenly close, or on a prebuild)
         let pend = this.pending && this.chunks.get(this.pending.k) === this.pending ? this.pending : null;
         if (pend) {
-            const now = buildBudget > 1 || pend.s0 < playerS + SLICE_NEAR;
+            const now = buildBudget > 1 || (!D && pend.s0 < playerS + SLICE_NEAR);
             if (pend.advance(now ? Infinity : SLICE_MS)) pend = null; else built++;
         }
         this.pending = pend;
         for (let k = kMin; k <= kMax && built < buildBudget; k++) {
             if (this.chunks.has(k)) continue;
             // far ahead (the normal case while driving): in slices; close by or prebuilding: all at once
-            const sliced = buildBudget === 1 && !this.pending && k * CHUNK >= playerS + SLICE_NEAR;
+            const sliced = buildBudget === 1 && !this.pending && (!!D || k * CHUNK >= playerS + SLICE_NEAR);
             const c = new Chunk(this, k, sliced);
             this.chunks.set(k, c);
             if (sliced) this.pending = c;
             built++;
         }
-        // draw distance: a chunk wholly beyond the fog (× the graphics tier's drawScale) isn't drawn —
-        // it would only be fog-coloured there anyway. (Its colliders, coins and animation carry on.)
-        const fog = this.scene.fog, far = Math.max(200, (fog ? fog.far : 2000) * this.drawScale);
+        for (const c of this.chunks.values()) c.animate(this.time);
+        this.cullChunks(camPos, D ? D.highwayFar : Infinity);
+        this.follow(dt, camPos, D ? D.ground || "#ffffff" : this.biomeAt(playerS).ground || "#ffffff", buildBudget);
+    }
+
+    /** Draw distance: a chunk wholly beyond the fog (× the graphics tier's drawScale; or `cap` m) isn't drawn —
+     *  it would only be fog-coloured there anyway. (Its colliders, coins and animation carry on.) */
+    cullChunks(camPos, cap = Infinity) {
+        const fog = this.scene.fog, far = Math.min(cap, Math.max(200, (fog ? fog.far : 2000) * this.drawScale));
         for (const c of this.chunks.values()) {
-            c.animate(this.time);
             const dx = c.center.x - camPos.x, dz = c.center.z - camPos.z;
             c.group.visible = c.noCull || dx * dx + dz * dz < (far + c.radius) * (far + c.radius);
+            // (in a district that keeps the highway: it may hide a chunk it stands in front of — a town's blocks)
+            if (c.group.visible && this.district && this.district.see && !this.district.see(c)) c.group.visible = false;
         }
-        this.follow(dt, camPos, this.biomeAt(playerS).ground || "#ffffff", buildBudget);
     }
 
     /** Ground, sky and clouds ride along with the camera; the grass eases toward `ground`. */
