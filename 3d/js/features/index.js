@@ -42,3 +42,4 @@ import "./together/index.js";     // 👯 friends together: the friend finder (�
 import "./partners/index.js";     // 🔗 crimes for two with friends (double dare · flag & grab · ring & sneak · getaway peels) — partners share the law's crew (law/crew.js)
 import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
 import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends
+import "./crime/index.js";        // 🦹 more cartoon crime in town (solo): 🛒 the shopping-cart joyride, 🚶‍♀️ the jaywalking spree, 🅿️ the double-parking empire — a cop who sees it: a look, then a chase; small capped rewards; each charge has its own court lines
