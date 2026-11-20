@@ -187,7 +187,7 @@ merged — ignore them.
 ## 7. Backlog / known rough edges (good next tasks)
 
 - Calm (`ci/calm`, landed 2026-11-20): still OUTSIDE the pop-up budget — phone texts + the call card (`ctx.phone.text`,
-  journey's `.jphone`), `metaToast` (meta/util.js), law's own toasts (law/ui.js), Lulu's own speech bubbles (banter's
+  journey's `.jphone`; while a call is up, flavour toasts drop and flavour banners wait on phones), `metaToast` (meta/util.js), law's own toasts (law/ui.js), Lulu's own speech bubbles (banter's
   `showLulu`, her chatter setting rations them). A big moment can still stack a banner + a call card + a toast (a wreck
   during a job call: ~38/min for that half-minute). Many features' toasts have no `prio`: the inference (big / red /
   money) covers most; a must-see toast that's plain or gold should pass `{ prio: 3 }`. Join line says "Friend" when the

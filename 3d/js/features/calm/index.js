@@ -25,9 +25,10 @@ function busy() {
 let pressT = -9;
 const pressedNow = () => { const P = input.pressed; if (P) for (const k in P) if (P[k]) return true; return false; };
 hook("update", () => { if (pressedNow()) pressT = ctx.time; }, 1000);
-const gate = { quiet: false, busy: false, chase: false, acted: false };
+const gate = { quiet: false, busy: false, chase: false, acted: false, call: false };
 H.setCalmGate(() => {
     gate.quiet = quiet(); gate.busy = busy(); gate.chase = !!(ctx.law && ctx.law.chasing);
+    gate.call = !!(ctx.phone && ctx.phone.active);              // a phone call's card is up
     gate.acted = pressedNow() || ctx.time - pressT < 1;
     return gate;
 });
