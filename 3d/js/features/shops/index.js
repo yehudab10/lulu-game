@@ -7,6 +7,8 @@
 //   dealer.js   🚗 Uncle Moishe's Pre-Loved Cars (Lakewood: Route 9 · Midwood: Coney Island Ave) — look, test drive, buy
 //   counter.js  🛒 the makolet (pepper spray, the bubble shield, Distracted Mode) + 😈 Shmerel's van (missiles, the 5-pack)
 //   bling.js    ✨ Moishe's Bling Bay at the dealership: horns (hear them) + car decorations (fitted on her car out front)
+//   rooms.js    🍕 walk-in shops: the pizza shop (both towns) + Midwood's bakery — rooms on the interiors engine,
+//               a snack that heals one heart once a run; shared with friends (together/rooms.js SHARED)
 //   home.js     🔑 her garage at home — pick which car she drives (cars she owns wait at home)
 //   guide.js    🛍️ Where to shop (the Garage drawer's old 🛒 Shop button): the places + a "show me" destination
 // Buying goes through garage/buy.js — the SAME shared-save fields the old Shop wrote (the classic 2D game reads them).
@@ -23,6 +25,7 @@ import { openGarage, garageDebug } from "./home.js";
 import { openGuide, places, dest, setDest, guideDebug } from "./guide.js";
 import { openCounter, counterDebug } from "./counter.js";
 import { openBling, blingDebug } from "./bling.js";
+import { enterShop, roomsDebug } from "./rooms.js";
 import * as card from "./card.js";
 
 // the old Shop counter no longer sells what a place in the world does
@@ -42,6 +45,6 @@ on("boot", () => {
 });
 
 ctx.shops = {
-    guide: openGuide, places, dest, setDest, openLot, openGarage, openCounter, openBling,
-    debug: { dealer: dealerDebug, garage: garageDebug, guide: guideDebug, counter: counterDebug, bling: blingDebug, card },
+    guide: openGuide, places, dest, setDest, openLot, openGarage, openCounter, openBling, enterShop,
+    debug: { dealer: dealerDebug, garage: garageDebug, guide: guideDebug, counter: counterDebug, bling: blingDebug, rooms: roomsDebug, card },
 };

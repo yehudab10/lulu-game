@@ -120,8 +120,8 @@ export function openBling() {
         camera(dt) {
             const a = B.at, portrait = cam.aspect < 1, back = portrait ? 8.4 : 6.6;
             const n = [b.sp.nx, b.sp.nz], u = [b.sp.ux, b.sp.uz];
-            const tgt = new THREE.Vector3(a.x + n[0] * back + u[0] * 2.4, portrait ? 3.4 : 2.5, a.z + n[1] * back + u[1] * 2.4);
-            const aim = new THREE.Vector3(a.x, portrait ? -0.2 : 0.4, a.z);
+            const tgt = new THREE.Vector3(a.x + n[0] * back + u[0] * 2.4, portrait ? 3.6 : 2.9, a.z + n[1] * back + u[1] * 2.4);
+            const aim = new THREE.Vector3(a.x, portrait ? -1.3 : -0.9, a.z);
             const k = 1 - Math.exp(-dt * 3.5);
             B.cam.pos.lerp(tgt, k); B.cam.look.lerp(aim, k);
             cam.position.copy(B.cam.pos); cam.lookAt(B.cam.look);

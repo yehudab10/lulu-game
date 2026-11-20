@@ -11,7 +11,7 @@
 //   tiles: [{ id, icon, name, desc?() | desc, price?, state?() → "placed" | "owned" | "buy" | "none",
 //             tag?() → string (instead of the price / state chip), act?() (free press), buy?() → { ok, why } }],
 //   focus: tile id, onFocus?(id), buttons?: [{ id, label() | label, visible?() , action() }], onClose?() }
-import { css } from "../../core/ctx.js";
+import { ctx, css } from "../../core/ctx.js";
 import { wallet } from "../../core/save.js";
 import { glyph, rumble } from "../../input.js";
 import * as H from "../../hud.js";
@@ -19,7 +19,12 @@ import * as A from "../../audio.js";
 import * as S from "../garage/sound.js";
 
 css("shops-card", `
-.card.decor-card.shops-card { width: min(820px, 100%); }
+.card.decor-card.shops-card { width: min(820px, 100%); max-height: 66vh; overflow-y: auto; padding: 10px 14px 8px; }
+.shops-card .dp-row { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.shops-card .dp-opt { min-height: 74px; padding: 6px 4px 5px; }
+.shops-card .dp-opt i { font-size: 24px; }
+.shops-card .dp-desc { margin: 6px 2px 2px; }
+.card.decor-card.shops-card .menu { flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .sp-head { margin: 0 2px 8px; color: #3b2140; font-size: 14px; }
 .sp-head:empty { display: none; }
 .sp-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; margin-top: 4px; }
@@ -29,7 +34,10 @@ css("shops-card", `
 .sp-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #3b2140; color: #fff; margin-left: 6px; vertical-align: 2px; }
 .shops-card .dp-opt i.sp-dot { width: 30px; height: 30px; border-radius: 50%; display: block; box-shadow: inset 0 -4px 0 rgba(0,0,0,.18); }
 .shops-card .dp-opt.na { opacity: .62; }
-@media (max-width: 560px), (max-height: 460px) { .sp-head { font-size: 12px; margin-bottom: 5px; } .sp-stats { gap: 2px 6px; } .shops-card .dp-opt i.sp-dot { width: 22px; height: 22px; } }
+@media (max-width: 560px) { .shops-card .dp-row { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 5px; }
+  .shops-card .dp-opt { padding: 4px 2px; } .shops-card .dp-opt b { font-size: 10.5px; } .shops-card .dp-opt em { font-size: 10px; padding: 0 5px; } }
+@media (max-width: 560px), (max-height: 460px) { .shops-card .dp-opt { min-height: 58px; } .shops-card .dp-opt i { font-size: 20px; } .card.decor-card.shops-card { max-height: 64vh; } .sp-head { font-size: 12px; margin-bottom: 5px; } .sp-stats { gap: 2px 6px; } .shops-card .dp-opt i.sp-dot { width: 22px; height: 22px; } }
+body.tv .shops-card .dp-row { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } body.tv .shops-card .dp-opt { min-height: 110px; }
 body.tv .sp-head { font-size: 20px; } body.tv .sp-stat { font-size: 15px; } body.tv .sp-bar { height: 11px; }
 body.tv .shops-card .dp-opt i.sp-dot { width: 44px; height: 44px; }
 `);
@@ -152,6 +160,8 @@ export function closeCard(silent = false) {
     C.open = false; C.card = null; C.confirm = null; C.msg = "";
     document.body.classList.remove("decor-picking");
     if (H.screenOpen() && H.screenCard().querySelector(".sp")) H.hideScreen();
+    // (the caller's camera framed the shelf / the car: glide back to her, never a swoop — the watchdog's > 5 m a frame)
+    if (ctx.state === "footRun" && ctx.cam && ctx.cam.blend) ctx.cam.blend(0.8);
     if (!silent && spec && spec.onClose) { try { spec.onClose(); } catch (e) { console.error("[shops] close", e); } }
 }
 

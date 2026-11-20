@@ -215,9 +215,11 @@ function lotCamera(dt) {
     const sp = spot("lot_" + (D.cam && D.cam.k));
     if (!sp) return false;
     const cam = ctx.camera, portrait = cam.aspect < 1;
-    const back = portrait ? 8.2 : 6.4, side = portrait ? 1.6 : 2.6;
-    const tgt = new THREE.Vector3(sp.cx + sp.nx * back + sp.ux * side, portrait ? 3.4 : 2.5, sp.cz + sp.nz * back + sp.uz * side);
-    const aim = new THREE.Vector3(sp.cx, portrait ? -0.2 : 0.35, sp.cz);
+    // (from the street side, a little toward the lot's far end — away from the showroom, its tube guy and its corner)
+    const dsp = spot("dealer"), away = dsp ? Math.sign((sp.cx - dsp.x) * sp.ux + (sp.cz - dsp.z) * sp.uz) || 1 : 1;
+    const back = portrait ? 8.2 : 6.4, side = (portrait ? 1.6 : 2.6) * away;
+    const tgt = new THREE.Vector3(sp.cx + sp.nx * back + sp.ux * side, portrait ? 3.6 : 2.9, sp.cz + sp.nz * back + sp.uz * side);
+    const aim = new THREE.Vector3(sp.cx, portrait ? -1.3 : -0.9, sp.cz);    // (aimed under it: the car sits above the card)
     const k = 1 - Math.exp(-dt * 3.5);
     D.cam.pos.lerp(tgt, k); D.cam.look.lerp(aim, k);
     cam.position.copy(D.cam.pos); cam.lookAt(D.cam.look);

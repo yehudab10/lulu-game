@@ -360,5 +360,19 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   t.check("…the same bank on both screens (this town's)", (await g(`ctx.together.debug.room().inst`)) === (await A.game(`ctx.together.debug.room().inst`)));
   t.check("…and the solo job can't be planned with friends there", !(await g(`!!(ctx.heist && ctx.heist.debug && ctx.heist.debug.J && ctx.heist.debug.J.plan)`)));
   await t.shot("bank-together");
+  // ── THE PIZZA SHOP (ci/shops stage 4): a walk-in shop is a shared room too — friends inside see each other ──
+  for (const P of [A, Hp]) { await P.game(`(window.__interiors && window.__interiors.room ? window.__interiors.room.leave() : 0, true)`); await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: out of the bank`, 40000); }
+  for (const P of [Hp, A]) {
+    await P.frames(30);
+    await P.game(`(() => { const sp = ctx.town.spot("pizza"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
+    await P.frames(4);
+    const lb = await P.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+    t.check(`${P.label}: 🍕 GO INTO the pizza shop works with friends (Free Roam)`, /PIZZA/.test(lb), lb);
+    await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
+    await P.until(`ctx.state === "interior" && ctx.stateData && ctx.stateData.id === "shopsPizza"`, `${P.label}: into the pizza shop`, 60000);
+  }
+  await Hp.until(`ctx.together.debug.room().room === "shopsPizza" && ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the pizza shop: the host sees the guest", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the pizza shop: the guest sees the host", 60000);
+  await t.shot("pizza-together");
   t.check("riding never costs anyone coins (no fines, nothing taken)", (await g(`L3.wallet.coins`)) >= coins0.h && (await A.game(`L3.wallet.coins`)) >= coins0.a, JSON.stringify({ coins0, h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) }));
 }

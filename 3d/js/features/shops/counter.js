@@ -211,7 +211,7 @@ export function openCounter(id) {
             const portrait = cam.aspect < 1, back = portrait ? 6.4 : 4.6;
             const st = f.stand;
             const tgt = new THREE.Vector3(st.x + f.n[0] * back + f.u[0] * 1.6, portrait ? 2.6 : 2.0, st.z + f.n[1] * back + f.u[1] * 1.6);
-            const aim = new THREE.Vector3(st.x, portrait ? 0.3 : 0.8, st.z);
+            const aim = new THREE.Vector3(st.x, portrait ? -0.5 : -0.1, st.z);
             const k = 1 - Math.exp(-dt * 3.5);
             S.cam.pos.lerp(tgt, k); S.cam.look.lerp(aim, k);
             cam.position.copy(S.cam.pos); cam.lookAt(S.cam.look);

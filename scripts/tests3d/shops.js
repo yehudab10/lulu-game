@@ -194,8 +194,8 @@ module.exports = {
         await t.frames(4);
         const f = await t.L(`(() => { const c = document.getElementById("screenCard"), r = c.getBoundingClientRect(), opts = [...c.querySelectorAll(".dp-opt")];
           const small = opts.filter(b => { const q = b.getBoundingClientRect(); return q.width < 44 || q.height < 44; }).length;
-          return { ok: r.left >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && r.top >= -1 && c.scrollWidth <= c.clientWidth + 2, top: Math.round(r.top), h: innerHeight, small, n: opts.length }; })()`);
-        t.check(`the car card fits ${name} (${w}×${h})`, f.ok && f.small === 0 && f.n === 7, JSON.stringify(f));
+          return { ok: r.left >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && r.top >= -1 && c.scrollWidth <= c.clientWidth + 2, top: Math.round(r.top), h: innerHeight, small, n: opts.length, scroll: c.scrollHeight > c.clientHeight + 2 }; })()`);
+        t.check(`the car card fits ${name} (${w}×${h}), no scrolling`, f.ok && f.small === 0 && f.n === 7 && !f.scroll, JSON.stringify(f));
         t.check(`…and leaves the top of the screen for the car (${name})`, f.top > h * 0.3, `card top ${f.top} of ${h}`);
         await t.shot(`card-${name}`);
       }
@@ -300,6 +300,14 @@ module.exports = {
       const ids = await t.L(`[...document.querySelectorAll("#screenCard .dp-opt")].map(b => b.dataset.opt)`);
       t.check("its card: all 6 horns + all 7 decorations", ids.filter(i => i.startsWith("horn:")).length === 6 && ids.filter(i => i.startsWith("decor:")).length === 7, ids.join());
       t.check("…a copy of HER car pulled up at the kerb", await g(`!!(ctx.shops.debug.bling.B.car && ctx.shops.debug.bling.B.car.parent)`));
+      // (13 tiles: the busiest card — it must fit a phone without scrolling, both ways)
+      for (const [name, w, h] of [["phone-portrait", 390, 844], ["phone-landscape", 844, 390]]) {
+        await t.page.setViewportSize({ width: w, height: h }); await t.frames(6);
+        const f = await t.L(`(() => { const c = document.getElementById("screenCard"), r = c.getBoundingClientRect(); return { ok: r.top >= -1 && r.bottom <= innerHeight + 1 && r.left >= -1 && r.right <= innerWidth + 1, scroll: c.scrollHeight > c.clientHeight + 2, top: Math.round(r.top) }; })()`);
+        t.check(`the Bling Bay card (13 tiles) fits ${name} without scrolling`, f.ok && !f.scroll, JSON.stringify(f));
+        await t.shot("bling-" + name);
+      }
+      await t.page.setViewportSize({ width: 1280, height: 720 }); await t.frames(6);
       const click = id => t.L(`(document.querySelector('#screenCard .dp-opt[data-opt="${id}"]').click(), true)`);
       const W0 = await coins();
       await click("decor:crown"); await t.frames(3);
@@ -321,6 +329,58 @@ module.exports = {
       t.check("○ closes it; the display car drives off", !await cardUp() && await g(`!ctx.shops.debug.bling.B.car`));
       const r = await t.L(`import("./js/features/garage/shop.js").then(m => m.shopTabs())`);
       t.check("the old Shop counter is empty now (every tab moved into the world)", r.length === 0, JSON.stringify(r));
+    });
+
+    // ════ 7d. 🍕 walk-in shops: the pizza shop (both towns) + Midwood's bakery ════
+    const room = (id) => `window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === ${JSON.stringify(id)}`;
+    const walkIn = async (spotName, id, re) => {
+      await onFootAt(spotName, 0.3);
+      const l = await label();
+      t.check(`✋ at the ${spotName} door (${l})`, re.test(l));
+      await W.pause(t, false);      // (the soft cut into a room: a set, not the street)
+      await t.tap(0);
+      const ok = await t.until(`__lulu3d.state === "interior" && ${room(id)}`, `inside ${id}`, 60000);
+      await t.frames(10); await W.pause(t, true); await W.moved(t);
+      return ok;
+    };
+    const snackAt = async (name, price) => {
+      await g(`(ctx.G.hearts = 1, ctx.G.shopsSnack = false, true)`);
+      const W0 = await coins(), h0 = await g(`ctx.G.hearts`);
+      await g(`(() => { const rt = __interiors.room, h = rt.hots.find(x => x.id === "counter"); h.action(rt, h); return true; })()`);
+      await t.frames(4);
+      t.check(`${name}: buying it costs ${price} and heals one heart`, await coins() === W0 - price && await g(`ctx.G.hearts`) === h0 + 1, `${W0}→${await coins()} ❤️ ${h0}→${await g(`ctx.G.hearts`)}`);
+      await g(`(() => { const rt = __interiors.room, h = rt.hots.find(x => x.id === "counter"); h.action(rt, h); return true; })()`);
+      await t.frames(4);
+      t.check(`${name}: …only once a run (the second: "you're full", no charge, no heart)`, await coins() === W0 - price && await g(`ctx.G.hearts`) === h0 + 1);
+    };
+    const walkOut = async (spotName) => {
+      await W.pause(t, false);
+      await g(`(__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, `out of the ${spotName}`, 30000);
+      await t.frames(10); await W.pause(t, true); await W.moved(t);
+      const d = await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(spotName)}), p = ctx.foot.pos; return +Math.hypot(sp.x - p.x, sp.z - p.z).toFixed(1); })()`);
+      t.check(`…she walks out of the ${spotName}'s own door (${d} m), still in town`, d < 7 && await g(`ctx.town.active`));
+    };
+    await step("rooms", async () => {
+      await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 500; }); })`);
+      if (!await town("lakewood")) return;
+      t.check("Lakewood: the pizza shop is a walk-in room (soft cut in)", await walkIn("pizza", "shopsPizza", /PIZZA SHMIZZA/));
+      t.check("…a counter, a line, someone at a table", await g(`["server", "line0", "line1", "eater"].every(id => !!__interiors.room.byId[id])`));
+      await t.shot("pizza-lakewood");
+      await snackAt("a slice", 6);
+      t.check("the pizza shop is a shared room with friends (together SHARED)", await t.L(`import("./js/features/together/rooms.js").then(m => !!m.SHARED.shopsPizza && !!m.SHARED.shopsBakery)`));
+      await walkOut("pizza");
+      if (!await town("midwood")) return;
+      t.check("Midwood: SLICE OF SINAI is walk-in too", await walkIn("pizza", "shopsPizza", /SLICE OF SINAI/));
+      await walkOut("pizza");
+      t.check("Midwood: the CHALLAH-DAY INN bakery is walk-in", await walkIn("bakery", "shopsBakery", /CHALLAH/));
+      await t.shot("bakery-midwood");
+      await g(`(ctx.G.shopsSnack = true, true)`);
+      const W0 = await coins();
+      await g(`(() => { const rt = __interiors.room, h = rt.hots.find(x => x.id === "counter"); h.action(rt, h); return true; })()`);
+      t.check("…the snack cap is across every shop (had a slice: no rugelach this run)", await coins() === W0);
+      await walkOut("bakery");
+      { const r = await W.report(t); W.log(r); W.check(t, "walk-in shops", r); await W.reset(t); }
     });
 
     // ════ 8. home again: the cars she owns wait in her garage ════

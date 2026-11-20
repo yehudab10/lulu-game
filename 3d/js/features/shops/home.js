@@ -57,8 +57,8 @@ export function openGarage() {
         },
         camera(dt) {
             const portrait = cam.aspect < 1, back = portrait ? 8.6 : 6.6;
-            const tgt = new THREE.Vector3(P.x + fx * back + lx * 2.4, portrait ? 3.6 : 2.6, P.z + fz * back + lz * 2.4);
-            const aim = new THREE.Vector3(P.x, portrait ? -0.3 : 0.3, P.z);
+            const tgt = new THREE.Vector3(P.x + fx * back + lx * 2.4, portrait ? 3.8 : 3.0, P.z + fz * back + lz * 2.4);
+            const aim = new THREE.Vector3(P.x, portrait ? -1.3 : -0.9, P.z);
             const k = 1 - Math.exp(-dt * 3.5);
             G.cam.pos.lerp(tgt, k); G.cam.look.lerp(aim, k);
             cam.position.copy(G.cam.pos); cam.lookAt(G.cam.look);

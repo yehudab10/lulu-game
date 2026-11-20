@@ -113,3 +113,61 @@ export const BLACK = {
 export const BLING = {
     lulu: ["Oh she's FANCY now. 💅", "Ima's going to say 'what is THAT'. Perfect.", "Honk honk, world. HONK HONK.", "Worth every coin. Probably."],
 };
+
+// ── stage 4: 🍕 walk-in shops (rooms.js) — per town; a snack heals one heart, once a run, never free ──
+const PIZZA_COMMON = {
+    floor: ["#F5F5F5", "#C62828"], wall: "#FFF3E0", trim: "#C62828", counter: "#8D6E63", chair: "#C62828",
+    snack: { icon: "🍕", name: "A slice", price: 6 },
+    full: ["One slice. I have SELF CONTROL. (I do not have self control. I have a full stomach.)", "If I eat another slice Ima will KNOW. She always knows."],
+    poor: ["Six coins, sweetheart. This isn't a charity, it's a PIZZA shop."],
+    served: ["One plain slice! Hot! Don't burn your mouth! …You burned your mouth.", "Here. Extra cheese. Don't tell the others."],
+    yum: ["Mmm. Worth the forty minutes. Almost. 🍕", "Okay that's GOOD. I'm healed. Emotionally and physically."],
+};
+export const ROOMS = {
+    pizza: {
+        lakewood: Object.assign({}, PIZZA_COMMON, {
+            name: "Pizza Shmizza", title: "🍕 PIZZA SHMIZZA",
+            menu: ["PIZZA SHMIZZA", "PLAIN SLICE · $6", "FRIES · ZA'ATAR FRIES · \"FRIES\"", "WAIT: 40 MIN (MINIMUM)"],
+            server: { name: "Mendy", key: "npcMan", colors: { Top: "#FFFFFF", Bottom: "#C62828", Hair: "#3E2723" } },
+            line: [{ name: "a dad", key: "npcMan", colors: { Top: "#1A237E", Bottom: "#263238", Hair: "#212121" } },
+                { name: "a kid", key: "npcKid", colors: { Top: "#FFB300" } }, { name: "a mom", key: "npcWoman", colors: { Top: "#6A1B9A" } }],
+            eater: { name: "Bochur", key: "npcMan", colors: { Top: "#FFFFFF", Bottom: "#212121", Hair: "#3E2723" } },
+            lineLines: ["Forty minutes. I've been here since the LAST forty minutes.", "I ordered for nine kids. They're in the minivan. All nine. Waiting.", "Is this the line for the line? I think this is the line for the line."],
+            eaterLines: ["Best pizza in Lakewood. Also the only pizza open right now.", "I came for one slice. This is my fourth. Don't judge.", "The secret's in the sauce. The sauce is ketchup. Don't tell anyone."],
+            serverLines: ["NUMBER 412! …412? Anyone? Okay, 413!", "Two plain, one fries, NO onions!", "We're out of fries. We're always out of fries.", "Who ordered the pie with EVERYTHING? Everything is olives."],
+            wall2: { label: "🖼️ The wall of fame", sign: "WALL OF FAME\n★ a rabbi ate here ★", lines: ["A signed photo: 'Best pizza in Lakewood!' — the owner's mother.", "A framed dollar. And a framed parking ticket. Lakewood's history."] },
+        }),
+        midwood: Object.assign({}, PIZZA_COMMON, {
+            name: "Slice of Sinai", title: "🍕 SLICE OF SINAI", floor: ["#FAFAFA", "#1565C0"], trim: "#1565C0", chair: "#1565C0",
+            menu: ["SLICE OF SINAI", "PLAIN · $6 · MOTZEI SHABBOS: $6 + PATIENCE", "BAKED ZITI · KNISH · EGG CREAM", "\"THE BEST IN BROOKLYN\" — US"],
+            server: { name: "Shloimy", key: "npcMan", colors: { Top: "#FFFFFF", Bottom: "#1565C0", Hair: "#212121" } },
+            line: [{ name: "a Brooklynite", key: "npcMan", colors: { Top: "#3949AB", Bottom: "#263238" } },
+                { name: "a bubby", key: "npcWoman", colors: { Top: "#8E24AA" } }, { name: "a kid", key: "npcKid", colors: { Top: "#43A047" } }],
+            eater: { name: "Car-service guy", key: "npcMan", colors: { Top: "#212121", Bottom: "#212121", Hair: "#424242" } },
+            lineLines: ["Motzei Shabbos rules: the line goes around the block. Twice.", "You're from Lakewood? They have pizza there? Cute.", "I've been in this line since the Q was on time."],
+            eaterLines: ["Five minutes! I'm on a break. I'm always 'five minutes'.", "Brooklyn pizza. Thin. Foldable. Like my excuses.", "You came from LAKEWOOD for this? Smart girl."],
+            serverLines: ["NEXT! …NEXT! You — yeah you — what'll it be?", "Two slices and an egg cream for the gentleman with the double-parked car!", "We don't do 'gluten-free'. We do 'gluten'."],
+            wall2: { label: "🖼️ The wall of fame", sign: "SINCE 1978\n(the oven, not the pizza)", lines: ["A photo of the Q train. Framed. Signed by the Q train.", "'Voted best slice on Avenue J' — by the guy who owns it."] },
+        }),
+    },
+    bakery: {
+        midwood: {
+            name: "Challah-Day Inn", title: "🥖 CHALLAH-DAY INN", floor: ["#FFF8E1", "#D7CCC8"], wall: "#FFF8E1", trim: "#6D4C41", counter: "#A1887F", chair: "#6D4C41",
+            menu: ["CHALLAH-DAY INN", "CHALLAH · RUGELACH · BABKA", "EREV-SHABBOS LINE: OUT THE DOOR", "NO SUBSTITUTIONS · NO EXCEPTIONS"],
+            snack: { icon: "🥐", name: "A rugelach", price: 4 },
+            full: ["One rugelach. ONE. The babka is staring at me. I will be STRONG."],
+            poor: ["Four coins for a rugelach, motek. Babka's more. Everything's more."],
+            served: ["Fresh from the oven! Careful, the chocolate's lava.", "Here, take it — and wish your Bubbe a good Shabbos!"],
+            yum: ["Chocolate rugelach. Healing powers: confirmed. 🥐", "This is better than Bubbe's. NEVER tell Bubbe."],
+            server: { name: "Mrs. Glick", key: "npcWoman", colors: { Top: "#FFFFFF", Bottom: "#6D4C41", Hair: "#5D4037" } },
+            line: [{ name: "an erev-Shabbos shopper", key: "town_mom", colors: { Top: "#00695C" } }, { name: "a dad", key: "npcMan", colors: { Top: "#37474F" } },
+                { name: "a kid", key: "npcKid", colors: { Top: "#F4511E" } }],
+            eater: { name: "Bubby", key: "npcWoman", colors: { Top: "#7B1FA2", Hair: "#BDBDBD" } },
+            lineLines: ["Six challahs. Two raisin, two plain, two 'whatever Shmuel likes'.", "They're out of babka. OUT. On a FRIDAY. I'm calling my rabbi.", "Is this the line for the bakery or the fish store? …Yes."],
+            eaterLines: ["Sit, sit! You're too thin. Have a rugelach. Have TWO.", "In my day the challah was THIS big. And it cost a nickel.", "You're Lulu? I know your Bubbe! She owes me a kugel recipe."],
+            serverLines: ["Raisin or plain? Round or long? Decide, motek, there's a LINE.", "Last babka! …Don't look at me like that. It's spoken for.", "Rugelach fresh out! Chocolate, cinnamon, apricot nobody buys!"],
+            wall2: { label: "🖼️ The tzedakah box", sign: "TZEDAKAH\nthank you!", lines: ["A tzedakah box, full of coins and one button. Somebody's having a week.", "A sign: 'We don't do substitutions. We don't do exceptions. We DO love you.'"] },
+            chair2: true,
+        },
+    },
+};
