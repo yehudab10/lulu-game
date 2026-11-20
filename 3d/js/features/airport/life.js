@@ -1,0 +1,276 @@
+// features/airport — LIFE at the kerb: the taxis + shuttles going round, the terminal's doors (✋: opening soon), and
+// the RUNWAY FENCE JOKE (Officer Feivel of airport security rolls up on his Segway; sometimes a jet honks first).
+// Everything here is personal (only her screen runs it): the vehicles are plain props on their own loop (never in the
+// traffic), the guard and the lines are hers. Nothing pays coins. Pop-ups: none — speech bubbles only, and only as the
+// answer to something she did (pushed the fence, tried a door).
+import * as THREE from "three";
+import { ctx, emit, pick } from "../../core/ctx.js";
+import { models, instanced, ensureModels } from "../../models.js";
+import { spawnPerson } from "../../core/people.js";
+import * as H from "../../hud.js";
+import * as A from "../../audio.js";
+import * as LY from "./layout.js";
+import * as L from "./lines.js";
+
+export const VEH = { taxis: 5, shuttles: 2, speed: 8, kerbSpeed: 6, dwellTaxi: 9, dwellShuttle: 7, yieldLon: 11, yieldLat: 2.7 };
+export const JOKE = { near: 1.6, nearCar: 3.6, hold: 0.7, cool: 25, maxVisit: 2, againGap: 10 };
+const GUARD_MODELS = ["airport_guard", "airport_segway"];
+
+// ── helpers ──────────────────────────────────────────────────────────────
+const onFoot = () => !!(ctx.foot && ctx.foot.active);
+/** Lulu says something (over her on foot, banter's line at the wheel). */
+export function luluSays(text, sec = 2.8) {
+    if (!text) return;
+    if (onFoot() && ctx.foot.say && ctx.foot.obj) { ctx.foot.say(ctx.foot.obj, text, sec); return; }
+    if (ctx.banter && ctx.banter.say) { try { ctx.banter.say(text); return; } catch (e) { /* below */ } }
+    if (ctx.banter && ctx.banter.bubble && ctx.car && ctx.car.model) { try { ctx.banter.bubble(text, ctx.car.model, { dur: sec, y: 2.2 }); } catch (e) { /* none */ } }
+}
+function sayOver(obj, text, sec = 3) {
+    if (!text || !obj) return;
+    if (onFoot() && ctx.foot.say) { ctx.foot.say(obj, text, sec); return; }
+    if (ctx.banter && ctx.banter.bubble) { try { ctx.banter.bubble(text, obj, { dur: sec, y: 2.2 }); } catch (e) { /* none */ } }
+}
+/** Where Lulu is (her car follows her on foot). */
+const luluPos = () => (onFoot() && ctx.foot.pos) || (ctx.car && ctx.car.pos) || null;
+
+// ── the kerb vehicles ────────────────────────────────────────────────────
+/** Point + tangent on the vehicle loop at distance v (wraps). */
+function loopAt(VL, v, out) {
+    const Lv = VL.len, P = VL.pts;
+    v = ((v % Lv) + Lv) % Lv;
+    let lo = 0, hi = P.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P[m].v <= v) lo = m; else hi = m; }
+    const a = P[lo], b = P[hi], t = (v - a.v) / Math.max(1e-6, b.v - a.v);
+    out.x = a.x + (b.x - a.x) * t; out.z = a.z + (b.z - a.z) * t; out.tx = a.tx + (b.tx - a.tx) * t; out.tz = a.tz + (b.tz - a.tz) * t;
+    const l = Math.hypot(out.tx, out.tz) || 1; out.tx /= l; out.tz /= l;
+    return out;
+}
+const _a = {}, _b = {}, _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0), _v3 = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
+
+export function makeVehicles(G, scene) {
+    if (!models.airport_taxi || !models.airport_shuttle) return null;
+    const group = new THREE.Group();
+    group.name = "AirportKerb";
+    const taxi = instanced(models.airport_taxi, VEH.taxis, []), bus = instanced(models.airport_shuttle, VEH.shuttles, ["Paint", "Stripe"]);
+    for (const I of [taxi, bus]) { I.group.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); group.add(I.group); }
+    bus.color(0, "Stripe", new THREE.Color("#1E5AA8")); bus.color(1, "Stripe", new THREE.Color("#E0A526"));
+    scene.add(group);
+    const VL = G.vloop, Lv = VL.len, cars = [];
+    // spread round the loop: the taxis queued at the stand, the shuttles across the far side
+    for (let i = 0; i < VEH.taxis; i++) cars.push({ kind: "taxi", i, v: VL.stops.taxiHead - i * (LY.STOPS.taxiGap + 0.5), speed: 0, wait: i ? 0 : VEH.dwellTaxi * 0.6, len: 4.8 });
+    for (let i = 0; i < VEH.shuttles; i++) cars.push({ kind: "shuttle", i, v: VL.stops.shuttle + Lv * (0.35 + i * 0.4), speed: 0, wait: 0, len: 9.3, served: false });
+    // their colliders (ride in the kerb's highway chunk: index.js adds them when that chunk is built)
+    const dyn = [];
+    for (const c of cars) {
+        c.col = (c.kind === "taxi" ? [-1.3, 1.3] : [-3.1, 0, 3.1]).map(o => ({ x: 0, z: 0, r: c.kind === "taxi" ? 1.05 : 1.3, kind: c.kind === "taxi" ? "car" : "prop", o, airport: true }));
+        dyn.push(...c.col);
+    }
+    // the shuttles pull out to the middle lane after their stop (the taxis queue in the kerb lane)
+    const vS = VL.stops.shuttle, vEnd = VL.stops.taxiHead + 50;
+    const lat = (c, v) => c.kind !== "shuttle" ? 0 : -3.5 * Math.min(smooth01((v - vS - 6) / 14), smooth01((vEnd - v) / 14));
+    const V = { group, cars, dyn, taxi, bus, stats: { stops: 0, taxisOut: 0 } };
+    V.update = (dt, active) => {
+        if (!active) return;
+        const lp = luluPos();
+        cars.sort((a, b) => ((a.v % Lv) + Lv) % Lv - ((b.v % Lv) + Lv) % Lv);
+        for (let k = 0; k < cars.length; k++) {
+            const c = cars[k], vv = ((c.v % Lv) + Lv) % Lv;
+            let want = Math.abs(vv - VL.stops.taxiHead) < 140 || Math.abs(vv - vS) < 120 ? VEH.kerbSpeed : VEH.speed;
+            // the vehicle ahead in the same lane
+            let gap = 1e9;
+            for (const o of cars) {
+                if (o === c) continue;
+                let d = (((o.v - c.v) % Lv) + Lv) % Lv;
+                if (d <= 0 || d > 60) continue;
+                if (Math.abs(lat(o, ((o.v % Lv) + Lv) % Lv) - lat(c, vv)) > 2) continue;
+                gap = Math.min(gap, d - (o.len + c.len) / 2);
+            }
+            if (gap < 9) want = Math.min(want, Math.max(0, (gap - 2.2) * 1.2));
+            // stops: the shuttle at its stand (once a lap), a taxi at the head of the line
+            const stopAt = (sv, dwell, tag) => {
+                const d = sv - vv;
+                if (d > -0.5 && d < 18) {
+                    if (c.lastStop === tag) return;
+                    want = Math.min(want, Math.max(0, d * 0.7));
+                    if (d < 0.6 && c.speed < 0.4) { if (c.wait <= 0) c.wait = dwell; c.atStop = tag; }
+                }
+            };
+            if (c.kind === "shuttle") stopAt(vS, VEH.dwellShuttle, "shuttle"); else stopAt(VL.stops.taxiHead, VEH.dwellTaxi, "taxi");
+            if (c.atStop) {
+                c.wait -= dt;
+                want = 0;
+                if (c.wait <= 0) { c.lastStop = c.atStop; c.atStop = null; V.stats.stops++; if (c.kind === "taxi") V.stats.taxisOut++; }
+            }
+            if (c.lastStop && Math.abs(vv - (c.lastStop === "shuttle" ? vS : VL.stops.taxiHead)) > 40) c.lastStop = null;
+            // yield to Lulu (in her car or on foot) and to her parked car
+            loopAt(VL, c.v, _a);
+            const l0 = lat(c, vv), px = _a.x - _a.tz * l0, pz = _a.z + _a.tx * l0;
+            const block = (x, z) => { const dx = x - px, dz = z - pz, lon = dx * _a.tx + dz * _a.tz, la = -dx * _a.tz + dz * _a.tx; return lon > 0 && lon < VEH.yieldLon + c.len / 2 && Math.abs(la) < VEH.yieldLat; };
+            if (lp && block(lp.x, lp.z)) want = 0;
+            for (const t of ctx.traffic ? ctx.traffic.cars : []) if (t.data && t.data.footStub && block(t.x, t.z)) want = 0;
+            c.speed += Math.max(-6 * dt, Math.min(2.2 * dt, want - c.speed));
+            if (c.speed < 0) c.speed = 0;
+            c.v += c.speed * dt;
+            // place it (+ its colliders)
+            loopAt(VL, c.v, _a);
+            const vn = ((c.v % Lv) + Lv) % Lv, la = lat(c, vn);
+            const x = _a.x - _a.tz * la, z = _a.z + _a.tx * la, yaw = Math.atan2(_a.tx, _a.tz);
+            c.x = x; c.z = z; c.h = yaw;
+            _m4.compose(_v3.set(x, 0, z), _q.setFromAxisAngle(_up, yaw), _one);
+            (c.kind === "taxi" ? taxi : bus).set(c.i, _m4);
+            for (const cc of c.col) { cc.x = x + _a.tx * cc.o; cc.z = z + _a.tz * cc.o; }
+        }
+        taxi.finish(); bus.finish();
+    };
+    V.dispose = () => { scene.remove(group); taxi.dispose(); bus.dispose(); for (const d of dyn) d.off = true; };
+    return V;
+}
+function smooth01(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+
+// ── the doors (✋): Terminal 4½ opens in stage 2 ──────────────────────────
+export function doorSpot(S) {
+    const sp = {
+        r: 2.6, short: "🚪",
+        pos() {
+            const G = S.G, p = ctx.foot && ctx.foot.pos;
+            if (!G || !S.ready || !p) return null;
+            let best = null, bd = 1e9;
+            for (const f of LY.DOORS) { const w = G.F.world(f, LY.TERM.r0 - 1.0, {}); const d = Math.hypot(w.x - p.x, w.z - p.z); if (d < bd) { bd = d; best = w; best.f = f; } }
+            sp.door = bd < 4 ? best : null;
+            return sp.door;
+        },
+        label() { return sp.door ? "🚪 TERMINAL 4½ · opening soon" : null; },
+        act() {
+            const t = ctx.time;
+            if (S.doorT && t - S.doorT < 2.5) return;
+            S.doorT = t;
+            S.doors = (S.doors || 0) + 1;
+            luluSays(L.LULU.door[(S.doors - 1) % L.LULU.door.length], 3);
+            emit("airport:door", { f: sp.door ? sp.door.f : 0 });
+            emit("stat", { id: "airportDoors", n: 1 });
+        },
+    };
+    return sp;
+}
+
+// ── the runway fence joke ────────────────────────────────────────────────
+/** Distance from (x, z) to the nearest RUNWAY fence segment → { d, x, z (closest point), tx, tz (along it) }. */
+export function nearFence(G, x, z, out = {}) {
+    out.d = 1e9;
+    for (const fc of G.fences) {
+        if (!fc.runway) continue;
+        for (let i = 0; i < fc.pts.length - 1; i++) {
+            const a = fc.pts[i], b = fc.pts[i + 1], ex = b.x - a.x, ez = b.z - a.z, L2 = ex * ex + ez * ez || 1;
+            const t = Math.max(0, Math.min(1, ((x - a.x) * ex + (z - a.z) * ez) / L2)), px = a.x + ex * t, pz = a.z + ez * t, d = Math.hypot(px - x, pz - z);
+            if (d < out.d) { const l = Math.sqrt(L2); out.d = d; out.x = px; out.z = pz; out.tx = ex / l; out.tz = ez / l; }
+        }
+    }
+    return out;
+}
+
+let hornDefined = false;
+function horn(at) {
+    if (!A.spatial || !A.spatial.ready || ctx.skipping) return;
+    if (!hornDefined) {
+        hornDefined = true;
+        A.spatial.define("airportHorn", { ref: 60, max: 900, gain: 1.0, prio: 3, gen(sr) {
+            const n = Math.round(1.7 * sr), b = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                const t = i / sr, env = Math.min(1, t * 12) * Math.min(1, (1.7 - t) * 5);
+                let s = 0; for (const f of [92, 116, 138]) s += ((t * f) % 1) * 2 - 1;      // a low saw chord: BWAAAMP
+                b[i] = s * 0.28 * env;
+            }
+            return b;
+        } });
+    }
+    A.spatial.play("airportHorn", at, { gain: 1 });
+}
+
+export function makeJoke(S) {
+    const J = { phase: null, t: 0, hold: 0, guard: null, seg: null, n: 0, visitN: 0, coolT: -1e9, againT: -1e9, v: 0 };
+    const _f = {};
+    J.reset = () => { despawn(J); J.phase = null; J.hold = 0; J.visitN = 0; };
+    J.update = (dt) => {
+        const G = S.G, p = luluPos();
+        if (!G || !S.ready || !p) return;
+        // pressed against the runway fence (on foot ~1 m from it, in the car a bumper's length)?
+        if (!J.phase) {
+            const lim = onFoot() ? JOKE.near : JOKE.nearCar;
+            nearFence(G, p.x, p.z, _f);
+            const pushing = _f.d < lim && (onFoot() || (ctx.car && ctx.car.speed < 3)) && ["playing", "footRun"].includes(ctx.state);
+            J.hold = pushing ? J.hold + dt : Math.max(0, J.hold - dt * 2);
+            if (J.hold >= JOKE.hold) { J.hold = 0; J.trigger(); }
+        }
+        if (J.phase) tickScene(J, G, dt);
+    };
+    J.trigger = (force = false) => {
+        const t = ctx.time;
+        emit("stat", { id: "airportFenceTries", n: 1 });
+        if (!force && (t - J.coolT < JOKE.cool || J.visitN >= JOKE.maxVisit)) {
+            if (t - J.againT > JOKE.againGap) { J.againT = t; luluSays(pick(L.LULU.again), 2.4); }
+            emit("airport:fence", { variant: -1 });
+            return false;
+        }
+        if (!GUARD_MODELS.every(k => models[k])) { ensureModels(GUARD_MODELS).catch(() => {}); luluSays(pick(L.LULU.again), 2.4); return false; }
+        J.coolT = t; J.visitN++;
+        J.v = (S.saved.jokes || 0) % L.FEIVEL.length;
+        S.saved.jokes = (S.saved.jokes || 0) + 1;
+        if (S.save) S.save();
+        startScene(J, S.G);
+        emit("airport:fence", { variant: J.v });
+        return true;
+    };
+    return J;
+}
+function despawn(J) {
+    for (const o of [J.guard && J.guard.obj, J.seg]) if (o && o.parent) o.parent.remove(o);
+    J.guard = null; J.seg = null;
+}
+const _n = {};
+function startScene(J, G) {
+    const p = luluPos();
+    nearFence(G, p.x, p.z, _n);
+    // he rolls in along the fence, on the landside (2.8 m in from it), from 26 m away
+    const inX = p.x - _n.x, inZ = p.z - _n.z, il = Math.hypot(inX, inZ) || 1;
+    J.nx = inX / il; J.nz = inZ / il;
+    const side = Math.random() < 0.5 ? -1 : 1;
+    J.from = { x: _n.x + J.nx * 2.8 + _n.tx * 26 * side, z: _n.z + J.nz * 2.8 + _n.tz * 26 * side };
+    J.to = { x: p.x + _n.tx * 3.2 * side + J.nx * 0.6, z: p.z + _n.tz * 3.2 * side + J.nz * 0.6 };
+    J.guard = spawnPerson("airport_guard", {});
+    J.seg = models.airport_segway.clone(true);
+    J.guard.obj.position.set(J.from.x, 0.26, J.from.z);
+    J.seg.position.set(J.from.x, 0, J.from.z);
+    ctx.scene.add(J.seg); ctx.scene.add(J.guard.obj);
+    J.guard.obj.traverse(m => { if (m.isMesh) m.castShadow = false; });
+    J.phase = "in"; J.t = 0; J.line = 0;
+    const V = L.FEIVEL[J.v];
+    if (V.horn) {
+        // the nearest parked jet at the gates honks (BWAAAMP)
+        const w = G.F.world(0, 278, {});
+        horn({ x: w.x, y: 6, z: w.z });
+        luluSays("WHOA.", 1.4);
+    }
+}
+function tickScene(J, G, dt) {
+    const V = L.FEIVEL[J.v], g = J.guard, p = luluPos();
+    if (!g || !p) { despawn(J); J.phase = null; return; }
+    J.t += dt;
+    const o = g.obj;
+    const move = (to, speed) => { const dx = to.x - o.position.x, dz = to.z - o.position.z, d = Math.hypot(dx, dz); if (d > 0.05) { const k = Math.min(1, speed * dt / d); o.position.x += dx * k; o.position.z += dz * k; o.rotation.y = Math.atan2(dx, dz); } return d; };
+    if (J.phase === "in") {
+        const d = move(J.to, 5.5);
+        if (d < 0.3 || J.t > 7) { J.phase = "talk"; J.t = 0; }
+    } else if (J.phase === "talk") {
+        o.rotation.y = Math.atan2(p.x - o.position.x, p.z - o.position.z);
+        const beats = V.guard.length;
+        if (J.line < beats && J.t > J.line * 2.7) { sayOver(o, V.guard[J.line], 2.6); J.line++; }
+        else if (J.line === beats && J.t > beats * 2.7) { luluSays(V.lulu, 2.6); J.line++; }
+        else if (J.line > beats && J.t > beats * 2.7 + 2.4) { J.phase = "out"; J.t = 0; }
+    } else if (J.phase === "out") {
+        const d = move(J.from, 6);
+        if (d < 0.5 || J.t > 8) { despawn(J); J.phase = null; return; }
+    }
+    J.seg.position.set(o.position.x, 0, o.position.z);
+    J.seg.rotation.y = o.rotation.y;
+    g.update(dt, { talk: J.phase === "talk" });
+}
