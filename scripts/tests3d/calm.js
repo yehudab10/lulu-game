@@ -180,17 +180,23 @@ async function body(t, pages, riders) {
   for (const r of riders) r.close();
   riders.length = 0;
 
-  // ── (d) ONLINE, solo: strangers' ghosts all around on the highway ──
+  // ── (d) ONLINE, solo: strangers' ghosts all around on the highway (a fresh page: two heavy pages in one browser are
+  //    too much for a CI runner — the friend's page closes first) ──
+  try { await B.page.close(); } catch (e) { }
+  pages.splice(pages.indexOf(B), 1);
   await g(`(ctx.party.leave(), true)`);
-  await A.frames(10);
-  await g(`L3.startRun({ mode: "cruise", quick: true })`);
-  await A.until(`__lulu3d.state === "playing"`, "online: cruise");
-  await g(`(ctx.banter.autopilot = { d: 1.75, speed: 0 }, ctx.mp.setOnline(true), true)`);
-  await A.until(`ctx.mp.connected`, "online: in EVERYONE", 60000);
-  const me2 = await g(`({ s: ctx.car.s })`);
+  const O = await guestPage(t, "online", { totalCoins: 0, ownedSkins: ["pink"], selectedSkin: "pink", mpName: "Kugel Kid", footRunsPlayed: 3, runs3d: 6 }, Q, PHONE);
+  pages.push(O);
+  await O.until(`__lulu3d && __lulu3d.state === "title"`, "online page boots", 180000);
+  await O.L(SAMPLER);
+  await O.game(`L3.startRun({ mode: "cruise", quick: true })`);
+  await O.until(`__lulu3d.state === "playing"`, "online: cruise");
+  await O.game(`(ctx.banter.autopilot = { d: 1.75, speed: 0 }, ctx.mp.setOnline(true), true)`);
+  await O.until(`ctx.mp.connected`, "online: in EVERYONE", 60000);
+  const me2 = await O.game(`({ s: ctx.car.s })`);
   riders.push(...await crowd(6, { s: me2.s }));
-  await A.until(`ctx.mp.near >= 3`, "online: ghosts around", 60000);
-  results.online = await minute(A);
+  await O.until(`ctx.mp.near >= 3`, "online: ghosts around", 60000);
+  results.online = await minute(O);
   SHOW("online with strangers (phone landscape)", results.online);
 
   if (REPORT_ONLY) { t.check("report only (CALM_REPORT)", true); return; }
