@@ -28,7 +28,7 @@ module.exports = {
 
     // spots along the streets where a solid block stands right behind the sidewalk on the + side: { name, along, n (unit
     // normal toward the block, world), kerb (world point at d = WALK + 1.2 — the back of the sidewalk) }
-    const spots = await g(`(() => { const T = ctx.town, PL = T.plan, O = PL.ORIGIN, out = [];
+    const spots = await g(`(() => { const T = ctx.town, PL = T.plan, out = [];
       for (const st of PL.STREETS) { if (st.axis === "diag") continue;
         for (let a = st.a0 + 30; a < st.a1 - 30 && out.length < 40; a += 23) {
           const p0 = T.debug.pt(st.name, a, 0), pb = T.debug.pt(st.name, a, st.front + 4), pw = T.debug.pt(st.name, a, st.front - 1.0);
@@ -36,8 +36,10 @@ module.exports = {
           // not at a crossing (the block must run on both ways)
           const ok = [-8, 8].every(k => { const q = T.debug.pt(st.name, a + k, st.front + 4); return PL.OCCLUDERS.some(r => q.x > r.x0 && q.x < r.x1 && q.z > r.z0 && q.z < r.z1); });
           if (!ok) continue;
-          const nx = (pb.x - p0.x) / (st.front + 4), nz = (pb.z - p0.z) / (st.front + 4);
-          out.push({ name: st.name, along: a, front: st.front, nx, nz, x: O.x + pw.x, z: O.z + pw.z });
+          // (local → world with the town's turn: an attached town is rotated to its interchange — PL.world / COS / SIN)
+          const lx = (pb.x - p0.x) / (st.front + 4), lz = (pb.z - p0.z) / (st.front + 4), W = PL.world(pw.x, pw.z, {});
+          const nx = lx * PL.COS + lz * PL.SIN, nz = -lx * PL.SIN + lz * PL.COS;
+          out.push({ name: st.name, along: a, front: st.front, nx, nz, x: W.x, z: W.z });
         } }
       return out.filter((s, i) => i % 3 === 0).slice(0, 6); })()`);
     t.check("found spots right beside a block of houses", spots.length >= 3, String(spots.length));

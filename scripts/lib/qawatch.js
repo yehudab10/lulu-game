@@ -111,9 +111,9 @@ const SRC = String.raw`
     }
     const T = ctx.town;
     if (T && T.active) {
-      const pl = T.plan, O = pl && pl.ORIGIN;
-      if (O) for (const r of pl.OCCLUDERS) {
-        const lx = x - O.x, lz = z - O.z;
+      const pl = T.plan, Lc = pl && pl.local ? pl.local(x, z, {}) : null;
+      if (Lc) for (const r of pl.OCCLUDERS) {
+        const lx = Lc.x, lz = Lc.z;
         if (lx > r.x0 + pad && lx < r.x1 - pad && lz > r.z0 + pad && lz < r.z1 - pad) return "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0);
       }
     }

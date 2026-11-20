@@ -142,7 +142,7 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.25, CAM_MIN = 0.05;     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
+const CAM_PAD = 0.25, CAM_MIN = 0.05, _cl = {};     // (pad < her radius: walking ALONG a wall the camera behind her stays out; closer than ~1.5 m it rises over her head — core/camera.js orbit)
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
@@ -181,7 +181,9 @@ export function camClip(F, tgt, dx, dy, dz, D) {
         }
     }
     if (blocks) {
-        const O = pl.ORIGIN, ax = tgt.x - O.x, az = tgt.z - O.z;
+        // (the blocks are in the town's LOCAL frame — an attached town is turned to its interchange: PL.local / ROT)
+        const L = pl.local(tgt.x, tgt.z, _cl), ax = L.x, az = L.z, wx = dx, wz = dz;
+        dx = wx * pl.COS - wz * pl.SIN; dz = wx * pl.SIN + wz * pl.COS;
         for (const r of pl.OCCLUDERS) {
             let p = CAM_PAD;
             if (ax > r.x0 - p && ax < r.x1 + p && az > r.z0 - p && az < r.z1 + p) p = 0.05;     // (right up against it)

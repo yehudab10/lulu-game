@@ -42,9 +42,10 @@ module.exports = {
       await t.frames(10);
       if (!await onFoot()) continue;
       // the four outermost streets: walk off the grid from each, past the sidewalk, as far as she goes
-      const edges = await g(`(() => { const T = ctx.town, PL = T.plan, O = PL.ORIGIN; let b = { minx: 1e9, maxx: -1e9, minz: 1e9, maxz: -1e9 };
+      const edges = await g(`(() => { const T = ctx.town, PL = T.plan; let b = { minx: 1e9, maxx: -1e9, minz: 1e9, maxz: -1e9 };
         const pts = []; for (const st of PL.STREETS) for (let a = st.a0; a <= st.a1; a += 20) { const p = T.debug.pt(st.name, a, 0); pts.push([p.x, p.z, st.name, a]); b.minx = Math.min(b.minx, p.x); b.maxx = Math.max(b.maxx, p.x); b.minz = Math.min(b.minz, p.z); b.maxz = Math.max(b.maxz, p.z); }
-        const pick = (f, dx, dz) => { const p = pts.reduce((m, q) => f(q) > f(m) ? q : m); return { x: O.x + p[0], z: O.z + p[1], dx, dz, st: p[2], a: p[3] }; };
+        // (local → world with the town's turn — PL.world / COS / SIN)
+        const pick = (f, lx, lz) => { const p = pts.reduce((m, q) => f(q) > f(m) ? q : m), W = PL.world(p[0], p[1], {}); return { x: W.x, z: W.z, dx: lx * PL.COS + lz * PL.SIN, dz: -lx * PL.SIN + lz * PL.COS, st: p[2], a: p[3] }; };
         return [pick(q => -q[0], -1, 0), pick(q => q[0], 1, 0), pick(q => -q[1], 0, -1), pick(q => q[1], 0, 1)]; })()`);
       const ends = [];
       for (const e of edges) {
