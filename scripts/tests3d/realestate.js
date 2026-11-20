@@ -135,8 +135,18 @@ module.exports = {
       await t.frames(4);
       await t.tap(0);
       const o1 = await toChoice();
-      t.check("the board lists today's homes with prices", o1.length >= 3 && o1.every(o => /💰|Never/.test(o)), o1.slice(0, 3).join(" | "));
+      t.check("the board lists today's homes with prices (a few at a time)", o1.length >= 3 && o1.length <= 5 && o1.every(o => /💰|Never|More/.test(o)), o1.join(" | "));
       await t.shot("office-board");
+      // the list fits phone portrait / landscape and a TV (the dialogue box has no height limit: ≤ 5 buttons)
+      for (const [w, h] of [[390, 844], [844, 390], [1920, 1080]]) {
+        await t.page.setViewportSize({ width: w, height: h });
+        await t.frames(8);
+        const fit = await t.L(`(() => { const r = [...document.querySelectorAll("#dialog .opt"), document.querySelector("#dialog .box")].map(e => e.getBoundingClientRect()); return r.every(b => b.top >= 0 && b.bottom <= innerHeight + 1 && b.left >= 0 && b.right <= innerWidth + 1); })()`);
+        t.check(`${w}×${h}: the realtor's list fits on screen`, fit);
+        await t.shot(`office-board-${w}x${h}`);
+      }
+      await t.page.setViewportSize({ width: 1280, height: 720 });
+      await t.frames(6);
       await pickOpt(/🏠/);
       const o2 = await toChoice();
       t.check("…her pitch, then show me / buy / back", o2.some(o => /Show me/.test(o)) && o2.some(o => /Buy it now/.test(o)), o2.join(" | "));

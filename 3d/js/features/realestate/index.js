@@ -34,6 +34,7 @@ import { layout, counts, clear as clearSigns } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
 import { finalize } from "./deal.js";
+import { pickPaged } from "./pager.js";
 import * as MG from "./mortgage.js";
 import * as RN from "./rent.js";
 import { tick as partyTick, roam, P as PP } from "./party.js";
@@ -377,8 +378,8 @@ async function myPlaces(rt, who, R) {
     const chooseR = (q, o) => rt.choose(R.name, q, o, { emoji: R.emoji, person: who });
     const mine = registry.listFor(null);
     if (!mine.length) { await sayR("No places yet! Look at the board, sweetheart — something cozy is calling your name."); return; }
-    const i = await chooseR("Which one?", mine.map(h => `🔑 ${h.address}${RN.tenantOf(h.id) ? " · 🧑 rented" : ""}${S.mortgage[h.id] ? " · 🏦" : ""}`).concat(["‹ Back"]));
-    const h = i >= 0 && i < mine.length ? mine[i] : null;
+    const i = await pickPaged(chooseR, "Which one?", mine.map(h => `🔑 ${h.address}${RN.tenantOf(h.id) ? " · 🧑 rented" : ""}${S.mortgage[h.id] ? " · 🏦" : ""}`));
+    const h = i >= 0 ? mine[i] : null;
     if (!h || rt.disposed) return;
     const tn = RN.tenantOf(h.id), q = RN.quote(h.id);
     const opts = [tn ? `👋 Ask ${tn.name} to move out` : "🧑 Find me a tenant", `🪧 Sell it — you get ${fmt(q.net)} 💰`, "‹ Back"];

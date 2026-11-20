@@ -547,7 +547,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | seasons 🕎 | **shared** (the HOST's day) | Every player publishes its own day in `d.x.cal` (`{ f: a preview \| null, t: local "YYYY-MM-DDTHH:MM" }`, `seasons/party.js`); everyone dresses the world for the host's (a guest dresses nothing until it's known — no flicker from one holiday to another). Every placement is a hash of the place (road chunk index + world seed, town + house index), never Math.random, so the same house has the same menorah on every screen. The parade's march and the people of the day (lulav walkers, the dancers, Tashlich…) stand in the same places on every screen; their animation is each screen's own (not synced). The Purim music van is solo-only (it's a town driver; a party town's traffic is the party's seeded loops). The ✋ stall treat, Ima's note and Lulu's line are personal (the treat's coins capped per real day on each device). Test: `seasons` (two real pages: the host's Purim wins over the guest's own Chanukah) |
 | together 👯 (friend finder + same car) | **personal**, reads what friends already publish | The 📱 🗺️ Map (friends' dots, a destination beam), ≤ 3 edge pointers, 🧭 switch — all from the party's existing snapshots (`d.w` / the flat frame, `d.x.z`, `d.x.ex`, `d.x.at`, `d.x.pc`, `d.x.pr`) + `d.x.dr` (the door I'm in by). Party members only — never a stranger. No coins |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
-| realestate 🏘️ | **personal** (stage 1; friends = stage 4) | Every home's address / price / today's listing is a pure function of the town data + the device's date, so it would be the same on every screen — but in a party nothing is sold yet: no FOR SALE signs, no office, no viewings, her own front door doesn't open (her pink mailbox still shows on her own screen). Stage 4 (`ci/realestate`): friends see each other's homes as owned (a registry source fed from `d.x`), invite each other in (a shared room via features/together), can't buy the same house. |
+| realestate 🏘️ | **personal homes, shared ownership** (🌍 Free Roam only) | Every home's address / price / today's listing is a pure function of the town data + the device's date. In a party the market, the office, the bank's mortgage desk, viewings and buying work only in 🌍 Free Roam (`locked()`: a lobby activity / a race keeps it shut). Each player publishes the homes they own IN THE TOWN THEY'RE IN as `d.x.re` (`["l178,240,<minute bought>", …]`, ≤ 10) — `party.js` turns friends' lists into a registry SOURCE: a friend's home is never listed and can't be claimed, gets a mailbox in that friend's colour, and ✋ at its door says whose it is / 👯 JOIN <name> INSIDE when they're in (features/together `SHARED.realestateHouse` — the room's instance is the house id; a viewing stays personal). Visitors look, nobody redecorates in a party (like decor), no coins move. A double booking (two friends signed one home at once): the earlier purchase keeps it, the other gets every coin back + a text. Mortgage payments, rent and tenants are each player's own. Strangers never publish / see any of it. Test: `realestatefriends` (two pages). |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1122,6 +1122,31 @@ rest is dialogue. **📞 Phone › 🏘️ The realtor** (a `ctx.community.addCo
 `realestate:owner` event {id, from, to, price, why} whenever a home changes hands. **For features/homes**:
 `ctx.realestate.claims(id)` → "mine" | "listed" | null, `keyOf(x, z)` (the position id of any door). Save: `store("realestate")`
 — 3D-only, the classic 2D game never sees it. Test: `scripts/tests3d/realestate.js`.
+
+**The mortgage desk** (`mortgage.js`, stage 2): added to heist's `bank` lobby from here on `interior:enter` (a desk, a
+tower of paperwork, a MORTGAGES sign, the banker — Mr. Pinkus in Lakewood, Mrs. Teitelbaum in Midwood — and ONE hotspot;
+heist's file only lists the two rooms in `TOWN_INTERIORS`). 🏠 buy a home with a mortgage = today's listings → 20 / 35 /
+50 % down → 10 / 20 / 30 PLAYED days with a flat 5 / 10 / 15 % fee on the loan → the forty-signature comedy + the terms
+said plainly → ✍️ Sign (two presses) → `take(rec, plan)`: the down payment, `finalize` (deal.js — shared with cash),
+`S.mortgage[id] = {down, loan, fee, total, days, perDay, paid, n, missed, last, due, paidIn}`. `tick()` (index.js's ~2 Hz
+hud check, only in `playing` / `footRun`, no dialog): a NEW played day settles the last one (unpaid = `missed++`: 1 → a
+stern letter, 2 → the realtor's "we should talk", 3 → `foreclose`: the house goes back and she gets the LARGER of
+(today's value − 10 % − what she owes) or half of everything she paid in; never below 0) and bills today; a bill due is
+paid by itself the moment the wallet has it (`payToday`, a 🏦 text in 📱 Messages thread `bank`). Days she doesn't play
+never happen. 💳 my mortgages: pay today's now / 🏁 pay it all off (`payoff`: owed − half the fee still in it; two
+presses). Events `realestate:mortgage` {id, phase: start | payment | missed | foreclosed | paidOff}.
+
+**Decorating, rent, selling** (stage 3). Her own house's bedroom is the SAME size as decor's room (`rooms.js` W 6.2 × D
+5.6), so decor's `HOUSE_SPOTS` (shifted to her bedroom) are ✋ hotspots and decor's `openPicker` runs with this house's
+api: `owns` = decor's (anything she bought for Lulu's room is free to place here too), `placed` / `place` = this house
+(`S.decor[houseId]`), `buy` = `ctx.decor.buy` then her family house gets its old piece back — the same catalogue, prices,
+wallet, toasts; `buildOption` / `wallTex` draw it. Solo only, not with a tenant. `rent.js`: the realtor's 🔑 My places →
+🧑 find a tenant (`TENANTS`, moves in the next played day; ✋ inside: their lines) / 👋 ask them to leave; each new played
+day a tenant pays 1 % of the home's value into ITS mailbox (`RENT.dayCap` 150 across ALL her homes, scaled down; a pile
+≤ 3 days); ✋ 📬 collects (`addCoins(n, "rent")`). 🪧 sell it: `quote(id)` = value − 10 % − the bank's pay-off (≥ 0),
+two presses, the house goes back on the market (its tenant, decorations and uncollected rent go with it — the rent is
+paid out). The value drifts ±3.5 % (≤ ~7.5 % top to bottom) and the fee is 10 %, so buy → sell always loses (test: the
+best day-pair over 46 days ≤ 0.97).
 
 **Everyone in one world (ci/everyone, roadmap 11 — `features/multiplayer`):** out in the open world (driving, or on foot
 outside: `def.driving` or `footRun`) the game is **online by default**: `index.js` `ambientTick` joins the relay's EVERYONE

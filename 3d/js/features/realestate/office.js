@@ -6,6 +6,7 @@ import { ctx } from "../../core/ctx.js";
 import { defineInterior, pick, pool } from "../interiors/engine.js";
 import { rooms, W, D } from "./rooms.js";
 import { REALTORS, OFFICE, PATTER } from "./data.js";
+import { pickPaged } from "./pager.js";
 
 let API = null;                     // index.js: { listings(), valueOf(rec), pitch(rec) → [lines], buy(rec, rt), pin(rec), owns(), townId() }
 export function bindOffice(api) { API = api; }
@@ -112,10 +113,9 @@ async function openBoard(rt) {
     const town = API ? API.townId() : "lakewood", R = realtorOf(town), who = rt.byId.realtor;
     const list = rt.data.V.list || [];
     if (!list.length) { await rt.say(R.name, "Everything's SOLD! I'm that good. Come back tomorrow, new listings every day.", { emoji: R.emoji, person: who }); return; }
-    const opts = list.slice(0, 7).map(r => `🏠 ${r.address} — ${r.label}, ${fmt(API.valueOf(r))} 💰`);
-    opts.push("✖ Never mind");
-    const i = await rt.choose(R.name, "Today's beauties. Every one a gem. Some gems are… cozier.", opts, { emoji: R.emoji, person: who });
-    const rec = i >= 0 && i < list.length && i < 7 ? list[i] : null;
+    const rows = list.map(r => `🏠 ${r.address} — ${r.label}, ${fmt(API.valueOf(r))} 💰`);
+    const i = await pickPaged((t, o) => rt.choose(R.name, t, o, { emoji: R.emoji, person: who }), "Today's beauties. Every one a gem. Some gems are… cozier.", rows, { back: "✖ Never mind" });
+    const rec = i >= 0 ? list[i] : null;
     if (!rec) return;
     for (const l of API.pitch(rec).slice(0, 2)) { await rt.say(R.name, l, { emoji: R.emoji, person: who }); if (rt.disposed) return; }
     const j = await rt.choose(R.name, `${rec.address}. ${fmt(API.valueOf(rec))} coins. A STEAL.`, ["📍 Show me where it is", `💰 Buy it now — ${fmt(API.valueOf(rec))} 💰`, "‹ Back"], { emoji: R.emoji, person: who });

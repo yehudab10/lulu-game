@@ -20,6 +20,7 @@ import { MORTGAGE, SALE, BANKERS, BANK_LINES, BANK_TEXTS, CAP } from "./data.js"
 import { registry, S } from "./registry.js";
 import { valueOf, today, listings, isListed } from "./market.js";
 import { finalize, log } from "./deal.js";
+import { pickPaged } from "./pager.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
@@ -204,8 +205,8 @@ async function buyWith(rt, sayB, chooseB) {
     const list = listings();
     if (!list.length) { await sayB(BANK_LINES.noList); return false; }
     if (registry.count() >= CAP) { await sayB("TEN homes? The bank is impressed. The town clerk is not. That's the limit, dear."); return false; }
-    const i = await chooseB("Which one? (Today's listings in town.)", list.slice(0, 7).map(r => `🏠 ${r.address} — ${fmt(valueOf(r))} 💰`).concat(["‹ Back"]));
-    const rec = i >= 0 && i < Math.min(7, list.length) ? list[i] : null;
+    const i = await pickPaged(chooseB, "Which one? (Today's listings in town.)", list.map(r => `🏠 ${r.address} — ${fmt(valueOf(r))} 💰`));
+    const rec = i >= 0 ? list[i] : null;
     if (!rec || rt.disposed) return false;
     const price = valueOf(rec);
     const downs = [0.2, 0.35, 0.5].map(sh => Math.ceil(price * sh / 50) * 50);
@@ -230,7 +231,7 @@ async function buyWith(rt, sayB, chooseB) {
 
 /** 💳 her mortgages: pay today's / pay it all off (two presses). */
 async function manage(rt, sayB, chooseB, mine) {
-    const i = mine.length === 1 ? 0 : await chooseB("Which one?", mine.map(m => `🏠 ${m.address} — ${fmt(owed(m))} left`).concat(["‹ Back"]));
+    const i = mine.length === 1 ? 0 : await pickPaged(chooseB, "Which one?", mine.map(m => `🏠 ${m.address} — ${fmt(owed(m))} left`));
     const m = i >= 0 ? mine[i] : null;
     if (!m || rt.disposed) return;
     const opts = [];
