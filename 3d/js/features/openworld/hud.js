@@ -12,6 +12,7 @@ css("openworld", `
   border-radius: 999px; padding: 5px 14px; font: 700 15px var(--font); color: #fff; background: rgba(20,16,36,.72);
   box-shadow: 0 3px 8px rgba(0,0,0,.22); pointer-events: none; white-space: nowrap; }
 #owChip .tx { overflow: hidden; text-overflow: ellipsis; }
+#owChip.tap { pointer-events: auto; cursor: pointer; box-shadow: 0 0 0 2.5px #FFD54F, 0 3px 8px rgba(0,0,0,.22); }
 #owChip.cop { background: linear-gradient(90deg, rgba(198,40,40,.92), rgba(21,101,192,.92)); }
 #owChip.hot { background: rgba(230,81,0,.94); } #owChip.gold { background: rgba(255,160,0,.94); color: #2b1b00; }
 #owChip.green { background: rgba(46,125,50,.92); } #owChip.pink { background: rgba(233,30,99,.92); }
@@ -37,6 +38,9 @@ body.tv #owChip { font-size: 22px; padding: 7px 20px; } body.tv #owBoard { font-
 .ow-res .rk { font-size: 20px; width: 30px; text-align: center; }
 .lp-row .lp-meta.ow-d { font-variant-numeric: tabular-nums; opacity: .75; }
 .lp-row[disabled] { opacity: .5; }
+.ow-crew { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; margin: 4px 0 8px; font: 700 14px var(--font); }
+.ow-who { display: inline-flex; align-items: center; gap: 5px; } .ow-who i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.ow-who small { opacity: .7; font-weight: 600; }
 .ow-sec { font-size: 11px; font-weight: 700; letter-spacing: .12em; opacity: .55; margin: 10px 2px 4px; text-transform: uppercase; }
 `);
 
@@ -45,6 +49,7 @@ function els() {
     if (D.chip) return;
     D.chip = document.createElement("div"); D.chip.id = "owChip";
     D.chip.innerHTML = `<span class="tx"></span><span class="ar"><i>▲</i><span></span></span>`;
+    D.chip.addEventListener("click", () => { if (tapFn) { try { tapFn(); } catch (e) { console.error("[openworld] chip", e); } } });
     D.tx = D.chip.querySelector(".tx"); D.ar = D.chip.querySelector(".ar"); D.arI = D.ar.querySelector("i"); D.arD = D.ar.querySelector("span");
     H.hudSlot("center").appendChild(D.chip);
     D.board = document.createElement("div"); D.board.id = "owBoard"; D.board.className = "hud-secondary";
@@ -53,9 +58,13 @@ function els() {
     document.body.appendChild(D.count);
 }
 
-/** The objective chip. to = {x, z} → an arrow + distance; null → none. */
-export function chip(html, cls = "", to = null) {
+/** The objective chip. to = {x, z} → an arrow + distance; null → none. tap = a click / touch on the chip (an
+ *  invitation's "join") — the chip takes pointer events only while it has one. */
+let tapFn = null;
+export function chip(html, cls = "", to = null, tap = null) {
     els();
+    tapFn = html ? tap : null;
+    if (tapFn) cls = (cls ? cls + " " : "") + "tap";
     const key = html + "|" + cls;
     if (key !== D.chipKey) {
         D.chipKey = key;

@@ -4,7 +4,7 @@
 // no free text). Every screen is a showScreen card → D-pad + ✕/○ work,
 // prompts use glyph(); one big primary button per screen.
 import { ctx, css } from "../../core/ctx.js";
-import { glyph, input } from "../../input.js";
+import { glyph, glyphSet, input } from "../../input.js";
 import * as H from "../../hud.js";
 import { CODE_ABC, CODE_LEN } from "./net.js";
 
@@ -89,7 +89,8 @@ body.party-drive #hearts, body.party-drive .hud-tl .pill.score { display: none !
 #ptWheel.open { pointer-events: auto; }
 #ptWheel .disc { position: absolute; transform: translate(-50%, -50%); min-width: 66px; height: 54px; padding: 0 12px; border-radius: 999px; border: none; cursor: pointer;
   background: rgba(30,24,48,.94); color: #fff; font: 700 16px var(--font); box-shadow: 0 0 0 3px #7E57C2, 0 6px 14px rgba(0,0,0,.35); white-space: nowrap; }
-#ptWheel .disc.e { font-size: 30px; min-width: 58px; padding: 0; }
+#ptWheel .disc { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 62px; min-width: 84px; border-radius: 22px; line-height: 1.05; }
+#ptWheel .disc b { font-size: 26px; font-weight: 400; } #ptWheel .disc span { font-size: 13px; }
 #ptWheel .disc.hot { transform: translate(-50%, -50%) scale(1.18); box-shadow: 0 0 0 4px #FFD54F, 0 6px 14px rgba(0,0,0,.35); }
 #ptWheel .disc small { position: absolute; right: -4px; bottom: -6px; font-size: 11px; line-height: 16px; background: #fff; color: var(--ink); border-radius: 6px; padding: 0 4px; }
 #ptWheel .hub { position: absolute; transform: translate(-50%, -50%); text-align: center; font-size: 13px; font-weight: 700; color: #fff; text-shadow: 0 2px 0 #000; width: 120px; }
@@ -99,7 +100,7 @@ body.tv .pt-code span { width: 74px; height: 88px; font-size: 56px; line-height:
 body.tv .pt-keys { width: min(620px, 100%); } body.tv .pt-keys .btn { font-size: 34px; padding: 14px 0; }
 body.tv .pt-lobby { width: min(760px, 100%) !important; } body.tv .pt-opts .btn, body.tv .pt-acts .btn { font-size: 22px; } body.tv .pt-crew span { font-size: 20px; }
 body.tv #ptBoard { font-size: 20px; min-width: 240px; } body.tv #ptBoard .t { font-size: 16px; } body.tv #ptChip { font-size: 22px; }
-body.tv #ptWheel .disc { font-size: 24px; height: 76px; min-width: 96px; } body.tv #ptWheel .disc.e { font-size: 44px; }
+body.tv #ptWheel .disc { height: 92px; min-width: 120px; } body.tv #ptWheel .disc b { font-size: 40px; } body.tv #ptWheel .disc span { font-size: 19px; }
 @media (max-width: 600px), (max-height: 520px) { .pt-acts .btn small, .pt-link, .pt-lobby .pt-h { display: none; } .pt-acts .btn { padding: 9px 4px; } .pt-lobby .pt-opts { margin-top: 8px; } .pt-lobby .pt-acts { margin-top: 8px; } }
 @media (max-width: 600px) { #ptChip.place { display: none !important; } #ptBoard { min-width: 0; font-size: 12px; } #ptBoard .r .n { max-width: 84px; } #ptCount .n { font-size: 92px; } .pt-code span { width: 44px; height: 54px; font-size: 32px; line-height: 54px; } }
 `);
@@ -169,11 +170,12 @@ export function countdown(title, n, sub) {
     cnt.style.display = "flex";
 }
 
-// ── QUICK CHAT wheel: hold ${glyph("fire")} (D-pad ↑) / F, aim, release ──────
-export const PHRASES = ["Follow me!", "Wait up!", "Race you!", "GG!"];
-export const EMOJIS = ["😂", "❤️", "😱", "🔥"];
-export const ITEMS = [PHRASES[0], EMOJIS[0], PHRASES[1], EMOJIS[1], PHRASES[2], EMOJIS[2], PHRASES[3], EMOJIS[3]];
-const W = { open: false, t: 0, hot: -1, byHold: false, holdT: 0, onPick: null };
+// ── the EMOTE wheel (quick chat): hold ${glyph("fire")} (D-pad ↑) / F, aim, release · tap = 👋 · 1–8 ──
+// Every slot is a gesture friends SEE on your puppet + a short, fixed, friendly phrase (no free text: Dina-aged
+// players). The list itself lives in emotes.js (W.items); this is just the wheel.
+// The OLD quick-chat items (the "c" broadcast: an index into this list) — still understood from older pages.
+export const LEGACY = ["Follow me!", "😂", "Wait up!", "❤️", "Race you!", "😱", "GG!", "🔥"];
+const W = { open: false, t: 0, hot: -1, byHold: false, holdT: 0, onPick: null, onTap: null, items: [] };
 const wheel = document.createElement("div");
 wheel.id = "ptWheel";
 document.body.appendChild(wheel);
@@ -182,54 +184,64 @@ wheel.addEventListener("click", e => {
     if (b) { pick(+b.dataset.i); return; }
     if (e.target.classList.contains("scrim")) closeWheel();
 });
-export function setChatHandler(fn) { W.onPick = fn; }
-function pick(i) { const txt = ITEMS[i]; closeWheel(); if (W.onPick && txt) W.onPick(txt, i); }
+/** items: [{ e (emoji), say (the phrase) }] · onPick(i) · onTap() (a quick tap of the button, no wheel). */
+export function setChatHandler(fn, items, onTap) { W.onPick = fn; if (items) W.items = items; if (onTap) W.onTap = onTap; }
+function pick(i) { const it = W.items[i]; closeWheel(); if (W.onPick && it) W.onPick(i); }
 export function openWheel(byHold) {
-    if (W.open) return;
+    if (W.open || !W.items.length) return;
     W.open = true; W.t = 0; W.hot = -1; W.byHold = !!byHold;
-    const R = window.innerWidth < 600 ? 112 : 150;
-    wheel.innerHTML = `<div class="scrim"></div>` + ITEMS.map((txt, i) => {
-        const a = -Math.PI / 2 + i * Math.PI * 2 / ITEMS.length;
-        const e = [...txt].length <= 2;
-        return `<button class="disc nav${e ? " e" : ""}" data-i="${i}" style="left:${(Math.cos(a) * R * 1.35).toFixed(0)}px;top:${(Math.sin(a) * R).toFixed(0)}px">${txt}<small>${i + 1}</small></button>`;
-    }).join("") + `<div class="hub">${input.device === "gamepad" ? `R-stick, let go of ${glyph("fire")}` : input.device === "touch" ? "tap one" : "1–8 or click"}</div>`;
+    const R = window.innerWidth < 600 ? 112 : 150, n = W.items.length;
+    wheel.innerHTML = `<div class="scrim"></div>` + W.items.map((it, i) => {
+        const a = -Math.PI / 2 + i * Math.PI * 2 / n;
+        return `<button class="disc nav" data-i="${i}" style="left:${(Math.cos(a) * R * 1.35).toFixed(0)}px;top:${(Math.sin(a) * R).toFixed(0)}px"><b>${it.e}</b><span>${esc(it.say)}</span><small>${i + 1}</small></button>`;
+    }).join("") + `<div class="hub">${input.device === "gamepad" ? `R-stick, let go of ${emoteGlyph()}` : input.device === "touch" ? "tap one" : "1–8 or click"}</div>`;
     wheel.classList.add("open");
+    document.body.classList.add("emote-wheel");        // (ci/move: no free-look while the right stick aims the wheel)
 }
-export function closeWheel() { if (!W.open) return; W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; }
+export function closeWheel() { if (!W.open) return; W.open = false; wheel.classList.remove("open"); wheel.innerHTML = ""; W.byHold = false; document.body.classList.remove("emote-wheel"); }
 export const wheelOpen = () => W.open;
-/** Per frame while driving with friends. */
-export function wheelTick(dt, on) {
-    if (!on) { W.holdT = 0; closeWheel(); return; }
-    if (input.fireHeld) {
+/** The button that holds the wheel open: ci/move's EMOTE slot on foot (△ / Y, keyboard B: input.emoteHeld) once
+ *  the input has it, and D-pad ↑ / F (fire: never a missile with friends, unused on foot) everywhere. */
+export function emoteGlyph() {
+    const set = glyphSet && glyphSet("keyboard");
+    return set && set.emote && W.foot ? glyph("emote") : glyph("fire");
+}
+/** Per frame. on = emotes allowed right now (with friends in the car · on foot). foot = she's walking. */
+export function wheelTick(dt, on, foot = false) {
+    W.foot = !!foot;
+    if (!on) { W.holdT = 0; W.armed = false; closeWheel(); return; }
+    if (input.fireHeld || (foot && input.emoteHeld)) {
+        if (!W.holdT) W.armed = !W.open;
         W.holdT += dt;
         if (W.holdT > 0.18 && !W.open && input.device !== "touch") openWheel(true);
     } else {
         if (W.open && W.byHold) { if (W.hot >= 0) pick(W.hot); else closeWheel(); }
-        W.holdT = 0;
+        else if (W.holdT > 0 && W.holdT <= 0.18 && W.armed && !W.open && W.onTap) W.onTap();   // a quick tap: 👋
+        W.holdT = 0; W.armed = false;
     }
     if (!W.open) return;
     W.t += dt;
-    const lx = input.lookX, ly = input.lookY;
+    const lx = input.lookX, ly = input.lookY, n = W.items.length;
     if (Math.hypot(lx, ly) > 0.45) {
         const a = Math.atan2(ly, lx);
         let best = 0, bd = 9;
-        ITEMS.forEach((_, i) => { const sa = -Math.PI / 2 + i * Math.PI * 2 / ITEMS.length; const d = Math.abs(((a - sa + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < bd) { bd = d; best = i; } });
+        for (let i = 0; i < n; i++) { const sa = -Math.PI / 2 + i * Math.PI * 2 / n; const d = Math.abs(((a - sa + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < bd) { bd = d; best = i; } }
         W.hot = best;
     }
     wheel.querySelectorAll(".disc").forEach((b, i) => b.classList.toggle("hot", i === W.hot));
-    if (!W.byHold && W.t > 4) closeWheel();
+    if (!W.byHold && W.t > 5) closeWheel();
 }
 let keysOn = false;
 export function setChatKeys(on) { keysOn = on; }
 window.addEventListener("keydown", e => {
     if (!keysOn || e.repeat || ctx.paused) return;
     const m = /^Digit([1-8])$/.exec(e.code);
-    if (m && W.onPick) { const i = +m[1] - 1; W.onPick(ITEMS[i], i); e.preventDefault(); }
+    if (m && W.onPick && W.items[+m[1] - 1]) { W.onPick(+m[1] - 1); e.preventDefault(); }
 });
 
 /** Copy / share the invite link. Returns a promise of the message to show. */
-export async function shareInvite(code) {
-    const url = inviteUrl(code);
+export async function shareInvite(code, uid) {
+    const url = inviteUrl(code, uid);
     const text = `Join my Lulu's Road Trip party! Code ${code}`;
     try {
         if (navigator.share && matchMedia("(pointer: coarse)").matches) { await navigator.share({ title: "Lulu's Road Trip 3D", text, url }); return "📤 Invite sent!"; }
@@ -237,8 +249,10 @@ export async function shareInvite(code) {
     try { await navigator.clipboard.writeText(url); return "📋 Link copied — paste it to your friends!"; }
     catch (e) { return `Share this link: ${url}`; }
 }
-export function inviteUrl(code) {
+export function inviteUrl(code, uid) {
+    // (&with=<my player id>: whoever opens it lands right next to ME in 🌍 Free Roam, not just next to the host)
+    const w = uid && /^[A-Za-z0-9_-]{1,24}$/.test(uid) ? `&with=${uid}` : "";
     // The iOS app runs at capacitor://localhost/3d/ — a link friends can open is the web game's.
-    if (!/^https?:$/.test(location.protocol)) return `https://lulu.boats/3d/?party=${code}`;
-    return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}`;
+    if (!/^https?:$/.test(location.protocol)) return `https://lulu.boats/3d/?party=${code}${w}`;
+    return `${location.origin}${location.pathname.replace(/index\.html$/, "")}?party=${code}${w}`;
 }

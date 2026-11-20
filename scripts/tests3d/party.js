@@ -11,6 +11,7 @@
 //   slots into the convoy → everyone arrives at Bubbe's → group arrival.
 const { spawn } = require("child_process");
 const path = require("path");
+const { waitOn } = require("../lib/party3d.js");
 const PORT = 21000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
 const Q = `&enable=party,atmos,play&mpurl=${encodeURIComponent(URL)}`;
@@ -48,12 +49,7 @@ async function guestPage(t, label, save2d, query) {
     L: code => page.evaluate(code),
     game: code => page.evaluate(`(() => { const L3 = window.__lulu3d, ctx = L3.ctx; return (${code}); })()`),
     async until(code, what, ms = 90000) {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        const ok = await page.evaluate(`(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
-        if (ok) return true;
-        await sleep(150);
-      }
+      if (await waitOn(page, code, ms)) return true;   // GAME time (frames), not wall time: scripts/lib/party3d.js
       t.check(`${label}: ${what}`, false, "timed out");
       return false;
     },
@@ -63,11 +59,7 @@ async function guestPage(t, label, save2d, query) {
 }
 /** Wall-clock wait on the main page (several pages share the CPU, so frames are slow and uneven). */
 async function hostUntil(t, code, what, ms = 90000) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await t.game(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false)) return true;
-    await sleep(150);
-  }
+  if (await waitOn(t.page, code, ms)) return true;   // GAME time (frames), not wall time
   t.check(what, false, "timed out in " + await t.game(`ctx.state`).catch(() => "?"));
   return false;
 }
@@ -358,7 +350,10 @@ async function body(t, guests) {
 
   // ── DREIDEL DASH: first claim wins (both grab the same dreidel at once) ──
   const uids = { [await pages[0].game(`ctx.party.uid`)]: pages[0], [await NH.game(`ctx.party.uid`)]: NH, [await OG.game(`ctx.party.uid`)]: OG };
-  await NH.game(`ctx.party._debug.start("dash")`);
+  // (whoever hosts NOW: a slow runner can hand hosting over again during the arrival scene)
+  let starter = NH;
+  for (const p of trio) if (await p.game(`ctx.party.isHost`)) { starter = p; break; }
+  await starter.game(`ctx.party._debug.start("dash")`);
   for (const p of trio) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "dash"`, "dash: GO", 40000)) return;
   const spots = await NH.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`);
   const sameSpots = JSON.stringify(await OG.game(`ctx.party._debug.dash().map(x => [x.s, x.d])`)) === JSON.stringify(spots);

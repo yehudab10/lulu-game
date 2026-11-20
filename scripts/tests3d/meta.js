@@ -77,9 +77,12 @@ module.exports = {
     t.check("daily Chanukah gelt paid once (+18, holidayGifts stat)", s.totalCoins === 1018 && /^chanukah:/.test(s.holidayGiftKey || "") && s.stats.holidayGifts === 1,
       `coins ${s.totalCoins}, key ${s.holidayGiftKey}, gifts ${s.stats && s.stats.holidayGifts}`);
     const lit = await t.game(`(() => { let m = null; ctx.car.obj.traverse(o => { if (o.name === "MetaHoliday_menorah") m = o; });
-      if (!m) return "none"; let n = 0; m.traverse(o => { if (/^Flame_/.test(o.name) && !o.parent.name.startsWith("Flame_") && o.visible) n++; });
+      if (!m) return "none"; let n = 0; m.traverse(o => { if (o.isInstancedMesh && o.name === "MetaMenorahFlames") n += o.count; else if (/^Flame_/.test(o.name) && !o.parent.name.startsWith("Flame_") && o.visible) n++; });
       return (m.parent && m.parent.name) + ":" + n; })()`);
     t.check("a 3D menorah rides on the car with tonight's 3 candles + shamash lit", /deck.*:4$/.test(lit), lit);
+    // (the slim build: body 2 meshes + 1 instanced flame mesh + 1 glow layer — it used to be ~30 draw calls)
+    const parts = await t.game(`(() => { let m = null; ctx.car.obj.traverse(o => { if (o.name === "MetaHoliday_menorah") m = o; }); let n = 0, sh = 0; if (m) m.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite) && o.visible) { n += Array.isArray(o.material) ? o.material.length : 1; if (o.castShadow) sh++; } }); return { n, sh }; })()`);
+    t.check("the car menorah is slim: ≤ 4 draw calls (+ ≤ 2 in the shadow pass)", parts.n <= 4 && parts.sh <= 2, JSON.stringify(parts));
     const ids3d = await t.L(`import("./js/features/meta/progress.js").then(m => m.questActiveIds())`);
     t.check("quests are the same three as the 2D game this week", JSON.stringify(ids3d) === JSON.stringify(active), ids3d.join(",") + " vs 2D " + active.join(","));
     await t.shot("title");
