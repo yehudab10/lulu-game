@@ -1138,8 +1138,11 @@ pop-ups beyond one 🔗 toast when a crew forms (prio 3) — the rest is the HUD
 (existing relay protocol only): `d.x.pz = [crew n, stars, flags, evade %, x×10, z×10, verdict, bail]` (~7 Hz while it
 changes); events → host `pzc` `pzp` `pzb` `pzx` `pzh` `pzha`; host state `activity.pz = { n, c: [crews], h: {help} }`.
 **API** (`ctx.law.crew`): `current()` · `partners(uids, why)` · `wanted(n, reason)` · `bust(charges)` · `leave()` ·
-`friendsInside()` · `bailOut(uid)` · `springOut(uid)` · `tune` (`CREW_TUNE`) · `debug`. Events `law:crew` {n, ps, why,
-mates}, `law:crewSplit`, `law:crewCaught`, `law:crewCell`, `law:crewVote`, `law:crewBail`, `law:crewSpring`; stats
+`friendsInside()` · `bailOut(uid)` · `springOut(uid)` · `peel()` · `tune` (`CREW_TUNE`) · `debug`; **`ctx.law.partners.crime({ id, crew,
+charge, heat, msg })`** — another feature's crime for a crew (ci/bankfriends' co-op bank job): call it once on EACH member's
+screen (idempotent per id): she asks to be partners with `crew` and her own chase starts at `heat` (in a car the pursuit, on
+foot a foot cop); when it's over for HER, that screen emits `law:crew` { id, uid, result: "ok" (got away) | "busted" (taken
+into custody) }. Events `law:crewFormed` {n, ps, why, mates}, `law:crewSplit`, `law:crewCaught`, `law:crewCell`, `law:crewVote`, `law:crewBail`, `law:crewSpring`; stats
 `crewFormed`, `crewSurrenders`, `crewBails`, `crewSprings`. Tests: `scripts/tests3d/partners.js` (together / not together /
 a hacked friend / a stranger, one wanted level, hiding together, splitting up, caught together in Lakewood → the same cell
 on both screens + a cell emote + one court clock → co-defendants → out of the courthouse side by side) and `partners2.js`

@@ -13,6 +13,9 @@ module.exports = {
     const g = t.game;
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["places:enter", "town:enter", "town:leave", "law:arrest", "law:booked", "law:release", "law:verdict", "er:admit", "places:out"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 160))); })`);
     const evs = re => t.L(`window.__ev.filter(e => ${re}.test(e))`);
+    // the precinct's lamps + the hospital's crosses are in the town's night-glow look (no new draw call), the walls aren't
+    t.check("precinct lamps + hospital crosses glow with the night (the 'lit' look); walls stay solid",
+      await t.L(`import("./js/features/town/kit.js").then(m => ["Globe", "CrossRed", "AmbLight", "EmergencyRed"].every(n => m.lookOf({ name: n }) === "lit") && m.lookOf({ name: "Walls" }) === "solid" && m.lookOf({ name: "Window" }) === "glow")`));
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     const st = () => g(`L3.state`);
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
