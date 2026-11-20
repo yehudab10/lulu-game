@@ -76,6 +76,28 @@ module.exports = {
       t.check("…and the same exits at the same metres on a second run", ex2.slice(0, 2).join(",") === ex.slice(0, 2).join(","), ex.slice(0, 2).join(",") + " | " + ex2.slice(0, 2).join(","));
     });
 
+    await step("home", async () => {
+      // ── the home start (ci/hometown): Lulu's empty lot in Midwood + a QUIET warp onto its driveway ──
+      await t.until(`__lulu3d.ctx.town.loaded("midwood")`, "Midwood's models load", 60000);
+      const H = await g(`ctx.town.home`);
+      const sp = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
+      t.check("the home lot is a spot before the town is built (door, drive, kerb)", !!(sp && sp.door && sp.drive && sp.kerb), JSON.stringify(sp).slice(0, 200));
+      await t.L(`import("./js/core/ctx.js").then(m => { window.__visits = 0; m.on("stat", e => { if (e && e.id === "townVisits") window.__visits++; }); })`);
+      const n0 = (await evs()).length;
+      const ok = await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true, home: true })`);
+      t.check("ctx.town.warp puts her in Midwood (attached, at the home exit)", ok && await g(`ctx.town.active && ctx.town.id === "midwood" && ctx.town.attached && Math.abs(${D}.S.exitS - ${H.exitS}) < 1`));
+      t.check("…on her driveway, standing still", await g(`Math.hypot(ctx.car.pos.x - ${sp.drive.x}, ctx.car.pos.z - ${sp.drive.z}) < 0.5 && ctx.car.speed < 0.1`), JSON.stringify(await g(`[ctx.car.pos.x, ctx.car.pos.z, ctx.car.speed]`)));
+      const ev = (await evs()).slice(n0).find(e => e.startsWith("town:enter")) || "";
+      t.check("…quietly: town:enter says quiet + home, no visit counted", /"quiet":true/.test(ev) && /"home":true/.test(ev) && await t.L(`window.__visits`) === 0, ev);
+      const sp2 = await g(`ctx.town.spotOf("midwood", "luluHome", ${H.exitS})`);
+      t.check("…and the lot's spot is the same once the town stands", sp2 && sp2.built && Math.hypot(sp2.door.x - sp.door.x, sp2.door.z - sp.door.z) < 0.01, JSON.stringify([sp.door, sp2 && sp2.door]));
+      // a second warp while in town (to the same place): she leaves the town she's in without a cut, then is put down again
+      t.check("warp again from inside the town works", await g(`ctx.town.warp({ town: "midwood", at: { x: ${sp.drive.x}, z: ${sp.drive.z}, h: ${sp.drive.h} }, quiet: true }) && ctx.town.active`));
+      await t.frames(30);
+      t.check("…the road under her is the town's (s/d sane)", await g(`ctx.world.road.town === true && Math.abs(ctx.car.d) < 60`), String(await g(`[ctx.car.s, ctx.car.d]`)));
+      await g(`(ctx.town.leave("reset"), true)`);
+    });
+
     await step("exit", async () => {
       // ── 2. the Midwood exit: signs, the gantry, the ramp → town:enter ──
       await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law.hold(120), true)`);

@@ -27,7 +27,7 @@
 //
 //  ctx.town { active, id, name, street, streets, occluders, enter(), leave(), blocksSight(),
 //             copRoute(), copSpawn(), footYaw(), towns, debug }
-//  Events: town:exit {town, s, no} (she took a branch) · town:enter {town, exitS} · town:leave {town, why} · town:gossip {kind, msg} ·
+//  Events: town:exit {town, s, no} (she took a branch) · town:enter {town, exitS, attached, drove, quiet, home} · town:leave {town, why} · town:gossip {kind, msg} ·
 //          town:talk {id, line} · town:stopSign · town:bump · town:geese · town:bike
 //  Random content is gated by ctx.enabled("town") (off in ?test unless enabled, off in a party).
 // ─────────────────────────────────────────────────────────────────────────
@@ -413,7 +413,14 @@ function enterTown(e = null, opts = {}) {
     S.savedTraffic = tr.config.enabled;
     tr.config.enabled = false;
     if (en && opts.drove) puppetHighway(); else tr.clear();
-    if (en && opts.drove) {
+    if (opts.at) {
+        // put down at a spot (a warp / the home start, ci/hometown): standing still there, facing at.h
+        const h = opts.at.h != null ? opts.at.h : 0, v = Math.max(0, opts.speed || 0);
+        car.place(opts.at.x, opts.at.z, h);
+        car.vx = Math.sin(h) * v; car.vz = Math.cos(h) * v; car.vF = v;
+        const n = S.road.nearest(opts.at.x, opts.at.z, null, {});
+        car.s = n.s; car.d = n.d;
+    } else if (en && opts.drove) {
         // she drove in: nothing moves — the road under her is the town's now (the approach is the cross road she's on)
         const n = S.road.nearest(car.pos.x, car.pos.z, null, {});
         car.s = n.s; car.d = n.d;
@@ -460,12 +467,15 @@ function enterTown(e = null, opts = {}) {
     G.noPullOver = true;                      // there's no parking anyway
     S.visits++;
     if (ctx.cam && !(en && opts.drove)) ctx.cam.snap();
-    H.banner(`<b>${def.emoji} ${def.lines.SIGNS.welcome[0]}</b><small>${def.lines.SIGNS.welcome.slice(1).join(" · ")}</small>`, 2800, { key: "town", prio: 2 });
-    later(1.4, () => luluSay("enter", true));
-    later(5, () => gossip("enter"));
-    if (!S.bubbe.has(def.id) && def.lines.BUBBE) { S.bubbe.add(def.id); later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1)); }
-    emit("town:enter", { town: def.id, exitS: S.exitS, attached: !!en, drove: !!(en && opts.drove) });
-    emit("stat", { id: "townVisits", n: 1 });
+    // (quiet: she's simply there — the home start, a warp — no welcome sign, no lines, no visit counted)
+    if (!opts.quiet) {
+        H.banner(`<b>${def.emoji} ${def.lines.SIGNS.welcome[0]}</b><small>${def.lines.SIGNS.welcome.slice(1).join(" · ")}</small>`, 2800, { key: "town", prio: 2 });
+        later(1.4, () => luluSay("enter", true));
+        later(5, () => gossip("enter"));
+        if (!S.bubbe.has(def.id) && def.lines.BUBBE) { S.bubbe.add(def.id); later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1)); }
+    }
+    emit("town:enter", { town: def.id, exitS: S.exitS, attached: !!en, drove: !!(en && opts.drove), quiet: !!opts.quiet, home: !!opts.home });
+    if (!opts.quiet) emit("stat", { id: "townVisits", n: 1 });
     return true;
 }
 function hazards(c) {
@@ -507,7 +517,9 @@ function leaveTown(why = "highway", opts = {}) {
     S.timers.length = 0;
     S.footYaw = null;
     const F = ctx.foot && ctx.foot.active && ctx.foot.debug && ctx.foot.debug.F && ctx.foot.debug.F.pos ? ctx.foot.debug.F : null;
-    if (!drove && F && att && why !== "reset") {
+    if (why === "warp") {
+        // (a warp out: the caller puts her down somewhere else right away — nothing to place here)
+    } else if (!drove && F && att && why !== "reset") {
         // ON FOOT in a town that stands by the road (a scene, a party hand-back…): she stays exactly where she is — only the
         // road under her (and her car) is the highway's again; she walks back in / the scene places her
         const hint = S.exitS + att.cu, n = world.highway.nearest(car.pos.x, car.pos.z, hint, {}), m = world.highway.nearest(F.pos.x, F.pos.z, hint, {});
@@ -946,7 +958,21 @@ ctx.town = {
     /** Go into town now (no ramp; tests / debug). opts: { town: "lakewood" | "midwood", exitS, speed }. Its models must be
      *  loaded (await ctx.town.load(id)). */
     enter(opts = {}) { return enterTown(null, opts); },
-    /** Back to the highway now. why: "highway" (default) | "quiet" | "reset". */
+    /**
+     * Put her in the attached town `town` at the interchange `exitS` now, at `at` ({x, z, h} world; else the entry street),
+     * leaving the town she's in first (no cut of its own — wrap it in ctx.dissolve if you want one). opts as enter():
+     * { town, exitS (default: the home exit for the home town), at, speed: 0, quiet, home }. The state is the caller's.
+     * → true once she's there.
+     */
+    warp(opts = {}) {
+        const def = TOWNS[opts.town];
+        if (!def || !def.attach) return false;
+        const h = home(), exitS = opts.exitS != null ? opts.exitS : (h && h.town === def.id ? h.exitS : null);
+        if (exitS == null || !S.ok[def.id]) return false;
+        if (S.active) leaveTown("warp");
+        return enterTown(null, Object.assign({ speed: 0 }, opts, { exitS }));
+    },
+    /** Back to the highway now. why: "highway" (default) | "quiet" | "reset" | "warp" (nothing placed: you put her down next). */
     leave(why = "highway") { return why === "quiet" && S.active ? dissolve(() => leaveTown(why)) : leaveTown(why); },
     load: id => load(id ? TOWNS[id] : townFor(0)),
     /** Is this town's model set loaded? */

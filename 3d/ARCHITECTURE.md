@@ -696,14 +696,26 @@ is the ⏭-skippable state `hustleHeist`. **The radio** only steers the music wh
 states, not on foot); scenes still set their own music and it takes over again afterwards; LULU FM (default)
 leaves the game's music alone. Its ticker is `.hud-secondary`, top-right under the pause button.
 
-**Towns (town):** a Cruise run has an INTERCHANGE every few km (`towns/<id>.js` › `highway: {first, every, no, label}`) and
-every one offers every town in `towns/index.js` › `INTERCHANGE` (its own sign copy; `{no}`/`{label}` fill per town). The
+**Towns (town):** a Cruise run has an INTERCHANGE every few km, and **each town has its OWN** (owner 2026-11-20: "Brooklyn
+and Lakewood shouldn't share the same exit"): the route is data — `towns/index.js` › `ROUTE` = `{ period, stops: [{town, at}] }`
+(Midwood @ 3600, Lakewood @ 7600, every 8 km), `routeAt(k)` → the k-th stop `{town, s}`, `routeFrom(s)`. The planner
+(`index.js` › `planRoute`) slides each nominal metre to the first clear one (`exitFitS`: fixed data only — rest areas, a
+bridge, the last exit — never what happens to be on the road), so the exits are the SAME metres on every run and on every
+friend's screen. **A new place gets its own interchange by adding a `ROUTE` stop** (a `towns/<id>.js` def with `attach`).
+`ctx.town.home` = `{ town: "midwood", exitS }` — the route's first exit, where Lulu lives: block 4,1's west face is an
+EMPTY LOT (`uses.luluHome`: `{ lot: true, among, dims }` — the face's houses fill round it; its ring of colliders is open
+over the frontage) whose spot (`door`, `drive` nose-out, `kerb`) is pure data: `ctx.town.spotOf("midwood", "luluHome", exitS)`
+answers before the town is built and the same after. `ctx.town.addCollider(c, {town, exitS})` (her house's walls),
+`ctx.town.wayOut()` (where the streets hand over to the cross road), `ctx.town.warp({ town, exitS?, at: {x, z, h}, quiet, home })`
+(leave the town she's in with no cut of its own, then a QUIET enter: no welcome sign, no lines, no visit counted;
+`town:enter` carries `quiet` / `home`). On the title the home town prebuilds in slices (its own rAF loop). The interchange
+signs name the one town (`towns/index.js` › `INTERCHANGE` sign copy; `{no}`/`{label}` fill per town). The
 layout is data in `exit.js` (u = s − exit.s): advance signs (1 MI, ½ MI with exit-number TABS — `sign.tab`, a last-chance
 board), a 55 m taper (u −230) into a parallel deceleration lane with EXIT ONLY + a lane-drop arrow painted in it, the
 `exits_gantry` at −110 (its EXIT ONLY board has the exit tab and the yellow EXIT ONLY strip; ↑ THRU TRAFFIC over the through
 lanes), a dashed line that keeps the right lane straight, the gore nose at −60 (a painted gore, then grass with a crash cushion
-and the gore sign), a RAMP 25 MPH advisory, ONE ramp that S-curves out and splits at u = 0 (the inner branch `rampD` →
-towns[0] = Lakewood, the outer `outerD` → Midwood), guardrails with flared end terminals, and each branch ends at a STOP line
+and the gore sign), a RAMP 25 MPH advisory, ONE ramp that S-curves out (one town's exit uses the inner branch `rampD`, u 172.2; the old two-town split — outer
+`outerD` → Midwood — is still in the engine: `debug.exitAhead(d, "both")`), guardrails with flared end terminals, and each branch ends at a STOP line
 (u 168 / 118) at a T-junction with a two-lane local cross road (`crossRoads(e)`): a green guide board across the T
 (`SIGNS.tee`), a gas station (canopy + price pylon, `SIGNS.gas`), "Welcome to …" (`SIGNS.welcome`) and the first houses along
 the road into town. The inner cross road's near end turns into the ON-RAMP back (u 181 → 300, a merge gore, an accel lane to
