@@ -179,6 +179,13 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- **Ads (rule 4b, done 2026-11-20 by `ci/home`):** `features/native/ads.js` holds the WHOLE game while any ad is up
+  (`ctx.hold` → app.js skips frames; `A.holdAll` pauses music + suspends sound) and releases on the plugin's
+  `…Dismissed` / `…FailedToShow` events, or after `showWaitMs` (8 s, never appeared) / `maxAdMs` (60 s, never closed).
+  Ads START only at calm moments: `ctx.ads.calmNow("foot" | "cell")`. A NEW placement must go through
+  `showInterstitialHeld(why)` behind a calm check, and get a case in `scripts/tests3d/adhold.js`. Unverified on a real
+  iPhone: that the WebView keeps the paused frame on screen under the ad (it should — nothing is drawn while held).
+
 - Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN still goes through town's own wreck hook
   (towed out to the highway shoulder with a fade) — with one world (`ci/oneworld`) it could just stand her up in town
   (`ctx.foot.start("knockout")` works there). The ER is still its own set (step 4 makes it a building). `moves`' rocket
