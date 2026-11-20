@@ -218,7 +218,8 @@ module.exports = {
       await t.L(`document.querySelector("#lawCourtBtn").click()`);
       await t.until(`__lulu3d.state === "lawCourt"`, "to court", 30000);
       t.check("court is held in Midwood's courthouse (the town stays)", await g(`ctx.town.active && ctx.town.id === "midwood"`));
-      if (!await talk(`__lulu3d.state === "footRun"`, "the trial → dismissed → out", /DEFEND|Innocent|innocent|Objection|OBJECT|Beg|insanity|Plead|Blame/)) return;
+      // (a plain defense — never the bribe or the plea deal, which cost coins even when it ends dismissed)
+      if (!await talk(`__lulu3d.state === "footRun"`, "the trial → dismissed → out", /^(?!.*(💰|Plea|plea|[Bb]ribe|costs)).*/)) return;
       await out("court", "midwood", true, "dismissed");
       const v = (await evs(`/^law:verdict/`)).slice(-1)[0] || "";
       t.check(`a dismissal costs nothing (${c0} → ${await coins()})`, /dismissed/.test(v) ? (await coins()) === c0 : true, v);
