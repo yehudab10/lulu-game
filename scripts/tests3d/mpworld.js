@@ -15,7 +15,7 @@ const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos,phone&mpurl=${encodeURIComponent(url)}`;
 const S = `ctx.mp._debug`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -219,14 +219,17 @@ async function body(t, pages, riders) {
   t.check("…with B's name", await g(`ctx.party.displayName(${JSON.stringify(await B.game(`ctx.party.uid`))})`) === "Latke Legend");
   await A.frames(30);
   t.check("…and no second (ghost) B", await g(`!Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`), JSON.stringify(await g(`Object.values(${S}.peers).map(p => [p.raw, p.pt, p.onScreen])`)));
-  t.check("B is dropped next to A (the inviter / host)", await B.until(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(auid)}); return !!rc && rc.shown !== false && Math.hypot(rc.obj.position.x - ctx.car.pos.x, rc.obj.position.z - ctx.car.pos.z) < 80; })()`, "B: next to A", 60000));
+  await B.frames(60);
+  const pa = await g(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`), pb = await B.game(`(() => { const p = ctx.foot.active && ctx.foot.pos ? ctx.foot.pos : ctx.car.pos; return { x: p.x, z: p.z }; })()`);
+  t.check("B is dropped next to A (the host) — same world, ≤ 60 m", Math.hypot(pa.x - pb.x, pa.z - pb.z) < 60, JSON.stringify({ pa, pb }));
   await t.shot("friends");
   // the phone's 👯 app: one tap → go solo (strangers gone, the friend stays)
-  t.check("📱 👯 Friends has Go solo / Hide other drivers", await t.L(`import("./js/core/ctx.js").then(m => true)`) && await g(`!!(ctx.phone && ctx.phone.open)`));
-  await g(`ctx.phone.open("owparty")`);
+  t.check("📱 the phone is there", await g(`!!(ctx.phone && ctx.phone.openPhone)`));
+  await g(`ctx.phone.openPhone("owparty")`);
   await A.frames(6);
+  t.check("📱 👯 Friends: Hide other drivers is one tap", await t.L(`!!document.getElementById("owOnline")`));
   await t.L(`document.getElementById("owOnline").click()`);
   await A.frames(6);
   t.check("one tap → offline from EVERYONE, still in the party", await g(`!${S}.want && ctx.party.connected && !!ctx.party.remoteCar(${JSON.stringify(await B.game(`ctx.party.uid`))})`));
-  await g(`(ctx.phone.close && ctx.phone.close(), ctx.mp.setOnline(true), true)`);
+  await g(`(ctx.phone.closePhone && ctx.phone.closePhone(), ctx.mp.setOnline(true), true)`);
 }
