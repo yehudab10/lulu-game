@@ -121,12 +121,12 @@ function friendView(el, api, uid) {
     el.innerHTML = `<div class="lp-card ow-head"><span class="lp-av">${pr ? esc(pr.icon) : "🚗"}</span><span class="lp-tx"><b>${name}</b><small>${pr ? esc(pr.label) + " · " : ""}${z ? "in " + esc(townName(z)) : "on the highway"}${pos ? " · " + mi(d2(pos)) : ""}</small></span></div>
         ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "hop in their passenger seat · ✕ to hop out")}
         ${row("owWarp", "🚀", `Catch up with ${name}`, "a puff of glitter and you're right behind them")}
-        ${pos ? row("owPinF", "📍", `Pin ${name}`, "a beacon over their car until you meet up") : ""}
+        ${pos || ctx.together ? row("owPinF", "📍", `Head to ${name}`, "a beam over them + the distance, until you meet up") : ""}
         ${row("owBackF", "‹", "Back", "")}`;
     on(el, "#owWarp", () => { api.close(); E.warpToFriend(uid); });
     on(el, "#owRide", () => { const why = E.startRide(uid); if (why) api.toast(why); else api.close(); });
     on(el, "#owHop", () => { api.close(); E.stopRide(); });
-    on(el, "#owPinF", () => { E.pin({ uid, name: E.nameOf(uid), icon: "👯", x: 0, z: 0 }); api.close(); });
+    on(el, "#owPinF", () => { if (ctx.together) ctx.together.setDest(uid); else E.pin({ uid, name: E.nameOf(uid), icon: "👯", x: 0, z: 0 }); api.close(); });
     on(el, "#owBackF", () => api.open("owparty", null));
 }
 
