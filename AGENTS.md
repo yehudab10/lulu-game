@@ -225,6 +225,31 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 
 ## 7. Backlog / known rough edges (good next tasks)
 
+- **Friends (`ci/friends`, roadmap 19) — stage 1 (a lasting list, presence, one-tap join) is `features/friends`; known
+  limits (no server memory):** no "last seen", nothing waits while you're offline (no stored request or invitation); adding
+  needs both online at once (together, or a live code / link); after a remove / block a remaining friend who hasn't been
+  knocked by her since sees her as offline until she next opens 👯 (her knock hands over the new doorbell). Friends drawn as
+  ghosts in EVERYONE are still "Gold 72" (a friend isn't recognised there — a sealed tag in `d.fr` could do it). Tapping a
+  name over a car isn't a way to add yet (📍 Nearby / 👯 are). Player id: one identity with `ci/realestate` (agreed there).
+- **Friends STAGE 2 — the party dissolves into the world (PLAN; built after `ci/partners` + `ci/bankfriends` land):**
+  1. **`ctx.group`** (`features/friends/group.js`, `ci/friends`): "with friends" = a GROUP you're in. Today it IS the party
+     in 🌍 Free Roam (`ctx.party` stays the transport + seeded world); `ctx.group = { active, members, leave(), invite() }`.
+     Every feature's "in a party" switch (`ctx.party.active`, the party `OFF` set, `partyOn()`, `E.party()`) reads
+     `ctx.group.active` instead — an alias first, so nothing breaks; each feature switches when it's next touched.
+  2. **Forming / leaving** (`ci/friends`): joining a friend (stage 1) or 📤 inviting = a group; no lobby screen ever. Leave =
+     👯 › one tap; driving off to another town alone shows ONE chip "Leave the group?" (never automatic).
+  3. **Missions together** (`ci/friends` builds the API in openworld's invitation engine, each feature adopts it): a
+     feature registers `ctx.group.invitable({ id, title, icon, canStart(), start(members), rules })` → the same opt-in chip
+     + 📱 👯 card the party games use; nobody is pulled out of what they're doing. Rewards = each feature's own rules (per
+     player as solo, or split) — never multiplied by the group (golden rule 5). Adopters: `features/hustle` (a side job
+     for two) · `features/day` (Ima's list — the HOST's list, helpers get a thank-you, not the coins) · `features/journey`
+     (a road-trip leg) · `ci/partners` (a crime for two) · `ci/bankfriends` (the bank job) — each in its own branch.
+  4. **The lobby activities** (🏁 race, 🏡 road trip, 🕎 dreidel dash, 🚓 cop tag — `ci/friends`): spots / phone invitations
+     like openworld's GAMES (Race to a pin is the model); the party lobby state goes away.
+  5. **👯 is just "Friends"** (`ci/friends` with `ci/onegame`'s owner): the title tile opens the friends list (playing now ·
+     ▶ Join · 📤 invite · ➕ add); no "host a party"; the in-game 👯 app = friends + the group + invitations.
+  Order: 1 → 2 → 4 → 5 (mine), 3 per feature after 1. Active agents: keep using `ctx.party.active` until (1) lands; then
+  read `ctx.group.active`; expose an invitable when your feature has something two can do.
 - Calm (`ci/calm`, landed 2026-11-20): still OUTSIDE the pop-up budget — phone texts + the call card (`ctx.phone.text`,
   journey's `.jphone`; while a call is up, flavour toasts drop and flavour banners wait on phones), `metaToast` (meta/util.js), law's own toasts (law/ui.js), Lulu's own speech bubbles (banter's
   `showLulu`, her chatter setting rations them). A big moment can still stack a banner + a call card + a toast (a wreck
