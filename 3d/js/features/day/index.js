@@ -126,7 +126,9 @@ function bump(id, n = 1) {
 on("world:visit", e => { for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "place" && e && e.id === it.place) bump(id); } });
 on("hustle:end", e => { if (e && e.result === "pass") for (const id of DAY.list) if ((byId(id) || {}).kind === "job") bump(id); });
 // (kind "event": done when its event fires — e.g. town:exit, she took an exit into a town)
-for (const ev of new Set(ALL.filter(x => x.kind === "event").map(x => x.ev))) on(ev, () => { for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "event" && it.ev === ev) bump(id); } });
+const EVS = new Set();
+function listenEv(ev) { if (EVS.has(ev)) return; EVS.add(ev); on(ev, () => { for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "event" && it.ev === ev) bump(id); } }); }
+for (const x of ALL) if (x.kind === "event") listenEv(x.ev);
 on("stat", e => { if (!e) return; for (const id of DAY.list) { const it = byId(id); if (it && it.kind === "stat" && it.stat === e.id) bump(id, e.n || 1); } });
 
 // ── the HUD chip + the light column ──────────────────────────────────────
@@ -241,6 +243,14 @@ ctx.day = {
     get home() { return DAY.home; },
     imaLine: () => allowed() ? imaLine() : null,
     PAY, ITEMS,
+    /** Another feature adds a list item (group "errand" | "job" | "silly"; kind "event" = done when `ev` fires —
+     *  features/shops: "say hi to Uncle Moishe", "pick up pepper spray at the makolet"). Same rules: once a day. */
+    addItem(group, it) {
+        if (!ITEMS[group] || !it || !it.id || byId(it.id)) return false;
+        ITEMS[group].push(it); ALL.push(it);
+        if (it.kind === "event") listenEv(it.ev);
+        return true;
+    },
     debug: {
         DAY, S,
         /** Pretend it's another day (yyyymmdd) — or null for the real date. */

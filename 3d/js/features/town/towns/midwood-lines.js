@@ -48,7 +48,8 @@ export const SIGNS = {
         ["BAIS MEDRASH OF THE GARAGE", "Parking: inside, with the seforim"],
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
-    bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
+    bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],
+    dealer: ["UNCLE MOISHE'S PRE-LOVED CARS — BROOKLYN", "the Coney Island Ave branch · we also do tires (badly)"],   // features/shops (uses.dealer)   // features/heist's bank (uses.bank)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · 70½TH PRECINCT", "courtesy · professionalism · parking"],
     court: ["KINGS COUNTY-ISH CIVIL COURT", "small claims · big feelings"],
