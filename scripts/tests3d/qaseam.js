@@ -17,7 +17,7 @@ module.exports = {
     await W.install(t);
     const seg = async (label, kinds) => { const r = await W.report(t); W.log(r); W.check(t, label, r, kinds); await W.reset(t); return r; };
     // the approach road of the standing town `id`, as world points: A(along, lat) → {x, z}, and its heading (inward)
-    const AP = id => `(() => { const en = ctx.town.debug.S.built.find(e => e.def && (e.def.id === "${id}" || (e.def.base && e.def.base.id === "${id}")) && e.ready); if (!en) return null;
+    const AP = id => `(() => { const en = __lulu3d.ctx.town.debug.S.built.find(e => e.def && (e.def.id === "${id}" || (e.def.base && e.def.base.id === "${id}")) && e.ready); if (!en) return null;
       const [fx, fz] = en.def.approach.from, [tx, tz] = en.def.approach.to, L = Math.hypot(tx - fx, tz - fz), ux = (tx - fx) / L, uz = (tz - fz) / L, co = Math.cos(en.at.rot), si = Math.sin(en.at.rot);
       const W = (lx, lz) => ({ x: en.at.x + lx * co + lz * si, z: en.at.z - lx * si + lz * co });
       return { A: (al, lat = 0) => W(fx + ux * al - uz * lat, fz + uz * al + ux * lat), dir: W(fx + ux, fz + uz), o: W(fx, fz), len: L }; })()`;

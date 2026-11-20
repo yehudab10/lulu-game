@@ -9,7 +9,8 @@
 //   await W.reset(t);                   // start a new segment
 //
 // What it flags (each once per episode, with the frame + state):
-//   jump      Lulu (on foot), the car (driving) or the camera moved more than a few metres in ONE frame while no
+//   jump      Lulu (on foot), the car (driving) or the camera (outside a skippable cutscene: its cuts are editing) moved
+//             more than a few metres in ONE frame while no
 //             declared cut covered it (the soft-cut overlay, an opaque fade, a set on screen, a state change that frame)
 //   nan       a NaN / Infinity position (Lulu, the car, the camera)
 //   overlay   a full-screen opaque overlay (any fixed element covering the screen: #townFade, #footWash, #intFade,
@@ -149,7 +150,12 @@ const SRC = String.raw`
       const df = d(cur.foot, Q.last.foot), dc = d(cur.car, Q.last.car), dk = cur.cam.distanceTo(Q.last.cam);
       if (cur.foot && Q.last.foot && df > Q.opts.footJump) flag("jump", "Lulu moved " + df.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.foot)) + "→" + JSON.stringify(P(cur.foot)), "jump:foot");
       if (st === "playing" && Q.last.st === "playing" && dc > Q.opts.carJump) flag("jump", "the car moved " + dc.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.car)) + "→" + JSON.stringify(P(cur.car)), "jump:car");
-      if (dk > Q.opts.camJump) flag("jump", "the camera moved " + dk.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:cam");
+      const cutscene = (() => { const d = ctx.states[st] || {}; return typeof d.skip === "function" ? d.skip() : !!d.skip; })() || (ctx.cutscene && ctx.cutscene.active());
+      // (a cutscene's single cut is editing; the camera covering > 5 m a frame for 4+ frames running is a SWOOP — through
+      //  whatever stands between — anywhere)
+      Q.swoopF = dk > Q.opts.camJump ? (Q.swoopF || 0) + 1 : 0;
+      if (Q.swoopF >= 4) flag("jump", "the camera swoops (" + Q.swoopF + " frames at > " + Q.opts.camJump + " m a frame) " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:swoop");
+      if (dk > Q.opts.camJump && !cutscene) flag("jump", "the camera moved " + dk.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:cam");
     }
     Q.last = cur;
     const ctl = control();
