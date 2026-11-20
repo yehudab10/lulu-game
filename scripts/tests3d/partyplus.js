@@ -235,6 +235,9 @@ async function partyRun(t, guests) {
       else { await g(PUT); await sleep(300); }
     }
     const fl = await hostUntil(t, HAILED, "flagging one down claims it (hail)", 5000);
+    if (!fl) console.log("   HAIL diag", JSON.stringify(await g(`(() => { const f = ctx.party._debug.flag(), c = f && ctx.traffic.cars.find(c => c.data && c.data.party === f.key);
+      return { f, kind: c && c.kind, ride: !!(c && ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]), speed: c && +c.speed.toFixed(1), hit: c && !!c.hit, claims: ctx.party._debug.claims(), act: ctx.party.activity && ctx.party.activity.k,
+        streets: ctx.enabled("streets"), foot: ctx.foot.phase, prompt: (document.querySelector("#slot-bottom .prompt") || {}).textContent, town: ctx.town.active, st: L3.state }; })()`)).slice(0, 1500));
     if (fl) {
       const fk = JSON.stringify((await g(`ctx.party._debug.claims()`)).find(c => c.mine && c.hail && !c.dead).key);
       await A.until(`ctx.party._debug.claims().some(c => c.key === ${fk} && c.hail)`, "the guest hears the hail claim", 30000);

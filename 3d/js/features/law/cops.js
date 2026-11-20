@@ -900,7 +900,11 @@ function updateChase(dt, controlsOn) {
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
     if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
-    if (ch.evade >= 1) escape(hide ? "hid" : "lost");
+    if (ch.evade >= 1) {
+        // 🔗 partners in crime (crew.js): nobody's LOST 'EM lands while a partner is still seen — the meter waits at the top
+        if (L.crewHold && L.crewHold()) ch.evade = 0.97;
+        else escape(hide ? "hid" : "lost");
+    }
 
 }
 
@@ -1402,8 +1406,9 @@ export function hud() {
     const lost = L.lost && L.lost.t > ctx.time;
     const fresh = L.lowKey && ctx.time - L.lowKeyT < 4 && S.wanted.length;
     const warrants = S.wanted.length && !L.lowKey;
-    if (!ch && !f && !b && !lost && !fresh && L.sus <= 0.04 && L.radar < 0.02 && !warrants) { UI.wantedHud(null); return; }
-    const info = { stars: 0, tag: "", fug: !!f, blink: false, hint: "", meters: [] };
+    const crew = L.crewHud ? L.crewHud() : null;          // 🔗 partners in crime (crew.js)
+    if (!ch && !f && !b && !lost && !fresh && L.sus <= 0.04 && L.radar < 0.02 && !warrants && !crew) { UI.wantedHud(null); return; }
+    const info = { stars: 0, tag: "", fug: !!f, blink: false, hint: "", meters: [], crew };
     if (f) { info.stars = fugitiveStars(f.t); info.tag = "🔒 FUGITIVE"; info.blink = true; info.spot = ch ? 0 : clamp(f.spot / Math.max(0.7, 1.6 - info.stars * 0.2), 0, 1); info.hint = "the jumpsuit gives you away · Paint & Pray / a disguise"; }
     if (ch) {
         info.stars = Math.max(info.stars, ch.heat);

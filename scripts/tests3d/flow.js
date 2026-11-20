@@ -135,14 +135,14 @@ async function oneWorld(t, g, watch, moved) {
   if (await g(`ctx.town.active`)) await g(`ctx.town.leave("reset")`);
   await g(`(L3.state !== "playing" ? L3.setState("playing") : 0, ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
   const E = await g(`ctx.town.debug.exitAhead(700)`);
-  t.check("an interchange is planned ahead (where both towns fit by the road)", E > 0, String(E));
-  t.check("…the towns stand ≥ 100 m clear of the highway there", await g(`ctx.town.debug.fits(${E})`));
+  t.check("Lakewood's own exit is planned ahead (where it fits by the road)", E > 0, String(E));
+  t.check("…the town stands ≥ 100 m clear of the highway there", await g(`ctx.town.debug.fits(${E}, "lakewood")`));
   // she comes up the right lane toward it; the towns build in slices as she nears (BUILD_FROM 900 m)
   await g(`(() => { const s = ${E} - 600, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
     ctx.car.vx = Math.sin(p.h) * 14; ctx.car.vz = Math.cos(p.h) * 14; ctx.car.vF = 14; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
   await g(`(window.__route = { pts: ctx.town.debug.rampRoute(${E}, 0, -580).map(([u, d]) => ctx.world.highway.point(${E} + u, d, {})).map(p => ({ x: p.x, z: p.z })), v: 13, r: 5 }, true)`);
-  await t.until(`__lulu3d.ctx.town.standing.length >= 2 && __lulu3d.ctx.town.standing.every(b => b.ready)`, "both towns are built before she reaches the ramp", 60000);
-  const st = await g(`ctx.town.standing`);
+  await t.until(`(() => { const b = __lulu3d.ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1); return b.length >= 1 && b.every(b => b.ready); })()`, "the town is built before she reaches the ramp", 60000);
+  const st = await g(`ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1)`);
   t.check("…in slices (each a few hundred steps)", st.every(b => b.steps > 50), JSON.stringify(st.map(b => [b.town, b.steps, b.worst])));
   // (single spikes are the garbage collector landing in a step; 99 % of the steps are what the build itself costs)
   t.check("…the slices stay small (99 % ≤ 8 ms here — software GL on a busy CPU; the budget is ~3 ms a frame)", st.every(b => b.p99 <= 8), JSON.stringify(st.map(b => [b.town, b.p95, b.p99, b.worst, b.ms])));
@@ -154,6 +154,12 @@ async function oneWorld(t, g, watch, moved) {
     return { town: true, inView: n, u: Math.round(ctx.car.s - ${E}), active: ctx.town.active }; })()`);
   t.check("Lakewood is in view from the ramp, before the STOP sign (its blocks drawn)", seen.town && seen.inView >= 3 && !seen.active, JSON.stringify(seen));
   await t.shot("one-world-ramp");
+  // …and alive: a few of its minivans drive its nearest streets (ambient.js — not frozen until she's in)
+  const amb0 = await g(`(() => { const en = ctx.town.debug.S.built.find(b => b.def.id === "lakewood" && b.amb); return en ? en.amb.cars.map(c => c.along) : null; })()`);
+  await t.frames(20);
+  const amb1 = await g(`(() => { const en = ctx.town.debug.S.built.find(b => b.def.id === "lakewood" && b.amb); return en ? { along: en.amb.cars.map(c => c.along), drawn: en.amb.im.visible && !!en.amb.im.parent } : null; })()`);
+  t.check("…and alive from the ramp: its minivans are driving (one draw call of light minivans)", !!amb0 && amb0.length >= 3 && !!amb1 && amb1.drawn && amb1.along.some((a, i) => Math.abs(a - amb0[i]) > 1), JSON.stringify({ amb0, amb1 }));
+  const vans0 = await g(`ctx.town.debug.C ? ctx.town.debug.C.cars.length : -1`);
   // through the T and on out the cross road: the road under her becomes Lakewood's
   await t.L(`(window.__fade = 0, window.__fadeI = setInterval(() => { const f = document.getElementById("townFade"), c = document.getElementById("softCut"); if ((f && +f.style.opacity > 0) || (c && c.style.display === "block")) window.__fade++; }, 10), true)`);
   await watch(true);
@@ -161,6 +167,9 @@ async function oneWorld(t, g, watch, moved) {
   if (!await t.until(`__lulu3d.ctx.town.active`, "she drives into Lakewood", 60000)) return;
   const at = await g(`({ att: ctx.town.attached, street: ctx.town.street, hw: [...ctx.world.chunks.values()].some(c => c.group.visible), u: Math.round(ctx.world.highway.nearest(ctx.car.pos.x, ctx.car.pos.z, ${E} + 172, {}).d), v: +ctx.car.speed.toFixed(1) })`);
   t.check("…attached: on Route 9 (the cross road IS Route 9), still moving, the highway still drawn behind her", at.att && at.street === "Route 9" && at.v > 5 && at.hw, JSON.stringify(at));
+  // the minivans she saw from the ramp carry on as the town's real drivers (none pop out of sight at the line)
+  const conv = await g(`(() => { const en = ctx.town.debug.S.built.find(b => b.def.id === "lakewood"); return { amb: !!(en && en.amb), vans: ctx.town.debug.C.cars.filter(c => c.kind === "town_van").length, all: ctx.town.debug.C.cars.length }; })()`);
+  t.check("…the minivans from the ramp are town drivers now (the same number of vans as the town's traffic, no ambient copies left)", !conv.amb && conv.vans >= 3, JSON.stringify({ conv, vans0 }));
   await t.until(`!window.__route.pts.length`, "on into town", 60000);
   let m = await moved();
   t.check("down the ramp → in town: the picture never jumps (≤ 1.5 m between two frames)", m.n > 60 && m.max <= 1.5, JSON.stringify(m));

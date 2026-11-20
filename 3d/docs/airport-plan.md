@@ -153,6 +153,7 @@ interchange offers both towns" is assumed in several places.
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-20 · town engine (`ci/exits2`) · A new place gets its own interchange by adding ONE stop to `features/town/towns/index.js` › `ROUTE.stops` (`{ town: <its def with attach>, at: <metre in the 8 km period> }`); the planner slides it clear of rest areas/bridges the same on every run and screen, `ctx.town.exits` lists it, `routeAt(k)` / `routeFrom(s)` find it.
 - 2026-11-20 · coordinator · HEADS-UP for question 5 (where on the highway): the owner asked that Lakewood and Midwood
   stop sharing one exit — `ci/exits2` (the town-engine agent) is splitting them into separate interchanges now, and
   Lulu's house is moving into Midwood (`ci/hometown`). The interchange planner in `features/town` will change shape:
