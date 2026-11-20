@@ -199,7 +199,8 @@ async function partyRun(t, guests) {
   await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-invited.png") }).catch(() => { });
   // the friend drives over → opted in → everyone's in → GO
   await A.game(PLACE(arc.fx - along.x * 8 + un.x * 2, arc.fz - along.z * 8 + un.z * 2, 0));     // (down the kerb the other way: the town may be turned)
-  await A.until(`ctx.openworld.game && ctx.openworld.game.ps.includes(${GU})`, "driving up to the spot opts the friend in", 30000);
+  if (!await A.until(`ctx.openworld.game && ctx.openworld.game.ps.includes(${GU})`, "driving up to the spot opts the friend in", 30000))
+    console.log("   diag opt-in", JSON.stringify(await A.game(`({ st: ctx.state, zone: ctx.openworld.zone, town: ctx.town.active && ctx.town.id, att: ctx.town.attached, car: [ctx.car.pos.x, ctx.car.pos.z], spot: ctx.openworld.game && ctx.openworld.game.spot, at: ctx.openworld.game && ctx.openworld.game.at, ph: ctx.openworld.game && ctx.openworld.game.ph })`)));
   for (const p of [Hp, A]) await p.until(`ctx.openworld.game && ctx.openworld.game.ph === "go" && ctx.openworld.game.k === "kugel"`, "🥘 GO once everyone's in", 40000);
   await Hp.until(`ctx.state === "playing" && !ctx.foot.active`, "the host is back behind the wheel for the game", 30000);
   t.check("both play: ps = host + friend", (await g(`ctx.openworld.game.ps.length`)) === 2);
