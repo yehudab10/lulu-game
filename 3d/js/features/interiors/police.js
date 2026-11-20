@@ -323,8 +323,21 @@ export default defineInterior({
         d.perpX = perp.home.x;
 
         // ── hotspots ──
-        rt.hot({ id: "desk", spot: "desk", who: "deskcop", r: 1.4, label: "👮 Talk to the desk cop",
-            action: rt => rt.say("Officer Pomerantz", DESK(), Object.assign({ person: rt.byId.deskcop }, COP_S)) });
+        rt.hot({ id: "desk", spot: "desk", who: "deskcop", r: 1.4,
+            label: () => { const fr = ctx.law && ctx.law.crew ? ctx.law.crew.friendsInside() : []; return fr.length ? `💰 Bail out ${fr[0].name} · 💰${fr[0].bail}` : "👮 Talk to the desk cop"; },
+            action: async rt => {
+                // 🔗 a friend in the cell here (a 🎉 party — law/crew.js): bail her out from MY wallet, if I want to
+                const fr = ctx.law && ctx.law.crew ? ctx.law.crew.friendsInside() : [];
+                if (fr.length) {
+                    const f = fr[0];
+                    const i = await rt.choose("Officer Pomerantz", `${f.name}? Bail's 💰${f.bail}. Cash or card. (We don't take card.)`,
+                        [`💰 Pay ${f.bail} — bail her out`, "Never mind"], Object.assign({ person: rt.byId.deskcop }, COP_S));
+                    if (i !== 0) return;
+                    const why = ctx.law.crew.bailOut(f.uid);
+                    return rt.say("Officer Pomerantz", why || `Paperwork's in. She'll be out the front door in a minute. 🍩`, Object.assign({ person: rt.byId.deskcop }, COP_S));
+                }
+                return rt.say("Officer Pomerantz", DESK(), Object.assign({ person: rt.byId.deskcop }, COP_S));
+            } });
         rt.hot({ id: "fines", spot: "fines", r: 1.2,
             label: () => { const f = wantedFee(); return f ? `🧾 Settle charges · 💰${f}` : "🧾 Fines window (record clean ✓)"; },
             action: settleCharges });
