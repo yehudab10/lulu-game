@@ -37,7 +37,7 @@ const DOORS = {
     court: { id: "courthouse", icon: "⚖️", label: () => "⚖️ ENTER THE COURTHOUSE", short: "COURT" },
     hospital: { id: "hospital", icon: "🏥", label: () => `🏥 ENTER ${names().hospital.name.toUpperCase()}`, short: "HOSPITAL" },
 };
-/** Is walking in possible right now (not mid-chase, not in a party, nothing more urgent on ✋)? */
+/** Is walking in possible right now (not mid-chase, not in a party outside Free Roam, nothing more urgent on ✋)? */
 function canWalkIn() {
     // (she just came OUT of one: a ✕ still being mashed from the scene mustn't walk her straight back in — the doors wake up
     //  once she's stepped 4 m away, or after 8 s)
@@ -46,7 +46,9 @@ function canWalkIn() {
         if (ctx.time < C.doorsAt && p && Math.hypot(p.x - C.outAt.x, p.z - C.outAt.z) < 4) return false;
         C.outAt = null;
     }
-    if (!inTown() || (ctx.party && ctx.party.active) || !ctx.interiors) return false;
+    // (with friends: only in 🌍 Free Roam — walking in is a visit, and friends inside see each other: features/together)
+    const party = !!(ctx.party && ctx.party.active), roam = party && !!(ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
+    if (!inTown() || (party && !roam) || !ctx.interiors) return false;
     if ((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return false;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return false;
     return true;

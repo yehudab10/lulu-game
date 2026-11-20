@@ -239,8 +239,11 @@ module.exports = {
     t.check("addApp: a feature's app shows on the grid with its badge", await t.L(`(document.querySelector("#lpa_testapp .lp-badge") || {}).textContent`) === "!");
     await g(`ctx.phone.openPhone("testapp")`);
     t.check("openPhone(id) opens it; .btn divs are focusable", await t.L(`document.querySelector("#lkA").classList.contains("focus")`));
+    // (the phone's toast is a 1.8 s REAL-time timer — on a slow machine it's gone before a 4-frame tap returns: watch for it
+    //  going on instead of reading it afterwards)
+    await t.L(`(() => { window.__toastOn = false; const el = document.getElementById("lpToast"); new MutationObserver(() => { if (el.classList.contains("on")) window.__toastOn = true; }).observe(el, { attributes: true, attributeFilter: ["class"] }); return true; })()`);
     await t.tap(13); await t.tap(0);
-    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`document.getElementById("lpToast").classList.contains("on")`));
+    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`window.__toastOn === true`));
     await t.key("Tab");
     await t.L(`window.__noTestApp = true`);
 

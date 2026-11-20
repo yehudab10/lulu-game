@@ -54,7 +54,7 @@ export function setTrip(frac, label) {
 //    "quiet" (with friends, or strangers around): see setCalmGate. The same toast again still merges (×3).
 // Timing runs on GAME time (notifyTick from the main loop), so it pauses / skips with the game.
 const TOAST_LIFE = 1.9, TOAST_LIFE_LO = 1.4, TOAST_STALE = 2.6, MIN_SHOW = 0.8;
-const GAP = { normal: 5, quiet: 15 };              // seconds between two flavour toasts
+const GAP = { normal: 7, quiet: 15 };              // seconds between two flavour toasts
 const NT = { toasts: [], waiting: [], cur: null, bq: [], gate: () => false, calm: () => null, loT: -99, now: 0, dropped: 0, shown: 0 };
 /** The calm gate: () → { quiet (with friends / strangers around), busy (a chase, a scene…), acted (she pressed a button ≤ 1 s
  *  ago: a toast now is the answer to it, so it isn't flavour) } — features/calm sets it. */
@@ -72,7 +72,7 @@ export function bubbleOk(dur = 2.4) {
     BUB.until = BUB.until.filter(u => u > NT.now);
     if (!c.acted) {
         const max = c.quiet ? 1 : compact() ? 1 : 2;
-        if (c.chase || BUB.until.length >= max || NT.now - BUB.t < (c.quiet ? 8 : 3)) { BUB.dropped++; return false; }
+        if (c.chase || BUB.until.length >= max || NT.now - BUB.t < (c.quiet ? 10 : 5)) { BUB.dropped++; return false; }
     }
     BUB.t = NT.now; BUB.until.push(NT.now + Math.min(4, dur)); BUB.shown++;
     return true;
