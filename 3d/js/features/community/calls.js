@@ -7,7 +7,7 @@
 // and places the call: the in-car call card while she drives (journey's ctx.phone.call), a short
 // dialogue on foot. Then somebody actually shows up (help.js) — in town, on the highway or across a
 // rest area's lot; at speed the call card says to pull over.
-import { ctx, emit } from "../../core/ctx.js";
+import { ctx, emit, on } from "../../core/ctx.js";
 import { say } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { CM, onFoot, pick, luluSay, sfx, stat, townCfg, townId, later, local, whenLoaded } from "./common.js";
@@ -172,6 +172,8 @@ function where() {
     if (ctx.exits && ctx.exits.inside) return ctx.exits.inside;
     return "On the road";
 }
+// (the phone closed: next time the app opens on the contacts, not on whichever org she looked at last)
+on("phone:close", () => { CM.view = null; });
 export function registerApp() {
     if (!ctx.phone || !ctx.phone.addApp) return;
     ctx.phone.addApp({
