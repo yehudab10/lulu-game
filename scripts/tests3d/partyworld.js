@@ -180,6 +180,16 @@ async function roadTrip(t, guests) {
   await A.shot("visit-guest");
   if (!await hostUntil(t, `ctx.state === "playing"`, "the visit ends by itself, back to driving", 150000)) return false;
   await A.game(`(ctx.banter.autopilot = { d: 1.75, speed: 0 }, true)`);
+  // the 📱 phone / pause in a party doesn't stop the world: her car eases to a stop and STAYS there
+  // (it used to hold the brake at a standstill — and the brake is reverse: it backed down the highway)
+  await g(`(ctx.banter.autopilot = null, ctx.party._debug.place(1500, 1.75, 16), true)`);
+  await t.L(`import("./js/core/ctx.js").then(m => { window.__pv = { min: 9, n: 0 }; m.hook("hud", () => { if (m.ctx.paused && m.ctx.state === "playing") { window.__pv.min = Math.min(window.__pv.min, m.ctx.car.vF); window.__pv.n++; } }); return true; })`);
+  const s0p = await g(`ctx.car.s`);
+  await g(`(ctx.paused = true, true)`);
+  await hostUntil(t, `window.__pv.n > 240`, "host: paused for 8 s of frames", 120000);
+  const pv = await g(`({ min: +window.__pv.min.toFixed(2), vF: +ctx.car.vF.toFixed(2), ds: +(ctx.car.s - ${"${s0p}"}).toFixed(1), n: window.__pv.n })`.replace("${s0p}", s0p));
+  t.check("paused in a party (the 📱 phone): the car stops and never rolls backwards", pv.min > -0.3 && Math.abs(pv.vF) < 0.6 && pv.ds > -0.5, JSON.stringify(pv));
+  await g(`(ctx.paused = false, true)`);
   // a cameo scene too (Avigail's porch) — personal, the guest carries on
   await g(`ctx.cameos.trigger("porch")`);
   if (await hostUntil(t, `ctx.state === "cameosPorch"`, "host: Avigail's porch (a personal scene)", 30000)) {
