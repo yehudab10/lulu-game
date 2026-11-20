@@ -14,7 +14,7 @@ import { talk, lookAt } from "./rig.js";
 import { save3d } from "../../core/save.js";
 
 /** Settings › Lulu's chatter: "chatty" talks more often, "quiet" keeps only the big moments. */
-const CHAT = { chatty: { gap: 0.55, chance: 1.3 }, normal: { gap: 1, chance: 1 }, quiet: { gap: 1.8, chance: 1 } };
+const CHAT = { chatty: { gap: 0.55, chance: 1.3 }, normal: { gap: 1.4, chance: 1 }, quiet: { gap: 2.6, chance: 1 } };   // (ci/calm: a little rarer — the owner wanted fewer pop-ups)
 const chatter = () => (save3d.settings && save3d.settings.chatter) || "normal";
 
 // prio: 1 small talk · 2 normal · 3 big moment (cuts in) — chance per trigger — cd: seconds before that category again
