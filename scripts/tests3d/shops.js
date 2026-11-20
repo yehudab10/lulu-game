@@ -74,7 +74,8 @@ module.exports = {
       t.check("…lists Uncle Moishe's lot with what it sells + where", /Uncle Moishe/.test(txt) && /Cars/.test(txt) && /Lakewood/.test(txt) && /Midwood/.test(txt), txt.slice(0, 200));
       t.check("…and the garage at home", /garage at home/i.test(txt));
       t.check("…the makolet + Shmerel's van for the items", /makolet/i.test(txt) && /Shmerel/.test(txt) && /Pepper spray/i.test(txt) && /Missiles/.test(txt));
-      t.check("…and the old counter only for what hasn't moved yet (bling — no cars, no items)", /old shop counter/i.test(txt) && /bling/.test(txt) && !/🚗 cars/.test(txt) && !/🚀 items/.test(txt));
+      t.check("…Moishe's Bling Bay for horns + decorations", /Bling Bay/.test(txt) && /horns/.test(txt) && /decorations/.test(txt));
+      t.check("…and no menu counter any more: everything is sold somewhere in the world", !/old shop counter/i.test(txt), txt.slice(0, 400));
       await t.click(/Uncle Moishe/);
       t.check("✕ on it marks it (the destination)", await g(`ctx.shops.dest() === "dealer"`));
       t.check("…no pop-up for it (no toast)", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /Moishe/.test(e.textContent))`));

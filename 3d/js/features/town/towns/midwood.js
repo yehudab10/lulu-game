@@ -88,8 +88,8 @@ export default {
         // features/shops: Uncle Moishe's Brooklyn branch on Coney Island Ave (car dealers' row) — shops/lot.js
         // features/shops: Yanky's 24-Hour Makolet on Avenue J, among the storefronts
         makolet: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
-            tints: { Walls: "#9C4A3C", Awning: "#2E7D32" }, signSize: [8.4, 0.9, 88], signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
-            with: [{ key: "town_mw_store", u: -20.8 }, { key: "town_mw_store", u: -10.4 }, { key: "town_mw_store", u: 10.4 }, { key: "town_mw_store", u: 20.8 }] },
+            tints: { Walls: "#9C4A3C", Awning: "#2E7D32" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
+            with: [-20.8, -10.4, 10.4, 20.8].map(u => ({ key: "town_mw_store", u, list: "avej" })) },     // (the Avenue J storefronts either side — their signs from the street's list)
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#E6DCCB", Trim: "#1565C0", Roof: "#4A4E55" }, signBg: "#1565C0", signFg: ["#FFFFFF", "#FFE082"] }),
     },
     // the town's edges: a row of buildings along the far side of the boundary streets

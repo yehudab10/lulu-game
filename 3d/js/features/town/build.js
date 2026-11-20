@@ -741,7 +741,7 @@ function layoutFace(kind, len, R, def = null) {
             // (a `with` entry that names its own dims / sign / spot is a landmark too — features/places' court + impound
             //  share the precinct's face; a plain one is an ordinary building beside the landmark)
             if (w.dims || w.sign || w.spot) { const k2 = models[w.key] ? w.key : w.fallback; if (k2 && (DIMS[k2] || w.dims)) out.push({ key: k2, u: len / 2 + w.u, use: Object.assign({ dims: DIMS[k2] }, w) }); }
-            else if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u });
+            else if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u, list: w.list });     // (list: a storefront's sign list — features/shops' makolet sits in a row of Avenue J stores)
         }
         return out;
     }

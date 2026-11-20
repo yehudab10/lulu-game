@@ -83,7 +83,8 @@ function moisheSay(text, sec = 2.8) { if (D.moishe && ctx.foot && ctx.foot.say) 
 function moisheTick(dt) {
     const sp = inTown() ? spot("dealer") : null;
     const p = (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
-    const want = !!(sp && p && (sp.x - p.x) ** 2 + (sp.z - p.z) ** 2 < 70 * 70);
+    // (only while she's on foot nearby: a person is ~15 draw calls — the town's budget is measured driving through)
+    const want = !!(sp && p && ctx.foot && ctx.foot.active && (ctx.state === "footRun" || cardOpen()) && (sp.x - p.x) ** 2 + (sp.z - p.z) ** 2 < 45 * 45);
     if (!want) { dropMoishe(); return; }
     if (!D.moishe) {
         if (!models.npcMan) { ensureModels(["npcMan"]).catch(() => {}); return; }

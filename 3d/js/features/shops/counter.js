@@ -92,9 +92,14 @@ const K = {};
 function keeperTick(id, dt) {
     const C = COUNTERS[id], f = inTown() ? C.frame() : null;
     const p = (ctx.foot && ctx.foot.active && ctx.foot.pos) || (ctx.car && ctx.car.pos);
-    const want = !!(f && p && (f.me.x - p.x) ** 2 + (f.me.z - p.z) ** 2 < 70 * 70);
+    // (the keeper only while she's ON FOOT close by — a person is ~15 draw calls, and the town's budget is measured
+    //  driving down its busiest street; Shmerel's van shows from 70 m, driving too: it's how she spots it)
+    const d2 = f && p ? (f.me.x - p.x) ** 2 + (f.me.z - p.z) ** 2 : 1e9;
+    const walking = !!(ctx.foot && ctx.foot.active) && ctx.state === "footRun";
+    const want = id === "black" ? d2 < 70 * 70 : walking && d2 < 40 * 40;
     let k = K[id];
     if (!want) { if (k) dropKeeper(id); return; }
+    const showMan = id !== "black" || (walking && d2 < 40 * 40);
     const kd = C.keeper();
     if (!k) {
         const need = [kd.key, ...(id === "black" ? ["town_minivan"] : [])];
@@ -102,6 +107,7 @@ function keeperTick(id, dt) {
         k = K[id] = { p: spawnPerson(kd.key, { colors: kd.colors }), said: false, van: null };
         k.p.obj.name = "ShopKeeper_" + id;
         ctx.scene.add(k.p.obj);
+        k.p.obj.visible = showMan;
         if (id === "black") {
             const v = vanSpot();
             k.van = cloneWithColors(models.town_minivan, { Paint: "#2B2D31" });
@@ -112,6 +118,8 @@ function keeperTick(id, dt) {
         k.p.obj.position.set(f.keeper.x, 0, f.keeper.z);
         k.p.obj.rotation.y = f.keeper.h;
     }
+    k.p.obj.visible = showMan;
+    if (!showMan) return;
     const fp = ctx.foot && ctx.foot.active ? ctx.foot.pos : null;
     const close = fp && (fp.x - k.p.obj.position.x) ** 2 + (fp.z - k.p.obj.position.z) ** 2 < 10 * 10;
     if (close) k.p.face(fp.x, fp.z, dt, 4);

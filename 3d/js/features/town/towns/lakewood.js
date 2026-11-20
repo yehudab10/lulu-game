@@ -62,7 +62,7 @@ export default {
         // features/shops: Uncle Moishe's Pre-Loved Cars — a showroom + the cars on the lot with their price boards (shops/lot.js)
         // features/shops: Zissy's Makolet & Pharmacy — a Main St shopfront between two others (pepper spray, the bubble wrap, the phone plan)
         makolet: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
-            tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 100], signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
+            tints: { Walls: "#F3E6C4", Awning: "#2E7D32" }, signSize: [10.0, 0.98, 64], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
             with: [{ key: "town_shop", u: -13 }, { key: "town_shop", u: 13 }] },
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#F3EFE6", Trim: "#C62828", Roof: "#5B5F66" } }),
     },
