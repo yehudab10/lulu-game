@@ -257,6 +257,7 @@ module.exports = {
       t.check("an interchange is planned up the road", await g(`ctx.town.exits.length > 0`));
       await t.L(`window.__ev.length = 0`);
       await g(`ctx.law.arrest(["SPEEDING ON THE TURNPIKE"], { skipCinematic: true })`);
+      await t.until(`__lulu3d.state === "lawJail"`, "booked (the arrest runs on the next frame)", 20000);
       const place = await g(`ctx.civic.place && Object.assign({}, ctx.civic.place)`);
       t.check("she's taken to the nearest town's precinct", !!place && !place.here && !!place.id, JSON.stringify(place));
       if (!place || !await talk(CELL, "booked (highway)")) return;
