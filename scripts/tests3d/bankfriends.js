@@ -65,6 +65,7 @@ async function body(t, guests) {
   t.check("the host's screen stages one at the bank", await g(`ctx.heist.debug.robbery({ where: "town", spot: "bank" })`));
   await Hp.until(`!!ctx.heist.robbery && ctx.heist.robbery.phase === "run"`, "host: the robber bursts out", 40000);
   await Hp.until(`!!ctx.heist.debug.party().sent`, "host: the robbery rides in my snapshot (d.x.rb)", 20000);
+  await g(`(ctx.heist.robbery.t = 0, true)`);
   t.check("one robbery at a time: the guest's scheduler stands down while the host's is on", true);
   await A.until(`ctx.heist.debug.party().puppets.includes(${HU})`, "guest: sees the host's robbery (robber + getaway car)", 40000);
   t.check("guest: …and its own scheduler won't start another", await A.game(`(ctx.heist.debug.R.nextT = 0, !ctx.heist.debug.schedRobbery())`));
@@ -75,11 +76,14 @@ async function body(t, guests) {
   await A.game(`(ctx.foot.debug.F.pos.set(${rob.x} + 1.2, 0.05, ${rob.z} + 0.6), true)`);
   await A.frames(6);
   // (the host checks the claim against where IT sees her: let her walk reach the host's screen first)
-  await Hp.until(`(() => { const rc = ctx.party.remoteCar(${GU}), o = ctx.heist.robbery && ctx.heist.robbery.robber && ctx.heist.robbery.robber.obj.position; return !!rc && rc.shown && rc.foot && !!o && Math.hypot(rc.x - o.x, rc.z - o.z) < 4; })()`, "host: sees the guest beside the robber", 40000);
+  // (the test holds the robber in his doorway fumble while it waits: two pages in software WebGL crawl, and his
+  //  dash for the car must not end the run before her tackle has even reached the host)
+  const HOLD = `(ctx.heist.robbery && ctx.heist.robbery.phase === "run" && (ctx.heist.robbery.t = 0), true)`;
+  await Hp.until(`${HOLD} && (() => { const rc = ctx.party.remoteCar(${GU}), o = ctx.heist.robbery && ctx.heist.robbery.robber && ctx.heist.robbery.robber.obj.position; return !!rc && rc.shown && rc.foot && !!o && Math.hypot(rc.x - o.x, rc.z - o.z) < 4; })()`, "host: sees the guest beside the robber", 40000);
   const lbl = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
   t.check("guest: ✋ TACKLE HIM! on the friend's robber", /TACKLE/.test(lbl), lbl);
   await A.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
-  if (!await Hp.until(`!!ctx.heist.robbery && ctx.heist.robbery.phase === "foiled"`, "host: the friend's tackle foils it (checked on the host's screen)", 40000)) return;
+  if (!await Hp.until(`${HOLD} && !!ctx.heist.robbery && ctx.heist.robbery.phase === "foiled"`, "host: the friend's tackle foils it (checked on the host's screen)", 40000)) return;
   t.check("…credited to the guest", (await g(`ctx.heist.robbery.by`)) === guestUid, await g(`ctx.heist.robbery.by`));
   // the host (also the party's host) splits the pay; each screen pays itself its share once
   await Hp.until(`ctx.heist.debug.party().paid.length > 0`, "host: share paid", 30000);
