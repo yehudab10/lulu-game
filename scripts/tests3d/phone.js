@@ -233,7 +233,7 @@ module.exports = {
     // ── addApp contract (render + api) ────────────────────────────────────
     await g(`(ctx.phone.addApp({ id: "testapp", icon: "🧪", name: "Test", order: 70, badge: () => "!", visible: () => !window.__noTestApp, render(el, api) {
       el.innerHTML = '<div class="btn lp-row" id="lkA">A</div><button class="btn lp-row" id="lkB">B</button>';
-      el.querySelector("#lkB").addEventListener("click", () => { window.__lkB = (window.__lkB || 0) + 1; api.toast("hi"); window.__lkToast = document.getElementById("lpToast").classList.contains("on"); api.refresh(); });
+      el.querySelector("#lkB").addEventListener("click", () => { window.__lkB = (window.__lkB || 0) + 1; api.toast("hi"); api.refresh(); });
     } }), true)`);
     await t.key("Tab");
     t.check("addApp: a feature's app shows on the grid with its badge", await t.L(`(document.querySelector("#lpa_testapp .lp-badge") || {}).textContent`) === "!");
@@ -243,13 +243,7 @@ module.exports = {
     //  going on instead of reading it afterwards)
     await t.L(`(() => { window.__toastOn = false; const el = document.getElementById("lpToast"); new MutationObserver(() => { if (el.classList.contains("on")) window.__toastOn = true; }).observe(el, { attributes: true, attributeFilter: ["class"] }); return true; })()`);
     await t.tap(13); await t.tap(0);
-<<<<<<< HEAD
-    // (the phone's toast hides after 1.8 s of REAL time: read it at the click, not after a slow runner's next frames)
-    const lk = await t.L(`({ b: window.__lkB, toast: !!window.__lkToast, focus: (document.querySelector("#screenCard .focus") || {}).id || "" })`);
-    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", lk.b === 1 && lk.toast, JSON.stringify(lk));
-=======
     t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`window.__toastOn === true`));
->>>>>>> origin/main
     await t.key("Tab");
     await t.L(`window.__noTestApp = true`);
 
