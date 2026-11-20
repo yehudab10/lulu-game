@@ -84,11 +84,14 @@ async function body(t, guests) {
   await calm(); await all(p => p.game(`(${PZ}.debug.resetCaps(), true)`));
 
   // ── 🚗 FLAG & GRAB: the guest flags a car, the host jacks it ──
+  await g(`ctx.party._debug.place(400, 1.75, 0)`); await A.game(`ctx.party._debug.place(412, -1.75, 0)`);
+  await all(p => p.frames(12));
   h0 = await coins(Hp); g0 = await coins(A);
   await A.game(`${PZ}.debug.flag("pt:test:1")`);
   await A.frames(20);
   if (await Hp.until(`${PZ}.debug.R.flags.has("pt:test:1")`, "host hears the flag", 30000)) await g(`${PZ}.debug.jack("pt:test:1")`);
   const grab = await Promise.all([Hp.until(`${PZ}.debug.R.grab >= 1`, "host: FLAG & GRAB", 30000), A.until(`${PZ}.debug.R.grab >= 1`, "guest: FLAG & GRAB", 30000)]);
+  if (!grab.every(Boolean)) t.check("FLAG & GRAB: why not", false, JSON.stringify(await g(`({ why: ${PZ}.debug.R.why, flags: [...${PZ}.debug.R.flags.entries()], me: ctx.car.pos })`)));
   if (grab.every(Boolean)) t.check(`FLAG & GRAB: 15 + 15 (host +${(await coins(Hp)) - h0}, guest +${(await coins(A)) - g0})`, (await coins(Hp)) - h0 === 15 && (await coins(A)) - g0 === 15);
   const crewG = await Promise.all(both.map(p => p.until(`!!${CR}.current() && ${CR}.current().why === "FLAG & GRAB"`, `${p.label}: partners for the FLAG & GRAB`, 40000)));
   if (crewG.every(Boolean)) t.check("…and they're partners (one crew)", true);
@@ -111,6 +114,8 @@ async function body(t, guests) {
 
   // ── 🔔 RING & SNEAK: Lakewood; the guest sneaks into a house, the host rings the bell ──
   for (const p of both) {
+    await p.game(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (ctx.state !== "playing") L3.setState("playing"); return true; })()`);
+    await p.frames(4);
     await p.game(`(ctx.town.load("lakewood"), true)`);
     if (!await p.until(`ctx.town.loaded("lakewood")`, `${p.label}: Lakewood's models`, 120000)) return;
     await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);

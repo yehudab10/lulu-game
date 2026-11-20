@@ -89,9 +89,9 @@ on("party:claim", e => {
 on("streets:carjack", e => {
     if (!party() || !e || !e.key) return;
     const f = R.flags.get(String(e.key));
-    if (!f || now() - f.t > TUNE.grabMs || !isFriend(f.uid)) return;
     const p = myPos();
-    if (Math.hypot(f.x - p.x, f.z - p.z) > TUNE.grabR + 20) return;
+    R.why = !f ? "no flag" : now() - f.t > TUNE.grabMs ? "late" : !isFriend(f.uid) ? "not a friend" : Math.hypot(f.x - p.x, f.z - p.z) > TUNE.grabR + 20 ? `far ${Math.round(Math.hypot(f.x - p.x, f.z - p.z))}` : "";
+    if (R.why) return;
     R.flags.delete(String(e.key));
     partners(f.uid, "FLAG & GRAB");
     P().broadcast("pzg", String(e.key), f.uid);
