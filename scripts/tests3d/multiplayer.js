@@ -149,7 +149,7 @@ async function body(t) {
   // party record toast from the 2D player
   peer.state({ pb: [7, 123456] });
   await t.frames(6);
-  t.check("🎉 record toast", await t.L(`/Gold \\d\\d set a record: 123,456/.test(document.getElementById("mpOverlay").textContent)`));
+  t.check("🎉 a stranger's record: no pop-up (ci/calm), a line for 📍 Nearby", !await t.L(`/set a record/.test(document.getElementById("mpOverlay").textContent)`) && await t.game(`(Object.values(ctx.mp._debug.peers)[0].rec || {}).score === 123456`));
   delete peer.d.pb;
 
   // ── friend room: switch rooms from the pause menu ──

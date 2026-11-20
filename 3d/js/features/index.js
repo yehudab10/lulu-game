@@ -40,3 +40,4 @@ import "./decor/index.js";        // 🛋️ decor: Lulu's own house (✋ GO INS
 import "./onegame/index.js";      // 🎮 one game, not a menu of modes: ▶ PLAY is the open world; the 🧳 road trip (suitcase by the car / 📱), the 🅿️ parking booth at rest areas (/ 📱), Dina from the porch, Ima's Friday rush at the door, 🏠 back home after each
 import "./together/index.js";     // 👯 friends together: the friend finder (📱 🗺️ map dots + a destination beam, ≤ 3 quiet edge pointers) and friends seeing each other inside the same building
 import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
+import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends

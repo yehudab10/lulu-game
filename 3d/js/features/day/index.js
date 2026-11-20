@@ -114,11 +114,11 @@ function bump(id, n = 1) {
     DAY.prog[id] = (DAY.prog[id] || 0) + n;
     saveSoon();
     const it = byId(id);
-    if (!isDone(id)) { if ((it.n || 1) > 1) H.toast(`${it.icon} ${DAY.prog[id]}/${it.n} — Ima's list`, ""); return; }
+    if (!isDone(id)) { if ((it.n || 1) > 1) H.toast(`${it.icon} ${DAY.prog[id]}/${it.n} — Ima's list`, "", { prio: 2 }); return; }
     let pay = 0;
     if (!DAY.paid.includes(id)) { DAY.paid.push(id); pay = PAY.item; addCoins(pay, "day"); emit("stat", { id: "dayItems", n: 1 }); }
     if (!ctx.skipping) A.sfxCoin(5);
-    H.toast(`✅ ${it.icon} ${it.text.replace(/ \(.*\)$/, "")}${pay ? ` +${pay} 💰` : ""}`, "gold");
+    H.toast(`✅ ${it.icon} ${it.text.replace(/ \(.*\)$/, "")}${pay ? ` +${pay} 💰` : ""}`, "gold", { prio: 3 });
     emit("day:tick", { id, pay });
     if (complete()) H.banner(`📝 <b>IMA'S LIST — DONE!</b><small>🏠 home for dinner</small>`, 2600);
     S.chipText = "";

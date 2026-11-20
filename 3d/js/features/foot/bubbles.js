@@ -4,6 +4,7 @@
 // camera on foot, the wedding set's camera at the chuppah).
 import * as THREE from "three";
 import { css } from "../../core/ctx.js";
+import { bubbleOk } from "../../hud.js";
 
 css("foot-bubbles", `
 #footBubbles { position: fixed; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
@@ -36,7 +37,7 @@ export function bubble(anchor, text, secs = 2.4, { cls = "", y = 2.05 } = {}) {
     if (!anchor || !text) return null;
     for (let i = live.length - 1; i >= 0; i--) if (live[i].anchor === anchor && !live[i].float) kill(i);
     const el = document.createElement("div");
-    el.className = "fbub " + cls;
+    el.className = "fbub " + cls + (bubbleOk(secs) ? "" : " calm-off");     // (the pop-up budget, hud.js)
     el.textContent = text;
     root.appendChild(el);
     const b = { el, anchor, y, until: now() + secs, t0: now(), float: false };

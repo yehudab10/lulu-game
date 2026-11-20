@@ -1959,7 +1959,9 @@ function updateHail(dt) {
 function chatter(dt) {
     F.chatT -= dt;
     if (F.chatT <= 0) {
-        F.chatT = rand(4, 7);
+        // (ci/calm: was every 4–7 s whatever the setting — now ⚙️ Lulu's chatter decides; Quiet with friends)
+        const ch = (save3d.settings && save3d.settings.chatter) || "normal";
+        F.chatT = ch === "quiet" ? rand(30, 45) : ch === "chatty" ? rand(6, 10) : rand(14, 22);
         if (!hasBubble(F.lulu.obj) && !F.chase) bubble(F.lulu.obj, pick(L.FOOT_LULU_CHAT), 2.0);
     }
     if (F.hintT > 0) { F.hintT -= dt; if (F.hintT <= 0) ctx.G.hint = null; }

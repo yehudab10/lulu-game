@@ -46,7 +46,11 @@ function driversHtml() {
     const others = conn ? Math.max(0, M.riders - 1) : 0;
     let html = `<div class="ow-sec">Other drivers${conn ? ` · ${others} online` : ""}</div>`;
     if (!near.length) html += `<p class="lp-note">${online ? "Nobody near you right now — other drivers show up as see-through ghosts." : "Play online is off — just you out here."}</p>`;
-    for (const p of near.slice(0, 4)) html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), p.m === 1 ? "on foot" : "driving", mi(d2({ x: p.ws, z: p.wd })), false);
+    const clock = M._debug.clock;
+    for (const p of near.slice(0, 4)) {
+        const rec = p.rec && clock - p.rec.at < 120 ? ` · 🎉 a record: ${Math.round(p.rec.score).toLocaleString()}` : "";   // (never a pop-up: ci/calm)
+        html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), (p.m === 1 ? "on foot" : "driving") + rec, mi(d2({ x: p.ws, z: p.wd })), false);
+    }
     html += row("owInviteSolo", "📤", "Invite friends", "they pop up right next to you · names, games together");
     html += row("owOnline", "🌐", online ? "Go solo" : "Go online", online ? "hide every other driver (⚙️ Settings › Play online)" : "see other drivers out in the world");
     return html;
