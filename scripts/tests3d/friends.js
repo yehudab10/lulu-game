@@ -189,9 +189,11 @@ async function body(t, pages) {
   const D = await guestPage(t, "D", { totalCoins: 0, selectedSkin: "pink" }, Q(URL));
   pages.push(D);
   await D.until(`__lulu3d && __lulu3d.state === "title"`, "D boots", 120000);
-  await D.L(`import("./js/features/meta/screens.js").then(m => m.applySave(m.codeToSave(${JSON.stringify(saveCode)})))`).catch(() => null);
-  await sleep(1500);
-  await D.until(`__lulu3d && __lulu3d.state === "title"`, "D reloads after the restore", 120000);
+  await Promise.all([
+    D.page.waitForEvent("load", { timeout: 180000 }),
+    D.L(`import("./js/features/meta/screens.js").then(m => (m.applySave(m.codeToSave(${JSON.stringify(saveCode)})), true))`).catch(() => null),
+  ]);
+  await D.until(`__lulu3d && __lulu3d.state === "title" && __lulu3d.frames > 30`, "D reloads after the restore", 120000);
   const dl = await D.game(`({ me: ${F}.me, n: ${F}.list.length })`);
   t.check("the 💾 save code brings the friends list back (same id, 2 friends)", dl.me === fA && dl.n === 2, JSON.stringify(dl));
   await D.page.close(); pages.splice(pages.indexOf(D), 1);
