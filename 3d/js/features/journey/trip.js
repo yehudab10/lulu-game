@@ -153,12 +153,23 @@ ctx.trip = {
 
 // ── run lifecycle ─────────────────────────────────────────────────────────
 let lastLeg = null;
-/** Start a Story Trip run at leg `leg` (default: the banked checkpoint, shared storyStop). */
-export function startStory(leg) {
+/** Start a Story Trip run at leg `leg` (default: the banked checkpoint, shared storyStop). extra = more startRun
+ *  opts (features/onegame: { home, homeAt } — leg 1 from her front door; { rolling } — a later leg, already moving). */
+export function startStory(leg, extra = null) {
     const s2 = shared.get();
     const L = leg == null ? (s2.storyStop || 0) % N_STOPS : Math.max(0, Math.min(N_STOPS - 1, leg));
     lastLeg = L;
-    startRun({ mode: "story", leg: L, s: legStartS(L, cycleMult(s2.storyCycle || 0)) });
+    startRun(Object.assign({ mode: "story", leg: L, s: legStartS(L, cycleMult(s2.storyCycle || 0)) }, extra || {}));
+}
+/** "Next chapter" from a card: through the world's road-trip starter when there is one (no 3-2-1). */
+function nextChapter() {
+    if (ctx.onegame && ctx.onegame.roadTrip) ctx.onegame.roadTrip("card");
+    else startStory();
+}
+/** Back in the world at home (features/onegame), or the title without it. */
+function headHome() {
+    if (ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "trip" });
+    else setState("title");
 }
 
 hook("runStart", (G, opts) => {
@@ -486,7 +497,6 @@ function arrivalHtml(D) {
     else if (D.taskTourAgain) rw.push(`<span class="pill2 star">⭐ TASK DONE AGAIN THIS TOUR! +${D.taskBonus} 💰</span>`);
     else if (D.taskAlready) rw.push(`<span class="pill2 green">task done ✓ (already starred)</span>`);
     else if (D.taskMet === false) rw.push(`<span class="pill2 grey">task: not this time</span>`);
-    if (D.unlockedCruise) rw.push(`<span class="pill2 green">🔓 ENDLESS CRUISE + SHARED ROAD unlocked — back at the menu!</span>`);
     lines.push(`<div class="rw">${rw.join("")}</div>`);
     const G = ctx.G, mi = ((ctx.car.s - (G.startS || 0)) / 1609).toFixed(1);
     lines.push(`<p class="line">score <b>${Math.floor(G.score).toLocaleString()}</b> · <b>${G.coins}</b> coins · <b>${mi}</b> mi · leg <b>${fmtTime(D.legTime)}</b>${D.fastest ? " 🏆" : ""}
@@ -581,10 +591,10 @@ registerState("tripDone", {
             ${statsHtml()}
             <div class="quote">"Lulu, mamele — you call that a road trip? I call it a MITZVAH. Call me when you get home!" <small>— Bubbe 📞</small></div></div>`,
             [
-                { label: `🚗 Next chapter: ${next.icon} ${next.nice} ${glyph("confirm")}`, action: () => { H.hideScreen(); startStory(); } },
-                { label: "🗺️ Story map", cls: "alt", action: () => { H.hideScreen(); if (ctx.journey.openMap) ctx.journey.openMap({ from: "title" }); } },
-                { label: "⌂ Title screen", cls: "purple", action: () => { H.hideScreen(); setState("title"); } },
-            ], { onBack: () => { H.hideScreen(); setState("title"); }, cls: "jarr" });
+                { label: `🚗 Next chapter: ${next.icon} ${next.nice} ${glyph("confirm")}`, action: () => { H.hideScreen(); nextChapter(); } },
+                { label: "🗺️ Story map", cls: "alt", action: () => { H.hideScreen(); if (ctx.journey.openMap) ctx.journey.openMap({ from: "trip" }); } },
+                { id: "jHome", label: "🏠 Head home", cls: "purple", action: () => { H.hideScreen(); headHome(); } },
+            ], { onBack: () => { H.hideScreen(); headHome(); }, cls: "jarr" });
     },
     exit() { H.hideScreen(); },
     update(dt, P) { H.menuInput(P); },
@@ -632,8 +642,8 @@ ctx.journey = {
     spawnBias(name) { return isStory() && !ctx.G.jDone ? spawnBiasFor(curLeg(), name) : 1; },
     /** Where stop i is on this run's road (metres). */
     stopS(i) { return stopAt(i); },
-    /** Start a story run at leg i (default: the checkpoint). */
-    start(i) { startStory(i); },
+    /** Start a story run at leg i (default: the checkpoint); extra = more startRun opts. */
+    start(i, extra) { startStory(i, extra); },
     openMap: null,   // set by map.js
     get env() { return env.key; },
 };

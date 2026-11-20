@@ -330,8 +330,14 @@ function launch(i) {
         return;
     }
     H.hideScreen();
-    if (M.from === "phone") { softClose(); endRun("map"); }
-    if (M.from === "arrived") endRun("map");
+    if (M.from === "phone") softClose();
+    // (a leg starts like the 🧳 suitcase does: leg 1 at home on foot, a later leg rolling — no 3-2-1)
+    if (ctx.onegame && ctx.onegame.roadTrip) {
+        if (M.from === "arrived") endRun("map");
+        if (ctx.onegame.tripBlock() && ctx.G.mode === "story") endRun("map");
+        if (ctx.onegame.roadTrip("map", i)) return;
+    }
+    if (M.from === "phone" || M.from === "arrived") endRun("map");
     startStory(i);
 }
 
@@ -347,6 +353,7 @@ function back() {
     H.hideScreen();
     if (M.from === "phone") softClose();
     else if (M.from === "arrived") setState("arrivedScreen", { back: true });
+    else if (M.from === "trip" && ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "trip" });
     else setState("title");
 }
 let infoFor = -1;

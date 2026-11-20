@@ -76,7 +76,7 @@ module.exports = {
     // ── Cruise from the title: on foot at home (the 🏠 home test covers the walk in detail) → hop in → the street ──
     await g(`ctx.places.debug.clock(0.41)`);
     await t.frames(3);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     t.check("Cruise starts on foot at home", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.places.home.depart().live`, "home start", 4000));
     await t.frames(20);
     await t.shot("home-start");

@@ -4,10 +4,14 @@
 // lines on the title card with addMenuItem("titleInfo", { id, label: () => html }).
 //
 // ── Menu groups ──────────────────────────────────────────────────────────
-// The HOME screen shows a compact top bar (coins, streak…), the logo, the
-// "play" items as big tiles (the first one — the Story Trip — is the hero) and
-// one tile per other group, each opening a sub-menu:
-//     group: "play"   → a tile on the home screen (overflow → a "More to play" sub-menu)
+// ONE GAME, NOT A MENU OF MODES (roadmap 10): the HOME screen shows a compact top bar (coins,
+// streak…), the logo, ONE big ▶ PLAY (the open world — she starts at home on foot; never locked)
+// and two small play tiles under it (👯 Friends · 👧 Dina), then one tile per other group, each
+// opening a sub-menu. The Story Trip, the Parking Challenge and the Erev Shabbos Rush are NOT
+// title modes any more — they start from inside the world (features/onegame).
+//     group: "play"   → the hero (the first by order: ▶ PLAY) + up to PLAY_TILES small tiles
+//                       (TILE_FIRST ids first, then by order); any extra play item is listed
+//                       under ⚙️ More instead (there is no "More to play" overflow)
 //            "garage" → 🚗 Garage   (shop, car, toggles, photo mode…)
 //            "book"   → 📒 Scrapbook (scrapbook, quests, story map…)
 //            "more"   → ⚙️ More      (controls, settings, the 2D game…)
@@ -51,16 +55,26 @@ export function controllerLine() {
 
 // ── title: groups, views, focus memory ───────────────────────────────────
 export const TITLE_GROUPS = {
-    play: { icon: "🎲", name: "More to play" },
     garage: { icon: "🚗", name: "Garage" },
     book: { icon: "📒", name: "Scrapbook" },
     more: { icon: "⚙️", name: "More" },
 };
-const GROUP_ORDER = ["play", "garage", "book", "more"];
-const MAX_TILES = 6;              // play tiles under the hero before the rest overflow into a sub-menu
+const GROUP_ORDER = ["garage", "book", "more"];
+/** The small play tiles under ▶ PLAY. Friends first (ci/everyone owns that item — "friends", or the older "party"),
+ *  then Dina; anything else in "play" goes to ⚙️ More. */
+export const PLAY_TILES = 2;
+export const TILE_FIRST = ["friends", "party", "dina"];
 const T = { view: "home", focus: {}, seq: 0, overflow: [] };
 
-const groupOf = i => TITLE_GROUPS[i.group] ? i.group : "more";
+/** The home screen's play items: { hero, tiles, extra } (extra = play items that don't fit → ⚙️ More). */
+function playSplit(items) {
+    const play = items.filter(i => i.group === "play");
+    const hero = play[0] || null;
+    const rest = play.slice(1).map((i, k) => ({ i, k, p: TILE_FIRST.indexOf(i.id) }))
+        .sort((a, b) => (a.p < 0 ? 99 : a.p) - (b.p < 0 ? 99 : b.p) || a.k - b.k).map(x => x.i);
+    return { hero, tiles: rest.slice(0, PLAY_TILES), extra: rest.slice(PLAY_TILES).map(i => i.id) };
+}
+const groupOf = i => i.group === "play" ? (T.overflow.includes(i.id) ? "more" : "play") : TITLE_GROUPS[i.group] ? i.group : "more";
 const scratch = document.createElement("div");
 /** Plain text of a label (no glyphs / chips / dots). */
 function plain(html) {
@@ -90,7 +104,7 @@ function tileHtml(i, info, cls) {
     return `<button class="btn tile ${cls}" id="${esc(i.id)}" data-ti="${esc(i.id)}">${ic ? `<span class="t-ic">${ic}</span>` : ""}<span class="t-tx"><span class="t-l">${text}</span>${itemSub(i, info)}</span></button>`;
 }
 function groupTileHtml(g, items) {
-    const G = TITLE_GROUPS[g], list = items.filter(i => (g === "play" ? T.overflow.includes(i.id) : groupOf(i) === g));
+    const G = TITLE_GROUPS[g], list = items.filter(i => groupOf(i) === g);
     const names = list.map(shortName).filter(Boolean);
     const sub = names.slice(0, 2).join(" · ");
     const dot = list.some(i => attention(i.label)) ? '<span class="tg-dot"></span>' : "";
@@ -98,12 +112,8 @@ function groupTileHtml(g, items) {
 }
 
 function homeHtml(items, info) {
-    const play = items.filter(i => groupOf(i) === "play");
-    const hero = play[0];
-    let tiles = play.slice(1);
-    T.overflow = [];
-    if (tiles.length > MAX_TILES) { T.overflow = tiles.slice(MAX_TILES - 1).map(i => i.id); tiles = tiles.slice(0, MAX_TILES - 1); }
-    const groups = GROUP_ORDER.filter(g => g === "play" ? T.overflow.length > 0 : items.some(i => groupOf(i) === g));
+    const { hero, tiles } = playSplit(items);
+    const groups = GROUP_ORDER.filter(g => items.some(i => groupOf(i) === g));
     const bar = info.filter(x => x.bar).map(x => x.label).filter(Boolean).join("");
     const notes = info.filter(x => !x.bar && !x.for && !x.group).map(x => x.label).filter(Boolean).join("");
     return `<div class="home" data-title-seq="${T.seq}">
@@ -118,7 +128,7 @@ function homeHtml(items, info) {
 }
 
 function subTabs(items) {
-    return GROUP_ORDER.filter(g => g === "play" ? T.overflow.length > 0 : items.some(i => groupOf(i) === g));
+    return GROUP_ORDER.filter(g => items.some(i => groupOf(i) === g));
 }
 function groupHtml(g, items, info) {
     const G = TITLE_GROUPS[g];
@@ -141,6 +151,7 @@ function groupHtml(g, items, info) {
 /** Re-render the current title view (keeps the focus on the same element when it still exists). */
 function renderTitle(focusId) {
     const items = menuItems("title"), info = menuItems("titleInfo");
+    T.overflow = playSplit(items).extra;
     if (T.view !== "home" && !subTabs(items).includes(T.view)) T.view = "home";
     T.seq++;
     const html = T.view === "home" ? homeHtml(items, info) : groupHtml(T.view, items, info);
@@ -192,10 +203,11 @@ export function showTitle(refresh = false) {
 /** Run a menu item's action wherever it lives (opens its sub-menu first on the title). */
 export function openMenuItem(menu, id) {
     if (menu === "title" && ctx.state === "title") {
-        const it = menuItems("title").find(i => i.id === id);
+        const items = menuItems("title"), it = items.find(i => i.id === id);
         if (!it) return false;
-        const g = T.overflow.includes(id) ? "play" : groupOf(it);
-        if (g !== "play" || T.overflow.includes(id)) openView(g, id);
+        T.overflow = playSplit(items).extra;
+        const g = groupOf(it);
+        if (g !== "play") openView(g, id);
         else if (T.view !== "home") openView("home", id);
         const b = document.getElementById(id);
         if (b) { b.click(); return true; }
@@ -210,15 +222,16 @@ export function openMenuItem(menu, id) {
 /** Bring a title item whose label matches `re` on screen (its sub-menu); returns its id or null. */
 export function revealMenuItem(menu, re) {
     if (menu !== "title" || ctx.state !== "title") return null;
-    const it = menuItems("title").find(i => re.test(plain(i.label)) || re.test(i.label));
+    const items = menuItems("title"), it = items.find(i => re.test(plain(i.label)) || re.test(i.label));
     if (!it) return null;
-    const g = T.overflow.includes(it.id) ? "play" : groupOf(it);
-    if (g === "play" && !T.overflow.includes(it.id)) { if (T.view !== "home") openView("home", it.id); }
+    T.overflow = playSplit(items).extra;
+    const g = groupOf(it);
+    if (g === "play") { if (T.view !== "home") openView("home", it.id); }
     else if (T.view !== g) openView(g, it.id);
     return it.id;
 }
 /** Every visible title item (all groups) — labels as plain text, in order. */
-export function titleLabels() { return menuItems("title").map(i => ({ id: i.id, group: groupOf(i), label: plain(i.label) })); }
+export function titleLabels() { const items = menuItems("title"); T.overflow = playSplit(items).extra; return items.map(i => ({ id: i.id, group: groupOf(i), label: plain(i.label) })); }
 
 registerState("title", {
     hud: false, touch: false, world: true, driving: false,
@@ -242,8 +255,17 @@ registerState("title", {
     },
 });
 
-// core title items (features add Story Trip, Shop, Scrapbook, Dina…)
-addMenuItem("title", { id: "cruise", order: 20, group: "play", label: "🛣️ Cruise", sub: () => save3d.best ? `endless · best ${save3d.best.toLocaleString()}` : "the endless highway", action: () => startRun({ mode: "cruise" }) });
+// core title items (features add Shop, Scrapbook, 👯 Friends, 👧 Dina…)
+// ▶ PLAY — the open world (a "cruise" run under the hood): she starts at home on foot, Ima at the door. Never locked.
+// Features add to its subtitle with addMenuItem("titleInfo", { for: "play", label }) (or a `playSub` hook: (parts) => void).
+const playSubs = [];
+/** A feature's live line under ▶ PLAY: fn() → html | "" (first non-empty wins, by priority — higher first). */
+export function addPlaySub(fn, priority = 0) { playSubs.push({ fn, priority }); playSubs.sort((a, b) => b.priority - a.priority); }
+function playSub() {
+    for (const p of playSubs) { try { const s = p.fn(); if (s) return s; } catch (e) { console.error("[title] play sub", e); } }
+    return save3d.best ? `home · the highway · the towns — best ${save3d.best.toLocaleString()}` : "Lulu's world: home, the highway, the towns";
+}
+addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶️ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
     sub: () => { const n = ownedSkins().length; return n > 1 ? `${n} cars in the garage · ${glyph("confirm")} to switch` : "buy more cars in the shop"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });

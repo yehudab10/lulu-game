@@ -16,7 +16,7 @@ module.exports = {
     const other = await g(`(() => { const out = new Set(); for (let d = 20261101; d < 20261131; d++) out.add(ctx.day.debug.date(d).join()); ctx.day.debug.date(20261119); return out.size; })()`);
     t.check("…and it changes from day to day", other >= 3, `${other} different lists in a month`);
 
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     t.check("Cruise starts at home with the list", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.day.active`, "day on", 3000));
     await t.frames(40);
     const line = await g(`ctx.places.home.depart().line`);
@@ -73,14 +73,14 @@ module.exports = {
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "home again", 3000);
     t.check("same day again: nothing new to do", !(await g(`ctx.day.active`)));
     // tomorrow: a fresh list
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`(ctx.day.debug.date(20261120), ctx.places.debug.parkNow())`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "tomorrow", 3000);
     t.check("tomorrow: a fresh list", (await g(`ctx.day.active`)) && (await g(`ctx.day.list().every(x => !x.done)`)));
     // not in Story / with quick starts
