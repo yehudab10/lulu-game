@@ -17,6 +17,7 @@ import { models, cloneWithColors, findNodes, ensureModels, instanced } from "../
 import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER, paved } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
 import * as A from "../../audio.js";
+import { slimMenorah } from "../meta/menorah.js";
 import { Path, Ride, ease } from "./path.js";
 
 export const S_HOME = 30;          // the house (centre) along the road
@@ -286,7 +287,7 @@ function glowTexture() {
     return home.glowTex;
 }
 function clearExtras() {
-    for (const o of home.extras || []) { o.removeFromParent(); o.traverse(x => { if (x.isSprite) x.material.dispose(); }); }
+    for (const o of home.extras || []) { o.removeFromParent(); o.traverse(x => { if (x.isSprite) x.material.dispose(); }); if (o.userData.slim) o.userData.slim.dispose(); }
     home.extras = [];
     home.flames = [];
 }
@@ -311,21 +312,19 @@ export async function applyHoliday() {
         const o = models[extra].clone(true);
         o.name = "WorldHoliday_" + c.id;
         if (c.id === "chanukah") {
-            // in the front window, tonight's candles lit (+ the shamash)
-            o.position.copy(home.anchors.window);
-            o.rotation.y = home.house.rotation.y;
-            o.scale.setScalar(1.25);
-            home.flames = [];
-            for (const f of findNodes(o, "Flame_")) {
-                const n = f.name.startsWith("Flame_S") ? 0 : parseInt(f.name.slice(6), 10);
-                f.visible = n === 0 || n <= Math.min(8, c.day);
-                if (!f.visible) continue;
-                const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-                s.scale.setScalar(0.18); s.position.y = 0.045;
-                f.add(s);
-                home.flames.push({ f, ph: n * 1.7, base: f.scale.clone() });
-            }
-            home.group.add(o);
+            // in the front window, tonight's candles lit (+ the shamash) — meta's slim build (~4 draw calls, not ~30)
+            const sm = slimMenorah(models[extra], Math.min(8, c.day), glowTexture());
+            const m = sm.obj;
+            m.name = "WorldHoliday_chanukah";
+            m.position.copy(home.anchors.window);
+            m.rotation.y = home.house.rotation.y;
+            m.scale.setScalar(1.25);
+            home.flames = [{ slim: sm }];
+            home.group.add(m);
+            home.extras.push(m);
+            m.userData.slim = sm;
+            emit("world:holiday", { id: c.id });
+            return;
         } else if (c.id === "purim" && home.people.dina) {
             // Dina's party hat
             const body = findNodes(home.people.dina.obj, "Body")[0] || home.people.dina.obj;
@@ -426,6 +425,7 @@ function vanTick(dt) {
 function flameTick() {
     const t = ctx.time;
     for (const fl of home.flames || []) {
+        if (fl.slim) { fl.slim.tick(t); continue; }
         const k = 1 + Math.sin(t * 13 + fl.ph) * 0.16 + Math.sin(t * 29 + fl.ph * 2) * 0.06;
         fl.f.scale.set(fl.base.x * (2 - k) * 0.95, fl.base.y * k, fl.base.z * (2 - k) * 0.95);
     }
