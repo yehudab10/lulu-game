@@ -17,9 +17,7 @@
 // Events:   journey:leg {index, stop}, journey:arrive {index, stop, reward, storyComplete, taskMet},
 //           journey:event {index, id}, journey:region {key, leg}, phone:ring/answer/end, stat (imaCalls, imaDeclines, stops3d, tours3d)
 import { ctx, on, addMenuItem, css } from "../../core/ctx.js";
-import { save3d, shared } from "../../core/save.js";
-import { startRun } from "../../core/driving.js";
-import { glyph } from "../../input.js";
+import { shared } from "../../core/save.js";
 import { STOPS, N_STOPS } from "./data.js";
 import "./env.js";
 import "./phone.js";
@@ -55,19 +53,13 @@ body.tv .tile.hero .jtitle .nx { font-size: 21px; } body.tv .tile.hero .jtitle .
 body.tv .jtitle .nx { font-size: 22px; } body.tv .jtitle .stamp { width: 44px; height: 44px; font-size: 26px; }
 `);
 
-// ── onboarding: endless cruise (and the Shared Road) unlock at the first arrival ──
-// Same rule as the 2D game: veterans (any prior progress) are unlocked at load.
-on("boot", () => {
-    const s = shared.get();
-    if (!s.cruiseUnlocked && ((s.highScore || 0) > 0 || (s.tripBest || 0) > 0 || (Array.isArray(s.postcards) && s.postcards.length) || save3d.best > 0 || J.arrivals > 0)) {
-        shared.update(x => { x.cruiseUnlocked = true; });
-    }
-});
-/** Is endless cruise unlocked? (Test runs that don't opt in to "journey" never lock it.) */
-export function cruiseUnlocked() { return !ctx.enabled("journey") || !!shared.get().cruiseUnlocked; }
+// ── no lock any more: ▶ PLAY (the open world) is open from the first second (roadmap 10). The old
+// `cruiseUnlocked` flag is still set at the first arrival (the 2D game reads it), but nothing in 3D waits on it.
+/** Kept for old callers: the open world is never locked now. */
+export function cruiseUnlocked() { return true; }
 function hasProgress() { const s = shared.get(); return (s.storyStop || 0) > 0 || (s.storyCycle || 0) > 0 || (Array.isArray(s.postcards) && s.postcards.length > 0); }
 
-// ── title menu (the Story Trip is the home screen's hero tile; its subtitle = next stop + postcards) ──
+// ── the Story Trip line: next stop + postcards (the 🧳 suitcase, onegame.tripLine()) ──
 function storySub() {
     const s = shared.get(), cyc = s.storyCycle || 0, nIdx = (s.storyStop || 0) % N_STOPS, st = STOPS[nIdx];
     const pcs = Array.isArray(s.postcards) ? s.postcards : [];
@@ -76,18 +68,12 @@ function storySub() {
     if (pcs.length) {
         html += `<span class="stamps">${STOPS.map(x => pcs.includes(x.id) ? `<span class="stamp" style="--acc:${x.accent}" title="${x.name}">${x.icon}</span>` : `<span class="stamp no">?</span>`).join("")}${stars ? `<span class="fb">⭐ ${stars}/5</span>` : ""}</span>`;
     }
-    if (!cruiseUnlocked()) html += `<span class="lock">🔒 Endless cruise unlocks at Bubbe's house</span>`;
     return html + "</span>";
 }
-addMenuItem("title", { id: "story", order: 10, group: "play", label: () => `📖 Story Trip ${glyph("confirm")}`, sub: storySub, action: () => startStory() });
+// (the Story Trip is no longer a title mode: it starts from inside the world — the 🧳 suitcase by the car at home,
+// or a stop on the 📱 phone's 🗺️ Map — features/onegame. Its subtitle html is shared: storySub())
+export { storySub };
 addMenuItem("title", { id: "storyMap", order: 12, group: "book", short: "Map", label: "🗺️ The Road to Vegas (map)", sub: "every stop, postcard and checkpoint", visible: hasProgress, action: () => openMap({ from: "title" }) });
-addMenuItem("title", {
-    id: "cruise", order: 20, group: "play",
-    visible: cruiseUnlocked,
-    label: () => `🛣️ Cruise${ctx.enabled("journey") && !shared.get().cruisePlayed ? ' <span class="jnew">NEW!</span>' : ""}`,
-    sub: () => save3d.best ? `endless · best ${save3d.best.toLocaleString()}` : "the endless highway",
-    action: () => startRun({ mode: "cruise" }),
-});
 on("run:start", ({ mode }) => {
     if (mode === "cruise" && !shared.get().cruisePlayed) shared.update(s => { s.cruisePlayed = true; });
 });

@@ -894,9 +894,12 @@ function updateKnock(dt) {
 // Out of hearts on foot: a KNOCK-OUT (core's rule: score banked + a small fee, hearts back) — now and then the ER
 // scoops her up (a moment, skippable; its bill instead of the fee), otherwise she sits up, sees stars, and walks it off.
 const ER_ON_FOOT = 0.2;
+/** How likely the ER scoops her up after a knock-out on foot. Never in a town: the ER is a set on the highway side, so
+ *  she'd wake up outside town (until the hospital is a real building there — roadmap 4). */
+const erChance = () => (ctx.town && ctx.town.active ? 0 : ER_ON_FOOT);
 function knockedOut() {
     const force = ctx.foot.force.er;
-    const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < ER_ON_FOOT));
+    const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < erChance()));
     const info = { why: "Clipped by a car — on FOOT!", source: "foot" };
     if (er) {
         runKnockout(info, { fee: false, hearts: false, where: "foot" });
@@ -2135,6 +2138,8 @@ ctx.foot = {
     bounds: B.api,
     /** Test / debug knobs: { avigail, er, hail, hotwire, wreck } (tip: gone — talking pays no coins) */
     force: {},
+    /** The odds a knock-out on foot becomes an ER trip right now (0 in a town). */
+    erChance: () => erChance(),
     /** A speech bubble over anyone while she's on foot (foot's own bubbles — banter's only show while driving). */
     bubble: (anchor, text, secs = 2.4, opts = {}) => bubble(anchor, text, secs, opts),
     debug: {

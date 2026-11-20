@@ -16,9 +16,12 @@
 //   · Made it: Bubbe's door opens, Ima lights the candles (⏭ skippable), coins by
 //     margin, the 🕯️ "Made It for Candles" badge. Late: a gentle, funny fail card + retry.
 //
-//  How you find it (no new home tile): on FRIDAYS (device clock, noon → evening) a
-//  🕯️ chip in the home screen's top bar starts it in one tap; on any day, Ima may ring
-//  in Cruise — "Oy, it's erev Shabbos!" — and letting it ring turns the drive into the rush.
+//  How you find it (roadmap 10 — not a title mode): on FRIDAYS (device clock, noon → evening)
+//  it's what Ima asks for at the door when ▶ PLAY starts at home ("🕯️ get to Bubbe's before
+//  sunset") — getting in the car starts it (walk off instead: an ordinary day); once she's made
+//  it this Friday, Fridays are ordinary again. ▶ PLAY's subtitle says so on the title. On any
+//  day, Ima may ring in Cruise — "Oy, it's erev Shabbos!" — and letting it ring turns the drive
+//  into the rush. The result card ends back home in the world (features/onegame), not on the title.
 //
 //  Mode: G.mode = "shabbos" (Restart / Try again / a jail release start a fresh rush).
 //  Service: ctx.shabbos (bottom). Events: shabbos:start {via}, shabbos:call {i, result},
@@ -31,6 +34,7 @@ import { save3d, store, saveSoon, shared } from "../../core/save.js";
 import { startRun, updateDriving, endRun, addCoins, addScore, statsHtml } from "../../core/driving.js";
 import { say } from "../../core/dialog.js";
 import { glyph } from "../../input.js";
+import { addPlaySub } from "../../core/screens.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { TUNE, MIX_LATE, IMA_CALLS, ERUV_CALL, LULU_LINES, IMA_PORCH, bubbeLine, marginTag, LATE_LINES } from "./data.js";
@@ -38,13 +42,16 @@ import { now, setNow, erevShabbos, isFriday } from "./calendar.js";
 import { loadProps, ready, placePorch, setPorch, tickPorch, porchPoint, planShops, placeSign, spawnPed, tickProps, propsActor, resetProps, propsInfo } from "./props.js";
 import * as SFX from "./sfx.js";
 
-const REC = store("shabbos", { made: 0, late: 0, best: 0, tries: 0 });
+const REC = store("shabbos", { made: 0, late: 0, best: 0, tries: 0, madeDay: "" });
+const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+/** Friday afternoon, not made it yet today, solo: Ima asks for the rush at the door (features/world's home start). */
+export function atDoor() {
+    if (!ctx.enabled("shabbos") || (ctx.party && ctx.party.active)) return false;
+    const d = now();
+    return erevShabbos(d) && REC.madeDay !== dayKey(d);
+}
 
 css("shabbos", `
-.home-bar .shabbos-chip { cursor: pointer; border: 2px solid #FFB74D; background: linear-gradient(135deg, #FFF3C4, #FFCC80) !important; color: #6D3A00;
-  font-family: inherit; animation: shbGlow 2.2s ease-in-out infinite; }
-.home-bar .shabbos-chip.focus, .home-bar .shabbos-chip:hover { outline: 3px solid var(--pink, #E91E63); outline-offset: 1px; }
-@keyframes shbGlow { 0%, 100% { box-shadow: 0 0 0 rgba(255,179,0,0); } 50% { box-shadow: 0 0 12px rgba(255,179,0,.75); } }
 body.shabbos-hurry #tripLabel { color: #FFE082; text-shadow: 0 0 6px rgba(255,87,34,.9), 0 1px 0 rgba(0,0,0,.4); animation: shbPulse .8s ease-in-out infinite; }
 @keyframes shbPulse { 50% { transform: scale(1.06); } }
 .card.shb { width: min(540px, 100%); padding: 14px 18px 16px; }
@@ -343,6 +350,7 @@ function arrive() {
     addCoins(R.pay, "shabbos");
     addScore(1000 + Math.floor(R.margin) * 20, "shabbos");
     R.newBadge = before === 0;
+    REC.madeDay = dayKey(now()); saveSoon();
     R.newBest = R.margin > REC.best;
     REC.made++; REC.best = Math.max(REC.best, Math.round(R.margin)); saveSoon();
     emit("stat", { id: "shabbosMade", n: 1 });
@@ -456,6 +464,11 @@ function resultHtml(made) {
     rows.push(statsHtml());
     return `<div class="shb ${made ? "made" : "late"}">${rows.join("")}</div>`;
 }
+/** The card's way out: back in the world at home (features/onegame), or the title without it. */
+function headHome() {
+    if (ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "shabbos" });
+    else setState("title");
+}
 registerState("shabbosResult", {
     hud: false, touch: false, world: true,
     enter({ made }) {
@@ -466,8 +479,8 @@ registerState("shabbosResult", {
         if (made) A.sfxFanfare();
         H.showScreen(resultHtml(made), [
             { id: "shbAgain", label: made ? `↺ Race the sunset again ${glyph("confirm")}` : `↺ Try again ${glyph("confirm")}`, action: () => startRush("retry") },
-            { id: "shbTitle", label: made ? "⌂ Good Shabbos! (title)" : "⌂ Title screen", cls: "alt", action: () => { H.hideScreen(); setState("title"); } },
-        ], { focus: "shbAgain", cls: "shb" + (made ? " made" : ""), onBack: () => { H.hideScreen(); setState("title"); } });
+            { id: "shbTitle", label: made ? "🏠 Good Shabbos! (head home)" : "🏠 Head home", cls: "alt", action: () => { H.hideScreen(); headHome(); } },
+        ], { focus: "shbAgain", cls: "shb" + (made ? " made" : ""), onBack: () => { H.hideScreen(); headHome(); } });
     },
     exit() { H.hideScreen(); if (R.active && R.phase !== "drive") teardown(); },
     update(dt, P) {
@@ -487,32 +500,19 @@ function lateCam(dt) {
     return true;
 }
 
-// ── the Friday chip on the home screen's top bar (one tap starts it) ─────
-addMenuItem("titleInfo", {
-    id: "shabbosFriday", order: 4, bar: true,
-    visible: () => ctx.enabled("shabbos") && erevShabbos(now()) && !(ctx.party && ctx.party.active),
-    label: () => `<button class="hb shabbos-chip" id="shabbosChip" title="Erev Shabbos Rush: beat the sunset to Bubbe's">🕯️ Erev Shabbos! Race to Bubbe's ›</button>`,
+// ── Friday at the door (roadmap 10: no title chip — ▶ PLAY's subtitle says it, Ima asks at home) ─────
+// world's home start asks atDoor() for Ima's line; getting in her car (world:depart) arms the rush, from the driveway.
+const DOOR = { on: false };
+on("world:homeStart", ({ mode }) => { DOOR.on = mode === "cruise" && atDoor(); if (DOOR.on) H.toast("🕯️ Erev Shabbos! Get in the car — beat the sunset to Bubbe's", "gold", { key: "shabbos-door" }); });
+on("run:start", () => { DOOR.on = false; });
+on("world:depart", ({ mode, left }) => {
+    if (!DOOR.on) return;
+    DOOR.on = false;
+    if (mode !== "cruise" || left || R.active || !atDoor()) return;      // (she walked off first: an ordinary day)
+    arm(ctx.G, "home");
+    H.banner(`🕯️ <b>Erev Shabbos Rush!</b><small>Beat the sunset to Bubbe's — ${fmtTime(R.total)}</small>`, 2600, { prio: 2, key: "shabbos" });
 });
-document.addEventListener("click", e => {
-    const b = e.target && e.target.closest ? e.target.closest("#shabbosChip") : null;
-    if (!b || ctx.state !== "title") return;
-    A.sfxSelect();
-    startRush("title");
-});
-// the chip is first in the DOM: keep the default focus on the Story Trip hero (players reach the chip with ↑)
-let seenSeq = "";
-hook("titleCamera", () => {
-    const card = H.screenOpen() ? H.screenCard() : null;
-    const home = card && card.querySelector(".home");
-    if (!home) return false;
-    const seq = home.dataset.titleSeq;
-    if (seq === seenSeq) return false;
-    seenSeq = seq;
-    const f = card.querySelector(".focus");
-    const hero = card.querySelector(".tile.hero");
-    if (f && f.id === "shabbosChip" && hero) H.setFocus(hero);
-    return false;
-}, 5);
+addPlaySub(() => atDoor() ? `🕯️ <b>Erev Shabbos!</b> Ima needs you at Bubbe's before sunset` : "", 10);
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.shabbos = {
@@ -527,8 +527,10 @@ ctx.shabbos = {
     start: (via = "title") => startRush(via),
     /** Cruise: Ima rings with "Oy, it's erev Shabbos!" (false if now's not a good moment). */
     offer,
-    /** Is it Friday afternoon on this device (the title feature)? */
+    /** Is it Friday afternoon on this device? */
     friday: () => erevShabbos(now()),
+    /** Friday afternoon + not made it yet today: Ima asks for it at the door (world's home start). */
+    atDoor,
     records: REC,
     debug: {
         /** Pin the device clock ("2026-11-20T15:00", local) — null = the real clock. */
