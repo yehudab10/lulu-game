@@ -65,9 +65,11 @@ const carNow = () => party() && ctx.state === "playing" && !!ctx.G && ctx.G.mode
 const roomNow = () => party() && ctx.state === "interior" && !!(ctx.together && ctx.together.inRoom && ctx.together.inRoom());
 /** Can I emote right now? (on foot — solo or a party — or in the car with friends) */
 function allowed() {
-    if (ctx.paused || ctx.dialogOpen || H.screenOpen() || ctx.view) return false;
+    if (ctx.paused || ctx.dialogOpen || H.screenOpen()) return false;
     if (ctx.phone && ctx.phone.isOpen) return false;
-    return onFootNow() || carNow() || roomNow();
+    if (roomNow()) return true;                     // (a room is drawn as its own view — that's fine)
+    if (ctx.view) return false;
+    return onFootNow() || carNow();
 }
 function myPos() { return onFootNow() && ctx.foot.pos ? ctx.foot.pos : ctx.car ? ctx.car.pos : null; }
 

@@ -47,6 +47,9 @@ const DEF = defineInterior({
     build, tick, dispose,
 });
 export const HOUSE_ID = DEF.id;
+const TAGLINE = DEF.tagline;
+/** With friends it's a visit, not a makeover: the welcome line says so. */
+export function houseVisit(on) { DEF.tagline = on ? "friends over — the kugel's on the table 🥘" : TAGLINE; }
 
 function kit(name) {
     const src = models.homesKit && findNodes(models.homesKit, "Kit_" + name)[0];

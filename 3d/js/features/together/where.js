@@ -25,6 +25,13 @@ export function townName(id) { const T = ctx.town && ctx.town.towns; return (T &
 export function friendHex(uid) { try { return ctx.party.skinHex(ctx.party.skinOf(uid)); } catch (e) { return "#E91E63"; } }
 export const friends = () => (ctx.party && ctx.party.active ? ctx.party.members().filter(u => u !== ctx.party.uid) : []);
 
+/** A town's local point → world (an attached town is turned to its interchange: ci/oneworld's plan.world). */
+export function toW(plan, lx, lz) { return plan.world ? plan.world(lx, lz, {}) : { x: plan.ORIGIN.x + lx, z: plan.ORIGIN.z + lz }; }
+/** …and back. */
+export function toL(plan, x, z) {
+    const dx = x - plan.ORIGIN.x, dz = z - plan.ORIGIN.z, co = plan.COS == null ? 1 : plan.COS, si = plan.SIN || 0;
+    return { x: dx * co - dz * si, z: dx * si + dz * co };
+}
 /** The ramps out of the town I'm in (world points a little inside each ramp mouth). */
 export function townExits() {
     const T = ctx.town, plan = T && T.active && T.plan;
@@ -35,7 +42,8 @@ export function townExits() {
         if (!st || (st.axis !== "ns" && st.axis !== "ew")) continue;
         const along = e.at + e.dir * -10, d = e.dir * 1.75;
         const x = st.axis === "ns" ? st.c - d : along, z = st.axis === "ns" ? along : st.c + d;
-        out.push({ x: plan.ORIGIN.x + x, z: plan.ORIGIN.z + z, name: e.name || e.street });
+        const w = toW(plan, x, z);
+        out.push({ x: w.x, z: w.z, name: e.name || e.street });
     }
     return out;
 }

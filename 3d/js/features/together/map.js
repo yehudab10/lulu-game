@@ -7,7 +7,7 @@
 // Tap a dot or a row → a DESTINATION: one soft beam over that friend in the world + their pointer stays on with
 // the distance (features/together/index.js). Tap it again → cleared. Plus the 🧭 pointers switch.
 import { ctx, css } from "../../core/ctx.js";
-import { locateAll, locate, myPos, myZone, zoneOf, townName, friendHex, friends, townExits, fmtDist } from "./where.js";
+import { locateAll, locate, myPos, myZone, zoneOf, townName, friendHex, friends, townExits, fmtDist, toL } from "./where.js";
 
 css("together-map", `
 .tg-map { position: relative; border-radius: 16px; overflow: hidden; background: #E8F0E2; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); margin: 2px 0 8px; }
@@ -63,38 +63,39 @@ function draw(cv, list, dest) {
     };
     const T = ctx.town, plan = Z && T && T.plan;
     if (plan) {
-        // ── a town, north up: fit the streets' bounds ──
+        // ── a town from above, in its OWN frame (its streets square to the card): fit the streets' bounds ──
         let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-        const segs = plan.STREETS.map(st => {
-            const a = { x: plan.ORIGIN.x + st.px + st.ux * st.a0, z: plan.ORIGIN.z + st.pz + st.uz * st.a0 };
-            const b = { x: plan.ORIGIN.x + st.px + st.ux * st.a1, z: plan.ORIGIN.z + st.pz + st.uz * st.a1 };
-            if (st.axis === "ns") { a.x = b.x = plan.ORIGIN.x + st.c; a.z = plan.ORIGIN.z + st.a0; b.z = plan.ORIGIN.z + st.a1; }
-            if (st.axis === "ew") { a.z = b.z = plan.ORIGIN.z + st.c; a.x = plan.ORIGIN.x + st.a0; b.x = plan.ORIGIN.x + st.a1; }
+        const segs = plan.STREETS.filter(st => st !== plan.APPROACH).map(st => {
+            let a, b;
+            if (st.axis === "ns") { a = { x: st.c, z: st.a0 }; b = { x: st.c, z: st.a1 }; }
+            else if (st.axis === "ew") { a = { x: st.a0, z: st.c }; b = { x: st.a1, z: st.c }; }
+            else { a = { x: st.px + st.ux * st.a0, z: st.pz + st.uz * st.a0 }; b = { x: st.px + st.ux * st.a1, z: st.pz + st.uz * st.a1 }; }
             for (const p of [a, b]) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
             return [a, b];
         });
         const pad = 18 * U, sc = Math.min((W - pad * 2) / Math.max(1, x1 - x0), (Hh - pad * 2) / Math.max(1, z1 - z0));
         const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-        // a fixed orientation (world +z up, +x left — a heading h points the arrow at −h): the map never spins
-        const px = x => W / 2 - (x - cx) * sc, py = z => Hh / 2 - (z - cz) * sc;
+        // local +z up, +x left (a local heading h points the arrow at −h): the map never spins
+        const lpx = x => W / 2 - (x - cx) * sc, lpy = z => Hh / 2 - (z - cz) * sc;
+        const px = (x, z) => lpx(toL(plan, x, z).x), py = (x, z) => lpy(toL(plan, x, z).z);
         g.lineCap = "round";
         g.strokeStyle = "#FFFFFF"; g.lineWidth = Math.max(4 * U, 9 * sc);
-        for (const [a, b] of segs) { g.beginPath(); g.moveTo(px(a.x), py(a.z)); g.lineTo(px(b.x), py(b.z)); g.stroke(); }
+        for (const [a, b] of segs) { g.beginPath(); g.moveTo(lpx(a.x), lpy(a.z)); g.lineTo(lpx(b.x), lpy(b.z)); g.stroke(); }
         g.strokeStyle = "rgba(120,110,100,.35)"; g.lineWidth = 1 * U;
-        for (const [a, b] of segs) { g.beginPath(); g.moveTo(px(a.x), py(a.z)); g.lineTo(px(b.x), py(b.z)); g.stroke(); }
+        for (const [a, b] of segs) { g.beginPath(); g.moveTo(lpx(a.x), lpy(a.z)); g.lineTo(lpx(b.x), lpy(b.z)); g.stroke(); }
         for (const e of townExits()) {
-            const x = px(e.x), y = py(e.z);
+            const x = px(e.x, e.z), y = py(e.x, e.z);
             g.font = `${12 * U}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
             g.fillText("🛣️", Math.max(10 * U, Math.min(W - 10 * U, x)), Math.max(10 * U, Math.min(Hh - 10 * U, y)));
         }
         for (const l of list) {
             if (l.zone !== Z || l.kind === "exit") continue;
-            const x = Math.max(10 * U, Math.min(W - 10 * U, px(l.x))), y = Math.max(10 * U, Math.min(Hh - 10 * U, py(l.z)));
+            const x = Math.max(10 * U, Math.min(W - 10 * U, px(l.x, l.z))), y = Math.max(10 * U, Math.min(Hh - 10 * U, py(l.x, l.z)));
             dot(x, y, l.hex, l.name, l.uid === dest, l.inside ? "🏠" : l.foot ? "🚶‍♀️" : "");
             pts.push({ uid: l.uid, x, y });
         }
         const h = ctx.foot && ctx.foot.active && ctx.foot.facing != null ? ctx.foot.facing : ctx.car.h;
-        meArrow(px(me.x), py(me.z), -h);
+        meArrow(px(me.x, me.z), py(me.x, me.z), -(h + (plan.ROT || 0)));
         return pts;
     }
     // ── the highway: one straight strip, ahead = up — zoomed to fit the friends (and the next exit) ──

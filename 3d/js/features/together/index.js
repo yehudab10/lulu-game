@@ -45,6 +45,7 @@ function setPointers(v) { S.pointers = !!v; saveSoon(); emit("settings", { id: "
 
 addMenuItem("settings", {
     id: "friendPointers", order: 59,
+    visible: () => !!(ctx.party && ctx.party.active),          // (only with friends — the 📱 map has the same switch)
     label: () => `🧭 Friend pointers <b>${pointersOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${pointersOn() ? "a small arrow at the edge for each friend in your party" : "the 📱 map still shows them"}</small>`,
     action: () => setPointers(!pointersOn()),
 });

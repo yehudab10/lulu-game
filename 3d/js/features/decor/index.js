@@ -33,7 +33,7 @@ import { home, S_HOME } from "../world/home.js";
 import { SLOTS, SETS, slotById, optOf, setPieces, LINES } from "./data.js";
 import { buildOption, disposeObj } from "./props.js";
 import { openPicker, pickerTick, pickerOpen, closePicker, pickerSlot } from "./picker.js";
-import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
+import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, houseVisit, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
 
 const S = store("decor", { owned: {}, placed: {}, spent: 0, bought: 0, sets: [], visits: 0, nudges: 0 });
 // (a hand-edited / old save: keep only what the catalogue knows)
@@ -268,6 +268,7 @@ on("boot", () => {
         reg.enter = (opts = {}) => {
             const exit0 = opts.exit;
             const P = ctx.party;
+            houseVisit(!allowed());
             if (P && P.active) { P.setX("dc", encodeDc()); }
             return enter0(Object.assign({}, opts, { exit: () => {
                 if (P && P.setX) P.setX("dc", null);
