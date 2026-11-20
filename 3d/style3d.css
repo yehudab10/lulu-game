@@ -112,16 +112,20 @@ html, body {
 /* touch, landscape: a slim speed pill under the trip bar, clear of the car and the thumbs */
 @media (min-aspect-ratio: 1/1) {
     body.touch .hud-br { right: auto; left: 50%; transform: translateX(-50%); bottom: auto; top: calc(max(12px, env(safe-area-inset-top)) + 62px); }
-    body.touch .speedo { width: auto; display: flex; align-items: center; gap: 8px; padding: 4px 14px; border-radius: 999px; }
-    body.touch #mph { font-size: 22px; min-width: 2ch; }
-    body.touch .speedo .boost { width: 72px; margin: 0; }
+    body.touch .speedo { width: auto; display: flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; }
+    body.touch #mph { font-size: 16px; min-width: 2ch; }
+    body.touch .speedo .unit { font-size: 9px; letter-spacing: 0.12em; }
+    body.touch .speedo .boost { width: 56px; height: 7px; margin: 0; }
     body.touch .speedo .boost-label { display: none; }
 }
 /* touch, portrait: speedo above the pedals, trip bar below the left-hand pills, nitro over the stick */
 @media (max-aspect-ratio: 1/1) {
     body.touch .hud-br { right: max(16px, env(safe-area-inset-right)); bottom: calc(max(16px, env(safe-area-inset-bottom)) + 284px); }
-    body.touch .speedo { width: 104px; padding: 7px 10px 9px; border-radius: 18px; }
-    body.touch #mph { font-size: 32px; }
+    body.touch .speedo { width: 76px; padding: 5px 8px 7px; border-radius: 14px; }
+    body.touch #mph { font-size: 21px; }
+    body.touch .speedo .unit { font-size: 9px; letter-spacing: 0.12em; }
+    body.touch .speedo .boost { margin-top: 5px; height: 7px; }
+    body.touch .speedo .boost-label { font-size: 9px; margin-top: 3px; }
     body.touch .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 138px); width: 78vw; }
     body.touch #tBoost { position: fixed; left: max(24px, env(safe-area-inset-left)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + 196px); }
 }

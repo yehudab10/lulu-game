@@ -9,10 +9,12 @@
 // what they're doing; whoever opted in lines up at the spot when it starts (back in their car if they were
 // walking). Solo, the card starts the solo games (time trial, photo hunt) at once. The 📱 👯 app stays a shortcut.
 //
-// The props are a handful of plain three.js boxes + one canvas texture each (no new .glb: ~6 draw calls a spot),
+// The props are a handful of plain three.js boxes (baked into ONE vertex-coloured mesh) + canvas-textured faces
+// (no new .glb: 2–4 draw calls a spot),
 // built when the town is entered and disposed with it. Placed from ctx.town.spot(…) — never fixed coordinates
 // (towns move: ci/oneworld).
 import * as THREE from "three";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx, on, emit, hook } from "../../core/ctx.js";
 import { input, glyph } from "../../input.js";
 import * as H from "../../hud.js";
@@ -100,6 +102,44 @@ function makeBoard() {
     g.add(frame, face);
     return g;
 }
+/** One draw call for a prop's plain painted boxes: every mesh with no texture and no glow is baked into a single
+ *  vertex-coloured mesh (same colours / roughness); the textured faces and the glowing buttons stay as they are.
+ *  (The arcade was 12 meshes — a dozen draw calls in the town's busiest view.) */
+let bakedMat = null;
+function bake(g) {
+    const flat = g.children.filter(o => o.isMesh && !o.material.map && !(o.material.emissiveIntensity > 0 && o.material.emissive.getHex() !== 0));
+    if (flat.length < 2) return g;
+    const geos = flat.map(o => {
+        o.updateMatrix();
+        const geo = o.geometry.clone().applyMatrix4(o.matrix);
+        const n = geo.attributes.position.count, col = new Float32Array(n * 3), c = o.material.color;
+        for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+        geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+        return geo;
+    });
+    const merged = mergeGeometries(geos, false);
+    for (const geo of geos) geo.dispose();
+    if (!merged) return g;
+    SP.geos.push(merged);
+    if (!bakedMat) bakedMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.05 });
+    for (const o of flat) g.remove(o);
+    g.add(new THREE.Mesh(merged, bakedMat));
+    // (the rest: meshes that share one untextured material — the arcade's three glowing buttons — one draw call too)
+    const byMat = new Map();
+    for (const o of g.children) if (o.isMesh && !o.material.map && o.material !== bakedMat) byMat.set(o.material, (byMat.get(o.material) || []).concat(o));
+    for (const [m, list] of byMat) {
+        if (list.length < 2) continue;
+        const gs = list.map(o => { o.updateMatrix(); return o.geometry.clone().applyMatrix4(o.matrix); });
+        const one = mergeGeometries(gs, false);
+        for (const geo of gs) geo.dispose();
+        if (!one) continue;
+        SP.geos.push(one);
+        for (const o of list) g.remove(o);
+        g.add(new THREE.Mesh(one, m));
+    }
+    return g;
+}
+
 /** A 🎮 label floating over a spot (so you find it from the car). */
 function makeTag(emoji) {
     const t = canvasTex((c, w, h) => { c.font = `110px ${EMO}`; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(emoji, w / 2, h / 2 + 6); }, 128, 128);
@@ -125,7 +165,7 @@ function build() {
         const nx = sp.nx != null ? sp.nx : Math.sin(rot), nz = sp.nz != null ? sp.nz : Math.cos(rot);
         const ux = sp.ux != null ? sp.ux : Math.cos(rot), uz = sp.uz != null ? sp.uz : -Math.sin(rot);
         const x = sp.x + ux * P.u + nx * P.n, z = sp.z + uz * P.u + nz * P.n;
-        const obj = P.kind === "arcade" ? makeArcade() : makeBoard();
+        const obj = bake(P.kind === "arcade" ? makeArcade() : makeBoard());
         obj.position.set(x, 0, z);
         obj.rotation.y = Math.atan2(nx, nz);
         obj.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });   // (the contact shadow grounds it: no shadow-pass cost)

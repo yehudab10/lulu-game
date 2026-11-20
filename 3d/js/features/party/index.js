@@ -809,7 +809,10 @@ function holdCtl(dt, speed) {
     const car = ctx.car;
     const c = autoDrive(dt, car.d > 3.5 ? 5.25 : car.d < -3.5 ? -5.25 : car.d < 0 ? -1.75 : 1.75, speed);
     c.throttle = speed > 0 ? c.throttle : 0;
-    c.brake = speed > 0 ? c.brake : (car.vF > 0.4 ? 0.6 : 1);
+    // hold still: brake while she's still rolling forward, then the HANDBRAKE — never the brake pedal at a standstill
+    // (the brake is also reverse: with the phone / pause up in a party the car backed down the highway)
+    c.brake = speed > 0 ? c.brake : (car.vF > 0.6 ? 0.6 : 0);
+    if (speed <= 0) { c.handbrake = true; if (car.vF < -0.2) c.throttle = 0.25; }
     return c;
 }
 function waitCtl(dt) {

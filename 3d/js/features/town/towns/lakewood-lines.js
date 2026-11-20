@@ -46,6 +46,11 @@ export const SIGNS = {
     plaque: ["IN HONOR OF", "THE MINIVAN"],
     bandBus: ["THE MAZEL TONES", "simcha band · 11 players · 1 bus · 0 parking"],
     bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
+    // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
+    precinct: ["POLICE · PRECINCT 18½", "we bend the rules so you don't have to"],
+    court: ["LAKEWOOD MUNICIPAL COURT", "justice · traffic tickets · Tuesdays only"],
+    hospital: ["ST. SHLOIMY'S MEDICAL CENTER", "urgent care · ER · free lollipops for brave kids"],
+    impound: ["IMPOUND LOT", "authorized vehicles only"],
 };
 
 // ── Lulu ─────────────────────────────────────────────────────────────────

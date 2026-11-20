@@ -16,7 +16,9 @@ import { save3d, wallet } from "../../core/save.js";
 import { models, findNodes } from "../../models.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { PL, streetPoint, streetCoords, otherAt, nodeAlong, headingOf, sightBlocked } from "../town/plan.js";
+import { PL, streetPoint, streetCoords, otherAt, nodeAlong, headingOf as headingLocal, sightBlocked, toWorld, toLocal, wH } from "../town/plan.js";
+/** A street direction's WORLD heading (the town can stand turned at its interchange). */
+const headingOf = (st, dir) => wH(headingLocal(st, dir));
 import { Rig, LodCrowd, crowdMaterial } from "./rig.js";
 import { PED, CROWD, TOPS, BOTTOMS, HAIRS, SHEITELS } from "./data.js";
 
@@ -163,14 +165,15 @@ function addWalker(type, st, along, dir, side, R) {
 }
 function place(p) {
     const pt = streetPoint(p.st, p.along, p.side * p.lat, _p);
-    p.x = PL.ORIGIN.x + pt.x; p.z = PL.ORIGIN.z + pt.z;
+    toWorld(pt.x, pt.z, p);
     if (p.h === 0 && !p.turned) { p.h = headingOf(p.st, p.dir); p.turned = true; }
 }
 function stepWalker(p, dt) {
     if (p.flee) {                                   // jumping out of a car's way
         p.flee.t -= dt;
         p.x += p.flee.vx * dt; p.z += p.flee.vz * dt;
-        const sc = streetCoords(p.st, p.x - PL.ORIGIN.x, p.z - PL.ORIGIN.z, _l);
+        toLocal(p.x, p.z, _l);
+        const sc = streetCoords(p.st, _l.x, _l.z, _l);
         p.along = sc.along; p.lat = Math.abs(sc.d); p.side = Math.sign(sc.d) || 1;
         if (p.flee.t <= 0) p.flee = null;
         return;
@@ -214,12 +217,12 @@ function respawnNear(p, lp, _d) {
         const off = (Math.random() < 0.5 ? -1 : 1) * (TUNE.BACK[0] + Math.random() * (TUNE.BACK[1] - TUNE.BACK[0]));
         const along = Math.max(st.a0 + 8, Math.min(st.a1 - 8, sc.along + off));
         const side = Math.random() < 0.5 ? -1 : 1, lat = p.kind === "walker" ? (st.outer + st.walk) / 2 : 0;
-        const pt = streetPoint(st, along, side * lat, _p), wx = PL.ORIGIN.x + pt.x, wz = PL.ORIGIN.z + pt.z;
+        const pt = streetPoint(st, along, side * lat, _p), pw = toWorld(pt.x, pt.z, {}), wx = pw.x, wz = pw.z;
         const dl = Math.hypot(wx - lp.x, wz - lp.z);
         if (dl < TUNE.BACK[0] - 4 || dl > TUNE.BACK[1] + 12) continue;
         // not popping in right in front of the camera
         const cx = wx - cam.x, cz = wz - cam.z, cd = Math.hypot(cx, cz);
-        if (cd < 50 && (cx * fx + cz * fz) / (cd || 1) > 0.5 && !sightBlocked(cam.x - PL.ORIGIN.x, cam.z - PL.ORIGIN.z, pt.x, pt.z)) continue;
+        if (cd < 50 && (cx * fx + cz * fz) / (cd || 1) > 0.5 && !sightBlocked(toLocal(cam.x, cam.z, _cl).x, _cl.z, pt.x, pt.z)) continue;
         p.st = st; p.along = along; p.dir = Math.random() < 0.5 ? 1 : -1; p.lastNode = null;
         if (p.kind === "walker") { p.side = side; p.lat = lat; p.want = lat; place(p); p.h = headingOf(st, p.dir); }
         else { p.h = headingOf(st, p.dir); bikePlace(p); }
@@ -228,7 +231,8 @@ function respawnNear(p, lp, _d) {
     }
     return false;
 }
-const toLocalXZ = (x, z) => { _l.x = x - PL.ORIGIN.x; _l.z = z - PL.ORIGIN.z; return _l; };
+const toLocalXZ = (x, z) => toLocal(x, z, _l);
+const _cl = {}, _pl = {};
 
 // ── porches / lawns / driveways (they stay put) ─────────────────────────
 function addPorch(type, h, R, drives) {
@@ -275,7 +279,7 @@ function addBike(st, along, dir, R) {
 function bikePlace(p) {
     const lane = p.dir * (3.5 * (p.st.lanes || 1) - 0.9);
     const pt = streetPoint(p.st, p.along, lane, _p);
-    p.x = PL.ORIGIN.x + pt.x; p.z = PL.ORIGIN.z + pt.z;
+    toWorld(pt.x, pt.z, p);
     const want = headingOf(p.st, p.dir);
     let d = want - p.h; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
     p.h += d * Math.min(1, 0.3);
@@ -342,7 +346,7 @@ export function tickCrowd(dt) {
             else if (p.kind === "bike") stepBike(p, sdt, lp);
             p.t += sdt;
             react(p, sdt, lp, foot, fast, cfx, cfz);
-            if (d > 22 && (C.frame + i) % 6 === 0) p.occ = sightBlocked(cam.x - PL.ORIGIN.x, cam.z - PL.ORIGIN.z, p.x - PL.ORIGIN.x, p.z - PL.ORIGIN.z);
+            if (d > 22 && (C.frame + i) % 6 === 0) { toLocal(cam.x, cam.z, _cl); toLocal(p.x, p.z, _pl); p.occ = sightBlocked(_cl.x, _cl.z, _pl.x, _pl.z); }
             else if (d <= 22) p.occ = false;
         }
         if (d > TUNE.FAR || p.occ) { nHid++; continue; }
