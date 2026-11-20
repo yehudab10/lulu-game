@@ -135,14 +135,14 @@ async function oneWorld(t, g, watch, moved) {
   if (await g(`ctx.town.active`)) await g(`ctx.town.leave("reset")`);
   await g(`(L3.state !== "playing" ? L3.setState("playing") : 0, ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
   const E = await g(`ctx.town.debug.exitAhead(700)`);
-  t.check("an interchange is planned ahead (where both towns fit by the road)", E > 0, String(E));
-  t.check("…the towns stand ≥ 100 m clear of the highway there", await g(`ctx.town.debug.fits(${E})`));
+  t.check("Lakewood's own exit is planned ahead (where it fits by the road)", E > 0, String(E));
+  t.check("…the town stands ≥ 100 m clear of the highway there", await g(`ctx.town.debug.fits(${E}, "lakewood")`));
   // she comes up the right lane toward it; the towns build in slices as she nears (BUILD_FROM 900 m)
   await g(`(() => { const s = ${E} - 600, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
     ctx.car.vx = Math.sin(p.h) * 14; ctx.car.vz = Math.cos(p.h) * 14; ctx.car.vF = 14; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
   await g(`(window.__route = { pts: ctx.town.debug.rampRoute(${E}, 0, -580).map(([u, d]) => ctx.world.highway.point(${E} + u, d, {})).map(p => ({ x: p.x, z: p.z })), v: 13, r: 5 }, true)`);
-  await t.until(`__lulu3d.ctx.town.standing.length >= 2 && __lulu3d.ctx.town.standing.every(b => b.ready)`, "both towns are built before she reaches the ramp", 60000);
-  const st = await g(`ctx.town.standing`);
+  await t.until(`(() => { const b = __lulu3d.ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1); return b.length >= 1 && b.every(b => b.ready); })()`, "the town is built before she reaches the ramp", 60000);
+  const st = await g(`ctx.town.standing.filter(b => Math.abs(b.exitS - ${E}) < 1)`);
   t.check("…in slices (each a few hundred steps)", st.every(b => b.steps > 50), JSON.stringify(st.map(b => [b.town, b.steps, b.worst])));
   // (single spikes are the garbage collector landing in a step; 99 % of the steps are what the build itself costs)
   t.check("…the slices stay small (99 % ≤ 8 ms here — software GL on a busy CPU; the budget is ~3 ms a frame)", st.every(b => b.p99 <= 8), JSON.stringify(st.map(b => [b.town, b.p95, b.p99, b.worst, b.ms])));

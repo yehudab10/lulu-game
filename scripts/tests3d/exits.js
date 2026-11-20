@@ -1,7 +1,7 @@
 // 🛣️ Highway exits + 🅿️ rest areas (features/exits, with features/town's interchanges).
-//   • a Cruise run plans interchanges that offer BOTH towns, and rest areas clear of them
+//   • a Cruise run plans each town's OWN interchange (Midwood's, then Lakewood's — ci/exits2), and rest areas clear of them
 //   • passing an interchange in the right lane enters no town; drifting into the decel lane and back doesn't either
-//   • the inner branch → Lakewood, the outer branch → Midwood (Brooklyn); the cue + the next-exit chip show
+//   • Lakewood's exit → Lakewood, Midwood's exit → Midwood (Brooklyn); the cue + the next-exit chip show
 //   • a rest area: decel lane → off-ramp → the lot; the pump bay fills nitro for coins; out on foot: the food
 //     court heals, the restrooms gag, the vending machine, the souvenir stand, a picnic table, the dog, a trucker;
 //     back in the car, Mendel's bay takes the dents out; the on-ramp merges back onto the highway
@@ -55,13 +55,13 @@ module.exports = {
     t.check("party: exits (seeded rest areas) and the towns are ON (not in the OFF set — partyplus tests them)", await t.L(`fetch("js/features/party/index.js").then(r => r.text()).then(s => { const m = /const OFF = new Set\\(\\[([^\\]]*)\\]/.exec(s); return !!m && !/"exits"/.test(m[1]) && !/"town"/.test(m[1]); })`));
     t.check("the ramps + the lot are paved (core's paved registry has entries)", await t.L(`import("./js/core/driving.js").then(m => m.paved.length >= 2)`));
 
-    // ── 1. a Cruise run: interchanges with both towns, rest areas clear of them ──
+    // ── 1. a Cruise run: each town its own interchange, rest areas clear of them ──
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await t.until(`__lulu3d.ctx.town.debug.X.exits.length > 0 && __lulu3d.ctx.exits.rests.length > 0`, "a Cruise run plans an interchange and a rest area", 10000);
-    t.check("every interchange offers both towns (Lakewood · Midwood)", await g(`ctx.town.debug.X.exits.every(e => e.towns.map(t => t.id).join(",") === "lakewood,midwood")`), await g(`ctx.town.debug.X.exits.map(e => e.towns.map(t => t.id).join("+")).join(" | ")`));
-    t.check("ctx.town.exits lists a row per town (91 Lakewood, 9 Brooklyn)", await g(`(() => { const x = ctx.town.exits; return x.some(e => e.id === "lakewood" && e.no === "91") && x.some(e => e.id === "midwood" && e.no === "9"); })()`));
-    t.check("the interchange signs list both (EXITS 91 · 9 · LAKEWOOD · BROOKLYN)", await g(`ctx.world.signs.some(s => /EXITS 91 · 9/.test(s.lines.join(" ")) && /LAKEWOOD · BROOKLYN/.test(s.lines.join(" ")))`));
+    t.check("every interchange is ONE town's (no ramp that splits), Midwood's first", await g(`ctx.town.debug.X.exits.every(e => e.towns.length === 1) && ctx.town.debug.X.exits[0].town.id === "midwood"`), await g(`ctx.town.debug.X.exits.map(e => e.towns.map(t => t.id).join("+")).join(" | ")`));
+    t.check("ctx.town.exits lists a row per exit (9 Brooklyn, then 91 Lakewood)", await g(`(() => { const x = ctx.town.exits; return x.length >= 2 && x[0].id === "midwood" && x[0].no === "9" && x[1].id === "lakewood" && x[1].no === "91"; })()`), JSON.stringify(await g(`ctx.town.exits.map(e => [e.id, e.no, Math.round(e.s)])`)));
+    t.check("each exit has its own signs (LAKEWOOD … NEXT EXIT; BROOKLYN · MIDWOOD …) — no shared 'LAKEWOOD OR BROOKLYN?' board", await g(`ctx.world.signs.some(s => /^LAKEWOOD NEXT EXIT/.test(s.lines.join(" "))) && ctx.world.signs.some(s => /BROOKLYN · MIDWOOD/.test(s.lines.join(" "))) && !ctx.world.signs.some(s => /LAKEWOOD OR BROOKLYN/.test(s.lines.join(" ")))`));
     t.check("a rest area is signed ahead (REST AREA · 1 MI · … REGRET)", await g(`ctx.world.signs.some(s => /REST AREA · 1 MI/.test(s.lines.join(" ")) && /REGRET/.test(s.lines.join(" ")))`));
     t.check("rest areas keep clear of the interchanges", await g(`(() => { const sp = ctx.exits.spans(), T = ctx.town.span; return ctx.town.debug.X.exits.every(e => sp.every(o => o.b < e.s + T.a || o.a > e.s + T.b)); })()`), JSON.stringify(await g(`[ctx.town.exits.map(e => Math.round(e.s)), ctx.exits.rests.map(r => Math.round(r.s))]`)));
     t.check("…and of the pull-in places (Gas 'n' Go, the Lookout)", await g(`(() => { const P = ctx.places, near = []; for (const p of P.list()) if (!/^exits_/.test(p.id)) for (const x of P.at(p.id)) near.push(x); return ctx.exits.rests.every(r => near.every(x => x < r.s - 320 || x > r.s + 520)); })()`));
@@ -81,7 +81,7 @@ module.exports = {
       t.check("an interchange can be planned ahead", typeof E === "number", String(E));
       await place(E - 330, 5.25, 22);
       await t.frames(8);
-      t.check("the next-exit chip shows both towns (≤ 1 mi ahead)", await t.L(`/EXIT.*91.*LAKEWOOD.*9.*BROOKLYN/.test((document.querySelector(".exits-chip") || {}).textContent || "")`), await t.L(`(document.querySelector(".exits-chip") || {}).textContent || "none"`));
+      t.check("the next-exit chip shows its town (≤ 1 mi ahead)", await t.L(`/EXIT.*91.*LAKEWOOD/.test((document.querySelector(".exits-chip") || {}).textContent || "")`), await t.L(`(document.querySelector(".exits-chip") || {}).textContent || "none"`));
       t.check("…as a .hud-secondary chip (HUD Clean hides it)", await t.L(`!!document.querySelector(".exits-chip.hud-secondary")`));
       // into the decel lane (the cue), then back into the right lane before the gore
       await route(E, [[-260, 5.25], [-200, 6.2], [-150, 8.6], [-110, 8.7], [-70, 8.4], [-40, 6.2], [-10, 5.25], [40, 5.25], [90, 5.25], [140, 5.25], [190, 5.25], [240, 5.25], [290, 5.25]], 20, { r: 6 });
@@ -94,13 +94,13 @@ module.exports = {
       await noRoute();
     });
 
-    for (const [which, outer, id] of [["lakewood", false, "lakewood"], ["brooklyn", true, "midwood"]]) {
+    for (const [which, outer, id] of [["lakewood", false, "lakewood"], ["brooklyn", false, "midwood"]]) {
       await step(which, async () => {
-        // ── 3. the inner branch → Lakewood, the outer branch → Brooklyn (Midwood) ──
+        // ── 3. Lakewood's exit → Lakewood, Midwood's exit → Brooklyn (Midwood): each its own one-branch interchange ──
         if (await g(`ctx.town.active`)) await g(`ctx.town.leave("quiet")`);
         const s0 = await g(`ctx.car.s`);
         await place(s0 + 1200, 5.25, 15);
-        const E = await g(`ctx.town.debug.exitAhead(600)`);
+        const E = await g(`ctx.town.debug.exitAhead(600, "${id}")`);
         await g(`ctx.town.load("${id}")`);
         await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models load`, 60000);
         await place(E - 240, 5.25, 15);
@@ -138,7 +138,7 @@ module.exports = {
       await place(E + 40, 5.25, 0);
       await t.frames(30);
       const L = await g(`ctx.town.debug.exitLayout(${E})`);
-      t.check("the layout: a T-junction STOP line per branch, cross roads, guardrails", L && L.stops.length === 2 && L.roads.length === 2 && L.rails.length >= 4, JSON.stringify(L && { stops: L.stops, roads: L.roads.length, rails: L.rails.length }));
+      t.check("the layout: one branch — its T-junction STOP line, its cross road, guardrails", L && L.stops.length === 1 && L.roads.length === 1 && L.rails.length >= 2, JSON.stringify(L && { stops: L.stops, roads: L.roads.length, rails: L.rails.length }));
       t.check("…the far end has its roadside: STOP signs, guide boards, a gas station, Welcome signs, houses, crash cushions", ["exits_stop", "exits_guide", "exits_pylon", "exits_canopy", "exits_welcome", "house", "exits_cushion", "exits_advisory"].every(k => L.props.some(p => p.key === k)));
       // every prop / rail of the layout is off the lanes
       const scan = await t.L(`import("./js/world.js").then(W => { const c = __lulu3d.ctx, E = ${E}, L = c.town.debug.exitLayout(E), bad = [];
@@ -154,11 +154,11 @@ module.exports = {
           for (const ch of c.world.chunks.values()) for (const co of ch.colliders) { const n = near(co.x, co.z, E); if (n.s < E - 260 || n.s > E + 450 || co.kind === "car") continue; cols++; if (!W.offLanes(n.s, n.d, Math.max(0.15, co.r * 0.8), Math.max(0.15, co.r * 0.8))) bad.push(co.kind + "@" + Math.round(n.s - E) + "," + n.d.toFixed(1)); }
           return { signs, cols, bad }; })`);
       t.check("no sign, prop, rail or collider overlaps the interchange's lanes (decel / ramps / gores / cross roads / on-ramp / accel)", !scan.bad.length && scan.cols > 20, JSON.stringify(scan).slice(0, 400));
-      t.check("the exit-number tabs ride on the advance signs", await g(`ctx.world.signs.some(s => s.tab === "EXITS 91 · 9")`));
+      t.check("the exit-number tab rides on the advance signs", await g(`ctx.world.signs.some(s => s.tab === "EXIT 91")`));
       // the views + perf (a highway baseline on the same stretch first)
       await place(E - 2600, 5.25, 0); await t.frames(20);
       const base = await perf(60);
-      for (const [label, u, dx] of [["exit-taper", -280, "5.25"], ["exit-gore", -70, "9.1"], ["exit-split", 2, "m.rampD(2) + 1"], ["exit-tee-lakewood", 128, "m.rampD(128)"], ["exit-tee-brooklyn", 84, "m.outerD(84)"], ["exit-onramp", 196, "m.onD(196)"]]) {
+      for (const [label, u, dx] of [["exit-taper", -280, "5.25"], ["exit-gore", -70, "9.1"], ["exit-ramp", 40, "m.rampD(40)"], ["exit-tee-lakewood", 128, "m.rampD(128)"], ["exit-onramp", 196, "m.onD(196)"]]) {
         // (the views only: a parked car past COMMIT mustn't start the fade into town)
         const d = await t.L(`import("./js/features/town/exit.js").then(m => ${dx})`);
         await g(`(ctx.town.debug.S.commit = null, true)`);
