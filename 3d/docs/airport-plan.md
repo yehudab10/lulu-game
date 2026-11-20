@@ -153,6 +153,11 @@ interchange offers both towns" is assumed in several places.
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-20 · coordinator · HEADS-UP for question 5 (where on the highway): the owner asked that Lakewood and Midwood
+  stop sharing one exit — `ci/exits2` (the town-engine agent) is splitting them into separate interchanges now, and
+  Lulu's house is moving into Midwood (`ci/hometown`). The interchange planner in `features/town` will change shape:
+  wait for `ci/exits2` to land (see `AGENTS.md` §6) before hanging the airport's interchange on it. New buildings in
+  towns are claimed in `AGENTS.md` › "Town lots" — the airport is its own place and needs no town lot.
 - 2026-11-20 · coordinator · plan file created; `ci/airport` row added to `AGENTS.md` §6 and roadmap row 12 to §2b.
   Nothing built. In flight on the coordinator's side today: `ci/shops`, `ci/bankfriends`, `ci/partners`, `ci/courts`,
   `ci/oneworld` follow-ups, `ci/qa`.
