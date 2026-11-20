@@ -147,6 +147,10 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   await Hp.until(`ctx.heist.debug.crew.C.lead.ph === "inside"`, "the job's on: roles", 20000);
   await A.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.role === "talker"`, "guest: THE TALKER", 30000);
   t.check("host: THE VAULT (the leader)", (await g(`ctx.heist.debug.crew.C.mine.role`)) === "vault");
+  // features/law's 🔗 partners in crime: both asked on their own screens → the host made them ONE crew
+  const PART = (uid) => `(() => { const c = ctx.law.crew && ctx.law.crew.current(); return !!c && c.mates.includes(${uid}) && c.why === "BANK ROBBERY"; })()`;
+  if (await Hp.until(PART(GU), "law: the host's screen has the guest as a partner in the bank robbery", 60000))
+    await A.until(PART(HU), "law: …and the guest's has the host", 60000);
   t.check("guest: ✋ at the window = 🗣️ Distract the teller", /Distract the teller/.test(await A.game(HOT("crewTalk")) || ""));
   t.check("host: ✋ at the vault = 🔓 Crack the vault", /Crack the vault/.test(await g(HOT("vault"))));
   await t.shot("crew-inside");
