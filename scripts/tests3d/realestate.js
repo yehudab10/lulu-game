@@ -233,10 +233,79 @@ module.exports = {
       await t.frames(4);
     });
 
+    // ── stage 2: the mortgage desk in the bank ──
+    await step("the mortgage", async () => {
+      await setCoins(20000);
+      await g(`(ctx.heist.debug.enterBank(), true)`);
+      t.check("into the bank lobby", await roomReady());
+      await t.frames(10);
+      const D = await g(`(() => { const r = window.__interiors.room; const h = r.hots.find(h => h.id === "mortgage"); return h ? { x: h.x, z: h.z, banker: !!r.byId.banker } : null; })()`);
+      t.check("a mortgage desk with its own banker in the lobby", !!D && D.banker, JSON.stringify(D));
+      await g(`(() => { const L = window.__interiors.room.lulu.obj; L.position.set(${D.x}, 0, ${D.z} + 0.2); L.rotation.y = Math.PI; return true; })()`);
+      await t.frames(4);
+      await t.shot("bank-desk");
+      await t.tap(0);
+      t.check("✋ → the desk: buy with a mortgage", (await pickOpt(/Buy a home with a mortgage/)).ok);
+      const L = await toChoice();
+      t.check("…today's listings", L.length >= 2 && /💰/.test(L[0]), L.slice(0, 2).join(" | "));
+      await pickOpt(/🏠/);
+      const price = await g(`ctx.realestate.valueOf(ctx.realestate.listings()[0])`);
+      const dn = await toChoice();
+      t.check("…down payment: 20 / 35 / 50 %", dn.length === 4 && /20 %/.test(dn[0]), dn.join(" | "));
+      await pickOpt(/20 %/);
+      const tm = await toChoice();
+      t.check("…10 / 20 / 30 played days with the fee", tm.length === 4 && /20 days/.test(tm[1]), tm.join(" | "));
+      await pickOpt(/20 days/);
+      const sg = await toChoice();
+      const c0 = await coins();
+      t.check("…the forty signatures: the first press only asks", sg.some(o => /Sign/.test(o)) && c0 === 20000, sg.join(" | "));
+      await t.shot("bank-sign");
+      await pickOpt(/Sign/);
+      await t.frames(6);
+      const M = await g(`ctx.realestate.mortgages()[0]`);
+      t.check("✍️ → hers, the down payment taken", !!M && (await coins()) === 20000 - M.down && M.down === Math.ceil(price * 0.2 / 50) * 50, JSON.stringify(M && { down: M.down, total: M.total, perDay: M.perDay }));
+      t.check("…the plan: 20 days, the 10 % fee, no payment on the signing day", M.days === 20 && M.fee === Math.round(M.loan * 0.1) && !M.due && M.n === 0);
+      await closeAll();
+      t.check("back out of the bank", await leaveRoom());
+      const id = M.id;
+      const mg = () => g(`ctx.realestate.mortgage(${JSON.stringify(id)})`);
+      const day = async n => { await g(`(ctx.realestate.debug.CLOCK.offset = ${n}, ctx.realestate.debug.MG.tick(), true)`); await t.frames(2); };
+      // the next PLAYED day: the bank takes the payment by itself
+      let c1 = await coins();
+      await day(1);
+      let m = await mg();
+      t.check("a played day: one payment, taken by itself", m.n === 1 && !m.due && (await coins()) === c1 - M.perDay, JSON.stringify({ n: m.n, coins: await coins() }));
+      // five days away = nothing owed for them
+      await day(6);
+      m = await mg();
+      t.check("days she didn't play owe nothing (one new day = one payment)", m.n === 2 && m.missed === 0, JSON.stringify({ n: m.n, missed: m.missed }));
+      // can't pay: the stern letter, the talk, the friendly foreclosure
+      await setCoins(0);
+      await day(7); await day(8);
+      m = await mg();
+      t.check("a missed day: a stern letter (no extra fee)", m.missed === 1 && m.due && (await g(`ctx.realestate.bills(${JSON.stringify(id)}).some(b => /STERN/.test(b.what))`)), JSON.stringify({ missed: m.missed }));
+      await day(9);
+      m = await mg();
+      t.check("two in a row: the realtor's 'we should talk'", m.missed === 2);
+      const paidIn = m.paidIn, value = await g(`ctx.realestate.valueOf(${JSON.stringify(id)})`), owed = m.owed;
+      await day(10);
+      const after = await coins();
+      const want = Math.max(0, Math.round(value * 0.9) - owed, Math.round(paidIn * 0.5));
+      t.check("three in a row: a friendly foreclosure — the house goes back", !(await g(`ctx.realestate.owns(${JSON.stringify(id)})`)) && !(await mg()));
+      t.check("…she gets back the larger of the sale's leftovers or half she paid in", after === want && after >= Math.round(paidIn * 0.5), `${after} (paid in ${paidIn}, value ${value}, owed ${owed})`);
+      t.check("coins never went below zero", (await coins()) >= 0);
+      // early pay-off: half the remaining fee off
+      await g(`(ctx.realestate.debug.CLOCK.offset = 0, true)`);
+      await setCoins(30000);
+      const r2 = await g(`(() => { const R = ctx.realestate, MG = R.debug.MG; const rec = R.listings()[0]; const p = MG.plan(R.valueOf(rec), 0.2, { days: 10, fee: 0.05 }); const ok = MG.take(rec, p).ok; const m = R.mortgage(rec.id); const want = m.owed - Math.round(m.fee * 0.5); const paid = MG.payOff(rec.id); return { ok, want, paid, gone: !R.mortgage(rec.id), mine: R.owns(rec.id), id: rec.id }; })()`);
+      t.check("pay it off early: what's owed minus half the bank's fee; free and clear", r2.ok && r2.paid === r2.want && r2.gone && r2.mine, JSON.stringify(r2));
+    });
+
     // ── the cap: 10 homes ──
     await step("the cap", async () => {
       const r = await g(`(() => { const R = ctx.realestate.registry; for (let k = 0; k < 20; k++) R.claim("test:" + k, { town: "nowhere", address: "#" + k, paid: 0 }); return R.count(); })()`);
       t.check("at most 10 homes per player", r === 10, r);
+      t.check("…and the realtor / the bank refuse the 11th", !(await g(`ctx.realestate.debug.MG.take(ctx.realestate.listings()[0] || { id: "x" }, { down: 1, price: 1, loan: 0, fee: 0, total: 0, days: 10, perDay: 0 }).ok`)));
       await g(`(() => { const R = ctx.realestate.registry; for (let k = 0; k < 20; k++) R.release("test:" + k, "test"); return R.count(); })()`);
     });
 
@@ -250,7 +319,7 @@ module.exports = {
       t.check("the classic 2D save has no real-estate keys", s2.length === 0, s2.join());
       await t.page.reload();
       await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "reboots", 120000);
-      t.check("after a reload: still hers", (await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)) && (await g(`ctx.realestate.count()`)) === 1);
+      t.check("after a reload: still hers", (await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)) && (await g(`ctx.realestate.count()`)) === 2);
     });
 
   },

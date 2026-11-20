@@ -201,3 +201,45 @@ export const PASS_SIGN = [
     "'Cozy.' That means tiny. I know realtor talk now.",
     "For sale! I wonder if it has a two-car driveway. For my one car. And my dreams.",
 ];
+
+// ── the bank's mortgage desk (stage 2) ───────────────────────────────────
+export const BANKERS = {
+    lakewood: { name: "Mr. Pinkus", title: "Loan Officer (and Notary, and Assistant Notary)", emoji: "👨‍💼", key: "npcMan",
+        colors: { Top: "#37474F", Bottom: "#263238", Hair: "#BDBDBD" }, bank: "First Minivan Bank" },
+    midwood: { name: "Mrs. Teitelbaum", title: "Senior Mortgage Specialist, 41 years", emoji: "👩‍💼", key: "npcWoman",
+        colors: { Top: "#4A148C", Bottom: "#212121", Hair: "#9E9E9E" }, bank: "Kings County Savings & Bagel" },
+};
+export const BANK_LINES = {
+    hello: [
+        "A MORTGAGE? Sit, sit. Do you have a pen? Do you have forty pens? You'll need forty pens.",
+        "Welcome to the mortgage desk. The line is short because nobody can find it. You found it! Already you qualify.",
+        "Ah, a future homeowner. I can always tell. It's the look of someone about to sign a LOT of things.",
+    ],
+    paper: [
+        "Initial here. And here. Here. Here, here, here… and a blood sample. Kidding! (Not kidding. Kidding.)",
+        "This form says you've read this form. This one says you've read THAT one. It's forms all the way down.",
+        "Sign here, date here, and here you write your mother's maiden name, your favourite kugel, and a haiku.",
+        "Form 27-B: 'I understand that the bank is not responsible for the neighbour's rooster.' Sign.",
+    ],
+    terms: "The bank takes your payment by itself, ONCE a day — only on days you play. Days you don't play? Nothing. We wait. We're patient. We're a bank.",
+    done: [
+        "MAZEL TOV! You're a homeowner AND a borrower. Two words that make a mother very proud and very nervous.",
+        "Done! Here's your copy. And your copy of the copy. Don't lose them. We won't make new ones. (We will. It takes six weeks.)",
+    ],
+    paidOff: [
+        "PAID OFF! Free and clear! The house is ALL yours! I'm stamping it. *STAMP*. That's the best sound in banking.",
+        "Paid in full! You know how rare that is? I'm going to tell my wife about you.",
+    ],
+    nothing: "You don't owe us a thing. Enjoy it. It won't last — nothing at a bank does. (Joke! Bank joke.)",
+    broke: "For a down payment we need the coins up front, sweetheart. Save up a little and come back — the forms will still be here. They're ALWAYS here.",
+    noList: "No homes for sale here today! Ask the realtor — the listings change every day.",
+    party: "Mortgages are a one-on-one thing, dear. Come back when it's just you.",
+};
+/** The bank's texts (📱 Messages, thread "bank"): payments, the letters, the foreclosure. */
+export const BANK_TEXTS = {
+    paid: (n, of, amt, left) => `Payment ${n} of ${of} received: ${amt} coins. ${left > 0 ? `${left} to go!` : "That's the LAST one!"} 🏦`,
+    letter: (addr, amt) => `Dear Valued Customer, we did not receive yesterday's payment of ${amt} coins for ${addr}. This is a STERN letter. Please feel sternly addressed. 📄`,
+    talk: addr => `Lulu, it's Shprintzy. The bank called me about ${addr}. Two days missed. We should talk. Not a big talk. A medium talk. ☕`,
+    foreclose: (addr, back) => `We're sorry — after three missed days in a row, ${addr} goes back to the bank. Friendly foreclosure! You get back ${back} coins. We'll miss you. The forms won't. 🏦💔`,
+    paidOff: addr => `${addr} is PAID OFF. Free and clear! Frame this text. 🏦🎉`,
+};

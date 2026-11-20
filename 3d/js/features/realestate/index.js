@@ -33,6 +33,8 @@ import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT } fro
 import { layout, counts, clear as clearSigns } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
+import { finalize } from "./deal.js";
+import * as MG from "./mortgage.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
@@ -62,6 +64,8 @@ function migrate(h) {
     if (!near) return null;
     const old = registry.release(h.id, "moved");
     if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved" }));
+    for (const k of ["mortgage", "bills", "rent"]) if (S[k][h.id]) { S[k][near.id] = S[k][h.id]; delete S[k][h.id]; }
+    saveSoon();
     return near;
 }
 /** A house of hers that's GONE from the map (a landmark replaced it): the city buys it back at what she paid. */
@@ -69,7 +73,9 @@ function compensate() {
     if (!inTown() || !catalogue().length) return;
     for (const h of registry.listFor(townId())) {
         if (lookup(h.id) || migrate(h)) continue;
-        const back = Math.max(0, Math.round(h.paid || h.price || 0));
+        const m = S.mortgage[h.id];
+        const back = Math.max(0, Math.round(m ? m.paidIn : (h.paid || h.price || 0)));
+        delete S.mortgage[h.id];
         registry.release(h.id, "demolished");
         if (back) wallet.add(back);
         S.log.push({ t: Date.now(), ev: "compensated", id: h.id, n: back }); if (S.log.length > 30) S.log.shift();
@@ -268,8 +274,8 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 function mortgageLine(rec) {
     const bank = ctx.town && ctx.town.spot && ctx.town.spot("bank");
     const v = valueOf(rec);
-    return bank ? `A mortgage? The bank on the high street does those. Put down ${fmt(Math.ceil(v * 0.2 / 50) * 50)} and they'll do the rest! (Opening soon — they're still printing the forms.)`
-        : "A mortgage? The bank does those. They LOVE paperwork.";
+    const B = rec.town === "midwood" ? "Mrs. Teitelbaum at Kings County Savings & Bagel" : "Mr. Pinkus at the First Minivan Bank";
+    return `A mortgage? Go see ${B}${bank ? " — it's right here in town" : ""}. Put down ${fmt(Math.ceil(v * 0.2 / 50) * 50)} and pay the rest a little every day you play. Tell them I sent you. They'll pretend not to know me.`;
 }
 
 // ── buying: two presses (the ask → ✍️ sign), never below 0 ───────────────
@@ -287,17 +293,8 @@ async function buy(rec, opts = {}) {
     const i = await chooseF(`${pick(SIGNING)} — ${fmt(v)} coins for ${rec.address}?`, [`✍️ Sign — ${fmt(v)} 💰`, "✖ Wait, let me think"]);
     if (i !== 0) return false;
     if (!wallet.spend(v)) { await sayF(OFFICE.broke); return false; }
-    const r = registry.claim(rec.id, {
-        town: rec.town, address: rec.address, street: rec.street, number: rec.number, kind: rec.kind, label: rec.label, rooms: rec.rooms,
-        model: rec.model, lx: rec.lx, lz: rec.lz, price: rec.price, paid: v, day: today(), via: "cash",
-    });
+    const r = finalize(rec, v, "cash");
     if (!r.ok) { wallet.add(v); await sayF(r.why === "cap" ? OFFICE.capped : "Oy — somebody beat you to it. Signed this morning! Next one's yours, I promise."); return false; }
-    S.spent += v; S.bought++;
-    S.log.push({ t: Date.now(), ev: "bought", id: rec.id, n: v }); if (S.log.length > 30) S.log.shift();
-    saveSoon();
-    stat("reBought"); stat("reSpent", v);
-    emit("realestate:owner", { id: rec.id, from: null, to: "lulu", price: v, why: "bought", address: rec.address, town: rec.town });
-    H.banner(`🔑 <b>YOUR HOUSE!</b><small>${rec.address} · ${rec.label}</small>`, 3200, { key: "re:bought", prio: 3 });
     await sayF(pick(SOLD));
     return true;
 }
@@ -385,6 +382,8 @@ hook("hud", dt => {
     if ((W.t += dt) < 0.5) return;
     W.t = 0;
     try { refresh(false); passBy(); } catch (e) { console.error("[realestate] tick", e); }
+    // the mortgages: a new PLAYED day bills, a due payment is taken once she has the coins (only out in the world)
+    if ((ctx.state === "playing" || ctx.state === "footRun") && !ctx.dialogOpen && !ctx.paused) { try { MG.tick(); } catch (e) { console.error("[realestate] mortgage", e); } }
 });
 
 // ── the service ──────────────────────────────────────────────────────────
@@ -413,8 +412,13 @@ ctx.realestate = {
     bills: id => (S.bills[id] || []).slice(),
     addBill(id, bill) { if (!registry.mine(id) || !bill || !bill.what) return false; (S.bills[id] = S.bills[id] || []).push(Object.assign({ at: Date.now(), amount: 0, paid: false }, bill)); if (S.bills[id].length > 20) S.bills[id].shift(); saveSoon(); emit("realestate:bill", { id, bill }); return true; },
     payBill(id, i) { const b = S.bills[id] && S.bills[id][i]; if (!b || b.paid) return false; b.paid = true; saveSoon(); return true; },
+    // ── the mortgage (stage 2) ──
+    mortgages: () => MG.mortgages(),
+    mortgage: id => (S.mortgage[id] ? Object.assign({ id, owed: MG.owed(S.mortgage[id]), payoff: MG.payoff(S.mortgage[id]) }, S.mortgage[id]) : null),
+    mortgagePlan: (price, down, term) => MG.plan(price, down, term),
+    payToday: id => MG.payToday(id), payOff: id => MG.payOff(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, CLOCK, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
+    debug: { W, S, MG, CLOCK, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
 };
 // tests: a stable handle on the save
