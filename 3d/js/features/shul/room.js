@@ -69,15 +69,12 @@ function cast(P) {
     if (k === "weekday") {
         man("gabbai", -2.4, 1.7, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: -2.5, z0: 0.6, x1: -2.5, z1: 2.8, T: 11 }, collide: false });
         man("l1", -7.9, -0.55, Math.PI, { name: "A man learning", pose: { sit: true }, y: 0.1, collide: false });
-        man("l2", -7.35, -0.55, Math.PI, { name: "A man learning", pose: { sit: true }, y: 0.1, collide: false });
-        man("l3", -3.05, 0.35, Math.PI, { name: "A man learning", pose: { sit: true }, y: 0.1, collide: false });
         kid({ loop: { cx: BIMAH.x, cz: BIMAH.z, rx: 2.5, rz: 1.9, w: 1.05 } });
         candy(); rebb(2.15, 2.2);
     } else if (k === "friday") {
-        man("gabbai", 7.6, 0.5, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.6, x1: 6.95, z1: 1.9, T: 13 } });
+        man("gabbai", 7.6, 0.5, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.6, x1: 6.95, z1: 1.9, T: 13 }, collide: false });
         man("set1", 9.1, -1.4, -Math.PI / 2, { name: "Someone setting up", pose: { talk: true } });
-        man("set2", 6.95, -3.0, Math.PI / 2, { name: "Someone setting up", colors: { Top: "#3E4A5C", Bottom: "#222226" } });
-        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.8, w: 1.1 } });
+        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.9, w: 1.1, sq: 0.5 } });
         candy(); rebb(7.1, 2.3, 0, { walker: null });
     } else if (k === "davening") {
         man("gabbai", -3.55, -1.3, Math.PI, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" } });
@@ -86,9 +83,7 @@ function cast(P) {
     } else if (k === "kiddush") {
         man("reg1", 9.05, -2.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#2A2A30", Bottom: "#2A2A30" }, pose: { talk: true }, collide: false });
         man("reg2", 9.05, -1.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#34344A", Bottom: "#222226" }, collide: false });
-        man("gabbai", 7.0, 0.4, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.8, x1: 6.95, z1: 1.8, T: 16 } });
         man("saver", -3.0, 0.3, Math.PI, { name: "A man guarding six seats", pose: { sit: true }, y: 0.1, collide: false });
-        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.8, w: 1.1 } });
         candy(); rebb(7.2, 2.5, 0, {});
     } else if (k === "afternoon") {
         man("gabbai", -2.4, 1.7, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, pose: { sit: true }, y: 0.1, collide: false });
@@ -97,7 +92,6 @@ function cast(P) {
     } else if (k === "fast") {
         man("gabbai", -2.4, 1.7, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: -2.5, z0: 1.2, x1: -2.5, z1: 2.2, T: 22 }, collide: false });
         man("l1", -7.9, -0.55, Math.PI, { name: "A man learning", pose: { sit: true }, y: 0.1, collide: false });
-        man("l2", -3.05, 0.35, Math.PI, { name: "A man learning", pose: { sit: true }, y: 0.1, collide: false });
         candy(); rebb(2.15, 2.2);
     }                                                    // (yk: nobody to talk to — the whole room is at prayer)
     return c;
@@ -401,7 +395,7 @@ function hotspots(rt, V) {
     if (has("gabbai") && (P.kind === "weekday" || P.kind === "afternoon" || P.kind === "fast"))
         rt.hot(Object.assign({ id: "gabbai", who: "gabbai", r: 1.35, label: "🧑‍💼 The gabbai (through the lattice)",
             action: rt => talk("gabbai", "The gabbai", line("g" + P.kind, D.GABBAI[P.kind]), { emoji: "🧑‍💼", color: "#1B5E20" }) }, lat(1.7)));
-    if (has("gabbai") && (P.kind === "friday" || P.kind === "kiddush"))
+    if (has("gabbai") && P.kind === "friday")
         rt.hot({ id: "gabbai", who: "gabbai", track: true, r: 1.6, label: "🧑‍💼 The gabbai", action: rt => talk("gabbai", "The gabbai", line("g" + P.kind, D.GABBAI[P.kind]), { emoji: "🧑‍💼", color: "#1B5E20" }) });
     if (has("kid") && !quiet)
         rt.hot(Object.assign({ id: "kid", r: 1.3, label: "🏃 The kid on lap 40", action: rt => rt.say("Lulu", line("kid", D.KID), { emoji: "🏃", color: "#E57373" }), enabled: () => true },
@@ -429,7 +423,7 @@ function hotspots(rt, V) {
     if (has("candy")) rt.hot({ id: "candy", who: "candy", x: 4.35, z: -0.75, r: 1.4, label: "🍭 The candy man", action: candyAction });
 
     // the kiddush room
-    rt.hot({ id: "table", x: 7.0, z: -0.8, r: 1.6, label: "🍽️ The kiddush table",
+    rt.hot({ id: "table", x: 6.8, z: -0.8, r: 1.6, label: "🍽️ The kiddush table",
         action: rt => rt.say("Lulu", line("tbl" + P.kind, P.kind === "kiddush" ? D.TABLE.kiddush : P.kind === "friday" ? D.TABLE.setup : P.fast ? D.TABLE.bare : D.TABLE.plain), { emoji: "🥣", color: "#8D6E63" }) });
     if (has("reg1")) rt.hot({ id: "regs", who: "reg2", x: 8.9, z: -1.7, r: 1.4, label: "🥃 The kiddush regulars", action: rt => talk("reg2", "A kiddush regular", line("regs", D.KIDDUSH_CLUB), { emoji: "🥃", color: "#37474F" }) });
     if (has("set1")) rt.hot({ id: "setup", who: "set1", track: true, r: 1.5, label: "📋 Someone setting up", action: rt => talk("set1", "Someone setting up", line("qc", D.KIDDUSH_QC), { emoji: "📋" }) });
@@ -495,8 +489,10 @@ function tick(rt, dt) {
         const r = l.rec, o = r.p.obj, L = l.l;
         l.t += dt * L.w;
         const a = l.t;
-        o.position.set(L.cx + Math.cos(a) * L.rx, 0, L.cz + Math.sin(a) * L.rz);
-        o.rotation.y = Math.atan2(-Math.sin(a) * L.rx, Math.cos(a) * L.rz);
+        const c = Math.cos(a), sn = Math.sin(a), e = L.sq || 1, pw = (v) => Math.sign(v) * Math.pow(Math.abs(v), e);
+        o.position.set(L.cx + pw(c) * L.rx, 0, L.cz + pw(sn) * L.rz);
+        const a2 = a + 0.05, c2 = Math.cos(a2), s2 = Math.sin(a2);
+        o.rotation.y = Math.atan2((Math.sign(c2) * Math.pow(Math.abs(c2), e) - pw(c)) * L.rx, (Math.sign(s2) * Math.pow(Math.abs(s2), e) - pw(sn)) * L.rz);
         r.pose = { walk: 2.6 };
     }
     for (const m of V.pulse) m.color.set("#FFC56B").multiplyScalar(0.78 + 0.22 * Math.sin(V.t * 1.7));
