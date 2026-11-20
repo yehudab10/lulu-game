@@ -252,7 +252,7 @@ async function partyRun(t, guests) {
   for (const p of pages) {
     await p.game(`(ctx.law.hold(9999), true)`);
     await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 90000);
   }
   // (warp only once the host's town snapshots have landed — a warp to a friend still "on the highway" leaves town)
@@ -260,7 +260,7 @@ async function partyRun(t, guests) {
   await A.game(`ctx.openworld.warpTo(${H})`);
   await sleep(2500);
   if (!await A.game(`ctx.openworld.zone === "lakewood"`)) {
-    await A.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await A.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await A.until(`ctx.openworld.zone === "lakewood"`, "guest back in Lakewood", 60000);
   }
   await g(`(ctx.foot.start("droveOff"), true)`);

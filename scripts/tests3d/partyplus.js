@@ -313,7 +313,7 @@ async function partyRun(t, guests) {
   for (const p of pages) {
     await p.game(`(ctx.law.hold(9999), ctx.streets.debug.CHOP.nextT = 1e9, true)`);
     await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 90000);
   }
   const fr1 = await g(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`), fr2 = await A.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`);

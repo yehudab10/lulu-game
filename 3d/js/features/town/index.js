@@ -1028,6 +1028,19 @@ ctx.town = {
         return p ? spotWorld(p) : null;
     },
     /** The highway exits planned this run, one row per town an interchange offers: [{ s, id, name, town, emoji, no, label, branch }] (sorted by s). */
+    /** The metre of town `id`'s own next exit at or past `from` (default: where she is) — planning the route on to it if
+     *  it isn't yet (the same metres the run would plan: a pure function of the road). → s | null. */
+    exitOf(id, from = null) {
+        if (!TOWNS[id] || !ctx.world || !ctx.world.highway) return null;
+        const s0 = from != null ? from : (ctx.car ? hwS() : 0);
+        for (let n = 0; n < 4; n++) {
+            const e = X.exits.find(e => e.s >= s0 - 60 && e.branches.some(b => b.town.id === id));
+            if (e) return e.s;
+            const last = X.exits[X.exits.length - 1];
+            planRoute(last ? last.s : Math.max(0, s0 - 1500), Math.max(s0, last ? last.s : 0) + ROUTE.period);
+        }
+        return null;
+    },
     /** HOME (ci/hometown): `{ town: "midwood", exitS }` — Midwood's own interchange, the route's first exit, at a fixed metre. */
     get home() { const h = home(); return h ? Object.assign({}, h) : null; },
     /** A named spot of the town standing at exitS, in WORLD coords, whether or not it's built yet: an empty lot's spot

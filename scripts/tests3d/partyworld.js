@@ -272,7 +272,7 @@ async function freeRoam(t, guests) {
   t.check("a seeded payphone / job board is up for the host", !hv || !!mk || built, JSON.stringify(mk));
   for (const p of pages) {
     await p.until(`ctx.town.debug.S.loaded && ctx.community.debug.CM.loaded`, "town + community models", 120000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 15000);
   }
   await sleep(3000);
