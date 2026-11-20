@@ -135,7 +135,8 @@ async function body(t, guests) {
   await g(`(ctx.party.sendEvent("hfo", ctx.heist.robbery ? ctx.heist.robbery.id : 1, "tackle", [${HU}, ${GU}], 120), true)`);
   await Hp.frames(30); await A.frames(30);
   t.check("the same robbery's claim again pays nothing more", (await g(`L3.wallet.coins`)) === cc.h && (await A.game(`L3.wallet.coins`)) === cc.a);
-  await Hp.until(`!ctx.heist.robbery`, "the robbery tidies away", 60000);
+  // (the foiled scene's 14 s of game time is skipped: a crawling CI page would take minutes)
+  await Hp.until(`(ctx.heist.robbery && ctx.heist.robbery.phase === "foiled" && (ctx.heist.robbery.t = 20), true) && !ctx.heist.robbery`, "the robbery tidies away", 60000);
   await A.until(`ctx.heist.debug.party().puppets.length === 0`, "guest: the friend's robbery is gone too", 40000);
   W.check(t, "watchdog (host)", await W.report(t));
   await crewJob(t, g, Hp, A, hostUid, guestUid);
