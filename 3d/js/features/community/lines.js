@@ -10,6 +10,7 @@ export const ORGS = {
     hatzalah: { name: "Hatzalah", emoji: "🚑", color: "#E53935", tag: "volunteer EMS · faster than you can hang up", call: "HATZALAH" },
     shomrim: { name: "Shomrim", emoji: "🔦", color: "#3949AB", tag: "civilian patrol · not police · VERY close to police", call: "SHOMRIM HOTLINE" },
     police: { name: "911", emoji: "🚨", color: "#B71C1C", tag: "the real cops. the actual ones.", call: "911" },
+    ima: { name: "Ima", emoji: "👩", color: "#E91E63", tag: "she picks up on the first ring. always.", call: "IMA" },
 };
 
 // ── Lulu notices them ────────────────────────────────────────────────────
@@ -75,6 +76,8 @@ export const PATCH = {
     work: ["Any pain? Dizziness? Did you eat today? You didn't eat today.", "Follow my finger. Good. Again. Good. Now eat this granola bar.", "Some bumps, some bruises, a LOT of drama."],
     done: ["You're fine. Drink water. Eat something. Call your mother.", "Patched up! Here — a granola bar AND a sucking candy.", "All good. If anything hurts, call us. If nothing hurts, call your mother."],
     fine: ["You're FINE. Not a scratch. You called Hatzalah for… nothing?", "We came anyway. We always come. Eat something."],
+    // (the heart cap: help.js HEAL — they still come, they just won't patch her up again so soon)
+    capped: ["We JUST patched you. Sit. Drink water. Stop hitting things.", "Again? You're our best customer. That's not a compliment. Rest a bit.", "You're fine. You're bruised, but you're fine. Go slower and call your mother."],
 };
 
 // ── Shomrim ──────────────────────────────────────────────────────────────
@@ -153,5 +156,32 @@ export const LULU_CALL = {
     hatzalah: "Hatzalah? Yeah, hi, it's — oh you're already here?",
     shomrim: "Shomrim? I'd like to report a… situation.",
     police: "Hi, 911? Yeah, it's… about Lakewood.",
+    ima: "Hi Ima! No, nothing's wrong. I just— hi.",
 };
 export const NOTHING = "Nothing to report right now — drive around a bit.";
+/** When there's honestly nothing to call an org about right now: one line, in their voice (by org; .road = off town). */
+export const NOTHING_BY = {
+    chaverim: "\"You're on FOOT. We fix cars. …Want us to look at your shoes?\"",
+    hatzalah: "\"Not a scratch? Then why are you calling? …Eat something.\"",
+    shomrim: "\"Nothing suspicious? In LAKEWOOD? Keep looking. It's out there.\"",
+    shomrimRoad: "\"Shomrim patrols the NEIGHBOURHOOD. This is a highway. …Call us from town. We're ALWAYS in town.\"",
+    police: NOTHING,
+};
+/** What the dispatcher says when she calls (in a town / out on the road). Lines name the town (common.js local()). */
+export const DISPATCH = {
+    chaverim: { town: "Chaverim, where are you? …Okay. Don't move. Somebody's two minutes away. Somebody's ALWAYS two minutes away.",
+        road: "Chaverim. You're on the Parkway? …We see you. We see EVERYTHING from Route 9. Somebody's on the way.",
+        midwood: "Chaverim! Where are you? …Coney Island Ave? Somebody's double-parked right around the corner. Don't move." },
+    hatzalah: { town: "Hatzalah. Where are you? …We see you. Turn around.",
+        road: "Hatzalah. The Parkway? We were already on the Parkway. We're ALWAYS already on the Parkway.",
+        midwood: "Hatzalah. We were at the pizza shop on Avenue J. We're always at the pizza shop on Avenue J. Coming." },
+    shomrim: { town: "Shomrim hotline, what's the situation?", midwood: "Shomrim, Midwood! We saw you from Kings Hwy. We see everything from Kings Hwy." },
+    /** In the car at speed: help is coming, she has to stop for it. */
+    pullOver: "🛑 Pull over and stop — they'll find you",
+};
+/** Ima, on the phone (one call; no reward — she just wants her to wear a sweater). */
+export const IMA_CALL = [
+    ["Are you wearing a sweater?", "It's freezing out. I can hear that it's freezing. Put on a sweater.", "Okay. Love you. SWEATER."],
+    ["Did you eat? You didn't eat. There's kugel in the fridge.", "And take a sweater. It's going to get cold. It's ALWAYS going to get cold."],
+    ["You're driving? Hang up! …No, wait, are you wearing a sweater?", "Okay. Now hang up. Drive carefully. Sweater!"],
+];

@@ -98,8 +98,11 @@ module.exports = {
     await t.frames(6);
     await t.shot("depart-handoff");
     if (viaPhone) {
-      t.check("📱 the Family app is on the phone", (await g(`ctx.phone.apps()`)).includes("family"));
-      await g(`ctx.phone.openPhone("family")`);
+      // (🏡 Family & places is a contact in the 📞 Phone app now — features/community; the phone stays 9 apps)
+      t.check("📱 the 📞 Phone app is on the phone (🏡 Family & places inside it)", (await g(`ctx.phone.apps()`)).includes("community") && !(await g(`ctx.phone.apps()`)).includes("family"));
+      await g(`ctx.phone.openPhone("community")`);
+      await t.frames(4);
+      await t.click(/Family & places/);
       await t.frames(6);
       t.check("the family app lists who lives where", await t.L(`!!document.querySelector("#screenCard .wmap") && /Bubbe/.test(document.querySelector("#screenCard .wmap").textContent)`));
       await t.shot("family-app");

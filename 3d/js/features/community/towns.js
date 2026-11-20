@@ -1,6 +1,6 @@
 // features/community — WHICH TOWNS have which volunteer orgs, as data. One entry per town
 // id (features/town/towns/<id>.js). A town without an entry gets nothing from this feature.
-// Midwood (or any later town) opts in with one entry here — or at runtime:
+// A later town opts in with one entry here — or at runtime:
 //     ctx.community.register("midwood", { orgs: { chaverim: true, shomrim: true, hatzalah: true }, … })
 // Every field is optional; DEFAULTS fill the rest.
 //
@@ -29,7 +29,24 @@ export const COMMUNITY = {
         cruisers: { chaverim: 1, shomrim: 2, hatzalah: 1 },
         by: { spot: "baisyaakov", girls: 7 },
     },
-    // midwood: { orgs: { chaverim: true, shomrim: true, hatzalah: true }, by: null },   ← one line to opt in
+    // Brooklyn: all three orgs are at home here — but the town is at its triangle / draw-call budget (one org car
+    // in view measured +~17 draw calls, +~1.8k triangles: test calls.js), so NONE cruise its streets: they come
+    // when she calls, the Shomrim join a cop chase, and the roadside scenes are rarer. No Bais Yaakov line.
+    midwood: {
+        approach: 1200,
+        cruisers: { chaverim: 0, shomrim: 0, hatzalah: 0 },
+        scenes: { first: 40, every: [60, 100], kinds: ["flat", "lockout", "battery", "hurt"] },
+        shomrim: { join: 1 },
+        by: null,
+    },
+};
+
+// Lines name the town they're said in: "Lakewood" / "Route 9" / "Forest Ave" / "Main St" in the shared
+// text become the town's own (common.js local()). On the highway they stay Lakewood's (that's home — the
+// volunteers drive out from there).
+export const FLAVOR = {
+    lakewood: { name: "Lakewood", main: "Route 9", block: "Forest Ave", strip: "Main St" },
+    midwood: { name: "Midwood", main: "Coney Island Ave", block: "East 18th", strip: "Avenue J" },
 };
 
 const cache = new Map();

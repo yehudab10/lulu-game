@@ -15,7 +15,7 @@ import { updateDriving, heal, addCoins } from "../../core/driving.js";
 import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
 import { say, choose, script, closeDialog, isOpen } from "../../core/dialog.js";
-import { CM, on, onFoot, luluPos, rand, pick, clamp, wrap, getPerson, putPerson, walkTo, bubble, luluSay, sfx, stat, flow, townCfg, later } from "./common.js";
+import { CM, on, onFoot, luluPos, luluRoad, rand, pick, clamp, wrap, getPerson, putPerson, walkTo, bubble, luluSay, sfx, stat, flow, townCfg, later, local } from "./common.js";
 import { spawnAt, pursue, leave, park, removeVehicle, respond, KIND } from "./fleet.js";
 import { ASSIST, PATCH, SHOMRIM, ORGS } from "./lines.js";
 
@@ -138,6 +138,21 @@ export function ownStub() {
 }
 export function busy() { return !!CM.help || !!SS; }
 
+// ── hearts from help: capped (calling Hatzalah on an empty highway must not be a free-heart tap) ──
+/** At most HEAL.max hearts a run from the volunteers (called or not), HEAL.gap s of game time apart. */
+export const HEAL = { max: 3, gap: 60 };
+export function healLeft() { return Math.max(0, HEAL.max - (CM.heals || 0)); }
+export function healReady() { return healLeft() > 0 && ctx.time - (CM.healAt == null ? -1e9 : CM.healAt) >= HEAL.gap; }
+/** Heal one heart if the cap allows it → true when it did. */
+function healOne() {
+    const G = ctx.G;
+    if (!(G.hearts < G.maxHearts) || !healReady()) return false;
+    heal(1);
+    CM.heals = (CM.heals || 0) + 1;
+    CM.healAt = ctx.time;
+    return true;
+}
+
 export function request(kind, { byCall = true, self = false } = {}) {
     const org = ORG[kind];
     if (!org || CM.help || !CM.loaded) return false;
@@ -151,7 +166,11 @@ export function request(kind, { byCall = true, self = false } = {}) {
         let s, d, dir, v;
         const sp = inTown() && ctx.town.copSpawn ? ctx.town.copSpawn("seen") : null;
         if (sp) { s = sp.s; d = sp.d; dir = sp.dir; v = 9; }
-        else { s = car.s - rand(100, 130); d = foot ? 5.25 : car.d > 6 ? 5.25 : car.d; dir = 1; v = Math.max(16, car.speed + 6); }
+        else {
+            // the highway / a rest area: up the road from behind HER (on foot: where she stands, not where her car is)
+            const me = luluRoad();
+            s = me.s - rand(100, 130); d = foot || Math.abs(me.d) > 6 ? 5.25 : me.d; dir = 1; v = Math.max(16, foot ? 16 : car.speed + 6);
+        }
         V = spawnAt(org, s, d, dir, v, { lights: true, siren: org === "hatzalah" });
         if (V) pursue(V, { gapWant: kind === "gas" ? -3 : -8, side: kind === "gas" ? (car.d > 3.5 ? -3.4 : 3.4) : 0, lights: true });
     }
@@ -181,7 +200,7 @@ export function tickHelp(dt) {
     const foot = onFoot();
     // lost in the grid (a jam, a dead end, a goose): it turns up round the corner behind her instead
     if (!h.stub && !foot && h.t > 18 && !h.hop && dist > 35) { h.hop = true; hopBehind(V); }
-    if (h.t > 70) { cancelHelp(`${ORGS[h.org].emoji} They couldn't find you. (Lakewood has ONE street sign.)`); return; }
+    if (h.t > 70) { cancelHelp(local(`${ORGS[h.org].emoji} They couldn't find you. (${inTown() ? "Lakewood has ONE street sign" : "the Parkway is LONG"}.)`)); return; }
     if (h.kind === "gas") {
         if (dist < 12 && !foot) {
             const G = ctx.G;
@@ -252,12 +271,11 @@ function visitScene(h) {
                 bubble(w && w.obj, pick(PATCH.work), 2.8, "nice");
                 await f.sleep(2.4);
                 const G = ctx.G;
-                if (kind === "patch" && G.hearts < G.maxHearts) {
-                    heal(1);
+                if (kind === "patch" && healOne()) {
                     H.toast("🚑 PATCHED UP +❤️", "pink");
                     stat("communityPatched", 1);
                     bubble(w && w.obj, pick(PATCH.done), 3, "nice");
-                } else bubble(w && w.obj, pick(PATCH.fine), 3, "nice");
+                } else bubble(w && w.obj, pick(kind === "patch" && G.hearts < G.maxHearts ? PATCH.capped : PATCH.fine), 3, "nice");
                 sfx.good();
                 await f.sleep(2.2);
             } else {
@@ -313,8 +331,8 @@ function fixCar(kind) {
     let did = false;
     if (ctx.feel && ctx.feel.damage && ctx.feel.damage.repair) { try { did = ctx.feel.damage.repair("chaverim") || did; } catch (e) { /* no feel */ } }
     if (ctx.streets && ctx.streets.flat && ctx.streets.repairTyres) { try { ctx.streets.repairTyres(); did = true; } catch (e) { /* no streets */ } }
-    if (G.hearts < G.maxHearts) { heal(1); did = true; }
-    H.toast(did ? "🔧 FIXED BY CHAVERIM — +❤️" : "🔧 Chaverim checked everything. You're fine!", "gold");
+    const healed = healOne();
+    H.toast(healed ? "🔧 FIXED BY CHAVERIM — +❤️" : did ? "🔧 FIXED BY CHAVERIM" : "🔧 Chaverim checked everything. You're fine!", "gold");
     stat("communityHelped", 1);
     sfx.good();
 }
