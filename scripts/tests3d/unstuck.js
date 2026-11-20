@@ -361,7 +361,8 @@ module.exports = {
         n0 = await nLog();
         await putCar(block.x, block.z);
         // (the town's own collision may shove a car out of a block by itself; the rescue is for when it can't — either way she's out)
-        const fired = await t.until(`__lulu3d.ctx.unstuck.debug.U.log.length > ${n0}`, `${id}: the car left inside a house — rescued or pushed out`, 8000);
+        await t.frames(150);         // (a plain wait: no rescue is fine if the town pushed her out)
+        const fired = (await nLog()) > n0;
         const out = await g(`({ bad: ctx.unstuck.debug.badNow(), why: ctx.unstuck.normal(ctx.car.pos.x, ctx.car.pos.z, "car"), d: +ctx.car.d.toFixed(1), log: ctx.unstuck.debug.U.log.slice(${n0}) })`);
         console.log(`   ${id}: the car left inside a house →`, JSON.stringify(out));
         t.check(`${id}: the car left inside a house → out of it (the game's push or the rescue)`, out.bad == null && out.why !== "block", JSON.stringify(out));
