@@ -42,7 +42,9 @@ function ensure(town) {
     G.mats.post = G.mats.post || new THREE.MeshStandardMaterial({ color: "#FFFFFF", roughness: 0.8 });
     G.mats.box = G.mats.box || new THREE.MeshStandardMaterial({ color: "#FFFFFF", roughness: 0.5, metalness: 0.2 });   // (each mailbox's colour: instanceColor)
     G.mats.plate = G.mats.plate || new THREE.MeshStandardMaterial({ map: plateTex(), roughness: 0.7 });
-    const board = new THREE.MeshStandardMaterial({ map: boardTex(town), roughness: 0.7 });
+    // (one cached material per town, never disposed: a material disposed while three's background shader compile is
+    //  still polling it throws inside three — "reading 'isReady'")
+    const board = G.mats["board:" + town] || (G.mats["board:" + town] = new THREE.MeshStandardMaterial({ map: boardTex(town), roughness: 0.7 }));
     G.mats.board = board;
     const mk = (geo, mat, name) => { const m = new THREE.InstancedMesh(geo, mat, N); m.name = name; m.count = 0; m.castShadow = false; m.receiveShadow = false; m.visible = false; return m; };
     G.mats.seized = G.mats.seized || new THREE.MeshStandardMaterial({ map: boardTex("seized"), roughness: 0.7 });
@@ -100,7 +102,6 @@ export function layout(town, listed, owned, friends = [], seized = []) {
 export function counts() { const M = G.meshes; return M ? { signs: M.board.count, mailboxes: M.box.count, seized: M.seized.count, calls: Object.values(M).filter(m => m.visible).length } : { signs: 0, mailboxes: 0, seized: 0, calls: 0 }; }
 export function clear() {
     if (G.group) { if (G.group.parent) G.group.parent.remove(G.group); for (const m of Object.values(G.meshes)) m.dispose(); }
-    if (G.mats.board) { G.mats.board.dispose(); G.mats.board = null; }
     G.group = null; G.meshes = null; G.town = null;
 }
 export { G };
