@@ -731,10 +731,19 @@ step's plan swapped in by `withPlan`), culls the standing ones, drops them 600 m
 on the approach (or inside a footprint): `enterTown({entry, drove})` swaps the road model with her position, heading and
 speed untouched — the district keeps the highway drawn, the highway's plain traffic carries on down it as puppets
 (`data.hwPuppet`: its own s, which the TownRoad answers with the highway, gone 520 m off), the town's drivers start where the
-camera can't see them pop in (`randomSpot(…, unseen)`). She's OUT 2 m short of the line (or 20 m outside the footprint and
+camera can't see them pop in (`randomSpot(…, unseen)`) — plus the ones she already saw: while she's within 520 m of a
+standing town (outside it) `ambient.js` drives a few light minivans (the parked cars' LOD model baked to one vertex-coloured
+geometry, ONE instanced draw call per town, no shadows) up and down the streets nearest the join, so it isn't frozen from the
+ramp, and on the way in `convertAmbient` makes each one a real driver right where it is (counted against `def.traffic`;
+off in a 🎉 party). A cruiser on her tail (`data.law`) isn't a puppet and isn't removed: law steers its units off whatever
+road is under them, so it follows her in (round the corners — `copRoute`) and back out (its s re-found from the highway).
+She's OUT 2 m short of the line (or 20 m outside the footprint and
 25 m off the approach): `leaveTown("highway", {drove})` hands her to the highway's road where she stands (car.s and foot's
 F.s re-found from the exit — a town s as a hint would send the highway's search 500 km down the road); the town stays
-standing. On foot it's the same line (an always-on foot actor). Not attached: `ctx.town.enter()` with no exitS (tests /
+standing. On foot it's the same line (an always-on foot actor). Leaving any other way while she WALKS in a town (a scene
+state the town can't host, a reset, a party hand-back) never strands her: in a town standing by the road she stays exactly
+where she is (only the road under her is the highway's again); otherwise she's put beside her car on the highway side
+(`besideCar`), and her parked car (foot's stub) goes with it. Not attached: `ctx.town.enter()` with no exitS (tests /
 debug) builds the stand-alone town at its own far `origin`, and a branch whose town isn't built yet (a slow download) still
 fades in at the STOP sign. `ctx.town.attached` · `ctx.town.standing` ([{town, exitS, k, ready, at, steps, ms, worst, p95,
 p99}]) · events `town:built` {town, exitS, ms, steps, worst}, `town:enter` / `town:leave` carry `attached` / `drove`.
