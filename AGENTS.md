@@ -215,6 +215,8 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 | Lakewood | Route 9 | St. Shloimy's hospital | `ci/places` (landed) |
 | Midwood | Avenue K | precinct, courthouse | `ci/places` (landed) |
 | Midwood | Avenue L | Midwood General | `ci/places` (landed) |
+| Lakewood | Carpool Ln (the existing yeshiva building, block 1,3 north face) | its front door is the town's shul (no new building, only a second sign line) | `ci/shul` |
+| Midwood | E 15½ St (the existing `town_mw_shul`, block 1,1 north face) | Young Israel — its front door is a ✋ spot (no new building) | `ci/shul` |
 
 
 ## 7. Backlog / known rough edges (good next tasks)
