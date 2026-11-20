@@ -48,7 +48,7 @@ export default {
         // features/places (roadmap 4): the police precinct with its impound lot + the courthouse next door (one block face —
         // the town is tight, so they share it), and the hospital. Doors are ✋ spots; arrests / the ER happen IN them.
         civic: { key: "places_precinct", fallback: "town_shop", dims: { w: 15, d: 12, prot: 2.6 }, u: -4.2, sign: L.SIGNS.precinct, spot: "precinct",
-            tints: { Walls: "#A8654A", Trim: "#D9D4C7", Roof: "#3A3D42", NeonGlobe: "#4FA3FF", Accent: "#1A237E" }, signSize: [9.0, 0.9, 92], signBg: "#1A237E", signFg: ["#FFFFFF", "#BBDEFB"],
+            tints: { Walls: "#A8654A", Trim: "#D9D4C7", Roof: "#3A3D42", Globe: "#4FA3FF", Accent: "#1A237E" }, signSize: [9.0, 0.9, 92], signBg: "#1A237E", signFg: ["#FFFFFF", "#BBDEFB"],
             with: [
                 { key: "places_court", dims: { w: 18, d: 14, prot: 3.8 }, u: 13.6, sign: L.SIGNS.court, spot: "court",
                     tints: { Walls: "#EDE3CC", Roof: "#6B7F8E", Trim: "#F7F3EA", Accent: "#6D4C2E" }, signSize: [13.2, 1.1, 104], signBg: "#F7F3EA", signFg: ["#1F2D63", "#6D4C41"] },

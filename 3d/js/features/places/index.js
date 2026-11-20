@@ -39,7 +39,13 @@ const DOORS = {
 };
 /** Is walking in possible right now (not mid-chase, not in a party, nothing more urgent on ✋)? */
 function canWalkIn() {
-    if (ctx.time < C.doorsAt) return false;          // (she just came OUT of one: a mashed ✕ mustn't walk her straight back in)
+    // (she just came OUT of one: a ✕ still being mashed from the scene mustn't walk her straight back in — the doors wake up
+    //  once she's stepped 4 m away, or after 8 s)
+    if (C.outAt) {
+        const p = herPos();
+        if (ctx.time < C.doorsAt && p && Math.hypot(p.x - C.outAt.x, p.z - C.outAt.z) < 4) return false;
+        C.outAt = null;
+    }
     if (!inTown() || (ctx.party && ctx.party.active) || !ctx.interiors) return false;
     if ((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return false;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return false;
@@ -95,7 +101,7 @@ async function gate() {
 }
 
 // ── walking past: Lulu's one-liner, once per building per visit ─────────
-const C = { said: new Set(), t: 0, doorsAt: 0 };
+const C = { said: new Set(), t: 0, doorsAt: 0, outAt: null };
 function passBy(dt) {
     if ((C.t += dt) < 0.5) return;
     C.t = 0;
@@ -128,7 +134,7 @@ on("boot", () => {
 });
 on("town:enter", () => { C.said.clear(); nameInteriors(); });
 on("title", () => clear());
-on("places:out", () => { C.doorsAt = ctx.time + 2.5; for (const k of Object.keys(PASS)) C.said.add(k); });   // (her own walk-out line, not a walk-by quip)
+on("places:out", () => { const p = herPos(); C.doorsAt = ctx.time + 8; C.outAt = p ? { x: p.x, z: p.z } : null; for (const k of Object.keys(PASS)) C.said.add(k); });   // (her own walk-out line, not a walk-by quip)
 on("places:enter", e => { if (e && e.kind) C.said.add(e.kind); });
 on("run:start", () => clear());
 on("town:leave", () => C.said.clear());

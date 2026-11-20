@@ -75,7 +75,7 @@ export default {
         // features/places (roadmap 4): the precinct (green lamps — it's Brooklyn) + its tow pound, the courthouse beside it on
         // Avenue K, and Midwood General on Avenue L. Doors are ✋ spots; arrests / the ER happen IN them.
         civic: { key: "places_precinct", fallback: "town_mw_store", dims: { w: 15, d: 12, prot: 2.6 }, u: -4.2, sign: L.SIGNS.precinct, spot: "precinct",
-            tints: { Walls: "#8A4B3A", Trim: "#D9D4C7", Roof: "#3A3D42", NeonGlobe: "#3DFF7A", Accent: "#1B3A2B" }, signSize: [9.0, 0.9, 92], signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
+            tints: { Walls: "#8A4B3A", Trim: "#D9D4C7", Roof: "#3A3D42", Globe: "#3DFF7A", Accent: "#1B3A2B" }, signSize: [9.0, 0.9, 92], signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
             with: [
                 { key: "places_court", dims: { w: 18, d: 14, prot: 3.8 }, u: 13.6, sign: L.SIGNS.court, spot: "court",
                     tints: { Walls: "#C9C7C0", Roof: "#3F6B4F", Trim: "#E7E4DC", Accent: "#4E3B2A" }, signSize: [13.2, 1.1, 104], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"] },

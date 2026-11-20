@@ -3,7 +3,7 @@ Places (features/places): the town's civic buildings — roadmap step 4, "jail, 
 ER are real places in town". Every exterior is a town LANDMARK placed by the town's `uses`
 data (features/town/towns/<id>.js) and merged by kit.js like any other building, so they
 cost ~0 extra draw calls; keep them LOW-POLY (the town has a triangle budget). Tintable
-materials: Walls / Trim / Roof / Accent (+ NeonGlobe, the lamps: blue in Lakewood, green in
+materials: Walls / Trim / Roof / Accent (+ Globe, the lamps: blue in Lakewood, green in
 Midwood). Signs come from the town's sign atlas at Anchor_sign. Front = -Y (= +Z in three.js);
 the origin is the centre of the main body at ground level (the town's DIMS prot = how far the
 steps / canopy stick out in front of the body).
@@ -45,7 +45,7 @@ def build_precinct():
     ROOF = mat("Roof", "#3A3D42", rough=0.95)
     DOOR = mat("Accent", "#1A237E", rough=0.5)
     WIN = mat("Window", "#9AD3EE", rough=0.15, emit=0.25)
-    GLOBE = mat("NeonGlobe", "#4FA3FF", rough=0.3, emit=2.2)
+    GLOBE = mat("Globe", "#7FC0FF", rough=0.3, emit=1.2)
     DARK = mat("Iron", "#2B2F33", rough=0.6)
     FLAG = mat("FlagBlue", "#1A237E", rough=0.8)
     FLAGW = mat("FlagWhite", "#F5F5F5", rough=0.8)
@@ -73,12 +73,12 @@ def build_precinct():
     windows_row(coll, parts, xs, fy, 2.35, 1.3, 1.6, TRIM, WIN)
     windows_row(coll, parts, (-5.6, -3.3, 3.3, 5.6), fy, 5.95, 1.3, 1.5, TRIM, WIN)
     for x in xs:
-        for b in range(3):
-            parts.append(P(coll, "bar", bm_box(0.05, 0.06, 1.6), DARK, (x - 0.38 + b * 0.38, fy - 0.12, 2.35)))
+        for b in range(2):
+            parts.append(P(coll, "bar", bm_box(0.05, 0.06, 1.6), DARK, (x - 0.22 + b * 0.44, fy - 0.12, 2.35)))
     # the two globe lamps either side of the steps
     for s in (-1, 1):
         parts.append(P(coll, "lamppost", bm_cyl(0.07, 0.09, 2.4, 6), DARK, (s * 3.2, fy - 1.6, 1.2)))
-        parts.append(P(coll, "globe", bm_sphere(0.3, u=8, v=6), GLOBE, (s * 3.2, fy - 1.6, 2.6)))
+        parts.append(P(coll, "globe", bm_sphere(0.3, u=6, v=4), GLOBE, (s * 3.2, fy - 1.6, 2.6)))
     # the flag on a pole off the corner
     parts.append(P(coll, "flagpole", bm_cyl(0.06, 0.05, 9.0, 6), DARK, (-w / 2 + 0.6, fy - 1.8, 4.5)))
     parts.append(P(coll, "flag", bm_box(0.04, 1.6, 1.0), FLAG, (-w / 2 + 0.6, fy - 2.65, 8.4)))
@@ -116,7 +116,7 @@ def build_court():
         parts.append(P(coll, "step", bm_box(pw + 1.6 - k * 0.4, 3.4 - k * 0.6, 0.2), STEP, (0, fy - 1.9 + k * 0.3, 0.1 + k * 0.2)))
     for k in range(6):
         x = -pw / 2 + 0.9 + k * (pw - 1.8) / 5
-        parts.append(P(coll, "col", bm_cyl(0.4, 0.34, 5.6, 10), COL, (x, fy - 2.4, 3.6)))
+        parts.append(P(coll, "col", bm_cyl(0.4, 0.34, 5.6, 8), COL, (x, fy - 2.4, 3.6)))
         parts.append(P(coll, "cap", bm_box(0.95, 0.95, 0.25), TRIM, (x, fy - 2.4, 6.5)))
         parts.append(P(coll, "plinth", bm_box(0.9, 0.9, 0.2), TRIM, (x, fy - 2.4, 0.9)))
     parts.append(P(coll, "porchfloor", bm_box(pw, 3.0, 0.2), STEP, (0, fy - 1.5, 0.7)))
@@ -128,7 +128,7 @@ def build_court():
     parts.append(P(coll, "beam", bm_box(1.6, 0.08, 0.08), GOLD, (0, fy - 3.45, 8.85)))
     parts.append(P(coll, "post", bm_box(0.08, 0.08, 0.8), GOLD, (0, fy - 3.45, 8.55)))
     for s in (-1, 1):
-        parts.append(P(coll, "pan", bm_cyl(0.28, 0.16, 0.12, 8), GOLD, (s * 0.75, fy - 3.45, 8.45)))
+        parts.append(P(coll, "pan", bm_cyl(0.28, 0.16, 0.12, 6), GOLD, (s * 0.75, fy - 3.45, 8.45)))
     # tall bronze doors under a fanlight, tall windows either side
     parts.append(P(coll, "doorframe", bm_box(3.2, 0.2, 4.0), TRIM, (0, fy - 0.08, 2.75)))
     for s in (-1, 1):
@@ -150,7 +150,7 @@ def ambulance(coll, parts, x, y, rot):
     RED = mat("AmbCross", "#D32F2F", rough=0.5)
     GLASS = mat("AmbGlass", "#2B3A42", rough=0.1)
     TIRE = mat("Tire", "#262626", rough=0.9)
-    LIGHT = mat("NeonAmbLight", "#FF5252", rough=0.3, emit=2.0)
+    LIGHT = mat("AmbLight", "#FF5252", rough=0.3, emit=1.0)
     c, s = math.cos(rot), math.sin(rot)
 
     def at(lx, ly):
@@ -169,7 +169,7 @@ def ambulance(coll, parts, x, y, rot):
     add("bar", bm_box(1.4, 0.3, 0.18), LIGHT, 0, -1.6, 2.1)
     for lx in (-1.0, 1.0):
         for ly in (-2.2, 1.9):
-            add("tire", bm_cyl(0.42, 0.42, 0.3, 8, "X"), TIRE, lx, ly, 0.42)
+            add("tire", bm_box(0.3, 0.8, 0.8), TIRE, lx, ly, 0.42)
 
 
 def build_hospital():
@@ -179,7 +179,7 @@ def build_hospital():
     TRIM = mat("Trim", "#00897B", rough=0.55)          # the teal bands (tinted per town)
     ROOF = mat("Roof", "#3A3A3A", rough=0.95)
     WIN = mat("Window", "#8CCBE6", rough=0.1, emit=0.25)
-    RED = mat("NeonCross", "#FF3B3B", rough=0.4, emit=1.8)
+    RED = mat("CrossRed", "#FF3B3B", rough=0.4, emit=1.0)
     CANOPY = mat("Canopy", "#FAFAFA", rough=0.5)
     STEEL = mat("Steel", "#B0BEC5", rough=0.4, metal=0.5)
     DOOR = mat("DoorGlass", "#BFE7F5", rough=0.05, emit=0.15)
@@ -212,7 +212,7 @@ def build_hospital():
     bx = w / 2 - 4.2
     parts.append(P(coll, "baydoor", bm_box(4.4, 0.14, 3.2), STEEL, (bx, fy - 0.07, 1.6)))
     parts.append(P(coll, "baycanopy", bm_box(6.4, 4.0, 0.3), CANOPY, (bx, fy - 2.0, 4.3)))
-    parts.append(P(coll, "bayedge", bm_box(6.5, 0.15, 0.6), mat("NeonEmergency", "#FF5252", rough=0.3, emit=1.6), (bx, fy - 4.0, 4.3)))
+    parts.append(P(coll, "bayedge", bm_box(6.5, 0.15, 0.6), mat("EmergencyRed", "#FF5252", rough=0.3, emit=1.0), (bx, fy - 4.0, 4.3)))
     for s in (-1, 1):
         parts.append(P(coll, "baypost", bm_cyl(0.14, 0.14, 4.2, 6), STEEL, (bx + s * 3.0, fy - 3.8, 2.1)))
     parts.append(P(coll, "apron", bm_box(6.4, 4.2, 0.06), CONC, (bx, fy - 2.1, 0.03)))
@@ -220,7 +220,7 @@ def build_hospital():
     # benches + a planter by the door
     parts.append(P(coll, "bench", bm_box(2.0, 0.5, 0.45), mat("Bench", "#8D6E63", rough=0.7), (-7.6, fy - 1.0, 0.45)))
     parts.append(P(coll, "planter", bm_box(1.4, 1.4, 0.6), CONC, (-9.6, fy - 1.0, 0.3)))
-    parts.append(P(coll, "shrub", bm_sphere(0.75, u=8, v=5), mat("Leaves", "#6CC24A", rough=0.85), (-9.6, fy - 1.0, 1.1)))
+    parts.append(P(coll, "shrub", bm_sphere(0.75, u=6, v=4), mat("Leaves", "#6CC24A", rough=0.85), (-9.6, fy - 1.0, 1.1)))
     bake(parts, "PlacesHospital_body", coll, parent=root)
     anchor(coll, root, "Anchor_sign", (-1.0, fy - 0.24, h - 0.5))
     anchor(coll, root, "Anchor_door", (-3.0, fy - 2.6, 0))
@@ -235,8 +235,8 @@ def cruiser(coll, parts, x, y, rot):
     WHT = mat("CruiserWhite", "#F4F4F2", rough=0.45)
     GLASS = mat("CruiserGlass", "#2B3A42", rough=0.1)
     TIRE = mat("Tire", "#262626", rough=0.9)
-    RED = mat("NeonBarRed", "#FF3D3D", rough=0.3, emit=2.0)
-    BLUE = mat("NeonBarBlue", "#3D8BFF", rough=0.3, emit=2.0)
+    RED = mat("BarRed", "#FF3D3D", rough=0.3, emit=1.0)
+    BLUE = mat("BarBlue", "#3D8BFF", rough=0.3, emit=1.0)
     c, s = math.cos(rot), math.sin(rot)
 
     def add(name, bm, m, lx, ly, z):
@@ -249,7 +249,7 @@ def cruiser(coll, parts, x, y, rot):
     add("barB", bm_box(0.6, 0.3, 0.16), BLUE, 0.32, 0.25, 1.58)
     for lx in (-0.9, 0.9):
         for ly in (-1.5, 1.5):
-            add("tire", bm_cyl(0.36, 0.36, 0.26, 8, "X"), TIRE, lx, ly, 0.36)
+            add("tire", bm_box(0.26, 0.68, 0.68), TIRE, lx, ly, 0.36)
 
 
 def build_impound():
@@ -271,9 +271,9 @@ def build_impound():
         parts.append(P(coll, "front", bm_box(w / 2 - 2.2, 0.08, hf), SLAT, (s * (w / 4 + 1.1), fy, hf / 2)))
     parts.append(P(coll, "gate", bm_box(4.4, 0.06, hf - 0.4), mat("GateMesh", "#8A9096", rough=0.5, metal=0.4), (0, fy - 0.12, (hf - 0.4) / 2 + 0.1)))
     for x in (-w / 2, -w / 4, -2.2, 2.2, w / 4, w / 2):
-        parts.append(P(coll, "post", bm_cyl(0.06, 0.06, hf + 0.3, 6), POST, (x, fy, (hf + 0.3) / 2)))
+        parts.append(P(coll, "post", bm_box(0.1, 0.1, hf + 0.3), POST, (x, fy, (hf + 0.3) / 2)))
     for x in (-w / 2, 0, w / 2):
-        parts.append(P(coll, "bpost", bm_cyl(0.06, 0.06, hf + 0.3, 6), POST, (x, d / 2, (hf + 0.3) / 2)))
+        parts.append(P(coll, "bpost", bm_box(0.1, 0.1, hf + 0.3), POST, (x, d / 2, (hf + 0.3) / 2)))
     # a sign board on two legs over the gate
     parts.append(P(coll, "signboard", bm_box(5.0, 0.12, 1.0), TRIM, (0, fy - 0.2, hf + 0.9)))
     for s in (-1, 1):
