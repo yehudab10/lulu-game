@@ -274,6 +274,8 @@ const say = (line, auto) => H.toast(line, "", { prio: auto ? 1 : 2, key: "unstuc
 function done(how, auto, dist = 0) {
     U.n++;
     if (auto) U.autoLast = ctx.time; else U.last = ctx.time;
+    // (an automatic rescue that didn't move her means the check was wrong about this place: back off, never loop)
+    if (auto && auto !== "nan" && dist < 1 && how !== "hop" && how !== "room" && how !== "door") U.autoLast = ctx.time + 30;
     U.log.push({ how, auto: auto || null, dist: +dist.toFixed(1), state: ctx.state, t: +ctx.time.toFixed(2) });
     if (U.log.length > 30) U.log.shift();
     shield();
@@ -453,7 +455,7 @@ function badNow() {
         if (!fin(p.x) || !fin(p.z) || !fin(p.y) || !fin(car.h)) return "nan";
         if (p.y < -1.5) return "under";
         if (car.speed < 1 && insideCar(p.x, p.z)) return "inside";
-        if (edge(p.x, p.z, false)) return "edge";
+        if (edge(p.x, p.z, false, car.s)) return "edge";
         return null;
     }
     if (st === "footRun") {
@@ -463,13 +465,13 @@ function badNow() {
         if (!fin(p.x) || !fin(p.z) || !fin(p.y) || !fin(F.y || 0)) return "nan";
         if (p.y < -1.5 || (F.y || 0) < -1.5) return "under";
         if (Math.hypot(F.vel.x, F.vel.z) < 0.6 && insideFoot(F)) return "inside";
-        if (edge(p.x, p.z, true)) return "edge";
+        if (edge(p.x, p.z, true, F.s)) return "edge";
         return null;
     }
     return null;
 }
 /** Off the world's edge: far beyond any street (a town) / far past the fences (the highway). */
-function edge(x, z, foot) {
+function edge(x, z, foot, hint) {
     if (townOn()) {
         toLocal(x, z, _l);
         let best = 1e18;
@@ -482,7 +484,8 @@ function edge(x, z, foot) {
         }
         return best > (foot ? 120 : 90) * (foot ? 120 : 90);
     }
-    const hw = ctx.world.highway || ctx.world.road, n = hw.nearest(x, z, ctx.car.s, _n), ad = Math.abs(n.d);
+    // (her OWN road hint: on foot the car's s is where she left it — a lookup from there can land on the wrong stretch)
+    const hw = ctx.world.highway || ctx.world.road, n = hw.nearest(x, z, fin(hint) ? hint : ctx.car.s, _n), ad = Math.abs(n.d);
     return ad > (foot ? 240 : 90) && pavedAt(n.s, n.d) === 0;
 }
 function insideCar(x, z) {
