@@ -161,8 +161,9 @@ const SRC = String.raw`
     if (!ctx.view && (st === "playing" || st === "footRun")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
       if (foot) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
-        if (c.kind !== "tree" || c.off || camP.y < 2.1 || camP.y > 6.5) continue;
-        const R = Math.max(2.0, c.r + 1.0);
+        if (c.kind !== "tree" || c.off || camP.y < 2.0 || camP.y > 7.5) continue;
+        const R = Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4)) - 0.3;     // (as foot/jump.js canopyR, a touch inside)
+        if ((foot.x - c.x) ** 2 + (foot.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)
         if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) flag("inwall", "the camera is inside a tree's leaves @" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")", "inwall:tree");
       }
       if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }

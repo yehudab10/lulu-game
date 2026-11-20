@@ -146,7 +146,7 @@ const CAM_PAD = 0.25, CAM_MIN = 0.05;     // (pad < her radius: walking ALONG a 
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;
-    let best = D;
+    let best = D, under = false;
     const T = ctx.town, pl = T && T.active && T.plan;
     // (in a town the BLOCK outlines below are the houses' real front line — the ring of circles round a block stands
     //  ~1 m out in front of it, and hugging a wall the camera behind her kept catching those)
@@ -159,10 +159,10 @@ export function camClip(F, tgt, dx, dy, dz, D) {
                 // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
                 // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
                 // (a trunk merely between them doesn't pull it in: it would pop in and out past every street tree)
-                const R = Math.max(2.2, c.r + 1.2), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
-                if (ey < 1.9 || ey > 7 || ex * ex + ez * ez > R * R) continue;
+                const R = canopyR(c), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
                 const ox = tgt.x - c.x, oz = tgt.z - c.z, cc = ox * ox + oz * oz - R * R;
-                if (cc <= 0) continue;      // (she's under it herself: the camera stays back, out past the leaves — pulled in, it rose into them)
+                if (cc <= 0) { under = true; continue; }      // (she's under it herself: the camera stays back, out past the leaves)
+                if (ey < 1.5 || ey > 8.5 || ex * ex + ez * ez > R * R) continue;
                 const b = ox * dx + oz * dz, disc = b * b - h2 * cc;
                 if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
                 continue;
@@ -195,8 +195,13 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             if (tgt.y + dy * t0 < 8) best = t0;
         }
     }
-    return best >= D ? D : Math.max(CAM_MIN, best);
+    const d = best >= D ? D : Math.max(CAM_MIN, best);
+    // (under a tree, a camera pulled in close must not rise over her head — that's up into the leaves)
+    return under ? { d, noLift: true } : d;
 }
+/** How far a tree's leaves reach from its trunk (tree_round's canopy is ~2.2 m × its scale; the colliders don't carry the
+ *  scale: the highway's are 0.48 × scale, a town's street trees (0.4) stay ≤ ~1.05×, its boulevard / park ones go to ~1.5×). */
+const canopyR = c => Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4));
 
 // ── the jump itself ─────────────────────────────────────────────────────────────────────────
 /** Launch now: opts.long (out of a slide: { vx, vz } her slide velocity). */
