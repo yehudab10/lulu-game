@@ -214,7 +214,7 @@ export function geometry(E) {
     const rnd = mulberry(20261120), cars = [];
     const PAINTS = ["#E53935", "#42A5F5", "#FFFFFF", "#FFCA28", "#9E9E9E", "#263238", "#8D6E63", "#66BB6A", "#BA68C8", "#B0BEC5", "#C0C6CC", "#1E3A5F"];
     for (const row of LY.STALLS) for (let f = row.f0 + LY.STALL_W / 2; f < row.f1; f += LY.STALL_W) {
-        if (rnd() > 0.36) continue;
+        if (rnd() > 0.26) continue;
         const key = rnd() < 0.55 ? "town_minivan_lod" : "town_mw_sedan_lod";
         cars.push({ f, r: row.r, face: row.face, key, color: PAINTS[Math.floor(rnd() * PAINTS.length)] });
         addA(f, row.r - 1.2, 1.15, "car"); addA(f, row.r + 1.2, 1.15, "car");

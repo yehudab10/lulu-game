@@ -186,11 +186,10 @@ def build_plane():
     GEAR = mat("Gear", "#3A3F44", rough=0.6)
     L, R = 30.0, 1.9
     z0 = 3.4     # fuselage centre height (on its wheels)
-    body = [Part(coll, "fuse", bm_cyl(R, R, L, 16, axis="Y"), PAINT, loc=(0, 0, z0)),
-            Part(coll, "nose", bm_sphere(R, 4.2, R, 16, 10), PAINT, loc=(0, -L / 2, z0)),
-            Part(coll, "tailcone", bm_cyl(R, 0.55, 7.0, 16, axis="Y"), PAINT, loc=(0, L / 2 + 3.5, z0 + 0.9), rot=(-0.24, 0, 0)),
-            Part(coll, "stripe", bm_cyl(R + 0.03, R + 0.03, L - 2, 16, axis="Y"), STRIPE, loc=(0, 0, z0 - 0.55)),
-            Part(coll, "belly", bm_cyl(R - 0.05, R - 0.05, L - 4, 16, axis="Y"), PAINT, loc=(0, 0, z0 - 0.75))]
+    body = [Part(coll, "fuse", bm_cyl(R, R, L, 10, axis="Y"), PAINT, loc=(0, 0, z0)),
+            Part(coll, "nose", bm_sphere(R, 4.2, R, 10, 6), PAINT, loc=(0, -L / 2, z0)),
+            Part(coll, "tailcone", bm_cyl(R, 0.55, 7.0, 10, axis="Y"), PAINT, loc=(0, L / 2 + 3.5, z0 + 0.9), rot=(-0.24, 0, 0)),
+            Part(coll, "stripe", bm_box(2 * R + 0.06, L - 2, 0.32), STRIPE, loc=(0, 0, z0 - 0.35), smooth=False)]
     # windows: a dark band each side + the cockpit
     for x in (-R - 0.02, R + 0.02):
         body.append(Part(coll, "wins", bm_box(0.08, L - 7.0, 0.42), WINS, loc=(x, 0.6, z0 + 0.55), smooth=False))
@@ -204,8 +203,8 @@ def build_plane():
     for sx in (-1, 1):
         body.append(Part(coll, "wing", bm_box(13.5, 4.6, 0.38), WING, loc=(sx * 8.2, 1.6, z0 - 0.9), rot=(0, sx * -0.05, sx * -0.32), smooth=False))
         body.append(Part(coll, "winglet", bm_box(0.25, 1.8, 1.8), TAIL, loc=(sx * 14.9, 4.4, z0 - 0.0), rot=(0, sx * 0.2, 0), smooth=False))
-        body.append(Part(coll, "engine", bm_cyl(1.05, 0.9, 4.0, 14, axis="Y"), ENG, loc=(sx * 5.6, -1.4, z0 - 2.0)))
-        body.append(Part(coll, "intake", bm_cyl(0.85, 0.85, 0.2, 14, axis="Y"), DARK, loc=(sx * 5.6, -3.45, z0 - 2.0)))
+        body.append(Part(coll, "engine", bm_cyl(1.05, 0.9, 4.0, 10, axis="Y"), ENG, loc=(sx * 5.6, -1.4, z0 - 2.0)))
+        body.append(Part(coll, "intake", bm_cyl(0.85, 0.85, 0.2, 10, axis="Y"), DARK, loc=(sx * 5.6, -3.45, z0 - 2.0)))
         body.append(Part(coll, "pylon", bm_box(0.3, 2.6, 0.9), WING, loc=(sx * 5.6, -0.8, z0 - 1.3), smooth=False))
     bake(body, "AirportPlane_body", coll, parent=root)
     gear = [Part(coll, "noseLeg", bm_cyl(0.12, 0.12, 2.0, 6), GEAR, loc=(0, -L / 2 + 2.0, 1.5), smooth=False),

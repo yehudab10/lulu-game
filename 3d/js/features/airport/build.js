@@ -390,7 +390,7 @@ export function* buildSteps(G, group, out) {
     yield "merged";
     const ms = atlasSteps(at);
     let sm;
-    for (;;) { const r = ms.next(); if (r.done) { sm = r.value; break; } yield "atlas"; }
+    for (;;) { const r = ms.next(); if (r.done) { sm = r.value; break; } yield r.value; }
     group.add(sm); out.geos.push(sm.geometry); out.atlas = sm.material;
     sm.updateMatrix();
     return out;
@@ -459,7 +459,7 @@ function* atlasSteps(at) {
                 drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
             }
             g.restore();
-            yield "atlas:cell";
+            yield "atlas:" + (spec.key || "cell");
         }
         const tex = new THREE.CanvasTexture(canvas);
         tex.colorSpace = THREE.SRGBColorSpace;

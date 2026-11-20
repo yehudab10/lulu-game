@@ -45,7 +45,7 @@ import { makeVehicles, doorSpot, makeJoke, nearFence, luluSays, VEH, JOKE } from
 const Q = new URLSearchParams(location.search);
 const FLAG = (Q.get("enable") || "").split(",").includes("airport") || Q.get("airport") === "1";
 /** How far out the build starts / stops, and the per-frame build budget. */
-export const BUILD = { start: 2600, drop: 3200, ms: 3.0, keepBehind: 900 };
+export const BUILD = { start: 2600, drop: 3200, ms: 3.0, keepBehind: 520 };
 
 const S = {
     on: FLAG, G: null, E: null, res: [], signs: [], group: null, gen: null, ready: false, out: null, planes: null, veh: null,
@@ -154,7 +154,7 @@ function startBuild() {
     ctx.scene.add(S.group);
     S.out = { geos: [] };
     S.gen = buildSteps(S.G, S.group, S.out);
-    S.ms = 0; S.steps = 0; S.worst = 0; S.t0 = performance.now();
+    S.ms = 0; S.steps = 0; S.worst = 0; S.stepMs = []; S.t0 = performance.now();
 }
 function advance(budget) {
     const t0 = performance.now();
@@ -162,7 +162,7 @@ function advance(budget) {
         const a = performance.now();
         const r = S.gen.next();
         const dt = performance.now() - a;
-        S.ms += dt; S.steps++;
+        S.ms += dt; S.steps++; (S.stepMs || (S.stepMs = [])).push(dt);
         if (dt > S.worst) { S.worst = dt; S.worstStep = r.done ? "done" : String(r.value); }
         if (r.done) {
             S.gen = null; S.ready = true;
@@ -338,7 +338,8 @@ ctx.airport = {
             if (!S.group) return null;
             let tris = 0, meshes = 0;
             S.group.traverse(o => { if (o.isMesh && o.geometry) { meshes++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
-            return { steps: S.steps, ms: +S.ms.toFixed(1), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
+            const q = (S.stepMs || []).slice().sort((a, b) => a - b), pc = k => q.length ? +q[Math.min(q.length - 1, Math.floor(q.length * k))].toFixed(2) : 0;
+            return { steps: S.steps, ms: +S.ms.toFixed(1), p95: pc(0.95), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
         },
     },
 };

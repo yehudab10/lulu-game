@@ -92,9 +92,12 @@ export function makePlanes(G, scene) {
     const gearIM = bakedInstanced(tpl, PLANES.n, {}, n => n === "Gear", 0.6);
     for (const im of [...liv, gearIM]) group.add(im);
     const Z = new THREE.Matrix4().makeScale(0, 0, 0);
+    // (packed: each livery's mesh draws only the planes wearing it this frame — `count` — not hidden copies)
+    const used = liv.map(() => 0), _t = new THREE.Matrix4();
     const body = {
-        set(j, m, li = -1) { liv.forEach((im, k) => im.setMatrixAt(j, k === li ? m : Z)); },
-        finish() { for (const im of liv) im.instanceMatrix.needsUpdate = true; },
+        begin() { used.fill(0); },
+        set(j, m, li = -1) { if (li >= 0) liv[li].setMatrixAt(used[li]++, _t.copy(m)); },
+        finish() { liv.forEach((im, k) => { im.count = used[k]; im.instanceMatrix.needsUpdate = true; }); },
         dispose() { for (const im of liv) im.dispose(); },
     };
     const gear = {
@@ -120,6 +123,7 @@ export function makePlanes(G, scene) {
         const sx = sun ? sun.position.x - sun.target.position.x : 0.3, sy = sun ? Math.max(0.2, sun.position.y - sun.target.position.y) : 1, sz = sun ? sun.position.z - sun.target.position.z : 0.3;
         P.live.length = 0; P.visibleN = 0;
         const e0 = Math.floor(T / PLANES.slot);
+        body.begin();
         for (let j = 0; j < PLANES.n; j++) {
             // the newest event in slot j that is still going
             let ev = e0 - ((e0 - j) % PLANES.n + PLANES.n) % PLANES.n, tau = T - ev * PLANES.slot;
