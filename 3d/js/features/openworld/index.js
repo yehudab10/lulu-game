@@ -298,7 +298,8 @@ function seedFlock() {
     for (const g of L.geese) {
         const x = lake.x - 3 + r() * 6, z = lake.z0 + r() * (lake.z1 - lake.z0), h = r() * 6;
         g.x = g.home.x = x; g.z = g.home.z = z; g.h = h; g.mode = "graze"; g.t = r() * 5;
-        g.obj.position.set(plan.ORIGIN.x + x, g.obj.position.y, plan.ORIGIN.z + z); g.obj.rotation.y = h;
+        const w = plan.world(x, z, {});
+        g.obj.position.set(w.x, g.obj.position.y, w.z); g.obj.rotation.y = plan.wh(h);
     }
 }
 on("town:leave", e => {
@@ -443,12 +444,12 @@ function clearOfJams(x, z, h) {
     if (!plan || !plan.def.jams) return out;
     const n = ctx.world.road.nearest(x, z, null, {}), st = n.street;
     if (!st || (st.axis !== "ns" && st.axis !== "ew")) return out;
-    const dir = Math.cos(h - st.h) >= 0 ? 1 : -1, along = n.s - st.base;
+    const dir = Math.cos(h - plan.wh(st.h)) >= 0 ? 1 : -1, along = n.s - st.base;
     for (const j of plan.def.jams) {
         if (j.street !== st.name || Math.sign(j.d) !== dir || along < j.from - 8 || along > j.to + 8) continue;
         const a = dir > 0 ? j.from - 10 : j.to + 10, d = dir * 1.75;
         const lx = st.axis === "ns" ? st.c - d : a, lz = st.axis === "ns" ? a : st.c + d;
-        out.x = plan.ORIGIN.x + lx; out.z = plan.ORIGIN.z + lz;
+        plan.world(lx, lz, out);
     }
     return out;
 }
@@ -483,7 +484,7 @@ function onStreet(plan, lx, lz) {
     if (!best) return null;
     const { st, a, side } = best, dd = side * 4.2;
     const x = st.axis === "ns" ? st.c - dd : a, z = st.axis === "ns" ? a : st.c + dd;
-    return { x: plan.ORIGIN.x + x, z: plan.ORIGIN.z + z };
+    return plan.world(x, z, {});
 }
 /** Named places in this town (world, on the street): [{x, z, name, icon, key}]. */
 function townSights() {
@@ -503,7 +504,7 @@ function townSights() {
 function streetCorners() {
     const T = ctx.town, plan = T && T.plan;
     if (!plan) return [];
-    return plan.NODES.filter(n => !n.circle && plan.STREETS[n.ns] && plan.STREETS[n.ew]).map(n => ({ x: plan.ORIGIN.x + n.x + 4, z: plan.ORIGIN.z + n.z + 4, name: `${plan.STREETS[n.ns].name} & ${plan.STREETS[n.ew].name}`, icon: "🚦" }));
+    return plan.NODES.filter(n => !n.circle && plan.STREETS[n.ns] && plan.STREETS[n.ew]).map(n => ({ ...plan.world(n.x + 4, n.z + 4, {}), name: `${plan.STREETS[n.ns].name} & ${plan.STREETS[n.ew].name}`, icon: "🚦" }));
 }
 /** Pins at least minD metres from here: town sights first (then corners); the highway: up the road. */
 function pins(minD, n, sightsOnly = false) {
@@ -867,7 +868,8 @@ ctx.openworld = {
     get riding() { return riding(); },
     pin, unpin, get pinned() { return NP.pin; },
     /** A party town's block loops, read-only (community runs its org cars on them): { loops, origin, point(L, u, out) } | null. */
-    townLoops: () => (TT.plan && TT.loops.length ? { loops: TT.loops, origin: TT.plan.ORIGIN, point: loopPoint, town: TT.town } : null),
+    /** world(local {x, z, h}) → the same pose in world coords (in place): the town can stand turned at its interchange */
+    townLoops: () => (TT.plan && TT.loops.length ? { loops: TT.loops, world: o => { const h = o.h; TT.plan.world(o.x, o.z, o); if (h != null) o.h = TT.plan.wh(h); return o; }, point: loopPoint, town: TT.town } : null),
     debug: {
         CL, SOLO, NP, TT, townCarsAt, townLive, townClaims, beaconCount, sights: townSights, pins, hostTick, getG, here,
         /** tests: claim a game event as me (exactly what play() would send). */

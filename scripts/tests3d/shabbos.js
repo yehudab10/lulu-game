@@ -177,7 +177,12 @@ module.exports = {
     t.check("the 🕯️ badge is earned", await g(`(() => { const S = JSON.parse(localStorage.luluSaveV2); return (S.stats && S.stats.shabbosMade) >= 1; })()`));
     t.check("…and named on the card", await t.L(`/Made It for Candles/.test(document.getElementById("screenCard").textContent)`));
     await layouts("made", async (name) => {
-      t.check(`${name}: the card fits`, await t.L(`(() => { const c = document.getElementById("screenCard"); const r = c.getBoundingClientRect(); return r.top >= -1 && r.bottom <= innerHeight + 1 && c.scrollHeight <= c.clientHeight + 2; })()`));
+      // (judged once the card has settled: it pops in, and a slow machine may still be mid-animation — look a few times)
+      const fit = () => t.L(`(() => { const c = document.getElementById("screenCard"); const r = c.getBoundingClientRect();
+          return { ok: r.top >= -1 && r.bottom <= innerHeight + 1 && c.scrollHeight <= c.clientHeight + 2, top: Math.round(r.top), bottom: Math.round(r.bottom), ih: innerHeight, sh: c.scrollHeight, ch: c.clientHeight }; })()`);
+      let f = await fit();
+      for (let i = 0; i < 8 && !f.ok; i++) { await t.frames(4); f = await fit(); }
+      t.check(`${name}: the card fits`, f.ok, JSON.stringify(f));
     });
 
     // ── retry → run out of time → the fail card ─────────────────────────────

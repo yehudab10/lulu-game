@@ -76,7 +76,8 @@ export function cruisersAt(Tms) {
     const p = {}, out = [];
     for (const c of planCruisers(TL, cfg)) {
         TL.point(c.loop, c.phase + c.v * Tms / 1000, p);
-        out.push({ key: c.key, org: c.org, x: TL.origin.x + p.x, z: TL.origin.z + p.z, h: p.h });
+        TL.world(p);
+        out.push({ key: c.key, org: c.org, x: p.x, z: p.z, h: p.h });
     }
     return out;
 }
@@ -87,7 +88,8 @@ function loopAi(dt, c) {
     if (!TL) return;
     const T = ctx.party.clock();
     TL.point(D.loop, D.phase + D.v * T / 1000, _p);
-    c.x = TL.origin.x + _p.x; c.z = TL.origin.z + _p.z; c.h = _p.h; c.speed = D.v;
+    TL.world(_p);
+    c.x = _p.x; c.z = _p.z; c.h = _p.h; c.speed = D.v;
     D.at = T;
 }
 function clearCruisers() {

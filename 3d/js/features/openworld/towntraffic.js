@@ -84,16 +84,19 @@ export function loopPoint(L, u, out) {
 
 /** Every party town car's world pose at party time T (ms). Pure — the test compares screens with it. */
 export function townCarsAt(Tms) {
-    const out = [], p = {}, O = TT.plan ? TT.plan.ORIGIN : { x: 0, z: 0 }, t = Tms / 1000;
+    const out = [], p = {}, t = Tms / 1000;
     for (const L of TT.loops) for (const c of L.cars) {
         if (TT.claims.has(c.key) || TT.dead.has(c.key)) continue;     // (off its loop: claimed / taken)
         loopPoint(L, c.phase + c.v * t, p);
-        out.push({ key: c.key, kind: c.kind, x: O.x + p.x, z: O.z + p.z, h: p.h });
+        worldPose(p);
+        out.push({ key: c.key, kind: c.kind, x: p.x, z: p.z, h: p.h });
     }
     return out;
 }
 
 const _p = {};
+/** A local pose {x, z, h} → world, in place (the town can stand turned at its interchange). */
+function worldPose(o) { if (!TT.plan) return o; const h = o.h; TT.plan.world(o.x, o.z, o); o.h = TT.plan.wh(h); return o; }
 const smooth = t => { t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
 /** A loop car's pose at party time T (ms): on its loop, or — claimed — braking to a stop and easing to the kerb. */
 function poseAt(L, phase, v, key, Tms, out) {
@@ -107,10 +110,10 @@ function poseAt(L, phase, v, key, Tms, out) {
     return out;
 }
 function ai(dt, c) {
-    const D = c.data, L = D.loop, O = TT.plan.ORIGIN;
+    const D = c.data, L = D.loop;
     const T = ctx.party ? ctx.party.clock() : ctx.time * 1000;
-    poseAt(L, D.phase, D.v, D.key, T, _p);
-    c.x = O.x + _p.x; c.z = O.z + _p.z; c.h = _p.h; c.speed = _p.speed;
+    worldPose(poseAt(L, D.phase, D.v, D.key, T, _p));
+    c.x = _p.x; c.z = _p.z; c.h = _p.h; c.speed = _p.speed;
     D.at = T;
 }
 /** Make this screen's car match claim `key` (mine: hers to jack — streets' carjack reads streetsHold). */
@@ -141,7 +144,7 @@ export const townClaims = {
     /** the claims' cars (mine first) */
     get mine() { return [...TT.claims].filter(([k, cl]) => cl.mine && !TT.dead.has(k)).map(([k]) => TT.cars.get(k)).filter(Boolean); },
     pose(key, Tms) {
-        for (const L of TT.loops) for (const k of L.cars) if (k.key === key) { const o = poseAt(L, k.phase, k.v, key, Tms, {}); const O = TT.plan.ORIGIN; return { x: O.x + o.x, z: O.z + o.z, h: o.h, speed: o.speed }; }
+        for (const L of TT.loops) for (const k of L.cars) if (k.key === key) { const o = worldPose(poseAt(L, k.phase, k.v, key, Tms, {})); return { x: o.x, z: o.z, h: o.h, speed: o.speed }; }
         return null;
     },
 };

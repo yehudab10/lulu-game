@@ -75,19 +75,23 @@ module.exports = {
       await g(`(() => { const r = ctx.world.road, s = ${E} - 380, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.vx = Math.sin(p.h) * 2; ctx.car.vz = Math.cos(p.h) * 2; return true; })()`);
       await t.frames(20);
       await t.shot("exit-gantry");
-      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = ctx.town.debug.rampRoute(E, 0).map(([u, d]) => { const p = r.point(E + u, d, {}); return { x: p.x, z: p.z }; });
-          window.__route = { pts, v: 15, r: 6 }; return true; })()`);
+      // (down the ramp, through the T and out the cross road: Midwood stands right there — attached, no fade)
+      await g(`(() => { const r = ctx.world.road, E = ${E}, pts = ctx.town.debug.rampRoute(E, 0).concat([[172.2, 48], [172.2, 70], [172.2, 110], [172.2, 160]]).map(([u, d]) => { const p = r.point(E + u, d, {}); return { x: p.x, z: p.z }; });
+          window.__route = { pts, v: 11, r: 6 }; return true; })()`);
       await t.until(`__lulu3d.ctx.car.s > ${E} - 120`, "she drives down to the exit", 40000);
       if (!await t.until(`__lulu3d.ctx.town.active`, "steering onto the MIDWOOD off-ramp takes her into town", 60000)) return;
       await g(`(window.__route = null, true)`);
       t.check("town:enter fired for Midwood", (await evs()).some(e => e.startsWith("town:enter") && /midwood/.test(e)));
       t.check("in Midwood: world.road is the TownRoad, still 'playing'", await g(`ctx.town.id === "midwood" && ctx.world.road.town === true && L3.state === "playing"`));
-      t.check("the trip bar is a street chip (Ocean Pkwy · MIDWOOD)", await t.L(`/Ocean Pkwy · MIDWOOD/.test(document.getElementById("tripLabel").textContent)`), await t.L(`document.getElementById("tripLabel").textContent`));
+      t.check("…attached: she drove in off the cross road (Avenue P runs on from it)", await g(`ctx.town.attached && ctx.town.street === "Avenue P"`), await g(`ctx.town.street`));
+      t.check("the trip bar is a street chip (Avenue P · MIDWOOD)", await t.L(`/(Avenue P|Ocean Pkwy) · MIDWOOD/.test(document.getElementById("tripLabel").textContent)`), await t.L(`document.getElementById("tripLabel").textContent`));
       t.check("every sign fits the one atlas (readable scale)", await g(`${D}.S.T.signs.scale >= 0.5 && ${D}.S.T.signs.cells.length > 40`), String(await g(`[${D}.S.T.signs.scale.toFixed(2), ${D}.S.T.signs.cells.length]`)));
       await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
       await t.frames(20);
       await t.shot("welcome");
       t.check("drivers are out (car services, minivans, the city bus, the sweeper, the patrol)", await g(`(() => { const k = ${D}.C.cars.map(c => c.kind); return k.length >= 8 && k.includes("town_carsvc") && k.includes("town_citybus") && k.includes("town_sweeper") && k.includes("cop"); })()`), String(await g(`${D}.C.cars.map(c => c.kind).join(",")`)));
+      // (the rest of this test drives the stand-alone Midwood — the same engine, unturned — left by Ocean Pkwy South at this exit)
+      await g(`(window.__route = null, ctx.town.leave("reset"), ctx.town.enter({ town: "midwood", exitS: ${E}, attach: false, speed: 0 }))`);
     });
 
     await step("plan", async () => {
@@ -324,7 +328,7 @@ module.exports = {
       if (await t.until(`!__lulu3d.ctx.town.active`, "driving south down Ocean Pkwy takes the on-ramp", 30000)) {
         t.check("town:leave fired (Midwood, why: highway)", (await evs()).some(e => e.startsWith("town:leave") && /midwood/.test(e) && /highway/.test(e)));
         t.check("back on the highway: on the interchange's on-ramp", await g(`ctx.world.road.town !== true && ctx.car.s > ${E} + 180 && ctx.car.s < ${E} + 300 && ctx.car.d > 9`), String(await g(`[Math.round(ctx.car.s - ${E}), ctx.car.d.toFixed(1)]`)));
-        t.check("Midwood's scene is disposed (and the trains with it)", await g(`!ctx.scene.children.some(o => /^Town:/.test(o.name))`));
+        t.check("Midwood's scene is disposed (and the trains with it) — only towns standing at an interchange are left", await g(`!ctx.scene.children.some(o => /^Town:/.test(o.name) && !ctx.town.debug.S.built.some(b => b.T && b.T.root === o))`));
         await g(`(window.__route = null, true)`);
         await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
       }

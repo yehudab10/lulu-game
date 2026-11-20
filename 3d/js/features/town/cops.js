@@ -15,7 +15,7 @@
 //                                heading when they lost her, then crossing to crossing around it
 //                                (they don't know where she is — copRoute(c, to) takes them there)
 import { ctx } from "../../core/ctx.js";
-import { PL, LANE, toLocal, streetOfS, streetPoint, streetCoords, nodesAround, nodeAlong, pathNodes, segmentBlocked, blocked, sharedStreet } from "./plan.js";
+import { PL, LANE, toLocal, toWorld, lH, streetOfS, streetPoint, streetCoords, nodesAround, nodeAlong, pathNodes, segmentBlocked, blocked, sharedStreet } from "./plan.js";
 
 const _a = {}, _b = {}, _c = {}, _p = {};
 
@@ -70,11 +70,10 @@ export function copRoute(c, to = null) {
             let px = ax, pz = az, left = la;
             for (const q of r.pts) {
                 const sl = Math.hypot(q.x - px, q.z - pz);
-                if (sl >= left) { const t = left / (sl || 1); out.x = PL.ORIGIN.x + px + (q.x - px) * t; out.z = PL.ORIGIN.z + pz + (q.z - pz) * t; return out; }
+                if (sl >= left) { const t = left / (sl || 1); return toWorld(px + (q.x - px) * t, pz + (q.z - pz) * t, out); }
                 left -= sl; px = q.x; pz = q.z;
             }
-            out.x = PL.ORIGIN.x + px; out.z = PL.ORIGIN.z + pz;
-            return out;
+            return toWorld(px, pz, out);
         },
     };
 }
@@ -129,6 +128,11 @@ export function hideSpot(T, x, z) {
         if (_k.along < s.a0 - 4 || _k.along > s.a1 + 4) continue;
         if (Math.abs(_k.d) < bd) { bd = Math.abs(_k.d); st = s; ca = _k.along; cd = _k.d; }
     }
+    // (an attached town's approach — the interchange's cross road: no kerb, no parking: its lanes are no hiding place)
+    if (PL.APPROACH && (!st || bd > 6)) {
+        const ap = streetCoords(PL.APPROACH, _h.x, _h.z, _k);
+        if (Math.abs(ap.d) < 4.6 && ap.along > PL.APPROACH.a0 - 2 && ap.along < PL.APPROACH.a1 + 2) return NOPE_LANE;
+    }
     if (!st) return { ok: true, spot: "yard" };                       // off the grid altogether (past a street's end)
     // in a crossing's box (on the asphalt of both streets): that's the junction, not a parking spot
     for (const n of PL.NODES) {
@@ -155,10 +159,11 @@ export function hideSpot(T, x, z) {
         streetCoords(st, p.x, p.z, _k);
         if (Math.abs(_k.d - want) < 1.8 && Math.abs(_k.along - ca) < 13) return { ok: true, spot: "kerb" };
     }
-    const O = PL.ORIGIN;
+    const _o = {};
     for (const c of ctx.traffic.cars) {                               // a stopped car in the lane (a double-parked van…)
         if (c.speed > 0.5 || (c.data && c.data.law)) continue;
-        streetCoords(st, c.x - O.x, c.z - O.z, _k);
+        toLocal(c.x, c.z, _o);
+        streetCoords(st, _o.x, _o.z, _k);
         if (Math.abs(_k.d - want) < 2.2 && Math.abs(_k.along - ca) < 13 && Math.abs(_k.along - ca) > 1) return { ok: true, spot: "kerb" };
     }
     return { ok: false, why: "empty", spot: "kerb" };
@@ -169,11 +174,11 @@ export function hideSpot(T, x, z) {
 export function searchPoint(last, out = {}) {
     const st = last && streetOfS(last.s);
     if (!st) return null;
-    const dir = Number.isFinite(last.h) && Math.sin(last.h) * st.ux + Math.cos(last.h) * st.uz < 0 ? -1 : 1;
+    const dir = Number.isFinite(last.h) && Math.sin(lH(last.h)) * st.ux + Math.cos(lH(last.h)) * st.uz < 0 ? -1 : 1;
     const run = Math.max(0, last.v || 0) * Math.min(20, Math.max(0, ctx.time - last.t));
     const along = Math.max(st.a0 + 6, Math.min(st.a1 - 6, last.s - st.base + dir * run));
     const p = streetPoint(st, along, dir * LANE, _p);
-    out.x = PL.ORIGIN.x + p.x; out.z = PL.ORIGIN.z + p.z; out.s = st.base + along;
+    toWorld(p.x, p.z, out); out.s = st.base + along;
     return out;
 }
 
@@ -184,5 +189,6 @@ export function prowlPoint(at, c) {
     const near = PL.NODES.filter(n => Math.hypot(n.x - _h.x, n.z - _h.z) < 170 && Math.hypot(n.x - _k.x, n.z - _k.z) > 25);
     const n = near.length ? near[Math.floor(Math.random() * near.length)] : PL.NODES[Math.floor(Math.random() * PL.NODES.length)];
     const st = PL.STREETS[n.ns];
-    return { x: PL.ORIGIN.x + n.x, z: PL.ORIGIN.z + n.z, s: st.base + nodeAlong(st, n) };
+    const w = toWorld(n.x, n.z, {});
+    return { x: w.x, z: w.z, s: st.base + nodeAlong(st, n) };
 }
