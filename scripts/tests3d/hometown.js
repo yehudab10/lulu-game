@@ -65,5 +65,36 @@ module.exports = {
     await t.shot("pulling-out");
     await t.hold(7, 0);
     t.check("…on a Midwood street now", await g(`ctx.town.active && ctx.town.id === "midwood" && !ctx.home.isFamily(ctx.car.pos.x, ctx.car.pos.z)`));
+
+    // ── "back home" from anywhere (features/onegame home(): a fresh day at her porch, in Midwood) ──
+    const atPorch = async label => {
+      const ok = await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && __lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood" && __lulu3d.ctx.home.near(__lulu3d.ctx.foot.pos.x, __lulu3d.ctx.foot.pos.z, 14)`, label, 6000);
+      t.check(`back home from ${label}: on her porch in Midwood`, ok, await g(`JSON.stringify({ st: L3.state, town: ctx.town.active && ctx.town.id, pos: ctx.foot.pos && [+ctx.foot.pos.x.toFixed(1), +ctx.foot.pos.z.toFixed(1)] })`));
+      return ok;
+    };
+    await g(`ctx.onegame.home({ via: "test" })`);
+    await atPorch("her own street");
+    // …from the highway
+    await g(`(ctx.town.leave("reset"), true)`);
+    await t.frames(4);
+    await g(`(() => { const s = ctx.town.home.exitS + 900, p = ctx.world.road.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; L3.setState("playing"); ctx.world.prebuild(s); return true; })()`);
+    await t.frames(10);
+    t.check("(out on the highway)", await g(`!ctx.town.active && L3.state === "playing"`));
+    await g(`ctx.onegame.home({ via: "test" })`);
+    await atPorch("the highway");
+    // …from Lakewood
+    await g(`(ctx.town.load("lakewood"), true)`);
+    await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "Lakewood's models", 60000);
+    await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.leave("reset"), L3.setState("playing"), ctx.town.enter({ town: "lakewood", speed: 0 }))`);
+    if (await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "lakewood"`, "into Lakewood", 6000)) {
+      await g(`ctx.onegame.home({ via: "test" })`);
+      await atPorch("Lakewood");
+    }
+    await t.shot("home-again");
+
+    // ── the road trip from the suitcase: leg 1 starts at home, in Midwood ──
+    await g(`ctx.onegame.roadTrip("test", 0)`);
+    t.check("🧳 the road trip's first leg starts at home in Midwood", await t.until(`__lulu3d.ctx.G.mode === "story" && __lulu3d.state === "footRun" && __lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "story at home", 6000),
+      await g(`JSON.stringify({ mode: ctx.G.mode, st: L3.state, town: ctx.town.active && ctx.town.id })`));
   },
 };
