@@ -42,10 +42,11 @@ module.exports = {
         await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
         await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000);
       }
-      await W.moved(t);      // (declared BEFORE the warp: the next frames may render before another call)
+      // (a test's warp: the watchdog looks away while she's moved and the camera catches up)
+      await W.pause(t, false);
       await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(name)}); const F = ctx.foot.debug.F; F.pos.set(sp.x + sp.nx * ${out}, 0.05, sp.z + sp.nz * ${out}); F.phase = "walk"; return true; })()`);
-      await W.moved(t);
-      await t.frames(6);
+      await t.frames(2); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`);
+      await t.frames(6); await W.pause(t, true); await W.moved(t);
     };
     const view = async (name, label, side = 8, up = 6, out = 16) => {
       await W.pause(t, false);     // (a still from across the street: the test's camera, not the game's)
@@ -230,10 +231,12 @@ module.exports = {
       // (Shmerel's van spawns as she comes near: walk up from 20 m first)
       await W.moved(t);
       await g(`(() => { const f = ${C}.COUNTERS[${JSON.stringify(id)}].frame(); const F = ctx.foot.debug.F; F.pos.set(f.me.x + f.n[0] * 12, 0.05, f.me.z + f.n[1] * 12); F.phase = "walk"; return true; })()`);
+      await t.frames(2); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`);
       await W.moved(t);
       await t.until(`!!${C}.K[${JSON.stringify(id)}]`, `${id}: the keeper is there`, 20000);
       await W.moved(t);
       await g(`(() => { const f = ${C}.COUNTERS[${JSON.stringify(id)}].frame(); const F = ctx.foot.debug.F; F.pos.set(f.me.x, 0.05, f.me.z); F.phase = "walk"; return true; })()`);
+      await t.frames(2); await g(`(ctx.cam && ctx.cam.snap && ctx.cam.snap(), true)`);
       await W.moved(t);
       await t.frames(6);
     };

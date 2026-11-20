@@ -36,7 +36,11 @@ css("shops-card", `
 .shops-card .dp-opt.na { opacity: .62; }
 @media (max-width: 560px) { .shops-card .dp-row { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 5px; }
   .shops-card .dp-opt { padding: 4px 2px; } .shops-card .dp-opt b { font-size: 10.5px; } .shops-card .dp-opt em { font-size: 10px; padding: 0 5px; } }
-@media (max-width: 560px), (max-height: 460px) { .shops-card .dp-opt { min-height: 58px; } .shops-card .dp-opt i { font-size: 20px; } .card.decor-card.shops-card { max-height: 64vh; } .sp-head { font-size: 12px; margin-bottom: 5px; } .sp-stats { gap: 2px 6px; } .shops-card .dp-opt i.sp-dot { width: 22px; height: 22px; } }
+@media (max-width: 560px) { .card.decor-card.shops-card { max-height: 64vh; } }
+@media (max-width: 560px), (max-height: 460px) { .shops-card .dp-opt { min-height: 58px; } .shops-card .dp-opt i { font-size: 20px; } .sp-head { font-size: 12px; margin-bottom: 5px; } .sp-stats { gap: 2px 6px; } .shops-card .dp-opt i.sp-dot { width: 22px; height: 22px; } }
+@media (max-height: 460px) { .card.decor-card.shops-card { max-height: 72vh; padding: 6px 10px 6px; } .shops-card .dp-head { margin-bottom: 4px; }
+  .shops-card .dp-opt { min-height: 50px; padding: 3px 2px; } .shops-card .dp-opt i { font-size: 18px; line-height: 1; } .shops-card .dp-desc { margin: 3px 2px 0; font-size: 11.5px; }
+  .card.decor-card.shops-card .menu .btn { padding: 5px 14px; font-size: 14px; } .shops-card .sp-head { margin-bottom: 3px; } }
 body.tv .shops-card .dp-row { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } body.tv .shops-card .dp-opt { min-height: 110px; }
 body.tv .sp-head { font-size: 20px; } body.tv .sp-stat { font-size: 15px; } body.tv .sp-bar { height: 11px; }
 body.tv .shops-card .dp-opt i.sp-dot { width: 44px; height: 44px; }
