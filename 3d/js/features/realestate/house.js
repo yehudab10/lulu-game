@@ -115,6 +115,16 @@ function build(rt) {
     // ── hotspots ──
     rt.hot({ id: "fridge", x: kx + 1.0, z: bz + 1.2, r: 1.0, label: "🧊 The fridge", action: r => r.say("Lulu", owner ? pick(["One pickle. My pickle. In MY fridge.", "Empty! Like my bank account. But in a fun way.", "It hums. We're friends now."]) : pick(["The sellers left a kugel. Is that… a sign? It's a sign.", "Seltzer, ketchup and one mysterious jar. A classic."]), { emoji: "🧊" }) });
     rt.hot({ id: "window", x: lx - 2.2, z: bz + 0.9, r: 1.0, label: "🪟 Look out the window", action: r => r.say("Lulu", pick(["The neighbours are watching me look at them. Mutual. Healthy.", "A view of the street! And a man walking a very small dog. Charming.", rec && rec.nbLine ? "I can see the neighbours from here. Oh. OH. That's what she meant." : "Trees! A tree. One tree. Love it."]), { emoji: "🪟" }) });
+    // ci/hometown's home start: "start my day here" (opt-in; the family house stays the default — dinner is at Ima's)
+    if (owner && !visit && !V.tenant && rec && ctx.home && ctx.home.setStartAt) {
+        const isBase = () => { const st = ctx.home.startAt; return !!(st && st.key === rec.id); };
+        rt.hot({ id: "homebase", x: lx - 0.2, z: bz + 0.9, r: 1.1, label: () => (isBase() ? "🏠 Start my days at Ima's again" : "🏠 Start my days here"), action: async r => {
+            if (isBase()) { ctx.home.setStartAt(null); await r.say("Lulu", "Back to Ima's in the mornings. The coffee's better there anyway. ☕", { emoji: "🏠" }); return; }
+            const fwd = Math.atan2(-rec.nx, -rec.nz);
+            ctx.home.setStartAt({ town: rec.town, key: rec.id, door: { x: rec.ap.x, z: rec.ap.z }, face: Math.atan2(rec.nx, rec.nz), label: rec.address, fwd });
+            await r.say("Lulu", `My days start at ${rec.address} now! (Dinner's still at Ima's. Obviously.)`, { emoji: "🏠" });
+        } });
+    }
     if (owner && !V.tenant) {
         rt.hot({ id: "boxes", x: lx - 0.6, z: 1.8, r: 1.1, label: "📦 Unpack a box", action: r => r.say("Lulu", pick(["Box 1: socks. Box 2: more socks. Box 3: ONE fork.", "I packed a lamp, a scarf and a single sock-puppet. Priorities.", "Unpacking is just Pesach cleaning in reverse."]), { emoji: "📦" }) });
 

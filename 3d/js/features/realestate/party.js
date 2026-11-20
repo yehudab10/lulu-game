@@ -1,7 +1,9 @@
 // features/realestate/party.js — 👯 STAGE 4: HOMES WITH FRIENDS (a 🎉 party's 🌍 Free Roam; the existing relay protocol only).
 //
 //   • each player publishes the homes they own IN THE TOWN THEY'RE IN, in their snapshot extras:
-//       d.x.re = ["l178,240,29512345", …]   (town letter + the door's local x,z + the minute she bought it; ≤ 10, ~20 bytes each)
+//       d.x.re = ["l178,240,1h3k", …]   (town letter + the door's local x,z + the minute she bought it in base 36 since
+//       2026-01-01; ≤ 10, ~14 bytes each — only while she's in a town where she owns something: the party message has a
+//       ~1900-character budget, nothing here is always on)
 //   • friends' homes come into the registry as a SOURCE (registry.addSource): ownerOf(id) → { name, uid, hex } — so a
 //     friend's home is never listed, can't be bought, gets a mailbox in that friend's colour, and ✋ at its door says
 //     whose it is: 👯 JOIN <name> INSIDE when they're in (features/together shares the room — its instance is the
@@ -21,11 +23,12 @@ export const roam = () => party() && !!(ctx.openworld && ctx.openworld.partyTown
 const friends = () => (party() ? ctx.party.members().filter(u => u !== ctx.party.uid) : []);
 const hexOf = uid => { try { return ctx.party.skinHex(ctx.party.skinOf(uid)); } catch (e) { return "#7E57C2"; } };
 
-const encode = (id, h) => { const [town, x, z] = id.split(":"); const t = TOWN_L[town]; return t && x && z ? `${t}${x | 0},${z | 0},${Math.floor((h.since || 0) / 60000)}` : null; };
+const EPOCH = Date.UTC(2026, 0, 1);
+const encode = (id, h) => { const [town, x, z] = id.split(":"); const t = TOWN_L[town]; return t && x && z ? `${t}${x | 0},${z | 0},${Math.max(0, Math.floor(((h.since || 0) - EPOCH) / 60000)).toString(36)}` : null; };
 function decode(s) {
-    if (typeof s !== "string" || s.length > 32) return null;
-    const m = /^([lm])(-?\d{1,4}),(-?\d{1,4}),(\d{1,10})$/.exec(s);
-    return m ? { id: `${L_TOWN[m[1]]}:${+m[2]}:${+m[3]}`, since: +m[4] * 60000 } : null;
+    if (typeof s !== "string" || s.length > 24) return null;
+    const m = /^([lm])(-?\d{1,4}),(-?\d{1,4}),([0-9a-z]{1,7})$/.exec(s);
+    return m ? { id: `${L_TOWN[m[1]]}:${+m[2]}:${+m[3]}`, since: EPOCH + parseInt(m[4], 36) * 60000 } : null;
 }
 
 /** Called every second or so: publish mine, read my friends', settle a double booking. */
@@ -53,7 +56,7 @@ export function tick() {
     for (const [id, o] of next) {
         const h = registry.get(id);
         if (!h) continue;
-        const mineT = Math.floor((h.since || 0) / 60000) * 60000;
+        const mineT = EPOCH + Math.max(0, Math.floor(((h.since || 0) - EPOCH) / 60000)) * 60000;
         const iWin = mineT < o.since || (mineT === o.since && String(ctx.party.uid) < String(o.uid));
         if (iWin) continue;
         const m = S.mortgage[id];

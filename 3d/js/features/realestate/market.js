@@ -51,6 +51,8 @@ function isFamily(x, z) {
     const sp = ctx.town && ctx.town.spot ? (ctx.town.spot("home") || ctx.town.spot("luluHome")) : null;
     return !!(sp && Math.hypot(sp.x - x, sp.z - z) < 14);
 }
+/** ci/hometown: the family house's lot is Midwood block "4,1", face w (E 16th St, Avenue L → Avenue K): never for sale. */
+const familyFace = (town, lx, lz) => town === "midwood" && lx > 85 && lx < 85 + 34 && lz > 45 && lz < 145;
 
 /** Every home of the town she's in (built on demand, cached while the town stands). */
 export function catalogue() {
@@ -93,7 +95,7 @@ export function catalogue() {
                 street: st ? st.name : "", number, address: `${number} ${st ? st.name : ""}`.trim(),
                 price: round(B.price * f), nb: nb ? nb.id : null, nbLine: nb ? nb.line : null, why,
                 door, lot, ap, sign, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz, lx: Math.round(L.x), lz: Math.round(L.z),
-                family: isFamily(door.x, door.z),
+                family: isFamily(door.x, door.z) || familyFace(town, L.x, L.z),
             };
             CAT.list.push(rec); CAT.byId.set(id, rec);
         });
