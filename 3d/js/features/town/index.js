@@ -517,19 +517,22 @@ function leaveTown(why = "highway", opts = {}) {
         if (F) besideCar(F);              // (on foot: with her car — never left standing where the town was)
         if (ctx.cam) ctx.cam.snap();
     } else if (F && ctx.state === "footRun") {
-        // a reset while she WALKS in a town: the town goes, so she (and her car, if it was in there) come to the exit's shoulder
-        const hint = S.exitS + 190, n = world.highway.nearest(car.pos.x, car.pos.z, hint, {});
-        if (Math.abs(n.d) > 60 || Math.abs(n.s - hint) > 1500) {
-            const p = world.highway.point(hint, 7.8, {});
-            car.place(p.x, p.z, p.h); car.vx = car.vz = car.vF = 0; car.s = hint; car.d = 7.8;
-        } else { car.s = n.s; car.d = n.d; }
+        // a reset while she WALKS in a town. A stand-alone town is far off the road (its own origin): she and her car come to
+        // the exit's shoulder. A town standing by the road: she's in a real place — she stays, the road under her is the highway's.
+        if (!att) {
+            const s = S.exitS + 190, p = world.highway.point(s, 7.8, {});
+            car.place(p.x, p.z, p.h); car.vx = car.vz = car.vF = 0; car.s = s; car.d = 7.8;
+            besideCar(F);
+            if (ctx.cam) ctx.cam.snap();
+        } else {
+            const hint = S.exitS + att.cu, n = world.highway.nearest(car.pos.x, car.pos.z, hint, {}), m = world.highway.nearest(F.pos.x, F.pos.z, hint, {});
+            car.s = n.s; car.d = n.d; F.s = m.s; F.d = m.d;
+        }
         G.lastS = car.s;
-        besideCar(F);
-        if (ctx.cam) ctx.cam.snap();
     }
     // on foot: her parked car (foot's stub in the traffic) goes where her car went, its road position the highway's
     if (F) for (const c of tr.cars) if (c.data && c.data.footStub) {
-        if (Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 0.5 && !(att && why !== "reset" && !drove)) { c.x = car.pos.x; c.z = car.pos.z; c.h = car.h; }
+        if (!att && !drove && Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 0.5) { c.x = car.pos.x; c.z = car.pos.z; c.h = car.h; }   // (by the road: it stays where she parked it)
         const m = world.highway.nearest(c.x, c.z, car.s, {}); c.s = m.s; c.d = m.d;
         if (tr.place) tr.place(c, 0);
     }
