@@ -325,6 +325,22 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
   await Hp.until(`ctx.town.active`, "host in town", 30000);
   await A.until(`ctx.openworld.zone === "lakewood" && ctx.openworld.riding === ${HU}`, "the passenger comes along into town, still riding", 60000);
-  await A.game(`ctx.openworld.hopOut()`);
+  await A.game(`ctx.openworld.hopOut({ moving: false })`);
+  // ── the town's courthouse lobby (features/places): open in Free Roam, and a shared room ──
+  await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "guest on foot in town", 40000);
+  await g(`ctx.foot.start("parked")`);
+  await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host on foot in town", 40000);
+  for (const P of [Hp, A]) {
+    if (!await P.until(`!!ctx.civic.spot("court")`, `${P.label}: the town has a courthouse`, 30000)) return;
+    await P.game(`(() => { const sp = ctx.civic.spot("court"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
+    await P.frames(4);
+    const lb = await P.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+    t.check(`${P.label}: ⚖️ ENTER THE COURTHOUSE works with friends (Free Roam)`, /COURTHOUSE/.test(lb), lb);
+    await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
+    await P.until(`ctx.state === "interior"`, `${P.label}: into the courthouse`, 60000);
+  }
+  await Hp.until(`ctx.together.debug.room().room === "courthouse" && ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the courthouse lobby: the host sees the guest", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the courthouse lobby: the guest sees the host", 60000);
+  await t.shot("court-together");
   t.check("riding never costs anyone coins (no fines, nothing taken)", (await g(`L3.wallet.coins`)) >= coins0.h && (await A.game(`L3.wallet.coins`)) >= coins0.a, JSON.stringify({ coins0, h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) }));
 }
