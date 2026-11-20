@@ -233,7 +233,7 @@ export function fireMissile() {
     if (!isDriving() || !car) return false;
     if (inv.missiles <= 0) {
         S.sfxDeny();
-        H.toast("🚀 No missiles! Stock up in the 🛒 Shop", "red");
+        H.toast("🚀 No missiles! Shmerel's van in town has some (🛍️ Where to shop)", "red");
         return false;
     }
     writeShared(s => { s.missiles = Math.max(0, (s.missiles | 0) - 1); });
@@ -498,7 +498,7 @@ export function usePepper(pos = ctx.car && ctx.car.pos, h = ctx.car ? ctx.car.h 
     if (!pos) return false;
     if (inv.pepperSpray <= 0) {
         S.sfxDeny();
-        H.toast("🌶️ No pepper spray! Grab some in the 🛒 Shop", "red");
+        H.toast("🌶️ No pepper spray! The makolet in town has it (🛍️ Where to shop)", "red");
         return false;
     }
     const fx0 = Math.sin(h), fz0 = Math.cos(h), rx = -Math.cos(h), rz = Math.sin(h);

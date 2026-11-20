@@ -61,7 +61,7 @@ export default {
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
         "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
-        "0,2": { faces: { w: "pkwy", n: "avej" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
+        "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
         "2,Kings Hwy": { faces: { s: "kh", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
@@ -86,6 +86,10 @@ export default {
         hospital: { key: "places_hospital", fallback: "town_mw_store", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#B5653F", Trim: "#F2EEE6", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#0D47A1", signFg: ["#FFFFFF", "#BBDEFB"] },
         // features/shops: Uncle Moishe's Brooklyn branch on Coney Island Ave (car dealers' row) — shops/lot.js
+        // features/shops: Yanky's 24-Hour Makolet on Avenue J, among the storefronts
+        makolet: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.makolet, spot: "makolet",
+            tints: { Walls: "#9C4A3C", Awning: "#2E7D32" }, signSize: [8.4, 0.9, 88], signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
+            with: [{ key: "town_mw_store", u: -20.8 }, { key: "town_mw_store", u: -10.4 }, { key: "town_mw_store", u: 10.4 }, { key: "town_mw_store", u: 20.8 }] },
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#E6DCCB", Trim: "#1565C0", Roof: "#4A4E55" }, signBg: "#1565C0", signFg: ["#FFFFFF", "#FFE082"] }),
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
@@ -122,6 +126,8 @@ export default {
         { street: "Avenue K", from: CIA + 10, to: E15 - 10 }, { street: "Avenue L", from: E8 + 14, to: CIA - 14 },
         // (features/shops: the kerb in front of Uncle Moishe's Brooklyn lot)
         { street: "Coney Island Ave", from: AM + 10, to: AL - 10 },
+        // (features/shops: Shmerel's van at the kerb outside the car service)
+        { street: "Coney Island Ave", from: AL + 8, to: AK - 8 },
     ],
     jams: [
         { street: "E 8th St", d: -1.9, from: AL + 14, to: AK - 14, gap: 6.6, kind: "asp" },

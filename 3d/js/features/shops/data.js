@@ -62,6 +62,12 @@ export const GARAGE_LINES = {
 export const PLACES = [
     { id: "dealer", icon: "🚗", name: "Uncle Moishe's Pre-Loved Cars", sells: "Cars (all 7 for sale) · test drives",
       towns: { lakewood: "Route 9, the first thing in town", midwood: "Coney Island Ave, Brooklyn" }, spot: "dealer" },
+    { id: "makolet", icon: "🛒", name: "The makolet (grocery + pharmacy)", sells: "🌶️ Pepper spray · 🛡️ bubble wrap for cars (the shield) · 📱 the Distracted phone plan",
+      towns: { lakewood: "Zissy's, on Main St", midwood: "Yanky's 24-Hour, on Avenue J" }, spot: "makolet" },
+    { id: "black", icon: "😈", name: "Shmerel's van (the black market)", sells: "🚀 Missiles · 🎆 the Mega 5-Pack · 🌶️ pepper spray",
+      towns: { lakewood: "by the construction site on 14th St", midwood: "outside the car service on Coney Island Ave" }, spot: "shopsBlack" },
+    { id: "bling", icon: "✨", name: "Moishe's Bling Bay", sells: "📯 6 horns (hear them first) · 🎀 7 car decorations (fitted on your car)",
+      towns: { lakewood: "at Uncle Moishe's on Route 9 — the pink neon door", midwood: "at Uncle Moishe's on Coney Island Ave" }, spot: "bling" },
     { id: "garage", icon: "🏠", name: "Your garage at home", sells: "Pick which of your cars to drive",
       home: true },
 ];
@@ -101,4 +107,9 @@ export const BLACK = {
         "Fireworks. Totally legal fireworks. In a van. Like legal things are."],
     bought: ["Pleasure doing business. We never met.", "Enjoy! And if anyone asks — it fell off a truck. A LEGAL truck.", "Cash only, no receipt, no refunds, no eye contact."],
     poor: ["That's not enough. I'm shady, not a charity."],
+};
+
+// ── stage 3: ✨ Moishe's Bling Bay (horns + car decorations, at the dealership) ──
+export const BLING = {
+    lulu: ["Oh she's FANCY now. 💅", "Ima's going to say 'what is THAT'. Perfect.", "Honk honk, world. HONK HONK.", "Worth every coin. Probably."],
 };

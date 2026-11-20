@@ -125,6 +125,22 @@ function buildLotCar() {
     return g;
 }
 
+// ── the Bling Bay's door sign (a `with` entry of the dealership: the showroom's second door, away from the lot) ──
+export const BLINGSIGN_DIMS = { w: 3.2, d: 0.3, prot: 1.45 };   // (its origin on the showroom's glass front: 1.6 m in from the lot line)
+function buildBlingSign() {
+    const g = new THREE.Group();
+    g.name = "ShopsBlingSign";
+    const neon = mat("NeonPink", "#FF4FA3", { emissive: "#FF4FA3", emissiveIntensity: 1.2 });
+    box(g, mat("Door", "#37474F"), 1.9, 2.4, 0.12, 0, 1.2, 0.1);
+    box(g, neon, 2.9, 0.08, 0.08, 0, 4.05, 0.2); box(g, neon, 2.9, 0.08, 0.08, 0, 2.95, 0.2);
+    box(g, neon, 0.08, 1.1, 0.08, -1.45, 3.5, 0.2); box(g, neon, 0.08, 1.1, 0.08, 1.45, 3.5, 0.2);
+    // a star on top
+    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; box(g, neon, 0.1, 0.5, 0.06, Math.sin(a) * 0.18, 4.45 + Math.cos(a) * 0.18, 0.22, 0, 0, -a); }
+    anchor(g, "Anchor_sign", 0, 3.5, 0.18);
+    anchor(g, "Anchor_door", 0, 0, 0.15);
+    return g;
+}
+
 let made = false;
 /** Register the code-built models (idempotent; cheap — a few dozen boxes). */
 export function makeModels() {
@@ -132,5 +148,6 @@ export function makeModels() {
     made = true;
     models.shops_dealer = buildDealer();
     models.shops_lotcar = buildLotCar();
+    models.shops_blingsign = buildBlingSign();
 }
 makeModels();

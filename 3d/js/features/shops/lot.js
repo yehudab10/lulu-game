@@ -4,7 +4,7 @@
 // for a closer look / a test drive). Pure data: a town file calls dealerUse({...}) for its block face.
 import { SKINS } from "../../car.js";
 import { SKIN_SHOP } from "../garage/data.js";
-import { DEALER_DIMS, LOTCAR_DIMS } from "./models.js";
+import { DEALER_DIMS, LOTCAR_DIMS, BLINGSIGN_DIMS } from "./models.js";
 
 /** The cars on the lot, nearest the showroom first (pink is everybody's first car: it's not for sale). */
 export const LOT = ["purple", "orange", "blue", "green", "red", "gold", "ninja"];
@@ -19,7 +19,11 @@ export function dealerUse({ sign, tints = {}, signBg = "#C62828", signFg = ["#FF
     return {
         key: "shops_dealer", fallback: null, dims: DEALER_DIMS, u, sign, spot: "dealer", tints,
         signSize: [12.6, 1.05, 104], signBg, signFg,
-        with: LOT.map((k, i) => {
+        with: [
+            // ✨ the Bling Bay: the showroom's other door (away from the lot), its own sign + spot "bling" (shops/bling.js)
+            { key: "shops_blingsign", dims: BLINGSIGN_DIMS, u: u - dir * 4.2, spot: "bling", sign: ["✨ BLING BAY", "horns · decor"],
+                signSize: [2.7, 1.0, 96], signW: 256, signBg: "#2B1B2E", signFg: ["#FF80C0", "#FFE082"] },
+            ...LOT.map((k, i) => {
             const sk = SKINS[k];
             return {
                 key: "shops_lotcar", dims: LOTCAR_DIMS, u: first + dir * i * LOT_GAP, spot: "lot_" + k, tag: true,
@@ -27,6 +31,6 @@ export function dealerUse({ sign, tints = {}, signBg = "#C62828", signFg = ["#FF
                 sign: [sk.name.toUpperCase(), `${SKIN_SHOP[k].price.toLocaleString("en-US")} COINS`],
                 signSize: [1.3, 0.6, 64], signW: 256, signBg: "#FFFFFF", signFg: ["#1B1B1B", sk.dark],
             };
-        }),
+        })],
     };
 }

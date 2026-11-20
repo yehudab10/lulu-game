@@ -48,11 +48,13 @@ module.exports = {
       await t.frames(6);
     };
     const view = async (name, label, side = 8, up = 6, out = 16) => {
+      await W.pause(t, false);     // (a still from across the street: the test's camera, not the game's)
       await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__camWrap) { const o = r.render.bind(r); window.__camWrap = true; r.render = (s, c) => { const V = window.__camAt; if (V && c === __lulu3d.ctx.camera) { c.position.set(V[0], V[1], V[2]); c.lookAt(V[3], V[4], V[5]); c.updateMatrixWorld(); } o(s, c); }; } })()`);
       await g(`(() => { const sp = ctx.town.spot(${JSON.stringify(name)}); window.__camAt = [sp.x + sp.nx * ${out} + sp.ux * ${side}, ${up}, sp.z + sp.nz * ${out} + sp.uz * ${side}, sp.cx != null ? sp.cx : sp.x, 2, sp.cz != null ? sp.cz : sp.z]; return true; })()`);
       await t.frames(4);
       await t.shot(label);
       await t.L(`window.__camAt = null`);
+      await t.frames(2); await W.pause(t, true); await W.moved(t);
     };
     const promptText = () => t.L(`(() => { const e = document.querySelector(".prompt"); return e ? e.textContent : ""; })()`);
 
@@ -71,7 +73,8 @@ module.exports = {
       const txt = await t.L(`document.getElementById("screenCard").textContent`);
       t.check("…lists Uncle Moishe's lot with what it sells + where", /Uncle Moishe/.test(txt) && /Cars/.test(txt) && /Lakewood/.test(txt) && /Midwood/.test(txt), txt.slice(0, 200));
       t.check("…and the garage at home", /garage at home/i.test(txt));
-      t.check("…and the old counter for what hasn't moved yet (items + bling, no cars)", /old shop counter/i.test(txt) && /items/.test(txt) && !/🚗 cars/.test(txt));
+      t.check("…the makolet + Shmerel's van for the items", /makolet/i.test(txt) && /Shmerel/.test(txt) && /Pepper spray/i.test(txt) && /Missiles/.test(txt));
+      t.check("…and the old counter only for what hasn't moved yet (bling — no cars, no items)", /old shop counter/i.test(txt) && /bling/.test(txt) && !/🚗 cars/.test(txt) && !/🚀 items/.test(txt));
       await t.click(/Uncle Moishe/);
       t.check("✕ on it marks it (the destination)", await g(`ctx.shops.dest() === "dealer"`));
       t.check("…no pop-up for it (no toast)", !await t.L(`[...document.querySelectorAll(".toast")].some(e => /Moishe/.test(e.textContent))`));
@@ -89,6 +92,7 @@ module.exports = {
       await t.frames(20);
       home = await g(`(() => { const a = ctx.shops.debug.garage.garageAt(); return a && { x: a.x, z: a.z }; })()`);
       t.check("her garage door is a spot", !!home);
+      await W.moved(t);
       await g(`(ctx.foot.pos.set(${home.x}, 0.05, ${home.z}), ctx.foot.obj.position.copy(ctx.foot.pos), ctx.cam && ctx.cam.free && (ctx.cam.free.yaw = ctx.places.home.park.h + Math.PI), true)`); await W.moved(t);
       await t.frames(4);
       const l = await label();
@@ -218,6 +222,107 @@ module.exports = {
       t.check("every car for sale stands on Uncle Moishe's lot", r.cars.length === 0, JSON.stringify(r));
     });
 
+    // ════ 7b. the makolet + Shmerel's van (items) ════
+    const C = `__lulu3d.ctx.shops.debug.counter`;
+    const atCounter = async (id) => {
+      if (await st() !== "footRun") { await g(`(ctx.foot.start("parked", { noIntro: true }), true)`); await t.until(`__lulu3d.state === "footRun"`, "out on foot", 8000); }
+      // (Shmerel's van spawns as she comes near: walk up from 20 m first)
+      await W.moved(t);
+      await g(`(() => { const f = ${C}.COUNTERS[${JSON.stringify(id)}].frame(); const F = ctx.foot.debug.F; F.pos.set(f.me.x + f.n[0] * 12, 0.05, f.me.z + f.n[1] * 12); F.phase = "walk"; return true; })()`);
+      await W.moved(t);
+      await t.until(`!!${C}.K[${JSON.stringify(id)}]`, `${id}: the keeper is there`, 20000);
+      await W.moved(t);
+      await g(`(() => { const f = ${C}.COUNTERS[${JSON.stringify(id)}].frame(); const F = ctx.foot.debug.F; F.pos.set(f.me.x, 0.05, f.me.z); F.phase = "walk"; return true; })()`);
+      await W.moved(t);
+      await t.frames(6);
+    };
+    const items = async (townId) => {
+      if (!await town(townId)) return;
+      t.check(`${townId}: the makolet stands in town (town data)`, await g(`!!ctx.town.spot("makolet")`));
+      await atCounter("makolet");
+      const l1 = await label();
+      t.check(`${townId}: ✋ at the makolet door (${l1})`, /MAKOLET/.test(l1));
+      await t.tap(0); await t.frames(6);
+      t.check(`${townId}: ✋ opens the makolet's card (pepper spray · bubble wrap · the phone plan)`, await cardUp() && await t.L(`[...document.querySelectorAll("#screenCard .dp-opt")].map(b => b.dataset.opt).join()`) === "pepper,shield,distracted");
+      const W0 = await coins(), P0 = (await save()).pepperSpray | 0;
+      await t.tap(0); await t.frames(2);
+      t.check(`${townId}: first ✕ asks, nothing spent`, await coins() === W0 && /Buy/.test(await tagOf("pepper")));
+      await t.tap(0); await t.frames(4);
+      const S1 = await save();
+      t.check(`${townId}: second ✕ buys a pepper spray: −15, pepperSpray +1 (the shared save, like the old Shop)`, await coins() === W0 - 15 && (S1.pepperSpray | 0) === P0 + 1, `${W0}→${await coins()} ${P0}→${S1.pepperSpray}`);
+      t.check(`${townId}: …the item turns on its stand by the door`, await t.until(`!!${C}.S.item`, "item on the stand", 15000));
+      await t.shot(`makolet-${townId}`);
+      await t.tap(1); await t.frames(6);
+      t.check(`${townId}: ○ closes it, the stand is put away`, !await cardUp() && await g(`!${C}.S.stand`));
+      // the van
+      t.check(`${townId}: Shmerel's van has a place by the kerb`, await g(`!!${C}.vanSpot()`));
+      await atCounter("black");
+      t.check(`${townId}: the van is there (only while she's near)`, await g(`!!(${C}.K.black && ${C}.K.black.van && ${C}.K.black.van.parent)`));
+      const l2 = await label();
+      t.check(`${townId}: ✋ at the van (${l2})`, /SHMEREL/.test(l2));
+      await t.tap(0); await t.frames(6);
+      t.check(`${townId}: the van's card: missile · Mega 5-Pack · pepper spray`, await cardUp() && await t.L(`[...document.querySelectorAll("#screenCard .dp-opt")].map(b => b.dataset.opt).join()`) === "missile,megapack,pepper");
+      const W1 = await coins(), M0 = (await save()).missiles | 0;
+      await t.tap(15); await t.frames(3);
+      await t.tap(0); await t.frames(2); await t.tap(0); await t.frames(4);
+      t.check(`${townId}: the Mega 5-Pack: −80, missiles +5`, await coins() === W1 - 80 && ((await save()).missiles | 0) === M0 + 5, `${W1}→${await coins()} ${M0}→${(await save()).missiles}`);
+      await t.shot(`van-${townId}`);
+      await t.tap(1); await t.frames(6);
+    };
+    await step("items", async () => {
+      await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 3000; }); })`);
+      await items("lakewood");
+      // Distracted Mode (1,000) at the makolet: unlocks for good
+      await atCounter("makolet");
+      await t.tap(0); await t.frames(6);
+      await t.L(`document.querySelector('#screenCard .dp-opt[data-opt="distracted"]').click()`); await t.frames(2);
+      await t.L(`document.querySelector('#screenCard .dp-opt[data-opt="distracted"]').click()`); await t.frames(4);
+      t.check("Distracted Mode (the phone plan) unlocks: distractedUnlocked, −1,000", (await save()).distractedUnlocked === true);
+      t.check("…and then it's ✓ Yours (can't buy it twice)", /Yours/.test(await tagOf("distracted")));
+      await t.tap(1); await t.frames(6);
+      await items("midwood");
+      { const r = await W.report(t); W.log(r); W.check(t, "the makolet + the van", r); await W.reset(t); }
+      const r = await t.L(`Promise.all([import("./js/features/garage/data.js"), import("./js/features/shops/data.js"), import("./js/features/garage/shop.js")]).then(([d, sd, sh]) => ({
+        missing: d.ITEMS.map(i => i.id).filter(id => !sd.MAKOLET.stock.includes(id) && !sd.BLACK.stock.includes(id)), tabs: sh.shopTabs() }))`);
+      t.check("every item in the catalogue is sold at the makolet or Shmerel's van", r.missing.length === 0, JSON.stringify(r));
+      t.check("…and the old counter no longer sells items", !r.tabs.includes("items"), JSON.stringify(r.tabs));
+    });
+
+    // ════ 7c. ✨ the Bling Bay (horns + decorations) at Uncle Moishe's ════
+    await step("bling", async () => {
+      if (!await town("lakewood")) return;
+      await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 3000; }); })`);
+      t.check("the Bling Bay's door stands on the showroom (town data, spot \"bling\")", await g(`!!ctx.town.spot("bling")`));
+      await onFootAt("bling");
+      const l = await label();
+      t.check(`✋ at the Bling Bay (${l})`, /BLING/.test(l));
+      await t.tap(0); await t.frames(8);
+      const ids = await t.L(`[...document.querySelectorAll("#screenCard .dp-opt")].map(b => b.dataset.opt)`);
+      t.check("its card: all 6 horns + all 7 decorations", ids.filter(i => i.startsWith("horn:")).length === 6 && ids.filter(i => i.startsWith("decor:")).length === 7, ids.join());
+      t.check("…a copy of HER car pulled up at the kerb", await g(`!!(ctx.shops.debug.bling.B.car && ctx.shops.debug.bling.B.car.parent)`));
+      const click = id => t.L(`(document.querySelector('#screenCard .dp-opt[data-opt="${id}"]').click(), true)`);
+      const W0 = await coins();
+      await click("decor:crown"); await t.frames(3);
+      t.check("focusing a decoration fits it on the car in front of her", await t.until(`__lulu3d.ctx.shops.debug.bling.B.decorId === "crown" && !!__lulu3d.ctx.shops.debug.bling.B.decor`, "crown on", 15000));
+      t.check("…the first tap asks (nothing spent)", await coins() === W0 && /Buy/.test(await tagOf("decor:crown")));
+      await click("decor:crown"); await t.frames(4);
+      let S = await save();
+      t.check("…the second buys it: −450, ownedDecor + decor (the shared save, like the old Shop)", await coins() === W0 - 450 && S.ownedDecor.includes("crown") && S.decor === "crown", JSON.stringify({ c: await coins(), o: S.ownedDecor, d: S.decor }));
+      t.check("…her real car wears it", await g(`ctx.garage.items().decor === "crown"`));
+      await t.shot("bling-crown");
+      await click("horn:duck"); await t.frames(2); await click("horn:duck"); await t.frames(4);
+      S = await save();
+      t.check("a horn: −120, ownedHorns + horn", await coins() === W0 - 570 && S.ownedHorns.includes("duck") && S.horn === "duck", JSON.stringify({ c: await coins(), o: S.ownedHorns, h: S.horn }));
+      await click("horn:beep"); await t.frames(4);
+      t.check("…a horn she owns goes back on for free", (await save()).horn === "beep" && await coins() === W0 - 570);
+      await click("decor:crown"); await t.frames(4);
+      t.check("…a decoration she owns comes off for free", (await save()).decor === "none" && await coins() === W0 - 570);
+      await t.tap(1); await t.frames(6);
+      t.check("○ closes it; the display car drives off", !await cardUp() && await g(`!ctx.shops.debug.bling.B.car`));
+      const r = await t.L(`import("./js/features/garage/shop.js").then(m => m.shopTabs())`);
+      t.check("the old Shop counter is empty now (every tab moved into the world)", r.length === 0, JSON.stringify(r));
+    });
+
     // ════ 8. home again: the cars she owns wait in her garage ════
     await step("swap", async () => {
       await W.pause(t, false);     // (the test takes her home through the title: not gameplay)
@@ -230,6 +335,7 @@ module.exports = {
       await t.frames(10);
       await W.pause(t, true); await W.moved(t);
       const a = await g(`ctx.shops.debug.garage.garageAt()`);
+      await W.moved(t);
       await g(`(ctx.foot.pos.set(${a.x}, 0.05, ${a.z}), ctx.foot.obj.position.copy(ctx.foot.pos), ctx.cam && ctx.cam.free && (ctx.cam.free.yaw = ctx.places.home.park.h + Math.PI), true)`); await W.moved(t);
       await t.frames(4);
       t.check("the garage counts her cars (🔑 MY CARS (2))", /MY CARS \(2\)/.test(await label()), await label());

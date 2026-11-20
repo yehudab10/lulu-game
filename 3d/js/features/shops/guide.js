@@ -12,6 +12,7 @@ import * as A from "../../audio.js";
 import { beacon, hideBeacon } from "../openworld/marks.js";
 import { shopTabs } from "../garage/shop.js";
 import { PLACES } from "./data.js";
+import { counterDebug } from "./counter.js";
 
 const GS = store("shops", { dest: null, marks: 0 });
 const MI = 1609;
@@ -93,7 +94,8 @@ export function target() {
         return { x, z, d, label: `${p.icon} ${p.name}`, arrive: 4, show: d < 600 };
     }
     if (ctx.town && ctx.town.active) {
-        const sp = p.spot && ctx.town.spot(p.spot);
+        // (Shmerel's van isn't a building: it stands at the kerb near a town spot — counter.js knows where)
+        const sp = p.id === "black" ? counterDebug.vanSpot() : p.spot && ctx.town.spot(p.spot);
         if (sp) { const d = Math.hypot(sp.x - me.x, sp.z - me.z); return { x: sp.x, z: sp.z, d, label: `${p.icon} ${p.name}`, arrive: 7, show: true }; }
         return { x: null, label: `${p.icon} ${p.name} — head out of town to ${Object.keys(p.towns || {}).map(t => t === "lakewood" ? "Lakewood" : "Midwood").join(" or ")}` };
     }

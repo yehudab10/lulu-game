@@ -226,6 +226,7 @@ export function openCounter(id) {
     openCard({ title: C.title(), tiles: tiles(id), focus: C.stock[0], onFocus: itId => showItem(itId), onClose: () => dropStand() });
     emit("stat", { id: "shopsVisits", n: 1 });
     emit("shops:open", { place: id, town: townId() });
+    if (id === "makolet") emit("shops:makolet", { town: townId() });
     return true;
 }
 
