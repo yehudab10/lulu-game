@@ -1638,10 +1638,12 @@ function interact(P) {
     const coach = pr ? "" : coachHint();
     H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 && !homeQuiet() ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
-        const has = !!pr;
-        if (handBtn.classList.contains("has") !== has) {
+        // (refreshed whenever what's in reach CHANGES — from her car straight to a door it kept saying "OWN")
+        const has = !!pr, html = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
+        if (handBtn.dataset.html !== html) {
+            handBtn.dataset.html = html;
             handBtn.classList.toggle("has", has);
-            handBtn.innerHTML = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
+            handBtn.innerHTML = html;
         }
     }
     if (!P.interact) return;
