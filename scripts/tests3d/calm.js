@@ -16,7 +16,7 @@ const URL = `ws://127.0.0.1:${PORT}`;
 const Q = `&enable=all&mpurl=${encodeURIComponent(URL)}`;
 const SECS = +(process.env.CALM_SECS || 60);
 const REPORT_ONLY = !!process.env.CALM_REPORT;
-const LIMIT = { solo: 16, foot: 12, friends: 10, online: 10 };     // pop-ups a minute (overlays a player has to read)
+const LIMIT = { solo: 18, foot: 12, friends: 12, online: 12 };   // (one random minute swings: before ≈ 25 / 17 / 21 / 14, after ≈ 16 / 8 / 9 / …)     // pop-ups a minute (overlays a player has to read)
 const PHONE = { width: 844, height: 390 };
 
 // (the page-side sampler: one rAF loop, game-time stamped)
