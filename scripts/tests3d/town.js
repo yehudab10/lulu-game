@@ -423,11 +423,11 @@ module.exports = {
         await g(`(ctx.foot.start("droveOff"), true)`);
         if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, `on foot in town (${why})`, 8000)) return;
         await g(`(ctx.town.leave(${JSON.stringify(why)}), true)`);
-        const a = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d, car: ctx.car.pos.distanceTo(F.pos), active: ctx.town.active, st: L3.state }; })()`);
+        const a = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d, car: F.car && F.car.stub ? Math.hypot(F.car.stub.x - F.pos.x, F.car.stub.z - F.pos.z) : -1, active: ctx.town.active, st: L3.state }; })()`);
         await t.frames(12);
         const b = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d }; })()`);
         t.check(`leaving a town on foot (${why}): she's on the highway side beside her car, standing still (no shove)`,
-          !a.active && a.car < 5 && Math.abs(a.d) < 40 && a.s > 4 && Math.hypot(b.x - a.x, b.z - a.z) < 0.6, JSON.stringify({ a, b }));
+          !a.active && a.car >= 0 && a.car < 5 && Math.abs(a.d) < 40 && a.s > 4 && Math.hypot(b.x - a.x, b.z - a.z) < 0.6, JSON.stringify({ a, b }));
         // (back in her car, and back in the town the way the rest of this test had it — at the same exit)
         await g(`ctx.foot.debug.getIn()`);
         await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.foot.active`, "back in the car", 8000);
