@@ -24,7 +24,7 @@ import { models, cloneWithColors, need, hold, setChip, setBeacon, fmtM, sfx, con
 
 const MAX_PAY = PAY.foil[1] + PAY.foilClean + PAY.tackle;     // the most one solo foil can pay
 export const PAY_CAP = 3;                                         // party foils that pay, per player, per party session (host-counted)
-const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null };
+const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null, claims: [] };
 
 const me = () => (ctx.party ? ctx.party.uid : "");
 const zone = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : "");
@@ -187,15 +187,34 @@ function friendsRobberies(dt) {
 }
 
 // ── the owner hears a friend's claim; checks it against what IT sees ──────────────────────
+function claimHolds(ev, c) {
+    const rc = ctx.party.remoteCar(c.uid);
+    if (!rc || !rc.shown) return false;
+    if (c.how === "ram") return !!ev.car && !rc.foot && Math.hypot(rc.x - ev.car.x, rc.z - ev.car.z) < 7.5;
+    return ev.phase === "run" && rc.foot && !!ev.robber && Math.hypot(rc.x - ev.robber.obj.position.x, rc.z - ev.robber.obj.position.z) < 4.5;
+}
+function checkClaims() {
+    if (!S.claims.length) return;
+    const ev = R && R.ev;
+    const keep = [];
+    for (const c of S.claims) {
+        if (!ev || ev.id !== c.id || ctx.time > c.until || ev.phase === "foiled" || ev.phase === "done") continue;
+        if (claimHolds(ev, c)) friendHit(ev, c.uid, c.how);
+        else keep.push(c);
+    }
+    S.claims = keep;
+}
 on("party:bc", ({ p, k, a }) => {
     if (!inParty() || !p || !Array.isArray(a)) return;
     if (k === "hk") {
         const ev = R && R.ev;
         if (!ev || a[0] !== me() || a[1] !== ev.id || zoneOf(p) !== zone()) return;
-        const rc = ctx.party.remoteCar(p.uid);
-        if (!rc || !rc.shown) return;
-        if (a[2] === "ram" && ev.car && !rc.foot && Math.hypot(rc.x - ev.car.x, rc.z - ev.car.z) < 7.5) friendHit(ev, p.uid, "ram");
-        else if (a[2] === "tackle" && ev.phase === "run" && rc.foot && ev.robber && Math.hypot(rc.x - ev.robber.obj.position.x, rc.z - ev.robber.obj.position.z) < 4.5) friendHit(ev, p.uid, "tackle");
+        // (their pose reaches me a beat late: keep the claim open ~2 s and check it every frame until it holds)
+        if (a[2] === "ram" || a[2] === "tackle") {
+            S.claims = S.claims.filter(c => !(c.uid === p.uid && c.how === a[2]));
+            S.claims.push({ uid: p.uid, id: ev.id, how: a[2], until: ctx.time + 2 });
+            checkClaims();
+        }
         return;
     }
     if (k === "hfa") {
@@ -242,6 +261,6 @@ on("party:status", e => { if (e && e.want === false) { for (const pu of S.pup.va
 // per frame (with the HUD: driving and walking)
 export function partyTick(dt) {
     if (!ctx.party || !ctx.party.active) { if (S.pup.size) { for (const pu of S.pup.values()) pu.dispose(); S.pup.clear(); } return; }
-    try { publish(dt); friendsRobberies(dt); } catch (e) { console.error("[heist party]", e); }
+    try { publish(dt); friendsRobberies(dt); checkClaims(); } catch (e) { console.error("[heist party]", e); }
 }
 export const partyDebug = () => ({ sent: S.sent, puppets: [...S.pup.keys()], paid: [...S.paid], host: { seen: [...S.host.seen], n: Object.fromEntries(S.host.n) }, last: S.last });

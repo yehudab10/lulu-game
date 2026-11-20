@@ -74,6 +74,8 @@ async function body(t, guests) {
   const rob = await g(`(() => { const o = ctx.heist.robbery.robber.obj.position; return { x: o.x, z: o.z }; })()`);
   await A.game(`(ctx.foot.debug.F.pos.set(${rob.x} + 1.2, 0.05, ${rob.z} + 0.6), true)`);
   await A.frames(6);
+  // (the host checks the claim against where IT sees her: let her walk reach the host's screen first)
+  await Hp.until(`(() => { const rc = ctx.party.remoteCar(${GU}), o = ctx.heist.robbery && ctx.heist.robbery.robber && ctx.heist.robbery.robber.obj.position; return !!rc && rc.shown && rc.foot && !!o && Math.hypot(rc.x - o.x, rc.z - o.z) < 4; })()`, "host: sees the guest beside the robber", 40000);
   const lbl = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
   t.check("guest: ✋ TACKLE HIM! on the friend's robber", /TACKLE/.test(lbl), lbl);
   await A.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
