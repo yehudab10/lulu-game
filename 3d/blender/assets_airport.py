@@ -223,7 +223,7 @@ def build_plane():
 def build_taxi():
     coll = scene_coll("AirportTaxi")
     root = root_empty(coll, "AirportTaxi")
-    PAINT = mat("Paint", "#FFC107", rough=0.35)
+    PAINT = mat("TaxiYellow", "#FFC107", rough=0.35)
     CHECK = mat("Checker", "#1B1B1B", rough=0.5)
     SIGN = mat("NeonTaxi", "#FFF3B0", rough=0.3, emit=1.2)
     parts = [Part(coll, "body", bm_box(1.9, 4.7, 0.75), PAINT, loc=(0, 0, 0.7)).bevel(0.12, 2),
@@ -270,7 +270,7 @@ def build_booth():
     coll = scene_coll("AirportBooth")
     root = root_empty(coll, "AirportBooth")
     WALL = mat("Walls", "#EFEBE0", rough=0.8)
-    ROOF = mat("Roof", "#1E5AA8", rough=0.5)
+    ROOF = mat("BoothRoof", "#1E5AA8", rough=0.5)
     WIN = mat("ShopWindow", "#8FCBEA", rough=0.1, emit=0.25)
     ARM = mat("ArmStripe", "#E53935", rough=0.5)
     parts = [Part(coll, "booth", bm_box(2.0, 2.4, 2.4), WALL, loc=(0, 0, 1.2), smooth=False),
@@ -327,7 +327,7 @@ def build_windsock():
 def build_suitcase():
     coll = scene_coll("AirportSuitcase")
     root = root_empty(coll, "AirportSuitcase")
-    CASE = mat("Paint", "#7E57C2", rough=0.5)
+    CASE = mat("CasePurple", "#7E57C2", rough=0.5)
     parts = [Part(coll, "case", bm_box(0.42, 0.24, 0.62), CASE, loc=(0, 0, 0.39)).bevel(0.04, 2),
              Part(coll, "handle", bm_box(0.3, 0.03, 0.5), DARK, loc=(0, 0.1, 0.92), smooth=False),
              Part(coll, "grip", bm_box(0.32, 0.05, 0.05), DARK, loc=(0, 0.1, 1.17), smooth=False)]
