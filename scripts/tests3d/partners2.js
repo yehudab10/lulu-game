@@ -86,7 +86,8 @@ async function body(t, guests) {
     await chase(Hp, "GRAND THEFT MINIVAN"); await chase(A, "GRAND THEFT MINIVAN");
     for (const p of both) if (!await p.until(`!!${CR}.current() && ${CR}.current().phase === "wanted"`, `${label}: ${p.label} partners`, 60000)) return false;
     await all(p => p.game(`ctx.law.arrest(["GRAND THEFT MINIVAN"], { skipCinematic: true })`));
-    const ok = await Promise.all([talk(Hp, CELL, `${label}: host → the cell`), talk(A, CELL, `${label}: guest → the cell`)]);
+    // (each holds her court clock while the other's page catches up — a CI box can run one page far slower)
+    const ok = await Promise.all([Hp, A].map(p => talk(p, CELL, `${label}: ${p.label} → the cell`).then(r => r && p.game(`(ctx.law._dbg.jail().courtT = 600, true)`))));
     if (!ok.every(Boolean)) return false;
     for (const [p, o] of [[Hp, guestUid], [A, hostUid]]) if (!await p.until(`${CR}.debug.cell().includes(${JSON.stringify(o)})`, `${label}: ${p.label} sees her cellmate`, 60000)) return false;
     return true;

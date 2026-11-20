@@ -208,6 +208,15 @@ merged — ignore them.
   meets 3D riders in the first shard; more would need the owner's OK for a relay change. Relay traffic grows with online
   players (each rider ~5 states/s to everyone in its shard): the owner should keep an eye on the Cloudflare free-tier usage.
 
+- **Partners in crime (`ci/partners`, landed 2026-11-20):** a party SNAPSHOT has a ~1900-character budget (party/net.js
+  `sendSnap`): over it, every `d.x` extra but presence is DROPPED for that snapshot (friends lose cops, walkers, race
+  finishes…). The host's activity `A` rides in every host snapshot — keep feature state in it tiny and REMOVE it when empty
+  (crew.js deletes `A.pz` when there's no crew; its `d.x.pz` goes out only while she's in trouble / in custody / in a crew).
+  Seen: an always-on extra broke `openworld`'s C&R light-bar check and `party`'s race results on CI. Party broadcasts are
+  ephemeral (~1.5 s of real time): a crawling page can miss one — anything that settles coins is sent 3× (partners'
+  `shout`) with idempotent handlers. Open: bail / spring need a TOWN precinct (party highway arrests keep the stand-in
+  set); the arrest + the precinct ride-in show only her own Lulu; the partner in the cell / dock wears her hair colour,
+  not her salon style.
 - `phone` "…D-pad + ✕ reach its buttons" failing locally (2026-11-20) was the test reading the phone's own toast after it had hidden (1.8 s of REAL time) on a slow page — fixed in the test (`ci/calm`): it's read at the click now.
 - **Together (`ci/together`, landed 2026-11-20):** each screen runs its OWN copy of a room's people (the bartender, a house's
   residents, Ima) — a friend inside is a visitor nobody there reacts to on my screen, so two friends can see different
