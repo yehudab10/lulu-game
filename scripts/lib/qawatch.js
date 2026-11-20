@@ -1,0 +1,201 @@
+// 🐞 The QA WATCHDOG (scripts/tests3d/qa*.js): a test-side per-frame monitor for the glitches a player sees.
+// It lives in the test page only (no cost in the shipped game). Install it once after boot:
+//
+//   const W = require("../lib/qawatch.js");
+//   await W.install(t);                 // starts watching
+//   … drive a flow …
+//   const r = await W.report(t);        // { issues: [{ kind, f, state, msg }], counts }
+//   W.check(t, "the home start", r);    // one ✓ / ✗ per kind of glitch, the first few as detail
+//   await W.reset(t);                   // start a new segment
+//
+// What it flags (each once per episode, with the frame + state):
+//   jump      Lulu (on foot), the car (driving) or the camera moved more than a few metres in ONE frame while no
+//             declared cut covered it (the soft-cut overlay, an opaque fade, a set on screen, a state change that frame)
+//   nan       a NaN / Infinity position (Lulu, the car, the camera)
+//   overlay   a full-screen opaque overlay (any fixed element covering the screen: #townFade, #footWash, #intFade,
+//             #cameosFade, #lawFade, #softCut, the loading card…) up for more than 4 s, or up while she has control
+//   flat      the rendered picture is one flat colour while she's in the world (camera inside something / looking at nothing)
+//   underground  the camera below the ground
+//   inwall    the camera inside a solid collider (on foot: a circle collider of the active chunks / a town occluder)
+//   hidden    Lulu (on foot, walking) or the car (driving) invisible for more than ~1/3 s while she has control
+//   stuck     a state that isn't a free-roaming one (playing / footRun / interior / title) lasting more than 60 s
+//   nocontrol control taken away for more than 4 s outside a skippable scene / a dialog / a set / the pause menu
+//   inside    Lulu standing inside a solid collider (circle / town block) for more than ~1/2 s while walking
+//
+// W.opts (page-side window.__qa.opts) tune the thresholds; W.allow(t, kind, re) ignores a known, explained case.
+const SRC = String.raw`
+(() => {
+  if (window.__qa) return true;
+  const L3 = window.__lulu3d, ctx = L3.ctx;
+  const Q = window.__qa = {
+    on: true, issues: [], counts: {}, ep: {}, last: null, f: -1, overlayF: 0, overlayCtl: 0, hidF: 0, insideF: 0,
+    stateSince: 0, stateName: null, noCtl: 0, prevState: null, stateChangeF: -9, cutF: -9, notes: [], allow: [],
+    opts: { footJump: 3.0, carJump: 4.0, camJump: 5.0, overlaySecs: 4, stuckSecs: 60, noCtlSecs: 4, flatEvery: 12, flatStd: 3.0 },
+  };
+  const flag = (kind, msg, key = kind) => {
+    if (Q.allow.some(a => a.kind === kind && a.re.test(msg))) return;
+    Q.counts[kind] = (Q.counts[kind] || 0) + 1;
+    // one entry per episode: the same key again within 60 frames extends it
+    const e = Q.ep[key];
+    if (e && ctx.frames - e.lastF < 60) { e.lastF = ctx.frames; e.n++; return; }
+    const it = { kind, f: ctx.frames, t: +ctx.time.toFixed(2), state: ctx.state, msg, n: 1, lastF: ctx.frames };
+    Q.ep[key] = it;
+    if (Q.issues.length < 400) Q.issues.push(it);
+  };
+  Q.flag = flag;
+  // declared cuts: a town swap (the real ramp hides it behind a soft cut; a test's ctx.town.enter() doesn't)
+  for (const ev of ["town:enter", "town:leave"]) L3.on(ev, () => { Q.cutF = ctx.frames + 1; });
+  const fin = v => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+  const P = v => v ? [+v.x.toFixed(1), +v.y.toFixed(1), +v.z.toFixed(1)] : null;
+  const covered = () => {
+    // an opaque full-screen element (≥ 90 % of the screen, opacity × background alpha ≥ 0.5)
+    const W = innerWidth, H = innerHeight, out = [];
+    for (const el of document.querySelectorAll("body > *, #screen")) {
+      if (!el.getBoundingClientRect) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden" || (cs.position !== "fixed" && cs.position !== "absolute")) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < W * 0.9 || r.height < H * 0.9) continue;
+      let op = 1;
+      for (let n = el; n && n !== document.body; n = n.parentElement) op *= +getComputedStyle(n).opacity;
+      if (op < 0.5) continue;
+      let solid = el.tagName === "CANVAS" && el.id !== "scene" && el.id !== "gx";
+      const bg = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
+      if (bg) { const a = bg[1].split(",").map(Number); if ((a.length < 4 || a[3] >= 0.6)) solid = true; }
+      if (cs.backgroundImage && cs.backgroundImage !== "none" && !/gradient/.test(cs.backgroundImage)) solid = true;
+      if (solid) out.push(el.id || el.className || el.tagName);
+    }
+    return out;
+  };
+  Q.covered = covered;
+  const control = () => {
+    if (ctx.paused || ctx.dialogOpen || ctx.view || ctx.skipping) return false;
+    if (L3.H && L3.H.screenOpen && L3.H.screenOpen()) return false;
+    if (ctx.state === "playing" || ctx.state === "worldPullOut") return true;
+    if (ctx.state === "footRun") { const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F; return !!(F && F.phase === "walk"); }
+    return false;
+  };
+  Q.control = control;
+  const softCutUp = () => { const s = document.getElementById("softCut"); return !!(s && s.style.display === "block" && +s.style.opacity > 0.05); };
+  const gl = () => ctx.renderer && ctx.renderer.getContext();
+  const px = new Uint8Array(4);
+  function flatFrame() {
+    const g = gl(); if (!g) return null;
+    const cv = ctx.renderer.domElement, w = g.drawingBufferWidth, h = g.drawingBufferHeight;
+    const prev = g.getParameter(g.FRAMEBUFFER_BINDING);
+    g.bindFramebuffer(g.FRAMEBUFFER, null);
+    const lum = [];
+    for (let i = 1; i <= 5; i++) for (let j = 1; j <= 7; j++) {
+      g.readPixels(Math.floor(w * j / 8), Math.floor(h * i / 6), 1, 1, g.RGBA, g.UNSIGNED_BYTE, px);
+      lum.push(0.3 * px[0] + 0.59 * px[1] + 0.11 * px[2]);
+    }
+    g.bindFramebuffer(g.FRAMEBUFFER, prev);
+    const m = lum.reduce((a, b) => a + b, 0) / lum.length;
+    const sd = Math.sqrt(lum.reduce((a, b) => a + (b - m) * (b - m), 0) / lum.length);
+    return { m: +m.toFixed(1), sd: +sd.toFixed(2) };
+  }
+  Q.flatFrame = flatFrame;
+  // town blocks (world rects) + the chunk circles round a point
+  function solidAt(x, z, y = 1.0, pad = 0) {
+    const w = ctx.world; if (!w) return null;
+    for (const ch of w.activeChunks()) for (const c of ch.colliders || []) {
+      if (c.off) continue;
+      const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 9 : (low[c.kind] != null ? low[c.kind] : 9);
+      if (y > top) continue;
+      const dx = x - c.x, dz = z - c.z;
+      if (dx * dx + dz * dz < (c.r - pad) * (c.r - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
+    }
+    const T = ctx.town;
+    if (T && T.active) {
+      const pl = T.plan, O = pl && pl.ORIGIN;
+      if (O) for (const r of pl.OCCLUDERS) {
+        const lx = x - O.x, lz = z - O.z;
+        if (lx > r.x0 + pad && lx < r.x1 - pad && lz > r.z0 + pad && lz < r.z1 - pad) return "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0);
+      }
+    }
+    return null;
+  }
+  Q.solidAt = solidAt;
+  function tick() {
+    requestAnimationFrame(tick);
+    if (!Q.on || !ctx.world || !ctx.car) return;
+    const f = ctx.frames;
+    if (f === Q.f) return;
+    const dF = f - Q.f; Q.f = f;
+    const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F;
+    const foot = ctx.state === "footRun" && F && F.pos ? F.pos : null;
+    const car = ctx.car.pos, camP = ctx.camera.position;
+    const st = ctx.state;
+    if (st !== Q.stateName) { Q.prevState = Q.stateName; Q.stateName = st; Q.stateSince = ctx.time; Q.stateChangeF = f; }
+    const cov = covered();
+    const soft = softCutUp();
+    if (soft || cov.length || ctx.view) Q.cutF = f;
+    const cutNear = f - Q.cutF <= 2 || f - Q.stateChangeF <= 2 || ctx.skipping;
+    // NaN
+    for (const [n, v] of [["lulu", foot], ["car", car], ["camera", camP]]) if (v && !fin(v)) flag("nan", n + " position is not a number", "nan:" + n);
+    // one-frame jumps
+    const cur = { foot: foot ? foot.clone() : null, car: car.clone(), cam: camP.clone(), st, view: !!ctx.view };
+    if (Q.last && dF === 1 && !cutNear && !Q.last.view && !cur.view) {
+      const d = (a, b) => a && b ? Math.hypot(a.x - b.x, a.z - b.z) : 0;
+      const df = d(cur.foot, Q.last.foot), dc = d(cur.car, Q.last.car), dk = cur.cam.distanceTo(Q.last.cam);
+      if (cur.foot && Q.last.foot && df > Q.opts.footJump) flag("jump", "Lulu moved " + df.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.foot)) + "→" + JSON.stringify(P(cur.foot)), "jump:foot");
+      if (st === "playing" && Q.last.st === "playing" && dc > Q.opts.carJump) flag("jump", "the car moved " + dc.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.car)) + "→" + JSON.stringify(P(cur.car)), "jump:car");
+      if (dk > Q.opts.camJump) flag("jump", "the camera moved " + dk.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:cam");
+    }
+    Q.last = cur;
+    const ctl = control();
+    // overlays
+    if (cov.length) { Q.overlayF += dF; if (ctl) Q.overlayCtl += dF; else Q.overlayCtl = 0; } else { Q.overlayF = 0; Q.overlayCtl = 0; }
+    if (Q.overlayF > Q.opts.overlaySecs * 30) flag("overlay", cov.join("+") + " covers the screen for " + (Q.overlayF / 30).toFixed(1) + " s", "overlay:long");
+    if (Q.overlayCtl > 30) flag("overlay", cov.join("+") + " covers the screen while she has control (" + (Q.overlayCtl / 30).toFixed(1) + " s)", "overlay:ctl");
+    // camera
+    if (!ctx.view && (st === "playing" || st === "footRun")) {
+      if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
+      if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }
+      if (f % Q.opts.flatEvery === 0 && !cov.length && !soft) {
+        const fl = flatFrame();
+        if (fl && fl.sd < Q.opts.flatStd) flag("flat", "the picture is one flat colour (mean " + fl.m + ", sd " + fl.sd + ") cam " + JSON.stringify(P(camP)), "flat");
+      }
+    }
+    // Lulu / the car hidden while she has control
+    if (ctl && ((st === "footRun" && F && F.lulu && !F.lulu.obj.visible) || (st === "playing" && !ctx.car.obj.visible))) Q.hidF += dF; else Q.hidF = 0;
+    if (Q.hidF > 10) flag("hidden", (st === "footRun" ? "Lulu" : "the car") + " is invisible while she has control", "hidden");
+    // standing inside something solid
+    if (ctl && foot && F.phase === "walk" && !F.air) {
+      const s = solidAt(foot.x, foot.z, (F.y || 0) + 0.3, 0.15);
+      if (s) Q.insideF += dF; else Q.insideF = 0;
+      if (Q.insideF > 15) flag("inside", "Lulu stands inside " + s + " at " + JSON.stringify(P(foot)), "inside");
+    } else Q.insideF = 0;
+    // stuck states / control taken away
+    const roam = { playing: 1, footRun: 1, interior: 1, title: 1 };
+    if (!roam[st] && !ctx.paused && ctx.time - Q.stateSince > Q.opts.stuckSecs) flag("stuck", "state " + st + " for " + (ctx.time - Q.stateSince).toFixed(0) + " s", "stuck:" + st);
+    const def = ctx.states[st] || {};
+    const excused = ctx.paused || ctx.dialogOpen || ctx.view || (typeof def.skip === "function" ? def.skip() : !!def.skip) || st === "title" || st === "interior" || (L3.H && L3.H.screenOpen && L3.H.screenOpen());
+    if (!ctl && !excused) Q.noCtl += dF; else Q.noCtl = 0;
+    if (Q.noCtl > Q.opts.noCtlSecs * 30) flag("nocontrol", "no control for " + (Q.noCtl / 30).toFixed(1) + " s in " + st + (F ? " (foot phase " + F.phase + ")" : ""), "noctl:" + st + (F ? F.phase : ""));
+  }
+  requestAnimationFrame(tick);
+  return true;
+})()`;
+
+module.exports = {
+  async install(t) { return t.L(SRC); },
+  async reset(t) { return t.L(`(window.__qa.issues = [], window.__qa.counts = {}, window.__qa.ep = {}, window.__qa.last = null, window.__qa.overlayF = window.__qa.noCtl = window.__qa.hidF = window.__qa.insideF = 0, window.__qa.stateSince = __lulu3d.ctx.time, true)`); },
+  async report(t) { return t.L(`({ issues: window.__qa.issues.map(i => ({ kind: i.kind, f: i.f, t: i.t, state: i.state, msg: i.msg, n: i.n })), counts: window.__qa.counts })`); },
+  /** Ignore a known, explained case: kind + a regex source on the message. */
+  async allow(t, kind, re) { return t.L(`(window.__qa.allow.push({ kind: ${JSON.stringify(kind)}, re: new RegExp(${JSON.stringify(re)}) }), true)`); },
+  async pause(t, on = false) { return t.L(`(window.__qa.on = ${!!on}, window.__qa.last = null, true)`); },
+  /** One check per glitch kind in `kinds` (default: all) for a segment; prints every issue as detail. */
+  check(t, label, r, kinds = ["jump", "nan", "overlay", "flat", "underground", "inwall", "hidden", "stuck", "nocontrol", "inside"]) {
+    let ok = true;
+    for (const k of kinds) {
+      const its = r.issues.filter(i => i.kind === k);
+      if (!its.length) continue;
+      ok = false;
+      t.check(`${label}: no ${k} glitch`, false, its.slice(0, 4).map(i => `f${i.f} ${i.state}: ${i.msg}${i.n > 1 ? " ×" + i.n : ""}`).join(" | "));
+    }
+    if (ok) t.check(`${label}: the watchdog saw nothing wrong`, true);
+    return ok;
+  },
+  log(r) { for (const i of r.issues) console.log(`    · [${i.kind}] f${i.f} t${i.t} ${i.state}: ${i.msg}${i.n > 1 ? " ×" + i.n : ""}`); },
+};

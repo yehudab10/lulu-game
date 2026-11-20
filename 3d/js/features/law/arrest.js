@@ -36,7 +36,12 @@ registerState("lawArrest", {
         ensureModels(JAIL_MODELS).catch(() => {});
         // (a town can't host the arrest: it would send her back to the highway AFTER this enter — clearing the traffic,
         //  the cruiser below with it. Leave first, so the cruiser is made on the highway.)
-        if (ctx.town && ctx.town.active && ctx.town.leave) ctx.town.leave("quiet");
+        if (ctx.town && ctx.town.active && ctx.town.leave) {
+            ctx.town.leave("quiet");
+            // (caught ON FOOT: her spot was a town street, which is gone now — she's cuffed beside the car's spot on the
+            //  highway instead, where the cruiser pulls up; the old spot left the shot looking at empty space)
+            if (data.onFoot && data.x != null) { data.x = ctx.car.pos.x; data.z = ctx.car.pos.z; data.h = ctx.car.h; }
+        }
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {

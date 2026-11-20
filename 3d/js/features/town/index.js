@@ -60,7 +60,7 @@ registerModels(Object.fromEntries([...OWN].map(k => [k, k])));
 // ── state ────────────────────────────────────────────────────────────────
 const S = { active: false, def: null, lastDef: null, T: null, road: null, chunk: null, exitS: 0, trans: null, ready: null, loaded: false, loads: {}, ok: {},
     savedTraffic: true, readLive: 0, savedTrip: null, savedPullOver: undefined, timers: [], visits: 0, bubbe: new Set(), footYaw: null, tendT: 0, haz: [] };
-const TOWN_OK = new Set(["playing", "wrecked", "footRun", "lawBust", "copStop", "playPhoto", "hustleResult"]);
+const TOWN_OK = new Set(["playing", "wrecked", "footRun", "lawBust", "lawStop", "playPhoto", "hustleResult"]);   // (lawStop: her cop car pulling someone over)
 // highway content that has no business in a town (its random parts read the highway's s)
 const TOWN_OFF = new Set(["roadevents", "cameos", "foot", "interiors", "journey", "hustle", "play", "banter", "law", "dina", "memory", "world", "shabbos"]);
 const baseEnabled = ctx.enabled;

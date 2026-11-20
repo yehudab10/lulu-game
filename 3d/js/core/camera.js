@@ -50,7 +50,7 @@ function lookInput(dt) {
     return _li;
 }
 // the free camera's state (on foot)
-const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2 };
+const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2, clipD: 99 };
 const _t = new THREE.Vector3();
 
 export const cam = {
@@ -101,8 +101,9 @@ export const cam = {
     },
     /** The FREE third-person camera (on foot): it orbits obj at the player's yaw / pitch and stays where they leave it.
      *  opts: dist (m), look (pivot height over her feet), fov, y (her height to frame — default obj.position.y),
-     *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street). */
-    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null } = {}, dt = 1 / 60) {
+     *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street),
+     *  clip(tgt, dx, dy, dz, D) → the farthest the camera may sit from the pivot along that direction (walls). */
+    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null, clip = null } = {}, dt = 1 / 60) {
         const camera = ctx.camera;
         // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
         // once and the PICTURE glides from what was on screen (a blend), so nothing swoops in from a stale spot
@@ -133,10 +134,19 @@ export const cam = {
             if (!bl.on && !ctx.skipping) startBlend(0.35);
             FREE.tgt.copy(_t);
         } else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 12); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 12); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
+        const snapped = st.snap;
         st.snap = false;
         const cp = Math.cos(FREE.pitch), sp = Math.sin(FREE.pitch), fx = Math.sin(FREE.yaw), fz = Math.cos(FREE.yaw);
         let D = D0;
         if (FREE.tgt.y + sp * D < 0.4) D = Math.max(1.6, (FREE.tgt.y - 0.4) / -sp);      // looking up: slide in along the ground
+        // a wall / a house between her and the camera (opts.clip — foot's: the same colliders she bumps into): the camera
+        // comes in to this side of it at once, and eases back out once it's clear (no popping in and out at a corner)
+        if (clip) {
+            const lim = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D);
+            if (snapped || fresh || lim < FREE.clipD) FREE.clipD = lim;
+            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 2.5) + dt * 0.5);
+            D = Math.min(D, FREE.clipD);
+        } else FREE.clipD = 99;
         camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
         camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);
