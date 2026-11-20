@@ -31,7 +31,7 @@ export default {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
         "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "shops" } },
-        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "makolet" } },     // (features/shops: Zissy's makolet on Main St) "3,2": { faces: { s: "bank" } },
+        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "makolet" } }, "3,2": { faces: { s: "bank" } },     // (features/shops: Zissy's makolet on Main St, block 1,2)
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
         "2,3": { all: "townhouses" },
