@@ -115,7 +115,9 @@ function mates(c) { if (!c) return []; const mem = P().members(), u = me(); retu
 // ── the host: who's in it together ───────────────────────────────────────
 function hostSet(fn) {
     const A = P().activity;
-    const pz = A && A.pz ? clone(A.pz) : { n: 0, c: [] };
+    // (a fresh record numbers from the clock: a crew / help number is never reused after the record was emptied)
+    const base = Math.floor(now() / 100) % 10000000;
+    const pz = A && A.pz ? clone(A.pz) : { n: base, hn: base, c: [] };
     if (fn(pz) === false) return;
     P().setA(Object.assign({}, P().activity, { pz }));
 }
@@ -204,7 +206,7 @@ function hostTick(dt) {
     const t = now(), mem = P().members();
     let changed = false;
     const pz = clone(pz0);
-    if (pz.h) for (const k of Object.keys(pz.h)) if (t - pz.h[k].t > 40000 * TM) { delete pz.h[k]; changed = true; }
+    if (pz.h) { for (const k of Object.keys(pz.h)) if (t - pz.h[k].t > 40000 * TM) { delete pz.h[k]; changed = true; } if (!Object.keys(pz.h).length) { delete pz.h; changed = true; } }
     pz.c = pz.c.filter(c => !(c.ph === "done" && t - c.end > CREW_TUNE.keepMs));
     if (pz.c.length !== pz0.c.length) changed = true;
     for (const c of pz.c) {
@@ -243,7 +245,11 @@ function hostTick(dt) {
         c.drop = chased.map(([u]) => u).filter(u => u !== keep).join(",");
         end("split");
     }
-    if (changed) P().setA(Object.assign({}, P().activity, { pz }));
+    if (!changed) return;
+    // (nothing left: the activity carries no crew state at all — the host's snapshot has a size budget)
+    const A = Object.assign({}, P().activity);
+    if (pz.c.length || pz.h) A.pz = pz; else delete A.pz;
+    P().setA(A);
 }
 /** Split up: who the cops stay on — the one they can SEE; both seen → more stars; then whoever's driving; then the order they joined. */
 export function pickKept(list, c) {
@@ -351,7 +357,9 @@ function publish(dt) {
     C.pubT = 0.14;
     const s = mine();
     const a = [s.n, s.heat, s.f, Math.round(s.ev * 100), Math.round(s.x * 10), Math.round(s.z * 10), s.v, s.bail];
-    const key = s.n || s.f ? a.join(",") : "";
+    // (only while it matters — in trouble, in custody, in a crew: a party snapshot has a size budget, and just driving
+    //  around says nothing a friend needs)
+    const key = s.n || (s.f & ~F_DRIVE) ? a.join(",") : "";
     if (key === C.sent) return;
     C.sent = key;
     P().setX("pz", key ? a : null);
