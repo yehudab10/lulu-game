@@ -156,6 +156,12 @@ export function camClip(F, tgt, dx, dy, dz, D) {
         for (const c of ch.colliders) {
             if (c.off) continue;
             if (c.kind === "tree") {
+                // a BIG trunk (the woods' and parks' trees, r ≥ 0.8) is a wall too — the car backed up against one
+                // put the chase cam inside it; thin street-tree trunks don't pull it in (it would pop past each one)
+                if (c.r >= 0.8) {
+                    const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + 0.15, cc = ox * ox + oz * oz - R * R, b = ox * dx + oz * dz;
+                    if (cc > 0 && b < 0) { const disc = b * b - h2 * cc; if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2); }
+                }
                 // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
                 // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
                 // (a trunk merely between them doesn't pull it in: it would pop in and out past every street tree)
@@ -169,9 +175,11 @@ export function camClip(F, tgt, dx, dy, dz, D) {
             }
             if (c.r < 0.8 || topOf(c) != null || (blocks && c.kind === "house")) continue;
             const ox = tgt.x - c.x, oz = tgt.z - c.z;
-            let R = c.r + CAM_PAD, cc = ox * ox + oz * oz - R * R;
+            // (the traffic circle's island is a 6 m lawn — only its statue in the middle stands tall)
+            const cr = c.kind === "island" ? Math.min(c.r, 2.8) : c.r;
+            let R = cr + CAM_PAD, cc = ox * ox + oz * oz - R * R;
             // (she's right up against it — the pivot is inside its pad: the wall itself still counts)
-            if (cc <= 0) { R = c.r + 0.05; cc = ox * ox + oz * oz - R * R; if (cc <= 0) continue; }
+            if (cc <= 0) { R = cr + 0.05; cc = ox * ox + oz * oz - R * R; if (cc <= 0) continue; }
             const b = ox * dx + oz * dz;
             if (b >= 0) continue;                        // pointing away from it
             const disc = b * b - h2 * cc;

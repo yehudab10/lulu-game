@@ -13,7 +13,7 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, endChase, driveUnit, spatialSirens } from "./cops.js";
+import { L, setRig, endChase, driveUnit, spatialSirens, pullDAt } from "./cops.js";
 import { COP_SCENES, BUST_TACTICS, COP_LINE_DUR, COP_STOP_SCENES } from "./data.js";
 import { pick, rand, S } from "./rules.js";
 import { runFlow, check, line, ask, person, walkTo, quietRoad, restoreRoad, V } from "./scene.js";
@@ -72,7 +72,7 @@ registerState("lawBust", {
         rumble(0.4, 0.6, 300, true);
         A.duckMusic(0.15);
         if (u && u.car) {
-            u.mode = "pull"; u.siren = true; u.pullD = 7.9; u.stopS = ctx.car.s - 7.2;
+            u.mode = "pull"; u.siren = true; u.pullD = pullDAt(ctx.car.s); u.stopS = ctx.car.s - 7.2;
             if (!u.car.ai) { u.car.free = true; u.car.ai = (dt, c) => driveUnit(dt, c, u); }
         }
         flow = runFlow(f => script(f, data));
@@ -94,7 +94,7 @@ registerState("lawBust", {
         if (!st) return;
         st.t += dt;
         const u = st.u, car = ctx.car;
-        autoLulu(dt, 7.9, st.t > 0.6);
+        autoLulu(dt, pullDAt(car.s), st.t > 0.6);
         if (u && u.car) { u.stopS = car.s - 7.2; setRig(u.rig, true, ctx.time); }
         const cop = cast.cop;
         if (cop) {
@@ -272,8 +272,9 @@ registerState("lawStop", {
         const sc = pick(COP_STOP_SCENES.filter(s => s.outcome === outcome));
         ss = { c, sc, outcome, t: 0 };
         c.ai = (dt, car) => {        // the busted car drifts onto the shoulder and stops
-            car.dTarget = 7.9;
-            car.d += Math.sign(7.9 - car.d) * Math.min(Math.abs(7.9 - car.d), 2.2 * dt);
+            const pd = pullDAt(car.s);
+            car.dTarget = pd;
+            car.d += Math.sign(pd - car.d) * Math.min(Math.abs(pd - car.d), 2.2 * dt);
             if (!ss || ss.outcome !== "runs" || !ss.bolt) car.speed = Math.max(0, car.speed - 9 * dt);
             else car.speed = Math.min(40, car.speed + 14 * dt);
             car.s += car.speed * dt;
@@ -289,7 +290,7 @@ registerState("lawStop", {
         ss.t += dt;
         const c = ss.c, car = ctx.car;
         const gap = c.s - car.s;
-        autoLulu(dt, 7.9, gap < 9 || ss.t > 5);
+        autoLulu(dt, pullDAt(car.s), gap < 9 || ss.t > 5);
         if (sflow) sflow.tick(dt, P);
     },
     camera(dt) { roadsideShot(dt); return true; },

@@ -49,6 +49,11 @@ export const SIGNS = {
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
     bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
+    // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
+    precinct: ["POLICE · 70½TH PRECINCT", "courtesy · professionalism · parking"],
+    court: ["KINGS COUNTY-ISH CIVIL COURT", "small claims · big feelings"],
+    hospital: ["MIDWOOD GENERAL HOSPITAL", "emergency · walk-ins · the wait is the treatment"],
+    impound: ["TOW POUND", "you park it, we take it"],
     avej: [
         ["SHELF HELP SEFARIM", "Big books, small store"],
         ["THE GEFILTE STATION", "Fish · Fresh · Probably"],

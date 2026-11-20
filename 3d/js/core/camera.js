@@ -188,6 +188,10 @@ export const cam = {
         reset(yaw = 0, pitch = LOOK.pitch) { FREE.yaw = wrapAngle(yaw); FREE.pitch = pitch; FREE.idle = 9; FREE.reT = 0; },
     },
     update(dt) { updateCamera(dt); applyBlend(dt); },
+    /** (tgt, dx, dy, dz, D) → how far the CHASE cam may sit from the car (walls) | null — foot sets it in a town. */
+    carClip: null,
+    /** How far the walls let the chase cam sit right now (m; 99 = nothing in the way) — tests. */
+    get carClipD() { return CAR.clipD; },
     state: st,
 };
 ctx.cam = cam;
@@ -219,6 +223,28 @@ function applyBlend(dt) {
     camera.updateProjectionMatrix();
 }
 const _q = new THREE.Quaternion();
+
+// ── the chase cam's walls (cam.carClip — set by foot while she's in a TOWN; null on the highway: no cost there) ──
+// Like the free camera on foot: a house / a block / the circle's statue / a tree's leaves between the car and the camera
+// brings it in at once to this side (rising a little when it's very close), then it eases back out.
+const CAR = { clipD: 99 }, _cp = new THREE.Vector3();
+function carClip(snapped, dt) {
+    const fn = cam.carClip, car = ctx.car, camera = ctx.camera;
+    if (!fn) { CAR.clipD = 99; return; }
+    _cp.set(car.pos.x, 1.4, car.pos.z);
+    const vx = st.pos.x - _cp.x, vy = st.pos.y - _cp.y, vz = st.pos.z - _cp.z, D = Math.hypot(vx, vy, vz);
+    const r = D > 0.5 ? fn(_cp, vx / D, vy / D, vz / D, D) : null;
+    if (r == null) { CAR.clipD = 99; return; }
+    const lim = typeof r === "number" ? r : r.d;
+    if (snapped || lim < CAR.clipD) CAR.clipD = lim;
+    else CAR.clipD = Math.min(lim, CAR.clipD + (D - CAR.clipD) * Math.min(1, dt * 4) + dt * 2);
+    const d = Math.min(D, CAR.clipD);
+    if (d >= D) return;
+    const k = d / D;
+    const lift = d < 2.5 && !(typeof r === "object" && r.noLift) ? (2.5 - d) * 0.8 : 0;     // (not up into a tree's leaves)
+    camera.position.set(_cp.x + vx * k, _cp.y + vy * k + lift, _cp.z + vz * k);
+    st.pos.copy(camera.position);     // (so a shot that starts from here — climbing out, a scene — starts outside the wall too)
+}
 
 function updateCamera(dt) {
     const camera = ctx.camera, car = ctx.car, G = ctx.G;
@@ -291,9 +317,11 @@ function updateCamera(dt) {
     const dist = cfg.dist * (portrait ? 1.25 : 1) + (G.boosting ? 1.2 : 0) + Math.min(sp, 45) * 0.025;
     const height = cfg.height * (portrait ? 1.25 : 1) + st.lookPitch * 3;
     _v.set(car.pos.x - Math.sin(yaw) * dist, height, car.pos.z - Math.cos(yaw) * dist);
+    const snapped = st.snap;
     if (st.snap) st.pos.copy(_v); else st.pos.lerp(_v, Math.min(1, dt * 9));
     st.snap = false;
     camera.position.copy(st.pos);
+    carClip(snapped, dt);
     if (shake > 0) camera.position.add(_w.set((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake * 0.6, (Math.random() - 0.5) * shake));
     camera.position.y += car.bump * 0.6;
     _w.set(car.pos.x + Math.sin(yaw) * 4, cfg.look, car.pos.z + Math.cos(yaw) * 4);

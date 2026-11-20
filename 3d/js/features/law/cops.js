@@ -381,7 +381,7 @@ function steerUnit(dt, c, u) {
         if (Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 70) tD = clamp(ld, -5.25, 5.25);
         u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
-        tD = Number.isFinite(u.pullD) ? u.pullD : 7.9;
+        tD = Number.isFinite(u.pullD) ? u.pullD : pullDAt(c.s);
         const err = (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
         vT = clamp(err * 1.1, 0, 22);
         if (err < 0.4) vT = 0;
@@ -389,7 +389,7 @@ function steerUnit(dt, c, u) {
     } else if (u.mode === "haul") {             // drive Lulu downtown
         tD = 1.75; vT = 30; u.vmax = 32;
     } else if (u.mode === "giveup") {
-        tD = clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
+        tD = ctx.town && ctx.town.active ? c.d : clamp(c.d, 7.6, 7.9); vT = 0; u.vmax = 20;
     } else if (u.mode === "park") { vT = 0; u.vmax = 0; }
 
     // traffic in the way: pass (cops will use any lane) or slow down; bang into it if we can't
@@ -1444,6 +1444,13 @@ export function ensureCopModels() {
 }
 
 /** A unit for scripted scenes: a cruiser that slides up behind Lulu. */
+/** Where a pull-over stops (d): the highway's shoulder (7.9) — in a TOWN the right lane's outer edge, beside the parked
+ *  row (the town's 7.9 is the sidewalk, through the parked cars): "double-parked with the lights on", Lakewood-style. */
+export function pullDAt(s = ctx.car.s) {
+    if (!(ctx.town && ctx.town.active)) return 7.9;
+    const rd = ctx.world.road, p = rd.point(s, 0, {}), n = rd.nearest(p.x, p.z, s, {}), st = n && n.street;
+    return st && st.lanes ? Math.max(1.75, st.lanes * 3.5 - 0.9) : 2.6;
+}
 export function scriptedCruiser(sBehind = 26, d = null) {
     const car = ctx.car;
     const u = addUnit(car.s - sBehind, d == null ? car.d : d, 1, Math.max(8, car.speed + 6), { mode: "chase" });

@@ -901,7 +901,7 @@ function updateKnock(dt) {
 const ER_ON_FOOT = 0.2;
 /** How likely the ER scoops her up after a knock-out on foot. Never in a town: the ER is a set on the highway side, so
  *  she'd wake up outside town (until the hospital is a real building there — roadmap 4). */
-const erChance = () => (ctx.town && ctx.town.active ? 0 : ER_ON_FOOT);
+const erChance = () => (ctx.town && ctx.town.active && !(ctx.civic && ctx.civic.here) ? 0 : ER_ON_FOOT);   // (features/places: a town with a hospital)
 function knockedOut() {
     const force = ctx.foot.force.er;
     const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < erChance()));
@@ -2021,6 +2021,12 @@ function hud() {
 }
 
 // ── touch: the ✋ hand button (on foot) and 🚶‍♀️ WALK (pulled over) ────────
+// (the DRIVING chase cam in a town keeps out of the houses, the blocks, the circle's statue and the trees' leaves with the
+//  same check as the free camera on foot; on the highway it's off — nothing to hit there, and no cost)
+const carProbe = { s: 0 };
+on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = (tgt, dx, dy, dz, D) => { carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D); }; });
+on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = null; });
+on("title", () => { if (ctx.cam) ctx.cam.carClip = null; });
 on("boot", () => {
     handBtn = addTouchButton({ id: "foot_hand", emoji: "✋", label: "HAND", action: "interact",
         visible: () => ctx.state === "footRun" && !!F && (F.phase === "walk" || F.phase === "hotwire") });
