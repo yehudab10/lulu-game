@@ -215,7 +215,7 @@ export function goExit(data) {
     if (ctx.civic && ctx.civic.place && ctx.civic.ready() && ctx.dissolve && !ctx.skipping) ctx.dissolve(() => setState("lawExit", data));
     else setState("lawExit", data);
 }
-export function walkOutOf(door, { fugitive = false, banner = "", car = carBack(), reason = "copWalk", line = "" } = {}) {
+export function walkOutOf(door, { fugitive = false, banner = "", car = carBack(), reason = "copWalk", line = "", side = 0 } = {}) {
     if (!run.live || !ctx.civic || !ctx.civic.place || !ctx.civic.walkOut) return false;
     if (ctx.foot && ctx.foot.dropRide) ctx.foot.dropRide();
     run.ride = null;
@@ -225,7 +225,7 @@ export function walkOutOf(door, { fugitive = false, banner = "", car = carBack()
     L.units.length = 0;
     L.grace = 6; L.wantedSpot = 0; L.apbCool = Math.max(L.apbCool, 8); L.wantedPatrolT = Math.max(L.wantedPatrolT, 5);
     if (fugitive) { if (!L.fug) startFugitive(0); } else if (L.fug) endFugitive();
-    if (!ctx.civic.walkOut({ door, car: !!car, reason: fugitive && !car ? "jailbreak" : reason, line, impound: !car, soft: !ctx.civic.dissolving() })) return false;
+    if (!ctx.civic.walkOut({ door, car: !!car, reason: fugitive && !car ? "jailbreak" : reason, line, impound: !car, soft: !ctx.civic.dissolving(), side })) return false;
     prisonClothes(!!L.fug);
     G.invT = Math.max(G.invT || 0, 2);
     if (banner) H.toast(banner, "pink");
