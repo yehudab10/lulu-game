@@ -754,10 +754,17 @@ hook("runStart", G => {
 on("title", () => { if (S.active) leaveTown("reset"); dropAllBuilt(true); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
 // (on the title — or any scene where nothing drives — a standing town is still culled for the camera: the title shot looks
 //  down E 16th St at Lulu's house in Midwood)
-hook("hud", () => {
-    if (S.active || ctx.state === "playing" || ctx.state === "footRun" || !S.built.length) return;
-    if ((S.cullT = (S.cullT || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
-});
+// (no hook runs on the title, so the town keeps a light idle loop of its own — it does nothing while she drives / walks)
+function idle() {
+    requestAnimationFrame(idle);
+    try {
+        if (S.active || ctx.state === "playing" || ctx.state === "footRun" || !ctx.world || !ctx.camera) return;
+        // HOME is built from boot, in slices, while the title is up (its models load first) — the game opens on Lulu's street
+        if (ctx.state === "title" && ctx.enabled("town") && !(ctx.party && ctx.party.active)) { const h = home(); if (h) ctx.town.prebuild(h.town, h.exitS); }
+        if (S.built.length && (S.cullT = (S.cullT || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
+    } catch (e) { console.error("[town] idle", e); }
+}
+requestAnimationFrame(idle);
 
 // ── the ramp cue: a light, in-the-moment prompt (no popup) while she's in the decel lane / on the ramp ──
 const RP = {};
@@ -1004,6 +1011,13 @@ ctx.town = {
         const P = en || placeAt(def, exitS, k);
         if (!P) return null;
         return withPlan(P, () => { const sp = lotSpot(name); return sp ? Object.assign(spotWorld(sp), { built: false }) : null; });
+    },
+    /** Add a solid (WORLD {x, z, r, kind}) to the town she's in — or to the one standing at `at` = { town, exitS }
+     *  (Lulu's house on its empty lot: ci/hometown). → the collider, or null. */
+    addCollider(c, at = null) {
+        const en = at ? entryOf(at.exitS, branchK(TOWNS[at.town], at.exitS)) : null;
+        const T = en ? en.T : S.T;
+        return T && T.addCollider ? T.addCollider(Object.assign({ kind: "house" }, c)) : null;
     },
     /** In an attached town: where its streets hand over to the cross road out to the highway (world) — the way out. */
     wayOut() {

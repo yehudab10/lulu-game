@@ -274,15 +274,23 @@ export function* buildTownSteps(def) {
         const lot = blockPoly(b);
         if (b.solid) {
             const step = 2.1, rad = 1.25;
+            // an empty lot's street side stays OPEN (its driveway: Lulu drives out of it — ci/hometown); its back and sides stay solid
+            const lots = [];
+            for (const [face, kind] of Object.entries(b.faces)) {
+                const use = def.uses && def.uses[kind];
+                if (use && use.lot) { const fr = railSplit(faceFrame(lot, face), def.rail)[0]; lots.push(lotSpotOf(fr, fr.len / 2 + (use.u || 0), Object.assign({ dims: use.dims }, use))); }
+            }
+            const open = (x, z) => lots.some(sp => { const dx = x - sp.lotX, dz = z - sp.lotZ; return Math.abs(dx * sp.ux + dz * sp.uz) < sp.w / 2 + 0.3 && -(dx * sp.nx + dz * sp.nz) < 8; });
+            const ring = (x, z, r, k) => { if (!lots.length || !open(x, z)) col(x, z, r, k); };
             if (!b.quad) {
                 const c = blockPoly(b, 1.4), x0 = c[0][0], x1 = c[1][0], z0 = c[0][1], z1 = c[2][1];
-                for (let x = x0; x <= x1 + 0.01; x += step) { col(x, z0, rad, "house"); col(x, z1, rad, "house"); }
-                for (let z = z0 + step; z < z1; z += step) { col(x0, z, rad, "house"); col(x1, z, rad, "house"); }
+                for (let x = x0; x <= x1 + 0.01; x += step) { ring(x, z0, rad, "house"); ring(x, z1, rad, "house"); }
+                for (let z = z0 + step; z < z1; z += step) { ring(x0, z, rad, "house"); ring(x1, z, rad, "house"); }
             } else {
                 const c = blockPoly(b, 1.4);
                 for (let i = 0; i < 4; i++) {
                     const a = c[i], e = c[(i + 1) % 4], L = Math.hypot(e[0] - a[0], e[1] - a[1]);
-                    for (let u = 0; u < L; u += step) col(a[0] + (e[0] - a[0]) * u / L, a[1] + (e[1] - a[1]) * u / L, rad, "house");
+                    for (let u = 0; u < L; u += step) ring(a[0] + (e[0] - a[0]) * u / L, a[1] + (e[1] - a[1]) * u / L, rad, "house");
                 }
             }
         }
@@ -614,6 +622,18 @@ export function* buildTownSteps(def) {
     }
     const EMPTY = [];
     T.near = (x, z) => grid.get(Math.floor(x / CELL) * 100000 + Math.floor(z / CELL)) || EMPTY;
+    /** Another feature's solid in this town (WORLD x/z, r): Lulu's house on its empty lot (ctx.town.addCollider). */
+    T.addCollider = c => {
+        colliders.push(c);
+        const m = c.r + 10;
+        for (let gx = Math.floor((c.x - m) / CELL); gx <= Math.floor((c.x + m) / CELL); gx++)
+            for (let gz = Math.floor((c.z - m) / CELL); gz <= Math.floor((c.z + m) / CELL); gz++) {
+                const k = gx * 100000 + gz;
+                let l = grid.get(k); if (!l) grid.set(k, l = []);
+                l.push(c);
+            }
+        return c;
+    };
 
     T.dispose = () => {
         if (root.parent) root.parent.remove(root);
