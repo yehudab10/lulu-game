@@ -14,7 +14,9 @@ module.exports = {
     const g = t.game;
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["places:hearing", "law:verdict", "stat"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 160))); window.__states = []; m.on("state", e => __states.push(e.to)); })`);
     const evs = re => t.L(`window.__ev.filter(e => ${re}.test(e))`);
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    // COURTS_PART=1 → only Lakewood's hearings, =2 → only the trials + Midwood's lobby (both by default)
+    const PART = +(process.env.COURTS_PART || 0), T0 = Date.now();
+    const step = async (label, fn, part) => { if (PART && part !== PART) return; console.log(`   … ${label} (${Math.round((Date.now() - T0) / 1000)} s)`); try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     const st = () => g(`L3.state`);
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
     const CD = `ctx.civic.courts.debug`;
@@ -68,8 +70,7 @@ module.exports = {
       if (!await intoLobby()) return;
       t.check("Shloime + the baby are on the lobby bench", await g(`(() => { const r = window.__interiors.room; return r.byId.bench0.name === "Shloime" && r.byId.bench1.name === "Baby Gitty"; })()`));
       await useHot("docket");
-      await t.frames(6);
-      t.check("the docket lists the case (hearing 1 of 5 · TODAY)", /BABY GITTY.*1 of 5.*TODAY/s.test(await dialog()), (await dialog()).slice(0, 120));
+      t.check("the docket lists the case (hearing 1 of 5 · TODAY)", await t.until(`/BABY GITTY.*1 of 5.*TODAY/s.test((document.querySelector("#dialog.open") || {}).textContent || "")`, "the docket's text", 8000), (await dialog()).slice(0, 120));
       await tapUntil(`!document.querySelector("#dialog.open")`, "the docket closes", 20);
       t.check("✋ at 2B: 'Sit in on the hearing'", /Sit in on the hearing/.test(await hot("doors2b")), await hot("doors2b"));
       await t.shot("lobby-shloime");
@@ -85,10 +86,9 @@ module.exports = {
       t.check("hearing 1 counted (shloime = 1, today)", await g(`${CD}.CS.shloime === 1 && ${CD}.CS.day === "2026-11-20"`), await g(`JSON.stringify(${CD}.CS)`));
       t.check("…one a day: no second hearing today", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
       await useHot("doors2b");
-      await t.frames(6);
-      t.check("…2B says 'continued until TOMORROW'", /TOMORROW/i.test(await dialog()), (await dialog()).slice(0, 100));
+      t.check("…2B says 'continued until TOMORROW'", await t.until(`/TOMORROW/.test((document.querySelector("#dialog.open") || {}).textContent || "")`, "2B's note", 8000), (await dialog()).slice(0, 100));
       await tapUntil(`!document.querySelector("#dialog.open")`, "the line closes", 20);
-    });
+    }, 1);
 
     await step("hearing 2 (played) + 3 (witness)", async () => {
       await g(`(${CD}.D.today = "2026-11-21", true)`);
@@ -121,7 +121,7 @@ module.exports = {
       await tapUntil(`__lulu3d.state !== "placesHearing"`, "hearing 3 ends", 200);
       await backInLobby();
       t.check("three hearings seen", await g(`${CD}.CS.shloime === 3`), await g(`JSON.stringify(${CD}.CS)`));
-    });
+    }, 1);
 
     await step("hearings 4 + 5 → the case closes", async () => {
       for (const day of ["2026-11-23", "2026-11-24"]) {
@@ -146,7 +146,7 @@ module.exports = {
       t.check("✋ TALK TO SHLOIME", await g(`(() => { const p = ctx.foot.debug.interactables(); return !!p && /SHLOIME/.test(p.label); })()`), await g(`JSON.stringify((ctx.foot.debug.interactables() || {}).label || null)`));
       await t.shot("shloime-stroller");
       await g(`(ctx.foot.end("test"), true)`);
-    });
+    }, 1);
 
     // ════ MIDWOOD: Abba defends her; the maths is the regular lawyer's ════
     const CELL = `__lulu3d.ctx.law._dbg.jail && __lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`;
@@ -182,7 +182,7 @@ module.exports = {
       lw = await trial("lakewood");
       if (!lw) return;
       t.check("Lakewood: no Abba at her side (no lawyer hired)", !lw.said.some(s => /^ABBA/.test(s) || /ABBA/.test(s.slice(0, 20))), lw.said.filter(s => /ABBA/.test(s)).slice(0, 2).join(" | "));
-    });
+    }, 2);
     await step("tried in Midwood: ABBA", async () => {
       mw = await trial("midwood");
       if (!mw) return;
@@ -190,18 +190,17 @@ module.exports = {
       t.check(`Midwood: Abba defends her (${abba.length} lines)`, abba.length >= 3, abba.slice(0, 3).join(" | ").slice(0, 300));
       console.log("   ABBA in Midwood:", abba.slice(0, 4).map(s => s.slice(0, 120)).join(" || "));
       if (lw) t.check("the verdict maths is unchanged: the same jury-mood factors as in Lakewood", mw.meter === lw.meter, `${lw.meter} vs ${mw.meter}`);
-    });
+    }, 2);
     await step("Midwood lobby: Abba is there; 2B stays locked", async () => {
       if (!await town("midwood")) return;
       await carAt("court", 6);
       if (!await intoLobby()) return;
       t.check("Abba is in the Midwood lobby", await g(`!!window.__interiors.room.byId.abba`));
       await useHot("abba");
-      await t.frames(6);
-      t.check("…with a line ('I have a 2 o'clock…' and co.)", /ABBA/i.test(await dialog()), (await dialog()).slice(0, 100));
+      t.check("…with a line ('I have a 2 o'clock…')", await t.until(`/2 o'clock/.test((document.querySelector("#dialog.open") || {}).textContent || "")`, "Abba's line", 8000), (await dialog()).slice(0, 100));
       await tapUntil(`!document.querySelector("#dialog.open")`, "Abba's line closes", 20);
       t.check("Midwood's 2B: no hearing (locked)", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
       await t.shot("midwood-lobby-abba");
-    });
+    }, 2);
   },
 };

@@ -22,7 +22,7 @@ import { BADGES } from "../meta/badges.js";
 import { CAST, HEARINGS, ABBA_COURT, SHLOIME_AFTER, BABY_AFTER } from "./shloime.js";
 
 /** Saved: how far Shloime's case has got (0–5) + the local day the last hearing was seen; Abba's line rotation. */
-export const CS = store("courts", { shloime: 0, day: "", abba: 0 });
+export const CS = store("courts", { shloime: 0, day: "", abba: 0, abbaL: 0 });
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const party = () => !!(ctx.party && ctx.party.active);
 /** Today's local date (a hearing a REAL day). Tests can pin it: courts.debug.today = "2026-11-21". */
@@ -112,13 +112,13 @@ async function play(f) {
     babyTo(H.n === 4 ? "judge" : "shloime");          // (the ruling: she's still in the judge's arms)
     const hr = HEARINGS[H.n];
     C.shot.set(V3(...SHOT.wide[0]), V3(...SHOT.wide[1]), SHOT.wide[2]).cut();
-    await caption(f, `⚖️ IN RE: BABY GITTY`, hr.title);
+    await caption(f, "IN RE: BABY GITTY", hr.title);
     for (const s of hr.steps) await step(f, s);
     check(f);
     finish();
 }
 async function caption(f, big, small) {
-    await dlgSay("COURTROOM 2B", `<b>${big}</b><br><small>${small}</small>`, { emoji: "⚖️", color: "#4E342E", auto: 1.6 });
+    await dlgSay("COURTROOM 2B", `${big} — ${small}`, { emoji: "⚖️", color: "#4E342E", auto: 1.6 });
     check(f);
 }
 async function step(f, s) {
@@ -264,5 +264,5 @@ export const courtsDebug = {
     CS, D, H: () => H, N,
     /** Make a hearing available now (as if it were the next day). */
     nextDay() { CS.day = ""; return true; },
-    reset() { CS.shloime = 0; CS.day = ""; CS.abba = 0; saveSoon(); return true; },
+    reset() { CS.shloime = 0; CS.day = ""; CS.abba = 0; CS.abbaL = 0; saveSoon(); return true; },
 };

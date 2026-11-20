@@ -60,7 +60,7 @@ export const lobbyDef = defineInterior({
         else rt.hot({ id: "bench", spot: "bench", who: "bench0", r: 1.6, label: "😬 Chat with the bench",
             action: rt => { const w = pick(["bench0", "bench1"]); return rt.say(rt.byId[w].name, benchLine(), Object.assign({ person: rt.byId[w] }, BENCH_S)); } });
         if (town === "midwood") rt.hot({ id: "abba", spot: "portrait", who: "abba", r: 1.5, label: "👨 Abba?!",
-            action: rt => rt.say("Abba", MW_ABBA[(CS.abba++) % MW_ABBA.length], { person: rt.byId.abba, emoji: "👨", color: "#EF6C00" }) });
+            action: rt => rt.say("Abba", MW_ABBA[(CS.abbaL++) % MW_ABBA.length], { person: rt.byId.abba, emoji: "👨", color: "#EF6C00" }) });
         else rt.hot({ id: "portrait", spot: "portrait", r: 1.3, label: "🖼️ The portrait", action: rt => rt.say("Lulu", portraitLine(), { emoji: "🖼️" }) });
         rt.hot({ id: "docket", spot: "docket", r: 1.4, label: "📋 Read today's docket", action: rt => rt.say("Today's docket",
             town === "lakewood" ? (caseDone() ? "📋 2B — IN RE: BABY GITTY · CLOSED. ('They worked it out. ❤️' — handwritten, with a heart)"
