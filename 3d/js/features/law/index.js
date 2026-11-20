@@ -30,9 +30,11 @@ import "./jail.js";
 import "./court.js";
 import { S } from "./rules.js";
 import { law, run, setPullOver, captureRide } from "./service.js";
+import { crewApi } from "./crew.js";
 import { PEPPER_COP } from "./data.js";
 
 ctx.law = law;
+law.crew = crewApi;          // 🔗 partners in crime with friends in a 🎉 party (crew.js)
 setPullOver(pullOver);
 Object.assign(law._dbg, { spawnTrap, spawnPatrol, spawnK9, fireMissile, ensureChopper, startFugitive, jail: jailDebug, hideInfo });
 for (const ev of ["cop:chase", "law:bust", "law:arrest", "law:booked", "law:verdict", "law:release", "stat"]) {
