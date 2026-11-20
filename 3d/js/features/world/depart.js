@@ -21,7 +21,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { home, luluSpots, placeParked, peopleTick, titleShot, nearHome, homeEdge, enterHomeTown } from "./home.js";
 
-const HS = store("worldHome", { starts: 0, drives: 0 });
+const HS = store("worldHome", { starts: 0, drives: 0, wayHint: 0 });
 const D = { live: false, t: 0, idleT: 0, said: 0, moved: false, first: false, marker: null, imaLine: "", left: false };
 const spots = {};
 
@@ -146,6 +146,12 @@ function drove() {
     if (!ctx.skipping) A.sfxCloseCall(6);
     rumble(0.3, 0.6, 200, true);
     if (!D.left) imaSay(pick(["Bye, mamele! Drive SAFE! 💕", "Text me when you get there!", "Love you! SLOW DOWN!"]), 2.4);
+    // home is on a town street now: the first time she drives off, one line on how to get out to the highway
+    if (home.site === "town" && !HS.wayHint && ctx.town && typeof ctx.town.wayOut === "function") {
+        let w = null;
+        try { w = ctx.town.wayOut(); } catch (e) { w = null; }
+        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.name ? `head for ${w.name}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
+    }
     emit("world:depart", { mode: G.mode, left: D.left });
 }
 

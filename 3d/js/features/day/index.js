@@ -172,10 +172,21 @@ function target() {
     }
     return { kind: todo[0].kind, label: `${todo[0].icon} ${todo[0].text}`, it: todo[0] };
 }
+/** In a town, a highway target points at the town's way out (features/town wayOut: where its streets hand over to the
+ *  on-ramp) — the beam over that corner, the distance to it — so she's never lost getting out of town. */
+function viaWayOut(t) {
+    if (!t || t.far != null || !(ctx.town && ctx.town.active) || typeof ctx.town.wayOut !== "function") return t;
+    if (t.kind !== "home" && t.s == null) return t;
+    let w = null;
+    try { w = ctx.town.wayOut(); } catch (e) { w = null; }
+    if (!w || !Number.isFinite(w.x)) return t;
+    return Object.assign({}, t, { x: w.x, z: w.z, far: Math.hypot(w.x - ctx.car.pos.x, w.z - ctx.car.pos.z), way: true,
+        label: t.label + (t.kind === "home" ? "" : " · this way to the highway") });
+}
 function chipTick() {
     const def = ctx.states[ctx.state];
     if (!S.active || !def || !def.hud) { clearChip(); return; }
-    const t = target();
+    const t = viaWayOut(target());
     const n = DAY.list.filter(isDone).length;
     // (in a town she's on its streets, not the highway: a highway place is just "out on the highway" from there)
     const inTown = !!(ctx.town && ctx.town.active);
@@ -204,7 +215,7 @@ function beacon() {
 }
 function hideBeacon() { if (S.beacon) S.beacon.visible = false; }
 function beaconTick(dt) {
-    const t = target();
+    const t = viaWayOut(target());
     const b = beacon();
     const on = !!(t && t.x != null && Math.hypot(t.x - ctx.car.pos.x, t.z - ctx.car.pos.z) < 450 && (t.kind !== "home" || ctx.state !== "footRun" || Math.hypot(t.x - ctx.car.pos.x, t.z - ctx.car.pos.z) > 4));
     b.visible = on;
