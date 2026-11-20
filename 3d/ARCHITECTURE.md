@@ -717,8 +717,9 @@ district. Hooks into other features (all guarded by `ctx.town && ctx.town.active
 `clearLine` uses `ctx.town.blocksSight`, a chasing cruiser steers by `ctx.town.copRoute`, new
 cruisers join at `ctx.town.copSpawn`, hiding asks `ctx.town.hideSpot` (the kerb among parked cars / off the street — a travel lane never counts), a SEARCHING cruiser drives to `ctx.town.searchPoint` then prowls crossing to crossing (`prowlPoint`); **foot** — the walking frame comes from `ctx.town.footYaw`;
 **streets** — no roadblocks and the chop-shop order pauses in town. A scene the town can't host (jail,
-the ER, any set) first sends her back to the highway; out of hearts she's towed to the highway's
-shoulder and the usual aftermath plays there (`hooks.wreck` priority 40, never claims). The group-chat
+the ER, any set) first sends her back to the highway. Out of hearts in town is NOT one of those: the knock-out stands
+her up on the street she crashed on, beside her car (no tow, no fade; on foot the ER never scoops her up in a town —
+`ctx.foot.erChance()` is 0 there — until the hospital is a real building). The group-chat
 gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets a 🗞️ **Kvetch** app
 (order 70: the town's parody local news + what Lulu just did).
 **Performance:** static pieces are merged by `kit.js` into vertex-coloured 60 m clusters (one material per

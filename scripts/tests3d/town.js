@@ -389,6 +389,29 @@ module.exports = {
       await g(`(ctx.streets.force.reaction = undefined, ctx.foot.dropRide(), ${D}.S.def.traffic.cop = 1, true)`);
     });
 
+    await step("knockout", async () => {
+      if (!await inTown()) return;
+      // ── out of hearts IN TOWN: she gets up right there beside her car (no tow to the highway, no black screen) ──
+      await g(`(${D}.place("Main St", 20, 1.75, 4, 1), window.__route = null, true)`);
+      await t.frames(20);
+      const at = await g(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
+      await g(`(ctx.G.hearts = 1, ctx.G.invT = 0, ctx.foot.force.er = null, L3.damage(1, "a test minivan", "crash"))`);
+      if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "knocked out in town: back on her feet", 12000)) return;
+      const K = await g(`(() => { const F = ctx.foot.debug.F, e = document.getElementById("townFade"); return { town: ctx.town.active, d: Math.hypot(F.pos.x - ${"${at.x}"}, F.pos.z - ${"${at.z}"}), fade: e ? +getComputedStyle(e).opacity : 0, hearts: ctx.G.hearts, max: ctx.G.maxHearts, car: !!(F.car && F.car.drivable), reason: F.reason }; })()`.replace("${at.x}", at.x).replace("${at.z}", at.z));
+      t.check("…still IN town, a few steps from where she crashed", K.town === true && K.d < 14, JSON.stringify(K));
+      t.check("…no black screen over the street", K.fade < 0.05, JSON.stringify(K));
+      t.check("…hearts back, her car right there to get back into", K.hearts === K.max && K.car && K.reason === "knockout", JSON.stringify(K));
+      await g(`ctx.foot.debug.getIn()`);
+      await t.until(`__lulu3d.state === "playing"`, "she gets back in", 8000);
+      t.check("…and drives on in town", await g(`ctx.town.active && ctx.car.obj.visible`));
+      // on foot in town the ER never scoops her up (it would dump her on the highway until the hospital is a real building)
+      await g(`(ctx.foot.start("droveOff"), true)`);
+      await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "out of the car again", 8000);
+      t.check("on foot in town: a knock-out is never an ER trip", await g(`ctx.foot.erChance() === 0`), String(await g(`ctx.foot.erChance()`)));
+      await g(`ctx.foot.debug.getIn()`);
+      await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
+    });
+
     await step("onramp", async () => {
       if (!await inTown()) return;
       const E = await g(`ctx.town.debug.S.exitS`);

@@ -158,6 +158,7 @@ branches below right now — pick one up. Each is based on an older `main`: merg
 
 | branch | what it is | where it stopped / what's left |
 |---|---|---|
+| `ci/qa` | 🔎 PLAY-TEST SWEEP (owner, 2026-11-20: "I'm noticing glitches. Especially with walking… find and fix other issues") — plays the real flows (home start → highway → a town → out of the car → doors → back in → knock-outs → jail…) with every feature on and a per-frame watchdog (teleports, a black overlay left up, the camera inside a wall, a hidden Lulu, a stuck state), fixes what it finds with small targeted changes, leaves the watchdog as a test. Does NOT restructure towns (`ci/oneworld`), the title (`ci/onegame`) or networking (`ci/everyone`). Started 2026-11-20. |
 | `ci/onegame` | 🎮 ONE GAME, NOT A MENU OF MODES (roadmap 10) — one ▶ PLAY on the title; Story Trip / Parking Challenge / Shabbos Rush entered from inside the world; owns the title layout (`core/screens.js` title groups) and how each mode is ENTERED and ENDED. Started 2026-11-20. |
 | `ci/everyone` | 🌐 EVERYONE IN THE SAME WORLD (roadmap 11) — online by default with whoever is playing, friends as a private group inside it; owns `features/multiplayer`, `features/party`, `features/openworld` networking and the 👯 Friends hub. No relay-server change without the owner. Started 2026-11-20. |
 | `ci/decor` | 🛋️ SOMEWHERE FOR COINS TO GO (roadmap 9) — decorating Lulu's room / house with coins (furniture, wallpaper, the porch), walked into from the home start with no loading screen; a coin SINK only (nothing pays out). Started 2026-11-19 (night); coordinates with `ci/home` (which owns `features/world/depart.js` and `features/day`). |
@@ -179,8 +180,10 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
-- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN now stands her up right there (ci/oneworld:
-  town's wreck hook only tows her out when there's no foot feature; test `town` › attached Midwood). The ER is still its own set (step 4 makes it a building). `moves`' rocket
+- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN now stands her up in town too (2026-11-20: the old
+  tow-to-the-highway left the screen black until she drove again — the owner hit it; tests `town` › knockout + attached
+  Midwood). She can WALK in and out of a town now (ci/oneworld: the cross road on foot, no cut). Still open: any scene
+  state the town can't host (jail, the ER by force, a cutscene set) still drops her on the highway first. The ER is still its own set (step 4 makes it a building). `moves`' rocket
   start only samples the 3-2-1 now (a home start has no countdown). Parking's challenge still ends on a game-over
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
