@@ -240,12 +240,7 @@ function memberTick(dt) {
             // a passenger shares the driver's fate
             const r = riding === me() ? "" : riderResult(riding, j);
             if (r) report(r);
-        } else if (!m.chased && ctx.state === "playing" && !onFoot() && ctx.law && ctx.law.startChase) {
-            m.chased = !!ctx.law.startChase(HEIST.warrant, { heat: j.plan.stars, msg: `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!`, charges: [HEIST.warrant] });
-        } else if (!m.chased && onFoot() && m.gT > 6 && ctx.foot && ctx.foot.startChase) {
-            const sp = inTown() && ctx.town.spot("bank");
-            m.chased = !!ctx.foot.startChase(sp ? { x: sp.x + sp.nx * 14, z: sp.z + sp.nz * 14 } : { x: ctx.foot.pos.x + 20, z: ctx.foot.pos.z }, { charges: [HEIST.warrant] });
-        }
+        } else if (!m.chased) m.chased = crewChase(j, m);
         // shook them (a car chase that ended, or the cop on foot gave up): no chase of any kind for 3 s = got away
         const chasing = !!(ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || !!(ctx.foot && ctx.foot.chasing);
         if (m.chased && !chasing && (ctx.state === "playing" || ctx.state === "footRun")) { m.calmT = (m.calmT || 0) + dt; if (m.calmT > 3) report("ok"); }
@@ -260,6 +255,28 @@ function memberTick(dt) {
         setChip(`💰 ${name(m.leader)}'s crew · ${j.crew.length}/4`, `roles at GO · ${Math.max(0, Math.round((j.until - now()) / 1000))} s`, null, "#66BB6A");
     }
 }
+/**
+ * THE ONE SWAP POINT for the crew's getaway chase. When ci/partners' party law lands (`ctx.law.partners`: one shared wanted
+ * level + chase for the crew, arrested together, the same cell / court), the crew is handed to it here — once, by each
+ * member's screen, with the same crime id — and its `law:crew` event ({ id, uid, result: "ok" | "busted" }) reports back.
+ * Until then: each friend's own chase (law.startChase in a car; a cop on foot after 6 s walking). → started?
+ */
+function crewChase(j, m) {
+    const P = ctx.law && ctx.law.partners;
+    if (P && typeof P.crime === "function") {
+        return !!P.crime({ id: "heist:" + j.id, crew: j.crew.slice(), charge: HEIST.warrant, heat: j.plan.stars, msg: `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!` });
+    }
+    if (ctx.state === "playing" && !onFoot() && ctx.law && ctx.law.startChase) {
+        return !!ctx.law.startChase(HEIST.warrant, { heat: j.plan.stars, msg: `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!`, charges: [HEIST.warrant] });
+    }
+    if (onFoot() && m.gT > 6 && ctx.foot && ctx.foot.startChase) {
+        const sp = inTown() && ctx.town.spot("bank");
+        return !!ctx.foot.startChase(sp ? { x: sp.x + sp.nx * 14, z: sp.z + sp.nz * 14 } : { x: ctx.foot.pos.x + 20, z: ctx.foot.pos.z }, { charges: [HEIST.warrant] });
+    }
+    return false;
+}
+// ci/partners' party law reports a crew member's outcome (when it lands): the same as my own cop:chase / law:arrest
+on("law:crew", e => { const m = C.mine; if (m && e && e.id === "heist:" + m.id && (!e.uid || e.uid === me()) && ["ok", "busted"].includes(e.result)) report(e.result); });
 /** What the driver I'm riding with got (their hjx / the leader's results) → "ok" | "busted" | "". */
 function riderResult(driver, j) {
     const i = j.crew.indexOf(driver);
