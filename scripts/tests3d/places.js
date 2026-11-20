@@ -90,8 +90,10 @@ module.exports = {
     await playing();
     await g(`(ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
 
+    // (PLACES_PART=3 runs only part 3 — a quicker loop while working on it)
+    const part = +(process.env.PLACES_PART || 0);
     // ════ 1. the buildings stand in both towns ════
-    for (const id of ["lakewood", "midwood"]) {
+    for (const id of part === 3 ? [] : ["lakewood", "midwood"]) {
       await step(`${id} buildings`, async () => {
         if (!await town(id)) return;
         t.check(`${id}: the places models are loaded with the town`, await t.L(`import("./js/models.js").then(m => ["places_precinct", "places_court", "places_hospital", "places_impound"].every(k => !!m.models[k]))`));
@@ -114,7 +116,7 @@ module.exports = {
     }
 
     // ════ 2. walking in freely (Lakewood + Midwood) ════
-    for (const id of ["lakewood", "midwood"]) {
+    for (const id of part === 3 ? [] : ["lakewood", "midwood"]) {
       await step(`${id} walk in`, async () => {
         if (!await town(id)) return;
         await carAt("precinct", 12, false);
@@ -143,5 +145,166 @@ module.exports = {
         await t.frames(3);
       });
     }
+
+    // ════ 3. being taken there: arrests, court, the ER — and walking out of the front door ════
+    const D = "ctx.law._dbg";
+    const CELL = `__lulu3d.ctx.law._dbg.jail && __lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`;
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__states = []; m.on("state", e => __states.push(e.to)); })`);
+    const states = () => t.L(`window.__states.slice()`);
+    async function talk(untilCode, label, pickRe = null, max = 300) {
+      for (let i = 0; i < max; i++) {
+        if (await g(untilCode)) return true;
+        const opts = await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden").map(b => b.textContent)`);
+        if (opts.length) {
+          const idx = pickRe ? opts.findIndex(o => pickRe.test(o)) : 0;
+          if (idx >= 0) { await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${idx}].click()`); await t.frames(3); continue; }
+        }
+        await t.tap(0);
+      }
+      t.check(label, false, "never reached: " + untilCode + " · state " + await st());
+      return false;
+    }
+    /** She's out: on foot, in control, by `door` in town `id`; her car (if `car`) parked nearby. */
+    const out = async (door, id, car, label) => {
+      if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, `${label}: out on foot`, 120000)) return false;
+      t.check(`${label}: in ${id} (not teleported to the highway)`, await g(`ctx.town.active && ctx.town.id === ${JSON.stringify(id)}`), await g(`ctx.town.active ? ctx.town.id : "highway"`));
+      const d = await g(`(() => { const sp = ctx.civic.spot(${JSON.stringify(door)}), p = ctx.foot.pos; return sp && p ? +Math.hypot(sp.x - p.x, sp.z - p.z).toFixed(1) : -1; })()`);
+      t.check(`${label}: she walks out of the ${door}'s front door (${d} m from it)`, d >= 0 && d < 6);
+      if (car) {
+        const cd = await g(`(() => { const F = ctx.foot.debug.F, sp = ctx.civic.spot(${JSON.stringify(door)}); return F.car && F.car.stub ? +Math.hypot(F.car.stub.x - sp.x, F.car.stub.z - sp.z).toFixed(1) : -1; })()`);
+        t.check(`${label}: her car is parked at the kerb right out front (${cd} m) and drivable`, cd >= 0 && cd < 16 && await g(`ctx.foot.ownCar === "parked"`), await g(`ctx.foot.ownCar`));
+      } else t.check(`${label}: no car to drive off in (as before)`, await g(`ctx.foot.ownCar === "gone"`), await g(`ctx.foot.ownCar`));
+      await t.frames(24);
+      t.check(`${label}: no black curtain while she has control`, (await curtain()).length === 0, JSON.stringify(await curtain()));
+      return true;
+    };
+    const resetLaw = () => g(`(() => { const D = ${D}; for (const k of Object.keys(D.FORCE)) delete D.FORCE[k]; D.FORCE.quietCourt = true; return true; })()`);
+
+    // ── arrested IN Lakewood, in her car → the precinct (the cruiser pulls up there) → bail → out of ITS door ──
+    await step("arrest in town → bail", async () => {
+      if (!await town("lakewood")) return;
+      await resetLaw();
+      await carAt("precinct", 40, false);
+      await g(`(ctx.car.s += 0, ctx.G.hearts = 3, true)`);
+      await t.frames(4);
+      await t.L(`window.__states.length = 0; window.__ev.length = 0`);
+      await g(`ctx.law.arrest(["DOUBLE PARKING (TRIPLE, ACTUALLY)"])`);
+      if (!await t.until(`__lulu3d.state === "lawArrest"`, "arrested in town", 30000)) return;
+      t.check("the arrest plays IN town (no trip to the highway first)", await g(`ctx.town.active && ctx.town.id === "lakewood"`));
+      await t.until(`__lulu3d.state === "placesArrive"`, "the cruiser brings her to Lakewood's precinct", 60000);
+      await t.frames(40);
+      await t.shot("arrive-precinct");
+      if (!await talk(CELL, "booked → the cell")) return;
+      t.check("the cell is the precinct's: still in Lakewood", await g(`ctx.town.active && ctx.town.id === "lakewood"`));
+      const bail = await g(`${D}.jail().j.bail`), c0 = await coins();
+      await t.L(`document.querySelector("#lawBail").click()`);
+      if (!await out("precinct", "lakewood", true, "bail")) return;
+      t.check(`bail costs exactly the bail (💰${bail}: ${c0} → ${await coins()})`, c0 - (await coins()) === bail);
+      t.check("…and she's still WANTED till court (the bail rule)", await g(`ctx.law.warrants.length > 0`));
+      t.check("never sent to the highway (no town:leave)", !(await evs(`/^town:leave/`)).length, JSON.stringify(await evs(`/^town:leave/`)));
+      t.check("the scenes in order: arrest → arrive → jail → exit → on foot", /lawArrest.*placesArrive.*lawJail.*lawExit.*footRun/.test((await states()).join(",")), (await states()).join(","));
+      await t.shot("bail-out-precinct");
+    });
+
+    // ── court in Midwood: dismissed → out of the COURTHOUSE door ──
+    await step("court in town → dismissed", async () => {
+      if (!await town("midwood")) return;
+      await resetLaw();
+      await carAt("court", 30, false);
+      await t.frames(4);
+      await g(`(${D}.FORCE.verdict = "dismissed", ctx.law.arrest(["JAYWALKING WITH ATTITUDE"], { skipCinematic: true }))`);
+      if (!await talk(CELL, "booked in Midwood")) return;
+      const c0 = await coins();
+      await t.L(`document.querySelector("#lawCourtBtn").click()`);
+      await t.until(`__lulu3d.state === "lawCourt"`, "to court", 30000);
+      t.check("court is held in Midwood's courthouse (the town stays)", await g(`ctx.town.active && ctx.town.id === "midwood"`));
+      if (!await talk(`__lulu3d.state === "footRun"`, "the trial → dismissed → out", /DEFEND|Innocent|innocent|Objection|OBJECT|Beg|insanity|Plead|Blame/)) return;
+      await out("court", "midwood", true, "dismissed");
+      const v = (await evs(`/^law:verdict/`)).slice(-1)[0] || "";
+      t.check(`a dismissal costs nothing (${c0} → ${await coins()})`, /dismissed/.test(v) ? (await coins()) === c0 : true, v);
+      await t.shot("out-of-court");
+    });
+
+    // ── a jail verdict: time served → out of the precinct on foot, her car behind the impound fence ──
+    await step("jail → served → impound", async () => {
+      if (!await town("lakewood")) return;
+      await resetLaw();
+      await carAt("precinct", 30, false);
+      await t.frames(4);
+      await g(`(${D}.FORCE.verdict = "jail", ctx.law.arrest(["GRAND THEFT MINIVAN"], { skipCinematic: true }))`);
+      if (!await talk(CELL, "booked for GTM")) return;
+      await t.L(`document.querySelector("#lawCourtBtn").click()`);
+      await talk(`__lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "serve"`, "guilty → serving", /./);
+      await g(`${D}.jail().serve.serveDays = ${D}.jail().serve.total - 1`);
+      for (let i = 0; i < 6; i++) await t.tap(0);
+      if (!await out("precinct", "lakewood", false, "served")) return;
+      t.check("her own car is behind the impound lot's fence (never lost)", await g(`!!ctx.civic.debug.impoundedCar() && ctx.civic.debug.impoundedCar().parent === ctx.scene`));
+      await onFootAt("impound", 1.0);
+      t.check("✋ at the impound gate says it's her car", /YOUR CAR/i.test(await promptText()), await promptText());
+      await view("impound", "impound-her-car", 4, 6, 10);
+    });
+
+    // ── arrested on the HIGHWAY → the nearest town's precinct (built in slices while she sits in the cell) ──
+    await step("highway arrest → nearest town", async () => {
+      await playing();
+      if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
+      await resetLaw();
+      await g(`(L3.startRun({ mode: "cruise", quick: true }), true)`);
+      await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "a fresh cruise", 60000);
+      await playing();
+      await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+      if (!(await g(`ctx.town.exits.length`))) await g(`ctx.town.debug.exitAhead(1400)`);
+      t.check("an interchange is planned up the road", await g(`ctx.town.exits.length > 0`));
+      await t.L(`window.__ev.length = 0`);
+      await g(`ctx.law.arrest(["SPEEDING ON THE TURNPIKE"], { skipCinematic: true })`);
+      const place = await g(`ctx.civic.place && Object.assign({}, ctx.civic.place)`);
+      t.check("she's taken to the nearest town's precinct", !!place && !place.here && !!place.id, JSON.stringify(place));
+      if (!place || !await talk(CELL, "booked (highway)")) return;
+      await t.frames(90);
+      const pre = await g(`ctx.town.standing.find(b => b.town === ${JSON.stringify(place.id)})`);
+      console.log("   PERF places town built during the cell", JSON.stringify(pre));
+      t.check("the town is built in slices while she's in the cell (99 % of slices ≤ 8 ms, as flow's test)", !!pre && pre.ready && pre.steps > 50 && pre.p99 <= 8, JSON.stringify(pre));
+      await t.L(`document.querySelector("#lawBail").click()`);
+      await out("precinct", place.id, true, "highway bail");
+      await t.shot("highway-arrest-out");
+    });
+
+    // ── the ER in town: she comes to in the hospital, the bill as always, out of ITS door ──
+    await step("ER in town", async () => {
+      if (!await town("lakewood")) return;
+      await carAt("hospital", 25, false);
+      await t.frames(4);
+      await g(`(ctx.foot.start("parked", { noIntro: true }), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "on foot in Lakewood", 8000);
+      t.check("on foot in a town the ER can scoop her up again (a hospital is there)", await g(`ctx.foot.erChance() > 0`));
+      const c0 = await coins();
+      await g(`ctx.er.admit("knockout", { force: { intro: false, visitor: false } })`);
+      await t.until(`__lulu3d.state === "cameosER"`, "the ER (Lakewood)", 60000);
+      t.check("the ER is St. Shloimy's: the town stays", await g(`ctx.town.active && ctx.town.id === "lakewood" && ctx.civic.place && ctx.civic.place.kind === "er"`));
+      await t.frames(30);
+      await t.shot("er-in-town");
+      if (!await talk(`__lulu3d.state === "footRun"`, "diagnosis → care → discharged", /patch|GOOD|scan|cholent|cheapest|Bandage|works|Set|Pocket|concussed|VIP/)) return;
+      await out("hospital", "lakewood", true, "ER");
+      const r = await g(`null`);
+      t.check(`the bill is paid out of the wallet as before (${c0} → ${await coins()})`, (await coins()) <= c0);
+      await t.shot("er-out-of-hospital");
+    });
+
+    // ── the ER on the highway → the nearest town's hospital ──
+    await step("ER on the highway → nearest town", async () => {
+      await playing();
+      if (await g(`ctx.town.active`)) { await g(`(ctx.town.leave("reset"), true)`); await t.frames(6); await playing(); }
+      await g(`(L3.startRun({ mode: "cruise", quick: true }), true)`);
+      await t.until(`__lulu3d.state === "playing" || __lulu3d.state === "footRun"`, "a fresh cruise (ER)", 60000);
+      await playing();
+      await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+      if (!(await g(`ctx.town.exits.length`))) await g(`ctx.town.debug.exitAhead(1400)`);
+      await g(`ctx.er.admit("crash", { force: { intro: false, visitor: false } })`);
+      await t.until(`__lulu3d.state === "cameosER"`, "the ER (highway)", 60000);
+      const place = await g(`ctx.civic.place && Object.assign({}, ctx.civic.place)`);
+      t.check("the ER is the nearest town's hospital", !!place && place.kind === "er" && !place.here, JSON.stringify(place));
+      if (!place || !await talk(`__lulu3d.state === "footRun"`, "discharged (highway ER)", /patch|GOOD|scan|cholent|cheapest|Bandage|works|Set|Pocket|concussed|VIP/)) return;
+      await out("hospital", place.id, true, "highway ER");
+    });
   },
 };

@@ -70,7 +70,10 @@ export default {
         { street: "Main St", along: 2 * P + 22, d: 1.75 }, { street: "Main St", along: 2 * P + 30, d: 4.6 }, { street: "Main St", along: 2 * P + 36, d: 1.9 },
     ],
     bandBus: { street: "Main St", along: 2 * P + 50, d: 2.4, model: "foot_bus", colors: { BusBlue: "#6A1B9A", BusWhite: "#F3E5F5" }, lines: L.SIGNS.bandBus },
-    clearParking: [{ street: "Main St", from: 2 * P, to: 3 * P, side: 1 }],
+    clearParking: [{ street: "Main St", from: 2 * P, to: 3 * P, side: 1 },
+        // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at St. Shloimy's — her car is
+        //  parked there when she walks out, the cruiser pulls up there)
+        { street: "Minivan Way", from: 2 * P + 8, to: 3 * P - 8 }, { street: "Route 9", from: P + 14, to: 2 * P - 14 }],
     bumps: [{ street: "Carpool Ln", every: 10.5 }],
     chair: { street: "Forest Ave", along: P + 38, side: -1 },
     water: [{ x0: SPAN + 16, x1: SPAN + 170, z0: -40, z1: SPAN + 50, geese: true }],

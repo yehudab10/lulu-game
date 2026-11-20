@@ -879,6 +879,28 @@ ctx.town = {
     get def() { return S.active ? S.def : null; },
     /** Let another feature's own state play in town (any other state sends her back to the highway first). */
     allowState(name) { TOWN_OK.add(name); },
+    /**
+     * Build the attached town `id` at the interchange `exitS` AHEAD of a warp, in slices (~ms per call) — features/places
+     * builds the nearest town while she sits in a cell / the ER (a set), so walking out into it is no long frame.
+     * Starts the models' load if needed. → true once it's built (ctx.town.enter({ town: id, exitS }) then finds it ready).
+     */
+    prebuild(id, exitS, ms = BUILD_MS) {
+        const def = TOWNS[id];
+        if (!def || !def.attach) return false;
+        if (!S.ok[id]) { load(def); return false; }
+        const k = Math.max(0, INTERCHANGE.towns.indexOf(def));
+        let en = entryOf(exitS, k);
+        if (!en) {
+            const P = placeAt(def, exitS, k);
+            if (!P) return false;
+            en = Object.assign(P, { e: null, T: null, gen: null, ready: false, box: boxOf(P.def), ms: 0, steps: 0, worst: 0 });
+            S.built.push(en);
+        }
+        if (!en.ready) advanceBuilds(ms, en);
+        return en.ready;
+    },
+    /** Where an attached town would stand at the interchange at exitS (world {x, z, rot}) — a pure function, nothing built. */
+    placeOf(id, exitS) { const def = TOWNS[id], P = def && def.attach ? placeAt(def, exitS, Math.max(0, INTERCHANGE.towns.indexOf(def))) : null; return P ? Object.assign({}, P.at) : null; },
     /** A named spot from the build, in WORLD coords (pizza, hall, chair, yeshiva, a `uses` landmark…): {x, z, rot, ux, uz, nx, nz} | null. */
     spot(name) {
         const p = S.active && S.T && S.T.spots[name];

@@ -16,6 +16,8 @@ import police from "../interiors/police.js";
 import hospital from "../interiors/hospital.js";
 import { lobbyDef, nameLobby } from "./lobby.js";
 import { NAMES, PASS, IMPOUND_GATE, IMPOUND_MINE } from "./data.js";
+import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar } from "./out.js";
+import { dissolving } from "../../core/transition.js";
 
 const MODELS = ["places_precinct", "places_court", "places_hospital", "places_impound"];
 registerModels(Object.fromEntries(MODELS.map(k => [k, k])));
@@ -37,6 +39,7 @@ const DOORS = {
 };
 /** Is walking in possible right now (not mid-chase, not in a party, nothing more urgent on ✋)? */
 function canWalkIn() {
+    if (ctx.time < C.doorsAt) return false;          // (she just came OUT of one: a mashed ✕ mustn't walk her straight back in)
     if (!inTown() || (ctx.party && ctx.party.active) || !ctx.interiors) return false;
     if ((ctx.law && (ctx.law.chasing || ctx.law.fugitive)) || (ctx.foot && ctx.foot.chasing)) return false;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return false;
@@ -79,7 +82,7 @@ export function enter(kind) {
 
 // ── the impound gate ─────────────────────────────────────────────────────
 /** Her own car is in the impound right now (law impounded it / it was towed): shown behind the fence. */
-const impounded = () => !!(ctx.foot && ctx.foot.active && ctx.foot.ownCar === "gone" && C.impound);
+const impounded = () => !!(ctx.foot && ctx.foot.active && ctx.foot.ownCar === "gone" && impoundedCar());
 function gatePos() {
     if (!inTown()) return null;
     const sp = spot("impound");
@@ -92,7 +95,7 @@ async function gate() {
 }
 
 // ── walking past: Lulu's one-liner, once per building per visit ─────────
-const C = { said: new Set(), t: 0, impound: false };
+const C = { said: new Set(), t: 0, doorsAt: 0 };
 function passBy(dt) {
     if ((C.t += dt) < 0.5) return;
     C.t = 0;
@@ -110,8 +113,11 @@ function passBy(dt) {
 }
 
 // ── wiring ───────────────────────────────────────────────────────────────
+// the states the town now hosts (they used to send her back to the highway first): law's arrest → booking → cell →
+// court → the walk out, the arrival at the precinct, the ER
+const HOSTED = ["interior", "lawArrest", "lawJail", "lawCourt", "lawExit", "placesArrive", "cameosER"];
 on("boot", () => {
-    if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
+    if (ctx.town && ctx.town.allowState) for (const s of HOSTED) ctx.town.allowState(s);
     if (ctx.foot && ctx.foot.addSpot) {
         for (const kind of Object.keys(DOORS)) {
             const D = DOORS[kind];
@@ -121,6 +127,10 @@ on("boot", () => {
     }
 });
 on("town:enter", () => { C.said.clear(); nameInteriors(); });
+on("title", () => clear());
+on("places:out", () => { C.doorsAt = ctx.time + 2.5; for (const k of Object.keys(PASS)) C.said.add(k); });   // (her own walk-out line, not a walk-by quip)
+on("places:enter", e => { if (e && e.kind) C.said.add(e.kind); });
+on("run:start", () => clear());
 on("town:leave", () => C.said.clear());
 // (a light per-frame walk-by check, on foot in a town only)
 hook("hud", dt => { try { passBy(dt); } catch (e) { console.error("[places] pass", e); } });
@@ -135,5 +145,10 @@ ctx.civic = {
     enter,
     /** Fetch the models a town's buildings need (towns load them with their own; this is for tests). */
     load: () => ensureModels(MODELS),
-    debug: { C, DOORS, lobbyDef },
+    // ── being taken there + walking out (out.js) ──
+    /** Where she's being taken right now (law's arrest / the ER): { kind, id, exitS, here } | null. */
+    get place() { return STAY.place; },
+    claim, clear, tick, ready, walkOut, arrive,
+    dissolving,
+    debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
 };

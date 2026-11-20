@@ -115,6 +115,8 @@ export default {
     clearParking: [
         { street: "E 8th St", from: -200, to: 260, side: 1 },
         { street: "Avenue J", from: CIA, to: E15, side: 1 },
+        // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at Midwood General)
+        { street: "Avenue K", from: CIA + 10, to: E15 - 10 }, { street: "Avenue L", from: E8 + 14, to: CIA - 14 },
     ],
     jams: [
         { street: "E 8th St", d: -1.9, from: AL + 14, to: AK - 14, gap: 6.6, kind: "asp" },

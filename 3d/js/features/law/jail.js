@@ -26,7 +26,7 @@ import { S, bump, rand, randInt, pick, clamp, bailFor, lawyerFee, lawyerTiers, s
     saveLockup, patchLockup, clearLockup, addWanted, stat } from "./rules.js";
 import { Shot, V, runFlow, check, person, lulu, walkTo, faceYaw, frameFor, cuffs, disposeCuffs, JUMPSUIT } from "./scene.js";
 import { rig, setRig, startFugitive } from "./cops.js";
-import { run, resumeDriving, FORCE, carBack, rideNote } from "./service.js";
+import { run, resumeDriving, FORCE, carBack, rideNote, goExit, walkOutOf } from "./service.js";
 
 registerModels({ lawStation: "law_station", lawCell: "law_cell", lawBooking: "law_booking", lawCellmate: "law_cellmate", lawCart: "law_cart" });
 const JAIL_KEYS = ["lawStation", "lawCell", "lawBooking", "lawCellmate", "lawCart", "copPerson"];
@@ -216,6 +216,7 @@ registerState("lawJail", {
     update(dt, P) {
         if (!st) return;
         st.t += dt;
+        if (ctx.civic && ctx.civic.tick) ctx.civic.tick(dt);      // (features/places: building the town she'll walk out into)
         if (st.tapped) { P = Object.assign({}, P, { confirm: true, tap: true }); st.tapped = false; }
         if (H.screenOpen()) H.menuInput(P);
         if (!st) return;          // a menu pick (✕ on Bail / Court / a lawyer) can leave the state right here
@@ -390,7 +391,7 @@ function tryBail() {
     st.cellDone = true;
     emit("law:release", { how: "bail", paid: j.bail });
     // her own car (if it really is still hers and in one piece) is waiting out front; otherwise she walks
-    setState("lawExit", { kind: "police", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: "💰 Out on bail — but still WANTED 'til court. 🚨", sResume: st.sResume });
+    goExit({ kind: "police", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: "💰 Out on bail — but still WANTED 'til court. 🚨", sResume: st.sResume });
 }
 // the pause overlay borrows the menu card — put ours back when she resumes
 on("pause", ({ paused }) => {
@@ -535,6 +536,17 @@ async function escapeScript(f) {
     emit("law:release", { how: "escape" });
     UI.caption("");
     const banner = escapes > 1 ? `Break #${escapes} — they're FURIOUS now! 🚨` : "Cops will RECOGNIZE you...";
+    // out through the real precinct's door (features/places: she was brought to a town) — on foot in the jumpsuit, her
+    // car at the kerb if it's hers and in one piece (she can run for it)
+    if (ctx.civic && ctx.civic.place) {
+        UI.caption("🏃 JAILBREAK!", "…down the back stairs, out the FRONT door 🙃");
+        await f.until(() => ctx.civic.ready(), 30);
+        check(f);
+        UI.caption("");
+        const car = carBack();
+        const out = () => walkOutOf("precinct", { fugitive: true, banner, car, reason: "jailbreak" });
+        if (ctx.dissolve && !ctx.skipping ? ctx.dissolve(out) : out()) { startFugitive(heat); return; }
+    }
     // she drives off only in a car that's really hers and in one piece; otherwise she runs for it on foot (in the jumpsuit)
     const foot = !carBack() && ctx.foot && ctx.foot.start;
     resumeDriving({ s: st.sResume, fugitive: true, banner, onPlaced: foot ? () => ctx.foot.start("jailbreak") : null });
@@ -564,7 +576,7 @@ async function serveTime(f, sv) {
     UI.progress(null); UI.caption("");
     emit("law:release", { how: "served", days: total, fees });
     // walks out of the jail doors — but her car's impounded (whatever she came in with), so she's on foot
-    setState("lawExit", { kind: "jail", dest: "foot", note: "Your car's in the impound — you'll have to find a ride. 🚶‍♀️", caption: fees > 0 ? `⛓️ Time served · −${fees} 💰 court costs` : "⛓️ Time served — you're free!", footReason: "copWalk", sResume: st.sResume });
+    goExit({ kind: "jail", dest: "foot", note: ctx.civic && ctx.civic.place ? "My car's in the impound lot. Behind a FENCE. 🚧" : "Your car's in the impound — you'll have to find a ride. 🚶‍♀️", caption: fees > 0 ? `⛓️ Time served · −${fees} 💰 court costs` : "⛓️ Time served — you're free!", footReason: "copWalk", sResume: st.sResume });
 }
 function updateServe(dt, P) {
     const sv = st.serve;
@@ -756,6 +768,10 @@ registerState("lawExit", {
         UI.hideAll();
         xst = { data, t: 0, walkers: [], car: null };
         A.setMusic(data.dest === "foot" ? "../walking.mp3" : "../luludriving.mp3");
+        // (features/places: out of a real building's front door, on foot — right now if the town's there, else once it's built)
+        // (on the first frame, not inside this enter: foot's start changes the state itself — a soft cut is already
+        //  covering the swap: goExit's dissolve)
+        if (ctx.civic && ctx.civic.place) { xst.town = true; return; }
         xflow = runFlow(f => exitScript(f, data));
     },
     exit() {
@@ -763,11 +779,19 @@ registerState("lawExit", {
         xflow = null;
         UI.hideAll();
         if (ext) { ext.set.hide(); for (const w of (xst && xst.walkers) || []) ext.set.scene.remove(w.p.obj); }
+        if (xst && xst.held && J) { J.set.hide(); J.me.obj.visible = true; }     // (the cell we waited in for the town)
         xst = null;
     },
     update(dt, P) {
         if (!xst) return;
         xst.t += dt;
+        if (xst.town) {
+            if (ctx.civic.tick) ctx.civic.tick(dt);
+            if (!xst.out && ctx.civic.ready()) { townOut(); return; }      // (she's out: this state is gone — xst too)
+            if (!xst.out && !xst.held) { xst.held = true; jailShow(); J.me.obj.visible = false; UI.caption("🗂️ Processing your release…", "forms in triplicate · then you're out the front door"); }
+            if (xst && !xst.out && xst.t > 40) { xst.town = false; ctx.civic.clear(); xflow = runFlow(f => exitScript(f, xst.data)); }   // (no town after all: the old way)
+            return;
+        }
         if (xflow) xflow.tick(dt, P);
         const e = ext;
         if (!e) return;
@@ -776,6 +800,14 @@ registerState("lawExit", {
         e.shot.update(dt);
     },
 });
+/** Out of the town building's door: the precinct (bail, time served) or the courthouse (a verdict). */
+function townOut() {
+    xst.out = true;
+    const d = xst.data, drive = d.dest === "drive";
+    UI.caption("");
+    const ok = walkOutOf(d.kind === "court" ? "court" : "precinct", { car: drive, banner: d.caption, reason: d.footReason || "copWalk", line: (!drive && d.note) || "" });
+    if (!ok) { xst.town = false; ctx.civic.clear(); xflow = runFlow(f => exitScript(f, d)); }
+}
 async function exitScript(f, data) {
     try { await ensureModels(["lawStation", "copPerson"]); } catch (e) { /* ok */ }
     check(f);

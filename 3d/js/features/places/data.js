@@ -88,3 +88,10 @@ export const IMPOUND_MINE = [
     "My baby's in there. Hang on, sweetie — they'll let you out tomorrow. 🚗💕",
     "Impounded. They'll give it back at home. Ima's going to have WORDS. 🙄",
 ];
+
+// ── walking out of the front door (out.js) — her first bubble when her car's waiting out front ──
+export const OUT_LINES = {
+    precinct: ["Free! …ish. And my car's RIGHT there. 🚗", "Smell that? Freedom. And Officer Pomerantz's donut.", "They parked my car for me. Badly. But they parked it."],
+    court: ["Justice! Now — car, car… oh, there she is. 🚗💕", "The judge LOVES me. I can tell. Deep down.", "Out of court and into my car. Sounds like a song."],
+    hospital: ["Discharged! Car's out front. Tammy says SLOW DOWN. 💕", "Lollipop in hand, car at the curb. Life is good.", "One ouchie, zero regrets. Okay, ONE regret."],
+};

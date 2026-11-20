@@ -896,7 +896,7 @@ function updateKnock(dt) {
 const ER_ON_FOOT = 0.2;
 /** How likely the ER scoops her up after a knock-out on foot. Never in a town: the ER is a set on the highway side, so
  *  she'd wake up outside town (until the hospital is a real building there — roadmap 4). */
-const erChance = () => (ctx.town && ctx.town.active ? 0 : ER_ON_FOOT);
+const erChance = () => (ctx.town && ctx.town.active && !(ctx.civic && ctx.civic.here) ? 0 : ER_ON_FOOT);   // (features/places: a town with a hospital)
 function knockedOut() {
     const force = ctx.foot.force.er;
     const er = ctx.er && ctx.er.admit && (force === true || (force !== false && ctx.enabled("foot") && Math.random() < erChance()));

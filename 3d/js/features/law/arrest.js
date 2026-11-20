@@ -34,9 +34,12 @@ registerState("lawArrest", {
         st = { data, charges, t: 0, phase: data.fromBust ? "cuff" : "pull", unit: null, walkers: [], haulT: 0, hauling: false, lulu: null, cuffs: null };
         UI.header(`🚨 UNDER ARREST 🚨<small>for ${charges.slice(0, 2).join(" + ")}</small>`);
         ensureModels(JAIL_MODELS).catch(() => {});
-        // (a town can't host the arrest: it would send her back to the highway AFTER this enter — clearing the traffic,
+        // where she's taken (features/places): in a town, THAT town's precinct — the arrest plays right here; on the
+        // highway the nearest town's (or, with no town to take her to, the old precinct set + back on the highway)
+        st.place = ctx.civic && ctx.civic.claim ? ctx.civic.claim("law") : null;
+        // (a town that can't host the arrest would send her back to the highway AFTER this enter — clearing the traffic,
         //  the cruiser below with it. Leave first, so the cruiser is made on the highway.)
-        if (ctx.town && ctx.town.active && ctx.town.leave) ctx.town.leave("quiet");
+        if (!(st.place && st.place.here) && ctx.town && ctx.town.active && ctx.town.leave) ctx.town.leave("quiet");
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {
@@ -194,14 +197,23 @@ async function script(f) {
     UI.caption("🚓 TAKING LULU TO THE STATION");
     u.mode = "haul";
     st.hauling = true;
-    emit("law:arrest", { charges: st.charges });
+    emit("law:arrest", { charges: st.charges, town: st.place ? st.place.id : null, here: !!(st.place && st.place.here) });
+    // in a town: the precinct is round the corner — a moment of pulling away, then the cruiser pulling up at ITS kerb
+    // (features/places' placesArrive) and through the doors into booking; no ride across the map, no black
+    if (st.place && st.place.here && ctx.civic.arrive) {
+        await f.sleep(1.0, true);
+        check(f);
+        const sR = ctx.car.s;
+        if (ctx.civic.arrive({ charges: st.charges, sResume: sR })) return;
+    }
     await f.sleep(4.4, true);
     check(f);
     UI.fadeTo(true, 700);
     await f.sleep(0.75);
     check(f);
     const sResume = u.car && Number.isFinite(u.car.s) ? u.car.s + 60 : ctx.car.s + 200;
-    setState("lawJail", { charges: st.charges, arrive: true, sResume });
+    // (taken to a town's real precinct: she'll walk out of ITS door, so no stand-in precinct steps on the way in)
+    setState("lawJail", { charges: st.charges, arrive: !(st.place && ctx.civic), sResume });
     UI.fadeTo(false, 500);
 }
 function walk(f, p, x, z, speed) {
