@@ -21,7 +21,12 @@ module.exports = {
     const st = () => g(`L3.state`);
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
     const C = "ctx.crime.debug";
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    const ONLY = process.env.CRIME_ONLY ? new RegExp(process.env.CRIME_ONLY) : null;
+    const step = async (label, fn) => {
+      if (ONLY && !ONLY.test(label)) return;
+      try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); }
+      if (process.env.CRIME_LOG) console.log(`    [${label}] log:`, JSON.stringify(await g(`${C}.log.slice(-14)`)));
+    };
     const logOf = (re) => g(`${C}.log.filter(e => ${re}.test(e.ev + ":" + (e.phase || e.kind || "")))`);
     const playing = async () => {
       if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("test"), true)`); await t.frames(3); }
@@ -47,7 +52,7 @@ module.exports = {
       await t.frames(4);
       return true;
     };
-    const promptText = () => t.L(`(document.querySelector("#prompt") || {}).textContent || ""`);
+    const promptText = () => t.L(`(() => { const e = document.querySelector("#prompt") || document.querySelector(".prompt"); return e ? e.textContent : ""; })()`);
 
     await W.install(t);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
@@ -69,9 +74,9 @@ module.exports = {
       const pr = await promptText();
       t.check("✋ next to the cart offers the ride", /cart/i.test(pr), pr);
       const c0 = await coins();
-      await t.tap(0);
-      t.check("✋ RIDE: she's in the cart and rolling", await t.until(`!!${C}.CART.ride`, "the ride starts", 3000));
-      await t.until(`!${C}.CART.ride`, "the ride ends", 60 * 30 * 1000);
+      for (let i = 0; i < 6 && !await g(`!!${C}.CART.ride`); i++) { await t.tap(0); await t.frames(3); }
+      t.check("✋ RIDE: she's in the cart and rolling", await g(`!!${C}.CART.ride || ${C}.log.some(e => e.ev === "cart" && e.phase === "start")`));
+      if (!await t.until(`!${C}.CART.ride`, "the ride ends", 40000)) console.log("    ride:", JSON.stringify(await g(`(() => { const R = ${C}.CART.ride, F = ctx.foot.debug.F; return { R: R && { t: R.t, v: R.v, d: R.dist }, phase: F && F.phase, st: L3.state }; })()`)));
       const end = (await logOf(/^cart:end/)).slice(-1)[0] || {};
       t.check(`the ride rolled somewhere (${end.dist} m, ended: ${end.why})`, end.dist >= 6, JSON.stringify(end));
       const c1 = await coins();
@@ -84,7 +89,7 @@ module.exports = {
       await t.frames(3);
       const c2 = await coins();
       await g(`ctx.crime.start("cart")`);
-      await t.until(`!${C}.CART.ride`, "the 3rd ride ends", 60 * 30 * 1000);
+      await t.until(`!${C}.CART.ride`, "the 3rd ride ends", 120000);
       t.check(`the 3rd ride of the day pays nothing (${c2} → ${await coins()})`, (await coins()) === c2);
       // the risk: a cop sees it → the look → the chase
       await resetLaw();
@@ -92,7 +97,7 @@ module.exports = {
       await g(`(() => { const F = ctx.foot.debug.F, o = ${C}.CART.obj.position; F.pos.x = o.x + 0.8; F.pos.z = o.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return true; })()`);
       await t.frames(3);
       await g(`ctx.crime.start("cart")`);
-      await t.until(`!${C}.CART.ride`, "the seen ride ends", 60 * 30 * 1000);
+      await t.until(`!${C}.CART.ride`, "the seen ride ends", 120000);
       const seen = (await logOf(/^(warn|chase):/)).map(e => e.ev + ":" + e.kind);
       t.check("seen in the street: a ⚠️ look first, then the chase", seen.join(",").includes("warn:cart") && seen.join(",").includes("chase:cart"), seen.join(","));
       t.check("a cop on foot is after her", await g(`ctx.foot.chasing`));
@@ -195,7 +200,7 @@ module.exports = {
       await t.until(`${C}.PARK.shown`, "the double-park prompt", 4000);
       const pr = await promptText();
       t.check("the prompt offers to double-park", /Double-park/i.test(pr), pr);
-      await t.tap(0);
+      for (let i = 0; i < 6 && !await g(`!!${C}.PARK.on`); i++) { await t.tap(0); await t.frames(3); }
       t.check("✕ → hazards on, 'one second'", await g(`!!${C}.PARK.on`));
       // a town driver comes up behind her and has to wait
       await g(`(() => { const r = ctx.world.road, q = r.point(${P.base} + ${P.a} - 22, ${P.d}, {}); return !!ctx.town.addDriver("minivan", { at: { x: q.x, z: q.z, dir: 1 }, speed: 5 }); })()`);

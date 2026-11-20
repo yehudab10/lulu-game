@@ -166,7 +166,7 @@ function endRide(why) {
     CART.awayT = 0;
     if (why === "wall" || why === "car") lulu(pick(LINES.cart.crash), true);
     log("cart", { phase: "end", why, dist: Math.round(R.dist), n: R.n });
-    if (why === "gone" || why === "abort" || why === "cop") return;
+    if (why === "gone" || why === "abort" || why === "cop" || why === "lost") return;
     if (R.dist < K.minRide) return;
     // pay: only the first ridesPerDay rides of a real day
     const C = PAY.cart;
@@ -180,7 +180,13 @@ function endRide(why) {
 
 /** Every frame: the parked cart rolls itself home once she's walked off (or got back in a car). */
 export function cartTick(dt) {
-    if (!CART.obj || CART.ride) return;
+    if (CART.ride) {
+        // (the walk ended under her, or another scene took her: the ride's over — never left hanging)
+        const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F;
+        if (!onFoot() || !F || F.phase !== "script") endRide("lost");
+        return;
+    }
+    if (!CART.obj) return;
     const p = CART.parked, h = CART.home;
     if (!p || !h || (Math.abs(p.x - h.x) < 0.05 && Math.abs(p.z - h.z) < 0.05)) return;
     const lp = onFoot() ? ctx.foot.pos : ctx.car.pos;
