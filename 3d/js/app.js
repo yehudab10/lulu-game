@@ -186,7 +186,7 @@ function step(dt, P) {
         if (ctx.paused) {
             H.menuInput(P);
         } else if (def) {
-            if (P.pause && def.pausable) pause();
+            if (P.pause && (def.pausable || ctx.pauseHatch)) pause();     // (pauseHatch: a scene that has hung — features/unstuck)
             else {
                 if (P.camera && def.driving && !def.camera) H.toast("🎥 " + cam.cycle());   // (a cutscene runs its own camera)
                 if (def.update) def.update(dt, P);
@@ -195,6 +195,7 @@ function step(dt, P) {
     } catch (e) {
         console.error("Lulu3D frame error", e);
     }
+    runHooks("tick", dt);               // (cheap per-frame accumulators: features/unstuck checks every 0.5 s)
 
     const cur = ctx.states[ctx.state] || def;
     if (!ctx.view && ctx.world) {
