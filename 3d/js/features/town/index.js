@@ -468,7 +468,9 @@ function leaveTown(why = "highway", opts = {}) {
     clearParked();
     const drove = !!(S.att && why === "highway" && opts.drove);
     // (driving out of a town that stands by the road: the highway puppets carry on, and so does a cruiser on her tail)
-    for (const c of [...tr.cars]) if (!(c.data && (c.data.footStub || (drove && (c.data.hwPuppet || (c.data.law && !c.hit)))))) tr.remove(c);   // (her own parked car stays hers)
+    // (her own parked car stays hers — only while she's out walking: foot's live stub, nothing stale)
+    const walking = !!(ctx.foot && ctx.foot.active), stub = walking && ctx.foot.debug && ctx.foot.debug.F && ctx.foot.debug.F.car ? ctx.foot.debug.F.car.stub : null;
+    for (const c of [...tr.cars]) if (!((stub && c === stub) || (c.data && drove && (c.data.hwPuppet || (c.data.law && !c.hit))))) tr.remove(c);
     for (const c of tr.cars) unpuppet(c);
     tr.config.enabled = S.savedTraffic;
     world.setDistrict(null);
@@ -531,7 +533,7 @@ function leaveTown(why = "highway", opts = {}) {
         G.lastS = car.s;
     }
     // on foot: her parked car (foot's stub in the traffic) goes where her car went, its road position the highway's
-    if (F) for (const c of tr.cars) if (c.data && c.data.footStub) {
+    if (F && stub) for (const c of [stub]) {
         if (!att && !drove && Math.hypot(c.x - car.pos.x, c.z - car.pos.z) > 0.5) { c.x = car.pos.x; c.z = car.pos.z; c.h = car.h; }   // (by the road: it stays where she parked it)
         const m = world.highway.nearest(c.x, c.z, car.s, {}); c.s = m.s; c.d = m.d;
         if (tr.place) tr.place(c, 0);
