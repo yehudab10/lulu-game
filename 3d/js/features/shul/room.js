@@ -153,7 +153,7 @@ function build(rt) {
         S.box(0.2, PW, GAP[0] - Z0, x, PW / 2, (Z0 + GAP[0]) / 2, CREAM2);
         S.box(0.2, PW, Z1 - GAP[1], x, PW / 2, (GAP[1] + Z1) / 2, CREAM2);
         S.box(0.3, PW + 0.1, 0.14, x, (PW + 0.1) / 2, GAP[0], WOOD2); S.box(0.3, PW + 0.1, 0.14, x, (PW + 0.1) / 2, GAP[1], WOOD2);
-        col(id + "a", x - 0.2, x + 0.2, Z0 - 1, GAP[0]); col(id + "b", x - 0.2, x + 0.2, GAP[1], Z1 + 1);
+        col(id + "a", x - 0.12, x + 0.12, Z0 - 1, GAP[0]); col(id + "b", x - 0.12, x + 0.12, GAP[1], Z1 + 1);
     }
     // the low front (the cut-away wall) with the women's entrance + the men's door (closed)
     S.box(X1 - X0, 0.5, 0.14, (X0 + X1) / 2, 0.25, Z1, CREAM2);
@@ -423,9 +423,9 @@ function hotspots(rt, V) {
     if (has("candy")) rt.hot({ id: "candy", who: "candy", x: 4.35, z: -0.75, r: 1.4, label: "🍭 The candy man", action: candyAction });
 
     // the kiddush room
-    rt.hot({ id: "table", x: 6.8, z: -0.8, r: 1.6, label: "🍽️ The kiddush table",
+    rt.hot({ id: "table", x: 6.95, z: -0.8, r: 1.6, label: "🍽️ The kiddush table",
         action: rt => rt.say("Lulu", line("tbl" + P.kind, P.kind === "kiddush" ? D.TABLE.kiddush : P.kind === "friday" ? D.TABLE.setup : P.fast ? D.TABLE.bare : D.TABLE.plain), { emoji: "🥣", color: "#8D6E63" }) });
-    if (has("reg1")) rt.hot({ id: "regs", who: "reg2", x: 8.9, z: -1.7, r: 1.4, label: "🥃 The kiddush regulars", action: rt => talk("reg2", "A kiddush regular", line("regs", D.KIDDUSH_CLUB), { emoji: "🥃", color: "#37474F" }) });
+    if (has("reg1")) rt.hot({ id: "regs", who: "reg2", x: 9.2, z: -1.7, r: 1.4, label: "🥃 The kiddush regulars", action: rt => talk("reg2", "A kiddush regular", line("regs", D.KIDDUSH_CLUB), { emoji: "🥃", color: "#37474F" }) });
     if (has("set1")) rt.hot({ id: "setup", who: "set1", track: true, r: 1.5, label: "📋 Someone setting up", action: rt => talk("set1", "Someone setting up", line("qc", D.KIDDUSH_QC), { emoji: "📋" }) });
 }
 
