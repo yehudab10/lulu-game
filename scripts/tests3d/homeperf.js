@@ -23,6 +23,15 @@ module.exports = {
       if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, `${q}: boots to the title`, 120000)) return;
       const boot = Date.now() - t0;
       await t.frames(30);
+      // (home in a town — roadmap 14: the town engine builds it in slices behind the title; a player who taps ▶ PLAY
+      //  before that's done gets the rest in one go. `early`: measured before it's built; then the normal case)
+      const town = await g(`!!(ctx.town && ctx.town.home)`);
+      let built = null;
+      if (town && q === "low") {
+        const tb = Date.now(), fb = await g(`ctx.frames`);
+        await t.until(`(__lulu3d.ctx.town.standing || []).some(s => s.town === __lulu3d.ctx.town.home.town && s.ready)`, `${q}: home town built behind the title`, 120000);
+        built = { ms: Date.now() - tb, frames: (await g(`ctx.frames`)) - fb };
+      }
       // ▶ PLAY → walking at home
       const t1 = Date.now();
       await t.click(/PLAY/);
@@ -34,7 +43,7 @@ module.exports = {
       await t.frames(300);
       const R = await t.L(`(() => { const P = window.__hp; window.__hp = null; const d = P.dts.slice(1).sort((a, b) => a - b), pc = f => +d[Math.min(d.length - 1, Math.floor(d.length * f))].toFixed(1);
         return { p50: pc(0.5), p95: pc(0.95), max: +d[d.length - 1].toFixed(1), calls: Math.round(P.calls / P.n), tris: Math.round(P.tris / P.n), tier: __lulu3d.ctx.gfx ? __lulu3d.ctx.gfx.tier : "?", town: !!(__lulu3d.ctx.town && __lulu3d.ctx.town.active) }; })()`);
-      out[q] = Object.assign({ boot, walk }, R);
+      out[q] = Object.assign({ boot, walk }, built ? { titleBuild: built } : {}, R);
       console.log(`   PERF home ${q}`, JSON.stringify(out[q]));
       t.check(`${q}: title → walking at home in < 15 s (real time)`, walk < 15000, `${walk} ms`);
     }
