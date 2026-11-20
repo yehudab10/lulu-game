@@ -321,7 +321,7 @@ module.exports = {
       await g(`(() => { const r = ctx.world.road, s = ${RS} + 150, p = r.point(s, 28, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 28; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await W.moved(t);
       await t.frames(20);
-      sol = await solidNear(1.5);
+      sol = await solidNear(0.8);
       if (sol && sol.d < 80) {
         await putCar(sol.x, sol.z);
         await t.frames(3);
