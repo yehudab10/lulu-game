@@ -221,10 +221,10 @@ function steer(dt, c, V) {
     const lv = foot ? 0 : Math.max(0, car.vF || 0);
     const route = inTown() && ctx.town.copRoute ? ctx.town.copRoute(c) : null;
     // (off town: chase HER road coords — on foot that's where she stands, not her parked car)
-    const me = route ? null : luluRoad();
+    const me = route ? null : inTown() ? { s: car.s, d: car.d } : luluRoad();
     const err = route ? route.gap + V.gapWant : me.s + V.gapWant - c.s;
     // off the travel lanes (the shoulder, a rest area's lot, the field): once near, drive straight to her
-    const offLane = !route && Math.abs(me.d) > 7;
+    const offLane = !inTown() && Math.abs(me.d) > 7;     // (the highway / a rest area only — a town has its own grid + routes)
     let vT = lv + clamp(err * 0.9, -12, 16);
     const dist = Math.hypot(lp.x - c.x, lp.z - c.z);
     if (foot && dist < 9) vT = Math.min(vT, Math.max(0, (dist - 5) * 0.8));
