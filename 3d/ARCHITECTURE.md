@@ -355,9 +355,21 @@ controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update
 (`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
 "center" slot. Don't add your own big centred text over the road in those states — use these.
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
-sum (+5 💰 ×3 → "+15 💰"), at most 3 toasts show (extras wait, stale ones drop); banners show one at a time
-from a priority queue (`prio`; same `key` replaces), and nothing new pops up while a dialogue line or menu is
-open. **HUD style** (Settings → Full / Clean, `save3d.settings.hudMode`): Clean hides the score and anything
+sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
+nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
+ups, especially in party mode"):** every toast has a priority — `opts.prio` 3 must-see / 2 normal / 1 flavour; without
+one it's inferred: a `big` toast or money SPENT (−N 💰, 💸, a fine / bill) = 3, `red` or money earned = 2, anything else
+= 1. One toast at a time on a phone-sized screen (two elsewhere). A FLAVOUR toast is dropped — never queued — when
+another toast is up or waiting, when she's busy (a chase, a dialogue, any state that isn't the open road), or within
+5 s of the last flavour toast (15 s when it's "quiet": in a party or with strangers' ghosts around); flavour toasts
+are a little smaller on touch and shorter. A toast within 1 s of a button press is the ANSWER to it (🎥 camera, "not
+here") and counts as normal. `features/calm` feeds the budget (`H.setCalmGate(() => ({quiet, busy, chase, acted}))`).
+Speech bubbles over OTHER people (roadevents `bubble`, foot `bubble`, banter `npcBubble`) ask `H.bubbleOk(dur)`: at
+most one at a time on a phone (or when quiet), ≥ 3 s apart (8 s quiet), none in a chase, always when she just acted —
+a refused bubble is still created, only hidden (`.calm-off`), so callers keep working. **Give your toast a `prio`** when
+it matters more than flavour (Ima's list ticks are 3), and don't add new overlay channels: go through `H.toast` /
+`H.banner` / a bubble helper so the budget sees it. Still outside the budget: phone texts / calls (`ctx.phone.text`,
+the call card), `metaToast`, law's toasts. Test: `scripts/tests3d/calm.js` (pop-ups a minute in four situations). **HUD style** (Settings → Full / Clean, `save3d.settings.hudMode`): Clean hides the score and anything
 with class `hud-secondary` — mark your optional HUD chips with it. **Lulu's chatter** (Chatty / Normal /
 Quiet, `save3d.settings.chatter`) is respected by banter.
 Dialogue: `await say(name, text, {emoji, color})`, `await choose(name, text, [opts])` → index,
