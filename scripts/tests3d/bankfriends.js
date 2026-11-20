@@ -83,7 +83,18 @@ async function body(t, guests) {
   const lbl = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
   t.check("guest: ✋ TACKLE HIM! on the friend's robber", /TACKLE/.test(lbl), lbl);
   await A.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
-  if (!await Hp.until(`${HOLD} && !!ctx.heist.robbery && ctx.heist.robbery.phase === "foiled"`, "host: the friend's tackle foils it (checked on the host's screen)", 40000)) return;
+  if (!await Hp.until(`${HOLD} && !!ctx.heist.robbery && ctx.heist.robbery.phase === "foiled"`, "host: the friend's tackle foils it (checked on the host's screen)", 40000)) {
+    const diag = async () => ({
+      host: await g(`(() => { const ev = ctx.heist.robbery, rc = ctx.party.remoteCar(${GU}), p = ctx.party.peer(${GU}), o = ev && ev.robber && ev.robber.obj.position;
+        return { frames: L3.frames, time: +ctx.time.toFixed(1), state: ctx.state, paused: ctx.paused, ph: ev && ev.phase, id: ev && ev.id, rc: rc && { shown: rc.shown, foot: rc.foot, d: o ? +Math.hypot(rc.x - o.x, rc.z - o.z).toFixed(1) : null },
+          hk: p && p.x && p.x.hk, z: p && p.x && p.x.z, myZone: ctx.town.active ? ctx.town.id : "", dbg: ctx.heist.debug.party(), vis: document.visibilityState }; })()`).catch(e => String(e)),
+      guest: await A.game(`({ frames: L3.frames, state: ctx.state, hk: ctx.party.peer(ctx.party.uid) && null, myX: (ctx.party._debug && ctx.party._debug.N && ctx.party._debug.N.x) ? ctx.party._debug.N.x.hk : "?", vis: document.visibilityState })`).catch(e => String(e)),
+    });
+    console.log("   TACKLE diag", JSON.stringify(await diag()));
+    await new Promise(r => setTimeout(r, 5000));
+    console.log("   TACKLE diag +5s", JSON.stringify(await diag()));
+    return;
+  }
   t.check("…credited to the guest", (await g(`ctx.heist.robbery.by`)) === guestUid, await g(`ctx.heist.robbery.by`));
   // the host (also the party's host) splits the pay; each screen pays itself its share once
   await Hp.until(`ctx.heist.debug.party().paid.length > 0`, "host: share paid", 30000);

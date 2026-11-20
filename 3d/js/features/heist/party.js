@@ -289,4 +289,4 @@ export function partyTick(dt) {
     if (!ctx.party || !ctx.party.active) { if (S.pup.size) { for (const pu of S.pup.values()) pu.dispose(); S.pup.clear(); } return; }
     try { publish(dt); friendsRobberies(dt); checkClaims(); } catch (e) { console.error("[heist party]", e); }
 }
-export const partyDebug = () => ({ sent: S.sent, puppets: [...S.pup.keys()], paid: [...S.paid], host: { seen: [...S.host.seen], n: Object.fromEntries(S.host.n) }, last: S.last });
+export const partyDebug = () => ({ sent: S.sent, puppets: [...S.pup.keys()], paid: [...S.paid], host: { seen: [...S.host.seen], n: Object.fromEntries(S.host.n) }, last: S.last, claims: S.claims.map(c => [c.uid, c.how, +(c.until - ctx.time).toFixed(1)]), hkSeen: [...S.hkSeen] });
