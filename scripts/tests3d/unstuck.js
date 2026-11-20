@@ -30,7 +30,7 @@ module.exports = {
       else if (via === "key") await t.key("Escape");
       if (!await t.until(`__lulu3d.ctx.paused`, `${label}: the pause menu opens (${via})`, 3000)) return false;
       const has = await t.L(`!!document.querySelector('#screenCard [data-pi="unstuck"]')`);
-      t.check(`${label}: 🆘 I'm stuck is in the pause menu`, has === expect, String(has));
+      t.check(`${label}: 🆘 I'm stuck is in the pause menu`, has === expect, `${has} (state ${await g(`L3.state`)})`);
       if (!has) { await t.L(`document.querySelector('#screenCard [data-pi="resume"]').click()`); await t.frames(3); return false; }
       await t.L(`document.querySelector('#screenCard [data-pi="unstuck"]').click()`);
       await t.frames(2);
@@ -250,12 +250,13 @@ module.exports = {
 
     // 8 · during a chase: still wanted, the cops still on her
     await g(`(ctx.law.hold && ctx.law.hold(0), true)`);
-    const chased = await g(`ctx.law.startChase("RECKLESS DRIVING")`);
-    await t.frames(30);
+    // (wedged first, then the chase, then 🆘 at once — a stopped car with a cruiser on it is pulled over: a law scene)
     sol = await solidNear(1);
+    if (sol) await putCar(sol.x, sol.z);
+    await t.frames(3);
+    const chased = sol ? await g(`ctx.law.startChase("RECKLESS DRIVING")`) : false;
+    await t.frames(4);
     if (chased && sol) {
-      await putCar(sol.x, sol.z);
-      await t.frames(3);
       const w0 = await g(`ctx.law.wanted`);
       await ready();
       if (await press("in a chase")) {
