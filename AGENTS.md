@@ -171,13 +171,18 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
-- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN still goes through town's own wreck hook
-  (towed out to the highway shoulder with a fade) — with one world (`ci/oneworld`) it could just stand her up in town
-  (`ctx.foot.start("knockout")` works there). The ER is still its own set (step 4 makes it a building). `moves`' rocket
+- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN now stands her up right there (ci/oneworld:
+  town's wreck hook only tows her out when there's no foot feature; test `town` › attached Midwood). The ER is still its own set (step 4 makes it a building). `moves`' rocket
   start only samples the 3-2-1 now (a home start has no countdown). Parking's challenge still ends on a game-over
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
 
+- Town triangle budget (`town` test, ≤ 115k at 1280×720, ⚙️ MEDIUM): with ci/oneworld it measured 111.9k–113.6k on CI and
+  115.4k on a local run (main before it: 116.8k) — the same view swings ±3k with how many cars are in sight. Pulling the
+  town's draw distances in (MAX_D solid 300 → 250, flat 140 → 120) only saves 1–3k and starts to show pop-in down the
+  long avenues, so it wasn't done. The real levers if it creeps over again: the town's ground (asphalt / walks / marks,
+  ~14k, always drawn whole — split it into the cluster cells so it culls like the blocks) and the town's people / cars
+  (~27k for 11 cars + walkers: a far LOD). Keep new town props merged into the clusters (build.js), never loose meshes.
 - **Dovid Dov** (the radio's 🎤 DOVID DOV FM plays the owner's real song, `dont-wanna-be-frum.mp3`): in the game he is
   an anonymous mystery singer AND Lulu's brother. Lulu, the family (Ima, Bubbe, Heshy) and close friends (Avigail) know
   and keep it quiet; strangers, DJs, billboards and town group chats only wonder who he is. Keep every new line on the
