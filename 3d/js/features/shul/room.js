@@ -77,18 +77,18 @@ function cast(P) {
         man("gabbai", 7.6, 0.5, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.6, x1: 6.95, z1: 1.9, T: 13 } });
         man("set1", 9.1, -1.4, -Math.PI / 2, { name: "Someone setting up", pose: { talk: true } });
         man("set2", 6.95, -3.0, Math.PI / 2, { name: "Someone setting up", colors: { Top: "#3E4A5C", Bottom: "#222226" } });
-        kid({ loop: { cx: 8.0, cz: -0.8, rx: 1.15, rz: 2.7, w: 1.25 } });
+        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.8, w: 1.1 } });
         candy(); rebb(7.1, 2.3, 0, { walker: null });
     } else if (k === "davening") {
         man("gabbai", -3.55, -1.3, Math.PI, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" } });
         man("saver", -3.0, 0.3, Math.PI, { name: "A man guarding six seats", pose: { sit: true }, y: 0.1, collide: false });
         candy(); rebb(2.15, 2.3);
     } else if (k === "kiddush") {
-        man("reg1", 9.05, -2.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#2A2A30", Bottom: "#2A2A30" }, pose: { talk: true } });
-        man("reg2", 9.05, -1.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#34344A", Bottom: "#222226" } });
+        man("reg1", 9.05, -2.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#2A2A30", Bottom: "#2A2A30" }, pose: { talk: true }, collide: false });
+        man("reg2", 9.05, -1.2, -Math.PI / 2, { name: "A kiddush regular", colors: { Top: "#34344A", Bottom: "#222226" }, collide: false });
         man("gabbai", 7.0, 0.4, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, walker: { x0: 6.95, z0: -2.8, x1: 6.95, z1: 1.8, T: 16 } });
         man("saver", -3.0, 0.3, Math.PI, { name: "A man guarding six seats", pose: { sit: true }, y: 0.1, collide: false });
-        kid({ loop: { cx: 8.0, cz: -0.8, rx: 1.15, rz: 2.7, w: 1.25 } });
+        kid({ loop: { cx: 8.0, cz: -0.6, rx: 1.45, rz: 2.8, w: 1.1 } });
         candy(); rebb(7.2, 2.5, 0, {});
     } else if (k === "afternoon") {
         man("gabbai", -2.4, 1.7, 0, { name: "The gabbai", model: "hillelPerson", colors: { Top: "#2B2B30", Bottom: "#2B2B30", Tie: "#1B5E20" }, pose: { sit: true }, y: 0.1, collide: false });
@@ -137,6 +137,7 @@ function build(rt) {
 
     // lights
     const set = rt.set;
+    set.sun.castShadow = false;                            // (a room of boxes + a few people: shadows would double the draw calls)
     set.hemi.color.set(P.dim ? "#E8E4F2" : "#FFF3DC"); set.hemi.intensity = P.dim ? 0.95 : 1.35;
     set.sun.color.set("#FFF1D6"); set.sun.intensity = P.dim ? 0.55 : 0.9;
     const l1 = rt.pointLight("hall", "#FFE2B0", P.dim ? 4 : 7, 14); l1.position.set(-5.5, 3.2, 0.5);
@@ -331,7 +332,7 @@ function menorah(rt, V, n) {
     }
     const mesh = new THREE.Mesh(rt.own(m.geo()), rt.own(VC())); rt.add(mesh);
     const fm = rt.own(new THREE.MeshBasicMaterial({ color: "#FFC83D" }));
-    const lit = flames.filter(f => f[3] === 4 || (f[3] < 4 ? 3 - f[3] : f[3] - 5) < n);       // the helper + n lit from the right
+    const ORDER = [8, 7, 6, 5, 3, 2, 1, 0], lit = flames.filter(f => f[3] === 4 || ORDER.indexOf(f[3]) < n);       // the helper + n lit, newest first
     const im = new THREE.InstancedMesh(rt.own(new THREE.SphereGeometry(0.045, 6, 5)), fm, lit.length);
     const M = new THREE.Matrix4();
     lit.forEach(([fx, fy, fz], i) => { M.makeTranslation(fx, fy, fz); im.setMatrixAt(i, M); });
@@ -354,9 +355,9 @@ function crowd(rt, V, P, { place, benches, chairs }) {
         for (const i of k === "weekday" ? [3, 4, 5, 20, 21, 33] : [4]) if (seats[i]) men.push(seats[i]);
     } else if (k === "fast") { for (const i of [4, 22]) if (seats[i]) men.push(seats[i]); }
     else if (k === "kiddush") {
-        for (let i = 0; i < 18; i++) standingM.push([6.85 + rnd() * 2.7, -3.0 + rnd() * 5]);
+        for (let i = 0; i < 46; i++) standingM.push([6.85 + rnd() * 2.7, -3.0 + rnd() * 5]);
         for (let i = 0; i < 5; i++) standingM.push([4.0 + rnd() * 2, 1.0 + rnd() * 1.8]);
-        for (let i = 0; i < 9; i++) standingW.push([6.85 + rnd() * 2.7, -3.0 + rnd() * 5]);
+        for (let i = 0; i < 22; i++) standingW.push([6.85 + rnd() * 2.7, -3.0 + rnd() * 5]);
         for (const i of [4, 25]) if (seats[i]) men.push(seats[i]);
     }
     // keep the standing figures off the table + the walkway (the kiddush table's footprint x 7.3–8.7)
@@ -510,6 +511,6 @@ export const shulDef = defineInterior({
     model: "homesKit", models: ["npcMan", "npcWoman", "npcKid", "hillelPerson"],
     music: "../story-relax.mp3", light: "indoor", sky: "#d9cbb0",
     bounds: { x0: MECH + 0.3, x1: X1 - 0.35, z0: Z0 + 0.5, z1: Z1 - 0.5 },
-    cam: { dist: 9.4, height: 8.0, lookY: 0.4, clampX: 2.2 }, walkSpeed: 3.3,
+    cam: { dist: 9.4, height: 8.0, lookY: 0.4, clampX: 2.2, centerZ: -0.4, centerK: 0.55 }, walkSpeed: 3.3,
     build, tick, dispose,
 });

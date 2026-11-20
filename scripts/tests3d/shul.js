@@ -43,6 +43,7 @@ module.exports = {
     const curtain = () => t.L(`(() => { const o = []; for (const id of ["townFade", "intFade", "lawFade", "cameosFade"]) { const e = document.getElementById(id); if (e && +getComputedStyle(e).opacity > 0.4) o.push(id); } return o; })()`);
     const walkIn = async () => {
       await onFootAtDoor();
+      await W.reset(t);
       await g(`ctx.shul.enter()`);
       return t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === "shul"`, "inside the shul", 60000);
     };
@@ -87,6 +88,7 @@ module.exports = {
         t.check(`${id}: walking up to the door warms the room (a soft cut, not a loading screen)`, await g(`ctx.interiors.shul.ready()`));
         await onFootAtDoor(1.2);
         await t.frames(6);
+        await W.reset(t);
         const p = await promptText();
         t.check(`${id}: ✋ offers ENTER THE SHUL at the door (${JSON.stringify(p).slice(0, 70)})`, /ENTER THE SHUL/i.test(p) || /SHUL/.test(p));
         await seg(`${id}: walking up to the shul`, ["jump", "nan", "overlay", "stuck"]);
@@ -95,7 +97,7 @@ module.exports = {
         for (let i = 0; i < 40; i++) { await t.frames(1); if ((await curtain()).length) black++; }
         t.check(`${id}: going in shows no black curtain (${black} frames)`, black === 0);
         t.check(`${id}: inside the shul`, await t.until(`__lulu3d.state === "interior" && window.__interiors && __interiors.room && __interiors.room.ready && __interiors.room.def.id === "shul"`, "inside", 30000));
-        t.check(`${id}: named for this town`, await room(`r.def.name === ctx.shul.debug.def.name && /${id === "lakewood" ? "Carpool Lane" : "Young Israel"}/.test(r.def.title)`));
+        t.check(`${id}: named for this town`, await room(`r.def.name === ctx.shul.debug.def.name && /${id === "lakewood" ? "Carpool Lane" : "Young Israel"}/i.test(r.def.title)`));
         t.check(`${id}: she comes in by the women's entrance (the women's section, not the men's hall)`, await room(`(() => { const p = r.lulu.obj.position; return p.x > -1.6 && p.x < 3.4; })()`));
         await walkOut();
         await t.frames(20);
@@ -109,6 +111,7 @@ module.exports = {
         await step(`${id} ${kind}`, async () => {
           if (!await town(id)) return;
           await g(`(ctx.shul.debug.force.hour = null, ${kinds[kind]}, true)`);
+          await W.reset(t);
           if (!await walkIn()) return;
           const info = await room(`({ kind: r.data.P.kind, chanukah: r.data.P.chanukah, people: r.people.map(q => ({ id: q.id, x: q.p.obj.position.x, z: q.p.obj.position.z })), hots: r.hots.filter(h => !h.enabled || h.enabled(r)).map(h => h.id),
             cols: r.cols.map(c => [c.x0, c.x1, c.z0, c.z1]), crowd: r.data.V.crowd, lit: r.data.V.menorahLit || 0, hats: !!r.data.V.hats })`);
@@ -128,13 +131,13 @@ module.exports = {
           const bad = info.people.filter(q => info.cols.some(c => q.x > c[0] - 0.05 && q.x < c[1] + 0.05 && q.z > c[2] - 0.05 && q.z < c[3] + 0.05));
           t.check(`${id} ${kind}: nobody stands inside a wall (${bad.map(b => b.id).join(",") || "ok"})`, bad.length === 0);
           // every hotspot she can use is somewhere she can stand, and ✋ reaches it
-          const unreachable = await room(`r.hots.filter(h => !h.enabled || h.enabled(r)).filter(h => { const p = r.lulu.obj.position; p.set(h.x + (h.id === "door" ? 0 : 0.0), 0, h.z); const x0 = p.x, z0 = p.z; r.collide(p, 0.32); const moved = Math.hypot(p.x - x0, p.z - z0) > 0.06; const near = r.findNear(); return moved || !near; }).map(h => h.id)`);
+          const unreachable = await room(`r.hots.filter(h => !h.enabled || h.enabled(r)).filter(h => { const p = r.lulu.obj.position; const w = h.track && h.who && r.byId[h.who]; p.set(w ? w.p.obj.position.x : h.x, 0, w ? w.p.obj.position.z : h.z); const x0 = p.x, z0 = p.z; r.collide(p, 0.32); const moved = Math.hypot(p.x - x0, p.z - z0) > 0.06; const near = r.findNear(); return moved || !near; }).map(h => h.id)`);
           t.check(`${id} ${kind}: every hot-spot is reachable and standable (${unreachable.join(",") || "ok"})`, unreachable.length === 0);
           await room(`(r.lulu.obj.position.set(0.5, 0, 3.4), r.updateCamera(0, true), true)`);
           await t.frames(20);
           const pf = await perf(24);
           console.log(`   PERF shul ${id} ${kind}`, JSON.stringify(pf));
-          t.check(`${id} ${kind}: the room is a handful of draw calls (≤ 110) and light (≤ 60k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 110 && pf.maxTris <= 60000);
+          t.check(`${id} ${kind}: the room is a handful of draw calls (≤ 100) and light (≤ 70k tris) (${pf.maxCalls} / ${pf.maxTris})`, pf.maxCalls <= 100 && pf.maxTris <= 70000);
           if (id === "midwood" || kind === "kiddush") await t.shot(`shul-${id}-${kind}`);
           if (id === "midwood" && (kind === "kiddush" || kind === "friday")) { await room(`(r.lulu.obj.position.set(7.0, 0, 0.5), r.updateCamera(0, true), true)`); await t.frames(25); await t.shot(`shul-${id}-${kind}-table`); }
           await walkOut();
