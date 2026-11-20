@@ -108,7 +108,7 @@ async function body(t) {
   t.check("title shows YOUR CREW", await t.L(`/YOUR CREW/.test(document.querySelector("#screenCard").textContent)`));
 
   // ── drive: my state arrives in the 2D format ──
-  await t.game(`L3.startRun({ mode: "cruise" })`);
+  await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
   if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
   await t.game(`(() => { ctx.traffic.clear(); ctx.traffic.config.enabled = false; const r = ctx.world.road, p = r.point(400, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 400; })()`);
   await peer.pump(2500);
