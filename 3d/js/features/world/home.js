@@ -260,6 +260,27 @@ function buildTownHome(spot, town) {
     home.ready = true;
 }
 
+/** The house is solid in its town (the town's block ring is open across the lot's frontage — features/town): the same
+ *  three circles as the highway house (two for the house, one for the garage behind the parked car). Once per standing
+ *  copy of the town (ctx.town.addCollider: into the district she's in, or `{ town, exitS }` while it only stands). */
+const colDone = new Set();
+export function houseColliders() {
+    const T = ctx.town;
+    if (home.site !== "town" || !home.ready || !T || typeof T.addCollider !== "function") return false;
+    const key = home.town + ":" + home.exitS + ":" + (T.active && T.id === home.town ? "in" : "out") + ":" + (home.colGen || 0);
+    if (colDone.has(key)) return false;
+    colDone.add(key);
+    const hp = home.hp, P = home.park, r = home.house.rotation.y;
+    const fx = Math.sin(r), fz = Math.cos(r), rx = Math.cos(r), rz = -Math.sin(r);
+    const gx = P.x - fx * 3.9, gz = P.z - fz * 3.9;
+    const list = [{ x: hp.x + rx * 2.4, z: hp.z + rz * 2.4, r: 4.4, kind: "house" }, { x: hp.x - rx * 2.4, z: hp.z - rz * 2.4, r: 4.4, kind: "house" },
+        { x: gx - fx * 2.2, z: gz - fz * 2.2, r: 2.9, kind: "house" }];
+    const where = T.active && T.id === home.town ? undefined : { town: home.town, exitS: home.exitS };
+    try { for (const c of list) T.addCollider(c, where); } catch (e) { console.warn("[world] house colliders", e); }
+    return true;
+}
+on("town:enter", e => { if (e && e.town === home.town) houseColliders(); });
+
 /** Where home should be now: the town engine's lot (features/town › ctx.town.home + spotOf), else the highway site. */
 export function wantedSite() {
     const T = ctx.town, H = T && T.home;
@@ -287,6 +308,7 @@ export function relocate(force = false) {
     dropHome();
     if (W.site === "town") buildTownHome(W.spot, W.town); else buildStreet();
     home.exitS = W.exitS != null ? W.exitS : null;
+    home.colGen = (home.colGen || 0) + 1;
     home.decoFor = null;
     applyHoliday();
     emit("world:homeBuilt", { site: home.site, town: home.town || null });
