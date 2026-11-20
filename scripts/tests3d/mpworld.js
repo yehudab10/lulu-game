@@ -184,6 +184,12 @@ async function body(t, pages, riders) {
   await t.tap(1); await t.frames(2);
   await t.tap(1); await t.frames(3);
   t.check("ON again → back online in the world", await A.until(`${S}.connected`, "A: reconnects", 30000));
+  // solo, 📱 📍 Nearby has the other drivers + 📤 invite + 🌐 go solo (one tap)
+  await g(`ctx.phone.openPhone("nearby")`);
+  await A.frames(6);
+  t.check("📱 📍 Nearby (solo): other drivers + invite + Go solo", await t.L(`!!document.getElementById("owOnline") && !!document.getElementById("owInviteSolo") && /Other drivers/.test(document.getElementById("screenCard").textContent)`));
+  await g(`(ctx.phone.closePhone(), true)`);
+  await A.frames(4);
 
   // ── Dina's mode is always offline ──
   await g(`(L3.setState("title"), true)`);

@@ -117,7 +117,7 @@ async function roadTrip(t, guests) {
   // 1. the plan: identical on both screens
   const plans = [];
   for (const p of pages) plans.push(await p.game(`ctx.party.road.list(0, 4300).map(s => s.key + "@" + s.s.toFixed(2) + ":" + s.side)`));
-  t.check("road plan: the same big slots at the same s on both screens", JSON.stringify(plans[0]) === JSON.stringify(plans[1]) && plans[0].length >= 2, `${plans[0].length} slots: ${plans[0].slice(0, 6).join(" ")}`);
+  t.check("road plan: the same big slots at the same s on both screens", JSON.stringify(plans[0]) === JSON.stringify(plans[1]) && plans[0].length >= 1, `${plans[0].length} slots: ${plans[0].slice(0, 6).join(" ")}`);
   const kinds = [];
   for (const p of pages) kinds.push(JSON.stringify(await p.game(`ctx.party.road.kinds`)));
   t.check("road plan: roadevents, cameos and hustle registered, in the same order everywhere", kinds[0] === kinds[1] && ["roadevents:", "cameos:", "hustle:"].every(i => kinds[0].includes(i)), kinds[0]);

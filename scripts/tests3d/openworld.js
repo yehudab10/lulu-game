@@ -360,8 +360,11 @@ async function partyRun(t, guests) {
   const pin = await g(`ctx.openworld.game.pin`);
   t.check("pin: the same pin on both screens", JSON.stringify(await A.game(`ctx.openworld.game.pin`)) === JSON.stringify(pin));
   await t.shot("pin-race");
-  await A.game(PLACE(pin.x, pin.z)); await sleep(1500); await g(PLACE(pin.x + 3, pin.z + 3));
+  await A.game(PLACE(pin.x, pin.z));
+  await A.until(`ctx.openworld.game && ctx.openworld.game.fin && Object.keys(ctx.openworld.game.fin).length >= 1`, "pin: the guest's finish reaches the host", 30000);   // (game time, not a real-time sleep)
+  await g(PLACE(pin.x + 3, pin.z + 3));
   if (!await done("pin", "pin: both finish")) return;
+  await t.until(`__lulu3d.ctx.openworld.debug.CL.last && __lulu3d.ctx.openworld.debug.CL.last.k === "pin"`, "pin: the scoreboard is the pin's", 20000);
   const rows = await g(`ctx.openworld.debug.CL.lastRows.map(r => r.uid + ":" + r.val)`);
   t.check("pin: the guest got there first", rows[0].startsWith(guestUid), rows.join(" | "));
   await A.until(`ctx.phone.isOpen && document.getElementById("owRematch")`, "guest scoreboard", 10000);

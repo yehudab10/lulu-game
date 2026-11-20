@@ -244,6 +244,7 @@ export function setOnline(on) {
     emit("mp:online", { on: !!on });
 }
 ctx.mp.setOnline = setOnline;
+Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
 Object.defineProperty(ctx.mp, "online", { get: onlineOn });
 Object.defineProperty(ctx.mp, "near", { get: () => Object.values(MP.peers).filter(p => p.onScreen).length });
 ctx.mp.ghostStats = ghostStats;
