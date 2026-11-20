@@ -130,28 +130,70 @@ function drawBurst(holder, g, emoji, life, baseY, scale = 1) {
     g.burst.sp.material.opacity = Math.max(0, Math.min(1, 1.15 - p));
 }
 
-/** Ghosts are drawn while a run is on screen (driving or walking), not on the title. */
+/** At most this many other riders are drawn at once — the nearest ones (see ARCHITECTURE › Everyone in one world):
+ *  a ghost car is ~10 draw calls + a name sprite, so 6 keeps a busy road under ~70 extra calls on a phone. The
+ *  rest cost nothing: no model, no sprite, until they're among the nearest. */
+export const CAP = 6;
+const KEEP = 3;                         // seconds a ghost that dropped out of the nearest few stays built (no churn)
+let lastShown = 0;
+export const ghostStats = () => ({ built: Object.keys(ghosts).length, shown: lastShown, cap: CAP });
+
+/** Where to draw peer p (→ out {x, z, h}, or false). */
+function placeOf(p, me, road, out) {
+    const W = p.w && MP.clock - p.w.at < 4 ? p.w : null;
+    if (W) {
+        if (W.z === "~" || W.z !== me.zone) return false;
+        if (W.z === "") {
+            if (!road) return false;
+            road.point(Math.max(1, W.ca), W.cb, tmp);
+            out.x = tmp.x; out.z = tmp.z; out.h = tmp.h + (W.h || 0);
+        } else {
+            const T = ctx.town, O = T && T.active && T.plan && T.plan.ORIGIN;
+            if (!O) return false;
+            out.x = O.x + W.ca; out.z = O.z + W.cb; out.h = W.h || 0;
+        }
+        out.mps = Math.min(30, Math.hypot(W.va, W.vb));
+        return true;
+    }
+    if (me.zone !== "" || !road) return false;          // a 2D rider is on the highway
+    const s = Math.max(1, me.s + p.rel / DI_PER_M), d = (p.x - X_MID) / X_PER_M;
+    road.point(s, d, tmp);
+    out.x = tmp.x; out.z = tmp.z; out.h = tmp.h;
+    out.mps = (p.sp || 0) / DI_PER_M;
+    return true;
+}
+
+const near = [], at = {};
+/** Ghosts are drawn while she's out in the world (driving or walking), not on the title or indoors. */
 export function updateGhosts(dt, me, show) {
     const road = ctx.world && ctx.world.road;
     const camPos = ctx.camera.position;
     const T = MP.tag;
-    for (const id in MP.peers) {
+    // the nearest CAP riders in range (a little stickiness so two at the same distance don't flicker)
+    near.length = 0;
+    if (show) for (const id in MP.peers) {
         const p = MP.peers[id];
+        p.onScreen = false;
+        if (!p.seen || p.vis <= 0.01 || Math.abs(p.rel) / DI_PER_M >= VIS_M) continue;
+        near.push([Math.abs(p.rel) * (ghosts[id] && ghosts[id].shown ? 0.85 : 1), id]);
+    }
+    else for (const id in MP.peers) MP.peers[id].onScreen = false;
+    near.sort((a, b) => a[0] - b[0]);
+    if (near.length > CAP) near.length = CAP;
+    let shown = 0;
+    for (const [, id] of near) {
+        const p = MP.peers[id];
+        if (!placeOf(p, me, road, at)) continue;
         let g = ghosts[id];
         if (g && g.kind !== kindOf(p)) { disposeGhost(g); g = ghosts[id] = null; }
         if (!g) g = ghosts[id] = buildGhost(p);
+        g.seenAt = MP.clock; g.mark = true;
         if (g.tagName !== p.name) { g.tag.removeFromParent(); g.tag.userData.dispose(); g.tag = nameSprite(p.name, 2.6); g.tag.position.y = p.m === 1 ? 2.35 : 2.75; g.obj.add(g.tag); g.tagName = p.name; }
-        const ds = p.rel / DI_PER_M;
-        const vis = show && road && p.seen && Math.abs(ds) < VIS_M && p.vis > 0.01;
-        g.obj.visible = !!vis;
-        p.onScreen = !!vis;
-        if (!vis) continue;
-        const s = Math.max(1, me.s + ds), d = (p.x - X_MID) / X_PER_M;
-        road.point(s, d, tmp);
-        g.obj.position.set(tmp.x, 0, tmp.z);
-        g.obj.rotation.y = tmp.h;
-        p.ws = s; p.wd = d;
-        const mps = (p.sp || 0) / DI_PER_M;
+        g.obj.visible = true; g.shown = true; p.onScreen = true; shown++;
+        g.obj.position.set(at.x, 0, at.z);
+        g.obj.rotation.y = at.h;
+        p.ws = at.x; p.wd = at.z;
+        const mps = at.mps;
         if (g.person) g.person.update(dt, { walk: Math.min(3, mps), wave: p.waveT > 0 });
         for (const w of g.wheels) w.rotation.x += mps * dt / 0.34;
         // fade in/out + a gentle shimmer
@@ -170,7 +212,13 @@ export function updateGhosts(dt, me, show) {
         g.ring.visible = !!isIt;
         if (isIt) { const hp = 0.5 + 0.5 * Math.sin(MP.clock * 7); g.ring.scale.setScalar(1 + hp * 0.15); g.ring.material.opacity = 0.35 + 0.4 * hp; }
     }
-    for (const id of Object.keys(ghosts)) if (!MP.peers[id]) { if (ghosts[id]) disposeGhost(ghosts[id]); delete ghosts[id]; }
+    lastShown = shown;
+    for (const id of Object.keys(ghosts)) {
+        const g = ghosts[id];
+        if (g && g.mark) { g.mark = false; continue; }
+        if (g) { g.obj.visible = false; g.shown = false; }
+        if (!MP.peers[id] || !g || MP.clock - (g.seenAt || 0) > KEEP) { if (g) disposeGhost(g); delete ghosts[id]; }
+    }
     updateSelf(dt, show);
 }
 

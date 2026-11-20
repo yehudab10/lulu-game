@@ -37,6 +37,15 @@ export const VIS_PX = 900;               // 2D's ghost range (px)
 export const VIS_M = 320;                // 3D shows ghosts much further up the road
 export const RACE_GOAL = 200000;         // px of road (≈ 17 km in 3D)
 export const TAG_DUR = 90;
+// EVERYONE is sharded: the relay caps a room at 24 (close 4001), so a full LOBBY sends us to LOBBY2…LOBBY8
+// (client-side only; the 2D game stays in LOBBY, so cross-play happens in the first shard).
+export const SHARDS = 8;
+/** A stranger's harmless label: their car's colour + a number from the relay's random id (nothing they typed). */
+const COLOUR = { pink: "Pink", purple: "Purple", orange: "Orange", blue: "Blue", green: "Green", red: "Red", gold: "Gold", ninja: "Black",
+    mint: "Mint", teal: "Teal", white: "White", silver: "Silver", rainbow: "Rainbow", lilac: "Lilac", sky: "Sky", yellow: "Yellow", black: "Black" };
+const VKS = new Set(["car", "borrowed", "cop", "bus", "ambulance", "dozer"]);
+const SK_RE = /^[a-z0-9_]{1,16}$/, CO_RE = /^#[0-9a-fA-F]{6}$/, ZONE_RE = /^(~|[a-z0-9_]{0,16})$/;
+const fin = (v, lo, hi) => typeof v === "number" && isFinite(v) ? Math.max(lo, Math.min(hi, v)) : null;
 
 export const MP = {
     sock: null, want: false, connected: false, ever: false, room: "lobby", roomKind: "everyone",
@@ -52,6 +61,8 @@ export const MP = {
     scorePosted: false, wantedCache: { t: -1e9, data: [], loading: false }, scoresCache: { t: -1e9, data: [], ok: false, loading: false },
     chipPulse: 0, lastRiders: -1,
     me: { s: 0, d: 0, di: 0, x: X_MID, foot: false, driving: false },
+    shard: 0,                 // EVERYONE shard (0 = LOBBY, the one the 2D game uses)
+    recv: 0,                  // receiver-side flood guards dropped this many stranger events (tests)
 };
 
 /** Allowed to touch the network at all? (test runs must opt in) */
@@ -67,6 +78,15 @@ export function targetRoom() {
     return MP.codeSlots.map(c => String.fromCharCode(65 + c)).join("");
 }
 export function friendRoom() { return MP.connected && MP.room !== "lobby"; }
+/** The relay room I'm actually in (EVERYONE shards to lobby2… when the first is full). */
+export function roomPath() { return MP.room === "lobby" ? (MP.shard ? "lobby" + (MP.shard + 1) : "lobby") : MP.room.toUpperCase(); }
+function hash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h >>> 0; }
+export function strangerLabel(id, sk) { return `${COLOUR[sk] || "Rider"} ${10 + hash(id) % 90}`; }
+/** What I show for a peer: friends (a code room) by their curated name, everyone else by a generated label. */
+export function labelFor(p) {
+    if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
+    return strangerLabel(p.id, p.sk);
+}
 export function rerollCode() { MP.codeSlots = MP.codeSlots.map(() => Math.floor(Math.random() * 26)); }
 
 // ── connection ───────────────────────────────────────────────────────────
@@ -77,7 +97,7 @@ export function connect(room, kind) {
     if (!allowed()) return;
     if (room) { MP.room = room; MP.roomKind = kind || (room === "lobby" ? "everyone" : "friend"); }
     if (!shared.get().mpName) shared.update(s => { s.mpName = CURATED_NAMES[Math.floor(Math.random() * CURATED_NAMES.length)]; });
-    MP.want = true; MP.wantSince = MP.clock; MP.ever = true;
+    MP.want = true; MP.wantSince = MP.clock; MP.ever = true; MP.shard = 0;
     MP.connected = false; MP.peers = {}; MP.reconnectDelay = 1; MP.reconnectAt = MP.clock;
     openSocket();
     emit("mp:status", { want: true });
@@ -102,7 +122,7 @@ export function switchRoom(room, kind) {
     MP.draft.active = false; MP.draft.t = MP.draft.grace = 0;
     if (MP.sock) { try { MP.sock.onclose = null; MP.sock.close(); } catch (e) { } MP.sock = null; }
     MP.connected = false; MP.myId = null; MP.peers = {};
-    MP.room = room; MP.roomKind = kind; MP.want = true; MP.ever = true;
+    MP.room = room; MP.roomKind = kind; MP.want = true; MP.ever = true; MP.shard = 0;
     MP.wantSince = MP.clock; MP.reconnectDelay = 1; MP.reconnectAt = MP.clock;
     MP.switchTo = roomLabel(room);
     openSocket();
@@ -119,11 +139,11 @@ function openSocket() {
     if (!allowed() || !MP.want) return;
     try {
         if (MP.sock) { try { MP.sock.onclose = null; MP.sock.close(); } catch (e) { } MP.sock = null; }
-        const ws = new WebSocket(MP_URL + "/room/" + encodeURIComponent(MP.room));
+        const ws = new WebSocket(MP_URL + "/room/" + encodeURIComponent(roomPath()));
         MP.sock = ws;
         ws.onopen = () => { try { onOpen(); } catch (e) { } };
         ws.onmessage = ev => { try { onMessage(ev); } catch (e) { console.error("[mp]", e); } };
-        ws.onclose = () => { try { onClose(ws); } catch (e) { } };
+        ws.onclose = ev => { try { onClose(ws, ev); } catch (e) { } };
         ws.onerror = () => { };
     } catch (e) {
         MP.sock = null;
@@ -132,12 +152,15 @@ function openSocket() {
 }
 function onOpen() {
     MP.reconnectDelay = 1; MP.pingT = 0; MP.sendT = 0;
-    send({ t: "j", v: 1, room: MP.room === "lobby" ? "lobby" : MP.room.toUpperCase(), name: myName(), sk: ctx.car ? ctx.car.skinKey : "pink" });
+    send({ t: "j", v: 1, room: roomPath(), name: myName(), sk: ctx.car ? ctx.car.skinKey : "pink" });
 }
-function onClose(ws) {
+function onClose(ws, ev) {
     if (ws !== MP.sock) return;
     MP.sock = null; MP.connected = false; MP.peers = {};
-    if (MP.want) scheduleReconnect();
+    if (!MP.want) return;
+    // EVERYONE is full (close 4001): straight on to the next shard — no waiting, no message
+    if (ev && ev.code === 4001 && MP.room === "lobby" && MP.shard < SHARDS - 1) { MP.shard++; MP.reconnectAt = MP.clock; return; }
+    scheduleReconnect();
 }
 function scheduleReconnect() { MP.reconnectAt = MP.clock + MP.reconnectDelay; MP.reconnectDelay = Math.min(MP.reconnectDelay * 2, 10); }
 
@@ -156,13 +179,16 @@ function onMessage(ev) {
 }
 
 function addPeer(id, name, sk) {
-    if (!id || id === MP.myId) return null;
+    if (!id || id === MP.myId || typeof id !== "string" || id.length > 24) return null;
+    sk = typeof sk === "string" && SK_RE.test(sk) ? sk : null;
     let p = MP.peers[id];
     if (!p) {
-        p = MP.peers[id] = { id, name: name || "Rider", sk: sk || "pink", m: 0, vk: "car", ct: 0, co: null,
+        p = MP.peers[id] = { id, raw: "", name: "", sk: sk || "pink", m: 0, vk: "car", ct: 0, co: null,
             x: X_MID, tx: X_MID, di: 0, sp: 0, seen: false, lastPacket: MP.clock, honkT: 0, waveT: 0, emT: 0,
-            rel: 0, vis: 0, dropping: false, bonkCd: 0, bonkOverlap: false };
-    } else { if (name) p.name = name; if (sk) p.sk = sk; }
+            rel: 0, vis: 0, dropping: false, bonkCd: 0, bonkOverlap: false, evAt: -9, emAt: -9, pbAt: -999, w: null };
+    } else if (sk) p.sk = sk;
+    if (typeof name === "string") p.raw = name.slice(0, 24);
+    p.name = labelFor(p);                 // (never a string a stranger typed)
     return p;
 }
 
@@ -171,15 +197,36 @@ function applyState(id, d, snap) {
     const p = MP.peers[id] || addPeer(id, null, null);
     if (!p) return;
     p.lastPacket = MP.clock; p.dropping = false;
-    if (typeof d.m === "number") p.m = d.m;
-    if (typeof d.x === "number") p.tx = d.x;
-    if (d.vk) p.vk = d.vk;
-    if (typeof d.ct === "number") p.ct = d.ct;
-    if (d.co) p.co = d.co;
-    if (typeof d.sp === "number") p.sp = d.sp;
-    if (typeof d.di === "number") {
-        if (!p.seen) { p.di = d.di; p.x = p.tx; p.seen = true; }
-        else { const err = d.di - p.di; if (Math.abs(err) > 250) p.di = d.di; else p.di += err * 0.4; }
+    if (d.m === 0 || d.m === 1) p.m = d.m;
+    const x = fin(d.x, 0, 480); if (x !== null) p.tx = x;
+    if (typeof d.vk === "string" && VKS.has(d.vk)) p.vk = d.vk;
+    const ct = fin(d.ct, 0, 40); if (ct !== null) p.ct = ct | 0;
+    if (typeof d.co === "string" && CO_RE.test(d.co)) p.co = d.co;
+    const sp = fin(d.sp, -2000, 4000); if (sp !== null) p.sp = sp;
+    const di = fin(d.di, -1e9, 1e9);
+    if (di !== null) {
+        if (!p.seen) { p.di = di; p.x = p.tx; p.seen = true; }
+        else { const err = di - p.di; if (Math.abs(err) > 250) p.di = di; else p.di += err * 0.4; }
+    }
+    applyWorld(p, d.w);
+    if (!friendRoom()) {
+        // EVERYONE: a stranger can't start anything on my screen (no races, no tag, no lot), and their
+        // emotes / record toasts are flood-guarded here, whatever their client sends
+        if (d.em && d.em.length === 2 && typeof d.em[0] === "number") {
+            if (snap) p.emNonce = d.em[0];
+            else if (p.emNonce !== d.em[0]) {
+                p.emNonce = d.em[0];
+                if (MP.clock - p.emAt >= 1.5) { p.emAt = MP.clock; p.emT = 1.1; p.emEmoji = EMOTES[d.em[1] | 0] || "❤️"; } else MP.recv++;
+            }
+        }
+        if (d.pb && d.pb.length === 2 && typeof d.pb[0] === "number") {
+            if (snap) p.pbNonce = d.pb[0];
+            else if (p.pbNonce !== d.pb[0]) {
+                p.pbNonce = d.pb[0];
+                if (MP.clock - p.pbAt >= 90 && p.onScreen) { p.pbAt = MP.clock; pushRecordToast(p.name, fin(d.pb[1], 0, 2e6) || 0); } else MP.recv++;
+            }
+        }
+        return;
     }
     // race fields: a hello snapshot's nonce is stale; any live new nonce is an invite
     if (typeof d.rn === "number") {
@@ -206,9 +253,24 @@ function applyState(id, d, snap) {
     }
 }
 
+/** A 3D rider's place in the 3D world (`d.w` = [zone, a, b, h]): zone "" the highway (a = s, b = d), a town id
+ *  (a, b = metres from the town's origin — the same on every screen), "~" somewhere nobody else can see (indoors, a scene). */
+function applyWorld(p, w) {
+    if (!Array.isArray(w) || w.length < 3 || typeof w[0] !== "string" || !ZONE_RE.test(w[0])) return;
+    const a = fin(w[1], -1e7, 1e7), b = fin(w[2], -1e7, 1e7), h = fin(w[3], -10, 10);
+    if (a === null || b === null) return;
+    const W = p.w || (p.w = { z: "", a, b, h: 0, va: 0, vb: 0, ca: a, cb: b, at: MP.clock });
+    const dt = MP.clock - W.at;
+    if (W.z !== w[0] || dt > 2 || Math.hypot(a - W.a, b - W.b) > 60) { W.va = W.vb = 0; W.ca = a; W.cb = b; }
+    else if (dt > 0.05) { W.va = (a - W.a) / dt; W.vb = (b - W.b) / dt; }
+    W.z = w[0]; W.a = a; W.b = b; W.h = h || 0; W.at = MP.clock;
+}
+
 function peerEvent(id, e) {
     const p = MP.peers[id];
     if (!p) return;
+    if (MP.clock - p.evAt < 0.8) { MP.recv++; return; }   // one honk / wave a beat per rider (a flood is dropped here)
+    p.evAt = MP.clock;
     if (e === "honk") { p.honkT = 1.1; emit("mp:honk", { peer: p }); }
     else if (e === "wave") { p.waveT = 1.1; }
 }
@@ -221,6 +283,7 @@ function sendState() {
     const me = MP.me;
     const d = { m: me.foot ? 1 : 0, x: me.x, di: Math.round(me.di), sp: Math.round(me.sp || 0), vk: me.vk || "car" };
     if (d.vk === "borrowed") { d.ct = me.ct || 0; d.co = me.co || "#E53935"; }
+    if (me.w) d.w = me.w;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     const pk = ctx.parking && ctx.parking.pose ? ctx.parking.pose() : null;
     if (pk) d.pk = pk;
     if (MP.race) {
@@ -461,6 +524,20 @@ export function scoresList() {
 }
 
 // ── the per-frame tick ───────────────────────────────────────────────────
+/** Where a peer is relative to me, in 2D px of road (+ ahead). A 3D rider's exact place wins over the 2D ring
+ *  (no ring aliasing: someone 5 km down the road isn't "here"); a rider in another zone is far away. */
+function relOf(p, M) {
+    const W = p.w && MP.clock - p.w.at < 4 ? p.w : null;
+    const mz = M.zone == null ? "" : M.zone;
+    if (W) {
+        if (W.z === "~" || W.z !== mz || mz === "~") return RING / 2;
+        if (W.z === "") return (W.ca - M.s) * DI_PER_M;
+        const dx = W.ca - (M.lx || 0), dz = W.cb - (M.lz || 0), ahead = dx * Math.sin(M.h || 0) + dz * Math.cos(M.h || 0);
+        return (ahead < 0 ? -1 : 1) * Math.hypot(dx, dz) * DI_PER_M;
+    }
+    return mz === "" ? wrap(p.di - M.di) : RING / 2;    // a 2D rider is always on the highway
+}
+
 /** me = { s, d, sp (m/s), foot, driving, sending, vk } from index.js */
 export function tick(dt, me) {
     if (!MP_URL) return;
@@ -473,15 +550,16 @@ export function tick(dt, me) {
     if (MP.want && (!MP.sock || MP.sock.readyState >= 2) && MP.clock >= MP.reconnectAt) openSocket();
     if (sockOpen()) { MP.pingT += dt; if (MP.pingT >= 25) { MP.pingT = 0; send({ t: "pi" }); } }
     raceUpdate(dt);
-    if (MP.connected && (me.sending || MP.race)) {
+    if (MP.connected && (me.sending || me.hidden || MP.race)) {
         MP.sendT += dt;
-        if (MP.sendT >= 0.2 || MP.forceSends > 0) { MP.sendT = 0; if (MP.forceSends > 0) MP.forceSends--; sendState(); }
+        if (MP.sendT >= (me.sending || MP.race ? 0.2 : 1) || MP.forceSends > 0) { MP.sendT = 0; if (MP.forceSends > 0) MP.forceSends--; sendState(); }
     }
     const fade = dt / 0.4;
     for (const id in MP.peers) {
         const p = MP.peers[id];
         p.di += (p.sp || 0) * dt;
         p.x += (p.tx - p.x) * Math.min(1, dt * 8);
+        if (p.w) { const W = p.w, age = Math.min(1, MP.clock - W.at), k = Math.min(1, dt * 6); W.ca += (W.a + W.va * age - W.ca) * k; W.cb += (W.b + W.vb * age - W.cb) * k; }
         if (p.honkT > 0) p.honkT -= dt;
         if (p.waveT > 0) p.waveT -= dt;
         if (p.emT > 0) p.emT -= dt;
@@ -490,7 +568,7 @@ export function tick(dt, me) {
         const target = p.dropping ? 0 : 1;
         p.vis = p.vis < target ? Math.min(target, p.vis + fade) : Math.max(target, p.vis - fade);
         if ((p.dropping && p.vis <= 0.01) || MP.clock - p.lastPacket > 9) { emit("mp:peerGone", { peer: p }); delete MP.peers[id]; }
-        else p.rel = wrap(p.di - M.di);
+        else p.rel = relOf(p, M);
     }
     tagUpdate(dt);
     if (MP.tagBanner) { MP.tagBanner.t += dt; if (MP.tagBanner.t > 2.4) MP.tagBanner = null; }

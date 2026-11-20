@@ -96,7 +96,9 @@ async function body(t) {
   await peer.open();
   await peer.pump(800);
   if (!await t.until(`Object.keys(${S}.peers).length === 1`, "sees the 2D player")) return;
-  t.check("sees the 2D player join", await t.game(`Object.values(ctx.mp._debug.peers)[0].name`) === "Latke Legend");
+  // EVERYONE: a stranger shows as their car's colour + a number, never the name they sent
+  const lbl = await t.game(`Object.values(ctx.mp._debug.peers)[0].name`);
+  t.check("sees the 2D player join — as a generated label (Gold NN)", /^Gold \d\d$/.test(lbl), lbl);
   await t.frames(4);
   await t.shot("connected");
   await t.tap(1);   // ○ closes back to the party hub…
@@ -147,7 +149,7 @@ async function body(t) {
   // party record toast from the 2D player
   peer.state({ pb: [7, 123456] });
   await t.frames(6);
-  t.check("🎉 record toast", await t.L(`/Latke Legend set a record: 123,456/.test(document.getElementById("mpOverlay").textContent)`));
+  t.check("🎉 record toast", await t.L(`/Gold \\d\\d set a record: 123,456/.test(document.getElementById("mpOverlay").textContent)`));
   delete peer.d.pb;
 
   // ── friend room: switch rooms from the pause menu ──

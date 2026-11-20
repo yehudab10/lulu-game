@@ -293,3 +293,19 @@ Nothing else is new on the wire — the rest is seeded from what every screen al
   `["rest", "⛽", "at the <name>"]`), ride jobs, hotwiring foot's parked cars.
 Worst-case extras with claims ≈ 320 bytes on top of the pose — the 1.9 KB snapshot cap is untouched (over it,
 the bulky extras drop first as before).
+
+## 3D — EVERYONE IN ONE WORLD (features/multiplayer, ci/everyone)
+Still protocol v1, still the verbatim-relayed `d`. **No server change.**
+- The 3D game joins EVERYONE by itself whenever she's out in the open world (⚙️ Play online — the shared save's
+  `mpAutoOff` — turns it off; Dina's mode and any 🎉 party are offline from it). EVERYONE is **sharded on the client**:
+  the relay closes a 25th member with 4001, so the client moves on to room `lobby2` … `lobby8` (the 2D game stays in
+  `lobby`, so cross-play is in the first shard). Rooms stay ≤ 24 — the relay's cap is untouched.
+- New piggyback field `w` (3D senders only; 2D ignores it): `w: [zone, a, b, h]` — zone `""` the highway (a = s metres,
+  b = lateral d metres, h = yaw relative to the road), a town id like `"lakewood"` (a, b = metres from that town's origin,
+  h = yaw), `"~"` hidden (indoors, a scene, a menu: receivers draw nothing). ~30 bytes. While in a town the 2D fields
+  say "parked by the town's exit" (`di` = the exit, `x` = 470, `sp` = 0); while hidden the state goes out at 1 Hz.
+- **Receivers never trust a stranger:** names shown in EVERYONE are generated (`<skin colour> <hash(id) % 90 + 10>`),
+  never the joined `name`; `race`/`tag`/`pk` fields are ignored outside a code room; emotes ≥ 1.5 s, honk/wave events
+  ≥ 0.8 s, record toasts ≥ 90 s apart per sender (dropped on the receiving side); `sk`/`co`/`vk`/numbers are validated.
+- What leaves the device: the curated name (from the 12), the car skin, the game-world position / speed, emote / honk
+  indices. No location, contacts, device or account data, no free text.
