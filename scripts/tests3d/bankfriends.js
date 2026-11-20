@@ -69,6 +69,7 @@ async function body(t, guests) {
   t.check("one robbery at a time: the guest's scheduler stands down while the host's is on", true);
   await A.until(`ctx.heist.debug.party().puppets.includes(${HU})`, "guest: sees the host's robbery (robber + getaway car)", 40000);
   t.check("guest: …and its own scheduler won't start another", await A.game(`(ctx.heist.debug.R.nextT = 0, !ctx.heist.debug.schedRobbery())`));
+  await A.game(`(ctx.heist.debug.R.nextT = 1e9, true)`);      // (and none of its own later: the TACKLE below must be on the host's robber)
   await A.page.screenshot({ path: path.join(SHOTS, "3d-bankfriends-robbery-guest.png") }).catch(() => { });
   // the guest runs up and TACKLES him (the ✋ spot on her screen → the host checks she's really there)
   await A.game(`(() => { const p = ctx.heist.debug.party(); return true; })()`);

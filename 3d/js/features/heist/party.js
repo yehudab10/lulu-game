@@ -42,7 +42,15 @@ export function bindRobbery(r, hit) { R = r; friendHit = hit; }
 
 export const PR = {
     /** Is a friend's robbery on (anywhere)? (one at a time across the party) */
-    friendRobbery() { return friendPeers().some(p => Array.isArray(p.x && p.x.rb) && (p.x.rb[1] | 0) <= 2); },
+    friendRobbery() {
+        // (a friend's last word counts for a while: a slow screen's snapshots can lag seconds behind — never two at once)
+        for (const u of members()) {
+            if (u === me()) continue;
+            const p = ctx.party.peer(u);
+            if (p && ctx.party.fresh(p, 30000) && Array.isArray(p.x && p.x.rb) && (p.x.rb[1] | 0) <= 2) return true;
+        }
+        return false;
+    },
     /** A friend's car (driving, in my town) within r m of (x, z) on my screen → their uid, or "". */
     friendCarNear(x, z, r) {
         if (!inParty()) return "";
