@@ -54,6 +54,7 @@ module.exports = {
     await g(`(window.__auto = true, true)`);
     await t.L(`import("./js/core/driving.js").then(m => import("./js/core/ctx.js").then(c => c.hook("controls", (ctl, dt) => { if (window.__auto && !window.__route?.pts?.length) Object.assign(ctl, m.autoDrive(dt, 5.25, 30)); }, 999)))`);
     await t.frames(60);
+    await g(`(ctx.atmos.debug.clearLife && ctx.atmos.debug.clearLife(), true)`);     // (no random banner plane / balloon in either measurement)
     const busy = await perf(150);
     console.log("   PERF busy cruise", JSON.stringify(busy));
     await g(`(window.__auto = false, true)`);
@@ -467,6 +468,7 @@ module.exports = {
       // drive Main St east toward the circle (the busiest view) for the measurement
       await route([[60, 153.75], [132, 153.75], [142, 162], [150.25, 172], [150.25, 236]], 10, 4);
       await t.frames(40);
+      await g(`(ctx.atmos.debug.clearLife && ctx.atmos.debug.clearLife(), true)`);
       const town = await perf(150);
       console.log("   PERF town", JSON.stringify(town));
       console.log("   PERF town static", JSON.stringify(await g(`(() => { const T = ctx.town.debug.S.T; const by = {}; T.root.traverse(o => { if (o.isMesh && o.userData.townLook) { const k = o.userData.townLook; by[k] = (by[k] || 0) + o.geometry.index.count / 3; } }); return { tris: Math.round(T.tris), meshes: T.merged, by }; })()`)));
@@ -543,6 +545,7 @@ async function attached(t, g, E, perf) {
   // the budget in an attached town (the highway's chunks and Midwood stand nearby): Main St east, the busiest view
   await g(`(window.__route = null, ${D}.place("Main St", 60, 1.75, 6, 1))`);
   await t.frames(40);
+  await g(`(ctx.atmos.debug.clearLife && ctx.atmos.debug.clearLife(), true)`);
   const town = await perf(120);
   console.log("   PERF attached town", JSON.stringify(town));
   // (the stand-alone town's budget is 240 calls / 115k triangles; an attached town also shows the interchange down Route 9
