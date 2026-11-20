@@ -55,20 +55,20 @@ function build(rt) {
     B.put("Desk", OF - 0.6, -1.0, 0, 1.6, 0.8);
     B.put("Chair", OF - 0.6, -1.85, 0);
     B.put("Chair", OF - 1.1, -0.1, Math.PI); B.put("Chair", OF - 0.1, -0.1, Math.PI);
-    B.put("Bookcase", OF - 2.3, bz + 0.3, 0, 1.0, 0.45);
-    B.put("Plant", OF + 2.3, bz + 0.45, 0, 0.4, 0.4);
+    B.put("Bookcase", OF - 2.35, bz + 0.3, 0, 1.0, 0.45);
+    B.put("Plant", OF + 2.55, bz + 0.45, 0, 0.4, 0.4);
     B.put("FloorLamp", OF - 2.4, 1.6, 0, 0.3, 0.3);
     const list = API ? API.listings() : [];
     V.list = list;
     const tex = rt.own(boardTex(list.map(r => [`${r.address} · ${r.label}`, `${fmt(API.valueOf(r))} 💰`]), "TODAY'S LISTINGS"));
     const board = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(2.4, 1.8)), rt.own(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 })));
-    board.position.set(OF + 0.9, 1.55, bz + 0.01); rt.add(board);
+    board.position.set(OF + 1.25, 1.55, bz + 0.01); rt.add(board);
     // a "SOLD!" sign as decor + her name over the desk
     const nameTex = (() => { const c = document.createElement("canvas"); c.width = 512; c.height = 96; const g = c.getContext("2d");
         g.fillStyle = R.signBg; g.fillRect(0, 0, 512, 96); g.fillStyle = R.signFg[0]; g.font = "bold 40px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(R.firm.toUpperCase(), 256, 50);
         const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
-    const np = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(2.6, 0.48)), rt.own(new THREE.MeshStandardMaterial({ map: rt.own(nameTex), roughness: 0.7 })));
-    np.position.set(OF - 0.9, 2.35, bz + 0.01); rt.add(np);
+    const np = new THREE.Mesh(rt.own(new THREE.PlaneGeometry(1.7, 0.32)), rt.own(new THREE.MeshStandardMaterial({ map: rt.own(nameTex), roughness: 0.7 })));
+    np.position.set(OF - 0.95, 2.3, bz + 0.01); rt.add(np);
     // the waiting area: a couch, a coat rack, a coffee table with brochures, a framed picture, the "coffee machine"
     B.put("Couch", WA - 0.4, bz + 0.75, 0, 2.2, 0.9);
     B.put("CoffeeTable", WA - 0.4, 0.3, 0, 1.1, 0.6);
@@ -84,7 +84,7 @@ function build(rt) {
         rt.person("realtor", R.name === "Mendel Brick" ? "npcMan" : "npcWoman", { x: OF - 0.6, z: -1.75, ry: 0 }, { name: R.name, colors: R.colors, pose: {} });
         rt.hot({ id: "realtor", x: OF - 0.6, z: -0.2, who: "realtor", r: 1.5, label: () => `💬 Talk to ${R.name.split(" ")[0]}`, action: talkRealtor });
     } catch (e) { console.warn("[realestate] realtor", e); }
-    rt.hot({ id: "board", x: OF + 0.9, z: bz + 0.95, r: 1.3, label: "📋 Today's listings", action: openBoard });
+    rt.hot({ id: "board", x: OF + 1.25, z: bz + 0.95, r: 1.3, label: "📋 Today's listings", action: openBoard });
     rt.hot({ id: "coffee", x: WA + 2.2, z: bz + 1.0, r: 1.0, label: "☕ The coffee machine", action: r => r.say("Lulu", pick(["It's a coffee machine. It makes a noise. It does NOT make coffee.", "*gurgle* …that's all it does. Gurgle.", "There's a sign: 'COFFEE FOR CLIENTS WHO SIGN'. Rude."]), { emoji: "☕" }) });
     rt.hot({ id: "brochures", x: WA - 0.4, z: 1.0, r: 1.2, label: "📰 The brochures", action: r => r.say("A brochure", pick(["'LIVE THE DREAM — 2 BR, 1 BA, 0 PARKING'", "'CHARMING FIXER-UPPER (needs: everything)'", "'STEPS FROM THE SHUL!' (412 steps. They counted.)", "'MOTIVATED SELLER!!!' (the seller is a goose)"]), { emoji: "📰" }) });
     // Lulu: in through the front door

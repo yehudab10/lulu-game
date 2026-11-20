@@ -47,9 +47,9 @@ export const MARKET = {
     perTown: 7,           // about this many homes are for sale in a town on any real day
     listDays: 4,          // a listing stays up this many real days (staggered per house)
     // today's value = price × (1 + drift × wave(day)): the value of a house never moves more than ±drift, so the
-    // highest is at most (1 + drift) / (1 − drift) ≈ 8.3 % over the lowest — and selling costs SALE.fee (10 %):
-    // buy-then-sell ALWAYS loses at least ~2.5 % (no arbitrage loop).
-    drift: 0.04,
+    // highest is at most (1 + drift) / (1 − drift) ≈ 7.3 % over the lowest (+ the rounding to 50) — and selling costs
+    // SALE.fee (10 %): buy-then-sell ALWAYS loses at least ~3 % (no arbitrage loop).
+    drift: 0.035,
     period: 23,           // real days for a full swing
 };
 /** Selling back through the realtor (stage 3): today's value − this share ("my commission, the lawyer, the lawyer's lawyer"). */

@@ -127,7 +127,7 @@ const doorSpot = {
 };
 // her mailbox
 const boxSpot = {
-    r: 1.3, short: "MAIL",
+    r: 1.3, short: "MAIL", first: true,          // (right at the mailbox it wins over her front door, 2 m away)
     pos() { W.box = canAct() ? nearest(W.owned, "mailbox", 1.3) : null; return W.box ? W.box.mailbox : null; },
     label() { return W.box ? "📬 YOUR MAILBOX" : null; },
     act() { if (W.box) mailbox(W.box); },
@@ -211,6 +211,21 @@ async function viewing(rec) {
             }
             return !sc.done;
         },
+        // a framing shot from the sidewalk: Lulu, the realtor and the house (the free camera could sit in a hedge / a tree)
+        camera(dt) {
+            const cam = ctx.camera;
+            if (!sc.cam) {
+                const look = new THREE.Vector3();
+                cam.getWorldDirection(look).multiplyScalar(6).add(cam.position);
+                sc.cam = { pos: cam.position.clone(), look, tgt: new THREE.Vector3(rec.ap.x + rec.nx * 4.6 - rec.ux * 2.2, 2.7, rec.ap.z + rec.nz * 4.6 - rec.uz * 2.2),
+                    aim: new THREE.Vector3(rec.ap.x - rec.nx * 1.2 + rec.ux * 0.6, 1.35, rec.ap.z - rec.nz * 1.2 + rec.uz * 0.6) };
+            }
+            const k = 1 - Math.exp(-dt * 3.5);
+            sc.cam.pos.lerp(sc.cam.tgt, k); sc.cam.look.lerp(sc.cam.aim, k);
+            cam.position.copy(sc.cam.pos); cam.lookAt(sc.cam.look);
+            if (ctx.cam && ctx.cam.state) ctx.cam.state.pos.copy(cam.position);
+            return true;
+        },
         abort() { sc.done = true; },
     });
     if (!ok) { W.busy = false; return; }
@@ -244,6 +259,7 @@ async function viewing(rec) {
     finally {
         if (sc.rel && sc.rel.obj.parent) sc.rel.obj.parent.remove(sc.rel.obj);
         sc.done = true;
+        if (!into && ctx.cam && ctx.cam.blend) ctx.cam.blend(0.6);
         W.busy = false;
     }
     if (into) { await nextFrame(); goIn(rec, "viewing"); }
@@ -402,4 +418,3 @@ ctx.realestate = {
     debug: { W, S, CLOCK, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
 };
 // tests: a stable handle on the save
-void THREE;
