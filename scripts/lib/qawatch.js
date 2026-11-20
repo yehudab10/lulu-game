@@ -132,6 +132,10 @@ const SRC = String.raw`
     const cov = covered();
     const soft = softCutUp();
     if (soft || cov.length || ctx.view) Q.cutF = f;
+    // (a wall came between her and the camera: it comes in at once, by design — like any third-person game)
+    const cd = ctx.cam && ctx.cam.free ? ctx.cam.free.clipD : 99;
+    if (Q.clipD != null && cd < Q.clipD - 2) Q.cutF = f;
+    Q.clipD = cd;
     if (ctx.cam && ctx.cam.mode !== Q.camMode) { if (Q.camMode != null) Q.cutF = f; Q.camMode = ctx.cam.mode; }     // (△ / Y: another camera view is a cut)
     const cutNear = f - Q.cutF <= 2 || f - Q.stateChangeF <= 2 || ctx.skipping;
     // NaN

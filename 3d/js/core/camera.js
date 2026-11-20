@@ -169,6 +169,8 @@ export const cam = {
         get pitch() { return FREE.pitch; }, set pitch(v) { FREE.pitch = clamp(v, LOOK.pitchMin, LOOK.pitchMax); },
         get idle() { return FREE.idle; },
         get looks() { return FREE.n; },
+        /** How far the walls let it sit right now (m; 99 = nothing in the way) — tests. */
+        get clipD() { return FREE.clipD; },
         /** Is the free camera the one on screen (it ran last frame)? */
         get on() { return FREE.frame >= ctx.frames - 1; },
         /** Start from where the camera is looking right now (no swing when the rig takes over). */
