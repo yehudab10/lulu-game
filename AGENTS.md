@@ -73,7 +73,7 @@ continuous one, where the car is something you use rather than the whole game. E
 | `ci/exits2` | 🛣️ EACH TOWN ITS OWN EXIT (roadmap 13) — owned by the town-engine agent (ex-`ci/oneworld`). Started 2026-11-20. |
 | `ci/hometown` | 🏠 LULU LIVES IN MIDWOOD (roadmap 14) — the home start (`features/world/depart.js`), her house (`features/decor`), Ima's list, dinner and `ctx.onegame.home()` move to a Midwood address. Owned by the ex-`ci/home` agent; needs a lot from the town engine. Started 2026-11-20. |
 | `ci/homelife` | 🏡 HOUSES WITH SOMETHING GOING ON (roadmap 15) — owns `features/homes` (households, schedules, visits). Started 2026-11-20. |
-| `ci/realestate` | 🏘️ OWN, BUY AND SELL HOMES (roadmap 16) — new `features/realestate/`; a realtor's office, the bank's mortgage desk; local save + friends first. Started 2026-11-20. |
+| `ci/realestate` | 🏘️ OWN, BUY AND SELL HOMES (roadmap 16) — new `features/realestate/`; a realtor's office, the bank's mortgage desk; local save + friends first. Started 2026-11-20. **In progress — stage 1** (the realtor's office in each town, FOR SALE signs, viewings, buying with cash, her own front door + mailbox, 📞 the realtor's contact). Next: (2) the mortgage desk in the bank lobby, (3) decorating + rent + selling, (4) friends. Prices / caps all in `features/realestate/data.js`. |
 | `ci/shul` | 🕍 A SHUL YOU CAN WALK INTO (roadmap 18) — one walk-in shul per town on the Places pattern, shared with friends, respectful + warm. Started 2026-11-20. |
 | `ci/polish` | 🧹 SMALL LEFTOVERS — the short "left for later" items other agents listed in §7 (one small tested change at a time). Started 2026-11-20. |
 | `ci/courts` | ⚖️ THE COURTHOUSES' OWN STORIES (owner, 2026-11-20) — Lakewood: "Shloime's case", a humorous hearing series Lulu can sit in on (he wants custody of his baby daughter; warm, never mean); Midwood: when Lulu is tried there her lawyer is ABBA (same verdict maths, his lines). Data-driven + additive in `features/law` / `features/places`; coordinates with `ci/partners`. Started 2026-11-20. |
@@ -215,6 +215,8 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 | Lakewood | Route 9 | St. Shloimy's hospital | `ci/places` (landed) |
 | Midwood | Avenue K | precinct, courthouse | `ci/places` (landed) |
 | Midwood | Avenue L | Midwood General | `ci/places` (landed) |
+| Lakewood | Main St, north side between Forest Ave and Lake Dr (block "3,1" n — across from the bank) | Gold Standard Realty (a `town_shop` + two plain shops: the shop row stays a shop row) | `ci/realestate` |
+| Midwood | Avenue M, south side between Coney Island Ave and E 15th (block "2,0" s) | Brick by Brick Realty (a `town_mw_store` in the store row) | `ci/realestate` |
 
 
 ## 7. Backlog / known rough edges (good next tasks)

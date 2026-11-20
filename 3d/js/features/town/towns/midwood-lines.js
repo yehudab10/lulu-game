@@ -48,6 +48,7 @@ export const SIGNS = {
         ["BAIS MEDRASH OF THE GARAGE", "Parking: inside, with the seforim"],
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
+    realty: ["BRICK BY BRICK REALTY", "Mendel Brick · up-and-coming since 1962"],   // features/realestate (uses.realty)
     bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · 70½TH PRECINCT", "courtesy · professionalism · parking"],

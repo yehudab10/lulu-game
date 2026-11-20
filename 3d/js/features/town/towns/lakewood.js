@@ -29,7 +29,7 @@ export default {
     blocks: {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
-        "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "shops" } },
+        "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "realty" } },    // (features/realestate: Gold Standard Realty on Main St, across from the bank)
         "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "3,2": { faces: { s: "bank" } },
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
@@ -57,6 +57,10 @@ export default {
             ] },
         hospital: { key: "places_hospital", fallback: "town_shop", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#EEF2F1", Trim: "#00897B", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#FFFFFF", signFg: ["#00695C", "#C62828"] },
+        // features/realestate (roadmap 16): the realtor's shopfront between two ordinary shops (a shop row stays a shop row)
+        realty: { key: "town_shop", fallback: "town_shop", dims: { w: 12, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
+            tints: { Walls: "#F3E5D8", Awning: "#C2185B" }, signSize: [11.0, 1.0, 100], signBg: "#3E2723", signFg: ["#FFD54F", "#FFF3E0"],
+            with: [{ key: "town_shop", u: -13 }, { key: "town_shop", u: 13 }] },
     },
 
     // landmarks

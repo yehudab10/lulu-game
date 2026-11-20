@@ -56,7 +56,7 @@ export default {
     // row (0 = Ave M → L, 1 = L → K, 2 = K → J); "k,Kings Hwy": the 4-sided blocks between Kings Hwy and Avenue M.
     blockDefault: "mwhomes",
     blocks: {
-        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "cia", n: "hospital" } }, "2,0": { faces: { s: "avem", w: "cia" } },
+        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "cia", n: "hospital" } }, "2,0": { faces: { s: "realty", w: "cia" } },    // (features/realestate: Brick by Brick Realty on Avenue M)
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
         "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
@@ -84,6 +84,10 @@ export default {
             ] },
         hospital: { key: "places_hospital", fallback: "town_mw_store", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
             tints: { Walls: "#B5653F", Trim: "#F2EEE6", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#0D47A1", signFg: ["#FFFFFF", "#BBDEFB"] },
+        // features/realestate (roadmap 16): the realtor's storefront in the middle of the Avenue M store row
+        realty: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
+            tints: { Walls: "#7B4A3A", Awning: "#1B3A2B" }, signSize: [8.4, 0.9, 88], signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
+            with: [{ key: "town_mw_store", u: -10.5 }, { key: "town_mw_store", u: 10.5 }, { key: "town_mw_store", u: -21 }, { key: "town_mw_store", u: 21 }] },
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [

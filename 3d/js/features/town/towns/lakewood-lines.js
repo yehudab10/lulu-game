@@ -45,6 +45,7 @@ export const SIGNS = {
     toHighway: ["TO HIGHWAY", "(you'll be back)"],
     plaque: ["IN HONOR OF", "THE MINIVAN"],
     bandBus: ["THE MAZEL TONES", "simcha band · 11 players · 1 bus · 0 parking"],
+    realty: ["GOLD STANDARD REALTY", "Shprintzy Gold · we sell COZY · se habla Yiddish"],   // features/realestate (uses.realty)
     bank: ["FIRST MINIVAN BANK OF LAKEWOOD", "drive-thru · 9 lanes · still a line"],   // features/heist's bank (uses.bank)
     // features/places — the civic buildings (uses.precinct / .court / .hospital / .impound)
     precinct: ["POLICE · PRECINCT 18½", "we bend the rules so you don't have to"],
