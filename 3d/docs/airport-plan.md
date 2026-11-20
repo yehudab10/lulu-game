@@ -1,6 +1,6 @@
 # ✈️ The airport exit (JFK) — plan + hand-off
 
-**Status: PLANNING — nothing is built yet. Ask the owner the questions below BEFORE building.**
+**Status: DECIDED (the owner answered all 12 questions on 2026-11-20 — see Decisions). Building stage 1 on `ci/airport`.**
 **Branch: `ci/airport`. Owner of this job: the owner's other AI account (the one that originally set this repo's agents going).**
 Everything else in flight belongs to the coordinator session's agents (see `AGENTS.md` §6).
 
@@ -138,21 +138,22 @@ interchange offers both towns" is assumed in several places.
 
 | # | question | the owner's answer | date |
 |---|---|---|---|
-| 1 | what the airport is for | | |
-| 2 | do planes go anywhere | | |
-| 3 | how much is walk-in | | |
-| 4 | the runway | | |
-| 5 | where on the highway | | |
-| 6 | names | | |
-| 7 | who is there | | |
-| 8 | jobs + the daily list | | |
-| 9 | with friends | | |
-| 10 | the law there | | |
-| 11 | must-haves / avoid | | |
-| 12 | order of delivery | | |
+| 1 | what the airport is for | **Travel** is the long-term purpose. The first version builds everything up to the flight (exit, kerb, terminal with check-in, security, departures board, gate); the flight itself is a later stage | 2026-11-20 |
+| 2 | do planes go anywhere | **Not in the first version.** Planes take off overhead and she watches from the gate. A flight (destination TBD) is stage 4 | 2026-11-20 |
+| 3 | how much is walk-in | **One terminal hall, done well**: check-in, the security-line gag, a food court, a gate window on the runway, the arrivals door | 2026-11-20 |
+| 4 | the runway | **No**: a fence all round, and a great joke when she tries (Segway security / a giant plane horn) | 2026-11-20 |
+| 5 | where on the highway | **Its own interchange, signed ✈️ JFK, further out than the town exits** (waits for `ci/exits2`'s split interchanges) | 2026-11-20 |
+| 6 | names | **JFK on the signs + parody airlines / shops / logos** (Kugel Air, El Oy, Shmear Jet…; the agent writes the jokes) | 2026-11-20 |
+| 7 | who is there | **Dovid Dov on tour** (family knows he's Lulu's brother; strangers don't). Not chosen: Bubbe arriving, Avigail, Uncle Moishe | 2026-11-20 |
+| 8 | jobs + the daily list | **Airport taxi runs** (hustle side job), **a lost suitcase** to return, **a Dovid Dov meet-up** — each capped. Not chosen: an Ima's-list item | 2026-11-20 |
+| 9 | with friends | **A shared terminal** (friends see each other inside, like the bank / houses); jobs + scenes stay personal. No luggage-cart races for now | 2026-11-20 |
+| 10 | the law there | **Cartoon airport security** instead of town police (Segway guard, a sniffer dog that only finds kugel); if she's wanted, security slows her and the real cops can catch up | 2026-11-20 |
+| 11 | must-haves / avoid | **Cartoon only**: parody airlines, nothing about real incidents or real security procedures | 2026-11-20 |
+| 12 | order of delivery | **The suggested order**: 1) exit + kerb loop + parking + planes overhead · 2) the terminal · 3) things to do (taxi runs, lost suitcase, Dovid Dov) · 4) later: a real flight | 2026-11-20 |
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-20 · airport · the owner answered all 12 questions (Decisions above). `ci/airport` created from main. Stage 1 (exit + kerb loop + parking + planes overhead) starts in `3d/js/features/airport/`; its interchange waits for `ci/exits2` to land — until then I build the airport place itself and hang it off the highway behind a test flag. I will log here before touching the interchange planner in `features/town`.
 - 2026-11-20 · coordinator · HEADS-UP for question 5 (where on the highway): the owner asked that Lakewood and Midwood
   stop sharing one exit — `ci/exits2` (the town-engine agent) is splitting them into separate interchanges now, and
   Lulu's house is moving into Midwood (`ci/hometown`). The interchange planner in `features/town` will change shape:
