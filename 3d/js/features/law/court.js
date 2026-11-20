@@ -24,6 +24,7 @@ import { S, bump, rand, pick, clamp, bountyFor, worstCharge, courtLineFor, court
     lawyerChargeArgument, clearWanted, clearLockup, sentenceDays, stat } from "./rules.js";
 import { Shot, V, runFlow, check, line, ask, person, lulu } from "./scene.js";
 import { FORCE, carBack, rideNote, goExit } from "./service.js";
+import { cellMates, courtMates, courtTick, courtClear, mateVerdict, mateBubble, names as crewNames } from "./crew.js";
 
 registerModels({ lawCourt: "law_court", lawJudge: "law_judge", lawProsecutor: "law_prosecutor", lawLawyer: "law_lawyer", lawAbba: "law_abba" });
 const COURT_KEYS = ["lawCourt", "lawJudge", "lawProsecutor", "lawLawyer", "lawAbba", "copPerson", "npcWoman", "npcMan", "npcKid",
@@ -113,6 +114,7 @@ registerState("lawCourt", {
         if (flow) flow.kill();
         flow = null;
         UI.hideAll();
+        courtClear();
         if (C) {
             C.set.hide();
             for (const k of ["lawyer", "witness", "guest"]) if (C[k]) { C.set.scene.remove(C[k].obj); C[k] = null; }
@@ -227,6 +229,15 @@ async function trial(f, data) {
     check(f);
     UI.caption("");
     bang(court.dramaTier >= 2 ? 2 : 1);
+    // 🔗 co-defendants (crew.js): a partner caught with her stands beside her — one hearing, each her own charges + verdict
+    if (cellMates().length) { await f.until(() => courtMates().length > 0, 2.5); check(f); }      // (solo: no wait at all)
+    const co = courtMates();
+    st.co = co;
+    if (co.length) {
+        bang(2);
+        await say(f, "judge", pick([`Co-defendants ${crewNames(co)} and Ms. Bruck. The ${co.length > 1 ? "lot" : "two"} of you AGAIN?! *sighs* Separate charges, separate verdicts. Let's get this over with.`,
+            `${crewNames(co)} AND Ms. Bruck. Together. In MY courtroom. Of course. 🙄`, `Well, well. Partners in crime, are we? Each of you answers for your OWN sheet.`]));
+    }
 
     const tierD = court.dramaTier, worst = worstCharge(cl), listStr = cl.join(", "), more = cl.length > 1;
     const flourish = tierD >= 3 ? ` ${worst}?! In all my YEARS — the most BRAZEN case of my CAREER!!${more ? " The FULL sheet: " + listStr + "." : " 😤"}`
@@ -263,6 +274,14 @@ async function trial(f, data) {
     const opt = Object.assign({}, opts[pickI], opts[pickI].bribe ? { cost: bribeCost } : {});
     X.blip("lulu");
     await say(f, "lulu", opt.says);
+    if (st.co && st.co.length) {
+        const u = st.co[0], nm = crewNames([u]);
+        await say(f, "lulu", pick([`Also, your honor? For the record — this was ALL ${nm}'s idea.`, `${nm} was driving. Metaphorically. And also literally.`, `I was just standing there! Ask ${nm}!`]));
+        mateBubble(u, pick(["😤 It was NOT!", "Excuse me?! 🙄", "Traitor. 😒", "We said we'd stick together!"]));
+        await f.sleep(1.2, true);
+        check(f);
+        await say(f, "judge", pick(["Blaming each other. Adorable. 🙄", "Save it for the car ride home, ladies.", "I have heard this EXACT argument from you two before."]));
+    }
 
     // the prosecutor sometimes leaps up to OBJECT before the ruling
     if (!FORCE.quietCourt && Math.random() < 0.5) {
@@ -341,6 +360,12 @@ async function trial(f, data) {
     emit("law:verdict", { verdict, fine, paid, charges: court.charges, plea: !!opt.plea });
     UI.caption(big, verdict === "fine" ? (couldnt ? `Couldn't cover it all — paid 💰${paid}` : `Paid 💰${paid}`) : verdict === "jail" ? `${sentenceDays()} days · car impounded` : "Free to go!");
     await f.sleep(1.6, true);
+    // (a co-defendant's own verdict, as her screen ruled it)
+    if (st.co && st.co.length) {
+        await f.until(() => st.co.every(u => mateVerdict(u)), 3);
+        const vs = st.co.map(u => mateVerdict(u) ? `${crewNames([u])}: ${mateVerdict(u)}` : "").filter(Boolean);
+        if (vs.length) { UI.caption(big, "🔗 " + vs.join(" · ")); await f.sleep(1.6, true); }
+    }
     check(f);
     UI.caption("");
     clearWanted();                      // she's answered to a judge — the slate is clean
@@ -391,6 +416,7 @@ function animate(dt) {
     C.prosecutor.update(dt, { talk: sp === "prosecutor", point: sp === "prosecutor" && st.t % 4 < 2 });
     C.bailiff.update(dt, { talk: sp === "bailiff" });
     C.me.update(dt, { talk: sp === "lulu", cheer: st.verdict === "dismissed" });
+    courtTick(dt, C.set);
     if (C.lawyer) C.lawyer.update(dt, { talk: sp === "lawyer" || sp === "abba", point: (sp === "lawyer" || sp === "abba") && st.t % 3 < 1.2 });
     if (C.witness && !C.witness.static) { C.witness.update(dt, { talk: sp === C.witness.p }); }
     if (C.guest && !C.guest.static) C.guest.update(dt, { sit: true, talk: st.guestT > 0 });
