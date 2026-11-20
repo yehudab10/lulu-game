@@ -28,7 +28,7 @@ module.exports = {
 
     // spots along the streets where a solid block stands right behind the sidewalk on the + side: { name, along, n (unit
     // normal toward the block, world), kerb (world point at d = WALK + 1.2 — the back of the sidewalk) }
-    const spots = await g(`(() => { const T = ctx.town, PL = T.plan, O = PL.ORIGIN, out = [];
+    const spots = await g(`(() => { const T = ctx.town, PL = T.plan, out = [];
       for (const st of PL.STREETS) { if (st.axis === "diag") continue;
         for (let a = st.a0 + 30; a < st.a1 - 30 && out.length < 40; a += 23) {
           const p0 = T.debug.pt(st.name, a, 0), pb = T.debug.pt(st.name, a, st.front + 4), pw = T.debug.pt(st.name, a, st.front - 1.0);
@@ -36,8 +36,10 @@ module.exports = {
           // not at a crossing (the block must run on both ways)
           const ok = [-8, 8].every(k => { const q = T.debug.pt(st.name, a + k, st.front + 4); return PL.OCCLUDERS.some(r => q.x > r.x0 && q.x < r.x1 && q.z > r.z0 && q.z < r.z1); });
           if (!ok) continue;
-          const nx = (pb.x - p0.x) / (st.front + 4), nz = (pb.z - p0.z) / (st.front + 4);
-          out.push({ name: st.name, along: a, front: st.front, nx, nz, x: O.x + pw.x, z: O.z + pw.z });
+          // (local → world with the town's turn: an attached town is rotated to its interchange — PL.world / COS / SIN)
+          const lx = (pb.x - p0.x) / (st.front + 4), lz = (pb.z - p0.z) / (st.front + 4), W = PL.world(pw.x, pw.z, {});
+          const nx = lx * PL.COS + lz * PL.SIN, nz = -lx * PL.SIN + lz * PL.COS;
+          out.push({ name: st.name, along: a, front: st.front, nx, nz, x: W.x, z: W.z });
         } }
       return out.filter((s, i) => i % 3 === 0).slice(0, 6); })()`);
     t.check("found spots right beside a block of houses", spots.length >= 3, String(spots.length));
@@ -62,6 +64,28 @@ module.exports = {
     await t.frames(45);
     const back = await g(`Math.hypot(ctx.camera.position.x - ctx.foot.pos.x, ctx.camera.position.z - ctx.foot.pos.z)`);
     t.check("turned back to the street, it eases back out (≥ 5 m)", back >= 5, back.toFixed(2));
+
+    // walking ALONG the houses (the camera right behind her, parallel to the wall): it must not hug her
+    if (spots[0]) {
+      const sp = spots[0];
+      await W.moved(t);
+      await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${sp.x} + ${sp.nx} * 0.9, 0, ${sp.z} + ${sp.nz} * 0.9); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2(${-sp.nz}, ${sp.nx}); ctx.cam.free.pitch = 0.29; return true; })()`);
+      await t.frames(10);
+      let minD = 99;
+      await t.stick(0, -1);
+      let why = null;
+      for (let i = 0; i < 8; i++) {
+        await t.frames(5);
+        const d = await g(`Math.hypot(ctx.camera.position.x - ctx.foot.pos.x, ctx.camera.position.z - ctx.foot.pos.z)`);
+        if (d < minD) { minD = d; if (d < 4.5) why = await t.L(`import("./js/features/foot/jump.js").then(m => { const c = __lulu3d.ctx, F = c.foot.debug.F, y = c.cam.free.yaw, p = c.cam.free.pitch, cp = Math.cos(p);
+            const tgt = { x: F.pos.x, y: 1.25, z: F.pos.z }, dx = -Math.sin(y) * cp, dz = -Math.cos(y) * cp, dy = Math.sin(p), lim = m.camClip(F, tgt, dx, dy, dz, 6.6);
+            const near = []; for (const ch of c.world.activeChunks()) for (const k of ch.colliders) { const q = Math.hypot(k.x - F.pos.x, k.z - F.pos.z); if (q < 7 && k.r >= 0.5) near.push(k.kind + ":" + k.r.toFixed(2) + "@" + q.toFixed(1) + "/lat " + (((k.x - F.pos.x) * dz - (k.z - F.pos.z) * dx) / Math.hypot(dx, dz)).toFixed(2)); }
+            return { lim: +lim.toFixed(2), clipD: c.cam.free.clipD, near: near.slice(0, 12) }; })`); }
+      }
+      if (why) console.log("   along the houses:", JSON.stringify(why));
+      await t.stick(0, 0);
+      t.check("walking along the houses, the camera stays back behind her (≥ 4.5 m)", minD >= 4.5, minD.toFixed(2));
+    }
 
     // ── a street tree right behind her: the camera must not end up in its leaves (a dark / black screen) ──
     const trees = await g(`(() => { const out = []; for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) if (c.kind === "tree" && !c.off) out.push({ x: c.x, z: c.z, r: c.r }); return out.slice(0, 40).filter((c, i) => i % 8 === 0).slice(0, 4); })()`);

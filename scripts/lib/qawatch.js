@@ -105,14 +105,15 @@ const SRC = String.raw`
       // (heights as the game's camera clip sees them: a house 7.5 m, anything else solid 4.5 m, low things their own)
       const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 4.5 : (low[c.kind] != null ? low[c.kind] : c.kind === "house" ? 7.5 : 4.5);
       if (y > top) continue;
+      if (c.kind === "house" && ctx.town && ctx.town.active) continue;     // (a town block's ring stands in front of its houses: the block rects below are the wall)
       const dx = x - c.x, dz = z - c.z;
       if (dx * dx + dz * dz < (c.r - pad) * (c.r - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
     }
     const T = ctx.town;
     if (T && T.active) {
-      const pl = T.plan, O = pl && pl.ORIGIN;
-      if (O) for (const r of pl.OCCLUDERS) {
-        const lx = x - O.x, lz = z - O.z;
+      const pl = T.plan, Lc = pl && pl.local ? pl.local(x, z, {}) : null;
+      if (Lc) for (const r of pl.OCCLUDERS) {
+        const lx = Lc.x, lz = Lc.z;
         if (lx > r.x0 + pad && lx < r.x1 - pad && lz > r.z0 + pad && lz < r.z1 - pad) return "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0);
       }
     }
@@ -160,8 +161,9 @@ const SRC = String.raw`
     if (!ctx.view && (st === "playing" || st === "footRun")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
       if (foot) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
-        if (c.kind !== "tree" || c.off || camP.y < 2.1 || camP.y > 6.5) continue;
-        const R = Math.max(2.0, c.r + 1.0);
+        if (c.kind !== "tree" || c.off || camP.y < 2.0 || camP.y > 7.5) continue;
+        const R = Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4)) - 0.3;     // (as foot/jump.js canopyR, a touch inside)
+        if ((foot.x - c.x) ** 2 + (foot.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)
         if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) flag("inwall", "the camera is inside a tree's leaves @" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")", "inwall:tree");
       }
       if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }

@@ -992,7 +992,8 @@ function footCamera(dt) {
         if (!F.introCam) {
             const piv = new THREE.Vector3(mx, 1.2, mz), cand = [1, -1].map(k => {
                 const dx = -fx * 6.2 + rx * 2.4 * k, dz = -fz * 6.2 + rz * 2.4 * k, D = Math.hypot(dx, 1.6, dz);
-                return { k, D, lim: camClip(F, piv, dx / D, 1.6 / D, dz / D, D) };
+                const r = camClip(F, piv, dx / D, 1.6 / D, dz / D, D);
+                return { k, D, lim: typeof r === "number" ? r : r.d };
             });
             const c = cand[0].lim >= cand[0].D - 0.01 || cand[0].lim >= cand[1].lim ? cand[0] : cand[1];
             F.introCam = { k: c.k, f: Math.min(1, c.lim / c.D) };
@@ -1638,10 +1639,12 @@ function interact(P) {
     const coach = pr ? "" : coachHint();
     H.prompt(pr ? `${glyph("interact")} ${pr.label}` : coach || (F.t > 4 && F.t < 16 && !homeQuiet() ? `${glyph("interact")} 💃 dance for the crowd` : ""));
     if (handBtn) {
-        const has = !!pr;
-        if (handBtn.classList.contains("has") !== has) {
+        // (refreshed whenever what's in reach CHANGES — from her car straight to a door it kept saying "OWN")
+        const has = !!pr, html = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
+        if (handBtn.dataset.html !== html) {
+            handBtn.dataset.html = html;
             handBtn.classList.toggle("has", has);
-            handBtn.innerHTML = has ? `👉<small>${(pr.kind === "spot" && pr.ent.short) || pr.kind.toUpperCase()}</small>` : `✋<small>HAND</small>`;
+            handBtn.innerHTML = html;
         }
     }
     if (!P.interact) return;

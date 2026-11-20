@@ -104,7 +104,8 @@ export const cam = {
     /** The FREE third-person camera (on foot): it orbits obj at the player's yaw / pitch and stays where they leave it.
      *  opts: dist (m), look (pivot height over her feet), fov, y (her height to frame — default obj.position.y),
      *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street),
-     *  clip(tgt, dx, dy, dz, D) → the farthest the camera may sit from the pivot along that direction (walls). */
+     *  clip(tgt, dx, dy, dz, D) → the farthest the camera may sit from the pivot along that direction (walls), or
+     *  { d, noLift } (noLift: don't rise over her head when that close — she's under a tree). */
     orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null, clip = null } = {}, dt = 1 / 60) {
         const camera = ctx.camera;
         // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
@@ -148,13 +149,14 @@ export const cam = {
         // a wall / a house between her and the camera (opts.clip — foot's: the same colliders she bumps into): the camera
         // comes in to this side of it at once, and eases back out once it's clear (no popping in and out at a corner)
         if (clip) {
-            const lim = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D);
+            const r = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D), lim = typeof r === "number" ? r : r.d;
+            FREE.noLift = typeof r === "object" && !!r.noLift;
             if (snapped || fresh || lim < FREE.clipD) FREE.clipD = lim;
-            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 2.5) + dt * 0.5);
+            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 4) + dt * 1.5);
             D = Math.min(D, FREE.clipD);
-        } else FREE.clipD = 99;
+        } else { FREE.clipD = 99; FREE.noLift = false; }
         // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)
-        const lift = D < 1.5 ? (1.5 - D) * 1.4 : 0;
+        const lift = D < 1.5 && !FREE.noLift ? (1.5 - D) * 1.4 : 0;
         camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D + lift, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
         camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);

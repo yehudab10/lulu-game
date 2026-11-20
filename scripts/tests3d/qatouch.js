@@ -64,6 +64,10 @@ module.exports = {
     await t.page.setViewportSize({ width: 844, height: 390 });
     await t.frames(10);
     L = judge(await layout(), "landscape, on foot");
+    if (L.prompt) {
+      const under = L.out.filter(a => !/phoneBtn|pauseBtn/.test(a.id) && Math.min(a.r, L.prompt.r) - Math.max(a.l, L.prompt.l) > OVER && Math.min(a.b, L.prompt.b) - Math.max(a.t, L.prompt.t) > OVER);
+      t.check("landscape, on foot: the prompt line isn't under a button", under.length === 0, JSON.stringify({ prompt: L.prompt, under }));
+    }
     await t.shot("landscape-foot");
     // in the car
     await g(`ctx.foot.debug.getIn()`);
