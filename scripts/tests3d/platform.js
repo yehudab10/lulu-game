@@ -19,7 +19,7 @@ module.exports = {
     const focus = () => t.L(`(document.querySelector("#screenCard .focus") || {}).id || ""`);
     await t.tap(13);
     const focused = await t.L(`(document.querySelector("#screenCard .focus") || {}).textContent || ""`);
-    t.check("D-pad moves the focus", !/Story Trip/.test(focused), focused.trim());
+    t.check("D-pad moves the focus", !/PLAY/.test(focused), focused.trim());
     for (let i = 0; i < 8 && await focus() !== "tg_more"; i++) await t.tap(await t.L(`document.getElementById("tg_more").getBoundingClientRect().top > document.querySelector("#screenCard .focus").getBoundingClientRect().bottom - 2`) ? 13 : 15);
     t.check("D-pad reaches ⚙️ More", await focus() === "tg_more");
     await t.tap(0);
@@ -30,14 +30,14 @@ module.exports = {
     await t.tap(1);
     t.check("○ goes back to ⚙️ More (Controls focused)", await focus() === "controls");
     await t.tap(1);
-    t.check("○ again → the home screen", await t.L(`/Story Trip/.test(document.querySelector("#screenCard").textContent)`) && await focus() === "tg_more");
-    for (let i = 0; i < 6 && await focus() !== "story"; i++) await t.tap(12);
-    t.check("D-pad ↑ back to the Story Trip", await focus() === "story");
+    t.check("○ again → the home screen", await t.L(`/PLAY/.test(document.querySelector("#screenCard").textContent)`) && await focus() === "tg_more");
+    for (let i = 0; i < 6 && await focus() !== "play"; i++) await t.tap(12);
+    t.check("D-pad ↑ back to ▶ PLAY", await focus() === "play");
 
     // drive briefly in TV mode with the DualSense (R2 = gas)
     await t.tap(0);
-    if (await t.until(`__lulu3d.state === "playing"`, "✕ starts the story drive")) {
-      t.check("✕ starts the story drive", true);
+    if (await t.until(`__lulu3d.state === "playing"`, "✕ starts the drive")) {
+      t.check("✕ on ▶ PLAY starts the drive", true);
       await t.hold(7, 1); await t.frames(30); await t.hold(7, 0);
       t.check("R2 drives", await t.game(`ctx.car.speed > 5`));
       await t.shot("tv-driving");
