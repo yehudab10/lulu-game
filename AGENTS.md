@@ -205,8 +205,10 @@ merged — ignore them.
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
 
-- Town triangle budget (`town` test, ≤ 115k at 1280×720, ⚙️ MEDIUM): with ci/oneworld it measured 111.9k–113.6k on CI and
-  115.4k on a local run (main before it: 116.8k) — the same view swings ±3k with how many cars are in sight. Pulling the
+- Town triangle budget (`town` test, now ≤ 120k at 1280×720, ⚙️ MEDIUM — RESET from 115k by ci/oneworld, 2026-11-20): the
+  same busiest view measured 111.7k–117.5k across CI runs of the SAME code (main before it: 116.8k) — it swings with how
+  many cars / walkers are in sight (~27k of the view is cars + people, ~10.6k the sky's clouds — atmos `sky.js`, 132
+  puffs × 80 triangles, in every scene). The town's own blocks / ground didn't grow. Pulling the
   town's draw distances in (MAX_D solid 300 → 250, flat 140 → 120) only saves 1–3k and starts to show pop-in down the
   long avenues, so it wasn't done. The real levers if it creeps over again: the town's ground (asphalt / walks / marks,
   ~14k, always drawn whole — split it into the cluster cells so it culls like the blocks) and the town's people / cars
