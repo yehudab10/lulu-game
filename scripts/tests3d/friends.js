@@ -93,9 +93,11 @@ async function body(t, pages) {
   const la = await A.game(`${F}.list[0]`), lb = await B.game(`${F}.list[0]`);
   t.check("A's list: B by their curated name + a small number", /^Latke Legend #\d\d$/.test(la.label), JSON.stringify(la));
   t.check("B's list: A as Kugel Kid #NN", /^Kugel Kid #\d\d$/.test(lb.label), JSON.stringify(lb));
-  t.check("the friend ids are random and differ", la.f !== lb.f && /^[A-Z2-9]{10}$/.test(la.f), la.f + " / " + lb.f);
+  t.check("the friend ids are random and differ", la.f !== lb.f && /^[A-Z2-7]{16}$/.test(la.f), la.f + " / " + lb.f);
   const fA = await A.game(`${F}.me`), fB = await B.game(`${F}.me`);
   t.check("each side's record of the other matches their real id", la.f === fB && lb.f === fA);
+  t.check("the friend id IS the one player identity (ctx.player.id())", fA === await A.game(`ctx.player.id()`) && fB === await B.game(`ctx.player.id()`));
+  t.check("…and my friends see my label the way I do (ctx.player.label())", lb.label === await A.game(`ctx.player.label()`), lb.label);
 
   // ── PRESENCE through the doorbells ──
   t.check("A's doorbell opens once A has a friend", await A.until(`${F}.debug().bell.open`, "A: doorbell", 30000));
@@ -196,6 +198,7 @@ async function body(t, pages) {
   await D.until(`__lulu3d && __lulu3d.state === "title" && __lulu3d.frames > 30`, "D reloads after the restore", 120000);
   const dl = await D.game(`({ me: ${F}.me, n: ${F}.list.length })`);
   t.check("the 💾 save code brings the friends list back (same id, 2 friends)", dl.me === fA && dl.n === 2, JSON.stringify(dl));
+  t.check("…and the same player secret (ctx.player — a new phone is the same player)", await D.game(`ctx.player.secret()`) === await A.game(`ctx.player.secret()`));
   await D.page.close(); pages.splice(pages.indexOf(D), 1);
 
   // ── REMOVE: A removes C → A's doorbell changes; C can't find A ──

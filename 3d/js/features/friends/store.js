@@ -1,6 +1,6 @@
 // features/friends — what's kept on the device (save3d.f.friends, so it rides in the scrapbook's 💾 save code with
 // everything else: restore the code on a new phone and the friends are back, and they find her again).
-//   me       { fid, bell }   — her random friend id (never shown) + her doorbell's secret room name
+//   me       { bell }        — her doorbell's secret room name (her friend id is ctx.player.id(): ONE identity, core/player.js)
 //   list     [{ f, n, sk, b, s, at, nb }]  — a friend: their id, curated name, car skin, THEIR doorbell, our shared
 //            secret (from the key exchange), when, and nb = "I still owe them my new doorbell" (after a block)
 //   blocked  [{ f, n, at }]   — never again (they can't knock: the doorbell they knew is gone)
@@ -9,18 +9,17 @@
 import { store, saveSoon } from "../../core/save.js";
 import { randStr, B64_RE } from "./crypto.js";
 import { CURATED_NAMES } from "../multiplayer/net.js";
+import { player, tagOf as tagOfId, ID_RE } from "../../core/player.js";
 
 export const CAP = 30, BLOCK_CAP = 50;
-export const FID_RE = /^[A-Z2-9]{10}$/, BELL_RE = /^[A-Z0-9]{11}$/;
+export const FID_RE = ID_RE, BELL_RE = /^[A-Z0-9]{11}$/;
 export const JOIN = ["always", "ask", "nobody"];
 export const S = store("friends", { me: null, list: [], blocked: [], join: "ask", hidden: false });
 
-/** Her identity, made once (a random id; nothing about her). */
+/** Her identity: the player id (core/player.js) + her doorbell, made once. (The player's SECRET never goes here.) */
 export function me() {
-    if (!S.me || !FID_RE.test(S.me.fid) || !BELL_RE.test(S.me.bell)) {
-        S.me = { fid: randStr(10), bell: randStr(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") };
-        saveSoon();
-    }
+    if (!S.me || !BELL_RE.test(S.me.bell)) { S.me = { bell: randStr(11, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") }; saveSoon(); }
+    if (S.me.fid !== player.id()) { S.me.fid = player.id(); saveSoon(); }
     return S.me;
 }
 export const bellRoom = bell => "B" + bell;
@@ -77,5 +76,5 @@ export function setJoin(v) { if (JOIN.includes(v)) { S.join = v; saveSoon(); } }
 export function setHidden(v) { S.hidden = !!v; saveSoon(); }
 
 /** "Kugel Kid #37" — 12 curated names are shared by many players, so the list adds a stable little number. */
-export function tagOf(fid) { let h = 0; for (const ch of String(fid)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 10 + h % 90; }
+export const tagOf = tagOfId;              // (the same "#37" as ctx.player.label())
 export const labelOf = f => `${f.n} #${tagOf(f.f)}`;

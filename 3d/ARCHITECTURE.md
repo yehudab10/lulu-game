@@ -208,6 +208,14 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   cache), write with `shared.update(s => { s.missiles++; })` (read-modify-write, safe with an open 2D tab).
   `shared.stat(id, n)` / `shared.best(id, v)` feed the 2D scrapbook's `save.stats`.
 * `wallet.coins`, `wallet.add(n)`, `wallet.spend(n) → bool`.
+* **`ctx.player`** (`js/core/player.js`) — ONE player identity for every online feature (👯 friends, 🏘️ the property
+  registry): `id()` a random public id (16 base32 chars, made on first use, nothing personal) · `secret()` a separate
+  192-bit secret that leaves the device ONLY to prove "I am id X" to a server keeping its hash (never in a party / Shared
+  Road / friends message) · `label()` "Kugel Kid #37" (the shared save's `mpName` + `#` + a number from the id;
+  `setLabel(l)` caches one a server handed out) · `backup.code()` / `restore(code)` = the scrapbook's 💾 save code (a
+  restore replaces the id + secret too: a new phone is the same player) · `backup.add(section, get, set)` a feature's own
+  little section (snapshotted by `saveToCode`, handed back on the first boot after a restore). Stored as
+  `save3d.player = { id, secret, made, label?, sx? }`.
 
 ## Models & Blender
 * JS: `registerModels({ key: "file_name" }, { preload })` at import; `await ensureModels([...])`
@@ -1198,8 +1206,8 @@ Dina · the 👯 hub · a party still sees strangers · a friend drawn once, as 
 
 **A friends list that lasts (friends, ci/friends, roadmap 19 stage 1 — `features/friends`):** the owner (2026-11-20):
 "combine party mode into the main world so friends could just friend each other and teleport and join their friends". No
-server change: everything rides the relay's protocol v1 in rooms the CLIENT names. **Identity** (`store.js`, the save's
-`f.friends`): a random 10-letter friend id + a random 11-character **doorbell** (room `"B" + bell`), made once; the list (≤ 30:
+server change: everything rides the relay's protocol v1 in rooms the CLIENT names. **Identity**: the friend id IS `ctx.player.id()`
+(core/player.js — one identity with the property registry); `store.js` (the save's `f.friends`) adds a random 11-character **doorbell** (room `"B" + bell`), made once; the list (≤ 30:
 id, curated name, car skin, THEIR doorbell, our shared secret), `blocked` (≤ 50), `join` (`always` / `ask` / `nobody`, default
 ask), `hidden` (🙈 appear offline). It rides in the scrapbook's 💾 save code with the rest of `save3d` (restored → the same id,
 the same friends, they find her again). **Making a friendship** (`handshake.js`, both must say yes): a channel = the EVERYONE

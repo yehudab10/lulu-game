@@ -314,7 +314,7 @@ Still protocol v1, still the verbatim-relayed `d`. **No server change.**
 
 No server change — the relay's protocol v1 in rooms the client names:
 - **New piggyback field `fr`** (3D only; 2D ignores it) in the EVERYONE state, and `x.fr` in a party snapshot: ≤ 3 entries
-  `{ to: peer id, pk: ECDH P-256 public key (base64url), f: the sender's random friend id, c?: AES-GCM sealed card }` — the
+  `{ to: peer id, pk: ECDH P-256 public key (base64url), f: the sender's public player id (`ctx.player.id()`, 16 base32 chars — never the player secret), c?: AES-GCM sealed card }` — the
   "be friends?" handshake (both say yes). A card = `{ f, n (curated name), sk, b (doorbell) }`, readable only by the two.
   A party snapshot also carries `x.fid` (the random friend id) so members can see who's already on their list.
 - **Doorbell rooms `B` + 11 chars** (a random secret only friends know): the owner sits there with state `{ o: 1 }`; a friend

@@ -21,6 +21,7 @@ import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
 import { updateLods, LOD } from "./lod.js";
 import { gfxFrame } from "./core/gfx.js";
 import { Post } from "./core/post.js";
+import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
 const MPH = 2.23694;
