@@ -150,7 +150,7 @@ function drove() {
     if (home.site === "town" && !HS.wayHint && ctx.town && typeof ctx.town.wayOut === "function") {
         let w = null;
         try { w = ctx.town.wayOut(); } catch (e) { w = null; }
-        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.name ? `head for ${w.name}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
+        if (w) { HS.wayHint = 1; saveSoon(); H.toast(`🛣️ To the highway: ${w.street ? `take ${w.street}` : "follow the signs"} — the on-ramp's at the end`, "", { prio: 2 }); }
     }
     emit("world:depart", { mode: G.mode, left: D.left });
 }
@@ -209,7 +209,7 @@ registerState("worldPullOut", {
             const st = ctx.cam && ctx.cam.state;
             if (st) { st.yaw = PO.yaw; st.pos.copy(ctx.camera.position); st.snap = false; }
             // (lined up along the road, the chase cam is where this one already is; at an angle, glide over)
-            if (!lined && ctx.cam && ctx.cam.blend) ctx.cam.blend(0.8);
+            if ((!lined || home.site === "town") && ctx.cam && ctx.cam.blend) ctx.cam.blend(home.site === "town" ? 1.0 : 0.8);
             setState("playing");
         }
     },
@@ -220,17 +220,18 @@ registerState("worldPullOut", {
         PO.yaw += wrapAngle((al < 1.2 ? car.h : rh) - PO.yaw) * Math.min(1, dt * (al < 1.2 ? 3 : 6));
         const portrait = cam.aspect < 1;
         if (home.site === "town") {
-            // a town lot: neighbours' houses either side — the camera rides just behind + above her (over the garage roof),
-            // looking out over the hood at the street she pulls out onto (she's nose-out) — then the chase cam takes over
-            const fx = Math.sin(car.h), fz = Math.cos(car.h), back = portrait ? 6.2 : 5.2, hi = portrait ? 6.4 : 5.4;
-            PO.v.set(car.pos.x - fx * back, hi, car.pos.z - fz * back);
-            PO.w.set(car.pos.x + fx * 7, 0.6, car.pos.z + fz * 7);
+            // a town lot (neighbours' houses either side, the porch roof behind): from out by the kerb, looking back at her
+            // car, the house and Ima in the doorway as she pulls out — then the chase cam glides in once she's on the street
+            const P = home.park, fx = Math.sin(P.h), fz = Math.cos(P.h), xx = Math.cos(P.h), xz = -Math.sin(P.h);
+            const out = portrait ? 11 : 9.5, side = portrait ? 1.5 : 3, hi = portrait ? 4.2 : 3.2;
+            PO.v.set(P.x + fx * out + xx * side, hi, P.z + fz * out + xz * side);
+            PO.w.set(car.pos.x - fx * 1.5, 1.1, car.pos.z - fz * 1.5);
             if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }
-            PO.pos.lerp(PO.v, Math.min(1, dt * 5));
+            PO.pos.lerp(PO.v, Math.min(1, dt * 4));
             PO.look.lerp(PO.w, Math.min(1, dt * 6));
             cam.position.copy(PO.pos);
             cam.lookAt(PO.look);
-            cam.fov += (62 + (portrait ? 16 : 0) - cam.fov) * Math.min(1, dt * 3);
+            cam.fov += (55 + (portrait ? 16 : 0) - cam.fov) * Math.min(1, dt * 3);
             cam.updateProjectionMatrix();
             if (ctx.cam) ctx.cam.state.pos.copy(cam.position);
             return true;

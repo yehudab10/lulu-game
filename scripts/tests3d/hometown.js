@@ -38,7 +38,11 @@ module.exports = {
     t.check("ctx.home.isFamily: the lot yes, the street no", await g(`(() => { const L = ctx.home.lot; return ctx.home.isFamily(L.x, L.z) && !ctx.home.isFamily(L.x + L.nx * 30, L.z + L.nz * 30); })()`));
     t.check("…the car sits in the driveway, nose to the street", await g(`(() => { const P = ctx.home.park, L = ctx.home.lot; return Math.abs(Math.sin(P.h) - L.nx) < 0.05 && Math.abs(Math.cos(P.h) - L.nz) < 0.05 && ctx.home.isFamily(P.x, P.z); })()`));
     await g(`L3.setState("title")`);
-    await t.frames(40);
+    // (the town engine builds the home town in slices on the title: wait for it, and say how long it took)
+    const tb = Date.now(), f0 = await g(`ctx.frames`);
+    t.check("Midwood gets built behind the title", await t.until(`(__lulu3d.ctx.town.standing || []).some(s => s.town === "midwood" && s.ready)`, "Midwood built", 120000));
+    console.log("   PERF title build", JSON.stringify({ ms: Date.now() - tb, frames: (await g(`ctx.frames`)) - f0, standing: await g(`ctx.town.standing.filter(s => s.town === "midwood")`) }));
+    await t.frames(20);
     await t.shot("title-midwood");
     t.check("the title looks at the house in Midwood", await g(`(() => { const c = ctx.camera.position, h = ctx.home.lot; return Math.hypot(c.x - h.x, c.z - h.z) < 60; })()`));
 
