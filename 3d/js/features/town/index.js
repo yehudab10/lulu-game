@@ -312,7 +312,9 @@ function home() {
 function tendAttached(dt) {
     const s = hwS();
     for (const e of X.exits) if (e.s - s < BUILD_FROM && s - e.s < ACC1) planBuilds(e);
-    for (const en of [...S.built]) if (en !== S.att && (Math.abs(s - en.exitS) > DROP_PAST + BUILD_FROM || s - en.exitS > DROP_PAST)) dropBuilt(en);
+    // (a town someone is prebuilding — the home town on the title, a warp's target — isn't dropped for being far off)
+    const now = performance.now();
+    for (const en of [...S.built]) if (en !== S.att && !(en.pin && now - en.pin < 3000) && (Math.abs(s - en.exitS) > DROP_PAST + BUILD_FROM || s - en.exitS > DROP_PAST)) dropBuilt(en);
     advanceBuilds();
     if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
     // (a few light minivans on its nearest streets, so the town she's driving toward isn't frozen — ambient.js)
@@ -988,6 +990,7 @@ ctx.town = {
             en = Object.assign(P, { e: null, T: null, gen: null, ready: false, box: boxOf(P.def), ms: 0, steps: 0, worst: 0 });
             S.built.push(en);
         }
+        en.pin = performance.now();
         if (!en.ready) advanceBuilds(ms, en);
         return en.ready;
     },
