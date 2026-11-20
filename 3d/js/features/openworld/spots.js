@@ -22,7 +22,7 @@ import { tone } from "../parking/sfx.js";
 import { esc } from "./hud.js";
 
 let E = null;                        // openworld's internals (index.js passes them in)
-const SP = { list: [], group: null, town: "", texs: [], mats: [], geos: [], near: null, carT: 0, shown: false, footRm: null, t: 0 };
+const SP = { list: [], cols: [], group: null, town: "", texs: [], mats: [], geos: [], near: null, carT: 0, shown: false, footRm: null, t: 0 };
 // what goes where: the first named spot a town has wins (data — a new town just needs one of these landmarks)
 const PLACES = [
     { kind: "arcade", keys: ["pizza", "bakery"], u: -7.5, n: 0.4, name: (t, k) => k === "pizza" ? (t === "midwood" ? "the Slice of Sinai arcade" : "the Pizza Shmizza arcade") : "the arcade on the avenue" },
@@ -172,6 +172,12 @@ function build() {
         const tag = makeTag(P.kind === "arcade" ? "🕹️" : "📋");
         tag.position.set(x, 3.0, z);
         SP.group.add(obj, tag);
+        // solid: the cabinet is one block, the board's two posts are (she can walk between them)
+        const ch = ctx.world.activeChunks().find(c => c.k === -1 && c.addCollider);
+        if (ch) {
+            const cs = P.kind === "arcade" ? [[0, 0.52]] : [[-1.0, 0.2], [1.0, 0.2]];
+            for (const [lu, r] of cs) SP.cols.push(ch.addCollider({ x: x + Math.cos(Math.atan2(nx, nz)) * lu, z: z - Math.sin(Math.atan2(nx, nz)) * lu, r, kind: "prop" }));
+        }
         // where she stands to use it: just in front of it
         SP.list.push({ kind: P.kind, name: P.name(T.id, key), x, z, fx: x + nx * 1.1, fz: z + nz * 1.1, obj, tag });
     }
@@ -183,6 +189,8 @@ function clear() {
     for (const m of SP.mats) m.dispose();
     for (const g of SP.geos) g.dispose();
     SP.texs.length = SP.mats.length = SP.geos.length = 0;
+    for (const c of SP.cols) c.off = true;
+    SP.cols.length = 0;
     SP.list.length = 0; SP.group = null; SP.town = ""; SP.near = null;
     if (SP.shown) { H.prompt(""); SP.shown = false; }
 }
