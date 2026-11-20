@@ -9,7 +9,8 @@
 //   • Ima: a sweater line, no reward
 module.exports = {
   name: "calls",
-  viewport: { width: 1280, height: 720 },
+  // (960 × 540: Midwood in software WebGL is ~2 fps at 720p on a small runner — the checks here are about calls, not pixels)
+  viewport: { width: 960, height: 540 },
   query: "&enable=community,town,exits,atmos",
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, wanted: [] },
   async run(t) {
@@ -190,7 +191,8 @@ module.exports = {
       t.check("…the lines name Midwood's streets (Avenue J, not Main St)", /Avenue J/.test(await appText()) && !/Main St/.test(await appText()), (await appText()).slice(0, 200));
       await close();
       // the budget: Midwood is at its triangle / draw-call limit, so NO org car cruises its streets — they come when called
-      await t.frames(240);
+      await g(`(${C}.debug.CM.sceneT = 1e9, true)`);          // (no roadside scene in the way of this check)
+      await t.frames(30);
       const cru = await g(`${C}.vehicles.filter(v => v.mode === "cruise").map(v => v.org)`);
       t.check("Midwood's streets: no org car cruising until she calls (the town's budget)", cru.length === 0 && await g(`ctx.community.config("midwood").cruisers.shomrim`) === 0, cru.join(","));
       // (measured once while building this: one org car in view = +~17 draw calls, +~1.8k triangles — hence none)
