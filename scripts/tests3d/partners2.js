@@ -61,7 +61,9 @@ async function body(t, guests) {
         await p.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}].click()`);
         await p.frames(3); continue;
       }
-      await p.page.keyboard.press("Enter"); await p.frames(3);
+      // (never into a card: the cell's buttons are the player's choices — only a dialog or a skippable beat)
+      if (await p.L(`!!document.querySelector("#dialog.open") || !document.querySelector("#screen") || document.querySelector("#screen").classList.contains("hidden")`)) await p.page.keyboard.press("Enter");
+      await p.frames(3);
     }
     t.check(`${p.label}: ${label}`, false, "never reached: " + untilCode + " · state " + await p.game(`ctx.state`));
     return false;
@@ -159,6 +161,7 @@ async function body(t, guests) {
   await Hp.frames(60);
   t.check("…the court clock still runs (nobody's stuck waiting)", (await g(`ctx.law._dbg.jail().courtT`)) < c0);
   await g(`(ctx.law._dbg.jail().courtT = 1, ${D}.FORCE.verdict = "dismissed", true)`);
+  if (!await Hp.until(`ctx.state === "lawCourt"`, "host: the court clock runs out → court", 30000)) return;
   if (!await talk(Hp, `ctx.state === "footRun"`, "host: court alone → out")) return;
   W.check(t, "the leaver: host alone through court + out", await W.report(t), ["nan", "overlay", "stuck", "hidden"]);
 }

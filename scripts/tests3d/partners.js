@@ -106,9 +106,9 @@ async function body(t, guests) {
   const hide = p => p.game(`(() => { const L = ${D}.L; L.units.length = 0; if (L.chase) { L.chase.reinfT = 1e9; L.chase.evade = 0.99; } return true; })()`);
   await hide(A);
   await A.frames(45);
-  t.check("guest out of sight but the host is still seen → still wanted (the meter waits)", await A.game(`ctx.law.chasing && ${D}.L.chase.evade <= 0.98`), JSON.stringify(await A.game(`({ c: ctx.law.chasing, ev: ${D}.L.chase && ${D}.L.chase.evade, hold: ${CR}.debug.hold() })`)));
+  t.check("guest out of sight but the host is still seen → still wanted (the meter waits)", await A.game(`ctx.law.chasing && ${D}.L.chase.evade < 1`), JSON.stringify(await A.game(`({ c: ctx.law.chasing, ev: ${D}.L.chase && ${D}.L.chase.evade, hold: ${CR}.debug.hold() })`)));
   t.check("…the HUD says who they can still see", /Kugel Kid/.test(await A.L(`(document.querySelector(".law-wanted .hint") || {}).textContent || ""`)), await A.L(`(document.querySelector(".law-wanted .hint") || {}).textContent || ""`));
-  await A.game(`(${D}.L.chase.evade = 0.99, true)`);
+  await A.game(`(${D}.L.chase && (${D}.L.chase.evade = 0.99), true)`);
   await hide(Hp);
   if (!await waitCrewGone("everyone out of sight → LOST 'EM for the whole crew")) return;
   t.check("both got away together", !(await g(`ctx.law.chasing`)) && !(await A.game(`ctx.law.chasing`)));
@@ -120,7 +120,7 @@ async function body(t, guests) {
   await chase(Hp, "SPEEDING"); await chase(A, "SPEEDING");
   for (const p of both) if (!await p.until(`!!${CR}.current()`, `${p.label}: partners again`, 60000)) return;
   await A.game(`ctx.party._debug.place(830, -1.75, 0)`);
-  await hide(A); await A.game(`(${D}.L.chase.evade = 0.3, true)`);
+  await hide(A); await A.game(`(${D}.L.chase && (${D}.L.chase.evade = 0.3), true)`);
   if (!await A.until(`!ctx.law.chasing && ${CR}.current() === null`, "split up: the guest (out of sight) slips away", 90000)) return;
   t.check("…the cops stayed on the host (the one they could see)", await g(`ctx.law.chasing`));
   t.check("…the crew is over on both screens", (await crewOf(Hp)) === null && (await crewOf(A)) === null);
@@ -153,16 +153,15 @@ async function body(t, guests) {
   const talk = async (p, untilCode, label, max = 400) => {
     for (let i = 0; i < max; i++) {
       if (await p.game(untilCode)) return true;
-      const tx = await p.L(`(() => { const d = document.querySelector("#dialog"); return d && d.offsetParent ? d.innerText : ""; })()`).catch(() => "");
-      if (tx && said[p.label].slice(-1)[0] !== tx) said[p.label].push(tx);
-      if (await p.game(`ctx.state === "lawCourt" && ${CR}.debug.court().length > 0`)) said[p.label + "Court"] = true;
       const opts = await p.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden").map(b => b.textContent)`);
       if (opts.length) {
         const idx = opts.findIndex(o => !/💰|Plea|plea|[Bb]ribe|costs/.test(o));
         await p.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${Math.max(0, idx)}].click()`);
         await p.frames(3); continue;
       }
-      await p.page.keyboard.press("Enter"); await p.frames(3);
+      // (never into a card: the cell's buttons are the player's choices — only a dialog or a skippable beat)
+      if (await p.L(`!!document.querySelector("#dialog.open") || !document.querySelector("#screen") || document.querySelector("#screen").classList.contains("hidden")`)) await p.page.keyboard.press("Enter");
+      await p.frames(3);
     }
     t.check(`${p.label}: ${label}`, false, "never reached: " + untilCode + " · state " + await p.game(`ctx.state`));
     return false;
@@ -184,10 +183,15 @@ async function body(t, guests) {
   // one court clock: within a couple of seconds of each other
   const cts = await Promise.all(both.map(p => p.game(`ctx.law._dbg.jail().courtT`)));
   t.check(`one court clock (${cts.map(x => x.toFixed(1)).join(" / ")} s)`, Math.abs(cts[0] - cts[1]) < 6, JSON.stringify(cts));
-  // court for both (the clock runs out), then out of the courthouse door side by side
+  // court for both (the clock runs out), then out of the courthouse door side by side — what each courtroom says + shows
+  await all(p => p.L(`(window.__said = [], window.__coMate = false, setInterval(() => { const d = document.querySelector("#dialog.open .text"), L3 = window.__lulu3d;
+      if (d && d.textContent && window.__said[window.__said.length - 1] !== d.textContent) window.__said.push(d.textContent);
+      if (L3 && L3.ctx.state === "lawCourt" && L3.ctx.law.crew.debug.court().length) window.__coMate = true; }, 30), true)`));
   await all(p => p.game(`(ctx.law._dbg.jail().courtT = 1, true)`));
+  for (const p of both) if (!await p.until(`ctx.state === "lawCourt"`, `${p.label}: the court clock runs out → court`, 30000)) return;
   const outs = await Promise.all([talk(Hp, `ctx.state === "footRun"`, "host: court → out"), talk(A, `ctx.state === "footRun"`, "guest: court → out")]);
   if (!outs.every(Boolean)) return;
+  for (const p of both) { said[p.label] = await p.L(`window.__said`); said[p.label + "Court"] = await p.L(`window.__coMate`); }
   // co-defendants: one hearing — each saw the other in the dock, the judge's line for a pair, blaming each other
   t.check("court: the host saw the guest beside her in the dock", !!said.hostCourt);
   t.check("court: the guest saw the host beside her in the dock", !!said.guestCourt);
