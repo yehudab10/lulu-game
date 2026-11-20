@@ -240,7 +240,14 @@ async function partyRun(t, guests) {
   await boss.game(`(ctx.party._debug.toLobby(), true)`);
   for (const p of pages) await p.until(`ctx.state === "partyLobby"`, "back in the lobby", 40000);
   t.check("the lobby takes her out of her walk", await g(`!ctx.foot.active`));
-  await boss.game(`(ctx.party._debug.start("roam"), true)`);
+  // (ask whoever hosts NOW: on a slow runner hosting can move while everyone heads back to the lobby — and ask again if it moves
+  //  before the roam starts)
+  let roamGo = false;
+  for (let tries = 0; tries < 3 && !roamGo; tries++) {
+    const host = (await g(`ctx.party.isHost`)) ? pages[0] : A;
+    await host.game(`(ctx.party._debug.start("roam"), true)`);
+    roamGo = await waitOn(host === A ? A.page : t.page, `ctx.state === "playing" && ctx.party.activity.k === "roam"`, 30000);   // (quietly: the loop retries)
+  }
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 90000)) return;
   for (const p of pages) {
     await p.game(`(ctx.law.hold(9999), true)`);
