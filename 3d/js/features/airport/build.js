@@ -17,8 +17,8 @@ import { Merger, Atlas, lookMaterials } from "../town/kit.js";
 import * as LY from "./layout.js";
 import { SIGNS, BOARDS, LIVERIES, EXIT_NO } from "./lines.js";
 
-const OWN = ["airport_terminal", "airport_tower", "airport_jetbridge", "airport_plane", "airport_booth", "airport_windsock"];
-registerModels(Object.fromEntries(["airport_terminal", "airport_tower", "airport_jetbridge", "airport_plane", "airport_taxi", "airport_shuttle",
+const OWN = ["airport_facade", "airport_tower", "airport_jetbridge", "airport_plane", "airport_booth", "airport_windsock"];
+registerModels(Object.fromEntries(["airport_facade", "airport_tower", "airport_jetbridge", "airport_plane", "airport_taxi", "airport_shuttle",
     "airport_booth", "airport_segway", "airport_guard", "airport_windsock", "airport_suitcase"].map(k => [k, k])));
 /** Every model the static build needs (the exits' / town's are registered by those features; treeRound is core). */
 export const BUILD_MODELS = [...OWN, "exits_lamp", "exits_gantry", "exits_cushion", "exits_railend", "exits_advisory", "exits_guide", "town_minivan_lod", "town_mw_sedan_lod", "treeRound"];

@@ -128,7 +128,7 @@ export const FENCE_H = 3.4;
 export function propList() {
     const P = [];
     const face = (df, dr) => [df, dr];
-    P.push({ key: "airport_terminal", f: 0, r: TERM.r0, face: face(0, -1), id: "terminal" });
+    P.push({ key: "airport_facade", f: 0, r: TERM.r0, face: face(0, -1), id: "terminal" });
     P.push({ key: "airport_tower", f: 138, r: 268, face: face(0, -1), id: "tower" });
     P.push({ key: "airport_windsock", f: -300, r: 318, face: face(1, 0) });
     for (const [k, f] of [[0, -60], [1, 0], [2, 60]]) {

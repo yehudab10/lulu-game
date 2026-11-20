@@ -6,7 +6,7 @@
 //  LANDSIDE: a one-way loop (up the west leg, along the kerb road past Terminal 4½ — DEPARTURES, then ARRIVALS — down
 //  the east leg), the parking lot inside the loop, taxis + shuttle buses going round and stopping at the kerb, the
 //  terminal's outside (its doors: ✋ "opening soon"), the control tower, the gates with parked jets, the runway behind
-//  the RUNWAY FENCE (push against it: Officer Feivel of airport security rolls up on his Segway), and planes taking off
+//  the RUNWAY FENCE (push against it: Officer Segal of airport security rolls up on his Segway), and planes taking off
 //  and landing overhead (shadows sweeping the road, the roar). Out the same way: the east leg → the on-ramp → the accel
 //  lane. Driven and walked with no cut: it's all in the driving scene, the car's `paved` ground, foot's walking.
 //

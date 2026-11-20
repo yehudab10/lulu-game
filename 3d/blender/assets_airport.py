@@ -6,7 +6,7 @@ triangles, plain materials, names that say what glows — "ShopWindow" / "Window
 "LampGlow" / "Neon*" (always a little lit), "Glass" (see-through). Front = -Y (= +Z in three.js). Metres.
 Parody only: every airline / logo / shop is made up; the game lays all text on the anchors from its atlas.
 
-  airport_terminal   Terminal 4½: a 190 m glass hall with a swooping roof that overhangs the kerb on a row of
+  airport_facade     Terminal 4½ (the OUTSIDE; stage 2's hall is airport_terminal): a 190 m glass hall with a swooping roof that overhangs the kerb on a row of
                      columns, six sets of doors, a sign band; Anchor_sign (JFK · TERMINAL 4½), Anchor_dep /
                      Anchor_arr (the DEPARTURES / ARRIVALS boards), Anchor_door0..5 (the doors, at the kerb).
                      Origin = the middle of the front wall at the ground; the hall runs back to +Y 35.
@@ -19,7 +19,7 @@ Parody only: every airline / logo / shop is made up; the game lays all text on t
   airport_shuttle    the parking shuttle bus ("Paint" + a "Stripe" band, big windows); Anchor_sign (its side).
   airport_booth      the parking lot's pay booth with a striped barrier arm; Anchor_sign.
   airport_segway     airport security's Segway (two wheels, a deck, a handlebar with a little flag).
-  airport_guard      Officer Feivel of airport security (a person: cap, vest, badge, mustache).
+  airport_guard      Officer Segal of airport security (a person: cap, vest, badge, mustache).
   airport_windsock   an orange-and-white windsock on a pole (the airside's corner).
   airport_suitcase   a rolling suitcase (travellers at the kerb pull these).
 """
@@ -287,7 +287,7 @@ def build_booth():
     return coll
 
 
-# ── security's Segway + Officer Feivel ───────────────────────────────────
+# ── security's Segway + Officer Segal ───────────────────────────────────
 def build_segway():
     coll = scene_coll("AirportSegway")
     root = root_empty(coll, "AirportSegway")
@@ -339,7 +339,7 @@ def build_suitcase():
 
 
 ASSETS = [
-    ("airport_terminal", build_terminal),
+    ("airport_facade", build_terminal),
     ("airport_tower", build_tower),
     ("airport_jetbridge", build_jetbridge),
     ("airport_plane", build_plane),

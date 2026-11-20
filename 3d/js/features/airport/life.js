@@ -1,5 +1,5 @@
 // features/airport — LIFE at the kerb: the taxis + shuttles going round, the terminal's doors (✋: opening soon), and
-// the RUNWAY FENCE JOKE (Officer Feivel of airport security rolls up on his Segway; sometimes a jet honks first).
+// the RUNWAY FENCE JOKE (Officer Segal of airport security rolls up on his Segway; sometimes a jet honks first).
 // Everything here is personal (only her screen runs it): the vehicles are plain props on their own loop (never in the
 // traffic), the guard and the lines are hers. Nothing pays coins. Pop-ups: none — speech bubbles only, and only as the
 // answer to something she did (pushed the fence, tried a door).
@@ -127,7 +127,9 @@ export function makeVehicles(G, scene) {
 }
 function smooth01(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
-// ── the doors (✋): Terminal 4½ opens in stage 2 ──────────────────────────
+// ── the doors (✋): "opening soon" — or, once stage 2's hall is in (ctx.airport.terminal), in through them ──
+const term = () => { const T = ctx.airport && ctx.airport.terminal; return T && T.enter ? T : null; };
+const canIn = T => !!T && (!T.canEnter || T.canEnter());
 export function doorSpot(S) {
     const sp = {
         r: 2.6, short: "🚪",
@@ -136,11 +138,21 @@ export function doorSpot(S) {
             if (!G || !S.ready || !p) return null;
             let best = null, bd = 1e9;
             for (const f of LY.DOORS) { const w = G.F.world(f, LY.TERM.r0 - 1.0, {}); const d = Math.hypot(w.x - p.x, w.z - p.z); if (d < bd) { bd = d; best = w; best.f = f; } }
+            // (the hall loads ahead: a soft cut in when she gets there)
+            const T = term();
+            if (T && T.warm && bd < 22 && !S.warmed) { S.warmed = true; try { T.warm(); } catch (e) { /* later */ } }
+            if (bd > 40) S.warmed = false;
             sp.door = bd < 4 ? best : null;
             return sp.door;
         },
-        label() { return sp.door ? "🚪 TERMINAL 4½ · opening soon" : null; },
+        label() { return sp.door ? (canIn(term()) ? "🚪 TERMINAL 4½ · GO INSIDE" : "🚪 TERMINAL 4½ · opening soon") : null; },
         act() {
+            const T = term(), dr = sp.door;
+            if (dr && canIn(T)) {
+                // (foot resumes on the sidewalk in front of the door she used: highway coords)
+                const n = ctx.world.highway.nearest(dr.x, dr.z, S.E + LY.UA + dr.f, {});
+                try { T.enter({ door: { s: n.s, d: n.d, side: Math.sign(n.d) || 1, x: dr.x, z: dr.z } }); emit("airport:door", { f: dr.f, in: true }); return; } catch (e) { console.error("[airport] terminal", e); }
+            }
             const t = ctx.time;
             if (S.doorT && t - S.doorT < 2.5) return;
             S.doorT = t;
@@ -213,7 +225,7 @@ export function makeJoke(S) {
         }
         if (!GUARD_MODELS.every(k => models[k])) { ensureModels(GUARD_MODELS).catch(() => {}); luluSays(pick(L.LULU.again), 2.4); return false; }
         J.coolT = t; J.visitN++;
-        J.v = (S.saved.jokes || 0) % L.FEIVEL.length;
+        J.v = (S.saved.jokes || 0) % L.SEGAL.length;
         S.saved.jokes = (S.saved.jokes || 0) + 1;
         if (S.save) S.save();
         startScene(J, S.G);
@@ -243,7 +255,7 @@ function startScene(J, G) {
     ctx.scene.add(J.seg); ctx.scene.add(J.guard.obj);
     J.guard.obj.traverse(m => { if (m.isMesh) m.castShadow = false; });
     J.phase = "in"; J.t = 0; J.line = 0;
-    const V = L.FEIVEL[J.v];
+    const V = L.SEGAL[J.v];
     if (V.horn) {
         // the nearest parked jet at the gates honks (BWAAAMP)
         const w = G.F.world(0, 278, {});
@@ -252,7 +264,7 @@ function startScene(J, G) {
     }
 }
 function tickScene(J, G, dt) {
-    const V = L.FEIVEL[J.v], g = J.guard, p = luluPos();
+    const V = L.SEGAL[J.v], g = J.guard, p = luluPos();
     if (!g || !p) { despawn(J); J.phase = null; return; }
     J.t += dt;
     const o = g.obj;

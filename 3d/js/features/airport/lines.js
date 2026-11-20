@@ -1,4 +1,4 @@
-// features/airport — every line of text: the signs, the parody airlines, Officer Feivel, Lulu.
+// features/airport — every line of text: the signs, the parody airlines, Officer Segal, Lulu.
 // Cartoon only (the owner's rule): parody airlines / shops / logos, nothing about real incidents or real
 // security procedures. Dovid Dov canon: strangers only wonder who he is; Lulu and the family know (stage 3).
 
@@ -63,8 +63,8 @@ export const LULU = {
     taxi: ["Every taxi driver here has honked at me. I respect it."],
     again: ["Still not a plane.", "Okay okay, I'm going.", "The fence remembers me."],
 };
-/** Officer Feivel (airport security, on a Segway). Variants rotate; cartoon only. */
-export const FEIVEL = [
+/** Officer Segal (airport security, on a Segway). Variants rotate; cartoon only. */
+export const SEGAL = [
     { guard: ["Ma'am. Ma'am! That side is for PLANES.", "Even the pigeons need a boarding pass."], lulu: "I'm basically a plane. I have a seatbelt." },
     { horn: true, guard: ["Hear that? The Kugel Air jet is honking at you.", "That means 'go back to the kerb'."], lulu: "Rude. But fair." },
     { guard: ["Runway's closed to Lulus.", "It's in the rule book. Page one. Big letters."], lulu: "That's oddly specific." },
