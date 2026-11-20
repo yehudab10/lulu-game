@@ -202,6 +202,7 @@ merged — ignore them.
   meets 3D riders in the first shard; more would need the owner's OK for a relay change. Relay traffic grows with online
   players (each rider ~5 states/s to everyone in its shard): the owner should keep an eye on the Cloudflare free-tier usage.
 
+- `phone` "…D-pad + ✕ reach its buttons; api.toast/refresh work" fails LOCALLY in this cloud container on plain `main` (seen 2026-11-20 right after `ci/calls` + `ci/calm` landed; `ci/together` saw it pass on CI before those) — worth a look on CI.
 - **Together (`ci/together`, landed 2026-11-20):** each screen runs its OWN copy of a room's people (the bartender, a house's
   residents, Ima) — a friend inside is a visitor nobody there reacts to on my screen, so two friends can see different
   dialogue / outcomes at the same moment (by design: nobody's coins, law or stealth depend on a friend). Lulu's house from the
