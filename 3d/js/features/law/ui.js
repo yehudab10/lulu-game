@@ -70,6 +70,8 @@ css("law", `
   text-shadow: 0 1px 0 #000, 0 0 6px rgba(0,0,0,.6); opacity: .92; }
 body.tv .law-wanted .hint { font-size: 17px; max-width: 300px; }
 @media (max-height: 520px) { .law-wanted .hint { display: none; } }
+.law-wanted .crew { background: rgba(106,27,154,.9); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: 12px; letter-spacing: .04em; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.tv .law-wanted .crew { font-size: 18px; max-width: 420px; }
 .law-wanted .tag.blink { animation: lawPulse .5s ease-in-out infinite alternate; }
 .law-wanted .mtr { width: 150px; }
 .law-wanted .mtr .track { height: 8px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; }
@@ -92,6 +94,8 @@ body.law-scene #screenCard .btn small { display: block; font-size: 12px; opacity
 body.law-scene #screenCard .btn .lbl { display: flex; flex-direction: column; align-items: center; }
 body.law-scene .law-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 body.law-scene .law-grid .btn { min-height: 64px; }
+body.law-scene .law-emotes { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+body.law-scene .law-emotes .btn { min-height: 0; min-width: 0; padding: 6px 12px; font-size: 22px; flex: 0 0 auto; }
 body.law-scene .btn.locked { background: #757575; }
 body.law-scene .btn.gold { background: #F9A825; } body.law-scene .btn.teal { background: #00897B; } body.law-scene .btn.blue { background: #1E88E5; }
 body.law-scene .sheet { background: #F3EBD3; border: 2px solid #9E8A5A; border-radius: 8px; padding: 8px 12px; font: 700 13px "Courier New", monospace;
@@ -226,7 +230,9 @@ export function wantedHud(info) {
     const prev = +(hudEl.dataset.stars || 0);
     const stars = Array.from({ length: 5 }, (_, i) => `<b class="${i < info.stars ? "on" : "off"}${i < info.stars && i >= prev && prev > 0 ? " new" : ""}">★</b>`).join("");
     const m = (frac, label, color) => frac > 0.02 ? `<div class="mtr"><div class="track"><div class="fill" style="width:${(frac * 100).toFixed(0)}%;background:${color}"></div></div><div class="lbl">${label}</div></div>` : "";
-    const html = `${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.cls || ""} ${info.search ? "search" : info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
+    const crew = info.crew ? `<div class="crew">${info.crew.tag}</div>` : "";
+    if (info.crew && info.crew.hint) info.hint = info.crew.hint;
+    const html = `${crew}${info.tag ? `<div class="tag ${info.fug ? "fug" : ""} ${info.cls || ""} ${info.search ? "search" : info.blink ? "blink" : ""}">${info.tag}</div>` : ""}
         ${info.stars ? `<div class="stars ${info.stars >= 4 ? "hot" : ""} ${info.search ? "search" : ""}">${stars}</div>` : ""}
         ${m(info.bust || 0, "BUSTED", "#FF1744")}${m(info.evade || 0, info.evadeLabel || "LOSING THEM…", "#69F0AE")}${m(info.spot || 0, "👀 SPOTTED", "#FF8A80")}${m(info.radar || 0, "📡 RADAR", "#FFD740")}
         ${(info.meters || []).map(([f, l, c]) => m(Math.max(0.03, f), l, c)).join("")}${info.hint ? `<div class="hint hud-secondary">${info.hint}</div>` : ""}`;
