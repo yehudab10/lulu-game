@@ -115,7 +115,7 @@ module.exports = {
     const hasRw = await t.L(`!!document.querySelector('[data-pi="adReward"]')`);
     t.check("pause menu offers 📺 WATCH after the knock-out", hasRw);
     if (hasRw) {
-      const c0 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
+      const c0 = await t.L(`window.__lulu3d.wallet.coins`);   // the live wallet (the save is written in a batch ~0.8 s later)
       await t.L(`document.querySelector('[data-pi="adReward"]').click()`);
       if (await realUntil(`window.__lulu3d.ctx.ads.holding`, 5000)) {
         const a2 = await g(SNAP); await sleep(2000); const b2 = await g(SNAP);
@@ -123,7 +123,7 @@ module.exports = {
       } else t.check("rewarded: holds", false);
       await realUntil(`!window.__lulu3d.ctx.ads.holding`, 10000);
       await t.frames(6);
-      const c1 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).totalCoins`);
+      const c1 = await t.L(`window.__lulu3d.wallet.coins`);
       t.check("rewarded: pays +50 once", c1 - c0 === 50, `${c0} → ${c1}`);
       await t.key("Escape");
       await t.frames(3);
