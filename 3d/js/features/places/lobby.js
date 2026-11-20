@@ -6,8 +6,8 @@ import { ctx, emit } from "../../core/ctx.js";
 import { registerModels } from "../../models.js";
 import { defineInterior, pool, pick } from "../interiors/engine.js";
 import { CLERK, BAILIFF, DOCKET, BENCH, DOORS, FOUNTAIN, DETECTOR, PORTRAIT } from "./data.js";
-import { BENCH_SHLOIME, BENCH_DONE_TODAY, BABY, MW_DOORS, MW_ABBA, HEARINGS } from "./shloime.js";
-import { CS, caseDone, hearingToday, sitIn, warmCourt } from "./courts.js";
+import { BENCH_SHLOIME, BENCH_DONE_TODAY, BABY, MW_DOORS, MW_ABBA } from "./shloime.js";
+import { CS, caseDone, hearingToday, sitIn, warmCourt, caseIn, caseById, docketText } from "./courts.js";
 
 registerModels({ placesCourtLobby: "places_courtlobby" });
 
@@ -66,19 +66,21 @@ export const lobbyDef = defineInterior({
                 action: rt => rt.say("Abba", MW_ABBA[(CS.abbaL++) % MW_ABBA.length], { person: rt.byId.abba, emoji: "👨", color: "#EF6C00" }) });
         }
         rt.hot({ id: "portrait", spot: "portrait", r: 1.3, label: "🖼️ The portrait", action: rt => rt.say("Lulu", portraitLine(), { emoji: "🖼️" }) });
-        rt.hot({ id: "docket", spot: "docket", r: 1.4, label: "📋 Read today's docket", action: rt => rt.say("Today's docket",
-            town === "lakewood" ? (caseDone() ? "📋 2B — IN RE: BABY GITTY · CLOSED. ('They worked it out. ❤️' — handwritten, with a heart)"
-                : `📋 2B — IN RE: BABY GITTY (Pollack v. Pollack) · hearing ${Math.min(CS.shloime + 1, HEARINGS.length)} of ${HEARINGS.length}${hearingToday() ? " · TODAY — public welcome" : " · next session TOMORROW"}`) + "\n" + docketLine()
-                : docketLine(), { emoji: "📋", color: "#6D4C41" }) });
+        // Courtroom 2B's docket (features/places courts.js — cases are data: Shloime's in Lakewood, others can be added)
+        const onDocket = () => caseIn(town) || (town === "lakewood" ? caseById("shloime") : null);
+        rt.hot({ id: "docket", spot: "docket", r: 1.4, label: "📋 Read today's docket", action: rt => {
+            const c = onDocket();
+            return rt.say("Today's docket", (c ? docketText(c) + "\n" : "") + docketLine(), { emoji: "📋", color: "#6D4C41" });
+        } });
         rt.hot({ id: "doors2b", spot: "doors2b", r: 1.4,
-            label: () => town === "lakewood" && hearingToday() ? "⚖️ Sit in on the hearing (Shloime's case)" : "🚪 Courtroom 2B",
+            label: () => { const c = caseIn(town); return c && hearingToday(c) ? (c.label || `⚖️ Sit in on the hearing (${c.title})`) : "🚪 Courtroom 2B"; },
             action: async rt => {
-                if (town === "lakewood" && hearingToday()) {
-                    // into 2B: Shloime's next hearing (a scene on the courtroom set) — then back out here
-                    if (await sitIn(() => { const ok = ctx.civic && ctx.civic.enter && ctx.civic.enter("court"); return !!ok; })) return;
-                }
-                const lines = town === "midwood" ? MW_DOORS : town === "lakewood" && caseDone() ? ["🔒 Locked. A crayon drawing is taped to the door: a baby, a man, a lady, and a VERY large bailiff. ❤️"]
-                    : town === "lakewood" && !party() ? ["🔒 Locked for today. A note: 'In re: Baby Gitty — continued until TOMORROW.' (Someone drew a bottle.)"] : null;
+                const c = caseIn(town);
+                // into 2B: today's hearing (a scene on the courtroom set) — then back out here
+                if (c && hearingToday(c) && await sitIn(c, () => !!(ctx.civic && ctx.civic.enter && ctx.civic.enter("court")))) return;
+                const lines = c && !party() ? [`🔒 Locked for today. A note: '${c.title} — continued until TOMORROW.'${c.id === "shloime" ? " (Someone drew a bottle.)" : ""}`]
+                    : town === "midwood" ? MW_DOORS
+                    : town === "lakewood" && caseDone() ? ["🔒 Locked. A crayon drawing is taped to the door: a baby, a man, a lady, and a VERY large bailiff. ❤️"] : null;
                 return rt.say("Courtroom 2B", lines ? pick(lines) : doorsLine(), { emoji: "⚖️", color: "#4E342E" });
             } });
         rt.hot({ id: "fountain", spot: "fountain", r: 1.2, label: "💧 The water fountain", action: rt => rt.say("Lulu", fountainLine(), { emoji: "💧", color: "#0277BD" }) });

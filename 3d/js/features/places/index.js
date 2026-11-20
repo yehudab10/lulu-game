@@ -18,7 +18,7 @@ import { lobbyDef, nameLobby } from "./lobby.js";
 import { NAMES, PASS, IMPOUND_GATE, IMPOUND_MINE } from "./data.js";
 import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar } from "./out.js";
 import { dissolving } from "../../core/transition.js";
-import { counsel, courtsDebug, hearingToday, caseDone } from "./courts.js";
+import { counsel, courtsDebug, hearingToday, caseDone, addCase, caseById, caseIn, progress } from "./courts.js";
 
 const MODELS = ["places_precinct", "places_court", "places_hospital", "places_impound"];
 registerModels(Object.fromEntries(MODELS.map(k => [k, k])));
@@ -161,8 +161,8 @@ ctx.civic = {
     // ── the courthouses' own stories (courts.js) ──
     /** law/court.js: who is her counsel in the court she's tried in (Midwood: Abba) — null = the usual lawyer. */
     counsel,
-    /** Lakewood's 2B: Shloime's case — a hearing today? the case over? */
-    courts: { hearingToday, caseDone, debug: courtsDebug },
+    /** Courtroom 2B's cases (data — `addCase(def)`, see courts.js) + Shloime's: `hearingToday(c?)`, `caseDone(c?)` (default Shloime's). */
+    courts: { addCase, caseById, caseIn, progress, hearingToday, caseDone, debug: courtsDebug },
     dissolving,
     debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
 };

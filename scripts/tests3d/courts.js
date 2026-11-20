@@ -83,7 +83,7 @@ module.exports = {
       t.check("the hearing is skippable (⏭)", await t.L(`import("./js/core/skip.js").then(m => m.canSkip())`));
       await skip();
       if (!await backInLobby()) return;
-      t.check("hearing 1 counted (shloime = 1, today)", await g(`${CD}.CS.shloime === 1 && ${CD}.CS.day === "2026-11-20"`), await g(`JSON.stringify(${CD}.CS)`));
+      t.check("hearing 1 counted (shloime = 1, today)", await g(`${CD}.P().n === 1 && ${CD}.P().day === "2026-11-20"`), await g(`JSON.stringify(${CD}.CS)`));
       t.check("…one a day: no second hearing today", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
       await useHot("doors2b");
       t.check("…2B says 'continued until TOMORROW'", await t.until(`/TOMORROW/.test((document.querySelector("#dialog.open") || {}).textContent || "")`, "2B's note", 8000), (await dialog()).slice(0, 100));
@@ -120,7 +120,7 @@ module.exports = {
       await t.L(`document.querySelectorAll("#dialog .opt")[1].click()`);
       await tapUntil(`__lulu3d.state !== "placesHearing"`, "hearing 3 ends", 200);
       await backInLobby();
-      t.check("three hearings seen", await g(`${CD}.CS.shloime === 3`), await g(`JSON.stringify(${CD}.CS)`));
+      t.check("three hearings seen", await g(`${CD}.P().n === 3`), await g(`JSON.stringify(${CD}.CS)`));
     }, 1);
 
     await step("hearings 4 + 5 → the case closes", async () => {
@@ -132,7 +132,7 @@ module.exports = {
         await skip();
         if (!await backInLobby()) return;
       }
-      t.check("the case is closed after five hearings (one a day)", await g(`ctx.civic.courts.caseDone() && ${CD}.CS.shloime === 5`));
+      t.check("the case is closed after five hearings (one a day)", await g(`ctx.civic.courts.caseDone() && ${CD}.P().n === 5`));
       t.check("…a scrapbook badge for seeing it through (the shloimeCase stat → 'Friend of the Court')", (await evs(`/shloimeCase/`)).length === 1 && await t.L(`import("./js/features/meta/badges.js").then(m => { const b = m.BADGES.find(b => b.id === "shloime"); return !!b && b.test({ stats: { shloimeCase: 1 } }) && !b.test({ stats: {} }); })`));
       t.check("no more hearings once it's over", !/Sit in/.test(await hot("doors2b") || ""), await hot("doors2b"));
       t.check("nothing paid out (coins unchanged)", (await coins()) === c0, `${c0} → ${await coins()}`);
@@ -197,6 +197,7 @@ module.exports = {
       const hired = await t.L(`Promise.all([import("./js/features/law/data.js"), import("./js/features/law/rules.js")]).then(([d, r]) => { const tier = d.LAWYER_TIERS[0], cl = ["SPEEDING"];
           const v = __lulu3d.ctx.civic.counsel(tier, cl); if (!v) return "no voice"; const arg = r.lawyerChargeArgument(tier, cl);
           return { name: v.name, key: v.key, argue: v.argue(arg, tier), arg }; })`);
+      t.check("…tried WITH friends in Midwood: Abba represents them all", await g(`(() => { const v = ctx.civic.counsel(null, ["SPEEDING"]); return !!v && /Dina/.test(v.codefendants("Dina")); })()`));
       t.check("…hired counsel in Midwood: 'ABBA (as <that lawyer>)', and he argues the rules' own argument", hired && /^ABBA \(as /.test(hired.name) && hired.key === "lawAbba" && /Lulu-bear/.test(hired.argue) && hired.argue.length > 40, JSON.stringify(hired).slice(0, 300));
     }, 2);
     await step("Midwood lobby: Abba is there; 2B stays locked", async () => {
@@ -209,6 +210,29 @@ module.exports = {
       await tapUntil(`!document.querySelector("#dialog.open")`, "Abba's line closes", 20);
       t.check("Midwood's 2B: no hearing (locked)", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
       await t.shot("midwood-lobby-abba");
+      // a NEW case is data: registered from outside (as ci/realestate's property hearing will be), it's on Midwood's docket,
+      // plays in 2B with its own cast + a choice, tells its owner how it went — no code in places touched
+      await g(`(window.__caseDone = null, ctx.civic.courts.addCase({ id: "test", town: "midwood", title: "IN RE: THE TEST CASE", oneADay: false,
+          cast: { claimant: { name: "MR. KLEIN", emoji: "🧾", color: "#455A64", seat: "petitioner", model: "npcMan" },
+                  clerk: { name: "THE CITY", emoji: "🏛️", color: "#6D4C41", seat: "respCounsel" } },
+          hearings: [{ title: "The Only Hearing", steps: [["judge", "The test case. Mr. Klein?"], ["claimant", "Present!"],
+              { choose: { who: "lulu", text: "Help Mr. Klein?", options: [{ label: "👍 Yes", then: [["clerk", "Objection."]] }, { label: "👎 No" }] } },
+              { do: "gavel" }, ["judge", "Decided. 🔨"]] }],
+          done: H => { window.__caseDone = { n: H.n, last: H.last, choices: H.choices }; } }), true)`);
+      await useHot("docket");
+      t.check("a new case (data only) is on Midwood's docket", await t.until(`/THE TEST CASE/.test((document.querySelector("#dialog.open") || {}).textContent || "")`, "the test case on the docket", 8000));
+      await tapUntil(`!document.querySelector("#dialog.open")`, "the docket closes", 20);
+      t.check("…and 2B offers it", /Sit in on the hearing \(IN RE: THE TEST CASE\)/.test(await hot("doors2b")), await hot("doors2b"));
+      await useHot("doors2b");
+      if (await t.until(`__lulu3d.state === "placesHearing"`, "into the test case's hearing", 60000)) {
+        await tapUntil(`!!document.querySelector("#dialog .opt")`, "the test case's choice", 80);
+        await t.shot("test-case");
+        await t.L(`document.querySelectorAll("#dialog .opt")[0].click()`);
+        await tapUntil(`__lulu3d.state !== "placesHearing"`, "the test case's hearing ends", 80);
+        await backInLobby();
+        t.check("…its done() hears the outcome (the choice, the case over)", await g(`JSON.stringify(window.__caseDone) === JSON.stringify({ n: 0, last: true, choices: [0] })`), await g(`JSON.stringify(window.__caseDone)`));
+        t.check("…closed: 2B locked again", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
+      }
     }, 2);
   },
 };

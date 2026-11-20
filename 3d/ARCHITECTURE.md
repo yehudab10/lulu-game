@@ -1098,9 +1098,16 @@ up and down the sidewalk BESIDE Lakewood's courthouse door (never across it), �
 isn't shared). **Midwood — Abba is her lawyer**: law/court.js asks `ctx.civic.counsel(tier, charges)` → in Midwood's court a
 VOICE `{key, speaker, name, emoji, opening, argue, afterProsecutor, uninvited, beforeJury, verdict}` (null elsewhere): the
 lawyer's body is `lawAbba`, his lines replace the lawyer's words (he wraps the rules' own `lawyerChargeArgument`), and with no
-lawyer hired he sits in uninvited. The tier, the factors, the random draws and the verdict are exactly the regular lawyer's
+lawyer hired he sits in uninvited; tried WITH friends (law/crew.js co-defendants) he represents them all (`codefendants`). The tier, the factors, the random draws and the verdict are exactly the regular lawyer's
 (the lines rotate, no `Math.random`). Abba also sits on the Midwood lobby's bench ("I have a 2 o'clock. …It's you, isn't it.");
-Midwood's 2B stays locked (a small-claims case through the door). Test: `scripts/tests3d/courts.js`.
+Midwood's 2B stays locked (a small-claims case through the door) unless a case is on its docket. **New cases are DATA**:
+`ctx.civic.courts.addCase({ id, town, title, cast, hearings, oneADay, solo, available(), setup / tick / shot / acts, done(H),
+label, models })` (the full shape is documented at the top of courts.js' CASES section) — the lobby's docket + the ✋ at 2B
+pick up the first open case in that town, the hearing player seats its cast (`seat`: petitioner / petCounsel / respondent /
+respCounsel / judge / bailiff / gallery / stand or coordinates; `model` + `colors`), plays its steps (`[who, text]`, `{do}`,
+`{choose}` → `H.choices`), and `done(H)` tells the case's owner how it went (`H.last` = over) — rewards and consequences are
+the owner's; progress is saved per case (`store("courts").cases[id]`). Shloime's case is the first one registered. Test:
+`scripts/tests3d/courts.js` (`COURTS_PART=1` the hearings, `=2` the trials, Midwood's lobby + a data-only test case).
 
 **Partners in crime (law, `features/law/crew.js` — ci/partners):** 🔗 the owner (2026-11-20): "friends be arrested together
 if they're both caught committing a crime at the same time… see the same screen and somehow go to court or both escape

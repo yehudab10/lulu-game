@@ -240,6 +240,8 @@ async function trial(f, data) {
         bang(2);
         await say(f, "judge", pick([`Co-defendants ${crewNames(co)} and Ms. Bruck. The ${co.length > 1 ? "lot" : "two"} of you AGAIN?! *sighs* Separate charges, separate verdicts. Let's get this over with.`,
             `${crewNames(co)} AND Ms. Bruck. Together. In MY courtroom. Of course. 🙄`, `Well, well. Partners in crime, are we? Each of you answers for your OWN sheet.`]));
+        // (Midwood: Abba represents the lot of them — features/places counsel; words only)
+        if (voice && voice.codefendants) await say(f, voice.speaker, voice.codefendants(crewNames(co)), { name: voice.name, emoji: voice.emoji });
     }
 
     const tierD = court.dramaTier, worst = worstCharge(cl), listStr = cl.join(", "), more = cl.length > 1;

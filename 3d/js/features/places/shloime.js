@@ -4,17 +4,18 @@
 // nobody is a villain (Malky is frazzled and funny, never cruel), the jokes land on the grown-ups' chaos, the paperwork
 // and the court, never on the baby or on custody itself; Shloime clearly adores her. Nothing here pays coins.
 //
-// A step: [who, text] — who is a CAST key below — or { do: action } / { choose: … } for the hearing player (courts.js).
+// A step: [who, text] — who is a CAST key below — or { do: action } / { choose: … } for the hearing player (courts.js —
+// the case itself is registered there with addCase; a CAST entry's seat + model put the person in the courtroom).
 
 export const CAST = {
-    judge: { name: "THE JUDGE", emoji: "👨‍⚖️", color: "#7E57C2" },
-    shloime: { name: "SHLOIME", emoji: "🧔", color: "#1565C0" },
-    malky: { name: "MALKY", emoji: "😩", color: "#AD1457" },
-    fishbein: { name: "MR. FISHBEIN (his lawyer)", emoji: "🤓", color: "#6D4C41" },
-    adler: { name: "MRS. ADLER (her lawyer)", emoji: "💼", color: "#C62828" },
-    bailiff: { name: "THE BAILIFF", emoji: "👮", color: "#546E7A" },
-    gitty: { name: "BABY GITTY", emoji: "👶", color: "#F06292" },
-    lulu: { name: "LULU", emoji: "💁‍♀️", color: "#E91E63" },
+    judge: { name: "THE JUDGE", emoji: "👨‍⚖️", color: "#7E57C2", seat: "judge" },
+    shloime: { name: "SHLOIME", emoji: "🧔", color: "#1565C0", seat: "petitioner", model: "homesDad", colors: { Top: "#FFFFFF", Bottom: "#212121", Hair: "#3E2723" } },
+    malky: { name: "MALKY", emoji: "😩", color: "#AD1457", seat: "respondent", model: "homesMom", colors: { Top: "#AD1457", Hair: "#4E342E" }, fallback: "npcWoman" },
+    fishbein: { name: "MR. FISHBEIN (his lawyer)", emoji: "🤓", color: "#6D4C41", seat: "petCounsel", model: "lawLawyer", colors: { Top: "#8D6E63", Hair: "#BDBDBD" } },
+    adler: { name: "MRS. ADLER (her lawyer)", emoji: "💼", color: "#C62828", seat: "respCounsel" },
+    bailiff: { name: "THE BAILIFF", emoji: "👮", color: "#546E7A", seat: "bailiff" },
+    gitty: { name: "BABY GITTY", emoji: "👶", color: "#F06292" },      // (placed by the case's own setup: in someone's arms)
+    lulu: { name: "LULU", emoji: "💁‍♀️", color: "#E91E63", seat: "gallery" },
 };
 
 export const HEARINGS = [
@@ -166,6 +167,12 @@ export const ABBA_COURT = {
     beforeJury: [
         "*offers the bailiff a sandwich from Ima* It's tuna. She made extra. Nu — take.",
         "Ladies and gentlemen of the jury — she slept through the night at SIX WEEKS. Just so you know who you're dealing with.",
+    ],
+    /** Tried WITH friends (law/crew.js co-defendants): he represents them all. {names} = the friends. */
+    codefendants: [
+        "Your honor, I'm also representing {names}. Pro bono. Her mother called.",
+        "I represent ALL of them. {names} — sit up straight, you too. I don't care whose father I am.",
+        "{names}, have you eaten? Nobody answers anything until everybody's eaten.",
     ],
     verdict: {
         dismissed: ["THAT'S MY GIRL! *hugs the bailiff* Wait till I tell Ima! …Actually, let's not tell Ima."],
