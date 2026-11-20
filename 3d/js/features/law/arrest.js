@@ -12,7 +12,7 @@ import { rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as X from "./sfx.js";
 import * as UI from "./ui.js";
-import { L, setRig, scriptedCruiser, endChase, driveUnit, spatialSirens } from "./cops.js";
+import { L, setRig, scriptedCruiser, endChase, driveUnit, spatialSirens, pullDAt } from "./cops.js";
 import { ARREST_LINES, LULU_ARREST_LINES, CUFF_LINES } from "./data.js";
 import { pick, chargeDialogueFor } from "./rules.js";
 import { runFlow, check, line, person, lulu, walkTo, cuffs, disposeCuffs, quietRoad, restoreRoad } from "./scene.js";
@@ -48,8 +48,10 @@ registerState("lawArrest", {
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {
-            st.unit = scriptedCruiser(28, data.onFoot ? 5.25 : ctx.car.d);
-            st.unit.mode = "pull"; st.unit.pullD = data.onFoot ? 5.25 : ctx.car.d; st.unit.stopS = ctx.car.s - 7.4;
+            // (on foot: the shoulder's inner edge — in a town the right lane beside the parked row, never the sidewalk)
+            const pd = data.onFoot ? (ctx.town && ctx.town.active ? pullDAt(ctx.car.s) : 5.25) : ctx.car.d;
+            st.unit = scriptedCruiser(28, pd);
+            st.unit.mode = "pull"; st.unit.pullD = pd; st.unit.stopS = ctx.car.s - 7.4;
         }
         st.unit.siren = true;
         if (!st.unit.car.ai) { st.unit.car.free = true; st.unit.car.ai = (dt, c) => driveUnit(dt, c, st.unit); }

@@ -244,6 +244,30 @@ module.exports = {
       await view("impound", "impound-her-car", 4, 6, 10);
     });
 
+    // ── a pull-over in town stops in the street (beside the parked row), never up on the sidewalk (QA finding) ──
+    await step("pull-over in town", async () => {
+      if (!await town("lakewood")) return;
+      await resetLaw();
+      await carAt("precinct", 8.4, false);          // (the street's centre line in front of the precinct, along the street)
+      await t.frames(4);
+      await g(`(${D}.L.grace = 0, ${D}.FORCE.bustOutcome = "ticket", ctx.law.startChase("RUNNING A STOP SIGN", { msg: "🚨" }), true)`);
+      await t.frames(10);
+      await g(`(() => { const c = ctx.car; c.vx = c.vz = 0; const u = ${D}.L.units.find(u => u.mode === "chase"); if (!u) return false;
+          u.car.x = c.pos.x - Math.sin(c.h) * 7; u.car.z = c.pos.z - Math.cos(c.h) * 7; u.car.h = c.h; u.car.speed = 0; return true; })()`);
+      if (!await t.until(`__lulu3d.state === "lawBust"`, "stopped with a cop behind her in town = BUSTED", 60000)) return;
+      let worst = 0;
+      for (let i = 0; i < 10; i++) { await t.frames(12); worst = Math.max(worst, await g(`(() => { const n = ctx.world.road.nearest(ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, {}); const u = ${D}.L.units.find(u => u.mode === "pull" && u.car); const m = u ? ctx.world.road.nearest(u.car.x, u.car.z, u.car.s, {}) : n; return +Math.max(Math.abs(n.d), Math.abs(m.d)).toFixed(2); })()`)); }
+      const curb = await g(`(() => { const n = ctx.world.road.nearest(ctx.car.pos.x, ctx.car.pos.z, ctx.car.s, {}); return n.street ? n.street.curb : 5.6; })()`);
+      t.check(`the pull-over stays in the street, off the sidewalk (|d| ≤ ${worst} < kerb ${curb})`, worst < curb - 0.5, String(worst));
+      const pd = await t.L(`import("./js/features/law/cops.js").then(m => m.pullDAt())`);
+      t.check(`…its target in town is the right lane beside the parked row (d ${pd}), not the highway's shoulder (7.9)`, pd > 1.5 && pd < curb - 2, String(pd));
+      await t.shot("pullover-in-town");
+      await talk(`__lulu3d.state === "playing" || __lulu3d.state === "lawArrest" || __lulu3d.state === "footRun"`, "the pull-over ends", null, 200);
+      if (await st() === "lawArrest") await talk(CELL, "…(booked after all)");
+      await g(`(ctx.law.clearHeat("test", { lowKey: false }), true)`);
+      await playing();
+    });
+
     // ── a jailbreak from the town's precinct: out of ITS door on foot, a fugitive (her car out front: it's hers) ──
     await step("jailbreak in town", async () => {
       if (!await town("midwood")) return;
