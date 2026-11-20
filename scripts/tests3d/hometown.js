@@ -92,6 +92,20 @@ module.exports = {
     }
     await t.shot("home-again");
 
+    // ── a house she owns as where her day starts (ctx.home.startAt — features/realestate's "🏠 Start my day here") ──
+    const other = await g(`(() => { const L = ctx.home.lot, H = ctx.town.homes.filter(h => h.lotX != null && Math.hypot(h.lotX - L.x, h.lotZ - L.z) > 40).sort((a, b) => Math.hypot(a.lotX - L.x, a.lotZ - L.z) - Math.hypot(b.lotX - L.x, b.lotZ - L.z))[0];
+      return H ? { x: H.lotX + H.nx * 1.5, z: H.lotZ + H.nz * 1.5, face: Math.atan2(H.nx, H.nz) } : null; })()`);
+    if (other) {
+      await g(`(ctx.home.setStartAt({ town: "midwood", key: "test", door: { x: ${other.x}, z: ${other.z} }, face: ${other.face}, label: "a test house" }), true)`);
+      await g(`ctx.onegame.home({ via: "test" })`);
+      t.check("startAt: the day starts at THAT house's door (not the family porch)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && Math.hypot(__lulu3d.ctx.foot.pos.x - ${other.x}, __lulu3d.ctx.foot.pos.z - ${other.z}) < 4`, "start at", 6000),
+        await g(`JSON.stringify({ st: L3.state, pos: ctx.foot.pos && [+ctx.foot.pos.x.toFixed(1), +ctx.foot.pos.z.toFixed(1)], want: [${other.x.toFixed(1)}, ${other.z.toFixed(1)}] })`));
+      t.check("…her car at a kerb nearby", await g(`(() => { const c = ctx.foot.parkedCar; return !!c && Math.hypot(c.x - ${other.x}, c.z - ${other.z}) < 45; })()`));
+      await g(`ctx.onegame.home({ via: "dinner" })`);
+      await atPorch("dinner (always the FAMILY house)");
+      await g(`(ctx.home.setStartAt(null), true)`);
+    } else t.check("(a neighbour's house for startAt)", false);
+
     // ── the road trip from the suitcase: leg 1 starts at home, in Midwood ──
     await g(`ctx.onegame.roadTrip("test", 0)`);
     t.check("🧳 the road trip's first leg starts at home in Midwood", await t.until(`__lulu3d.ctx.G.mode === "story" && __lulu3d.state === "footRun" && __lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "story at home", 6000),

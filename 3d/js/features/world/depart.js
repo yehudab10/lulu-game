@@ -50,11 +50,39 @@ export function wantsDeparture(G, opts) {
 
 hook("runStart", (G, opts) => {
     if (!wantsDeparture(G, opts)) return;
+    // a house she owns, picked as where her day starts (ctx.home.startAt — features/realestate): there, on foot by its door
+    // (dinner / anything asking for the FAMILY house still means Ima's)
+    const alt = altStart(opts);
+    if (alt && enterAlt(alt)) { G.introStart = () => startAtHome(opts, alt); return; }
     // home is a house on a Midwood street (roadmap 14): the day starts IN that town — no town, no home start (the plain countdown)
     if (!enterHomeTown()) return;
     placeParked();                       // the car in the driveway, Lulu by the porch, whatever the title was doing
     G.introStart = () => startAtHome(opts);
 }, -100);
+
+/** ctx.home.startAt, when a day may start there: { town, door: {x, z}, face, label, car?: {x, z, h}, exitS } | null. */
+function altStart(opts = {}) {
+    const H = ctx.home, a = H && H.startAt;
+    if (!a || opts.family || opts.homeVia === "dinner" || !ctx.town || typeof ctx.town.warp !== "function") return null;
+    const T = ctx.town, town = a.town || (H.town || "midwood");
+    const exitS = town === home.town ? home.exitS : ((T.exits || []).find(e => e.id === town) || {}).s;
+    if (exitS == null || !a.door) return null;
+    return Object.assign({}, a, { town, exitS });
+}
+/** Warp to that house's town with her car at its kerb (its own `car`, else the nearest free kerb to the door). */
+function enterAlt(a) {
+    const T = ctx.town;
+    const car0 = a.car && Number.isFinite(a.car.x) ? a.car : { x: a.door.x, z: a.door.z, h: a.face || 0 };
+    try { T.warp({ town: a.town, exitS: a.exitS, at: { x: car0.x, z: car0.z, h: car0.h || 0 }, speed: 0, quiet: true }); } catch (e) { console.error("[world] start at", e); return false; }
+    if (!(T.active && T.id === a.town)) return false;
+    if (!a.car && T.curbSpot) {
+        const k = T.curbSpot({ near: { x: a.door.x, z: a.door.z }, minD: 0, maxD: 40, len: 6 });
+        if (k) { ctx.car.place(k.x, k.z, k.h); ctx.car.s = k.s; ctx.car.d = k.d; }
+    }
+    ctx.car.vx = ctx.car.vz = ctx.car.vF = 0;
+    ctx.car.showDriver(false);
+    return true;
+}
 
 // (the pull-out + the dinner beat play IN a town too — any other state sends her back to the highway first)
 on("boot", () => { if (ctx.town && ctx.town.allowState) { ctx.town.allowState("worldPullOut"); ctx.town.allowState("worldHomeBeat"); } });
@@ -96,8 +124,9 @@ function hint() {
     return touch ? "" : `${glyph("interact")} at the car to hop in 🚗`;
 }
 
-function startAtHome(opts = {}) {
+function startAtHome(opts = {}, alt = null) {
     const G = ctx.G;
+    if (alt) return startAtAlt(opts, alt);
     luluSpots(spots);
     const L = home.people.lulu;
     // (opts.homeAt {x, z, face}: she's already somewhere on her street — the road trip from the suitcase starts right there)
@@ -130,6 +159,26 @@ function startAtHome(opts = {}) {
     D.pendingLine = line;
     D.pendingLine2 = D.first && dayLine ? dayLine : opts.homeLine && dayLine && line !== dayLine ? dayLine : null;
     emit("world:homeStart", { mode: G.mode, first: D.first, friday, via: opts.home ? "world" : opts.restart ? "restart" : "title" });
+    return true;
+}
+
+/** A day that starts at a house she owns (ctx.home.startAt): on foot by its door, her car at the kerb — no Ima (she's at the
+ *  family house: dinner's still there). */
+function startAtAlt(opts, a) {
+    const G = ctx.G;
+    D.first = false;
+    HS.starts++; saveSoon();
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = true; D.pendingLine = D.pendingLine2 = null;
+    if (home.people.ima) home.people.ima.obj.visible = false;
+    const ok = ctx.foot.start("home", {
+        at: { x: a.door.x, z: a.door.z }, face: a.face != null ? a.face : 0, noIntro: true, drivable: true,
+        camBlend: opts.camBlend != null ? opts.camBlend : ctx.state === "title" ? 1.1 : 0, line: "",
+        home: { hazards: false, hint, hintT: 6, quiet: () => !!ctx.foot.pos && Math.hypot(ctx.foot.pos.x - a.door.x, ctx.foot.pos.z - a.door.z) < 40, onOwnCar: drove, driveState: "playing" },
+    });
+    if (!ok) { D.live = false; return false; }
+    H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
+    G.lastS = G.startS = ctx.car.s;
+    emit("world:homeStart", { mode: G.mode, first: false, friday: false, via: "startAt", at: a.label || a.key || "" });
     return true;
 }
 
