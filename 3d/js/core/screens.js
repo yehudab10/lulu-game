@@ -263,9 +263,9 @@ const playSubs = [];
 export function addPlaySub(fn, priority = 0) { playSubs.push({ fn, priority }); playSubs.sort((a, b) => b.priority - a.priority); }
 function playSub() {
     for (const p of playSubs) { try { const s = p.fn(); if (s) return s; } catch (e) { console.error("[title] play sub", e); } }
-    return save3d.best ? `home · the highway · the towns — best ${save3d.best.toLocaleString()}` : "Lulu's world: home, the highway, the towns";
+    return "Lulu's world: home · the highway · the towns";
 }
-addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶️ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
+addMenuItem("title", { id: "play", order: 5, group: "play", label: () => `▶ PLAY ${glyph("confirm")}`, sub: playSub, action: () => startRun({ mode: "cruise" }) });
 addMenuItem("title", { id: "skin", order: 32, group: "garage", short: "Car", label: () => `🚗 Car: ${SKINS[ctx.car.skinKey].name}`,
     sub: () => { const n = ownedSkins().length; return n > 1 ? `${n} cars in the garage · ${glyph("confirm")} to switch` : "buy more cars in the shop"; }, action: cycleSkin });
 addMenuItem("title", { id: "controls", order: 86, group: "more", label: "🎮 Controls", action: () => showControls(() => showTitle(true)) });

@@ -205,7 +205,7 @@ module.exports = {
     await g(`ctx.foot.debug.getIn()`);
     t.check("getting in the car starts the 🕯️ rush", await t.until(`__lulu3d.ctx.shabbos.active && __lulu3d.ctx.G.mode === "shabbos"`, "rush", 3000));
     t.check("…from home (via 'home')", (await g(`ctx.shabbos.debug.info().via`)) === "home");
-    await g(`(ctx.shabbos.debug.setLeft(0.1), true)`);
+    await g(`(L3.setState("playing"), ctx.shabbos.debug.setLeft(0.1), true)`);     // (out of the driveway: the clock runs while she drives)
     t.check("late → the card", await t.until(`__lulu3d.state === "shabbosResult"`, "result", 6000));
     t.check("the card has 🏠 Head home (not the title)", await t.L(`/Head home/.test(document.getElementById("shbTitle").textContent)`));
     await t.L(`document.getElementById("shbTitle").click()`);
