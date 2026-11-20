@@ -424,6 +424,8 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 
 - Polish (`ci/polish`, 2026-11-20): done — solid yard pieces, Dina in the house, precinct lamps + hospital crosses glow at night (`town/kit.js lookOf` → the 'lit' look), solid arcade / notice board (`T.indexCollider` lets a late collider join the town's grid), Ima's list in 💬 Messages, Friday decline line. Skipped: a parking booth in a town lot (neither town has a lot; the impound is police), together's seat-taken / join messages (already a prompt line + bubble, no toast). `onegame` "Ima's first line points at the suitcase" fails when run on a REAL Friday afternoon (the clock isn't mocked at that point) — pre-existing.
 
+- Polish round 2 (`ci/polish`): done — the smoke harness pins an ordinary Monday (`shabbosDate` + `seasonDate`, unless a test passes its own) so no test depends on the real day (the `onegame` Friday failure; every test that starts a home Cruise was exposed; `meta/holidays.js` reads the device's Hebrew calendar with no pin — only `?holiday=` forces it); a 🏠 My house row in 💬 Messages (what's bought + how close each set is, `ctx.decor.summary()`); the 📻 app says the music stations are quiet in the Three Weeks. Skipped: a jailbreak back door (needs a new anchor in the generated precinct model, and the rear of those blocks has no street), the moped snatcher's repeating +15 (heist is a live row's), the party join line saying "Friend" (party is a live row's), the Hangout emote-glyph note (already done).
+
 ## 8. Owner-only to-dos (agents can't do these — remind the owner if relevant)
 
 - App Store Connect for **2.0**: set the version to 2.0, new iPhone + iPad
