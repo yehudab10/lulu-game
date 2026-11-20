@@ -157,14 +157,14 @@ async function body(t, guests) {
   await netChecks(t);
   await t.frames(4);
   const titleBtns = await t.L(`[...document.querySelectorAll("#screenCard .btn")].map(b => b.textContent)`);
-  t.check("title has ONE multiplayer entry: 🎉 Party with friends", titleBtns.some(x => /Party with friends/.test(x)) && !titleBtns.some(x => /Shared Road/.test(x)), titleBtns.join(" / ").slice(0, 200));
+  t.check("title has ONE multiplayer entry: 👯 Friends", titleBtns.some(x => /Friends/.test(x)) && !titleBtns.some(x => /Shared Road/.test(x)), titleBtns.join(" / ").slice(0, 200));
   t.check("nothing connects until the player opts in", await t.game(`!ctx.party.active`));
 
   // ── host ──
-  await t.click(/Party with friends/);
-  t.check("hub: host / join / open road", await t.L(`["pt_host", "pt_join", "pt_open"].every(id => !!document.getElementById(id))`));
+  await t.click(/Friends/);
+  t.check("hub: party games / join / 2D friends", await t.L(`["pt_host", "pt_join", "pt_open"].every(id => !!document.getElementById(id))`));
   await t.shot("hub");
-  await t.click(/Host a party/);
+  await t.click(/Party games/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby + connected")) return;
   const code = await t.game(`ctx.party.code`);
   t.check("party code: 4 unambiguous letters", /^[ABCDEFGHJKMNPQRTWXYZ]{4}$/.test(code), code);
@@ -174,8 +174,8 @@ async function body(t, guests) {
   const A = await guestPage(t, "guest A", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" });
   guests.push(A);
   await A.until(`L3.state === "title"`, "boots", 180000);
-  await A.until(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Party with friends/.test(b.textContent))`, "sees the party entry");
-  await A.L(`[...document.querySelectorAll("#screenCard .btn")].find(b => /Party with friends/.test(b.textContent)).click()`);
+  await A.until(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Friends/.test(b.textContent))`, "sees the party entry");
+  await A.L(`[...document.querySelectorAll("#screenCard .btn")].find(b => /Friends/.test(b.textContent)).click()`);
   await sleep(300);
   await A.click("#pt_join");
   t.check("join screen: letter keyboard (20 keys)", await A.L(`document.querySelectorAll("#screenCard .pt-keys .btn").length === 20`));
@@ -394,8 +394,8 @@ async function body(t, guests) {
   // portrait phone: the lobby card fits
   await t.game(`ctx.party.leave()`);
   await t.page.setViewportSize({ width: 390, height: 844 });
-  await t.click(/Party with friends/);
-  await t.click(/Host a party/);
+  await t.click(/Friends/);
+  await t.click(/Party games/);
   await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected`, "portrait lobby", 20000);
   await sleep(800);
   await t.shot("lobby-portrait");

@@ -123,8 +123,10 @@ registerState("dinaSelect", {
         SEL.set.set.show();
         SEL.t = 0;
         document.body.classList.add("dina-select-on");
-        const card = H.showScreen(html(), [], { cls: "dina-select", focus: "dsDina", onBack: () => setState("title") });
-        card.querySelector("#dsLulu").addEventListener("click", () => { sfx.charSelect(); setState("title"); });
+        // (picking Lulu / backing out: the title — or straight back out of the front door when she came from the porch)
+        const leave = () => { if (ctx.dina && ctx.dina.leave) ctx.dina.leave(); else setState("title"); };
+        const card = H.showScreen(html(), [], { cls: "dina-select", focus: "dsDina", onBack: leave });
+        card.querySelector("#dsLulu").addEventListener("click", () => { sfx.charSelect(); leave(); });
         card.querySelector("#dsDina").addEventListener("click", pickDina);
         const room = card.querySelector("#dsRoom");
         if (room) room.addEventListener("click", toRoom);

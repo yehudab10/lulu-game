@@ -430,6 +430,8 @@ function updateCell(dt) {
     const el = document.getElementById("lawCourtT");
     if (el) el.textContent = `⚖️ Court is called in ${Math.max(0, Math.ceil(st.courtT))}s`;
     if (st.courtT <= 0 && st.phase === "cell") { goCourt(null); return; }
+    // (once a stay, a few seconds into the cell with nothing happening: a quiet moment — the iOS app may show its ad here)
+    if (!st.quietSent && st.phase === "cell" && st.courtT < 18.5 && !ctx.dialogOpen) { st.quietSent = true; emit("law:cellQuiet", {}); }
     st.cellmateT -= dt;
     if (st.cellmateT <= 0) {
         st.cellmateT = rand(4, 7);

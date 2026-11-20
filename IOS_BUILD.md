@@ -86,13 +86,22 @@ stay identical: `3d/js/features/native/ads.js` (`ADMOB` — what 2.0 shows) and
 `src/10c-ads.js` (the classic game, still active if a player opens Classic 2D
 in the app). The AdMob **App ID** is injected into Info.plist by codemagic.yaml.
 
-- **Interstitial** — on the *game-over* card, every **2nd** game over
-  (`ADMOB.interstitialEveryN`).
-- **Rewarded** — an opt-in "📺 WATCH → +50 💰" button on the game-over card
-  (only while an ad is loaded; one reward per game over; reachable with the
-  controller's D-pad like any card button).
-- **Never** mid-drive, in a 🎉 party (`ads` is in party's OFF set, and
-  `ctx.party.active` is checked too), or in Dina's mode.
+- **Interstitial** (owner, 2026-11-20) — every **2nd knock-out** (out of hearts; there is no game-over
+  card in normal play any more), shown only once Lulu is back on her feet and walking; **one per jail
+  stay**, at a quiet moment in the cell; and every 2nd game-over card that still exists (parking's
+  challenge). One break counter (`ADMOB.interstitialEveryN`), never two within `minGapMs` (90 s).
+- **Rewarded** — the opt-in "📺 WATCH → +50 💰": on a game-over card (one per card), and in the ❚❚ pause
+  menu after a knock-out (one per knock-out, at most 3 a run).
+- **The rule (AGENTS golden rule 4b): an ad never costs the player a moment.** It never STARTS during a
+  cutscene, a dialogue, a card, the spin-out / climb-out, while driving or in a chase. While any ad is up
+  the WHOLE game holds (`ctx.hold`: no game time, no scripts, no traffic, no world; music paused, sound
+  suspended) and picks up exactly where it was when the plugin says **dismissed** (v8's
+  `showInterstitial()` resolves as the ad APPEARS — only the `interstitialAdDismissed` /
+  `onRewardedVideoAdDismissed` events mean closed). If the ad never appears within `showWaitMs` (8 s — no
+  network, the app backgrounded) or never says closed within `maxAdMs` (60 s), the game comes back anyway.
+  Test: `scripts/tests3d/adhold.js` (a fake plugin holds each ad open and checks nothing moved).
+- **Never** in a 🎉 party (`ads` is in party's OFF set, and `ctx.party.active` is checked too), or in
+  Dina's mode.
 
 > ⚠️ Tapping your **own live ads** gets the AdMob account banned. To test on
 > your own phone, add its AdMob test-device ID to `testingDevices` in both

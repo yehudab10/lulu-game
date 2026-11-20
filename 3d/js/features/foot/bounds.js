@@ -358,11 +358,14 @@ export function damp(F) {
 }
 
 /** Position limit (after the move). The soft edges keep her well inside it; it's only a safety net. */
-export function limit(F, near) {
-    const lim = (F.bx && edgesOn() && !onGrounds(F)) ? EDGE.fence - 0.35 : EDGE.oldFence;
+export function limit(F, near, dt = 1 / 30) {
+    // (F.outLim: she got out of a car parked out past the fence — the car drives the fields to 70 m — so she may walk
+    //  where it stands; and the push back in is a quick glide, never a jump: stepping off a lawn's grounds, the limit
+    //  falls from the old fence to the new one, and snapping that in one frame was a teleport of up to 8 m)
+    const lim = Math.max((F.bx && edgesOn() && !onGrounds(F)) ? EDGE.fence - 0.35 : EDGE.oldFence, F.outLim || 0);
     const ad = Math.abs(near.d);
     if (ad <= lim) return;
-    const push = (ad - lim) * Math.sign(near.d);
+    const push = Math.min(ad - lim, 12 * dt) * Math.sign(near.d);
     F.pos.x += Math.cos(near.h) * push; F.pos.z -= Math.sin(near.h) * push;
 }
 

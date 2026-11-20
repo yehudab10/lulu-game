@@ -39,7 +39,12 @@ registerState("lawArrest", {
         st.place = ctx.civic && ctx.civic.claim ? ctx.civic.claim("law") : null;
         // (a town that can't host the arrest would send her back to the highway AFTER this enter — clearing the traffic,
         //  the cruiser below with it. Leave first, so the cruiser is made on the highway.)
-        if (!(st.place && st.place.here) && ctx.town && ctx.town.active && ctx.town.leave) ctx.town.leave("quiet");
+        if (!(st.place && st.place.here) && ctx.town && ctx.town.active && ctx.town.leave) {
+            ctx.town.leave("quiet");
+            // (caught ON FOOT: her spot was a town street, which is gone now — she's cuffed beside the car's spot on the
+            //  highway instead, where the cruiser pulls up; the old spot left the shot looking at empty space)
+            if (data.onFoot && data.x != null) { data.x = ctx.car.pos.x; data.z = ctx.car.pos.z; data.h = ctx.car.h; }
+        }
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {

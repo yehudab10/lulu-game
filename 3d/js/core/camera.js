@@ -50,7 +50,7 @@ function lookInput(dt) {
     return _li;
 }
 // the free camera's state (on foot)
-const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2 };
+const FREE = { yaw: 0, pitch: LOOK.pitch, idle: 9, frame: -9, reT: 0, reYaw: 0, tgt: new THREE.Vector3(), n: 0, dist: 6.6, look: 1.2, clipD: 99 };
 const _t = new THREE.Vector3();
 
 export const cam = {
@@ -63,7 +63,9 @@ export const cam = {
         cam.snap();
         return CAMS[st.mode].name;
     },
-    snap() { st.snap = true; if (ctx.car) st.yaw = ctx.car.h; st.lookYaw = 0; st.lookPitch = 0; },
+    // (a snap is a CUT: it also ends a glide still running — one left running across a teleport swooped the picture
+    //  from the old place to the new one, through whatever stood between; blend() starts its own glide after this)
+    snap() { st.snap = true; bl.on = false; if (ctx.car) st.yaw = ctx.car.h; st.lookYaw = 0; st.lookPitch = 0; },
     /** A soft cut: the rigs jump (as with snap), the picture glides there over `sec` seconds. */
     blend(sec = 0.6) {
         const camera = ctx.camera;
@@ -101,13 +103,16 @@ export const cam = {
     },
     /** The FREE third-person camera (on foot): it orbits obj at the player's yaw / pitch and stays where they leave it.
      *  opts: dist (m), look (pivot height over her feet), fov, y (her height to frame — default obj.position.y),
-     *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street). */
-    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null } = {}, dt = 1 / 60) {
+     *  auto { yaw, k } (ease toward that yaw while the look is left alone — foot: down the road / the street),
+     *  clip(tgt, dx, dy, dz, D) → the farthest the camera may sit from the pivot along that direction (walls). */
+    orbit(obj, { dist = 6.6, look = 1.2, fov = 58, y = null, auto = null, clip = null } = {}, dt = 1 / 60) {
         const camera = ctx.camera;
         // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
         // once and the PICTURE glides from what was on screen (a blend), so nothing swoops in from a stale spot
         const fresh = FREE.frame < ctx.frames - 1;
-        if (fresh && !st.snap && !bl.on && !ctx.skipping) startBlend(0.45);
+        // (a glide already running — getting out of the car starts a 0.7 s one, and she's walking after ~0.5 s — is
+        //  restarted from the picture on screen: letting it run on toward the NEW rig jumped the picture by metres)
+        if (fresh && !st.snap && !ctx.skipping) startBlend(bl.on ? Math.max(0.45, bl.dur - bl.t) : 0.45);
         FREE.frame = ctx.frames;
         const L = lookInput(dt);
         if (L.active) { FREE.idle = 0; FREE.reT = 0; FREE.n++; } else FREE.idle += dt;
@@ -129,15 +134,28 @@ export const cam = {
         _t.set(obj.position.x, (y == null ? obj.position.y : y) + FREE.look, obj.position.z);
         if (st.snap || fresh) FREE.tgt.copy(_t);
         else if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > 2.5) {
-            // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides
-            if (!bl.on && !ctx.skipping) startBlend(0.35);
+            // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides —
+            // from what's on screen (even mid-glide); moved farther than a glide may go (a teleport), it's a cut
+            if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > BLEND_MAX) bl.on = false;
+            else if (!ctx.skipping) startBlend(0.35);
             FREE.tgt.copy(_t);
         } else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 12); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 12); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
+        const snapped = st.snap;
         st.snap = false;
         const cp = Math.cos(FREE.pitch), sp = Math.sin(FREE.pitch), fx = Math.sin(FREE.yaw), fz = Math.cos(FREE.yaw);
         let D = D0;
         if (FREE.tgt.y + sp * D < 0.4) D = Math.max(1.6, (FREE.tgt.y - 0.4) / -sp);      // looking up: slide in along the ground
-        camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D, FREE.tgt.z - fz * cp * D);
+        // a wall / a house between her and the camera (opts.clip — foot's: the same colliders she bumps into): the camera
+        // comes in to this side of it at once, and eases back out once it's clear (no popping in and out at a corner)
+        if (clip) {
+            const lim = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D);
+            if (snapped || fresh || lim < FREE.clipD) FREE.clipD = lim;
+            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 2.5) + dt * 0.5);
+            D = Math.min(D, FREE.clipD);
+        } else FREE.clipD = 99;
+        // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)
+        const lift = D < 1.5 ? (1.5 - D) * 1.4 : 0;
+        camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D + lift, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
         camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);
         camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);
@@ -151,6 +169,8 @@ export const cam = {
         get pitch() { return FREE.pitch; }, set pitch(v) { FREE.pitch = clamp(v, LOOK.pitchMin, LOOK.pitchMax); },
         get idle() { return FREE.idle; },
         get looks() { return FREE.n; },
+        /** How far the walls let it sit right now (m; 99 = nothing in the way) — tests. */
+        get clipD() { return FREE.clipD; },
         /** Is the free camera the one on screen (it ran last frame)? */
         get on() { return FREE.frame >= ctx.frames - 1; },
         /** Start from where the camera is looking right now (no swing when the rig takes over). */

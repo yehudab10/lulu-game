@@ -1,6 +1,6 @@
 // 🕯️ Erev Shabbos Rush (features/shabbos): beat the sunset to Bubbe's before candle-lighting.
-//  • the Friday title chip (mocked device clock): absent on a Monday / Friday night, one tap starts it,
-//    the default focus stays on the Story Trip; off in a party (ctx.enabled + the OFF set)
+//  • Friday (mocked device clock): no title chip any more (roadmap 10) — ▶ PLAY's subtitle says "Erev Shabbos"
+//    on a Friday afternoon only, and Ima asks at the door (features/onegame's test drives that); off in a party
 //  • start → the countdown in the trip bar (no extra HUD; it survives HUD: Clean) → the sky sinks
 //  • Ima calls twice (listen to the whole call: +0:10; a honk declines)
 //  • escalation: thicker minivan traffic, people rushing home, shop gates, the LED trailer
@@ -26,7 +26,7 @@ module.exports = {
     const tp = (s, d, v = 0) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {});
       ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d}; ctx.world.prebuild(${s});
       ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.cam.snap(); return true; })()`);
-    const chip = () => t.L(`(() => { const b = document.querySelector("#shabbosChip"); return !!b && b.offsetParent !== null; })()`);
+    const chip = () => t.L(`/Erev Shabbos/.test((document.getElementById("play") || {}).textContent || "")`);   // (PLAY's Friday subtitle)
     const label = () => t.L(`document.getElementById("tripLabel").textContent`);
     const layouts = async (shot, check) => {
       for (const [name, w, h, tv, touch] of LAYOUTS) {
@@ -50,34 +50,35 @@ module.exports = {
     t.check("no new home tile", !(await t.titleItems()).some(l => /shabbos/i.test(l)));
 
     // ── the Friday title feature (mocked clock) ─────────────────────────────
-    t.check("Monday afternoon: no chip", !(await chip()));
+    t.check("no 🕯️ chip on the title (roadmap 10)", await t.L(`!document.getElementById("shabbosChip")`));
+    t.check("Monday afternoon: PLAY says nothing about Shabbos", !(await chip()));
     await g(`ctx.shabbos.debug.date("2026-11-20T21:30")`);
     await g(`L3.openView("home")`);
     await t.frames(3);
-    t.check("Friday night (after candles): no chip", !(await chip()));
+    t.check("Friday night (after candles): nothing", !(await chip()));
     await g(`ctx.shabbos.debug.date("2026-11-20T15:00")`);
     await g(`L3.openView("home")`);
     await t.frames(4);
-    t.check("Friday afternoon: the 🕯️ chip is in the home top bar", await chip() && await t.L(`!!document.querySelector(".home-bar #shabbosChip")`));
-    t.check("…the default focus stays on the Story Trip hero", await t.L(`(() => { const f = document.querySelector("#screenCard .focus"); return !!f && f.id !== "shabbosChip"; })()`));
+    t.check("Friday afternoon: ▶ PLAY's subtitle says Erev Shabbos", await chip());
+    t.check("…and the rush is what Ima asks for at the door", await g(`ctx.shabbos.atDoor()`));
     // party: random / single-player features are off for everyone
     t.check("party source lists shabbos in the OFF set", await t.L(`fetch("./js/features/party/index.js").then(r => r.text()).then(s => /const OFF = new Set\\([^)]*"shabbos"/.test(s))`));
     // (flip the party flag inside ONE evaluation: no frame runs, so nothing tries to reach a relay)
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ctxm = m; })`);
     const inParty = await g(`(() => { const N = ctx.party._debug.N; N.want = true;
-      try { return { on: ctx.enabled("shabbos"), chip: __ctxm.menuItems("titleInfo").some(i => i.id === "shabbosFriday"), offer: ctx.shabbos.offer() }; }
+      try { return { on: ctx.enabled("shabbos"), chip: ctx.shabbos.atDoor(), offer: ctx.shabbos.offer() }; }
       finally { N.want = false; } })()`);
-    t.check("in a party: ctx.enabled('shabbos') is false, no chip, no Cruise call", !inParty.on && !inParty.chip && !inParty.offer, JSON.stringify(inParty));
-    t.check("…and back on after the party", await g(`ctx.enabled("shabbos") && __ctxm.menuItems("titleInfo").some(i => i.id === "shabbosFriday")`));
+    t.check("in a party: ctx.enabled('shabbos') is false, Ima doesn't ask, no Cruise call", !inParty.on && !inParty.chip && !inParty.offer, JSON.stringify(inParty));
+    t.check("…and back on after the party", await g(`ctx.enabled("shabbos") && ctx.shabbos.atDoor()`));
     await layouts("title-friday", async (name, w) => {
-      t.check(`${name}: the chip is on screen`, await onScreen("#shabbosChip"));
+      t.check(`${name}: ▶ PLAY (with the Friday line) is on screen`, await onScreen("#play") && await chip());
     });
     await g(`L3.openView("home")`);
     await t.frames(3);
 
-    // ── one tap starts it ───────────────────────────────────────────────────
-    await t.L(`document.querySelector("#shabbosChip").click()`);
-    if (!await t.until(`__lulu3d.state === "playing"`, "the chip starts the rush")) return;
+    // ── a rush (ctx.shabbos.start — the world's door / a retry; no home street in this test: the 3-2-1) ──
+    await g(`ctx.shabbos.start("title")`);
+    if (!await t.until(`__lulu3d.state === "playing"`, "the rush starts")) return;
     let I = await info();
     t.check("a rush is on (mode shabbos, via title)", I.active && I.phase === "drive" && I.via === "title" && await g(`ctx.G.mode`) === "shabbos", JSON.stringify(I));
     t.check("…to Bubbe's house (the journey's stop 0)", I.dest === await g(`Math.round(ctx.journey.stopS(0))`), JSON.stringify(I));

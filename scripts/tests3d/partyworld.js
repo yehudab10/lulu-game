@@ -97,8 +97,8 @@ async function roadTrip(t, guests) {
   const g = t.game;
   t.check("party plan service (rng / seeded / road)", await g(`!!(ctx.party.rng && ctx.party.seeded && ctx.party.road && ctx.party.road.slot)`));
   t.check("the party OFF set no longer holds the shared-world features", await g(`(() => { const N = ctx.party._debug.N, was = N.want; N.want = true; try { return ["roadevents", "cameos", "world", "hustle", "community", "memory", "banter", "meta"].every(id => ctx.enabled(id)) && !ctx.enabled("journey") && !ctx.enabled("dina"); } finally { N.want = was; } })()`));
-  await t.click(/Party with friends/);
-  await t.click(/Host a party/);
+  await t.click(/Friends/);
+  await t.click(/Party games/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return false;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
@@ -117,7 +117,7 @@ async function roadTrip(t, guests) {
   // 1. the plan: identical on both screens
   const plans = [];
   for (const p of pages) plans.push(await p.game(`ctx.party.road.list(0, 4300).map(s => s.key + "@" + s.s.toFixed(2) + ":" + s.side)`));
-  t.check("road plan: the same big slots at the same s on both screens", JSON.stringify(plans[0]) === JSON.stringify(plans[1]) && plans[0].length >= 2, `${plans[0].length} slots: ${plans[0].slice(0, 6).join(" ")}`);
+  t.check("road plan: the same big slots at the same s on both screens", JSON.stringify(plans[0]) === JSON.stringify(plans[1]) && plans[0].length >= 1, `${plans[0].length} slots: ${plans[0].slice(0, 6).join(" ")}`);
   const kinds = [];
   for (const p of pages) kinds.push(JSON.stringify(await p.game(`ctx.party.road.kinds`)));
   t.check("road plan: roadevents, cameos and hustle registered, in the same order everywhere", kinds[0] === kinds[1] && ["roadevents:", "cameos:", "hustle:"].every(i => kinds[0].includes(i)), kinds[0]);

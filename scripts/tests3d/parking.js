@@ -1,4 +1,5 @@
-// Parking minigame: unlock the 🅿️ Parking Challenge with shared coins, drive
+// Parking minigame: unlock the 🅿️ Parking Challenge with shared coins (from its card in the 📱 💼 Jobs app — it isn't a title
+// mode any more, roadmap 10; the rest-area booth is in the onegame test), drive
 // the lot car with the fake controller (speed governor, cameras tracking),
 // park a level for ⭐⭐⭐ (coins + shared save fields), fail one by ramming a
 // parked car (lives, the angry grandpa), finish the challenge end screen — then
@@ -10,18 +11,20 @@ module.exports = {
   save2d: { totalCoins: 1500, ownedSkins: ["pink", "purple"], selectedSkin: "purple" },
   async run(t) {
     await t.frames(10);
-    const lab = await t.L(`[...document.querySelectorAll("#screenCard .btn")].map(b => b.textContent).find(s => /Parking Challenge/.test(s)) || ""`);
-    t.check("title lists 🅿️ Parking Challenge, locked at 1,000", /🔒/.test(lab) && /1,000/.test(lab), lab);
+    t.check("no Parking Challenge on the title any more", !(await t.titleItems()).some(l => /Parking Challenge/.test(l)));
+    await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
+    if (!await t.until(`__lulu3d.state === "playing"`, "driving")) return;
 
-    // ── unlock with the shared wallet ──
-    await t.click(/Parking Challenge/);
-    t.check("unlock screen offers the 1,000-coin unlock", await t.L(`/Unlock/.test(document.querySelector("#screenCard").textContent)`));
+    // ── the 📱 💼 Jobs app's 🅿️ card: unlock with the shared wallet ──
+    await t.game(`ctx.phone.openPhone("jobs")`);
+    await t.frames(3);
+    t.check("the 📱 💼 Jobs app's 🅿️ card offers the 1,000-coin unlock", await t.L(`/Unlock — 1,000/.test(document.querySelector("#screenCard").textContent)`));
     await t.shot("unlock");
-    await t.click(/Unlock/);
+    await t.L(`document.getElementById("lpParkUnlock").click()`);
     await t.frames(4);
     const s2 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
     t.check("unlock spends 1,000 shared coins + sets parkingUnlocked", s2.parkingUnlocked === true && s2.totalCoins === 500, `coins ${s2.totalCoins}`);
-    await t.click(/Start Level 1/);
+    await t.L(`document.getElementById("lpPark").click()`);
     if (!await t.until(`__lulu3d.state === "parking" && ${S}.phase === "drive"`, "challenge level 1 starts")) return;
     t.check("challenge level 1 starts", true);
     t.check("lot car wears the shared skin", await t.game(`${S}.lot.car.skinKey`) === "purple");
@@ -82,9 +85,10 @@ module.exports = {
     if (!await t.until(`__lulu3d.state === "parkingEnd"`, "challenge end screen")) return;
     t.check("PARKING OVER screen", await t.L(`/PARKING OVER/.test(document.querySelector("#screenCard").textContent) && /Level 2/.test(document.querySelector("#screenCard").textContent)`));
     await t.shot("end");
-    await t.click(/Title screen/);
-    await t.until(`__lulu3d.state === "title"`, "back to title");
-    t.check("lot set released on the title", await t.game(`ctx.view === null && !${S}.active`));
+    t.check("the end card goes back where it started (the road), not the title", await t.L(`/Back on the road/.test(document.querySelector("#screenCard").textContent) && !/Title screen/.test(document.querySelector("#screenCard").textContent)`));
+    await t.click(/Back on the road/);
+    await t.until(`__lulu3d.state === "playing"`, "back on the road");
+    t.check("lot set released back on the road", await t.game(`ctx.view === null && !${S}.active`));
 
     // ── the pull-over from a real drive ──
     await t.game(`L3.startRun({ mode: "cruise" })`);
@@ -133,7 +137,7 @@ module.exports = {
     await t.page.setViewportSize({ width: 390, height: 844 });
     await t.game(`L3.setState("title")`);
     await t.frames(3);
-    await t.click(/Parking Challenge/);
+    await t.game(`ctx.parking.start({ challenge: true })`);
     if (!await t.until(`__lulu3d.state === "parking" && ${S}.phase === "drive"`, "portrait challenge")) return;
     await t.L(`(__lulu3d.input.device = "touch", document.body.classList.add("touch"), document.getElementById("touch").classList.remove("hidden"))`);
     await t.frames(12);

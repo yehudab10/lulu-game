@@ -168,6 +168,8 @@ registerState("placesArrive", {
         ctx.scene.add(cr);
         AR.cruiser = cr;
         AR.door = new THREE.Vector3(sp.x - sp.nx * 1.4, 0, sp.z - sp.nz * 1.4);
+        // (the car anchor — the world's streaming, the sun's shadow box — comes along to the precinct, hidden)
+        ctx.car.place(kerb.x, kerb.z, kerb.h); ctx.car.s = kerb.s; ctx.car.d = kerb.d; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0;
         ctx.car.obj.visible = false;
         if (ctx.foot && ctx.foot.active && ctx.foot.obj) ctx.foot.obj.visible = false;
         A.setMusic(null);

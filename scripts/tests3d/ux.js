@@ -6,7 +6,8 @@
 // and the new settings (HUD: Full / Clean, Lulu's chatter).
 const today = Math.floor(Date.now() / 86400000);
 // every title item a seasoned player sees (Shared Road needs the online backend, not in tests)
-const ITEMS = ["story", "storyMap", "cruise", "shop", "distracted", "dina", "parking", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
+// (roadmap 10: ▶ PLAY replaced Story Trip / Cruise / the Parking Challenge on the title — those start in the world now)
+const ITEMS = ["play", "storyMap", "shop", "distracted", "dina", "party", "metaScrapbook", "metaQuests", "playPhoto", "skin", "controls", "settings", "back2d"];
 
 module.exports = {
   name: "ux",
@@ -42,10 +43,10 @@ module.exports = {
     await t.frames(10);
 
     // ── the home screen ─────────────────────────────────────────────────────
-    t.check("home: the Story Trip is the hero tile and has the focus", await t.L(`!!document.querySelector("#screenCard .tile.hero#story")`) && await focusId() === "story");
+    t.check("home: ▶ PLAY is the hero tile and has the focus", await t.L(`!!document.querySelector("#screenCard .tile.hero#play")`) && await focusId() === "play");
     t.check("home: coins in the top bar", await t.L(`/12,345/.test(document.querySelector(".home-bar").textContent)`));
     t.check("home: the streak is a top-bar chip", await t.L(`/🔥 3/.test(document.querySelector(".home-bar").textContent)`));
-    t.check("home: next stop + leg live in the hero's subtitle", await t.L(`/Next stop:.*THE BEACH.*leg 3\\/5/.test(document.querySelector("#story").textContent) && document.querySelectorAll("#story .stamp:not(.no)").length === 2`));
+    t.check("home: two small play tiles under it (👯 Friends · 👧 Dina), no 'More to play'", await t.L(`[...document.querySelectorAll("#screenCard .home-tiles .tile")].map(b => b.id).join() === "party,dina" && !document.getElementById("tg_play")`));
     t.check("home: the controller is a small chip (no footer line)", await t.L(`!!document.querySelector(".home-bar .pad-status.on") && !document.querySelector(".home-foot")`));
     const nBtns = await t.L(`[...document.querySelectorAll("#screenCard button, #screenCard .nav")].filter(b => b.offsetParent).length`);
     t.check("home: a handful of big targets, not a wall of buttons", nBtns <= 10, `${nBtns} buttons`);
@@ -66,7 +67,7 @@ module.exports = {
       if (!await t.L(`(() => { const b = document.querySelector("#screenCard [data-ti='${it.id}']"); return !!b && b.offsetParent !== null; })()`)) unreachable.push(it.id);
     }
     t.check("…and on screen in its group", unreachable.length === 0, unreachable.join(","));
-    await g(`L3.openView("home", "story")`);
+    await g(`L3.openView("home", "play")`);
     await t.frames(2);
 
     // ── groups with the controller: D-pad, ✕, L1/R1, ○, focus memory ──────────

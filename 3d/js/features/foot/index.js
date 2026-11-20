@@ -35,7 +35,7 @@ import { bubble, floater, clearBubbles, showBubbles, updateBubbles, hasBubble } 
 import { allDoors, refreshDoors, nextDoorAt } from "./street.js";
 import { startWedding, weddingState } from "./wedding.js";
 import * as B from "./bounds.js";
-import { JUMP, LOW, initAir, collideAll, carBox, carDims, pushC, airStep, landFx, launch } from "./jump.js";
+import { JUMP, LOW, initAir, collideAll, carBox, carDims, pushC, airStep, landFx, launch, camClip } from "./jump.js";
 
 const WALK = 3.4, RUN = 7.6;        // m/s (the 2D walk was 150 px/s cruise, ×2 running)
 const LULU_R = 0.32;
@@ -117,7 +117,9 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #footHot .hint { margin-top: 6px; font-size: 14px; opacity: .85; }
 #footWash { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; background: #000; transition: opacity .25s; }
 body.tv #footHot { width: min(760px, 70vw); } body.tv #footHot .ttl { font-size: 28px; } body.tv .foot-chip { font-size: 22px; }
-@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 236px); }
+@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 236px);
+    left: max(12px, env(safe-area-inset-left)); right: calc(max(18px, env(safe-area-inset-right)) + 104px); transform: none; }
+  body.onfoot.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; }
   body.onfoot.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
 `);
 const hot = document.createElement("div");
@@ -245,6 +247,9 @@ function start(reason = "carWreck", opts = {}) {
     F.hopFrom = F.car ? F.car.stub.obj.localToWorld(new THREE.Vector3(0.38, 0.62, -0.06)) : pos.clone();
     F.hopTo = new THREE.Vector3(pos.x - Math.cos(rr.h) * out * 1.8, 0.05, pos.z + Math.sin(rr.h) * out * 1.8);
     if (!F.car) F.hopFrom.copy(F.hopTo);
+    // (her car out past the fence line — it drives the fields to 70 m: the fence lets her walk round it)
+    const outD = Math.abs(rd.nearest(F.hopTo.x, F.hopTo.z, near.s, {}).d);
+    if (outD > B.EDGE.fence - 1.5) F.outLim = Math.min(76, outD + 3);
     // where the caller's own animation put her (streets' bail-out dive lands her here)
     if (opts.at) F.hopTo.set(opts.at.x, 0.05, opts.at.z);
     F.pos.copy(F.hopFrom);
@@ -682,7 +687,7 @@ function walk(dt, P = {}) {
     F.pos.z += F.vel.z * dt;
     const g = collideStatic();
     const near = road().nearest(F.pos.x, F.pos.z, F.s, _n);
-    B.limit(F, near);            // safety net just inside the fence (the old far fence in the town / a party)
+    B.limit(F, near, dt);        // safety net just inside the fence (the old far fence in the town / a party)
     if (near.s < 4) { F.pos.x += Math.sin(near.h) * (4 - near.s); F.pos.z += Math.cos(near.h) * (4 - near.s); }
     // the jump (jump.js): up, over, onto — and the landing
     const canJump = !ctx.dialogOpen && !(F.buskT > 0) && !H.screenOpen();
@@ -982,7 +987,18 @@ function footCamera(dt) {
         const fx = Math.sin(F.h), fz = Math.cos(F.h), out = F.out || 1;
         const rx = -Math.cos(F.h) * out, rz = Math.sin(F.h) * out;
         const mx = (ref.x + F.hopTo.x) / 2, mz = (ref.z + F.hopTo.z) / 2;
-        shot.from.set(mx - fx * 6.2 + rx * 2.4, 2.8, mz - fz * 6.2 + rz * 2.4);
+        // (once per climb-out: the over-the-shoulder side that's clear of walls — parked side-on against a block of
+        //  houses, the usual side put the camera inside them — and no farther back than the walls allow)
+        if (!F.introCam) {
+            const piv = new THREE.Vector3(mx, 1.2, mz), cand = [1, -1].map(k => {
+                const dx = -fx * 6.2 + rx * 2.4 * k, dz = -fz * 6.2 + rz * 2.4 * k, D = Math.hypot(dx, 1.6, dz);
+                return { k, D, lim: camClip(F, piv, dx / D, 1.6 / D, dz / D, D) };
+            });
+            const c = cand[0].lim >= cand[0].D - 0.01 || cand[0].lim >= cand[1].lim ? cand[0] : cand[1];
+            F.introCam = { k: c.k, f: Math.min(1, c.lim / c.D) };
+        }
+        const ic = F.introCam;
+        shot.from.set(mx + (-fx * 6.2 + rx * 2.4 * ic.k) * ic.f, 1.2 + 1.6 * ic.f, mz + (-fz * 6.2 + rz * 2.4 * ic.k) * ic.f);
         shot.look.set(mx + fx * 1.5, 1.0, mz + fz * 1.5);
         cam.cinematic(shot.from, shot.look, dt, 2.5, 52);
         return true;
@@ -1004,9 +1020,11 @@ function footCamera(dt) {
     F.camY += ((F.ground || 0) + Math.max(0, (F.y || 0) - (F.ground || 0)) * 0.4 - F.camY) * Math.min(1, dt * 6);
     let dip = 0;
     if (F.landT > 0 && !save3d.settings.calm) dip = Math.sin(Math.min(1, F.landT / (F.landHard ? 0.26 : 0.16)) * Math.PI) * (0.04 + 0.1 * (F.landP || 0));
-    cam.orbit(F.lulu.obj, { dist: close ? 4.8 : 6.6, look: close ? 1.05 : 1.2, fov: 58, y: F.camY - dip, auto: autoFollow() }, dt);
+    cam.orbit(F.lulu.obj, { dist: close ? 4.8 : 6.6, look: close ? 1.05 : 1.2, fov: 58, y: F.camY - dip, auto: autoFollow(), clip: clipCam }, dt);
     return true;
 }
+// (the free camera stays on her side of a wall: jump.js camClip — the colliders she walks into, a town's blocks)
+const clipCam = (tgt, dx, dy, dz, D) => F ? camClip(F, tgt, dx, dy, dz, D) : D;
 /** Gentle auto-follow: only while she walks roughly "up" (away from the camera) and the camera is already within ~40°
  *  of the road / street's direction — then it eases onto it, so walking along a bend keeps the road ahead. Pointing the
  *  camera across the road, strafing, walking back toward it or standing still: it stays exactly where it is. */

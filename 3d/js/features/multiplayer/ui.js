@@ -203,7 +203,7 @@ export function hudTick() {
     if (!chips) { chips = document.createElement("div"); chips.id = "mpChips"; H.hudSlot("center").appendChild(chips); }
     if (!racePanel) { racePanel = document.createElement("div"); racePanel.id = "mpRace"; H.hudSlot("left").appendChild(racePanel); }
     let h = "";
-    if (MP.connected) {
+    if (MP.connected && (riderCount() > 1 || MP.room !== "lobby")) {   // (alone in EVERYONE: no chip — nothing to nag about)
         const n = riderCount();
         h += `<div class="mpc riders${MP.chipPulse > 0.3 ? " pulse" : ""}">🌐 ${n} ${n === 1 ? "rider" : "riders"}</div>`;
         if (MP.convoy.active) h += `<div class="mpc convoy">🚗🚗 ×1.5</div>`;
