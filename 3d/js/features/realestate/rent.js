@@ -48,7 +48,7 @@ export function rentToday(d = today()) {
     const rows = [];
     for (const h of registry.listFor(null)) {
         const r = S.rent[h.id];
-        if (!r || r.tenant == null || d < r.since) continue;
+        if (!r || r.tenant == null || d < r.since || h.seized || h.lost) continue;
         rows.push({ id: h.id, n: Math.round(valueOfOwned(h.id, h) * RENT.share) });
     }
     const sum = rows.reduce((a, r) => a + r.n, 0), f = sum > RENT.dayCap ? RENT.dayCap / sum : 1;

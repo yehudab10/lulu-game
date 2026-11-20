@@ -266,3 +266,15 @@ export const SELL_LINES = {
     ],
     rule: "My fee is 10 %. Commission, the lawyer, the lawyer's lawyer, and a little something for the sign guy.",
 };
+
+// ── THE GOVERNMENT (stage 5/6; the knobs themselves live on the server: server/homes.mjs CONFIG) ──
+export const COUNCIL = {
+    from: "🏛️ The Town Council", fine: "Subject to change if the government decides differently.",
+    seized: (addr, ord, days) => `NOTICE: by order of ${ord} (${days} days without a visit = "abandoned kugel"), ${addr} has been taken for the public good and is now a Municipal Kugel Storage Facility. You may contest this at the courthouse. Subject to change if the government decides differently. 🏛️`,
+    lost: addr => `NOTICE: ${addr}, seized under the Abandoned Kugel Ordinance, has been returned to the market. You may still petition the court for compensation. Subject to change if the government decides differently. 🏛️`,
+    amended: (ord, date) => `The Council has amended ${ord} (${date}). Please re-read your deed. You won't. Nobody does. 🏛️`,
+    taken: by => `Oy — ${by || "someone"} JUST signed for that one. The whole world's buying in this town! Let's find you another.`,
+    held: "That one's held by the Town Council right now — the Abandoned Kugel Ordinance. Don't ask. Nobody understands it. Not even the Council.",
+    full: "The registry office says the town's full! (The Council is 'reviewing the situation'.)",
+};
+export const SEIZED_SIGN = { lines: ["SEIZED", "Municipal Kugel Storage"], bg: "#FFF8E1", fg: ["#B71C1C", "#37474F"], band: "#455A64" };

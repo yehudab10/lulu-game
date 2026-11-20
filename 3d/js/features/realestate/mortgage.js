@@ -21,6 +21,8 @@ import { registry, S } from "./registry.js";
 import { valueOf, today, listings, isListed } from "./market.js";
 import { finalize, log } from "./deal.js";
 import { pickPaged } from "./pager.js";
+import { claim as svClaim, release as svRelease } from "./server.js";
+import { COUNCIL } from "./data.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
@@ -51,13 +53,13 @@ const text = (msg, from) => { try { if (ctx.phone && ctx.phone.text) ctx.phone.t
 const mail = (id, what) => { const L = (S.bills[id] = S.bills[id] || []); L.push({ at: Date.now(), what, amount: 0, paid: true, from: "bank" }); if (L.length > 20) L.shift(); };
 
 /** Take out a mortgage on `rec` (it must be listed today): the down payment now. → { ok, why } */
-export function take(rec, p) {
+export function take(rec, p, extra = null) {
     if (party()) return { ok: false, why: "party" };
     if (!isListed(rec)) return { ok: false, why: "gone" };
     if (registry.count() >= CAP) return { ok: false, why: "cap" };
     if (wallet.coins < p.down) return { ok: false, why: "coins" };
     if (!wallet.spend(p.down)) return { ok: false, why: "coins" };
-    const r = finalize(rec, p.down, "mortgage");
+    const r = finalize(rec, p.down, "mortgage", extra);
     if (!r.ok) { wallet.add(p.down); return r; }
     const d = today();
     S.mortgage[rec.id] = { address: rec.address, town: rec.town, price: p.price, down: p.down, loan: p.loan, fee: p.fee, total: p.total, days: p.days, perDay: p.perDay,
@@ -131,6 +133,8 @@ export function tick() {
         const m = S.mortgage[id];
         if (!m) continue;
         if (!registry.mine(id)) { delete S.mortgage[id]; changed = true; continue; }   // (sold / gone some other way)
+        const hh = S.owned[id];
+        if (hh && (hh.seized || hh.lost)) { if (d > m.last) { m.last = d; m.due = false; changed = true; } continue; }   // (the government holds it: nothing billed)
         if (d > m.last) {
             changed = true;
             if (m.due) {
@@ -223,7 +227,10 @@ async function buyWith(rt, sayB, chooseB) {
     if (rt.disposed) return false;
     const s = await chooseB(`${fmt(p.down)} down now, then ${fmt(p.perDay)} a day you play, for ${p.days} days. Total ${fmt(p.down + p.total)}.`, [`✍️ Sign (all forty times) — ${fmt(p.down)} 💰`, "✖ Wait, let me think"]);
     if (s !== 0 || rt.disposed) return false;
-    const r = take(rec, p);
+    const c = await svClaim(rec.id);           // (the world-wide registry first, when the server has it)
+    if (!c.ok) { await sayB(c.why === "seized" ? COUNCIL.held : c.why === "cap" ? "That's ten homes, dear. The limit." : COUNCIL.taken(c.by)); return false; }
+    const r = take(rec, p, { reg: !!c.server });
+    if (!r.ok && c.server) svRelease(rec.id);
     if (!r.ok) { await sayB(r.why === "coins" ? BANK_LINES.broke : r.why === "cap" ? "That's ten homes, dear. The limit." : "Oy — that one just sold! Pick another."); return false; }
     await sayB(pick(BANK_LINES.done));
     return true;

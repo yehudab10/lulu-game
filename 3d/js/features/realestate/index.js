@@ -39,6 +39,8 @@ import * as MG from "./mortgage.js";
 import * as RN from "./rent.js";
 import { tick as partyTick, roam, P as PP } from "./party.js";
 import { SHARED } from "../together/rooms.js";
+import * as SVR from "./server.js";
+import { COUNCIL } from "./data.js";
 import { RENT_LINES, SELL_LINES } from "./data.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -50,6 +52,8 @@ const party = () => !!(ctx.party && ctx.party.active) || !!(ctx.G && ctx.G.mode 
 const locked = () => party() && !roam();
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || null;
 const stat = (id, n = 1) => emit("stat", { id, n });
+/** A text from her realtor (📱 Messages). */
+function text(msg, town) { try { const R = realtorOf(town || townId()); if (ctx.phone && ctx.phone.text) ctx.phone.text({ from: `${R.emoji} ${R.name}`, emoji: "🏘️", color: "#8D6E63", msg, thread: "realtor", dur: 4.6 }); } catch (e) { /* no phone */ } }
 
 // ── what's standing in the town she's in ────────────────────────────────
 const W = { town: null, day: -1, listed: [], owned: [], t: 0, said: new Set(), busy: false, sign: null, door: null, box: null, rev: 0 };
@@ -70,7 +74,7 @@ function migrate(h) {
         .sort((a, b) => Math.hypot(a.lx - h.lx, a.lz - h.lz) - Math.hypot(b.lx - h.lx, b.lz - h.lz))[0];
     if (!near) return null;
     const old = registry.release(h.id, "moved");
-    if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved" }));
+    if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved", reg: false }));
     for (const k of ["mortgage", "bills", "rent"]) if (S[k][h.id]) { S[k][near.id] = S[k][h.id]; delete S[k][h.id]; }
     saveSoon();
     return near;
@@ -101,11 +105,17 @@ function refresh(force = false) {
     if (W.town !== townId()) compensate();
     W.town = townId(); W.day = d; W.rev = CAT.n;
     W.listed = locked() ? [] : listings(d);
-    W.owned = ownedHere();
-    W.friends = locked() ? [] : registry.others().map(o => { const r = lookup(o.id); return r ? Object.assign({ who: o }, r) : null; }).filter(Boolean);
-    layout(W.town, W.listed, W.owned, W.friends);
+    const all = ownedHere();
+    W.owned = all.filter(r => !held(r.id));
+    const others = locked() ? [] : registry.others().map(o => { const r = lookup(o.id); return r ? Object.assign({ who: o }, r) : null; }).filter(Boolean);
+    W.friends = others.filter(r => !r.who.seized);
+    W.seized = all.filter(r => held(r.id)).concat(others.filter(r => r.who.seized));
+    layout(W.town, W.listed, W.owned, W.friends, W.seized);
 }
 registry.onChange(() => { if (inTown()) refresh(true); });
+
+/** The government holds it (seized, or seized + gone back to the market while she was away). */
+const held = id => { const h = S.owned[id]; return !!(h && (h.seized || h.lost)); };
 
 // ── the ✋ spots (on foot, in a town) ────────────────────────────────────
 function canAct() {
@@ -308,8 +318,11 @@ async function buy(rec, opts = {}) {
     if (wallet.coins < v) { await sayF(`${OFFICE.broke} (You've got ${fmt(wallet.coins)} — this one's ${fmt(v)}.)`); return false; }
     const i = await chooseF(`${pick(SIGNING)} — ${fmt(v)} coins for ${rec.address}?`, [`✍️ Sign — ${fmt(v)} 💰`, "✖ Wait, let me think"]);
     if (i !== 0) return false;
-    if (!wallet.spend(v)) { await sayF(OFFICE.broke); return false; }
-    const r = finalize(rec, v, "cash");
+    // the world-wide registry first (when the server has it): someone may have JUST bought it
+    const c = await SVR.claim(rec.id);
+    if (!c.ok) { await sayF(c.why === "seized" ? COUNCIL.held : c.why === "cap" ? OFFICE.capped : c.why === "full" ? COUNCIL.full : COUNCIL.taken(c.by)); registry.changed({ id: rec.id, why: "server" }); return false; }
+    if (!wallet.spend(v)) { if (c.server) SVR.release(rec.id); await sayF(OFFICE.broke); return false; }
+    const r = finalize(rec, v, "cash", { reg: !!c.server });
     if (!r.ok) { wallet.add(v); await sayF(r.why === "cap" ? OFFICE.capped : "Oy — somebody beat you to it. Signed this morning! Next one's yours, I promise."); return false; }
     await sayF(pick(SOLD));
     return true;
@@ -398,6 +411,33 @@ async function myPlaces(rt, who, R) {
     }
 }
 
+// ── the government (the server's Abandoned Kugel Ordinance) ──
+on("realestate:seized", e => {
+    const ord = (SVR.SV.cfg && SVR.SV.cfg.ordinance) || "the Abandoned Kugel Ordinance", days = (SVR.SV.cfg && SVR.SV.cfg.idleDays) || 14;
+    try { ctx.phone.text({ from: COUNCIL.from, emoji: "🏛️", color: "#455A64", msg: e.lost ? COUNCIL.lost(e.address) : COUNCIL.seized(e.address, ord, days), thread: "council", dur: 5 }); } catch (err) { /* no phone */ }
+    const b = (S.bills[e.id] = S.bills[e.id] || []); b.push({ at: Date.now(), what: e.lost ? "🏛️ NOTICE: returned to the market" : `🏛️ NOTICE: seized under ${ord}`, amount: 0, paid: true, from: "council" });
+    saveSoon();
+});
+on("realestate:server", e => {
+    const a = e.cfg && e.cfg.amended;
+    if (a && S.met.amended && S.met.amended !== a) { try { ctx.phone.text({ from: COUNCIL.from, emoji: "🏛️", color: "#455A64", msg: COUNCIL.amended(e.cfg.ordinance, a), thread: "council" }); } catch (err) { /* */ } }
+    if (a) { S.met.amended = a; saveSoon(); }
+});
+/** The world got there first (bought offline while someone else claimed it): every coin back, the home released. */
+function refundLost(id, by) {
+    const h = registry.get(id);
+    if (!h) return 0;
+    const m = S.mortgage[id];
+    const back = Math.max(0, Math.round(m ? m.paidIn : (h.paid || 0)));
+    delete S.mortgage[id]; delete S.rent[id]; delete S.decor[id];
+    registry.release(id, "doubleBooked");
+    if (back) wallet.add(back);
+    saveSoon();
+    emit("realestate:owner", { id, from: "lulu", to: null, price: back, why: "doubleBooked", address: h.address, town: h.town });
+    text(`OY. ${by || "Someone"} signed for ${h.address} before your paperwork reached the registry. Double-booked! Every coin's back — ${fmt(back)}. Come see me, I'll find you something BETTER. 💕`, h.town);
+    return back;
+}
+
 // ── wiring ───────────────────────────────────────────────────────────────
 const API = { listings: () => (locked() ? [] : listings()), valueOf: r => valueOf(r), pitch, buy, pin: pinRec, owns: () => registry.count() > 0, townId, mortgageLine, myPlaces };
 bindOffice(API);
@@ -429,7 +469,7 @@ on("run:start", () => { W.busy = false; });
 hook("hud", dt => {
     if ((W.t += dt) < 0.5) return;
     W.t = 0;
-    try { partyTick(); refresh(false); passBy(); } catch (e) { console.error("[realestate] tick", e); }
+    try { partyTick(); SVR.tick(); refresh(false); passBy(); } catch (e) { console.error("[realestate] tick", e); }
     // the mortgages: a new PLAYED day bills, a due payment is taken once she has the coins (only out in the world)
     if ((ctx.state === "playing" || ctx.state === "footRun") && !ctx.dialogOpen && !ctx.paused) { try { MG.tick(); RN.tick(); } catch (e) { console.error("[realestate] mortgage / rent", e); } }
 });
@@ -470,8 +510,10 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, CLOCK, partyTick,
+    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, partyTick, refundLost,
         /** Buy a listed home for cash right now, no dialogue (tests). */
-        buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; }, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
+        buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
+        /** The same through the world-wide registry first (tests). → a promise of { ok, why } */
+        async buyServer(id) { const r = lookup(id); if (!r || !isListed(r)) return { ok: false, why: "listed" }; const c = await SVR.claim(id); if (!c.ok) return c; const v = valueOf(r); if (!wallet.spend(v)) { SVR.release(id); return { ok: false, why: "coins" }; } return finalize(r, v, "cash", { reg: !!c.server }); }, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
 };
 // tests: a stable handle on the save

@@ -4,14 +4,14 @@
 // matrices) when the listings / her houses change. Nothing runs per frame.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
-import { YARD } from "./data.js";
+import { YARD, SEIZED_SIGN } from "./data.js";
 
 const G = { group: null, town: null, meshes: null, tex: {}, mats: {}, geo: null };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 
 function boardTex(town) {
     if (G.tex[town]) return G.tex[town];
-    const Y = YARD[town] || YARD.lakewood;
+    const Y = town === "seized" ? SEIZED_SIGN : YARD[town] || YARD.lakewood;
     const c = document.createElement("canvas"); c.width = 256; c.height = 170;
     const g = c.getContext("2d");
     g.fillStyle = Y.bg; g.fillRect(0, 0, 256, 170);
@@ -45,7 +45,9 @@ function ensure(town) {
     const board = new THREE.MeshStandardMaterial({ map: boardTex(town), roughness: 0.7 });
     G.mats.board = board;
     const mk = (geo, mat, name) => { const m = new THREE.InstancedMesh(geo, mat, N); m.name = name; m.count = 0; m.castShadow = false; m.receiveShadow = false; m.visible = false; return m; };
-    G.meshes = { post: mk(G.geo.post, G.mats.post, "RE_Posts"), board: mk(G.geo.board, board, "RE_Boards"), box: mk(G.geo.box, G.mats.box, "RE_Mailbox"), plate: mk(G.geo.plate, G.mats.plate, "RE_Plates") };
+    G.mats.seized = G.mats.seized || new THREE.MeshStandardMaterial({ map: boardTex("seized"), roughness: 0.7 });
+    G.meshes = { post: mk(G.geo.post, G.mats.post, "RE_Posts"), board: mk(G.geo.board, board, "RE_Boards"), box: mk(G.geo.box, G.mats.box, "RE_Mailbox"), plate: mk(G.geo.plate, G.mats.plate, "RE_Plates"),
+        seized: mk(G.geo.board, G.mats.seized, "RE_Seized") };
     G.group = new THREE.Group(); G.group.name = "RealEstateSigns";
     for (const m of Object.values(G.meshes)) G.group.add(m);
     ctx.scene.add(G.group);
@@ -59,10 +61,16 @@ function put(mesh, x, y, z, rot, sx = 1, sy = 1, sz = 1) {
 
 /** Lay out the signs: `listed` = catalogue records for sale today, `owned` = her records standing in this town. */
 const _c = new THREE.Color();
-export function layout(town, listed, owned, friends = []) {
+export function layout(town, listed, owned, friends = [], seized = []) {
     ensure(town);
     const M = G.meshes;
     for (const m of Object.values(M)) m.count = 0;
+    for (const r of seized) {        // (the government's notice board: the Abandoned Kugel Ordinance)
+        const rot = Math.atan2(r.nx, r.nz);
+        put(M.post, r.sign.x - r.ux * 0.38, 0.55, r.sign.z - r.uz * 0.38, rot, 1, 1.1, 1);
+        put(M.post, r.sign.x + r.ux * 0.38, 0.55, r.sign.z + r.uz * 0.38, rot, 1, 1.1, 1);
+        put(M.seized, r.sign.x, 0.98, r.sign.z, rot);
+    }
     for (const r of listed) {
         const rot = Math.atan2(r.nx, r.nz);      // the board faces the street
         put(M.post, r.sign.x - r.ux * 0.38, 0.55, r.sign.z - r.uz * 0.38, rot, 1, 1.1, 1);
@@ -89,7 +97,7 @@ export function layout(town, listed, owned, friends = []) {
     }
 }
 /** How many of each are standing (tests / perf). */
-export function counts() { const M = G.meshes; return M ? { signs: M.board.count, mailboxes: M.box.count, calls: Object.values(M).filter(m => m.visible).length } : { signs: 0, mailboxes: 0, calls: 0 }; }
+export function counts() { const M = G.meshes; return M ? { signs: M.board.count, mailboxes: M.box.count, seized: M.seized.count, calls: Object.values(M).filter(m => m.visible).length } : { signs: 0, mailboxes: 0, seized: 0, calls: 0 }; }
 export function clear() {
     if (G.group) { if (G.group.parent) G.group.parent.remove(G.group); for (const m of Object.values(G.meshes)) m.dispose(); }
     if (G.mats.board) { G.mats.board.dispose(); G.mats.board = null; }
