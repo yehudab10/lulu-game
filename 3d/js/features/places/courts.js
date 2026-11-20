@@ -208,25 +208,27 @@ export async function sitIn(back) {
 export function warmCourt() { courtStage().catch(() => {}); }
 
 // ── after the case: Shloime around Lakewood, pushing the stroller ────────
-const N = { p: null, baby: null, stroller: null, t: 0, sp: null, said: 0 };
+const N = { p: null, baby: null, stroller: null, t: 0, sp: null, said: 0, cheerT: 0 };
 function dropShloime() {
-    for (const o of [N.p && N.p.obj, N.stroller]) if (o && o.parent) o.parent.remove(o);
+    for (const o of [N.p && N.p.obj, N.stroller, N.baby && N.baby.obj]) if (o && o.parent) o.parent.remove(o);
     N.p = N.baby = N.stroller = null; N.sp = null;
 }
 async function spawnShloime() {
     dropShloime();
     if (!caseDone() || !(ctx.town && ctx.town.active && ctx.town.id === "lakewood")) return;
-    try { await ensureModels(["homesDad", "homesStreet"]); } catch (e) { return; }
+    try { await ensureModels(["homesDad", "homesStreet", "homesBaby"]); } catch (e) { return; }
     if (!(ctx.town && ctx.town.active && ctx.town.id === "lakewood")) return;
     const sp = ctx.civic && ctx.civic.spot("court");
     if (!sp) return;
     N.sp = sp;
     N.p = person("homesDad", { Top: "#FFFFFF", Bottom: "#212121", Hair: "#3E2723" }, "npcMan");
     const src = models.homesStreet && findNodes(models.homesStreet, "Prop_Stroller")[0];
-    if (src) { N.stroller = src.clone(true); N.stroller.position.set(0, 0, 0); ctx.scene.add(N.stroller); }
+    if (src) { N.stroller = src.clone(true); N.stroller.position.set(0, 0, 0); ctx.scene.add(N.stroller);
+        N.baby = person("homesBaby", null, "npcKid"); ctx.scene.add(N.baby.obj); }   // (Gitty, riding in it)
     ctx.scene.add(N.p.obj);
     N.t = 0;
 }
+const BABY_Y = 0.52;   // (the stroller's seat)
 function tickShloime(dt) {
     if (!N.p || !N.sp) return;
     N.t += dt;
@@ -236,6 +238,11 @@ function tickShloime(dt) {
     N.p.obj.position.set(x, 0, z); N.p.obj.rotation.y = h;
     N.p.update(dt, { walk: 0.9 });
     if (N.stroller) { N.stroller.position.set(x + Math.sin(h) * 0.85, 0, z + Math.cos(h) * 0.85); N.stroller.rotation.y = h; }
+    if (N.baby && N.stroller) {
+        N.baby.obj.position.set(N.stroller.position.x, BABY_Y, N.stroller.position.z); N.baby.obj.rotation.y = h + Math.PI;   // (facing her Abba)
+        N.cheerT = Math.max(0, N.cheerT - dt);
+        N.baby.update(dt, { sit: true, cheer: N.cheerT > 0 });
+    }
 }
 on("town:enter", () => { spawnShloime(); });
 on("town:leave", () => dropShloime());
@@ -248,7 +255,7 @@ on("boot", () => {
         act: () => {
             if (!N.p || !ctx.foot.bubble) return true;
             ctx.foot.bubble(N.p.obj, SHLOIME_AFTER[N.said % SHLOIME_AFTER.length], 3.4, { y: 2.1 });
-            if (N.stroller) setTimeout(() => { if (N.stroller && ctx.foot.bubble) ctx.foot.bubble(N.stroller, pick(BABY_AFTER), 2.2, { y: 1.2 }); }, 900);
+            if (N.baby) setTimeout(() => { if (N.baby && ctx.foot.bubble) { N.cheerT = 2.2; ctx.foot.bubble(N.baby.obj, pick(BABY_AFTER), 2.2, { y: 0.9 }); } }, 900);   // (she waves)
             N.said++;
             emit("stat", { id: "shloimeChats", n: 1 });
             return true;
