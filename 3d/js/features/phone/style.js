@@ -125,6 +125,10 @@ body.tv .lp-notif { padding: 10px 14px; } body.tv .lp-notif .lp-av { width: 44px
   .lp-scr { border-radius: 29px; }
   .lp-big { font-size: 30px; margin-top: 2px; } .lp-hello { margin-bottom: 2px; } .lp-notes { display: none; }
   .lp-grid { grid-template-columns: repeat(4, 1fr); gap: 6px 2px; margin-bottom: 4px; }
+  /* a landscape phone with 9+ apps: five across, so it stays two rows above the Back / Menu bar */
+  .lp-grid:is([data-n="9"], [data-n="10"], [data-n="11"], [data-n="12"]) { grid-template-columns: repeat(5, 1fr); gap: 4px 0; }
+  .lp-grid:is([data-n="9"], [data-n="10"], [data-n="11"], [data-n="12"]) .lp-ic { width: 44px; height: 44px; font-size: 24px; border-radius: 13px; }
+  .lp-grid:is([data-n="9"], [data-n="10"], [data-n="11"], [data-n="12"]) .lp-nm { font-size: 10px; max-width: 62px; overflow: hidden; text-overflow: ellipsis; }
   .lp-ic { width: 50px; height: 50px; font-size: 27px; border-radius: 14px; }
   .lp-nm { font-size: 11px; }
   .lp-status { padding-top: 6px; height: 22px; } .lp-foot { padding-bottom: 6px; }
@@ -145,6 +149,8 @@ body.tv .lp-status { font-size: 18px; height: 36px; padding: 12px 30px 4px; } bo
 body.tv .lp-big { font-size: 72px; } body.tv .lp-hello { font-size: 19px; }
 body.tv .lp-ic { width: 92px; height: 92px; font-size: 50px; border-radius: 26px; } body.tv .lp-nm { font-size: 18px; }
 body.tv .lp-grid { gap: 20px 6px; }
+body.tv .lp-grid:is([data-n="10"], [data-n="11"], [data-n="12"]) .lp-ic { width: 80px; height: 80px; font-size: 44px; border-radius: 22px; }
+body.tv .lp-grid:is([data-n="10"], [data-n="11"], [data-n="12"]) .lp-nm { font-size: 16px; }
 body.tv .lp-fb { font-size: 18px; padding: 8px 14px; } body.tv .lp-fb .glyph { height: 26px; min-width: 26px; font-size: 14px; }
 body.tv .lp-head { font-size: 24px; padding: 12px 20px; } body.tv .lp-hic { font-size: 30px; }
 body.tv .lphone .btn.lp-row { min-height: 72px; font-size: 20px; } body.tv .lp-tx b { font-size: 20px; } body.tv .lp-tx small { font-size: 16px; }

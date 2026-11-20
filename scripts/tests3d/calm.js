@@ -151,7 +151,8 @@ async function body(t, pages, riders) {
   // ── (b) FOOT in Lakewood: walking about ──
   await g(`ctx.town.load("lakewood")`);
   if (await A.until(`ctx.town.loaded("lakewood")`, "Lakewood loads", 120000)) {
-    await g(`(ctx.banter.autopilot = null, ctx.town.enter({ town: "lakewood", exitS: ctx.car.s, speed: 0 }), true)`);
+    // (the stand-alone town, like town.js: an attached one is placed by the interchange and can leave her by the highway)
+    await g(`(ctx.banter.autopilot = null, ctx.town.enter({ town: "lakewood", speed: 0 }), true)`);
     await A.until(`ctx.town.active && !ctx.town.transitioning`, "in Lakewood", 60000);
     await g(`ctx.foot.start("parked")`);
     await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot", 60000);

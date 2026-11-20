@@ -61,6 +61,7 @@ export const NUDGE = {
     laneWarn: 10, laneStar: 12,    // seconds walking IN the lanes → a cop's warning → a mild ★
 };
 
+const FLAVOUR = { flavour: true };          // (the pop-up budget: one pop-up per moment — a line OR a floater)
 const LINES = {
     grass: ["Tall grass. Ticks. Love that for me. 🙄", "This is how horror movies start.", "Nature is SO itchy."],
     scrub: ["Tumbleweeds. Real ones. Huh.", "Is that a SNAKE? It's a stick. ...It moved.", "The desert is just a big beach with no water."],
@@ -408,7 +409,7 @@ function terrain(F, B, dt) {
             B.said[zone] = true;
             const isDry = dry();
             if (!hasBubble(F.lulu.obj)) bubble(F.lulu.obj, pick(zone === "mud" ? (isDry ? LINES.sand : LINES.mud) : (isDry ? LINES.scrub : LINES.grass)), 2.4);
-            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 🥾", "#D7B98E", 1.4, 2.7); SFX.squelch(); }
+            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 🥾", "#D7B98E", 1.4, 2.7, FLAVOUR); SFX.squelch(); }
         }
         B.zone = zone;
     }
@@ -444,8 +445,8 @@ function startShoo(F, B, side, kind) {
     if (kind === "goose" || kind === "dog") spawnCritter(F, B, kind, side);   // (a sprinkler / mosquitoes let the last critter waddle off)
     if (kind === "goose") { SFX.honk(); bubble(L1, pick(LINES.goose), 1.9); }
     else if (kind === "dog") { SFX.bark(); bubble(L1, pick(LINES.dog), 2.0); }
-    else if (kind === "sprinkler") { SFX.spray(); floater(L1, "💦 PSSHT-T-T-T-T", "#81D4FA", 1.5, 2.8); bubble(L1, pick(LINES.sprinkler), 2.2); }
-    else { SFX.buzz(); floater(L1, "🦟🦟🦟 bzzzz", "#FFFFFF", 1.5, 2.8); bubble(L1, pick(LINES.mosquito), 2.2); }
+    else if (kind === "sprinkler") { SFX.spray(); floater(L1, "💦 PSSHT-T-T-T-T", "#81D4FA", 1.5, 2.8, FLAVOUR); bubble(L1, pick(LINES.sprinkler), 2.2); }
+    else { SFX.buzz(); floater(L1, "🦟🦟🦟 bzzzz", "#FFFFFF", 1.5, 2.8, FLAVOUR); bubble(L1, pick(LINES.mosquito), 2.2); }
     rumble(0.25, 0.4, 160);
     F.waveT = Math.max(F.waveT || 0, 1.0);    // arms up, flailing
     if (B.shoos === 1) H.toast("🌾 Only geese out here. The fun’s by the road!", "gold");
@@ -568,7 +569,7 @@ function fired(B, kind) {
 function soreFeet(F, B) {
     B.sore = true;
     bubble(F.lulu.obj, pick(LINES.sore), 2.6);
-    floater(F.lulu.obj, "🦶 sore feet — slower", "#FFCC80", 1.8, 2.75);
+    floater(F.lulu.obj, "🦶 sore feet — slower", "#FFCC80", 1.8, 2.75, FLAVOUR);
     SFX.sigh();
     spawnBench(F, B);
 }
@@ -638,7 +639,7 @@ function sitDown(F, bench) {
                 const wasSore = F.bx.sore;
                 F.bx.sore = false;
                 F.bx.aim = Math.max(0, F.bx.aim - 30);
-                if (wasSore) floater(o, "🦶 feet: better", "#A5D6A7", 1.5, 2.6);
+                if (wasSore) floater(o, "🦶 feet: better", "#A5D6A7", 1.5, 2.6, FLAVOUR);
                 if (wasSore && ctx.G.hearts < ctx.G.maxHearts) { heal(1); H.toast("❤️ +1 HEART — a good sit", "pink"); }
             }
             emit("stat", { id: "footBenchSits", n: 1 });

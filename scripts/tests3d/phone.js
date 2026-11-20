@@ -280,7 +280,7 @@ module.exports = {
       }
       return out;
     })()`);
-    const layouts = [["desktop", 1280, 720, false, false], ["tv-1080", 1920, 1080, true, false], ["phone-landscape", 844, 390, false, true], ["phone-portrait", 390, 844, false, true]];
+    const layouts = [["desktop", 1280, 720, false, false], ["tv-1080", 1920, 1080, true, false], ["phone-landscape", 844, 390, false, true], ["phone-portrait", 390, 844, false, true], ["phone-se", 375, 667, false, true], ["tv-720", 1280, 720, true, false]];
     for (const [name, w, h, tv, touch] of layouts) {
       await t.page.setViewportSize({ width: w, height: h });
       await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.tv = ${tv ? '"on"' : '"off"'}; })`);
@@ -306,7 +306,7 @@ module.exports = {
       const pr = await rect("#screenCard.lphone");
       const okPos = h > w ? Math.abs((pr.x + pr.r) / 2 - w / 2) < 4 && pr.b > h * 0.9 : pr.r > w * 0.8 && pr.b > h * 0.9;
       t.check(`${name}: handset fully on screen, ${h > w ? "bottom-centre" : "bottom-right"}`, !!pr && pr.x >= 0 && pr.y >= 0 && pr.r <= w + 1 && pr.b <= h + 1 && okPos, JSON.stringify(pr));
-      t.check(`${name}: every app icon visible inside the screen`, await t.L(`(() => { const s = document.querySelector(".lp-scr").getBoundingClientRect(); return [...document.querySelectorAll(".lp-app")].every(a => { const r = a.getBoundingClientRect(); return r.top >= s.top - 1 && r.bottom <= s.bottom + 1 && r.left >= s.left - 1 && r.right <= s.right + 1; }); })()`));
+      t.check(`${name}: every app icon visible inside the screen (not under the Back / Menu bar)`, await t.L(`(() => { const s = document.querySelector(".lp-scr").getBoundingClientRect(), f = document.querySelector(".lp-foot"), fb = f ? f.getBoundingClientRect().top : s.bottom; return [...document.querySelectorAll(".lp-app")].every(a => { const r = a.getBoundingClientRect(); return r.top >= s.top - 1 && r.bottom <= Math.min(s.bottom, fb) + 1 && r.left >= s.left - 1 && r.right <= s.right + 1; }); })()`));
       await t.shot(`${name}-phone`);
       if (touch) {
         await t.L(`document.getElementById("screen").click()`);

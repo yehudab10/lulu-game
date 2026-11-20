@@ -250,6 +250,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
      ▶ Join · 📤 invite · ➕ add); no "host a party"; the in-game 👯 app = friends + the group + invitations.
   Order: 1 → 2 → 4 → 5 (mine), 3 per feature after 1. Active agents: keep using `ctx.party.active` until (1) lands; then
   read `ctx.group.active`; expose an invitable when your feature has something two can do.
+- **Adding a toast / banner / bubble / floater / Lulu line? Run `SMOKE3D_ONLY=calm`** (CI "3D full suite" group `calm`, ~50 min) — it fails above 18 pop-ups a minute solo on the highway, 12 on foot / with friends / online. A bit of colour goes through the budget as flavour: `H.toast(…, { prio: 1 })`, foot's `floater(…, { flavour: true })`, bubbles via `H.bubbleOk()`.
 - Calm (`ci/calm`, landed 2026-11-20): still OUTSIDE the pop-up budget — phone texts + the call card (`ctx.phone.text`,
   journey's `.jphone`; while a call is up, flavour toasts drop and flavour banners wait on phones), `metaToast` (meta/util.js), law's own toasts (law/ui.js), Lulu's own speech bubbles (banter's
   `showLulu`, her chatter setting rations them). A big moment can still stack a banner + a call card + a toast (a wreck
