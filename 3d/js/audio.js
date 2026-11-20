@@ -325,6 +325,27 @@ export function toggleMusic() {
     return musicOn;
 }
 
+/** An ad is on screen: every sound stops where it is (the music element pauses, the AudioContext — engine, sfx,
+ *  positional voices — is suspended); holdAll(false) picks it all up again. (features/native/ads.js) */
+let held = null;
+export function holdAll(on) {
+    if (on) {
+        if (held) return;
+        held = { music: music && !music.paused ? music : null, ctx: !!ctx && ctx.state === "running" };
+        for (const el of fadeOuts) el.pause();
+        fadeOuts.clear();
+        if (held.music) held.music.pause();
+        if (held.ctx) ctx.suspend().catch(() => {});
+    } else {
+        if (!held) return;
+        const h = held; held = null;
+        if (h.music && h.music === music && musicOn) h.music.play().catch(() => {});
+        if (h.ctx && ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
+    }
+}
+/** Tests: is the sound held (by an ad)? */
+export function audioHeld() { return !!held; }
+
 export function duckMusic(v) {
     musicVol = v;
     if (music && !fadeIn) setVol(music, v);        // (mid-crossfade the fade simply ends at the new level)
