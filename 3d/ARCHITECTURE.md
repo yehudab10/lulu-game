@@ -1150,6 +1150,25 @@ two presses, the house goes back on the market (its tenant, decorations and unco
 paid out). The value drifts ±3.5 % (≤ ~7.5 % top to bottom) and the fee is 10 %, so buy → sell always loses (test: the
 best day-pair over 46 days ≤ 0.97).
 
+**The world-wide market + the government** (stages 5–6; the OWNER approved the shared market and the relay change for
+it, 2026-11-20 — scope: the property registry only). `server/homes.mjs` (see `server/README.md`: endpoints, what's
+stored, the government's knobs, rollback) + `server.js` here: probes `/homes/config` (an old server = 404 → local,
+retried every 5 min; a `?test` page only talks to `&mpurl=`); identity = `ctx.player` (core/player.js, shared with 👯
+friends: a random id + a device secret the server only hashes; the 💾 save code carries both); `claim` BEFORE the
+coins move (taken / seized / cap → the realtor says so, nothing spent), every release queued + retried, `hello` every
+10 min (the idle clock; a restored phone gets its homes back), the town's homes polled every 90 s as a registry SOURCE
+(`{ name: "Kugel Kid #37" }` — generated labels only; "a neighbour" while ⚙️ 🌐 Play online is off). A home bought
+offline that the world got first → refunded (`refundLost`). **The government:** 14 days without a hello → the
+server seizes every home (the Abandoned Kugel Ordinance): `S.owned[id].seized` — no key, a SEIZED board on the lawn
+(a 5th InstancedMesh), the Council's letter (📱 thread `council`), no rent and no mortgage billed; 7 days later it's
+back on the market (`lost`). **Court** (`court.js`): a case per held home on that town's Courtroom 2B docket
+(ci/courts' `ctx.civic.courts.addCase`, data only — the Council's lawyer, three defences, an async `verdict` act) or
+the clerk's fast track at her SEIZED board: a held home → the SERVER rolls (`appealWin` 50 %): won → hers again, lost
+→ back on the market + 25 % of what she paid in; an already-lost home → the judge rolls 50 %: 50 % of what she paid in,
+else 10 %. Once per house, never more than she paid, never below 0. Every notice and deed ends "Subject to change if
+the government decides differently." Tests: `realestateworld` (two players, one local relay: shared ownership, a race,
+an offline refund, a hacked client, the seizure, the court, an old server), `node server/test-homes.mjs`.
+
 **Partners in crime (law, `features/law/crew.js` — ci/partners):** 🔗 the owner (2026-11-20): "friends be arrested together
 if they're both caught committing a crime at the same time… see the same screen and somehow go to court or both escape
 together." The law stays PERSONAL in a 🎉 party (each friend's own cops / chase / cell / court on her own screen); this is one
