@@ -301,6 +301,9 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
 
+- `together` is FLAKY on `main` itself (2026-11-20, run 44837224568: 1 of 2 identical jobs failed): after the town ride,
+  `ctx.openworld.hopOut({ moving: false })` sometimes leaves the guest in `playing` (her own car) instead of on foot → "guest on
+  foot in town" times out, then the courthouse step throws on `ctx.foot.pos`. Re-run once before blaming your change.
 - **Airport terminal budget (`ci/airport-terminal`, 2026-11-20):** the JFK hall at 1280×720, the worst of three views (check-in /
   security / the gate): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k. Limits in
   `scripts/tests3d/airport-terminal.js` (LIMITS): MEDIUM ≤ 110 calls avg (≤ 130 worst frame), ≤ 140k triangles · LOW ≤ 110 / 130,
