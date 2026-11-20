@@ -184,7 +184,7 @@ async function partyRun(t, guests) {
   await t.frames(6);
   if (!await Hp.until(`/PARTY GAMES/.test(document.body.textContent)`, "✋ PARTY GAMES at the cabinet", 10000)) console.log("   diag", await t.L(`document.getElementById("prompt") ? document.getElementById("prompt").textContent : ""`), JSON.stringify(await g(`({ st: ctx.state, ph: ctx.foot.phase, p: ctx.foot.pos && [ctx.foot.pos.x, ctx.foot.pos.z] })`)));
   // the cabinet is solid now: put her inside it and she's pushed out (the prompt spot in front of it is still free)
-  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${arc.x}, 0, ${arc.z}); F.vel.set(0, 0, 0); return true; })()`);
+  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${arc.x} + 0.1, 0, ${arc.z} + 0.05); F.vel.set(0, 0, 0); return true; })()`);
   await t.frames(8);
   const pushed = await g(`(() => { const F = ctx.foot.debug.F; return Math.hypot(F.pos.x - ${arc.x}, F.pos.z - ${arc.z}); })()`);
   t.check("the arcade cabinet is solid (she can't stand in it)", pushed > 0.45, pushed.toFixed(2) + " m from its middle");
