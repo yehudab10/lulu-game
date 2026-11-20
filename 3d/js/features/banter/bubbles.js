@@ -8,6 +8,7 @@
 // left of the screen instead.
 import * as THREE from "three";
 import { ctx, css } from "../../core/ctx.js";
+import { bubbleOk } from "../../hud.js";
 import { CAMS } from "../../core/camera.js";
 import { clamp } from "./util.js";
 
@@ -148,7 +149,7 @@ export function npcBubble(text, target, { dur = 2.4, y = 2.3, cls = "" } = {}) {
     if (!b) b = npc.find(n => !n.on);
     if (!b) { b = npc[0]; for (const n of npc) if (n.t / n.dur > b.t / b.dur) b = n; }   // oldest goes
     b.inner.textContent = text;
-    b.el.className = "bn-b bn-npc " + cls;
+    b.el.className = "bn-b bn-npc " + cls + (bubbleOk(dur) ? "" : " calm-off");     // (the pop-up budget, hud.js)
     b.on = true; b.t = 0; b.dur = dur; b.target = target; b.y = y; b.text = text;
     pop(b.inner);
     return b;

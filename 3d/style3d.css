@@ -161,6 +161,11 @@ html, body {
 .toast.red { color: #FF8A80; }
 .toast.big { font-size: 24px; }
 body.touch #toasts { top: 22%; }
+/* a bubble the pop-up budget held back (hud.js bubbleOk): still there for its feature, not drawn */
+.calm-off { display: none !important; }
+/* flavour toasts (hud.js budget, prio 1) are a touch smaller; on a phone smaller still */
+.toast.lo { font-size: 16px; }
+body.touch .toast { font-size: 16px; padding: 2px 10px 2px 20px; } body.touch .toast.lo { font-size: 14px; } body.touch .toast.big { font-size: 20px; }
 
 #banner {
     position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%);

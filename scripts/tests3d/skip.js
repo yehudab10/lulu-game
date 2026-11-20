@@ -19,7 +19,7 @@ module.exports = {
     t.check("no skip pill while driving", !(await pill()));
 
     // ── pop-ups stay off the road ──
-    await hud(`H.toast("+5 CLOSE CALL!", "gold"); H.banner("🎫 <b>TOLL AHEAD!</b><small>Pick a green lane</small>", 3000);`);
+    await hud(`H.toast("+5 CLOSE CALL!", "gold", { prio: 2 }); H.banner("🎫 <b>TOLL AHEAD!</b><small>Pick a green lane</small>", 3000);`);
     await t.frames(8);
     const r = await t.L(`(() => {
       const t = document.querySelector("#toasts .toast").getBoundingClientRect(), b = document.getElementById("banner").getBoundingClientRect();

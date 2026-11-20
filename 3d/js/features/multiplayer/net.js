@@ -228,7 +228,8 @@ function applyState(id, d, snap) {
             if (snap) p.pbNonce = d.pb[0];
             else if (p.pbNonce !== d.pb[0]) {
                 p.pbNonce = d.pb[0];
-                if (MP.clock - p.pbAt >= 90 && p.onScreen) { p.pbAt = MP.clock; pushRecordToast(p.name, fin(d.pb[1], 0, 2e6) || 0); } else MP.recv++;
+                // (ci/calm: a stranger's record is never a pop-up — it's a line in 📍 Nearby while they're around)
+                if (MP.clock - p.pbAt >= 90) { p.pbAt = MP.clock; p.rec = { score: fin(d.pb[1], 0, 2e6) || 0, at: MP.clock }; } else MP.recv++;
             }
         }
         return;

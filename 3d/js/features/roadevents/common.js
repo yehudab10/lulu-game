@@ -7,6 +7,7 @@ import { ctx, on, emit, css, MPH } from "../../core/ctx.js";
 import { registerModels, ensureModels, models, cloneWithColors, findNodes } from "../../models.js";
 import { LANES_OURS } from "../../world.js";
 import { save3d } from "../../core/save.js";
+import { bubbleOk } from "../../hud.js";
 import * as A from "../../audio.js";
 
 export const ID = "roadevents";
@@ -181,9 +182,10 @@ const _v = new THREE.Vector3();
  * opts: t (s), y (height offset), cls ("pink" | "gold" | "red" | "cop" | "big")
  */
 export function bubble(text, target, { t = 2.4, y = 2.3, cls = "" } = {}) {
-    for (const b of bubbles) if (b.target === target) { b.t = 0; b.dur = t; b.el.textContent = text; b.el.className = "re-bub " + cls; return b; }
+    const calm = bubbleOk(t) ? "" : " calm-off";            // (the pop-up budget, hud.js: flavour bubbles are rationed)
+    for (const b of bubbles) if (b.target === target) { b.t = 0; b.dur = t; b.el.textContent = text; b.el.className = "re-bub " + cls + calm; return b; }
     const el = document.createElement("div");
-    el.className = "re-bub " + cls;
+    el.className = "re-bub " + cls + calm;
     el.textContent = text;
     layer.appendChild(el);
     const b = { el, target, t: 0, dur: t, y };
