@@ -24,7 +24,7 @@ const LIMITS = {
   medium: { calls: 150, maxCalls: 190, tris: 190000 },
   low: { calls: 130, maxCalls: 165, tris: 150000 },
 };
-const QF = `&enable=airport,interiors,foot,law`;
+const QF = `&enable=airport,interiors,foot`;
 
 module.exports = {
   name: "airport-terminal",
@@ -279,6 +279,8 @@ async function solo(t) {
 // ═══ perf ═════════════════════════════════════════════════════════════════
 async function perf(t) {
   const g = t.game;
+  // (no warrants on file: a wanted Lulu would bring the cops in mid-measurement)
+  await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.wanted = []; }); return true; })`);
   for (const tier of ["medium", "low"]) {
     await g(`(L3.setState("title"), true)`); await t.frames(3);
     await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = ${JSON.stringify(tier)}; window.__lulu3d.ctx.applySettings(); return true; })`);
@@ -318,7 +320,8 @@ async function friends(t) {
   try {
     const g = t.game, Hp = hostPage(t);
     const Q = `&enable=party,foot,openworld,airport,interiors&mpurl=${encodeURIComponent(RELAY)}`;
-    await t.L(`(location.search.includes("mpurl") ? 0 : 1)`);
+    await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.wanted = []; }); return true; })`);
+    await t.frames(5);
     await t.boot(Q);
     await t.click(/Friends/);
     await t.L(`document.getElementById("pt_roam").click()`);
