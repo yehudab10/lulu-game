@@ -3,7 +3,7 @@
 //   • the driver drives across an ATTACHED town's line with the passenger in → on the passenger's screen: no freeze, no
 //     long cut, she ends up in town, still riding
 //   • hop out MOVING in town → her car beside the driver's, not inside a parked car / a wall
-//   • the driver is knocked out / arrested / leaves the party mid-ride → the passenger is let out (or rides on) cleanly,
+//   • the driver takes a hard hit (a party pratfall) / is arrested / leaves the party mid-ride → the passenger is let out (or rides on) cleanly,
 //     never stuck riding a car that's gone
 //   • a Free Roam warp (📱 👯 → go to a friend) into an attached town
 // Waits are in GAME frames (scripts/lib/party3d.js).
@@ -88,7 +88,12 @@ async function body(t, guests) {
     if (await ride("before the line")) {
       await A.frames(10);
       await W.reset(AW); await W.reset(t);
-      // the host drives in across the line
+      // the host drives in across the line — on the passenger's screen: frames with the soft-cut overlay up, frames her car
+      // stood still while still riding (a freeze)
+      await A.L(`(() => { const Q = window.__seamR = { cut: 0, still: 0, maxStill: 0, last: null, f: -1 }; const L3 = __lulu3d, c = L3.ctx;
+        const tick = () => { requestAnimationFrame(tick); if (c.frames === Q.f) return; Q.f = c.frames; const sc = document.getElementById("softCut"); if (sc && sc.style.display === "block") Q.cut++;
+          const p = c.car.pos; if (c.openworld.riding && Q.last && Math.hypot(p.x - Q.last.x, p.z - Q.last.z) < 0.01) { Q.still++; Q.maxStill = Math.max(Q.maxStill, Q.still); } else Q.still = 0; Q.last = { x: p.x, z: p.z }; };
+        requestAnimationFrame(tick); return true; })()`);
       const f0 = await A.game(`ctx.frames`);
       await t.hold(7, 0.5);
       await Hp.until(`ctx.town.active`, "host drives into Lakewood across the line", 30000);
@@ -96,7 +101,10 @@ async function body(t, guests) {
       const took = (await A.game(`ctx.frames`)) - f0;
       await t.frames(40); await t.hold(7, 0);
       const cut = await A.L(`!!(window.__qa && window.__qa.issues.some(i => i.kind === "jump"))`);
-      console.log(`   the passenger crossed the line ${took} frames after the driver set off`);
+      const sr = await A.L(`window.__seamR`);
+      console.log(`   the passenger crossed the line ${took} frames after the driver set off`, JSON.stringify({ cut: sr.cut, maxStill: sr.maxStill }));
+      t.check("riding across the line: no frozen picture (her car never stands still > 1 s while the driver drives on)", sr.maxStill <= 30, JSON.stringify(sr));
+      t.check("…and no soft cut / dissolve at the line (the town is attached: it's one road)", sr.cut === 0, JSON.stringify(sr));
       await A.page.screenshot({ path: require("path").join(__dirname, "..", "..", "smoke-shots", "3d-qafriends-ride-in.png") }).catch(() => { });
       await seg("riding across the town line", A, ["nan", "overlay", "flat", "underground", "stuck", "hidden", "jump"]);
       await seg("driving across the town line with a passenger", Hp, ["nan", "overlay", "flat", "underground", "jump", "hidden"]);
@@ -113,17 +121,17 @@ async function body(t, guests) {
     }
   } else t.check("Lakewood's approach on the host's screen", false);
 
-  // ════ 3. the driver is knocked out mid-ride ════
+  // ════ 3. the driver takes a hard hit mid-ride (a pratfall in a party: no knock-out) ════
   await hostDrive();
   if (await ride("before the knock-out")) {
     await A.frames(15);
     await W.reset(AW);
     await g(`(ctx.party.debug && ctx.party.debug.noBonk ? 0 : 0, ctx.G.invT = 0, ctx.G.invSoft = false, ctx.G.hearts = 1, L3.damage(5, "QA", "qa"), true)`);
     await Hp.until(`ctx.state === "footRun" || ctx.state === "playing"`, "host after the hit", 20000);
-    const out = await A.until(`ctx.openworld.riding == null || ctx.state !== "playing"`, "the passenger is let out (or the ride goes on) after the driver's knock-out", 20000);
-    await A.frames(30);
+    // (in a party nobody loses a heart — a hit is a pratfall, the driver drives on: the ride just goes on)
+    await A.frames(60);
     console.log("   after the driver's knock-out:", JSON.stringify(await A.game(`({ state: ctx.state, riding: ctx.openworld.riding, foot: !!ctx.foot.active })`)), "host", await g(`ctx.state`));
-    await seg("the driver knocked out mid-ride", A, ["nan", "overlay", "flat", "jump", "hidden", "stuck", "nocontrol"]);
+    await seg("the driver hit mid-ride", A, ["nan", "overlay", "flat", "jump", "hidden", "stuck", "nocontrol"]);
   }
 
   // ════ 4. the driver is arrested mid-ride ════
@@ -152,7 +160,7 @@ async function body(t, guests) {
   await Hp.until(`ctx.town.active`, "host in Lakewood", 30000);
   if (await A.game(`ctx.town.active`)) { await moved(A); await A.game(`ctx.town.leave("reset")`); await A.game(`ctx.party._debug.place(${E} - 2000, 1.75, 0)`); await A.frames(20); }
   await W.reset(AW);
-  await A.game(`(ctx.openworld.warpToFriend(${HU}), true)`);
+  await A.game(`(ctx.openworld.warpTo(${HU}), true)`);
   await A.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "the warp lands her in Lakewood with the host", 60000);
   await A.frames(60);
   const near = await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); return rc && rc.shown ? +Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z).toFixed(1) : -1; })()`);
