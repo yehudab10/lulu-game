@@ -261,13 +261,18 @@ function memberTick(dt) {
  * The crew's getaway chase. features/law's 🔗 partners in crime (ctx.law.crew — law/crew.js): each member's screen asked
  * for the partnership when the job went in (partners(crew, "BANK ROBBERY") — see memberTick), so here the crew is ONE
  * wanted level (wanted(stars)): caught together → the same precinct, the same cell, one court. Every coin, charge and
- * verdict stays each player's own. No crew from the law (it never formed / a friend left): her own chase, as solo.
+ * verdict stays each player's own. Where law has its one call (ctx.law.partners.crime — ci/partners) that's used instead
+ * (on foot too; it reports back with law:crew). No crew from the law (it never formed / a friend left): her own chase, as solo.
  * → started?
  */
 const CRIME = "BANK ROBBERY";
 function crewChase(j, m) {
     const LC = ctx.law && ctx.law.crew;
     const msg = `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!`;
+    // law's one call for a crime for a crew (car → her pursuit, on foot → a foot cop at once; the partnership; idempotent per id;
+    // it reports back with law:crew { id, uid, result })
+    const PC = ctx.law && ctx.law.partners;
+    if (PC && typeof PC.crime === "function") return !!PC.crime({ id: "heist:" + j.id, crew: j.crew.slice(), charge: CRIME, heat: j.plan.stars, msg });
     const inCrew = !!(LC && LC.current && LC.current());
     if (inCrew && (ctx.state === "playing" || (onFoot() && m.gT > 6))) return !!LC.wanted(j.plan.stars, CRIME);
     if (ctx.state === "playing" && !onFoot() && ctx.law && ctx.law.startChase) {
@@ -316,6 +321,8 @@ on("party:bc", ({ p, k, a }) => {
 });
 on("cop:chase", e => { if (C.mine && C.mine.ph === "getaway" && e && e.active === false && e.result && !["busted", "arrest", "quit"].includes(e.result)) report("ok"); });
 on("law:arrest", () => { if (C.mine && C.mine.ph === "getaway") report("busted"); });
+// law's partners-in-crime outcome for HER (ctx.law.partners.crime): the same as her own cop:chase / law:arrest
+on("law:crew", e => { const m = C.mine; if (m && e && e.id === "heist:" + m.id && (!e.uid || e.uid === me()) && (e.result === "ok" || e.result === "busted")) report(e.result); });
 // the party's host: checks the leader's claim, splits the take among the ones who got away, one paying job a session each
 if (ctx.party && ctx.party.onHostEvent) ctx.party.onHostEvent((uid, kind, a) => {
     if (kind !== "hjo" || !Array.isArray(a)) return;
