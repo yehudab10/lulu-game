@@ -154,7 +154,7 @@ module.exports = {
     // 2 · NaN → rescued at once (automatic)
     await ready();
     let n0 = await nLog();
-    await W.allow(t, "nan", /./);
+    await W.allow(t, "nan", ".");
     await g(`(ctx.car.pos.x = NaN, true)`);
     if (await autoFired(n0, "nan", "highway: a NaN car")) await carOK("highway: after NaN", null);
     await W.reset(t);
