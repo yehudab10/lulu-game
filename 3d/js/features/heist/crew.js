@@ -223,6 +223,8 @@ function memberTick(dt) {
     if (j.ph !== m.ph) {
         const was = m.ph;
         m.ph = j.ph;
+        // (in it together: ask the law for the partnership on MY screen — my own consent; every crew member does the same)
+        if (j.ph === "inside" && i >= 0 && !m.partnered && ctx.law && ctx.law.crew && ctx.law.crew.partners) { m.partnered = true; try { ctx.law.crew.partners(j.crew.slice(), CRIME); } catch (e) { console.error("[heist crew] partners", e); } }
         if (j.ph === "inside") H.banner(`<b>${ROLE[m.role] ? ROLE[m.role].emoji + " YOU'RE " + ROLE[m.role].name : "💰 THE JOB"}</b><small>${ROLE[m.role] ? ROLE[m.role].task : ""}</small>`, 3400, { key: "heist:crew", prio: 3 });
         if (j.ph === "getaway") alarm();
         if (j.ph === "done" && was !== "done") { /* the shares come from the host (hja) */ }
@@ -256,18 +258,20 @@ function memberTick(dt) {
     }
 }
 /**
- * THE ONE SWAP POINT for the crew's getaway chase. When ci/partners' party law lands (`ctx.law.partners`: one shared wanted
- * level + chase for the crew, arrested together, the same cell / court), the crew is handed to it here — once, by each
- * member's screen, with the same crime id — and its `law:crew` event ({ id, uid, result: "ok" | "busted" }) reports back.
- * Until then: each friend's own chase (law.startChase in a car; a cop on foot after 6 s walking). → started?
+ * The crew's getaway chase. features/law's 🔗 partners in crime (ctx.law.crew — law/crew.js): each member's screen asked
+ * for the partnership when the job went in (partners(crew, "BANK ROBBERY") — see memberTick), so here the crew is ONE
+ * wanted level (wanted(stars)): caught together → the same precinct, the same cell, one court. Every coin, charge and
+ * verdict stays each player's own. No crew from the law (it never formed / a friend left): her own chase, as solo.
+ * → started?
  */
+const CRIME = "BANK ROBBERY";
 function crewChase(j, m) {
-    const P = ctx.law && ctx.law.partners;
-    if (P && typeof P.crime === "function") {
-        return !!P.crime({ id: "heist:" + j.id, crew: j.crew.slice(), charge: HEIST.warrant, heat: j.plan.stars, msg: `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!` });
-    }
+    const LC = ctx.law && ctx.law.crew;
+    const msg = `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!`;
+    const inCrew = !!(LC && LC.current && LC.current());
+    if (inCrew && (ctx.state === "playing" || (onFoot() && m.gT > 6))) return !!LC.wanted(j.plan.stars, CRIME);
     if (ctx.state === "playing" && !onFoot() && ctx.law && ctx.law.startChase) {
-        return !!ctx.law.startChase(HEIST.warrant, { heat: j.plan.stars, msg: `🚨 ${"★".repeat(j.plan.stars)} BANK ROBBERY — WITH A CREW!`, charges: [HEIST.warrant] });
+        return !!ctx.law.startChase(HEIST.warrant, { heat: j.plan.stars, msg, charges: [HEIST.warrant] });
     }
     if (onFoot() && m.gT > 6 && ctx.foot && ctx.foot.startChase) {
         const sp = inTown() && ctx.town.spot("bank");
@@ -275,8 +279,6 @@ function crewChase(j, m) {
     }
     return false;
 }
-// ci/partners' party law reports a crew member's outcome (when it lands): the same as my own cop:chase / law:arrest
-on("law:crew", e => { const m = C.mine; if (m && e && e.id === "heist:" + m.id && (!e.uid || e.uid === me()) && ["ok", "busted"].includes(e.result)) report(e.result); });
 /** What the driver I'm riding with got (their hjx / the leader's results) → "ok" | "busted" | "". */
 function riderResult(driver, j) {
     const i = j.crew.indexOf(driver);
