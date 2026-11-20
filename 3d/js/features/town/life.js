@@ -53,7 +53,7 @@ export function gossip(kind, force = false) {
     const n = LIFE.told["g:" + kind] || 0;
     if (!force && (ctx.time < LIFE.gossipT || n >= 2)) return false;
     LIFE.told["g:" + kind] = n + 1;
-    LIFE.gossipT = ctx.time + 9;
+    LIFE.gossipT = ctx.time + ({ quiet: 90, chatty: 12 }[chatter()] || 30);     // (ci/calm: was 9 s — a phone text is a pop-up too)
     const msg = L.GOSSIP[kind][(n + LIFE.visitN) % L.GOSSIP[kind].length];      // (rotates per visit, so a kind's later lines get their turn)
     if (L.KVETCH_LIVE && L.KVETCH_LIVE[kind]) LIFE.live.unshift(Object.assign({ t: Date.now() }, L.KVETCH_LIVE[kind]));
     SFX.ping();
