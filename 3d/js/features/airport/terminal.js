@@ -128,7 +128,7 @@ function build(rt) {
     named("water", "woman", sp("water"), { top: "#26C6DA", hair: "#212121" });
     named("gate", "woman", sp("gateAgent"), { top: "#283593", hair: "#5D4037" });
     const g0 = sp("guard");
-    named("guard", "cop", g0, { pose: { ride: true }, y: 0.16, speed: 1.0, path: path([[g0.x + 1.1, -1.4], [g0.x + 1.1, 3.6]], false) });
+    named("guard", "cop", g0, { pose: { ride: true }, y: 0.16, speed: 1.0, path: path([[g0.x - 1.2, -1.4], [g0.x - 1.2, 3.6]], false) });
     d.segway = tprop("Segway"); rt.add(d.segway);
     const dg = sp("dog");
     d.dog = C.addDog({ x: dg.x, z: dg.z, ry: dg.ry, home: { x: dg.x, z: dg.z } });
@@ -168,7 +168,7 @@ function build(rt) {
     for (let i = 0; i < 5; i++) C.add({ look: i === 2 ? "woman" : i === 4 ? "kid" : i % 2 ? "woman" : "man", path: land, u: i * land.total / 5, speed: 1.15 + (i % 3) * 0.15, bag: i !== 4, seed: 0.11 * i + 0.3 });
     for (let i = 0; i < 2; i++) C.add({ look: i ? "man" : "woman", path: air, u: i * air.total / 2, speed: 1.2, bag: true, seed: 0.37 * i + 0.6 });
     // the family with ten kids doing laps of the food court looking for gate 18 (it's right there)
-    const fam = path([[14.0, 3.1], [19.6, 3.1], [19.6, -3.9], [14.0, -3.9]]);
+    const fam = path([[13.8, 3.1], [19.6, 3.1], [19.6, -3.9], [13.8, -3.9]]);
     d.family = [];
     A.ima = C.add({ id: "ima", look: "woman", path: fam, u: 11, speed: 1.05, top: "#00897B", hair: "#3E2723", bag: true, named: true });
     d.family.push(A.ima);
@@ -623,7 +623,7 @@ function resumeGuard(rt) {
     const d = rt.data, g = d.A.guard, g0 = rt.spot("guard");
     if (d.law) return;
     g.target = null; g.faceTo = null;
-    d.crowd.walkTo(g, g0.x + 1.1, -1.4, 2.2).then(() => { if (!rt.disposed && !d.law && !g.target) { g.path = path([[g0.x + 1.1, -1.4], [g0.x + 1.1, 3.6]], false); g.u = 0; g.speed = 1.0; } });
+    d.crowd.walkTo(g, g0.x - 1.2, -1.4, 2.2).then(() => { if (!rt.disposed && !d.law && !g.target) { g.path = path([[g0.x - 1.2, -1.4], [g0.x - 1.2, 3.6]], false); g.u = 0; g.speed = 1.0; } });
 }
 
 // ── the arrivals door ────────────────────────────────────────────────────
@@ -936,7 +936,7 @@ const API = {
     debug: {
         room: () => inRoom(),
         T,
-        buy: (shopId, itemId) => { const r = inRoom(); if (!r) return null; const M = shopId === "water" ? D.WATER : D.DELI; const it = M.menu.find(x => x.id === itemId); return it ? buy(r, it, M, {}, null) : null; },
+        buy: (shopId, itemId) => { const r = inRoom(); if (!r) return null; const M = shopId === "water" ? D.WATER : D.DELI; const it = M.menu.find(x => x.id === itemId); if (!it) return false; buy(r, it, M, {}, null).catch(() => { }); return true; },   // (fire and forget: it talks)
         arrive: () => { const r = inRoom(); return r ? !!arrive(r) : false; },
         takeoff: () => { const r = inRoom(); if (r) takeoff(r, true); return !!r; },
         flap: () => { const r = inRoom(); if (r) flapRow(r.data, 0); return !!r; },

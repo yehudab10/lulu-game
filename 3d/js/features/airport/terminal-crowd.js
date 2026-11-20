@@ -95,9 +95,10 @@ export class Crowd {
             id: "p" + (this.n++), look: "man", x: 0, z: 0, y: 0, ry: 0, pose: {}, walk: 0, phase: r * 6, t: r * 10, scale: 1,
             path: null, u: 0, speed: 1.2, target: null, bag: null, named: false, collide: true, talkT: 0, waveT: 0, cheerT: 0, hugT: 0, gone: false,
         }, spec);
+        const cop = a.look === "cop";      // (a cop is in uniform: navy, unless told otherwise)
         a.colors = {
-            top: new THREE.Color(spec.top || pickR(TOPS, r * 7.13)),
-            bot: new THREE.Color(spec.bot || pickR(BOTS, r * 3.71)),
+            top: new THREE.Color(spec.top || (cop ? "#1F3A5F" : pickR(TOPS, r * 7.13))),
+            bot: new THREE.Color(spec.bot || (cop ? "#16263F" : pickR(BOTS, r * 3.71))),
             hair: new THREE.Color(spec.hair || pickR(HAIRS, r * 5.37)),
         };
         if (a.bag === true) a.bag = pickR(BAGS, r * 11.3);
