@@ -21,6 +21,10 @@ features/seasons — the models for 🕎 A WORLD THAT FOLLOWS THE REAL CALENDAR.
       LogBench       a log to sit on round the fire
       KerbPile       the pre-Pesach clean-out at the kerb: bags, a rolled rug, an old chair, a box, a broom
       Planter        a porch planter full of greenery + flowers (Shavuos)
+      HeldLulav / HeldEsrog / Book / Torah / Flag / Pushke / BreadBag   things people hold (origin = the grip)
+      BurnBarrel     erev Pesach: burning the chametz in a metal barrel on bricks (`Flames`), a bucket of water beside
+      Pond           Tashlich: a little pond with stones + reeds (fields off the highway, Midwood)
+      SpeakerKit     Purim: the music van's roof rack (two horn speakers + a sign board: the runtime sign at `Sign`)
 
 Lights are empties named Light_<k> (a candle wick / a lamp): the game draws the glow there (one Points draw call for
 the whole town, lit by atmos' night) and a tiny instanced flame up close. Materials named Flame* are emissive.
@@ -370,6 +374,68 @@ def build_props():
     for k in range(7):
         parts.append(B(bm_ico(0.06, 0), mat("SnBloom%d" % (k % 3), ("#EC407A", "#FFEE58", "#FFFFFF")[k % 3], 0.8), (-0.4 + k * 0.13, -0.1 + (k % 2) * 0.15, 0.53)))
     bake(parts, "Planter_body", coll, parent=pr)
+
+    # ── round 2: things people hold (origin = where the hand grips it; +Z up the arm) ──────────
+    pr = Pr("HeldLulav")         # the lulav bundle: a tall palm spine, myrtle + willow sleeve (held upright)
+    bake([B(bm_box(0.035, 0.035, 1.25), DGREEN, (0, 0, 0.45)), B(bm_box(0.05, 0.02, 0.5), DGREEN, (0, 0, 0.95), rot=(0, 0.08, 0)),
+          B(bm_box(0.1, 0.07, 0.42), GREEN, (0, 0, 0.12)), B(bm_box(0.08, 0.05, 0.3), mat("SnWillow", "#7CB342", 0.85), (0.02, 0.02, 0.2)),
+          B(bm_cyl(0.035, 0.035, 0.05, 6), mat("SnHolder", "#8D6E63", 0.8), (0, 0, 0.0))], "HeldLulav_body", coll, parent=pr)
+    pr = Pr("HeldEsrog")
+    bake([B(bm_sphere(0.05, 0.05, 0.068, u=7, v=5), ETROG, (0, 0, 0.0)), B(bm_cyl(0.006, 0.004, 0.02, 4), mat("SnPitom", "#6D4C41", 0.8), (0, 0, 0.075))], "HeldEsrog_body", coll, parent=pr)
+    pr = Pr("Book")              # a siddur / machzor
+    bake([B(bm_box(0.15, 0.04, 0.21), mat("SnBookCover", "#1A237E", 0.6), (0, 0, 0)), B(bm_box(0.14, 0.035, 0.2), mat("SnPages", "#FFF8E1", 0.9), (0, -0.004, 0)),
+          B(bm_box(0.06, 0.042, 0.02), GOLD, (0, 0, 0.05))], "Book_body", coll, parent=pr)
+    pr = Pr("Torah")             # a Torah in its velvet mantle, crowned (held against the chest; origin = the hug)
+    VELVET = mat("SnVelvet", "#7B1F2A", 0.75)
+    bake([B(bm_cyl(0.13, 0.13, 0.62, 10), VELVET, (0, 0, 0.0)), B(bm_cyl(0.135, 0.135, 0.04, 10), GOLD, (0, 0, 0.31)),
+          B(bm_box(0.12, 0.02, 0.16), GOLD, (0, -0.13, 0.05)),
+          B(bm_cyl(0.022, 0.022, 0.3, 6), DWOOD, (-0.06, 0, -0.42)), B(bm_cyl(0.022, 0.022, 0.3, 6), DWOOD, (0.06, 0, -0.42)),
+          B(bm_cyl(0.02, 0.02, 0.14, 6), DWOOD, (-0.06, 0, 0.38)), B(bm_cyl(0.02, 0.02, 0.14, 6), DWOOD, (0.06, 0, 0.38)),
+          B(bm_cyl(0.11, 0.07, 0.12, 8), GOLD, (0, 0, 0.5)), B(bm_ico(0.03, 0), GOLD, (0, 0, 0.6))], "Torah_body", coll, parent=pr)
+    pr = Pr("Flag")              # a Simchas Torah flag on a stick, an apple on top
+    bake([B(bm_cyl(0.012, 0.012, 0.7, 5), WOOD, (0, 0, 0.3)), B(bm_box(0.36, 0.01, 0.25), mat("SnFlagWhite", "#FAFAFA", 0.8), (0.19, 0, 0.5)),
+          B(bm_box(0.36, 0.012, 0.05), mat("SnFlagBlue", "#1565C0", 0.8), (0.19, 0, 0.6)), B(bm_box(0.36, 0.012, 0.05), mat("SnFlagBlue", "#1565C0", 0.8), (0.19, 0, 0.4)),
+          B(bm_box(0.1, 0.014, 0.08), GOLD, (0.19, 0, 0.5)), B(bm_sphere(0.04, u=6, v=4), APPLE, (0, 0, 0.69))], "Flag_body", coll, parent=pr)
+    pr = Pr("Pushke")            # a tzedakah box (a blue tin with a slot)
+    bake([B(bm_box(0.13, 0.09, 0.16), mat("SnPushke", "#1E88E5", 0.4, 0.4), (0, 0, 0.0)), B(bm_box(0.06, 0.092, 0.012), BLACK, (0, 0, 0.081)),
+          B(bm_box(0.08, 0.092, 0.04), mat("SnPushkeLabel", "#FFF8E1", 0.7), (0, 0, 0.0))], "Pushke_body", coll, parent=pr)
+    pr = Pr("BreadBag")          # the last of the chametz, in a paper bag
+    bake([B(bm_box(0.16, 0.1, 0.2), mat("SnPaperBag", "#C8A26B", 0.9), (0, 0, 0.1)), B(bm_sphere(0.05, u=6, v=4), mat("SnChallah", "#C9792C", 0.6), (0, 0, 0.21))], "BreadBag_body", coll, parent=pr)
+
+    # ── erev Pesach: burning the chametz, in a safe metal barrel on bricks, a bucket of water beside ──
+    pr = Pr("BurnBarrel")
+    DRUM = mat("SnDrum", "#546E7A", 0.5, 0.5)
+    BRICK = mat("SnBrick", "#A0574A", 0.9)
+    parts = [B(bm_cyl(0.32, 0.32, 0.75, 10), DRUM, (0, 0, 0.62)), B(bm_torus(0.32, 0.02, 10, 4), DRUM, (0, 0, 0.98)), B(bm_torus(0.32, 0.02, 10, 4), DRUM, (0, 0, 0.5)),
+             B(bm_box(0.25, 0.12, 0.25), BRICK, (-0.2, 0, 0.12)), B(bm_box(0.25, 0.12, 0.25), BRICK, (0.2, 0, 0.12)), B(bm_box(0.12, 0.25, 0.25), BRICK, (0, 0.2, 0.12)),
+             B(bm_box(0.7, 0.04, 0.02), mat("SnGrate", "#37474F", 0.6, 0.6), (0, 0, 1.0)), B(bm_box(0.04, 0.7, 0.02), mat("SnGrate", "#37474F", 0.6, 0.6), (0, 0, 1.0)),
+             B(bm_cyl(0.2, 0.16, 0.32, 8), mat("SnPail", "#1E88E5", 0.4, 0.3), (0.85, -0.3, 0.16)), B(bm_cyl(0.18, 0.18, 0.02, 8), mat("SnWaterTop", "#81D4FA", 0.1), (0.85, -0.3, 0.31))]
+    bake(parts, "BurnBarrel_body", coll, parent=pr)
+    fl = bpy.data.objects.new("Flames", None)
+    coll.objects.link(fl)
+    fl.parent = pr
+    bake([B(bm_cyl(0.22, 0.0, 0.55, 6), FL1, (0, 0, 1.25)), B(bm_cyl(0.14, 0.0, 0.42, 5), FL2, (0.06, 0.04, 1.18)), B(bm_cyl(0.12, 0.0, 0.35, 5), FL1, (-0.1, -0.05, 1.12))],
+         "BurnBarrel_flames", coll, parent=fl)
+    _light(coll, pr, "Light_1", (0, 0, 1.2))
+
+    # ── Tashlich: a pond (in a field, for the highway and Midwood) ───────────────────────────
+    pr = Pr("Pond")
+    parts = [B(bm_cyl(4.2, 4.2, 0.04, 14), mat("SnPondWater", "#4FA3D9", 0.15), (0, 0, 0.03)), B(bm_cyl(4.5, 4.5, 0.03, 14), mat("SnPondEdge", "#8D7B5A", 0.95), (0, 0, 0.015))]
+    for k in range(12):
+        a = k / 12 * math.tau
+        parts.append(B(bm_ico(0.28, 0), STONE, (math.cos(a) * 4.4, math.sin(a) * 4.4, 0.08)))
+    for k in range(7):
+        a = 2.2 + k * 0.22
+        parts.append(B(bm_box(0.04, 0.04, 0.9), mat("SnReed", "#7C8B3A", 0.9), (math.cos(a) * 3.9, math.sin(a) * 3.9, 0.45), rot=(0.1, 0.05 * k, 0)))
+    bake(parts, "Pond_body", coll, parent=pr)
+
+    # ── Purim: the music van's roof kit (two horn speakers, a sign board — the runtime sign) ──────
+    pr = Pr("SpeakerKit")
+    GREYM = mat("SnSpeaker", "#ECEFF1", 0.4, 0.3)
+    bake([B(bm_box(1.1, 0.5, 0.05), BLACK, (0, 0, 0.025)), B(bm_cyl(0.08, 0.2, 0.42, 8, "Y"), GREYM, (-0.32, -0.05, 0.22)), B(bm_cyl(0.08, 0.2, 0.42, 8, "Y"), GREYM, (0.32, -0.05, 0.22)),
+          B(bm_box(1.5, 0.05, 0.45), mat("SignBoard", "#FBF8F0", 0.8), (0, 0.24, 0.42)), B(bm_box(0.05, 0.05, 0.45), BLACK, (-0.6, 0.24, 0.2)), B(bm_box(0.05, 0.05, 0.45), BLACK, (0.6, 0.24, 0.2))],
+         "SpeakerKit_body", coll, parent=pr)
+    _light(coll, pr, "Sign", (0, 0.21, 0.42))
 
     _spread(items)
     return coll
