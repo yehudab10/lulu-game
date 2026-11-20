@@ -23,7 +23,15 @@ module.exports = {
     const close = async () => { await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), true)`); await t.frames(2); };
     // stop dead at (s, d) on the highway
     const parkAt = (s, d) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d}; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(${s}); ctx.cam.snap(); return true; })()`);
-    const callDone = () => t.until(`!__lulu3d.ctx.phone.busy() && !__lulu3d.ctx.dialogOpen`, "the call ends", 30000);
+    // (in the car the call card runs itself; on foot the call is a dialogue — tap through it like a player)
+    const callDone = async () => {
+      for (let i = 0; i < 40; i++) {
+        if (!(await g(`ctx.phone.busy() || ctx.dialogOpen`))) return true;
+        if (await g(`ctx.dialogOpen`)) await t.tap(0);
+        await t.frames(8);
+      }
+      return t.until(`!__lulu3d.ctx.phone.busy() && !__lulu3d.ctx.dialogOpen`, "the call ends", 30000);
+    };
     const freshCap = () => g(`(${C}.debug.CM.heals = 0, ${C}.debug.CM.healAt = null, true)`);
 
     // ── the highway ──────────────────────────────────────────────────────
