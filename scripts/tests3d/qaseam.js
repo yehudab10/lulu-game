@@ -33,6 +33,7 @@ module.exports = {
     };
     // walk along the approach (+1 inward / -1 outward) for n frames, camera behind her
     const walkAlong = async (id, sign, n) => {
+      await W.moved(t);     // (the test turns the camera round itself: a declared cut)
       await g(`(() => { const a = ${AP(id)}; const d = { x: a.dir.x - a.o.x, z: a.dir.z - a.o.z }; ctx.cam.free.yaw = Math.atan2(d.x * ${sign}, d.z * ${sign}); return true; })()`);
       await t.stick(0, -1); await t.frames(n); await t.stick(0, 0);
     };

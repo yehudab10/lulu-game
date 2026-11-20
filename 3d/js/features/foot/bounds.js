@@ -359,6 +359,10 @@ export function damp(F) {
 
 /** Position limit (after the move). The soft edges keep her well inside it; it's only a safety net. */
 export function limit(F, near, dt = 1 / 30) {
+    // (on a road off the highway — a ramp, an interchange's cross road on to an attached town — there's no fence: the
+    //  road goes somewhere. Midwood's line is ~75 m out along its cross road, and the fence turned her back before it)
+    // (and once she's been out there, stepping off the road onto the verge mustn't drag her back 15 m: the fence widens)
+    if (pavedAt(F.s, F.d) >= 3) { F.outLim = Math.max(F.outLim || 0, Math.min(220, Math.abs(near.d) + 4)); return; }
     // (F.outLim: she got out of a car parked out past the fence — the car drives the fields to 70 m — so she may walk
     //  where it stands; and the push back in is a quick glide, never a jump: stepping off a lawn's grounds, the limit
     //  falls from the old fence to the new one, and snapping that in one frame was a teleport of up to 8 m)
