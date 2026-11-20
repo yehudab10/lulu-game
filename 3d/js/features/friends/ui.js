@@ -242,6 +242,7 @@ export function install(helpers) {
     };
     if (!tryAdd()) on("boot", tryAdd);
     for (const ev of ["friends:presence", "friends:checked", "friends:asks", "friends:joinAsk"]) on(ev, refresh);
+    on("phone:close", () => { if (X.C.mine) X.closeCode(); });              // (a code lives only while its screen is up)
     on("phone:app", e => { if (e && e.app !== "friends" && !(e.app === "owparty" && V.app === "owparty")) { if (X.C.mine) X.closeCode(); } });
     setInterval(() => { try { chipTick(); } catch (e) { /* hud not ready */ } }, 400);
     hook("update", () => {
