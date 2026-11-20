@@ -281,9 +281,8 @@ async function perf(t) {
   const g = t.game;
   for (const tier of ["medium", "low"]) {
     await g(`(L3.setState("title"), true)`); await t.frames(3);
-    await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = ${JSON.stringify(tier)}; m.saveSoon && m.saveSoon(); return true; })`);
-    await t.L(`(window.__lulu3d.applyQuality ? __lulu3d.applyQuality() : 0, true)`);
-    await g(`(ctx.gfx && ctx.gfx.apply ? ctx.gfx.apply() : 0, true)`);
+    await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = ${JSON.stringify(tier)}; window.__lulu3d.ctx.applySettings(); return true; })`);
+    await t.frames(3);
     if (!await startOnFoot(t)) return;
     await helpers(t);
     if (!await enterHall(t, `perf ${tier}`)) return;

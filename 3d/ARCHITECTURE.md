@@ -558,6 +558,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | seasons 🕎 | **shared** (the HOST's day) | Every player publishes its own day in `d.x.cal` (`{ f: a preview \| null, t: local "YYYY-MM-DDTHH:MM" }`, `seasons/party.js`); everyone dresses the world for the host's (a guest dresses nothing until it's known — no flicker from one holiday to another). Every placement is a hash of the place (road chunk index + world seed, town + house index), never Math.random, so the same house has the same menorah on every screen. The parade's march and the people of the day (lulav walkers, the dancers, Tashlich…) stand in the same places on every screen; their animation is each screen's own (not synced). The Purim music van is solo-only (it's a town driver; a party town's traffic is the party's seeded loops). The ✋ stall treat, Ima's note and Lulu's line are personal (the treat's coins capped per real day on each device). Test: `seasons` (two real pages: the host's Purim wins over the guest's own Chanukah) |
 | together 👯 (friend finder + same car) | **personal**, reads what friends already publish | The 📱 🗺️ Map (friends' dots, a destination beam), ≤ 3 edge pointers, 🧭 switch — all from the party's existing snapshots (`d.w` / the flat frame, `d.x.z`, `d.x.ex`, `d.x.at`, `d.x.pc`, `d.x.pr`) + `d.x.dr` (the door I'm in by). Party members only — never a stranger. No coins |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
+| airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1336,6 +1337,51 @@ npcWoman / npcKid (+ law's K9 as the dog) spawned only within ~250 m, casting no
 chip (`.exits-chip.hud-secondary` in the "center" slot, only ≤ 1 mi ahead — interchanges and rest areas). Gated by
 `ctx.enabled("exits")`; in a 🎉 party the rest areas are seeded (see the parity table) and the visit is personal (presence ⛽).
 `scripts/tests3d/exits.js` covers passing / both branches / the rest area; `partyplus.js` the party side.
+
+**Airport › Terminal (airport, stage 2 of roadmap 12 — `features/airport/terminal*.js`, `ci/airport-terminal`):** ✈️ ONE
+walk-in hall at JFK ("TERMINAL 4½") on the interiors engine (`defineInterior("terminal")`, model `airport_terminal` +
+`airport_terminal_props` from `assets_airport_terminal.py`). The plan + the owner's decisions: `3d/docs/airport-plan.md`; stage 1
+(`ci/airport`: the interchange, the kerb loop, the terminal's OUTSIDE + its doors) owns `features/airport/index.js` and calls
+`ctx.airport.terminal.enter({ door, exit })` from the doors' ✋ spot (warm it within ~22 m: `warm()` → the step in is a soft cut).
+**The hall, left (landside) → right (airside)**, x ±28 m: the terminal doors (Spot_door) · check-in for the parody airlines
+(Kugel Air, El Oy, Shmear Jet — `AIRLINES` in `terminal-data.js`: an agent each, a hello pool + three questions) + Bubbe Faigy's
+overweight bag on the Kugel Air scale (wear her sweaters: Lulu puffs up · "lighten" a kugel · sit on it: the scale goes UP) · the
+departures board (a canvas: `FLIGHTS` + `STATUSES`, a row split-flaps every ~9 s, redrawn only while it flaps) · ARRIVALS (the
+frosted doors are movers `ArrDoor_L/R`; every ~18 s or on ✋ 1–2 people walk out with suitcases, a greeter cheers + hugs;
+greeters hold signs — four quads on one canvas) + an empty VIP red carpet (`vip()` — stage 3's Dovid Dov comes through here)
+· SECURITY: the snake (one collider, `Col_snake`), the BEEP-O-MATIC 3000 arch (`ScanLamp_red/green`), the tray belt, the glass
+divider at x = 12 and a ONE-WAY exit lane (`Col_exitGate` is on only while she's landside). ✋ the line → ⏳ wait (an auto-walk
+through the snake with captions) or 🏃 duck under the ropes (crouched; the line's outrage bubbles; Officer Segal Segways to the
+arch → 😇 back of the line, or 🥺 plead → the scanner adds CHUTZPAH DETECTED); the scanner: keys (a tray rides the belt) → her
+kugel (Ima packed it; Rex the sniffer dog only ever finds kugel — once a run, `rt.used.kugel`; after that a bobby pin) → clear →
+airside. Cartoon only: nothing about real screening. · THE FOOD COURT: Shmuley's Sky-High Deli (knish 8, pastrami 14, a pickle 3)
+and the H2-OY! water bar (water 12): a snack is a fixed price and +1 ❤️, nothing sold when her hearts are full, at most
+`TUNE.FOOD_CAP` (2) hearts a run (`rt.used.healed` — survives the door), nothing ever pays a coin. · THE GATE (GATE 18, "CHAI!"):
+three rows of seats — ✋ 💺 sit (pose sit, pinned in the seat by `luluPost`, the camera turns to the window; the stick stands her up;
+friends see her sitting), the gate desk ("BOARDING SOON — NOT YOU"), the man asleep across four seats, the window onto the apron:
+a parked Kugel Air plane at the jet bridge, planes (`Prop_Plane`, livery per airline) taking off down the runway every ~18 s, the
+runway fence, the tower. **The crowd** (`terminal-crowd.js`): ~55 people on homes' instanced rigs (`Rig` per body: man / woman /
+kid / cop — ~5 draw calls each for all of them; the far ones homes' `LodCrowd` figure; the nearest `TUNE.FULL[tier]` full) —
+desk agents, the check-in lines, the snake (it shuffles forward… then reconsiders), walkers rolling suitcases (one instanced mesh,
+a colour per instance), the family with ten kids doing laps of the food court looking for gate 18, the sleeper; Rex is law's K9
+on a rig of its own. People are records, not Object3Ds (an empty anchor each for speech bubbles); Lulu is pushed out of the
+standing / walking ones. The hall casts no shadows; the sun's shadow box follows her. The PA is an in-world bubble (no toasts).
+**The law:** walked in WANTED (`ctx.law.wanted > 0`, not low-key): Officer Segal + Rex follow her and slow her (`TUNE.SLOW` while
+Rex is at her heels — "Rex has your shoelace"), after `TUNE.COPS_AT` s two real cops walk in through the doors; caught → the room
+melts back out (soft) and law's arrest plays on the kerb (`ctx.law.arrest([warrants…, "RUNNING FROM A SEGWAY"], { onFoot })`).
+Leave first and they lose her. In a 🎉 party only the guard + Rex play (the law stays on its own screen). Not enterable mid-chase.
+**Friends:** a SHARED room (`together/rooms.js` › `SHARED.terminal = "jfk"`): friends in a party (🌍 Free Roam) see each other walk,
+sit and emote inside; presence "✈️ in the JFK terminal" (the interior's name + emoji); strangers are never inside. Each screen's
+crowd, gags, purchases and law stay its own. **Service:** `ctx.airport.terminal = { enter({ door, exit }), canEnter(), warm(),
+ready(), inside, vip(), addBuilder(fn) (stage 3: runs at the end of every build with the room), tune, debug }`;
+`ctx.airport.debug.enterTerminal()` walks in from wherever she's standing (tests; until stage 1's doors). Events `airport:terminal`
+{in, wanted}, `airport:checkin`, `airport:bag`, `airport:security` {how}, `airport:scanned` {kugel, chutzpah}, `airport:snack`,
+`airport:sit`, `airport:arrival`, `airport:takeoff`, `airport:cops`, `airport:caught`; stats `airportTerminalVisits`,
+`airportScans`, `airportLineCuts`, `airportSnacks`, `airportSits`, `airportBagGags`… **Budget** (1280×720, measured — see
+AGENTS.md §7): MEDIUM ≤ 150 draw calls (≤ 190 worst frame), ≤ 190k triangles; LOW ≤ 130 / 165, ≤ 150k. Test:
+`scripts/tests3d/airport-terminal.js` (`AIRPORT_TERMINAL_PART=solo|perf|friends`; the QA watchdog), and
+`PERF3D_SCENES=foot,terminal node scripts/perf3d.js`. **Stage 3 hooks:** `addBuilder`, the VIP carpet (`vip()`), the arrivals door
+(`debug.arrive`), the empty Shmear Jet line, `airport:*` events.
 
 **The underworld (underworld):** corrupt people + bad guys, cartoon only (`features/underworld/`). Everything random is gated by
 `live(what)` = `ctx.enabled("underworld")` && (no party, or — in a 🎉 party's Road Trip / Free Roam — `what` is the pickpocket) && Settings › 😈 Bad guys ≠ Off; **every knob is `SPAWN` in `data.js`**
