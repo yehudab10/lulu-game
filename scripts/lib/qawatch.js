@@ -21,6 +21,7 @@
 //   hidden    Lulu (on foot, walking) or the car (driving) invisible for more than ~1/3 s while she has control
 //   stuck     a state that isn't a free-roaming one (playing / footRun / interior / title) lasting more than 60 s
 //   nocontrol control taken away for more than 4 s outside a skippable scene / a dialog / a set / the pause menu
+//   invisible the stick pushed hard for ~2/3 s, she isn't moving, and nothing solid (a collider, a car) is within reach
 //   inside    Lulu standing inside a solid collider (circle / town block) for more than ~1/2 s while walking
 //
 // W.opts (page-side window.__qa.opts) tune the thresholds; W.allow(t, kind, re) ignores a known, explained case.
@@ -30,7 +31,7 @@ const SRC = String.raw`
   const L3 = window.__lulu3d, ctx = L3.ctx;
   const Q = window.__qa = {
     on: true, issues: [], counts: {}, ep: {}, last: null, f: -1, overlayF: 0, overlayCtl: 0, hidF: 0, insideF: 0,
-    stateSince: 0, stateName: null, noCtl: 0, prevState: null, stateChangeF: -9, cutF: -9, notes: [], allow: [],
+    stateSince: 0, pushF: 0, stateName: null, noCtl: 0, prevState: null, stateChangeF: -9, cutF: -9, notes: [], allow: [],
     opts: { footJump: 3.0, carJump: 4.0, camJump: 5.0, overlaySecs: 4, stuckSecs: 60, noCtlSecs: 4, flatEvery: 12, flatStd: 3.0 },
   };
   const flag = (kind, msg, key = kind) => {
@@ -73,7 +74,7 @@ const SRC = String.raw`
     if (ctx.paused || ctx.dialogOpen || ctx.view || ctx.skipping) return false;
     if (L3.H && L3.H.screenOpen && L3.H.screenOpen()) return false;
     if (ctx.state === "playing" || ctx.state === "worldPullOut") return true;
-    if (ctx.state === "footRun") { const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F; return !!(F && F.phase === "walk"); }
+    if (ctx.state === "footRun") { const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F; return !!(F && (F.phase === "walk" || F.phase === "hotwire")); }
     return false;
   };
   Q.control = control;
@@ -169,6 +170,15 @@ const SRC = String.raw`
       if (s) Q.insideF += dF; else Q.insideF = 0;
       if (Q.insideF > 15) flag("inside", "Lulu stands inside " + s + " at " + JSON.stringify(P(foot)), "inside");
     } else Q.insideF = 0;
+    // an invisible wall: the stick pushed hard, she's on her feet and not moving, and nothing solid within reach
+    const inp = L3.input || {};
+    if (ctl && foot && F.phase === "walk" && Math.hypot(inp.moveX || 0, inp.moveY || 0) > 0.7 && !F.air && !(F.buskT > 0) && Math.hypot(F.vel.x, F.vel.z) < 0.3) Q.pushF += dF; else Q.pushF = 0;
+    if (Q.pushF > 20) {
+      let near = solidAt(foot.x, foot.z, 0.3, -1.0);
+      if (!near) for (const c of ctx.traffic.cars) if (Math.hypot(c.x - foot.x, c.z - foot.z) < 3.5) { near = "car"; break; }
+      if (!near) for (const pc of F.parked || []) if (Math.hypot(pc.x - foot.x, pc.z - foot.z) < 3.5) { near = "parked"; break; }
+      if (!near && !(F.booth)) flag("invisible", "Lulu can't move (stick pushed) and nothing is in her way at " + JSON.stringify(P(foot)) + " d " + (F.d || 0).toFixed(1), "invisible");
+    }
     // stuck states / control taken away
     const roam = { playing: 1, footRun: 1, interior: 1, title: 1 };
     if (!roam[st] && !ctx.paused && ctx.time - Q.stateSince > Q.opts.stuckSecs) flag("stuck", "state " + st + " for " + (ctx.time - Q.stateSince).toFixed(0) + " s", "stuck:" + st);
@@ -189,7 +199,7 @@ module.exports = {
   async allow(t, kind, re) { return t.L(`(window.__qa.allow.push({ kind: ${JSON.stringify(kind)}, re: new RegExp(${JSON.stringify(re)}) }), true)`); },
   async pause(t, on = false) { return t.L(`(window.__qa.on = ${!!on}, window.__qa.last = null, true)`); },
   /** One check per glitch kind in `kinds` (default: all) for a segment; prints every issue as detail. */
-  check(t, label, r, kinds = ["jump", "nan", "overlay", "flat", "underground", "inwall", "hidden", "stuck", "nocontrol", "inside"]) {
+  check(t, label, r, kinds = ["jump", "nan", "overlay", "flat", "underground", "inwall", "hidden", "stuck", "nocontrol", "inside", "invisible"]) {
     let ok = true;
     for (const k of kinds) {
       const its = r.issues.filter(i => i.kind === k);

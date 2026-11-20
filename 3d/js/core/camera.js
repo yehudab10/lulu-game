@@ -63,7 +63,9 @@ export const cam = {
         cam.snap();
         return CAMS[st.mode].name;
     },
-    snap() { st.snap = true; if (ctx.car) st.yaw = ctx.car.h; st.lookYaw = 0; st.lookPitch = 0; },
+    // (a snap is a CUT: it also ends a glide still running — one left running across a teleport swooped the picture
+    //  from the old place to the new one, through whatever stood between; blend() starts its own glide after this)
+    snap() { st.snap = true; bl.on = false; if (ctx.car) st.yaw = ctx.car.h; st.lookYaw = 0; st.lookPitch = 0; },
     /** A soft cut: the rigs jump (as with snap), the picture glides there over `sec` seconds. */
     blend(sec = 0.6) {
         const camera = ctx.camera;
