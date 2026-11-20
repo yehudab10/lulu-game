@@ -34,7 +34,7 @@ export const INTERCHANGE = {
  * road — the highway's shape is fixed, so the same metres on every run and on every friend's screen). Home (Lulu's house,
  * ci/hometown) is in Midwood: its exit is the first one.
  */
-export const ROUTE = { period: 7200, stops: [{ town: midwood, at: 1500 }, { town: lakewood, at: 5100 }] };
+export const ROUTE = { period: 8000, stops: [{ town: midwood, at: 3600 }, { town: lakewood, at: 7600 }] };
 export function routeAt(k) {
     const n = ROUTE.stops.length, st = ROUTE.stops[((k % n) + n) % n];
     return { k, town: st.town, s: st.at + Math.floor(k / n) * ROUTE.period };

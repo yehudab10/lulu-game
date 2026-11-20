@@ -38,7 +38,7 @@ import { models, ensureModels, registerModels } from "../../models.js";
 import { input } from "../../input.js";
 import * as H from "../../hud.js";
 import { PL, setPlan, TownRoad, LANE, street, streetOfS, streetPoint, headingOf, toLocal, toWorld, wH, dirWorld, segmentBlocked, sightBlocked } from "./plan.js";
-import { buildTown, buildTownSteps, BUILD_MODELS } from "./build.js";
+import { buildTown, buildTownSteps, BUILD_MODELS, lotSpot } from "./build.js";
 import { tickRail } from "./rail.js";
 import * as SFX from "./sfx.js";
 import { C, spawnDriver, spawnHazard, clearDrivers, randomSpot, tendDrivers, lodDrivers } from "./cars.js";
@@ -46,7 +46,7 @@ import { LIFE, PEOPLE_MODELS, startLife, stopLife, tickLife, luluSay, gossip, ho
 import { dissolve } from "../../core/transition.js";
 import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } from "./cops.js";
 import { PK, setupParked, tickParked, clearParked } from "./parked.js";
-import { X, FIT, exitClear, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
+import { X, FIT, exitClear, exitFitS, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
 import { propsOf, railsOf } from "./exitbuild.js";
 import { tendAmbient, convertAmbient, disposeAmbient, AMB } from "./ambient.js";
 import { TOWNS, townFor, INTERCHANGE, ROUTE, routeAt, routeFrom, attachedDef } from "./towns/index.js";
@@ -297,7 +297,17 @@ function dropBuilt(en) {
     if (en.T) { en.T.dispose(); en.T = null; }
     en.gen = null;
 }
-function dropAllBuilt() { for (const en of [...S.built]) if (en !== S.att) dropBuilt(en); }
+function dropAllBuilt(keepHome = false) { const h = keepHome ? home() : null; for (const en of [...S.built]) if (en !== S.att && !(h && en.def.base === TOWNS[h.town] && Math.abs(en.exitS - h.exitS) < 1)) dropBuilt(en); }
+/** HOME (ci/hometown: Lulu lives in Midwood): the route's first exit — Midwood's — at its fixed metre (a pure function of
+ *  the road: the same on every run, screen and title). null until the world exists. */
+let HOME = null;
+function home() {
+    if (HOME) return HOME;
+    if (!ctx.world || !ctx.world.highway) return null;
+    const r = routeAt(0);
+    HOME = { town: r.town.id, exitS: exitFitS(r.s, [r.town]) };
+    return HOME;
+}
 /** Per frame on the highway: build what's coming, cull what stands, drop what's behind — and drive in. */
 function tendAttached(dt) {
     const s = hwS();
@@ -727,7 +737,7 @@ function planRoute(s0, s1) {
 }
 hook("runStart", G => {
     if (S.active) leaveTown("reset");
-    dropAllBuilt();
+    dropAllBuilt(true);          // (home stays standing: the run starts there — ci/hometown)
     // (on foot: the line both ways, and the standing towns still build — the update hook only runs while she drives)
     addActor({ foot: true, update: dt => { try { if (footing() && (S.built.length || X.exits.length)) tendAttached(dt); if (S.active) { if (S.att && footing()) attachedOut(); } else attachedFootIn(); } catch (err) { console.error("[town] foot line", err); } return true; } });
     S.trans = null; setFade(0); S.commit = null;
@@ -741,7 +751,13 @@ hook("runStart", G => {
         for (const e of X.exits) if (e.s > (G.startS || 0) - 200) { load(e.town); break; }
     }
 }, 20);
-on("title", () => { if (S.active) leaveTown("reset"); dropAllBuilt(); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
+on("title", () => { if (S.active) leaveTown("reset"); dropAllBuilt(true); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
+// (on the title — or any scene where nothing drives — a standing town is still culled for the camera: the title shot looks
+//  down E 16th St at Lulu's house in Midwood)
+hook("hud", () => {
+    if (S.active || ctx.state === "playing" || ctx.state === "footRun" || !S.built.length) return;
+    if ((S.cullT = (S.cullT || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
+});
 
 // ── the ramp cue: a light, in-the-moment prompt (no popup) while she's in the decel lane / on the ramp ──
 const RP = {};
@@ -976,6 +992,25 @@ ctx.town = {
         return p ? spotWorld(p) : null;
     },
     /** The highway exits planned this run, one row per town an interchange offers: [{ s, id, name, town, emoji, no, label, branch }] (sorted by s). */
+    /** HOME (ci/hometown): `{ town: "midwood", exitS }` — Midwood's own interchange, the route's first exit, at a fixed metre. */
+    get home() { const h = home(); return h ? Object.assign({}, h) : null; },
+    /** A named spot of the town standing at exitS, in WORLD coords, whether or not it's built yet: an empty lot's spot
+     *  (`luluHome`) is pure data (`built: false` until the town is up); any other spot once the town is built. */
+    spotOf(id, name, exitS) {
+        const def = TOWNS[id];
+        if (!def || !def.attach || !ctx.world || !ctx.world.highway) return null;
+        const k = branchK(def, exitS), en = entryOf(exitS, k);
+        if (en && en.ready && en.T && en.T.spots[name]) return withPlan(en, () => Object.assign(spotWorld(en.T.spots[name]), { built: true }));
+        const P = en || placeAt(def, exitS, k);
+        if (!P) return null;
+        return withPlan(P, () => { const sp = lotSpot(name); return sp ? Object.assign(spotWorld(sp), { built: false }) : null; });
+    },
+    /** In an attached town: where its streets hand over to the cross road out to the highway (world) — the way out. */
+    wayOut() {
+        if (!S.active || !S.att || !S.def.approach) return null;
+        const A = S.def.approach, w = toWorld(A.to[0], A.to[1], {}), f = toWorld(A.from[0], A.from[1], {});
+        return { x: w.x, z: w.z, tx: f.x, tz: f.z, street: A.name, name: "the highway" };
+    },
     get exits() { return X.exits.flatMap(e => e.branches.map(b => ({ s: e.s, id: b.town.id, name: b.town.name, town: b.town.id, emoji: b.town.emoji, no: b.town.highway.no || null, label: b.town.highway.label || b.town.name, branch: b.k }))); },
     /** The stretch an exit's signs → ramps cover, relative to its s (features/exits keeps rest areas out of it). */
     span: SPAN,
@@ -1085,6 +1120,8 @@ function spotWorld(p) {
     if (p.nx != null) { const v = dirWorld(p.nx, p.nz, {}); o.nx = v.x; o.nz = v.z; }
     if (p.cx != null) { const v = toWorld(p.cx, p.cz, {}); o.cx = v.x; o.cz = v.z; }
     if (p.lotX != null) { const v = toWorld(p.lotX, p.lotZ, {}); o.lotX = v.x; o.lotZ = v.z; }
+    // (an empty lot's door / drive / kerb points: world too, headings turned)
+    for (const k of ["door", "drive", "kerb"]) if (p[k]) { const v = toWorld(p[k].x, p[k].z, {}); o[k] = Object.assign({}, p[k], v); if (p[k].h != null) o[k].h = wH(p[k].h); }
     return o;
 }
 function takePatrol() {

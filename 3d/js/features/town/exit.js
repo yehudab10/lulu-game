@@ -112,6 +112,8 @@ function clearOfPlaces(s, towns = null, once = false) {
  */
 /** Would an exit at s for these towns plan right there (no sliding)? (debug: exitAhead looks either way for one) */
 export const exitClear = (s, towns) => clearOfPlaces(s, towns, true) != null;
+/** Where an exit planned at s for these towns would land (slid clear; fixed data only — a pure function of s). */
+export const exitFitS = (s, towns) => clearOfPlaces(s, (Array.isArray(towns) ? towns : [towns]).filter(Boolean));
 export function planExit(s, towns) {
     const w = ctx.world;
     towns = (Array.isArray(towns) ? towns : [towns]).filter(Boolean);
