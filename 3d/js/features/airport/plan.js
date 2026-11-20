@@ -80,10 +80,11 @@ function journeyBusy() {
 export function clearOf(E) {
     const a = E + LY.SPAN.a, b = E + LY.SPAN.b;
     // (the airport itself reaches ±640 m round E + UA; its roadside reserve + a town gap beyond the accel lane)
-    const a2 = Math.min(a, E + LY.UA - 700), b2 = Math.max(b, E + LY.UA + 700);
+    // (the ramps + the airport's own footprint: its advance signs may pass a family's gate or a pull-in like any sign)
+    const a2 = E - 600, b2 = Math.max(E + LY.ACC1 + 120, E + LY.UA + 700);
     if (journeyBusy().some(([x, y]) => y > a2 && x < b2)) return false;
     const P = ctx.places;
-    try { if (P && P.list && P.at) for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > a - 150 && x < b + 150) return false; } } catch (e) { /* none */ }
+    try { if (P && P.list && P.at) for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > a2 && x < b2) return false; } } catch (e) { /* none */ }
     const T = ctx.town;
     if (T && T.exits) { const sp = T.span || { a: -1500, b: 480 }; for (const e of T.exits) if (e.s + sp.b + AIR.townGap > a && e.s + sp.a - AIR.townGap < b) return false; }
     try { if (ctx.exits && ctx.exits.spans) for (const o of ctx.exits.spans()) if (o.b > a && o.a < b) return false; } catch (e) { /* none */ }
@@ -99,6 +100,7 @@ export function findSpot(s0, { force = false } = {}) {
 }
 /** findSpot as a generator: yields after each candidate FIT measured (a few ms); returns E or null. */
 export function* searchSteps(s0) {
+    s0 = Math.ceil(s0 / AIR.step) * AIR.step;          // (on the 50 m lattice: the same candidates whatever the run's start)
     for (let k = 0; k < AIR.tries; k++) {
         const E = s0 + k * AIR.step;
         if (!clearOf(E)) continue;

@@ -65,6 +65,7 @@ module.exports = {
     t.check("ctx.airport is registered and ON with ?enable=airport", await g(`!!(ctx.airport && ctx.airport.on && ctx.airport.debug && ctx.airport.debug.placeAt)`));
     t.check("…and stays out of a 🎉 party until the interchange planner hook (ci/exits2)", await g(`ctx.airport.debug.S.party === false`));
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await W.install(t);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     if (!await t.until(`!!__lulu3d.ctx.airport.planned`, "a Cruise run plans the airport (fixed data)", 60000)) return;
     const E = await g(`ctx.airport.planned.s`);
@@ -73,7 +74,7 @@ module.exports = {
 
     await step("placement", async () => {
       t.check(`it's further out than the first town exits (s ≥ ${AIR.first})`, E >= AIR.first, String(E));
-      t.check("clear of the journey's stops + the coast's ocean (its whole footprint)", await g(`(() => { const J = ctx.journey; const E = ${E}; for (let i = 0; i < 5; i++) { const s = J.stopS(i); if (Math.abs(s - (E + 330)) < 1500) return false; } return !(E + 330 + 700 > J.stopS(1) - 400 && E - 1490 < J.stopS(2) + 1100); })()`));
+      t.check("clear of the journey's stops + the coast's ocean (its whole footprint)", await g(`(() => { const J = ctx.journey, E = ${E}, a = E - 600, b = E + 1030; for (let i = 0; i < 5; i++) { const s = J.stopS(i); if (s + 600 > a && s - 1100 < b) return false; } return !(b > J.stopS(1) - 400 && a < J.stopS(2) + 1100); })()`));
       // fixed data: recomputed with Math.random poisoned → the same metre + the same terminal position
       const again = await g(`(() => { const R = Math.random; let E2, F; Math.random = () => { throw new Error("Math.random in the airport's placement"); };
         try { E2 = ctx.airport.debug.findSpot(${AIR.first}); F = ctx.airport.debug.frame(E2); } finally { Math.random = R; }
@@ -113,7 +114,7 @@ module.exports = {
 
     // ── IN: from the right lane, down the decel lane, the ramp, the road in, up the west leg, the DEPARTURES kerb ──
     await step("drive in", async () => {
-      await W.install(t);
+      await W.reset(t);
       const pts = [];
       for (const [u, d] of [[-480, 5.25], [-300, 5.25], [-230, 5.6], [-200, 7.5], [-170, 9.1], [-120, 9.1], [-80, 9.1]]) pts.push(await HW(E + u, d));
       for (let u = -50; u <= 60; u += 10) pts.push(await HW(E + u, await g(`ctx.airport.debug.LY.offD(${u})`)));

@@ -270,7 +270,7 @@ hook("runStart", G => {
     drop();
     S.search = null;
     if (!eligible()) return;
-    S.search = searchSteps((G.startS || 0) + AIR.first);
+    S.search = searchSteps(Math.max(AIR.first, (G.startS || 0) + 2600));
     searchTick(4);
     addActor({ foot: true, update: dt => { if (ctx.foot && ctx.foot.active) { try { tick(dt); } catch (e) { console.error("[airport] tick", e); } } return true; } });
 }, 15);
