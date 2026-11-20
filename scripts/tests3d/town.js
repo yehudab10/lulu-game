@@ -416,6 +416,7 @@ module.exports = {
     await step("leave-on-foot", async () => {
       if (!await inTown()) return;
       // leaving a town while she WALKS in it (any scene the town can't host, a reset): never left standing where the town was
+      const E0 = await g(`ctx.town.debug.S.exitS`);
       for (const why of ["quiet", "reset"]) {
         if (!await inTown()) return;
         await g(`(${D}.place("Main St", 60, 1.75, 0, 1), true)`);
@@ -427,8 +428,11 @@ module.exports = {
         const b = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d }; })()`);
         t.check(`leaving a town on foot (${why}): she's on the highway side beside her car, standing still (no shove)`,
           !a.active && a.car < 5 && Math.abs(a.d) < 40 && a.s > 4 && Math.hypot(b.x - a.x, b.z - a.z) < 0.6, JSON.stringify({ a, b }));
-        await g(`(L3.setState("playing"), true)`);
-        await t.frames(3);
+        // (back in her car, and back in the town the way the rest of this test had it — at the same exit)
+        await g(`ctx.foot.debug.getIn()`);
+        await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.foot.active`, "back in the car", 8000);
+        await g(`(ctx.town.enter({ town: "lakewood", exitS: ${E0}, attach: false, speed: 0 }), true)`);
+        await t.until(`__lulu3d.ctx.town.active`, "back in town", 8000);
       }
     });
 
