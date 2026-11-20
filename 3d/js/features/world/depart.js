@@ -19,7 +19,7 @@ import { save3d, store, saveSoon } from "../../core/save.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { home, luluSpots, placeParked, peopleTick, S_HOME } from "./home.js";
+import { home, luluSpots, placeParked, peopleTick, titleShot, S_HOME } from "./home.js";
 import { SHOULDER } from "../../world.js";
 
 const HS = store("worldHome", { starts: 0, drives: 0 });
@@ -98,7 +98,7 @@ function startAtHome(opts) {
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
-    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false;
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false; D.pendingLine2 = null;
     const ima = home.people.ima;
     if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
     const ok = ctx.foot.start("home", {
@@ -114,8 +114,11 @@ function startAtHome(opts) {
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
-    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : pick(IMA.any);
+    // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")
+    const dayLine = G.mode === "cruise" && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
+    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : dayLine || pick(IMA.any);
     D.pendingLine = line;
+    D.pendingLine2 = D.first && dayLine ? dayLine : null;
     emit("world:homeStart", { mode: G.mode, first: D.first });
     return true;
 }
@@ -157,7 +160,8 @@ hook("hud", dt => {
     }
     D.t += dt;
     peopleTick(dt, "bye");
-    if (D.pendingLine && D.t > 0.6) { imaSay(D.pendingLine, D.first ? 4.5 : 3.2); D.pendingLine = null; }
+    if (D.pendingLine && D.t > 0.6) { imaSay(D.pendingLine, D.first ? 4.5 : 4); D.pendingLine = null; }
+    if (D.pendingLine2 && D.t > 5.4) { imaSay(D.pendingLine2, 5); D.pendingLine2 = null; }
     const car = ctx.foot && ctx.foot.parkedCar;
     const P = home.park, m = marker();
     const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
@@ -168,7 +172,7 @@ hook("hud", dt => {
     // moved yet? if she just stands there a while, Ima says something (once)
     if (input.moveX * input.moveX + input.moveY * input.moveY > 0.04) D.moved = true;
     D.idleT = D.moved ? 0 : D.idleT + dt;
-    if (!D.left && D.said < 2 && D.idleT > (D.first ? 6 : 9)) { D.idleT = -99; imaSay(pick(IMA.nudge), 3); }
+    if (!D.left && D.said < 3 && D.idleT > (D.first ? 6 : 9)) { D.idleT = -99; imaSay(pick(IMA.nudge), 3); }
 });
 
 // ── pulling out of the driveway: she drives (it's "playing" in all but name), the camera looks up the street ──
@@ -214,6 +218,45 @@ registerState("worldPullOut", {
         return true;
     },
 });
+
+// ── coming home at the end of a day (features/day): a short beat, then the title — the run ends at home ──
+// The car is parked in the driveway, the camera glides back to the house, Lulu climbs out and walks up to the
+// porch, Ima waves from the door — and the title menu fades in over it (that ends the run, like quitting).
+// Skippable (⏭ / ✕). ctx.places.home.comeHome({ line }) starts it.
+const HB = { line: "", v: new THREE.Vector3(), w: new THREE.Vector3() };
+registerState("worldHomeBeat", {
+    hud: true, touch: false, pausable: false, world: true, skip: true,       // (hud: the "home for dinner" banner + the coins ticking up)
+    enter(data = {}) {
+        HB.line = data.line || "";
+        if (ctx.foot && ctx.foot.active && ctx.foot.end) ctx.foot.end("home");
+        A.updateEngine(0, 0, 0, 0, false, false);
+        placeParked();                                   // (the car in its spot; Lulu climbs out by the driver's door)
+        luluSpots(spots);
+        const L = home.people.lulu;
+        if (L) { L.obj.position.set(spots.door.x, 0, spots.door.z); L.obj.visible = true; home.luluT = 0; }
+        const ima = home.people.ima;
+        if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
+        if (ctx.cam) { if (ctx.cam.blend) ctx.cam.blend(1.0); else ctx.cam.snap(); }
+        if (HB.line) H.banner(HB.line, 3400, { prio: 2 });
+    },
+    update(dt, P) {
+        peopleTick(dt);
+        const ima = home.people.ima;
+        if (ima) ima.update(dt, { wave: true });
+        if ((P.confirm && ctx.stateT > 0.6) || ctx.stateT > 4.2) setState("title");
+    },
+    onSkip() { if (ctx.state === "worldHomeBeat") setState("title"); },
+    camera(dt) {
+        titleShot(HB.v, HB.w);
+        if (ctx.cam) ctx.cam.cinematic(HB.v, HB.w, dt, 1.6, 50);
+        return true;
+    },
+});
+export function comeHome(opts = {}) {
+    if (!home.ready || !ctx.states.worldHomeBeat) return false;
+    setState("worldHomeBeat", opts);
+    return true;
+}
 
 /** Test / debug: the home start's live state. */
 export const departInfo = () => ({

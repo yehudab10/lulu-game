@@ -1,4 +1,5 @@
 // People: runtime animation for the characters built by 3d/blender/lib_people.py.
+// (The poses double as the party's emotes — features/party/emotes.js — so a new one shows on friends' puppets too.)
 //
 // Every person .glb has a root with these parts (origin = the joint):
 //   Body (torso + head, baked) · Arm_L / Arm_R (pivot at the shoulder)
@@ -28,7 +29,8 @@ export class Person {
 
     /**
      * opts: walk (m/s, 0 = idle), wave (bool), talk (bool), cheer (bool, both arms up),
-     *       sit (bool), point (bool, right arm forward), dance (bool), air (0 = on the ground, > 0 rising, < 0 falling)
+     *       sit (bool), point (bool, right arm forward), dance (bool), air (0 = on the ground, > 0 rising, < 0 falling),
+     *       facepalm (bool, hand to the forehead), clap (bool), stop (bool, both palms out: "wait up!")
      */
     update(dt, opts = {}) {
         this.t += dt;
@@ -52,6 +54,9 @@ export class Person {
         if (opts.cheer) { armL = armR = -2.7 + Math.sin(this.t * 10) * 0.15; armLz = 0.25; armRz = -0.25; }
         if (opts.wave) { armR = -2.6; armRz = -0.35 + Math.sin(this.t * 9) * 0.45; }
         if (opts.point) { armR = -1.5; armRz = -0.05; }
+        if (opts.stop) { armL = armR = -1.55; armLz = 0.18; armRz = -0.18; }
+        if (opts.clap) { const c = 0.5 + Math.sin(this.t * 15) * 0.5; armL = armR = -1.25; armLz = 0.3 - c * 0.5; armRz = -armLz; }
+        if (opts.facepalm) { armR = -2.55; armRz = 0.55; }
         if (opts.air) {
             // in the air (a jump): knees tucked, arms flung up on the way up, out wide coming down
             const up = opts.air > 0;
@@ -63,7 +68,7 @@ export class Person {
             const bob = walk > 0.05 ? Math.abs(Math.cos(this.phase)) * 0.035 * Math.min(1, walk) : 0;
             L.Body.position.copy(L.Body.userData.basePos);
             L.Body.position.y += bob + breathe + (opts.talk ? Math.abs(Math.sin(this.t * 12)) * 0.01 : 0) + (opts.sit ? -0.35 : 0);
-            rot(L.Body, opts.talk ? Math.sin(this.t * 6) * 0.03 : 0, opts.dance ? Math.sin(this.t * 7) * 0.12 : 0);
+            rot(L.Body, opts.facepalm ? 0.2 : opts.talk ? Math.sin(this.t * 6) * 0.03 : 0, opts.dance ? Math.sin(this.t * 7) * 0.12 : opts.facepalm ? Math.sin(this.t * 5) * 0.06 : 0);
         }
         // arms ride along with the body's sit offset
         for (const k of ["Arm_L", "Arm_R"]) {
