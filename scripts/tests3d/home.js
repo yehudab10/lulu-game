@@ -148,13 +148,17 @@ module.exports = {
 
     // ── knocked out ON FOOT: she sits up and walks it off ──
     await g(`(() => { L3.wallet.add(50); ctx.G.hearts = 1; ctx.G.invT = 0; ctx.foot.force.er = false; ctx.G.score = 99; })()`);
-    const kf = await g(`(() => { const F = ctx.foot.debug.F, rd = ctx.world.road, p = rd.point(F.s + 14, 1.75, {});
-      const c = ctx.traffic.add("sedan", F.s - 25, F.d, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
+    // (she stands in an empty lane well AHEAD of her parked car — a car behind it would brake for the car, not reach her)
+    const kf = await g(`(() => { const F = ctx.foot.debug.F, rd = ctx.world.road, s = F.s + 40, p = rd.point(s, 1.75, {});
+      F.pos.set(p.x, 0.05, p.z); F.s = s; F.d = 1.75; F.vel.set(0, 0, 0);
+      ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+      const c = ctx.traffic.add("sedan", s - 25, 1.75, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
     const kf0 = await g(`ctx.frames`);
     t.check("a car comes at her", kf);
     let flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
     for (let i = 0; i < 2 && !flat; i++) {     // (a slow runner: the car can miss her — a fresh one aimed at where she stands)
       await g(`(() => { ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+        ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
         const c = ctx.traffic.add("truck", F.s - 14, F.d, 1, 18); if (c) c.data.footAttn = false; })()`);
       flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot (again)", 8000);
     }
