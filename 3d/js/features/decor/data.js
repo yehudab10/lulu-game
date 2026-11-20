@@ -132,6 +132,7 @@ export const LINES = {
     ima: ["Lulu! You're home! Are you hungry? You look hungry.", "Did you eat? There's kugel. There's ALWAYS kugel.",
         "Your room is looking very… YOU, mamele.", "Wipe your feet! I just did the floors.", "Call Bubbe, she misses you!",
         "Don't spend all your coins on decorations. Spend SOME on gas."],
-    dina: ["Can I have the flamingo when you're done with it?", "Your room is the BEST room. Don't tell Ima I said that."],
+    dina: ["Can I have the flamingo when you're done with it?", "Your room is the BEST room. Don't tell Ima I said that.",
+        "Ima says dinner's in five minutes. Ima said that an hour ago.", "Can we watch the one with the singing dog again?"],
     set: "✨ SET COMPLETE",
 };

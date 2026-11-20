@@ -50,6 +50,7 @@ module.exports = {
     t.check("a soft cut (warmed: no black loading screen)", R0.soft && R0.fade < 0.05, JSON.stringify({ soft: R0.soft, fade: R0.fade }));
     t.check("Ima is in the kitchen", R0.ima);
     t.check("every inside spot is a hotspot", ["slot:bed", "slot:lamp", "slot:art", "slot:shelf", "slot:rug", "slot:wallpaper", "slot:couch", "door", "ima"].every(h => R0.hots.includes(h)), R0.hots.join(","));
+    t.check("Dina is in the living room, with a hotspot to talk to", (await g(`(() => { const r = window.__interiors.room; return !!r.byId.dina && r.hots.some(h => h.id === "dina"); })()`)), "no Dina inside");
     await t.frames(20);
     await t.shot("inside");
 
@@ -156,6 +157,19 @@ module.exports = {
     t.check("…a few draw calls for all of it", O2.calls > 0 && O2.calls <= 8, O2.calls + " calls");
     await g(`(() => { const c = ctx.camera, h = ctx.places.home; return true; })()`);
     await t.shot("outside");
+
+    // ── the flamingo is solid (she can't walk through it); the gnomes are low (she hops them) ──
+    const Y1 = await g(`ctx.decor.debug.yard()`);
+    t.check("the flamingo is a solid piece of the yard (and only it)", Y1.length === 1 && Y1[0].opt === "flamingo" && Y1[0].kind === "pole", JSON.stringify(Y1));
+    await g(`(() => { const y = ctx.decor.debug.yard()[0], F = ctx.foot; F.pos.set(y.x + 0.05, 0, y.z + 0.05); F.obj.position.copy(F.pos); return 1; })()`);
+    await t.frames(6);
+    const Y3 = await g(`(() => { const y = ctx.decor.debug.yard()[0], F = ctx.foot; return Math.hypot(F.pos.x - y.x, F.pos.z - y.z); })()`);
+    t.check("standing in the flamingo's spot, she's pushed out of it", Y3 > 0.3, Y3.toFixed(2) + " m from its middle");
+    await g(`(ctx.decor.buy("lawn", "gnomes"), true)`);
+    await t.frames(3);
+    const Y4 = await g(`ctx.decor.debug.yard()`);
+    t.check("the gnomes: three low pieces she can hop; the flamingo's collider is off", Y4.length === 3 && Y4.every(y => y.opt === "gnomes" && y.kind === "bench"), JSON.stringify(Y4));
+    await g(`(ctx.decor.place("lawn", "flamingo"), true)`);
 
     // ── a set: Pink Dream noticed (never coins) ──
     const before = await coins();

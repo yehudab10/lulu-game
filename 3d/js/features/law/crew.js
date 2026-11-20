@@ -166,7 +166,8 @@ function hostEvent(uid, k, a) {
         for (const u of ps) HS.opt.delete(u);
         hostSet(pz => {
             const live = ps.map(u => activeOf(pz, u)).filter(Boolean);
-            if (live.length && live.every(c => c === live[0]) && ps.every(u => live[0].ps.includes(u))) return false;   // (already)
+            // (already one crew: a new crime just becomes what it's about now)
+            if (live.length && live.every(c => c === live[0]) && ps.every(u => live[0].ps.includes(u))) { if (!why || live[0].why === why) return false; live[0].why = why; live[0].t = Math.round(t); return; }
             for (const c of live) { c.ps = c.ps.filter(u => !ps.includes(u)); if (c.ps.length < 2 && !c.b0) { c.ph = "done"; c.end = Math.round(t); } }
             newCrew(pz, ps, why);
         });
@@ -287,7 +288,7 @@ function tick(dt) {
             C.adopted = c.n; C.busted = 0;
             const m = mates(c);
             H.toast(`🔗 PARTNERS IN CRIME — you & ${names(m)}${c.why ? ` · ${c.why}` : ""}: one wanted level`, "gold", { prio: 3, key: "crew" });
-            emit("law:crew", { n: c.n, ps: c.ps.slice(), why: c.why, mates: m });
+            emit("law:crewFormed", { n: c.n, ps: c.ps.slice(), why: c.why, mates: m });
             emit("stat", { id: "crewFormed", n: 1 });
         } else { C.refused.add(c.n); P().sendEvent("pzx", c.n); }
     }
@@ -310,6 +311,7 @@ function tick(dt) {
     if (c) giveUp(c, dt); else if (C.give) { C.give(); C.give = null; }
     helpTick();
     springSpot();
+    if (JOBS.size) jobTick(dt);
     publish(dt);
 }
 /** One wanted level: my chase climbs to the crew's highest stars (never down; one star a second at most). */
@@ -683,6 +685,40 @@ export function crewResume(s) {
     if (!c || !c.caught.includes(me()) || c.caught.length < 2 || !Number.isFinite(c.sR)) return s;
     return c.sR + c.caught.indexOf(me()) * 14;
 }
+
+
+// ── another feature's crime for a crew (ci/bankfriends' co-op bank job): ctx.law.partners ──
+// crime({ id, crew, charge, heat, msg }) — called once per member's screen (idempotent per id): she asks to be partners
+// with the crew (`partners`) and her OWN chase starts at `heat` stars (in a car: law's pursuit; on foot: a foot cop). When
+// it's over for HER this screen emits law:crew { id, uid, result: "ok" (she shook them) | "busted" (taken into custody) }.
+const JOBS = new Map();
+function jobCrime(o = {}) {
+    if (!o || !o.id || !Array.isArray(o.crew) || !crewParty()) return false;
+    const id = String(o.id);
+    if (JOBS.has(id)) return true;
+    const charge = String(o.charge || "CONSPIRACY"), heat = Math.max(1, Math.min(5, o.heat | 0 || 2));
+    const J = { id, charge, t: ctx.time, quiet: 0, done: false, started: false };
+    JOBS.set(id, J);
+    if (o.crew.includes(me()) && o.crew.length > 1) crewApi.partners(o.crew, charge);
+    const opts = { heat, msg: o.msg || `🚨 ${"★".repeat(heat)} ${charge}!`, charges: [charge] };
+    if (ctx.state === "playing") J.started = !!ctx.law.startChase(charge, opts);
+    else if (ctx.foot && ctx.foot.active && ctx.foot.startChase) J.started = !!ctx.foot.startChase(null, { charges: [charge] });
+    if (L.chase) L.chase.heat = Math.max(L.chase.heat, heat);
+    return true;
+}
+function jobDone(J, result) { if (J.done) return; J.done = true; emit("law:crew", { id: J.id, uid: me(), result }); }
+on("state", ({ to }) => { if (to === "lawArrest" || to === "lawJail") for (const J of JOBS.values()) jobDone(J, "busted"); });
+on("cop:chase", e => { if (e && !e.active && (e.result === "escaped" || e.result === "standDown")) for (const J of JOBS.values()) if (!J.done && !CUSTODY.has(ctx.state)) jobDone(J, "ok"); });
+/** Per frame: a job whose chase is long over (a foot cop gave up, a car chase ended any other way) and she's free = ok. */
+function jobTick(dt) {
+    for (const [id, J] of JOBS) {
+        if (J.done) { if (ctx.time - J.t > 120) JOBS.delete(id); continue; }
+        const free = FREE.has(ctx.state) && !chasingNow();
+        J.quiet = free ? J.quiet + dt : 0;
+        if (J.quiet > 6) jobDone(J, "ok");
+    }
+}
+export const partnersApi = { crime: o => jobCrime(o), debug: { JOBS } };
 
 // ── the service (ctx.law.crew) ───────────────────────────────────────────
 export const crewApi = {
