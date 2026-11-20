@@ -24,7 +24,7 @@ function startRelay() {
 }
 process.on("exit", () => { try { relay && relay.kill(); } catch (e) { } });
 const Q = `&enable=seasons,town,homes,atmos,phone,party,foot&mpurl=${encodeURIComponent(URL)}`;
-const WHOLESOME = /^(menorah|candles|bigMenorah|stand:#[0-9A-F]{6}|Goods_\w+|sukkah|sukkahFrame|basket|kerb|bonfire|logBench|planter|banner)$/;
+const WHOLESOME = /^(menorah|candles|bigMenorah|stand:#[0-9A-F]{6}|Goods_\w+|sukkah|sukkahFrame|basket|kerb|bonfire|logBench|planter|banner|barrel|pond)$/;
 
 module.exports = {
   name: "seasons",
@@ -57,6 +57,7 @@ module.exports = {
     await step("calendar", async () => {
       const cases = [
         ["2026-11-19T12:00", "", 0, "an ordinary Thursday (9 Kislev)"],
+        ["2026-11-19T22:00", "", 0, "Thursday night (already Friday by the Hebrew day) → no Friday stall yet"],
         ["2026-11-20T15:00", "friday", 0, "Friday afternoon → the erev-Shabbos bustle"],
         ["2026-11-20T19:00", "shabbos", 0, "Friday night → Shabbos (candles)"],
         ["2026-12-04T15:00", "friday", 0, "erev Chanukah, before sunset: no candles yet"],
@@ -74,6 +75,9 @@ module.exports = {
         ["2027-08-12T12:00", "tishaBav", 0, "Tisha B'Av 5787"],
         ["2027-10-14T12:00", "sukkosPrep", 0, "sukkahs going up (13 Tishri)"],
         ["2027-10-16T12:00", "sukkos", 0, "Sukkos"],
+        ["2027-04-21T10:00", "erevPesach", 0, "erev Pesach (14 Nisan 5787): burning the chametz"],
+        ["2025-04-11T10:00", "erevPesach", 0, "14 Nisan 5785 was Shabbos → the chametz is burned on Friday the 13th"],
+        ["2025-04-12T10:00", "pesachPrep", 0, "… and not on that Shabbos"],
       ];
       const got = await t.L(`import("./js/features/seasons/calendar.js").then(m => { const out = ${JSON.stringify(cases)}.map(([iso]) => { m.setDate(iso); const d = m.today(); return [d.main || "", d.chanukah, d.quiet, d.candles]; }); m.setDate(null); return out; })`);
       cases.forEach(([iso, main, ch, what], i) => t.check(`calendar: ${what}`, got[i][0] === main && (!ch || got[i][1] === ch), `${iso} → ${JSON.stringify(got[i])}`));
@@ -123,6 +127,8 @@ module.exports = {
       t.check("lakewood: a menorah in (almost) every house's front windows", n.length >= 80, `${n.length}`);
       const big = await items("bigMenorah");
       t.check("lakewood: the big menorah by the town hall, night 5", big.length === 1 && big[0].lights === 5, JSON.stringify(big));
+      const str = await g(`ctx.seasons.debug.strings()`);
+      t.check("lakewood: blue-and-white string lights along the eaves of a good share of the houses", str.strings >= 30 && str.drawn >= 600, JSON.stringify(str));
       const stands = await g(`ctx.seasons.debug.stands()`);
       t.check("lakewood: the sufganiyot stall + its doughnuts", stands.length >= 1 && (await items("Goods_Donuts")).length >= 1, JSON.stringify(stands));
       // the shots: a duplex at night, the big menorah, the stall (day + night)
@@ -236,6 +242,7 @@ module.exports = {
       t.check("Shavuos: planters by the doors + the cheesecake stall", (await items("planter")).length >= 15 && (await items("Goods_Cheesecake")).length >= 1);
       await season("friday");
       t.check("Friday: the challah & flowers stall", (await items("Goods_Challah")).length >= 1);
+      t.check("ctx.seasons.day() / is(): the stable 'what is today' API says Friday", await g(`ctx.seasons.day().erev === true && ctx.seasons.is("friday") && !ctx.seasons.is("shabbos")`));
       await season("shabbos");
       const c = await items("candles");
       t.check("Shabbos: candles in a front window of most houses, two burning", c.length >= 40 && c.every(i => i.lights === 2), `${c.length}`);
@@ -250,6 +257,63 @@ module.exports = {
         const all = await items();
         t.check(`${id}: quiet — nothing festive in the world`, all.every(i => i.kind === "candles"), all.map(i => i.kind).slice(0, 5).join(","));
       }
+    });
+
+    // ── round 2: the people of the day + the radio ─────────────────────
+    const groups = tag => g(`ctx.seasons.debug.groups().filter(x => x.set === "town" && x.tag === "${tag}")`);
+    await step("people of the day", async () => {
+      if (!lakewoodOk) return;
+      await season("sukkos");
+      const lv = await groups("lulav");
+      t.check("Sukkos: men + boys walking with a lulav + esrog", lv.length >= 2 && lv.every(x => x.members.every(m => m.R === "HeldLulav" && m.L === "HeldEsrog")), JSON.stringify(lv.map(x => x.members.length)));
+      if (lv[0]) { await noon(); await look(lv[0].x + 4, lv[0].z + 4, lv[0].x, lv[0].z, 3.6, 1.2); await t.frames(3); await t.shot("sukkos-lakewood-lulav"); await unlook(); }
+      await season("sukkos", 1, { wd: 6 });
+      t.check("… but no lulav on Shabbos", (await groups("lulav")).length === 0);
+      await season("yomKippur");
+      const wh = await groups("white");
+      t.check("Yom Kippur: families in white walking to shul, quietly (no stall, nothing festive)", wh.length >= 2 && wh.every(x => x.members.every(m => /^#F/.test(m.top))) && (await g(`ctx.seasons.debug.stands().length`)) === 0 && (await items()).every(i => i.kind === "candles"));
+      if (wh[0]) { const w2 = (await groups("white"))[0]; await look(w2.x + 4, w2.z + 4, w2.x, w2.z, 3.6, 1.2); await t.frames(1); await t.shot("yomkippur-lakewood-white"); await unlook(); }
+      await season("roshHashana");
+      const tl = await groups("tashlich");
+      t.check("Rosh Hashana: Tashlich at the lake, siddurim in hand", tl.length === 1 && tl[0].members.filter(m => m.R === "Book").length >= 5, JSON.stringify(tl.map(x => x.members.length)));
+      if (tl[0]) { const lk = await g(`ctx.town.spot("lake")`); await look(lk.x + 9, lk.z + 6, lk.x + 3, lk.z, 2.8, 1.0); await t.frames(3); await t.shot("roshhashana-lakewood-tashlich"); await unlook(); }
+      await season("roshHashana", 1, { wd: 6 });
+      t.check("… not on Shabbos", (await groups("tashlich")).length === 0);
+      await season("simchasTorah");
+      const hk = await groups("hakafos"), fl = await groups("flags");
+      t.check("Simchas Torah: a ring of dancers round a Torah, kids waving flags", hk.length === 1 && hk[0].members.length >= 8 && hk[0].middle && hk[0].middle.chest === "Torah" && fl.length === 1 && fl[0].members.every(m => m.R === "Flag"));
+      if (hk[0]) {
+        await noon(); await look(hk[0].x + 5, hk[0].z + 5, hk[0].x, hk[0].z, 3.2, 1.0); await t.frames(4);
+        const gc = await g(`ctx.seasons.info().groups`);
+        const pf = await perf(12);
+        t.check("budget: the dancers (+ flags, the Torah) draw ≤ 18 draw calls, the town stays ≤ 240", gc.calls <= 18 && pf.calls <= 240, JSON.stringify({ groups: gc.calls, people: gc.drawn, town: pf.calls, tris: pf.tris }));
+        await t.shot("simchastorah-lakewood-hakafos"); await unlook();
+      }
+      await season("purim");
+      const co = await groups("collectors");
+      t.check("Purim: costumed bochurim with a pushke at a few doors", co.length >= 3 && co.every(x => x.members.some(m => m.R === "Pushke") && x.members.every(m => m.hat)));
+      const van = await g(`ctx.seasons.info().van`);
+      t.check("Purim: the music van (roof speakers + sign) drives round town", van.on && van.kit && van.sign, JSON.stringify(van));
+      if (co[0]) { await look(co[0].x + 3, co[0].z + 3, co[0].x, co[0].z, 2.4, 1.2); await t.frames(3); await t.shot("purim-lakewood-collectors"); await unlook(); }
+      await season("erevPesach");
+      const ch = await groups("chametz");
+      t.check("erev Pesach: the chametz-burning barrel, a firefighter beside it, neighbours with their bread", (await items("barrel")).filter(i => i.set === "town").length === 1 && ch.length === 1 && ch[0].members.some(m => m.hat === "Hat_Fire") && ch[0].members.some(m => m.R === "BreadBag"));
+      if (ch[0]) { await noon(); await look(ch[0].x + 4, ch[0].z + 4, ch[0].x, ch[0].z, 2.6, 1.0); await t.frames(3); await t.shot("erevpesach-lakewood-chametz"); await unlook(); }
+      t.check("the music van leaves with Purim", !(await g(`ctx.seasons.info().van.on`)));
+    });
+    await step("radio", async () => {
+      if (!(await g(`!!(ctx.hustle && ctx.hustle.radio)`))) return;
+      await season("threeWeeks");
+      t.check("the Three Weeks: seasons says the radio is quiet", await g(`ctx.seasons.radioQuiet()`));
+      await g(`(L3.state !== "playing" ? L3.setState("playing") : 0, ctx.hustle.radio.tune("simcha"), true)`);
+      await t.frames(4);
+      const st = await g(`ctx.hustle.radio.state()`);
+      t.check("📻 SIMCHA 101.3 plays no music in the Three Weeks (its DJ just talks)", st.quiet && !st.src, JSON.stringify({ quiet: st.quiet, src: st.src }));
+      await season("chanukah", 2);
+      await t.frames(4);
+      const st2 = await g(`ctx.hustle.radio.state()`);
+      t.check("… and the music is back after", !st2.quiet && !!st2.src, JSON.stringify({ quiet: st2.quiet, src: st2.src }));
+      await g(`(ctx.hustle.radio.tune("auto"), true)`);
     });
 
     // ── the stall treat: once per real day ───────────────────────────
@@ -282,6 +346,7 @@ module.exports = {
       await g(`ctx.seasons.debug.rebuild()`);
       await t.frames(3);
       t.check("⚙️ Holidays in the world OFF: nothing dressed", (await items()).length === 0 && !(await info()).want);
+      t.check("…but ctx.seasons.day() still knows the date (other features read it)", await g(`!!ctx.seasons.day() && !!ctx.seasons.day().key && ctx.seasons.today() === null`));
       await t.L(`import("./js/core/save.js").then(m => { m.store("seasons").on = true; })`);
       await g(`ctx.seasons.debug.rebuild()`);
       await t.frames(3);
