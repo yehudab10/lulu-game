@@ -41,3 +41,4 @@ import "./onegame/index.js";      // 🎮 one game, not a menu of modes: ▶ PLA
 import "./together/index.js";     // 👯 friends together: the friend finder (📱 🗺️ map dots + a destination beam, ≤ 3 quiet edge pointers) and friends seeing each other inside the same building
 import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
 import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends
+import "./shul/index.js";         // 🕍 shul: a walk-in shul in each town (the Lakewood yeshiva's front door, Midwood's Young Israel) — the women's section, a lobby with a hundred black hats, the kiddush room; follows the weekday / Friday / Shabbos / fast / Chanukah
