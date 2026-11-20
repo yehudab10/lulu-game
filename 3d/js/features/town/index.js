@@ -744,9 +744,11 @@ hook("update", (dt, P, controlsOn) => {
     for (const t of e.towns) load(t);
 });
 
-// out of hearts in town: she's towed back to the highway's shoulder, and the usual aftermath plays there
+// out of hearts in town: the knock-out plays right here (core's recoverFromWreck → on her feet beside her car, in town —
+// no fade, no tow). Only with no on-foot feature to stand her up: towed back to the highway's shoulder, the old way.
 hook("wreck", () => {
     if (!S.active) return false;
+    if (ctx.foot && typeof ctx.foot.start === "function") return false;
     leaveTown("wreck");
     setFade(1); S.trans = { kind: "leave", t: 0, phase: "in" };
     H.toast(`🚛 Towed out of ${S.def ? S.def.name : "town"}`, "red");

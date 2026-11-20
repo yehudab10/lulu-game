@@ -518,6 +518,16 @@ async function attached(t, g, E, perf) {
     await t.until(`__lulu3d.ctx.town.street === "Ocean Pkwy" || !window.__route.pts.length`, "round the corner onto Ocean Pkwy", 60000);
     t.check("…round the corner onto Ocean Pkwy (Midwood stands behind the ramp)", await g(`ctx.town.street === "Ocean Pkwy"`), await g(`ctx.town.street`));
     await t.shot("attached-midwood");
+    // knocked out in town: on her feet beside her car, right here (no tow to the highway, no fade)
+    await g(`(window.__route = null, window.__townFade = 0, window.__tfI = setInterval(() => { const f = document.getElementById("townFade"); if (f && +f.style.opacity > 0) window.__townFade++; }, 10),
+        (() => { for (let i = 0; i < 5; i++) { ctx.G.invT = 0; L3.damage(1, "Lulu vs. a test", "test"); } })(), true)`);
+    if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "knocked out in town → on her feet", 15000)) {
+      t.check("knocked out in town: on her feet in Midwood, beside her car (not towed out)", await g(`ctx.town.active && ctx.town.id === "midwood" && ctx.town.attached && ctx.car.pos.distanceTo(ctx.foot.debug.F.pos) < 8`),
+        JSON.stringify(await g(`[ctx.town.active, ctx.town.id, ctx.car.pos.distanceTo(ctx.foot.debug.F.pos)]`)));
+      t.check("…and no fade", await t.L(`(clearInterval(window.__tfI), window.__townFade === 0)`), String(await t.L(`window.__townFade`)));
+      await g(`(L3.setState("playing"), true)`);
+      await t.frames(3);
+    }
   }
   await g(`(window.__route = null, true)`);
   // on foot across the line: out of the car at the inner T (the highway's road), walk out the cross road → in town; back → out
