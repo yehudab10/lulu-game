@@ -128,9 +128,9 @@ const SRC = String.raw`
     if (f === Q.f) return;
     const dF = f - Q.f; Q.f = f;
     // (in a 🎉 party friends' cars move on the REAL clock: on a crawling test page a friend's car you ride in covers
-    //  speed × real time between two frames — allow for that, up to a fast car's 45 m/s)
+    //  speed × real time between two frames — allow for that, up to a boosting car + a party bump, 60 m/s)
     const wNow = performance.now(), realDt = Q.wLast ? (wNow - Q.wLast) / 1000 : 0; Q.wLast = wNow;
-    const rt = ctx.party && ctx.party.active ? Math.max(1, 45 * realDt / Q.opts.carJump) : 1;
+    const rt = ctx.party && ctx.party.active ? Math.max(1, 60 * realDt / Q.opts.carJump) : 1;
     const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F;
     const foot = ctx.state === "footRun" && F && F.pos ? F.pos : null;
     const car = ctx.car.pos, camP = ctx.camera.position;
