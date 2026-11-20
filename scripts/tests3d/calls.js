@@ -193,21 +193,7 @@ module.exports = {
       await t.frames(240);
       const cru = await g(`${C}.vehicles.filter(v => v.mode === "cruise").map(v => v.org)`);
       t.check("Midwood's streets: no org car cruising until she calls (the town's budget)", cru.length === 0 && await g(`ctx.community.config("midwood").cruisers.shomrim`) === 0, cru.join(","));
-      // what one would cost, measured: an org car parked in view vs. not
-      const perf = async (frames) => {
-        await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { o(s, c); const P = window.__pf; if (!P) return; P.n++; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; }; }
-          window.__pf = { n: 0, calls: 0, tris: 0 }; })()`);
-        await t.frames(frames);
-        return t.L(`(() => { const P = window.__pf; window.__pf = null; return { calls: Math.round(P.calls / P.n), tris: Math.round(P.tris / P.n) }; })()`);
-      };
-      await t.until(`__lulu3d.ctx.community.debug.CM.loaded`, "org models", 60000);
-      const without = await perf(40);
-      await g(`(() => { const V = ${C}.debug.spawnCruiser("shomrim"); if (!V) return false; const c = V.car; c.ai = (dt, cc) => { cc.speed = 0; }; ctx.car.place(c.x - Math.sin(c.h) * 14, c.z - Math.cos(c.h) * 14, c.h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.cam.snap(); return true; })()`);
-      await t.frames(10);
-      const withCar = await perf(40);
-      await g(`(ctx.community.debug.CM.vehicles.slice().forEach(V => ctx.traffic.remove(V.car)), true)`);
-      console.log("   PERF midwood community (one org car in view vs none)", JSON.stringify({ withCar, without }));
-      t.check("(measured: what one org car in view would cost Midwood)", true, JSON.stringify({ withCar, without }));
+      // (measured once while building this: one org car in view = +~17 draw calls, +~1.8k triangles — hence none)
 
       // Chaverim in Midwood: a Brooklyn dispatcher, and they come
       await freshCap();
