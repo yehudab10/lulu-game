@@ -92,7 +92,7 @@ export const law = {
         const go = () => {
             const ch = (charges && charges.length ? charges : ["DISTURBING THE PEACE"]).slice();
             if (opts.onFoot === undefined && ctx.foot && ctx.foot.active) opts.onFoot = true;
-            if (opts.skipCinematic) setState("lawJail", { charges: ch, sResume: ctx.car.s + 200 });
+            if (opts.skipCinematic) { if (ctx.civic && ctx.civic.claim) ctx.civic.claim("law"); setState("lawJail", { charges: ch, sResume: ctx.car.s + 200 }); }
             else setState("lawArrest", Object.assign({ charges: ch }, opts));
         };
         // while driving, never switch state from inside an event handler mid-frame: run it next frame
@@ -203,6 +203,34 @@ export const law = {
 };
 // test hook: internals + a log of law events (only read by the smoke test)
 Object.defineProperty(law, "_dbg", { enumerable: false, value: { L, FORCE, run, log: [] } });
+
+/**
+ * Out of a REAL building's front door (features/places: she was taken to a town's precinct / court): on foot on the
+ * sidewalk, in control, her car at the kerb out front when it's really hers and in one piece, else behind the impound
+ * lot's fence. The same bookkeeping as resumeDriving below. door: precinct | court. → false when there's no building
+ * to come out of (no town took her: the caller does resumeDriving).
+ */
+/** Into lawExit — a SOFT cut when she's coming out of a real building (the set on screen melts into the street). */
+export function goExit(data) {
+    if (ctx.civic && ctx.civic.place && ctx.civic.ready() && ctx.dissolve && !ctx.skipping) ctx.dissolve(() => setState("lawExit", data));
+    else setState("lawExit", data);
+}
+export function walkOutOf(door, { fugitive = false, banner = "", car = carBack(), reason = "copWalk", line = "" } = {}) {
+    if (!run.live || !ctx.civic || !ctx.civic.place || !ctx.civic.walkOut) return false;
+    if (ctx.foot && ctx.foot.dropRide) ctx.foot.dropRide();
+    run.ride = null;
+    const G = ctx.G;
+    G.hearts = Math.max(G.hearts, 1);
+    H.setHearts(G.hearts, G.maxHearts);
+    L.units.length = 0;
+    L.grace = 6; L.wantedSpot = 0; L.apbCool = Math.max(L.apbCool, 8); L.wantedPatrolT = Math.max(L.wantedPatrolT, 5);
+    if (fugitive) { if (!L.fug) startFugitive(0); } else if (L.fug) endFugitive();
+    if (!ctx.civic.walkOut({ door, car: !!car, reason: fugitive && !car ? "jailbreak" : reason, line, impound: !car, soft: !ctx.civic.dissolving() })) return false;
+    prisonClothes(!!L.fug);
+    G.invT = Math.max(G.invT || 0, 2);
+    if (banner) H.toast(banner, "pink");
+    return true;
+}
 
 /**
  * Back on the road after the station / court / a jailbreak. Continues the run

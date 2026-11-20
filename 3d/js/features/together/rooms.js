@@ -29,6 +29,7 @@ export const SHARED = {
     home: () => (ctx.homes && ctx.homes.house ? ctx.homes.house.key : null),       // a house in town: its door
     luluHome: () => (ctx.decor && ctx.decor.visitOwner ? ctx.decor.visitOwner() || "" : null),   // Lulu's house: whose it is
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
+    courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = { bank: "the bank is where her own heist starts; robberies + the heist are still solo" };

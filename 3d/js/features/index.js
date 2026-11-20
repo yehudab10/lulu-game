@@ -38,4 +38,8 @@ import "./underworld/index.js";   // 😈 underworld: crooked cops (the Kugel Fu
 import "./seasons/index.js";      // 🕎 seasons: the world follows the real Hebrew calendar — menorahs in every window (+1 candle a night), the Purim parade, sukkahs going up, Pesach clean-out, Lag BaOmer bonfires, Shavuos flowers, Friday stalls + Shabbos candles; quiet fast days; a capped stall treat
 import "./decor/index.js";        // 🛋️ decor: Lulu's own house (✋ GO INSIDE from the home start — the kitchen with Ima, the living room, her room) + decorating it with coins: walk up to a spot (bed, wallpaper, rug, lamp, shelf, couch, the porch, the mailbox, the yard…), ✋ → pick, preview, buy — a coin sink, saved, seen from the street
 import "./onegame/index.js";      // 🎮 one game, not a menu of modes: ▶ PLAY is the open world; the 🧳 road trip (suitcase by the car / 📱), the 🅿️ parking booth at rest areas (/ 📱), Dina from the porch, Ima's Friday rush at the door, 🏠 back home after each
+<<<<<<< HEAD
 import "./together/index.js";     // 👯 friends together: the friend finder (📱 🗺️ map dots + a destination beam, ≤ 3 quiet edge pointers) and friends seeing each other inside the same building
+=======
+import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
+>>>>>>> origin/main

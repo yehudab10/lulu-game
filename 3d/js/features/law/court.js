@@ -23,7 +23,7 @@ import { PROSECUTOR_LINES, JUDGE_INTROS, OBJECTIONS, JUDGE_SUSTAIN, JUDGE_OVERRU
 import { S, bump, rand, pick, clamp, bountyFor, worstCharge, courtLineFor, courtDramaTier, pleaFineFor, bribeCostFor, deliberate, chargeCoins,
     lawyerChargeArgument, clearWanted, clearLockup, sentenceDays, stat } from "./rules.js";
 import { Shot, V, runFlow, check, line, ask, person, lulu } from "./scene.js";
-import { FORCE, carBack, rideNote } from "./service.js";
+import { FORCE, carBack, rideNote, goExit } from "./service.js";
 
 registerModels({ lawCourt: "law_court", lawJudge: "law_judge", lawProsecutor: "law_prosecutor", lawLawyer: "law_lawyer", lawAbba: "law_abba" });
 const COURT_KEYS = ["lawCourt", "lawJudge", "lawProsecutor", "lawLawyer", "lawAbba", "copPerson", "npcWoman", "npcMan", "npcKid",
@@ -122,6 +122,7 @@ registerState("lawCourt", {
     update(dt, P) {
         if (!st) return;
         st.t += dt;
+        if (ctx.civic && ctx.civic.tick) ctx.civic.tick(dt);      // (features/places: building the town she'll walk out into)
         if (flow) flow.tick(dt, P);
         if (!C || ctx.view !== C.set.view) return;
         animate(dt);
@@ -344,6 +345,13 @@ async function trial(f, data) {
     UI.caption("");
     clearWanted();                      // she's answered to a judge — the slate is clean
     if (verdict !== "jail") clearLockup();
+    // (features/places: free to go out of a REAL courthouse's front door — wait for the town if it's still being built,
+    //  then the courtroom melts into the street: no black dip)
+    if (verdict !== "jail" && ctx.civic && ctx.civic.place) {
+        if (!ctx.civic.ready()) { UI.caption("🗂️ The clerk is stamping your papers…", "stamp · stamp · stamp"); await f.until(() => ctx.civic.ready(), 30); check(f); UI.caption(""); }
+        goExit({ kind: "court", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: verdict === "dismissed" ? "⚖️ DISMISSED — free to go!" : carBack() ? "💸 Fine paid. Drive safer!" : "💸 Fine paid — free to go!", sResume: data.sResume });
+        return;
+    }
     UI.fadeTo(true, 500);
     await f.sleep(0.55);
     check(f);

@@ -463,7 +463,8 @@ function endGameNow() {
 }
 
 // ── pins for a game (asked for on the requesting screen: it knows where it is) ──
-const SPOT_NAMES = { pizza: "🍕", hall: "💍", yeshiva: "📚", chair: "🪑", lake: "🦢", welcome: "🪧", construction: "🏗️", construction2: "🏗️", band: "🎺" };
+const SPOT_NAMES = { pizza: "🍕", hall: "💍", yeshiva: "📚", chair: "🪑", lake: "🦢", welcome: "🪧", construction: "🏗️", construction2: "🏗️", band: "🎺",
+    precinct: "🚓", court: "⚖️", hospital: "🏥", impound: "🚧" };   // (features/places: the civic buildings)
 const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane" };
 function spotName(key, plan) {
     const S = plan && plan.def && plan.def.lines && plan.def.lines.SIGNS;

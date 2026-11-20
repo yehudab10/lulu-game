@@ -29,12 +29,14 @@ export default {
     blocks: {
         "1,0": { faces: { s: "townhouses", w: "townhouses" } },
         "2,0": { faces: { s: "construction" } },
-        "0,1": { faces: { n: "shops" } }, "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "shops" } },
-        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "2,2": { faces: { s: "hall" } }, "3,2": { faces: { s: "bank" } },
+        "1,1": { faces: { n: "pizza" } }, "2,1": { faces: { n: "shops" } }, "3,1": { faces: { n: "shops" } },
+        "0,2": { faces: { s: "shops" } }, "1,2": { faces: { s: "shops" } }, "3,2": { faces: { s: "bank" } },
         "0,3": { faces: { n: "construction2" } },
         "1,3": { faces: { n: "yeshiva", e: "buses" } },
         "2,3": { all: "townhouses" },
         "3,0": { faces: { n: "baisyaakov" } },
+        "2,2": { faces: { s: "hall", n: "civic" } },          // (features/places: the precinct, the court + the impound lot on Minivan Way)
+        "0,1": { faces: { n: "shops", w: "hospital" } },      // (features/places: St. Shloimy's on Route 9, the first big thing in town)
     },
     // landmark uses modelled by other features (build.js › layoutFace): the Bais Yaakov on Carpool Ln (features/community),
     // the bank on Main St beside the Simcha Palace (features/heist: a bank you can walk into, case, rob — or save)
@@ -43,6 +45,18 @@ export default {
             signSize: [11.4, 0.96, 92], signBg: "#F5F1E6", signFg: ["#1F3A5F", "#8D6E63"], with: [{ key: "town_shop", u: -17.5 }, { key: "town_shop", u: 17.5 }] },
         baisyaakov: { key: "community_baisyaakov", fallback: "town_yeshiva", dims: { w: 30, d: 16, prot: 3.1 }, u: -6, sign: L.SIGNS.baisYaakov,
             signSize: [11.6, 1.2, 104], signFg: ["#1F2D63", "#7B1F4B"], with: [{ key: "town_duplex", u: 19 }] },
+        // features/places (roadmap 4): the police precinct with its impound lot + the courthouse next door (one block face —
+        // the town is tight, so they share it), and the hospital. Doors are ✋ spots; arrests / the ER happen IN them.
+        civic: { key: "places_precinct", fallback: "town_shop", dims: { w: 15, d: 12, prot: 2.6 }, u: -4.2, sign: L.SIGNS.precinct, spot: "precinct",
+            tints: { Walls: "#A8654A", Trim: "#D9D4C7", Roof: "#3A3D42", Globe: "#4FA3FF", Accent: "#1A237E" }, signSize: [9.0, 0.9, 92], signBg: "#1A237E", signFg: ["#FFFFFF", "#BBDEFB"],
+            with: [
+                { key: "places_court", dims: { w: 18, d: 14, prot: 3.8 }, u: 13.6, sign: L.SIGNS.court, spot: "court",
+                    tints: { Walls: "#EDE3CC", Roof: "#6B7F8E", Trim: "#F7F3EA", Accent: "#6D4C2E" }, signSize: [13.2, 1.1, 104], signBg: "#F7F3EA", signFg: ["#1F2D63", "#6D4C41"] },
+                { key: "places_impound", dims: { w: 12, d: 12, prot: 0.4 }, u: -18.4, sign: L.SIGNS.impound, spot: "impound",
+                    tints: { Accent: "#2E5E4E", Trim: "#F5F1E6" }, signSize: [4.8, 0.9, 92], signBg: "#FFC107", signFg: ["#1B1B1B", "#3E2723"] },
+            ] },
+        hospital: { key: "places_hospital", fallback: "town_shop", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
+            tints: { Walls: "#EEF2F1", Trim: "#00897B", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#FFFFFF", signFg: ["#00695C", "#C62828"] },
     },
 
     // landmarks
@@ -56,7 +70,10 @@ export default {
         { street: "Main St", along: 2 * P + 22, d: 1.75 }, { street: "Main St", along: 2 * P + 30, d: 4.6 }, { street: "Main St", along: 2 * P + 36, d: 1.9 },
     ],
     bandBus: { street: "Main St", along: 2 * P + 50, d: 2.4, model: "foot_bus", colors: { BusBlue: "#6A1B9A", BusWhite: "#F3E5F5" }, lines: L.SIGNS.bandBus },
-    clearParking: [{ street: "Main St", from: 2 * P, to: 3 * P, side: 1 }],
+    clearParking: [{ street: "Main St", from: 2 * P, to: 3 * P, side: 1 },
+        // (features/places: POLICE ONLY in front of the precinct + court, AMBULANCE ONLY at St. Shloimy's — her car is
+        //  parked there when she walks out, the cruiser pulls up there)
+        { street: "Minivan Way", from: 2 * P + 8, to: 3 * P - 8 }, { street: "Route 9", from: P + 14, to: 2 * P - 14 }],
     bumps: [{ street: "Carpool Ln", every: 10.5 }],
     chair: { street: "Forest Ave", along: P + 38, side: -1 },
     water: [{ x0: SPAN + 16, x1: SPAN + 170, z0: -40, z1: SPAN + 50, geese: true }],
