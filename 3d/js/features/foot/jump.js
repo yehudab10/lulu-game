@@ -150,7 +150,20 @@ export function camClip(F, tgt, dx, dy, dz, D) {
     for (const ch of ctx.world.activeChunks()) {
         if (Math.abs(ch.s0 + 100 - F.s) > 220) continue;
         for (const c of ch.colliders) {
-            if (c.off || c.r < 0.8 || topOf(c) != null) continue;
+            if (c.off) continue;
+            if (c.kind === "tree") {
+                // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
+                // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
+                // (a trunk merely between them doesn't pull it in: it would pop in and out past every street tree)
+                const R = Math.max(2.2, c.r + 1.2), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
+                if (ey < 1.9 || ey > 7 || ex * ex + ez * ez > R * R) continue;
+                const ox = tgt.x - c.x, oz = tgt.z - c.z, cc = ox * ox + oz * oz - R * R;
+                if (cc <= 0) { best = Math.min(best, 0.6); continue; }      // (she's under it herself: right behind her)
+                const b = ox * dx + oz * dz, disc = b * b - h2 * cc;
+                if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
+                continue;
+            }
+            if (c.r < 0.8 || topOf(c) != null) continue;
             const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + CAM_PAD;
             const cc = ox * ox + oz * oz - R * R;
             if (cc <= 0) continue;                       // (the pivot is in its pad: she's against it — no wall between)

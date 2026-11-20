@@ -63,6 +63,21 @@ module.exports = {
     const back = await g(`Math.hypot(ctx.camera.position.x - ctx.foot.pos.x, ctx.camera.position.z - ctx.foot.pos.z)`);
     t.check("turned back to the street, it eases back out (≥ 5 m)", back >= 5, back.toFixed(2));
 
+    // ── a street tree right behind her: the camera must not end up in its leaves (a dark / black screen) ──
+    const trees = await g(`(() => { const out = []; for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) if (c.kind === "tree" && !c.off) out.push({ x: c.x, z: c.z, r: c.r }); return out.slice(0, 40).filter((c, i) => i % 8 === 0).slice(0, 4); })()`);
+    t.check("street trees in town", trees.length > 0, String(trees.length));
+    let leafy = [];
+    for (const tr of trees) {
+      // stand 4.5 m from the trunk, camera turned to look at her from the tree's side (it would sit right in the canopy)
+      await W.moved(t);
+      await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${tr.x} + 4.5, 0, ${tr.z}); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2(1, 0); ctx.cam.free.pitch = 0.29; return true; })()`);
+      await t.frames(20);
+      const c = await g(`(() => { const p = ctx.camera.position; return { y: +p.y.toFixed(2), d: +Math.hypot(p.x - ${tr.x}, p.z - ${tr.z}).toFixed(2) }; })()`);
+      if (c.y > 2.1 && c.y < 6.5 && c.d < 2.0) leafy.push(Object.assign({ tree: [tr.x.toFixed(0), tr.z.toFixed(0)] }, c));
+    }
+    await t.shot("under-a-tree");
+    t.check("a tree behind her: the camera stays out of its leaves", leafy.length === 0, JSON.stringify(leafy));
+
     // ── getting out right against a block: nose-in, and side-on ──
     await g(`ctx.foot.debug.getIn()`);
     await t.until(`__lulu3d.state === "playing"`, "back in the car", 3000);
@@ -80,7 +95,9 @@ module.exports = {
       await t.frames(8);
       const r = await t.L(`(() => { const F = __lulu3d.ctx.foot.debug.F; return { s: window.__qa.solidAt(F.pos.x, F.pos.z, 0.3, 0.15), back: +((F.pos.x - ${sp.x}) * ${sp.nx} + (F.pos.z - ${sp.z}) * ${sp.nz}).toFixed(2) }; })()`);
       const rep = await W.report(t);
-      outs.push({ where: `${sp.name}@${sp.along} ${how}`, s: r.s, back: r.back, cam: rep.issues.filter(i => i.kind === "inwall").length });
+      outs.push({ where: `${sp.name}@${sp.along} ${how}`, s: r.s, back: r.back, cam: rep.issues.filter(i => i.kind === "inwall" && !/tree's leaves/.test(i.msg)).length });
+      // (a kerbside tree's leaves: the DRIVING chase cam already sat in them while the car was parked under it — the car
+      //  camera has no collision; that's the glide's starting picture, not the climb-out shot — see AGENTS §7 QA sweep)
       for (const i of rep.issues) console.log(`    · ${sp.name}@${sp.along} ${how} [${i.kind}] f${i.f} ${i.msg} ×${i.n}`);
       await g(`ctx.foot.debug.getIn()`);
       await t.until(`__lulu3d.state === "playing"`, "back in the car", 3000);

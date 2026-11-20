@@ -102,7 +102,8 @@ const SRC = String.raw`
     const w = ctx.world; if (!w) return null;
     for (const ch of w.activeChunks()) for (const c of ch.colliders || []) {
       if (c.off || c.r < minR) continue;
-      const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 9 : (low[c.kind] != null ? low[c.kind] : 9);
+      // (heights as the game's camera clip sees them: a house 7.5 m, anything else solid 4.5 m, low things their own)
+      const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 4.5 : (low[c.kind] != null ? low[c.kind] : c.kind === "house" ? 7.5 : 4.5);
       if (y > top) continue;
       const dx = x - c.x, dz = z - c.z;
       if (dx * dx + dz * dz < (c.r - pad) * (c.r - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
@@ -158,6 +159,11 @@ const SRC = String.raw`
     // camera
     if (!ctx.view && (st === "playing" || st === "footRun")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
+      if (foot) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
+        if (c.kind !== "tree" || c.off || camP.y < 2.1 || camP.y > 6.5) continue;
+        const R = Math.max(2.0, c.r + 1.0);
+        if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) flag("inwall", "the camera is inside a tree's leaves @" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")", "inwall:tree");
+      }
       if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }
       const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
       if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)

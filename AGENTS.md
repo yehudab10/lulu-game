@@ -290,7 +290,8 @@ merged — ignore them.
   doesn't pull in for those, it would pop in and out past every tree), a camera looking straight down at a lot. With
   `&enable=all` the 🎉 presence dials the REAL relay server: when it's down that WebSocket error is the outside world's
   (`W.dropRelayErrors(t)`). Pressed right against a wall the free camera rises over her head (`orbit`'s lift under 1.5 m). Open (not
-  fixed, for the owners): law's lawBust / lawStop pull the cars to
+  fixed, for the owners): the DRIVING chase cam has no collision at all (parked under a kerbside tree it sits in the
+  leaves — a dark picture — and the climb-out glide starts from there); law's lawBust / lawStop pull the cars to
   d = 7.9, which in a town is the sidewalk.
 
 ## 8. Owner-only to-dos (agents can't do these — remind the owner if relevant)
