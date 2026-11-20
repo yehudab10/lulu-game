@@ -19,11 +19,13 @@ export function tick(dt) {
         if (rc && rc.shown && rc.foot) { L.set(uid, { x: rc.x, z: rc.z, h: rc.h, hc: p && p.hc, at: performance.now() }); continue; }
         const last = L.get(uid);
         if (!last) continue;
-        L.delete(uid);
-        // gone this frame: inside (m 7, a door) and only just — not a warp, not a stream gap
-        if (!p || p.m !== 7 || performance.now() - last.at > 600 || ctx.view || !models.luluPerson) continue;
+        // gone from the street: inside (m 7, presence "in") within a moment of the last step I drew — not a warp,
+        // not a scene elsewhere (the presence can land a snapshot after they vanish: wait up to 1.5 s for it)
+        if (performance.now() - last.at > 1500 || !p) { L.delete(uid); continue; }
         const pr = P.presenceOf(uid);
-        if (!pr || pr.mode !== "in") continue;
+        if (p.m !== 7 || !pr || pr.mode !== "in") continue;
+        L.delete(uid);
+        if (ctx.view || !models.luluPerson) continue;
         try {
             const q = spawnPerson("luluPerson", { colors: last.hc ? { Hair: last.hc } : null });
             q.obj.position.set(last.x, 0.05, last.z);
