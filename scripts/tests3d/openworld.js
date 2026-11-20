@@ -195,8 +195,8 @@ async function partyRun(t, guests) {
   const g = t.game;
   await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
   await t.frames(6);
-  await t.click(/Party with friends/);
-  await t.click(/Host a party/);
+  await t.click(/Friends/);
+  await t.click(/Party games/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
@@ -360,8 +360,11 @@ async function partyRun(t, guests) {
   const pin = await g(`ctx.openworld.game.pin`);
   t.check("pin: the same pin on both screens", JSON.stringify(await A.game(`ctx.openworld.game.pin`)) === JSON.stringify(pin));
   await t.shot("pin-race");
-  await A.game(PLACE(pin.x, pin.z)); await sleep(1500); await g(PLACE(pin.x + 3, pin.z + 3));
+  await A.game(PLACE(pin.x, pin.z));
+  await A.until(`ctx.openworld.game && ctx.openworld.game.fin && Object.keys(ctx.openworld.game.fin).length >= 1`, "pin: the guest's finish reaches the host", 30000);   // (game time, not a real-time sleep)
+  await g(PLACE(pin.x + 3, pin.z + 3));
   if (!await done("pin", "pin: both finish")) return;
+  await t.until(`__lulu3d.ctx.openworld.debug.CL.last && __lulu3d.ctx.openworld.debug.CL.last.k === "pin"`, "pin: the scoreboard is the pin's", 20000);
   const rows = await g(`ctx.openworld.debug.CL.lastRows.map(r => r.uid + ":" + r.val)`);
   t.check("pin: the guest got there first", rows[0].startsWith(guestUid), rows.join(" | "));
   await A.until(`ctx.phone.isOpen && document.getElementById("owRematch")`, "guest scoreboard", 10000);

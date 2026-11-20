@@ -91,13 +91,21 @@ function allowed() {
     const G = ctx.G;
     return ctx.enabled("day") && !(ctx.party && ctx.party.active) && G && G.mode === "cruise";
 }
-on("world:homeStart", ({ mode }) => {
-    if (mode !== "cruise" || !allowed()) { S.active = false; return; }
+on("world:homeStart", ({ mode, friday }) => {
+    // (a real Friday afternoon: Ima asks for the Erev Shabbos Rush instead — the list waits until she walks off / made it)
+    if (mode !== "cruise" || !allowed() || friday) { S.active = false; return; }
     ensureToday();
     S.active = !DAY.home;
     if (S.active) emit("day:start", { list: DAY.list.slice() });
 });
 on("run:start", () => { S.active = false; clearChip(); hideBeacon(); });
+// (Friday: she walked off instead of getting in for the rush — an ordinary day after all)
+on("world:depart", ({ mode, left }) => {
+    if (S.active || mode !== "cruise" || !left || !allowed() || !(ctx.shabbos && ctx.shabbos.atDoor && ctx.shabbos.atDoor())) return;
+    ensureToday();
+    S.active = !DAY.home;
+    if (S.active) emit("day:start", { list: DAY.list.slice() });
+});
 on("state", ({ to }) => { if (to === "title") { S.active = false; clearChip(); hideBeacon(); } });
 
 // ── progress ─────────────────────────────────────────────────────────────

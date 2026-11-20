@@ -136,6 +136,63 @@ export function collideAll(F, extra) {
 }
 export { carBox, pushC };
 
+/**
+ * The free camera's walls (ctx.cam.orbit's `clip`): how far from the pivot `tgt` the camera may sit along (dx, dy, dz)
+ * before it would be inside something solid she can't walk through either — the houses, a town block, a big tree, a
+ * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
+ * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
+ */
+const CAM_PAD = 0.45, CAM_MIN = 0.35;     // (closer than ~1.5 m the camera rises over her head instead: core/camera.js orbit)
+export function camClip(F, tgt, dx, dy, dz, D) {
+    const h2 = dx * dx + dz * dz;
+    if (h2 < 1e-4) return D;
+    let best = D;
+    for (const ch of ctx.world.activeChunks()) {
+        if (Math.abs(ch.s0 + 100 - F.s) > 220) continue;
+        for (const c of ch.colliders) {
+            if (c.off) continue;
+            if (c.kind === "tree") {
+                // a tree's LEAVES (its collider is just the trunk): only when the camera's own spot would be inside the
+                // canopy does it come in to its near edge — inside, the screen goes dark green / black for a moment
+                // (a trunk merely between them doesn't pull it in: it would pop in and out past every street tree)
+                const R = Math.max(2.2, c.r + 1.2), ex = tgt.x + dx * best - c.x, ez = tgt.z + dz * best - c.z, ey = tgt.y + dy * best;
+                if (ey < 1.9 || ey > 7 || ex * ex + ez * ez > R * R) continue;
+                const ox = tgt.x - c.x, oz = tgt.z - c.z, cc = ox * ox + oz * oz - R * R;
+                if (cc <= 0) { best = Math.min(best, 0.6); continue; }      // (she's under it herself: right behind her)
+                const b = ox * dx + oz * dz, disc = b * b - h2 * cc;
+                if (disc > 0) best = Math.min(best, (-b - Math.sqrt(disc)) / h2);
+                continue;
+            }
+            if (c.r < 0.8 || topOf(c) != null) continue;
+            const ox = tgt.x - c.x, oz = tgt.z - c.z, R = c.r + CAM_PAD;
+            const cc = ox * ox + oz * oz - R * R;
+            if (cc <= 0) continue;                       // (the pivot is in its pad: she's against it — no wall between)
+            const b = ox * dx + oz * dz;
+            if (b >= 0) continue;                        // pointing away from it
+            const disc = b * b - h2 * cc;
+            if (disc <= 0) continue;
+            const t = (-b - Math.sqrt(disc)) / h2;
+            if (t < best && tgt.y + dy * t < (c.kind === "house" ? 7.5 : 4.5)) best = t;
+        }
+    }
+    const T = ctx.town;
+    const pl = T && T.active && T.plan;
+    if (pl && pl.OCCLUDERS) {
+        const O = pl.ORIGIN, ax = tgt.x - O.x, az = tgt.z - O.z;
+        for (const r of pl.OCCLUDERS) {
+            const x0 = r.x0 - CAM_PAD, x1 = r.x1 + CAM_PAD, z0 = r.z0 - CAM_PAD, z1 = r.z1 + CAM_PAD;
+            if (ax > x0 && ax < x1 && az > z0 && az < z1) continue;
+            let t0 = 0, t1 = best;
+            if (Math.abs(dx) < 1e-9) { if (ax < x0 || ax > x1) continue; }
+            else { let ta = (x0 - ax) / dx, tb = (x1 - ax) / dx; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+            if (Math.abs(dz) < 1e-9) { if (az < z0 || az > z1) continue; }
+            else { let ta = (z0 - az) / dz, tb = (z1 - az) / dz; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+            if (tgt.y + dy * t0 < 8) best = t0;
+        }
+    }
+    return best >= D ? D : Math.max(CAM_MIN, best);
+}
+
 // ── the jump itself ─────────────────────────────────────────────────────────────────────────
 /** Launch now: opts.long (out of a slide: { vx, vz } her slide velocity). */
 export function launch(F, opts = {}) {

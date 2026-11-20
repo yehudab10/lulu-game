@@ -1,4 +1,4 @@
-// The Story Trip: title (Story Trip first, cruise locked for a fresh player,
+// The Story Trip: title (▶ PLAY first — the road trip starts from inside the world now, roadmap 10; never locked,
 // "Next stop"), a leg with its banner + story call + chapter task chip, Ima's call
 // (honk declines, let it ring → flipped steering → gas money), the mid-leg
 // interlude, a road event, every stop's arrival (rewards, postcards, checkpoints,
@@ -48,13 +48,13 @@ module.exports = {
     await t.frames(10);
     // ── title ──
     const items = await t.titleItems();
-    t.check("Story Trip is the first title item", /Story Trip/.test(items[0]), items[0]);
-    t.check("cruise is locked for a fresh player (2D onboarding rule)", !items.some(x => /Cruise/.test(x)));
-    t.check("title shows the next stop", await t.L(`/Next stop:.*BUBBE/.test((document.querySelector(".jtitle") || {}).textContent)`));
+    t.check("▶ PLAY is the first title item (no Story Trip tile — it starts in the world)", /PLAY/.test(items[0]) && !items.some(x => /Story Trip/.test(x)), items[0]);
+    t.check("the open world is never locked (no 'Cruise' to unlock)", !items.some(x => /Cruise|🔒/.test(x)));
+    t.check("the road trip's line shows the next stop", /Next stop:.*BUBBE/.test(await G(`ctx.onegame.tripLine()`)));
     await shot("title");
 
-    // ── Story Trip → leg 1 ──
-    await t.tap(0);
+    // ── the road trip (🧳 / 📱 — features/onegame) → leg 1 (no home street in this test: the 3-2-1 at the start) ──
+    await G(`ctx.onegame.roadTrip("test")`);
     if (!await t.until(`__lulu3d.state === "playing"`, "story run starts")) return;
     t.check("leg 1 is Bubbe's house, at 4800 m", await G(`ctx.journey.stopIndex === 0 && ctx.journey.stop().id === "bubbe" && ctx.journey.stopS(0) === 4800`));
     await G(`ctx.G.invT = 1e6`);   // no wrecks while the test teleports around
@@ -216,8 +216,8 @@ module.exports = {
     await t.click(/Title/);
     await t.until(`__lulu3d.state === "title"`, "back to the title");
     const items2 = await t.titleItems();
-    t.check("cruise unlocked on the title", items2.some(x => /Cruise/.test(x)));
-    t.check("title shows TOUR 2", await t.L(`/TOUR 2/.test(document.querySelector(".jtitle").textContent)`));
+    t.check("the story map is in the book group", items2.some(x => /Road to Vegas/.test(x)));
+    t.check("the road trip's line shows TOUR 2", /TOUR 2/.test(await G(`ctx.onegame.tripLine()`)));
     await t.click(/Road to Vegas/);
     if (await t.until(`__lulu3d.state === "storyMap"`, "the story map opens")) {
       await t.frames(30);
@@ -235,7 +235,7 @@ module.exports = {
     // ── saves persist across a reload ──
     await t.boot();
     await t.frames(5);
-    t.check("after a reload: TOUR 2 + postcards on the title", await t.L(`/TOUR 2/.test(document.querySelector(".jtitle").textContent) && document.querySelectorAll(".jtitle .stamp:not(.no)").length === 5`));
+    t.check("after a reload: TOUR 2 + postcards on the road trip's line", await G(`(() => { const d = document.createElement("div"); d.innerHTML = ctx.onegame.tripLine(); return /TOUR 2/.test(d.textContent) && d.querySelectorAll(".stamp:not(.no)").length === 5; })()`));
     await shot("title-tour2");
     // the map in phone portrait and on a TV
     await t.page.setViewportSize({ width: 390, height: 844 });

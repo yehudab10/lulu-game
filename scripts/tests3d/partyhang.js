@@ -70,7 +70,7 @@ async function partyRun(t, guests) {
   await t.frames(6);
 
   // ── 🌍 Hang out: the host goes straight into Free Roam ──
-  await t.click(/Party with friends/);
+  await t.click(/Friends/);
   t.check("the hub's first choice is 🌍 Hang out (Free Roam)", await t.L(`(() => { const b = document.querySelector("#screenCard button"); return !!b && b.id === "pt_roam"; })()`));
   await t.L(`(() => { window.__states = []; import("./js/core/ctx.js").then(m => m.on("state", e => window.__states.push(e.to))); return true; })()`);
   await t.L(`document.getElementById("pt_roam").click()`);

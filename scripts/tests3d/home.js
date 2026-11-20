@@ -33,7 +33,7 @@ module.exports = {
 
     // ── Cruise: on foot at home, control at once ──
     const f0 = await g(`ctx.frames`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     t.check("Cruise starts ON FOOT at home", await t.until(`__lulu3d.state === "footRun"`, "footRun", 3000));
     const S0 = await g(`({ frames: ctx.frames - ${f0}, phase: ctx.foot.phase, reason: ctx.foot.debug.F.reason, card: L3.H.screenOpen(),
       countdown: ctx.G.countdown || 0, dep: ctx.places.home.depart(), pos: { x: ctx.foot.pos.x, z: ctx.foot.pos.z }, steps: { x: ctx.places.home.park.x, z: ctx.places.home.park.z },
@@ -148,13 +148,17 @@ module.exports = {
 
     // ── knocked out ON FOOT: she sits up and walks it off ──
     await g(`(() => { L3.wallet.add(50); ctx.G.hearts = 1; ctx.G.invT = 0; ctx.foot.force.er = false; ctx.G.score = 99; })()`);
-    const kf = await g(`(() => { const F = ctx.foot.debug.F, rd = ctx.world.road, p = rd.point(F.s + 14, 1.75, {});
-      const c = ctx.traffic.add("sedan", F.s - 25, F.d, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
+    // (she stands in an empty lane well AHEAD of her parked car — a car behind it would brake for the car, not reach her)
+    const kf = await g(`(() => { const F = ctx.foot.debug.F, rd = ctx.world.road, s = F.s + 40, p = rd.point(s, 1.75, {});
+      F.pos.set(p.x, 0.05, p.z); F.s = s; F.d = 1.75; F.vel.set(0, 0, 0);
+      ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+      const c = ctx.traffic.add("sedan", s - 25, 1.75, 1, 16); if (c) c.data.footAttn = false; return !!c; })()`);
     const kf0 = await g(`ctx.frames`);
     t.check("a car comes at her", kf);
     let flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot", 6000);
     for (let i = 0; i < 2 && !flat; i++) {     // (a slow runner: the car can miss her — a fresh one aimed at where she stands)
       await g(`(() => { ctx.G.hearts = 1; ctx.G.invT = 0; const F = ctx.foot.debug.F; ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
+        ctx.traffic.cars.filter(c => !c.free).forEach(c => ctx.traffic.remove(c));
         const c = ctx.traffic.add("truck", F.s - 14, F.d, 1, 18); if (c) c.data.footAttn = false; })()`);
       flat = await t.until(`__lulu3d.ctx.G.knockouts >= 4`, "knocked flat on foot (again)", 8000);
     }
@@ -189,11 +193,11 @@ module.exports = {
       t.check("…and the run before it was banked (run:end restart)", (await g(`window.__ends`)).includes("restart"));
     }
 
-    // ── Story from the title: home too ──
+    // ── Story (the road trip, from the 📱 / the 🧳 — features/onegame; the title has no Story tile): home too ──
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
-    await t.click(/Story Trip/);
+    await g(`ctx.onegame.roadTrip("test")`);
     t.check("Story Trip starts at home on foot", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "story"`, "story home", 3000));
     t.check("…a returning player gets no tutorial hint", !(await g(`ctx.places.home.depart().first`)));
     await t.frames(20);

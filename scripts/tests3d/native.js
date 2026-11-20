@@ -29,12 +29,14 @@ function fakeCapacitor() {
     requestTrackingAuthorization: async () => { log.push("att:request"); att = "denied"; return { status: att }; },
     initialize: async () => { log.push("admob:initialize"); },
     prepareInterstitial: async () => { log.push("admob:prepareInterstitial"); return { adUnitId: "x" }; },
-    showInterstitial: async () => { log.push("admob:showInterstitial"); },
+    // (like the real v8 plugin: the promise resolves as the ad APPEARS; "dismissed" comes when it's closed)
+    showInterstitial: async () => { log.push("admob:showInterstitial"); setTimeout(() => (listeners.interstitialAdDismissed || []).forEach(f => f({})), 300); },
     prepareRewardVideoAd: async () => { log.push("admob:prepareRewardVideoAd"); return { adUnitId: "y" }; },
     showRewardVideoAd: async () => {
       log.push("admob:showRewardVideoAd");
       // the plugin fires the reward event AND resolves with the item: it must pay once
       (listeners.onRewardedVideoAdReward || []).forEach(f => f({ type: "coins", amount: 50 }));
+      setTimeout(() => (listeners.onRewardedVideoAdDismissed || []).forEach(f => f({})), 300);
       return { type: "coins", amount: 50 };
     },
     addListener: (ev, fn) => { (listeners[ev] = listeners[ev] || []).push(fn); log.push("admob:listen:" + ev); return Promise.resolve({ remove() {} }); },

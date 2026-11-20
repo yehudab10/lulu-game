@@ -27,7 +27,8 @@ const D = { live: false, t: 0, idleT: 0, said: 0, moved: false, first: false, ma
 const spots = {};
 
 const IMA = {
-    first: ["Lulu! The car's RIGHT THERE, mamele. Walk over and hop in! 🚗"],
+    // (a first-time player: the car AND the road trip — her suitcase by the car, features/onegame)
+    first: ["Lulu! Your suitcase is by the car 🧳 — Bubbe's expecting you! Or just hop in and go for a spin 🚗"],
     any: ["Drive safe! Text me when you get there! 💕", "Your KEYS— oh, they're in the car. Of course they are.",
         "Seatbelt! And take a SWEATER!", "Go, go — and drive SLOW, you hear me?", "Don't forget Dina's snacks! ...Fine, go.",
         "Call Bubbe from the road! Hands-FREE!"],
@@ -39,7 +40,8 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 
 /** Should a run that's starting now begin at home on foot? */
 export function wantsDeparture(G, opts) {
-    if (!home.ready || (ctx.state !== "title" && !(opts && opts.restart)) || (opts && opts.quick)) return false;
+    // (from the title, the pause menu's Restart, or back home from inside the world — opts.home: features/onegame)
+    if (!home.ready || (ctx.state !== "title" && !(opts && (opts.restart || opts.home))) || (opts && opts.quick)) return false;
     if (!ctx.enabled("world")) return false;
     if ((ctx.party && ctx.party.active) || G.mode === "party") return false;
     if (!ctx.foot || typeof ctx.foot.start !== "function") return false;
@@ -90,11 +92,13 @@ function hint() {
     return touch ? "" : `${glyph("interact")} at the car to hop in 🚗`;
 }
 
-function startAtHome(opts) {
+function startAtHome(opts = {}) {
     const G = ctx.G;
     luluSpots(spots);
     const L = home.people.lulu;
-    const face = L ? L.obj.rotation.y : 0;
+    // (opts.homeAt {x, z, face}: she's already somewhere on her street — the road trip from the suitcase starts right there)
+    const at = opts.homeAt && Number.isFinite(opts.homeAt.x) ? opts.homeAt : null;
+    const face = at && at.face != null ? at.face : L ? L.obj.rotation.y : 0;
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
@@ -102,8 +106,8 @@ function startAtHome(opts) {
     const ima = home.people.ima;
     if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
     const ok = ctx.foot.start("home", {
-        at: { x: spots.idle.x, z: spots.idle.z }, face, noIntro: true, drivable: true,
-        camBlend: ctx.state === "title" ? 1.1 : 0, line: "",
+        at: at ? { x: at.x, z: at.z } : { x: spots.idle.x, z: spots.idle.z }, face, noIntro: true, drivable: true,
+        camBlend: opts.camBlend != null ? opts.camBlend : ctx.state === "title" ? 1.1 : 0, line: "",
         home: {
             hazards: false,
             hint, hintT: D.first ? 14 : 6,
@@ -115,11 +119,13 @@ function startAtHome(opts) {
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
     // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")
-    const dayLine = G.mode === "cruise" && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
-    const line = G.mode === "shabbos" ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : dayLine || pick(IMA.any);
+    // (a real Friday afternoon: the Erev Shabbos Rush is what Ima asks for — getting in the car starts it; features/shabbos)
+    const friday = G.mode === "cruise" && ctx.shabbos && ctx.shabbos.atDoor ? ctx.shabbos.atDoor() : false;
+    const dayLine = G.mode === "cruise" && !friday && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
+    const line = G.mode === "shabbos" || friday ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : opts.homeLine || dayLine || pick(IMA.any);
     D.pendingLine = line;
-    D.pendingLine2 = D.first && dayLine ? dayLine : null;
-    emit("world:homeStart", { mode: G.mode, first: D.first });
+    D.pendingLine2 = D.first && dayLine ? dayLine : opts.homeLine && dayLine && line !== dayLine ? dayLine : null;
+    emit("world:homeStart", { mode: G.mode, first: D.first, friday, via: opts.home ? "world" : opts.restart ? "restart" : "title" });
     return true;
 }
 
@@ -136,7 +142,7 @@ function drove() {
     if (!ctx.skipping) A.sfxCloseCall(6);
     rumble(0.3, 0.6, 200, true);
     if (!D.left) imaSay(pick(["Bye, mamele! Drive SAFE! 💕", "Text me when you get there!", "Love you! SLOW DOWN!"]), 2.4);
-    emit("world:depart", { mode: G.mode });
+    emit("world:depart", { mode: G.mode, left: D.left });
 }
 
 // (back on the title or into another driving state: the home start is over)
@@ -219,9 +225,10 @@ registerState("worldPullOut", {
     },
 });
 
-// ── coming home at the end of a day (features/day): a short beat, then the title — the run ends at home ──
+// ── coming home at the end of a day (features/day): a short beat, then she's on her feet at home again ──
 // The car is parked in the driveway, the camera glides back to the house, Lulu climbs out and walks up to the
-// porch, Ima waves from the door — and the title menu fades in over it (that ends the run, like quitting).
+// porch, Ima waves from the door — and then the camera glides down behind her: a fresh open-world run at home
+// (features/onegame's home(); roadmap 10: activities end in the world, not on the title). Without it: the title.
 // Skippable (⏭ / ✕). ctx.places.home.comeHome({ line }) starts it.
 const HB = { line: "", v: new THREE.Vector3(), w: new THREE.Vector3() };
 registerState("worldHomeBeat", {
@@ -243,15 +250,19 @@ registerState("worldHomeBeat", {
         peopleTick(dt);
         const ima = home.people.ima;
         if (ima) ima.update(dt, { wave: true });
-        if ((P.confirm && ctx.stateT > 0.6) || ctx.stateT > 4.2) setState("title");
+        if ((P.confirm && ctx.stateT > 0.6) || ctx.stateT > 4.2) beatDone();
     },
-    onSkip() { if (ctx.state === "worldHomeBeat") setState("title"); },
+    onSkip() { if (ctx.state === "worldHomeBeat") beatDone(); },
     camera(dt) {
         titleShot(HB.v, HB.w);
         if (ctx.cam) ctx.cam.cinematic(HB.v, HB.w, dt, 1.6, 50);
         return true;
     },
 });
+function beatDone() {
+    if (ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "dinner", camBlend: 1.2, line: "" });
+    else setState("title");
+}
 export function comeHome(opts = {}) {
     if (!home.ready || !ctx.states.worldHomeBeat) return false;
     setState("worldHomeBeat", opts);
