@@ -214,6 +214,7 @@ async function body(t, pages, riders) {
   await g(HOLD); await g(PLACE(400, 1.75));
   t.check("in a party she's still in EVERYONE (strangers stay in the world)", await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online in the party", 30000));
   t.check("…and B, a stranger, still shows as a ghost", await A.until(`Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`, "A sees stranger B in the party", 60000));
+  await g(`(ctx.banter && (ctx.banter.autopilot = { d: 1.75, speed: 0 }), true)`);      // (A holds still while B joins)
   const code = await g(`ctx.party.code`), auid = await g(`ctx.party.uid`);
   await B.game(`(L3.setState("title"), true)`);
   await B.frames(5);
