@@ -8,7 +8,8 @@
 //   • a jet roar on positional audio (A.spatial, the engine's own loop kind), loudest on the take-off roll.
 import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
-import { models, instanced } from "../../models.js";
+import { models } from "../../models.js";
+import { bakedInstanced } from "./bake.js";
 import * as A from "../../audio.js";
 import { canvasTex } from "../../world.js";
 import * as LY from "./layout.js";
@@ -86,9 +87,21 @@ export function makePlanes(G, scene) {
     if (!tpl) return null;
     const group = new THREE.Group();
     group.name = "AirportPlanes";
-    const body = instanced(tpl, PLANES.n, ["Paint", "Tail", "Stripe"], p => p.material.name !== "Gear");
-    const gear = instanced(tpl, PLANES.n, [], p => p.material.name === "Gear");
-    for (const g of [body, gear]) { g.group.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } }); group.add(g.group); }
+    // one baked InstancedMesh per livery (+ one for the gear): ~5 draw calls for every plane in the sky
+    const liv = LIVERIES.map(L => bakedInstanced(tpl, PLANES.n, { Paint: L.Paint, Tail: L.Tail, Stripe: L.Stripe }, n => n !== "Gear", 0.35));
+    const gearIM = bakedInstanced(tpl, PLANES.n, {}, n => n === "Gear", 0.6);
+    for (const im of [...liv, gearIM]) group.add(im);
+    const Z = new THREE.Matrix4().makeScale(0, 0, 0);
+    const body = {
+        set(j, m, li = -1) { liv.forEach((im, k) => im.setMatrixAt(j, k === li ? m : Z)); },
+        finish() { for (const im of liv) im.instanceMatrix.needsUpdate = true; },
+        dispose() { for (const im of liv) im.dispose(); },
+    };
+    const gear = {
+        set(j, m) { gearIM.setMatrixAt(j, m); },
+        finish() { gearIM.instanceMatrix.needsUpdate = true; },
+        dispose() { gearIM.dispose(); },
+    };
     const shadows = [], sound = [], dots = [];
     for (let i = 0; i < PLANES.n; i++) {
         const sh = new THREE.Mesh(new THREE.PlaneGeometry(30, 32), shadowMat());
@@ -105,7 +118,6 @@ export function makePlanes(G, scene) {
         const T = ctx.party && ctx.party.active && ctx.party.clock ? ctx.party.clock() : P.clock;
         const sun = ctx.lights && ctx.lights.sun, night = ctx.atmos && typeof ctx.atmos.night === "number" ? ctx.atmos.night : 0;
         const sx = sun ? sun.position.x - sun.target.position.x : 0.3, sy = sun ? Math.max(0.2, sun.position.y - sun.target.position.y) : 1, sz = sun ? sun.position.z - sun.target.position.z : 0.3;
-        const sl = Math.hypot(sx, sy, sz) || 1;
         P.live.length = 0; P.visibleN = 0;
         const e0 = Math.floor(T / PLANES.slot);
         for (let j = 0; j < PLANES.n; j++) {
@@ -126,11 +138,10 @@ export function makePlanes(G, scene) {
             _q.setFromEuler(_e);
             _pv.set(w.x, cur.y, w.z);
             _m.compose(_pv, _q, _s.setScalar(PLANES.scale));
-            body.set(j, _m);
+            const li = Math.floor(h01(ev, 7) * LIVERIES.length), L = LIVERIES[li];
+            body.set(j, _m, li);
             const gearDown = cur.y < 70 && !(kind === "dep" && tau > 33);
             gear.set(j, gearDown ? _m : _m.makeScale(0, 0, 0));
-            const L = LIVERIES[Math.floor(h01(ev, 7) * LIVERIES.length)];
-            for (const k of ["Paint", "Tail", "Stripe"]) body.color(j, k, _c.set(L[k]));
             dots[j].position.set(w.x, cur.y + 2, w.z);
             const dc = camPos ? Math.hypot(w.x - camPos.x, cur.y - camPos.y, w.z - camPos.z) : 0;
             P.live.push({ i: j, ev, kind, tau, x: w.x, y: cur.y, z: w.z, f: cur.f, r: cur.r, speed: Math.hypot(hs, cur.vy), dist: dc, livery: L.name });

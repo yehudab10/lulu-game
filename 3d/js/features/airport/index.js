@@ -143,7 +143,7 @@ function unbuild() {
     if (S.group) {
         if (S.group.parent) S.group.parent.remove(S.group);
         for (const g of (S.out && S.out.geos) || []) g.dispose();
-        if (S.out && S.out.atlas) { if (S.out.atlas.map) S.out.atlas.map.dispose(); S.out.atlas.dispose(); }
+        // (the atlas material + canvas stay for the next build: the same cells)
     }
     S.group = null; S.gen = null; S.out = null; S.ready = false;
     joke.reset();

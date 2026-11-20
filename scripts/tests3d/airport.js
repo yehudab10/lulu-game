@@ -25,6 +25,7 @@ module.exports = {
     const g = t.game;
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["airport:enter", "airport:leave", "airport:door", "airport:fence", "airport:built", "foot:start"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 90)));
+      m.on("damage", e => { const c = m.ctx.car.pos, q = m.ctx.airport.debug.local(c.x, c.z) || {}; __ev.push("damage:" + (e && e.why) + "/" + (e && e.source) + "@" + Math.round(q.f) + "," + Math.round(q.r) + " s" + Math.round(m.ctx.car.s)); });
       // the test driver: steer toward waypoints (world x / z) at a target speed; stop = brake to a halt at the end
       m.hook("controls", (ctl, dt) => { const R = window.__route, car = m.ctx.car; if (!R) return;
         if (!R.pts.length) { if (R.stop) { ctl.steer = 0; ctl.throttle = 0; ctl.brake = car.vF > 0.3 ? 1 : 0; ctl.handbrake = car.vF <= 0.3; } return; }
@@ -105,7 +106,7 @@ module.exports = {
       t.check(`nothing it builds stands on a lane (${bad.n} colliders: offLanes)`, bad.nBad === 0, JSON.stringify(bad));
       // the route in is all lanes (paved 3): highway decel lane → ramp → the road in → the loop
       const paved = await t.L(`import("./js/world.js").then(w => { const ctx = __lulu3d.ctx, G = ctx.airport.debug.G(), hw = ctx.world.highway, R = ctx.airport.debug.roads(), miss = [];
-        for (const id of ["in", "loop", "out"]) for (let i = 0; i < R[id].length; i += 5) { const p = R[id][i], n = hw.nearest(p.x, p.z, G.E + 330, {}); if (w.pavedAt(n.s, n.d) < 3) miss.push(id + i); }
+        for (const id of ["in", "loop", "out"]) for (let i = 0; i < R[id].length; i += 5) { const p = R[id][i]; let n = null; for (const h of [0, 300, 600]) { const q = hw.nearest(p.x, p.z, G.E + h, {}); if (!n || Math.abs(q.d) < Math.abs(n.d)) n = q; } if (w.pavedAt(n.s, n.d) < 3) miss.push(id + i); }
         for (let u = -220; u <= 60; u += 10) { const L = ctx.airport.debug.LY; const d = u < L.RAMP0 ? 9.1 : L.offD(u); if (w.pavedAt(G.E + u, d) < 3) miss.push("ramp" + u); }
         return miss; })`);
       t.check("the whole way in + round + out is a LANE (core's paved 3: the car drives it like road)", paved.length === 0, paved.slice(0, 10).join(" "));
@@ -139,6 +140,8 @@ module.exports = {
       t.check("…at the departures kerb (the kerb lane in front of Terminal 4½)", q.f > -90 && q.f < -30 && q.r > 188 && q.r < 196, JSON.stringify(q));
       t.check("stopped here, no 🅿️ pull-over prompt (stop = get out)", await g(`ctx.G.noPullOver === true`));
       W.check(t, "driving in (exit → ramp → road in → the kerb)", await W.report(t));
+      const dmg = (await evs()).filter(e => e.startsWith("damage"));
+      t.check("a clean drive in costs no heart (nothing in the way)", dmg.length === 0, dmg.join(" | "));
       await t.shot("kerb-departures");
     });
 
@@ -206,25 +209,6 @@ module.exports = {
       W.check(t, "the runway fence", await W.report(t));
     });
 
-    await step("planes", async () => {
-      // a departure just lifting off past the fence (the planes are a pure function of the clock: set it)
-      await g(`(ctx.airport.debug.S.planes.clock = 29.5, true)`);
-      await t.frames(4);
-      const pl = await g(`ctx.airport.debug.planes()`);
-      const inView = await g(`(() => { const cam = ctx.camera; cam.updateMatrixWorld(); const V = cam.position.clone(); const out = [];
-        for (const p of ctx.airport.debug.planes()) { V.set(p.x, p.y + 3, p.z).project(cam); out.push(Math.abs(V.x) < 1 && Math.abs(V.y) < 1 && V.z < 1); } return out; })()`);
-      t.check("planes are flying (a departure on the runway / climbing, others in the sky)", pl.length >= 1 && pl.some(p => p.kind === "dep"), JSON.stringify(pl.map(p => [p.kind, Math.round(p.f), Math.round(p.r), Math.round(p.y)])));
-      t.check("…and one is in view from the fence", inView.some(Boolean), JSON.stringify(inView));
-      t.check("…each in a parody livery", pl.every(p => /KUGEL AIR|EL OY|SHMEAR JET|NU\\? AIR/.test(p.livery)), pl.map(p => p.livery).join(", "));
-      await t.shot("planes-runway");
-      // a low one overhead the highway near the exit: an arrival crossing the road, its shadow sweeping it
-      await g(`(ctx.airport.debug.S.planes.clock = 32 + 28, true)`);
-      await t.frames(3);
-      const arr = (await g(`ctx.airport.debug.planes()`)).find(p => p.kind === "arr");
-      t.check("an arrival comes in low over the highway", !!arr && arr.y < 260 && arr.y > 60, JSON.stringify(arr));
-      t.check("…with its shadow on the ground under it", await g(`ctx.airport.debug.S.planes.shadows.some(s => s.visible)`));
-    });
-
     await step("back in", async () => {
       // the kerb from the east end: the terminal, the tower behind, the loop with its taxis
       if (await g(`ctx.foot.active`)) { await g(`(() => { const c = ctx.foot.debug.F.car.stub, F = ctx.foot.debug.F; F.pos.set(c.x + Math.cos(c.h) * 1.6, 0, c.z - Math.sin(c.h) * 1.6); return true; })()`); await t.frames(5); await W.reset(t); }
@@ -255,6 +239,38 @@ module.exports = {
       W.check(t, "driving out (kerb → east leg → on-ramp → highway)", await W.report(t));
     });
 
+    await step("planes", async () => {
+      // the planes are a pure function of the clock: set it, put her car where she'd look, check they're in view
+      const inView = kind => g(`(() => { const cam = ctx.camera; cam.updateMatrixWorld(); const V = cam.position.clone();
+        return ctx.airport.debug.planes().filter(p => !"${kind}" || p.kind === "${kind}").some(p => { V.set(p.x, p.y + 3, p.z).project(cam); return Math.abs(V.x) < 0.95 && Math.abs(V.y) < 0.95 && V.z < 1; }); })()`);
+      const look = async (atF, atR, toF, toR, T, label) => {
+        const p = await A(atF, atR);
+        await placeCar(p.x, p.z, await g(`ctx.airport.debug.G().F.yaw(${toF - atF}, ${toR - atR})`), 0);
+        await g(`(ctx.airport.debug.S.planes.clock = ${T}, true)`);
+        await t.frames(4);
+        await t.shot(label);
+      };
+      // an arrival on short final over the lot (≈ 55 m up)
+      await look(-90, 150, -600, 355, 32 + 44, "planes-landing");
+      const pl = await g(`ctx.airport.debug.planes()`);
+      t.check("planes are flying (arrivals + departures on one clock)", pl.length >= 1, JSON.stringify(pl.map(p => [p.kind, Math.round(p.f), Math.round(p.r), Math.round(p.y)])));
+      t.check("…an arrival on final is in view from the lot", await inView("arr"));
+      t.check("…each in a parody livery", pl.every(p => /KUGEL AIR|EL OY|SHMEAR JET|NU\? AIR/.test(p.livery)), pl.map(p => p.livery).join(", "));
+      // a departure climbing away over the landside's east end, from the kerb
+      await look(60, 186, 480, 210, 44, "planes-departing");
+      t.check("…a departure climbing out is in view from the kerb", await inView("dep"));
+      // over the highway on the way to the exit: an arrival crossing the road low, its shadow sweeping it
+      const sH = E + LY.UA - 1720, ph = await HW(sH, 5.25);
+      await placeCar(ph.x, ph.z, await g(`ctx.world.highway.at(${sH}).h`), 0);
+      await g(`(ctx.airport.debug.S.planes.clock = 32 + 28, true)`);
+      await t.frames(4);
+      await t.shot("planes-over-highway");
+      const arr = (await g(`ctx.airport.debug.planes()`)).find(p => p.kind === "arr");
+      t.check("an arrival comes in low over the highway before the exit (60–260 m up)", !!arr && arr.y < 260 && arr.y > 60, JSON.stringify(arr));
+      t.check("…in view from the highway", await inView("arr"));
+      t.check("…with its shadow on the ground", await g(`ctx.airport.debug.S.planes.shadows.some(s => s.visible)`));
+    });
+
     await step("perf", async () => {
       // the busiest view: on the kerb road at the west end looking along the terminal (the loop, the lot, the planes)
       const p = await A(-120, 188);
@@ -266,6 +282,15 @@ module.exports = {
         await t.frames(30);
         tiers[q] = await perf(60);
         console.log(`   PERF airport kerb ${q}`, JSON.stringify(tiers[q]));
+        // what's on screen, by top-level group (in the frustum; instanced counted × instances)
+        const top = await t.L(`import("three").then(THREE => { const L3 = __lulu3d, cam = L3.ctx.camera, sc = L3.ctx.scene; cam.updateMatrixWorld();
+          const F = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)), by = {};
+          sc.traverseVisible(o => { if (!o.isMesh) return; if (o.frustumCulled && o.geometry && !o.isInstancedMesh && !F.intersectsObject(o)) return;
+            let a = o; while (a.parent && a.parent !== sc) a = a.parent; const k = a.name || a.type;
+            const g = o.geometry, n = g.index ? g.index.count : g.attributes.position.count, ic = o.isInstancedMesh ? o.count : 1;
+            const b = by[k] || (by[k] = { d: 0, t: 0 }); b.d++; b.t += Math.round(n / 3 * ic); });
+          return Object.entries(by).sort((a, b) => b[1].t - a[1].t).slice(0, 10).map(([k, v]) => k + "=" + v.d + "d/" + v.t + "t").join(" · "); })`);
+        console.log(`   PERF airport kerb ${q} top: ${top}`);
       }
       await t.shot("kerb-perf-low");
       await setTier("medium"); await t.frames(20); await t.shot("tower-kerb");

@@ -5,14 +5,15 @@
 // answer to something she did (pushed the fence, tried a door).
 import * as THREE from "three";
 import { ctx, emit, pick } from "../../core/ctx.js";
-import { models, instanced, ensureModels } from "../../models.js";
+import { models, ensureModels } from "../../models.js";
+import { bakedInstanced } from "./bake.js";
 import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import * as LY from "./layout.js";
 import * as L from "./lines.js";
 
-export const VEH = { taxis: 5, shuttles: 2, speed: 8, kerbSpeed: 6, dwellTaxi: 9, dwellShuttle: 7, yieldLon: 11, yieldLat: 2.7 };
+export const VEH = { taxis: 5, shuttles: 2, speed: 8, kerbSpeed: 6, dwellTaxi: 34, dwellShuttle: 7, yieldLon: 11, yieldLat: 2.7 };
 export const JOKE = { near: 1.6, nearCar: 3.6, hold: 0.7, cool: 25, maxVisit: 2, againGap: 10 };
 const GUARD_MODELS = ["airport_guard", "airport_segway"];
 
@@ -51,9 +52,10 @@ export function makeVehicles(G, scene) {
     if (!models.airport_taxi || !models.airport_shuttle) return null;
     const group = new THREE.Group();
     group.name = "AirportKerb";
-    const taxi = instanced(models.airport_taxi, VEH.taxis, []), bus = instanced(models.airport_shuttle, VEH.shuttles, ["Paint", "Stripe"]);
-    for (const I of [taxi, bus]) { I.group.traverse(o => { if (o.isMesh) o.frustumCulled = false; }); group.add(I.group); }
-    bus.color(0, "Stripe", new THREE.Color("#1E5AA8")); bus.color(1, "Stripe", new THREE.Color("#E0A526"));
+    // (each kind ONE draw call: the model baked into one vertex-coloured geometry, instanced)
+    const wrap = im => ({ im, set(i, m) { im.setMatrixAt(i, m); }, finish() { im.instanceMatrix.needsUpdate = true; }, dispose() { im.dispose(); } });
+    const taxi = wrap(bakedInstanced(models.airport_taxi, VEH.taxis, {}, null, 0.4)), bus = wrap(bakedInstanced(models.airport_shuttle, VEH.shuttles, { Stripe: "#1E5AA8" }, null, 0.45));
+    group.add(taxi.im, bus.im);
     scene.add(group);
     const VL = G.vloop, Lv = VL.len, cars = [];
     // spread round the loop: the taxis queued at the stand, the shuttles across the far side
@@ -67,7 +69,9 @@ export function makeVehicles(G, scene) {
     }
     // the shuttles pull out to the middle lane after their stop (the taxis queue in the kerb lane)
     const vS = VL.stops.shuttle, vEnd = VL.stops.taxiHead + 50;
-    const lat = (c, v) => c.kind !== "shuttle" ? 0 : -3.5 * Math.min(smooth01((v - vS - 6) / 14), smooth01((vEnd - v) / 14));
+    const lat0 = (c, v) => c.kind !== "shuttle" ? 0 : -3.5 * Math.min(smooth01((v - vS - 6) / 14), smooth01((vEnd - v) / 14));
+    // (+ c.side: pulling round her parked car — a lane to the left while they pass it)
+    const lat = (c, v) => Math.max(-3.5, lat0(c, v) + (c.side || 0));
     const V = { group, cars, dyn, taxi, bus, stats: { stops: 0, taxisOut: 0 } };
     V.update = (dt, active) => {
         if (!active) return;
@@ -105,9 +109,16 @@ export function makeVehicles(G, scene) {
             // yield to Lulu (in her car or on foot) and to her parked car
             loopAt(VL, c.v, _a);
             const l0 = lat(c, vv), px = _a.x - _a.tz * l0, pz = _a.z + _a.tx * l0;
-            const block = (x, z) => { const dx = x - px, dz = z - pz, lon = dx * _a.tx + dz * _a.tz, la = -dx * _a.tz + dz * _a.tx; return lon > 0 && lon < VEH.yieldLon + c.len / 2 && Math.abs(la) < VEH.yieldLat; };
-            if (lp && block(lp.x, lp.z)) want = 0;
-            for (const t of ctx.traffic ? ctx.traffic.cars : []) if (t.data && t.data.footStub && block(t.x, t.z)) want = 0;
+            const block = (x, z, far = 0) => { const dx = x - px, dz = z - pz, lon = dx * _a.tx + dz * _a.tz, la = -dx * _a.tz + dz * _a.tx; return lon > 0 && lon < VEH.yieldLon + c.len / 2 + far && Math.abs(la) < VEH.yieldLat; };
+            // her car standing still (or left parked while she walks): pull round it a lane to the left; her on foot: stop
+            const still = ctx.car && !onFoot() && ctx.car.speed < 0.6 ? ctx.car.pos : null;
+            let parked = false;
+            if (still && block(still.x, still.z, 22)) parked = true;
+            for (const t of ctx.traffic ? ctx.traffic.cars : []) if (t.data && t.data.footStub && block(t.x, t.z, 22)) parked = true;
+            if (parked || (c.side && c.passT > 0)) { if (parked) c.passT = 2.5; want = Math.min(want, 4); }
+            c.passT = Math.max(0, (c.passT || 0) - dt);
+            c.side = (c.side || 0) + Math.max(-2.2 * dt, Math.min(2.2 * dt, (c.passT > 0 ? -3.5 : 0) - (c.side || 0)));
+            if (!parked && lp && block(lp.x, lp.z)) want = 0;
             c.speed += Math.max(-6 * dt, Math.min(2.2 * dt, want - c.speed));
             if (c.speed < 0) c.speed = 0;
             c.v += c.speed * dt;

@@ -13,7 +13,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx } from "../../core/ctx.js";
 import { models, registerModels, findNodes } from "../../models.js";
 import { canvasTex } from "../../world.js";
-import { Merger, Atlas, lookMaterials } from "../town/kit.js";
+import { Merger, Atlas, lookMaterials, drawLines } from "../town/kit.js";
 import * as LY from "./layout.js";
 import { SIGNS, BOARDS, LIVERIES, EXIT_NO } from "./lines.js";
 
@@ -195,7 +195,7 @@ function paintQuad(list, word, x, z, yaw, w, h) {
     const pos = [], uv = [];
     // (bottom of the word nearest the driver: −forward)
     for (const [a, b, uu, vv] of [[-w / 2, -h / 2, 0, v0], [w / 2, -h / 2, 1, v0], [-w / 2, h / 2, 0, v1], [w / 2, h / 2, 1, v1]]) {
-        pos.push(x + rx * -a + fx * b, 0.05, z + rz * -a + fz * b); uv.push(uu, vv);
+        pos.push(x + rx * a + fx * b, 0.05, z + rz * a + fz * b); uv.push(uu, vv);
     }
     list.push(geo(pos, uv, [0, 1, 2, 1, 3, 2]));
 }
@@ -388,7 +388,7 @@ export function* buildSteps(G, group, out) {
     for (;;) { const r = it.next(); if (r.done) break; yield r.value; }
     for (const mesh of list) { mesh.updateMatrix(); group.add(mesh); out.geos.push(mesh.geometry); }
     yield "merged";
-    const ms = at.meshSteps();
+    const ms = atlasSteps(at);
     let sm;
     for (;;) { const r = ms.next(); if (r.done) { sm = r.value; break; } yield "atlas"; }
     group.add(sm); out.geos.push(sm.geometry); out.atlas = sm.material;
@@ -432,4 +432,57 @@ function interchangeProps(G, mg, at, C, matAt, face) {
         const a = rp[0], b = rp[1];
         mg.add(models.exits_railend, matAt(a.x, a.z, Math.atan2(a.x - b.x, a.z - b.z)), null, { at: [a.x, a.z], noShadow: true });
     }
+}
+
+/** The town kit's Atlas.meshSteps, a CELL a step (each sign's text is a few ms of canvas work in software rendering; six at
+ *  once was the build's longest frame). The atlas canvas is drawn once a page and reused by later builds (same cells). */
+let ATLAS_TEX = null;
+function* atlasSteps(at) {
+    let scale = 1;
+    while (!at.pack(scale) && scale > 0.3) scale *= 0.9;
+    const S = at.size;
+    if (!ATLAS_TEX || ATLAS_TEX.n !== at.cells.length) {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = S;
+        const g = canvas.getContext("2d");
+        yield "atlas:canvas";
+        for (const c of at.cells) {
+            const spec = c.spec, w = c.w, h = c.h;
+            g.save();
+            g.translate(c.x, c.y); g.scale(c.pw / w, c.ph / h);
+            g.beginPath(); g.rect(0, 0, w, h); g.clip();
+            if (spec.draw) spec.draw(g, w, h);
+            else {
+                const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
+                if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
+                if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
+                drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
+            }
+            g.restore();
+            yield "atlas:cell";
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        ATLAS_TEX = { tex, n: at.cells.length, mat: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.4, emissive: new THREE.Color("#ffffff"), emissiveMap: tex, emissiveIntensity: 0.12 }) };
+    }
+    for (const c of at.cells) c.uv = [c.x / S, 1 - (c.y + c.ph) / S, (c.x + c.pw) / S, 1 - c.y / S];
+    const n = at.quads.length;
+    const P = new Float32Array(n * 12), U = new Float32Array(n * 8), N = new Float32Array(n * 12), I = [];
+    at.quads.forEach((q, k) => {
+        const [u0, v0, u1, v1] = q.cell.uv;
+        P.set(q.pos, k * 12); U.set([u0, v0, u1, v0, u1, v1, u0, v1], k * 8);
+        for (let i = 0; i < 4; i++) N.set(q.n, k * 12 + i * 3);
+        I.push(k * 4, k * 4 + 1, k * 4 + 2, k * 4, k * 4 + 2, k * 4 + 3);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(P, 3));
+    geo.setAttribute("normal", new THREE.BufferAttribute(N, 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(U, 2));
+    geo.setIndex(I);
+    geo.computeBoundingSphere();
+    const mesh = new THREE.Mesh(geo, ATLAS_TEX.mat);
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    return mesh;
 }
