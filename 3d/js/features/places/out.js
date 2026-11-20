@@ -172,6 +172,9 @@ registerState("placesArrive", {
         ctx.car.place(kerb.x, kerb.z, kerb.h); ctx.car.s = kerb.s; ctx.car.d = kerb.d; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0;
         ctx.car.obj.visible = false;
         if (ctx.foot && ctx.foot.active && ctx.foot.obj) ctx.foot.obj.visible = false;
+        // (another place: a CUT to the precinct's shot — easing there from the arrest swooped the camera hundreds of
+        //  metres across town, through the houses)
+        if (ctx.cam) ctx.cam.snap();
         A.setMusic(null);
         emit("places:arrive", { town: ctx.town && ctx.town.id });
     },
