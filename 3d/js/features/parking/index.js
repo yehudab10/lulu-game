@@ -4,8 +4,10 @@
 //  • In-drive PULL-OVER (pullover.js): crawl in a side lane for 1.6 s → "🅿️ Pull
 //    over" → Lulu eases onto the shoulder → the roadside lot. Park (or fail),
 //    then she climbs out and walks off: ctx.foot.start("droveOff").
-//  • 🅿️ PARKING CHALLENGE (title, order 40): 10 levels, 3 lives, unlock once for
-//    1,000 coins (shared `parkingUnlocked`). Spots tighten, cameras multiply,
+//  • 🅿️ PARKING CHALLENGE: 10 levels, 3 lives, unlock once for 1,000 coins (shared
+//    `parkingUnlocked`). Not a title mode any more (roadmap 10): started from INSIDE the world —
+//    the 🅿️ booth in a rest area's lot or its card in the 📱 💼 Jobs app (features/onegame: from "booth" |
+//    "phone") — and it ends where she started it: on foot by the booth, or back on the road. Spots tighten, cameras multiply,
 //    dusk then night, a cone in the bay (4+), a pedestrian (5+), traffic (7+),
 //    and Sasquatch watching the Boss Level.
 //  • Scoring exactly like 2D: ★★★ no contact at all · ★★ no car touched ·
@@ -14,7 +16,7 @@
 //    out the clock → CRASH! −1 ♥ (and the angry grandpa).
 //
 // Service: ctx.parking = { start(opts), active, pose() }  ·  emits parking:result {stars, coins}
-//   opts: { challenge: true, level } | { from: "pullover" | "foot" | <other>, onDone({ok, stars, coins}) }
+//   opts: { challenge: true, level, from: "booth" | "phone" | "title" } | { from: "pullover" | "foot" | <other>, onDone({ok, stars, coins}) }
 import * as THREE from "three";
 import { ctx, on, emit, registerState, setState, addMenuItem, wrapAngle } from "../../core/ctx.js";
 import { save3d, saveSoon, store, shared, wallet } from "../../core/save.js";
@@ -22,7 +24,7 @@ import { addCoins, addScore } from "../../core/driving.js";
 import { input, glyph, rumble, setBrakePedal } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { showTitle, resume } from "../../core/screens.js";
+import { resume } from "../../core/screens.js";
 import { spawnPerson } from "../../core/people.js";
 import { models } from "../../models.js";
 import * as LOT from "./lot.js";
@@ -61,6 +63,8 @@ function start(opts) {
     S.opts = opts || {};
     S.challenge = !!S.opts.challenge;
     S.from = S.opts.from || (S.challenge ? "title" : "pullover");
+    // a challenge from inside the world goes back where it came from: on foot (by the booth) or the road
+    S.ret = S.challenge && S.from !== "title" ? (S.opts.again || (ctx.state === "footRun" ? "foot" : "drive")) : "";
     S.kidsInCar = false;
     if (S.challenge) {
         S.level = S.opts.level || 1;
@@ -155,7 +159,7 @@ registerState("parking", {
         A.setMusic("../parking.mp3");
         A.sfxHorn(false);
         // From the road: zoom in on Lulu's car + white flash (2D parkingIntro), while the lot loads.
-        S.phase = S.from === "title" ? "loading" : "zoomIn";
+        S.phase = S.from === "title" || S.ret === "foot" ? "loading" : "zoomIn";
         S.zoomFrom = ctx.camera.position.clone();
         S.lotPromise = LOT.ensureLot().then(l => { S.lot = l; }).catch(e => { console.error("[parking] lot failed to load", e); S.loadFailed = true; });
         P3.cam = P3.cam || 0;
@@ -227,6 +231,7 @@ function leaveLot() {
 
 function bailOut() {
     // the lot couldn't load (offline + uncached models): carry on driving
+    if (S.challenge && S.ret) { backToWorld("🅿️ The parking lot didn't load — check your connection"); return; }
     if (S.challenge) { leaveLot(); setState("title"); H.toast("🅿️ The parking lot didn't load — check your connection", "red"); }
     else returnToDriving("🅿️ No parking here — keep driving!");
 }
@@ -743,6 +748,22 @@ function toGameOver() {
     setState("gameover", { why: "parking", source: "parking", quote: `"Who taught you to PARK?!" — the man whose car you dinged 🚗💢` });
 }
 
+/** A challenge started in the world ends there: on her feet by the booth (foot was suspended) or back on the road. */
+function backToWorld(msg = "") {
+    const ret = S.ret;
+    S.ret = "";
+    if (ret === "foot" && ctx.foot && ctx.foot.active) {
+        leaveLot();
+        setState("footRun", { resume: "parking" });
+        if (msg) H.toast(msg, "gold");
+        return;
+    }
+    if (ret === "drive" || ret === "foot") { returnToDriving(msg); return; }
+    leaveLot();
+    setState("title");
+}
+export function challengeFromWorld() { return !!(S.challenge && S.ret); }
+
 /** Back onto the road where she pulled over (returnToDriving in 2D). */
 function returnToDriving(msg) {
     leaveLot();
@@ -845,10 +866,13 @@ registerState("parkingEnd", {
                 <div class="stat"><b>${(wallet.coins).toLocaleString()}</b><span>💰 COINS</span></div>
                 <div class="stat"><b>${s2.parkingPerfectRuns || 0}</b><span>PERFECT PARKS</span></div>
             </div>`,
-            [
+            S.ret ? [
+                { label: `🅿️ Play again ${glyph("confirm")}`, action: () => { H.hideScreen(); start({ challenge: true, from: S.from, again: S.ret }); } },
+                { id: "parkBack", label: S.ret === "foot" ? "🚶 Back to the lot" : "🚗 Back on the road", cls: "purple", action: () => { H.hideScreen(); backToWorld(); } },
+            ] : [
                 { label: `🅿️ Play again ${glyph("confirm")}`, action: () => { H.hideScreen(); start({ challenge: true }); } },
                 { label: "⌂ Title screen", cls: "purple", action: () => { H.hideScreen(); setState("title"); } },
-            ], { onBack: () => { H.hideScreen(); setState("title"); } });
+            ], { onBack: () => { H.hideScreen(); if (S.ret) backToWorld(); else setState("title"); } });
     },
     exit(next) {
         H.hideScreen();
@@ -946,42 +970,12 @@ function updateCam(dt) {
     cam.updateProjectionMatrix();
 }
 
-// ── title menu: 🅿️ Parking Challenge (order 40, unlock 1,000 coins) ────────
-function unlocked() { return !!shared.get().parkingUnlocked; }
-addMenuItem("title", {
-    id: "parking", order: 40, group: "play", cls: "alt",
-    sub: () => unlocked() ? ((shared.get().parkingBestLevel || 0) > 0 ? `best: level ${shared.get().parkingBestLevel} of 10` : "ten levels of parallel parking") : "unlock once, play forever",
-    label: () => unlocked() ? "🅿️ Parking Challenge" : `🅿️ Parking Challenge 🔒 ${UNLOCK_COST.toLocaleString()}`,
-    action: () => { if (unlocked()) start({ challenge: true }); else showUnlock(); },
-});
-
-function showUnlock() {
-    const have = wallet.coins;
-    const back = () => showTitle(true);
-    if (have < UNLOCK_COST) {
-        H.showScreen(`<h2>🅿️ Parking Challenge</h2>
-            <div class="quote">"Ten levels of parallel parking. Tighter spots, nosy cameras, cones, pedestrians… and Sasquatch."</div>
-            <p>🔒 Unlock it once for <b>${UNLOCK_COST.toLocaleString()} coins</b> — you have <b>${have.toLocaleString()}</b>.</p>
-            <p class="fine">Coins are shared with the 2D game. Pull over on the road (slow down in a side lane) to practise parking and earn some!</p>`,
-            [{ label: `OK ${glyph("back")}`, cls: "alt", action: back }], { onBack: back });
-        return;
-    }
-    H.showScreen(`<h2>🅿️ Parking Challenge</h2>
-        <div class="quote">"Ten levels of parallel parking. Tighter spots, nosy cameras, cones, pedestrians… and Sasquatch."</div>
-        <p>Unlock it forever for <b>${UNLOCK_COST.toLocaleString()} coins</b>? You have <b>${have.toLocaleString()}</b>.</p>`,
-        [
-            { label: `🔓 Unlock — ${UNLOCK_COST.toLocaleString()} coins ${glyph("confirm")}`, action: () => {
-                if (!wallet.spend(UNLOCK_COST)) { H.toast("🔒 Not enough coins!", "red"); back(); return; }
-                shared.update(s => { s.parkingUnlocked = true; });
-                A.sfxFanfare();
-                H.showScreen(`<h2>🅿️ Unlocked!</h2><p>The Parking Challenge is yours — in both the 2D and 3D games.</p>`,
-                    [{ label: `▶ Start Level 1 ${glyph("confirm")}`, action: () => { H.hideScreen(); start({ challenge: true }); } },
-                     { label: "⌂ Back", cls: "alt", action: back }], { onBack: back });
-            } },
-            { label: "⌂ Not now", cls: "alt", action: back },
-        ], { onBack: back });
-}
-
+// ── 🅿️ Parking Challenge: no title tile any more (roadmap 10) — the 🅿️ booth at a rest area and the 📱 💼 Jobs app's card
+// (features/onegame) unlock it (UNLOCK_COST, once, shared with 2D) and start it: ctx.parking.start({ challenge: true, from }).
+// leave a challenge you started in the world (the pause menu): straight back where you were
+addMenuItem("pause", { id: "parkLeave", order: 87, cls: "alt", label: () => S.ret === "foot" ? "🚶 Leave the challenge (back to the lot)" : "🚗 Leave the challenge (back on the road)",
+    visible: () => ctx.state === "parking" && S.challenge && !!S.ret,
+    action: () => { resume(); backToWorld(); } });
 // a pause-menu shortcut while parking: retry the level
 addMenuItem("pause", { id: "parkRetry", order: 75, cls: "pink", label: "↺ Retry this park",
     visible: () => ctx.state === "parking" && S.challenge && S.phase === "drive",

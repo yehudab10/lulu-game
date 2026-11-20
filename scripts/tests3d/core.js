@@ -7,10 +7,14 @@ module.exports = {
     t.check("controller detected on the title screen", await t.L(`document.querySelector(".pad-status.on") !== null`));
     await t.shot("title");
 
-    // A on the first title item (Story Trip) → countdown → driving
+    // A on the first title item (▶ PLAY) → driving (no home street in this test: the 3-2-1)
     await t.tap(0);
     if (!await t.until(`__lulu3d.state === "playing"`, "A starts the drive (countdown → playing)")) return;
     t.check("A starts the drive (countdown → playing)", true);
+    t.check("▶ PLAY is the open road (mode cruise)", await t.game(`ctx.G.mode`) === "cruise");
+    // the road trip (the 🧳 suitcase / 🗺️ map in the world — features/onegame) → story mode, for Bubbe's arrival below
+    await t.game(`ctx.onegame.roadTrip("test")`);
+    if (!await t.until(`__lulu3d.state === "playing" && __lulu3d.ctx.G.mode === "story"`, "the road trip starts")) return;
     t.check("story mode", await t.game(`ctx.G.mode`) === "story");
 
     // hold the right trigger, weave with the left stick
