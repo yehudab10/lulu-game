@@ -1,8 +1,8 @@
 // features/world/map.js — 🏡 THE FAMILY & PLACES card (small and optional): where
 // everyone lives along the road, who you've dropped in on, a line of family lore
-// each, and the roadside places. A 📱 phone app when the phone feature is there
-// (ctx.phone.addApp, guarded); otherwise a row inside the 📒 Scrapbook drawer
-// (never a home tile).
+// each, and the roadside places. A contact in the 📞 Phone app when the phone + community
+// features are there (ctx.community.addContact), else its own 📱 app (ctx.phone.addApp, guarded);
+// otherwise a row inside the 📒 Scrapbook drawer (never a home tile).
 import { ctx, on, css, addMenuItem } from "../../core/ctx.js";
 import { glyph } from "../../input.js";
 import * as H from "../../hud.js";
@@ -49,6 +49,11 @@ export function openFamilyMap(back) {
 const phoneApps = () => !!(ctx.phone && typeof ctx.phone.addApp === "function");
 on("boot", () => {
     if (!phoneApps()) return;
+    // a contact in the 📞 Phone app (features/community) — the phone stays one 3 × 3 screen; its own app only without that
+    if (ctx.community && ctx.community.addContact) {
+        ctx.community.addContact({ id: "family", icon: "🏡", name: "Family & places", tag: "who lives where · who you've visited", color: "#FF8A65", render(el) { el.innerHTML = html(true); } });
+        return;
+    }
     try { ctx.phone.addApp({ id: "family", icon: "🏡", name: "Family", order: 45, color: "#FF8A65", color2: "#C2185B", render(el) { el.innerHTML = html(true); } }); } catch (e) { console.warn("[world] phone app", e); }
 });
 addMenuItem("title", { id: "worldFamily", order: 58, group: "book", short: "Family", label: "🏡 Family & places", sub: "who lives where · who you've visited",

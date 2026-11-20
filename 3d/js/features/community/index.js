@@ -3,7 +3,8 @@
 //  SHOMRIM (the civilian patrol that really, REALLY wants to be the police) and HATZALAH
 //  (volunteer EMS, there before you hang up) — plus Lakewood's BAIS YAAKOV.
 //
-//    towns.js    which town has which orgs (data, keyed by town id — Midwood opts in with one entry)
+//    towns.js    which town has which orgs (data, keyed by town id: Lakewood + Midwood) + each town's names
+//                for the lines (FLAVOR — "Route 9" becomes "Coney Island Ave" in Midwood)
 //    fleet.js    their vehicles (pooled traffic cars): highway sightings near the exit, town cruisers,
 //                responders (go to a kerb · follow Lulu round corners · drive off), light bars, sirens
 //    scenes.js   roadside scenes: a flat, a lockout, a dead battery (→ Chaverim), a bochur off his
@@ -13,7 +14,8 @@
 //    shomrim.js  Shomrim chases: lead (spot → follow → call it in), join a cop chase (radio tips →
 //                ctx.law.spot), HOLD (boxed in → talk your way out, or law's arrest flow)
 //    by.js       the Bais Yaakov dismissal line + the BLEND IN rhythm minigame (with heat, on foot)
-//    calls.js    the 📞 Call phone app (in a town only): Chaverim · Hatzalah · Shomrim · 911
+//    calls.js    the 📞 Phone app (EVERYWHERE she has the phone): Chaverim · Hatzalah · Shomrim · 911 · Ima ·
+//                other features' contacts (world's 🏡 Family & places); help comes on the highway + at rest areas too
 //    lines.js    every line of text · common.js shared helpers + a tiny synth
 //
 //  ctx.community { active, towns, register(id, cfg), config(id), vehicles, scene, chase, help, by,
@@ -34,11 +36,11 @@ import { CM, loadModels, on as live, townCfg, tickTimers, clearTimers, rand, bub
 import { COMMUNITY, forTown, register } from "./towns.js";
 import { tickFleet, tickHighway, tendCruisers, clearFleet, spawnCruiser, shomrimSees } from "./fleet.js";
 import { tickScenes, startScene, endScene, sceneSpot, callFor } from "./scenes.js";
-import { tickHelp, request, cancelHelp, sceneActive } from "./help.js";
+import { tickHelp, request, cancelHelp, sceneActive, HEAL, healLeft } from "./help.js";
 import { tickShomrim, startShomrim, endShomrim, witness } from "./shomrim.js";
 import { tickBY, bySpot, clearLine, bootBY, startBlend, heat } from "./by.js";
-import { registerApp, debugCall, reasons, addReason, callOut } from "./calls.js";
-import { tickParty, shomrimParty, partyDebug } from "./party.js";
+import { registerApp, debugCall, reasons, addReason, callOut, addContact, nothingLine, GAS_GAP } from "./calls.js";
+import { tickParty, shomrimParty, partyTown, partyDebug } from "./party.js";
 
 CM.save = store("community", { hints: {}, chesed: 0, blends: 0, holds: 0, calls: 0 });
 if (!CM.save.hints) CM.save.hints = {};
@@ -60,6 +62,7 @@ function reset() {
     CM.assistCool = 20;
     CM.shCool = 0;
     CM.view = null;
+    CM.heals = 0; CM.healAt = null; CM.gasAt = null;          // (help.js HEAL / calls.js GAS_GAP: per run)
 }
 
 // ── one actor (it runs while she drives AND on foot) ─────────────────────
@@ -95,7 +98,7 @@ on("state", ({ to }) => { if (to === "title" || to === "gameover") reset(); });
 on("town:enter", () => {
     const cfg = townCfg();
     if (!cfg) return;
-    loadModels();
+    if (live() || partyTown()) loadModels();                // (otherwise a 📞 call loads them when it's needed)
     CM.seen.clear();
     CM.sceneT = cfg.scenes.first;
     CM.bySpot = null;
@@ -160,6 +163,13 @@ ctx.community = {
     /** Another feature's reason to call an org: fn() → { id, icon, label, sub, run } | null (asked each time the 📞 app
      *  renders; a reason off-town also shows the app + that org). → an undo function. */
     addReason,
+    /** Another feature's contact in the 📞 Phone app (below Ima): { id, icon, name, tag, color, render(el) } — a page of its own. */
+    addContact,
+    /** What an org says when there's nothing to call about here, right now. */
+    nothing: org => nothingLine(org),
+    /** Hearts from help: { max, gap (s), left } — the cap per run. Nitro from Chaverim: once every gasGap s. */
+    get heal() { return { max: HEAL.max, gap: HEAL.gap, left: healLeft() }; },
+    gasGap: GAS_GAP,
     /** Place a call as the 📞 app does: the in-car call card (or a dialogue on foot), then() when they hang up. */
     callOut: (org, lines, then, done) => callOut(org, lines, then, done),
     request: (kind, opts) => request(kind, opts),

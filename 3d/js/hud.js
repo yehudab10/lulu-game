@@ -45,9 +45,46 @@ export function setTrip(frac, label) {
 //    queued banners that waited too long are dropped.
 //  • nothing new pops up while a dialogue line or a menu screen is open: pop-ups wait
 //    (the current banner is held out of sight) and come back if still fresh.
+//  • THE BUDGET (ci/calm — the owner: "lesser pop ups, especially in party mode"): every toast has a
+//    priority — 3 must-see (opts.prio 3, a "big" toast, money SPENT), 2 normal (red: something went wrong,
+//    money earned), 1 flavour (everything else: close calls, NITRO, a quip, a greeting, gossip…). A feature
+//    can say so with opts.prio. On a phone-sized screen only ONE toast shows at a time (two elsewhere). A
+//    flavour toast is DROPPED, never queued, when another toast is up or waiting, when she's busy (a chase,
+//    a scene, a dialogue) or when the last flavour toast was too recent — and much more so while it's
+//    "quiet" (with friends, or strangers around): see setCalmGate. The same toast again still merges (×3).
 // Timing runs on GAME time (notifyTick from the main loop), so it pauses / skips with the game.
-const TOAST_MAX = 3, TOAST_LIFE = 1.9, TOAST_STALE = 2.6, MIN_SHOW = 0.8;
-const NT = { toasts: [], waiting: [], cur: null, bq: [], gate: () => false };
+const TOAST_LIFE = 1.9, TOAST_LIFE_LO = 1.4, TOAST_STALE = 2.6, MIN_SHOW = 0.8;
+const GAP = { normal: 5, quiet: 15 };              // seconds between two flavour toasts
+const NT = { toasts: [], waiting: [], cur: null, bq: [], gate: () => false, calm: () => null, loT: -99, now: 0, dropped: 0, shown: 0 };
+/** The calm gate: () → { quiet (with friends / strangers around), busy (a chase, a scene…), acted (she pressed a button ≤ 1 s
+ *  ago: a toast now is the answer to it, so it isn't flavour) } — features/calm sets it. */
+export function setCalmGate(fn) { NT.calm = fn; }
+const compact = () => document.body.classList.contains("touch") || Math.min(innerWidth, innerHeight) < 520;
+const toastMax = () => compact() ? 1 : 2;
+const SPENT = /[−\-]\s?\$?\d[\d,]*\s*(💰|🪙|coins?\b)|💸|\bfine\b|\bbill\b/i;
+const EARNED = /\+\s?\$?\d[\d,]*\s*(💰|🪙|coins?\b)/i;
+/** Speech bubbles over other people's heads (townsfolk, hitchhikers, other drivers): flavour too. A bubble may show if
+ *  she isn't in a chase, at most one at a time on a phone (two elsewhere, one when it's quiet), not too close to the last
+ *  one — unless it answers something she just did. → true: show it (callers hide the bubble otherwise: nothing breaks). */
+const BUB = { until: [], t: -99, shown: 0, dropped: 0 };
+export function bubbleOk(dur = 2.4) {
+    const c = NT.calm() || {};
+    BUB.until = BUB.until.filter(u => u > NT.now);
+    if (!c.acted) {
+        const max = c.quiet ? 1 : compact() ? 1 : 2;
+        if (c.chase || BUB.until.length >= max || NT.now - BUB.t < (c.quiet ? 8 : 3)) { BUB.dropped++; return false; }
+    }
+    BUB.t = NT.now; BUB.until.push(NT.now + Math.min(4, dur)); BUB.shown++;
+    return true;
+}
+export const bubbleStats = () => ({ shown: BUB.shown, dropped: BUB.dropped });
+/** A toast's priority (see THE BUDGET above). */
+function prioOf(text, cls, opts) {
+    if (opts.prio) return opts.prio;
+    if (/\bbig\b/.test(cls) || SPENT.test(text)) return 3;
+    if (/\bred\b/.test(cls) || EARNED.test(text)) return 2;
+    return 1;
+}
 /** Who else blocks pop-ups besides our own menu screens (core: the dialogue box). */
 export function setPopupGate(fn) { NT.gate = fn; }
 export function popupsBlocked() { return !!menu || !!NT.gate(); }
@@ -71,11 +108,12 @@ function paintToast(t) {
     if (t.n > 1 && !t.summed) { const c = document.createElement("span"); c.className = "ct"; c.textContent = "×" + t.n; t.el.appendChild(c); }
 }
 
-/** A small toast on the right edge. opts: { key (merge id), merge: false (never merge) }. */
+/** A small toast on the right edge. opts: { key (merge id), merge: false (never merge), prio: 1 flavour | 2 | 3 must-see }. */
 export function toast(text, cls = "", opts = {}) {
     text = String(text);
     cls = cls || "";
     const key = opts.key || toastKey(text, cls);
+    let prio = prioOf(text, cls, opts);
     if (opts.merge !== false) {
         const live = NT.toasts.find(t => t.key === key && !t.out);
         if (live) {
@@ -92,15 +130,27 @@ export function toast(text, cls = "", opts = {}) {
         const w = NT.waiting.find(t => t.key === key);
         if (w) { const sum = mergeText(w.text, text); w.summed = w.summed || !!sum; w.text = sum || text; w.age = 0; w.n++; return; }
     }
-    NT.waiting.push({ text, cls, key, n: 1, age: 0, summed: false });
+    const c = prio === 1 ? NT.calm() || {} : null;
+    if (prio === 1 && c.acted) prio = 2;                  // the answer to a button she just pressed (🎥 camera, "not here") — always shows
+    if (prio === 1) {
+        // flavour: now or never — and not too often (much less with friends / strangers around)
+        const up = NT.toasts.some(t => !t.out) || NT.waiting.length > 0;
+        if (c.busy || up || popupsBlocked() || NT.now - NT.loT < (c.quiet ? GAP.quiet : GAP.normal)) { NT.dropped++; return; }
+        NT.loT = NT.now;
+    }
+    NT.waiting.push({ text, cls, key, n: 1, age: 0, summed: false, prio });
     pumpToasts();
 }
 function pumpToasts() {
     if (popupsBlocked()) return;
-    while (NT.waiting.length && NT.toasts.filter(t => !t.out).length < TOAST_MAX) {
+    const max = toastMax();
+    while (NT.waiting.length && NT.toasts.filter(t => !t.out).length < max) {
+        NT.waiting.sort((a, b) => b.prio - a.prio);
         const w = NT.waiting.shift();
-        if (w.age > TOAST_STALE && !/\bbig\b/.test(w.cls)) continue;      // stale: the moment has passed
-        const t = { el: document.createElement("div"), key: w.key, text: w.text, cls: w.cls, n: w.n, summed: w.summed, t: 0, out: false };
+        if (w.age > TOAST_STALE && w.prio < 3) continue;      // stale: the moment has passed
+        const lo = w.prio === 1;
+        const t = { el: document.createElement("div"), key: w.key, text: w.text, cls: w.cls + (lo ? " lo" : ""), n: w.n, summed: w.summed, t: 0, out: false, life: lo ? TOAST_LIFE_LO : TOAST_LIFE, prio: w.prio };
+        NT.shown++;
         paintToast(t);
         el.toasts.appendChild(t.el);
         NT.toasts.push(t);
@@ -162,7 +212,8 @@ export function clearNotices() {
 /** What's on screen / waiting (tests, features). */
 export function notifyState() {
     return {
-        toasts: NT.toasts.filter(t => !t.out).map(t => ({ text: t.text, n: t.n, cls: t.cls })), waiting: NT.waiting.map(w => w.text),
+        toasts: NT.toasts.filter(t => !t.out).map(t => ({ text: t.text, n: t.n, cls: t.cls, prio: t.prio })), waiting: NT.waiting.map(w => w.text),
+        dropped: NT.dropped, shown: NT.shown,
         banner: NT.cur ? { text: el.banner.textContent, prio: NT.cur.prio, key: NT.cur.key, held: el.banner.classList.contains("held") } : null,
         queued: NT.bq.map(b => ({ html: b.html, prio: b.prio, key: b.key })),
     };
@@ -170,13 +221,14 @@ export function notifyState() {
 
 /** Every game step (app.js): ages toasts and banners and lets queued ones through. */
 export function notifyTick(dt) {
+    NT.now += dt;
     for (const t of NT.toasts) {
         t.t += dt;
-        if (!t.out && t.t >= TOAST_LIFE) { t.out = true; t.el.classList.add("out"); }
+        if (!t.out && t.t >= (t.life || TOAST_LIFE)) { t.out = true; t.el.classList.add("out"); }
     }
     for (let i = NT.toasts.length - 1; i >= 0; i--) {
         const t = NT.toasts[i];
-        if (t.out && t.t >= TOAST_LIFE + 0.35) { t.el.remove(); NT.toasts.splice(i, 1); }
+        if (t.out && t.t >= (t.life || TOAST_LIFE) + 0.35) { t.el.remove(); NT.toasts.splice(i, 1); }
     }
     for (const w of NT.waiting) w.age += dt;
     pumpToasts();

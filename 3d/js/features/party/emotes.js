@@ -157,8 +157,7 @@ function greetings(dt) {
         rc.pop.show("👋");
         if (onFootNow() && ME.i < 0) play(IDX.hi, { local: true, force: true });
         else if (!onFootNow()) { tone(587, 0.07, "square", 0.05); tone(740, 0.09, "square", 0.05, 0, 0.09); }
-        const name = ctx.party ? ctx.party.displayName(rc.uid) : "a friend";
-        H.toast(`👋 ${name}${rc.foot ? "" : " drove by"}`, "pink", { key: "greet:" + rc.uid });
+        // (no toast: the 👋 over THEIR car + the wave say it — ci/calm)
         emit("stat", { id: "partyGreets", n: 1 });
         emit("party:greet", { uid: rc.uid });
         break;

@@ -203,13 +203,18 @@ module.exports = {
     t.check("a coin burst merges into one toast: +15 💰", n.toasts.length === 1 && n.toasts[0].text === "+15 💰", JSON.stringify(n.toasts));
     await H(`(H.toast("🚨 WRONG LANE, LULU!", "red"), H.toast("🚨 WRONG LANE, LULU!", "red"), true)`);
     t.check("a repeated toast shows ×2", await t.L(`[...document.querySelectorAll("#toasts .toast")].some(e => /WRONG LANE/.test(e.textContent) && /×2/.test(e.textContent))`));
-    await H(`(["🍦 one", "🌭 two", "🥨 three", "🍩 four", "🧁 five"].forEach(s => H.toast(s)), true)`);
+    // the budget (ci/calm): important toasts queue, ≤ 2 at once here (1 on a phone); flavour toasts are dropped, never queued
+    await H(`(["🍦 one", "🌭 two", "🥨 three", "🍩 four", "🧁 five"].forEach(s => H.toast(s, "", { prio: 2 })), true)`);
     n = await H(`H.notifyState()`);
-    t.check("at most 3 toasts at once (the rest wait)", n.toasts.length <= 3 && n.waiting.length >= 1, `${n.toasts.length} shown, ${n.waiting.length} waiting`);
+    t.check("at most 2 toasts at once on a big screen (the rest wait)", n.toasts.length <= 2 && n.waiting.length >= 1, `${n.toasts.length} shown, ${n.waiting.length} waiting`);
     await t.shot("toasts");
+    const d0 = n.dropped;
+    await H(`(["🌮 a", "🥯 b", "🧀 c"].forEach(s => H.toast(s)), true)`);
+    n = await H(`H.notifyState()`);
+    t.check("flavour toasts while others are up are DROPPED, not queued", n.dropped - d0 === 3 && !n.waiting.some(w => /🌮|🥯|🧀/.test(w)), JSON.stringify({ d: n.dropped - d0, w: n.waiting }));
     await t.frames(150);
     n = await H(`H.notifyState()`);
-    t.check("stale waiting toasts are dropped, not piled up", n.waiting.length === 0 && n.toasts.length <= 3, JSON.stringify(n));
+    t.check("stale waiting toasts are dropped, not piled up", n.waiting.length === 0 && n.toasts.length <= 2, JSON.stringify(n));
 
     await H(`(H.banner("🎫 <b>low A</b>", 3000), H.banner("🚨 <b>IMPORTANT</b>", 2000, { prio: 2 }), H.banner("🚂 <b>low B</b>", 3000), true)`);
     n = await H(`H.notifyState()`);
@@ -225,7 +230,7 @@ module.exports = {
 
     await t.L(`import("./js/core/dialog.js").then(D => { D.say("Bubbe", "Eat something, you're skin and bones!", { emoji: "👵" }); })`);
     await t.frames(2);
-    await H(`(H.toast("🎈 balloon"), H.banner("🎈 <b>BALLOONS</b>", 2500), true)`);
+    await H(`(H.toast("🎈 balloon", "", { prio: 2 }), H.banner("🎈 <b>BALLOONS</b>", 2500), true)`);
     n = await H(`H.notifyState()`);
     t.check("nothing new pops up while a dialogue is open", !n.toasts.some(x => /balloon/.test(x.text)) && n.waiting.includes("🎈 balloon") && (!n.banner || n.banner.held));
     await t.shot("dialog-quiet");
