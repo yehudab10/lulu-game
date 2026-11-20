@@ -89,7 +89,8 @@ export function normal(x, z, kind = "car", opts = {}) {
 const OFFS = [0]; for (let k = 4; k <= 64; k += 4) OFFS.push(k, -k);
 function townStreet(x, z, hint) {
     const n = ctx.world.road.nearest(x, z, hint, _n);
-    return n && n.street ? { st: n.street, along: n.s - n.street.base, d: n.d, h: n.h } : null;
+    // (along clamped to the street's real extent: from past its end — the middle of the lake — the lookup runs off it)
+    return n && n.street ? { st: n.street, along: Math.max(n.street.a0 + 4, Math.min(n.street.a1 - 4, n.s - n.street.base)), d: n.d, h: n.h } : null;
 }
 /** Car spots: [{ x, z, h, s, d }] nearest first. */
 /** Where to search from: (x, z) and a road hint s — her last finite place when she's gone NaN. */
