@@ -476,7 +476,14 @@ module.exports = {
       //  cameos and banter's people, which measured ~350–485 calls / 85–115k triangles at 1280×720)
       //  The highway's chunks are now merged (merge.js: ~35 % fewer draw calls than when this check was written), so the
       //  yardstick moved, not the town: hold the town to the light Cruise's budget from then (~240) or today's, whichever is higher.
-      t.check("town draw calls ≤ Cruise (≤ 240, the light Cruise before merged chunks)", town.calls <= Math.max(busy.calls * 1.05, 240), `${town.calls} vs ${busy.calls}`);
+      // (what's drawn, by top-level group — said when it's over: a leftover from an earlier step shows up here)
+      const drawn = town.calls <= Math.max(busy.calls * 1.05, 240) ? "" : JSON.stringify(await t.L(`import("./vendor/three/build/three.module.min.js").then(THREE => { const ctx = __lulu3d.ctx, cam = ctx.camera; cam.updateMatrixWorld();
+        const f = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)), by = {}, sph = new THREE.Sphere(), S = ctx.town.debug.S;
+        ctx.scene.traverseVisible(m => { if (!m.isMesh && !m.isPoints && !m.isSprite && !m.isLine) return; if (m.frustumCulled !== false && m.geometry) { const g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); sph.copy(g.boundingSphere).applyMatrix4(m.matrixWorld); if (!f.intersectsSphere(sph)) return; }
+          let top = m; while (top.parent && top.parent !== ctx.scene) top = top.parent; const car = ctx.traffic.cars.find(c => c.obj === top);
+          const k = top === S.T.root ? "town" : car ? "car:" + car.kind : (top.name || top.type); by[k] = (by[k] || 0) + 1; });
+        return Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 16); })`));
+      t.check("town draw calls ≤ Cruise (≤ 240, the light Cruise before merged chunks)", town.calls <= Math.max(busy.calls * 1.05, 240), `${town.calls} vs ${busy.calls} ${drawn}`);
       // (re-measured 2026-11-20, ci/oneworld: the same view swings 111.7k–117.5k between runs of the same code with the
       //  traffic / walkers in sight — ~27k of it is cars + people, ~10.6k the sky's clouds, neither the town's; the town's
       //  own blocks / ground are unchanged. 120k keeps the yardstick (a busy Cruise's 85–115k + that swing); AGENTS §7.)
