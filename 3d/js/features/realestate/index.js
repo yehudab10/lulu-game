@@ -35,12 +35,18 @@ import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
 import { finalize } from "./deal.js";
 import * as MG from "./mortgage.js";
+import * as RN from "./rent.js";
+import { tick as partyTick, roam, P as PP } from "./party.js";
+import { SHARED } from "../together/rooms.js";
+import { RENT_LINES, SELL_LINES } from "./data.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
 const inTown = () => !!(ctx.town && ctx.town.active);
 const townId = () => (inTown() && ctx.town.id) || "lakewood";
 const party = () => !!(ctx.party && ctx.party.active) || !!(ctx.G && ctx.G.mode === "party");
+/** With friends, real estate is open only in 🌍 Free Roam (a lobby activity / a race: closed). */
+const locked = () => party() && !roam();
 const herPos = () => (ctx.foot && ctx.foot.active && ctx.foot.pos) || null;
 const stat = (id, n = 1) => emit("stat", { id, n });
 
@@ -93,9 +99,10 @@ function refresh(force = false) {
     if (!force && W.town === townId() && W.day === d && W.rev === CAT.n) return;
     if (W.town !== townId()) compensate();
     W.town = townId(); W.day = d; W.rev = CAT.n;
-    W.listed = party() ? [] : listings(d);
+    W.listed = locked() ? [] : listings(d);
     W.owned = ownedHere();
-    layout(W.town, W.listed, W.owned);
+    W.friends = locked() ? [] : registry.others().map(o => { const r = lookup(o.id); return r ? Object.assign({ who: o }, r) : null; }).filter(Boolean);
+    layout(W.town, W.listed, W.owned, W.friends);
 }
 registry.onChange(() => { if (inTown()) refresh(true); });
 
@@ -124,7 +131,7 @@ const signSpot = {
 const doorSpot = {
     r: 3.2, short: "MY HOUSE",
     pos() {
-        W.door = canAct() && !party() ? nearest(W.owned, "ap", 3.2) : null;
+        W.door = canAct() && !locked() ? nearest(W.owned, "ap", 3.2) : null;
         if (W.door && ctx.interiors.realestateHouse && ctx.interiors.realestateHouse.warm) ctx.interiors.realestateHouse.warm();
         return W.door ? W.door.ap : null;
     },
@@ -138,11 +145,19 @@ const boxSpot = {
     label() { return W.box ? "📬 YOUR MAILBOX" : null; },
     act() { if (W.box) mailbox(W.box); },
 };
+// a FRIEND's front door (a 🎉 party's Free Roam): whose it is; join them inside when they're in
+const friendSpot = {
+    r: 2.6, short: "FRIEND",
+    pos() { W.fdoor = canAct() && W.friends && W.friends.length ? nearest(W.friends, "ap", 2.6) : null; return W.fdoor ? W.fdoor.ap : null; },
+    label() { const f = W.fdoor; if (!f) return null; return friendInside(f) ? `👯 JOIN ${f.who.name.toUpperCase()} INSIDE` : `🏠 ${f.who.name.toUpperCase()}'S HOUSE`; },
+    act() { const f = W.fdoor; if (!f) return; if (friendInside(f)) goIn(f, "visit", f.who.name); else if (ctx.foot.say && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick([`${f.who.name}'s place! Nobody home. I'll wave at the window anyway. 👋`, `Ding-dong… ${f.who.name}'s out. Nice mailbox though.`, `${f.who.name} owns a HOUSE. I'm so proud. And jealous. Mostly proud.`]), 3.0); },
+};
+const friendInside = f => !!(ctx.together && ctx.together.friendIn && ctx.together.friendIn("realestateHouse", f.id));
 // the realtor's office door
 const officeSpot = {
     r: 2.6, short: "REALTOR",
     pos() {
-        if (!canAct() || party()) return null;
+        if (!canAct() || locked()) return null;
         const sp = ctx.town.spot && ctx.town.spot("realty"), p = herPos();
         if (!sp || !p) return null;
         if (ctx.interiors.realty && ctx.interiors.realty.warm && Math.hypot(sp.x - p.x, sp.z - p.z) < 24) ctx.interiors.realty.warm();
@@ -170,9 +185,9 @@ function enterOffice() {
 }
 /** Into a house (a viewing or her own): foot's handoff → the interiors engine; out = back on her front path. */
 let INSIDE = null;
-function goIn(rec, mode) {
+function goIn(rec, mode, owner = null) {
     if (!ctx.foot || !ctx.foot.handoff || !ctx.interiors.realestateHouse) return false;
-    nameHouse(rec, mode);
+    nameHouse(rec, mode, owner);
     INSIDE = rec;
     emit("realestate:enter", { id: rec.id, mode });
     if (!ctx.foot.handoff("realestateHouse", roadDoor(rec.ap, "realestateHouse"))) { INSIDE = null; return false; }
@@ -201,7 +216,7 @@ export function pitch(rec) {
 }
 async function viewing(rec) {
     if (W.busy || !ctx.foot || !ctx.foot.script) return;
-    if (party()) { H.toast("🏘️ " + OFFICE.party, "pink"); return; }
+    if (locked()) { H.toast("🏘️ " + OFFICE.party, "pink"); return; }
     W.busy = true;
     const R = realtorOf(rec.town);
     const sc = { done: false, t: 0, rel: null, from: null, to: null, talk: false };
@@ -284,7 +299,7 @@ async function buy(rec, opts = {}) {
     const R = opts.realtor || realtorOf(rec.town);
     const sayF = (t, o = {}) => opts.rt ? opts.rt.say(R.name, t, Object.assign({ emoji: R.emoji, person: opts.who }, o)) : say(R.name, t, Object.assign({ emoji: R.emoji }, o));
     const chooseF = (t, list) => opts.rt ? opts.rt.choose(R.name, t, list, { emoji: R.emoji, person: opts.who }) : choose(R.name, t, list, { emoji: R.emoji });
-    if (party()) { await sayF(OFFICE.party); return false; }
+    if (locked()) { await sayF(OFFICE.party); return false; }
     if (registry.mine(rec.id)) { await sayF("It's already yours, sweetheart! I'm good, but I can't sell you the same house twice. (I've tried.)"); return false; }
     if (!isListed(rec)) { await sayF("Ooh — that one's off the market today. Come see what's on the board!"); return false; }
     if (registry.count() >= CAP) { await sayF(OFFICE.capped); return false; }
@@ -307,10 +322,13 @@ async function mailbox(rec) {
     const ok = ctx.foot.script({ update(dt, P, F) { if (F.lulu) { F.lulu.face(rec.mailbox.x, rec.mailbox.z, dt, 8); F.lulu.update(dt, { walk: 0 }); } return !sc.done; }, abort() { sc.done = true; } });
     try {
         if (!ok) return;
+        const got = RN.collect(rec.id);
+        if (got) { H.toast(RENT_LINES.collect(fmt(got)), "gold", { key: "re:rent" }); const tn = RN.tenantOf(rec.id); if (tn) await say(tn.name, tn.line, { emoji: tn.emoji }); }
+        else if (RN.tenantOf(rec.id)) H.toast(RENT_LINES.empty, "", { key: "re:rent" });
         const bills = (S.bills[rec.id] || []).filter(b => !b.paid);
         const line = bills.length ? `📬 ${bills.length} letter${bills.length === 1 ? "" : "s"}: ${bills.map(b => b.what).join(", ")}.`
             : pick(["📬 Her name on a mailbox. LULU. In LETTERS. She takes a photo. Then three more.", "📬 Empty! Except for a flyer: 'WE BUY HOUSES — CASH!' Lulu: 'I KNOW. I just did.'", "📬 A takeout menu, a coupon for kugel, and a letter for the people who lived here before. Classic."]);
-        await say("📬 " + rec.address, line, { emoji: "📬" });
+        if (!got || bills.length) await say("📬 " + rec.address, line, { emoji: "📬" });
     } finally { sc.done = true; W.busy = false; }
 }
 
@@ -337,10 +355,10 @@ function contactHtml() {
     if (!mine.length) h += `<p class="lp-empty">No houses yet. ${here ? "Look for the FOR SALE signs on the lawns!" : "Drive into Lakewood or Midwood and look for the FOR SALE signs!"}</p>`;
     h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.town === "midwood" ? "Midwood" : "Lakewood"} · ${m.label}${m.town === here ? " · tap = 📍 show me" : ""}</small></span></button>`).join("");
     if (here) {
-        const list = party() ? [] : listings();
+        const list = locked() ? [] : listings();
         h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b> · new listings every day</div>`;
         h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label} · tap = 📍 show me</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
-            : `<p class="lp-empty">${party() ? OFFICE.party : "All sold today! Check back tomorrow."}</p>`;
+            : `<p class="lp-empty">${locked() ? OFFICE.party : "All sold today! Check back tomorrow."}</p>`;
     } else h += `<p class="lp-fine">Listings show up when you're in a town.</p>`;
     return h;
 }
@@ -353,12 +371,38 @@ function contactRender(el) {
     }));
 }
 
+// ── at the office: her places — sell one, find / let go of a tenant (stage 3) ──
+async function myPlaces(rt, who, R) {
+    const sayR = l => rt.say(R.name, l, { emoji: R.emoji, person: who });
+    const chooseR = (q, o) => rt.choose(R.name, q, o, { emoji: R.emoji, person: who });
+    const mine = registry.listFor(null);
+    if (!mine.length) { await sayR("No places yet! Look at the board, sweetheart — something cozy is calling your name."); return; }
+    const i = await chooseR("Which one?", mine.map(h => `🔑 ${h.address}${RN.tenantOf(h.id) ? " · 🧑 rented" : ""}${S.mortgage[h.id] ? " · 🏦" : ""}`).concat(["‹ Back"]));
+    const h = i >= 0 && i < mine.length ? mine[i] : null;
+    if (!h || rt.disposed) return;
+    const tn = RN.tenantOf(h.id), q = RN.quote(h.id);
+    const opts = [tn ? `👋 Ask ${tn.name} to move out` : "🧑 Find me a tenant", `🪧 Sell it — you get ${fmt(q.net)} 💰`, "‹ Back"];
+    const j = await chooseR(`${h.address}: worth ${fmt(q.value)} today.${q.bank ? ` You still owe the bank ${fmt(q.bank)}.` : ""}`, opts);
+    if (j === 0) {
+        if (tn) { RN.tenantOut(h.id); await sayR(RENT_LINES.out); }
+        else { const t = RN.findTenant(h.id); if (t) await sayR(RENT_LINES.found(t.name, h.address)); }
+    } else if (j === 1) {
+        await sayR(SELL_LINES.ask);
+        await sayR(SELL_LINES.rule);
+        if (rt.disposed) return;
+        const c = await chooseR(`Sell ${h.address}? ${fmt(q.value)} − my ${fmt(q.fee)}${q.bank ? ` − the bank's ${fmt(q.bank)}` : ""} = ${fmt(q.net)} for you.`, [`✍️ Sell — +${fmt(q.net)} 💰`, "✖ No, I'll keep it"]);
+        if (c !== 0 || rt.disposed) return;
+        const r = RN.sell(h.id);
+        if (r) { H.banner(`🪧 <b>SOLD!</b><small>${h.address} · +${fmt(r.net + r.pile)} 💰</small>`, 2800, { key: "re:sold", prio: 3 }); await sayR(pick(SELL_LINES.done)); }
+    }
+}
+
 // ── wiring ───────────────────────────────────────────────────────────────
-const API = { listings: () => (party() ? [] : listings()), valueOf: r => valueOf(r), pitch, buy, pin: pinRec, owns: () => registry.count() > 0, townId, mortgageLine };
+const API = { listings: () => (locked() ? [] : listings()), valueOf: r => valueOf(r), pitch, buy, pin: pinRec, owns: () => registry.count() > 0, townId, mortgageLine, myPlaces };
 bindOffice(API);
 bindHouse(API);
 on("boot", () => {
-    if (ctx.foot && ctx.foot.addSpot) for (const sp of [officeSpot, signSpot, doorSpot, boxSpot]) ctx.foot.addSpot(sp);
+    if (ctx.foot && ctx.foot.addSpot) for (const sp of [officeSpot, signSpot, doorSpot, boxSpot, friendSpot]) ctx.foot.addSpot(sp);
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     // a viewing / her house: when she walks back out, put her on her own front path (foot resumes on the road first)
     const reg = ctx.interiors && ctx.interiors.realestateHouse;
@@ -372,6 +416,9 @@ on("boot", () => {
         ctx.community.addContact({ id: "realtor", icon: "🏘️", name: R.name, tag: R.tag, color: "#8D6E63", render: contactRender });
     }
 });
+// (features/together: a house's instance is its id — the owner + anyone visiting it share the room; a viewing is personal)
+SHARED.realestateHouse = () => (CUR.rec && (CUR.mode === "owner" || CUR.mode === "visit") ? CUR.rec.id : null);
+SHARED.realty = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null);
 const REALTOR_CONTACT = { name: "The realtor", tag: "houses for sale · 🔑 your places" };
 on("town:enter", () => { W.said.clear(); W.passed = false; W.town = null; nameOffice(townId()); });
 on("town:leave", () => { clearSigns(); W.town = null; W.listed = []; W.owned = []; });
@@ -381,9 +428,9 @@ on("run:start", () => { W.busy = false; });
 hook("hud", dt => {
     if ((W.t += dt) < 0.5) return;
     W.t = 0;
-    try { refresh(false); passBy(); } catch (e) { console.error("[realestate] tick", e); }
+    try { partyTick(); refresh(false); passBy(); } catch (e) { console.error("[realestate] tick", e); }
     // the mortgages: a new PLAYED day bills, a due payment is taken once she has the coins (only out in the world)
-    if ((ctx.state === "playing" || ctx.state === "footRun") && !ctx.dialogOpen && !ctx.paused) { try { MG.tick(); } catch (e) { console.error("[realestate] mortgage", e); } }
+    if ((ctx.state === "playing" || ctx.state === "footRun") && !ctx.dialogOpen && !ctx.paused) { try { MG.tick(); RN.tick(); } catch (e) { console.error("[realestate] mortgage / rent", e); } }
 });
 
 // ── the service ──────────────────────────────────────────────────────────
@@ -417,8 +464,13 @@ ctx.realestate = {
     mortgage: id => (S.mortgage[id] ? Object.assign({ id, owed: MG.owed(S.mortgage[id]), payoff: MG.payoff(S.mortgage[id]) }, S.mortgage[id]) : null),
     mortgagePlan: (price, down, term) => MG.plan(price, down, term),
     payToday: id => MG.payToday(id), payOff: id => MG.payOff(id),
+    // ── rent + selling (stage 3) ──
+    tenant: id => RN.tenantOf(id), findTenant: id => RN.findTenant(id), tenantOut: id => RN.tenantOut(id), rentToday: () => RN.rentToday(),
+    rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, CLOCK, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
+    debug: { W, S, MG, RN, PP, CLOCK, partyTick,
+        /** Buy a listed home for cash right now, no dialogue (tests). */
+        buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; }, CAT, counts, refresh: () => refresh(true), isListed: id => isListed(lookup(id)), OFFICE_DEF, HOUSE_DEF, CUR, BASE },
 };
 // tests: a stable handle on the save

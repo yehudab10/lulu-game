@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { models, findNodes } from "../../models.js";
 
-export const W = 5.6, D = 5.2, WALL = 2.7;
+export const W = 6.2, D = 5.6, WALL = 2.7;     // (the same rooms as decor's house: its decorations fit as they are)
 
 export function kit(name) {
     const src = models.homesKit && findNodes(models.homesKit, "Kit_" + name)[0];

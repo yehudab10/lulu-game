@@ -5,16 +5,22 @@
 //     fridge with one pickle, boxes to unpack — decorating comes in stage 3 (features/decor's picker).
 // Rooms: a "cozy" rowhouse / a townhouse = 2 (the living room IS the kitchen), a duplex half / a house = 3.
 import * as THREE from "three";
-import { ctx } from "../../core/ctx.js";
+import { ctx, emit } from "../../core/ctx.js";
+import { saveSoon } from "../../core/save.js";
 import { defineInterior, pick, pool } from "../interiors/engine.js";
 import { rooms, movingBoxes, W, D } from "./rooms.js";
-import { VIEWING, MINE, PATTER } from "./data.js";
+import { VIEWING, MINE, PATTER, TENANTS } from "./data.js";
 import { realtorOf } from "./office.js";
+import { S } from "./registry.js";
+import { slotById, optOf } from "../decor/data.js";
+import { buildOption, disposeObj, wallTex } from "../decor/props.js";
+import { openPicker, pickerTick, pickerOpen, closePicker } from "../decor/picker.js";
+import { HOUSE_SPOTS } from "../decor/house.js";
 
 let API = null;                 // index.js: { buy(rec, opts), valueOf(rec), pitch(rec), townId(), afterBuy }
 export function bindHouse(api) { API = api; }
 /** Who's going in and why: { rec, mode: "viewing" | "owner" } (set right before the handoff). */
-export const CUR = { rec: null, mode: null, bought: false };
+export const CUR = { rec: null, mode: null, bought: false, rt: null };
 const patter = pool(PATTER);
 const fmt = n => Math.round(n).toLocaleString("en-US");
 
@@ -23,29 +29,33 @@ export const HOUSE_DEF = defineInterior({
     title: "🏠 A HOUSE FOR SALE", tagline: "",
     model: "homesKit", models: ["npcWoman", "npcMan"], music: "../story-relax.mp3",
     light: "indoor", cam: { dist: 7.0, height: 5.4, lookY: 0.8, clampX: 2.4 }, walkSpeed: 3.5,
-    build, tick,
+    build, tick, dispose,
 });
 /** Title + tagline for what she's walking into. */
-export function nameHouse(rec, mode) {
-    CUR.rec = rec; CUR.mode = mode; CUR.bought = false;
+export function nameHouse(rec, mode, owner = null) {
+    CUR.rec = rec; CUR.mode = mode; CUR.bought = false; CUR.owner = owner;
     HOUSE_DEF.name = rec ? rec.address : "the house";
-    HOUSE_DEF.short = mode === "owner" ? "your house" : "the house";
-    HOUSE_DEF.title = mode === "owner" ? `🔑 ${rec.address.toUpperCase()} — YOURS` : `🪧 FOR SALE — ${rec.address.toUpperCase()}`;
-    HOUSE_DEF.tagline = mode === "owner" ? "home sweet (empty) home" : `${rec.label} · ${fmt(API ? API.valueOf(rec) : rec.price)} 💰`;
+    HOUSE_DEF.short = mode === "owner" ? "your house" : mode === "visit" ? `${owner}'s house` : "the house";
+    HOUSE_DEF.title = mode === "owner" ? `🔑 ${rec.address.toUpperCase()} — YOURS` : mode === "visit" ? `🏠 ${String(owner).toUpperCase()}'S PLACE` : `🪧 FOR SALE — ${rec.address.toUpperCase()}`;
+    HOUSE_DEF.tagline = mode === "owner" ? "home sweet (empty) home" : mode === "visit" ? `${rec.address} · friends over 👯` : `${rec.label} · ${fmt(API ? API.valueOf(rec) : rec.price)} 💰`;
     if (ctx.interiors.realestateHouse) ctx.interiors.realestateHouse.name = HOUSE_DEF.name;
 }
 
 const ROOMS = { 2: ["living", "bedroom"], 3: ["kitchen", "living", "bedroom"] };
 function build(rt) {
     const rec = CUR.rec, mode = CUR.mode || "viewing";
+    CUR.rt = rt;
     rt.root.visible = false;
     const n = rec && rec.rooms === 3 ? 3 : 2;
     const kinds = ROOMS[n];
     const li = kinds.indexOf("living");
-    const owner = mode === "owner";
+    const visit = mode === "visit";
+    const owner = mode === "owner" || visit;          // (a visit: a friend's home, looked at, not redecorated)
+    const wallM = rt.own(new THREE.MeshStandardMaterial({ color: owner ? "#FAFAFA" : "#DCE8E0", roughness: 0.9 }));
+    rt.data.wallM = wallM;
     const B = rooms(rt, n, {
         floors: n === 3 ? ["#ECEFF1", "#B58457", "#C79A6A"] : ["#B58457", "#C79A6A"],
-        walls: owner ? ["#FAFAFA"] : n === 3 ? ["#FFF1D6", "#E8DCC6", "#DCE8E0"] : ["#E8DCC6", "#DCE8E0"],
+        walls: owner ? (n === 3 ? ["#FAFAFA", "#FAFAFA", wallM] : ["#FAFAFA", wallM]) : n === 3 ? ["#FFF1D6", "#E8DCC6", wallM] : ["#E8DCC6", wallM],
         door: li, doorDx: 1.3,
     });
     const V = rt.data.V = { kinds, cx: B.cx, room: -1, said: new Set(), lastLine: 0, owner, target: null };
@@ -59,14 +69,31 @@ function build(rt) {
     const lx = B.cx[li];
     const bx = B.cx[n - 1];
     if (owner) {
+        const tn = !visit && rec && S.rent[rec.id] && S.rent[rec.id].tenant != null ? TENANTS[S.rent[rec.id].tenant % TENANTS.length] : null;
+        V.tenant = tn; V.bx = bx; V.cache = {}; V.objs = {};
         B.put("Rug", lx + 0.2, 0.3);
         B.put("BeanBag", lx + 0.6, -0.8, 0.4, 0.8, 0.8);
         B.put("FloorLamp", lx + 2.2, bz + 0.45, 0, 0.3, 0.3);
-        movingBoxes(B, lx - 0.6, 0.9, 3, 2);
-        // her room: a mattress on the floor (it counts), a lamp on a box
-        B.box(1.9, 0.22, 1.1, "#ECEFF1", bx - 1.2, 0.11, -1.6); B.box(0.5, 0.12, 0.34, "#F8BBD0", bx - 1.9, 0.28, -1.6);
-        B.col("mattress", bx - 2.2, bx - 0.2, -2.2, -1.0);
-        movingBoxes(B, bx + 1.6, -1.7, 2, 5);
+        if (!tn) movingBoxes(B, lx - 0.6, 0.9, 3, 2);
+        // her room: a mattress on the floor where the bed goes (until she places a bed), the shelf / nightstand spots
+        V.mattress = [B.box(1.1, 0.22, 2.0, "#ECEFF1", bx - 1.7, 0.11, -1.75), B.box(0.6, 0.12, 0.34, "#F8BBD0", bx - 1.7, 0.28, -2.45)];
+        B.col("bed", bx - 2.32, bx - 1.08, -2.8, -0.62);
+        if (!tn) movingBoxes(B, bx + 1.2, 0.9, 2, 5);
+        // decorations she placed here (features/decor's catalogue + props; the room is decor's size)
+        if (!visit) for (const id of DSLOTS) { const o = placedHere(id); if (o) show(rt, id, o); }
+        if (tn) {
+            // a tenant lives here: their stuff everywhere, no redecorating (that's their home now)
+            try {
+                rt.person("tenant", tn.key, { x: lx - 0.8, z: -0.4, ry: 0.4 }, { name: tn.name, colors: tn.colors, pose: {} });
+                rt.hot({ id: "tenant", who: "tenant", track: true, r: 1.5, label: () => `${tn.emoji} ${tn.name} (your tenant)`, action: r => r.say(tn.name, pick(tn.lines), { emoji: tn.emoji, person: r.byId.tenant }) });
+            } catch (e) { console.warn("[realestate] tenant", e); }
+        } else if (!visit && !(ctx.party && ctx.party.active)) {     // (decorating is solo — like features/decor)
+            for (const id of DSLOTS) {
+                const sp = spotOf(id, bx), slot = slotById(id);
+                if (!sp || !slot) continue;
+                rt.hot({ id: "slot:" + id, x: sp.x, z: sp.z, r: sp.r, label: () => `${slot.icon} ${slot.name} — decorate`, action: r => pickHere(r, id) });
+            }
+        }
         // a welcome card on the wall
         const c = document.createElement("canvas"); c.width = 512; c.height = 160; const g = c.getContext("2d");
         g.fillStyle = "#FFF3F8"; g.fillRect(0, 0, 512, 160); g.fillStyle = "#AD1457"; g.font = "bold 52px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
@@ -88,9 +115,9 @@ function build(rt) {
     // ── hotspots ──
     rt.hot({ id: "fridge", x: kx + 1.0, z: bz + 1.2, r: 1.0, label: "🧊 The fridge", action: r => r.say("Lulu", owner ? pick(["One pickle. My pickle. In MY fridge.", "Empty! Like my bank account. But in a fun way.", "It hums. We're friends now."]) : pick(["The sellers left a kugel. Is that… a sign? It's a sign.", "Seltzer, ketchup and one mysterious jar. A classic."]), { emoji: "🧊" }) });
     rt.hot({ id: "window", x: lx - 2.2, z: bz + 0.9, r: 1.0, label: "🪟 Look out the window", action: r => r.say("Lulu", pick(["The neighbours are watching me look at them. Mutual. Healthy.", "A view of the street! And a man walking a very small dog. Charming.", rec && rec.nbLine ? "I can see the neighbours from here. Oh. OH. That's what she meant." : "Trees! A tree. One tree. Love it."]), { emoji: "🪟" }) });
-    if (owner) {
+    if (owner && !V.tenant) {
         rt.hot({ id: "boxes", x: lx - 0.6, z: 1.8, r: 1.1, label: "📦 Unpack a box", action: r => r.say("Lulu", pick(["Box 1: socks. Box 2: more socks. Box 3: ONE fork.", "I packed a lamp, a scarf and a single sock-puppet. Priorities.", "Unpacking is just Pesach cleaning in reverse."]), { emoji: "📦" }) });
-        rt.hot({ id: "mattress", x: bx - 1.2, z: -0.7, r: 1.2, label: "🛏️ Flop on the mattress", action: r => r.say("Lulu", pick(MINE.inside), { emoji: "🛏️" }) });
+
     }
     // ── the realtor (a viewing) ──
     if (!owner) {
@@ -102,7 +129,7 @@ function build(rt) {
     }
     rt.lulu.obj.position.set(B.doorX, 0, D / 2 - 0.9);
     rt.lulu.obj.rotation.y = Math.PI;
-    rt.wait(0.8).then(() => { if (!rt.disposed && owner) rt.bubble(pick(MINE.inside), rt.lulu.obj, 2.8); });
+    rt.wait(0.8).then(() => { if (!rt.disposed && owner) rt.bubble(visit ? pick([`${CUR.owner}'s place! Nice echo. 👯`, `Okay, ${CUR.owner}, where's the snack cabinet?`]) : pick(MINE.inside), rt.lulu.obj, 2.8); });
 }
 
 /** Which room she's in (index) from her x. */
@@ -143,4 +170,78 @@ async function talkDeal(rt) {
     else if (i === 1) await rt.say(R.name, API.mortgageLine ? API.mortgageLine(rec) : "The bank's on the high street — they LOVE paperwork. Talk to them!", { emoji: R.emoji, person: who });
     else if (i === 2) rt.leave();
 }
+// ── decorating her own house (features/decor's catalogue, picker and props) ──
+const DSLOTS = ["bed", "lamp", "art", "shelf", "rug", "wallpaper"];
+const DRCX = 6.2;                 // decor's own room centre (HOUSE_SPOTS are around it)
+function spotOf(id, bx) { const sp = HOUSE_SPOTS[id]; return sp ? { x: sp.x - DRCX + bx, z: sp.z, r: sp.r, look: [sp.look[0] - DRCX + bx, sp.look[1], sp.look[2]] } : null; }
+/** What's placed in THIS house (null = nothing yet). */
+function placedHere(slot) { const id = CUR.rec && CUR.rec.id, P = id && S.decor[id]; const o = P && P[slot]; const sl = slotById(slot); return o && sl && optOf(sl, o) && ctx.decor && ctx.decor.owns(slot, o) ? o : null; }
+function placeHere(slot, opt) {
+    const id = CUR.rec && CUR.rec.id;
+    if (!id || !ctx.decor || !ctx.decor.owns(slot, opt)) return false;
+    (S.decor[id] = S.decor[id] || {})[slot] = opt;
+    saveSoon();
+    show(CUR.rt, slot, opt);
+    return true;
+}
+const pickerApi = () => ({
+    owns: (s, o) => !!(ctx.decor && ctx.decor.owns(s, o)),
+    placed: s => placedHere(s),
+    place: (s, o) => placeHere(s, o),
+    preview: (s, o) => show(CUR.rt, s, o == null ? placedHere(s) : o),
+    // a NEW thing is bought through features/decor (the same catalogue, prices, wallet, toasts) — then it goes HERE; her
+    // family house keeps what it had
+    buy(s, o) {
+        if (!ctx.decor) return { ok: false, why: "bad" };
+        if (ctx.decor.owns(s, o)) { placeHere(s, o); return { ok: true, why: "owned" }; }
+        const prev = ctx.decor.placed(s);
+        const r = ctx.decor.buy(s, o);
+        if (r.ok) { if (prev && prev !== o) ctx.decor.place(s, prev); placeHere(s, o); emit("stat", { id: "reDecor", n: 1 }); }
+        return r;
+    },
+});
+function show(rt, slot, opt) {
+    const V = rt && !rt.disposed && rt.data.V;
+    if (!V || !V.cache) return;
+    const sl = slotById(slot);
+    if (!sl) return;
+    if (slot === "wallpaper") {
+        const o = opt && optOf(sl, opt);
+        rt.data.wallM.map = o ? wallTex(o.wall) : null; rt.data.wallM.color.set(o ? "#ffffff" : "#FAFAFA"); rt.data.wallM.needsUpdate = true;
+        return;
+    }
+    const cache = V.cache[slot] || (V.cache[slot] = {});
+    if (opt && !(opt in cache)) {
+        const obj = buildOption("inside", slot, opt);
+        if (obj) { obj.position.x = V.bx; rt.add(obj); }
+        cache[opt] = obj;
+    }
+    for (const k of Object.keys(cache)) if (cache[k]) cache[k].visible = k === opt;
+    if (slot === "bed" && V.mattress) for (const m of V.mattress) m.visible = !opt;
+}
+function trim(rt, slot) {
+    const V = rt && rt.data.V, cache = V && V.cache && V.cache[slot];
+    if (!cache) return;
+    const keep = placedHere(slot);
+    for (const k of Object.keys(cache)) if (k !== keep) { disposeObj(cache[k]); delete cache[k]; }
+    show(rt, slot, keep);
+}
+function pickHere(rt, id) {
+    const slot = slotById(id), sp = spotOf(id, rt.data.V.bx);
+    if (!slot || !sp) return;
+    rt.focusAt = new THREE.Vector3(sp.look[0], sp.look[1] - 1.3, sp.look[2]);
+    rt.faceTo = { x: sp.look[0], z: sp.look[2] };
+    return rt.runMode({
+        start() { openPicker(slot, pickerApi(), null); },
+        update(r, dt, P) { return !pickerTick(P); },
+        stop() { if (pickerOpen()) closePicker(true); rt.focusAt = null; trim(rt, id); },
+    });
+}
+function dispose(rt) {
+    if (pickerOpen()) closePicker(true);
+    const V = rt && rt.data.V;
+    if (V && V.cache) for (const c of Object.values(V.cache)) for (const o of Object.values(c)) if (o) o.traverse(m => { if (m.isMesh && m.userData.ownMaterial) m.material.dispose(); });
+    if (CUR.rt === rt) CUR.rt = null;
+}
+export const HOUSE_SLOTS = DSLOTS;
 export { W };

@@ -24,7 +24,8 @@ import { finalize, log } from "./deal.js";
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmt = n => Math.round(n).toLocaleString("en-US");
 const townId = () => (ctx.town && ctx.town.active && ctx.town.id) || "lakewood";
-const party = () => !!(ctx.party && ctx.party.active) || !!(ctx.G && ctx.G.mode === "party");
+import { roam } from "./party.js";
+const party = () => (!!(ctx.party && ctx.party.active) || !!(ctx.G && ctx.G.mode === "party")) && !roam();     // (with friends: 🌍 Free Roam only)
 const banker = town => BANKERS[town] || BANKERS.lakewood;
 
 // ── the numbers ──────────────────────────────────────────────────────────

@@ -40,7 +40,7 @@ function ensure(town) {
     const N = 64;
     if (!G.geo) G.geo = { post: new THREE.BoxGeometry(0.07, 1, 0.07), board: new THREE.BoxGeometry(0.92, 0.62, 0.035), box: new THREE.BoxGeometry(0.46, 0.3, 0.3), plate: new THREE.BoxGeometry(0.5, 0.16, 0.02) };
     G.mats.post = G.mats.post || new THREE.MeshStandardMaterial({ color: "#FFFFFF", roughness: 0.8 });
-    G.mats.box = G.mats.box || new THREE.MeshStandardMaterial({ color: "#F06292", roughness: 0.5, metalness: 0.2 });
+    G.mats.box = G.mats.box || new THREE.MeshStandardMaterial({ color: "#FFFFFF", roughness: 0.5, metalness: 0.2 });   // (each mailbox's colour: instanceColor)
     G.mats.plate = G.mats.plate || new THREE.MeshStandardMaterial({ map: plateTex(), roughness: 0.7 });
     const board = new THREE.MeshStandardMaterial({ map: boardTex(town), roughness: 0.7 });
     G.mats.board = board;
@@ -58,7 +58,8 @@ function put(mesh, x, y, z, rot, sx = 1, sy = 1, sz = 1) {
 }
 
 /** Lay out the signs: `listed` = catalogue records for sale today, `owned` = her records standing in this town. */
-export function layout(town, listed, owned) {
+const _c = new THREE.Color();
+export function layout(town, listed, owned, friends = []) {
     ensure(town);
     const M = G.meshes;
     for (const m of Object.values(M)) m.count = 0;
@@ -68,15 +69,19 @@ export function layout(town, listed, owned) {
         put(M.post, r.sign.x + r.ux * 0.38, 0.55, r.sign.z + r.uz * 0.38, rot, 1, 1.1, 1);
         put(M.board, r.sign.x, 0.98, r.sign.z, rot);
     }
-    for (const r of owned) {
+    const box = (r, hex, plate) => {
         // the mailbox: beside the front walk, on the other side from where a yard sign would stand
         const mx = r.lot.x - r.nx * 0.35 - (r.sign.x - r.lot.x + r.nx * 0.7) * 0.6, mz = r.lot.z - r.nz * 0.35 - (r.sign.z - r.lot.z + r.nz * 0.7) * 0.6;
         const rot = Math.atan2(r.nx, r.nz);
         r.mailbox = { x: mx, z: mz };
         put(M.post, mx, 0.45, mz, rot, 1.2, 0.9, 1.2);
+        M.box.setColorAt(M.box.count, _c.set(hex));
         put(M.box, mx, 1.02, mz, rot);
-        put(M.plate, mx + r.nx * 0.16, 1.27, mz + r.nz * 0.16, rot);
-    }
+        if (plate) put(M.plate, mx + r.nx * 0.16, 1.27, mz + r.nz * 0.16, rot);
+    };
+    for (const r of owned) box(r, "#F06292", true);
+    for (const r of friends) box(r, (r.who && r.who.hex) || "#7E57C2", false);      // (a friend's: their colour)
+    if (M.box.instanceColor) M.box.instanceColor.needsUpdate = true;
     for (const m of Object.values(M)) {
         m.instanceMatrix.needsUpdate = true;
         m.visible = m.count > 0;

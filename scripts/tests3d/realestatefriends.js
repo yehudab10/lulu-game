@@ -1,0 +1,105 @@
+// 🏘️👯 REAL ESTATE WITH FRIENDS (features/realestate stage 4) — two real pages in one party against the LOCAL relay
+// (never production), in 🌍 Free Roam, both in Lakewood:
+//   • the host buys a home → the guest sees it as the host's (the registry's friends source, d.x.re): not listed, can't
+//     be claimed, a mailbox in the host's colour, ✋ at its door names the owner
+//   • the host goes inside → the guest's ✋ says 👯 JOIN <host> INSIDE → both in the same room (features/together:
+//     the instance is the house id), each sees the other; the visit has no decorating; nobody's coins move
+//   • a double booking (both signed the same home): the earlier purchase keeps it, the other gets every coin back
+const path = require("path");
+const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
+let relay = null;
+const PORT = 27000 + (process.pid % 20000);
+const Q0 = `&enable=party,foot,town,openworld&mpurl=${encodeURIComponent(`ws://127.0.0.1:${PORT}`)}`;
+
+module.exports = {
+  name: "realestatefriends",
+  viewport: { width: 1280, height: 720 },
+  query: Q0,
+  save2d: { totalCoins: 60000, ownedSkins: ["pink"], selectedSkin: "pink", mpName: "Kugel Kid" },
+  async run(t) {
+    relay = await startRelay(PORT);
+    setWallCap(10 * 60000);
+    const guests = [];
+    try { await body(t, guests); }
+    catch (e) { t.check("realestatefriends threw", false, String(e && e.stack || e).slice(0, 500)); }
+    finally {
+      for (const g of guests) {
+        t.check(`${g.label}: no page errors`, g.errors.length === 0, g.errors.slice(0, 3).map(s => s.slice(0, 300)).join(" | "));
+        try { await g.page.close(); } catch (e) { }
+      }
+      relay.kill();
+    }
+  },
+};
+
+async function body(t, guests) {
+  const g = t.game, Hp = hostPage(t);
+  await t.click(/Friends/);
+  await t.L(`document.getElementById("pt_roam").click()`);
+  if (!await Hp.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "host: Free Roam", 120000)) return;
+  await g(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
+  const code = await g(`ctx.party.code`), hostUid = await g(`ctx.party.uid`), HU = JSON.stringify(hostUid);
+  const A = await guestPage(t, "guest", { totalCoins: 60000, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `${Q0}&party=${code}&with=${hostUid}`);
+  guests.push(A);
+  if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
+  await A.game(`(ctx.law && ctx.law.hold && ctx.law.hold(99999), true)`);
+  const guestUid = await A.game(`ctx.party.uid`), GU = JSON.stringify(guestUid);
+  for (const p of [Hp, A]) await p.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), true)`);
+
+  // ── both into Lakewood, on foot ──
+  for (const P of [Hp, A]) {
+    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    if (!await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood" && ctx.realestate.homes().length > 40`, `${P.label} in Lakewood`, 60000)) return;
+    await P.game(`ctx.foot.start("parked")`);
+    if (!await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label} on foot`, 60000)) return;
+  }
+  t.check("with friends in 🌍 Free Roam the market is open (listings on both screens)", (await g(`ctx.realestate.listings().length`)) > 0 && (await A.game(`ctx.realestate.listings().length`)) > 0);
+
+  // ── the host buys a home ──
+  const id = await g(`ctx.realestate.listings()[0].id`), ID = JSON.stringify(id);
+  const ok = await g(`ctx.realestate.debug.buyNow(${ID})`);
+  t.check("the host buys a home (cash)", ok && (await g(`ctx.realestate.owns(${ID})`)));
+  if (!await A.until(`(() => { const o = ctx.realestate.ownerOf(${ID}); return !!o && !o.me && o.name === "Kugel Kid"; })()`, "guest: it's Kugel Kid's now", 60000)) return;
+  t.check("…the guest sees it as the host's: no longer listed", !(await A.game(`ctx.realestate.debug.isListed(${ID})`)));
+  t.check("…and can't buy it (the registry says taken)", (await A.game(`ctx.realestate.registry.claim(${ID}, { town: "lakewood", address: "x" }).why`)) === "taken");
+  await A.until(`ctx.realestate.debug.W.friends.some(r => r.id === ${ID}) && ctx.realestate.debug.counts().mailboxes >= 1`, "guest: a mailbox in the host's colour at that house", 20000);
+  // the guest at its door: whose it is (nobody home yet)
+  const rec = await A.game(`ctx.realestate.home(${ID})`);
+  await A.game(`(() => { const F = ctx.foot.debug.F; F.pos.set(${rec.ap.x}, 0.05, ${rec.ap.z}); ctx.foot.obj.position.copy(F.pos); return true; })()`);
+  await A.frames(4);
+  const l0 = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+  t.check("guest at the host's door: ✋ says whose house it is", /KUGEL KID'S HOUSE/.test(l0), l0);
+
+  // ── the host goes inside her house → the guest joins her ──
+  const hrec = await g(`ctx.realestate.home(${ID})`);
+  await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${hrec.ap.x}, 0.05, ${hrec.ap.z}); ctx.foot.obj.position.copy(F.pos); return true; })()`);
+  await t.frames(4);
+  await g(`ctx.realestate.goIn(${ID}, "owner")`);
+  if (!await Hp.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "host inside her house", 60000)) return;
+  if (!await A.until(`/JOIN KUGEL KID INSIDE/.test((ctx.foot.debug.interactables() || {}).label || "")`, "guest: ✋ 👯 JOIN KUGEL KID INSIDE", 60000)) return;
+  const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
+  await A.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
+  if (!await A.until(`ctx.state === "interior" && window.__interiors.room && window.__interiors.room.ready`, "guest walks in", 60000)) return;
+  await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "host sees the guest inside", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host", 60000);
+  t.check("the same room on both screens (the house id)", (await g(`ctx.together.debug.room().inst`)) === id && (await A.game(`ctx.together.debug.room().inst`)) === id);
+  t.check("…the guest's visit: no decorating hotspots", !(await A.game(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)) && (await A.game(`ctx.realestate.debug.CUR.mode`)) === "visit");
+  t.check("…in a party the owner doesn't redecorate either", !(await g(`window.__interiors.room.hots.some(h => /^slot:/.test(h.id))`)));
+  await t.frames(20);
+  await t.shot("friends-inside");
+  t.check("nobody's coins moved", (await g(`L3.wallet.coins`)) === coins0.h && (await A.game(`L3.wallet.coins`)) === coins0.a);
+  await A.game(`(window.__interiors.room.leave(), true)`);
+  await g(`(window.__interiors.room.leave(), true)`);
+  await A.until(`ctx.state === "footRun"`, "guest back out", 30000);
+  await Hp.until(`ctx.state === "footRun"`, "host back out", 30000);
+
+  // ── a double booking: both signed the same home; the earlier one keeps it ──
+  const id2 = await g(`ctx.realestate.listings().map(r => r.id).find(x => x !== ${ID})`), ID2 = JSON.stringify(id2);
+  const c1 = await A.game(`L3.wallet.coins`);
+  await A.game(`(L3.wallet.add(-1000), ctx.realestate.registry.claim(${ID2}, { town: "lakewood", address: "the same house", paid: 1000, since: Date.now() }).ok)`);
+  await g(`ctx.realestate.registry.claim(${ID2}, { town: "lakewood", address: "the same house", paid: 1000, since: Date.now() - 600000 }).ok`);
+  if (!await A.until(`!ctx.realestate.owns(${ID2})`, "guest: double-booked → the later signature lets go", 60000)) return;
+  await A.frames(40);
+  t.check("…the earlier one (the host) keeps it", await g(`ctx.realestate.owns(${ID2})`));
+  t.check("…and the guest gets every coin back", Math.abs((await A.game(`L3.wallet.coins`)) - c1) < 1, `${c1} → ${await A.game(`L3.wallet.coins`)}`);
+}

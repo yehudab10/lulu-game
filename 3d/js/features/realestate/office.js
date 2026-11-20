@@ -100,8 +100,11 @@ async function talkRealtor(rt) {
     const town = API ? API.townId() : "lakewood", R = realtorOf(town), who = rt.byId.realtor;
     const line = API && API.owns() && Math.random() < 0.4 ? pick(OFFICE.owns) : Math.random() < 0.5 ? patter() : talk();
     await rt.say(R.name, line, { emoji: R.emoji, person: who });
-    const i = await rt.choose(R.name, "So! What can I do for you?", ["📋 Show me what's for sale", "💬 Just saying hi"], { emoji: R.emoji, person: who });
+    const mine = API && API.owns();
+    const opts = ["📋 Show me what's for sale"].concat(mine ? ["🔑 My places — sell / a tenant"] : [], ["💬 Just saying hi"]);
+    const i = await rt.choose(R.name, "So! What can I do for you?", opts, { emoji: R.emoji, person: who });
     if (i === 0) return openBoard(rt);
+    if (mine && i === 1) return API.myPlaces(rt, who, R);
 }
 
 /** The board: today's listings → one → her pitch → show me / buy. */

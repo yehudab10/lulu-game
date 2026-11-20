@@ -31,6 +31,8 @@ module.exports = {
       for (let k = 0; k < max; k++) {
         const d = await dlg();
         if (d.opts.length) return d.opts;
+        // a choice still typing out: wait (a press would pick its first option)
+        if (d.open && await t.L(`document.querySelectorAll("#dialog .opt").length > 0`)) { await t.frames(6); continue; }
         if (!d.open) { await t.frames(6); if (!(await dlg()).open) return []; continue; }
         await t.tap(0); await t.frames(4);
       }
@@ -301,6 +303,75 @@ module.exports = {
       t.check("pay it off early: what's owed minus half the bank's fee; free and clear", r2.ok && r2.paid === r2.want && r2.gone && r2.mine, JSON.stringify(r2));
     });
 
+    // ── stage 3: decorating her house, rent, selling ──
+    await step("decorating her house", async () => {
+      await setCoins(5000);
+      const rec = await g(`ctx.realestate.home(${JSON.stringify(homeId)})`);
+      await stand(rec.ap.x + rec.nx * 0.4, rec.ap.z + rec.nz * 0.4, rec.door.x, rec.door.z);
+      await t.tap(0);
+      t.check("in her house again", await roomReady());
+      const hs = await g(`window.__interiors.room.hots.map(h => h.id)`);
+      t.check("decor's spots are hotspots in her own house", ["slot:bed", "slot:lamp", "slot:art", "slot:shelf", "slot:rug", "slot:wallpaper"].every(h => hs.includes(h)), hs.join(","));
+      const fam0 = await g(`ctx.decor.placed("bed")`);
+      await g(`(() => { const r = window.__interiors.room, h = r.hots.find(h => h.id === "slot:bed"); r.lulu.obj.position.set(h.x, 0, h.z + 0.25); r.lulu.obj.rotation.y = Math.PI; return true; })()`);
+      await t.frames(4);
+      await t.tap(0);
+      await t.frames(4);
+      t.check("✋ at the bed → decor's picker card", (await g(`ctx.decor.debug.pickerSlot`)) === "bed");
+      await t.tap(15); await t.frames(3);            // → the next bed (a new one)
+      const c0 = await coins();
+      await t.tap(0); await t.tap(0); await t.frames(3);   // ask → buy
+      const P = await g(`({ here: ctx.realestate.debug.S.decor[${JSON.stringify(homeId)}], fam: ctx.decor.placed("bed"), owns: ctx.decor.owns("bed", "fluffy") })`);
+      t.check("buy a bed for HER house: it's placed there (two presses, coins spent)", P.here && P.here.bed === "fluffy" && P.owns && (await coins()) < c0, JSON.stringify(P) + " coins " + (await coins()));
+      t.check("…Lulu's family house keeps the bed it had", P.fam === fam0, `${P.fam} vs ${fam0}`);
+      await t.tap(1); await t.frames(4);
+      await t.shot("owned-decorated");
+      t.check("out again", await leaveRoom());
+    });
+    await step("rent", async () => {
+      const R = await g(`(() => { const R = ctx.realestate, C = R.debug.CLOCK; C.offset = 0; R.debug.S.days.rent = null; const t = R.findTenant(${JSON.stringify(homeId)}); R.debug.RN.tick(); const d0 = R.rentPile(${JSON.stringify(homeId)}); C.offset = 1; R.debug.RN.tick(); const d1 = R.rentPile(${JSON.stringify(homeId)}); C.offset = 5; R.debug.RN.tick(); C.offset = 9; R.debug.RN.tick(); C.offset = 12; R.debug.RN.tick(); C.offset = 13; R.debug.RN.tick(); const pile = R.rentPile(${JSON.stringify(homeId)}); const one = R.rentToday()[0]; C.offset = 0; return { t: t && t.name, d0, d1, pile, one: one && one.n, value: R.valueOf(${JSON.stringify(homeId)}) }; })()`);
+      t.check("the realtor finds a tenant; rent starts the next PLAYED day (1 % of the value)", R.t && R.d0 === 0 && R.d1 > 0 && Math.abs(R.d1 - R.value * 0.01) <= 2, JSON.stringify(R));
+      t.check("uncollected rent piles up to 3 days at most", R.pile <= R.one * 3 + 3 && R.pile >= R.one * 2, JSON.stringify(R));
+      const c0 = await coins();
+      const rec = await g(`ctx.realestate.home(${JSON.stringify(homeId)})`);
+      const mb = await g(`ctx.realestate.debug.W.owned.find(r => r.id === ${JSON.stringify(homeId)}).mailbox`);
+      await stand(mb.x + rec.nx * 0.8, mb.z + rec.nz * 0.8, mb.x, mb.z);
+      await t.tap(0); await t.frames(10); await closeAll(); await t.frames(6);
+      t.check("✋ 📬 the mailbox: the rent is hers", (await coins()) === c0 + R.pile && (await g(`ctx.realestate.rentPile(${JSON.stringify(homeId)})`)) === 0, `${c0} → ${await coins()} (pile ${R.pile})`);
+      // the cap: ten pricey rented homes still pay ≤ 150 a played day
+      const cap = await g(`(() => { const R = ctx.realestate, reg = R.registry, S = R.debug.S; const ids = []; for (let k = 0; k < 8; k++) { const id = "lakewood:cap" + k; if (reg.claim(id, { town: "nowhere", address: "#" + k, price: 30000, paid: 0 }).ok) { ids.push(id); S.rent[id] = { tenant: 0, since: 0, pile: 0 }; } } const total = R.rentToday().reduce((a, r) => a + r.n, 0); for (const id of ids) { reg.release(id, "test"); delete S.rent[id]; } return { n: ids.length + 1, total }; })()`);
+      t.check("all her homes together: rent ≤ 150 a played day", cap.total <= 150 && cap.total >= 140, JSON.stringify(cap));
+      await g(`(ctx.realestate.tenantOut(${JSON.stringify(homeId)}), true)`);
+    });
+    await step("selling", async () => {
+      // the rule: buy-then-sell always loses (value ±3.5 % over the days, a 10 % fee)
+      const arb = await g(`(() => { const R = ctx.realestate, C = R.debug.CLOCK; let worst = 0; for (const h of R.homes().slice(0, 40)) { const v = []; for (let d = 0; d < 46; d++) { C.offset = d; v.push(R.valueOf(h)); } for (let a = 0; a < v.length; a++) for (let b = a; b < v.length; b++) worst = Math.max(worst, v[b] * 0.9 / v[a]); } C.offset = 0; return worst; })()`);
+      t.check("no arbitrage: selling later never beats buying (best case still loses ≥ 2 %)", arb < 0.98, arb.toFixed(4));
+      const q = await g(`ctx.realestate.quote(${JSON.stringify(homeId)})`);
+      t.check("the sale price: today's value − the 10 % fee", q.net === q.value - Math.round(q.value * 0.1) && q.bank === 0, JSON.stringify(q));
+      const c0 = await coins();
+      // through the office: talk → my places → sell → ✍️
+      const sp = await g(`ctx.town.spot("realty")`);
+      await stand(sp.x + sp.nx * 1.2, sp.z + sp.nz * 1.2, sp.x, sp.z);
+      await t.tap(0);
+      t.check("into the office", await roomReady());
+      await g(`(() => { const r = window.__interiors.room, h = r.hots.find(h => h.id === "realtor"); r.lulu.obj.position.set(h.x, 0, h.z + 0.3); r.lulu.obj.rotation.y = Math.PI; return true; })()`);
+      await t.frames(4);
+      await t.tap(0);
+      t.check("the realtor: 🔑 my places", (await pickOpt(/My places/)).ok);
+      await pickOpt(/Forest|Minivan|Carpool|Clifton|Lake|Route|Main|County|14th/);
+      const o = await toChoice();
+      t.check("…sell it (the net shown) / a tenant", o.some(x => /Sell it/.test(x)) && o.some(x => /tenant/.test(x)), o.join(" | "));
+      await pickOpt(/Sell it/);
+      const o2 = await toChoice();
+      t.check("…the first press asks", o2.some(x => /✍️ Sell/.test(x)) && (await coins()) === c0, o2.join(" | "));
+      await pickOpt(/✍️ Sell/);
+      await t.frames(6);
+      t.check("✍️ → sold: +net, back on the market", (await coins()) === c0 + q.net && !(await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)), `${c0} → ${await coins()}`);
+      await closeAll();
+      t.check("out of the office", await leaveRoom());
+    });
+
     // ── the cap: 10 homes ──
     await step("the cap", async () => {
       const r = await g(`(() => { const R = ctx.realestate.registry; for (let k = 0; k < 20; k++) R.claim("test:" + k, { town: "nowhere", address: "#" + k, paid: 0 }); return R.count(); })()`);
@@ -319,7 +390,7 @@ module.exports = {
       t.check("the classic 2D save has no real-estate keys", s2.length === 0, s2.join());
       await t.page.reload();
       await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "reboots", 120000);
-      t.check("after a reload: still hers", (await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)) && (await g(`ctx.realestate.count()`)) === 2);
+      t.check("after a reload: her homes are still hers", (await g(`ctx.realestate.count()`)) === 1 && !(await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)), await g(`ctx.realestate.count()`));
     });
 
   },

@@ -243,3 +243,26 @@ export const BANK_TEXTS = {
     foreclose: (addr, back) => `We're sorry — after three missed days in a row, ${addr} goes back to the bank. Friendly foreclosure! You get back ${back} coins. We'll miss you. The forms won't. 🏦💔`,
     paidOff: addr => `${addr} is PAID OFF. Free and clear! Frame this text. 🏦🎉`,
 };
+
+// ── tenants (stage 3): the realtor finds one; rent piles up in that home's mailbox (RENT caps it) ──
+export const TENANTS = [
+    { name: "Shmerel", emoji: "🎺", key: "npcMan", colors: { Top: "#6D4C41" }, line: "Rent's in the mailbox! Also I practise the shofar at 6 a.m. For Elul. It's ALWAYS Elul for me.", lines: ["Is it okay if I keep a goat? A small one. A mini-goat.", "The faucet drips in G-sharp. I've been composing."] },
+    { name: "Mrs. Feigenbaum", emoji: "👵", key: "npcWoman", colors: { Top: "#8E24AA", Hair: "#BDBDBD" }, line: "Your rent, darling. Exact change. In a kugel tin. Return the tin.", lines: ["You look thin. Sit. Eat. It's YOUR house, I'm just living in it.", "I re-arranged the kitchen. It's better now. Don't argue."] },
+    { name: "a yeshiva bochur", emoji: "📚", key: "npcMan", colors: { Top: "#FAFAFA", Bottom: "#212121" }, line: "Rent! On time! Mostly! My mother made me.", lines: ["I only eat cereal. Is that a lease violation?", "The basement is PERFECT for learning. And for napping. Mostly napping."] },
+    { name: "the Kleins (newlyweds)", emoji: "💍", key: "npcWoman", colors: { Top: "#F48FB1" }, line: "We LOVE it here! Here's the rent! And a thank-you card! And a second card thanking you for the first card!", lines: ["We painted the bathroom 'Blush Kugel'. Hope that's okay!", "Our sheva brachos are next week. In your living room. You're invited!"] },
+    { name: "Dr. Gross (a dentist)", emoji: "🦷", key: "npcMan", colors: { Top: "#B3E5FC" }, line: "Rent. Also: you should floss. I can tell from here.", lines: ["Very quiet house. Excellent for teeth.", "I put a lollipop ban on the porch. For the neighbourhood's own good."] },
+];
+export const RENT_LINES = {
+    found: (who, addr) => `Found you a tenant for ${addr}: ${who}! They move in tomorrow. Rent goes in the mailbox — go collect it, it doesn't walk itself over. 📬`,
+    collect: (n) => `📬 Rent check: ${n} coins!`,
+    empty: "📬 No rent yet — tenants pay once a day you play, into this mailbox.",
+    out: "Done — the tenant's packing. They'll miss you. They'll miss the mini-goat more.",
+};
+export const SELL_LINES = {
+    ask: "Selling? Already? Okay. I'll find a buyer. I ALWAYS find a buyer. It's a gift. And a curse.",
+    done: [
+        "SOLD! To a lovely family from Monsey. They cried. I cried. The house didn't cry, it's a house.",
+        "SOLD! The buyer asked about the neighbours. I said 'they're FASCINATING'. Not a lie!",
+    ],
+    rule: "My fee is 10 %. Commission, the lawyer, the lawyer's lawyer, and a little something for the sign guy.",
+};

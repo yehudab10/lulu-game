@@ -15,9 +15,9 @@
 import { store, saveSoon } from "../../core/save.js";
 import { CAP } from "./data.js";
 
-const S = store("realestate", { owned: {}, sold: [], spent: 0, earned: 0, bought: 0, bills: {}, mortgage: {}, rent: {}, days: {}, met: {}, log: [] });
+const S = store("realestate", { owned: {}, sold: [], spent: 0, earned: 0, bought: 0, bills: {}, mortgage: {}, rent: {}, days: {}, met: {}, decor: {}, log: [] });
 // (a hand-edited / old save: keep it sane)
-for (const k of ["owned", "bills", "mortgage", "rent", "days", "met"]) if (!S[k] || typeof S[k] !== "object" || Array.isArray(S[k])) S[k] = {};
+for (const k of ["owned", "bills", "mortgage", "rent", "days", "met", "decor"]) if (!S[k] || typeof S[k] !== "object" || Array.isArray(S[k])) S[k] = {};
 for (const k of ["sold", "log"]) if (!Array.isArray(S[k])) S[k] = [];
 for (const [id, h] of Object.entries(S.owned)) if (!h || typeof h !== "object" || typeof h.town !== "string") delete S.owned[id];
 

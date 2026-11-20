@@ -87,7 +87,7 @@ export default {
         // features/realestate (roadmap 16): the realtor's storefront in the middle of the Avenue M store row
         realty: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
             tints: { Walls: "#7B4A3A", Awning: "#1B3A2B" }, signSize: [8.4, 0.9, 88], signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
-            with: [{ key: "town_mw_store", u: -10.5 }, { key: "town_mw_store", u: 10.5 }, { key: "town_mw_store", u: -21 }, { key: "town_mw_store", u: 21 }] },
+            with: [{ key: "town_mw_store", u: -10.5, list: "avem" }, { key: "town_mw_store", u: 10.5, list: "avem" }, { key: "town_mw_store", u: -21, list: "avem" }, { key: "town_mw_store", u: 21, list: "avem" }] },
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [
