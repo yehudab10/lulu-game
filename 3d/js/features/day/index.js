@@ -235,7 +235,7 @@ hook("hud", dt => {
 ctx.day = {
     get active() { return S.active; },
     get today() { ensureToday(); return DAY.day; },
-    list: () => { ensureToday(); return DAY.list.map(id => ({ id, done: isDone(id), prog: DAY.prog[id] || 0, n: (byId(id) || {}).n || 1, text: (byId(id) || {}).text })); },
+    list: () => { ensureToday(); return DAY.list.map(id => ({ id, done: isDone(id), prog: DAY.prog[id] || 0, n: (byId(id) || {}).n || 1, text: (byId(id) || {}).text, icon: (byId(id) || {}).icon })); },
     done: id => isDone(id),
     get complete() { return complete(); },
     get home() { return DAY.home; },

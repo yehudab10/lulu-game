@@ -26,7 +26,7 @@ const SAMPLER = `(() => {
     ["toast", "#toasts .toast"], ["banner", "#banner"], ["meta", "#metaToast .mt"], ["law", ".law-toast"], ["law", ".law-bubble"], ["law", ".law-cap"],
     ["speech", "#banterBubbles .bn-b"], ["bubble", "#footBubbles .fbub"], ["floater", "#footBubbles .ffloat"], ["bubble", ".re-bub"],
     ["caption", "#cameosCap"], ["caption", "#cameosChips > *"], ["caption", "#hsCap"], ["radio", ".hs-radio"], ["caption", ".heist-cap"],
-    ["text", ".jtext"], ["call", ".jphone"], ["mp", "#mpOverlay .toasts > div"], ["mp", "#mpOverlay .ban"], ["chip", "#owChip"],
+    ["text", ".jtext"], ["call", ".jphone"], ["mp", "#mpOverlay .toasts > div"], ["mp", "#mpOverlay .ban"], ["chip", "#owChip"], ["chip", "#frChip"],
     ["toast", ".lp-toast"], ["bubble", ".dl-bubble"], ["floater", ".dl-float"], ["prompt", "#prompt"],
   ];
   const C = window.__calm = { on: false, t0: 0, events: [], seen: new Map(), maxOn: 0, maxToasts: 0, cover: 0, coverSum: 0, samples: 0, toastsNow: 0 };

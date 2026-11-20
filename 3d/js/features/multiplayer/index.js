@@ -244,6 +244,8 @@ export function setOnline(on) {
     emit("mp:online", { on: !!on });
 }
 ctx.mp.setOnline = setOnline;
+ctx.mp.setFr = N.setFr;                 // (features/friends: ➕ a friend from 📍 Nearby)
+Object.defineProperty(ctx.mp, "myId", { get: () => (MP.connected ? MP.myId : null) });
 Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
 Object.defineProperty(ctx.mp, "online", { get: onlineOn });
 Object.defineProperty(ctx.mp, "near", { get: () => Object.values(MP.peers).filter(p => p.onScreen).length });
