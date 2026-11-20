@@ -243,6 +243,7 @@ function carClip(snapped, dt) {
     const k = d / D;
     const lift = d < 2.5 && !(typeof r === "object" && r.noLift) ? (2.5 - d) * 0.8 : 0;     // (not up into a tree's leaves)
     camera.position.set(_cp.x + vx * k, _cp.y + vy * k + lift, _cp.z + vz * k);
+    st.pos.copy(camera.position);     // (so a shot that starts from here — climbing out, a scene — starts outside the wall too)
 }
 
 function updateCamera(dt) {

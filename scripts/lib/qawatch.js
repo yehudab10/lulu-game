@@ -31,7 +31,7 @@ const SRC = String.raw`
   const L3 = window.__lulu3d, ctx = L3.ctx;
   const Q = window.__qa = {
     on: true, issues: [], counts: {}, ep: {}, last: null, f: -1, overlayF: 0, overlayCtl: 0, hidF: 0, insideF: 0,
-    stateSince: 0, pushF: 0, stateName: null, noCtl: 0, prevState: null, stateChangeF: -9, cutF: -9, notes: [], allow: [],
+    stateSince: 0, pushF: 0, leafF: 0, stateName: null, noCtl: 0, prevState: null, stateChangeF: -9, cutF: -9, notes: [], allow: [],
     opts: { footJump: 3.0, carJump: 4.0, camJump: 5.0, overlaySecs: 4, stuckSecs: 60, noCtlSecs: 4, flatEvery: 12, flatStd: 3.0 },
   };
   const flag = (kind, msg, key = kind) => {
@@ -162,12 +162,16 @@ const SRC = String.raw`
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
       // (on foot anywhere; in the car only in a town — the driving camera's walls are a town thing)
       const who = foot || (st === "playing" && ctx.town && ctx.town.active ? ctx.car.pos : null);
+      let leaf = null;
       if (who) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
         if (c.kind !== "tree" || c.off || camP.y < 2.0 || camP.y > 7.5) continue;
         const R = Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4)) - 0.3;     // (as foot/jump.js canopyR, a touch inside)
         if ((who.x - c.x) ** 2 + (who.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)
-        if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) flag("inwall", "the camera is inside a tree's leaves @" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")", "inwall:tree");
+        if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) { leaf = "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")"; break; }
       }
+      // (a camera on the move brushing through leaves for a moment is fine; PARKED in them — a green / black screen — isn't)
+      if (leaf) Q.leafF += dF; else Q.leafF = 0;
+      if (Q.leafF > 12) flag("inwall", "the camera stays inside a tree's leaves " + leaf, "inwall:tree");
       if (who) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + (foot ? ", Lulu " : ", car ") + JSON.stringify(P(who)) + ")", foot ? "inwall" : "inwall:car"); }
       const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
       if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)
