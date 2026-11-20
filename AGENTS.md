@@ -288,8 +288,10 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
   Velvel's roadside shack doesn't sell missiles (the van is in town only) and there's no dealer at a rest area — a brand-new
   player's first town is one exit away (2 km), and Ima's list / 🛍️ Where to shop point there. Town sign atlas: Midwood's was
   already at its readable floor (scale 0.53 ≥ 0.5) — new town signs must be small cells (`signW`), or something else gives.
-  `onegame` "Ima's first line points at the suitcase" fails on a real FRIDAY afternoon (12:00–19:59 device time: Ima asks
-  for the Shabbos rush instead) — the test doesn't pin the clock.
+  `onegame` "Ima's first line points at the suitcase" failed on a real FRIDAY afternoon (Ima asks for the Shabbos rush
+  instead) — fixed in the test (it pins a Wednesday for that check). Seen the same evening, NOT from shops (it fails the same
+  way on main): `calm` "(b) FOOT … in Lakewood" times out when Lulu wrecks during the solo highway minute (a night drive —
+  more crashes; `G.invT` only covers 20 s) — she's on foot, and `ctx.town.enter` from foot never makes the town active.
 - Places (`ci/places`): her impounded car stands behind the impound fence but can't be taken back early (impound has no
   fee in the 3D game — springing it for coins would be an economy change: **the owner's call**); the precinct / court /
   hospital doors are on one side of the building only (no back door for the jailbreak — she bolts out the front); the
