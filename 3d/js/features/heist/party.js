@@ -24,7 +24,7 @@ import { models, cloneWithColors, need, hold, setChip, setBeacon, fmtM, sfx, con
 
 const MAX_PAY = PAY.foil[1] + PAY.foilClean + PAY.tackle;     // the most one solo foil can pay
 export const PAY_CAP = 3;                                         // party foils that pay, per player, per party session (host-counted)
-const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null, claims: [] };
+const S = { sendT: 0, sent: "", pup: new Map(), paid: new Set(), host: { seen: new Set(), n: new Map() }, hitT: 0, last: null, claims: [], hkSeq: 0, hkT: 0, hkSeen: new Set() };
 
 const me = () => (ctx.party ? ctx.party.uid : "");
 const zone = () => (ctx.town && ctx.town.active ? ctx.town.id || "" : "");
@@ -93,6 +93,15 @@ function publish(dt) {
 const _v = new THREE.Vector3();
 
 // ── a friend's robbery on my screen (puppets, the chip, my ram / tackle) ────────────────
+/** My ram / tackle on a friend's robber: a quick broadcast AND ~5 s in my own snapshot (d.x.hk) — a broadcast is a
+ *  one-off a slow screen can miss; the snapshot is the latest state, read by the owner whenever it next looks. */
+function claimHit(owner, id, how) {
+    const seq = (S.hkSeq = (S.hkSeq + 1) % 1000);
+    ctx.party.broadcast("hk", owner, id, how);
+    ctx.party.setX("hk", [owner, id, how, seq]);
+    clearTimeout(S.hkT);
+    S.hkT = setTimeout(() => { try { ctx.party.setX("hk", null); } catch (e) { /* left the party */ } }, 5000);
+}
 class Puppet {
     constructor(uid, a) {
         this.uid = uid; this.id = a[0];
@@ -120,7 +129,7 @@ class Puppet {
                 const fx = Math.sin(self.ch), fz = Math.cos(self.ch);
                 let imp = 0;
                 for (const k of [1.3, -1.3]) { const i = car.collideStatic(c.x + fx * k, c.z + fz * k, 0.95); if (i) imp = Math.max(imp, i); }
-                if (imp && self.a[1] <= 2 && ctx.time > self.hitT) { self.hitT = ctx.time + 0.6; ctx.party.broadcast("hk", self.uid, self.id, "ram"); sfx.pop(); burst(c.x, 1.0, c.z, 10, 3, [1, 0.85, 0.3], 0.3, 0.6); }
+                if (imp && self.a[1] <= 2 && ctx.time > self.hitT) { self.hitT = ctx.time + 0.6; claimHit(self.uid, self.id, "ram"); sfx.pop(); burst(c.x, 1.0, c.z, 10, 3, [1, 0.85, 0.3], 0.3, 0.6); }
                 return imp ? { impact: imp, why: "heist", source: "heist", harmless: true } : null;
             },
             dispose() { self.gone = true; },
@@ -129,7 +138,7 @@ class Puppet {
         this.spotRm = ctx.foot && ctx.foot.addSpot ? ctx.foot.addSpot({
             pos: () => (self.a[1] === 1 && self.robber ? self.robber.obj.position : null), r: 3.4, first: true,
             label: "🏈 TACKLE HIM!", short: "TACKLE",
-            act: () => { ctx.party.broadcast("hk", self.uid, self.id, "tackle"); if (ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Not on MY sidewalk!", 1.8); sfx.pop(); },
+            act: () => { claimHit(self.uid, self.id, "tackle"); if (ctx.foot.obj) ctx.foot.say(ctx.foot.obj, "Not on MY sidewalk!", 1.8); sfx.pop(); },
         }) : null;
     }
     update(dt, a) {
@@ -193,9 +202,29 @@ function claimHolds(ev, c) {
     if (c.how === "ram") return !!ev.car && !rc.foot && Math.hypot(rc.x - ev.car.x, rc.z - ev.car.z) < 7.5;
     return ev.phase === "run" && rc.foot && !!ev.robber && Math.hypot(rc.x - ev.robber.obj.position.x, rc.z - ev.robber.obj.position.z) < 4.5;
 }
-function checkClaims() {
-    if (!S.claims.length) return;
+/** A friend's claim from their snapshot (d.x.hk), each one once. */
+function addClaim(uid, a) {
     const ev = R && R.ev;
+    if (!ev || !Array.isArray(a) || a[0] !== me() || a[1] !== ev.id || (a[2] !== "ram" && a[2] !== "tackle")) return;
+    const p = ctx.party.peer(uid);
+    if (!p || zoneOf(p) !== zone()) return;
+    S.claims = S.claims.filter(c => !(c.uid === uid && c.how === a[2]));
+    S.claims.push({ uid, id: ev.id, how: a[2], until: ctx.time + 2 });
+}
+function checkClaims() {
+    const ev = R && R.ev;
+    if (ev && (ev.phase === "run" || ev.phase === "flee")) {
+        for (const u of ctx.party.members()) {
+            if (u === me()) continue;
+            const p = ctx.party.peer(u), a = p && p.x && p.x.hk;
+            if (!Array.isArray(a)) continue;
+            const key = `${u}:${a[1]}:${a[2]}:${a[3]}`;
+            if (S.hkSeen.has(key)) continue;
+            S.hkSeen.add(key);
+            addClaim(u, a);
+        }
+    }
+    if (!S.claims.length) return;
     const keep = [];
     for (const c of S.claims) {
         if (!ev || ev.id !== c.id || ctx.time > c.until || ev.phase === "foiled" || ev.phase === "done") continue;
@@ -210,11 +239,8 @@ on("party:bc", ({ p, k, a }) => {
         const ev = R && R.ev;
         if (!ev || a[0] !== me() || a[1] !== ev.id || zoneOf(p) !== zone()) return;
         // (their pose reaches me a beat late: keep the claim open ~2 s and check it every frame until it holds)
-        if (a[2] === "ram" || a[2] === "tackle") {
-            S.claims = S.claims.filter(c => !(c.uid === p.uid && c.how === a[2]));
-            S.claims.push({ uid: p.uid, id: ev.id, how: a[2], until: ctx.time + 2 });
-            checkClaims();
-        }
+        addClaim(p.uid, a);
+        checkClaims();
         return;
     }
     if (k === "hfa") {
