@@ -71,21 +71,70 @@ function ago(t) {
 }
 
 // ── the app ───────────────────────────────────────────────────────────────
-const V = { thread: null };
+const V = { thread: null, list: false, house: false };
+/** 🏠 My house (features/decor): what she has bought + how close each set is — null with no decor. */
+function houseNote() {
+    const D = ctx.decor;
+    if (!D || !D.summary) return null;
+    const s = D.summary();
+    return { s, near: s.sets.filter(x => !x.done && x.have > 0 && x.need - x.have <= 1) };
+}
+/** 📝 Ima's list for today (features/day) as a pinned note at the top of Messages — null when there's no list (a party, Dina). */
+function imaNote() {
+    const D = ctx.day;
+    if (!D || !D.imaLine || D.imaLine() == null) return null;
+    const list = D.list();
+    if (!list.length) return null;
+    const done = list.filter(x => x.done).length, next = list.find(x => !x.done);
+    return { list, done, next, home: !!D.home };
+}
 addApp({
     id: "messages", icon: "💬", name: "Messages", order: 20, color: "#43A047", color2: "#1B5E20",
     badge: () => unread() || null,
     render(el, api, arg) {
         if (arg && arg.thread) { V.thread = keyOf(arg.thread); PH.arg = null; }
         if (V.thread && !INBOX.msgs.some(m => m.k === V.thread)) V.thread = null;
+        const note = !V.thread && imaNote(), hn = !V.thread && houseNote();
+        if (V.house && V.list) V.list = false;
+        if (V.house && !hn) V.house = false;
+        if (V.house) {
+            // 🏠 what's hers + the sets (never coins: this is only a look)
+            const { s, near } = hn;
+            const done = s.sets.filter(x => x.done).length;
+            el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:#8E24AA">🏠</span><b>My house · ${s.bought.length} things</b></div>
+                <div class="lp-chat">${s.sets.map(x => `<div class="lp-bub" style="--c:${x.done ? "#43A047" : "#8E24AA"}">${x.icon} <b>${esc(x.name)}</b> ${x.done ? "✅ complete" : x.have + "/" + x.need}${!x.done && x.missing.length && x.need - x.have <= 1 ? `<small>nearly! just ${esc(x.missing.join(", "))}</small>` : ""}</div>`).join("")}
+                <div class="lp-bub" style="--c:#8E24AA">${s.bought.length ? s.bought.map(b => `${b.icon} ${esc(b.name)}`).join(" · ") : "Nothing bought yet — ✋ the mailbox, the porch or the front yard (or go inside) to decorate."}</div></div>
+                <button class="btn lp-row lp-mini" id="lpHouseBack">‹ All messages</button>`;
+            el.querySelector("#lpHouseBack").addEventListener("click", () => { V.house = false; api.refresh(); });
+            return;
+        }
+        if (V.list && !note) V.list = false;
+        if (V.list) {
+            // 📝 the list: what's done, what's next, how far
+            el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:#E91E63">📝</span><b>Ima's list · ${note.done}/${note.list.length}</b></div>
+                <div class="lp-chat">${note.list.map(x => `<div class="lp-bub" style="--c:${x.done ? "#43A047" : "#E91E63"}">${x.done ? "✅" : x === note.next ? "👉" : "⬜"} ${x.icon || ""} ${esc(x.text || x.id)}${x.n > 1 ? ` <small>${Math.min(x.prog, x.n)}/${x.n}</small>` : ""}</div>`).join("")}
+                <div class="lp-bub" style="--c:#E91E63">${note.done >= note.list.length ? "Everything's done? Come HOME for dinner! 🍲" : note.home ? "Dinner's in the fridge 💕" : "Home for dinner! 💕"}</div></div>
+                <button class="btn lp-row lp-mini" id="lpListBack">‹ All messages</button>`;
+            el.querySelector("#lpListBack").addEventListener("click", () => { V.list = false; api.refresh(); });
+            return;
+        }
         if (!V.thread) {
             const list = threads();
-            if (!list.length) { el.innerHTML = `<p class="lp-empty">No messages yet.<br><small>The family will text. Oh, they'll text.</small></p>`; return; }
-            el.innerHTML = list.map(t => `<button class="btn lp-row lp-thr${t.unread ? " new" : ""}" data-k="${esc(t.k)}">
+            const pin = note ? `<button class="btn lp-row lp-ima" id="lpImaList"><span class="lp-av" style="--c:#E91E63">📝</span>
+                <span class="lp-tx"><b>Ima's list · ${note.done}/${note.list.length}</b><small>${note.done >= note.list.length ? "All done — home for dinner! 🍲" : "Next: " + esc((note.next.icon || "") + " " + (note.next.text || note.next.id))}</small></span></button>` : "";
+            const hpin = hn ? `<button class="btn lp-row lp-hse" id="lpHouse"><span class="lp-av" style="--c:#8E24AA">🏠</span>
+                <span class="lp-tx"><b>My house · ${hn.s.bought.length} things</b><small>${hn.near.length ? "So close: " + esc(hn.near[0].icon + " " + hn.near[0].name) + " (" + hn.near[0].have + "/" + hn.near[0].need + ")" : hn.s.sets.filter(x => x.done).length + "/" + hn.s.sets.length + " sets complete"}</small></span></button>` : "";
+            const bind = () => {
+                const b = el.querySelector("#lpImaList"); if (b) b.addEventListener("click", () => { V.list = true; api.refresh(); });
+                const h = el.querySelector("#lpHouse"); if (h) h.addEventListener("click", () => { V.house = true; api.refresh(); });
+            };
+            if (!list.length) { el.innerHTML = pin + hpin + `<p class="lp-empty">No messages yet.<br><small>The family will text. Oh, they'll text.</small></p>`; bind(); return; }
+            el.innerHTML = pin + hpin + list.map(t => `<button class="btn lp-row lp-thr${t.unread ? " new" : ""}" data-k="${esc(t.k)}">
                 <span class="lp-av" style="--c:${t.color}">${t.emoji}</span>
                 <span class="lp-tx"><b>${esc(t.title)}</b><small>${t.group ? esc(t.last.from) + ": " : ""}${esc(t.last.msg)}</small></span>
                 <span class="lp-meta">${ago(t.last.t)}${t.unread ? `<i class="lp-badge">${t.unread}</i>` : ""}</span></button>`).join("");
             el.querySelectorAll(".lp-thr").forEach(b => b.addEventListener("click", () => { V.thread = b.dataset.k; api.refresh(); }));
+            bind();
             return;
         }
         const msgs = INBOX.msgs.filter(m => m.k === V.thread);
@@ -99,7 +148,7 @@ addApp({
         const chat = el.querySelector(".lp-chat");
         chat.scrollTop = chat.scrollHeight;
     },
-    back() { if (V.thread) { V.thread = null; return refresh(), true; } return false; },
+    back() { if (V.house) { V.house = false; return refresh(), true; } if (V.list) { V.list = false; return refresh(), true; } if (V.thread) { V.thread = null; return refresh(), true; } return false; },
 });
 // the home screen's notification cards: the latest unread threads (hidden on short screens)
 setHomeWidget(() => threads().filter(t => t.unread).slice(0, 2).map(t => `<button class="lp-notif" data-open="messages" data-thread="${esc(t.k)}">

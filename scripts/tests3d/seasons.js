@@ -309,6 +309,12 @@ module.exports = {
       await t.frames(4);
       const st = await g(`ctx.hustle.radio.state()`);
       t.check("📻 SIMCHA 101.3 plays no music in the Three Weeks (its DJ just talks)", st.quiet && !st.src, JSON.stringify({ quiet: st.quiet, src: st.src }));
+      // the 📻 phone app SAYS so (one line), so the quiet stations don't read as a bug — and LULU FM keeps playing
+      await g(`(ctx.phone.openPhone("radio"), true)`);
+      await t.frames(5);
+      t.check("📻 app: a line says the music stations are quiet in the Three Weeks (LULU FM plays on)", await t.L(`/Three Weeks/.test(document.querySelector(".lp-appv, #screenCard").textContent) && /LULU FM/.test(document.querySelector(".lp-appv, #screenCard").textContent)`));
+      await g(`(ctx.phone.closePhone(), true)`);
+      await t.frames(3);
       await season("chanukah", 2);
       await t.frames(4);
       const st2 = await g(`ctx.hustle.radio.state()`);

@@ -31,7 +31,7 @@ import * as A from "../../audio.js";
 import * as H from "../../hud.js";
 import { home, S_HOME } from "../world/home.js";
 import { SLOTS, SETS, slotById, optOf, setPieces, LINES } from "./data.js";
-import { buildOption, disposeObj } from "./props.js";
+import { buildOption, disposeObj, YARD_SOLIDS } from "./props.js";
 import { openPicker, pickerTick, pickerOpen, closePicker, pickerSlot } from "./picker.js";
 import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, houseVisit, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
 
@@ -197,7 +197,26 @@ function outsideShow(slot, id) {
     }
     for (const k of Object.keys(cache)) if (cache[k]) cache[k].visible = k === o.id;
     OUT.objs[slot] = cache[o.id];
+    (OUT.shown || (OUT.shown = {}))[slot] = o.id;
+    if (slot === "lawn") yardSync();
 }
+// ── the yard pieces are SOLID (flamingos, birdbath: a wall; gnomes: low — she hops them) ──
+// One collider per possible piece on chunk 0 (the home street's chunk, rebuilt → added again), switched with `off`
+// to follow whichever lawn option is showing (a picker preview too).
+let YARD = [];
+function yardSync() {
+    const id = OUT.shown && OUT.shown.lawn;
+    for (const y of YARD) y.c.off = y.opt !== id;
+}
+on("chunk:build", ({ chunk }) => {
+    if (chunk.k !== 0 || !home.ready || !home.house) return;
+    YARD = [];
+    for (const [opt, list] of Object.entries(YARD_SOLIDS)) for (const [lx, lz, r, kind] of list) {
+        const p = at(lx, lz);
+        YARD.push({ opt, c: chunk.addCollider({ x: p.x, z: p.z, r, kind, off: true }) });
+    }
+    yardSync();
+});
 /** After a picker outside: free the previews, keep what's placed. */
 function outsideTrim(slot) {
     const cache = OUT.cache[slot];
@@ -362,6 +381,16 @@ ctx.decor = {
     get slots() { return SLOTS; },
     get spent() { return S.spent; },
     get sets() { return S.sets.slice(); },
+    /** For the 📱 "My house" page: what she has bought, and how close each themed set is → { bought: [{slot, icon, name}], sets: [{ id, icon, name, have, need, done, missing: [names] }], spent }. */
+    summary() {
+        const bought = [];
+        for (const s of SLOTS) for (const o of s.opts) if (!isDefault(s.id, o.id) && owns(s.id, o.id)) bought.push({ slot: s.id, icon: o.icon, name: o.name, where: s.name, placed: placed(s.id) === o.id });
+        const sets = SETS.map(st => {
+            const pcs = setPieces(st.id), got = pcs.filter(p => owns(p.slot, p.opt)), miss = pcs.filter(p => !owns(p.slot, p.opt));
+            return { id: st.id, icon: st.icon, name: st.name, have: got.length, need: pcs.length, done: S.sets.includes(st.id), missing: miss.map(p => optOf(p.slot, p.opt).name) };
+        });
+        return { bought, sets, spent: S.spent };
+    },
     /** Open the picker for a slot where she is (inside: that room's spot; outside: its ✋ spot). */
     pick(slot) {
         const s = slotById(slot);
@@ -374,6 +403,8 @@ ctx.decor = {
         get pickerSlot() { return pickerSlot(); },
         /** What the street shows right now ("slot:option" — a preview counts). */
         outside: () => { const out = []; for (const [s, c] of Object.entries(OUT.cache)) for (const [k, o] of Object.entries(c)) if (o && o.visible) out.push(s + ":" + k); return out; },
+        /** The yard's solid pieces right now (the ones that are showing): [{ opt, x, z, r, kind }]. */
+        yard: () => YARD.filter(y => !y.c.off).map(y => ({ opt: y.opt, x: y.c.x, z: y.c.z, r: y.c.r, kind: y.c.kind })),
         outsideObj: slot => OUT.objs[slot] || null,
         doorColor: () => OUT.doorMat ? "#" + OUT.doorMat.color.getHexString() : null,
         calls: () => { let n = 0; if (OUT.root) OUT.root.traverse(o => { if (o.isMesh && o.visible) { let v = true, p = o; while (p) { if (!p.visible) { v = false; break; } p = p.parent; } if (v) n++; } }); return n; },

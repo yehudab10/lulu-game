@@ -133,6 +133,11 @@ async function runFile(browser, base, file) {
       await page.screenshot({ path: path.join(ROOT, "smoke-shots", `3d-${name}-${label}.png`) });
     },
     async boot(query = mod.query || "") {
+      // The game follows the REAL calendar (Erev Shabbos asks for the rush at the door, holidays dress the town), so a test
+      // run on a Friday afternoon / during Chanukah saw a different game. Pin an ordinary Monday unless the test says otherwise
+      // (a test that wants a Friday sets ctx.shabbos.debug.date(...) / its own ?shabbosDate= / ?season=).
+      if (!/[?&]shabbosDate=/.test(query)) query += "&shabbosDate=2026-11-16T15:00";
+      if (!/[?&]season(Date)?=/.test(query)) query += "&seasonDate=2026-11-16T12:00";
       await page.goto(`${base}/3d/?test${query}`);
       return t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title screen", 120000);
     },

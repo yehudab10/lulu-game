@@ -49,7 +49,8 @@ function driversHtml() {
     const clock = M._debug.clock;
     for (const p of near.slice(0, 4)) {
         const rec = p.rec && clock - p.rec.at < 120 ? ` · 🎉 a record: ${Math.round(p.rec.score).toLocaleString()}` : "";   // (never a pop-up: ci/calm)
-        html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), (p.m === 1 ? "on foot" : "driving") + rec, mi(d2({ x: p.ws, z: p.wd })), false);
+        const fr = ctx.friends && ctx.friends.ui ? ctx.friends.ui.driverNote(p.id) : "";          // (features/friends: ➕ ask a driver — a line here, never a pop-up)
+        html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), (p.m === 1 ? "on foot" : "driving") + rec + (fr ? " · " + fr : ""), mi(d2({ x: p.ws, z: p.wd })), false, ` data-drv="${esc(p.id)}" data-nm="${esc(p.name)}"`);
     }
     html += row("owInviteSolo", "📤", "Invite friends", "they pop up right next to you · names, games together");
     html += row("owOnline", "🌐", online ? "Go solo" : "Go online", online ? "hide every other driver (⚙️ Settings › Play online)" : "see other drivers out in the world");
@@ -58,6 +59,7 @@ function driversHtml() {
 function wireDrivers(el, api) {
     on(el, "#owInviteSolo", () => { api.close(); ctx.party.hostRoam(); });
     on(el, "#owOnline", () => { ctx.mp.setOnline(!ctx.mp.online); api.refresh(); });
+    on(el, "[data-drv]", b => { if (ctx.friends && ctx.friends.ui) api.open("nearby", { driver: b.dataset.drv, name: b.dataset.nm }); });
 }
 
 // ── 👯 PARTY ─────────────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ function partyHome(el, api) {
         html += row("owG_" + k, G.emoji, esc(G.name), esc(why || G.blurb), why ? "" : "Start", !!why && !/already on/.test(why), ` data-k="${k}"`);
     }
     if (E.CL.last) html += `<div class="ow-sec">Last game</div>` + row("owLast", "🏆", E.CL.lastTitle, "the scoreboard · 🔁 rematch");
+    if (ctx.friends && ctx.friends.ui) html += row("owFL", "📇", "My friends list", "friends you keep — who's playing, join them, add by code");
     html += `<div class="ow-sec">The party</div>`;
     html += row("owInvite", "📤", "Invite friends", `send the link — they pop up right next to you · code ${esc(ctx.party.code)}`);
     html += row("owLeave", "🚪", "Leave the party", "back to the home screen — your friends keep playing");
@@ -106,6 +109,7 @@ function partyHome(el, api) {
     on(el, "#owJoin", () => { E.optIn(); api.close(); });
     on(el, "#owInvite", async () => { const msg = ctx.party.invite ? await ctx.party.invite() : ""; if (msg) api.toast(msg); });
     on(el, "#owLeave", () => { api.close(); ctx.party.leave(); });
+    on(el, "#owFL", () => api.open("owparty", { fl: {} }));
     on(el, "#owGoNow", () => { const g2 = E.getG(); if (g2) E.send("owgo", g2.n); api.close(); });
     on(el, "#owCallOff", () => { const g2 = E.getG(); if (g2) E.send("owx", g2.n); api.close(); });
     on(el, "#owBack", () => { api.close(); E.warpToGame(); });
@@ -126,7 +130,9 @@ function friendView(el, api, uid) {
         ${E.riding() === uid ? row("owHop", "🚪", "Hop out", "back in your own car, right beside them") : row("owRide", "🚗", `Ride with ${name}`, "hop in their passenger seat · ✕ to hop out")}
         ${row("owWarp", "🚀", `Catch up with ${name}`, "a puff of glitter and you're right behind them")}
         ${pos || ctx.together ? row("owPinF", "📍", `Head to ${name}`, "a beam over them + the distance, until you meet up") : ""}
+        ${ctx.friends && ctx.friends.ui ? ctx.friends.ui.partyRow(uid) : ""}
         ${row("owBackF", "‹", "Back", "")}`;
+    if (ctx.friends && ctx.friends.ui) ctx.friends.ui.wirePartyRow(el, api);
     on(el, "#owWarp", () => { api.close(); E.warpToFriend(uid); });
     on(el, "#owRide", () => { const why = E.startRide(uid); if (why) api.toast(why); else api.close(); });
     on(el, "#owHop", () => { api.close(); E.stopRide(); });
@@ -235,6 +241,7 @@ export function registerApps(engine) {
                 V.party = arg || null;
                 if (arg && arg.results) { el.innerHTML = resultsHtml(); wireResults(el, api); return; }
                 if (arg && arg.friend) { friendView(el, api, arg.friend); return; }
+                if (arg && arg.fl && ctx.friends && ctx.friends.ui) { ctx.friends.ui.render(el, api, arg.fl, "owparty"); return; }
                 partyHome(el, api);
             },
             back(api) { if (V.party) { V.party = null; api.open("owparty", null); return true; } return false; },
@@ -245,6 +252,7 @@ export function registerApps(engine) {
             render(el, api, arg) {
                 V.nearby = arg || null;
                 if (arg && arg.results) { el.innerHTML = resultsHtml(); wireResults(el, api); return; }
+                if (arg && arg.driver && ctx.friends && ctx.friends.ui) { ctx.friends.ui.driverView(el, api, arg.driver, arg.name || "A driver", () => api.open("nearby", null)); return; }
                 nearbyHome(el, api);
             },
             back(api) { if (V.nearby) { V.nearby = null; api.open("nearby", null); return true; } return false; },

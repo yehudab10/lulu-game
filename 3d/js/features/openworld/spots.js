@@ -22,7 +22,7 @@ import { tone } from "../parking/sfx.js";
 import { esc } from "./hud.js";
 
 let E = null;                        // openworld's internals (index.js passes them in)
-const SP = { list: [], group: null, town: "", texs: [], mats: [], geos: [], near: null, carT: 0, shown: false, footRm: null, t: 0 };
+const SP = { list: [], cols: [], group: null, town: "", texs: [], mats: [], geos: [], near: null, carT: 0, shown: false, footRm: null, t: 0 };
 // what goes where: the first named spot a town has wins (data — a new town just needs one of these landmarks)
 const PLACES = [
     { kind: "arcade", keys: ["pizza", "bakery"], u: -7.5, n: 0.4, name: (t, k) => k === "pizza" ? (t === "midwood" ? "the Slice of Sinai arcade" : "the Pizza Shmizza arcade") : "the arcade on the avenue" },
@@ -173,7 +173,7 @@ function build() {
         tag.position.set(x, 3.0, z);
         SP.group.add(obj, tag);
         // where she stands to use it: just in front of it
-        SP.list.push({ kind: P.kind, name: P.name(T.id, key), x, z, fx: x + nx * 1.1, fz: z + nz * 1.1, obj, tag });
+        SP.list.push({ kind: P.kind, nx, nz, name: P.name(T.id, key), x, z, fx: x + nx * 1.1, fz: z + nz * 1.1, obj, tag });
     }
     if (SP.list.length) ctx.scene.add(SP.group);
 }
@@ -183,6 +183,8 @@ function clear() {
     for (const m of SP.mats) m.dispose();
     for (const g of SP.geos) g.dispose();
     SP.texs.length = SP.mats.length = SP.geos.length = 0;
+    for (const c of SP.cols) c.off = true;
+    SP.cols.length = 0; SP.solid = false;
     SP.list.length = 0; SP.group = null; SP.town = ""; SP.near = null;
     if (SP.shown) { H.prompt(""); SP.shown = false; }
 }
@@ -233,7 +235,22 @@ function openCard(spot) {
 }
 
 // ── per frame: the 🕹️ / 📋 bob, the drive-up prompt ───────────────────────
+/** Solid: the cabinet is one block, the board's two posts are (she can walk between them). Added once the town's own
+ *  chunk is the active one (at town:enter it isn't yet), into the town's collider grid. */
+function addSolids() {
+    const ch = ctx.world.activeChunks();
+    let tc = null;
+    for (const c of ch) if (c.k === -1 && c.addCollider) { tc = c; break; }
+    if (!tc) return;
+    for (const sp of SP.list) {
+        const yaw = Math.atan2(sp.nx, sp.nz), cx = Math.cos(yaw), cz = -Math.sin(yaw);
+        const cs = sp.kind === "arcade" ? [[0, 0.52]] : [[-1.0, 0.2], [1.0, 0.2]];
+        for (const [lu, r] of cs) SP.cols.push(tc.addCollider({ x: sp.x + cx * lu, z: sp.z + cz * lu, r, kind: "prop" }));
+    }
+    SP.solid = true;
+}
 hook("update", (dt, P) => {
+    if (SP.list.length && !SP.solid) addSolids();
     if (!SP.list.length) return;
     SP.t += dt;
     for (const s of SP.list) s.tag.position.y = 3.0 + Math.sin(SP.t * 2.2 + s.x) * 0.12;
