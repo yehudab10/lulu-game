@@ -5,7 +5,7 @@
 //   • Shomrim: lead a chase, the HOLD (talk your way out), join a cop chase + radio tips (ctx.law.spot),
 //     the hold that hands her to law's arrest flow
 //   • the Bais Yaakov: the line, BLEND IN (⏭-style auto walk = win; too suspicious = cover blown)
-//   • the 📞 Call app (only in town), 911 on herself, screenshots on every layout + HUD Clean, perf, a mash
+//   • the 📞 Phone app (in town here; everywhere else: calls.js), 911 on herself, screenshots on every layout + HUD Clean, perf, a mash
 module.exports = {
   name: "community",
   viewport: { width: 1280, height: 720 },
@@ -39,7 +39,7 @@ module.exports = {
     t.check("Lakewood opts in (data registry); a town without an entry doesn't", await g(`!!${C}.config("lakewood") && !${C}.config("nowhere")`));
     t.check("law has the tip-off hook (ctx.law.spot)", await g(`typeof ctx.law.spot === "function"`));
     t.check("the town lets our scene state play in town", await g(`typeof ctx.town.allowState === "function" && typeof ctx.town.curbSpot === "function" && typeof ctx.town.addDriver === "function"`));
-    t.check("📞 Call is hidden on the title / highway", await g(`!ctx.phone.apps || !ctx.phone.apps().includes("community")`));
+    t.check("📞 Phone is on the phone everywhere (not just in town — calls.js tests the highway, a rest area, Midwood)", await g(`!!ctx.phone.apps && ctx.phone.apps().includes("community")`));
 
     // ── 1. the highway: their cars show up as she nears the Lakewood exit ──
     await step("highway", async () => {
@@ -67,7 +67,7 @@ module.exports = {
     await step("town", async () => {
       if (!await inTown()) return;
       await g(`(ctx.traffic.config.enabled = false, ctx.law.hold(200), ${C}.debug.CM.assistCool = 1e9, true)`);
-      t.check("📞 Call shows up in town", await g(`ctx.phone.apps().includes("community")`));
+      t.check("📞 Phone is there in town", await g(`ctx.phone.apps().includes("community")`));
       await t.until(`__lulu3d.ctx.community.vehicles.filter(v => v.mode === "cruise").length >= 3`, "Chaverim / Shomrim / Hatzalah cruise the town", 20000);
       t.check("all three orgs are out", await g(`["chaverim", "shomrim", "hatzalah"].every(o => ${C}.vehicles.some(v => v.org === o))`), await g(`${C}.vehicles.map(v => v.org).join(",")`));
       t.check("the Bais Yaakov stands on Carpool Ln (the town's 'uses' data, our model)", await g(`!!ctx.town.spot("baisyaakov")`) && await t.L(`import("./js/models.js").then(m => !!m.models.community_baisyaakov)`));

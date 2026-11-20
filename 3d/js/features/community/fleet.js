@@ -11,7 +11,7 @@ import * as THREE from "three";
 import { ctx } from "../../core/ctx.js";
 import { registerKind } from "../../traffic.js";
 import * as A from "../../audio.js";
-import { CM, has, on, onFoot, luluPos, rand, pick, clamp, wrap, lightRig, setLights, luluSay, townCfg } from "./common.js";
+import { CM, has, on, onFoot, luluPos, luluRoad, rand, pick, clamp, wrap, lightRig, setLights, luluSay, townCfg } from "./common.js";
 import { LULU_SEES } from "./lines.js";
 import { forTown } from "./towns.js";
 
@@ -220,10 +220,15 @@ function steer(dt, c, V) {
     const foot = onFoot();
     const lv = foot ? 0 : Math.max(0, car.vF || 0);
     const route = inTown() && ctx.town.copRoute ? ctx.town.copRoute(c) : null;
-    const err = route ? route.gap + V.gapWant : car.s + V.gapWant - c.s;
+    // (off town: chase HER road coords — on foot that's where she stands, not her parked car)
+    const me = route ? null : luluRoad();
+    const err = route ? route.gap + V.gapWant : me.s + V.gapWant - c.s;
+    // off the travel lanes (the shoulder, a rest area's lot, the field): once near, drive straight to her
+    const offLane = !route && Math.abs(me.d) > 7;
     let vT = lv + clamp(err * 0.9, -12, 16);
     const dist = Math.hypot(lp.x - c.x, lp.z - c.z);
     if (foot && dist < 9) vT = Math.min(vT, Math.max(0, (dist - 5) * 0.8));
+    if (offLane && dist < 70) vT = clamp((dist - (foot ? 5 : 9)) * 0.8, 0, 12);       // (across the lot / verge to her)
     // slow behind anything in the way — and if it isn't moving (a 4-way stop, a double-parked van), swing round it
     const fx = Math.sin(c.h), fz = Math.cos(c.h);
     let blocked = false;
@@ -238,8 +243,8 @@ function steer(dt, c, V) {
     vT = clamp(vT, 0, V.vmax);
     const la = Math.max(7, c.speed * 0.55);
     if (route && dist > 14) route.aim(la, _p);
-    else if (inTown() || dist < 14) { _p.x = lp.x - Math.sin(car.h) * 3 + Math.cos(car.h) * V.side; _p.z = lp.z - Math.cos(car.h) * 3 - Math.sin(car.h) * V.side; }
-    else road.point(c.s + la, clamp(car.d + V.side, -5.25, 5.25), _p);
+    else if (inTown() || dist < (offLane ? 70 : 14)) { _p.x = lp.x - Math.sin(car.h) * 3 + Math.cos(car.h) * V.side; _p.z = lp.z - Math.cos(car.h) * 3 - Math.sin(car.h) * V.side; }
+    else road.point(c.s + la, clamp(me.d + V.side, -5.25, 5.25), _p);
     if (V.passT > 0) { _p.x += Math.cos(c.h) * 3.6; _p.z -= Math.sin(c.h) * 3.6; vT = Math.max(vT, 6); }   // (out into the other lane)
     const want = Math.atan2(_p.x - c.x, _p.z - c.z);
     const dh = wrap(want - c.h);
