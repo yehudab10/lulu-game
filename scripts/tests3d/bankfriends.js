@@ -34,6 +34,21 @@ module.exports = {
   },
 };
 
+/** Who's the party host right now — once BOTH screens agree (on a crawling CI machine the host role can hop to the
+ *  other page for a while; payouts are host-only by design, so the money checks follow whoever holds it). → { H, O, hu } */
+async function agreeHost(t, Hp, A, hostUid) {
+  const end = Date.now() + 120000;
+  for (;;) {
+    const a = await Hp.game(`ctx.party.host`), b = await A.game(`ctx.party.host`);
+    if (a && a === b) {
+      if (a !== hostUid) console.log("   (the party host is the second page right now)");
+      return a === hostUid ? { H: Hp, O: A, hu: a } : { H: A, O: Hp, hu: a };
+    }
+    if (Date.now() > end) { t.check("both screens agree who the party host is", false, JSON.stringify({ a, b })); return { H: Hp, O: A, hu: a }; }
+    await new Promise(r => setTimeout(r, 1000));
+  }
+}
+
 async function body(t, guests) {
   const g = t.game, Hp = hostPage(t);
   await t.click(/Friends/);
@@ -100,22 +115,26 @@ async function body(t, guests) {
     return;
   }
   t.check("…credited to the guest", (await g(`ctx.heist.robbery.by`)) === guestUid, await g(`ctx.heist.robbery.by`));
-  // the host (also the party's host) splits the pay; each screen pays itself its share once
+  // the party's host splits the pay; each screen pays itself its share once
   await Hp.until(`ctx.heist.debug.party().paid.length > 0`, "host: share paid", 30000);
   await A.until(`ctx.heist.debug.party().paid.length > 0`, "guest: share paid", 30000);
   const coins1 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   const dh = coins1.h - coins0.h, da = coins1.a - coins0.a, maxPay = await g(`ctx.heist.pay.foil[1] + ctx.heist.pay.foilClean + ctx.heist.pay.tackle`);
   t.check("both get a share, and the two together aren't more than one solo foil (split, never multiplied)", dh > 0 && da > 0 && dh + da <= maxPay + 5, JSON.stringify({ dh, da, maxPay }));
-  t.check("the host's book counts one party foil each", await g(`(() => { const n = ctx.heist.debug.party().host.n; return n[${HU}] === 1 && n[${GU}] === 1; })()`), JSON.stringify(await g(`ctx.heist.debug.party().host`)));
+  let PH = await agreeHost(t, Hp, A, hostUid);
+  const book = `(() => { const n = ctx.heist.debug.party().host.n; return n[${HU}] === 1 && n[${GU}] === 1; })()`;
+  t.check("the party host's book counts one party foil each", (await Hp.game(book)) || (await A.game(book)), JSON.stringify({ h: await g(`ctx.heist.debug.party().host`), a: await A.game(`ctx.heist.debug.party().host`) }));
   await t.shot("robbery-foiled-host");
-  // a payout broadcast by someone who isn't the host is ignored
-  await A.game(`(ctx.party.broadcast("hfa", 4242, ${GU}, "ram", [[${HU}, 80], [${GU}, 80]]), true)`);
-  await Hp.frames(40);
-  t.check("a fake payout from a non-host pays nobody", (await g(`L3.wallet.coins`)) === coins1.h, JSON.stringify({ was: coins1.h, now: await g(`L3.wallet.coins`) }));
+  // a payout broadcast by someone who isn't the host is ignored (the host's screen hears it and pays nobody)
+  const hc0 = await PH.H.game(`L3.wallet.coins`);
+  await PH.O.game(`(ctx.party.broadcast("hfa", 4242, ctx.party.uid, "ram", [[${HU}, 80], [${GU}, 80]]), true)`);
+  await PH.H.frames(40);
+  t.check("a fake payout from a non-host pays nobody", (await PH.H.game(`L3.wallet.coins`)) === hc0, JSON.stringify({ was: hc0, now: await PH.H.game(`L3.wallet.coins`) }));
   // the same claim twice never pays twice
+  const cc = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   await g(`(ctx.party.sendEvent("hfo", ctx.heist.robbery ? ctx.heist.robbery.id : 1, "tackle", [${HU}, ${GU}], 120), true)`);
-  await Hp.frames(30);
-  t.check("the same robbery's claim again pays nothing more", (await g(`L3.wallet.coins`)) === coins1.h);
+  await Hp.frames(30); await A.frames(30);
+  t.check("the same robbery's claim again pays nothing more", (await g(`L3.wallet.coins`)) === cc.h && (await A.game(`L3.wallet.coins`)) === cc.a);
   await Hp.until(`!ctx.heist.robbery`, "the robbery tidies away", 60000);
   await A.until(`ctx.heist.debug.party().puppets.length === 0`, "guest: the friend's robbery is gone too", 40000);
   W.check(t, "watchdog (host)", await W.report(t));
@@ -162,16 +181,19 @@ async function crewJob(t, g, Hp, A, hostUid, guestUid) {
   await A.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`, "guest: out on the street too", 60000);
   t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
   const c0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
-  // results: both shake the cops → the host splits the take
+  // results: both shake the cops → the party host splits the take (both screens agreeing who that is first)
+  await agreeHost(t, Hp, A, hostUid);
   await A.game(`ctx.heist.debug.crew.result("ok")`);
   await g(`ctx.heist.debug.crew.result("ok")`);
   await Hp.until(`!ctx.heist.debug.crew.C.lead && ctx.heist.debug.crew.C.paid.size > 0`, "host: the take is settled", 60000);
   await A.until(`ctx.heist.debug.crew.C.paid.size > 0`, "guest: her share arrives", 60000);
   const dh = (await g(`L3.wallet.coins`)) - c0.h, da = (await A.game(`L3.wallet.coins`)) - c0.a, max = await g(`ctx.heist.debug.crew.MAX_TAKE`);
   t.check("the take is SPLIT between the two who got away (never more than one solo take)", dh > 0 && da > 0 && Math.abs(dh - da) <= 5 && dh + da <= max + 5, JSON.stringify({ dh, da, max }));
-  t.check("the host's book: one paying crew job each this session", await g(`(() => { const n = ctx.heist.debug.crew.C.host.n; return n.get(${HU}) === 1 && n.get(${GU}) === 1; })()`));
+  const cbook = `(() => { const n = ctx.heist.debug.crew.C.host.n; return n.get(${HU}) === 1 && n.get(${GU}) === 1; })()`;
+  t.check("the party host's book: one paying crew job each this session", (await g(cbook)) || (await A.game(cbook)));
   // the same claim again pays nothing
+  const c1 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
   await g(`(ctx.party.sendEvent("hjo", 777, [${HU}, ${GU}], ["ok", "ok"], 400), true)`);
-  await Hp.frames(30);
-  t.check("a second crew job the same session pays nobody (the cap)", (await g(`L3.wallet.coins`)) === c0.h + dh);
+  await Hp.frames(30); await A.frames(30);
+  t.check("a second crew job the same session pays nobody (the cap)", (await g(`L3.wallet.coins`)) === c1.h && (await A.game(`L3.wallet.coins`)) === c1.a);
 }
