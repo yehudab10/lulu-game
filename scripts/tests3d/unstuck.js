@@ -77,6 +77,7 @@ module.exports = {
       return t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "out of the car", 6000);
     };
     const backIn = async () => {
+      if (await g(`L3.state === "hustleResult"`)) { await t.L(`(() => { const b = document.getElementById("hsKeep"); if (b) b.click(); return true; })()`); await t.frames(10); }
       if (await g(`L3.state === "interior"`)) { await g(`(window.__interiors.room && window.__interiors.room.finishLeave(), true)`); await t.frames(10); }
       if (await g(`L3.state === "playing"`)) return true;
       await g(`ctx.foot.debug.getIn()`);
@@ -276,8 +277,10 @@ module.exports = {
           t.check("on a job: the job's still on and its clock didn't go back", j1 && j1.id === j0.id && (j0.left == null || j1.left <= j0.left), JSON.stringify([j0, j1]));
         }
       }
-      await g(`(ctx.hustle.job && ctx.hustle.quit ? ctx.hustle.quit() : 0, true)`);
+      await g(`(ctx.hustle.job ? ctx.hustle.end("quit", "test") : 0, true)`);
       await t.frames(10);
+      // (the job's result card)
+      for (let i = 0; i < 6 && await g(`L3.state === "hustleResult"`); i++) { await t.L(`(() => { const b = document.getElementById("hsKeep"); if (b) b.click(); return true; })()`); await t.frames(10); }
     }
 
     // 10 · on a ramp → still on the ramp, heading down it
