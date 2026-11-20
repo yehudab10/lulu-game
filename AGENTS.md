@@ -67,7 +67,7 @@ continuous one, where the car is something you use rather than the whole game. E
 | 13 | **Each town has its own exit** (owner, 2026-11-20: "Brooklyn and Lakewood shouldn't share the same exit") — separate interchanges, each signed for one town; no ramp that splits | `ci/exits2` |
 | 14 | **Lulu lives in Midwood** (owner: "it doesn't make sense there's houses off the highway") — her house, driveway and the home start move onto a real Midwood street; the game opens in town | `ci/hometown` |
 | 15 | **Houses with something going on** (owner: "going into people's houses is cool but feels too repetitive with nothing going on") — households with a life: what they are doing depends on the hour, the day and the season; reasons to knock, to be invited in, to come back | `ci/homelife` |
-| 16 | **Own, buy and sell homes** (owner: "realtors, mortgages yada yada… a maximum of 10 buildings owned per player") — a realtor, listings, a mortgage at the bank, your own front doors; in the player's own save first, visible to friends; a world-wide shared registry needs a relay-server change → the owner's OK first (golden rule 3) | `ci/realestate` |
+| 16 | **Own, buy and sell homes** (owner: "realtors, mortgages yada yada… a maximum of 10 buildings owned per player") — a realtor, listings, a mortgage at the bank, your own front doors. **A world-wide shared market — the owner approved it and the server change for it (2026-11-20).** Scarcity is the government: no login for 2 weeks → a funny municipal rule does things to your properties; come back and fight it in court (you may still lose, or win something). "Subject to change if the government decides differently": the knobs live in one server-side config | `ci/realestate` |
 | 17 | **A town that governs (badly)** (owner: "Taxes. Banks. Annoying government regulation. Mayor. Protests… more corruption") — city hall, a mayor, property tax and silly fees, permits and inspectors, protests about absurd LOCAL issues (never real-world politics), a corruption thread | `ci/cityhall` — WAVE 2: starts once 13–16 have had their first landing (same streets, and tax needs property) |
 | 18 | **More to do in town** — a shul you can walk into (owner: "A shul?"), more cartoon crime (owner: "More crime") | `ci/shul` now · `ci/crime` in WAVE 2 (after `ci/partners` lands: both change the law) |
 | `ci/exits2` | 🛣️ EACH TOWN ITS OWN EXIT (roadmap 13) — owned by the town-engine agent (ex-`ci/oneworld`). Started 2026-11-20. |
@@ -98,6 +98,9 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
    game references). Run the tests for what you touched (§4).
 3. **Never deploy or modify the multiplayer relay server (`server/`,
    `.github/workflows/deploy-shared-road.yml`) without asking the owner first.**
+   *Scope-limited exception (owner, 2026-11-20: "Do version B, you can touch the server"):* `ci/realestate` may add
+   the world-wide PROPERTY REGISTRY to the relay (additive, backwards-compatible messages + one table) and deploy it.
+   Nothing else on the server is covered by that OK.
 4. Never change the iOS bundle id, signing, AdMob IDs, or
    `submit_to_app_store` in `codemagic.yaml`. Ad unit IDs in
    `3d/js/features/native/ads.js` and `src/10c-ads.js` must stay identical.
