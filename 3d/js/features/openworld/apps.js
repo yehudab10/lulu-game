@@ -40,6 +40,13 @@ function partyHome(el, api) {
     const g = E.getG(), t = E.now(), host = ctx.party.isHost;
     const mem = E.members().filter(u => u !== E.me());
     let html = `<div class="lp-card ow-head"><span class="lp-av">🌍</span><span class="lp-tx"><b>Free Roam · ${esc(ctx.party.code)}</b><small>${mem.length ? `${mem.length + 1} in the party${host ? " · 👑 you're hosting" : ""}` : "just you so far — share the code!"}</small></span></div>`;
+    if (g && g.ph === "in") {                           // an invitation is open: join it (or, as its starter, go now / call it off)
+        const G = E.GAMES[g.k], left = Math.max(0, Math.ceil((g.until - t) / 1000)), mine = g.ps.includes(E.me());
+        html += `<div class="lp-card"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${esc(G.name)} is starting${g.spot ? " at " + esc(g.spot.name) : ""}</b><small>${g.ps.length} in · ${left} s · ${esc(E.nameOf(g.by))} started it</small></span></div>`;
+        if (!mine) html += row("owJoin", "✅", `Join ${esc(G.name)}`, "you'll line up at the start when it goes");
+        else if (g.by === E.me()) html += row("owGoNow", "▶", "Start now", `${g.ps.length} playing`) + row("owCallOff", "✖", "Call it off", "nobody minds");
+        else html += `<p class="lp-note">✅ You're in — it starts in ${left} s.</p>`;
+    }
     if (g && g.ph === "go") {
         const G = E.GAMES[g.k], left = g.k === "kugel" ? "" : ` · ${Math.max(0, Math.ceil((g.t0 + g.dur - t) / 1000))} s left`;
         html += `<div class="lp-card"><span class="lp-av">${G.emoji}</span><span class="lp-tx"><b>${esc(G.name)} is on${left}</b><small>${g.ps.includes(E.me()) ? "you're playing" : "you're in the next one"}</small></span></div>`;
@@ -62,11 +69,19 @@ function partyHome(el, api) {
         html += row("owG_" + k, G.emoji, esc(G.name), esc(why || G.blurb), why ? "" : "Start", !!why && !/already on/.test(why), ` data-k="${k}"`);
     }
     if (E.CL.last) html += `<div class="ow-sec">Last game</div>` + row("owLast", "🏆", E.CL.lastTitle, "the scoreboard · 🔁 rematch");
-    html += `<p class="lp-fine">Games start where YOU are — everyone lines up behind you. Honk ${glyph("honk")} to wave at a friend.</p>`;
+    html += `<div class="ow-sec">The party</div>`;
+    html += row("owInvite", "📤", "Invite friends", `send the link — they pop up right next to you · code ${esc(ctx.party.code)}`);
+    html += row("owLeave", "🚪", "Leave the party", "back to the home screen — your friends keep playing");
+    html += `<p class="lp-fine">Start one here, or walk up to the 🕹️ arcade / 📋 notice board in town — friends opt in, nobody gets dragged along. Honk ${glyph("honk")} to wave at a friend.</p>`;
     el.innerHTML = html;
     on(el, "[data-u]", b => api.open("owparty", { friend: b.dataset.u }));
     on(el, "[data-k]", b => { const why = E.requestGame(b.dataset.k); if (why) api.toast(why); else api.close(); });
     on(el, "#owEnd", () => { E.endGameNow(); api.close(); });
+    on(el, "#owJoin", () => { E.optIn(); api.close(); });
+    on(el, "#owInvite", async () => { const msg = ctx.party.invite ? await ctx.party.invite() : ""; if (msg) api.toast(msg); });
+    on(el, "#owLeave", () => { api.close(); ctx.party.leave(); });
+    on(el, "#owGoNow", () => { const g2 = E.getG(); if (g2) E.send("owgo", g2.n); api.close(); });
+    on(el, "#owCallOff", () => { const g2 = E.getG(); if (g2) E.send("owx", g2.n); api.close(); });
     on(el, "#owBack", () => { api.close(); E.warpToGame(); });
     on(el, "#owLast", () => api.open("owparty", { results: true }));
     on(el, "#owHopH", () => { api.close(); E.stopRide(); });

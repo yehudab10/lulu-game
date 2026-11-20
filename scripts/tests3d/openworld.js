@@ -11,6 +11,7 @@
 //          🔁 Rematch from the guest) → perf numbers with two players in town.
 const { spawn } = require("child_process");
 const path = require("path");
+const { waitOn } = require("../lib/party3d.js");
 const PORT = 23000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
 const Q = `&enable=party,town,atmos&mpurl=${encodeURIComponent(URL)}`;
@@ -46,23 +47,14 @@ async function guestPage(t, label, save2d, query) {
     L: code => page.evaluate(code),
     game: code => page.evaluate(`(() => { const L3 = window.__lulu3d, ctx = L3.ctx; return (${code}); })()`),
     async until(code, what, ms = 90000) {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        const ok = await page.evaluate(`(() => { try { const L3 = window.__lulu3d, ctx = L3 && L3.ctx; return !!(${code}); } catch (e) { return false; } })()`).catch(() => false);
-        if (ok) return true;
-        await sleep(150);
-      }
+      if (await waitOn(page, code, ms)) return true;   // GAME time (frames), not wall time: scripts/lib/party3d.js
       t.check(`${label}: ${what}`, false, "timed out");
       return false;
     },
   };
 }
 async function hostUntil(t, code, what, ms = 90000) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    if (await t.game(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false)) return true;
-    await sleep(150);
-  }
+  if (await waitOn(t.page, code, ms)) return true;   // GAME time (frames), not wall time
   t.check(what, false, "timed out in " + await t.game(`ctx.state`).catch(() => "?"));
   return false;
 }
@@ -261,6 +253,13 @@ async function partyRun(t, guests) {
   const hostUid = await g(`ctx.party.uid`), guestUid = await A.game(`ctx.party.uid`);
   await A.game(`ctx.openworld.warpTo(${JSON.stringify(hostUid)})`);
   await sleep(3000);
+  // (a slow runner: wait until the warp has landed and its snapshots have reached the host — in game frames)
+  const realQ = `(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return rc && rc.shown ? { x: rc.x, z: rc.z } : null; })()`;
+  for (let i = 0; i < 30; i++) {
+    const sn = await g(realQ), rl = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z, w: ctx.town.active })`);
+    if (sn && rl.w && Math.hypot(sn.x - rl.x, sn.z - rl.z) < 4) break;
+    await t.frames(10);
+  }
   const seen = await g(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(guestUid)}); return rc && rc.shown ? { x: rc.x, z: rc.z } : null; })()`);
   const real = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
   t.check("in town: the host sees the guest's car where it really is (flat frame)", !!seen && Math.hypot(seen.x - real.x, seen.z - real.z) < 4, JSON.stringify({ seen, real }));
@@ -289,8 +288,19 @@ async function partyRun(t, guests) {
   const settle =async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "go" && ctx.party.clock() > ctx.openworld.game.t0 + 300`, what, 40000)) return false; return true; };
   const done = async (k, what) => { for (const p of pages) if (!await p.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && ctx.openworld.game.ph === "done"`, what, 40000)) return false; return true; };
 
+  // a game with friends is an INVITATION now: the other screen sees it open, opts in (ctx.openworld.join = the chip /
+  // 📱 👯 Join / walking up to the spot), and it starts at once when everyone's in — nobody is pulled in unasked
+  const optIn = async (k, other, what) => {
+    if (!await other.until(`ctx.openworld.game && ctx.openworld.game.k === "${k}" && (ctx.openworld.game.ph === "in" || ctx.openworld.game.ph === "go")`, what + ": the invitation arrives", 40000)) return false;
+    await other.game(`ctx.openworld.join()`);
+    return true;
+  };
   // 🚓 COPS & ROBBERS — started by the GUEST from the phone
-  t.check("C&R: the guest asks, the host starts it", (await A.game(`ctx.openworld.start("cnr")`)) === "");
+  t.check("C&R: the guest asks, the host starts it (as an invitation)", (await A.game(`ctx.openworld.start("cnr")`)) === "");
+  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.ph === "in" && /join/i.test(document.getElementById("owChip").textContent)`, "C&R: the host sees the invitation (a join chip)", 40000);
+  const inv = await g(`({ ph: ctx.openworld.game.ph, ps: ctx.openworld.game.ps, chip: document.getElementById("owChip").textContent, st: ctx.state })`);
+  t.check("C&R: an invitation — only the guest is in, the host isn't pulled in (still driving, a 'join' chip)", inv.ph === "in" && inv.ps.length === 1 && inv.ps[0] === guestUid && inv.st === "playing" && /join/i.test(inv.chip), JSON.stringify(inv));
+  await g(`ctx.openworld.join()`);
   if (!await settle("cnr", "C&R: GO")) return;
   const cnr = await g(`ctx.openworld.game`);
   t.check("C&R: same game + roles on both screens", JSON.stringify(await A.game(`[ctx.openworld.game.n, ctx.openworld.game.cop]`)) === JSON.stringify([cnr.n, cnr.cop]) && !!cnr.drop);
@@ -320,13 +330,18 @@ async function partyRun(t, guests) {
 
   // 🥘 HOT KUGEL — a bump passes it, then the fuse blows
   t.check("kugel starts", (await g(`ctx.openworld.start("kugel")`)) === "");
+  await optIn("kugel", A, "kugel");
   if (!await settle("kugel", "kugel: GO")) return;
   await g(`ctx.party.clock() > ctx.openworld.game.guard`) || await hostUntil(t, `ctx.party.clock() > ctx.openworld.game.guard + 100`, "kugel guard", 10000);
   const it0 = await g(`ctx.openworld.game.it`);
   const holder = it0 === hostUid ? pages[0] : A, other = holder === A ? pages[0] : A;
   const op = await other.game(CLEAR);
-  await other.game(PLACE(op.x, op.z, op.h));
-  await holder.game(PLACE(op.x - Math.sin(op.h) * 4.2, op.z - Math.cos(op.h) * 4.2, op.h));
+  // (on a crawling runner the bump can miss — a friend's car still gliding in from its old spot: line them up again)
+  for (let k = 0; k < 3; k++) {
+    await other.game(PLACE(op.x, op.z, op.h));
+    await holder.game(PLACE(op.x - Math.sin(op.h) * 4.2, op.z - Math.cos(op.h) * 4.2, op.h));
+    if (await waitOn(holder.page || t.page, `ctx.openworld.game.itN >= 1`, 12000)) break;
+  }
   for (const p of pages) await p.until(`ctx.openworld.game.itN >= 1`, "kugel: passed on contact", 30000);
   t.check("kugel: the bump passed it (both screens agree)", (await g(`ctx.openworld.game.it`)) !== it0 && (await A.game(`ctx.openworld.game.it`)) === (await g(`ctx.openworld.game.it`)));
   await sleep(600);
@@ -340,6 +355,7 @@ async function partyRun(t, guests) {
 
   // 📍 RACE TO A PIN — both finish → scoreboard → the guest's 🔁 Rematch
   t.check("race to a pin starts", (await g(`ctx.openworld.start("pin")`)) === "");
+  await optIn("pin", A, "pin");
   if (!await settle("pin", "pin: GO")) return;
   const pin = await g(`ctx.openworld.game.pin`);
   t.check("pin: the same pin on both screens", JSON.stringify(await A.game(`ctx.openworld.game.pin`)) === JSON.stringify(pin));
@@ -349,9 +365,12 @@ async function partyRun(t, guests) {
   const rows = await g(`ctx.openworld.debug.CL.lastRows.map(r => r.uid + ":" + r.val)`);
   t.check("pin: the guest got there first", rows[0].startsWith(guestUid), rows.join(" | "));
   await A.until(`ctx.phone.isOpen && document.getElementById("owRematch")`, "guest scoreboard", 10000);
+  const n0 = await g(`ctx.openworld.game.n`);
   await A.L(`document.getElementById("owRematch").click()`);
-  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.k === "pin" && ctx.openworld.game.ph === "go"`, "the guest's rematch starts a new race", 20000);
-  t.check("rematch: a new race (n + 1)", (await g(`ctx.openworld.game.n`)) > 0 && (await g(`ctx.openworld.game.ph`)) === "go");
+  await optIn("pin", pages[0], "rematch");
+  // (both still stand by the old pin: the new race can be over a moment after GO — judge it by its number)
+  await hostUntil(t, `ctx.openworld.game && ctx.openworld.game.k === "pin" && ctx.openworld.game.n > ${n0} && (ctx.openworld.game.ph === "go" || ctx.openworld.game.ph === "done")`, "the guest's rematch starts a new race", 20000);
+  t.check("rematch: a new race (n + 1)", (await g(`ctx.openworld.game.n`)) === n0 + 1 && /^(go|done)$/.test(await g(`ctx.openworld.game.ph`)));
   await sleep(4000);
   const perf = await PERF(t, 40);
   console.log("   PERF party town (2 players)", JSON.stringify(perf));
