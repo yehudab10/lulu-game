@@ -234,7 +234,7 @@ merged — ignore them.
   town's draw distances in (MAX_D solid 300 → 250, flat 140 → 120) only saves 1–3k and starts to show pop-in down the
   long avenues, so it wasn't done. The real levers if it creeps over again: the town's ground (asphalt / walks / marks,
   ~14k, always drawn whole — split it into the cluster cells so it culls like the blocks) and the town's people / cars
-  (~27k for 11 cars + walkers: a far LOD). Keep new town props merged into the clusters (build.js), never loose meshes.
+  (~27k for 11 cars + walkers — the far half is done: town minivans past 100 m are drawn as one instanced LOD draw call, cars.js `LOD_D`; town drivers of other kinds and the walkers could follow). Keep new town props merged into the clusters (build.js), never loose meshes.
 - Decor (landed 2026-11-20): `core` fails LOCALLY in this cloud container on plain `main` too ("coins land in the shared 2D wallet", "B resumes", "reaches Bubbe's house" — it ends up in footRun) while CI passes it — worth a look if it ever shows on CI. `home`'s "knocked flat on foot" flaked once here (passed on a re-run).
 - Places (`ci/places`): her impounded car stands behind the impound fence but can't be taken back early (impound has no
   fee in the 3D game — springing it for coins would be an economy change: **the owner's call**); the precinct / court /
