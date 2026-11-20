@@ -309,3 +309,18 @@ Still protocol v1, still the verbatim-relayed `d`. **No server change.**
   ≥ 0.8 s, record toasts ≥ 90 s apart per sender (dropped on the receiving side); `sk`/`co`/`vk`/numbers are validated.
 - What leaves the device: the curated name (from the 12), the car skin, the game-world position / speed, emote / honk
   indices. No location, contacts, device or account data, no free text.
+
+## 3D — FRIENDS: a lasting list, presence, one-tap join (features/friends, ci/friends)
+
+No server change — the relay's protocol v1 in rooms the client names:
+- **New piggyback field `fr`** (3D only; 2D ignores it) in the EVERYONE state, and `x.fr` in a party snapshot: ≤ 3 entries
+  `{ to: peer id, pk: ECDH P-256 public key (base64url), f: the sender's random friend id, c?: AES-GCM sealed card }` — the
+  "be friends?" handshake (both say yes). A card = `{ f, n (curated name), sk, b (doorbell) }`, readable only by the two.
+  A party snapshot also carries `x.fid` (the random friend id) so members can see who's already on their list.
+- **Doorbell rooms `B` + 11 chars** (a random secret only friends know): the owner sits there with state `{ o: 1 }`; a friend
+  joins for a moment with `{ k: { f, c } }` (sealed "where / join"); she answers with `{ o: 1, r: [{ to, c }] }` (sealed per
+  friend). Strangers can't find the room; anyone who does (a leaked name) gets no answer without the friendship's secret.
+- **Friend-code rooms `F` + 6 chars**: open only while the owner's ➕ Add by code screen is up (state `{ fc: 1 }`); the
+  handshake runs in that room's state.
+- Nothing personal: random ids, the curated name, the car skin, a few words of where in the game world ("in Midwood ·
+  driving"), only to friends, sealed. Relay load: one idle socket per online player with friends + short knocks.
