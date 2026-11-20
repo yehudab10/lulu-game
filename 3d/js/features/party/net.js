@@ -51,7 +51,8 @@ function randId(n) { let s = ""; for (let i = 0; i < n; i++) s += "abcdefghjkmnp
 export function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 /** Allowed to touch the network at all? (test runs must opt in with &enable=party) */
-export function allowed() { return typeof WebSocket !== "undefined" && !!RELAY && (!ctx.TEST || ctx.enabled("party")); }
+/** (a ?test page only ever talks to a relay the test points it at — &mpurl= — never the real one) */
+export function allowed() { return typeof WebSocket !== "undefined" && !!RELAY && (!ctx.TEST || (ctx.enabled("party") && !!QS.get("mpurl"))); }
 export function validCode(c) { return typeof c === "string" && c.length === CODE_LEN && [...c].every(ch => CODE_ABC.includes(ch)); }
 export function worldSeed() { return hashStr("world:" + N.code); }
 export function newCode() { let c = ""; for (let i = 0; i < CODE_LEN; i++) c += CODE_ABC[rint(0, CODE_ABC.length - 1)]; return c; }
