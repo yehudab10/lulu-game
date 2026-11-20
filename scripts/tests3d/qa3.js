@@ -22,7 +22,7 @@ module.exports = {
     // walk (camera-relative stick) toward a world direction for n frames
     const walkDir = async (dx, dz, n) => {
       for (let i = 0; i < n; i += 6) {
-        const v = await g(`(() => { const F = ctx.foot.debug.F, h = F.frameYaw != null ? F.frameYaw : F.h, d = Math.hypot(${dx}, ${dz}); return [(-${dx} * Math.cos(h) + ${dz} * Math.sin(h)) / d, -(${dx} * Math.sin(h) + ${dz} * Math.cos(h)) / d]; })()`);
+        const v = await g(`(() => { const F = ctx.foot.debug.F, h = F.frameYaw != null ? F.frameYaw : F.h, X = ${dx}, Z = ${dz}, d = Math.hypot(X, Z); return [(-X * Math.cos(h) + Z * Math.sin(h)) / d, -(X * Math.sin(h) + Z * Math.cos(h)) / d]; })()`);
         await t.stick(v[0], v[1]); await t.frames(6);
       }
       await t.stick(0, 0);
@@ -47,10 +47,10 @@ module.exports = {
         return [pick(q => -q[0], -1, 0), pick(q => q[0], 1, 0), pick(q => -q[1], 0, -1), pick(q => q[1], 0, 1)]; })()`);
       const ends = [];
       for (const e of edges) {
-        await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${e.x}, 0, ${e.z}); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2(${e.dx}, ${e.dz}); return true; })()`);
+        await g(`(() => { const F = ctx.foot.debug.F; F.pos.set((${e.x}), 0, (${e.z})); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2((${e.dx}), (${e.dz})); return true; })()`);
         await t.frames(6);
         await walkDir(e.dx, e.dz, 150);
-        const r = await g(`(() => { const F = ctx.foot.debug.F; return { out: +((F.pos.x - ${e.x}) * ${e.dx} + (F.pos.z - ${e.z}) * ${e.dz}).toFixed(1), d: +F.d.toFixed(1) }; })()`);
+        const r = await g(`(() => { const F = ctx.foot.debug.F; return { out: +((F.pos.x - (${e.x})) * (${e.dx}) + (F.pos.z - (${e.z})) * (${e.dz})).toFixed(1), d: +F.d.toFixed(1) }; })()`);
         ends.push(Object.assign({ st: e.st, dir: [e.dx, e.dz] }, r));
       }
       console.log(`   ${town} edges:`, JSON.stringify(ends));
