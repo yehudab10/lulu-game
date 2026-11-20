@@ -103,7 +103,7 @@ ctx.party = {
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
-    hostParty, hostRoam, joinParty, join: code => joinParty(code), leave, openHub,
+    hostParty, hostRoam, joinParty, join: code => joinParty(code), leave, openHub, openJoin: code => openJoin(code || ""),
     /** Share / copy the invite link (it lands friends right next to ME in Free Roam). → a promise of the message. */
     invite: () => U.shareInvite(N.code, N.uid),
     /** Who sent the link I joined from (their uid, or "") — Free Roam drops me next to them. */
@@ -236,7 +236,7 @@ on("shared:changed", () => { P.cache.at = -1; });
 function nameOf(uid) {
     if (uid === N.uid) return profileCache().name || NET.myName();
     const p = N.players.get(uid);
-    return (p && p.n) || "Friend";
+    return (p && NET.NAMES.includes(p.n) && p.n) || "Friend";
 }
 /** Display names: a duplicate gets a number so you can tell two Kugel Kids apart (cached, refreshed twice a second). */
 const names = { map: new Map(), at: -1 };
@@ -260,7 +260,8 @@ function playerInfo(uid) {
 /** Host a party. opts.act: start that activity as soon as we're connected (🌍 Free Roam — no lobby wall). */
 function hostParty(opts = {}) {
     if (!NET.allowed()) { H.toast("Parties need an internet connection", "red"); return false; }
-    disconnectSharedRoad();
+    leaveFriendRoom();
+    bankSoloRun();
     const code = NET.newCode();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, true);
@@ -274,7 +275,8 @@ function hostRoam() { return hostParty({ act: ACTS.roam ? "roam" : null }); }
 function joinParty(code) {
     code = String(code || "").toUpperCase();
     if (!NET.allowed() || !NET.validCode(code)) return false;
-    disconnectSharedRoad();
+    leaveFriendRoom();
+    bankSoloRun();
     P.joinMsg = ""; P.lostShown = false;
     NET.start(code, false);
     P.ready = false; P.actId = -1;
@@ -292,7 +294,11 @@ function leave(toTitle = true) {
         setState("title");
     }
 }
-function disconnectSharedRoad() { try { if (ctx.mpNet && ctx.mp && ctx.mp.connected !== undefined && (ctx.mpNet.MP.want || ctx.mpNet.MP.connected)) ctx.mpNet.disconnect(false); } catch (e) { /* optional */ } }
+// A party keeps the EVERYONE layer (strangers stay in the world as ghosts; friends are the party's own cars) — only a
+// Classic-2D FRIEND room is left (one group at a time).
+function leaveFriendRoom() { try { const M = ctx.mpNet && ctx.mpNet.MP; if (M && M.want && M.room !== "lobby") ctx.mpNet.disconnect(false); } catch (e) { /* optional */ } }
+/** Inviting friends from the middle of a solo drive: bank that run first (score, miles), like any run that ends. */
+function bankSoloRun() { try { const G = ctx.G; if (G && !G.ended && G.mode !== "party" && G.runTime > 0 && ctx.state !== "title") endRun("party"); } catch (e) { /* fine */ } }
 
 function teardown() {
     dashSetup(null);
@@ -315,19 +321,28 @@ function teardown() {
 }
 
 // ── the hub (from the title) ─────────────────────────────────────────────
+/** Who's around, in one line (the EVERYONE layer: strangers out in the world right now). */
+function aroundLine() {
+    const M = ctx.mp;
+    if (!M) return "";
+    if (!M.online) return "🌐 Play online is <b>off</b> — just you out there";
+    if (M.connected && M.room === "lobby") { const n = Math.max(0, M.riders - 1); return n ? `🌐 <b>${n}</b> other driver${n === 1 ? "" : "s"} out in the world right now` : "🌐 Online — nobody else out on the road right now"; }
+    return "🌐 Online — other drivers show up when you're out in the world";
+}
 function openHub() {
-    const mp = ctx.mp && ctx.mp.connected;
     const can = NET.allowed();
-    const html = `<h2>🎉 Party with friends</h2>
-        <p class="pt-sub">${can ? "Drive together on the same road — up to 8 friends." : "Private parties need an internet connection."}</p>`;
+    const around = aroundLine();
+    const html = `<h2>👯 Friends</h2>
+        <p class="pt-sub">${can ? "Play together in the same world — up to 8 friends. Everyone else out there is a ghost; friends are real cars with their names." : "Playing with friends needs an internet connection."}</p>${around ? `<p class="pt-sub pt-around">${around}</p>` : ""}`;
     const buttons = [];
     if (can) {
-        if (ACTS.roam) buttons.push({ id: "pt_roam", cls: "pt-big", label: `<span>🌍 Hang out with friends ${glyph("confirm")}</span><small>straight into Free Roam · share the link, they pop up next to you</small>`, action: hostRoam });
-        buttons.push({ id: "pt_host", cls: ACTS.roam ? "" : "pt-big", label: `<span>🎉 Host a party lobby${ACTS.roam ? "" : " " + glyph("confirm")}</span><small>races, a road trip, dreidel dash, cop tag</small>`, action: () => hostParty() });
+        buttons.push({ id: "pt_roam", cls: "pt-big", label: `<span>📤 Invite friends ${glyph("confirm")}</span><small>you head out · send the link · they pop up right next to you</small>`, action: hostRoam });
         buttons.push({ id: "pt_join", cls: "purple", label: `<span>🔑 Join with a code</span><small>type your friend's 4 letters</small>`, action: () => openJoin() });
+        buttons.push({ id: "pt_host", cls: "", label: `<span>🎮 Party games</span><small>races · a road trip · dreidel dash · cop tag (a lobby)</small>`, action: () => hostParty() });
     }
-    // the cross-play Shared Road (2D + 3D), folded in here as the secondary option
-    if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `<span>🌐 Open road${mp ? ` · ${ctx.mp.riders} online` : ""}</span><small>everyone, incl. 2D players</small>`, action: () => ctx.mp.open("party") });
+    if (ctx.mp && ctx.mp.setOnline) buttons.push({ id: "pt_online", cls: "alt", label: `<span>🌐 Play online: ${ctx.mp.online ? "ON" : "OFF"}</span><small>${ctx.mp.online ? "other drivers show up as ghosts · tap to go solo" : "just you · tap to see other drivers"}</small>`, action: () => { ctx.mp.setOnline(!ctx.mp.online); openHub(); } });
+    // Classic 2D cross-play (a Shared Road code room + your rider name) — small, last
+    if (ctx.mp) buttons.push({ id: "pt_open", cls: "alt", label: `<span>🕹️ Classic 2D friends</span><small>a room code that works with the 2D game · your rider name</small>`, action: () => ctx.mp.open("party") });
     buttons.push({ id: "pt_back", cls: "alt", label: `<span>Back ${glyph("back")}</span>`, action: () => showTitle(true) });
     H.showScreen(html, buttons, { onBack: () => showTitle(true), focus: buttons[0].id, cls: "pt-card pt-hub" });
 }
@@ -338,7 +353,7 @@ function openJoin(code = "", msg = "", msgCls = "") {
 // title entry (the parallel UX work groups title items; harmless if ignored)
 addMenuItem("title", {
     id: "party", group: "play", order: 60, cls: "purple",
-    label: () => `🎉 Party with friends${ctx.mp && ctx.mp.connected ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders} online</small>` : ""}`,
+    label: () => `👯 Friends${ctx.mp && ctx.mp.connected && ctx.mp.room === "lobby" && ctx.mp.riders > 1 ? ` <small style="opacity:.8">· 🌐 ${ctx.mp.riders - 1} out now</small>` : ""}`,
     visible: () => !ctx.TEST || ctx.enabled("party") || ctx.enabled("multiplayer"),
     action: openHub,
 });

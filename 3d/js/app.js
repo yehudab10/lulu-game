@@ -155,6 +155,9 @@ function loop(now) {
     const t0 = performance.now(), interval = now - last;
     let dt = interval / 1000;
     last = now;
+    // An AD is on screen (iOS app — features/native/ads.js sets ctx.hold): the whole game stands still — no game time,
+    // no state update (scripts waiting on game time wait), no traffic, no world, no render — and picks up exactly here.
+    if (ctx.hold) return;
     if (dt > 0.05) dt = 0.05;           // below 20 fps the game slows down rather than tunnelling
     if (ctx.TEST) dt = 1 / 30;          // smoke test: deterministic game time per frame
     if (dt <= 0) return;

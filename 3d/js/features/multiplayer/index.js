@@ -17,14 +17,14 @@
 // Consumed: run:start (cruise auto-join), run:end (daily score), honk, arrest / law:arrest / jail (wanted board)
 import * as THREE from "three";
 import { ctx, on, emit, hook, addMenuItem } from "../../core/ctx.js";
-import { save3d } from "../../core/save.js";
+import { save3d, shared } from "../../core/save.js";
 import { startRun } from "../../core/driving.js";
 import { addTouchButton, input, rumble } from "../../input.js";
 import * as H from "../../hud.js";
 import { showTitle } from "../../core/screens.js";
 import * as N from "./net.js";
 import { MP, DI_PER_M, X_PER_M, X_MID } from "./net.js";
-import { updateGhosts, clearGhosts } from "./ghosts.js";
+import { updateGhosts, clearGhosts, ghostStats } from "./ghosts.js";
 import * as U from "./ui.js";
 import { tone } from "../parking/sfx.js";
 
@@ -55,25 +55,53 @@ function footPos() {
     const p = f.pos || (f.obj && f.obj.position) || (f.person && f.person.obj && f.person.obj.position) || (f.lulu && (f.lulu.position || (f.lulu.obj && f.lulu.obj.position)));
     return p && typeof p.x === "number" ? p : null;
 }
-const me = { s: 0, d: 0, sp: 0, foot: false, driving: false, sending: false, vk: "car" };
+const me = { s: 0, d: 0, sp: 0, foot: false, driving: false, sending: false, hidden: false, inWorld: false, vk: "car",
+    zone: "", lx: 0, lz: 0, h: 0, w: null };
+const r1 = v => Math.round(v * 10) / 10;
 function myPose() {
     const car = ctx.car;
     const def = ctx.states[ctx.state] || {};
     const foot = !!(ctx.foot && ctx.foot.active);
+    // out in the open world (a road, a town, on foot outside) — anywhere else (indoors, a scene, a menu, Dina's
+    // mode) she's "~": hidden from everyone, ghosts hidden from her, the horn / emotes don't go out
+    // (a 🎉 party: only its 🌍 Free Roam is the open world — a race / dash / tag / road trip keeps strangers out)
+    const pa = ctx.party && ctx.party.active ? ctx.party : null;
+    const partyBusy = !!pa && !(pa.activity && pa.activity.k === "roam");
+    me.inWorld = (!!def.driving || ctx.state === "footRun") && !partyBusy;
+    me.pt = pa && pa.code ? N.partyTag(pa.code) : null;
     me.foot = foot;
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
-    me.sending = me.driving || foot || me.parking;
+    me.sending = (me.inWorld && !ctx.view) || me.parking;
+    me.hidden = !me.sending;
     me.s = car ? car.s : 0; me.d = car ? car.d : 0; me.sp = car ? car.speed : 0;
+    const T = ctx.town, inTown = !!(T && T.active && T.plan);
+    let wx = car ? car.pos.x : 0, wz = car ? car.pos.z : 0, yaw = car ? car.h : 0;
     if (foot) {
         const fp = footPos();
-        if (fp && ctx.world) {
+        if (fp) { wx = fp.x; wz = fp.z; }
+        const fv = ctx.foot.vel;
+        me.sp = fv ? Math.hypot(fv.x, fv.z) : typeof ctx.foot.speed === "number" ? ctx.foot.speed : 1.3;
+        if (typeof ctx.foot.facing === "number") yaw = ctx.foot.facing;
+        if (fp && ctx.world && !inTown) {
             const n = ctx.world.road.nearest(fp.x, fp.z, car.s, tmp);
             me.s = n.s; me.d = n.d;
-            me.sp = typeof ctx.foot.speed === "number" ? ctx.foot.speed : 1.3;
-        } else me.sp = 1.3;
+        }
     }
     if (me.parking) me.sp = 0;
+    me.zone = !me.sending || me.parking ? "~" : inTown ? String(T.id || "") : "";
+    if (me.zone === "" && ctx.world) {
+        // the highway: road distance + offset + heading relative to the road (riders' roads can bend differently)
+        ctx.world.road.point(me.s, 0, tmp);
+        me.h = yaw - tmp.h;
+        me.w = ["", r1(me.s), r1(me.d), Math.round(Math.atan2(Math.sin(me.h), Math.cos(me.h)) * 100) / 100];
+    } else if (inTown && me.zone !== "~") {
+        const O = T.plan.ORIGIN;
+        me.lx = wx - O.x; me.lz = wz - O.z; me.h = yaw;
+        me.w = [me.zone, r1(me.lx), r1(me.lz), Math.round(Math.atan2(Math.sin(yaw), Math.cos(yaw)) * 100) / 100];
+        // a 2D rider sees a 3D rider in town as parked by that town's exit
+        me.s = T.highwayS || me.s; me.d = 9; me.sp = 0;
+    } else me.w = ["~", 0, 0, 0];
     const veh = ctx.foot && ctx.foot.vehicle;   // a borrowed ride, if the foot feature exposes one
     if (!foot && veh && veh.kind) { me.vk = "borrowed"; me.ct = veh.ct || 0; me.co = veh.color || "#E53935"; }
     else me.vk = (ctx.G && ctx.G.vehicleKind) || "car";
@@ -91,13 +119,19 @@ function frame() {
     if (dt <= 0) return;
     try {
         myPose();
+        ambientTick(dt);
         N.tick(dt, me);
-        const inRun = me.driving || me.foot;
+        const inRun = me.inWorld;
         updateGhosts(dt, me, inRun && !ctx.view);
         U.overlayTick();
         U.uiTick();
-        U.wheelTick(dt, inRun && !ctx.paused && !ctx.dialogOpen);
-        U.setKeyInRun(inRun && !ctx.paused);
+        // the emote wheel / 1–7 keys / 😀 button only while someone is actually around (or in a friend room): alone
+        // on the road, the horn is just a horn
+        // (in a 🎉 party the party's own wheel is the emote system — strangers just see your ghost)
+        const social = !(ctx.party && ctx.party.active) && (N.friendRoom() || Object.values(MP.peers).some(p => p.onScreen));
+        me.social = social;
+        U.wheelTick(dt, inRun && social && !ctx.paused && !ctx.dialogOpen);
+        U.setKeyInRun(inRun && social && !ctx.paused);
         titleRefresh();
     } catch (e) { console.error("[mp] frame", e); }
 }
@@ -186,7 +220,40 @@ on("mp:honk", ({ peer }) => {
 });
 
 // ── run lifecycle: cruise auto-join, daily leaderboard, wanted board ─────
-on("run:start", ({ mode }) => { if (mode === "cruise") N.autoConnect(); });
+// 🌐 EVERYONE IN THE SAME WORLD: out in the open world she's online by default (the EVERYONE room — drop-in, no
+// lobby, no code). Off: ⚙️ Settings › Play online (or the phone's "Go solo"), a party (it has its own room),
+// Dina's mode (disconnects; back in the world it reconnects). Offline / relay down → silently solo: the socket just
+// keeps backing off (≤ 10 s), nothing on screen says so.
+const AMB = { t: 0, resume: null };
+export const onlineOn = () => !shared.get().mpAutoOff;
+const dinaMode = () => /^dina/.test(ctx.state || "") || !!(ctx.G && ctx.G.mode === "dina");
+function ambientTick(dt) {
+    if ((AMB.t -= dt) > 0) return;
+    AMB.t = 0.5;
+    if (!N.allowed()) return;
+    if (dinaMode()) { if (MP.want) { AMB.resume = { room: MP.room, kind: MP.roomKind }; N.disconnect(false); } return; }
+    if (!onlineOn() || MP.want || !me.inWorld) return;
+    const r = AMB.resume; AMB.resume = null;
+    N.connect(r ? r.room : "lobby", r ? r.kind : "everyone");
+}
+/** ⚙️ Play online on / off (the shared save's mpAutoOff — the 2D game reads the same flag). */
+export function setOnline(on) {
+    shared.update(s => { s.mpAutoOff = !on; });
+    if (!on) { AMB.resume = null; if (MP.want) N.disconnect(true); }
+    else AMB.t = 0;
+    emit("mp:online", { on: !!on });
+}
+ctx.mp.setOnline = setOnline;
+Object.defineProperty(ctx.mp, "allowed", { get: () => N.allowed() });
+Object.defineProperty(ctx.mp, "online", { get: onlineOn });
+Object.defineProperty(ctx.mp, "near", { get: () => Object.values(MP.peers).filter(p => p.onScreen).length });
+ctx.mp.ghostStats = ghostStats;
+addMenuItem("settings", {
+    id: "online", order: 58,
+    visible: () => N.allowed(),
+    label: () => `🌐 Play online <b>${onlineOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${onlineOn() ? "see who else is driving right now" : "just you"}</small>`,
+    action: () => { setOnline(!onlineOn()); H.toast(onlineOn() ? "🌐 Online — other drivers show up as ghosts" : "🌐 Offline — it's just you", "", 2.5); },
+});
 on("run:end", ({ score, bestStreak = 0 }) => { N.postScore(Math.max(score || 0, bestStreak)); });   // (knock-outs bank streaks: post the run's best)
 for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.charges) N.postWanted(e.charges); });
 // a friend race starts while we're on the title → hop into a cruise in time for GO
@@ -196,7 +263,7 @@ on("mp:riders", () => U.uiDirty());
 
 // ── HUD + menus ──────────────────────────────────────────────────────────
 hook("hud", () => U.hudTick());
-// With the party feature present, Shared Road lives in its hub ("🎉 Party with friends" → 🌐 Open road),
+// With the party feature present, Shared Road lives in its hub ("👯 Friends" → 🕹️ Classic 2D friends),
 // so the title has ONE multiplayer entry; without it, Shared Road keeps its own title button.
 addMenuItem("title", {
     id: "sharedroad", order: 60, cls: "purple",
@@ -208,7 +275,7 @@ addMenuItem("pause", { id: "sharedroad", order: 40, label: () => MP.connected ? 
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });
-addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => MP.connected && (me.driving || me.foot) });
+addTouchButton({ id: "mpEmote", emoji: "😀", label: "EMOTE", action: "mpEmote", visible: () => MP.connected && me.social && me.inWorld });
 hook("update", (dt, P) => { if (P.mpEmote) { if (U.wheelOpen()) U.closeWheel(); else U.openWheel(false); } }, -6);
 
 // tidy up ghosts when leaving a session
