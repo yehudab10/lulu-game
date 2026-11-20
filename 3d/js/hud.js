@@ -113,7 +113,7 @@ export function toast(text, cls = "", opts = {}) {
     text = String(text);
     cls = cls || "";
     const key = opts.key || toastKey(text, cls);
-    const prio = prioOf(text, cls, opts);
+    let prio = prioOf(text, cls, opts);
     if (opts.merge !== false) {
         const live = NT.toasts.find(t => t.key === key && !t.out);
         if (live) {
