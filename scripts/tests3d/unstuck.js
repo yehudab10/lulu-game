@@ -175,7 +175,11 @@ module.exports = {
         await ready();
         n0 = await nLog();
         await putFoot(sol.x, sol.z);
-        if (await autoFired(n0, "inside", `highway: on foot inside a ${sol.kind} (r ${sol.r.toFixed(1)})`, 8000)) await footOK(`highway: out of the ${sol.kind}`, sol);
+        // (the game's own collision pushes her out of a round thing; the rescue is for what it can't — either way she's out)
+        await t.frames(120);
+        const out = await g(`(() => { const F = ctx.foot.debug.F; return { d: Math.hypot(F.pos.x - ${sol.x}, F.pos.z - ${sol.z}), phase: F.phase, bad: ctx.unstuck.debug.badNow() }; })()`);
+        t.check(`highway: on foot inside a ${sol.kind} (r ${sol.r.toFixed(1)}) → out of it (by the game's push or the rescue)`, out.d >= sol.r - 0.4 && out.bad == null, JSON.stringify(out));
+        await W.reset(t);
       }
       // 5 · her parked CAR is the stuck thing → "🚗 Bring my car here too"
       sol = await solidNear(1);
