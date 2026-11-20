@@ -18,6 +18,7 @@ import { lobbyDef, nameLobby } from "./lobby.js";
 import { NAMES, PASS, IMPOUND_GATE, IMPOUND_MINE } from "./data.js";
 import { STAY, claim, clear, tick, ready, walkOut, arrive, impoundedCar } from "./out.js";
 import { dissolving } from "../../core/transition.js";
+import { counsel, courtsDebug, hearingToday, caseDone } from "./courts.js";
 
 const MODELS = ["places_precinct", "places_court", "places_hospital", "places_impound"];
 registerModels(Object.fromEntries(MODELS.map(k => [k, k])));
@@ -123,7 +124,7 @@ function passBy(dt) {
 // ── wiring ───────────────────────────────────────────────────────────────
 // the states the town now hosts (they used to send her back to the highway first): law's arrest → booking → cell →
 // court → the walk out, the arrival at the precinct, the ER
-const HOSTED = ["interior", "lawArrest", "lawJail", "lawCourt", "lawExit", "placesArrive", "cameosER"];
+const HOSTED = ["interior", "lawArrest", "lawJail", "lawCourt", "lawExit", "placesArrive", "cameosER", "placesHearing"];
 on("boot", () => {
     if (ctx.town && ctx.town.allowState) for (const s of HOSTED) ctx.town.allowState(s);
     if (ctx.foot && ctx.foot.addSpot) {
@@ -157,6 +158,11 @@ ctx.civic = {
     /** Where she's being taken right now (law's arrest / the ER): { kind, id, exitS, here } | null. */
     get place() { return STAY.place; },
     claim, clear, tick, ready, walkOut, arrive,
+    // ── the courthouses' own stories (courts.js) ──
+    /** law/court.js: who is her counsel in the court she's tried in (Midwood: Abba) — null = the usual lawyer. */
+    counsel,
+    /** Lakewood's 2B: Shloime's case — a hearing today? the case over? */
+    courts: { hearingToday, caseDone, debug: courtsDebug },
     dissolving,
     debug: { C, DOORS, lobbyDef, STAY, impoundedCar },
 };
