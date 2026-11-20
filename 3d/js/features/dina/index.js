@@ -34,8 +34,19 @@ const DINA_STATES = new Set(["dinaSelect", "dinaBus", "dinaRun", "dinaCaught", "
 const STREET_STATES = new Set(["dinaBus", "dinaRun", "dinaCaught"]);
 const ROOM_STATES = new Set(["dinaHome", "dinaMorgan", "dinaNap", "dinaStickers", "dinaCookie"]);
 
-async function start() {
+// Where Dina's picker goes when you pick Lulu (or back out): "title", or "world" when you came from the porch
+// (features/onegame: ✋ PLAY AS DINA on her step) — then you're back on your feet at home.
+export const DW = { ret: "title" };
+/** Leave Dina's world from her picker: back to the world at home (from the porch) or the title (from her tile). */
+export function leaveDina() {
+    const ret = DW.ret;
+    DW.ret = "title";
+    if (ret === "world" && ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "dina" });
+    else setState("title");
+}
+async function start(opts = {}) {
     if (ctx.state === "dinaSelect") return;
+    DW.ret = opts && opts.ret === "world" ? "world" : "title";
     try { await ensureModels(["dinaMorgan", "dinaProps"]); }
     catch (e) { console.error(e); H.toast("Couldn't load Dina's world — check your connection", "red"); return; }
     setState("dinaSelect");
@@ -46,7 +57,7 @@ async function home() {
 }
 
 ctx.dina = {
-    start, home,
+    start, home, leave: leaveDina,
     get active() { return DINA_STATES.has(ctx.state); },
     get run() { return R; },
     get cookie() { return CK; },
@@ -56,7 +67,7 @@ ctx.dina = {
 };
 
 // ── title + pause menu ───────────────────────────────────────────────────
-addMenuItem("title", { id: "dina", order: 35, group: "play", cls: "pink", sub: () => S2.runsPlayed() > 0 ? "her street · her room" : "race home from the bus", label: "👧 Dina", action: start });
+addMenuItem("title", { id: "dina", order: 35, group: "play", cls: "pink", sub: () => S2.runsPlayed() > 0 ? "her street · her room" : "race home from the bus", label: "👧 Dina", action: () => start() });
 addMenuItem("pause", {
     id: "dinaRoom", order: 86, cls: "alt", label: "🏠 Dina's room",
     visible: () => ["dinaRun", "dinaCookie"].includes(ctx.state),

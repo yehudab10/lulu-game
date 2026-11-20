@@ -609,3 +609,21 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     .tile.grp .t-s { display: none; }
     .settings { grid-template-columns: 1fr; }
 }
+
+/* ONE GAME, NOT A MENU OF MODES (roadmap 10): ▶ PLAY is the one big button; the two small tiles under it
+   (👯 Friends · 👧 Dina) sit icon-left, clearly secondary */
+.tile.hero#play .t-ic { color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.18); font-variant-emoji: text; font-family: system-ui, sans-serif; }
+.tile.hero#play .t-l { letter-spacing: 1px; }
+@media (min-height: 560px) {
+    .tile.hero#play { min-height: 92px; }
+    .tile.hero#play .t-ic { font-size: 48px; }
+    .tile.hero#play .t-l { font-size: calc(var(--fs-xl) * 1.2); }
+}
+.home-tiles[data-n="2"] .tile { flex-direction: row; justify-content: flex-start; text-align: left; min-height: 56px; padding: 8px 12px; gap: 10px; }
+.home-tiles[data-n="2"] .tile .t-tx { align-items: flex-start; }
+body.tv .tile.hero#play { min-height: 140px; } body.tv .tile.hero#play .t-ic { font-size: 72px; } body.tv .tile.hero#play .t-l { font-size: 50px; }
+body.tv .home-tiles[data-n="2"] .tile { min-height: 84px; }
+@media (max-height: 820px) {
+    body.tv .tile.hero#play { min-height: 106px; } body.tv .tile.hero#play .t-ic { font-size: 54px; } body.tv .tile.hero#play .t-l { font-size: 38px; }
+    body.tv .home-tiles[data-n="2"] .tile { min-height: 64px; }
+}

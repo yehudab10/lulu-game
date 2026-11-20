@@ -263,7 +263,7 @@ on("mp:riders", () => U.uiDirty());
 
 // ── HUD + menus ──────────────────────────────────────────────────────────
 hook("hud", () => U.hudTick());
-// With the party feature present, Shared Road lives in its hub ("🎉 Party with friends" → 🌐 Open road),
+// With the party feature present, Shared Road lives in its hub ("👯 Friends" → 🕹️ Classic 2D friends),
 // so the title has ONE multiplayer entry; without it, Shared Road keeps its own title button.
 addMenuItem("title", {
     id: "sharedroad", order: 60, cls: "purple",

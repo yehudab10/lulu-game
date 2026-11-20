@@ -21,8 +21,8 @@ const touch = () => input.device === "touch";
 // point: on touch screens, which on-screen control to pulse during the step (2D: the 👇 arrow)
 const STEPS = [
     { icon: "🏡", title: "ROAD TRIP!",
-      a: G => G.mode === "story" ? "You're driving to Bubbe's for Shabbos —" : "Endless cruise — how far can you go?",
-      b: G => G.mode === "story" ? "watch the bar up top. Hot cholent awaits!" : "watch the miles tick up top.", min: 3.4, timeout: 3.4 },
+      a: G => G.mode === "story" ? "You're driving to Bubbe's for Shabbos —" : "The open road — go anywhere you like:",
+      b: G => G.mode === "story" ? "watch the bar up top. Hot cholent awaits!" : "take an exit into town, pull into a rest area…", min: 3.4, timeout: 3.4 },
     { icon: "🕹️", title: "STEER",
       a: () => touch() ? "Drag the STEER stick" : `${g("steer")} to steer`, b: "to weave through traffic.",
       min: 1.2, timeout: 99, done: T => T.steerAcc > 6, point: ["stickBase"] },

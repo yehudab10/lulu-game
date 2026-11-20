@@ -33,7 +33,7 @@ module.exports = {
 
     // ── Cruise: on foot at home, control at once ──
     const f0 = await g(`ctx.frames`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     t.check("Cruise starts ON FOOT at home", await t.until(`__lulu3d.state === "footRun"`, "footRun", 3000));
     const S0 = await g(`({ frames: ctx.frames - ${f0}, phase: ctx.foot.phase, reason: ctx.foot.debug.F.reason, card: L3.H.screenOpen(),
       countdown: ctx.G.countdown || 0, dep: ctx.places.home.depart(), pos: { x: ctx.foot.pos.x, z: ctx.foot.pos.z }, steps: { x: ctx.places.home.park.x, z: ctx.places.home.park.z },
@@ -189,11 +189,11 @@ module.exports = {
       t.check("…and the run before it was banked (run:end restart)", (await g(`window.__ends`)).includes("restart"));
     }
 
-    // ── Story from the title: home too ──
+    // ── Story (the road trip, from the 📱 / the 🧳 — features/onegame; the title has no Story tile): home too ──
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
-    await t.click(/Story Trip/);
+    await g(`ctx.onegame.roadTrip("test")`);
     t.check("Story Trip starts at home on foot", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "story"`, "story home", 3000));
     t.check("…a returning player gets no tutorial hint", !(await g(`ctx.places.home.depart().first`)));
     await t.frames(20);

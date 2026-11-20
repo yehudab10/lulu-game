@@ -16,11 +16,11 @@ module.exports = {
     const other = await g(`(() => { const out = new Set(); for (let d = 20261101; d < 20261131; d++) out.add(ctx.day.debug.date(d).join()); ctx.day.debug.date(20261119); return out.size; })()`);
     t.check("…and it changes from day to day", other >= 3, `${other} different lists in a month`);
 
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     t.check("Cruise starts at home with the list", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.day.active`, "day on", 3000));
     await t.frames(40);
     const line = await g(`ctx.places.home.depart().line`);
-    t.check("Ima reads out today's list at the door", /Today:/.test(line) || /RIGHT THERE/.test(line), line);
+    t.check("Ima reads out today's list at the door", /Today:/.test(line) || /RIGHT THERE|suitcase/.test(line), line);
     t.check("the 📝 chip is on the HUD", /Ima's list 0\/3/.test(await g(`ctx.day.debug.chip()`)), await g(`ctx.day.debug.chip()`));
     await t.shot("list");
 
@@ -64,8 +64,9 @@ module.exports = {
     await t.frames(40);
     await t.shot("home-for-dinner");
     t.check("the chip is gone", !(await g(`ctx.day.active`)) && (await t.L(`!document.querySelector(".day-chip")`)));
-    t.check("…then the title (the day — and the run — end at home)", await t.until(`__lulu3d.state === "title"`, "title", 8000));
-    t.check("…with the car parked in the driveway", await g(`ctx.places.home.parked()`));
+    // (roadmap 10: the day ends in the world — she's back on her feet at home, not on the title)
+    t.check("…then she's on her feet at home again (not the title)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.reason === "home"`, "home again", 8000));
+    t.check("…with the car parked in the driveway", await g(`!!ctx.foot.parkedCar && Math.hypot(ctx.foot.parkedCar.x - ctx.places.home.park.x, ctx.foot.parkedCar.z - ctx.places.home.park.z) < 1`));
     await t.frames(10);
     await t.shot("home-title");
 
@@ -73,14 +74,14 @@ module.exports = {
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`ctx.places.debug.parkNow()`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "home again", 3000);
     t.check("same day again: nothing new to do", !(await g(`ctx.day.active`)));
     // tomorrow: a fresh list
     await g(`L3.setState("title")`);
     await t.frames(4);
     await g(`(ctx.day.debug.date(20261120), ctx.places.debug.parkNow())`);
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);
     await t.until(`__lulu3d.state === "footRun"`, "tomorrow", 3000);
     t.check("tomorrow: a fresh list", (await g(`ctx.day.active`)) && (await g(`ctx.day.list().every(x => !x.done)`)));
     // not in Story / with quick starts
