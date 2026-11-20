@@ -315,6 +315,7 @@ async function partyRun(t, guests) {
   }
   const fr1 = await g(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`), fr2 = await A.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`);
   t.check("free roam: the seeded rest areas (between interchanges) match on both screens", JSON.stringify(fr1.rests) === JSON.stringify(fr2.rests), JSON.stringify({ fr1, fr2 }));
+  console.log("   PROBE after enter", JSON.stringify(await g(`(() => { const TT = ctx.openworld.debug.TT; return { ttTown: TT.town, loops: TT.loops.length, cars: TT.cars.size, rob: ctx.heist.robbery ? ctx.heist.robbery.phase : null, state: ctx.state }; })()`)));
   t.check("town: the e-bikes ride in a party town", await g(`ctx.town.debug && ctx.town.debug.LIFE ? ctx.town.debug.LIFE.bikes.length > 0 : true`));
   t.check("town: Kvetch (the local gossip app) is on the phone in a party town", await g(`!ctx.phone || !ctx.phone.apps || ctx.phone.apps().includes("town")`));
   await g(`(ctx.foot.start("droveOff"), ctx.party._debug.claimCool(), true)`);
@@ -327,7 +328,7 @@ async function partyRun(t, guests) {
     cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
     F.pos.set(c.x + Math.sin(c.h) * 30, 0, c.z + Math.cos(c.h) * 30); ctx.G.invT = 30; return c.key; })()`);
   if (!await hostUntil(t, `ctx.traffic.cars.some(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2)`, "a loop minivan is live in town", 40000))
-    console.log("   TOWN diag", JSON.stringify({ near, live: await g(`ctx.traffic.cars.map(c => c.kind + ":" + (c.data && c.data.party) + ":" + (+c.speed).toFixed(1)).slice(0, 20)`), zone: await g(`ctx.openworld.zone`) }));
+    console.log("   TOWN diag", JSON.stringify({ near, live: await g(`ctx.traffic.cars.map(c => c.kind + ":" + (c.data && c.data.party) + ":" + (+c.speed).toFixed(1)).slice(0, 20)`), zone: await g(`ctx.openworld.zone`), probe: await g(`(() => { const TT = ctx.openworld.debug.TT; return { ttTown: TT.town, loops: TT.loops.length, cars: TT.cars.size, claims: [...TT.claims.keys()], dead: [...TT.dead], roam: ctx.openworld.partyTowns(), rob: ctx.heist.robbery ? { ph: ctx.heist.robbery.phase, where: ctx.heist.robbery.where } : null, robLog: ctx.heist.debug.R && ctx.heist.debug.R.log, crew: ctx.heist.debug.crew && ctx.heist.debug.crew.C ? Object.keys(ctx.heist.debug.crew.C) : null, chasing: !!(ctx.law && ctx.law.chasing), state: ctx.state, plan: !!ctx.town.plan }; })()`) }));
   const tw = await g(`(() => { const F = ctx.foot.debug.F; const cs = ctx.traffic.cars.filter(c => c.data && typeof c.data.party === "string" && /^tw:/.test(c.data.party) && c.kind === "town_van" && c.speed > 2);
     cs.sort((a, b) => Math.hypot(a.x - F.pos.x, a.z - F.pos.z) - Math.hypot(b.x - F.pos.x, b.z - F.pos.z)); const c = cs[0]; if (!c) return null;
     F.pos.set(c.x + Math.sin(c.h) * 16, 0, c.z + Math.cos(c.h) * 16); ctx.G.invT = 30; return { key: c.data.party }; })()`);
