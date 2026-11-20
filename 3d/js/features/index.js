@@ -43,3 +43,4 @@ import "./partners/index.js";     // 🔗 crimes for two with friends (double da
 import "./friends/index.js";      // 👯 a friends list that lasts: add (both say yes · from 📍 Nearby / a party / a friend code), presence + one-tap JOIN through private doorbell rooms on the existing relay, who-can-join-me, appear offline
 import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
 import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends
+import "./airport/terminal.js";       // ✈️ the JFK terminal (airport stage 2): one walk-in hall — check-in (Kugel Air, El Oy, Shmear Jet), the departures board, the security-line gag, a food court, the gate window, arrivals; shared with friends
