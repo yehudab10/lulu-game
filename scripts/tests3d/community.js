@@ -147,7 +147,8 @@ module.exports = {
       t.check("+❤️ (hearts 1 → 2)", await g(`ctx.G.hearts >= 2`), String(await g(`ctx.G.hearts`)));
       // Hatzalah for her
       // (no unasked Chaverim visit racing the call: she's hurt and parked, which is exactly when they offer)
-      await g(`(${C}.debug.CM.assistCool = 999, ctx.G.hearts = 1, true)`);
+      // (a fresh heart allowance: help.js HEAL lets the volunteers heal once a minute, 3 a run — the fix above just used one)
+      await g(`(${C}.debug.CM.assistCool = 999, ctx.G.hearts = 1, ${C}.debug.CM.heals = 0, ${C}.debug.CM.healAt = null, true)`);
       await t.until(`!__lulu3d.ctx.community.help && __lulu3d.state === "playing"`, "the Chaverim car leaves", 20000);
       t.check("request('patch') dispatches Hatzalah", await g(`${C}.request("patch")`));
       if (!await t.until(`__lulu3d.state === "communityScene"`, "Hatzalah patch-up scene", 40000))
