@@ -48,8 +48,8 @@ function snack(rt, R) {
 }
 
 function build(rt, kind) {
-    const R = ROOMS[kind][townId()] || ROOMS[kind].lakewood;
-    rt.def.title = R.title;
+    const R = ROOMS[kind][townId()] || ROOMS[kind].lakewood || ROOMS[kind].midwood;
+    if (ctx.G) ctx.G.hint = null;          // (the street's "find a car to borrow" hint isn't for in here)
     const M = (c, o = {}) => rt.own(new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.85 }, o)));
     const box = (w, h, d, mat, x, y, z) => { const g = rt.own(new THREE.BoxGeometry(w, h, d)); const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); m.receiveShadow = true; rt.add(m); return m; };
     const cyl = (r0, r1, h, mat, x, y, z, seg = 16) => { const g = rt.own(new THREE.CylinderGeometry(r0, r1, h, seg)); const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); rt.add(m); return m; };
@@ -58,7 +58,7 @@ function build(rt, kind) {
     const col = (id, x0, x1, z0, z1) => rt.cols.push({ id, x0, x1, z0, z1, on: true });
 
     // floor (checkerboard), walls, the cut-away front with the door
-    const tile = canvasPlane(rt.set, 2, 2, (g, w, h) => { const n = 8, s = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = (i + j) % 2 ? R.floor[0] : R.floor[1]; g.fillRect(i * s, j * s, s, s); } }, { px: 256 });
+    const tile = canvasPlane(rt.set, 2, 2, (g, w, h) => { const n = 4, s = w / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = (i + j) % 2 ? R.floor[0] : R.floor[1]; g.fillRect(i * s, j * s, s, s); } }, { px: 256 });
     const ftex = tile.mesh.material.map;
     ftex.wrapS = ftex.wrapT = THREE.RepeatWrapping; ftex.repeat.set(W / 2, D / 2);
     box(W, 0.06, D, M("#ffffff", { map: ftex }), 0, -0.03, 0);
@@ -98,7 +98,7 @@ function build(rt, kind) {
     // the menu board on the back wall (+ the "now serving" gag)
     const menu = canvasPlane(rt.set, 3.6, 1.3, (g, w, h) => {
         g.fillStyle = "#1B1B1B"; g.fillRect(0, 0, w, h);
-        drawLines(g, R.menu.join("\n"), w / 2, h / 2, Math.round(h / (R.menu.length + 1.2)), "#FFE082");
+        drawLines(g, R.menu.join("\n"), w / 2, h / 2, Math.round(h / (R.menu.length + 1.2)), "#FFE082", { maxW: w * 0.94 });
     }, { px: 512 });
     rt.add(menu.mesh); menu.mesh.position.set(cx, 2.25, -D / 2 + 0.02);
 
@@ -171,6 +171,9 @@ function doorPos(kind) {
 export function enterShop(kind) {
     const D0 = DOORS[kind], sp = inTown() && ctx.town.spot(D0.spot);
     if (!sp || !ctx.interiors[D0.def.id]) return false;
+    // (this town's name on the door: the room's title chip + welcome banner)
+    const R = ROOMS[kind][townId()];
+    if (R) { D0.def.title = R.title; D0.def.name = R.name; ctx.interiors[D0.def.id].name = R.name; }
     const n = ctx.world.road.nearest(sp.x, sp.z, ctx.car.s, {});
     const dr = { id: kind, s: n.s, d: n.d, side: Math.sign(n.d) || 1 };
     emit("stat", { id: "footInteriors", n: 1 });       // (Ima's "pop into a shop on foot")
