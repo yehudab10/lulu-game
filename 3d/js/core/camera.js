@@ -134,8 +134,10 @@ export const cam = {
         _t.set(obj.position.x, (y == null ? obj.position.y : y) + FREE.look, obj.position.z);
         if (st.snap || fresh) FREE.tgt.copy(_t);
         else if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > 2.5) {
-            // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides
-            if (!bl.on && !ctx.skipping) startBlend(0.35);
+            // she was moved a few metres at once (a scene put her somewhere): the rig follows now, the picture glides —
+            // from what's on screen (even mid-glide); moved farther than a glide may go (a teleport), it's a cut
+            if (Math.hypot(_t.x - FREE.tgt.x, _t.z - FREE.tgt.z) > BLEND_MAX) bl.on = false;
+            else if (!ctx.skipping) startBlend(0.35);
             FREE.tgt.copy(_t);
         } else { FREE.tgt.x += (_t.x - FREE.tgt.x) * Math.min(1, dt * 12); FREE.tgt.z += (_t.z - FREE.tgt.z) * Math.min(1, dt * 12); FREE.tgt.y += (_t.y - FREE.tgt.y) * Math.min(1, dt * 7); }
         const snapped = st.snap;
@@ -151,7 +153,9 @@ export const cam = {
             else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 2.5) + dt * 0.5);
             D = Math.min(D, FREE.clipD);
         } else FREE.clipD = 99;
-        camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D, FREE.tgt.z - fz * cp * D);
+        // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)
+        const lift = D < 1.5 ? (1.5 - D) * 1.4 : 0;
+        camera.position.set(FREE.tgt.x - fx * cp * D, FREE.tgt.y + sp * D + lift, FREE.tgt.z - fz * cp * D);
         // the look point sits a little ahead of her (she stands a touch low in the frame, the way she's going)
         camera.lookAt(FREE.tgt.x + fx * 1.8, FREE.tgt.y - 0.05, FREE.tgt.z + fz * 1.8);
         camera.fov += (fov + (portrait ? 14 : 0) - camera.fov) * Math.min(1, dt * 3);

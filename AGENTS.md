@@ -289,8 +289,8 @@ merged — ignore them.
   Deliberately NOT flagged: the camera brushing a thin pole / a street tree's trunk (r < 0.8 m — the free camera
   doesn't pull in for those, it would pop in and out past every tree), a camera looking straight down at a lot. With
   `&enable=all` the 🎉 presence dials the REAL relay server: when it's down that WebSocket error is the outside world's
-  (`W.dropRelayErrors(t)`). Open (not fixed, for the owners): the free camera pressed right against a wall can only come
-  in to ~1.1 m (CAM_MIN in `foot/jump.js`), so it sits at the wall's surface; law's lawBust / lawStop pull the cars to
+  (`W.dropRelayErrors(t)`). Pressed right against a wall the free camera rises over her head (`orbit`'s lift under 1.5 m). Open (not
+  fixed, for the owners): law's lawBust / lawStop pull the cars to
   d = 7.9, which in a town is the sidewalk.
 
 ## 8. Owner-only to-dos (agents can't do these — remind the owner if relevant)

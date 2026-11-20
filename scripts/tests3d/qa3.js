@@ -34,8 +34,9 @@ module.exports = {
     for (const town of ["lakewood", "midwood"]) {
       await g(`(ctx.town.load("${town}"), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("${town}")`, `${town}'s models load`, 90000)) continue;
-      await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.town.active && ctx.town.leave("reset"), L3.state !== "playing" ? L3.setState("playing") : 0, true)`);
-      await t.frames(3);
+      if (await g(`ctx.town.active`)) { await g(`L3.startRun({ mode: "cruise", quick: true })`); await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.town.active`, "a fresh cruise", 9000); }
+      await W.moved(t);
+      await W.moved(t);
       await g(`ctx.town.enter({ town: "${town}", speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active`, `in ${town}`, 8000)) continue;
       await t.frames(10);
@@ -47,6 +48,7 @@ module.exports = {
         return [pick(q => -q[0], -1, 0), pick(q => q[0], 1, 0), pick(q => -q[1], 0, -1), pick(q => q[1], 0, 1)]; })()`);
       const ends = [];
       for (const e of edges) {
+        await W.moved(t);
         await g(`(() => { const F = ctx.foot.debug.F; F.pos.set((${e.x}), 0, (${e.z})); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2((${e.dx}), (${e.dz})); return true; })()`);
         await t.frames(6);
         await walkDir(e.dx, e.dz, 150);
@@ -63,6 +65,7 @@ module.exports = {
       const pc = await g(`(() => { const F = ctx.foot.debug.F; let best = null, bd = 1e9; for (const p of F.parked) { if (!(p.vtype === "car")) continue; const d = Math.hypot(p.x - F.pos.x, p.z - F.pos.z); if (d < bd) { bd = d; best = p; } } return best ? { x: best.x, z: best.z, h: best.h } : null; })()`);
       if (pc) {
         // stand 2.2 m off its side, facing it, and jump twice (hood, then roof)
+        await W.moved(t);
         await g(`(() => { const F = ctx.foot.debug.F, rx = Math.cos(${pc.h}), rz = -Math.sin(${pc.h}); F.pos.set(${pc.x} + rx * 2.2, 0, ${pc.z} + rz * 2.2); F.vel.set(0, 0, 0); ctx.cam.free.yaw = Math.atan2(-rx, -rz); return true; })()`);
         await t.frames(6);
         for (let i = 0; i < 2; i++) { await t.stick(0, -1); await t.hold(1, 1); await t.frames(8); await t.hold(1, 0); await t.frames(20); }
@@ -90,7 +93,8 @@ module.exports = {
     await t.until(`__lulu3d.state === "playing"`, "a cruise again", 9000);
     await t.frames(10);
     if (await onFoot()) {
-      await g(`(() => { const F = ctx.foot.debug.F, r = ctx.world.road, p = r.point(F.s, 1.75, {}); F.pos.set(p.x, 0, p.z); ctx.G.invT = 0; ctx.G.invSoft = false; ctx.G.hearts = 2; ctx.foot.force.er = false; ctx.traffic.add("sedan", F.s - 12, 1.75, 1, 14, { keep: true }); return true; })()`);
+      await W.moved(t);
+      await g(`(() => { const F = ctx.foot.debug.F, r = ctx.world.road, p = r.point(F.s, 1.75, {}); F.pos.set(p.x, 0, p.z); ctx.G.invT = 0; ctx.G.invSoft = false; ctx.G.hearts = 2; ctx.foot.force.er = false; ctx.traffic.add("sedan", F.s - 2.6, 1.75, 1, 14, { keep: true }); return true; })()`);
       await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "knock"`, "a car knocks her flat", 3000);
       await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "up again", 9000);
       await t.frames(30);

@@ -142,7 +142,7 @@ export { carBox, pushC };
  * sign gantry (low things: a bench, a rail, a parked car's ring — and anything the camera is above — don't count).
  * Cheap: the same nearby circles collideAll walks, + a town's block rectangles.
  */
-const CAM_PAD = 0.45, CAM_MIN = 1.1;
+const CAM_PAD = 0.45, CAM_MIN = 0.35;     // (closer than ~1.5 m the camera rises over her head instead: core/camera.js orbit)
 export function camClip(F, tgt, dx, dy, dz, D) {
     const h2 = dx * dx + dz * dz;
     if (h2 < 1e-4) return D;

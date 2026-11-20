@@ -197,6 +197,8 @@ module.exports = {
   async report(t) { return t.L(`({ issues: window.__qa.issues.map(i => ({ kind: i.kind, f: i.f, t: i.t, state: i.state, msg: i.msg, n: i.n })), counts: window.__qa.counts })`); },
   /** Ignore a known, explained case: kind + a regex source on the message. */
   async allow(t, kind, re) { return t.L(`(window.__qa.allow.push({ kind: ${JSON.stringify(kind)}, re: new RegExp(${JSON.stringify(re)}) }), true)`); },
+  /** The test itself just moved her / the car (a debug teleport): that's a declared cut, not a glitch. */
+  async moved(t) { return t.L(`(window.__qa.cutF = __lulu3d.ctx.frames + 2, window.__qa.last = null, true)`); },
   async pause(t, on = false) { return t.L(`(window.__qa.on = ${!!on}, window.__qa.last = null, true)`); },
   /** One check per glitch kind in `kinds` (default: all) for a segment; prints every issue as detail. */
   check(t, label, r, kinds = ["jump", "nan", "overlay", "flat", "underground", "inwall", "hidden", "stuck", "nocontrol", "inside", "invisible"]) {

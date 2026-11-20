@@ -89,7 +89,8 @@ module.exports = {
     if (await g(`!!(ctx.places && ctx.places.home && ctx.places.home.comeHome)`)) {
       await W.reset(t);
       await g(`(ctx.places.home.comeHome({ line: "QA: home!" }), true)`);
-      await t.until(`__lulu3d.state === "title"`, "home for dinner → the title", 30000);
+      // (it ends back at home: the title before ci/onegame, on her feet at the porch since — ctx.onegame.home())
+      await t.until(`__lulu3d.state === "title" || (__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.reason === "home")`, "home for dinner → home", 30000);
       await t.frames(30);
       await seg("home for dinner", ["jump", "nan", "overlay", "stuck"]);
     }

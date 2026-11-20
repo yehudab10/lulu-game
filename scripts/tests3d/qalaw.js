@@ -68,7 +68,7 @@ module.exports = {
     await t.stick(1, 0); await t.frames(40); await t.stick(0, 0);
     // ── and knocked out on foot in town ──
     await g(`(ctx.G.hearts = 1, ctx.G.invT = 0, ctx.foot.force.er = false, true)`);
-    const c0 = await g(`(() => { const F = ctx.foot.debug.F; return !!ctx.traffic.add("sedan", F.s - 9, F.d, 1, 10, { keep: true }); })()`);
+    const c0 = await g(`(() => { const F = ctx.foot.debug.F; return !!ctx.traffic.add("sedan", F.s - 2.6, F.d, 1, 12, { keep: true }); })()`);
     if (c0) await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "knock"`, "knocked flat by a minivan", 3000);
     await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "up again", 9000);
     t.check("knocked out on foot in town: she gets up in town", await g(`ctx.town.active && L3.state === "footRun"`));
