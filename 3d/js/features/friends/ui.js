@@ -3,7 +3,7 @@
 // rows in a party friend's page, ONE quiet chip ("🙋 Kugel Kid #37 wants to join you"), and two ⚙️ Settings lines.
 // Phone views are plain rows (D-pad + ✕/○, keyboard, touch). Nothing here pops up for a stranger: their ask shows
 // only as a line on their row in 📍 Nearby.
-import { ctx, on, css, addMenuItem, hook } from "../../core/ctx.js";
+import { ctx, on, css, hook } from "../../core/ctx.js";
 import * as H from "../../hud.js";
 import * as ST from "./store.js";
 import * as HS from "./handshake.js";
@@ -232,7 +232,7 @@ export function install(helpers) {
     const tryAdd = () => {
         if (!ctx.phone || !ctx.phone.addApp) return false;
         ctx.phone.addApp({
-            id: "friends", icon: "👯", name: "Friends", order: 15, color: "#7E57C2", color2: "#E91E63",
+            id: "friends", icon: "👯", name: "Friends", order: 21, color: "#7E57C2", color2: "#E91E63",
             visible: () => !partyRoam(),
             badge: () => (BL.joinAsks().length || HS.incoming("party").length ? "!" : null),
             render(el, api, arg) { render(el, api, arg, "friends"); },
@@ -250,15 +250,6 @@ export function install(helpers) {
         if (ctx.party && ctx.party.active && ctx.party.setX && !V.fidSet) { ctx.party.setX("fid", ST.me().fid); V.fidSet = true; }
         if (!(ctx.party && ctx.party.active)) V.fidSet = false;
     });
-    addMenuItem("settings", {
-        id: "friendsJoin", order: 59, visible: () => !!(ctx.friends && ctx.friends.ok),
-        label: () => `👯 Friends can join me <b>${JOIN_TXT[ST.S.join].toUpperCase()}</b> <small style="opacity:.75">${JOIN_SUB[ST.S.join]}</small>`,
-        action: () => { ST.setJoin(ST.JOIN[(ST.JOIN.indexOf(ST.S.join) + 1) % 3]); },
-    });
-    addMenuItem("settings", {
-        id: "friendsHide", order: 59.5, visible: () => !!(ctx.friends && ctx.friends.ok),
-        label: () => `🙈 Appear offline <b>${ST.S.hidden ? "ON" : "OFF"}</b> <small style="opacity:.75">${ST.S.hidden ? "friends see you as not playing" : "friends can see you're playing"}</small>`,
-        action: () => { ST.setHidden(!ST.S.hidden); },
-    });
+    // (who can join me + appear offline live in 👯 itself — ⚙️ Settings must still fit 720p)
 }
 export { render };

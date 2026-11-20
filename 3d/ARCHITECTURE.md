@@ -1229,8 +1229,7 @@ hosts a 🌍 Free Roam silently (`ctx.party.hostRoam()`), and answers with the p
 knocks find nobody; every friend left is owed the new name (`nb`), handed over inside her next knock at THEIR door. Names: the
 12 curated ones + `#NN` from the id (many players share a name), never free text. **Phone:** the 👯 Friends app (outside a
 party's Free Roam; inside one, openworld's 👯 has "📇 My friends list" → the same views) — playing now (▶ Join / with you) ·
-not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked; ⚙️ Settings has the
-last two lines too. The phone grid goes four across past 9 apps. **Cost:** nothing without friends; with friends one idle
+not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). The phone grid goes four across past 9 apps. **Cost:** nothing without friends; with friends one idle
 socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
