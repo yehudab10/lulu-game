@@ -208,8 +208,10 @@ module.exports = {
       }
     }
     // (+ the frozen soft-cut canvas: left up by a cut that never melted)
-    await t.L(`(() => { __lulu3d.ctx.dissolve(() => 0); const e = document.getElementById("softCut"); setTimeout(() => { e.style.transition = "none"; e.style.display = "block"; e.style.opacity = "1"; }, 700); return true; })()`);
-    await t.frames(40);
+    await t.L(`(__lulu3d.ctx.dissolve(() => 0), true)`);
+    await t.until(`document.getElementById("softCut").style.display === "none"`, "the real soft cut melts first", 6000);
+    await t.L(`(() => { const e = document.getElementById("softCut"); e.style.transition = "none"; e.style.display = "block"; e.style.opacity = "1"; return true; })()`);
+    await t.frames(10);
     // a stuck fade over the road for > 4 s: the touch ❚❚ (the hatch's) shows too
     await t.frames(150);
     t.check("a stuck #softCut for > 4 s: the spare touch ❚❚ shows", await g(`ctx.unstuck.debug.button`));
