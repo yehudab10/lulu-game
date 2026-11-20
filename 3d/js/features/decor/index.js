@@ -10,8 +10,11 @@
 // THE RULES: a coin SINK only (AGENTS golden rule 5). Buying spends from the shared wallet (`wallet.spend`, which
 // never goes below 0); everything bought is hers for good and swapping between owned things is free; nothing
 // here pays coins, refunds or resells. Themed SETS (data.js) are only noticed — a banner + a scrapbook stat.
-// Personal: in a 🎉 party the house can't be entered and nothing is sold (your decorations still show on your
-// own screen — nobody else's). Dina's mode never comes here.
+// Personal: in a 🎉 party nothing is sold and nothing is moved (your decorations still show outside on your own
+// screen). With friends in 🌍 Free Roam the house is a place to HANG OUT (features/together): ✋ GO INSIDE works,
+// and the first friend through the door hosts the visit — whoever comes in after sees THAT friend's decorations
+// (d.x.dc, published by everyone inside) and the friends inside see each other. Looking only: no picker, no
+// buying, nobody's coins. Dina's mode never comes here.
 //
 // Perf: each placed decoration is ONE merged vertex-coloured mesh per material (props.js: 1–3 draw calls, four
 // shared materials); the outside ones hang off the home street's group (hidden with it ~900 m away); nothing
@@ -30,7 +33,7 @@ import { home, S_HOME } from "../world/home.js";
 import { SLOTS, SETS, slotById, optOf, setPieces, LINES } from "./data.js";
 import { buildOption, disposeObj } from "./props.js";
 import { openPicker, pickerTick, pickerOpen, closePicker, pickerSlot } from "./picker.js";
-import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
+import { bindHouse, houseShow, houseBurst, houseReact, houseRoom, houseVisit, HOUSE_ID, HOUSE_SPOTS } from "./house.js";
 
 const S = store("decor", { owned: {}, placed: {}, spent: 0, bought: 0, sets: [], visits: 0, nudges: 0 });
 // (a hand-edited / old save: keep only what the catalogue knows)
@@ -52,6 +55,36 @@ export function placed(slot) {
 }
 /** Decorating is personal: never in a 🎉 party. */
 export function allowed() { return !(ctx.party && ctx.party.active) && (!ctx.G || ctx.G.mode !== "party"); }
+/** Going inside: solo, or with friends in 🌍 Free Roam (a visit — features/together shares the room). */
+export function canEnter() {
+    if (allowed()) return true;
+    return !!(ctx.party && ctx.party.active && ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
+}
+// ── a visit with friends: whose house this is, and its decorations ──
+const VIS = { owner: "", placed: null };
+const DC_SLOTS = SLOTS.filter(s => s.where === "inside" || s.id === "door");
+/** What's placed in the house I'm in (a friend's house on a visit, else mine). */
+function visitPlaced(slot) { return (VIS.placed && VIS.placed[slot]) || placed(slot); }
+const encodeDc = () => DC_SLOTS.map(s => Math.max(0, s.opts.findIndex(o => o.id === visitPlaced(s.id))));
+function decodeDc(a) {
+    if (!Array.isArray(a) || a.length !== DC_SLOTS.length) return null;
+    const out = {};
+    DC_SLOTS.forEach((s, i) => { const k = a[i] | 0; if (k >= 0 && k < s.opts.length) out[s.id] = s.opts[k].id; });
+    return out;
+}
+/** A friend who's inside Lulu's house right now (in the same world): { owner, placed } | null. */
+function friendInside() {
+    const P = ctx.party;
+    if (!P || !P.active) return null;
+    for (const u of P.members()) {
+        if (u === P.uid) continue;
+        const p = P.peer(u), x = p && p.x;
+        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z)) continue;
+        const pl = decodeDc(x.dc);
+        if (pl) return { owner: String(x.in[1] || u).slice(0, 12), placed: pl };
+    }
+    return null;
+}
 
 /** Buy something (the picker's second press). → { ok, why: "party" | "bad" | "coins" | "owned" } */
 export function buy(slot, id) {
@@ -192,8 +225,8 @@ const DOOR = { x: 0.6, z: 5.0, r: 1.5 };
 const FT = { t: 0, warmed: false };
 on("state", ({ to }) => { if (to === "footRun") FT.t = ctx.time; });
 
-function nearHome() {
-    if (!home.ready || !home.house || !home.group.visible || ctx.state !== "footRun" || !allowed()) return false;
+function nearHome(door = false) {
+    if (!home.ready || !home.house || !home.group.visible || ctx.state !== "footRun" || !(door ? canEnter() : allowed())) return false;
     if (!ctx.foot || !ctx.foot.pos || ctx.foot.chasing) return false;
     const p = ctx.foot.pos, h = home.house.position;
     return (p.x - h.x) ** 2 + (p.z - h.z) ** 2 < 32 * 32;
@@ -201,7 +234,7 @@ function nearHome() {
 const doorSpot = {
     r: DOOR.r, short: "HOME",
     pos() {
-        if (!nearHome()) return null;
+        if (!nearHome(true)) return null;
         const w = at(DOOR.x, DOOR.z);
         // (the house loads while she's on the porch — but not in the run's first seconds: the camera's still gliding in)
         const reg = ctx.interiors && ctx.interiors[HOUSE_ID];
@@ -226,7 +259,7 @@ on("boot", () => {
         ctx.foot.addSpot(doorSpot);
         for (const id of Object.keys(OUT_SPOTS)) ctx.foot.addSpot(slotSpot(id));
     }
-    bindHouse({ owns, placed, buy, place, preview, allowed, pickerApi, visits: () => S.visits, visited: () => { S.visits++; saveSoon(); emit("stat", { id: "decorVisits", n: 1 }); } });
+    bindHouse({ owns, placed: visitPlaced, buy, place, preview, allowed, pickerApi, visits: () => S.visits, visited: () => { S.visits++; saveSoon(); emit("stat", { id: "decorVisits", n: 1 }); } });
     // her own house's exit: back on the porch steps, facing the street (foot's resume only knows road coords)
     const reg = ctx.interiors && ctx.interiors[HOUSE_ID];
     if (reg && !reg.wrapped) {
@@ -234,14 +267,26 @@ on("boot", () => {
         reg.wrapped = true;
         reg.enter = (opts = {}) => {
             const exit0 = opts.exit;
-            return enter0(Object.assign({}, opts, { exit: () => { if (typeof exit0 === "function") exit0(); try { backOnPorch(); } catch (e) { console.error("[decor] porch", e); } } }));
+            const P = ctx.party;
+            houseVisit(!allowed());
+            if (P && P.active) { P.setX("dc", encodeDc()); }
+            return enter0(Object.assign({}, opts, { exit: () => {
+                if (P && P.setX) P.setX("dc", null);
+                VIS.owner = ""; VIS.placed = null;
+                if (typeof exit0 === "function") exit0();
+                try { backOnPorch(); } catch (e) { console.error("[decor] porch", e); }
+            } }));
         };
     }
 });
 
 /** ✋ GO INSIDE: through the front door (foot hands her to the interiors engine; a soft cut when it's warmed). */
 export function enter() {
-    if (!nearHome() || !ctx.foot.handoff || !ctx.world) return false;
+    if (!nearHome(true) || !ctx.foot.handoff || !ctx.world) return false;
+    // with friends: a visit to the house of whoever's already inside, else mine (they'll see my decorations)
+    const P = ctx.party, fr = P && P.active ? friendInside() : null;
+    VIS.owner = fr ? fr.owner : P && P.active ? P.uid : "";
+    VIS.placed = fr ? fr.placed : null;
     const st = at(0.6, 7.1);
     const n = ctx.world.road.nearest(st.x, st.z, S_HOME, {});
     const side = Math.sign(n.d) || 1;
@@ -309,7 +354,11 @@ on("foot:end", () => { if (pickerOpen() && !houseRoom()) closePicker(true); });
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.decor = {
-    owns, placed, buy, place, allowed, enter,
+    owns, placed, buy, place, allowed, enter, canEnter,
+    /** On a visit with friends: whose house this is (a party uid; "" solo / outside). */
+    visitOwner: () => (houseRoom() ? VIS.owner : null),
+    /** Is the house I'm in a friend's (on a visit)? */
+    get visiting() { return !!(houseRoom() && VIS.owner && ctx.party && VIS.owner !== ctx.party.uid); },
     get slots() { return SLOTS; },
     get spent() { return S.spent; },
     get sets() { return S.sets.slice(); },

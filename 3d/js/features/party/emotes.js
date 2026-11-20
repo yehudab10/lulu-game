@@ -61,10 +61,14 @@ const ME = { i: -1, t: 0, dur: 0, seq: 0, at: -1e9, local: false, bubble: null, 
 const party = () => !!N.want;
 const onFootNow = () => ctx.state === "footRun" && !!ctx.foot && ctx.foot.active && ctx.foot.phase === "walk" && !!ctx.foot.person;
 const carNow = () => party() && ctx.state === "playing" && !!ctx.G && ctx.G.mode === "party";
+/** Inside a room shared with friends (features/together: friends there see her gesture). */
+const roomNow = () => party() && ctx.state === "interior" && !!(ctx.together && ctx.together.inRoom && ctx.together.inRoom());
 /** Can I emote right now? (on foot — solo or a party — or in the car with friends) */
 function allowed() {
-    if (ctx.paused || ctx.dialogOpen || H.screenOpen() || ctx.view) return false;
+    if (ctx.paused || ctx.dialogOpen || H.screenOpen()) return false;
     if (ctx.phone && ctx.phone.isOpen) return false;
+    if (roomNow()) return true;                     // (a room is drawn as its own view — that's fine)
+    if (ctx.view) return false;
     return onFootNow() || carNow();
 }
 function myPos() { return onFootNow() && ctx.foot.pos ? ctx.foot.pos : ctx.car ? ctx.car.pos : null; }
@@ -80,6 +84,7 @@ export function play(i, opts = {}) {
     if (!ME.local) ME.seq = (ME.seq + 1) % 100;
     // the phrase over her head (on foot: foot's own bubble) or over my car
     if (onFootNow()) { try { ctx.foot.say(ctx.foot.obj, E.say === E.e ? E.e : `${E.e} ${E.say}`, Math.min(2.4, ME.dur)); } catch (e) { /* cosmetic */ } }
+    else if (roomNow()) { try { ctx.together.roomSay(E.say === E.e ? E.e : `${E.e} ${E.say}`); } catch (e) { /* cosmetic */ } }
     else if (ME.bubble) ME.bubble.show(E.say === E.e ? E.e : `${E.e} ${E.say}`);
     if (!ME.local) {
         tone(660, 0.07, "triangle", 0.12, 900);
@@ -175,10 +180,11 @@ hook("hud", dt => {
     if (ME.bubble) ME.bubble.update(dt, 3.5);
     if (ME.i >= 0) {
         ME.t += dt;
-        const foot = onFootNow(), E = EMOTES[ME.i];
+        const foot = onFootNow(), room = roomNow(), E = EMOTES[ME.i];
         // she walks off = it's over (the STICK, not her speed: two friends side by side nudge each other apart)
-        const moving = foot && (Math.hypot(input.moveX || 0, input.moveY || 0) > 0.35 || input.jumpHeld || input.rollHeld) && ME.t > 0.25;
-        if (ME.t > ME.dur || moving || !(foot || carNow())) stop();
+        const moving = (foot || room) && (Math.hypot(input.moveX || 0, input.moveY || 0) > 0.35 || input.jumpHeld || input.rollHeld) && ME.t > 0.25;
+        if (ME.t > ME.dur || moving || !(foot || room || carNow())) stop();
+        else if (room) { try { ctx.together.roomPose(E, ME.t); } catch (e) { /* cosmetic */ } }
         else if (foot) {
             const p = ctx.foot.person;
             const sp = ctx.foot.vel ? Math.hypot(ctx.foot.vel.x, ctx.foot.vel.z) : 0;
@@ -207,7 +213,7 @@ on("boot", () => {
     ctx.car.obj.add(ME.bubble.sp);
 });
 on("party:status", e => { if (e && e.want === false) { stop(); ME.greet.clear(); ME.combos.clear(); setX("e", null); if (ME.bubble) ME.bubble.sp.visible = false; } });
-on("state", ({ to }) => { if (to !== "footRun" && to !== "playing" && to !== "playPhoto") { stop(); U.closeWheel(); } });
+on("state", ({ to }) => { if (to !== "footRun" && to !== "playing" && to !== "playPhoto" && to !== "interior") { stop(); U.closeWheel(); } });
 
 // ── service ───────────────────────────────────────────────────────────────
 ctx.emotes = {

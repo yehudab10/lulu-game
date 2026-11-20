@@ -407,7 +407,8 @@ const HOP_IN = 0.42;      // s
 function hopIn(v, opts = {}) {
     const go = () => { if (opts.before) opts.before(); enterCar(v); if (opts.after) opts.after(); };
     if (!F || ctx.state !== "footRun" || ctx.skipping || F.phase === "getin") return go();
-    const to = new THREE.Vector3(v.x + 0.38 * Math.cos(v.h) - 0.06 * Math.sin(v.h), 0.62, v.z - 0.38 * Math.sin(v.h) - 0.06 * Math.cos(v.h));
+    const sx = v.seat === "passenger" ? -0.38 : 0.38;      // (a friend's passenger seat: features/together)
+    const to = new THREE.Vector3(v.x + sx * Math.cos(v.h) - 0.06 * Math.sin(v.h), 0.62, v.z - sx * Math.sin(v.h) - 0.06 * Math.cos(v.h));
     if (Math.hypot(to.x - F.pos.x, to.z - F.pos.z) > 7) return go();
     F.getin = { v, opts, from: F.pos.clone(), to };
     F.phase = "getin"; F.phaseT = 0;
@@ -2117,6 +2118,9 @@ ctx.foot = {
     get shellObj() { return shell ? shell.obj : null; },
     /** Put her behind the wheel of v = { vtype, key, colors, x, z, h, handling?, how } (ends the walk; "playing"). */
     drive(v) { enterCar(v); return true; },
+    /** The same, with the hop-in beat (no cut): v as drive() (+ seat: "passenger" — she hops in on the right),
+     *  opts { before(), after() } around the moment she lands in the seat. */
+    hopInto(v, opts = {}) { hopIn(v, opts); return true; },
     /** Hand Lulu to another feature for a moment: { update(dt, P, F) → true while running, camera?(dt) → true, abort?(why) }. */
     script(def) {
         if (!F || ctx.state !== "footRun") return false;

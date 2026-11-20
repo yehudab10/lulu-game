@@ -47,6 +47,9 @@ const DEF = defineInterior({
     build, tick, dispose,
 });
 export const HOUSE_ID = DEF.id;
+const TAGLINE = DEF.tagline;
+/** With friends it's a visit, not a makeover: the welcome line says so. */
+export function houseVisit(on) { DEF.tagline = on ? "friends over — the kugel's on the table 🥘" : TAGLINE; }
 
 function kit(name) {
     const src = models.homesKit && findNodes(models.homesKit, "Kit_" + name)[0];
@@ -183,6 +186,7 @@ function build(rt) {
         const sp = SPOTS[id], slot = slotById(id);
         if (!slot) continue;
         if (id === "door") { rt.hot({ id: "door", x: sp.x, z: sp.z, r: sp.r, label: "🚪 Front door", action: frontDoor }); continue; }
+        if (API && !API.allowed()) continue;          // (with friends it's a visit: look, don't redecorate)
         rt.hot({ id: "slot:" + id, x: sp.x, z: sp.z, r: sp.r, label: () => `${slot.icon} ${slot.name} — redecorate`, action: () => pickHere(id) });
     }
     // Lulu: in through the front door
@@ -193,7 +197,8 @@ function build(rt) {
     rt.wait(0.9).then(() => {
         if (rt.disposed) return;
         const ima = rt.byId.ima;
-        if (ima) rt.bubble(V.first ? "Lulu! Your room needs some LIFE. Go — decorate! 🎨" : pick(LINES.ima), ima.p.obj, 3.2);
+        const visit = API && !API.allowed();          // (with friends: Ima's a host, not a decorator)
+        if (ima) rt.bubble(visit ? pick(["Friends! Come in, come in — there's kugel. 🥘", "Shoes OFF, everybody. 👟", "Who wants kugel? Everybody wants kugel."]) : V.first ? "Lulu! Your room needs some LIFE. Go — decorate! 🎨" : pick(LINES.ima), ima.p.obj, 3.2);
     });
 }
 
@@ -270,9 +275,10 @@ function pickHere(id) {
     });
 }
 async function frontDoor(rt) {
-    const i = await rt.choose("🚪 Front door", "Heading out?", ["🚪 Head outside", "🎨 Paint the front door", "💬 Stay in"], { emoji: "🏠" });
+    const solo = !API || API.allowed();
+    const i = await rt.choose("🚪 Front door", "Heading out?", solo ? ["🚪 Head outside", "🎨 Paint the front door", "💬 Stay in"] : ["🚪 Head outside", "💬 Stay in"], { emoji: "🏠" });
     if (i === 0) rt.leave();
-    else if (i === 1) return pickHere("door");
+    else if (i === 1 && solo) return pickHere("door");
 }
 async function talkIma(rt) {
     const V = rt.data.V;

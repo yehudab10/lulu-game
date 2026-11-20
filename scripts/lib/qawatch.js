@@ -127,6 +127,10 @@ const SRC = String.raw`
     const f = ctx.frames;
     if (f === Q.f) return;
     const dF = f - Q.f; Q.f = f;
+    // (in a 🎉 party friends' cars move on the REAL clock: on a crawling test page a friend's car you ride in covers
+    //  speed × real time between two frames — allow for that, up to a boosting car + a party bump, 60 m/s)
+    const wNow = performance.now(), realDt = Q.wLast ? (wNow - Q.wLast) / 1000 : 0; Q.wLast = wNow;
+    const rt = ctx.party && ctx.party.active ? Math.max(1, 60 * realDt / Q.opts.carJump) : 1;
     const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F;
     const foot = ctx.state === "footRun" && F && F.pos ? F.pos : null;
     const car = ctx.car.pos, camP = ctx.camera.position;
@@ -150,13 +154,13 @@ const SRC = String.raw`
       const df = d(cur.foot, Q.last.foot), dc = d(cur.car, Q.last.car), dk = cur.cam.distanceTo(Q.last.cam);
       if (cur.foot && Q.last.foot && df > Q.opts.footJump) flag("jump", "Lulu moved " + df.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.foot)) + "→" + JSON.stringify(P(cur.foot)) +
         " (phase " + F.phase + ", s " + (+F.s).toFixed(1) + ", d " + (+F.d).toFixed(1) + ", town " + !!(ctx.town && ctx.town.active) + ", road " + (ctx.world.road === ctx.world.highway ? "highway" : "district") + ")", "jump:foot");
-      if (st === "playing" && Q.last.st === "playing" && dc > Q.opts.carJump) flag("jump", "the car moved " + dc.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.car)) + "→" + JSON.stringify(P(cur.car)), "jump:car");
+      if (st === "playing" && Q.last.st === "playing" && dc > Q.opts.carJump * rt) flag("jump", "the car moved " + dc.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.car)) + "→" + JSON.stringify(P(cur.car)), "jump:car");
       const cutscene = (() => { const d = ctx.states[st] || {}; return typeof d.skip === "function" ? d.skip() : !!d.skip; })() || (ctx.cutscene && ctx.cutscene.active());
       // (a cutscene's single cut is editing; the camera covering > 5 m a frame for 4+ frames running is a SWOOP — through
       //  whatever stands between — anywhere)
-      Q.swoopF = dk > Q.opts.camJump ? (Q.swoopF || 0) + 1 : 0;
+      Q.swoopF = dk > Q.opts.camJump * rt ? (Q.swoopF || 0) + 1 : 0;
       if (Q.swoopF >= 4) flag("jump", "the camera swoops (" + Q.swoopF + " frames at > " + Q.opts.camJump + " m a frame) " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:swoop");
-      if (dk > Q.opts.camJump && !cutscene) flag("jump", "the camera moved " + dk.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:cam");
+      if (dk > Q.opts.camJump * rt && !cutscene) flag("jump", "the camera moved " + dk.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.cam)) + "→" + JSON.stringify(P(cur.cam)), "jump:cam");
     }
     Q.last = cur;
     const ctl = control();

@@ -239,10 +239,17 @@ module.exports = {
     t.check("addApp: a feature's app shows on the grid with its badge", await t.L(`(document.querySelector("#lpa_testapp .lp-badge") || {}).textContent`) === "!");
     await g(`ctx.phone.openPhone("testapp")`);
     t.check("openPhone(id) opens it; .btn divs are focusable", await t.L(`document.querySelector("#lkA").classList.contains("focus")`));
+    // (the phone's toast is a 1.8 s REAL-time timer — on a slow machine it's gone before a 4-frame tap returns: watch for it
+    //  going on instead of reading it afterwards)
+    await t.L(`(() => { window.__toastOn = false; const el = document.getElementById("lpToast"); new MutationObserver(() => { if (el.classList.contains("on")) window.__toastOn = true; }).observe(el, { attributes: true, attributeFilter: ["class"] }); return true; })()`);
     await t.tap(13); await t.tap(0);
+<<<<<<< HEAD
     // (the phone's toast hides after 1.8 s of REAL time: read it at the click, not after a slow runner's next frames)
     const lk = await t.L(`({ b: window.__lkB, toast: !!window.__lkToast, focus: (document.querySelector("#screenCard .focus") || {}).id || "" })`);
     t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", lk.b === 1 && lk.toast, JSON.stringify(lk));
+=======
+    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`window.__toastOn === true`));
+>>>>>>> origin/main
     await t.key("Tab");
     await t.L(`window.__noTestApp = true`);
 

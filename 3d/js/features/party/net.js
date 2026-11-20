@@ -406,7 +406,7 @@ export function tick() {
         N.urgent = true;
     }
     // snapshot schedule
-    const interval = N.mode >= 2 && N.mode <= 5 ? 1000 / 7 : 250;
+    const interval = (N.mode >= 2 && N.mode <= 5) || N.xk.in ? 1000 / 7 : 250;     // (d.x.in: walking in a room shared with friends — features/together)
     const due = t - N.lastSendAt >= interval || (N.urgent && t - N.lastSendAt >= 60);
     if (due && windowOk(t)) sendSnap(t);
 }
