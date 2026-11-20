@@ -192,8 +192,13 @@ async function doorMenu(home) {
     try {
         if (!sc) return;
         const rec = S.fam[home.key];
-        const i = await choose(`🏠 The ${plural(home.name)}`, rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
-            ["✊ Knock", "🔑 Try the door", "🪟 Sneak in a window", "✖ Leave it"], { emoji: "🏠" });
+        // a friend (🎉 party) is inside this house right now: go in with them (features/together shares the room)
+        const pal = ctx.together && ctx.together.friendIn ? ctx.together.friendIn("home", home.key) : null;
+        const opts = ["✊ Knock", "🔑 Try the door", "🪟 Sneak in a window", "✖ Leave it"];
+        if (pal) opts.unshift(`👯 Join ${pal} inside`);
+        let i = await choose(`🏠 The ${plural(home.name)}`, pal ? `${pal} is in there right now.` : rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
+            opts, { emoji: "🏠" });
+        if (pal) { if (i === 0) { sc.go = { home, mode: "guest", via: "door" }; emit("stat", { id: "homesJoins", n: 1 }); return; } i = i < 0 ? i : i - 1; }
         if (i === 0) await knock(home, sc);
         else if (i === 1) {
             const cfg = TOWN_CFG[home.town] || TOWN_CFG.lakewood;

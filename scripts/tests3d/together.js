@@ -143,4 +143,118 @@ async function body(t, guests) {
     await t.shot(`touch-${w}x${h}`);
   }
   await t.page.setViewportSize({ width: 1280, height: 720 });
+  await t.L(`(__lulu3d.input && (__lulu3d.input.device = "gamepad"), 0)`);
+  await t.frames(6);
+
+  // ════ STAGE 2: FRIENDS IN THE SAME BUILDING ════
+  await rooms(t, g, Hp, A, hostUid, guestUid, hi);
+}
+
+const OPT = (P, re) => P.L(`(() => { const o = [...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden"); const b = o.find(b => ${re}.test(b.textContent)); if (b) b.click(); return o.map(b => b.textContent); })()`);
+async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
+  const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
+  const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
+  // the guest is inside the house (as a guest); the host walks up to the same front door
+  await g(`ctx.foot.start("parked")`);
+  if (!await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host on foot in town", 60000)) return false;
+  await g(`(() => { const h = ctx.homes.homes()[${hi}]; ctx.foot.debug.F.pos.set(h.ap.x, 0.05, h.ap.z); return true; })()`);
+  await t.frames(4);
+  t.check("host at the door: the guest is in there (together.friendIn)", (await g(`ctx.together.friendIn("home", ctx.homes.homes()[${hi}].key)`)) === "Latke Legend");
+  await g(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return !!s; })()`);
+  await Hp.until(`ctx.dialogOpen`, "the door menu opens", 20000);
+  let opts = [];
+  for (let k = 0; k < 40 && !opts.some(o => /Join/.test(o)); k++) { opts = await OPT(Hp, `/Join Latke Legend inside/`); if (!opts.length) await t.tap(0); await t.frames(2); }
+  t.check("the door menu offers 👯 Join Latke Legend inside", opts.some(o => /Join Latke Legend inside/.test(o)), JSON.stringify(opts));
+  if (!await Hp.until(`ctx.state === "interior" && ctx.homes.inside`, "…and in she goes", 60000)) return false;
+  // both inside the SAME house: each draws the other
+  await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "host sees the guest inside", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host come in", 60000);
+  t.check("same room on both screens (the house's key)", (await g(`ctx.together.debug.room().inst`)) === (await A.game(`ctx.together.debug.room().inst`)) && (await g(`ctx.together.debug.room().room`)) === "home");
+  t.check("…only party members are in there with me (no strangers)", await g(`ctx.together.debug.room().mates.every(m => ctx.party.members().includes(m.uid))`));
+  // the guest walks across the room → the host sees her right there
+  const spot = await A.game(`(() => { const rt = ctx.homes.debug.VISIT.cur.rt, B = rt.bounds; const x = (B.x0 + B.x1) / 2 + 1.1, z = 0.4; rt.lulu.obj.position.set(x, 0, z); return { x, z }; })()`);
+  await Hp.until(`(() => { const m = ctx.together.debug.room().mates.find(m => m.uid === ${GU}); return !!m && Math.hypot(m.x - ${spot.x}, m.z - ${spot.z}) < 0.6; })()`, "host sees the guest where she walked (≤ 0.6 m)", 40000);
+  const hm = await g(`ctx.together.debug.room().mates.find(m => m.uid === ${GU})`);
+  t.check("…with her nametag", !!hm && hm.tag, JSON.stringify(hm));
+  await t.shot("room-together");
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-together-room-guest.png") }).catch(() => { });
+  // an emote inside: the friend sees it
+  await g(`import("./js/core/ctx.js").then(m => { window.__emr = []; m.on("party:emote", e => { if (!e.me) window.__emr.push(e.id + (e.room ? "@room" : "")); }); return true; })`);
+  t.check("emotes work inside a shared room", await A.game(`ctx.emotes.allowed`));
+  await A.game(`ctx.emotes.debug.resetCool()`);
+  await A.game(`ctx.emotes.play("dance")`);
+  await Hp.until(`(window.__emr || []).includes("dance@room")`, "host sees the guest's 💃 inside", 30000);
+  // nothing paid, nothing spent
+  t.check("coins untouched by being together", (await g(`L3.wallet.coins`)) === coins0.h && (await A.game(`L3.wallet.coins`)) === coins0.a, JSON.stringify({ coins0, h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) }));
+  // the guest walks out through the door → gone from my room
+  await A.game(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "door"; c.rt.leave(); return true; })()`);
+  await A.until(`ctx.state === "footRun"`, "guest back outside", 40000);
+  await Hp.until(`!ctx.together.debug.room().mates.some(m => m.uid === ${GU} && !m.leaving)`, "host: the guest heads out the door", 30000);
+  await Hp.until(`ctx.together.debug.room().mates.length === 0`, "…and is gone", 30000);
+  // the guest, outside, watches the host walk out and back in: she steps in through the door (no blink on the step)
+  await A.game(`import("./js/core/ctx.js").then(m => { window.__step = []; m.on("together:stepin", e => window.__step.push(e.uid)); return true; })`);
+  await g(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "door"; c.rt.leave(); return true; })()`);
+  await Hp.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "host back outside", 40000);
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && rc.foot; })()`, "the guest sees the host come out at the door", 40000);
+  await g(`ctx.homes.enter(${hi}, "guest", "door")`);
+  await Hp.until(`ctx.state === "interior"`, "host back inside", 40000);
+  await A.until(`(window.__step || []).includes(${HU})`, "guest sees the host step in through the door (not freeze / blink)", 30000);
+  await g(`(() => { const c = ctx.homes.debug.VISIT.cur; c.V.exit = "door"; c.rt.leave(); return true; })()`);
+  await Hp.until(`ctx.state === "footRun"`, "host out again", 40000);
+
+  // ── LULU'S HOUSE: the host's, with friends — the guest walks in and sees the HOST's decorations ──
+  await g(`(() => { const S = ctx.decor.debug.S; S.owned.rug = ["road"]; S.placed.rug = "road"; return true; })()`);
+  await A.game(`(() => { const S = ctx.decor.debug.S; S.owned = {}; S.placed = {}; return true; })()`);
+  for (const P of [Hp, A]) {
+    await P.game(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+    await P.until(`ctx.state === "playing"`, `${P.label}: back in the car`, 30000);
+    await P.game(`(ctx.town.active && ctx.town.leave("reset"), true)`);
+    await P.until(`!ctx.town.active`, `${P.label}: out of town`, 30000);
+    await P.game(`ctx.party._debug.place(36, 5.25, 0)`);
+    await P.frames(10);
+    await P.game(`ctx.foot.start("parked")`);
+    await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: on foot by Lulu's house`, 60000);
+  }
+  const door = await g(`ctx.decor.debug.spotAt("door")`);
+  t.check("Lulu's house in a party: the front door is open (canEnter)", await g(`ctx.decor.canEnter()`) && !(await g(`ctx.decor.allowed()`)));
+  await g(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await t.frames(3);
+  t.check("…✋ GO INSIDE at the door with friends", /GO INSIDE/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`)), await g(`(ctx.foot.debug.interactables() || {}).label`));
+  await g(`ctx.decor.enter()`);
+  if (!await Hp.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "host goes into HER house", 60000)) return false;
+  t.check("host: it's her own house (the visit's owner)", (await g(`ctx.decor.visitOwner()`)) === hostUid && !(await g(`ctx.decor.visiting`)));
+  t.check("…no redecorating with friends (no picker spots, nothing sold)", await g(`!ctx.decor.debug.room().hots.some(h => /^slot:/.test(h.id)) && !ctx.decor.buy("rug", "round").ok`));
+  await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
+  await A.until(`(() => { const p = ctx.party.peer(${HU}); return !!p && p.x && Array.isArray(p.x.dc) && Array.isArray(p.x.in) && p.x.in[0] === "luluHome"; })()`, "guest knows the host is home", 30000);
+  await A.game(`ctx.decor.enter()`);
+  if (!await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest comes over", 60000)) return false;
+  t.check("guest: it's the HOST's house", (await A.game(`ctx.decor.visitOwner()`)) === hostUid && await A.game(`ctx.decor.visiting`));
+  t.check("…with the host's road-map rug (not her own bare floor)", await A.game(`(() => { const V = ctx.decor.debug.room().data.V; return !!V.objs.rug && Object.keys(V.cache.rug || {}).includes("road"); })()`), JSON.stringify(await A.game(`Object.keys(ctx.decor.debug.room().data.V.cache.rug || {})`)));
+  t.check("…and nothing of the host's changed in her own save", await A.game(`ctx.decor.placed("rug") === "none"`));
+  await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "host sees the guest come in", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host at home", 60000);
+  await t.shot("luluhome-together");
+  t.check("coins still untouched", (await g(`L3.wallet.coins`)) === coins0.h && (await A.game(`L3.wallet.coins`)) === coins0.a);
+  for (const P of [A, Hp]) {
+    await P.game(`(ctx.decor.debug.room().leave(), true)`);
+    await P.until(`ctx.state === "footRun"`, `${P.label}: back out on the porch`, 40000);
+  }
+
+  // ── a roadside place (the bar on the party highway): the same door → the same room ──
+  const bar = await g(`ctx.foot.debug.nextDoorAt(300, "bar")`);
+  if (!bar) { t.check("a bar up the party highway", false); return true; }
+  for (const P of [Hp, A]) {
+    await P.game(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+    await P.until(`ctx.state === "playing"`, `${P.label}: driving`, 30000);
+    await P.game(`ctx.party._debug.place(${bar.s - 14}, ${bar.side > 0 ? 5.25 : -5.25}, 0)`);
+    await P.frames(20);
+    await P.game(`ctx.foot.start("parked")`);
+    await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && ctx.foot.debug.allDoors().some(d => d.id === "bar")`, `${P.label}: on foot by the bar`, 60000);
+    await P.game(`(() => { const d = ctx.foot.debug.allDoors().filter(d => d.id === "bar").sort((a, b) => Math.abs(a.s - ${bar.s}) - Math.abs(b.s - ${bar.s}))[0]; ctx.foot.debug.F.pos.set(d.x, 0.05, d.z); return ctx.foot.handoff("bar", { s: d.s, d: d.d, side: d.side, id: "bar" }); })()`);
+    await P.until(`ctx.state === "interior"`, `${P.label}: into the bar`, 60000);
+  }
+  await Hp.until(`ctx.together.debug.room().room === "bar" && ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the bar: the host sees the guest inside", 60000);
+  await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the bar: the guest sees the host", 60000);
+  await t.shot("bar-together");
+  for (const P of [A, Hp]) { await P.game(`(window.__interiors && window.__interiors.room ? window.__interiors.room.leave() : 0, true)`); await P.until(`ctx.state === "footRun"`, `${P.label}: out of the bar`, 40000); }
+  return true;
 }

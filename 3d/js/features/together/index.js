@@ -24,6 +24,8 @@ import { beacon, hideBeacon } from "../openworld/marks.js";
 import { locate, locateAll, roam, myPos } from "./where.js";
 import * as PTR from "./pointers.js";
 import * as MAP from "./map.js";
+import * as ROOMS from "./rooms.js";
+import * as OUT from "./outside.js";
 
 const S = store("together", { pointers: true, dests: 0, met: 0 });
 const T = { dest: "", destT: 0, metT: 0, door: null, list: [], listT: 0 };
@@ -67,7 +69,8 @@ on("state", ({ from, to }) => {
         const p = myPos();
         T.door = [Math.round(p.x * 10), Math.round(p.z * 10)];
         ctx.party.setX("dr", T.door);
-    } else if (from === "interior" && to !== "interior") { T.door = null; ctx.party.setX("dr", null); }
+        ROOMS.setMyDoor(T.door);
+    } else if (from === "interior" && to !== "interior") { T.door = null; ctx.party.setX("dr", null); ROOMS.setMyDoor(null); }
 });
 on("party:status", e => { if (e && e.want === false) { setDest(""); PTR.clear(); T.door = null; } });
 on("title", () => { setDest(""); PTR.hideAll(); });
@@ -82,6 +85,7 @@ function frame() {
 }
 function tick(dt) {
     const party = !!(ctx.party && ctx.party.active);
+    if (party) { ROOMS.tick(dt); OUT.tick(dt); }
     if (!party || !roam() || !ctx.camera || !ctx.car) { if (T.dest) setDest(""); PTR.hideAll(); return; }
     const st = ctx.state, live = (st === "playing" || st === "footRun") && !ctx.paused && !ctx.view && !H.screenOpen() && !ctx.dialogOpen;
     // where everyone is: 10× a second is plenty (their cars are interpolated, the pointers glide)
@@ -110,6 +114,12 @@ requestAnimationFrame(frame);
 const SVC = {
     dest: () => T.dest, setDest, pointersOn, setPointers,
     locate: uid => locate(uid), locateAll: () => locateAll(),
-    debug: { T, S, mapDots: () => MAP.dots(), pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
+    /** Am I inside a room shared with friends right now (party/emotes.js: emotes work in there)? */
+    inRoom: () => !!ROOMS.myRoom(),
+    friendIn: (id, inst) => ROOMS.friendIn(id, inst),
+    roomSay: text => ROOMS.roomSay(text), roomPose: (E, t) => ROOMS.roomPose(E, t),
+    /** The rooms friends share / the ones still personal (with why). */
+    shared: () => Object.keys(ROOMS.SHARED), notShared: () => Object.assign({}, ROOMS.NOT_SHARED),
+    debug: { T, S, room: () => ROOMS.debug(), stepping: () => OUT.stepping(), mapDots: () => MAP.dots(), pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
 };
 ctx.together = SVC;
