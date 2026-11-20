@@ -288,7 +288,8 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   // the host drives off: the guest rides along (her car hidden, following)
   await g(`ctx.party._debug.place(905, 5.25, 10)`);
   await t.hold(7, 1);                       // (the host keeps her foot down)
-  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z) < 1 && Math.abs(ctx.car.vF) > 3; })()`, "the guest rides along at the driver's speed", 40000);
+  const p0 = await A.game(`({ x: ctx.car.pos.x, z: ctx.car.pos.z })`);
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z) < 1.5 && Math.hypot(ctx.car.pos.x - ${p0.x}, ctx.car.pos.z - ${p0.z}) > 10; })()`, "the guest rides along with the driver (10 m on, in their car)", 60000);
   await t.shot("riding-host");
   await A.page.screenshot({ path: path.join(SHOTS, "3d-together-riding-guest.png") }).catch(() => { });
   // hop out MOVING: into her own car alongside, rolling — no heart lost, still hers
