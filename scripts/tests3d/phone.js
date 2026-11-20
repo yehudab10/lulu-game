@@ -233,14 +233,16 @@ module.exports = {
     // ── addApp contract (render + api) ────────────────────────────────────
     await g(`(ctx.phone.addApp({ id: "testapp", icon: "🧪", name: "Test", order: 70, badge: () => "!", visible: () => !window.__noTestApp, render(el, api) {
       el.innerHTML = '<div class="btn lp-row" id="lkA">A</div><button class="btn lp-row" id="lkB">B</button>';
-      el.querySelector("#lkB").addEventListener("click", () => { window.__lkB = (window.__lkB || 0) + 1; api.toast("hi"); api.refresh(); });
+      el.querySelector("#lkB").addEventListener("click", () => { window.__lkB = (window.__lkB || 0) + 1; api.toast("hi"); window.__lkToast = document.getElementById("lpToast").classList.contains("on"); api.refresh(); });
     } }), true)`);
     await t.key("Tab");
     t.check("addApp: a feature's app shows on the grid with its badge", await t.L(`(document.querySelector("#lpa_testapp .lp-badge") || {}).textContent`) === "!");
     await g(`ctx.phone.openPhone("testapp")`);
     t.check("openPhone(id) opens it; .btn divs are focusable", await t.L(`document.querySelector("#lkA").classList.contains("focus")`));
     await t.tap(13); await t.tap(0);
-    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`document.getElementById("lpToast").classList.contains("on")`));
+    // (the phone's toast hides after 1.8 s of REAL time: read it at the click, not after a slow runner's next frames)
+    const lk = await t.L(`({ b: window.__lkB, toast: !!window.__lkToast, focus: (document.querySelector("#screenCard .focus") || {}).id || "" })`);
+    t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", lk.b === 1 && lk.toast, JSON.stringify(lk));
     await t.key("Tab");
     await t.L(`window.__noTestApp = true`);
 
