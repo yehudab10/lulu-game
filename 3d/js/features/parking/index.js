@@ -6,7 +6,7 @@
 //    then she climbs out and walks off: ctx.foot.start("droveOff").
 //  • 🅿️ PARKING CHALLENGE: 10 levels, 3 lives, unlock once for 1,000 coins (shared
 //    `parkingUnlocked`). Not a title mode any more (roadmap 10): started from INSIDE the world —
-//    the 🅿️ booth in a rest area's lot or the 📱 Parking app (features/onegame: from "booth" |
+//    the 🅿️ booth in a rest area's lot or its card in the 📱 💼 Jobs app (features/onegame: from "booth" |
 //    "phone") — and it ends where she started it: on foot by the booth, or back on the road. Spots tighten, cameras multiply,
 //    dusk then night, a cone in the bay (4+), a pedestrian (5+), traffic (7+),
 //    and Sasquatch watching the Boss Level.
@@ -970,7 +970,7 @@ function updateCam(dt) {
     cam.updateProjectionMatrix();
 }
 
-// ── 🅿️ Parking Challenge: no title tile any more (roadmap 10) — the 🅿️ booth at a rest area and the 📱 Parking app
+// ── 🅿️ Parking Challenge: no title tile any more (roadmap 10) — the 🅿️ booth at a rest area and the 📱 💼 Jobs app's card
 // (features/onegame) unlock it (UNLOCK_COST, once, shared with 2D) and start it: ctx.parking.start({ challenge: true, from }).
 // leave a challenge you started in the world (the pause menu): straight back where you were
 addMenuItem("pause", { id: "parkLeave", order: 87, cls: "alt", label: () => S.ret === "foot" ? "🚶 Leave the challenge (back to the lot)" : "🚗 Leave the challenge (back on the road)",

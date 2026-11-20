@@ -38,6 +38,9 @@ addApp({
     },
 });
 
+/** Other features' cards at the bottom of 💼 Jobs (the phone stays one 3 × 3 screen — add a card, not an app):
+ *  { id, html() → string, bind(el, api) } — features/onegame's 🅿️ Parking Challenge. */
+export const JOB_EXTRAS = [];
 // 💼 side jobs (hustle) — the same rules as its own offers: Cruise, in a car, no heat
 function jobsBlock() {
     const G = ctx.G, h = ctx.hustle;
@@ -73,7 +76,9 @@ addApp({
             if (why) html += `<p class="lp-note">${esc(why)}</p>`;
             html += `<p class="lp-fine">…or drive into a ringing ☎️ payphone.</p>`;
         }
+        for (const x of JOB_EXTRAS) { try { html += x.html() || ""; } catch (e) { console.error("[phone] jobs extra", x.id, e); } }
         el.innerHTML = html;
+        for (const x of JOB_EXTRAS) { try { if (x.bind) x.bind(el, api); } catch (e) { console.error("[phone] jobs extra", x.id, e); } }
         el.querySelectorAll(".lp-job").forEach(b => b.addEventListener("click", () => {
             if (jobsBlock()) { api.toast(jobsBlock()); return; }
             const id = b.dataset.job;

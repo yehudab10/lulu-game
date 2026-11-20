@@ -59,7 +59,7 @@ body.tv .jtitle .nx { font-size: 22px; } body.tv .jtitle .stamp { width: 44px; h
 export function cruiseUnlocked() { return true; }
 function hasProgress() { const s = shared.get(); return (s.storyStop || 0) > 0 || (s.storyCycle || 0) > 0 || (Array.isArray(s.postcards) && s.postcards.length > 0); }
 
-// ── the Story Trip line: next stop + postcards (the 🧳 suitcase, the 📱 Road Trip app) ──
+// ── the Story Trip line: next stop + postcards (the 🧳 suitcase, onegame.tripLine()) ──
 function storySub() {
     const s = shared.get(), cyc = s.storyCycle || 0, nIdx = (s.storyStop || 0) % N_STOPS, st = STOPS[nIdx];
     const pcs = Array.isArray(s.postcards) ? s.postcards : [];
@@ -71,7 +71,7 @@ function storySub() {
     return html + "</span>";
 }
 // (the Story Trip is no longer a title mode: it starts from inside the world — the 🧳 suitcase by the car at home,
-// or the 📱 phone's 🧳 Road Trip app — features/onegame. Its subtitle html is shared: storySub())
+// or a stop on the 📱 phone's 🗺️ Map — features/onegame. Its subtitle html is shared: storySub())
 export { storySub };
 addMenuItem("title", { id: "storyMap", order: 12, group: "book", short: "Map", label: "🗺️ The Road to Vegas (map)", sub: "every stop, postcard and checkpoint", visible: hasProgress, action: () => openMap({ from: "title" }) });
 on("run:start", ({ mode }) => {

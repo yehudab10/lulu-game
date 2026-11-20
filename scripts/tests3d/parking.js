@@ -1,4 +1,4 @@
-// Parking minigame: unlock the 🅿️ Parking Challenge with shared coins (from the 📱 Parking app — it isn't a title
+// Parking minigame: unlock the 🅿️ Parking Challenge with shared coins (from its card in the 📱 💼 Jobs app — it isn't a title
 // mode any more, roadmap 10; the rest-area booth is in the onegame test), drive
 // the lot car with the fake controller (speed governor, cameras tracking),
 // park a level for ⭐⭐⭐ (coins + shared save fields), fail one by ramming a
@@ -15,10 +15,10 @@ module.exports = {
     await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "driving")) return;
 
-    // ── the 📱 Parking app: unlock with the shared wallet ──
-    await t.game(`ctx.phone.openPhone("parking")`);
+    // ── the 📱 💼 Jobs app's 🅿️ card: unlock with the shared wallet ──
+    await t.game(`ctx.phone.openPhone("jobs")`);
     await t.frames(3);
-    t.check("the 📱 Parking app offers the 1,000-coin unlock", await t.L(`/Unlock — 1,000/.test(document.querySelector("#screenCard").textContent)`));
+    t.check("the 📱 💼 Jobs app's 🅿️ card offers the 1,000-coin unlock", await t.L(`/Unlock — 1,000/.test(document.querySelector("#screenCard").textContent)`));
     await t.shot("unlock");
     await t.L(`document.getElementById("lpParkUnlock").click()`);
     await t.frames(4);

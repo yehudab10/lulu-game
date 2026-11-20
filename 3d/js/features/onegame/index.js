@@ -7,12 +7,12 @@
 //  modes are things you START FROM INSIDE THE WORLD, and that END BACK IN IT:
 //
 //   🧳 THE ROAD TRIP (the Story Trip, "The Road to Vegas") — a suitcase by the car in the driveway
-//      ("✋ ROAD TRIP TO VEGAS — continue: 🏖️ The Beach") and the 📱 phone's 🧳 Road Trip app (+ its map).
+//      ("✋ ROAD TRIP TO VEGAS — continue: 🏖️ The Beach"), and the 📱 phone's 🗺️ Map (tap a stop).
 //      Leg 1 starts right where she stands at home (Ima's story line, then the car); a later leg is a
 //      soft cut to that leg's start, rolling (no 3-2-1). "Call it a trip" / the trip card → back home.
 //      The journey engine is unchanged: it's still its own run type (G.mode "story") with the same saves.
 //   🅿️ THE PARKING CHALLENGE — a booth + attendant in every rest area's lot (walk up, ✋), and the 📱
-//      🅿️ Parking app. Same unlock price (1,000 💰) and ten levels; it ends where she started it
+//      💼 Jobs app (a card at the bottom). Same unlock price (1,000 💰) and ten levels; it ends where she started it
 //      (on foot at the booth, or back on the road) — features/parking (`from` + `ret`).
 //   🕯️ THE EREV SHABBOS RUSH — on a real Friday afternoon it's what Ima asks for at the door; getting in
 //      the car starts it (features/shabbos `atDoor`). Walk away instead and it's an ordinary day.
@@ -38,7 +38,8 @@ import * as H from "../../hud.js";
 import { home } from "../world/home.js";
 import { STOPS, N_STOPS } from "../journey/data.js";
 import { storySub } from "../journey/index.js";
-import { addApp, partyOn, esc } from "../phone/ui.js";
+import { partyOn, esc } from "../phone/ui.js";
+import { JOB_EXTRAS } from "../phone/apps.js";
 import { facingRoad, canvasTex } from "../../world.js";
 import { models, ensureModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
@@ -345,36 +346,23 @@ function startParking(via) {
     return true;
 }
 
-// ── 📱 the phone: 🧳 Road Trip + 🅿️ Parking ───────────────────────────────
-addApp({
-    id: "roadtrip", icon: "🧳", name: "Road Trip", order: 11, color: "#FF5FA2", color2: "#AD1457",
-    visible: () => !!(ctx.journey && ctx.journey.start) && !partyOn(),
-    render(el, api) {
-        const why = tripBlock(), G = ctx.G || {}, L = nextLeg(), st = STOPS[L];
-        const on = G.mode === "story" && !G.jDone && G.started && !G.ended;
-        el.innerHTML = `<div class="lp-card"><span class="lp-av">🧳</span><span class="lp-tx"><b>The Road to Vegas</b><small>${on ? `on the road · next stop ${st ? esc(st.name) : ""}` : "Lakewood → Bubbe's → Heshy's pool → the beach → Avigail's → Viva Vegas"}</small></span></div>
-            <div class="lp-card lp-trip">${storySub()}</div>
-            ${on ? "" : `<button class="btn lp-row" id="lpTrip"${why ? " disabled" : ""}><span class="lp-av">🚗</span><span class="lp-tx"><b>${L === 0 ? "Hit the road" : "Continue the trip"}</b><small>${L === 0 ? "from home — Ima's waiting at the door" : `from ${esc(STOPS[L - 1].name)}, rolling`}</small></span>${why ? "" : '<span class="lp-meta lp-go">Go</span>'}</button>`}
-            ${ctx.journey.openMap ? `<button class="btn lp-row" id="lpTripMap"><span class="lp-av">🗺️</span><span class="lp-tx"><b>The map</b><small>every stop, postcard and checkpoint</small></span></button>` : ""}
-            ${why && !on ? `<p class="lp-note">${esc(why)}</p>` : ""}`;
-        const b = el.querySelector("#lpTrip");
-        if (b) b.addEventListener("click", () => { const w = tripBlock(); if (w) { api.toast(w); return; } api.close(); roadTrip("phone"); });
-        const m = el.querySelector("#lpTripMap");
-        if (m) m.addEventListener("click", () => { api.close(); ctx.journey.openMap({ from: "phone" }); });
-    },
-});
-addApp({
-    id: "parking", icon: "🅿️", name: "Parking", order: 14, color: "#42A5F5", color2: "#1565C0",
-    visible: () => !!(ctx.parking && ctx.parking.start) && !partyOn(),
-    render(el, api) {
-        const s2 = shared.get(), unlocked = parkingUnlocked(), why = parkBlock();
-        el.innerHTML = `<div class="lp-card"><span class="lp-av">🅿️</span><span class="lp-tx"><b>Parking Challenge</b><small>${unlocked ? (s2.parkingBestLevel ? `best: level ${s2.parkingBestLevel} of 10` : "ten levels of parallel parking") : "ten levels · tighter spots, cameras, cones… Sasquatch"}</small></span></div>
-            ${unlocked ? `<button class="btn lp-row" id="lpPark"${why ? " disabled" : ""}><span class="lp-av">▶</span><span class="lp-tx"><b>Start level 1</b><small>three lives · no dents</small></span>${why ? "" : '<span class="lp-meta lp-go">Go</span>'}</button>`
-                : `<button class="btn lp-row" id="lpParkUnlock"><span class="lp-av">🔓</span><span class="lp-tx"><b>Unlock — ${UNLOCK_COST.toLocaleString()} 💰</b><small>once, forever · you have ${wallet.coins.toLocaleString()}</small></span></button>`}
-            <p class="lp-fine">…or walk up to the 🅿️ booth at any rest area.</p>
-            ${why && unlocked ? `<p class="lp-note">${esc(why)}</p>` : ""}`;
-        const b = el.querySelector("#lpPark");
-        if (b) b.addEventListener("click", () => { const w = parkBlock(); if (w) { api.toast(w); return; } api.close(); startParking("phone"); });
+// ── 📱 the phone (it stays one 3 × 3 screen — no new apps): the 🧳 road trip is the 🗺️ Map app (a stop launches that
+// leg through roadTrip — journey/map.js), the 🅿️ Parking Challenge is a card at the bottom of 💼 Jobs ──
+function parkHtml() {
+    if (partyOn() || !(ctx.parking && ctx.parking.start)) return "";
+    const s2 = shared.get(), unlocked = parkingUnlocked(), why = parkBlock();
+    return `<div class="lp-card lp-park"><span class="lp-av">🅿️</span><span class="lp-tx"><b>Parking Challenge</b><small>${unlocked ? (s2.parkingBestLevel ? `best: level ${s2.parkingBestLevel} of 10` : "ten levels of parallel parking") : "ten levels · tighter spots, cameras, cones… Sasquatch"}</small></span></div>
+        ${unlocked ? `<button class="btn lp-row" id="lpPark"${why ? " disabled" : ""}><span class="lp-av">▶</span><span class="lp-tx"><b>Start level 1</b><small>three lives · no dents</small></span>${why ? "" : '<span class="lp-meta lp-go">Go</span>'}</button>`
+            : `<button class="btn lp-row" id="lpParkUnlock"><span class="lp-av">🔓</span><span class="lp-tx"><b>Unlock — ${UNLOCK_COST.toLocaleString()} 💰</b><small>once, forever · you have ${wallet.coins.toLocaleString()}</small></span></button>`}
+        <p class="lp-fine">…or walk up to the 🅿️ booth at any rest area.</p>
+        ${why && unlocked ? `<p class="lp-note">${esc(why)}</p>` : ""}`;
+}
+JOB_EXTRAS.push({
+    id: "parking",
+    html: parkHtml,
+    bind(el, api) {
+        const p = el.querySelector("#lpPark");
+        if (p) p.addEventListener("click", () => { const w = parkBlock(); if (w) { api.toast(w); return; } api.close(); startParking("phone"); });
         const u = el.querySelector("#lpParkUnlock");
         if (u) u.addEventListener("click", () => { if (unlockParking()) { api.toast("🅿️ Unlocked!"); api.refresh(); } else api.toast(`🔒 ${UNLOCK_COST.toLocaleString()} 💰 — pull over and park on the road to earn some`); });
     },

@@ -4,10 +4,10 @@
 //    "More to play", no Story Trip / Cruise / Parking Challenge / Shabbos chip — PLAY isn't locked, and a
 //    first-time player is walking at home within a few seconds; Ima's first line points at the suitcase.
 //  • The road trip: ✋ the 🧳 suitcase by the car → the Story Trip's leg 1 starts right where she stands (no title,
-//    no countdown); the 📱 🧳 Road Trip app → a later leg starts ROLLING at its start (no 3-2-1); "Call it a
+//    no countdown); a stop on the 📱 🗺️ Map → that leg starts ROLLING at its start (no 3-2-1); "Call it a
 //    trip" → 🏠 Head home → on her feet at home again.
 //  • The parking challenge: the 🅿️ booth at a rest area (✋ → the attendant → unlock → level 1) ends back by the
-//    booth on foot; the 📱 Parking app from the car ends back on the road.
+//    booth on foot; its card in the 📱 💼 Jobs app (from the car) ends back on the road; the phone keeps its 9 apps.
 //  • Dina: ✋ on Dina on the porch → her picker → pick Lulu → back home on foot; the Dina tile → back to the title.
 //  • A Friday afternoon: PLAY's subtitle says so, Ima asks at the door, getting in the car starts the rush;
 //    the rush's card → 🏠 Head home.
@@ -82,18 +82,20 @@ module.exports = {
     await t.L(`document.getElementById("jHome").click()`);
     t.check("🏠 Head home → on her feet at home again (Cruise)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.G.mode === "cruise" && __lulu3d.ctx.foot.debug.F.reason === "home"`, "home", 3000));
 
-    // ── 📱 the Road Trip app: a later leg starts ROLLING at its start ─────────
+    // ── 📱 the 🗺️ Map: a stop launches that leg ROLLING at its start ─────────
     await shared(`s.storyStop = 2; s.postcards = ["bubbe", "heshy"];`);
-    t.check("the 📱 has a 🧳 Road Trip app", await g(`ctx.phone.apps().includes("roadtrip")`));
-    await g(`ctx.phone.openPhone("roadtrip")`);
-    await t.frames(3);
-    t.check("…showing the next stop", await t.L(`/THE BEACH/i.test(document.getElementById("screenCard").textContent)`));
-    await t.shot("phone-roadtrip");
+    const apps = await g(`ctx.phone.apps()`);
+    t.check("the 📱 keeps ≤ 9 apps (no new Road Trip / Parking apps)", apps.length <= 9 && !apps.some(a => /roadtrip|todo|parking/.test(a)), apps.join(","));
+    await g(`ctx.phone.openPhone("map")`);
+    await t.until(`__lulu3d.state === "storyMap"`, "the map opens", 4000);
+    await t.frames(20);
+    t.check("…the map is on the next stop (THE BEACH)", await t.L(`/THE BEACH/i.test(document.getElementById("jmInfo").textContent)`));
+    await t.shot("phone-map");
     const states = [];
-    await t.L(`document.getElementById("lpTrip").click()`);
+    await t.tap(0);                     // ✕ on the focused stop
     for (let i = 0; i < 40; i++) { states.push(await st()); if (states[states.length - 1] === "playing") break; await t.frames(1); }
     const T2 = await g(`({ mode: ctx.G.mode, leg: ctx.G.jLeg, s: ctx.car.s, start: ctx.journey.stopS(1) + 34, v: ctx.car.speed })`);
-    t.check("📱 → leg 3 rolling at its start (no 3-2-1)", T2.mode === "story" && T2.leg === 2 && Math.abs(T2.s - T2.start) < 30 && !states.includes("intro") && states.includes("playing"), JSON.stringify(T2) + " " + [...new Set(states)].join(">"));
+    t.check("🗺️ → leg 3 rolling at its start (no 3-2-1)", T2.mode === "story" && T2.leg === 2 && Math.abs(T2.s - T2.start) < 30 && !states.includes("intro") && states.includes("playing"), JSON.stringify(T2) + " " + [...new Set(states)].join(">"));
     await t.frames(4);
     t.check("…already moving", (await g(`ctx.car.speed`)) > 4);
     await g(`(L3.endRun("trip"), L3.setState("tripDone"), true)`);
@@ -158,8 +160,9 @@ module.exports = {
     // ── 📱 Parking from the car → back on the road ───────────────────────────
     await g(`ctx.foot.debug.getIn()`);
     await t.until(`__lulu3d.state === "playing"`, "driving", 3000);
-    await g(`ctx.phone.openPhone("parking")`);
+    await g(`ctx.phone.openPhone("jobs")`);
     await t.frames(3);
+    t.check("📱 💼 Jobs has the 🅿️ Parking Challenge card", await t.L(`!!document.getElementById("lpPark")`));
     await t.L(`document.getElementById("lpPark").click()`);
     t.check("📱 Parking → the challenge", await t.until(`__lulu3d.state === "parking"`, "phone parking", 3000));
     await t.key("Escape");
