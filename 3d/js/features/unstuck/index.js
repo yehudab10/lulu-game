@@ -200,8 +200,9 @@ function sortNear(list, x, z) {
     return list.filter(c => fin(c.x) && fin(c.z)).sort((a, b) => a.dist - b.dist);
 }
 /** The nearest surely-normal spot for "car" | "foot" | "kerb" (her parked car) — or null. */
-function pick(kind, F, ignore = null) {
-    const list = kind === "car" ? carSpots() : kind === "foot" ? footSpots(F) : kerbSpots(F);
+function pick(kind, F, ignore = null, avoid = null) {
+    let list = kind === "car" ? carSpots() : kind === "foot" ? footSpots(F) : kerbSpots(F);
+    if (avoid) list = list.filter(c => Math.hypot(c.x - avoid.x, c.z - avoid.z) > 4.5);     // (her car never on top of her)
     // (the candidates are capped by construction: her nearest street / stretch of road, ±64 m along it — never "home".
     //  With nothing clear at all, the nearest of them anyway: it's still on a lane / a sidewalk)
     for (const c of list) if (!normal(c.x, c.z, kind === "foot" ? "foot" : "car", { ignore })) return c;
@@ -347,12 +348,14 @@ function footRescue(opts) {
     const from = { x: F.pos.x, z: F.pos.z };
     const sp = pick("foot", F);
     const bring = (opts.car || carBad(F)) && F.car && F.car.stub && ctx.traffic.cars.includes(F.car.stub);
-    const kerb = bring ? pick("kerb", F, F.car.stub) : null;
     const go = () => {
         if (sp) placeFoot(F, sp);
-        if (kerb) { const sp2 = pick("kerb", F, F.car.stub) || kerb; placeStub(F.car.stub, sp2); }
+        // (searched from where she now stands, never on her)
+        const k = bring ? pick("kerb", F, F.car.stub, F.pos) : null;
+        if (k) placeStub(F.car.stub, k);
+        return !!k;
     };
-    if (ctx.dissolve) ctx.dissolve(go); else go();
+    const kerb = ctx.dissolve ? ctx.dissolve(go) : go();
     say(kerb ? (auto ? "🆘 back on your feet — the car's here too" : "🆘 Back on your feet — 🚗 your car's right here") : (auto ? "🆘 back on your feet" : "🆘 Back on your feet"), auto);
     done(kerb ? "foot+car" : "foot", auto, sp && fin(from.x) ? Math.hypot(sp.x - from.x, sp.z - from.z) : 0);
     return "foot";
