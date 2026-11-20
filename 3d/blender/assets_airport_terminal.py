@@ -76,7 +76,7 @@ def build_terminal():
     FLOOR = mat("ATFloor", "#ECE8E1", 0.3)
     STRIPE = mat("ATStripe", "#9FB3C8", 0.35)
     WALL = mat("ATWall", "#DDE6EE", 0.85)
-    CAP = mat("ATCap", "#37474F", 0.7)
+    CAP = mat("ATDark", "#3A4652", 0.6)
     METAL = mat("ATMetal", "#B8C2CC", 0.3, 0.6)
     DARK = mat("ATDark", "#3A4652", 0.6)
     GLASS = mat("Glass", "#BFE6F7", 0.05)
@@ -93,16 +93,16 @@ def build_terminal():
     CARPET = mat("ATCarpet", "#C62828", 0.9)
     GOLD = mat("ATGold", "#D4AF37", 0.3, 0.8)
     SEAT = mat("ATSeat", "#1E88E5", 0.6)
-    FROST = mat("ATFrost", "#E3F2FD", 0.2)
+    FROST = mat("ATCounter", "#F7F7F2", 0.45)
     DELI = mat("ATDeli", "#2E7D32", 0.6)
     PLANT = mat("ATPlant", "#43A047", 0.85)
     POT = mat("ATPot", "#8D6E63", 0.8)
     PANEL = mat("NeonTube", "#FFF8E7", 0.5, emit=2.0)
     TARMAC = mat("ATTarmac", "#8E9AA3", 0.95)
-    ASPHALT = mat("ATAsphalt", "#4A5259", 0.95)
-    PAINT = mat("ATPaint", "#F5F5F5", 0.8)
+    ASPHALT = mat("ATDark", "#3A4652", 0.6)
+    PAINT = mat("ATCounter", "#F7F7F2", 0.45)
     GRASS = mat("ATGrass", "#7CB342", 0.95)
-    BRIDGE = mat("ATBridge", "#CFD8DC", 0.6)
+    BRIDGE = mat("ATWall", "#DDE6EE", 0.85)
 
     # ── the shell: floor, walls (the back wall has the gate window), a dark cap, the front lip ──
     S.b(W, D, 0.12, FLOOR, 0, 0, -0.06)
@@ -115,6 +115,25 @@ def build_terminal():
     S.b(0.4, D + 0.1, 0.1, CAP, X0 - 0.15, 0, H + 0.05)
     S.b(0.4, D + 0.1, 0.1, CAP, X1 + 0.15, 0, H + 0.05)
     S.b(W + 0.6, 0.3, 0.5, CAP, 0, D / 2 + 0.15, -0.25)
+    # a clerestory of sky-blue glass along the top of the back wall (landside + security + food court)
+    SKYG = mat("ATSkyGlass", "#BFE6FF", 0.2, emit=0.35)
+    for xa, xb in ((X0 + 0.2, -12.0), (-4.0, WIN0 - 0.2)):
+        S.b(xb - xa, 0.06, 0.6, SKYG, (xa + xb) / 2, -6.83, 6.1)
+        k = xa + 1.5
+        while k < xb - 0.5:
+            S.b(0.16, 0.1, 0.65, DARK, k, -6.8, 6.1)
+            k += 3.0
+    # pilasters on the back wall + a blue carpet at the gate
+    for px in (-25.0, -11.0, 0.5, 6.0, 17.6):
+        S.b(0.7, 0.3, H - 1.0, STRIPE, px, -6.85, (H - 1.0) / 2)
+    S.b(X1 - WIN0 - 0.2, 12.6, 0.012, mat("ATGateCarpet", "#3F51B5", 0.95), (WIN0 + X1) / 2, 0.0, 0.006)
+    # hanging wayfinding signs (high, at the back: never between her and the camera)
+    WAY = mat("ATWaySign", "#FFD54F", 0.5)
+    for x, txt in ((-14.0, "CHECK-IN"), (-2.0, "BAGGAGE CLAIM"), (3.0, "GATES 1-26 >>"), (24.0, "GATE 18")):
+        S.b(3.4, 0.12, 0.6, WAY, x, -5.6, 5.3)
+        S.t(txt, 0.26, INK, x, -5.53, 5.3)
+        for s_ in (-1, 1):
+            S.c(0.02, 0.02, 1.0, METAL, x + s_ * 1.4, -5.6, 6.1, segs=4)
     # skylight tubes (lights follow her in JS; these are just the look)
     for k, x in enumerate((-20, -6, 6, 20)):
         S.b(4.0, 0.3, 0.08, PANEL, x, -6.75, H - 0.5)
@@ -131,7 +150,7 @@ def build_terminal():
     S.sp("door", X0 + 1.0, dz, math.pi / 2)
     S.sp("lulu", X0 + 2.6, dz, math.pi / 2)
     S.sp("cops", X0 + 1.4, dz, math.pi / 2)
-    S.t("WELCOME TO JFK", 0.5, INK, -20.0, -6.82, 5.6)
+    S.t("WELCOME TO JFK", 0.5, INK, -20.0, -6.82, 5.2)
 
     # ── 2. CHECK-IN: three desks on one island, each with its sign + a bag scale ──
     DESKS = (("kugel", -22.5, KUGEL, "KUGEL AIR", "WE'LL GET YOU THERE. EVENTUALLY."),
@@ -217,7 +236,7 @@ def build_terminal():
 
     # ── 5. SECURITY: the snake, the scanner arch, the tray belt, the glass divider + one-way exit ──
     sx0, sx1 = 5.0, 11.4
-    S.t("SECURITY", 0.5, INK, 8.4, -6.82, 5.5)
+    S.t("SECURITY", 0.5, INK, 8.4, -6.82, 5.25)
     S.b(3.6, 0.15, 1.1, DARK, 8.4, -6.88, 4.3)
     S.f("waitBoard", 8.4, -6.78, 4.3)
     lanes = (-1.2, -2.4, -3.6)
@@ -247,7 +266,7 @@ def build_terminal():
     S.b(5.6, 0.7, 0.85, DARK, DIVX - 1.2, -5.2, 0.42)
     S.b(5.6, 0.62, 0.05, BELT, DIVX - 1.2, -5.2, 0.87)
     S.b(1.4, 0.9, 1.3, METAL, DIVX, -5.2, 1.4, bevel=0.05)
-    S.b(1.0, 0.92, 0.5, mat("ATTunnel", "#1B1B1B", 0.6), DIVX, -5.2, 1.08)
+    S.b(1.0, 0.92, 0.5, INK, DIVX, -5.2, 1.08)
     S.co("trays", DIVX - 1.2, -5.2, 2.8, 0.42, 1.0)
     # the scanner arch (in the divider's gap at z -4.2 … -3.0)
     gz0, gz1 = -4.25, -2.95
@@ -278,7 +297,7 @@ def build_terminal():
     S.co("exitGate", DIVX, (ex0 + ex1) / 2, 0.35, (ex1 - ex0) / 2)
     for zz in (ex0, ex1):
         S.c(0.06, 0.06, 2.3, METAL, DIVX, zz, 1.15, segs=8)
-    S.b(0.1, ex1 - ex0 + 0.4, 0.5, mat("ATExitSign", "#2E7D32", 0.5), DIVX, (ex0 + ex1) / 2, 2.55)
+    S.b(0.1, ex1 - ex0 + 0.4, 0.5, DELI, DIVX, (ex0 + ex1) / 2, 2.55)
     S.t("EXIT · NO RE-ENTRY", 0.15, TXT, DIVX - 0.07, (ex0 + ex1) / 2, 2.55, "-X")
     S.t("EXIT · NO RE-ENTRY", 0.15, TXT, DIVX + 0.07, (ex0 + ex1) / 2, 2.55, "+X")
     S.sp("exitLane", DIVX + 1.0, (ex0 + ex1) / 2, -math.pi / 2)
@@ -292,7 +311,7 @@ def build_terminal():
     S.b(3.8, 1.15, 0.06, WOOD, dx, -5.6, 1.08)
     S.b(3.4, 0.5, 0.45, GLASS, dx, -5.5, 1.33)
     for k in range(4):                                            # the knishes + pastrami in the case
-        S.b(0.32, 0.22, 0.14, mat("ATKnish", "#D7A15A", 0.7), dx - 1.2 + k * 0.8, -5.5, 1.18)
+        S.b(0.32, 0.22, 0.14, WOOD, dx - 1.2 + k * 0.8, -5.5, 1.18)
     S.b(4.0, 0.15, 1.2, DELI, dx, -6.82, 3.6)
     S.t("SHMULEY'S SKY-HIGH DELI", 0.3, TXT, dx, -6.72, 3.8)
     S.t("KOSHER · PRICES ALSO SKY-HIGH", 0.15, TXT, dx, -6.72, 3.32)
@@ -304,7 +323,7 @@ def build_terminal():
     S.b(2.4, 1.15, 0.06, COUNTER, wx, -5.6, 1.08)
     for k in range(5):
         S.c(0.07, 0.07, 0.26, GLASS, wx - 0.8 + k * 0.4, -5.6, 1.24, segs=8)
-    S.b(2.8, 0.15, 1.0, mat("ATWaterSign", "#01579B", 0.5), wx, -6.82, 3.6)
+    S.b(2.8, 0.15, 1.0, mat("ATWaterBar", "#0288D1", 0.4), wx, -6.82, 3.6)
     S.t("H2-OY!", 0.42, TXT, wx, -6.72, 3.72)
     S.t("BOTTLED AT SEA LEVEL", 0.12, TXT, wx, -6.72, 3.3)
     S.co("water", wx, -5.8, 1.2, 0.75)
@@ -375,8 +394,8 @@ def build_terminal():
     S.b(80, 6, 0.04, GRASS, 24, -66, -0.14)
     S.b(80, 6, 0.04, GRASS, 24, -50, -0.14)
     for k in range(9):                                            # yellow taxi line to the gate
-        S.b(0.2, 1.5, 0.01, mat("ATTaxiLine", "#FFD54F", 0.7), 24.0, -10 - k * 2.2, -0.13)
-    S.b(70, 0.08, 2.4, mat("ATFence", "#90A4AE", 0.7, 0.3), 24, -70, 1.0)   # the runway fence
+        S.b(0.2, 1.5, 0.01, mat("ATWaySign", "#FFD54F", 0.5), 24.0, -10 - k * 2.2, -0.13)
+    S.b(70, 0.08, 2.4, METAL, 24, -70, 1.0)   # the runway fence
     for k in range(15):
         S.c(0.06, 0.06, 2.6, METAL, -11 + k * 5.0, -70, 1.1, segs=6)
     S.b(70, 0.15, 0.08, METAL, 24, -70, 2.35)
@@ -387,8 +406,8 @@ def build_terminal():
     S.f("parked", 21.0, -24.0, 0.0, 0.0)
     S.f("runway", 0.0, -58.0, 0.0, math.pi / 2)
     # the control tower (far off, to the left)
-    S.c(1.6, 2.2, 16, mat("ATTower", "#ECEFF1", 0.7), -4.0, -82.0, 8.0, segs=10)
-    S.c(4.2, 3.2, 3.0, mat("ATTowerGlass", "#4FC3F7", 0.2, 0.3), -4.0, -82.0, 17.6, segs=10)
+    S.c(1.6, 2.2, 16, WALL, -4.0, -82.0, 8.0, segs=10)
+    S.c(4.2, 3.2, 3.0, mat("ATSkyGlass", "#BFE6FF", 0.2, emit=0.35), -4.0, -82.0, 17.6, segs=10)
     S.c(4.4, 4.4, 0.4, CAP, -4.0, -82.0, 19.3, segs=10)
     return S.finish()
 

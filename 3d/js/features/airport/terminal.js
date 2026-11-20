@@ -164,7 +164,7 @@ function build(rt) {
     // the food court: people eating
     for (const [k, j] of [[0, 0], [1, 1], [2, 0]]) { const s = sp(`eat${k}_${j}`); C.add({ look: k === 1 ? "woman" : "man", x: s.x, z: s.z, ry: s.ry, pose: { sit: true, talk: k === 2 }, seed: 0.29 * k + 0.4 }); }
     // walkers rolling suitcases: landside laps + airside laps
-    const land = path([[-25.5, 5.5], [3.6, 5.5], [3.6, 0.3], [-25.5, 0.3]]), air = path([[13.6, 5.9], [27.0, 5.9], [27.0, 4.7], [13.6, 4.7]]);
+    const land = path([[-25.5, 3.4], [3.6, 3.4], [3.6, 0.2], [-25.5, 0.2]]), air = path([[13.6, 5.0], [27.0, 5.0], [27.0, 4.2], [13.6, 4.2]]);
     for (let i = 0; i < 5; i++) C.add({ look: i === 2 ? "woman" : i === 4 ? "kid" : i % 2 ? "woman" : "man", path: land, u: i * land.total / 5, speed: 1.15 + (i % 3) * 0.15, bag: i !== 4, seed: 0.11 * i + 0.3 });
     for (let i = 0; i < 2; i++) C.add({ look: i ? "man" : "woman", path: air, u: i * air.total / 2, speed: 1.2, bag: true, seed: 0.37 * i + 0.6 });
     // the family with ten kids doing laps of the food court looking for gate 18 (it's right there)
@@ -285,23 +285,23 @@ function makeBoards(rt) {
 }
 
 function makeSigns(rt) {
-    const N = D.SIGNS.length, W = 512, RH = 128;
+    const N = D.SIGNS.length, W = 512, RH = 168;
     const c = document.createElement("canvas"); c.width = W; c.height = RH * N;
     const g = c.getContext("2d");
     D.SIGNS.forEach((t, i) => {
         g.fillStyle = "#FFFDF5"; g.fillRect(4, i * RH + 4, W - 8, RH - 8);
         g.strokeStyle = ["#E53935", "#1E88E5", "#43A047", "#FB8C00"][i % 4]; g.lineWidth = 8; g.strokeRect(10, i * RH + 10, W - 20, RH - 20);
-        drawLines(g, t, W / 2, i * RH + RH / 2, t.length > 18 ? 40 : 48, "#263238", { maxW: W - 40 });
+        drawLines(g, t, W / 2, i * RH + RH / 2, t.length > 18 ? 46 : 56, "#263238", { maxW: W - 40 });
     });
     const tex = rt.own(new THREE.CanvasTexture(c)); tex.colorSpace = THREE.SRGBColorSpace;
     const geos = [];
     for (let i = 0; i < N; i++) {
         const s = rt.spots["greeter" + i];
         if (!s) continue;
-        const pg = new THREE.PlaneGeometry(1.0, 0.25);
+        const pg = new THREE.PlaneGeometry(1.15, 0.38);
         const uv = pg.attributes.uv;
         for (let k = 0; k < uv.count; k++) uv.setY(k, 1 - (i + 1 - uv.getY(k)) / N);
-        pg.translate(s.x, 2.05, s.z + 0.15);
+        pg.translate(s.x, 2.2, s.z + 0.12);
         geos.push(pg);
     }
     if (!geos.length) return;
