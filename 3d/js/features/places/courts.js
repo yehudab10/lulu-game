@@ -43,6 +43,7 @@ function courtTown() { const P = ctx.civic && ctx.civic.place; return (P && P.id
 //   hearings  [{ title, steps }] — a step is [castKey, text] | { do: "gavel" | "luluToStand" | "luluToGallery" | a name in
 //             def.acts | fn(H, api) } | { choose: { who, text, options: [{ label, then: [steps] }] } } (H.choices records them)
 //   oneADay   (default true) one hearing a real day · solo (default true) locked in a 🎉 party · available() → may it run now?
+//   priority  (default 0) higher = heard first when several cases are open in the same town
 //   setup(H, api) / tick(H, dt, api) / shot(who, H) → a camera or null / acts { name: fn(H, api) } / done(H) at every
 //             hearing's end (H.n, H.choices, H.last = the case is over now) — the case's own logic (rewards, follow-ups)
 //   label     the ✋ at 2B ("⚖️ Sit in on the hearing (…)") · models  extra model keys its setup uses (loaded first)
@@ -62,9 +63,9 @@ export const caseDone = (c = caseById("shloime")) => !!c && progress(c).n >= c.h
 /** Is a hearing of case c on today (not over, not already seen today, solo / available as the case says)? */
 export const hearingToday = (c = caseById("shloime")) => !!c && !caseDone(c) && (!c.oneADay || progress(c).day !== today())
     && !(c.solo && party()) && (!c.available || !!c.available());
-/** The case on 2B's docket in this town: the first registered that's not over and may run (else the last one heard). */
+/** The case on 2B's docket in this town: the highest `priority` (then the first registered) that's not over and may run. */
 export function caseIn(town) {
-    const here = CASES.filter(c => !c.town || c.town === town);
+    const here = CASES.filter(c => !c.town || c.town === town).sort((a, b) => (b.priority || 0) - (a.priority || 0));   // (stable: same priority → registration order)
     return here.find(c => !caseDone(c) && (!c.available || c.available())) || null;
 }
 export function docketText(c) {

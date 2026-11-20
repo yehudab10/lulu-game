@@ -233,6 +233,10 @@ module.exports = {
         t.check("…its done() hears the outcome (the choice, the case over)", await g(`JSON.stringify(window.__caseDone) === JSON.stringify({ n: 0, last: true, choices: [0] })`), await g(`JSON.stringify(window.__caseDone)`));
         t.check("…closed: 2B locked again", !/Sit in/.test(await hot("doors2b")), await hot("doors2b"));
       }
+      t.check("several open cases in one town: the higher priority is heard first, else the first registered", await g(`(() => { const C = ctx.civic.courts, H = [{ title: "x", steps: [] }];
+          C.addCase({ id: "p0", town: "midwood", title: "P0", hearings: H, oneADay: false }); C.addCase({ id: "p1", town: "midwood", title: "P1", hearings: H, oneADay: false });
+          const a = C.caseIn("midwood").id; C.addCase({ id: "p2", town: "midwood", title: "P2", hearings: H, oneADay: false, priority: 10 });
+          return a === "p0" && C.caseIn("midwood").id === "p2" && (C.caseDone() || C.caseIn("lakewood").id === "shloime"); })()`));
     }, 2);
   },
 };
