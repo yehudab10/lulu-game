@@ -596,8 +596,8 @@ export function titleShot(pos, look, t = ctx.time) {
         // from up the street (the house's +X side), over the far lane: the same framing as the old cul-de-sac shot
         const r = home.house.rotation.y, fx = Math.sin(r), fz = Math.cos(r), xx = Math.cos(r), xz = -Math.sin(r);
         const sp = home.lotSpot, dr = sp && sp.drive ? sp.drive : P;
-        const out = (dr.x - P.x) * fx + (dr.z - P.z) * fz + (portrait ? 4 : 5.5);      // (out to the street's far lane)
-        const back = (portrait ? 24 : 17) + sway;
+        const out = (dr.x - P.x) * fx + (dr.z - P.z) * fz + (portrait ? 9 : 10.5);     // (across the street: the far kerb)
+        const back = (portrait ? 18 : 11) + sway;
         pos.set(P.x + xx * back + fx * out, portrait ? 9.5 + Math.sin(t * 0.05) : 4.1 + Math.sin(t * 0.06) * 0.4, P.z + xz * back + fz * out);
         if (portrait) look.y = 0.4;
         return { pos, look };
