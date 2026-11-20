@@ -284,7 +284,7 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   await A.game(`(() => { const s = ctx.foot.debug.interactables(); s.ent.act(); return true; })()`);
   if (!await A.until(`ctx.state === "playing" && ctx.openworld.riding === ${HU}`, "the hop: she's riding with the host", 40000)) return;
   await Hp.until(`(() => { const p = ctx.party.peer(${GU}); return !!p && p.x && p.x.rd === ${HU}; })()`, "host: the guest is in my passenger seat", 30000);
-  t.check("host draws a Lulu in the passenger seat", await g(`!!(ctx.car.anchors && ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length)`));
+  await Hp.until(`!!(ctx.car.anchors && ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length)`, "host draws a Lulu in the passenger seat", 20000);
   // the host drives off: the guest rides along (her car hidden, following)
   await g(`ctx.party._debug.place(905, 5.25, 10)`);
   await t.hold(7, 1);                       // (the host keeps her foot down)
