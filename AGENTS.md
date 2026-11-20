@@ -255,9 +255,8 @@ merged — ignore them.
   the strip between the sidewalk and the shop (it can touch a shop's awning); the parade and the dancers aren't synced in a
   party (each screen animates its own; where they stand is the same). Round 2 (the owner approved the details left out in
   round 1): string lights, lulav walkers, Yom Kippur in white, Tashlich, Simchas Torah, Purim collectors + music van, the
-  chametz burning, the quieter radio, a slim car menorah — all in. **Still open (asked the owner):** which side the
-  candles are lit from (window menorahs from the lighter's right = the street's left; the big public menorah from the
-  front = the street's right); whether LULU FM (the game's own soundtrack) should also go quiet in the Three Weeks (today
+  chametz burning, the quieter radio, a slim car menorah — all in. (The candle side is settled — the owner: "not
+  important", so it stays as built.) **Still open (asked the owner):** whether LULU FM (the game's own soundtrack) should also go quiet in the Three Weeks (today
   only the radio's music stations do); Midwood has no water in the game, so no Tashlich there; hakafos only on 23 Tishri
   (not the night of Shemini Atzeres, which some communities also do); no breadcrumbs at Tashlich; men + boys carry the
   lulav (women may too); the chametz barrel burns all day of the 14th (really it's the morning); the music van is solo-only.

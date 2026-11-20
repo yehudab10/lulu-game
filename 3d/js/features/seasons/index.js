@@ -289,6 +289,13 @@ addMenuItem("titleInfo", {
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.seasons = {
+    /** THE STABLE "what is today" API for other features (the Erev Shabbos rush, day plans…): the calendar day whether or
+     *  not the ⚙️ holiday decorations are on — the HOST's day in a 🎉 party (null until it arrives); `?season=` previews
+     *  count. → { key, heb: {m, d, y}, wd (6 = Shabbos), evening, ids, main, chanukah, shabbos, yomtov, erev, candles, quiet, source } */
+    day: () => current(),
+    /** is("friday") (Friday afternoon, the erev-Shabbos bustle) · is("shabbos") · is("chanukah") · any id in calendar.js › DAYS. */
+    is: id => { const d = current(); return !!d && (d.main === id || d.ids.includes(id) || (id === "friday" && d.erev) || (id === "shabbos" && d.shabbos)); },
+    /** What the world is dressed for right now (null when the setting is off). */
     today: () => S.day,
     get ids() { return S.day ? S.day.ids.slice() : []; },
     get main() { return S.day ? S.day.main : null; },

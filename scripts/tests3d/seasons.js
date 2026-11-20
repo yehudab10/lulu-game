@@ -242,6 +242,7 @@ module.exports = {
       t.check("Shavuos: planters by the doors + the cheesecake stall", (await items("planter")).length >= 15 && (await items("Goods_Cheesecake")).length >= 1);
       await season("friday");
       t.check("Friday: the challah & flowers stall", (await items("Goods_Challah")).length >= 1);
+      t.check("ctx.seasons.day() / is(): the stable 'what is today' API says Friday", await g(`ctx.seasons.day().erev === true && ctx.seasons.is("friday") && !ctx.seasons.is("shabbos")`));
       await season("shabbos");
       const c = await items("candles");
       t.check("Shabbos: candles in a front window of most houses, two burning", c.length >= 40 && c.every(i => i.lights === 2), `${c.length}`);
@@ -345,6 +346,7 @@ module.exports = {
       await g(`ctx.seasons.debug.rebuild()`);
       await t.frames(3);
       t.check("⚙️ Holidays in the world OFF: nothing dressed", (await items()).length === 0 && !(await info()).want);
+      t.check("…but ctx.seasons.day() still knows the date (other features read it)", await g(`!!ctx.seasons.day() && !!ctx.seasons.day().key && ctx.seasons.today() === null`));
       await t.L(`import("./js/core/save.js").then(m => { m.store("seasons").on = true; })`);
       await g(`ctx.seasons.debug.rebuild()`);
       await t.frames(3);
