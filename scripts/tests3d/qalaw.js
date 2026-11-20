@@ -11,6 +11,9 @@ module.exports = {
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" } },
   async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
     const g = t.game;
     await W.install(t);
     const intoTown = async () => {
@@ -58,7 +61,7 @@ module.exports = {
 
     // ── knocked out in the car in town ──
     if (!await intoTown()) return;
-    await g(`(ctx.cameos && ctx.cameos.force ? (ctx.cameos.force.scene = false) : 0, L3.damage(99, "QA", "qa"), true)`);
+    await g(`(ctx.cameos && ctx.cameos.force ? (ctx.cameos.force.scene = false) : 0, ctx.G.invT = 0, ctx.G.invSoft = false, ctx.G.hearts = 1, L3.damage(5, "QA", "qa"), true)`);
     await t.until(`__lulu3d.state === "footRun"`, "back on her feet after the knock-out", 9000);
     await t.until(`__lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "walking", 6000);
     t.check("knocked out in town: she's still in town", await g(`ctx.town.active`));

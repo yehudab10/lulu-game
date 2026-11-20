@@ -16,7 +16,8 @@
 //             #cameosFade, #lawFade, #softCut, the loading card…) up for more than 4 s, or up while she has control
 //   flat      the rendered picture is one flat colour while she's in the world (camera inside something / looking at nothing)
 //   underground  the camera below the ground
-//   inwall    the camera inside a solid collider (on foot: a circle collider of the active chunks / a town occluder)
+//   inwall    the camera inside a solid collider (on foot: a circle collider ≥ 0.8 m of the active chunks — a thin pole or a
+//             street tree's trunk doesn't count, the game's camera brushes past those on purpose — / a town block)
 //   hidden    Lulu (on foot, walking) or the car (driving) invisible for more than ~1/3 s while she has control
 //   stuck     a state that isn't a free-roaming one (playing / footRun / interior / title) lasting more than 60 s
 //   nocontrol control taken away for more than 4 s outside a skippable scene / a dialog / a set / the pause menu
@@ -96,10 +97,10 @@ const SRC = String.raw`
   }
   Q.flatFrame = flatFrame;
   // town blocks (world rects) + the chunk circles round a point
-  function solidAt(x, z, y = 1.0, pad = 0) {
+  function solidAt(x, z, y = 1.0, pad = 0, minR = 0) {
     const w = ctx.world; if (!w) return null;
     for (const ch of w.activeChunks()) for (const c of ch.colliders || []) {
-      if (c.off) continue;
+      if (c.off || c.r < minR) continue;
       const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 9 : (low[c.kind] != null ? low[c.kind] : 9);
       if (y > top) continue;
       const dx = x - c.x, dz = z - c.z;
@@ -130,6 +131,7 @@ const SRC = String.raw`
     const cov = covered();
     const soft = softCutUp();
     if (soft || cov.length || ctx.view) Q.cutF = f;
+    if (ctx.cam && ctx.cam.mode !== Q.camMode) { if (Q.camMode != null) Q.cutF = f; Q.camMode = ctx.cam.mode; }     // (△ / Y: another camera view is a cut)
     const cutNear = f - Q.cutF <= 2 || f - Q.stateChangeF <= 2 || ctx.skipping;
     // NaN
     for (const [n, v] of [["lulu", foot], ["car", car], ["camera", camP]]) if (v && !fin(v)) flag("nan", n + " position is not a number", "nan:" + n);
@@ -151,8 +153,9 @@ const SRC = String.raw`
     // camera
     if (!ctx.view && (st === "playing" || st === "footRun")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
-      if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }
-      if (f % Q.opts.flatEvery === 0 && !cov.length && !soft) {
+      if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }
+      const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
+      if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)
         const fl = flatFrame();
         if (fl && fl.sd < Q.opts.flatStd) flag("flat", "the picture is one flat colour (mean " + fl.m + ", sd " + fl.sd + ") cam " + JSON.stringify(P(camP)), "flat");
       }
@@ -197,5 +200,8 @@ module.exports = {
     if (ok) t.check(`${label}: the watchdog saw nothing wrong`, true);
     return ok;
   },
+  /** `&enable=all` also turns on the 🎉 Shared Road presence, which dials the REAL relay server: when that server is down
+   *  its WebSocket error is the outside world's, not the game's — drop just those from the page-error list. */
+  dropRelayErrors(t) { for (let i = t.errors.length - 1; i >= 0; i--) if (/WebSocket connection to 'wss:\/\/lulu-shared-road/.test(t.errors[i])) t.errors.splice(i, 1); },
   log(r) { for (const i of r.issues) console.log(`    · [${i.kind}] f${i.f} t${i.t} ${i.state}: ${i.msg}${i.n > 1 ? " ×" + i.n : ""}`); },
 };

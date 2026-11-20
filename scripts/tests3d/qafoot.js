@@ -11,6 +11,9 @@ module.exports = {
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" } },
   async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
     const g = t.game;
     await W.install(t);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);

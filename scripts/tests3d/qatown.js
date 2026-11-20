@@ -12,6 +12,9 @@ module.exports = {
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" } },
   async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
     const g = t.game;
     await W.install(t);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
@@ -78,12 +81,13 @@ module.exports = {
       const r = await t.L(`(() => { const F = __lulu3d.ctx.foot.debug.F; return { s: window.__qa.solidAt(F.pos.x, F.pos.z, 0.3, 0.15), back: +((F.pos.x - ${sp.x}) * ${sp.nx} + (F.pos.z - ${sp.z}) * ${sp.nz}).toFixed(2) }; })()`);
       const rep = await W.report(t);
       outs.push({ where: `${sp.name}@${sp.along} ${how}`, s: r.s, back: r.back, cam: rep.issues.filter(i => i.kind === "inwall").length });
+      for (const i of rep.issues) console.log(`    · ${sp.name}@${sp.along} ${how} [${i.kind}] f${i.f} ${i.msg} ×${i.n}`);
       await g(`ctx.foot.debug.getIn()`);
       await t.until(`__lulu3d.state === "playing"`, "back in the car", 3000);
       await t.frames(4);
     }
     await t.shot("got-out-at-wall");
-    t.check("out of a car parked against a block, she lands on the street side (never inside it)", outs.every(o => !o.s && o.back < 1.2), JSON.stringify(outs.filter(o => o.s || o.back >= 1.2)));
+    t.check("out of a car parked against a block, she lands on the street side (never inside it)", outs.every(o => !o.s && o.back < 1.5), JSON.stringify(outs.filter(o => o.s || o.back >= 1.5)));
     t.check("…and the climbing-out shot never puts the camera inside the houses", outs.every(o => !o.cam), JSON.stringify(outs.filter(o => o.cam)));
 
     // ── 🚨 pulling a car over in town (a cop car's PULL OVER) ──

@@ -8,6 +8,9 @@ module.exports = {
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [] },
   save3d: { settings: { quality: "low" } },
   async run(t) {
+    try { await this.body(t); } finally { W.dropRelayErrors(t); }
+  },
+  async body(t) {
     const g = t.game;
     await W.install(t);
     const seg = async label => { const r = await W.report(t); W.log(r); W.check(t, label, r); await W.reset(t); return r; };

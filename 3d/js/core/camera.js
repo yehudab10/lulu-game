@@ -108,7 +108,9 @@ export const cam = {
         // the rig wasn't running last frame (a cutscene's shot, a script's camera): its follow point jumps to her at
         // once and the PICTURE glides from what was on screen (a blend), so nothing swoops in from a stale spot
         const fresh = FREE.frame < ctx.frames - 1;
-        if (fresh && !st.snap && !bl.on && !ctx.skipping) startBlend(0.45);
+        // (a glide already running — getting out of the car starts a 0.7 s one, and she's walking after ~0.5 s — is
+        //  restarted from the picture on screen: letting it run on toward the NEW rig jumped the picture by metres)
+        if (fresh && !st.snap && !ctx.skipping) startBlend(bl.on ? Math.max(0.45, bl.dur - bl.t) : 0.45);
         FREE.frame = ctx.frames;
         const L = lookInput(dt);
         if (L.active) { FREE.idle = 0; FREE.reT = 0; FREE.n++; } else FREE.idle += dt;
