@@ -67,7 +67,11 @@ module.exports = {
         // on down the ramp: the town comes in by the soft cut
         const rest = await g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240).filter(([u, d]) => u > ctx.car.s - ${E} + 4)`);
         await route(E, rest, 12, false);
-        if (!await t.until(`__lulu3d.ctx.town.active`, `${id}: down the ramp into town`, 60000)) { await g(`(window.__route = null, true)`); continue; }
+        // (an attached town — ci/oneworld — starts a little past the ramp's end: drive on straight until she's in it)
+        await t.until(`__lulu3d.ctx.town.active || !window.__route.pts.length`, `${id}: down the ramp`, 60000);
+        await g(`(window.__route = null, true)`);
+        if (!await g(`ctx.town.active`)) { await t.hold(7, 0.6); await t.until(`__lulu3d.ctx.town.active`, `${id}: on into town`, 30000); await t.hold(7, 0); }
+        if (!await g(`ctx.town.active`)) continue;
         await g(`(window.__route = null, true)`);
         await t.until(`!__lulu3d.ctx.town.transitioning`, `${id}: the cut clears`, 10000);
       }
@@ -77,6 +81,8 @@ module.exports = {
       if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, `${id}: out in town`, 6000)) {
         for (const [x, y, n] of [[1, 0, 40], [0, -1, 50], [-1, 0, 60]]) { await t.stick(x, y); await t.frames(n); }
         await t.stick(0, 0);
+        // the free camera all the way round, here in the ATTACHED (turned) town: never inside a block
+        await t.L(`(__pad.axes[2] = 1, true)`); await t.frames(75); await t.L(`(__pad.axes[2] = 0, true)`);
         await g(`ctx.foot.debug.getIn()`);
         await t.until(`__lulu3d.state === "playing"`, `${id}: back in the car in town`, 4000);
       }
