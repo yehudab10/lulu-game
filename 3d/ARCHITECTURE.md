@@ -208,6 +208,14 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   cache), write with `shared.update(s => { s.missiles++; })` (read-modify-write, safe with an open 2D tab).
   `shared.stat(id, n)` / `shared.best(id, v)` feed the 2D scrapbook's `save.stats`.
 * `wallet.coins`, `wallet.add(n)`, `wallet.spend(n) → bool`.
+* **`ctx.player`** (`js/core/player.js`) — ONE player identity for every online feature (👯 friends, 🏘️ the property
+  registry): `id()` a random public id (16 base32 chars, made on first use, nothing personal) · `secret()` a separate
+  192-bit secret that leaves the device ONLY to prove "I am id X" to a server keeping its hash (never in a party / Shared
+  Road / friends message) · `label()` "Kugel Kid #37" (the shared save's `mpName` + `#` + a number from the id;
+  `setLabel(l)` caches one a server handed out) · `backup.code()` / `restore(code)` = the scrapbook's 💾 save code (a
+  restore replaces the id + secret too: a new phone is the same player) · `backup.add(section, get, set)` a feature's own
+  little section (snapshotted by `saveToCode`, handed back on the first boot after a restore). Stored as
+  `save3d.player = { id, secret, made, label?, sx? }`.
 
 ## Models & Blender
 * JS: `registerModels({ key: "file_name" }, { preload })` at import; `await ensureModels([...])`
@@ -517,6 +525,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | roadevents | **seeded** (Road Trip, 🌍 Free Roam; Race / Dash / Tag: hazards only) | `roadevents/party.js`: big set pieces (🍦 stand, 🍔 drive-thru, ⛽ station + nitro cans) from the road plan, small ones (cones, puddles, potholes, animals, strollers, hitchhikers) from per-chunk sub-slots — the same s on every screen, each screen builds its own copy; rewards personal. Off: anything that drives (ambulance, buses, ice-cream truck, drunk / texting drivers, steamroller, fender benders) or must stop the traffic (toll, train, parade, crossing guards, work zones) — party traffic is a pure function of the clock |
 | cameos | **seeded** + personal scenes | `cameos/party.js`: Avigail on foot, Chez Fabio, Heshy's pool, an uncle, the sasquatch from the road plan, their verge spot from `ctx.party.seeded`; the porch / salon scenes are YOUR states (no pause — friends keep driving); two friends at one cameo each get their own copy. Off: Avigail's coupe (it drives); the crash aftermath (no wrecks in a party) |
 | world | **shared constants**, personal pull-in | Gas 'n' Go / the Lookout / driveways are fixed spots (`where("party")`); a Road Trip has no driveways from Bubbe's on; the visit beat is yours. The start at home on foot is solo only (`wantsDeparture`: a party keeps its own grid start) |
+| friends 👯 | **on** (personal) | The list, the doorbell and ▶ Join work the same in a party (a JOIN answers with the party's own code); 👯 › a friend → ➕ Add as a friend (`x.fr`, `x.fid` marks who's already on your list). |
 | onegame 🎮 | **solo only** | The 🧳 suitcase, the 🅿️ rest-area booth (+ its attendant), ✋ Play as Dina, Ima's Friday rush at the door and the 📱 Jobs card all hide in a party (`solo()`; journey, dina and shabbos are in the party's `OFF` set anyway). ▶ PLAY / 👯 Friends on the title are unchanged by a party |
 | hustle | **seeded** markers, personal jobs | `hustle/party.js`: ☎️ payphones + 📋 boards from the road plan; taking one, the riders, props, pay are yours; my 📱 still rings at random (nobody else hears it); 💼 Jobs app on the party highway; the getaway only when the party has the law on. "Follow that car" is a `partyLocal` car |
 | community | **seeded** in a 🌍 Free Roam town, personal help | `community/party.js`: org cruisers on openworld's block loops (pure f(seed, loop, clock)); roadside scenes in 50 s windows of the party clock (kind, kerb, call-in time seeded); the Bais Yaakov line on the party clock; 📞 Phone calls + help visits are yours (local responders); Shomrim chases only with the law on in the party (local cars; a loop cruiser never leaves its loop). Off: highway sightings (the party's highway traffic is the seeded conveyor) |
@@ -1213,8 +1222,11 @@ pop-ups beyond one 🔗 toast when a crew forms (prio 3) — the rest is the HUD
 (existing relay protocol only): `d.x.pz = [crew n, stars, flags, evade %, x×10, z×10, verdict, bail]` (~7 Hz while it
 changes); events → host `pzc` `pzp` `pzb` `pzx` `pzh` `pzha`; host state `activity.pz = { n, c: [crews], h: {help} }`.
 **API** (`ctx.law.crew`): `current()` · `partners(uids, why)` · `wanted(n, reason)` · `bust(charges)` · `leave()` ·
-`friendsInside()` · `bailOut(uid)` · `springOut(uid)` · `tune` (`CREW_TUNE`) · `debug`. Events `law:crew` {n, ps, why,
-mates}, `law:crewSplit`, `law:crewCaught`, `law:crewCell`, `law:crewVote`, `law:crewBail`, `law:crewSpring`; stats
+`friendsInside()` · `bailOut(uid)` · `springOut(uid)` · `peel()` · `tune` (`CREW_TUNE`) · `debug`; **`ctx.law.partners.crime({ id, crew,
+charge, heat, msg })`** — another feature's crime for a crew (ci/bankfriends' co-op bank job): call it once on EACH member's
+screen (idempotent per id): she asks to be partners with `crew` and her own chase starts at `heat` (in a car the pursuit, on
+foot a foot cop); when it's over for HER, that screen emits `law:crew` { id, uid, result: "ok" (got away) | "busted" (taken
+into custody) }. Events `law:crewFormed` {n, ps, why, mates}, `law:crewSplit`, `law:crewCaught`, `law:crewCell`, `law:crewVote`, `law:crewBail`, `law:crewSpring`; stats
 `crewFormed`, `crewSurrenders`, `crewBails`, `crewSprings`. Tests: `scripts/tests3d/partners.js` (together / not together /
 a hacked friend / a stranger, one wanted level, hiding together, splitting up, caught together in Lakewood → the same cell
 on both screens + a cell emote + one court clock → co-defendants → out of the courthouse side by side) and `partners2.js`
@@ -1278,6 +1290,37 @@ there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs frien
 their curated name, the 👑 / presence chips, emotes with phrases, rides, games. Test: `scripts/tests3d/mpworld.js` (offline
 boot · two pages with no code see each other · a hostile stranger · the cap with 14 riders · a rider in town · ⚙️ Play online ·
 Dina · the 👯 hub · a party still sees strangers · a friend drawn once, as a friend · the phone's go solo).
+
+**A friends list that lasts (friends, ci/friends, roadmap 19 stage 1 — `features/friends`):** the owner (2026-11-20):
+"combine party mode into the main world so friends could just friend each other and teleport and join their friends". No
+server change: everything rides the relay's protocol v1 in rooms the CLIENT names. **Identity**: the friend id IS `ctx.player.id()`
+(core/player.js — one identity with the property registry); `store.js` (the save's `f.friends`) adds a random 11-character **doorbell** (room `"B" + bell`), made once; the list (≤ 30:
+id, curated name, car skin, THEIR doorbell, our shared secret), `blocked` (≤ 50), `join` (`always` / `ask` / `nobody`, default
+ask), `hidden` (🙈 appear offline). It rides in the scrapbook's 💾 save code with the rest of `save3d` (restored → the same id,
+the same friends, they find her again). **Making a friendship** (`handshake.js`, both must say yes): a channel = the EVERYONE
+room (Shared Road state `d.fr`, from 📍 Nearby › a driver), a 🎉 party (snapshot extras `x.fr`, from 👯 › a friend), or a
+friend-code room (`"F" + CODE`, open only while 👯 › ➕ Add by code is on screen, or a `?friend=CODE` link). An entry
+`{ to, pk, f, c? }`: A's fresh ECDH P-256 public key → B says yes (or had asked A too: mutual) with B's key + B's CARD sealed
+with the ECDH secret (HKDF → AES-GCM, `crypto.js`) → A opens it, sends A's card → both keep each other. Strangers watching see
+two public keys and two sealed blobs. `f` (the random id, in the clear) lets a BLOCKED player's ask be dropped before anything
+is sent. A stranger's ask is never a pop-up: one line on their row in 📍 Nearby ("🤝 wants to be friends"). **Presence + join**
+(`bell.js`): while she plays with ≥ 1 friend (not hidden, not Dina's mode, relay allowed) her game sits in her doorbell with
+state `{ o: 1 }` — one idle socket. A friend's game KNOCKS (👯 opened, once ~6 s after boot): joins the doorbell for a moment,
+state `{ k: { f, c: sealed({ q: "where"|"join", ts, nn, n, sk, w, i, nb? }) } }`; her answer (state `{ o: 1, r: [{ to, c }] }`,
+sealed for that friend; ≤ 4 kept) → `{ on, w: "in Midwood · …", i, j, code?, u?, wait?, no? }`. Not a friend / doesn't open /
+> 10 min skew / a replayed nonce → no answer. A knock also tells HER the friend is on (presence both ways). **JOIN**: `nobody` → a
+friendly no; she's not out in the world (a scene, a menu) → "busy"; `always` → `letIn`: she's in a party already, or her game
+hosts a 🌍 Free Roam silently (`ctx.party.hostRoam()`), and answers with the party code + her uid; `ask` → ONE quiet chip
+(`#frChip`, "🙋 Kugel Kid #37 wants to join you · 📱 👯") + ✓ / ✗ in 👯, the friend waits ≤ 30 s. The friend then
+`ctx.party.join(code, { with: uid })` → lands next to her. **Remove / block** → her doorbell changes (`newBell`): the ex-friend's
+knocks find nobody; every friend left is owed the new name (`nb`), handed over inside her next knock at THEIR door. Names: the
+12 curated ones + `#NN` from the id (many players share a name), never free text. **Phone:** the 👯 Friends app (outside a
+party's Free Roam; inside one, openworld's 👯 has "📇 My friends list" → the same views) — playing now (▶ Join / with you) ·
+not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). The phone grid goes four across past 9 apps. **Cost:** nothing without friends; with friends one idle
+socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. Test: `scripts/tests3d/friends.js` (add from Nearby, no
+pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
+stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
+restores the list · remove (new doorbell) · block).
 
 **Friends together (together, ci/together):** 👯 the owner (2026-11-20): "in party mode friends should be able to go to
 the same house and both be visible to each other. We also need some sort of way for finding friends in the map — need

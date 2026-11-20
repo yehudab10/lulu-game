@@ -34,8 +34,8 @@ module.exports = {
     const r = await rect("#screenCard.lphone");
     t.check("desktop: a portrait handset in the bottom-right", !!r && r.r > r.w * 0.8 && r.b > r.h * 0.9 && r.b <= r.h + 1 && r.y >= 0 && (r.b - r.y) > (r.r - r.x) * 1.5, JSON.stringify(r));
     const apps = await g(`ctx.phone.apps()`);
-    // (other features add theirs: 📍 Nearby, 🏡 Family, 🗞️ Kvetch… — a full 3 × 3 grid; "every app icon visible" below checks it fits)
-    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 9, one 3 × 3 screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 9, apps.join(","));
+    // (other features add theirs: 👯 Friends, 📍 Nearby, 🏡 Family, 🗞️ Kvetch… — 3 across up to 9, then 4 across (≤ 12); "every app icon visible" below checks it fits)
+    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 12, one screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
     t.check("the grid shows them as big icons", await t.L(`document.querySelectorAll("#screenCard .lp-app").length`) === apps.length);
     const sA = await g(`ctx.car.s`);
     await t.frames(10);

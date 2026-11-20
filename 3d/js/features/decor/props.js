@@ -163,6 +163,15 @@ function flamingo(k, x, z, ry = 0, s = 1) {
     const [kx, kz] = at(0, 0.3);
     k.cone(0.025 * s, 0.1 * s, "#2B2B2B", kx, 1.03 * s, kz, { rx: 2.2, ry });
 }
+const FLOCK = [[2.6, 8.3, 0.4], [3.3, 9.2, -0.2], [3.0, 10.6, 0.9], [4.0, 8.0, -0.6], [4.4, 10.9, 0.2], [5.3, 8.4, 0.7],
+    [5.7, 10.2, -0.9], [6.2, 11.6, 0.1], [7.0, 9.4, -0.3], [7.6, 10.8, 1.1], [3.8, 11.9, -1.2], [5.0, 12.0, 0.5]];
+/** The yard pieces she can't walk through: lawn option → [house-local x, z, radius, collider kind] (gnomes are low: she hops them). */
+export const YARD_SOLIDS = {
+    flamingo: [[5.6, 8.1, 0.22, "pole"]],
+    gnomes: [[2.6, 8.2, 0.2, "bench"], [3.2, 8.9, 0.2, "bench"], [3.9, 8.25, 0.2, "bench"]],
+    birdbath: [[6.3, 9.8, 0.46, "pole"]],
+    flock: FLOCK.map(([x, z]) => [x, z, 0.2, "pole"]),
+};
 function gnome(k, x, z, coat, ry = 0) {
     k.cone(0.15, 0.32, coat, x, 0.16, z, {}, 10);
     k.ball(0.075, "#F6C9A8", x + Math.sin(ry) * 0.03, 0.36, z + Math.cos(ry) * 0.03);
@@ -323,9 +332,7 @@ const OUT = {
             k.cone(0.015, 0.05, "#FFA000", 6.62, 1.05, 9.94, { rx: Math.PI / 2 }, 5);
         },
         flock(k) {
-            const P = [[2.6, 8.3, 0.4], [3.3, 9.2, -0.2], [3.0, 10.6, 0.9], [4.0, 8.0, -0.6], [4.4, 10.9, 0.2], [5.3, 8.4, 0.7],
-                [5.7, 10.2, -0.9], [6.2, 11.6, 0.1], [7.0, 9.4, -0.3], [7.6, 10.8, 1.1], [3.8, 11.9, -1.2], [5.0, 12.0, 0.5]];
-            for (const [x, z, r] of P) flamingo(k, x, z, r, 0.95 + ((x * 7) % 1) * 0.15);
+            for (const [x, z, r] of FLOCK) flamingo(k, x, z, r, 0.95 + ((x * 7) % 1) * 0.15);
         },
     },
 };
