@@ -7,7 +7,7 @@ import { save3d } from "../../core/save.js";
 import { models, registerModels, ensureModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import * as H from "../../hud.js";
-import { forTown } from "./towns.js";
+import { forTown, FLAVOR } from "./towns.js";
 
 export const OWN = ["community_chaverim", "community_shomrim", "community_hatzalah", "community_shomer", "community_volunteer",
     "community_emt", "community_bygirl", "community_menahel", "community_spare"];
@@ -27,12 +27,34 @@ export function loadModels() {
     return CM.loading;
 }
 export const has = k => !!models[k];
+/** Run fn once the org models are in (now, or when the load finishes) — calls load them on demand. */
+export function whenLoaded(fn) {
+    if (CM.loaded) { fn(); return; }
+    const p = loadModels();
+    if (p) p.then(() => fn()); else fn();
+}
 
 /** Random content gate: the feature (tests opt in), never in a 🎉 party. */
 export const on = () => ctx.enabled("community") && !(ctx.party && ctx.party.active);
 /** The community config of the town she's in (null outside a town / a town without orgs). */
 export function townCfg() { return ctx.town && ctx.town.active ? forTown(ctx.town.id) : null; }
 export const onFoot = () => !!(ctx.foot && ctx.foot.active && ctx.foot.pos);
+/** The town she's in (its id), or null on the highway / at a rest area. */
+export const townId = () => (ctx.town && ctx.town.active && ctx.town.id) || null;
+/** A line in the town's own words: Lakewood's names → this town's (towns.js FLAVOR). The highway keeps Lakewood's. */
+export function local(text) {
+    const F = FLAVOR[townId()], L = FLAVOR.lakewood;
+    if (!F || F === L || typeof text !== "string") return text;
+    return text.replace(/Lakewood/g, F.name).replace(/Route 9/g, F.main).replace(/Forest Ave/g, F.block).replace(/Main St/g, F.strip);
+}
+const _rn = {};
+/** Her road coords { s, d } — on foot from where SHE stands (not where her car is). */
+export function luluRoad() {
+    const car = ctx.car;
+    if (!onFoot()) return { s: car.s, d: car.d };
+    ctx.world.road.nearest(ctx.foot.pos.x, ctx.foot.pos.z, car.s, _rn);
+    return { s: _rn.s, d: _rn.d };
+}
 /** Where Lulu is (on foot or in a car): a Vector3. */
 export const luluPos = () => onFoot() ? ctx.foot.pos : ctx.car.pos;
 export const rand = (a, b) => a + Math.random() * (b - a);
@@ -138,6 +160,7 @@ export function setLights(r, on, t, org) {
 // ── bubbles + Lulu's lines ───────────────────────────────────────────────
 export function bubble(obj, text, sec = 2.6, cls = "nice") {
     if (!obj || !text || ctx.skipping) return false;
+    text = local(text);
     try {
         if (onFoot() && ctx.foot.say) return !!ctx.foot.say(obj, text, sec, { cls: cls === "cop" ? "cop" : cls === "pink" ? "pink" : "" });
         if (ctx.banter && ctx.banter.bubble) return !!ctx.banter.bubble(text, obj, { dur: sec, cls });
@@ -146,6 +169,7 @@ export function bubble(obj, text, sec = 2.6, cls = "nice") {
 }
 export function luluSay(text, sec = 2.8) {
     if (!text || ctx.skipping) return false;
+    text = local(text);
     try {
         if (onFoot() && ctx.foot.say && ctx.foot.obj) return !!ctx.foot.say(ctx.foot.obj, text, sec);
         if (ctx.banter && ctx.banter.say && ctx.state === "playing") return !!ctx.banter.say(text);      // (a raw line: banter says it as-is)
