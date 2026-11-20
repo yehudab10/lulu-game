@@ -104,7 +104,12 @@ export function locate(uid) {
 /** Every friend, nearest first (only the ones this screen can place). */
 export function locateAll() {
     const out = [];
-    for (const u of friends()) { const l = locate(u); if (l) out.push(l); }
+    const me = ctx.party && ctx.party.uid, riding = ctx.openworld && ctx.openworld.riding;
+    for (const u of friends()) {
+        const p = ctx.party.peer(u);
+        if (u === riding || (p && p.x && p.x.rd && p.x.rd === me)) continue;      // (in the same car as me: nothing to find)
+        const l = locate(u); if (l) out.push(l);
+    }
     out.sort((a, b) => a.dist - b.dist);
     return out;
 }
