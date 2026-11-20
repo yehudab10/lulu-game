@@ -148,7 +148,8 @@ const SRC = String.raw`
     if (Q.last && dF === 1 && !cutNear && !Q.last.view && !cur.view) {
       const d = (a, b) => a && b ? Math.hypot(a.x - b.x, a.z - b.z) : 0;
       const df = d(cur.foot, Q.last.foot), dc = d(cur.car, Q.last.car), dk = cur.cam.distanceTo(Q.last.cam);
-      if (cur.foot && Q.last.foot && df > Q.opts.footJump) flag("jump", "Lulu moved " + df.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.foot)) + "→" + JSON.stringify(P(cur.foot)), "jump:foot");
+      if (cur.foot && Q.last.foot && df > Q.opts.footJump) flag("jump", "Lulu moved " + df.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.foot)) + "→" + JSON.stringify(P(cur.foot)) +
+        " (phase " + F.phase + ", s " + (+F.s).toFixed(1) + ", d " + (+F.d).toFixed(1) + ", town " + !!(ctx.town && ctx.town.active) + ", road " + (ctx.world.road === ctx.world.highway ? "highway" : "district") + ")", "jump:foot");
       if (st === "playing" && Q.last.st === "playing" && dc > Q.opts.carJump) flag("jump", "the car moved " + dc.toFixed(1) + " m in one frame " + JSON.stringify(P(Q.last.car)) + "→" + JSON.stringify(P(cur.car)), "jump:car");
       const cutscene = (() => { const d = ctx.states[st] || {}; return typeof d.skip === "function" ? d.skip() : !!d.skip; })() || (ctx.cutscene && ctx.cutscene.active());
       // (a cutscene's single cut is editing; the camera covering > 5 m a frame for 4+ frames running is a SWOOP — through

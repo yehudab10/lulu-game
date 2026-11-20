@@ -54,8 +54,11 @@ module.exports = {
     await seg("arrested in town → back on the road", ["jump", "nan", "overlay", "flat", "underground", "stuck", "hidden"]);
 
     // ── knocked out on foot on the highway, the ER forced ──
-    if (await g(`ctx.town.active`)) await g(`(ctx.town.leave("quiet"), true)`);
-    await g(`(L3.state !== "playing" && L3.state !== "footRun" ? L3.setState("playing") : 0, true)`);
+    // (a fresh drive on the highway — taking the town away from under her while she stands in it on foot leaves her in
+    //  empty space: ctx.town.leave() moves only the car; see AGENTS §7 › QA sweep)
+    await W.moved(t);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.town.active`, "a fresh cruise", 9000);
     await t.frames(5);
     if (await g(`L3.state === "playing"`)) { await g(`(ctx.foot.start("droveOff"), true)`); await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "on foot on the highway", 6000); }
     await W.moved(t);
