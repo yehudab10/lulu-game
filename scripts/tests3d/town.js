@@ -366,22 +366,25 @@ module.exports = {
       await t.frames(2);
       await g(`ctx.foot.start("droveOff")`);
       if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "on foot (jack)", 30000)) return;
-      let jacked = false;
+      let jacked = false, lastWhy = "no moving minivan found";
       for (let tries = 0; tries < 4 && !jacked; tries++) {
         const c = await g(`(() => { const F = ctx.foot.debug.F; const c = ${D}.C.cars.find(c => c.kind === "town_van" && !c.free && !c.data.town.hazard && c.data.town.mode === "drive" && c.speed > 3);
             if (!c) return null; const f = { x: Math.sin(c.h), z: Math.cos(c.h) }; F.pos.set(c.x + f.x * 16, 0, c.z + f.z * 16); window.__jc = c; return c.speed; })()`);
         if (c == null) { await t.frames(30); continue; }
-        await t.until(`__lulu3d.ctx.foot.debug.F && window.__jc.speed < 0.5`, "the minivan stops for her", 12000);
+        // (a quiet wait: a van that was about to turn off at a crossing just drives on — the next try picks another)
+        let stopped = false;
+        for (let k = 0; k < 36 && !stopped; k++) { await t.frames(10); stopped = await g(`window.__jc.speed < 0.5`); }
+        if (!stopped) { lastWhy = "the van didn't stop (speed " + (await g(`window.__jc.speed`)).toFixed(1) + ")"; continue; }
         await g(`(() => { const c = window.__jc, F = ctx.foot.debug.F, l = { x: Math.cos(c.h), z: -Math.sin(c.h) }, f = { x: Math.sin(c.h), z: Math.cos(c.h) }; F.pos.set(c.x + l.x * 1.6 + f.x * 0.6, 0, c.z + l.z * 1.6 + f.z * 0.6); return true; })()`);
         await t.frames(20);
         const pr = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
         const still = await g(`window.__jc.speed < 0.5`);
-        t.check(`a town driver who stopped for her waits by the door (try ${tries + 1}): ✕ JACK`, /JACK/.test(pr) && still, `${pr} · speed ${(await g(`window.__jc.speed`)).toFixed(1)}`);
-        if (!/JACK/.test(pr)) continue;
+        if (!(/JACK/.test(pr) && still)) { lastWhy = `${pr} · speed ${(await g(`window.__jc.speed`)).toFixed(1)}`; continue; }
+        t.check(`a town driver who stopped for her waits by the door (try ${tries + 1}): ✕ JACK`, true, pr);
         await t.tap(0);
         jacked = await g(`ctx.streets.jacking`);
       }
-      if (!jacked) return;
+      if (!jacked) { t.check("a moving town minivan stops for her and waits by the door: ✕ JACK (4 tries)", false, lastWhy); return; }
       if (await t.until(`__lulu3d.state === "playing"`, "…she drives off in it", 30000)) {
         t.check("solo: she jacked a moving town minivan", await g(`ctx.streets.ride && ctx.streets.ride.kind === "town_van" && ctx.town.active`));
         await t.frames(10);

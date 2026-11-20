@@ -611,7 +611,7 @@ export function* buildTownSteps(def) {
     // ── colliders: a coarse grid so a lookup only returns what's near ─────
     yield "pools";
     const CELL = 24, grid = new Map();
-    for (const c of colliders) {
+    const index = c => {
         const m = c.r + 10;
         for (let gx = Math.floor((c.x - m) / CELL); gx <= Math.floor((c.x + m) / CELL); gx++)
             for (let gz = Math.floor((c.z - m) / CELL); gz <= Math.floor((c.z + m) / CELL); gz++) {
@@ -619,7 +619,9 @@ export function* buildTownSteps(def) {
                 let l = grid.get(k); if (!l) grid.set(k, l = []);
                 l.push(c);
             }
-    }
+    };
+    for (const c of colliders) index(c);
+    T.indexCollider = index;      // (a collider added AFTER the build — the game spots' cabinet — joins the grid here)
     const EMPTY = [];
     T.near = (x, z) => grid.get(Math.floor(x / CELL) * 100000 + Math.floor(z / CELL)) || EMPTY;
     /** Another feature's solid in this town (WORLD x/z, r): Lulu's house on its empty lot (ctx.town.addCollider). */

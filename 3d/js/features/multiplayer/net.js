@@ -91,6 +91,8 @@ export function labelFor(p) {
     if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
     return strangerLabel(p.id, p.sk);
 }
+/** features/friends: my friend-handshake entries for the room I'm in (null = none). */
+export function setFr(list) { MP.fr = list && list.length ? list : null; }
 export function rerollCode() { MP.codeSlots = MP.codeSlots.map(() => Math.floor(Math.random() * 26)); }
 
 // ── connection ───────────────────────────────────────────────────────────
@@ -214,6 +216,7 @@ function applyState(id, d, snap) {
     }
     applyWorld(p, d.w);
     p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
+    p.fr = Array.isArray(d.fr) && d.fr.length <= 3 ? d.fr : null;      // (features/friends: a ➕ friend handshake — read + checked there)
     if (!friendRoom()) {
         // EVERYONE: a stranger can't start anything on my screen (no races, no tag, no lot), and their
         // emotes / record toasts are flood-guarded here, whatever their client sends
@@ -291,6 +294,7 @@ function sendState() {
     if (d.vk === "borrowed") { d.ct = me.ct || 0; d.co = me.co || "#E53935"; }
     if (me.w) d.w = me.w;
     if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
+    if (MP.fr) d.fr = MP.fr;                          // (features/friends: my ➕ friend handshake entries, ≤ 3)
     const pk = ctx.parking && ctx.parking.pose ? ctx.parking.pose() : null;
     if (pk) d.pk = pk;
     if (MP.race) {

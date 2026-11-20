@@ -158,7 +158,7 @@ function makeChunk(T) {
         get s1() { return this.s0 + 200; },
         get colliders() { const f = foot(), p = f ? f.pos : ctx.car.pos; return T.near(p.x, p.z); },
         coins: T.coins, hearts: [], traps: [], houses: [], anim: [], biome: { name: "town" }, group: g,
-        add(o) { g.add(o); return o; }, own(x) { T.own.push(x); return x; }, addCollider(c) { T.colliders.push(c); return c; },
+        add(o) { g.add(o); return o; }, own(x) { T.own.push(x); return x; }, addCollider(c) { T.colliders.push(c); if (T.indexCollider) T.indexCollider(c); return c; },
         addMesh(geo, mat) { const m = new THREE.Mesh(geo, mat); g.add(m); T.own.push(geo); return m; },
         onAnimate() {}, sign() {}, animate() {}, resetCoins() {},
     };

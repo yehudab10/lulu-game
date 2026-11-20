@@ -53,6 +53,10 @@ body.dev-touch .lp-fb .glyph { display: none; }
 .lp-big { font-size: 48px; font-weight: 700; text-align: center; line-height: 1.05; margin-top: 8px; text-shadow: 0 2px 10px rgba(123, 31, 87, .35); }
 .lp-hello { text-align: center; font-size: 13px; font-weight: 600; min-height: 1.2em; margin: 2px 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 4px; margin: auto 0 10px; overflow: auto; padding: 6px 2px; }
+/* more than 9 apps (👯 Friends + the rest): four across, a little smaller — still one screen */
+.lp-grid:is([data-n="10"], [data-n="11"], [data-n="12"]) { grid-template-columns: repeat(4, 1fr); gap: 10px 2px; }
+.lp-grid:is([data-n="10"], [data-n="11"], [data-n="12"]) .lp-ic { width: 52px; height: 52px; font-size: 28px; border-radius: 15px; }
+.lp-grid:is([data-n="10"], [data-n="11"], [data-n="12"]) .lp-nm { font-size: 11.5px; }
 .lp-app { border: none; background: none; color: #fff; font: inherit; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer;
   border-radius: 18px; padding: 6px 0 4px; }
 .lp-ic { width: 60px; height: 60px; border-radius: 17px; display: flex; align-items: center; justify-content: center; font-size: 32px; position: relative;
