@@ -230,7 +230,7 @@ async function spawnShloime() {
 function tickShloime(dt) {
     if (!N.p || !N.sp) return;
     N.t += dt;
-    const sp = N.sp, k = Math.sin(N.t * 0.18) * 9;               // up and down the sidewalk in front of the courthouse
+    const sp = N.sp, k = 6 + Math.sin(N.t * 0.18) * 3.5;        // up and down the sidewalk beside the courthouse door (never across it: ✋ there is the door)
     const x = sp.x + sp.ux * k + sp.nx * 0.8, z = sp.z + sp.uz * k + sp.nz * 0.8;
     const dir = Math.cos(N.t * 0.18) >= 0 ? 1 : -1, h = Math.atan2(sp.ux * dir, sp.uz * dir);
     N.p.obj.position.set(x, 0, z); N.p.obj.rotation.y = h;

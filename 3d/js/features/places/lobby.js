@@ -46,8 +46,8 @@ export const lobbyDef = defineInterior({
             rt.person("bench0", "npcMan", "bench0", { name: "A nervous man", pose: { sit: true }, colors: { Top: "#5C6BC0" }, faceLulu: false, collide: false });
             rt.person("bench1", "npcWoman", "bench1", { name: "A lady with a folder", pose: { sit: true }, colors: { Top: "#EF9A9A" }, faceLulu: false, collide: false });
         }
-        // (Midwood: Abba is here. He's always here.)
-        if (town === "midwood") rt.person("abba", "lawAbba", "portrait", { name: "Abba", faceLulu: true, collide: false });
+        // (Midwood: Abba is here, on the bench. He's always here.)
+        if (town === "midwood") rt.person("abba", "lawAbba", "bench2", { name: "Abba", pose: { sit: true }, faceLulu: false, collide: false });
         // ── hotspots ──
         rt.hot({ id: "clerk", spot: "clerkTalk", who: "clerk", r: 1.5, label: "🗂️ Talk to the clerk",
             action: rt => rt.say("The Clerk", clerkLine(), Object.assign({ person: rt.byId.clerk }, CLERK_S)) });
@@ -59,9 +59,13 @@ export const lobbyDef = defineInterior({
         } });
         else rt.hot({ id: "bench", spot: "bench", who: "bench0", r: 1.6, label: "😬 Chat with the bench",
             action: rt => { const w = pick(["bench0", "bench1"]); return rt.say(rt.byId[w].name, benchLine(), Object.assign({ person: rt.byId[w] }, BENCH_S)); } });
-        if (town === "midwood") rt.hot({ id: "abba", spot: "portrait", who: "abba", r: 1.5, label: "👨 Abba?!",
-            action: rt => rt.say("Abba", MW_ABBA[(CS.abbaL++) % MW_ABBA.length], { person: rt.byId.abba, emoji: "👨", color: "#EF6C00" }) });
-        else rt.hot({ id: "portrait", spot: "portrait", r: 1.3, label: "🖼️ The portrait", action: rt => rt.say("Lulu", portraitLine(), { emoji: "🖼️" }) });
+        if (town === "midwood") {
+            // (in front of his bench — the other bench's talk spot, mirrored)
+            const b2 = rt.spots.bench2 || { x: 3.4, z: 1.95 }, bh = rt.spots.bench || { z: 3.0 };
+            rt.hot({ id: "abba", x: b2.x, z: bh.z, who: "abba", r: 1.6, label: "👨 Abba?!",
+                action: rt => rt.say("Abba", MW_ABBA[(CS.abbaL++) % MW_ABBA.length], { person: rt.byId.abba, emoji: "👨", color: "#EF6C00" }) });
+        }
+        rt.hot({ id: "portrait", spot: "portrait", r: 1.3, label: "🖼️ The portrait", action: rt => rt.say("Lulu", portraitLine(), { emoji: "🖼️" }) });
         rt.hot({ id: "docket", spot: "docket", r: 1.4, label: "📋 Read today's docket", action: rt => rt.say("Today's docket",
             town === "lakewood" ? (caseDone() ? "📋 2B — IN RE: BABY GITTY · CLOSED. ('They worked it out. ❤️' — handwritten, with a heart)"
                 : `📋 2B — IN RE: BABY GITTY (Pollack v. Pollack) · hearing ${Math.min(CS.shloime + 1, HEARINGS.length)} of ${HEARINGS.length}${hearingToday() ? " · TODAY — public welcome" : " · next session TOMORROW"}`) + "\n" + docketLine()

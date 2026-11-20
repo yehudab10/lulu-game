@@ -140,7 +140,7 @@ module.exports = {
       await t.until(`__lulu3d.state === "footRun"`, "out on the street", 30000);
       await t.until(`!!__lulu3d.ctx.civic.courts.debug.N.p`, "Shloime + the stroller outside the courthouse", 30000);
       t.check("after the case: Shloime pushes the stroller outside the courthouse", await g(`!!${CD}.N.p && ${CD}.N.p.obj.parent === ctx.scene`));
-      await g(`(() => { const p = ${CD}.N.p.obj.position, F = ctx.foot.debug.F; F.pos.set(p.x + 1.2, 0.05, p.z); return true; })()`);
+      await g(`(() => { const p = ${CD}.N.p.obj.position, sp = ${CD}.N.sp, F = ctx.foot.debug.F; F.pos.set(p.x + sp.ux * 1.2, 0.05, p.z + sp.uz * 1.2); return true; })()`);
       await t.frames(6);
       t.check("✋ TALK TO SHLOIME", await g(`(() => { const p = ctx.foot.debug.interactables(); return !!p && /SHLOIME/.test(p.label); })()`), await g(`JSON.stringify((ctx.foot.debug.interactables() || {}).label || null)`));
       await t.shot("shloime-stroller");
@@ -149,32 +149,30 @@ module.exports = {
 
     // ════ MIDWOOD: Abba defends her; the maths is the regular lawyer's ════
     const CELL = `__lulu3d.ctx.law._dbg.jail && __lulu3d.ctx.law._dbg.jail() && __lulu3d.ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawEsc")`;
-    // a trial with no hired lawyer and a quiet court: read the jury-mood meter at the plea, then plead the first defence
+    // a trial with no hired lawyer and a quiet court: plead the first defence, read the jury's inputs (law court.js courtLog)
     const trial = async (id) => {
       if (!await town(id)) return null;
       await carAt("court", 10);
       await t.frames(4);
-      await g(`(() => { const D = ctx.law._dbg; for (const k of Object.keys(D.FORCE)) delete D.FORCE[k]; D.FORCE.quietCourt = true; D.FORCE.verdict = "dismissed"; return true; })()`);
+      await g(`(() => { const D = ctx.law._dbg; for (const k of Object.keys(D.FORCE)) delete D.FORCE[k]; D.FORCE.quietCourt = true; D.FORCE.guest = "nobody"; D.FORCE.verdict = "dismissed"; return true; })()`);
       await g(`ctx.law.arrest(["SPEEDING", "LOITERING NEAR A KNISH"], { skipCinematic: true })`);
       if (!await tapUntil(CELL, `booked in ${id}`, 500)) return null;
       await t.L(`document.querySelector("#lawCourtBtn").click()`);
       await t.until(`__lulu3d.state === "lawCourt"`, "to court", 30000);
       const said = [];
-      let meter = "";
       for (let i = 0; i < 400 && await st() === "lawCourt"; i++) {
         const d = await dialog(); if (d && said[said.length - 1] !== d) said.push(d);
         const opts = await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden").map(b => b.textContent)`);
         if (opts.length) {
-          meter = await t.L(`(() => { const m = document.querySelector("#lawUI .law-meter"); if (!m || m.classList.contains("hidden")) return "none"; const n = m.querySelector(".n"); return (n ? n.style.left : "") + " | " + [...m.querySelectorAll(".f")].map(f => f.textContent).join(" · "); })()`);
           const k = Math.max(0, opts.findIndex(o => !/💰|Plea|plea|[Bb]ribe/.test(o)));
           await t.L(`[...document.querySelectorAll("#dialog .opt")].filter(b => b.style.visibility !== "hidden")[${k}].click()`);
           await t.frames(3); continue;
         }
         await t.tap(0);
       }
-      const lawyer = await t.L(`import("./js/features/law/court.js").then(m => m.courtStage()).then(C => C.lawyer ? C.lawyer.key : null)`);
+      const maths = await t.L(`import("./js/features/law/court.js").then(m => JSON.stringify(m.courtLog[m.courtLog.length - 1] || null))`);
       await t.until(`__lulu3d.state === "footRun"`, "out of the courthouse", 120000);
-      return { said, meter, lawyer };
+      return { said, maths };
     };
     let lw = null, mw = null;
     await step("tried in Lakewood: the regular court", async () => {
@@ -189,7 +187,12 @@ module.exports = {
       const abba = mw.said.filter(s => /ABBA/.test(s.slice(0, 30)));
       t.check(`Midwood: Abba defends her (${abba.length} lines)`, abba.length >= 3, abba.slice(0, 3).join(" | ").slice(0, 300));
       console.log("   ABBA in Midwood:", abba.slice(0, 4).map(s => s.slice(0, 120)).join(" || "));
-      if (lw) t.check("the verdict maths is unchanged: the same jury-mood factors as in Lakewood", mw.meter === lw.meter, `${lw.meter} vs ${mw.meter}`);
+      // the verdict is one roll on (the jury's mood factors + lean, the chosen defence's own odds): Abba changes neither
+      if (lw) {
+        const L0 = JSON.parse(lw.maths || "null"), M0 = JSON.parse(mw.maths || "null"), core = o => o && JSON.stringify([o.factors, o.lean, o.mistrial, o.strikes]);
+        const own = await t.L(`import("./js/features/law/data.js").then(d => ${JSON.stringify([L0, M0])}.every(o => { const p = o && d.DEFENSE_POOL.find(p => p.label === o.plea); return !!p && JSON.stringify(p.outcomes) === JSON.stringify(o.outcomes); }))`);
+        t.check("the verdict maths is unchanged: the same jury-mood factors + lean as Lakewood's regular court, each defence with its own odds", !!L0 && !!M0 && core(L0) === core(M0) && own, `${lw.maths} vs ${mw.maths}`);
+      }
       // with a hired lawyer: Abba plays THAT lawyer — the same tier object (its factor, blunder odds, fee), the rules' own argument
       const hired = await t.L(`Promise.all([import("./js/features/law/data.js"), import("./js/features/law/rules.js")]).then(([d, r]) => { const tier = d.LAWYER_TIERS[0], cl = ["SPEEDING"];
           const v = __lulu3d.ctx.civic.counsel(tier, cl); if (!v) return "no voice"; const arg = r.lawyerChargeArgument(tier, cl);

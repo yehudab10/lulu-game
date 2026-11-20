@@ -322,6 +322,8 @@ async function trial(f, data) {
             if (Math.random() < 0.6) verdict = "dismissed";
             else { bribeFlop = true; verdict = "fine"; }
         }
+        if (ctx.TEST) courtLog.push({ factors: court.factors.map(x => `${x.t} ${x.a.toFixed(3)}`), lean: +court.lean.toFixed(4), mistrial: !!court.mistrial,
+            strikes: !!court.threeStrikes, plea: opt.label, outcomes: opt.outcomes, rolled: verdict });   // (tests: the jury's inputs + its roll, before FORCE)
         if (FORCE.verdict) { verdict = FORCE.verdict; bribeFlop = false; }
         if (verdict === "fine") fine = bribeFlop ? Math.max(8, Math.round(bountyFor(court.charges) * 0.3)) : bountyFor(court.charges);
         if (verdict !== "dismissed") bump("convictions", 1);
@@ -434,6 +436,8 @@ function animate(dt) {
 /** The courtroom set (built once its models are in) — features/places plays a SPECTATOR hearing on it (Shloime's case
  *  in Lakewood): { set, judge, prosecutor, bailiff, clerk, me, jurors, crowd, shot, POS, SHOTS }. Don't use it while a
  *  trial is on (lawCourt). */
+/** (tests) every trial's jury maths: the mood factors, the lean and the verdict the dice gave (before FORCE). */
+export const courtLog = [];
 export async function courtStage() {
     await ensureModels(COURT_KEYS);
     if (!C) build();
