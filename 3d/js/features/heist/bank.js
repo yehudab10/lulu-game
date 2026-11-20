@@ -11,7 +11,9 @@ import { ctx, on, setState } from "../../core/ctx.js";
 import { defineInterior, pool, pick } from "../interiors/engine.js";
 import { BANK, PLANS, JOB, TELLER, TELLER_BK, GUARD, LINE, FOUNDER, LOLLY, VAULT_OK } from "./data.js";
 import { setPlan, blocked, J } from "./job.js";
-import { prop, inTown, stat } from "./common.js";
+import { prop, inTown, stat, inParty } from "./common.js";
+
+const PARTY_VAULT = ["With the whole gang watching? Too many witnesses. 👀", "Not today. Bubbe would hear about it by lunch.", "Nice vault. Very… vaulty. Moving on. 😇"];
 
 const tellerLine = { lakewood: pool(TELLER), midwood: pool(TELLER_BK) };
 const guardLine = pool(GUARD), lineLine = pool(LINE), founderLine = pool(FOUNDER), lollyLine = pool(LOLLY);
@@ -84,6 +86,8 @@ const def = defineInterior({
 
 /** 🔍 Case the vault: two readable notes, then the (optional) plan. */
 async function caseVault(rt) {
+    // (with friends the vault is just a vault — for now: Lulu's own job is a solo thing)
+    if (inParty()) { await rt.say("Lulu", pick(PARTY_VAULT), { emoji: "👀" }); return; }
     if (J.plan || J.job) { await rt.say("Lulu", J.plan ? "Already cased. Now: the car, out front. Act natural." : VAULT_OK, { emoji: "🔒" }); return; }
     const notes = JOB.caseLines.slice().sort(() => Math.random() - 0.5).slice(0, 2);
     rt.data.open = true;
@@ -105,7 +109,9 @@ async function caseVault(rt) {
 
 // ── the door (on foot, in a town) ───────────────────────────────────────
 function door() {
-    if (!inTown() || (ctx.party && ctx.party.active) || !ctx.interiors || !ctx.interiors.bank) return null;
+    // (with friends: open in 🌍 Free Roam — the lobby is a room friends share, features/together)
+    const party = !!(ctx.party && ctx.party.active), roam = party && !!(ctx.openworld && ctx.openworld.partyTowns && ctx.openworld.partyTowns());
+    if (!inTown() || (party && !roam) || !ctx.interiors || !ctx.interiors.bank) return null;
     if ((ctx.law && ctx.law.chasing) || (ctx.foot && ctx.foot.chasing)) return null;
     if (ctx.heist && (ctx.heist.robbery || ctx.heist.snatcher || ctx.heist.thief)) return null;   // (✋ is the TACKLE right now, not the door)
     const sp = ctx.town.spot("bank");

@@ -30,9 +30,10 @@ export const SHARED = {
     luluHome: () => (ctx.decor && ctx.decor.visitOwner ? ctx.decor.visitOwner() || "" : null),   // Lulu's house: whose it is
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
     courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
+    bank: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),     // the town's bank (heist): one lobby per town
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
-export const NOT_SHARED = { bank: "the bank is where her own heist starts; robberies + the heist are still solo" };
+export const NOT_SHARED = {};
 
 const DOOR_MATCH = 25;          // two friends' doors this close (m) = the same building
 const LAG = 220;                // draw friends this far in the past (ms) — the same idea as the street's interpolation
@@ -66,8 +67,10 @@ function inMine(p, R) {
     const a = p && p.x && Array.isArray(p.x.in) ? p.x.in : null;
     if (!a || a[0] !== R.id || p.m !== 7) return false;
     if (zoneOf(p) !== (ctx.town && ctx.town.active ? ctx.town.id || "" : "")) return false;
-    if (R.inst || a[1]) return String(a[1] || "") === R.inst;
     const d = p.x.dr, m = M.myDoor;
+    // (a town can stand at more than one interchange: the same house / bank key in another copy is another room)
+    const far = Array.isArray(d) && !!m && Math.hypot(d[0] / 10 - m[0] / 10, d[1] / 10 - m[1] / 10) > 80;
+    if (R.inst || a[1]) return String(a[1] || "") === R.inst && !far;
     return Array.isArray(d) && !!m && Math.hypot(d[0] / 10 - m[0] / 10, d[1] / 10 - m[1] / 10) < DOOR_MATCH;
 }
 
@@ -195,6 +198,8 @@ export function friendIn(id, inst) {
     for (const uid of friends()) {
         const p = ctx.party.peer(uid), a = p && p.x && Array.isArray(p.x.in) ? p.x.in : null;
         if (!a || p.m !== 7 || !ctx.party.fresh(p, 6000) || a[0] !== id || String(a[1] || "") !== String(inst) || zoneOf(p) !== Z) continue;
+        const d = p.x.dr, me = ctx.foot && ctx.foot.pos;
+        if (Array.isArray(d) && me && Math.hypot(d[0] / 10 - me.x, d[1] / 10 - me.z) > 80) continue;     // (another copy of this town)
         return ctx.party.displayName(uid);
     }
     return null;
