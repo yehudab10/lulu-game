@@ -40,6 +40,8 @@ import * as RN from "./rent.js";
 import { tick as partyTick, roam, P as PP } from "./party.js";
 import { SHARED } from "../together/rooms.js";
 import * as SVR from "./server.js";
+import { verdict, openCases } from "./court.js";
+import { COURT_LINES } from "./data.js";
 import { COUNCIL } from "./data.js";
 import { RENT_LINES, SELL_LINES } from "./data.js";
 
@@ -156,6 +158,36 @@ const boxSpot = {
     label() { return W.box ? "📬 YOUR MAILBOX" : null; },
     act() { if (W.box) mailbox(W.box); },
 };
+// her SEIZED home's notice board: contest it (the courthouse docket has the hearing; this is the clerk's fast track)
+const seizedSpot = {
+    r: 2.4, short: "SEIZED", first: true,
+    pos() { W.held = canAct() && W.seized ? nearest(W.seized.filter(r => registry.mine(r.id)), "sign", 2.4) : null; return W.held ? W.held.sign : null; },
+    label() { const r = W.held; if (!r) return null; const h = S.owned[r.id]; return h && h.ruled ? "🏛️ SEIZED (the court has ruled)" : "🏛️ SEIZED — ⚖️ CONTEST IT"; },
+    act() { if (W.held) contest(W.held); },
+};
+async function contest(rec) {
+    if (W.busy || !ctx.foot || !ctx.foot.script) return;
+    const h = S.owned[rec.id];
+    if (!h || h.ruled) return;
+    W.busy = true;
+    const sc = { done: false };
+    const ok = ctx.foot.script({ update(dt, P, F) { if (F.lulu) { F.lulu.face(rec.sign.x, rec.sign.z, dt, 8); F.lulu.update(dt, { walk: 0 }); } return !sc.done; }, abort() { sc.done = true; } });
+    try {
+        if (!ok) return;
+        const ord = (SVR.SV.cfg && SVR.SV.cfg.ordinance) || "the Abandoned Kugel Ordinance";
+        await say(COUNCIL.from, `${rec.address}: SEIZED under ${ord}. ${COUNCIL.fine}`, { emoji: "🏛️", color: "#455A64" });
+        const i = await choose("⚖️ The court clerk (on the phone)", "Want to contest it? One hearing per house. The verdict is final. Mostly.", ["⚖️ Contest it", "✖ Not now"], { emoji: "⚖️" });
+        if (i !== 0 || sc.done) return;
+        await say(COURT_LINES.counsel.name, pick(COURT_LINES.council), { emoji: COURT_LINES.counsel.emoji, color: COURT_LINES.counsel.color });
+        const d = await choose("Lulu", COURT_LINES.judgeAsk, COURT_LINES.defence.map(x => x.label), { emoji: "💁‍♀️" });
+        if (d >= 0) await say("THE JUDGE", COURT_LINES.defence[d].judge, { emoji: "👨‍⚖️", color: "#7E57C2" });
+        const v = await verdict(rec.id);
+        await say("THE JUDGE", v.line, { emoji: "👨‍⚖️", color: "#7E57C2" });
+        if (!v.offline && !v.none) H.banner(v.won && !v.coins ? `⚖️ <b>CASE WON!</b><small>${rec.address} is yours again</small>` : `⚖️ <b>THE COURT HAS RULED</b><small>${v.coins ? `+${fmt(v.coins)} 💰` : ""}</small>`, 2800, { key: "re:court", prio: 3 });
+    } catch (e) { console.error("[realestate] contest", e); }
+    finally { sc.done = true; W.busy = false; }
+}
+
 // a FRIEND's front door (a 🎉 party's Free Roam): whose it is; join them inside when they're in
 const friendSpot = {
     r: 2.6, short: "FRIEND",
@@ -443,7 +475,7 @@ const API = { listings: () => (locked() ? [] : listings()), valueOf: r => valueO
 bindOffice(API);
 bindHouse(API);
 on("boot", () => {
-    if (ctx.foot && ctx.foot.addSpot) for (const sp of [officeSpot, signSpot, doorSpot, boxSpot, friendSpot]) ctx.foot.addSpot(sp);
+    if (ctx.foot && ctx.foot.addSpot) for (const sp of [officeSpot, signSpot, doorSpot, boxSpot, friendSpot, seizedSpot]) ctx.foot.addSpot(sp);
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     // a viewing / her house: when she walks back out, put her on her own front path (foot resumes on the road first)
     const reg = ctx.interiors && ctx.interiors.realestateHouse;
@@ -510,7 +542,7 @@ ctx.realestate = {
     rentPile: id => (S.rent[id] ? S.rent[id].pile || 0 : 0), collectRent: id => RN.collect(id), quote: id => RN.quote(id), sell: id => RN.sell(id),
     enterOffice, viewing: id => { const r = lookup(id); return r ? viewing(r) : null; }, goIn: (id, mode = "owner") => { const r = lookup(id); return r ? goIn(r, mode) : false; },
     buy: (id, opts) => { const r = lookup(id); return r ? buy(r, opts) : Promise.resolve(false); },
-    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, partyTick, refundLost,
+    debug: { W, S, MG, RN, PP, SV: SVR.SV, SVR, CLOCK, partyTick, refundLost, verdict, openCases,
         /** Buy a listed home for cash right now, no dialogue (tests). */
         buyNow(id) { const r = lookup(id); if (!r || locked() || !isListed(r)) return false; const v = valueOf(r); if (!wallet.spend(v)) return false; const ok = finalize(r, v, "cash").ok; if (!ok) wallet.add(v); return ok; },
         /** The same through the world-wide registry first (tests). → a promise of { ok, why } */

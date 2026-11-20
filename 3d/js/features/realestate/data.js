@@ -278,3 +278,31 @@ export const COUNCIL = {
     full: "The registry office says the town's full! (The Council is 'reviewing the situation'.)",
 };
 export const SEIZED_SIGN = { lines: ["SEIZED", "Municipal Kugel Storage"], bg: "#FFF8E1", fg: ["#B71C1C", "#37474F"], band: "#455A64" };
+
+// ── the court comeback (stage 6): fighting the Ordinance ──
+// THE RULES (every amount bounded by what she paid in — never a profit, never farmable: one hearing per house):
+//   a home still HELD by the Council → the SERVER rolls the appeal (its CONFIG.appealWin, 50 % today):
+//       won → the home is hers again · lost → it goes back on the market + a "sympathy payment" of COURT.heldLose of what she paid in
+//   a home already back on the market (seized + nobody contested in time) → the judge rolls COURT.lostWin (50 %):
+//       won → compensation of COURT.lostWinPay · lost → COURT.lostLosePay ("for your trouble")
+export const COURT = { heldLose: 0.25, lostWin: 0.5, lostWinPay: 0.5, lostLosePay: 0.1 };
+export const COURT_LINES = {
+    counsel: { name: "MR. FRUMKIN, FOR THE COUNCIL", emoji: "🏛️", color: "#455A64" },
+    open: addr => `ALL RISE. The Town Council versus Lulu, in the matter of ${addr} and the Abandoned Kugel Ordinance.`,
+    council: [
+        "Your Honor, the Ordinance is crystal clear. Fourteen days. No visit. The kugel is legally ABANDONED.",
+        "Section 14, paragraph 'kugel': 'Any property unvisited for a fortnight shall be presumed abandoned, along with its kugel.'",
+    ],
+    judgeAsk: "Miss Lulu. Fourteen days. Where WERE you?",
+    defence: [
+        { label: "🥘 \"I was at Bubbe's! Bubbe takes PRIORITY.\"", judge: "Bubbe does take priority. Everyone knows that. Even the Council." },
+        { label: "📜 \"Section 14 never defines 'kugel'.\"", judge: "…Mr. Frumkin? Does it? It doesn't. It DOESN'T. Interesting." },
+        { label: "😭 \"There's a mailbox. With my NAME on it.\"", judge: "A mailbox. With her NAME. Mr. Frumkin, that is very moving." },
+    ],
+    won: addr => `The court finds for Lulu! ${addr} is returned to her, kugel and all. The Council will pay for the locksmith. *GAVEL*`,
+    lostHeld: (addr, n) => `The Ordinance stands. ${addr} returns to the market. The Council offers a sympathy payment of ${n} coins. It is VERY sympathetic.`,
+    wonLost: (addr, n) => `The house is already sold to a nice family — but the court finds the Council was HASTY. Compensation: ${n} coins.`,
+    lostLost: (addr, n) => `The Ordinance stands, and ${addr} is gone. ${n} coins, for your trouble. The court is sorry. The Council is not.`,
+    fine: "(Subject to change if the government decides differently.)",
+    offline: "The court's records are… offline. The clerk says come back when the internet does. Court is adjourned!",
+};

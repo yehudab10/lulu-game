@@ -99,6 +99,19 @@ async function body(t, guests) {
   await B.game(`(ctx.realestate.debug.SVR.poll("lakewood"), true)`);
   await B.until(`(() => { const o = ctx.realestate.ownerOf(${XJ}); return !!o && o.seized; })()`, "B sees it held by the Town Council", 20000);
   await t.shot("seized");
+  // ⚖️ the court comeback: ✋ at the SEIZED board → contest it; the server rolls the appeal
+  const sg = await A.game(`ctx.realestate.home(${XJ}).sign`);
+  await A.game(`(() => { const F = ctx.foot.debug.F; F.pos.set(${sg.x} + 0.6, 0.05, ${sg.z} + 0.6); ctx.foot.obj.position.copy(F.pos); return true; })()`);
+  await A.frames(4);
+  const lab = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+  t.check("at her SEIZED board: ✋ CONTEST IT", /CONTEST IT/.test(lab), lab);
+  const paid = await A.game(`ctx.realestate.debug.S.owned[${XJ}].paid`), cA = await A.game(`L3.wallet.coins`);
+  const V = await A.game(`ctx.realestate.debug.verdict(${XJ})`);
+  await A.frames(20);
+  if (V.won) t.check("…the court finds for Lulu: the home is hers again (and the key works)", await A.until(`ctx.realestate.owns(${XJ}) && !ctx.realestate.debug.S.owned[${XJ}].seized && ctx.realestate.debug.W.owned.some(r => r.id === ${XJ})`, "home back", 20000), V.line);
+  else t.check("…the Ordinance stands: back on the market + a sympathy payment of 25 % of what she paid", !(await A.game(`ctx.realestate.owns(${XJ})`)) && V.coins === Math.round(paid * 0.25) && (await A.game(`L3.wallet.coins`)) === cA + V.coins, JSON.stringify(V));
+  const V2 = await A.game(`ctx.realestate.debug.verdict(${XJ})`);
+  t.check("one hearing per house (nothing more to win)", V2.coins === 0 && !V2.won, JSON.stringify(V2));
   // an OLD server: a page pointed at a relay with no /homes → local only, buying still works
   const O = await guestPage(t, "old-server", { totalCoins: 60000, ownedSkins: ["pink"], selectedSkin: "pink" }, `&enable=town,foot&mpurl=${encodeURIComponent("ws://127.0.0.1:9")}`);
   guests.push(O);

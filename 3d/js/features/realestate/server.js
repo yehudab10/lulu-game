@@ -96,6 +96,17 @@ function lostTo(id, by, why) {
     if (ctx.realestate && ctx.realestate.debug && ctx.realestate.debug.refundLost) ctx.realestate.debug.refundLost(id, by);
 }
 
+/** The court's appeal of a SEIZED home: the server rolls it. → { ok, won, why } (unreachable → { ok: false, why: "offline" }) */
+export async function appeal(id) {
+    const m = me();
+    if (!SV.on || !m) return { ok: false, why: "offline" };
+    try {
+        const r = await req("/homes/appeal", Object.assign({ h: id }, m));
+        if (r.st === 429) { await new Promise(res => setTimeout(res, 3200)); return appeal(id); }
+        return r.j && r.st === 200 ? r.j : { ok: false, why: "offline" };
+    } catch (e) { return { ok: false, why: "offline" }; }
+}
+
 /** hello: the idle clock, my label, my list (restored phones, the government's seizures). */
 export async function hello() {
     SV.helloAt = now();
