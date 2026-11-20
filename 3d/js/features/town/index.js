@@ -48,6 +48,7 @@ import { blocksSight, copRoute, copSpawn, hideSpot, searchPoint, prowlPoint } fr
 import { PK, setupParked, tickParked, clearParked } from "./parked.js";
 import { X, FIT, exitClear, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
 import { propsOf, railsOf } from "./exitbuild.js";
+import { tendAmbient, convertAmbient, disposeAmbient, AMB } from "./ambient.js";
 import { TOWNS, townFor, INTERCHANGE, attachedDef } from "./towns/index.js";
 
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
@@ -285,6 +286,7 @@ function finishBuild(en, T) {
 function dropBuilt(en) {
     const i = S.built.indexOf(en);
     if (i >= 0) S.built.splice(i, 1);
+    disposeAmbient(en);
     if (en.T) { en.T.dispose(); en.T = null; }
     en.gen = null;
 }
@@ -296,6 +298,9 @@ function tendAttached(dt) {
     for (const en of [...S.built]) if (en !== S.att && (Math.abs(s - en.exitS) > DROP_PAST + BUILD_FROM || s - en.exitS > DROP_PAST)) dropBuilt(en);
     advanceBuilds();
     if ((S.cullA = (S.cullA || 0) + 1) % 3 === 0) for (const en of S.built) if (en.ready && en !== S.att) withPlan(en, () => { cullClusters(en.T, true); cullStanding(en); });
+    // (a few light minivans on its nearest streets, so the town she's driving toward isn't frozen — ambient.js)
+    if (!partyTowns()) tendAmbient(S.built, S.att, dt, en => { const P0 = herPos(), p = localIn(en.at, P0.x, P0.z, {}), b = en.box;
+        return Math.hypot(Math.max(b.x0 - p.x, 0, p.x - b.x1), Math.max(b.z0 - p.z, 0, p.z - b.z1)); }, withPlan);
 }
 /** Where she is along the highway (in a town: by the exit she took). */
 const hwS = () => S.active ? S.exitS + (S.att ? S.att.cu : 0) : ctx.car.s;
@@ -414,7 +419,10 @@ function enterTown(e = null, opts = {}) {
         if (!T.spots.hazards) { const p = S.road.point(hs.base + hz.along, hz.d, {}); T.spots.hazards = toLocal(p.x, p.z, {}); }
     }
     const party = partyTowns();
-    if (!party) for (const [kind, n] of Object.entries(def.traffic || {})) for (let i = 0; i < n; i++) {
+    // (she drove in past the town's ambient minivans: they carry on as real drivers, counted against its traffic)
+    const pre = en && opts.drove && !party ? convertAmbient(en) : 0;
+    if (en) disposeAmbient(en);
+    if (!party) for (const [kind, n] of Object.entries(def.traffic || {})) for (let i = kind === AMB.KIND ? Math.min(pre, n) : 0; i < n; i++) {
         const sp = randomSpot(36, kind, !!(en && opts.drove)) || randomSpot(36, kind);
         if (sp) spawnDriver(kind, sp.street, sp.along, sp.dir, { speed: 6 });
     }
@@ -459,7 +467,8 @@ function leaveTown(why = "highway", opts = {}) {
     clearDrivers();
     clearParked();
     const drove = !!(S.att && why === "highway" && opts.drove);
-    for (const c of [...tr.cars]) if (!(drove && c.data && c.data.hwPuppet)) tr.remove(c);
+    // (driving out of a town that stands by the road: the highway puppets carry on, and so does a cruiser on her tail)
+    for (const c of [...tr.cars]) if (!(drove && c.data && (c.data.hwPuppet || (c.data.law && !c.hit)))) tr.remove(c);
     for (const c of tr.cars) unpuppet(c);
     tr.config.enabled = S.savedTraffic;
     world.setDistrict(null);
@@ -476,12 +485,20 @@ function leaveTown(why = "highway", opts = {}) {
     G.noPullOver = S.savedPullOver;
     S.timers.length = 0;
     S.footYaw = null;
-    if (drove) {
+    const F = ctx.foot && ctx.foot.active && ctx.foot.debug && ctx.foot.debug.F && ctx.foot.debug.F.pos ? ctx.foot.debug.F : null;
+    if (!drove && F && att && why !== "reset") {
+        // ON FOOT in a town that stands by the road (a scene, a party hand-back…): she stays exactly where she is — only the
+        // road under her (and her car) is the highway's again; she walks back in / the scene places her
+        const hint = S.exitS + att.cu, n = world.highway.nearest(car.pos.x, car.pos.z, hint, {}), m = world.highway.nearest(F.pos.x, F.pos.z, hint, {});
+        car.s = n.s; car.d = n.d; F.s = m.s; F.d = m.d; G.lastS = m.s;
+    } else if (drove) {
         // she drove out along the approach: the highway's road under her again, nothing moves (she's on the cross road
         // by its T — the on-ramp is just past it)
         const hint = S.exitS + (att ? att.cu : 0), n = world.highway.nearest(car.pos.x, car.pos.z, hint, {});
         car.s = n.s; car.d = n.d;
         G.lastS = n.s;
+        // (the cruisers that followed her out: their road position from the highway too — a town s is 500 km off)
+        for (const c of tr.cars) if (c.data && c.data.law) { const m = world.highway.nearest(c.x, c.z, hint, {}); c.s = m.s; c.d = m.d; }
         // (on foot: her own road position too — a town s as a hint would send the highway's search 500 km down the road)
         const F = ctx.foot && ctx.foot.active && ctx.foot.debug && ctx.foot.debug.F;
         if (F && F.pos) { const m = world.highway.nearest(F.pos.x, F.pos.z, hint, {}); F.s = m.s; F.d = m.d; }
@@ -497,6 +514,17 @@ function leaveTown(why = "highway", opts = {}) {
         car.vx = Math.sin(p.h) * v; car.vz = Math.cos(p.h) * v; car.vF = v;
         car.s = s; car.d = d;
         G.lastS = s;
+        if (F) besideCar(F);              // (on foot: with her car — never left standing where the town was)
+        if (ctx.cam) ctx.cam.snap();
+    } else if (F && ctx.state === "footRun") {
+        // a reset while she WALKS in a town: the town goes, so she (and her car, if it was in there) come to the exit's shoulder
+        const hint = S.exitS + 190, n = world.highway.nearest(car.pos.x, car.pos.z, hint, {});
+        if (Math.abs(n.d) > 60 || Math.abs(n.s - hint) > 1500) {
+            const p = world.highway.point(hint, 7.8, {});
+            car.place(p.x, p.z, p.h); car.vx = car.vz = car.vF = 0; car.s = hint; car.d = 7.8;
+        } else { car.s = n.s; car.d = n.d; }
+        G.lastS = car.s;
+        besideCar(F);
         if (ctx.cam) ctx.cam.snap();
     }
     if (why === "reset") dropAllBuilt();
@@ -508,6 +536,17 @@ function leaveTown(why = "highway", opts = {}) {
     emit("town:leave", { town: def.id, why, drove });
     return true;
 }
+/** On foot, leaving a town: put her on the kerb side of her (highway) car, standing still, with her road position from
+ *  the highway (her old town s as a hint would send the highway's search 500 km down the road — and foot's "s < 4" rule
+ *  then shoves her metres a frame). */
+function besideCar(F) {
+    const car = ctx.car, hw = ctx.world.highway, side = car.d >= 0 ? 1 : -1;
+    const rx = -Math.cos(car.h) * side, rz = Math.sin(car.h) * side;
+    F.pos.set(car.pos.x + rx * 2.3, 0.05, car.pos.z + rz * 2.3);
+    if (F.vel) F.vel.set(0, 0, 0);
+    const m = hw.nearest(F.pos.x, F.pos.z, car.s, {});
+    F.s = m.s; F.d = m.d;
+}
 /** She drove into an attached town: the highway's plain traffic carries on down the highway behind her (its own s,
  *  which the TownRoad still answers with the highway) until it's well out of sight — instead of vanishing. Cops,
  *  party cars and anyone else's scripted cars go as before (they think in the road she's on). */
@@ -515,6 +554,9 @@ function puppetHighway() {
     const tr = ctx.traffic;
     for (const c of [...tr.cars]) {
         if (c.data && c.data.footStub) continue;              // (her own car, parked where she got out: it stays put)
+        // a cruiser on her tail follows her in: law steers its units off whatever road is under them (in town: round the
+        // corners, ctx.town.copRoute) — it used to vanish at the line
+        if (c.data && c.data.law && !c.hit) continue;
         if (c.hit || c.ai || c.immune || (c.data && (c.data.law || c.data.party || c.data.local || c.data.partyLocal))) { tr.remove(c); continue; }
         c.data = c.data || {};
         c.data.hwPuppet = { keep: c.keep };

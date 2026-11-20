@@ -413,6 +413,25 @@ module.exports = {
       await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
     });
 
+    await step("leave-on-foot", async () => {
+      if (!await inTown()) return;
+      // leaving a town while she WALKS in it (any scene the town can't host, a reset): never left standing where the town was
+      for (const why of ["quiet", "reset"]) {
+        if (!await inTown()) return;
+        await g(`(${D}.place("Main St", 60, 1.75, 0, 1), true)`);
+        await g(`(ctx.foot.start("droveOff"), true)`);
+        if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, `on foot in town (${why})`, 8000)) return;
+        await g(`(ctx.town.leave(${JSON.stringify(why)}), true)`);
+        const a = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d, car: ctx.car.pos.distanceTo(F.pos), active: ctx.town.active, st: L3.state }; })()`);
+        await t.frames(12);
+        const b = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, s: F.s, d: F.d }; })()`);
+        t.check(`leaving a town on foot (${why}): she's on the highway side beside her car, standing still (no shove)`,
+          !a.active && a.car < 5 && Math.abs(a.d) < 40 && a.s > 4 && Math.hypot(b.x - a.x, b.z - a.z) < 0.6, JSON.stringify({ a, b }));
+        await g(`(L3.setState("playing"), true)`);
+        await t.frames(3);
+      }
+    });
+
     await step("onramp", async () => {
       if (!await inTown()) return;
       const E = await g(`ctx.town.debug.S.exitS`);
@@ -540,7 +559,18 @@ async function attached(t, g, E, perf) {
     const P = ${D}.placeAt("midwood", ${E2}, 1), pts = [];
     for (const [x, z] of [[-470, -345], [-420, -345], [-372, -345], [-320, -345], [-268, -343], [-253, -330], [-252.5, -300], [-252.5, -250]]) pts.push(${D}.world(x, z, "midwood"));
     window.__route = { pts, v: 9, r: 5 }; return true; })()`);
+  // a cruiser on her tail as she drives in: it follows her into town (it used to vanish at the line)
+  await g(`(ctx.law._dbg.L.grace = 0, ctx.law._dbg.L.hold = 0, ctx.law.startChase("RECKLESS DRIVING", { heat: 1 }), true)`);
+  const tailed = await t.until(`__lulu3d.ctx.law._dbg.L.units.some(u => u.car && u.mode === "chase" && __lulu3d.ctx.traffic.cars.includes(u.car))`, "a cruiser on her tail", 15000);
+  if (tailed) await g(`(window.__cop = ctx.law._dbg.L.units.find(u => u.car && u.mode === "chase" && ctx.traffic.cars.includes(u.car)).car, true)`);
   if (await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.town.id === "midwood"`, "the outer cross road takes her into Midwood (attached)", 40000)) {
+    if (tailed) {
+      const c0 = await g(`({ in: ctx.traffic.cars.includes(window.__cop), d: Math.hypot(window.__cop.x - ctx.car.pos.x, window.__cop.z - ctx.car.pos.z) })`);
+      await t.frames(30);
+      const c1 = await g(`({ in: ctx.traffic.cars.includes(window.__cop), d: Math.hypot(window.__cop.x - ctx.car.pos.x, window.__cop.z - ctx.car.pos.z), chasing: ctx.law.chasing })`);
+      t.check("the cruiser on her tail follows her into town (the same car, still behind her — not gone at the line)", c0.in && c1.in && c1.d < 150, JSON.stringify({ c0, c1 }));
+      await g(`(ctx.law.standDown(), ctx.law.hold(120), true)`);
+    }
     t.check("…on Avenue P", await g(`ctx.town.street === "Avenue P" && ctx.town.attached`), await g(`ctx.town.street`));
     await t.until(`__lulu3d.ctx.town.street === "Ocean Pkwy" || !window.__route.pts.length`, "round the corner onto Ocean Pkwy", 60000);
     t.check("…round the corner onto Ocean Pkwy (Midwood stands behind the ramp)", await g(`ctx.town.street === "Ocean Pkwy"`), await g(`ctx.town.street`));
@@ -569,6 +599,16 @@ async function attached(t, g, E, perf) {
     await walk(40, 60);
     await t.frames(3);
     t.check("…walking out the cross road takes her into Lakewood (on foot, no cut)", await g(`ctx.town.active && ctx.town.attached && ctx.town.id === "lakewood" && L3.state === "footRun"`), await g(`[ctx.town.active, ctx.town.id, L3.state]`));
+    // the town left while she walks in it (a scene, a party hand-back…): she stays exactly where she is, her road position the highway's
+    {
+      const b = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z }; })()`);
+      const a = await g(`(() => { ctx.town.leave("quiet"); const F = ctx.foot.debug.F; return { s: F.s, d: F.d, active: ctx.town.active }; })()`);
+      await t.frames(10);
+      const c = await g(`(() => { const F = ctx.foot.debug.F; return { x: F.pos.x, z: F.pos.z, st: L3.state }; })()`);
+      t.check("leaving an attached town while on foot: she stays where she is (no shove), the highway's road position",
+        !a.active && Math.hypot(c.x - b.x, c.z - b.z) < 1 && a.s > E2 && a.s < E2 + 400 && c.st === "footRun", JSON.stringify({ b, a, c }));
+      await t.frames(5);
+    }
     await walk(60, 40);
     await t.frames(3);
     t.check("…and walking back past the line, the highway's road again (her road position sane)", await g(`!ctx.town.active && ctx.foot.debug.F.s < ${E2} + 400 && ctx.foot.debug.F.s > ${E2}`), String(await g(`ctx.foot.debug.F.s`)));
