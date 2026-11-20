@@ -34,7 +34,7 @@ export const PAY = {
 export const TUNE = { dareMs: 6000 * TM, dareR: 40, grabMs: 20000 * TM, grabR: 25, ringSec: 12, ringMs: 90000 * TM, peelMax: 3 };
 
 const S = store("partners", { day: "", dare: 0, jobs: 0, coins: 0 });
-const R = { grab: 0, ring: 0, peels: 0, rideWith: "", mine: [], theirs: [], flag: null, flags: new Map(), paid: new Set(), ring: null, rang: null };
+const R = { grab: 0, ring: 0, peels: 0, rideWith: "", mine: [], theirs: [], flag: null, flags: new Map(), paid: new Set(), rung: null, rang: null };
 
 const P = () => ctx.party;
 const party = () => { const p = P(); return !!(p && p.active && p.activity && (p.activity.k === "roam" || p.activity.k === "trip")); };
@@ -58,6 +58,12 @@ function payShare(kind, n, withUid, extra = "") {
     emit("partners:job", { kind, with: withUid, coins: cut });
     emit("stat", { id: "partnerJobs", n: 1 });
     return cut;
+}
+/** A party broadcast is ephemeral (repeated ~1.5 s): on a slow phone it can miss — the ones that settle a job go out
+ *  three times (now, +2 s, +5 s); every handler below ignores a repeat. */
+function shout(k, ...a) {
+    P().broadcast(k, ...a);
+    for (const ms of [2000, 5000]) setTimeout(() => { try { if (party()) P().broadcast(k, ...a); } catch (e) { /* left */ } }, ms);
 }
 function partners(uid, why) { try { return ctx.law && ctx.law.crew ? ctx.law.crew.partners([me(), uid], why) : false; } catch (e) { return false; } }
 
@@ -84,7 +90,7 @@ on("party:claim", e => {
     if (!party() || !e || !e.hail || !e.key) return;
     const p = myPos();
     R.flag = { key: String(e.key), t: now() };
-    P().broadcast("pzf", R.flag.key, Math.round(p.x * 10), Math.round(p.z * 10));
+    shout("pzf", R.flag.key, Math.round(p.x * 10), Math.round(p.z * 10));
 });
 on("streets:carjack", e => {
     if (!party() || !e || !e.key) return;
@@ -94,7 +100,7 @@ on("streets:carjack", e => {
     if (R.why) return;
     R.flags.delete(String(e.key));
     partners(f.uid, "FLAG & GRAB");
-    P().broadcast("pzg", String(e.key), f.uid);
+    shout("pzg", String(e.key), f.uid);
     payShare("grab", 2, f.uid);
 });
 
@@ -114,7 +120,7 @@ function ring(key) {
     if (!pal) return false;
     R.rang = { key: String(key), uid: pal, t: now() };
     partners(pal, "RING & SNEAK");
-    P().broadcast("pzr", String(key));
+    shout("pzr", String(key));
     emit("partners:ring", { key, pal });
     return true;
 }
@@ -146,7 +152,7 @@ on("party:bc", ({ p, k, a }) => {
         R.theirs.push(th); if (R.theirs.length > 8) R.theirs.shift();
         for (const m of R.mine) tryDare(m, th);
     } else if (k === "pzf") {
-        R.flags.set(String(a[0]), { uid, t: now(), x: (a[1] | 0) / 10, z: (a[2] | 0) / 10 });
+        if (!R.flags.has(String(a[0]))) R.flags.set(String(a[0]), { uid, t: now(), x: (a[1] | 0) / 10, z: (a[2] | 0) / 10 });
         if (R.flags.size > 8) R.flags.delete(R.flags.keys().next().value);
     } else if (k === "pzg") {
         // a friend jacked the car I flagged down: we're in it together
@@ -158,8 +164,9 @@ on("party:bc", ({ p, k, a }) => {
         // a friend rang the bell of the house I'm sneaking around in: everyone goes to the door
         const h = ctx.homes && ctx.homes.house;
         if (!h || String(h.key) !== String(a[0]) || h.mode === "guest") return;
+        if (R.rung && R.rung.key === String(a[0]) && R.rung.uid === uid && now() - R.rung.t < 8000 * TM) return;      // (a repeat)
         const n = ctx.homes.distract ? ctx.homes.distract(TUNE.ringSec, "🔔 Who's at the DOOR?!") : 0;
-        R.ring = { key: String(a[0]), uid, t: now() };
+        R.rung = { key: String(a[0]), uid, t: now() };
         partners(uid, "RING & SNEAK");
         H.toast(`🔔 ${nameOf(uid)} rang the bell — everyone's at the door. GO!`, "pink", { prio: 3, key: "partners" });
         emit("partners:rung", { key: a[0], by: uid, n });
@@ -177,11 +184,11 @@ on("party:bc", ({ p, k, a }) => {
     }
 });
 on("homes:exit", e => {
-    const r = R.ring;
+    const r = R.rung;
     if (!party() || !r || !e || String(e.key) !== r.key) return;
-    R.ring = null;
+    R.rung = null;
     if (e.reported || e.spotted || now() - r.t > TUNE.ringMs || !isFriend(r.uid)) return;
-    P().broadcast("pzs", r.key, r.uid);
+    shout("pzs", r.key, r.uid);
     payShare("ring", 2, r.uid, " · CLEAN JOB");
 });
 on("run:start", () => { R.grab = 0; R.ring = 0; R.peels = 0; R.paid.clear(); });
@@ -205,7 +212,7 @@ ctx.partners = {
     /** 🍌 toss a peel (riding in a chased friend's car). → bool */
     peel: () => peel(),
     get peelOk() { return peelOk(); },
-    debug: { S, R, offence: c => myOffence(c), flag: key => { const p = myPos(); R.flag = { key, t: now() }; P().broadcast("pzf", key, Math.round(p.x * 10), Math.round(p.z * 10)); return true; },
+    debug: { S, R, offence: c => myOffence(c), flag: key => { const p = myPos(); R.flag = { key, t: now() }; shout("pzf", key, Math.round(p.x * 10), Math.round(p.z * 10)); return true; },
         jack: key => { emit("streets:carjack", { key, kind: "sedan", x: myPos().x, z: myPos().z, witnessed: false }); return true; },
         resetCaps() { S.day = ""; S.dare = 0; R.grab = 0; R.ring = 0; R.peels = 0; R.paid.clear(); saveSoon(); return true; } },
 };
