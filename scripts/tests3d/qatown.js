@@ -119,9 +119,7 @@ module.exports = {
       await t.frames(8);
       const r = await t.L(`(() => { const F = __lulu3d.ctx.foot.debug.F; return { s: window.__qa.solidAt(F.pos.x, F.pos.z, 0.3, 0.15), back: +((F.pos.x - ${sp.x}) * ${sp.nx} + (F.pos.z - ${sp.z}) * ${sp.nz}).toFixed(2) }; })()`);
       const rep = await W.report(t);
-      outs.push({ where: `${sp.name}@${sp.along} ${how}`, s: r.s, back: r.back, cam: rep.issues.filter(i => i.kind === "inwall" && !/tree's leaves/.test(i.msg)).length });
-      // (a kerbside tree's leaves: the DRIVING chase cam already sat in them while the car was parked under it — the car
-      //  camera has no collision; that's the glide's starting picture, not the climb-out shot — see AGENTS §7 QA sweep)
+      outs.push({ where: `${sp.name}@${sp.along} ${how}`, s: r.s, back: r.back, cam: rep.issues.filter(i => i.kind === "inwall").length });
       for (const i of rep.issues) console.log(`    · ${sp.name}@${sp.along} ${how} [${i.kind}] f${i.f} ${i.msg} ×${i.n}`);
       await g(`ctx.foot.debug.getIn()`);
       await t.until(`__lulu3d.state === "playing"`, "back in the car", 3000);

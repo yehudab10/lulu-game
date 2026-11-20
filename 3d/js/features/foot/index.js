@@ -2021,6 +2021,12 @@ function hud() {
 }
 
 // ── touch: the ✋ hand button (on foot) and 🚶‍♀️ WALK (pulled over) ────────
+// (the DRIVING chase cam in a town keeps out of the houses, the blocks, the circle's statue and the trees' leaves with the
+//  same check as the free camera on foot; on the highway it's off — nothing to hit there, and no cost)
+const carProbe = { s: 0 };
+on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = (tgt, dx, dy, dz, D) => { carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D); }; });
+on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = null; });
+on("title", () => { if (ctx.cam) ctx.cam.carClip = null; });
 on("boot", () => {
     handBtn = addTouchButton({ id: "foot_hand", emoji: "✋", label: "HAND", action: "interact",
         visible: () => ctx.state === "footRun" && !!F && (F.phase === "walk" || F.phase === "hotwire") });

@@ -33,9 +33,6 @@ module.exports = {
       return t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "out of the car", 6000);
     };
     if (!await town()) return;
-    // (the DRIVING chase cam has no collision — AGENTS §7 › QA sweep: getting out by the traffic circle, the climb-out glide
-    //  starts from where it hung over the island's statue. Open, not a walking glitch.)
-    await W.allow(t, "inwall", "circle:island");
 
     // ── carjack the double-parked minivan at the wedding hall (✋) ──
     await W.moved(t);

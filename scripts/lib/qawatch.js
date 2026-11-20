@@ -106,8 +106,8 @@ const SRC = String.raw`
       const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 4.5 : (low[c.kind] != null ? low[c.kind] : c.kind === "house" ? 7.5 : 4.5);
       if (y > top) continue;
       if (c.kind === "house" && ctx.town && ctx.town.active) continue;     // (a town block's ring stands in front of its houses: the block rects below are the wall)
-      const dx = x - c.x, dz = z - c.z;
-      if (dx * dx + dz * dz < (c.r - pad) * (c.r - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
+      const dx = x - c.x, dz = z - c.z, cr = c.kind === "island" ? Math.min(c.r, 2.8) : c.r;     // (the circle's lawn: only its statue stands tall)
+      if (dx * dx + dz * dz < (cr - pad) * (cr - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
     }
     const T = ctx.town;
     if (T && T.active) {
@@ -135,9 +135,9 @@ const SRC = String.raw`
     const soft = softCutUp();
     if (soft || cov.length || ctx.view) Q.cutF = f;
     // (a wall came between her and the camera: it comes in at once, by design — like any third-person game)
-    const cd = ctx.cam && ctx.cam.free ? ctx.cam.free.clipD : 99;
-    if (Q.clipD != null && cd < Q.clipD - 2) Q.cutF = f;
-    Q.clipD = cd;
+    const cd = ctx.cam && ctx.cam.free ? ctx.cam.free.clipD : 99, ccd = ctx.cam && ctx.cam.carClipD != null ? ctx.cam.carClipD : 99;
+    if ((Q.clipD != null && cd < Q.clipD - 2) || (Q.carClipD != null && ccd < Q.carClipD - 2)) Q.cutF = f;
+    Q.clipD = cd; Q.carClipD = ccd;
     if (ctx.cam && ctx.cam.mode !== Q.camMode) { if (Q.camMode != null) Q.cutF = f; Q.camMode = ctx.cam.mode; }     // (△ / Y: another camera view is a cut)
     const cutNear = f - Q.cutF <= 2 || f - Q.stateChangeF <= 2 || ctx.skipping;
     // NaN
@@ -160,13 +160,15 @@ const SRC = String.raw`
     // camera
     if (!ctx.view && (st === "playing" || st === "footRun")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
-      if (foot) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
+      // (on foot anywhere; in the car only in a town — the driving camera's walls are a town thing)
+      const who = foot || (st === "playing" && ctx.town && ctx.town.active ? ctx.car.pos : null);
+      if (who) for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders || []) {
         if (c.kind !== "tree" || c.off || camP.y < 2.0 || camP.y > 7.5) continue;
         const R = Math.min(3.8, Math.max(c.r * 4.6 + 0.2, c.r < 0.42 ? 2.4 : 3.4)) - 0.3;     // (as foot/jump.js canopyR, a touch inside)
-        if ((foot.x - c.x) ** 2 + (foot.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)
+        if ((who.x - c.x) ** 2 + (who.z - c.z) ** 2 < (R + 0.6) ** 2) continue;     // (she's under it herself: the camera behind her may pass its edge)
         if ((camP.x - c.x) ** 2 + (camP.z - c.z) ** 2 < R * R) flag("inwall", "the camera is inside a tree's leaves @" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " (cam " + JSON.stringify(P(camP)) + ")", "inwall:tree");
       }
-      if (foot) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + ", Lulu " + JSON.stringify(P(foot)) + ")", "inwall"); }
+      if (who) { const s = solidAt(camP.x, camP.z, camP.y, 0.05, 0.8); if (s) flag("inwall", "the camera is inside " + s + " (cam " + JSON.stringify(P(camP)) + (foot ? ", Lulu " : ", car ") + JSON.stringify(P(who)) + ")", foot ? "inwall" : "inwall:car"); }
       const look = ctx.camera.getWorldDirection(Q._dir || (Q._dir = camP.clone()));
       if (f % Q.opts.flatEvery === 0 && !cov.length && !soft && look.y > -0.55) {      // (looking straight down at a lot / a lawn is flat on purpose)
         const fl = flatFrame();
@@ -195,7 +197,7 @@ const SRC = String.raw`
     const roam = { playing: 1, footRun: 1, interior: 1, title: 1 };
     if (!roam[st] && !ctx.paused && ctx.time - Q.stateSince > Q.opts.stuckSecs) flag("stuck", "state " + st + " for " + (ctx.time - Q.stateSince).toFixed(0) + " s", "stuck:" + st);
     const def = ctx.states[st] || {};
-    const excused = ctx.paused || ctx.dialogOpen || ctx.view || (typeof def.skip === "function" ? def.skip() : !!def.skip) || st === "title" || st === "interior" || (L3.H && L3.H.screenOpen && L3.H.screenOpen());
+    const excused = ctx.paused || ctx.dialogOpen || ctx.view || (ctx.cutscene && ctx.cutscene.active()) || (typeof def.skip === "function" ? def.skip() : !!def.skip) || st === "title" || st === "interior" || (L3.H && L3.H.screenOpen && L3.H.screenOpen());
     if (!ctl && !excused) Q.noCtl += dF; else Q.noCtl = 0;
     if (Q.noCtl > Q.opts.noCtlSecs * 30) flag("nocontrol", "no control for " + (Q.noCtl / 30).toFixed(1) + " s in " + st + (F ? " (foot phase " + F.phase + ")" : ""), "noctl:" + st + (F ? F.phase : ""));
   }
