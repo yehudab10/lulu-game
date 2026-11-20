@@ -162,7 +162,8 @@ export function parkRoad() {
     return P;
 }
 
-/** THE HIGHWAY SITE (the old cul-de-sac at the start of the road): only while the town engine has no home lot. */
+/** THE HIGHWAY SITE (the old cul-de-sac at the start of the road): a FALLBACK only — towns switched off (?test without
+ *  "town") or no town engine. With towns on, home is the Midwood lot and nothing of this is built (no ghost driveway). */
 function buildStreet() {
     const world = ctx.world, road = world.road;
     const g = new THREE.Group();
@@ -284,7 +285,9 @@ on("town:enter", e => { if (e && e.town === home.town) houseColliders(); });
 /** Where home should be now: the town engine's lot (features/town › ctx.town.home + spotOf), else the highway site. */
 export function wantedSite() {
     const T = ctx.town, H = T && T.home;
-    if (!H || typeof T.spotOf !== "function") return { site: "highway" };
+    // (the highway cul-de-sac is only a fallback now: no town engine / towns switched off (?test without "town") — the
+    //  real game always has Midwood; if its models never load, a day just starts on the road, as before)
+    if (!H || typeof T.spotOf !== "function" || !ctx.enabled("town")) return { site: "highway" };
     let sp = null;
     try { sp = T.spotOf(H.town, "luluHome", H.exitS); } catch (e) { sp = null; }
     return sp ? { site: "town", spot: sp, town: H.town, exitS: H.exitS } : { site: "pending", town: H.town, exitS: H.exitS };
