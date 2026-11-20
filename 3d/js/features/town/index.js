@@ -430,6 +430,9 @@ function cue(e, ph, text = null) {
     H.prompt(html);
 }
 
+// (the driving update only runs while she drives: if the state changes while the black is still lifting — a knock-out
+//  on the ramp, a scene — finish lifting it from here, or the screen stays black until she next drives)
+hook("hud", dt => { const tr = S.trans; if (tr && tr.phase === "in" && ctx.state !== "playing") tickTrans(dt); });
 hook("update", (dt, P, controlsOn) => {
     tickTrans(dt);
     if (S.active || !X.exits.length) return;
@@ -464,14 +467,9 @@ hook("update", (dt, P, controlsOn) => {
     for (const t of e.towns) load(t);
 });
 
-// out of hearts in town: she's towed back to the highway's shoulder, and the usual aftermath plays there
-hook("wreck", () => {
-    if (!S.active) return false;
-    leaveTown("wreck");
-    setFade(1); S.trans = { kind: "leave", t: 0, phase: "in" };
-    H.toast(`🚛 Towed out of ${S.def ? S.def.name : "town"}`, "red");
-    return false;
-}, 40);
+// Out of hearts in town: NOTHING special — the knock-out stands her up right there, beside her car, on the street she
+// crashed on (core's recoverFromWreck → foot's "knockout" start works on a town street like anywhere else). She used to
+// be towed to the highway behind a black fade that only cleared once she drove again.
 // any scene the town can't host (jail, the ER, a cutscene set…): put her back on the highway first
 on("state", ({ to }) => {
     if (!S.active) return;

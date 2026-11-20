@@ -179,9 +179,10 @@ merged — ignore them.
 
 ## 7. Backlog / known rough edges (good next tasks)
 
-- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN still goes through town's own wreck hook
-  (towed out to the highway shoulder with a fade) — with one world (`ci/oneworld`) it could just stand her up in town
-  (`ctx.foot.start("knockout")` works there). The ER is still its own set (step 4 makes it a building). `moves`' rocket
+- Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN now stands her up in town too (2026-11-20: the old
+  tow-to-the-highway left the screen black until she drove again — the owner hit it). Still open: she can't WALK out
+  of a town (the exits only work in a car — `ci/oneworld`'s job), and any scene state the town can't host (jail, the
+  ER by force, a cutscene set) still drops her on the highway first. The ER is still its own set (step 4 makes it a building). `moves`' rocket
   start only samples the 3-2-1 now (a home start has no countdown). Parking's challenge still ends on a game-over
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
