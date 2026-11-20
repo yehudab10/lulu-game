@@ -47,6 +47,9 @@ function bodyGeo() {
     return geo;
 }
 
+/** The LOD minivan (one geometry + its material) — cars.js draws far town minivans with it too. */
+export function lodBody() { const g = bodyGeo(); return g ? { geo: g, mat } : null; }
+
 const rnd = (a, b) => a + Math.random() * (b - a);
 /** Start an entry's ambient cars (call under its plan): the streets nearest the join, cars spread along their near ends. */
 function start(en) {
