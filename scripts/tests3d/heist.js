@@ -271,7 +271,7 @@ module.exports = {
       await talk(`window.__ev && Array.from(document.querySelectorAll("#dialog")).some(d => /BANK|RUGELACH|CONFETTI|PARTY CANNON/.test(d.textContent))`, "the court speaks of the heist", null, 60, seen);
       t.check("the courtroom has heist lines (the charge / the confetti / the rugelach)", await t.L(`/BANK|RUGELACH|CONFETTI|PARTY CANNON/.test((document.querySelector("#dialog") || {}).textContent || "")`) || seen.some(s => /BANK|RUGELACH|CONFETTI/.test(s)));
       await t.shot("court");
-      await talk(`["intro", "playing", "lawJail", "lawExit"].includes(__lulu3d.state) && !__lulu3d.ctx.dialogOpen`, "court ends", /Plea|plea|DEAL|deal/, 400);
+      await talk(`["intro", "playing", "lawJail", "lawExit", "footRun"].includes(__lulu3d.state) && !__lulu3d.ctx.dialogOpen`, "court ends", /Plea|plea|DEAL|deal/, 400);   // (footRun: out of the town courthouse's door — features/places)
       await t.until(`["intro", "playing", "footRun"].includes(__lulu3d.state)`, "back on the road after court", 300000);
       await g(`(delete ${LD}.FORCE.verdict, delete ${LD}.FORCE.quietCourt, delete ${LD}.FORCE.guest, ${HD}.bypass(false))`);
     });

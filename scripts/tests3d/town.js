@@ -404,10 +404,11 @@ module.exports = {
       await g(`ctx.foot.debug.getIn()`);
       await t.until(`__lulu3d.state === "playing"`, "she gets back in", 8000);
       t.check("…and drives on in town", await g(`ctx.town.active && ctx.car.obj.visible`));
-      // on foot in town the ER never scoops her up (it would dump her on the highway until the hospital is a real building)
+      // on foot in town the ER can scoop her up only where the town has its hospital (features/places: she wakes up in it and
+      // walks out of its door — the places test plays that); without one it never does (it would dump her on the highway)
       await g(`(ctx.foot.start("droveOff"), true)`);
       await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "out of the car again", 8000);
-      t.check("on foot in town: a knock-out is never an ER trip", await g(`ctx.foot.erChance() === 0`), String(await g(`ctx.foot.erChance()`)));
+      t.check("on foot in town: an ER trip only where the town has a hospital", await g(`ctx.foot.erChance() === (ctx.civic && ctx.civic.here ? 0.2 : 0)`), String(await g(`ctx.foot.erChance()`)));
       await g(`ctx.foot.debug.getIn()`);
       await t.until(`__lulu3d.state === "playing"`, "back in the car", 8000);
     });

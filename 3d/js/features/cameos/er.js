@@ -184,8 +184,12 @@ export function admit(reason = "crash", opts = {}) {
     if (st !== "sheitel") keys.push("luluPerson_" + st);
     for (const v of visit) { const b = BODY[v.c.body]; if (b) keys.push(b.key); if (v.c.body === "shuey") keys.push("npcKid", "cameos_catAngel"); }
     E.loading = loadModels(keys);
-    emit("er:admit", { reason, visits });
-    const intro = force.intro !== undefined ? force.intro : (reason === "crash" && !ctx.view && Math.random() < 0.6);
+    // where she wakes up (features/places): the hospital of the town she's in — or, on the highway, the nearest town's —
+    // and she walks out of ITS front door; with no town to take her to, the old way (back on the road)
+    E.place = ctx.civic && ctx.civic.claim ? ctx.civic.claim("er") : null;
+    emit("er:admit", { reason, visits, town: E.place ? E.place.id : null });
+    // (the ambulance ride-in is a highway scene — in a town she just wakes up in the ER)
+    const intro = force.intro !== undefined && !(E.place && E.place.here) ? force.intro : (reason === "crash" && !ctx.view && !(ctx.town && ctx.town.active) && Math.random() < 0.6);
     if (intro) { E.ambLoading = loadModels(["cameos_ambulance"]); setState("cameosAmbulance"); }
     else setState("cameosER");
     return true;
@@ -373,6 +377,7 @@ registerState("cameosER", {
         E = null;
     },
     update(dt, P) {
+        if (ctx.civic && ctx.civic.tick) ctx.civic.tick(dt);      // (features/places: building the town she'll walk out into)
         if (!E || !E.ready) return;
         E.t = (E.t || 0) + dt;
         if (H.screenOpen()) H.menuInput(P);
@@ -696,6 +701,8 @@ function bust(e) {
 
 function discharge(e, { hearts = 1, banner = "" } = {}) {
     if (E !== e) return;
+    // out of a REAL hospital's front door (features/places), on foot — the bedside melts into the street, no black
+    if (e.place && ctx.civic && ctx.civic.place === e.place && e.prev !== "title") { dischargeToTown(e, hearts, banner); return; }
     fade(1, 0.4);
     setTimeout(() => {
         fade(0, 0.7);
@@ -705,6 +712,32 @@ function discharge(e, { hearts = 1, banner = "" } = {}) {
         const f = ctx.foot, noCar = !!(f && f.start && (f.borrowed || f.ownCar === "gone"));
         resumeDriving({ hearts, banner, onFoot: noCar });
     }, 420);
+}
+
+/** The walk out of the town hospital: once the town is there (built in slices while she was in bed), a soft cut onto
+ *  the sidewalk by its door; her car at the kerb out front when it's really hers. The bill / hearts are already done. */
+function dischargeToTown(e, hearts, banner) {
+    e.discharging = true;
+    const f = ctx.foot, noCar = !!(f && f.start && (f.borrowed || f.ownCar === "gone"));
+    const go = () => {
+        if (E !== e) return;
+        if (!ctx.civic.ready()) { if (!e.waitCap) { e.waitCap = true; caption("🗂️ Discharge paperwork…", ""); } e.waitT = (e.waitT || 0) + 1; if (e.waitT < 600) setTimeout(go, 50); else { e.place = null; ctx.civic.clear(); discharge(e, { hearts, banner }); } return; }
+        clearCaptions();
+        const G = ctx.G;
+        if (hearts != null) G.hearts = hearts;
+        G.hearts = Math.max(1, Math.min(G.maxHearts || 3, G.hearts || 1));
+        H.setHearts(G.hearts, G.maxHearts || 3);
+        G.ended = false;
+        if (ctx.foot && ctx.foot.dropRide) ctx.foot.dropRide();
+        const out = () => ctx.civic.walkOut({ door: "hospital", car: !noCar, reason: "discharged", soft: false });
+        const ok = ctx.dissolve && !ctx.skipping ? ctx.dissolve(out) : out();
+        if (!ok) { e.place = null; ctx.civic.clear(); discharge(e, { hearts, banner }); return; }
+        G.invT = Math.max(G.invT || 0, 3);
+        A.setMusic("../walking.mp3");
+        if (banner) H.banner(banner, 2600);
+        emit("cameos:resume", { s: ctx.car.s, onFoot: true, town: ctx.town && ctx.town.id });
+    };
+    go();
 }
 
 export function erState() { return E; }

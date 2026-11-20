@@ -1,5 +1,5 @@
 // 🐞 QA: caught and knocked out IN A TOWN (Lakewood), with the watchdog (scripts/lib/qawatch.js) on.
-//   • arrested ON FOOT in town: the arrest scene plays on the highway (the town can't host it) — Lulu used to be cuffed
+//   • arrested ON FOOT in town: the arrest scene plays right there in town (features/places: then the town's precinct) — Lulu used to be cuffed
 //     at her old town street coordinates, far from the cruiser, with the camera looking at empty space
 //   • arrested in the CAR in town: the same scene, beside her car
 //   • knocked out in the car / on foot in town: she gets up right there (no tow, no black screen — ci/kotown)

@@ -158,6 +158,7 @@ branches below right now — pick one up. Each is based on an older `main`: merg
 
 | branch | what it is | where it stopped / what's left |
 |---|---|---|
+| `ci/places` | 🏥 JAIL, COURT AND THE ER ARE REAL PLACES IN TOWN (roadmap 4; owner 2026-11-20: "add the precinct and hospitals in town so she can walk out of there as well") — `features/places` (`ctx.civic`) + models `assets_places.py`; see `3d/ARCHITECTURE.md` › Places | **LANDED 2026-11-20** (after `ci/oneworld`). Nobody on it now. In each town: a police precinct (+ an IMPOUND LOT) and a courthouse sharing one block face (Lakewood: Minivan Way behind the Simcha Palace · Midwood: Avenue K, green lamps) + a hospital (St. Shloimy's on Route 9 · Midwood General on Avenue L) — town `uses.civic` / `uses.hospital`, merged (~0 draw calls, ~3k triangles a town, replacing ~6 houses; POLICE / AMBULANCE ONLY kerbs via `clearParking`), on 📍 Nearby. Walk in freely (✋ at each door → interiors' police / hospital + a new courthouse LOBBY; lines only). Arrested IN a town → the arrest plays there → a cruiser pulls up at THAT precinct (`placesArrive`) → booking / cell / court (the same sets, skippable) → she walks out of the precinct / courthouse door on foot, her car at the kerb out front if it's hers and intact, else behind the impound fence (it comes back as before: next run / knock-out). Arrested on the highway (solo Cruise) → the nearest interchange's town, built in slices while she's in the cell. The ER (a knock-out's, now also on foot in a town) → that town's hospital, out of ITS door. A 🎉 party / Story / the Shabbos run keep the old highway flow for highway arrests. No rule or amount changed. Test `places` (`PLACES_PART=3` = the arrests / court / ER part). Small additions in others' files: town `build.js` (a `with` entry can be a landmark; the spot stands at `Anchor_door`), town `index.js` (`prebuild`, `placeOf`, `load` of `with` models), law (arrest / jail / court / service: `claim`, `goExit`, `walkOutOf`), cameos/er.js (`claim`, `dischargeToTown`), foot `erChance`, heist/bank.js `TOWN_INTERIORS`, openworld `SPOT_NAMES` |
 | `ci/together` | 👯 FRIENDS INDOORS + FINDING FRIENDS (owner, 2026-11-20: "in party mode friends should be able to go to the same house and both be visible to each other. We also need some sort of way for finding friends in the map — need to be clean") — friends who walk into the same building see each other inside (houses, Lulu's house, shops, the bank / precinct lobbies where it is safe), and a CLEAN friend finder (the 📱 map + one quiet on-screen pointer, no clutter). Existing relay protocol only. Coordinates with `ci/calm` (pop-ups), `ci/places`, `ci/decor`. Started 2026-11-20. |
 | `ci/calm` | 🤫 FEWER POP-UPS (owner: "Lesser pop ups also especially in party mode") — a pop-up budget in the HUD layer (one at a time on phones, low-priority ones dropped), strangers never toast, friends' chatter as bubbles; measured per minute before/after. Started 2026-11-20. |
 | `ci/calls` | 📞 CALLS EVERYWHERE (owner: "I couldn't find the phone call options when in Midwood or the highway") — the Call app on the phone everywhere, Midwood's own orgs, responders on the highway shoulder; capped so help can't be farmed. Started 2026-11-20. |
@@ -202,8 +203,8 @@ merged — ignore them.
 
 - Home start + knock-outs (`ci/home`, steps 2 + 3): a knock-out IN TOWN now stands her up in town too (2026-11-20: the old
   tow-to-the-highway left the screen black until she drove again — the owner hit it; tests `town` › knockout + attached
-  Midwood). She can WALK in and out of a town now (ci/oneworld: the cross road on foot, no cut). Still open: any scene
-  state the town can't host (jail, the ER by force, a cutscene set) still drops her on the highway first. The ER is still its own set (step 4 makes it a building). `moves`' rocket
+  Midwood). She can WALK in and out of a town now (ci/oneworld: the cross road on foot, no cut). Jail / court / the ER now
+  play IN town (`ci/places`); other scene sets (roadside cutscenes, parking, Dina) still drop her on the highway first. `moves`' rocket
   start only samples the 3-2-1 now (a home start has no countdown). Parking's challenge still ends on a game-over
   card (the only one left). Restart is only in the pause menu while driving (not on foot). A party still starts at the
   grid (`ci/hangout` owns that); the start at home is solo.
@@ -217,6 +218,12 @@ merged — ignore them.
   ~14k, always drawn whole — split it into the cluster cells so it culls like the blocks) and the town's people / cars
   (~27k for 11 cars + walkers: a far LOD). Keep new town props merged into the clusters (build.js), never loose meshes.
 - Decor (landed 2026-11-20): `core` fails LOCALLY in this cloud container on plain `main` too ("coins land in the shared 2D wallet", "B resumes", "reaches Bubbe's house" — it ends up in footRun) while CI passes it — worth a look if it ever shows on CI. `home`'s "knocked flat on foot" flaked once here (passed on a re-run).
+- Places (`ci/places`): her impounded car stands behind the impound fence but can't be taken back early (impound has no
+  fee in the 3D game — springing it for coins would be an economy change: **the owner's call**); the precinct / court /
+  hospital doors are on one side of the building only (no back door for the jailbreak — she bolts out the front); the
+  arrival beat's cruiser is a plain clone (no traffic car), the town's drivers freeze while it plays (~4 s); highway arrests
+  in a 🎉 party keep the old flow (a warp into a town would split her from her friends); the courthouse lobby's 2B doors
+  are always locked when she walks in freely (court only sits for her own case).
 - **Dovid Dov** (the radio's 🎤 DOVID DOV FM plays the owner's real song, `dont-wanna-be-frum.mp3`): in the game he is
   an anonymous mystery singer AND Lulu's brother. Lulu, the family (Ima, Bubbe, Heshy) and close friends (Avigail) know
   and keep it quiet; strangers, DJs, billboards and town group chats only wonder who he is. Keep every new line on the
