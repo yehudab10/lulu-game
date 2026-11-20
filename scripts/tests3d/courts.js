@@ -102,7 +102,7 @@ module.exports = {
       await g(`(${CD}.D.today = "2026-11-22", true)`);
       await useHot("doors2b");
       if (!await t.until(`__lulu3d.state === "placesHearing"`, "hearing 3", 60000)) return;
-      await t.until(`!!document.querySelector("#dialog .opt")`, "Lulu on the stand: what does she say?", 60000) || await tapUntil(`!!document.querySelector("#dialog .opt")`, "the character witness choice", 120);
+      await tapUntil(`!!document.querySelector("#dialog .opt")`, "Lulu on the stand: what does she say? (the character witness choice)", 120);
       const opts = await t.L(`[...document.querySelectorAll("#dialog .opt")].map(b => b.textContent)`);
       t.check("Lulu is a character witness: three (unhelpful) answers", opts.length === 3, JSON.stringify(opts));
       await t.shot("hearing-3-witness");
@@ -137,7 +137,6 @@ module.exports = {
       t.check("no more hearings once it's over", !/Sit in/.test(await hot("doors2b") || ""), await hot("doors2b"));
       t.check("nothing paid out (coins unchanged)", (await coins()) === c0, `${c0} → ${await coins()}`);
       await g(`(window.__interiors.room.leave(), true)`);
-      for (let i = 0; i < 30 && await st() !== "footRun"; i++) await t.tap(0);
       await t.until(`__lulu3d.state === "footRun"`, "out on the street", 30000);
       await t.until(`!!__lulu3d.ctx.civic.courts.debug.N.p`, "Shloime + the stroller outside the courthouse", 30000);
       t.check("after the case: Shloime pushes the stroller outside the courthouse", await g(`!!${CD}.N.p && ${CD}.N.p.obj.parent === ctx.scene`));
@@ -181,6 +180,7 @@ module.exports = {
     await step("tried in Lakewood: the regular court", async () => {
       lw = await trial("lakewood");
       if (!lw) return;
+      t.check("Lakewood: the regular court (no Abba voice)", await g(`ctx.civic.counsel(null, ["SPEEDING"]) === null`));
       t.check("Lakewood: no Abba at her side (no lawyer hired)", !lw.said.some(s => /^ABBA/.test(s) || /ABBA/.test(s.slice(0, 20))), lw.said.filter(s => /ABBA/.test(s)).slice(0, 2).join(" | "));
     }, 2);
     await step("tried in Midwood: ABBA", async () => {
@@ -190,6 +190,11 @@ module.exports = {
       t.check(`Midwood: Abba defends her (${abba.length} lines)`, abba.length >= 3, abba.slice(0, 3).join(" | ").slice(0, 300));
       console.log("   ABBA in Midwood:", abba.slice(0, 4).map(s => s.slice(0, 120)).join(" || "));
       if (lw) t.check("the verdict maths is unchanged: the same jury-mood factors as in Lakewood", mw.meter === lw.meter, `${lw.meter} vs ${mw.meter}`);
+      // with a hired lawyer: Abba plays THAT lawyer — the same tier object (its factor, blunder odds, fee), the rules' own argument
+      const hired = await t.L(`Promise.all([import("./js/features/law/data.js"), import("./js/features/law/rules.js")]).then(([d, r]) => { const tier = d.LAWYER_TIERS[0], cl = ["SPEEDING"];
+          const v = __lulu3d.ctx.civic.counsel(tier, cl); if (!v) return "no voice"; const arg = r.lawyerChargeArgument(tier, cl);
+          return { name: v.name, key: v.key, argue: v.argue(arg, tier), arg }; })`);
+      t.check("…hired counsel in Midwood: 'ABBA (as <that lawyer>)', and he argues the rules' own argument", hired && /^ABBA \(as /.test(hired.name) && hired.key === "lawAbba" && /Lulu-bear/.test(hired.argue) && hired.argue.length > 40, JSON.stringify(hired).slice(0, 300));
     }, 2);
     await step("Midwood lobby: Abba is there; 2B stays locked", async () => {
       if (!await town("midwood")) return;
