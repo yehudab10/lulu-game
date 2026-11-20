@@ -256,5 +256,75 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "the bar: the guest sees the host", 60000);
   await t.shot("bar-together");
   for (const P of [A, Hp]) { await P.game(`(window.__interiors && window.__interiors.room ? window.__interiors.room.leave() : 0, true)`); await P.until(`ctx.state === "footRun"`, `${P.label}: out of the bar`, 40000); }
+  await car(t, g, Hp, A, hostUid, guestUid);
   return true;
+}
+
+// ════ PART D: IN THE SAME CAR ════
+async function car(t, g, Hp, A, hostUid, guestUid) {
+  const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
+  const coins0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
+  // the host gets back in her car and waits at the kerb; the guest walks up to the PASSENGER door
+  await g(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+  await Hp.until(`ctx.state === "playing"`, "host back behind the wheel", 30000);
+  await g(`ctx.party._debug.place(900, 5.25, 0)`);
+  await A.game(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+  await A.until(`ctx.state === "playing"`, "guest driving", 30000);
+  await A.game(`ctx.party._debug.place(880, 1.75, 0)`);
+  await A.frames(10);
+  await A.game(`ctx.foot.start("parked")`);
+  await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "guest on foot near the host's car", 60000);
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && !rc.foot; })()`, "guest sees the host's car", 40000);
+  await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}); ctx.foot.debug.F.pos.set(rc.x - Math.cos(rc.h) * 1.6, 0.05, rc.z + Math.sin(rc.h) * 1.6); return true; })()`);
+  await A.frames(4);
+  const lbl = await A.game(`(ctx.foot.debug.interactables() || {}).label || ""`);
+  t.check("✋ at a friend's passenger door: 🚗 HOP IN with <name>", /HOP IN with Kugel Kid/.test(lbl), lbl);
+  // the driver's side is not a hop-in (theirs)
+  t.check("…only at the passenger side (the door point is on their right)", await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}), d = ctx.together.debug.hop(); if (!d) return false; const rx = -Math.cos(rc.h), rz = Math.sin(rc.h); return (d.x - rc.x) * rx + (d.z - rc.z) * rz > 1; })()`));
+  await A.game(`(() => { const s = ctx.foot.debug.interactables(); s.ent.act(); return true; })()`);
+  if (!await A.until(`ctx.state === "playing" && ctx.openworld.riding === ${HU}`, "the hop: she's riding with the host", 40000)) return;
+  await Hp.until(`(() => { const p = ctx.party.peer(${GU}); return !!p && p.x && p.x.rd === ${HU}; })()`, "host: the guest is in my passenger seat", 30000);
+  t.check("host draws a Lulu in the passenger seat", await g(`!!(ctx.car.anchors && ctx.car.anchors.passenger && ctx.car.anchors.passenger.children.length)`));
+  // the host drives off: the guest rides along (her car hidden, following)
+  await g(`ctx.party._debug.place(905, 5.25, 10)`);
+  await t.hold(7, 1);                       // (the host keeps her foot down)
+  await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && Math.hypot(rc.x - ctx.car.pos.x, rc.z - ctx.car.pos.z) < 1 && Math.abs(ctx.car.vF) > 3; })()`, "the guest rides along at the driver's speed", 40000);
+  await t.shot("riding-host");
+  await A.page.screenshot({ path: path.join(SHOTS, "3d-together-riding-guest.png") }).catch(() => { });
+  // hop out MOVING: into her own car alongside, rolling — no heart lost, still hers
+  const hearts = await A.game(`ctx.G.hearts`);
+  await A.game(`ctx.openworld.hopOut({ moving: true })`);
+  await A.until(`ctx.openworld.riding == null && ctx.state === "playing"`, "hop out while moving → in her own car alongside", 30000);
+  t.check("…no heart lost, still driving her own car (not dropped on the road)", (await A.game(`ctx.G.hearts`)) >= hearts && await A.game(`ctx.state === "playing" && !ctx.foot.active`));
+  await t.hold(7, 0);
+  // ride again (the 📱 shortcut), the driver stops, hop out SLOW → on her feet at the door, her car parked right there
+  await g(`ctx.party._debug.place(1000, 5.25, 0)`);
+  await A.game(`ctx.party._debug.place(985, 1.75, 0)`);
+  await A.frames(20);
+  t.check("📱 shortcut still works: Ride with …", (await A.game(`ctx.openworld.ride(${HU})`)) === "");
+  await A.until(`ctx.openworld.riding === ${HU}`, "riding again", 20000);
+  await A.frames(20);
+  await A.game(`ctx.openworld.hopOut({ moving: false })`);
+  await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "hop out stopped → on her feet", 40000);
+  t.check("…by the host's car, with her own car parked right there", await A.game(`(() => { const rc = ctx.party.remoteCar(${HU}), pk = ctx.foot.parkedCar, f = ctx.foot.pos; return !!rc && !!pk && Math.hypot(rc.x - f.x, rc.z - f.z) < 8 && Math.hypot(pk.x - f.x, pk.z - f.z) < 8; })()`), JSON.stringify(await A.game(`({ pk: ctx.foot.parkedCar, f: ctx.foot.pos })`)));
+  // the driver can't keep her in: when the driver parks and walks off, she's let out too
+  await A.game(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+  await A.until(`ctx.state === "playing"`, "guest in her car", 30000);
+  await A.game(`ctx.openworld.ride(${HU})`);
+  await A.until(`ctx.openworld.riding === ${HU}`, "riding a third time", 20000);
+  await A.frames(25);
+  await g(`ctx.foot.start("parked")`);
+  await A.until(`ctx.openworld.riding == null && ctx.state === "footRun"`, "the driver walks off → the passenger is let out on her feet", 40000);
+  // a ride through a town exit: she comes along into town
+  await g(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+  await Hp.until(`ctx.state === "playing"`, "host driving", 30000);
+  await A.game(`(() => { const p = ctx.foot.pos; ctx.foot.drive({ own: true, x: p.x, z: p.z, h: ctx.foot.facing || 0 }); return true; })()`);
+  await A.until(`ctx.state === "playing"`, "guest in her car", 30000);
+  await A.game(`ctx.openworld.ride(${HU})`);
+  await A.until(`ctx.openworld.riding === ${HU}`, "riding before the exit", 20000);
+  await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+  await Hp.until(`ctx.town.active`, "host in town", 30000);
+  await A.until(`ctx.openworld.zone === "lakewood" && ctx.openworld.riding === ${HU}`, "the passenger comes along into town, still riding", 60000);
+  await A.game(`ctx.openworld.hopOut()`);
+  t.check("riding never costs anyone coins (no fines, nothing taken)", (await g(`L3.wallet.coins`)) >= coins0.h && (await A.game(`L3.wallet.coins`)) >= coins0.a, JSON.stringify({ coins0, h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) }));
 }

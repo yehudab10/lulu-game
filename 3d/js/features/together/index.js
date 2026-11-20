@@ -26,6 +26,7 @@ import * as PTR from "./pointers.js";
 import * as MAP from "./map.js";
 import * as ROOMS from "./rooms.js";
 import * as OUT from "./outside.js";
+import { hopDebug } from "./car.js";
 
 const S = store("together", { pointers: true, dests: 0, met: 0 });
 const T = { dest: "", destT: 0, metT: 0, door: null, list: [], listT: 0 };
@@ -121,6 +122,6 @@ const SVC = {
     roomSay: text => ROOMS.roomSay(text), roomPose: (E, t) => ROOMS.roomPose(E, t),
     /** The rooms friends share / the ones still personal (with why). */
     shared: () => Object.keys(ROOMS.SHARED), notShared: () => Object.assign({}, ROOMS.NOT_SHARED),
-    debug: { T, S, room: () => ROOMS.debug(), stepping: () => OUT.stepping(), mapDots: () => MAP.dots(), pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
+    debug: { T, S, hop: () => hopDebug(), room: () => ROOMS.debug(), stepping: () => OUT.stepping(), mapDots: () => MAP.dots(), pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
 };
 ctx.together = SVC;

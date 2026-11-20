@@ -864,7 +864,7 @@ ctx.openworld = {
     warpTo: uid => warpToFriend(uid),
     /** 🚗 Ride along in friend uid's passenger seat ("" or why not) · hop out. */
     ride: uid => startRide(uid),
-    hopOut: () => stopRide(),
+    hopOut: opts => stopRide(false, opts || {}),
     get riding() { return riding(); },
     pin, unpin, get pinned() { return NP.pin; },
     /** A party town's block loops, read-only (community runs its org cars on them): { loops, origin, point(L, u, out) } | null. */
