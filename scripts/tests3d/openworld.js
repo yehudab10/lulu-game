@@ -195,8 +195,8 @@ async function partyRun(t, guests) {
   const g = t.game;
   await g(`(ctx.phone.isOpen && ctx.phone.closePhone(), ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
   await t.frames(6);
-  await t.click(/Party with friends/);
-  await t.click(/Host a party/);
+  await t.click(/👯 Friends/);
+  await t.click(/Party games/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
   const A = await guestPage(t, "guest", { totalCoins: 50, ownedSkins: ["pink", "blue"], selectedSkin: "blue", mpName: "Latke Legend" }, `&party=${code}`);
