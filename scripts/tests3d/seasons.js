@@ -398,7 +398,7 @@ module.exports = {
       await g(`ctx.seasons.debug.season("purim")`);
       await g(`L3.setState("title")`);
       await t.frames(3);
-      await t.click(/👯 Friends/);
+      await t.click(/Friends/);
       await t.click(/Party games/);
       const until = async (code, what, ms = 90000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await g(`(() => { try { return !!(${code}); } catch (e) { return false; } })()`).catch(() => false)) return true; await sleep(200); } t.check(what, false, "timed out"); return false; };
       if (!await until(`ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;

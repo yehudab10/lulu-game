@@ -89,7 +89,7 @@ module.exports = {
 
 async function partyRun(t, guests) {
   const g = t.game;
-  await t.click(/👯 Friends/);
+  await t.click(/Friends/);
   await t.click(/Party games/);
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby")) return;
   const code = await g(`ctx.party.code`);
