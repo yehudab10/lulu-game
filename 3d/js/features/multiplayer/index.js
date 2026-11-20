@@ -64,7 +64,11 @@ function myPose() {
     const foot = !!(ctx.foot && ctx.foot.active);
     // out in the open world (a road, a town, on foot outside) — anywhere else (indoors, a scene, a menu, Dina's
     // mode) she's "~": hidden from everyone, ghosts hidden from her, the horn / emotes don't go out
-    me.inWorld = !!def.driving || ctx.state === "footRun";
+    // (a 🎉 party: only its 🌍 Free Roam is the open world — a race / dash / tag / road trip keeps strangers out)
+    const pa = ctx.party && ctx.party.active ? ctx.party : null;
+    const partyBusy = !!pa && !(pa.activity && pa.activity.k === "roam");
+    me.inWorld = (!!def.driving || ctx.state === "footRun") && !partyBusy;
+    me.pt = pa && pa.code ? N.partyTag(pa.code) : null;
     me.foot = foot;
     me.driving = !!def.driving && !foot;
     me.parking = ctx.state === "parking";
@@ -123,7 +127,8 @@ function frame() {
         U.uiTick();
         // the emote wheel / 1–7 keys / 😀 button only while someone is actually around (or in a friend room): alone
         // on the road, the horn is just a horn
-        const social = N.friendRoom() || Object.values(MP.peers).some(p => p.onScreen);
+        // (in a 🎉 party the party's own wheel is the emote system — strangers just see your ghost)
+        const social = !(ctx.party && ctx.party.active) && (N.friendRoom() || Object.values(MP.peers).some(p => p.onScreen));
         me.social = social;
         U.wheelTick(dt, inRun && social && !ctx.paused && !ctx.dialogOpen);
         U.setKeyInRun(inRun && social && !ctx.paused);
@@ -227,7 +232,7 @@ function ambientTick(dt) {
     AMB.t = 0.5;
     if (!N.allowed()) return;
     if (dinaMode()) { if (MP.want) { AMB.resume = { room: MP.room, kind: MP.roomKind }; N.disconnect(false); } return; }
-    if (!onlineOn() || (ctx.party && ctx.party.active) || MP.want || !me.inWorld) return;
+    if (!onlineOn() || MP.want || !me.inWorld) return;
     const r = AMB.resume; AMB.resume = null;
     N.connect(r ? r.room : "lobby", r ? r.kind : "everyone");
 }

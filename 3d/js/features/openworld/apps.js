@@ -1,7 +1,8 @@
 // features/openworld — the two 📱 phone apps (no new buttons, no home tiles):
-//   👯 PARTY  (only in a 🎉 party's 🌍 Free Roam): where every friend is (🏙️ Lakewood · 120 m),
+//   👯 FRIENDS in a 🎉 party's 🌍 Free Roam: where every friend is (🏙️ Lakewood · 120 m),
 //             🚀 catch up with one (a warp) or 📍 pin them, start a game, the last scoreboard
-//             with 🔁 Rematch.
+//             with 🔁 Rematch. Solo: who's around (the EVERYONE layer's ghosts near you), 📤 invite
+//             friends, 🌐 go solo / go online (one tap).
 //   📍 NEARBY (always): what's around HERE — people to talk to, landmarks, coins, the way
 //             out of town / the next town exit, places up the road — tap one for a map pin;
 //             solo, the 🏁 time trial and 📸 photo hunt start here too.
@@ -33,6 +34,24 @@ function resultsHtml() {
 function wireResults(el, api) {
     on(el, "#owRematch", () => { const why = E.requestGame(E.CL.last.k); if (why) api.toast(why); else api.close(); });
     on(el, "#owDone", () => api.close());
+}
+
+// ── 👯 FRIENDS, solo: who's around + play together + go solo ────────────
+function soloHome(el, api) {
+    const M = ctx.mp, online = M.online, conn = M.connected && M.room === "lobby";
+    const near = conn ? Object.values(M._debug.peers).filter(p => p.onScreen && p.ws != null) : [];
+    const others = conn ? Math.max(0, M.riders - 1) : 0;
+    let html = `<div class="lp-card ow-head"><span class="lp-av">👯</span><span class="lp-tx"><b>Friends</b><small>${!online ? "Play online is off — just you out here" : conn ? `🌐 ${others} other driver${others === 1 ? "" : "s"} online · ${near.length} near you` : "🌐 online — nobody else around yet"}</small></span></div>`;
+    html += `<div class="ow-sec">Around you</div>`;
+    if (!near.length) html += `<p class="lp-note">${online ? "Nobody near you right now — other drivers show up as see-through ghosts." : "Go online to see other drivers out in the world."}</p>`;
+    for (const p of near.slice(0, 6)) html += row("owN_" + esc(p.id), p.m === 1 ? "🚶‍♀️" : "👻", esc(p.name), p.m === 1 ? "on foot" : "driving", mi(d2({ x: p.ws, z: p.wd })), false);
+    html += `<div class="ow-sec">Play together</div>`;
+    html += row("owInviteSolo", "📤", "Invite friends", "they pop up right next to you · get names, play games together");
+    html += row("owOnline", "🌐", online ? "Go solo" : "Go online", online ? "hide every other driver (⚙️ Settings › Play online)" : "see other drivers out in the world");
+    html += `<p class="lp-fine">Other drivers are ghosts: they can't bump you, block you or pull you into anything, and they only see a colour + number. Friends get their names and real cars.</p>`;
+    el.innerHTML = html;
+    on(el, "#owInviteSolo", () => { api.close(); ctx.party.hostRoam(); });
+    on(el, "#owOnline", () => { M.setOnline(!M.online); api.open("owparty", null); });
 }
 
 // ── 👯 PARTY ─────────────────────────────────────────────────────────────
@@ -72,6 +91,7 @@ function partyHome(el, api) {
     html += `<div class="ow-sec">The party</div>`;
     html += row("owInvite", "📤", "Invite friends", `send the link — they pop up right next to you · code ${esc(ctx.party.code)}`);
     html += row("owLeave", "🚪", "Leave the party", "back to the home screen — your friends keep playing");
+    if (ctx.mp && ctx.mp.setOnline) html += row("owOnline", "🌐", ctx.mp.online ? "Hide other drivers" : "Show other drivers", ctx.mp.online ? "strangers out in the world are ghosts · just your friends instead" : "see the other drivers out in the world too");
     html += `<p class="lp-fine">Start one here, or walk up to the 🕹️ arcade / 📋 notice board in town — friends opt in, nobody gets dragged along. Honk ${glyph("honk")} to wave at a friend.</p>`;
     el.innerHTML = html;
     on(el, "[data-u]", b => api.open("owparty", { friend: b.dataset.u }));
@@ -85,6 +105,7 @@ function partyHome(el, api) {
     on(el, "#owBack", () => { api.close(); E.warpToGame(); });
     on(el, "#owLast", () => api.open("owparty", { results: true }));
     on(el, "#owHopH", () => { api.close(); E.stopRide(); });
+    on(el, "#owOnline", () => { ctx.mp.setOnline(!ctx.mp.online); api.open("owparty", null); });
 }
 function townName(id) { const T = ctx.town && ctx.town.towns; return (T && T[id] && T[id].name) || id; }
 /** What a friend is doing (party presence) when it's more than plain driving: { icon, label } | null. */
@@ -198,13 +219,14 @@ export function registerApps(engine) {
     const tryAdd = () => {
         if (!ctx.phone || !ctx.phone.addApp) return false;
         ctx.phone.addApp({
-            id: "owparty", icon: "👯", name: "Party", order: 15, color: "#7E57C2", color2: "#E91E63",
-            visible: () => E.roam(),
+            id: "owparty", icon: "👯", name: "Friends", order: 15, color: "#7E57C2", color2: "#E91E63",
+            visible: () => E.roam() || !!(!(ctx.party && ctx.party.active) && ctx.party && ctx.mp && ctx.mp.setOnline),
             badge: () => { const g = E.getG(); return g && g.ph === "go" ? "!" : null; },
             render(el, api, arg) {
                 V.party = arg || null;
                 if (arg && arg.results) { el.innerHTML = resultsHtml(); wireResults(el, api); return; }
                 if (arg && arg.friend) { friendView(el, api, arg.friend); return; }
+                if (!E.roam()) { soloHome(el, api); return; }
                 partyHome(el, api);
             },
             back(api) { if (V.party) { V.party = null; api.open("owparty", null); return true; } return false; },

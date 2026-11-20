@@ -502,6 +502,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | feel (damage) | personal | Hearts are never lost in a party, so there are no dents to show (nothing published). |
 | moves 🏁 | personal | On already (skill, not chance); roll / slide / vault show on her walker. The JUMP (foot) too: `d.x.f` = [anim 10 = in the air, look, her feet's height in dm] — friends' walker rises with her (a jump, up on a bench / a car roof), eased between the ~10 Hz snapshots. |
 | openworld 🌍 | shared | (see Open world) · games start as an **invitation** (host state `g.ph = "in"`: the starter in, friends opt in by coming to the spot / the chip / 📱 👯 Join, ≤ 15 s) — nobody is warped or held unless they opted in · 🕹️ / 📋 **game spots** in each town (`spots.js`): personal props (built from `ctx.town.spot`, the same place on every screen); the invitation itself is host state |
+| multiplayer 🌐 (EVERYONE) | **on** in 🌍 Free Roam · hidden in lobby activities | Strangers stay ghosts around the group (their own `d.w` places, no collision, flood-guarded); party members tag `d.pt` and are drawn once, by the party. In a race / dash / cop tag / road trip strangers aren't drawn and don't see you (`"~"`). The emote wheel there is the party's |
 | emotes 👋 (party/emotes.js) | **personal**, friends SEE them | 8 gestures + fixed phrases (no free text). My `d.x.e = [slot, seq]` while one plays → friends' walker poses (core/people.js) / their car's arm + bubble + emoji. Combos (two gestures at each other ≤ 14 m, ≤ 3 s) and greetings (passing ≤ 9 m, 1 per friend per 90 s) are worked out on each screen from what it saw — nothing extra on the wire, cosmetic only, no coins. Never moves / blocks / holds anyone |
 | native (ads) | **off** | `ads` is in party's OFF set and `ads.js` also checks `ctx.party.active`: no interstitial, no 📺 rewarded button with friends (haptics stay — they're personal) |
 | exits 🅿️ | **seeded** rest areas · personal visit | Planned from fixed data + the party seed only (never the reserved road): a 🏡 Road Trip gets one on the way to Bubbe's (s = 2350 + seeded 0–400, slid clear of the places), 🌍 Free Roam one after ~every other interchange (`h01("exits:rest", E) < 0.55` → at E + 1600, snug between that exit's ramp and the next one's mile sign); the road plan keeps its big things off them (plan.js `busyAt`). Pulling in, walking the lot, the pumps / Mendel's bays, food, souvenirs: personal; friends see presence "⛽ at the <name>". The town's interchanges are planned from s = 0 from fixed data only (the places' constant spots), so every friend's ramps land on the same metre. No town exits on a Road Trip (towns are Free Roam's: a zone change needs the activity's frame / show / pose hooks, which only 🌍 Free Roam has) |
@@ -612,7 +613,7 @@ jump). `startRun({ quick: true })` (every test), checkpoints, mid-run starts and
 function, set by world) keeps the day + weather running on the title on the device's clock; Cruise continues
 from that clock. Holiday dressing reads `ctx.meta.holiday()`.
 
-**Title menu orders:** see Menus (grouped home screen). 🎉 Party with friends is 60 (🌐 Shared Road is
+**Title menu orders:** see Menus (grouped home screen). 👯 Friends is 60 (🌐 Shared Road is
 inside its hub; its own title button shows only when the party feature is off).
 **Pause menu orders:** resume 0 · ⏭ skip 5 · camera 10 · 📱 phone 11 (the radio lives in the phone now) · 📸 photo mode 12 · settings 35 (the button guide is
 inside) · Shared Road 40 · 💼 quit job 78 (exit row, only during a job) · restart 80 · party: everyone back to the lobby 86 · leave the party 88 · title 90.
@@ -931,8 +932,12 @@ top of foot's in a `hud` hook (`person.update(0, pose)`), moving off cancels it.
 outside: `def.driving` or `footRun`) the game is **online by default**: `index.js` `ambientTick` joins the relay's EVERYONE
 room (`lobby`, the one the Classic 2D game uses; the relay caps a room at 24 → close 4001 → straight on to `lobby2` …
 `lobby8`, client-side) — no lobby, no code, no screen. Off: ⚙️ Settings › **🌐 Play online** (`ctx.mp.setOnline(on)`, the
-shared save's `mpAutoOff` — the 2D game reads the same flag), a 🎉 party (it has its own room; back after you leave), **Dina's
-mode** (any `dina*` state disconnects; reconnects back in the world). Unreachable relay → silently solo (the socket backs off
+shared save's `mpAutoOff` — the 2D game reads the same flag; the phone's 👯 app has the same switch as one tap: Go solo / Hide
+other drivers), **Dina's mode** (any `dina*` state disconnects; reconnects back in the world). **A 🎉 party stays in EVERYONE**
+(two sockets: the party's room + EVERYONE) during 🌍 Free Roam, so strangers stay in the world around a group of friends; a
+lobby activity (race, dash, cop tag, road trip) hides strangers and hides you from them ("~"). Party members send `d.pt` (a hash of
+the code — it tells nobody the code), so a friend is drawn ONCE, as the party's real car with their name, never also as a ghost.
+Only a Classic-2D **friend room** is left when a party starts (one group at a time). Unreachable relay → silently solo (the socket backs off
 ≤ 10 s, no chip, no toast; the riders chip shows only when someone else is there). Anywhere that isn't the open world (indoors,
 a scene, Story cutscenes, menus) she's `"~"`: hidden from everyone, nobody drawn, nothing sent but a 1 Hz "hidden" beat.
 **Where a 3D rider is** (`d.w = [zone, a, b, h]`, ignored by 2D): zone `""` the highway (a = s, b = d, h = yaw relative to the
@@ -946,13 +951,22 @@ anything on my screen: race invites, tag markers, the parking lot are ignored ou
 honks / waves (≥ 0.8 s) and record toasts (≥ 90 s, only when they're on screen) are flood-guarded on the RECEIVING side
 (`MP.recv` counts what was dropped); every field is range / format checked (`sk`, `co`, `vk`, numbers). Friends (a 🎉 party or a
 Shared Road code room) see each other's curated names. The emote wheel / 1–7 keys / 😀 button appear only when someone is
-actually around (alone, the horn is just a horn). **Cost:** at most `CAP` = 6 riders are drawn (`ghosts.js`: the nearest in
-range, a little stickiness so equal distances don't flicker; a ghost car is ~10 draw calls + a name sprite, so a full road adds
-≤ ~70 calls); anyone else has no model at all, a ghost that drops out of the nearest few is freed after 3 s; nobody around =
+actually around (alone, the horn is just a horn) and not in a party (the party's wheel is the emote system there). **Cost:** at
+most `CAP` = 6 riders are drawn (`ghosts.js`: the nearest in range, a little stickiness so equal distances don't flicker). A
+ghost CAR is baked into ONE vertex-coloured mesh (geometry shared per model + paint, its own see-through material; the wheels
+don't spin): measured, the full model was ~58 draw calls a ghost (1 ghost 265 → 6 ghosts 555 calls); merged it's ~2 (body +
+name sprite), so a full road adds ≤ ~15 calls. A walking ghost is the Person rig (a handful of calls). Anyone else has no model at all, a ghost that drops out of the nearest few is freed after 3 s; nobody around =
 no per-player cost (the peer loop is empty). **Nothing personal leaves the device:** the relay gets a curated name, the car's
 skin, where Lulu is in the GAME world, and (in a party) a random id — no location, no contacts, no device or account info, no
-free text. Test: `scripts/tests3d/mpworld.js` (offline boot · two pages with no code see each other · a hostile stranger · the
-cap with 14 riders · a rider in town · ⚙️ Play online · Dina).
+free text. **👯 Friends** (the title item, id `party`; `party/index.js openHub`): 📤 Invite friends (`hostRoam`: straight into 🌍 Free Roam,
+friends who open the link land beside you — from mid-drive the solo run is banked first) · 🔑 Join with a code · 🎮 Party games
+(the lobby: races, road trip, dreidel dash, cop tag — what can't be a spot invitation yet) · 🌐 Play online on/off · 🕹️ Classic 2D
+friends (the Shared Road screen: a 2D-compatible code room + your rider name) + a line saying who's around. The phone's 👯 app is
+there solo too (who's near you, 📤 invite, 🌐 go solo). **Strangers vs friends on screen:** a stranger is a see-through ghost
+(~55 %, a soft tint of their paint) with a "Gold 72" label, never solid, never a name; a friend is a solid car / walker with
+their curated name, the 👑 / presence chips, emotes with phrases, rides, games. Test: `scripts/tests3d/mpworld.js` (offline
+boot · two pages with no code see each other · a hostile stranger · the cap with 14 riders · a rider in town · ⚙️ Play online ·
+Dina · the 👯 hub · a party still sees strangers · a friend drawn once, as a friend · the phone's go solo).
 
 **Banks, heists & robberies (heist):** CARTOON ONLY (the owner's call; 12+): the robbers' "weapons" are a banana, a water
 pistol, a baguette and a confetti blaster (`heist_props` Prop_* nodes), nobody is ever shot, nobody is hurt beyond the

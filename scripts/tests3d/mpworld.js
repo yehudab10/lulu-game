@@ -7,12 +7,15 @@
 //   TOWN      a 3D rider in a town shows at the same spot of that town; someone on the highway doesn't
 //   OFF       ⚙️ Settings › Play online OFF disconnects (and stays off); ON again reconnects out in the world;
 //             Dina's mode takes you offline, back in the world you're online again
+//   FRIENDS   the 👯 Friends hub (📤 invite · 🔑 code · 🎮 party games · 🌐 play online · 🕹️ 2D); A invites → straight
+//             into 🌍 Free Roam, STILL online (a stranger still shows as a ghost); B joins with the code → lands next to
+//             A as a FRIEND: a real car with B's name, and no second ghost of B; the phone's 👯 app → Go solo
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
 const PORT = 27000 + (process.pid % 20000);
 const URL = `ws://127.0.0.1:${PORT}`;
-const Q = url => `&enable=multiplayer,foot,town,atmos&mpurl=${encodeURIComponent(url)}`;
+const Q = url => `&enable=multiplayer,party,openworld,foot,town,atmos&mpurl=${encodeURIComponent(url)}`;
 const S = `ctx.mp._debug`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -191,4 +194,39 @@ async function body(t, pages, riders) {
   await A.frames(5);
   await g(`L3.startRun({ mode: "cruise", quick: true })`);
   t.check("back in the world → online again", await A.until(`${S}.connected`, "A: online after Dina", 30000));
+
+  // ── FRIENDS: a private group inside the same world ──
+  await g(`(L3.setState("title"), true)`);
+  await A.frames(5);
+  await t.click(/👯 Friends/);
+  const hub = await t.L(`[...document.querySelectorAll("#screenCard button")].map(b => b.id)`);
+  t.check("👯 Friends hub: invite · code · party games · play online · 2D (in that order)", ["pt_roam", "pt_join", "pt_host", "pt_online", "pt_open"].every((id, i, a) => hub.indexOf(id) >= 0 && (i === 0 || hub.indexOf(id) > hub.indexOf(a[i - 1]))), hub.join(","));
+  t.check("hub says who's around (EVERYONE)", await t.L(`/other driver|nobody else|show up/.test((document.querySelector(".pt-around") || {}).textContent || "")`));
+  await t.shot("hub");
+  await t.L(`document.getElementById("pt_roam").click()`);
+  if (!await A.until(`ctx.state === "playing" && ctx.party.activity && ctx.party.activity.k === "roam"`, "A: 📤 Invite → Free Roam", 120000)) return;
+  await g(HOLD); await g(PLACE(400, 1.75));
+  t.check("in a party she's still in EVERYONE (strangers stay in the world)", await A.until(`${S}.connected && ${S}.room === "lobby"`, "A: online in the party", 30000));
+  t.check("…and B, a stranger, still shows as a ghost", await A.until(`Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`, "A sees stranger B in the party", 60000));
+  const code = await g(`ctx.party.code`), auid = await g(`ctx.party.uid`);
+  await B.game(`(L3.setState("title"), true)`);
+  await B.frames(5);
+  await B.game(`(ctx.party.join(${JSON.stringify(code)}), true)`);
+  if (!await B.until(`ctx.state === "playing" && ctx.party.connected && ctx.party.activity.k === "roam"`, "B: joins with the code", 120000)) return;
+  t.check("B joins with the code → in A's Free Roam", true);
+  const friendCar = `(() => { const rc = ctx.party.remoteCar(${JSON.stringify(await B.game(`ctx.party.uid`))}); return !!rc && rc.shown !== false; })()`;
+  t.check("A sees B as a FRIEND: a real car", await A.until(friendCar, "A: B's party car", 60000));
+  t.check("…with B's name", await g(`ctx.party.displayName(${JSON.stringify(await B.game(`ctx.party.uid`))})`) === "Latke Legend");
+  await A.frames(30);
+  t.check("…and no second (ghost) B", await g(`!Object.values(${S}.peers).some(p => p.raw === "Latke Legend" && p.onScreen)`), JSON.stringify(await g(`Object.values(${S}.peers).map(p => [p.raw, p.pt, p.onScreen])`)));
+  t.check("B is dropped next to A (the inviter / host)", await B.until(`(() => { const rc = ctx.party.remoteCar(${JSON.stringify(auid)}); return !!rc && rc.shown !== false && Math.hypot(rc.obj.position.x - ctx.car.pos.x, rc.obj.position.z - ctx.car.pos.z) < 80; })()`, "B: next to A", 60000));
+  await t.shot("friends");
+  // the phone's 👯 app: one tap → go solo (strangers gone, the friend stays)
+  t.check("📱 👯 Friends has Go solo / Hide other drivers", await t.L(`import("./js/core/ctx.js").then(m => true)`) && await g(`!!(ctx.phone && ctx.phone.open)`));
+  await g(`ctx.phone.open("owparty")`);
+  await A.frames(6);
+  await t.L(`document.getElementById("owOnline").click()`);
+  await A.frames(6);
+  t.check("one tap → offline from EVERYONE, still in the party", await g(`!${S}.want && ctx.party.connected && !!ctx.party.remoteCar(${JSON.stringify(await B.game(`ctx.party.uid`))})`));
+  await g(`(ctx.phone.close && ctx.phone.close(), ctx.mp.setOnline(true), true)`);
 }

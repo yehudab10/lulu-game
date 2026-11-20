@@ -81,6 +81,8 @@ export function friendRoom() { return MP.connected && MP.room !== "lobby"; }
 /** The relay room I'm actually in (EVERYONE shards to lobby2… when the first is full). */
 export function roomPath() { return MP.room === "lobby" ? (MP.shard ? "lobby" + (MP.shard + 1) : "lobby") : MP.room.toUpperCase(); }
 function hash(s) { let h = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h >>> 0; }
+/** A party's tag in EVERYONE (a hash of its code — tells nobody the code): members don't draw each other twice. */
+export function partyTag(code) { return (hash("pt:" + code) % 1679616).toString(36); }
 export function strangerLabel(id, sk) { return `${COLOUR[sk] || "Rider"} ${10 + hash(id) % 90}`; }
 /** What I show for a peer: friends (a code room) by their curated name, everyone else by a generated label. */
 export function labelFor(p) {
@@ -209,6 +211,7 @@ function applyState(id, d, snap) {
         else { const err = di - p.di; if (Math.abs(err) > 250) p.di = di; else p.di += err * 0.4; }
     }
     applyWorld(p, d.w);
+    p.pt = typeof d.pt === "string" && /^[a-z0-9]{1,4}$/.test(d.pt) ? d.pt : null;
     if (!friendRoom()) {
         // EVERYONE: a stranger can't start anything on my screen (no races, no tag, no lot), and their
         // emotes / record toasts are flood-guarded here, whatever their client sends
@@ -283,7 +286,8 @@ function sendState() {
     const me = MP.me;
     const d = { m: me.foot ? 1 : 0, x: me.x, di: Math.round(me.di), sp: Math.round(me.sp || 0), vk: me.vk || "car" };
     if (d.vk === "borrowed") { d.ct = me.ct || 0; d.co = me.co || "#E53935"; }
-    if (me.w) d.w = me.w;                          // (3D riders: where in the 3D world — the 2D game ignores it)
+    if (me.w) d.w = me.w;
+    if (me.pt) d.pt = me.pt;                          // (3D riders: where in the 3D world — the 2D game ignores it)
     const pk = ctx.parking && ctx.parking.pose ? ctx.parking.pose() : null;
     if (pk) d.pk = pk;
     if (MP.race) {
@@ -527,6 +531,7 @@ export function scoresList() {
 /** Where a peer is relative to me, in 2D px of road (+ ahead). A 3D rider's exact place wins over the 2D ring
  *  (no ring aliasing: someone 5 km down the road isn't "here"); a rider in another zone is far away. */
 function relOf(p, M) {
+    if (p.pt && p.pt === M.pt) return RING / 2;          // a friend in my 🎉 party: the party draws them (a real car)
     const W = p.w && MP.clock - p.w.at < 4 ? p.w : null;
     const mz = M.zone == null ? "" : M.zone;
     if (W) {

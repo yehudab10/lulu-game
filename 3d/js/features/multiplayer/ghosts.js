@@ -12,6 +12,8 @@ import { spawnPerson } from "../../core/people.js";
 import { SKINS } from "../../car.js";
 import { MP, DI_PER_M, X_PER_M, X_MID, VIS_M } from "./net.js";
 import { nameSprite } from "../parking/lot.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { bakeGeometry } from "../../merge.js";
 
 registerModels({
     multiplayer_bus: "multiplayer_bus", multiplayer_ambulance: "multiplayer_ambulance",
@@ -29,6 +31,36 @@ function kindOf(p) {
     if (p.vk === "borrowed") return "borrowed:" + (p.ct || 0) + ":" + (p.co || "");
     if (p.vk === "cop" || EXTRA[p.vk]) return p.vk;
     return "car:" + p.sk;
+}
+
+// A ghost CAR is baked into one vertex-coloured mesh (shared per model + paint) with its own see-through material:
+// 1 draw call instead of a model's dozens (wheels don't spin on a ghost — nobody can tell at 55 % opacity).
+const MERGED = new Map();
+const _inv = new THREE.Matrix4(), _mm = new THREE.Matrix4(), _cc = new THREE.Color();
+function mergedGhost(src, key, tint) {
+    let geo = MERGED.get(key);
+    if (!geo) {
+        src.updateMatrixWorld(true);
+        _inv.copy(src.matrixWorld).invert();
+        const list = [];
+        src.traverse(o => {
+            if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
+            const m = o.material;
+            if (!m || Array.isArray(m) || m.map || !m.color) return;
+            list.push(bakeGeometry(o.geometry, _mm.multiplyMatrices(_inv, o.matrixWorld), _cc.copy(m.color)));
+        });
+        geo = list.length ? mergeGeometries(list, false) : null;
+        for (const g of list) g.dispose();
+        if (!geo) return null;
+        geo.computeBoundingSphere();
+        MERGED.set(key, geo);
+    }
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 0.55, depthWrite: true });
+    mat.emissive = new THREE.Color(tint); mat.emissiveIntensity = 0.22;
+    mat.userData.baseOpacity = 0.55;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = false; mesh.receiveShadow = false; mesh.renderOrder = 2;
+    return { mesh, mats: [mat] };
 }
 
 function ghostify(obj, tint) {
@@ -68,11 +100,18 @@ function buildGhost(p) {
     } else if (p.vk === "cop") body = cloneWithColors(models.cop);
     else if (p.vk === "borrowed") body = cloneWithColors(models[BORROWED[(p.ct || 0) % BORROWED.length]], { Paint: p.co || "#E53935" });
     else body = cloneWithColors(models.lulu, { Body: sk.body, BodyLight: sk.light, BodyDark: sk.dark });
+    const merged = p.m === 1 ? null : mergedGhost(body, g.kind + (EXTRA[p.vk] && !models[EXTRA[p.vk]] ? ":stand-in" : ""), sk.body);
+    if (merged) {
+        body = merged.mesh;
+        g.mats = merged.mats;
+        g.wheels = [];
+    } else {
+        g.mats = ghostify(body, sk.body);
+        g.wheels = findNodes(body, "Wheel_");
+        for (const w of g.wheels) w.rotation.order = "YXZ";
+    }
     g.obj.add(body);
     g.body = body;
-    g.mats = ghostify(body, sk.body);
-    g.wheels = findNodes(body, "Wheel_");
-    for (const w of g.wheels) w.rotation.order = "YXZ";
     g.tag = nameSprite(p.name || "Rider", 2.6);
     g.tag.position.y = p.m === 1 ? 2.35 : EXTRA[p.vk] ? 3.9 : 2.75;
     g.obj.add(g.tag);
