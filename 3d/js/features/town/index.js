@@ -49,7 +49,7 @@ import { PK, setupParked, tickParked, clearParked } from "./parked.js";
 import { X, FIT, exitClear, planExit, clearExits, exitAt, rampPhase, SPAN, HALF as RAMP_HALF, onRampSpot, rampRoute, laneAt, crossRoads, X_FAR, ACC1 } from "./exit.js";
 import { propsOf, railsOf } from "./exitbuild.js";
 import { tendAmbient, convertAmbient, disposeAmbient, AMB } from "./ambient.js";
-import { TOWNS, townFor, INTERCHANGE, attachedDef } from "./towns/index.js";
+import { TOWNS, townFor, INTERCHANGE, ROUTE, routeAt, routeFrom, attachedDef } from "./towns/index.js";
 
 const NEEDS = [...new Set([...BUILD_MODELS, ...PEOPLE_MODELS, "cop"])];
 /** The models a town needs: Lakewood's set, or the town's own list (def.models). */
@@ -183,6 +183,13 @@ function placeAt(def, exitS, k, two = true) {
     const rot = P.h - Math.PI / 2 - def.attach.dir;
     const [fx, fz] = A.approach.from, co = Math.cos(rot), si = Math.sin(rot);
     return { def: A, at: { x: P.x - (fx * co + fz * si), z: P.z - (-fx * si + fz * co), rot }, k, exitS, cu: c.u, d0 };
+}
+/** Which branch of the exit at exitS leads to def (ci/exits2: every exit is one town's — branch 0; a debug two-town
+ *  interchange still has the second town on the outer branch). */
+function branchK(def, exitS) {
+    const e = X.exits.find(e => Math.abs(e.s - exitS) < 1);
+    const b = e && e.branches.find(b => b.town === def);
+    return b ? b.k : 0;
 }
 /** A standing town's whole-town meshes (asphalt, sidewalks, paint, the sign atlas) and the rest of its root: not drawn
  *  when the camera is far off (> 900 m) — nor its ground when she's inside ANOTHER town and it's more than 60 m off
@@ -367,7 +374,7 @@ function enterTown(e = null, opts = {}) {
     // (opts.exitS: the same placement, built now), or the stand-alone town at its own far origin (tests / debug)
     let en = opts.entry || null;
     if (!en && opts.exitS != null && opts.attach !== false && base.attach) {
-        const k = Math.max(0, INTERCHANGE.towns.indexOf(base));
+        const k = branchK(base, opts.exitS);
         en = entryOf(opts.exitS, k);
         if (!en) {
             const P = placeAt(base, opts.exitS, k);
@@ -705,6 +712,19 @@ function eligible() {
     if (partyTowns()) return !G.tutorial;
     return G.mode === "cruise" && ctx.enabled("town") && !G.tutorial && !(ctx.party && ctx.party.active);
 }
+/** Plan the route's exits from s0 to s1 (each once; an exit FIT slides past the next stop's start is skipped). */
+const PLAN_AHEAD = 8000;
+function planRoute(s0, s1) {
+    const last = X.exits[X.exits.length - 1];
+    let k = last && last.routeK != null ? last.routeK + 1 : routeFrom(s0);
+    for (let n = 0; n < 8; n++, k++) {
+        const r = routeAt(k);
+        if (r.s > s1) break;
+        if (last && r.s <= last.s) continue;
+        const e = planExit(r.s, [r.town]);
+        if (e) e.routeK = k;
+    }
+}
 hook("runStart", G => {
     if (S.active) leaveTown("reset");
     dropAllBuilt();
@@ -715,14 +735,10 @@ hook("runStart", G => {
     if (S.cue) { S.cue = ""; H.prompt(""); }
     S.bubbe.clear();
     if (eligible()) {
-        const def = INTERCHANGE.towns[0];
-        if (partyTowns()) {
-            // a party: the same interchanges for every friend (from the start of the road, not this run's start), all planned
-            // up to well past where this run starts so a late joiner's first chunks already have their ramps
-            let e = planExit(def.highway.first, INTERCHANGE.towns);
-            while (e && e.s < (G.startS || 0) + 1800) e = planExit(e.s + e.town.highway.every, INTERCHANGE.towns);
-        } else planExit((G.startS || 0) + def.highway.first, INTERCHANGE.towns);
-        load(def);
+        // the route (towns/index.js ROUTE): each town's own exit, at fixed metres — the same for every run and every friend.
+        // Plan from just behind where this run starts (an exit she starts beside still has its ramps) to two exits ahead.
+        planRoute(Math.max(0, (G.startS || 0) - 1500), (G.startS || 0) + PLAN_AHEAD);
+        for (const e of X.exits) if (e.s > (G.startS || 0) - 200) { load(e.town); break; }
     }
 }, 20);
 on("title", () => { if (S.active) leaveTown("reset"); dropAllBuilt(); S.trans = null; S.commit = null; setFade(0); clearExits(); cue(null); });
@@ -763,7 +779,7 @@ hook("update", (dt, P, controlsOn) => {
     }
     // plan the next exit well ahead (before its chunks are built), drop the ones far behind
     const last = X.exits[X.exits.length - 1];
-    if (eligible() && car.s > last.s - 1000) planExit(last.s + last.town.highway.every, INTERCHANGE.towns);
+    if (eligible() && car.s > last.s - PLAN_AHEAD) planRoute(last.s, car.s + PLAN_AHEAD);
     if (ctx.state !== "playing" || !controlsOn || S.trans) { if (S.cue) cue(null); return; }
     // committed to a branch: she drives on down it to the STOP sign at its T-junction (the gas station, the
     // welcome sign, the first houses) and the town fades in there — or as soon as she leaves the branch / dawdles
@@ -941,7 +957,7 @@ ctx.town = {
         const def = TOWNS[id];
         if (!def || !def.attach) return false;
         if (!S.ok[id]) { load(def); return false; }
-        const k = Math.max(0, INTERCHANGE.towns.indexOf(def));
+        const k = branchK(def, exitS);
         let en = entryOf(exitS, k);
         if (!en) {
             const P = placeAt(def, exitS, k);
@@ -953,7 +969,7 @@ ctx.town = {
         return en.ready;
     },
     /** Where an attached town would stand at the interchange at exitS (world {x, z, rot}) — a pure function, nothing built. */
-    placeOf(id, exitS) { const def = TOWNS[id], P = def && def.attach ? placeAt(def, exitS, Math.max(0, INTERCHANGE.towns.indexOf(def))) : null; return P ? Object.assign({}, P.at) : null; },
+    placeOf(id, exitS) { const def = TOWNS[id], P = def && def.attach ? placeAt(def, exitS, branchK(def, exitS)) : null; return P ? Object.assign({}, P.at) : null; },
     /** A named spot from the build, in WORLD coords (pizza, hall, chair, yeshiva, a `uses` landmark…): {x, z, rot, ux, uz, nx, nz} | null. */
     spot(name) {
         const p = S.active && S.T && S.T.spots[name];
@@ -1008,10 +1024,10 @@ ctx.town = {
         S, C, LIFE, PL, X, PK, gossip, luluSay, crime,
         /** Start the ramp's transition now ("leave" from inside a town; "enter" needs an exit `e`): tests. */
         trans: (kind, e = null) => { beginTrans(kind, e); return !!S.trans; },
-        /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): the full interchange
-         *  (every town), or a one-town exit with its own signs when `id` names a town. */
-        exitAhead(ahead = 320, id = null) {
-            const w = ctx.world, towns = id ? [TOWNS[id]] : INTERCHANGE.towns;
+        /** Plan an exit `ahead` metres in front of her NOW (rebuilds the chunks it touches): one town's own exit (`id`,
+         *  Lakewood by default — every exit is one town's since ci/exits2), or the old shared interchange with id "both". */
+        exitAhead(ahead = 320, id = "lakewood") {
+            const w = ctx.world, towns = id === "both" ? INTERCHANGE.towns : [TOWNS[id || "lakewood"]];
             // (the nearest spot to `ahead` where the attached towns fit — either way — so a test isn't sent kilometres on)
             let s0 = ctx.car.s + ahead;
             for (let k = 0; k < 80; k++) {
@@ -1056,7 +1072,7 @@ ctx.town = {
         /** Attached towns: finish every build now (tests), where a town would stand at exit s on branch k, its footprint, the approach. */
         buildNow: () => { for (let i = 0; i < 20 && S.built.some(b => !b.ready); i++) advanceBuilds(Infinity); return S.built.every(b => b.ready); },
         placeAt: (id, exitS, k) => { const P = placeAt(TOWNS[id], exitS, k); return P ? { at: P.at, approach: P.def.approach, box: boxOf(P.def), cu: P.cu, d0: P.d0 } : null; },
-        fits: (s) => FIT.fits(s, INTERCHANGE.towns),
+        fits: (s, id = null) => FIT.fits(s, id ? [TOWNS[id]] : INTERCHANGE.towns),
         /** A local point of the town she's in (or the standing town `id`) → world. */
         world(lx, lz, id = null) { const en = id ? S.built.filter(b => b.def.id === id).sort((p, q) => Math.abs(p.exitS - hwS()) - Math.abs(q.exitS - hwS()))[0] : null; if (en) { const co = Math.cos(en.at.rot), si = Math.sin(en.at.rot); return { x: en.at.x + lx * co + lz * si, z: en.at.z - lx * si + lz * co }; } return toWorld(lx, lz, {}); },
     },

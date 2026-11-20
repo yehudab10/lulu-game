@@ -90,8 +90,9 @@ function clearOfPlaces(s, towns = null, once = false) {
     let busy = [];
     try { if (P && P.list && P.at) for (const p of P.list()) busy = busy.concat(P.at(p.id) || []); } catch (e) { busy = []; }
     const spans = () => { try { return ctx.exits && ctx.exits.spans ? ctx.exits.spans() : []; } catch (e) { return []; } };
-    // (a 🎉 party plans from fixed data only — the places — so every friend's exits land on the same metre)
-    const party = !!(ctx.party && ctx.party.active);
+    // (fixed data only — the places + the town's fit beside the road — so every run and every friend's screen has the exits
+    //  on the same metres: rest areas, set pieces and the rest plan around the exits, never the other way — ci/exits2)
+    const party = true;
     for (let k = 0; k < 300; k++) {
         const a = s + SPAN.a, b = s + SPAN.b;
         const clash = busy.some(x => x > s - 760 && x < s + ACC1 + 80) ||

@@ -1,7 +1,7 @@
 // features/town/towns — every town you can turn into. Each is plain data (see lakewood.js,
 // midwood.js); the engine (plan / build / cars / life / rail / landmarks) and the highway exits
-// read it. Add a town: write towns/<id>.js (+ its lines), import it here, add it to INTERCHANGE
-// (Cruise's interchanges offer every town listed there, one ramp each after the split), and (if it
+// read it. Add a town: write towns/<id>.js (+ its lines), import it here, give it a stop on the ROUTE (its own
+// interchange — see routeAt), and (if it
 // needs new block uses or props) teach build.js's layoutFace / the asset modules about them.
 import lakewood from "./lakewood.js";
 import midwood from "./midwood.js";
@@ -27,6 +27,21 @@ export const INTERCHANGE = {
         split: ["↖ {no0} {label0}", "↗ {no1} {label1}"],
     },
 };
+/**
+ * The road's geography (ci/exits2, roadmap 13 — the owner: "Brooklyn and Lakewood shouldn't share the same exit"): every
+ * town has its OWN interchange, in this order along the highway, the pattern repeating every `period` m on an endless
+ * drive. Pure data: the k-th exit is at `routeAt(k).s` (then slid a little by exit.js FIT until its town fits beside the
+ * road — the highway's shape is fixed, so the same metres on every run and on every friend's screen). Home (Lulu's house,
+ * ci/hometown) is in Midwood: its exit is the first one.
+ */
+export const ROUTE = { period: 7200, stops: [{ town: midwood, at: 1500 }, { town: lakewood, at: 5100 }] };
+export function routeAt(k) {
+    const n = ROUTE.stops.length, st = ROUTE.stops[((k % n) + n) % n];
+    return { k, town: st.town, s: st.at + Math.floor(k / n) * ROUTE.period };
+}
+/** The first route index whose exit is at or past s. */
+export function routeFrom(s) { let k = Math.max(0, Math.floor((s - ROUTE.stops[0].at) / ROUTE.period) * ROUTE.stops.length); while (routeAt(k).s < s) k++; return k; }
+
 /** Fill a sign line for a set of towns: {no} → "91 · 9", {label} → "LAKEWOOD · BROOKLYN", {no1} → the second town's… */
 export function fillLine(line, towns) {
     return line.replace(/\{(no|label|short)(\d?)\}/g, (_, k, i) => i !== "" ? (towns[+i] ? towns[+i].highway[k] : "") : towns.map(t => t.highway[k]).join(" · "));
