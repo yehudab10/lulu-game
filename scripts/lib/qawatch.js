@@ -105,6 +105,7 @@ const SRC = String.raw`
       // (heights as the game's camera clip sees them: a house 7.5 m, anything else solid 4.5 m, low things their own)
       const low = { bench: 0.55, chair: 0.5, rail: 0.8, car: 0.95 }, top = c.kind === "car" && c.r > 1.1 ? 4.5 : (low[c.kind] != null ? low[c.kind] : c.kind === "house" ? 7.5 : 4.5);
       if (y > top) continue;
+      if (c.kind === "house" && ctx.town && ctx.town.active) continue;     // (a town block's ring stands in front of its houses: the block rects below are the wall)
       const dx = x - c.x, dz = z - c.z;
       if (dx * dx + dz * dz < (c.r - pad) * (c.r - pad)) return "circle:" + (c.kind || "?") + "@" + c.x.toFixed(1) + "," + c.z.toFixed(1) + " r" + c.r.toFixed(1);
     }

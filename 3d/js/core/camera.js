@@ -150,7 +150,7 @@ export const cam = {
         if (clip) {
             const lim = clip(FREE.tgt, -fx * cp, sp, -fz * cp, D);
             if (snapped || fresh || lim < FREE.clipD) FREE.clipD = lim;
-            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 2.5) + dt * 0.5);
+            else FREE.clipD = Math.min(lim, FREE.clipD + (D - FREE.clipD) * Math.min(1, dt * 4) + dt * 1.5);
             D = Math.min(D, FREE.clipD);
         } else FREE.clipD = 99;
         // (pressed right up against a wall: rather than sit in it, the camera rises over her head and looks down)
