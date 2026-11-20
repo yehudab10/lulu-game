@@ -42,6 +42,8 @@ export const home = {
     deco: {}, decoFor: null,
     camPos: new THREE.Vector3(), camLook: new THREE.Vector3(), camSnap: true,
     titleT: 0,
+    site: null,        // "town" (the family house on its Midwood lot) | "highway" (the old cul-de-sac, until the town has a lot)
+    town: null, lotSpot: null, exitS: null, pendingTown: null,
 };
 
 // ── building the street (once, at boot) ─────────────────────────────────
@@ -96,11 +98,77 @@ function mergedDriveways(list) {
     return m;
 }
 
+/** The house, its anchors, Dina / Lulu / Ima — the part of home that goes wherever the lot is. `lot`: the house's origin
+ *  { x, z, rot } (rot: rotation.y — the model's front, +Z, faces the street). → the house. */
+function buildHouse(g, lot) {
+    const house = cloneWithColors(models.world_home);
+    house.position.set(lot.x, 0, lot.z);
+    house.rotation.y = lot.rot;
+    g.add(house);
+    house.updateMatrixWorld(true);
+    const A = {};
+    for (const n of ["park", "dina", "window", "table", "lulu"]) {
+        const node = findNodes(house, "Anchor_" + n)[0];
+        A[n] = node ? node.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(lot.x, 0, lot.z);
+        if (node) A[n + "Node"] = node;
+    }
+    home.anchors = A;
+    home.house = house;
+    home.deco = {};
+    for (const k of ["sukkah", "chanukah"]) {
+        const d = findNodes(house, "Deco_" + k)[0];
+        if (d) { d.visible = false; home.deco[k] = d; }
+    }
+    // the parked pose: in front of the garage, NOSE OUT (backed in) — a run starts with her driving straight off
+    home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y), s: 0, d: 0 };
+    parkRoad();
+    // the front door (Ima's spot, on the porch deck) and the bottom of the porch steps (where a run starts)
+    house.localToWorld(A.door = new THREE.Vector3(0.2, 0.4, 5.25));
+    house.localToWorld(A.steps = new THREE.Vector3(0.6, 0, 7.75));
+    home.hp = { x: lot.x, z: lot.z };
+    // people (Dina + Lulu are preloaded by core)
+    try {
+        const dina = spawnPerson("dinaPerson");
+        dina.obj.position.copy(A.dina);
+        dina.obj.rotation.y = house.rotation.y;
+        g.add(dina.obj);
+        home.people.dina = dina;
+        // how tall she is above her Body pivot (for the Purim hat)
+        dina.obj.updateMatrixWorld(true);
+        const body = findNodes(dina.obj, "Body")[0];
+        const top = new THREE.Box3().setFromObject(dina.obj).max.y;
+        home.dinaHat = { y: body ? top - body.getWorldPosition(v1).y : top - A.dina.y };
+    } catch (e) { console.warn("[world] dina", e); }
+    home.people.lulu = null; home.luluSig = null;
+    makeLulu();
+    // Ima in the doorway (only for a run's start: she sees Lulu off)
+    ensureModels(["imaPerson"]).then(() => {
+        if (home.group !== g) return;
+        const p = spawnPerson("imaPerson");
+        p.obj.position.copy(A.door);
+        p.obj.rotation.y = house.rotation.y;
+        p.obj.visible = false;
+        g.add(p.obj);
+        home.people.ima = p;
+    }).catch(() => {});
+    return house;
+}
+/** The parked pose in the road model she's on now (the town's streets inside Midwood, the highway outside). */
+export function parkRoad() {
+    const P = home.park;
+    if (!P || !ctx.world || !ctx.world.road) return P;
+    const n = ctx.world.road.nearest(P.x, P.z, ctx.car ? ctx.car.s : 0, {});
+    P.s = n.s; P.d = n.d;
+    return P;
+}
+
+/** THE HIGHWAY SITE (the old cul-de-sac at the start of the road): only while the town engine has no home lot. */
 function buildStreet() {
     const world = ctx.world, road = world.road;
     const g = new THREE.Group();
     g.name = "WorldHome";
     const M = mats(), M0 = worldMaterials();
+    home.site = "highway";
 
     // the cul-de-sac: an asphalt bulb + curb ring + a grassy island with a tree
     const bulb = new THREE.Mesh(new THREE.CircleGeometry(CUL.r, 40), M.asphalt);
@@ -118,60 +186,27 @@ function buildStreet() {
 
     // Lulu's house
     const hp = roadPt(S_HOME, D_HOME), h = headingAt(S_HOME);
-    const house = cloneWithColors(models.world_home);
-    house.position.set(hp.x, 0, hp.z);
-    house.rotation.y = facingRoad(h, 1);
-    g.add(house);
-    house.updateMatrixWorld(true);
-    const A = {};
-    for (const n of ["park", "dina", "window", "table", "lulu"]) {
-        const node = findNodes(house, "Anchor_" + n)[0];
-        A[n] = node ? node.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(hp.x, 0, hp.z);
-        if (node) A[n + "Node"] = node;
-    }
-    home.anchors = A;
-    home.house = house;
-    for (const k of ["sukkah", "chanukah"]) {
-        const d = findNodes(house, "Deco_" + k)[0];
-        if (d) { d.visible = false; home.deco[k] = d; }
-    }
-    // the parked pose: in front of the garage, NOSE OUT (backed in) — a run starts with her driving straight off
+    ctx.scene.add(g);
+    home.group = g;
+    const house = buildHouse(g, { x: hp.x, z: hp.z, rot: facingRoad(h, 1) });
+    const A = home.anchors;
     const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
-    home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y), s: near.s, d: near.d };
-    // the front door (Ima's spot, on the porch deck) and the bottom of the porch steps (where a run starts)
-    house.localToWorld(A.door = new THREE.Vector3(0.2, 0.4, 5.25));
-    house.localToWorld(A.steps = new THREE.Vector3(0.6, 0, 7.75));
+    home.park.s = near.s; home.park.d = near.d;
     // the driveway is asphalt for the car (no grass drag pulling out)
     const dS = near.s, dD = near.d;
-    paved.push((s, d) => (s > dS - 2.2 && s < dS + 2.2 && d > SHOULDER - 0.2 && d < dD + 3.4) ? 2 : 0);
+    paved.push((s, d) => (home.site === "highway" && s > dS - 2.2 && s < dS + 2.2 && d > SHOULDER - 0.2 && d < dD + 3.4) ? 2 : 0);
     // the neighbours: across the street (Mr. Pinsky's) and next door
     home.neighbours = addNeighbours(g, [[S_HOME - 2, -1, "#DCEDC8", "#455A8C"], [S_HOME + 36, 1, "#E3F2FD", "#8D6E63"], [S_HOME + 40, -1, "#FFF9C4", "#C0504D"]]);
     // every driveway (ours up to the garage + the neighbours') in one mesh
     g.add(mergedDriveways([[near.s - 1.9, near.s + 1.9, SHOULDER, near.d + 3.6]].concat(home.neighbours.map(n =>
         [n.s + 4.5, n.s + 7.5, n.side > 0 ? SHOULDER : -19, n.side > 0 ? 19 : -SHOULDER]))));
 
-    ctx.scene.add(g);
-    home.group = g;
-    home.hp = { x: hp.x, z: hp.z };
-
     // keep random trees off the lots (both sides), from the cul-de-sac to the next-door house
     world.reserve(-30, S_HOME + 52, 0, 8.9, 42);
 
-    // people (Dina + Lulu are preloaded by core; Mr. Pinsky is lazy)
-    try {
-        const dina = spawnPerson("dinaPerson");
-        dina.obj.position.copy(A.dina);
-        dina.obj.rotation.y = house.rotation.y;
-        g.add(dina.obj);
-        home.people.dina = dina;
-        // how tall she is above her Body pivot (for the Purim hat)
-        dina.obj.updateMatrixWorld(true);
-        const body = findNodes(dina.obj, "Body")[0];
-        const top = new THREE.Box3().setFromObject(dina.obj).max.y;
-        home.dinaHat = { y: body ? top - body.getWorldPosition(v1).y : top - A.dina.y };
-    } catch (e) { console.warn("[world] dina", e); }
-    makeLulu();
+    // Mr. Pinsky across the street (lazy)
     ensureModels(["npcMan"]).then(() => {
+        if (home.group !== g) return;
         const p = spawnPerson("npcMan", { colors: { Top: "#7CB342", Bottom: "#5D4037", Hair: "#9E9E9E" } });
         const pos = roadPt(S_HOME - 6, -14.5);
         p.obj.position.set(pos.x, 0, pos.z);
@@ -179,17 +214,9 @@ function buildStreet() {
         g.add(p.obj);
         home.people.pinsky = p;
     }).catch(() => {});
-    // Ima in the doorway (only for a run's start: she sees Lulu off)
-    ensureModels(["imaPerson"]).then(() => {
-        const p = spawnPerson("imaPerson");
-        p.obj.position.copy(A.door);
-        p.obj.rotation.y = house.rotation.y;
-        p.obj.visible = false;
-        g.add(p.obj);
-        home.people.ima = p;
-    }).catch(() => {});
     // the minivan that laps the cul-de-sac (journey's model, lazy)
     ensureModels(["journey_minivan"]).then(() => {
+        if (home.group !== g) return;
         const van = cloneWithColors(models.journey_minivan);
         van.visible = false;
         g.add(van);
@@ -200,6 +227,71 @@ function buildStreet() {
     home.ready = true;
 }
 
+/** THE TOWN SITE: the family house on its lot in Midwood (features/town: `uses.luluHome`, an empty lot the town
+ *  engine reserves — a house among houses on E 16th St). `spot`: the lot in world coords { x, z, nx, nz, ux, uz,
+ *  door, drive: { x, z, h }, w, d }. The house goes where its parked car sits just behind the kerb end of the drive. */
+function buildTownHome(spot, town) {
+    const g = new THREE.Group();
+    g.name = "WorldHome";
+    home.site = "town";
+    home.town = town;
+    home.lotSpot = spot;
+    ctx.scene.add(g);
+    home.group = g;
+    // the model's front (+Z) toward the street; place it so its park anchor lands 3.2 m in from the kerb end of the drive
+    const rot = Math.atan2(spot.nx, spot.nz);
+    const probe = cloneWithColors(models.world_home);
+    probe.rotation.y = rot; probe.updateMatrixWorld(true);
+    const pn = findNodes(probe, "Anchor_park")[0], pa = pn ? pn.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3();
+    const dr = spot.drive || { x: spot.x + spot.nx * (spot.d || 24) / 2, z: spot.z + spot.nz * (spot.d || 24) / 2 };
+    const want = { x: dr.x - spot.nx * 3.2, z: dr.z - spot.nz * 3.2 };
+    buildHouse(g, { x: want.x - pa.x, z: want.z - pa.z, rot });
+    // the driveway: a pale slab from the kerb to the garage door
+    const P = home.park, len = Math.hypot(dr.x - P.x, dr.z - P.z) + 3.6;
+    const dg = new THREE.PlaneGeometry(3.4, len);
+    dg.rotateX(-Math.PI / 2); dg.rotateY(rot);
+    const mid = { x: (dr.x + P.x) / 2 - spot.nx * 1.8 * 0.5, z: (dr.z + P.z) / 2 - spot.nz * 1.8 * 0.5 };
+    const drive = new THREE.Mesh(dg, mats().drive || (mats().drive = new THREE.MeshStandardMaterial({ color: "#B9B3A8", roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })));
+    drive.position.set(mid.x, 0.035, mid.z);
+    drive.receiveShadow = true;
+    g.add(drive);
+    home.neighbours = [];
+    home.van = null; home.vanPath = null; home.people.pinsky = null;
+    home.ready = true;
+}
+
+/** Where home should be now: the town engine's lot (features/town › ctx.town.home + spotOf), else the highway site. */
+export function wantedSite() {
+    const T = ctx.town, H = T && T.home;
+    if (!H || typeof T.spotOf !== "function") return { site: "highway" };
+    let sp = null;
+    try { sp = T.spotOf(H.town, "luluHome", H.exitS); } catch (e) { sp = null; }
+    return sp ? { site: "town", spot: sp, town: H.town, exitS: H.exitS } : { site: "pending", town: H.town, exitS: H.exitS };
+}
+/** Drop whatever is built (people, house, street) — before building home somewhere else. */
+function dropHome() {
+    const g = home.group;
+    if (!g) return;
+    g.removeFromParent();
+    home.group = null; home.house = null; home.ready = false;
+    home.people = {}; home.van = null; home.vanPath = null; home.neighbours = [];
+    home.decoFor = null; home.extras = []; home.flames = [];
+}
+/** (Re)build home where it should be: called at boot and every half second until the town's lot is known. → bool (moved) */
+export function relocate(force = false) {
+    const W = wantedSite();
+    if (W.site === "pending") { home.pendingTown = W; return false; }
+    home.pendingTown = null;
+    const same = home.ready && home.site === W.site && (W.site !== "town" || (home.lotSpot && Math.hypot(home.lotSpot.x - W.spot.x, home.lotSpot.z - W.spot.z) < 0.5));
+    if (same && !force) return false;
+    dropHome();
+    if (W.site === "town") buildTownHome(W.spot, W.town); else buildStreet();
+    home.exitS = W.exitS != null ? W.exitS : null;
+    home.decoFor = null;
+    applyHoliday();
+    emit("world:homeBuilt", { site: home.site, town: home.town || null });
+    return true;
+}
 /** Lulu on foot (her hairstyle + colour, like foot does). Rebuilt when they change. */
 function makeLulu() {
     const s2 = shared.get();
@@ -233,6 +325,10 @@ function vanLoop() {
 }
 
 // ── where things are ─────────────────────────────────────────────────────
+/** Within r m of the house (world distance: the highway site and a town lot alike). */
+export function nearHome(x, z, r = 90) { const h = home.hp; return !!(h && home.ready) && Math.hypot(x - h.x, z - h.z) < r; }
+/** How far the street's edge is from its centre line where home is (the highway's shoulder · a town street's kerb). */
+export const homeEdge = () => home.site === "town" ? 4.6 : SHOULDER;
 /** door = beside the car's driver's door (where she climbs out); idle = her spot at the bottom of the porch steps,
  *  chatting with Dina (where the title shows her and where a run starts). */
 export function luluSpots(out = {}) {
@@ -244,11 +340,37 @@ export function luluSpots(out = {}) {
 }
 const spots = {};
 
+/** In the town home is in (its district)? */
+export const inHomeTown = () => home.site === "town" && !!(ctx.town && ctx.town.active && ctx.town.id === home.town);
+/**
+ * Make home's town the district she's in (a day starts on her porch in Midwood): the town engine's quiet warp /
+ * enter at the driveway (features/town — ctx.town.warp / enter({ at, quiet, home })), or — before that lands — its
+ * plain enter({ town, exitS }) and the car moved into the driveway. → true when she's in home's town now.
+ */
+export function enterHomeTown() {
+    if (home.site !== "town") return true;
+    if (inHomeTown()) return true;
+    const T = ctx.town, P = home.park;
+    if (!T || !P) return false;
+    const at = { x: P.x, z: P.z, h: P.h };
+    const opts = { town: home.town, exitS: home.exitS, at, speed: 0, quiet: true, home: true };
+    try {
+        if (typeof T.warp === "function") T.warp(opts);
+        else {
+            if (T.active) T.leave("reset");
+            T.enter(opts);
+        }
+    } catch (e) { console.error("[world] home town", e); }
+    return inHomeTown();
+}
+
 /** Put the car in the driveway, Lulu beside it. */
 export function placeParked() {
     const car = ctx.car, P = home.park;
     car.place(P.x, P.z, P.h);
+    if (home.site === "town") parkRoad();
     car.s = P.s; car.d = P.d;
+    car.vx = car.vz = car.vF = 0;
     car.updateVisual(0, ctx.time, { steer: 0, throttle: 0, brake: 0, handbrake: false }, false);
     car.showDriver(false);
     home.phase = "parked";
@@ -434,7 +556,8 @@ function flameTick() {
 /** Hide the minivan outside the title; hide the whole street far from home. */
 export function streetVisibility() {
     if (!home.ready) return;
-    const far = Math.abs(ctx.car.s - S_HOME) > 900 && ctx.camera.position.distanceToSquared(v1.set(home.hp.x, 0, home.hp.z)) > 810000;
+    const far = ctx.camera.position.distanceToSquared(v1.set(home.hp.x, 0, home.hp.z)) > 810000
+        && (home.site !== "highway" || Math.abs(ctx.car.s - S_HOME) > 900);
     home.group.visible = !far;
     if (home.van && ctx.state !== "title") home.van.visible = false;
     if (home.people.ima && (far || ctx.state === "title")) home.people.ima.obj.visible = false;
@@ -447,6 +570,16 @@ export function titleShot(pos, look, t = ctx.time) {
     const sway = Math.sin(t * 0.07) * 2.5;
     const d = home.anchors.dina;
     look.set((P.x * 0.55 + d.x * 0.45), 1.5, (P.z * 0.55 + d.z * 0.45));
+    if (home.site === "town") {
+        // from up the street (the house's +X side), over the far lane: the same framing as the old cul-de-sac shot
+        const r = home.house.rotation.y, fx = Math.sin(r), fz = Math.cos(r), xx = Math.cos(r), xz = -Math.sin(r);
+        const sp = home.lotSpot, dr = sp && sp.drive ? sp.drive : P;
+        const out = (dr.x - P.x) * fx + (dr.z - P.z) * fz + (portrait ? 4 : 5.5);      // (out to the street's far lane)
+        const back = (portrait ? 24 : 17) + sway;
+        pos.set(P.x + xx * back + fx * out, portrait ? 9.5 + Math.sin(t * 0.05) : 4.1 + Math.sin(t * 0.06) * 0.4, P.z + xz * back + fz * out);
+        if (portrait) look.y = 0.4;
+        return { pos, look };
+    }
     // (from the cul-de-sac side, looking up the street: a run's start then pushes straight in behind Lulu)
     if (portrait) {
         const p = roadPt(P.s - 27 - sway, 3);
@@ -507,12 +640,20 @@ export function titleCamera(dt, camera) {
 
 // ── lifecycle ────────────────────────────────────────────────────────────
 on("boot", () => {
-    try { buildStreet(); } catch (e) { console.error("[world] home street", e); home.ready = false; return; }
-    applyHoliday();
+    try { relocate(true); } catch (e) { console.error("[world] home", e); home.ready = false; }
 });
+// (until the town engine has placed Midwood — prebuilt from boot — keep asking where the lot is)
+let relocT = 0;
+export function tendSite(dt) {
+    if (!home.pendingTown && home.site !== "highway") return;
+    if ((relocT -= dt) > 0) return;
+    relocT = 0.5;
+    if (ctx.state !== "title" && home.ready) return;          // (never mid-run: the next title moves it)
+    try { relocate(); } catch (e) { console.error("[world] home", e); }
+}
 // colliders: the houses + the island, in chunk 0 (like any roadside house)
 on("chunk:build", ({ chunk }) => {
-    if (chunk.k !== 0 || !home.ready) return;
+    if (chunk.k !== 0 || !home.ready || home.site !== "highway") return;
     const hp = home.hp, P = home.park;
     const fx = Math.sin(home.house.rotation.y), fz = Math.cos(home.house.rotation.y);   // the house's front (to the road)
     const rx = Math.cos(home.house.rotation.y), rz = -Math.sin(home.house.rotation.y);  // its +X (model)
@@ -534,7 +675,7 @@ export function onTitle(from) {
     const dist = Math.hypot(car.pos.x - P.x, car.pos.z - P.z);
     if (from === "loading" || !from) { placeParked(); return; }
     if (dist < 1.5 && home.phase === "parked") { car.showDriver(false); return; }
-    if (from === "worldDepart") { placeParked(); return; }
+    if (from === "worldDepart" || home.site !== "highway") { placeParked(); home.camSnap = true; return; }      // (in town: TODO a drive up E 16th)
     home.camSnap = true;          // she was somewhere else: cut to the street, then watch her drive up
     startArrival();
 }

@@ -379,6 +379,8 @@ hook("hud", dt => {
     if (BT.list.length) boothTick(dt);
 });
 on("state", () => { if (!SC.built) { buildSuitcase(); tuneDinaRange(); } suitcaseTick(); });
+// (home moved — features/world rebuilt it on its Midwood lot: the suitcase goes by the car again)
+on("world:homeBuilt", () => { if (SC.obj) SC.obj.removeFromParent(); SC.obj = null; SC.built = false; });
 
 // ── the service ──────────────────────────────────────────────────────────
 ctx.onegame = {

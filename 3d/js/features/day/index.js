@@ -151,7 +151,18 @@ function target() {
     const todo = DAY.list.filter(id => !isDone(id)).map(byId);
     if (!todo.length) {
         const P = ctx.places && ctx.places.home && ctx.places.home.park;
-        return P ? { kind: "home", s: P.s, x: P.x, z: P.z, label: "🏠 Home for dinner!" } : null;
+        if (!P) return null;
+        // home is a house on a town street (roadmap 14: Midwood): in that town, the beam over the driveway; on the
+        // highway, the town's exit; in another town, back out to the highway first
+        const HM = ctx.home, T = ctx.town;
+        if (HM && HM.site === "town") {
+            const name = (T && T.towns && T.towns[HM.town] && T.towns[HM.town].name) || "home";
+            if (T && T.active && T.id === HM.town) return { kind: "home", x: P.x, z: P.z, far: Math.hypot(P.x - ctx.car.pos.x, P.z - ctx.car.pos.z), label: "🏠 Home for dinner!" };
+            if (T && T.active) return { kind: "home", label: `🏠 Home for dinner! · back to the highway → ${name}` };
+            const ex = T && T.home;
+            return { kind: "home", s: ex ? ex.exitS : null, label: `🏠 Home for dinner! · the ${name} exit` };
+        }
+        return { kind: "home", s: P.s, x: P.x, z: P.z, label: "🏠 Home for dinner!" };
     }
     const place = todo.find(it => it.kind === "place");
     if (place) {
@@ -166,8 +177,12 @@ function chipTick() {
     if (!S.active || !def || !def.hud) { clearChip(); return; }
     const t = target();
     const n = DAY.list.filter(isDone).length;
-    const far = t && t.s != null ? Math.abs(t.s - ctx.car.s) : null;
-    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${t.s < ctx.car.s ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
+    // (in a town she's on its streets, not the highway: a highway place is just "out on the highway" from there)
+    const inTown = !!(ctx.town && ctx.town.active);
+    const far = t && t.far != null ? t.far : t && t.s != null && !inTown ? Math.abs(t.s - ctx.car.s) : null;
+    const back = t && t.far == null && t.s != null && t.s < ctx.car.s;
+    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!")
+        : t && t.s != null && inTown ? " · out on the highway" : "";
     const txt = `📝 Ima's list <span class="ok">${n}/${DAY.list.length}</span><small>${t ? t.label + dist : ""}</small>`;
     if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = ""; }
     if (txt !== S.chipText) { S.chipText = txt; S.chip.innerHTML = txt; }

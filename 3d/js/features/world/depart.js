@@ -19,8 +19,7 @@ import { save3d, store, saveSoon } from "../../core/save.js";
 import { input, glyph, rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
-import { home, luluSpots, placeParked, peopleTick, titleShot, S_HOME } from "./home.js";
-import { SHOULDER } from "../../world.js";
+import { home, luluSpots, placeParked, peopleTick, titleShot, nearHome, homeEdge, enterHomeTown } from "./home.js";
 
 const HS = store("worldHome", { starts: 0, drives: 0 });
 const D = { live: false, t: 0, idleT: 0, said: 0, moved: false, first: false, marker: null, imaLine: "", left: false };
@@ -51,9 +50,14 @@ export function wantsDeparture(G, opts) {
 
 hook("runStart", (G, opts) => {
     if (!wantsDeparture(G, opts)) return;
+    // home is a house on a Midwood street (roadmap 14): the day starts IN that town — no town, no home start (the plain countdown)
+    if (!enterHomeTown()) return;
     placeParked();                       // the car in the driveway, Lulu by the porch, whatever the title was doing
     G.introStart = () => startAtHome(opts);
 }, -100);
+
+// (the pull-out + the dinner beat play IN a town too — any other state sends her back to the highway first)
+on("boot", () => { if (ctx.town && ctx.town.allowState) { ctx.town.allowState("worldPullOut"); ctx.town.allowState("worldHomeBeat"); } });
 
 // ── the marker over the car: a small pink arrow, bobbing (a nudge, not a tutorial) ──
 function marker() {
@@ -111,7 +115,7 @@ function startAtHome(opts = {}) {
         home: {
             hazards: false,
             hint, hintT: D.first ? 14 : 6,
-            quiet: F => F.s < S_HOME + 90 && F.s > -20,          // no random townsfolk / busking / "get in a car" nudges on her own street
+            quiet: () => !!ctx.foot.pos && nearHome(ctx.foot.pos.x, ctx.foot.pos.z, 90),     // no random townsfolk / busking / "get in a car" nudges on her own street
             onOwnCar: drove, driveState: "worldPullOut",
         },
     });
@@ -161,7 +165,7 @@ hook("hud", dt => {
         if (ctx.state === "playing") ima.face(ctx.car.pos.x, ctx.car.pos.z, dt, 3);
     }
     if (!D.live || ctx.state !== "footRun") {
-        if (ctx.state === "playing" && home.group.visible && Math.abs(ctx.car.s - S_HOME) < 140) peopleTick(dt, "go");
+        if (ctx.state === "playing" && home.group && home.group.visible && nearHome(ctx.car.pos.x, ctx.car.pos.z, 140)) peopleTick(dt, "go");
         return;
     }
     D.t += dt;
@@ -172,7 +176,7 @@ hook("hud", dt => {
     const P = home.park, m = marker();
     const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
     const dist = Math.hypot((car ? car.x : P.x) - lulu.x, (car ? car.z : P.z) - lulu.z);
-    if (dist > 60 || Math.abs(ctx.car.s - S_HOME) > 120) D.left = true;      // she wandered off: no more nudging
+    if (dist > 60 || !nearHome(lulu.x, lulu.z, 120)) D.left = true;      // she wandered off: no more nudging
     m.visible = !D.left && dist > 2.6;
     if (m.visible) m.position.set(car ? car.x : P.x, 2.3 + Math.sin(ctx.time * 3.2) * 0.18, car ? car.z : P.z), m.rotation.y += dt * 1.6;
     // moved yet? if she just stands there a while, Ima says something (once)
@@ -193,8 +197,9 @@ registerState("worldPullOut", {
         updateDriving(dt, P, true);
         const car = ctx.car, rh = ctx.world.road.at(car.s).h;
         const lined = Math.abs(wrapAngle(car.h - rh)) < 0.7;
-        const onRoad = Math.abs(car.d) < SHOULDER + 0.6;
-        if ((onRoad && lined) || Math.abs(car.d) < SHOULDER - 1.5 || Math.abs(car.s - home.park.s) > 30 || ctx.stateT > 15) {
+        const edge = homeEdge(), P0 = home.park, gone = Math.hypot(car.pos.x - P0.x, car.pos.z - P0.z);
+        const onRoad = Math.abs(car.d) < edge + 0.6;
+        if ((onRoad && lined) || Math.abs(car.d) < edge - 1.5 || gone > 30 || ctx.stateT > 15) {
             const st = ctx.cam && ctx.cam.state;
             if (st) { st.yaw = PO.yaw; st.pos.copy(ctx.camera.position); st.snap = false; }
             // (lined up along the road, the chase cam is where this one already is; at an angle, glide over)
@@ -209,7 +214,7 @@ registerState("worldPullOut", {
         PO.yaw += wrapAngle((al < 1.2 ? car.h : rh) - PO.yaw) * Math.min(1, dt * (al < 1.2 ? 3 : 6));
         const portrait = cam.aspect < 1, dist = 7.2 * (portrait ? 1.25 : 1), up = 3.4 * (portrait ? 1.2 : 1);
         const rx = -Math.cos(rh), rz = Math.sin(rh);            // (toward the road from her lawn: −d)
-        const side = Math.max(0, Math.min(3, Math.abs(car.d) - SHOULDER)) * 0.9;
+        const side = Math.max(0, Math.min(3, Math.abs(car.d) - homeEdge())) * 0.9;
         PO.v.set(car.pos.x - Math.sin(PO.yaw) * dist - rx * side * Math.sign(car.d || 1), up, car.pos.z - Math.cos(PO.yaw) * dist - rz * side * Math.sign(car.d || 1));
         PO.w.set(car.pos.x + Math.sin(PO.yaw) * 4, 1.2, car.pos.z + Math.cos(PO.yaw) * 4);
         if (PO.snap) { PO.pos.copy(PO.v); PO.look.copy(PO.w); PO.snap = false; }
