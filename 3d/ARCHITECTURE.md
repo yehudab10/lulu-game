@@ -258,7 +258,11 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   the highway's chunks stay built but hidden and stop streaming, and `traffic.road` follows
   `world.road`. `world.highway` is always the highway's Road; `setDistrict(null)` puts everything back.
   So code that asks `ctx.world.road` keeps working in a town; code that needs highway-only
-  behaviour checks `ctx.town && ctx.town.active`.
+  behaviour checks `ctx.town && ctx.town.active`. `keepHighway: true` (a town ATTACHED to the highway, see Towns): the
+  highway's chunks stay drawn (culled to the fog like on the road — `world.cullChunks` — and hidden behind the town's
+  blocks: `district.see(chunk)`), and with `highwayS` the highway keeps streaming round that s, every chunk in slices (a
+  warp into an attached town lands with nothing built there; `chunk:build` listeners that skip districts must let a
+  `keepHighway` one through — exitbuild / exits do).
 * `world.addSign({s, d, lines:[...], bg, fg, w, h})` before that chunk is built (in `boot` or ≥700 m ahead).
 * `world.biomeAt = s => ({ ...world.defaultBiome(), trees: {...}, density, houses, houseModel, walls, roofs, poles, coins, ground: "#hex" })`.
 * `registerScenery("palm", { model, collide, scale: [a, b], tint: [matNames], colors: {Mat: "#hex"} })` then use it in a biome's trees mix.
@@ -403,12 +407,17 @@ The owner's rule: the game should feel like ONE continuous place — nothing pop
   driving scene (`models.js` `warmShaders` → `renderer.compileAsync(model, camera, scene)`), instead of mid-frame the
   first time it is drawn. (A set with its own lights still compiles on first show; only the party lobby warms the
   whole road — `party` `warmShaders`.)
+- **One world — the towns stand at the interchange:** she drives down the ramp, through the T and into Lakewood / Midwood
+  with no fade, no frozen frame, no jump, and back out the same way, on foot too (Towns › Attached). A town is built in
+  slices (`buildTownSteps`, ~1000+ steps of 1–3 ms) from 900 m out, so the town appears without a hitch and is in view from
+  the ramp. Only a warp into a town (Free Roam) or a town whose download is late still dissolves / fades.
 - **A run starts in the world, and never ends in a card:** from the title the camera glides down to Lulu on foot at
   her porch (world › home street) and a knock-out puts her back on her feet beside her car (Run API › the knock-out) —
   the world keeps running through both. Test: `scripts/tests3d/home.js`.
 Test: `scripts/tests3d/movement.js` + `movetouch.js` (the jump, low obstacles, the free camera + the car's held look, the
 button map per device, the phone layout); `scripts/tests3d/flow.js` (the picture moves ≤ 1.5 m between two frames across a car ↔ foot change; the hop-in;
-a teleport still cuts; leaving a town is a soft cut with no black).
+a teleport still cuts; leaving a stand-alone town is a soft cut with no black; down the ramp into an attached Lakewood and
+back out: ≤ 1.5 m a frame, no fade, both towns built before the ramp in small slices, Lakewood in view before the STOP sign).
 
 ## Audio (`js/audio.js`)
 `sfxCoin sfxCloseCall sfxBoost sfxCrash sfxBump sfxHorn(on) sfxSiren sfxFanfare sfxSelect sfxMove`,
@@ -518,7 +527,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | emotes 👋 (party/emotes.js) | **personal**, friends SEE them | 8 gestures + fixed phrases (no free text). My `d.x.e = [slot, seq]` while one plays → friends' walker poses (core/people.js) / their car's arm + bubble + emoji. Combos (two gestures at each other ≤ 14 m, ≤ 3 s) and greetings (passing ≤ 9 m, 1 per friend per 90 s) are worked out on each screen from what it saw — nothing extra on the wire, cosmetic only, no coins. Never moves / blocks / holds anyone |
 | native (ads) | **off** | `ads` is in party's OFF set and `ads.js` also checks `ctx.party.active`: no interstitial, no 📺 rewarded button with friends (haptics stay — they're personal) |
 | exits 🅿️ | **seeded** rest areas · personal visit | Planned from fixed data + the party seed only (never the reserved road): a 🏡 Road Trip gets one on the way to Bubbe's (s = 2350 + seeded 0–400, slid clear of the places), 🌍 Free Roam one after ~every other interchange (`h01("exits:rest", E) < 0.55` → at E + 1600, snug between that exit's ramp and the next one's mile sign); the road plan keeps its big things off them (plan.js `busyAt`). Pulling in, walking the lot, the pumps / Mendel's bays, food, souvenirs: personal; friends see presence "⛽ at the <name>". The town's interchanges are planned from s = 0 from fixed data only (the places' constant spots), so every friend's ramps land on the same metre. No town exits on a Road Trip (towns are Free Roam's: a zone change needs the activity's frame / show / pose hooks, which only 🌍 Free Roam has) |
-| town 🏘️ | **on** in 🌍 Free Roam towns | Seeded block-loop traffic (openworld), seeded townsfolk / geese / e-bike starts; stop signs, speed bumps, one-way streets, gossip, the 🗞️ Kvetch app, geese charging HER, the e-bikes' rides: personal. Loop minivans / the school bus can be claimed + jacked (above). The kerbside parked cars are the same on every screen (built from the town data); shoving one (its alarm) and hotwiring one off the kerb are personal — it's gone only from her own kerb, friends see her drive off in it. Exits: the interchange (ramps, T-junctions, gas station) is built from the exit's s, so it's identical for everyone. |
+| town 🏘️ | **on** in 🌍 Free Roam towns | Attached towns stand where `placeAt(def, exitS, k)` puts them — a pure function of the exit's s (planned from fixed data) and the seeded highway, so every friend's Lakewood is on the same metre; a warp / late join into a friend's town enters that same placement (`enter({town, exitS})`), built at once behind the dissolve. Seeded block-loop traffic (openworld), seeded townsfolk / geese / e-bike starts; stop signs, speed bumps, one-way streets, gossip, the 🗞️ Kvetch app, geese charging HER, the e-bikes' rides: personal. Loop minivans / the school bus can be claimed + jacked (above). The kerbside parked cars are the same on every screen (built from the town data); shoving one (its alarm) and hotwiring one off the kerb are personal — it's gone only from her own kerb, friends see her drive off in it. Exits: the interchange (ramps, T-junctions, gas station) is built from the exit's s, so it's identical for everyone. |
 | heist 🏦 | **personal** bits on · robberies + her own heist **off** | ON in a 🏡 Road Trip / 🌍 Free Roam run (never while a party game — race / dash / tag / a Free Roam game she's in — is on: `heist/common.js` `partyFree()`), gated per kind by `live(what)`: the cops' 🕸️ stun net + spike strip in a chase of HER OWN (law is personal; her car only, nothing touches the traffic), the 🛵 moped snatcher (a scene prop, never in the traffic; her wallet, capped + refundable) and the 🚗 thief at her parked car (foot's local stub, `footStub`). Friends see none of it (no presence needed: she's just stopped / on foot / in a chase, which presence already shows). **Still off:** robberies (`live("robbery")`) and Lulu's own heist (`live("job")`, the bank's door shut in a party — `bank.js door()`). A party version would need: robberies from the road plan (`ctx.party.road.claim("heist", …)` for the highway Quik-Mart + a seeded getaway route — a `partyLocal` car riding a gap in the shared traffic like streets' chop target, or a seeded loop car like openworld's in a town), the foil credited to whoever stops it first (a host-validated event, like openworld's `owb`), and a co-op heist as its own lobby activity (`addActivity`: one driver, friends as lookouts, the chase personal to the driver). Test: `partyheist` |
 | underworld 😈 | **pickpocket** on · the rest **off** | ON in a 🏡 Road Trip / 🌍 Free Roam run (no party game on — `underworld/common.js` `partyFree()`), gated per kind by `live(what)`: only the 🫳 pickpocket on foot (a scene prop; her own wallet, the take capped and always coming home; her rivals, the Shomrim who jog after him and his mother's text are all hers). Friends see nothing of it (she's just on foot). `why()` answers "party" while she drives and `spawn()` refuses a bad-guy car. **Still off:** the road-rager / gang car (a local car in the SHARED traffic, one screen only), Krupnik's cruiser + Velvel's shack (they reserve roadside space), the Fixer's jobs and the street's heat. A party version would need: the road-rager / gang car as `ctx.party.road` slots (seeded kind + s, a pure f(clock) tail behind the party's leader or a `partyLocal` car only HER screen draws, with friends seeing it as presence), Krupnik's / Velvel's pull-ins as seeded road-plan places (like hustle's payphones), the Fixer's jobs through hustle's party path (`partyLocal` props), heat kept personal, and the pickpocket as a personal foot prop. Test: `partyheist` (the pickpocket) |
 | seasons 🕎 | **shared** (the HOST's day) | Every player publishes its own day in `d.x.cal` (`{ f: a preview \| null, t: local "YYYY-MM-DDTHH:MM" }`, `seasons/party.js`); everyone dresses the world for the host's (a guest dresses nothing until it's known — no flicker from one holiday to another). Every placement is a hash of the place (road chunk index + world seed, town + house index), never Math.random, so the same house has the same menorah on every screen. The parade's march and the people of the day (lulav walkers, the dancers, Tashlich…) stand in the same places on every screen; their animation is each screen's own (not synced). The Purim music van is solo-only (it's a town driver; a party town's traffic is the party's seeded loops). The ✋ stall treat, Ima's note and Lulu's line are personal (the treat's coins capped per real day on each device). Test: `seasons` (two real pages: the host's Purim wins over the guest's own Chanukah) |
@@ -689,9 +698,34 @@ its STOP line (or 7 s after committing, or the moment she leaves the branch). Dr
 on-ramp (`onRampSpot`), heading down it at speed — she merges from the accel lane. Every lane is `paved` level 3
 (`laneAt(e, u, d)`): nothing stands on it. Planning slides an exit clear of pull-in places, rest areas (`ctx.exits.spans()`) and big reserved
 right-side stretches (the coast's ocean, a family's yard). `exitAhead(ahead, id)` (debug) plans the interchange, or a one-town
-exit with that town's own signs. Event `town:exit` {town, s, no} when she takes a branch. A town's models load only as her car
-nears its exit (the first town's), and every offered town's once she's in the decel lane (`def.models`, per town). The town is a
-district (see World) built when she takes the ramp and disposed when she leaves; everything about a
+exit with that town's own signs. Event `town:exit` {town, s, no} when she takes a branch. Every attachable town an interchange offers loads its models
+from 1.5 km out (`def.models`, per town).
+**Attached (one world):** a town with `attach` data (`towns/<id>.js` › `attach: { join, dir, streets, addStreets, woods,
+skyline, barricades, exits, dropSigns }`, applied by `towns/index.js` `attachedDef`) STANDS at each interchange, turned so
+its branch's cross road runs straight on into its first street — Lakewood straight on off the inner T (Route 9, the town
+ahead of the ramp), Midwood off the outer T by a new Avenue P to Ocean Pkwy's south corner (the town behind the ramp).
+`placeAt(def, exitS, k)` (index.js) is a pure function of the exit's s + the highway → `{x, z, rot}`: the same metre on every
+friend's screen. The plan has a frame: `PL.ORIGIN` + `PL.ROT` (a local heading h is world h + ROT; `toWorld` / `toLocal` /
+`wH` / `lH` / `dirWorld` in plan.js, and `ctx.town.plan.world(lx, lz)` / `.wh(h)` for other features — never add ORIGIN by
+hand). Its APPROACH (`PL.APPROACH`, plan.js) is the cross road itself from 6 m past the T to where the town's drawn street
+takes over: a street of the plan the build never draws and nothing in town uses (no nodes, parking, people, drivers;
+`hideSpot` calls it a lane). Planning (exit.js `FIT.fits`) slides an exit on in 50 m steps until both towns' footprints
+(`boxOf`) are ≥ 100 m from the highway's centre line 3 km back to 4 km on (a third of the spots fit; slides ≤ ~1.3 km). The
+cross roads are drawn STRAIGHT (exitbuild.js `crossStrip`, their houses off the same line — two lines of constant u fanned
+apart by metres on a bend). From 900 m out `tendAttached` builds the exit's towns in slices (`buildTownSteps` — a generator:
+a block face / a few parked cars / 6 atlas signs / 40k merged vertices a step, `Merger.buildSteps`; ~3 ms a frame; each
+step's plan swapped in by `withPlan`), culls the standing ones, drops them 600 m past. She's IN when she's 4 m past the line
+on the approach (or inside a footprint): `enterTown({entry, drove})` swaps the road model with her position, heading and
+speed untouched — the district keeps the highway drawn, the highway's plain traffic carries on down it as puppets
+(`data.hwPuppet`: its own s, which the TownRoad answers with the highway, gone 520 m off), the town's drivers start where the
+camera can't see them pop in (`randomSpot(…, unseen)`). She's OUT 2 m short of the line (or 20 m outside the footprint and
+25 m off the approach): `leaveTown("highway", {drove})` hands her to the highway's road where she stands (car.s and foot's
+F.s re-found from the exit — a town s as a hint would send the highway's search 500 km down the road); the town stays
+standing. On foot it's the same line (an always-on foot actor). Not attached: `ctx.town.enter()` with no exitS (tests /
+debug) builds the stand-alone town at its own far `origin`, and a branch whose town isn't built yet (a slow download) still
+fades in at the STOP sign. `ctx.town.attached` · `ctx.town.standing` ([{town, exitS, k, ready, at, steps, ms, worst, p95,
+p99}]) · events `town:built` {town, exitS, ms, steps, worst}, `town:enter` / `town:leave` carry `attached` / `drove`.
+The stand-alone town is a district (see World) built when she's put there and disposed when she leaves; everything about a
 town is DATA in `features/town/towns/<id>.js` (streets with names and extents, block uses, landmarks,
 jams, signs, people + lines, traffic mix, the entry and the exits) read by a generic engine
 (`plan.js` → streets / crossings / blocks / graph / TownRoad). While she's in town `ctx.enabled()` is

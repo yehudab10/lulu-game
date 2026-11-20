@@ -172,7 +172,8 @@ async function partyRun(t, guests) {
   t.check("Lakewood: an arcade cabinet (+ a notice board)", spots.some(s => s.kind === "arcade"), JSON.stringify(spots));
   const arc = spots.find(s => s.kind === "arcade") || spots[0];
   // the friend parks ~70 m away (not pulled anywhere by what follows)
-  const cl = await A.game(`(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"]; return { x: pl.ORIGIN.x + st.c + 1.75, z: pl.ORIGIN.z + 50, h: Math.PI }; })()`);
+  // (the town's own local → world: an attached town is turned to its interchange — ci/oneworld)
+  const cl = await A.game(`(() => { const pl = ctx.town.plan, st = pl.byName["Lake Dr"], w = pl.world(st.c + 1.75, 50, {}); return { x: w.x, z: w.z, h: pl.wh(Math.PI) }; })()`);
   await A.game(PLACE(cl.x, cl.z, cl.h));
   // the host drives up to it, hops out and walks up → ✋ PARTY GAMES
   const un = { x: (arc.fx - arc.x) / 1.1, z: (arc.fz - arc.z) / 1.1 }, along = { x: un.z, z: -un.x };
@@ -197,8 +198,9 @@ async function partyRun(t, guests) {
   t.check("invitation: only the starter is in; the friend isn't moved or held (a join chip)", gInv.ps.length === 1 && gInv.ps[0] === hostUid && !!gInv.spot && gInv.st === "playing" && Math.hypot(gInv.x - gpBefore.x, gInv.z - gpBefore.z) < 3 && /join/i.test(gInv.chip), JSON.stringify(gInv));
   await A.page.screenshot({ path: path.join(SHOTS, "3d-partyhang-guest-invited.png") }).catch(() => { });
   // the friend drives over → opted in → everyone's in → GO
-  await A.game(PLACE(arc.fx + 6, arc.fz + 6, 0));
-  await A.until(`ctx.openworld.game && ctx.openworld.game.ps.includes(${GU})`, "driving up to the spot opts the friend in", 30000);
+  await A.game(PLACE(arc.fx - along.x * 8 + un.x * 2, arc.fz - along.z * 8 + un.z * 2, 0));     // (down the kerb the other way: the town may be turned)
+  if (!await A.until(`ctx.openworld.game && ctx.openworld.game.ps.includes(${GU})`, "driving up to the spot opts the friend in", 30000))
+    console.log("   diag opt-in", JSON.stringify(await A.game(`({ st: ctx.state, zone: ctx.openworld.zone, town: ctx.town.active && ctx.town.id, att: ctx.town.attached, car: [ctx.car.pos.x, ctx.car.pos.z], spot: ctx.openworld.game && ctx.openworld.game.spot, at: ctx.openworld.game && ctx.openworld.game.at, ph: ctx.openworld.game && ctx.openworld.game.ph })`)));
   for (const p of [Hp, A]) await p.until(`ctx.openworld.game && ctx.openworld.game.ph === "go" && ctx.openworld.game.k === "kugel"`, "🥘 GO once everyone's in", 40000);
   await Hp.until(`ctx.state === "playing" && !ctx.foot.active`, "the host is back behind the wheel for the game", 30000);
   t.check("both play: ps = host + friend", (await g(`ctx.openworld.game.ps.length`)) === 2);

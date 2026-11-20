@@ -22,6 +22,9 @@ import { INTERCHANGE, fillLine } from "./towns/index.js";
 registerModels({ town_gantry: "town_gantry", exits_gantry: "exits_gantry" });
 
 export const X = { exits: [] };
+/** index.js: `fits(s, towns)` — would the towns this exit offers stand clear of the highway if it were at s (they are
+ *  ATTACHED to its cross roads)? Planning slides an exit on until they do. */
+export const FIT = { fits: null };
 // ── the layout (u = s − exit.s along the highway, d = metres right of its centre line) ──
 //   u −230 → −175   the taper: the decel lane widens out of the right lane's edge (EXIT ONLY painted in it)
 //   u −175 → −60    the parallel deceleration lane (the gantry's EXIT ONLY board over it at −110)
@@ -82,20 +85,22 @@ function signBusy(s) { const w = ctx.world; return !(ctx.party && ctx.party.acti
 /** Slide an exit forward until its signs, decel lane and ramps keep clear of every pull-in place
  *  (features/world's ctx.places: Gas 'n' Go, the Lookout, the family's driveways…), every rest area
  *  (features/exits) and big reserved stretches (the coast's ocean). */
-function clearOfPlaces(s) {
+function clearOfPlaces(s, towns = null, once = false) {
     const P = ctx.places;
     let busy = [];
     try { if (P && P.list && P.at) for (const p of P.list()) busy = busy.concat(P.at(p.id) || []); } catch (e) { busy = []; }
     const spans = () => { try { return ctx.exits && ctx.exits.spans ? ctx.exits.spans() : []; } catch (e) { return []; } };
     // (a 🎉 party plans from fixed data only — the places — so every friend's exits land on the same metre)
     const party = !!(ctx.party && ctx.party.active);
-    for (let k = 0; k < 60; k++) {
+    for (let k = 0; k < 300; k++) {
         const a = s + SPAN.a, b = s + SPAN.b;
         const clash = busy.some(x => x > s - 760 && x < s + ACC1 + 80) ||
             (!party && spans().some(o => o.b > a && o.a < b)) ||
-            (!party && reservedRight(s + TAPER0 - 30, s + ACC1 + 30));
+            (!party && reservedRight(s + TAPER0 - 30, s + ACC1 + 30)) ||
+            (towns && FIT.fits && !FIT.fits(s, towns));
         if (!clash) return s;
-        s += 250;
+        if (once) return null;
+        s += 50;              // (fine steps: an attached town fits ~a third of the spots along the road — FIT)
     }
     return s;
 }
@@ -104,11 +109,13 @@ function clearOfPlaces(s) {
  * Plan an exit at s (slid clear first) for these towns: one → a plain exit with its own signs;
  * two → the interchange (the inner branch is towns[0]). Returns the exit or null.
  */
+/** Would an exit at s for these towns plan right there (no sliding)? (debug: exitAhead looks either way for one) */
+export const exitClear = (s, towns) => clearOfPlaces(s, towns, true) != null;
 export function planExit(s, towns) {
     const w = ctx.world;
     towns = (Array.isArray(towns) ? towns : [towns]).filter(Boolean);
     if (!w || !towns.length) return null;
-    s = clearOfPlaces(s);
+    s = clearOfPlaces(s, towns);
     if (X.exits.some(e => Math.abs(e.s - s) < 50)) return null;
     const res = [];
     const reserve = (a, b, side, d0, d1) => { w.reserve(a, b, side, d0, d1); res.push(w.reserved[w.reserved.length - 1]); };
@@ -189,6 +196,17 @@ export function rampPhase(e, s, d, out = {}) {
 /** Is the car on a branch, far enough along to commit? → the branch index, or −1. */
 export function onRamp(e, s, d) { const r = rampPhase(e, s, d); return r.phase === "branch" ? r.branch : -1; }
 
+/** Is (u, d) on cross road c's asphalt? It runs STRAIGHT off the highway at e.s + c.u (exitbuild.js crossStrip) —
+ *  on a bend two lines of constant u fan apart by metres out at its far end, so the test is in its own frame. */
+const _o = {}, _q = {};
+function onCross(e, c, u, d) {
+    if (Math.abs(u - c.u) <= 1e-3) return true;
+    const road = ctx.world && ctx.world.highway;
+    if (!road) return Math.abs(u - c.u) <= XW + 0.3;
+    road.point(e.s + c.u, 0, _o); road.point(e.s + u, d, _q);
+    const fx = Math.sin(_o.h), fz = Math.cos(_o.h), dx = _q.x - _o.x, dz = _q.z - _o.z;
+    return Math.abs(dx * fx + dz * fz) <= XW + 0.3;
+}
 /** Is (u, d) on one of exit e's LANES (decel / accel lane, a ramp, a painted gore, a cross road)? */
 export function laneAt(e, u, d) {
     if (d < 6.5 || u < TAPER0 - 1 || u > ACC1 + 1) return false;
@@ -196,7 +214,7 @@ export function laneAt(e, u, d) {
     if (u >= RAMP0 - 2 && u <= RAMP0 + 72 && d <= rampD(u) - HALF + 0.2) return true;     // the painted gore
     for (const b of e.branches) if (u >= RAMP0 - 2 && u <= b.stop + 0.5 && Math.abs(d - b.dOf(u)) <= HALF + 0.3) return true;
     if (e.two && u >= 0 && u <= 46 && d >= rampD(u) && d <= outerD(u)) return true;      // the widening + the second gore
-    for (const c of crossRoads(e)) if (Math.abs(u - c.u) <= XW + 0.3 && d >= c.d0 - 0.3 && d <= c.d1) return true;
+    for (const c of crossRoads(e)) if (Math.abs(u - c.u) <= XW + 25 && d >= c.d0 - 0.3 && d <= c.d1 && onCross(e, c, u, d)) return true;
     // the inner cross road's corner into the on-ramp
     if (u >= X_IN - XW - 0.3 && u <= ON0 + 0.3 && d >= ON_D0 - XW - 0.3 && d <= ON_D0 + ARC_R + 0.3) {
         const r = Math.hypot(u - ON0, d - (ON_D0 + ARC_R));

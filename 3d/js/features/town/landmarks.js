@@ -77,12 +77,12 @@ function bikeGlyph(g, w, h) {
 }
 
 // ── frontage strips ──────────────────────────────────────────────────────
-export function buildStrip(B, sp, counters) {
+export function* buildStrip(B, sp, counters) {
     const st = sp.st, o = streetPoint(st, sp.from, sp.side * st.front, {});
     const nx = -sp.side * st.rx, nz = -sp.side * st.rz;          // out toward the street
     const fr = { ox: o.x, oz: o.z, ux: st.ux, uz: st.uz, nx, nz, len: sp.to - sp.from, rot: Math.atan2(nx, nz) };
     if (sp.use === "college") { college(B, fr, sp.depth || 70); return; }
-    B.placeFace(B, sp.use, fr, counters);
+    yield* B.placeFace(B, sp.use, fr, counters);
     for (let u = 0; u <= fr.len; u += 2.1) {
         const p = streetPoint(st, sp.from + u, sp.side * (st.front + 1.4), {});
         B.col(p.x, p.z, 1.25, "house");
@@ -166,7 +166,7 @@ function clockFace(g, w, h) {
 }
 
 // ── the skyline ──────────────────────────────────────────────────────────
-export function buildSkyline(B) {
+export function* buildSkyline(B) {
     const { def, R, mergeFar: merge, addColored, col, BRICK, STUCCO } = B;
     if (!def.skyline) return;
     const WALLS = [...BRICK, ...STUCCO, "#9E9E9E", "#A1887F", "#BCAAA4"];
@@ -204,6 +204,7 @@ export function buildSkyline(B) {
                 }
             }
             u += w + 1.5 + R() * 3;
+            yield "skyline";
         }
         for (let t = 0; t <= len; t += 2.4) col(x0 + ux * t + nx * 3, z0 + uz * t + nz * 3, 1.5, "wall");
     }
