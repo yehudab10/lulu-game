@@ -46,12 +46,18 @@ module.exports = {
       await W.moved(t);
       const s0 = await g(`ctx.car.s`);
       await g(`(() => { const r = ctx.world.road, s = ${s0} + 1200, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
-      const E = await g(`ctx.town.debug.exitAhead(500)`);
-      await g(`(ctx.town.load("${id}"), true)`);
-      if (!await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models`, 90000)) continue;
+      // (as flow's one-world check: both towns' models, then come up the lane toward the interchange — the towns build in
+      //  slices from 900 m out while she drives)
+      await g(`(ctx.town.load("lakewood"), ctx.town.load("midwood"), true)`);
+      if (!await t.until(`__lulu3d.ctx.town.loaded("lakewood") && __lulu3d.ctx.town.loaded("midwood")`, "both towns' models", 120000)) continue;
+      const E = await g(`ctx.town.debug.exitAhead(700)`);
       await W.moved(t);
-      await g(`(() => { const r = ctx.world.road, s = ${E} - 100, p = r.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
-      if (!await t.until(`!!(${AP(id)})`, `${id} stands at its interchange (built)`, 180000)) continue;
+      await g(`(() => { const s = ${E} - 600, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
+        ctx.car.vx = Math.sin(p.h) * 14; ctx.car.vz = Math.cos(p.h) * 14; ctx.car.vF = 14; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+      await t.hold(7, 0.5);
+      const ok = await t.until(`__lulu3d.ctx.town.standing.length >= 2 && __lulu3d.ctx.town.standing.every(b => b.ready) && !!(${AP(id)})`, `${id} stands at its interchange (built)`, 60000);
+      await t.hold(7, 0);
+      if (!ok) continue;
       const len = await g(`(${AP(id)}).len`);
       console.log(`   ${id}: approach ${len.toFixed(0)} m`);
 
