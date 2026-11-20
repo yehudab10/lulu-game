@@ -30,6 +30,7 @@ import { SN, CT, snatch, carTheft, endSnatch, endTheft } from "./snatch.js";
 import { GEAR, fireNet, laySpikes, ripNet, flatTyres, isFlat } from "./gear.js";
 import { enterBank, bankDef } from "./bank.js";
 import { partyDebug } from "./party.js";
+import { crewDebug } from "./crew.js";
 import { TUNE, PAY, HEIST, PLANS } from "./data.js";
 
 ctx.heist = {
@@ -70,6 +71,8 @@ ctx.heist = {
         live: what => live(what),
         /** 🎉 party robberies (heist/party.js): what's published, the friends' robberies drawn here, shares paid, the host's book. */
         party: () => partyDebug(),
+        /** 💰 the crew job (crew.js): C (lead / mine / host book), launch(), done(role), result(r), settle(), on */
+        crew: crewDebug,
         /** Lift the one-a-run rule and the cooldown (tests). */
         bypass(on = true) { J.bypass = !!on; if (on) J.done = false; },
     },

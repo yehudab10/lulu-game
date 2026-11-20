@@ -98,4 +98,55 @@ async function body(t, guests) {
   await Hp.until(`!ctx.heist.robbery`, "the robbery tidies away", 60000);
   await A.until(`ctx.heist.debug.party().puppets.length === 0`, "guest: the friend's robbery is gone too", 40000);
   W.check(t, "watchdog (host)", await W.report(t));
+  await crewJob(t, g, Hp, A, hostUid, guestUid);
+}
+
+// ════ STAGE 3: THE BANK JOB WITH FRIENDS (heist/crew.js) ════
+const HOT = (id) => `(() => { const rt = window.__interiors && window.__interiors.room; const h = rt && rt.hots.find(x => x.id === ${JSON.stringify(id)}); return h ? (typeof h.label === "function" ? h.label(rt) : h.label) : null; })()`;
+const USE = (id) => `(() => { const rt = window.__interiors.room; const h = rt.hots.find(x => x.id === ${JSON.stringify(id)}); rt.use(h); return true; })()`;
+async function crewJob(t, g, Hp, A, hostUid, guestUid) {
+  const HU = JSON.stringify(hostUid), GU = JSON.stringify(guestUid);
+  // both into the bank's lobby
+  for (const P of [Hp, A]) {
+    await P.game(`(() => { const sp = ctx.town.spot("bank"); ctx.foot.debug.F.pos.set(sp.x, 0.05, sp.z); return true; })()`);
+    await P.frames(4);
+    await P.game(`(() => { const s = ctx.foot.debug.interactables(); if (s && s.ent && s.ent.act) s.ent.act(); return true; })()`);
+    if (!await P.until(`ctx.state === "interior" && ctx.stateData && ctx.stateData.id === "bank" && window.__interiors.room && window.__interiors.room.ready`, `${P.label}: into the bank`, 60000)) return;
+  }
+  await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "the lobby is shared", 60000);
+  for (const P of [Hp, A]) await P.game(`(ctx.heist.debug.bypass(true), true)`);       // (the one-a-run / cooldown rules: tests start fresh)
+  t.check("host: ✋ at the vault offers a crew job", /Plan a job with the crew/.test(await g(HOT("vault"))), await g(HOT("vault")));
+  await g(`ctx.heist.debug.crew.lead("classic")`);
+  await A.until(`(() => { const o = ctx.heist.debug.crew.on; return !!o && o.ph === "in"; })()`, "guest: sees the invitation", 30000);
+  const jl = await A.game(HOT("vault"));
+  t.check("guest: ✋ at the vault = 💰 Join Kugel Kid's job (opt-in, nobody dragged in)", /Join Kugel Kid's job/.test(jl), jl);
+  t.check("guest: not in the crew until she says so", !(await g(`ctx.heist.debug.crew.C.lead.crew.includes(${GU})`)));
+  await A.game(USE("vault"));
+  await Hp.until(`ctx.heist.debug.crew.C.lead.crew.includes(${GU})`, "host: the guest joined the crew", 30000);
+  await g(`ctx.heist.debug.crew.launch()`);
+  await Hp.until(`ctx.heist.debug.crew.C.lead.ph === "inside"`, "the job's on: roles", 20000);
+  await A.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.role === "talker"`, "guest: THE TALKER", 30000);
+  t.check("host: THE VAULT (the leader)", (await g(`ctx.heist.debug.crew.C.mine.role`)) === "vault");
+  t.check("guest: ✋ at the window = 🗣️ Distract the teller", /Distract the teller/.test(await A.game(HOT("crewTalk")) || ""));
+  t.check("host: ✋ at the vault = 🔓 Crack the vault", /Crack the vault/.test(await g(HOT("vault"))));
+  await t.shot("crew-inside");
+  await A.game(`ctx.heist.debug.crew.done("talker")`);
+  await g(`ctx.heist.debug.crew.done("vault")`);
+  // the alarm: both out of the lobby, the getaway is on
+  await Hp.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`, "host: THE ALARM — out on the street", 60000);
+  await A.until(`ctx.heist.debug.crew.C.mine && ctx.heist.debug.crew.C.mine.ph === "getaway" && ctx.state === "footRun"`, "guest: out on the street too", 60000);
+  t.check("taking part spends each one's own heist (one a run)", await g(`ctx.heist.debug.J.done`) && await A.game(`ctx.heist.debug.J.done`));
+  const c0 = { h: await g(`L3.wallet.coins`), a: await A.game(`L3.wallet.coins`) };
+  // results: both shake the cops → the host splits the take
+  await A.game(`ctx.heist.debug.crew.result("ok")`);
+  await g(`ctx.heist.debug.crew.result("ok")`);
+  await Hp.until(`!ctx.heist.debug.crew.C.lead && ctx.heist.debug.crew.C.paid.size > 0`, "host: the take is settled", 60000);
+  await A.until(`ctx.heist.debug.crew.C.paid.size > 0`, "guest: her share arrives", 60000);
+  const dh = (await g(`L3.wallet.coins`)) - c0.h, da = (await A.game(`L3.wallet.coins`)) - c0.a, max = await g(`ctx.heist.debug.crew.MAX_TAKE`);
+  t.check("the take is SPLIT between the two who got away (never more than one solo take)", dh > 0 && da > 0 && Math.abs(dh - da) <= 5 && dh + da <= max + 5, JSON.stringify({ dh, da, max }));
+  t.check("the host's book: one paying crew job each this session", await g(`(() => { const n = ctx.heist.debug.crew.C.host.n; return n.get(${HU}) === 1 && n.get(${GU}) === 1; })()`));
+  // the same claim again pays nothing
+  await g(`(ctx.party.sendEvent("hjo", 777, [${HU}, ${GU}], ["ok", "ok"], 400), true)`);
+  await Hp.frames(30);
+  t.check("a second crew job the same session pays nobody (the cap)", (await g(`L3.wallet.coins`)) === c0.h + dh);
 }
