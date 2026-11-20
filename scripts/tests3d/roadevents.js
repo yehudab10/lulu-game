@@ -220,7 +220,8 @@ module.exports = {
     if (part("scheduler")) {
       const dt0 = await g(`ctx.G.roadevents.driveThrus || 0`);
       await g(`(() => { const r = ctx.roadevents; r.SPAWN_CONFIG.driveThru.chance = 1; r.timers.driveThru = 0.01; ctx.G.runTime = Math.max(ctx.G.runTime, 40); r.auto = true; return true; })()`);
-      await t.frames(20);
+      // (its models load first — on a busy machine that's more than 20 frames: wait for it, up to 15 s)
+      await t.until(`(__lulu3d.ctx.G.roadevents.driveThrus || 0) > ${dt0}`, "the scheduler's drive-thru", 15000);
       t.check("the SPAWN_CONFIG timers spawn events by themselves", await g(`(ctx.G.roadevents.driveThrus || 0) > ${dt0}`), JSON.stringify(await g(`ctx.G.roadevents`)));
       await g(`ctx.roadevents.auto = false`);
     }
