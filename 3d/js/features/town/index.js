@@ -74,7 +74,7 @@ const partyTowns = () => !!(ctx.party && ctx.party.active && ctx.openworld && ct
  *  Landmark models other features build (the town's `uses`) are optional — without them the use's fallback stands there. */
 function load(def = townFor(0)) {
     const id = def.id;
-    const extra = [...new Set(Object.values(def.uses || {}).map(u => u.key))];
+    const extra = [...new Set(Object.values(def.uses || {}).flatMap(u => [u.key, ...(u.with || []).filter(w => w.dims || w.sign || w.spot).map(w => w.key)]))];
     if (!S.loads[id]) S.loads[id] = Promise.all([ensureModels(needsOf(def)), ...extra.map(k => ensureModels([k]).catch(() => null))])
         .then(() => { S.ok[id] = true; S.failed = false; if (def === townFor(0)) S.loaded = true; })
         .catch(e => { console.warn("[town] models", id, e); S.loads[id] = null; S.failed = true; });

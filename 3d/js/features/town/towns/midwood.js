@@ -56,9 +56,9 @@ export default {
     // row (0 = Ave M → L, 1 = L → K, 2 = K → J); "k,Kings Hwy": the 4-sided blocks between Kings Hwy and Avenue M.
     blockDefault: "mwhomes",
     blocks: {
-        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "cia" } }, "2,0": { faces: { s: "avem", w: "cia" } },
+        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "cia", n: "hospital" } }, "2,0": { faces: { s: "avem", w: "cia" } },
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
-        "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel" } },
+        "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
         "0,2": { faces: { w: "pkwy", n: "avej" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts" } },
@@ -72,6 +72,18 @@ export default {
         bank: { key: "heist_bank", fallback: "town_mw_store", dims: { w: 20, d: 14, prot: 4.0 }, sign: L.SIGNS.bank, spot: "bank",
             tints: { Walls: "#D8CCB4", Roof: "#3F6B4F" }, signSize: [11.4, 0.96, 92], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
             with: [{ key: "town_mw_store", u: -16.5 }, { key: "town_mw_store", u: 16.5 }] },
+        // features/places (roadmap 4): the precinct (green lamps — it's Brooklyn) + its tow pound, the courthouse beside it on
+        // Avenue K, and Midwood General on Avenue L. Doors are ✋ spots; arrests / the ER happen IN them.
+        civic: { key: "places_precinct", fallback: "town_mw_store", dims: { w: 15, d: 12, prot: 2.6 }, u: -4.2, sign: L.SIGNS.precinct, spot: "precinct",
+            tints: { Walls: "#8A4B3A", Trim: "#D9D4C7", Roof: "#3A3D42", NeonGlobe: "#3DFF7A", Accent: "#1B3A2B" }, signSize: [9.0, 0.9, 92], signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
+            with: [
+                { key: "places_court", dims: { w: 18, d: 14, prot: 3.8 }, u: 13.6, sign: L.SIGNS.court, spot: "court",
+                    tints: { Walls: "#C9C7C0", Roof: "#3F6B4F", Trim: "#E7E4DC", Accent: "#4E3B2A" }, signSize: [13.2, 1.1, 104], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"] },
+                { key: "places_impound", dims: { w: 12, d: 12, prot: 0.4 }, u: -18.4, sign: L.SIGNS.impound, spot: "impound",
+                    tints: { Accent: "#455A64", Trim: "#F5F1E6" }, signSize: [4.8, 0.9, 92], signBg: "#FFC107", signFg: ["#1B1B1B", "#3E2723"] },
+            ] },
+        hospital: { key: "places_hospital", fallback: "town_mw_store", dims: { w: 22, d: 14, prot: 3.2 }, sign: L.SIGNS.hospital, spot: "hospital",
+            tints: { Walls: "#B5653F", Trim: "#F2EEE6", Roof: "#3A3A3A" }, signSize: [11.6, 1.1, 104], signBg: "#0D47A1", signFg: ["#FFFFFF", "#BBDEFB"] },
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [

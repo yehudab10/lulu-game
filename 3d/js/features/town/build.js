@@ -737,7 +737,12 @@ function layoutFace(kind, len, R, def = null) {
     if (use) {
         const key = models[use.key] ? use.key : use.fallback;
         if (key) out.push({ key, u: len / 2 + (use.u || 0), use: Object.assign({ dims: DIMS[key] }, use) });
-        for (const w of use.with || []) if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u });
+        for (const w of use.with || []) {
+            // (a `with` entry that names its own dims / sign / spot is a landmark too — features/places' court + impound
+            //  share the precinct's face; a plain one is an ordinary building beside the landmark)
+            if (w.dims || w.sign || w.spot) { const k2 = models[w.key] ? w.key : w.fallback; if (k2 && (DIMS[k2] || w.dims)) out.push({ key: k2, u: len / 2 + w.u, use: Object.assign({ dims: DIMS[k2] }, w) }); }
+            else if (DIMS[w.key]) out.push({ key: w.key, u: len / 2 + w.u });
+        }
         return out;
     }
     const fill = (keys, gapVan, gap = 0.8) => {
@@ -822,7 +827,11 @@ function* placeFace(B, kind, fr, counters) {
             place(it.key, cx, cz, fr.rot, u.tints || null, { dark: false });
             const a = u.sign && anchorAt(it.key, cx, cz, fr.rot);
             if (a) { const g = u.signSize || [11.4, 1.15, 104]; sign({ lines: u.sign, bg: u.signBg || "#FBF8F0", fg: u.signFg || ["#1F2D63", "#6D4C41"], w: 1024, h: g[2] * 2, radius: 10 }, a.x + fr.nx * 0.02, a.y, a.z + fr.nz * 0.02, fr.rot, g[0], g[1]); }
-            T.spots[u.spot || kind] = { x: lotX + fr.nx * 2.6, z: lotZ + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, len: D.w };
+            // (the spot stands on the sidewalk in front of the model's Anchor_door when it has one — features/places' hospital
+            //  door is off-centre — else in front of its middle)
+            const ad = anchorAt(it.key, cx, cz, fr.rot, "Anchor_door"), du = ad ? (ad.x - lotX) * fr.ux + (ad.z - lotZ) * fr.uz : 0;
+            T.spots[u.spot || kind] = { x: lotX + fr.ux * du + fr.nx * 2.6, z: lotZ + fr.uz * du + fr.nz * 2.6, rot: fr.rot, ux: fr.ux, uz: fr.uz, nx: fr.nx, nz: fr.nz, len: D.w,
+                cx, cz, du };
             continue;
         }
         const k = it.key;
