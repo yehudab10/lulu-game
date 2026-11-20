@@ -78,7 +78,7 @@ module.exports = {
     await t.L(`import("./js/features/cameos/common.js").then(m => { window.__w = 0; (async () => { for (;;) { await m.wait(0.25); window.__w++; } })(); return true; })`);
 
     // ── a run from home, driving: no ad while she drives ──
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);   // the title is one big ▶ PLAY (features/onegame)
     if (!await t.until(`__lulu3d.state === "footRun"`, "home start", 5000)) return;
     t.check("the day list is on", await g(`ctx.day.active`));
     await g(`ctx.foot.debug.getIn()`);

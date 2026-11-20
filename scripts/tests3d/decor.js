@@ -30,7 +30,7 @@ module.exports = {
     t.check("…no decorations yet (no extra draw calls)", T0.out.length === 0 && T0.calls === 0, JSON.stringify(T0));
 
     // ── Cruise → on foot at home; the front door is a ✋ spot ──
-    await t.click(/Cruise/);
+    await t.click(/PLAY/);   // the title is one big ▶ PLAY (features/onegame)
     t.check("Cruise starts on foot at home", await t.until(`__lulu3d.state === "footRun"`, "footRun", 3000));
     await t.frames(20);
     const I0 = await g(`(ctx.foot.debug.interactables() || {}).label || ""`);
