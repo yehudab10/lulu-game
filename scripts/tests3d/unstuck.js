@@ -264,8 +264,13 @@ module.exports = {
         t.check("in a chase: still chased, still wanted", await g(`ctx.law.chasing`) && JSON.stringify(await g(`ctx.law.wanted`)) === JSON.stringify(w0), JSON.stringify([w0, await g(`ctx.law.wanted`)]));
       }
     } else console.log("   (no chase / no solid for the chase case)", chased, JSON.stringify(sol));
-    await g(`(ctx.law.endChase ? ctx.law.endChase("test") : 0, ctx.law.hold && ctx.law.hold(1e6), true)`);
+    // (a fresh drive: the chase would otherwise go on to a bust and every later case would start inside the arrest)
+    await W.moved(t);
+    await g(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.law.chasing`, "a fresh cruise after the chase", 9000);
+    await g(`(ctx.law.hold && ctx.law.hold(1e6), ctx.law.clearHeat && ctx.law.clearHeat(""), true)`);
     await t.frames(10);
+    await W.reset(t);
 
     // 9 · during a job: the clock keeps running, the job stays
     if (await g(`!!(ctx.hustle && ctx.hustle.start)`)) {
