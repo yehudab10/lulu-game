@@ -49,12 +49,12 @@ async function body(t, guests) {
     await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
     await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, `${P.label}: in Lakewood`, 40000);
   }
-  // both on foot, near the bank, ~20 m apart
+  // both on foot on the bank's pavement, either side of the door (out in the street a friend's town loop minivan BONKs her)
   const bank = await g(`ctx.town.spot("bank")`);
-  for (const [P, off] of [[Hp, 9], [A, 13]]) {
+  for (const [P, off] of [[Hp, 5], [A, -5]]) {
     await P.game(`ctx.foot.start("parked")`);
     await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: on foot`, 60000);
-    await P.game(`(() => { const sp = ctx.town.spot("bank"); ctx.foot.debug.F.pos.set(sp.x + sp.nx * ${off}, 0.05, sp.z + sp.nz * ${off}); return true; })()`);
+    await P.game(`(() => { const sp = ctx.town.spot("bank"); ctx.foot.debug.F.pos.set(sp.x + sp.nx * 2.5 - sp.nz * ${off}, 0.05, sp.z + sp.nz * 2.5 + sp.nx * ${off}); return true; })()`);
   }
   await A.until(`(() => { const rc = ctx.party.remoteCar(${HU}); return !!rc && rc.shown && rc.foot; })()`, "guest sees the host on foot", 60000);
   await W.install(t);
