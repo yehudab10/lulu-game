@@ -48,7 +48,8 @@ module.exports = {
       if (!full || !full.length) { t.check(`${id}: a ramp route`, false); continue; }
       const mid = full.filter(([u]) => u <= 20);
       await route(E, mid, 13, true);
-      await t.until(`!window.__route.pts.length && __lulu3d.ctx.car.speed < 0.5 || __lulu3d.ctx.town.active`, `${id}: stopped on the ramp`, 40000);
+      if (!await t.until(`!window.__route.pts.length && __lulu3d.ctx.car.speed < 0.5 || __lulu3d.ctx.town.active`, `${id}: stopped on the ramp`, 40000))
+        console.log(`   ${id}: the test driver got stuck`, JSON.stringify(await g(`({ u: +(ctx.car.s - ${E}).toFixed(1), d: +ctx.car.d.toFixed(1), v: +ctx.car.speed.toFixed(1), left: window.__route.pts.length, state: L3.state, hearts: ctx.G.hearts })`)));
       const onRamp = await g(`({ town: ctx.town.active, u: +(ctx.car.s - ${E}).toFixed(1), d: +ctx.car.d.toFixed(1), ph: (ctx.town.debug.rampPhase() || {}).phase || null })`);
       console.log(`   ${id}: stopped on the ramp`, JSON.stringify(onRamp));
       await g(`(window.__route = null, true)`);
@@ -64,16 +65,11 @@ module.exports = {
           await t.frames(10);
         }
         await seg(`${id}: out on the exit ramp, walking the interchange`);
-        // on down the ramp: the town comes in by the soft cut
-        const rest = await g(`ctx.town.debug.rampRoute(${E}, ${outer ? 1 : 0}, -240).filter(([u, d]) => u > ctx.car.s - ${E} + 4)`);
-        await route(E, rest, 12, false);
-        // (an attached town — ci/oneworld — starts a little past the ramp's end: drive on straight until she's in it)
-        await t.until(`__lulu3d.ctx.town.active || !window.__route.pts.length`, `${id}: down the ramp`, 60000);
-        await g(`(window.__route = null, true)`);
-        if (!await g(`ctx.town.active`)) { await t.hold(7, 0.6); await t.until(`__lulu3d.ctx.town.active`, `${id}: on into town`, 30000); await t.hold(7, 0); }
-        if (!await g(`ctx.town.active`)) continue;
-        await g(`(window.__route = null, true)`);
-        await t.until(`!__lulu3d.ctx.town.transitioning`, `${id}: the cut clears`, 10000);
+        // on into the ATTACHED town at this interchange (the drive through the T is ci/oneworld's: tests flow + town)
+        await W.moved(t);
+        await g(`ctx.town.enter({ town: "${id}", exitS: ${E}, speed: 0 })`);
+        if (!await t.until(`__lulu3d.ctx.town.active`, `${id}: in the attached town`, 8000)) continue;
+        await t.frames(10);
       }
       // in town: stop at the kerb, out, a short walk, back in
       await t.hold(6, 1); await t.frames(40); await t.hold(6, 0);
