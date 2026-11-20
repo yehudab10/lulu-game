@@ -63,7 +63,7 @@ async function body(t, guests) {
   if (!await Hp.until(`(() => { const l = ctx.together.locate(${GU}); return !!l && l.kind === "here" && l.dist > 180 && l.dist < 280; })()`, "host locates the guest ~230 m ahead", 60000)) return;
   await Hp.until(`(() => { const p = ${PILL(guestUid)}; return !!p && p.shown; })()`, "a pointer for the guest (far ahead)", 20000);
   let pill = await g(PILL(guestUid));
-  t.check("…it's on the TOP edge (ahead) and says the name + the distance", !!pill && pill.y < 720 * 0.3 && /Latke Legend/.test(pill.text) && /\d+ m/.test(pill.text), JSON.stringify(pill));
+  t.check("…it's on the TOP edge (ahead) and says the name + the distance", !!pill && pill.y < 720 * 0.3 && /Latke Legend/.test(pill.text) && /\d+ m/.test(pill.text), JSON.stringify({ pill, avoid: await g(`ctx.together.debug.avoid()`) }));
   await t.shot("pointer-ahead");
   // behind me → down a side
   await A.game(`ctx.party._debug.place(250, 1.75, 0)`);
@@ -124,6 +124,12 @@ async function body(t, guests) {
   t.check("…the pointer points at that house's door (≤ 4 m)", Math.hypot(ld.x - door.x, ld.z - door.z) < 4, JSON.stringify({ ld, door }));
   t.check("…and says where (in a house)", /house|inside/.test(ld.label), ld.label);
   await t.shot("door-pointer");
+  // the map in town: the streets from above, the guest's dot at the house's door (🏠)
+  await g(`ctx.phone.openPhone("tgmap")`); await t.frames(8);
+  t.check("📱 🗺️ Map in town: the row says the guest is in a house", await t.L(`(() => { const b = document.querySelector('.tg-row[data-u=${GU}]'); return !!b && /house/.test(b.textContent); })()`));
+  t.check("…the guest's dot is on the town map", await t.L(`import("./js/features/together/map.js").then(() => true)`) && await g(`ctx.together.debug.mapDots().some(d => d.uid === ${GU})`), JSON.stringify(await g(`ctx.together.debug.mapDots()`)));
+  await t.shot("map-town");
+  await g(`ctx.phone.closePhone()`); await t.frames(4);
 
   // ── a phone, portrait + landscape: the pointers never cover a button / the HUD ──
   await t.L(`(window.dispatchEvent(new Event("touchstart")), __lulu3d.input && (__lulu3d.input.device = "touch"), 0)`);

@@ -19,27 +19,46 @@ css("together-map", `
 
 const V = { pts: [], key: "" };
 
+/** A friend's place along the highway (s): on it, or at their town's exit. */
+function hwyS(l) {
+    const p = ctx.party.peer(l.uid);
+    if (!p) return null;
+    if (!l.zone) { const sm = p.samples && p.samples.length ? p.samples[p.samples.length - 1] : null; return sm ? sm.s : null; }
+    const ex = p.x && +p.x.ex;
+    if (ex) return ex;
+    const e = (ctx.town && ctx.town.exits ? ctx.town.exits : []).filter(e => e.town === l.zone).sort((a, b) => Math.abs(a.s - ctx.car.s) - Math.abs(b.s - ctx.car.s))[0];
+    return e ? e.s : null;
+}
+/** Size the canvas to its box on screen (sharp on a phone, readable labels). */
+function fit(cv) {
+    const w = Math.max(200, cv.clientWidth || 300), dpr = Math.min(2.5, Math.max(1.5, window.devicePixelRatio || 1));
+    const W = Math.round(w * dpr), Hh = Math.round(w * 0.62 * dpr);
+    if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; }
+    cv.__u = dpr;
+}
+
 /** Draw the map into the canvas; returns the friends' dots (canvas px) for tapping. */
 function draw(cv, list, dest) {
-    const g = cv.getContext("2d"), W = cv.width, Hh = cv.height;
+    const g = cv.getContext("2d"), W = cv.width, Hh = cv.height, U = cv.__u || 1;     // U = canvas px per CSS px
     g.clearRect(0, 0, W, Hh);
     const me = myPos(), Z = myZone(), pts = [];
     const dot = (x, y, hex, label, ring, icon) => {
-        g.beginPath(); g.arc(x, y, ring ? 11 : 9, 0, Math.PI * 2);
-        g.fillStyle = hex; g.fill(); g.lineWidth = 3; g.strokeStyle = "#fff"; g.stroke();
-        if (ring) { g.beginPath(); g.arc(x, y, 16, 0, Math.PI * 2); g.lineWidth = 2.5; g.strokeStyle = hex; g.stroke(); }
-        if (icon) { g.font = "15px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(icon, x + 13, y - 12); }
+        g.beginPath(); g.arc(x, y, (ring ? 7 : 6) * U, 0, Math.PI * 2);
+        g.fillStyle = hex; g.fill(); g.lineWidth = 2 * U; g.strokeStyle = "#fff"; g.stroke();
+        if (ring) { g.beginPath(); g.arc(x, y, 10.5 * U, 0, Math.PI * 2); g.lineWidth = 2 * U; g.strokeStyle = hex; g.stroke(); }
+        if (icon) { g.font = `${11 * U}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(icon, x - 12 * U, y - 8 * U); }
         if (label) {
-            g.font = "700 15px Fredoka, Arial, sans-serif"; g.textAlign = "left"; g.textBaseline = "middle";
-            const tw = g.measureText(label).width, lx = Math.min(W - tw - 10, x + 14);
-            g.lineWidth = 4; g.strokeStyle = "rgba(255,255,255,.92)"; g.strokeText(label, lx, y + 1);
+            g.font = `700 ${12 * U}px Fredoka, Arial, sans-serif`; g.textAlign = "left"; g.textBaseline = "middle";
+            const tw = g.measureText(label).width, lx = Math.min(W - tw - 6 * U, x + 10 * U);
+            g.lineWidth = 3 * U; g.strokeStyle = "rgba(255,255,255,.92)"; g.strokeText(label, lx, y + 1);
             g.fillStyle = "#2b1b2e"; g.fillText(label, lx, y + 1);
         }
     };
     const meArrow = (x, y, rot) => {
         g.save(); g.translate(x, y); g.rotate(rot);
-        g.beginPath(); g.moveTo(0, -12); g.lineTo(8, 9); g.lineTo(0, 4); g.lineTo(-8, 9); g.closePath();
-        g.fillStyle = "#E91E63"; g.fill(); g.lineWidth = 3; g.strokeStyle = "#fff"; g.stroke();
+        g.scale(U, U);
+        g.beginPath(); g.moveTo(0, -9); g.lineTo(6.5, 7); g.lineTo(0, 3.5); g.lineTo(-6.5, 7); g.closePath();
+        g.fillStyle = "#E91E63"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#fff"; g.stroke();
         g.restore();
     };
     const T = ctx.town, plan = Z && T && T.plan;
@@ -54,23 +73,23 @@ function draw(cv, list, dest) {
             for (const p of [a, b]) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); }
             return [a, b];
         });
-        const pad = 26, sc = Math.min((W - pad * 2) / Math.max(1, x1 - x0), (Hh - pad * 2) / Math.max(1, z1 - z0));
+        const pad = 18 * U, sc = Math.min((W - pad * 2) / Math.max(1, x1 - x0), (Hh - pad * 2) / Math.max(1, z1 - z0));
         const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
         // a fixed orientation (world +z up, +x left — a heading h points the arrow at −h): the map never spins
         const px = x => W / 2 - (x - cx) * sc, py = z => Hh / 2 - (z - cz) * sc;
         g.lineCap = "round";
-        g.strokeStyle = "#FFFFFF"; g.lineWidth = Math.max(5, 9 * sc);
+        g.strokeStyle = "#FFFFFF"; g.lineWidth = Math.max(4 * U, 9 * sc);
         for (const [a, b] of segs) { g.beginPath(); g.moveTo(px(a.x), py(a.z)); g.lineTo(px(b.x), py(b.z)); g.stroke(); }
-        g.strokeStyle = "rgba(120,110,100,.35)"; g.lineWidth = 1.5;
+        g.strokeStyle = "rgba(120,110,100,.35)"; g.lineWidth = 1 * U;
         for (const [a, b] of segs) { g.beginPath(); g.moveTo(px(a.x), py(a.z)); g.lineTo(px(b.x), py(b.z)); g.stroke(); }
         for (const e of townExits()) {
             const x = px(e.x), y = py(e.z);
-            g.font = "16px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-            g.fillText("🛣️", Math.max(12, Math.min(W - 12, x)), Math.max(12, Math.min(Hh - 12, y)));
+            g.font = `${12 * U}px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif`; g.textAlign = "center"; g.textBaseline = "middle";
+            g.fillText("🛣️", Math.max(10 * U, Math.min(W - 10 * U, x)), Math.max(10 * U, Math.min(Hh - 10 * U, y)));
         }
         for (const l of list) {
             if (l.zone !== Z || l.kind === "exit") continue;
-            const x = Math.max(12, Math.min(W - 12, px(l.x))), y = Math.max(12, Math.min(Hh - 12, py(l.z)));
+            const x = Math.max(10 * U, Math.min(W - 10 * U, px(l.x))), y = Math.max(10 * U, Math.min(Hh - 10 * U, py(l.z)));
             dot(x, y, l.hex, l.name, l.uid === dest, l.inside ? "🏠" : l.foot ? "🚶‍♀️" : "");
             pts.push({ uid: l.uid, x, y });
         }
@@ -78,15 +97,20 @@ function draw(cv, list, dest) {
         meArrow(px(me.x), py(me.z), -h);
         return pts;
     }
-    // ── the highway: one straight strip, ahead = up (± 2.5 km) ──
-    const s0 = ctx.car.s, span = 2500, cx = W / 2;
-    const py = s => Hh / 2 - (s - s0) / span * (Hh / 2 - 18);
-    g.fillStyle = "#9E9E9E"; g.fillRect(cx - 9, 0, 18, Hh);
-    g.strokeStyle = "#FFD54F"; g.lineWidth = 2; g.setLineDash([8, 10]);
+    // ── the highway: one straight strip, ahead = up — zoomed to fit the friends (and the next exit) ──
+    const s0 = ctx.car.s, cx = W * 0.4;
+    let far = 300;
+    for (const l of list) { const s1 = hwyS(l); if (s1 != null) far = Math.max(far, Math.abs(s1 - s0) * 1.25); }
+    const nx = (ctx.town && ctx.town.exits ? ctx.town.exits : []).filter(e => e.s > s0).sort((a, b) => a.s - b.s)[0];
+    if (nx && nx.s - s0 < 4000) far = Math.max(far, (nx.s - s0) * 1.15);
+    const span = Math.min(6000, far);
+    const py = s => Hh / 2 - (s - s0) / span * (Hh / 2 - 14 * U);
+    g.fillStyle = "#9E9E9E"; g.fillRect(cx - 7 * U, 0, 14 * U, Hh);
+    g.strokeStyle = "#FFD54F"; g.lineWidth = 1.5 * U; g.setLineDash([6 * U, 8 * U]);
     g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, Hh); g.stroke(); g.setLineDash([]);
     const exits = ctx.town && ctx.town.exits ? ctx.town.exits : [];
     const seen = new Set();
-    g.font = "700 13px Fredoka, Arial, sans-serif"; g.textBaseline = "middle";
+    g.font = `700 ${11 * U}px Fredoka, Arial, sans-serif`; g.textBaseline = "middle";
     for (const e of exits) {
         const y = py(e.s);
         if (y < -10 || y > Hh + 10) continue;
@@ -94,16 +118,18 @@ function draw(cv, list, dest) {
         if (seen.has(k)) continue;
         seen.add(k);
         const off = [...seen].filter(q => q.startsWith(Math.round(e.s) + ":")).length - 1;
-        g.strokeStyle = "#9E9E9E"; g.lineWidth = 6; g.beginPath(); g.moveTo(cx + 9, y); g.lineTo(cx + 34, y + 10 + off * 18); g.stroke();
+        const ly = y + (8 + off * 14) * U;
+        g.strokeStyle = "#9E9E9E"; g.lineWidth = 5 * U; g.beginPath(); g.moveTo(cx + 7 * U, y); g.lineTo(cx + 26 * U, ly); g.stroke();
         g.fillStyle = "#2b1b2e"; g.textAlign = "left";
-        g.fillText(`${e.emoji || "🏙️"} ${e.name}`, cx + 40, y + 10 + off * 18);
+        g.fillText(`${e.emoji || "🏙️"} ${e.name}`, cx + 30 * U, ly);
     }
     for (const l of list) {
-        let y = null, x = cx - 1;
-        if (!l.zone) { const p = ctx.party.peer(l.uid), sm = p && p.samples && p.samples.length ? p.samples[p.samples.length - 1] : null; if (sm) { y = py(sm.s); x = cx + Math.max(-30, Math.min(30, sm.d * 3)); } }
-        else { const e = exits.filter(e => e.town === l.zone).sort((a, b) => Math.abs(a.s - s0) - Math.abs(b.s - s0))[0], ex = ctx.party.peer(l.uid).x && +ctx.party.peer(l.uid).x.ex; const s = ex || (e && e.s); if (s) { y = py(s); x = cx + 44; } }
-        if (y == null) continue;
-        const cl = Math.max(14, Math.min(Hh - 14, y));
+        const s1 = hwyS(l);
+        if (s1 == null) continue;
+        let x = cx;
+        if (!l.zone) { const p = ctx.party.peer(l.uid), sm = p && p.samples && p.samples.length ? p.samples[p.samples.length - 1] : null; if (sm) x = cx + Math.max(-6, Math.min(6, sm.d)) * U; }
+        else x = cx + 30 * U;
+        const y = py(s1), cl = Math.max(12 * U, Math.min(Hh - 12 * U, y));
         dot(x, cl, l.hex, l.name + (y < 0 ? " ↑" : y > Hh ? " ↓" : ""), l.uid === dest, l.inside ? "🏠" : l.foot ? "🚶‍♀️" : "");
         pts.push({ uid: l.uid, x, y: cl });
     }
@@ -128,6 +154,7 @@ export function render(el, api, tg) {
         <button class="btn lp-row" id="tgPtr"><span class="lp-av">🧭</span><span class="lp-tx"><b>Friend pointers: ${tg.pointersOn() ? "ON" : "OFF"}</b><small>${tg.pointersOn() ? "a small arrow at the screen's edge for each friend" : "no arrows — the map is still here"}</small></span></button>
         <p class="lp-fine">Tap a friend to head their way: a beam over them + the distance.</p>`;
     const cv = el.querySelector("canvas");
+    fit(cv);
     V.pts = draw(cv, list, dest);
     cv.addEventListener("click", ev => {
         const r = cv.getBoundingClientRect(), k = cv.width / Math.max(1, r.width);
@@ -150,7 +177,9 @@ function pickFriend(uid, api, tg) {
 export function redraw(el, tg) {
     const cv = el && el.querySelector && el.querySelector(".tg-map canvas");
     if (!cv) return;
+    fit(cv);
     V.pts = draw(cv, locateAll(), tg.dest());
 }
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 export { zoneOf };
+export const dots = () => V.pts.map(p => ({ ...p }));

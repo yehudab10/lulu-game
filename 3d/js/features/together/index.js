@@ -110,6 +110,6 @@ requestAnimationFrame(frame);
 const SVC = {
     dest: () => T.dest, setDest, pointersOn, setPointers,
     locate: uid => locate(uid), locateAll: () => locateAll(),
-    debug: { T, S, pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
+    debug: { T, S, mapDots: () => MAP.dots(), pointers: () => PTR.debug(), avoid: () => PTR.avoidRects(), tick: dt => tick(dt || 1 / 30) },
 };
 ctx.together = SVC;
