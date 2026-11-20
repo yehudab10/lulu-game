@@ -20,9 +20,10 @@ const PORT = 27000 + (process.pid % 20000);
 const RELAY = `ws://127.0.0.1:${PORT}`;
 const PART = process.env.AIRPORT_TERMINAL_PART || "all";
 const LIMITS = {
-  // the hall at 1280×720 (measured 2026-11-20 — see AGENTS.md §7): draw calls (avg / worst frame) and triangles
-  medium: { calls: 150, maxCalls: 190, tris: 190000 },
-  low: { calls: 130, maxCalls: 165, tris: 150000 },
+  // the hall at 1280×720, the worst of three views (check-in / security / the gate). Measured 2026-11-20:
+  // MEDIUM 71–90 calls, 109–118k triangles · LOW 72–90 calls, 84–89k (8 full-detail people instead of 14). See AGENTS.md §7.
+  medium: { calls: 110, maxCalls: 130, tris: 140000 },
+  low: { calls: 110, maxCalls: 130, tris: 110000 },
 };
 const QF = `&enable=airport,interiors,foot`;
 

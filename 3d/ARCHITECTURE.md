@@ -1378,7 +1378,8 @@ ready(), inside, vip(), addBuilder(fn) (stage 3: runs at the end of every build 
 {in, wanted}, `airport:checkin`, `airport:bag`, `airport:security` {how}, `airport:scanned` {kugel, chutzpah}, `airport:snack`,
 `airport:sit`, `airport:arrival`, `airport:takeoff`, `airport:cops`, `airport:caught`; stats `airportTerminalVisits`,
 `airportScans`, `airportLineCuts`, `airportSnacks`, `airportSits`, `airportBagGags`… **Budget** (1280×720, measured — see
-AGENTS.md §7): MEDIUM ≤ 150 draw calls (≤ 190 worst frame), ≤ 190k triangles; LOW ≤ 130 / 165, ≤ 150k. Test:
+AGENTS.md §7): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k; the test's limits: MEDIUM ≤ 110 calls (≤ 130 worst
+frame), ≤ 140k triangles · LOW ≤ 110 / 130, ≤ 110k. Test:
 `scripts/tests3d/airport-terminal.js` (`AIRPORT_TERMINAL_PART=solo|perf|friends`; the QA watchdog), and
 `PERF3D_SCENES=foot,terminal node scripts/perf3d.js`. **Stage 3 hooks:** `addBuilder`, the VIP carpet (`vip()`), the arrivals door
 (`debug.arrive`), the empty Shmear Jet line, `airport:*` events.

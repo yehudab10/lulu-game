@@ -182,7 +182,7 @@ function build(rt) {
     // ── outside: the parked plane at the jet bridge + planes taking off down the runway ──
     d.planes = [];
     const parked = makePlane(rt, D.AIRLINES.kugel.color);
-    parked.position.set(22.6, -0.18, -23.5);
+    parked.position.set(25.7, -0.18, -23.5);
     d.takeoffT = 5;
 
     // ── hotspots ──
@@ -797,7 +797,7 @@ function tick(rt, dt) {
         P.obj.rotation.set(up > 0 ? -Math.min(0.22, up * 0.01) : 0, Math.PI / 2, 0, "YXZ");
         if (P.x > 150) { P.obj.removeFromParent(); d.planes.splice(i, 1); }
     }
-    if (d.lookT > 0) { d.lookT -= dt; rt.focusAt = (d.focusW || (d.focusW = new THREE.Vector3(24, 1.5, -12))); } else if (d.sit && d.sit.t > 2) rt.focusAt = (d.focus || (d.focus = new THREE.Vector3(24, 1.2, -9))); else rt.focusAt = null;
+    if (d.lookT > 0) { d.lookT -= dt; rt.focusAt = (d.focusW || (d.focusW = new THREE.Vector3(24, 1.5, -12))); } else if (d.sit && d.sit.t > 0.6) rt.focusAt = (d.focus || (d.focus = new THREE.Vector3(24, 1.2, -9))); else rt.focusAt = null;
     // walked in wanted
     if (d.law) lawTick(rt, dt);
     C.update(dt, rt.set.camera);

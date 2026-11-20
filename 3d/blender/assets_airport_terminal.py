@@ -400,9 +400,9 @@ def build_terminal():
         S.c(0.06, 0.06, 2.6, METAL, -11 + k * 5.0, -70, 1.1, segs=6)
     S.b(70, 0.15, 0.08, METAL, 24, -70, 2.35)
     # the jet bridge from the window to where the parked plane's door is
-    S.b(2.4, 9.0, 2.6, BRIDGE, 26.0, -11.8, 3.1)
-    S.b(2.6, 0.4, 2.8, DARK, 26.0, -16.3, 3.1)
-    S.c(0.25, 0.25, 3.0, METAL, 26.0, -14.5, 1.0, segs=8)
+    S.b(1.8, 7.0, 2.2, BRIDGE, 27.6, -10.8, 3.3)
+    S.b(2.0, 0.4, 2.4, DARK, 27.6, -14.3, 3.3)
+    S.c(0.22, 0.22, 3.0, METAL, 27.6, -13.0, 1.1, segs=8)
     S.f("parked", 21.0, -24.0, 0.0, 0.0)
     S.f("runway", 0.0, -58.0, 0.0, math.pi / 2)
     # the control tower (far off, to the left)
