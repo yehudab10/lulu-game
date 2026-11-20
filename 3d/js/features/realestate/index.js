@@ -113,6 +113,7 @@ function refresh(force = false) {
     W.friends = others.filter(r => !r.who.seized);
     W.seized = all.filter(r => held(r.id)).concat(others.filter(r => r.who.seized));
     layout(W.town, W.listed, W.owned, W.friends, W.seized);
+    try { if (ctx.homes && ctx.homes.refresh) ctx.homes.refresh(); } catch (e) { /* homes without the hook */ }
 }
 registry.onChange(() => { if (inTown()) refresh(true); });
 
@@ -483,6 +484,18 @@ on("boot", () => {
         const enter0 = reg.enter.bind(reg);
         reg.wrapped = true;
         reg.enter = (o = {}) => { const exit0 = o.exit; return enter0(Object.assign({}, o, { exit: () => { if (typeof exit0 === "function") exit0(); try { backOut(); } catch (e) { console.error("[realestate] out", e); } } })); };
+    }
+    // features/homes (ci/homelife): homes gives up the doors real estate owns — hers ("mine" / "rented"), another player's
+    // or a friend's ("owned"), the Council's ("seized"). A LISTED house keeps its family until it sells (a viewing with
+    // the family still there is funnier — homes reads ctx.realestate.claims(id) === "listed" to stage packing boxes).
+    if (ctx.homes && ctx.homes.claim) {
+        try {
+            ctx.homes.claim(id => {
+                if (registry.mine(id)) return held(id) ? "seized" : RN.tenantOf(id) ? "rented" : "mine";
+                const o = registry.ownerOf(id);
+                return o ? (o.seized ? "seized" : "owned") : null;
+            });
+        } catch (e) { console.warn("[realestate] homes claim", e); }
     }
     if (ctx.community && ctx.community.addContact) {
         const R = REALTOR_CONTACT;
