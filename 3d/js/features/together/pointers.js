@@ -134,7 +134,9 @@ export function tick(dt, list, dest, on) {
         const fade = seen && onScreen && l.dist < 140 && l.uid !== dest;
         if (fade || (l.dist < 9 && seen)) { p.op = 0; apply(p); continue; }
         // screen-right is −a (a bearing to the left is positive in three.js's yaw)
-        const u = Math.max(-1, Math.min(1, -a / Math.PI * (1 / 0.62)));        // (±112° and beyond: down the sides as far as they go)
+        let u = Math.max(-1, Math.min(1, -a / Math.PI * (1 / 0.62)));          // (±112° and beyond: down the sides as far as they go)
+        // in front and inside the picture's width: the top edge right above where they really are
+        if (_v.z < 1 && Math.abs(a) < Math.PI / 2 && Math.abs(_v.x) < 0.95) u = 0.28 * Math.max(-1, Math.min(1, (_v.x * W / 2) / Math.max(1, W / 2 - 14 - p.w / 2)));
         const pos = { x: 0, y: 0 };
         let ok = false;
         for (let k = 0; k <= 24 && !ok; k++) {
