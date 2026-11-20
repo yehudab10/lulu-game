@@ -244,6 +244,27 @@ module.exports = {
       await view("impound", "impound-her-car", 4, 6, 10);
     });
 
+    // ── a jailbreak from the town's precinct: out of ITS door on foot, a fugitive (her car out front: it's hers) ──
+    await step("jailbreak in town", async () => {
+      if (!await town("midwood")) return;
+      await resetLaw();
+      await carAt("precinct", 30, false);
+      await t.frames(4);
+      await g(`ctx.law.arrest(["LOITERING NEAR A KNISH"], { skipCinematic: true })`);
+      if (!await talk(CELL, "booked (jailbreak)")) return;
+      // (her car comes along only if it's hers and in one piece — after the time served above it's still impounded)
+      const own = await g(`${D}.run.ride === "own"`);
+      await g(`(${D}.FORCE.escapeKind = "keys", document.querySelector("#lawEsc").click())`);
+      await t.frames(4);
+      for (let i = 0; i < 8 && await g(`${D}.jail() && ${D}.jail().phase === "pick" && !${D}.jail().lock.result`); i++) {
+        await g(`(() => { const lk = ${D}.jail().lock; lk.pos = lk.zoneC; lk.dir = 0; lk.armT = 0; })()`);
+        await t.tap(0);
+      }
+      if (!await out("precinct", "midwood", own, "jailbreak")) return;
+      t.check("…a FUGITIVE now (the jailbreak rule)", await g(`ctx.law.fugitive`));
+      await g(`(ctx.law.clearHeat("test", { lowKey: false }), true)`);
+    });
+
     // ── arrested on the HIGHWAY → the nearest town's precinct (built in slices while she sits in the cell) ──
     await step("highway arrest → nearest town", async () => {
       await playing();
