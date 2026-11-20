@@ -362,8 +362,9 @@ one it's inferred: a `big` toast or money SPENT (−N 💰, 💸, a fine / bill)
 = 1. One toast at a time on a phone-sized screen (two elsewhere). A FLAVOUR toast is dropped — never queued — when
 another toast is up or waiting, when she's busy (a chase, a dialogue, any state that isn't the open road), or within
 7 s of the last flavour toast (15 s when it's "quiet": in a party or with strangers' ghosts around); flavour toasts
-are a little smaller on touch and shorter. A toast within 1 s of a button press is the ANSWER to it (🎥 camera, "not
-here") and counts as normal. `features/calm` feeds the budget (`H.setCalmGate(() => ({quiet, busy, chase, acted}))`).
+are a little smaller on touch and shorter. While a phone call's card is up (`ctx.phone.active`) flavour toasts drop
+and, on a phone, flavour banners wait (gone after 3 s). A toast within 1 s of a button press is the ANSWER to it (🎥 camera, "not
+here") and counts as normal. `features/calm` feeds the budget (`H.setCalmGate(() => ({quiet, busy, chase, acted, call}))`).
 Speech bubbles over OTHER people (roadevents `bubble`, foot `bubble`, banter `npcBubble`) ask `H.bubbleOk(dur)`: at
 most one at a time on a phone (or when quiet), ≥ 5 s apart (10 s quiet), none in a chase, always when she just acted —
 a refused bubble is still created, only hidden (`.calm-off`), so callers keep working. **Give your toast a `prio`** when
