@@ -17,7 +17,7 @@ import { FR } from "./friends.js";
 export const BREATH = {
     nightFrom: 0.35,            // dark enough to see it (L.night) — or snowing, or a winter's day
     gap: [2.5, 3.4], gapRun: [1.1, 1.5], huff: 6,       // seconds between breaths (walking / running); s of huffing after a run
-    mouthY: 1.48, ahead: 0.24,  // her mouth (m), in front of her face (m)
+    mouthY: 1.42, ahead: 0.42,  // her mouth (m), in front of her face (m)
     peopleR: 22, peopleN: 6,    // townsfolk breathing within (m), at most
     friendsR: 26,
     exhaustMax: 9,              // the tailpipe steams below this speed (m/s)
@@ -42,7 +42,7 @@ function breathe(x, y, z, fx, fz, vx, vz, big) {
         const f = 0.55 + i * 0.25;
         addPuff(K.BREATH, x + fx * (0.02 + i * 0.05), y - i * 0.015, z + fz * (0.02 + i * 0.05),
             fx * f + vx * 0.85 + WS.wx * 0.05, rand(0.05, 0.16), fz * f + vz * 0.85 + WS.wz * 0.05,
-            rand(0.9, 1.25) * s, 0.07, rand(0.32, 0.42) * s, big ? 0.42 : 0.34, WHITE, WHITE, WHITE + 0.03);
+            rand(0.9, 1.25) * s, 0.1, rand(0.42, 0.55) * s, big ? 0.5 : 0.42, WHITE, WHITE, WHITE + 0.03);
     }
     BR.n++;
 }
