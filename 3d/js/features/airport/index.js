@@ -303,6 +303,12 @@ ctx.airport = {
     get inside() { return S.inside; },
     /** The stretch it covers along the highway (signs → accel lane) — for other planners to keep out of. */
     spans: () => S.G ? [{ a: S.E + LY.SPAN.a, b: S.E + LY.SPAN.b }] : [],
+    /** The kerb: `pickup()` → world {x, z, h} of the ARRIVALS pickup point in the kerb lane (f 24 — short of the taxi
+     *  line, which queues from f 70 back), heading along the kerb; null when it isn't planned (stage 3's taxi runs). */
+    kerb: {
+        pickup() { if (!S.G) return null; const p = S.G.F.world(24, LY.KERB_LANE, {}); p.h = S.G.F.yaw(1, 0); return p; },
+        get dep() { return LY.KERBS.dep.slice(); }, get arr() { return LY.KERBS.arr.slice(); },
+    },
     debug: {
         S, LY, AIR, BUILD, PLANES, VEH, JOKE, joke,
         /** Switch it on / off for this page (tests use ?enable=airport). */
