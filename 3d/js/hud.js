@@ -58,7 +58,8 @@ const GAP = { normal: 7, quiet: 15 };              // seconds between two flavou
 const NT = { toasts: [], waiting: [], cur: null, bq: [], gate: () => false, calm: () => null, loT: -99, now: 0, dropped: 0, shown: 0 };
 /** The calm gate: () → { quiet (with friends / strangers around), busy (a chase, a scene…), acted (she pressed a button ≤ 1 s
  *  ago: a toast now is the answer to it, so it isn't flavour), call (a phone call's card is up: flavour toasts drop, and on a
- *  phone flavour banners wait — the call is the one thing on screen) } — features/calm sets it. */
+ *  phone flavour banners wait — the call is the one thing on screen), line (Lulu said a line ≤ 1.2 s ago: her line is the
+ *  moment's pop-up, a flavour toast drops) } — features/calm sets it. */
 export function setCalmGate(fn) { NT.calm = fn; }
 const compact = () => document.body.classList.contains("touch") || Math.min(innerWidth, innerHeight) < 520;
 const toastMax = () => compact() ? 1 : 2;
@@ -136,7 +137,7 @@ export function toast(text, cls = "", opts = {}) {
     if (prio === 1) {
         // flavour: now or never — and not too often (much less with friends / strangers around)
         const up = NT.toasts.some(t => !t.out) || NT.waiting.length > 0;
-        if (c.busy || c.call || up || popupsBlocked() || NT.now - NT.loT < (c.quiet ? GAP.quiet : GAP.normal)) { NT.dropped++; return; }
+        if (c.busy || c.call || c.line || up || popupsBlocked() || NT.now - NT.loT < (c.quiet ? GAP.quiet : GAP.normal)) { NT.dropped++; return; }
         NT.loT = NT.now;
     }
     NT.waiting.push({ text, cls, key, n: 1, age: 0, summed: false, prio });
