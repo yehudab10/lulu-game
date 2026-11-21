@@ -34,15 +34,17 @@ module.exports = {
     };
     const onFoot = async () => {
       if (await g(`ctx.foot.active && L3.state === "footRun"`)) return true;
+      // (a test-forced climb-out from wherever the car stands: not what this test watches — the watchdog looks away)
+      await W.pause(t, false);
       await g(`ctx.foot.start("droveOff", { noIntro: true })`);
       const ok = await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot", 20000);
-      await W.moved(t);
+      await t.frames(6);
+      await W.pause(t, true);
       return ok;
     };
     // stand her at (x, z) (world), facing `h`
     const standAt = async (x, z) => {
-      await g(`(() => { const f = ctx.foot.pos; f.set(${x}, 0.05, ${z}); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f); ctx.cam.snap && ctx.cam.snap(); return true; })()`);
-      await W.moved(t);       // (a test teleport, not a glitch)
+      await g(`(() => { const f = ctx.foot.pos; f.set(${x}, 0.05, ${z}); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f); ctx.cam.snap && ctx.cam.snap(); if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);       // (a test teleport, not a glitch: a declared cut in the same frame)
       await t.frames(3);
     };
     // a point on the first long street of the plan: lateral `d` from its centre line (world coords)
@@ -130,8 +132,7 @@ module.exports = {
       // line up behind it along the street, rolling at ~14 m/s
       const c0 = (await info()).carSplashes;
       await g(`(() => { const h = ${pd.h}, fx = Math.sin(h), fz = Math.cos(h); const x = ${pd.x} - fx * 9, z = ${pd.z} - fz * 9;
-        ctx.car.place(x, z, h); ctx.car.vx = fx * 14; ctx.car.vz = fz * 14; ctx.car.vF = 14; ctx.car.s = ctx.world.road.nearest(x, z, ctx.car.s, {}).s; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
-      await W.moved(t);
+        ctx.car.place(x, z, h); ctx.car.vx = fx * 14; ctx.car.vz = fz * 14; ctx.car.vF = 14; ctx.car.s = ctx.world.road.nearest(x, z, ctx.car.s, {}).s; ctx.cam.snap && ctx.cam.snap(); if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);
       await t.hold(7, 0.4);
       let hit = false;
       for (let i = 0; i < 12 && !hit; i++) { await t.frames(2); hit = (await info()).carSplashes > c0; if (hit) await t.shot("car-spray"); }

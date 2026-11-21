@@ -88,7 +88,8 @@ on("settings", e => { if (e && e.id === "lifeSounds" && !soundsOn()) ambienceSto
 // ── ⚙️ the switch (only the sounds can get on anyone's nerves) ──────────────
 addMenuItem("settings", {
     id: "lifeSounds", order: 64,
-    label: () => `🐦 Street sounds <b>${soundsOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">footsteps · birds · dogs · the wind</small>`,
+    // (the core rows' own shape — name left, value right, one line: the settings card has to fit 720p)
+    label: () => `<span>🐦 Street sounds</span><b>${soundsOn() ? "ON" : "OFF"}</b>`,
     action: () => { SAVE.sounds = !soundsOn(); saveSoon(); if (!SAVE.sounds) ambienceStop(); emit("settings", { id: "lifeSounds" }); },
 });
 
