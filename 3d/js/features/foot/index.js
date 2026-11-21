@@ -2035,8 +2035,11 @@ function hud() {
 const carProbe = { s: 0 };
 const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;     // (not the scripted pull-out: its own shot)
 const carClipFn = (tgt, dx, dy, dz, D) => {
-    if (!(ctx.town && ctx.town.active) && !homeStreet()) return null;
-    carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D);
+    // (ci/airport-polish: and the airport's buildings — ctx.airport.camClip: the terminal + the tower; null away from it)
+    const air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
+    if (!(ctx.town && ctx.town.active) && !homeStreet()) return air;
+    carProbe.s = ctx.car.s; const r = camClip(carProbe, tgt, dx, dy, dz, D);
+    return air != null && (r == null || air < (typeof r === "number" ? r : r.d)) ? air : r;
 };
 on("run:start", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
 on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });

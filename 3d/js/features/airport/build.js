@@ -209,7 +209,8 @@ function cellsOf(a) {
         welcome: sign("welcome", BOARDS.welcome, "#F6EEDC", ["#16324F", "#6D4C41"], 768, 256, "#16324F"),
         term: sign("term", BOARDS.term, "#16324F", "#FFFFFF", 1024, 96),
         dep: sign("dep", BOARDS.dep, "#1E5AA8", "#FFFFFF", 1024, 112), arr: sign("arr", BOARDS.arr, "#1E5AA8", "#FFFFFF", 1024, 112),
-        soon: sign("soon", BOARDS.soon, "#FFF8E1", ["#C62828", "#37474F"], 512, 256, "#C62828"),
+        // (the doors' board: they OPEN now — stage 2's hall — so a plain door sign, no "opening soon" poster: ci/qaweekend)
+        soon: sign("soon", BOARDS.soon, "#16324F", ["#FFFFFF", "#CFE3F5"], 512, 256, "#FFFFFF"),
         guide: sign("guide", BOARDS.guide, "#1f7a46", "#fff", 768, 336), parking: sign("parking", BOARDS.parking, "#1565C0", "#fff", 512, 240),
         taxi: sign("taxi", BOARDS.taxi, "#FFC107", "#1B1B1B", 512, 224), shuttle: sign("shuttle", BOARDS.shuttle, "#1E5AA8", "#fff", 512, 224),
         noStop: sign("noStop", BOARDS.noStop, "#FAFAFA", "#C62828", 384, 240), runway: sign("runway", BOARDS.runway, "#FFD600", "#1B1B1B", 512, 224),

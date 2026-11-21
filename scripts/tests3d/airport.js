@@ -170,6 +170,10 @@ module.exports = {
       console.log("   kerb stats", JSON.stringify(ks));
       // stage 3's taxi runs pick up at ctx.airport.kerb.pickup(): the ARRIVALS kerb lane, clear of the taxi line
       const pk = await g(`(() => { const p = ctx.airport.kerb.pickup(), q = ctx.airport.debug.local(p.x, p.z), taxis = ctx.airport.debug.vehicles().filter(c => c.kind === "taxi" && c.speed < 0.5); return { f: Math.round(q.f), r: +q.r.toFixed(1), near: Math.min(99, ...taxis.map(c => Math.hypot(c.x - p.x, c.z - p.z))) }; })()`);
+      // the chase cam's walls (ci/airport-polish): a camera swung toward the terminal stops at its glass, the other way is free
+      const cc = await g(`(() => { const p = ctx.airport.debug.world(0, 193), d = ctx.airport.debug.G().F.dir(0, 1); const tgt = { x: p.x, y: 1.4, z: p.z };
+        return { into: ctx.airport.camClip(tgt, d.x, 0, d.z, 20), away: ctx.airport.camClip(tgt, -d.x, 0, -d.z, 20), fn: !!(ctx.cam && ctx.cam.carClip) }; })()`);
+      t.check("the chase cam keeps out of Terminal 4½ (camClip stops it at the facade, ~9.7 m; free the other way; foot's carClip asks)", cc.into != null && cc.into > 9 && cc.into < 10.2 && cc.away == null && cc.fn, JSON.stringify(cc));
       t.check("the ARRIVALS pickup point (stage 3) is in the kerb lane, clear of the taxi line", pk.f > 6 && pk.f < 40 && pk.r > 191 && pk.r < 196 && pk.near > 4, JSON.stringify(pk));
     });
 

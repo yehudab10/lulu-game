@@ -280,6 +280,35 @@ function cueTick(controlsOn) {
     cue(html);
 }
 
+// ── the chase cam's walls: the terminal + the tower as boxes in the airport frame (a chase round the kerb could
+//    otherwise swing the camera into the terminal: one flat colour on screen — ci/qaweekend) ──
+const CAM_BOXES = [
+    { f0: LY.TERM.f0, f1: LY.TERM.f1, r0: LY.TERM.r0, r1: LY.TERM.r1, y1: 15.5 },
+    { f0: 132, f1: 144, r0: 262, r1: 274, y1: 32 },
+];
+const _cq = {};
+function camClip(tgt, dx, dy, dz, D) {
+    const G = S.G;
+    if (!G || !S.ready) return null;
+    const F = G.F, q = F.local(tgt.x, tgt.z, _cq), ax = q.f, ar = q.r;
+    if (ax < LY.LAND.f0 - 80 || ax > LY.LAND.f1 + 80 || ar < LY.LAND.r0 - 80 || ar > LY.LAND.r1 + 80) return null;     // (nowhere near: no cost)
+    const df = dx * F.fx + dz * F.fz, dr = dx * F.rx + dz * F.rz;     // (the direction in the frame: f, r)
+    let best = D, hit = false;
+    for (const B of CAM_BOXES) {
+        let p = 0.3;
+        if (ax > B.f0 - p && ax < B.f1 + p && ar > B.r0 - p && ar < B.r1 + p) p = 0.05;        // (right up against it)
+        const f0 = B.f0 - p, f1 = B.f1 + p, r0 = B.r0 - p, r1 = B.r1 + p;
+        if (ax > f0 && ax < f1 && ar > r0 && ar < r1) continue;
+        let t0 = 0, t1 = best;
+        if (Math.abs(df) < 1e-9) { if (ax < f0 || ax > f1) continue; }
+        else { let ta = (f0 - ax) / df, tb = (f1 - ax) / df; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        if (Math.abs(dr) < 1e-9) { if (ar < r0 || ar > r1) continue; }
+        else { let ta = (r0 - ar) / dr, tb = (r1 - ar) / dr; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        if (tgt.y + dy * t0 < B.y1 && t0 < best) { best = t0; hit = true; }
+    }
+    return hit ? best : null;
+}
+
 // ── run lifecycle ────────────────────────────────────────────────────────
 /** The search for a spot runs a few candidates a frame (fixed data: the same answer on every screen, cached). */
 function searchTick(budget = 2.5) {
@@ -335,6 +364,10 @@ ctx.airport = {
      *  the towns' planner to keep out of (ci/exits2's `clearOfPlaces`: the switch-on step) and the rest areas' (features/exits
      *  clearAt asks already) — the same on every screen. Empty until the switch-on (PLANNING.townsKeepOut). */
     zones: (s0, s1) => (S.on && PLANNING.townsKeepOut ? zones(s0, s1) : []),
+    /** The chase cam's walls at the airport (foot's `cam.carClip` asks, like a town's blocks): how far from the pivot `tgt`
+     *  the camera may sit along the unit direction (dx, dy, dz) before it's inside Terminal 4½ or the tower → a distance
+     *  (< D), or null (nothing in the way / she's nowhere near the airport). */
+    camClip(tgt, dx, dy, dz, D) { return camClip(tgt, dx, dy, dz, D); },
     /** The kerb: `pickup()` → world {x, z, h} of the ARRIVALS pickup point in the kerb lane (f 24 — short of the taxi
      *  line, which queues from f 70 back), heading along the kerb; null until it is built (stage 3: no taxi run away from the airport). */
     kerb: {
