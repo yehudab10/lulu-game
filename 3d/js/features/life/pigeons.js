@@ -82,10 +82,11 @@ function bird(f, x, y, z, yaw, k) {
 function buildFlocks() {
     const plan = ctx.town && ctx.town.plan;
     if (!plan || !ensureSites()) return false;
+    // (ctx.town.homes maps every house to the world: read it only when the town changed — or every 2 s while it's empty)
+    if (PG.key === PS.key && (PG.nHomes > 0 || L.time < PG.retry)) return true;
     const homes = ctx.town.homes || [];
-    const key = `${PS.key}|${homes.length}`;
-    if (PG.key === key) return true;
-    PG.key = key; PG.flocks = []; PG.live.length = 0; PG.sx = PG.sz = 1e9;
+    PG.key = PS.key; PG.nHomes = homes.length; PG.retry = L.time + 2;
+    PG.flocks = []; PG.live.length = 0; PG.sx = PG.sz = 1e9;
     const th = strHash((plan.def.id || "town") + ":pigeons"), w = {};
     // rows on the roofs
     homes.forEach((h, i) => {

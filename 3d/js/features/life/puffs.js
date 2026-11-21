@@ -60,10 +60,10 @@ export const PU = { key: "", homesKey: "", chimneys: [], manholes: [], vents: []
 function buildSites() {
     const plan = ctx.town && ctx.town.plan;
     if (!plan || !ensureSites()) return false;
+    // (ctx.town.homes maps every house to the world: read it only when the town changed — or every 2 s while it's empty)
+    if (PU.key === PS.key && (PU.nHomes > 0 || L.time < PU.retry)) return true;
     const homes = ctx.town.homes || [];
-    const hk = `${PS.key}|${homes.length}`;
-    if (PU.key === hk) return true;
-    PU.key = hk;
+    PU.key = PS.key; PU.nHomes = homes.length; PU.retry = L.time + 2;
     PU.chimneys = []; PU.manholes = []; PU.vents = []; PU.live.length = 0; PU.liveMh.length = 0; PU.sx = PU.sz = 1e9; PU.smelled.clear();
     const th = strHash(plan.def.id || "town"), w = {};
     homes.forEach((h, i) => {
