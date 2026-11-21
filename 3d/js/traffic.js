@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "./models.js";
 import { LANES_OURS, LANES_ONCOMING } from "./world.js";
 import { CAR_CIRCLES, CAR_RADIUS, CAR_HALF_W } from "./car.js";
-import { farLod } from "./lod.js";
+import { farLod, shadowProxy } from "./lod.js";
 
 const PAINTS = ["#42A5F5", "#FFFFFF", "#FFCA28", "#66BB6A", "#EF5350", "#8D6E63", "#9E9E9E", "#26C6DA", "#263238", "#FF8A65", "#BA68C8"];
 const KINDS = {
@@ -63,13 +63,14 @@ export class Traffic {
         const wheels = findNodes(obj, "Wheel_").map(w => { w.rotation.order = "YXZ"; return w; });
         const heads = [];
         obj.traverse(o => { if (o.isMesh && o.material.name === "Headlight") { o.material = o.material.clone(); heads.push(o.material); } });
-        return { obj, kind, wheels, heads, spec: KINDS[kind], lod: farLod(obj) };   // one draw call once it's far away (lod.js)
+        const lod = farLod(obj);   // one draw call once it's far away (lod.js)
+        return { obj, kind, wheels, heads, spec: KINDS[kind], lod, shadow: shadowProxy(obj, { lod }) };   // …and one in the shadow pass
     }
 
     release(c) {
         this.scene.remove(c.obj);
         if (c.onRemove) { try { c.onRemove(c); } catch (e) { console.error(e); } }
-        (this.pool[c.kind] || (this.pool[c.kind] = [])).push({ obj: c.obj, kind: c.kind, wheels: c.wheels, heads: c.heads, spec: c.spec, lod: c.lod });
+        (this.pool[c.kind] || (this.pool[c.kind] = [])).push({ obj: c.obj, kind: c.kind, wheels: c.wheels, heads: c.heads, spec: c.spec, lod: c.lod, shadow: c.shadow });
     }
 
     laneFree(s, d, dir, gap) {

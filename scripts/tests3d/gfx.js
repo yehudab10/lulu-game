@@ -87,6 +87,35 @@ module.exports = {
     const fresh = await t.L(`import("./js/core/gfx.js").then(m => m.gfxInfo())`);
     t.check("MEDIUM: a sudden noon after night refreshes the sky reflection at once", fresh.env && fresh.envFresh, JSON.stringify(fresh));
     await t.shot("noon-medium");
+
+    // ── MEDIUM: shadow proxies (lod.js) — a car casts its shadow in one draw; a changed part casts on its own at once ──
+    const sp = await t.L(`import("./js/lod.js").then(async m => { const L3 = __lulu3d, r = L3.renderer, sm = r.shadowMap, gl = r.getContext();
+        // the real draws inside the shadow pass (renderer.info misses them), one frame
+        let n = 0, inSh = false; const so = sm.render, de = gl.drawElements, da = gl.drawArrays;
+        gl.drawElements = function () { if (inSh) n++; return de.apply(this, arguments); }; gl.drawArrays = function () { if (inSh) n++; return da.apply(this, arguments); };
+        sm.render = function () { inSh = true; try { return so.apply(this, arguments); } finally { inSh = false; } };
+        const frame = () => { n = 0; r.render(L3.ctx.scene, L3.ctx.camera); return n; };
+        const car = L3.ctx.car, body = []; car.model.traverse(o => { if (o.isMesh && /^LuluCar_body/.test(o.name)) body.push(o); });
+        const front = []; car.model.traverse(o => { if (o.isMesh && /^Wheel_F/.test(o.name)) front.push(o); });
+        // off first: the parts that cast on their own are the proxy's parts
+        m.shadowProxiesOn(false); const off = frame(), casters = body.filter(o => o.castShadow);
+        m.shadowProxiesOn(true); const on = frame(), info = m.shadowProxyInfo();
+        const bodyOff = casters.length >= 4 && casters.every(o => !o.castShadow);
+        frame();
+        // a part hidden by a feature: the rest cast on their own straight away (no missing shadow), then it re-bakes without it
+        const hid = casters[1]; hid.visible = false; frame(); const handBack = casters.filter(o => o !== hid).every(o => o.castShadow);
+        for (let i = 0; i < 40; i++) frame(); const rebaked = casters.filter(o => o !== hid).every(o => !o.castShadow);
+        hid.visible = true;
+        const backOn = casters.length >= 4;
+        sm.render = so; gl.drawElements = de; gl.drawArrays = da;
+        return { on, off, info, bodyOff, frontCast: front.length > 0 && front.every(o => o.castShadow), backOn, handBack, rebaked, clouds: L3.ctx.world.clouds.children.length }; })`);
+    t.check("MEDIUM: Lulu's car body casts through ONE shadow proxy (its parts don't cast alone)", sp.info.active >= 1 && sp.bodyOff, JSON.stringify(sp));
+    t.check("…the steered front wheels still cast on their own", sp.frontCast, JSON.stringify(sp));
+    t.check("…the shadow pass draws fewer calls with the proxies than without", sp.on < sp.off, `${sp.on} vs ${sp.off}`);
+    t.check("…turned off, every part casts again", sp.backOn, JSON.stringify(sp));
+    t.check("…a part hidden mid-drive: the others cast on their own at once, then re-bake", sp.handBack && sp.rebaked, JSON.stringify(sp));
+    t.check("the sky's clouds are 16 meshes, one per cloud (was 80, one per puff)", sp.clouds === 16, String(sp.clouds));
+
     const high = await drive("high");
     const bloom = await g(`!!L3.gfx.bloom`);
     const canBloom = await t.L(`(() => { const e = __lulu3d.renderer.extensions; return !!(e.has("EXT_color_buffer_float") || e.has("EXT_color_buffer_half_float")); })()`);

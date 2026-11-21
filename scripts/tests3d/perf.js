@@ -1,7 +1,7 @@
 // 📈 Perf harness: boots the representative scenes and records what the renderer and the JS
 // side cost there, so an optimisation (or a regression) shows up as numbers, not a feeling.
 //
-//   scenes   cruise (a busy Cruise highway at noon) · rain (the same at night in a storm) ·
+//   scenes   cruise (a busy Cruise highway at noon, near the start) · highway (1.5 km on, at speed) · rain (the same at night in a storm) ·
 //            town (Lakewood's Main St) · rest (a rest-area lot) · foot (on foot on the highway) ·
 //            interior (The Thirsty Scholar) · party (a 🌍 Free Roam convoy: two real pages on the
 //            LOCAL relay) — each: draw calls, triangles (avg / max), textures, geometries, programs,
@@ -25,7 +25,7 @@ const { spawn } = require("child_process");
 const TIER = process.env.PERF3D_TIER || "high";
 const DRIVE = +(process.env.PERF3D_DRIVE || 40);
 const FRAMES = +(process.env.PERF3D_FRAMES || 60);
-const SCENES = (process.env.PERF3D_SCENES || "cruise,rain,rest,town,attached,foot,interior,drive,party").split(",");
+const SCENES = (process.env.PERF3D_SCENES || "cruise,highway,rain,rest,town,attached,foot,interior,drive,party").split(",");
 const FEATURES = "bloom,roadevents,cameos,banter,atmos,world,town,exits,law,feel,streets,rides,community,memory,hustle,play,foot,interiors,party,openworld";
 const PORT = 25000 + (process.pid % 20000);
 const RELAY = `ws://127.0.0.1:${PORT}`;
@@ -39,7 +39,12 @@ const SETTINGS = { quality: TIER, vibration: true, invertLook: false, steerSens:
 const PROBE = `(() => {
   let a = 1234567;
   Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const PF = window.__pfx = { on: false, js: 0, mut: 0 };
+  const PF = window.__pfx = { on: false, js: 0, mut: 0, gl: 0, sh: 0, inShadow: false };
+  // every real WebGL draw (renderer.info misses the shadow pass: three resets it after the shadow map is drawn)
+  for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) if (C) for (const f of ["drawElements", "drawArrays", "drawElementsInstanced", "drawArraysInstanced"]) {
+    const o = C.prototype[f]; if (!o) continue;
+    C.prototype[f] = function () { if (PF.on) { PF.gl++; if (PF.inShadow) PF.sh++; } return o.apply(this, arguments); };
+  }
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = cb => raf(ts => { const t0 = performance.now(); try { cb(ts); } finally { if (PF.on) PF.js += performance.now() - t0; } });
   const mo = new MutationObserver(list => { if (PF.on) PF.mut += list.length; });
@@ -78,19 +83,22 @@ module.exports = {
 
     await t.L(`Promise.all([import("./js/core/ctx.js"), import("./js/core/driving.js")]).then(([m, d]) => {
       window.__perfDrive = 0;   // m/s: hold the lane at this speed (0 = hands off)
-      m.hook("controls", (ctl, dt) => { if (window.__perfDrive > 0) Object.assign(ctl, d.autoDrive(dt, 5.25, window.__perfDrive)); }, 1001);
+      m.hook("controls", (ctl, dt) => { if (window.__perfDrive > 0) Object.assign(ctl, d.autoDrive(dt, 5.25, window.__perfDrive));
+        // (in a town: straight down the street she was put on, at this speed)
+        else if (window.__perfStraight > 0) { const v = m.ctx.car.speed; Object.assign(ctl, { steer: 0, throttle: v < window.__perfStraight ? 0.6 : 0, brake: v > window.__perfStraight + 3 ? 0.3 : 0, handbrake: false, analog: true }); } }, 1001);
       m.hook("damage", () => false, 9999);     // nothing ends the measurement early
     })`);
     // one scene's numbers over n frames
     const measure = async (n = FRAMES) => {
       await t.L(`(() => { const r = __lulu3d.renderer;
         if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true;
+          const sm = r.shadowMap, so = sm.render.bind(sm); sm.render = function () { window.__pfx.inShadow = true; try { return so.apply(null, arguments); } finally { window.__pfx.inShadow = false; } };
           // (every render call's time counts — post passes too — but the draw counts are the game scene's own render)
           r.render = (s, c) => { const t0 = performance.now(); o(s, c); const P = window.__pf; if (!P) return; const dt = performance.now() - t0; P.ren += dt;
             const C = __lulu3d.ctx; if (s !== C.scene && !(C.view && s === C.view.scene)) return; P.n++; P.rl.push(dt);
             P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
         window.__pf = { n: 0, ren: 0, rl: [], calls: 0, tris: 0, maxCalls: 0, maxTris: 0, w0: performance.now() };
-        Object.assign(window.__pfx, { on: true, js: 0, mut: 0 }); })()`);
+        Object.assign(window.__pfx, { on: true, js: 0, mut: 0, gl: 0, sh: 0 }); })()`);
       await t.frames(n);
       return t.L(`(() => { const P = window.__pf, X = window.__pfx, r = __lulu3d.renderer, L3 = __lulu3d; window.__pf = null; X.on = false;
         const sc = L3.ctx.view ? L3.ctx.view.scene : L3.ctx.scene; let meshes = 0, vis = 0, inst = 0, lights = 0, shadowLights = 0; const mats = new Set();
@@ -98,8 +106,8 @@ module.exports = {
           if (o.isLight) { lights++; if (o.castShadow) shadowLights++; } });
         sc.traverseVisible(o => { if (o.isMesh || o.isLine || o.isPoints || o.isSprite) vis++; });
         return { frames: P.n, calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris,
-          frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), jsMs: +(X.js / P.n).toFixed(2), renderMs: +(P.ren / P.n).toFixed(2), renderMed: +P.rl.sort((a, b) => a - b)[P.rl.length >> 1].toFixed(2), updateMs: +((X.js - P.ren) / P.n).toFixed(2),
-          domMut: +(X.mut / P.n).toFixed(1), textures: r.info.memory.textures, geometries: r.info.memory.geometries, programs: (r.info.programs || []).length,
+          frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), jsMs: +(X.js / P.n).toFixed(2), renderMs: +(P.ren / P.n).toFixed(2), renderMed: +P.rl.sort((a, b) => a - b)[P.rl.length >> 1].toFixed(2), renderP90: +P.rl[Math.floor(P.rl.length * 0.9)].toFixed(2), renderMax: +P.rl[P.rl.length - 1].toFixed(2), updateMs: +((X.js - P.ren) / P.n).toFixed(2),
+          domMut: +(X.mut / P.n).toFixed(1), gl: Math.round(X.gl / P.n), shadowGl: Math.round(X.sh / P.n), textures: r.info.memory.textures, geometries: r.info.memory.geometries, programs: (r.info.programs || []).length,
           meshes, visible: vis, instanced: inst, materials: mats.size, lights, shadowLights, shadows: r.shadowMap.enabled, pixelRatio: r.getPixelRatio(),
           cars: L3.traffic.cars.length, state: L3.state }; })()`);
     };
@@ -112,7 +120,53 @@ module.exports = {
           const g = o.geometry, n = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0), ic = o.isInstancedMesh ? o.count : (g.isInstancedBufferGeometry ? g.instanceCount : 1);
           const b = by[k] || (by[k] = { draws: 0, tris: 0, shadow: 0 }); b.draws += Math.max(1, g.groups.length || 1); b.tris += Math.round(n / 3 * ic); if (o.castShadow) b.shadow++; });
         return Object.entries(by).sort((a, b) => b[1].draws - a[1].draws || b[1].tris - a[1].tris).slice(0, ${Math.max(14, +process.env.PERF3D_TOP || 0)}).map(([k, v]) => k + " = " + v.draws + "d/" + v.tris + "t" + (v.shadow ? "/" + v.shadow + "s" : "")); })`);
-    const record = async (key, n) => { const m = await measure(n); if (process.env.PERF3D_TOP) { m.top = await breakdown(); for (const l of m.top) console.log(`      ${key}: ${l}`); } R.scenes[key] = m; console.log(`   PERF ${key} ${JSON.stringify(m)}`); await t.shot(`${TIER}-${key}`); return m; };
+    // PERF3D_PROFILE=1: a CPU profile + an allocation sample over each scene's frames — where the JS time goes (self ms a
+    // frame by file + the top functions; "(garbage collector)" = GC) and who allocates (KB a frame by file + function)
+    const PROF = !!process.env.PERF3D_PROFILE;
+    const short = u => (u || "").replace(/^.*\/3d\//, "").replace(/\?.*$/, "") || "(native)";
+    const profStart = async () => { if (!PROF) return; await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start");
+      await cdp.send("HeapProfiler.startSampling", { samplingInterval: 4096 }); };
+    const profStop = async (key, frames) => {
+      if (!PROF) return null;
+      const { profile: P } = await cdp.send("Profiler.stop"); const { profile: H } = await cdp.send("HeapProfiler.stopSampling");
+      const nodes = new Map(P.nodes.map(n => [n.id, n])), parent = new Map();
+      for (const n of P.nodes) for (const c of n.children || []) parent.set(c, n.id);
+      const self = new Map(), selfFn = new Map(), incl = new Map();
+      for (let i = 0; i < P.samples.length; i++) {
+        const dt = (P.timeDeltas[i + 1] || 0) / 1000, n = nodes.get(P.samples[i]), cf = n.callFrame;
+        const f = cf.url ? short(cf.url) : cf.functionName || "(native)";
+        self.set(f, (self.get(f) || 0) + dt);
+        const fk = f + " › " + (cf.functionName || "(anon)") + ":" + (cf.lineNumber + 1); selfFn.set(fk, (selfFn.get(fk) || 0) + dt);
+        const seen = new Set(); for (let id = n.id; id != null; id = parent.get(id)) { const c = nodes.get(id).callFrame; if (c.url && /\/js\//.test(c.url)) seen.add(short(c.url)); }
+        for (const k of seen) incl.set(k, (incl.get(k) || 0) + dt);
+      }
+      const alloc = new Map(), allocFn = new Map();
+      const walk = (n, stack) => { const cf = n.callFrame, f = cf.url ? short(cf.url) : ""; const st = f ? f + " › " + (cf.functionName || "(anon)") + ":" + (cf.lineNumber + 1) : stack;
+        const sz = (n.selfSize || 0) / 1024; if (sz) { const k = f || (stack ? stack.split(" › ")[0] : "(native)"); alloc.set(k, (alloc.get(k) || 0) + sz); allocFn.set(st || "(native)", (allocFn.get(st || "(native)") || 0) + sz); }
+        for (const c of n.children || []) walk(c, st); };
+      walk(H.head, "");
+      const per = m => [...m].map(([k, v]) => [k, +(v / frames).toFixed(2)]).sort((a, b) => b[1] - a[1]);
+      const r = { self: per(self).slice(0, 18), selfFn: per(selfFn).slice(0, 25), incl: per(incl).slice(0, 25), allocKB: per(alloc).slice(0, 15), allocFn: per(allocFn).slice(0, 25),
+        allocTotalKB: +([...alloc.values()].reduce((a, b) => a + b, 0) / frames).toFixed(1) };
+      console.log(`   PROFILE ${key} (ms / frame, self by file): ` + r.self.map(e => e.join(" ")).join(" · "));
+      console.log(`   PROFILE ${key} (ms / frame, inclusive by file): ` + r.incl.map(e => e.join(" ")).join(" · "));
+      console.log(`   PROFILE ${key} top functions (self ms / frame): ` + r.selfFn.map(e => e.join(" ")).join(" · "));
+      console.log(`   PROFILE ${key} allocations ${r.allocTotalKB} KB / frame: ` + r.allocKB.map(e => e.join(" ")).join(" · "));
+      console.log(`   PROFILE ${key} top allocators (KB / frame): ` + r.allocFn.map(e => e.join(" ")).join(" · "));
+      return r;
+    };
+    // what the sun's shadow pass draws (MEDIUM / HIGH): casters inside the shadow camera's box, grouped the same way
+    const shadowBreakdown = () => t.L(`import("three").then(THREE => { const L3 = __lulu3d, sun = L3.ctx.lights && L3.ctx.lights.sun, sc = L3.ctx.scene;
+        if (!L3.renderer.shadowMap.enabled || !sun || L3.ctx.view) return [];
+        const sc2 = sun.shadow.camera; sc2.updateMatrixWorld(); const F = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(sc2.projectionMatrix, sc2.matrixWorldInverse)); const by = {};
+        sc.traverseVisible(o => { if (!o.isMesh || !o.castShadow) return; if (o.frustumCulled && !F.intersectsObject(o)) return;
+          let a = o, name = ""; for (let i = 0; i < 6 && a && !name; i++) { name = a.name || (a.userData && a.userData.townLook ? "town:" + a.userData.townLook : ""); a = a.parent; }
+          let top = o; while (top.parent && top.parent !== sc) top = top.parent;
+          const k = (top.name || top.type) + " › " + name; const g = o.geometry, ic = o.isInstancedMesh ? o.count : 1, n = g.index ? g.index.count : g.attributes.position.count;
+          const b = by[k] || (by[k] = { draws: 0, tris: 0 }); b.draws += Math.max(1, g.groups.length || 1); b.tris += Math.round(n / 3 * ic); });
+        return Object.entries(by).sort((a, b) => b[1].draws - a[1].draws).slice(0, ${Math.max(14, +process.env.PERF3D_TOP || 0)}).map(([k, v]) => k + " = " + v.draws + "d/" + v.tris + "t"); })`);
+    const record = async (key, n) => { await profStart(); const m = await measure(n); const pr = await profStop(key, m.frames || n || FRAMES); if (pr) m.profile = pr; if (process.env.PERF3D_TOP) { m.top = await breakdown(); for (const l of m.top) console.log(`      ${key}: ${l}`);
+      m.shadowTop = await shadowBreakdown(); for (const l of m.shadowTop) console.log(`      ${key} shadow: ${l}`); } R.scenes[key] = m; console.log(`   PERF ${key} ${JSON.stringify(m)}`); await t.shot(`${TIER}-${key}`); return m; };
     const place = (s, d, v = 0) => g(`(() => { const r = ctx.world.road, p = r.point(${s}, ${d}, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${s}; ctx.car.d = ${d}; ctx.car.vx = Math.sin(p.h) * ${v}; ctx.car.vz = Math.cos(p.h) * ${v}; ctx.car.vF = ${v}; ctx.world.prebuild(${s}); ctx.cam.snap && ctx.cam.snap(); return true; })()`);
     const want = k => SCENES.includes(k);
     const toPlaying = async () => { if (await g(`L3.state !== "playing"`)) { await g(`L3.setState("playing")`); await t.frames(3); } };
@@ -124,6 +178,12 @@ module.exports = {
     await g(`(window.__perfDrive = 27, true)`);
     await t.frames(90);
     if (want("cruise")) await step("cruise", () => record("cruise"));
+    // ── the open highway (cruise is measured ~100 m from the start, by Lulu's house): 1.5 km on, at speed ──
+    if (want("highway")) await step("highway", async () => {
+      await place(await g(`ctx.car.s`) + 1500, 5.25, 27);
+      await t.frames(60);
+      await record("highway");
+    });
 
     // ── night + a storm ──
     if (want("rain")) await step("rain", async () => {
@@ -162,6 +222,39 @@ module.exports = {
       await t.frames(10);
       await toPlaying();
     });
+
+    // ── in the towns where players spend their time: driving down a street, walking it (Lakewood + Midwood) ──
+    // towndrive / townfoot: Lakewood's Main St · middrive / midfoot: Midwood's Avenue J (opt-in scenes, PERF3D_SCENES=…)
+    const townScene = (key, id, st, along, mode) => step(key, async () => {
+      await g(`(window.__perfDrive = 0, window.__perfStraight = 0, true)`);
+      if (await g(`ctx.foot.active`)) { await g(`(ctx.foot.end("car"), true)`); }
+      if (await g(`ctx.town.active && ctx.town.id !== "${id}"`)) { await g(`ctx.town.leave("reset")`); await t.frames(10); }
+      await toPlaying();
+      await g(`(ctx.town.load("${id}"), true)`);
+      await t.until(`__lulu3d.ctx.town.loaded("${id}")`, "${id} models loaded", 120000);
+      if (!await g(`ctx.town.active`)) {
+        await g(`ctx.town.enter({ town: "${id}", speed: 0 })`);
+        if (!await t.until(`__lulu3d.ctx.town.active`, "into ${id}", 10000)) return;
+        await t.until(`!__lulu3d.ctx.town.transitioning`, "the fade clears", 10000);
+      }
+      await toPlaying();
+      await g(`ctx.town.debug.place("${st}", ${along}, 1.75, ${mode === "drive" ? 11 : 0}, 1)`);
+      if (mode === "drive") { await g(`(window.__perfStraight = 11, true)`); await t.frames(30); await record(key); await g(`(window.__perfStraight = 0, true)`); return; }
+      await t.frames(4);
+      await g(`ctx.foot.start("droveOff", { noIntro: true })`);
+      if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot in ${id}", 30000)) return;
+      await t.stick(0, -1);
+      await t.frames(20);
+      await record(key);
+      await t.stick(0, 0);
+    });
+    const townDone = async () => { await g(`(window.__perfStraight = 0, ctx.foot.active && ctx.foot.end("car"), ctx.town.active && ctx.town.leave("reset"), true)`); await t.frames(10); await toPlaying(); };
+    if (want("towndrive")) await townScene("towndrive", "lakewood", "Main St", 10, "drive");
+    if (want("townfoot")) await townScene("townfoot", "lakewood", "Main St", 60, "foot");
+    if (want("middrive") || want("midfoot")) await townDone();
+    if (want("middrive")) await townScene("middrive", "midwood", "Avenue J", -200, "drive");
+    if (want("midfoot")) await townScene("midfoot", "midwood", "Avenue J", -150, "foot");
+    if (["towndrive", "townfoot", "middrive", "midfoot"].some(want)) await step("towns done", townDone);
 
     // ── ONE WORLD: the T-junction with both towns standing in view, then an attached Lakewood (the highway's chunks drawn) ──
     if (want("attached")) await step("attached", async () => {
@@ -320,7 +413,7 @@ module.exports = {
     });
 
     // the table + the JSON
-    const keys = ["calls", "maxCalls", "tris", "jsMs", "updateMs", "renderMs", "frameMs", "domMut", "textures", "geometries", "programs", "visible", "materials"];
+    const keys = ["calls", "gl", "shadowGl", "tris", "jsMs", "updateMs", "renderMs", "frameMs", "domMut", "textures", "geometries", "programs", "visible", "materials"];
     console.log(`   ${"scene".padEnd(9)}${keys.map(k => k.padStart(11)).join("")}`);
     for (const [k, m] of Object.entries(R.scenes)) console.log(`   ${k.padEnd(9)}${keys.map(c => String(m[c]).padStart(11)).join("")}`);
     const out = process.env.PERF3D_OUT || path.join(__dirname, "..", "..", "smoke-shots", `perf3d-${TIER}.json`);

@@ -19,7 +19,9 @@ export function setHearts(n, max) {
 }
 let lastCoins = -1, lastScore = -1, lastMph = -1;
 export function setCoins(n) { if (n !== lastCoins) { lastCoins = n; el.coins.textContent = n; } }
-export function setScore(n) { n = Math.floor(n); if (n !== lastScore) { lastScore = n; el.score.textContent = n.toLocaleString(); } }
+// (one formatter, made once: Number#toLocaleString builds a new one on every call — ~0.3 ms a frame while the score ticks)
+const scoreFmt = (() => { try { return new Intl.NumberFormat(); } catch (e) { return null; } })();
+export function setScore(n) { n = Math.floor(n); if (n !== lastScore) { lastScore = n; el.score.textContent = scoreFmt ? scoreFmt.format(n) : n.toLocaleString(); } }
 export function setSpeed(mph) { mph = Math.round(mph); if (mph !== lastMph) { lastMph = mph; el.mph.textContent = mph; } }
 let lastBoostW = "", lastBoostFull = null, lastTripF = -1;
 export function setBoost(frac, key) {

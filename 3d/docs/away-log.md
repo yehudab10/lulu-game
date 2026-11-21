@@ -10,6 +10,13 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   waving from the roadside is one pop-up (his +8 💰 tip is in it), an ambulance is one warning instead of two, and Avigail chats a
   bit less when she tags along on a walk. On a big TV the 🕯️ "Made it for candles!" card fits without scrolling.
 
+- 2026-11-21 UTC — ⚡ Smoother on phones (a performance pass, nothing new to see): the game now asks the phone's graphics
+  chip to draw a lot less each frame. Walking or driving in Lakewood and Midwood draws about 20–28 % less on LOW and
+  MEDIUM, the highway 8–17 % less, and on MEDIUM the shadows cost a third less (the title screen 36 % less) — cars, Lulu's
+  car, her house and the e-bikes now cast their shadow in one go instead of one piece at a time, the sky's clouds are
+  16 objects instead of 80, and the score counter stopped doing slow work every frame. Screenshots before and after are
+  pixel-for-pixel the same. Numbers: `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass.
+- 2026-11-21 04:15 UTC — 🍃 The world feels more alive (lots of small things to notice, no new buttons or pop-ups). Walking now has FOOTSTEPS that sound different on the sidewalk, the street, grass, gravel, snow, up on a car roof or a bench — and splashy after rain. After it rains in Lakewood or Midwood, PUDDLES collect in the gutters and on the sidewalk (you can see the raindrop rings on them) and slowly dry up after; walk through one and it splashes, jump into one for a big SPLOSH, drive through one fast and it sprays both sides (if somebody is standing at the curb, they let her know about it: "MY SHEITEL!"). Every so often a gust of WIND blows leaves across the street (autumn colours now, pink blossom petals in the spring) and sometimes a paper notice off a lamppost — "LOST CAT: KUGEL", "UMBRELLA GEMACH: 14 umbrellas, all black" — and if it blows into Lulu she reads it out. It's the fall, so there are raked LEAF PILES by the curb: walk or drive through one and it bursts. And the town SOUNDS lived-in: birds, a dog barking (and the neighbour's dog answering), a screen door, a kid with a basketball, somebody hammering (a lot before Sukkos, never on Shabbos), wind chimes, crickets on summer nights, an owl. If any of the sounds get annoying: pause (⏸) → ⚙️ Settings → 🐦 Street sounds OFF.
 - 2026-11-21 (stage 1 landing) — ✈️ JFK stage 1, the exit and the kerb, is built and tested — but switched OFF in the real game
   for now (it waits for the "each town its own exit" work, so the two never land on top of each other). Its own exit, EXIT 12, signed
   "✈ JFK AIRPORT" a mile ahead; a ramp and a road in to a fenced drop-off loop past Terminal 4½ — DEPARTURES, then ARRIVALS —
