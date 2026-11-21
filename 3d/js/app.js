@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { ctx, emit, on, setState, setChromeHandler, trackCamera, syncAllCameras, runHooks } from "./core/ctx.js";
 import { save3d, shared, wallet } from "./core/save.js";
-import { loadModels } from "./models.js";
+import { loadModels, safeCompileAsync } from "./models.js";
 import { World } from "./world.js";
 import { PlayerCar, SKINS } from "./car.js";
 import { Traffic } from "./traffic.js";
@@ -18,9 +18,10 @@ import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, open
 import { resetRun, startRun, endRun, damage, addCoins, KO } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
-import { updateLods, LOD } from "./lod.js";
+import { updateLods, LOD, installShadowProxies } from "./lod.js";
 import { gfxFrame } from "./core/gfx.js";
 import { Post } from "./core/post.js";
+import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
 import "./features/index.js";
 
 const MPH = 2.23694;
@@ -35,6 +36,8 @@ ctx.renderer = renderer;
 const rawRender = renderer.render;
 ctx.rawRender = (s, c) => rawRender.call(renderer, s, c);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+installShadowProxies(renderer);      // (MEDIUM / HIGH: a car casts its shadow in one draw — lod.js › shadow proxies)
+safeCompileAsync(renderer);          // (compileAsync that survives a material disposed while it polls — models.js)
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
@@ -229,6 +232,7 @@ function present(dt) {
     if (v) (post || renderer).render(v.scene, v.camera);
     else {
         updateLods(camera);
+        runHooks("prerender", dt, camera);   // (features that pack what's in view right before the draw: atmos' street lamps)
         gfxFrame(dt, camera);           // contact shadows, wind, reflections, exposure (core/gfx.js)
         // LOW pulls the fog in to match its shorter draw distance (whoever set the fog this frame keeps their numbers)
         const fog = scene.fog, k = gfx.T.draw;

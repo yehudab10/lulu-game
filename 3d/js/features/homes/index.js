@@ -31,7 +31,8 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { tone } from "../interiors/fx.js";
 import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, crowdTalkSpot, crowdInfo, TUNE } from "./crowd.js";
-import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural } from "./house.js";
+import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract } from "./house.js";
+import { current as currentRoom } from "../interiors/engine.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 
 registerModels(Object.assign({ homesKit: "homes_kit", homesItems: "homes_items", homesStreet: "homes_street", homesMail: "homes_mail", homesDelivery: "homes_delivery" }, PEOPLE_MODELS));
@@ -195,10 +196,17 @@ async function doorMenu(home) {
         // a friend (🎉 party) is inside this house right now: go in with them (features/together shares the room)
         const pal = ctx.together && ctx.together.friendIn ? ctx.together.friendIn("home", home.key) : null;
         const opts = ["✊ Knock", "🔑 Try the door", "🪟 Sneak in a window", "✖ Leave it"];
+        // 🔗 a friend SNEAKING around in there: ring the bell to pull everyone to the door for her (features/partners)
+        const sneak = ctx.partners && ctx.partners.palInside ? ctx.partners.palInside(home.key) : null;
+        if (sneak) opts.unshift(`🔔 Ring the bell — cover for ${pal || ctx.party.displayName(sneak)}`);
         if (pal) opts.unshift(`👯 Join ${pal} inside`);
         let i = await choose(`🏠 The ${plural(home.name)}`, pal ? `${pal} is in there right now.` : rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
             opts, { emoji: "🏠" });
         if (pal) { if (i === 0) { sc.go = { home, mode: "guest", via: "door" }; emit("stat", { id: "homesJoins", n: 1 }); return; } i = i < 0 ? i : i - 1; }
+        if (sneak) {
+            if (i === 0) { tone(880, 0.12, "sine", 0.1); tone(660, 0.16, "sine", 0.1, 0, 0.14); ctx.partners.ring(home.key); H.toast(`🔔 Ding-dong! Everyone's coming to the door — go, ${ctx.party.displayName(sneak)}!`, "pink"); sc.done = true; return; }
+            i = i < 0 ? i : i - 1;
+        }
         if (i === 0) await knock(home, sc);
         else if (i === 1) {
             const cfg = TOWN_CFG[home.town] || TOWN_CFG.lakewood;
@@ -341,6 +349,8 @@ ctx.homes = {
     enter(i, mode = "sneak", via = "door") { const h = HS.homes[i]; if (!h || !ctx.foot || !ctx.foot.active) return false; const sc = doorstep(h); if (!sc) return false; sc.go = { home: h, mode, via }; return true; },
     /** Knock at door i (the doorstep scene). */
     knock(i) { const h = HS.homes[i]; if (!h) return false; const sc = doorstep(h); if (!sc) return false; knock(h, sc).catch(e => console.error(e)); return true; },
+    /** 🔔 The doorbell rang (a friend covering for her — features/partners): everyone inside comes to the door for `sec`. → n */
+    distract(sec = 12, line) { return VISIT.cur ? distract(currentRoom(), sec, line) : 0; },
     /** What a family remembers about her: { visits, seen, burgled, guest, items } | null. */
     family: key => S.fam[key] ? Object.assign({}, S.fam[key]) : null,
     crowd: () => crowdInfo(),

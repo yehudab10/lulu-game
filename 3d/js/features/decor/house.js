@@ -42,7 +42,7 @@ export const houseRoom = () => RT;
 
 const DEF = defineInterior({
     id: "luluHome", name: "Home", short: "home", emoji: "🏠", title: "🏠 HOME SWEET HOME", model: "homesKit",
-    tagline: "✋ at anything to redecorate it", models: ["imaPerson"], music: "../story-relax.mp3",
+    tagline: "✋ at anything to redecorate it", models: ["imaPerson", "dinaPerson"], music: "../story-relax.mp3",
     light: "indoor", cam: { dist: 7.4, height: 5.8, lookY: 0.8, clampX: 2.6 }, walkSpeed: 3.5,
     build, tick, dispose,
 });
@@ -180,6 +180,11 @@ function build(rt) {
         rt.person("ima", "imaPerson", { x: KCX + 1.2, z: -1.05, ry: 0.3 }, { name: "Ima", pose: {} });
         rt.hot({ id: "ima", who: "ima", track: true, r: 1.6, label: "💬 Talk to Ima", action: talkIma });
     } catch (e) { console.warn("[decor] ima", e); }
+    // …and Dina in the living room, watching TV from the floor (two or three lines, no rewards)
+    try {
+        rt.person("dina", "dinaPerson", { x: LCX - 1.9, z: 1.15, ry: -Math.PI / 2 }, { name: "Dina", pose: {} });
+        rt.hot({ id: "dina", who: "dina", track: true, r: 1.5, label: "💬 Talk to Dina", action: talkDina });
+    } catch (e) { console.warn("[decor] dina", e); }
 
     // ── hotspots: one per slot ──
     for (const id of Object.keys(SPOTS)) {
@@ -285,6 +290,13 @@ async function talkIma(rt) {
     const lines = V.said === 0 && V.first ? ["Lulu! Look at this room. Bare walls! Go, make it nice — with YOUR coins, not mine. 💕"] : LINES.ima;
     V.said++;
     await rt.say("Ima", pick(lines), { emoji: "👩", person: rt.byId.ima });
+}
+
+async function talkDina(rt) {
+    const V = rt.data.V;
+    V.dinaSaid = (V.dinaSaid || 0) + 1;
+    const lines = V.dinaSaid === 1 ? ["Shhh! This is the part where the dog finds the cat. 📺", ...LINES.dina] : LINES.dina;
+    await rt.say("Dina", pick(lines), { emoji: "👧", person: rt.byId.dina });
 }
 
 function tick(rt, dt) {

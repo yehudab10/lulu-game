@@ -27,6 +27,8 @@ import { S, bump, rand, randInt, pick, clamp, bailFor, lawyerFee, lawyerTiers, s
 import { Shot, V, runFlow, check, person, lulu, walkTo, faceYaw, frameFor, cuffs, disposeCuffs, JUMPSUIT } from "./scene.js";
 import { rig, setRig, startFugitive } from "./cops.js";
 import { run, resumeDriving, FORCE, carBack, rideNote, goExit, walkOutOf } from "./service.js";
+import { cellInfo, cellTick, cellEmote, CELL_EMOTES, doorWait, doorSide, crewResume, voteBreak, breakAgreed, breakAsk, breakEase, setBreaking,
+    leftInside, helpOffer, helpTaken, breakingMates, names as crewNames } from "./crew.js";
 
 registerModels({ lawStation: "law_station", lawCell: "law_cell", lawBooking: "law_booking", lawCellmate: "law_cellmate", lawCart: "law_cart" });
 const JAIL_KEYS = ["lawStation", "lawCell", "lawBooking", "lawCellmate", "lawCart", "copPerson"];
@@ -350,16 +352,20 @@ function cellMenuHtml() {
     const j = st.j, coins = wallet.coins;
     const locked = j.escUsed || j.escFails >= 1;
     const canBail = coins >= j.bail;
+    const here = st.crew ? st.crew.here : [], together = here.length > 0, ask = st.crew ? breakAsk() : "", offer = st.offer;
     return `<h2>🚔 BOOKED!</h2>
+        ${offer && offer.k === "spring" ? `<button class="btn pink" id="lawHelp"><span class="lbl">🔓 ${offer.name} is at the back door — GO!<small>out the door with her · you'll be a FUGITIVE</small></span></button>` : ""}
+        ${ask && !locked ? `<p class="fine2" id="lawAsk"><b>🏃 ${ask} wants to BREAK OUT together — press 🏃 too, or wait for court</b></p>` : ""}
         <p class="fine2"><span class="coin"></span> <b>${coins.toLocaleString()}</b> coins · booked ${S.offenses}× · ${S.convictions} strike${S.convictions === 1 ? "" : "s"}${S.convictions >= 2 ? " ⚠️" : ""}</p>
         <div class="sheet"><b>— CHARGE SHEET —</b>${j.charges.map(c => "• " + c).join("<br>")}</div>
         <div class="law-grid">
-            <button class="btn ${locked ? "locked" : ""}" id="lawEsc"><span class="lbl">${locked ? "🔒 Watched" : "🏃 Escape"}<small>${locked ? "the guard's onto you" : "pick the lock — one shot"}</small></span></button>
+            <button class="btn ${locked ? "locked" : ""}" id="lawEsc"><span class="lbl">${locked ? "🔒 Watched" : together ? (st.vote ? "🏃 Waiting…" : "🏃 Break out TOGETHER") : "🏃 Escape"}<small>${locked ? "the guard's onto you" : together ? (st.vote ? `for ${crewNames(here)} to say yes` : "one makes a scene · both pick") : "pick the lock — one shot"}</small></span></button>
             <button class="btn gold ${canBail ? "" : "locked"}" id="lawBail"><span class="lbl">💰 Bail ${j.bail}<small>${canBail ? "out now · still WANTED" : "can't make bail 😬"}</small></span></button>
             <button class="btn teal" id="lawLawyer"><span class="lbl">🤵 Lawyer<small>${j.abba ? "Abba's around! ❤️" : "retain counsel"}</small></span></button>
             <button class="btn blue" id="lawCourtBtn"><span class="lbl">⚖️ Court<small>face the judge</small></span></button>
         </div>
-        <p class="fine2" id="lawCourtT">⚖️ Court is called in ${Math.ceil(st.courtT)}s</p>`;
+        <p class="fine2" id="lawCourtT">⚖️ Court is called in ${Math.ceil(st.courtT)}s</p>
+        ${st.crew ? `<p class="fine2" id="lawCrew">${st.crew.line}</p><div class="law-emotes">${CELL_EMOTES.map(i => `<button class="btn alt law-em" data-em="${i}">${["👋", "👉", "✋", "🙌", "💃", "🤦", "🥂", "👏"][i]}</button>`).join("")}</div>` : ""}`;
 }
 function showCellMenu(focusId) {
     st.phase = "cell";
@@ -369,10 +375,20 @@ function showCellMenu(focusId) {
     on("lawBail", tryBail);
     on("lawLawyer", showLawyers);
     on("lawCourtBtn", () => goCourt(null));
+    on("lawHelp", takeSpring);
+    // (🔗 partners in the cell: a gesture they see on their screen)
+    card.querySelectorAll(".law-em").forEach(b => b.addEventListener("click", () => cellEmote(+b.dataset.em, J)));
 }
 function tryEscape() {
     const j = st.j;
     if (j.escUsed || j.escFails >= 1) { X.deny(); UI.toast("The guard's WATCHING now — no more escapes! 👮", "red"); return; }
+    // 🔗 cellmates (crew.js): a vote — the break starts once everyone in the cell said yes (else court, as the clock says)
+    if (st.crew && st.crew.here.length && !st.breakGo) {
+        const v = voteBreak();
+        st.vote = true;
+        if (v !== "go") { X.blip("lulu"); UI.toast(`🏃 Waiting for ${crewNames(st.crew.here)} to say yes…`, "pink"); showCellMenu("lawEsc"); return; }
+        st.breakGo = true;
+    }
     // burn the one attempt the moment she commits (a refresh mid-pick can't rewind it)
     j.escUsed = true;
     saveLockup("cell", j.charges, j.bail, 0, 30, 0, j.escFails, true, { abba: j.abba, mode3d: run.mode, inmate: j.inmate });
@@ -392,6 +408,28 @@ function tryBail() {
     emit("law:release", { how: "bail", paid: j.bail });
     // her own car (if it really is still hers and in one piece) is waiting out front; otherwise she walks
     goExit({ kind: "police", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: "💰 Out on bail — but still WANTED 'til court. 🚨", sResume: st.sResume });
+}
+/** 🔗 A friend paid my bail at the precinct desk (from HER wallet — mine isn't touched): out on bail, still WANTED. */
+function friendBail(ho) {
+    const j = st.j;
+    helpTaken(ho.id);
+    addWanted(j.charges);
+    clearLockup();
+    H.hideScreen();
+    st.cellDone = true;
+    emit("law:release", { how: "bail", paid: 0, by: ho.by });
+    goExit({ kind: "police", dest: carBack() ? "drive" : "foot", footReason: "copWalk", note: rideNote(), caption: `💰 ${ho.name} bailed you out! Still WANTED 'til court. 🚨`, sResume: st.sResume });
+}
+/** 🔓 A partner at the back door: the jailbreak without the lockpick (she said GO). */
+function takeSpring() {
+    const ho = st.offer;
+    if (!ho) return;
+    st.offer = null;
+    helpTaken(ho.id);
+    st.j.escUsed = true;
+    H.hideScreen();
+    setBreaking(true);
+    startEscape("keys", `🔓 ${ho.name} jimmies the back door — RUN!`);
 }
 // the pause overlay borrows the menu card — put ours back when she resumes
 on("pause", ({ paused }) => {
@@ -427,8 +465,28 @@ function goCourt(tier) {
 function updateCell(dt) {
     const j = J;
     st.courtT -= dt;
+    // 🔗 partners caught with her (crew.js): one court clock — it waits for a partner on her way in, then starts over
+    const cw = cellInfo(dt, st.j ? st.j.bail : 0);
+    // a friend's help (crew.js): 💰 bail paid at the desk → out now · 🔓 a spring at the door → the GO button
+    const ho = helpOffer();
+    if (ho && ho.k === "bail" && st.phase === "cell") { friendBail(ho); return; }
+    st.offer = ho && ho.k === "spring" ? ho : null;
+    // everyone in the cell said 🏃 → the break starts on every screen
+    if (cw && !st.breakGo && st.phase === "cell" && breakAgreed() && !(st.j.escUsed || st.j.escFails >= 1)) { st.breakGo = true; tryEscape(); return; }
+    if (cw) {
+        const key = [cw.line, breakAsk(), st.vote ? 1 : 0, st.offer ? st.offer.id : 0, cw.here.length].join("|");
+        if (st.crewKey !== undefined && key !== st.crewKey && st.phase === "cell" && H.screenOpen()) { st.crew = cw; st.crewKey = key; showCellMenu(H.currentFocus()); }
+        st.crewKey = key;
+        if (cw.waiting) st.courtT = Math.max(st.courtT, 8);
+        if (cw.reset) st.courtT = Math.max(st.courtT, 22);
+        const had = !!st.crew;
+        st.crew = cw;
+        const ce = document.getElementById("lawCrew");
+        if (ce) { if (ce.textContent !== cw.line) ce.textContent = cw.line; }
+        else if (!had && st.phase === "cell" && H.screenOpen()) showCellMenu(H.currentFocus());
+    } else if (st.offer && !st.offerShown && st.phase === "cell" && H.screenOpen()) { st.offerShown = true; showCellMenu("lawHelp"); }
     const el = document.getElementById("lawCourtT");
-    if (el) el.textContent = `⚖️ Court is called in ${Math.max(0, Math.ceil(st.courtT))}s`;
+    if (el) el.textContent = cw && cw.waiting ? "⚖️ Court waits for your partner…" : `⚖️ Court is called in ${Math.max(0, Math.ceil(st.courtT))}s`;
     if (st.courtT <= 0 && st.phase === "cell") { goCourt(null); return; }
     // (once a stay, a few seconds into the cell with nothing happening: a quiet moment — the iOS app may show its ad here)
     if (!st.quietSent && st.phase === "cell" && st.courtT < 18.5 && !ctx.dialogOpen) { st.quietSent = true; emit("law:cellQuiet", {}); }
@@ -451,6 +509,9 @@ function startPick() {
         zoneC: rand(0.25, 0.75), zoneW: Math.max(0.17, 0.36 - s * 0.025 - j.escFails * 0.025),
         misses: 0, maxMiss: 3, result: null, resultT: 0, missFx: 0, armT: 0.25,
     };
+    // 🔗 breaking out together: a partner makes a scene for the guard — every lock is easier (each still her own)
+    const helper = st.breakGo ? breakEase(st.lock) : "";
+    if (helper) { setBreaking(true); UI.caption("🔗 JAILBREAK FOR TWO", `${helper} makes a scene for the guard — pick fast!`); setTimeout(() => { if (st && st.phase === "pick") UI.caption(""); }, 2200); }
     st.phase = "pick";
     st.pose = { who: "pick" };
     J.shot.set(V(1.15, 1.5, 1.75), V(0.36, 1.18, 0.05), 40);
@@ -473,6 +534,7 @@ function updatePick(dt, P) {
             if (!j.charges.includes("ATTEMPTED ESCAPE")) j.charges.push("ATTEMPTED ESCAPE");
             saveLockup("cell", j.charges, j.bail, 0, 30, 0, j.escFails, true, { abba: j.abba, mode3d: run.mode, inmate: j.inmate });
             UI.toast("CAUGHT! The guard's watching now. 👮", "red");
+            setBreaking(false);
             st.pose = { who: "bunk" };
             cellShot();
             showCellMenu("lawBail");
@@ -504,9 +566,9 @@ function updatePick(dt, P) {
 }
 
 // ── the jailbreak vignette ───────────────────────────────────────────────
-function startEscape() {
-    const ev = (FORCE.escapeKind && JAIL_ESCAPES.find(e => e.kind === FORCE.escapeKind)) || pick(JAIL_ESCAPES);
-    const cap = S.escapes > 0 && ev.alt && Math.random() < 0.7 ? pick(ev.alt) : ev.cap;
+function startEscape(kind = null, capOverride = "") {
+    const ev = (kind && JAIL_ESCAPES.find(e => e.kind === kind)) || (FORCE.escapeKind && JAIL_ESCAPES.find(e => e.kind === FORCE.escapeKind)) || pick(JAIL_ESCAPES);
+    const cap = capOverride || (S.escapes > 0 && ev.alt && Math.random() < 0.7 ? pick(ev.alt) : ev.cap);
     st.esc = { kind: ev.kind, cap, t: 0 };
     st.phase = "escape";
     st.pose = { who: "escape" };
@@ -544,9 +606,14 @@ async function escapeScript(f) {
         UI.caption("🏃 JAILBREAK!", "…down the back stairs, out the FRONT door 🙃");
         await f.until(() => ctx.civic.ready(), 30);
         check(f);
+        // 🔗 a partner still picking her lock / on her way down the stairs: wait for her (a few seconds at most)
+        const t0 = st.t;
+        await f.until(() => !breakingMates() || st.t - t0 > 10, 12);
+        check(f);
+        const inside = leftInside();
         UI.caption("");
         const car = carBack();
-        const out = () => walkOutOf("precinct", { fugitive: true, banner, car, reason: "jailbreak" });
+        const out = () => walkOutOf("precinct", { fugitive: true, banner: inside.length ? `🔗 ${crewNames(inside)} didn't make it — ✋ spring her at the door, or bail her at the desk` : banner, car, reason: "jailbreak", side: doorSide() });
         if (ctx.dissolve && !ctx.skipping ? ctx.dissolve(out) : out()) { startFugitive(heat); return; }
     }
     // she drives off only in a car that's really hers and in one piece; otherwise she runs for it on foot (in the jumpsuit)
@@ -653,6 +720,7 @@ function animate(dt) {
             guard.update(dt, { walk: Math.abs(Math.cos(st.guardT)) * 2.1 });
         }
     }
+    cellTick(dt, j);          // (🔗 partners in the cell — crew.js)
     const portrait = window.innerWidth < window.innerHeight;
     frameFor(j.set.camera, H.screenOpen() ? (portrait ? 1 : 1) : 0);
     j.shot.update(dt);
@@ -769,6 +837,7 @@ registerState("lawExit", {
     enter(data) {
         UI.hideAll();
         xst = { data, t: 0, walkers: [], car: null };
+        data.sResume = crewResume(data.sResume);          // (🔗 caught together on the highway: one spot down the road)
         A.setMusic(data.dest === "foot" ? "../walking.mp3" : "../luludriving.mp3");
         // (features/places: out of a real building's front door, on foot — right now if the town's there, else once it's built)
         // (on the first frame, not inside this enter: foot's start changes the state itself — a soft cut is already
@@ -789,7 +858,10 @@ registerState("lawExit", {
         xst.t += dt;
         if (xst.town) {
             if (ctx.civic.tick) ctx.civic.tick(dt);
-            if (!xst.out && ctx.civic.ready()) { townOut(); return; }      // (she's out: this state is gone — xst too)
+            // 🔗 a partner caught with her is still inside: wait for her at the door (a few seconds at most)
+            const wait = !xst.out && ctx.civic.ready() ? doorWait(dt) : "";
+            if (wait && !xst.waitShown) { xst.waitShown = true; UI.caption("🔗 Waiting for " + wait + "…", "you walk out together"); }
+            if (!xst.out && !wait && ctx.civic.ready()) { townOut(); return; }      // (she's out: this state is gone — xst too)
             if (!xst.out && !xst.held) { xst.held = true; jailShow(); J.me.obj.visible = false; UI.caption("🗂️ Processing your release…", "forms in triplicate · then you're out the front door"); }
             if (xst && !xst.out && xst.t > 40) { xst.town = false; ctx.civic.clear(); xflow = runFlow(f => exitScript(f, xst.data)); }   // (no town after all: the old way)
             return;
@@ -807,7 +879,7 @@ function townOut() {
     xst.out = true;
     const d = xst.data, drive = d.dest === "drive";
     UI.caption("");
-    const ok = walkOutOf(d.kind === "court" ? "court" : "precinct", { car: drive, banner: d.caption, reason: d.footReason || "copWalk", line: (!drive && d.note) || "" });
+    const ok = walkOutOf(d.kind === "court" ? "court" : "precinct", { car: drive, banner: d.caption, reason: d.footReason || "copWalk", line: (!drive && d.note) || "", side: doorSide() });
     if (!ok) { xst.town = false; ctx.civic.clear(); xflow = runFlow(f => exitScript(f, d)); }
 }
 async function exitScript(f, data) {

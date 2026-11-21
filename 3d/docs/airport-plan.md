@@ -1,6 +1,6 @@
 # ✈️ The airport exit (JFK) — plan + hand-off
 
-**Status: PLANNING — nothing is built yet. Ask the owner the questions below BEFORE building.**
+**Status: stages 1–3 LANDED (stage 1 switched OFF by default until `ci/exits2`; the switch-on steps are the newest Sync log lines). Polish on `ci/airport-polish`.**
 **Branch: `ci/airport`. Owner of this job: the owner's other AI account (the one that originally set this repo's agents going).**
 Everything else in flight belongs to the coordinator session's agents (see `AGENTS.md` §6).
 
@@ -138,21 +138,62 @@ interchange offers both towns" is assumed in several places.
 
 | # | question | the owner's answer | date |
 |---|---|---|---|
-| 1 | what the airport is for | | |
-| 2 | do planes go anywhere | | |
-| 3 | how much is walk-in | | |
-| 4 | the runway | | |
-| 5 | where on the highway | | |
-| 6 | names | | |
-| 7 | who is there | | |
-| 8 | jobs + the daily list | | |
-| 9 | with friends | | |
-| 10 | the law there | | |
-| 11 | must-haves / avoid | | |
-| 12 | order of delivery | | |
+| 1 | what the airport is for | **Travel** is the long-term purpose. The first version builds everything up to the flight (exit, kerb, terminal with check-in, security, departures board, gate); the flight itself is a later stage | 2026-11-20 |
+| 2 | do planes go anywhere | **Not in the first version.** Planes take off overhead and she watches from the gate. A flight (destination TBD) is stage 4 | 2026-11-20 |
+| 3 | how much is walk-in | **One terminal hall, done well**: check-in, the security-line gag, a food court, a gate window on the runway, the arrivals door | 2026-11-20 |
+| 4 | the runway | **No**: a fence all round, and a great joke when she tries (Segway security / a giant plane horn) | 2026-11-20 |
+| 5 | where on the highway | **Its own interchange, signed ✈️ JFK, further out than the town exits** (waits for `ci/exits2`'s split interchanges) | 2026-11-20 |
+| 6 | names | **JFK on the signs + parody airlines / shops / logos** (Kugel Air, El Oy, Shmear Jet…; the agent writes the jokes) | 2026-11-20 |
+| 7 | who is there | **Dovid Dov on tour** (family knows he's Lulu's brother; strangers don't). Not chosen: Bubbe arriving, Avigail, Uncle Moishe | 2026-11-20 |
+| 8 | jobs + the daily list | **Airport taxi runs** (hustle side job), **a lost suitcase** to return, **a Dovid Dov meet-up** — each capped. Not chosen: an Ima's-list item | 2026-11-20 |
+| 9 | with friends | **A shared terminal** (friends see each other inside, like the bank / houses); jobs + scenes stay personal. No luggage-cart races for now | 2026-11-20 |
+| 10 | the law there | **Cartoon airport security** instead of town police (Segway guard, a sniffer dog that only finds kugel); if she's wanted, security slows her and the real cops can catch up | 2026-11-20 |
+| 11 | must-haves / avoid | **Cartoon only**: parody airlines, nothing about real incidents or real security procedures | 2026-11-20 |
+| 12 | order of delivery | **The suggested order**: 1) exit + kerb loop + parking + planes overhead · 2) the terminal · 3) things to do (taxi runs, lost suitcase, Dovid Dov) · 4) later: a real flight | 2026-11-20 |
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-21 · airport-kerb · the polish's two leftovers fixed. **New law hook (additive, `features/law/bust.js`):** `hook("pullOverSpot", car → { h } | null)` — law's pull-over (`autoLulu`) asks it first: an answer = she brakes right where she is, facing `h`, and the roadside shot is taken along `h`; null = law's own highway shoulder (`pullDAt`), unchanged. `bust.js` exports `pullOverSpot()` (+23 / −8 lines). The airport answers off the highway's lanes (`chase.js` `pullOverSpot`: the road net's direction at her nearest point, the way she faces). Also `chase.js` `KERB_EDGE`: for 2.5 s after a law car touches her (core's `crash` event) her car is held off Terminal 4½'s kerb sidewalk and the pressing cruiser is held off her car — no geometry. Test `airport` › "kerb bust" + "kerb shove" (`AIRPORT_PART` takes a comma list now).
+- 2026-11-21 · airport-kerb · started `ci/airport-kerb` (the polish's two leftovers: a bust at the kerb stops where she is, facing along the kerb road — a new additive law hook `pullOverSpot` in `features/law/bust.js`; a cop's ram can't shove her car onto the kerb sidewalk — a kerb-edge clamp in the airport). Own files + that one hook; logged here when it lands.
+- 2026-11-21 · airport-polish · **SWITCH-ON STEPS (for whoever lands after `ci/exits2`)** — measured on main: the airport FITs
+  beside the constant highway only at 8.8–8.9 km, 22.4–22.6, 23.7, 25.4–26.0, 26.9–27.8, 28.8–29.0 km… (`fits()` + `clearOf`, 5–40 km
+  scanned), while exits2's ROUTE puts a town exit every 4 km (Midwood 3.6, Lakewood 7.6, period 8 km) and the airport needs ~2.4 km of
+  road (signs −1490 → accel lane +900) plus a gap. A ROUTE stop (the exits2 note below) would have to land on one of those rare fits
+  every lap, so the order is the other way round: **the airport is planned FIRST from fixed data only, the towns keep out of it.**
+  Steps: **(1)** `features/town/exit.js` › `clearOfPlaces` (exits2's file — its owner or the lander): one more clash term,
+  `|| (ctx.airport && ctx.airport.zones && ctx.airport.zones(s + SPAN.a, s + ACC1 + 80).length > 0)` — a town exit then slides past
+  the airport's zone (with today's numbers Lakewood's first exit moves from 7.6 km to past ~10 km; to keep Lakewood first instead, set
+  `AIR.first` in `features/airport/plan.js` to 9000 → JFK at 22.4 km). **(2)** `features/airport/index.js`: `ON_BY_DEFAULT = true`
+  (it sets `PLANNING.townsKeepOut`: the airport stops waiting on the towns' exits, `ctx.airport.zones()` goes live — the rest areas'
+  `clearAt` in `features/exits` already asks it — and the 🎉 party gate opens by itself: every friend computes the same zones).
+  **(3)** `scripts/tests3d/airport.js`: the "stays out of a 🎉 party" check → "on in a 🌍 Free Roam"; the zones check already covers
+  the fixed-data part. **(4)** Run `airport;airport-terminal;airport-stage3;town;midwood;exits;flow;home;day;partyworld;core,platform,skip,ux,music`
+  and check on a real Cruise that `ctx.town.exits` never overlaps `ctx.airport.spans()`. **(5)** Docs: AGENTS §6 `ci/airport` row,
+  ARCHITECTURE › The airport + the party parity row, CLAUDE.md (drop "OFF by default").
+- 2026-11-21 · airport-polish · LANDED-READY on `ci/airport-polish` (stage-1 gaps closed; still OFF by default). In `features/airport/`:
+  `chase.js` (highway cruisers that follow her off the exit drive the airport's ROAD NET — highway → off-ramp → road in → loop / the
+  lot's aisle → road out → on-ramp — never through the fence or the terminal; the terminal + tower block their view), `security.js`
+  (a WANTED Lulu in the landside: Officer Segal's Segway + Rex roll out of the nearest door — at the wheel she's held to a crawl beside
+  him, mid-chase he keeps the cops' eyes on her (`ctx.law.spot`), with warrants only he radios it in (`ctx.law.callIn`); on foot Rex
+  has her shoelace and a foot cop comes out of the doors; he gives up at the landside's edge or when his battery dies), `life.js`
+  (her car vs. the taxis + shuttles: traffic.js's circles-and-impulse collision, a hard hit knocks a taxi spinning, the driver yells,
+  then eases back into line; damage like traffic), `build.js` (LOW draws a lighter airport: 2 of 3 jets, every other parked car + lamp,
+  the bottom fence's trees, the windsock, the facade's trim — cut by draw ranges, their colliders off), `plan.js` (`zones()` + the
+  switch-on model above), the ½ MI sign's text no longer overflows, the doors' boards no longer say "opening soon".
+  **Shared files touched (small, additive):** `features/law/cops.js` (hooks `copRoute` (c, u, chase) → {gap, aim} and `copSight`
+  (ax, az, bx, bz) → true / false / undefined — any place off the highway with its own roads can use them; +19 lines),
+  `features/foot/bounds.js` (`SLOW` registry = `ctx.foot.bounds.slow`: fns (F) → a speed multiplier; +7 lines),
+  `features/exits/index.js` (`clearAt` asks `ctx.airport.zones` — empty until the switch-on; +2 lines), `features/foot/index.js`
+  (the chase cam's `carClipFn` also asks `ctx.airport.camClip`: the terminal + the tower; +4 lines), `scripts/tests3d/qaweekend.js`
+  (its KNOWN airport camera note is a real check now).
+- 2026-11-21 · airport-polish · started `ci/airport-polish` (stage-1 gaps: cops follow the airport roads / give up at the gate, kerb vehicle collisions, a lighter LOW, kerb security for a wanted Lulu, the advance-sign screenshot, switch-on steps). Own files only unless logged here.
+- 2026-11-20 · airport · STAGE 1 LANDED on `main`, OFF by default (`?airport=1`): `features/airport/` (index · layout · plan · build · planes · life · bake · lines), `assets_airport.py` (the outside of the terminal is `airport_facade` — `airport_terminal.glb` stays stage 2's hall), test `airport`. **For stage 2:** `ctx.airport` is an object created at import (extend it on boot as planned); the doors (six, on the kerb sidewalk) call `ctx.airport.terminal.warm()` within 22 m and `ctx.airport.terminal.enter({ door: { s, d, side, x, z } })` when `canEnter()` (else "opening soon"); the security guard is "Officer Segal" on both sides. **For stage 3:** `ctx.airport.kerb.pickup()` = the ARRIVALS pickup point (f 24 in the kerb lane, clear of the taxi line; null until the airport is built) — `airport` + `airport-stage3` green together on CI run 44856534248. **Shared files touched:** `world.js` (`world.keepBehind`, m: a feature keeps highway chunks that long behind her), `features/foot/bounds.js` (`FREE` = `ctx.foot.bounds.free`: predicates (x, z) → no world fence there), `features/index.js` (one import). **For `ci/exits2` (request):** when the per-town route lands, give the airport ONE slot in it from fixed data (≈ further out than the town exits; its span = `ctx.airport.spans()`: signs −1490 → accel lane +900, its rigid footprint ±640 m round exit + 330 on the right, up to 410 m out) — I'll hook `features/airport/plan.js` `findSpot` onto it and switch it ON; until then the town planner keeps out of it only in SOLO runs (its reserved strip) and the airport stays off in a party.
+
+- 2026-11-21 · airport-stage3 · STAGE 3 LANDED on main. In the hall (a stage-2 builder): 🧳 the lost suitcase (Mrs. Shpilkes by ARRIVALS; 15 💰 once a real day) and 🎤 Dovid Dov on tour down the VIP carpet (SOLO only; ~40 % of visits; fans + Officer Segal; 10 💰 once a real day + the badge 🎤 Front Row); the hall's bottom hint no longer says "borrow a car". 🚕 JFK TAXI RUNS (`ctx.hustle.register("jfk_taxi")`, 40 💰 × 3 a real day) are built + tested with a pretend kerb but are OFF until stage 1 lands. **For stage 1 (`ci/airport`):** nothing to change — stage 3 reads `ctx.airport.on`, `planned`, `inside`, `ready` and `debug.world(24, 193.5)` (the ARRIVALS kerb lane, short of the taxi queue at f 70) and listens to `airport:enter` / `airport:leave`. Nicer: expose `ctx.airport.kerb = { pickup() → {x, z} }` and stage 3 uses it first. When you land, run `airport-stage3` with `airport` and keep `import "./airport/stage3.js"` after the terminal's line in `features/index.js`.
+- 2026-11-21 · airport-stage3 · STAGE 3 (things to do) started on `ci/airport-stage3`, in its own files only: `features/airport/stage3*.js` (+ `scripts/tests3d/airport-stage3.js`). It hooks into the hall through `ctx.airport.terminal.addBuilder` / `vip()` and reads stage 1's `ctx.airport` (`on`, `planned`, `ready`, `inside`, `debug.world(f, r)` for the ARRIVALS kerb) — every stage-1 call guarded, so it is a no-op until `ci/airport` lands. It does not edit `index.js`/`life.js`/`terminal*.js`. One line added to `features/index.js` (after the terminal's). **For stage 1:** if you'd rather expose the kerb pickup point as a real API, `ctx.airport.kerb = { pickup() → {x, z} }` is the one stage 3 tries first.
+- 2026-11-20 · airport-terminal · STAGE 2 LANDED on main (behind the airport flag: only stage 1's doors or `ctx.airport.debug.enterTerminal()` get her in). `ctx.airport.terminal = { enter({ door, exit }), canEnter(), warm(), ready(), inside, vip(), addBuilder(fn), tune, debug }` — `ci/airport`'s life.js door already matches it. Shared: `together/rooms.js` › `SHARED.terminal = "jfk"` (one instance; friends' doors within 80 m), presence "✈️ in the JFK terminal". The hall has its own plane + Segway props (`airport_terminal_props`); when stage 1's `airport_plane` lands the window could reuse it (cosmetic). **Stage 3 hooks:** `addBuilder(fn(rt, api))`, the empty VIP carpet by ARRIVALS (`vip()`, for Dovid Dov), `debug.arrive()`, events `airport:*` (see ARCHITECTURE › Airport › Terminal). Budget: MEDIUM ≤ 110 calls / 140k tris, LOW ≤ 110 / 110k (measured 71–90 calls).
+- 2026-11-20 · airport-terminal · STAGE 2 (the terminal hall) is being built on `ci/airport-terminal` in its own files: `features/airport/terminal.js` (+ `terminal-data.js`, `terminal-crowd.js`), `assets_airport_terminal.py` → `airport_terminal(_props).glb`, `scripts/tests3d/airport-terminal.js`. It does NOT create `features/airport/index.js` (stage 1's): `features/index.js` imports `./airport/terminal.js` directly (keep both lines when merging). **For stage 1's doors:** call `ctx.airport.terminal.warm()` within ~22 m and `ctx.airport.terminal.enter({ door: { s, d, side } })` from the doors' ✋ spot (check `canEnter()` first) — foot resumes at `door` on the way out; stage 1 may define `ctx.airport` itself: the terminal re-attaches `ctx.airport.terminal` + `ctx.airport.debug.enterTerminal` on `boot` (so keep `ctx.airport` an object you extend, or assign before boot). If the airport becomes a town zone (`features/town`), add `"terminal"` to heist/bank.js `TOWN_INTERIORS` or the town will send her back to the highway on the way in. Shared files touched: `features/together/rooms.js` › `SHARED.terminal` (one line), `scripts/tests3d/perf.js` (an opt-in `terminal` scene).
+- 2026-11-20 · airport · the owner answered all 12 questions (Decisions above). `ci/airport` created from main. Stage 1 (exit + kerb loop + parking + planes overhead) starts in `3d/js/features/airport/`; its interchange waits for `ci/exits2` to land — until then I build the airport place itself and hang it off the highway behind a test flag. I will log here before touching the interchange planner in `features/town`.
 - 2026-11-20 · coordinator · HEADS-UP for question 5 (where on the highway): the owner asked that Lakewood and Midwood
   stop sharing one exit — `ci/exits2` (the town-engine agent) is splitting them into separate interchanges now, and
   Lulu's house is moving into Midwood (`ci/hometown`). The interchange planner in `features/town` will change shape:

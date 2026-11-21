@@ -32,7 +32,7 @@ export function partsOf(template) {
 export function lookOf(mat) {
     const n = mat.name || "";
     if (/^(Window|ShopWindow)$/.test(n)) return "glow";
-    if (/^(LampGlow|Neon)/.test(n)) return "lit";
+    if (/^(LampGlow|Neon)/.test(n) || /^(Globe|CrossRed|AmbLight|EmergencyRed)$/.test(n)) return "lit";   // (the precinct lamps, the hospital crosses + ambulance bay: glow with the night, no new draw call)
     if (n === "Glass") return "glass";
     return "solid";
 }
