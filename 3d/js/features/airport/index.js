@@ -168,7 +168,7 @@ function startBuild() {
     ctx.scene.add(S.group);
     S.out = { geos: [] };
     S.gen = buildSteps(S.G, S.group, S.out);
-    S.ms = 0; S.steps = 0; S.worst = 0; S.stepMs = []; S.t0 = performance.now();
+    S.ms = 0; S.steps = 0; S.worst = 0; S.stepMs = []; S.stepNames = []; S.t0 = performance.now();
 }
 function advance(budget) {
     const t0 = performance.now();
@@ -176,7 +176,7 @@ function advance(budget) {
         const a = performance.now();
         const r = S.gen.next();
         const dt = performance.now() - a;
-        S.ms += dt; S.steps++; (S.stepMs || (S.stepMs = [])).push(dt);
+        S.ms += dt; S.steps++; (S.stepMs || (S.stepMs = [])).push(dt); (S.stepNames || (S.stepNames = [])).push(r.done ? "done" : String(r.value));
         if (dt > S.worst) { S.worst = dt; S.worstStep = r.done ? "done" : String(r.value); }
         if (r.done) {
             S.gen = null; S.ready = true;
@@ -391,7 +391,8 @@ ctx.airport = {
             let tris = 0, meshes = 0;
             S.group.traverse(o => { if (o.isMesh && o.geometry && o.visible) { meshes++; const g = o.geometry; tris += Math.min(g.index ? g.index.count : g.attributes.position.count, g.drawRange.count) / 3; } });
             const q = (S.stepMs || []).slice().sort((a, b) => a - b), pc = k => q.length ? +q[Math.min(q.length - 1, Math.floor(q.length * k))].toFixed(2) : 0;
-            return { steps: S.steps, ms: +S.ms.toFixed(1), p95: pc(0.95), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
+            const top = (S.stepMs || []).map((ms, i) => [S.stepNames[i], +ms.toFixed(1)]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            return { top, steps: S.steps, ms: +S.ms.toFixed(1), p95: pc(0.95), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
         },
     },
 };

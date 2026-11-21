@@ -248,7 +248,7 @@ export function geometry(E) {
     const rnd = mulberry(20261120), cars = [];
     const PAINTS = ["#E53935", "#42A5F5", "#FFFFFF", "#FFCA28", "#9E9E9E", "#263238", "#8D6E63", "#66BB6A", "#BA68C8", "#B0BEC5", "#C0C6CC", "#1E3A5F"];
     for (const row of LY.STALLS) for (let f = row.f0 + LY.STALL_W / 2; f < row.f1; f += LY.STALL_W) {
-        if (rnd() > 0.26) continue;
+        if (rnd() > 0.22) continue;          // (a fifth of the stalls taken: MEDIUM's kerb view keeps under the 120k triangles)
         const key = rnd() < 0.55 ? "town_minivan_lod" : "town_mw_sedan_lod";
         // (every other parked car stays home on the LOW graphics tier — its two circles switch off with it)
         const low = cars.length % 2 === 0;

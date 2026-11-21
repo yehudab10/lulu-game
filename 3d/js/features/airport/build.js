@@ -301,8 +301,10 @@ export function* buildSteps(G, group, out) {
     const ramp = [], gore = [], dash = [], paint = [];
     ramp.push(hwStrip(E, LY.TAPER0, LY.RAMP0 + 2, () => 6.9, u => LY.taperEdge(u), 0.033));
     ramp.push(hwStrip(E, LY.RAMP0, LY.OFF1 + 0.6, u => LY.offD(u) - LY.HALF, u => LY.offD(u) + LY.HALF, 0.034));
+    yield "ramps:off";            // (the interchange's strips in three slices: one was the build's longest step)
     ramp.push(hwStrip(E, LY.ON0 - 0.6, LY.ON1 + 2, u => LY.onD(u) - LY.HALF, u => LY.onD(u) + LY.HALF, 0.034));
     ramp.push(hwStrip(E, LY.ON1 - 2, LY.ACC1, () => 6.9, u => LY.accelEdge(u), 0.033));
+    yield "ramps:on";
     gore.push(hwStrip(E, LY.RAMP0 + 8, LY.RAMP0 + 72, () => 7.0, u => Math.max(7.05, LY.offD(u) - LY.HALF), 0.036, 5));
     gore.push(hwStrip(E, LY.ON1 - 62, LY.ON1 - 6, () => 7.0, u => Math.max(7.05, LY.onD(u) - LY.HALF), 0.036, 5));
     dash.push(hwStrip(E, LY.TAPER0 + 30, LY.RAMP0 + 8, () => 6.84, () => 7.16, 0.037, 6));
@@ -369,7 +371,8 @@ export function* buildSteps(G, group, out) {
     // ⑤ every static model, merged (+ the faces of text into the atlas)
     const at = new Atlas(1024), C = cellsOf(at), mg = new Merger(160);
     mg.addGeometry(fg.posts, "flat", F.ox, F.oz);
-    for (const rp of G.rails) mg.addGeometry(railGeo(rp), "flat", rp[0].x, rp[0].z);
+    yield "posts";
+    for (let i = 0; i < G.rails.length; i++) { const rp = G.rails[i]; mg.addGeometry(railGeo(rp), "flat", rp[0].x, rp[0].z); if (i % 2 === 1) yield "rails:" + i; }
     yield "rails";
     const matAt = (x, z, yaw, s = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(s, s, s));
     const face = (tpl, anchor, m, cell, w, h, yaw, dy = 0, push = 0.06) => {
@@ -440,7 +443,7 @@ export function* buildSteps(G, group, out) {
     // the interchange's props: the gantry, the gore's crash cushion, the advisory, rail ends, the ramp's guide sign
     interchangeProps(G, mg, at, C, matAt, face);
     yield "interchange";
-    for (let i = 0; i < later.length; i++) { mg.add(...later[i]); if (i % 12 === 11) yield "low:" + i; }
+    for (let i = 0; i < later.length; i++) { mg.add(...later[i]); if (i % 6 === 5) yield "low:" + i; }
     yield "low";
     const look = MT.look, list = [];
     const it = mg.buildSteps(look, list);
