@@ -357,8 +357,12 @@ export function damp(F) {
     F.vel.x -= nx * cut; F.vel.z -= nz * cut;
 }
 
+/** Places off the highway with fences of their own (features/airport's landside): predicates (x, z) → true = no world
+ *  fence / limit there (ctx.foot.bounds.free). */
+export const FREE = [];
 /** Position limit (after the move). The soft edges keep her well inside it; it's only a safety net. */
 export function limit(F, near, dt = 1 / 30) {
+    if (FREE.length && FREE.some(f => f(F.pos.x, F.pos.z))) return;
     // (on a road off the highway — a ramp, an interchange's cross road on to an attached town — there's no fence: the
     //  road goes somewhere. Midwood's line is ~75 m out along its cross road, and the fence turned her back before it)
     // (and once she's been out there, stepping off the road onto the verge mustn't drag her back 15 m: the fence widens)
@@ -773,7 +777,7 @@ function jaywalkStar(F, B) {
 
 // ── test / debug surface (ctx.foot.bounds) ───────────────────────────────
 export const api = {
-    EDGE, NUDGE,
+    EDGE, NUDGE, free: FREE,
     get state() { const F = current && current(); return F ? F.bx : null; },
     /** Which band she's standing in: lanes | shoulder | verge | grass | mud | grounds (a rest area's lot / lawn) (busy: a chase / a scripted moment). */
     get zone() { const F = current && current(); return F && F.bx ? F.bx.zone : null; },

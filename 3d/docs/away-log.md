@@ -9,6 +9,15 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   car, her house and the e-bikes now cast their shadow in one go instead of one piece at a time, the sky's clouds are
   one object instead of 80, and the score counter stopped doing slow work every frame. Screenshots before and after are
   pixel-for-pixel the same. Numbers: `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass.
+- 2026-11-21 (stage 1 landing) — ✈️ JFK stage 1, the exit and the kerb, is built and tested — but switched OFF in the real game
+  for now (it waits for the "each town its own exit" work, so the two never land on top of each other). Its own exit, EXIT 12, signed
+  "✈ JFK AIRPORT" a mile ahead; a ramp and a road in to a fenced drop-off loop past Terminal 4½ — DEPARTURES, then ARRIVALS —
+  with a parking lot in the middle, yellow taxis queuing and shuttle buses stopping at the kerb, a control tower, parked jets at the
+  gates (Kugel Air, El Oy, Shmear Jet, Nu? Air), and planes taking off and landing right over the highway with their shadows
+  sweeping the road. Drive in, get out, walk the kerb, try the terminal doors (they now lead into the stage 2 hall), push the runway
+  fence and Officer Segal rolls up on his Segway ("Ma'am. That side is for PLANES."), then drive back out onto the highway — no
+  loading screen anywhere. To try it before it's switched on: lulu.boats/3d/?airport=1 (about 5½ miles into a drive).
+
 - 2026-11-21 00:55 UTC — ✈️ JFK stage 3, things to do at the airport. Inside the terminal: a very frazzled Mrs. Shpilkes has lost
   her pink suitcase — find it (on Bubbe's scale, under a tired man's feet, by a plant… or a man with an IDENTICAL bag is doing laps
   with it) and bring it back for a small reward (once a day). Now and then the singer Dovid Dov walks down the VIP red carpet with

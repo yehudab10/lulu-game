@@ -881,7 +881,8 @@ export class World {
         // (a district that keeps the highway — an attached town — streams the highway round where she left it, every
         //  chunk in slices: she isn't on it, so nothing is "near her")
         if (D) playerS = D.highwayS;
-        const kMin = Math.max(0, Math.floor((playerS - BEHIND) / CHUNK));
+        // (keepBehind: a feature with a big place beside the road — the airport — keeps the chunks behind her a while longer)
+        const kMin = Math.max(0, Math.floor((playerS - BEHIND - (this.keepBehind || 0)) / CHUNK));
         const kMax = Math.floor((playerS + AHEAD) / CHUNK);
         for (const [k, c] of this.chunks) {
             if (k < kMin || k > kMax) { c.dispose(this.scene); this.chunks.delete(k); }
