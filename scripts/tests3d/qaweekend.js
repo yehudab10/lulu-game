@@ -102,6 +102,9 @@ async function mash(t, n, { foot = false, honk = true } = {}) {
   }
   await t.stick(0, 0); await t.hold(7, 0);
 }
+/** Where she stands against her own car (its frame): inside = in its seats / hood / boot. */
+const besideCar = t => t.game(`(() => { const F = ctx.foot.debug.F, c = F.car && F.car.stub; if (!c) return null; const dx = F.pos.x - c.x, dz = F.pos.z - c.z;
+    const along = dx * Math.sin(c.h) + dz * Math.cos(c.h), lat = dx * Math.cos(c.h) - dz * Math.sin(c.h); return { along: +along.toFixed(2), lat: +lat.toFixed(2), inside: Math.abs(lat) < 1.05 && Math.abs(along) < 2.3 }; })()`);
 /** The HUD's lasting pieces (pills, the trip bar + label, ❚❚ / 📱, the left / right chips, the speedo, ⏭): pairs on top
  *  of each other (> 4 px both ways, one not inside the other) and any off screen. */
 const hudOverlap = t => t.L(`(() => { const out = [], W = innerWidth, H = innerHeight;
@@ -167,6 +170,17 @@ async function town(t) {
   W.check(t, "home → highway", await W.report(t));
   await W.reset(t);
   await t.shot("highway");
+  // a knock-out after a spin: the car came to rest SIDEWAYS across the lanes — back on her feet beside it, not in it
+  // (she used to land 1.8 m off the ROAD's line: along a sideways car's length, in its hood)
+  await tp(t, `(() => { const s = ctx.car.s + 30, p = ctx.world.road.point(s, 1.75, {}); ctx.car.place(p.x, p.z, p.h + Math.PI / 2); ctx.car.s = s; ctx.car.d = 1.75; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
+  await g(`(ctx.foot.start("knockout", { drivable: true }), true)`);
+  if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "knocked out sideways: on her feet", 30000)) {
+    const kb = await besideCar(t);
+    t.check("knocked out with the car sideways: on her feet beside it, not in it", !!kb && !kb.inside, JSON.stringify(kb));
+    await t.shot("knockout-sideways");
+    await backInCar(t);
+  }
+  await W.reset(t);
 
   // ── Lakewood, a rainy day: drive the puddles, honk, ram parked cars ──
   await g(`(ctx.law.hold(9999), ctx.hustle && ctx.hustle.hold && ctx.hustle.hold(1e6), ctx.atmos.debug.weather("rain"), ${D}.rain(1), ${D}.season("autumn"), ${D}.cold(true), true)`);
@@ -378,9 +392,7 @@ async function airport(t) {
   await g(`ctx.foot.start("droveOff")`);
   if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "out on foot at the kerb", 30000)) return;
   // out of the car at the kerb (the airport's own frame, across the highway's line): beside it, never standing in its seats
-  const besideCar = () => g(`(() => { const F = ctx.foot.debug.F, c = F.car && F.car.stub; if (!c) return null; const dx = F.pos.x - c.x, dz = F.pos.z - c.z;
-    const along = dx * Math.sin(c.h) + dz * Math.cos(c.h), lat = dx * Math.cos(c.h) - dz * Math.sin(c.h); return { along: +along.toFixed(2), lat: +lat.toFixed(2), inside: Math.abs(lat) < 1.05 && Math.abs(along) < 2.3 }; })()`);
-  const bc = await besideCar();
+  const bc = await besideCar(t);
   t.check("out of the car at the kerb: she stands beside it, not in it", !!bc && !bc.inside, JSON.stringify(bc));
   await t.shot("airport-out-of-car");
   const door = await g(`ctx.airport.debug.world(${K.door}, ${K.r0} - 1.2)`);
@@ -439,9 +451,9 @@ async function airport(t) {
   // ── knocked out at the kerb: back on her feet BESIDE her patched-up car ──
   await backInCar(t);
   await tp(t, `(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.cam.snap(); return true; })()`);
-  await g(`(ctx.foot.start("knockout"), true)`);
+  await g(`(ctx.foot.start("knockout", { drivable: true }), true)`);
   if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "knocked out at the kerb: on her feet", 30000)) {
-    const kb = await besideCar();
+    const kb = await besideCar(t);
     t.check("knocked out at the kerb: on her feet beside the car, not standing in it", !!kb && !kb.inside, JSON.stringify(kb));
     await t.shot("airport-knockout");
   }
