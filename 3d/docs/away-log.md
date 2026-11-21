@@ -3,6 +3,12 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 UTC — ⚡ Smoother on phones (a performance pass, nothing new to see): the game now asks the phone's graphics
+  chip to draw a lot less each frame. Walking or driving in Lakewood and Midwood draws about 20–28 % less on LOW and
+  MEDIUM, the highway 8–17 % less, and on MEDIUM the shadows cost a third less (the title screen 36 % less) — cars, Lulu's
+  car, her house and the e-bikes now cast their shadow in one go instead of one piece at a time, the sky's clouds are
+  one object instead of 80, and the score counter stopped doing slow work every frame. Screenshots before and after are
+  pixel-for-pixel the same. Numbers: `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass.
 - 2026-11-21 00:55 UTC — ✈️ JFK stage 3, things to do at the airport. Inside the terminal: a very frazzled Mrs. Shpilkes has lost
   her pink suitcase — find it (on Bubbe's scale, under a tired man's feet, by a plant… or a man with an IDENTICAL bag is doing laps
   with it) and bring it back for a small reward (once a day). Now and then the singer Dovid Dov walks down the VIP red carpet with
