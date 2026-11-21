@@ -27,6 +27,8 @@ css("shops-guide", `
 .card.sg-card .menu .btn small { display: block; font-weight: 600; opacity: .78; font-size: 12.5px; margin-top: 2px; }
 .card.sg-card .menu .btn.sg-on { box-shadow: 0 0 0 3px var(--pink) inset; }
 body.tv .card.sg-card .menu .btn { font-size: 24px; padding: 14px 22px; } body.tv .card.sg-card .menu .btn small { font-size: 18px; }
+/* (a phone on its side: the left HUD stack is short on room — the 🛍️ line drops its second line) */
+@media (max-height: 460px) { .day-chip.shops-dest small { display: none; } .day-chip.shops-dest { padding: 4px 10px; font-size: 13px; } }
 `);
 
 /** The places, as rows (what's built today + the old counter for whatever hasn't moved into the world yet). */
