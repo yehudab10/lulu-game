@@ -439,8 +439,9 @@ export function* buildSteps(G, group, out) {
     yield "cars";
     // the interchange's props: the gantry, the gore's crash cushion, the advisory, rail ends, the ramp's guide sign
     interchangeProps(G, mg, at, C, matAt, face);
-    for (const a of later) mg.add(...a);
     yield "interchange";
+    for (let i = 0; i < later.length; i++) { mg.add(...later[i]); if (i % 12 === 11) yield "low:" + i; }
+    yield "low";
     const look = MT.look, list = [];
     const it = mg.buildSteps(look, list);
     for (;;) { const r = it.next(); if (r.done) break; yield r.value; }

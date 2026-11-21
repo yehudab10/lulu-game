@@ -23,7 +23,9 @@ module.exports = {
   save2d: { totalCoins: 500, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
     const g = t.game;
-    const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
+    // AIRPORT_PART=<step> runs just that step after the build (local debugging: "bump", "chase", "perf"…)
+    const PART = process.env.AIRPORT_PART || "";
+    const step = async (label, fn) => { if (PART && label !== PART) return; try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
     await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["airport:enter", "airport:leave", "airport:door", "airport:fence", "airport:built", "airport:bump", "airport:security", "foot:start"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 90)));
       m.on("damage", e => { const c = m.ctx.car.pos, q = m.ctx.airport.debug.local(c.x, c.z) || {}; __ev.push("damage:" + (e && e.why) + "/" + (e && e.source) + "@" + Math.round(q.f) + "," + Math.round(q.r) + " s" + Math.round(m.ctx.car.s)); });
       // the test driver: steer toward waypoints (world x / z) at a target speed; stop = brake to a halt at the end
@@ -383,12 +385,12 @@ module.exports = {
     await step("chase", async () => {
       if (!await g(`!!(ctx.law && ctx.law.startChase)`)) return;
       await g(`(ctx.law.hold(0), true)`);
-      const p0 = await HW(E - 420, 5.25);
-      await placeCar(p0.x, p0.z, await g(`ctx.world.highway.at(${E - 420}).h`), 18);
+      // (from the off-ramp, rolling: the cruiser joins on the highway behind her and has to take the exit after her)
+      const p0 = await HW(E - 10, await g(`ctx.airport.debug.LY.offD(-10)`)), p1 = await HW(E + 10, await g(`ctx.airport.debug.LY.offD(10)`));
+      await placeCar(p0.x, p0.z, Math.atan2(p1.x - p0.x, p1.z - p0.z), 12);
       await g(`ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" })`);
       const pts = [];
-      for (const [u, d] of [[-300, 5.25], [-230, 5.6], [-200, 7.5], [-170, 9.1], [-120, 9.1], [-80, 9.1]]) pts.push(await HW(E + u, d));
-      for (let u = -50; u <= 60; u += 10) pts.push(await HW(E + u, await g(`ctx.airport.debug.LY.offD(${u})`)));
+      for (let u = 10; u <= 60; u += 10) pts.push(await HW(E + u, await g(`ctx.airport.debug.LY.offD(${u})`)));
       const R = await g(`(() => { const R = ctx.airport.debug.roads(), F = ctx.airport.debug.G().F, out = []; for (let i = 4; i < R.in.length; i += 4) out.push({ x: R.in[i].x, z: R.in[i].z });
         for (let i = 0; i < R.loop.length; i += 3) { const p = R.loop[i], q = F.local(p.x, p.z, {}); if (q.r > 186 && q.f > 40) break; const sh = q.r > 186 ? 3.4 : 0; out.push({ x: p.x - p.tz * sh, z: p.z + p.tx * sh }); } return out; })()`);
       pts.push(...R);
@@ -396,10 +398,15 @@ module.exports = {
       // sample: every chasing cruiser in the airport stays on its roads (near the net, never in the terminal / past a fence)
       const T = LY.TERM, LAND = LY.LAND;
       let worst = { d: 0 }, inTerm = 0, pastFence = 0, cruiserIn = false, closest = 999, sec = null, maxHeldV = 0, heldFrames = 0, busted = false;
-      for (let k = 0; k < 900; k += 3) {
+      let last = null;
+      for (let k = 0; k < 2100; k += 3) {
         await t.frames(3);
         const r = await g(`(() => { const D = ctx.airport.debug, out = [], c = ctx.car.pos; for (const u of ctx.law._dbg.L.units) { const cc = u.car; if (!cc || u.mode !== "chase") continue; const q = D.local(cc.x, cc.z); const n = D.netDist(cc.x, cc.z); out.push({ f: q.f, r: q.r, d: n.d, p: n.p, gap: Math.hypot(cc.x - c.x, cc.z - c.z) }); }
           return { cops: out, state: L3.state, inside: ctx.airport.inside, sec: D.security(), v: ctx.car.vF, chasing: ctx.law.chasing }; })()`);
+        last = r;
+        if (k % 90 === 0) console.log("   chase t" + k + ":", JSON.stringify(await g(`(() => { const L = ctx.law._dbg.L, ch = L.chase, D = ctx.airport.debug, c = ctx.car.pos, q = D.local(c.x, c.z);
+          return { her: [Math.round(q.f), Math.round(q.r), +ctx.car.vF.toFixed(1)], ch: ch && { heat: ch.heat, seen: ch.seen, srch: ch.searching, ev: +ch.evade.toFixed(2), bust: +ch.bust.toFixed(2) },
+            units: L.units.map(u => { const cc = u.car; if (!cc) return u.mode; const p = D.local(cc.x, cc.z); return [u.mode, Math.round(p.f), Math.round(p.r), +cc.speed.toFixed(1), cc.hit ? "HIT" : ""]; }), sec: D.security().phase }; })()`)));
         if (r.state !== "playing") { busted = /law/.test(r.state); break; }
         for (const c of r.cops) {
           const inAir = c.f > LAND.f0 - 30 && c.f < LAND.f1 + 30 && c.r > 12 && c.r < LAND.r1 + 80;
@@ -411,11 +418,13 @@ module.exports = {
           if (r.inside) closest = Math.min(closest, c.gap);
         }
         if (r.sec.phase && !sec) sec = r.sec.phase;
-        if (r.sec.holding && r.sec.on > 1.2) { heldFrames++; maxHeldV = Math.max(maxHeldV, r.v); }
+        if (r.sec.holding && r.sec.on > 1.2) { if (!heldFrames) await t.shot("kerb-security"); heldFrames++; maxHeldV = Math.max(maxHeldV, r.v); }
         if (r.inside && heldFrames > 20 && cruiserIn && closest < 30) break;
-        if (!r.chasing && !r.sec.phase && k > 300) break;
+        if (!r.chasing && !r.sec.phase && k > 900) break;
       }
       await noRoute();
+      console.log("   law log:", JSON.stringify(await g(`ctx.law._dbg.log.slice(-8).map(e => e.ev + ":" + (e.result || e.why || e.reason || ""))`)));
+      console.log("   chase end:", JSON.stringify(last && { state: last.state, inside: last.inside, chasing: last.chasing, v: +last.v.toFixed(1), cops: last.cops.map(c => [Math.round(c.f), Math.round(c.r), c.p, Math.round(c.gap)]), sec: last.sec, her: await g(`(() => { const q = ctx.airport.debug.local(ctx.car.pos.x, ctx.car.pos.z); return [Math.round(q.f), Math.round(q.r)]; })()`) }));
       console.log("   chase:", JSON.stringify({ worst, inTerm, pastFence, cruiserIn, closest: +closest.toFixed(1), sec, heldFrames, maxHeldV: +maxHeldV.toFixed(1), busted, routes: await g(`ctx.airport.debug.routes()`) }));
       t.check("the chase follows her off the exit: a cruiser drives into the landside after her", cruiserIn || busted, String(closest));
       t.check("…on the airport's roads (law asks the airport for a route: ctx.airport routes > 0)", await g(`ctx.airport.debug.routes() > 0`));

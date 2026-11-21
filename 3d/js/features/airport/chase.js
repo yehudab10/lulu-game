@@ -196,13 +196,21 @@ export function copSight(S, ax, az, bx, bz) {
     if (!G) return undefined;
     const F = G.F;
     F.local(ax, az, _a); F.local(bx, bz, _b);
-    const inA = inZone(_a), inB = inZone(_b);
+    const inA = inZone(_a) || onRamps(G, ax, az), inB = inZone(_b) || onRamps(G, bx, bz);
     if (!inA && !inB) return undefined;
     // across the terminal's box (or the tower's)? blocked
     for (const box of BLOCKERS) if (segBox(_a.f, _a.r, _b.f, _b.r, box)) return false;
     return true;
 }
-const inZone = q => q.f > LY.LAND.f0 - 40 && q.f < LY.LAND.f1 + 40 && q.r > 8 && q.r < LY.LAND.r1 + 60;
+// (the airport's ground: the landside (its rigid frame) + the interchange — the decel lane, the ramps, the roads in / out,
+//  in highway coords: the road bends there, the rigid frame doesn't — open grass and a chain-link fence: they see across it)
+const inZone = q => q.f > LY.LAND.f0 - 40 && q.f < LY.LAND.f1 + 40 && q.r > LY.LAND.r0 - 40 && q.r < LY.LAND.r1 + 60;
+const _n = {}, _a2 = {};
+function onRamps(G, x, z) {
+    // (the road's nearest-point search looks ±120 m round a hint: the rigid frame's f is a good enough first guess)
+    const f = G.F.local(x, z, _a2).f, n = ctx.world.highway.nearest(x, z, G.E + LY.UA + f, _n), u = n.s - G.E;
+    return u > LY.TAPER0 - 20 && u < LY.ACC1 + 20 && n.d > 6.8;
+}
 const BLOCKERS = [{ f0: LY.TERM.f0, f1: LY.TERM.f1, r0: LY.TERM.r0, r1: LY.TERM.r1 }, { f0: 132, f1: 144, r0: 262, r1: 274 }];
 /** Does segment (f0, r0) → (f1, r1) cross the box? (slab test) */
 function segBox(fa, ra, fb, rb, B) {
