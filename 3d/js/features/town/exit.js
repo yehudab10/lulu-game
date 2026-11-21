@@ -85,6 +85,7 @@ function signBusy(s) { const w = ctx.world; return !(ctx.party && ctx.party.acti
 /** Slide an exit forward until its signs, decel lane and ramps keep clear of every pull-in place
  *  (features/world's ctx.places: Gas 'n' Go, the Lookout, the family's driveways…), every rest area
  *  (features/exits) and big reserved stretches (the coast's ocean). */
+const airportIn = (a, b) => { try { return !!(ctx.airport && ctx.airport.zones && ctx.airport.zones(a, b).length > 0); } catch (e) { return false; } };
 function clearOfPlaces(s, towns = null, once = false) {
     const P = ctx.places;
     let busy = [];
@@ -98,7 +99,9 @@ function clearOfPlaces(s, towns = null, once = false) {
         const clash = busy.some(x => x > s - 760 && x < s + ACC1 + 80) ||
             (!party && spans().some(o => o.b > a && o.a < b)) ||
             (!party && reservedRight(s + TAPER0 - 30, s + ACC1 + 30)) ||
-            (towns && FIT.fits && !FIT.fits(s, towns));
+            (towns && FIT.fits && !FIT.fits(s, towns)) ||
+            // (✈ the airport is planned FIRST from fixed data; a town exit slides past its zone — empty until it's switched on)
+            airportIn(s + SPAN.a, s + ACC1 + 80);
         if (!clash) return s;
         if (once) return null;
         s += 50;              // (fine steps: an attached town fits ~a third of the spots along the road — FIT)
