@@ -200,8 +200,8 @@ async function town(t) {
   for (let i = 0; i < 6; i++) {
     await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`); await t.frames(3);      // (her thumb is on the screen: the touch controls show)
     const ok = await t.L(`(() => { const b = document.getElementById("tHonk"); if (!b || !b.offsetParent) return false; const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-      const T = (type, list) => b.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: list, targetTouches: list, changedTouches: [new Touch({ identifier: 9, target: b, clientX: x, clientY: y })] }));
-      T("touchstart", [new Touch({ identifier: 9, target: b, clientX: x, clientY: y })]); window.__th = () => T("touchend", []); return true; })()`);
+      const T = type => b.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 9, pointerType: "touch", isPrimary: true, clientX: x, clientY: y }));
+      T("pointerdown"); window.__th = () => T("pointerup"); return true; })()`);
     await t.frames(4);
     await t.L(`(window.__th && window.__th(), true)`);
     if (ok) honks++;
