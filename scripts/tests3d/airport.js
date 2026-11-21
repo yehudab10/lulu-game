@@ -14,7 +14,7 @@
 const W = require("../lib/qawatch.js");
 
 // the budget (also in AGENTS.md §7 › Airport): the kerb's busiest view at 1280×720 — the towns' numbers
-const BUDGET = { calls: 240, tris: 120000, buildWorstMs: 60, buildTris: 70000 };
+const BUDGET = { calls: 240, tris: 120000, buildWorstMs: 60, buildTris: 70000, lowCut: 7000, lowLess: 6000 };
 
 module.exports = {
   name: "airport",
@@ -46,10 +46,17 @@ module.exports = {
     const noRoute = () => g(`(window.__route = null, true)`);
     const steps = (on) => t.L(`(() => { const S = window.__steps; const r = { car: +S.car.toFixed(2), cam: +S.cam.toFixed(2) }; S.car = S.cam = 0; S.on = ${on}; return r; })()`);
     const perf = async (frames) => {
-      await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r); window.__pfWrap = true; r.render = (s, c) => { const t0 = performance.now(); o(s, c); const P = window.__pf; if (!P) return; P.n++; P.ms += performance.now() - t0; P.calls += r.info.render.calls; P.tris += r.info.render.triangles; P.maxCalls = Math.max(P.maxCalls, r.info.render.calls); P.maxTris = Math.max(P.maxTris, r.info.render.triangles); }; }
-        window.__pf = { n: 0, ms: 0, calls: 0, tris: 0, maxCalls: 0, maxTris: 0, w0: performance.now() }; })()`);
+      // the main pass (renderer.info, as before) + the sun's shadow pass too (three resets renderer.info AFTER the shadow
+      // map is drawn, so it never shows it: here the counter is reset by hand before each render, read after the shadows)
+      await t.L(`(() => { const r = __lulu3d.renderer; if (!window.__pfWrap) { const o = r.render.bind(r), sm = r.shadowMap, so = sm.render.bind(sm); window.__pfWrap = true;
+          sm.render = function () { const out = so.apply(null, arguments); const P = window.__pf; if (P) { P.shC = r.info.render.calls; P.shT = r.info.render.triangles; } return out; };
+          r.render = (s, c) => { const t0 = performance.now(), P0 = window.__pf; if (P0) { r.info.autoReset = false; r.info.reset(); P0.shC = 0; P0.shT = 0; }
+            try { o(s, c); } finally { r.info.autoReset = true; }
+            const P = window.__pf; if (!P) return; const all = r.info.render.calls, main = all - P.shC, tri = r.info.render.triangles - P.shT;
+            P.n++; P.ms += performance.now() - t0; P.all += all; P.maxAll = Math.max(P.maxAll, all); P.calls += main; P.maxCalls = Math.max(P.maxCalls, main); P.tris += tri; P.maxTris = Math.max(P.maxTris, tri); }; }
+        window.__pf = { n: 0, ms: 0, calls: 0, all: 0, maxAll: 0, tris: 0, maxCalls: 0, maxTris: 0, shC: 0, shT: 0, w0: performance.now() }; })()`);
       await t.frames(frames);
-      return t.L(`(() => { const P = window.__pf; window.__pf = null; return { frames: P.n, renderMs: +(P.ms / P.n).toFixed(1), frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris }; })()`);
+      return t.L(`(() => { const P = window.__pf; window.__pf = null; return { frames: P.n, renderMs: +(P.ms / P.n).toFixed(1), frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, withShadows: Math.round(P.all / P.n), maxWithShadows: P.maxAll, tris: Math.round(P.tris / P.n), maxTris: P.maxTris }; })()`);
     };
     const setTier = q => t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = "${q}"; __lulu3d.ctx.applySettings(); return __lulu3d.ctx.gfx.tier; })`);
     const prompt = () => t.L(`(document.querySelector("#slot-bottom .prompt") || document.querySelector(".prompt") || {}).textContent || ""`);
@@ -318,12 +325,102 @@ module.exports = {
           return Object.entries(by).sort((a, b) => b[1].t - a[1].t).slice(0, 10).map(([k, v]) => k + "=" + v.d + "d/" + v.t + "t").join(" · "); })`);
         console.log(`   PERF airport kerb ${q} top: ${top}`);
       }
+      const lowCut = await g(`ctx.airport.debug.low()`);
+      console.log("   PERF airport LOW cut", JSON.stringify(lowCut));
       await t.shot("kerb-perf-low");
       await setTier("medium"); await t.frames(20); await t.shot("tower-kerb");
       await setTier("medium");
       const m = tiers.medium, l = tiers.low;
       t.check(`MEDIUM: draw calls ≤ ${BUDGET.calls} (${m.maxCalls}), triangles ≤ ${BUDGET.tris / 1000}k (${m.maxTris})`, m.maxCalls <= BUDGET.calls && m.maxTris <= BUDGET.tris, JSON.stringify(m));
-      t.check(`LOW: no more than MEDIUM (${l.maxCalls} calls, ${l.maxTris} tris)`, l.maxCalls <= m.maxCalls + 5 && l.maxTris <= m.maxTris * 1.05, JSON.stringify(l));
+      // LOW is LIGHTER than MEDIUM at the kerb (ci/airport-polish): two of the three jets, every other parked car + lamp, the
+      // bottom fence's trees, the windsock and the facade's trim are left out (draw ranges: no extra draw call on MEDIUM),
+      // and no shadow pass at all
+      t.check(`LOW: the airport leaves out ≥ ${BUDGET.lowCut / 1000}k triangles (and their colliders) (${lowCut.tris}, ${lowCut.cols} colliders off)`, lowCut.low && lowCut.tris >= BUDGET.lowCut && lowCut.cols > 40, JSON.stringify(lowCut));
+      t.check(`LOW: lighter than MEDIUM — triangles ≥ ${BUDGET.lowLess / 1000}k fewer (${l.maxTris} vs ${m.maxTris}), draw calls no more (${l.maxCalls} vs ${m.maxCalls}), fewer with the shadow pass (${l.maxWithShadows} vs ${m.maxWithShadows})`,
+        l.maxTris <= m.maxTris - BUDGET.lowLess && l.maxCalls <= m.maxCalls + 2 && l.maxWithShadows < m.maxWithShadows, JSON.stringify(l));
+      t.check("…back on MEDIUM: everything drawn and solid again", await g(`ctx.airport.debug.low().cols === 0 && !ctx.airport.debug.low().low`));
+    });
+
+    // ── her car vs. the kerb's taxis: a real collision (traffic's feel), the taxi knocked spinning, then back in line ──
+    await step("bump", async () => {
+      await g(`(ctx.airport.debug.S.veh.cars.forEach(c => { c.hit = null; }), true)`);
+      // the taxi at the head of the queue (stopped at the ARRIVALS stand)
+      let tx = null;
+      for (let k = 0; k < 40 && !tx; k++) { tx = (await g(`ctx.airport.debug.vehicles()`)).find(c => c.kind === "taxi" && c.speed < 0.3 && !c.hit); if (!tx) await t.frames(15); }
+      if (!t.check("a taxi waiting at the stand", !!tx)) return;
+      // her car 16 m behind it in the kerb lane, nose on, rolling
+      const bx = tx.x - Math.sin(tx.h) * 16, bz = tx.z - Math.cos(tx.h) * 16;
+      await placeCar(bx, bz, tx.h, 6);
+      const evs0 = (await evs()).length;
+      await route([{ x: tx.x + Math.sin(tx.h) * 6, z: tx.z + Math.cos(tx.h) * 6 }], 11);
+      let minGap = 99, bumped = false;
+      for (let k = 0; k < 120 && !bumped; k += 2) {
+        await t.frames(2);
+        const r = await g(`(() => { const c = ctx.car.pos, v = ctx.airport.debug.vehicles(); return { gap: Math.min(...v.map(o => Math.hypot(o.x - c.x, o.z - c.z))), hit: v.some(o => o.hit) }; })()`);
+        minGap = Math.min(minGap, r.gap);
+        bumped = (await evs()).slice(evs0).some(e => e.startsWith("airport:bump"));
+      }
+      await noRoute();
+      const ks = await g(`ctx.airport.debug.kerbStats()`);
+      t.check("driving into a waiting taxi is a COLLISION (airport:bump) — not a ghost, not a static wall", bumped, JSON.stringify(ks));
+      t.check(`…she doesn't drive through it (centres never closer than 1.6 m: ${minGap.toFixed(2)})`, minGap > 1.6, minGap.toFixed(2));
+      t.check("…a real knock sends the taxi sliding / spinning (traffic's feel)", ks.knocked >= 1, JSON.stringify(ks));
+      const dmg = (await evs()).slice(evs0).filter(e => e.startsWith("damage"));
+      console.log("   bump:", JSON.stringify(ks), dmg.join(" | "));
+      await g(`(window.__route = { pts: [], v: 0, stop: true }, true)`);
+      t.check("…and the taxi driver collects himself and pulls back into line", await t.until(`!__lulu3d.ctx.airport.debug.vehicles().some(c => c.hit)`, "the knocked taxi back in line", 30000));
+      await noRoute();
+      W.check(t, "bumping a taxi", await W.report(t));
+    });
+
+    // ── a CHASE off the exit: the cruisers follow her on the airport's roads (not through the fence / the terminal), and
+    //    airport security (Officer Segal + Rex) slows her down until they catch up (the owner's decision 10) ──
+    await step("chase", async () => {
+      if (!await g(`!!(ctx.law && ctx.law.startChase)`)) return;
+      await g(`(ctx.law.hold(0), true)`);
+      const p0 = await HW(E - 420, 5.25);
+      await placeCar(p0.x, p0.z, await g(`ctx.world.highway.at(${E - 420}).h`), 18);
+      await g(`ctx.law.startChase("SPEEDING", { msg: "🚨 TEST" })`);
+      const pts = [];
+      for (const [u, d] of [[-300, 5.25], [-230, 5.6], [-200, 7.5], [-170, 9.1], [-120, 9.1], [-80, 9.1]]) pts.push(await HW(E + u, d));
+      for (let u = -50; u <= 60; u += 10) pts.push(await HW(E + u, await g(`ctx.airport.debug.LY.offD(${u})`)));
+      const R = await g(`(() => { const R = ctx.airport.debug.roads(), F = ctx.airport.debug.G().F, out = []; for (let i = 4; i < R.in.length; i += 4) out.push({ x: R.in[i].x, z: R.in[i].z });
+        for (let i = 0; i < R.loop.length; i += 3) { const p = R.loop[i], q = F.local(p.x, p.z, {}); if (q.r > 186 && q.f > 40) break; const sh = q.r > 186 ? 3.4 : 0; out.push({ x: p.x - p.tz * sh, z: p.z + p.tx * sh }); } return out; })()`);
+      pts.push(...R);
+      await route(pts, 13, { r: 6, stop: true });
+      // sample: every chasing cruiser in the airport stays on its roads (near the net, never in the terminal / past a fence)
+      const T = LY.TERM, LAND = LY.LAND;
+      let worst = { d: 0 }, inTerm = 0, pastFence = 0, cruiserIn = false, closest = 999, sec = null, maxHeldV = 0, heldFrames = 0, busted = false;
+      for (let k = 0; k < 900; k += 3) {
+        await t.frames(3);
+        const r = await g(`(() => { const D = ctx.airport.debug, out = [], c = ctx.car.pos; for (const u of ctx.law._dbg.L.units) { const cc = u.car; if (!cc || u.mode !== "chase") continue; const q = D.local(cc.x, cc.z); const n = D.netDist(cc.x, cc.z); out.push({ f: q.f, r: q.r, d: n.d, p: n.p, gap: Math.hypot(cc.x - c.x, cc.z - c.z) }); }
+          return { cops: out, state: L3.state, inside: ctx.airport.inside, sec: D.security(), v: ctx.car.vF, chasing: ctx.law.chasing }; })()`);
+        if (r.state !== "playing") { busted = /law/.test(r.state); break; }
+        for (const c of r.cops) {
+          const inAir = c.f > LAND.f0 - 30 && c.f < LAND.f1 + 30 && c.r > 12 && c.r < LAND.r1 + 80;
+          if (!inAir) continue;
+          if (c.r > LAND.r0) cruiserIn = true;
+          if (c.d > worst.d) worst = c;
+          if (c.f > T.f0 && c.f < T.f1 && c.r > T.r0 && c.r < T.r1) inTerm++;
+          if (c.r > LAND.r1 + 1 && c.f > LAND.f0 && c.f < LAND.f1) pastFence++;
+          if (r.inside) closest = Math.min(closest, c.gap);
+        }
+        if (r.sec.phase && !sec) sec = r.sec.phase;
+        if (r.sec.holding && r.sec.on > 1.2) { heldFrames++; maxHeldV = Math.max(maxHeldV, r.v); }
+        if (r.inside && heldFrames > 20 && cruiserIn && closest < 30) break;
+        if (!r.chasing && !r.sec.phase && k > 300) break;
+      }
+      await noRoute();
+      console.log("   chase:", JSON.stringify({ worst, inTerm, pastFence, cruiserIn, closest: +closest.toFixed(1), sec, heldFrames, maxHeldV: +maxHeldV.toFixed(1), busted, routes: await g(`ctx.airport.debug.routes()`) }));
+      t.check("the chase follows her off the exit: a cruiser drives into the landside after her", cruiserIn || busted, String(closest));
+      t.check("…on the airport's roads (law asks the airport for a route: ctx.airport routes > 0)", await g(`ctx.airport.debug.routes() > 0`));
+      t.check(`…never through the terminal, never past the runway fence (${inTerm} / ${pastFence} frames)`, inTerm === 0 && pastFence === 0);
+      t.check(`…keeping to the road net (worst ${worst.d.toFixed ? worst.d.toFixed(1) : worst.d} m off it ≤ 14: ${worst.p || "-"})`, worst.d <= 14, JSON.stringify(worst));
+      t.check("airport security rolls out for a wanted Lulu at the kerb (Officer Segal on his Segway)", !!sec || (await evs()).some(e => /airport:security/.test(e)), (await evs()).filter(e => /security/.test(e)).join(" "));
+      t.check(`…and slows her right down while he's beside her (≤ ${(await g(`ctx.airport.debug.SEC.carCap`)) + 1.5} m/s: ${maxHeldV.toFixed(1)} over ${heldFrames} samples)`, busted || (heldFrames > 0 && maxHeldV <= (await g(`ctx.airport.debug.SEC.carCap`)) + 1.5));
+      t.check("…so the real cops catch up (a cruiser within 30 m of her in the landside — or BUSTED)", busted || closest < 30, String(closest));
+      if (await g(`L3.state === "playing"`)) await g(`(ctx.law.standDown("test"), true)`);
+      await t.frames(30);
     });
   },
 };

@@ -22,7 +22,7 @@ export const BOARDS = {
     term: ["JFK INTERNATIONAL · TERMINAL 4½"],
     dep: ["✈↗ DEPARTURES", "Kugel Air · El Oy · Shmear Jet · Nu? Air"],
     arr: ["✈↘ ARRIVALS", "Baggage Claim · Bubbes Waiting Area"],
-    soon: ["TERMINAL OPENING SOON", "the kugel is still in the oven", "please enjoy our lovely kerb"],
+    soon: ["⇆ TERMINAL 4½", "push, don't pull", "Bubbes first, please"],
     guide: ["TERMINAL 4½ ↑", "DEPARTURES · ARRIVALS", "PARKING →"],
     parking: ["SHORT-TERM PARKING", "$∞ / hour", "long-term: also ∞"],
     taxi: ["🚕 TAXI LINE", "honk patiently"],
@@ -53,7 +53,7 @@ export const CUE = {
     ramp: "✈ JFK · DEPARTURES · ARRIVALS · PARKING",
 };
 /** The arrival banner (once a visit). */
-export const ARRIVE = { title: "✈ JFK International", sub: "Terminal 4½ · kerbside only (for now)" };
+export const ARRIVE = { title: "✈ JFK International", sub: "Terminal 4½ · Departures · Arrivals" };
 
 /** Lulu, on arrival and walking round. */
 export const LULU = {
@@ -70,3 +70,21 @@ export const SEGAL = [
     { guard: ["Runway's closed to Lulus.", "It's in the rule book. Page one. Big letters."], lulu: "That's oddly specific." },
     { guard: ["Is that… kugel I smell?", "Never mind. Carry on. Away from the fence."], lulu: "It's my perfume. Eau de Kugel." },
 ];
+
+/** Bumping the kerb's taxis / shuttles (a speech bubble over the one she hit; cartoon only). */
+export const KERB = {
+    taxi: ["HEY! The meter was RUNNING!", "Lady! It's a TAXI, not a bumper car!", "I'm callin' my cousin. He's a LAWYER.", "Fuggedaboudit… no wait, I'll remember this."],
+    shuttle: ["The shuttle stops at the SIGN, ma'am.", "Next stop: my insurance company!", "Everybody hold on to your bagels!"],
+    lulu: ["Sorry! SORRY! Love your taxi!", "That was the taxi's fault. Mostly.", "Oops. Airport parking is HARD."],
+};
+/** Airport security at the KERB (the owner's decision 10): she's wanted, so Officer Segal's Segway (and Rex) slow her
+ *  down until the real cops catch up. Cartoon only: nothing about real security procedures. */
+export const SECURITY = {
+    spot: ["Ma'am! Airport security! SLOW DOWN!", "Hold it right there! (Please.) (On a Segway.)", "We've got a runner! A DRIVER! A… whatever you are!"],
+    car: ["This is a FIVE mile-an-hour kerb, ma'am!", "I can keep up all day. This Segway has a WARRANTY.", "Pull over! Or just… go slower! Slower is good!"],
+    foot: ["Rex, SIT. Rex! That's her SHOELACE.", "Walk, don't run! Airport rules!", "Rex has your scent. It's kugel."],
+    dog: ["*sniff* …kugel.", "*tug tug*", "Woof! (translation: kugel)"],
+    radio: "📻 Segal to dispatch: she's at the JFK kerb!",
+    lulu: ["Is he… is he keeping UP?", "A Segway?! You've GOT to be kidding me.", "Rex, buddy, let go of my shoelace!"],
+    gone: ["She got away! …Rex, did you see where she went?", "Next time, ma'am! NEXT TIME!"],
+};

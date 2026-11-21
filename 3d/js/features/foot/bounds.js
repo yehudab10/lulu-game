@@ -307,8 +307,15 @@ export function engaged(F, kind) {
     if (B.next - B.aim > NUDGE.every * 2) B.next = B.aim + NUDGE.every;
 }
 
-/** Speed multiplier for her walk/run right now (terrain × sore feet). */
+/** Other features slowing her down (features/airport: Rex has her shoelace) — fns (F) → a multiplier 0–1, or 1. */
+export const SLOW = [];
+/** Speed multiplier for her walk/run right now (terrain × sore feet × SLOW). */
 export function speedMul(F) {
+    let k = baseMul(F);
+    for (const f of SLOW) { try { const m = f(F); if (m >= 0 && m < 1) k *= m; } catch (e) { /* not theirs */ } }
+    return k;
+}
+function baseMul(F) {
     const B = F.bx;
     if (!B) return 1;
     let k = B.soreK;
@@ -777,7 +784,7 @@ function jaywalkStar(F, B) {
 
 // ── test / debug surface (ctx.foot.bounds) ───────────────────────────────
 export const api = {
-    EDGE, NUDGE, free: FREE,
+    EDGE, NUDGE, free: FREE, slow: SLOW,
     get state() { const F = current && current(); return F ? F.bx : null; },
     /** Which band she's standing in: lanes | shoulder | verge | grass | mud | grounds (a rest area's lot / lawn) (busy: a chase / a scripted moment). */
     get zone() { const F = current && current(); return F && F.bx ? F.bx.zone : null; },

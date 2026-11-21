@@ -13,7 +13,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx } from "../../core/ctx.js";
 import { models, registerModels, findNodes } from "../../models.js";
 import { canvasTex } from "../../world.js";
-import { Merger, Atlas, lookMaterials, drawLines } from "../town/kit.js";
+import { Merger, Atlas, lookMaterials, drawLines, partsOf } from "../town/kit.js";
 import * as LY from "./layout.js";
 import { SIGNS, BOARDS, LIVERIES, EXIT_NO } from "./lines.js";
 
@@ -236,6 +236,52 @@ function cellsOf(a) {
     return C;
 }
 
+// ── LOW: a lighter airport ───────────────────────────────────────────────
+// What the LOW graphics tier leaves out (layout's `low: false` props, every other parked car, the facade's trim) is
+// added to the SAME merged clusters, but LAST: each merged mesh then draws its own pieces first and the LOW-only cut is a
+// draw range (no extra draw call on MEDIUM / HIGH). The hidden jets' text faces go last in the atlas mesh the same way.
+// `setLow(out, true)` cuts them; index.js switches their colliders off with them.
+/** The facade's details (mullions, trim, door mats, the planters' hedges) as a template of their own, and the rest:
+ *  LOW draws the terminal without them. Cached per template. */
+const SPLIT = new WeakMap();
+const DETAIL = /^(Trim|DarkTrim|Hedge)$/;
+function splitTemplate(tpl, re = DETAIL) {
+    let sp = SPLIT.get(tpl);
+    if (sp) return sp;
+    const main = new THREE.Group(), detail = new THREE.Group();
+    for (const p of partsOf(tpl)) {
+        const m = new THREE.Mesh(p.g, p.mat);
+        m.name = p.node; m.matrixAutoUpdate = false; m.matrix.copy(p.local);
+        (re.test(p.name) ? detail : main).add(m);
+    }
+    sp = { main, detail };
+    SPLIT.set(tpl, sp);
+    return sp;
+}
+/** After the merge: where each merged mesh's LOW-only pieces start (an index offset), from the tag's vertex ranges. */
+function lowRanges(list, tag) {
+    const firstV = new Map();
+    for (const p of tag.parts || []) firstV.set(p.mesh, Math.min(firstV.has(p.mesh) ? firstV.get(p.mesh) : Infinity, p.start));
+    const out = [];
+    for (const mesh of list) {
+        if (!firstV.has(mesh)) continue;
+        const v0 = firstV.get(mesh), I = mesh.geometry.index;
+        let cut = I ? I.count : v0;
+        if (I) for (let i = 0; i < I.count; i++) if (I.array[i] >= v0) { cut = i - (i % 3); break; }
+        out.push({ mesh, cut, full: I ? I.count : mesh.geometry.attributes.position.count });
+    }
+    return out;
+}
+/** Cut (or restore) the LOW-only pieces of a build. → the triangles left out. */
+export function setLow(out, low) {
+    let tris = 0;
+    for (const r of (out && out.low) || []) {
+        if (low) { r.mesh.geometry.setDrawRange(0, r.cut); r.mesh.visible = r.cut > 0; tris += (r.full - r.cut) / 3; }
+        else { r.mesh.geometry.setDrawRange(0, Infinity); r.mesh.visible = true; }
+    }
+    return Math.round(tris);
+}
+
 // ── the build (a generator: one small step per yield) ────────────────────
 /**
  * Build airport G (plan.js geometry) into `group`. Yields after every step (~1–3 ms each); returns { atlasMat }.
@@ -271,7 +317,9 @@ export function* buildSteps(G, group, out) {
     // ② the airport's roads (world polylines)
     for (const rd of G.roads) {
         const mat = rd.tex === "kerb" ? MT.kerb : rd.tex === "aisle" ? MT.aisle : MT.ramp;
-        add(ribbon(rd.pts, rd.tex === "aisle" ? 0.036 : 0.035, 12), mat);
+        const rg = ribbon(rd.pts, rd.tex === "aisle" ? 0.036 : 0.035, 12);
+        // (the roads in + out share the ramps' asphalt: one mesh with the ramp strips — two draw calls fewer)
+        if (mat === MT.ramp) ramp.push(rg); else add(rg, mat);
         yield "road:" + rd.id;
     }
     add(merged(ramp), MT.ramp); add(merged(gore), MT.gore); add(merged(dash), MT.dash);
@@ -333,14 +381,21 @@ export function* buildSteps(G, group, out) {
         at.quad(cell, _v.x + Math.sin(yaw) * push, _v.y + dy, _v.z + Math.cos(yaw) * push, yaw, w, h);
     };
     let n = 0;
+    // (LOW-only pieces: merged after everything else, so each merged mesh's LOW cut is one draw range)
+    const lowTag = { low: true }, later = [];
+    const addLow = (tpl, m, tint, opts) => { later.push([tpl, m, tint, Object.assign({ tag: lowTag }, opts)]); };
     for (const p of LY.propList()) {
-        const tpl = models[p.key];
+        let tpl = models[p.key];
         if (!tpl) continue;
         F.world(p.f, p.r, _p);
         const yaw = F.yaw(p.face[0], p.face[1]), m = matAt(_p.x, _p.z, yaw, p.scale || 1);
         let tint = null;
         if (p.livery != null) { const L = LIVERIES[p.livery % LIVERIES.length]; tint = { Paint: L.Paint, Tail: L.Tail, Stripe: L.Stripe }; }
-        mg.add(tpl, m, tint, { at: [_p.x, _p.z], noShadow: !!p.flat });
+        const opts = { at: [_p.x, _p.z], noShadow: !!p.flat };
+        let body = tpl;
+        if (p.id === "terminal") { const sp = splitTemplate(tpl); body = sp.main; addLow(sp.detail, m, tint, opts); }
+        if (p.low === false) addLow(body, m, tint, opts); else mg.add(body, m, tint, opts);
+        const q0 = at.quads.length;
         if (p.id === "terminal") {
             // (the model's +X is our −f: lay the faces by f, at the anchors' heights)
             const q = (f, r, y, cell, w, h) => { F.world(f, r, _p); at.quad(cell, _p.x, y, _p.z, yaw, w, h); };
@@ -356,6 +411,7 @@ export function* buildSteps(G, group, out) {
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw - Math.PI / 2, 0, 0.42);
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw + Math.PI / 2, 0, 0.01);
         }
+        if (p.low === false) for (let k = q0; k < at.quads.length; k++) at.quads[k].low = true;
         n++; yield "prop:" + (p.id || p.key);
     }
     // the free-standing boards (exits_guide for the big ones, a post for the rest)
@@ -377,22 +433,26 @@ export function* buildSteps(G, group, out) {
         const tpl = models[c.key];
         if (!tpl) continue;
         F.world(c.f, c.r, _p);
-        mg.add(tpl, matAt(_p.x, _p.z, F.yaw(0, c.face)), { Paint: c.color, Body: c.color }, { at: [_p.x, _p.z], noShadow: true });
+        const args = [tpl, matAt(_p.x, _p.z, F.yaw(0, c.face)), { Paint: c.color, Body: c.color }, { at: [_p.x, _p.z], noShadow: true }];
+        if (c.low === false) addLow(...args); else mg.add(...args);
     }
     yield "cars";
     // the interchange's props: the gantry, the gore's crash cushion, the advisory, rail ends, the ramp's guide sign
     interchangeProps(G, mg, at, C, matAt, face);
+    for (const a of later) mg.add(...a);
     yield "interchange";
     const look = MT.look, list = [];
     const it = mg.buildSteps(look, list);
     for (;;) { const r = it.next(); if (r.done) break; yield r.value; }
     for (const mesh of list) { mesh.updateMatrix(); group.add(mesh); out.geos.push(mesh.geometry); }
+    out.low = lowRanges(list, lowTag);
     yield "merged";
     const ms = atlasSteps(at);
     let sm;
     for (;;) { const r = ms.next(); if (r.done) { sm = r.value; break; } yield r.value; }
     group.add(sm); out.geos.push(sm.geometry); out.atlas = sm.material;
     sm.updateMatrix();
+    if (sm.userData.lowCut != null) out.low.push({ mesh: sm, cut: sm.userData.lowCut, full: sm.geometry.index.count });
     return out;
 }
 
@@ -467,6 +527,9 @@ function* atlasSteps(at) {
         ATLAS_TEX = { tex, n: at.cells.length, mat: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.4, emissive: new THREE.Color("#ffffff"), emissiveMap: tex, emissiveIntensity: 0.12 }) };
     }
     for (const c of at.cells) c.uv = [c.x / S, 1 - (c.y + c.ph) / S, (c.x + c.pw) / S, 1 - c.y / S];
+    // (the LOW-only faces last: LOW draws up to the first of them)
+    const nLow = at.quads.filter(q => q.low).length;
+    if (nLow) at.quads = at.quads.filter(q => !q.low).concat(at.quads.filter(q => q.low));
     const n = at.quads.length;
     const P = new Float32Array(n * 12), U = new Float32Array(n * 8), N = new Float32Array(n * 12), I = [];
     at.quads.forEach((q, k) => {
@@ -484,5 +547,6 @@ function* atlasSteps(at) {
     const mesh = new THREE.Mesh(geo, ATLAS_TEX.mat);
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
+    if (nLow) mesh.userData.lowCut = (n - nLow) * 6;
     return mesh;
 }
