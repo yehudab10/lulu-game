@@ -186,7 +186,7 @@ module.exports = {
       t.check("the neighbourhood plays positional sounds around her", I.ambience.sounds >= s0 + 4, `${s0} → ${I.ambience.sounds} (${k.join(" ")})`);
       // ⚙️ the switch
       const lbl = await t.L(`import("./js/core/ctx.js").then(m => m.menuItems("settings").filter(i => i.id === "lifeSounds").map(i => typeof i.label === "function" ? i.label() : i.label))`);
-      t.check("⚙️ 🐦 Street sounds is in Settings", lbl.length === 1 && /Street sounds/.test(lbl[0]), lbl.join(""));
+      t.check("⚙️ 🐦 Street sounds is in Settings (in a run: ⏸ → ⚙️)", lbl.length === 1 && /Street sounds/.test(lbl[0]), lbl.join(""));
       await g(`ctx.life.sounds = false`);
       t.check("…and turns the sounds off", (await g(`ctx.life.sounds`)) === false && !(await info()).ambience.crickets);
       await g(`ctx.life.sounds = true`);
@@ -223,7 +223,10 @@ module.exports = {
       const on = await perf(60);
       const ms = await g(`[+${D}.stats.ms.toFixed(2), +${D}.stats.maxMs.toFixed(2)]`);
       console.log(`  perf (Lakewood, rain, autumn, on foot): off ${JSON.stringify(off)} · on ${JSON.stringify(on)} · tick avg ${ms[0]} ms max ${ms[1]} ms`);
-      t.check("draw calls: ≤ +4 with life on", on.maxCalls - off.maxCalls <= 4, `peak ${off.maxCalls} → ${on.maxCalls} (avg ${off.calls} → ${on.calls})`);
+      // (the town's crowd + traffic move between the two windows, so the renderer's totals are reported, not judged:
+      //  what life itself draws is its own meshes — each one draw call)
+      const mine = await g(`ctx.scene.children.filter(o => /^life/.test(o.name) && o.visible).map(o => o.name)`);
+      t.check("life draws ≤ 4 meshes (≤ 4 draw calls)", mine.length <= 4 && mine.length >= 2, `${mine.join(", ")} · renderer peak ${off.maxCalls} → ${on.maxCalls}, avg ${off.calls} → ${on.calls}`);
       t.check("life's tick is cheap (avg ≤ 1.5 ms in software GL)", ms[0] <= 1.5, `avg ${ms[0]} ms, max ${ms[1]} ms`);
     });
 

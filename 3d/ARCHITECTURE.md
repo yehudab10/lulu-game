@@ -1325,7 +1325,7 @@ not a set / interior (`ctx.view`), not Dina's mode):
   (fall / winter) and a crickets bed (2 looping emitters, warm months only); rain hushes the birds. On the highway on foot: birds in the
   fields, a far dog, an owl.
 **Sound**: every kind is synthesized once (`sounds.js`, 24 kHz, core `spatial.define`, ids `life*`, prio 1 — anything of the game's own
-wins a voice), played at pooled `{x, y, z}` points. ⚙️ **🐦 Street sounds** (Settings, order 64, saved in the 3D save's `life` store)
+wins a voice), played at pooled `{x, y, z}` points. ⚙️ **🐦 Street sounds** (Settings, order 64, listed only in a run — ⏸ → ⚙️ — because the title's Settings card is at its 720p limit; saved in the 3D save's `life` store)
 turns all of it off; the visuals have no switch (they're quiet). **Seasons** follow the device's date (`?lifeSeason=autumn|spring|summer|winter`
 to preview). **Perf**: ≤ 4 draw calls (only while there's something to draw), nothing allocated per frame (typed arrays, pooled points,
 in-place sorts); the `life` test measures it on vs off in Lakewood in the rain in the fall. Test: `scripts/tests3d/life.js`.

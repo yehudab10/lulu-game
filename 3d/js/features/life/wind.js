@@ -254,7 +254,9 @@ function tickFlyers(dt) {
         if (!f.ground) {
             const gk = Math.hypot(wx, wz), drag = Math.exp(-1.2 * dt);
             f.vx = f.vx * drag + wx * 1.3 * dt; f.vz = f.vz * drag + wz * 1.3 * dt;
-            f.vy = f.vy * drag + (Math.sin(f.t * 3.1 + f.ph) * 2.2 + (gk > 2 ? 0.9 : -1.6)) * dt;
+            // it rides at a height the wind holds it up to (0.4 m becalmed … ~1.5 m in a strong gust), fluttering round that
+            const ride = gk > 2 ? 0.5 + Math.min(1, gk / 7) : -0.5;
+            f.vy = f.vy * drag + ((ride - f.y) * 1.8 + Math.sin(f.t * 3.1 + f.ph) * 1.8) * dt;
             f.rx += (2.5 + gk * 0.5) * dt; f.rz += Math.sin(f.t * 1.7) * 3 * dt; f.ry += dt * 1.2;
             f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt;
             if (f.y < 0.04 || (gk < 0.5 && f.t > 3 && f.y < 0.4)) { f.ground = 1; f.y = 0.04; f.rx = -Math.PI / 2; f.rz = 0; f.life = Math.min(f.life, 7); }

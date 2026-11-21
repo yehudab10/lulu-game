@@ -88,6 +88,9 @@ on("settings", e => { if (e && e.id === "lifeSounds" && !soundsOn()) ambienceSto
 // ── ⚙️ the switch (only the sounds can get on anyone's nerves) ──────────────
 addMenuItem("settings", {
     id: "lifeSounds", order: 64,
+    // in a run only (⏸ → ⚙️ Settings): the sounds live out in the world, and the title's Settings card is already at
+    // its 720p limit (the ux test's "settings fit 720p" — one more row there scrolls)
+    visible: () => ctx.state !== "title" && ctx.state !== "loading",
     // (the core rows' own shape — name left, value right, one line: the settings card has to fit 720p)
     label: () => `<span>🐦 Street sounds</span><b>${soundsOn() ? "ON" : "OFF"}</b>`,
     action: () => { SAVE.sounds = !soundsOn(); saveSoon(); if (!SAVE.sounds) ambienceStop(); emit("settings", { id: "lifeSounds" }); },
