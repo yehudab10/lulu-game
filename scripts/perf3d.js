@@ -10,7 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
 
-const COLS = ["calls", "tris", "jsMs", "updateMs", "renderMs", "domMut", "textures", "geometries", "programs"];
+const COLS = ["calls", "gl", "shadowGl", "tris", "jsMs", "updateMs", "renderMs", "domMut", "textures", "geometries", "programs"];
 
 function compare(a, b) {
   const A = JSON.parse(fs.readFileSync(a, "utf8")), B = JSON.parse(fs.readFileSync(b, "utf8"));
