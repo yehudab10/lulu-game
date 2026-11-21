@@ -224,7 +224,7 @@ async function town(t) {
   // ram parked cars, again and again (a kid would): the shoved car stays out of the houses and the lanes clear of nonsense
   const DD = "ctx.town.debug";
   const ram = await g(`(() => { const T = ${DD}.S.T, O = ${DD}.PL.ORIGIN, car = ctx.car; let best = null, bd = 1e9;
-      for (const p of T.pcars) { if (p.gone || p.live || ${DD}.PL.OCCLUDERS.some(r => p.x > r.x0 - 1.5 && p.x < r.x1 + 1.5 && p.z > r.z0 - 1.5 && p.z < r.z1 + 1.5)) continue;      // (a kerbside car, not one up a driveway) const d = Math.hypot(O.x + p.x - car.pos.x, O.z + p.z - car.pos.z); if (d > 8 && d < bd) { bd = d; best = p; } }
+      for (const p of T.pcars) { if (p.gone || p.live || ${DD}.PL.OCCLUDERS.some(r => p.x > r.x0 - 1.5 && p.x < r.x1 + 1.5 && p.z > r.z0 - 1.5 && p.z < r.z1 + 1.5)) continue; const d = Math.hypot(O.x + p.x - car.pos.x, O.z + p.z - car.pos.z); if (d > 8 && d < bd) { bd = d; best = p; } }
       window.__pc = best; return best ? { x0: best.x, z0: best.z } : null; })()`);
   t.check("a parked car to ram", !!ram);
   let bumpLog = [];
