@@ -10,6 +10,7 @@ import { ctx, emit, pick } from "../../core/ctx.js";
 import { save3d } from "../../core/save.js";
 import { models, findNodes, cloneWithColors } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
+import { farLod, shadowProxy } from "../../lod.js";
 import { rumble } from "../../input.js";
 import * as A from "../../audio.js";
 import * as H from "../../hud.js";
@@ -124,7 +125,9 @@ export function startLife(T, def) {
         grp.add(rider.obj);
         grp.rotation.order = "YXZ";
         T.root.parent.add(grp);
-        LIFE.bikes.push({ obj: grp, rider, wheels: [...findNodes(bike, "Wheel_F"), ...findNodes(bike, "Wheel_R")], st, dir: k % 2 ? 1 : -1, along, d: 2.6, speed: 9 + Math.random() * 3, t: Math.random() * 9, hitT: 0, h: 0, lastNode: null });
+        // (bike + rider are ~20 draw calls: one far away — lod.js — and one in the MEDIUM / HIGH shadow pass)
+        const lod = farLod(grp), shadow = shadowProxy(grp, { lod });
+        LIFE.bikes.push({ obj: grp, rider, lod, shadow, wheels: [...findNodes(bike, "Wheel_F"), ...findNodes(bike, "Wheel_R")], st, dir: k % 2 ? 1 : -1, along, d: 2.6, speed: 9 + Math.random() * 3, t: Math.random() * 9, hitT: 0, h: 0, lastNode: null });
     }
     // anchors for the jam's yelling
     LIFE.jamAnchors = [0, 1, 2].map(() => { const o = new THREE.Object3D(); T.root.add(o); return o; });
@@ -143,7 +146,7 @@ function addPerson(key, x, z, face, colors, info) {
 export function stopLife() {
     for (const r of LIFE.people) if (r.p.obj.parent) r.p.obj.parent.remove(r.p.obj);
     for (const g of LIFE.geese) if (g.obj.parent) g.obj.parent.remove(g.obj);
-    for (const b of LIFE.bikes) if (b.obj.parent) b.obj.parent.remove(b.obj);
+    for (const b of LIFE.bikes) { if (b.lod) b.lod.dispose(); if (b.shadow) b.shadow.dispose(); if (b.obj.parent) b.obj.parent.remove(b.obj); }
     LIFE.people.length = 0; LIFE.geese.length = 0; LIFE.bikes.length = 0;
     LIFE.on = false; LIFE.T = null; LIFE.talk = null;
 }

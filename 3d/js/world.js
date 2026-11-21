@@ -836,25 +836,41 @@ export class World {
         this.sky.renderOrder = -1;
         this.scene.add(this.sky);
 
-        // puffy low-poly clouds
+        // puffy low-poly clouds — 16 clouds, each one's 5 puffs baked into ONE mesh (was 80 meshes: ~10–22 draw calls
+        // whenever the sky was in view; now ~3–6, and each cloud is still frustum-culled on its own, so only the clouds in
+        // view cost triangles). The ring still turns / follows the camera as the `clouds` group; atmos tints their one
+        // shared material.
         this.clouds = new THREE.Group();
         const cm = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 1, fog: false, emissive: "#ffffff", emissiveIntensity: 0.35, flatShading: true });
         const cg = new THREE.IcosahedronGeometry(1, 1);
         const rnd = mulberry32(99);
+        const perCloud = [], cloud = new THREE.Object3D(), puff = new THREE.Object3D();
+        cloud.add(puff);
         for (let i = 0; i < 16; i++) {
-            const c = new THREE.Group();
+            const js = [];
             for (let j = 0; j < 5; j++) {
-                const m = new THREE.Mesh(cg, cm);
                 const r = 14 + rnd() * 14;
-                m.scale.set(r * 1.4, r * 0.7, r);
-                m.position.set((j - 2) * 18 + rnd() * 8, rnd() * 6, rnd() * 10);
-                c.add(m);
+                js.push([r, (j - 2) * 18 + rnd() * 8, rnd() * 6, rnd() * 10]);
             }
             const a = rnd() * Math.PI * 2, dist = 450 + rnd() * 300;
-            c.position.set(Math.cos(a) * dist, 120 + rnd() * 90, Math.sin(a) * dist);
-            c.rotation.y = rnd() * 6;
-            this.clouds.add(c);
+            cloud.position.set(Math.cos(a) * dist, 120 + rnd() * 90, Math.sin(a) * dist);
+            cloud.rotation.y = rnd() * 6;
+            const sec = [];
+            perCloud.push(sec);
+            for (const [r, x, y, z] of js) {
+                puff.scale.set(r * 1.4, r * 0.7, r);
+                puff.position.set(x, y, z);
+                cloud.updateMatrixWorld(true);
+                sec.push(cg.clone().applyMatrix4(puff.matrixWorld));
+            }
         }
+        for (const list of perCloud) {
+            const m = new THREE.Mesh(mergeGeometries(list, false), cm);
+            for (const g of list) g.dispose();
+            m.name = "worldClouds";
+            this.clouds.add(m);
+        }
+        cg.dispose();
         this.scene.add(this.clouds);
     }
 
@@ -870,7 +886,8 @@ export class World {
         // (a district that keeps the highway — an attached town — streams the highway round where she left it, every
         //  chunk in slices: she isn't on it, so nothing is "near her")
         if (D) playerS = D.highwayS;
-        const kMin = Math.max(0, Math.floor((playerS - BEHIND) / CHUNK));
+        // (keepBehind: a feature with a big place beside the road — the airport — keeps the chunks behind her a while longer)
+        const kMin = Math.max(0, Math.floor((playerS - BEHIND - (this.keepBehind || 0)) / CHUNK));
         const kMax = Math.floor((playerS + AHEAD) / CHUNK);
         for (const [k, c] of this.chunks) {
             if (k < kMin || k > kMax) { c.dispose(this.scene); this.chunks.delete(k); }
