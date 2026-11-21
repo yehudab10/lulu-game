@@ -398,6 +398,49 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
 
   The interchange's remaining weight is the two standing towns (`features/town` — `ci/exits2` is reworking the
   interchange, so not touched here) and each chunk's road + shoulders + signs.
+* **Batch 4 (`ci/perf4`, 2026-11-21)** — every tier:
+  * **The people's main-pass batch** (`lod.js` › `peopleBatch` / `installPeopleBatch`): a spawned person
+    (`core/people.js` › `spawnPerson`) was ~13–17 draw calls wherever she stood (body, arms, legs, hair, face, clothes).
+    Now every person's plain parts are instances of ONE `THREE.BatchedMesh` per kind of material (in practice ~4 —
+    side / metalness differ) drawn with one `WEBGL_multi_draw` call each. Near or far, everyone stays fully animated:
+    right before each draw (the batch's `onBeforeRender`, after three updated the matrices) every part's LIVE
+    `matrixWorld` + visibility (its whole parent chain) is copied in, and each instance's colour + roughness come from
+    its own material every frame (the batch's per-instance colour texture: rgb = colour, alpha = roughness, read by a
+    small shader patch) — a recolour / a flash shows at once. The real parts are NOT hidden: they're moved to
+    `PEOPLE_LAYER` (30), a layer the main camera doesn't draw (the sun's shadow camera does: the shadow batch or the part
+    casts as before), so every feature's `visible`, matrices and raycasts are untouched. Not batched (they stay real
+    meshes): anything with a texture, transparency, emissive, a custom shader (`onBeforeCompile`), a skinned /
+    instanced / multi-material mesh, a non-default layer / renderOrder / `onBeforeRender`. A part whose material
+    changes KIND (turns see-through, gets a map / emissive…), is swapped for another material or leaves her hands that
+    person back to her own meshes before the next render (drawn as she was this frame: no blink) and she re-joins ~30
+    frames later (a person who keeps changing waits ~60 s). Only the MAIN scene's render batches: rendering any other
+    scene (an interior set, a portrait, the salon's mirror) first hands back whoever of ours is in it; a person out of
+    the world ~20 s is forgotten and `Person.update()` registers her again if she comes back. Parts are added in
+    material order (what three's opaque sort did), so a face patch still lands on the head. `peopleBatchInfo()` /
+    `peopleBatchOn(false)` for tests. Same-frame A/B (test `batches`): ≤ 16 of 518k pixels differ — single edge pixels
+    where float rounding moves a triangle edge one pixel (`--shots` saves those spots ×8).
+  * **The chunks' slot batches** (`merge.js` › `SlotBatch`, `world.slotBatch(mat)`): every highway chunk's road,
+    shoulders, driveways and sign metal were a draw call each (~4–6 a chunk). Now `Chunk.addPiece(geo, mat, { owner })`
+    puts each piece in a reserved slot of ONE `BatchedMesh` per material (the SAME material object: the weather
+    darkening the road and the wet road's reflection still apply), drawn while its owner (the chunk group / the sign
+    group) and every parent are visible, at the owner's `matrixWorld` — so the draw-distance cull, a district hiding the
+    highway, a sign taken down all still work. A freed slot (a recycled chunk) is reused by the next piece that fits:
+    a long drive doesn't grow the buffers. Sign FACES keep their own draw (each its own texture). `Chunk.bounds()`
+    counts the pieces. `world.slotInfo()` for tests.
+  * **The power lines** (`world.syncWires`): every drawn chunk's wires are ONE `LineSegments` (was one a chunk),
+    re-filled only when the set of drawn chunks with wires changes; at the origin with world-space points, like each
+    chunk's own was, so it sorts among the see-through things exactly as before.
+  * **Lulu at the wheel**: her hair (every style), the steering wheel and the steered front wheels cast through the
+    people's shadow batch (live matrices: they still turn in the shadow) — not a shadow draw each (`car.js`).
+  * **`?nobatch`** turns all of batch 4 off (the game drawn as before) — for A/B measuring.
+  * **GC when a town is built / torn down** — measured with a CPU profile + an allocation sample while both towns build
+    at an interchange (CI, LOW): ~3 ms a frame of GC, ~4.5 MB allocated over the build and ~17 MB over the next town's
+    build; ~95 % of it is inside `features/town` (owned by `ci/exits2`, not touched here): `kit.js` › `bakeGeometry`
+    makes a full position / normal / colour / index copy of EVERY part (~6.5 MB a town) that `mergeSteps` then copies
+    again into the merged arrays and drops (write the parts straight into the merged arrays — a counting pass, then a
+    filling pass — and that garbage is gone); `build.js` › `col()` / `parkedCar` / `addColored` allocate per call
+    (a parked car = a full `cloneWithColors` of the model + a fresh `PlaneGeometry`). Left to `ci/exits2`
+    (AGENTS §7 › Performance).
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.
