@@ -225,6 +225,7 @@ module.exports = {
       if (h) await standAt(h.x + h.nx * 11, h.z + h.nz * 11, { x: h.cx, z: h.cz, pitch: 0.05 });
       await t.frames(30);
       const s0 = (await info()).storm;
+      await g(`${D}.lineReady()`);         // (her "Brrr!" on a cold night may have just used the shared line budget)
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("atmos:thunder", { near: 0.9 }))`);
       await t.frames(8);
       const w = (await info()).windows;
