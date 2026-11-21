@@ -102,6 +102,7 @@ async function body(t, guests) {
   await Hp.until(`ctx.together.dest() === ""`, "meeting up clears the destination", 40000);
 
   // ── another zone: the guest drives into Lakewood → my pointer says which exit ──
+  await A.game(`(ctx.town.load("lakewood"), true)`); await A.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
   await A.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
   if (!await A.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "guest in Lakewood", 30000)) return;
   await Hp.until(`(() => { const l = ctx.together.locate(${GU}); return !!l && l.kind === "exit" && /Lakewood/.test(l.label); })()`, "host: the guest is in Lakewood → the exit", 40000);
@@ -110,6 +111,7 @@ async function body(t, guests) {
   await Hp.until(`(() => { const p = ${PILL(guestUid)}; return !!p && p.shown && /Lakewood/.test(p.text); })()`, "the exit pointer shows", 20000);
 
   // ── the guest walks into a house → host (also in town) sees a door pointer ──
+  await Hp.game(`(ctx.town.load("lakewood"), true)`); await Hp.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);
   await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
   if (!await Hp.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "host in Lakewood too", 30000)) return;
   await A.game(`ctx.foot.start("parked")`);
@@ -323,6 +325,7 @@ async function car(t, g, Hp, A, hostUid, guestUid) {
   await A.until(`ctx.state === "playing"`, "guest in her car", 30000);
   await A.game(`ctx.openworld.ride(${HU})`);
   await A.until(`ctx.openworld.riding === ${HU}`, "riding before the exit", 20000);
+  await Hp.game(`(ctx.town.load("lakewood"), true)`); await Hp.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);
   await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
   await Hp.until(`ctx.town.active`, "host in town", 30000);
   await A.until(`ctx.openworld.zone === "lakewood" && ctx.openworld.riding === ${HU}`, "the passenger comes along into town, still riding", 60000);

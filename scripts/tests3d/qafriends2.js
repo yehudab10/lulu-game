@@ -64,6 +64,7 @@ async function body(t, guests) {
   // ════ 1. the courthouse lobby (Lakewood, attached), both at the same moment ════
   for (const P of [Hp, A]) {
     await moved(P);
+    await P.game(`(ctx.town.load("lakewood"), true)`); await P.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
     await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await P.until(`ctx.town.active && !!ctx.civic.spot("court")`, `${P.label}: in Lakewood with its courthouse`, 60000);
     await P.game(`ctx.foot.start("parked")`);
