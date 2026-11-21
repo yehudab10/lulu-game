@@ -103,6 +103,7 @@ ctx.trip         // { label(), progress() } for the HUD trip bar (journey owns i
 | `runStart` | (G, opts) | add run fields, set `G.goText`, pick biomes |
 | `hud` | (dt) | every frame while the driving HUD shows |
 | `titleCamera` | (dt, camera) → true | own the title-screen camera |
+| `prerender` | (dt, camera) | right before the driving scene is drawn, every frame in every state (app.js `present`): pack what's in view (atmos' street lamps) |
 
 ### States
 ```js
@@ -366,6 +367,37 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   identical on the title and ≤ 8/255 elsewhere (24 pixels up to 18/255 on HIGH, not visible zoomed in). The title on
   MEDIUM: 108 → ~56 shadow draws in all. Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured
   are after a town is built / torn down, not churn. Left: §7 › Performance.
+* **Batch 3 (`ci/perf`, 2026-11-21)** — main (326790f) → after, matched scenes:
+  * **The people's shadow batch** (`lod.js` › `shadowBatch(root, { skip })`, MEDIUM / HIGH): every spawned person
+    (`core/people.js` › `spawnPerson` registers it) and Lulu at the wheel (`car.js`) cast through ONE shadow-only
+    `THREE.BatchedMesh` per material side. Each shadow pass copies every part's live `matrixWorld` + visibility in,
+    so walk cycles / waves / Lulu's head stay exact, and the batch culls per part against the shadow camera. It is
+    drawn with ONE `WEBGL_multi_draw` call — Safari on iOS 15+, desktop Safari 15+, Chrome / Android; not Firefox,
+    where three draws the parts one by one (no worse than before). A part that is removed, or whose `castShadow` a
+    feature turns back on (together's rooms, feel's damage…), hands that person back to casting on their own;
+    people out of the drawn scene ~10 s free their slots and re-join later. Same-frame A/B: identical pixels (one
+    pixel at 1/255). Shadow-pass draws, MEDIUM: the title 53 → 15, a run's start 54 → 16, on foot on the highway
+    59 → 8 (HIGH: 57 → 19, 55 → 17, 72 → 8). `shadowBatchInfo(renderer)` / `shadowBatchOn(false)` for tests; the
+    perf harness counts a multi-draw call as one draw.
+  * **Street lamps** (`atmos/lights.js`): every chunk's lamps in ONE pole / bulb / light-cone instanced set (was 2–3
+    draws PER CHUNK + one shadow draw per chunk), repacked each frame from the core `prerender` hook — only lamps in
+    a chunk that's drawn AND within 60 m (anything that can cast into view) or inside the view, so per-lamp culling,
+    finer than the old per-chunk boxes. Highway, LOW: the chunks' lamp meshes 37 → 31 + the 2–3 batched draws.
+  * **LOW: tall grass on foot** (`foot/bounds.js`): one clump per 3 m cell beyond ±24 m of her (was two; the same
+    deterministic clumps, every other one left out) — grass triangles 16.3k → 9.1k in that view.
+  * **`compileAsync` that survives a disposed material** (`models.js` › `safeCompileAsync`, installed on the renderer
+    at boot): three's version polls each compiled material's program from a timer and threw "reading 'isReady'" as
+    an uncaught page error when a material was disposed meanwhile (`mpworld`, on main too). Same work, same promise.
+
+  | scene (LOW, matched) | draws | triangles |
+  |---|---|---|
+  | highway | 316 → 279 (−12 %) | 119.3k → 113.3k (−5 %) |
+  | attached (Lakewood from the highway) | 177 → 160 (−10 %) | 122.7k → 121.1k |
+  | foot (on the highway) | 271 → 242 (−11 %) | 139.6k → 127.5k (−9 %) |
+  | tee (the interchange) | 244 → 242 (−1 %) | 154.7k → 156.3k |
+
+  The interchange's remaining weight is the two standing towns (`features/town` — `ci/exits2` is reworking the
+  interchange, so not touched here) and each chunk's road + shoulders + signs.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.

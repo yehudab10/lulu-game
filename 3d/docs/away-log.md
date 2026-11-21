@@ -3,6 +3,11 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
+  walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
+  title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the
+  highway are drawn together too, and on the lowest graphics setting the tall grass far away from Lulu is a little
+  thinner. Looks the same (checked picture by picture). Also fixed a rare hidden error some online sessions logged.
 - 2026-11-21 12:40 UTC — ⚡ Smoother on phones, part 2: people's eyes, cheeks and mouths no longer each cast their own tiny
   shadow (they're smaller than what the shadow can even show), so every person on screen costs the phone four fewer
   drawing steps — the title screen now draws its shadows in about half the steps it used to. Looks exactly the same.
