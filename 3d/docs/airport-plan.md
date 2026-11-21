@@ -153,6 +153,7 @@ interchange offers both towns" is assumed in several places.
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-21 · airport-kerb · started `ci/airport-kerb` (the polish's two leftovers: a bust at the kerb stops where she is, facing along the kerb road — a new additive law hook `pullOverSpot` in `features/law/bust.js`; a cop's ram can't shove her car onto the kerb sidewalk — a kerb-edge clamp in the airport). Own files + that one hook; logged here when it lands.
 - 2026-11-21 · airport-polish · **SWITCH-ON STEPS (for whoever lands after `ci/exits2`)** — measured on main: the airport FITs
   beside the constant highway only at 8.8–8.9 km, 22.4–22.6, 23.7, 25.4–26.0, 26.9–27.8, 28.8–29.0 km… (`fits()` + `clearOf`, 5–40 km
   scanned), while exits2's ROUTE puts a town exit every 4 km (Midwood 3.6, Lakewood 7.6, period 8 km) and the airport needs ~2.4 km of
