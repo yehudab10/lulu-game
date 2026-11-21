@@ -135,8 +135,24 @@ module.exports = {
         await calm(t);
       }
     }
+    // ⚙️ HUD: Clean (no score, a slim trip bar) on the phone layouts — the same rules
+    await setSave(`m.save3d.settings.tv = "off"; m.save3d.settings.hudMode = "clean";`);
+    for (const [name, w, h, , d] of VIEWS.filter(v => /^(phone|phone-land|phone-pad)$/.test(v[0]) && (!ONLY || ONLY.includes(v[0])))) {
+      await t.page.setViewportSize({ width: w, height: h });
+      await g(`(ctx.applySettings(), true)`);
+      for (const foot of [false, true]) {
+        if (foot) await onFoot(t); else await inCar(t);
+        await device(t, d);
+        await t.frames(4);
+        await busiest(t, d, foot);
+        const m = await measure(t);
+        t.check(`Clean HUD, ${name} (${d}), ${foot ? "on foot" : "driving"}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
+        await t.shot(`clean-${name}-${foot ? "foot" : "car"}`);
+        await calm(t);
+      }
+    }
     await t.page.setViewportSize({ width: 390, height: 844 });
-    await setSave(`m.save3d.settings.tv = "off";`);
+    await setSave(`m.save3d.settings.tv = "off"; m.save3d.settings.hudMode = "full";`);
     await g(`(ctx.applySettings(), true)`);
   },
 };
