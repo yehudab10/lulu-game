@@ -48,6 +48,9 @@ module.exports = {
 };
 
 const D = "ctx.life.debug";
+/** A test teleport: the watchdog looks away while the code moves her / the car (declared before it happens — a frame
+ *  can tick between an eval and the next one). */
+async function tp(t, code) { await W.pause(t, false); const r = await t.game(code); await t.frames(2); await W.pause(t, true); return r; }
 const info = t => t.game(`ctx.life.info()`);
 const coins = t => t.L(`window.__lulu3d.wallet.coins`);
 // every life sound / mesh that's still going (should be none away from town)
@@ -119,8 +122,7 @@ async function town(t) {
   await t.frames(30);
   await t.shot("home");
   // over to the car (the stick), ✋ GET IN
-  await g(`(() => { const F = ctx.foot.debug.F, c = F.car.stub; F.pos.set(c.x + Math.cos(c.h) * 2.0, 0.05, c.z - Math.sin(c.h) * 2.0); return true; })()`);
-  await W.moved(t);
+  await tp(t, `(() => { const F = ctx.foot.debug.F, c = F.car.stub; F.pos.set(c.x + Math.cos(c.h) * 2.0, 0.05, c.z - Math.sin(c.h) * 2.0); return true; })()`);
   await t.frames(6);
   await t.tap(0);
   if (!await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.foot.active`, "✋ GET IN: driving", 30000)) return;
@@ -139,8 +141,7 @@ async function town(t) {
   t.check("Lakewood in the rain: life is on, puddles drawn", I.on && I.town && I.puddles.sites > 0 && I.puddles.visible, JSON.stringify(I.puddles));
   const hz0 = await g(`ctx.homes && ctx.homes.debug.CR ? ctx.homes.debug.CR.peds.length : 0`);
   // honk with the real touch HONK button a few times while rolling down a street
-  await g(`(ctx.town.debug.place("Route 9", 40, -1.75, 6, 1), ctx.cam.snap(), true)`);
-  await W.moved(t);
+  await tp(t, `(ctx.town.debug.place("Route 9", 40, -1.75, 6, 1), ctx.cam.snap(), true)`);
   let honks = 0;
   for (let i = 0; i < 6; i++) {
     const ok = await t.L(`(() => { const b = document.getElementById("tHonk"); if (!b || !b.offsetParent) return false; const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
@@ -156,8 +157,7 @@ async function town(t) {
   // drive through a puddle
   const pd = await g(`${D}.puddle("lane") || ${D}.puddle("gutter")`);
   if (pd) {
-    await g(`(() => { const r = ctx.world.road, n = r.nearest(${pd.x}, ${pd.z}, ctx.car.s, {}), a = r.point(n.s - 25, n.d, {}); ctx.car.place(a.x, a.z, a.h); ctx.car.s = n.s - 25; ctx.car.d = n.d; ctx.car.vx = Math.sin(a.h) * 12; ctx.car.vz = Math.cos(a.h) * 12; ctx.car.vF = 12; ctx.cam.snap(); return true; })()`);
-    await W.moved(t);
+    await tp(t, `(() => { const r = ctx.world.road, n = r.nearest(${pd.x}, ${pd.z}, ctx.car.s, {}), a = r.point(n.s - 25, n.d, {}); ctx.car.place(a.x, a.z, a.h); ctx.car.s = n.s - 25; ctx.car.d = n.d; ctx.car.vx = Math.sin(a.h) * 12; ctx.car.vz = Math.cos(a.h) * 12; ctx.car.vF = 12; ctx.cam.snap(); return true; })()`);
     await t.hold(7, 0.7); await t.frames(60); await t.hold(7, 0);
   }
   I = await info(t);
@@ -171,10 +171,9 @@ async function town(t) {
   let bumpLog = [];
   if (ram) {
     for (let i = 0; i < 8; i++) {
-      await g(`(() => { const p = window.__pc, O = ${DD}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {});
+      await tp(t, `(() => { const p = window.__pc, O = ${DD}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {});
           const q = r.point(n.s, 0, {}), dx = P.x - q.x, dz = P.z - q.z, L = Math.hypot(dx, dz) || 1, h = Math.atan2(dx, dz), back = Math.max(0, L - 6);
           ctx.car.place(q.x + dx / L * back * 0.3, q.z + dz / L * back * 0.3, h); ctx.car.vx = Math.sin(h) * 9; ctx.car.vz = Math.cos(h) * 9; ctx.car.vF = 9; ctx.car.s = n.s; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
-      await W.moved(t);
       await t.hold(7, 1); await t.frames(30); await t.hold(7, 0); await t.hold(6, 1); await t.frames(15); await t.hold(6, 0);
       bumpLog.push(await g(`(() => { const p = window.__pc, O = ${DD}.PL.ORIGIN; return { x: +(p.x).toFixed(1), z: +(p.z).toFixed(1), live: !!p.live }; })()`));
     }
@@ -209,7 +208,7 @@ async function town(t) {
       // every flying pigeon, every frame: never inside a block of houses below its roofs (≤ 9.4 m)
       await t.L(`(() => { const C = __lulu3d.ctx, PG = C.life.debug.PG, PL = C.town.plan; window.__pgHit = { n: 0, frames: 0, ex: [] }; window.__pgOn = true;
         const tick = () => { if (!window.__pgOn) return; requestAnimationFrame(tick); window.__pgHit.frames++;
-          for (const f of PG.live) for (const b of f.birds) { if (!b.mode || b.y > 9.4) continue; const q = PL.local(b.x, b.z, {});
+          for (const f of PG.live) if (f.kind === "ground") for (const b of f.birds) { if (!b.mode || b.y > 9.4) continue; const q = PL.local(b.x, b.z, {});
             if (PL.OCCLUDERS.some(r => q.x > r.x0 + 0.3 && q.x < r.x1 - 0.3 && q.z > r.z0 + 0.3 && q.z < r.z1 - 0.3)) { window.__pgHit.n++; if (window.__pgHit.ex.length < 4) window.__pgHit.ex.push([f.kind, b.mode, +b.y.toFixed(1)]); } } };
         tick(); return true; })()`);
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
@@ -312,12 +311,10 @@ async function airport(t) {
   // straight onto the kerb (airport.js drives the ramp; here: what a player does once there)
   const K = await g(`(() => { const L = ctx.airport.debug.LY; return { lane: L.KERB_LANE, door: L.DOORS[1], r0: L.TERM.r0 }; })()`);
   const hw = await g(`(() => { const p = ctx.world.highway.point(${E} - 300, 5.25, {}); return { x: p.x, z: p.z, h: ctx.world.highway.at(${E} - 300).h }; })()`);
-  await g(`(() => { const n = ctx.world.highway.nearest(${hw.x}, ${hw.z}, ctx.car.s, {}); ctx.car.place(${hw.x}, ${hw.z}, ${hw.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.world.prebuild(n.s); ctx.cam.snap(); return true; })()`);
-  await W.moved(t);
+  await tp(t, `(() => { const n = ctx.world.highway.nearest(${hw.x}, ${hw.z}, ctx.car.s, {}); ctx.car.place(${hw.x}, ${hw.z}, ${hw.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.world.prebuild(n.s); ctx.cam.snap(); return true; })()`);
   if (!await t.until(`__lulu3d.ctx.airport.ready`, "the airport builds", 180000)) return;
   const kp = await g(`(() => { const p = ctx.airport.debug.world(-62, ${K.lane}), F = ctx.airport.debug.G().F; return { x: p.x, z: p.z, h: F.yaw(1, 0) }; })()`);
-  await g(`(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(n.s); ctx.cam.snap(); return true; })()`);
-  await W.moved(t);
+  await tp(t, `(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.world.prebuild(n.s); ctx.cam.snap(); return true; })()`);
   await t.frames(30);
   t.check("at the DEPARTURES kerb, inside the landside", await g(`ctx.airport.inside`));
   await t.shot("airport-kerb-rain");
@@ -325,8 +322,7 @@ async function airport(t) {
   await mash(t, 120);
   W.check(t, "the airport kerb (driving)", await W.report(t), ["jump", "nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol"]);
   await W.reset(t);
-  await g(`(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.cam.snap(); return true; })()`);
-  await W.moved(t);
+  await tp(t, `(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.cam.snap(); return true; })()`);
   // out on foot, walk to the doors (the stick), ✋ in
   await g(`ctx.foot.start("droveOff")`);
   if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "out on foot at the kerb", 30000)) return;
@@ -434,8 +430,9 @@ async function party(t, guests) {
   // the host honks + rams a parked car, the guest walks about
   await A.game(`ctx.foot.start("droveOff", { noIntro: true })`);
   await mash(t, 200);
-  for (let i = 0; i < 20; i++) { await A.game(`(__pad.axes[0] = ${Math.sin(i)}, __pad.axes[1] = -0.8, true)`); await A.frames(6); }
-  await A.game(`(__pad.axes[0] = 0, __pad.axes[1] = 0, true)`);
+  await A.page.keyboard.down("KeyW");
+  for (let i = 0; i < 20; i++) { const k = i % 4 < 2 ? "KeyA" : "KeyD"; await A.page.keyboard.down(k); await A.frames(6); await A.page.keyboard.up(k); }
+  await A.page.keyboard.up("KeyW");
   await t.shot("party-lakewood-host");
   await A.page.screenshot({ path: require("path").join(__dirname, "..", "..", "smoke-shots", "3d-qaweekend-party-lakewood-guest.png") }).catch(() => { });
   const rh = await W.report(t), rg = await W.report(AW);
