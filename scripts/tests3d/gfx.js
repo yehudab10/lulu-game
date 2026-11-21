@@ -115,6 +115,9 @@ module.exports = {
     t.check("…turned off, every part casts again", sp.backOn, JSON.stringify(sp));
     t.check("…a part hidden mid-drive: the others cast on their own at once, then re-bake", sp.handBack && sp.rebaked, JSON.stringify(sp));
     t.check("the sky's clouds are 16 meshes, one per cloud (was 80, one per puff)", sp.clouds === 16, String(sp.clouds));
+    // faces (eyes, cheeks, mouths: under a shadow texel, inside the head's shadow) don't cast — Lulu's own face included
+    const faces = await t.L(`(() => { let n = 0, cast = 0; __lulu3d.ctx.scene.traverse(o => { if (o.isMesh && o.material && /^(Eye|EyeShine|Cheek|Mouth)$/.test(o.material.name || "")) { n++; if (o.castShadow) cast++; } }); return { n, cast }; })()`);
+    t.check("face parts (eyes / cheeks / mouths) don't cast shadows", faces.n > 0 && faces.cast === 0, JSON.stringify(faces));
 
     const high = await drive("high");
     const bloom = await g(`!!L3.gfx.bloom`);
