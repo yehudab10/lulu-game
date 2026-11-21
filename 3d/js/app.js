@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { ctx, emit, on, setState, setChromeHandler, trackCamera, syncAllCameras, runHooks } from "./core/ctx.js";
 import { save3d, shared, wallet } from "./core/save.js";
-import { loadModels } from "./models.js";
+import { loadModels, safeCompileAsync } from "./models.js";
 import { World } from "./world.js";
 import { PlayerCar, SKINS } from "./car.js";
 import { Traffic } from "./traffic.js";
@@ -37,6 +37,7 @@ const rawRender = renderer.render;
 ctx.rawRender = (s, c) => rawRender.call(renderer, s, c);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 installShadowProxies(renderer);      // (MEDIUM / HIGH: a car casts its shadow in one draw — lod.js › shadow proxies)
+safeCompileAsync(renderer);          // (compileAsync that survives a material disposed while it polls — models.js)
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 
