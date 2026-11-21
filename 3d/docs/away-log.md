@@ -3,7 +3,7 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
-- 2026-11-21 UTC — ⚡ Smoother on phones, part 2: people's eyes, cheeks and mouths no longer each cast their own tiny
+- 2026-11-21 12:40 UTC — ⚡ Smoother on phones, part 2: people's eyes, cheeks and mouths no longer each cast their own tiny
   shadow (they're smaller than what the shadow can even show), so every person on screen costs the phone four fewer
   drawing steps — the title screen now draws its shadows in about half the steps it used to. Looks exactly the same.
   Measured against today's game: walking in Lakewood ~36 % fewer drawing steps on MEDIUM, Midwood 17–24 %, the highway
@@ -16,7 +16,7 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   dreidels is one note (the counter up top still counts each), and Avigail chats a bit less when she tags along on a walk. On a big TV the 🕯️ "Made it for candles!" card fits without scrolling.
 
 - 2026-11-21 08:40 UTC (life round 2) — 🍃 More little things that make the towns feel lived-in (still no new buttons or pop-ups). PIGEONS: rows of them on the roofs and little gangs pecking on the sidewalk (always a few outside the bakery and the pizza shop) — honk, run at them or zoom past and they burst up with a clatter of wings, circle the block and land back in the same spot once she's gone; you hear them coo now and then. It's cold out, so CHIMNEY SMOKE drifts up from about half the houses (more at night; it stops on its own when the weather warms up in the spring). Midwood now has MANHOLE COVERS in the street, most of them steaming like a real Brooklyn street — drive through and the car swirls the steam, walk into it and Lulu has opinions ("It's like the subway sneezed on me"). The bakery and the pizza shop have a warm puff coming off the oven vent on the roof, and walking past the bakery she sometimes smells it ("Is that KUGEL? It's not even Friday!"). Bump a parked car and now its HAZARD LIGHTS blink, the alarm keeps going for a few seconds, and the owner (or somebody at a window) yells "Nu?! That's MY car!". When she honks near people they each react their own way — a kid waves back ("HONK AGAIN!"), a grown-up jumps ("Nu?!"). With friends, you can now hear your friends' footsteps when they walk near you. All the new sounds follow ⏸ → ⚙️ Settings → 🐦 Street sounds.
-- 2026-11-21 UTC — ⚡ Smoother on phones (a performance pass, nothing new to see): the game now asks the phone's graphics
+- 2026-11-21 07:00 UTC — ⚡ Smoother on phones (a performance pass, nothing new to see): the game now asks the phone's graphics
   chip to draw a lot less each frame. Walking or driving in Lakewood and Midwood draws about 20–28 % less on LOW and
   MEDIUM, the highway 8–17 % less, and on MEDIUM the shadows cost a third less (the title screen 36 % less) — cars, Lulu's
   car, her house and the e-bikes now cast their shadow in one go instead of one piece at a time, the sky's clouds are
