@@ -337,28 +337,35 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   `townfoot` (Lakewood's Main St) and `middrive` / `midfoot` (Midwood's Avenue J), `PERF3D_TOP` also lists the shadow
   casters, and `PERF3D_PROFILE=1` adds a CPU profile + an allocation sample per scene (ms a frame by file / function,
   "(garbage collector)", KB allocated a frame).
-* **Phone pass (`ci/perf`, 2026-11-21)** — main → after, `node scripts/perf3d.js`, `PERF3D_ADD=all` (every feature on,
-  like the real game), 1280×720, software GL in the container. LOW draws no shadow map, so its `calls` are all its draws;
-  MEDIUM's real draws are `gl` (`calls` + the shadow pass). Render JS = the median ms three.js spends issuing a frame
-  (× ~3–4 on a mid-range phone). Frame ms in software GL are noisy: compare the draws.
+* **Phone pass (`ci/perf`, 2026-11-21)** — `main` (ab85486) → `ci/perf`, measured back to back on the same machine with
+  `node scripts/perf3d.js` (`PERF3D_ADD=all`: every feature on, like the real game; 40 frames a scene; 1280×720, software GL
+  in the container). LOW draws no shadow map, so its `calls` are all its draws; MEDIUM's real draws are `gl` (`calls` + the
+  sun's shadow pass, which `renderer.info` never counts). Render JS = the median ms three.js spends issuing a frame (× ~3–4
+  on a mid-range phone; frame ms in software GL are noisy — compare the draws). LOW is batch 1; MEDIUM is batches 1 + 2.
+  † re-measured with the same road events on both sides (a barrier set / a pedestrian / a billboard came and went between
+  runs: ±40 draws of content).
 
-  | scene | LOW draws | LOW render JS (median) | MEDIUM real draws (gl) | MEDIUM shadow-pass draws | MEDIUM render JS (median) |
-  |---|---|---|---|---|---|
-  | cruise (by Lulu's house) | 206 → 187 (−9 %) | 1.9 → 1.7 | 297 → 275 (−7 %) | 103 → 90 | 2.4 → 2.4 |
-  | highway (open road) | 277 → 254 (−8 %) | 2.4 → 2.7 | 374 → 340 (−9 %) | 97 → 84 | 3.7 → 3.6 |
-  | rain (storm at night) | 332 → 277 (−17 %) | 2.9 → 2.9 | 401 → 353 (−12 %) | 85 → 73 | 4.2 → 4.3 |
-  | towndrive (Lakewood) | 215 → 155 (−28 %) | 2.6 → 2.3 | 283 → 225 (−20 %) | 68 → 55 | 3.8 → 3.4 |
-  | townfoot (Lakewood) | 215 → 162 (−25 %) | 3.9 → 2.6 | 301 → 237 (−21 %) | 83 → 55 | 4.0 → 4.0 |
-  | middrive (Midwood) | 167 → 144 (−14 %) | 2.5 → 2.3 | 241 → 191 (−21 %) | 63 → 50 | 3.7 → 3.1 |
-  | midfoot (Midwood) | 190 → 153 (−19 %) | 2.9 → 2.5 | 282 → 217 (−23 %) | 69 → 49 | 4.9 → 3.9 |
-  | tee (the interchange) | 322 → 271 (−16 %) | 3.3 → 2.7 | 333 → 317 (−5 %) | 60 → 47 | 4.1 → 3.7 |
-  | attached (Lakewood from the highway) | 243 → 176 (−28 %) | 3.3 → 4.0 | 312 → 240 (−23 %) | 68 → 52 | 4.3 → 3.8 |
-  | foot (on the highway) | 265 → 270 | 2.5 → 2.6 | 401 → 391 (−2 %) | 120 → 99 | 3.8 → 3.9 |
+  | scene | LOW draws | MEDIUM real draws (gl) | MEDIUM shadow-pass draws | MEDIUM render JS (median ms) |
+  |---|---|---|---|---|
+  | cruise (by Lulu's house) | 211 → 182 (−14 %) | 301 → 260 (−14 %) | 107 → 71 (−34 %) | 3.9 → 3 |
+  | highway (open road) | 320 → 316 (−1 %) † | 433 → 406 (−6 %) | 120 → 100 (−17 %) | 5.1 → 4.8 |
+  | rain (storm at night) | 315 → 310 (−2 %) | 344 → 313 (−9 %) | 64 → 48 (−25 %) | 4.3 → 4.9 |
+  | towndrive (Lakewood) | 201 → 172 (−14 %) | 272 → 198 (−27 %) | 59 → 44 (−25 %) | 4.7 → 4.5 |
+  | townfoot (Lakewood) | 225 → 160 (−29 %) | 325 → 209 (−36 %) | 70 → 42 (−40 %) | 5.5 → 4.7 |
+  | middrive (Midwood) | 167 → 135 (−19 %) | 235 → 178 (−24 %) | 58 → 43 (−26 %) | 4.5 → 3.7 |
+  | midfoot (Midwood) | 205 → 172 (−16 %) | 275 → 229 (−17 %) | 64 → 40 (−37 %) | 5.7 → 4.6 |
+  | tee (the interchange) | 262 → 257 (−2 %) † | 328 → 308 (−6 %) | 60 → 45 (−25 %) | 6 → 5.9 |
+  | attached (Lakewood from the highway) | 245 → 183 (−25 %) † | 311 → 224 (−28 %) | 71 → 49 (−31 %) | 6.9 → 5.5 |
+  | foot (on the highway) | 276 → 262 (−5 %) | 377 → 352 (−7 %) | 87 → 64 (−26 %) | 5.5 → 5.1 |
 
-  What did it: the shadow proxies (MEDIUM / HIGH), the clouds in 16 meshes (was 80), the towns' e-bikes far-LOD'd (bike + rider
-  were ~20 draws each at any distance) and the HUD score's number formatter made once (`toLocaleString` built a new
-  one every frame: ~0.3 ms). Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured are after
-  a town is built / torn down, not churn. Left: §7 › Performance.
+  **Batch 1**: the shadow proxies (MEDIUM / HIGH), the clouds in 16 meshes (was 80), the towns' e-bikes far-LOD'd (bike +
+  rider were ~20 draws each at any distance) and the HUD score's number formatter made once (`toLocaleString` built a new
+  one every frame: ~0.3 ms). **Batch 2**: face parts (`Eye` / `EyeShine` / `Cheek` / `Mouth`, `models.js` › `prepare`)
+  don't cast — 1–7 cm patches on the head, under a shadow texel (7.4 cm MEDIUM / 4.5 cm HIGH) and inside the head's own
+  shadow, but ~4 shadow draws a person: −12…−24 shadow draws on the title / a run's start / on foot; a same-frame A/B is
+  identical on the title and ≤ 8/255 elsewhere (24 pixels up to 18/255 on HIGH, not visible zoomed in). The title on
+  MEDIUM: 108 → ~56 shadow draws in all. Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured
+  are after a town is built / torn down, not churn. Left: §7 › Performance.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.

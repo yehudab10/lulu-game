@@ -3,6 +3,11 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 UTC — ⚡ Smoother on phones, part 2: people's eyes, cheeks and mouths no longer each cast their own tiny
+  shadow (they're smaller than what the shadow can even show), so every person on screen costs the phone four fewer
+  drawing steps — the title screen now draws its shadows in about half the steps it used to. Looks exactly the same.
+  Measured against today's game: walking in Lakewood ~36 % fewer drawing steps on MEDIUM, Midwood 17–24 %, the highway
+  6–14 %, and the shadows alone 17–40 % less everywhere.
 - 2026-11-21 UTC — ⚡ Smoother on phones (a performance pass, nothing new to see): the game now asks the phone's graphics
   chip to draw a lot less each frame. Walking or driving in Lakewood and Midwood draws about 20–28 % less on LOW and
   MEDIUM, the highway 8–17 % less, and on MEDIUM the shadows cost a third less (the title screen 36 % less) — cars, Lulu's
