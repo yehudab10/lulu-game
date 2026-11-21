@@ -203,6 +203,7 @@ export function ticker() {
     if (tick && tick.isConnected) return tick;
     tick = document.createElement("div");
     tick.className = "hs-radio hud-secondary off gone";
+    tick.dataset.fit = "self";        // on a wide screen it keeps clear of the centre stack itself (tickerLayout); upright, the centre ducks under it
     tick.setAttribute("role", "status");
     tick.innerHTML = `<div class="st"><span class="eq"><i></i><i></i><i></i></span><span class="nm"></span><span class="k"></span></div><div class="tx"></div>`;
     H.hudSlot("right").appendChild(tick);
@@ -246,7 +247,7 @@ export function tickerLayout(dt) {
         for (const sel of AVOID) {
             const e = document.querySelector(sel);
             if (!e || e.offsetParent === null) continue;
-            if (sel === "#slot-center" && !e.childElementCount) continue;
+            if (sel === "#slot-center" && (!e.childElementCount || H.PORTRAIT.matches)) continue;   // upright: the centre ducks under the ticker (hud.js › fitHud)
             const q = e.getBoundingClientRect();
             if (q.width < 2 || q.height < 2) continue;
             const t = top0 + off, b = t + r.height;

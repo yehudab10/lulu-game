@@ -45,10 +45,12 @@ export function bubble(anchor, text, secs = 2.4, { cls = "", y = 2.05 } = {}) {
     return b;
 }
 
-/** Rising, fading text at a world point ("+1 💰 tip", "oof!"). */
-export function floater(anchor, text, color = "#FFE082", secs = 1.4, y = 2.3) {
+/** Rising, fading text at a world point ("+1 💰 tip", "oof!"). opts.flavour: a bit of colour (mud, a mosquito,
+ *  sore feet…) — it goes through the pop-up budget with the speech bubbles (hud.js bubbleOk): a moment that already
+ *  got a line doesn't get a floater too, and vice versa. Without it (BONK!, a tip, "a cop SAW that") it always shows. */
+export function floater(anchor, text, color = "#FFE082", secs = 1.4, y = 2.3, opts = {}) {
     const el = document.createElement("div");
-    el.className = "ffloat";
+    el.className = "ffloat" + (opts.flavour && !bubbleOk(secs) ? " calm-off" : "");
     el.textContent = text;
     el.style.color = color;
     root.appendChild(el);

@@ -49,6 +49,15 @@ async function body(t, guests) {
   const all = fn => Promise.all(both.map(fn));
   await all(p => p.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ${PZ}.debug.resetCaps(),
       window.__noBust = setInterval(() => { const L = ${D}.L; if (L.chase) L.chase.bust = 0; }, 10), true)`));
+  const talk = async (p, untilCode, label, max = 300) => {
+    for (let i = 0; i < max; i++) {
+      if (await p.game(untilCode)) return true;
+      if (await p.L(`!!document.querySelector("#dialog.open") || !document.querySelector("#screen") || document.querySelector("#screen").classList.contains("hidden")`)) await p.page.keyboard.press("Enter");
+      await p.frames(3);
+    }
+    t.check(`${p.label}: ${label}`, false, "never reached · state " + await p.game(`ctx.state`));
+    return false;
+  };
   const coins = p => p.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
   const calm = () => all(p => p.game(`(() => { const L = ${D}.L; if (L.chase) ctx.law.standDown("test"); L.units.length = 0; L.sus = 0; return true; })()`));
   const warn = (p, c) => p.game(`(${D}.L.grace = 0, ${D}.L.hold = 0, ${D}.L.partyHold = 0, ${D}.L.sus = 0, ctx.law.notice(${JSON.stringify(c)}, { msg: "⚠️" }))`);
@@ -110,6 +119,28 @@ async function body(t, guests) {
   if (await Hp.until(`${D}.L.units.some(u => u.car && u.car.hit)`, "host: a cruiser behind her spins out", 30000)) t.check("a peel from the passenger spins out a cruiser on the DRIVER's screen", true);
   await A.game(`(ctx.openworld.hopOut(), true)`);
   await A.until(`!ctx.openworld.riding`, "guest hops out", 20000);
+  await calm(); await all(p => p.frames(10));
+
+  // ── another feature's crime for the crew (ci/bankfriends' bank job): ctx.law.partners.crime → law:crew results ──
+  await all(p => p.L(`(window.__lc = [], import("./js/core/ctx.js").then(m => m.on("law:crew", e => __lc.push(e))), true)`));
+  for (const p of both) { await p.game(`(() => { if (ctx.foot.active) ctx.foot.end("test"); if (ctx.state !== "playing") L3.setState("playing"); return true; })()`); await p.frames(4); }
+  await g(`ctx.party._debug.place(400, 1.75, 0)`); await A.game(`ctx.party._debug.place(412, -1.75, 0)`);
+  await all(p => p.frames(12));
+  const job = `{ id: "heist:test1", crew: [${HU}, ${GU}], charge: "BANK HEIST (WITH A BANANA)", heat: 2 }`;
+  await all(p => p.game(`(${D}.L.grace = 0, ctx.law.partners.crime(${job}))`));
+  t.check("crime(): both chased at ≥ 2★", (await g(`ctx.law.wanted`)) >= 2 && (await A.game(`ctx.law.wanted`)) >= 2);
+  t.check("…idempotent per id (a second call is a no-op)", await g(`ctx.law.partners.crime(${job}) === true && ${D}.L.chase && ${D}.L.chase.charges.length === 1`));
+  const jc = await Promise.all(both.map(p => p.until(`!!${CR}.current() && /BANK HEIST/.test(${CR}.current().why)`, `${p.label}: the bank crew are partners`, 40000)));
+  if (jc.every(Boolean)) t.check("…one crew for the job", true);
+  await A.game(`ctx.party._debug.place(520, -1.75, 0)`);      // (not beside her when she's caught: stopping beside her = cuffed too)
+  await g(`ctx.law.arrest(["BANK HEIST (WITH A BANANA)"], { skipCinematic: true })`);
+  if (await Hp.until(`window.__lc.some(e => e.id === "heist:test1" && e.result === "busted")`, "host: law:crew busted", 30000)) t.check("the arrested member's screen reports busted", true);
+  await A.game(`(() => { const L = ${D}.L; L.units.length = 0; if (L.chase) { L.chase.reinfT = 1e9; L.chase.evade = 0.99; } return true; })()`);
+  if (await A.until(`window.__lc.some(e => e.id === "heist:test1" && e.result === "ok")`, "guest: law:crew ok (she got away)", 60000)) t.check("the member who got away reports ok", true);
+  // the host out of the cell again (bail), back in Free Roam
+  await talk(Hp, `ctx.law._dbg.jail && ctx.law._dbg.jail() && ctx.law._dbg.jail().phase === "cell" && !!document.querySelector("#lawBail")`, "host: the cell");
+  await t.L(`document.querySelector("#lawBail").click()`);
+  await Hp.until(`ctx.state === "playing" || ctx.state === "footRun"`, "host: out on bail", 60000);
   await calm(); await all(p => p.frames(10));
 
   // ── 🔔 RING & SNEAK: Lakewood; the guest sneaks into a house, the host rings the bell ──
