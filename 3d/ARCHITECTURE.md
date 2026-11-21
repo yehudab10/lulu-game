@@ -560,6 +560,8 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | together 👯 (friend finder + same car) | **personal**, reads what friends already publish | The 📱 🗺️ Map (friends' dots, a destination beam), ≤ 3 edge pointers, 🧭 switch — all from the party's existing snapshots (`d.w` / the flat frame, `d.x.z`, `d.x.ex`, `d.x.at`, `d.x.pc`, `d.x.pr`) + `d.x.dr` (the door I'm in by). Party members only — never a stranger. No coins |
 | airport ✈️ | **off** for now (stage 1) | Until the interchange planner hook (`ci/exits2`): a party's town interchanges are planned from fixed data and don't keep out of it, so the airport doesn't plan in a party (`ctx.airport.debug.party(true)` turns it on). Ready for it: the placement is a pure function of fixed data (the same metre on every screen — tested), the planes are a pure function of the party clock (shared), the kerb vehicles / doors / the fence joke are personal props (never the shared traffic), presence "✈️ at JFK" over her car / walker in the landside |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
+| airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
+| airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1374,21 +1376,25 @@ foot's `bounds.js`: predicates (x, z) → no world fence there) holds the landsi
 back; its own fence (posts every 1.4 m, `kind: "fence"`) keeps her in. **Colliders** ride in the highway chunk of their
 nearest s (`G.byChunk`, added on `chunk:build`); the kerb vehicles' circles are live objects in the kerb's chunk. **World:**
 `world.keepBehind` (a tiny core addition) keeps 900 m of highway chunks behind her while she's round the airport (the ramps
-stay drawn from the kerb). **Build** (`build.js`): its own group, ~55 small steps (~3 ms a frame from 2.6 km out; dropped
-3.2 km away): ~45k triangles, ~45 meshes — every surface one mesh (ramps, the loop, the lot, stall lines, walks, gores, the
+stay drawn from the kerb). **Build** (`build.js`): its own group, ~120 small steps (~3 ms a frame from 2.6 km out; dropped
+3.2 km away; the sign font + emoji are warmed at boot, the atlas is drawn a cell a step and kept for the next build): ~40k
+triangles, 40 meshes — every surface one mesh (ramps, the loop, the lot, stall lines, walks, gores, the
 kerb paint, apron, taxiway, runway), the chain-link fence one alpha-tested mesh, every static model + guardrails + fence posts
 merged by the town's `kit.js` Merger (160 m clusters), every face of text one quad mesh from one atlas. **Planes** (`planes.js`):
-3 planes INSTANCED (one InstancedMesh per material; the gear a second set that folds to nothing in the air), a pure function of
+3 planes, each livery's model BAKED into one vertex-coloured geometry (`bake.js`) and instanced — packed, so only the live ones are
+drawn (~5 draw calls for the sky; the gear its own set that folds to nothing in the air), a pure function of
 one clock (the party clock with friends): every 32 s a departure (roll, lift off past the terminal, a climbing left turn back
 over the landside and the highway) or an arrival (in from over the highway, line up, touch down, roll out); a soft shadow quad
 under each along the sun; a jet roar on `A.spatial` (kind `airportJet`). **Life** (`life.js`): 5 taxis + 2 shuttle buses
-(instanced) drive their own closed loop (the right-hand lane all round, through the lot's aisle), the taxis queue on the
+(baked + instanced: one draw call a kind) drive their own closed loop (the right-hand lane all round, through the lot's aisle), the taxis queue on the
 ARRIVALS kerb, the shuttles stop at DEPARTURES and pull out to the middle lane; they stop for her (car or foot) and her parked
 car. The terminal doors: ✋ "🚪 TERMINAL 4½" — opening soon; once stage 2's hall is in, `ctx.airport.terminal.warm()` within
 22 m and `enter({ door })`. **The runway fence joke**: pressed against the airside fence (~0.7 s on foot, or nosing the car into
 it) → Officer Segal of airport security rolls up on his Segway (sometimes a parked jet honks first), two lines, Lulu answers, he
 rolls off — speech bubbles only, 4 variants in turn (`SEGAL`), at most 2 a visit 25 s apart (after that, one line of Lulu's).
-Cartoon only: nothing about real security procedures. **HUD:** the decel-lane / ramp cue (a prompt) and ONE banner on the first
+Cartoon only: nothing about real security procedures. **Budget** (test `airport`, 1280×720, the kerb's busiest view; AGENTS §7 › Airport): ≤ 240 draw calls / ≤ 120k triangles
+on MEDIUM and LOW (measured 209 / 118.9k), the build's slices p95 ≤ 10 ms / worst ≤ 60 ms on a CI runner (3.9 / 30.5).
+**HUD:** the decel-lane / ramp cue (a prompt) and ONE banner on the first
 arrival of a visit (`prio 1`) — no toasts. `G.noPullOver` in the landside (stop = get out). **Party:** OFF in a 🎉 party for now
 (the towns' party planner doesn't know about it — `ctx.airport.debug.party(true)` turns it on); the placement is already fixed
 data, presence "✈️ at JFK" and the planes on the party clock are wired. `ctx.airport` { on, planned, ready, inside, spans(),
@@ -1397,6 +1403,82 @@ debug }; events `airport:enter` / `airport:leave` {s}, `airport:door` {f, in?}, 
 (`airport_facade`, `_tower`, `_jetbridge`, `_plane`, `_taxi`, `_shuttle`, `_booth`, `_segway`, `_guard`, `_windsock`,
 `_suitcase`; it reuses the exits' gantry / cushion / advisory / guide / lamp and the town's LOD cars). Test:
 `scripts/tests3d/airport.js`.
+**Airport › Terminal (airport, stage 2 of roadmap 12 — `features/airport/terminal*.js`, `ci/airport-terminal`):** ✈️ ONE
+walk-in hall at JFK ("TERMINAL 4½") on the interiors engine (`defineInterior("terminal")`, model `airport_terminal` +
+`airport_terminal_props` from `assets_airport_terminal.py`). The plan + the owner's decisions: `3d/docs/airport-plan.md`; stage 1
+(`ci/airport`: the interchange, the kerb loop, the terminal's OUTSIDE + its doors) owns `features/airport/index.js` and calls
+`ctx.airport.terminal.enter({ door, exit })` from the doors' ✋ spot (warm it within ~22 m: `warm()` → the step in is a soft cut).
+**The hall, left (landside) → right (airside)**, x ±28 m: the terminal doors (Spot_door) · check-in for the parody airlines
+(Kugel Air, El Oy, Shmear Jet — `AIRLINES` in `terminal-data.js`: an agent each, a hello pool + three questions) + Bubbe Faigy's
+overweight bag on the Kugel Air scale (wear her sweaters: Lulu puffs up · "lighten" a kugel · sit on it: the scale goes UP) · the
+departures board (a canvas: `FLIGHTS` + `STATUSES`, a row split-flaps every ~9 s, redrawn only while it flaps) · ARRIVALS (the
+frosted doors are movers `ArrDoor_L/R`; every ~18 s or on ✋ 1–2 people walk out with suitcases, a greeter cheers + hugs;
+greeters hold signs — four quads on one canvas) + an empty VIP red carpet (`vip()` — stage 3's Dovid Dov comes through here)
+· SECURITY: the snake (one collider, `Col_snake`), the BEEP-O-MATIC 3000 arch (`ScanLamp_red/green`), the tray belt, the glass
+divider at x = 12 and a ONE-WAY exit lane (`Col_exitGate` is on only while she's landside). ✋ the line → ⏳ wait (an auto-walk
+through the snake with captions) or 🏃 duck under the ropes (crouched; the line's outrage bubbles; Officer Segal Segways to the
+arch → 😇 back of the line, or 🥺 plead → the scanner adds CHUTZPAH DETECTED); the scanner: keys (a tray rides the belt) → her
+kugel (Ima packed it; Rex the sniffer dog only ever finds kugel — once a run, `rt.used.kugel`; after that a bobby pin) → clear →
+airside. Cartoon only: nothing about real screening. · THE FOOD COURT: Shmuley's Sky-High Deli (knish 8, pastrami 14, a pickle 3)
+and the H2-OY! water bar (water 12): a snack is a fixed price and +1 ❤️, nothing sold when her hearts are full, at most
+`TUNE.FOOD_CAP` (2) hearts a run (`rt.used.healed` — survives the door), nothing ever pays a coin. · THE GATE (GATE 18, "CHAI!"):
+three rows of seats — ✋ 💺 sit (pose sit, pinned in the seat by `luluPost`, the camera turns to the window; the stick stands her up;
+friends see her sitting), the gate desk ("BOARDING SOON — NOT YOU"), the man asleep across four seats, the window onto the apron:
+a parked Kugel Air plane at the jet bridge, planes (`Prop_Plane`, livery per airline) taking off down the runway every ~18 s, the
+runway fence, the tower. **The crowd** (`terminal-crowd.js`): ~55 people on homes' instanced rigs (`Rig` per body: man / woman /
+kid / cop — ~5 draw calls each for all of them; the far ones homes' `LodCrowd` figure; the nearest `TUNE.FULL[tier]` full) —
+desk agents, the check-in lines, the snake (it shuffles forward… then reconsiders), walkers rolling suitcases (one instanced mesh,
+a colour per instance), the family with ten kids doing laps of the food court looking for gate 18, the sleeper; Rex is law's K9
+on a rig of its own. People are records, not Object3Ds (an empty anchor each for speech bubbles); Lulu is pushed out of the
+standing / walking ones. The hall casts no shadows; the sun's shadow box follows her. The PA is an in-world bubble (no toasts).
+**The law:** walked in WANTED (`ctx.law.wanted > 0`, not low-key): Officer Segal + Rex follow her and slow her (`TUNE.SLOW` while
+Rex is at her heels — "Rex has your shoelace"), after `TUNE.COPS_AT` s two real cops walk in through the doors; caught → the room
+melts back out (soft) and law's arrest plays on the kerb (`ctx.law.arrest([warrants…, "RUNNING FROM A SEGWAY"], { onFoot })`).
+Leave first and they lose her. In a 🎉 party only the guard + Rex play (the law stays on its own screen). Not enterable mid-chase.
+**Friends:** a SHARED room (`together/rooms.js` › `SHARED.terminal = "jfk"`): friends in a party (🌍 Free Roam) see each other walk,
+sit and emote inside; presence "✈️ in the JFK terminal" (the interior's name + emoji); strangers are never inside. Each screen's
+crowd, gags, purchases and law stay its own. **Service:** `ctx.airport.terminal = { enter({ door, exit }), canEnter(), warm(),
+ready(), inside, vip(), addBuilder(fn) (stage 3: runs at the end of every build with the room), tune, debug }`;
+`ctx.airport.debug.enterTerminal()` walks in from wherever she's standing (tests; until stage 1's doors). Events `airport:terminal`
+{in, wanted}, `airport:checkin`, `airport:bag`, `airport:security` {how}, `airport:scanned` {kugel, chutzpah}, `airport:snack`,
+`airport:sit`, `airport:arrival`, `airport:takeoff`, `airport:cops`, `airport:caught`; stats `airportTerminalVisits`,
+`airportScans`, `airportLineCuts`, `airportSnacks`, `airportSits`, `airportBagGags`… **Budget** (1280×720, measured — see
+AGENTS.md §7): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k; the test's limits: MEDIUM ≤ 110 calls (≤ 130 worst
+frame), ≤ 140k triangles · LOW ≤ 110 / 130, ≤ 110k. Test:
+`scripts/tests3d/airport-terminal.js` (`AIRPORT_TERMINAL_PART=solo|perf|friends`; the QA watchdog), and
+`PERF3D_SCENES=foot,terminal node scripts/perf3d.js`. **Stage 3 hooks:** `addBuilder`, the VIP carpet (`vip()`), the arrivals door
+(`debug.arrive`), the empty Shmear Jet line, `airport:*` events.
+
+**Airport › Stage 3 — things to do (`features/airport/stage3*.js`, `ci/airport-stage3`; the owner's decision 8):** three capped
+things at JFK, in their own files, hooked in from outside (no edits to stage 1's or stage 2's files): `stage3.js` (the service, the
+day ledger, the hall's hint, wiring) · `stage3-taxi.js` · `stage3-hall.js` (a stage-2 builder: `ctx.airport.terminal.addBuilder`) ·
+`stage3-data.js` (every line, `PAY`, `TUNE`). **🚕 The JFK taxi run** — a hustle side job (`ctx.hustle.register("jfk_taxi", …)`, so
+the 💼 Jobs app lists it and the pass card / log are hustle's): a traveller (Mrs. Gittel Blabberman the yenta → the Simcha Palace,
+Yanky the bochur back from yeshiva in Israel → Midwood's pizza shop, Gary from Ohio looking for "the Brooklyn Bridge" → Brooklyn
+College, Mr. Shapiro back from Florida → the lake) waits at the ARRIVALS kerb; pull up slow → they hop into roadevents' passenger
+seat; the beacon sits on the next interchange that offers their town (`ctx.town.exits`), then on the landmark in town
+(`ctx.town.spot(key)`, with fallbacks); the wrong town = a ↩️ line and no beacon; stop by the landmark → pass. A FIXED fare
+(`PAY.taxi` 40), `PAY.taxiPerDay` (3) paid runs a real day — past that it isn't offered at all. **Only from the airport:** `taxiWhy()`
+needs stage 1 (`ctx.airport.on` + `planned` + `inside`, the kerb from `ctx.airport.kerb.pickup()` if stage 1 adds it, else
+`ctx.airport.debug.world(24, 193.5)` = the ARRIVALS kerb lane) — until `ci/airport` lands it is never offered. Also: JFK dispatch
+texts once a visit when she drives into the landside, and a traveller at the terminal's arrivals door can be BOOKED ("Taxi? Are you
+a taxi?") — the run starts when she's back behind the wheel at the airport. **🧳 The lost suitcase** — Mrs. Perl Shpilkes by
+ARRIVALS: her pink suitcase (a pom-pom, FRAGILE: KUGEL) is on Bubbe's scale / under a tired man's feet by the board / by the plant at
+the doors, or Mr. Pilkes is doing laps of the landside with it (his is identical; hers has a name tag). Carry it back (`rt.luluHold`)
+→ `PAY.bag` (15) once a real day, a rugelach after that. **🎤 Dovid Dov on tour** (canon: Lulu's brother — the family knows, strangers
+don't): ~40 % of solo visits (`TUNE.dovidChance`; never in a party, never while she's wanted, never at random in `?test`) the PA
+announces a VIP, stage 2's arrivals doors open, he walks behind the rail and down the red carpet (`vip()`), six fans gather in an
+arc, Officer Segal Segways round by the exit lane and stands guard ("…who IS he?"); ✋ → he whispers, then 🤳 a selfie (a flash +
+confetti) / ✍️ an autograph on Ima's kugel / 🤫 "strangers"; once a real day `PAY.dovid` (10) "gas money"; the stat `airportDovid` →
+the scrapbook badge 🎤 Front Row (`ctx.meta.addBadge`). He leaves through the hall after ~70 s either way. Everyone is a
+terminal-crowd record (no new draw calls; the suitcase is one cloned prop): measured with him + the fans in view, the hall stays
+inside its MEDIUM budget. **The hint:** inside the hall `ctx.G.hint` reads "✈️ Explore the terminal · ✋ talk / look · leave" instead
+of foot's "Find a car to “borrow”" (put back on the way out). **Service:** `ctx.airport.stage3 = { today(), ledger(), PAY, TUNE,
+taxi: { id, why(), offered(), book(id), booked, pickup() }, debug: { date(v), fakeAirport({x, z} | null), dovidNext(v), bagNext(v),
+hall(), SV, HALL } }`. Events `airport:taxi` {phase: offer · book · start · pickup · wrong · drop}, `airport:bag` {phase: ask · found ·
+return, variant, pay}, `airport:dovid` {phase: arrive · here · meet · leave, choice, pay}; stats `airportTaxiRuns`,
+`airportBagsReturned`, `airportDovid`. Test: `scripts/tests3d/airport-stage3.js` (`AIRPORT_STAGE3_PART=hall|taxi`; the taxi part
+pretends the airport with `fakeAirport`).
 
 **The underworld (underworld):** corrupt people + bad guys, cartoon only (`features/underworld/`). Everything random is gated by
 `live(what)` = `ctx.enabled("underworld")` && (no party, or — in a 🎉 party's Road Trip / Free Roam — `what` is the pickpocket) && Settings › 😈 Bad guys ≠ Off; **every knob is `SPAWN` in `data.js`**

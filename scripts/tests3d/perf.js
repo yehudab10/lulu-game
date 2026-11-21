@@ -198,6 +198,20 @@ module.exports = {
       await t.stick(0, 0);
     });
 
+    // ── the JFK terminal (features/airport — opt-in: PERF3D_SCENES=foot,terminal; its own limits: tests3d/airport-terminal.js) ──
+    if (want("terminal")) await step("terminal", async () => {
+      await g(`(window.__perfDrive = 0, true)`);
+      if (!await g(`ctx.foot.active`)) { await toPlaying(); await g(`ctx.foot.start("droveOff", { noIntro: true })`); }
+      if (!await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot (terminal)", 30000)) return;
+      await g(`(ctx.airport.debug.enterTerminal(), true)`);
+      if (!await t.until(`window.__interiors && window.__interiors.room && window.__interiors.room.def.id === "terminal" && window.__interiors.room.ready`, "the terminal loads", 90000)) return;
+      await g(`(() => { const r = window.__interiors.room; r.lulu.obj.position.set(6, 0, 0.5); r.updateCamera(0, true); return true; })()`);
+      await t.frames(10);
+      await record("terminal");
+      await g(`(window.__interiors.room.leave(), true)`);
+      await t.until(`__lulu3d.state === "footRun"`, "out of the terminal", 30000);
+    });
+
     // ── an interior (the bar) ──
     if (want("interior")) await step("interior", async () => {
       await g(`(window.__perfDrive = 0, window.__out = 0, ctx.interiors.bar.enter({ exit: () => { window.__out = 1; } }), true)`);
