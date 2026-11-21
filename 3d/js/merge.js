@@ -172,7 +172,9 @@ export class SlotBatch {
         const m = this.mesh = new THREE.BatchedMesh(this.cap.n, this.cap.v, this.cap.i, this.material);
         m.name = this.name;
         m.castShadow = this.cast; m.receiveShadow = this.receive; m.frustumCulled = false;
-        m.sortObjects = false; m.perObjectFrustumCulled = true; m.matrixAutoUpdate = false;
+        // (no per-piece culling: a piece is a few hundred triangles, and then a frame where nothing changed costs no
+        //  re-upload at all — three only rebuilds the draw list when a piece's visibility changes)
+        m.sortObjects = false; m.perObjectFrustumCulled = false; m.matrixAutoUpdate = false;
         const base = THREE.BatchedMesh.prototype.onBeforeRender;
         m.onBeforeRender = (r, s, c, g, mt, grp) => { this.sync(); return base.call(m, r, s, c, g, mt, grp); };   // (the shadow pass calls this too)
         this.scene.add(m);
@@ -197,10 +199,9 @@ export class SlotBatch {
         const id = this.mesh.addInstance(slot.gid);
         this.insts++;
         if (!geo.boundingSphere) geo.computeBoundingSphere();
-        const item = { slot, id, owner, sphere: geo.boundingSphere.clone() };
+        const item = { slot, id, owner, sphere: geo.boundingSphere.clone(), last: new Float64Array(16).fill(NaN), vis: false };
         this.items.push(item);
         owner.updateMatrixWorld(true);
-        this.mesh.setMatrixAt(id, owner.matrixWorld);
         this.mesh.setVisibleAt(id, false);           // (shown by the next sync, if its owner is in view)
         return item;
     }
@@ -227,8 +228,12 @@ export class SlotBatch {
             let vis = true, a = it.owner, top = a;
             for (; a; a = a.parent) { if (!a.visible) vis = false; top = a; }
             if (!top.isScene) vis = false;
-            m.setVisibleAt(it.id, vis);
-            if (vis) { m.setMatrixAt(it.id, it.owner.matrixWorld); any = true; }
+            if (vis !== it.vis) { it.vis = vis; m.setVisibleAt(it.id, vis); }
+            if (!vis) continue;
+            any = true;
+            // (only a piece that moved is written: a still frame uploads nothing)
+            const e = it.owner.matrixWorld.elements, l = it.last;
+            for (let k = 0; k < 16; k++) if (e[k] !== l[k]) { l.set(e); m.setMatrixAt(it.id, it.owner.matrixWorld); break; }
         }
         return any;
     }
