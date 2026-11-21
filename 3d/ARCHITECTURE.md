@@ -559,6 +559,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | together 👯 (friend finder + same car) | **personal**, reads what friends already publish | The 📱 🗺️ Map (friends' dots, a destination beam), ≤ 3 edge pointers, 🧭 switch — all from the party's existing snapshots (`d.w` / the flat frame, `d.x.z`, `d.x.ex`, `d.x.at`, `d.x.pc`, `d.x.pr`) + `d.x.dr` (the door I'm in by). Party members only — never a stranger. No coins |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
 | airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
+| airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1383,6 +1384,37 @@ frame), ≤ 140k triangles · LOW ≤ 110 / 130, ≤ 110k. Test:
 `scripts/tests3d/airport-terminal.js` (`AIRPORT_TERMINAL_PART=solo|perf|friends`; the QA watchdog), and
 `PERF3D_SCENES=foot,terminal node scripts/perf3d.js`. **Stage 3 hooks:** `addBuilder`, the VIP carpet (`vip()`), the arrivals door
 (`debug.arrive`), the empty Shmear Jet line, `airport:*` events.
+
+**Airport › Stage 3 — things to do (`features/airport/stage3*.js`, `ci/airport-stage3`; the owner's decision 8):** three capped
+things at JFK, in their own files, hooked in from outside (no edits to stage 1's or stage 2's files): `stage3.js` (the service, the
+day ledger, the hall's hint, wiring) · `stage3-taxi.js` · `stage3-hall.js` (a stage-2 builder: `ctx.airport.terminal.addBuilder`) ·
+`stage3-data.js` (every line, `PAY`, `TUNE`). **🚕 The JFK taxi run** — a hustle side job (`ctx.hustle.register("jfk_taxi", …)`, so
+the 💼 Jobs app lists it and the pass card / log are hustle's): a traveller (Mrs. Gittel Blabberman the yenta → the Simcha Palace,
+Yanky the bochur back from yeshiva in Israel → Midwood's pizza shop, Gary from Ohio looking for "the Brooklyn Bridge" → Brooklyn
+College, Mr. Shapiro back from Florida → the lake) waits at the ARRIVALS kerb; pull up slow → they hop into roadevents' passenger
+seat; the beacon sits on the next interchange that offers their town (`ctx.town.exits`), then on the landmark in town
+(`ctx.town.spot(key)`, with fallbacks); the wrong town = a ↩️ line and no beacon; stop by the landmark → pass. A FIXED fare
+(`PAY.taxi` 40), `PAY.taxiPerDay` (3) paid runs a real day — past that it isn't offered at all. **Only from the airport:** `taxiWhy()`
+needs stage 1 (`ctx.airport.on` + `planned` + `inside`, the kerb from `ctx.airport.kerb.pickup()` if stage 1 adds it, else
+`ctx.airport.debug.world(24, 193.5)` = the ARRIVALS kerb lane) — until `ci/airport` lands it is never offered. Also: JFK dispatch
+texts once a visit when she drives into the landside, and a traveller at the terminal's arrivals door can be BOOKED ("Taxi? Are you
+a taxi?") — the run starts when she's back behind the wheel at the airport. **🧳 The lost suitcase** — Mrs. Perl Shpilkes by
+ARRIVALS: her pink suitcase (a pom-pom, FRAGILE: KUGEL) is on Bubbe's scale / under a tired man's feet by the board / by the plant at
+the doors, or Mr. Pilkes is doing laps of the landside with it (his is identical; hers has a name tag). Carry it back (`rt.luluHold`)
+→ `PAY.bag` (15) once a real day, a rugelach after that. **🎤 Dovid Dov on tour** (canon: Lulu's brother — the family knows, strangers
+don't): ~40 % of solo visits (`TUNE.dovidChance`; never in a party, never while she's wanted, never at random in `?test`) the PA
+announces a VIP, stage 2's arrivals doors open, he walks behind the rail and down the red carpet (`vip()`), six fans gather in an
+arc, Officer Segal Segways round by the exit lane and stands guard ("…who IS he?"); ✋ → he whispers, then 🤳 a selfie (a flash +
+confetti) / ✍️ an autograph on Ima's kugel / 🤫 "strangers"; once a real day `PAY.dovid` (10) "gas money"; the stat `airportDovid` →
+the scrapbook badge 🎤 Front Row (`ctx.meta.addBadge`). He leaves through the hall after ~70 s either way. Everyone is a
+terminal-crowd record (no new draw calls; the suitcase is one cloned prop): measured with him + the fans in view, the hall stays
+inside its MEDIUM budget. **The hint:** inside the hall `ctx.G.hint` reads "✈️ Explore the terminal · ✋ talk / look · leave" instead
+of foot's "Find a car to “borrow”" (put back on the way out). **Service:** `ctx.airport.stage3 = { today(), ledger(), PAY, TUNE,
+taxi: { id, why(), offered(), book(id), booked, pickup() }, debug: { date(v), fakeAirport({x, z} | null), dovidNext(v), bagNext(v),
+hall(), SV, HALL } }`. Events `airport:taxi` {phase: offer · book · start · pickup · wrong · drop}, `airport:bag` {phase: ask · found ·
+return, variant, pay}, `airport:dovid` {phase: arrive · here · meet · leave, choice, pay}; stats `airportTaxiRuns`,
+`airportBagsReturned`, `airportDovid`. Test: `scripts/tests3d/airport-stage3.js` (`AIRPORT_STAGE3_PART=hall|taxi`; the taxi part
+pretends the airport with `fakeAirport`).
 
 **The underworld (underworld):** corrupt people + bad guys, cartoon only (`features/underworld/`). Everything random is gated by
 `live(what)` = `ctx.enabled("underworld")` && (no party, or — in a 🎉 party's Road Trip / Free Roam — `what` is the pickpocket) && Settings › 😈 Bad guys ≠ Off; **every knob is `SPAWN` in `data.js`**

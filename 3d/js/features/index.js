@@ -44,3 +44,4 @@ import "./friends/index.js";      // 👯 a friends list that lasts: add (both s
 import "./places/index.js";       // 🏛️ places: a police precinct (+ its impound lot), a courthouse and a hospital in each town — walk in freely; arrests, court and the ER happen IN them, and she walks out of the front door
 import "./calm/index.js";         // 🧘 a calm screen: tells the pop-up budget (hud.js) when it's quiet (friends / strangers around) or she's busy; chatter defaults to Quiet with friends
 import "./airport/terminal.js";       // ✈️ the JFK terminal (airport stage 2): one walk-in hall — check-in (Kugel Air, El Oy, Shmear Jet), the departures board, the security-line gag, a food court, the gate window, arrivals; shared with friends
+import "./airport/stage3.js";         // ✈️ JFK stage 3: 🚕 airport taxi runs (a hustle job, only from the airport), 🧳 the lost suitcase, 🎤 Dovid Dov on tour down the VIP carpet — each capped per real day
