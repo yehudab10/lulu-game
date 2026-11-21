@@ -199,6 +199,7 @@ function buildStreet() {
         g.add(van);
         home.van = van;
         home.vanWheels = findNodes(van, "Wheel_");
+        home.vanShadow = shadowProxy(van);      // (the title's lapping minivan: one shadow draw on MEDIUM / HIGH)
     }).catch(() => {});
     home.vanPath = vanLoop();
     home.ready = true;
