@@ -330,6 +330,12 @@ async function airport(t) {
   // out on foot, walk to the doors (the stick), ✋ in
   await g(`ctx.foot.start("droveOff")`);
   if (!await t.until(`__lulu3d.ctx.foot.phase === "walk"`, "out on foot at the kerb", 30000)) return;
+  // out of the car at the kerb (the airport's own frame, across the highway's line): beside it, never standing in its seats
+  const besideCar = () => g(`(() => { const F = ctx.foot.debug.F, c = F.car && F.car.stub; if (!c) return null; const dx = F.pos.x - c.x, dz = F.pos.z - c.z;
+    const along = dx * Math.sin(c.h) + dz * Math.cos(c.h), lat = dx * Math.cos(c.h) - dz * Math.sin(c.h); return { along: +along.toFixed(2), lat: +lat.toFixed(2), inside: Math.abs(lat) < 1.05 && Math.abs(along) < 2.3 }; })()`);
+  const bc = await besideCar();
+  t.check("out of the car at the kerb: she stands beside it, not in it", !!bc && !bc.inside, JSON.stringify(bc));
+  await t.shot("airport-out-of-car");
   const door = await g(`ctx.airport.debug.world(${K.door}, ${K.r0} - 1.2)`);
   for (let k = 0; k < 500; k += 6) {
     const done = await g(`(() => { const F = ctx.foot.debug.F, dx = ${door.x} - F.pos.x, dz = ${door.z} - F.pos.z, L = Math.hypot(dx, dz); if (L < 1.2) { __pad.axes[0] = 0; __pad.axes[1] = 0; return true; }
@@ -382,6 +388,15 @@ async function airport(t) {
     await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "back out of the terminal", 60000);
     await t.frames(20);
     await W.reset(t);
+  }
+  // ── knocked out at the kerb: back on her feet BESIDE her patched-up car ──
+  await backInCar(t);
+  await tp(t, `(() => { const n = ctx.world.highway.nearest(${kp.x}, ${kp.z}, ${E} + 300, {}); ctx.car.place(${kp.x}, ${kp.z}, ${kp.h}); ctx.car.s = n.s; ctx.car.d = n.d; ctx.car.vx = ctx.car.vz = 0; ctx.cam.snap(); return true; })()`);
+  await g(`(ctx.foot.start("knockout"), true)`);
+  if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "knocked out at the kerb: on her feet", 30000)) {
+    const kb = await besideCar();
+    t.check("knocked out at the kerb: on her feet beside the car, not standing in it", !!kb && !kb.inside, JSON.stringify(kb));
+    await t.shot("airport-knockout");
   }
   // ── wanted at the airport: the cops come, she runs to the car, drives round the loop ──
   await g(`(ctx.law.hold(0), true)`);
