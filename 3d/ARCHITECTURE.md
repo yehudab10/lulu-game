@@ -1547,7 +1547,10 @@ longer wanted or after 32 s (the battery). Once a visit, solo only, speech bubbl
 radio | gone}, `airport:bump` {kind, impact}; stats `airportSecurity`, `airportKerbBumps`. **Switch-on model** (`plan.js`
 `PLANNING` / `zones()`): the airport FITs only at a few stretches of the constant road (8.8–8.9 km, 22.4–29 km…), so after
 `ci/exits2` it is planned FIRST from fixed data and the towns + rest areas keep out of `ctx.airport.zones(s0, s1)` — the steps:
-`3d/docs/airport-plan.md` › Sync log, AGENTS §7 › Airport. `ON_BY_DEFAULT` in `index.js` is the switch.
+`3d/docs/airport-plan.md` › Sync log, AGENTS §7 › Airport. `ON_BY_DEFAULT` in `index.js` is the switch. **The chase cam's walls**:
+`ctx.airport.camClip(tgt, dx, dy, dz, D)` — Terminal 4½ and the tower as boxes in the airport frame (a pad of 0.3 m), asked by
+foot's `cam.carClip` (the same slot a town's blocks use; null away from the airport) — a chase round the kerb no longer parks the
+camera inside the terminal (ci/qaweekend's flat-colour frame; `qaweekend-air` checks it). The doors' boards are a plain door sign.
 **Airport › Terminal (airport, stage 2 of roadmap 12 — `features/airport/terminal*.js`, `ci/airport-terminal`):** ✈️ ONE
 walk-in hall at JFK ("TERMINAL 4½") on the interiors engine (`defineInterior("terminal")`, model `airport_terminal` +
 `airport_terminal_props` from `assets_airport_terminal.py`). The plan + the owner's decisions: `3d/docs/airport-plan.md`; stage 1
