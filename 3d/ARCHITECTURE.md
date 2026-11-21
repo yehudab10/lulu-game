@@ -490,6 +490,24 @@ controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update
 **Keep pop-ups off the road:** toasts are a feed on the right edge; while driving/walking
 (`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
 "center" slot. Don't add your own big centred text over the road in those states — use these.
+**HUD fit (`ci/hudfit`):** the slots have a starting place per layout (`style3d.css` › "HUD fit"), and `H.fitHud()` (every 0.2 s
+of game time + when a banner / prompt shows) nudges them — the CSS `translate` property, `data-fit-dy`, only as far as needed —
+off what they'd cover: "left" / "right" under the pills, "center" (the WELCOME banner, task chips) under the trip bar + the
+left / right chips, the ✋ prompt and the controller's `#padHint` UP off the speedo / touch buttons / each other; ⏭ SKIP
+(core/skip.js) slides down the right edge off the trip bar + chips. `H.keepClear(el, selectors, dir)` is the helper. Layouts:
+a phone held upright (touch, or a controller / keyboard ≤ 600 px wide: pills in a row, the trip bar full width under them, a
+compact speedo) — the "center" stack carries on the left column under the chips, clear of the speedo's column; a phone on its
+side (touch, ≤ 520 px tall) — the pills in two rows, chips ≤ 260 px wide, a 128 px stick under them, the centre stack between
+the chips and the buttons, the prompt low between the stick and the pedals (on foot: right above the ✋ button). On any phone
+(touch, ≤ 760 px tall) the ON FOOT chip steps aside while a phone call / text card is up and only the newest of two text cards
+shows (both are in 💬 Messages); upright on foot the prompt sits just above the WALK stick; on a small upright phone the
+banner's second line stays one line. A piece that keeps clear of the centre stack ITSELF on a wide screen (hustle's 📻 ticker steps
+down the right column) is marked `data-fit="self"` so there the centre doesn't also dodge it (two pieces dodging each other
+chase each other down the screen); held upright (`H.PORTRAIT`) it stays put and the centre ducks under it. Test:
+`scripts/tests3d/hudfit.js` (every pair of HUD pieces, by rect, at 390×844 / 844×390 / 375×667 / 667×375 / 768×1024 touch,
+390×844 / 375×667 / 768×1024 controller, 1280×720, TV 720p / 1080p, driving + on foot, the HUD at its busiest — 📝, a 💬 text,
+⏭, WELCOME, ✋, the hint — + the Clean HUD on the phones) — add a new HUD piece's selector to its `PIECES` (and to together's
+`AVOID`).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop

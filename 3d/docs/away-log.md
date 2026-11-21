@@ -3,6 +3,13 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 (screen layout) — 📏 Nothing on the screen sits on anything else any more, on a phone held either way, a small
+  phone, a tablet, a laptop and a TV, with fingers or a controller: on a phone on its side the WALK stick no longer covers
+  📝 Ima's list / ON FOOT (the hearts + coins share a row, the stick is a touch smaller, and while a text message is up the ON FOOT
+  chip steps aside); the ⏭ SKIP button slides down out of the way instead of sitting on the street name; with a controller on a
+  phone held upright the screen is laid out like the touch one (no more "Talk to Heshy" and the controls hint on the speedometer —
+  they sit above it, and the speedometer is smaller); and the "WELCOME TO LAKEWOOD" sign-in card waits below the 📝 list and the
+  text messages instead of covering them. A new test checks every pair of things on the screen at 11 screen sizes.
 - 2026-11-21 17:20 UTC (airport polish) — ✈️ JFK got its rough edges fixed (it's still switched off in the real game until the
   "each town its own exit" work lands — the exact steps to switch it on are written down now). Police cars chasing Lulu off the highway
   now follow the airport's ramps and roads round to the kerb instead of driving through the fence and the terminal, and can see her across

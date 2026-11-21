@@ -117,10 +117,11 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #footHot .hint { margin-top: 6px; font-size: 14px; opacity: .85; }
 #footWash { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; background: #000; transition: opacity .25s; }
 body.tv #footHot { width: min(760px, 70vw); } body.tv #footHot .ttl { font-size: 28px; } body.tv .foot-chip { font-size: 22px; }
-@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 236px);
+@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 170px);
     left: max(12px, env(safe-area-inset-left)); right: calc(max(18px, env(safe-area-inset-right)) + 104px); transform: none; }
-  body.onfoot.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; }
-  body.onfoot.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
+  body.onfoot.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; } }
+/* (ci/hudfit: the prompt sits just above the WALK stick — hud.js lifts it off the stick / ✋ if it must — and the chips
+   start where they do when driving; the old +196 px left-slot drop + a prompt at +236 px left the WELCOME banner no room) */
 `);
 const hot = document.createElement("div");
 hot.id = "footHot";
