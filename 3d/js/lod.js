@@ -567,7 +567,9 @@ function pmSync(b) {
         // changed KIND? (another material; turned see-through / glowing; or anything that needed a recompile — a map, a
         //  side, flat shading: three's material.version) → she's handed back before the next render
         const m = o.material;
-        if (m !== p.mat || m.version !== p.ver || m.transparent || m.opacity !== 1 || !m.visible || m.emissive.r || m.emissive.g || m.emissive.b
+        // (a recompile — the tier change asks it of every material in the scene: still the same kind? then carry on)
+        if (m === p.mat && m.version !== p.ver) { if (pmPlain(m) && pmKey(m) === b.key) p.ver = m.version; else pb.changed = true; }
+        if (m !== p.mat || m.transparent || m.opacity !== 1 || !m.visible || m.emissive.r || m.emissive.g || m.emissive.b
             || m.metalness !== bm.metalness || o.layers.mask !== PM.mask) pb.changed = true;
         mesh.setMatrixAt(p.id, o.matrixWorld);
         if (m === p.mat && (m.color.r !== p.r || m.color.g !== p.g || m.color.b !== p.bl || m.roughness !== p.rough)) pmColor(p);

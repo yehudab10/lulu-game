@@ -164,7 +164,7 @@ export const restFilter = p => !plainMaterial(p.material);
 const _bs = new THREE.Sphere();
 export class SlotBatch {
     constructor(material, scene, { cast = false, receive = true, name = "slotBatch" } = {}) {
-        this.src = material; this.material = material.clone(); this.ver = material.version; this.scene = scene; this.cast = cast; this.receive = receive; this.name = name;
+        this.src = material; this.material = material.clone(); this.ver = material.version; this.dver = this.material.version; this.scene = scene; this.cast = cast; this.receive = receive; this.name = name;
         this.mesh = null; this.items = []; this.free = []; this.cap = null; this.verts = 0; this.idx = 0; this.insts = 0; this.attrs = null;
     }
     _sig(geo) { return Object.keys(geo.attributes).sort().map(k => k + geo.attributes[k].itemSize + (geo.attributes[k].normalized ? "n" : "")).join(",") + (geo.index ? "+i" : ""); }
@@ -226,7 +226,10 @@ export class SlotBatch {
      *  reflection that features change on the fly every frame. */
     mirror() {
         const s = this.src, d = this.material;
-        if (s.version !== this.ver) { this.ver = s.version; d.copy(s); d.needsUpdate = true; return; }
+        // (a recompile asked of the batch's copy — the tier change turning shadows on / off does it to everything in the
+        //  scene — goes to the original too, which may not be in the scene any more but is still used by features' meshes)
+        if (d.version !== this.dver) { s.needsUpdate = true; this.ver = s.version; this.dver = d.version; }
+        if (s.version !== this.ver) { d.copy(s); d.needsUpdate = true; this.ver = s.version; this.dver = d.version; return; }
         d.color.copy(s.color); d.roughness = s.roughness; d.metalness = s.metalness; d.envMap = s.envMap; d.envMapIntensity = s.envMapIntensity;
         if (d.emissive) { d.emissive.copy(s.emissive); d.emissiveIntensity = s.emissiveIntensity; }
         d.opacity = s.opacity; d.visible = s.visible;
