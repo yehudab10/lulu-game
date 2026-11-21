@@ -788,7 +788,7 @@ function trafficStep(dt) {
         const g = (F.s - c.s) * c.dir;
         if (g > 0 && g < 34 && Math.abs(c.d - F.d) < 1.8 && F.phase !== "intro") {
             if (c.data.footAttn) c.want = Math.min(c.want, Math.max(0, (g - 7) * 0.7));
-            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8); }
+            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8, { flavour: true }); }    // (the beep says it: colour, in the bubble budget)
         }
     }
     // cars come up from behind her (the built-in spawner only adds them ahead)
@@ -1363,7 +1363,8 @@ function updateAvigail(dt) {
         else c.p.face(F.pos.x, F.pos.z, dt, 3);
         c.p.update(dt, { walk: moved, talk: hasBubble(o) });
         c.sayNext -= dt;
-        if (c.sayNext <= 0) { c.sayNext = rand(4, 7); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
+        // (every 10–16 s: at 4–7 s she was most of a walk's pop-ups — the calm test's foot minute had 6 of her lines in 60 s)
+        if (c.sayNext <= 0) { c.sayNext = rand(10, 16); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
     }
 }
 
