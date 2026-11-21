@@ -112,7 +112,9 @@ module.exports = {
         sm.render = so; gl.drawElements = de; gl.drawArrays = da;
         return { on, off, info, bodyOff, frontCast: front.length > 0 && front.every(o => o.castShadow), backOn, handBack, rebaked, clouds: L3.ctx.world.clouds.children.length, bOn, bOff, bInfo }; })`);
     t.check("MEDIUM: Lulu's car body casts through ONE shadow proxy (its parts don't cast alone)", sp.info.active >= 1 && sp.bodyOff, JSON.stringify(sp));
-    t.check("…the steered front wheels still cast on their own", sp.frontCast, JSON.stringify(sp));
+    // (since ci/perf4 the steered front wheels, the steering wheel and her hair cast through the people's shadow batch — live
+    //  matrices, so they still steer / turn in the shadow — not through the baked proxy)
+    t.check("…the steered front wheels aren't baked into it: they cast through the moving parts' shadow batch", !sp.frontCast && sp.bInfo.parts > 0, JSON.stringify(sp));
     t.check("…the shadow pass draws fewer calls with the proxies than without", sp.on < sp.off, `${sp.on} vs ${sp.off}`);
     t.check("…turned off, every part casts again", sp.backOn, JSON.stringify(sp));
     t.check("…a part hidden mid-drive: the others cast on their own at once, then re-bake", sp.handBack && sp.rebaked, JSON.stringify(sp));

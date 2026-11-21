@@ -845,7 +845,7 @@ export class World {
         }
         const W = this.wires;
         if (n > W.cap) {
-            W.cap = Math.max(n, W.cap * 2, 4096);
+            W.cap = Math.ceil(Math.max(n, W.cap * 2, 4096) / 3) * 3;      // (whole points: a BufferAttribute counts length / 3)
             const a = new THREE.BufferAttribute(new Float32Array(W.cap), 3);
             a.setUsage(THREE.DynamicDrawUsage);
             W.geo.setAttribute("position", a);    // (a new attribute: three uploads it whole and frees the old buffer)
