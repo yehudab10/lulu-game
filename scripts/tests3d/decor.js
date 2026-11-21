@@ -12,7 +12,7 @@ const near = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
 module.exports = {
   name: "decor",
-  query: "&enable=world,foot",
+  query: "&enable=world,foot,phone",
   viewport: { width: 1280, height: 720 },
   save2d: { totalCoins: 1000, cruiseUnlocked: true, cruisePlayed: true, ownedSkins: ["pink"], selectedSkin: "pink" },
   async run(t) {
@@ -170,6 +170,16 @@ module.exports = {
     const Y4 = await g(`ctx.decor.debug.yard()`);
     t.check("the gnomes: three low pieces she can hop; the flamingo's collider is off", Y4.length === 3 && Y4.every(y => y.opt === "gnomes" && y.kind === "bench"), JSON.stringify(Y4));
     await g(`(ctx.decor.place("lawn", "flamingo"), true)`);
+    // ── 🏠 My house, inside 💬 Messages (no tenth app): what she's bought + how close each set is ──
+    await g(`(ctx.phone.openPhone("messages"), true)`);
+    await t.frames(6);
+    t.check("📱 Messages: a 🏠 My house row (with how many things)", await t.L(`(() => { const b = document.querySelector("#lpHouse"); return !!b && /My house/.test(b.textContent) && /things/.test(b.textContent); })()`));
+    await t.L(`document.querySelector("#lpHouse").click()`);
+    await t.frames(4);
+    const MH = await t.L(`document.querySelector(".lp-chat").textContent`);
+    t.check("…tap it: the sets with n/m, and the things she bought", /Pink Dream/.test(MH) && /Disco Night/.test(MH) && /\d\/\d/.test(MH) && /flamingo/i.test(MH), MH.slice(0, 200));
+    await g(`(ctx.phone.closePhone(), true)`);
+    await t.frames(4);
 
     // ── a set: Pink Dream noticed (never coins) ──
     const before = await coins();

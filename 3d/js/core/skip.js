@@ -93,7 +93,8 @@ export function canSkip(ignorePause = false) {
 }
 
 // ── the fast-forward ─────────────────────────────────────────────────────
-const S = { shown: false, hold: 0, armed: true, ff: null, glyph: "" };
+const S = { shown: false, hold: 0, armed: true, ff: null, glyph: "", fitN: 0 };
+const SKIP_AVOID = ["#hud .hud-tl .pill", "#hud .trip", "#tripLabel", "#slot-left > *", "#slot-center > *", "#slot-right > *"];
 
 export function skipNow() {
     if (S.ff || !canSkip()) return false;
@@ -153,8 +154,12 @@ export function skipInput(dt) {
     const can = canSkip();
     show(can);
     const def = ctx.states[ctx.state];
-    el.classList.toggle("lower", !!(def && def.hud));
-    if (!can) { S.hold = 0; $fill.style.width = "0"; return; }
+    const lower = !!(def && def.hud);
+    el.classList.toggle("lower", lower);
+    // over the driving / walking HUD it sits under ❚❚ / 📱 — and slides down the right edge, just far enough, off the
+    // trip bar + label, the pills and the feature chips it would cover there (a phone held upright, a tablet; ci/hudfit)
+    if (can && (S.fitN = (S.fitN || 0) + 1) % 6 === 1) H.keepClear(el, lower ? SKIP_AVOID : []);
+    if (!can) { S.hold = 0; $fill.style.width = "0"; S.fitN = 0; return; }
     const g = input.device === "gamepad" ? `hold ${glyph("back")}` : input.device === "keyboard" ? "hold ⌫" : "";
     if (g !== S.glyph) { S.glyph = g; $g.innerHTML = g; }      // glyph() is markup
     if (!input.backHeld) S.armed = true;

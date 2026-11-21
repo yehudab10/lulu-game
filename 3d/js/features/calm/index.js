@@ -25,11 +25,15 @@ function busy() {
 let pressT = -9;
 const pressedNow = () => { const P = input.pressed; if (P) for (const k in P) if (P[k]) return true; return false; };
 hook("update", () => { if (pressedNow()) pressT = ctx.time; }, 1000);
-const gate = { quiet: false, busy: false, chase: false, acted: false, call: false };
+// Lulu just said a line (banter): that IS the moment's pop-up — a flavour toast right after it is dropped (one pop-up per moment)
+let lineT = -9;
+on("banter:line", () => { lineT = ctx.time; });
+const gate = { quiet: false, busy: false, chase: false, acted: false, call: false, line: false };
 H.setCalmGate(() => {
     gate.quiet = quiet(); gate.busy = busy(); gate.chase = !!(ctx.law && ctx.law.chasing);
     gate.call = !!(ctx.phone && ctx.phone.active);              // a phone call's card is up
     gate.acted = pressedNow() || ctx.time - pressT < 1;
+    gate.line = ctx.time - lineT < 1.2;
     return gate;
 });
 
