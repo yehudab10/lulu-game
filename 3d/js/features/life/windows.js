@@ -67,7 +67,7 @@ export function panesOf(key) {
 
 // ── the town's panes ──────────────────────────────────────────────────────
 export const WN = { key: "", homesN: 0, retry: 0, houses: [], live: [], liveN: 0, scanT: 0, sx: 1e9, sz: 1e9, mesh: null, data: null, uTime: { value: 0 },
-    fullT: 0, drawn: 0, lit: 0, tv: 0, dark: 0, panes: 0, flips: 0, missing: 0 };
+    fullT: 0, blipT: 0, blips: 0, drawn: 0, lit: 0, tv: 0, dark: 0, panes: 0, flips: 0, missing: 0 };
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _e = new THREE.Euler();
 
 function buildHouses() {
@@ -214,6 +214,9 @@ export function tickWindows(dt) {
     const m = ensureMesh(), d = WN.data.array;
     const dusk = clamp((night - 0.03) / 0.25);         // the dark panes cover the town's glow as it comes up
     let lit = 0, tv = 0, dark = 0;
+    // ⛈️ a close thunderclap (storm.js): the lights flicker — the power nearly went
+    let bl = 1;
+    if (WN.blipT > 0) { WN.blipT -= dt; bl = Math.random() < 0.45 ? 0.12 : 0.75; }
     for (let i = 0; i < WN.liveN; i++) {
         const p = WN.live[i];
         const on = p.lit && night >= p.on && WN.fullT < p.bed;
@@ -221,8 +224,8 @@ export function tickWindows(dt) {
         p.k += ((on ? 1 : 0) - p.k) * Math.min(1, dt * (on ? 9 : 3));
         if ((before < 0.5) !== (p.k < 0.5)) WN.flips++;
         const o = i * 4;
-        d[o] = dusk * (1 - p.k) * 0.88 * p.fade;
-        d[o + 1] = p.k * p.fade;
+        d[o] = (dusk * (1 - p.k) + p.k * (1 - bl)) * 0.88 * p.fade;
+        d[o + 1] = p.k * p.fade * bl;
         d[o + 2] = 0;
         d[o + 3] = p.seed + (p.tv ? 1 : 0);
         if (p.k > 0.5) { lit++; if (p.tv) tv++; } else dark++;
@@ -232,6 +235,8 @@ export function tickWindows(dt) {
     WN.data.needsUpdate = true;
     WN.drawn = WN.liveN; WN.lit = lit; WN.tv = tv; WN.dark = dark;
 }
+/** A flicker of the lit windows for `sec` (storm.js: a close thunderclap). */
+export function blip(sec = 0.5) { WN.blipT = sec; WN.blips++; }
 export function windowsHide() {
     if (WN.mesh && WN.mesh.visible) { WN.mesh.visible = false; WN.mesh.count = 0; }
     WN.drawn = 0; WN.sx = WN.sz = 1e9;
@@ -242,7 +247,7 @@ export function windowsClear() {
 }
 export function windowInfo() {
     return { houses: WN.houses.length, panes: WN.panes, drawn: WN.drawn, lit: WN.lit, tv: WN.tv, dark: WN.dark, flips: WN.flips, fullT: +WN.fullT.toFixed(1),
-        visible: !!(WN.mesh && WN.mesh.visible), models: [...PANES.entries()].map(([k, v]) => k + ":" + (v ? v.length : "?")) };
+        visible: !!(WN.mesh && WN.mesh.visible), blips: WN.blips, models: [...PANES.entries()].map(([k, v]) => k + ":" + (v ? v.length : "?")) };
 }
 /** Tests: the nearest house with panes → {x, z (its lot line), nx, nz (out to the street), cx, cz (the model), n} | null. */
 export function nearestHouse() {

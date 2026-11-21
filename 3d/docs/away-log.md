@@ -10,7 +10,8 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   exhaust steams while it waits at a light; at dawn a low mist lies over the town and burns off as the sun comes up. Fumble a
   hotwire and the car alarm goes off for real now — hazard lights, the WHOOP-WHOOP, and the owner yelling "Young lady! That is
   NOT your car!". And the radio DJs notice the weather: when it starts raining (or snowing, or foggy) or the sun sets, the next
-  thing the DJ says is about that. No new pop-ups; the sounds follow ⚙️ 🐦 Street sounds.
+  thing the DJ says is about that. In a thunderstorm in town the dogs start barking after a big clap and the lit windows
+  flicker for a moment, like the power nearly went. No new pop-ups; the sounds follow ⚙️ 🐦 Street sounds.
 - 2026-11-21 17:15 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
   walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
   title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the

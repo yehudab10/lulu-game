@@ -6,6 +6,7 @@
 //   • 🌫️ dawn in town: low mist banks around her; noon → none
 //   • 🚨 a fumbled hotwire on a parked car in town: the alarm goes off (hazards blink, the tail plays)
 //   • 📻 the radio's DJ mentions the rain (a talking station; hustle's topical hook)
+//   • ⛈️ a close thunderclap in town: the lit windows flicker, dogs bark, Lulu jumps (atmos' atmos:thunder)
 //   • nothing on the title; the walk had no glitches (QA watchdog)
 //   • PERF: Lakewood at night on foot — round 3 adds ≤ 1 mesh (the panes; breath + mist ride the puffs mesh)
 const W = require("../lib/qawatch.js");
@@ -212,6 +213,27 @@ module.exports = {
       const I = await info();
       t.check("a cold day: the car's tailpipe steams while it idles", I.breath.exhaust - e0 >= 8, JSON.stringify(I.breath));
       await t.shot("tailpipe");
+    });
+
+    // ── 6. after the thunder: dogs bark, the lit windows flicker (atmos' atmos:thunder) ──
+    await step("storm", async () => {
+      if (!await g(`ctx.town.active`)) return;
+      if (!await onFoot()) return;
+      await clock("night");
+      await g(`(${D}.WN.fullT = 0, ${D}.lineReady(), true)`);
+      const h = await g(`${D}.house()`);
+      if (h) await standAt(h.x + h.nx * 11, h.z + h.nz * 11, { x: h.cx, z: h.cz, pitch: 0.05 });
+      await t.frames(30);
+      const s0 = (await info()).storm;
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("atmos:thunder", { near: 0.9 }))`);
+      await t.frames(8);
+      const w = (await info()).windows;
+      await t.shot("thunder-flicker");
+      await t.frames(150);
+      const S = (await info()).storm;
+      t.check("a close thunderclap in town: the lit windows flicker", S.blips > s0.blips && w.blips > 0, JSON.stringify({ S, blips: w.blips }));
+      t.check("…and the dogs on the block start barking", S.dogs >= s0.dogs + 2 || !(await g(`ctx.life.sounds`)), JSON.stringify(S));
+      t.check("…and Lulu jumps (her bubble, once)", S.eeks > s0.eeks, JSON.stringify(S));
     });
 
     // ── 7. the walk had no glitches ──

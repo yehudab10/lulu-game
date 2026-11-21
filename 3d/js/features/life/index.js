@@ -22,6 +22,7 @@
 //      a cold day, low dawn mist over the town that burns off with the sun
 //   🚨 a fumbled hotwire sets the car alarm off (alarm.js, foot's `foot:hotwireFail`) — the hazards, the alarm, the owner
 //   📻 the radio's DJ notices the weather + the sunset (radio.js, through hustle's topical hook)
+//   ⛈️ after the thunder (storm.js, atmos' `atmos:thunder`): the dogs bark, the lit windows flicker, Lulu jumps
 //
 // Everything is local + cosmetic (fine in a 🎉 party; the sites are hashed from the town's plan, so friends see the
 // same puddles and piles). The seasons follow the device's date (`?lifeSeason=autumn|spring|summer|winter` to preview).
@@ -44,6 +45,7 @@ import { tickAlarm, alarmClear, alarmInfo, ALARM } from "./alarm.js";
 import { tickFriendSteps, friendStepInfo, fakeParty } from "./friends.js";
 import { tickWindows, windowsHide, windowsClear, windowInfo, nearestPane, nearestHouse, WIN, WN } from "./windows.js";
 import { tickRadio, radioInfo, radioOffer } from "./radio.js";
+import { tickStorm, stormClear, stormInfo } from "./storm.js";
 import { tickBreath, breathClear, breathInfo, setMistPin, BREATH, BR } from "./breath.js";
 
 let lastT = -1, seasonT = 0, wasOn = false, off = false;
@@ -96,6 +98,7 @@ function tick(dt) {
     try { tickFriendSteps(L.dt); } catch (e) { console.error("[life] friends", e); }
     try { tickWindows(L.dt); } catch (e) { console.error("[life] windows", e); }
     try { tickRadio(); } catch (e) { console.error("[life] radio", e); }
+    try { tickStorm(); } catch (e) { console.error("[life] storm", e); }
     const ms = performance.now() - t0;
     stats.ms = stats.ms * 0.95 + ms * 0.05; stats.maxMs = Math.max(stats.maxMs, ms); stats.ticks++;
 }
@@ -104,7 +107,7 @@ hook("hud", dt => tick(dt));
 hook("update", dt => { const def = ctx.states[ctx.state]; if (!def || !def.hud) tick(dt); }, -62);
 
 on("foot:land", () => { if (ctx.enabled("life") && L.on) try { landed(); } catch (e) { /* cosmetic */ } });
-on("run:start", () => { windClear(); ambienceStop(); WS.said.clear(); alarmClear(); PU.smelled.clear(); breathClear(); });
+on("run:start", () => { windClear(); ambienceStop(); WS.said.clear(); alarmClear(); PU.smelled.clear(); breathClear(); stormClear(); });
 on("town:leave", () => { windClear(); clearSites(); puffsClear(); pigeonsClear(); alarmClear(); windowsClear(); });
 on("town:enter", () => { windClear(); WS.gustT = Math.min(WS.gustT, 10); });
 on("state", ({ to } = {}) => {
@@ -134,7 +137,7 @@ ctx.life = {
             sounds: soundsOn(), steps: Object.assign({ n: stats.steps, kinds: Object.assign({}, stats.stepKinds) }, stepInfo()),
             puddles: puddleInfo(), wind: windInfo(), ambience: ambienceInfo(),
             splashes: stats.splashes, carSplashes: stats.carSplashes, soaked: stats.soaked, flyersRead: stats.read, pilesKicked: stats.kicked,
-            puffs: puffInfo(), pigeons: pigeonInfo(), alarm: alarmInfo(), friends: friendStepInfo(), windows: windowInfo(), breath: breathInfo(), radio: radioInfo(), lines: LINE.said };
+            puffs: puffInfo(), pigeons: pigeonInfo(), alarm: alarmInfo(), friends: friendStepInfo(), windows: windowInfo(), breath: breathInfo(), radio: radioInfo(), storm: stormInfo(), lines: LINE.said };
     },
     debug: {
         stats, L, WIND, SOUND_KINDS, PUFF, PIG, PG, ALARM, LINE, WIN, WN, BREATH, BR,
