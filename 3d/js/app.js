@@ -231,6 +231,7 @@ function present(dt) {
     if (v) (post || renderer).render(v.scene, v.camera);
     else {
         updateLods(camera);
+        runHooks("prerender", dt, camera);   // (features that pack what's in view right before the draw: atmos' street lamps)
         gfxFrame(dt, camera);           // contact shadows, wind, reflections, exposure (core/gfx.js)
         // LOW pulls the fog in to match its shorter draw distance (whoever set the fog this frame keeps their numbers)
         const fog = scene.fog, k = gfx.T.draw;
