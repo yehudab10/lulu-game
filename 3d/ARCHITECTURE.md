@@ -1341,7 +1341,11 @@ knocks find nobody; every friend left is owed the new name (`nb`), handed over i
 12 curated ones + `#NN` from the id (many players share a name), never free text. **Phone:** the 👯 Friends app (outside a
 party's Free Roam; inside one, openworld's 👯 has "📇 My friends list" → the same views) — playing now (▶ Join / with you) ·
 not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). 👯 is order 23 (after 💬 Messages + 📞 Phone); with it the phone is exactly 9 apps solo (🗞️ Kvetch moved to a pinned row in 💬 Messages) — the grid still goes four across past 9 so a 10th never falls off, but keep it one 3 × 3 screen. **Cost:** nothing without friends; with friends one idle
-socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. Test: `scripts/tests3d/friends.js` (add from Nearby, no
+socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. **`ctx.group`** (`group.js`, stage 2 step 1): "with
+friends" as a GROUP you're in — today it IS the party (`active`, `roaming` = in 🌍 Free Roam, `members` [{ uid, name, me,
+friend }], `size`, `leave()`, `invite()`, `isFriend(uid)`; event `group:status`). **Read `ctx.group.active` instead of
+`ctx.party.active`** when you mean "with friends" — the party can then dissolve into the world (§7 › Friends STAGE 2)
+without touching your feature again. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).
