@@ -68,7 +68,11 @@ module.exports = {
     const press = async (doneCode, n = 6) => { for (let i = 0; i < n && !await g(doneCode); i++) { await t.tap(0); await t.frames(3); } return g(doneCode); };
     const resetLaw = () => g(`(() => { const L = ctx.law._dbg.L; if (L.chase) ctx.law.standDown("test"); L.sus = 0; L.grace = 0; L.hold = 0; L.bolo = null; ${C}.CR.sus = {}; if (ctx.foot.active && ctx.foot.chasing) ctx.foot.dropChase(); return true; })()`);
     const parkHere = () => g(`(() => { const sts = ctx.town.plan.STREETS.filter(s => s.parkLane && s.cross.length > 1 && !s.oneway); let best = null;
-        for (const s of sts) for (let k = 0; k < s.cross.length - 1; k++) { const len = s.cross[k + 1].a - s.cross[k].a; if (!best || len > best.len) best = { s, a: (s.cross[k].a + s.cross[k + 1].a) / 2 + 8, len }; }
+        const jam = new Set((ctx.town.def.jams || []).map(j => j.street)), r0 = ctx.world.road;
+          for (const s of sts) for (let k = 0; k < s.cross.length - 1; k++) { const len = s.cross[k + 1].a - s.cross[k].a, a = (s.cross[k].a + s.cross[k + 1].a) / 2 + 8;
+            if (jam.has(s.name) || len < 40) continue;
+            const q = r0.point(s.base + a, 3.5 * s.lanes - 1.75, {}); if (ctx.traffic.cars.some(c => Math.hypot(c.x - q.x, c.z - q.z) < 12)) continue;
+            if (!best || len > best.len) best = { s, a, len }; }
         const st = best.s, r = ctx.world.road, d = 3.5 * st.lanes - 1.75, p = r.point(st.base + best.a, d, {});
         const n = r.nearest(p.x, p.z, st.base + best.a, {}), car = ctx.car;
         car.place(p.x, p.z, n.h); car.vx = car.vz = 0; car.s = n.s; car.d = n.d; ctx.cam.snap(); return true; })()`);

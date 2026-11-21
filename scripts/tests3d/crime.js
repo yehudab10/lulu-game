@@ -39,7 +39,10 @@ module.exports = {
       await g(`(ctx.town.load(${JSON.stringify(id)}), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded(${JSON.stringify(id)})`, `${id}'s models load`, 90000)) return false;
       await g(`ctx.town.enter({ town: ${JSON.stringify(id)}, speed: 0 })`);
-      return t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.crime.active`, `in ${id} with crime on`, 8000);
+      const ok = await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.crime.active`, `in ${id} with crime on`, 8000);
+      await t.frames(30);
+      await W.reset(t);       // (a town switch is a declared cut: watch from here)
+      return ok;
     };
     const resetLaw = () => g(`(() => { const L = ctx.law._dbg.L; if (L.chase) ctx.law.standDown("test"); L.sus = 0; L.grace = 0; L.hold = 0; ${C}.CR.sus = {}; if (ctx.foot.active && ctx.foot.chasing) ctx.foot.dropChase(); return true; })()`);
     // on foot at (x, z) — she climbs out where her car stands, then is put there
@@ -55,6 +58,7 @@ module.exports = {
     const promptText = () => t.L(`(() => { const e = document.querySelector("#prompt") || document.querySelector(".prompt"); return e ? e.textContent : ""; })()`);
 
     await W.install(t);
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__arrests = []; m.on("law:arrest", e => __arrests.push((e && e.charges || []).slice())); })`);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "a cruise starts", 9000)) return;
 
@@ -104,7 +108,7 @@ module.exports = {
       await g(`(${C}.CR.force.cop = null, true)`);
       // caught: stand still → arrested with the charge
       await t.until(`["lawArrest", "placesArrive", "lawJail"].includes(__lulu3d.state)`, "caught by the cop", 60000);
-      const ar = await g(`(ctx.law._dbg.log.filter(e => e.ev === "law:arrest").slice(-1)[0] || {}).charges || []`);
+      const ar = (await t.L(`window.__arrests.slice(-1)[0] || []`));
       t.check("arrested for GRAND THEFT SHOPPING CART", ar.some(c => /SHOPPING CART/.test(c)), JSON.stringify(ar));
       // …and the court: the charge's own moment plays
       const D = "ctx.law._dbg";
@@ -182,7 +186,11 @@ module.exports = {
     const parkHere = async () => {
       // the outside travel lane of a long block, mid-block, a town driver 20 m behind in the same lane
       return g(`(() => { const sts = ctx.town.plan.STREETS.filter(s => s.parkLane && s.cross.length > 1 && !s.oneway); let best = null;
-          for (const s of sts) for (let k = 0; k < s.cross.length - 1; k++) { const len = s.cross[k + 1].a - s.cross[k].a; if (!best || len > best.len) best = { s, a: (s.cross[k].a + s.cross[k + 1].a) / 2 + 8, len }; }
+          const jam = new Set((ctx.town.def.jams || []).map(j => j.street)), r0 = ctx.world.road;
+          for (const s of sts) for (let k = 0; k < s.cross.length - 1; k++) { const len = s.cross[k + 1].a - s.cross[k].a, a = (s.cross[k].a + s.cross[k + 1].a) / 2 + 8;
+            if (jam.has(s.name) || len < 40) continue;
+            const q = r0.point(s.base + a, 3.5 * s.lanes - 1.75, {}); if (ctx.traffic.cars.some(c => Math.hypot(c.x - q.x, c.z - q.z) < 12)) continue;
+            if (!best || len > best.len) best = { s, a, len }; }
           if (!best) return null;
           const st = best.s, r = ctx.world.road, d = 3.5 * st.lanes - 1.75, p = r.point(st.base + best.a, d, {});
           const n = r.nearest(p.x, p.z, st.base + best.a, {}), car = ctx.car;
@@ -197,13 +205,13 @@ module.exports = {
       const P = await parkHere();
       t.check("stopped double-parked mid-block", !!P);
       if (!P) return;
-      await t.until(`${CU}.PARK.shown`, "the double-park prompt", 4000);
+      if (!await t.until(`${CU}.PARK.shown`, "the double-park prompt", 4000)) console.log("    park why:", await g(`${C}.PARK.why + " speed " + ctx.car.speed.toFixed(2) + " foot " + !!ctx.foot.active + " chase " + ctx.law.chasing + " st " + L3.state + " live " + ctx.crime.active`));
       const pr = await promptText();
       t.check("the prompt offers to double-park", /Double-park/i.test(pr), pr);
       for (let i = 0; i < 6 && !await g(`!!${C}.PARK.on`); i++) { await t.tap(0); await t.frames(3); }
       t.check("✕ → hazards on, 'one second'", await g(`!!${C}.PARK.on`));
       // a town driver comes up behind her and has to wait
-      await g(`(() => { const r = ctx.world.road, q = r.point(${P.base} + ${P.a} - 22, ${P.d}, {}); return !!ctx.town.addDriver("minivan", { at: { x: q.x, z: q.z, dir: 1 }, speed: 5 }); })()`);
+      await g(`(() => { const r = ctx.world.road, q = r.point(${P.base} + ${P.a} - 22, ${P.d}, {}); return !!ctx.town.addDriver("town_van", { at: { x: q.x, z: q.z, dir: 1 }, speed: 5 }); })()`);
       await t.until(`${CU}.PARK.on && ${CU}.PARK.on.honks.size >= 1`, "a car stuck behind her honks", 15000);
       const honks = await g(`${C}.PARK.on ? ${C}.PARK.on.honks.size : 0`);
       t.check(`a town driver queues up behind her and honks (${honks})`, honks >= 1);

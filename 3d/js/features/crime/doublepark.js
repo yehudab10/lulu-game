@@ -38,7 +38,9 @@ export function parkTick(dt, P) {
     const ok = ctx.state === "playing" && live() && !(ctx.law && ctx.law.chasing) && !(ctx.foot && ctx.foot.active);
     // (act on the prompt that was showing BEFORE this press: ✕ is the gas too)
     if (PARK.shown && P && P.interact && ok) { H.prompt(""); PARK.shown = false; start(); return; }
-    PARK.stillT = ok && car.speed < 0.5 && doubleParked() ? PARK.stillT + dt : 0;
+    const dp = ok && car.speed < 0.5 ? doubleParked() : null;
+    PARK.why = !ok ? "state" : car.speed >= 0.5 ? "moving" : !dp ? "not double-parked" : "";
+    PARK.stillT = dp ? PARK.stillT + dt : 0;
     const show = PARK.stillT > K.stopFor;
     if (show && !PARK.shown) H.prompt(`${glyph("interact")} ${LINES.park.prompt}`);
     else if (!show && PARK.shown) H.prompt("");

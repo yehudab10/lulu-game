@@ -67,6 +67,7 @@ module.exports = {
     const press = async (doneCode, n = 6) => { for (let i = 0; i < n && !await g(doneCode); i++) { await t.tap(0); await t.frames(3); } return g(doneCode); };
 
     await W.install(t);
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__porch = []; m.on("crime:porch", e => __porch.push(e)); })`);
     if (!await town("lakewood")) return;
     await g(`(${C}.CR.force.cop = false, ${C}.SAVE.paid = {}, ${C}.SAVE.mem = {}, ${C}.SAVE.day = ${C}.today(), true)`);
 
@@ -167,7 +168,7 @@ module.exports = {
       await t.frames(3);
       t.check("✋ RETURN at the family's door", await press(`${O}.PORCH.E && ${O}.PORCH.E.phase === "done"`));
       t.check(`the family's thanks: +6 (${c0} → ${await coins()})`, (await coins()) - c0 === 6);
-      t.check("…and they remember who brought it back", await g(`(${O}.famMem(ctx.homes.homes()[${D.i}].key) || {}).back === 1`));
+      t.check("…and the household hears who brought it back (crime:porch → features/homes)", (await t.L(`window.__porch.some(e => e.phase === "back")`)));
       await g(`${O}.dropPorch()`);
       // 📞 Shomrim
       await stand(22);

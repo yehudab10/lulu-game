@@ -10,7 +10,7 @@
 //   📦 KEEP IT (walk off with the box / get in a car with it): she opens it (+PAY.porch.keep, ≤ keepPerDay) — but the
 //      family's doorbell camera saw: law.callIn("PORCH PACKAGE THEFT") and the family remembers THAT.
 import * as THREE from "three";
-import { ctx } from "../../core/ctx.js";
+import { ctx, emit } from "../../core/ctx.js";
 import { CR, SAVE, PAY, TUNE, LINES, dirty, log, stat, pick, fill, lulu, bubble, mustSee, bakeBoxes, need, person, drop, payCapped,
     walking, onFoot, live, chasing, luluPos } from "./common.js";
 import { CHARGES } from "./data.js";
@@ -20,15 +20,26 @@ const K = TUNE.porch, M = LINES.porch;
 export const PORCH = { E: null, nextT: K.firstAfter, n: 0, geos: [], spotRm: [], anchors: [] };
 const tmp = {};
 
-/** The family's name for lines ("the Goldbergs"). */
-const famOf = h => `${h.name || "Katz"}s`;
+/** The household at a door — ci/homelife's stable id + family name when it's there (ctx.homes.householdAt), else the door's
+ *  own key (which can shift when a house becomes a landmark: then nothing is SAVED under it, only features/memory's log). */
+function household(h) {
+    let hh = null;
+    try { hh = ctx.homes.householdAt ? ctx.homes.householdAt(h.ap.x, h.ap.z, 3) : null; } catch (e) { hh = null; }
+    return { id: hh && hh.id ? hh.id : null, fam: hh && hh.family ? hh.family.replace(/^the /i, "") : `${h.name || "Katz"}s` };
+}
+const famOf = h => household(h).fam;
+const livedIn = h => { try { const id = household(h).id; return !(id && ctx.homes.livedIn && ctx.homes.livedIn(id) === false); } catch (e) { return true; } };
 export function famMem(key) { return SAVE.mem["fam:" + key] || null; }
 function famRemember(h, what) {
-    const k = "fam:" + h.key, m = SAVE.mem[k] || (SAVE.mem[k] = { name: h.name, back: 0, kept: 0 });
-    m[what] = (m[what] || 0) + 1;
-    dirty();
-    try { if (ctx.memory && ctx.memory.remember) ctx.memory.remember("crime", { who: "family", fam: h.name, key: h.key, did: what, town: CR.town }); } catch (e) { /* no memory */ }
-    try { if (ctx.homes && ctx.homes.remember) ctx.homes.remember(h.key, what === "back" ? "packageBack" : "packageKept"); } catch (e) { /* homes' own memory (ci/homelife) */ }
+    const hh = household(h);
+    if (hh.id) {
+        const k = "fam:" + hh.id, m = SAVE.mem[k] || (SAVE.mem[k] = { name: h.name, back: 0, kept: 0 });
+        m[what] = (m[what] || 0) + 1;
+        dirty();
+    }
+    try { if (ctx.memory && ctx.memory.remember) ctx.memory.remember("crime", { who: "family", fam: h.name, id: hh.id, did: what, town: CR.town }); } catch (e) { /* no memory */ }
+    // (ci/homelife makes the household remember it: "did you SEE who took my package?!")
+    emit("crime:porch", { id: hh.id || h.key, fam: hh.fam, phase: what });
 }
 
 export function porchReset() { dropPorch(); PORCH.nextT = K.firstAfter; PORCH.n = 0; }
@@ -68,7 +79,7 @@ function makeBox() {
 export async function spawn(opts = {}) {
     if (PORCH.E || !ctx.homes || !ctx.homes.homes) return false;
     const lp = luluPos();
-    const doors = ctx.homes.homes().filter(h => { const d = Math.hypot(h.ap.x - lp.x, h.ap.z - lp.z); return d > K.doorMin && d < K.doorMax; });
+    const doors = ctx.homes.homes().filter(h => { const d = Math.hypot(h.ap.x - lp.x, h.ap.z - lp.z); return d > K.doorMin && d < K.doorMax && livedIn(h); });
     const h = opts.i != null ? ctx.homes.homes().find(x => x.i === opts.i) : doors[Math.floor(Math.random() * doors.length)];
     if (!h) { log("porch", { phase: "noDoor" }); return false; }
     PORCH.E = { loading: true };
@@ -177,6 +188,7 @@ export function tackle(by = "lulu") {
 function gone(E) {
     if (E.result) return;
     E.result = "gone"; E.phase = "gone";
+    { const hh = household(E.home); emit("crime:porch", { id: hh.id || E.home.key, fam: hh.fam, phase: "gone" }); }
     if (E.p) { drop(E.p.obj); E.p = null; }
     log("porch", { phase: "gone" });
     const G = ctx.town && ctx.town.def && ctx.town.def.lines && ctx.town.def.lines.GROUP;
@@ -197,7 +209,7 @@ function giveBack() {
     drop(E.box);
     E.box.position.set(E.home.door.x, 0, E.home.door.z);
     ctx.scene.add(E.box);
-    const m = famMem(E.home.key);
+    const m = famMem(household(E.home).id);
     bubble(m && m.back ? pick(M.again) : pick(M.thanks), E.anchor, { y: 0.2, cls: "nice", dur: 3 });
     famRemember(E.home, "back");
     stat("crimePackagesBack");
