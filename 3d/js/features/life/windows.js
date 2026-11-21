@@ -3,7 +3,7 @@
 // away). Up close that reads like a switch. So, over the houses near her, life lays its own pane on each front window:
 //   · a house's rooms light up ONE BY ONE as it gets dark (each house has its own moment, each room a beat after the
 //     last) — until then its glass stays dusky, the sky's last light in it
-//   · a lit room is a warm lamp-in-the-middle glow, some with the curtains half drawn
+//   · a lit room is a warm lamp-in-the-middle glow (our colour over the town's — no blown-out white squares), some with the curtains half drawn
 //   · in ~1 house in 9 a ground-floor room is lit by the TV instead: a cool blue flicker
 //   · late at night some of them go dark again (bedtime), and at dawn the rest switch off one by one
 // Houses the town left dark (nobody home — town/build.js `dark`) stay dark. Beyond ~110 m the town's own glow takes
@@ -128,10 +128,10 @@ void main() {
     // a lit room: a lamp's warm pool in the middle, the curtains half drawn on some
     float curt = step(0.55, fract(seed * 7.31)) * smoothstep(0.30, 0.46, abs(c.x));
     float lamp = clamp(1.0 - 1.1 * length(c * vec2(1.2, 1.0) - vec2(0.0, -0.08)), 0.0, 1.0);
-    vec3 room = mix(vec3(0.95, 0.42, 0.12), vec3(1.0, 0.78, 0.42), lamp) * (1.0 - curt * 0.6);
+    vec3 room = mix(vec3(0.42, 0.16, 0.04), vec3(0.95, 0.56, 0.22), lamp) * (1.0 - curt * 0.55);
     // the TV: a cool blue, flickering with the cuts
     float f = 0.55 + 0.25 * sin(uTime * 9.0 + seed * 40.0) + 0.2 * step(0.5, fract(uTime * 0.7 + seed * 3.0));
-    vec3 tvc = vec3(0.25, 0.42, 1.0) * f * (0.6 + 0.4 * lamp);
+    vec3 tvc = vec3(0.10, 0.22, 0.75) * f * (0.55 + 0.45 * lamp);
     room = mix(room, tvc, tv);
     // an unlit pane at dusk: deep blue glass with the sky's last light in its top
     vec3 dusk = mix(vec3(0.015, 0.02, 0.04), vec3(0.06, 0.07, 0.12), smoothstep(-0.5, 0.5, c.y));
@@ -144,9 +144,11 @@ void main() {
   #endif
 #endif
     float k = 1.0 - fogF;
-    gl_FragColor = vec4(dusk * cover + room * lit * 1.25, 1.0);
+    // (both cover the town's own glow — premultiplied, so the pane's colour is exactly ours)
+    float a = cover + lit * 0.94;
+    gl_FragColor = vec4(dusk * cover + room * lit * 0.94, 1.0);
     #include <colorspace_fragment>
-    gl_FragColor = vec4(gl_FragColor.rgb * k, cover * k);     // premultiplied: a dark pane covers, a lit one adds
+    gl_FragColor = vec4(gl_FragColor.rgb * k, a * k);
 }`;
 function ensureMesh() {
     if (WN.mesh) return WN.mesh;
@@ -205,7 +207,7 @@ function pick() {
 export function tickWindows(dt) {
     const night = L.night;
     const want = L.on && L.town && night > 0.03 && buildHouses();
-    if (!want) { windowsHide(); return; }
+    if (!want) { if (night < 0.6) WN.fullT = 0; windowsHide(); return; }      // (a new evening: bedtime starts over)
     WN.fullT = night > 0.97 ? WN.fullT + dt : night < 0.6 ? 0 : WN.fullT;
     WN.scanT -= dt;
     if (WN.scanT <= 0 || Math.abs(L.x - WN.sx) + Math.abs(L.z - WN.sz) > 8) { WN.scanT = 0.5; WN.sx = L.x; WN.sz = L.z; pick(); }

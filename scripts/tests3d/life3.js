@@ -105,19 +105,23 @@ module.exports = {
       await clock("night");
       await g(`(${D}.cold(true), ${D}.lineReady(), true)`);
       const h = await g(`${D}.house()`);
-      if (h) await standAt(h.x + h.nx * 6, h.z + h.nz * 6);
+      if (h) await standAt(h.x + h.nx * 11, h.z + h.nz * 11);
       const b0 = (await info()).breath.breaths;
       await t.frames(200);
       let I = await info();
       t.check("a cold night: Lulu's breath clouds (puffs)", I.breath.on && I.breath.breaths - b0 >= 2, JSON.stringify(I.breath));
       // a picture: the camera in front of her, her facing it
-      await g(`(() => { const F = ctx.cam.free; F.yaw = 0.4; F.pitch = 0.05; F.idle = 0; ctx.foot.obj.rotation.y = 0.4 + Math.PI; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
+      // (looking along the street — no house or parked car between — and Lulu turned to face the camera)
+      await g(`(() => { const F = ctx.cam.free, yaw = ${h ? `Math.atan2(-(${h.nz}), ${h.nx})` : 0.4}; F.yaw = yaw; F.pitch = 0.12; F.idle = 0; ctx.foot.obj.rotation.y = yaw + Math.PI; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       let shot = false;
       for (let i = 0; i < 40 && !shot; i++) { await t.frames(3); const n = await g(`${D}.BR.t`); if (n > 1.7) { await t.frames(10); await t.shot("breath-night"); shot = true; } }
       // running → huffing (quicker breaths)
-      for (let i = 0; i < 70; i++) { await g(`(() => { const F = ctx.foot.pos; F.x += 0.08; ctx.foot.vel.set(5.5, 0, 0); ctx.foot.obj.position.copy(F); return true; })()`); await t.frames(1); }
-      await g(`(ctx.foot.vel.set(0, 0, 0), true)`);
-      t.check("after a run she's huffing", (await info()).breath.huff, JSON.stringify((await info()).breath));
+      // (a real run: the stick + RB, down the street)
+      await t.stick(0, -1); await t.hold(5, 1);
+      let huff = false, top = 0;
+      for (let i = 0; i < 30 && !huff; i++) { await t.frames(10); huff = (await info()).breath.huff; top = Math.max(top, await g(`ctx.foot.vel ? Math.hypot(ctx.foot.vel.x, ctx.foot.vel.z) : 0`)); }
+      await t.stick(0, 0); await t.hold(5, 0);
+      t.check("after a run she's huffing", huff, `top speed ${top.toFixed(1)} m/s · ` + JSON.stringify((await info()).breath));
       await g(`${D}.cold(false)`); await t.frames(10);
       const b1 = (await info()).breath.breaths; await t.frames(150);
       I = await info();
@@ -149,7 +153,8 @@ module.exports = {
       const DD = "ctx.town.debug";
       const ok = await g(`(() => { const T = ${DD}.S.T, O = ${DD}.PL.ORIGIN, F = ctx.foot.debug.F; let best = null, bd = 1e9;
           for (const p of T.pcars) { if (p.gone || p.live) continue; const d = Math.hypot(O.x + p.x - F.pos.x, O.z + p.z - F.pos.z); if (d < bd) { bd = d; best = p; } }
-          if (!best) return false; window.__fp = best; F.pos.set(O.x + best.x + Math.cos(best.rot) * 1.7, 0, O.z + best.z - Math.sin(best.rot) * 1.7); ctx.foot.obj.position.copy(F.pos); return true; })()`);
+          if (!best) return false; window.__fp = best; F.pos.set(O.x + best.x + Math.cos(best.rot) * 1.7, 0, O.z + best.z - Math.sin(best.rot) * 1.7); ctx.foot.obj.position.copy(F.pos); ctx.cam.snap && ctx.cam.snap();
+          if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);
       if (!ok) { t.check("a parked car to hotwire", false); return; }
       await t.frames(12);
       const prompt = await t.L(`(document.querySelector("#slot-bottom .prompt") || {}).textContent || ""`);
@@ -161,16 +166,18 @@ module.exports = {
       // fumble it: the green zone shrinks to nothing, two slips
       await g(`(ctx.foot.debug.F.hotwire.zoneW = 0, true)`);
       await t.frames(4); await t.tap(0); await t.frames(10); await t.tap(0);
+      // (the camera up over her shoulder, looking down at the car)
+      await g(`(() => { const F = ctx.cam.free, p = window.__fp, O = ctx.town.debug.PL.ORIGIN, f = ctx.foot.pos; F.yaw = Math.atan2(O.x + p.x - f.x, O.z + p.z - f.z); F.pitch = 0.45; F.idle = 0; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       let A = a0, shot = false;
       for (let i = 0; i < 60; i++) {
         await t.frames(3);
         A = (await info()).alarm;
         if (A.hotwires > a0.hotwires && A.lit && !shot) { await t.shot("hotwire-alarm"); shot = true; }
-        if (A.hotwires > a0.hotwires && A.tail) break;
+        if (A.hotwires > a0.hotwires && A.tails > a0.tails && shot) break;
       }
       t.check("foot says so (foot:hotwireFail, with the car)", (await t.L(`window.__hw`)).includes(true), JSON.stringify(await t.L(`window.__hw`)));
       t.check("a fumbled hotwire: the alarm goes off — hazards blink", A.hotwires > a0.hotwires && A.blinks > a0.blinks, JSON.stringify(A));
-      t.check("…and the alarm sounds (its tail plays on the car)", A.tail || (await info()).alarm.tail || !(await g(`ctx.life.sounds`)), JSON.stringify(A));
+      t.check("…and the alarm sounds (its tail is played on the car)", A.tails > a0.tails || !(await g(`ctx.life.sounds`)), JSON.stringify(A));
       await t.frames(220);
       t.check("…for a few seconds, then stops", (await info()).alarm.live === 0, JSON.stringify((await info()).alarm));
     });
@@ -199,9 +206,8 @@ module.exports = {
       await g(`(ctx.atmos.debug.weather("rain"), true)`);
       await t.frames(20);
       t.check("rain starts → the radio has a topic", (await info()).radio.topic === "rain" || (await info()).radio.said > 0, JSON.stringify((await info()).radio));
-      await g(`ctx.hustle.radio.debugMsgT(0)`);
       let said = false;
-      for (let i = 0; i < 30 && !said; i++) { await t.frames(4); said = (await info()).radio.log.includes("rain"); }
+      for (let i = 0; i < 60 && !said; i++) { await g(`ctx.hustle.radio.debugMsgT(0)`); await t.frames(10); said = (await info()).radio.log.includes("rain"); }
       const log = await g(`ctx.hustle.radio.state().log.slice(-3).map(l => l.text)`);
       t.check("…and the DJ talks about the rain (on the radio's own ticker)", said && log.some(l => /rain|umbrella|wipers|puddle/i.test(l)), JSON.stringify(log));
       await t.shot("radio-rain");

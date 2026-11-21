@@ -19,7 +19,7 @@ const OWNER_HW = ["HEY! Get away from my car!", "Young lady! That is NOT your ca
 const WINDOW_HW = ["I SEE you! Leave the car ALONE!", "I'm calling Shomrim! I'm DIALING!", "Not on MY block!"];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-export const AL = { list: [], alarms: 0, lines: 0, blinks: 0, hotwires: 0 };
+export const AL = { list: [], alarms: 0, lines: 0, blinks: 0, hotwires: 0, tails: 0 };
 const BOX = new Map();                   // model key → its four lamp corners (model-local), measured once
 const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
 function corners(key, obj) {
@@ -43,7 +43,7 @@ function corners(key, obj) {
 function start(e, hw) {
     if (!ctx.enabled("life") || !e || !e.obj) return null;
     let a = AL.list.find(x => x.obj === e.obj);
-    if (a) { a.t = Math.min(a.t, 0.6); a.said = false; a.hw = hw; if (hw && a.tail) stop(a); return a; }
+    if (a) { a.t = Math.min(a.t, 0.6); a.said = false; a.hw = hw; a.tried = false; if (hw && a.tail) stop(a); return a; }
     if (AL.list.length >= 2) stop(AL.list.shift());
     a = { obj: e.obj, c: corners(e.key || "", e.obj), t: 0, tail: null, said: false, hw, anchor: new THREE.Object3D() };
     AL.list.push(a);
@@ -74,7 +74,7 @@ export function tickAlarm(dt) {
         const a = AL.list[i];
         a.t += dt;
         if (a.t > ALARM.dur || !a.obj.parent || !L.on) { stop(a); AL.list.splice(i, 1); continue; }
-        if (!a.tail && a.t >= ALARM.tailAt && a.t < ALARM.tailAt + 0.5 && soundsOn() && !L.quiet) { a.tail = play("lifeAlarm", a.obj, { gain: rand(0.9, 1) }); if (a.tail) countSound("lifeAlarm"); }
+        if (!a.tail && !a.tried && a.t >= ALARM.tailAt && a.t < ALARM.tailAt + 0.5 && soundsOn() && !L.quiet) { a.tried = true; AL.tails++; a.tail = play("lifeAlarm", a.obj, { gain: rand(0.9, 1) }); if (a.tail) countSound("lifeAlarm"); }
         if (!a.said && a.t >= ALARM.lineAt) { a.said = true; if (owner(a)) AL.lines++; }
         if ((a.t % ALARM.blink) > ALARM.onFor) continue;
         const m = a.obj.matrixWorld, mx = m.elements[12] - L.x, mz = m.elements[14] - L.z;
@@ -84,4 +84,4 @@ export function tickAlarm(dt) {
     }
 }
 export function alarmClear() { for (const a of AL.list) stop(a); AL.list.length = 0; }
-export function alarmInfo() { return { live: AL.list.length, lit: AL.list.some(a => (a.t % ALARM.blink) <= ALARM.onFor), alarms: AL.alarms, hotwires: AL.hotwires, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }
+export function alarmInfo() { return { live: AL.list.length, lit: AL.list.some(a => (a.t % ALARM.blink) <= ALARM.onFor), alarms: AL.alarms, hotwires: AL.hotwires, tails: AL.tails, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }

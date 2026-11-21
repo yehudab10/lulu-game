@@ -142,7 +142,7 @@ function mist(dt) {
     const x = L.x + Math.sin(a) * r + (ctx.car && !L.foot ? (ctx.car.vx || 0) * 1.5 : 0), z = L.z + Math.cos(a) * r + (ctx.car && !L.foot ? (ctx.car.vz || 0) * 1.5 : 0);
     const s = rand(5, 9);
     addPuff(K.MIST, x, rand(0.5, 1.1), z, WS.wx * 0.12 + rand(-0.25, 0.25), 0, WS.wz * 0.12 + rand(-0.25, 0.25),
-        rand(9, 14), s * 0.7, s, 0.2 * thick, 0.86, 0.88, 0.92);
+        rand(9, 14), s * 0.7, s, 0.5 * thick, 0.86, 0.88, 0.92);
     BR.mist++;
 }
 
