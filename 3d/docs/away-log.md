@@ -3,7 +3,7 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
-- 2026-11-21 14:55 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
+- 2026-11-21 17:15 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
   walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
   title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the
   highway are drawn together too, and on the lowest graphics setting the tall grass far away from Lulu is a little
