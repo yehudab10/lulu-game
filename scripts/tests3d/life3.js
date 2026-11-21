@@ -56,6 +56,24 @@ module.exports = {
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law.hold(9999), ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ${D}.season("autumn"), ${D}.cold(false), ${D}.mist(false), ${D}.rain(0), true)`);
     await W.install(t);
 
+    // ── 0. the radio's DJ mentions the rain (on the highway, before town) ──
+    await step("radio", async () => {
+      if (!await g(`L3.state === "playing" && !!(ctx.hustle && ctx.hustle.radio)`)) { t.check("the car radio is there (hustle)", false); return; }
+      await t.frames(5);
+      t.check("life hooked into the radio (hustle's topical hook)", (await info()).radio.hooked, JSON.stringify((await info()).radio));
+      await g(`(ctx.hustle.radio.tune("simcha"), true)`);
+      await t.frames(10);
+      await g(`(ctx.atmos.debug.weather("rain"), true)`);
+      await t.frames(20);
+      t.check("rain starts → the radio has a topic", (await info()).radio.topic === "rain" || (await info()).radio.said > 0, JSON.stringify((await info()).radio));
+      let said = false;
+      for (let i = 0; i < 60 && !said; i++) { await g(`ctx.hustle.radio.debugMsgT(0)`); await t.frames(10); said = (await info()).radio.log.includes("rain"); }
+      const log = await g(`ctx.hustle.radio.state().log.slice(-3).map(l => l.text)`);
+      t.check("…and the DJ talks about the rain (on the radio's own ticker)", said && log.some(l => /rain|umbrella|wipers|puddle/i.test(l)), JSON.stringify(log));
+      await t.shot("radio-rain");
+      await g(`(ctx.hustle.radio.tune("auto"), ctx.atmos.debug.weather("clear"), true)`);
+    });
+
     // ── 1. windows at dusk ──
     await step("windows", async () => {
       if (!await inTown("lakewood")) return;
@@ -194,24 +212,6 @@ module.exports = {
       const I = await info();
       t.check("a cold day: the car's tailpipe steams while it idles", I.breath.exhaust - e0 >= 8, JSON.stringify(I.breath));
       await t.shot("tailpipe");
-    });
-
-    // ── 6. the radio's DJ mentions the rain ──
-    await step("radio", async () => {
-      if (!await g(`L3.state === "playing" && !!(ctx.hustle && ctx.hustle.radio)`)) { t.check("the car radio is there (hustle)", false); return; }
-      await t.frames(5);
-      t.check("life hooked into the radio (hustle's topical hook)", (await info()).radio.hooked, JSON.stringify((await info()).radio));
-      await g(`(ctx.hustle.radio.tune("simcha"), true)`);
-      await t.frames(10);
-      await g(`(ctx.atmos.debug.weather("rain"), true)`);
-      await t.frames(20);
-      t.check("rain starts → the radio has a topic", (await info()).radio.topic === "rain" || (await info()).radio.said > 0, JSON.stringify((await info()).radio));
-      let said = false;
-      for (let i = 0; i < 60 && !said; i++) { await g(`ctx.hustle.radio.debugMsgT(0)`); await t.frames(10); said = (await info()).radio.log.includes("rain"); }
-      const log = await g(`ctx.hustle.radio.state().log.slice(-3).map(l => l.text)`);
-      t.check("…and the DJ talks about the rain (on the radio's own ticker)", said && log.some(l => /rain|umbrella|wipers|puddle/i.test(l)), JSON.stringify(log));
-      await t.shot("radio-rain");
-      await g(`(ctx.hustle.radio.tune("auto"), ctx.atmos.debug.weather("clear"), true)`);
     });
 
     // ── 7. the walk had no glitches ──

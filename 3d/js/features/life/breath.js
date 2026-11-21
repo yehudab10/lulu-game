@@ -2,8 +2,8 @@
 //   😮‍💨 breath: on a cold night / a cold dawn (`breathNow()`: a cold day by the device's date — Nov–Mar, winter, snow,
 //      `?lifeCold=1|0` — and dark or snowing) Lulu's breath clouds in front of her face, quicker + bigger when she's been
 //      running; the townsfolk near her (ctx.town.people()) and friends walking near her in a 🎉 party breathe too
-//   🚗 the tailpipe: on any cold day her car (and the cars she's stood behind) huffs a little white cloud out of the
-//      back while it idles or crawls — it thins out as she speeds up
+//   🚗 the tailpipe: on any cold day in town her car huffs a little white cloud out of the back while it idles or
+//      crawls — it thins out as she speeds up
 //   🌫️ dawn mist: in town at dawn (atmos' clock 0.86 → 0.06), more after rain, low banks of mist lie over the lawns and
 //      the streets around her, drift with the wind and burn off as the sun comes up; her car stirs them (puffs.js)
 // All of it is puffs.js' mesh (no extra draw call; typed arrays, nothing allocated per frame). Local + cosmetic.
@@ -109,7 +109,7 @@ function friends(dt) {
 /** Her car's tailpipe on a cold day: a little white huff while it idles / crawls. */
 function exhaust(dt) {
     const car = ctx.car;
-    if (L.foot || !car || !car.pos || ctx.state !== "playing") return;
+    if (L.foot || !L.town || !car || !car.pos || ctx.state !== "playing") return;      // (in town: waiting at a corner, pulling out)
     const v = Math.abs(car.speed || 0);
     if (v > BREATH.exhaustMax) return;
     BR.carT -= dt;

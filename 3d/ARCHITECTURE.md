@@ -1455,10 +1455,10 @@ in-place sorts); the `life` test measures it on vs off in Lakewood in the rain i
   (a dark pane covers, a lit one adds), faded out over its last 30 m into the town's own glow.
 - 🌬️ **Cold air** (`breath.js`, tune `BREATH`): on a cold day (`coldNow()`) when it's dark / snowing / winter: Lulu's breath
   (2–3 small puffs in front of her face every 2.5–3.4 s, every 1.1–1.5 s running and for 6 s after a run), the named townsfolk
-  within 22 m (`ctx.town.people()`) and friends walking near her (`remoteCar`); on any cold day the car's tailpipe steams while it
-  idles / crawls (< 9 m/s, thinning with speed); 🌫️ at DAWN in town (atmos' clock > 0.86 or < 0.06, not snow / heavy rain;
+  within 22 m (`ctx.town.people()`) and friends walking near her (`remoteCar`); on any cold day in town the car's tailpipe steams while
+  it idles / crawls (< 9 m/s, thinning with speed); 🌫️ at DAWN in town (atmos' clock > 0.86 or < 0.06, not snow / heavy rain;
   thicker when the ground is wet) up to 26 low mist banks 5–34 m around her drift with the wind and burn off — her car stirs them.
-  All are puffs.js' instances (no new draw call); puffs.js now also ticks outside town (breath / the tailpipe / a highway alarm).
+  All are puffs.js' instances (no new draw call); puffs.js now also ticks outside town (her breath on foot / a hotwired shoulder car's alarm).
   `?lifeMist=1|0` previews. One "Brrr!" line a run (the shared line budget).
 - 🚨 **A fumbled hotwire** (alarm.js): foot's `hotwireFail` now emits `foot:hotwireFail` {obj, key, x, z, town} (the tiny hook) →
   the same hazards + alarm tail as a bump, starting at once (no shove whoops before it), and in town the owner / a window yells
