@@ -102,6 +102,22 @@ async function mash(t, n, { foot = false, honk = true } = {}) {
   }
   await t.stick(0, 0); await t.hold(7, 0);
 }
+/** The HUD's lasting pieces (pills, the trip bar + label, ❚❚ / 📱, the left / right chips, the speedo, ⏭): pairs on top
+ *  of each other (> 4 px both ways, one not inside the other) and any off screen. */
+const hudOverlap = t => t.L(`(() => { const out = [], W = innerWidth, H = innerHeight;
+    for (const e of document.querySelectorAll("#hud .hud-tl .pill, #hud .trip, #tripLabel, #pauseBtn, #phoneBtn, #slot-left > *, #slot-right > *, #hud .speedo, #skipBtn")) {
+      let hid = false; for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === "none" || c.visibility === "hidden" || +c.opacity < 0.1 || n.classList.contains("hidden")) { hid = true; break; } }
+      if (hid || !e.textContent.trim() && e.id !== "phoneBtn" && e.id !== "pauseBtn") continue;
+      const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
+      out.push({ id: e.id || (e.className || e.tagName).toString().split(" ")[0], l: r.left, t: r.top, r: r.right, b: r.bottom });
+    }
+    const bad = [];
+    for (const a of out) if (a.l < -2 || a.t < -2 || a.r > W + 2 || a.b > H + 2) bad.push("off-screen " + a.id);
+    for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) { const a = out[i], b = out[j];
+      const ox = Math.min(a.r, b.r) - Math.max(a.l, b.l), oy = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+      const inside = (a.l >= b.l && a.r <= b.r && a.t >= b.t && a.b <= b.b) || (b.l >= a.l && b.r <= a.r && b.t >= a.t && b.b <= a.b);
+      if (ox > 4 && oy > 4 && !inside) bad.push(a.id + " × " + b.id + " (" + Math.round(ox) + "×" + Math.round(oy) + ")"); }
+    return { bad, ids: out.map(a => a.id) }; })()`);
 /** Elements whose text runs out of their box (scrollWidth past clientWidth, not an ellipsis), inside `sel`. */
 const overflow = (t, sel) => t.L(`(() => { const out = []; for (const e of document.querySelectorAll(${JSON.stringify(sel)} + " *")) {
     const cs = getComputedStyle(e); if (cs.display === "none" || cs.visibility === "hidden" || !e.offsetParent) continue;
@@ -298,6 +314,15 @@ async function phone(t) {
     if (touch) await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
     else await t.L(`(window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift" })), 0)`);
     await t.frames(6);
+    // the HUD in town (driving, then on foot): no two of its chips / buttons on top of each other, all on screen
+    for (const foot of [false, true]) {
+      if (foot) await onFoot(t); else await backInCar(t);
+      if (touch) await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+      await t.frames(20);
+      const hud = await hudOverlap(t);
+      t.check(`${name}, ${foot ? "on foot" : "driving"} in Lakewood: the HUD's chips + buttons don't overlap, all on screen`, !hud.bad.length, hud.bad.join(" | ") + " — " + hud.ids.join(","));
+      await t.shot(`hud-${name}-${foot ? "foot" : "car"}`);
+    }
     await g(`ctx.phone.openPhone("messages")`);
     await t.frames(12);
     const pins = await g(`ctx.phone._dbg.APPS ? [...document.querySelectorAll("#screenCard .lp-row")].map(b => b.textContent.trim().slice(0, 30)) : []`);
