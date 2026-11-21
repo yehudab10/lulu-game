@@ -189,6 +189,87 @@ export function copRoute(S, c, u, chase) {
     return r;
 }
 
+/**
+ * The hook law's pull-over calls (bust.js "pullOverSpot"): off the highway's own lanes — the ramps, the roads in / out, the
+ * loop, the kerb road, the lot — she stops right where she is, facing along the road she's on (the net's direction nearest
+ * her heading; her own heading off the net, in the lot's stalls) → { h }. Null on the highway's lanes (law's shoulder), on
+ * its left side, or nowhere near the airport.
+ */
+const _ps = {}, _pa = {}, _pb = {};
+export function pullOverSpot(S, car) {
+    const G = S.G;
+    if (!G || !S.net || !car || !car.pos || (ctx.town && ctx.town.active)) return null;
+    const u0 = car.s - G.E;
+    if (u0 < LY.TAPER0 - 600 || u0 > LY.ACC1 + 900 || !(car.d > 6.5)) return null;
+    const n = nearestOnNet(S.net, car.pos.x, car.pos.z, _ps);
+    if (!offHighway(n)) return null;
+    S.spots = (S.spots || 0) + 1;
+    if (!n.p || n.dist > 8) return { h: car.h };
+    pointAt(n.p, n.v - 2, _pa); pointAt(n.p, n.v + 2, _pb);
+    let h = Math.atan2(_pb.x - _pa.x, _pb.z - _pa.z);
+    let dh = h - car.h;
+    while (dh > Math.PI) dh -= 2 * Math.PI;
+    while (dh < -Math.PI) dh += 2 * Math.PI;
+    if (Math.abs(dh) > Math.PI / 2) h += Math.PI;          // (the way she's already facing — cruisers use either way)
+    return { h };
+}
+
+/**
+ * THE KERB EDGE: a cruiser that leans on her / rams her at the kerb can't shove her car up onto the kerb sidewalk (Terminal
+ * 4½'s, r WALK.r0 → r1, f TERM ± 22). For KERB_EDGE.hold s after a cop's contact her car's outer edge (its two circles +
+ * their radius, toward the terminal) is held at the kerb line (+ `give`: a tyre may touch it), her velocity into the kerb
+ * is dropped (a small bounce), and the cruiser pressing on her is held off her car — so it can't drive through her either.
+ * Only when she was on the road when the cop touched her (she may still drive up on the sidewalk herself). No geometry.
+ */
+export const KERB_EDGE = { hold: 2.5, give: 0.25, bounce: 0.2, start: 1.0 };
+const CAR_CIRCLES = [1.15, -1.15], CAR_RADIUS = 0.93;      // (car.js — her car's collision circles)
+const _k = {};
+/** How far (m) her car's outer edge is past the kerb line (≤ 0: on the road; null: not along the terminal's kerb). */
+function kerbOver(G, car) {
+    const F = G.F, q = F.local(car.pos.x, car.pos.z, _k);
+    if (q.f < LY.TERM.f0 - 22 || q.f > LY.TERM.f1 + 22 || q.r < LY.KERB_R - LY.ROAD_W || q.r > LY.WALK.r1 + 2) return null;
+    const dr = Math.sin(car.h) * F.rx + Math.cos(car.h) * F.rz;
+    return q.r + Math.abs(dr) * CAR_CIRCLES[0] + CAR_RADIUS - (LY.WALK.r0 + KERB_EDGE.give);
+}
+/** A law car touched her (law's crash event): arm the kerb edge if she's on the road. */
+export function copShove(S, car) {
+    const G = S.G;
+    if (!G || !car) return;
+    const over = kerbOver(G, car);
+    if (over == null) return;
+    if (over <= KERB_EDGE.start || (S.kerb && ctx.time - S.kerb.t < KERB_EDGE.hold)) S.kerb = { t: ctx.time };
+    kerbHold(S, car);
+}
+/** Every frame (after traffic): keep her car off the sidewalk while the kerb edge is armed. → true if it held her. */
+export function kerbHold(S, car) {
+    const G = S.G, K = S.kerb;
+    if (!G || !K || !car || ctx.time - K.t > KERB_EDGE.hold) return false;
+    const over = kerbOver(G, car);
+    if (over == null || over <= 0) return false;
+    const F = G.F;
+    car.pos.x -= F.rx * over; car.pos.z -= F.rz * over;
+    const vr = car.vx * F.rx + car.vz * F.rz;
+    if (vr > 0) { car.vx -= vr * F.rx * (1 + KERB_EDGE.bounce); car.vz -= vr * F.rz * (1 + KERB_EDGE.bounce); }
+    S.kerbHolds = (S.kerbHolds || 0) + 1;
+    // the cruiser pressing on her: held off her car (it can't push her through the kerb, so it can't drive into her)
+    for (const c of ctx.traffic ? ctx.traffic.cars : []) {
+        if (!c.data || !c.data.law || c.hit || !c.spec) continue;
+        const dx0 = c.x - car.pos.x, dz0 = c.z - car.pos.z;
+        if (dx0 * dx0 + dz0 * dz0 > 49) continue;
+        const pfx = Math.sin(car.h), pfz = Math.cos(car.h), cfx = Math.sin(c.h), cfz = Math.cos(c.h);
+        let best = null;
+        for (const po of CAR_CIRCLES) for (const co of c.spec.circles) {
+            const dx = (c.x + cfx * co) - (car.pos.x + pfx * po), dz = (c.z + cfz * co) - (car.pos.z + pfz * po), rr = CAR_RADIUS + c.spec.r, d2 = dx * dx + dz * dz;
+            if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); if (!best || rr - d > best.pen) best = { nx: dx / d, nz: dz / d, pen: rr - d }; }
+        }
+        if (!best) continue;
+        c.x += best.nx * best.pen; c.z += best.nz * best.pen;
+        if (cfx * -best.nx + cfz * -best.nz > 0.5) c.speed = 0;   // (nosing into her: it stops — and eases on again, law's own pace)
+        K.t = ctx.time;                                     // (still pressing: the kerb keeps holding)
+    }
+    return true;
+}
+
 /** The hook law calls for line of sight: the terminal (and the tower) block it inside the airport. */
 const _a = {}, _b = {};
 export function copSight(S, ax, az, bx, bz) {

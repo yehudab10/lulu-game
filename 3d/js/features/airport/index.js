@@ -41,7 +41,7 @@ import { buildSteps, BUILD_MODELS, lookMats, setLow } from "./build.js";
 import { makePlanes, PLANES } from "./planes.js";
 import { makeVehicles, doorSpot, makeJoke, nearFence, luluSays, sayOver, VEH, JOKE, KERB_HIT } from "./life.js";
 import { makeSecurity, TUNE as SEC } from "./security.js";
-import { makeNet, copRoute, copSight, routeOnNet, nearestOnNet } from "./chase.js";
+import { makeNet, copRoute, copSight, routeOnNet, nearestOnNet, pullOverSpot, copShove, kerbHold, KERB_EDGE } from "./chase.js";
 
 // ── the switch (stage 1: off unless asked for) ───────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -83,7 +83,7 @@ function drop() {
         for (const sg of S.signs) { const i = w.signs.indexOf(sg); if (i >= 0) w.signs.splice(i, 1); }
     }
     S.res = []; S.signs = []; S.G = null; S.E = null; S.lowCol = null; S.net = null;
-    S.inside = false; S.visited = false; joke.reset(); sec.reset();
+    S.inside = false; S.visited = false; S.kerb = null; joke.reset(); sec.reset();
     if (S.cue) cue("");
 }
 /** Plan the airport with its exit at E (exactly: E comes from findSpot or a debug call). */
@@ -134,6 +134,10 @@ paved.push((s, d) => {
 // the chase: highway cruisers that follow her off the exit drive the airport's roads (law's cops.js asks — chase.js)
 hook("copRoute", (c, u, ch) => copRoute(S, c, u, ch));
 hook("copSight", (ax, az, bx, bz) => copSight(S, ax, az, bx, bz));
+// a bust at the kerb stops right there, facing along the kerb road (law's bust.js asks: hook "pullOverSpot" — ci/airport-kerb)
+hook("pullOverSpot", car => pullOverSpot(S, car));
+// a cruiser that leans on her / rams her at the kerb can't shove her car up onto the sidewalk (chase.js KERB_EDGE)
+on("crash", e => { if (e && e.car && e.car.data && e.car.data.law && S.G && !(ctx.foot && ctx.foot.active)) try { copShove(S, ctx.car); } catch (err) { console.error("[airport] kerb", err); } });
 
 // the colliders ride in the highway's chunks (the car's + foot's collision loops find them there)
 on("chunk:build", ({ chunk, world }) => {
@@ -331,6 +335,7 @@ hook("runStart", G => {
 }, 15);
 hook("update", (dt, P, controlsOn) => {
     try { tick(dt); cueTick(controlsOn); } catch (e) { console.error("[airport] update", e); }
+    if (S.kerb && !(ctx.foot && ctx.foot.active)) try { kerbHold(S, ctx.car); } catch (e) { console.error("[airport] kerb", e); }
     // the next one, far on (a Cruise is endless)
     if (S.search) searchTick();
     else if (S.G && eligible() && ctx.car.s > S.G.E + BUILD.drop + 200 && !(ctx.town && ctx.town.active)) { const nx = S.next; drop(); S.search = searchSteps(nx); }
@@ -413,6 +418,11 @@ ctx.airport = {
         /** The chase's road net: a route from world (fx, fz) to (tx, tz) → { gap, legs: [piece ids] } (tests). */
         route(fx, fz, tx, tz) { const r = S.net && routeOnNet(S.net, fx, fz, tx, tz); return r ? { gap: +r.gap.toFixed(1), legs: r.legs.map(l => l.pc.id) } : null; },
         routes: () => S.routes || 0,
+        /** How often law's pull-over asked where to stop and got an answer (hook pullOverSpot) / frames the kerb edge held
+         *  her car off the sidewalk after a cop's shove (chase.js KERB_EDGE). */
+        pullSpots: () => S.spots || 0,
+        kerbHolds: () => S.kerbHolds || 0,
+        KERB_EDGE,
         /** How far world (x, z) is from the chase's road net (m) and which piece is nearest. */
         netDist(x, z) { if (!S.net) return null; const n = nearestOnNet(S.net, x, z, {}); return { d: +n.dist.toFixed(2), p: n.p && n.p.id }; },
         nearFence: (x, z) => S.G ? nearFence(S.G, x, z, {}) : null,
