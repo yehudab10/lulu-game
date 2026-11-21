@@ -32,7 +32,7 @@ import { tickPuddles, puddleInfo, forceLevel, landed, clearSites, nearestPuddle,
 import { tickWind, windHide, windClear, windInfo, gust, spawnFlyer, nearestPile, WS, WIND } from "./wind.js";
 import { tickAmbience, ambienceStop, ambienceInfo, happen } from "./ambience.js";
 import { tickPuffs, puffsHide, puffsClear, puffInfo, nearestPuff, PUFF, PU } from "./puffs.js";
-import { tickPigeons, pigeonsHide, pigeonsClear, pigeonInfo, nearestFlock, scatterNearest, PIG } from "./pigeons.js";
+import { tickPigeons, pigeonsHide, pigeonsClear, pigeonInfo, nearestFlock, scatterNearest, PIG, PG } from "./pigeons.js";
 import { tickAlarm, alarmClear, alarmInfo, ALARM } from "./alarm.js";
 import { tickFriendSteps, friendStepInfo, fakeParty } from "./friends.js";
 
@@ -124,7 +124,7 @@ ctx.life = {
             puffs: puffInfo(), pigeons: pigeonInfo(), alarm: alarmInfo(), friends: friendStepInfo(), lines: LINE.said };
     },
     debug: {
-        stats, L, WIND, SOUND_KINDS, PUFF, PIG, ALARM, LINE,
+        stats, L, WIND, SOUND_KINDS, PUFF, PIG, PG, ALARM, LINE,
         /** Pin the puddles' water level 0..1 (null = follow the weather again). */
         rain(level = 1) { return forceLevel(level); },
         /** Pin the season ("autumn" | "spring" | "summer" | "winter"; null = the device's date). */

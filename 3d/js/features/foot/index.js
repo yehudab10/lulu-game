@@ -245,7 +245,10 @@ function start(reason = "carWreck", opts = {}) {
     const out = F.out = Math.sign(near.d || 1);
     const rr = rd.at(near.s);
     F.hopFrom = F.car ? F.car.stub.obj.localToWorld(new THREE.Vector3(0.38, 0.62, -0.06)) : pos.clone();
-    F.hopTo = new THREE.Vector3(pos.x - Math.cos(rr.h) * out * 1.8, 0.05, pos.z + Math.sin(rr.h) * out * 1.8);
+    // (over the car's own side — the one toward the roadside: a car parked across the road's line, like the airport's
+    //  kerb in its own frame, had her land 1.8 m along its length, i.e. standing in its seats — ci/qaweekend)
+    const ox = -Math.cos(rr.h) * out, oz = Math.sin(rr.h) * out, cx = -Math.cos(h), cz = Math.sin(h), k = cx * ox + cz * oz < 0 ? -1 : 1;
+    F.hopTo = new THREE.Vector3(pos.x + cx * k * 1.8, 0.05, pos.z + cz * k * 1.8);
     if (!F.car) F.hopFrom.copy(F.hopTo);
     // (her car out past the fence line — it drives the fields to 70 m: the fence lets her walk round it)
     const outD = Math.abs(rd.nearest(F.hopTo.x, F.hopTo.z, near.s, {}).d);
@@ -2027,9 +2030,17 @@ function hud() {
 // ── touch: the ✋ hand button (on foot) and 🚶‍♀️ WALK (pulled over) ────────
 // (the DRIVING chase cam in a town keeps out of the houses, the blocks, the circle's statue and the trees' leaves with the
 //  same check as the free camera on foot; on the highway it's off — nothing to hit there, and no cost)
+// (ci/qaweekend: and on her own home street — the run starts there, and a kid mashing the gas from the driveway backed
+//  into the house with the chase cam inside it: one flat colour on screen. Past the first 160 m it's off again.)
 const carProbe = { s: 0 };
-on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = (tgt, dx, dy, dz, D) => { carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D); }; });
-on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = null; });
+const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;     // (not the scripted pull-out: its own shot)
+const carClipFn = (tgt, dx, dy, dz, D) => {
+    if (!(ctx.town && ctx.town.active) && !homeStreet()) return null;
+    carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D);
+};
+on("run:start", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
 on("title", () => { if (ctx.cam) ctx.cam.carClip = null; });
 on("boot", () => {
     handBtn = addTouchButton({ id: "foot_hand", emoji: "✋", label: "HAND", action: "interact",
