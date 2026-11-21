@@ -244,14 +244,150 @@ export function shadowProxy(root, opts = {}) { return new ShadowProxy(root, opts
 /** app.js, once: the proxies cast only inside the renderer's shadow pass. */
 export function installShadowProxies(renderer) {
     const sm = renderer.shadowMap, orig = sm.render, shown = [];
-    sm.render = function (lights) {
-        if (!sm.enabled || !SH.on || !SH.live.size || !lights || !lights.length || (sm.autoUpdate === false && sm.needsUpdate === false)) return orig.apply(this, arguments);
+    sm.render = function (lights, scene) {
+        if (!sm.enabled || !SH.on || (!SH.live.size && !PB.roots.size) || !lights || !lights.length || (sm.autoUpdate === false && sm.needsUpdate === false)) return orig.apply(this, arguments);
         SH.frame++;
         for (const p of SH.live) if (p.prepare()) for (const m of p.meshes) { m.visible = true; shown.push(m); }
+        const batch = prepareBatch(scene);
+        if (batch) { batch.visible = true; shown.push(batch); }
         try { return orig.apply(this, arguments); }
         finally { for (const m of shown) m.visible = false; shown.length = 0; }
     };
 }
+
+// ── The people's shadow batch (MEDIUM / HIGH) ───────────────────────────────────────────────────────────────
+// A person is ~13 casting parts (body, arms, legs, hair, clothes…) = 13 draws in the sun's shadow pass, and they MOVE
+// (walk cycles, waving, Lulu turning her head at the wheel), so a baked proxy would freeze their shadows. Instead every
+// registered person's casting parts are instances of ONE shadow-only BatchedMesh: each shadow pass copies every
+// part's live matrixWorld + visibility into it, so the shadow is exact, in one multi-draw (WEBGL_multi_draw: iOS
+// Safari 15+, Chrome; without it three draws the parts one by one — no worse than before). Hidden in the main pass,
+// switched on inside the shadow pass like the proxies. A part someone sets castShadow on again, or removes, hands
+// that person back to casting on their own; a person out of the scene for ~10 s is let go.
+//
+//   shadowBatch(personRoot, { skip })   (core/people.js does it for every spawned person; car.js for Lulu at the wheel)
+const PB = { roots: new Map(), mesh: null, geos: new Map(), verts: 0, idx: 0, insts: 0, on: true, frame: 0 };
+const PB_MAT = new THREE.MeshBasicMaterial();
+PB_MAT.name = "ShadowBatch";
+function pbMesh(needV, needI, needN) {
+    let m = PB.mesh;
+    if (!m) {
+        m = PB.mesh = new THREE.BatchedMesh(256, 32768, 65536, PB_MAT);
+        m.name = "shadowBatch";
+        m.castShadow = true; m.receiveShadow = false; m.visible = false; m.frustumCulled = false;
+        m.sortObjects = false; m.perObjectFrustumCulled = true;
+        m.matrixAutoUpdate = false;
+        PB.cap = { v: 32768, i: 65536, n: 256 };
+    }
+    const c = PB.cap;
+    if (needV > c.v || needI > c.i) {
+        c.v = Math.max(c.v * 2, needV); c.i = Math.max(c.i * 2, needI);
+        m.setGeometrySize(c.v, c.i);
+    }
+    if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
+    return m;
+}
+function pbGeometry(src) {
+    let g = PB.geos.get(src);
+    if (g != null) return g;
+    const pos = src.attributes.position, b = new THREE.BufferGeometry();
+    b.setAttribute("position", pos.clone());
+    if (src.index) b.setIndex(src.index.clone());
+    else { const n = pos.count, a = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) a[i] = i; b.setIndex(new THREE.BufferAttribute(a, 1)); }
+    const m = pbMesh(PB.verts + pos.count, PB.idx + b.index.count, PB.insts);
+    g = m.addGeometry(b);
+    PB.verts += pos.count; PB.idx += b.index.count;
+    b.dispose();
+    PB.geos.set(src, g);
+    return g;
+}
+class Batched {
+    constructor(root, opts) { this.root = root; this.skip = opts.skip || null; this.parts = []; this.wait = 0; this.gone = 0; this.optOut = false; }
+    collect() {
+        const root = this.root, out = [];
+        const walk = o => {
+            if (o !== root && this.skip && this.skip(o)) return;
+            if (o.name === "shadowProxy" || o.name === "lodFar") return;
+            if (o.isMesh && o.castShadow && shCastable(o) && o.material.side === THREE.FrontSide) out.push(o);
+            for (const c of o.children) walk(c);
+        };
+        walk(root);
+        return out;
+    }
+    build() {
+        const list = this.collect();
+        if (!list.length) return false;
+        for (const o of list) {
+            const g = pbGeometry(o.geometry);
+            const m = pbMesh(PB.verts, PB.idx, PB.insts + 1);
+            const id = m.addInstance(g);
+            PB.insts++;
+            o.castShadow = false;
+            this.parts.push({ o, id });
+        }
+        return true;
+    }
+    release(wait = 60) {
+        const m = PB.mesh;
+        for (const p of this.parts) { p.o.castShadow = true; if (m) { m.deleteInstance(p.id); PB.insts--; } }
+        this.parts.length = 0;
+        this.wait = wait;
+    }
+    /** Each shadow pass: copy the parts' live transforms in (false = a part changed: they cast on their own again). */
+    sync(m) {
+        if (!this.parts.length) {
+            if (this.optOut) return true;
+            if (this.wait > 0) { this.wait--; return true; }
+            if (!this.build()) { this.wait = 240; return true; }
+        }
+        for (const p of this.parts) {
+            const o = p.o;
+            if (o.castShadow) { this.release(); this.optOut = true; return true; }   // (a feature wants this person's parts its own way)
+            if (!o.parent) { this.release(); return true; }
+            let vis = true;
+            for (let a = o; a; a = a.parent) if (!a.visible) { vis = false; break; }
+            m.setVisibleAt(p.id, vis);
+            if (vis) m.setMatrixAt(p.id, o.matrixWorld);
+        }
+        return true;
+    }
+}
+function inScene(o, scene) { for (let a = o; a; a = a.parent) if (a === scene) return true; return false; }
+function prepareBatch(scene) {
+    if (!PB.on || !PB.roots.size) return null;
+    PB.frame++;
+    let any = false;
+    for (const [root, b] of PB.roots) {
+        if (!inScene(root, scene)) {
+            // (not drawn this frame: its instances stay hidden; let go after ~10 s out of the scene)
+            if (b.parts.length && PB.mesh) for (const p of b.parts) PB.mesh.setVisibleAt(p.id, false);
+            if (++b.gone > 600) { b.release(0); PB.roots.delete(root); }
+            continue;
+        }
+        b.gone = 0;
+        if (!b.parts.length && (b.optOut || b.wait > 0)) { if (b.wait > 0) b.wait--; continue; }
+        b.sync(PB.mesh || pbMesh(0, 0, 0));
+        if (b.parts.length) any = true;
+    }
+    const m = PB.mesh;
+    if (!m || !any) return null;
+    if (m.parent !== scene) scene.add(m);
+    return m;
+}
+/** Put a moving person's shadow into the people's shadow batch (see above). opts: { skip(node) }. */
+export function shadowBatch(root, opts = {}) {
+    if (!root || PB.roots.has(root)) return;
+    PB.roots.set(root, new Batched(root, opts));
+}
+/** Tests: { people, parts, geometries, multiDraw (the extension is there), on }. */
+export function shadowBatchInfo(renderer) {
+    let parts = 0, people = 0;
+    for (const b of PB.roots.values()) { if (b.parts.length) people++; parts += b.parts.length; }
+    let md = null;
+    try { md = renderer ? !!renderer.extensions.get("WEBGL_multi_draw") : null; } catch (e) { md = null; }
+    return { people, parts, registered: PB.roots.size, geometries: PB.geos.size, multiDraw: md, on: PB.on };
+}
+/** Tests: every person's parts cast on their own again (false) / back in the batch (true). */
+export function shadowBatchOn(on) { PB.on = !!on; if (!on) for (const b of PB.roots.values()) b.release(0); }
 /** Tests / the perf harness: { n: registered, active: baked now, parts: real meshes they stand in for, cached, dropped (hand-backs so far), on }. */
 export function shadowProxyInfo() {
     let active = 0, parts = 0;
