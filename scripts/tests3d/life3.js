@@ -229,7 +229,8 @@ module.exports = {
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("atmos:thunder", { near: 0.9 }))`);
       await t.frames(8);
       const w = (await info()).windows;
-      await t.shot("thunder-flicker");
+      // (a picture if the runner can take one: CI's software GL timed a screenshot out here twice — not a check)
+      try { await t.shot("thunder-flicker"); } catch (e) { console.log("  (thunder-flicker screenshot skipped: " + String(e && e.message || e).slice(0, 80) + ")"); }
       await t.frames(150);
       const S = (await info()).storm;
       t.check("a close thunderclap in town: the lit windows flicker", S.blips > s0.blips && w.blips > 0, JSON.stringify({ S, blips: w.blips }));
