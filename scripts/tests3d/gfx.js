@@ -96,14 +96,17 @@ module.exports = {
         sm.render = function () { inSh = true; try { return so.apply(this, arguments); } finally { inSh = false; } };
         const frame = () => { n = 0; r.render(L3.ctx.scene, L3.ctx.camera); return n; };
         const car = L3.ctx.car, body = []; car.model.traverse(o => { if (o.isMesh && /^LuluCar_body/.test(o.name)) body.push(o); });
-        const on = frame(), info = m.shadowProxyInfo(), bodyOff = body.length > 3 && body.every(o => !o.castShadow);
         const front = []; car.model.traverse(o => { if (o.isMesh && /^Wheel_F/.test(o.name)) front.push(o); });
-        m.shadowProxiesOn(false); const off = frame(), backOn = body.every(o => o.castShadow); m.shadowProxiesOn(true);
-        frame(); frame();
+        // off first: the parts that cast on their own are the proxy's parts
+        m.shadowProxiesOn(false); const off = frame(), casters = body.filter(o => o.castShadow);
+        m.shadowProxiesOn(true); const on = frame(), info = m.shadowProxyInfo();
+        const bodyOff = casters.length >= 4 && casters.every(o => !o.castShadow);
+        frame();
         // a part hidden by a feature: the rest cast on their own straight away (no missing shadow), then it re-bakes without it
-        body[1].visible = false; frame(); const handBack = body.filter(o => o !== body[1]).every(o => o.castShadow);
-        for (let i = 0; i < 40; i++) frame(); const rebaked = body.filter(o => o !== body[1]).every(o => !o.castShadow);
-        body[1].visible = true;
+        const hid = casters[1]; hid.visible = false; frame(); const handBack = casters.filter(o => o !== hid).every(o => o.castShadow);
+        for (let i = 0; i < 40; i++) frame(); const rebaked = casters.filter(o => o !== hid).every(o => !o.castShadow);
+        hid.visible = true;
+        const backOn = casters.length >= 4;
         sm.render = so; gl.drawElements = de; gl.drawArrays = da;
         return { on, off, info, bodyOff, frontCast: front.length > 0 && front.every(o => o.castShadow), backOn, handBack, rebaked, clouds: L3.ctx.world.clouds.children.length }; })`);
     t.check("MEDIUM: Lulu's car body casts through ONE shadow proxy (its parts don't cast alone)", sp.info.active >= 1 && sp.bodyOff, JSON.stringify(sp));

@@ -106,7 +106,7 @@ module.exports = {
           if (o.isLight) { lights++; if (o.castShadow) shadowLights++; } });
         sc.traverseVisible(o => { if (o.isMesh || o.isLine || o.isPoints || o.isSprite) vis++; });
         return { frames: P.n, calls: Math.round(P.calls / P.n), maxCalls: P.maxCalls, tris: Math.round(P.tris / P.n), maxTris: P.maxTris,
-          frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), jsMs: +(X.js / P.n).toFixed(2), renderMs: +(P.ren / P.n).toFixed(2), renderMed: +P.rl.sort((a, b) => a - b)[P.rl.length >> 1].toFixed(2), updateMs: +((X.js - P.ren) / P.n).toFixed(2),
+          frameMs: +((performance.now() - P.w0) / P.n).toFixed(1), jsMs: +(X.js / P.n).toFixed(2), renderMs: +(P.ren / P.n).toFixed(2), renderMed: +P.rl.sort((a, b) => a - b)[P.rl.length >> 1].toFixed(2), renderP90: +P.rl[Math.floor(P.rl.length * 0.9)].toFixed(2), renderMax: +P.rl[P.rl.length - 1].toFixed(2), updateMs: +((X.js - P.ren) / P.n).toFixed(2),
           domMut: +(X.mut / P.n).toFixed(1), gl: Math.round(X.gl / P.n), shadowGl: Math.round(X.sh / P.n), textures: r.info.memory.textures, geometries: r.info.memory.geometries, programs: (r.info.programs || []).length,
           meshes, visible: vis, instanced: inst, materials: mats.size, lights, shadowLights, shadows: r.shadowMap.enabled, pixelRatio: r.getPixelRatio(),
           cars: L3.traffic.cars.length, state: L3.state }; })()`);
