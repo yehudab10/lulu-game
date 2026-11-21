@@ -273,6 +273,7 @@ function wireStats(card) {
 export const SAVE_CODE_PREFIX = "LULU1:";
 export function saveToCode() {
     flushShared();
+    if (ctx.player && ctx.player.backup) ctx.player.backup.snapshot();      // (features' own backup sections ride along)
     saveNow();
     const s = shared.get();
     if (typeof s.totalCoins !== "number") s.totalCoins = 0;

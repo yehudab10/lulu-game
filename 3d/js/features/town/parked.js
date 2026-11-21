@@ -77,7 +77,7 @@ export function bump(pc, imp) {
     L.moved = true;
     PK.hits++;
     if (!(pc.alarmAt > ctx.time - 3)) { pc.alarmAt = ctx.time; SFX.alarm(Math.min(1, imp / 8)); }
-    emit("town:parkedHit", { impact: imp, key: pc.key });
+    emit("town:parkedHit", { impact: imp, key: pc.key, obj: L.obj, alarm: pc.alarmAt === ctx.time });     // (obj, alarm: features/life blinks its lights)
 }
 
 function footPc(pc) {
@@ -99,6 +99,8 @@ function footPc(pc) {
     };
 }
 
+/** A car centred at local (x, z) reaches into a block of houses (its half-width ~1 m in from the front line). */
+const inBlock = (x, z) => PL.OCCLUDERS.some(r => x > r.x0 - 1 && x < r.x1 + 1 && z > r.z0 - 1 && z < r.z1 + 1);
 /** Per frame (town tick): shoved cars slide to a stop, the ones by her on foot are hotwirable. */
 export function tickParked(dt) {
     const T = PK.T;
@@ -107,7 +109,12 @@ export function tickParked(dt) {
     for (const pc of PK.live) {
         const L = pc.live;
         if (L.moved && (Math.abs(L.vx) + Math.abs(L.vz) + Math.abs(L.spin) > 0.004)) {
-            pc.x += L.vx * dt; pc.z += L.vz * dt; pc.rot += L.spin * dt;
+            const nx = pc.x + L.vx * dt, nz = pc.z + L.vz * dt;
+            // (ci/qaweekend: rammed again and again, a kerbside car slid on across the sidewalk into the houses — it stops at
+            //  a block's wall; one already standing in a driveway inside a block moves as before)
+            if (inBlock(nx, nz) && !inBlock(pc.x, pc.z)) { L.vx = L.vz = 0; L.spin *= 0.5; }
+            else { pc.x = nx; pc.z = nz; }
+            pc.rot += L.spin * dt;
             const damp = Math.exp(-2.4 * dt);
             L.vx *= damp; L.vz *= damp; L.spin *= damp;
             L.obj.position.x = pc.x; L.obj.position.z = pc.z; L.obj.rotation.y = pc.rot;

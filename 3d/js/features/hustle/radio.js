@@ -60,6 +60,8 @@ const QUIET_LINES = {
     dovid: ["DOVID DOV FM — no songs till after Tisha B'Av. Even the mystery singer takes the Three Weeks off.",
         "DJ Ploni here. No music, no clues. Same as usual, really — minus the music."],
 };
+/** Providers of topical DJ lines: fn(station) → a line | null (radio.topical(fn) — features/life's weather + sunset). */
+const TOPICAL = [];
 const chatter = () => CHATTER[(save3d.settings && save3d.settings.chatter) || "normal"] || CHATTER.normal;
 const vol = st => (st.bed || 0.32);
 export function inCar() { return IN_CAR.has(ctx.state) && !(ctx.foot && ctx.foot.active) && !ctx.view; }
@@ -139,6 +141,8 @@ function nextMessage(st) {
     const law = ctx.law;
     if (law && law.chasing && !R.news.chase && Math.random() < 0.8) { R.news.chase = true; return { lines: [["NEWS", pick(NEWS.chase)]] }; }
     if (ctx.hustle && ctx.hustle.job && ctx.hustle.job.id === "getaway" && ctx.hustle.job.heisted && !R.news.heist) { R.news.heist = true; return { lines: [["NEWS", NEWS.heist[0]]] }; }
+    // something topical another feature offers (features/life: the weather turning, the sunset) — the DJ says that instead
+    for (const fn of TOPICAL) { let t = null; try { t = fn(st); } catch (e) { t = null; } if (t) return { lines: [[st.dj || "DJ", t]] }; }
     const adOdds = (st.id === "talk" ? 0.45 : 0.3) * ch.ads;
     if (Math.random() < adOdds && ctx.time - R.lastAd > 25) { R.lastAd = ctx.time; return { ad: pick(ADS) }; }
     if (st.id === "talk" && st.segments && Math.random() < 0.6) return { lines: pick(st.segments) };
@@ -230,6 +234,8 @@ export const radio = {
     get name() { return station().name; },
     stations: STATIONS.map(s => s.id),
     cycle, tune,
+    /** Another feature offers topical DJ lines: fn(station) → a line | null, asked when a station picks what to say next. */
+    topical(fn) { if (typeof fn === "function" && !TOPICAL.includes(fn)) TOPICAL.push(fn); return true; },
     /** What the radio is doing (tests). */
     state() { return { station: S.station, quiet: silenced(station()), dovT: +R.dovT.toFixed(1), dovCool: +R.dovCool.toFixed(1), override: R.ov.on, src: musicSrc(), gameSrc: R.ov.gameSrc, msgT: +R.msgT.toFixed(1), showT: +R.showT.toFixed(1), queue: R.queue.length, log: R.log.slice() }; },
     /** Tests: say something now. */

@@ -103,7 +103,9 @@ ctx.party = {
     get uid() { return N.uid; },
     get players() { return NET.members().map(u => playerInfo(u)); },
     get activity() { return N.A; },
-    hostParty, hostRoam, joinParty, join: code => joinParty(code), leave, openHub, openJoin: code => openJoin(code || ""),
+    hostParty, hostRoam, joinParty, leave,
+    /** Join by code; opts.with = the uid to land next to (features/friends' one-tap JOIN). */
+    join: (code, opts) => { if (opts && typeof opts.with === "string" && /^[A-Za-z0-9_-]{1,24}$/.test(opts.with)) P.with = opts.with; return joinParty(code); }, openHub, openJoin: code => openJoin(code || ""),
     /** Share / copy the invite link (it lands friends right next to ME in Free Roam). → a promise of the message. */
     invite: () => U.shareInvite(N.code, N.uid),
     /** Who sent the link I joined from (their uid, or "") — Free Roam drops me next to them. */
