@@ -191,6 +191,11 @@ body.touch .toast { font-size: 16px; padding: 2px 10px 2px 20px; } body.touch .t
     background: rgba(43, 27, 46, 0.78); color: #fff; border-radius: 999px; padding: 6px 16px;
     font-size: 14px; font-weight: 600; white-space: nowrap;
 }
+/* (a controller on a phone held upright: the long hints ran off both edges — "A near your car to hop back in 🚗 · or take a
+   walk" — they wrap instead, ci/qaweekend) */
+@media (max-width: 560px) {
+    #padHint { white-space: normal; width: max-content; max-width: calc(100vw - 28px); text-align: center; border-radius: 16px; line-height: 1.35; }
+}
 
 #flash { position: absolute; inset: 0; background: #ff1744; opacity: 0; transition: opacity 0.4s; }
 
@@ -610,6 +615,12 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     body.touch #toasts { top: 40%; max-width: 62vw; }
     body.touch #touchExtra { right: auto; left: max(24px, env(safe-area-inset-left)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + 258px); }
     body.touch.hud-clean .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 122px); }
+}
+/* a narrow phone: ❤️ + 💰 + SCORE don't fit one row once the score has 3 digits — the score wraps under them and sat on
+   the trip bar (ci/qaweekend). Room for two rows of pills; the trip bar + the chips come down a row. */
+@media (max-aspect-ratio: 1/1) and (max-width: 430px) {
+    body.touch:not(.hud-clean) .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 100px); }
+    body.touch:not(.hud-clean) .hud-slot.left, body.touch:not(.hud-clean) .hud-slot.right, body.touch:not(.hud-clean) .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 162px); }
 }
 /* portrait phones: full-width card, comfortable taps */
 @media (max-width: 520px) and (max-aspect-ratio: 1/1) {

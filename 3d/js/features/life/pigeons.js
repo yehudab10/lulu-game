@@ -144,8 +144,12 @@ export function scatter(f, x, z, why = "") {
         const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
         b.mode = 1; b.t = -Math.random() * 0.25; b.amp = 1; b.fold = 0;
         b.ox = dx * rand(2.5, 5) + rand(-1, 1); b.oz = dz * rand(2.5, 5) + rand(-1, 1); b.oy = rand(3.5, 6);
+        // (ci/qaweekend: a pavement gang went up 3.5–6 m and circled at 6–10 m, 9–15 m round — straight through the
+        //  houses' walls + roofs (≤ 9.2 m) beside the pavement. Off the pavement they now climb clear of the roofs first
+        //  (the burst rises before it spreads, stepBird) and circle above them.)
+        if (f.kind === "ground") b.oy = rand(9.5, 11.5);
         // the circle they'll hold over the block until she's gone
-        b.orbR = rand(9, 15); b.orbY = f.y + rand(6, 10); b.orbW = (f.seed < 0.5 ? 1 : -1) * rand(0.45, 0.65); b.orbA = Math.atan2(dz, dx);
+        b.orbR = rand(9, 15); b.orbY = f.kind === "ground" ? rand(11.5, 14) : f.y + rand(6, 10); b.orbW = (f.seed < 0.5 ? 1 : -1) * rand(0.45, 0.65); b.orbA = Math.atan2(dz, dx);
     }
     if (soundsOn() && !L.quiet) { const pt = { x: f.x, y: (f.y || 0) + 0.5, z: f.z }; if (play("lifeFlutter", pt, { gain: f.kind === "roof" ? 0.8 : 1, rate: rand(0.92, 1.1) })) countSound("lifeFlutter"); }
     emit("life:pigeons", { x: f.x, z: f.z, why, kind: f.kind, n: f.birds.length });
@@ -208,8 +212,8 @@ function stepBird(b, f, dt, back) {
     }
     if (b.t < 0) return;
     if (b.mode === 1) {                          // the burst up and out
-        const u = Math.min(1, b.t / 1.4), e = 1 - (1 - u) * (1 - u);
-        b.x = b.hx + b.ox * e * 2; b.z = b.hz + b.oz * e * 2; b.y = b.hy + b.oy * e;
+        const u = Math.min(1, b.t / 1.4), e = 1 - (1 - u) * (1 - u), s = f.kind === "ground" ? u * u : e;     // (up first, then out)
+        b.x = b.hx + b.ox * s * 2; b.z = b.hz + b.oz * s * 2; b.y = b.hy + b.oy * e;
         if (u >= 1) { b.mode = 2; b.t = 0; b.lift = b.y; }
     } else if (b.mode === 2) {                   // circling the block
         b.orbA += b.orbW * dt;
@@ -218,8 +222,9 @@ function stepBird(b, f, dt, back) {
         b.x += (tx - b.x) * k; b.z += (tz - b.z) * k; b.y += (ty - b.y) * k;
         if (back && b.t > 4 + (b.ph % 3)) { b.mode = 3; b.t = 0; b.ox = b.x; b.oy = b.y; b.oz = b.z; }
     } else if (b.mode === 3) {                   // the glide home
-        const u = Math.min(1, b.t / 2.6), e = u * u * (3 - 2 * u);
-        b.x = b.ox + (b.hx - b.ox) * e; b.z = b.oz + (b.hz - b.oz) * e; b.y = b.oy + (b.hy - b.oy) * e + Math.sin(u * Math.PI) * 1.2;
+        // (over home at height first, then down: a straight line from the circle cut through the roofs in between)
+        const u = Math.min(1, b.t / 2.6), sm = v => v * v * (3 - 2 * v), ex = sm(Math.min(1, u / 0.6)), ey = sm(Math.max(0, (u - 0.35) / 0.65));
+        b.x = b.ox + (b.hx - b.ox) * ex; b.z = b.oz + (b.hz - b.oz) * ex; b.y = b.oy + (b.hy - b.oy) * ey + Math.sin(u * Math.PI) * 0.6;
         b.amp = u > 0.85 ? 1 : 0.12;
         if (u >= 1) { b.mode = 0; b.x = b.hx; b.y = b.hy; b.z = b.hz; b.yaw = b.hyaw + rand(-0.4, 0.4); b.amp = 0; b.fold = 1; b.pitch = 0; b.peck = rand(0.3, 1.5); }
         else b.fold = 0;

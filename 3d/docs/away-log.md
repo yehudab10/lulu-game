@@ -11,6 +11,17 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   with Rex the kugel-sniffing dog) rolls out of the terminal and slows her right down until the real cops catch up. On LOW graphics the
   airport is now lighter than on MEDIUM (about 10 % fewer triangles at the kerb). The "½ MI" sign's words fit, and the terminal doors no
   longer say "opening soon". A picture of the airport's highway signs is in `3d/docs/airport-signs.jpg`.
+- 2026-11-21 (play-test of the weekend) — 🔎 Played everything that landed this weekend like a kid would (on a phone, a computer and
+  a TV; Lakewood, Midwood, the highway, JFK with `?airport=1`, and with a friend) and fixed what was off: the PIGEONS on the
+  sidewalk no longer fly through the houses when you scare them (they climb over the roofs, circle up high and come back down over
+  the sidewalk); 📝 Ima's list in town said things like "Drop off Bubbe's challah · 307.8 mi back" — it now says how far it really is;
+  pulling out of the driveway and backing into the house no longer puts the camera inside the house (a screen of one flat colour);
+  after a crash leaves the car sideways, Lulu gets back on her feet BESIDE it instead of standing in its hood; a parked car you
+  ram again and again stops at the houses instead of sliding into them; on a narrow phone a big score no longer sits on the trip
+  bar; and with a controller on a phone held upright, the hint at the bottom wraps instead of running off both edges. Checked and fine: puddles, splashes,
+  honking at the crowd and the pigeons, car alarms (they stop), no sound left playing after leaving town, no coins to be farmed from
+  any of it, the phone's 💬 Messages + 🗞️ Kvetch on every screen size. For the airport team: the "TERMINAL OPENING SOON" poster is
+  still on the doors though they open now, and the camera can end up inside an airport building during a police chase.
 - 2026-11-21 12:40 UTC — ⚡ Smoother on phones, part 2: people's eyes, cheeks and mouths no longer each cast their own tiny
   shadow (they're smaller than what the shadow can even show), so every person on screen costs the phone four fewer
   drawing steps — the title screen now draws its shadows in about half the steps it used to. Looks exactly the same.
