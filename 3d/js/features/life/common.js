@@ -64,3 +64,40 @@ export function footLine(text, sec = 2.4) {
 /** Counters for tests / the perf report. */
 export const stats = { ms: 0, maxMs: 0, ticks: 0, steps: 0, stepKinds: {}, splashes: 0, carSplashes: 0, soaked: 0, sounds: 0, soundKinds: {}, gusts: 0, flyers: 0, read: 0, piles: 0, kicked: 0 };
 export function countSound(kind) { stats.sounds++; stats.soundKinds[kind] = (stats.soundKinds[kind] || 0) + 1; }
+
+// ── round 2 ──────────────────────────────────────────────────────────────
+/** One budget for every line the round-2 details say (Lulu's, a neighbour's): ≤ 1 per LINE.gap s between them, so the
+ *  calm screen stays calm (the `calm` test counts speech bubbles too). */
+export const LINE = { gap: 40, at: -1e9, said: 0 };
+export function lineFree(gap = LINE.gap) { return L.time - LINE.at >= gap && !ctx.skipping && chatter() !== "quiet"; }
+function used() { LINE.at = L.time; LINE.said++; }
+/** A neighbour / townsperson line: a speech bubble over `anchor` (an Object3D) — never a toast. */
+export function npcLine(text, anchor, opts = {}) {
+    if (!text || !anchor || !lineFree()) return false;
+    let ok = false;
+    try {
+        if (ctx.foot && ctx.foot.active && ctx.foot.say) ok = !!ctx.foot.say(anchor, text, opts.dur || 2.4);
+        else if (ctx.banter && ctx.banter.bubble) ok = !!ctx.banter.bubble(text, anchor, Object.assign({ dur: 2.4 }, opts));
+    } catch (e) { ok = false; }
+    if (ok) used();
+    return ok;
+}
+/** Lulu's own line (on foot), through the same budget. */
+export function luluLine(text, sec = 2.4) {
+    if (!lineFree() || !footLine(text, sec)) return false;
+    used();
+    return true;
+}
+/** A cold day: snow, winter, or late autumn / early spring by the device's date (`?lifeCold=1|0`, or a test's pin). */
+let coldPin = null;
+export function setColdPin(v) { coldPin = v == null ? null : !!v; }
+export function coldNow() {
+    if (coldPin != null) return coldPin;
+    try { const q = new URLSearchParams(location.search).get("lifeCold"); if (q === "1" || q === "0") return q === "1"; } catch (e) { /* no location */ }
+    if (L.snow || L.season === "winter") return true;
+    const m = new Date().getMonth();          // Nov (10) … Mar (2)
+    return m >= 10 || m <= 2;
+}
+/** A model-local point (lx along the model's +X, lz out of its front) → the world, for a house from ctx.town.homes
+ *  ({x, z, ux, uz, nx, nz}: the model's +X is −u, its front is n — features/homes' DOORS maths). */
+export function homeWorld(h, lx, lz, out) { out.x = h.x - h.ux * lx + h.nx * lz; out.z = h.z - h.uz * lx + h.nz * lz; return out; }

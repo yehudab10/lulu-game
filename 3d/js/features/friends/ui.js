@@ -232,7 +232,8 @@ export function install(helpers) {
     const tryAdd = () => {
         if (!ctx.phone || !ctx.phone.addApp) return false;
         ctx.phone.addApp({
-            id: "friends", icon: "👯", name: "Friends", order: 21, color: "#7E57C2", color2: "#E91E63",
+            // (order 23: right after 💬 Messages + 📞 Phone — the Phone app keeps the slot next to Messages)
+            id: "friends", icon: "👯", name: "Friends", order: 23, color: "#7E57C2", color2: "#E91E63",
             visible: () => !partyRoam(),
             badge: () => (BL.joinAsks().length || HS.incoming("party").length ? "!" : null),
             render(el, api, arg) { render(el, api, arg, "friends"); },

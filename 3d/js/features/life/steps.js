@@ -13,9 +13,9 @@ let pi = 0;
 /** A pooled point (a one-shot's target is read every frame: each sound gets its own). */
 export function point(x, y, z) { const p = PTS[pi++ % PTS.length]; p.x = x; p.y = y; p.z = z; return p; }
 
-const KIND = { concrete: "lifeStep", asphalt: "lifeStep", grass: "lifeStepGrass", gravel: "lifeStepGravel", mud: "lifeStepGrass",
+export const KIND = { concrete: "lifeStep", asphalt: "lifeStep", grass: "lifeStepGrass", gravel: "lifeStepGravel", mud: "lifeStepGrass",
     wet: "lifeStepWet", puddle: "lifeSplash", snow: "lifeStepSnow", metal: "lifeStepMetal", wood: "lifeStepWood" };
-const RATE = { concrete: 1.08, asphalt: 0.9, grass: 1, gravel: 1, mud: 0.7, wet: 1, puddle: 1.15, snow: 1, metal: 1, wood: 1 };
+export const RATE = { concrete: 1.08, asphalt: 0.9, grass: 1, gravel: 1, mud: 0.7, wet: 1, puddle: 1.15, snow: 1, metal: 1, wood: 1 };
 
 /** What's under her right now (cached a few times a second: a town's street lookup isn't free). */
 function ground() {
