@@ -130,14 +130,18 @@ async function town(t) {
   // backed up against her own house, the chase cam behind the car stays out of the house (it showed one flat colour)
   const hc = await g(`(() => { const hp = ctx.world.road.point(30, 21, {}); let best = null; for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) if (c.kind === "house" && !c.off && c.r >= 2 && Math.hypot(c.x - hp.x, c.z - hp.z) < 14 && (!best || c.r > best.r)) best = { x: c.x, z: c.z, r: c.r }; return best; })()`);
   if (hc) {
-    const camIn = [];
-    for (const a of [0, 0.5, -0.5]) {
-      await tp(t, `(() => { const hp = ctx.world.road.point(30, 0, {}), ux = hp.x - ${hc.x}, uz = hp.z - ${hc.z}, L = Math.hypot(ux, uz), h = Math.atan2(ux, uz) + ${a};
+    const camIn = [], before = [];
+    await W.pause(t, false);       // (a staged scene: the watchdog would flag the before-the-fix camera)
+    for (const off of [true, false]) for (const a of [0, 0.5, -0.5]) {
+      await g(`(window.__ccf = window.__ccf || ctx.cam.carClip, ctx.cam.carClip = ${off} ? null : window.__ccf, true)`);      // (off: the camera as it was before the fix)
+      await g(`(() => { const hp = ctx.world.road.point(30, 0, {}), ux = hp.x - ${hc.x}, uz = hp.z - ${hc.z}, L = Math.hypot(ux, uz), h = Math.atan2(ux, uz) + ${a};
         ctx.car.place(${hc.x} + ux / L * (${hc.r} + 3.0), ${hc.z} + uz / L * (${hc.r} + 3.0), h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.cam.snap(); return true; })()`);
       await t.frames(20);
       const r = await t.L(`(() => { const c = __lulu3d.ctx.camera.position; return window.__qa.solidAt(c.x, c.z, c.y, 0.05); })()`);
-      if (r) camIn.push(a + ": " + r);
+      if (r) (off ? before : camIn).push(a + ": " + r);
     }
+    await W.pause(t, true);
+    console.log("   (without the home-street camera clip it sat inside the house", before.length, "of 3 times:", before.join(" | ") + ")");
     t.check("backed up to her own house: the chase cam never sits inside it", camIn.length === 0, camIn.join(" | "));
     await t.shot("home-backed-up");
   }
