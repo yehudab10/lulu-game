@@ -114,7 +114,7 @@ module.exports = {
     t.check("…the shadow pass draws fewer calls with the proxies than without", sp.on < sp.off, `${sp.on} vs ${sp.off}`);
     t.check("…turned off, every part casts again", sp.backOn, JSON.stringify(sp));
     t.check("…a part hidden mid-drive: the others cast on their own at once, then re-bake", sp.handBack && sp.rebaked, JSON.stringify(sp));
-    t.check("the sky's clouds are one mesh (was 80)", sp.clouds === 1, String(sp.clouds));
+    t.check("the sky's clouds are ≤ 8 meshes, one per sector of the ring (was 80)", sp.clouds >= 1 && sp.clouds <= 8, String(sp.clouds));
 
     const high = await drive("high");
     const bloom = await g(`!!L3.gfx.bloom`);
