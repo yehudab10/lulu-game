@@ -501,6 +501,7 @@ function interchangeProps(G, mg, at, C, matAt, face) {
 /** The town kit's Atlas.meshSteps, a CELL a step (each sign's text is a few ms of canvas work in software rendering; six at
  *  once was the build's longest frame). The atlas canvas is drawn once a page and reused by later builds (same cells). */
 let ATLAS_TEX = null;
+const SIGN_FONT = `Fredoka, "Arial Rounded MT Bold", Arial, sans-serif`;     // (the town kit's drawLines font)
 function* atlasSteps(at) {
     let scale = 1;
     while (!at.pack(scale) && scale > 0.3) scale *= 0.9;
@@ -510,20 +511,34 @@ function* atlasSteps(at) {
         canvas.width = canvas.height = S;
         const g = canvas.getContext("2d");
         yield "atlas:canvas";
+        // (a cell = its board, then ONE LINE of text a step: big text in a software canvas is the build's slowest work —
+        //  a whole three-line sign in one step was up to 30–50 ms on a busy CI runner. The lines are laid out like the
+        //  town kit's drawLines.)
+        const cellIn = c => { g.save(); g.translate(c.x, c.y); g.scale(c.pw / c.w, c.ph / c.h); g.beginPath(); g.rect(0, 0, c.w, c.h); g.clip(); };
         for (const c of at.cells) {
-            const spec = c.spec, w = c.w, h = c.h;
-            g.save();
-            g.translate(c.x, c.y); g.scale(c.pw / w, c.ph / h);
-            g.beginPath(); g.rect(0, 0, w, h); g.clip();
-            if (spec.draw) spec.draw(g, w, h);
-            else {
-                const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
-                if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
-                if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
-                drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
-            }
+            const spec = c.spec, w = c.w, h = c.h, key = "atlas:" + (spec.key || "cell");
+            cellIn(c);
+            if (spec.draw) { spec.draw(g, w, h); g.restore(); yield key; continue; }
+            const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
+            if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
+            if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
             g.restore();
-            yield "atlas:" + (spec.key || "cell");
+            const lines = spec.lines || [];
+            if (!lines.length || spec.sub) { cellIn(c); drawLines(g, lines, w, h, spec.fg || "#fff", spec.sizes, spec.sub); g.restore(); yield key; continue; }
+            yield key + ":board";
+            const n = lines.length, sz = spec.sizes || lines.map((_, i) => (i === 0 ? 1 : 0.72) * h * (n === 1 ? 0.5 : n === 2 ? 0.34 : 0.26));
+            let y = (h - sz.reduce((A, B) => A + B * 1.12, 0)) / 2;
+            for (let i = 0; i < n; i++) {
+                y += sz[i] * 0.56;
+                cellIn(c);
+                g.textAlign = "center"; g.textBaseline = "middle";
+                g.font = `${i === 0 ? 700 : 600} ${Math.round(sz[i])}px ${SIGN_FONT}`;
+                g.fillStyle = Array.isArray(spec.fg) ? spec.fg[i] || spec.fg[0] : spec.fg || "#fff";
+                g.fillText(lines[i], w / 2, y, w * 0.9);
+                g.restore();
+                y += sz[i] * 0.56;
+                yield key + ":" + i;
+            }
         }
         const tex = new THREE.CanvasTexture(canvas);
         tex.colorSpace = THREE.SRGBColorSpace;
