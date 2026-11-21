@@ -3,6 +3,7 @@
 // dust and drift smoke, nitro flames).
 import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "./models.js";
+import { shadowProxy, shadowBatch } from "./lod.js";
 
 // Same skins (and handling stats) as the 2D game's shop, so the car you
 // picked there is the car you drive here.
@@ -64,6 +65,7 @@ export class PlayerCar {
 
     setSkin(key) {
         if (this.model) this.tilt.remove(this.model);
+        if (this.shadow) { this.shadow.dispose(); this.shadow = null; }
         this.skinKey = SKINS[key] ? key : "pink";
         const sk = SKINS[this.skinKey];
         this.stats = sk;
@@ -97,6 +99,10 @@ export class PlayerCar {
             obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") this.hairMats.push(o.material); }); }
         if (this.hairColor || this.hairStyle) this.setHair(this.hairColor, this.hairStyle);
         for (const [slot, obj] of Object.entries(this.attached || {})) if (obj) this.attach(slot, obj);
+        // MEDIUM / HIGH: the body + rear wheels cast their shadow in one draw (lod.js); Lulu, her hair, the steering
+        // wheel, the steered front wheels and anything hung on an anchor keep casting on their own (they move)
+        this.shadow = shadowProxy(this.model, { skip: o => o === this.driver || /^(Hair_|SteeringWheel|Wheel_F|Anchor_)/.test(o.name || "") });
+        if (this.driver) shadowBatch(this.driver);      // (Lulu at the wheel moves: the people's shadow batch, not a baked proxy)
     }
 
     /** Recolour Lulu's hair and (optionally) pick a style ("sheitel" or any Hair_<style> in the model). */

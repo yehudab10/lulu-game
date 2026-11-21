@@ -158,7 +158,7 @@ export function collect(dr) {
     stat("dreidels", 1);
     if (SAVE.dreidels % CHAI === 0) milestone();
     else if (ctx.time > toastT) {
-        toastT = ctx.time + 1.1;
+        toastT = ctx.time + 8;            // (one toast for a run of dreidels — the HUD chip counts every one; each re-count was a new pop-up)
         H.toast(risky ? `😱 RISKY DREIDEL! ✨ ${G.playDreidels}` : air ? `🛹 SKY DREIDEL! ✨ ${G.playDreidels}` : `✨ Golden dreidel ×${G.playDreidels}`, risky ? "pink" : "gold");
     }
 }

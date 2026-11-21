@@ -107,6 +107,9 @@ module.exports = {
     // ── back on the highway: no clip ──
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.town.active`, "a cruise on the highway", 9000);
-    t.check("on the highway the chase cam has no walls to check (no cost)", await g(`ctx.cam.carClip === null && ctx.cam.carClipD === 99`));
+    // (ci/qaweekend: her own home street — the first 160 m, where a run starts — has walls too: her house; past it, none)
+    await g(`(() => { const p = ctx.world.road.point(400, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 400; ctx.car.d = 1.75; ctx.world.prebuild(400); ctx.cam.snap(); return true; })()`);
+    await t.frames(10);
+    t.check("on the highway the chase cam has no walls to check (no cost)", await g(`(ctx.cam.carClip === null || ctx.cam.carClip(ctx.car.pos, 0, 0, 1, 6) == null) && ctx.cam.carClipD === 99`));
   },
 };

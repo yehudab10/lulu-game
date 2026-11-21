@@ -895,12 +895,23 @@ on("boot", () => {
     const CAM = ctx.streets && ctx.streets.cams;
     if (CAM) { if (!CAM.roadevents_school_bus) CAM.roadevents_school_bus = { d: 4.2, h: 1.9 }; if (!CAM.town_mw_sweeper) CAM.town_mw_sweeper = { d: 1.2, h: 0.8 }; }
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(talkSpot);
-    // the phone (if it has apps): the local news
-    if (ctx.phone && ctx.phone.addApp) {
+    // the phone: the local news — a pinned row in 💬 Messages, not an app of its own (the phone stays one 3 × 3 screen;
+    // an older phone without pins gets the app)
+    const kvVisible = () => !(ctx.party && ctx.party.active) || !!S.active;      // (🌍 Free Roam: in a town)
+    const kvNew = () => (LIFE.live.length - S.readLive > 0 ? LIFE.live.length - S.readLive : null);
+    if (ctx.phone && ctx.phone.addPin) {
+        try {
+            ctx.phone.addPin({ id: "town", order: 70, visible: kvVisible,
+                row: () => {
+                    const L = (S.def || S.lastDef || townFor(0)).lines, top = LIFE.live[0] || L.KVETCH[0];
+                    return { icon: "🗞️", color: "#5E35B1", title: L.KVETCH_TITLE || "The Kvetch", sub: top ? top.h : "local news nobody asked for", badge: kvNew() };
+                },
+                render(el) { S.readLive = LIFE.live.length; el.innerHTML = kvetchHtml(); } });
+        } catch (e) { console.warn("[town] phone pin", e); }
+    } else if (ctx.phone && ctx.phone.addApp) {
         try {
             ctx.phone.addApp({ id: "town", icon: "🗞️", name: "Kvetch", order: 70, color: "#5E35B1", color2: "#B39DDB",
-                visible: () => !(ctx.party && ctx.party.active) || !!S.active,      // (🌍 Free Roam: in a town)
-                badge: () => LIFE.live.length - S.readLive > 0 ? LIFE.live.length - S.readLive : null,
+                visible: kvVisible, badge: kvNew,
                 render(el) { S.readLive = LIFE.live.length; el.innerHTML = kvetchHtml(); } });
         } catch (e) { console.warn("[town] phone app", e); }
     }

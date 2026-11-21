@@ -61,6 +61,7 @@ export const NUDGE = {
     laneWarn: 10, laneStar: 12,    // seconds walking IN the lanes → a cop's warning → a mild ★
 };
 
+const FLAVOUR = { flavour: true };          // (the pop-up budget: one pop-up per moment — a line OR a floater)
 const LINES = {
     grass: ["Tall grass. Ticks. Love that for me. 🙄", "This is how horror movies start.", "Nature is SO itchy."],
     scrub: ["Tumbleweeds. Real ones. Huh.", "Is that a SNAKE? It's a stick. ...It moved.", "The desert is just a big beach with no water."],
@@ -160,7 +161,7 @@ const SFX = {
 
 // ── the scenery out there (pooled, foot-only: placed around her, re-laid as she moves) ──
 const GRASS_N = 170, MUD_N = 40, FENCE_N = 76;
-const V = { group: null, grass: null, mud: null, fence: null, signs: [], cell: null, biome: null, built: false };
+const V = { group: null, grass: null, mud: null, fence: null, signs: [], cell: null, biome: null, low: null, built: false };
 function buildVisuals() {
     if (V.built || !models.foot_fence || !models.foot_grass || !models.foot_mud || !models.foot_trespass) return;
     V.built = true;
@@ -203,9 +204,9 @@ function layout(F, force) {
     const show = edgesOn();
     V.group.visible = show;
     if (!show) return;
-    const cell = Math.floor(F.s / 3), isDry = dry();
-    if (!force && cell === V.cell && isDry === V.biome) return;
-    V.cell = cell;
+    const cell = Math.floor(F.s / 3), isDry = dry(), low = !!(ctx.gfx && ctx.gfx.tier === "low");
+    if (!force && cell === V.cell && isDry === V.biome && low === V.low) return;
+    V.cell = cell; V.low = low;
     if (isDry !== V.biome) { V.biome = isDry; tintFor(isDry); }
     const rd = road(), w = ctx.world;
     // fence: 4 m sections, 60 m behind → 90 m ahead
@@ -220,11 +221,13 @@ function layout(F, force) {
         }
     }
     setCount(V.fence, n);
-    // tall grass: two clumps per 3 m cell per side (deterministic, so it never shuffles)
+    // tall grass: two clumps per 3 m cell per side (deterministic, so it never shuffles). LOW: one per cell beyond
+    // ±24 m of her (the same clumps, every other one left out — ~30 % fewer grass triangles on a phone that needs it)
     n = 0;
     for (const side of [-1, 1]) {
         for (let c = cell - 14; c <= cell + 27 && n < GRASS_N; c++) {
-            for (let j = 0; j < 2 && n < GRASS_N; j++) {
+            const per = low && Math.abs(c - cell) > 8 ? 1 : 2;
+            for (let j = 0; j < per && n < GRASS_N; j++) {
                 const h1 = hash(c * 2 + j, side + 7), h2 = hash(c * 2 + j, side + 19), h3 = hash(c * 2 + j, side + 31);
                 const s = c * 3 + h1 * 3, d = side * (EDGE.grass + 0.5 + h2 * (EDGE.mudFull - EDGE.grass));
                 if (s < 4 || w.isReserved(s, d, 2)) continue;
@@ -307,8 +310,15 @@ export function engaged(F, kind) {
     if (B.next - B.aim > NUDGE.every * 2) B.next = B.aim + NUDGE.every;
 }
 
-/** Speed multiplier for her walk/run right now (terrain × sore feet). */
+/** Other features slowing her down (features/airport: Rex has her shoelace) — fns (F) → a multiplier 0–1, or 1. */
+export const SLOW = [];
+/** Speed multiplier for her walk/run right now (terrain × sore feet × SLOW). */
 export function speedMul(F) {
+    let k = baseMul(F);
+    for (const f of SLOW) { try { const m = f(F); if (m >= 0 && m < 1) k *= m; } catch (e) { /* not theirs */ } }
+    return k;
+}
+function baseMul(F) {
     const B = F.bx;
     if (!B) return 1;
     let k = B.soreK;
@@ -357,8 +367,12 @@ export function damp(F) {
     F.vel.x -= nx * cut; F.vel.z -= nz * cut;
 }
 
+/** Places off the highway with fences of their own (features/airport's landside): predicates (x, z) → true = no world
+ *  fence / limit there (ctx.foot.bounds.free). */
+export const FREE = [];
 /** Position limit (after the move). The soft edges keep her well inside it; it's only a safety net. */
 export function limit(F, near, dt = 1 / 30) {
+    if (FREE.length && FREE.some(f => f(F.pos.x, F.pos.z))) return;
     // (on a road off the highway — a ramp, an interchange's cross road on to an attached town — there's no fence: the
     //  road goes somewhere. Midwood's line is ~75 m out along its cross road, and the fence turned her back before it)
     // (and once she's been out there, stepping off the road onto the verge mustn't drag her back 15 m: the fence widens)
@@ -408,7 +422,7 @@ function terrain(F, B, dt) {
             B.said[zone] = true;
             const isDry = dry();
             if (!hasBubble(F.lulu.obj)) bubble(F.lulu.obj, pick(zone === "mud" ? (isDry ? LINES.sand : LINES.mud) : (isDry ? LINES.scrub : LINES.grass)), 2.4);
-            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 🥾", "#D7B98E", 1.4, 2.7); SFX.squelch(); }
+            if (zone === "mud") { floater(F.lulu.obj, isDry ? "🏜️ soft sand" : "SQUELCH 🥾", "#D7B98E", 1.4, 2.7, FLAVOUR); SFX.squelch(); }
         }
         B.zone = zone;
     }
@@ -444,8 +458,8 @@ function startShoo(F, B, side, kind) {
     if (kind === "goose" || kind === "dog") spawnCritter(F, B, kind, side);   // (a sprinkler / mosquitoes let the last critter waddle off)
     if (kind === "goose") { SFX.honk(); bubble(L1, pick(LINES.goose), 1.9); }
     else if (kind === "dog") { SFX.bark(); bubble(L1, pick(LINES.dog), 2.0); }
-    else if (kind === "sprinkler") { SFX.spray(); floater(L1, "💦 PSSHT-T-T-T-T", "#81D4FA", 1.5, 2.8); bubble(L1, pick(LINES.sprinkler), 2.2); }
-    else { SFX.buzz(); floater(L1, "🦟🦟🦟 bzzzz", "#FFFFFF", 1.5, 2.8); bubble(L1, pick(LINES.mosquito), 2.2); }
+    else if (kind === "sprinkler") { SFX.spray(); floater(L1, "💦 PSSHT-T-T-T-T", "#81D4FA", 1.5, 2.8, FLAVOUR); bubble(L1, pick(LINES.sprinkler), 2.2); }
+    else { SFX.buzz(); floater(L1, "🦟🦟🦟 bzzzz", "#FFFFFF", 1.5, 2.8, FLAVOUR); bubble(L1, pick(LINES.mosquito), 2.2); }
     rumble(0.25, 0.4, 160);
     F.waveT = Math.max(F.waveT || 0, 1.0);    // arms up, flailing
     if (B.shoos === 1) H.toast("🌾 Only geese out here. The fun’s by the road!", "gold");
@@ -568,7 +582,7 @@ function fired(B, kind) {
 function soreFeet(F, B) {
     B.sore = true;
     bubble(F.lulu.obj, pick(LINES.sore), 2.6);
-    floater(F.lulu.obj, "🦶 sore feet — slower", "#FFCC80", 1.8, 2.75);
+    floater(F.lulu.obj, "🦶 sore feet — slower", "#FFCC80", 1.8, 2.75, FLAVOUR);
     SFX.sigh();
     spawnBench(F, B);
 }
@@ -638,7 +652,7 @@ function sitDown(F, bench) {
                 const wasSore = F.bx.sore;
                 F.bx.sore = false;
                 F.bx.aim = Math.max(0, F.bx.aim - 30);
-                if (wasSore) floater(o, "🦶 feet: better", "#A5D6A7", 1.5, 2.6);
+                if (wasSore) floater(o, "🦶 feet: better", "#A5D6A7", 1.5, 2.6, FLAVOUR);
                 if (wasSore && ctx.G.hearts < ctx.G.maxHearts) { heal(1); H.toast("❤️ +1 HEART — a good sit", "pink"); }
             }
             emit("stat", { id: "footBenchSits", n: 1 });
@@ -773,7 +787,7 @@ function jaywalkStar(F, B) {
 
 // ── test / debug surface (ctx.foot.bounds) ───────────────────────────────
 export const api = {
-    EDGE, NUDGE,
+    EDGE, NUDGE, free: FREE, slow: SLOW,
     get state() { const F = current && current(); return F ? F.bx : null; },
     /** Which band she's standing in: lanes | shoulder | verge | grass | mud | grounds (a rest area's lot / lawn) (busy: a chase / a scripted moment). */
     get zone() { const F = current && current(); return F && F.bx ? F.bx.zone : null; },
