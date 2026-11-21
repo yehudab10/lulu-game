@@ -296,7 +296,8 @@ export async function spawnAmbulance(opts = {}) {
             if (blocking) {
                 c.want = Math.min(c.base, car.speed);
                 E.blockT += dt;
-                if (E.blockT > 1.5 && !E.honked) { E.honked = true; sfx.honk(c.obj); H.toast("🚑 Pull aside for the ambulance!", "red"); }
+                // (the honk says it; the toast only if she wasn't already told it's coming — one ambulance, one pop-up)
+                if (E.blockT > 1.5 && !E.honked) { E.honked = true; sfx.honk(c.obj); if (!E.warned) H.toast("🚑 Pull aside for the ambulance!", "red"); }
             } else {
                 c.want = c.base;
                 if (E.blockT > 0.5 && !E.thanked && gap > -2 && gap < 30) { E.thanked = true; addScore(50, "ambulance"); H.toast("🚑 Good citizen! +50", "gold"); stat("ambulancesCleared", 1); }
@@ -311,7 +312,7 @@ export async function spawnAmbulance(opts = {}) {
     };
     const c = ctx.traffic.add("roadevents_ambulance", s, d, fromBehind ? 1 : -1, fromBehind ? 36 : 30, { ai, immune: true, data: { amb: true } });
     c.obj.traverse(o => { if (o.isMesh && /LightRed|LightBlue/.test(o.material.name)) { if (!o.userData.reOwn) { o.material = o.material.clone(); o.userData.reOwn = true; } lights.push(o.material); } });
-    if (fromBehind && ctx.state === "playing") H.toast("🚑 Ambulance coming up behind you!", "red");
+    if (fromBehind && ctx.state === "playing") { H.toast("🚑 Ambulance coming up behind you!", "red"); E.warned = true; }
     amb = { c, E };
     count("ambulances");
     return amb;

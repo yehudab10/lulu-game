@@ -19,7 +19,9 @@ export function setHearts(n, max) {
 }
 let lastCoins = -1, lastScore = -1, lastMph = -1;
 export function setCoins(n) { if (n !== lastCoins) { lastCoins = n; el.coins.textContent = n; } }
-export function setScore(n) { n = Math.floor(n); if (n !== lastScore) { lastScore = n; el.score.textContent = n.toLocaleString(); } }
+// (one formatter, made once: Number#toLocaleString builds a new one on every call — ~0.3 ms a frame while the score ticks)
+const scoreFmt = (() => { try { return new Intl.NumberFormat(); } catch (e) { return null; } })();
+export function setScore(n) { n = Math.floor(n); if (n !== lastScore) { lastScore = n; el.score.textContent = scoreFmt ? scoreFmt.format(n) : n.toLocaleString(); } }
 export function setSpeed(mph) { mph = Math.round(mph); if (mph !== lastMph) { lastMph = mph; el.mph.textContent = mph; } }
 let lastBoostW = "", lastBoostFull = null, lastTripF = -1;
 export function setBoost(frac, key) {
@@ -58,7 +60,8 @@ const GAP = { normal: 7, quiet: 15 };              // seconds between two flavou
 const NT = { toasts: [], waiting: [], cur: null, bq: [], gate: () => false, calm: () => null, loT: -99, now: 0, dropped: 0, shown: 0 };
 /** The calm gate: () → { quiet (with friends / strangers around), busy (a chase, a scene…), acted (she pressed a button ≤ 1 s
  *  ago: a toast now is the answer to it, so it isn't flavour), call (a phone call's card is up: flavour toasts drop, and on a
- *  phone flavour banners wait — the call is the one thing on screen) } — features/calm sets it. */
+ *  phone flavour banners wait — the call is the one thing on screen), line (Lulu said a line ≤ 1.2 s ago: her line is the
+ *  moment's pop-up, a flavour toast drops) } — features/calm sets it. */
 export function setCalmGate(fn) { NT.calm = fn; }
 const compact = () => document.body.classList.contains("touch") || Math.min(innerWidth, innerHeight) < 520;
 const toastMax = () => compact() ? 1 : 2;
@@ -136,7 +139,7 @@ export function toast(text, cls = "", opts = {}) {
     if (prio === 1) {
         // flavour: now or never — and not too often (much less with friends / strangers around)
         const up = NT.toasts.some(t => !t.out) || NT.waiting.length > 0;
-        if (c.busy || c.call || up || popupsBlocked() || NT.now - NT.loT < (c.quiet ? GAP.quiet : GAP.normal)) { NT.dropped++; return; }
+        if (c.busy || c.call || c.line || up || popupsBlocked() || NT.now - NT.loT < (c.quiet ? GAP.quiet : GAP.normal)) { NT.dropped++; return; }
         NT.loT = NT.now;
     }
     NT.waiting.push({ text, cls, key, n: 1, age: 0, summed: false, prio });
@@ -185,6 +188,7 @@ function showBanner(b) {
     el.banner.innerHTML = b.html;
     el.banner.classList.remove("hidden", "held");
     el.banner.style.animation = "none"; void el.banner.offsetWidth; el.banner.style.animation = "";
+    if (el.banner.classList.contains("compact")) fitHud();      // (ducks under the chips from its first frame)
 }
 function pumpBanners() {
     const blocked = popupsBlocked();
@@ -243,6 +247,69 @@ export function notifyTick(dt) {
     }
     for (const b of NT.bq) b.age += dt;
     pumpBanners();
+    if ((FIT.t -= dt) <= 0) { FIT.t = 0.2; fitHud(); }
+}
+
+// ── keep clear (ci/hudfit) ───────────────────────────────────────────────
+// A few HUD pieces have no fixed room: what sits around them depends on the screen and on what else is up (the
+// pills wrap, 📝 Ima's list grows a line, a phone text arrives). ~5× a second each is nudged — only as far as it
+// must — off the pieces it would sit on: the feature stacks under the pills, the "center" stack (the WELCOME
+// banner, task chips) under the trip bar + the left / right chips, the ✋ prompt and the controller's hint up
+// off the speedo / the touch buttons / each other. The nudge is the CSS `translate` property (`data-fit-dy`), so it
+// never fights a piece's own transform / animation. ⏭ SKIP does the same (core/skip.js).
+const FIT = { t: 0 };
+const shownEl = e => { if (!e.offsetParent && getComputedStyle(e).position !== "fixed") return false;
+    const cs = getComputedStyle(e); if (cs.visibility === "hidden" || e.classList.contains("hidden")) return false;
+    const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
+/** Nudge `e` down (dir 1) / up (dir -1) just far enough to clear every shown piece matching `avoid`. */
+export function keepClear(e, avoid, dir = 1, gap = 6) {
+    if (!e) return 0;
+    const cur = +e.dataset.fitDy || 0;
+    let r = e.getBoundingClientRect();
+    if (e.classList.contains("hud-slot")) {          // a stack: what's IN it (it may be wider than its pieces)
+        let u = null;
+        for (const c of e.children) { if (!shownEl(c)) continue; const q = c.getBoundingClientRect();
+            u = u ? { left: Math.min(u.left, q.left), right: Math.max(u.right, q.right), top: Math.min(u.top, q.top), bottom: Math.max(u.bottom, q.bottom) } : q; }
+        r = u ? { left: u.left, right: u.right, top: u.top, bottom: u.bottom, width: u.right - u.left, height: u.bottom - u.top } : { width: 0, height: 0 };
+    }
+    let dy = 0;
+    if (r.width > 2 && r.height > 2 && !el.hud.classList.contains("hidden")) {
+        const top = r.top - cur, bot = r.bottom - cur, obs = [];
+        for (const sel of avoid) for (const o of document.querySelectorAll(sel)) if (!e.contains(o) && !o.contains(e) && shownEl(o)) obs.push(o.getBoundingClientRect());
+        for (let k = 0; k < 8; k++) {
+            let moved = false;
+            for (const o of obs) {
+                if (Math.min(r.right, o.right) - Math.max(r.left, o.left) <= 2) continue;
+                if (Math.min(bot + dy, o.bottom + gap) - Math.max(top + dy, o.top - gap) <= 0) continue;
+                const n = dir > 0 ? o.bottom + gap - top : o.top - gap - bot;
+                if (dir > 0 ? n > dy : n < dy) { dy = n; moved = true; }
+            }
+            if (!moved) break;
+        }
+        dy = Math.max(-top, Math.min(innerHeight - bot, dy));      // never off the screen
+    }
+    dy = Math.round(dy);
+    if (dy !== cur) { e.dataset.fitDy = dy; e.style.translate = dy ? `0 ${dy}px` : ""; }
+    return dy;
+}
+const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn"];
+// (a piece marked data-fit="self" keeps clear of the centre stack on its own on a wide screen — hustle's 📻 ticker
+// steps down the right column — so there the centre doesn't also duck under it: two pieces each dodging the other
+// would chase each other down the screen. On a screen held upright the centre stack carries on under BOTH columns
+// and such pieces stay put — PORTRAIT, the same test they make.)
+const SIDES = ["#slot-left > *", "#slot-right > *"];
+const SIDES_WIDE = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
+export const PORTRAIT = matchMedia("(max-aspect-ratio: 1/1)");
+const BOTTOM = ["#hud .hud-br .speedo", "#touch .tbtn", "#stickBase", "#touchExtra > *"];
+/** One keep-clear pass over the HUD (every 0.2 s of game time, and when a banner / prompt shows). */
+export function fitHud() {
+    if (el.hud.classList.contains("hidden")) return;
+    const s = id => document.getElementById("slot-" + id);
+    keepClear(s("left"), TOPS);
+    keepClear(s("right"), TOPS.concat("#slot-left > *"));
+    keepClear(s("center"), TOPS.concat(PORTRAIT.matches ? SIDES : SIDES_WIDE, "#hud .hud-br .speedo"));
+    keepClear(el.padHint, BOTTOM, -1);
+    keepClear(s("bottom"), BOTTOM.concat("#padHint"), -1);
 }
 
 let lastHint = null;
@@ -437,4 +504,5 @@ export function prompt(html) {
     lastPrompt = html;
     const s = hudSlot("bottom");
     s.innerHTML = html ? `<div class="prompt">${html}</div>` : "";
+    if (html) fitHud();
 }

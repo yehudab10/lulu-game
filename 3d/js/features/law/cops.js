@@ -11,7 +11,7 @@
 //    stars that climb (3★ box-ins + K9 dogs, 4★ cop missiles, 5★ the chopper)
 //  • APB call-ins, the open-warrant file, and the fugitive stretch after a jailbreak
 import * as THREE from "three";
-import { ctx, emit, addActor, setState, MPH, wrapAngle } from "../../core/ctx.js";
+import { ctx, emit, addActor, setState, MPH, wrapAngle, hooks } from "../../core/ctx.js";
 import { addScore } from "../../core/driving.js";
 import { models, cloneWithColors, findNodes, registerModels, ensureModels } from "../../models.js";
 import { registerKind } from "../../traffic.js";
@@ -331,6 +331,18 @@ function prowlRoute(c, u, ch) {
     return r;
 }
 
+/** A place off the highway with roads of its own (features/airport) routes a chase / a pull-over through them:
+ *  hook "copRoute" (c, u, chase) → { gap, aim(la, out) } or null; and its own buildings block the view: hook
+ *  "copSight" (ax, az, bx, bz) → true (clear) · false (blocked) · undefined (not its business). */
+function placeRoute(c, u, ch) {
+    for (const fn of hooks.copRoute || []) { try { const r = fn(c, u, ch); if (r) return r; } catch (e) { console.error("[law] copRoute", e); } }
+    return null;
+}
+function placeSight(ax, az, bx, bz) {
+    for (const fn of hooks.copSight || []) { try { const r = fn(ax, az, bx, bz); if (r === true || r === false) return r; } catch (e) { console.error("[law] copSight", e); } }
+    return undefined;
+}
+
 /** Free-mode driver for our cruisers: pursue / box in / pull over / haul away / give up. */
 function driveUnit(dt, c, u) {
     const px = c.x, pz = c.z, ph = c.h, ps = c.s;
@@ -353,7 +365,8 @@ function steerUnit(dt, c, u) {
     const inTown = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute;
     const prowling = inTown && ch && ch.searching && ch.last && !u.bolo && !!ctx.town.searchPoint;
     if (!prowling) u.prowl = null;
-    const route = !inTown ? null : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
+    const route = !inTown ? ((u.mode === "chase" || u.mode === "pull") && !(ctx.town && ctx.town.active) ? placeRoute(c, u, ch) : null)
+        : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
@@ -382,7 +395,7 @@ function steerUnit(dt, c, u) {
         u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
         tD = Number.isFinite(u.pullD) ? u.pullD : pullDAt(c.s);
-        const err = (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
+        const err = route ? route.gap : (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
         vT = clamp(err * 1.1, 0, 22);
         if (err < 0.4) vT = 0;
         u.vmax = 30;
@@ -800,8 +813,10 @@ function nightness() { const a = ctx.atmos; return a && typeof a.night === "numb
 function clearLine(ax, az, as, self, bx = ctx.car.pos.x, bz = ctx.car.pos.z) {
     const car = ctx.car, road = ctx.world.road;
     // in a town (features/town) its buildings are the occluders; on the highway, the roadside on a bend
+    const own = placeSight(ax, az, bx, bz);
+    if (own === false) return false;
     if (ctx.town && ctx.town.active) { if (ctx.town.blocksSight(ax, az, bx, bz)) return false; }
-    else for (const k of [0.3, 0.55, 0.8]) {
+    else if (own !== true) for (const k of [0.3, 0.55, 0.8]) {
         road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, Number.isFinite(as) ? as + (car.s - as) * k : car.s, tmpN);
         if (Math.abs(tmpN.d) > TUNE.offRoad) return false;
     }
