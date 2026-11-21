@@ -616,6 +616,12 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     body.touch #touchExtra { right: auto; left: max(24px, env(safe-area-inset-left)); bottom: calc(max(24px, env(safe-area-inset-bottom)) + 258px); }
     body.touch.hud-clean .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 122px); }
 }
+/* a narrow phone: ❤️ + 💰 + SCORE don't fit one row once the score has 3 digits — the score wraps under them and sat on
+   the trip bar (ci/qaweekend). Room for two rows of pills; the trip bar + the chips come down a row. */
+@media (max-aspect-ratio: 1/1) and (max-width: 430px) {
+    body.touch:not(.hud-clean) .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 100px); }
+    body.touch:not(.hud-clean) .hud-slot.left, body.touch:not(.hud-clean) .hud-slot.right, body.touch:not(.hud-clean) .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 162px); }
+}
 /* portrait phones: full-width card, comfortable taps */
 @media (max-width: 520px) and (max-aspect-ratio: 1/1) {
     .card.title-card { padding: 12px 14px 14px; }

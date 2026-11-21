@@ -335,6 +335,7 @@ async function phone(t) {
     for (const foot of [false, true]) {
       if (foot) await onFoot(t); else await backInCar(t);
       if (touch) await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`);
+      await g(`(ctx.G.score = Math.max(ctx.G.score || 0, 12345), true)`);      // (a long score: the pills are at their widest)
       await t.frames(20);
       const hud = await hudOverlap(t);
       t.check(`${name}, ${foot ? "on foot" : "driving"} in Lakewood: the HUD's chips + buttons don't overlap, all on screen`, !hud.bad.length, hud.bad.join(" | ") + " — " + hud.ids.join(","));
