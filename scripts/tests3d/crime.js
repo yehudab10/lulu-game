@@ -20,7 +20,7 @@ module.exports = {
     const g = t.game;
     const st = () => g(`L3.state`);
     const coins = () => t.L(`import("./js/core/save.js").then(m => m.wallet.coins)`);
-    const C = "ctx.crime.debug";
+    const C = "ctx.crime.debug", CU = "__lulu3d.ctx.crime.debug";
     const ONLY = process.env.CRIME_ONLY ? new RegExp(process.env.CRIME_ONLY) : null;
     const step = async (label, fn) => {
       if (ONLY && !ONLY.test(label)) return;
@@ -76,7 +76,7 @@ module.exports = {
       const c0 = await coins();
       for (let i = 0; i < 6 && !await g(`!!${C}.CART.ride`); i++) { await t.tap(0); await t.frames(3); }
       t.check("✋ RIDE: she's in the cart and rolling", await g(`!!${C}.CART.ride || ${C}.log.some(e => e.ev === "cart" && e.phase === "start")`));
-      if (!await t.until(`!${C}.CART.ride`, "the ride ends", 40000)) console.log("    ride:", JSON.stringify(await g(`(() => { const R = ${C}.CART.ride, F = ctx.foot.debug.F; return { R: R && { t: R.t, v: R.v, d: R.dist }, phase: F && F.phase, st: L3.state }; })()`)));
+      if (!await t.until(`!${CU}.CART.ride`, "the ride ends", 40000)) console.log("    ride:", JSON.stringify(await g(`(() => { const R = ${CU}.CART.ride, F = __lulu3d.ctx.foot.debug.F; return { R: R && { t: R.t, v: R.v, d: R.dist }, phase: F && F.phase, st: L3.state }; })()`)));
       const end = (await logOf(/^cart:end/)).slice(-1)[0] || {};
       t.check(`the ride rolled somewhere (${end.dist} m, ended: ${end.why})`, end.dist >= 6, JSON.stringify(end));
       const c1 = await coins();
@@ -89,7 +89,7 @@ module.exports = {
       await t.frames(3);
       const c2 = await coins();
       await g(`ctx.crime.start("cart")`);
-      await t.until(`!${C}.CART.ride`, "the 3rd ride ends", 120000);
+      await t.until(`!${CU}.CART.ride`, "the 3rd ride ends", 120000);
       t.check(`the 3rd ride of the day pays nothing (${c2} → ${await coins()})`, (await coins()) === c2);
       // the risk: a cop sees it → the look → the chase
       await resetLaw();
@@ -97,7 +97,7 @@ module.exports = {
       await g(`(() => { const F = ctx.foot.debug.F, o = ${C}.CART.obj.position; F.pos.x = o.x + 0.8; F.pos.z = o.z; F.lulu.obj.position.set(F.pos.x, 0, F.pos.z); return true; })()`);
       await t.frames(3);
       await g(`ctx.crime.start("cart")`);
-      await t.until(`!${C}.CART.ride`, "the seen ride ends", 120000);
+      await t.until(`!${CU}.CART.ride`, "the seen ride ends", 120000);
       const seen = (await logOf(/^(warn|chase):/)).map(e => e.ev + ":" + e.kind);
       t.check("seen in the street: a ⚠️ look first, then the chase", seen.join(",").includes("warn:cart") && seen.join(",").includes("chase:cart"), seen.join(","));
       t.check("a cop on foot is after her", await g(`ctx.foot.chasing`));
@@ -197,21 +197,21 @@ module.exports = {
       const P = await parkHere();
       t.check("stopped double-parked mid-block", !!P);
       if (!P) return;
-      await t.until(`${C}.PARK.shown`, "the double-park prompt", 4000);
+      await t.until(`${CU}.PARK.shown`, "the double-park prompt", 4000);
       const pr = await promptText();
       t.check("the prompt offers to double-park", /Double-park/i.test(pr), pr);
       for (let i = 0; i < 6 && !await g(`!!${C}.PARK.on`); i++) { await t.tap(0); await t.frames(3); }
       t.check("✕ → hazards on, 'one second'", await g(`!!${C}.PARK.on`));
       // a town driver comes up behind her and has to wait
       await g(`(() => { const r = ctx.world.road, q = r.point(${P.base} + ${P.a} - 22, ${P.d}, {}); return !!ctx.town.addDriver("minivan", { at: { x: q.x, z: q.z, dir: 1 }, speed: 5 }); })()`);
-      await t.until(`${C}.PARK.on && ${C}.PARK.on.honks.size >= 1`, "a car stuck behind her honks", 15000);
+      await t.until(`${CU}.PARK.on && ${CU}.PARK.on.honks.size >= 1`, "a car stuck behind her honks", 15000);
       const honks = await g(`${C}.PARK.on ? ${C}.PARK.on.honks.size : 0`);
       t.check(`a town driver queues up behind her and honks (${honks})`, honks >= 1);
       // drive off → paid
       const c0 = await coins();
       await g(`(() => { const c = ctx.car; c.vx = Math.sin(c.h) * 9; c.vz = Math.cos(c.h) * 9; return true; })()`);
       await t.hold(7, 1); await t.frames(40); await t.hold(7, 0);
-      await t.until(`!${C}.PARK.on`, "she drives off", 6000);
+      await t.until(`!${CU}.PARK.on`, "she drives off", 6000);
       const c1 = await coins();
       t.check(`driving off pays for the held-up cars (+${c1 - c0}, ≤ 8)`, c1 - c0 >= 1 && c1 - c0 <= 8, JSON.stringify((await logOf(/^park:end/)).slice(-1)));
       // Lakewood, past the grace, a cop who sees it: the law's ⚠️ warning
@@ -221,7 +221,7 @@ module.exports = {
       await t.frames(4);
       await g(`ctx.crime.start("park")`);
       await g(`(${C}.PARK.on.t = ${C}.PARK.on.grace + 1, true)`);
-      await t.until(`${C}.log.some(e => e.ev === "park" && (e.phase === "warn" || e.phase === "chase"))`, "the law notices", 5000);
+      await t.until(`${CU}.log.some(e => e.ev === "park" && (e.phase === "warn" || e.phase === "chase"))`, "the law notices", 5000);
       t.check("Lakewood past the grace: the patrol's ⚠️ warning (law.notice)", await g(`ctx.law.suspicion > 0 || ctx.law.chasing`));
       await g(`(${C}.CR.force.cop = null, ${C}.parkEnd("test"), true)`);
     });
@@ -233,7 +233,7 @@ module.exports = {
       if (!await parkHere()) { t.check("a block to double-park on in Midwood", false); return; }
       await t.frames(4);
       t.check("Midwood: double-park starts", await g(`ctx.crime.start("park")`));
-      await t.until(`${C}.log.some(e => e.ev === "park" && e.phase === "legal")`, "the patrol shrugs", 4000);
+      await t.until(`${CU}.log.some(e => e.ev === "park" && e.phase === "legal")`, "the patrol shrugs", 4000);
       t.check("Midwood: hazards on = the cop shrugs (no warning inside the grace)", await g(`${C}.log.some(e => e.ev === "park" && e.phase === "legal") && !(ctx.law.suspicion > 0) && !ctx.law.chasing`));
       await g(`(${C}.CR.force.cop = null, ${C}.parkEnd("test"), true)`);
       await t.shot("double-parked-midwood");
