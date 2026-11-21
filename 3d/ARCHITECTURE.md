@@ -398,6 +398,51 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
 
   The interchange's remaining weight is the two standing towns (`features/town` — `ci/exits2` is reworking the
   interchange, so not touched here) and each chunk's road + shoulders + signs.
+* **Batch 4 (`ci/perf4`, 2026-11-21)** — every tier:
+  * **The people's main-pass batch** (`lod.js` › `peopleBatch` / `installPeopleBatch`): a spawned person
+    (`core/people.js` › `spawnPerson`) was ~13–17 draw calls wherever she stood (body, arms, legs, hair, face, clothes).
+    Now every person's plain parts are instances of ONE `THREE.BatchedMesh` per kind of material (in practice ~4 —
+    side / metalness differ) drawn with one `WEBGL_multi_draw` call each. Near or far, everyone stays fully animated:
+    right before each draw (the batch's `onBeforeRender`, after three updated the matrices) every part's LIVE
+    `matrixWorld` + visibility (its whole parent chain) is copied in, and each instance's colour + roughness come from
+    its own material every frame (the batch's per-instance colour texture: rgb = colour, alpha = roughness, read by a
+    small shader patch) — a recolour / a flash shows at once. The real parts are NOT hidden: they're moved to
+    `PEOPLE_LAYER` (30), a layer the main camera doesn't draw (the sun's shadow camera does: the shadow batch or the part
+    casts as before), so every feature's `visible`, matrices and raycasts are untouched. Not batched (they stay real
+    meshes): anything with a texture, transparency, emissive, a custom shader (`onBeforeCompile`), a skinned /
+    instanced / multi-material mesh, a non-default layer / renderOrder / `onBeforeRender`. A part whose material
+    changes KIND (turns see-through, gets a map / emissive…), is swapped for another material or leaves her hands that
+    person back to her own meshes before the next render (drawn as she was this frame: no blink) and she re-joins ~30
+    frames later (a person who keeps changing waits ~60 s). Only the MAIN scene's render batches: rendering any other
+    scene (an interior set, a portrait, the salon's mirror) first hands back whoever of ours is in it; a person out of
+    the world ~20 s is forgotten and `Person.update()` registers her again if she comes back. Parts are added in
+    material order (what three's opaque sort did), so a face patch still lands on the head. `peopleBatchInfo()` /
+    `peopleBatchOn(false)` for tests. Same-frame A/B (test `batches`): ≤ 16 of 518k pixels differ — single edge pixels
+    where float rounding moves a triangle edge one pixel (`--shots` saves those spots ×8).
+  * **The chunks' slot batches** (`merge.js` › `SlotBatch`, `world.slotBatch(mat)`): every highway chunk's road,
+    shoulders, driveways and sign metal were a draw call each (~4–6 a chunk). Now `Chunk.addPiece(geo, mat, { owner })`
+    puts each piece in a reserved slot of ONE `BatchedMesh` per material (drawn with a copy of the material kept in step
+    with the original right before each draw — the weather darkening the road and the wet road's reflection still
+    apply; one material drawn both batched and plain would switch three's shader program back and forth every frame),
+    drawn while its owner (the chunk group / the sign
+    group) and every parent are visible, at the owner's `matrixWorld` — so the draw-distance cull, a district hiding the
+    highway, a sign taken down all still work. A freed slot (a recycled chunk) is reused by the next piece that fits:
+    a long drive doesn't grow the buffers. Sign FACES keep their own draw (each its own texture). `Chunk.bounds()`
+    counts the pieces. `world.slotInfo()` for tests.
+  * **The power lines** (`world.syncWires`): every drawn chunk's wires are ONE `LineSegments` (was one a chunk),
+    re-filled only when the set of drawn chunks with wires changes; at the origin with world-space points, like each
+    chunk's own was, so it sorts among the see-through things exactly as before.
+  * **Lulu at the wheel**: her hair (every style), the steering wheel and the steered front wheels cast through the
+    people's shadow batch (live matrices: they still turn in the shadow) — not a shadow draw each (`car.js`).
+  * **`?nobatch`** turns all of batch 4 off (the game drawn as before) — for A/B measuring.
+  * **GC when a town is built / torn down** — measured with a CPU profile + an allocation sample while both towns build
+    at an interchange (CI, LOW): ~3 ms a frame of GC, ~4.5 MB allocated over the build and ~17 MB over the next town's
+    build; ~95 % of it is inside `features/town` (owned by `ci/exits2`, not touched here): `kit.js` › `bakeGeometry`
+    makes a full position / normal / colour / index copy of EVERY part (~6.5 MB a town) that `mergeSteps` then copies
+    again into the merged arrays and drops (write the parts straight into the merged arrays — a counting pass, then a
+    filling pass — and that garbage is gone); `build.js` › `col()` / `parkedCar` / `addColored` allocate per call
+    (a parked car = a full `cloneWithColors` of the model + a fresh `PlaneGeometry`). Left to `ci/exits2`
+    (AGENTS §7 › Performance).
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.
@@ -445,6 +490,24 @@ controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update
 **Keep pop-ups off the road:** toasts are a feed on the right edge; while driving/walking
 (`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
 "center" slot. Don't add your own big centred text over the road in those states — use these.
+**HUD fit (`ci/hudfit`):** the slots have a starting place per layout (`style3d.css` › "HUD fit"), and `H.fitHud()` (every 0.2 s
+of game time + when a banner / prompt shows) nudges them — the CSS `translate` property, `data-fit-dy`, only as far as needed —
+off what they'd cover: "left" / "right" under the pills, "center" (the WELCOME banner, task chips) under the trip bar + the
+left / right chips, the ✋ prompt and the controller's `#padHint` UP off the speedo / touch buttons / each other; ⏭ SKIP
+(core/skip.js) slides down the right edge off the trip bar + chips. `H.keepClear(el, selectors, dir)` is the helper. Layouts:
+a phone held upright (touch, or a controller / keyboard ≤ 600 px wide: pills in a row, the trip bar full width under them, a
+compact speedo) — the "center" stack carries on the left column under the chips, clear of the speedo's column; a phone on its
+side (touch, ≤ 520 px tall) — the pills in two rows, chips ≤ 260 px wide, a 128 px stick under them, the centre stack between
+the chips and the buttons, the prompt low between the stick and the pedals (on foot: right above the ✋ button). On any phone
+(touch, ≤ 760 px tall) the ON FOOT chip steps aside while a phone call / text card is up and only the newest of two text cards
+shows (both are in 💬 Messages); upright on foot the prompt sits just above the WALK stick; on a small upright phone the
+banner's second line stays one line. A piece that keeps clear of the centre stack ITSELF on a wide screen (hustle's 📻 ticker steps
+down the right column) is marked `data-fit="self"` so there the centre doesn't also dodge it (two pieces dodging each other
+chase each other down the screen); held upright (`H.PORTRAIT`) it stays put and the centre ducks under it. Test:
+`scripts/tests3d/hudfit.js` (every pair of HUD pieces, by rect, at 390×844 / 844×390 / 375×667 / 667×375 / 768×1024 touch,
+390×844 / 375×667 / 768×1024 controller, 1280×720, TV 720p / 1080p, driving + on foot, the HUD at its busiest — 📝, a 💬 text,
+⏭, WELCOME, ✋, the hint — + the Clean HUD on the phones) — add a new HUD piece's selector to its `PIECES` (and to together's
+`AVOID`).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop

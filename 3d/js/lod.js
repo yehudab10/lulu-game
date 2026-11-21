@@ -445,7 +445,6 @@ function pmEligible(o) {
 }
 /** What a batch's ONE material has to match: everything but the colour + roughness (those are per instance). */
 function pmKey(m) { let k = ""; for (const n of KEYS) k += m[n] + ","; return k; }
-function pmMatches(m, bm) { for (let i = 0; i < KEYS.length; i++) if (m[KEYS[i]] !== bm[KEYS[i]]) return false; return true; }
 function pmBatch(key, src) {
     let b = PM.batches.get(key);
     if (b) return b;
@@ -502,7 +501,7 @@ function pmColor(p) {
     mesh._colorsTexture.image.data[p.id * 4 + 3] = m.roughness;     // (alpha = roughness: the batch's shader reads it)
 }
 class PersonBatch {
-    constructor(root) { this.root = root; this.parts = []; this.wait = 0; this.gone = 0; this.drops = []; this.active = false; this.changed = false; }
+    constructor(root) { this.root = root; this.parts = []; this.wait = 0; this.gone = 0; this.drops = []; this.active = false; this.changed = false; this.vf = -1; this.rv = false; }
     build() {
         const root = this.root, list = [];
         const walk = o => {
@@ -520,7 +519,7 @@ class PersonBatch {
             pmGrow(b, b.verts, b.idx, b.insts + 1);
             const id = b.mesh.addInstance(g);
             b.insts++;
-            const p = { o, id, b, pb: this, mat: m, mask: o.layers.mask, r: 0, g: 0, bl: 0, rough: 0 };
+            const p = { o, id, b, pb: this, mat: m, ver: m.version, mask: o.layers.mask, r: 0, g: 0, bl: 0, rough: 0 };
             b.parts.push(p);
             pmColor(p);
             b.mesh.setMatrixAt(id, o.matrixWorld);
@@ -554,15 +553,22 @@ class PersonBatch {
  *  visibility and colour. A part that changed kind is still drawn as it was this once and handed back before the next
  *  render (no blink). */
 function pmSync(b) {
-    const mesh = b.mesh, parts = b.parts;
+    const mesh = b.mesh, parts = b.parts, bm = b.mat;
     for (let i = 0; i < parts.length; i++) {
-        const p = parts[i], o = p.o, m = o.material, pb = p.pb;
-        if (m !== p.mat || o.layers.mask !== PM.mask || !pmPlain(m) || !pmMatches(m, b.mat)) pb.changed = true;
-        let vis = true, under = false;
-        for (let a = o; a; a = a.parent) { if (!a.visible) vis = false; if (a === pb.root) under = true; }
-        if (!under) { pb.changed = true; vis = false; }
+        const p = parts[i], o = p.o, pb = p.pb;
+        // (her own visibility up to the scene once a frame — a hidden / far-culled person costs one walk, not one a part)
+        if (pb.vf !== PM.frame) { pb.vf = PM.frame; let v = true; for (let a = pb.root; a; a = a.parent) if (!a.visible) { v = false; break; } pb.rv = v; }
+        if (!pb.rv) { mesh.setVisibleAt(p.id, false); continue; }
+        let vis = true, a = o;
+        for (; a && a !== pb.root; a = a.parent) if (!a.visible) vis = false;
+        if (!a) { pb.changed = true; vis = false; }          // (the part left her)
         mesh.setVisibleAt(p.id, vis);
         if (!vis) continue;
+        // changed KIND? (another material; turned see-through / glowing; or anything that needed a recompile — a map, a
+        //  side, flat shading: three's material.version) → she's handed back before the next render
+        const m = o.material;
+        if (m !== p.mat || m.version !== p.ver || m.transparent || m.opacity !== 1 || !m.visible || m.emissive.r || m.emissive.g || m.emissive.b
+            || m.metalness !== bm.metalness || o.layers.mask !== PM.mask) pb.changed = true;
         mesh.setMatrixAt(p.id, o.matrixWorld);
         if (m === p.mat && (m.color.r !== p.r || m.color.g !== p.g || m.color.b !== p.bl || m.roughness !== p.rough)) pmColor(p);
     }
