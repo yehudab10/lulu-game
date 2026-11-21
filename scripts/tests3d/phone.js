@@ -34,8 +34,9 @@ module.exports = {
     const r = await rect("#screenCard.lphone");
     t.check("desktop: a portrait handset in the bottom-right", !!r && r.r > r.w * 0.8 && r.b > r.h * 0.9 && r.b <= r.h + 1 && r.y >= 0 && (r.b - r.y) > (r.r - r.x) * 1.5, JSON.stringify(r));
     const apps = await g(`ctx.phone.apps()`);
-    // (other features add theirs: 📍 Nearby, 🏡 Family, 🗞️ Kvetch… — a full 3 × 3 grid; "every app icon visible" below checks it fits)
-    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 9, one 3 × 3 screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 9, apps.join(","));
+    // (other features add theirs: 👯 Friends, 📍 Nearby, 📞 Phone… — the full game keeps it to 9 (calls / onegame / day check that;
+    //  🗞️ Kvetch is a pinned row in 💬 Messages, ctx.phone.addPin); the grid still goes 4 across past 9 so a 10th never falls off)
+    t.check("built-in apps: Map, Messages, Radio, Jobs, Paint & Pray, Camera (≤ 12, one screen)", ["map", "messages", "radio", "jobs", "paint", "camera"].every(a => apps.includes(a)) && apps.length <= 12, apps.join(","));
     t.check("the grid shows them as big icons", await t.L(`document.querySelectorAll("#screenCard .lp-app").length`) === apps.length);
     const sA = await g(`ctx.car.s`);
     await t.frames(10);
@@ -246,6 +247,20 @@ module.exports = {
     t.check("…D-pad + ✕ reach its buttons; api.toast/refresh work", await t.L(`window.__lkB`) === 1 && await t.L(`window.__toastOn === true`));
     await t.key("Tab");
     await t.L(`window.__noTestApp = true`);
+
+    // ── addPin contract: a row in 💬 Messages instead of a 10th app ───────
+    await g(`(ctx.phone.addPin({ id: "testpin", order: 99, visible: () => !window.__noTestPin, row: () => ({ icon: "🧪", title: "Test pin", sub: "a pinned row", badge: 2 }),
+      render(el) { el.innerHTML = '<div class="lp-note" id="tpView">pinned view</div>'; } }), true)`);
+    t.check("addPin: no new app on the grid", !(await g(`ctx.phone.apps()`)).includes("testpin") && (await g(`ctx.phone.pins()`)).includes("testpin"));
+    await g(`ctx.phone.openPhone("messages")`);
+    await t.frames(2);
+    t.check("…its row shows in 💬 Messages (with its badge)", await t.L(`(() => { const b = document.querySelector('[data-pin="testpin"]'); return !!b && /Test pin/.test(b.textContent) && /2/.test((b.querySelector(".lp-badge") || {}).textContent || ""); })()`));
+    await clickSel('[data-pin="testpin"]');
+    t.check("…tap it: its view, with ‹ All messages", await t.L(`!!document.querySelector("#tpView") && !!document.querySelector("#lpPinBack")`));
+    await t.tap(1);
+    t.check("…○ goes back to the list", await t.L(`!document.querySelector("#tpView") && !!document.querySelector('[data-pin="testpin"]')`));
+    await t.key("Tab");
+    await t.L(`window.__noTestPin = true`);
 
     // ── Mishpacha: the family group chat reacts to the run ────────────────
     await g(`(ctx.G.startS = ctx.car.s - 4000, ctx.G.tickets = 2, ctx.G.coins = 220, L3.endRun("quit"), true)`);

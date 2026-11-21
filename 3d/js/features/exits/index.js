@@ -72,6 +72,8 @@ function clearAt(s, party = false) {
         const sp = T.span || { a: -1500, b: 260 };
         for (const e of T.exits) if (e.s + sp.b > a && e.s + sp.a < b) return false;
     }
+    // (the airport's zones — fixed data, planned before the towns + rest areas once it's switched on: features/airport)
+    try { if (ctx.airport && ctx.airport.zones && ctx.airport.zones(a, b).length) return false; } catch (e) { /* none */ }
     const P = ctx.places;
     if (P && P.list && P.at) {
         try { for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > s - 320 && x < s + LY.ACC1 + 80) return false; } } catch (e) { /* none */ }

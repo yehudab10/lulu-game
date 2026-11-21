@@ -14,6 +14,8 @@
 //
 //  ctx.phone (journey owns call() / text() and the call card) gains:
 //    addApp({ id, icon, name, order, visible?, badge?, open?, render?(el, api) })
+//    addPin({ id, order?, visible?, row() → { icon, color, title, sub, badge }, render(el, api) }) — a row in
+//      💬 Messages instead of a 10th app (the home grid stays ONE 3 × 3 screen: 9 apps solo and in a party)
 //    openPhone(appId?, arg?) · closePhone() · isOpen · apps() · inbox {…} · _dbg
 //  and text() also stores the message in the inbox (tap the bubble → that thread).
 //  Events: phone:open {app} · phone:close {how} · phone:app {app} · phone:text {from, thread, msg}
@@ -25,7 +27,7 @@ import { pause, setControlRow } from "../../core/screens.js";
 import * as H from "../../hud.js";
 import "./style.js";
 import { APPS, PH, PHONE_STATES, addApp, openPhone, closePhone, canOpen, openApp, refresh, buildCorner, refreshCorner, visibleApps, partyOn } from "./ui.js";
-import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines } from "./inbox.js";
+import { INBOX, post, unread, threads, markRead, clearInbox, onInbox, view, familyLines, addPin, pins } from "./inbox.js";
 import "./apps.js";
 
 const S = store("phone", { hinted: false });
@@ -48,8 +50,12 @@ phone.text = function text(opts = {}) {
 };
 Object.assign(phone, {
     addApp, openPhone, closePhone,
+    /** A pinned row in 💬 Messages instead of an app (the phone stays one 3 × 3 screen) — see inbox.js › addPin. */
+    addPin,
     /** Visible apps, in order (ids). */
     apps: () => visibleApps().map(a => a.id),
+    /** Pinned rows showing in 💬 Messages now (ids). */
+    pins,
     inbox: { post, unread, threads, markRead, clear: clearInbox, get msgs() { return INBOX.msgs; }, familyLines },
     _dbg: { PH, APPS, view, canOpen, openApp, refresh },
 });

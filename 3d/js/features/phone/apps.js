@@ -17,6 +17,7 @@ addApp({
 });
 
 // 📻 the car radio (hustle's radio API)
+const quietNow = () => { try { return !!(ctx.seasons && ctx.seasons.radioQuiet && ctx.seasons.radioQuiet()); } catch (e) { return false; } };
 addApp({
     id: "radio", icon: "📻", name: "Radio", order: 30, color: "#7E57C2", color2: "#4527A0",
     visible: () => !!(ctx.hustle && ctx.hustle.radio),
@@ -30,6 +31,7 @@ addApp({
                 <span class="lp-tx"><b>${esc(now.name)}</b><small>${cur === "off" ? "silence is golden" : song ? "♪ " + esc(song) : esc(now.tag)}</small></span></div>
             ${list.map(s => `<button class="btn lp-row lp-st${s.id === cur ? " on" : ""}" data-st="${s.id}"><span class="lp-av">${s.emoji}</span>
                 <span class="lp-tx"><b>${esc(s.name)}</b><small>${esc(s.tag)}</small></span>${s.id === cur ? '<span class="lp-meta">▶</span>' : ""}</button>`).join("")}
+            ${quietNow() ? `<p class="lp-note">🕯️ It's the Three Weeks — the radio's music stations are quiet. LULU FM (the game's own driving soundtrack) keeps playing.</p>` : ""}
             ${inCarNow() ? "" : `<p class="lp-note">📻 plays when Lulu's back behind the wheel</p>`}`;
         el.querySelectorAll(".lp-st").forEach(b => b.addEventListener("click", () => {
             if (b.dataset.st !== r.station) r.tune(b.dataset.st);

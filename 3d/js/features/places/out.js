@@ -98,7 +98,7 @@ export const impoundedCar = () => IMP.obj;
  * lot's fence when the law has it); reason = foot's start reason (copWalk | jailbreak | discharged); line = her first
  * bubble. → true (she's out), false (no building to come out of: the caller does the old thing).
  */
-export function walkOut({ door = "precinct", car = false, reason = "copWalk", line = "", impound = false, soft = true } = {}) {
+export function walkOut({ door = "precinct", car = false, reason = "copWalk", line = "", impound = false, soft = true, side = 0 } = {}) {
     const P = STAY.place;
     if (!P || !ctx.foot || !ctx.foot.start) return false;
     const swap = () => {
@@ -113,11 +113,12 @@ export function walkOut({ door = "precinct", car = false, reason = "copWalk", li
         if (ctx.foot.active) ctx.foot.end("places");
         const c = ctx.car, face = Math.atan2(sp.nx, sp.nz);           // (out toward the street)
         // she steps out onto the sidewalk just in front of the steps (the lot line is solid: 1 m out from it)
-        const at = { x: sp.x - sp.nx * 1.5, z: sp.z - sp.nz * 1.5 };
+        // (side: partners walking out together stand side by side along the sidewalk — law/crew.js doorSide)
+        const at = { x: sp.x - sp.nx * 1.5 - sp.nz * side, z: sp.z - sp.nz * 1.5 + sp.nx * side };
         if (car) {
             // her car at the kerb right out front — the stretch in front of each civic building is kept clear of parked
             // cars (the town data's clearParking: POLICE / AMBULANCE ONLY) — facing the way the traffic on that side goes
-            const k = kerbAt(sp, 5);
+            const k = kerbAt(sp, 5 + side * 4);      // (partners' cars one behind the other)
             c.place(k.x, k.z, k.h); c.s = k.s; c.d = k.d;
         } else {
             const n = ctx.world.road.nearest(at.x, at.z, c.s, {});

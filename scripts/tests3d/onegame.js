@@ -207,6 +207,14 @@ module.exports = {
     const fl = await g(`ctx.places.home.depart().line`);
     t.check("Ima's line at the door is the Shabbos rush", /candle|sun|Shabbos/i.test(fl), fl);
     t.check("…not Ima's list today", !(await g(`ctx.day ? ctx.day.active : false`)));
+    // walking away from the ask (instead of the car): Ima answers with a "not this week" exchange, once
+    const pcar = await g(`(() => { const c = ctx.foot.parkedCar; return { x: c.x, z: c.z }; })()`);
+    await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${pcar.x} + 15, 0, ${pcar.z} + 4); F.vel.set(0, 0, 0); return true; })()`);
+    await t.frames(80);
+    const nl = await g(`ctx.places.home.depart().line`);
+    t.check("walking off from Friday's ask: Ima answers (not this week)", /CHOLENT|Friday|EREV|Shabbos|sweater/i.test(nl) && !/candle-lighting is SOON|won't wait and neither/.test(nl), nl);
+    await g(`(() => { const F = ctx.foot.debug.F; F.pos.set(${pcar.x}, 0, ${pcar.z} + 2.2); F.vel.set(0, 0, 0); return true; })()`);
+    await t.frames(6);
     await g(`ctx.foot.debug.getIn()`);
     t.check("getting in the car starts the 🕯️ rush", await t.until(`__lulu3d.ctx.shabbos.active && __lulu3d.ctx.G.mode === "shabbos"`, "rush", 3000));
     t.check("…from home (via 'home')", (await g(`ctx.shabbos.debug.info().via`)) === "home");

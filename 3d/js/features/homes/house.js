@@ -532,6 +532,21 @@ function sees(rt, r, k = 1) {
     return !blocked(rt, o.position.x, o.position.z, L.x, L.z);
 }
 
+/** 🔔 Someone rang the doorbell (a friend covering for her — features/partners): everyone who can come to the door does,
+ *  for `sec` seconds — the "fooled" pose, no view cones. → how many were distracted. */
+export function distract(rt, sec = 12, line = "🔔 Who's at the DOOR?!") {
+    const V = rt && rt.data && rt.data.V;
+    if (!V) return 0;
+    let n = 0;
+    for (const r of V.res) {
+        if (r.K.animal || r.kind === "baby") continue;
+        r.fx = "fooled"; r.stun = Math.max(r.stun || 0, sec); r.fooled = sec; r.meter = 0;
+        if (!n) rt.bubble(line, r.p.obj, 2.4);
+        n++;
+    }
+    return n;
+}
+
 // ── per frame ────────────────────────────────────────────────────────────
 function tick(rt, dt) {
     const V = rt.data.V;

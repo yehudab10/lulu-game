@@ -33,7 +33,7 @@ body.tv .tg-p small { font-size: 15px; max-width: 320px; }
 
 /** Every HUD bit / touch control a pointer must never cover. */
 const AVOID = ["#hud .hud-tl", "#hud .hud-top", "#hud .hud-tr", "#hud .hud-br", "#slot-center > *", "#hud .hud-slot.left > *", "#hud .hud-slot.right > *",
-    "#hud .hud-slot.bottom > *", "#banner", "#toasts > *", "#touch .tbtn", "#stickZone", "#touchExtra > *", "#phoneBtn", "#pauseBtn", "#ptChip", "#owChip", "#owBoard"];
+    "#hud .hud-slot.bottom > *", "#banner", "#toasts > *", "#touch .tbtn", "#stickZone", "#touchExtra > *", "#phoneBtn", "#pauseBtn", "#ptChip", "#owChip", "#owBoard", "#skipBtn", "#padHint"];
 const MAX = 3;                    // the nearest few friends only
 const D = { root: null, pills: new Map(), avoid: [], avoidT: 0, W: 0, Hh: 0 };
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
