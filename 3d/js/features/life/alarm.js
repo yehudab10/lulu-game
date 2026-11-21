@@ -14,9 +14,12 @@ export const ALARM = { dur: 5.2, blink: 0.5, onFor: 0.28, tailAt: 1.15, lineAt: 
 const OWNER = ["Nu?! That's MY car!", "Who's banging on my minivan?!", "Gevalt — the ALARM! The BABY!", "Again with the alarm?!", "Yanky, is that you?!", "I JUST had it washed!"];
 const WINDOW = ["WHOSE car is that?!", "Some of us are trying to DAVEN here!", "Turn that thing OFF!", "Ten years on this block. TEN YEARS."];
 const WINDOW_NIGHT = ["Turn that thing OFF! People are SLEEPING!", "It's the middle of the NIGHT!"];
+// round 3: a FUMBLED HOTWIRE (foot's `foot:hotwireFail`) sets the alarm off too — the owner has words about THAT
+const OWNER_HW = ["HEY! Get away from my car!", "Young lady! That is NOT your car!", "Shomrim! SHOMRIM!", "I can SEE you, you know!", "Nice try. Very nice try."];
+const WINDOW_HW = ["I SEE you! Leave the car ALONE!", "I'm calling Shomrim! I'm DIALING!", "Not on MY block!"];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-export const AL = { list: [], alarms: 0, lines: 0, blinks: 0 };
+export const AL = { list: [], alarms: 0, lines: 0, blinks: 0, hotwires: 0 };
 const BOX = new Map();                   // model key → its four lamp corners (model-local), measured once
 const _v = new THREE.Vector3(), _inv = new THREE.Matrix4(), _rel = new THREE.Matrix4();
 function corners(key, obj) {
@@ -37,28 +40,33 @@ function corners(key, obj) {
     return c;
 }
 
-on("town:parkedHit", e => {
-    if (!ctx.enabled("life") || !e || !e.obj || !e.alarm) return;
+function start(e, hw) {
+    if (!ctx.enabled("life") || !e || !e.obj) return null;
     let a = AL.list.find(x => x.obj === e.obj);
-    if (a) { a.t = Math.min(a.t, 0.6); a.said = false; return; }
+    if (a) { a.t = Math.min(a.t, 0.6); a.said = false; a.hw = hw; if (hw && a.tail) stop(a); return a; }
     if (AL.list.length >= 2) stop(AL.list.shift());
-    a = { obj: e.obj, c: corners(e.key || "", e.obj), t: 0, tail: null, said: false, anchor: new THREE.Object3D() };
+    a = { obj: e.obj, c: corners(e.key || "", e.obj), t: 0, tail: null, said: false, hw, anchor: new THREE.Object3D() };
     AL.list.push(a);
     AL.alarms++; stats.alarms = AL.alarms;
-});
+    return a;
+}
+on("town:parkedHit", e => { if (e && e.alarm) start(e, false); });
+// a fumbled hotwire (in town or a car on the highway's shoulder): no shove whoops before it — the alarm starts at once
+on("foot:hotwireFail", e => { const a = start(e, true); if (a) { a.t = Math.max(a.t, ALARM.tailAt - 0.15); AL.hotwires++; } });
 function stop(a) { if (a && a.tail) { a.tail = a.tail.stop(0.15) || null; } }
 /** Who answers: the nearest townsperson, else a window of the nearest house. */
 function owner(a) {
+    if (!L.town) return false;                     // (the highway's shoulder: nobody around to yell)
     const p = a.obj.getWorldPosition(_v);
     let best = null, bd = 28;
     try { for (const q of (ctx.town.people ? ctx.town.people() : [])) { const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = q; } } } catch (e) { best = null; }
-    if (best) { a.anchor.position.set(best.x, 0, best.z); a.anchor.updateMatrixWorld(); return npcLine(pick(OWNER), a.anchor, { dur: 2.6, cls: "angry" }); }
+    if (best) { a.anchor.position.set(best.x, 0, best.z); a.anchor.updateMatrixWorld(); return npcLine(pick(a.hw ? OWNER_HW : OWNER), a.anchor, { dur: 2.6, cls: "angry" }); }
     let home = null; bd = 32;
     try { for (const h of ctx.town.homes || []) { const d = Math.hypot(h.lotX - p.x, h.lotZ - p.z); if (d < bd) { bd = d; home = h; } } } catch (e) { home = null; }
     if (!home) return false;
     const w = homeWorld(home, 0, 4.0, {});
     a.anchor.position.set(w.x, 3.2, w.z); a.anchor.updateMatrixWorld();
-    return npcLine(pick(L.night > 0.55 ? WINDOW_NIGHT : WINDOW), a.anchor, { dur: 2.6, cls: "angry" });
+    return npcLine(pick(a.hw ? WINDOW_HW : L.night > 0.55 ? WINDOW_NIGHT : WINDOW), a.anchor, { dur: 2.6, cls: "angry" });
 }
 export function tickAlarm(dt) {
     if (!AL.list.length) return;
@@ -76,4 +84,4 @@ export function tickAlarm(dt) {
     }
 }
 export function alarmClear() { for (const a of AL.list) stop(a); AL.list.length = 0; }
-export function alarmInfo() { return { live: AL.list.length, lit: AL.list.some(a => (a.t % ALARM.blink) <= ALARM.onFor), alarms: AL.alarms, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }
+export function alarmInfo() { return { live: AL.list.length, lit: AL.list.some(a => (a.t % ALARM.blink) <= ALARM.onFor), alarms: AL.alarms, hotwires: AL.hotwires, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }

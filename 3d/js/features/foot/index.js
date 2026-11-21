@@ -1902,6 +1902,7 @@ function hotwireFail(h) {
     floater(F.lulu.obj, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80", 1.8);
     beep(3);
     h.pc.busted = true; h.pc.alarmT = 2.5;
+    emit("foot:hotwireFail", { obj: h.pc.obj, key: h.pc.key, x: h.pc.x, z: h.pc.z, town: !!h.pc.ext });   // (features/life: hazards + the alarm + the owner)
     F.hotwire = null; F.phase = "walk"; F.phaseT = 0;
     if (copSaw(45)) {
         floater(F.lulu.obj, "👮 a cop SAW that — you're WANTED!", "#FF8A80", 2.0, 2.9);
