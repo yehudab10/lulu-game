@@ -307,7 +307,18 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 - `together` is FLAKY on `main` itself (2026-11-20, run 44837224568: 1 of 2 identical jobs failed): after the town ride,
   `ctx.openworld.hopOut({ moving: false })` sometimes leaves the guest in `playing` (her own car) instead of on foot → "guest on
   foot in town" times out, then the courthouse step throws on `ctx.foot.pos`. Re-run once before blaming your change.
-- ~~`day` fails on `main` ("…and no tenth app (10)")~~ — FIXED ca7679f (2026-11-21): the test now checks the list adds no app of its own by id (📞 Phone made the phone 10 apps; that's fine).
+- ~~`day` fails on `main` ("…and no tenth app (10)")~~ — ca7679f (2026-11-21) loosened the test, wrongly blaming 📞 Phone. **Corrected
+  by `ci/mainfix`:** 📞 Phone (id `community`, since ci/calls) was always there; the 10th app was ci/friends' 👯 Friends (7af52fa, order 21 in
+  641a173 — also why `calls`' "right after 💬 Messages" failed). Now: 🗞️ Kvetch is a pinned row in 💬 Messages (`ctx.phone.addPin`), 👯 is
+  order 23, so solo AND in a party it's 9 apps (map · messages · phone / friends · nearby · radio / jobs · paint · camera), and `day`
+  checks ≤ 9 again. **A feature that wants a phone spot: a pinned row (`addPin`) or a row inside an existing app — not a 10th app.**
+- **`ci/calm` owner (`ci/mainfix`, 2026-11-21):** your un-merged 05e8274 (quip toast = flavour, foot floaters in the bubble budget,
+  calm's foot minute in the stand-alone town, the "run calm" line) is on `main` now, cherry-picked unchanged — merging main gives you
+  identical hunks. NOT taken: its `phone/style.js` 5-across-at-9 rule + `phone.js` layout checks (they failed tv-720 in 44814668877,
+  and the phone is exactly 9 apps now, so that rule would hit every landscape phone). Also on main: an uncle's greeting is one
+  banner with the +8 💰 in it (no extra toast). The airport is not a culprit (stage 1 is OFF in the real game).
+- **`shabbos` "tv-1080: the card fits" (`ci/mainfix`, 2026-11-21):** red on every run since 2026-11-20 17:33 with the same numbers — a
+  layout bug, not the real date (the test mocks its own Friday): TV padding in a 480 px column. Fixed in `features/shabbos` CSS.
 - **Airport stage 3 (`ci/airport-stage3`, 2026-11-21):** with Dovid Dov + six fans in the hall (arrivals view, MEDIUM) measured 91 draw calls, 121k triangles — inside the terminal's budget. The taxi run is tested with a pretend kerb (`ctx.airport.stage3.debug.fakeAirport`); once stage 1 lands, re-run `airport-stage3` + `airport` together and check the real ARRIVALS kerb point (f 24, r 193.5) sits clear of the taxi queue.
 - **Airport terminal budget (`ci/airport-terminal`, 2026-11-20):** the JFK hall at 1280×720, the worst of three views (check-in /
   security / the gate): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k. Limits in
