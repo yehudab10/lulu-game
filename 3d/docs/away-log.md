@@ -7,7 +7,7 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   chip to draw a lot less each frame. Walking or driving in Lakewood and Midwood draws about 20–28 % less on LOW and
   MEDIUM, the highway 8–17 % less, and on MEDIUM the shadows cost a third less (the title screen 36 % less) — cars, Lulu's
   car, her house and the e-bikes now cast their shadow in one go instead of one piece at a time, the sky's clouds are
-  8 objects instead of 80, and the score counter stopped doing slow work every frame. Screenshots before and after are
+  16 objects instead of 80, and the score counter stopped doing slow work every frame. Screenshots before and after are
   pixel-for-pixel the same. Numbers: `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass.
 - 2026-11-21 (stage 1 landing) — ✈️ JFK stage 1, the exit and the kerb, is built and tested — but switched OFF in the real game
   for now (it waits for the "each town its own exit" work, so the two never land on top of each other). Its own exit, EXIT 12, signed

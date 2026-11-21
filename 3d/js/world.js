@@ -836,15 +836,15 @@ export class World {
         this.sky.renderOrder = -1;
         this.scene.add(this.sky);
 
-        // puffy low-poly clouds — 16 clouds × 5 puffs baked into 8 meshes, one per sector of the ring (was 80 meshes:
-        // ~10–22 draw calls whenever the sky was in view; now 2–4, and each sector is still frustum-culled, so only the
-        // clouds in view cost triangles). The ring still turns / follows the camera as the `clouds` group; atmos tints
-        // their one shared material.
+        // puffy low-poly clouds — 16 clouds, each one's 5 puffs baked into ONE mesh (was 80 meshes: ~10–22 draw calls
+        // whenever the sky was in view; now ~3–6, and each cloud is still frustum-culled on its own, so only the clouds in
+        // view cost triangles). The ring still turns / follows the camera as the `clouds` group; atmos tints their one
+        // shared material.
         this.clouds = new THREE.Group();
         const cm = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 1, fog: false, emissive: "#ffffff", emissiveIntensity: 0.35, flatShading: true });
         const cg = new THREE.IcosahedronGeometry(1, 1);
         const rnd = mulberry32(99);
-        const SECTORS = 8, sectors = Array.from({ length: SECTORS }, () => []), cloud = new THREE.Object3D(), puff = new THREE.Object3D();
+        const perCloud = [], cloud = new THREE.Object3D(), puff = new THREE.Object3D();
         cloud.add(puff);
         for (let i = 0; i < 16; i++) {
             const js = [];
@@ -855,7 +855,8 @@ export class World {
             const a = rnd() * Math.PI * 2, dist = 450 + rnd() * 300;
             cloud.position.set(Math.cos(a) * dist, 120 + rnd() * 90, Math.sin(a) * dist);
             cloud.rotation.y = rnd() * 6;
-            const sec = sectors[Math.floor(a / (Math.PI * 2) * SECTORS) % SECTORS];
+            const sec = [];
+            perCloud.push(sec);
             for (const [r, x, y, z] of js) {
                 puff.scale.set(r * 1.4, r * 0.7, r);
                 puff.position.set(x, y, z);
@@ -863,8 +864,7 @@ export class World {
                 sec.push(cg.clone().applyMatrix4(puff.matrixWorld));
             }
         }
-        for (const list of sectors) {
-            if (!list.length) continue;
+        for (const list of perCloud) {
             const m = new THREE.Mesh(mergeGeometries(list, false), cm);
             for (const g of list) g.dispose();
             m.name = "worldClouds";

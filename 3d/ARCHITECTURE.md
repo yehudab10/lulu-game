@@ -323,9 +323,9 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   would freeze their shadow). Adding parts to a proxied model later is fine (they cast on their own); `shadowProxyInfo()`
   / `shadowProxiesOn(false)` for tests. Note: `renderer.info.render.calls` never includes the shadow pass (three
   resets it after the shadow map) — the perf harness counts real WebGL draws (`gl`, `shadowGl`).
-* **The clouds** (`world.clouds`) are 8 baked meshes, one per sector of the ring (16 clouds × 5 puffs; was 80 meshes ≈
-  10–22 draws whenever the sky shows, now 2–4; each sector is frustum-culled, so only the clouds in view cost
-  triangles); the group still turns / follows the camera and atmos tints their one shared material.
+* **The clouds** (`world.clouds`) are 16 baked meshes, one per cloud (5 puffs each; was 80 meshes ≈ 10–22 draws whenever
+  the sky shows, now ~3–6; each cloud is frustum-culled on its own — one mesh for the whole ring put all 6.4k cloud
+  triangles on every frame); the group still turns / follows the camera and atmos tints their one shared material.
 * **Before / after numbers + screenshots** of this work: `3d/docs/gfx-perf.md`.
 * **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
   `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,
@@ -354,7 +354,7 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   | attached (Lakewood from the highway) | 243 → 176 (−28 %) | 3.3 → 4.0 | 312 → 240 (−23 %) | 68 → 52 | 4.3 → 3.8 |
   | foot (on the highway) | 265 → 270 | 2.5 → 2.6 | 401 → 391 (−2 %) | 120 → 99 | 3.8 → 3.9 |
 
-  What did it: the shadow proxies (MEDIUM / HIGH), the clouds in 8 meshes (was 80), the towns' e-bikes far-LOD'd (bike + rider
+  What did it: the shadow proxies (MEDIUM / HIGH), the clouds in 16 meshes (was 80), the towns' e-bikes far-LOD'd (bike + rider
   were ~20 draws each at any distance) and the HUD score's number formatter made once (`toLocaleString` built a new
   one every frame: ~0.3 ms). Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured are after
   a town is built / torn down, not churn. Left: §7 › Performance.
