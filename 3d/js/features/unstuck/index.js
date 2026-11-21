@@ -32,7 +32,7 @@
 import { ctx, on, emit, hook, addMenuItem, css, setState } from "../../core/ctx.js";
 import { pause, resume, showPauseMenu } from "../../core/screens.js";
 import { canSkip, skipNow } from "../../core/skip.js";
-import { pavedAt, LANE, HALF_ROAD } from "../../world.js";
+import { pavedAt, LANE, HALF_ROAD, STEP } from "../../world.js";
 import { PL, toLocal } from "../town/plan.js";
 import { LOW } from "../foot/jump.js";
 import { current as roomNow } from "../interiors/engine.js";
@@ -90,7 +90,35 @@ const OFFS = [0]; for (let k = 4; k <= 64; k += 4) OFFS.push(k, -k);
 function townStreet(x, z, hint) {
     const n = ctx.world.road.nearest(x, z, hint, _n);
     // (along clamped to the street's real extent: from past its end — the middle of the lake — the lookup runs off it)
-    return n && n.street ? { st: n.street, along: Math.max(n.street.a0 + 4, Math.min(n.street.a1 - 4, n.s - n.street.base)), d: n.d, h: n.h } : null;
+    if (!n || !n.street) return null;
+    const a = n.s - n.street.base, along = Math.max(n.street.a0 + 4, Math.min(n.street.a1 - 4, a));
+    return { st: n.street, along, d: n.d, h: n.h, over: a - along };
+}
+/**
+ * The highway point nearest (x, z). highway.nearest only searches ±120 m round its hint: a stale hint (her car's s while
+ * she walks, a lot far off the road) lands on the wrong stretch — then a coarse scan of the whole road built so far.
+ */
+function hwNearest(x, z, hint) {
+    const hw = ctx.world.highway || ctx.world.road, n = hw.nearest(x, z, fin(hint) ? hint : 0, {});
+    if (Math.abs(n.d) < 50 || !hw.x || !hw.x.length) return n;
+    let best = 1e18, bi = 0;
+    for (let i = 0; i < hw.x.length; i += 10) { const dx = x - hw.x[i], dz = z - hw.z[i], e = dx * dx + dz * dz; if (e < best) { best = e; bi = i; } }
+    const m = hw.nearest(x, z, bi * STEP, {});
+    return Math.abs(m.d) < Math.abs(n.d) ? m : n;
+}
+/** Which way the paved road at (x, z) runs (an airport loop, a lot's aisle): of 24 directions the longest paved run,
+ *  the one nearest h0 of each opposite pair. */
+function roadHeading(x, z, s, h0) {
+    const hw = ctx.world.highway || ctx.world.road, q = {};
+    let best = h0, bl = -1;
+    for (let k = 0; k < 24; k++) {
+        const a = k * Math.PI / 12;
+        let L = 0;
+        for (let r = 2; r <= 16; r += 2) { const n = hw.nearest(x + Math.sin(a) * r, z + Math.cos(a) * r, s, q); if (pavedAt(n.s, n.d) >= 3) L = r; else break; }
+        const sc = L + (fin(h0) && Math.cos(a - h0) > 0 ? 1 : 0);
+        if (sc > bl) { bl = sc; best = a; }
+    }
+    return best;
 }
 /** Car spots: [{ x, z, h, s, d }] nearest first. */
 /** Where to search from: (x, z) and a road hint s — her last finite place when she's gone NaN. */
@@ -105,6 +133,7 @@ function carSpots() {
     if (townOn()) {
         const n = townStreet(x, z, A.s);
         if (n) {
+            out.off = Math.hypot(n.d, n.over);
             const st = n.st, dir = st.oneway ? Math.sign(st.oneway) : (hx * Math.sin(n.h) + hz * Math.cos(n.h) >= 0 ? 1 : -1);
             const lane = st.oneway ? (n.d >= 0 ? 1 : -1) * LANE / 2 : dir * LANE / 2;
             for (const o of OFFS) {
@@ -115,21 +144,27 @@ function carSpots() {
             }
         }
     } else {
-        const hw = ctx.world.highway || rd, near = hw.nearest(x, z, A.s, {});
+        const hw = ctx.world.highway || rd, near = hwNearest(x, z, A.s);
+        out.off = Math.abs(near.d);
         const fwd = hx * Math.sin(near.h) + hz * Math.cos(near.h) >= 0;
         const ad = Math.abs(near.d), off = ad > HALF_ROAD + 0.5 ? pavedAt(near.s, near.d) : 0;
+        const air = !!(ctx.airport && ctx.airport.inside);       // (the JFK landside: its roads loop every which way)
         if (off >= 2) {
             // a ramp / a cross road / a rest area's lot: the nearest paved spot of the same kind, off the lanes
-            for (const o of [0, 4, -4, 8, -8, 12, -12, 18, -18, 26, -26, 36, -36]) for (const dd of [0, 1.5, -1.5, 3, -3, 4.5, -4.5, 6, -6, 8, -8]) {
-                const s = near.s + o, d = near.d + dd;
-                if (Math.abs(d) <= HALF_ROAD + 0.3 || pavedAt(s, d) < 2 || (off >= 3) !== (pavedAt(s, d) >= 3)) continue;
+            // (at JFK: only its roads — the kerb loop, the ramps — never the plaza; its frame is turned to the highway's: wider)
+            const DD = air ? [0, 2, -2, 4, -4, 6, -6, 9, -9, 12, -12, 16, -16, 20, -20] : [0, 1.5, -1.5, 3, -3, 4.5, -4.5, 6, -6, 8, -8];
+            for (const o of [0, 4, -4, 8, -8, 12, -12, 18, -18, 26, -26, 36, -36]) for (const dd of DD) {
+                const s = near.s + o, d = near.d + dd, pv = pavedAt(s, d);
+                if (Math.abs(d) <= HALF_ROAD + 0.3 || pv < 2 || (air ? pv < 3 : (off >= 3) !== (pv >= 3))) continue;
                 const p = hw.point(s, d, {});
                 // (a ramp runs with the road on her side of it; a lot keeps the way she faced)
                 const h = off >= 3 ? (d >= 0 ? p.h : p.h + Math.PI) : (fin(car.h) ? car.h : p.h);
-                out.push({ x: p.x, z: p.z, h, s, d });
+                out.push({ x: p.x, z: p.z, h, s, d, probe: air });
             }
         }
         // the lanes: the nearest one, heading its way (our side forward; the oncoming side only if she faces that way on it)
+        // (in JFK's landside she stays in it: the highway only if none of its roads is near)
+        if (air && out.length) return sortNear(out, x, z);
         const lanes = near.d < -0.2 && !fwd ? [-LANE / 2, -LANE * 1.5] : [LANE / 2, LANE * 1.5];
         const lane = lanes.reduce((b, l) => Math.abs(l - near.d) < Math.abs(b - near.d) ? l : b, lanes[0]);
         for (const o of OFFS) {
@@ -145,6 +180,7 @@ function footSpots(F) {
     if (townOn()) {
         const n = townStreet(x, z, A.s);
         if (n) {
+            out.off = Math.hypot(n.d, n.over);
             const st = n.st, mid = (st.outer + st.walk) / 2, side = n.d >= 0 ? 1 : -1;
             for (const o of OFFS) for (const sd of [side, -side]) {
                 const a = n.along + o;
@@ -154,7 +190,8 @@ function footSpots(F) {
             }
         }
     } else {
-        const hw = ctx.world.highway || rd, near = hw.nearest(x, z, A.s, {});
+        const hw = ctx.world.highway || rd, near = hwNearest(x, z, A.s);
+        out.off = Math.abs(near.d);
         if (Math.abs(near.d) > HALF_ROAD + 1 && pavedAt(near.s, near.d) >= 1) {
             for (const o of [0, 3, -3, 6, -6, 9, -9, 12, -12, 16, -16]) for (const dd of [0, 2, -2, 4, -4, 6, -6, 9, -9]) {
                 const s = near.s + o, d = near.d + dd;
@@ -186,7 +223,7 @@ function kerbSpots(F) {
             }
         }
     } else {
-        const hw = ctx.world.highway || rd, near = hw.nearest(x, z, A.s, {});
+        const hw = ctx.world.highway || rd, near = hwNearest(x, z, A.s);
         const side = near.d >= 0 ? 1 : -1, sh = HALF_ROAD + 1.0;
         for (const o of OFFS) for (const sd of [side, -side]) {
             const s = near.s + o, p = hw.point(s, sd * sh, {});
@@ -198,7 +235,9 @@ function kerbSpots(F) {
 function sortNear(list, x, z) {
     const ok = fin(x) && fin(z);
     for (const c of list) c.dist = ok ? Math.hypot(c.x - x, c.z - z) : 0;
-    return list.filter(c => fin(c.x) && fin(c.z)).sort((a, b) => a.dist - b.dist);
+    const out = list.filter(c => fin(c.x) && fin(c.z)).sort((a, b) => a.dist - b.dist);
+    out.off = fin(list.off) ? list.off : 0;
+    return out;
 }
 /** The nearest surely-normal spot for "car" | "foot" | "kerb" (her parked car) — or null. */
 function pick(kind, F, ignore = null, avoid = null) {
@@ -206,8 +245,10 @@ function pick(kind, F, ignore = null, avoid = null) {
     if (avoid) list = list.filter(c => Math.hypot(c.x - avoid.x, c.z - avoid.z) > 4.5);     // (her car never on top of her)
     // (the candidates are capped by construction: her nearest street / stretch of road, ±64 m along it — never "home".
     //  With nothing clear at all, the nearest of them anyway: it's still on a lane / a sidewalk)
-    for (const c of list) if (!normal(c.x, c.z, kind === "foot" ? "foot" : "car", { ignore })) return c;
-    return list[0] || null;
+    let c = list.find(c => !normal(c.x, c.z, kind === "foot" ? "foot" : "car", { ignore })) || list[0] || null;
+    if (c && c.probe) { c = Object.assign({}, c); c.h = roadHeading(c.x, c.z, c.s, ctx.car.h); }
+    if (c) c.off = list.off;
+    return c;
 }
 
 // ── putting her there ──────────────────────────────────────────────────────
@@ -322,10 +363,19 @@ function forceable() {
     const st = ctx.state, def = ctx.states[st];
     return !!def && ctx.stateT > FORCE && def.world !== false && !/^(law|party|dina|heist|hustleHeist|interior)/.test(st);
 }
+/** Never a long trip: an automatic rescue further than (her distance from the road + 100 m) means a check or a lookup
+ *  went wrong — it backs off for 30 s instead (a press: + 200 m). */
+function tooFar(sp, auto) {
+    const lim = (sp.off || 0) + (auto ? 100 : 200);
+    if (!(sp.dist > lim)) return false;
+    console.warn("[unstuck] refused a far rescue", Math.round(sp.dist), "m (limit", Math.round(lim), ")");
+    if (auto) U.autoLast = ctx.time + 30;
+    return true;
+}
 function carRescue(auto, quietDone = false) {
     const car = ctx.car, from = { x: car.pos.x, z: car.pos.z };
     const sp = pick("car");
-    if (!sp) return null;
+    if (!sp || tooFar(sp, auto)) return null;
     const go = () => placeCar(sp);
     if (ctx.dissolve) ctx.dissolve(go); else go();
     say(auto ? "🆘 back on the road" : "🆘 Back on the road", auto);
@@ -350,6 +400,7 @@ function footRescue(opts) {
     }
     const from = { x: F.pos.x, z: F.pos.z };
     const sp = pick("foot", F);
+    if (sp && tooFar(sp, auto)) return null;
     const bring = (opts.car || carBad(F)) && F.car && F.car.stub && ctx.traffic.cars.includes(F.car.stub);
     const go = () => {
         if (sp) placeFoot(F, sp);
@@ -486,7 +537,7 @@ function edge(x, z, foot, hint) {
         return best > (foot ? 120 : 90) * (foot ? 120 : 90);
     }
     // (her OWN road hint: on foot the car's s is where she left it — a lookup from there can land on the wrong stretch)
-    const hw = ctx.world.highway || ctx.world.road, n = hw.nearest(x, z, fin(hint) ? hint : ctx.car.s, _n), ad = Math.abs(n.d);
+    const n = hwNearest(x, z, fin(hint) ? hint : ctx.car.s), ad = Math.abs(n.d);
     return ad > (foot ? 240 : 90) && pavedAt(n.s, n.d) === 0;
 }
 function insideCar(x, z) {

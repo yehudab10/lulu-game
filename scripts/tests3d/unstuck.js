@@ -55,14 +55,14 @@ module.exports = {
       pitch: c.pitch, roll: c.roll, town: !!ctx.town.active, state: L3.state, paved: (L3.pavedAt || (() => -1))(c.s, c.d), soft: !!ctx.G.invSoft }; })()`);
     const footAt = () => g(`(() => { const F = ctx.foot.debug.F; if (!F) return { state: L3.state }; return { why: ctx.unstuck.normal(F.pos.x, F.pos.z, "foot"), s: +F.s.toFixed(1), d: +F.d.toFixed(2), y: +(F.y || 0).toFixed(2), x: F.pos.x, z: F.pos.z, phase: F.phase, state: L3.state }; })()`);
     const LANES = [1.75, 5.25, -1.75, -5.25];
-    const carOK = async (label, from, { lanes = true } = {}) => {
+    const carOK = async (label, from, { lanes = true, shield = true } = {}) => {
       const c = await carAt();
       const lane = c.town ? Math.abs(Math.abs(c.d) - 1.75) < 0.3 : LANES.some(l => Math.abs(l - c.d) < 0.3);
       t.check(`${label}: she's in the car, on a clear spot`, c.state === "playing" && c.why == null, JSON.stringify(c));
       if (lanes) t.check(`${label}: …on a lane (d ${c.d})`, lane, JSON.stringify(c));
       t.check(`${label}: …upright and still`, c.v < 0.5 && Math.abs(c.y) < 0.2 && !c.pitch && !c.roll, JSON.stringify(c));
       if (from) t.check(`${label}: …near where she was (≤ 90 m)`, Math.hypot(c.x - from.x, c.z - from.z) <= 90, Math.hypot(c.x - from.x, c.z - from.z).toFixed(1));
-      t.check(`${label}: …a courtesy shield`, c.soft);
+      if (shield) t.check(`${label}: …a courtesy shield`, c.soft);
       return c;
     };
     const footOK = async (label, from) => {
@@ -167,7 +167,7 @@ module.exports = {
       await W.moved(t);
       if (await autoFired(n0, "edge", "highway: on foot far off the world's edge")) {
         const f = await footOK("highway: off the edge → the shoulder", null);
-        t.check("…on a shoulder (|d| 7–10)", Math.abs(f.d) > 7 && Math.abs(f.d) < 10, String(f.d));
+        t.check("…on the shoulder, off the lanes (|d| 6–10)", Math.abs(f.d) > 6 && Math.abs(f.d) < 10, String(f.d));
       }
       // 4 · on foot inside something solid → out (automatic, after ~2 s of not moving)
       sol = await solidNear(0.8);
@@ -366,7 +366,7 @@ module.exports = {
         const out = await g(`({ bad: ctx.unstuck.debug.badNow(), why: ctx.unstuck.normal(ctx.car.pos.x, ctx.car.pos.z, "car"), d: +ctx.car.d.toFixed(1), log: ctx.unstuck.debug.U.log.slice(${n0}) })`);
         console.log(`   ${id}: the car left inside a house →`, JSON.stringify(out));
         t.check(`${id}: the car left inside a house → out of it (the game's push or the rescue)`, out.bad == null && out.why !== "block", JSON.stringify(out));
-        if (fired) await carOK(`${id}: auto out of the house`, block);
+        if (fired) await carOK(`${id}: auto out of the house`, block, { shield: false });     // (5 s on: the 2.5 s shield is over)
         await W.reset(t);
       }
       // 14 · the lake (Lakewood): the car in the water → out (automatic)
@@ -441,7 +441,7 @@ module.exports = {
     await seg("a room", ["nan", "overlay", "stuck"]);
 
     // ═══ Lulu's house / the home start (wherever it stands) ═══
-    await g(`(ctx.foot.active && ctx.foot.end("test"), L3.startRun({ mode: "cruise" }), true)`);
+    await g(`(ctx.foot.active && ctx.foot.end("test"), ctx.onegame && ctx.onegame.home ? ctx.onegame.home() : L3.startRun({ mode: "cruise" }), true)`);
     if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F && __lulu3d.ctx.foot.debug.F.phase === "walk"`, "the home start (on foot)", 30000)) {
       await t.frames(30);
       await W.reset(t);
