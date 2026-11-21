@@ -419,7 +419,10 @@ export function shadowProxiesOn(on) { SH.on = !!on; if (!on) for (const p of SH.
 //   installPeopleBatch(renderer, scene)   (app.js, once)
 //   peopleBatch(personRoot)               (core/people.js, for every spawned person)
 export const PEOPLE_LAYER = 30;
-const PM = { roots: new Map(), batches: new Map(), on: true, scene: null, frame: 0, released: 0, resets: 0, mask: 1 << PEOPLE_LAYER, maxVerts: 600000 };
+/** `?nobatch` (A/B measuring): the people's main-pass batch, the chunks' slot batches and the car's moving parts in the
+ *  shadow batch all off — the game drawn the way it was before ci/perf4. */
+export const BATCHES = { off: typeof location !== "undefined" && /[?&]nobatch\b/.test(location.search) };
+const PM = { roots: new Map(), batches: new Map(), on: !BATCHES.off, scene: null, frame: 0, released: 0, resets: 0, mask: 1 << PEOPLE_LAYER, maxVerts: 600000 };
 const _proto = THREE.Object3D.prototype, _mproto = THREE.Material.prototype;
 const MAPS = ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap", "aoMap", "lightMap", "bumpMap", "alphaMap", "envMap", "displacementMap"];
 const KEYS = ["side", "flatShading", "metalness", "envMapIntensity", "fog", "toneMapped", "dithering", "polygonOffset", "polygonOffsetFactor", "polygonOffsetUnits", "shadowSide", "premultipliedAlpha"];
@@ -564,10 +567,16 @@ function pmSync(b) {
         if (m === p.mat && (m.color.r !== p.r || m.color.g !== p.g || m.color.b !== p.bl || m.roughness !== p.rough)) pmColor(p);
     }
 }
-function pmInScene(o) { for (let a = o; a; a = a.parent) if (a === PM.scene) return true; return false; }
+function pmUnder(o, top) { for (let a = o; a; a = a.parent) if (a === top) return true; return false; }
+function pmInScene(o) { return pmUnder(o, PM.scene); }
 /** Before every render: only people in the main scene, and only for the main scene's render, are batched. */
 function pmPrepare(scene) {
-    const main = scene === PM.scene && PM.on;
+    if (scene !== PM.scene) {
+        // (another scene — an interior set, a portrait, the salon's mirror: whoever of ours is IN it is drawn by her own meshes)
+        for (const [root, pb] of PM.roots) if (pb.active && pmUnder(root, scene)) pb.release(0);
+        return;
+    }
+    const main = PM.on;
     if (main) PM.frame++;
     for (const b of PM.batches.values()) if (b.full) {
         // (start this batch afresh: its people re-join right away, only the models still around are copied in again)
@@ -579,7 +588,7 @@ function pmPrepare(scene) {
     for (const [root, pb] of PM.roots) {
         if (pb.active) {
             if (pb.changed) { pb.drop(); continue; }
-            if (!main || !pmInScene(root)) pb.release(main ? 30 : 0);
+            if (!main || !pmInScene(root)) pb.release(main ? 30 : 0);   // (main && not in it: removed / pooled)
             else { pb.gone = 0; continue; }
         }
         if (!main) continue;
@@ -592,10 +601,10 @@ function pmPrepare(scene) {
         if (pb.wait > 0) { pb.wait--; continue; }
         if (!pb.build()) pb.wait = 240;
     }
-    if (main) for (const b of PM.batches.values()) {
+    for (const b of PM.batches.values()) {
         if (b.mesh.parent !== scene) scene.add(b.mesh);
-        b.mesh.visible = b.parts.length > 0;
-    } else for (const b of PM.batches.values()) b.mesh.visible = false;
+        b.mesh.visible = main && b.parts.length > 0;
+    }
 }
 /** app.js, once: the batch is filled right before each render of the main scene (any render call — the bloom path,
  *  the dissolve snapshot, the photo mode — goes through here). */

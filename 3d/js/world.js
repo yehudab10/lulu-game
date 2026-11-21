@@ -8,7 +8,7 @@ import { models, instanced, cloneWithColors, findNodes } from "./models.js";
 import { ctx, emit, listenersOf } from "./core/ctx.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ChunkMerger, restFilter, SlotBatch } from "./merge.js";
-import { farLod } from "./lod.js";
+import { farLod, BATCHES } from "./lod.js";
 
 const _tint = new THREE.Color();
 const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(), _cv = new THREE.Vector3(), _cs = new THREE.Vector3(), _UP = new THREE.Vector3(0, 1, 0);
@@ -765,6 +765,7 @@ export class World {
         this.district = null;
         this.chunks = new Map();
         this.slots = new Map();       // material → SlotBatch (every chunk's road / shoulders / driveways / sign metal)
+        this.batchOff = BATCHES.off;  // (`?nobatch` / tests: chunks built the old way, a mesh a piece)
         this.config = { speedTraps: true };
         this.drawScale = 1;          // × the fog's far distance = how far chunks are drawn (core/quality.js: Low pulls it in)
         this.reserved = [];
@@ -845,7 +846,7 @@ export class World {
         }
         const W = this.wires;
         if (n > W.cap) {
-            W.cap = Math.max(n, W.cap * 2, 4096);
+            W.cap = Math.ceil(Math.max(n, W.cap * 2, 4096) / 3) * 3;      // (whole points: a BufferAttribute counts length / 3)
             const a = new THREE.BufferAttribute(new Float32Array(W.cap), 3);
             a.setUsage(THREE.DynamicDrawUsage);
             W.geo.setAttribute("position", a);    // (a new attribute: three uploads it whole and frees the old buffer)

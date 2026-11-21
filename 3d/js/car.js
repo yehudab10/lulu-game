@@ -3,7 +3,7 @@
 // dust and drift smoke, nitro flames).
 import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "./models.js";
-import { shadowProxy, shadowBatch } from "./lod.js";
+import { shadowProxy, shadowBatch, BATCHES } from "./lod.js";
 
 // Same skins (and handling stats) as the 2D game's shop, so the car you
 // picked there is the car you drive here.
@@ -105,8 +105,10 @@ export class PlayerCar {
         if (this.driver) shadowBatch(this.driver);      // (Lulu at the wheel moves: the people's shadow batch, not a baked proxy)
         // her hair (every style: the hidden ones simply don't draw), the steering wheel and the steered front wheels move
         // too — the same batch, so they stop costing a shadow draw each (MEDIUM / HIGH)
-        for (const h of this.hairs) shadowBatch(h);
-        for (const n of findNodes(this.model, "SteeringWheel").concat(findNodes(this.model, "Wheel_F"))) shadowBatch(n);
+        if (!BATCHES.off) {
+            for (const h of this.hairs) shadowBatch(h);
+            for (const n of findNodes(this.model, "SteeringWheel").concat(findNodes(this.model, "Wheel_F"))) shadowBatch(n);
+        }
     }
 
     /** Recolour Lulu's hair and (optionally) pick a style ("sheitel" or any Hair_<style> in the model). */
@@ -132,7 +134,7 @@ export class PlayerCar {
         obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
         this.model.add(obj);
         if (!this.hairs.includes(obj)) this.hairs.push(obj);
-        shadowBatch(obj);
+        if (!BATCHES.off) shadowBatch(obj);
         this.setHair(this.hairColor, this.hairStyle || "sheitel");
     }
 
