@@ -399,9 +399,8 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 - Performance (from `ci/perf`, 2026-11-21; numbers in `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass). Found,
   not fixed: (1) in the car, Lulu + her passenger are ~30 shadow draws on MEDIUM (animated people: a baked shadow
   proxy would freeze them — a cheaper idea is to stop the parts hidden inside the car body from casting); (2) Lulu's
-  house street (`WorldHome`, ~186 objects / 75 shadow casters) costs ~75 shadow draws on MEDIUM at the start of every
-  run — a shadow proxy over its static parts (decor swaps parts: the proxy's hand-back covers that) is a safe next
-  step; (3) on foot on the highway the tall grass / fence (`foot/bounds.js`, 170 + 76 instances) are ~80k triangles in
+  house street (`WorldHome`): the house + the title's minivan cast through shadow proxies now, but Dina, Lulu and
+  Mr. Pinsky on the street are still ~17 shadow draws each on MEDIUM (title / run start); (3) on foot on the highway the tall grass / fence (`foot/bounds.js`, 170 + 76 instances) are ~80k triangles in
   the shadow pass and ~250k on screen — LOW could lay fewer clumps; (4) roadside pedestrians on foot are full
   ~17-part models (+ as many shadow draws); (5) a highway chunk's own pieces (road, shoulders, sign faces, features'
   set pieces) are ~6–8 draws a chunk; (6) a town teardown / build leaves a few ms of GC for the next seconds

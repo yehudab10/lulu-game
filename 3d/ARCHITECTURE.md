@@ -315,7 +315,8 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   only inside `renderer.shadowMap.render` (`installShadowProxies`, app.js); the baked parts stop casting on their own.
   Same silhouette (a same-frame A/B is pixel-identical), one shadow draw instead of 10–25. Used by every traffic car
   (`Traffic.make`, with its far LOD: far = no shadow, as before), Lulu's car (body + rear wheels — NOT her, her hair,
-  the steering wheel, the steered front wheels or anything on an `Anchor_*`) and the towns' e-bikes. A part that is
+  the steering wheel, the steered front wheels or anything on an `Anchor_*`), the towns' e-bikes, Lulu's house (not its
+  `Deco_*` holiday pieces / anchors) and the title's lapping minivan (the title on MEDIUM: 108 → 69 shadow draws). A part that is
   hidden / removed / switched back to `castShadow` hands the casting straight back to the real parts (never a missing
   shadow) and the proxy re-bakes from what's there ~30 frames later. **Animated figures don't get one** (a baked pose
   would freeze their shadow). Adding parts to a proxied model later is fine (they cast on their own); `shadowProxyInfo()`
