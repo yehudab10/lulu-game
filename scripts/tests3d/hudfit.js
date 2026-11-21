@@ -2,7 +2,7 @@
 // a phone held upright (390 × 844) and on its side (844 × 390), a small phone (375 × 667 and 667 × 375), a tablet (768 × 1024), each
 // with fingers AND with a controller (no touch layout), a laptop (1280 × 720, keyboard) and a TV at 720p / 1080p.
 // In Lakewood, driving and on foot, with the HUD at its busiest: a 5-digit score, 📝 Ima's list, the ON FOOT chip,
-// the ⏭ SKIP pill (a cutscene), the town's "WELCOME TO …" banner, a ✋ prompt and the controller's bottom hint.
+// a 💬 text card, the ⏭ SKIP pill (a cutscene), the town's "WELCOME TO …" banner, a ✋ prompt and the controller's bottom hint.
 // The cases the weekend QA sweep found (each a named check below, by element-rect intersection):
 //   1. phone landscape on foot: the WALK stick's base over the 📝 / ON FOOT chips
 //   2. ⏭ SKIP over the trip label ("🏙️ Route 9 · LAKEWOOD") on a phone held upright
@@ -81,13 +81,16 @@ async function busiest(t, d, foot) {
   await g(`(ctx.G.score = Math.max(ctx.G.score || 0, 12345), ctx.G.hint = ${JSON.stringify(hint)}, ctx.cutscene.begin("hudfit"), true)`);
   await g(`(() => { const H = L3.H, S = ["WELCOME TO LAKEWOOD", "Pop.: Yes", "Est. traffic: always"];
     H.hideBanner(); H.banner("<b>🏙️ " + S[0] + "</b><small>" + S.slice(1).join(" · ") + "</small>", 0, { key: "town", prio: 2 }); return true; })()`);
+  // exactly one 💬 text card in the left column (a town's gossip / Bubbe's text arrives on its own at random times)
+  await g(`(() => { document.querySelectorAll("#slot-left .jtext").forEach(e => e.remove());
+    window.__hfText = ctx.phone.text({ from: "BUBBE", emoji: "👵", color: "#E91E63", msg: "Lakewood?! What did you do wrong?", dur: 900 }); return true; })()`);
   await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), true)`);
   await t.frames(14);
   // (again right before measuring: a feature's own prompt this frame would have replaced ours; it fits itself at once)
   await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), true)`);
 }
 async function calm(t) {
-  await t.game(`(ctx.cutscene.end("hudfit"), ctx.G.hint = "", L3.H.hideBanner(), L3.H.prompt(""), true)`);
+  await t.game(`(ctx.cutscene.end("hudfit"), ctx.G.hint = "", L3.H.hideBanner(), L3.H.prompt(""), window.__hfText && window.__hfText.remove(), true)`);
 }
 
 module.exports = {

@@ -293,7 +293,9 @@ export function keepClear(e, avoid, dir = 1, gap = 6) {
     return dy;
 }
 const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn"];
-const SIDES = ["#slot-left > *", "#slot-right > *"];
+// (a piece marked data-fit="self" keeps clear of the centre stack on its own — hustle's 📻 ticker — so the centre
+// doesn't also duck under it: two pieces each dodging the other would chase each other down the screen)
+const SIDES = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
 const BOTTOM = ["#hud .hud-br .speedo", "#touch .tbtn", "#stickBase", "#touchExtra > *"];
 /** One keep-clear pass over the HUD (every 0.2 s of game time, and when a banner / prompt shows). */
 export function fitHud() {

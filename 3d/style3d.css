@@ -626,8 +626,7 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
    the ✋ prompt and the controller's hint (and core/skip.js the ⏭ pill) off whatever they'd cover; these rules give
    them room to start with. Test: scripts/tests3d/hudfit.js (every pair of HUD pieces, 10 screen sizes). ═════════ */
 /* a phone on its side (touch): the pills take two rows (♥ + 💰, then the score) left of a slimmer trip bar, the chips
-   start right under them, and a slightly smaller stick sits below the chips — it covered 📝 Ima's list + ON FOOT.
-   No room for a third chip there: while a phone call / text card is up, the ON FOOT chip steps aside. */
+   start right under them, and a slightly smaller stick sits below the chips — it covered 📝 Ima's list + ON FOOT. */
 @media (min-aspect-ratio: 1/1) and (max-height: 520px) {
     body.touch .hud-top { width: min(420px, 42vw); }
     body.touch .hud-tl { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(29vw - 20px); }
@@ -636,7 +635,6 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     body.touch .hud-slot.left > * { max-width: min(260px, 31vw); }
     body.touch .hud-slot.left .jphone { width: min(260px, 31vw); }
     body.touch .hud-slot.left .foot-chip { white-space: normal; }
-    body.touch .hud-slot.left:has(.jphone, .jtext) .foot-chip { display: none; }
     body.touch #stickBase { width: 128px; height: 128px; }
     body.touch #stickZone span { width: 128px; }
     /* the "center" stack (the WELCOME banner…) fits between the left chips and the right-hand buttons */
@@ -655,6 +653,11 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
 @media (max-aspect-ratio: 1/1) {
     body.touch .hud-slot.center { left: max(12px, env(safe-area-inset-left)); right: calc(max(16px, env(safe-area-inset-right)) + 84px); transform: none; max-width: none; align-items: flex-start; }
     body.touch #banner.compact { max-width: 100%; }
+}
+/* a phone (touch, ≤ 760 px tall either way): no room for a third chip in the left column — while a phone call / text
+   card is up there, the ON FOOT chip steps aside */
+@media (max-height: 760px) {
+    body.touch .hud-slot.left:has(.jphone, .jtext) .foot-chip { display: none; }
 }
 /* a narrow phone held upright (touch): the 150 px stick reached the BRAKE pedal */
 @media (max-aspect-ratio: 1/1) and (max-width: 380px) {

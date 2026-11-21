@@ -203,6 +203,7 @@ export function ticker() {
     if (tick && tick.isConnected) return tick;
     tick = document.createElement("div");
     tick.className = "hs-radio hud-secondary off gone";
+    tick.dataset.fit = "self";        // it keeps clear of the centre stack itself (tickerLayout): hud.js › fitHud doesn't move the centre for it
     tick.setAttribute("role", "status");
     tick.innerHTML = `<div class="st"><span class="eq"><i></i><i></i><i></i></span><span class="nm"></span><span class="k"></span></div><div class="tx"></div>`;
     H.hudSlot("right").appendChild(tick);
