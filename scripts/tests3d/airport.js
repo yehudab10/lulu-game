@@ -186,6 +186,21 @@ module.exports = {
       t.check("the doors answer (opening soon — or stage 2's hall)", (await evs()).some(e => e.startsWith("airport:door")));
       await t.shot("terminal-doors");
       W.check(t, "walking the kerb", await W.report(t));
+      // stage 2's hall is in: the doors lead into it, and out again onto the same sidewalk
+      if (await g(`!!(ctx.airport.terminal && ctx.airport.terminal.enter)`)) {
+        t.check("…stage 2's hall: the door takes her IN (airport:door in)", (await evs()).some(e => /airport:door:.*"in":true/.test(e)), (await evs()).filter(e => /door/.test(e)).join(" "));
+        const inside = await t.until(`!!(__lulu3d.ctx.airport.terminal.inside)`, "inside the terminal hall", 90000);
+        if (inside) {
+          await t.frames(30);
+          await t.shot("terminal-inside");
+          await g(`(ctx.airport.terminal.debug.room().leave(), true)`);
+          await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk" && !__lulu3d.ctx.airport.terminal.inside`, "back out of the doors", 90000);
+          await t.frames(10);
+          const q = await g(`(() => { const p = ctx.foot.pos, q = ctx.airport.debug.local(p.x, p.z); return { f: Math.round(q.f), r: +q.r.toFixed(1) }; })()`);
+          t.check("…and back out onto the kerb sidewalk by the door she used", q.r > 190 && q.r < 204 && Math.abs(q.f - door) < 8, JSON.stringify(q));
+          await W.reset(t);
+        }
+      }
     });
 
     await step("fence", async () => {
