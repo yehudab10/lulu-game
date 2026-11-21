@@ -272,7 +272,7 @@ function finishJack(jk) {
     // seen by a cop? (a cop car is ALWAYS a crime — its owner is right there)
     const seen = jk.cop ? (ctx.law ? (ctx.law.startChase("CARJACKING A POLICE CRUISER", { msg: "🚨 YOU JACKED A COP CAR?!", heat: 2 }), true) : false)
         : crime("CARJACKING", where.x, where.z, { msg: "🚨 CARJACKING — A COP SAW THAT!" });
-    emit("streets:carjack", { kind: c.kind, model: R.model, color: ride.color, x: where.x, z: where.z, witnessed: !!seen, driver: jk.victim ? jk.victim.look : null });
+    emit("streets:carjack", { kind: c.kind, model: R.model, color: ride.color, x: where.x, z: where.z, witnessed: !!seen, driver: jk.victim ? jk.victim.look : null, key: c.data && c.data.party ? c.data.party : null });
     // no blinking "shield" on a car she just took (it's standing still), one card says how it drives
     ctx.G.invT = 0;
     H.banner(`<b>🚗 CARJACKED!</b><small>${T.RIDE_HINT[c.kind] || ""}${!S.hinted ? ` · ${bailHint()} to bail out` : ""}</small>`, 2800, { key: "streets:ride" });

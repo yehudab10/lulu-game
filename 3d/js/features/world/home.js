@@ -16,6 +16,7 @@ import { save3d, shared } from "../../core/save.js";
 import { models, cloneWithColors, findNodes, ensureModels, instanced } from "../../models.js";
 import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER, paved } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
+import { shadowProxy } from "../../lod.js";
 import * as A from "../../audio.js";
 import { slimMenorah } from "../meta/menorah.js";
 import { Path, Ride, ease } from "./path.js";
@@ -119,6 +120,9 @@ function buildHouse(g, lot) {
         const d = findNodes(house, "Deco_" + k)[0];
         if (d) { d.visible = false; home.deco[k] = d; }
     }
+    // MEDIUM / HIGH: the house casts its shadow in one draw (lod.js) — the title shot + every run's start; the holiday
+    // decorations and anything hung on an anchor keep their own
+    home.houseShadow = shadowProxy(house, { skip: o => /^(Deco_|Anchor_)/.test(o.name || "") });
     // the parked pose: in front of the garage, NOSE OUT (backed in) — a run starts with her driving straight off
     home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y), s: 0, d: 0 };
     parkRoad();
@@ -190,8 +194,7 @@ function buildStreet() {
     ctx.scene.add(g);
     home.group = g;
     const house = buildHouse(g, { x: hp.x, z: hp.z, rot: facingRoad(h, 1) });
-    const A = home.anchors;
-    const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
+    const A = home.anchors;    const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
     home.park.s = near.s; home.park.d = near.d;
     // the driveway is asphalt for the car (no grass drag pulling out)
     const dS = near.s, dD = near.d;
@@ -223,6 +226,7 @@ function buildStreet() {
         g.add(van);
         home.van = van;
         home.vanWheels = findNodes(van, "Wheel_");
+        home.vanShadow = shadowProxy(van);      // (the title's lapping minivan: one shadow draw on MEDIUM / HIGH)
     }).catch(() => {});
     home.vanPath = vanLoop();
     home.ready = true;
@@ -297,6 +301,7 @@ function dropHome() {
     const g = home.group;
     if (!g) return;
     g.removeFromParent();
+    for (const k of ["houseShadow", "vanShadow"]) { try { if (home[k] && home[k].dispose) home[k].dispose(); } catch (e) { /* (lod's own) */ } home[k] = null; }
     home.group = null; home.house = null; home.ready = false;
     home.people = {}; home.van = null; home.vanPath = null; home.neighbours = [];
     home.decoFor = null; home.extras = []; home.flames = [];

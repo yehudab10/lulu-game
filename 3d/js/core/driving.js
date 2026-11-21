@@ -26,6 +26,8 @@ import * as H from "../hud.js";
 export const MAX_HEARTS = 3;
 const SPEED_TRAP_MPH = 75;
 const QUIPS = ["Oy vey!", "Bubbe's gonna hear about this!", "That's coming out of the gas money!", "Who put that there?!", "My sheitel!!"];
+let lineAt = -99;                       // (when Lulu last said a line — banter: her own reaction beats a quip toast)
+on("banter:line", () => { lineAt = ctx.time; });
 
 // ── run lifecycle ─────────────────────────────────────────────────────────
 /** Fresh run state. Features may add their own fields in hooks.runStart. */
@@ -202,7 +204,7 @@ export function damage(power, why, source = "crash") {
     emit("damage", info);
     emit("stat", { id: "crashes", n: 1 });
     if (G.hearts <= 0) wreck(why, source);
-    else H.toast(`💥 ${pick(QUIPS)}`, "red");
+    else if (ctx.time - lineAt > 0.25) H.toast(`💥 ${pick(QUIPS)}`, "red", { prio: 1 });    // flavour: the hearts, flash + crash already say it
     return true;
 }
 

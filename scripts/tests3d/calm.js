@@ -26,7 +26,7 @@ const SAMPLER = `(() => {
     ["toast", "#toasts .toast"], ["banner", "#banner"], ["meta", "#metaToast .mt"], ["law", ".law-toast"], ["law", ".law-bubble"], ["law", ".law-cap"],
     ["speech", "#banterBubbles .bn-b"], ["bubble", "#footBubbles .fbub"], ["floater", "#footBubbles .ffloat"], ["bubble", ".re-bub"],
     ["caption", "#cameosCap"], ["caption", "#cameosChips > *"], ["caption", "#hsCap"], ["radio", ".hs-radio"], ["caption", ".heist-cap"],
-    ["text", ".jtext"], ["call", ".jphone"], ["mp", "#mpOverlay .toasts > div"], ["mp", "#mpOverlay .ban"], ["chip", "#owChip"],
+    ["text", ".jtext"], ["call", ".jphone"], ["mp", "#mpOverlay .toasts > div"], ["mp", "#mpOverlay .ban"], ["chip", "#owChip"], ["chip", "#frChip"],
     ["toast", ".lp-toast"], ["bubble", ".dl-bubble"], ["floater", ".dl-float"], ["prompt", "#prompt"],
   ];
   const C = window.__calm = { on: false, t0: 0, events: [], seen: new Map(), maxOn: 0, maxToasts: 0, cover: 0, coverSum: 0, samples: 0, toastsNow: 0 };
@@ -151,7 +151,8 @@ async function body(t, pages, riders) {
   // ── (b) FOOT in Lakewood: walking about ──
   await g(`ctx.town.load("lakewood")`);
   if (await A.until(`ctx.town.loaded("lakewood")`, "Lakewood loads", 120000)) {
-    await g(`(ctx.banter.autopilot = null, ctx.town.enter({ town: "lakewood", exitS: ctx.car.s, speed: 0 }), true)`);
+    // (the stand-alone town, like town.js: an attached one is placed by the interchange and can leave her by the highway)
+    await g(`(ctx.banter.autopilot = null, ctx.town.enter({ town: "lakewood", speed: 0 }), true)`);
     await A.until(`ctx.town.active && !ctx.town.transitioning`, "in Lakewood", 60000);
     await g(`ctx.foot.start("parked")`);
     await A.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, "on foot", 60000);

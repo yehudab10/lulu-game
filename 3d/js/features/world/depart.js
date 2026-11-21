@@ -36,6 +36,13 @@ const IMA = {
     nudge: ["The CAR, Lulu! It's not going to drive ITSELF!", "Mamele, the car. Over there. The pink one. 🚗", "Nu? You're waiting for an engraved invitation?"],
 };
 const pick = a => a[Math.floor(Math.random() * a.length)];
+/** Friday's ask, turned down: she walks away from the car instead of getting in (once a day). [Lulu, Ima] */
+const NOT_THIS_WEEK = [
+    ["Not this week, Ima!", "Not this week?! Bubbe is making CHOLENT! …Fine. Be home before candle-lighting."],
+    ["I'll go next Friday, Ima, promise!", "Next Friday, next Friday. Your Bubbe counts, you know. 🕯️"],
+    ["Ima, I have plans today!", "Plans! On EREV Shabbos! Oy. Wear a sweater, at least."],
+];
+let declinedDay = "";
 
 /** Should a run that's starting now begin at home on foot? */
 export function wantsDeparture(G, opts) {
@@ -135,7 +142,7 @@ function startAtHome(opts = {}, alt = null) {
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
-    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false; D.pendingLine2 = null;
+    D.live = true; D.t = 0; D.idleT = 0; D.said = 0; D.moved = false; D.left = false; D.pendingLine2 = null; D.fri = false; D.declined = false;
     const ima = home.people.ima;
     if (ima) { ima.obj.visible = true; ima.obj.position.copy(home.anchors.door); ima.obj.rotation.y = home.house.rotation.y; }
     const ok = ctx.foot.start("home", {
@@ -157,6 +164,7 @@ function startAtHome(opts = {}, alt = null) {
     const dayLine = G.mode === "cruise" && !friday && ctx.day && ctx.day.imaLine ? ctx.day.imaLine() : null;
     const line = G.mode === "shabbos" || friday ? pick(IMA.shabbos) : D.first ? IMA.first[0] : G.mode === "story" ? pick(IMA.story) : opts.homeLine || dayLine || pick(IMA.any);
     D.pendingLine = line;
+    D.fri = friday;
     D.pendingLine2 = D.first && dayLine ? dayLine : opts.homeLine && dayLine && line !== dayLine ? dayLine : null;
     emit("world:homeStart", { mode: G.mode, first: D.first, friday, via: opts.home ? "world" : opts.restart ? "restart" : "title" });
     return true;
@@ -231,7 +239,17 @@ hook("hud", dt => {
     const P = home.park, m = marker();
     const lulu = ctx.car.pos;          // (on foot, core's car anchor follows her)
     const dist = Math.hypot((car ? car.x : P.x) - lulu.x, (car ? car.z : P.z) - lulu.z);
-    if (dist > 60 || !nearHome(lulu.x, lulu.z, 120)) D.left = true;      // she wandered off: no more nudging
+    if (dist > 60 || !nearHome(lulu.x, lulu.z, 120)) D.left = true;      // she wandered off: no more nudging    // Friday: she turned the ask down and walks off (not into the car): "not this week, Ima" — one little exchange, once a day
+    if (D.fri && !D.declined && !D.left && dist > 14 && !D.pendingLine) {
+        D.declined = true;
+        const day = new Date().toDateString();
+        if (declinedDay !== day) {
+            declinedDay = day;
+            const [her, hers] = pick(NOT_THIS_WEEK);
+            if (ctx.foot.bubble && ctx.foot.obj) ctx.foot.bubble(ctx.foot.obj, her, 2.4, { y: 2.0 });
+            D.pendingLine2 = hers; D.t = 3.6;      // (Ima answers a beat later: the hud's timer shows it at D.t > 5.4)
+        }
+    }
     m.visible = !D.left && dist > 2.6;
     if (m.visible) m.position.set(car ? car.x : P.x, 2.3 + Math.sin(ctx.time * 3.2) * 0.18, car ? car.z : P.z), m.rotation.y += dt * 1.6;
     // moved yet? if she just stands there a while, Ima says something (once)

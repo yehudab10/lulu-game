@@ -70,22 +70,108 @@ function ago(t) {
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(t).getDay()];
 }
 
+// ── pinned rows: things that are not a chat but live in 💬 Messages instead of an app of their own ──
+// (the phone stays ONE 3 × 3 screen — features/town's 🗞️ Kvetch is one of these.)
+// def: { id, order?, visible?() → bool, row() → { icon, color?, title, sub?, badge? }, render(el, api), open?() }
+// A pin shows under 📝 Ima's list + 🏠 My house; tapping it calls open() (if any), then render(el, api) draws its
+// view above a "‹ All messages" button. A badge shows on the row only (the 💬 icon's count stays unread texts).
+const PINS = [];
+export function addPin(def) {
+    if (!def || !def.id || typeof def.row !== "function" || typeof def.render !== "function") throw new Error("[phone] addPin needs { id, row(), render() }");
+    const i = PINS.findIndex(p => p.id === def.id);
+    if (i >= 0) PINS.splice(i, 1);
+    PINS.push(def);
+    PINS.sort((a, b) => (a.order || 50) - (b.order || 50));
+    if (PH.open) refresh();
+}
+const pinOn = p => { try { return !p.visible || !!p.visible(); } catch (e) { return false; } };
+const pinRow = p => { try { return p.row() || null; } catch (e) { console.error(`[phone] pin ${p.id}.row`, e); return null; } };
+/** The pinned rows showing now (ids) — tests. */
+export const pins = () => PINS.filter(pinOn).map(p => p.id);
+
 // ── the app ───────────────────────────────────────────────────────────────
-const V = { thread: null };
+const V = { thread: null, list: false, house: false, pin: null };
+on("phone:close", () => { V.pin = null; });          // (a pinned view is a quick look: next time Messages opens on the list)
+/** 🏠 My house (features/decor): what she has bought + how close each set is — null with no decor. */
+function houseNote() {
+    const D = ctx.decor;
+    if (!D || !D.summary) return null;
+    const s = D.summary();
+    return { s, near: s.sets.filter(x => !x.done && x.have > 0 && x.need - x.have <= 1) };
+}
+/** 📝 Ima's list for today (features/day) as a pinned note at the top of Messages — null when there's no list (a party, Dina). */
+function imaNote() {
+    const D = ctx.day;
+    if (!D || !D.imaLine || D.imaLine() == null) return null;
+    const list = D.list();
+    if (!list.length) return null;
+    const done = list.filter(x => x.done).length, next = list.find(x => !x.done);
+    return { list, done, next, home: !!D.home };
+}
 addApp({
     id: "messages", icon: "💬", name: "Messages", order: 20, color: "#43A047", color2: "#1B5E20",
     badge: () => unread() || null,
     render(el, api, arg) {
-        if (arg && arg.thread) { V.thread = keyOf(arg.thread); PH.arg = null; }
+        if (arg && arg.thread) { V.thread = keyOf(arg.thread); V.pin = null; PH.arg = null; }
+        if (arg && arg.pin) { V.pin = arg.pin; V.thread = null; V.list = V.house = false; PH.arg = null; }
+        const pv = !V.thread && V.pin && PINS.find(p => p.id === V.pin && pinOn(p));
+        if (V.pin && !pv) V.pin = null;
+        if (pv) {
+            try { pv.render(el, api); } catch (e) { console.error(`[phone] pin ${pv.id}.render`, e); el.innerHTML = `<p class="lp-empty">😵 This crashed.</p>`; }
+            el.insertAdjacentHTML("beforeend", `<button class="btn lp-row lp-mini" id="lpPinBack">‹ All messages</button>`);
+            el.querySelector("#lpPinBack").addEventListener("click", () => { V.pin = null; api.refresh(); });
+            return;
+        }
         if (V.thread && !INBOX.msgs.some(m => m.k === V.thread)) V.thread = null;
+        const note = !V.thread && imaNote(), hn = !V.thread && houseNote();
+        if (V.house && V.list) V.list = false;
+        if (V.house && !hn) V.house = false;
+        if (V.house) {
+            // 🏠 what's hers + the sets (never coins: this is only a look)
+            const { s, near } = hn;
+            const done = s.sets.filter(x => x.done).length;
+            el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:#8E24AA">🏠</span><b>My house · ${s.bought.length} things</b></div>
+                <div class="lp-chat">${s.sets.map(x => `<div class="lp-bub" style="--c:${x.done ? "#43A047" : "#8E24AA"}">${x.icon} <b>${esc(x.name)}</b> ${x.done ? "✅ complete" : x.have + "/" + x.need}${!x.done && x.missing.length && x.need - x.have <= 1 ? `<small>nearly! just ${esc(x.missing.join(", "))}</small>` : ""}</div>`).join("")}
+                <div class="lp-bub" style="--c:#8E24AA">${s.bought.length ? s.bought.map(b => `${b.icon} ${esc(b.name)}`).join(" · ") : "Nothing bought yet — ✋ the mailbox, the porch or the front yard (or go inside) to decorate."}</div></div>
+                <button class="btn lp-row lp-mini" id="lpHouseBack">‹ All messages</button>`;
+            el.querySelector("#lpHouseBack").addEventListener("click", () => { V.house = false; api.refresh(); });
+            return;
+        }
+        if (V.list && !note) V.list = false;
+        if (V.list) {
+            // 📝 the list: what's done, what's next, how far
+            el.innerHTML = `<div class="lp-chat-h"><span class="lp-av" style="--c:#E91E63">📝</span><b>Ima's list · ${note.done}/${note.list.length}</b></div>
+                <div class="lp-chat">${note.list.map(x => `<div class="lp-bub" style="--c:${x.done ? "#43A047" : "#E91E63"}">${x.done ? "✅" : x === note.next ? "👉" : "⬜"} ${x.icon || ""} ${esc(x.text || x.id)}${x.n > 1 ? ` <small>${Math.min(x.prog, x.n)}/${x.n}</small>` : ""}</div>`).join("")}
+                <div class="lp-bub" style="--c:#E91E63">${note.done >= note.list.length ? "Everything's done? Come HOME for dinner! 🍲" : note.home ? "Dinner's in the fridge 💕" : "Home for dinner! 💕"}</div></div>
+                <button class="btn lp-row lp-mini" id="lpListBack">‹ All messages</button>`;
+            el.querySelector("#lpListBack").addEventListener("click", () => { V.list = false; api.refresh(); });
+            return;
+        }
         if (!V.thread) {
             const list = threads();
-            if (!list.length) { el.innerHTML = `<p class="lp-empty">No messages yet.<br><small>The family will text. Oh, they'll text.</small></p>`; return; }
-            el.innerHTML = list.map(t => `<button class="btn lp-row lp-thr${t.unread ? " new" : ""}" data-k="${esc(t.k)}">
+            const pin = note ? `<button class="btn lp-row lp-ima" id="lpImaList"><span class="lp-av" style="--c:#E91E63">📝</span>
+                <span class="lp-tx"><b>Ima's list · ${note.done}/${note.list.length}</b><small>${note.done >= note.list.length ? "All done — home for dinner! 🍲" : "Next: " + esc((note.next.icon || "") + " " + (note.next.text || note.next.id))}</small></span></button>` : "";
+            const hpin = hn ? `<button class="btn lp-row lp-hse" id="lpHouse"><span class="lp-av" style="--c:#8E24AA">🏠</span>
+                <span class="lp-tx"><b>My house · ${hn.s.bought.length} things</b><small>${hn.near.length ? "So close: " + esc(hn.near[0].icon + " " + hn.near[0].name) + " (" + hn.near[0].have + "/" + hn.near[0].need + ")" : hn.s.sets.filter(x => x.done).length + "/" + hn.s.sets.length + " sets complete"}</small></span></button>` : "";
+            const ppins = PINS.filter(pinOn).map(p => [p, pinRow(p)]).filter(([, r]) => r).map(([p, r]) => `<button class="btn lp-row lp-pin" data-pin="${esc(p.id)}">
+                <span class="lp-av" style="--c:${r.color || "#78909C"}">${r.icon || "📌"}</span>
+                <span class="lp-tx"><b>${esc(r.title || p.id)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ""}</span>${r.badge ? `<span class="lp-meta"><i class="lp-badge">${esc(r.badge)}</i></span>` : ""}</button>`).join("");
+            const bind = () => {
+                const b = el.querySelector("#lpImaList"); if (b) b.addEventListener("click", () => { V.list = true; api.refresh(); });
+                const h = el.querySelector("#lpHouse"); if (h) h.addEventListener("click", () => { V.house = true; api.refresh(); });
+                el.querySelectorAll("[data-pin]").forEach(b => b.addEventListener("click", () => {
+                    const p = PINS.find(x => x.id === b.dataset.pin);
+                    if (p && p.open) { try { p.open(); } catch (e) { console.error(`[phone] pin ${p.id}.open`, e); } }
+                    V.pin = b.dataset.pin; api.refresh();
+                }));
+            };
+            if (!list.length) { el.innerHTML = pin + hpin + ppins + `<p class="lp-empty">No messages yet.<br><small>The family will text. Oh, they'll text.</small></p>`; bind(); return; }
+            el.innerHTML = pin + hpin + ppins + list.map(t => `<button class="btn lp-row lp-thr${t.unread ? " new" : ""}" data-k="${esc(t.k)}">
                 <span class="lp-av" style="--c:${t.color}">${t.emoji}</span>
                 <span class="lp-tx"><b>${esc(t.title)}</b><small>${t.group ? esc(t.last.from) + ": " : ""}${esc(t.last.msg)}</small></span>
                 <span class="lp-meta">${ago(t.last.t)}${t.unread ? `<i class="lp-badge">${t.unread}</i>` : ""}</span></button>`).join("");
             el.querySelectorAll(".lp-thr").forEach(b => b.addEventListener("click", () => { V.thread = b.dataset.k; api.refresh(); }));
+            bind();
             return;
         }
         const msgs = INBOX.msgs.filter(m => m.k === V.thread);
@@ -99,7 +185,7 @@ addApp({
         const chat = el.querySelector(".lp-chat");
         chat.scrollTop = chat.scrollHeight;
     },
-    back() { if (V.thread) { V.thread = null; return refresh(), true; } return false; },
+    back() { if (V.pin) { V.pin = null; return refresh(), true; } if (V.house) { V.house = false; return refresh(), true; } if (V.list) { V.list = false; return refresh(), true; } if (V.thread) { V.thread = null; return refresh(), true; } return false; },
 });
 // the home screen's notification cards: the latest unread threads (hidden on short screens)
 setHomeWidget(() => threads().filter(t => t.unread).slice(0, 2).map(t => `<button class="lp-notif" data-open="messages" data-thread="${esc(t.k)}">

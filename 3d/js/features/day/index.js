@@ -139,9 +139,12 @@ body.tv .day-chip { font-size: 20px; max-width: 440px; } body.tv .day-chip small
 `);
 function clearChip() { if (S.chip) { S.chip.remove(); S.chip = null; S.chipText = ""; } }
 const MI = 1609;
+/** Where she is along the HIGHWAY (places are roadside: their s is the highway's). In a town ctx.car.s is the town's own road
+ *  (a street's base + along — ci/qaweekend: the chip read "Drop off Bubbe's challah · 307.8 mi back" on Route 9): the exit's s. */
+const hwS = () => (ctx.town && ctx.town.active && ctx.town.highwayS != null ? ctx.town.highwayS : ctx.car.s);
 function nearestS(placeId) {
     const at = ctx.places && ctx.places.at ? ctx.places.at(placeId) || [] : [];
-    const s = ctx.car.s;
+    const s = hwS();
     let best = null;
     for (const x of at) if (best == null || Math.abs(x - s) < Math.abs(best - s)) best = x;
     return best;
@@ -188,12 +191,10 @@ function chipTick() {
     if (!S.active || !def || !def.hud) { clearChip(); return; }
     const t = viaWayOut(target());
     const n = DAY.list.filter(isDone).length;
-    // (in a town she's on its streets, not the highway: a highway place is just "out on the highway" from there)
-    const inTown = !!(ctx.town && ctx.town.active);
-    const far = t && t.far != null ? t.far : t && t.s != null && !inTown ? Math.abs(t.s - ctx.car.s) : null;
-    const back = t && t.far == null && t.s != null && t.s < ctx.car.s;
-    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!")
-        : t && t.s != null && inTown ? " · out on the highway" : "";
+    // (a highway place from a town: its distance from the exit she took — hwS; a town target (home in Midwood) carries its own `far`)
+    const far = t && t.far != null ? t.far : t && t.s != null ? Math.abs(t.s - hwS()) : null;
+    const back = t && t.far == null && t.s != null && t.s < hwS();
+    const dist = far != null ? (far > 300 ? ` · ${(far / MI).toFixed(1)} mi${back ? " back" : ""}` : far > 25 ? ` · ${Math.round(far)} m` : " · here!") : "";
     const txt = `📝 Ima's list <span class="ok">${n}/${DAY.list.length}</span><small>${t ? t.label + dist : ""}</small>`;
     if (!S.chip) { S.chip = document.createElement("div"); S.chip.className = "day-chip"; H.hudSlot("left").appendChild(S.chip); S.chipText = ""; }
     if (txt !== S.chipText) { S.chipText = txt; S.chip.innerHTML = txt; }
@@ -261,7 +262,7 @@ hook("hud", dt => {
 ctx.day = {
     get active() { return S.active; },
     get today() { ensureToday(); return DAY.day; },
-    list: () => { ensureToday(); return DAY.list.map(id => ({ id, done: isDone(id), prog: DAY.prog[id] || 0, n: (byId(id) || {}).n || 1, text: (byId(id) || {}).text })); },
+    list: () => { ensureToday(); return DAY.list.map(id => ({ id, done: isDone(id), prog: DAY.prog[id] || 0, n: (byId(id) || {}).n || 1, text: (byId(id) || {}).text, icon: (byId(id) || {}).icon })); },
     done: id => isDone(id),
     get complete() { return complete(); },
     get home() { return DAY.home; },

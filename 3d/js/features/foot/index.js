@@ -117,10 +117,11 @@ body.onfoot #touchExtra { left: auto !important; right: max(18px, env(safe-area-
 #footHot .hint { margin-top: 6px; font-size: 14px; opacity: .85; }
 #footWash { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; background: #000; transition: opacity .25s; }
 body.tv #footHot { width: min(760px, 70vw); } body.tv #footHot .ttl { font-size: 28px; } body.tv .foot-chip { font-size: 22px; }
-@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 236px);
+@media (max-aspect-ratio: 1/1) { body.onfoot.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 170px);
     left: max(12px, env(safe-area-inset-left)); right: calc(max(18px, env(safe-area-inset-right)) + 104px); transform: none; }
-  body.onfoot.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; }
-  body.onfoot.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 196px); } }
+  body.onfoot.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; } }
+/* (ci/hudfit: the prompt sits just above the WALK stick — hud.js lifts it off the stick / ✋ if it must — and the chips
+   start where they do when driving; the old +196 px left-slot drop + a prompt at +236 px left the WELCOME banner no room) */
 `);
 const hot = document.createElement("div");
 hot.id = "footHot";
@@ -245,7 +246,10 @@ function start(reason = "carWreck", opts = {}) {
     const out = F.out = Math.sign(near.d || 1);
     const rr = rd.at(near.s);
     F.hopFrom = F.car ? F.car.stub.obj.localToWorld(new THREE.Vector3(0.38, 0.62, -0.06)) : pos.clone();
-    F.hopTo = new THREE.Vector3(pos.x - Math.cos(rr.h) * out * 1.8, 0.05, pos.z + Math.sin(rr.h) * out * 1.8);
+    // (over the car's own side — the one toward the roadside: a car parked across the road's line, like the airport's
+    //  kerb in its own frame, had her land 1.8 m along its length, i.e. standing in its seats — ci/qaweekend)
+    const ox = -Math.cos(rr.h) * out, oz = Math.sin(rr.h) * out, cx = -Math.cos(h), cz = Math.sin(h), k = cx * ox + cz * oz < 0 ? -1 : 1;
+    F.hopTo = new THREE.Vector3(pos.x + cx * k * 1.8, 0.05, pos.z + cz * k * 1.8);
     if (!F.car) F.hopFrom.copy(F.hopTo);
     // (her car out past the fence line — it drives the fields to 70 m: the fence lets her walk round it)
     const outD = Math.abs(rd.nearest(F.hopTo.x, F.hopTo.z, near.s, {}).d);
@@ -788,7 +792,7 @@ function trafficStep(dt) {
         const g = (F.s - c.s) * c.dir;
         if (g > 0 && g < 34 && Math.abs(c.d - F.d) < 1.8 && F.phase !== "intro") {
             if (c.data.footAttn) c.want = Math.min(c.want, Math.max(0, (g - 7) * 0.7));
-            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8); }
+            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8, { flavour: true }); }    // (the beep says it: colour, in the bubble budget)
         }
     }
     // cars come up from behind her (the built-in spawner only adds them ahead)
@@ -1363,7 +1367,8 @@ function updateAvigail(dt) {
         else c.p.face(F.pos.x, F.pos.z, dt, 3);
         c.p.update(dt, { walk: moved, talk: hasBubble(o) });
         c.sayNext -= dt;
-        if (c.sayNext <= 0) { c.sayNext = rand(4, 7); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
+        // (every 10–16 s: at 4–7 s she was most of a walk's pop-ups — the calm test's foot minute had 6 of her lines in 60 s)
+        if (c.sayNext <= 0) { c.sayNext = rand(10, 16); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
     }
 }
 
@@ -1898,6 +1903,7 @@ function hotwireFail(h) {
     floater(F.lulu.obj, "🚨 ALARM! Walk AWAY, casual...", "#FF8A80", 1.8);
     beep(3);
     h.pc.busted = true; h.pc.alarmT = 2.5;
+    emit("foot:hotwireFail", { obj: h.pc.obj, key: h.pc.key, x: h.pc.x, z: h.pc.z, town: !!h.pc.ext });   // (features/life: hazards + the alarm + the owner)
     F.hotwire = null; F.phase = "walk"; F.phaseT = 0;
     if (copSaw(45)) {
         floater(F.lulu.obj, "👮 a cop SAW that — you're WANTED!", "#FF8A80", 2.0, 2.9);
@@ -2029,9 +2035,20 @@ function hud() {
 // ── touch: the ✋ hand button (on foot) and 🚶‍♀️ WALK (pulled over) ────────
 // (the DRIVING chase cam in a town keeps out of the houses, the blocks, the circle's statue and the trees' leaves with the
 //  same check as the free camera on foot; on the highway it's off — nothing to hit there, and no cost)
+// (ci/qaweekend: and on her own home street — the run starts there, and a kid mashing the gas from the driveway backed
+//  into the house with the chase cam inside it: one flat colour on screen. Past the first 160 m it's off again.)
 const carProbe = { s: 0 };
-on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = (tgt, dx, dy, dz, D) => { carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D); }; });
-on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = null; });
+const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;     // (not the scripted pull-out: its own shot)
+const carClipFn = (tgt, dx, dy, dz, D) => {
+    // (ci/airport-polish: and the airport's buildings — ctx.airport.camClip: the terminal + the tower; null away from it)
+    const air = ctx.airport && ctx.airport.camClip ? ctx.airport.camClip(tgt, dx, dy, dz, D) : null;
+    if (!(ctx.town && ctx.town.active) && !homeStreet()) return air;
+    carProbe.s = ctx.car.s; const r = camClip(carProbe, tgt, dx, dy, dz, D);
+    return air != null && (r == null || air < (typeof r === "number" ? r : r.d)) ? air : r;
+};
+on("run:start", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
 on("title", () => { if (ctx.cam) ctx.cam.carClip = null; });
 on("boot", () => {
     handBtn = addTouchButton({ id: "foot_hand", emoji: "✋", label: "HAND", action: "interact",

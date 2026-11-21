@@ -11,7 +11,7 @@
 //    stars that climb (3★ box-ins + K9 dogs, 4★ cop missiles, 5★ the chopper)
 //  • APB call-ins, the open-warrant file, and the fugitive stretch after a jailbreak
 import * as THREE from "three";
-import { ctx, emit, addActor, setState, MPH, wrapAngle } from "../../core/ctx.js";
+import { ctx, emit, addActor, setState, MPH, wrapAngle, hooks } from "../../core/ctx.js";
 import { addScore } from "../../core/driving.js";
 import { models, cloneWithColors, findNodes, registerModels, ensureModels } from "../../models.js";
 import { registerKind } from "../../traffic.js";
@@ -331,6 +331,18 @@ function prowlRoute(c, u, ch) {
     return r;
 }
 
+/** A place off the highway with roads of its own (features/airport) routes a chase / a pull-over through them:
+ *  hook "copRoute" (c, u, chase) → { gap, aim(la, out) } or null; and its own buildings block the view: hook
+ *  "copSight" (ax, az, bx, bz) → true (clear) · false (blocked) · undefined (not its business). */
+function placeRoute(c, u, ch) {
+    for (const fn of hooks.copRoute || []) { try { const r = fn(c, u, ch); if (r) return r; } catch (e) { console.error("[law] copRoute", e); } }
+    return null;
+}
+function placeSight(ax, az, bx, bz) {
+    for (const fn of hooks.copSight || []) { try { const r = fn(ax, az, bx, bz); if (r === true || r === false) return r; } catch (e) { console.error("[law] copSight", e); } }
+    return undefined;
+}
+
 /** Free-mode driver for our cruisers: pursue / box in / pull over / haul away / give up. */
 function driveUnit(dt, c, u) {
     const px = c.x, pz = c.z, ph = c.h, ps = c.s;
@@ -353,7 +365,8 @@ function steerUnit(dt, c, u) {
     const inTown = u.mode === "chase" && ctx.town && ctx.town.active && ctx.town.copRoute;
     const prowling = inTown && ch && ch.searching && ch.last && !u.bolo && !!ctx.town.searchPoint;
     if (!prowling) u.prowl = null;
-    const route = !inTown ? null : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
+    const route = !inTown ? ((u.mode === "chase" || u.mode === "pull") && !(ctx.town && ctx.town.active) ? placeRoute(c, u, ch) : null)
+        : prowling ? prowlRoute(c, u, ch) : ctx.town.copRoute(c, u);
     // SEARCHING: they don't know where she is — they drive on to where she was heading when they lost her
     // (pull off and stop out of sight, and they fly right past)
     if (u.mode === "chase" && ch && ch.searching && ch.last && !route) {
@@ -382,7 +395,7 @@ function steerUnit(dt, c, u) {
         u.vmax = Math.max(22, luluTop() * TUNE.copSpeed[clamp(Math.round(heat), 1, 5)]);   // never faster than her, no catch-up bonus
     } else if (u.mode === "pull") {             // pull up behind her on the shoulder
         tD = Number.isFinite(u.pullD) ? u.pullD : pullDAt(c.s);
-        const err = (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
+        const err = route ? route.gap : (Number.isFinite(u.stopS) ? u.stopS : c.s) - c.s;
         vT = clamp(err * 1.1, 0, 22);
         if (err < 0.4) vT = 0;
         u.vmax = 30;
@@ -800,8 +813,10 @@ function nightness() { const a = ctx.atmos; return a && typeof a.night === "numb
 function clearLine(ax, az, as, self, bx = ctx.car.pos.x, bz = ctx.car.pos.z) {
     const car = ctx.car, road = ctx.world.road;
     // in a town (features/town) its buildings are the occluders; on the highway, the roadside on a bend
+    const own = placeSight(ax, az, bx, bz);
+    if (own === false) return false;
     if (ctx.town && ctx.town.active) { if (ctx.town.blocksSight(ax, az, bx, bz)) return false; }
-    else for (const k of [0.3, 0.55, 0.8]) {
+    else if (own !== true) for (const k of [0.3, 0.55, 0.8]) {
         road.nearest(ax + (bx - ax) * k, az + (bz - az) * k, Number.isFinite(as) ? as + (car.s - as) * k : car.s, tmpN);
         if (Math.abs(tmpN.d) > TUNE.offRoad) return false;
     }
@@ -900,7 +915,11 @@ function updateChase(dt, controlsOn) {
     const need = TUNE.search[clamp(Math.round(ch.heat), 1, 5)];
     if (ch.searching) ch.evade = clamp(ch.evade + dt / need * (hide ? TUNE.hideMul : 1), 0, 1);
     else ch.evade = Math.max(0, ch.evade - dt * (seen ? 0.3 : 0.08));
-    if (ch.evade >= 1) escape(hide ? "hid" : "lost");
+    if (ch.evade >= 1) {
+        // 🔗 partners in crime (crew.js): nobody's LOST 'EM lands while a partner is still seen — the meter waits at the top
+        if (L.crewHold && L.crewHold()) ch.evade = 0.97;
+        else escape(hide ? "hid" : "lost");
+    }
 
 }
 
@@ -1402,8 +1421,9 @@ export function hud() {
     const lost = L.lost && L.lost.t > ctx.time;
     const fresh = L.lowKey && ctx.time - L.lowKeyT < 4 && S.wanted.length;
     const warrants = S.wanted.length && !L.lowKey;
-    if (!ch && !f && !b && !lost && !fresh && L.sus <= 0.04 && L.radar < 0.02 && !warrants) { UI.wantedHud(null); return; }
-    const info = { stars: 0, tag: "", fug: !!f, blink: false, hint: "", meters: [] };
+    const crew = L.crewHud ? L.crewHud() : null;          // 🔗 partners in crime (crew.js)
+    if (!ch && !f && !b && !lost && !fresh && L.sus <= 0.04 && L.radar < 0.02 && !warrants && !crew) { UI.wantedHud(null); return; }
+    const info = { stars: 0, tag: "", fug: !!f, blink: false, hint: "", meters: [], crew };
     if (f) { info.stars = fugitiveStars(f.t); info.tag = "🔒 FUGITIVE"; info.blink = true; info.spot = ch ? 0 : clamp(f.spot / Math.max(0.7, 1.6 - info.stars * 0.2), 0, 1); info.hint = "the jumpsuit gives you away · Paint & Pray / a disguise"; }
     if (ch) {
         info.stars = Math.max(info.stars, ch.heat);
