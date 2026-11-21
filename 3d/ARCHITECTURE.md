@@ -1528,7 +1528,7 @@ back onto its place in the loop (1.6 s; the ones behind queue, they also stop fo
 are now foot's only (`off` while she drives). **LOW** (`build.js` `setLow`): what the LOW tier leaves out — two of the three parked
 jets (+ their livery faces), every other parked car, 8 of the 20 lamps, the bottom fence's trees, the windsock, the facade's trim /
 door mats / hedges (`splitTemplate`) — is merged LAST into the same clusters, so LOW is one draw range per merged mesh (no extra draw
-call on MEDIUM) and the atlas mesh's last quads; their colliders switch off with them (`notLow`). ~10.4k triangles left out at the
+call on MEDIUM) and the atlas mesh's last quads; their colliders switch off with them (`notLow`). ~9.3k triangles left out at the
 kerb (AGENTS §7 › Airport for the numbers; the test counts the shadow pass too now). Also: the roads in / out share the ramps' mesh
 (2 draw calls fewer). **Airport security at the kerb** (`security.js`, the owner's decision 10): a WANTED Lulu (law's stars — a
 chase, a fugitive stretch, warrants she hasn't changed her look since) in the landside → Officer Segal's Segway (12.5 m/s — "it has a
