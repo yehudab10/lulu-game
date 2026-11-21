@@ -63,6 +63,9 @@ module.exports = {
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law.hold(9999), ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), true)`);
+    // (households have a schedule now — features/homes life.js: this test wants everybody home on an ordinary day, and the
+    //  classic alarm; homelife tests the scenes + who-catches-her)
+    await g(`(${D}.scene("ordinary"), ${D}.force.noCatch = true, true)`);
 
     // ── 1. the living town ──
     await step("crowd", async () => {

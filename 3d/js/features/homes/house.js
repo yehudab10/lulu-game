@@ -19,7 +19,11 @@ import { heal } from "../../core/driving.js";
 import { defineInterior } from "../interiors/engine.js";
 import { tone, sfx } from "../interiors/fx.js";
 import { KINDS, ITEMS, PICKUP_ORDER, REACT, SPOTTED, SPOTTED_AGAIN, SUSPICIOUS, FIGHT, LULU_HIT, TALK, COUCH, COUCH_LINES, COUCH_EMPTY, COUCH_CAPPED,
-    SOUVENIRS, CHOLENT, CHOLENT_SEEN, CALL_LINES, WINDOW_IN, WINDOW_OUT, DOOR_OUT } from "./data.js";
+    SOUVENIRS, CHOLENT, CHOLENT_SEEN, CHOLENT_FULL, CHOLENT_NOT_YET, CHOLENT_CAP, CALL_LINES, WINDOW_IN, WINDOW_OUT, DOOR_OUT, WET_FLOOR, dressLine } from "./data.js";
+import { anchors, stageScene, buildProps, heldProp, catchFor, CATCH, ANIMALS } from "./stage.js";
+import { linesFor } from "./scenes.js";
+import { setupJob, jobHud } from "./jobs.js";
+import { payJob } from "./visits.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
 /** "Goldberg" → "Goldbergs", "Schwartz" → "Schwartzes". */
@@ -29,7 +33,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = a => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 
 /** Per-run loot memory (couch coins / souvenir / cholent: once per house per run) — index.js resets it at run:start. */
-export const RUN = { couch: new Set(), souvenir: new Set(), cholent: new Set(), coins: 0 };
+export const RUN = { couch: new Set(), souvenir: new Set(), cholent: new Set(), coins: 0, hearts: 0 };
 /** What happened on this visit (index.js reads it when she's back outside). */
 export const VISIT = { cur: null };
 let HM = null;            // the house being entered (index.js sets it: { home, fam, mode, via, recognized })
@@ -73,14 +77,17 @@ function build(rt) {
     let s = seed >>> 0;
     const R = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
     rt.root.visible = false;          // (the kit: we clone pieces out of it)
+    const scene = hm.scene || null, sd = scene && scene.def || {};
     const V = rt.data.V = { hm, home, mode: hm.mode, crouch: hm.via === "window", res: [], items: {}, held: null, heldUses: 0, dizzyT: 0, darts: [], fx: [], spotted: false,
-        alarm: false, reported: false, callT: 0, caller: null, used: [], looted: [], charges: [], exit: "door", t: 0, recognized: !!hm.recognized, ate: false, hudKey: "" };
+        alarm: false, reported: false, callT: 0, caller: null, used: [], looted: [], charges: [], exit: "door", t: 0, recognized: !!hm.recognized, ate: false, hudKey: "",
+        scene, noCatch: !!hm.noCatch, noPhone: !!sd.noPhone, hush: sd.hush || 1, zones: [], catchRoll: R(), treated: false };
     VISIT.cur = { rt, mode: hm.mode, home, V };
-    // the rooms
-    const cast = home.cast;
+    // the rooms (who's home: the scene's — work, school, shul, the mountains)
+    const cast = hm.cast || home.cast;
+    const allCast = home.cast;
     const types = ["living", "kitchen"];
-    if (cast.includes("boy") || cast.includes("girl") || (cast.includes("baby") && R() < 0.5)) types.unshift("kids");
-    if (R() < 0.65 || new Date().getDay() === 5) types.splice(types.indexOf("kitchen"), 0, "dining");
+    if (allCast.includes("boy") || allCast.includes("girl") || (allCast.includes("baby") && R() < 0.5)) types.unshift("kids");
+    if (R() < 0.65 || (sd.rooms && sd.rooms.dining)) types.splice(types.indexOf("kitchen"), 0, "dining");
     const n = types.length, x0 = -n * W / 2;
     const rooms = types.map((type, i) => ({ type, x0: x0 + i * W, x1: x0 + (i + 1) * W, cx: x0 + (i + 0.5) * W }));
     V.rooms = rooms;
@@ -209,7 +216,9 @@ function build(rt) {
     }
     // ── loot ──
     if (surf.couch) rt.hot({ id: "couch", x: surf.couch.x - 0.6, z: surf.couch.z, r: 1.2, label: "🛋️ Dig in the couch cushions", action: r2 => couch(r2) });
-    if (surf.stove) rt.hot({ id: "cholent", x: surf.stove.x + 0.2, z: surf.stove.z + 0.75, r: 1.0, label: "🍲 Eat the cholent", enabled: () => !RUN.cholent.has(home.key), action: r2 => cholent(r2) });
+    const cho = sd.cholent || "ready";
+    if (surf.stove && cho !== "none") rt.hot({ id: "cholent", x: surf.stove.x + 0.2, z: surf.stove.z + 0.75, r: 1.0,
+        label: () => cho === "notYet" ? "🍲 The cholent (it's not ready…)" : V.mode === "guest" ? "🍲 Have some cholent" : "🍲 Eat the cholent", enabled: () => !RUN.cholent.has(home.key), action: r2 => cholent(r2) });
     const sv = surf.fridge || surf.souvenir || surf.dsouvenir;
     if (sv) rt.hot({ id: "souvenir", x: sv.x, z: sv.z, r: 1.1, label: "🎁 Pocket a souvenir", enabled: () => !RUN.souvenir.has(home.key), action: r2 => souvenir(r2) });
     for (const w of V.windows) rt.hot({ id: "win_" + w.room, x: w.x, z: w.z, r: 1.15, label: "🪟 Jump out the window", action: r2 => jumpOut(r2, w) });
@@ -226,20 +235,46 @@ function build(rt) {
         cat: [{ x: L.cx + 0.6, z: 0.9, ry: 0, roam: true }],
         dog: [{ x: L.cx - 0.2, z: 1.2, ry: 2.2, sleep: true }],
     };
-    const recog = V.recognized;
-    for (const kind of cast) {
-        const K = KINDS[kind], sp = (spotsFor[kind] || [])[0];
-        if (!K || !sp || !models[K.key]) continue;
-        const rec = rt.person(kind, K.key, sp, { faceLulu: false, collide: !K.animal, r: K.animal ? 0.25 : 0.33, pose: sp.sit ? { sit: true } : {}, name: home.names && home.names[kind] || kind });
-        const res = { kind, K, rec, p: rec.p, name: (home.names && home.names[kind]) || kind, meter: 0, state: "routine", t: 0, path: sp.path || null, pi: 0, wait: 1 + R() * 2,
-            stun: 0, fx: null, friendly: hm.mode === "guest" || (hm.mode === "kid" && (kind === "boy" || kind === "girl")), sit: !!sp.sit, sleep: !!sp.sleep, roam: !!sp.roam,
+    // the zeidy (a household extra, life.js) stands where a dad would when the scene doesn't say
+    spotsFor.zeidy = [{ x: L.cx + 1.0, z: -D / 2 + 0.85, ry: -0.5, sit: true }];
+    // ── the scene: who's where, the props, the zones (stage.js) ──
+    const A = V.A = anchors(V, rt, cast);
+    const ST = stageScene(sd, cast, A, rt, (scene && scene.w) || {});
+    const dadLook = sd.dad || "dressed";
+    const addRes = (id, kind, sp, opts = {}) => {
+        const K = KINDS[kind];
+        if (!K || !sp || !models[K.key]) return null;
+        const colors = opts.colors || (kind === "dad" ? (DAD_LOOK[dadLook] || null) : K.colors || null);
+        const rec = rt.person(id, K.key, sp, { faceLulu: false, collide: !K.animal, r: K.animal ? 0.25 : 0.33, pose: sp.sit || sp.sleep ? { sit: true } : {}, name: opts.name || kind, colors });
+        const res = { id, kind, K, rec, p: rec.p, name: opts.name || kind, meter: 0, state: "routine", t: 0, path: sp.path || null, pi: 0, wait: 1 + R() * 2,
+            stun: 0, fx: null, friendly: hm.mode === "guest" || (hm.mode === "kid" && (kind === "boy" || kind === "girl")) || !!K.crowd || !!(sd.crowd && opts.extra),
+            sit: !!sp.sit, sleep: !!sp.sleep && !sp.awake, roam: !!sp.roam, lie: !!sp.lie, pose0: sp.pose || null, fast: !!sp.fast, dressed: kind === "dad" ? dadLook !== "towel" : true,
             fooled: 0, y0: sp.y || 0, seen: null, said: {}, fight: null, cool: 0, home0: { x: sp.x, z: sp.z }, ind: null, cone: null, eat: 0, prop: null };
-        if (res.sleep) rec.pose = { sit: true };
+        if (res.sleep || res.sit) rec.pose = { sit: true };
+        if (res.pose0) rec.pose = Object.assign({ sit: res.sit }, res.pose0);
+        if (sp.prop) { const hp = heldProp(rt, sp.prop); if (hp) { res.held = hp; rt.hold(rec.p, hp, { y: -0.42, z: 0.02 }); } }
         res.cone = makeCone(rt, K);
         res.ind = makeIndicator(rt);
         V.res.push(res);
-        rt.hot({ id: "res_" + kind, who: kind, track: true, r: K.animal ? 1.3 : 1.55, label: () => resLabel(V, res), action: r2 => useOn(r2, res) });
+        rt.hot({ id: "res_" + id, who: id, track: true, r: K.animal ? 1.3 : 1.55, label: () => resLabel(V, res), action: r2 => useOn(r2, res) });
+        return res;
+    };
+    for (const kind of cast) {
+        const P0 = ST.place[kind];
+        const sp = P0 ? { x: P0.x, z: P0.z, ry: P0.ry, y: P0.y, path: P0.path, sit: P0.sit, sleep: P0.sleep, lie: P0.lie, prop: P0.prop, pose: P0.pose, awake: P0.awake, fast: P0.fast }
+            : (spotsFor[kind] || [])[0];
+        // Purim: everyone's in costume (the same costumes on every screen — the house's seed)
+        const costume = sd.costumes && !KINDS[kind].animal && kind !== "baby" ? COSTUMES[(seed + kind.length * 7 + kind.charCodeAt(0)) % COSTUMES.length] : null;
+        addRes(kind, kind, sp, { name: home.names && home.names[kind] || kind, colors: (P0 && P0.colors) || costume || null });
     }
+    ST.extras.forEach((e, i) => addRes(`x${i}_${e.kind}`, e.kind, e, { name: e.name || e.kind, colors: e.colors || null, extra: true }));
+    V.props = buildProps(rt, ST.props);
+    if (hm.job) { try { setupJob(rt, V, hm.job, {}); } catch (e) { console.error("[homes] job", e); } }
+    V.zones = ST.zones;
+    // the scene's chatter (bubbles, not toasts), and the violin
+    if (sd.ambient) rt.every(3.8, 6.5, r2 => ambient(r2), { gate: false, first: 1.6 });
+    if (sd.ambient && sd.ambient.yard) { V.yard = new THREE.Object3D(); V.yard.position.set(L.cx + 0.9, 1.2, -D / 2 - 0.4); rt.add(V.yard); }
+    if (sd.task) setupTask(rt, V, sd.task);
     // where she comes in
     let start = rt.spots.door;
     if (hm.via === "window") { const w = pick(V.windows.filter(x => x.room !== "kids")) || V.windows[0]; start = { x: w.x, z: w.z, ry: 0 }; }
@@ -251,18 +286,87 @@ function build(rt) {
     if (ctx.interiors.home) ctx.interiors.home.name = DEF.name;
     rt.chip.querySelector(".int-title").textContent = DEF.title;
     try { if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence({ mode: "in", icon: "🏠", label: `in ${label}` }); } catch (e) { /* no party */ }
-    // a warm lamp
-    const lamp = new THREE.PointLight("#FFE0B0", 5, 14, 1.6); lamp.position.set(0, 2.4, 0.5); rt.add(lamp);
+    // a warm lamp (the 3 a.m. kitchen: just the fridge light)
+    const dim = sd.lights === "dim";
+    const lamp = new THREE.PointLight(dim ? "#9FB4FF" : "#FFE0B0", dim ? 1.6 : 5, dim ? 9 : 14, 1.6); lamp.position.set(dim ? (room("kitchen").cx + 1.5) : 0, 2.4, 0.5); rt.add(lamp);
+    V.lamp = lamp;
     // the opening beat
     rt.timers.push({ once: true, t: 0.35, gate: false, fn: () => {
         if (hm.via === "window") rt.bubble(pick(WINDOW_IN), rt.lulu.obj, 2.6);
         else if (hm.mode === "sneak") rt.bubble("*tiptoes in* ...hello? 🤫", rt.lulu.obj, 2.2);
         else if (hm.mode === "kid") rt.bubble("*whispers* Thanks, kiddo. 🤫", rt.lulu.obj, 2.2);
         if (hm.mode !== "guest") H.toast(`🤫 ${glyph("item").replace(/<[^>]+>/g, "")} crouch to sneak · grab things · use them on people`, "pink", { key: "homes:hint" });
+        else treat(rt);
     } });
     rt.extraEl.innerHTML = "";
     if (ctx.G) { V.hint = ctx.G.hint; ctx.G.hint = ""; }        // (foot's "find a car" hint doesn't belong in a living room)
-    emit("homes:enter", { key: home.key, name: home.name, mode: hm.mode, via: hm.via });
+    emit("homes:enter", { key: home.key, name: home.name, mode: hm.mode, via: hm.via, scene: sd.id || null });
+}
+/** What a dad wears in a scene (homes_dad is modelled in a towel — the break-in classic). */
+const DAD_LOOK = { dressed: { Top: "#FFFFFF", Bottom: "#212121", Shoes: "#212121" }, pyjamas: { Top: "#90CAF9", Bottom: "#5C6BC0", Shoes: "#5C6BC0" }, towel: null };
+/** A line of the scene's chatter from someone who's home and calm. */
+const COSTUMES = [{ Top: "#E53935", Bottom: "#212121" }, { Top: "#FDD835", Bottom: "#1E88E5" }, { Top: "#8E24AA", Bottom: "#FFD54F" }, { Top: "#43A047", Bottom: "#43A047" },
+    { Top: "#FB8C00", Bottom: "#5D4037" }, { Top: "#FFFFFF", Bottom: "#E91E63" }, { Top: "#00ACC1", Bottom: "#FFFFFF" }];
+/** A scene's own little task: 🪥 scrub the chametz (Pesach cleaning) · 🍪 find the afikoman (the seder — no money on Yom Tov). */
+function setupTask(rt, V, task) {
+    const T = V.task = { type: task, done: false, n: 0 };
+    const S = V.surf;
+    if (task === "scrub") {
+        const at = [S.fridge, S.couch, S.coat, S.ktable || S.table].filter(Boolean).slice(0, 3);
+        T.need = at.length;
+        at.forEach((p, i) => rt.hot({ id: "task_scrub" + i, x: p.x + (i === 2 ? -0.4 : 0.3), z: p.z + 0.5, r: 1.2, label: "🪥 Scrub out the chametz", enabled: () => !T.done && !(T.got && T.got[i]) && V.mode === "guest",
+            action: r2 => {
+                (T.got = T.got || {})[i] = 1; T.n++;
+                tone(1600, 0.05, "sawtooth", 0.02, 2200); tone(1500, 0.05, "sawtooth", 0.02, 2100, 0.1);
+                r2.bubble(pick(["*scrub scrub* ...a Cheerio. From 2023.", "*scrub* A PRETZEL. In the grout. How?!", "*scrub scrub scrub* ...that was a crumb. Probably. It's gone now."]), r2.lulu.obj, 2.2);
+                if (T.n >= T.need) {
+                    T.done = true; V.favour = true;
+                    const paid = payJob("chametz");
+                    const hr = V.res.find(q => q.K.adult);
+                    if (hr) rt.bubble("Chametz-FREE! You can come back for Pesach. As a GUEST. No toothbrush.", hr.p.obj, 3);
+                    if (paid) H.toast(`🪥 +${paid} 💰 — a Pesach-clean corner`, "gold", { key: "homes:job" });
+                    emit("homes:task", { type: task, paid });
+                }
+            } }));
+    } else if (task === "afikoman") {
+        const spots = [S.couch, S.coat, S.bunk || S.toybox, S.desk || S.counter].filter(Boolean);
+        const right = (V.home.seed >>> 3) % spots.length;
+        T.need = 1;
+        spots.forEach((p, i) => rt.hot({ id: "task_afi" + i, x: p.x, z: p.z + 0.5, r: 1.2, label: "🔍 Look for the afikoman", enabled: () => !T.done && !(T.got && T.got[i]) && V.mode === "guest",
+            action: r2 => {
+                (T.got = T.got || {})[i] = 1;
+                if (i !== right) { r2.bubble(pick(["Not here. ...a kid giggles somewhere. You're COLD.", "Nope. Just a hat. Somebody's Shabbos hat.", "Not here. \"WARMER!\" a kid yells. \"No, COLDER!\""]), r2.lulu.obj, 2.2); return; }
+                T.done = true; V.favour = true;
+                r2.bubble("THE AFIKOMAN! ...the kids want it back. They have DEMANDS.", r2.lulu.obj, 2.6);
+                const hr = V.res.find(q => q.K.adult);
+                if (hr) rt.timers.push({ once: true, t: 2.4, gate: false, fn: () => { if (!rt.disposed) rt.bubble("You found it! A present — AFTER Yom Tov. That's the deal.", hr.p.obj, 3); } });
+                emit("homes:task", { type: task, paid: 0 });
+                emit("stat", { id: "homesAfikoman", n: 1 });
+            } }));
+    }
+}
+function ambient(rt) {
+    const V = rt.data.V, sd = V.scene && V.scene.def;
+    if (!sd || !sd.ambient || ctx.dialogOpen) return;
+    if (V.yard && (Math.random() < 0.5 || !V.res.length)) { rt.bubble(pick(sd.ambient.yard), V.yard, 2.6); return; }
+    const who = V.res.filter(r => r.state === "routine" && !(r.stun > 0) && !(r.sleep && r.kind !== "zeidy") && !r.mischief && linesFor(sd.ambient, r.kind));
+    if (!who.length) return;
+    const r = who[Math.floor(Math.random() * who.length)];
+    rt.bubble(dressLine(r, pick(linesFor(sd.ambient, r.kind))), r.p.obj, 2.6);
+    if (sd.squeak && (r.kind === "boy" || r.kind === "girl")) { tone(1480, 0.35, "sawtooth", 0.035, 1700); tone(1210, 0.3, "sawtooth", 0.03, 980, 0.3); }
+}
+/** A guest is served something (once a visit): a host says so — warmth, not coins. */
+function treat(rt) {
+    const V = rt.data.V, sd = V.scene && V.scene.def;
+    if (V.treated) return;
+    V.treated = true;
+    const host = V.res.find(r => r.K.adult && !r.K.crowd) || V.res.find(r => !r.K.animal && r.kind !== "baby");
+    if (!host) return;
+    const what = sd && sd.treat ? `Here — ${sd.treat}. Eat!` : pick(["Sit! You'll have something. Coffee? Cake? BOTH.", "You'll eat something. You're too THIN."]);
+    rt.bubble(what, host.p.obj, 3);
+    const g = sd && sd.guest;
+    if (g && g.length) rt.timers.push({ once: true, t: 3.4, gate: false, fn: () => { if (!rt.disposed) rt.bubble(pick(g), host.p.obj, 3); } });
+    emit("homes:treat", { key: V.home.key, scene: sd && sd.id });
 }
 
 function checker() {
@@ -314,6 +418,7 @@ function drawIndicator(ind, mode, v) {
 // ── the hotspots' actions ────────────────────────────────────────────────
 function resLabel(V, r) {
     const nm = r.name;
+    if (V.jobLabel) { const l = V.jobLabel(r); if (l) return l; }
     if (V.held) { const it = ITEMS[V.held]; return `${it.emoji} ${it.verb} ${nm}`; }
     if (r.friendly || V.mode === "guest") return `💬 Talk to ${nm} · 🎒 items`;
     if (r.kind === "baby" || r.K.animal) return `💬 ${nm} · 🎒 items`;
@@ -341,6 +446,7 @@ function putBack(rt, id) {
 }
 function useOn(rt, r) {
     const V = rt.data.V;
+    if (V.jobUse && V.jobUse(rt, r)) return;
     if (V.held) return applyItem(rt, r, V.held);
     return chat(rt, r);
 }
@@ -352,7 +458,11 @@ async function chat(rt, r) {
     const i = await rt.choose(`${r.K.emoji} ${r.name}`, r.state === "alarm" ? "They're staring at you." : "What now?", opts, { emoji: r.K.emoji, person: r.rec });
     if (rt.disposed) return;
     if (i === 0) {
-        if (r.friendly || V.mode === "guest" || r.K.animal || r.kind === "baby") { rt.bubble(pick(TALK[r.kind]), r.p.obj, 2.8); emit("stat", { id: "homesTalks", n: 1 }); return; }
+        if (r.friendly || V.mode === "guest" || r.K.animal || r.kind === "baby") {
+            const sd = V.scene && V.scene.def;
+            const g = V.mode === "guest" && sd && sd.guest && r.K.adult && Math.random() < 0.6 ? sd.guest : (TALK[r.kind] || TALK[r.K.like] || ["..."]);
+            rt.bubble(dressLine(r, pick(g)), r.p.obj, 2.8); emit("stat", { id: "homesTalks", n: 1 }); return;
+        }
         // "Shhh!" — a kid makes a pact; an adult… sees her, obviously
         if (r.kind === "boy" || r.kind === "girl") { r.friendly = true; r.meter = 0; rt.bubble(r.kind === "boy" ? "...okay. But I want to SEE the car." : "I won't tell. ...for a BRACELET.", r.p.obj, 2.8); return; }
         r.meter = 1; spot(rt, r);
@@ -375,7 +485,8 @@ async function chat(rt, r) {
 /** Lulu uses `id` on resident r: the reaction from the table, the effect, the consequences. */
 export function applyItem(rt, r, id) {
     const V = rt.data.V, it = ITEMS[id];
-    const tab = (REACT[id] && REACT[id][r.kind]) || { line: "...?!", lulu: "Oops." };
+    const tab0 = (REACT[id] && (REACT[id][r.kind] || REACT[id][r.K.like])) || { line: "...?!", lulu: "Oops." };
+    const tab = Object.assign({}, tab0, { line: dressLine(r, tab0.line) });
     const fx = tab.fx || it.fx;
     rt.luluPose = { point: true };
     rt.timers.push({ once: true, t: 0.45, gate: false, fn: () => { rt.luluPose = null; } });
@@ -453,16 +564,23 @@ function couch(rt) {
     emit("stat", { id: "homesCouchCoins", n });
 }
 function cholent(rt) {
-    const V = rt.data.V;
+    const V = rt.data.V, sd = V.scene && V.scene.def;
+    if (sd && sd.cholent === "notYet") {
+        rt.bubble(pick(CHOLENT_NOT_YET), rt.lulu.obj, 2.8);
+        for (const r of V.res) if ((r.kind === "bubbe" || r.kind === "mom") && sees(rt, r, 1.3)) { rt.bubble("NOT YET!! It has to go ALL NIGHT!", r.p.obj, 2.4); if (V.mode !== "guest") { r.meter = Math.max(r.meter, 0.8); } break; }
+        return;
+    }
     RUN.cholent.add(V.home.key);
-    rt.bubble(pick(CHOLENT), rt.lulu.obj, 2.6);
+    const full = RUN.hearts >= CHOLENT_CAP;
+    rt.bubble(pick(full ? CHOLENT_FULL : CHOLENT), rt.lulu.obj, 2.6);
     const sp = itemProp("Spoon"); rt.luluHold(sp, { y: -0.45 });
     rt.timers.push({ once: true, t: 1.4, gate: false, fn: () => { if (!rt.disposed && !V.held) rt.luluHold(null); else if (!rt.disposed && V.held) rt.luluHold(V.items[V.held] && V.items[V.held].obj, { y: -0.45, z: 0.05 }); } });
     tone(240, 0.08, "triangle", 0.1); tone(300, 0.1, "triangle", 0.1, 0, 0.15);
-    try { if (ctx.G && ctx.G.hearts < ctx.G.maxHearts) heal(1); } catch (e) { /* no run */ }
+    // (+1 heart — at most CHOLENT_CAP a run across every house in every town: ~200 doors aren't ~200 hearts)
+    if (!full) try { if (ctx.G && ctx.G.hearts < ctx.G.maxHearts) { heal(1); RUN.hearts++; } } catch (e) { /* no run */ }
     V.ate = true; V.looted.push("cholent");
     // anyone watching takes it personally
-    for (const r of V.res) if (r.kind === "bubbe" || r.kind === "mom") if (sees(rt, r, 1.2)) { rt.bubble(pick(CHOLENT_SEEN), r.p.obj, 2.4); r.meter = 1; spot(rt, r); V.charges.push("cholent"); break; }
+    if (V.mode !== "guest") for (const r of V.res) if (r.kind === "bubbe" || r.kind === "mom") if (sees(rt, r, 1.2)) { rt.bubble(pick(CHOLENT_SEEN), r.p.obj, 2.4); r.meter = 1; spot(rt, r); if (V.mode !== "guest") V.charges.push("cholent"); break; }
     emit("homes:cholent", {});
     emit("stat", { id: "homesCholent", n: 1 });
 }
@@ -590,21 +708,22 @@ function tick(rt, dt) {
         }
         // see her? (sneak mode only; a friendly resident / a guest visit never "spots" her)
         let seeing = false;
-        if (!frozen && !r.friendly && V.mode !== "guest") {
-            seeing = sees(rt, r) || (!V.crouch && moving && !K.animal && Math.hypot(L.x - o.position.x, L.z - o.position.z) < 1.9);
+        if (!frozen && !r.friendly && V.mode !== "guest" && !V.catching) {
+            seeing = sees(rt, r) || (!V.crouch && moving && !K.animal && !r.sleep && Math.hypot(L.x - o.position.x, L.z - o.position.z) < 1.9);
             if (K.nose && Math.hypot(L.x - o.position.x, L.z - o.position.z) < K.see) seeing = true;
             if (seeing) {
                 const d = Math.hypot(L.x - o.position.x, L.z - o.position.z);
-                const rate = K.gain * (0.55 + 1.2 * (1 - d / K.see)) * (V.crouch ? 0.5 : 1) * (moving && !V.crouch ? 1.25 : 1) * (V.recognized ? 1.6 : 1) * (r.sleep ? 0.35 : 1);
+                const rate = K.gain * (0.55 + 1.2 * (1 - d / K.see)) * (V.crouch ? 0.5 : 1) * (moving && !V.crouch ? 1.25 : 1) * (V.recognized ? 1.6 : 1) * (r.sleep ? 0.35 : 1) * V.hush;
                 r.meter = Math.min(1, r.meter + rate * dt * 0.85);
                 r.seen = { x: L.x, z: L.z };
             } else if (r.state !== "alarm") r.meter = Math.max(0, r.meter - dt * 0.28);
         }
-        if (r.state === "routine" && r.meter >= 0.4) { r.state = "suspicious"; r.t = 0; if (!r.said.q) { r.said.q = 1; rt.bubble(pick(SUSPICIOUS[r.kind]), o, 2.2); } }
+        if (r.state === "routine" && r.meter >= 0.4) { r.state = "suspicious"; r.t = 0; if (!r.said.q) { r.said.q = 1; rt.bubble(dressLine(r, pick(SUSPICIOUS[r.kind] || SUSPICIOUS[r.K.like])), o, 2.2); } }
         if (r.state === "suspicious" && r.meter <= 0.05) { r.state = "routine"; r.said.q = 0; }
         if (r.state !== "alarm" && r.meter >= 1) spot(rt, r);
         // move / act
         if (r.state === "routine") routine(rt, r, dt);
+        if (r.lie && r.state === "routine") { o.rotation.z = Math.PI / 2; r.rec.pose = {}; }
         else if (r.state === "suspicious") { faceTo(o, r.seen || L, dt, 4); r.rec.pose = r.sit ? { sit: true } : {}; if (r.sleep && r.meter > 0.6) { r.sleep = false; r.sit = false; } }
         else if (r.state === "alarm" || r.state === "calling") alarmAct(rt, r, dt);
         if (r.fight) fightAct(rt, r, dt);
@@ -614,7 +733,7 @@ function tick(rt, dt) {
             r.cone.visible = show;
             if (show) {
                 r.cone.position.set(o.position.x, 0.02, o.position.z); r.cone.rotation.y = o.rotation.y;
-                r.cone.scale.setScalar(K.see * (V.crouch ? 0.6 : 1));
+                r.cone.scale.setScalar(K.see * (V.crouch ? 0.6 : 1) * (r.sleep ? 0.45 : 1));
                 r.cone.material.color.set(r.meter > 0.66 ? "#FF5252" : r.meter > 0.3 ? "#FFAB40" : "#FFE082");
                 r.cone.material.opacity = 0.16 + r.meter * 0.22;
             }
@@ -626,7 +745,29 @@ function tick(rt, dt) {
         if (r.state === "alarm") anySpot = true;
     }
     tickDarts(rt, dt);
+    tickZones(rt, dt, moving);
+    if (V.job && V.job.tick) { try { V.job.tick(rt, dt); } catch (e) { console.error("[homes] job tick", e); V.job.tick = null; } }
     hud(rt, maxM, anySpot);
+}
+/** The scene's zones: erev Shabbos' just-washed kitchen floor (squeaky footprints; they hear it). */
+function tickZones(rt, dt, moving) {
+    const V = rt.data.V;
+    if (!V.zones.length) return;
+    const L = rt.lulu.obj.position;
+    V.zoneT = Math.max(0, (V.zoneT || 0) - dt);
+    for (const z of V.zones) {
+        if (z.kind !== "wet" || !moving || L.x < z.x0 || L.x > z.x1 || L.z < z.z0 || L.z > z.z1) continue;
+        if (V.zoneT > 0) continue;
+        V.zoneT = 1.6;
+        tone(1900, 0.06, "sine", 0.05, 2400); tone(2100, 0.06, "sine", 0.05, 2600, 0.12);
+        V.wetSteps = (V.wetSteps || 0) + 1;
+        const yeller = V.res.find(r => (r.kind === "mom" || r.kind === "bubbe") && r.state !== "alarm" && !(r.stun > 0));
+        if (yeller) {
+            rt.bubble(pick(WET_FLOOR), yeller.p.obj, 2.4);
+            if (V.mode !== "guest" && !yeller.friendly) { yeller.meter = Math.max(yeller.meter, Math.min(0.95, yeller.meter + 0.4)); yeller.seen = { x: L.x, z: L.z }; }
+        } else rt.bubble("*squeak* *squeak* ...footprints. On a WET floor. Oops.", rt.lulu.obj, 2);
+        emit("homes:wet", { key: V.home.key, n: V.wetSteps });
+    }
 }
 function placeInd(r) { const o = r.p.obj; r.ind.sp.position.set(o.position.x, (r.K.h || 1.5) + 0.55 + (r.sit ? -0.35 : 0) + o.position.y, o.position.z); }
 function faceTo(o, at, dt, rate = 6) { const want = Math.atan2(at.x - o.position.x, at.z - o.position.z); o.rotation.y += wrap(want - o.rotation.y) * Math.min(1, dt * rate); }
@@ -664,13 +805,14 @@ function route(rt, r, x, z) {
 }
 function routine(rt, r, dt) {
     const o = r.p.obj;
-    if (r.sleep || (r.sit && !r.path)) { r.rec.pose = { sit: true }; if (r.K.animal) animalLegs(r, 0); return; }
+    if (r.sleep || (r.sit && !r.path)) { r.rec.pose = r.pose0 && !r.sleep ? Object.assign({ sit: true }, r.pose0) : { sit: !r.lie }; if (r.K.animal) animalLegs(r, 0); return; }
+    if (r.pose0 && !r.path) { r.rec.pose = Object.assign({}, r.pose0); return; }
     if (r.kind === "bubbe" && r.wait > 0) { r.rec.pose = { talk: true }; }       // stirring the pot
     if (r.roam && !r.path) { const V = rt.data.V, q = V.rooms[Math.floor(Math.random() * V.rooms.length)]; r.path = [[q.cx + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 2.5]]; r.pi = 0; }
     if (!r.path) { if (r.K.animal) animalLegs(r, 0); return; }
     if (r.wait > 0) { r.wait -= dt; if (r.K.animal) animalLegs(r, 0); return; }
     const [x, z] = r.path[r.pi], via = route(rt, r, x, z);
-    if (moveTo(rt, r, via.x, via.z, (r.K.speed || 1.5) * 0.55, dt) && via.x === x && via.z === z) {
+    if (moveTo(rt, r, via.x, via.z, (r.K.speed || 1.5) * (r.fast ? 1.0 : 0.55), dt) && via.x === x && via.z === z) {
         r.wait = 1.5 + Math.random() * 3;
         r.pi = (r.pi + 1) % r.path.length;
         if (r.roam && Math.random() < 0.5) r.path = null;
@@ -680,11 +822,32 @@ function routine(rt, r, dt) {
 function spot(rt, r, quiet = false) {
     const V = rt.data.V;
     if (r.state === "alarm" || r.state === "calling") return;
+    // who caught her decides what happens (stage.js CATCH): a kid wants to play, Zeidy wants the floor mopped…
+    if (!quiet && !V.catching) {
+        const c = catchFor(V, r);
+        if (c) {
+            V.catching = c; r.meter = 0.99; r.state = "suspicious";
+            emit("homes:caught", { key: V.home.key, who: r.kind, how: c });
+            CATCH[c](rt, r, V.scene && V.scene.def).then(ok => {
+                V.catching = null;
+                if (rt.disposed) return;
+                if (ok) { V.caughtBy = V.caughtBy || []; V.caughtBy.push({ who: r.kind, how: c }); if (V.mode === "guest") treat(rt); if (r.meter > 0.5 && !r.friendly) r.meter = 0.2; if (r.state === "suspicious") r.state = "routine"; r.said.q = 0; }
+                else { r.meter = 1; r.state = "routine"; spotNow(rt, r, quiet); }
+            }).catch(e => { V.catching = null; console.error("[homes] catch", e); });
+            return;
+        }
+    }
+    spotNow(rt, r, quiet);
+}
+function spotNow(rt, r, quiet = false) {
+    const V = rt.data.V;
+    if (r.state === "alarm" || r.state === "calling") return;
     r.state = "alarm"; r.meter = 1; r.t = 0; r.sleep = false;
+    if (r.lie) { r.lie = false; r.y0 = 0; r.p.obj.rotation.z = 0; }
     if (!(r.kind === "baby" || r.K.animal)) r.sit = false;
     V.spotted = true;
-    const lines = V.recognized ? SPOTTED_AGAIN[r.kind] : SPOTTED[r.kind];
-    if (!quiet || !r.said.spot) rt.bubble(pick(lines), r.p.obj, 2.8);
+    const lines = (V.recognized ? SPOTTED_AGAIN : SPOTTED)[r.kind] || (V.recognized ? SPOTTED_AGAIN : SPOTTED)[r.K.like];
+    if (!quiet || !r.said.spot) rt.bubble(dressLine(r, pick(lines)), r.p.obj, 2.8);
     r.said.spot = 1;
     tone(r.K.adult ? 880 : 1200, 0.25, "square", 0.08, r.K.adult ? 1300 : 1700);
     rumble(0.25, 0.4, 120);
@@ -702,8 +865,8 @@ function spot(rt, r, quiet = false) {
 function alarmAct(rt, r, dt) {
     const V = rt.data.V, o = r.p.obj, L = rt.lulu.obj.position, K = r.K;
     // the caller: an adult heads for the wall phone (the first one who can)
-    if (K.adult && !V.reported && V.phone && (!V.caller || V.caller === r) && !r.fight) {
-        const better = V.res.find(q => q !== r && q.K.adult && q.state === "alarm" && q.stun <= 0 && !q.fight && q.K.caller < K.caller);
+    if (K.adult && !K.nocall && !V.noPhone && !V.reported && V.phone && (!V.caller || V.caller === r) && !r.fight) {
+        const better = V.res.find(q => q !== r && q.K.adult && !q.K.nocall && q.state === "alarm" && q.stun <= 0 && !q.fight && q.K.caller < K.caller);
         if (!better) {
             V.caller = r;
             if (r.state !== "calling") {
@@ -792,12 +955,12 @@ function tickDarts(rt, dt) {
 function hud(rt, maxM, spotted) {
     const V = rt.data.V;
     let html;
-    if (V.mode === "guest") html = `<div class="int-meter">🍽️ A GUEST of the ${plural(V.home.name)}<small style="display:block;font-weight:600;opacity:.8">behave… or don't</small></div>`;
+    if (V.mode === "guest") html = `<div class="int-meter">${V.job ? "🤝 HELPING" : "🍽️ A GUEST of"} the ${plural(V.home.name)}${V.job ? jobHud(V) : `<small style="display:block;font-weight:600;opacity:.8">${V.scene && V.scene.def && V.scene.def.id !== "ordinary" ? `${V.scene.def.emoji} ${V.scene.def.name}` : "behave… or don't"}</small>`}</div>`;
     else if (V.caller && V.caller.state === "calling") html = `<div class="int-meter">📞 THE ${plural(V.home.name).toUpperCase()} ARE CALLING IT IN!<div class="bar"><i style="width:${Math.round(V.callT / 5 * 100)}%;background:#FF6D00"></i></div><small style="display:block;font-weight:600">stop the caller — or get OUT</small></div>`;
     else if (V.reported) html = `<div class="int-meter">🚨 REPORTED — get out!</div>`;
     else if (spotted) html = `<div class="int-meter">😱 SPOTTED!<small style="display:block;font-weight:600">${glyph("interact")} use something on them · or run</small></div>`;
     else html = `<div class="int-meter">${V.crouch ? "🤫 SNEAKING" : "🧍 STANDING"} <small style="font-weight:600;opacity:.85">· ${glyph("item")} ${V.crouch ? "stand" : "crouch"}</small><div class="bar"><i style="width:${Math.round(maxM * 100)}%;background:${maxM > 0.66 ? "#FF5252" : maxM > 0.3 ? "#FFAB40" : "#FFE082"}"></i></div><small style="display:block;font-weight:600;opacity:.8">👁 noticed</small></div>`;
-    const key = html.length + ":" + Math.round(maxM * 20) + V.mode + spotted + V.reported + Math.round(V.callT * 4);
+    const key = html + ":" + Math.round(maxM * 20) + V.mode + spotted + V.reported + Math.round(V.callT * 4);
     if (key !== V.hudKey) { V.hudKey = key; rt.extraEl.innerHTML = html; }
 }
 
@@ -810,7 +973,9 @@ function dispose(rt) {
     const V = rt.data.V;
     if (!V) return;
     VISIT.last = { key: V.home.key, name: V.home.name, home: V.home, mode: V.mode, startMode: V.hm.mode, via: V.hm.via, exit: V.exit, spotted: V.spotted, reported: V.reported,
-        used: V.used.slice(), looted: V.looted.slice(), charges: V.charges.slice(), ate: V.ate, recognized: V.recognized, crouch: V.crouch };
+        used: V.used.slice(), looted: V.looted.slice(), charges: V.charges.slice(), ate: V.ate, recognized: V.recognized, crouch: V.crouch,
+        scene: V.scene && V.scene.def ? V.scene.def.id : null, converted: V.converted || null, caughtBy: (V.caughtBy || []).slice(), wet: V.wetSteps | 0,
+        favour: !!V.favour, job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid } : null };
     if (ctx.G && V.hint) ctx.G.hint = V.hint;
     VISIT.cur = null;
     DEF.name = "a house"; DEF.title = "🏠 A HOUSE";
@@ -824,7 +989,10 @@ export function roomInfo() {
     if (!c || !c.rt || !c.rt.ready) return null;
     const V = c.V;
     return { name: V.home.name, mode: V.mode, crouch: V.crouch, rooms: V.rooms.map(r => r.type), held: V.held, spotted: V.spotted, reported: V.reported, callT: V.callT,
-        res: V.res.map(r => ({ kind: r.kind, state: r.state, meter: +r.meter.toFixed(2), stun: +Math.max(0, r.stun).toFixed(2), fx: r.fx, friendly: r.friendly, x: +r.p.obj.position.x.toFixed(2), z: +r.p.obj.position.z.toFixed(2),
+        scene: V.scene && V.scene.def ? V.scene.def.id : null, converted: V.converted || null, noPhone: V.noPhone, catching: V.catching || null,
+        job: V.job ? { type: V.job.type, done: V.job.done, paid: V.job.paid, left: V.job.left, chaos: V.job.chaos } : null,
+        cols: c.rt.cols.map(q => ({ id: q.id, x0: q.x0, x1: q.x1, z0: q.z0, z1: q.z1 })), bounds: Object.assign({}, c.rt.bounds),
+        res: V.res.map(r => ({ id: r.id, kind: r.kind, state: r.state, sit: !!r.sit, sleep: !!r.sleep, lie: !!r.lie, y: +r.p.obj.position.y.toFixed(2), meter: +r.meter.toFixed(2), stun: +Math.max(0, r.stun).toFixed(2), fx: r.fx, friendly: r.friendly, x: +r.p.obj.position.x.toFixed(2), z: +r.p.obj.position.z.toFixed(2),
             cone: !!(r.cone && r.cone.visible), ind: r.ind.sp.visible ? r.ind.key.replace(/\d+$/, "") : "" })),
         items: Object.keys(V.items), lulu: { x: c.rt.lulu.obj.position.x, z: c.rt.lulu.obj.position.z }, windows: V.windows, phone: V.phone, used: V.used.slice(), looted: V.looted.slice() };
 }

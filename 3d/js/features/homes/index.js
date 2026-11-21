@@ -34,6 +34,11 @@ import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, cro
 import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract } from "./house.js";
 import { current as currentRoom } from "../interiors/engine.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
+import { identity, sceneFor, presentCast, when, opinion, OPINION_LINE, byName, LIFE, clockFor, rngOf as lifeRng, hash as lifeHash, TRAITS } from "./life.js";
+import { SCENES } from "./scenes.js";
+import { JOBS, DAY_CAP, initVisits, ledger, offerFor, offerHint, offerLabel, askLines, markDone, startDelivery, delivery, deliveryFor, deliveryLabel, finishDelivery, thanksLines,
+    cancelDelivery, porchHook, invited, useInvite, VISITS } from "./visits.js";
+import { HOOKS as CROWD_HOOKS } from "./crowd.js";
 
 registerModels(Object.assign({ homesKit: "homes_kit", homesItems: "homes_items", homesStreet: "homes_street", homesMail: "homes_mail", homesDelivery: "homes_delivery" }, PEOPLE_MODELS));
 
@@ -104,12 +109,22 @@ function buildDoors() {
                 const was = fam.name; fam.name = S.fam[id].name;
                 for (const k of Object.keys(fam.names)) fam.names[k] = fam.names[k].replace(was, fam.name);
             }
-            const home = Object.assign({ i: HS.homes.length, house: i, j, key: id, id, model: h.key, door, lot, ap, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz,
-                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id }, fam);
+            const home = identity(Object.assign({ i: HS.homes.length, house: i, j, key: id, id, model: h.key, door, lot, ap, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz,
+                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id }, fam));
             HS.homes.push(home); HS.byId.set(id, home);
         });
     });
     if (mig) { (S.mig = S.mig || {})[def.id] = 1; saveSoon(); }
+    markNeighbours();
+}
+/** Lulu's next-door neighbours (ci/hometown: her family's house is the "luluHome" spot): the doors either side on her
+ *  street + across it are THE NEIGHBOURS — hosts + bakers who know her name from day one. */
+function markNeighbours() {
+    const sp = ctx.town && ctx.town.spot ? ctx.town.spot("luluHome") : null;
+    if (!sp) return;
+    const at = sp.door || sp;
+    const near = HS.homes.map(h => [h, Math.hypot(h.ap.x - at.x, h.ap.z - at.z)]).filter(([h, d]) => d > 3 && d < 45 && !isLulus(h)).sort((a, b) => a[1] - b[1]).slice(0, 4);
+    for (const [h] of near) { h.neighbour = true; h.traits = ["hosts", "bakers"]; }
 }
 
 // ── who lives here? (features/realestate · ci/hometown · ci/crime) ───────
@@ -155,7 +170,7 @@ function crowdActor() {
         dispose() { HS.actor = false; } });      // (cleared from outside — a new run: the next crowd adds it again)
 }
 on("town:leave", () => { stopCrowd(); HS.homes = []; HS.byId = new Map(); HS.visit = (HS.visit || 0) + 1; });
-on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; CR.burgled = null; });
+on("run:start", () => { RUN.couch.clear(); RUN.souvenir.clear(); RUN.cholent.clear(); RUN.coins = 0; RUN.hearts = 0; CR.burgled = null; });
 on("honk", () => { if (CR.on) crowdHonk(); });
 
 // ── the front doors: a ✋ spot on foot ───────────────────────────────────
@@ -172,9 +187,15 @@ const doorSpot = {
         if (nearHome && ctx.interiors && ctx.interiors.home && ctx.interiors.home.warm) ctx.interiors.home.warm();     // (at a door: its inside loads now)
         return nearHome ? { x: nearHome.ap.x, z: nearHome.ap.z } : null;
     },
-    label() { return nearHome ? `🏠 THE ${plural(nearHome.name).toUpperCase()}` : null; },
+    label() {
+        if (!nearHome) return null;
+        const n = plural(nearHome.name).toUpperCase();
+        return deliveryFor(nearHome) ? `${JOBS[deliveryFor(nearHome).type].emoji} THE ${n} — DELIVER` : invited(nearHome) ? `🙋 THE ${n} — WAVING YOU IN` : `🏠 THE ${n}`;
+    },
     act() { if (nearHome) doorMenu(nearHome); },
 };
+initVisits({ S, lived: h => lived(h), homes: () => HS.homes, byId: k => HS.byId.get(k), rec: h => rec0(h) });
+CROWD_HOOKS.porch = (p, d) => { try { return porchHook(p, d); } catch (e) { return null; } };
 on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) { ctx.foot.addSpot(doorSpot); ctx.foot.addSpot(crowdTalkSpot); }
     if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
@@ -208,7 +229,7 @@ function doorstep(home, ans = null) {
             sc.t += dt;
             if (F.lulu) { F.lulu.face(home.door.x, home.door.z, dt, 8); F.lulu.update(dt, { walk: 0, talk: !!sc.talk, wave: sc.t < 0.6 && !!sc.knock }); }
             if (sc.ans) { sc.ans.p.update(dt, { talk: ctx.dialogOpen }); }
-            if (sc.go) { const g = sc.go; sc.go = null; sc.done = true; clearAns(sc); go(g.home, g.mode, g.via); return false; }
+            if (sc.go) { const g = sc.go; sc.go = null; sc.done = true; clearAns(sc); go(g.home, g.mode, g.via, g.scene, g.job); return false; }
             if (sc.waitT != null && sc.t >= sc.waitT) { sc.waitT = null; const r = sc.waitRes; sc.waitRes = null; r(); }
             return !sc.done;
         },
@@ -239,33 +260,71 @@ async function doorMenu(home) {
     try {
         if (!sc) return;
         const rec = S.fam[home.key];
+        const scn = sceneNow(home);
+        HS.doorScene = { key: home.key, sc: scn };
+        // the choices, most specific first: a friend inside · covering for a sneaking friend · a delivery for THIS door ·
+        // they waved her in · a job they could use a hand with · then knock / try the door / a window / leave
+        const opts = [];
+        const add = (label, fn) => opts.push({ label, fn });
         // a friend (🎉 party) is inside this house right now: go in with them (features/together shares the room)
         const pal = ctx.together && ctx.together.friendIn ? ctx.together.friendIn("home", home.key) : null;
-        const opts = ["✊ Knock", "🔑 Try the door", "🪟 Sneak in a window", "✖ Leave it"];
+        if (pal) add(`👯 Join ${pal} inside`, () => { sc.go = { home, mode: "guest", via: "door", scene: scn }; emit("stat", { id: "homesJoins", n: 1 }); return true; });
         // 🔗 a friend SNEAKING around in there: ring the bell to pull everyone to the door for her (features/partners)
         const sneak = ctx.partners && ctx.partners.palInside ? ctx.partners.palInside(home.key) : null;
-        if (sneak) opts.unshift(`🔔 Ring the bell — cover for ${pal || ctx.party.displayName(sneak)}`);
-        if (pal) opts.unshift(`👯 Join ${pal} inside`);
-        let i = await choose(`🏠 The ${plural(home.name)}`, pal ? `${pal} is in there right now.` : rec && rec.seen ? `You've been here before. They remember you.` : `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`,
-            opts, { emoji: "🏠" });
-        if (pal) { if (i === 0) { sc.go = { home, mode: "guest", via: "door" }; emit("stat", { id: "homesJoins", n: 1 }); return; } i = i < 0 ? i : i - 1; }
-        if (sneak) {
-            if (i === 0) { tone(880, 0.12, "sine", 0.1); tone(660, 0.16, "sine", 0.1, 0, 0.14); ctx.partners.ring(home.key); H.toast(`🔔 Ding-dong! Everyone's coming to the door — go, ${ctx.party.displayName(sneak)}!`, "pink"); sc.done = true; return; }
-            i = i < 0 ? i : i - 1;
-        }
-        if (i === 0) await knock(home, sc);
-        else if (i === 1) {
+        if (sneak) add(`🔔 Ring the bell — cover for ${pal || ctx.party.displayName(sneak)}`, () => { tone(880, 0.12, "sine", 0.1); tone(660, 0.16, "sine", 0.1, 0, 0.14); ctx.partners.ring(home.key); H.toast(`🔔 Ding-dong! Everyone's coming to the door — go, ${ctx.party.displayName(sneak)}!`, "pink"); sc.done = true; return true; });
+        const dlv = deliveryFor(home);
+        if (dlv) add(deliveryLabel(dlv), async () => { await deliverAt(home, sc, dlv); return true; });
+        if (invited(home)) add("🙋 Go in — they waved you in", () => { useInvite(home); emit("stat", { id: "homesWaveIns", n: 1 }); sc.go = { home, mode: "guest", via: "door", scene: scn }; return true; });
+        const job = !delivery() ? offerFor(home, scn.w, scn) : null;
+        if (job && opinion(rec, home) !== "furious") add(offerLabel(job), async () => { await offerHand(home, sc, scn, job); return true; });
+        add("✊ Knock", async () => { await knock(home, sc); return true; });
+        add("🔑 Try the door", () => {
             const cfg = TOWN_CFG[home.town] || TOWN_CFG.lakewood;
             const changed = rec && rec.burgled > 0;
             tone(300, 0.08, "square", 0.06); tone(260, 0.08, "square", 0.06, 0, 0.12);
             const open = HS.force.unlocked != null ? HS.force.unlocked : !changed && Math.random() < cfg.unlocked;
-            if (open) { H.toast(pick(UNLOCKED), "gold"); sc.go = { home, mode: "sneak", via: "door" }; return; }
+            if (open) { H.toast(pick(UNLOCKED), "gold"); sc.go = { home, mode: "sneak", via: "door", scene: scn }; return true; }
             H.toast(changed ? "🔒 They changed the LOCKS. Since... you." : pick(LOCKED), "pink");
-            sc.done = true;
-        } else if (i === 2) { sc.go = { home, mode: "sneak", via: "window" }; return; }
-        else sc.done = true;
+            sc.done = true; return true;
+        });
+        add("🪟 Sneak in a window", () => { sc.go = { home, mode: "sneak", via: "window", scene: scn }; return true; });
+        add("✖ Leave it", () => { sc.done = true; return true; });
+        const line = pal ? `${pal} is in there right now.` : [job ? offerHint(home, job) : "", doorLine(home, scn, rec)].filter(Boolean).join(" ");
+        const i = await choose(`🏠 The ${plural(home.name)}`, line, opts.map(o => o.label), { emoji: scn.def.emoji || "🏠" });
+        if (i < 0 || !opts[i]) { sc.done = true; return; }
+        await opts[i].fn();
     } catch (e) { console.error("[homes] door", e); if (sc) sc.done = true; }
     finally { HS.busy = false; }
+}
+/** 🤝 She offers a hand: someone comes to the door and explains; inside jobs go in as a guest with the job. */
+async function offerHand(home, sc, scn, job) {
+    const here = presentCast(home, scn, scn.w).filter(k => KINDS[k] && KINDS[k].adult);
+    const kind = job.type === "glasses" ? (here.find(k => k === "bubbe" || k === "zeidy") || here[0]) : (here.find(k => k === "mom") || here[0]);
+    if (!kind) { H.toast("🤝 Nobody answers. Maybe later.", "pink"); sc.done = true; return; }
+    await answerAt(sc, home, kind);
+    const who = home.names[kind] || `The ${plural(home.name)}`, em = KINDS[kind].emoji;
+    for (const l of askLines(home, job)) { await say(who, l, { emoji: em }); if (sc.done) return; }
+    emit("homes:offer", { key: home.key, type: job.type });
+    if (JOBS[job.type].deliver) {
+        startDelivery(home, job);
+        const to = HS.byId.get(job.to);
+        await say("Lulu", `${JOBS[job.type].emoji} To the ${plural(job.toName)}' — ${to ? Math.round(Math.hypot(to.ap.x - home.ap.x, to.ap.z - home.ap.z)) + " m that way" : "down the street"}. Follow the glow!`, { emoji: "💁‍♀️" });
+        clearAns(sc); sc.done = true; return;
+    }
+    markDone(home);
+    sc.go = { home, mode: "guest", via: "door", scene: scn, job };
+}
+/** 📬 / 🥘 At the right door with the delivery. */
+async function deliverAt(home, sc, d) {
+    const scn = sceneNow(home), here = presentCast(home, scn, scn.w).filter(k => KINDS[k] && !KINDS[k].animal && k !== "baby");
+    const kind = here.find(k => KINDS[k].adult) || here[0];
+    if (kind) await answerAt(sc, home, kind);
+    const who = kind ? (home.names[kind] || `The ${plural(home.name)}`) : "🏠";
+    const pay = finishDelivery(home);
+    if (kind) { for (const l of thanksLines(home, d)) await say(who, l, { emoji: KINDS[kind].emoji }); }
+    else H.toast(`${JOBS[d.type].emoji} Left it on the step with a note. "From Lulu." ❤️`, "gold");
+    if (!pay) H.toast("🤝 No coins for that one today — just the warm fuzzies.", "", { key: "homes:job" });
+    clearAns(sc); sc.done = true;
 }
 async function knock(home, sc) {
     sc.knock = true; sc.t = 0;
@@ -274,40 +333,81 @@ async function knock(home, sc) {
     await waitGame(sc, 1.3);
     const rec = S.fam[home.key];
     const cfg = TOWN_CFG[home.town] || TOWN_CFG.lakewood;
+    const scn = (HS.doorScene && HS.doorScene.key === home.key && HS.doorScene.sc) || sceneNow(home);
+    const sd = scn.def, here = presentCast(home, scn, scn.w);
+    const people = here.filter(k => KINDS[k] && !KINDS[k].animal && k !== "baby");
+    rec0(home).knocks = (rec0(home).knocks | 0) + 1;
     let outcome = HS.force.knock || null;
-    if (!outcome && rec && rec.burgled > 0) outcome = "again_bad";
-    else if (!outcome && rec && rec.guest > 0) outcome = "again_good";
-    if (!outcome) { let r = Math.random(); outcome = "nobody"; for (const [k, w] of Object.entries(cfg.knock)) { r -= w; if (r <= 0) { outcome = k; break; } } }
-    const kind = outcome === "kid" ? (home.cast.find(k => k === "boy" || k === "girl") || "boy") : outcome === "nobody" ? null
-        : (home.cast.find(k => k === (outcome === "meal" ? "mom" : "bubbe")) || home.cast.find(k => KINDS[k] && KINDS[k].adult) || "mom");
+    if (!outcome && !people.length) outcome = "nobody";
+    if (!outcome && rec && rec.burgled > 0 && !sd.noPhone) outcome = "again_bad";
+    else if (!outcome && rec && rec.guest > 0 && sd.id !== "cereal" && sd.id !== "shabbosNap") outcome = sd.door && sd.door.invite ? "scene" : "again_good";
+    if (!outcome) {
+        const odds = sd.knock || cfg.knock;
+        let r = Math.random() * Object.values(odds).reduce((a, b) => a + b, 0); outcome = "nobody";
+        for (const [k, w] of Object.entries(odds)) { r -= w; if (r <= 0) { outcome = k; break; } }
+    }
+    if (outcome === "kid" && !people.some(k => k === "boy" || k === "girl")) outcome = "kvetch";
+    if (outcome === "scene" && !sd.door) outcome = "meal";
+    const adult = k => KINDS[k] && KINDS[k].adult;
+    const kind = outcome === "kid" ? people.find(k => k === "boy" || k === "girl") : outcome === "nobody" ? null
+        : outcome === "scene" ? (sd.door.who.find(k => people.includes(k)) || people.find(adult) || people[0])
+        : (people.find(k => k === (outcome === "meal" ? "mom" : "bubbe")) || people.find(adult) || people[0]);
+    if (outcome !== "nobody" && !kind) outcome = "nobody";
     if (kind) { await answerAt(sc, home, kind); tone(220, 0.12, "sine", 0.08, 330); }
-    const lines = pick(KNOCK[outcome]);
+    let lines = outcome === "scene" ? pick(sd.door.lines) : pick(KNOCK[outcome] || KNOCK.kvetch);
+    // a family that likes her says her NAME
+    if (kind && byName(rec, home) && outcome !== "again_bad" && outcome !== "sleepy") lines = [pick(GREET_BY_NAME).replace("{who}", "Lulu")].concat(lines);
     const who = kind ? (home.names[kind] || `The ${plural(home.name)}`) : "🏠";
-    emit("homes:knock", { key: home.key, outcome, who: kind });
+    emit("homes:knock", { key: home.key, outcome, who: kind, scene: sd.id });
     if (outcome.startsWith("again")) emit("homes:recognized", { key: home.key, how: "knock", good: outcome === "again_good" });
     HS.log.push({ ev: "knock", outcome, key: home.key });
     for (const l of lines) {
         if (l === "*SLAM*" || l.startsWith("*SLAM*")) { tone(110, 0.2, "square", 0.2, 70); clearAns(sc); H.toast(`🚪 ${l}`, "pink"); continue; }
-        await say(who, l, { emoji: kind ? KINDS[kind].emoji : "🏠" });
+        await say(who, l, { emoji: kind ? KINDS[kind].emoji : sd.emoji || "🏠" });
         if (sc.done) return;
     }
     if (outcome === "again_bad" && Math.random() < 0.5) reportCall(home, [CHARGE], { msg: CALL_MSG(home.name), quiet: false, from: "knock" });
-    if (outcome === "meal" || outcome === "again_good") {
-        const i = await choose(who, "Come in, come in!", ["🍽️ Go in (as a guest)", "🙏 \"Thanks, I can't stay\""], { emoji: KINDS[kind].emoji });
-        if (i === 0) { sc.go = { home, mode: "guest", via: "door" }; return; }
-        await say(who, "Your loss. There was KUGEL.", { emoji: KINDS[kind].emoji });
-    } else if (outcome === "kid") { sc.go = { home, mode: "kid", via: "door" }; return; }
+    if (outcome === "meal" || outcome === "again_good" || (outcome === "scene" && sd.door.invite)) {
+        const i = await choose(who, sd.noPhone ? "Gut Shabbos — come in!" : "Come in, come in!", ["🍽️ Go in (as a guest)", "🙏 \"Thanks, I can't stay\""], { emoji: KINDS[kind].emoji });
+        if (i === 0) { sc.go = { home, mode: "guest", via: "door", scene: outcome === "scene" && sd.door.go ? sceneFor(home, scn.w, sd.door.go) : scn }; return; }
+        await say(who, sd.noPhone ? "Gut Shabbos! Next week, then. We'll set a place." : "Your loss. There was KUGEL.", { emoji: KINDS[kind].emoji });
+    } else if (outcome === "kid") { sc.go = { home, mode: "kid", via: "door", scene: scn }; return; }
     clearAns(sc);
     sc.done = true;
 }
 function isNight() { return !!(ctx.atmos && ctx.atmos.night > 0.5); }
+/** The family's saved record (made on first contact). */
+function rec0(home) { return S.fam[home.key] || (S.fam[home.key] = { name: home.name, town: home.town, visits: 0, seen: 0, burgled: 0, guest: 0, items: [], at: Date.now() }); }
+/** The scene going on behind a door right now (tests can pin one: HS.force.scene). */
+function sceneNow(home) {
+    let force = HS.force.scene || null;
+    // a house real estate has LISTED: the family's still there, packing (it gives the door up once it sells — a claim)
+    if (!force) { try { if (ctx.realestate && ctx.realestate.claims && ctx.realestate.claims(home.key) === "listed") force = "forSale"; } catch (e) { /* no real estate */ } }
+    return sceneFor(home, when(), force);
+}
+const GREET_BY_NAME = ["{who}! It's {who}! Come here, let me look at you!", "Oh, {who}! Our {who}! You're always welcome here.", "{who}! Perfect timing, as usual!"];
+/** The door menu's line: what she hears from the step + what they think of her. */
+function doorLine(home, sc, rec) {
+    const sd = sc.def, R = lifeRng(lifeHash(home.key + sc.seed));
+    const heard = sd.heard && sd.heard.length ? sd.heard[Math.floor(R() * sd.heard.length)] : "";
+    const op = home.neighbour ? "Your next-door neighbours." + (opinion(rec, home) === "loves" ? " They adore you." : "") : OPINION_LINE[opinion(rec, home)] || "";
+    const people = presentCast(home, sc, sc.w).filter(k => KINDS[k] && !KINDS[k].animal);
+    const who = !people.length ? "The lights are off. Nobody's home… probably." : "";
+    return [heard || who, op].filter(Boolean).join(" ") || `${home.cast.length} live here. The lights are ${isNight() ? "on" : "off"}.`;
+}
 
 /** Into the house (from the doorstep scene, inside foot's frame). */
-function go(home, mode, via) {
+function go(home, mode, via, scene = null, job = null) {
     const rec = S.fam[home.key];
     const recognized = !!(rec && rec.seen > 0);
     if (recognized) emit("homes:recognized", { key: home.key, how: "inside" });
-    prepare({ home, mode, via, recognized, fam: rec || null });
+    const sc = scene || (HS.doorScene && HS.doorScene.key === home.key && HS.doorScene.sc) || sceneNow(home);
+    HS.doorScene = null;
+    let cast = presentCast(home, sc, sc.w);
+    if (mode === "kid" && !cast.some(k => k === "boy" || k === "girl")) cast = cast.concat(home.cast.filter(k => k === "boy" || k === "girl").slice(0, 1));
+    if (job && job.type === "babysit") cast = home.cast.filter(k => !(KINDS[k] && KINDS[k].adult));      // (the parents stepped out)
+    if (job && job.type === "glasses" && !cast.some(k => k === "bubbe" || k === "zeidy")) cast = cast.concat(home.cast.filter(k => k === "bubbe" || k === "zeidy").slice(0, 1));
+    prepare({ home, mode, via, recognized, fam: rec || null, noCatch: !!HS.force.noCatch, scene: job ? { def: SCENES.ordinary, seed: sc.seed, w: sc.w } : sc, cast, job });
     HS.inside = home;
     // where she comes back out (foot's resume reads road coords; backOutside() fine-tunes it)
     const rd = ctx.world.road, n = rd.nearest(home.ap.x, home.ap.z, ctx.foot.debug && ctx.foot.debug.F ? ctx.foot.debug.F.s : null, {});
@@ -336,19 +436,24 @@ function backOutside() {
     }
     if (L.exit === "window") { emit("stat", { id: "homesWindowExits", n: 1 }); H.toast("🌸 Out the window — into the hydrangeas!", "gold"); }
     // the family remembers
-    const rec = S.fam[home.key] || (S.fam[home.key] = { name: home.name, town: home.town, visits: 0, seen: 0, burgled: 0, guest: 0, items: [], at: 0 });
+    const rec = rec0(home);
     rec.visits++; rec.at = Date.now();
-    if (L.spotted || L.startMode === "guest" || L.startMode === "kid") rec.seen++;
-    const broke = L.startMode !== "guest" || L.mode !== "guest";
+    if (L.spotted || L.startMode === "guest" || L.startMode === "kid" || L.converted) rec.seen++;
+    const welcomed = L.mode === "guest" && (L.startMode === "guest" || L.converted);
+    const broke = !welcomed && (L.startMode !== "guest" || L.mode !== "guest");
     if (broke && (L.spotted || L.looted.length || L.used.length)) rec.burgled++;
-    if (L.startMode === "guest" && L.mode === "guest") rec.guest++;
+    if (welcomed) { rec.guest++; if (L.startMode !== "guest") emit("stat", { id: "homesGuest", n: 1 }); }
+    if (L.scene) { rec.last = L.scene; (rec.scenes = rec.scenes || []).includes(L.scene) || rec.scenes.push(L.scene); if (rec.scenes.length > 12) rec.scenes.shift(); }
+    if (L.caughtBy && L.caughtBy.length) rec.caught = L.caughtBy[L.caughtBy.length - 1].how;
+    if (L.favour) rec.favours = (rec.favours | 0) + 1;
     for (const u of L.used) if (!rec.items.includes(u)) rec.items.push(u);
     const keys = Object.keys(S.fam);
     if (keys.length > 60) { keys.sort((a, b) => S.fam[a].at - S.fam[b].at); for (const k of keys.slice(0, keys.length - 60)) delete S.fam[k]; }
     saveSoon();
+    if (L.reported) rec.reported = (rec.reported | 0) + 1;
     if (broke && (L.spotted || L.looted.length)) CR.burgled = home.name;
     try { if (ctx.memory && ctx.memory.remember && broke) ctx.memory.remember("homes", { fam: home.name, town: home.town, spotted: !!L.spotted, reported: !!L.reported, items: L.used.slice(0, 4) }); } catch (e) { /* no memory */ }
-    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted });
+    emit("homes:exit", { key: home.key, name: home.name, exit: L.exit, reported: !!L.reported, spotted: !!L.spotted, scene: L.scene || null, guest: welcomed });
     HS.log.push({ ev: "exit", key: home.key, exit: L.exit, reported: L.reported });
     // the group chat always knows
     if (L.spotted && broke) groupText(L.reported ? `🚨 The ${plural(home.name)} just called the Shomrim. Someone was IN THEIR HOUSE. With a ${L.used[0] || "seltzer"}.` : `👀 Chani says somebody was creeping around the ${plural(home.name)}'. Lock your doors, ladies.`);
@@ -391,7 +496,7 @@ ctx.homes = {
     get house() { const c = VISIT.cur; return c ? { name: c.home.name, key: c.home.key, mode: c.mode } : null; },
     /** This town's front doors: [{ i, key (= id, stable: town + position), name, cast, ap: {x, z} (where to stand), door, model,
      *  status: null (a family lives here) | a claim ("mine", "listed", "moved", "lulu"…) }]. */
-    homes: () => HS.homes.map(h => ({ i: h.i, key: h.key, id: h.key, name: h.name, cast: h.cast.slice(), ap: Object.assign({}, h.ap), door: Object.assign({}, h.door), model: h.model, status: claimOf(h) })),
+    homes: () => HS.homes.map(h => ({ i: h.i, key: h.key, id: h.key, name: h.name, cast: h.cast.slice(), traits: h.traits.slice(), ap: Object.assign({}, h.ap), door: Object.assign({}, h.door), model: h.model, status: claimOf(h) })),
     // ── who lives here? (features/realestate, ci/hometown, ci/crime) ──
     /** The stable id of the door at world x/z in the town she's in (the same as ctx.realestate.keyOf). */
     idAt: (x, z) => (ctx.town && ctx.town.def ? doorId(ctx.town.def.id, x, z) : null),
@@ -416,8 +521,15 @@ ctx.homes = {
     knock(i) { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; if (!h || !lived(h)) return false; const sc = doorstep(h); if (!sc) return false; knock(h, sc).catch(e => console.error(e)); return true; },
     /** 🔔 The doorbell rang (a friend covering for her — features/partners): everyone inside comes to the door for `sec`. → n */
     distract(sec = 12, line) { return VISIT.cur ? distract(currentRoom(), sec, line) : 0; },
-    /** What a family remembers about her: { visits, seen, burgled, guest, items } | null. */
+    /** Today's homes jobs ledger: { d, n: {type: count}, coins (of DAY_CAP), done } · the job tables · the delivery she's carrying. */
+    jobs: () => Object.assign({ cap: DAY_CAP, table: JOBS }, JSON.parse(JSON.stringify(ledger()))),
+    get delivery() { const d = delivery(); return d ? Object.assign({}, d) : null; },
+    /** What a family remembers about her: { visits, seen, burgled, guest, favours, items, last (scene), … } | null. */
     family: key => S.fam[key] ? Object.assign({}, S.fam[key]) : null,
+    /** What they think of her: "stranger" | "knows" | "likes" | "loves" | "wary" | "furious". */
+    opinion: key => opinion(S.fam[key], HS.byId.get(key)),
+    /** What's going on behind door `id` right now: { id: scene id, name, emoji, heard } | null. */
+    sceneAt(id) { const h = HS.byId.get(id); if (!h || !lived(h)) return null; const sc = sceneNow(h); return { id: sc.def.id, name: sc.def.name, emoji: sc.def.emoji, here: presentCast(h, sc, sc.w), traits: h.traits.slice() }; },
     crowd: () => crowdInfo(),
     debug: {
         HS, S, RUN, VISIT, CR, TUNE, force: HS.force, room: roomInfo, DEF,
@@ -428,6 +540,21 @@ ctx.homes = {
         report: (i, charges) => reportCall(HS.homes[i], charges || [CHARGE]),
         startCrowd: () => { if (!(ctx.town && ctx.town.active)) return false; const r = startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] }); crowdActor(); return r; },
         stopCrowd,
+        /** Pin the scene every house plays (tests / previews): an id from SCENES, or null. */
+        scene(id) { HS.force.scene = id || null; return id ? !!SCENES[id] : true; },
+        /** Set the game clock to an hour (0–24) — the sky and the households follow. */
+        hour(h) { if (ctx.atmos && ctx.atmos.debug && ctx.atmos.debug.time) ctx.atmos.debug.time(clockFor(h)); return h; },
+        VISITS, offerFor: i => { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; return h ? offerFor(h, when(), sceneNow(h)) : null; },
+        /** Start a job at door i now (tests): { type, to? } → true */
+        job(i, type, to = null) { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; if (!h) return false; const job = { type, from: h.key }; if (to) { const t = HS.byId.get(to); Object.assign(job, { to, toName: t ? t.name : "?" }); }
+            if (JOBS[type].deliver) { startDelivery(h, job); return true; } if (!ctx.foot || !ctx.foot.active) return false; const sc = doorstep(h); if (!sc) return false; sc.go = { home: h, mode: "guest", via: "door", scene: sceneNow(h), job }; return true; },
+        /** Open door i's ✋ menu (tests). */
+        door(i) { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; if (!h) return false; doorMenu(h); return true; },
+        porch: (i, d = 3) => { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; return h ? porchHook({ home: h }, d) : null; },
+        invited: i => { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; return !!h && invited(h); },
+        label: () => doorSpot.label(),
+        deliver(i) { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; return h ? finishDelivery(h) : null; },
+        when, LIFE, SCENES, TRAITS, sceneNow: i => { const h = typeof i === "string" ? HS.byId.get(i) : HS.homes[i]; return h ? sceneNow(h).def.id : null; },
         doors: () => HS.homes.length, claimOf: i => claimOf(typeof i === "string" ? HS.byId.get(i) : HS.homes[i]), CLAIM,
         /** Rebuild the door list from ctx.town.homes (tests: a landmark replaced a house). */
         rebuild: () => { buildDoors(); return HS.homes.length; },

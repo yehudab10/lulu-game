@@ -18,7 +18,18 @@ export const KINDS = {
     baby: { key: "homesBaby", emoji: "👶", see: 3.4, cone: 1.2, gain: 0.9, speed: 0, giggles: true, h: 0.72 },
     cat: { key: "homesCat", emoji: "🐈", see: 3.6, cone: 1.3, gain: 0.8, speed: 2.6, animal: true, h: 0.5 },
     dog: { key: "homesDog", emoji: "🐕", see: 3.4, cone: Math.PI, gain: 1.3, speed: 2.8, animal: true, nose: true, h: 0.6 },
+    // households + scenes (life.js / scenes.js): the same rigs, recoloured — `like` = whose lines they borrow
+    zeidy: { key: "homesDad", like: "dad", emoji: "👴", see: 3.2, cone: 0.7, gain: 0.7, speed: 1.1, adult: true, caller: 4, h: 1.66,
+        colors: { Top: "#FFFFFF", Bottom: "#263238", Shoes: "#212121", Hair: "#E0E0E0", Beard: "#F5F5F5" } },
+    lady: { key: "homesBubbe", like: "bubbe", emoji: "👵", see: 4.2, cone: 0.85, gain: 0.9, speed: 1.4, adult: true, caller: 5, h: 1.5 },
+    plumber: { key: "homesDad", like: "dad", emoji: "🔧", see: 4.2, cone: 0.8, gain: 0.85, speed: 1.8, adult: true, caller: 9, nocall: true, h: 1.72,
+        colors: { Top: "#1565C0", Bottom: "#1565C0", Shoes: "#4E342E", Kippah: "#1565C0" } },
+    guest: { key: "homesMom", like: "mom", emoji: "🙋‍♀️", see: 5, cone: 0.85, gain: 0.8, speed: 1.6, adult: true, caller: 9, nocall: true, crowd: true, h: 1.62 },
+    guestM: { key: "homesDad", like: "dad", emoji: "🙋‍♂️", see: 5, cone: 0.85, gain: 0.8, speed: 1.6, adult: true, caller: 9, nocall: true, crowd: true, h: 1.72 },
 };
+/** homes_dad is modelled in a towel: a dressed one (a scene's dad, Zeidy, the plumber) says "tie" where the towel was. */
+export const dressLine = (r, line) => (r && r.dressed !== false && /towel/i.test(line || "") && (r.kind === "dad" || r.K.like === "dad")
+    ? String(line).replace(/a towel/gi, "my good tie").replace(/towel/gi, "tie") : line);
 export const PEOPLE_MODELS = { homesBubbe: "homes_bubbe", homesDad: "homes_dad", homesMom: "homes_mom", homesBoy: "homes_boy", homesGirl: "homes_girl",
     homesBaby: "homes_baby", homesCat: "homes_cat", homesDog: "homes_dog" };
 
@@ -156,6 +167,10 @@ export const SPOTTED = {
     cat: ["*HISSSSS* 🙀", "*arched back, tail like a bottle brush*", "*stares. Judges.*"],
     dog: ["WOOF WOOF WOOF WOOF!! 🐕", "*BARK BARK* — the whole house is awake now", "*growls... tail wagging though*"],
 };
+SPOTTED.zeidy = ["Eh? Who's there? ...Shprintza? Is that you? You got TALL.", "A GONIF! ...where are my glasses? I can't see the gonif!"];
+SPOTTED.lady = ["A STRANGER! Hide the TILES!", "Gertie! There's a GIRL! ...is she single?"];
+SPOTTED.plumber = ["Whoa! Who're you? ...not my business. I'm just the plumber."];
+SPOTTED.guest = ["Oh! Hello! Are you the cousin from Monsey?"]; SPOTTED.guestM = ["Mazel tov! ...who are you?"];
 export const SPOTTED_AGAIN = {
     bubbe: ["YOU AGAIN?! I'm hiding the KUGEL!", "The SELTZER girl! Moishe, get the ROLLING PIN!"],
     dad: ["NOT AGAIN! I JUST got a new towel!", "The SAME LADY! I'm calling. I'm CALLING!"],
@@ -166,6 +181,7 @@ export const SPOTTED_AGAIN = {
     cat: ["*remembers. Hisses with history.* 🙀", "*the cat has been waiting for this*"],
     dog: ["*recognizes you, WAGS* (no help at all) 🐕", "WOOF! (it's a happy woof)"],
 };
+SPOTTED_AGAIN.zeidy = ["YOU again! The tall Shprintza!"];
 /** The "?" — something's off. */
 export const SUSPICIOUS = {
     bubbe: ["Moishe? Is that you?", "Who's there? Hello?", "I heard something... the mice again?"],
@@ -177,6 +193,7 @@ export const SUSPICIOUS = {
     cat: ["*ears up*", "*stares at the doorway*"],
     dog: ["*sniff sniff sniff*", "*low woof?*"],
 };
+SUSPICIOUS.zeidy = ["Eh? Who's walking? ...the mice again.", "Hm? *adjusts glasses* ...a coat rack. Probably."];
 /** Fight-back lines (bubbe's rolling pin, the boy's blaster, the girl's pillow). */
 export const FIGHT = {
     pin: ["OUT OF MY KITCHEN!! *swings the rolling pin*", "I've rolled ten thousand rugelach — I can roll YOU!", "TAKE A RUGELACH AND GO!!"],
@@ -202,6 +219,8 @@ export const KNOCK = {
         ["Are you the babysitter? You're LATE.", "Come in! I'll show you my LEGO!"],
     ],
     nobody: [["*knock knock* ...nobody home. The lights are off.", "(…the window's open a crack, though.)"]],
+    sleepy: [["*a light flicks on upstairs* ...do you KNOW what time it is? *the light flicks off*", "(...the window's open a crack, though.)"],
+        ["*a muffled voice* ...if this is about the Shabbos clock, it's set. Good NIGHT.", "*silence*"]],
     again_bad: [["YOU!! The one from LAST TIME!", "I'm calling the Shomrim! I have them on SPEED DIAL!", "*SLAM*"],
         ["Oh no. Oh no no no. NOT the seltzer lady.", "*SLAM* *three locks click*"]],
     again_good: [["Lulu! You're back! Come in, come in, there's leftover kugel!", "You were such a nice guest last time."]],
@@ -224,6 +243,9 @@ export const TALK = {
     dog: ["*rolls over for belly rubs*", "*brings you a slipper*"],
 };
 
+TALK.zeidy = ["When I was your age I walked to cheder. Uphill. In the SNOW.", "You know who I knew? Everybody. I knew EVERYBODY.", "Sit, sit. Have a sucking candy. They're from 1987. Still good."];
+TALK.lady = ["Are you single? I have a NEPHEW.", "Two bam. ...oh, you're not playing."]; TALK.plumber = ["Don't flush. Whatever you do. DON'T FLUSH.", "I've seen things in pipes, kid. THINGS."];
+TALK.guest = ["Mazel tov! Isn't it wonderful?", "Have you tried the cake? Try the CAKE."]; TALK.guestM = ["L'chaim!", "I knew them when they were THIS big."];
 /** Loot: the couch (CAPPED: once per house per run, and a run cap across houses). */
 export const COUCH = { min: 3, max: 8, runCap: 30 };
 export const COUCH_LINES = ["*digs in the cushions* ...coins! And a LEGO. And a pacifier.", "*rummages* Ooh — coins! And three hundred cheerios.", "*finds coins under a cushion* (and somebody's tefillin bag — putting that BACK)"];
@@ -235,6 +257,11 @@ export const SOUVENIRS = [
     { id: "spoon", name: "the cholent spoon", emoji: "🥄" }, { id: "napkin", name: "a bentcher from someone's wedding", emoji: "📘" },
 ];
 export const CHOLENT = ["*a spoonful of cholent* ...it's been on since FRIDAY. It's PERFECT. ❤️ +1", "*eats the cholent straight from the pot* ...the kishke. THE KISHKE. ❤️ +1"];
+/** Cholent hearts are capped per RUN across every house (≈200 doors must not be ≈200 hearts). */
+export const CHOLENT_CAP = 3;
+export const CHOLENT_FULL = ["*one more spoonful* ...okay. I'm FULL. Like, cholent-coma full. (No more hearts from cholent today.)", "*a tiny taste* ...I physically cannot. Four cholents is a LIFESTYLE."];
+export const CHOLENT_NOT_YET = ["*lifts the lid* ...it's not even READY. It has to go all night. Still smells like heaven though.", "*peeks* Beans. Raw-ish beans. Tomorrow this will be GLORIOUS."];
+export const WET_FLOOR = ["THE FLOOR!! I JUST WASHED IT!!", "FOOTPRINTS! On my FLOOR! On EREV SHABBOS!", "WHO is walking on my WET FLOOR?!", "Socks! SOCKS! Not SHOES!"];
 export const CHOLENT_SEEN = ["THAT'S FOR SHABBOS!!", "Get your SPOON out of my CHOLENT!", "At least use a BOWL!"];
 
 /** Consequences. */
