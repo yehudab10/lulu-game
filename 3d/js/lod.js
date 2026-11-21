@@ -573,7 +573,7 @@ function pmInScene(o) { return pmUnder(o, PM.scene); }
 function pmPrepare(scene) {
     if (scene !== PM.scene) {
         // (another scene — an interior set, a portrait, the salon's mirror: whoever of ours is IN it is drawn by her own meshes)
-        for (const [root, pb] of PM.roots) if (pb.active && pmUnder(root, scene)) pb.release(0);
+        for (const pb of PM.roots.values()) if (pb.active && pmUnder(pb.root, scene)) pb.release(0);
         return;
     }
     const main = PM.on;
@@ -585,7 +585,8 @@ function pmPrepare(scene) {
         b.mesh.dispose(); b.mat.dispose();
         PM.batches.delete(b.key); PM.resets++;
     }
-    for (const [root, pb] of PM.roots) {
+    for (const pb of PM.roots.values()) {      // (values(): no [key, value] pair a person a frame)
+        const root = pb.root;
         if (pb.active) {
             if (pb.changed) { pb.drop(); continue; }
             if (!main || !pmInScene(root)) pb.release(main ? 30 : 0);   // (main && not in it: removed / pooled)
