@@ -315,8 +315,14 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 - **`ci/calm` owner (`ci/mainfix`, 2026-11-21):** your un-merged 05e8274 (quip toast = flavour, foot floaters in the bubble budget,
   calm's foot minute in the stand-alone town, the "run calm" line) is on `main` now, cherry-picked unchanged — merging main gives you
   identical hunks. NOT taken: its `phone/style.js` 5-across-at-9 rule + `phone.js` layout checks (they failed tv-720 in 44814668877,
-  and the phone is exactly 9 apps now, so that rule would hit every landscape phone). Also on main: an uncle's greeting is one
-  banner with the +8 💰 in it (no extra toast). The airport is not a culprit (stage 1 is OFF in the real game).
+  and the phone is exactly 9 apps now, so that rule would hit every landscape phone). Also on main (one pop-up per moment): the calm
+  gate has `line` (Lulu spoke ≤ 1.2 s ago → a flavour toast drops — your quip rule, for every flavour toast); an uncle's greeting is
+  one banner with the +8 💰 in it; one ambulance = one toast; Avigail on a walk chats every 10–16 s (was 4–7 s: 6 of a foot minute's
+  8 bubbles). Measured after: solo highway 11 / 11, foot 7 / 14 → see the landing row. No new culprit: the solo minute is a random,
+  crash-heavy autopilot drive (±3 a run); the foot minute had walked out of the attached town. The airport is not one (stage 1 is OFF
+  in the real game).
+- `town` is red on `main` before and after `ci/mainfix` on a draw-call budget by 1–2 (main 0d4da4e: "town draw calls ≤ Cruise" 241;
+  ci/mainfix 44862534402: "attached town ≤ 240" 242) — not the phone change; whoever owns the town budget (`ci/exits2` / `ci/perf`).
 - **`shabbos` "tv-1080: the card fits" (`ci/mainfix`, 2026-11-21):** red on every run since 2026-11-20 17:33 with the same numbers — a
   layout bug, not the real date (the test mocks its own Friday): TV padding in a 480 px column. Fixed in `features/shabbos` CSS.
 - **Airport stage 3 (`ci/airport-stage3`, 2026-11-21):** with Dovid Dov + six fans in the hall (arrivals view, MEDIUM) measured 91 draw calls, 121k triangles — inside the terminal's budget. The taxi run is tested with a pretend kerb (`ctx.airport.stage3.debug.fakeAirport`); once stage 1 lands, re-run `airport-stage3` + `airport` together and check the real ARRIVALS kerb point (f 24, r 193.5) sits clear of the taxi queue.

@@ -6,8 +6,9 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
 - 2026-11-21 (main fixes) — 📞 Lulu's phone is one tidy 3 × 3 screen again, with the 📞 Phone app right next to 💬 Messages
   (the new 👯 Friends app had made it 10 apps and squeezed in between). The 🗞️ Kvetch local news now lives as a pinned row at the top
   of 💬 Messages instead of its own app. Fewer pop-ups again: the little "💥 Oy vey!" crash quips only show when Lulu didn't just say
-  something, walking's mud / mosquito / sore-feet notes take turns with her lines, and an uncle waving from the roadside is one
-  pop-up (his +8 💰 tip is in it). On a big TV the 🕯️ "Made it for candles!" card fits without scrolling.
+  something (and so do other little "colour" notes), walking's mud / mosquito / sore-feet notes take turns with her lines, an uncle
+  waving from the roadside is one pop-up (his +8 💰 tip is in it), an ambulance is one warning instead of two, and Avigail chats a
+  bit less when she tags along on a walk. On a big TV the 🕯️ "Made it for candles!" card fits without scrolling.
 
 - 2026-11-21 (stage 1 landing) — ✈️ JFK stage 1, the exit and the kerb, is built and tested — but switched OFF in the real game
   for now (it waits for the "each town its own exit" work, so the two never land on top of each other). Its own exit, EXIT 12, signed
