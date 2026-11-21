@@ -154,6 +154,9 @@ module.exports = {
       const tq = await g(`ctx.airport.debug.vehicles().filter(c => c.kind === "taxi").map(c => { const q = ctx.airport.debug.local(c.x, c.z); return [Math.round(q.f), Math.round(q.r)]; })`);
       t.check("the taxi line queues on the ARRIVALS kerb", tq.filter(([f, r]) => f > 0 && f < 80 && r > 190 && r < 197).length >= 2, JSON.stringify(tq));
       console.log("   kerb stats", JSON.stringify(ks));
+      // stage 3's taxi runs pick up at ctx.airport.kerb.pickup(): the ARRIVALS kerb lane, clear of the taxi line
+      const pk = await g(`(() => { const p = ctx.airport.kerb.pickup(), q = ctx.airport.debug.local(p.x, p.z), taxis = ctx.airport.debug.vehicles().filter(c => c.kind === "taxi" && c.speed < 0.5); return { f: Math.round(q.f), r: +q.r.toFixed(1), near: Math.min(99, ...taxis.map(c => Math.hypot(c.x - p.x, c.z - p.z))) }; })()`);
+      t.check("the ARRIVALS pickup point (stage 3) is in the kerb lane, clear of the taxi line", pk.f > 6 && pk.f < 40 && pk.r > 191 && pk.r < 196 && pk.near > 4, JSON.stringify(pk));
     });
 
     await step("walk", async () => {
