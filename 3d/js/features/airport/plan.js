@@ -18,20 +18,19 @@
 import { ctx } from "../../core/ctx.js";
 import * as LY from "./layout.js";
 
-export const AIR = { first: 5900, every: 30000, step: 50, tries: 400, townGap: 1500, slotSlide: 1000, slotGap: 300 };
+export const AIR = { first: 5900, every: 30000, step: 50, tries: 400, townGap: 1500, zonePad: 300 };
 
 /**
- * THE SWITCH-ON HOOK (for after ci/exits2 — see 3d/docs/airport-plan.md › Sync log): the towns' per-town ROUTE can give
- * the airport a slot of its own — `ctx.town.routeSlot("airport", from)` → the slot's metre at or past `from` (fixed
- * data: the same on every run and every friend's screen), or null. With a slot the airport plans there (FIT may slide it
- * ≤ AIR.slotSlide) and keeps only AIR.slotGap from the towns' exits (the route already spaced them); without one it
- * searches from AIR.first as before.
+ * THE SWITCH-ON MODEL (for after ci/exits2 — the steps: 3d/docs/airport-plan.md › Sync log, AGENTS §7 › Airport).
+ * Measured on main (2026-11-21): the airport FITs beside the constant highway at only a few stretches — 8.8–8.9 km,
+ * 22.4–22.6, 23.7, 25.4–26.0, 26.9–27.8, 28.8–29.0 km … — while ci/exits2's route puts a town exit every 4 km
+ * (Midwood 3.6, Lakewood 7.6, every 8 km), and the airport + its signs need ~2.4 km of road plus a gap either side. A route
+ * SLOT can't land on a FIT that regularly, so the order is the other way round: the airport is planned FIRST from fixed
+ * data only (`zones(s0, s1)`: the road, the places, the journey's stops — never the towns), and the towns' planner treats
+ * those zones as busy and slides its exits past them (one line in ci/exits2's exit.js `clearOfPlaces`). `townsKeepOut`
+ * says the towns do that: then the airport stops looking at the towns' exits itself (no circular wait).
  */
-export function routeSlot(from) {
-    try { const f = ctx.town && ctx.town.routeSlot; const s = typeof f === "function" ? f("airport", from) : null; return Number.isFinite(s) ? s : null; } catch (e) { return null; }
-}
-/** Does the towns' route give the airport slots (a 🎉 party can then have it: every friend plans the same metres)? */
-export const routed = () => !!(ctx.town && typeof ctx.town.routeSlot === "function");
+export const PLANNING = { townsKeepOut: false };     // (…and the rest areas: features/exits clearAt already asks zones())
 
 const _p = {}, _q = {};
 const hw = () => ctx.world.highway;
@@ -99,12 +98,34 @@ export function clearOf(E, gap = AIR.townGap) {
     const P = ctx.places;
     try { if (P && P.list && P.at) for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > a2 && x < b2) return false; } } catch (e) { /* none */ }
     const T = ctx.town;
-    if (T && T.exits) { const sp = T.span || { a: -1500, b: 480 }; for (const e of T.exits) if (e.s + sp.b + gap > a && e.s + sp.a - gap < b) return false; }
-    try { if (ctx.exits && ctx.exits.spans) for (const o of ctx.exits.spans()) if (o.b > a && o.a < b) return false; } catch (e) { /* none */ }
+    if (T && T.exits && !PLANNING.townsKeepOut) { const sp = T.span || { a: -1500, b: 480 }; for (const e of T.exits) if (e.s + sp.b + gap > a && e.s + sp.a - gap < b) return false; }
+    try { if (!PLANNING.townsKeepOut && ctx.exits && ctx.exits.spans) for (const o of ctx.exits.spans()) if (o.b > a && o.a < b) return false; } catch (e) { /* none */ }
     return true;
 }
 
 const FOUND = new Map();
+/**
+ * Where the airport WILL be between s0 and s1 from fixed data only (ignoring the towns: they keep out of these — see
+ * PLANNING): [{ s (its exit), a, b (signs → accel lane, ± AIR.zonePad) }], the first at its first fit ≥ AIR.first, then
+ * every AIR.every on. A pure function of the road (cached FIT): the same on every run and every friend's screen.
+ */
+const ZONE = { E: [], from: null, done: false };
+export function zones(s0, s1) {
+    // (the airport's metres along the endless road, found once each and kept: fixed data → the same list every call)
+    if (ZONE.from == null) ZONE.from = AIR.first;
+    const keep = PLANNING.townsKeepOut;
+    PLANNING.townsKeepOut = true;
+    try {
+        while (!ZONE.done && (!ZONE.E.length || ZONE.E[ZONE.E.length - 1] < s1 - LY.SPAN.a + AIR.zonePad)) {
+            const E = findSpot(ZONE.from);
+            if (E == null) { ZONE.done = true; break; }
+            ZONE.E.push(E); ZONE.from = E + AIR.every;
+        }
+    } finally { PLANNING.townsKeepOut = keep; }
+    const out = [];
+    for (const E of ZONE.E) if (E + LY.SPAN.b + AIR.zonePad > s0 && E + LY.SPAN.a - AIR.zonePad < s1) out.push({ s: E, a: E + LY.SPAN.a - AIR.zonePad, b: E + LY.SPAN.b + AIR.zonePad });
+    return out;
+}
 /** The first exit metre ≥ s0 an airport fits (slid on in AIR.step steps), or null. Fixed data → FIT cached. */
 export function findSpot(s0, { force = false } = {}) {
     if (force) return s0;
@@ -113,13 +134,10 @@ export function findSpot(s0, { force = false } = {}) {
 }
 /** findSpot as a generator: yields after each candidate FIT measured (a few ms); returns E or null. */
 export function* searchSteps(s0) {
-    const slot = routeSlot(s0);
-    if (slot != null) s0 = slot;
     s0 = Math.ceil(s0 / AIR.step) * AIR.step;          // (on the 50 m lattice: the same candidates whatever the run's start)
-    const tries = slot != null ? Math.round(AIR.slotSlide / AIR.step) : AIR.tries, gap = slot != null ? AIR.slotGap : AIR.townGap;
-    for (let k = 0; k < tries; k++) {
+    for (let k = 0; k < AIR.tries; k++) {
         const E = s0 + k * AIR.step;
-        if (!clearOf(E, gap)) continue;
+        if (!clearOf(E)) continue;
         let ok = FOUND.get(E);
         if (ok === undefined) { ok = fits(E); FOUND.set(E, ok); yield E; }
         if (ok) return E;

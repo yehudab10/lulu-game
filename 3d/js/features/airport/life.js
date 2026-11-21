@@ -158,7 +158,7 @@ export function makeVehicles(G, scene) {
     function tickHit(c, dt) {
         const H = c.hit;
         H.t += dt;
-        if (!H.rec) {
+        if (H.rec == null) {
             c.x += H.vx * dt; c.z += H.vz * dt;
             const damp = Math.exp(-(c.kind === "taxi" ? 1.6 : 2.6) * dt);
             H.vx *= damp; H.vz *= damp; H.spin *= Math.exp(-2.2 * dt);

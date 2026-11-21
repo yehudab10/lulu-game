@@ -24,7 +24,7 @@ module.exports = {
   async run(t) {
     const g = t.game;
     const step = async (label, fn) => { try { await fn(); } catch (e) { t.check(`${label}: threw`, false, String(e && e.message || e).slice(0, 240)); } };
-    await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["airport:enter", "airport:leave", "airport:door", "airport:fence", "airport:built", "foot:start"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 90)));
+    await t.L(`import("./js/core/ctx.js").then(m => { window.__ev = []; for (const n of ["airport:enter", "airport:leave", "airport:door", "airport:fence", "airport:built", "airport:bump", "airport:security", "foot:start"]) m.on(n, e => __ev.push(n + ":" + JSON.stringify(e || {}).slice(0, 90)));
       m.on("damage", e => { const c = m.ctx.car.pos, q = m.ctx.airport.debug.local(c.x, c.z) || {}; __ev.push("damage:" + (e && e.why) + "/" + (e && e.source) + "@" + Math.round(q.f) + "," + Math.round(q.r) + " s" + Math.round(m.ctx.car.s)); });
       // the test driver: steer toward waypoints (world x / z) at a target speed; stop = brake to a halt at the end
       m.hook("controls", (ctl, dt) => { const R = window.__route, car = m.ctx.car; if (!R) return;
@@ -92,6 +92,11 @@ module.exports = {
       const signs = await g(`ctx.world.signs.filter(s => /JFK|LAST EXIT/.test(s.lines.join(" "))).map(s => ({ u: Math.round(s.s - ${E}), lines: s.lines.join(" · "), tab: s.tab || null }))`);
       t.check("signed ahead: ✈ JFK AIRPORT · 1 MI, ½ MI, LAST EXIT (the EXIT 12 tab)", signs.some(s => /1 MI/.test(s.lines) && s.tab === "EXIT 12") && signs.some(s => /½ MI/.test(s.lines)) && signs.some(s => /LAST EXIT/.test(s.lines)), JSON.stringify(signs));
       t.check("its roadside is reserved (no trees / houses on the ramps or in the airport)", await g(`ctx.world.isReserved(${E} + 330, 150) && ctx.world.isReserved(${E} + 20, 20)`));
+      // the switch-on model (ci/airport-polish): once the towns keep out of it, the airport's metres come from fixed data
+      // only (zones) — empty until then, so nothing else plans round it yet
+      const z = await g(`(() => { const D = ctx.airport.debug, off = ctx.airport.zones(0, 40000).length; D.townsKeepOut(true); const R = Math.random; let zs;
+        Math.random = () => { throw new Error("Math.random in zones()"); }; try { zs = ctx.airport.zones(0, 30000).map(o => [o.s, Math.round(o.a), Math.round(o.b)]); } finally { Math.random = R; D.townsKeepOut(false); } return { off, zs }; })()`);
+      t.check("switch-on prep: ctx.airport.zones() is empty until the switch-on, then the airport's own metres from fixed data (the first = this run's)", z.off === 0 && z.zs.length >= 1 && z.zs[0][0] === E, JSON.stringify(z));
     });
 
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.law && ctx.law.hold && ctx.law.hold(900), true)`);

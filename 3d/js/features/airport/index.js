@@ -36,7 +36,7 @@ import { models, ensureModels } from "../../models.js";
 import * as H from "../../hud.js";
 import * as LY from "./layout.js";
 import * as L from "./lines.js";
-import { AIR, findSpot, searchSteps, geometry, inLand, fits, frameAt, routed, routeSlot } from "./plan.js";
+import { AIR, PLANNING, findSpot, searchSteps, geometry, inLand, fits, frameAt, zones } from "./plan.js";
 import { buildSteps, BUILD_MODELS, lookMats, setLow } from "./build.js";
 import { makePlanes, PLANES } from "./planes.js";
 import { makeVehicles, doorSpot, makeJoke, nearFence, luluSays, sayOver, VEH, JOKE, KERB_HIT } from "./life.js";
@@ -45,8 +45,10 @@ import { makeNet, copRoute, copSight, routeOnNet, nearestOnNet } from "./chase.j
 
 // ── the switch (stage 1: off unless asked for) ───────────────────────────
 const Q = new URLSearchParams(location.search);
-/** SWITCH-ON (after ci/exits2: see the plan's Sync log): true = on for everyone (not in ?test runs) unless ?airport=0. */
+/** SWITCH-ON (after ci/exits2 — the steps: the plan's Sync log / AGENTS §7 › Airport): true = on for everyone (not in
+ *  ?test runs) unless ?airport=0, and the towns keep out of its zones (plan.js PLANNING) — so it's on with friends too. */
 export const ON_BY_DEFAULT = false;
+if (ON_BY_DEFAULT) PLANNING.townsKeepOut = true;
 const FLAG = (Q.get("enable") || "").split(",").includes("airport") || Q.get("airport") === "1" || (ON_BY_DEFAULT && Q.get("airport") !== "0" && !Q.has("test"));
 /** How far out the build starts / stops, and the per-frame build budget. */
 export const BUILD = { start: 2600, drop: 3200, ms: 3.0, keepBehind: 520 };
@@ -67,8 +69,8 @@ function eligible() {
     if (!S.on || !G) return false;
     // (a 🎉 party: off until the interchange planner hook — ci/exits2 — makes every friend's town exits keep out of it;
     //  the placement itself is already fixed data, the presence + the planes on the party clock are wired)
-    // (with the towns' route giving it a slot — routed() — every friend plans the same metre: on in a 🌍 Free Roam)
-    if (ctx.party && ctx.party.active) return (S.party || routed()) && G.mode === "party" && partyRoam();
+    // (once the towns keep out of its zones — PLANNING.townsKeepOut — every friend plans the same metre: on in a 🌍 Free Roam)
+    if (ctx.party && ctx.party.active) return (S.party || PLANNING.townsKeepOut) && G.mode === "party" && partyRoam();
     return G.mode === "cruise" && !G.tutorial;
 }
 
@@ -103,7 +105,7 @@ function plan(E) {
     sign(LY.SIGN_HALF, L.SIGNS.half);
     sign(LY.SIGN_LAST, L.SIGNS.last, { tab: null, w: 4.4, h: 2.4 });
     ensureModels(BUILD_MODELS.concat(["airport_taxi", "airport_shuttle"])).catch(e => console.warn("[airport] models", e));
-    S.next = routed() ? E + 1000 : E + AIR.every;          // (a route slot: the next search finds the route's next airport slot)
+    S.next = E + AIR.every;
     return S.G;
 }
 /** Rebuild the highway chunks over the airport's stretch (a debug placement right ahead: its signs + ramps + colliders). */
@@ -285,7 +287,7 @@ function searchTick(budget = 2.5) {
     const t0 = performance.now();
     while (performance.now() - t0 < budget) {
         const r = S.search.next();
-        if (r.done) { S.search = null; if (r.value != null) plan(r.value); else S.next += routed() ? 1000 : AIR.every; return; }
+        if (r.done) { S.search = null; if (r.value != null) plan(r.value); else S.next += AIR.every; return; }
     }
 }
 hook("runStart", G => {
@@ -329,6 +331,10 @@ ctx.airport = {
     get inside() { return S.inside; },
     /** The stretch it covers along the highway (signs → accel lane) — for other planners to keep out of. */
     spans: () => S.G ? [{ a: S.E + LY.SPAN.a, b: S.E + LY.SPAN.b }] : [],
+    /** Where the airport WILL be along [s0, s1] — fixed data only, never the towns: [{ s, a, b }] (a padded stretch). For
+     *  the towns' planner to keep out of (ci/exits2's `clearOfPlaces`: the switch-on step) and the rest areas' (features/exits
+     *  clearAt asks already) — the same on every screen. Empty until the switch-on (PLANNING.townsKeepOut). */
+    zones: (s0, s1) => (S.on && PLANNING.townsKeepOut ? zones(s0, s1) : []),
     /** The kerb: `pickup()` → world {x, z, h} of the ARRIVALS pickup point in the kerb lane (f 24 — short of the taxi
      *  line, which queues from f 70 back), heading along the kerb; null until it is built (stage 3: no taxi run away from the airport). */
     kerb: {
@@ -358,8 +364,8 @@ ctx.airport = {
         /** LOW's cut: { low (applied now), tris (left out), cols (colliders switched off) }. */
         low: () => ({ low: !!S.lowDrawn, tris: S.lowDrawn ? S.lowTris || 0 : 0, cols: S.G ? S.G.col.filter(c => c.notLow && c.off).length : 0 }),
         fits: E => fits(E),
-        routed: () => routed(),
-        routeSlot: s => routeSlot(s),
+        /** The switch-on model: towns keep out of the airport's zones (plan.js PLANNING) — tests flip it. */
+        townsKeepOut(v = true) { PLANNING.townsKeepOut = !!v; },
         findSpot: (s, o) => findSpot(s, o),
         frame: E => frameAt(E),
         /** World point of airport-frame (f, r) / its local (f, r) of a world point. */
