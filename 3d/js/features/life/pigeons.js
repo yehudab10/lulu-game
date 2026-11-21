@@ -77,7 +77,7 @@ function ensureMesh() {
 // ── the flocks (built once per town placement) ───────────────────────────
 function bird(f, x, y, z, yaw, k) {
     return { f, hx: x, hy: y, hz: z, hyaw: yaw, x, y, z, yaw, pitch: 0, px: x, py: y, pz: z, mode: 0, t: 0, ph: k * 1.7, col: GREYS[(k * 5 + (f.seed * 97 | 0)) % GREYS.length],
-        peck: 0.5 + (k % 5) * 0.4, hop: 0, amp: 0, fold: 1, scale: 1.25 + ((k * 37) % 10) / 40, orbA: 0, orbR: 0, orbY: 0, orbW: 0, ox: 0, oy: 0, oz: 0, lift: 0 };
+        peck: 0.5 + (k % 5) * 0.4, hop: 0, amp: 0, fold: 1, scale: 1.5 + ((k * 37) % 10) / 30, orbA: 0, orbR: 0, orbY: 0, orbW: 0, ox: 0, oy: 0, oz: 0, lift: 0 };
 }
 function buildFlocks() {
     const plan = ctx.town && ctx.town.plan;
@@ -104,8 +104,8 @@ function buildFlocks() {
         PG.flocks.push(f);
     });
     // gangs on the pavement: always one outside the bakery / the pizza shop, a few more along the streets
-    const ground = (x, z, seed, n) => {
-        const f = { kind: "ground", x, z, y: 0, seed, birds: [], away: 0, cool: 0 };
+    const ground = (x, z, seed, n, ux = 1, uz = 0) => {
+        const f = { kind: "ground", x, z, y: 0, ux, uz, seed, birds: [], away: 0, cool: 0 };
         for (let k = 0; k < n; k++) {
             const a = hash01(th + 5, seed * 1e6 | 0, k) * 6.283, r = Math.sqrt(hash01(th + 6, seed * 1e6 | 0, k)) * 1.5;
             f.birds.push(bird(f, x + Math.cos(a) * r, 0.04, z + Math.sin(a) * r, hash01(th + 7, seed * 1e6 | 0, k) * 6.283, k));
@@ -114,7 +114,7 @@ function buildFlocks() {
     };
     for (const id of ["bakery", "pizza"]) {
         const sp = ctx.town.spot && ctx.town.spot(id);
-        if (sp) ground(sp.x + sp.ux * 3.2, sp.z + sp.uz * 3.2, hash01(th, id.length, 9), 6);
+        if (sp) ground(sp.x + sp.ux * 3.2, sp.z + sp.uz * 3.2, hash01(th, id.length, 9), 6, sp.ux, sp.uz);
     }
     for (const st of plan.STREETS) {
         if (st.boulevard || !st.walk) continue;
@@ -125,7 +125,8 @@ function buildFlocks() {
                 const r = hash01(th + 1, st.id * 4099 + Math.round(u), side);
                 if (r > PIG.walkShare) continue;
                 const lp = streetPt(st, u, side * (st.outer + st.walk) / 2, {}), p = plan.world(lp.x, lp.z, {});
-                ground(p.x, p.z, hash01(th + 2, st.id * 4099 + Math.round(u), side), 3 + Math.floor(r / PIG.walkShare * 4));
+                const lq = streetPt(st, u + 1, side * (st.outer + st.walk) / 2, {}), q = plan.world(lq.x, lq.z, {});
+                ground(p.x, p.z, hash01(th + 2, st.id * 4099 + Math.round(u), side), 3 + Math.floor(r / PIG.walkShare * 4), q.x - p.x, q.z - p.z);
             }
         }
     }
@@ -292,7 +293,7 @@ export function pigeonInfo() {
 export function nearestFlock(kind = "") {
     let best = null, bd = 1e9;
     for (const f of PG.flocks) { if (kind && f.kind !== kind) continue; const d = Math.hypot(f.x - L.x, f.z - L.z); if (d < bd) { bd = d; best = f; } }
-    return best ? { x: best.x, y: best.y || 0, z: best.z, n: best.birds.length, away: best.away, kind: best.kind, d: +bd.toFixed(1) } : null;
+    return best ? { x: best.x, y: best.y || 0, z: best.z, n: best.birds.length, away: best.away, kind: best.kind, ux: best.ux || 1, uz: best.uz || 0, d: +bd.toFixed(1) } : null;
 }
 /** Tests: scatter the nearest flock of a kind. */
 export function scatterNearest(kind = "") {

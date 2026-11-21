@@ -31,7 +31,7 @@ const MAX = 220, MAXG = 16;
  *  builders (assets_town.py › build_duplex: chim at (−w·0.3, d·0.2, wh + 1.9) ± 0.7; assets_midwood.py › build_house). */
 const CHIMNEY = { town_duplex: [-3.3, 8.75, -2.0], town_mw_house: [-5.25, 8.95, 0.5] };
 /** Oven vents on the roof of a shop with a spot (model frame; the spot is 2.6 m out from its lot line). */
-const VENTS = { bakery: { at: [3.4, 7.7, -3.0], back: 10.6, lines: "bakery" }, pizza: { at: [-4.0, 5.35, -3.2], back: 10.6, lines: "pizza" } };
+const VENTS = { bakery: { at: [3.4, 7.7, 1.5], back: 10.6, lines: "bakery" }, pizza: { at: [-4.0, 5.35, 1.5], back: 10.6, lines: "pizza" } };
 const LINES = {
     bakery: ["Is that KUGEL? It's not even Friday! 🤤", "Fresh challah. I'm not hungry. I'm NOT hungry.", "Smells like Bubbe's kitchen in there.", "Rugelach. I can SMELL the rugelach."],
     bakeryFri: ["Fresh challah… it must be Erev Shabbos! 🍞", "The challah line is already around the block. Classic Friday."],
@@ -70,7 +70,7 @@ function buildSites() {
         const c = CHIMNEY[h.key];
         if (!c) return;
         homeWorld(h, c[0], c[2], w);
-        PU.chimneys.push({ x: w.x, y: c[1], z: w.z, lit: hash01(th + 21, i, 7), seed: hash01(th + 23, i, 3), t: hash01(th, i, 5), _d: 0 });
+        PU.chimneys.push({ x: w.x, y: c[1], z: w.z, lit: hash01(th + 21, i, 7), seed: hash01(th + 23, i, 3), t: hash01(th, i, 5), fx: h.lotX + h.nx * 1.5, fz: h.lotZ + h.nz * 1.5, ux: h.ux, uz: h.uz, _d: 0 });
     });
     // Midwood's manholes: in the lanes, ~4 % per 7 m, never at a crossing (the same walk as the puddles)
     if (plan.def.id === "midwood") {
@@ -93,7 +93,7 @@ function buildSites() {
         const V = VENTS[id], cx = sp.x - sp.nx * V.back, cz = sp.z - sp.nz * V.back;
         const h = { x: cx, z: cz, ux: sp.ux, uz: sp.uz, nx: sp.nx, nz: sp.nz };
         homeWorld(h, V.at[0], V.at[2], w);
-        PU.vents.push({ id, x: w.x, y: V.at[1], z: w.z, fx: sp.x, fz: sp.z, t: 0, _d: 0 });
+        PU.vents.push({ id, x: w.x, y: V.at[1], z: w.z, fx: sp.x, fz: sp.z, ux: sp.ux, uz: sp.uz, t: 0, _d: 0 });
     }
     return true;
 }
@@ -232,7 +232,7 @@ function pickLive() {
 }
 
 // ── per frame ─────────────────────────────────────────────────────────────
-const SMOKE = [0.78, 0.77, 0.76], STEAM = [0.95, 0.96, 0.97], WARM = [0.98, 0.95, 0.9];
+const SMOKE = [0.7, 0.69, 0.68], STEAM = [0.95, 0.96, 0.97], WARM = [0.98, 0.95, 0.9];
 function emit(dt, cold, night) {
     const wx = WS.wx * 0.35, wz = WS.wz * 0.35;
     const dim = 1 - night * 0.55;
@@ -242,7 +242,7 @@ function emit(dt, cold, night) {
         if (s.lit !== undefined) {               // a chimney
             s.t = rand(0.45, 0.7);
             addPuff(K.CHIM, s.x + rand(-0.1, 0.1), s.y, s.z + rand(-0.1, 0.1), wx + rand(-0.15, 0.15), rand(0.7, 1.0), wz + rand(-0.15, 0.15),
-                rand(4.2, 5.6), rand(0.45, 0.6), rand(2.2, 3.0), 0.55, SMOKE[0] * dim, SMOKE[1] * dim, SMOKE[2] * dim);
+                rand(4.2, 5.6), rand(0.45, 0.6), rand(2.2, 3.0), 0.72, SMOKE[0] * dim, SMOKE[1] * dim, SMOKE[2] * dim);
         } else if (s.steam !== undefined) {      // a manhole
             s.t = rand(0.14, 0.22) / (cold ? 1.25 : 1);
             const a = (cold ? 0.5 : 0.36) + (L.wet > 0.3 ? 0.08 : 0);
@@ -377,10 +377,10 @@ export function puffInfo() {
         manholes: PU.manholes.length, manholesDrawn: PU.mhDrawn, steaming: PU.live.filter(s => s.steam !== undefined).length, vents: PU.vents.map(v => v.id), cold: L.on ? coldNow() : null,
         hiss: !!(PU.hiss && PU.hiss.alive), steamed: PU.steamed, smelled: [...PU.smelled] };
 }
-/** Tests: the nearest chimney that's smoking / a steaming manhole / a vent (id) → {x, y, z} or null. */
+/** Tests: the nearest chimney that's smoking ("chimney"; any: "house") / a steaming manhole / a vent (id) → {x, y, z} or null. */
 export function nearestPuff(kind = "chimney") {
     let best = null, bd = 1e9;
-    const list = kind === "chimney" ? PU.live.filter(s => s.lit !== undefined) : kind === "manhole" ? PU.liveMh.filter(s => s.steam) : PU.vents.filter(v => v.id === kind);
+    const list = kind === "chimney" ? PU.live.filter(s => s.lit !== undefined) : kind === "house" ? PU.chimneys : kind === "manhole" ? PU.liveMh.filter(s => s.steam) : PU.vents.filter(v => v.id === kind);
     for (const s of list) { const d = Math.hypot(s.x - L.x, s.z - L.z); if (d < bd) { bd = d; best = s; } }
-    return best ? { x: best.x, y: best.y || 0, z: best.z, fx: best.fx, fz: best.fz, h: best.h, d: +bd.toFixed(1) } : null;
+    return best ? { x: best.x, y: best.y || 0, z: best.z, fx: best.fx, fz: best.fz, ux: best.ux, uz: best.uz, h: best.h, d: +bd.toFixed(1) } : null;
 }

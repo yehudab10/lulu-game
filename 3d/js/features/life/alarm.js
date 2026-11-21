@@ -76,4 +76,4 @@ export function tickAlarm(dt) {
     }
 }
 export function alarmClear() { for (const a of AL.list) stop(a); AL.list.length = 0; }
-export function alarmInfo() { return { live: AL.list.length, alarms: AL.alarms, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }
+export function alarmInfo() { return { live: AL.list.length, lit: AL.list.some(a => (a.t % ALARM.blink) <= ALARM.onFor), alarms: AL.alarms, lines: AL.lines, blinks: AL.blinks, tail: AL.list.some(a => a.tail && a.tail.alive) }; }

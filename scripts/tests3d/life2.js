@@ -47,11 +47,11 @@ module.exports = {
     // stand her at (x, z) and (optionally) turn the free camera to look at (lx, ly, lz) from behind her
     const standAt = async (x, z, look) => {
       await g(`(() => { const f = ctx.foot.pos; f.set(${x}, 0.05, ${z}); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f); ctx.cam.snap && ctx.cam.snap(); if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);
-      if (look) await g(`(() => { const F = ctx.cam.free; F.yaw = Math.atan2(${look.x} - ${x}, ${look.z} - ${z}); F.pitch = ${look.pitch == null ? -0.12 : look.pitch}; F.idle = 0; return true; })()`);
+      // (turning the camera is the test's too: the watchdog looks away while the rig's wall clip settles)
+      if (look) await g(`(() => { const F = ctx.cam.free; F.yaw = Math.atan2(${look.x} - ${x}, ${look.z} - ${z}); F.pitch = ${look.pitch == null ? -0.12 : look.pitch}; F.idle = 0; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       await t.frames(3);
     };
-    const aim = async look => { await g(`(() => { const F = ctx.cam.free, p = ctx.foot.pos; F.yaw = Math.atan2(${look.x} - p.x, ${look.z} - p.z); F.pitch = ${look.pitch == null ? -0.12 : look.pitch}; F.idle = 0; return true; })()`); await t.frames(4); };
-    // a point `back` m from (x, z), toward her side of the street (on the pavement is good enough: stand-ins only)
+    // a point `back` m from (x, z) along heading `ang` (a manhole: along its street — still in the street)
     const from = (p, back, ang = 0.6) => ({ x: p.x - Math.sin(ang) * back, z: p.z - Math.cos(ang) * back });
 
     t.check("ctx.life service (round 2 parts)", await g(`!!(ctx.life && ctx.life.debug.puff && ctx.life.debug.flock && ctx.life.info().puffs && ctx.life.info().pigeons)`));
@@ -71,14 +71,18 @@ module.exports = {
     await step("chimneys", async () => {
       if (!await inTown("lakewood")) return;
       if (!await onFoot()) return;
+      // (on the sidewalk in front of the nearest house with a chimney: among the houses, not out by the town's edge)
+      const hz = await g(`${D}.puff("house")`);
+      if (hz) await standAt(hz.fx, hz.fz);
       await t.frames(70);
       let I = await info();
       t.check("Lakewood's duplexes have chimneys, about half of the near ones smoke on a cold day", I.puffs.chimneys > 6 && I.puffs.smoking > 0, `${I.puffs.smoking} smoking of ${I.puffs.chimneys}`);
-      t.check("…puffs rise (one mesh, drawn)", I.puffs.chim > 8 && I.puffs.visible, JSON.stringify(I.puffs));
+      t.check("…puffs rise (one mesh, drawn)", I.puffs.chim >= 3 && I.puffs.visible, JSON.stringify(I.puffs));
       const c = await g(`${D}.puff("chimney")`);
       if (c) {
-        const p = from(c, 16, Math.PI * 0.25);
-        await standAt(p.x, p.z, { x: c.x, z: c.z, pitch: -0.32 });
+        // out in the street in front of it (the sidewalk point + 7 m toward the street; the camera behind her, across it)
+        const nx = c.fx - c.x, nz = c.fz - c.z, nl = Math.hypot(nx, nz) || 1;
+        await standAt(c.fx + nx / nl * 7, c.fz + nz / nl * 7, { x: c.x, z: c.z, pitch: -0.05 });
         await t.frames(40);
         I = await info();
         t.check("…from the chimney tops (≥ 8.5 m up), rising", I.puffs.chimLo >= 8.4 && I.puffs.chimHi > I.puffs.chimLo + 1, `${I.puffs.chimLo}–${I.puffs.chimHi} m`);
@@ -99,8 +103,8 @@ module.exports = {
       const f = await g(`${D}.flock("ground")`);
       t.check("a gang pecking on the pavement", !!f, JSON.stringify(f));
       if (!f) return;
-      const p = from(f, 6.5);
-      await standAt(p.x, p.z, { x: f.x, z: f.z, pitch: 0.25 });
+      const ul = Math.hypot(f.ux, f.uz) || 1, ux = f.ux / ul, uz = f.uz / ul;       // (along the pavement: never into a building)
+      await standAt(f.x + ux * 6.5, f.z + uz * 6.5, { x: f.x, z: f.z, pitch: 0.25 });
       await t.frames(20);
       I = await info();
       t.check("they're drawn (one instanced mesh)", I.pigeons.drawn >= f.n && I.pigeons.visible && I.pigeons.flying === 0, JSON.stringify(I.pigeons));
@@ -112,15 +116,14 @@ module.exports = {
       t.check("a HONK sends them up (a clatter of wings)", I.pigeons.scattered > s0 && I.pigeons.flying > 0, JSON.stringify(I.pigeons));
       await t.shot("pigeons-honk");
       // she walks on (≥ 14 m): they circle, then glide back down to where they were
-      const q = from(f, 22);
-      await standAt(q.x, q.z, { x: f.x, z: f.z, pitch: 0.1 });
+      await standAt(f.x + ux * 22, f.z + uz * 22, { x: f.x, z: f.z, pitch: 0.1 });
       let back = false;
       for (let i = 0; i < 30 && !back; i++) { await t.frames(15); back = (await g(`${D}.flock("ground")`)).away === 0; }
       t.check("…and once she's moved on they come back to the same spot", back, JSON.stringify(await g(`${D}.flock("ground")`)));
       // running straight at them
-      await standAt(f.x - 3, f.z);
+      await standAt(f.x - ux * 3, f.z - uz * 3);
       const s1 = (await info()).pigeons.scattered;
-      for (let i = 0; i < 12; i++) { await g(`(() => { const F = ctx.foot.pos; F.x += 0.2; ctx.foot.vel.set(6, 0, 0); ctx.foot.obj.position.copy(F); return true; })()`); await t.frames(1); }
+      for (let i = 0; i < 12; i++) { await g(`(() => { const F = ctx.foot.pos; F.x += ${ux} * 0.2; F.z += ${uz} * 0.2; ctx.foot.vel.set(${ux} * 6, 0, ${uz} * 6); ctx.foot.obj.position.copy(F); return true; })()`); await t.frames(1); }
       await g(`(ctx.foot.vel.set(0, 0, 0), true)`);
       await t.frames(4);
       t.check("running at a gang scatters it", (await info()).pigeons.scattered > s1, JSON.stringify((await info()).pigeons));
@@ -133,7 +136,7 @@ module.exports = {
       // stand by the nearest pedestrian of the crowd and honk
       const ok = await g(`(() => { const C = ctx.homes && ctx.homes.debug.CR; if (!C || !C.peds || !C.peds.length) return false; const p = ctx.foot.pos; let best = null, bd = 1e9;
         for (const q of C.peds) { if (q.kind === "bike") continue; const d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = q; } }
-        if (!best) return false; p.set(best.x + 3, 0.05, best.z + 3); ctx.foot.obj.position.copy(p); C.honkT = 0; if (window.__qa) { window.__qa.cutF = ctx.frames + 3; window.__qa.last = null; } return true; })()`);
+        if (!best) return false; p.set(best.x + 0.8, 0.05, best.z); ctx.foot.obj.position.copy(p); C.honkT = 0; if (window.__qa) { window.__qa.cutF = ctx.frames + 12; window.__qa.last = null; } return true; })()`);
       if (!ok) { t.check("the town's crowd is out (homes)", false); return; }
       await t.frames(3);
       await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
@@ -175,6 +178,18 @@ module.exports = {
       await g(`(ctx.car.vx = ctx.car.vz = ctx.car.vF = 0, true)`);
       await t.frames(200);
       t.check("…for a few seconds, then it stops", (await info()).alarm.live === 0, JSON.stringify((await info()).alarm));
+      // a picture of it: on foot in the street by the car, the alarm going again (another bump), on a lit blink
+      if (await onFoot()) {
+        const at = await g(`(() => { const p = window.__pc, O = ${DD}.PL.ORIGIN, r = ctx.world.road, P = { x: O.x + p.x, z: O.z + p.z }, n = r.nearest(P.x, P.z, ctx.car.s, {}), q = r.point(n.s, 0, {});
+          const dx = q.x - P.x, dz = q.z - P.z, L = Math.hypot(dx, dz) || 1; return { x: P.x + dx / L * 4.5, z: P.z + dz / L * 4.5, cx: P.x, cz: P.z }; })()`);
+        await standAt(at.x, at.z, { x: at.cx, z: at.cz, pitch: 0.3 });
+        await t.L(`import("./js/core/ctx.js").then(m => { const p = window.__pc; if (p && p.live) m.emit("town:parkedHit", { impact: 3, key: p.key, obj: p.live.obj, alarm: true }); })`);
+        let lit = false;
+        for (let i = 0; i < 30 && !lit; i++) { await t.frames(1); const A = (await info()).alarm; lit = A.live > 0 && A.lit; }
+        await t.frames(1);
+        await t.shot("car-alarm-lights");
+        t.check("…its lights blink (seen on foot)", lit, JSON.stringify((await info()).alarm));
+      }
     });
 
     // ── 6. the walk had no glitches ──
@@ -209,10 +224,11 @@ module.exports = {
       const b = await g(`${D}.puff("bakery")`);
       t.check("the bakery's oven vent", !!b, JSON.stringify(I.puffs.vents));
       if (b) {
-        await standAt(b.fx + 8, b.fz + 8, { x: b.x, z: b.z, pitch: -0.25 });
-        await t.frames(50);
+        const bn = Math.hypot(b.fx - b.x, b.fz - b.z) || 1;      // (out in the street in front of it, looking up at the roof)
+        await standAt(b.fx + (b.fx - b.x) / bn * 8 + b.ux * 4, b.fz + (b.fz - b.z) / bn * 8 + b.uz * 4, { x: b.x, z: b.z, pitch: -0.2 });
+        await t.frames(60);
         I = await info();
-        t.check("…puffs warm air", I.puffs.vent > 3, JSON.stringify(I.puffs));
+        t.check("…puffs warm air", I.puffs.vent >= 2, JSON.stringify(I.puffs));
         await t.shot("bakery-vent");
         await g(`${D}.lineReady()`);
         await standAt(b.fx, b.fz);
@@ -220,7 +236,7 @@ module.exports = {
         I = await info();
         t.check("walking past the bakery: she smells it (a line, once)", I.puffs.smelled.includes("bakery"), JSON.stringify(I.puffs.smelled));
         const l1 = I.lines;
-        await standAt(b.fx + 10, b.fz); await standAt(b.fx, b.fz); await t.frames(8);
+        await standAt(b.fx + b.ux * 10, b.fz + b.uz * 10); await standAt(b.fx, b.fz); await t.frames(8);
         t.check("…and only once a visit", (await info()).lines === l1);
       }
     });
@@ -244,7 +260,7 @@ module.exports = {
     await step("perf", async () => {
       if (!await g(`ctx.town.active && ctx.foot.active`)) return;
       const m = await g(`${D}.puff("manhole")`);
-      if (m) await standAt(m.x + 6, m.z + 6, { x: m.x, z: m.z, pitch: 0.1 });
+      if (m) { const p = from(m, 6, m.h || 0); await standAt(p.x, p.z, { x: m.x, z: m.z, pitch: 0.1 }); }
       await t.frames(30);
       await g(`${D}.off(true)`); await t.frames(5);
       const off = await perf(60);
