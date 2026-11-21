@@ -658,6 +658,11 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
    card is up there, the ON FOOT chip steps aside */
 @media (max-height: 760px) {
     body.touch .hud-slot.left:has(.jphone, .jtext) .foot-chip { display: none; }
+    body.touch .hud-slot.left .jtext:has(~ .jtext) { display: none; }      /* two texts at once: the newest (both are in 💬 Messages) */
+}
+/* a small phone held upright: the banner's second line stays one line (… if it must) so the stack ends above NITRO */
+@media (max-aspect-ratio: 1/1) and (max-height: 700px) {
+    body.touch #banner.compact small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
 }
 /* a narrow phone held upright (touch): the 150 px stick reached the BRAKE pedal */
 @media (max-aspect-ratio: 1/1) and (max-width: 380px) {

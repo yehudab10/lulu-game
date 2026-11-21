@@ -421,10 +421,14 @@ left / right chips, the ✋ prompt and the controller's `#padHint` UP off the sp
 a phone held upright (touch, or a controller / keyboard ≤ 600 px wide: pills in a row, the trip bar full width under them, a
 compact speedo) — the "center" stack carries on the left column under the chips, clear of the speedo's column; a phone on its
 side (touch, ≤ 520 px tall) — the pills in two rows, chips ≤ 260 px wide, a 128 px stick under them, the centre stack between
-the chips and the buttons, the prompt low between the stick and the pedals (on foot: right above the ✋ button), and the ON
-FOOT chip steps aside while a phone call / text card is up. Test: `scripts/tests3d/hudfit.js` (every pair of HUD pieces, by
-rect, at 390×844 / 844×390 / 375×667 / 667×375 / 768×1024 touch, 390×844 / 375×667 / 768×1024 controller, 1280×720, TV
-720p / 1080p, driving + on foot, the HUD at its busiest) — add a new HUD piece's selector to its `PIECES` (and to together's
+the chips and the buttons, the prompt low between the stick and the pedals (on foot: right above the ✋ button). On any phone
+(touch, ≤ 760 px tall) the ON FOOT chip steps aside while a phone call / text card is up and only the newest of two text cards
+shows (both are in 💬 Messages); upright on foot the prompt sits just above the WALK stick; on a small upright phone the
+banner's second line stays one line. A piece that keeps clear of the centre stack ITSELF (hustle's 📻 ticker) is marked
+`data-fit="self"` so the centre doesn't also dodge it (two pieces dodging each other chase each other down the screen). Test:
+`scripts/tests3d/hudfit.js` (every pair of HUD pieces, by rect, at 390×844 / 844×390 / 375×667 / 667×375 / 768×1024 touch,
+390×844 / 375×667 / 768×1024 controller, 1280×720, TV 720p / 1080p, driving + on foot, the HUD at its busiest — 📝, a 💬 text,
+⏭, WELCOME, ✋, the hint — + the Clean HUD on the phones) — add a new HUD piece's selector to its `PIECES` (and to together's
 `AVOID`).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
