@@ -169,7 +169,7 @@ export async function spawnPuddle(opts = {}) {
                 rumble(0.15, 0.4, 140);
                 const v = Math.min(car.speed, 30) / 30;
                 for (let i = 0; i < 24; i++) car.fx.emit(car.pos.x + rnd(-1, 1), 0.3, car.pos.z + rnd(-1, 1), rnd(-4, 4) * v, rnd(2, 5) * v + 1, rnd(-4, 4) * v, 0.35, 0.6, pick([[0.26, 0.65, 0.96], [0.56, 0.79, 0.98], [0.73, 0.87, 0.98]]));
-                if (Math.random() < 0.4) H.toast("💦 SPLASH!", "");
+                // (no "💦 SPLASH!" toast any more: the spray, the sound and Lulu's "wet!" line say it — it landed on top of her line)
                 stat("puddles", 1);
             }
             return null;

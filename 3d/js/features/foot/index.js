@@ -788,7 +788,7 @@ function trafficStep(dt) {
         const g = (F.s - c.s) * c.dir;
         if (g > 0 && g < 34 && Math.abs(c.d - F.d) < 1.8 && F.phase !== "intro") {
             if (c.data.footAttn) c.want = Math.min(c.want, Math.max(0, (g - 7) * 0.7));
-            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8); }
+            else if (!c.data.footHonk && g < 28) { c.data.footHonk = true; beep(2); floater(c.obj, pick(["BEEP BEEP!", "📣 Outta the ROAD!", "📣 MOVE, lady!"]), "#FFFFFF", 1.3, 1.8, { flavour: true }); }    // (the beep says it: colour, in the bubble budget)
         }
     }
     // cars come up from behind her (the built-in spawner only adds them ahead)
