@@ -6,7 +6,7 @@
 //
 // Also "copStop": when Lulu is the one driving a cruiser, she pulls others over.
 import * as THREE from "three";
-import { ctx, registerState, setState, emit, wrapAngle } from "../../core/ctx.js";
+import { ctx, registerState, setState, emit, wrapAngle, hooks } from "../../core/ctx.js";
 import { updateDriving, addCoins } from "../../core/driving.js";
 import { rumble } from "../../input.js";
 import * as H from "../../hud.js";
@@ -23,14 +23,23 @@ const tmp = {}, tmpB = {};
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 export const cast = { cop: null, unit: null };   // shared with the arrest scene (same officer, same cruiser)
 
+/** A place off the highway with roads of its own (features/airport) says where a pull-over stops instead of the
+ *  highway's shoulder: hook "pullOverSpot" (car) → { h } — she brakes right where she is, facing h (along the road she's
+ *  on), no easing over to d 7.9 — or null (not its business: law's own shoulder, pullDAt). */
+export function pullOverSpot(car = ctx.car) {
+    for (const fn of hooks.pullOverSpot || []) { try { const r = fn(car); if (r && Number.isFinite(r.h)) return r; } catch (e) { console.error("[law] pullOverSpot", e); } }
+    return null;
+}
 function autoLulu(dt, d, stop) {
-    const car = ctx.car, road = ctx.world.road;
-    road.point(car.s + 12, d, tmp);
-    const want = Math.atan2(tmp.x - car.pos.x, tmp.z - car.pos.z);
+    const car = ctx.car, road = ctx.world.road, spot = pullOverSpot(car);
+    let want;
+    if (spot) want = spot.h;
+    else { road.point(car.s + 12, d, tmp); want = Math.atan2(tmp.x - car.pos.x, tmp.z - car.pos.z); }
     const diff = wrapAngle(want - car.h);
     // (holding the brake at a standstill would REVERSE — ease off once she's stopped)
     const ctl = { steer: Math.max(-1, Math.min(1, -diff * 3)), throttle: 0, brake: stop ? (car.vF > 0.6 ? 0.9 : 0.25) : 0.35, handbrake: false, analog: true };
-    if (!stop && car.speed < 6) { ctl.brake = 0; ctl.throttle = car.speed < 4 ? 0.25 : 0; }
+    if (spot && car.vF <= 0.6) ctl.brake = 0.25;               // (a spot: no rolling on to the shoulder — just stop here)
+    else if (!stop && car.speed < 6) { ctl.brake = 0; ctl.throttle = car.speed < 4 ? 0.25 : 0; }
     updateDriving(dt, {}, false, ctl);
 }
 /** Where an officer stands to talk through Lulu's (left-side) window. */
@@ -43,9 +52,15 @@ export function copDoor(u, out = _b) {
     return out.set(c.x + Math.cos(h) * 1.25 + Math.sin(h) * 0.3, 0, c.z - Math.sin(h) * 1.25 + Math.cos(h) * 0.3);
 }
 export function roadsideShot(dt, rate = 1.6) {
-    const car = ctx.car, road = ctx.world.road;
-    road.point(car.s + 10.5, car.d - 6.5, tmp);
-    road.point(car.s - 2.5, car.d - 0.4, tmpB);
+    const car = ctx.car, road = ctx.world.road, spot = pullOverSpot(car);
+    if (spot) {     // (the same shot along the road she stopped on — not along the highway 190 m away)
+        const fx = Math.sin(spot.h), fz = Math.cos(spot.h), rx = -fz, rz = fx;
+        tmp.x = car.pos.x + fx * 10.5 - rx * 6.5; tmp.z = car.pos.z + fz * 10.5 - rz * 6.5;
+        tmpB.x = car.pos.x - fx * 2.5 - rx * 0.4; tmpB.z = car.pos.z - fz * 2.5 - rz * 0.4;
+    } else {
+        road.point(car.s + 10.5, car.d - 6.5, tmp);
+        road.point(car.s - 2.5, car.d - 0.4, tmpB);
+    }
     ctx.cam.cinematic(_a.set(tmp.x, 2.3, tmp.z), _b.set(tmpB.x, 1.15, tmpB.z), dt, rate, 46);
 }
 
