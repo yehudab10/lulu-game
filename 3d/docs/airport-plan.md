@@ -1,6 +1,6 @@
 # ✈️ The airport exit (JFK) — plan + hand-off
 
-**Status: DECIDED (the owner answered all 12 questions on 2026-11-20 — see Decisions). Building stage 1 on `ci/airport`.**
+**Status: stages 1–3 LANDED (stage 1 switched OFF by default until `ci/exits2`; the switch-on steps are the newest Sync log lines). Polish on `ci/airport-polish`.**
 **Branch: `ci/airport`. Owner of this job: the owner's other AI account (the one that originally set this repo's agents going).**
 Everything else in flight belongs to the coordinator session's agents (see `AGENTS.md` §6).
 
@@ -153,6 +153,35 @@ interchange offers both towns" is assumed in several places.
 
 ## Sync log (newest first — one line each, both accounts write here)
 
+- 2026-11-21 · airport-polish · **SWITCH-ON STEPS (for whoever lands after `ci/exits2`)** — measured on main: the airport FITs
+  beside the constant highway only at 8.8–8.9 km, 22.4–22.6, 23.7, 25.4–26.0, 26.9–27.8, 28.8–29.0 km… (`fits()` + `clearOf`, 5–40 km
+  scanned), while exits2's ROUTE puts a town exit every 4 km (Midwood 3.6, Lakewood 7.6, period 8 km) and the airport needs ~2.4 km of
+  road (signs −1490 → accel lane +900) plus a gap. A ROUTE stop (the exits2 note below) would have to land on one of those rare fits
+  every lap, so the order is the other way round: **the airport is planned FIRST from fixed data only, the towns keep out of it.**
+  Steps: **(1)** `features/town/exit.js` › `clearOfPlaces` (exits2's file — its owner or the lander): one more clash term,
+  `|| (ctx.airport && ctx.airport.zones && ctx.airport.zones(s + SPAN.a, s + ACC1 + 80).length > 0)` — a town exit then slides past
+  the airport's zone (with today's numbers Lakewood's first exit moves from 7.6 km to past ~10 km; to keep Lakewood first instead, set
+  `AIR.first` in `features/airport/plan.js` to 9000 → JFK at 22.4 km). **(2)** `features/airport/index.js`: `ON_BY_DEFAULT = true`
+  (it sets `PLANNING.townsKeepOut`: the airport stops waiting on the towns' exits, `ctx.airport.zones()` goes live — the rest areas'
+  `clearAt` in `features/exits` already asks it — and the 🎉 party gate opens by itself: every friend computes the same zones).
+  **(3)** `scripts/tests3d/airport.js`: the "stays out of a 🎉 party" check → "on in a 🌍 Free Roam"; the zones check already covers
+  the fixed-data part. **(4)** Run `airport;airport-terminal;airport-stage3;town;midwood;exits;flow;home;day;partyworld;core,platform,skip,ux,music`
+  and check on a real Cruise that `ctx.town.exits` never overlaps `ctx.airport.spans()`. **(5)** Docs: AGENTS §6 `ci/airport` row,
+  ARCHITECTURE › The airport + the party parity row, CLAUDE.md (drop "OFF by default").
+- 2026-11-21 · airport-polish · LANDED-READY on `ci/airport-polish` (stage-1 gaps closed; still OFF by default). In `features/airport/`:
+  `chase.js` (highway cruisers that follow her off the exit drive the airport's ROAD NET — highway → off-ramp → road in → loop / the
+  lot's aisle → road out → on-ramp — never through the fence or the terminal; the terminal + tower block their view), `security.js`
+  (a WANTED Lulu in the landside: Officer Segal's Segway + Rex roll out of the nearest door — at the wheel she's held to a crawl beside
+  him, mid-chase he keeps the cops' eyes on her (`ctx.law.spot`), with warrants only he radios it in (`ctx.law.callIn`); on foot Rex
+  has her shoelace and a foot cop comes out of the doors; he gives up at the landside's edge or when his battery dies), `life.js`
+  (her car vs. the taxis + shuttles: traffic.js's circles-and-impulse collision, a hard hit knocks a taxi spinning, the driver yells,
+  then eases back into line; damage like traffic), `build.js` (LOW draws a lighter airport: 2 of 3 jets, every other parked car + lamp,
+  the bottom fence's trees, the windsock, the facade's trim — cut by draw ranges, their colliders off), `plan.js` (`zones()` + the
+  switch-on model above), the ½ MI sign's text no longer overflows, the doors' boards no longer say "opening soon".
+  **Shared files touched (small, additive):** `features/law/cops.js` (hooks `copRoute` (c, u, chase) → {gap, aim} and `copSight`
+  (ax, az, bx, bz) → true / false / undefined — any place off the highway with its own roads can use them; +19 lines),
+  `features/foot/bounds.js` (`SLOW` registry = `ctx.foot.bounds.slow`: fns (F) → a speed multiplier; +7 lines),
+  `features/exits/index.js` (`clearAt` asks `ctx.airport.zones` — empty until the switch-on; +2 lines).
 - 2026-11-21 · airport-polish · started `ci/airport-polish` (stage-1 gaps: cops follow the airport roads / give up at the gate, kerb vehicle collisions, a lighter LOW, kerb security for a wanted Lulu, the advance-sign screenshot, switch-on steps). Own files only unless logged here.
 - 2026-11-20 · airport · STAGE 1 LANDED on `main`, OFF by default (`?airport=1`): `features/airport/` (index · layout · plan · build · planes · life · bake · lines), `assets_airport.py` (the outside of the terminal is `airport_facade` — `airport_terminal.glb` stays stage 2's hall), test `airport`. **For stage 2:** `ctx.airport` is an object created at import (extend it on boot as planned); the doors (six, on the kerb sidewalk) call `ctx.airport.terminal.warm()` within 22 m and `ctx.airport.terminal.enter({ door: { s, d, side, x, z } })` when `canEnter()` (else "opening soon"); the security guard is "Officer Segal" on both sides. **For stage 3:** `ctx.airport.kerb.pickup()` = the ARRIVALS pickup point (f 24 in the kerb lane, clear of the taxi line; null until the airport is built) — `airport` + `airport-stage3` green together on CI run 44856534248. **Shared files touched:** `world.js` (`world.keepBehind`, m: a feature keeps highway chunks that long behind her), `features/foot/bounds.js` (`FREE` = `ctx.foot.bounds.free`: predicates (x, z) → no world fence there), `features/index.js` (one import). **For `ci/exits2` (request):** when the per-town route lands, give the airport ONE slot in it from fixed data (≈ further out than the town exits; its span = `ctx.airport.spans()`: signs −1490 → accel lane +900, its rigid footprint ±640 m round exit + 330 on the right, up to 410 m out) — I'll hook `features/airport/plan.js` `findSpot` onto it and switch it ON; until then the town planner keeps out of it only in SOLO runs (its reserved strip) and the airport stays off in a party.
 

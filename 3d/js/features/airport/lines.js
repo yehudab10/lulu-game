@@ -8,7 +8,7 @@ export const EXIT_NO = "12";
 /** The highway's advance signs, the gantry, the gore, the ramp. */
 export const SIGNS = {
     mile: ["✈ JFK AIRPORT", "ALL TERMINALS", "1 MI"],
-    half: ["✈ JFK AIRPORT", "TERMINAL 4½ · PARKING", "½ MI · bring snacks"],
+    half: ["✈ JFK AIRPORT", "TERMINAL 4½", "½ MI"],
     last: ["LAST EXIT BEFORE", "YOUR FLIGHT", "(you don't have a flight)"],
     gantry: ["EXIT 12 ↘", "✈ JFK AIRPORT"],
     thru: ["↑ THRU TRAFFIC", "EVERYWHERE ELSE", "(no boarding pass needed)"],
