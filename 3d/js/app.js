@@ -18,7 +18,7 @@ import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, open
 import { resetRun, startRun, endRun, damage, addCoins, KO } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
-import { updateLods, LOD } from "./lod.js";
+import { updateLods, LOD, installShadowProxies } from "./lod.js";
 import { gfxFrame } from "./core/gfx.js";
 import { Post } from "./core/post.js";
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
@@ -36,6 +36,7 @@ ctx.renderer = renderer;
 const rawRender = renderer.render;
 ctx.rawRender = (s, c) => rawRender.call(renderer, s, c);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+installShadowProxies(renderer);      // (MEDIUM / HIGH: a car casts its shadow in one draw — lod.js › shadow proxies)
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 

@@ -836,25 +836,36 @@ export class World {
         this.sky.renderOrder = -1;
         this.scene.add(this.sky);
 
-        // puffy low-poly clouds
+        // puffy low-poly clouds — 16 clouds × 5 puffs baked into ONE mesh (was 80 meshes: ~10–12 draw calls whenever the
+        // sky was in view). The ring still turns / follows the camera as the `clouds` group; atmos tints its material.
         this.clouds = new THREE.Group();
         const cm = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 1, fog: false, emissive: "#ffffff", emissiveIntensity: 0.35, flatShading: true });
         const cg = new THREE.IcosahedronGeometry(1, 1);
         const rnd = mulberry32(99);
+        const puffs = [], cloud = new THREE.Object3D(), puff = new THREE.Object3D();
+        cloud.add(puff);
         for (let i = 0; i < 16; i++) {
-            const c = new THREE.Group();
+            const js = [];
             for (let j = 0; j < 5; j++) {
-                const m = new THREE.Mesh(cg, cm);
                 const r = 14 + rnd() * 14;
-                m.scale.set(r * 1.4, r * 0.7, r);
-                m.position.set((j - 2) * 18 + rnd() * 8, rnd() * 6, rnd() * 10);
-                c.add(m);
+                js.push([r, (j - 2) * 18 + rnd() * 8, rnd() * 6, rnd() * 10]);
             }
             const a = rnd() * Math.PI * 2, dist = 450 + rnd() * 300;
-            c.position.set(Math.cos(a) * dist, 120 + rnd() * 90, Math.sin(a) * dist);
-            c.rotation.y = rnd() * 6;
-            this.clouds.add(c);
+            cloud.position.set(Math.cos(a) * dist, 120 + rnd() * 90, Math.sin(a) * dist);
+            cloud.rotation.y = rnd() * 6;
+            for (const [r, x, y, z] of js) {
+                puff.scale.set(r * 1.4, r * 0.7, r);
+                puff.position.set(x, y, z);
+                cloud.updateMatrixWorld(true);
+                puffs.push(cg.clone().applyMatrix4(puff.matrixWorld));
+            }
         }
+        const cloudMesh = new THREE.Mesh(mergeGeometries(puffs, false), cm);
+        for (const g of puffs) g.dispose();
+        cg.dispose();
+        cloudMesh.name = "worldClouds";
+        cloudMesh.frustumCulled = false;      // (the ring is all around her: one draw call whenever any of it shows)
+        this.clouds.add(cloudMesh);
         this.scene.add(this.clouds);
     }
 
