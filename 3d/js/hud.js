@@ -188,6 +188,7 @@ function showBanner(b) {
     el.banner.innerHTML = b.html;
     el.banner.classList.remove("hidden", "held");
     el.banner.style.animation = "none"; void el.banner.offsetWidth; el.banner.style.animation = "";
+    if (el.banner.classList.contains("compact")) fitHud();      // (ducks under the chips from its first frame)
 }
 function pumpBanners() {
     const blocked = popupsBlocked();
@@ -246,6 +247,69 @@ export function notifyTick(dt) {
     }
     for (const b of NT.bq) b.age += dt;
     pumpBanners();
+    if ((FIT.t -= dt) <= 0) { FIT.t = 0.2; fitHud(); }
+}
+
+// ── keep clear (ci/hudfit) ───────────────────────────────────────────────
+// A few HUD pieces have no fixed room: what sits around them depends on the screen and on what else is up (the
+// pills wrap, 📝 Ima's list grows a line, a phone text arrives). ~5× a second each is nudged — only as far as it
+// must — off the pieces it would sit on: the feature stacks under the pills, the "center" stack (the WELCOME
+// banner, task chips) under the trip bar + the left / right chips, the ✋ prompt and the controller's hint up
+// off the speedo / the touch buttons / each other. The nudge is the CSS `translate` property (`data-fit-dy`), so it
+// never fights a piece's own transform / animation. ⏭ SKIP does the same (core/skip.js).
+const FIT = { t: 0 };
+const shownEl = e => { if (!e.offsetParent && getComputedStyle(e).position !== "fixed") return false;
+    const cs = getComputedStyle(e); if (cs.visibility === "hidden" || e.classList.contains("hidden")) return false;
+    const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2; };
+/** Nudge `e` down (dir 1) / up (dir -1) just far enough to clear every shown piece matching `avoid`. */
+export function keepClear(e, avoid, dir = 1, gap = 6) {
+    if (!e) return 0;
+    const cur = +e.dataset.fitDy || 0;
+    let r = e.getBoundingClientRect();
+    if (e.classList.contains("hud-slot")) {          // a stack: what's IN it (it may be wider than its pieces)
+        let u = null;
+        for (const c of e.children) { if (!shownEl(c)) continue; const q = c.getBoundingClientRect();
+            u = u ? { left: Math.min(u.left, q.left), right: Math.max(u.right, q.right), top: Math.min(u.top, q.top), bottom: Math.max(u.bottom, q.bottom) } : q; }
+        r = u ? { left: u.left, right: u.right, top: u.top, bottom: u.bottom, width: u.right - u.left, height: u.bottom - u.top } : { width: 0, height: 0 };
+    }
+    let dy = 0;
+    if (r.width > 2 && r.height > 2 && !el.hud.classList.contains("hidden")) {
+        const top = r.top - cur, bot = r.bottom - cur, obs = [];
+        for (const sel of avoid) for (const o of document.querySelectorAll(sel)) if (!e.contains(o) && !o.contains(e) && shownEl(o)) obs.push(o.getBoundingClientRect());
+        for (let k = 0; k < 8; k++) {
+            let moved = false;
+            for (const o of obs) {
+                if (Math.min(r.right, o.right) - Math.max(r.left, o.left) <= 2) continue;
+                if (Math.min(bot + dy, o.bottom + gap) - Math.max(top + dy, o.top - gap) <= 0) continue;
+                const n = dir > 0 ? o.bottom + gap - top : o.top - gap - bot;
+                if (dir > 0 ? n > dy : n < dy) { dy = n; moved = true; }
+            }
+            if (!moved) break;
+        }
+        dy = Math.max(-top, Math.min(innerHeight - bot, dy));      // never off the screen
+    }
+    dy = Math.round(dy);
+    if (dy !== cur) { e.dataset.fitDy = dy; e.style.translate = dy ? `0 ${dy}px` : ""; }
+    return dy;
+}
+const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn"];
+// (a piece marked data-fit="self" keeps clear of the centre stack on its own on a wide screen — hustle's 📻 ticker
+// steps down the right column — so there the centre doesn't also duck under it: two pieces each dodging the other
+// would chase each other down the screen. On a screen held upright the centre stack carries on under BOTH columns
+// and such pieces stay put — PORTRAIT, the same test they make.)
+const SIDES = ["#slot-left > *", "#slot-right > *"];
+const SIDES_WIDE = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
+export const PORTRAIT = matchMedia("(max-aspect-ratio: 1/1)");
+const BOTTOM = ["#hud .hud-br .speedo", "#touch .tbtn", "#stickBase", "#touchExtra > *"];
+/** One keep-clear pass over the HUD (every 0.2 s of game time, and when a banner / prompt shows). */
+export function fitHud() {
+    if (el.hud.classList.contains("hidden")) return;
+    const s = id => document.getElementById("slot-" + id);
+    keepClear(s("left"), TOPS);
+    keepClear(s("right"), TOPS.concat("#slot-left > *"));
+    keepClear(s("center"), TOPS.concat(PORTRAIT.matches ? SIDES : SIDES_WIDE, "#hud .hud-br .speedo"));
+    keepClear(el.padHint, BOTTOM, -1);
+    keepClear(s("bottom"), BOTTOM.concat("#padHint"), -1);
 }
 
 let lastHint = null;
@@ -440,4 +504,5 @@ export function prompt(html) {
     lastPrompt = html;
     const s = hudSlot("bottom");
     s.innerHTML = html ? `<div class="prompt">${html}</div>` : "";
+    if (html) fitHud();
 }
