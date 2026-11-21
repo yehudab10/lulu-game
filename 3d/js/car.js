@@ -103,6 +103,10 @@ export class PlayerCar {
         // wheel, the steered front wheels and anything hung on an anchor keep casting on their own (they move)
         this.shadow = shadowProxy(this.model, { skip: o => o === this.driver || /^(Hair_|SteeringWheel|Wheel_F|Anchor_)/.test(o.name || "") });
         if (this.driver) shadowBatch(this.driver);      // (Lulu at the wheel moves: the people's shadow batch, not a baked proxy)
+        // her hair (every style: the hidden ones simply don't draw), the steering wheel and the steered front wheels move
+        // too — the same batch, so they stop costing a shadow draw each (MEDIUM / HIGH)
+        for (const h of this.hairs) shadowBatch(h);
+        for (const n of findNodes(this.model, "SteeringWheel").concat(findNodes(this.model, "Wheel_F"))) shadowBatch(n);
     }
 
     /** Recolour Lulu's hair and (optionally) pick a style ("sheitel" or any Hair_<style> in the model). */
@@ -128,6 +132,7 @@ export class PlayerCar {
         obj.traverse(o => { if (o.isMesh && o.material.name === "Hair") { o.material = o.material.clone(); this.hairMats.push(o.material); } });
         this.model.add(obj);
         if (!this.hairs.includes(obj)) this.hairs.push(obj);
+        shadowBatch(obj);
         this.setHair(this.hairColor, this.hairStyle || "sheitel");
     }
 

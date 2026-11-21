@@ -245,6 +245,8 @@ export function shadowProxy(root, opts = {}) { return new ShadowProxy(root, opts
 export function installShadowProxies(renderer) {
     const sm = renderer.shadowMap, orig = sm.render, shown = [];
     sm.render = function (lights, scene) {
+        // (the people's batch moves their real parts to PEOPLE_LAYER: the shadow cameras still see it — see below)
+        if (lights) for (let i = 0; i < lights.length; i++) { const sc = lights[i].shadow && lights[i].shadow.camera; if (sc && !(sc.layers.mask & PM.mask)) sc.layers.enable(PEOPLE_LAYER); }
         if (!sm.enabled || !SH.on || (!SH.live.size && !PB.roots.size) || !lights || !lights.length || (sm.autoUpdate === false && sm.needsUpdate === false)) return orig.apply(this, arguments);
         SH.frame++;
         for (const p of SH.live) if (p.prepare()) for (const m of p.meshes) { m.visible = true; shown.push(m); }
@@ -397,3 +399,227 @@ export function shadowProxyInfo() {
 }
 /** Tests: every part casts on its own again (false) / proxies back on (true). */
 export function shadowProxiesOn(on) { SH.on = !!on; if (!on) for (const p of SH.live) p.release(0); }
+
+// ── The people's main-pass batch (every tier) ───────────────────────────────────────────────────────────────────
+// A spawned person (core/people.js) is ~13 meshes — body, arms, legs, hair, face, clothes — so ~13 draw calls in the main
+// pass wherever she stands: a pedestrian on the highway, the home street, the crowd round a roadside event. Here every
+// registered person's plain parts are instances of ONE BatchedMesh per kind of material (in practice 1–2), drawn with
+// one WEBGL_multi_draw call (iOS Safari 15+, Chrome / Android; elsewhere three draws them one by one — no worse than
+// before). Each render copies every part's LIVE matrixWorld + visibility in, so walk cycles, waves and a turned head
+// stay exact near or far, and each instance's colour + roughness come from its own material (the batch's per-instance
+// colour texture: rgb = colour, alpha = roughness), so a recolour or a flash shows at once. The real parts are moved
+// to a layer the main camera doesn't draw (PEOPLE_LAYER) — never hidden: every feature's `visible`, matrices and
+// raycasts are untouched, and the sun's shadow camera still sees that layer (the shadow batch above, or the part
+// itself, casts as before). Anything a batch can't draw exactly — a texture, transparency, emissive, a custom shader,
+// a skinned / instanced / multi-material mesh — stays a real mesh. A person who isn't in the main scene when it's drawn
+// (an interior set, a portrait, pooled) gets her parts back on layer 0 before that render; a part whose material
+// changes kind (turns transparent, gets a map…) or that leaves her hands her back to real meshes, and she re-joins a
+// moment later.
+//
+//   installPeopleBatch(renderer, scene)   (app.js, once)
+//   peopleBatch(personRoot)               (core/people.js, for every spawned person)
+export const PEOPLE_LAYER = 30;
+const PM = { roots: new Map(), batches: new Map(), on: true, scene: null, frame: 0, released: 0, resets: 0, mask: 1 << PEOPLE_LAYER, maxVerts: 600000 };
+const _proto = THREE.Object3D.prototype, _mproto = THREE.Material.prototype;
+const MAPS = ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap", "aoMap", "lightMap", "bumpMap", "alphaMap", "envMap", "displacementMap"];
+const KEYS = ["side", "flatShading", "metalness", "envMapIntensity", "fog", "toneMapped", "dithering", "polygonOffset", "polygonOffsetFactor", "polygonOffsetUnits", "shadowSide", "premultipliedAlpha"];
+function pmPlain(m) {
+    if (!m || Array.isArray(m) || m.type !== "MeshStandardMaterial") return false;
+    if (m.transparent || m.opacity !== 1 || m.alphaTest > 0 || !m.visible || m.vertexColors || m.wireframe || m.alphaHash || m.alphaToCoverage) return false;
+    if (m.blending !== THREE.NormalBlending || !m.colorWrite || !m.depthTest || !m.depthWrite || m.clippingPlanes || m.onBeforeCompile !== _mproto.onBeforeCompile) return false;
+    if (m.emissive.r || m.emissive.g || m.emissive.b) return false;
+    for (const k of MAPS) if (m[k]) return false;
+    return true;
+}
+function pmEligible(o) {
+    if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || o.isBatchedMesh || !o.geometry) return false;
+    if (o.layers.mask !== 1 || o.renderOrder !== 0 || !o.receiveShadow || o.onBeforeRender !== _proto.onBeforeRender || o.onAfterRender !== _proto.onAfterRender) return false;
+    const g = o.geometry, a = g.attributes;
+    if (!a.position || !a.normal || a.position.itemSize !== 3 || a.normal.itemSize !== 3 || a.position.isInterleavedBufferAttribute || a.normal.isInterleavedBufferAttribute) return false;
+    if (g.groups.length > 1 || g.drawRange.start !== 0 || g.drawRange.count !== Infinity) return false;
+    if (g.morphAttributes && Object.keys(g.morphAttributes).length) return false;
+    return pmPlain(o.material);
+}
+/** What a batch's ONE material has to match: everything but the colour + roughness (those are per instance). */
+function pmKey(m) { let k = ""; for (const n of KEYS) k += m[n] + ","; return k; }
+function pmMatches(m, bm) { for (let i = 0; i < KEYS.length; i++) if (m[KEYS[i]] !== bm[KEYS[i]]) return false; return true; }
+function pmBatch(key, src) {
+    let b = PM.batches.get(key);
+    if (b) return b;
+    const mat = new THREE.MeshStandardMaterial();
+    for (const k of KEYS) mat[k] = src[k];
+    mat.color.setRGB(1, 1, 1); mat.roughness = 1; mat.name = "PeopleBatch";
+    mat.onBeforeCompile = sh => {
+        sh.vertexShader = sh.vertexShader
+            .replace("#include <common>", "#include <common>\nflat varying float vPbRough;")
+            .replace("#include <color_vertex>", "#include <color_vertex>\n#ifdef USE_BATCHING_COLOR\n{ int pbI = int( getIndirectIndex( gl_DrawID ) ); int pbS = textureSize( batchingColorTexture, 0 ).x; vPbRough = texelFetch( batchingColorTexture, ivec2( pbI % pbS, pbI / pbS ), 0 ).a; }\n#else\nvPbRough = 1.0;\n#endif");
+        sh.fragmentShader = sh.fragmentShader
+            .replace("#include <common>", "#include <common>\nflat varying float vPbRough;")
+            .replace("#include <roughnessmap_fragment>", "float roughnessFactor = vPbRough;");
+    };
+    mat.customProgramCacheKey = () => "peopleBatch1";
+    const mesh = new THREE.BatchedMesh(256, 32768, 65536, mat);
+    mesh.name = "peopleBatch";
+    mesh.castShadow = false; mesh.receiveShadow = true; mesh.frustumCulled = false;
+    mesh.sortObjects = false; mesh.perObjectFrustumCulled = true;
+    mesh.matrixAutoUpdate = false; mesh.visible = false;
+    b = { key, mesh, mat, geos: new Map(), verts: 0, idx: 0, insts: 0, cap: { v: 32768, i: 65536, n: 256 }, parts: [], full: false };
+    const base = THREE.BatchedMesh.prototype.onBeforeRender;
+    mesh.onBeforeRender = function (r, s, c, g, m, grp) { pmSync(b); return base.call(this, r, s, c, g, m, grp); };
+    PM.batches.set(key, b);
+    return b;
+}
+function pmGrow(b, needV, needI, needN) {
+    const c = b.cap, m = b.mesh;
+    if (needV > c.v || needI > c.i) { c.v = Math.max(c.v * 2, needV); c.i = Math.max(c.i * 2, needI); m.setGeometrySize(c.v, c.i); }
+    if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
+}
+function pmGeometry(b, src) {
+    let g = b.geos.get(src);
+    if (g != null) return g;
+    const pos = src.attributes.position, geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", pos.clone());
+    geo.setAttribute("normal", src.attributes.normal.clone());
+    if (src.index) geo.setIndex(src.index.clone());
+    else { const n = pos.count, a = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) a[i] = i; geo.setIndex(new THREE.BufferAttribute(a, 1)); }
+    pmGrow(b, b.verts + pos.count, b.idx + geo.index.count, b.insts);
+    g = b.mesh.addGeometry(geo);
+    b.verts += pos.count; b.idx += geo.index.count;
+    geo.dispose();
+    b.geos.set(src, g);
+    // (every person model that ever walked by keeps its parts in the batch's buffers: past maxVerts it starts afresh)
+    if (b.verts > PM.maxVerts) b.full = true;
+    return g;
+}
+const _pc = new THREE.Color();
+function pmColor(p) {
+    const m = p.o.material, c = m.color, mesh = p.b.mesh;
+    p.r = c.r; p.g = c.g; p.bl = c.b; p.rough = m.roughness;
+    mesh.setColorAt(p.id, _pc.setRGB(c.r, c.g, c.b));
+    mesh._colorsTexture.image.data[p.id * 4 + 3] = m.roughness;     // (alpha = roughness: the batch's shader reads it)
+}
+class PersonBatch {
+    constructor(root) { this.root = root; this.parts = []; this.wait = 0; this.gone = 0; this.drops = []; this.active = false; this.changed = false; }
+    build() {
+        const root = this.root, list = [];
+        const walk = o => {
+            if (o.name === "shadowProxy" || o.name === "lodFar") return;
+            if (pmEligible(o)) list.push(o);
+            for (const c of o.children) walk(c);
+        };
+        walk(root);
+        if (!list.length) return false;
+        root.updateMatrixWorld(true);
+        for (const o of list) {
+            const m = o.material, b = pmBatch(pmKey(m), m), g = pmGeometry(b, o.geometry);
+            pmGrow(b, b.verts, b.idx, b.insts + 1);
+            const id = b.mesh.addInstance(g);
+            b.insts++;
+            const p = { o, id, b, pb: this, mat: m, mask: o.layers.mask, r: 0, g: 0, bl: 0, rough: 0 };
+            b.parts.push(p);
+            pmColor(p);
+            b.mesh.setMatrixAt(id, o.matrixWorld);
+            o.layers.mask = PM.mask;
+            this.parts.push(p);
+        }
+        this.active = true;
+        this.changed = false;
+        return true;
+    }
+    release(wait = 30) {
+        for (const p of this.parts) {
+            if (p.o.layers.mask === PM.mask) p.o.layers.mask = p.mask;
+            p.b.mesh.deleteInstance(p.id); p.b.insts--;
+            const i = p.b.parts.indexOf(p); if (i >= 0) p.b.parts.splice(i, 1);
+        }
+        this.parts.length = 0;
+        this.active = false;
+        this.changed = false;
+        this.wait = wait;
+    }
+    /** A part changed kind under the batch: real meshes again (a person whose parts keep changing waits longer). */
+    drop() {
+        PM.released++;
+        this.drops.push(PM.frame);
+        while (this.drops.length && PM.frame - this.drops[0] > 600) this.drops.shift();
+        this.release(this.drops.length >= 3 ? 1800 : 30);
+    }
+}
+/** Right before a batch draws (its onBeforeRender: the matrices are up to date) — every part's live transform,
+ *  visibility and colour. A part that changed kind is still drawn as it was this once and handed back before the next
+ *  render (no blink). */
+function pmSync(b) {
+    const mesh = b.mesh, parts = b.parts;
+    for (let i = 0; i < parts.length; i++) {
+        const p = parts[i], o = p.o, m = o.material, pb = p.pb;
+        if (m !== p.mat || o.layers.mask !== PM.mask || !pmPlain(m) || !pmMatches(m, b.mat)) pb.changed = true;
+        let vis = true, under = false;
+        for (let a = o; a; a = a.parent) { if (!a.visible) vis = false; if (a === pb.root) under = true; }
+        if (!under) { pb.changed = true; vis = false; }
+        mesh.setVisibleAt(p.id, vis);
+        if (!vis) continue;
+        mesh.setMatrixAt(p.id, o.matrixWorld);
+        if (m === p.mat && (m.color.r !== p.r || m.color.g !== p.g || m.color.b !== p.bl || m.roughness !== p.rough)) pmColor(p);
+    }
+}
+function pmInScene(o) { for (let a = o; a; a = a.parent) if (a === PM.scene) return true; return false; }
+/** Before every render: only people in the main scene, and only for the main scene's render, are batched. */
+function pmPrepare(scene) {
+    const main = scene === PM.scene && PM.on;
+    if (main) PM.frame++;
+    for (const b of PM.batches.values()) if (b.full) {
+        // (start this batch afresh: its people re-join right away, only the models still around are copied in again)
+        for (const p of b.parts.slice()) if (p.pb.active) p.pb.release(0);
+        if (b.mesh.parent) b.mesh.parent.remove(b.mesh);
+        b.mesh.dispose(); b.mat.dispose();
+        PM.batches.delete(b.key); PM.resets++;
+    }
+    for (const [root, pb] of PM.roots) {
+        if (pb.active) {
+            if (pb.changed) { pb.drop(); continue; }
+            if (!main || !pmInScene(root)) pb.release(main ? 30 : 0);
+            else { pb.gone = 0; continue; }
+        }
+        if (!main) continue;
+        if (!root.parent || !pmInScene(root)) {
+            // (left the world for good: forgotten — Person.update() registers her again if she comes back)
+            if (++pb.gone > 600 && !root.parent) { PM.roots.delete(root); root.userData.pbGone = true; }
+            continue;
+        }
+        pb.gone = 0;
+        if (pb.wait > 0) { pb.wait--; continue; }
+        if (!pb.build()) pb.wait = 240;
+    }
+    if (main) for (const b of PM.batches.values()) {
+        if (b.mesh.parent !== scene) scene.add(b.mesh);
+        b.mesh.visible = b.parts.length > 0;
+    } else for (const b of PM.batches.values()) b.mesh.visible = false;
+}
+/** app.js, once: the batch is filled right before each render of the main scene (any render call — the bloom path,
+ *  the dissolve snapshot, the photo mode — goes through here). */
+export function installPeopleBatch(renderer, scene) {
+    PM.scene = scene;
+    const orig = renderer.render;
+    renderer.render = function (s) {
+        if (PM.roots.size || PM.batches.size) { try { pmPrepare(s); } catch (e) { console.error("[peopleBatch]", e); } }
+        return orig.apply(this, arguments);
+    };
+}
+/** Draw a spawned person's plain parts through the people's main-pass batch (see above). */
+export function peopleBatch(root) {
+    if (!root || PM.roots.has(root)) return;
+    root.userData.pbGone = false;
+    PM.roots.set(root, new PersonBatch(root));
+}
+/** Tests: { people (batched now), parts, registered, batches, geometries, verts, released, resets, on, layer }. */
+export function peopleBatchInfo() {
+    let people = 0, parts = 0, geometries = 0, verts = 0;
+    for (const pb of PM.roots.values()) if (pb.active) { people++; parts += pb.parts.length; }
+    for (const b of PM.batches.values()) { geometries += b.geos.size; verts += b.verts; }
+    return { people, parts, registered: PM.roots.size, batches: PM.batches.size, geometries, verts, released: PM.released, resets: PM.resets, on: PM.on, layer: PEOPLE_LAYER };
+}
+/** Tests: every person drawn by her own meshes again (false) / back in the batch (true). */
+export function peopleBatchOn(on) {
+    PM.on = !!on;
+    if (!on) { for (const pb of PM.roots.values()) if (pb.active) pb.release(0); for (const b of PM.batches.values()) b.mesh.visible = false; }
+}

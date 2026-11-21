@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { models, instanced, cloneWithColors, findNodes } from "./models.js";
 import { ctx, emit, listenersOf } from "./core/ctx.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { ChunkMerger, restFilter } from "./merge.js";
+import { ChunkMerger, restFilter, SlotBatch } from "./merge.js";
 import { farLod } from "./lod.js";
 
 const _tint = new THREE.Color();
@@ -324,6 +324,8 @@ class Chunk {
         this.traps = [];
         this.disposables = [];
         this.anim = [];
+        this.pieces = [];          // road / shoulders / driveways / sign metal drawn through the world's slot batches
+        this.world = world;
         this.group.name = "chunk";
         if (sliced) {
             // A far chunk is built a STEP at a time over several frames (World.update): a whole chunk plus every feature's
@@ -364,6 +366,10 @@ class Chunk {
         this.group.updateMatrixWorld(true);
         let r = 0, n = 0;
         this.noCull = false;
+        for (const pc of this.pieces) {
+            const sp = pc.b.sphereOf(pc.item);
+            b.expandByPoint(sp.center.clone().addScalar(sp.radius)); b.expandByPoint(sp.center.clone().subScalar(sp.radius)); n++;
+        }
         this.group.traverse(o => {
             if (!o.geometry || !(o.isMesh || o.isLine || o.isPoints)) return;
             for (const m of [].concat(o.material)) if (m && m.fog === false) this.noCull = true;
@@ -376,6 +382,18 @@ class Chunk {
         if (!n) { this.radius = 0; return; }
         b.getCenter(c);
         this.radius = b.getSize(s.center).length() / 2 + 20;   // (+ a margin: things added later, animated props)
+    }
+
+    /** A static piece drawn through the world's slot batch for its material (one draw call for every chunk's — merge.js
+     *  › SlotBatch), following `owner`'s visibility + matrixWorld; a Mesh if it can't. The geometry is copied in (and
+     *  disposed here). */
+    addPiece(geo, mat, { owner = this.group, cast = false, receive = true, label = "" } = {}) {
+        const b = this.world.slotBatch(mat, cast, receive, label), item = b ? b.add(geo, owner) : null;
+        if (!item) { const m = this.addMesh(geo, mat, { cast, receive }); if (owner !== this.group) { this.group.remove(m); owner.add(m); } return m; }
+        this.pieces.push({ b, item });
+        this.disposables.push({ dispose: () => b.remove(item) });
+        geo.dispose();
+        return null;
     }
 
     addMesh(geo, mat, { cast = false, receive = true } = {}) {
@@ -404,9 +422,10 @@ class Chunk {
         const p = {};
 
         // road + shoulders
-        this.addMesh(ribbon(road, this.s0, this.s1, -HALF_ROAD, HALF_ROAD, 0.03, ROAD_TEX_LEN), M.road);
+        // (the road, the shoulders and the driveways of EVERY chunk are one draw call each: the world's slot batches)
+        this.addPiece(ribbon(road, this.s0, this.s1, -HALF_ROAD, HALF_ROAD, 0.03, ROAD_TEX_LEN), M.road, { label: "road" });
         const sh = [ribbon(road, this.s0, this.s1, HALF_ROAD - 0.05, SHOULDER, 0.02, 10), ribbon(road, this.s0, this.s1, -SHOULDER, -HALF_ROAD + 0.05, 0.02, 10)];
-        this.addMesh(mergeGeometries(sh, false), M.shoulder);   // both shoulders: one draw call
+        this.addPiece(mergeGeometries(sh, false), M.shoulder, { label: "shoulder" });   // both shoulders
         for (const g of sh) g.dispose();
         const drives = [];
 
@@ -443,7 +462,7 @@ class Chunk {
             }
         }
         this.houses = houseSpots;
-        if (drives.length) { this.addMesh(mergeGeometries(drives, false), M.drive); for (const g of drives) g.dispose(); }   // the chunk's driveways: one draw call
+        if (drives.length) { this.addPiece(mergeGeometries(drives, false), M.drive, { label: "drive" }); for (const g of drives) g.dispose(); }   // the chunk's driveways
 
         // trees & bushes (biome mix; features can register more types, e.g. palms)
         const mix = Object.entries(biome.trees).filter(([t, w]) => w > 0 && models[SCENERY[t] ? SCENERY[t].model : t]);
@@ -638,7 +657,8 @@ class Chunk {
         const te = signEntry(sign.lines, sign.bg, sign.fg, sign.tw, sign.th), tex = te.tex;
         te.refs++;
         this.disposables.push({ dispose: () => releaseSign(te) });
-        // two draw calls a sign: the metal (board edges + back + posts, merged) and the printed face
+        // two pieces a sign: the metal (board edges + back + posts, merged — in the world's metal batch: one draw call for
+        // every sign's) and the printed face (its own texture: a draw each)
         const y = 2.2 + ht / 2;
         const box = new THREE.BoxGeometry(w, ht, 0.08).translate(0, y, 0);
         const idx = box.index.array, keep = [];
@@ -668,13 +688,12 @@ class Chunk {
         }
         const metalGeo = mergeGeometries(parts, false);
         for (const x of parts) x.dispose();
-        const metal = new THREE.Mesh(metalGeo, M.metal);
-        metal.castShadow = true;
         const face = new THREE.Mesh(new THREE.PlaneGeometry(w, ht).translate(0, y, 0.0405), signMaterial(tex));
-        g.add(metal, face);
+        g.add(face);
         if (tabFace) g.add(tabFace);
         this.group.add(g);
-        this.disposables.push(metalGeo, face.geometry);
+        this.addPiece(metalGeo, M.metal, { owner: g, cast: true, receive: false, label: "signMetal" });
+        this.disposables.push(face.geometry);
         this.colliders.push({ x: p.x, z: p.z, r: 0.3, kind: "sign" });
     }
 
@@ -742,6 +761,7 @@ export class World {
         this.highway = new Road(seed);
         this.district = null;
         this.chunks = new Map();
+        this.slots = new Map();       // material → SlotBatch (every chunk's road / shoulders / driveways / sign metal)
         this.config = { speedTraps: true };
         this.drawScale = 1;          // × the fog's far distance = how far chunks are drawn (core/quality.js: Low pulls it in)
         this.reserved = [];
@@ -797,6 +817,16 @@ export class World {
     clearReserved() { this.reserved.length = 0; }
 
     addSign(def) { this.signs.push(def); }
+
+    /** The slot batch (merge.js) that draws every chunk's pieces of one material in one draw call. */
+    slotBatch(mat, cast = false, receive = true, label = "") {
+        const key = mat.uuid + (cast ? "|c" : "|-") + (receive ? "r" : "-");
+        let b = this.slots.get(key);
+        if (!b) this.slots.set(key, b = new SlotBatch(mat, this.scene, { cast, receive, name: "slots:" + (label || mat.name || mat.type) }));
+        return b;
+    }
+    /** Tests / the perf harness: each slot batch's pieces, free slots and buffer use. */
+    slotInfo() { const o = {}; for (const b of this.slots.values()) o[b.name + (b.cast ? "+cast" : "")] = b.info(); return o; }
 
     /** Sky gradient + fog colour (journey: dusk at the beach, night in Vegas…). */
     setSky({ top, mid, bottom, fog, fogNear, fogFar } = {}) {

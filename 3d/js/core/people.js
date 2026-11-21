@@ -10,7 +10,7 @@
 //   bubbe.update(dt, { walk: speed_m_s, wave: true, talk: true, cheer: false, sit: false });
 import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "../models.js";
-import { shadowBatch } from "../lod.js";
+import { shadowBatch, peopleBatch } from "../lod.js";
 
 const PARTS = ["Arm_L", "Arm_R", "Leg_L", "Leg_R", "Body", "Head"];
 const _q = new THREE.Quaternion(), _e = new THREE.Euler();
@@ -35,6 +35,7 @@ export class Person {
      */
     update(dt, opts = {}) {
         this.t += dt;
+        if (this.obj.userData.pbGone) peopleBatch(this.obj);   // (back after a long time out of the world: drawn in the batch again)
         const L = this.limbs;
         const walk = opts.walk || 0;
         this.phase += dt * (walk > 0.05 ? 2.2 + walk * 2.4 : 0);
@@ -93,5 +94,6 @@ export function spawnPerson(key, { colors = null, scale = 1 } = {}) {
     const obj = cloneWithColors(models[key], colors);
     obj.scale.setScalar(scale);
     shadowBatch(obj);          // (MEDIUM / HIGH: its parts cast in the people's one shadow draw — lod.js)
+    peopleBatch(obj);          // (every tier: its plain parts are drawn in the people's one main-pass batch — lod.js)
     return new Person(obj);
 }

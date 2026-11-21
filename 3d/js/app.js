@@ -18,7 +18,7 @@ import { pause, applyUiSettings, openMenuItem, revealMenuItem, titleLabels, open
 import { resetRun, startRun, endRun, damage, addCoins, KO } from "./core/driving.js";
 import { applyTvMode, detectPlatform } from "./core/platform.js";
 import { gfx, resolveTier, adaptFrame } from "./core/quality.js";
-import { updateLods, LOD, installShadowProxies } from "./lod.js";
+import { updateLods, LOD, installShadowProxies, installPeopleBatch } from "./lod.js";
 import { gfxFrame } from "./core/gfx.js";
 import { Post } from "./core/post.js";
 import "./core/player.js";            // ONE player identity (ctx.player): friends + the property registry
@@ -46,6 +46,7 @@ scene.fog = new THREE.Fog("#d4efff", 160, 640);
 const camera = trackCamera(new THREE.PerspectiveCamera(62, 1, 0.1, 2200));
 ctx.scene = scene;
 ctx.camera = camera;
+installPeopleBatch(renderer, scene);   // (spawned people: their plain parts in one multi-draw batch, every tier — lod.js)
 
 const hemi = new THREE.HemisphereLight("#cfeaff", "#5f8a45", 1.35);
 const sun = new THREE.DirectionalLight("#fff1dc", 2.6);
