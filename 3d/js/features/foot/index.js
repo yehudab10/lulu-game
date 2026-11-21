@@ -2033,7 +2033,7 @@ function hud() {
 // (ci/qaweekend: and on her own home street — the run starts there, and a kid mashing the gas from the driveway backed
 //  into the house with the chase cam inside it: one flat colour on screen. Past the first 160 m it's off again.)
 const carProbe = { s: 0 };
-const homeStreet = () => !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;
+const homeStreet = () => ctx.state === "playing" && !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;     // (not the scripted pull-out: its own shot)
 const carClipFn = (tgt, dx, dy, dz, D) => {
     if (!(ctx.town && ctx.town.active) && !homeStreet()) return null;
     carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D);
