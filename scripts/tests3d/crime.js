@@ -108,6 +108,7 @@ module.exports = {
       await g(`(${C}.CR.force.cop = null, true)`);
       // caught: stand still → arrested with the charge
       await t.until(`["lawArrest", "placesArrive", "lawJail"].includes(__lulu3d.state)`, "caught by the cop", 60000);
+      await t.until(`window.__arrests.length > 0`, "the arrest goes on file", 30000);
       const ar = (await t.L(`window.__arrests.slice(-1)[0] || []`));
       t.check("arrested for GRAND THEFT SHOPPING CART", ar.some(c => /SHOPPING CART/.test(c)), JSON.stringify(ar));
       // …and the court: the charge's own moment plays
