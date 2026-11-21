@@ -29,7 +29,7 @@ export function openCases(town = null) {
 /** The verdict for home `id` → { won, coins, line } (it also does it: the house back / released, the coins). */
 export async function verdict(id) {
     const h = S.owned[id];
-    if (!h || h.ruled) return { won: false, coins: 0, line: CL.offline, none: true };
+    if (!h || h.ruled || !(h.seized || h.lost)) return { won: false, coins: 0, line: CL.offline, none: true };   // (nothing to contest: never pays)
     const paid = paidIn(id);
     let won = false, coins = 0, line = "";
     if (h.seized && !h.lost) {
