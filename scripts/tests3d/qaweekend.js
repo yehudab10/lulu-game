@@ -139,6 +139,10 @@ async function town(t) {
   await t.frames(60);
   let I = await info(t);
   t.check("Lakewood in the rain: life is on, puddles drawn", I.on && I.town && I.puddles.sites > 0 && I.puddles.visible, JSON.stringify(I.puddles));
+  // 📝 Ima's list chip: in town the errand's distance is measured from the exit (ctx.car.s is the town's own road there)
+  const chip = await t.L(`(document.querySelector(".day-chip") || {}).textContent || ""`);
+  const mi = /([\d.]+) mi/.exec(chip);
+  t.check("in town, 📝 Ima's list says how far the errand is from here (not hundreds of miles)", !mi || +mi[1] < 30, chip);
   const hz0 = await g(`ctx.homes && ctx.homes.debug.CR ? ctx.homes.debug.CR.peds.length : 0`);
   // honk with the real touch HONK button a few times while rolling down a street
   await tp(t, `(ctx.town.debug.place("Route 9", 40, -1.75, 6, 1), ctx.cam.snap(), true)`);
