@@ -306,7 +306,7 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
 - `together` is FLAKY on `main` itself (2026-11-20, run 44837224568: 1 of 2 identical jobs failed): after the town ride,
   `ctx.openworld.hopOut({ moving: false })` sometimes leaves the guest in `playing` (her own car) instead of on foot → "guest on
   foot in town" times out, then the courthouse step throws on `ctx.foot.pos`. Re-run once before blaming your change.
-- `day` fails on `main` itself (2026-11-21, run 44843972296): "…and no tenth app (10)" — the 📱 phone now has 10 apps on a Cruise run (some recent landing added one); either the test's 9-app limit or the app list needs a decision. Not caused by `ci/airport-stage3`.
+- ~~`day` fails on `main` ("…and no tenth app (10)")~~ — FIXED ca7679f (2026-11-21): the test now checks the list adds no app of its own by id (📞 Phone made the phone 10 apps; that's fine).
 - **Airport stage 3 (`ci/airport-stage3`, 2026-11-21):** with Dovid Dov + six fans in the hall (arrivals view, MEDIUM) measured 91 draw calls, 121k triangles — inside the terminal's budget. The taxi run is tested with a pretend kerb (`ctx.airport.stage3.debug.fakeAirport`); once stage 1 lands, re-run `airport-stage3` + `airport` together and check the real ARRIVALS kerb point (f 24, r 193.5) sits clear of the taxi queue.
 - **Airport terminal budget (`ci/airport-terminal`, 2026-11-20):** the JFK hall at 1280×720, the worst of three views (check-in /
   security / the gate): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k. Limits in
