@@ -245,7 +245,10 @@ function start(reason = "carWreck", opts = {}) {
     const out = F.out = Math.sign(near.d || 1);
     const rr = rd.at(near.s);
     F.hopFrom = F.car ? F.car.stub.obj.localToWorld(new THREE.Vector3(0.38, 0.62, -0.06)) : pos.clone();
-    F.hopTo = new THREE.Vector3(pos.x - Math.cos(rr.h) * out * 1.8, 0.05, pos.z + Math.sin(rr.h) * out * 1.8);
+    // (over the car's own side — the one toward the roadside: a car parked across the road's line, like the airport's
+    //  kerb in its own frame, had her land 1.8 m along its length, i.e. standing in its seats — ci/qaweekend)
+    const ox = -Math.cos(rr.h) * out, oz = Math.sin(rr.h) * out, cx = -Math.cos(h), cz = Math.sin(h), k = cx * ox + cz * oz < 0 ? -1 : 1;
+    F.hopTo = new THREE.Vector3(pos.x + cx * k * 1.8, 0.05, pos.z + cz * k * 1.8);
     if (!F.car) F.hopFrom.copy(F.hopTo);
     // (her car out past the fence line — it drives the fields to 70 m: the fence lets her walk round it)
     const outD = Math.abs(rd.nearest(F.hopTo.x, F.hopTo.z, near.s, {}).d);
