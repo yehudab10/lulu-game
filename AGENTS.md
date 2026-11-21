@@ -328,6 +328,9 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
   in the real game).
 - `town` is red on `main` before and after `ci/mainfix` on a draw-call budget by 1–2 (main 0d4da4e: "town draw calls ≤ Cruise" 241;
   ci/mainfix 44862534402: "attached town ≤ 240" 242) — not the phone change; whoever owns the town budget (`ci/exits2` / `ci/perf`).
+  **Fixed by `ci/perf` batch 1** (landed efa5c2b: the towns' e-bikes far-LOD'd — bike + rider were ~20 draws each at any
+  distance — and the clouds in 16 culled meshes instead of 80): the `town` test now measures 166–186 stand-alone (worst
+  frame ~200–220) and 147–153 attached, against 240 (CI 44868383276, 44881712805, 44895927148 on main, 44898533384).
 - **`shabbos` "tv-1080: the card fits" (`ci/mainfix`, 2026-11-21):** red on every run since 2026-11-20 17:33 with the same numbers — a
   layout bug, not the real date (the test mocks its own Friday): TV padding in a 480 px column. Fixed in `features/shabbos` CSS.
 - **Airport stage 3 (`ci/airport-stage3`, 2026-11-21):** with Dovid Dov + six fans in the hall (arrivals view, MEDIUM) measured 91 draw calls, 121k triangles — inside the terminal's budget. The taxi run is tested with a pretend kerb (`ctx.airport.stage3.debug.fakeAirport`); once stage 1 lands, re-run `airport-stage3` + `airport` together and check the real ARRIVALS kerb point (f 24, r 193.5) sits clear of the taxi queue.
