@@ -3,14 +3,14 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
-- 2026-11-21 12:15 UTC (airport polish) — ✈️ JFK got its rough edges fixed (it's still switched off in the real game until the
+- 2026-11-21 17:20 UTC (airport polish) — ✈️ JFK got its rough edges fixed (it's still switched off in the real game until the
   "each town its own exit" work lands — the exact steps to switch it on are written down now). Police cars chasing Lulu off the highway
   now follow the airport's ramps and roads round to the kerb instead of driving through the fence and the terminal, and can see her across
   the open car park (not through the terminal). Bumping a taxi or shuttle bus is a real crash now: it slides and spins, the driver yells
   ("Lady! It's a TAXI, not a bumper car!"), then pulls back into line. If Lulu is wanted, airport security (Officer Segal on his Segway,
   with Rex the kugel-sniffing dog) rolls out of the terminal and slows her right down until the real cops catch up. On LOW graphics the
   airport is now lighter than on MEDIUM (about 10 % fewer triangles at the kerb). The "½ MI" sign's words fit, and the terminal doors no
-  longer say "opening soon". A picture of the airport's highway signs is in `3d/docs/airport-signs.jpg`.
+  longer say "opening soon", and the camera no longer ends up inside the terminal during a chase. A picture of the airport's highway signs is in `3d/docs/airport-signs.jpg`.
 - 2026-11-21 (play-test of the weekend) — 🔎 Played everything that landed this weekend like a kid would (on a phone, a computer and
   a TV; Lakewood, Midwood, the highway, JFK with `?airport=1`, and with a friend) and fixed what was off: the PIGEONS on the
   sidewalk no longer fly through the houses when you scare them (they climb over the roofs, circle up high and come back down over
