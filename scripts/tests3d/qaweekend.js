@@ -177,6 +177,9 @@ async function town(t) {
   if (await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "knocked out sideways: on her feet", 30000)) {
     const kb = await besideCar(t);
     t.check("knocked out with the car sideways: on her feet beside it, not in it", !!kb && !kb.inside, JSON.stringify(kb));
+    await t.frames(10);
+    const ph = await t.L(`(() => { const e = document.getElementById("padHint"); if (!e || e.classList.contains("hidden") || !e.textContent.trim()) return null; const r = e.getBoundingClientRect(); return { l: Math.round(r.left), r: Math.round(r.right), W: innerWidth, text: e.textContent.trim().slice(0, 60) }; })()`);
+    t.check("a phone held upright with a controller: the bottom hint fits the screen (wraps, no text off the edges)", !ph || (ph.l >= 0 && ph.r <= ph.W), JSON.stringify(ph));
     await t.shot("knockout-sideways");
     await backInCar(t);
   }

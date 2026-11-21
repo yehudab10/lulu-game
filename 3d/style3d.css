@@ -191,6 +191,11 @@ body.touch .toast { font-size: 16px; padding: 2px 10px 2px 20px; } body.touch .t
     background: rgba(43, 27, 46, 0.78); color: #fff; border-radius: 999px; padding: 6px 16px;
     font-size: 14px; font-weight: 600; white-space: nowrap;
 }
+/* (a controller on a phone held upright: the long hints ran off both edges — "A near your car to hop back in 🚗 · or take a
+   walk" — they wrap instead, ci/qaweekend) */
+@media (max-width: 560px) {
+    #padHint { white-space: normal; width: max-content; max-width: calc(100vw - 28px); text-align: center; border-radius: 16px; line-height: 1.35; }
+}
 
 #flash { position: absolute; inset: 0; background: #ff1744; opacity: 0; transition: opacity 0.4s; }
 
