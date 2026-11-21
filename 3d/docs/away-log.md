@@ -3,6 +3,11 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 (airport kerb) — ✈️ Two small JFK fixes (the airport is still switched off in the real game until the "each town its
+  own exit" work lands): when the police pull Lulu over at the terminal kerb she now stops right where she is, facing along the
+  kerb road, with the police car right behind her — before, she crept forward and turned toward the far-away highway while
+  braking. And a police car that bumps or rams her at the kerb can no longer shove her car up onto the sidewalk in front of the
+  terminal (it stops at the kerb, and the police car can't push through her either).
 - 2026-11-21 (screen layout) — 📏 Nothing on the screen sits on anything else any more, on a phone held either way, a small
   phone, a tablet, a laptop and a TV, with fingers or a controller: on a phone on its side the WALK stick no longer covers
   📝 Ima's list / ON FOOT (the hearts + coins share a row, the stick is a touch smaller, and while a text message is up the ON FOOT
