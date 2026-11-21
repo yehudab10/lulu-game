@@ -24,8 +24,10 @@ else is a feature module** that plugs in through `js/core/ctx.js`.
   js/features/underworld/                   😈 crooked cops, Velvel's garage, the Fixer's jobs + heat, road-ragers / gang cars / pickpockets
   js/features/seasons/                      🕎 the world follows the real Hebrew calendar: menorahs in the windows, the Purim parade, sukkahs, …
   js/features/onegame/                      🎮 one game, not a menu of modes: the 🧳 road trip / 🅿️ booth / Dina / Friday rush entered from the world, 🏠 home()
+  js/features/airport/                      ✈️ the JFK exit (stage 1: its own interchange, the kerb loop, parking, the terminal outside, the tower, the runway fence + joke, planes overhead; polish: chase routes, kerb collisions, kerb security, a lighter LOW; OFF by default until ci/exits2)
   js/spatial.js                             positional 3D audio (A.spatial): pooled panner voices, listener on the camera
   js/features/feel/                         sound kinds + passing whooshes + muffled music on foot; damage on Lulu's car
+  js/features/life/                         🍃 ambient life: footsteps by surface, puddles after rain, wind (leaves, flyers, leaf piles), the neighbourhood's sounds; pigeons, chimney smoke + steam, car-alarm lights, friends' footsteps
   js/world.js  car.js  traffic.js           road + scenery chunks, Lulu's car, traffic
   js/input.js  audio.js  hud.js  models.js  controller/keyboard/touch, sound, HUD + menus, model loading
   js/features/<id>/index.js                 ← ONE DIRECTORY PER FEATURE (imported by features/index.js)
@@ -101,6 +103,7 @@ ctx.trip         // { label(), progress() } for the HUD trip bar (journey owns i
 | `runStart` | (G, opts) | add run fields, set `G.goText`, pick biomes |
 | `hud` | (dt) | every frame while the driving HUD shows |
 | `titleCamera` | (dt, camera) → true | own the title-screen camera |
+| `prerender` | (dt, camera) | right before the driving scene is drawn, every frame in every state (app.js `present`): pack what's in view (atmos' street lamps) |
 
 ### States
 ```js
@@ -310,11 +313,91 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   frame time. Test: `scripts/tests3d/gfx.js` (the setting by pad / keys / touch, saved + reloaded, each tier, bloom
   fallback, AUTO's step-down).
 * **The sun's shadow** follows Lulu snapped to whole shadow texels (no shimmering edges).
+* **Shadow proxies** (`lod.js` › `shadowProxy(root, { skip, lod })`, MEDIUM / HIGH): a multi-part model's shadow-casting
+  parts are baked (positions only, in the root's space) into one mesh that is hidden in the main pass and switched on
+  only inside `renderer.shadowMap.render` (`installShadowProxies`, app.js); the baked parts stop casting on their own.
+  Same silhouette (a same-frame A/B is pixel-identical), one shadow draw instead of 10–25. Used by every traffic car
+  (`Traffic.make`, with its far LOD: far = no shadow, as before), Lulu's car (body + rear wheels — NOT her, her hair,
+  the steering wheel, the steered front wheels or anything on an `Anchor_*`), the towns' e-bikes, Lulu's house (not its
+  `Deco_*` holiday pieces / anchors) and the title's lapping minivan (the title on MEDIUM: 108 → 69 shadow draws). A part that is
+  hidden / removed / switched back to `castShadow` hands the casting straight back to the real parts (never a missing
+  shadow) and the proxy re-bakes from what's there ~30 frames later. **Animated figures don't get one** (a baked pose
+  would freeze their shadow). Adding parts to a proxied model later is fine (they cast on their own); `shadowProxyInfo()`
+  / `shadowProxiesOn(false)` for tests. Note: `renderer.info.render.calls` never includes the shadow pass (three
+  resets it after the shadow map) — the perf harness counts real WebGL draws (`gl`, `shadowGl`).
+* **The clouds** (`world.clouds`) are 16 baked meshes, one per cloud (5 puffs each; was 80 meshes ≈ 10–22 draws whenever
+  the sky shows, now ~3–6; each cloud is frustum-culled on its own — one mesh for the whole ring put all 6.4k cloud
+  triangles on every frame); the group still turns / follows the camera and atmos tints their one shared material.
 * **Before / after numbers + screenshots** of this work: `3d/docs/gfx-perf.md`.
 * **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
   `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,
   Lakewood, on foot, the bar, a 🌍 Free Roam convoy — draw calls, triangles, JS ms (update vs render), DOM
   mutations a frame — and a long drive that fails on geometries / textures / materials that leave the scene undisposed.
+  Since `ci/perf`: `gl` / `shadowGl` (every real WebGL draw / the ones in the sun's shadow pass), render median / p90 /
+  max, the scenes `highway` (1.5 km on — `cruise` is measured ~100 m from the start, by Lulu's house), `towndrive` /
+  `townfoot` (Lakewood's Main St) and `middrive` / `midfoot` (Midwood's Avenue J), `PERF3D_TOP` also lists the shadow
+  casters, and `PERF3D_PROFILE=1` adds a CPU profile + an allocation sample per scene (ms a frame by file / function,
+  "(garbage collector)", KB allocated a frame).
+* **Phone pass (`ci/perf`, 2026-11-21)** — `main` (ab85486) → `ci/perf`, measured back to back on the same machine with
+  `node scripts/perf3d.js` (`PERF3D_ADD=all`: every feature on, like the real game; 40 frames a scene; 1280×720, software GL
+  in the container). LOW draws no shadow map, so its `calls` are all its draws; MEDIUM's real draws are `gl` (`calls` + the
+  sun's shadow pass, which `renderer.info` never counts). Render JS = the median ms three.js spends issuing a frame (× ~3–4
+  on a mid-range phone; frame ms in software GL are noisy — compare the draws). LOW is batch 1; MEDIUM is batches 1 + 2.
+  † re-measured with the same road events on both sides (a barrier set / a pedestrian / a billboard came and went between
+  runs: ±40 draws of content).
+
+  | scene | LOW draws | MEDIUM real draws (gl) | MEDIUM shadow-pass draws | MEDIUM render JS (median ms) |
+  |---|---|---|---|---|
+  | cruise (by Lulu's house) | 211 → 182 (−14 %) | 301 → 260 (−14 %) | 107 → 71 (−34 %) | 3.9 → 3 |
+  | highway (open road) | 320 → 316 (−1 %) † | 433 → 406 (−6 %) | 120 → 100 (−17 %) | 5.1 → 4.8 |
+  | rain (storm at night) | 315 → 310 (−2 %) | 344 → 313 (−9 %) | 64 → 48 (−25 %) | 4.3 → 4.9 |
+  | towndrive (Lakewood) | 201 → 172 (−14 %) | 272 → 198 (−27 %) | 59 → 44 (−25 %) | 4.7 → 4.5 |
+  | townfoot (Lakewood) | 225 → 160 (−29 %) | 325 → 209 (−36 %) | 70 → 42 (−40 %) | 5.5 → 4.7 |
+  | middrive (Midwood) | 167 → 135 (−19 %) | 235 → 178 (−24 %) | 58 → 43 (−26 %) | 4.5 → 3.7 |
+  | midfoot (Midwood) | 205 → 172 (−16 %) | 275 → 229 (−17 %) | 64 → 40 (−37 %) | 5.7 → 4.6 |
+  | tee (the interchange) | 262 → 257 (−2 %) † | 328 → 308 (−6 %) | 60 → 45 (−25 %) | 6 → 5.9 |
+  | attached (Lakewood from the highway) | 245 → 183 (−25 %) † | 311 → 224 (−28 %) | 71 → 49 (−31 %) | 6.9 → 5.5 |
+  | foot (on the highway) | 276 → 262 (−5 %) | 377 → 352 (−7 %) | 87 → 64 (−26 %) | 5.5 → 5.1 |
+
+  **Batch 1**: the shadow proxies (MEDIUM / HIGH), the clouds in 16 meshes (was 80), the towns' e-bikes far-LOD'd (bike +
+  rider were ~20 draws each at any distance) and the HUD score's number formatter made once (`toLocaleString` built a new
+  one every frame: ~0.3 ms). **Batch 2**: face parts (`Eye` / `EyeShine` / `Cheek` / `Mouth`, `models.js` › `prepare`)
+  don't cast — 1–7 cm patches on the head, under a shadow texel (7.4 cm MEDIUM / 4.5 cm HIGH) and inside the head's own
+  shadow, but ~4 shadow draws a person: −12…−24 shadow draws on the title / a run's start / on foot; a same-frame A/B is
+  identical on the title and ≤ 8/255 elsewhere (24 pixels up to 18/255 on HIGH, not visible zoomed in). The title on
+  MEDIUM: 108 → ~56 shadow draws in all. Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured
+  are after a town is built / torn down, not churn. Left: §7 › Performance.
+* **Batch 3 (`ci/perf`, 2026-11-21)** — main (326790f) → after, matched scenes:
+  * **The people's shadow batch** (`lod.js` › `shadowBatch(root, { skip })`, MEDIUM / HIGH): every spawned person
+    (`core/people.js` › `spawnPerson` registers it) and Lulu at the wheel (`car.js`) cast through ONE shadow-only
+    `THREE.BatchedMesh` per material side. Each shadow pass copies every part's live `matrixWorld` + visibility in,
+    so walk cycles / waves / Lulu's head stay exact, and the batch culls per part against the shadow camera. It is
+    drawn with ONE `WEBGL_multi_draw` call — Safari on iOS 15+, desktop Safari 15+, Chrome / Android; not Firefox,
+    where three draws the parts one by one (no worse than before). A part that is removed, or whose `castShadow` a
+    feature turns back on (together's rooms, feel's damage…), hands that person back to casting on their own;
+    people out of the drawn scene ~10 s free their slots and re-join later. Same-frame A/B: identical pixels (one
+    pixel at 1/255). Shadow-pass draws, MEDIUM: the title 53 → 15, a run's start 54 → 16, on foot on the highway
+    59 → 8 (HIGH: 57 → 19, 55 → 17, 72 → 8). `shadowBatchInfo(renderer)` / `shadowBatchOn(false)` for tests; the
+    perf harness counts a multi-draw call as one draw.
+  * **Street lamps** (`atmos/lights.js`): every chunk's lamps in ONE pole / bulb / light-cone instanced set (was 2–3
+    draws PER CHUNK + one shadow draw per chunk), repacked each frame from the core `prerender` hook — only lamps in
+    a chunk that's drawn AND within 60 m (anything that can cast into view) or inside the view, so per-lamp culling,
+    finer than the old per-chunk boxes. Highway, LOW: the chunks' lamp meshes 37 → 31 + the 2–3 batched draws.
+  * **LOW: tall grass on foot** (`foot/bounds.js`): one clump per 3 m cell beyond ±24 m of her (was two; the same
+    deterministic clumps, every other one left out) — grass triangles 16.3k → 9.1k in that view.
+  * **`compileAsync` that survives a disposed material** (`models.js` › `safeCompileAsync`, installed on the renderer
+    at boot): three's version polls each compiled material's program from a timer and threw "reading 'isReady'" as
+    an uncaught page error when a material was disposed meanwhile (`mpworld`, on main too). Same work, same promise.
+
+  | scene (LOW, matched) | draws | triangles |
+  |---|---|---|
+  | highway | 316 → 279 (−12 %) | 119.3k → 113.3k (−5 %) |
+  | attached (Lakewood from the highway) | 177 → 160 (−10 %) | 122.7k → 121.1k |
+  | foot (on the highway) | 271 → 242 (−11 %) | 139.6k → 127.5k (−9 %) |
+  | tee (the interchange) | 244 → 242 (−1 %) | 154.7k → 156.3k |
+
+  The interchange's remaining weight is the two standing towns (`features/town` — `ci/exits2` is reworking the
+  interchange, so not touched here) and each chunk's road + shoulders + signs.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.
@@ -362,6 +445,24 @@ controller-focusable), `H.hideScreen()`, `H.menuInput(P)` (call from your update
 **Keep pop-ups off the road:** toasts are a feed on the right edge; while driving/walking
 (`playing`, `footRun`, `arriving` → `body.in-play`) a banner is a compact card at the top of the
 "center" slot. Don't add your own big centred text over the road in those states — use these.
+**HUD fit (`ci/hudfit`):** the slots have a starting place per layout (`style3d.css` › "HUD fit"), and `H.fitHud()` (every 0.2 s
+of game time + when a banner / prompt shows) nudges them — the CSS `translate` property, `data-fit-dy`, only as far as needed —
+off what they'd cover: "left" / "right" under the pills, "center" (the WELCOME banner, task chips) under the trip bar + the
+left / right chips, the ✋ prompt and the controller's `#padHint` UP off the speedo / touch buttons / each other; ⏭ SKIP
+(core/skip.js) slides down the right edge off the trip bar + chips. `H.keepClear(el, selectors, dir)` is the helper. Layouts:
+a phone held upright (touch, or a controller / keyboard ≤ 600 px wide: pills in a row, the trip bar full width under them, a
+compact speedo) — the "center" stack carries on the left column under the chips, clear of the speedo's column; a phone on its
+side (touch, ≤ 520 px tall) — the pills in two rows, chips ≤ 260 px wide, a 128 px stick under them, the centre stack between
+the chips and the buttons, the prompt low between the stick and the pedals (on foot: right above the ✋ button). On any phone
+(touch, ≤ 760 px tall) the ON FOOT chip steps aside while a phone call / text card is up and only the newest of two text cards
+shows (both are in 💬 Messages); upright on foot the prompt sits just above the WALK stick; on a small upright phone the
+banner's second line stays one line. A piece that keeps clear of the centre stack ITSELF on a wide screen (hustle's 📻 ticker steps
+down the right column) is marked `data-fit="self"` so there the centre doesn't also dodge it (two pieces dodging each other
+chase each other down the screen); held upright (`H.PORTRAIT`) it stays put and the centre ducks under it. Test:
+`scripts/tests3d/hudfit.js` (every pair of HUD pieces, by rect, at 390×844 / 844×390 / 375×667 / 667×375 / 768×1024 touch,
+390×844 / 375×667 / 768×1024 controller, 1280×720, TV 720p / 1080p, driving + on foot, the HUD at its busiest — 📝, a 💬 text,
+⏭, WELCOME, ✋, the hint — + the Clean HUD on the phones) — add a new HUD piece's selector to its `PIECES` (and to together's
+`AVOID`).
 **The notification manager** (game time): a repeated toast becomes one with a ×N count, signed numbers
 sum (+5 💰 ×3 → "+15 💰"); banners show one at a time from a priority queue (`prio`; same `key` replaces), and
 nothing new pops up while a dialogue line or menu is open. **The pop-up budget (ci/calm — the owner: "lesser pop
@@ -545,6 +646,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | streets 🔑 | **on**: seeded props + booths · personal heat · carjack via a **claim** | Carjack like solo: she steps in front of / flags down / rams a SHARED car → it's **claimed** (pulls over the same way on every screen, see above) → she jacks it (or 🚕 hops in, if she flagged it) → `ctx.party.claimTraffic(car)`: gone for everyone (`"j"` + `d.x.jk`, never re-added), friends see her ride's model (`d.x.v`); a passing car can still be jacked on the move. Town loop minivans + the school bus (Free Roam) the same way. Solo, every town driver is jackable (once it's stopped). Hotwiring a parked car on the shoulder: foot's personal parked cars. Props: per chunk from `ctx.party.rng("streets:props:" + k)` (identical on every screen); smashing is personal, a FRIEND's car ploughing through one smashes it on my screen too (cosmetic, no bill). 🎨 Paint & Pray booths: from the road plan (`road.claim("streets", {paint})`, planned ~1.4 km ahead), the drive-through personal (presence 🎨). Roadblocks: personal (`partyLocal` cruisers on the SHOULDERS + spikes across her lanes — never parked in a lane the shared traffic drives). 🔧 Shmuel's calls: personal (the wanted car is a `partyLocal` car riding a gap in the conveyor at lane speed; step in front of it to stop it). Sports coupes join the shared traffic. Her empty car coasting into a shared car only spins itself. |
 | rides 🚓🚑🍦 | **on**: fleet **seeded** · personal jobs | The taxi / ambulance / ice-cream truck / bus fleet rides the SHARED traffic (`ctx.party.addTrafficKind`: the same ambulance at the same place for everyone) — claim / jack it like any shared car. Handling, horn, trick per ride; siren / air-horn yields only move local cars (shared ones have an `ai`); the 🚨 pull-over CLAIMS the shared car ahead (it pulls over on every screen; a car she already claimed counts too); dispatch, patients, ice-cream kids, bus riders are her personal props. |
 | feel (damage) | personal | Hearts are never lost in a party, so there are no dents to show (nothing published). |
+| life 🍃 | **on** (local + cosmetic) | Footsteps, puddles, wind / leaves / flyers / leaf piles and the neighbourhood sounds are drawn and played on each screen only — nothing is published, nothing touches shared traffic. Puddle + pile SITES are hashed from the town's plan, so every friend has the same puddles and piles in the same gutters; the water level follows the weather (the party's shared sky in a party). A kicked pile / a soaked townsperson is personal. Round 2: the chimneys / manholes / vents / pigeon perches are hashed from the town's build too (the same for every friend; chimney smoke follows each device's date); a scatter, an alarm, a smelled vent are personal; a friend walking near her gets footsteps from `ctx.party.remoteCar(uid)` (read-only, nothing sent). Round 3: which houses light up when, the TV windows and bedtime are hashed from the town's build (the same order for every friend; each lights on its own sky — a party's shared clock); breath, the tailpipe, dawn mist, a hotwire's alarm and the radio's weather line are personal (a friend near her breathes too, read from `remoteCar`). Off in Dina's mode |
 | moves 🏁 | personal | On already (skill, not chance); roll / slide / vault show on her walker. The JUMP (foot) too: `d.x.f` = [anim 10 = in the air, look, her feet's height in dm] — friends' walker rises with her (a jump, up on a bench / a car roof), eased between the ~10 Hz snapshots. |
 | openworld 🌍 | shared | (see Open world) · games start as an **invitation** (host state `g.ph = "in"`: the starter in, friends opt in by coming to the spot / the chip / 📱 👯 Join, ≤ 15 s) — nobody is warped or held unless they opted in · 🕹️ / 📋 **game spots** in each town (`spots.js`): personal props (built from `ctx.town.spot`, the same place on every screen); the invitation itself is host state |
 | multiplayer 🌐 (EVERYONE) | **on** in 🌍 Free Roam · hidden in lobby activities | Strangers stay ghosts around the group (their own `d.w` places, no collision, flood-guarded); party members tag `d.pt` and are drawn once, by the party. In a race / dash / cop tag / road trip strangers aren't drawn and don't see you (`"~"`). The emote wheel there is the party's |
@@ -557,7 +659,10 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | underworld 😈 | **pickpocket** on · the rest **off** | ON in a 🏡 Road Trip / 🌍 Free Roam run (no party game on — `underworld/common.js` `partyFree()`), gated per kind by `live(what)`: only the 🫳 pickpocket on foot (a scene prop; her own wallet, the take capped and always coming home; her rivals, the Shomrim who jog after him and his mother's text are all hers). Friends see nothing of it (she's just on foot). `why()` answers "party" while she drives and `spawn()` refuses a bad-guy car. **Still off:** the road-rager / gang car (a local car in the SHARED traffic, one screen only), Krupnik's cruiser + Velvel's shack (they reserve roadside space), the Fixer's jobs and the street's heat. A party version would need: the road-rager / gang car as `ctx.party.road` slots (seeded kind + s, a pure f(clock) tail behind the party's leader or a `partyLocal` car only HER screen draws, with friends seeing it as presence), Krupnik's / Velvel's pull-ins as seeded road-plan places (like hustle's payphones), the Fixer's jobs through hustle's party path (`partyLocal` props), heat kept personal, and the pickpocket as a personal foot prop. Test: `partyheist` (the pickpocket) |
 | seasons 🕎 | **shared** (the HOST's day) | Every player publishes its own day in `d.x.cal` (`{ f: a preview \| null, t: local "YYYY-MM-DDTHH:MM" }`, `seasons/party.js`); everyone dresses the world for the host's (a guest dresses nothing until it's known — no flicker from one holiday to another). Every placement is a hash of the place (road chunk index + world seed, town + house index), never Math.random, so the same house has the same menorah on every screen. The parade's march and the people of the day (lulav walkers, the dancers, Tashlich…) stand in the same places on every screen; their animation is each screen's own (not synced). The Purim music van is solo-only (it's a town driver; a party town's traffic is the party's seeded loops). The ✋ stall treat, Ima's note and Lulu's line are personal (the treat's coins capped per real day on each device). Test: `seasons` (two real pages: the host's Purim wins over the guest's own Chanukah) |
 | together 👯 (friend finder + same car) | **personal**, reads what friends already publish | The 📱 🗺️ Map (friends' dots, a destination beam), ≤ 3 edge pointers, 🧭 switch — all from the party's existing snapshots (`d.w` / the flat frame, `d.x.z`, `d.x.ex`, `d.x.at`, `d.x.pc`, `d.x.pr`) + `d.x.dr` (the door I'm in by). Party members only — never a stranger. No coins |
+| airport ✈️ | **off** for now (stage 1) | Until the interchange planner hook (`ci/exits2`): a party's town interchanges are planned from fixed data and don't keep out of it, so the airport doesn't plan in a party (`ctx.airport.debug.party(true)` turns it on). Ready for it: the placement is a pure function of fixed data (the same metre on every screen — tested), the planes are a pure function of the party clock (shared), the kerb vehicles / doors / the fence joke are personal props (never the shared traffic), presence "✈️ at JFK" over her car / walker in the landside |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
+| airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
+| airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -609,6 +714,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.places` | world | `add(def)` a pull-in place (`{id, name, icon, kind, where(mode) → [s…], d, bay: {half, d0, d1}, model, sign, colliders(spot), host(spot), cam(spot, t, pos, look), dur, beats: [{t, run(spot)}]}` — a town can register its own) · `get(id)` · `list()` · `spots()` (built ones near the car) · `at(id)` (positions this mode) · `visits(id)` · `inside` · `visit(key)` · `home {ready, phase: "parked" \| "arriving", park {x,z,h,s,d}, parked(), depart(), holiday(), decor, extras}` · `debug {clock(v), localClock(date), parkNow(), holiday()}`. Events `world:depart` {mode}, `world:home`, `world:visit` {id, s}, `world:holiday` {id} |
 | `ctx.exits` | exits | `rests` (`[{s, k, name}]` planned this run) · `spans()` (`[{a, b}]` each rest area's signs → accel lane: town's exit planner keeps out) · `inside` (the rest area she's in, or null) · `next` (what the next-exit chip shows) · `dealOfDay` · `debug.{RS, LY, LIFE, restAhead(ahead), pt(i, u, d), actAt(kind), modelsReady()}` — 🛣️ highway exits & 🅿️ rest areas (`features/exits/`). Events `exits:rest` {phase: enter \| leave, s, name}, `exits:talk` {id}, `exits:food` {id, cost}, `exits:restroom` {gag}, `exits:vending` {result}, `exits:souvenir` {id}, `exits:picnic`, `exits:dog`, `exits:pump` {result}, `exits:mechanic` {result}; stats `restStops`, `restMeals`, `restRestrooms`, `restSnacks`, `restKicks`, `restSouvenirs`, `restPicnics`, `restDogPets`, `restTalks`, `restFills`, `restRepairs` |
 | `ctx.feel` | feel | `damage.{k, stage, info(), repair(why) → bool, hit(side), undo(n)}` — the wear on Lulu's own car (k = hits shown, stage 0–4: dents → cracked windshield → smoking hood → last heart: hubcap off + dragging bumper; never more than the hearts lost) · `debug.{wear(k, side), audio(), emitters(), passes(), muffle()}` |
+| `ctx.life` | life | 🍃 ambient details, all local + cosmetic (`features/life/`): `info()` (`{on, foot, town, season, steps {n, kinds, surf}, puddles {level, sites, drawn}, wind {gusts, leaves, flyers, piles, pilesKicked}, ambience {sounds, kinds, crickets}, splashes, carSplashes, soaked, flyersRead, pilesKicked, puffs {chimneys, smoking, manholes, steaming, vents, chim, steam, vent, smelled}, pigeons {flocks, live, drawn, flying, scattered}, alarm {live, alarms, blinks, lines}, friends {near, steps, surf}, lines}`) · `sounds` (get/set: ⚙️ 🐦 Street sounds) · `debug.{rain(level \| null), season(s \| null), gust({dir, leaves, flyer, flyerIdx}), flyer(i, dir, lat), happen(kind), puddle(kind), pile(), probe(kind), off(v), stats, WIND, cold(v \| null), puff(kind), flock(kind), scatter(kind), lineReady(), fakeParty(p), PUFF, PIG, ALARM}`. Events `life:gust` {dir} · `life:pile` {x, z, car} · `life:flyer` {i, title} · `life:pigeons` {x, z, why, kind, n}; stat `leafPiles`. Round 3: `info().windows {houses, panes, drawn, lit, tv, dark, flips, fullT}`, `info().breath {on, breaths, people, exhaust, mist, mistOn, huff}`, `info().radio {hooked, topic, said, log}`, `info().storm {claps, dogs, blips, eeks}`; `debug.{pane(kind), house(), mist(v \| null), radio(kind), WIN, WN, BREATH, BR}`. Listens to `town:parkedHit` ({obj, alarm} — the bumped car), `foot:hotwireFail` ({obj, key, x, z, town}) and `atmos:thunder` ({near}); offers DJ lines through `ctx.hustle.radio.topical(fn)`. Reads (never writes) `ctx.atmos` (`night`, `wet`, `weather`), `ctx.town` (`plan`, `hideSpot`, `people()`, `homes`, `spot(name)`), `ctx.party` (`members()`, `remoteCar(uid)`), `ctx.foot` (`pos`, `vel`, `ground`, `airborne`, `bounds.zone`, `say`), `ctx.seasons` (`is`, `day`), `ctx.banter.bubble`, `ctx.car.fx` |
 | `ctx.shabbos` | shabbos | `active` · `phase` ("drive" \| "arrive" \| "done" \| "late") · `left` (s to candles) · `total` · `dest` (Bubbe's house = `ctx.journey.stopS(0)`) · `start(via)` (a fresh rush, `G.mode = "shabbos"`) · `offer()` (Cruise: Ima's "Oy, it's erev Shabbos!" call; letting it ring turns the drive into the rush) · `friday()` · `atDoor()` (a Friday afternoon she hasn't made it yet, solo: world's home start makes it Ima's line, and her hop-in at home (`world:depart`, not `left`) arms the rush with via "home"; ▶ PLAY's subtitle says so — no title chip) · the result card's way out is 🏠 Head home · `records` · `debug.{date(iso), setLeft(s), setFrac(u), line(), props(), info()}` — 🕯️ Erev Shabbos Rush (`features/shabbos/`). Events `shabbos:start` {via, total, dest}, `shabbos:call` {i, result}, `shabbos:candles` {margin, pay}, `shabbos:late`, `shabbos:end` {made, margin}; stats `shabbosMade`, `shabbosLate`, `shabbosCandles`, `shabbosMargin` (best) |
 | `ctx.seasons` | seasons | **stable "what is today" API for other features:** `day()` → the calendar day whether or not the decorations setting is on (the host's in a 🎉 party, null until it arrives; `?season=` previews count) and `is(id)` (`"friday"` = Friday afternoon, `"shabbos"`, `"chanukah"`, any id in `seasons/calendar.js › DAYS`) — read these, don't re-derive dates; `today()` (what the world is DRESSED for — null with the setting off) → `{ key, heb: {m, d}, wd (the Hebrew day's weekday, 6 = Shabbos), evening, ids, main, chanukah (1–8), shabbos, yomtov, erev (Friday afternoon), candles, quiet, forced, source: device \| pinned \| forced \| host }` · `ids` · `main` · `on` · `dressed` · `info()` · `debug.{season(id, n, {wd, eve}), date(iso), lit(0..1 \| null), rebuild(), treat(x, z), stands(), items(kind), resetPaid(), D, S, SAVE}` — 🕎 the world follows the real Hebrew calendar (`features/seasons/`). Events `seasons:day` {main, ids, key}, `seasons:dress` {where, n}, `seasons:treat` {id, coins, paid}; stats `seasonsTreats`, `seasonsTreatCoins` |
 | `ctx.decor` | decor | `owns(slot, opt)` · `placed(slot)` · `buy(slot, opt)` → `{ok, why: bought \| owned \| coins \| party \| bad}` · `place(slot, opt)` (free — she owns it) · `allowed()` (false in a 🎉 party) · `enter()` (✋ GO INSIDE from her porch) · `pick(slot)` · `slots` · `spent` · `sets` · `debug.{S, pickerSlot, outside(), doorColor(), calls(), spotAt(id), houseSpots, houseLocal(p), room(), reset()}` — 🛋️ Lulu's own house + decorating it (`features/decor/`). Events `decor:buy` {slot, opt, price} · `decor:place` {slot, opt, bought} · `decor:set` {id}; stats `decorBought`, `decorSpent`, `decorSets`, `decorVisits` |
@@ -619,6 +725,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.day` | day | 📝 A DAY IN LULU'S LIFE (`features/day/`): a Cruise that starts at home hands Ima's list for today (seeded by the device's local date — the same all day): one errand at a real place (⛽ / 🌄 / 🏡 Bubbe's via `world:visit`, a town via `town:exit`), a side job (`hustle:end` pass), something silly (counted from `stat` events: pets, closeCalls, footChats, footInteriors); a HUD chip (the next thing + how far) and a light column over the target; all done → 🏠 home for dinner (pull into the driveway / walk up): world's `ctx.places.home.comeHome({ line })` plays the ending beat (state `worldHomeBeat`, skippable: parked, she walks up to the porch, Ima waves) and then glides down behind her on her feet at home (`ctx.onegame.home({ camBlend })` — a fresh run; the title without onegame). On a Friday afternoon (`world:homeStart` `friday`) the list waits: Ima asks for the Erev Shabbos Rush instead (walk off and the list is back). Each item pays `PAY.item` (15) once a day, dinner `PAY.home` (40) once a day. `active` · `today` · `list()` · `done(id)` · `complete` · `home` · `imaLine()` (world's door line) · `ITEMS` · `PAY` · `debug.{date(yyyymmdd), target, beacon, chip, activate}`. Events `day:start` {list}, `day:tick` {id, pay}, `day:home` {pay}; stats `dayItems`, `dayDone`. Test: `scripts/tests3d/day.js` |
 | `ctx.ads` | native | (`features/native/ads.js`, the iOS app's AdMob — a port of `src/10c-ads.js`: same ad unit IDs / `isTesting`) `native` (Capacitor + the AdMob plugin) · `ready` (initialized) · `att` (the ATT answer seen) · `rewardedReady` · `rewardedAvailable()` · `showRewarded(onReward)` · `debug.{S, ADMOB, log}`. Launch: ~1.2 s in it asks App Tracking Transparency (only while undetermined) and only THEN `AdMob.initialize` (Apple Guideline 2.1). Placements (owner, 2026-11-20 — AGENTS rule 4b): an interstitial every 2nd BREAK (a knock-out — the `knockout` event — or a `gameover` card; one counter, `interstitialEveryN`, never two within `minGapMs`): a knock-out's starts only once she's back on her feet and WALKING (`calmNow("foot")`, within `KO_WINDOW` s, else dropped); plus ONE per jail stay when the cell is quiet (law/jail.js emits `law:cellQuiet` once a stay; `calmNow("cell")`). The opt-in "📺 WATCH → +50 💰": on a `gameover` card (`#adReward`, one per card) and, after a knock-out, on the ❚❚ pause menu (item `adReward`, one per knock-out, at most `REWARD_KO_MAX` = 3 a run). **While any ad is up the game HOLDS**: `ctx.hold` (app.js skips whole frames — no game time, no state update, no traffic, no world, no render), `A.holdAll` (music paused, AudioContext suspended); released on the plugin's `interstitialAdDismissed` / `onRewardedVideoAdDismissed` / `…FailedToShow` (v8's show() resolves as the ad APPEARS), or after `showWaitMs` if it never appeared / `maxAdMs` if it never closed. `ctx.ads.holding`, `ctx.ads.calmNow(where)`, `debug.{S.holds, interstitial(why), release()}`. Test `scripts/tests3d/adhold.js`. Never mid-drive, in a party or Dina's mode; on the web / in `?test` without `&enable=ads` it never touches anything. Event `ads:ready` {att}; stat `adRewards`. `ctx.native` {active, platform} · `ctx.haptics` {native, debug} (touch-play `rumble()` → `Capacitor.Plugins.Haptics.impact` HEAVY / MEDIUM / LIGHT, throttled per level, off with Settings → 📳 Rumble & haptics). Test: `scripts/tests3d/native.js` (boots the staged `www/3d/` with a fake Capacitor) |
 | `ctx.heist` | heist | `job` (Lulu's heist `{town, plan, bags, lost, phase: inside \| getaway \| pulled, stars}`) · `plan` (a cased bank / the tip `{town \| null, plan, via}`) · `robbery` / `snatcher` / `thief` (the live event) · `busy(except)` · `planHeist(town, planId)` · `cooldownLeft()` · `gear.{fireNet(from, {sure}), laySpikes(ahead, d), ripNet(), flatTyres(dur), netted, flat}` · `store` · `tune` / `pay` / `plans` · `debug.{robbery(opts), endRobbery, schedRobbery(), job, tip, snatch(mode), carTheft, enterBank, bypass(on)}` — 🏦 (`features/heist/`). Events `heist:robbery` {phase: staged \| start \| foiled \| escaped, where, how, pay}, `heist:job` {phase: tip \| plan \| start \| escaped \| busted \| failed}, `heist:snatch` {phase: approach \| dodged \| grab \| caught \| lost, n}, `heist:theft` {phase: warn \| stopped \| stolen \| recovered \| ditched}, `heist:gear` {kind: net \| spikes, phase}; stats `heistFoils`, `heistTackles`, `heistJobs`, `heistJobsClean`, `heistBusted`, `heistCased`, `heistBankVisits`, `heistSnatched`, `heistSnatchDodged`, `heistSnatchCaught`, `heistCarStolen`, `heistCarsRecovered`, `heistTheftStopped`, `heistNetted`, `heistSpiked`, best `heistBestPay` |
+| `ctx.airport` | airport | ✈️ the JFK exit (stage 1, OFF by default: `?airport=1` / `&enable=airport`): `on` · `planned` ({s, no, name} — its exit metre, a pure function of fixed data) · `ready` (built) · `inside` (she's in the fenced landside) · `spans()` ([{a, b}] signs → accel lane: other planners keep out) · `kerb.pickup()` (the ARRIVALS pickup point {x, z, h} in the kerb lane at f 24 — null until it's built; stage 3's taxi runs) · `zones(s0, s1)` ([{s, a, b}] where the airport WILL be, fixed data only — empty until the switch-on; the towns' + rest areas' planners keep out) · stage 2 attaches `terminal` (`enter({door})`, `warm()`, `canEnter()`) on boot · `debug.{S, LY, AIR, BUILD, PLANES, VEH, JOKE, KERB_HIT, SEC, enable(v), party(v), townsKeepOut(v), placeAt(s, {force}), ahead(m), buildNow(), fits(E), findSpot(s), frame(E), world(f, r), local(x, z), roads(), G(), planes(), vehicles(), kerbStats(), route(fx, fz, tx, tz), routes(), pullSpots(), kerbHolds(), KERB_EDGE, netDist(x, z), security(), low(), nearFence(x, z), fenceJoke(force), jokePhase(), perf()}` — ARCHITECTURE › The airport (+ › Polish) |
 | `ctx.cutscene` | core | `begin(id, {onSkip})` / `end(id)` / `active(id)` — an in-state cutscene gets the ⏭ Skip pill (see States) |
 
 **Damage you can see (feel):** a lost heart (`damage` event) dents Lulu's car where the last `crash` (within
@@ -766,8 +873,8 @@ court → walk-out, the ER and the interiors (features/places — see Places bel
 the ER's ambulance ride-in — skipped in town, parking, Dina…) still sends her back to the highway first (`TOWN_OK`). Out of
 hearts in town stands her up on the street she crashed on, beside her car (no tow, no fade; on foot the ER can scoop her
 up now that the town has a hospital — `ctx.foot.erChance()`). The group-chat
-gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets a 🗞️ **Kvetch** app
-(order 70: the town's parody local news + what Lulu just did).
+gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets 🗞️ **Kvetch**
+(the town's parody local news + what Lulu just did) — a pinned row in 💬 Messages (`ctx.phone.addPin`, id `town`), not an app: the phone stays one 3 × 3 screen.
 **Performance:** static pieces are merged by `kit.js` into vertex-coloured 60 m clusters (one material per
 look), culled every few frames by distance and by the town's own blocks (a cluster is hidden when every
 sample point is behind another block), every bit of text is one atlas mesh,
@@ -918,7 +1025,8 @@ ctx.phone.addApp({ id: "lakewood", icon: "🏘️", name: "Lakewood", order: 70,
 // optional app.back(api) → true when it handled ○ itself (a sub-view); optional color / color2 (the icon gradient)
 ctx.phone.openPhone(appId?, arg?) · ctx.phone.closePhone() · ctx.phone.isOpen · ctx.phone.apps() (visible ids)
 ```
-Orders: 🗺️ map 10 · 👯 party 15 (openworld, Free Roam only) · 💬 messages 20 · 📍 nearby 25 (openworld) · 📻 radio 30 · 💼 jobs 40 · 🎨 paint 50 · 📸 camera 60 · 📞 call 65 (community: in a town only) · 🗞️ Kvetch 70 (town) — keep the grid ≤ ~8 apps.
+Orders: 🗺️ map 10 (together's 🗺️ in a Free Roam) · 👯 party 15 (openworld, Free Roam only) · 💬 messages 20 · 📞 Phone 22 (community, everywhere) · 👯 Friends 23 (friends, outside a Free Roam) · 📍 nearby 25 (openworld) · 📻 radio 30 · 💼 jobs 40 · 🎨 paint 50 · 📸 camera 60 — **that's 9: the grid is ONE 3 × 3 screen** (tests `calls`, `onegame`, `day` check ≤ 9). Something that isn't worth a 10th app goes in 💬 Messages as a pinned row:
+`ctx.phone.addPin({ id, order?, visible?, row: () => ({ icon, color, title, sub, badge }), render(el, api) })` (under 📝 Ima's list + 🏠 My house; tap → its view above "‹ All messages"; the badge shows on the row only; `ctx.phone.pins()` = the ids showing) — 🗞️ Kvetch (town) is one.
 Styling helpers inside an app: `.btn.lp-row` (a row: `.lp-av` icon, `.lp-tx` with `<b>` + `<small>`, `.lp-meta`),
 `.lp-card`, `.lp-note`, `.lp-fine`, `.lp-empty`. **Inbox:** every `ctx.phone.text(…)` still pops the driving bubble
 AND is stored in 💬 Messages (thread = `thread` or `from`, case-insensitive; the last 50 in `store("phone")`), with
@@ -1232,7 +1340,7 @@ hosts a 🌍 Free Roam silently (`ctx.party.hostRoam()`), and answers with the p
 knocks find nobody; every friend left is owed the new name (`nb`), handed over inside her next knock at THEIR door. Names: the
 12 curated ones + `#NN` from the id (many players share a name), never free text. **Phone:** the 👯 Friends app (outside a
 party's Free Roam; inside one, openworld's 👯 has "📇 My friends list" → the same views) — playing now (▶ Join / with you) ·
-not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). The phone grid goes four across past 9 apps. **Cost:** nothing without friends; with friends one idle
+not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). 👯 is order 23 (after 💬 Messages + 📞 Phone); with it the phone is exactly 9 apps solo (🗞️ Kvetch moved to a pinned row in 💬 Messages) — the grid still goes four across past 9 so a 10th never falls off, but keep it one 3 × 3 screen. **Cost:** nothing without friends; with friends one idle
 socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
@@ -1291,6 +1399,99 @@ emotes are a wave from the seat); she's never ticketed or chased for the driver'
 `speedTrap` is handled). Riding = 🌍 Free Roam only, not while she's in a party game (a game that starts with her in it lets
 her out); through a town exit she warps along; friends only — strangers' ghosts are never a car.
 
+**A world that feels alive (life, `features/life`, ci/life — the owner, away for Shabbos 2026-11-21: "add more features to make it more
+immersive"):** small ambient details you NOTICE rather than use — no menus, no modes, no toasts (a line Lulu says is her own speech
+bubble on foot, `ctx.foot.say`, and only on Normal / Chatty chatter). Four parts, each one file, ticked from `hook("hud")` (+ `update`
+when the state has no HUD) once per game step, only while the world is on screen in a run (`footRun` / a driving state; not the title,
+not a set / interior (`ctx.view`), not Dina's mode):
+- 👣 **Footsteps** (`steps.js`): a step on every half-turn of her walk cycle (core/people.js swings the legs at 2.2 + 2.4·speed rad/s), the
+  sound picked by what's under her (every 0.22 s): a car's hood / roof (`ctx.foot.ground` > 0.85) → metal, a bench → wood, a puddle → a
+  splash, in town `ctx.town.hideSpot` (walk → concrete, yard / mall → grass, else asphalt), on the highway `ctx.foot.bounds.zone` (verge →
+  gravel, grass, mud); snow → crunch; a wet road (`ctx.atmos.wet` > 0.35) → splashy.
+- 💧 **Puddles** (`puddles.js`): sites from the town's plan (`ctx.town.plan`: every street, every 7 m, each side, a hash → ~10 % a gutter
+  puddle, ~5 % one in the lane, ~6 % a sag in the sidewalk; never within 13 m of a crossing) — the same for everyone, every visit. The
+  water level fills over ~20 s of rain and drains over ~3–6 min after (it outlasts atmos' wet road). ONE InstancedMesh (≤ 44 drawn, the
+  nearest within 75 m, re-picked every 0.5 s or 6 m), a small shader: an irregular rim, the sky's (fog's) colour, rain rings while it
+  rains, the scene fog. Splashes go into `ctx.car.fx` (no new particles): a step (5 drops), a jump landing in one (`foot:land` → 18 + a
+  SPLOSH + now and then a line), the car through one at > 5.5 m/s (30 drops off both sides; a townsperson within 5.5 m — `ctx.town.people()`
+  — gets a `ctx.banter.bubble`, ≤ 1 every 25 s).
+- 🍂 **Wind** (`wind.js`, tune `WIND`): a gust every 26–60 s (16–40 s in the fall) in town or on foot (not the desert): its sound upwind,
+  20-odd leaves (autumn colours Sep 20 – Dec 12, blossom petals Mar 25 – May 15, a few dry ones otherwise, none in snow / heavy rain)
+  blowing across, now and then (in town, dry) a paper flyer tumbling straight past her — `FLYERS`: 8 community notices on one canvas atlas
+  ("LOST CAT: KUGEL", "UMBRELLA GEMACH — 14 umbrellas, all black"…); walking into one → she reads it out (once per notice per run, ≤ 1 / 30 s).
+  In the fall leaves drift down around her in town, and LEAF PILES (the same site walk: ~12 % per 7 m at the sidewalk's kerb edge, not on a
+  boulevard) burst when she walks / drives through (a crunch, 18–30 leaves, stat `leafPiles`; flat for the rest of the visit). Three
+  InstancedMeshes: leaves (≤ 120, typed arrays), piles (≤ 36, a lumpy vertex-coloured dome), flyers (≤ 3, an atlas cell per instance).
+- 🏘️ **The neighbourhood** (`ambience.js`): every 4.5–10 s (9–16 s driving through town) a positional one-shot 10–45 m off — in town a
+  songbird, a dog (and ~45 % of the time the one next door answers), a screen door, a basketball being dribbled, someone hammering (much more
+  before Sukkos — `ctx.seasons.is("sukkosPrep")` — and never on Shabbos / Yom Tov), wind chimes when it's gusty; at night dogs, doors, an owl
+  (fall / winter) and a crickets bed (2 looping emitters, warm months only); rain hushes the birds. On the highway on foot: birds in the
+  fields, a far dog, an owl.
+**Sound**: every kind is synthesized once (`sounds.js`, 24 kHz, core `spatial.define`, ids `life*`, prio 1 — anything of the game's own
+wins a voice), played at pooled `{x, y, z}` points. ⚙️ **🐦 Street sounds** (Settings, order 64, listed only in a run — ⏸ → ⚙️ — because the title's Settings card is at its 720p limit; saved in the 3D save's `life` store)
+turns all of it off; the visuals have no switch (they're quiet). **Seasons** follow the device's date (`?lifeSeason=autumn|spring|summer|winter`
+to preview). **Perf**: ≤ 4 draw calls (only while there's something to draw), nothing allocated per frame (typed arrays, pooled points,
+in-place sorts); the `life` test measures it on vs off in Lakewood in the rain in the fall. Test: `scripts/tests3d/life.js`.
+
+**Round 2 (ci/life2, 2026-11-21):** four more files, the same rules (ticked from index.js, local + cosmetic, hashed sites, no toasts).
+- 🐦 **Pigeons** (`pigeons.js`, tune `PIG`): rows of 3–6 on ~20 % of the houses' roofs (`PERCH` per model: the duplex's ridge, the
+  townhouses' parapet, the Midwood house's flat top, the rowhouses' cornice — model frame, through `ctx.town.homes` like homes' `DOORS`), gangs
+  of 3–7 pecking on the pavement (~3.5 % per 7 m of a street side) and always one outside the bakery / the pizza shop (`ctx.town.spot`). Only the
+  flocks within 75 m are simulated + drawn (≤ 72 birds, ONE InstancedMesh, the wing flap in the vertex shader like atmos' birds). A `honk`
+  within 35 m, running (> 4.2 m/s) within 3.6 m of a gang, the car > 8 m/s within 8 m (> 15 m/s within 13 m) → they burst up (a flutter,
+  event `life:pigeons` {x, z, why, kind, n}), circle the block, and glide back to the same perch once she's ≥ 14 m off (roofs: 10 m). A coo
+  from a flock within 18 m every 7–15 s (not at night / in the rain).
+- 💨 **Smoke + steam** (`puffs.js`, tune `PUFF`): ONE InstancedMesh of camera-facing soft puffs (a small shader, premultiplied blending so
+  the alarm's glows are additive in the same draw; typed arrays, ≤ 220 + 16). Chimney smoke on a COLD day (`coldNow()`: snow, winter, or
+  Nov–Mar by the device's date; `?lifeCold=1|0`) from ~50 % of the chimneys (75 % at night) — `CHIMNEY` tops per model (the duplex, the
+  Midwood house), the nearest 10 within 150 m; the wind's gusts lean it over. Midwood's MANHOLES: covers in the lanes (~4.5 % per 7 m, not
+  at a crossing; a second InstancedMesh, "CON ED" on a canvas), 70 % of them steaming (thicker when cold), the nearest 5; her car swirls
+  the cloud as it punches through; a hiss loop at the nearest one within 12 m. The bakery's / pizza shop's OVEN VENT on the roof (`VENTS`, from
+  `ctx.town.spot`). Walking into the steam / past a vent → Lulu's line (once a visit each).
+- 🚨 **Car alarms** (`alarm.js`, tune `ALARM`): town/parked.js already shoves a bumped car and plays 4 whoops; its `town:parkedHit` now also
+  carries `obj` + `alarm` (the tiny additive hook). Then: the hazards blink amber at the model's four corners (its bounding box, measured
+  once per model) for 5.2 s, the alarm's tail plays positionally ON the car (WHOOP ×6 … BEEP ×3, kind `lifeAlarm`), and at 1.8 s the
+  nearest townsperson (`ctx.town.people()`, ≤ 28 m) or a window of the nearest house yells (a bubble).
+- 👣 **Friends' footsteps** (`friends.js`): the 4 nearest friends walking (`ctx.party.members()` + `remoteCar(uid)`: `foot`, `anim` 0 / 3,
+  `vx/vz`) within 26 m step on the same rhythm as hers with the surface under THEM (town `hideSpot`, a puddle, snow, a car roof by `footY`).
+- 🙋 **The crowd answers a honk** (features/homes/crowd.js `crowdHonk`, a small additive change): a kid waves back ("HONK AGAIN!"), a grown-up
+  jumps + points and yells (`PED.honk`) or "Nu?!" (`PED.honkNu`); `homes:honked` carries `kid`.
+- **Lines**: every round-2 line (Lulu's, a neighbour's) goes through ONE budget in common.js (`lineFree` / `luluLine` / `npcLine`: ≥ 40 s apart,
+  chatter Quiet = none) so the `calm` per-minute count doesn't move. **Perf**: ≤ 3 more draw calls (puffs, manholes — Midwood only — and
+  pigeons, each only while it has something to draw); the `life2` test measures Midwood on vs off. Test: `scripts/tests3d/life2.js`
+  (friends' footsteps through `debug.fakeParty`: a real party needs two pages + the relay).
+
+**Round 3 (ci/life3, 2026-11-21):** three more files + two tiny additive hooks, the same rules.
+- 🪟 **Windows at dusk** (`windows.js`, tune `WIN`): the town engine warms every house window at once (one shared material —
+  right far away, a switch up close). Over the houses within 110 m life lays its own pane on each FRONT window (measured once per
+  model from its own geometry: front-facing "Window" faces merged into rectangles — like seasons' `frontWindows`): until a room
+  lights it's deep-blue glass covering the town's glow; each house has its own night level between 0.1 and 0.62 (atmos' `night`)
+  and its rooms come on a beat apart (84 % ever light), so the street lights up a few windows at a time; ~1 house in 9 has a
+  ground-floor TV (a flickering blue); after a while at full night ~⅓ of the rooms go dark (bedtime); at dawn the rest switch
+  off as the night level falls. Houses the town built `dark` (nobody home) are left alone. ONE InstancedMesh (≤ 360 panes, nearest
+  houses first; matrices written only when the set changes — every 0.5 s / 8 m — per frame one vec4 each), premultiplied blending
+  (a dark pane covers, a lit one adds), faded out over its last 30 m into the town's own glow.
+- 🌬️ **Cold air** (`breath.js`, tune `BREATH`): on a cold day (`coldNow()`) when it's dark / snowing / winter: Lulu's breath
+  (2–3 small puffs in front of her face every 2.5–3.4 s, every 1.1–1.5 s running and for 6 s after a run), the named townsfolk
+  within 22 m (`ctx.town.people()`) and friends walking near her (`remoteCar`); on any cold day in town the car's tailpipe steams while
+  it idles / crawls (< 9 m/s, thinning with speed); 🌫️ at DAWN in town (atmos' clock > 0.86 or < 0.06, not snow / heavy rain;
+  thicker when the ground is wet) up to 26 low mist banks 5–34 m around her drift with the wind and burn off — her car stirs them.
+  All are puffs.js' instances (no new draw call); puffs.js now also ticks outside town (her breath on foot / a hotwired shoulder car's alarm).
+  `?lifeMist=1|0` previews. One "Brrr!" line a run (the shared line budget).
+- 🚨 **A fumbled hotwire** (alarm.js): foot's `hotwireFail` now emits `foot:hotwireFail` {obj, key, x, z, town} (the tiny hook) →
+  the same hazards + alarm tail as a bump, starting at once (no shove whoops before it), and in town the owner / a window yells
+  about THAT ("Young lady! That is NOT your car!"). Works on the highway's shoulder cars too (no yell there: nobody around).
+- 📻 **The radio looks out of the window** (`radio.js`): rain / snow / fog starting, the rain stopping, the sunset (clock 0.47) and
+  nightfall (0.66) are offered for 70 s as a TOPIC; the next time a talking station (SIMCHA / SMOOTH / KVETCH / DOVID DOV FM)
+  picks a line, its DJ talks about that instead (per-station lines; LULU FM has no DJ). Through `ctx.hustle.radio.topical(fn)`
+  (the tiny hook in hustle/radio.js: fn(station) → a line | null, asked after the live news) — the radio's own ticker and timing.
+- ⛈️ **After the thunder** (`storm.js`): atmos' clap now emits `atmos:thunder` {near} (the tiny hook in weather.js); in town a dog
+  barks 0.4–1.1 s later (two after a close one, the next door may answer — ambience.js' `happen`), a close clap (near > 0.55) makes
+  the lit panes flicker for 0.5 s (windows.js `blip`: the power nearly went) and Lulu on foot jumps ("EEK! …I meant to do that.",
+  once a visit, the shared line budget).
+**Perf**: +1 draw call (the panes, only in town at dusk / night); see the `life3` test (Lakewood, night, cold, on foot).
+Test: `scripts/tests3d/life3.js`.
+
 **Banks, heists & robberies (heist):** CARTOON ONLY (the owner's call; 12+): the robbers' "weapons" are a banana, a water
 pistol, a baguette and a confetti blaster (`heist_props` Prop_* nodes), nobody is ever shot, nobody is hurt beyond the
 usual knock-down / heart rules, the cops bring a stun net and a spike strip. **The bank is town DATA**: `uses.bank` in
@@ -1336,6 +1537,193 @@ npcWoman / npcKid (+ law's K9 as the dog) spawned only within ~250 m, casting no
 chip (`.exits-chip.hud-secondary` in the "center" slot, only ≤ 1 mi ahead — interchanges and rest areas). Gated by
 `ctx.enabled("exits")`; in a 🎉 party the rest areas are seeded (see the parity table) and the visit is personal (presence ⛽).
 `scripts/tests3d/exits.js` covers passing / both branches / the rest area; `partyplus.js` the party side.
+
+**The airport (airport): ✈️ JFK, stage 1 — the exit and the kerb** (roadmap 12; plan + the owner's decisions:
+`3d/docs/airport-plan.md`). **OFF by default** until the interchange planner is split per town (`ci/exits2`): it plans only
+with `?airport=1` (anyone) / `&enable=airport` (tests), or `ctx.airport.debug.placeAt(s)`. `features/airport/`:
+`layout.js` (DATA) · `plan.js` (where + world geometry) · `build.js` (drawing) · `planes.js` · `life.js` (the kerb vehicles,
+the doors, the fence joke) · `lines.js` (all text; parody airlines only — Kugel Air, El Oy, Shmear Jet, Nu? Air).
+**Engine choice — a small engine of its own** that borrows from both existing ones: the INTERCHANGE is the town exit's
+shape in highway coords (u = s − exit, d — taper, a parallel decel lane with EXIT ONLY, the `exits_gantry`, a painted gore +
+cushion, a RAMP 30 advisory, an off-ramp that eases away to d 30 at u 60, guardrails; from u 600 the on-ramp back, a merge
+gore, the accel lane to u 840; advance signs ✈ JFK AIRPORT 1 MI / ½ MI / LAST EXIT with an EXIT 12 tab) and, like a
+REST AREA, everything is in the driving scene on `paved` ground with its colliders in the highway's chunks — no district, no
+fade. But the airport itself is RIGID: its own frame (`frameAt(E)`: origin on the highway's centre line at u = `UA` 330, f
+along the road's heading there, r to its right — like an attached town's `PL.ROT`), because an airport isn't a ribbon that
+bends with the road (a straight runway, a rectangular terminal). Not the town engine: an airport isn't a street grid
+(no blocks, no drivers, no TownRoad), and a district swap would cost a cut / a ~1000-step build for a car park. Two cubic
+Béziers (world space, built from both ends' exact poses) join the ramps' ends to the loop's legs, so the joints are exact
+on any bend. **Layout (f, r):** the fenced LANDSIDE f ±175, r 55 → 245: a one-way loop (up the west leg at f −150, the kerb
+road at r 190 — three lanes, the terminal on her right: DEPARTURES then ARRIVALS — round to the east leg, down and out), the
+lot inside the loop (seeded parked cars, a pay booth), the kerb sidewalk r 195 → 203, Terminal 4½ (`airport_facade`, the
+OUTSIDE — stage 2's hall is `airport_terminal`) r 203 → 238; the AIRSIDE behind the runway fence: the apron + three gates (jet
+bridges, parked jets in liveries), the tower, the taxiway, the runway (r 330 → 375, f ±450). **Placement** (`plan.js`) is a
+pure function of FIXED data (the constant highway, the world's places, the journey's stops + the coast — Cruise layout), so it
+is the same metre every run and on every friend's screen: from `AIR.first` (5.9 km) it slides on in 50 m steps until FIT (no
+highway sample inside its box `BOX` from 3 km back to 3.6 km on, and every landside / airside point finds its nearest highway
+point with the road's own ±120 m local search — `car.s` / foot's s stay smooth in there) and clear of places, the journey's
+stops (±1.1 km) + the coast's ocean, the towns' planned interchanges (± `townGap` 1.5 km: their attached towns) and the rest
+areas. The search runs a few candidates a frame (`searchSteps`). `plan(E)` reserves the ramps (d 7.2 → 70), the airport
+(±640 m round E + UA, d 7.2 → 3000) and a thin strip (d 9 → 22, signs → accel lane + 1.5 km) that the towns' and rest areas'
+SOLO planners see as busy (`reservedRight` / `clearAt`), and adds the three highway signs. **Ground:** a `paved` predicate —
+3 on every lane (the highway-side lanes in (u, d), the roads as world polylines in a hash grid), 2 on the whole landside (the
+car drives it like road; a lawn too — no world fence push at |d| > 70). **Foot:** `ctx.foot.bounds.free` (a tiny registry in
+foot's `bounds.js`: predicates (x, z) → no world fence there) holds the landside, so walking 200 m off the highway isn't pulled
+back; its own fence (posts every 1.4 m, `kind: "fence"`) keeps her in. **Colliders** ride in the highway chunk of their
+nearest s (`G.byChunk`, added on `chunk:build`); the kerb vehicles' circles are live objects in the kerb's chunk. **World:**
+`world.keepBehind` (a tiny core addition) keeps 900 m of highway chunks behind her while she's round the airport (the ramps
+stay drawn from the kerb). **Build** (`build.js`): its own group, ~120 small steps (~3 ms a frame from 2.6 km out; dropped
+3.2 km away; the sign font + emoji are warmed at boot, the atlas is drawn a cell a step and kept for the next build): ~40k
+triangles, 40 meshes — every surface one mesh (ramps, the loop, the lot, stall lines, walks, gores, the
+kerb paint, apron, taxiway, runway), the chain-link fence one alpha-tested mesh, every static model + guardrails + fence posts
+merged by the town's `kit.js` Merger (160 m clusters), every face of text one quad mesh from one atlas. **Planes** (`planes.js`):
+3 planes, each livery's model BAKED into one vertex-coloured geometry (`bake.js`) and instanced — packed, so only the live ones are
+drawn (~5 draw calls for the sky; the gear its own set that folds to nothing in the air), a pure function of
+one clock (the party clock with friends): every 32 s a departure (roll, lift off past the terminal, a climbing left turn back
+over the landside and the highway) or an arrival (in from over the highway, line up, touch down, roll out); a soft shadow quad
+under each along the sun; a jet roar on `A.spatial` (kind `airportJet`). **Life** (`life.js`): 5 taxis + 2 shuttle buses
+(baked + instanced: one draw call a kind) drive their own closed loop (the right-hand lane all round, through the lot's aisle), the taxis queue on the
+ARRIVALS kerb, the shuttles stop at DEPARTURES and pull out to the middle lane; they stop for her (car or foot) and her parked
+car. The terminal doors: ✋ "🚪 TERMINAL 4½" — opening soon; once stage 2's hall is in, `ctx.airport.terminal.warm()` within
+22 m and `enter({ door })`. **The runway fence joke**: pressed against the airside fence (~0.7 s on foot, or nosing the car into
+it) → Officer Segal of airport security rolls up on his Segway (sometimes a parked jet honks first), two lines, Lulu answers, he
+rolls off — speech bubbles only, 4 variants in turn (`SEGAL`), at most 2 a visit 25 s apart (after that, one line of Lulu's).
+Cartoon only: nothing about real security procedures. **Budget** (test `airport`, 1280×720, the kerb's busiest view; AGENTS §7 › Airport): ≤ 240 draw calls / ≤ 120k triangles
+on MEDIUM and LOW (measured 209 / 118.9k), the build's slices p95 ≤ 10 ms / worst ≤ 60 ms on a CI runner (3.9 / 30.5).
+**HUD:** the decel-lane / ramp cue (a prompt) and ONE banner on the first
+arrival of a visit (`prio 1`) — no toasts. `G.noPullOver` in the landside (stop = get out). **Party:** OFF in a 🎉 party for now
+(the towns' party planner doesn't know about it — `ctx.airport.debug.party(true)` turns it on); the placement is already fixed
+data, presence "✈️ at JFK" and the planes on the party clock are wired. `ctx.airport` { on, planned, ready, inside, spans(),
+debug }; events `airport:enter` / `airport:leave` {s}, `airport:door` {f, in?}, `airport:fence` {variant}, `airport:built`
+{ms, steps, worst}; stats `airportVisits`, `airportDoors`, `airportFenceTries`. Models: `3d/blender/assets_airport.py`
+(`airport_facade`, `_tower`, `_jetbridge`, `_plane`, `_taxi`, `_shuttle`, `_booth`, `_segway`, `_guard`, `_windsock`,
+`_suitcase`; it reuses the exits' gantry / cushion / advisory / guide / lamp and the town's LOD cars). Test:
+`scripts/tests3d/airport.js`. The advance signs + the gantry: `3d/docs/airport-signs.jpg` (1 MI · ½ MI · LAST EXIT · the gantry).
+**Airport › Polish (`ci/airport-polish`, 2026-11-21).** **The chase** (`chase.js`): highway cruisers that follow her off the exit
+drive the airport's ROAD NET — six world polylines meeting at four junctions: the highway's right lane → the decel lane → A (the
+gore) · A → the highway → B (the merge) · B → the accel lane → on · A → the off-ramp → the road in → up the west leg → WA (the lot's
+aisle) · WA → the kerb road past the terminal → EA · WA → the aisle → EA · EA → down the east leg → the road out → the on-ramp → B.
+A route = the cruiser's nearest point on the net → the shorter way round the junctions (Dijkstra on 6 nodes) → her nearest point →
+straight to her (she may be in the lot); while they SEARCH it goes to where they last saw her, on a pull-over to its stop behind her
+car. Law asks through two small hooks in `features/law/cops.js`: `hook("copRoute", (c, u, chase) → { gap, aim(la, out) } | null)`
+(used for `chase` / `pull` units outside a town; null while both are on the highway's own lanes) and `hook("copSight", (ax, az, bx,
+bz) → true | false | undefined)` (the terminal + the tower block the view; the open landside doesn't — the highway's "roadside on a
+bend" test would have blinded them past 11 m off the road). Any other place off the highway with roads of its own can use them.
+**Kerb collisions** (`life.js` `V.collide`, an actor): her car meets the taxis + shuttles with traffic.js's own collision —
+circles, a push apart by mass (taxi 1.2, shuttle 5), the impulse — so a hit over 6.5 m/s costs a heart like traffic; past `KERB_HIT
+.knock` (taxi 3.5 m/s, shuttle 9) the vehicle slides + spins (damped like a traffic wreck), its driver yells (`L.KERB`), then eases
+back onto its place in the loop (1.6 s; the ones behind queue, they also stop for a cruiser). The vehicles' circles in the kerb chunk
+are now foot's only (`off` while she drives). **LOW** (`build.js` `setLow`): what the LOW tier leaves out — two of the three parked
+jets (+ their livery faces), every other parked car, 8 of the 20 lamps, the bottom fence's trees, the windsock, the facade's trim /
+door mats / hedges (`splitTemplate`) — is merged LAST into the same clusters, so LOW is one draw range per merged mesh (no extra draw
+call on MEDIUM) and the atlas mesh's last quads; their colliders switch off with them (`notLow`). ~9.3k triangles left out at the
+kerb (AGENTS §7 › Airport for the numbers; the test counts the shadow pass too now). Also: the roads in / out share the ramps' mesh
+(2 draw calls fewer). **Airport security at the kerb** (`security.js`, the owner's decision 10): a WANTED Lulu (law's stars — a
+chase, a fugitive stretch, warrants she hasn't changed her look since) in the landside → Officer Segal's Segway (12.5 m/s — "it has a
+WARRANTY") + Rex roll out of the nearest door: at the wheel he rides at her window and holds her car to `SEC.carCap` 4.5 m/s
+(a "controls" hook: throttle off, a touch of brake, no nitro); mid-chase he keeps the cops' eyes on her (`ctx.law.spot`), with
+warrants only he radios it in (`ctx.law.callIn`); on foot Rex has her shoelace (`ctx.foot.bounds.slow` × 0.5) and after 3.5 s a
+foot cop comes out of the doors (`ctx.foot.startChase`). He gives up at the landside's edge ("Next time, ma'am!"), when she's no
+longer wanted or after 32 s (the battery). Once a visit, solo only, speech bubbles only; events `airport:security` {how: kerb |
+radio | gone}, `airport:bump` {kind, impact}; stats `airportSecurity`, `airportKerbBumps`. **Switch-on model** (`plan.js`
+`PLANNING` / `zones()`): the airport FITs only at a few stretches of the constant road (8.8–8.9 km, 22.4–29 km…), so after
+`ci/exits2` it is planned FIRST from fixed data and the towns + rest areas keep out of `ctx.airport.zones(s0, s1)` — the steps:
+`3d/docs/airport-plan.md` › Sync log, AGENTS §7 › Airport. `ON_BY_DEFAULT` in `index.js` is the switch. **The chase cam's walls**:
+`ctx.airport.camClip(tgt, dx, dy, dz, D)` — Terminal 4½ and the tower as boxes in the airport frame (a pad of 0.3 m), asked by
+foot's `cam.carClip` (the same slot a town's blocks use; null away from the airport) — a chase round the kerb no longer parks the
+camera inside the terminal (ci/qaweekend's flat-colour frame; `qaweekend-air` checks it). The doors' boards are a plain door sign.
+**Airport › Kerb (`ci/airport-kerb`, 2026-11-21) — the polish's two leftovers.** **A bust at the kerb** stops right where she
+is: law's pull-over (`features/law/bust.js` `autoLulu`) used to steer for the highway's shoulder (`pullDAt` → d 7.9) — at the
+kerb, 190 m from it, she crept a few metres and turned ~30° toward the highway while braking. Law now asks one more small additive
+hook first, `hook("pullOverSpot", car → { h } | null)` (`bust.js` `pullOverSpot()`, exported): an answer = brake right there,
+facing `h`, no roll-on; the roadside shot (`roadsideShot`, also the arrest's) is taken along `h` too. Null = law's own shoulder,
+unchanged everywhere else. The airport answers (`chase.js` `pullOverSpot`) off the highway's own lanes on its right side (the
+ramps, the roads in / out, the loop, the kerb road, the lot): `h` = the road net's direction at her nearest point, the way she's
+already facing (off the net, in the stalls: her own heading); the cruiser's `copRoute` already brings it to its stop 7.2 m behind
+her. Any other place off the highway with roads of its own can answer it. **A cruiser's shove** can't put her car on the kerb
+sidewalk (`chase.js` `KERB_EDGE`, no geometry): law's `crash` event with a law car (`e.car.data.law`) arms the kerb edge for
+`hold` 2.5 s (only if she's on the road then — she may still drive up on the sidewalk herself); while armed, every frame after
+traffic her car's outer edge toward Terminal 4½ (its two circles + radius) is held at the kerb line `WALK.r0` + `give` 0.25 m along
+the terminal's kerb (f `TERM` ± 22), her velocity into it is dropped (`bounce` 0.2), and a cruiser pressing on her is pushed back
+off her car (nosing into her: it stops, then eases on at law's own pace) — so it can't drive through her either; still pressing =
+still armed. Debug `ctx.airport.debug.pullSpots()` / `kerbHolds()` / `KERB_EDGE`; test `airport` steps "kerb bust" + "kerb shove"
+(a lean + a ram; before the fix: 29.5° off at the window, the lean put her car at r 200.6 — against the terminal).
+**Airport › Terminal (airport, stage 2 of roadmap 12 — `features/airport/terminal*.js`, `ci/airport-terminal`):** ✈️ ONE
+walk-in hall at JFK ("TERMINAL 4½") on the interiors engine (`defineInterior("terminal")`, model `airport_terminal` +
+`airport_terminal_props` from `assets_airport_terminal.py`). The plan + the owner's decisions: `3d/docs/airport-plan.md`; stage 1
+(`ci/airport`: the interchange, the kerb loop, the terminal's OUTSIDE + its doors) owns `features/airport/index.js` and calls
+`ctx.airport.terminal.enter({ door, exit })` from the doors' ✋ spot (warm it within ~22 m: `warm()` → the step in is a soft cut).
+**The hall, left (landside) → right (airside)**, x ±28 m: the terminal doors (Spot_door) · check-in for the parody airlines
+(Kugel Air, El Oy, Shmear Jet — `AIRLINES` in `terminal-data.js`: an agent each, a hello pool + three questions) + Bubbe Faigy's
+overweight bag on the Kugel Air scale (wear her sweaters: Lulu puffs up · "lighten" a kugel · sit on it: the scale goes UP) · the
+departures board (a canvas: `FLIGHTS` + `STATUSES`, a row split-flaps every ~9 s, redrawn only while it flaps) · ARRIVALS (the
+frosted doors are movers `ArrDoor_L/R`; every ~18 s or on ✋ 1–2 people walk out with suitcases, a greeter cheers + hugs;
+greeters hold signs — four quads on one canvas) + an empty VIP red carpet (`vip()` — stage 3's Dovid Dov comes through here)
+· SECURITY: the snake (one collider, `Col_snake`), the BEEP-O-MATIC 3000 arch (`ScanLamp_red/green`), the tray belt, the glass
+divider at x = 12 and a ONE-WAY exit lane (`Col_exitGate` is on only while she's landside). ✋ the line → ⏳ wait (an auto-walk
+through the snake with captions) or 🏃 duck under the ropes (crouched; the line's outrage bubbles; Officer Segal Segways to the
+arch → 😇 back of the line, or 🥺 plead → the scanner adds CHUTZPAH DETECTED); the scanner: keys (a tray rides the belt) → her
+kugel (Ima packed it; Rex the sniffer dog only ever finds kugel — once a run, `rt.used.kugel`; after that a bobby pin) → clear →
+airside. Cartoon only: nothing about real screening. · THE FOOD COURT: Shmuley's Sky-High Deli (knish 8, pastrami 14, a pickle 3)
+and the H2-OY! water bar (water 12): a snack is a fixed price and +1 ❤️, nothing sold when her hearts are full, at most
+`TUNE.FOOD_CAP` (2) hearts a run (`rt.used.healed` — survives the door), nothing ever pays a coin. · THE GATE (GATE 18, "CHAI!"):
+three rows of seats — ✋ 💺 sit (pose sit, pinned in the seat by `luluPost`, the camera turns to the window; the stick stands her up;
+friends see her sitting), the gate desk ("BOARDING SOON — NOT YOU"), the man asleep across four seats, the window onto the apron:
+a parked Kugel Air plane at the jet bridge, planes (`Prop_Plane`, livery per airline) taking off down the runway every ~18 s, the
+runway fence, the tower. **The crowd** (`terminal-crowd.js`): ~55 people on homes' instanced rigs (`Rig` per body: man / woman /
+kid / cop — ~5 draw calls each for all of them; the far ones homes' `LodCrowd` figure; the nearest `TUNE.FULL[tier]` full) —
+desk agents, the check-in lines, the snake (it shuffles forward… then reconsiders), walkers rolling suitcases (one instanced mesh,
+a colour per instance), the family with ten kids doing laps of the food court looking for gate 18, the sleeper; Rex is law's K9
+on a rig of its own. People are records, not Object3Ds (an empty anchor each for speech bubbles); Lulu is pushed out of the
+standing / walking ones. The hall casts no shadows; the sun's shadow box follows her. The PA is an in-world bubble (no toasts).
+**The law:** walked in WANTED (`ctx.law.wanted > 0`, not low-key): Officer Segal + Rex follow her and slow her (`TUNE.SLOW` while
+Rex is at her heels — "Rex has your shoelace"), after `TUNE.COPS_AT` s two real cops walk in through the doors; caught → the room
+melts back out (soft) and law's arrest plays on the kerb (`ctx.law.arrest([warrants…, "RUNNING FROM A SEGWAY"], { onFoot })`).
+Leave first and they lose her. In a 🎉 party only the guard + Rex play (the law stays on its own screen). Not enterable mid-chase.
+**Friends:** a SHARED room (`together/rooms.js` › `SHARED.terminal = "jfk"`): friends in a party (🌍 Free Roam) see each other walk,
+sit and emote inside; presence "✈️ in the JFK terminal" (the interior's name + emoji); strangers are never inside. Each screen's
+crowd, gags, purchases and law stay its own. **Service:** `ctx.airport.terminal = { enter({ door, exit }), canEnter(), warm(),
+ready(), inside, vip(), addBuilder(fn) (stage 3: runs at the end of every build with the room), tune, debug }`;
+`ctx.airport.debug.enterTerminal()` walks in from wherever she's standing (tests; until stage 1's doors). Events `airport:terminal`
+{in, wanted}, `airport:checkin`, `airport:bag`, `airport:security` {how}, `airport:scanned` {kugel, chutzpah}, `airport:snack`,
+`airport:sit`, `airport:arrival`, `airport:takeoff`, `airport:cops`, `airport:caught`; stats `airportTerminalVisits`,
+`airportScans`, `airportLineCuts`, `airportSnacks`, `airportSits`, `airportBagGags`… **Budget** (1280×720, measured — see
+AGENTS.md §7): measured MEDIUM 71–90 draw calls, 109–118k triangles · LOW 72–90, 84–89k; the test's limits: MEDIUM ≤ 110 calls (≤ 130 worst
+frame), ≤ 140k triangles · LOW ≤ 110 / 130, ≤ 110k. Test:
+`scripts/tests3d/airport-terminal.js` (`AIRPORT_TERMINAL_PART=solo|perf|friends`; the QA watchdog), and
+`PERF3D_SCENES=foot,terminal node scripts/perf3d.js`. **Stage 3 hooks:** `addBuilder`, the VIP carpet (`vip()`), the arrivals door
+(`debug.arrive`), the empty Shmear Jet line, `airport:*` events.
+
+**Airport › Stage 3 — things to do (`features/airport/stage3*.js`, `ci/airport-stage3`; the owner's decision 8):** three capped
+things at JFK, in their own files, hooked in from outside (no edits to stage 1's or stage 2's files): `stage3.js` (the service, the
+day ledger, the hall's hint, wiring) · `stage3-taxi.js` · `stage3-hall.js` (a stage-2 builder: `ctx.airport.terminal.addBuilder`) ·
+`stage3-data.js` (every line, `PAY`, `TUNE`). **🚕 The JFK taxi run** — a hustle side job (`ctx.hustle.register("jfk_taxi", …)`, so
+the 💼 Jobs app lists it and the pass card / log are hustle's): a traveller (Mrs. Gittel Blabberman the yenta → the Simcha Palace,
+Yanky the bochur back from yeshiva in Israel → Midwood's pizza shop, Gary from Ohio looking for "the Brooklyn Bridge" → Brooklyn
+College, Mr. Shapiro back from Florida → the lake) waits at the ARRIVALS kerb; pull up slow → they hop into roadevents' passenger
+seat; the beacon sits on the next interchange that offers their town (`ctx.town.exits`), then on the landmark in town
+(`ctx.town.spot(key)`, with fallbacks); the wrong town = a ↩️ line and no beacon; stop by the landmark → pass. A FIXED fare
+(`PAY.taxi` 40), `PAY.taxiPerDay` (3) paid runs a real day — past that it isn't offered at all. **Only from the airport:** `taxiWhy()`
+needs stage 1 (`ctx.airport.on` + `planned` + `inside`, the kerb from `ctx.airport.kerb.pickup()` if stage 1 adds it, else
+`ctx.airport.debug.world(24, 193.5)` = the ARRIVALS kerb lane) — until `ci/airport` lands it is never offered. Also: JFK dispatch
+texts once a visit when she drives into the landside, and a traveller at the terminal's arrivals door can be BOOKED ("Taxi? Are you
+a taxi?") — the run starts when she's back behind the wheel at the airport. **🧳 The lost suitcase** — Mrs. Perl Shpilkes by
+ARRIVALS: her pink suitcase (a pom-pom, FRAGILE: KUGEL) is on Bubbe's scale / under a tired man's feet by the board / by the plant at
+the doors, or Mr. Pilkes is doing laps of the landside with it (his is identical; hers has a name tag). Carry it back (`rt.luluHold`)
+→ `PAY.bag` (15) once a real day, a rugelach after that. **🎤 Dovid Dov on tour** (canon: Lulu's brother — the family knows, strangers
+don't): ~40 % of solo visits (`TUNE.dovidChance`; never in a party, never while she's wanted, never at random in `?test`) the PA
+announces a VIP, stage 2's arrivals doors open, he walks behind the rail and down the red carpet (`vip()`), six fans gather in an
+arc, Officer Segal Segways round by the exit lane and stands guard ("…who IS he?"); ✋ → he whispers, then 🤳 a selfie (a flash +
+confetti) / ✍️ an autograph on Ima's kugel / 🤫 "strangers"; once a real day `PAY.dovid` (10) "gas money"; the stat `airportDovid` →
+the scrapbook badge 🎤 Front Row (`ctx.meta.addBadge`). He leaves through the hall after ~70 s either way. Everyone is a
+terminal-crowd record (no new draw calls; the suitcase is one cloned prop): measured with him + the fans in view, the hall stays
+inside its MEDIUM budget. **The hint:** inside the hall `ctx.G.hint` reads "✈️ Explore the terminal · ✋ talk / look · leave" instead
+of foot's "Find a car to “borrow”" (put back on the way out). **Service:** `ctx.airport.stage3 = { today(), ledger(), PAY, TUNE,
+taxi: { id, why(), offered(), book(id), booked, pickup() }, debug: { date(v), fakeAirport({x, z} | null), dovidNext(v), bagNext(v),
+hall(), SV, HALL } }`. Events `airport:taxi` {phase: offer · book · start · pickup · wrong · drop}, `airport:bag` {phase: ask · found ·
+return, variant, pay}, `airport:dovid` {phase: arrive · here · meet · leave, choice, pay}; stats `airportTaxiRuns`,
+`airportBagsReturned`, `airportDovid`. Test: `scripts/tests3d/airport-stage3.js` (`AIRPORT_STAGE3_PART=hall|taxi`; the taxi part
+pretends the airport with `fakeAirport`).
 
 **The underworld (underworld):** corrupt people + bad guys, cartoon only (`features/underworld/`). Everything random is gated by
 `live(what)` = `ctx.enabled("underworld")` && (no party, or — in a 🎉 party's Road Trip / Free Roam — `what` is the pickpocket) && Settings › 😈 Bad guys ≠ Off; **every knob is `SPAWN` in `data.js`**

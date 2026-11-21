@@ -58,6 +58,30 @@ function loadOne(key) {
     return p;
 }
 
+/** three's renderer.compileAsync compiles, then polls every material's program from a setTimeout until it's ready —
+ *  and a material DISPOSED meanwhile (a set torn down, a stranger's car leaving) has no program any more: the poll threw
+ *  "reading 'isReady'" as an uncaught page error (no .catch can reach a timer). Same work, same promise; a material
+ *  whose program is gone simply counts as done. Installed once on the renderer, so every caller gets it (this file's
+ *  warmShaders, party's warm-up). */
+export function safeCompileAsync(r) {
+    if (!r || r.__safeCompileAsync || typeof r.compile !== "function" || !r.properties) return;
+    r.__safeCompileAsync = true;
+    r.compileAsync = function (scene, camera, targetScene = null) {
+        const mats = this.compile(scene, camera, targetScene);
+        return new Promise(resolve => {
+            const poll = () => {
+                for (const m of mats) {
+                    let p = null;
+                    try { p = this.properties.get(m).currentProgram; } catch (e) { p = null; }
+                    if (!p || typeof p.isReady !== "function" || p.isReady()) mats.delete(m);
+                }
+                if (mats.size) setTimeout(poll, 10); else resolve(scene);
+            };
+            setTimeout(poll, 10);
+        });
+    };
+}
+
 /** A model that just loaded: get its shaders compiled BEFORE it is first drawn (the first sight of a new car, person
  *  or building used to be a hitch while the GPU built its program mid-frame). A program depends on the scene's lights
  *  and fog, so it is compiled as if the model stood in the driving scene; the browser does it off the main thread
@@ -65,6 +89,7 @@ function loadOne(key) {
 function warmShaders(root) {
     const r = ctx.renderer;
     if (!r || !r.compileAsync || !ctx.scene || !ctx.camera) return;
+    safeCompileAsync(r);
     try { r.compileAsync(root, ctx.camera, ctx.scene).catch(() => { /* best effort */ }); } catch (e) { /* best effort */ }
 }
 
@@ -94,6 +119,10 @@ function prepare(root) {
             m.transparent = true; m.opacity = 0.82; o.castShadow = false;
         }
         if (/Headlight|Taillight|LightRed|LightBlue|Window|Neon/.test(m.name)) o.castShadow = false;
+        // (a face's eyes / cheeks / mouth are 1–7 cm patches ON the head: their shadow is always inside the head's, and
+        //  smaller than a shadow-map texel — 7.4 cm on MEDIUM, 4.5 on HIGH — but each was a draw in the shadow pass:
+        //  ~4 per person on screen)
+        if (/^(Eye|EyeShine|Cheek|Mouth)$/.test(m.name)) o.castShadow = false;
     });
     return root;
 }

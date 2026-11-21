@@ -322,9 +322,9 @@ export async function spawnUncle(opts = {}) {
                 stat("uncles3", 1);                // weekly quest: greet an uncle
                 const quip = pick(u.quips);
                 tag.setText(quip); tag.userData.age = 0;
-                H.banner(`👨 <b>${u.name}</b><small>“${quip}”</small>`, 2600);
+                // (one pop-up for one moment — the pop-up budget: the tip rides on the banner, no toast of its own)
+                H.banner(`👨 <b>${u.name}</b><small>“${quip}” · 👋 +8 💰</small>`, 2600);
                 addCoins(8, "uncle");              // a small friendly tip
-                H.toast("👋 +8 💰", "gold");
                 sfx.coin(); tone(660, 0.12, "sine", 0.2, 880);
                 const wp = new THREE.Vector3(); him.obj.getWorldPosition(wp);
                 ctx.car.fx.burst(wp.x, 1.8, wp.z, 14, 2.5, [1, 0.85, 0.3], 0.3, 0.8);

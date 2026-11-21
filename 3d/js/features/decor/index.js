@@ -381,6 +381,16 @@ ctx.decor = {
     get slots() { return SLOTS; },
     get spent() { return S.spent; },
     get sets() { return S.sets.slice(); },
+    /** For the 📱 "My house" page: what she has bought, and how close each themed set is → { bought: [{slot, icon, name}], sets: [{ id, icon, name, have, need, done, missing: [names] }], spent }. */
+    summary() {
+        const bought = [];
+        for (const s of SLOTS) for (const o of s.opts) if (!isDefault(s.id, o.id) && owns(s.id, o.id)) bought.push({ slot: s.id, icon: o.icon, name: o.name, where: s.name, placed: placed(s.id) === o.id });
+        const sets = SETS.map(st => {
+            const pcs = setPieces(st.id), got = pcs.filter(p => owns(p.slot, p.opt)), miss = pcs.filter(p => !owns(p.slot, p.opt));
+            return { id: st.id, icon: st.icon, name: st.name, have: got.length, need: pcs.length, done: S.sets.includes(st.id), missing: miss.map(p => optOf(p.slot, p.opt).name) };
+        });
+        return { bought, sets, spent: S.spent };
+    },
     /** Open the picker for a slot where she is (inside: that room's spot; outside: its ✋ spot). */
     pick(slot) {
         const s = slotById(slot);

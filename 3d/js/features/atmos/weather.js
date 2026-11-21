@@ -8,7 +8,7 @@
 //   🪟 in "Lulu's eyes": drops on the windscreen and a pair of wipers
 // Everything eases in and out; nothing switches instantly (except a forced test).
 import * as THREE from "three";
-import { ctx, on } from "../../core/ctx.js";
+import { ctx, on, emit } from "../../core/ctx.js";
 import { worldMaterials } from "../../world.js";
 import { rumble } from "../../input.js";
 import { S, clamp, lerp, smooth, rand, pick, approach, say, V1, C1 } from "./common.js";
@@ -389,6 +389,7 @@ function lightning(dt) {
         if (!ctx.skipping && !ctx.paused) {
             sfx.thunder(W.thunderNear);
             rumble(0.25 + W.thunderNear * 0.4, 0.5, 500 + W.thunderNear * 500);
+            emit("atmos:thunder", { near: W.thunderNear });       // (features/life: the town reacts)
         }
     }
 }
