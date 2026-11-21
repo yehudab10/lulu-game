@@ -293,9 +293,13 @@ export function keepClear(e, avoid, dir = 1, gap = 6) {
     return dy;
 }
 const TOPS = ["#hud .hud-tl .pill", "#hud .hud-top", "#pauseBtn", "#phoneBtn"];
-// (a piece marked data-fit="self" keeps clear of the centre stack on its own — hustle's 📻 ticker — so the centre
-// doesn't also duck under it: two pieces each dodging the other would chase each other down the screen)
-const SIDES = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
+// (a piece marked data-fit="self" keeps clear of the centre stack on its own on a wide screen — hustle's 📻 ticker
+// steps down the right column — so there the centre doesn't also duck under it: two pieces each dodging the other
+// would chase each other down the screen. On a screen held upright the centre stack carries on under BOTH columns
+// and such pieces stay put — PORTRAIT, the same test they make.)
+const SIDES = ["#slot-left > *", "#slot-right > *"];
+const SIDES_WIDE = ["#slot-left > *:not([data-fit=self])", "#slot-right > *:not([data-fit=self])"];
+export const PORTRAIT = matchMedia("(max-aspect-ratio: 1/1)");
 const BOTTOM = ["#hud .hud-br .speedo", "#touch .tbtn", "#stickBase", "#touchExtra > *"];
 /** One keep-clear pass over the HUD (every 0.2 s of game time, and when a banner / prompt shows). */
 export function fitHud() {
@@ -303,7 +307,7 @@ export function fitHud() {
     const s = id => document.getElementById("slot-" + id);
     keepClear(s("left"), TOPS);
     keepClear(s("right"), TOPS.concat("#slot-left > *"));
-    keepClear(s("center"), TOPS.concat(SIDES, "#hud .hud-br .speedo"));
+    keepClear(s("center"), TOPS.concat(PORTRAIT.matches ? SIDES : SIDES_WIDE, "#hud .hud-br .speedo"));
     keepClear(el.padHint, BOTTOM, -1);
     keepClear(s("bottom"), BOTTOM.concat("#padHint"), -1);
 }

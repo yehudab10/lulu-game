@@ -3,6 +3,13 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 (screen layout) — 📏 Nothing on the screen sits on anything else any more, on a phone held either way, a small
+  phone, a tablet, a laptop and a TV, with fingers or a controller: on a phone on its side the WALK stick no longer covers
+  📝 Ima's list / ON FOOT (the hearts + coins share a row, the stick is a touch smaller, and while a text message is up the ON FOOT
+  chip steps aside); the ⏭ SKIP button slides down out of the way instead of sitting on the street name; with a controller on a
+  phone held upright the screen is laid out like the touch one (no more "Talk to Heshy" and the controls hint on the speedometer —
+  they sit above it, and the speedometer is smaller); and the "WELCOME TO LAKEWOOD" sign-in card waits below the 📝 list and the
+  text messages instead of covering them. A new test checks every pair of things on the screen at 11 screen sizes.
 - 2026-11-21 17:15 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
   walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
   title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the
