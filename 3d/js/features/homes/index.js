@@ -31,7 +31,7 @@ import { say, choose } from "../../core/dialog.js";
 import * as H from "../../hud.js";
 import { tone } from "../interiors/fx.js";
 import { C as CR, CROWD_MODELS, startCrowd, stopCrowd, tickCrowd, crowdHonk, crowdTalkSpot, crowdInfo, TUNE } from "./crowd.js";
-import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract } from "./house.js";
+import { RUN, VISIT, prepare, roomInfo, applyItem, DEF, plural, distract, debugSpot } from "./house.js";
 import { current as currentRoom } from "../interiors/engine.js";
 import { SURNAMES, FIRST, KINDS, PEOPLE_MODELS, KNOCK, LOCKED, UNLOCKED, TOWN_CFG, CHARGE, CHARGE_EXTRA, CALL_MSG, COURT_DIALOGUE, COURT_DEFENSE } from "./data.js";
 import { identity, sceneFor, presentCast, when, opinion, OPINION_LINE, byName, LIFE, clockFor, rngOf as lifeRng, hash as lifeHash, TRAITS } from "./life.js";
@@ -110,7 +110,7 @@ function buildDoors() {
                 for (const k of Object.keys(fam.names)) fam.names[k] = fam.names[k].replace(was, fam.name);
             }
             const home = identity(Object.assign({ i: HS.homes.length, house: i, j, key: id, id, model: h.key, door, lot, ap, ux: h.ux, uz: h.uz, nx: h.nx, nz: h.nz,
-                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id }, fam));
+                w: D.d.length > 1 ? 5.2 : h.w, lightY: D.light, town: def.id, dark: !!h.dark }, fam));
             HS.homes.push(home); HS.byId.set(id, home);
         });
     });
@@ -540,6 +540,7 @@ ctx.homes = {
         report: (i, charges) => reportCall(HS.homes[i], charges || [CHARGE]),
         startCrowd: () => { if (!(ctx.town && ctx.town.active)) return false; const r = startCrowd(null, ctx.town.def, crowdHomes(), { drives: ctx.town.drives || [] }); crowdActor(); return r; },
         stopCrowd,
+        notice: debugSpot,
         /** Pin the scene every house plays (tests / previews): an id from SCENES, or null. */
         scene(id) { HS.force.scene = id || null; return id ? !!SCENES[id] : true; },
         /** Set the game clock to an hour (0–24) — the sky and the households follow. */

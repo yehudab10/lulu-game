@@ -983,6 +983,8 @@ function dispose(rt) {
     try { if (ctx.party && ctx.party.active && ctx.party.presence) ctx.party.presence(null); } catch (e) { /* no party */ }
 }
 
+/** Tests: resident `kind` notices her right now (the full "!" — or whatever that person does instead: stage.js CATCH). */
+export function debugSpot(kind) { const c = VISIT.cur; const r = c && c.V.res.find(q => q.kind === kind); if (!r) return false; r.meter = 1; spot(c.rt, r); return true; }
 /** Tests / debug: the live room's state. */
 export function roomInfo() {
     const c = VISIT.cur;

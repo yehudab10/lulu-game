@@ -107,6 +107,8 @@ function partySeed() { try { return ctx.party && ctx.party.active && ctx.party.s
 export function sceneFor(home, w = when(), force = null) {
     identity(home);
     if (force && SCENES[force]) return { def: SCENES[force], seed: hash(home.key + ":" + force), w };
+    // a house the town left DARK (town/build.js \`dark\`: features/life never lights its windows): after dark, they're out
+    if (home.dark && (w.hour >= 17.5 || w.hour < 6) && !w.shabbos && !w.yomtov) return { def: SCENES.out, seed: hash(home.key + ":out"), w };
     const slot = Math.floor(w.hour / 2);
     const seed = hash(`${home.key}|${w.key}|${slot}|${partySeed()}`);
     const R = rngOf(seed);

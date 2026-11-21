@@ -33,7 +33,8 @@ module.exports = {
     };
     const toDoor = async key => {
       await onFoot();
-      await g(`(() => { const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); return true; })()`);
+      await g(`(() => { const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); if (ctx.cam && ctx.cam.snap) ctx.cam.snap(); return true; })()`);
+      await t.L(`(window.__qa && (window.__qa.cutF = __lulu3d.ctx.frames + 2, window.__qa.last = null), true)`);
       await t.frames(3);
     };
 
@@ -83,7 +84,7 @@ module.exports = {
     // ── stage 1: households with a life ──
     const share = async (season, n, opts, hour) => {
       await g(`(ctx.seasons.debug.season(${JSON.stringify(season)}, ${n}, ${JSON.stringify(opts || {})}), ${D}.hour(${hour}), true)`);
-      return g(`(() => { const c = {}; for (const h of ${D}.HS.homes) { const id = ${D}.sceneNow(h.key); c[id] = (c[id] || 0) + 1; } return c; })()`);
+      return g(`(() => { const c = {}; for (const h of ${D}.HS.homes.filter(h => !h.dark && ctx.homes.livedIn(h.key))) { const id = ${D}.sceneNow(h.key); c[id] = (c[id] || 0) + 1; } return c; })()`);
     };
     const top = c => Object.entries(c).sort((a, b) => b[1] - a[1])[0] || ["", 0];
     const frac = (c, id) => (c[id] || 0) / Object.values(c).reduce((a, b) => a + b, 0);
@@ -104,6 +105,7 @@ module.exports = {
       t.check("a weekday at 11: quiet houses (work + school), some plumbers / mah-jongg", frac(c, "quiet") > 0.4 && Object.keys(c).length >= 3, JSON.stringify(c));
       c = await share("none", 1, { wd: 3, eve: false }, 18.5);
       t.check("a weekday at 6:30 p.m.: supper, homework, violins — the street isn't one scene", Object.keys(c).length >= 4 && frac(c, top(c)[0]) < 0.8, JSON.stringify(c));
+      t.check("a house the town left dark (life's windows never light it): out for the evening", await g(`(() => { const h = ${D}.HS.homes.find(h => h.dark); return !h || ${D}.sceneNow(h.key) === "out"; })()`));
       const same = await g(`(() => { const k = ${D}.HS.homes.map(h => h.key); const a = k.map(x => ${D}.sceneNow(x)); const b = k.map(x => ${D}.sceneNow(x)); return a.join() === b.join(); })()`);
       t.check("the same door at the same hour → the same scene (friends at one door see one scene)", same);
       const move = await g(`(() => { const k = ${D}.HS.homes.slice(0, 60).map(h => h.key); ${D}.hour(17.6); const a = k.map(x => ${D}.sceneNow(x)); ${D}.hour(20.2); const b = k.map(x => ${D}.sceneNow(x)); return a.filter((x, i) => x !== b[i]).length; })()`);
@@ -157,7 +159,7 @@ module.exports = {
       // Zeidy wakes up: the cleaning lady
       const zk = await g(`(${D}.HS.homes.find(h => h.cast.includes("zeidy") && ctx.homes.livedIn(h.key)) || {}).key`);
       if (zk && await enter(zk, "sneak", "zeidyNap")) {
-        await g(`(() => { const r = ctx.homes.debug.VISIT.cur.V.res.find(q => q.kind === "zeidy"); r.meter = 1; return true; })()`);
+        await g(`${D}.notice("zeidy")`);
         await t.until(`(ctx => { const c = ctx.homes.debug.VISIT.cur; return c && c.V.caughtBy && c.V.caughtBy.length; })(__lulu3d.ctx)`, "Zeidy catches her", 15000);
         const r = await g(`(() => { const V = ctx.homes.debug.VISIT.cur.V; return { by: V.caughtBy, alarm: V.alarm, cleaner: !!V.cleaner }; })()`);
         t.check("Zeidy catches her → thinks she's the cleaning lady (no alarm)", r.cleaner && !r.alarm && r.by[0].how === "cleaning", JSON.stringify(r));
@@ -166,7 +168,7 @@ module.exports = {
       // a kid in a homework scene: 7 × 8
       const kk = await g(`(${D}.HS.homes.find(h => h.cast.includes("boy") && h.cast.includes("mom") && ctx.homes.livedIn(h.key)) || {}).key`);
       if (kk && await enter(kk, "sneak", "homework")) {
-        await g(`(() => { const r = ctx.homes.debug.VISIT.cur.V.res.find(q => q.kind === "boy"); r.meter = 1; return true; })()`);
+        await g(`${D}.notice("boy")`);
         await t.until(`__lulu3d.ctx.dialogOpen`, "the kid asks", 15000);
         await t.click(/Fifty-six/);
         await t.until(`(ctx => { const c = ctx.homes.debug.VISIT.cur; return c && c.V.caughtBy && c.V.caughtBy.length; })(__lulu3d.ctx)`, "…answered", 15000);
@@ -179,7 +181,7 @@ module.exports = {
       const sk = await g(`(${D}.HS.homes.find(h => h.cast.includes("mom") && ctx.homes.livedIn(h.key)) || {}).key`);
       if (sk && await enter(sk, "sneak", "shabbosTable")) {
         t.check("Shabbos: noPhone", await g(`ctx.homes.debug.room().noPhone`));
-        await g(`(() => { const r = ctx.homes.debug.VISIT.cur.V.res.find(q => q.kind === "mom"); r.meter = 1; return true; })()`);
+        await g(`${D}.notice("mom")`);
         await t.until(`__lulu3d.ctx.homes.debug.room().converted`, "the Shabbos table sets a place", 15000);
         await t.frames(30);
         const r = await g(`(() => { const R = ctx.homes.debug.room(); return { mode: R.mode, converted: R.converted, reported: R.reported, calling: R.res.some(q => q.state === "calling") }; })()`);

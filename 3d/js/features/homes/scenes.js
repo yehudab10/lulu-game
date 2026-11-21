@@ -34,6 +34,14 @@ export const SCENES = {
         heard: ["The radio's on. Someone's arguing with it.", "Somebody's on the phone with their sister. Loudly.", "A vacuum cleaner. Then a dropped Lego. Then a yell."],
         stage() { /* everyone in their usual places */ },
     },
+    out: {
+        id: "out", emoji: "🌑", name: "nobody home — they're out",
+        when: () => 0,          // (never by chance: life.js plays it for a house the town left dark, after dark)
+        away: (w, home) => home.cast.filter(k => k !== "cat" && k !== "dog"),
+        heard: ["Every window's dark. They're out — a wedding, probably. Everybody's at a wedding.", "Dark windows. A note on the door: \"AT BUBBE'S. BACK LATE. DON'T EVEN THINK ABOUT IT.\""],
+        knock: { nobody: 1 },
+        stage(S) { for (const k of S.cast) if (S.animal(k)) S.place(k, S.A.rugSpot, { sleep: true }); },
+    },
     restDay: {
         id: "restDay", emoji: "📖", name: "a quiet Shabbos / Yom Tov afternoon",
         when: w => (w.shabbos || w.yomtov) && !has(w, "yomKippur") ? 2 : 0,
