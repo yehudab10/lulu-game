@@ -31,10 +31,11 @@ module.exports = {
     const onFoot = async () => {
       if (!await g(`ctx.foot.active && L3.state === "footRun"`)) { await g(`ctx.foot.start("droveOff", { noIntro: true })`); await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot", 20000); }
     };
+    // (a dialog ignores taps for a moment after it opens: wait, click, and again until it's taken)
+    const choose = async re => { for (let k = 0; k < 12; k++) { await t.frames(6); const was = await g(`ctx.dialogOpen`); if (!was) return true; await t.click(re); await t.frames(4); if (!await t.L(`[...document.querySelectorAll("#dialog button")].some(b => ${re}.test(b.textContent))`)) return true; } return false; };
     const toDoor = async key => {
       await onFoot();
-      await g(`(() => { const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); if (ctx.cam && ctx.cam.snap) ctx.cam.snap(); return true; })()`);
-      await t.L(`(window.__qa && (window.__qa.cutF = __lulu3d.ctx.frames + 2, window.__qa.last = null), true)`);
+      await g(`(() => { if (window.__qa) { window.__qa.cutF = ctx.frames + 4; window.__qa.last = null; } const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); if (ctx.cam && ctx.cam.snap) ctx.cam.snap(); return true; })()`);
       await t.frames(3);
     };
 
@@ -170,7 +171,7 @@ module.exports = {
       if (kk && await enter(kk, "sneak", "homework")) {
         await g(`${D}.notice("boy")`);
         await t.until(`__lulu3d.ctx.dialogOpen`, "the kid asks", 15000);
-        await t.click(/Fifty-six/);
+        await choose(/Fifty-six/);
         await t.until(`(ctx => { const c = ctx.homes.debug.VISIT.cur; return c && c.V.caughtBy && c.V.caughtBy.length; })(__lulu3d.ctx)`, "…answered", 15000);
         const r = await g(`(() => { const V = ctx.homes.debug.VISIT.cur.V; const b = V.res.find(q => q.kind === "boy"); return { by: V.caughtBy, alarm: V.alarm, friendly: b.friendly }; })()`);
         t.check("a kid at homework catches her → 7 × 8 → a friend (no alarm)", r.friendly && !r.alarm && r.by[0].how === "homework", JSON.stringify(r));
@@ -226,7 +227,7 @@ module.exports = {
       t.check("…their ✋ says DELIVER", /DELIVER/.test(await g(`${D}.label()`) || ""), await g(`${D}.label()`));
       await g(`${D}.door(${JSON.stringify(b)})`);
       await t.until(`__lulu3d.ctx.dialogOpen`, "the door menu", 10000);
-      await t.click(/Hand over/);
+      await choose(/Hand over/);
       for (let k = 0; k < 6 && await g(`ctx.dialogOpen || ctx.homes.debug.HS.busy`); k++) { await t.frames(30); if (await g(`ctx.dialogOpen`)) await t.tap(0); }
       await t.until(`!__lulu3d.ctx.homes.debug.HS.busy`, "delivered", 20000);
       const j = await g(`ctx.homes.jobs()`);
@@ -249,7 +250,7 @@ module.exports = {
       t.check("…✋ WAVING YOU IN", /WAVING/.test(await g(`${D}.label()`) || ""));
       await g(`${D}.door(${JSON.stringify(b)})`);
       await t.until(`__lulu3d.ctx.dialogOpen`, "the door menu", 10000);
-      await t.click(/waved you in/);
+      await choose(/waved you in/);
       if (await inside()) {
         t.check("…straight in as a guest", await g(`${D}.room().mode === "guest"`));
         await leave();

@@ -429,7 +429,7 @@ function backOutside() {
     if (f) {
         const out = L.exit === "window"
             ? { x: home.lot.x + home.ux * (home.w / 2 + 0.6) + home.nx * 0.8, z: home.lot.z + home.uz * (home.w / 2 + 0.6) + home.nz * 0.8 }
-            : { x: home.ap.x + home.nx * 0.3, z: home.ap.z + home.nz * 0.3 };
+            : { x: home.ap.x + home.nx * 1.4, z: home.ap.z + home.nz * 1.4 };      // (a step down the path: the camera behind her stays clear of a porch roof)
         f.set(out.x, 0.05, out.z);
         if (ctx.foot.obj) { ctx.foot.obj.position.copy(f); ctx.foot.obj.rotation.set(0, Math.atan2(home.nx, home.nz), 0); }
         if (ctx.cam && ctx.cam.snap) ctx.cam.snap();

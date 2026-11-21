@@ -63,7 +63,7 @@ export const SCENES = {
     },
     supper: {
         id: "supper", emoji: "🍽️", name: "supper",
-        when: w => !w.shabbos && !w.friday && between(w.hour, 17.5, 20.5) ? 5 : 0,
+        when: w => !w.shabbos && !w.friday && !w.motzei && between(w.hour, 17.5, 20.5) ? 5 : 0,
         needs: home => adultsOf(home).length > 0,
         rooms: { dining: true },
         heard: ["Forks. Clatter. \"Eat your VEGETABLES.\" \"These ARE vegetables, it's a POTATO.\"", "Someone's saying \"SIT. DOWN. AT. THE. TABLE.\" for the fourth time."],
