@@ -16,7 +16,7 @@ export const WIND = {
     gap: [26, 60], gapAutumn: [16, 40],     // s between gusts
     dur: 4.2,                               // a gust's length (s)
     speed: [4.5, 7.5],                      // m/s at its peak
-    leaves: { autumn: 22, spring: 16, summer: 4, winter: 0 },
+    leaves: { autumn: 30, spring: 22, summer: 5, winter: 0 },
     flyerChance: 0.45,                      // per gust, in town, when it's dry
     drift: 0.9,                             // fall: leaves drifting down per second around her
 };
@@ -60,7 +60,7 @@ export function addLeaf(x, y, z, vx, vy, vz, life = rand(5, 8), cols = palette()
     LV.x[i] = x; LV.y[i] = y; LV.z[i] = z; LV.vx[i] = vx; LV.vy[i] = vy; LV.vz[i] = vz;
     LV.rx[i] = Math.random() * 6; LV.ry[i] = Math.random() * 6; LV.rz[i] = Math.random() * 6;
     LV.sx[i] = rand(-5, 5); LV.sy[i] = rand(-3, 3); LV.sz[i] = rand(-5, 5);
-    LV.ph[i] = Math.random() * 6.28; LV.life[i] = life; LV.size[i] = L.season === "spring" ? rand(0.45, 0.7) : rand(0.75, 1.2);
+    LV.ph[i] = Math.random() * 6.28; LV.life[i] = life; LV.size[i] = L.season === "spring" ? rand(0.6, 0.9) : rand(1.0, 1.5);
     LV.col[i] = cols[Math.floor(Math.random() * cols.length)];
     return true;
 }
@@ -155,7 +155,7 @@ function tickPiles(dt) {
     }
     let n = 0;
     for (const p of livePiles) {
-        const f = p.flat, r = p.r * (1 + f * 0.45), hgt = p.r * 0.48 * (1 - f * 0.8);
+        const f = p.flat, r = p.r * (1 + f * 0.3), hgt = p.r * 0.62 * (1 - f * 0.75);
         _e.set(0, p.h, 0);
         _m.compose(_p.set(p.x, 0.04, p.z), _q.setFromEuler(_e), _s.set(r, hgt, r * 0.8));
         m.setMatrixAt(n++, _m);
@@ -295,7 +295,7 @@ export function gust(opts = {}) {
     const n = opts.leaves != null ? opts.leaves : WIND.leaves[L.season] || 0;
     const px = -g.dz, pz = g.dx;
     if (!L.snow && L.rain < 0.5) for (let k = 0; k < n; k++) {
-        const lat = rand(-15, 15), back = rand(8, 16), y = Math.random() < 0.4 ? rand(2.5, 6) : rand(0.06, 0.6);
+        const lat = rand(-12, 12), back = rand(3, 14), y = Math.random() < 0.4 ? rand(2.5, 6) : rand(0.06, 0.6);
         addLeaf(L.x - g.dx * back + px * lat, y, L.z - g.dz * back + pz * lat, g.dx * rand(2, 4), y < 1 ? rand(0.5, 1.8) : 0, g.dz * rand(2, 4), rand(7, 11));
     }
     if (opts.flyer || (opts.flyer == null && L.town && L.rain < 0.15 && !L.snow && Math.random() < WIND.flyerChance)) { ensureFlyers(); spawnFlyer(g.dx, g.dz, opts.flyerIdx != null ? opts.flyerIdx : -1); }

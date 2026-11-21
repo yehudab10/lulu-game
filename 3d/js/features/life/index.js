@@ -78,7 +78,11 @@ on("foot:land", () => { if (ctx.enabled("life") && L.on) try { landed(); } catch
 on("run:start", () => { windClear(); ambienceStop(); WS.said.clear(); });
 on("town:leave", () => { windClear(); clearSites(); });
 on("town:enter", () => { windClear(); WS.gustT = Math.min(WS.gustT, 10); });
-on("state", ({ to } = {}) => { if (to === "title") { windClear(); ambienceStop(); clearSites(); } });
+on("state", ({ to } = {}) => {
+    if (to === "title") { windClear(); ambienceStop(); clearSites(); }
+    // (the title / a set / Dina's world tick none of our hooks: switch off now, not on the next world frame)
+    if (!placeOK() && L.on) { L.on = false; wasOn = false; windHide(); ambienceStop(); if (PUD.mesh) PUD.mesh.visible = false; }
+});
 on("settings", e => { if (e && e.id === "lifeSounds" && !soundsOn()) ambienceStop(); });
 
 // ── ⚙️ the switch (only the sounds can get on anyone's nerves) ──────────────

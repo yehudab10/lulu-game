@@ -52,7 +52,7 @@ export function ensureSites() {
                 const r2 = hash01(th + 11, st.id * 4099 + Math.round(u), side), j2 = hash01(th + 13, st.id * 4099 + Math.round(u), side);
                 if (r2 < 0.12 && !st.boulevard) {
                     const lp = streetPt(st, u + (j2 - 0.5) * 4, side * (st.outer + 0.8), _sp), w = plan.world(lp.x, lp.z, {});
-                    P.piles.push({ x: w.x, z: w.z, h: plan.wh(st.h) + (j2 - 0.5) * 0.8, r: 0.75 + j2 * 0.45, seed: j2, kicked: 0, flat: 0, _d: 0 });
+                    P.piles.push({ x: w.x, z: w.z, h: plan.wh(st.h) + (j2 - 0.5) * 0.8, r: 0.9 + j2 * 0.5, seed: j2, kicked: 0, flat: 0, _d: 0 });
                 }
             }
         }

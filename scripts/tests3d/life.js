@@ -35,11 +35,14 @@ module.exports = {
     const onFoot = async () => {
       if (await g(`ctx.foot.active && L3.state === "footRun"`)) return true;
       await g(`ctx.foot.start("droveOff", { noIntro: true })`);
-      return t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot", 20000);
+      const ok = await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.phase === "walk"`, "on foot", 20000);
+      await W.moved(t);
+      return ok;
     };
     // stand her at (x, z) (world), facing `h`
     const standAt = async (x, z) => {
       await g(`(() => { const f = ctx.foot.pos; f.set(${x}, 0.05, ${z}); ctx.foot.vel.set(0, 0, 0); ctx.foot.obj.position.copy(f); ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+      await W.moved(t);       // (a test teleport, not a glitch)
       await t.frames(3);
     };
     // a point on the first long street of the plan: lateral `d` from its centre line (world coords)
@@ -128,6 +131,7 @@ module.exports = {
       const c0 = (await info()).carSplashes;
       await g(`(() => { const h = ${pd.h}, fx = Math.sin(h), fz = Math.cos(h); const x = ${pd.x} - fx * 9, z = ${pd.z} - fz * 9;
         ctx.car.place(x, z, h); ctx.car.vx = fx * 14; ctx.car.vz = fz * 14; ctx.car.vF = 14; ctx.car.s = ctx.world.road.nearest(x, z, ctx.car.s, {}).s; ctx.cam.snap && ctx.cam.snap(); return true; })()`);
+      await W.moved(t);
       await t.hold(7, 0.4);
       let hit = false;
       for (let i = 0; i < 12 && !hit; i++) { await t.frames(2); hit = (await info()).carSplashes > c0; if (hit) await t.shot("car-spray"); }
@@ -218,7 +222,7 @@ module.exports = {
       const on = await perf(60);
       const ms = await g(`[+${D}.stats.ms.toFixed(2), +${D}.stats.maxMs.toFixed(2)]`);
       console.log(`  perf (Lakewood, rain, autumn, on foot): off ${JSON.stringify(off)} · on ${JSON.stringify(on)} · tick avg ${ms[0]} ms max ${ms[1]} ms`);
-      t.check("draw calls: ≤ +4 with life on", on.calls - off.calls <= 4, `${off.calls} → ${on.calls}`);
+      t.check("draw calls: ≤ +4 with life on", on.maxCalls - off.maxCalls <= 4, `peak ${off.maxCalls} → ${on.maxCalls} (avg ${off.calls} → ${on.calls})`);
       t.check("life's tick is cheap (avg ≤ 1.5 ms in software GL)", ms[0] <= 1.5, `avg ${ms[0]} ms, max ${ms[1]} ms`);
     });
 
