@@ -58,23 +58,73 @@ module.exports = {
           const info = m.peopleBatchInfo();
           m.peopleBatchOn(false); off = shot();
           m.peopleBatchOn(true);
-          let diff = 0, max = 0;
-          for (let i = 0; i < on.px.length; i += 4) { const d = Math.max(Math.abs(on.px[i] - off.px[i]), Math.abs(on.px[i + 1] - off.px[i + 1]), Math.abs(on.px[i + 2] - off.px[i + 2])); if (d > 2) diff++; if (d > max) max = d; }
-          return { label: ${JSON.stringify(label)}, tier: L3.gfx.tier, on: { draws: on.n, shadow: on.sh, calls: on.calls }, off: { draws: off.n, shadow: off.sh, calls: off.calls }, diff, max, pixels: w * h, info, multiDraw: !!md };
+          let diff = 0, max = 0; const pts = [];
+          for (let i = 0; i < on.px.length; i += 4) { const d = Math.max(Math.abs(on.px[i] - off.px[i]), Math.abs(on.px[i + 1] - off.px[i + 1]), Math.abs(on.px[i + 2] - off.px[i + 2])); if (d > 2) { diff++; if (pts.length < 400) pts.push([(i / 4) % w, h - 1 - Math.floor(i / 4 / w), d]); } if (d > max) max = d; }
+          window.__ab = { on: on.px, off: off.px, w, h, pts };
+          return { label: ${JSON.stringify(label)}, tier: L3.gfx.tier, on: { draws: on.n, shadow: on.sh, calls: on.calls }, off: { draws: off.n, shadow: off.sh, calls: off.calls }, diff, max, pixels: w * h, info, multiDraw: !!md, where: pts.slice(0, 12) };
         } finally { sm.render = so; for (const u of undo) u(); } })`);
+    // (--shots: the spots that differ, ×8, batch on | off — to look at)
+    const SHOTS = process.argv.includes("--shots");
+    const crops = async label => {
+      if (!SHOTS) return;
+      const ok = await t.L(`(() => { const A = window.__ab; if (!A || !A.pts.length) return false; const S = 24, Z = 8, list = [];
+          for (const [x, y] of A.pts) if (!list.some(([a, b]) => Math.abs(a - x) < S && Math.abs(b - y) < S)) list.push([x, y]); const sel = list.slice(0, 4);
+          let c = document.getElementById("__abv"); if (!c) { c = document.createElement("canvas"); c.id = "__abv"; c.style.cssText = "position:fixed;left:0;top:0;z-index:99999;background:#000"; document.body.appendChild(c); }
+          c.width = S * Z * 2 + 8; c.height = sel.length * (S * Z + 8); const g = c.getContext("2d");
+          sel.forEach(([cx, cy], k) => { for (const [j, px] of [[0, A.on], [1, A.off]]) { const im = g.createImageData(S, S);
+              for (let yy = 0; yy < S; yy++) for (let xx = 0; xx < S; xx++) { const X = Math.min(A.w - 1, Math.max(0, cx - S / 2 + xx)), Y = Math.min(A.h - 1, Math.max(0, cy - S / 2 + yy)), src = ((A.h - 1 - Y) * A.w + X) * 4, dst = (yy * S + xx) * 4;
+                for (let q = 0; q < 4; q++) im.data[dst + q] = q === 3 ? 255 : px[src + q]; }
+              const tc = document.createElement("canvas"); tc.width = tc.height = S; tc.getContext("2d").putImageData(im, 0, 0);
+              g.imageSmoothingEnabled = false; g.drawImage(tc, j * (S * Z + 8), k * (S * Z + 8), S * Z, S * Z); } });
+          return true; })()`);
+      if (!ok) return;
+      const fs = require("fs"), path = require("path"); const dir = path.join(__dirname, "..", "..", "smoke-shots"); fs.mkdirSync(dir, { recursive: true });
+      await t.page.locator("#__abv").screenshot({ path: path.join(dir, `3d-batches-ab-${label}.png`) });
+      await t.L(`document.getElementById("__abv").remove()`);
+    };
+    // the highway's chunks: the same frame with their road / shoulders / driveways / sign metal / wires in the world's
+    // batches, and rebuilt the old way (a mesh a piece) — same picture, fewer draws
+    const abChunks = label => t.L(`import("./js/merge.js").then(() => { const L3 = __lulu3d, r = L3.renderer, gl = r.getContext(), ctx = L3.ctx, w = ctx.world;
+        const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
+        let n = 0, sh = 0, inSh = false; const sm = r.shadowMap, so = sm.render;
+        const wrap = (o, f) => { const x = o[f]; if (typeof x !== "function") return null; o[f] = function () { n++; if (inSh) sh++; return x.apply(this, arguments); }; return () => { o[f] = x; }; };
+        const md = gl.getExtension("WEBGL_multi_draw");
+        const undo = [wrap(gl, "drawElements"), wrap(gl, "drawArrays"), wrap(gl, "drawElementsInstanced"), wrap(gl, "drawArraysInstanced"), md && wrap(md, "multiDrawElementsWEBGL"), md && wrap(md, "multiDrawArraysWEBGL")].filter(Boolean);
+        sm.render = function () { inSh = true; try { return so.apply(this, arguments); } finally { inSh = false; } };
+        const rebuild = off => { w.batchOff = off; for (const [k, c] of [...w.chunks]) { c.dispose(w.scene); w.chunks.delete(k); } w.pending = null; w.prebuild(ctx.car.s); w.cullChunks(ctx.camera.position); w.syncWires(); };
+        const shot = () => { n = 0; sh = 0; r.render(ctx.scene, ctx.camera); const px = new Uint8Array(W * H * 4); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px); return { px, n, sh }; };
+        try {
+          rebuild(false); shot(); const on = shot(), info = w.slotInfo();
+          rebuild(true); shot(); const off = shot();
+          rebuild(false); shot();
+          let diff = 0, max = 0; const pts = [];
+          for (let i = 0; i < on.px.length; i += 4) { const d = Math.max(Math.abs(on.px[i] - off.px[i]), Math.abs(on.px[i + 1] - off.px[i + 1]), Math.abs(on.px[i + 2] - off.px[i + 2])); if (d > 2) { diff++; if (pts.length < 400) pts.push([(i / 4) % W, H - 1 - Math.floor(i / 4 / W), d]); } if (d > max) max = d; }
+          window.__ab = { on: on.px, off: off.px, w: W, h: H, pts };
+          return { label: ${JSON.stringify(label)}, tier: L3.gfx.tier, on: { draws: on.n, shadow: on.sh }, off: { draws: off.n, shadow: off.sh }, diff, max, info, chunks: w.chunks.size, wires: w.wires && w.wires.n, where: pts.slice(0, 12) };
+        } finally { sm.render = so; for (const u of undo) u(); w.batchOff = false; } })`);
     const low = await ab("low");
+    await crops("low");
     t.check("LOW: the people are drawn through the batch", low.info.people >= 6 && low.info.parts >= 40, JSON.stringify(low.info));
     t.check("LOW: the same frame with the batch on and off is the same picture", low.diff <= 40 && low.max <= 24, JSON.stringify(low));
     t.check("LOW: far fewer draw calls with the batch (≥ 40 fewer for 8 people)", low.off.draws - low.on.draws >= 40, `${low.on.draws} vs ${low.off.draws}`);
     await t.shot("low");
+    const cLow = await abChunks("chunks-low");
+    await crops("chunks-low");
+    t.check("LOW: the chunks' batches draw the same picture as a mesh a piece", cLow.diff <= 40 && cLow.max <= 24, JSON.stringify(cLow));
+    t.check("LOW: …in fewer draw calls (≥ 10 fewer)", cLow.off.draws - cLow.on.draws >= 10, JSON.stringify({ on: cLow.on, off: cLow.off, info: cLow.info }));
 
     // MEDIUM: shadows (the shadow camera still sees the batched parts' layer — they cast through the shadow batch)
     await t.L(`import("./js/core/save.js").then(m => { m.save3d.settings.quality = "medium"; __lulu3d.ctx.applySettings(); })`);
     await t.frames(30);
     const med = await ab("medium");
+    await crops("medium");
     t.check("MEDIUM: the same frame with the batch on and off is the same picture (shadows included)", med.tier === "medium" && med.diff <= 40 && med.max <= 24, JSON.stringify(med));
     t.check("MEDIUM: fewer main-pass draws, the same shadow-pass draws", med.off.draws - med.on.draws >= 40 && med.on.shadow === med.off.shadow, JSON.stringify({ on: med.on, off: med.off }));
     await t.shot("medium");
+    const cMed = await abChunks("chunks-medium");
+    await crops("chunks-medium");
+    t.check("MEDIUM: the chunks' batches draw the same picture (shadows included)", cMed.diff <= 40 && cMed.max <= 24, JSON.stringify(cMed));
+    t.check("MEDIUM: …fewer main-pass draws, no more shadow-pass draws", cMed.off.draws - cMed.on.draws >= 10 && cMed.on.shadow <= cMed.off.shadow, JSON.stringify({ on: cMed.on, off: cMed.off }));
 
     // live poses: the batch's copy of a walking person's leg follows the real leg
     const pose = await t.L(`import("./js/lod.js").then(m => { const p = window.__bt.people[1], leg = p.limbs.Leg_L; let mesh = null; leg.traverse(o => { if (!mesh && o.isMesh) mesh = o; });

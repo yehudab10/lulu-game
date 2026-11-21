@@ -127,7 +127,7 @@ module.exports = {
     // what's on screen, grouped (named ancestor · material): draws (main pass) + triangles, the top 14 by draws
     const breakdown = () => t.L(`import("three").then(THREE => { const L3 = __lulu3d, cam = L3.ctx.view ? L3.ctx.view.camera : L3.ctx.camera, sc = L3.ctx.view ? L3.ctx.view.scene : L3.ctx.scene;
         const F = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); const by = {};
-        sc.traverseVisible(o => { if (!(o.isMesh || o.isLine || o.isPoints)) return; if (o.frustumCulled && o.geometry && !(o.isInstancedMesh ? (o.boundingSphere || o.computeBoundingSphere() || o.boundingSphere) && F.intersectsSphere(o.boundingSphere.clone().applyMatrix4(o.matrixWorld)) : F.intersectsObject(o))) return;
+        sc.traverseVisible(o => { if (!(o.isMesh || o.isLine || o.isPoints)) return; if (!o.layers.test(cam.layers)) return; if (o.frustumCulled && o.geometry && !(o.isInstancedMesh ? (o.boundingSphere || o.computeBoundingSphere() || o.boundingSphere) && F.intersectsSphere(o.boundingSphere.clone().applyMatrix4(o.matrixWorld)) : F.intersectsObject(o))) return;
           let a = o, name = ""; for (let i = 0; i < 6 && a && !name; i++) { name = a.name || (a.userData && a.userData.townLook ? "town:" + a.userData.townLook : ""); a = a.parent; }
           const mats = [].concat(o.material), k = (name || o.type) + " · " + (mats[0] && mats[0].name || (mats[0] && mats[0].type) || "");
           const g = o.geometry, n = g.index ? g.index.count : (g.attributes.position ? g.attributes.position.count : 0), ic = o.isInstancedMesh ? o.count : (g.isInstancedBufferGeometry ? g.instanceCount : 1);
@@ -172,7 +172,7 @@ module.exports = {
     const shadowBreakdown = () => t.L(`import("three").then(THREE => { const L3 = __lulu3d, sun = L3.ctx.lights && L3.ctx.lights.sun, sc = L3.ctx.scene;
         if (!L3.renderer.shadowMap.enabled || !sun || L3.ctx.view) return [];
         const sc2 = sun.shadow.camera; sc2.updateMatrixWorld(); const F = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(sc2.projectionMatrix, sc2.matrixWorldInverse)); const by = {};
-        sc.traverseVisible(o => { if (!o.isMesh || !o.castShadow) return; if (o.frustumCulled && !F.intersectsObject(o)) return;
+        sc.traverseVisible(o => { if (!o.isMesh || !o.castShadow) return; if (!o.layers.test(sc2.layers)) return; if (o.frustumCulled && !F.intersectsObject(o)) return;
           let a = o, name = ""; for (let i = 0; i < 6 && a && !name; i++) { name = a.name || (a.userData && a.userData.townLook ? "town:" + a.userData.townLook : ""); a = a.parent; }
           let top = o; while (top.parent && top.parent !== sc) top = top.parent;
           const k = (top.name || top.type) + " › " + name; const g = o.geometry, ic = o.isInstancedMesh ? o.count : 1, n = g.index ? g.index.count : g.attributes.position.count;

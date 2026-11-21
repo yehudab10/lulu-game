@@ -509,6 +509,8 @@ class PersonBatch {
         };
         walk(root);
         if (!list.length) return false;
+        // (in the order three would have drawn them — by material — so a face patch on the head still lands on top)
+        list.sort((a, b) => a.material.id - b.material.id);
         root.updateMatrixWorld(true);
         for (const o of list) {
             const m = o.material, b = pmBatch(pmKey(m), m), g = pmGeometry(b, o.geometry);

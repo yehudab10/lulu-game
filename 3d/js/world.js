@@ -530,11 +530,14 @@ class Chunk {
                     }
                 }
             });
-            const wg = new THREE.BufferGeometry();
-            wg.setAttribute("position", new THREE.Float32BufferAttribute(wirePts, 3));
-            const wires = new THREE.LineSegments(wg, M.wire);
-            this.group.add(wires);
-            this.disposables.push(wg);
+            // (every visible chunk's wires are ONE line set — World.syncWires — not a draw call a chunk)
+            if (!world.batchOff) this.wirePts = new Float32Array(wirePts);
+            else {     // (tests: the old way, a line set a chunk)
+                const wg = new THREE.BufferGeometry();
+                wg.setAttribute("position", new THREE.Float32BufferAttribute(wirePts, 3));
+                this.group.add(new THREE.LineSegments(wg, M.wire));
+                this.disposables.push(wg);
+            }
         }
 
         yield "scenery";      // (the road is down, the scenery is placed)
@@ -800,6 +803,7 @@ export class World {
         this.district = d || null;
         const show = !this.district || !!this.district.keepHighway;
         for (const c of this.chunks.values()) c.group.visible = show;
+        this.syncWires();
     }
     defaultBiome() { return { ...DEFAULT_BIOME, trees: { ...DEFAULT_BIOME.trees } }; }
 
@@ -820,10 +824,39 @@ export class World {
 
     /** The slot batch (merge.js) that draws every chunk's pieces of one material in one draw call. */
     slotBatch(mat, cast = false, receive = true, label = "") {
+        if (this.batchOff) return null;       // (tests: world.batchOff = true → chunks built the old way, a mesh a piece)
         const key = mat.uuid + (cast ? "|c" : "|-") + (receive ? "r" : "-");
         let b = this.slots.get(key);
         if (!b) this.slots.set(key, b = new SlotBatch(mat, this.scene, { cast, receive, name: "slots:" + (label || mat.name || mat.type) }));
         return b;
+    }
+    /** The power lines of every drawn chunk as ONE LineSegments (was one a chunk): rebuilt only when the set of drawn
+     *  chunks with wires changes. At the origin with world-space points — where each chunk's own line set was — so it
+     *  sorts among the see-through things exactly as they did. */
+    syncWires() {
+        let hash = 0, n = 0;
+        for (const c of this.chunks.values()) if (c.wirePts && c.group.visible && c.group.parent) { hash = (Math.imul(hash, 31) + c.k + 1) | 0; n += c.wirePts.length; }
+        if (this.wires && hash === this.wires.hash && n === this.wires.n) return;
+        if (!this.wires) {
+            const geo = new THREE.BufferGeometry(), line = new THREE.LineSegments(geo, materials().wire);
+            line.name = "worldWires"; line.frustumCulled = false; line.matrixAutoUpdate = false;
+            this.wires = { geo, line, cap: 0, hash: 0, n: 0 };
+            this.scene.add(line);
+        }
+        const W = this.wires;
+        if (n > W.cap) {
+            W.cap = Math.max(n, W.cap * 2, 4096);
+            const a = new THREE.BufferAttribute(new Float32Array(W.cap), 3);
+            a.setUsage(THREE.DynamicDrawUsage);
+            W.geo.setAttribute("position", a);    // (a new attribute: three uploads it whole and frees the old buffer)
+        }
+        const arr = W.geo.attributes.position.array;
+        let o = 0;
+        for (const c of this.chunks.values()) if (c.wirePts && c.group.visible && c.group.parent) { arr.set(c.wirePts, o); o += c.wirePts.length; }
+        W.geo.attributes.position.needsUpdate = true;
+        W.geo.setDrawRange(0, n / 3);
+        W.line.visible = n > 0;
+        W.hash = hash; W.n = n;
     }
     /** Tests / the perf harness: each slot batch's pieces, free slots and buffer use. */
     slotInfo() { const o = {}; for (const b of this.slots.values()) o[b.name + (b.cast ? "+cast" : "")] = b.info(); return o; }
@@ -910,6 +943,7 @@ export class World {
         const D = this.district;
         if (D && !(D.keepHighway && D.highwayS != null)) {
             if (D.keepHighway) this.cullChunks(camPos, D.highwayFar);
+            this.syncWires();
             this.follow(dt, camPos, D.ground || "#ffffff", buildBudget);
             return;
         }
@@ -941,6 +975,7 @@ export class World {
         }
         for (const c of this.chunks.values()) c.animate(this.time);
         this.cullChunks(camPos, D ? D.highwayFar : Infinity);
+        this.syncWires();
         this.follow(dt, camPos, D ? D.ground || "#ffffff" : this.biomeAt(playerS).ground || "#ffffff", buildBudget);
     }
 
