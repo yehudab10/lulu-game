@@ -152,8 +152,10 @@ export const restFilter = p => !plainMaterial(p.material);
 // drive doesn't grow the buffers. The piece follows its OWNER: drawn only while the owner and every parent up to the
 // scene are visible (the chunk's draw-distance cull, a district hiding the highway, a sign group taken down), at the
 // owner's matrixWorld (a chunk is at the origin; a sign group stands where it stands) — read right before each draw,
-// main pass and shadow pass. The material is the SAME object the meshes used (weather darkening the road, the wet
-// road's reflection… still apply).
+// main pass and shadow pass. The batch draws with its own copy of the material, kept in step with the original right
+// before each draw (the weather darkening the road, the wet road's reflection… still apply): one material drawn both
+// batched and plain (the sign metal, the driveways are also used by features' own meshes) would make three switch its
+// shader program back and forth every frame.
 //
 //   const b = new SlotBatch(material, scene, { cast, name })
 //   const item = b.add(geometry, owner)   → null if it can't (different attributes: draw a Mesh instead); the
@@ -162,7 +164,7 @@ export const restFilter = p => !plainMaterial(p.material);
 const _bs = new THREE.Sphere();
 export class SlotBatch {
     constructor(material, scene, { cast = false, receive = true, name = "slotBatch" } = {}) {
-        this.material = material; this.scene = scene; this.cast = cast; this.receive = receive; this.name = name;
+        this.src = material; this.material = material.clone(); this.ver = material.version; this.scene = scene; this.cast = cast; this.receive = receive; this.name = name;
         this.mesh = null; this.items = []; this.free = []; this.cap = null; this.verts = 0; this.idx = 0; this.insts = 0; this.attrs = null;
     }
     _sig(geo) { return Object.keys(geo.attributes).sort().map(k => k + geo.attributes[k].itemSize + (geo.attributes[k].normalized ? "n" : "")).join(",") + (geo.index ? "+i" : ""); }
@@ -220,7 +222,17 @@ export class SlotBatch {
         if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
     }
     /** Every piece: drawn while its owner (and all its parents up to a scene) is visible, at the owner's matrixWorld. */
+    /** The batch's material follows the original: everything after a needsUpdate, the colours / roughness /
+     *  reflection that features change on the fly every frame. */
+    mirror() {
+        const s = this.src, d = this.material;
+        if (s.version !== this.ver) { this.ver = s.version; d.copy(s); d.needsUpdate = true; return; }
+        d.color.copy(s.color); d.roughness = s.roughness; d.metalness = s.metalness; d.envMap = s.envMap; d.envMapIntensity = s.envMapIntensity;
+        if (d.emissive) { d.emissive.copy(s.emissive); d.emissiveIntensity = s.emissiveIntensity; }
+        d.opacity = s.opacity; d.visible = s.visible;
+    }
     sync() {
+        this.mirror();
         const m = this.mesh, items = this.items;
         let any = false;
         for (let j = 0; j < items.length; j++) {

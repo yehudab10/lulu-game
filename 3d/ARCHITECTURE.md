@@ -421,8 +421,10 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
     where float rounding moves a triangle edge one pixel (`--shots` saves those spots ×8).
   * **The chunks' slot batches** (`merge.js` › `SlotBatch`, `world.slotBatch(mat)`): every highway chunk's road,
     shoulders, driveways and sign metal were a draw call each (~4–6 a chunk). Now `Chunk.addPiece(geo, mat, { owner })`
-    puts each piece in a reserved slot of ONE `BatchedMesh` per material (the SAME material object: the weather
-    darkening the road and the wet road's reflection still apply), drawn while its owner (the chunk group / the sign
+    puts each piece in a reserved slot of ONE `BatchedMesh` per material (drawn with a copy of the material kept in step
+    with the original right before each draw — the weather darkening the road and the wet road's reflection still
+    apply; one material drawn both batched and plain would switch three's shader program back and forth every frame),
+    drawn while its owner (the chunk group / the sign
     group) and every parent are visible, at the owner's `matrixWorld` — so the draw-distance cull, a district hiding the
     highway, a sign taken down all still work. A freed slot (a recycled chunk) is reused by the next piece that fits:
     a long drive doesn't grow the buffers. Sign FACES keep their own draw (each its own texture). `Chunk.bounds()`
