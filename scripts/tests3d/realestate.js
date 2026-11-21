@@ -299,7 +299,8 @@ module.exports = {
       await day(9);
       m = await mg();
       t.check("two in a row: the realtor's 'we should talk'", m.missed === 2);
-      const paidIn = m.paidIn, value = await g(`ctx.realestate.valueOf(${JSON.stringify(id)})`), owed = m.owed;
+      // (today's value on the day the foreclosure happens — values drift a little per day)
+      const paidIn = m.paidIn, value = await g(`(ctx.realestate.debug.CLOCK.offset = 10, ctx.realestate.valueOf(${JSON.stringify(id)}))`), owed = m.owed;
       await day(10);
       const after = await coins();
       const want = Math.max(0, Math.round(value * 0.9) - owed, Math.round(paidIn * 0.5));
