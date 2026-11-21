@@ -622,6 +622,57 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     body.touch:not(.hud-clean) .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 100px); }
     body.touch:not(.hud-clean) .hud-slot.left, body.touch:not(.hud-clean) .hud-slot.right, body.touch:not(.hud-clean) .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 162px); }
 }
+/* ══ HUD fit (ci/hudfit) — what sits where when the screen is small. hud.js › fitHud also nudges the feature stacks,
+   the ✋ prompt and the controller's hint (and core/skip.js the ⏭ pill) off whatever they'd cover; these rules give
+   them room to start with. Test: scripts/tests3d/hudfit.js (every pair of HUD pieces, 10 screen sizes). ═════════ */
+/* a phone on its side (touch): the pills take two rows (♥ + 💰, then the score) left of a slimmer trip bar, the chips
+   start right under them, and a slightly smaller stick sits below the chips — it covered 📝 Ima's list + ON FOOT.
+   No room for a third chip there: while a phone call / text card is up, the ON FOOT chip steps aside. */
+@media (min-aspect-ratio: 1/1) and (max-height: 520px) {
+    body.touch .hud-top { width: min(420px, 42vw); }
+    body.touch .hud-tl { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(29vw - 20px); }
+    body.touch .hud-tl .pill { padding: 5px 11px; }
+    body.touch .hud-slot.left { top: calc(max(12px, env(safe-area-inset-top)) + 48px); }
+    body.touch .hud-slot.left > * { max-width: min(260px, 31vw); }
+    body.touch .hud-slot.left .jphone { width: min(260px, 31vw); }
+    body.touch .hud-slot.left .foot-chip { white-space: normal; }
+    body.touch .hud-slot.left:has(.jphone, .jtext) .foot-chip { display: none; }
+    body.touch #stickBase { width: 128px; height: 128px; }
+    body.touch #stickZone span { width: 128px; }
+    /* the "center" stack (the WELCOME banner…) fits between the left chips and the right-hand buttons */
+    body.touch .hud-slot.center { max-width: calc(100vw - 2 * (min(260px, 31vw) + 24px)); }
+    body.touch #banner.compact { max-width: 100%; }
+    /* the ✋ prompt low in the free band between the stick and the pedals / the ✋ + JUMP buttons (centred, it sat on
+       the banner); hud.js lifts it off any feature button that's there (🚀…) */
+    body.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 12px); left: calc(50vw - 17px); }
+    body.touch.onfoot .hud-slot.bottom { left: calc(50vw - 71px); }
+    body.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; max-width: calc(100vw - 360px); }
+    body.touch.onfoot .hud-slot.bottom .prompt { max-width: calc(100vw - 470px); }
+}
+/* a phone held upright (touch): the "center" stack ducks under the left / right chips (hud.js), so it can be wide */
+@media (max-aspect-ratio: 1/1) {
+    body.touch .hud-slot.center, body.touch #banner.compact { max-width: calc(100vw - 24px); }
+}
+/* a narrow phone held upright (touch): the 150 px stick reached the BRAKE pedal */
+@media (max-aspect-ratio: 1/1) and (max-width: 380px) {
+    body.touch #stickBase { width: 140px; height: 140px; }
+    body.touch #stickZone span { width: 140px; }
+}
+/* a controller / keyboard on a phone held upright (no touch layout): the touch-portrait arrangement — the pills in a
+   row (two once the score is long), the trip bar full width under them, the chips under that, a compact speedo. The
+   desktop column of pills ran into the trip label, and the bottom prompt + hint sat on the big speedo. */
+@media (max-aspect-ratio: 1/1) and (max-width: 600px) {
+    body:not(.touch) .hud-tl { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 96px); }
+    body:not(.touch) .hud-tl .pill { padding: 5px 11px; font-size: 16px; }
+    body:not(.touch) .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 100px); width: calc(100% - 32px); }
+    body:not(.touch) .hud-slot.left, body:not(.touch) .hud-slot.right, body:not(.touch) .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 162px); }
+    body:not(.touch) .hud-slot.center, body:not(.touch) #banner.compact { max-width: calc(100vw - 24px); }
+    body:not(.touch) .speedo { width: 84px; padding: 6px 8px 8px; border-radius: 16px; }
+    body:not(.touch) #mph { font-size: 26px; }
+    body:not(.touch) .speedo .unit { font-size: 9px; letter-spacing: 0.12em; }
+    body:not(.touch) .speedo .boost { margin-top: 5px; height: 7px; }
+    body:not(.touch) .speedo .boost-label { font-size: 9px; margin-top: 3px; }
+}
 /* portrait phones: full-width card, comfortable taps */
 @media (max-width: 520px) and (max-aspect-ratio: 1/1) {
     .card.title-card { padding: 12px 14px 14px; }

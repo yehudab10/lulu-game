@@ -1,5 +1,5 @@
 // 📏 HUD FIT (ci/hudfit, 2026-11-21): nothing important on the HUD sits on anything else, at the real screen sizes —
-// a phone held upright (390 × 844) and on its side (844 × 390), a small phone (375 × 667), a tablet (768 × 1024), each
+// a phone held upright (390 × 844) and on its side (844 × 390), a small phone (375 × 667 and 667 × 375), a tablet (768 × 1024), each
 // with fingers AND with a controller (no touch layout), a laptop (1280 × 720, keyboard) and a TV at 720p / 1080p.
 // In Lakewood, driving and on foot, with the HUD at its busiest: a 5-digit score, 📝 Ima's list, the ON FOOT chip,
 // the ⏭ SKIP pill (a cutscene), the town's "WELCOME TO …" banner, a ✋ prompt and the controller's bottom hint.
@@ -13,6 +13,7 @@ const VIEWS = [
   // name, width, height, TV mode, device
   ["phone", 390, 844, false, "touch"],
   ["phone-land", 844, 390, false, "touch"],
+  ["small-land", 667, 375, false, "touch"],
   ["small", 375, 667, false, "touch"],
   ["tablet", 768, 1024, false, "touch"],
   ["phone-pad", 390, 844, false, "gamepad"],
@@ -76,15 +77,17 @@ async function device(t, d) {
 /** The HUD at its busiest: a 5-digit score, ⏭ SKIP, the town's welcome banner, a ✋ prompt, the controller's hint. */
 async function busiest(t, d, foot) {
   const g = t.game;
-  await g(`(ctx.G.score = Math.max(ctx.G.score || 0, 12345), ctx.cutscene.begin("hudfit"), true)`);
+  const hint = d === "touch" ? "" : foot ? "Ⓐ near your car to hop back in 🚗 · or take a walk" : "Ⓡ gas · Ⓛ brake · Ⓑ drift · RB nitro · Ⓧ horn · Ⓨ camera";
+  await g(`(ctx.G.score = Math.max(ctx.G.score || 0, 12345), ctx.G.hint = ${JSON.stringify(hint)}, ctx.cutscene.begin("hudfit"), true)`);
   await g(`(() => { const H = L3.H, S = ["WELCOME TO LAKEWOOD", "Pop.: Yes", "Est. traffic: always"];
     H.hideBanner(); H.banner("<b>🏙️ " + S[0] + "</b><small>" + S.slice(1).join(" · ") + "</small>", 0, { key: "town", prio: 2 }); return true; })()`);
-  await t.frames(8);
-  // (set right before measuring: a feature's own prompt / hint this frame would replace ours)
-  await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), ${d !== "touch"} && L3.H.padHint(${JSON.stringify(foot ? "Ⓐ near your car to hop back in 🚗 · or take a walk" : "Ⓡ gas · Ⓛ brake · Ⓧ nitro · Ⓨ camera")}), true)`);
+  await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), true)`);
+  await t.frames(14);
+  // (again right before measuring: a feature's own prompt this frame would have replaced ours; it fits itself at once)
+  await g(`(L3.H.prompt("✋ <b>Talk to Heshy</b>"), true)`);
 }
 async function calm(t) {
-  await t.game(`(ctx.cutscene.end("hudfit"), L3.H.hideBanner(), L3.H.prompt(""), L3.H.padHint(""), true)`);
+  await t.game(`(ctx.cutscene.end("hudfit"), ctx.G.hint = "", L3.H.hideBanner(), L3.H.prompt(""), true)`);
 }
 
 module.exports = {
