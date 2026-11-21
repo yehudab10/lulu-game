@@ -81,6 +81,10 @@ body.shabbos-hurry #tripLabel { color: #FFE082; text-shadow: 0 0 6px rgba(255,87
 }
 @media (max-width: 600px) { .shb .top { font-size: 26px; } .shb .quote { font-size: 15.5px; } .shb .stats .stat { min-width: 66px; padding: 6px 8px; } }
 body.tv .shb .top { font-size: 50px; } body.tv .shb .pill2 { font-size: 24px; } body.tv .shb .quote { font-size: 26px; }
+/* TV: the card's own (slimmer) padding, and wider beside the porch — at 480 px with TV padding the longest Bubbe line,
+   the badge pill, the stats and the buttons all wrapped and the card scrolled at 1920 × 1080 (it must fit on any day) */
+body.tv .card.shb { padding: 22px 28px 24px; }
+@media (min-aspect-ratio: 5/4) and (min-width: 820px) { body.tv .card.shb.made { width: min(660px, 40vw); } }
 `);
 
 // ── the run state ──────────────────────────────────────────────────────────

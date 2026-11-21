@@ -31,6 +31,7 @@ export const SHARED = {
     bar: () => "", school: () => "", hospital: () => "", police: () => "", beach: () => "",       // the roadside doors: by the door (d.x.dr)
     courthouse: () => "",                                       // (places: the town's precinct / hospital reuse police / hospital — the door tells them apart)
     bank: () => (ctx.town && ctx.town.active ? ctx.town.id || "" : null),     // the town's bank (heist): one lobby per town
+    terminal: () => "jfk",                                      // ✈️ the JFK terminal (features/airport): one hall
 };
 /** …and the ones that stay personal for now (with why) — ARCHITECTURE › the party parity table. */
 export const NOT_SHARED = {};
