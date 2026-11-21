@@ -94,6 +94,10 @@ function prepare(root) {
             m.transparent = true; m.opacity = 0.82; o.castShadow = false;
         }
         if (/Headlight|Taillight|LightRed|LightBlue|Window|Neon/.test(m.name)) o.castShadow = false;
+        // (a face's eyes / cheeks / mouth are 1–7 cm patches ON the head: their shadow is always inside the head's, and
+        //  smaller than a shadow-map texel — 7.4 cm on MEDIUM, 4.5 on HIGH — but each was a draw in the shadow pass:
+        //  ~4 per person on screen)
+        if (/^(Eye|EyeShine|Cheek|Mouth)$/.test(m.name)) o.castShadow = false;
     });
     return root;
 }
