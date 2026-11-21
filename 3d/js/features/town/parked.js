@@ -77,7 +77,7 @@ export function bump(pc, imp) {
     L.moved = true;
     PK.hits++;
     if (!(pc.alarmAt > ctx.time - 3)) { pc.alarmAt = ctx.time; SFX.alarm(Math.min(1, imp / 8)); }
-    emit("town:parkedHit", { impact: imp, key: pc.key });
+    emit("town:parkedHit", { impact: imp, key: pc.key, obj: L.obj, alarm: pc.alarmAt === ctx.time });     // (obj, alarm: features/life blinks its lights)
 }
 
 function footPc(pc) {

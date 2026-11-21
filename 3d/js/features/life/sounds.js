@@ -199,6 +199,62 @@ function gust(sr) {
     return edges(norm(b, 0.8), sr, 40);
 }
 
+// ── round 2: pigeons, a car alarm, steam ─────────────────────────────────
+/** A flock taking off: a ragged burst of wing claps that thins out. */
+function flutter(sr) {
+    const b = mk(sr, 1.3);
+    for (let k = 0; k < 34; k++) {
+        const t0 = Math.pow(Math.random(), 1.6) * 1.0, at = Math.floor(sr * t0), d = mk(sr, 0.05);
+        for (let i = 0; i < d.length; i++) { const t = i / sr; d[i] = N() * Math.exp(-t / 0.009) * (1 + Math.sin(TAU * 180 * t) * 0.4); }
+        mix(b, d, at, (1 - t0 * 0.7) * (0.6 + Math.random() * 0.5));
+    }
+    bp(b, sr, 350, 3800);
+    return edges(norm(b, 0.85), sr, 8);
+}
+/** A pigeon: "hoo-ROO-coo" — a throaty warble that rises and falls. */
+function coo(sr) {
+    const b = mk(sr, 1.05);
+    let ph = 0;
+    for (let i = 0; i < b.length; i++) {
+        const t = i / sr, u = t / 1.05;
+        const f = 300 + 170 * Math.sin(Math.PI * Math.min(1, u * 1.6)) - 60 * u;
+        ph += TAU * f / sr;
+        const seg = u < 0.22 ? Math.sin(Math.PI * u / 0.22) : u < 0.3 ? 0.15 : Math.sin(Math.PI * (u - 0.3) / 0.7) ** 0.7;
+        b[i] = (Math.sin(ph) + Math.sin(ph * 2) * 0.35 + N() * 0.06) * seg * (0.75 + 0.25 * Math.sin(TAU * 24 * t));
+    }
+    lp(b, sr, 1400);
+    return edges(norm(b, 0.7), sr, 10);
+}
+/** A car alarm's tail (after the town's own first whoops): WHOOP-WHOOP-WHOOP, then BEEP BEEP BEEP. */
+function alarmTail(sr) {
+    const b = mk(sr, 3.4);
+    let ph = 0;
+    for (let i = 0; i < b.length; i++) {
+        const t = i / sr;
+        let f = 0, g = 0;
+        if (t < 1.8) { const u = (t % 0.3) / 0.3; f = 620 + 640 * u; g = u < 0.92 ? 1 : 0; }
+        else if (t < 3.3) { const u = ((t - 1.8) % 0.5) / 0.5; f = 760; g = u < 0.55 ? 1 : 0; }
+        ph += TAU * f / sr;
+        const sq = Math.sign(Math.sin(ph)) * 0.6 + Math.sin(ph) * 0.4;
+        b[i] = sq * g;
+    }
+    lp(b, sr, 2400); hp(b, sr, 300);
+    // (no clicks at the gates)
+    for (let i = 1; i < b.length; i++) b[i] = b[i - 1] + (b[i] - b[i - 1]) * 0.35;
+    return edges(norm(b, 0.8), sr, 6);
+}
+/** Steam out of a manhole (a seamless 2.5 s loop): a soft hiss that breathes. */
+function hiss(sr) {
+    const n = Math.round(sr * 2.5), b = mk(sr, 2.5);
+    for (let i = 0; i < n; i++) b[i] = N();
+    hp(b, sr, 1500); lp(b, sr, 7000);
+    for (let i = 0; i < n; i++) { const u = i / n; b[i] *= 0.75 + 0.25 * Math.sin(TAU * 2 * u); }
+    // crossfade the ends for a seamless loop
+    const x = Math.round(sr * 0.2);
+    for (let i = 0; i < x; i++) { const k = i / x; b[i] = b[i] * k + b[n - x + i] * (1 - k); }
+    return norm(b.subarray(0, n - x).slice(), 0.6);
+}
+
 // ── register (kinds are built lazily by spatial on the first unlock) ─────
 const STEP = { ref: 2, max: 22, prio: 1, doppler: 0, lift: 0.05 };
 const AMB = { ref: 6, max: 70, prio: 1, doppler: 0 };
@@ -224,6 +280,10 @@ const KINDS = {
     lifeHammer: Object.assign({ gen: hammer, gain: 0.2, lift: 2 }, AMB),
     lifeChimes: Object.assign({ gen: chimes, gain: 0.14, lift: 2.4 }, AMB),
     lifeGust: { gen: gust, ref: 8, max: 80, gain: 0.3, prio: 1, doppler: 0, lift: 2 },
+    lifeFlutter: Object.assign({ gen: flutter, gain: 0.34, lift: 1 }, AMB),
+    lifeCoo: Object.assign({ gen: coo, gain: 0.2, lift: 0.3 }, AMB, { ref: 3, max: 30 }),
+    lifeAlarm: { gen: alarmTail, ref: 8, max: 90, gain: 0.3, prio: 2, doppler: 0, lift: 0.8 },
+    lifeHiss: { gen: hiss, loop: true, ref: 2.5, max: 22, gain: 0.12, prio: 1, doppler: 0, lift: 0.3 },
 };
 for (const k in KINDS) spatial.define(k, KINDS[k]);
 export const SOUND_KINDS = Object.keys(KINDS);

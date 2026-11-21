@@ -17,7 +17,7 @@ const SPRAY = [0.86, 0.9, 0.96], DROP = [0.8, 0.86, 0.95];
 const dummy = new THREE.Object3D();      // a bubble's anchor over a soaked townsperson (banter's bubbles follow an Object3D)
 
 // ── the sites (puddles + leaf piles: both come off the same street walk) ──
-function streetPt(st, along, d, out) {
+export function streetPt(st, along, d, out) {
     if (st.axis === "ns") { out.x = st.c - d; out.z = along; }
     else if (st.axis === "ew") { out.x = along; out.z = st.c + d; }
     else { out.x = st.px + st.ux * along + st.rx * d; out.z = st.pz + st.uz * along + st.rz * d; }
