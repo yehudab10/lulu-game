@@ -18,7 +18,19 @@
 import { ctx } from "../../core/ctx.js";
 import * as LY from "./layout.js";
 
-export const AIR = { first: 5900, every: 30000, step: 50, tries: 400, townGap: 1500 };
+export const AIR = { first: 5900, every: 30000, step: 50, tries: 400, townGap: 1500, zonePad: 300 };
+
+/**
+ * THE SWITCH-ON MODEL (for after ci/exits2 — the steps: 3d/docs/airport-plan.md › Sync log, AGENTS §7 › Airport).
+ * Measured on main (2026-11-21): the airport FITs beside the constant highway at only a few stretches — 8.8–8.9 km,
+ * 22.4–22.6, 23.7, 25.4–26.0, 26.9–27.8, 28.8–29.0 km … — while ci/exits2's route puts a town exit every 4 km
+ * (Midwood 3.6, Lakewood 7.6, every 8 km), and the airport + its signs need ~2.4 km of road plus a gap either side. A route
+ * SLOT can't land on a FIT that regularly, so the order is the other way round: the airport is planned FIRST from fixed
+ * data only (`zones(s0, s1)`: the road, the places, the journey's stops — never the towns), and the towns' planner treats
+ * those zones as busy and slides its exits past them (one line in ci/exits2's exit.js `clearOfPlaces`). `townsKeepOut`
+ * says the towns do that: then the airport stops looking at the towns' exits itself (no circular wait).
+ */
+export const PLANNING = { townsKeepOut: false };     // (…and the rest areas: features/exits clearAt already asks zones())
 
 const _p = {}, _q = {};
 const hw = () => ctx.world.highway;
@@ -77,7 +89,7 @@ function journeyBusy() {
 }
 /** Is E clear of the other things beside the highway (places, the journey's stops + coast, the towns' interchanges +
  *  their towns, rest areas)? */
-export function clearOf(E) {
+export function clearOf(E, gap = AIR.townGap) {
     const a = E + LY.SPAN.a, b = E + LY.SPAN.b;
     // (the airport itself reaches ±640 m round E + UA; its roadside reserve + a town gap beyond the accel lane)
     // (the ramps + the airport's own footprint: its advance signs may pass a family's gate or a pull-in like any sign)
@@ -86,12 +98,34 @@ export function clearOf(E) {
     const P = ctx.places;
     try { if (P && P.list && P.at) for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > a2 && x < b2) return false; } } catch (e) { /* none */ }
     const T = ctx.town;
-    if (T && T.exits) { const sp = T.span || { a: -1500, b: 480 }; for (const e of T.exits) if (e.s + sp.b + AIR.townGap > a && e.s + sp.a - AIR.townGap < b) return false; }
-    try { if (ctx.exits && ctx.exits.spans) for (const o of ctx.exits.spans()) if (o.b > a && o.a < b) return false; } catch (e) { /* none */ }
+    if (T && T.exits && !PLANNING.townsKeepOut) { const sp = T.span || { a: -1500, b: 480 }; for (const e of T.exits) if (e.s + sp.b + gap > a && e.s + sp.a - gap < b) return false; }
+    try { if (!PLANNING.townsKeepOut && ctx.exits && ctx.exits.spans) for (const o of ctx.exits.spans()) if (o.b > a && o.a < b) return false; } catch (e) { /* none */ }
     return true;
 }
 
 const FOUND = new Map();
+/**
+ * Where the airport WILL be between s0 and s1 from fixed data only (ignoring the towns: they keep out of these — see
+ * PLANNING): [{ s (its exit), a, b (signs → accel lane, ± AIR.zonePad) }], the first at its first fit ≥ AIR.first, then
+ * every AIR.every on. A pure function of the road (cached FIT): the same on every run and every friend's screen.
+ */
+const ZONE = { E: [], from: null, done: false };
+export function zones(s0, s1) {
+    // (the airport's metres along the endless road, found once each and kept: fixed data → the same list every call)
+    if (ZONE.from == null) ZONE.from = AIR.first;
+    const keep = PLANNING.townsKeepOut;
+    PLANNING.townsKeepOut = true;
+    try {
+        while (!ZONE.done && (!ZONE.E.length || ZONE.E[ZONE.E.length - 1] < s1 - LY.SPAN.a + AIR.zonePad)) {
+            const E = findSpot(ZONE.from);
+            if (E == null) { ZONE.done = true; break; }
+            ZONE.E.push(E); ZONE.from = E + AIR.every;
+        }
+    } finally { PLANNING.townsKeepOut = keep; }
+    const out = [];
+    for (const E of ZONE.E) if (E + LY.SPAN.b + AIR.zonePad > s0 && E + LY.SPAN.a - AIR.zonePad < s1) out.push({ s: E, a: E + LY.SPAN.a - AIR.zonePad, b: E + LY.SPAN.b + AIR.zonePad });
+    return out;
+}
 /** The first exit metre ≥ s0 an airport fits (slid on in AIR.step steps), or null. Fixed data → FIT cached. */
 export function findSpot(s0, { force = false } = {}) {
     if (force) return s0;
@@ -198,14 +232,14 @@ export function geometry(E) {
     // the colliders, each tagged with the highway s it belongs to (its chunk carries it)
     const col = [];
     const sOf = (x, z, hint) => road.nearest(x, z, hint, _q).s;
-    const add = (x, z, r, kind, hint) => col.push({ x, z, r, kind, s: sOf(x, z, hint) });
-    const addA = (f, r, rad, kind) => { const p = W(f, r); add(p.x, p.z, rad, kind, E + LY.UA + f); };
+    const add = (x, z, r, kind, hint, low = true) => { const c = { x, z, r, kind, s: sOf(x, z, hint) }; if (!low) c.notLow = true; col.push(c); };
+    const addA = (f, r, rad, kind, low = true) => { const p = W(f, r); add(p.x, p.z, rad, kind, E + LY.UA + f, low); };
     for (const [f, r, rad, kind] of LY.colliderList()) addA(f, r, rad, kind);
     for (const fc of LY.FENCES) for (let i = 0; i < fc.pts.length - 1; i++) {
         const [f0, r0] = fc.pts[i], [f1, r1] = fc.pts[i + 1], L = Math.hypot(f1 - f0, r1 - r0), n = Math.max(1, Math.ceil(L / 1.4));
         for (let k = i ? 1 : 0; k <= n; k++) addA(f0 + (f1 - f0) * k / n, r0 + (r1 - r0) * k / n, 0.75, "fence");
     }
-    for (const p of LY.propList()) if (p.col) addA(p.f, p.r, p.col, p.key === "treeRound" ? "tree" : "pole");
+    for (const p of LY.propList()) if (p.col) addA(p.f, p.r, p.col, p.key === "treeRound" ? "tree" : "pole", p.low !== false);
     addA(-LY.LOT.f1 + 4, LY.AISLE.r + 6.4, 1.3, "prop");                                     // the booth
     for (const b of LY.BOARD_POSTS) if (!b.onFence) addA(b.f, b.r, b.big ? 0.5 : 0.25, "sign");
     // the planters along the kerb (mirrored from the model: its +X is our −f) — low: she can hop on them
@@ -214,10 +248,12 @@ export function geometry(E) {
     const rnd = mulberry(20261120), cars = [];
     const PAINTS = ["#E53935", "#42A5F5", "#FFFFFF", "#FFCA28", "#9E9E9E", "#263238", "#8D6E63", "#66BB6A", "#BA68C8", "#B0BEC5", "#C0C6CC", "#1E3A5F"];
     for (const row of LY.STALLS) for (let f = row.f0 + LY.STALL_W / 2; f < row.f1; f += LY.STALL_W) {
-        if (rnd() > 0.26) continue;
+        if (rnd() > 0.22) continue;          // (a fifth of the stalls taken: MEDIUM's kerb view keeps under the 120k triangles)
         const key = rnd() < 0.55 ? "town_minivan_lod" : "town_mw_sedan_lod";
-        cars.push({ f, r: row.r, face: row.face, key, color: PAINTS[Math.floor(rnd() * PAINTS.length)] });
-        addA(f, row.r - 1.2, 1.15, "car"); addA(f, row.r + 1.2, 1.15, "car");
+        // (every other parked car stays home on the LOW graphics tier — its two circles switch off with it)
+        const low = cars.length % 2 === 0;
+        cars.push({ f, r: row.r, face: row.face, key, color: PAINTS[Math.floor(rnd() * PAINTS.length)], low });
+        addA(f, row.r - 1.2, 1.15, "car", low); addA(f, row.r + 1.2, 1.15, "car", low);
     }
     // the guardrails along both roads to the highway (outside the landside): posts every 3 m
     const rails = [];

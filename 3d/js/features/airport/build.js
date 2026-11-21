@@ -13,7 +13,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { ctx } from "../../core/ctx.js";
 import { models, registerModels, findNodes } from "../../models.js";
 import { canvasTex } from "../../world.js";
-import { Merger, Atlas, lookMaterials, drawLines } from "../town/kit.js";
+import { Merger, Atlas, lookMaterials, drawLines, partsOf } from "../town/kit.js";
 import * as LY from "./layout.js";
 import { SIGNS, BOARDS, LIVERIES, EXIT_NO } from "./lines.js";
 
@@ -209,7 +209,8 @@ function cellsOf(a) {
         welcome: sign("welcome", BOARDS.welcome, "#F6EEDC", ["#16324F", "#6D4C41"], 768, 256, "#16324F"),
         term: sign("term", BOARDS.term, "#16324F", "#FFFFFF", 1024, 96),
         dep: sign("dep", BOARDS.dep, "#1E5AA8", "#FFFFFF", 1024, 112), arr: sign("arr", BOARDS.arr, "#1E5AA8", "#FFFFFF", 1024, 112),
-        soon: sign("soon", BOARDS.soon, "#FFF8E1", ["#C62828", "#37474F"], 512, 256, "#C62828"),
+        // (the doors' board: they OPEN now — stage 2's hall — so a plain door sign, no "opening soon" poster: ci/qaweekend)
+        soon: sign("soon", BOARDS.soon, "#16324F", ["#FFFFFF", "#CFE3F5"], 512, 256, "#FFFFFF"),
         guide: sign("guide", BOARDS.guide, "#1f7a46", "#fff", 768, 336), parking: sign("parking", BOARDS.parking, "#1565C0", "#fff", 512, 240),
         taxi: sign("taxi", BOARDS.taxi, "#FFC107", "#1B1B1B", 512, 224), shuttle: sign("shuttle", BOARDS.shuttle, "#1E5AA8", "#fff", 512, 224),
         noStop: sign("noStop", BOARDS.noStop, "#FAFAFA", "#C62828", 384, 240), runway: sign("runway", BOARDS.runway, "#FFD600", "#1B1B1B", 512, 224),
@@ -236,6 +237,52 @@ function cellsOf(a) {
     return C;
 }
 
+// ── LOW: a lighter airport ───────────────────────────────────────────────
+// What the LOW graphics tier leaves out (layout's `low: false` props, every other parked car, the facade's trim) is
+// added to the SAME merged clusters, but LAST: each merged mesh then draws its own pieces first and the LOW-only cut is a
+// draw range (no extra draw call on MEDIUM / HIGH). The hidden jets' text faces go last in the atlas mesh the same way.
+// `setLow(out, true)` cuts them; index.js switches their colliders off with them.
+/** The facade's details (mullions, trim, door mats, the planters' hedges) as a template of their own, and the rest:
+ *  LOW draws the terminal without them. Cached per template. */
+const SPLIT = new WeakMap();
+const DETAIL = /^(Trim|DarkTrim|Hedge)$/;
+function splitTemplate(tpl, re = DETAIL) {
+    let sp = SPLIT.get(tpl);
+    if (sp) return sp;
+    const main = new THREE.Group(), detail = new THREE.Group();
+    for (const p of partsOf(tpl)) {
+        const m = new THREE.Mesh(p.g, p.mat);
+        m.name = p.node; m.matrixAutoUpdate = false; m.matrix.copy(p.local);
+        (re.test(p.name) ? detail : main).add(m);
+    }
+    sp = { main, detail };
+    SPLIT.set(tpl, sp);
+    return sp;
+}
+/** After the merge: where each merged mesh's LOW-only pieces start (an index offset), from the tag's vertex ranges. */
+function lowRanges(list, tag) {
+    const firstV = new Map();
+    for (const p of tag.parts || []) firstV.set(p.mesh, Math.min(firstV.has(p.mesh) ? firstV.get(p.mesh) : Infinity, p.start));
+    const out = [];
+    for (const mesh of list) {
+        if (!firstV.has(mesh)) continue;
+        const v0 = firstV.get(mesh), I = mesh.geometry.index;
+        let cut = I ? I.count : v0;
+        if (I) for (let i = 0; i < I.count; i++) if (I.array[i] >= v0) { cut = i - (i % 3); break; }
+        out.push({ mesh, cut, full: I ? I.count : mesh.geometry.attributes.position.count });
+    }
+    return out;
+}
+/** Cut (or restore) the LOW-only pieces of a build. → the triangles left out. */
+export function setLow(out, low) {
+    let tris = 0;
+    for (const r of (out && out.low) || []) {
+        if (low) { r.mesh.geometry.setDrawRange(0, r.cut); r.mesh.visible = r.cut > 0; tris += (r.full - r.cut) / 3; }
+        else { r.mesh.geometry.setDrawRange(0, Infinity); r.mesh.visible = true; }
+    }
+    return Math.round(tris);
+}
+
 // ── the build (a generator: one small step per yield) ────────────────────
 /**
  * Build airport G (plan.js geometry) into `group`. Yields after every step (~1–3 ms each); returns { atlasMat }.
@@ -255,8 +302,10 @@ export function* buildSteps(G, group, out) {
     const ramp = [], gore = [], dash = [], paint = [];
     ramp.push(hwStrip(E, LY.TAPER0, LY.RAMP0 + 2, () => 6.9, u => LY.taperEdge(u), 0.033));
     ramp.push(hwStrip(E, LY.RAMP0, LY.OFF1 + 0.6, u => LY.offD(u) - LY.HALF, u => LY.offD(u) + LY.HALF, 0.034));
+    yield "ramps:off";            // (the interchange's strips in three slices: one was the build's longest step)
     ramp.push(hwStrip(E, LY.ON0 - 0.6, LY.ON1 + 2, u => LY.onD(u) - LY.HALF, u => LY.onD(u) + LY.HALF, 0.034));
     ramp.push(hwStrip(E, LY.ON1 - 2, LY.ACC1, () => 6.9, u => LY.accelEdge(u), 0.033));
+    yield "ramps:on";
     gore.push(hwStrip(E, LY.RAMP0 + 8, LY.RAMP0 + 72, () => 7.0, u => Math.max(7.05, LY.offD(u) - LY.HALF), 0.036, 5));
     gore.push(hwStrip(E, LY.ON1 - 62, LY.ON1 - 6, () => 7.0, u => Math.max(7.05, LY.onD(u) - LY.HALF), 0.036, 5));
     dash.push(hwStrip(E, LY.TAPER0 + 30, LY.RAMP0 + 8, () => 6.84, () => 7.16, 0.037, 6));
@@ -271,7 +320,9 @@ export function* buildSteps(G, group, out) {
     // ② the airport's roads (world polylines)
     for (const rd of G.roads) {
         const mat = rd.tex === "kerb" ? MT.kerb : rd.tex === "aisle" ? MT.aisle : MT.ramp;
-        add(ribbon(rd.pts, rd.tex === "aisle" ? 0.036 : 0.035, 12), mat);
+        const rg = ribbon(rd.pts, rd.tex === "aisle" ? 0.036 : 0.035, 12);
+        // (the roads in + out share the ramps' asphalt: one mesh with the ramp strips — two draw calls fewer)
+        if (mat === MT.ramp) ramp.push(rg); else add(rg, mat);
         yield "road:" + rd.id;
     }
     add(merged(ramp), MT.ramp); add(merged(gore), MT.gore); add(merged(dash), MT.dash);
@@ -321,7 +372,8 @@ export function* buildSteps(G, group, out) {
     // ⑤ every static model, merged (+ the faces of text into the atlas)
     const at = new Atlas(1024), C = cellsOf(at), mg = new Merger(160);
     mg.addGeometry(fg.posts, "flat", F.ox, F.oz);
-    for (const rp of G.rails) mg.addGeometry(railGeo(rp), "flat", rp[0].x, rp[0].z);
+    yield "posts";
+    for (let i = 0; i < G.rails.length; i++) { const rp = G.rails[i]; mg.addGeometry(railGeo(rp), "flat", rp[0].x, rp[0].z); if (i % 2 === 1) yield "rails:" + i; }
     yield "rails";
     const matAt = (x, z, yaw, s = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, 0, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw), new THREE.Vector3(s, s, s));
     const face = (tpl, anchor, m, cell, w, h, yaw, dy = 0, push = 0.06) => {
@@ -333,14 +385,21 @@ export function* buildSteps(G, group, out) {
         at.quad(cell, _v.x + Math.sin(yaw) * push, _v.y + dy, _v.z + Math.cos(yaw) * push, yaw, w, h);
     };
     let n = 0;
+    // (LOW-only pieces: merged after everything else, so each merged mesh's LOW cut is one draw range)
+    const lowTag = { low: true }, later = [];
+    const addLow = (tpl, m, tint, opts) => { later.push([tpl, m, tint, Object.assign({ tag: lowTag }, opts)]); };
     for (const p of LY.propList()) {
-        const tpl = models[p.key];
+        let tpl = models[p.key];
         if (!tpl) continue;
         F.world(p.f, p.r, _p);
         const yaw = F.yaw(p.face[0], p.face[1]), m = matAt(_p.x, _p.z, yaw, p.scale || 1);
         let tint = null;
         if (p.livery != null) { const L = LIVERIES[p.livery % LIVERIES.length]; tint = { Paint: L.Paint, Tail: L.Tail, Stripe: L.Stripe }; }
-        mg.add(tpl, m, tint, { at: [_p.x, _p.z], noShadow: !!p.flat });
+        const opts = { at: [_p.x, _p.z], noShadow: !!p.flat };
+        let body = tpl;
+        if (p.id === "terminal") { const sp = splitTemplate(tpl); body = sp.main; addLow(sp.detail, m, tint, opts); }
+        if (p.low === false) addLow(body, m, tint, opts); else mg.add(body, m, tint, opts);
+        const q0 = at.quads.length;
         if (p.id === "terminal") {
             // (the model's +X is our −f: lay the faces by f, at the anchors' heights)
             const q = (f, r, y, cell, w, h) => { F.world(f, r, _p); at.quad(cell, _p.x, y, _p.z, yaw, w, h); };
@@ -356,6 +415,7 @@ export function* buildSteps(G, group, out) {
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw - Math.PI / 2, 0, 0.42);
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw + Math.PI / 2, 0, 0.01);
         }
+        if (p.low === false) for (let k = q0; k < at.quads.length; k++) at.quads[k].low = true;
         n++; yield "prop:" + (p.id || p.key);
     }
     // the free-standing boards (exits_guide for the big ones, a post for the rest)
@@ -377,22 +437,27 @@ export function* buildSteps(G, group, out) {
         const tpl = models[c.key];
         if (!tpl) continue;
         F.world(c.f, c.r, _p);
-        mg.add(tpl, matAt(_p.x, _p.z, F.yaw(0, c.face)), { Paint: c.color, Body: c.color }, { at: [_p.x, _p.z], noShadow: true });
+        const args = [tpl, matAt(_p.x, _p.z, F.yaw(0, c.face)), { Paint: c.color, Body: c.color }, { at: [_p.x, _p.z], noShadow: true }];
+        if (c.low === false) addLow(...args); else mg.add(...args);
     }
     yield "cars";
     // the interchange's props: the gantry, the gore's crash cushion, the advisory, rail ends, the ramp's guide sign
     interchangeProps(G, mg, at, C, matAt, face);
     yield "interchange";
+    for (let i = 0; i < later.length; i++) { mg.add(...later[i]); if (i % 6 === 5) yield "low:" + i; }
+    yield "low";
     const look = MT.look, list = [];
     const it = mg.buildSteps(look, list);
     for (;;) { const r = it.next(); if (r.done) break; yield r.value; }
     for (const mesh of list) { mesh.updateMatrix(); group.add(mesh); out.geos.push(mesh.geometry); }
+    out.low = lowRanges(list, lowTag);
     yield "merged";
     const ms = atlasSteps(at);
     let sm;
     for (;;) { const r = ms.next(); if (r.done) { sm = r.value; break; } yield r.value; }
     group.add(sm); out.geos.push(sm.geometry); out.atlas = sm.material;
     sm.updateMatrix();
+    if (sm.userData.lowCut != null) out.low.push({ mesh: sm, cut: sm.userData.lowCut, full: sm.geometry.index.count });
     return out;
 }
 
@@ -437,6 +502,7 @@ function interchangeProps(G, mg, at, C, matAt, face) {
 /** The town kit's Atlas.meshSteps, a CELL a step (each sign's text is a few ms of canvas work in software rendering; six at
  *  once was the build's longest frame). The atlas canvas is drawn once a page and reused by later builds (same cells). */
 let ATLAS_TEX = null;
+const SIGN_FONT = `Fredoka, "Arial Rounded MT Bold", Arial, sans-serif`;     // (the town kit's drawLines font)
 function* atlasSteps(at) {
     let scale = 1;
     while (!at.pack(scale) && scale > 0.3) scale *= 0.9;
@@ -446,20 +512,34 @@ function* atlasSteps(at) {
         canvas.width = canvas.height = S;
         const g = canvas.getContext("2d");
         yield "atlas:canvas";
+        // (a cell = its board, then ONE LINE of text a step: big text in a software canvas is the build's slowest work —
+        //  a whole three-line sign in one step was up to 30–50 ms on a busy CI runner. The lines are laid out like the
+        //  town kit's drawLines.)
+        const cellIn = c => { g.save(); g.translate(c.x, c.y); g.scale(c.pw / c.w, c.ph / c.h); g.beginPath(); g.rect(0, 0, c.w, c.h); g.clip(); };
         for (const c of at.cells) {
-            const spec = c.spec, w = c.w, h = c.h;
-            g.save();
-            g.translate(c.x, c.y); g.scale(c.pw / w, c.ph / h);
-            g.beginPath(); g.rect(0, 0, w, h); g.clip();
-            if (spec.draw) spec.draw(g, w, h);
-            else {
-                const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
-                if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
-                if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
-                drawLines(g, spec.lines || [], w, h, spec.fg || "#fff", spec.sizes, spec.sub);
-            }
+            const spec = c.spec, w = c.w, h = c.h, key = "atlas:" + (spec.key || "cell");
+            cellIn(c);
+            if (spec.draw) { spec.draw(g, w, h); g.restore(); yield key; continue; }
+            const r = spec.radius != null ? spec.radius : Math.min(w, h) * 0.08;
+            if (spec.bg) { g.fillStyle = spec.bg; g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r); g.fill(); }
+            if (spec.border) { g.strokeStyle = spec.border; g.lineWidth = Math.max(3, h * 0.035); g.beginPath(); g.roundRect(h * 0.05, h * 0.05, w - h * 0.1, h - h * 0.1, r * 0.7); g.stroke(); }
             g.restore();
-            yield "atlas:" + (spec.key || "cell");
+            const lines = spec.lines || [];
+            if (!lines.length || spec.sub) { cellIn(c); drawLines(g, lines, w, h, spec.fg || "#fff", spec.sizes, spec.sub); g.restore(); yield key; continue; }
+            yield key + ":board";
+            const n = lines.length, sz = spec.sizes || lines.map((_, i) => (i === 0 ? 1 : 0.72) * h * (n === 1 ? 0.5 : n === 2 ? 0.34 : 0.26));
+            let y = (h - sz.reduce((A, B) => A + B * 1.12, 0)) / 2;
+            for (let i = 0; i < n; i++) {
+                y += sz[i] * 0.56;
+                cellIn(c);
+                g.textAlign = "center"; g.textBaseline = "middle";
+                g.font = `${i === 0 ? 700 : 600} ${Math.round(sz[i])}px ${SIGN_FONT}`;
+                g.fillStyle = Array.isArray(spec.fg) ? spec.fg[i] || spec.fg[0] : spec.fg || "#fff";
+                g.fillText(lines[i], w / 2, y, w * 0.9);
+                g.restore();
+                y += sz[i] * 0.56;
+                yield key + ":" + i;
+            }
         }
         const tex = new THREE.CanvasTexture(canvas);
         tex.colorSpace = THREE.SRGBColorSpace;
@@ -467,6 +547,9 @@ function* atlasSteps(at) {
         ATLAS_TEX = { tex, n: at.cells.length, mat: new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.4, emissive: new THREE.Color("#ffffff"), emissiveMap: tex, emissiveIntensity: 0.12 }) };
     }
     for (const c of at.cells) c.uv = [c.x / S, 1 - (c.y + c.ph) / S, (c.x + c.pw) / S, 1 - c.y / S];
+    // (the LOW-only faces last: LOW draws up to the first of them)
+    const nLow = at.quads.filter(q => q.low).length;
+    if (nLow) at.quads = at.quads.filter(q => !q.low).concat(at.quads.filter(q => q.low));
     const n = at.quads.length;
     const P = new Float32Array(n * 12), U = new Float32Array(n * 8), N = new Float32Array(n * 12), I = [];
     at.quads.forEach((q, k) => {
@@ -484,5 +567,6 @@ function* atlasSteps(at) {
     const mesh = new THREE.Mesh(geo, ATLAS_TEX.mat);
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
+    if (nLow) mesh.userData.lowCut = (n - nLow) * 6;
     return mesh;
 }

@@ -476,11 +476,10 @@ async function airport(t) {
   await t.shot("airport-wanted");
   const st = await g(`({ state: ctx.state, chasing: ctx.law.chasing, inside: ctx.airport.inside })`);
   console.log("   wanted at the airport", JSON.stringify(st));
-  // (KNOWN, reported to ci/airport-polish: the airport's buildings have no chase-cam walls — mashing round the kerb in a chase
-  //  can park the camera inside the terminal / a kerb building: one flat colour. Logged here, not failed, until that lands.)
+  // (the chase cam keeps out of the terminal + the tower — ctx.airport.camClip via foot's cam.carClip, ci/airport-polish: a chase
+  //  round the kerb used to park the camera inside the terminal, one flat colour on screen — so "flat" is checked here now)
   const wr = await W.report(t);
-  for (const i of wr.issues.filter(i => i.kind === "flat")) console.log("    · KNOWN (airport camera walls): " + i.msg);
-  W.check(t, "wanted at the airport", wr, ["jump", "nan", "overlay", "underground", "hidden", "stuck", "nocontrol"]);
+  W.check(t, "wanted at the airport (the chase cam stays out of the buildings)", wr, ["jump", "nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol"]);
   await W.reset(t);
   await g(`(ctx.law.standDown && ctx.law.standDown(), ctx.law.hold(900), L3.state !== "playing" && !/jail|court|law|arrest/i.test(L3.state) ? L3.setState("playing") : 0, true)`);
   await t.until(`__lulu3d.state === "playing"`, "back to driving after the chase", 60000);

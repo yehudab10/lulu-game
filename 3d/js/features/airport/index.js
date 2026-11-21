@@ -36,14 +36,20 @@ import { models, ensureModels } from "../../models.js";
 import * as H from "../../hud.js";
 import * as LY from "./layout.js";
 import * as L from "./lines.js";
-import { AIR, findSpot, searchSteps, geometry, inLand, fits, frameAt } from "./plan.js";
-import { buildSteps, BUILD_MODELS, lookMats } from "./build.js";
+import { AIR, PLANNING, findSpot, searchSteps, geometry, inLand, fits, frameAt, zones } from "./plan.js";
+import { buildSteps, BUILD_MODELS, lookMats, setLow } from "./build.js";
 import { makePlanes, PLANES } from "./planes.js";
-import { makeVehicles, doorSpot, makeJoke, nearFence, luluSays, VEH, JOKE } from "./life.js";
+import { makeVehicles, doorSpot, makeJoke, nearFence, luluSays, sayOver, VEH, JOKE, KERB_HIT } from "./life.js";
+import { makeSecurity, TUNE as SEC } from "./security.js";
+import { makeNet, copRoute, copSight, routeOnNet, nearestOnNet } from "./chase.js";
 
 // ── the switch (stage 1: off unless asked for) ───────────────────────────
 const Q = new URLSearchParams(location.search);
-const FLAG = (Q.get("enable") || "").split(",").includes("airport") || Q.get("airport") === "1";
+/** SWITCH-ON (after ci/exits2 — the steps: the plan's Sync log / AGENTS §7 › Airport): true = on for everyone (not in
+ *  ?test runs) unless ?airport=0, and the towns keep out of its zones (plan.js PLANNING) — so it's on with friends too. */
+export const ON_BY_DEFAULT = false;
+if (ON_BY_DEFAULT) PLANNING.townsKeepOut = true;
+const FLAG = (Q.get("enable") || "").split(",").includes("airport") || Q.get("airport") === "1" || (ON_BY_DEFAULT && Q.get("airport") !== "0" && !Q.has("test"));
 /** How far out the build starts / stops, and the per-frame build budget. */
 export const BUILD = { start: 2600, drop: 3200, ms: 3.0, keepBehind: 520 };
 
@@ -53,6 +59,8 @@ const S = {
     saved: store("airport", { visits: 0, jokes: 0 }), save: saveSoon, next: 0, keep: false, party: false, search: null,
 };
 const joke = makeJoke(S);
+S.joke = joke;
+const sec = makeSecurity(S, { over: sayOver, lulu: luluSays });
 const doors = doorSpot(S);
 
 function partyRoam() { const A = ctx.party && ctx.party.active && ctx.party.activity; return !!A && A.k === "roam"; }
@@ -61,7 +69,8 @@ function eligible() {
     if (!S.on || !G) return false;
     // (a 🎉 party: off until the interchange planner hook — ci/exits2 — makes every friend's town exits keep out of it;
     //  the placement itself is already fixed data, the presence + the planes on the party clock are wired)
-    if (ctx.party && ctx.party.active) return S.party && G.mode === "party" && partyRoam();
+    // (once the towns keep out of its zones — PLANNING.townsKeepOut — every friend plans the same metre: on in a 🌍 Free Roam)
+    if (ctx.party && ctx.party.active) return (S.party || PLANNING.townsKeepOut) && G.mode === "party" && partyRoam();
     return G.mode === "cruise" && !G.tutorial;
 }
 
@@ -73,8 +82,8 @@ function drop() {
         for (const r of S.res) { const i = w.reserved.indexOf(r); if (i >= 0) w.reserved.splice(i, 1); }
         for (const sg of S.signs) { const i = w.signs.indexOf(sg); if (i >= 0) w.signs.splice(i, 1); }
     }
-    S.res = []; S.signs = []; S.G = null; S.E = null;
-    S.inside = false; S.visited = false; joke.reset();
+    S.res = []; S.signs = []; S.G = null; S.E = null; S.lowCol = null; S.net = null;
+    S.inside = false; S.visited = false; joke.reset(); sec.reset();
     if (S.cue) cue("");
 }
 /** Plan the airport with its exit at E (exactly: E comes from findSpot or a debug call). */
@@ -83,6 +92,7 @@ function plan(E) {
     drop();
     S.E = E;
     S.G = geometry(E);
+    S.net = makeNet(S.G);
     const reserve = (a, b, side, d0, d1) => { w.reserve(a, b, side, d0, d1); S.res.push(w.reserved[w.reserved.length - 1]); };
     reserve(E + LY.TAPER0 - 30, E + LY.ACC1 + 30, 1, 7.2, 70);             // the ramps: no trees / houses / poles on them
     reserve(E + LY.UA - 640, E + LY.UA + 640, 1, 7.2, 3000);               // the airport itself (and its roads in)
@@ -121,6 +131,10 @@ paved.push((s, d) => {
     return inLand(G, _w.x, _w.z) ? 2 : 0;
 });
 
+// the chase: highway cruisers that follow her off the exit drive the airport's roads (law's cops.js asks — chase.js)
+hook("copRoute", (c, u, ch) => copRoute(S, c, u, ch));
+hook("copSight", (ax, az, bx, bz) => copSight(S, ax, az, bx, bz));
+
 // the colliders ride in the highway's chunks (the car's + foot's collision loops find them there)
 on("chunk:build", ({ chunk, world }) => {
     const G = S.G;
@@ -145,8 +159,8 @@ function unbuild() {
         for (const g of (S.out && S.out.geos) || []) g.dispose();
         // (the atlas material + canvas stay for the next build: the same cells)
     }
-    S.group = null; S.gen = null; S.out = null; S.ready = false;
-    joke.reset();
+    S.group = null; S.gen = null; S.out = null; S.ready = false; S.lowDrawn = null;
+    joke.reset(); sec.reset();
 }
 function startBuild() {
     S.group = new THREE.Group();
@@ -154,7 +168,7 @@ function startBuild() {
     ctx.scene.add(S.group);
     S.out = { geos: [] };
     S.gen = buildSteps(S.G, S.group, S.out);
-    S.ms = 0; S.steps = 0; S.worst = 0; S.stepMs = []; S.t0 = performance.now();
+    S.ms = 0; S.steps = 0; S.worst = 0; S.stepMs = []; S.stepNames = []; S.t0 = performance.now();
 }
 function advance(budget) {
     const t0 = performance.now();
@@ -162,7 +176,7 @@ function advance(budget) {
         const a = performance.now();
         const r = S.gen.next();
         const dt = performance.now() - a;
-        S.ms += dt; S.steps++; (S.stepMs || (S.stepMs = [])).push(dt);
+        S.ms += dt; S.steps++; (S.stepMs || (S.stepMs = [])).push(dt); (S.stepNames || (S.stepNames = [])).push(r.done ? "done" : String(r.value));
         if (dt > S.worst) { S.worst = dt; S.worstStep = r.done ? "done" : String(r.value); }
         if (r.done) {
             S.gen = null; S.ready = true;
@@ -189,6 +203,7 @@ function tick(dt) {
     // keep the highway's chunks behind her while she's round the airport (its ramps stay drawn from the kerb)
     const keep = !!S.group && ds > LY.TAPER0 - LY.UA - 200 && ds < LY.ACC1 - LY.UA + 400;
     if (keep !== S.keep && ctx.world) { S.keep = keep; ctx.world.keepBehind = keep ? BUILD.keepBehind : 0; }
+    lowTier();
     if (!S.ready) return;
     const cam = ctx.camera ? ctx.camera.getWorldPosition(_cam) : null;
     // drawn only within the fog (× the tier's draw distance)
@@ -205,8 +220,17 @@ function tick(dt) {
     const p = (ctx.foot && ctx.foot.active && ctx.foot.pos) || car.pos;
     const inside = !town && inLand(G, p.x, p.z, 4);
     if (S.veh) { try { S.veh.update(dt, !town && Math.abs(ds) < 900); S.veh.group.visible = !town; } catch (e) { console.error("[airport] kerb", e); } }
-    try { joke.update(dt); } catch (e) { console.error("[airport] joke", e); }
+    try { if (!sec.busy) joke.update(dt); } catch (e) { console.error("[airport] joke", e); }
     arrive(inside);
+    try { sec.update(dt); } catch (e) { console.error("[airport] security", e); }
+}
+
+/** The LOW graphics tier draws a lighter airport (build.js setLow: two of the three jets, every other parked car + lamp,
+ *  the bottom fence's trees, the windsock, the facade's trim) — and what it doesn't draw doesn't collide either. */
+function lowTier() {
+    const G = S.G, low = !!(ctx.gfx && ctx.gfx.tier === "low");
+    if (G && low !== S.lowCol) { S.lowCol = low; for (const c of G.col) if (c.notLow) c.off = low; }
+    if (S.ready && low !== S.lowDrawn) { S.lowDrawn = low; S.lowTris = setLow(S.out, low); }
 }
 
 function arrive(inside) {
@@ -256,6 +280,35 @@ function cueTick(controlsOn) {
     cue(html);
 }
 
+// ── the chase cam's walls: the terminal + the tower as boxes in the airport frame (a chase round the kerb could
+//    otherwise swing the camera into the terminal: one flat colour on screen — ci/qaweekend) ──
+const CAM_BOXES = [
+    { f0: LY.TERM.f0, f1: LY.TERM.f1, r0: LY.TERM.r0, r1: LY.TERM.r1, y1: 15.5 },
+    { f0: 132, f1: 144, r0: 262, r1: 274, y1: 32 },
+];
+const _cq = {};
+function camClip(tgt, dx, dy, dz, D) {
+    const G = S.G;
+    if (!G || !S.ready) return null;
+    const F = G.F, q = F.local(tgt.x, tgt.z, _cq), ax = q.f, ar = q.r;
+    if (ax < LY.LAND.f0 - 80 || ax > LY.LAND.f1 + 80 || ar < LY.LAND.r0 - 80 || ar > LY.LAND.r1 + 80) return null;     // (nowhere near: no cost)
+    const df = dx * F.fx + dz * F.fz, dr = dx * F.rx + dz * F.rz;     // (the direction in the frame: f, r)
+    let best = D, hit = false;
+    for (const B of CAM_BOXES) {
+        let p = 0.3;
+        if (ax > B.f0 - p && ax < B.f1 + p && ar > B.r0 - p && ar < B.r1 + p) p = 0.05;        // (right up against it)
+        const f0 = B.f0 - p, f1 = B.f1 + p, r0 = B.r0 - p, r1 = B.r1 + p;
+        if (ax > f0 && ax < f1 && ar > r0 && ar < r1) continue;
+        let t0 = 0, t1 = best;
+        if (Math.abs(df) < 1e-9) { if (ax < f0 || ax > f1) continue; }
+        else { let ta = (f0 - ax) / df, tb = (f1 - ax) / df; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        if (Math.abs(dr) < 1e-9) { if (ar < r0 || ar > r1) continue; }
+        else { let ta = (r0 - ar) / dr, tb = (r1 - ar) / dr; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue; }
+        if (tgt.y + dy * t0 < B.y1 && t0 < best) { best = t0; hit = true; }
+    }
+    return hit ? best : null;
+}
+
 // ── run lifecycle ────────────────────────────────────────────────────────
 /** The search for a spot runs a few candidates a frame (fixed data: the same answer on every screen, cached). */
 function searchTick(budget = 2.5) {
@@ -273,6 +326,8 @@ hook("runStart", G => {
     S.search = searchSteps(Math.max(AIR.first, (G.startS || 0) + 2600));
     searchTick(4);
     addActor({ foot: true, update: dt => { if (ctx.foot && ctx.foot.active) { try { tick(dt); } catch (e) { console.error("[airport] tick", e); } } return true; } });
+    // her car vs. the kerb's taxis + shuttles: a crash like a traffic car's (life.js V.collide)
+    addActor({ update: () => true, collide: car => (S.veh && S.veh.collide ? S.veh.collide(car) : null) });
 }, 15);
 hook("update", (dt, P, controlsOn) => {
     try { tick(dt); cueTick(controlsOn); } catch (e) { console.error("[airport] update", e); }
@@ -289,6 +344,8 @@ on("boot", () => {
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(doors);
     // no world fence inside the landside: its own fence keeps her in
     if (ctx.foot && ctx.foot.bounds && ctx.foot.bounds.free) ctx.foot.bounds.free.push((x, z) => !!S.G && inLand(S.G, x, z, 2));
+    // …and Rex (airport security) has her shoelace: she's slow while he's at her heels (security.js)
+    if (ctx.foot && ctx.foot.bounds && ctx.foot.bounds.slow) ctx.foot.bounds.slow.push(() => sec.footMul());
 });
 
 // ── the service ──────────────────────────────────────────────────────────
@@ -303,6 +360,14 @@ ctx.airport = {
     get inside() { return S.inside; },
     /** The stretch it covers along the highway (signs → accel lane) — for other planners to keep out of. */
     spans: () => S.G ? [{ a: S.E + LY.SPAN.a, b: S.E + LY.SPAN.b }] : [],
+    /** Where the airport WILL be along [s0, s1] — fixed data only, never the towns: [{ s, a, b }] (a padded stretch). For
+     *  the towns' planner to keep out of (ci/exits2's `clearOfPlaces`: the switch-on step) and the rest areas' (features/exits
+     *  clearAt asks already) — the same on every screen. Empty until the switch-on (PLANNING.townsKeepOut). */
+    zones: (s0, s1) => (S.on && PLANNING.townsKeepOut ? zones(s0, s1) : []),
+    /** The chase cam's walls at the airport (foot's `cam.carClip` asks, like a town's blocks): how far from the pivot `tgt`
+     *  the camera may sit along the unit direction (dx, dy, dz) before it's inside Terminal 4½ or the tower → a distance
+     *  (< D), or null (nothing in the way / she's nowhere near the airport). */
+    camClip(tgt, dx, dy, dz, D) { return camClip(tgt, dx, dy, dz, D); },
     /** The kerb: `pickup()` → world {x, z, h} of the ARRIVALS pickup point in the kerb lane (f 24 — short of the taxi
      *  line, which queues from f 70 back), heading along the kerb; null until it is built (stage 3: no taxi run away from the airport). */
     kerb: {
@@ -310,7 +375,9 @@ ctx.airport = {
         get dep() { return LY.KERBS.dep.slice(); }, get arr() { return LY.KERBS.arr.slice(); },
     },
     debug: {
-        S, LY, AIR, BUILD, PLANES, VEH, JOKE, joke,
+        S, LY, AIR, BUILD, PLANES, VEH, JOKE, KERB_HIT, SEC, joke, sec,
+        /** Airport security at the kerb: { phase, on (s beside her), radioed, holding } */
+        security: () => ({ phase: sec.phase, on: +(sec.on || 0).toFixed(1), radioed: !!sec.radioed, holding: sec.holding(), dog: !!sec.dog }),
         /** Switch it on / off for this page (tests use ?enable=airport). */
         enable(v = true) { S.on = !!v; if (!v) drop(); },
         /** Allow it in a 🎉 party's Free Roam (off until ci/exits2's planner hook). */
@@ -326,8 +393,12 @@ ctx.airport = {
         /** Plan it `ahead` metres in front of her (its 1 MI sign first) — the next spot that fits. */
         ahead(ahead = 1700) { return this.placeAt(ctx.car.s + ahead); },
         /** Build it all now (tests / the perf probe). */
-        buildNow() { if (!S.G) return false; if (!S.group) startBuild(); advance(Infinity); return S.ready; },
+        buildNow() { if (!S.G) return false; if (!S.group) startBuild(); advance(Infinity); lowTier(); return S.ready; },
+        /** LOW's cut: { low (applied now), tris (left out), cols (colliders switched off) }. */
+        low: () => ({ low: !!S.lowDrawn, tris: S.lowDrawn ? S.lowTris || 0 : 0, cols: S.G ? S.G.col.filter(c => c.notLow && c.off).length : 0 }),
         fits: E => fits(E),
+        /** The switch-on model: towns keep out of the airport's zones (plan.js PLANNING) — tests flip it. */
+        townsKeepOut(v = true) { PLANNING.townsKeepOut = !!v; },
         findSpot: (s, o) => findSpot(s, o),
         frame: E => frameAt(E),
         /** World point of airport-frame (f, r) / its local (f, r) of a world point. */
@@ -337,8 +408,13 @@ ctx.airport = {
         roads: () => S.G ? Object.fromEntries(S.G.roads.map(r => [r.id, r.pts])) : null,
         G: () => S.G,
         planes: () => S.planes ? S.planes.live.map(p => Object.assign({}, p)) : [],
-        vehicles: () => S.veh ? S.veh.cars.map(c => ({ kind: c.kind, x: c.x, z: c.z, h: c.h, speed: c.speed, wait: c.wait, atStop: c.atStop || null })) : [],
+        vehicles: () => S.veh ? S.veh.cars.map(c => ({ kind: c.kind, x: c.x, z: c.z, h: c.h, speed: c.speed, wait: c.wait, atStop: c.atStop || null, hit: !!c.hit })) : [],
         kerbStats: () => S.veh ? Object.assign({}, S.veh.stats) : null,
+        /** The chase's road net: a route from world (fx, fz) to (tx, tz) → { gap, legs: [piece ids] } (tests). */
+        route(fx, fz, tx, tz) { const r = S.net && routeOnNet(S.net, fx, fz, tx, tz); return r ? { gap: +r.gap.toFixed(1), legs: r.legs.map(l => l.pc.id) } : null; },
+        routes: () => S.routes || 0,
+        /** How far world (x, z) is from the chase's road net (m) and which piece is nearest. */
+        netDist(x, z) { if (!S.net) return null; const n = nearestOnNet(S.net, x, z, {}); return { d: +n.dist.toFixed(2), p: n.p && n.p.id }; },
         nearFence: (x, z) => S.G ? nearFence(S.G, x, z, {}) : null,
         fenceJoke: (force = true) => joke.trigger(force),
         jokePhase: () => joke.phase,
@@ -346,9 +422,10 @@ ctx.airport = {
         perf() {
             if (!S.group) return null;
             let tris = 0, meshes = 0;
-            S.group.traverse(o => { if (o.isMesh && o.geometry) { meshes++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
+            S.group.traverse(o => { if (o.isMesh && o.geometry && o.visible) { meshes++; const g = o.geometry; tris += Math.min(g.index ? g.index.count : g.attributes.position.count, g.drawRange.count) / 3; } });
             const q = (S.stepMs || []).slice().sort((a, b) => a - b), pc = k => q.length ? +q[Math.min(q.length - 1, Math.floor(q.length * k))].toFixed(2) : 0;
-            return { steps: S.steps, ms: +S.ms.toFixed(1), p95: pc(0.95), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
+            const top = (S.stepMs || []).map((ms, i) => [S.stepNames[i], +ms.toFixed(1)]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            return { top, steps: S.steps, ms: +S.ms.toFixed(1), p95: pc(0.95), worst: +S.worst.toFixed(2), worstStep: S.worstStep, tris: Math.round(tris), meshes };
         },
     },
 };

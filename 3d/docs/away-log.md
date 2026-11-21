@@ -10,6 +10,14 @@ Work is checked hourly and restarted automatically if a usage limit or a machine
   phone held upright the screen is laid out like the touch one (no more "Talk to Heshy" and the controls hint on the speedometer —
   they sit above it, and the speedometer is smaller); and the "WELCOME TO LAKEWOOD" sign-in card waits below the 📝 list and the
   text messages instead of covering them. A new test checks every pair of things on the screen at 11 screen sizes.
+- 2026-11-21 17:20 UTC (airport polish) — ✈️ JFK got its rough edges fixed (it's still switched off in the real game until the
+  "each town its own exit" work lands — the exact steps to switch it on are written down now). Police cars chasing Lulu off the highway
+  now follow the airport's ramps and roads round to the kerb instead of driving through the fence and the terminal, and can see her across
+  the open car park (not through the terminal). Bumping a taxi or shuttle bus is a real crash now: it slides and spins, the driver yells
+  ("Lady! It's a TAXI, not a bumper car!"), then pulls back into line. If Lulu is wanted, airport security (Officer Segal on his Segway,
+  with Rex the kugel-sniffing dog) rolls out of the terminal and slows her right down until the real cops catch up. On LOW graphics the
+  airport is now lighter than on MEDIUM (about 10 % fewer triangles at the kerb). The "½ MI" sign's words fit, and the terminal doors no
+  longer say "opening soon", and the camera no longer ends up inside the terminal during a chase. A picture of the airport's highway signs is in `3d/docs/airport-signs.jpg`.
 - 2026-11-21 17:15 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
   walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
   title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the

@@ -124,25 +124,27 @@ export const FENCES = [
 ];
 export const FENCE_H = 3.4;
 
-/** Props (A frame): key, f, r, yaw as an A-frame direction [df, dr] the model's front faces, tint, r (collider). */
+/** Props (A frame): key, f, r, yaw as an A-frame direction [df, dr] the model's front faces, tint, r (collider).
+ *  `low: false` = not drawn on the LOW graphics tier (its collider is switched off with it): two of the three parked jets,
+ *  every other lamp, the trees along the bottom fence, the windsock — LOW draws a lighter airport (AGENTS §7 › Airport). */
 export function propList() {
     const P = [];
     const face = (df, dr) => [df, dr];
     P.push({ key: "airport_facade", f: 0, r: TERM.r0, face: face(0, -1), id: "terminal" });
     P.push({ key: "airport_tower", f: 138, r: 268, face: face(0, -1), id: "tower" });
-    P.push({ key: "airport_windsock", f: -300, r: 318, face: face(1, 0) });
+    P.push({ key: "airport_windsock", f: -300, r: 318, face: face(1, 0), low: false });
     for (const [k, f] of [[0, -60], [1, 0], [2, 60]]) {
         P.push({ key: "airport_jetbridge", f, r: TERM.r1 + 3, face: face(0, 1), id: "gate" + k });
-        P.push({ key: "airport_plane", f, r: 278.4, face: face(0, -1), id: "plane" + k, livery: k, scale: 0.8 });
+        P.push({ key: "airport_plane", f, r: 278.4, face: face(0, -1), id: "plane" + k, livery: k, scale: 0.8, low: k === 1 });
     }
     P.push({ key: "airport_booth", f: -LOT.f1 + 4, r: AISLE.r + 6.4, face: face(-1, 0), id: "booth" });
     // lamps: the kerb road's median side, the lot, the legs
-    for (let f = -120; f <= 120; f += 30) P.push({ key: "exits_lamp", f, r: KERB_R - ROAD_W - 1.4, face: face(1, 0), col: 0.3 });
-    for (let f = -90; f <= 90; f += 45) P.push({ key: "exits_lamp", f, r: 137, face: face(1, 0), col: 0.3 });
-    for (const sf of [-1, 1]) for (let r = 80; r <= 150; r += 35) P.push({ key: "exits_lamp", f: sf * (LEG_F + ROAD_W + 1.6), r, face: face(0, 1), col: 0.3 });
+    for (let f = -120; f <= 120; f += 30) P.push({ key: "exits_lamp", f, r: KERB_R - ROAD_W - 1.4, face: face(1, 0), col: 0.3, low: f % 60 === 0 });
+    for (let f = -90; f <= 90; f += 45) P.push({ key: "exits_lamp", f, r: 137, face: face(1, 0), col: 0.3, low: f % 90 === 0 });
+    for (const sf of [-1, 1]) for (let r = 80; r <= 150; r += 35) P.push({ key: "exits_lamp", f: sf * (LEG_F + ROAD_W + 1.6), r, face: face(0, 1), col: 0.3, low: r !== 115 });
     // trees in the median between the lot and the kerb road, + along the bottom fence
     for (let f = -100; f <= 100; f += 20) P.push({ key: "treeRound", f: f + 6, r: 172.5, face: face(1, 0), col: 0.5, flat: true });
-    for (let f = -130; f <= 130; f += 26) P.push({ key: "treeRound", f, r: 72, face: face(1, 0), col: 0.5, flat: true });
+    for (let f = -130; f <= 130; f += 26) P.push({ key: "treeRound", f, r: 72, face: face(1, 0), col: 0.5, flat: true, low: false });
     return P;
 }
 /** The free-standing boards on posts (A frame): the atlas cell, where, which way they face, size. */
