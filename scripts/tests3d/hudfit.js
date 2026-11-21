@@ -35,7 +35,7 @@ const PIECES = {
 const measure = t => t.L(`(() => { const P = ${JSON.stringify(PIECES)}, W = innerWidth, H = innerHeight, out = [];
     for (const [g, sel] of Object.entries(P)) for (const e of document.querySelectorAll(sel)) {
       let hid = false; for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === "none" || c.visibility === "hidden" || +c.opacity < 0.1 || n.classList.contains("hidden") || n.classList.contains("calm-off")) { hid = true; break; } }
-      if (hid) continue;
+      if (hid || e.classList.contains("out")) continue;      // (a card on its way out slides off the edge: not a layout spot)
       const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
       const txt = (e.textContent || "").trim();
       out.push({ g, n: (e.id || (e.className || e.tagName).toString().split(" ")[0]) + (txt ? ":" + txt.slice(0, 14) : ""), l: r.left, t: r.top, r: r.right, b: r.bottom });
