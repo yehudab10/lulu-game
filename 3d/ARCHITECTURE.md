@@ -310,11 +310,51 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
   frame time. Test: `scripts/tests3d/gfx.js` (the setting by pad / keys / touch, saved + reloaded, each tier, bloom
   fallback, AUTO's step-down).
 * **The sun's shadow** follows Lulu snapped to whole shadow texels (no shimmering edges).
+* **Shadow proxies** (`lod.js` › `shadowProxy(root, { skip, lod })`, MEDIUM / HIGH): a multi-part model's shadow-casting
+  parts are baked (positions only, in the root's space) into one mesh that is hidden in the main pass and switched on
+  only inside `renderer.shadowMap.render` (`installShadowProxies`, app.js); the baked parts stop casting on their own.
+  Same silhouette (a same-frame A/B is pixel-identical), one shadow draw instead of 10–25. Used by every traffic car
+  (`Traffic.make`, with its far LOD: far = no shadow, as before), Lulu's car (body + rear wheels — NOT her, her hair,
+  the steering wheel, the steered front wheels or anything on an `Anchor_*`) and the towns' e-bikes. A part that is
+  hidden / removed / switched back to `castShadow` hands the casting straight back to the real parts (never a missing
+  shadow) and the proxy re-bakes from what's there ~30 frames later. **Animated figures don't get one** (a baked pose
+  would freeze their shadow). Adding parts to a proxied model later is fine (they cast on their own); `shadowProxyInfo()`
+  / `shadowProxiesOn(false)` for tests. Note: `renderer.info.render.calls` never includes the shadow pass (three
+  resets it after the shadow map) — the perf harness counts real WebGL draws (`gl`, `shadowGl`).
+* **The clouds** (`world.clouds`) are one baked mesh (16 clouds × 5 puffs; was 80 meshes ≈ 10–22 draws whenever the
+  sky shows); the group still turns / follows the camera and atmos tints its one material.
 * **Before / after numbers + screenshots** of this work: `3d/docs/gfx-perf.md`.
 * **Measure** with `node scripts/perf3d.js` (`scripts/tests3d/perf.js`; `--compare a.json b.json`; `PERF3D_TIER`,
   `PERF3D_DRIVE`, `PERF3D_TOP=1` lists what's on screen by draws): busy Cruise, a storm at night, a rest area,
   Lakewood, on foot, the bar, a 🌍 Free Roam convoy — draw calls, triangles, JS ms (update vs render), DOM
   mutations a frame — and a long drive that fails on geometries / textures / materials that leave the scene undisposed.
+  Since `ci/perf`: `gl` / `shadowGl` (every real WebGL draw / the ones in the sun's shadow pass), render median / p90 /
+  max, the scenes `highway` (1.5 km on — `cruise` is measured ~100 m from the start, by Lulu's house), `towndrive` /
+  `townfoot` (Lakewood's Main St) and `middrive` / `midfoot` (Midwood's Avenue J), `PERF3D_TOP` also lists the shadow
+  casters, and `PERF3D_PROFILE=1` adds a CPU profile + an allocation sample per scene (ms a frame by file / function,
+  "(garbage collector)", KB allocated a frame).
+* **Phone pass (`ci/perf`, 2026-11-21)** — main → after, `node scripts/perf3d.js`, `PERF3D_ADD=all` (every feature on,
+  like the real game), 1280×720, software GL in the container. LOW draws no shadow map, so its `calls` are all its draws;
+  MEDIUM's real draws are `gl` (`calls` + the shadow pass). Render JS = the median ms three.js spends issuing a frame
+  (× ~3–4 on a mid-range phone). Frame ms in software GL are noisy: compare the draws.
+
+  | scene | LOW draws | LOW render JS (median) | MEDIUM real draws (gl) | MEDIUM shadow-pass draws | MEDIUM render JS (median) |
+  |---|---|---|---|---|---|
+  | cruise (by Lulu's house) | 206 → 187 (−9 %) | 1.9 → 1.7 | 297 → 275 (−7 %) | 103 → 90 | 2.4 → 2.4 |
+  | highway (open road) | 277 → 254 (−8 %) | 2.4 → 2.7 | 374 → 340 (−9 %) | 97 → 84 | 3.7 → 3.6 |
+  | rain (storm at night) | 332 → 277 (−17 %) | 2.9 → 2.9 | 401 → 353 (−12 %) | 85 → 73 | 4.2 → 4.3 |
+  | towndrive (Lakewood) | 215 → 155 (−28 %) | 2.6 → 2.3 | 283 → 225 (−20 %) | 68 → 55 | 3.8 → 3.4 |
+  | townfoot (Lakewood) | 215 → 162 (−25 %) | 3.9 → 2.6 | 301 → 237 (−21 %) | 83 → 55 | 4.0 → 4.0 |
+  | middrive (Midwood) | 167 → 144 (−14 %) | 2.5 → 2.3 | 241 → 191 (−21 %) | 63 → 50 | 3.7 → 3.1 |
+  | midfoot (Midwood) | 190 → 153 (−19 %) | 2.9 → 2.5 | 282 → 217 (−23 %) | 69 → 49 | 4.9 → 3.9 |
+  | tee (the interchange) | 322 → 271 (−16 %) | 3.3 → 2.7 | 333 → 317 (−5 %) | 60 → 47 | 4.1 → 3.7 |
+  | attached (Lakewood from the highway) | 243 → 176 (−28 %) | 3.3 → 4.0 | 312 → 240 (−23 %) | 68 → 52 | 4.3 → 3.8 |
+  | foot (on the highway) | 265 → 270 | 2.5 → 2.6 | 401 → 391 (−2 %) | 120 → 99 | 3.8 → 3.9 |
+
+  What did it: the shadow proxies (MEDIUM / HIGH), the clouds in one mesh, the towns' e-bikes far-LOD'd (bike + rider
+  were ~20 draws each at any distance) and the HUD score's number formatter made once (`toLocaleString` built a new
+  one every frame: ~0.3 ms). Steady allocation is small everywhere (2–7 KB a frame); the GC pauses measured are after
+  a town is built / torn down, not churn. Left: §7 › Performance.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.

@@ -392,10 +392,21 @@ cars rather than adding on top — the Places agent's precinct did exactly that)
   "AUTO · MEDIUM"). MEDIUM's sky reflections (car paint, the wet road) cost ~5 % frame time in software GL; if a phone
   feels slow, make them HIGH-only. Far traffic cars (`lod.js`) cache their merged far copy per model + paint: a
   feature that REPAINTS a traffic car after it was far away keeps the old colour beyond ~55 m (none does today).
-  Town e-bike riders / people are ~20 draw calls each — the next big draw-call win (a far LOD or instancing).
+  Town e-bike riders are far-LOD'd + shadow-proxied now (`ci/perf`); town people already hide beyond 30–42 m.
   On LOW, flow's dissolve snapshot frame renders without LOW's pulled-in fog (one frozen frame).
   Bloom is OFF in `?test` runs unless the URL has `&enable=bloom` (only `gfx` / `perf` do) — it nearly doubles
   software-GL frame time. Measure with `node scripts/perf3d.js` (numbers: `3d/docs/gfx-perf.md`).
+- Performance (from `ci/perf`, 2026-11-21; numbers in `3d/ARCHITECTURE.md` › Graphics & performance › Phone pass). Found,
+  not fixed: (1) in the car, Lulu + her passenger are ~30 shadow draws on MEDIUM (animated people: a baked shadow
+  proxy would freeze them — a cheaper idea is to stop the parts hidden inside the car body from casting); (2) Lulu's
+  house street (`WorldHome`, ~186 objects / 75 shadow casters) costs ~75 shadow draws on MEDIUM at the start of every
+  run — a shadow proxy over its static parts (decor swaps parts: the proxy's hand-back covers that) is a safe next
+  step; (3) on foot on the highway the tall grass / fence (`foot/bounds.js`, 170 + 76 instances) are ~80k triangles in
+  the shadow pass and ~250k on screen — LOW could lay fewer clumps; (4) roadside pedestrians on foot are full
+  ~17-part models (+ as many shadow draws); (5) a highway chunk's own pieces (road, shoulders, sign faces, features'
+  set pieces) are ~6–8 draws a chunk; (6) a town teardown / build leaves a few ms of GC for the next seconds
+  (measured in the perf harness after leaving Lakewood for Midwood). The interchange (`tee`, both towns standing) is
+  still the busiest scene (~270 draws on LOW). `owSpots` (openworld) is 6 draws in town — owned by `ci/everyone`.
 - `multiplayer` (the Shared Road relay test) has real-time checks that flaked on CI during gfx's runs — "2D player's ghost
   shows ~26 m ahead" / "di = s × 56000/4800" (a 1.5 s `peer.pump`) and "🏆 winner banner"; each passed on other runs of
   the same code. `party`'s BONK / race-results steps likewise. Re-run once before blaming a change.

@@ -16,6 +16,7 @@ import { save3d, shared } from "../../core/save.js";
 import { models, cloneWithColors, findNodes, ensureModels, instanced } from "../../models.js";
 import { ribbon, facingRoad, worldMaterials, canvasTex, SHOULDER, paved } from "../../world.js";
 import { spawnPerson } from "../../core/people.js";
+import { shadowProxy } from "../../lod.js";
 import * as A from "../../audio.js";
 import { slimMenorah } from "../meta/menorah.js";
 import { Path, Ride, ease } from "./path.js";
@@ -135,6 +136,9 @@ function buildStreet() {
         const d = findNodes(house, "Deco_" + k)[0];
         if (d) { d.visible = false; home.deco[k] = d; }
     }
+    // MEDIUM / HIGH: the house casts its shadow in one draw (lod.js) — the title shot + every run's start; the holiday
+    // decorations and anything hung on an anchor keep their own
+    home.houseShadow = shadowProxy(house, { skip: o => /^(Deco_|Anchor_)/.test(o.name || "") });
     // the parked pose: in front of the garage, NOSE OUT (backed in) — a run starts with her driving straight off
     const near = road.nearest(A.park.x, A.park.z, S_HOME, {});
     home.park = { x: A.park.x, z: A.park.z, h: wrap(house.rotation.y), s: near.s, d: near.d };
