@@ -3,6 +3,14 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 12:15 UTC (airport polish) — ✈️ JFK got its rough edges fixed (it's still switched off in the real game until the
+  "each town its own exit" work lands — the exact steps to switch it on are written down now). Police cars chasing Lulu off the highway
+  now follow the airport's ramps and roads round to the kerb instead of driving through the fence and the terminal, and can see her across
+  the open car park (not through the terminal). Bumping a taxi or shuttle bus is a real crash now: it slides and spins, the driver yells
+  ("Lady! It's a TAXI, not a bumper car!"), then pulls back into line. If Lulu is wanted, airport security (Officer Segal on his Segway,
+  with Rex the kugel-sniffing dog) rolls out of the terminal and slows her right down until the real cops catch up. On LOW graphics the
+  airport is now lighter than on MEDIUM (about 10 % fewer triangles at the kerb). The "½ MI" sign's words fit, and the terminal doors no
+  longer say "opening soon". A picture of the airport's highway signs is in `3d/docs/airport-signs.jpg`.
 - 2026-11-21 (main fixes) — 📞 Lulu's phone is one tidy 3 × 3 screen again, with the 📞 Phone app right next to 💬 Messages
   (the new 👯 Friends app had made it 10 apps and squeezed in between). The 🗞️ Kvetch local news now lives as a pinned row at the top
   of 💬 Messages instead of its own app. Fewer pop-ups again: the little "💥 Oy vey!" crash quips only show when Lulu didn't just say
