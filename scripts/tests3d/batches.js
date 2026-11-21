@@ -105,6 +105,12 @@ module.exports = {
           window.__ab = { on: on.px, off: off.px, w: W, h: H, pts };
           return { label: ${JSON.stringify(label)}, tier: L3.gfx.tier, on: { draws: on.n, shadow: on.sh }, off: { draws: off.n, shadow: off.sh }, diff, max, info, chunks: w.chunks.size, wires: w.wires && w.wires.n, where: pts.slice(0, 12) };
         } finally { sm.render = so; for (const u of undo) u(); w.batchOff = false; } })`);
+    // the wires' one line set starts fine with NO wires in view (a town start, a district first): no crash, nothing drawn
+    const noWires = await g(`(() => { const w = ctx.world, keep = w.wires; if (keep) w.scene.remove(keep.line); w.wires = null; const vis = [...w.chunks.values()].map(c => c.group.visible);
+        for (const c of w.chunks.values()) c.group.visible = false; let ok = true, err = ""; try { w.syncWires(); } catch (e) { ok = false; err = String(e); }
+        const drawn = !!(w.wires && w.wires.line.visible); [...w.chunks.values()].forEach((c, i) => c.group.visible = vis[i]); w.scene.remove(w.wires.line); w.wires = keep; if (keep) w.scene.add(keep.line); w.syncWires();
+        return { ok, err, drawn, back: w.wires && w.wires.n }; })()`);
+    t.check("the wires' line set starts with no wires in view (no crash, nothing drawn)", noWires.ok && !noWires.drawn && noWires.back > 0, JSON.stringify(noWires));
     const low = await ab("low");
     await crops("low");
     t.check("LOW: the people are drawn through the batch", low.info.people >= 6 && low.info.parts >= 40, JSON.stringify(low.info));
