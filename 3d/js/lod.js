@@ -249,7 +249,7 @@ export function installShadowProxies(renderer) {
         SH.frame++;
         for (const p of SH.live) if (p.prepare()) for (const m of p.meshes) { m.visible = true; shown.push(m); }
         const batch = prepareBatch(scene);
-        if (batch) { batch.visible = true; shown.push(batch); }
+        if (batch) for (const m of batch) { m.visible = true; shown.push(m); }
         try { return orig.apply(this, arguments); }
         finally { for (const m of shown) m.visible = false; shown.length = 0; }
     };
@@ -265,39 +265,39 @@ export function installShadowProxies(renderer) {
 // that person back to casting on their own; a person out of the scene for ~10 s is let go.
 //
 //   shadowBatch(personRoot, { skip })   (core/people.js does it for every spawned person; car.js for Lulu at the wheel)
-const PB = { roots: new Map(), mesh: null, geos: new Map(), verts: 0, idx: 0, insts: 0, on: true, frame: 0 };
-const PB_MAT = new THREE.MeshBasicMaterial();
-PB_MAT.name = "ShadowBatch";
-function pbMesh(needV, needI, needN) {
-    let m = PB.mesh;
-    if (!m) {
-        m = PB.mesh = new THREE.BatchedMesh(256, 32768, 65536, PB_MAT);
-        m.name = "shadowBatch";
-        m.castShadow = true; m.receiveShadow = false; m.visible = false; m.frustumCulled = false;
-        m.sortObjects = false; m.perObjectFrustumCulled = true;
-        m.matrixAutoUpdate = false;
-        PB.cap = { v: 32768, i: 65536, n: 256 };
-    }
-    const c = PB.cap;
-    if (needV > c.v || needI > c.i) {
-        c.v = Math.max(c.v * 2, needV); c.i = Math.max(c.i * 2, needI);
-        m.setGeometrySize(c.v, c.i);
-    }
-    if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
-    return m;
+const PB = { roots: new Map(), sides: new Map(), on: true, frame: 0 };
+/** One shadow-only BatchedMesh per material side (the shadow pass renders a FrontSide part's BACK faces etc.). */
+function sideBatch(side) {
+    let sb = PB.sides.get(side);
+    if (sb) return sb;
+    const mat = new THREE.MeshBasicMaterial({ side });
+    mat.name = "ShadowBatch";
+    const m = new THREE.BatchedMesh(128, 16384, 32768, mat);
+    m.name = "shadowBatch";
+    m.castShadow = true; m.receiveShadow = false; m.visible = false; m.frustumCulled = false;
+    m.sortObjects = false; m.perObjectFrustumCulled = true;
+    m.matrixAutoUpdate = false;
+    sb = { side, mesh: m, geos: new Map(), verts: 0, idx: 0, insts: 0, cap: { v: 16384, i: 32768, n: 128 }, used: false };
+    PB.sides.set(side, sb);
+    return sb;
 }
-function pbGeometry(src) {
-    let g = PB.geos.get(src);
+function sbGrow(sb, needV, needI, needN) {
+    const c = sb.cap, m = sb.mesh;
+    if (needV > c.v || needI > c.i) { c.v = Math.max(c.v * 2, needV); c.i = Math.max(c.i * 2, needI); m.setGeometrySize(c.v, c.i); }
+    if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
+}
+function sbGeometry(sb, src) {
+    let g = sb.geos.get(src);
     if (g != null) return g;
     const pos = src.attributes.position, b = new THREE.BufferGeometry();
     b.setAttribute("position", pos.clone());
     if (src.index) b.setIndex(src.index.clone());
     else { const n = pos.count, a = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) a[i] = i; b.setIndex(new THREE.BufferAttribute(a, 1)); }
-    const m = pbMesh(PB.verts + pos.count, PB.idx + b.index.count, PB.insts);
-    g = m.addGeometry(b);
-    PB.verts += pos.count; PB.idx += b.index.count;
+    sbGrow(sb, sb.verts + pos.count, sb.idx + b.index.count, sb.insts);
+    g = sb.mesh.addGeometry(b);
+    sb.verts += pos.count; sb.idx += b.index.count;
     b.dispose();
-    PB.geos.set(src, g);
+    sb.geos.set(src, g);
     return g;
 }
 class Batched {
@@ -307,7 +307,7 @@ class Batched {
         const walk = o => {
             if (o !== root && this.skip && this.skip(o)) return;
             if (o.name === "shadowProxy" || o.name === "lodFar") return;
-            if (o.isMesh && o.castShadow && shCastable(o) && o.material.side === THREE.FrontSide) out.push(o);
+            if (o.isMesh && o.castShadow && shCastable(o)) out.push(o);
             for (const c of o.children) walk(c);
         };
         walk(root);
@@ -317,23 +317,22 @@ class Batched {
         const list = this.collect();
         if (!list.length) return false;
         for (const o of list) {
-            const g = pbGeometry(o.geometry);
-            const m = pbMesh(PB.verts, PB.idx, PB.insts + 1);
-            const id = m.addInstance(g);
-            PB.insts++;
+            const sb = sideBatch(o.material.side), g = sbGeometry(sb, o.geometry);
+            sbGrow(sb, sb.verts, sb.idx, sb.insts + 1);
+            const id = sb.mesh.addInstance(g);
+            sb.insts++;
             o.castShadow = false;
-            this.parts.push({ o, id });
+            this.parts.push({ o, id, sb });
         }
         return true;
     }
     release(wait = 60) {
-        const m = PB.mesh;
-        for (const p of this.parts) { p.o.castShadow = true; if (m) { m.deleteInstance(p.id); PB.insts--; } }
+        for (const p of this.parts) { p.o.castShadow = true; p.sb.mesh.deleteInstance(p.id); p.sb.insts--; }
         this.parts.length = 0;
         this.wait = wait;
     }
     /** Each shadow pass: copy the parts' live transforms in (false = a part changed: they cast on their own again). */
-    sync(m) {
+    sync() {
         if (!this.parts.length) {
             if (this.optOut) return true;
             if (this.wait > 0) { this.wait--; return true; }
@@ -345,8 +344,8 @@ class Batched {
             if (!o.parent) { this.release(); return true; }
             let vis = true;
             for (let a = o; a; a = a.parent) if (!a.visible) { vis = false; break; }
-            m.setVisibleAt(p.id, vis);
-            if (vis) m.setMatrixAt(p.id, o.matrixWorld);
+            p.sb.mesh.setVisibleAt(p.id, vis);
+            if (vis) { p.sb.mesh.setMatrixAt(p.id, o.matrixWorld); p.sb.used = true; }
         }
         return true;
     }
@@ -355,27 +354,28 @@ function inScene(o, scene) { for (let a = o; a; a = a.parent) if (a === scene) r
 function prepareBatch(scene) {
     if (!PB.on || !PB.roots.size) return null;
     PB.frame++;
-    let any = false;
+    for (const sb of PB.sides.values()) sb.used = false;
     for (const [root, b] of PB.roots) {
         if (!inScene(root, scene)) {
-            // (not drawn this frame: its instances stay hidden; let go after ~10 s out of the scene)
-            if (b.parts.length && PB.mesh) for (const p of b.parts) PB.mesh.setVisibleAt(p.id, false);
-            if (++b.gone > 600) { b.release(0); PB.roots.delete(root); }
+            // (not in the scene being drawn — an interior set, pooled: its instances stay hidden; after ~10 s its slots are
+            //  freed (it re-joins when it's back in view), and one that left the world altogether is forgotten)
+            for (const p of b.parts) p.sb.mesh.setVisibleAt(p.id, false);
+            if (++b.gone > 600) { if (b.parts.length) b.release(0); if (!root.parent) PB.roots.delete(root); }
             continue;
         }
         b.gone = 0;
         if (!b.parts.length && (b.optOut || b.wait > 0)) { if (b.wait > 0) b.wait--; continue; }
-        b.sync(PB.mesh || pbMesh(0, 0, 0));
-        if (b.parts.length) any = true;
+        b.sync();
     }
-    const m = PB.mesh;
-    if (!m || !any) return null;
-    if (m.parent !== scene) scene.add(m);
-    return m;
+    const out = [];
+    for (const sb of PB.sides.values()) if (sb.used) { if (sb.mesh.parent !== scene) scene.add(sb.mesh); out.push(sb.mesh); }
+    return out.length ? out : null;
 }
 /** Put a moving person's shadow into the people's shadow batch (see above). opts: { skip(node) }. */
 export function shadowBatch(root, opts = {}) {
     if (!root || PB.roots.has(root)) return;
+    // (LOW never draws a shadow pass, where the out-of-the-world ones are let go: sweep them here so the list stays small)
+    if (PB.roots.size >= 256) for (const [r, b] of PB.roots) if (!r.parent) { b.release(0); PB.roots.delete(r); }
     PB.roots.set(root, new Batched(root, opts));
 }
 /** Tests: { people, parts, geometries, multiDraw (the extension is there), on }. */
@@ -384,7 +384,8 @@ export function shadowBatchInfo(renderer) {
     for (const b of PB.roots.values()) { if (b.parts.length) people++; parts += b.parts.length; }
     let md = null;
     try { md = renderer ? !!renderer.extensions.get("WEBGL_multi_draw") : null; } catch (e) { md = null; }
-    return { people, parts, registered: PB.roots.size, geometries: PB.geos.size, multiDraw: md, on: PB.on };
+    let geometries = 0; for (const sb of PB.sides.values()) geometries += sb.geos.size;
+    return { people, parts, registered: PB.roots.size, geometries, sides: PB.sides.size, multiDraw: md, on: PB.on };
 }
 /** Tests: every person's parts cast on their own again (false) / back in the batch (true). */
 export function shadowBatchOn(on) { PB.on = !!on; if (!on) for (const b of PB.roots.values()) b.release(0); }
