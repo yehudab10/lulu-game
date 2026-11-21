@@ -283,6 +283,9 @@ hook("update", (dt, P, controlsOn) => {
 on("title", () => { drop(); if (ctx.world) ctx.world.keepBehind = 0; S.keep = false; });
 on("state", ({ to }) => { if ((to === "title" || to === "gameover") && S.cue) cue(""); });
 on("boot", () => {
+    // (the sign atlas's first line of text in this font + its first ✈ glyph cost a long frame once a page: pay it while
+    //  the game boots, not when the airport builds in the middle of a drive)
+    if (S.on) try { const c = document.createElement("canvas"); c.width = c.height = 64; const g = c.getContext("2d"); g.font = `700 24px Fredoka, "Arial Rounded MT Bold", Arial, sans-serif`; g.fillText("✈ JFK ½ ↗ ↖ 🥘 😩 🥯 🤷 🚕 🚌 📱 ⚠", 2, 30); } catch (e) { /* fine */ }
     if (ctx.foot && ctx.foot.addSpot) ctx.foot.addSpot(doors);
     // no world fence inside the landside: its own fence keeps her in
     if (ctx.foot && ctx.foot.bounds && ctx.foot.bounds.free) ctx.foot.bounds.free.push((x, z) => !!S.G && inLand(S.G, x, z, 2));

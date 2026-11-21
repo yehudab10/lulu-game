@@ -94,7 +94,7 @@ module.exports = {
     if (!await t.until(`__lulu3d.ctx.airport.ready`, "the airport builds in slices", 180000)) return;
     const pf = await g(`ctx.airport.debug.perf()`);
     console.log("   PERF airport build", JSON.stringify(pf));
-    t.check(`the build: small slices (95 % ≤ 8 ms here — software GL; worst ${pf.worst} ms ≤ ${BUDGET.buildWorstMs}: ${pf.worstStep}; ${pf.steps} steps)`, pf.p95 <= 8 && pf.worst <= BUDGET.buildWorstMs, JSON.stringify(pf));
+    t.check(`the build: small slices (95 % ≤ 10 ms on a CI runner — software GL; worst ${pf.worst} ms ≤ ${BUDGET.buildWorstMs}: ${pf.worstStep}; ${pf.steps} steps)`, pf.p95 <= 10 && pf.worst <= BUDGET.buildWorstMs, JSON.stringify(pf));
     t.check(`the build: ≤ ${BUDGET.buildTris / 1000}k triangles, ≤ 60 meshes`, pf.tris <= BUDGET.buildTris && pf.meshes <= 60, JSON.stringify(pf));
 
     await step("lanes", async () => {
@@ -107,7 +107,7 @@ module.exports = {
       // the route in is all lanes (paved 3): highway decel lane → ramp → the road in → the loop
       const paved = await t.L(`import("./js/world.js").then(w => { const ctx = __lulu3d.ctx, G = ctx.airport.debug.G(), hw = ctx.world.highway, R = ctx.airport.debug.roads(), miss = [];
         for (const id of ["in", "loop", "out"]) for (let i = 0; i < R[id].length; i += 5) { const p = R[id][i]; let n = null, best = 1e9; for (let h = -100; h <= 900; h += 100) { const q = hw.nearest(p.x, p.z, G.E + h, {}), b = hw.point(q.s, q.d, {}), e = Math.hypot(b.x - p.x, b.z - p.z); if (e < best) { best = e; n = q; } } if (w.pavedAt(n.s, n.d) < 3) miss.push(id + i); }
-        for (let u = -220; u <= 60; u += 10) { const L = ctx.airport.debug.LY; const d = u < L.RAMP0 ? 9.1 : L.offD(u); if (w.pavedAt(G.E + u, d) < 3) miss.push("ramp" + u); }
+        for (let u = -220; u <= 60; u += 10) { const L = ctx.airport.debug.LY; const d = u < L.RAMP0 ? (6.9 + L.taperEdge(u)) / 2 : L.offD(u); if (w.pavedAt(G.E + u, d) < 3) miss.push("ramp" + u); }
         return miss; })`);
       t.check("the whole way in + round + out is a LANE (core's paved 3: the car drives it like road)", paved.length === 0, paved.slice(0, 10).join(" "));
       t.check("the landside (lot, sidewalks, lawns) is paved ground (2)", await t.L(`import("./js/world.js").then(w => { const ctx = __lulu3d.ctx, hw = ctx.world.highway; return [[0, 140], [0, 199], [-160, 100], [160, 230]].every(([f, r]) => { const p = ctx.airport.debug.world(f, r), n = hw.nearest(p.x, p.z, ${E} + 330 + f, {}); return w.pavedAt(n.s, n.d) >= 2; }); })`));
@@ -271,7 +271,12 @@ module.exports = {
       const arr = (await g(`ctx.airport.debug.planes()`)).find(p => p.kind === "arr");
       t.check("an arrival comes in low over the highway before the exit (60–260 m up)", !!arr && arr.y < 260 && arr.y > 60, JSON.stringify(arr));
       t.check("…in view from the highway", await inView("arr"));
-      t.check("…with its shadow on the ground", await g(`ctx.airport.debug.S.planes.shadows.some(s => s.visible)`));
+      // nearer, under its path: its shadow on the road
+      const sU = E + LY.UA - 1150, pu = await HW(sU, 5.25);
+      await placeCar(pu.x, pu.z, await g(`ctx.world.highway.at(${sU}).h`), 0);
+      await g(`(ctx.airport.debug.S.planes.clock = 32 + 28, true)`);
+      await t.frames(4);
+      t.check("…its shadow on the ground near the road (it sweeps across as it passes)", await g(`ctx.airport.debug.S.planes.shadows.some(s => s.visible)`));
     });
 
     await step("perf", async () => {

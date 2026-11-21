@@ -356,7 +356,7 @@ export function* buildSteps(G, group, out) {
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw - Math.PI / 2, 0, 0.42);
             face(tpl, "Anchor_tail", m, C.logos[L], 2.6, 2.6, yaw + Math.PI / 2, 0, 0.01);
         }
-        if (++n % 6 === 0) yield "props";
+        n++; yield "prop:" + (p.id || p.key);
     }
     // the free-standing boards (exits_guide for the big ones, a post for the rest)
     for (const b of LY.BOARD_POSTS) {
