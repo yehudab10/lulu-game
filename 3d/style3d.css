@@ -642,16 +642,19 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     /* the "center" stack (the WELCOME banner…) fits between the left chips and the right-hand buttons */
     body.touch .hud-slot.center { max-width: calc(100vw - 2 * (min(260px, 31vw) + 24px)); }
     body.touch #banner.compact { max-width: 100%; }
-    /* the ✋ prompt low in the free band between the stick and the pedals / the ✋ + JUMP buttons (centred, it sat on
-       the banner); hud.js lifts it off any feature button that's there (🚀…) */
+    /* the ✋ prompt (centred, it sat on the banner): driving, low in the free band between the stick and the pedals
+       (hud.js lifts it off a feature button that's there: 🚀…); on foot, right above the ✋ button it's about */
     body.touch .hud-slot.bottom { bottom: calc(max(14px, env(safe-area-inset-bottom)) + 12px); left: calc(50vw - 17px); }
-    body.touch.onfoot .hud-slot.bottom { left: calc(50vw - 71px); }
     body.touch .hud-slot.bottom .prompt { white-space: normal; text-align: center; max-width: calc(100vw - 360px); }
-    body.touch.onfoot .hud-slot.bottom .prompt { max-width: calc(100vw - 470px); }
+    body.touch.onfoot .hud-slot.bottom { left: auto; right: calc(max(18px, env(safe-area-inset-right)) + 180px); transform: none;
+        bottom: calc(max(22px, env(safe-area-inset-bottom)) + 106px); align-items: flex-end; }
+    body.touch.onfoot .hud-slot.bottom .prompt { max-width: calc(100vw - min(260px, 31vw) - 220px); }
 }
-/* a phone held upright (touch): the "center" stack ducks under the left / right chips (hud.js), so it can be wide */
+/* a phone held upright (touch): the "center" stack (the WELCOME banner…) carries on the left column — it ducks under
+   the left / right chips (hud.js) and keeps out of the speedo's column on the right */
 @media (max-aspect-ratio: 1/1) {
-    body.touch .hud-slot.center, body.touch #banner.compact { max-width: calc(100vw - 24px); }
+    body.touch .hud-slot.center { left: max(12px, env(safe-area-inset-left)); right: calc(max(16px, env(safe-area-inset-right)) + 84px); transform: none; max-width: none; align-items: flex-start; }
+    body.touch #banner.compact { max-width: 100%; }
 }
 /* a narrow phone held upright (touch): the 150 px stick reached the BRAKE pedal */
 @media (max-aspect-ratio: 1/1) and (max-width: 380px) {
@@ -666,7 +669,8 @@ body.dev-touch .btn .glyph, body.dev-touch .tsub-g { display: none; }
     body:not(.touch) .hud-tl .pill { padding: 5px 11px; font-size: 16px; }
     body:not(.touch) .hud-top { top: calc(max(12px, env(safe-area-inset-top)) + 100px); width: calc(100% - 32px); }
     body:not(.touch) .hud-slot.left, body:not(.touch) .hud-slot.right, body:not(.touch) .hud-slot.center { top: calc(max(12px, env(safe-area-inset-top)) + 162px); }
-    body:not(.touch) .hud-slot.center, body:not(.touch) #banner.compact { max-width: calc(100vw - 24px); }
+    body:not(.touch) .hud-slot.center { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); transform: none; max-width: none; }
+    body:not(.touch) #banner.compact { max-width: 100%; }
     body:not(.touch) .speedo { width: 84px; padding: 6px 8px 8px; border-radius: 16px; }
     body:not(.touch) #mph { font-size: 26px; }
     body:not(.touch) .speedo .unit { font-size: 9px; letter-spacing: 0.12em; }

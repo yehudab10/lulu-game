@@ -105,10 +105,13 @@ async function mash(t, n, { foot = false, honk = true } = {}) {
 /** Where she stands against her own car (its frame): inside = in its seats / hood / boot. */
 const besideCar = t => t.game(`(() => { const F = ctx.foot.debug.F, c = F.car && F.car.stub; if (!c) return null; const dx = F.pos.x - c.x, dz = F.pos.z - c.z;
     const along = dx * Math.sin(c.h) + dz * Math.cos(c.h), lat = dx * Math.cos(c.h) - dz * Math.sin(c.h); return { along: +along.toFixed(2), lat: +lat.toFixed(2), inside: Math.abs(lat) < 1.05 && Math.abs(along) < 2.3 }; })()`);
-/** The HUD's lasting pieces (pills, the trip bar + label, ❚❚ / 📱, the left / right chips, the speedo, ⏭): pairs on top
- *  of each other (> 4 px both ways, one not inside the other) and any off screen. */
+/** The HUD's lasting pieces (pills, the trip bar + label, ❚❚ / 📱, the left / right chips, the speedo, ⏭, the banner, the
+ *  ✋ prompt, the controller's hint, the touch stick): pairs on top of each other (> 4 px both ways, one not inside the
+ *  other) and any off screen. (ci/hudfit: the stick, prompt, banner + hint were the sweep's KNOWN layout overlaps — the
+ *  stick on the 📝 / ON FOOT chips on a phone on its side, the prompt on the speedo with a controller on a phone held
+ *  upright — checked here now; scripts/tests3d/hudfit.js covers more screens + the ⏭ / WELCOME cases.) */
 const hudOverlap = t => t.L(`(() => { const out = [], W = innerWidth, H = innerHeight;
-    for (const e of document.querySelectorAll("#hud .hud-tl .pill, #hud .trip, #tripLabel, #pauseBtn, #phoneBtn, #slot-left > *, #slot-right > *, #hud .speedo, #skipBtn")) {
+    for (const e of document.querySelectorAll("#hud .hud-tl .pill, #hud .trip, #tripLabel, #pauseBtn, #phoneBtn, #slot-left > *, #slot-right > *, #hud .speedo, #skipBtn, #banner, #slot-bottom .prompt, #padHint, #stickBase")) {
       let hid = false; for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.display === "none" || c.visibility === "hidden" || +c.opacity < 0.1 || n.classList.contains("hidden")) { hid = true; break; } }
       if (hid || !e.textContent.trim() && e.id !== "phoneBtn" && e.id !== "pauseBtn") continue;
       const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) continue;
@@ -324,7 +327,8 @@ async function phone(t) {
     await t.until(`__lulu3d.state === "footRun" || __lulu3d.state === "playing"`, "PLAY", 20000);
   }
   if (!await g(`ctx.town.active`)) await inTown(t, "lakewood");
-  const LAYOUTS = [["phone", 390, 844, false, true], ["phone-land", 844, 390, false, true], ["desktop", 1280, 720, false, false], ["tv", 1920, 1080, true, false]];
+  // (phone-pad: a phone held upright with no touch layout — a controller / keyboard; ci/hudfit)
+  const LAYOUTS = [["phone", 390, 844, false, true], ["phone-land", 844, 390, false, true], ["phone-pad", 390, 844, false, false], ["desktop", 1280, 720, false, false], ["tv", 1920, 1080, true, false]];
   for (const [name, w, h, tv, touch] of LAYOUTS) {
     await t.page.setViewportSize({ width: w, height: h });
     await setSave(`m.save3d.settings.tv = ${tv ? '"on"' : '"off"'};`);

@@ -265,7 +265,13 @@ const shownEl = e => { if (!e.offsetParent && getComputedStyle(e).position !== "
 export function keepClear(e, avoid, dir = 1, gap = 6) {
     if (!e) return 0;
     const cur = +e.dataset.fitDy || 0;
-    const r = e.getBoundingClientRect();
+    let r = e.getBoundingClientRect();
+    if (e.classList.contains("hud-slot")) {          // a stack: what's IN it (it may be wider than its pieces)
+        let u = null;
+        for (const c of e.children) { if (!shownEl(c)) continue; const q = c.getBoundingClientRect();
+            u = u ? { left: Math.min(u.left, q.left), right: Math.max(u.right, q.right), top: Math.min(u.top, q.top), bottom: Math.max(u.bottom, q.bottom) } : q; }
+        r = u ? { left: u.left, right: u.right, top: u.top, bottom: u.bottom, width: u.right - u.left, height: u.bottom - u.top } : { width: 0, height: 0 };
+    }
     let dy = 0;
     if (r.width > 2 && r.height > 2 && !el.hud.classList.contains("hidden")) {
         const top = r.top - cur, bot = r.bottom - cur, obs = [];
