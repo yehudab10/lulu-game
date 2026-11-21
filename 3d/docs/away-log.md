@@ -3,6 +3,11 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 17:15 UTC — ⚡ Smoother on phones, part 3: everyone's shadow — Lulu at the wheel, Ima, Dina, the neighbours, people
+  walking by — is now drawn in one go instead of piece by piece (iPhones since iOS 15 can do that), so the shadows on the
+  title screen take about a quarter of the drawing steps they did, and on foot about an eighth. The street lamps along the
+  highway are drawn together too, and on the lowest graphics setting the tall grass far away from Lulu is a little
+  thinner. Looks the same (checked picture by picture). Also fixed a rare hidden error some online sessions logged.
 - 2026-11-21 (play-test of the weekend) — 🔎 Played everything that landed this weekend like a kid would (on a phone, a computer and
   a TV; Lakewood, Midwood, the highway, JFK with `?airport=1`, and with a friend) and fixed what was off: the PIGEONS on the
   sidewalk no longer fly through the houses when you scare them (they climb over the roofs, circle up high and come back down over

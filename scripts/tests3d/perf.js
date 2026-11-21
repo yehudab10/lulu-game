@@ -45,6 +45,19 @@ const PROBE = `(() => {
     const o = C.prototype[f]; if (!o) continue;
     C.prototype[f] = function () { if (PF.on) { PF.gl++; if (PF.inShadow) PF.sh++; } return o.apply(this, arguments); };
   }
+  // (a WEBGL_multi_draw call — the people's shadow batch — is ONE draw call however many parts it draws)
+  for (const C of [window.WebGL2RenderingContext, window.WebGLRenderingContext]) if (C) {
+    const ge = C.prototype.getExtension;
+    C.prototype.getExtension = function (name) {
+      const x = ge.apply(this, arguments);
+      if (x && name === "WEBGL_multi_draw" && !x.__pf) { x.__pf = true;
+        for (const f of ["multiDrawElementsWEBGL", "multiDrawArraysWEBGL", "multiDrawElementsInstancedWEBGL", "multiDrawArraysInstancedWEBGL"]) {
+          const o = x[f]; if (typeof o !== "function") continue;
+          x[f] = function () { if (PF.on) { PF.gl++; if (PF.inShadow) PF.sh++; } return o.apply(this, arguments); };
+        } }
+      return x;
+    };
+  }
   const raf = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = cb => raf(ts => { const t0 = performance.now(); try { cb(ts); } finally { if (PF.on) PF.js += performance.now() - t0; } });
   const mo = new MutationObserver(list => { if (PF.on) PF.mut += list.length; });
