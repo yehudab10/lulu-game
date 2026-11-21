@@ -261,6 +261,8 @@ export const PED = {
         "Lock your doors, Chani. It's Lulu.", "My cousin says she spritzes people.", "She's SHORTER than in the Kvetch."],
     scatter: ["AAAH!", "SLOW DOWN!!", "There are KIDS here!!", "Meshugene!!", "My STROLLER!!", "Who taught you to DRIVE?!"],
     honk: ["We HEAR you!", "It's a RESIDENTIAL street!", "Honking won't make the minivan move!", "SHHH! The baby's SLEEPING!", "Nice horn. Very LOUD.", "Gevalt, the NOISE!"],
+    honkNu: ["Nu?!", "NU?! What?!", "Nu, so go already!", "Oy — my HEART!", "*jumps a foot in the air*"],          // (ci/life2)
+    honkKid: ["BEEP BEEP! 👋", "Do it AGAIN!", "HONK AGAIN! HONK AGAIN!", "Hi Lulu!! 👋", "*waves with both arms*"],
     talk: ["Do you know the Friedmans? Lovely people. Their son's a lawyer.", "I'm walking to the bakery before the challah runs out.", "Watch the geese. They have no FEAR.",
         "You're new? You'll come for a meal.", "The parking? Don't get me STARTED.", "My husband's learning. I'm walking. It's a system.", "Carpool's in ten minutes. I'm LATE.",
         "Is that a PINK car? Nice. Very... visible."],
