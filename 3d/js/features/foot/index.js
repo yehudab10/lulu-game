@@ -1363,7 +1363,8 @@ function updateAvigail(dt) {
         else c.p.face(F.pos.x, F.pos.z, dt, 3);
         c.p.update(dt, { walk: moved, talk: hasBubble(o) });
         c.sayNext -= dt;
-        if (c.sayNext <= 0) { c.sayNext = rand(4, 7); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
+        // (every 10–16 s: at 4–7 s she was most of a walk's pop-ups — the calm test's foot minute had 6 of her lines in 60 s)
+        if (c.sayNext <= 0) { c.sayNext = rand(10, 16); bubble(o, pick(L.AVIGAIL_WALK_LINES), 2.2, { cls: "pink" }); }
     }
 }
 
