@@ -3,6 +3,16 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-21 (play-test of the weekend) — 🔎 Played everything that landed this weekend like a kid would (on a phone, a computer and
+  a TV; Lakewood, Midwood, the highway, JFK with `?airport=1`, and with a friend) and fixed what was off: the PIGEONS on the
+  sidewalk no longer fly through the houses when you scare them (they climb over the roofs, circle up high and come back down over
+  the sidewalk); 📝 Ima's list in town said things like "Drop off Bubbe's challah · 307.8 mi back" — it now says how far it really is;
+  pulling out of the driveway and backing into the house no longer puts the camera inside the house (a screen of one flat colour);
+  after a crash leaves the car sideways, Lulu gets back on her feet BESIDE it instead of standing in its hood; and with a controller
+  on a phone held upright, the hint at the bottom wraps instead of running off both edges. Checked and fine: puddles, splashes,
+  honking at the crowd and the pigeons, car alarms (they stop), no sound left playing after leaving town, no coins to be farmed from
+  any of it, the phone's 💬 Messages + 🗞️ Kvetch on every screen size. For the airport team: the "TERMINAL OPENING SOON" poster is
+  still on the doors though they open now, and the camera can end up inside an airport building during a police chase.
 - 2026-11-21 (main fixes) — 📞 Lulu's phone is one tidy 3 × 3 screen again, with the 📞 Phone app right next to 💬 Messages
   (the new 👯 Friends app had made it 10 apps and squeezed in between). The 🗞️ Kvetch local news now lives as a pinned row at the top
   of 💬 Messages instead of its own app. Fewer pop-ups again: the little "💥 Oy vey!" crash quips only show when Lulu didn't just say
