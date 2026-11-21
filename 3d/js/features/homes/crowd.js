@@ -525,14 +525,19 @@ function react(p, dt, lp, foot, fast, cfx, cfz) {
         emit("homes:wave", { id: p.id });
     }
 }
-/** She honked: the nearest folks yell. */
+/** She honked: the nearest folks react — a grown-up jumps and points (and yells, or a "Nu?!"), a kid waves back. */
 export function crowdHonk() {
     if (!C.on || C.honkT > 0) return 0;
     C.honkT = 2.5;
     const lp = luluPos();
     const near = C.peds.filter(p => p.kind !== "bike" && Math.hypot(p.x - lp.x, p.z - lp.z) < 26).sort((a, b) => Math.hypot(a.x - lp.x, a.z - lp.z) - Math.hypot(b.x - lp.x, b.z - lp.z)).slice(0, 2);
-    for (const p of near) { p.lookAt = { x: lp.x, z: lp.z }; p.lookAtT = 2.5; p.pointT = 1.8; p.jumpT = 0.4; }
-    if (near.length) { sayAt(near[0], pick(PED.honk), 2.2, "angry"); emit("homes:honked", { n: near.length }); }
+    // (ci/life2: one reaction each instead of the same yell — a kid waves back, a grown-up is startled)
+    for (const p of near) { p.lookAt = { x: lp.x, z: lp.z }; p.lookAtT = 2.5; if (p.look === "kid") { p.waveT = 1.8; p.jumpT = 0.3; } else { p.pointT = 1.8; p.jumpT = 0.4; } }
+    if (near.length) {
+        const p = near[0], kid = p.look === "kid";
+        sayAt(p, pick(kid ? PED.honkKid : Math.random() < 0.35 ? PED.honkNu : PED.honk), 2.2, kid ? "nice" : "angry");
+        emit("homes:honked", { n: near.length, kid });
+    }
     return near.length;
 }
 

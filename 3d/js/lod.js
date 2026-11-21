@@ -107,3 +107,293 @@ export function updateLods(camera) {
 
 /** Tests / the perf harness: how many models are registered and how many show their far copy. */
 export function lodInfo() { let far = 0, n = 0; for (const l of live) { if (!l.root.parent) continue; n++; if (l.on) far++; } return { n, far, cached: cache.size, dist: LOD.dist }; }
+
+// ── Shadow proxies (MEDIUM / HIGH): a multi-part model casts its shadow in ONE draw ──────────────
+// A traffic car is ~10–20 meshes, Lulu's car ~25: each one is a draw call in the sun's shadow pass too (renderer.info
+// never shows those — three resets it after the shadow map). A proxy bakes the parts that cast (positions only, in the
+// root's space) into one mesh that is hidden in the main pass and switched on only while the shadow map is drawn
+// (installShadowProxies wraps renderer.shadowMap.render); the baked parts stop casting on their own. Same silhouette —
+// a wheel turning on its axle casts the same shadow. Anything that changes the parts (one hidden or removed, the far
+// LOD showing) hands the casting straight back to the real parts at once (never a missing shadow), and the proxy is
+// re-baked from what's there a moment later.
+//
+//   const sp = shadowProxy(root, { skip: o => o.name === "Driver", lod })   // skip(node): leave that subtree alone
+//   sp.dispose()                                                            // the parts cast on their own again
+const SH = { live: new Set(), cache: new Map(), mats: new Map(), on: true, frame: 0, dropped: 0 };
+function shMat(side) {
+    let m = SH.mats.get(side);
+    if (!m) { m = new THREE.MeshBasicMaterial({ side }); m.name = "ShadowProxy"; SH.mats.set(side, m); }
+    return m;
+}
+function shGeometry(list) {
+    // positions only (+ index): the depth material reads nothing else
+    const geos = list.map(({ o, m }) => {
+        const src = o.geometry, g = new THREE.BufferGeometry();
+        g.setAttribute("position", src.attributes.position.clone().applyMatrix4(m));
+        if (src.index) g.setIndex(src.index.clone());
+        return g;
+    });
+    const indexed = geos.every(g => g.index);
+    const merged = mergeGeometries(indexed ? geos : geos.map(g => (g.index ? g.toNonIndexed() : g)), false);
+    for (const g of geos) g.dispose();
+    if (merged) merged.computeBoundingSphere();
+    return merged;
+}
+function shCastable(o) {
+    if (!o.isMesh || !o.castShadow || !o.visible || o.isSkinnedMesh || o.isInstancedMesh || !o.geometry || !o.geometry.attributes.position) return false;
+    if (o.geometry.morphAttributes && Object.keys(o.geometry.morphAttributes).length) return false;
+    const m = o.material;
+    // (an alpha-tested / alpha-mapped / textured-transparent part shadows through its texture: it keeps its own draw)
+    if (!m || Array.isArray(m) || !m.visible || m.alphaTest > 0 || m.alphaMap || (m.map && m.transparent) || m.shadowSide != null) return false;
+    return true;
+}
+class ShadowProxy {
+    constructor(root, opts) {
+        this.root = root; this.skip = opts.skip || null; this.lod = opts.lod || null;
+        this.parts = []; this.meshes = []; this.entry = null; this.wait = 0; this.dead = false; this.drops = [];
+        SH.live.add(this);
+    }
+    /** Bake the parts that cast right now (cached per layout: the same geometries at the same places — a wheel's spin
+     *  doesn't change the key, so pooled / re-baked copies share one geometry). */
+    build() {
+        const root = this.root;
+        root.updateMatrixWorld(true);
+        _inv.copy(root.matrixWorld).invert();
+        const bySide = new Map(), sig = [];
+        const walk = o => {
+            if (o !== root && (!o.visible || (this.skip && this.skip(o)))) return;
+            if (o.name === "lodFar" || o.name === "shadowProxy") return;
+            if (shCastable(o)) {
+                const side = o.material.side;
+                if (!bySide.has(side)) bySide.set(side, []);
+                const m = new THREE.Matrix4().multiplyMatrices(_inv, o.matrixWorld), e = m.elements;
+                bySide.get(side).push({ o, m });
+                sig.push(o.geometry.uuid + "@" + side + ":" + Math.round(e[12] * 50) + "," + Math.round(e[13] * 50) + "," + Math.round(e[14] * 50));
+            }
+            for (const c of o.children) walk(c);
+        };
+        walk(root);
+        if (sig.length < 3) return false;          // nothing to gain
+        const key = sig.join("|");
+        let entry = SH.cache.get(key);
+        if (!entry) {
+            entry = { users: 0, built: [...bySide].map(([side, list]) => ({ side, geo: shGeometry(list) })).filter(b => b.geo) };
+            SH.cache.set(key, entry);
+            // (bounded: a handful of models × layouts; unused ones are freed — GPU memory too — past 64)
+            if (SH.cache.size > 64) for (const [k, en] of SH.cache) {
+                if (SH.cache.size <= 48) break;
+                if (en.users > 0 || en === entry) continue;
+                for (const b of en.built) b.geo.dispose();
+                SH.cache.delete(k);
+            }
+        }
+        entry.users++;
+        this.entry = entry;
+        for (const b of entry.built) {
+            const mesh = new THREE.Mesh(b.geo, shMat(b.side));
+            mesh.name = "shadowProxy";
+            mesh.castShadow = true; mesh.receiveShadow = false; mesh.visible = false;
+            mesh.matrixAutoUpdate = false;         // (identity in the root's space)
+            root.add(mesh);
+            mesh.updateMatrixWorld(true);          // (baked mid-frame, inside the shadow pass: placed right away)
+            this.meshes.push(mesh);
+        }
+        for (const l of bySide.values()) for (const { o } of l) { o.castShadow = false; this.parts.push(o); }
+        return true;
+    }
+    /** Back to the real parts casting (and no proxy) — e.g. a part was hidden. */
+    release(wait = 30) {
+        for (const o of this.parts) o.castShadow = true;
+        this.parts.length = 0;
+        for (const m of this.meshes) if (m.parent) m.parent.remove(m);
+        this.meshes.length = 0;
+        if (this.entry) { this.entry.users--; this.entry = null; }
+        this.wait = wait;
+    }
+    /** A part changed under the proxy: the real parts cast. A model whose parts keep changing (blinking, swapped
+     *  over and over) is left to cast on its own for a while rather than re-baked again and again. */
+    drop() {
+        const f = SH.frame;
+        SH.dropped++;
+        this.drops.push(f);
+        while (this.drops.length && f - this.drops[0] > 600) this.drops.shift();
+        this.release(this.drops.length >= 3 ? 1800 : 30);
+    }
+    /** Right before the shadow pass: does the proxy cast this frame? (parts that changed → the real parts cast) */
+    prepare() {
+        if (!this.root.parent) return false;                 // (pooled / not in the scene)
+        if (this.lod && this.lod.on) return false;            // far: the far copy shows and the parts are hidden (no shadow, as before)
+        if (!this.meshes.length) {
+            if (this.wait > 0) { this.wait--; return false; }
+            if (!this.build()) { this.wait = 120; return false; }
+        }
+        const root = this.root;
+        for (let i = 0; i < this.parts.length; i++) {
+            const o = this.parts[i];
+            if (o.castShadow) { this.drop(); return false; }        // (someone switched it back on)
+            for (let a = o; a !== root; a = a.parent) if (!a || !a.visible) { this.drop(); return false; }
+        }
+        return true;
+    }
+    dispose() { if (this.dead) return; this.release(0); this.dead = true; SH.live.delete(this); }
+}
+
+/** Give a model a shadow proxy (only MEDIUM / HIGH ever draw it). opts: { skip(node), lod (its FarLod) }. */
+export function shadowProxy(root, opts = {}) { return new ShadowProxy(root, opts); }
+
+/** app.js, once: the proxies cast only inside the renderer's shadow pass. */
+export function installShadowProxies(renderer) {
+    const sm = renderer.shadowMap, orig = sm.render, shown = [];
+    sm.render = function (lights, scene) {
+        if (!sm.enabled || !SH.on || (!SH.live.size && !PB.roots.size) || !lights || !lights.length || (sm.autoUpdate === false && sm.needsUpdate === false)) return orig.apply(this, arguments);
+        SH.frame++;
+        for (const p of SH.live) if (p.prepare()) for (const m of p.meshes) { m.visible = true; shown.push(m); }
+        const batch = prepareBatch(scene);
+        if (batch) for (const m of batch) { m.visible = true; shown.push(m); }
+        try { return orig.apply(this, arguments); }
+        finally { for (const m of shown) m.visible = false; shown.length = 0; }
+    };
+}
+
+// ── The people's shadow batch (MEDIUM / HIGH) ───────────────────────────────────────────────────────────────
+// A person is ~13 casting parts (body, arms, legs, hair, clothes…) = 13 draws in the sun's shadow pass, and they MOVE
+// (walk cycles, waving, Lulu turning her head at the wheel), so a baked proxy would freeze their shadows. Instead every
+// registered person's casting parts are instances of ONE shadow-only BatchedMesh: each shadow pass copies every
+// part's live matrixWorld + visibility into it, so the shadow is exact, in one multi-draw (WEBGL_multi_draw: iOS
+// Safari 15+, Chrome; without it three draws the parts one by one — no worse than before). Hidden in the main pass,
+// switched on inside the shadow pass like the proxies. A part someone sets castShadow on again, or removes, hands
+// that person back to casting on their own; a person out of the scene for ~10 s is let go.
+//
+//   shadowBatch(personRoot, { skip })   (core/people.js does it for every spawned person; car.js for Lulu at the wheel)
+const PB = { roots: new Map(), sides: new Map(), on: true, frame: 0 };
+/** One shadow-only BatchedMesh per material side (the shadow pass renders a FrontSide part's BACK faces etc.). */
+function sideBatch(side) {
+    let sb = PB.sides.get(side);
+    if (sb) return sb;
+    const mat = new THREE.MeshBasicMaterial({ side });
+    mat.name = "ShadowBatch";
+    const m = new THREE.BatchedMesh(128, 16384, 32768, mat);
+    m.name = "shadowBatch";
+    m.castShadow = true; m.receiveShadow = false; m.visible = false; m.frustumCulled = false;
+    m.sortObjects = false; m.perObjectFrustumCulled = true;
+    m.matrixAutoUpdate = false;
+    sb = { side, mesh: m, geos: new Map(), verts: 0, idx: 0, insts: 0, cap: { v: 16384, i: 32768, n: 128 }, used: false };
+    PB.sides.set(side, sb);
+    return sb;
+}
+function sbGrow(sb, needV, needI, needN) {
+    const c = sb.cap, m = sb.mesh;
+    if (needV > c.v || needI > c.i) { c.v = Math.max(c.v * 2, needV); c.i = Math.max(c.i * 2, needI); m.setGeometrySize(c.v, c.i); }
+    if (needN > c.n) { c.n = Math.max(c.n * 2, needN); m.setInstanceCount(c.n); }
+}
+function sbGeometry(sb, src) {
+    let g = sb.geos.get(src);
+    if (g != null) return g;
+    const pos = src.attributes.position, b = new THREE.BufferGeometry();
+    b.setAttribute("position", pos.clone());
+    if (src.index) b.setIndex(src.index.clone());
+    else { const n = pos.count, a = new (n > 65535 ? Uint32Array : Uint16Array)(n); for (let i = 0; i < n; i++) a[i] = i; b.setIndex(new THREE.BufferAttribute(a, 1)); }
+    sbGrow(sb, sb.verts + pos.count, sb.idx + b.index.count, sb.insts);
+    g = sb.mesh.addGeometry(b);
+    sb.verts += pos.count; sb.idx += b.index.count;
+    b.dispose();
+    sb.geos.set(src, g);
+    return g;
+}
+class Batched {
+    constructor(root, opts) { this.root = root; this.skip = opts.skip || null; this.parts = []; this.wait = 0; this.gone = 0; this.optOut = false; }
+    collect() {
+        const root = this.root, out = [];
+        const walk = o => {
+            if (o !== root && this.skip && this.skip(o)) return;
+            if (o.name === "shadowProxy" || o.name === "lodFar") return;
+            if (o.isMesh && o.castShadow && shCastable(o)) out.push(o);
+            for (const c of o.children) walk(c);
+        };
+        walk(root);
+        return out;
+    }
+    build() {
+        const list = this.collect();
+        if (!list.length) return false;
+        for (const o of list) {
+            const sb = sideBatch(o.material.side), g = sbGeometry(sb, o.geometry);
+            sbGrow(sb, sb.verts, sb.idx, sb.insts + 1);
+            const id = sb.mesh.addInstance(g);
+            sb.insts++;
+            o.castShadow = false;
+            this.parts.push({ o, id, sb });
+        }
+        return true;
+    }
+    release(wait = 60) {
+        for (const p of this.parts) { p.o.castShadow = true; p.sb.mesh.deleteInstance(p.id); p.sb.insts--; }
+        this.parts.length = 0;
+        this.wait = wait;
+    }
+    /** Each shadow pass: copy the parts' live transforms in (false = a part changed: they cast on their own again). */
+    sync() {
+        if (!this.parts.length) {
+            if (this.optOut) return true;
+            if (this.wait > 0) { this.wait--; return true; }
+            if (!this.build()) { this.wait = 240; return true; }
+        }
+        for (const p of this.parts) {
+            const o = p.o;
+            if (o.castShadow) { this.release(); this.optOut = true; return true; }   // (a feature wants this person's parts its own way)
+            if (!o.parent) { this.release(); return true; }
+            let vis = true;
+            for (let a = o; a; a = a.parent) if (!a.visible) { vis = false; break; }
+            p.sb.mesh.setVisibleAt(p.id, vis);
+            if (vis) { p.sb.mesh.setMatrixAt(p.id, o.matrixWorld); p.sb.used = true; }
+        }
+        return true;
+    }
+}
+function inScene(o, scene) { for (let a = o; a; a = a.parent) if (a === scene) return true; return false; }
+function prepareBatch(scene) {
+    if (!PB.on || !PB.roots.size) return null;
+    PB.frame++;
+    for (const sb of PB.sides.values()) sb.used = false;
+    for (const [root, b] of PB.roots) {
+        if (!inScene(root, scene)) {
+            // (not in the scene being drawn — an interior set, pooled: its instances stay hidden; after ~10 s its slots are
+            //  freed (it re-joins when it's back in view), and one that left the world altogether is forgotten)
+            for (const p of b.parts) p.sb.mesh.setVisibleAt(p.id, false);
+            if (++b.gone > 600) { if (b.parts.length) b.release(0); if (!root.parent) PB.roots.delete(root); }
+            continue;
+        }
+        b.gone = 0;
+        if (!b.parts.length && (b.optOut || b.wait > 0)) { if (b.wait > 0) b.wait--; continue; }
+        b.sync();
+    }
+    const out = [];
+    for (const sb of PB.sides.values()) if (sb.used) { if (sb.mesh.parent !== scene) scene.add(sb.mesh); out.push(sb.mesh); }
+    return out.length ? out : null;
+}
+/** Put a moving person's shadow into the people's shadow batch (see above). opts: { skip(node) }. */
+export function shadowBatch(root, opts = {}) {
+    if (!root || PB.roots.has(root)) return;
+    // (LOW never draws a shadow pass, where the out-of-the-world ones are let go: sweep them here so the list stays small)
+    if (PB.roots.size >= 256) for (const [r, b] of PB.roots) if (!r.parent) { b.release(0); PB.roots.delete(r); }
+    PB.roots.set(root, new Batched(root, opts));
+}
+/** Tests: { people, parts, geometries, multiDraw (the extension is there), on }. */
+export function shadowBatchInfo(renderer) {
+    let parts = 0, people = 0;
+    for (const b of PB.roots.values()) { if (b.parts.length) people++; parts += b.parts.length; }
+    let md = null;
+    try { md = renderer ? !!renderer.extensions.get("WEBGL_multi_draw") : null; } catch (e) { md = null; }
+    let geometries = 0; for (const sb of PB.sides.values()) geometries += sb.geos.size;
+    return { people, parts, registered: PB.roots.size, geometries, sides: PB.sides.size, multiDraw: md, on: PB.on };
+}
+/** Tests: every person's parts cast on their own again (false) / back in the batch (true). */
+export function shadowBatchOn(on) { PB.on = !!on; if (!on) for (const b of PB.roots.values()) b.release(0); }
+/** Tests / the perf harness: { n: registered, active: baked now, parts: real meshes they stand in for, cached, dropped (hand-backs so far), on }. */
+export function shadowProxyInfo() {
+    let active = 0, parts = 0;
+    for (const p of SH.live) if (p.meshes.length) { active++; parts += p.parts.length; }
+    return { n: SH.live.size, active, parts, cached: SH.cache.size, dropped: SH.dropped, on: SH.on };
+}
+/** Tests: every part casts on its own again (false) / proxies back on (true). */
+export function shadowProxiesOn(on) { SH.on = !!on; if (!on) for (const p of SH.live) p.release(0); }

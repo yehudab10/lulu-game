@@ -81,6 +81,7 @@ export const hooks = {
     hud: [],        // (dt) → every frame while the driving HUD is up
     runStart: [],   // (G) → after resetRun(), before the countdown
     titleCamera: [],// (dt, camera) → return true to own the title-screen camera
+    prerender: [],  // (dt, camera) → right before the driving scene is drawn, every frame in every state (app.js present)
 };
 export function hook(name, fn, priority = 0) {
     if (!hooks[name]) hooks[name] = [];
