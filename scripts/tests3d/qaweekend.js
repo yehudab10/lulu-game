@@ -135,7 +135,7 @@ async function town(t) {
   await g(`(ctx.law.hold(9999), ctx.hustle && ctx.hustle.hold && ctx.hustle.hold(1e6), ctx.atmos.debug.weather("rain"), ${D}.rain(1), ${D}.season("autumn"), ${D}.cold(true), true)`);
   if (!await inTown(t, "lakewood")) return;
   await t.frames(60);
-  let I = await info();
+  let I = await info(t);
   t.check("Lakewood in the rain: life is on, puddles drawn", I.on && I.town && I.puddles.sites > 0 && I.puddles.visible, JSON.stringify(I.puddles));
   const hz0 = await g(`ctx.homes && ctx.homes.debug.CR ? ctx.homes.debug.CR.peds.length : 0`);
   // honk with the real touch HONK button a few times while rolling down a street
@@ -160,7 +160,7 @@ async function town(t) {
     await W.moved(t);
     await t.hold(7, 0.7); await t.frames(60); await t.hold(7, 0);
   }
-  I = await info();
+  I = await info(t);
   console.log("   life after the puddle drive", JSON.stringify({ carSplashes: I.carSplashes, soaked: I.soaked, puddles: I.puddles }));
   // ram parked cars, again and again (a kid would): the shoved car stays out of the houses and the lanes clear of nonsense
   const DD = "ctx.town.debug";
@@ -186,7 +186,7 @@ async function town(t) {
     await t.shot("rammed");
   }
   await t.frames(200);
-  t.check("…and the alarm is over a few seconds later (no sound left looping)", (await info()).alarm.live === 0 && !(await info()).alarm.tail, JSON.stringify((await info()).alarm));
+  t.check("…and the alarm is over a few seconds later (no sound left looping)", (await info(t)).alarm.live === 0 && !(await info(t)).alarm.tail, JSON.stringify((await info(t)).alarm));
   W.check(t, "Lakewood driving in the rain", await W.report(t), ["jump", "nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol"]);
   await W.reset(t);
 
@@ -196,9 +196,9 @@ async function town(t) {
     const fp = await g(`${D}.puddle("walk") || ${D}.puddle("")`);
     if (fp) {
       await standAt(t, fp.x - 2, fp.z);
-      const s0 = (await info()).splashes;
+      const s0 = (await info(t)).splashes;
       for (let i = 0; i < 3; i++) { await standAt(t, fp.x, fp.z); await t.tap(1); await t.frames(30); }
-      t.check("jumping in a puddle: a splash", (await info()).splashes > s0, JSON.stringify({ s0, s1: (await info()).splashes }));
+      t.check("jumping in a puddle: a splash", (await info(t)).splashes > s0, JSON.stringify({ s0, s1: (await info(t)).splashes }));
     }
     const fl = await g(`${D}.flock("ground")`);
     if (fl) {
@@ -206,6 +206,20 @@ async function town(t) {
       await standAt(t, fl.x + fl.ux / ul * 6, fl.z + fl.uz / ul * 6, { x: fl.x, z: fl.z, pitch: 0.2 });
       await t.frames(10);
       await t.shot("pigeons-rain");
+      // every flying pigeon, every frame: never inside a block of houses below its roofs (≤ 9.4 m)
+      await t.L(`(() => { const C = __lulu3d.ctx, PG = C.life.debug.PG, PL = C.town.plan; window.__pgHit = { n: 0, frames: 0, ex: [] }; window.__pgOn = true;
+        const tick = () => { if (!window.__pgOn) return; requestAnimationFrame(tick); window.__pgHit.frames++;
+          for (const f of PG.live) for (const b of f.birds) { if (!b.mode || b.y > 9.4) continue; const q = PL.local(b.x, b.z, {});
+            if (PL.OCCLUDERS.some(r => q.x > r.x0 + 0.3 && q.x < r.x1 - 0.3 && q.z > r.z0 + 0.3 && q.z < r.z1 - 0.3)) { window.__pgHit.n++; if (window.__pgHit.ex.length < 4) window.__pgHit.ex.push([f.kind, b.mode, +b.y.toFixed(1)]); } } };
+        tick(); return true; })()`);
+      await t.L(`import("./js/core/ctx.js").then(m => m.emit("honk", {}))`);
+      await g(`(() => { for (const f of ctx.life.debug.PG.live) if (f.kind === "ground") f.cool = 0; return ${D}.scatter("ground"); })()`);
+      await t.frames(60);
+      await t.shot("pigeons-up");
+      await standAt(t, fl.x + fl.ux / ul * 28, fl.z + fl.uz / ul * 28, { x: fl.x, z: fl.z, pitch: -0.1 });     // (she walks on: they come back)
+      await t.frames(330);
+      const hit = await t.L(`(window.__pgOn = false, window.__pgHit)`);
+      t.check("scattered pavement pigeons circle + come back without flying through the houses", hit.n === 0 && hit.frames > 100, JSON.stringify(hit));
     }
     await mash(t, 300, { foot: true });
     await t.shot("lakewood-foot");
