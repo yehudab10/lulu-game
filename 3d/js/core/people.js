@@ -10,6 +10,7 @@
 //   bubbe.update(dt, { walk: speed_m_s, wave: true, talk: true, cheer: false, sit: false });
 import * as THREE from "three";
 import { models, cloneWithColors, findNodes } from "../models.js";
+import { shadowBatch } from "../lod.js";
 
 const PARTS = ["Arm_L", "Arm_R", "Leg_L", "Leg_R", "Body", "Head"];
 const _q = new THREE.Quaternion(), _e = new THREE.Euler();
@@ -91,5 +92,6 @@ export function spawnPerson(key, { colors = null, scale = 1 } = {}) {
     if (!models[key]) throw new Error(`spawnPerson: model "${key}" isn't loaded (ensureModels first)`);
     const obj = cloneWithColors(models[key], colors);
     obj.scale.setScalar(scale);
+    shadowBatch(obj);          // (MEDIUM / HIGH: its parts cast in the people's one shadow draw — lod.js)
     return new Person(obj);
 }

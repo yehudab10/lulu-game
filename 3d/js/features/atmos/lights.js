@@ -8,7 +8,7 @@
 //   · Street lamps along the Cruise road (per chunk, instanced) with glowing bulbs.
 //   · Windows of every house model glow warm at night (shared materials → free).
 import * as THREE from "three";
-import { ctx, on } from "../../core/ctx.js";
+import { ctx, on, hook } from "../../core/ctx.js";
 import { models } from "../../models.js";
 import { facingRoad, worldMaterials } from "../../world.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -195,7 +195,7 @@ function addSpot() {
     ctx.scene.add(spot, spot.target);
 }
 
-// ── street lamps (Cruise): procedural, instanced per chunk ───────────────
+// ── street lamps (Cruise): procedural; every chunk's lamps in ONE set of instanced meshes (LB) ──────
 let LAMP = null;
 function lampKit() {
     if (LAMP) return LAMP;
@@ -236,7 +236,7 @@ function lampKit() {
     };
     return LAMP;
 }
-const lampChunks = new Map();     // chunk → { group, ims: [], lamps: [{x, y, z, px, pz, h}] }
+const lampChunks = new Map();     // chunk → { mats: [Matrix4], lamps: [{x, y, z, px, pz, h}], cols }
 const LAMP_GAP = { fall: 48, pool: 48, suburbs: 48, coast: 56, desert: 110 };
 function lampsWanted() { return ctx.enabled("atmos") && ctx.G && (ctx.G.mode === "cruise" || typeof ctx.G.atmosClock === "function"); }
 
@@ -244,7 +244,7 @@ function buildLamps(chunk, world) {
     if (lampChunks.has(chunk)) return;
     const biome = chunk.biome || world.biomeAt(chunk.s0 + 100);
     const gap = LAMP_GAP[biome.name] || (biome.name === "dusk" || biome.name === "strip" ? 0 : 52);
-    const rec = { group: null, ims: [], lamps: [], cols: [] };
+    const rec = { mats: [], lamps: [], cols: [] };
     lampChunks.set(chunk, rec);
     if (!gap || chunk.s0 < 100) return;
     const road = world.road, spots = [];
@@ -255,36 +255,64 @@ function buildLamps(chunk, world) {
         spots.push({ s, side, d });
     }
     if (!spots.length) return;
-    const K = lampKit();
-    const body = new THREE.InstancedMesh(K.body, K.bodyMat, spots.length);
-    const bulb = new THREE.InstancedMesh(K.bulb, K.bulbMat, spots.length);
-    const cone = new THREE.InstancedMesh(K.cone, K.coneMat, spots.length);
-    cone.castShadow = false; cone.receiveShadow = false; cone.renderOrder = 4;
-    body.castShadow = true; body.receiveShadow = false; bulb.castShadow = false;
-    spots.forEach((sp, i) => {
+    lampKit();
+    spots.forEach(sp => {
         const p = road.point(sp.s, sp.d, P0);
         const rot = facingRoad(p.h, sp.side);
         Q4.setFromAxisAngle(UP, rot);
-        M4.compose(V1.set(p.x, 0, p.z), Q4, V2.set(1, 1, 1));
-        body.setMatrixAt(i, M4); bulb.setMatrixAt(i, M4); cone.setMatrixAt(i, M4);
+        rec.mats.push(new THREE.Matrix4().compose(V1.set(p.x, 0, p.z), Q4, V2.set(1, 1, 1)));
         rec.cols.push(chunk.addCollider({ x: p.x, z: p.z, r: 0.22, kind: "pole" }));
         // the bulb hangs 2.08 m toward the road; its pool of light a little further in
         const fx = Math.sin(rot), fz = Math.cos(rot);
         rec.lamps.push({ x: p.x + fx * 2.08, y: 7.12, z: p.z + fz * 2.08, px: p.x + fx * 4.6, pz: p.z + fz * 4.6, h: p.h, dc: sp.d - sp.side * 4.6 });
     });
-    body.computeBoundingSphere(); bulb.computeBoundingSphere(); cone.computeBoundingSphere();
-    const group = new THREE.Group();
-    group.add(body, bulb, cone);
-    chunk.add(group);
-    rec.group = group; rec.ims = [body, bulb, cone];
 }
 function dropLamps(chunk) {
-    const rec = lampChunks.get(chunk);
-    if (!rec) return;
+    if (!lampChunks.has(chunk)) return;
     lampChunks.delete(chunk);
-    if (rec.group && rec.group.parent) rec.group.parent.remove(rec.group);
-    for (const im of rec.ims) im.dispose();
 }
+
+// The lamps of every chunk are drawn by ONE pole / bulb / light-cone InstancedMesh each (they used to be 2–3 draw
+// calls PER CHUNK, + one per chunk in the shadow pass). Repacked right before each driving render (core hook
+// "prerender"): only lamps in a chunk that's drawn (draw distance / a town hiding the highway) AND either within
+// 60 m (anything that can cast a shadow into view) or inside the camera's view — per-lamp culling, finer than the
+// old per-chunk boxes, so no more triangles than before.
+const LB = { body: null, bulb: null, cone: null, cap: 0, n: -1 };
+const _frus = new THREE.Frustum(), _pm = new THREE.Matrix4(), _sph = new THREE.Sphere(new THREE.Vector3(), 9);
+function lampBatch(need) {
+    if (LB.body && LB.cap >= need) return LB;
+    const K = lampKit(), cap = Math.max(32, need * 2);
+    for (const k of ["body", "bulb", "cone"]) if (LB[k]) { LB[k].removeFromParent(); LB[k].dispose(); }
+    LB.body = new THREE.InstancedMesh(K.body, K.bodyMat, cap);
+    LB.bulb = new THREE.InstancedMesh(K.bulb, K.bulbMat, cap);
+    LB.cone = new THREE.InstancedMesh(K.cone, K.coneMat, cap);
+    LB.cone.castShadow = false; LB.cone.receiveShadow = false; LB.cone.renderOrder = 4;
+    LB.body.castShadow = true; LB.body.receiveShadow = false; LB.bulb.castShadow = false;
+    for (const k of ["body", "bulb", "cone"]) { const m = LB[k]; m.name = "streetLamps"; m.frustumCulled = false; m.count = 0; m.visible = false; ctx.scene.add(m); }
+    LB.cap = cap; LB.n = -1;
+    return LB;
+}
+function packLamps(camera) {
+    let total = 0;
+    for (const r of lampChunks.values()) total += r.mats.length;
+    if (!total && !LB.body) return;
+    const B = lampBatch(total), cp = camera.position;
+    _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    _frus.setFromProjectionMatrix(_pm);
+    let n = 0;
+    for (const [chunk, r] of lampChunks) {
+        if (!r.mats.length || !chunk.group || !chunk.group.visible || !chunk.group.parent) continue;
+        for (const m of r.mats) {
+            const e = m.elements, dx = e[12] - cp.x, dz = e[14] - cp.z;
+            if (dx * dx + dz * dz > 3600) { _sph.center.set(e[12], 4, e[14]); if (!_frus.intersectsSphere(_sph)) continue; }
+            B.body.setMatrixAt(n, m); B.bulb.setMatrixAt(n, m); B.cone.setMatrixAt(n, m);
+            n++;
+        }
+    }
+    for (const k of ["body", "bulb", "cone"]) { const im = B[k]; im.count = n; im.visible = n > 0; if (n) im.instanceMatrix.needsUpdate = true; }
+    B.n = n;
+}
+hook("prerender", (dt, camera) => { try { if (camera) packLamps(camera); } catch (e) { console.error("[atmos lamps]", e); } });
 on("chunk:build", ({ chunk, world }) => { if (lampsWanted()) { try { buildLamps(chunk, world); } catch (e) { console.error("[atmos lamps]", e); } } });
 on("chunk:dispose", ({ chunk }) => dropLamps(chunk));
 /** Cruise ↔ Story: add lamps to (or strip them from) the chunks that are already built. */
@@ -428,6 +456,6 @@ export function lightsInfo() {
     let lamps = 0;
     for (const r of lampChunks.values()) lamps += r.lamps.length;
     return { glows: glows.mesh.visible ? glows.n : 0, pools: pools.mesh.visible ? pools.n : 0, spot: spot ? spot.intensity : -1,
-        lamps, lampChunks: [...lampChunks.values()].filter(r => r.group).length, windows: windowMats.size, windowGlow: Math.max(0, windowGlow) };
+        lamps, lampChunks: [...lampChunks.values()].filter(r => r.mats.length).length, lampsDrawn: Math.max(0, LB.n), windows: windowMats.size, windowGlow: Math.max(0, windowGlow) };
 }
 export { worldMaterials };

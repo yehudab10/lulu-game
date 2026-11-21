@@ -107,14 +107,17 @@ module.exports = {
         for (let i = 0; i < 40; i++) frame(); const rebaked = casters.filter(o => o !== hid).every(o => !o.castShadow);
         hid.visible = true;
         const backOn = casters.length >= 4;
+        // the people's shadow batch: Lulu at the wheel casts through it; off = every part one draw again
+        frame(); const bOn = frame(), bInfo = m.shadowBatchInfo(r); m.shadowBatchOn(false); const bOff = frame(); m.shadowBatchOn(true); frame();
         sm.render = so; gl.drawElements = de; gl.drawArrays = da;
-        return { on, off, info, bodyOff, frontCast: front.length > 0 && front.every(o => o.castShadow), backOn, handBack, rebaked, clouds: L3.ctx.world.clouds.children.length }; })`);
+        return { on, off, info, bodyOff, frontCast: front.length > 0 && front.every(o => o.castShadow), backOn, handBack, rebaked, clouds: L3.ctx.world.clouds.children.length, bOn, bOff, bInfo }; })`);
     t.check("MEDIUM: Lulu's car body casts through ONE shadow proxy (its parts don't cast alone)", sp.info.active >= 1 && sp.bodyOff, JSON.stringify(sp));
     t.check("…the steered front wheels still cast on their own", sp.frontCast, JSON.stringify(sp));
     t.check("…the shadow pass draws fewer calls with the proxies than without", sp.on < sp.off, `${sp.on} vs ${sp.off}`);
     t.check("…turned off, every part casts again", sp.backOn, JSON.stringify(sp));
     t.check("…a part hidden mid-drive: the others cast on their own at once, then re-bake", sp.handBack && sp.rebaked, JSON.stringify(sp));
     t.check("the sky's clouds are 16 meshes, one per cloud (was 80, one per puff)", sp.clouds === 16, String(sp.clouds));
+    t.check("MEDIUM: Lulu at the wheel casts through the people's shadow batch (fewer shadow draws than her parts alone)", sp.bInfo.parts > 0 && sp.bOn < sp.bOff, JSON.stringify({ on: sp.bOn, off: sp.bOff, info: sp.bInfo }));
     // faces (eyes, cheeks, mouths: under a shadow texel, inside the head's shadow) don't cast — Lulu's own face included
     const faces = await t.L(`(() => { let n = 0, cast = 0; __lulu3d.ctx.scene.traverse(o => { if (o.isMesh && o.material && /^(Eye|EyeShine|Cheek|Mouth)$/.test(o.material.name || "")) { n++; if (o.castShadow) cast++; } }); return { n, cast }; })()`);
     t.check("face parts (eyes / cheeks / mouths) don't cast shadows", faces.n > 0 && faces.cast === 0, JSON.stringify(faces));
