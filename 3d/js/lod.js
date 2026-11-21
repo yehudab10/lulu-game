@@ -119,7 +119,7 @@ export function lodInfo() { let far = 0, n = 0; for (const l of live) { if (!l.r
 //
 //   const sp = shadowProxy(root, { skip: o => o.name === "Driver", lod })   // skip(node): leave that subtree alone
 //   sp.dispose()                                                            // the parts cast on their own again
-const SH = { live: new Set(), cache: new Map(), mats: new Map(), on: true };
+const SH = { live: new Set(), cache: new Map(), mats: new Map(), on: true, frame: 0, dropped: 0 };
 function shMat(side) {
     let m = SH.mats.get(side);
     if (!m) { m = new THREE.MeshBasicMaterial({ side }); m.name = "ShadowProxy"; SH.mats.set(side, m); }
@@ -150,10 +150,11 @@ function shCastable(o) {
 class ShadowProxy {
     constructor(root, opts) {
         this.root = root; this.skip = opts.skip || null; this.lod = opts.lod || null;
-        this.parts = []; this.meshes = []; this.wait = 0; this.dead = false;
+        this.parts = []; this.meshes = []; this.entry = null; this.wait = 0; this.dead = false; this.drops = [];
         SH.live.add(this);
     }
-    /** Bake the parts that cast right now (cached per model: same geometries in the same layout). */
+    /** Bake the parts that cast right now (cached per layout: the same geometries at the same places — a wheel's spin
+     *  doesn't change the key, so pooled / re-baked copies share one geometry). */
     build() {
         const root = this.root;
         root.updateMatrixWorld(true);
@@ -165,23 +166,30 @@ class ShadowProxy {
             if (shCastable(o)) {
                 const side = o.material.side;
                 if (!bySide.has(side)) bySide.set(side, []);
-                const m = new THREE.Matrix4().multiplyMatrices(_inv, o.matrixWorld);
+                const m = new THREE.Matrix4().multiplyMatrices(_inv, o.matrixWorld), e = m.elements;
                 bySide.get(side).push({ o, m });
-                sig.push(o.geometry.uuid + "@" + side + ":" + m.elements.map(v => Math.round(v * 50)).join(","));
+                sig.push(o.geometry.uuid + "@" + side + ":" + Math.round(e[12] * 50) + "," + Math.round(e[13] * 50) + "," + Math.round(e[14] * 50));
             }
             for (const c of o.children) walk(c);
         };
         walk(root);
         if (sig.length < 3) return false;          // nothing to gain
         const key = sig.join("|");
-        let built = SH.cache.get(key);
-        if (!built) {
-            built = [...bySide].map(([side, list]) => ({ side, geo: shGeometry(list) })).filter(b => b.geo);
-            SH.cache.set(key, built);
-            // (bounded: models × layouts; an evicted one may still be in use — never disposed, the GC has it once unused)
-            if (SH.cache.size > 200) SH.cache.delete(SH.cache.keys().next().value);
+        let entry = SH.cache.get(key);
+        if (!entry) {
+            entry = { users: 0, built: [...bySide].map(([side, list]) => ({ side, geo: shGeometry(list) })).filter(b => b.geo) };
+            SH.cache.set(key, entry);
+            // (bounded: a handful of models × layouts; unused ones are freed — GPU memory too — past 64)
+            if (SH.cache.size > 64) for (const [k, en] of SH.cache) {
+                if (SH.cache.size <= 48) break;
+                if (en.users > 0 || en === entry) continue;
+                for (const b of en.built) b.geo.dispose();
+                SH.cache.delete(k);
+            }
         }
-        for (const b of built) {
+        entry.users++;
+        this.entry = entry;
+        for (const b of entry.built) {
             const mesh = new THREE.Mesh(b.geo, shMat(b.side));
             mesh.name = "shadowProxy";
             mesh.castShadow = true; mesh.receiveShadow = false; mesh.visible = false;
@@ -199,7 +207,17 @@ class ShadowProxy {
         this.parts.length = 0;
         for (const m of this.meshes) if (m.parent) m.parent.remove(m);
         this.meshes.length = 0;
+        if (this.entry) { this.entry.users--; this.entry = null; }
         this.wait = wait;
+    }
+    /** A part changed under the proxy: the real parts cast. A model whose parts keep changing (blinking, swapped
+     *  over and over) is left to cast on its own for a while rather than re-baked again and again. */
+    drop() {
+        const f = SH.frame;
+        SH.dropped++;
+        this.drops.push(f);
+        while (this.drops.length && f - this.drops[0] > 600) this.drops.shift();
+        this.release(this.drops.length >= 3 ? 1800 : 30);
     }
     /** Right before the shadow pass: does the proxy cast this frame? (parts that changed → the real parts cast) */
     prepare() {
@@ -212,8 +230,8 @@ class ShadowProxy {
         const root = this.root;
         for (let i = 0; i < this.parts.length; i++) {
             const o = this.parts[i];
-            if (o.castShadow) { this.release(); return false; }        // (someone switched it back on)
-            for (let a = o; a !== root; a = a.parent) if (!a || !a.visible) { this.release(); return false; }
+            if (o.castShadow) { this.drop(); return false; }        // (someone switched it back on)
+            for (let a = o; a !== root; a = a.parent) if (!a || !a.visible) { this.drop(); return false; }
         }
         return true;
     }
@@ -228,16 +246,17 @@ export function installShadowProxies(renderer) {
     const sm = renderer.shadowMap, orig = sm.render, shown = [];
     sm.render = function (lights) {
         if (!sm.enabled || !SH.on || !SH.live.size || !lights || !lights.length || (sm.autoUpdate === false && sm.needsUpdate === false)) return orig.apply(this, arguments);
+        SH.frame++;
         for (const p of SH.live) if (p.prepare()) for (const m of p.meshes) { m.visible = true; shown.push(m); }
         try { return orig.apply(this, arguments); }
         finally { for (const m of shown) m.visible = false; shown.length = 0; }
     };
 }
-/** Tests / the perf harness: { n: registered, active: baked now, parts: real meshes they stand in for, cached, on }. */
+/** Tests / the perf harness: { n: registered, active: baked now, parts: real meshes they stand in for, cached, dropped (hand-backs so far), on }. */
 export function shadowProxyInfo() {
     let active = 0, parts = 0;
     for (const p of SH.live) if (p.meshes.length) { active++; parts += p.parts.length; }
-    return { n: SH.live.size, active, parts, cached: SH.cache.size, on: SH.on };
+    return { n: SH.live.size, active, parts, cached: SH.cache.size, dropped: SH.dropped, on: SH.on };
 }
 /** Tests: every part casts on its own again (false) / proxies back on (true). */
 export function shadowProxiesOn(on) { SH.on = !!on; if (!on) for (const p of SH.live) p.release(0); }
