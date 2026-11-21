@@ -38,13 +38,13 @@ export const TUNE = {
     air: { shift: 30, buyerEvery: 6, inspectorAt: 12, inspectorChance: 0.6 },
     // the corruption scenes she can walk in on (and photograph): one every gap s while she walks in town, ≤ perRun
     corrupt: { firstAfter: 60, gap: [90, 160], perRun: 3, life: 18, near: [18, 45], photoR: 34, malkaAfter: 12 },
-    porch: { firstAfter: 45, gap: [80, 150], perRun: 2, doorMin: 12, doorMax: 45, walk: 2.4, run: 5.6, tired: 3.8, tiredAfter: 7, getaway: 55, life: 30, tackleR: 1.9, auto: 1.0 },
+    porch: { firstAfter: 45, gap: [80, 150], perRun: 2, doorMin: 12, doorMax: 45, walk: 2.4, run: 5.0, tired: 3.4, tiredAfter: 5, getaway: 70, life: 30, tackleR: 1.9, auto: 1.0 },
 };
 
 // ── charges (law.addCharge: the arrest lines, the lawyer, a courtroom event that always plays) ──
 export const CHARGES = {
     cart: {
-        key: "SHOPPING CART", name: "GRAND THEFT SHOPPING CART", weight: 1, nudge: "help",
+        key: "GRAND THEFT SHOPPING CART", name: "GRAND THEFT SHOPPING CART", weight: 1, nudge: "help",
         cop: ["A shopping cart. Down the MIDDLE of the avenue.", "Ma'am, that cart has a wobbly wheel AND a record now."],
         lulu: ["It was RETURNING itself!", "I was bringing it back. Fast."],
         defense: "my client was RETURNING the cart, your honor. Downhill. With enthusiasm. The store got it back — eventually — with only one wobbly wheel, which it always had.",
@@ -55,7 +55,7 @@ export const CHARGES = {
         ],
     },
     jaywalk: {
-        key: "JAYWALKING", name: "SERIAL JAYWALKING", weight: 1, nudge: "help",
+        key: "SERIAL JAYWALKING", name: "SERIAL JAYWALKING", weight: 1, nudge: "help",
         cop: ["The crosswalk was RIGHT THERE. I pointed at it.", "Seven times. Mid-block. Every single one."],
         lulu: ["The crosswalk was SO far. Like forty feet.", "I looked both ways! Twice!"],
         defense: "my client looked both ways, your honor — repeatedly. The crosswalk was forty feet away. Forty. Feet. In those shoes.",
@@ -65,7 +65,7 @@ export const CHARGES = {
         ],
     },
     park: {
-        key: "DOUBLE PARKING", name: "DOUBLE PARKING (\"ONE SECOND\")", weight: 1, nudge: "help",
+        key: "DOUBLE PARKING (\"ONE SECOND\")", name: "DOUBLE PARKING (\"ONE SECOND\")", weight: 1, nudge: "help",
         cop: ["Double-parked. Eleven cars stuck behind you.", "'One second', she said. It's been FORTY."],
         lulu: ["My hazards were ON!", "Everyone does it! It's practically a LANE!"],
         defense: "my client's hazards were ON, your honor. In this borough, as the court well knows, that is practically a parking permit.",
@@ -78,7 +78,7 @@ export const CHARGES = {
 
 Object.assign(CHARGES, {
     monte: {
-        key: "MONTE", name: "CONSPIRACY TO MONTE (KUGEL)", weight: 2, nudge: "help",
+        key: "CONSPIRACY TO MONTE (KUGEL)", name: "CONSPIRACY TO MONTE (KUGEL)", weight: 2, nudge: "help",
         cop: ["The SHILL. Of course you're the shill.", "Three cups and a kugel. Who's the brains here? …Don't answer."],
         lulu: ["I was just WINNING a lot!", "I didn't know it was rigged! …The third time."],
         defense: "my client was a satisfied CUSTOMER, your honor. Several times. In a row. Loudly. That is not a crime — it's enthusiasm.",
@@ -89,7 +89,7 @@ Object.assign(CHARGES, {
         ],
     },
     porch: {
-        key: "PORCH PACKAGE", name: "PORCH PACKAGE THEFT", weight: 2, nudge: "help",
+        key: "PORCH PACKAGE THEFT", name: "PORCH PACKAGE THEFT", weight: 2, nudge: "help",
         cop: ["The doorbell camera has you in 4K, miss.", "A package off a porch. With the family WATCHING."],
         lulu: ["I was holding it for safekeeping!", "It said 'deliver to: whoever'!"],
         defense: "my client merely KEPT the package from a known porch pirate, your honor. Safekeeping. She simply… forgot to give it back. For a while.",
@@ -103,7 +103,7 @@ Object.assign(CHARGES, {
 
 Object.assign(CHARGES, {
     tags: {
-        key: "MATTRESS TAG", name: "MATTRESS TAG REMOVAL", weight: 1, nudge: "help",
+        key: "MATTRESS TAG REMOVAL", name: "MATTRESS TAG REMOVAL", weight: 1, nudge: "help",
         cop: ["'UNDER PENALTY OF LAW.' It's right there ON the tag.", "Four mattresses. Four tags. One very guilty face."],
         lulu: ["They were ITCHY!", "I'm the CONSUMER! It says the consumer can!"],
         defense: "the tag says, your honor — and I quote — 'except by the consumer.' My client consumes. Constantly. Mostly kugel.",
@@ -113,7 +113,7 @@ Object.assign(CHARGES, {
         ],
     },
     herring: {
-        key: "HERRING", name: "PETTY HERRING THEFT", weight: 1, nudge: "help",
+        key: "PETTY HERRING THEFT", name: "PETTY HERRING THEFT", weight: 1, nudge: "help",
         cop: ["The GOOD herring. In wine sauce. Have you no shame?", "The kiddush club filed a complaint. All nine of them. Separately."],
         lulu: ["It was for a FRIEND!", "The cream-sauce one was RIGHT THERE and I left it!"],
         defense: "my client liberated the herring from the street, your honor — never from inside the shul. On the sidewalk, herring is, legally speaking, fair game. I think.",
@@ -123,7 +123,7 @@ Object.assign(CHARGES, {
         ],
     },
     air: {
-        key: "SELLING AIR", name: "SELLING AIR WITHOUT A PERMIT", weight: 1, nudge: "help",
+        key: "SELLING AIR WITHOUT A PERMIT", name: "SELLING AIR WITHOUT A PERMIT", weight: 1, nudge: "help",
         cop: ["Jars. Of AIR. For money.", "The inspector says you didn't have a permit. For AIR."],
         lulu: ["It's AUTHENTIC!", "People were HAPPY! One lady cried!"],
         defense: "my client sold an authentic, locally sourced product, your honor. If the court would open Exhibit A, it would smell the Garden State itself.",
@@ -133,7 +133,7 @@ Object.assign(CHARGES, {
         ],
     },
     bribery: {
-        key: "BRIBING A PUBLIC SERVANT", name: "BRIBING A PUBLIC SERVANT (MINOR)", weight: 2, nudge: "help",
+        key: "BRIBING A PUBLIC SERVANT (MINOR)", name: "BRIBING A PUBLIC SERVANT (MINOR)", weight: 2, nudge: "help",
         cop: ["A 'donation'. To the meter maid. In an ENVELOPE.", "Internal Affairs has photos, miss. Lots of them."],
         lulu: ["It was a TIP! For excellent ticketing!", "I thought it was a fundraiser!"],
         defense: "my client believed in good faith that the Meter Maid Kugel Fund was a registered charity. It has a LOGO, your honor.",
