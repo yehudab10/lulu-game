@@ -9,22 +9,24 @@
 //           the suitcase, out again; wanted at the airport (the cops come, the airport doesn't break); a 🚕 taxi run
 //   PARTY   two pages in one 🌍 Free Roam (the LOCAL relay) in Lakewood with the rain on: puddles + pigeons + an alarm
 //           on both screens, no errors
-// Set QAW_PART=town | phone | airport | party (comma list) to run some.
+// The parts run as three files on CI (a machine each): qaweekend (town + phone), qaweekend-air (airport) and
+// qaweekend-party (party). Locally QAW_PART=town | phone | airport | party (a comma list) picks some.
 const W = require("../lib/qawatch.js");
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 
-const PART = (process.env.QAW_PART || "town,phone,airport,party").split(",");
 const PORT = 28000 + (process.pid % 20000);
 const Q0 = `&enable=all&mpurl=${encodeURIComponent(`ws://127.0.0.1:${PORT}`)}`;
 
 module.exports = {
   name: "qaweekend",
+  parts: ["town", "phone"],
   viewport: { width: 390, height: 844 },
   hasTouch: true,
   query: Q0,
   save2d: { totalCoins: 300, cruiseUnlocked: true, ownedSkins: ["pink"], selectedSkin: "pink", convictions: 0, offenses: 0, wanted: [], mpName: "Kugel Kid" },
   save3d: { settings: { quality: "low" }, f: { meta: { tutorialDone: true } } },
   async run(t) {
+    const PART = process.env.QAW_PART ? process.env.QAW_PART.split(",") : this.parts;
     let relay = null;
     const guests = [];
     try {
@@ -284,7 +286,7 @@ async function phone(t) {
 async function airport(t) {
   const g = t.game;
   await t.page.setViewportSize({ width: 1280, height: 720 });
-  await t.page.goto(t.page.url().replace(/[?].*$/, "") + `?test&airport=1${Q0}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`);
+  if (!await g(`!!(ctx.airport && ctx.airport.on)`)) await t.page.goto(t.page.url().replace(/[?].*$/, "") + `?test&airport=1${Q0}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`);
   if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "airport: boots", 120000)) return;
   t.check("?airport=1 switches stage 1 on", await g(`!!(ctx.airport && ctx.airport.on)`));
   await g(`L3.startRun({ mode: "cruise", quick: true })`);
@@ -394,7 +396,7 @@ async function party(t, guests) {
   const g = t.game, Hp = hostPage(t);
   setWallCap(10 * 60000);
   await t.page.setViewportSize({ width: 960, height: 540 });
-  await t.page.goto(t.page.url().replace(/[?].*$/, "") + `?test${Q0}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`);
+  if (!await g(`ctx.state === "title"`)) await t.page.goto(t.page.url().replace(/[?].*$/, "") + `?test${Q0}&shabbosDate=2026-11-16T15:00&seasonDate=2026-11-16T12:00`);
   if (!await t.until(`window.__lulu3d && __lulu3d.state === "title"`, "party: boots", 120000)) return;
   await t.click(/Friends/);
   await t.L(`document.getElementById("pt_roam").click()`);
