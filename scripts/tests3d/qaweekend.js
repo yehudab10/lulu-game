@@ -127,6 +127,21 @@ async function town(t) {
   await t.tap(0);
   if (!await t.until(`__lulu3d.state === "playing" && !__lulu3d.ctx.foot.active`, "✋ GET IN: driving", 30000)) return;
   const c0 = await coins(t);
+  // backed up against her own house, the chase cam behind the car stays out of the house (it showed one flat colour)
+  const hc = await g(`(() => { const hp = ctx.world.road.point(30, 21, {}); let best = null; for (const ch of ctx.world.activeChunks()) for (const c of ch.colliders) if (c.kind === "house" && !c.off && c.r >= 2 && Math.hypot(c.x - hp.x, c.z - hp.z) < 14 && (!best || c.r > best.r)) best = { x: c.x, z: c.z, r: c.r }; return best; })()`);
+  if (hc) {
+    const camIn = [];
+    for (const a of [0, 0.5, -0.5]) {
+      await tp(t, `(() => { const hp = ctx.world.road.point(30, 0, {}), ux = hp.x - ${hc.x}, uz = hp.z - ${hc.z}, L = Math.hypot(ux, uz), h = Math.atan2(ux, uz) + ${a};
+        ctx.car.place(${hc.x} + ux / L * (${hc.r} + 3.0), ${hc.z} + uz / L * (${hc.r} + 3.0), h); ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.cam.snap(); return true; })()`);
+      await t.frames(20);
+      const r = await t.L(`(() => { const c = __lulu3d.ctx.camera.position; return window.__qa.solidAt(c.x, c.z, c.y, 0.05); })()`);
+      if (r) camIn.push(a + ": " + r);
+    }
+    t.check("backed up to her own house: the chase cam never sits inside it", camIn.length === 0, camIn.join(" | "));
+    await t.shot("home-backed-up");
+  }
+  await tp(t, `(() => { const p = ctx.world.road.point(40, 1.75, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = 40; ctx.car.d = 1.75; ctx.cam.snap(); return true; })()`);
   await mash(t, 240);
   t.check("out on the highway (she drove off)", await g(`ctx.state === "playing" && ctx.car.s > 30`), String(await g(`ctx.car.s`)));
   W.check(t, "home → highway", await W.report(t));
@@ -147,16 +162,19 @@ async function town(t) {
   // honk with the real touch HONK button a few times while rolling down a street
   await tp(t, `(ctx.town.debug.place("Route 9", 40, -1.75, 6, 1), ctx.cam.snap(), true)`);
   let honks = 0;
+  await t.L(`import("./js/core/ctx.js").then(m => { window.__hkN = 0; m.on("honk", () => { window.__hkN++; }); return true; })`);
   for (let i = 0; i < 6; i++) {
+    await t.L(`(window.dispatchEvent(new Event("touchstart")), 0)`); await t.frames(3);      // (her thumb is on the screen: the touch controls show)
     const ok = await t.L(`(() => { const b = document.getElementById("tHonk"); if (!b || !b.offsetParent) return false; const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
       const T = (type, list) => b.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: list, targetTouches: list, changedTouches: [new Touch({ identifier: 9, target: b, clientX: x, clientY: y })] }));
       T("touchstart", [new Touch({ identifier: 9, target: b, clientX: x, clientY: y })]); window.__th = () => T("touchend", []); return true; })()`);
     await t.frames(4);
     await t.L(`(window.__th && window.__th(), true)`);
     if (ok) honks++;
-    await t.hold(7, 0.5); await t.frames(20); await t.hold(7, 0);
+    await t.frames(20);
   }
-  t.check("the touch HONK button is there while driving (a phone)", honks > 0, `${honks} honks, crowd ${hz0}`);
+  const hkN = await t.L(`window.__hkN`);
+  t.check("the touch HONK button is there while driving (a phone) and honks", honks > 0 && hkN > 0, `${honks} taps, ${hkN} honks, crowd ${hz0}`);
   await t.shot("lakewood-rain-honk");
   // drive through a puddle
   const pd = await g(`${D}.puddle("lane") || ${D}.puddle("gutter")`);
@@ -435,6 +453,8 @@ async function party(t, guests) {
   guests.push(A);
   if (!await A.until(`ctx.party.connected && ctx.party.activity && ctx.party.activity.k === "roam" && ctx.state === "playing"`, "guest joins Free Roam", 240000)) return;
   const AW = { L: A.L };
+  await A.frames(90);
+  const gc0 = await A.L(`window.__lulu3d.wallet.coins`);     // (after joining: the day's streak gift is not the town's)
   for (const P of [Hp, A]) await P.game(`(ctx.law.hold(99999), ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.life.debug.rain(1), ctx.life.debug.cold(true), true)`);
   await W.install(t); await W.install(AW);
   for (const P of [Hp, A]) await P.game(`(ctx.town.load("lakewood"), true)`);
@@ -458,5 +478,6 @@ async function party(t, guests) {
   W.log(rh); W.log(rg);
   W.check(t, "party host in Lakewood", rh, ["jump", "nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol"]);
   W.check(t, "party guest in Lakewood", rg, ["jump", "nan", "overlay", "flat", "underground", "hidden", "stuck", "nocontrol"]);
-  t.check("party: no coins for the guest out of the town's life", (await A.L(`window.__lulu3d.wallet.coins`)) <= 50);
+  const gc1 = await A.L(`window.__lulu3d.wallet.coins`);
+  t.check("party: no coins for the guest out of the town's life (puddles, pigeons, walking about)", gc1 <= gc0, `${gc0} → ${gc1}`);
 }

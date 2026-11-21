@@ -2030,9 +2030,17 @@ function hud() {
 // ── touch: the ✋ hand button (on foot) and 🚶‍♀️ WALK (pulled over) ────────
 // (the DRIVING chase cam in a town keeps out of the houses, the blocks, the circle's statue and the trees' leaves with the
 //  same check as the free camera on foot; on the highway it's off — nothing to hit there, and no cost)
+// (ci/qaweekend: and on her own home street — the run starts there, and a kid mashing the gas from the driveway backed
+//  into the house with the chase cam inside it: one flat colour on screen. Past the first 160 m it's off again.)
 const carProbe = { s: 0 };
-on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = (tgt, dx, dy, dz, D) => { carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D); }; });
-on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = null; });
+const homeStreet = () => !ctx.world.district && ctx.world.road === ctx.world.highway && ctx.car.s < 160;
+const carClipFn = (tgt, dx, dy, dz, D) => {
+    if (!(ctx.town && ctx.town.active) && !homeStreet()) return null;
+    carProbe.s = ctx.car.s; return camClip(carProbe, tgt, dx, dy, dz, D);
+};
+on("run:start", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:enter", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
+on("town:leave", () => { if (ctx.cam) ctx.cam.carClip = carClipFn; });
 on("title", () => { if (ctx.cam) ctx.cam.carClip = null; });
 on("boot", () => {
     handBtn = addTouchButton({ id: "foot_hand", emoji: "✋", label: "HAND", action: "interact",
