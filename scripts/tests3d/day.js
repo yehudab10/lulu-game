@@ -23,8 +23,8 @@ module.exports = {
     t.check("Ima reads out today's list at the door", /Today:/.test(line) || /RIGHT THERE|suitcase/.test(line), line);
     t.check("the 📝 chip is on the HUD", /Ima's list 0\/3/.test(await g(`ctx.day.debug.chip()`)), await g(`ctx.day.debug.chip()`));
     await t.shot("list");
-    // the list is on Lulu's 📱 too: a pinned note in Messages (it never adds an app of its own;
-    // other features add apps — 📞 Phone made it 10 — so check the ids, not the count)
+    // the list is on Lulu's 📱 too: a pinned note in Messages (it never adds an app of its own, and the phone stays
+    // one 3 × 3 screen: 9 apps)
     const appIds = await g(`ctx.phone.apps()`);
     await g(`(ctx.phone.openPhone("messages"), true)`);
     await t.frames(6);
@@ -34,7 +34,7 @@ module.exports = {
     t.check("…tap it: the three items, the next one marked", await t.L(`document.querySelectorAll(".lp-chat .lp-bub").length >= 4 && /👉/.test(document.querySelector(".lp-chat").textContent)`));
     await g(`(ctx.phone.closePhone(), true)`);
     await t.frames(4);
-    t.check("…and no app of its own", Array.isArray(appIds) && !appIds.some(id => /day|list|ima/i.test(id)), String(appIds));
+    t.check("…and no app of its own (still ≤ 9 apps)", Array.isArray(appIds) && appIds.length <= 9 && !appIds.some(id => /day|list|ima/i.test(id)), `${appIds && appIds.length}: ${appIds}`);
 
     // tick the three items through their real events
     const w0 = await g(`L3.wallet.coins`);

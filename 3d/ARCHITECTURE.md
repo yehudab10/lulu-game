@@ -771,8 +771,8 @@ court → walk-out, the ER and the interiors (features/places — see Places bel
 the ER's ambulance ride-in — skipped in town, parking, Dina…) still sends her back to the highway first (`TOWN_OK`). Out of
 hearts in town stands her up on the street she crashed on, beside her car (no tow, no fade; on foot the ER can scoop her
 up now that the town has a hospital — `ctx.foot.erChance()`). The group-chat
-gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets a 🗞️ **Kvetch** app
-(order 70: the town's parody local news + what Lulu just did).
+gossip goes through `ctx.phone.text` (thread = the town's group) and the 📱 phone gets 🗞️ **Kvetch**
+(the town's parody local news + what Lulu just did) — a pinned row in 💬 Messages (`ctx.phone.addPin`, id `town`), not an app: the phone stays one 3 × 3 screen.
 **Performance:** static pieces are merged by `kit.js` into vertex-coloured 60 m clusters (one material per
 look), culled every few frames by distance and by the town's own blocks (a cluster is hidden when every
 sample point is behind another block), every bit of text is one atlas mesh,
@@ -923,7 +923,8 @@ ctx.phone.addApp({ id: "lakewood", icon: "🏘️", name: "Lakewood", order: 70,
 // optional app.back(api) → true when it handled ○ itself (a sub-view); optional color / color2 (the icon gradient)
 ctx.phone.openPhone(appId?, arg?) · ctx.phone.closePhone() · ctx.phone.isOpen · ctx.phone.apps() (visible ids)
 ```
-Orders: 🗺️ map 10 · 👯 party 15 (openworld, Free Roam only) · 💬 messages 20 · 📍 nearby 25 (openworld) · 📻 radio 30 · 💼 jobs 40 · 🎨 paint 50 · 📸 camera 60 · 📞 call 65 (community: in a town only) · 🗞️ Kvetch 70 (town) — keep the grid ≤ ~8 apps.
+Orders: 🗺️ map 10 (together's 🗺️ in a Free Roam) · 👯 party 15 (openworld, Free Roam only) · 💬 messages 20 · 📞 Phone 22 (community, everywhere) · 👯 Friends 23 (friends, outside a Free Roam) · 📍 nearby 25 (openworld) · 📻 radio 30 · 💼 jobs 40 · 🎨 paint 50 · 📸 camera 60 — **that's 9: the grid is ONE 3 × 3 screen** (tests `calls`, `onegame`, `day` check ≤ 9). Something that isn't worth a 10th app goes in 💬 Messages as a pinned row:
+`ctx.phone.addPin({ id, order?, visible?, row: () => ({ icon, color, title, sub, badge }), render(el, api) })` (under 📝 Ima's list + 🏠 My house; tap → its view above "‹ All messages"; the badge shows on the row only; `ctx.phone.pins()` = the ids showing) — 🗞️ Kvetch (town) is one.
 Styling helpers inside an app: `.btn.lp-row` (a row: `.lp-av` icon, `.lp-tx` with `<b>` + `<small>`, `.lp-meta`),
 `.lp-card`, `.lp-note`, `.lp-fine`, `.lp-empty`. **Inbox:** every `ctx.phone.text(…)` still pops the driving bubble
 AND is stored in 💬 Messages (thread = `thread` or `from`, case-insensitive; the last 50 in `store("phone")`), with
@@ -1237,7 +1238,7 @@ hosts a 🌍 Free Roam silently (`ctx.party.hostRoam()`), and answers with the p
 knocks find nobody; every friend left is owed the new name (`nb`), handed over inside her next knock at THEIR door. Names: the
 12 curated ones + `#NN` from the id (many players share a name), never free text. **Phone:** the 👯 Friends app (outside a
 party's Free Roam; inside one, openworld's 👯 has "📇 My friends list" → the same views) — playing now (▶ Join / with you) ·
-not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). The phone grid goes four across past 9 apps. **Cost:** nothing without friends; with friends one idle
+not playing · ➕ Add by code · 🚪 Who can join me · 🙈 Appear offline · ✏️ remove / block · 🚫 blocked (the 👯 app is their only home: ⚙️ Settings must fit 720p). 👯 is order 23 (after 💬 Messages + 📞 Phone); with it the phone is exactly 9 apps solo (🗞️ Kvetch moved to a pinned row in 💬 Messages) — the grid still goes four across past 9 so a 10th never falls off, but keep it one 3 × 3 screen. **Cost:** nothing without friends; with friends one idle
 socket + a burst of ≤ 30 short knocks (3 at a time) when 👯 opens. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
