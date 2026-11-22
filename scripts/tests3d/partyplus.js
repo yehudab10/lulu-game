@@ -235,6 +235,9 @@ async function partyRun(t, guests) {
       else { await g(PUT); await sleep(300); }
     }
     const fl = await hostUntil(t, HAILED, "flagging one down claims it (hail)", 5000);
+    if (!fl) console.log("   HAIL diag", JSON.stringify(await g(`(() => { const f = ctx.party._debug.flag(), c = f && ctx.traffic.cars.find(c => c.data && c.data.party === f.key);
+      return { f, kind: c && c.kind, ride: !!(c && ctx.streets && ctx.streets.rides && ctx.streets.rides[c.kind]), speed: c && +c.speed.toFixed(1), hit: c && !!c.hit, claims: ctx.party._debug.claims(), act: ctx.party.activity && ctx.party.activity.k,
+        streets: ctx.enabled("streets"), foot: ctx.foot.phase, prompt: (document.querySelector("#slot-bottom .prompt") || {}).textContent, town: ctx.town.active, st: L3.state }; })()`)).slice(0, 1500));
     if (fl) {
       const fk = JSON.stringify((await g(`ctx.party._debug.claims()`)).find(c => c.mine && c.hail && !c.dead).key);
       await A.until(`ctx.party._debug.claims().some(c => c.key === ${fk} && c.hail)`, "the guest hears the hail claim", 30000);
@@ -309,8 +312,9 @@ async function partyRun(t, guests) {
   for (const p of pages) if (!await p.until(`ctx.state === "playing" && ctx.party.activity.k === "roam"`, "free roam: GO", 90000)) return;
   for (const p of pages) {
     await p.game(`(ctx.law.hold(9999), ctx.streets.debug.CHOP.nextT = 1e9, true)`);
-    await p.until(`ctx.town.debug.S.loaded`, "town models", 90000);
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.until(`(ctx.town.load("lakewood"), ctx.town.debug.S.loaded)`, "town models", 90000);
+    await p.game(`(ctx.town.load("lakewood"), true)`); await p.until(`ctx.town.loaded("lakewood")`, "Lakewood's models", 120000);   // (Lakewood isn't the first exit any more: load it)
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     await p.until(`ctx.town.active && ctx.openworld.zone === "lakewood"`, "in Lakewood", 90000);
   }
   const fr1 = await g(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`), fr2 = await A.game(`({ rests: ctx.exits.rests.map(r => Math.round(r.s)), exits: ctx.town.exits.map(e => Math.round(e.s)) })`);
