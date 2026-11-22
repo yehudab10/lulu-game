@@ -466,8 +466,9 @@ function endGameNow() {
 const SPOT_NAMES = { pizza: "🍕", hall: "💍", yeshiva: "📚", chair: "🪑", lake: "🦢", welcome: "🪧", construction: "🏗️", construction2: "🏗️", band: "🎺",
     precinct: "🚓", court: "⚖️", hospital: "🏥", impound: "🚧",   // (features/places: the civic buildings)
     dealer: "🚗", makolet: "🛒",   // (features/shops: Uncle Moishe's lot, the makolet — already listed by their town signs; their icons)
-    realty: "🏘️" };   // (features/realestate: the realtor's office)
-const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane" };
+    realty: "🏘️",   // (features/realestate: the realtor's office)
+    cityhall: "🏛️" };   // (features/cityhall: city hall)
+const SPOT_FALLBACK = { chair: "the one free parking spot", lake: "the lake (mind the geese)", welcome: "the WELCOME sign", band: "the band bus", construction: "the crane", construction2: "the other crane", cityhall: "City Hall" };
 function spotName(key, plan) {
     const S = plan && plan.def && plan.def.lines && plan.def.lines.SIGNS;
     const sign = S && (S[key] || (key === "band" && S.bandBus));

@@ -23,6 +23,7 @@ import { addCoins } from "../../core/driving.js";
 import { store, saveSoon } from "../../core/save.js";
 import { input, addTouchButton } from "../../input.js";
 import * as H from "../../hud.js";
+import "./missions.js";          // 👯 › Missions: the crimes for two as invitations (ctx.group.invitable)
 
 const TM = ctx.TEST ? 3 : 1;
 export const PAY = {

@@ -17,6 +17,7 @@
 // (as from the Belt Parkway).
 import * as L from "./midwood-lines.js";
 import { dealerUse } from "../../shops/lot.js";
+import { cityhallUse } from "../../cityhall/place.js";
 
 // the grid
 const OP = -250, E8 = -165, CIA = -80, E15 = 5, RAIL = 45, E16 = 85, OA = 175;
@@ -61,7 +62,7 @@ export default {
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
         "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
-        "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
+        "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia", s: "cityhall" } },
         "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts", w: "luluHome" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
         "2,Kings Hwy": { faces: { s: "kh", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
@@ -100,6 +101,8 @@ export default {
         realty: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
             tints: { Walls: "#7B4A3A", Awning: "#1B3A2B" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
             with: [{ key: "town_mw_store", u: -10.5, list: "avem" }, { key: "town_mw_store", u: 10.5, list: "avem" }, { key: "town_mw_store", u: -21, list: "avem" }, { key: "town_mw_store", u: 21, list: "avem" }] },
+        // features/cityhall (roadmap 17): Midwood Borough Hall on Avenue K, across from the precinct + courthouse, a house either side
+        cityhall: cityhallUse("midwood", { with: [{ key: "town_mw_house", u: -21 }, { key: "town_mw_house", u: 21 }] }),
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [
