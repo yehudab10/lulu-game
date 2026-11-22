@@ -4,12 +4,12 @@
 // closed to other cars); the controller drives her real car under the lot governor; the autopilot (the tests' route
 // helper, the real physics) parallel-parks a level and pulls out into the lane for the next; scoring + the shared save fields as 2D;
 // a fail (ram a parked car: −1 life, the grandpa); running out of lives ends the run with the attendant's board and no
-// card; driving out of the course / ❚❚ › Leave ends it; every one of the ten levels is parked by the autopilot; the
-// QA watchdog sees no cut in or out; the HUD chip fits a phone both ways + TV.
-// Parts: PARKING_PART=basic,levels,layouts (default: all).
+// card; driving out of the course / ❚❚ › Leave ends it; the QA watchdog sees no cut in or out; the HUD chip fits a
+// phone both ways + TV. (Every one of the ten levels, driven by the autopilot: parking-levels.js — its own CI machine.)
+// Parts: PARKING_PART=basic,layouts (default: both).
 const W = require("../lib/qawatch.js");
 const S = `__lulu3d.ctx.parking._debug`;
-const PARTS = (process.env.PARKING_PART || "basic,levels,layouts").split(",");
+const PARTS = (process.env.PARKING_PART || "basic,layouts").split(",");
 module.exports = {
   name: "parking",
   save2d: { totalCoins: 1500, ownedSkins: ["pink", "purple"], selectedSkin: "purple" },
@@ -141,22 +141,6 @@ module.exports = {
       await t.L(`document.querySelector('[data-pi="parkLeave"]').click()`);
       t.check("…→ plain driving, right where she is", await t.until(`__lulu3d.state === "playing"`, "left via pause", 4000) && await g(`ctx.parking._debug.endStats.why === "quit"`));
       await t.frames(30);
-    }
-
-    if (PARTS.includes("levels")) {
-      // ── every level, driven: the autopilot parks 1 → 10 and drives back to the box between them ──
-      await t.L(`(() => { const s = JSON.parse(localStorage.getItem("luluSaveV2")); s.parkingUnlocked = true; localStorage.setItem("luluSaveV2", JSON.stringify(s)); })()`);
-      await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.parkingUnlocked = true; }), true))`);
-      await g(`ctx.parking.debug.autopark(true)`);
-      if (!await startHere("a fresh run")) return;
-      const done = await t.until(`__lulu3d.state === "playing" && ${S}.endStats && ${S}.endStats.why !== "quit"`, "ten levels", 900000);
-      const es = await g(`ctx.parking._debug.endStats`);
-      const res = await g(`ctx.parking._debug.lives`);
-      t.check("the autopilot parks all ten levels (each one reachable + completable on the real lot)", done && es && es.victory === true, JSON.stringify({ es, lives: res }));
-      const s4 = await t.L(`JSON.parse(localStorage.getItem("luluSaveV2"))`);
-      t.check("…best level 10 in the shared save", s4.parkingBestLevel === 10, String(s4.parkingBestLevel));
-      await g(`ctx.parking.debug.autopark(false)`);
-      await t.shot("all-ten");
     }
 
     if (PARTS.includes("layouts")) {
