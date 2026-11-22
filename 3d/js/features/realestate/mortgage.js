@@ -175,9 +175,9 @@ function buildDesk(rt) {
     box(0.08, 0.14, 0.08, "#263238", x - 0.55, 0.87, z - 0.1);
     box(0.1, 0.1, 0.1, "#B71C1C", x - 0.2, 0.85, z - 0.15);
     box(0.04, 1.2, 0.04, "#455A64", x - 0.62, 1.4, z - 0.35); box(0.04, 1.2, 0.04, "#455A64", x + 0.62, 1.4, z - 0.35);
-    const desk = K.build("MortgageDesk");
-    desk.traverse(o => { if (o.isMesh) rt.own(o.geometry); });
-    rt.add(desk);
+    const deskMesh = K.build("MortgageDesk");
+    deskMesh.traverse(o => { if (o.isMesh) rt.own(o.geometry); });
+    rt.add(deskMesh);
     // the sign on a stand: MORTGAGES
     const c = document.createElement("canvas"); c.width = 512; c.height = 128; const g = c.getContext("2d");
     g.fillStyle = "#004D40"; g.fillRect(0, 0, 512, 128); g.fillStyle = "#FFD54F"; g.font = "bold 54px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🏦 MORTGAGES", 256, 50);
