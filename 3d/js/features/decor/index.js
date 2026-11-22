@@ -276,6 +276,8 @@ function slotSpot(id) {
     };
 }
 on("boot", () => {
+    // (her house is on a Midwood street — roadmap 14: its inside plays IN the town, the town standing outside)
+    if (ctx.town && ctx.town.allowState) ctx.town.allowState("interior");
     try { outsideInit(); } catch (e) { console.error("[decor] outside", e); }
     if (ctx.foot && ctx.foot.addSpot) {
         ctx.foot.addSpot(doorSpot);
