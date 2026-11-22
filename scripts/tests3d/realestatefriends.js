@@ -93,13 +93,20 @@ async function body(t, guests) {
   await A.until(`ctx.state === "footRun"`, "guest back out", 30000);
   await Hp.until(`ctx.state === "footRun"`, "host back out", 30000);
 
-  // ── a double booking: both signed the same home; the earlier one keeps it ──
+  // ── a double booking: both signed the same home → exactly one keeps it, the other gets every coin back ──
+  // (with the world-wide registry up — the test's relay has it — the SERVER decides: the first claim to reach it; without
+  //  it, the friends' rule: the earlier signature)
   const id2 = await g(`ctx.realestate.listings().map(r => r.id).find(x => x !== ${ID})`), ID2 = JSON.stringify(id2);
-  const c1 = await A.game(`L3.wallet.coins`);
+  const srv = (await g(`ctx.realestate.debug.SV.on`)) && (await A.game(`ctx.realestate.debug.SV.on`));
+  const c1 = await A.game(`L3.wallet.coins`), h1 = await g(`L3.wallet.coins`);
   await A.game(`(L3.wallet.add(-1000), ctx.realestate.registry.claim(${ID2}, { town: "lakewood", address: "the same house", paid: 1000, since: Date.now() }).ok)`);
-  await g(`ctx.realestate.registry.claim(${ID2}, { town: "lakewood", address: "the same house", paid: 1000, since: Date.now() - 600000 }).ok`);
-  if (!await A.until(`!ctx.realestate.owns(${ID2})`, "guest: double-booked → the later signature lets go", 60000)) return;
-  await A.frames(40);
-  t.check("…the earlier one (the host) keeps it", await g(`ctx.realestate.owns(${ID2})`));
-  t.check("…and the guest gets every coin back", Math.abs((await A.game(`L3.wallet.coins`)) - c1) < 1, `${c1} → ${await A.game(`L3.wallet.coins`)}`);
+  await g(`(L3.wallet.add(-1000), ctx.realestate.registry.claim(${ID2}, { town: "lakewood", address: "the same house", paid: 1000, since: Date.now() - 600000 }).ok)`);
+  const one = async () => (await g(`ctx.realestate.owns(${ID2})`)) !== (await A.game(`ctx.realestate.owns(${ID2})`));
+  let settled = false;
+  for (let k = 0; k < 60 && !settled; k++) { await t.frames(30); settled = await one(); }
+  await t.frames(120);           // (and it stays settled: nobody lets go a second time)
+  const hk = await g(`ctx.realestate.owns(${ID2})`), ak = await A.game(`ctx.realestate.owns(${ID2})`);
+  t.check(`double-booked (${srv ? "the world registry decides" : "friends: the earlier signature"}): exactly one keeps it`, settled && hk !== ak && (srv || hk), JSON.stringify({ srv, host: hk, guest: ak, hl: await g(`ctx.realestate.debug.S.log.slice(-2)`), gl: await A.game(`ctx.realestate.debug.S.log.slice(-2)`) }));
+  const hc = await g(`L3.wallet.coins`), ac = await A.game(`L3.wallet.coins`);
+  t.check("…and the one who let go gets every coin back", hk ? ac === c1 && hc === h1 - 1000 : hc === h1 && ac === c1 - 1000, JSON.stringify({ host: [h1, hc], guest: [c1, ac] }));
 }

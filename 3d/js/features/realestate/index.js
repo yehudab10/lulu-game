@@ -33,7 +33,7 @@ import { catalogue, lookup, valueOf, isListed, listings, today, CLOCK, CAT } fro
 import { layout, counts, clear as clearSigns } from "./signs.js";
 import { bindOffice, nameOffice, realtorOf, OFFICE_DEF } from "./office.js";
 import { bindHouse, nameHouse, CUR, HOUSE_DEF } from "./house.js";
-import { finalize } from "./deal.js";
+import { finalize, log } from "./deal.js";
 import { pickPaged } from "./pager.js";
 import * as MG from "./mortgage.js";
 import * as RN from "./rent.js";
@@ -465,6 +465,7 @@ function refundLost(id, by) {
     delete S.mortgage[id]; delete S.rent[id]; delete S.decor[id];
     registry.release(id, "doubleBooked");
     if (back) wallet.add(back);
+    log({ ev: "doubleBooked", id, n: back, via: "server" });
     saveSoon();
     emit("realestate:owner", { id, from: "lulu", to: null, price: back, why: "doubleBooked", address: h.address, town: h.town });
     text(`OY. ${by || "Someone"} signed for ${h.address} before your paperwork reached the registry. Double-booked! Every coin's back — ${fmt(back)}. Come see me, I'll find you something BETTER. 💕`, h.town);

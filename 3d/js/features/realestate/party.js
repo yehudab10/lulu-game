@@ -15,6 +15,7 @@ import { ctx, emit } from "../../core/ctx.js";
 import { wallet, saveSoon } from "../../core/save.js";
 import { registry, S } from "./registry.js";
 import { log } from "./deal.js";
+import { SV } from "./server.js";
 
 const TOWN_L = { lakewood: "l", midwood: "m" }, L_TOWN = { l: "lakewood", m: "midwood" };
 const P = { cache: new Map(), at: 0, sent: "" };      // id → { uid, name, hex, since }
@@ -52,10 +53,11 @@ export function tick() {
     let changed = next.size !== P.cache.size;
     if (!changed) for (const [id, o] of next) { const q = P.cache.get(id); if (!q || q.uid !== o.uid) { changed = true; break; } }
     P.cache = next;
-    // a double booking: the earlier buyer keeps it
+    // a double booking: the earlier buyer keeps it — unless the world-wide registry is up: then the SERVER decides (the
+    // first claim to reach it), and the loser is refunded by server.js (two rules at once could make BOTH let go)
     for (const [id, o] of next) {
         const h = registry.get(id);
-        if (!h) continue;
+        if (!h || SV.on) continue;
         const mineT = EPOCH + Math.max(0, Math.floor(((h.since || 0) - EPOCH) / 60000)) * 60000;
         const iWin = mineT < o.since || (mineT === o.since && String(ctx.party.uid) < String(o.uid));
         if (iWin) continue;
