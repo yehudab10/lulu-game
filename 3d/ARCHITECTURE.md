@@ -418,7 +418,8 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
     the world ~20 s is forgotten and `Person.update()` registers her again if she comes back. Parts are added in
     material order (what three's opaque sort did), so a face patch still lands on the head. `peopleBatchInfo()` /
     `peopleBatchOn(false)` for tests. Same-frame A/B (test `batches`): ≤ 16 of 518k pixels differ — single edge pixels
-    where float rounding moves a triangle edge one pixel (`--shots` saves those spots ×8).
+    where float rounding moves a triangle edge one pixel (`--shots` saves those spots ×8). A recompile asked of every
+    material (the tier change turning shadows on / off) is not a change of kind: people stay batched.
   * **The chunks' slot batches** (`merge.js` › `SlotBatch`, `world.slotBatch(mat)`): every highway chunk's road,
     shoulders, driveways and sign metal were a draw call each (~4–6 a chunk). Now `Chunk.addPiece(geo, mat, { owner })`
     puts each piece in a reserved slot of ONE `BatchedMesh` per material (drawn with a copy of the material kept in step
@@ -443,6 +444,28 @@ went), roadevents' zones slide past interchanges and rest areas, and `exits.js` 
     filling pass — and that garbage is gone); `build.js` › `col()` / `parkedCar` / `addColored` allocate per call
     (a parked car = a full `cloneWithColors` of the model + a fresh `PlaneGeometry`). Left to `ci/exits2`
     (AGENTS §7 › Performance).
+
+  Measured `?nobatch` vs batch 4 on ONE CI machine, the same page, alternating OFF / ON / OFF / ON (averages; the perf
+  harness, `PERF3D_ADD=all`, 60 frames a scene, 1280×720, software GL; main c. 7bb043e + hudfit). Draws per frame
+  (± a few draws between runs from road events); render JS = the median ms three.js spends issuing a frame:
+
+  | scene | LOW draws | MEDIUM real draws (gl) | MEDIUM shadow-pass draws | LOW render JS (median ms) |
+  |---|---|---|---|---|
+  | cruise (by Lulu's house) | 153 → 146 (−5 %) | 212 → 188 (−11 %) | 28 → 17 (−39 %) | 3.7 → 4.2 |
+  | highway (open road) | 257 → 229 (−11 %) | 325 → 288 (−11 %) | 67 → 58 (−13 %) | 5.7 → 5.6 |
+  | towndrive (Lakewood) | 163 → 149 (−8 %) | 197 → 188 (−5 %) | 36 → 28 (−22 %) | 7.0 → 6.7 |
+  | townfoot (Lakewood) | 161 → 136 (−16 %) | 205 → 190 (−7 %) | 30 → 31 | 5.3 → 6.1 |
+  | middrive (Midwood) | 141 → 145 (+3 %, content) | 194 → 177 (−9 %) | 39 → 31 (−21 %) | 4.5 → 6.4 |
+  | midfoot (Midwood) | 164 → 154 (−6 %) | 226 → 195 (−14 %) | 33 → 32 | 5.0 → 6.4 |
+  | tee (the interchange) | 260 → 241 (−8 %) | 299 → 268 (−10 %) | 37 → 30 (−19 %) | 6.6 → 7.2 |
+  | attached (Lakewood from the highway) | 189 → 172 (−9 %) | 221 → 205 (−7 %) | 41 → 33 (−20 %) | 6.7 → 7.2 |
+  | foot (on the highway) | 272 → 194 (−29 %) | 298 → 233 (−22 %) | 39 → 39 | 5.9 → 5.8 |
+
+  The wall-clock frame is the same (±3 %) in software GL, where a draw call costs the driver very little; on a phone's
+  driver each saved call is worth far more. Render JS in the towns is ~0.5–1 ms higher in software GL (it was +1–2 ms
+  before two fixes: the per-part material check was a 12-key compare — now `material.version` — and the slot batches
+  re-uploaded their matrices every frame); what's left is mostly the people batches' per-frame texture uploads (4
+  batches × matrices + draw list) — see AGENTS §7 › Performance.
 
 ## Traffic (`js/traffic.js`)
 `registerKind(name, { len, halfW, circles, r, mass, model, paint | colors })`.

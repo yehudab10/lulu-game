@@ -3,6 +3,14 @@
 Plain-English log of everything that landed on lulu.boats while the owner was offline. Newest first.
 Work is checked hourly and restarted automatically if a usage limit or a machine restart stops it.
 
+- 2026-11-22 00:30 UTC — ⚡ Smoother on phones, part 4: the people walking around (on the highway, by Lulu's house, in town,
+  round a roadside event) used to be drawn piece by piece — about 13 drawing steps each, head, arms, legs, clothes. Now
+  everyone is drawn together in a handful of steps, still walking, waving and turning exactly as before. The road
+  itself, its gravel edges, the driveways, the metal of the road signs and the power lines along the highway are now
+  drawn in one go each too, and Lulu's hair and the car's front wheels joined last week's "everyone's shadow in one go".
+  On foot on the highway that's about a third fewer drawing steps, on the open highway about a tenth fewer. It looks
+  the same (checked picture by picture). Also found where the little stutter when a town appears comes from and wrote
+  it down for whoever works on the towns next.
 - 2026-11-21 (evening) — 🍃 The town feels alive, part 3: as the sun goes down in Lakewood and Midwood the houses' windows now
   light up a few at a time — each house when its family gets home, room by room, warm lamp light (some with the curtains half
   drawn, now and then the blue flicker of a TV) — and late at night some go dark again for bedtime; at dawn they switch off. On a
