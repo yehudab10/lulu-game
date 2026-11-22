@@ -2,7 +2,7 @@
 // card unlocks it (1,000 shared coins) and MARKS the course (no teleport); pulling into the START box starts level 1 —
 // the "parking" state is a DRIVING state in the world (no separate scene: the highway traffic keeps going, the lot is
 // closed to other cars); the controller drives her real car under the lot governor; the autopilot (the tests' route
-// helper, the real physics) parallel-parks a level and drives back to the box; scoring + the shared save fields as 2D;
+// helper, the real physics) parallel-parks a level and pulls out into the lane for the next; scoring + the shared save fields as 2D;
 // a fail (ram a parked car: −1 life, the grandpa); running out of lives ends the run with the attendant's board and no
 // card; driving out of the course / ❚❚ › Leave ends it; every one of the ten levels is parked by the autopilot; the
 // QA watchdog sees no cut in or out; the HUD chip fits a phone both ways + TV.
@@ -100,8 +100,8 @@ module.exports = {
         s3.parkingBestLevel === 1 && s3.parkingTotalStars === stars && (s3.parkingPerfectRuns || 0) === (stars === 3 ? 1 : 0), JSON.stringify([s3.parkingBestLevel, s3.parkingTotalStars, s3.parkingPerfectRuns]));
       t.check("the attendant holds up the result board (no card)", await g(`!!ctx.parking._debug.board && !(L3.H && L3.H.screenOpen && L3.H.screenOpen())`));
       await t.tap(0);   // ✕ skips the result
-      t.check("✕ → back to the START box for level 2", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "box", 6000));
-      t.check("…the autopilot drives her back and level 2 is set out", await t.until(`${S}.level === 2 && ${S}.phase === "drive"`, "level 2", 60000));
+      t.check("✕ → pull out into the lane for level 2", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "box", 6000));
+      t.check("…the autopilot backs out of the bay into the lane, and level 2 is set out round her", await t.until(`${S}.level === 2 && ${S}.phase === "drive"`, "level 2", 60000));
       await g(`ctx.parking.debug.autopark(false)`);
 
       // ── a fail: ram a parked car ──
@@ -115,7 +115,7 @@ module.exports = {
       t.check("the angry grandpa storms over", await g(`!!ctx.parking._debug.angry`));
       await t.shot("crash");
       await t.tap(0);
-      t.check("…back to the box to retry the same level", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "retry", 6000));
+      t.check("…pull out to retry the same level", await t.until(`${S}.phase === "box" && ${S}.level === 2`, "retry", 6000));
 
       // ── out of lives: no card — the attendant's board, one line, she's just driving again ──
       if (!await startHere("level 2 again")) return;

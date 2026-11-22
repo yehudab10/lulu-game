@@ -1276,8 +1276,8 @@ parked cars — real clones, dents on their bodywork —, the security cameras o
 the semis 7+ who stop for her, Sasquatch on the sidewalk at 10), popping in with a puff; the attendant whistles. Scoring exactly
 2D (★★★ no contact · ★★ no car touched · ★ dinged; level × 25 + 15/★; a hard hit / the pedestrian / a car cutting through /
 the clock → CRASH, −1 of 3 lives, the grandpa). **Between levels no card**: the attendant holds up a board (a sprite: the stars +
-coins / CRASH) + one toast, and she drives back to the START box (a beacon) for the next level; the props re-set when she stops
-there. After 10 / the last life: the board shows the run + one line, and she's in `playing` again. Driving out of the course or
+coins / CRASH) + one toast, and she pulls out into the lane and stops (a beacon) — the crew re-sets the course round her for
+the next level (the START box is for level 1). After 10 / the last life: the board shows the run + one line, and she's in `playing` again. Driving out of the course or
 ❚❚ › Leave the Parking Challenge ends it. HUD: one chip in the left slot (`.day-chip.park-chip`: LVL · ♥ · ★ · 💰 · ⏱ + the level
 name), the hints / HOLD STILL TO PARK on the prompt line, the level card as the HUD banner, the red low-time vignette and bump
 flash (`hud.js`). 🎥 cycles Lot cam (higher + further back, eased behind her heading, reversing doesn't swing it) · Overhead (her
@@ -1285,7 +1285,7 @@ flash (`hud.js`). 🎥 cycles Lot cam (higher + further back, eased behind her h
 **The roadside pull-over is retired** (the highway has no kerb to park at and its lanes can't be closed while she manoeuvres;
 stopping on the shoulder still gets her out and walking) — with it the Shared Road party lot (`pose()` → null). Ads: there's no
 card, so no ad. Test: `scripts/tests3d/parking.js` (`PARKING_PART=basic,levels,layouts`; `debug.autopark()` — a real reverse
-parallel park with the car's physics, both directions, and the drive back to the box — parks all ten levels).
+parallel park with the car's physics, both directions, and the pull-out between levels — parks all ten levels).
 
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at

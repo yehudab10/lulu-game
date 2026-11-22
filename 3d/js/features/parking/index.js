@@ -13,8 +13,8 @@
 //    from a stop, a higher lot camera (🎥 cycles Lot cam · Overhead · Chase). Scored EXACTLY like 2D: ★★★ no contact
 //    at all · ★★ no car touched · ★ dinged something; level × 25 + 15/★ coins; ram a car hard, roll into the
 //    pedestrian, hit a car cutting through or run out the clock → CRASH! −1 of 3 lives (and the angry grandpa).
-//  • BETWEEN LEVELS no card: the attendant holds up a board (the stars + coins, or CRASH) and she drives back to the
-//    START box for the next one. After level 10 / the last life: the board shows the run, one line, and she's just
+//  • BETWEEN LEVELS no card: the attendant holds up a board (the stars + coins, or CRASH); she pulls out of the bay into
+//    the lane and stops, and the crew re-sets the course round her for the next level (the START box is for level 1). After level 10 / the last life: the board shows the run, one line, and she's just
 //    driving again. Driving out of the course (or ❚❚ › Leave the challenge) ends it.
 //  • The old roadside PULL-OVER (its own lot scene) is RETIRED: the highway has no kerb to park at and the lanes can't
 //    be closed while she manoeuvres; stopping on the shoulder still gets her out and walking (features/foot).
@@ -52,8 +52,8 @@ const CAM_NAMES = ["Lot cam", "Overhead", "Chase cam"];
 const FAIL_MSGS = { timeout: "Out of time!", pedestrian: "You bumped a pedestrian!", parked: "You dinged the other car!", traffic: "You hit a car cutting through!" };
 const LINES = {
     go: ["Nice and easy. Like your Bubbe parks.", "Between the two cars. Not ON them.", "Tighter than last time. You got this!", "No dents, no drama."],
-    yay: ["Beautiful! Next one's tighter.", "Textbook! Back to the start, sweetheart.", "Now THAT'S parking.", "My clipboard is impressed."],
-    nay: ["Oy. Back to the start — try again.", "He's not happy. I'm not happy. Go again.", "Gently! It's a car, not a bumper car."],
+    yay: ["Beautiful! Next one's tighter.", "Textbook! Pull out for the next one, sweetheart.", "Now THAT'S parking.", "My clipboard is impressed."],
+    nay: ["Oy. Pull out and try again.", "He's not happy. I'm not happy. Go again.", "Gently! It's a car, not a bumper car."],
     win: ["ALL TEN! I'm putting your picture on the booth. 🏆"],
     over: ["That's the run. Come back any time — I'm always here.", "Good effort! Pull up again when you're ready."],
     left: ["Leaving already? The course isn't going anywhere."],
@@ -406,7 +406,10 @@ function buildLevel() {
     }
     if (S.level >= 6) {
         const ct = cartModel();
-        ct.position.set(-3 + Math.random() * 6, 0, zz1 + 2.2 + Math.random() * 1.5);
+        const me = local(c, _b);
+        let cx = 0, cz = 0;
+        for (let k = 0; k < 12; k++) { cx = -8 + Math.random() * 16; cz = zz1 + 2.2 + Math.random() * 1.5; if (Math.hypot(cx - me.x, cz - me.z) > 3.8) break; }
+        ct.position.set(cx, 0, cz);
         ct.rotation.y = Math.random() * Math.PI * 2;
         G.add(ct); pop(ct);
         L.cones.push({ obj: ct, r: 0.5, knocked: false, v: new THREE.Vector3(), spin: new THREE.Vector3(), rest: false, y0: 0, kind: "cart" });
@@ -917,10 +920,12 @@ function updateResult(dt, P) {
         S.level++;
     } else if (S.lives <= 0) { endRun("lives"); return; }
     S.phase = "box"; S.t = 0; S.boxT = 0;
-    say(c, S.result === "success" ? "Back to the START box — next one!" : pick(LINES.nay), 2.6);
+    say(c, S.result === "success" ? "Pull out into the lane — next one's tighter!" : pick(LINES.nay), 2.6);
 }
 
-// ── back to the START box for the next level ───────────────────────────────
+// ── between levels: pull out into the lane and stop — the crew re-sets the course round her ─────────
+const LANE_Z = 7.2;
+const inLane = lc => lc.z > LANE_Z && lc.z < CO.COURSE.farZ && lc.x > CO.COURSE.x0 + 1.5 && lc.x < CO.COURSE.x1;
 function updateBox(dt, P) {
     drive(dt, P);
     if (leftCourse()) return;
@@ -931,11 +936,10 @@ function updateBox(dt, P) {
     updatePed(dt, false, lc);
     updateTraffic(dt, lc);
     animateLevel(dt);
-    const p = CO.startPoint(S.c);
-    beacon("parkBox", p.x, p.z, "#1E88E5", 2.0, 8);
-    const there = inBox(lc);
+    const there = inLane(lc);
+    if (!there) { const p = CO.toWorld(S.c, clamp(lc.x, -6, 6), 9.6, _b); beacon("parkBox", p.x, p.z, "#1E88E5", 2.0, 8); } else hideBeacon("parkBox");
     S.boxT = there && ctx.car.speed < 0.6 ? S.boxT + dt : 0;
-    H.prompt(there ? "🅿️ Stop in the box…" : `🅿️ Level ${S.level} — back to the START box by the attendant`);
+    H.prompt(there ? `🅿️ Level ${S.level} — stop here…` : `🅿️ Level ${S.level} — pull out into the lane and stop`);
     if (S.boxT >= BOX_STOP) { hideBeacon("parkBox"); H.prompt(""); S.phase = "setup"; S.t = 0; S.built = false; }
 }
 
@@ -1075,7 +1079,7 @@ on("run:start", () => { S.mark = null; hideBoard(); clearOffer(); });
 // ── the tests' autopilot: a real reverse parallel park with her car's own physics (the "controls" hook, like the
 //    banter autopilot), facing either way along the row — A: along the lane to beside the front car (backing up if
 //    she's past it) · B: reverse, full lock, the tail swings in · C: reverse, counter-lock, straight · D: ease to the
-//    bay's middle and stop. Between levels it drives her back to the START box. Debug only: never on outside a test.
+//    bay's middle and stop. Between levels it backs out and pulls into the lane. Debug only: never on outside a test.
 const WB = 2.56;
 hook("controls", ctl => {
     if (!S.autoAll || !S.active || ctx.state !== "parking") return;
@@ -1092,7 +1096,7 @@ hook("controls", ctl => {
     };
     if (S.phase === "box") {
         const away0 = Math.sign(-Math.sin(lc.h)) || 1;              // +1: facing −X
-        const A = S.boxAuto || (S.boxAuto = { w: 0, away: away0, st: lc.z < 5.2 && S.L ? "u1" : "go" });
+        const A = S.boxAuto || (S.boxAuto = { away: away0, st: lc.z < 5.2 && S.L ? "u1" : "u2" });
         const away = A.away;
         if (A.st === "u1") {
             // in the bay: back up to the car behind (a little room to swing out)
@@ -1103,18 +1107,12 @@ hook("controls", ctl => {
             return;
         }
         if (A.st === "u2") {
-            // pull out: full lock toward the lane
-            ctl.steer = -away; speed(0.9);
-            if (lc.z > 6.4) A.st = "go";
+            // pull out: full lock toward the lane, then stop there
+            ctl.steer = lc.z > 6.2 ? 0 : -away; speed(0.9);
+            if (lc.z > LANE_Z + 0.5) A.st = "stop";
             return;
         }
-        const pts = [[lc.x - away * 5, 9.5], [CO.COURSE.start.x, CO.COURSE.start.z]];
-        if (A.w === 0 && !A.p) A.p = pts[0];
-        const tgt = A.w === 0 ? A.p : pts[1];
-        const d = Math.hypot(tgt[0] - lc.x, tgt[1] - lc.z);
-        if (A.w === 0 && d < 1.5) A.w = 1;
-        if (A.w === 1 && inBox(lc) && Math.hypot(lc.x - tgt[0], lc.z - tgt[1]) < 1.2) { speed(0); ctl.steer = 0; return; }
-        pursue(tgt[0], tgt[1], A.w === 1 && d < 3.5 ? 0.7 : 1.8);
+        speed(0); ctl.steer = 0;
         return;
     }
     S.boxAuto = null;
@@ -1133,13 +1131,21 @@ hook("controls", ctl => {
         if (ax * dir > 0 && Math.abs(ax) < 4.6 && sd < 2.0) { speed(0); return; }
     }
     if (A.phase === "A") {
-        const left = sgn * (lc.x - xA);
-        const back = left < -0.15;
-        const eps = sgn * clamp((zA - lc.z) * 0.45, -0.7, 0.7) * (back ? -1 : 1);
+        // forward along the lane to a little past the front car, lined up with the lane
+        const xS = xA - sgn * 4.0, left = sgn * (lc.x - xS);
+        const eps = sgn * clamp((zA - lc.z) * 0.45, -0.7, 0.7);
         const err = wrapAngle(lc.h - (hT + eps));
-        ctl.steer = clamp((back ? -err : err) * 2.6, -1, 1);
-        speed(left > 2.5 ? 2.0 : left > 0.15 ? 0.8 : left < -2.5 ? -1.8 : back ? -0.8 : 0);
-        if (Math.abs(left) <= 0.15 && Math.abs(v) < 0.08) { A.phase = "B"; tr(A, lc); }
+        ctl.steer = clamp(err * 2.6, -1, 1);
+        speed(left > 2.5 ? 2.0 : left > 0.15 ? 0.8 : 0);
+        if (left <= 0.15 && Math.abs(v) < 0.1) { A.phase = "A2"; tr(A, lc); }
+    } else if (A.phase === "A2") {
+        // back up to beside the front car, keeping the line
+        const left = sgn * (xA - lc.x);
+        const eps = -sgn * clamp((zA - lc.z) * 0.45, -0.5, 0.5);
+        const err = wrapAngle(lc.h - (hT + eps));
+        ctl.steer = clamp(-err * 2.6, -1, 1);
+        speed(left > 1.2 ? -1.2 : left > 0.1 ? -0.5 : 0);
+        if (left <= 0.1 && Math.abs(v) < 0.08) { A.phase = "B"; tr(A, lc); }
     } else if (A.phase === "B") {
         ctl.steer = sgn; speed(-1.1);
         corners(lc, CORN);
