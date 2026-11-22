@@ -230,6 +230,14 @@ module.exports = {
       t.check("🔑 → straight inside her own house", await roomReady() && (await g(`ctx.realestate.debug.CUR.mode`)) === "owner");
       const R = await g(`(() => { const r = window.__interiors.room; return { realtor: !!r.byId.realtor, hots: r.hots.map(h => h.id) }; })()`);
       t.check("…empty and hers (no realtor, no residents, boxes to unpack)", !R.realtor && R.hots.includes("boxes"), JSON.stringify(R));
+      // ci/hometown: "🏠 Start my days here" → ctx.home.startAt is this house
+      if (await g(`!!(ctx.home && ctx.home.setStartAt)`)) {
+        t.check("🏠 Start my days here is a hotspot in her own house", R.hots.includes("homebase"), JSON.stringify(R.hots));
+        await g(`(() => { const r = window.__interiors.room; r.use(r.hots.find(h => h.id === "homebase")); return true; })()`);
+        await t.frames(6); await closeAll(); await t.frames(4);
+        const st = await g(`ctx.home.startAt`);
+        t.check("…her days now start at this door (ctx.home.startAt)", !!st && st.key === homeId && st.town === "lakewood" && Number.isFinite(st.door.x), JSON.stringify(st));
+      }
       await t.frames(20);
       await t.shot("owned-inside");
       t.check("back out", await leaveRoom());
@@ -344,6 +352,7 @@ module.exports = {
     });
     await step("rent", async () => {
       const R = await g(`(() => { const R = ctx.realestate, C = R.debug.CLOCK; C.offset = 0; R.debug.S.days.rent = null; const t = R.findTenant(${JSON.stringify(homeId)}); R.debug.RN.tick(); const d0 = R.rentPile(${JSON.stringify(homeId)}); C.offset = 1; R.debug.RN.tick(); const d1 = R.rentPile(${JSON.stringify(homeId)}); C.offset = 5; R.debug.RN.tick(); C.offset = 9; R.debug.RN.tick(); C.offset = 12; R.debug.RN.tick(); C.offset = 13; R.debug.RN.tick(); const pile = R.rentPile(${JSON.stringify(homeId)}); const one = R.rentToday()[0]; C.offset = 0; return { t: t && t.name, d0, d1, pile, one: one && one.n, value: R.valueOf(${JSON.stringify(homeId)}) }; })()`);
+      if (await g(`!!(ctx.home && ctx.home.setStartAt)`)) t.check("…a tenant moving in sends her mornings back to Ima's", !(await g(`ctx.home.startAt`)));
       t.check("the realtor finds a tenant; rent starts the next PLAYED day (1 % of the value)", R.t && R.d0 === 0 && R.d1 > 0 && Math.abs(R.d1 - R.value * 0.01) <= 2, JSON.stringify(R));
       t.check("uncollected rent piles up to 3 days at most", R.pile <= R.one * 3 + 3 && R.pile >= R.one * 2, JSON.stringify(R));
       const c0 = await coins();
@@ -363,6 +372,7 @@ module.exports = {
       t.check("no arbitrage: selling later never beats buying (best case still loses ≥ 2 %)", arb < 0.98, arb.toFixed(4));
       const q = await g(`ctx.realestate.quote(${JSON.stringify(homeId)})`);
       t.check("the sale price: today's value − the 10 % fee", q.net === q.value - Math.round(q.value * 0.1) && q.bank === 0, JSON.stringify(q));
+      const based = await g(`!!(ctx.home && ctx.home.setStartAt) && !!ctx.home.setStartAt({ town: "lakewood", key: ${JSON.stringify(homeId)}, door: { x: 0, z: 0 }, face: 0, label: "test" })`);
       const c0 = await coins();
       // through the office: talk → my places → sell → ✍️
       const sp = await g(`ctx.town.spot("realty")`);
@@ -381,6 +391,7 @@ module.exports = {
       t.check("…the first press asks", o2.some(x => /✍️ Sell/.test(x)) && (await coins()) === c0, o2.join(" | "));
       await pickOpt(/✍️ Sell/);
       await t.frames(6);
+      if (based) t.check("…selling the house she starts her days at: mornings back at Ima's", !(await g(`ctx.home.startAt`)));
       t.check("✍️ → sold: +net, back on the market", (await coins()) === c0 + q.net && !(await g(`ctx.realestate.owns(${JSON.stringify(homeId)})`)), `${c0} → ${await coins()}`);
       await closeAll();
       t.check("out of the office", await leaveRoom());

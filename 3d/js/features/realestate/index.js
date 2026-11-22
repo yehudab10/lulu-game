@@ -75,9 +75,11 @@ function migrate(h) {
     const near = catalogue().filter(r => r.model === h.model && Math.hypot(r.lx - h.lx, r.lz - h.lz) < 3 && !registry.ownerOf(r.id))
         .sort((a, b) => Math.hypot(a.lx - h.lx, a.lz - h.lz) - Math.hypot(b.lx - h.lx, b.lz - h.lz))[0];
     if (!near) return null;
+    const st = ctx.home && ctx.home.startAt, based = !!(st && st.key === h.id);
     const old = registry.release(h.id, "moved");
     if (old) registry.claim(near.id, Object.assign({}, old, { lx: near.lx, lz: near.lz, address: near.address, street: near.street, number: near.number, via: "moved", reg: false }));
     for (const k of ["mortgage", "bills", "rent"]) if (S[k][h.id]) { S[k][near.id] = S[k][h.id]; delete S[k][h.id]; }
+    if (based) { try { ctx.home.setStartAt(Object.assign({}, st, { key: near.id, door: { x: near.ap.x, z: near.ap.z }, face: Math.atan2(near.nx, near.nz), label: near.address })); } catch (e) { /* */ } }
     saveSoon();
     return near;
 }
@@ -116,6 +118,12 @@ function refresh(force = false) {
     try { if (ctx.homes && ctx.homes.refresh) ctx.homes.refresh(); } catch (e) { /* homes without the hook */ }
 }
 registry.onChange(() => { if (inTown()) refresh(true); });
+// ci/hometown's "🏠 Start my days here" (ctx.home.startAt): a house that's no longer hers to wake up in — sold, foreclosed,
+// double-booked, seized, a tenant in it — sends her mornings back to Ima's; a house that MOVED (migrate) keeps them
+function unbase(id) { try { const st = ctx.home && ctx.home.startAt; if (st && st.key === id) ctx.home.setStartAt(null); } catch (e) { /* no ctx.home */ } }
+registry.onChange(ev => { if (ev && !ev.remote && ev.from === "me" && ev.id && !/moved/.test(ev.why || "")) unbase(ev.id); });
+on("realestate:seized", e => unbase(e.id));
+on("realestate:tenant", e => { if (e.phase === "in") unbase(e.id); });
 
 /** The government holds it (seized, or seized + gone back to the market while she was away). */
 const held = id => { const h = S.owned[id]; return !!(h && (h.seized || h.lost)); };
