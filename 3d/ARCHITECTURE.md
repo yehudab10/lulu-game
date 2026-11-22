@@ -1492,7 +1492,10 @@ sells ONE snack a run across every shop (`G.shopsSnack`): a slice 6 💰 / a rug
 never a coin source. Both are SHARED rooms (together/rooms.js, one per town) and town interiors (heist/bank.js
 `TOWN_INTERIORS`). Ima's list can also ask for milk at the makolet (`shops:makolet`). The makolet itself stays a storefront card.
 Ima's list (features/day `ctx.day.addItem`) can say "say hi to Uncle Refael" (`shops:open`) — 15 💰 once a day like every
-item. Uncle Refael (npcMan, a dark work jacket — gruff, short, no haggling; the owner renamed him 2026-11-22) stands at the door while she's within 70 m (spawned / dropped — nothing loaded far
+item. The showroom is solid from the lot too (town data `walls: [w, d]` on a landmark → circles along its front + sides, town/build.js),
+the lot is OPEN GROUND inside its block (`ctx.shops.onLot(x, z)` — unstuck + the QA watchdog treat it like Lulu's own lot, and foot's
+camera stays over it: `foot/jump.js camClip` stops where the lot ends), and stopping her CAR at the lot says on the prompt line
+"get out and walk up to a car". Uncle Refael (npcMan, a dark work jacket — gruff, short, no haggling; the owner renamed him 2026-11-22) stands at the door while she's within 70 m (spawned / dropped — nothing loaded far
 away). Events `shops:open` {place, town}, `shops:buy` {kind, id, price}, `shops:car` {id, how}, `shops:test` {id, phase};
 stats `shopsVisits`, `shopsTestDrives`, `skinsBought`. Test: `scripts/tests3d/shops.js` (`SHOPS_PART=guide,home,lot,…`).
 

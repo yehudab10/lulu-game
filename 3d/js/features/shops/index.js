@@ -20,7 +20,7 @@ import { ctx, on, addMenuItem } from "../../core/ctx.js";
 import { showPauseMenu } from "../../core/screens.js";
 import "./models.js";
 import { retireTab } from "../garage/shop.js";
-import { openLot, dealerDebug } from "./dealer.js";
+import { openLot, dealerDebug, onLot as onLotOf } from "./dealer.js";
 import { openGarage, garageDebug } from "./home.js";
 import { openGuide, places, dest, setDest, guideDebug } from "./guide.js";
 import { openCounter, counterDebug } from "./counter.js";
@@ -46,5 +46,7 @@ on("boot", () => {
 
 ctx.shops = {
     guide: openGuide, places, dest, setDest, openLot, openGarage, openCounter, openBling, enterShop,
+    /** Is (x, z) on a car lot (open ground inside the block: unstuck + the watchdog)? */
+    onLot: (x, z) => onLotOf(x, z),
     debug: { dealer: dealerDebug, garage: garageDebug, guide: guideDebug, counter: counterDebug, bling: blingDebug, rooms: roomsDebug, card },
 };

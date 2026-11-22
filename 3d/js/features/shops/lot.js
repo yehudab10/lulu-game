@@ -17,7 +17,7 @@ export const LOT_GAP = 3.9;
 export function dealerUse({ sign, tints = {}, signBg = "#C62828", signFg = ["#FFFFFF", "#FFE082"], u = 16, dir = -1 } = {}) {
     const first = u + dir * (DEALER_DIMS.w / 2 + 2.6);
     return {
-        key: "shops_dealer", fallback: null, dims: DEALER_DIMS, u, sign, spot: "dealer", tints,
+        key: "shops_dealer", fallback: null, dims: DEALER_DIMS, u, sign, spot: "dealer", tints, walls: [DEALER_DIMS.w, DEALER_DIMS.d],     // (the showroom is solid from the lot too)
         signSize: [12.6, 1.05, 80], signW: 768, signBg, signFg,       // (the town's ONE sign atlas is tight — Midwood's especially: small cells)
         with: [
             // ✨ the Bling Bay: the showroom's other door (away from the lot), its own sign + spot "bling" (shops/bling.js)
