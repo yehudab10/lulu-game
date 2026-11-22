@@ -93,44 +93,52 @@ export function nearestCourse(x, z, max = 1e9) {
 /** Is local (X, Z) inside the course (the lane + the bay row, kerb to far edge, closed end to entrance)? */
 export const insideLocal = (X, Z, m = 0) => X > COURSE.x0 - 1 - m && X < COURSE.out.x + m && Z > COURSE.out.zNear - m && Z < COURSE.out.zFar + m;
 
-// ── materials + shared geometry (made once) ──────────────────────────────
+// ── materials (made once): the whole static course is TWO draw calls — one vertex-coloured mesh (concrete, kerb,
+//    paint, bollards, cones, the booth, the carts) + one textured mesh off a small atlas (the sign, the 🅿️ cube, START) ──
+const COLS = { concrete: "#CFC8BC", kerb: "#d9d3c7", yellow: "#FBC02D", white: "#F5F5EE", orange: "#FF6D00", wall: "#ECEFF1",
+    trim: "#1565C0", glass: "#9FD3F0", steel: "#B0BEC5", red: "#E53935" };
+// atlas regions (canvas px of a 512 × 512 canvas): the sign · the P · START
+const ATLAS = { sign: [0, 0, 512, 256], p: [0, 256, 128, 128], start: [128, 256, 256, 128] };
 let M = null;
 function mats() {
     if (M) return M;
-    const signTex = canvasTex(512, 256, (g, w, h) => {
-        g.fillStyle = "#1565C0"; g.fillRect(0, 0, w, h);
-        g.strokeStyle = "#fff"; g.lineWidth = 10; g.strokeRect(8, 8, w - 16, h - 16);
+    const tex = canvasTex(512, 512, (g) => {
+        g.clearRect(0, 0, 512, 512);
+        // the sign
+        g.fillStyle = "#1565C0"; g.fillRect(0, 0, 512, 256);
+        g.strokeStyle = "#fff"; g.lineWidth = 10; g.strokeRect(8, 8, 496, 240);
         g.fillStyle = "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
-        g.font = "bold 120px sans-serif"; g.fillText("P", 80, h / 2 + 6);
+        g.font = "bold 120px sans-serif"; g.fillText("P", 80, 134);
         g.font = "bold 46px sans-serif"; g.fillText("PARKING", 320, 82); g.fillText("CHALLENGE", 320, 136);
         g.font = "bold 30px sans-serif"; g.fillText("pull up to the attendant ➜", 300, 200);
-    }, false);
-    const startTex = canvasTex(256, 128, (g, w, h) => {
-        g.clearRect(0, 0, w, h);
-        g.fillStyle = "rgba(255,255,255,0.92)"; g.font = "bold 78px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-        g.fillText("START", w / 2, h / 2 + 4);
-    }, false);
-    const pTex = canvasTex(128, 128, (g, w, h) => {
-        g.fillStyle = "#1565C0"; g.fillRect(0, 0, w, h);
-        g.strokeStyle = "#fff"; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12);
-        g.fillStyle = "#fff"; g.font = "bold 96px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("P", w / 2, h / 2 + 6);
+        // the P cube
+        g.fillStyle = "#1565C0"; g.fillRect(0, 256, 128, 128);
+        g.strokeStyle = "#fff"; g.lineWidth = 8; g.strokeRect(6, 262, 116, 116);
+        g.fillStyle = "#fff"; g.font = "bold 96px sans-serif"; g.fillText("P", 64, 326);
+        // START (paint on the asphalt: transparent round the letters)
+        g.fillStyle = "rgba(255,255,255,0.95)"; g.font = "bold 78px sans-serif"; g.fillText("START", 256, 324);
     }, false);
     M = {
-        concrete: new THREE.MeshStandardMaterial({ color: "#CFC8BC", roughness: 0.9 }),
-        kerb: new THREE.MeshStandardMaterial({ color: "#d9d3c7", roughness: 0.85 }),
-        yellow: new THREE.MeshStandardMaterial({ color: "#FBC02D", roughness: 0.6 }),
-        white: new THREE.MeshStandardMaterial({ color: "#F5F5EE", roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }),
-        orange: new THREE.MeshStandardMaterial({ color: "#FF6D00", roughness: 0.7 }),
-        wall: new THREE.MeshStandardMaterial({ color: "#ECEFF1", roughness: 0.8 }),
-        trim: new THREE.MeshStandardMaterial({ color: "#1565C0", roughness: 0.6 }),
-        glass: new THREE.MeshStandardMaterial({ color: "#B3E5FC", roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.6 }),
-        steel: new THREE.MeshStandardMaterial({ color: "#B0BEC5", roughness: 0.4, metalness: 0.6 }),
-        red: new THREE.MeshStandardMaterial({ color: "#E53935", roughness: 0.6 }),
-        sign: new THREE.MeshBasicMaterial({ map: signTex }),
-        start: new THREE.MeshBasicMaterial({ map: startTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }),
-        p: new THREE.MeshBasicMaterial({ map: pTex }),
+        solid: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }),
+        atlas: new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5 }),
+        // (the clipboard: a person's prop)
+        wall: new THREE.MeshStandardMaterial({ color: COLS.wall, roughness: 0.8 }),
+        steel: new THREE.MeshStandardMaterial({ color: COLS.steel, roughness: 0.4, metalness: 0.6 }),
     };
     return M;
+}
+/** Paint a geometry one colour (a vertex colour attribute) for the solid mesh. */
+function paint(g, hex) {
+    const c = new THREE.Color(hex), n = g.attributes.position.count, a = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+    g.setAttribute("color", new THREE.BufferAttribute(a, 3));
+    return g;
+}
+/** Squeeze a geometry's UVs into an atlas region. */
+function atlasUV(g, [x, y, w, h]) {
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (x + uv.getX(i) * w) / 512, 1 - (y + h) / 512 + uv.getY(i) * h / 512);
+    return g;
 }
 /** A box geometry already moved to (x, y, z) in the course frame (rotated ry about Y). */
 function box(w, h, d, x, y, z, ry = 0) {
@@ -142,7 +150,7 @@ function box(w, h, d, x, y, z, ry = 0) {
 function cyl(rt, rb, h, x, y, z, seg = 8) { const g = new THREE.CylinderGeometry(rt, rb, h, seg); g.translate(x, y, z); return g; }
 function cone(r, h, x, y, z) { const g = new THREE.ConeGeometry(r, h, 10); g.translate(x, y, z); return g; }
 /** A painted strip on the ground (a flat box, 1 cm). */
-const stripe = (w, d, x, z) => box(w, 0.012, d, x, 0.016, z);
+const stripe = (w, d, x, z) => box(w, 0.012, d, x, 0.04, z);      // (the rest area's asphalt is at 0.032)
 
 /** A shopping cart's parts at (x, z) facing ry, into the per-material lists. */
 function cart(L, x, z, ry) {
@@ -174,7 +182,7 @@ function buildStatic(c, chunk) {
     // the START box: an outline + the word, by the attendant
     const S = C.start, bl = 5.2, bw = 2.7;
     L.white.push(stripe(bl, 0.14, S.x, S.z - bw / 2), stripe(bl, 0.14, S.x, S.z + bw / 2), stripe(0.14, bw, S.x - bl / 2, S.z), stripe(0.14, bw, S.x + bl / 2, S.z));
-    { const g = new THREE.PlaneGeometry(2.2, 1.1); g.rotateX(-Math.PI / 2); g.rotateY(-Math.PI / 2); g.translate(S.x + bl / 2 - 0.9, 0.02, S.z); L.start.push(g); }
+    { const g = new THREE.PlaneGeometry(2.2, 1.1); g.rotateX(-Math.PI / 2); g.rotateY(-Math.PI / 2); g.translate(S.x + bl / 2 - 0.9, 0.05, S.z); L.start.push(g); }
     // the closed end: bollards along the lot's edge (solid) + two planter-ish blocks at the corners
     const cols = [];
     for (let z = -0.6; z <= C.farZ + 0.6; z += 1.45) { L.yellow.push(cyl(0.12, 0.14, 0.9, C.x0 - 0.5, 0.45, z)); cols.push([C.x0 - 0.5, z, 0.2]); }
@@ -197,15 +205,15 @@ function buildStatic(c, chunk) {
     cart(L, 11.6, 0.35, 0.2); cart(L, 10.7, 0.4, -0.15);
     const g = new THREE.Group();
     g.name = "ParkingCourse";
-    for (const [k, list] of Object.entries(L)) {
-        if (!list.length) continue;
-        const geo = mergeGeometries(list, false);
-        for (const x of list) x.dispose();
-        const m = new THREE.Mesh(geo, Mt[k]);
-        m.castShadow = !["white", "start", "yellow"].includes(k) || k === "yellow";
-        m.receiveShadow = true;
-        g.add(m);
+    const solid = [], tex = [];
+    for (const [k, list] of Object.entries(L)) for (const geo of list) {
+        if (ATLAS[k]) tex.push(atlasUV(geo, ATLAS[k])); else solid.push(paint(geo, COLS[k]));
     }
+    const ms = new THREE.Mesh(mergeGeometries(solid, false), Mt.solid);
+    ms.castShadow = true; ms.receiveShadow = true;
+    const mt = new THREE.Mesh(mergeGeometries(tex, false), Mt.atlas);
+    for (const x of solid.concat(tex)) x.dispose();
+    g.add(ms, mt);
     g.position.set(c.O.x, 0, c.O.z);
     g.rotation.y = c.phi;
     chunk.group.add(g);

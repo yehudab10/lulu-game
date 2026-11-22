@@ -188,7 +188,8 @@ css("pullover", `.prompt .po-bar { display: inline-block; vertical-align: middle
 .prompt .po-bar i { display: block; height: 100%; background: #CE93D8; }
 body.tv .prompt .po-bar { width: 96px; height: 12px; }
 .day-chip.park-chip b { color: #FFD54F; } .day-chip.park-chip .pk-low { color: #FF5252; animation: phBlink .5s steps(2) infinite; }
-.day-chip.park-chip small { display: block; opacity: .85; }`);
+.day-chip.park-chip small { display: block; opacity: .85; }
+@media (max-width: 430px), (max-height: 430px) { .day-chip.park-chip small { display: none; } }`);
 addTouchButton({ id: "parkUnlock", emoji: "🔓", label: "UNLOCK", action: "interact", visible: () => !!S.offer && !unlocked() && wallet.coins >= UNLOCK_COST && ctx.state === "playing" });
 
 // ── a run ────────────────────────────────────────────────────────────────
@@ -356,7 +357,7 @@ function buildLevel() {
     for (let z = az0 + 0.3; z < az1 - 0.2; z += 0.82) { per.push([ax0, z + 0.235, 1]); per.push([ax1, z + 0.235, 1]); }
     const outline = new THREE.InstancedMesh(dGeo, L.outlineMat, per.length);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), one = new THREE.Vector3(1, 1, 1);
-    per.forEach((p, i) => outline.setMatrixAt(i, m4.compose(v1.set(p[0], 0.02, p[1]), q.setFromEuler(e.set(0, p[2] ? Math.PI / 2 : 0, 0)), one)));
+    per.forEach((p, i) => outline.setMatrixAt(i, m4.compose(v1.set(p[0], 0.05, p[1]), q.setFromEuler(e.set(0, p[2] ? Math.PI / 2 : 0, 0)), one)));
     G.add(outline);
     const chev = new THREE.Mesh(own(new THREE.ConeGeometry(0.42, 0.8, 4)), L.outlineMat);
     chev.rotation.x = Math.PI;
@@ -365,7 +366,7 @@ function buildLevel() {
     L.chevron = chev;
     const white = own(new THREE.MeshStandardMaterial({ color: "#F5F5EE", roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }));
     const tGeo = own(new THREE.PlaneGeometry(0.1, 0.5).rotateX(-Math.PI / 2));
-    for (const pc of layout.cars) for (const s of [-1, 1]) { const m = new THREE.Mesh(tGeo, white); m.position.set(LOT.lotX(pc.x + s * 42), 0.018, zz1 - 0.2); G.add(m); }
+    for (const pc of layout.cars) for (const s of [-1, 1]) { const m = new THREE.Mesh(tGeo, white); m.position.set(LOT.lotX(pc.x + s * 42), 0.048, zz1 - 0.2); G.add(m); }
 
     // the parked cars (each a real car: dents go on its bodywork; the two either side of the bay can end the level)
     for (const pc of layout.cars) {
@@ -546,8 +547,8 @@ function updateDrive(dt, P) {
     if (S.timeLeft <= 0) { S.failHit = { who: "timeout" }; fail(); }
 }
 function hintText() {
-    if (input.device === "touch") return "Park between the two cars · STEER with the stick · GAS forward · REVERSE back";
-    return `Park between the two cars · ${glyph("steer")} steer · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
+    if (input.device === "touch") return "Park between the cars · GAS forward · REVERSE back";
+    return `Park between the cars · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
 }
 
 function corners(lc, out) {
@@ -947,7 +948,7 @@ function updateBox(dt, P) {
 function chipHtml() {
     const low = S.phase === "drive" && S.timeLeft <= 10;
     const t = S.phase === "drive" || S.phase === "result" ? `<span class="${low ? "pk-low" : ""}">⏱ ${Math.max(0, Math.ceil(S.timeLeft || 0))}s</span>` : "⏱ —";
-    return `🅿️ <b>LVL ${S.level}</b> · ♥ ${Math.max(0, S.lives)} · ★ ${S.chStars} · 💰 ${S.chCoins} · ${t}<small>${LOT.LEVEL_NAMES[Math.min(Math.max(S.level, 1) - 1, 9)]}</small>`;
+    return `🅿️ <b>LVL ${S.level}</b> · ♥${Math.max(0, S.lives)} · ★${S.chStars} · ${t}<small>💰 ${S.chCoins} · ${LOT.LEVEL_NAMES[Math.min(Math.max(S.level, 1) - 1, 9)]}</small>`;
 }
 let chipEl = null, chipLast = "";
 function chip(html) {

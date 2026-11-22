@@ -155,7 +155,8 @@ module.exports = {
     t.check("…→ driving again, right there on the lot", await t.until(`__lulu3d.state === "playing"`, "back driving", 3000));
 
     // ── 📱 Parking from the car: the card marks the course ───────────────────
-    await g(`(ctx.parking._debug.mark = null, true)`);
+    await g(`(ctx.parking.debug.place(-4, 13, -Math.PI / 2), ctx.parking._debug.mark = null, true)`);      // (out of the START box: there, pulling up IS the start)
+    await t.frames(4);
     await g(`ctx.phone.openPhone("jobs")`);
     await t.frames(3);
     t.check("📱 💼 Jobs has the 🅿️ Parking Challenge card", await t.L(`!!document.getElementById("lpPark")`));

@@ -56,7 +56,7 @@ module.exports = {
       t.check("she parks HER car (the shared skin)", await g(`ctx.car.skinKey`) === "purple");
       t.check("the attendant is there (with his clipboard)", await g(`ctx.parking.debug.courses().some(c => c.attendant)`));
       t.check("level 1 is set out on the lot: two parked cars round the bay, one camera", await g(`(() => { const L = ctx.parking._debug.L; return L.parked.length >= 2 && L.cams.length === 1; })()`));
-      t.check("the HUD chip shows the level, lives and the clock", await t.L(`/LVL 1/.test((document.querySelector(".park-chip") || {}).textContent || "") && /♥ 3/.test(document.querySelector(".park-chip").textContent)`));
+      t.check("the HUD chip shows the level, lives and the clock", await t.L(`/LVL 1/.test((document.querySelector(".park-chip") || {}).textContent || "") && /♥ ?3/.test(document.querySelector(".park-chip").textContent)`));
       await t.shot("level1");
 
       // ── drive with the controller: RT forward, the lot governor caps speed ──
