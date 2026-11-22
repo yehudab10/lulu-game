@@ -1589,7 +1589,18 @@ Kid: Hot Delivery — join?") + ✅ Join in; whoever opts in within 30 s plays (
 `max` starts it at once), everyone else carries on. The HOST starts it: a broadcast `gms` [n, id, members, seed, by] → `start()` on
 every participant's screen at once (only the host's `gms` counts). Offers / opt-ins are reliable host events (`gmp` / `gmy`
 / `gmg` / `gmx`), the open offer is the host's extra `x.gm`. **Rewards are the feature's own rules** (per player as solo, or a
-pot split + capped) — never multiplied by the group (golden rule 5). `ctx.group.offerNow()`, `missions()`. Test: `scripts/tests3d/friends.js` (add from Nearby, no
+pot split + capped) — never multiplied by the group (golden rule 5). `ctx.group.offerNow()`, `missions()`.
+**Registered (2026-11-22, `ci/friends`):** 🚕 / 🔥 / 💰 **side jobs for two** (`features/hustle/together.js`: the offerer
+drives the normal job, a friend rides along as navigator (openworld's ride-along); every pay line goes through
+`payCrew(job, pay)` — the driver keeps her share, the crew's arrives through a running total in her party extra `x.hc`
+[jobKey, totalEach, crew], credited once per navigator; together = the solo pay, same caps) · 📝 **Ima's list together**
+(`features/day/together.js`: the OFFERER's list on her screen as solo; helpers see it in a chip (her `x.dl` [key, ids,
+doneBits, home]) and whatever they do on it ticks hers (a `dlb` broadcast she checks against her list); home for
+dinner → the helpers get Ima's thank-you, no coins; in a group the solo home beat is skipped so nobody leaves) ·
+🎲 / 🚗 / 🔔 **the crimes for two** (`features/partners/missions.js`) and 💰 **the bank job** (`features/heist/missions.js`)
+as invitations + one shared briefing (who does what, where to meet) — they still happen by doing them, their own
+triggers unchanged. The road-trip leg waits (the Story Trip is hidden, roadmap 21); ci/crime's solo crimes stay solo in a
+party (a race / duet version isn't cheap: each is built around one player's cops + court). Test: `scripts/tests3d/friendsjobs.js`. Test: `scripts/tests3d/friends.js` (add from Nearby, no
 pop-up for a stranger · presence, also off the EVERYONE room · nobody / ask me (the chip) → join lands next to her · a
 stranger at a leaked doorbell gets nothing · appear offline · add by code + the code dies with its screen · the save code
 restores the list · remove (new doorbell) · block).
