@@ -138,6 +138,9 @@ async function runFile(browser, base, file) {
       // (a test that wants a Friday sets ctx.shabbos.debug.date(...) / its own ?shabbosDate= / ?season=).
       if (!/[?&]shabbosDate=/.test(query)) query += "&shabbosDate=2026-11-16T15:00";
       if (!/[?&]season(Date)?=/.test(query)) query += "&seasonDate=2026-11-16T12:00";
+      // Random incoming calls are PAUSED in the game (ctx.phone.randomCalls, off by default); the tests that wait for one
+      // run with them on — a test that checks the paused behaviour (nocalls, calls) says &randomCalls=0 itself.
+      if (!/[?&]randomCalls=/.test(query)) query += "&randomCalls=1";
       await page.goto(`${base}/3d/?test${query}`);
       return t.until(`window.__lulu3d && __lulu3d.state === "title"`, "boots to the title screen", 120000);
     },

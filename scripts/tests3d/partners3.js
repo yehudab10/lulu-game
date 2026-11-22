@@ -154,7 +154,7 @@ async function body(t, guests) {
     await p.game(`ctx.foot.start("parked")`);
     if (!await p.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && ctx.homes.homes().length > 0`, `${p.label}: walking in town`, 60000)) return;
   }
-  await all(p => p.game(`(${PZ}.debug.resetCaps(), true)`));
+  await all(p => p.game(`(${PZ}.debug.resetCaps(), ctx.homes.debug.scene && ctx.homes.debug.scene("ordinary"), ctx.homes.debug.force.noCatch = true, true)`));   // (everybody home: features/homes' households keep a schedule)
   const hi = 3;
   const key = await A.game(`(() => { const h = ctx.homes.homes()[${hi}]; ctx.foot.debug.F.pos.set(h.ap.x, 0.05, h.ap.z); return h.key; })()`);
   await A.frames(4);

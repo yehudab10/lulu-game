@@ -154,9 +154,17 @@ function tick(dt, P) {
 }
 
 export const phone = {
-    /** Start a call. Returns the call object, or null if the line is busy. */
+    /**
+     * THE ONE SWITCH (owner, 2026-11-22: "pause random phone calls from NPCs"): while false, nothing rings BY ITSELF —
+     * Ima's mid-drive + Erev Shabbos calls, side-job / heist-tip / chop-shop offers by phone, the story's leg-start call.
+     * A call the player makes (📞 Phone app) or that answers something she just did passes `always: true` and rings anyway.
+     * Texts / Messages aren't calls and aren't touched. Tests that want a random call set `ctx.phone.randomCalls = true`.
+     */
+    randomCalls: new URLSearchParams(location.search).get("randomCalls") === "1",      // (?randomCalls=1: tests that wait for a call — scripts/smoke3d.js turns it on unless a test says =0)
+    /** Start a call. Returns the call object, or null if the line is busy (or random calls are paused and this isn't `always`). */
     call(opts = {}) {
         if (cur) return null;
+        if (!phone.randomCalls && !opts.always) return null;
         cur = Object.assign({
             from: "UNKNOWN", emoji: "📞", color: "#FF80AB", lines: ["…"], ring: IMA_RING_DUR, talk: IMA_TALK_DUR,
             flip: false, declinable: true, doneDur: IMA_DONE_DUR,
