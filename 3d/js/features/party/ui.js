@@ -114,7 +114,7 @@ export function showCodeEntry(opts) {
     const render = focusId => {
         const slots = Array.from({ length: CODE_LEN }, (_, i) => `<span class="${code[i] ? "" : "empty"}${i === code.length ? " cur" : ""}">${code[i] || "·"}</span>`).join("");
         const keys = [...CODE_ABC].map(ch => `<button class="btn pt-k" id="ptk_${ch}">${ch}</button>`).join("") + "";
-        const html = `<h2>🔑 Join a party</h2><p class="pt-sub">Type the code your friend sees on their screen.</p>
+        const html = `<h2>🔑 Join a friend</h2><p class="pt-sub">Type the code your friend sees on their screen.</p>
             <div class="pt-code">${slots}</div>
             <div class="pt-keys">${keys}</div>
             <div class="pt-msg ${opts.msgCls || ""}">${opts.msg || ""}</div>`;

@@ -162,7 +162,7 @@ async function body(t, guests) {
 
   // ── host ──
   await t.click(/Friends/);
-  t.check("hub: invite / join / 2D friends — no lobby button (games are votes in Free Roam)", await t.L(`["pt_roam", "pt_join", "pt_open"].every(id => !!document.getElementById(id)) && !document.getElementById("pt_host")`));
+  t.check("hub: Play with a friend + Have a code — nothing else (no lobby, no Play online, no 2D room)", await t.L(`["pt_roam", "pt_join"].every(id => !!document.getElementById(id)) && !["pt_host", "pt_online", "pt_open"].some(id => document.getElementById(id))`));
   await t.shot("hub");
   await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby + connected")) return;

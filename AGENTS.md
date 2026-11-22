@@ -130,6 +130,9 @@ scene, nothing built in one long frame). `ci/flow` step 1 already landed those t
 9. When you add a feature: register it in `3d/js/features/index.js`, add a row
    to `3d/ARCHITECTURE.md` (+ party parity row), add it to the feature list in
    `CLAUDE.md`, and add `scripts/tests3d/<id>.js`.
+10. **Interface text follows `3d/docs/words.md`** (one page): short whole sentences, everyday words, buttons
+    that start with a verb, one emoji at most, no `X › Y › ➕` chains. Characters' lines, signs and jokes are the
+    game's voice. Leave them alone.
 
 ## 4. Setup and tests
 
