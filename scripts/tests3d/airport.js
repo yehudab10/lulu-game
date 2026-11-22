@@ -95,11 +95,12 @@ module.exports = {
       const signs = await g(`ctx.world.signs.filter(s => /JFK|LAST EXIT/.test(s.lines.join(" "))).map(s => ({ u: Math.round(s.s - ${E}), lines: s.lines.join(" · "), tab: s.tab || null }))`);
       t.check("signed ahead: ✈ JFK AIRPORT · 1 MI, ½ MI, LAST EXIT (the EXIT 12 tab)", signs.some(s => /1 MI/.test(s.lines) && s.tab === "EXIT 12") && signs.some(s => /½ MI/.test(s.lines)) && signs.some(s => /LAST EXIT/.test(s.lines)), JSON.stringify(signs));
       t.check("its roadside is reserved (no trees / houses on the ramps or in the airport)", await g(`ctx.world.isReserved(${E} + 330, 150) && ctx.world.isReserved(${E} + 20, 20)`));
-      // the switch-on model (ci/airport-polish): once the towns keep out of it, the airport's metres come from fixed data
-      // only (zones) — empty until then, so nothing else plans round it yet
-      const z = await g(`(() => { const D = ctx.airport.debug, off = ctx.airport.zones(0, 40000).length; D.townsKeepOut(true); const R = Math.random; let zs;
-        Math.random = () => { throw new Error("Math.random in zones()"); }; try { zs = ctx.airport.zones(0, 30000).map(o => [o.s, Math.round(o.a), Math.round(o.b)]); } finally { Math.random = R; D.townsKeepOut(false); } return { off, zs }; })()`);
-      t.check("switch-on prep: ctx.airport.zones() is empty until the switch-on, then the airport's own metres from fixed data (the first = this run's)", z.off === 0 && z.zs.length >= 1 && z.zs[0][0] === E, JSON.stringify(z));
+      // the switch-on model (ci/airport-polish; switched on after ci/exits2): the towns keep out of it, and the airport's
+      // metres come from fixed data only (zones)
+      const z = await g(`(() => { const R = Math.random; let zs;
+        Math.random = () => { throw new Error("Math.random in zones()"); }; try { zs = ctx.airport.zones(0, 30000).map(o => [o.s, Math.round(o.a), Math.round(o.b)]); } finally { Math.random = R; } return { zs }; })()`);
+      t.check("switched on: ctx.airport.zones() are the airport's own metres from fixed data (the first = this run's)", z.zs.length >= 1 && z.zs[0][0] === E, JSON.stringify(z));
+      t.check("…and no town exit stands in a zone", await g(`(() => { const z = ctx.airport.zones(0, 40000), A = ctx.town.span.a, B = ctx.town.span.b; ctx.town.exitOf("lakewood", 30000); return !ctx.town.exits.some(e => z.some(q => e.s + A < q.b && e.s + B > q.a)); })()`), JSON.stringify(await g(`ctx.town.exits.map(e => e.town + "@" + Math.round(e.s))`)));
     });
 
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), ctx.law && ctx.law.hold && ctx.law.hold(900), true)`);
