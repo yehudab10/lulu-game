@@ -2087,11 +2087,13 @@ ctx.foot = {
     get heightCode() { return F && F.phase === "walk" ? Math.max(0, Math.min(40, Math.round((F.y || 0) * 10))) : 0; },
     /** Her look on foot: 0 · 1 the jumpsuit (a jailbreak) · 2 old-lady / 3 old-man disguise. */
     get lookCode() { return !F ? 0 : F.disguise === "prison" ? 1 : F.disguise === "oldLady" ? 2 : F.disguise === "oldMan" ? 3 : 0; },
-    /** The car she left on the road while she walks: { x, z, h, key ("lulu" | a ride's model), paint, wrecked } | null. */
+    /** The car she left on the road while she walks: { x, z, h, key ("lulu" | a ride's model), paint, wrecked, drivable } | null.
+     *  (ONE getter: a second `get parkedCar` further down silently replaced this one and dropped `key` — the car thief
+     *  never found her car) */
     get parkedCar() {
         const c = F && F.car && F.car.stub;
-        if (!c || !ctx.traffic.cars.includes(c)) return null;
-        return { x: c.x, z: c.z, h: c.h, key: F.car.key, paint: (F.car.colors && F.car.colors.Paint) || null, wrecked: !!F.car.wrecked };
+        if (!c) return null;
+        return { x: c.x, z: c.z, h: c.h, key: F.car.key, paint: (F.car.colors && F.car.colors.Paint) || null, wrecked: !!F.car.wrecked, drivable: !!F.car.drivable };
     },
     /** Something that isn't a traffic car hit her (a friend's car in a party): src = { h, speed, who? }. */
     bump(src) {
@@ -2119,7 +2121,6 @@ ctx.foot = {
     /** Her OWN car this run: "ok" (she's in it / fine) | "parked" (left on the road, in one piece) | "wrecked" | "gone" (impounded / left behind). */
     get ownCar() { return ownCar; },
     /** Where her own car stands while she walks (the stub): { x, z, h, drivable } | null (features/shops: her driveway). */
-    get parkedCar() { const c = F && F.car && F.car.stub; return c ? { x: c.x, z: c.z, h: c.h, drivable: !!F.car.drivable } : null; },
     /** Her own parked car takes ctx.car's current skin (features/shops: picking which car to drive in her driveway). */
     repaintCar() {
         if (!F || !F.car || !F.car.stub || shell || F.car.key !== "lulu") return false;
