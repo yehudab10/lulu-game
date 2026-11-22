@@ -1131,12 +1131,16 @@ ctx.town = {
         exitAhead(ahead = 320, id = "lakewood") {
             const w = ctx.world, towns = id === "both" ? INTERCHANGE.towns : [TOWNS[id || "lakewood"]];
             // (the nearest spot to `ahead` where the attached towns fit — either way — so a test isn't sent kilometres on)
-            let s0 = ctx.car.s + ahead;
-            for (let k = 0; k < 80; k++) {
+            // (clear of the route's own exits too: two interchanges' signs → ramps can't overlap)
+            const gap = SPAN.b - SPAN.a + 100, free = a => exitClear(a, towns) && !X.exits.some(e => Math.abs(e.s - a) < gap);
+            let s0 = null;
+            for (let k = 0; k < 120; k++) {
                 const a = ctx.car.s + ahead + k * 25, b = ctx.car.s + ahead - k * 25;
-                if (exitClear(a, towns) && !X.exits.some(e => Math.abs(e.s - a) < 900)) { s0 = a; break; }
-                if (b > ctx.car.s + 240 && exitClear(b, towns) && !X.exits.some(e => Math.abs(e.s - b) < 900)) { s0 = b; break; }
+                if (free(a)) { s0 = a; break; }
+                if (b > ctx.car.s + 240 && free(b)) { s0 = b; break; }
             }
+            // (nowhere free near there: the route's own exit for that town)
+            if (s0 == null) { for (const t of towns) load(t); return id === "both" ? null : ctx.town.exitOf(id || "lakewood", ctx.car.s + 240); }
             const e = planExit(s0, towns);
             if (!e) return null;
             for (const [k, c] of [...w.chunks]) if (c.s1 > e.s + SPAN.a - 20 && c.s0 < e.s + SPAN.b) { c.dispose(w.scene); w.chunks.delete(k); }
