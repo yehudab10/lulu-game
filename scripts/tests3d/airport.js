@@ -74,7 +74,7 @@ module.exports = {
     };
 
     t.check("ctx.airport is registered and ON with ?enable=airport", await g(`!!(ctx.airport && ctx.airport.on && ctx.airport.debug && ctx.airport.debug.placeAt)`));
-    t.check("…and stays out of a 🎉 party until the interchange planner hook (ci/exits2)", await g(`ctx.airport.debug.S.party === false`));
+    t.check("…switched on: its zones are live (the towns' exits keep out of them — so it's on in a 🌍 Free Roam too: every friend plans the same metre)", await g(`ctx.airport.zones(0, 60000).length > 0`));
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await W.install(t);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
