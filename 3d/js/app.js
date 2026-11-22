@@ -101,7 +101,7 @@ function resize() {
 window.addEventListener("resize", () => { resize(); try { if (ctx.world && ctx.car) present(0); } catch (e) { /* next frame draws */ } });
 
 // HUD + touch controls follow the current state
-const IN_PLAY = new Set(["playing", "footRun", "arriving"]);   // free driving / walking: pop-ups stay off the road
+const IN_PLAY = new Set(["playing", "footRun", "arriving", "parking"]);   // free driving / walking (the 🅿️ challenge too: driving on a lot): pop-ups stay off the road
 setChromeHandler(def => {
     document.body.classList.toggle("in-play", IN_PLAY.has(ctx.state));
     H.showHud(!!def.hud);

@@ -5,7 +5,7 @@
 // ghost renders on the 3D road, honks both ways, the emote wheel (hold LB +
 // right stick → d.em), party record toasts, friend room switch, a friend race
 // (invite → countdown → standings → winner), TAG start + pass, BONK, convoy,
-// party parking (room-seeded lot = the 2D layout, pk poses both ways), the
+// no parking-lot poses (the roadside lot is retired), the
 // daily leaderboard POST, disconnect / opt-out, and cruise auto-join.
 const { spawn } = require("child_process");
 const path = require("path");
@@ -51,20 +51,6 @@ class Fake2D {
   close() { try { this.ws.close(); } catch (e) { } }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// the 2D game's room-seeded lot (buildRoadsideParkingLayout + mpParkingRng)
-function lot2D(room, spotIndex) {
-  let h = 5381; const s = "lot:" + room; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
-  let a = h >>> 0;
-  const rf = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const rowY = Math.round(152 + rf() * 44), carsN = 2 + Math.floor(rf() * 3), slots = carsN + 1, spotW = 98;
-  const slack = Math.max(0, 436 - (carsN * 84 + spotW)), side = Math.floor(rf() * 3);
-  const startX = 22 + (side === 0 ? 0 : side === 2 ? slack : slack / 2);
-  const openIdx = ((Math.floor(rf() * slots) + spotIndex) % slots + slots) % slots;
-  let cursor = startX, zone = null;
-  for (let k = 0; k < slots; k++) { if (k === openIdx) { zone = { x: cursor, y: rowY }; cursor += spotW; } else cursor += 84; }
-  return { rowY, carsN, zone };
-}
 
 module.exports = {
   name: "multiplayer",
@@ -210,18 +196,9 @@ async function body(t) {
   await t.shot("tag-it");
   delete fr.d.it;
 
-  // ── party parking: the room-seeded lot matches the 2D layout ──
-  await t.game(`(ctx.G.hearts = 3, ctx.parking.start({ from: "pullover" }))`);
-  if (!await t.until(`__lulu3d.state === "parking" && __lulu3d.ctx.parking._debug.phase === "drive"`, "party lot opens")) return;
-  const lay = await t.game(`(() => { const s = ctx.parking._debug; return { rowY: s.layout.rowY, carsN: s.layout.cars.length, zx: s.layout.zone.x }; })()`);
-  const exp = lot2D("ABCD", await t.game(`ctx.mp.parkingSpotIndex()`));
-  t.check("room-seeded lot = the 2D game's lot for ABCD", lay.rowY === exp.rowY && lay.carsN === exp.carsN && Math.abs(lay.zx - exp.zone.x) < 0.01, JSON.stringify([lay, exp]));
-  await fr.pump(1500, () => ({ pk: { x: 120, y: 420, r: 0.3 } }));
-  await t.frames(6);
-  t.check("party member's car parks as a ghost in my lot", await t.game(`Object.keys(ctx.parking._debug.lot.ghosts || {}).length === 1`));
-  t.check("my lot pose goes out as d.pk", fr.got.some(d => d.pk && typeof d.pk.x === "number" && typeof d.pk.r === "number"));
-  await t.shot("party-parking");
-  delete fr.d.pk;
+  // ── (party parking — the room-seeded roadside lot — is retired with the pull-over: the Parking Challenge is
+  //    played on a real lot in the world now, so there's no lot pose to send) ──
+  t.check("no parking-lot pose goes out any more (the challenge is played in the world)", await t.game(`ctx.parking.pose() === null`) && !fr.got.some(d => d.pk));
   await t.game(`L3.setState("title")`);
   await t.frames(4);
 
