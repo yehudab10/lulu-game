@@ -83,7 +83,7 @@ hook("update", (dt, P, controlsOn) => {
     if (enabled()) {
         if (B.callT > 0 && (G.jBannerT || 0) <= 0 && (G.jBannerShowT || 0) <= 0) {
             B.callT -= dt;
-            if (B.callT <= 0 && !storyCall(i)) B.callT = 2;
+            if (B.callT <= 0 && !storyCall(i)) B.callT = phone.randomCalls ? 2 : 0;      // (paused: the leg-start call just doesn't ring)
         }
         if (!B.talkDone && prog >= 0.35 && prog < 0.8 && !hasHeat() && !phone.busy() && !(ctx.foot && ctx.foot.active)) {
             B.talkDone = true;

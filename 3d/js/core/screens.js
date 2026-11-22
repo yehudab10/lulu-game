@@ -374,7 +374,7 @@ export function applyUiSettings() {
 let pauseFocus = null, padLost = false;
 export function pause() {
     const def = ctx.states[ctx.state];
-    if (ctx.paused || !def || !def.pausable) return;
+    if (ctx.paused || !def || !(def.pausable || ctx.pauseHatch)) return;     // (pauseHatch: features/unstuck — a hung scene)
     ctx.paused = true;
     pauseFocus = null;
     A.sfxHorn(false);

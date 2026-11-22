@@ -258,6 +258,8 @@ function escalate(dt) {
     // the LED trailer
     if (R.signs < TUNE.signAt.length && u >= TUNE.signAt[R.signs]) { if (placeSign(220)) R.signs++; }
     // Ima rings (twice)
+    // (random calls paused: the rush has no calls — skip them so this doesn't retry every frame)
+    if (ctx.phone && !ctx.phone.randomCalls) R.ima = IMA_CALLS.length;
     if (R.ima < IMA_CALLS.length && u >= TUNE.imaCalls[R.ima] && ctx.phone && !ctx.phone.busy()) imaCall(R.ima);
     // beats
     if (!R.said.sun && u >= 0.5) { R.said.sun = true; H.toast("🌇 The sun's getting low…", "gold", { key: "shabbos-sun" }); }
