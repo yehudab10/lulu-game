@@ -1,0 +1,58 @@
+name: Verify Lulu's iPhone launch
+on:
+  push:
+    branches: [ci/ios-simulator-f852b84]
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare the same native game bundle as Codemagic
+        run: |
+          ruby -ryaml -e 's=YAML.load_file("codemagic.yaml").fetch("workflows").fetch("ios-capacitor").fetch("scripts"); s.take_while { |step| step["name"] != "Set the build number" }.each { |step| puts step["name"]; exit 1 unless system("bash", "-eo", "pipefail", "-c", step.fetch("script")) }'
+      - name: Build and install Lulu in an iPhone simulator
+        run: |
+          set -euo pipefail
+          device=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; ds=json.load(sys.stdin)["devices"]; print(next(d["udid"] for rt in sorted(ds,reverse=True) if ".iOS-" in rt for d in ds[rt] if d["name"].startswith("iPhone")))')
+          echo "SIM_ID=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device"
+          xcodebuild -quiet -project ios/App/App.xcodeproj -scheme App -configuration Release -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/lulu-build" CODE_SIGNING_ALLOWED=NO build
+          xcrun simctl bootstatus "$device" -b
+          xcrun simctl install "$device" "$RUNNER_TEMP/lulu-build/Build/Products/Release-iphonesimulator/App.app"
+      - name: Verify the title is visible after a cold launch and a relaunch
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/read-title.swift" <<'SWIFT'
+          import Foundation
+          import Vision
+          let r = VNRecognizeTextRequest()
+          r.recognitionLevel = .accurate
+          try VNImageRequestHandler(url: URL(fileURLWithPath: CommandLine.arguments[1])).perform([r])
+          print((r.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n"))
+          SWIFT
+          swiftc "$RUNNER_TEMP/read-title.swift" -o "$RUNNER_TEMP/read-title"
+          for phase in first second; do
+            xcrun simctl launch "$SIM_ID" boats.lulu.game
+            seen=false
+            for try in {1..18}; do
+              sleep 5
+              xcrun simctl io "$SIM_ID" screenshot "$RUNNER_TEMP/lulu-$phase.png"
+              screen=$("$RUNNER_TEMP/read-title" "$RUNNER_TEMP/lulu-$phase.png")
+              echo "$screen"
+              if grep -Eiq 'play' <<< "$screen" && grep -Eiq 'friends|settings|more|garage|dina' <<< "$screen"; then seen=true; break; fi
+            done
+            test "$seen" = true
+            xcrun simctl terminate "$SIM_ID" boats.lulu.game
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lulu-iphone-launch
+          path: ${{ runner.temp }}/lulu-*.png
+          if-no-files-found: ignore
