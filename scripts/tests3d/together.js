@@ -222,6 +222,8 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
     await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label}: on foot by Lulu's house`, 60000);
   }
   const door = await g(`ctx.decor.debug.spotAt("door")`);
+  const where = P => P.game(`JSON.stringify({ st: ctx.state, town: ctx.town.active && ctx.town.id, foot: ctx.foot.pos && [+ctx.foot.pos.x.toFixed(1), +ctx.foot.pos.z.toFixed(1)] })`);
+  console.log("   WHERE (both by the house)", await where(Hp), await where(A));
   t.check("Lulu's house in a party: the front door is open (canEnter)", await g(`ctx.decor.canEnter()`) && !(await g(`ctx.decor.allowed()`)));
   await g(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await t.frames(3);
   t.check("…✋ GO INSIDE at the door with friends", /GO INSIDE/.test(await g(`(ctx.foot.debug.interactables() || {}).label || ""`)), await g(`(ctx.foot.debug.interactables() || {}).label`));
@@ -230,9 +232,12 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   t.check("host: it's her own house (the visit's owner)", (await g(`ctx.decor.visitOwner()`)) === hostUid && !(await g(`ctx.decor.visiting`)));
   t.check("…no redecorating with friends (no picker spots, nothing sold)", await g(`!ctx.decor.debug.room().hots.some(h => /^slot:/.test(h.id)) && !ctx.decor.buy("rug", "round").ok`));
   await A.game(`(ctx.foot.debug.F.pos.set(${door.x}, 0.05, ${door.z}), true)`); await A.frames(3);
+  console.log("   WHERE (guest at the door)", await where(A));
   await A.until(`(() => { const p = ctx.party.peer(${HU}); return !!p && p.x && Array.isArray(p.x.dc) && Array.isArray(p.x.in) && p.x.in[0] === "luluHome"; })()`, "guest knows the host is home", 30000);
+  console.log("   WHERE (guest before going in)", await where(A));
   await A.game(`ctx.decor.enter()`);
   if (!await A.until(`ctx.state === "interior" && !!ctx.decor.debug.room()`, "the guest comes over", 60000)) return false;
+  console.log("   WHERE (guest inside)", await where(A), await where(Hp));
   t.check("guest: it's the HOST's house", (await A.game(`ctx.decor.visitOwner()`)) === hostUid && await A.game(`ctx.decor.visiting`));
   t.check("…with the host's road-map rug (not her own bare floor)", await A.game(`(() => { const V = ctx.decor.debug.room().data.V; return !!V.objs.rug && Object.keys(V.cache.rug || {}).includes("road"); })()`), JSON.stringify(await A.game(`Object.keys(ctx.decor.debug.room().data.V.cache.rug || {})`)));
   t.check("…and nothing of the host's changed in her own save", await A.game(`ctx.decor.placed("rug") === "none"`));
