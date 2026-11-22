@@ -8,6 +8,8 @@
 //   CODE      A shows a code, C types it, A ✓ → friends (both said yes)
 //   REMOVE / BLOCK  remove → A's doorbell changes (B can't find A until A knocks); block → B's asks are dropped
 //   BACKUP    A's 💾 save code restored on a fresh page → the same friends, and they still find each other
+//   GHOSTS    tap a name over a car → that driver's page (➕); once friends knock, each sees the other's ghost in
+//             EVERYONE as 👯 + their name (the knock says which ghost — sealed; strangers keep the random label)
 // Waits are in GAME frames (scripts/lib/party3d.js), never wall time.
 const { startRelay, guestPage, hostPage, setWallCap } = require("../lib/party3d.js");
 let relay = null;
@@ -63,6 +65,19 @@ async function body(t, pages) {
   if (!await A.until(`Object.values(${S}.peers).some(p => p.onScreen)`, "A sees B's ghost", 60000)) return;
   const bId = await B.game(`${S}.myId`), aId = await A.game(`${S}.myId`);
 
+  // ── tap a NAME over a car → that driver's page (➕) ──
+  t.check("before: B's ghost wears a stranger's label (a colour + a number)", /^[A-Z][a-z]+ \d\d$/.test(await A.game(`(${S}.peers[${JSON.stringify(bId)}] || {}).name || ""`)), await A.game(`(${S}.peers[${JSON.stringify(bId)}] || {}).name`));
+  const ts = await A.game(`ctx.mp.tagOnScreen(${JSON.stringify(bId)})`);
+  if (ts) {
+    await A.page.mouse.click(ts.x, ts.y);
+    await A.frames(4);
+    t.check("tap B's name over the car → 📍 Nearby › B's page with ➕ Ask to be friends", await A.L(`!!document.getElementById("frDa")`) && await A.game(`ctx.phone.isOpen`));
+    await A.game(`(ctx.phone.closePhone(), true)`);
+    await A.frames(3);
+  } else t.check("B's name tag is on A's screen", false, "no tag on screen");
+  const miss = await A.game(`ctx.mp.ghostAt(5, 5)`);
+  t.check("a tap anywhere else isn't a name", miss === null, String(miss));
+
   // ── ADD from 📍 Nearby: A asks, B sees only a line on A's row ──
   t.check("no friends yet, no doorbell (a friends list costs nothing)", await A.game(`${F}.list.length === 0 && !${F}.debug().bell.open`));
   await A.game(`(ctx.phone.openPhone("nearby"), true)`);
@@ -106,6 +121,9 @@ async function body(t, pages) {
   const pa = await A.game(`${F}.list[0].presence`);
   t.check("A's 👯 knock: B is playing, on the highway", !!pa && pa.on === true && /highway/.test(pa.w || ""), JSON.stringify(pa));
   t.check("…and the knock told B that A is on", await B.until(`(${F}.list[0].presence || {}).on === true`, "B: A on", 20000));
+  // ── a friend recognised in EVERYONE (the knocks said which ghost each is — sealed) ──
+  t.check("A sees B's ghost as 👯 Latke Legend #NN", await A.until(`/^👯 Latke Legend #\\d\\d$/.test((${S}.peers[${JSON.stringify(bId)}] || {}).name || "")`, "A: B's ghost labelled as a friend", 20000));
+  t.check("B sees A's ghost as 👯 Kugel Kid #NN", await B.until(`/^👯 Kugel Kid #\\d\\d$/.test((${S}.peers[${JSON.stringify(aId)}] || {}).name || "")`, "B: A's ghost labelled as a friend", 20000));
   // a friend who isn't in my EVERYONE room at all
   await B.game(`(ctx.mp.setOnline(false), true)`);
   await B.until(`!${S}.want`, "B: Play online OFF");
