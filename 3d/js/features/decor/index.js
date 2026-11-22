@@ -79,7 +79,10 @@ function friendInside() {
     for (const u of P.members()) {
         if (u === P.uid) continue;
         const p = P.peer(u), x = p && p.x;
-        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z)) continue;
+        // (x.z: the town the friend's in — the house stands in its home town (ctx.home.town — Midwood), or on the highway ("")
+        //  when the town engine has no lot)
+        const homeZone = (ctx.home && ctx.home.town) || "";
+        if (!x || p.m !== 7 || !P.fresh(p, 6000) || !Array.isArray(x.in) || x.in[0] !== HOUSE_ID || (typeof x.z === "string" && x.z && x.z !== homeZone)) continue;
         const pl = decodeDc(x.dc);
         if (pl) return { owner: String(x.in[1] || u).slice(0, 12), placed: pl };
     }

@@ -63,6 +63,19 @@ module.exports = {
     t.check("…IN Midwood (the town is the district)", await g(`ctx.town.active && ctx.town.id === "midwood"`));
     t.check("…at the bottom of her porch steps", await g(`ctx.home.near(ctx.foot.pos.x, ctx.foot.pos.z, 14)`), await g(`JSON.stringify([ctx.foot.pos.x, ctx.foot.pos.z])`));
     t.check("…her car in the driveway", await g(`(() => { const P = ctx.home.park, c = ctx.foot.parkedCar; return !!c && Math.hypot(c.x - P.x, c.z - P.z) < 1.5; })()`));
+    // the lot is closed on its sides + back (a hedge with colliders): no walking from her yard into the neighbours' walls
+    if (real) {
+      const H = await g(`(() => { const L = ctx.home.lot, T = ctx.town.debug.S.T, out = {};
+        const fx = L.x + L.nx * L.d / 2, fz = L.z + L.nz * L.d / 2, at = (a, i) => ({ x: fx + L.ux * a - L.nx * i, z: fz + L.uz * a - L.nz * i });
+        const hit = p => T.colliders.some(c => Math.hypot(c.x - p.x, c.z - p.z) < (c.r || 0) + 0.05);
+        out.left = [4, 12, 20].every(i => hit(at(-L.w / 2 + 0.35, i)));
+        out.right = [4, 12, 20].every(i => hit(at(L.w / 2 - 0.35, i)));
+        out.back = [-5, 0, 5].every(a => hit(at(a, L.d - 0.35)));
+        out.front = !hit(at(-3.5, -0.5)) && !hit(at(4.6, 0.5));
+        out.hedges = ctx.home.debug.home.group.children.filter(m => m.isMesh && m.geometry && m.geometry.type === "BoxGeometry").length;
+        return out; })()`);
+      t.check("the lot is closed: hedge colliders on both sides + the back, the street front open", H.left && H.right && H.back && H.front, JSON.stringify(H));
+    }
     await t.frames(40);
     await t.shot("porch-midwood");
     // get in and pull out onto E 16th St

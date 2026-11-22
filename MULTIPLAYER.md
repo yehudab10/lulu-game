@@ -320,6 +320,9 @@ No server change — the relay's protocol v1 in rooms the client names:
 - **Doorbell rooms `B` + 11 chars** (a random secret only friends know): the owner sits there with state `{ o: 1 }`; a friend
   joins for a moment with `{ k: { f, c } }` (sealed "where / join"); she answers with `{ o: 1, r: [{ to, c }] }` (sealed per
   friend). Strangers can't find the room; anyone who does (a leaked name) gets no answer without the friendship's secret.
+  The sealed knock and its answer also carry `m` — the sender's relay connection id in the EVERYONE room (when she's in
+  it), so a friend's screen labels that ghost 👯 + her name; strangers see the random colour + number as ever. Coming
+  online re-knocks (≤ 1 a minute). Tapping a name tag over a car opens 📍 Nearby's page for that driver (➕).
 - **Friend-code rooms `F` + 6 chars**: open only while the owner's ➕ Add by code screen is up (state `{ fc: 1 }`); the
   handshake runs in that room's state.
 - Nothing personal: random ids, the curated name, the car skin, a few words of where in the game world ("in Midwood ·

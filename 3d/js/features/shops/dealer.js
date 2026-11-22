@@ -278,6 +278,7 @@ function chip(text) {
 }
 function testTick(dt) {
     if (!TD.on || TD.ending) return;
+    if (ctx.paused) return;          // (the HUD keeps ticking under the pause menu: the 60 s — and "time's up" — must not)
     const st = ctx.state;
     if (st === "playing") TD.t += dt;
     const left = Math.max(0, TEST.secs - TD.t);

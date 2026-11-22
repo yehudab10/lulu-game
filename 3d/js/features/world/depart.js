@@ -141,7 +141,11 @@ function startAtHome(opts = {}, alt = null) {
     const L = home.people.lulu;
     // (opts.homeAt {x, z, face}: she's already somewhere on her street — the road trip from the suitcase starts right there)
     const at = opts.homeAt && Number.isFinite(opts.homeAt.x) ? opts.homeAt : null;
-    const face = at && at.face != null ? at.face : L ? L.obj.rotation.y : 0;
+    // (in town: she faces into her own lot — the house, the car on her right — so the camera behind her stays over her
+    //  lot + the sidewalk, never over the neighbour's yard past the hedge)
+    const lot = home.site === "town" && home.lotSpot;
+    const lotFace = lot ? Math.atan2(lot.ux * 0.38 - lot.nx * 0.92, lot.uz * 0.38 - lot.nz * 0.92) : null;
+    const face = at && at.face != null ? at.face : lotFace != null ? lotFace : L ? L.obj.rotation.y : 0;
     if (L) L.obj.visible = false;
     D.first = !HS.starts;
     HS.starts++; saveSoon();
@@ -156,9 +160,14 @@ function startAtHome(opts = {}, alt = null) {
             hint, hintT: D.first ? 14 : 6,
             quiet: () => !!ctx.foot.pos && nearHome(ctx.foot.pos.x, ctx.foot.pos.z, 90),     // no random townsfolk / busking / "get in a car" nudges on her own street
             onOwnCar: drove, driveState: "worldPullOut",
+            // (in town, on her own lot: the walking frame + camera face into the lot, so the camera stays over her yard + the
+            //  sidewalk — not the neighbour's yard past the hedge; off the lot, the town's own street frame)
+            frame: lotFace != null ? (F, h, dt) => (nearHome(F.pos.x, F.pos.z, 13) ? lotFace : ctx.town && ctx.town.active && ctx.town.footYaw ? ctx.town.footYaw(F, h, dt) : h) : undefined,
         },
     });
     if (!ok) { D.live = false; if (ima) ima.obj.visible = false; return false; }
+    // (the free camera on foot keeps the direction it starts from: point it into her lot, behind her)
+    if (lotFace != null && ctx.cam && ctx.cam.free && ctx.cam.free.recentre) ctx.cam.free.recentre(lotFace);
     H.setBoost(G.boost, input.device === "touch" ? "" : glyph("boost"));
     G.lastS = G.startS = ctx.car.s;
     // (a Cruise with features/day: Ima reads out today's list instead — after the first-ever "the car's right there")

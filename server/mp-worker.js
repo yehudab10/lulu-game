@@ -21,6 +21,8 @@
 // Uses the WebSocket Hibernation API (state.acceptWebSocket + webSocket*
 // handlers) so idle rooms are evicted from memory and cost nothing.
 
+import { createHomes, sqlStore } from "./homes.mjs";   // 🏘️ the world-wide property registry (ci/realestate, owner-approved 2026-11-20)
+
 const MAX_MEMBERS = 24;
 const MAX_FRAME_BYTES = 2 * 1024; // 2 KB
 const STATE_RATE_LIMIT = 8; // messages per second per client
@@ -386,6 +388,16 @@ export class Board {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
 
+    // 🏘️ /homes/* — the property registry (homes.mjs): one more table in this same global object
+    if (path.startsWith("/homes/")) {
+      if (!this.homes) this.homes = createHomes(sqlStore(this.sql));
+      let body = null;
+      if (method === "GET") body = { town: url.searchParams.get("town") };
+      else body = await this.readBody(request);
+      const r = await this.homes.handle(path, method, body, this.clientIp(request));
+      return corsJson(r.body, r.status);
+    }
+
     if (path === "/board/wanted") {
       if (method === "GET") return this.getWanted();
       if (method === "POST") return this.postWanted(request);
@@ -495,7 +507,7 @@ export default {
 
     // Async board (phase 2): everything under /board/* → the single global
     // Board Durable Object. Handles GET/POST + OPTIONS preflight itself.
-    if (parts[0] === "board") {
+    if (parts[0] === "board" || parts[0] === "homes") {
       const id = env.BOARD.idFromName("global");
       const stub = env.BOARD.get(id);
       return stub.fetch(request);

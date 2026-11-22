@@ -223,7 +223,7 @@ module.exports = {
     // ── Lakewood: Main St ──
     if (want("town")) await step("town", async () => {
       await g(`(window.__perfDrive = 0, true)`);
-      await t.until(`__lulu3d.ctx.town.debug.S.loaded`, "town models loaded", 120000);
+      await t.until(`(__lulu3d.ctx.town.load("lakewood"), __lulu3d.ctx.town.loaded("lakewood"))`, "town models loaded", 120000);   // (ask for Lakewood by name: the FIRST exit is Midwood's now, and nothing here drives near either)
       await toPlaying();
       await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active`, "into Lakewood", 10000)) return;
@@ -396,7 +396,7 @@ module.exports = {
         await g(`(ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
         await t.frames(6);
         await t.click(/Friends/);
-        await t.click(/Party games/);
+        await g(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more — ci/friends stage 2)
         if (!await t.until(`__lulu3d.state === "partyLobby" && __lulu3d.ctx.party.connected && __lulu3d.ctx.party.isHost`, "host: lobby", 60000)) return;
         const code = await g(`ctx.party.code`);
         const browser = t.page.context().browser();

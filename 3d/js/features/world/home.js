@@ -260,10 +260,36 @@ function buildTownHome(spot, town) {
     drive.position.set(mid.x, 0.035, mid.z);
     drive.receiveShadow = true;
     g.add(drive);
+    // a hedge round the sides + back of the lot (the street front stays open): the neighbours' houses are solid only on
+    // their street side, so without it she could walk from her yard into their side / back walls (QA, qa7)
+    const hm = mats().hedge || (mats().hedge = new THREE.MeshStandardMaterial({ color: "#3F7A3A", roughness: 1 }));
+    for (const e of lotEdges(spot)) {
+        const hg = new THREE.BoxGeometry(HEDGE.t, HEDGE.h, e.len);
+        const m = new THREE.Mesh(hg, hm);
+        m.position.set(e.cx, HEDGE.h / 2, e.cz);
+        m.rotation.y = Math.atan2(e.dx, e.dz);
+        m.receiveShadow = true;
+        g.add(m);
+    }
     home.neighbours = [];
     home.van = null; home.vanPath = null; home.people.pinsky = null;
     home.ready = true;
 }
+
+/** The hedge: thickness, height, how far in from the street front it starts, the collider circles along it. */
+const HEDGE = { t: 0.7, h: 1.3, from: 0.6, r: 0.55, step: 0.8 };
+/** The lot's hedge lines (world): both sides from just behind the street front to the back, and the back. Each:
+ *  { ax, az, bx, bz, cx, cz, dx, dz (unit, a → b), len }. */
+function lotEdges(L) {
+    const W = L.w || 14, Dp = L.d || 24, hw = W / 2 - HEDGE.t / 2;
+    // (the lot's street front: its centre is d / 2 toward the street)
+    const fx = L.x + L.nx * Dp / 2, fz = L.z + L.nz * Dp / 2;
+    const at = (along, inward) => ({ x: fx + L.ux * along - L.nx * inward, z: fz + L.uz * along - L.nz * inward });
+    const back = Dp - HEDGE.t / 2;
+    const seg = (a, b) => { const len = Math.hypot(b.x - a.x, b.z - a.z); return { ax: a.x, az: a.z, bx: b.x, bz: b.z, cx: (a.x + b.x) / 2, cz: (a.z + b.z) / 2, dx: (b.x - a.x) / len, dz: (b.z - a.z) / len, len }; };
+    return [seg(at(-hw, HEDGE.from), at(-hw, back)), seg(at(hw, HEDGE.from), at(hw, back)), seg(at(-hw - HEDGE.t / 2, back), at(hw + HEDGE.t / 2, back))];
+}
+export { lotEdges };
 
 /** The house is solid in its town (the town's block ring is open across the lot's frontage — features/town): the same
  *  three circles as the highway house (two for the house, one for the garage behind the parked car). Once per standing
@@ -280,6 +306,11 @@ export function houseColliders() {
     const gx = P.x - fx * 3.9, gz = P.z - fz * 3.9;
     const list = [{ x: hp.x + rx * 2.4, z: hp.z + rz * 2.4, r: 4.4, kind: "house" }, { x: hp.x - rx * 2.4, z: hp.z - rz * 2.4, r: 4.4, kind: "house" },
         { x: gx - fx * 2.2, z: gz - fz * 2.2, r: 2.9, kind: "house" }];
+    // …and the hedge round the lot's sides + back: a row of small circles along each line
+    if (home.lotSpot) for (const e of lotEdges(home.lotSpot)) {
+        const n = Math.max(1, Math.ceil(e.len / HEDGE.step));
+        for (let i = 0; i <= n; i++) list.push({ x: e.ax + (e.bx - e.ax) * i / n, z: e.az + (e.bz - e.az) * i / n, r: HEDGE.r, kind: "house" });
+    }
     const where = T.active && T.id === home.town ? undefined : { town: home.town, exitS: home.exitS };
     try { for (const c of list) T.addCollider(c, where); } catch (e) { console.warn("[world] house colliders", e); }
     return true;

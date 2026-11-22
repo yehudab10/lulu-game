@@ -8,6 +8,9 @@
 // sealed = AES-GCM with that friendship's own secret: anyone else at the doorbell (or the relay) reads nothing.
 // A knock that isn't from a current friend, doesn't open, is stale (> 10 min) or replays a nonce gets no answer.
 // Knocking also tells HER that the friend is on (and where) — presence both ways, no extra traffic.
+// Both sides also say which ghost they are in the EVERYONE room (`m`: the relay's random connection id there) — sealed,
+// so only a friend can tell that "Pink 42" is really her friend: her ghost is labelled 👯 + the friend's name
+// (multiplayer's labelFor ← byMp). Strangers see the same random label as ever.
 import { ctx, emit } from "../../core/ctx.js";
 import { seal, open, randStr } from "./crypto.js";
 import { openRoom } from "./room.js";
@@ -28,7 +31,19 @@ export function where() {
     let label = pr && pr.label ? pr.label : "playing";
     if (pr && pr.mode === "drive" && pr.icon === "🚗") label = "";
     const w = label && pr.mode === "in" ? label : label ? `${place} · ${label}` : place;
-    return { w: String(w).slice(0, 48), i: String((pr && pr.icon) || "🚗").slice(0, 8) };
+    const out = { w: String(w).slice(0, 48), i: String((pr && pr.icon) || "🚗").slice(0, 8) };
+    const M = ctx.mp;
+    if (M && M.connected && M.room === "lobby" && validM(M.myId)) out.m = M.myId;        // (which ghost I am in EVERYONE)
+    return out;
+}
+const M_RE = /^[A-Za-z0-9_-]{1,24}$/;
+const validM = m => typeof m === "string" && M_RE.test(m);
+/** A ghost in the EVERYONE room → my friend's label if it's one of my friends (they told me, sealed), else null. */
+export function byMp(id) {
+    if (!validM(id)) return null;
+    const t = Date.now();
+    for (const [fid, v] of seen) if (v.on && v.m === id && t - v.at < 45 * 60000) { const f = friend(fid); if (f) return labelOf(f); }
+    return null;
 }
 const dinaMode = () => /^dina/.test(ctx.state || "") || !!(ctx.G && ctx.G.mode === "dina");
 /** Out in the open world (where a friend can land next to her). */
@@ -66,7 +81,7 @@ async function onKnock(r, pid, d) {
     if (typeof q.sk === "string" && /^[a-z0-9_]{1,24}$/.test(q.sk)) f.sk = q.sk;
     if (typeof q.nb === "string" && BELL_RE.test(q.nb)) f.b = q.nb;
     f.nb = 0;
-    seen.set(f.f, { on: true, w: typeof q.w === "string" ? q.w.slice(0, 48) : "", i: typeof q.i === "string" ? q.i.slice(0, 8) : "🚗", at: Date.now(), from: "knocked" });
+    seen.set(f.f, { on: true, w: typeof q.w === "string" ? q.w.slice(0, 48) : "", i: typeof q.i === "string" ? q.i.slice(0, 8) : "🚗", m: validM(q.m) ? q.m : "", at: Date.now(), from: "knocked" });
     emit("friends:presence", { f: f.f });
     const base = Object.assign({ on: 1, j: S.join, re: q.nn }, where());
     if (q.q !== "join") { reply(pid, await seal(f.s, base)); return; }
@@ -114,7 +129,7 @@ export function knock(f, q = "where", onWait = null) {
         const finish = v => {
             if (done) return; done = true; clearTimeout(timer); r.close();
             const t = Date.now();
-            if (v && v.on) seen.set(f.f, { on: true, w: v.w || "", i: v.i || "🚗", j: v.j || "ask", at: t, from: "knock" });
+            if (v && v.on) seen.set(f.f, { on: true, w: v.w || "", i: v.i || "🚗", j: v.j || "ask", m: validM(v.m) ? v.m : "", at: t, from: "knock" });
             else if (v) seen.set(f.f, { on: false, at: t, from: "knock" });
             emit("friends:presence", { f: f.f });
             resolve(v || { on: false });
