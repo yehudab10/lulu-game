@@ -1107,9 +1107,10 @@ hook("controls", ctl => {
             return;
         }
         if (A.st === "u2") {
-            // pull out: full lock toward the lane, then stop there
-            ctl.steer = lc.z > 6.2 ? 0 : -away; speed(0.9);
-            if (lc.z > LANE_Z + 0.5) A.st = "stop";
+            // pull out to a spot in the lane, then stop there
+            const tx = clamp(lc.x - away * 3, -8, 8), tz = 9.4;
+            pursue(tx, tz, 0.9);
+            if (inLane(lc) && Math.abs(lc.z - tz) < 1.4) A.st = "stop";
             return;
         }
         speed(0); ctl.steer = 0;
@@ -1130,9 +1131,23 @@ hook("controls", ctl => {
         const ax = (o.x - lc.x) * lc.fx + (o.z - lc.z) * lc.fz, sd = Math.abs((o.x - lc.x) * lc.fz - (o.z - lc.z) * lc.fx);
         if (ax * dir > 0 && Math.abs(ax) < 4.6 && sd < 2.0) { speed(0); return; }
     }
+    const xS = xA - sgn * 4.0;
+    if (A.phase === "A0") {
+        // not enough run-up to line up: back up the lane first (straightening as she goes)
+        const xR = xS + sgn * 8, left = sgn * (xR - lc.x);
+        const eps = -sgn * clamp((zA - lc.z) * 0.45, -0.5, 0.5);
+        ctl.steer = clamp(-wrapAngle(lc.h - (hT + eps)) * 2.6, -1, 1);
+        speed(left > 1 ? -1.6 : left > 0.1 ? -0.6 : 0);
+        if (left <= 0.1 && Math.abs(v) < 0.1) { A.phase = "A"; tr(A, lc); }
+        return;
+    }
+    if (A.phase === "A" && !A.checked) {
+        A.checked = true;
+        if (sgn * (lc.x - xS) < 7) { A.phase = "A0"; tr(A, lc); return; }
+    }
     if (A.phase === "A") {
         // forward along the lane to a little past the front car, lined up with the lane
-        const xS = xA - sgn * 4.0, left = sgn * (lc.x - xS);
+        const left = sgn * (lc.x - xS);
         const eps = sgn * clamp((zA - lc.z) * 0.45, -0.7, 0.7);
         const err = wrapAngle(lc.h - (hT + eps));
         ctl.steer = clamp(err * 2.6, -1, 1);
