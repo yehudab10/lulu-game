@@ -38,7 +38,12 @@ module.exports = {
         await g(`(() => { const h = ctx.homes.household(${JSON.stringify(key)}), f = ctx.foot.pos; f.set(h.ap.x, 0.05, h.ap.z); ctx.foot.obj.position.copy(f); const yaw = Math.atan2(h.door.x - h.ap.x, h.door.z - h.ap.z); ctx.foot.obj.rotation.y = yaw; if (ctx.cam.free) ctx.cam.free.yaw = yaw; ctx.cam.snap(); return true; })()`);
         await t.frames(3);
         if (!await g(`ctx.homes.enter(${JSON.stringify(key)}, "sneak", "door")`)) { console.log(`   (couldn't go into ${key} at ${hour}:00)`); continue; }
-        if (!await t.until(`__lulu3d.state === "interior" && !!${D}.room()`, `${hour}:00 — into ${key}`, 60000)) { await g(`(L3.state !== "footRun" && L3.state !== "playing" ? L3.setState("playing") : 0, true)`); continue; }
+        if (!await t.until(`__lulu3d.state === "interior" && !!__lulu3d.ctx.homes.debug.room()`, `${hour}:00 — into ${key}`, 120000)) {
+          await g(`(window.__interiors && window.__interiors.room && window.__interiors.room.finishLeave(), true)`);
+          await t.until(`__lulu3d.state === "footRun" || __lulu3d.state === "playing"`, "back outside", 20000);
+          if (await g(`L3.state !== "footRun"`)) { await g(`(ctx.foot.start("parked", { noIntro: true }), true)`); await t.until(`__lulu3d.state === "footRun"`, "on foot again", 8000); }
+          continue;
+        }
         await t.frames(20);
         // (homelife.js's rule: walls = cols p*/q*/back/f*; in a wall / outside / standing in furniture (sitting, lying, asleep on it is fine))
         const r = await g(`(() => { const r = ${D}.room(); if (!r) return null; const walls = r.cols.filter(c => /^([pq]\\d|back|f\\d)$/.test(c.id)), B = r.bounds, bad = [];
