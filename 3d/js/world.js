@@ -20,6 +20,17 @@ export const LANE = 3.5;
 export const HALF_ROAD = 7;       // 4 lanes
 export const SHOULDER = 8.8;      // edge of the gravel shoulder
 export const CHUNK = 200;         // metres per scenery chunk
+/**
+ * 🌍 ONE WORLD (ci/onemap): the highway is a LAP. Its bends repeat every LAP metres (the first lap is the old endless
+ * road, metre for metre, easing into the next lap's straight start over its last LAP_BLEND metres), and every place on
+ * it — the towns' exits, JFK, the rest areas, the pull-ins — comes round once a lap at the same lap metre: one place,
+ * not copies. `s` keeps counting (distance, score, chases); places ask `lapS(s)` (0 ≤ · < LAP) and `lapOf(s)`.
+ */
+export const LAP = 16000, LAP_BLEND = 600;
+export const lapS = s => ((s % LAP) + LAP) % LAP;
+export const lapOf = s => Math.floor(s / LAP);
+/** The world s of lap metre `m` on the lap of `s` (the next one, if `m` is behind `s` there and `next`). */
+export const lapAt = (s, m, next = false) => { const b = lapOf(s) * LAP + m; return next && b < s ? b + LAP : b; };
 
 /**
  * Paved ground off the highway's asphalt (exit ramps, a rest area's lot…): features push predicates
@@ -69,6 +80,11 @@ export class Road {
     // The heading itself is a bounded wiggle (never more than ~65° off north),
     // so the road can never loop back over itself.
     headingFn(s) {
+        // (a lap: the same bends every LAP metres; the last LAP_BLEND ease into the next lap's straight start)
+        const ls = lapS(s), f = ls > LAP - LAP_BLEND ? (LAP - ls) / LAP_BLEND : 1;
+        return this.baseHeading(ls) * (f * f * (3 - 2 * f));
+    }
+    baseHeading(s) {
         const e = Math.min(1, Math.max(0, (s - 80) / 260));
         const env = e * e * (3 - 2 * e); // a straight start, then ease into the curves
         const amp = 0.62 + 0.38 * Math.sin(s / 900 + this.ph[3]);
@@ -400,7 +416,7 @@ class Chunk {
     *build(world) {
         const { road } = world;
         const M = materials(), G = geometry();
-        const rnd = mulberry32(this.k * 7919 + world.seed);
+        const rnd = mulberry32((this.k % (LAP / CHUNK)) * 7919 + world.seed);   // (the same trees every lap)
         const p = {};
 
         // road + shoulders

@@ -44,11 +44,32 @@ import * as H from "../../hud.js";
 import * as LY from "./layout.js";
 import * as L from "./lines.js";
 import { buildChunk, MODELS, lookMats } from "./build.js";
+import { LAP, lapAt } from "../../world.js";
 import { LIFE, PEOPLE_MODELS, saved, spawnCast, despawnCast, tickLife, restSpot, registerBays, luluSays, actAt, dealOfDay } from "./life.js";
 
 /** Where the rest areas go: the first this far into a run, then about every `every` metres. */
-export const REST = { first: 3900, every: 7300 };
-const RS = { list: [], inside: null, was: null, cue: "", cuePull: undefined, ownPull: false, savedPull: undefined, chipT: 0, k: 0, done: new Set(), tripTried: false, presence: false };
+export const REST = { first: 3900, every: 7300,
+    // 🌍 ONE WORLD (ci/onemap): in a Cruise / 🌍 Free Roam the rest areas are two places on the lap — the same lap metre
+    // (slid clear the same way every lap: the road repeats) and the same name every lap
+    lap: [5500, 14500] };
+/** The next lap rest area at or past s: { s, slot } (its world s before any slide, its slot on the lap = its name). */
+function nextLapRest(s) {
+    let best = null;
+    REST.lap.forEach((m, slot) => { const at = lapAt(s, m, true); if (!best || at < best.s) best = { s: at, slot }; });
+    return best;
+}
+const lapMode = () => { const G = ctx.G; return !!G && (G.mode === "cruise" || (G.mode === "party" && ctx.party && ctx.party.active && ctx.party.activity && ctx.party.activity.k === "roam")); };
+/** Plan the lap's rest areas up to s1 (each once; a slot whose slid metre is already planned is skipped). */
+function planLap(s0, s1) {
+    for (let n = 0, s = s0; n < 6; n++) {
+        const r = nextLapRest(s);
+        if (!r || r.s > s1) break;
+        const key = Math.round(r.s);
+        if (!RS.lapTried.has(key) && !RS.list.some(R => Math.abs(R.s - r.s) < 2500)) { RS.lapTried.add(key); planRest(r.s, false, r.slot); }
+        s = r.s + 1;
+    }
+}
+const RS = { lapTried: new Set(), list: [], inside: null, was: null, cue: "", cuePull: undefined, ownPull: false, savedPull: undefined, chipT: 0, k: 0, done: new Set(), tripTried: false, presence: false };
 
 const mode = () => (ctx.G && ctx.G.mode) || "cruise";
 function eligible() {
@@ -184,7 +205,8 @@ function planParty() {
         }
         return;
     }
-    // 🌍 Free Roam: after about every other town interchange, right between it and the next one's signs
+    // 🌍 Free Roam: the lap's rest areas (fixed data — the same metres on every screen)
+    if (A.k === "roam") { planLap(Math.max(0, (ctx.car ? ctx.car.s : 0) - 2000), (ctx.car ? ctx.car.s : 0) + 6000); return; }
     const T = ctx.town;
     if (!T || !T.exits) return;
     const seen = new Set();
@@ -200,19 +222,21 @@ function planParty() {
 }
 hook("runStart", G => {
     resetState();
-    RS.tripTried = false; RS.done = new Set();
+    RS.tripTried = false; RS.done = new Set(); RS.lapTried = new Set();
     const party = partyOk();
     if (!eligible() && !party) return;
-    if (party) planParty(); else planRest((G.startS || 0) + REST.first);
+    if (party) planParty(); else if (lapMode()) planLap(Math.max(0, (G.startS || 0) - 1500), (G.startS || 0) + 9000); else planRest((G.startS || 0) + REST.first);
     addActor({ foot: true, update: dt => { try { tick(dt); } catch (e) { console.error("[exits] tick", e); } return true; } });
 }, 10);
 on("title", resetState);
 
 hook("update", (dt, P, controlsOn) => {
     if (partyOk() && !(ctx.town && ctx.town.active)) planParty();
+    if (eligible() && lapMode() && !(ctx.town && ctx.town.active)) planLap(ctx.car.s - 500, ctx.car.s + 6000);
     if (!RS.list.length || (ctx.town && ctx.town.active)) { if (RS.cue) cue(""); return; }
     const car = ctx.car, last = RS.list[RS.list.length - 1];
-    if (eligible() && car.s > last.s - 1200 && car.s > (RS.retryS || 0)) { if (!planRest(Math.max(last.s + REST.every, car.s + 2000))) RS.retryS = car.s + 400; }
+    if (eligible() && lapMode()) { /* (planned above) */ }
+    else if (eligible() && car.s > last.s - 1200 && car.s > (RS.retryS || 0)) { if (!planRest(Math.max(last.s + REST.every, car.s + 2000))) RS.retryS = car.s + 400; }
     // the decel-lane cue (a prompt, not a popup)
     const R = restAt(car.s);
     let html = "";
