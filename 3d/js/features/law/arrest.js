@@ -45,13 +45,20 @@ registerState("lawArrest", {
             //  highway instead, where the cruiser pulls up; the old spot left the shot looking at empty space)
             if (data.onFoot && data.x != null) { data.x = ctx.car.pos.x; data.z = ctx.car.pos.z; data.h = ctx.car.h; }
         }
+        // (caught ON FOOT away from her car: the cruiser pulls up by HER, not by the car she left down the street — it used
+        //  to stop at the car, she walked 5 s toward it and vanished, and the haul shot whipped the camera across to it)
+        st.sAt = ctx.car.s;
+        if (data.onFoot && data.x != null && Math.hypot(data.x - ctx.car.pos.x, data.z - ctx.car.pos.z) > 8) {
+            const rd = ctx.world.road, n = rd.nearest(data.x, data.z, ctx.car.s, {}), q = rd.point(n.s, n.d, {});
+            if (isFinite(n.s) && Math.hypot(q.x - data.x, q.z - data.z) < 6) { st.sAt = n.s; st.sHer = true; }
+        }
         // the cruiser: the one that pulled her over, or a fresh one sliding up from behind
         if (cast.unit && cast.unit.car) st.unit = cast.unit;
         else {
             // (on foot: the shoulder's inner edge — in a town the right lane beside the parked row, never the sidewalk)
-            const pd = data.onFoot ? (ctx.town && ctx.town.active ? pullDAt(ctx.car.s) : 5.25) : ctx.car.d;
-            st.unit = scriptedCruiser(28, pd);
-            st.unit.mode = "pull"; st.unit.pullD = pd; st.unit.stopS = ctx.car.s - 7.4;
+            const pd = data.onFoot ? (ctx.town && ctx.town.active ? pullDAt(st.sAt) : 5.25) : ctx.car.d;
+            st.unit = scriptedCruiser(28, pd, st.sAt);
+            st.unit.mode = "pull"; st.unit.pullD = pd; st.unit.stopS = st.sAt - 7.4;
         }
         st.unit.siren = true;
         if (!st.unit.car.ai) { st.unit.car.free = true; st.unit.car.ai = (dt, c) => driveUnit(dt, c, st.unit); }
@@ -82,7 +89,7 @@ registerState("lawArrest", {
         const car = ctx.car, u = st.unit;
         updateDriving(dt, {}, false, { steer: 0, throttle: 0, brake: car.vF > 0.6 ? 1 : 0.25, handbrake: true, analog: true });
         if (u && u.car) {
-            if (u.mode === "pull") u.stopS = car.s - 7.4;
+            if (u.mode === "pull") u.stopS = (st.sHer ? st.sAt : car.s) - 7.4;     // (in the car: wherever it rolls to a stop)
             setRig(u.rig, true, ctx.time);
         }
         for (const w of st.walkers) {
