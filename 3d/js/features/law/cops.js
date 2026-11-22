@@ -1471,9 +1471,9 @@ export function pullDAt(s = ctx.car.s) {
     const rd = ctx.world.road, p = rd.point(s, 0, {}), n = rd.nearest(p.x, p.z, s, {}), st = n && n.street;
     return st && st.lanes ? Math.max(1.75, st.lanes * 3.5 - 0.9) : 2.6;
 }
-export function scriptedCruiser(sBehind = 26, d = null) {
+export function scriptedCruiser(sBehind = 26, d = null, s0 = null) {
     const car = ctx.car;
-    const u = addUnit(car.s - sBehind, d == null ? car.d : d, 1, Math.max(8, car.speed + 6), { mode: "chase" });
+    const u = addUnit((s0 != null ? s0 : car.s) - sBehind, d == null ? car.d : d, 1, Math.max(8, car.speed + 6), { mode: "chase" });
     u.siren = true;
     return u;
 }

@@ -153,7 +153,7 @@ const SCENES = [
       await P.look(orient === "portrait" ? yawAt(P.sp, -0.55, -0.83) : yawAt(P.sp, -0.825, -0.565));
       await P.frames(16);
     } },
-  { id: "04-car-lot", caption: "Pick your next ride at Uncle Moishe's",
+  { id: "04-car-lot", caption: "Pick your next ride at Uncle Refael's",
     async setup(P) {
       await cruise(P); await town(P, "midwood"); await onFoot(P);
       const sp = await P.g(`ctx.town.spot("lot_red")`), d = await P.g(`ctx.town.spot("dealer")`);
