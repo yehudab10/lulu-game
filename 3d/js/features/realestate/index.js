@@ -398,13 +398,13 @@ function contactHtml() {
     const mine = registry.listFor(null), here = inTown() ? townId() : null;
     const R = realtorOf(here || "lakewood");
     let h = `<div class="lp-note">🏘️ <b>${R.name}</b> · ${R.firm}${here ? "" : " (Lakewood) · Brick by Brick (Midwood)"}</div>`;
-    h += `<div class="lp-note"><b>🔑 Your places</b> · ${mine.length} / ${CAP}</div>`;
+    h += `<div class="lp-note"><b>🔑 Your places</b> (${mine.length} of ${CAP})</div>`;
     if (!mine.length) h += `<p class="lp-empty">No houses yet. ${here ? "Look for the FOR SALE signs on the lawns!" : "Drive into Lakewood or Midwood and look for the FOR SALE signs!"}</p>`;
-    h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.town === "midwood" ? "Midwood" : "Lakewood"} · ${m.label}${m.town === here ? " · tap = 📍 show me" : ""}</small></span></button>`).join("");
+    h += mine.map(m => `<button class="btn lp-row re-mine" data-id="${m.id}"><span class="lp-av">🔑</span><span class="lp-tx"><b>${m.address}</b><small>${m.label} in ${m.town === "midwood" ? "Midwood" : "Lakewood"}${m.town === here ? ". Tap to show the way." : ""}</small></span></button>`).join("");
     if (here) {
         const list = locked() ? [] : listings();
-        h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b> · new listings every day</div>`;
-        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label} · tap = 📍 show me</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
+        h += `<div class="lp-note"><b>🪧 For sale in ${ctx.town.name || here}</b>. New listings every day.</div>`;
+        h += list.length ? list.slice(0, 8).map(r => `<button class="btn lp-row re-list" data-id="${r.id}"><span class="lp-av">🪧</span><span class="lp-tx"><b>${r.address}</b><small>${r.label}. Tap to show the way.</small></span><span class="lp-meta">${fmt(valueOf(r))} 💰</span></button>`).join("")
             : `<p class="lp-empty">${locked() ? OFFICE.party : "All sold today! Check back tomorrow."}</p>`;
     } else h += `<p class="lp-fine">Listings show up when you're in a town.</p>`;
     return h;
