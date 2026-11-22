@@ -665,6 +665,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | unstuck 🆘 | **personal** · refused in a party game / race | The rescue only moves HER (friends see her appear at the new spot through the normal position sync, `ctx.party.respawned()`); a passenger's 🆘 = hop out beside the friend's car (`ctx.openworld.hopOut`) — the driver isn't moved. Refused while she plays a 🌍 game (`openworld.game.ph === "go"` with her in `ps`) or a race (`party.activity.k === "race"`): a reset would be a free shortcut. The automatic rescue still runs there (it only ever puts her at the nearest spot — no gain). Test: `unstuck2` (two pages) |
 | airport ✈️ | **off** for now (stage 1) | Until the interchange planner hook (`ci/exits2`): a party's town interchanges are planned from fixed data and don't keep out of it, so the airport doesn't plan in a party (`ctx.airport.debug.party(true)` turns it on). Ready for it: the placement is a pure function of fixed data (the same metre on every screen — tested), the planes are a pure function of the party clock (shared), the kerb vehicles / doors / the fence joke are personal props (never the shared traffic), presence "✈️ at JFK" over her car / walker in the landside |
 | decor 🛋️ | **visits** on · decorating **off** | In 🌍 Free Roam (`canEnter()`) ✋ GO INSIDE works with friends — the house is right by the party's start: the first friend inside hosts the visit and everyone who comes in after sees THEIR decorations (`d.x.dc`), all of them see each other (features/together). Decorating stays hers alone: in a party the porch, mailbox and yard ✋ spots don't show, the inside slots have no picker, `buy` / `place` refuse (`why: "party"`). Outside, each screen still shows its own player's decorations (her copy of the home street) |
+| realestate 🏘️ | **personal homes, shared ownership** (🌍 Free Roam only) | Every home's address / price / today's listing is a pure function of the town data + the device's date. In a party the market, the office, the bank's mortgage desk, viewings and buying work only in 🌍 Free Roam (`locked()`: a lobby activity / a race keeps it shut). Each player publishes the homes they own IN THE TOWN THEY'RE IN as `d.x.re` (`["l178,240,<minute bought>", …]`, ≤ 10) — `party.js` turns friends' lists into a registry SOURCE: a friend's home is never listed and can't be claimed, gets a mailbox in that friend's colour, and ✋ at its door says whose it is / 👯 JOIN <name> INSIDE when they're in (features/together `SHARED.realestateHouse` — the room's instance is the house id; a viewing stays personal). Visitors look, nobody redecorates in a party (like decor), no coins move. A double booking (two friends signed one home at once): the earlier purchase keeps it, the other gets every coin back + a text. Mortgage payments, rent and tenants are each player's own. Strangers never publish / see any of it. Test: `realestatefriends` (two pages). |
 | airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
 | airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
 
@@ -1259,6 +1260,89 @@ waits in the set with a "processing your release…" caption (≤ 40 s, then the
 (golden rule 4b): the jail ad's quiet moment in the cell is untouched (the cell is the same state). Test:
 `scripts/tests3d/places.js` (`PLACES_PART=3` runs only the arrests / court / ER part).
 
+**Real estate (realestate): own, buy and sell homes** (roadmap 16, `ci/realestate`; the owner: "realtors, mortgages yada
+yada… a maximum of 10 buildings owned per player"). `features/realestate/`: `data.js` (EVERY number + the words: base price per
+house model — a Midwood rowhouse 7,000 "cozy", a Lakewood townhouse 9,000, a duplex half 11,000, a Midwood house 16,000 —
+× the street (`STREETS`: Ocean Pkwy 1.6 … Route 9 0.85), × next to the B/Q (0.8) / the precinct (0.9), × a per-house
+neighbour quirk; the market; `CAP` = 10; the mortgage / rent / sale rules for the later stages), `registry.js` (**who owns
+what — ONE swappable interface**: `claim(id, info)`, `release(id, why)`, `ownerOf(id)`, `listFor(town)`, `onChange(fn)`,
+`addSource(src)` — her own homes live in `store("realestate").owned`; a 🎉 party's friends (stage 4) or, one day, a server
+(golden rule 3: the owner decides) plug in as a SOURCE), `market.js` (every front door of the town she's in as a home:
+`catalogue()` from `ctx.town.homes` + the same door offsets as homes' `DOORS`; ids are POSITION-based —
+`"<town>:<local x>:<local z>"` of the door, rounded — never the index in `ctx.town.homes`, which shifts when a landmark
+replaces houses; a house moved ≤ 3 m by a lot change is found again (`migrate`), a house that's gone is bought back at what
+she paid (`compensate`, a text from the realtor); `today()` = the device's local day number (+ `CLOCK.offset` for tests);
+`valueOf(rec, day)` = price × (1 ± 3.5 % on a 23-day wave): top to bottom ≤ ~7.5 %, under the 10 % sale fee, so
+buy-then-sell always loses; `isListed(rec, day)` — ~7 a town, a listing stays 4 days, staggered, never hers / anyone's /
+the family's (`ctx.home.isFamily(x, z)` or a spot `home` within 14 m) / a shtiebel), `signs.js` (a FOR SALE board on a
+two-post frame on the lawn of every listed home + her pink mailbox with a "LULU ♥" plate: 4 InstancedMeshes for the whole
+town, ≤ 4 draw calls, no shadows, rebuilt only when the listings / owners / the day change), `office.js` (the realtor's
+office — interiors engine `realty`, built from homes' furniture kit: the realtor at her desk, today's LISTINGS board on the
+wall → a listing → her pitch → 📍 show me (an openworld pin) / 💰 buy it now; a waiting area, a coffee machine that only
+gurgles), `house.js` (interiors engine `realestateHouse`: a VIEWING — the sellers' things half packed, the realtor follows
+her room to room with a line per room, ✋ at her = make an offer — or HER OWN HOUSE — empty, a beanbag, a mattress, boxes to
+unpack, one pickle in the fridge), `rooms.js` (the dollhouse rooms both are built from). **The buildings are town DATA**:
+`uses.realty` (Lakewood: Main St across from the bank, a `town_shop` between two shops; Midwood: the Avenue M store row) —
+`T.spots.realty` is the door; heist/bank.js `TOWN_INTERIORS` keeps `realty` / `realestateHouse` in town; 📍 Nearby lists
+it. **On foot in a town** (`ctx.foot.addSpot`, solo): 🏘️ ENTER <firm> at the office door (warmed from 24 m: a soft cut);
+🪧 FOR SALE · price — VIEW at a sign → a `ctx.foot.script` on the lawn with its own framing camera: the realtor hurries up
+the sidewalk (homes-style `spawnPerson`), her pitch (`PITCH[kind]`, the street's spin, the neighbours, `PATTER`) → 🏠 look
+inside (`ctx.foot.handoff("realestateHouse", …)`; out = back on that front path) / 💰 buy / 🏦 a mortgage / not today;
+🔑 YOUR HOUSE — GO IN at her own door (r 3.2 — beats homes' knock menu at the same door; no knocking, no burglary);
+📬 YOUR MAILBOX (`first` within 1.3 m). **Buying** (`buy(rec, opts)`): solo only; not if it's hers / not listed today / she
+has 10; too dear = the realtor says so and nothing changes; otherwise TWO presses — 💰 buy → ✍️ Sign — n 💰 — then
+`wallet.spend` (never below 0), `registry.claim`, ONE must-see banner (🔑 YOUR HOUSE!, prio 3), the realtor's SOLD line; the
+rest is dialogue. **📞 Phone › 🏘️ The realtor** (a `ctx.community.addContact` — the phone stays 9 apps): 🔑 YOUR PLACES
+(n / 10) + today's listings in this town, tap = 📍 a pin. **For city hall** (`ci/cityhall`): `ctx.realestate.addBill(id,
+{ what, amount })` / `bills(id)` / `payBill(id, i)` (a per-home list anyone can add to; real estate never charges it) + the
+`realestate:owner` event {id, from, to, price, why} whenever a home changes hands. **For features/homes**:
+`ctx.realestate.claims(id)` → "mine" | "listed" | null, `keyOf(x, z)` (the position id of any door). Save: `store("realestate")`
+— 3D-only, the classic 2D game never sees it. Test: `scripts/tests3d/realestate.js`.
+
+**The mortgage desk** (`mortgage.js`, stage 2): added to heist's `bank` lobby from here on `interior:enter` (a desk, a
+tower of paperwork, a MORTGAGES sign, the banker — Mr. Pinkus in Lakewood, Mrs. Teitelbaum in Midwood — and ONE hotspot;
+heist's file only lists the two rooms in `TOWN_INTERIORS`). 🏠 buy a home with a mortgage = today's listings → 20 / 35 /
+50 % down → 10 / 20 / 30 PLAYED days with a flat 5 / 10 / 15 % fee on the loan → the forty-signature comedy + the terms
+said plainly → ✍️ Sign (two presses) → `take(rec, plan)`: the down payment, `finalize` (deal.js — shared with cash),
+`S.mortgage[id] = {down, loan, fee, total, days, perDay, paid, n, missed, last, due, paidIn}`. `tick()` (index.js's ~2 Hz
+hud check, only in `playing` / `footRun`, no dialog): a NEW played day settles the last one (unpaid = `missed++`: 1 → a
+stern letter, 2 → the realtor's "we should talk", 3 → `foreclose`: the house goes back and she gets the LARGER of
+(today's value − 10 % − what she owes) or half of everything she paid in; never below 0) and bills today; a bill due is
+paid by itself the moment the wallet has it (`payToday`, a 🏦 text in 📱 Messages thread `bank`). Days she doesn't play
+never happen. 💳 my mortgages: pay today's now / 🏁 pay it all off (`payoff`: owed − half the fee still in it; two
+presses). Events `realestate:mortgage` {id, phase: start | payment | missed | foreclosed | paidOff}.
+
+**Decorating, rent, selling** (stage 3). Her own house's bedroom is the SAME size as decor's room (`rooms.js` W 6.2 × D
+5.6), so decor's `HOUSE_SPOTS` (shifted to her bedroom) are ✋ hotspots and decor's `openPicker` runs with this house's
+api: `owns` = decor's (anything she bought for Lulu's room is free to place here too), `placed` / `place` = this house
+(`S.decor[houseId]`), `buy` = `ctx.decor.buy` then her family house gets its old piece back — the same catalogue, prices,
+wallet, toasts; `buildOption` / `wallTex` draw it. Solo only, not with a tenant. `rent.js`: the realtor's 🔑 My places →
+🧑 find a tenant (`TENANTS`, moves in the next played day; ✋ inside: their lines) / 👋 ask them to leave; each new played
+day a tenant pays 1 % of the home's value into ITS mailbox (`RENT.dayCap` 150 across ALL her homes, scaled down; a pile
+≤ 3 days); ✋ 📬 collects (`addCoins(n, "rent")`). 🪧 sell it: `quote(id)` = value − 10 % − the bank's pay-off (≥ 0),
+two presses, the house goes back on the market (its tenant, decorations and uncollected rent go with it — the rent is
+paid out). The value drifts ±3.5 % (≤ ~7.5 % top to bottom) and the fee is 10 %, so buy → sell always loses (test: the
+best day-pair over 46 days ≤ 0.97).
+
+**The world-wide market + the government** (stages 5–6; the OWNER approved the shared market and the relay change for
+it, 2026-11-20 — scope: the property registry only). `server/homes.mjs` (see `server/README.md`: endpoints, what's
+stored, the government's knobs, rollback) + `server.js` here: probes `/homes/config` (an old server = 404 → local,
+retried every 5 min; a `?test` page only talks to `&mpurl=`); identity = `ctx.player` (core/player.js, shared with 👯
+friends: a random id + a device secret the server only hashes; the 💾 save code carries both); `claim` BEFORE the
+coins move (taken / seized / cap → the realtor says so, nothing spent), every release queued + retried, `hello` every
+10 min (the idle clock; a restored phone gets its homes back), the town's homes polled every 90 s as a registry SOURCE
+(`{ name: "Kugel Kid #37" }` — generated labels only; "a neighbour" while ⚙️ 🌐 Play online is off). A home bought
+offline that the world got first → refunded (`refundLost`). **The government:** 14 days without a hello → the
+server seizes every home (the Abandoned Kugel Ordinance): `S.owned[id].seized` — no key, a SEIZED board on the lawn
+(a 5th InstancedMesh), the Council's letter (📱 thread `council`), no rent and no mortgage billed; 7 days later it's
+back on the market (`lost`). **Court** (`court.js`): a case per held home on that town's Courtroom 2B docket
+(ci/courts' `ctx.civic.courts.addCase`, data only — the Council's lawyer, three defences, an async `verdict` act) or
+the clerk's fast track at her SEIZED board: a held home → the SERVER rolls (`appealWin` 50 %): won → hers again, lost
+→ back on the market + 25 % of what she paid in; an already-lost home → the judge rolls 50 %: 50 % of what she paid in,
+else 10 %. Once per house, never more than she paid, never below 0. Every notice and deed ends "Subject to change if
+the government decides differently." Tests: `realestateworld` (two players, one local relay: shared ownership, a race,
+an offline refund, a hacked client, the seizure, the court, an old server), `node server/test-homes.mjs`.
+
 **Shul (shul): a shul you can walk into** (roadmap 18; the owner: "More immersion overall through the cities… A shul?").
 One per town, **no new building**: Lakewood's is the existing yeshiva on Carpool Ln (`T.spots.yeshiva`; its sign got a second
 line "Shul · Beis Medrash · Minyanim"), Midwood's the existing `town_mw_shul` on E 15½ St (`T.spots.shul`, "Young Israel of East
@@ -1279,6 +1363,7 @@ candy man declines, a bare table), `yk` (everyone in white, parochet white, nobo
 (n + the helper lit). **Rules**: the jokes are about people; nothing holy is interactive; no coins change hands (the candy man's
 lollipop — `SAVE.lastPop` day key, ONE a real day, nothing but a smile; tested: coins, hearts, score unchanged); lines are in
 `shul/data.js`. Tests `scripts/tests3d/shul.js`.
+
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying
 pattern for all of them, and the old 🛒 Shop button turned into directions. **The places are town DATA** like the civic
