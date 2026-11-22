@@ -96,6 +96,8 @@ ctx.home = {
     get town() { return home.site === "town" ? home.town : null; },
     /** The family lot (world coords: x, z, nx, nz, ux, uz, door, drive, w, d) or null. */
     get lot() { return home.site === "town" ? home.lotSpot : null; },
+    /** The name of her street, from the town's data (the lot's spot: `street`) — the owner wants East 34th St. */
+    get street() { return home.site === "town" && home.lotSpot ? (home.lotSpot.street || "") : ""; },
     get ready() { return home.ready; },
     /** The parked car's pose in the driveway {x, z, h}. */
     get park() { return home.park ? { x: home.park.x, z: home.park.z, h: home.park.h } : null; },
