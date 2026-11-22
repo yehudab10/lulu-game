@@ -272,8 +272,8 @@ ctx.mp.ghostStats = ghostStats;
 addMenuItem("settings", {
     id: "online", order: 58,
     visible: () => N.allowed(),
-    label: () => `🌐 Play online <b>${onlineOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${onlineOn() ? "see who else is driving right now" : "just you"}</small>`,
-    action: () => { setOnline(!onlineOn()); H.toast(onlineOn() ? "🌐 Online — other drivers show up as ghosts" : "🌐 Offline — it's just you", "", 2.5); },
+    label: () => `🌐 Play online <b>${onlineOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${onlineOn() ? "See other players driving around" : "Just you in the world"}</small>`,
+    action: () => { setOnline(!onlineOn()); H.toast(onlineOn() ? "🌐 Online. You'll see other players out driving." : "🌐 Offline. It's just you now.", "", 2.5); },
 });
 on("run:end", ({ score, bestStreak = 0 }) => { N.postScore(Math.max(score || 0, bestStreak)); });   // (knock-outs bank streaks: post the run's best)
 for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.charges) N.postWanted(e.charges); });
