@@ -59,6 +59,7 @@ function onLot(x, z) {
     const T = ctx.town;
     if (!T || !T.active) return false;
     if (ctx.shops && ctx.shops.onLot && ctx.shops.onLot(x, z)) return true;      // (Uncle Refael's car lot: open ground too)
+    if (ctx.home && typeof ctx.home.isFamily === "function") return !!ctx.home.isFamily(x, z);   // (her lot, as features/world draws it — the camera uses the same)
     if (LOT.town !== T.def) {
         LOT.town = T.def; LOT.r = null;
         const sp = T.spot && T.spot("luluHome");
