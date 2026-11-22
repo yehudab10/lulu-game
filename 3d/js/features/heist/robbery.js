@@ -23,7 +23,8 @@ import * as H from "../../hud.js";
 import * as A from "../../audio.js";
 import { TUNE, PAY, PROPS, ROBBER_NAMES, STORE_NAMES, ROBBERY } from "./data.js";
 import { models, cloneWithColors, findNodes, need, live, rand, pick, clamp, pt, onFoot, luluPos, distTo, stat, remember,
-    luluSays, npcSays, hold, setChip, setBeacon, fmtM, sfx, confetti, burst, inTown, g } from "./common.js";
+    luluSays, npcSays, hold, setChip, setBeacon, fmtM, sfx, confetti, burst, inTown, g, inParty, partyFree } from "./common.js";
+import { PR, bindRobbery, partyTick } from "./party.js";
 
 registerKind("heist_getaway", { len: 4.6, halfW: 0.92, circles: [1.3, -1.3], r: 0.95, mass: 1.3, model: "heistGetaway", paint: false });
 const MODELS = ["heistGetaway", "heistRobber", "heistProps", "copPerson"];
@@ -99,7 +100,8 @@ export function stage(opts = {}) {
     if (town && !inTown()) return false;
     const prop = opts.prop ? PROPS.find(p => p.id === opts.prop) || PROPS[0] : pick(PROPS);
     const ev = { where: town ? "town" : "highway", prop, name: pick(ROBBER_NAMES), phase: "staged", t: 0, rams: 0, ramT: 0, boxT: 0,
-        robber: null, car: null, cop: null, copPerson: null, hearts: ctx.G.hearts, foot: false, tackled: false, spotRm: null, siren: null, ready: false };
+        robber: null, car: null, cop: null, copPerson: null, hearts: ctx.G.hearts, foot: false, tackled: false, spotRm: null, siren: null, ready: false,
+        id: 1 + Math.floor(Math.random() * 1e6), helpers: new Set(), by: "" };
     if (town) {
         const ts = townSpot(opts.spot || null);
         if (!ts) return false;
@@ -302,18 +304,27 @@ function copAi(dt, c, ev) {
 }
 
 // ── stopping it ─────────────────────────────────────────────────────────
-function onRam(ev, e) {
+function onRam(ev, e, by = "") {
     if (!e || ev.phase !== "flee" && ev.phase !== "run") return;
     if ((e.impact || 0) < 1.2 || ev.ramT > ctx.time) return;
     ev.ramT = ctx.time + 0.6;
     ev.rams++;
+    if (by) ev.helpers.add(by); else ev.helpers.add("me");
+    ev.lastBy = by;
     sfx.pop();
     burst(ev.car.x, 1.0, ev.car.z, 10, 3, [1, 0.85, 0.3], 0.3, 0.6);
     if (ev.rams < T.rams) { H.toast(`💥 RAM ${ev.rams}/${T.rams}`, "gold", { key: "heist:ram" }); if (ev.robber) npcSays(ev.robber.obj, pick(["HEY! Watch the paint!", "Lady, are you CRAZY?!", "My insurance!!"]), 1.6); }
-    else foil(ev, "ram");
+    else foil(ev, "ram", by);
 }
-function tackle(ev) {
+/** A friend (🎉 party) rammed / tackled on THEIR screen; this screen checked they were really there (heist/party.js). */
+export function friendHit(ev, uid, how) {
+    if (R.ev !== ev) return;
+    if (how === "ram") onRam(ev, { impact: 5 }, uid);
+    else if (how === "tackle") tackle(ev, uid);
+}
+function tackle(ev, by = "") {
     if (R.ev !== ev || ev.phase !== "run" || !ev.robber) return;
+    ev.helpers.add(by || "me");
     ev.tackled = true;
     const o = ev.robber.obj;
     o.rotation.order = "YXZ";
@@ -325,13 +336,13 @@ function tackle(ev) {
     sfx.pop();
     if (ctx.foot && ctx.foot.obj) ctx.foot.say(ctx.foot.obj, pick(["TOUCHDOWN!", "Not on MY sidewalk!", "Gotcha, stripey!"]), 2);
     if (ev.spotRm) { ev.spotRm(); ev.spotRm = null; }
-    stat("heistTackles", 1);
-    foil(ev, "tackle");
+    if (!by) stat("heistTackles", 1);
+    foil(ev, "tackle", by);
 }
 
-function foil(ev, how) {
+function foil(ev, how, by = "") {
     if (ev.phase === "foiled" || ev.phase === "done") return;
-    ev.phase = "foiled"; ev.t = 0; ev.how = how;
+    ev.phase = "foiled"; ev.t = 0; ev.how = how; ev.by = by;
     if (ev.where === "town" && ev.car && ev.car.data.town) ev.car.data.town.cruise = 0;
     // the robber out of the car (unless he never got in), hands up
     const p = ev.robber;
@@ -362,6 +373,9 @@ function foil(ev, how) {
     if (how === "tackle") pay += PAY.tackle;
     pay = Math.round(pay / 5) * 5;
     ev.pay = pay;
+    // with friends the reward is SPLIT among the crew that stopped it (never multiplied) — the party's host checks
+    // the claim and hands out the shares (heist/party.js); solo it's all hers, as before
+    if (inParty()) { PR.foiled(ev, how, pay); if (p) npcSays(p.obj, pick(ROBBERY.foiled).replace("{prop}", ev.prop.name.toLowerCase()), 2.6); emit("heist:robbery", { phase: "foiled", where: ev.where, how, pay, clean, by }); return; }
     addCoins(pay, "heist:foil");
     sfx.yay();
     const how2 = how === "tackle" ? "a flying tackle" : how === "pit" ? "a PIT maneuver" : how === "box" ? "boxed him in" : "three good rams";
@@ -408,10 +422,12 @@ function tick(dt) {
         if (c.hit) { foil(ev, c.data.movesPitT > ctx.time - 1 ? "pit" : "spin"); }
         else {
             // boxed in: stuck, with her car right there
-            const stuck = c.speed < 2.5 && !onFoot() && gap < 9;
+            const near = PR.friendCarNear(c.x, c.z, 9);         // (a friend's car boxing it in counts too)
+            const stuck = c.speed < 2.5 && ((!onFoot() && gap < 9) || !!near);
+            if (stuck && near && !(!onFoot() && gap < 9)) ev.boxBy = near; else if (stuck) ev.boxBy = "";
             ev.boxT = stuck ? ev.boxT + dt : Math.max(0, ev.boxT - dt * 0.5);
-            if (ev.boxT >= T.boxT && ev.t > 2) foil(ev, "box");
-            else if (ev.t > T.maxT || gap > T.lostR) escaped(ev);
+            if (ev.boxT >= T.boxT && ev.t > 2) { ev.helpers.add(ev.boxBy || "me"); foil(ev, "box", ev.boxBy || ""); }
+            else if (ev.t > T.maxT || (gap > T.lostR && !PR.friendCarNear(c.x, c.z, T.lostR))) escaped(ev);
         }
     }
     // the HUD: one chip + the beacon
@@ -465,7 +481,9 @@ export function cleanup() {
 function sched(dt, force = false) {
     if (R.ev || (!force && !live("robbery"))) return false;
     const G = ctx.G, foot = onFoot();
-    if (G.mode !== "cruise" || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return false;
+    const pty = inParty();
+    if (pty && (!partyFree() || !inTown() || PR.friendRobbery())) return false;     // (with friends: Free Roam towns only, one robbery at a time across the party)
+    if ((!pty && G.mode !== "cruise") || G.tutorial || (ctx.law && (ctx.law.chasing || ctx.law.reported)) || (ctx.heist && ctx.heist.busy && ctx.heist.busy("robbery"))) return false;
     // (walking: at most T.footMax a run — an easy tackle by the door must not be a coin tap)
     if (foot && (!inTown() || ctx.dialogOpen || ctx.foot.chasing || R.footN >= T.footMax)) return false;
     R.nextT -= dt;
@@ -481,6 +499,7 @@ hook("update", (dt, P, controlsOn) => { if (controlsOn && ctx.state === "playing
 // the event itself ticks every frame of driving AND walking (footRun runs the HUD hook too, not the driving sim's)
 hook("hud", dt => {
     if (ctx.paused || (ctx.state !== "playing" && ctx.state !== "footRun")) return;
+    partyTick(dt);
     if (ctx.state === "footRun") sched(dt);
     try { tick(dt); } catch (e) { console.error("[heist robbery]", e); }
 });
@@ -493,3 +512,4 @@ on("town:enter", () => { if (R.ev && R.ev.where === "highway") cleanup(); });
 hook("runStart", () => { cleanup(); if (R.store && R.store.actor) R.store.alive = false; R.nextT = rand(T.first[0], T.first[1]); R.log.length = 0; R.footN = 0; });
 on("title", () => cleanup());
 export const robberyTick = tick;
+bindRobbery(R, (ev, uid, how) => friendHit(ev, uid, how));
