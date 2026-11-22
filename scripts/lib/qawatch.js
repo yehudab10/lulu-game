@@ -221,7 +221,9 @@ const SRC = String.raw`
 })()`;
 
 module.exports = {
-  async install(t) { return t.L(SRC); },
+  // (+ the device clock pinned to a Wednesday noon: on a real Friday afternoon Ima's door ask turns a home start into the
+  //  Erev Shabbos Rush, which ends at Bubbe's — a sweep's route must not depend on the day it runs)
+  async install(t) { const r = await t.L(SRC); await t.L(`(__lulu3d.ctx.shabbos && __lulu3d.ctx.shabbos.debug && __lulu3d.ctx.shabbos.debug.date("2026-11-18T12:00"), true)`); return r; },
   async reset(t) { return t.L(`(window.__qa.issues = [], window.__qa.counts = {}, window.__qa.ep = {}, window.__qa.last = null, window.__qa.overlayF = window.__qa.noCtl = window.__qa.hidF = window.__qa.insideF = 0, window.__qa.stateSince = __lulu3d.ctx.time, true)`); },
   async report(t) { return t.L(`({ issues: window.__qa.issues.map(i => ({ kind: i.kind, f: i.f, t: i.t, state: i.state, msg: i.msg, n: i.n })), counts: window.__qa.counts })`); },
   /** Ignore a known, explained case: kind + a regex source on the message. */
