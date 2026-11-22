@@ -641,6 +641,7 @@ export class Room {
         this.look.x += ((input.lookX || 0) * 0.75 - this.look.x) * (snap ? 1 : lk);
         this.look.y += ((input.lookY || 0) * 1.6 - this.look.y) * (snap ? 1 : lk);
         V.copy(L);
+        if (C.centerZ != null) V.z += (C.centerZ - V.z) * (C.centerK != null ? C.centerK : 0.5);   // (a wide room: frame its middle, not just her)
         if (this.focusAt) { V.lerp(this.focusAt, 0.45); dist *= 0.78; height *= 0.82; }
         else if (this.active && !this.mode) {
             const who = this.active.who && this.byId[this.active.who];

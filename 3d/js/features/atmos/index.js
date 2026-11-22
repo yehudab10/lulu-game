@@ -21,7 +21,7 @@
 // balloons, leaves) · sfx.js (synth sounds).
 //
 // Everything is gated by ctx.enabled("atmos"): tests opt in with ?test&enable=atmos.
-// Service: ctx.atmos { info(), night, debug: { time(nameOrT), freeze(on), weather(kind, strength, instant), strike(), flock(kind), plane(text), balloon(), leaves() } }
+// Service: ctx.atmos { info(), night, debug: { time(nameOrT), freeze(on), weather(kind, strength, instant), strike(), flock(kind), plane(text), balloon(), clearLife(), leaves() } }
 import * as THREE from "three";
 import { ctx, on, hook } from "../../core/ctx.js";
 import { store, saveSoon } from "../../core/save.js";
@@ -193,6 +193,8 @@ ctx.atmos = {
         flock(kind = "ground", opts) { const f = spawnFlock(kind, opts || {}); return f ? f.birds.length : 0; },
         plane(text) { const p = spawnPlane(text); return p ? p.text : ""; },
         balloon(opts) { spawnBalloon(opts || {}); return true; },
+        /** Tests: clear the random sky life now (a banner plane, balloons, flocks) — perf measurements compare like with like. */
+        clearLife() { lifeClear(); return true; },
         /** Tests: hold Lulu in the inside lane at `speed` m/s (0 / null = hands back to the player). */
         cruise(speed) { autoSpeed = speed || 0; return autoSpeed; },
     },

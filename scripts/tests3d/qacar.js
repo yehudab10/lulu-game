@@ -39,7 +39,7 @@ module.exports = {
       await g(`(ctx.law.hold && ctx.law.hold(900), ctx.town.load("${id}"), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models load`, 90000)) continue;
       await W.moved(t);
-      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exits[0].s, speed: 0 })`);
+      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exitOf("${id}"), speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active`, `in ${id} (attached)`, 8000)) continue;
       await t.frames(10);
       t.check(`${id}: the chase cam has its walls in town`, await g(`typeof ctx.cam.carClip === "function"`));
@@ -89,7 +89,7 @@ module.exports = {
 
       // ── a random drive round town ──
       await W.moved(t);
-      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exits[0].s, speed: 0 })`);
+      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exitOf("${id}"), speed: 0 })`);
       await t.frames(5);
       await W.reset(t);
       let r = 41 + id.length;
