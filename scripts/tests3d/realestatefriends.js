@@ -48,7 +48,9 @@ async function body(t, guests) {
 
   // ── both into Lakewood, on foot ──
   for (const P of [Hp, A]) {
-    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await P.game(`(ctx.town.load("lakewood"), true)`);         // (Lakewood isn't the first exit any more — ci/exits2: load it)
+    if (!await P.until(`ctx.town.loaded("lakewood")`, `${P.label}: Lakewood's models`, 120000)) return;
+    await P.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf ? ctx.town.exitOf("lakewood") : ctx.town.exits[0].s, speed: 0 })`);
     if (!await P.until(`ctx.town.active && ctx.openworld.zone === "lakewood" && ctx.realestate.homes().length > 40`, `${P.label} in Lakewood`, 60000)) return;
     await P.game(`ctx.foot.start("parked")`);
     if (!await P.until(`ctx.state === "footRun" && ctx.foot.phase === "walk"`, `${P.label} on foot`, 60000)) return;
