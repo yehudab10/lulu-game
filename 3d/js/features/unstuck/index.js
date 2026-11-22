@@ -487,9 +487,9 @@ on("skip:end", () => {
 function refusal() {
     const g = ctx.openworld && ctx.openworld.game;
     const me = ctx.party && ctx.party.active ? ctx.party.uid : "me";
-    if (g && g.ph === "go" && (!Array.isArray(g.ps) || g.ps.includes(me))) return "🎮 Not in the middle of a party game — the game's rules decide. (❚❚ › leave it if you're really stuck.)";
+    if (g && g.ph === "go" && (!Array.isArray(g.ps) || g.ps.includes(me))) return "🎮 Not in the middle of a game with friends. If you're really stuck, leave the game from the pause menu.";
     const a = ctx.party && ctx.party.active && ctx.party.activity;
-    if (a && a.k === "race") return "🏁 Not mid-race — a reset would be a free shortcut. (If she's truly broken, it fixes itself.)";
+    if (a && a.k === "race") return "🏁 Not in the middle of a race. That would be a free shortcut! If she's really stuck, it fixes itself.";
     if (ctx.state === "parking" || ctx.state === "parkingEnd") return "🅿️ The parking challenge has its own ↺ Retry.";
     return null;
 }

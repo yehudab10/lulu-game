@@ -365,7 +365,7 @@ on("world:homeStart", () => {
     const tick = () => {
         if (ctx.state !== "footRun" || S.visits > 0) return;
         if (ctx.time - t0 < 7) { setTimeout(tick, 500); return; }
-        H.toast("🛋️ Your house is open! ✋ at the front door — spend coins decorating", "pink", { key: "decorNudge" });
+        H.toast("🛋️ Your house is open! Go in the front door to decorate it.", "pink", { key: "decorNudge" });
     };
     setTimeout(tick, 500);
 });

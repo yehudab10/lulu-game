@@ -1372,7 +1372,7 @@ function renderResults(force) {
         const fr = A.fromRoam && ACTS.roam ? { fromRoam: 1 } : null;     // (a game the group voted for from 🌍 Free Roam: no lobby after)
         if (A.k !== "trip") btns.unshift({ id: "pt_again", cls: "pt-big", label: `🔁 ${A.k === "race" ? "Rematch" : "Play again"} ${glyph("confirm")}`, action: () => hostStart(A.k, fr) });
         else btns.unshift({ id: "pt_again", cls: "pt-big", label: `🏁 Race next ${glyph("confirm")}`, action: () => { P.pick = "race"; hostStart("race", fr); } });
-        if (fr) btns.push({ id: "pt_roamback", cls: "purple", label: "🌍 Back to Free Roam", action: () => hostStart("roam") });
+        if (fr) btns.push({ id: "pt_roamback", cls: "purple", label: "🌍 Back to driving around", action: () => hostStart("roam") });
         else btns.push({ id: "pt_lobby", cls: "purple", label: "🏠 Back to the lobby", action: hostToLobby });
     }
     btns.push({ id: "pt_leave2", cls: "alt", label: "🚪 Leave party", action: () => leave() });

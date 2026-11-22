@@ -67,7 +67,7 @@ on("boot", () => {
     const fams = ["drift", "rocket", "slingshot", "nearmiss", "air", "bootleg", "pit", "roll", "slide", "vault"];
     ctx.meta.addBadge({ id: "movesPurple", icon: "🟣", name: "Purple Reign", desc: "Fire 10 PURPLE drift turbos in 3D", prog: s => [st(s, "movesTurbo3"), 10] });
     ctx.meta.addBadge({ id: "movesStyle", icon: "🔗", name: "Style Icon", desc: "Bank a ×6 style combo in 3D", prog: s => [stB(s, "movesCombo"), 6] });
-    ctx.meta.addBadge({ id: "movesAll", icon: "🎬", name: "Stunt Double", desc: "Pull off all 10 moves (📒 › 🏁 Moves)", prog: () => [fams.filter(f => (S.n[f] || 0) > 0).length, 10] });
+    ctx.meta.addBadge({ id: "movesAll", icon: "🎬", name: "Stunt Double", desc: "Pull off all 10 moves (they're listed under Moves in your Scrapbook)", prog: () => [fams.filter(f => (S.n[f] || 0) > 0).length, 10] });
 });
 
 // one tick per frame while a HUD is up: the combo window + the callout's fade

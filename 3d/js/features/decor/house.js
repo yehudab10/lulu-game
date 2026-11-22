@@ -269,7 +269,7 @@ export function houseReact(slot, optId) {
 function pickHere(id) {
     const rt = RT, slot = slotById(id), sp = SPOTS[id];
     if (!rt || !slot || !API) return;
-    if (!API.allowed()) { H.toast("🛋️ Decorating is a solo thing — not in a party!", "pink"); return; }
+    if (!API.allowed()) { H.toast("🛋️ You can't decorate while you're playing with friends.", "pink"); return; }
     rt.focusAt = new THREE.Vector3(sp.look[0], sp.look[1] - 1.3, sp.look[2]);
     rt.faceTo = { x: sp.look[0], z: sp.look[2] };
     sfx.click && sfx.click();

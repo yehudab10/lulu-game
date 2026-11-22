@@ -150,7 +150,7 @@ export function render(el, api, tg) {
             <span class="lp-tx"><b>${esc(name)}</b><small>${esc(sub)}${uid === dest ? " · 📍 your destination" : ""}</small></span><span class="lp-meta">${l ? fmtDist(l.dist) : ""}</span></button>`;
     }).join("");
     el.innerHTML = `<div class="tg-map"><canvas width="600" height="380"></canvas><span class="cap">${Z ? esc(townName(Z)) : "The highway"}</span></div>
-        ${all.length ? rows : `<p class="lp-note">No friends here yet — 👯 Friends › 📤 Invite.</p>`}
+        ${all.length ? rows : `<p class="lp-note">No friends here yet. Tap Play with a friend in Nearby.</p>`}
         ${dest ? `<button class="btn lp-row" id="tgClear"><span class="lp-av">✖</span><span class="lp-tx"><b>Clear the destination</b><small>the beam goes away</small></span></button>` : ""}
         <button class="btn lp-row" id="tgPtr"><span class="lp-av">🧭</span><span class="lp-tx"><b>Friend pointers: ${tg.pointersOn() ? "ON" : "OFF"}</b><small>${tg.pointersOn() ? "a small arrow at the screen's edge for each friend" : "no arrows — the map is still here"}</small></span></button>
         <p class="lp-fine">Tap a friend to head their way: a beam over them + the distance.</p>`;

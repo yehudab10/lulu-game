@@ -114,7 +114,7 @@ export function offerNow() {
 export function offer(id) {
     const p = P(), def = DEFS.get(id);
     if (!def) return "No such mission";
-    if (!roaming()) return "Missions start from 🌍 Free Roam with friends";
+    if (!roaming()) return "Missions start when you're playing with friends";
     if (p.members().length < 2) return "Wait for a friend first 👯";
     if (offerNow()) return "Another one's open right now";
     const why = def.canStart ? def.canStart() : "";

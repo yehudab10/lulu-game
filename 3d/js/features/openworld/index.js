@@ -409,7 +409,7 @@ function hostTick(force = false) {
 function blockReason(k) {
     const G = GAMES[k];
     if (!G) return "?";
-    if (party() && !roam()) return "Games run in 🌍 Free Roam";
+    if (party() && !roam()) return "Games only work while you're playing with friends";
     if (!party() && !G.solo) return "Needs friends — 👯 Friends on the home screen";
     if (roam() && members().length < (G.min || 1)) return `Needs ${G.min} players — invite a friend 👯`;
     if (ctx.state !== "playing" && !(ctx.state === "footRun" && onFoot())) return "Get driving first 🚗";   // (on foot: back in the car at GO)
