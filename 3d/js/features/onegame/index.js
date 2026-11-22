@@ -11,9 +11,9 @@
 //      Leg 1 starts right where she stands at home (Ima's story line, then the car); a later leg is a
 //      soft cut to that leg's start, rolling (no 3-2-1). "Call it a trip" / the trip card → back home.
 //      The journey engine is unchanged: it's still its own run type (G.mode "story") with the same saves.
-//   🅿️ THE PARKING CHALLENGE — a booth + attendant in every rest area's lot (walk up, ✋), and the 📱
-//      💼 Jobs app (a card at the bottom). Same unlock price (1,000 💰) and ten levels; it ends where she started it
-//      (on foot at the booth, or back on the road) — features/parking (`from` + `ret`).
+//   🅿️ THE PARKING CHALLENGE — PLAYED on a real lot: the course in every rest area's truck lot (features/parking:
+//      pull into the START box by the attendant and it begins, no cut). The booth's ✋ (on foot) unlocks it (1,000 💰,
+//      once) and the 📱 💼 Jobs card marks the course (a light) — neither moves her anywhere.
 //   🕯️ THE EREV SHABBOS RUSH — on a real Friday afternoon it's what Ima asks for at the door; getting in
 //      the car starts it (features/shabbos `atDoor`). Walk away instead and it's an ordinary day.
 //   👧 DINA — ✋ on Dina on the porch step → "Play as Dina" (her mode itself is untouched); picking
@@ -40,10 +40,8 @@ import { STOPS, N_STOPS } from "../journey/data.js";
 import { storySub } from "../journey/index.js";
 import { partyOn, esc } from "../phone/ui.js";
 import { JOB_EXTRAS } from "../phone/apps.js";
-import { facingRoad, canvasTex } from "../../world.js";
-import { models, ensureModels } from "../../models.js";
-import { spawnPerson } from "../../core/people.js";
-import { UNLOCK_COST } from "../parking/index.js";
+import { ensureModels } from "../../models.js";
+import { UNLOCK_COST, parkBlock as parkBlockOf } from "../parking/index.js";
 
 const OG = store("onegame", { trips: 0, booth: 0, dina: 0, homes: 0 });
 const solo = () => !(ctx.party && ctx.party.active) && !(ctx.G && ctx.G.mode === "party");
@@ -204,91 +202,18 @@ function tuneDinaRange() {
     DS.r = Math.max(0.9, Math.min(1.6, gap - 0.35));
 }
 
-// ── 🅿️ the parking booth (in every rest area's lot) ──────────────────────
-// u / d = the rest area's own coords (features/exits/layout.js): on the sidewalk between the vending bank and Mendel's garage.
-const BOOTH = { u: 120, d: 50.4, spotD: 48.4 };
-const BT = { list: [], person: null };
-let boothMats = null;
-function boothSign() {
-    return canvasTex(128, 128, (g, w, h) => {
-        g.fillStyle = "#1565C0"; g.fillRect(0, 0, w, h);
-        g.strokeStyle = "#fff"; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12);
-        g.fillStyle = "#fff"; g.font = "bold 96px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("P", w / 2, h / 2 + 6);
-    }, false);
-}
-function mats() {
-    if (boothMats) return boothMats;
-    boothMats = {
-        wall: new THREE.MeshStandardMaterial({ color: "#ECEFF1", roughness: 0.8 }),
-        trim: new THREE.MeshStandardMaterial({ color: "#1565C0", roughness: 0.6 }),
-        glass: new THREE.MeshStandardMaterial({ color: "#B3E5FC", roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.6 }),
-        sign: new THREE.MeshBasicMaterial({ map: boothSign() }),
-        cone: new THREE.MeshStandardMaterial({ color: "#FF7043", roughness: 0.7 }),
-    };
-    return boothMats;
-}
-function buildBooth(R, chunk) {
-    const road = ctx.world.road, M = mats();
-    const p = road.point(R.s + BOOTH.u, BOOTH.d, {}), h = road.at(R.s + BOOTH.u).h;
-    const g = new THREE.Group();
-    g.name = "ParkingBooth";
-    const box = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 1.6), M.wall); box.position.y = 1.1; box.castShadow = true;
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.18, 2.0), M.trim); roof.position.y = 2.29;
-    const win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.05), M.glass); win.position.set(0, 1.45, 0.81);
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8), M.trim); post.position.set(0, 2.9, 0);
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.72), M.sign); sign.position.set(0, 3.5, 0);     // (a 🅿️ cube: reads from every side)
-    g.add(box, roof, win, post, sign);
-    for (const [x, z] of [[-1.3, 1.1], [1.3, 1.1]]) {
-        const c = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 10), M.cone); c.position.set(x, 0.25, z); g.add(c);
-    }
-    g.position.set(p.x, 0, p.z);
-    g.rotation.y = facingRoad(h, 1);
-    chunk.group.add(g);
-    if (chunk.addCollider) chunk.addCollider({ x: p.x, z: p.z, r: 1.15, kind: "house" });
-    const sp = road.point(R.s + BOOTH.u, BOOTH.spotD, {});
-    const at = road.point(R.s + BOOTH.u + 1.3, BOOTH.d - 1.4, {});
-    const b = { s: R.s, x: sp.x, z: sp.z, obj: g, chunk, at: { x: at.x, z: at.z }, face: facingRoad(h, 1), person: null };
-    BT.list = BT.list.filter(o => o.s !== R.s);
-    BT.list.push(b);
-}
-on("chunk:build", ({ chunk, world, s0, s1 }) => {
-    if (world.district || !ctx.exits || !solo()) return;
-    for (const R of ctx.exits.rests || []) {
-        const s = R.s + BOOTH.u;
-        if (s >= s0 && s < s1) { try { buildBooth(R, chunk); } catch (e) { console.error("[onegame] booth", e); } }
-    }
-});
-on("chunk:dispose", ({ chunk }) => {
-    for (const b of BT.list.filter(o => o.chunk === chunk)) dropAttendant(b);
-    BT.list = BT.list.filter(o => o.chunk !== chunk);
-});
-on("run:start", () => { for (const b of BT.list) dropAttendant(b); });
-/** Booths standing right now: their chunk is alive and a rest area of THIS run is there. */
-function liveBooths() {
-    const rests = (ctx.exits && ctx.exits.rests) || [];
-    return BT.list.filter(b => !b.chunk.dead && rests.some(R => R.s === b.s));
-}
-function dropAttendant(b) { if (b.person) { b.person.obj.removeFromParent(); b.person = null; } }
-function boothTick(dt) {
-    for (const b of BT.list) {
-        const near = !b.chunk.dead && Math.abs(ctx.car.s - b.s - BOOTH.u) < 160;
-        if (near && !b.person && models.npcMan) {
-            try {
-                b.person = spawnPerson("npcMan", { colors: { Top: "#1565C0", Bottom: "#37474F", Hair: "#5D4037" } });
-                b.person.obj.position.set(b.at.x, 0, b.at.z);
-                b.person.obj.rotation.y = b.face;
-                ctx.scene.add(b.person.obj);
-            } catch (e) { b.person = null; }
-        } else if (!near && b.person) dropAttendant(b);
-        if (b.person) b.person.update(dt, { wave: Math.sin(ctx.time * 0.7 + b.s) > 0.92 });
-    }
-}
+// ── 🅿️ the parking booth: the attendant's booth stands at the Parking Challenge's course in every rest area's truck
+// lot (features/parking/course.js — the challenge is PLAYED there, on the real lot). On foot, ✋ at the booth: the
+// attendant unlocks it (once, 1,000 💰) and sends her for her car; in the car, pulling into the START box starts it. ──
+const BT = { list: [] };
+const liveBooths = () => (ctx.parking && ctx.parking.debug ? ctx.parking.debug.courses() : []);
 const boothSpot = {
     r: 2.2,
     pos: () => {
-        if (ctx.state !== "footRun" || !solo()) return null;
+        if (ctx.state !== "footRun" || !solo() || !(ctx.parking && ctx.parking.debug)) return null;
+        const CO = ctx.parking.debug.CO;
         let best = null, bd = 9;
-        for (const b of liveBooths()) { const d = Math.hypot(b.x - ctx.car.pos.x, b.z - ctx.car.pos.z); if (d < bd) { bd = d; best = b; } }
+        for (const c of CO.liveCourses()) { const p = CO.boothPoint(c), d = Math.hypot(p.x - ctx.foot.pos.x, p.z - ctx.foot.pos.z); if (d < bd) { bd = d; best = p; } }
         boothSpot.cur = best;
         return best ? { x: best.x, z: best.z } : null;
     },
@@ -309,39 +234,31 @@ async function boothTalk() {
             const i = await choose(ATT.who, `Ten levels of parallel parking — tighter spots, nosy cameras, cones, pedestrians… and Sasquatch. A one-time ${UNLOCK_COST.toLocaleString()} 💰 and it's yours forever.`,
                 [have >= UNLOCK_COST ? `🔓 Unlock it — ${UNLOCK_COST.toLocaleString()} 💰` : `🔒 ${UNLOCK_COST.toLocaleString()} 💰 (you've got ${have.toLocaleString()})`, "🙅‍♀️ Not now"], o);
             if (i !== 0) return;
-            if (!unlockParking()) { await say(ATT.who, "Come back with the coins, sweetheart. Pull over and park on the road to earn some!", o); return; }
-            await say(ATT.who, "Unlocked! Level one's a nice wide spot. ...They get worse. 😬", o);
+            if (!unlockParking()) { await say(ATT.who, "Come back with the coins, sweetheart. Jobs on the 📱 pay — and so do the levels, once you're in!", o); return; }
+            await say(ATT.who, "Unlocked! Now go get your car and pull into the START box. Level one's a nice wide spot. …They get worse. 😬", o);
         } else {
             const best = shared.get().parkingBestLevel || 0;
-            const i = await choose(ATT.who, best ? `Back for more? Your best is level ${best} of 10.` : "Ten levels. Three lives. No dents. Ready?", ["▶ Let's park! (level 1)", "🙅‍♀️ Not now"], o);
-            if (i !== 0) return;
+            await say(ATT.who, best ? `Back for more? Your best is level ${best} of 10. Bring your car round — pull into the START box.` : "Ten levels. Three lives. No dents. Bring your car round and pull into the START box!", o);
         }
         startParking("booth");
     } finally { boothBusy = false; }
 }
 function unlockParking() {
     if (parkingUnlocked()) return true;
-    if (!wallet.spend(UNLOCK_COST)) return false;
-    shared.update(s => { s.parkingUnlocked = true; });
-    A.sfxFanfare();
-    return true;
+    return !!(ctx.parking && ctx.parking.debug && ctx.parking.debug.unlock());
 }
 /** Why the parking challenge can't start right now ("" = it can). */
 function parkBlock() {
     if (!ctx.parking || !ctx.parking.start) return "No parking in this build";
-    if (!solo()) return "Not in a party 🎉";
-    if (ctx.parking.active) return "You're already parking!";
-    if (ctx.shabbos && ctx.shabbos.active) return "Candles first — Bubbe's waiting! 🕯️";
-    if (ctx.law && (ctx.law.chasing || (ctx.law.wanted || 0) >= 2)) return "Lose the cops first 🚓";
-    if (!["footRun", "playing"].includes(ctx.state)) return "Not right now";
-    return "";
+    if (!["footRun", "playing", "parking"].includes(ctx.state)) return "Not right now";
+    return parkBlockOf();
 }
+/** The challenge from inside the world: at a START box it begins; anywhere else the course is marked (a light). */
 function startParking(via) {
     const why = parkBlock();
     if (why) { H.toast(why, "red"); return false; }
     if (!parkingUnlocked()) { H.toast(`🔒 Unlock the Parking Challenge first (${UNLOCK_COST.toLocaleString()} 💰)`, "red"); return false; }
     OG.booth++; saveSoon();
-    emit("onegame:parking", { via });
     if (ctx.paused) resume();
     ctx.parking.start({ challenge: true, from: via });
     return true;
@@ -353,9 +270,9 @@ function parkHtml() {
     if (partyOn() || !(ctx.parking && ctx.parking.start)) return "";
     const s2 = shared.get(), unlocked = parkingUnlocked(), why = parkBlock();
     return `<div class="lp-card lp-park"><span class="lp-av">🅿️</span><span class="lp-tx"><b>Parking Challenge</b><small>${unlocked ? (s2.parkingBestLevel ? `best: level ${s2.parkingBestLevel} of 10` : "ten levels of parallel parking") : "ten levels · tighter spots, cameras, cones… Sasquatch"}</small></span></div>
-        ${unlocked ? `<button class="btn lp-row" id="lpPark"${why ? " disabled" : ""}><span class="lp-av">▶</span><span class="lp-tx"><b>Start level 1</b><small>three lives · no dents</small></span>${why ? "" : '<span class="lp-meta lp-go">Go</span>'}</button>`
+        ${unlocked ? `<button class="btn lp-row" id="lpPark"${why ? " disabled" : ""}><span class="lp-av">📍</span><span class="lp-tx"><b>Show me the course</b><small>pull into the START box by the attendant</small></span>${why ? "" : '<span class="lp-meta lp-go">Go</span>'}</button>`
             : `<button class="btn lp-row" id="lpParkUnlock"><span class="lp-av">🔓</span><span class="lp-tx"><b>Unlock — ${UNLOCK_COST.toLocaleString()} 💰</b><small>once, forever · you have ${wallet.coins.toLocaleString()}</small></span></button>`}
-        <p class="lp-fine">…or walk up to the 🅿️ booth at any rest area.</p>
+        <p class="lp-fine">Every rest area has one — in the truck lot, by the garage.</p>
         ${why && unlocked ? `<p class="lp-note">${esc(why)}</p>` : ""}`;
 }
 JOB_EXTRAS.push({
@@ -365,7 +282,7 @@ JOB_EXTRAS.push({
         const p = el.querySelector("#lpPark");
         if (p) p.addEventListener("click", () => { const w = parkBlock(); if (w) { api.toast(w); return; } api.close(); startParking("phone"); });
         const u = el.querySelector("#lpParkUnlock");
-        if (u) u.addEventListener("click", () => { if (unlockParking()) { api.toast("🅿️ Unlocked!"); api.refresh(); } else api.toast(`🔒 ${UNLOCK_COST.toLocaleString()} 💰 — pull over and park on the road to earn some`); });
+        if (u) u.addEventListener("click", () => { if (unlockParking()) { api.toast("🅿️ Unlocked!"); api.refresh(); } else api.toast(`🔒 ${UNLOCK_COST.toLocaleString()} 💰 — jobs on the 📱 pay`); });
     },
 });
 
@@ -377,7 +294,6 @@ on("boot", () => {
 hook("hud", dt => {
     if (!SC.built) { buildSuitcase(); tuneDinaRange(); }
     suitcaseTick();
-    if (BT.list.length) boothTick(dt);
 });
 on("state", () => { if (!SC.built) { buildSuitcase(); tuneDinaRange(); } suitcaseTick(); });
 // (home moved — features/world rebuilt it on its Midwood lot: the suitcase goes by the car again)
@@ -395,6 +311,6 @@ ctx.onegame = {
     dina: playDina,
     /** The road trip's line (next stop, leg, tour, postcard stamps) as html — the 📱 app, the tests. */
     tripLine: () => storySub(),
-    info: () => ({ suitcase: !!(SC.obj && SC.obj.visible), booths: liveBooths().map(b => ({ s: b.s, x: b.x, z: b.z, attendant: !!b.person })), ...OG }),
-    debug: { OG, SC, BT, BOOTH, suitcaseSpot, dinaSpot, boothSpot, unlockParking, nearHome },
+    info: () => ({ suitcase: !!(SC.obj && SC.obj.visible), booths: liveBooths().map(b => ({ s: b.s, x: b.x, z: b.z, attendant: b.attendant })), ...OG }),
+    debug: { OG, SC, BT, suitcaseSpot, dinaSpot, boothSpot, unlockParking, nearHome },
 };

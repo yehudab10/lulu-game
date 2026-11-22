@@ -47,7 +47,7 @@ export const JOB_EXTRAS = [];
 function jobsBlock() {
     const G = ctx.G, h = ctx.hustle;
     if (h.job) return null;
-    if (partyOn() ? !(ctx.G.mode === "party" && ctx.party.activity && /^(trip|roam)$/.test(ctx.party.activity.k)) : G.mode !== "cruise") return partyOn() ? "Side jobs are for the 🏡 Road Trip + 🌍 Free Roam." : "Side jobs are a 🛣️ Cruise thing.";
+    if (partyOn() ? !(ctx.G.mode === "party" && ctx.party.activity && /^(trip|roam)$/.test(ctx.party.activity.k)) : G.mode !== "cruise") return "Side jobs only work when you're out driving around.";
     if (partyOn() && ctx.town && ctx.town.active) return "Get back on the highway first 🛣️";
     if (!inCarNow()) return "Get back in a car first 🚗";
     if (ctx.law && (ctx.law.chasing || ctx.law.wanted >= 2)) return "Lose the cops first 🚓";
@@ -66,7 +66,7 @@ addApp({
         const h = ctx.hustle, job = h.job, why = jobsBlock();
         let html = "";
         const chop = ctx.streets && ctx.streets.chop && ctx.streets.chop.job;
-        if (chop) html += `<div class="lp-card lp-chop"><span class="lp-av">🔧</span><span class="lp-tx"><b>Shmuel's order</b><small>a ${esc(chop.text)} · pays ${chop.pay} 💰 — jack one and bring it in</small></span></div>`;
+        if (chop) html += `<div class="lp-card lp-chop"><span class="lp-av">🔧</span><span class="lp-tx"><b>Shmuel's order</b><small>Jack a ${esc(chop.text)} and bring it in. Pays ${chop.pay} coins.</small></span></div>`;
         if (job) {
             const d = job.def || {};
             html += `<div class="lp-card lp-on"><span class="lp-av">${d.emoji || "💼"}</span><span class="lp-tx"><b>On the clock: ${esc(d.name || job.id)}</b><small>${esc(job.intro || d.blurb || "")}</small></span></div>
@@ -101,9 +101,9 @@ addApp({
         let n = null, cost = 30;
         try { n = inCarNow() || (ctx.foot && ctx.foot.active) ? p.nearest() : null; cost = p.cost(); } catch (e) { n = null; }
         const w = (ctx.law && ctx.law.wanted) || 0;
-        el.innerHTML = `<div class="lp-card lp-paint"><span class="lp-av">🙏</span><span class="lp-tx"><b>Moishe's Paint &amp; Pray</b><small>drive-through respray · new colour, tyres fixed, heat gone</small></span></div>
+        el.innerHTML = `<div class="lp-card lp-paint"><span class="lp-av">🙏</span><span class="lp-tx"><b>Moishe's Paint &amp; Pray</b><small>A drive-through respray: new colour, fixed tyres, and the cops forget you</small></span></div>
             <div class="lp-dist">${n ? `<small>the nearest booth</small><b>${miles(n.dist)}</b><small>up the road</small>` : `<small>no booth on this stretch</small><b>🛣️</b><small>keep driving</small>`}</div>
-            <p class="lp-note">A respray: <b>${cost} 💰</b>${w ? ` · ${"★".repeat(w)} — it loses them!` : ""}</p>`;
+            <p class="lp-note">A respray costs <b>${cost} coins</b>.${w ? ` It clears your ${"★".repeat(w)} too!` : ""}</p>`;
     },
 });
 

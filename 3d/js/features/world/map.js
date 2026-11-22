@@ -58,5 +58,5 @@ on("boot", () => {
     }
     try { ctx.phone.addApp({ id: "family", icon: "🏡", name: "Family", order: 45, color: "#FF8A65", color2: "#C2185B", render(el) { el.innerHTML = html(true); } }); } catch (e) { console.warn("[world] phone app", e); }
 });
-addMenuItem("title", { id: "worldFamily", order: 58, group: "book", short: "Family", label: "🏡 Family & places", sub: "who lives where · who you've visited",
+addMenuItem("title", { id: "worldFamily", order: 58, group: "book", short: "Family", label: "🏡 Family & places", sub: "Who lives where, and who you've visited",
     visible: () => !phoneApps(), action: () => openFamilyMap() });

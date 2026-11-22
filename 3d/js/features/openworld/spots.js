@@ -219,7 +219,7 @@ function openCard(spot) {
         for (const k of E.ORDER) {
             const G = E.GAMES[k], why = E.blockReason(k);
             if (!party && !G.solo) continue;
-            buttons.push({ id: "owSpot_" + k, cls: why ? "alt" : "", label: `<span>${G.emoji} ${esc(G.name)}</span><small>${esc(why || (party ? G.blurb + " · friends opt in" : G.blurb))}</small>`,
+            buttons.push({ id: "owSpot_" + k, cls: why ? "alt" : "", label: `<span>${G.emoji} ${esc(G.name)}</span><small>${esc(why || (party ? G.blurb + ". Friends can choose to join." : G.blurb))}</small>`,
                 action: () => {
                     if (why) { H.toast(why, "red"); return; }
                     const res = E.requestGame(k, { spot: { name: spot.name, x: spot.fx, z: spot.fz } });

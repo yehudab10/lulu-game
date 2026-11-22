@@ -274,7 +274,7 @@ ctx.day = {
     imaLine: () => allowed() ? imaLine() : null,
     PAY, ITEMS,
     /** Another feature adds a list item (group "errand" | "job" | "silly"; kind "event" = done when `ev` fires —
-     *  features/shops: "say hi to Uncle Moishe", "pick up pepper spray at the makolet"). Same rules: once a day. */
+     *  features/shops: "say hi to Uncle Refael", "pick up pepper spray at the makolet"). Same rules: once a day. */
     addItem(group, it) {
         if (!ITEMS[group] || !it || !it.id || byId(it.id)) return false;
         ITEMS[group].push(it); ALL.push(it);

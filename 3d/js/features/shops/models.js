@@ -4,7 +4,7 @@
 // clusters like any Blender model — ~0 extra draw calls, a few hundred triangles each. Tints work by material name
 // (Walls / Trim / Roof / Awning / Body / BodyLight / BodyDark…).
 //
-//   shops_dealer    Uncle Moishe's showroom: a glass-fronted box, a flat roof with a parapet, bunting strung out over the
+//   shops_dealer    Uncle Refael's showroom: a glass-fronted box, a flat roof with a parapet, bunting strung out over the
 //                   lot, a resting wacky waving tube guy. Anchor_sign (the fascia), Anchor_door. Front = +Z (the street).
 //   shops_lotcar    one car on the lot: a LOW-POLY stand-in for Lulu's convertible (~330 triangles — the real one is
 //                   ~9k), its asphalt pad, a price board on a post (Anchor_sign). The car the card is about is swapped

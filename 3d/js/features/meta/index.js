@@ -66,7 +66,7 @@ try {
 
 // ── title screen ─────────────────────────────────────────────────────────
 addMenuItem("title", {
-    id: "metaScrapbook", order: 50, group: "book", cls: "alt", short: "Badges", sub: "badges · rap sheet · crew · stats",
+    id: "metaScrapbook", order: 50, group: "book", cls: "alt", short: "Badges", sub: "Badges, stats and your rap sheet",
     label: () => {
         const S = shared.get(), t = badgeTotals(S);
         return `📒 Scrapbook <span class="meta-chip">🏆 ${t.got}/${t.tot}</span>${scrapHasNew(S) ? '<span class="meta-dot">!</span>' : ""}`;
@@ -87,7 +87,7 @@ addMenuItem("titleInfo", {
     visible: () => { const S = shared.get(); return (S.streak || 0) > 0 && (S.dayNum === dayNum() || S.dayNum === dayNum() - 1); },
     label: () => {
         const S = shared.get(), today = S.dayNum === dayNum();
-        return `<span class="meta-line" title="Daily streak">🔥 ${S.streak}${today ? "-day streak" : ` · drive today: +${25 * Math.min((S.streak || 0) + 1, 7)} 💰`}</span>`;
+        return `<span class="meta-line" title="Daily streak">🔥 ${S.streak}-day streak${today ? "" : `. Drive today for +${25 * Math.min((S.streak || 0) + 1, 7)} coins`}</span>`;
     },
 });
 

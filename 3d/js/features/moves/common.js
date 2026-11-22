@@ -198,7 +198,7 @@ export function firstTime(fam) {
     saveSoon();
     const m = MOVE[fam];
     if (!m || !live()) return;
-    H.banner(`<b>${m.icon} NEW MOVE: ${m.name.toUpperCase()}!</b><small>📒 Scrapbook › 🏁 Moves to master it</small>`, 2600, { key: "movesNew" });
+    H.banner(`<b>${m.icon} NEW MOVE: ${m.name.toUpperCase()}!</b><small>Practise it: Moves, in your Scrapbook</small>`, 2600, { key: "movesNew" });
 }
 
 // ── controller feel ─────────────────────────────────────────────────────

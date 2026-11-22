@@ -47,7 +47,7 @@ import { makeNet, copRoute, copSight, routeOnNet, nearestOnNet, pullOverSpot, co
 const Q = new URLSearchParams(location.search);
 /** SWITCH-ON (after ci/exits2 — the steps: the plan's Sync log / AGENTS §7 › Airport): true = on for everyone (not in
  *  ?test runs) unless ?airport=0, and the towns keep out of its zones (plan.js PLANNING) — so it's on with friends too. */
-export const ON_BY_DEFAULT = false;
+export const ON_BY_DEFAULT = true;
 if (ON_BY_DEFAULT) PLANNING.townsKeepOut = true;
 const FLAG = (Q.get("enable") || "").split(",").includes("airport") || Q.get("airport") === "1" || (ON_BY_DEFAULT && Q.get("airport") !== "0" && !Q.has("test"));
 /** How far out the build starts / stops, and the per-frame build budget. */
