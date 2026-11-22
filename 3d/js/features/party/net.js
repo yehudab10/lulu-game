@@ -75,6 +75,7 @@ export const N = {
     host: null, epoch: 0, roster: [], A: { v: 0, k: "lobby", id: 0 }, isHost: false,
     seq: 0, sendT: 0, sends: [], urgent: false, lastSendAt: 0,
     evNonce: 0, pending: [],     // my reliable events → host
+    recent: [], silentTicks: 0,  // my events of the last few seconds (re-sent on a host change) · frames the host's been silent
     bcNonce: rint(1, 1e6), bcast: [],
     seen: {}, acks: {},          // host: processed nonces per uid
     replies: [],                 // host: clock replies to send
@@ -121,7 +122,7 @@ export function stop(forget = true) {
     const was = N.want;
     N.want = false; N.connected = false;
     if (N.sock) { const s = N.sock; N.sock = null; try { s.onclose = null; s.onmessage = null; s.close(); } catch (e) { /* gone */ } }
-    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.bcast = [];
+    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.recent = []; N.silentTicks = 0; N.bcast = [];
     if (forget) { try { sessionStorage.removeItem("luluParty"); } catch (e) { /* fine */ } }
     if (was) emit("party:status", { want: false });
 }
@@ -257,6 +258,7 @@ function hostSnap(p, H, hello) {
     }
     const was = N.host;
     N.host = p.uid; N.epoch = e;
+    if (was && was !== p.uid) resendRecent();          // a new host: what I sent lately may have died with the old one
     if (Array.isArray(H.r)) N.roster = H.r.filter(u => typeof u === "string").slice(0, MAX_PLAYERS);
     if (H.A && typeof H.A === "object" && (H.A.v | 0) !== (N.A.v | 0) || (H.A && was !== p.uid)) {
         const prev = N.A;
@@ -319,6 +321,7 @@ function becomeHost(epoch, fresh) {
         N.A = Object.assign({}, N.A, { v: (N.A.v | 0) + 1 });
     }
     N.urgent = true;
+    if (!fresh) resendRecent();
     emit("party:host", { host: N.uid, me: true, fresh: !!fresh });
 }
 
@@ -345,6 +348,19 @@ function hostEvent(uid, e) {
 
 /** Send a reliable event to the host (re-sent in every snapshot until acked). */
 export function sendEvent(kind, ...args) {
+    N.recent.push({ k: kind, a: args, at: now() });
+    while (N.recent.length > 12 || (N.recent.length && now() - N.recent[0].at > RECENT_MS)) N.recent.shift();
+    queueEvent(kind, args);
+}
+// A host change (a flip on a crawling page, a real takeover): the old host may have acked an event and then lost it (or
+// handled it where it couldn't act — not the robbery's owner…), and the new host starts from the old acks. So the events
+// of the last RECENT_MS go out again with new nonces; host handlers are idempotent (see the header), so a repeat is safe.
+const RECENT_MS = 8000;
+function resendRecent() {
+    const t = now();
+    for (const r of N.recent) if (t - r.at <= RECENT_MS) queueEvent(r.k, r.a);
+}
+function queueEvent(kind, args) {
     const ev = { n: ++N.evNonce, k: kind, a: args };
     if (N.isHost) { hostEvent(N.uid, [ev.n, kind, ...args]); return; }
     N.pending.push(ev);
@@ -416,10 +432,14 @@ function windowOk(t) {
     return N.sends.length < 7;     // the relay allows 8/s; 1 spare for jitter
 }
 
+const TAKEOVER_TICKS = 20;
 function electHost(t) {
     if (N.isHost) return;
     if (t - N.connectedAt < 1500) return;                       // let the hello + first host snapshot land
-    if (hostAlive()) return;
+    if (hostAlive()) { N.silentTicks = 0; return; }
+    // hysteresis: silent for 4 s of wall time AND for TAKEOVER_TICKS of my own frames — one long stall of MY page (a crawling
+    // tab, a model load) isn't the host being gone (a takeover flip-flopped the host for ~10 frames on a slow CI page)
+    if (++N.silentTicks < TAKEOVER_TICKS) return;
     const cands = N.roster.filter(u => u !== N.host && (u === N.uid || fresh(N.players.get(u), 2500)));
     if (!N.roster.length || !N.host) {
         // nobody has ever hosted this room (an empty or brand-new code)
