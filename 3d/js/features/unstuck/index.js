@@ -425,7 +425,8 @@ function footRescue(opts) {
     // (an arrest / a knock-out / the climb-out intro play out — never cut short — unless they've hung for HUNG s)
     const soft = ["script", "approach", "hail"];
     if (F.phase !== "walk" && F.phase !== "hotwire" && F.phase !== "arrest" && (soft.includes(F.phase) || (F.phaseT || 0) > U.HUNG)) {
-        if (F.script && F.script.abort) { try { F.script.abort("unstuck"); } catch (e) { console.error("[unstuck] script", e); } }
+        // ("abort": the reason every feature already treats as cut short — no reward; the cart's joyride paid for "unstuck")
+        if (F.script && F.script.abort) { try { F.script.abort("abort"); } catch (e) { console.error("[unstuck] script", e); } }
         F.script = null; F.approach = null; F.hail = null;
         F.phase = "walk"; F.phaseT = 0;
         H.prompt("");
