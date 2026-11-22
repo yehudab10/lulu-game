@@ -29,7 +29,7 @@ export const ready = keys => keys.every(k => !!models[k]);
  *  local stub) — and only on a 🏡 Road Trip / 🌍 Free Roam run, never while a party game (a race / dash / tag / a
  *  Free Roam game she's in) is on. Robberies (a getaway car + a store building on one screen) and Lulu's own heist
  *  stay solo: ARCHITECTURE › the party parity table says what they'd need. */
-export const PARTY_OK = new Set(["gear", "snatch"]);
+export const PARTY_OK = new Set(["gear", "snatch", "robbery"]);      // (robbery: in a 🌍 Free Roam TOWN, foiled together — heist/party.js)
 export const inParty = () => !!(ctx.party && ctx.party.active);
 export function partyFree() {
     const pt = ctx.party, G = ctx.G;

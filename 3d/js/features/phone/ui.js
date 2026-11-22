@@ -181,9 +181,20 @@ export function renderHome(focusId = null) {
         }).join("")}</div></div>`;
     el.querySelectorAll(".lp-app").forEach(b => b.addEventListener("click", () => { A.sfxSelect(); PH.focus = b.dataset.app; openApp(b.dataset.app); }));
     el.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => { A.sfxSelect(); PH.focus = b.dataset.open; openApp(b.dataset.open, b.dataset.thread ? { thread: b.dataset.thread } : null); }));
+    fitHome(el);
     H.refreshFocus(false);
     const want = document.getElementById("lpa_" + (focusId || PH.focus)) || el.querySelector(".lp-app");
     if (want) H.setFocus(want);
+}
+/** Every app icon on ONE screen, above the Back / Menu bar: on a short screen (an iPhone SE, a 720p TV) the notification
+ *  cards give way first (the newest stays; the rest are in 💬 Messages), then the clock shrinks ("tight"). */
+function fitHome(el) {
+    const home = el.querySelector(".lp-home"), grid = el.querySelector(".lp-grid");
+    if (!home || !grid || !grid.offsetParent) return;
+    const over = () => grid.scrollHeight > grid.clientHeight + 2 || home.scrollHeight > home.clientHeight + 2;
+    const cards = [...el.querySelectorAll(".lp-notes .lp-notif")];
+    for (let i = cards.length - 1; i >= 0 && over(); i--) cards[i].style.display = "none";
+    if (over()) home.classList.add("tight");
 }
 
 /** Open an app on the phone (a hand-off app closes the phone first). */
