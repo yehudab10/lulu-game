@@ -26,7 +26,7 @@ export const SIGNS = {
     ],
     hall: ["SIMCHA PALACE", "Weddings · Bar Mitzvahs · Gridlock"],
     pizza: ["PIZZA SHMIZZA", "40-MIN WAIT · $6 A SLICE"],
-    yeshiva: ["YESHIVA OF CARPOOL LANE"],
+    yeshiva: ["YESHIVA OF CARPOOL LANE", "Shul · Beis Medrash · Minyanim"],
     baisYaakov: ["BAIS YAAKOV OF CARPOOL LANE", "dismissal 3:40 · straight lines · no giggling"],
     buses: ["SCHOOL BUS DEPOT", "a bus leaves every 4 minutes. forever."],
     shops: [

@@ -51,12 +51,12 @@ module.exports = {
       //  slices from 900 m out while she drives)
       await g(`(ctx.town.load("lakewood"), ctx.town.load("midwood"), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("lakewood") && __lulu3d.ctx.town.loaded("midwood")`, "both towns' models", 120000)) continue;
-      const E = await g(`ctx.town.debug.exitAhead(700)`);
+      const E = await g(`ctx.town.debug.exitAhead(700, "${id}")`);   // (each town its own exit)
       await W.moved(t);
       await g(`(() => { const s = ${E} - 600, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
         ctx.car.vx = Math.sin(p.h) * 14; ctx.car.vz = Math.cos(p.h) * 14; ctx.car.vF = 14; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.hold(7, 0.5);
-      const ok = await t.until(`__lulu3d.ctx.town.standing.length >= 2 && __lulu3d.ctx.town.standing.every(b => b.ready) && !!(${AP(id)})`, `${id} stands at its interchange (built)`, 60000);
+      const ok = await t.until(`!!(${AP(id)})`, `${id} stands at its interchange (built)`, 60000);
       await t.hold(7, 0);
       if (!ok) continue;
       const len = await g(`(${AP(id)}).len`);

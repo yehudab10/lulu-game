@@ -288,7 +288,7 @@ module.exports = {
       await g(`(ctx.law.hold(9999), true)`);
       await g(`ctx.town.load("lakewood")`);
       await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "town models", 90000);
-      await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+      await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
       await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.homes.crowd().on`, "party town crowd", 60000);
       const ab = await g(`(() => { const f = () => JSON.stringify(ctx.homes.debug.CR.peds.slice(0, 16).map(p => [p.type, Math.round(p.x), Math.round(p.z)])); ${D}.startCrowd(); const a = f(); ${D}.startCrowd(); return [a, f()]; })()`);
       const [a, b] = ab;

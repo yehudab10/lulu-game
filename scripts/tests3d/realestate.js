@@ -105,6 +105,7 @@ module.exports = {
         t.check(`${id}: a handful listed today (3–12)`, M.listed >= 3 && M.listed <= 12, M.listed);
         t.check(`${id}: a FOR SALE sign on each listed home (instanced: ≤ 4 draw calls)`, await t.until(`__lulu3d.ctx.realestate.debug.counts().signs === __lulu3d.ctx.realestate.listings().length`, "signs up", 4000) && M.signs.calls <= 4, JSON.stringify(M.signs));
         t.check(`${id}: the realtor's office stands on the high street`, M.office);
+        t.check(`${id}: the family's own house is never for sale`, await g(`(() => { const R = ctx.realestate, sp = ctx.town.spot("luluHome") || ctx.town.spot("home"); return R.listings().every(r => !r.family && !(sp && Math.hypot(r.ap.x - sp.x, r.ap.z - sp.z) < 10)); })()`), JSON.stringify({ fam: M.fam }));
         // the listings change over real days (a test clock), the same all day
         const D = await g(`(() => { const R = ctx.realestate, C = R.debug.CLOCK, ids = () => R.listings().map(r => r.id).join(); const a = ids(), a2 = ids();
           C.offset = 9; const b = ids(); C.offset = 18; const c = ids(); C.offset = 0; const v = R.homes()[0]; const vals = []; for (let d = 0; d < 60; d++) { C.offset = d; vals.push(R.valueOf(v)); } C.offset = 0;

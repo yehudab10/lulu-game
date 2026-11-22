@@ -137,6 +137,8 @@ async function body(t, pages) {
   const jr = await A.game(`window.__jr`);
   t.check("A: \"off to B\"", /Off to Latke Legend/.test(jr), jr);
   t.check("A and B are in the same party", await A.game(`ctx.party.code`) === await B.game(`ctx.party.code`));
+  const grp = await A.game(`({ active: ctx.group.active, size: ctx.group.size, roaming: ctx.group.roaming, friend: ctx.group.members.filter(m => !m.me).map(m => m.friend) })`);
+  t.check("ctx.group: with friends, in 🌍 Free Roam, 2 of us, and B is on my friends list", grp.active && grp.roaming && grp.size === 2 && grp.friend.length === 1 && grp.friend[0] === true, JSON.stringify(grp));
   const near = await A.until(`(() => { const p = ctx.party.players.find(q => !q.me); const pos = p && ctx.openworld.debug.posOf(p.uid); const m = ctx.car.pos; return !!pos && Math.hypot(pos.x - m.x, pos.z - m.z) < 60; })()`, "A lands next to B", 60000);
   t.check("A lands right next to B", near);
   await A.game(`(ctx.phone.openPhone("owparty"), true)`);
@@ -150,6 +152,7 @@ async function body(t, pages) {
   await A.game(`(ctx.party.leave(), true)`);
   await B.game(`(ctx.party.leave(), true)`);
   await A.until(`!ctx.party.active && ctx.state === "title"`, "A: left the party");
+  t.check("ctx.group: alone again after leaving", await A.game(`!ctx.group.active && ctx.group.size === 0 && ctx.group.members.length === 0`));
   await B.until(`!ctx.party.active && ctx.state === "title"`, "B: left the party");
   await drive(A, 400, 1.75);
   await drive(B, 425, -1.75);
