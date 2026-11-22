@@ -64,13 +64,12 @@ module.exports = {
 
 async function body(t) {
   await t.frames(6);
-  // Shared Road lives in the party hub now (one multiplayer entry on the title)
+  // Shared Road is 🕹️ Classic 2D friends in the ⚙️ More drawer (one multiplayer tile on the title: 👯 Friends)
   t.check("title lists 👯 Friends (Shared Road inside)", await t.L(`[...document.querySelectorAll("#screenCard .btn")].some(b => /Friends/.test(b.textContent))`));
   t.check("nothing connects until the player joins", await t.game(`!${S}.sock && !${S}.want`));
 
   // ── the screen: pick a curated name with the D-pad, connect to EVERYONE ──
-  await t.click(/Friends/);
-  await t.click(/Classic 2D friends/);
+  await t.click(/Classic 2D friends/);      // (⚙️ More drawer — the 👯 Friends screen is just Play with a friend)
   t.check("Shared Road screen with the 12 curated names", await t.L(`document.querySelectorAll("#screenCard .mp-names .btn").length === 12`));
   await t.click(/Kugel Kid/);
   t.check("picking a name saves it to the shared 2D save", await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).mpName === "Kugel Kid"`));
@@ -87,7 +86,7 @@ async function body(t) {
   t.check("sees the 2D player join — as a generated label (Gold NN)", /^Gold \d\d$/.test(lbl), lbl);
   await t.frames(4);
   await t.shot("connected");
-  await t.tap(1);   // ○ closes back to the party hub…
+  await t.tap(1);   // ○ closes back to the ⚙️ More drawer…
   await t.frames(3);
   await t.tap(1);   // …and ○ again to the title
   await t.frames(4);
@@ -213,8 +212,7 @@ async function body(t) {
 
   // ── disconnect = opt out; a cruise no longer auto-joins ──
   await t.game(`L3.setState("title")`);
-  await t.click(/Friends/);
-  await t.click(/Classic 2D friends/);
+  await t.click(/Classic 2D friends/);      // (⚙️ More drawer — the 👯 Friends screen is just Play with a friend)
   await t.click(/Disconnect/);
   t.check("disconnect closes the socket + opts out", await t.game(`!${S}.want && !${S}.connected`) && await t.L(`JSON.parse(localStorage.getItem("luluSaveV2")).mpAutoOff === true`));
   await t.click(/Cancel/);
@@ -231,8 +229,7 @@ async function body(t) {
   await t.page.setViewportSize({ width: 390, height: 844 });
   await t.game(`L3.setState("title")`);
   await t.frames(3);
-  await t.click(/Friends/);
-  await t.click(/Classic 2D friends/);
+  await t.click(/Classic 2D friends/);      // (⚙️ More drawer — the 👯 Friends screen is just Play with a friend)
   await t.game(`(${S}.roomKind = "friend")`);
   await t.click(/FRIEND CODE/);
   await t.frames(3);

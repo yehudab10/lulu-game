@@ -31,6 +31,7 @@ import { GEAR, fireNet, laySpikes, ripNet, flatTyres, isFlat } from "./gear.js";
 import { enterBank, bankDef } from "./bank.js";
 import { partyDebug } from "./party.js";
 import { crewDebug } from "./crew.js";
+import "./missions.js";          // 👯 › Missions: the bank job as an invitation (ctx.group.invitable)
 import { TUNE, PAY, HEIST, PLANS } from "./data.js";
 
 ctx.heist = {

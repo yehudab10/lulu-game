@@ -114,7 +114,8 @@ const SRC = String.raw`
     const T = ctx.town;
     if (T && T.active) {
       const pl = T.plan, Lc = pl && pl.local ? pl.local(x, z, {}) : null;
-      if (Lc) for (const r of pl.OCCLUDERS) {
+      const lot = ctx.unstuck && ctx.unstuck.debug && ctx.unstuck.debug.onLot && ctx.unstuck.debug.onLot(x, z);     // (Lulu's own open lot: walkable)
+      if (Lc && !lot) for (const r of pl.OCCLUDERS) {
         const lx = Lc.x, lz = Lc.z;
         if (lx > r.x0 + pad && lx < r.x1 - pad && lz > r.z0 + pad && lz < r.z1 - pad) return "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0);
       }
@@ -222,7 +223,9 @@ const SRC = String.raw`
 })()`;
 
 module.exports = {
-  async install(t) { return t.L(SRC); },
+  // (+ the device clock pinned to a Wednesday noon: on a real Friday afternoon Ima's door ask turns a home start into the
+  //  Erev Shabbos Rush, which ends at Bubbe's — a sweep's route must not depend on the day it runs)
+  async install(t) { const r = await t.L(SRC); await t.L(`(__lulu3d.ctx.shabbos && __lulu3d.ctx.shabbos.debug && __lulu3d.ctx.shabbos.debug.date("2026-11-18T12:00"), true)`); return r; },
   async reset(t) { return t.L(`(window.__qa.issues = [], window.__qa.counts = {}, window.__qa.ep = {}, window.__qa.last = null, window.__qa.overlayF = window.__qa.noCtl = window.__qa.hidF = window.__qa.insideF = 0, window.__qa.stateSince = __lulu3d.ctx.time, true)`); },
   async report(t) { return t.L(`({ issues: window.__qa.issues.map(i => ({ kind: i.kind, f: i.f, t: i.t, state: i.state, msg: i.msg, n: i.n })), counts: window.__qa.counts })`); },
   /** Ignore a known, explained case: kind + a regex source on the message. */

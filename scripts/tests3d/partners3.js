@@ -149,12 +149,12 @@ async function body(t, guests) {
     await p.frames(4);
     await p.game(`(ctx.town.load("lakewood"), true)`);
     if (!await p.until(`ctx.town.loaded("lakewood")`, `${p.label}: Lakewood's models`, 120000)) return;
-    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+    await p.game(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
     if (!await p.until(`ctx.town.active && ctx.town.id === "lakewood"`, `${p.label}: in Lakewood`, 60000)) return;
     await p.game(`ctx.foot.start("parked")`);
     if (!await p.until(`ctx.state === "footRun" && ctx.foot.phase === "walk" && ctx.homes.homes().length > 0`, `${p.label}: walking in town`, 60000)) return;
   }
-  await all(p => p.game(`(${PZ}.debug.resetCaps(), true)`));
+  await all(p => p.game(`(${PZ}.debug.resetCaps(), ctx.homes.debug.scene && ctx.homes.debug.scene("ordinary"), ctx.homes.debug.force.noCatch = true, true)`));   // (everybody home: features/homes' households keep a schedule)
   const hi = 3;
   const key = await A.game(`(() => { const h = ctx.homes.homes()[${hi}]; ctx.foot.debug.F.pos.set(h.ap.x, 0.05, h.ap.z); return h.key; })()`);
   await A.frames(4);

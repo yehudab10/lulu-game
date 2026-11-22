@@ -4,6 +4,7 @@ node_modules/
 # bundle are regenerated on every build (locally via `npm run add:ios`, in CI
 # via codemagic.yaml), so they don't belong in git.
 www/
+www-ota-*/
 ios/
 android/
 

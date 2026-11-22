@@ -89,8 +89,12 @@ export function strangerLabel(id, sk) { return `${COLOUR[sk] || "Rider"} ${10 + 
 /** What I show for a peer: friends (a code room) by their curated name, everyone else by a generated label. */
 export function labelFor(p) {
     if (MP.room !== "lobby" && CURATED_NAMES.includes(p.raw)) return p.raw;
+    const fr = MP.room === "lobby" && ctx.friends && ctx.friends.byMp ? ctx.friends.byMp(p.id) : null;   // (features/friends: a friend told me which ghost she is — sealed)
+    if (fr) return "👯 " + fr;
     return strangerLabel(p.id, p.sk);
 }
+/** Labels again (features/friends learnt which ghost a friend is). */
+export function relabel() { for (const id in MP.peers) MP.peers[id].name = labelFor(MP.peers[id]); }
 /** features/friends: my friend-handshake entries for the room I'm in (null = none). */
 export function setFr(list) { MP.fr = list && list.length ? list : null; }
 export function rerollCode() { MP.codeSlots = MP.codeSlots.map(() => Math.floor(Math.random() * 26)); }

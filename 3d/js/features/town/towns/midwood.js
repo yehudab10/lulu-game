@@ -17,6 +17,7 @@
 // (as from the Belt Parkway).
 import * as L from "./midwood-lines.js";
 import { dealerUse } from "../../shops/lot.js";
+import { cityhallUse } from "../../cityhall/place.js";
 
 // the grid
 const OP = -250, E8 = -165, CIA = -80, E15 = 5, RAIL = 45, E16 = 85, OA = 175;
@@ -48,7 +49,7 @@ export default {
         ns("E 8th St", E8, atKH(E8), AJ, { oneway: 1 }),
         ns("Coney Island Ave", CIA, atKH(CIA), AJ, { lanes: 2, priority: true }),
         ns("E 15th St", E15, atKH(E15), AJ, { oneway: 1 }),
-        ns("E 16th St", E16, atKH(E16), AJ, { oneway: -1 }),
+        ns("E 34th St", E16, atKH(E16), AJ, { oneway: -1 }),
         ns("Ocean Ave", OA, atKH(OA), AJ, { lanes: 2, priority: true }),
         ew("Avenue M", AM), ew("Avenue L", AL), ew("Avenue K", AK), ew("Avenue J", AJ),
         { name: "Kings Hwy", axis: "diag", from: [KH0, khZ(KH0)], to: [OA, khZ(OA)], lanes: 2, priority: true },
@@ -57,12 +58,12 @@ export default {
     // row (0 = Ave M → L, 1 = L → K, 2 = K → J); "k,Kings Hwy": the 4-sided blocks between Kings Hwy and Avenue M.
     blockDefault: "mwhomes",
     blocks: {
-        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "dealer", n: "hospital" } }, "2,0": { faces: { s: "avem", w: "cia" } },
+        "0,0": { faces: { w: "pkwy", s: "avem" } }, "1,0": { faces: { s: "avem", e: "dealer", n: "hospital" } }, "2,0": { faces: { s: "realty", w: "cia" } },    // (features/realestate: Brick by Brick Realty on Avenue M)
         "3,0": { faces: { s: "avem" } }, "4,0": { faces: { s: "avem", n: "school", e: "apts" } },
         "0,1": { faces: { w: "pkwy" } }, "1,1": { faces: { n: "shul", e: "cia" } }, "2,1": { faces: { w: "carsvc", e: "shtiebel", n: "civic" } },
         "3,1": { faces: { w: "rowhouses", e: "rowhouses" } }, "4,1": { faces: { e: "apts" } },
-        "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia" } },
-        "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts" } },
+        "0,2": { faces: { w: "pkwy", n: "makolet" } }, "1,2": { faces: { n: "avej", e: "cia" } }, "2,2": { faces: { n: "mwpizza", w: "cia", s: "cityhall" } },
+        "3,2": { faces: { n: "bakery" } }, "4,2": { faces: { n: "bank", e: "apts", w: "luluHome" } },
         "0,Kings Hwy": { faces: { s: "kh", w: "pkwy", n: "avem" } }, "1,Kings Hwy": { faces: { s: "kh", n: "avem", e: "cia" } },
         "2,Kings Hwy": { faces: { s: "kh", n: "avem", w: "cia" } }, "3,Kings Hwy": { faces: { s: "kh", n: "avem", w: "rowhouses", e: "rowhouses" } },
         "4,Kings Hwy": { faces: { s: "kh", n: "avem", e: "apts" } },
@@ -70,6 +71,11 @@ export default {
     // landmark uses modelled by other features (build.js › layoutFace): the bank on Avenue J (features/heist) —
     // the same model as Lakewood's, in Brooklyn limestone + a green roof, between two storefronts
     uses: {
+        // 🏠 LULU'S HOUSE (ci/hometown, roadmap 14 + 21): an EMPTY 14 × 24 m lot among ordinary Midwood houses on EAST 34TH ST
+        // (the owner: "East 34th St between J and K"; block 4,2, Avenue K → J). The town builds nothing on it (no house, no `homes` door, no parked cars at its kerb); features/world
+        // + decor draw the family's house, driveway and car. Spot `luluHome` (ctx.town.spotOf / spot): lot centre + rot, nx/nz
+        // toward the street, door, drive {x, z, h: nose out}, kerb, w, d.
+        luluHome: { lot: true, among: "mwhomes", dims: { w: 14, d: 24, prot: 0 }, spot: "luluHome" },
         bank: { key: "heist_bank", fallback: "town_mw_store", dims: { w: 20, d: 14, prot: 4.0 }, sign: L.SIGNS.bank, spot: "bank",
             tints: { Walls: "#D8CCB4", Roof: "#3F6B4F" }, signSize: [11.4, 0.96, 92], signBg: "#1B3A2B", signFg: ["#E8C766", "#F5F1E6"],
             with: [{ key: "town_mw_store", u: -16.5 }, { key: "town_mw_store", u: 16.5 }] },
@@ -91,6 +97,12 @@ export default {
             tints: { Walls: "#9C4A3C", Awning: "#2E7D32" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#FFFDE7", signFg: ["#2E7D32", "#5D4037"],
             with: [-20.8, -10.4, 10.4, 20.8].map(u => ({ key: "town_mw_store", u, list: "avej" })) },     // (the Avenue J storefronts either side — their signs from the street's list)
         dealer: dealerUse({ sign: L.SIGNS.dealer, tints: { Walls: "#E6DCCB", Trim: "#1565C0", Roof: "#4A4E55" }, signBg: "#1565C0", signFg: ["#FFFFFF", "#FFE082"] }),
+        // features/realestate (roadmap 16): the realtor's storefront in the middle of the Avenue M store row
+        realty: { key: "town_mw_store", fallback: "town_mw_store", dims: { w: 10, d: 13, prot: 1.5 }, sign: L.SIGNS.realty, spot: "realty",
+            tints: { Walls: "#7B4A3A", Awning: "#1B3A2B" }, signSize: [8.4, 0.9, 62], signW: 640, signBg: "#1B3A2B", signFg: ["#FFFFFF", "#C8E6C9"],
+            with: [{ key: "town_mw_store", u: -10.5, list: "avem" }, { key: "town_mw_store", u: 10.5, list: "avem" }, { key: "town_mw_store", u: -21, list: "avem" }, { key: "town_mw_store", u: 21, list: "avem" }] },
+        // features/cityhall (roadmap 17): Midwood Borough Hall on Avenue K, across from the precinct + courthouse, a house either side
+        cityhall: cityhallUse("midwood", { with: [{ key: "town_mw_house", u: -21 }, { key: "town_mw_house", u: 21 }] }),
     },
     // the town's edges: a row of buildings along the far side of the boundary streets
     strips: [
@@ -167,12 +179,12 @@ export default {
         // alternate side, every block on E 8th (and a couple elsewhere)
         ...[-150, -100, -20, 25, 70, 110, 170, 215].map(a => ({ kind: "asp", street: "E 8th St", along: a, d: 7.6, rot: Math.PI, lines: L.SIGNS.asp })),
         ...[-20, 95, 200].map(a => ({ kind: "asp", street: "E 15th St", along: a, d: -7.6, rot: Math.PI, lines: L.SIGNS.asp })),
-        ...[0, 120].map(a => ({ kind: "asp", street: "E 16th St", along: a, d: 7.6, rot: 0, lines: L.SIGNS.asp })),
+        ...[0, 120].map(a => ({ kind: "asp", street: "E 34th St", along: a, d: 7.6, rot: 0, lines: L.SIGNS.asp })),
     ],
     coins: [
         { street: "Avenue J", from: OP + 40, n: 8, d: -1.75 }, { street: "E 15th St", from: AM + 18, n: 9, d: 1.75 },
         { street: "Kings Hwy", from: khA(E16) + 14, n: 7, d: 1.75 }, { street: "Ocean Pkwy", from: AL + 16, n: 10, d: -5.25 },
-        { street: "Avenue L", from: E8 + 16, n: 8, d: 1.75 }, { street: "E 16th St", from: AK - 20, n: 8, d: -1.75 },
+        { street: "Avenue L", from: E8 + 16, n: 8, d: 1.75 }, { street: "E 34th St", from: AK - 20, n: 8, d: -1.75 },
         { street: "Ocean Pkwy", from: -60, n: 6, d: 15 },           // down the service road
     ],
 
@@ -202,7 +214,7 @@ export default {
     traffic: { town_van: 4, town_carsvc: 3, town_citybus: 1, town_sweeper: 1, cop: 1 },
     routes: {
         town_citybus: ["Coney Island Ave", "Kings Hwy", "Ocean Ave", "Avenue J", "Avenue M"],
-        town_sweeper: ["E 8th St", "Avenue L", "Avenue K", "Avenue M", "E 15th St", "E 16th St"],
+        town_sweeper: ["E 8th St", "Avenue L", "Avenue K", "Avenue M", "E 15th St", "E 34th St"],
     },
     speedLimitMph: 25, speedingMph: 46,
     // parked cars: car-service sedans and minivans of every colour (Brooklyn isn't all silver)

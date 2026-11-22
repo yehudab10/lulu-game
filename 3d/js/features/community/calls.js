@@ -94,7 +94,7 @@ export function callOut(org, lines, then = null, done = "") {
     sfx.dial();
     const finish = () => { try { if (then) then(); } catch (e) { console.error("[community] call", e); } };
     if (inCar() && ctx.phone && ctx.phone.call && !(ctx.phone.busy && ctx.phone.busy())) {
-        const c = ctx.phone.call({ from: O.call, emoji: O.emoji, color: O.color, lines: ln, ring: 0.01, talk: Math.max(3.5, ln.length * 1.9), declinable: false,
+        const c = ctx.phone.call({ always: true, from: O.call, emoji: O.emoji, color: O.color, lines: ln, ring: 0.01, talk: Math.max(3.5, ln.length * 1.9), declinable: false,
             talkEmoji: O.emoji, doneText: () => done, onDone: () => finish() });
         if (c) return true;
     }

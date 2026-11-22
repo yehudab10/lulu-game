@@ -27,6 +27,8 @@ const PERSON = ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R"];
 const LOOKS = { man: "npcMan", woman: "npcWoman", kid: "npcKid", bochur: "town_bochur", mail: "homesMail", delivery: "homesDelivery" };
 const MAXR = { man: 12, woman: 14, kid: 14, bochur: 10, mail: 2, delivery: 6 };
 const PROPS = { Stroller: 6, Scooter: 6, Rocker: 8, Newspaper: 8, LemonadeStand: 3, Bucket: 4, Rake: 4, Shovel: 4, Hose: 4, HoseCoil: 4, LeafPile: 4, SnowPile: 4, MailBag: 2, DeliveryBag: 6, Kickball: 4 };
+/** Hooks other homes modules set: porch(p, d) → a line (a wave-in / her name) | null. */
+export const HOOKS = { porch: null };
 export const TUNE = { NEAR: 30, FAR: 96, MAX_NEAR: 26, SCATTER: 8.5, SCATTER_V: 8.5, RECYCLE: 105, BACK: [34, 80] };
 
 export const C = { on: false, peds: [], rigs: {}, props: {}, dog: null, bike: null, lod: null, blobs: null, leash: null, lights: null, group: null,
@@ -510,6 +512,11 @@ function react(p, dt, lp, foot, fast, cfx, cfz) {
         sayAt(p, line, 2.6, "nice");
         emit("homes:gossip", { line }); emit("stat", { id: "homesGossip", n: 1 });
         return;
+    }
+    // a porch she walks past: a family that knows her calls her name / waves her in (index.js → visits.js)
+    if (foot && p.kind === "porch" && p.home && HOOKS.porch && d < 6.5 && ctx.time - p.waved > 20) {
+        const line = HOOKS.porch(p, d);
+        if (line) { p.waved = ctx.time; p.waveT = 2.2; p.lookAt = { x: lp.x, z: lp.z }; p.lookAtT = 2.5; C.said = 2.6; sayAt(p, line, 2.6, "nice"); emit("homes:wave", { id: p.id, porch: p.home.key }); return; }
     }
     // a wave as she passes
     if (d < 5.5 && ctx.time - p.waved > 30 && Math.random() < 0.05) {

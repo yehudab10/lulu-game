@@ -223,7 +223,7 @@ module.exports = {
     // ── Lakewood: Main St ──
     if (want("town")) await step("town", async () => {
       await g(`(window.__perfDrive = 0, true)`);
-      await t.until(`__lulu3d.ctx.town.debug.S.loaded`, "town models loaded", 120000);
+      await t.until(`(__lulu3d.ctx.town.load("lakewood"), __lulu3d.ctx.town.loaded("lakewood"))`, "town models loaded", 120000);   // (ask for Lakewood by name: the FIRST exit is Midwood's now, and nothing here drives near either)
       await toPlaying();
       await g(`ctx.town.enter({ town: "lakewood", speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active`, "into Lakewood", 10000)) return;
@@ -277,7 +277,7 @@ module.exports = {
       await t.until(`__lulu3d.ctx.town.loaded("lakewood") && __lulu3d.ctx.town.loaded("midwood")`, "both towns' models", 120000);
       const E = await g(`ctx.town.debug.exitAhead(700)`);
       await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E} + 160, 40, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = ${E} + 160; ctx.car.d = 40; ctx.car.vx = ctx.car.vz = ctx.car.vF = 0; ctx.world.prebuild(${E}); ctx.cam.snap(); return true; })()`);
-      await t.until(`__lulu3d.ctx.town.standing.length >= 2 && (__lulu3d.ctx.town.debug.buildNow() || true) && __lulu3d.ctx.town.standing.every(b => b.ready)`, "both towns standing", 60000);
+      await t.until(`(__lulu3d.ctx.town.debug.buildNow() || true) && __lulu3d.ctx.town.standing.some(b => b.town === "lakewood" && b.ready)`, "Lakewood standing at its exit", 60000);
       await t.frames(30);
       await record("tee");
       await g(`(() => { const hw = ctx.world.highway, p = hw.point(${E} + 172.2, 60, {}), q = hw.point(${E} + 172.2, 80, {}); const h = Math.atan2(q.x - p.x, q.z - p.z); ctx.car.place(p.x, p.z, h); ctx.cam.snap(); return true; })()`);
@@ -396,7 +396,7 @@ module.exports = {
         await g(`(ctx.town.active && ctx.town.leave("reset"), L3.state !== "title" && L3.setState("title"), true)`);
         await t.frames(6);
         await t.click(/Friends/);
-        await t.click(/Party games/);
+        await g(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more — ci/friends stage 2)
         if (!await t.until(`__lulu3d.state === "partyLobby" && __lulu3d.ctx.party.connected && __lulu3d.ctx.party.isHost`, "host: lobby", 60000)) return;
         const code = await g(`ctx.party.code`);
         const browser = t.page.context().browser();

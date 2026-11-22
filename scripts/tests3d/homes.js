@@ -63,6 +63,9 @@ module.exports = {
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     if (!await t.until(`__lulu3d.state === "playing"`, "cruise starts")) return;
     await g(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.law.hold(9999), ctx.atmos.debug.weather("clear"), ctx.atmos.debug.time("noon"), ctx.atmos.debug.freeze(true), true)`);
+    // (households have a schedule now — features/homes life.js: this test wants everybody home on an ordinary day, and the
+    //  classic alarm; homelife tests the scenes + who-catches-her)
+    await g(`(${D}.scene("ordinary"), ${D}.force.noCatch = true, true)`);
 
     // ── 1. the living town ──
     await step("crowd", async () => {
@@ -280,7 +283,7 @@ module.exports = {
       await startRelay();
       await g(`(L3.state !== "title" && L3.setState("title"), true)`); await t.frames(4);
       await t.click(/Friends/);
-      if (!await t.click(/Party games/)) await g(`(ctx.party.hostParty(), true)`);
+      await g(`(ctx.party.hostParty(), true)`);
       if (!await t.until(`__lulu3d.ctx.state === "partyLobby" && __lulu3d.ctx.party.connected`, "host: lobby", 120000)) { await t.shot("party-fail"); return; }
       await t.L(`document.getElementById("pt_act_roam") && document.getElementById("pt_act_roam").click()`); await t.frames(4);
       await t.L(`document.getElementById("pt_go") && document.getElementById("pt_go").click()`);
@@ -288,7 +291,7 @@ module.exports = {
       await g(`(ctx.law.hold(9999), true)`);
       await g(`ctx.town.load("lakewood")`);
       await t.until(`__lulu3d.ctx.town.loaded("lakewood")`, "town models", 90000);
-      await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exits[0].s, speed: 0 })`);
+      await g(`ctx.town.enter({ town: "lakewood", exitS: ctx.town.exitOf("lakewood"), speed: 0 })`);
       await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.homes.crowd().on`, "party town crowd", 60000);
       const ab = await g(`(() => { const f = () => JSON.stringify(ctx.homes.debug.CR.peds.slice(0, 16).map(p => [p.type, Math.round(p.x), Math.round(p.z)])); ${D}.startCrowd(); const a = f(); ${D}.startCrowd(); return [a, f()]; })()`);
       const [a, b] = ab;

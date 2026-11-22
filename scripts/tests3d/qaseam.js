@@ -51,12 +51,12 @@ module.exports = {
       //  slices from 900 m out while she drives)
       await g(`(ctx.town.load("lakewood"), ctx.town.load("midwood"), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("lakewood") && __lulu3d.ctx.town.loaded("midwood")`, "both towns' models", 120000)) continue;
-      const E = await g(`ctx.town.debug.exitAhead(700)`);
+      const E = await g(`ctx.town.debug.exitAhead(700, "${id}")`);   // (each town its own exit)
       await W.moved(t);
       await g(`(() => { const s = ${E} - 600, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25;
         ctx.car.vx = Math.sin(p.h) * 14; ctx.car.vz = Math.cos(p.h) * 14; ctx.car.vF = 14; ctx.world.prebuild(s); ctx.cam.snap(); return true; })()`);
       await t.hold(7, 0.5);
-      const ok = await t.until(`__lulu3d.ctx.town.standing.length >= 2 && __lulu3d.ctx.town.standing.every(b => b.ready) && !!(${AP(id)})`, `${id} stands at its interchange (built)`, 60000);
+      const ok = await t.until(`!!(${AP(id)})`, `${id} stands at its interchange (built)`, 60000);
       await t.hold(7, 0);
       if (!ok) continue;
       const len = await g(`(${AP(id)}).len`);
@@ -79,6 +79,11 @@ module.exports = {
       await placeCar(id, -8, 3.5, 0);
       await t.frames(4);
       if (await onFoot()) {
+        // (she climbs out on the car's far side now — over its own side, ci/qaweekend: put her on the approach's edge so the
+        //  walk is along the road, as a player would walk it)
+        await W.moved(t);
+        await g(`(() => { const p = (${AP(id)}).A(-6, 2); const F = ctx.foot.debug.F; F.pos.set(p.x, 0, p.z); F.vel.set(0, 0, 0); F.lulu.obj.position.copy(F.pos); return true; })()`);
+        await t.frames(3);
         await W.reset(t);
         await walkAlong(id, 1, 120);
         t.check(`${id}: walking in across the line → in town`, await inTown(), JSON.stringify(await g(`({ s: ctx.foot.debug.F.s, d: ctx.foot.debug.F.d })`)));

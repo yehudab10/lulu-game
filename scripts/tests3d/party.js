@@ -162,9 +162,9 @@ async function body(t, guests) {
 
   // ── host ──
   await t.click(/Friends/);
-  t.check("hub: party games / join / 2D friends", await t.L(`["pt_host", "pt_join", "pt_open"].every(id => !!document.getElementById(id))`));
+  t.check("hub: Play with a friend + Join with a code — nothing else (no lobby, no Play online, no 2D room)", await t.L(`["pt_roam", "pt_join"].every(id => !!document.getElementById(id)) && !["pt_host", "pt_online", "pt_open"].some(id => document.getElementById(id))`));
   await t.shot("hub");
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   if (!await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected && ctx.party.isHost`, "host: lobby + connected")) return;
   const code = await t.game(`ctx.party.code`);
   t.check("party code: 4 unambiguous letters", /^[ABCDEFGHJKMNPQRTWXYZ]{4}$/.test(code), code);
@@ -395,7 +395,7 @@ async function body(t, guests) {
   await t.game(`ctx.party.leave()`);
   await t.page.setViewportSize({ width: 390, height: 844 });
   await t.click(/Friends/);
-  await t.click(/Party games/);
+  await t.game(`(ctx.party.hostParty(), true)`);     // (the lobby has no hub button any more: games are votes in 🌍 Free Roam — ci/friends stage 2)
   await hostUntil(t, `ctx.state === "partyLobby" && ctx.party.connected`, "portrait lobby", 20000);
   await sleep(800);
   await t.shot("lobby-portrait");

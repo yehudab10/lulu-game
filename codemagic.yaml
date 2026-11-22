@@ -1,14 +1,13 @@
-# Codemagic CI/CD — native iOS build for Lulu's Road Trip (Capacitor wrapper).
+# Codemagic CI/CD — the native iOS build of Lulu's Road Trip 2.0 (Capacitor wrapper of the 3D game).
 #
-# This is a NEW, self-contained workflow for the Capacitor app. It does not
-# touch any other app/workflow you have in Codemagic. Before the first build:
-#   1. In Codemagic → Teams → Integrations, connect an App Store Connect API
-#      key, and note its "name" (referenced below as Jogley).
-#   2. In App Store Connect, create a NEW app with a UNIQUE bundle id (the
-#      `bundle_identifier` below) — must differ from your existing app.
-#   3. Add an iOS distribution certificate + provisioning profile to the
-#      Codemagic code-signing settings (or let Codemagic manage signing).
-# See IOS_BUILD.md for the full walkthrough.
+# The app is the EXISTING App Store app with bundle id boats.lulu.game (do not change it — AGENTS.md golden
+# rule 4: bundle id, signing, the AdMob ids and submit_to_app_store stay exactly as they are).
+# One-time setup (already done for 1.x): an App Store Connect API key integration named "Jogley", and the
+# env-var group "ios_signing" holding CERTIFICATE_PRIVATE_KEY. Step-by-step + the "press Start" checklist:
+# IOS_BUILD.md.
+#
+# Since 2.0 the app updates its web game OVER THE AIR from the stable channel (IOS_BUILD.md › Updates from the
+# server), so a new App Store build is only needed when NATIVE things change — see `when:` below.
 
 workflows:
   ios-capacitor:
@@ -25,6 +24,19 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
+    # …but only when something NATIVE changed. Web-only pushes (the game in 3d/, music, models) reach the app
+    # over the air, so they don't need a new binary (each build costs Codemagic minutes + a TestFlight upload).
+    # "Start new build" in Codemagic always works, whatever changed.
+    when:
+      changeset:
+        includes:
+          - 'package.json'
+          - 'package-lock.json'
+          - 'capacitor.config.json'
+          - 'codemagic.yaml'
+          - 'ios-config/**'
+          - 'scripts/ios-configure.sh'
+          - 'assets/**'
     integrations:
       app_store_connect: Jogley   # <- your integration name (key J42D8594FA)
     environment:
@@ -51,19 +63,21 @@ workflows:
       xcode: latest
     scripts:
       - name: Install npm dependencies
-        script: npm install
+        script: |
+          # Exactly the versions in package-lock.json (Capacitor 8, AdMob 8, the updater 8.54.2 …).
+          npm ci || { echo "✗ npm ci failed — package-lock.json out of step with package.json? Run 'npm install' locally and commit both."; exit 1; }
       - name: Build web bundle + stage www/
         script: |
           # The app ships 2.0 (the 3D game): www/index.html forwards to www/3d/;
           # the classic 2D game rides along at www/classic.html. copy-web.js
           # FAILS the build if anything the 3D game references is missing.
           node build.js
-          node scripts/copy-web.js
+          node scripts/copy-web.js || { echo "✗ the web bundle is missing files the game needs (list above) — fix on main first."; exit 1; }
       - name: Generate the iOS native project (Capacitor)
         script: |
           # Regenerated each build so nothing native needs to live in git.
           if [ ! -d "ios" ]; then npx cap add ios; fi
-          npx cap sync ios
+          npx cap sync ios || { echo "✗ cap sync failed — usually a plugin that doesn't match Capacitor 8 (see the lines above)."; exit 1; }
       - name: Generate app icon + splash screen
         script: |
           # Rasterizes assets/icon.png + assets/splash.png into the iOS
@@ -132,10 +146,18 @@ workflows:
             perl -0777 -pi -e 's/(func applicationDidBecomeActive\(_ application: UIApplication\) \{\n)/$1        try? AVAudioSession.sharedInstance().setCategory(.ambient)\n/' "$APPD" || true
             echo "Patched AppDelegate.swift audio session:"; grep -n "AVAudioSession" "$APPD" || true
           fi
-      - name: Set marketing + build number
+      - name: Finish the iOS project (app version, export compliance, SKAdNetwork, privacy manifest, checks)
         script: |
+          # scripts/ios-configure.sh: app version = package.json "version" (the over-the-air updater relies on it),
+          # ITSAppUsesNonExemptEncryption = NO, Google's SKAdNetwork ids, ios-config/PrivacyInfo.xcprivacy added
+          # to the App target, and it FAILS with a plain message if a plugin or the icon is missing.
+          bash scripts/ios-configure.sh
+      - name: Set the build number
+        script: |
+          # Codemagic's own counter: it keeps climbing past every 1.x build, so App Store Connect never sees a repeat.
           cd ios/App
-          agvtool new-version -all "$BUILD_NUMBER" || true
+          agvtool new-version -all "$BUILD_NUMBER" || { echo "✗ could not set the build number to $BUILD_NUMBER"; exit 1; }
+          echo "✓ build number $BUILD_NUMBER"
       - name: Set up code signing
         script: |
           # Fetch (and CREATE if missing) the distribution certificate +

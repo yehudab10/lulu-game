@@ -48,6 +48,7 @@ export const SIGNS = {
         ["BAIS MEDRASH OF THE GARAGE", "Parking: inside, with the seforim"],
     ],
     college: ["BROOKLYN KOLLEGE OF KNOWLEDGE", "Est. when the clock was last right"],
+    realty: ["BRICK BY BRICK REALTY", "Mendel Brick · up-and-coming since 1962"],   // features/realestate (uses.realty)
     bank: ["KINGS COUNTY SAVINGS & BAGEL", "since 1931 · free lollipop · fuhgeddaboudit"],   // features/heist's bank (uses.bank)
     makolet: ["YANKY'S 24-HOUR MAKOLET", "open 24 hrs · closed Shabbos · it's complicated"],   // features/shops (uses.makolet)
     dealer: ["UNCLE MOISHE'S PRE-LOVED CARS — BROOKLYN", "the Coney Island Ave branch · we also do tires (badly)"],   // features/shops (uses.dealer)
@@ -125,7 +126,7 @@ export const GOSSIP = {
     geese: ["The Avenue M pigeon got another one 🐦", "Pigeon under the bridge is ON ONE today"],
     cops: ["Cops chasing a pink car down Coney Island Ave. Still faster than the B68.", "Police chase on Kings Hwy. They're stuck behind a bus. Everyone's stuck behind a bus."],
     leave: ["Pink car took Ocean Pkwy south. Her spot is open!! (there was no spot)", "She left. Somebody grab where she was double-parked."],
-    oneway: ["PINK CAR going the WRONG WAY down East 16th 😳", "Someone tell her East 15th goes NORTH. Someone. Anyone."],
+    oneway: ["PINK CAR going the WRONG WAY down East 34th 😳", "Someone tell her East 15th goes NORTH. Someone. Anyone."],
     asp: ["ALTERNATE SIDE ALERT: the sweeper is on East 8th. MOVE YOUR CARS. (to where??)", "Sweeper's coming. Everybody into your cars and SIT."],
     train: ["Q is running. B is a rumour.", "Next Q in 2 min (the sign is an optimist)"],
 };
@@ -227,6 +228,6 @@ export const KVETCH_LIVE = {
     stopSign: { h: "Pink car rolls stop on Avenue L", b: "'A Brooklyn stop,' say witnesses. 'Respect.'" },
     jack: { h: "Double-parked minivan driven off", b: "Owner: 'The hazards were ON. That's LEGAL.'" },
     cops: { h: "Police chase down Coney Island Ave", b: "Stuck behind the B68. Everyone's stuck behind the B68." },
-    oneway: { h: "Pink car goes the wrong way on East 16th", b: "Delivery bikes: 'Welcome to the club.'" },
+    oneway: { h: "Pink car goes the wrong way on East 34th", b: "Delivery bikes: 'Welcome to the club.'" },
     geese: { h: "Avenue M pigeon strikes again", b: "\"Coo,\" said the pigeon." },
 };
