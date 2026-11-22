@@ -120,8 +120,7 @@ function build(rt) {
         const isBase = () => { const st = ctx.home.startAt; return !!(st && st.key === rec.id); };
         rt.hot({ id: "homebase", x: lx - 0.2, z: bz + 0.9, r: 1.1, label: () => (isBase() ? "🏠 Start my days at Ima's again" : "🏠 Start my days here"), action: async r => {
             if (isBase()) { ctx.home.setStartAt(null); await r.say("Lulu", "Back to Ima's in the mornings. The coffee's better there anyway. ☕", { emoji: "🏠" }); return; }
-            const fwd = Math.atan2(-rec.nx, -rec.nz);
-            ctx.home.setStartAt({ town: rec.town, key: rec.id, door: { x: rec.ap.x, z: rec.ap.z }, face: Math.atan2(rec.nx, rec.nz), label: rec.address, fwd });
+            ctx.home.setStartAt({ town: rec.town, key: rec.id, door: { x: rec.ap.x, z: rec.ap.z }, face: Math.atan2(rec.nx, rec.nz), label: rec.address });
             await r.say("Lulu", `My days start at ${rec.address} now! (Dinner's still at Ima's. Obviously.)`, { emoji: "🏠" });
         } });
     }

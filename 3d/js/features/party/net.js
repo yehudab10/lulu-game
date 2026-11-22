@@ -29,9 +29,7 @@
 //  • election  — host silent > 4 s AND for 20 of my own frames (one long stall
 //                of a crawling page isn't a dead host) → the first FRESH uid in
 //                the roster order claims epoch + 1; higher epoch wins, ties go to
-//                roster order. The old host steps down if it comes back. On any
-//                host change, clients re-send their reliable events of the last
-//                8 s with new nonces (the old host may have acked and lost one).
+//                roster order. The old host steps down if it comes back.
 import { ctx, emit } from "../../core/ctx.js";
 import { shared } from "../../core/save.js";
 
@@ -78,7 +76,7 @@ export const N = {
     host: null, epoch: 0, roster: [], A: { v: 0, k: "lobby", id: 0 }, isHost: false,
     seq: 0, sendT: 0, sends: [], urgent: false, lastSendAt: 0,
     evNonce: 0, pending: [],     // my reliable events → host
-    recent: [], silentTicks: 0,  // my events of the last few seconds (re-sent on a host change) · frames the host's been silent
+    silentTicks: 0,              // frames the host's been silent (takeover hysteresis)
     bcNonce: rint(1, 1e6), bcast: [],
     seen: {}, acks: {},          // host: processed nonces per uid
     replies: [],                 // host: clock replies to send
@@ -125,7 +123,7 @@ export function stop(forget = true) {
     const was = N.want;
     N.want = false; N.connected = false;
     if (N.sock) { const s = N.sock; N.sock = null; try { s.onclose = null; s.onmessage = null; s.close(); } catch (e) { /* gone */ } }
-    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.recent = []; N.silentTicks = 0; N.bcast = [];
+    N.players.clear(); N.byRid.clear(); N.isHost = false; N.host = null; N.roster = []; N.pending = []; N.silentTicks = 0; N.bcast = [];
     if (forget) { try { sessionStorage.removeItem("luluParty"); } catch (e) { /* fine */ } }
     if (was) emit("party:status", { want: false });
 }
@@ -261,7 +259,6 @@ function hostSnap(p, H, hello) {
     }
     const was = N.host;
     N.host = p.uid; N.epoch = e;
-    if (was && was !== p.uid) resendRecent();          // a new host: what I sent lately may have died with the old one
     if (Array.isArray(H.r)) N.roster = H.r.filter(u => typeof u === "string").slice(0, MAX_PLAYERS);
     if (H.A && typeof H.A === "object" && (H.A.v | 0) !== (N.A.v | 0) || (H.A && was !== p.uid)) {
         const prev = N.A;
@@ -324,7 +321,6 @@ function becomeHost(epoch, fresh) {
         N.A = Object.assign({}, N.A, { v: (N.A.v | 0) + 1 });
     }
     N.urgent = true;
-    if (!fresh) resendRecent();
     emit("party:host", { host: N.uid, me: true, fresh: !!fresh });
 }
 
@@ -350,19 +346,9 @@ function hostEvent(uid, e) {
 }
 
 /** Send a reliable event to the host (re-sent in every snapshot until acked). */
-export function sendEvent(kind, ...args) {
-    N.recent.push({ k: kind, a: args, at: now() });
-    while (N.recent.length > 12 || (N.recent.length && now() - N.recent[0].at > RECENT_MS)) N.recent.shift();
-    queueEvent(kind, args);
-}
-// A host change (a flip on a crawling page, a real takeover): the old host may have acked an event and then lost it (or
-// handled it where it couldn't act — not the robbery's owner…), and the new host starts from the old acks. So the events
-// of the last RECENT_MS go out again with new nonces; host handlers are idempotent (see the header), so a repeat is safe.
-const RECENT_MS = 8000;
-function resendRecent() {
-    const t = now();
-    for (const r of N.recent) if (t - r.at <= RECENT_MS) queueEvent(r.k, r.a);
-}
+export function sendEvent(kind, ...args) { queueEvent(kind, args); }
+// (NOT re-sent on a host change: a reliable event is only de-duplicated by its nonce — re-running one later under a new
+//  nonce (a chase started, a race finished, a claim) replays the game, e.g. a crew that shook the cops chased again.)
 function queueEvent(kind, args) {
     const ev = { n: ++N.evNonce, k: kind, a: args };
     if (N.isHost) { hostEvent(N.uid, [ev.n, kind, ...args]); return; }
