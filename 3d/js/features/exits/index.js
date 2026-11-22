@@ -44,7 +44,7 @@ import * as H from "../../hud.js";
 import * as LY from "./layout.js";
 import * as L from "./lines.js";
 import { buildChunk, MODELS, lookMats } from "./build.js";
-import { LAP, lapAt } from "../../world.js";
+import { LAP, lapAt, lapWorld } from "../../world.js";
 import { LIFE, PEOPLE_MODELS, saved, spawnCast, despawnCast, tickLife, restSpot, registerBays, luluSays, actAt, dealOfDay } from "./life.js";
 
 /** Where the rest areas go: the first this far into a run, then about every `every` metres. */
@@ -58,7 +58,7 @@ function nextLapRest(s) {
     REST.lap.forEach((m, slot) => { const at = lapAt(s, m, true); if (!best || at < best.s) best = { s: at, slot }; });
     return best;
 }
-const lapMode = () => { const G = ctx.G; return !!G && (G.mode === "cruise" || (G.mode === "party" && ctx.party && ctx.party.active && ctx.party.activity && ctx.party.activity.k === "roam")); };
+const lapMode = lapWorld;
 /** Plan the lap's rest areas up to s1 (each once; a slot whose slid metre is already planned is skipped). */
 function planLap(s0, s1) {
     for (let n = 0, s = s0; n < 6; n++) {
@@ -101,7 +101,10 @@ function clearAt(s, party = false) {
     }
     if (party) return true;                 // (a party plans from fixed data only: the interchanges + the places)
     const w = ctx.world;
-    if (w && w.reserved && w.reserved.some(r => r.side !== -1 && r.s1 > s + LY.TAPER0 - 40 && r.s0 < s + LY.ACC1 + 40 && r.dMax > 9 && r.dMin < 72 && r.dMax - r.dMin > 12)) return false;
+    // (🌍 on the one world's lap a place keeps its lap metre every lap: the Story's scenery stretches — the coast's ocean,
+    //  dMax 9999, on lap 1 only — don't push a rest area off it; the towns' exits never minded them either)
+    const lap = lapWorld();
+    if (w && w.reserved && w.reserved.some(r => r.side !== -1 && !(lap && r.dMax > 5000) && r.s1 > s + LY.TAPER0 - 40 && r.s0 < s + LY.ACC1 + 40 && r.dMax > 9 && r.dMin < 72 && r.dMax - r.dMin > 12)) return false;
     if (mode() === "story" && ctx.journey && ctx.journey.stopS) {
         for (let i = 0; i < 5; i++) { let st; try { st = ctx.journey.stopS(i); } catch (e) { st = null; } if (st != null && st > s - 600 && st < s + 1700) return false; }
     }
