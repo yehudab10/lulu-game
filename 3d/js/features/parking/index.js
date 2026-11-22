@@ -1134,31 +1134,33 @@ hook("controls", ctl => {
     const xS = xA - sgn * 4.0;
     if (A.phase === "A0") {
         // not enough run-up to line up: back up the lane first (straightening as she goes)
-        const xR = xS + sgn * 8, left = sgn * (xR - lc.x);
-        const eps = -sgn * clamp((zA - lc.z) * 0.45, -0.5, 0.5);
-        ctl.steer = clamp(-wrapAngle(lc.h - (hT + eps)) * 2.6, -1, 1);
+        const xR = xS + sgn * 11, left = sgn * (xR - lc.x);
+        // (reversing: aim the TAIL at a point on the lane line behind her)
+        const look = Math.max(3.5, Math.min(6, left + 1));
+        const tailH = Math.atan2(sgn * look, zA - lc.z);
+        ctl.steer = clamp(-wrapAngle(lc.h + Math.PI - tailH) * 2.6, -1, 1);
         speed(left > 1 ? -1.6 : left > 0.1 ? -0.6 : 0);
         if (left <= 0.1 && Math.abs(v) < 0.1) { A.phase = "A"; tr(A, lc); }
         return;
     }
     if (A.phase === "A" && !A.checked) {
         A.checked = true;
-        if (sgn * (lc.x - xS) < 7) { A.phase = "A0"; tr(A, lc); return; }
+        if (sgn * (lc.x - xS) < 11 && (Math.abs(lc.z - zA) > 0.3 || Math.abs(e) > 0.15)) { A.phase = "A0"; tr(A, lc); return; }
     }
     if (A.phase === "A") {
         // forward along the lane to a little past the front car, lined up with the lane
         const left = sgn * (lc.x - xS);
-        const eps = sgn * clamp((zA - lc.z) * 0.45, -0.7, 0.7);
-        const err = wrapAngle(lc.h - (hT + eps));
+        // (pure pursuit of a point on the lane line ahead: she arrives lined up)
+        const look = Math.max(3.5, Math.min(6, left + 1));
+        const err = wrapAngle(lc.h - Math.atan2(-sgn * look, zA - lc.z));
         ctl.steer = clamp(err * 2.6, -1, 1);
-        speed(left > 2.5 ? 2.0 : left > 0.15 ? 0.8 : 0);
+        speed(left > 2.5 ? 1.8 : left > 0.15 ? 0.7 : 0);
         if (left <= 0.15 && Math.abs(v) < 0.1) { A.phase = "A2"; tr(A, lc); }
     } else if (A.phase === "A2") {
         // back up to beside the front car, keeping the line
         const left = sgn * (xA - lc.x);
-        const eps = -sgn * clamp((zA - lc.z) * 0.45, -0.5, 0.5);
-        const err = wrapAngle(lc.h - (hT + eps));
-        ctl.steer = clamp(-err * 2.6, -1, 1);
+        const look = Math.max(3.5, left + 1.5);
+        ctl.steer = clamp(-wrapAngle(lc.h + Math.PI - Math.atan2(sgn * look, zA - lc.z)) * 2.6, -1, 1);
         speed(left > 1.2 ? -1.2 : left > 0.1 ? -0.5 : 0);
         if (left <= 0.1 && Math.abs(v) < 0.08) { A.phase = "B"; tr(A, lc); }
     } else if (A.phase === "B") {
