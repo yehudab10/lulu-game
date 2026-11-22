@@ -359,7 +359,7 @@ async function chat(rt, r) {
         return;
     }
     if (i === 1) {
-        if (pepper <= 0) { H.toast("🌶️ No pepper spray! Grab some in the 🛒 Shop", "red"); return; }
+        if (pepper <= 0) { H.toast("🌶️ No pepper spray! The makolet in town has it", "red"); return; }
         shared.update(s => { s.pepperSpray = Math.max(0, (s.pepperSpray | 0) - 1); });
         return applyItem(rt, r, "pepper");
     }
