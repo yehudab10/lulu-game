@@ -208,8 +208,8 @@ verbatim-relayed `d` packet). **No server change.** What it adds on the wire:
 - **A shove reads as a slide** (`party/remote.js`): a stretch between two snapshots that moves far more than the reported
   speeds allow (a pratfall, a bump) steps the track and the error offset glides it out at ≤ 40 m/s; only a respawn or a
   warp (> 60 m along / 30 m across) snaps behind a poof. **The host doesn't flip on a stall** (`party/net.js`): a
-  takeover needs 4 s of silence and 20 of the taker's own frames; on a host change, clients re-send their reliable
-  events of the last 8 s (handlers are idempotent).
+  takeover needs 4 s of silence and 20 of the taker's own frames. (Reliable events are NOT re-sent on a host change:
+  they're de-duplicated only by nonce, so a re-sent chase / finish / claim would replay the game.)
 - `H.A.g` — the live party game (host state, replicated in every host snapshot like the rest of `A`): `{k, n, ph,
   t0, at, ps, …}` + the game's fields (pin / drop / cop / out / it / itN / held / fuse / spots / got / fin). ≤ ~700 bytes.
 - reliable client → host events (`ev`, acked): `owg` [k, req] start a game · `owf` [n, t] reached the pin ·
