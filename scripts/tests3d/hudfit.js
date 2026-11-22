@@ -8,7 +8,8 @@
 //   2. ⏭ SKIP over the trip label ("🏙️ Route 9 · LAKEWOOD") on a phone held upright
 //   3. a controller on a narrow portrait screen: the bottom prompt / hint on the speedo
 //   4. the "WELCOME TO …" banner over the 📝 chip
-// + every other pair of the named HUD pieces (none on top of another, all on screen).
+// + every other pair of the named HUD pieces (none on top of another, all on screen) — and the same for the 🅿️ Parking
+//   Challenge's HUD on a rest area's lot (its chip, its prompt line with the level's name).
 const VIEWS = [
   // name, width, height, TV mode, device
   ["phone", 390, 844, false, "touch"],
@@ -162,6 +163,35 @@ module.exports = {
     }
     await t.page.setViewportSize({ width: 390, height: 844 });
     await setSave(`m.save3d.settings.tv = "off"; m.save3d.settings.hudMode = "full";`);
+    await g(`(ctx.applySettings(), true)`);
+
+    // 🅿️ the Parking Challenge on a rest area's lot: its chip (level · lives · stars · coins · the clock), its prompt
+    // line and the level banner on the regular HUD — the same rules at every size
+    await inCar(t);
+    if (await g(`ctx.town.active`)) { await g(`ctx.town.leave("quiet")`); await t.until(`!__lulu3d.ctx.town.active`, "back on the highway", 20000); }
+    await setSave(`m.shared.update(s => { s.parkingUnlocked = true; });`);
+    await g(`ctx.exits.debug.restAhead(320)`);
+    if (!await t.until(`__lulu3d.ctx.parking.debug.courses().length > 0`, "a rest area's 🅿️ course", 30000)) return;
+    await g(`ctx.parking.debug.toBox()`);
+    if (!await t.until(`__lulu3d.state === "parking" && __lulu3d.ctx.parking._debug.phase === "drive"`, "the challenge's level 1", 30000)) return;
+    for (const [name, w, h, tv, d] of VIEWS) {
+      if (ONLY && !ONLY.includes(name)) continue;
+      await t.page.setViewportSize({ width: w, height: h });
+      await setSave(`m.save3d.settings.tv = ${tv ? '"on"' : '"off"'};`);
+      await g(`(ctx.applySettings(), ctx.parking._debug.timeLeft = 50, ctx.G.score = Math.max(ctx.G.score || 0, 12345), true)`);
+      await device(t, d);
+      await g(`(ctx.parking._debug.introUntil = ctx.time + 99, true)`);      // (the level's name on the prompt line: its longest text)
+      await t.frames(8);
+      const m = await measure(t);
+      const where = `🅿️ Parking Challenge, ${name} (${w}×${h}${tv ? " TV" : ""}, ${d})`;
+      t.check(`${where}: the challenge's chip is on the HUD`, m.groups.includes("left") && await t.L(`!!document.querySelector("#slot-left .park-chip")`));
+      t.check(`${where}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
+      await t.shot(`parking-${name}`);
+      await g(`(ctx.parking._debug.introUntil = 0, true)`);
+    }
+    await g(`ctx.parking.debug.endRun("quit")`);
+    await t.page.setViewportSize({ width: 390, height: 844 });
+    await setSave(`m.save3d.settings.tv = "off";`);
     await g(`(ctx.applySettings(), true)`);
   },
 };

@@ -274,7 +274,7 @@ on("title", () => refresh());
 addMenuItem("settings", {
     id: "seasons", order: 63,
     label: () => `🕎 Holidays in the world <b>${SAVE.on !== false ? "ON" : "OFF"}</b>`,
-    action: () => { SAVE.on = SAVE.on === false; saveSoon(); refresh(true); H.toast(SAVE.on ? "🕎 The world follows the Jewish calendar" : "🕎 Holiday dressing off", "", 2.5); },
+    action: () => { SAVE.on = SAVE.on === false; saveSoon(); refresh(true); H.toast(SAVE.on ? "🕎 The world follows the Jewish calendar" : "🕎 Holiday decorations off", "", 2.5); },
 });
 // the home-screen chip for the days meta's greeting doesn't cover (Sukkos prep, Lag BaOmer, Shavuos, Tu B'Shvat…)
 addMenuItem("titleInfo", {

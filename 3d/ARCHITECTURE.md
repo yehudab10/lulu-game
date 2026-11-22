@@ -130,7 +130,7 @@ turns false. So: time your beats in GAME time (`ctx.time`/`dt`, a Flow's `sleep`
 `setTimeout`. A cutscene inside another state: `ctx.cutscene.begin(id, {onSkip})` … `end(id)`.
 `ctx.skipping` is true meanwhile (keep sound effects quiet).
 Built-in: `title`, `intro` (3-2-1), `playing`, `wrecked` (the ~1 s spin-out before a knock-out), `gameover` (a card — no longer
-reached by running out of hearts; parking's challenge still ends with it), world's `worldPullOut` (pulling out of the
+reached by running out of hearts, or by parking: the 🅿️ challenge ends with the attendant's board on the lot), parking's `parking` (a driving state: the challenge on a rest area's lot), world's `worldPullOut` (pulling out of the
 home driveway — a driving state with its own camera until she's on the street), `worldHomeBeat` (the day's ending at home → back on her feet at home, `ctx.onegame.home`), plus journey's
 `arriving` / `arrivedScreen`. To drive the car from your state call
 `updateDriving(dt, P, controlsOn, ctlOverride)` from `core/driving.js`.
@@ -153,7 +153,7 @@ should be the open world"). **Don't add a play mode to the title** — add a pla
 - Title order guide: 5 ▶ PLAY · 12 🗺️ story map (book) · 30 shop · 32 car · 35 Dina · 50 scrapbook ·
   55 quests · 57 💼 side jobs (book) · 60 🎉 party / 👯 Friends (Shared Road lives inside its hub) · 65 📸 photo · 72 distracted · 80 settings · 86 controls · 99 2D.
   (Gone from the title, entered in the world instead — `features/onegame`: 📖 Story Trip → the 🧳 suitcase / 📱 🗺️ Map
-  app (tap a stop); 🛣️ Cruise → ▶ PLAY; 🅿️ Parking Challenge → the rest-area booth / a card in the 📱 💼 Jobs app; the 🕯️ Friday chip → Ima at the door.)
+  app (tap a stop); 🛣️ Cruise → ▶ PLAY; 🅿️ Parking Challenge → pull into the START box at a rest area's course (the booth's ✋ unlocks it, the 📱 💼 Jobs card marks it); the 🕯️ Friday chip → Ima at the door.)
 - `titleInfo` items: `bar: true` (a chip in the home top bar — bar orders: 5 holiday · 6 streak), `for: "<item id>"` (appended to that item's
   subtitle) or `group: "<group>"` (a line atop that sub-menu); otherwise a small note at the foot of the home card.
 - pause `group`: `"main"` (full width), `"tools"` (2-column grid) or `"exit"` (quiet bottom row); default by
@@ -704,7 +704,7 @@ and keep working sensibly when another feature is missing.
 | `ctx.crime` | crime | 🦹 town crimes (solo): `active` (in a town with the feature on) · `PAY` / `TUNE` (data.js — every cap and knob) · `paidToday(kind)` · `start(kind)` (`"cart"` beside the cart on foot · `"park"` stopped double-parked · `"air"` at the stand · `"herring"` at the kiddush table) · `corruption.{who(id), list(), evidence}` (for `ci/cityhall`: Malka / Tuvia / Pinchas — mood friendly · bribed · partner · nervous · gone) · `debug.{CR, SAVE, CART, JAY, PARK, force: {cop: true \| false}, settleJay(), parkEnd(), today(), day (a Date: tests), log}`. Events `crime:<ev>` (pay, warn, chase, cart, jaywalk, park, monte, watch, porch, tags, herring, air, malka, scene, evidence, hush, ia, cop) + `crime:corrupt` {who, act: bribe · cut · hush · exposed · wink} + `crime:porch` {id, fam, phase: back · kept · gone} (features/homes); stats `crimeCartRides`, `crimeCartMeters`, `crimeJaywalks`, `crimeJaywalkSprees`, `crimeDoubleParks`, `crimeChases`. ARCHITECTURE › Town crimes |
 | `ctx.avigail` | cameos | `rel()` 0–100 · `bump(d)` (writes shared `avigailRel`) |
 | `ctx.phone` | journey + phone | journey: `call({ from, emoji, lines, onAnswer, onDecline })` — the in-car call card (Ima's calls use it) · `text({ from, emoji, color, msg, dur, thread? })` · `active` / `talking` / `busy()` / `hangUp()` / `prop(on, pose)`. phone (`features/phone/`): the 📱 phone screen + apps — see **Lulu's phone** below |
-| `ctx.parking` | parking | `start(opts)` — pull over into the parking minigame · `start({ challenge: true, from: "booth" \| "phone" })` — the 🅿️ Parking Challenge from inside the world: it ends where it started (`S.ret` "foot": back on her feet by the booth — `setState("footRun", { resume })`; "drive": back on the road) — the end card's 🚶 / 🚗 button and the pause menu's "Leave the challenge"; `from: "title"` (old callers) still ends on the title |
+| `ctx.parking` | parking | the 🅿️ Parking Challenge on a REAL lot (`features/parking/course.js`: a course in every rest area's truck lot). `start({ challenge: true, from, level })` — at a course's START box (in her car, state `playing`) the run begins (state `parking`: a DRIVING state — `updateDriving` with the lot governor, its own camera); anywhere else the nearest / next course is MARKED (a beacon over the START box) · `active` · `phase` (`setup` · `drive` · `result` · `box`) · `here()` · `mark()` · `holdsStop()` (foot's get-out stands down in a START box) · `pose()` → null (the roadside lot's party poses are gone) · `debug.{toBox, place, bay, local, courses, autopark, endRun, unlock, CO}` · events `parking:run` {phase, level, victory, why}, `parking:result`, `parking:unlock` |
 | `ctx.journey` | journey | `stop()` (current stop def), `stopIndex`, `mode`, `start(i, extra)` (a story run at leg i; `extra` = more startRun opts — onegame's `home` / `homeAt` / `rolling`). The trip card's way out is 🏠 Head home (`ctx.onegame.home`) and a map launch goes through `ctx.onegame.roadTrip` (no 3-2-1) |
 | `ctx.garage` | garage | `items()` (counts), `use(id)` |
 | `ctx.play` | play | `dreidels` (lifetime ✨), `jump` (live stunt-jump state or null), `photo`, `openPhoto(from)` — 📸 photo mode is state `playPhoto` (it freezes the current state WITHOUT `setState`: no exit/enter/`state` event, restored exactly on exit) |
@@ -1499,6 +1499,36 @@ camera stays over it: `foot/jump.js camClip` stops where the lot ends), and stop
 away). Events `shops:open` {place, town}, `shops:buy` {kind, id, price}, `shops:car` {id, how}, `shops:test` {id, phase};
 stats `shopsVisits`, `shopsTestDrives`, `skinsBought`. Test: `scripts/tests3d/shops.js` (`SHOPS_PART=guide,home,lot,…`).
 
+**The Parking Challenge on a lot** (`features/parking`, ci/parkinglot; the owner, 2026-11-22: "I want one main world and that's
+it… parking challenge should move to a lot"). No separate scene any more (the old roadside lot set, its sky, the zoom-in and the
+white flash are gone; `parkingEnd` is gone). **The course** (`course.js`): one in every rest area, in the open corner of the truck
+lot beside Mendel's garage — rest-area coords u 148.65…168, d 41.6…66: the kerb along the garage's side, the bay row, a 14 m
+lane out to the semis, bollards at the lot's edge (the closed end), and at the open end by the lamp the attendant (npcMan +
+a clipboard, spawned within 150 m) beside his 🅿️ booth, a painted START box and a sign. A course has its own flat frame: local
+X along the kerb, Z away from it, laid out in the 2D game's lot pixels (`lot.js`: X = (x − 240) / 17, Z = (y − 150) / 17) — so
+every level's bay, parked cars and numbers are the 2D ones; `toWorld` / `toLocal` / `hWorld` turn it by the highway's heading.
+The static course is merged by material into the highway chunk that holds its middle (~10 draw calls, its bollards / booth /
+sign posts are chunk colliders). **Starting**: pull into the START box and stop (unlocked: the level starts — no button; locked:
+hold ✕ to spend the 1,000 💰, once); foot's "get out & walk" stands down there. The booth's ✋ (on foot) unlocks + marks, the 📱 💼
+Jobs card marks (a beacon `parkDest`), neither moves her. **A level** (state `parking`, `driving: true` — `updateDriving` with
+`lotCtl()`: 2D's governor 4 / 2.5 m/s, reverse from a stop, gas while rolling back brakes; her real car, the world and its traffic
+going on round her; the lot itself is closed to other cars): the crew sets out the level in a group turned with the course (the
+parked cars — real clones, dents on their bodywork —, the security cameras on the sidewalk with their lasers, a cone in the bay
+4+, a stray shopping cart 6+, a pedestrian 5+ who waits for her and then steps round, cars cutting through from the gap between
+the semis 7+ who stop for her, Sasquatch on the sidewalk at 10), popping in with a puff; the attendant whistles. Scoring exactly
+2D (★★★ no contact · ★★ no car touched · ★ dinged; level × 25 + 15/★; a hard hit / the pedestrian / a car cutting through /
+the clock → CRASH, −1 of 3 lives, the grandpa). **Between levels no card**: the attendant holds up a board (a sprite: the stars +
+coins / CRASH) + one toast, and she pulls out into the lane and stops (a beacon) — the crew re-sets the course round her for
+the next level (the START box is for level 1). After 10 / the last life: the board shows the run + one line, and she's in `playing` again. Driving out of the course or
+❚❚ › Leave the Parking Challenge ends it. HUD: one chip in the left slot (`.day-chip.park-chip`: LVL · ♥ · ★ · 💰 · ⏱ + the level
+name; 📝 Ima's list steps aside while she parks — `body.park-on`), the level's name (a moment) / the hints / HOLD STILL TO PARK
+on the prompt line, the red low-time vignette and bump flash (`hud.js`). 🎥 cycles Lot cam (higher + further back, eased behind her heading, reversing doesn't swing it) · Overhead (her
++ the bay, the kerb at the top, like 2D) · Chase (the regular camera). The weekly quest `parks3` counts the course's parks.
+**The roadside pull-over is retired** (the highway has no kerb to park at and its lanes can't be closed while she manoeuvres;
+stopping on the shoulder still gets her out and walking) — with it the Shared Road party lot (`pose()` → null). Ads: there's no
+card, so no ad. Test: `scripts/tests3d/parking.js` (`PARKING_PART=basic,levels,layouts`; `debug.autopark()` — a real reverse
+parallel park with the car's physics, both directions, and the pull-out between levels — parks all ten levels).
+
 **The courthouses' own stories** (`places/courts.js` + the words in `places/shloime.js`; owner, 2026-11-20).
 **Lakewood — "In re: Baby Gitty"**: Shloime (and the baby) on the lobby bench rehearsing, the case on the docket, ✋ at
 Courtroom 2B "⚖️ Sit in on the hearing" → state **`placesHearing`** (⏭ skippable, a soft cut both ways): a spectator scene
@@ -1964,7 +1994,8 @@ Drive-up bays go through `ctx.places` (`exits_pump`: nitro for coins; `exits_gar
 nearest thing (talk to travellers, the food court `choose()` menu, the restroom gag and the picnic sit in `ctx.foot.script`, the
 vending machine, the souvenir stand's deal of the day written to the shared save, Kugel the dog). The cast is pooled npcMan /
 npcWoman / npcKid (+ law's K9 as the dog) spawned only within ~250 m, casting no shadow and hidden past 40 m from the camera; parked cars are merged, shadowless. While she's in the lot
-`G.noPullOver` is set (stop = get out & walk, not the parking minigame). HUD: the decel-lane cue (a prompt) and the next-exit
+`G.noPullOver` is set (stop = get out & walk; the roadside pull-over is retired anyway). The 🅿️ Parking Challenge's
+course stands in the truck lot beside Mendel's garage (features/parking/course.js — see **The Parking Challenge on a lot**). HUD: the decel-lane cue (a prompt) and the next-exit
 chip (`.exits-chip.hud-secondary` in the "center" slot, only ≤ 1 mi ahead — interchanges and rest areas). Gated by
 `ctx.enabled("exits")`; in a 🎉 party the rest areas are seeded (see the parity table) and the visit is personal (presence ⛽).
 `scripts/tests3d/exits.js` covers passing / both branches / the rest area; `partyplus.js` the party side.

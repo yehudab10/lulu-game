@@ -502,7 +502,8 @@ function updateDriveOff(dt, P, controlsOn) {
         return;
     }
     const ok = ctx.state === "playing" && controlsOn && !chaseActive && !G.arrived && !(ctx.law && ctx.law.chasing) &&
-        Math.abs(car.d) > 6.4 && car.speed < 0.8 && input.throttle < 0.05;
+        Math.abs(car.d) > 6.4 && car.speed < 0.8 && input.throttle < 0.05 &&
+        !(ctx.parking && ctx.parking.holdsStop && ctx.parking.holdsStop());      // (stopped in the 🅿️ START box: that's the challenge)
     driveOff.t = ok ? driveOff.t + dt : 0;
     const show = driveOff.t > 1.3;
     // Re-assert every frame while offered (H.prompt de-dupes), and tell the parking

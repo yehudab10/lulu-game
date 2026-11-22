@@ -272,8 +272,8 @@ ctx.mp.ghostStats = ghostStats;
 addMenuItem("settings", {
     id: "online", order: 58,
     visible: () => N.allowed(),
-    label: () => `🌐 Play online <b>${onlineOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${onlineOn() ? "see who else is driving right now" : "just you"}</small>`,
-    action: () => { setOnline(!onlineOn()); H.toast(onlineOn() ? "🌐 Online — other drivers show up as ghosts" : "🌐 Offline — it's just you", "", 2.5); },
+    label: () => `🌐 Play online <b>${onlineOn() ? "ON" : "OFF"}</b> <small style="opacity:.75">${onlineOn() ? "See other players driving around" : "Just you in the world"}</small>`,
+    action: () => { setOnline(!onlineOn()); H.toast(onlineOn() ? "🌐 Online. You'll see other players out driving." : "🌐 Offline. It's just you now.", "", 2.5); },
 });
 on("run:end", ({ score, bestStreak = 0 }) => { N.postScore(Math.max(score || 0, bestStreak)); });   // (knock-outs bank streaks: post the run's best)
 for (const ev of ["arrest", "law:arrest", "jail"]) on(ev, e => { if (e && e.charges) N.postWanted(e.charges); });
@@ -295,7 +295,7 @@ addMenuItem("title", {
 // …and its Classic 2D cross-play room sits in ⚙️ More, beside "Classic 2D" (the 👯 Friends screen stays one button).
 addMenuItem("title", { id: "mp2d", order: 98, group: "more", short: "2D friends", label: "🕹️ Classic 2D friends",
     sub: "Play with friends on the old 2D game", visible: () => N.allowed() && !!ctx.party, action: () => U.openSharedRoad("title") });
-addMenuItem("pause", { id: "sharedroad", order: 40, label: () => MP.connected ? `🌐 Shared Road · ${N.riderCount()}` : "🌐 Shared Road",
+addMenuItem("pause", { id: "sharedroad", order: 40, label: "🕹️ Classic 2D friends",
     visible: () => N.allowed() && !(ctx.party && ctx.party.active), action: () => U.openSharedRoad("pause") });
 addMenuItem("titleInfo", { id: "mpCrew", visible: () => MP.connected, label: () => U.titleCrewHtml() });
 addMenuItem("titleInfo", { id: "mpBoard", visible: () => !!(N.allowed() && N.scoresList() && N.scoresList().length), label: () => U.titleBoardHtml() });

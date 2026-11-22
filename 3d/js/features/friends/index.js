@@ -136,7 +136,7 @@ on("boot", () => {
     if (!cryptoOk()) return;
     // a ?friend=CODE link: ask that player (they say yes on their screen)
     const code = (QS.get("friend") || "").toUpperCase();
-    if (CODE_RE.test(code)) setTimeout(() => useCode(code).then(r => H.toast(r === "asked" ? "🤝 Asked them to be friends — they say yes on their screen" : r === "full" ? `👯 Your friends list is full (${ST.CAP})` : "🤝 That friend code isn't open right now", "pink", { prio: 2 })), ctx.TEST ? 500 : 2500);
+    if (CODE_RE.test(code)) setTimeout(() => useCode(code).then(r => H.toast(r === "asked" ? "🤝 Asked them to be friends. They say yes on their screen." : r === "full" ? `👯 Your friends list is full (${ST.CAP})` : "🤝 That friend code isn't open right now", "pink", { prio: 2 })), ctx.TEST ? 500 : 2500);
     // once, a little after starting: knock at every friend's door (who's on — and it tells them I'm on)
     setTimeout(() => { if (ST.S.list.length) BL.checkAll(); }, ctx.TEST ? 1500 : 6000);
 });

@@ -20,7 +20,7 @@
 //   inwall    the camera inside a solid collider (on foot: a circle collider ≥ 0.8 m of the active chunks — a thin pole or a
 //             street tree's trunk doesn't count, the game's camera brushes past those on purpose — / a town block)
 //   hidden    Lulu (on foot, walking) or the car (driving) invisible for more than ~1/3 s while she has control
-//   stuck     a state that isn't a free-roaming one (playing / footRun / interior / title) lasting more than 60 s
+//   stuck     a state that isn't a free-roaming one (playing / footRun / interior / title / parking) lasting more than 60 s
 //   nocontrol control taken away for more than 4 s outside a skippable scene / a dialog / a set / the pause menu
 //   invisible the stick pushed hard for ~2/3 s, she isn't moving, and nothing solid (a collider, a car) is within reach
 //   inside    Lulu standing inside a solid collider (circle / town block) for more than ~1/2 s while walking
@@ -75,6 +75,7 @@ const SRC = String.raw`
     if (ctx.paused || ctx.dialogOpen || ctx.view || ctx.skipping) return false;
     if (L3.H && L3.H.screenOpen && L3.H.screenOpen()) return false;
     if (ctx.state === "playing" || ctx.state === "worldPullOut") return true;
+    if (ctx.state === "parking") { const ph = ctx.parking && ctx.parking.phase; return ph === "drive" || ph === "box"; }     // (the Parking Challenge: driving on a real lot)
     if (ctx.state === "footRun") { const F = ctx.foot && ctx.foot.debug && ctx.foot.debug.F; return !!(F && (F.phase === "walk" || F.phase === "hotwire")); }
     return false;
   };
@@ -170,7 +171,7 @@ const SRC = String.raw`
     if (Q.overlayF > Q.opts.overlaySecs * 30) flag("overlay", cov.join("+") + " covers the screen for " + (Q.overlayF / 30).toFixed(1) + " s", "overlay:long");
     if (Q.overlayCtl > 30) flag("overlay", cov.join("+") + " covers the screen while she has control (" + (Q.overlayCtl / 30).toFixed(1) + " s)", "overlay:ctl");
     // camera
-    if (!ctx.view && (st === "playing" || st === "footRun")) {
+    if (!ctx.view && (st === "playing" || st === "footRun" || st === "parking")) {
       if (camP.y < 0.15) flag("underground", "camera y " + camP.y.toFixed(2), "ug");
       // (on foot anywhere; in the car only in a town — the driving camera's walls are a town thing)
       const who = foot || (st === "playing" && ctx.town && ctx.town.active ? ctx.car.pos : null);
@@ -192,7 +193,7 @@ const SRC = String.raw`
       }
     }
     // Lulu / the car hidden while she has control
-    if (ctl && ((st === "footRun" && F && F.lulu && !F.lulu.obj.visible) || (st === "playing" && !ctx.car.obj.visible))) Q.hidF += dF; else Q.hidF = 0;
+    if (ctl && ((st === "footRun" && F && F.lulu && !F.lulu.obj.visible) || ((st === "playing" || st === "parking") && !ctx.car.obj.visible))) Q.hidF += dF; else Q.hidF = 0;
     if (Q.hidF > 10) flag("hidden", (st === "footRun" ? "Lulu" : "the car") + " is invisible while she has control", "hidden");
     // standing inside something solid
     if (ctl && foot && F.phase === "walk" && !F.air) {
@@ -210,7 +211,7 @@ const SRC = String.raw`
       if (!near && !(F.booth)) flag("invisible", "Lulu can't move (stick pushed) and nothing is in her way at " + JSON.stringify(P(foot)) + " d " + (F.d || 0).toFixed(1), "invisible");
     }
     // stuck states / control taken away
-    const roam = { playing: 1, footRun: 1, interior: 1, title: 1 };
+    const roam = { playing: 1, footRun: 1, interior: 1, title: 1, parking: 1 };
     if (!roam[st] && !ctx.paused && ctx.time - Q.stateSince > Q.opts.stuckSecs) flag("stuck", "state " + st + " for " + (ctx.time - Q.stateSince).toFixed(0) + " s", "stuck:" + st);
     const def = ctx.states[st] || {};
     const excused = ctx.paused || ctx.dialogOpen || ctx.view || (ctx.cutscene && ctx.cutscene.active()) || (typeof def.skip === "function" ? def.skip() : !!def.skip) || st === "title" || st === "interior" || (L3.H && L3.H.screenOpen && L3.H.screenOpen());
