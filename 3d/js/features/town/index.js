@@ -472,7 +472,7 @@ function enterTown(e = null, opts = {}) {
         H.banner(`<b>${def.emoji} ${def.lines.SIGNS.welcome[0]}</b><small>${def.lines.SIGNS.welcome.slice(1).join(" · ")}</small>`, 2800, { key: "town", prio: 2 });
         later(1.4, () => luluSay("enter", true));
         later(5, () => gossip("enter"));
-        if (!S.bubbe.has(def.id) && def.lines.BUBBE) { S.bubbe.add(def.id); later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1)); }
+        if (!S.bubbe.has(def.id) && def.lines.BUBBE) { S.bubbe.add(def.id); later(11, () => phoneText(def.lines.BUBBE, 0)); later(26, () => phoneText(def.lines.BUBBE, 1, true)); }
     }
     emit("town:enter", { town: def.id, exitS: S.exitS, attached: !!en, drove: !!(en && opts.drove), quiet: !!opts.quiet, home: !!opts.home });
     if (!opts.quiet) emit("stat", { id: "townVisits", n: 1 });
@@ -617,9 +617,11 @@ function unpuppet(c) {
     c.ai = null; c.keep = H0.keep; c.data.hwPuppet = null;
 }
 function later(sec, fn) { S.timers.push({ at: ctx.time + sec, fn }); }
-function phoneText(who, k) {
+function phoneText(who, k, quiet = false) {
     if (!S.active) return;
     const msg = who.lines[k % who.lines.length];
+    // (ci/polish, the pop-up budget: Bubbe's SECOND text lands in 💬 Messages only — no bubble — when the phone has an inbox)
+    if (quiet && ctx.phone && ctx.phone.inbox && ctx.phone.inbox.post) { try { ctx.phone.inbox.post({ from: who.from, emoji: who.emoji, color: who.color, msg }); return; } catch (e) { /* fall through to the bubble */ } }
     try { if (ctx.phone && ctx.phone.text) ctx.phone.text({ from: who.from, emoji: who.emoji, color: who.color, msg, dur: 4.5 }); else H.toast(`${who.emoji} ${msg}`, "pink"); }
     catch (e) { H.toast(`${who.emoji} ${msg}`, "pink"); }
 }

@@ -669,7 +669,7 @@ back through core's `intro` is put straight back into the party (`playing`, no 3
 | realestate 🏘️ | **personal homes, shared ownership** (🌍 Free Roam only) | Every home's address / price / today's listing is a pure function of the town data + the device's date. In a party the market, the office, the bank's mortgage desk, viewings and buying work only in 🌍 Free Roam (`locked()`: a lobby activity / a race keeps it shut). Each player publishes the homes they own IN THE TOWN THEY'RE IN as `d.x.re` (`["l178,240,<minute bought>", …]`, ≤ 10) — `party.js` turns friends' lists into a registry SOURCE: a friend's home is never listed and can't be claimed, gets a mailbox in that friend's colour, and ✋ at its door says whose it is / 👯 JOIN <name> INSIDE when they're in (features/together `SHARED.realestateHouse` — the room's instance is the house id; a viewing stays personal). Visitors look, nobody redecorates in a party (like decor), no coins move. A double booking (two friends signed one home at once): the earlier purchase keeps it, the other gets every coin back + a text. Mortgage payments, rent and tenants are each player's own. Strangers never publish / see any of it. Test: `realestatefriends` (two pages). |
 | airport ✈️ terminal | **shared room**, personal scripts | The JFK terminal hall is `SHARED.terminal` (one instance, "jfk"): friends in a 🌍 Free Roam party who walk in see each other walk, sit (the gate seats) and emote; presence "✈️ in the JFK terminal". Everything else in the hall is each screen's own: the crowd, the check-in / bag / security gags, the snacks (each pays her own, capped per run), the planes. The law inside is personal: walked in wanted, the guard + Rex slow her, but the real cops only come in solo. Strangers are never inside. Not enterable mid-chase; with friends only in 🌍 Free Roam (`canEnter()`). |
 | airport ✈️ stage 3 (taxi runs, the lost suitcase, Dovid Dov) | **personal**; Dovid Dov **solo only** | 🚕 A JFK taxi run is a personal hustle job, and it is only offered where stage 1's airport is — stage 1 is off in a party for now, so `taxiWhy()` answers "party" (when the airport opens in a party it can follow hustle's party path: her fare, her seat, her pay). 🧳 The lost suitcase is each screen's own scene inside the SHARED terminal (Mrs. Shpilkes, the bag, Mr. Pilkes are crowd records only she sees; friends just see her walk and carry nothing special). 🎤 **Dovid Dov is SOLO ONLY** (chosen 2026-11-21): in a party the VIP carpet stays empty ("his flight's delayed") — a scene where one friend chats to a singer who isn't on the other friends' screens would look like talking to the air, and a shared version would need a host-seeded schedule on the relay. Every reward is capped per real day on each device. |
-| cityhall 🏛️ | **shared room**, personal ribbon cuttings | `cityhall` is in `together/rooms.js` SHARED (set from `features/cityhall`, the town tells two copies apart): friends in a party's 🌍 Free Roam who walk into the same town's city hall see each other; each screen runs its OWN clerks / secretary / mayor (which window is "back in 5 minutes" follows each device's clock). The mayor's ribbon cuttings out in town are local + cosmetic (each screen its own, nothing pays). Off in a lobby activity and in Dina's mode (the door's `canWalkIn`). |
+| cityhall 🏛️ | **shared room**; everything else personal / local | `cityhall` is in `together/rooms.js` SHARED (set from `features/cityhall`, the town tells two copies apart): friends in a party's 🌍 Free Roam who walk into the same town's city hall see each other; each screen runs its OWN clerks / secretary / mayor / expediter (which window is "back in 5 minutes" follows each device's clock). The ribbon cuttings and the protests are local + cosmetic (each screen its own, nothing pays). Tax, fees, permits and the lien are each player's own save (billed on THEIR played days). The inspector at her homes and the paving crew (the corruption story) are SOLO (not in a party). Off in a lobby activity and in Dina's mode (the door's `canWalkIn`). |
 
 `scripts/tests3d/<id>.js`:
 ```js
@@ -1393,7 +1393,55 @@ scissors + three onlookers; his speech → *SNIP* → polite clapping; ✋ befor
 walk on. Bubbles only (the pop-up budget), nothing pays. Events `cityhall:enter` {town}, `cityhall:mayor` {town, ask},
 `cityhall:complaint` {about}, `cityhall:ribbon` {phase, what, town, held}; stats `cityhallVisits`, `cityhallTickets`,
 `cityhallComplaints`, `cityhallSelfies`, `cityhallRibbonsHeld`, `cityhallRibbonPhotos`. Save `store("cityhall")` (3D only).
-`ctx.cityhall` = `{ spot, enter, mayorIn, closedWindow, here, mayor(town), ribbon, windows, debug }`. Test `cityhall`.
+`ctx.cityhall` = `{ spot, enter, mayorIn, closedWindow, here, mayor(town), ribbon, windows, tax, fees, contactRender, permits,
+inspect, protest, story, debug }`. Later stages extend the room through `addWindowHook(id, fn, prio)` / `WIN_LABELS` /
+`LOBBY_BUILDERS` / `MAYOR_LINES` (lobby.js) and the phone contact through `CONTACT_EXTRAS` (pay.js).
+**Stage 2 — property tax, silly fees, the lien** (`tax.js`, `fees.js`, `pay.js`, `court.js`; numbers in `data.js` › `TAX`,
+`FEES`, `FEE_CAP`, `FEE_TUNE`). ONE ledger (`S.ledger.bills`: kind `tax` · `fee` · `lien`) and its own played-day clock: a new
+device day (real estate's `today()`, so its test CLOCK moves both) becomes a PLAYED day only once she's out in the world
+(`taxTick`, ~2 Hz, `playing` / `footRun`, Cruise / Story, no dialog) — days away never happen, the first day only starts the
+clock. Each played day: tax = 0.2 % of each home's listed `price` (stable, mortgage or not; else what she paid / `valueOf`; not `seized` / `lost`),
+≤ 50 a day across all homes (scaled down), and unpaid tax stops growing at 7 days' worth; every tax line is mirrored on real
+estate's per-home list (`addBill` with a `ref`, `payBill` when settled). NOTHING is taken by itself: she pays at the TAXES
+window (`addWindowHook("taxes")`: what she owes → 💰 pay it all / pay what I can → ✍️ Pay — two presses) or from 📞 Phone ›
+🏛️ City Hall (`ctx.community.addContact`, the phone stays 9 apps: the bills + two taps) — whole bills oldest first, only
+what the wallet has, never below 0. Late (oldest unpaid tax): 3 played days → a stern letter (📱 Messages › City Hall), 6 →
+the LIEN ("on your mailbox flag") + a 10-coin lien fee + a case on that town's Courtroom 2B docket (`court.js`,
+`ctx.civic.courts.addCase` — the Town Attorney, three silly defences; `LIEN_COURT.win` 50 %: won = the fee waived + the lien
+lifted, lost = she pays now, only what she has); everything paid lifts it. Tax NEVER touches who owns a home (real estate's
+server-side Abandoned Kugel Ordinance is the only thing that does). **Fees** (`fees.js`): 🔊 loud-honk surcharge (6 honks in
+30 s in town) · 🚒 parking near a hydrant (in spirit) (out of her car in town, 30 %) · 🪑 porch-sitting licence (a played day
+she owns a home, 40 %) · 📣 complaint filing fee · 📋 inspection finding (stage 3) — each kind once a real day, ≤ 10 a real day
+in all, posted quietly to the inbox (`ctx.phone.inbox.post`, no pop-up), expired after 7 played days unpaid. Events
+`cityhall:bill` / `cityhall:day` / `cityhall:paid` / `cityhall:letter` / `cityhall:lien` {phase: filed | won | lost | lifted}.
+**Stage 3 — permits + the inspector** (`permits.js`, `inspect.js`). Nothing ever WAITS for a permit: a tenant moving into one
+of her homes (`realestate:tenant` {phase: "in"}) or a bought change outside her family house (`decor:place` {bought} on
+door / porch / mailbox / lawn) → a quiet 📝 note → the errand: PERMITS (the form "in triplicate": two silly questions) →
+the stamp at TAXES (or COMPLAINTS when Taxes is "back in 5 minutes") → PERMITS: PERMIT GRANTED (free; one must-see banner).
+While a form waits, Permits is never the closed window. The windows' labels say what's next (`WIN_LABELS`). **The
+inspector** is crime's Inspector Pinchas (`ctx.crime.corruption.who("pinchas").mood`: `gone` → Inspector Pnina, by the
+book; `nervous` → "everything's fine!" and off; bribed / partner / a past donation → a wink): once a real day, walking within
+30 m of one of her homes in a town (solo), 60 % (always while that home waits on a permit) he's on the front path with an
+absurd finding → ✋ 📄 show the permit (granted → he leaves) · 🙄 write it up (a finding fee on the ledger) · 🍩 a
+"donation" (3 coins if she has them → no finding; `cityhall:corrupt` {who: "pinchas", act: "donation"}) · 👋 walk away.
+Once a run he's inspecting the pizza shop / makolet / bakery as she walks past (bubbles only).
+**Stage 4 — protests** (`protest.js`, `PROTESTS` / `PROTEST_HOURS`). In a town's protest hours (Lakewood 10–13, 15–19 ·
+Midwood 11–14, 16–20, the device clock) a picket line of 9 walks a loop on the sidewalk by city hall (or the pizza shop, for
+the sauce) — homes' instanced rigs + one InstancedMesh per slogan + one for the sticks (≈ +12 draw calls in view). The topic
+follows the real day: the crooked eruv wire · the pizza shop's new sauce · alternate-side parking · the Kugel Ordinance ·
+double strollers; the day she got the loud-honk surcharge it's HER honking (a marcher points). Chants pass down the line in
+bubbles (`H.bubbleOk`); ✋ 🪧 THE PROTEST: join in → a 4-beat rhythm chant (foot's `script`: ✕ while each word is lit) → the
+crowd's verdict · what's it about? · walk on; honking near it → "HONK IF YOU AGREE!". Local + cosmetic, nothing pays.
+Never real-world politics, never a real group.
+**Stage 5 — the corruption thread** (`story.js`, `STORY` / `STORY_PAY`), one story per town: SHMULY THE EXPEDITER on a
+folding chair in the lobby (`LOBBY_BUILDERS`) — with a form waiting, 5 coins and it's "stamped" (a sink) → the NOTICE BOARD's
+"PAVING CONTRACT AWARDED: <firm>. Number of bids: 1." starts it → from then the brother-in-law's crew is repaving the smooth
+street in front of city hall (solo): ✋ 📸 a photo (evidence) · 🤝 a cut (+6 once per town; 15 % an Internal Affairs sting →
+`ctx.law.arrest(["BRIBING A PUBLIC SERVANT (MINOR)"])`, crime's charge) · walk on → the photo in 📞 City Hall
+(`CONTACT_EXTRAS`): 📰 the local paper (+10) / 🕵️ Internal Affairs (+10) → exposed: the crew gone, the mayor sheepish
+(`MAYOR_LINES`) · 💰 sell it back (+6) → the mayor friendly. Every payout once per town, ≤ 15 a real day; `cityhall:corrupt`
+{who, act}, `cityhall:story` {town, step, how}, `ctx.memory.remember("cityhall", …)`.
+Tests: `cityhall` (stage 1), `cityhall2` (stage 2), `cityhall3` (stages 3–5; `CITYHALL_PART=permits,inspector,protest,story`).
 
 **Shops (shops, ci/shops): the shop moved into the world** (the owner, 2026-11-20: "the shop button … seems pretty hidden
 for the average person … move the shop to places in game"). `features/shops/`: the places you buy things at, one buying

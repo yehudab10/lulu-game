@@ -20,7 +20,7 @@ const PERSON = ["Body", "Arm_L", "Arm_R", "Leg_L", "Leg_R"];
 const LOOKS = { man: "npcMan", woman: "npcWoman" };
 const TOPS = ["#E53935", "#8E24AA", "#1E88E5", "#43A047", "#FDD835", "#FB8C00", "#00ACC1", "#F06292", "#6D4C41"];
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const h01 = (s, i) => { let h = 2166136261; const str = s + ":" + i; for (let k = 0; k < str.length; k++) { h ^= str.charCodeAt(k); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967296; };
+const h01 = (s, i) => { let h = 2166136261; const str = s + ":" + i; for (let k = 0; k < str.length; k++) { h ^= str.charCodeAt(k); h = Math.imul(h, 16777619); } h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15; return (h >>> 0) / 4294967296; };
 css("cityhall-chant", `
 .ch-chant { position: fixed; left: 50%; bottom: 22%; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
   max-width: 92vw; pointer-events: none; z-index: 30; }
@@ -151,13 +151,14 @@ function draw(W, dt) {
         rig.pose(i, "Arm_R", _m, q3(cheer ? -2.6 : s * sw * 0.8, 0, -0.12));
         rig.pose(i, "Leg_L", _m, q3(s * sw, 0, 0)); rig.pose(i, "Leg_R", _m, q3(-s * sw, 0, 0));
         if (rig.parts._rest) rig.pose(i, "_rest", _m);
-        // the sign above the left hand, facing out from the line (toward the street side + along)
+        // the sign above the left hand, facing the street
         const fx = Math.sin(P.rot), fz = Math.cos(P.rot), lx = Math.cos(P.rot), lz = -Math.sin(P.rot);
         const hx = P.x + lx * 0.28 + fx * 0.12, hz = P.z + lz * 0.28 + fz * 0.12;
         const y = 2.05 + bob + (cheer ? Math.abs(Math.sin(W.t * 9)) * 0.12 : 0);
-        _m.compose(_v.set(hx, y, hz), q3(0, P.rot, 0), _s);
+        const face = Math.atan2(W.nx, W.nz) + Math.sin(W.t * 1.7 + m.phase) * 0.12;      // (held up to the street, swaying a little)
+        _m.compose(_v.set(hx, y, hz), q3(0, face, 0), _s);
         W.signs[m.sign].setMatrixAt(signN[m.sign]++, _m);
-        _m.compose(_v.set(hx, y - 0.6, hz), q3(0, P.rot, 0), _s);
+        _m.compose(_v.set(hx, y - 0.6, hz), q3(0, face, 0), _s);
         W.sticks.setMatrixAt(sn++, _m);
     }
     for (const r of Object.values(W.rigs)) r.end();

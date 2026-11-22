@@ -181,7 +181,7 @@ export const RIBBON_TUNE = { gap: [150, 260], firstAfter: 45, perRun: 2, near: [
 // from the 📞 Phone), never below 0, never takes a home away (real estate's Abandoned Kugel Ordinance is the only thing
 // that touches ownership). Unpaid bills only get letters, a silly lien notice and — if she likes — a day in court.
 export const TAX = {
-    rate: 0.002,          // of a home's value, per played day (a 7,000 rowhouse ≈ 14 · a 16,000 house ≈ 32)
+    rate: 0.002,          // of a home's listed price, per played day (a 7,000 rowhouse ≈ 14 · a 16,000 house ≈ 32)
     dayCap: 50,           // at most this much tax a played day across ALL her homes (scaled down to fit)
     owedCapDays: 7,       // unpaid tax stops growing at this many days' worth (the town gets bored)
     letterAt: 3,          // played days a tax bill can sit unpaid before the stern letter
