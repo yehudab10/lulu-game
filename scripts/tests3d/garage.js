@@ -1,5 +1,5 @@
-// Garage: the 🛒 Shop (cars / items / bling over the 3D showroom) driven with
-// the fake controller, purchases landing in the SHARED 2D save + wallet, then a
+// Garage: purchases (garage/buy.js — what every shop place in the world uses; the 🛒 Shop menu itself moved into the
+// world, see shops.js) landing in the SHARED 2D save + wallet, then a
 // drive with missiles, the bubble shield, pepper spray, Distracted Mode, the
 // equipped horn and a decoration on the car.
 const save = `JSON.parse(localStorage.getItem("luluSaveV2") || "{}")`;
@@ -11,87 +11,35 @@ module.exports = {
     distractedUnlocked: false, horn: "beep", ownedHorns: ["beep"], decor: "none", ownedDecor: [] },
   async run(t) {
     await t.frames(10);
-    t.check("title has the 🛒 Shop item", (await t.titleItems()).some(s => /Shop/.test(s)));
-    await t.game(`L3.openView("garage")`);     // 🚗 Garage sub-menu: the shop row carries the next-ride nudge
-    t.check("the Shop row shows the next-ride nudge", await t.L(`!!document.querySelector("#shop .gx-next")`));
-
-    // ── open the shop ──
-    await t.click(/Shop/);
-    t.check("Shop opens the shop state", await t.game(`ctx.state === "shop"`));
-    t.check("shop card renders all 8 cars", await t.L(`document.querySelectorAll("#gx_body [data-kind=skin]").length === 8`));
-    if (!await t.until(`window.__lulu3d.ctx.garage.shop.loaded`, "showroom loads")) return;
-    t.check("showroom loads", true);
-    t.check("the 3D showroom is what's rendered", await t.game(`!!ctx.view && ctx.view === ctx.garage.shop.set.view`));
-    await t.frames(25);
-    await t.shot("cars");
-
-    // D-pad right → Royal Purple: the showroom car repaints live
-    await t.tap(15); await t.frames(4);
-    t.check("D-pad focuses the next car", await t.L(`document.querySelector(".gx-it.focus").id === "gx_skin_purple"`));
-    t.check("showroom previews the focused skin", await t.game(`ctx.garage.shop.carSkin === "purple"`));
-    t.check("detail panel shows the 2D flavour text", await t.L(`/Royalty rides easy/.test(document.getElementById("gx_detail").textContent)`));
-    // ✕ arms, ✕ again buys (2D: preview first, then buy)
-    await t.tap(0);
-    t.check("first ✕ only arms the purchase", await t.L(`${save}.ownedSkins.length === 1 && !!document.querySelector(".gx-it.armed")`));
-    await t.tap(0); await t.frames(4);
+    // (the 🛒 Shop menu moved into the world — features/shops: the dealership, the makolet, Shmerel's van, the Bling Bay;
+    //  their buying is tested in shops.js. Here: the same purchases through garage/buy.js — the one writer they all use —
+    //  land in the SHARED 2D save exactly as the old Shop wrote them, then the drive uses them.)
+    t.check("the Garage drawer has 🛍️ Where to shop", (await t.titleItems()).some(s => /Where to shop/.test(s)));
+    await t.game(`L3.openView("garage")`);
+    t.check("its row shows the next-ride nudge", await t.L(`!!document.querySelector("#shop .gx-next")`));
+    const buy = (kind, id) => t.L(`import("./js/features/garage/buy.js").then(m => m.buy(${JSON.stringify(kind)}, ${JSON.stringify(id)}).ok)`);
+    t.check("buy a car: Royal Purple", await buy("car", "purple"));
     const s1 = await t.L(save);
-    t.check("second ✕ buys Royal Purple (shared ownedSkins)", s1.ownedSkins.includes("purple") && s1.selectedSkin === "purple");
+    t.check("…shared ownedSkins + selectedSkin", s1.ownedSkins.includes("purple") && s1.selectedSkin === "purple");
     t.check("150 coins spent from the shared wallet", s1.totalCoins === 5850, String(s1.totalCoins));
     t.check("the real car switches skin", await t.game(`ctx.car.skinKey === "purple"`));
-    // moving focus disarms a pending purchase
-    await t.tap(15); await t.tap(0); await t.tap(14); await t.frames(2);
-    t.check("moving focus away disarms", await t.L(`!document.querySelector(".gx-it.armed")`));
-    await t.shot("cars-bought");
-    // phone portrait + TV layouts
-    await t.page.setViewportSize({ width: 390, height: 844 }); await t.frames(18);
-    t.check("portrait: the card sits below the showroom", await t.L(`(() => { const r = document.getElementById("screenCard").getBoundingClientRect(); return r.top > 250 && r.bottom <= 844 && r.width > 360; })()`));
-    await t.shot("portrait");
-    await t.page.setViewportSize({ width: 960, height: 540 });
-    await t.L(`document.body.classList.add("tv")`); await t.frames(18);
-    await t.shot("tv");
-    await t.L(`document.body.classList.remove("tv")`); await t.frames(2);
-
-    // ── R1 → Items ──
-    await t.tap(5); await t.frames(4);
-    t.check("R1 switches to the Items tab", await t.L(`document.querySelectorAll("#gx_body [data-kind=item]").length === 5`));
-    t.check("pedestal shows the missile", await t.game(`ctx.garage.shop.show === "prop" && ctx.garage.shop.propKey === "Item_missile"`));
-    await t.tap(0);                       // missile ×1
-    await t.tap(15); await t.tap(0);      // mega pack ×5
-    await t.tap(15); await t.tap(0);      // pepper
-    await t.tap(15); await t.tap(0); await t.tap(0);   // shield ×2
-    await t.frames(6);
-    await t.shot("items-shield");
-    await t.tap(15); await t.tap(0); await t.tap(0);   // distracted (arm + buy)
+    t.check("a car she owns can't be bought twice", !await buy("car", "purple") && (await t.L(save)).totalCoins === 5850);
+    for (const id of ["missile", "megapack", "pepper", "shield", "shield", "distracted"]) await buy("item", id);
     const s2 = await t.L(save);
     t.check("bought 6 missiles (1 + Mega 5-Pack)", s2.missiles === 6, String(s2.missiles));
     t.check("bought pepper spray", s2.pepperSpray === 1);
     t.check("bought 2 shields", s2.shields === 2, String(s2.shields));
     t.check("unlocked Distracted Mode", s2.distractedUnlocked === true);
     t.check("item prices match 2D (20+80+15+50+50+1000)", s2.totalCoins === 5850 - 1215, String(s2.totalCoins));
-    await t.tap(0);   // owned → toggles it ON
-    t.check("✕ on owned Distracted Mode toggles it on", await t.game(`ctx.garage.distracted === true`));
-
-    // ── R1 → Bling: buy the shofar + the crown ──
-    await t.tap(5); await t.frames(4);
-    t.check("Bling tab lists 6 horns + 7 decorations", await t.L(`document.querySelectorAll("#gx_body [data-kind=horn]").length === 6 && document.querySelectorAll("#gx_body [data-kind=decor]").length === 7`));
-    await t.game(`document.getElementById("gx_horn_shofar").dispatchEvent(new Event("pointerenter"))`); await t.frames(3);
-    await t.tap(0); await t.tap(0);
-    t.check("bought + equipped the Shofar", await t.L(`${save}.horn === "shofar" && ${save}.ownedHorns.includes("shofar")`));
-    await t.game(`document.getElementById("gx_decor_crown").dispatchEvent(new Event("pointerenter"))`); await t.frames(3);
-    t.check("focusing a decoration tries it on the showroom car", await t.game(`ctx.garage.shop.carDecor.id === "crown"`));
-    await t.tap(0); await t.tap(0); await t.frames(30);
-    t.check("bought + equipped the Crown", await t.L(`${save}.decor === "crown" && ${save}.ownedDecor.includes("crown")`));
+    await t.game(`(ctx.garage.setDistracted(true), true)`);
+    t.check("Distracted Mode toggles on", await t.game(`ctx.garage.distracted === true`));
+    t.check("bought + equipped the Shofar", await buy("horn", "shofar") && await t.L(`${save}.horn === "shofar" && ${save}.ownedHorns.includes("shofar")`));
+    t.check("bought + equipped the Crown", await buy("decor", "crown") && await t.L(`${save}.decor === "crown" && ${save}.ownedDecor.includes("crown")`));
+    await t.frames(30);
     t.check("the crown is attached to Lulu's real car", await t.game(`!!(ctx.car.attached && ctx.car.attached.head && ctx.car.attached.head.userData.garageDecor === "crown")`));
-    await t.shot("bling-crown");
-    for (const id of ["flames", "unicorn", "lashes", "dice", "surf"]) {
-      await t.game(`document.getElementById("gx_decor_${id}").dispatchEvent(new Event("pointerenter"))`);
-      await t.frames(24);
-      await t.shot("bling-" + id);
-    }
-
-    // ○ back to the title
-    await t.tap(1); await t.frames(3);
-    t.check("○ leaves the shop", await t.game(`ctx.state === "title" && ctx.view === null`));
+    t.check("can't go below zero", await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 10; }); return import("./js/features/garage/buy.js").then(b => { const r = b.buy("car", "ninja"); return !r.ok && r.why === "poor" && m.wallet.coins === 10; }); })`));
+    await t.L(`import("./js/core/save.js").then(m => { m.shared.update(s => { s.totalCoins = 4635; }); })`);
+    await t.game(`(L3.showTitle ? L3.showTitle(true) : L3.setState("title"), true)`); await t.frames(3);
     t.check("title shows the Distracted toggle", (await t.titleItems()).some(s => /Distracted: ON/.test(s)));
 
     // ── drive ──

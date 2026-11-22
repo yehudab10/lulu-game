@@ -2118,6 +2118,20 @@ ctx.foot = {
     get borrowed() { return shell ? shell.vtype : null; },
     /** Her OWN car this run: "ok" (she's in it / fine) | "parked" (left on the road, in one piece) | "wrecked" | "gone" (impounded / left behind). */
     get ownCar() { return ownCar; },
+    /** Where her own car stands while she walks (the stub): { x, z, h, drivable } | null (features/shops: her driveway). */
+    get parkedCar() { const c = F && F.car && F.car.stub; return c ? { x: c.x, z: c.z, h: c.h, drivable: !!F.car.drivable } : null; },
+    /** Her own parked car takes ctx.car's current skin (features/shops: picking which car to drive in her driveway). */
+    repaintCar() {
+        if (!F || !F.car || !F.car.stub || shell || F.car.key !== "lulu") return false;
+        const sk = SKINS[ctx.car.skinKey] || SKINS.pink, colors = { Body: sk.body, BodyLight: sk.light, BodyDark: sk.dark };
+        F.car.colors = colors;
+        F.car.stub.obj.traverse(o => {
+            if (!o.isMesh || !colors[o.material.name]) return;
+            if (!o.userData.footOwn) { o.material = o.material.clone(); o.userData.footOwn = true; }
+            o.material.color.set(colors[o.material.name]);
+        });
+        return true;
+    },
     /** The borrowed ride is gone (taken back, towed, kept as evidence): she's back in her own car's shell. */
     dropRide() { const had = !!shell; restoreCar(); return had; },
     /** Which way she's facing on foot (yaw; same frame as car.h) — null when she isn't walking. */
