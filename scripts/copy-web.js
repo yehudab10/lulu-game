@@ -229,8 +229,10 @@ function writeBuildList() {
   }
   let commit = process.env.GITHUB_SHA || process.env.CM_COMMIT || "";
   try { commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || commit; } catch (e) { /* not a git checkout */ }
+  let committed = "";
+  try { committed = execFileSync("git", ["show", "-s", "--format=%cI", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch (e) { /* not a git checkout */ }
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const list = { schema: 1, commit, appVersion: pkg.version, minNative: (pkg.ota && pkg.ota.minNative) || pkg.version, bytes, files };
+  const list = { schema: 1, commit, committed, appVersion: pkg.version, minNative: (pkg.ota && pkg.ota.minNative) || pkg.version, bytes, files };
   fs.writeFileSync(path.join(OUT, OTA_FILE), JSON.stringify(list));
   return list;
 }

@@ -48,7 +48,7 @@ const S = load();
 function load() {
     let s = null;
     try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { s = null; }
-    return Object.assign({ pending: null, trying: null, bad: [], fails: {}, have: "", haveBuild: "", builtin: "", revert: false, storeNote: "", good: "", log: [] }, s || {});
+    return Object.assign({ pending: null, trying: null, bad: [], fails: {}, have: "", haveBuild: "", builtin: "", builtinAt: "", revert: false, storeNote: "", good: "", log: [] }, s || {});
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* full storage: try again next time */ } }
 function note(msg) {
@@ -111,6 +111,7 @@ async function launch() {
             const own = await fetchJSON(new URL("../ota-build.json", location.href).href);
             S.have = ""; addHave(own.files || {});
             S.builtin = own.commit || "";
+            S.builtinAt = own.committed || "";
             S.haveBuild = String(info.build || "?");
             S.bad = []; S.fails = {}; S.storeNote = "";   // a new app build: start clean
             save();
@@ -184,6 +185,8 @@ async function decide(u) {
 
     if (m.version === cur.version || (cur.id === "builtin" && m.commit && S.builtin && m.commit === S.builtin)) return "up to date";
     if (S.pending && S.pending.version === m.version) return "already downloaded";
+    // an app built from a NEWER commit than stable keeps its own copy (unless the server pinned this one on purpose)
+    if (cur.id === "builtin" && !m.hold && S.builtinAt && m.committed && Date.parse(m.committed) < Date.parse(S.builtinAt)) return "bundled copy is newer";
     if (S.bad.includes(m.version)) return "known bad";
     if (cmpVersion((info && info.version) || "0", m.minNative) < 0) {
         // the web game moved on to native code this app doesn't have: keep the last compatible copy; say so once

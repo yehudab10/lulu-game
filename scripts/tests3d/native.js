@@ -278,6 +278,7 @@ module.exports = {
       put("corrupt.json", corrupt);
       put("future.json", Object.assign({}, next, { version: "test-future", minNative: "9.0.0" }));
       put("bad.json", manifestOf("www-ota-bad", origin));
+      put("old.json", Object.assign({}, next, { version: "test-old", committed: "2000-01-01T00:00:00Z" }));
       const open = (q, label) => t.page.goto(`${origin}/www/3d/?test&otaManifest=${q}`).then(() => t.until(`window.__lulu3d && __lulu3d.state === "title"`, label, 120000));
       const otaLog = () => t.L(`window.__otaLog || []`);
       const fake = () => t.L(`JSON.parse(localStorage.getItem("__fakeCapgo"))`);
@@ -289,6 +290,10 @@ module.exports = {
       await open("https://raw.githubusercontent.com/yehudab10/lulu-game/ota/stable.json", "ota: offline first launch boots to the title");
       t.check("ota: offline, the check fails quietly", await g(`ctx.native.ota.check()`) === "offline");
       await t.page.unroute(offline);
+
+      // an app built from a newer commit than stable never goes BACK to the older copy
+      await open("/www-ota-test/old.json", "ota: launches the bundled copy");
+      t.check("ota: an older stable than the app's own copy is ignored", await g(`ctx.native.ota.check()`) === "bundled copy is newer");
 
       // a new copy: downloaded in the background, only the changed file, NOT switched under the running game
       await open("/www-ota-test/next.json", "ota: launches the bundled copy");
