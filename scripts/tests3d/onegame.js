@@ -6,8 +6,9 @@
 //  • The road trip: ✋ the 🧳 suitcase by the car → the Story Trip's leg 1 starts right where she stands (no title,
 //    no countdown); a stop on the 📱 🗺️ Map → that leg starts ROLLING at its start (no 3-2-1); "Call it a
 //    trip" → 🏠 Head home → on her feet at home again.
-//  • The parking challenge: the 🅿️ booth at a rest area (✋ → the attendant → unlock → level 1) ends back by the
-//    booth on foot; its card in the 📱 💼 Jobs app (from the car) ends back on the road; the phone keeps its 9 apps.
+//  • The parking challenge: the 🅿️ booth stands at a rest area's course (✋ → the attendant → unlock → the course is
+//    marked, she stays on foot); in the car the START box starts it, ❚❚ › Leave → driving there; its card in the 📱 💼
+//    Jobs app marks the course; the phone keeps its 9 apps.
 //  • Dina: ✋ on Dina on the porch → her picker → pick Lulu → back home on foot; the Dina tile → back to the title.
 //  • A Friday afternoon: PLAY's subtitle says so, Ima asks at the door, getting in the car starts the rush;
 //    the rush's card → 🏠 Head home.
@@ -119,16 +120,16 @@ module.exports = {
     await t.L(`document.getElementById("dsLulu").click()`);
     t.check("pick Lulu → back on her feet at home (not the title)", await t.until(`__lulu3d.state === "footRun" && __lulu3d.ctx.foot.debug.F.reason === "home"`, "dina home", 4000));
 
-    // ── 🅿️ the parking booth at a rest area ─────────────────────────────────
+    // ── 🅿️ the parking booth at a rest area: it stands at the course (the challenge is PLAYED on the lot) ───
     await shared(`s.totalCoins = 1500;`);
     await g(`L3.startRun({ mode: "cruise", quick: true })`);
     await t.until(`__lulu3d.state === "playing"`, "cruise", 4000);
     await g(`ctx.exits.debug.restAhead(260)`);
-    t.check("a rest area gets a 🅿️ booth", await t.until(`__lulu3d.ctx.onegame.info().booths.length > 0`, "booth", 8000));
-    const bo = (await g(`ctx.onegame.info()`)).booths[0];
+    t.check("a rest area gets a 🅿️ booth (at its Parking Challenge course)", await t.until(`__lulu3d.ctx.onegame.info().booths.length > 0`, "booth", 8000));
+    const bo = (await g(`ctx.parking.debug.courses()`))[0];
     await g(`ctx.foot.start("droveOff", { noIntro: true })`);
     await t.until(`__lulu3d.state === "footRun"`, "on foot", 3000);
-    await place(bo.x, bo.z, bo.s + 120);
+    await place(bo.bx, bo.bz, bo.s + 160);
     await t.frames(6);
     const lp = await label();
     t.check("at the booth: ✋ PARKING CHALLENGE (locked: the price)", /PARKING CHALLENGE.*1,000/.test(lp), lp);
@@ -139,37 +140,28 @@ module.exports = {
     await t.frames(30);
     await t.L(`document.querySelector("#dialog .opt").click()`);          // 🔓 Unlock
     await t.frames(10);
-    for (let i = 0; i < 12 && await st() !== "parking"; i++) { await t.tap(0); await t.frames(6); }
-    t.check("unlock (−1,000 💰) → the challenge starts", (await st()) === "parking" && await t.L(`import("./js/core/save.js").then(m => !!m.shared.get().parkingUnlocked)`), await st());
-    await t.until(`__lulu3d.ctx.parking._debug.phase === "drive" || __lulu3d.ctx.parking._debug.phase === "intro"`, "level 1", 8000);
-    await t.key("Escape");
-    t.check("the pause menu offers 'Leave the challenge (back to the lot)'", await t.L(`!!document.querySelector('[data-pi="parkLeave"]')`));
-    await t.L(`document.querySelector('[data-pi="parkLeave"]').click()`);
-    t.check("…→ on foot by the booth again", await t.until(`__lulu3d.state === "footRun"`, "back at the lot", 3000) && near(await g(`({ x: ctx.foot.pos.x, z: ctx.foot.pos.z })`), bo) < 4);
-    // the end card (all ten done / out of lives) → back to the lot
-    await t.frames(4);
-    await t.tap(0);
-    await t.until(`!!document.querySelector("#dialog .opt")`, "attendant again", 3000);
-    await t.frames(30);
-    await t.L(`document.querySelector("#dialog .opt").click()`);
-    await t.until(`__lulu3d.state === "parking"`, "parking again", 3000);
-    await g(`(ctx.parking._debug.endStats = { level: 4, stars: 7, coins: 0, victory: false }, L3.setState("parkingEnd"), true)`);
-    await t.frames(3);
-    t.check("the end card: 🚶 Back to the lot (not the title)", await t.L(`!!document.getElementById("parkBack") && !/Title screen/.test(document.getElementById("screenCard").textContent)`));
-    await t.L(`document.getElementById("parkBack").click()`);
-    t.check("…→ on foot by the booth", await t.until(`__lulu3d.state === "footRun"`, "lot again", 3000));
-
-    // ── 📱 Parking from the car → back on the road ───────────────────────────
+    for (let i = 0; i < 12 && await t.L(`!!document.querySelector("#dialog:not(.hidden)")`); i++) { await t.tap(0); await t.frames(6); }
+    t.check("unlock (−1,000 💰) → she's still on her feet at the lot, the course is marked (no teleport, no scene)",
+      (await st()) === "footRun" && await t.L(`import("./js/core/save.js").then(m => !!m.shared.get().parkingUnlocked)`) && await g(`!!ctx.parking._debug.mark`), await st());
+    // in her car: pulling into the START box starts it, and leaving puts her straight back to driving
     await g(`ctx.foot.debug.getIn()`);
     await t.until(`__lulu3d.state === "playing"`, "driving", 3000);
+    await g(`ctx.parking.debug.toBox()`);
+    t.check("in the car: pulling into the START box starts the challenge (a driving state, in the world)", await t.until(`__lulu3d.state === "parking"`, "parking", 8000) && await g(`!ctx.view && ctx.states.parking.driving === true`));
+    await t.until(`__lulu3d.ctx.parking._debug.phase === "drive"`, "level 1", 8000);
+    await t.key("Escape");
+    t.check("the pause menu offers 'Leave the Parking Challenge'", await t.L(`!!document.querySelector('[data-pi="parkLeave"]')`));
+    await t.L(`document.querySelector('[data-pi="parkLeave"]').click()`);
+    t.check("…→ driving again, right there on the lot", await t.until(`__lulu3d.state === "playing"`, "back driving", 3000));
+
+    // ── 📱 Parking from the car: the card marks the course ───────────────────
+    await g(`(ctx.parking._debug.mark = null, true)`);
     await g(`ctx.phone.openPhone("jobs")`);
     await t.frames(3);
     t.check("📱 💼 Jobs has the 🅿️ Parking Challenge card", await t.L(`!!document.getElementById("lpPark")`));
     await t.L(`document.getElementById("lpPark").click()`);
-    t.check("📱 Parking → the challenge", await t.until(`__lulu3d.state === "parking"`, "phone parking", 3000));
-    await t.key("Escape");
-    await t.L(`document.querySelector('[data-pi="parkLeave"]').click()`);
-    t.check("…leave → back on the road, driving", await t.until(`__lulu3d.state === "playing"`, "road", 3000));
+    await t.frames(4);
+    t.check("📱 'Show me the course' → the course is marked, she's still driving", await g(`ctx.state === "playing" && !!ctx.parking._debug.mark`));
 
     // ── the 👧 Dina tile → back to the title ─────────────────────────────────
     await g(`L3.setState("title")`);
