@@ -75,7 +75,7 @@ module.exports = {
       // KNOWN (reported 2026-11-22 to the lot's owners, ci/exits2 / ci/hometown): from the open lot she can walk on into the
       // NEIGHBOURS' houses (only a block's street front is solid) — the camera ends up inside a house. Logged, not failed,
       // while it's open: any other glitch still fails.
-      const lotBlock = await g(`(() => { const sp = ctx.town.spot("luluHome"), pl = ctx.town.plan, L = pl.local(sp.lotX, sp.lotZ, {}); const r = pl.OCCLUDERS.find(r => L.x > r.x0 && L.x < r.x1 && L.z > r.z0 && L.z < r.z1); return r ? "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0) : null; })()`);
+      const lotBlock = await g(`(() => { const sp = ctx.town.spot("luluHome"), pl = ctx.town.plan, L = pl.local(sp.door ? sp.door.x : sp.x, sp.door ? sp.door.z : sp.z, {}); const r = pl.OCCLUDERS.find(r => L.x > r.x0 && L.x < r.x1 && L.z > r.z0 && L.z < r.z1); return r ? "block@" + ((r.x0 + r.x1) / 2).toFixed(0) + "," + ((r.z0 + r.z1) / 2).toFixed(0) : null; })()`);
       const rep = await W.report(t);
       const known = i => (i.kind === "inside" || i.kind === "inwall" || i.kind === "flat") && (lotBlock && i.msg.includes(lotBlock) || i.kind === "flat");
       const k = rep.issues.filter(known);
