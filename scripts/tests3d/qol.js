@@ -1,7 +1,6 @@
 // QoL / consistency regressions (the owner's list):
 //   • the touch pedal that reverses says REVERSE (parking lot + the road), the parking hint says reverse
 //   • the precinct walk-in / walk-out wear the world's time of day + weather (atmos.dress), no jump between them
-//   • the pull-over parking lot is lit like the road she pulled off (night → a night lot)
 //   • leaving jail follows what happened to her wheels: her own car → drives out · a stolen ride → walks out
 //     (never handed the stolen car back) · the ER discharge after a stolen ride → on foot
 //   • pepper spray works ON FOOT (D-pad ↓ / G / the SPRAY touch button): aims where she faces, hits people + critters
@@ -20,11 +19,17 @@ module.exports = {
     const viewLook = `((__lulu3d.ctx.view && __lulu3d.ctx.view.scene.userData.atmosLook) || null)`;   // (t.until runs in the page: no ctx in scope)
 
     // ── 1. the touch pedal: REVERSE where it reverses ─────────────────────
-    await t.game(`ctx.parking.start({ challenge: true, level: 1 })`);
-    await t.until(`__lulu3d.state === "parking" && /Park between/.test((document.querySelector("#parkHud .ph-hint") || {}).textContent || "")`, "parking: the drive phase starts", 120000);
+    // (the Parking Challenge is played on a rest area's lot: plan one, unlock it, pull into its START box)
+    await t.game(`L3.startRun({ mode: "cruise", quick: true })`);
+    await t.until(`__lulu3d.state === "playing"`, "cruise starts", 120000);
+    await t.L(`import("./js/core/save.js").then(m => (m.shared.update(s => { s.parkingUnlocked = true; }), true))`);
+    await t.game(`(ctx.traffic.config.enabled = false, ctx.traffic.clear(), ctx.exits.debug.restAhead(320))`);
+    await t.until(`__lulu3d.ctx.parking.debug.courses().length > 0`, "a rest area's 🅿️ course", 30000);
+    await t.game(`ctx.parking.debug.toBox()`);
+    await t.until(`__lulu3d.state === "parking" && /Park between/.test((document.querySelector("#slot-bottom .prompt") || {}).textContent || "")`, "parking: the drive phase starts", 120000);
     await t.frames(4);
     t.check("parking: the stopped car's pedal says REVERSE", await t.L(`document.getElementById("tBrake").textContent`) === "REVERSE", await t.L(`document.getElementById("tBrake").textContent`));
-    const hint = await t.L(`document.querySelector("#parkHud .ph-hint").textContent`);
+    const hint = await t.L(`document.querySelector("#slot-bottom .prompt").textContent`);
     t.check("parking: the hint names reverse (not 'BRAKE to move')", /reverse/i.test(hint) && !/BRAKE to move/.test(hint), hint);
     await t.shot("parking-reverse");
     await t.game(`L3.setState("title")`);
