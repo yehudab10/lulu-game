@@ -78,8 +78,10 @@ function place() {
 function roll(e) {
     if (K.phase !== "off") stop();
     if (!e || e.mode !== "cruise" || e.first || e.friday || e.via === "startAt") return;
-    if (!solo() || !ctx.dina || !ctx.dina.start || !ctx.enabled("dina") || !home.ready || home.site !== "town") return;
-    if (!K.force && (BS.day === today() || Math.random() >= BUS.chance)) return;
+    if (!solo() || !ctx.dina || !ctx.dina.start || !home.ready || home.site !== "town") return;
+    // (random content: off in a test run unless it opts in with ?enable=dinabus — its own id, since the town turns "dina"'s
+    //  random bits off in town; force() always brings it)
+    if (!K.force && (!ctx.enabled("dinabus") || BS.day === today() || Math.random() >= BUS.chance)) return;
     K.force = false;
     if (!plan()) return;
     K.phase = "due"; K.t = BUS.delay[0] + Math.random() * (BUS.delay[1] - BUS.delay[0]);
@@ -90,8 +92,9 @@ on("state", ({ to }) => { if (K.phase !== "off" && to !== "footRun" && to !== "w
 on("run:end", () => stop());
 on("world:homeBuilt", () => stop());
 
-hook("update", dt => {
-    if (K.phase === "off") return;
+// (every frame — "hud", not "update": that one only runs while she's driving; frozen while paused)
+hook("hud", dt => {
+    if (K.phase === "off" || ctx.paused) return;
     // (she's gone — left town, or far off down the street: no bus left behind)
     if (!home.ready || !(ctx.town && ctx.town.active && ctx.town.id === home.town)) { stop(); return; }
     K.t -= dt;
@@ -121,7 +124,7 @@ hook("update", dt => {
     const blink = Math.sin(ctx.time * 9) > 0;
     for (const m of K.mats) m.emissiveIntensity = K.phase === "open" ? (blink ? 3 : 0.25) : K.phase === "in" ? (blink ? 2.4 : 0.3) : 0.25;
     place();
-}, -40);
+});
 const farAway = () => {
     const c = ctx.car.pos;
     return ctx.state !== "footRun" ? Math.hypot(c.x - K.stop.x, c.z - K.stop.z) > 45 : Math.hypot(c.x - K.stop.x, c.z - K.stop.z) > 70;

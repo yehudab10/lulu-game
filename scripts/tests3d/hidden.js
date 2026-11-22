@@ -8,7 +8,7 @@
 module.exports = {
   name: "hidden",
   viewport: { width: 1280, height: 720 },
-  query: "&enable=world,foot,town,decor,dina",
+  query: "&enable=world,foot,town,decor,dina,dinabus",
   save2d: { totalCoins: 300 },
   async run(t) {
     const g = t.game;
@@ -31,7 +31,7 @@ module.exports = {
         const D = (dx, dz) => ({ x: dx * co + dz * si, z: -dx * si + dz * co });
         const n = D(H.nx, H.nz), u = D(H.ux, H.uz), c = W(H.lotX - H.nx * 12, H.lotZ - H.nz * 12), dr = W(H.lotX + H.ux * 3.5, H.lotZ + H.uz * 3.5);
         const spot = { x: c.x, z: c.z, nx: n.x, nz: n.z, ux: u.x, uz: u.z, w: 14, d: 24, door: W(H.lotX - H.ux * 2, H.lotZ - H.uz * 2), drive: { x: dr.x, z: dr.z, h: Math.atan2(n.x, n.z) }, standIn: true };
-        ctx.town.home = { town: "midwood", exitS: ${EXIT} };
+        ctx.town.home = { town: "midwood", exitS: ${EXIT}, standIn: true };
         ctx.town.spotOf = (id, name) => id === "midwood" && name === "luluHome" ? Object.assign({}, spot) : null;
         return "ok";
       })()`);
@@ -39,7 +39,8 @@ module.exports = {
     }
     await g(`ctx.home.debug.relocate(true)`);
     await g(`L3.setState("title")`);
-    await t.until(`(__lulu3d.ctx.town.standing || []).some(s => s.town === "midwood" && s.ready)`, "Midwood built", 120000);
+    // (the town engine builds the home town behind the title — only with its real API; the stand-in built it above)
+    if (await g(`!ctx.town.home || !ctx.town.home.standIn`)) await t.until(`(__lulu3d.ctx.town.standing || []).some(s => s.town === "midwood" && s.ready) || !Array.isArray(__lulu3d.ctx.town.standing)`, "Midwood built", 120000);
     await t.frames(10);
 
     // ── hidden: no Dina tile, no Story Trip on the title; no porch ✋ ──
