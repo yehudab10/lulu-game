@@ -29,13 +29,14 @@ import "./select.js";
 import "./morgan.js";
 import "./nap.js";
 import "./stickers.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 const DINA_STATES = new Set(["dinaSelect", "dinaBus", "dinaRun", "dinaCaught", "dinaHome", "dinaMorgan", "dinaNap", "dinaStickers", "dinaCookie"]);
 const STREET_STATES = new Set(["dinaBus", "dinaRun", "dinaCaught"]);
 const ROOM_STATES = new Set(["dinaHome", "dinaMorgan", "dinaNap", "dinaStickers", "dinaCookie"]);
 
-// Where Dina's picker goes when you pick Lulu (or back out): "title", or "world" when you came from the porch
-// (features/onegame: ✋ PLAY AS DINA on her step) — then you're back on your feet at home.
+// Where Dina's picker goes when you pick Lulu (or back out): "title", or "world" when you came from inside the world
+// (features/onegame: Dina's room in the house, her school bus at the door, the porch ✋) — then you're back on your feet at home.
 export const DW = { ret: "title" };
 /** Leave Dina's world from her picker: back to the world at home (from the porch) or the title (from her tile). */
 export function leaveDina() {
@@ -44,12 +45,18 @@ export function leaveDina() {
     if (ret === "world" && ctx.onegame && ctx.onegame.home) ctx.onegame.home({ via: "dina" });
     else setState("title");
 }
+/** opts: { ret: "world" (back home in the world when you leave her picker) | "title", room: start in HER BEDROOM (the
+ *  door to Dina's room in Lulu's house — features/decor) instead of her picker }. */
 async function start(opts = {}) {
-    if (ctx.state === "dinaSelect") return;
+    if (ctx.state === "dinaSelect" || DINA_STATES.has(ctx.state) && (opts.room || opts.bus)) return;
     DW.ret = opts && opts.ret === "world" ? "world" : "title";
-    try { await ensureModels(["dinaMorgan", "dinaProps"]); }
+    // (bus: straight onto her school bus — the intro, then the race home; features/onegame's bus outside Lulu's house)
+    const need = opts.bus ? STREET_MODELS.concat(ROOM_MODELS) : opts.room ? ["dinaMorgan", "dinaProps"].concat(ROOM_MODELS, ["dinaTreats", "dinaKitchen"]) : ["dinaMorgan", "dinaProps"];
+    try { await ensureModels(need); }
     catch (e) { console.error(e); H.toast("Couldn't load Dina's world — check your connection", "red"); return; }
-    setState("dinaSelect");
+    if (opts.bus) setState("dinaBus");
+    else if (opts.room) setState("dinaHome", { from: "outside" });
+    else setState("dinaSelect");
 }
 async function home() {
     await ensureModels(ROOM_MODELS.concat(["dinaTreats", "dinaKitchen"]));
@@ -67,7 +74,9 @@ ctx.dina = {
 };
 
 // ── title + pause menu ───────────────────────────────────────────────────
-addMenuItem("title", { id: "dina", order: 35, group: "play", cls: "pink", sub: () => S2.runsPlayed() > 0 ? "her street · her room" : "race home from the bus", label: "👧 Dina", action: () => start() });
+// (hidden for now — the owner, 2026-11-22: her ways in are Dina's room in the house + her school bus at the door,
+//  features/onegame; ONEGAME.dinaTile brings the tile back)
+addMenuItem("title", { id: "dina", order: 35, group: "play", cls: "pink", visible: () => ONEGAME.dinaTile, sub: () => S2.runsPlayed() > 0 ? "her street · her room" : "race home from the bus", label: "👧 Dina", action: () => start() });
 addMenuItem("pause", {
     id: "dinaRoom", order: 86, cls: "alt", label: "🏠 Dina's room",
     visible: () => ["dinaRun", "dinaCookie"].includes(ctx.state),

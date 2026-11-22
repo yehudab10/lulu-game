@@ -3,9 +3,12 @@
 //
 //  The owner (2026-11-20): "Too many modes is too confusing for most players. I'd rather the main
 //  thing be the open world." So the title has ONE big ▶ PLAY (the open world: a "cruise" run that
-//  starts at home on foot — core/screens.js) + two small tiles (👯 Friends · 👧 Dina), and the old
+//  starts at home on foot — core/screens.js) + a small 👯 Friends tile (👧 Dina's tile is hidden for now), and the old
 //  modes are things you START FROM INSIDE THE WORLD, and that END BACK IN IT:
 //
+//   (2026-11-22, the owner: the Story Trip + Dina's mode are HIDDEN for now — one switch each, switches.js ONEGAME.story /
+//    ONEGAME.dinaTile; nothing is deleted and saved progress is untouched. Dina's ways in meanwhile: DINA'S ROOM in the house
+//    (features/decor) + her school bus now and then at the door (bus.js).)
 //   🧳 THE ROAD TRIP (the Story Trip, "The Road to Vegas") — a suitcase by the car in the driveway
 //      ("✋ ROAD TRIP TO VEGAS — continue: 🏖️ The Beach"), and the 📱 phone's 🗺️ Map (tap a stop).
 //      Leg 1 starts right where she stands at home (Ima's story line, then the car); a later leg is a
@@ -16,7 +19,8 @@
 //      (on foot at the booth, or back on the road) — features/parking (`from` + `ret`).
 //   🕯️ THE EREV SHABBOS RUSH — on a real Friday afternoon it's what Ima asks for at the door; getting in
 //      the car starts it (features/shabbos `atDoor`). Walk away instead and it's an ordinary day.
-//   👧 DINA — ✋ on Dina on the porch step → "Play as Dina" (her mode itself is untouched); picking
+//   👧 DINA — ✋ at the door to Dina's room in the house / ✋ "Hop on with Dina" at her school bus (and, with ONEGAME.dinaTile,
+//      ✋ on Dina on the porch step → "Play as Dina") (her mode itself is untouched); picking
 //      Lulu again on her picker walks you back out of the front door (features/dina `ret`).
 //   🏠 BACK HOME — ctx.onegame.home(): a soft cut to Lulu on foot at her porch (a fresh open-world run).
 //      Every "⌂ Title screen" a mode used to end on is "🏠 Head home" now; the pause menu still has the title.
@@ -44,6 +48,8 @@ import { facingRoad, canvasTex } from "../../world.js";
 import { models, ensureModels } from "../../models.js";
 import { spawnPerson } from "../../core/people.js";
 import { UNLOCK_COST } from "../parking/index.js";
+import { ONEGAME } from "./switches.js";
+import { busApi } from "./bus.js";
 
 const OG = store("onegame", { trips: 0, booth: 0, dina: 0, homes: 0 });
 const solo = () => !(ctx.party && ctx.party.active) && !(ctx.G && ctx.G.mode === "party");
@@ -75,6 +81,7 @@ function goHome(opts = {}) {
 /** Why the road trip can't start right now ("" = it can). */
 function tripBlock() {
     if (!ctx.journey || !ctx.journey.start) return "No road trip in this build";
+    if (!ONEGAME.story) return "No road trip right now — just drive! 🚗";       // (hidden for now — switches.js)
     if (!solo()) return "The road trip is a solo thing — leave the party first 🎉";
     const G = ctx.G || {};
     if (G.mode === "story" && !G.jDone && G.started && !G.ended) return "You're ON the road trip! Next stop's up the road 🚗";
@@ -156,7 +163,7 @@ function buildSuitcase() {
 }
 function suitcaseTick() {
     if (!SC.obj) return;
-    const show = solo() && !!(ctx.journey && ctx.journey.start);
+    const show = ONEGAME.story && solo() && !!(ctx.journey && ctx.journey.start);
     SC.obj.visible = show;
     if (!show) return;
     const k = 1 + Math.sin(ctx.time * 3) * 0.07;
@@ -180,7 +187,7 @@ const dinaSpot = {
     r: 1.6,
     pos: () => {
         const d = home.people.dina;
-        if (!d || !d.obj.visible || ctx.state !== "footRun" || !solo() || !(ctx.dina && ctx.dina.start) || !nearHome(40)) return null;
+        if (!ONEGAME.dinaTile || !d || !d.obj.visible || ctx.state !== "footRun" || !solo() || !(ctx.dina && ctx.dina.start) || !nearHome(40)) return null;
         dinaSpot.r = DS.r;
         return d.obj.getWorldPosition(v1);
     },
@@ -188,12 +195,14 @@ const dinaSpot = {
     short: "DINA",
     act: () => playDina(),
 };
-function playDina() {
+/** Dina's mode from inside the world. opts: { via: "porch" | "room" | "bus", room: start in her bedroom }. Leaving her
+ *  picker (pick Lulu / back out) is ctx.onegame.home({ via: "dina" }) — features/dina `ret`. */
+function playDina(opts = {}) {
     if (!ctx.dina || !ctx.dina.start || !solo()) return false;
     OG.dina++; saveSoon();
-    emit("onegame:dina", {});
-    if (ctx.foot && ctx.foot.say && home.people.dina) ctx.foot.say(home.people.dina.obj, pick(["YAY! My turn! 🎉", "Lulu! Watch me, watch me!", "Race you home from the bus! 🚌"]), 1.6, { y: 1.3 });
-    ctx.dina.start({ ret: "world" });
+    emit("onegame:dina", { via: opts.via || "porch" });
+    if (!opts.room && opts.via !== "bus" && ctx.foot && ctx.foot.say && home.people.dina && ctx.state === "footRun") ctx.foot.say(home.people.dina.obj, pick(["YAY! My turn! 🎉", "Lulu! Watch me, watch me!", "Race you home from the bus! 🚌"]), 1.6, { y: 1.3 });
+    ctx.dina.start({ ret: "world", room: !!opts.room, bus: opts.via === "bus" });
     return true;
 }
 // (the spot's range: never reaches her starting spot at the bottom of the steps — no accidental ✋ at the start)
@@ -391,8 +400,12 @@ ctx.onegame = {
     roadTrip, tripBlock,
     /** The parking challenge from inside the world (via "booth" | "phone"). */
     parking: startParking, parkBlock,
-    /** Dina from the porch. */
+    /** Dina's mode (Dina's room, the school bus, the porch / title tile when ONEGAME.dinaTile). */
     dina: playDina,
+    /** What's offered right now: { story, dinaTile } (switches.js — tests flip these). */
+    switches: ONEGAME,
+    /** 🚌 Dina's school bus at the door (bus.js): { force(), state(), hop() }. */
+    bus: busApi,
     /** The road trip's line (next stop, leg, tour, postcard stamps) as html — the 📱 app, the tests. */
     tripLine: () => storySub(),
     info: () => ({ suitcase: !!(SC.obj && SC.obj.visible), booths: liveBooths().map(b => ({ s: b.s, x: b.x, z: b.z, attendant: !!b.person })), ...OG }),

@@ -4,6 +4,7 @@
 // save.badges, so a badge never un-earns itself (e.g. a lapsed streak).
 import { shared, save3d } from "../../core/save.js";
 import { SKINS } from "../../car.js";
+import { ONEGAME } from "../onegame/switches.js";
 
 export const HORN_COUNT = 6;    // src/06d-bling.js HORNS
 export const DECOR_COUNT = 7;   // src/06d-bling.js DECOR
@@ -28,10 +29,10 @@ export const BADGES = [
     { id: "honks50",   icon: "📣", name: "Honk Symphony",    desc: "Honk-scare 50 cars",                 prog: S => [stat(S, "honks10"), 50] },
     { id: "missile25", icon: "🚀", name: "Demolition Diva",  desc: "Missile 25 cars",                    prog: S => [stat(S, "missiles8"), 25] },
     { id: "bubbe",     icon: "🏡", name: "Bubbe's Favorite", desc: "Make it to Bubbe's house",           test: S => hasPostcard(S, "bubbe") || (S.storyStop || 0) > 0 || (S.storyCycle || 0) > 0 || (journey3d().arrivals || 0) > 0 },
-    { id: "vegas",     icon: "🎲", name: "Viva Las Vegas",   desc: "Finish the Road to Vegas",           test: S => (S.storyCycle || 0) >= 1 },
-    { id: "tours3",    icon: "🗺️", name: "Tour Guide",       desc: "Finish the Road to Vegas 3 times",   prog: S => [S.storyCycle || 0, 3] },
-    { id: "postcards", icon: "📮", name: "Postcard Pro",     desc: "Collect all 5 postcards",            prog: S => [(S.postcards || []).length, 5] },
-    { id: "stars5",    icon: "⭐", name: "Teacher's Pet",    desc: "Earn all 5 chapter stars",           prog: S => [storyStars(S), 5] },
+    { id: "vegas",     icon: "🎲", name: "Viva Las Vegas",   desc: "Finish the Road to Vegas",           story: true, test: S => (S.storyCycle || 0) >= 1 },
+    { id: "tours3",    icon: "🗺️", name: "Tour Guide",       desc: "Finish the Road to Vegas 3 times",   story: true, prog: S => [S.storyCycle || 0, 3] },
+    { id: "postcards", icon: "📮", name: "Postcard Pro",     desc: "Collect all 5 postcards",            story: true, prog: S => [(S.postcards || []).length, 5] },
+    { id: "stars5",    icon: "⭐", name: "Teacher's Pet",    desc: "Earn all 5 chapter stars",           story: true, prog: S => [storyStars(S), 5] },
     { id: "streak7",   icon: "📅", name: "Every Day Driver", desc: "Play 7 days in a row",               prog: S => [S.streak || 0, 7] },
     { id: "escape5",   icon: "🚓", name: "Can't Catch Me",   desc: "Escape 5 cop chases",                prog: S => [stat(S, "escapes2"), 5] },
     { id: "jailbird",  icon: "⛓️", name: "Jailbird",         desc: "Get found guilty in court",          test: S => (S.convictions || 0) >= 1 },
@@ -74,13 +75,15 @@ function liveTest(b, S) {
 export function badgeEarned(b, S = shared.get()) {
     return (Array.isArray(S.badges) && S.badges.includes(b.id)) || liveTest(b, S);
 }
+/** A secret badge — or a Story Trip one while the Story Trip is hidden (onegame/switches.js): shown once earned. */
+const hiddenB = b => b.secret || (b.story && !ONEGAME.story);
 /** Board order: every normal badge + secrets already earned. */
-export function visibleBadges(S = shared.get()) { return BADGES.filter(b => !b.secret || badgeEarned(b, S)); }
+export function visibleBadges(S = shared.get()) { return BADGES.filter(b => !hiddenB(b) || badgeEarned(b, S)); }
 export function badgeTotals(S = shared.get()) {
     let got = 0, tot = 0;
     for (const b of BADGES) {
         const e = badgeEarned(b, S);
-        if (b.secret) { if (e) got++; continue; }
+        if (hiddenB(b)) { if (e) got++; continue; }
         tot++; if (e) got++;
     }
     return { got, tot };

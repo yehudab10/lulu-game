@@ -17,11 +17,13 @@ import { sfx } from "../interiors/fx.js";
 import { SLOTS, slotById, optOf, LINES } from "./data.js";
 import { buildOption, disposeObj, wallTex, couchCover, Kit, animate } from "./props.js";
 import { openPicker, pickerTick, pickerOpen, closePicker } from "./picker.js";
+import { dissolve } from "../../core/transition.js";
 
 const W = 6.2, D = 5.6, WALL = 2.7;
 const KCX = -W, LCX = 0, RCX = W;          // kitchen · living room · Lulu's room (centres)
 const X0 = -1.5 * W, X1 = 1.5 * W;
 const DOOR_X = LCX + 1.4;
+const DINA_DOOR_Z = -1.1;                  // the door to Dina's room: the far (+x) wall of Lulu's room
 
 /** Where each inside slot's hotspot is (room metres) + what the camera leans toward while picking. */
 const SPOTS = {
@@ -168,6 +170,16 @@ function build(rt) {
     sign.position.set(RCX - 0.4, 2.35, -D / 2 + 0.01);
     rt.own(sign.material, sign.material.map);
     rt.add(sign);
+    // the door to DINA'S ROOM (her mode's way in while its title tile is hidden — the owner, 2026-11-22): on the far
+    // wall of Lulu's room, with her sign on it. ✋ → her bedroom (features/dina), and back out = home (onegame).
+    const dd = kit("Door"); dd.position.set(X1 - 0.04, 0, DINA_DOOR_Z); dd.rotation.y = -Math.PI / 2; rt.add(dd);
+    const dm = ownMats(rt, dd, ["DoorWood"]).DoorWood;
+    if (dm) dm.color.set("#F8BBD0");
+    const ds = textPlane(["DINA'S ROOM 🦄", "(LULU MAY ENTER)"], { w: 1.05, h: 0.34, bg: "#FFFDE7", fg: "#6A1B9A", font: 52 });
+    ds.position.set(X1 - 0.09, 2.38, DINA_DOOR_Z); ds.rotation.y = -Math.PI / 2;
+    rt.own(ds.material, ds.material.map);
+    rt.add(ds);
+    rt.hot({ id: "dinaRoom", x: X1 - 0.75, z: DINA_DOOR_Z, r: 1.05, label: "👧 Dina's room — play as Dina", enabled: () => dinaRoomOpen(), action: dinaRoom });
     // one warm ceiling light in her room (the disco ball / neon tint it); off on LOW graphics
     const low = ctx.gfx ? ctx.gfx.tier === "low" : save3d.settings.quality === "low";
     if (!low) { V.light = new THREE.PointLight("#FFE6C7", 4, 7, 1.6); V.light.position.set(RCX + 0.4, 2.3, 0.2); rt.add(V.light); rt.lightsList.push(V.light); }
@@ -292,6 +304,16 @@ async function talkIma(rt) {
     await rt.say("Ima", pick(lines), { emoji: "👩", person: rt.byId.ima });
 }
 
+/** Dina's room is open: solo (not a visit with friends) and her mode is in this build. */
+const dinaRoomOpen = () => (!API || API.allowed()) && !!(ctx.dina && ctx.dina.start && ctx.onegame && ctx.onegame.dina);
+async function dinaRoom(rt) {
+    if (!dinaRoomOpen()) return;
+    const i = await rt.choose("👧 Dina's room", "\"KNOCK FIRST!!\" …it's open. Dina's stuff is everywhere.", ["👧 Play as Dina", "💬 Not now"], { emoji: "🦄" });
+    if (i !== 0 || rt.disposed) return;
+    rt.busy = true;
+    dissolve(() => { if (!ctx.onegame.dina({ via: "room", room: true })) rt.busy = false; }, { ms: 500 });
+    setTimeout(() => { if (!rt.disposed) rt.busy = false; }, 5000);      // (her room didn't load: carry on inside)
+}
 async function talkDina(rt) {
     const V = rt.data.V;
     V.dinaSaid = (V.dinaSaid || 0) + 1;
