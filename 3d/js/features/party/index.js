@@ -326,7 +326,7 @@ function teardown() {
 
 // ── the hub (from the title) ─────────────────────────────────────────────
 // Kept slim on purpose (owner, 2026-11-22: "it's literally just supposed to be a play button"): friends playing now →
-// ▶ Join; otherwise ONE big "Play with a friend"; a small "Have a code?"; Back. ⚙️ Settings has Play online; the More
+// ▶ Join; otherwise ONE big "Play with a friend"; a small "Join with a code"; Back. ⚙️ Settings has Play online; the More
 // drawer has Classic 2D friends (features/multiplayer). Wording rules: 3d/docs/words.md.
 function openHub() {
     const can = NET.allowed();
@@ -340,7 +340,7 @@ function openHub() {
     }
     if (can) {
         buttons.push({ id: "pt_roam", cls: on0(buttons) ? "pt-big" : "purple", label: `<span>📤 Play with a friend ${glyph("confirm")}</span><small>Send a link. They'll show up next to you.</small>`, action: hostRoam });
-        buttons.push({ id: "pt_join", cls: "alt", label: `<span>🔑 Have a code? Join</span>`, action: () => openJoin() });
+        buttons.push({ id: "pt_join", cls: "alt", label: `<span>🔑 Join with a code</span>`, action: () => openJoin() });
     }
     buttons.push({ id: "pt_back", cls: "alt", label: `<span>Back ${glyph("back")}</span>`, action: () => showTitle(true) });
     const fl = can && F && F.live ? F.list : [];
