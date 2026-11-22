@@ -547,6 +547,7 @@ function updateDrive(dt, P) {
     if (S.timeLeft <= 0) { S.failHit = { who: "timeout" }; fail(); }
 }
 function hintText() {
+    if (innerWidth < 560) return "🅿️ Park between the two cars";          // (a phone held upright: the pedals say GAS / REVERSE)
     if (input.device === "touch") return "Park between the cars · GAS forward · REVERSE back";
     return `Park between the cars · ${glyph("gas")} forward · ${glyph("reverse")} reverse`;
 }
