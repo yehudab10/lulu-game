@@ -18,9 +18,9 @@ import { SKIN_SHOP, STAT_ROWS, statFill, skinClass, inv, syncInv } from "../gara
 import { buyCar, owns, equipSkin } from "../garage/buy.js";
 import { hideTagged } from "../town/kit.js";
 import { kerbAt } from "../places/out.js";
+import { LOT, LOT_GAP } from "./lot.js";
 import { beacon, hideBeacon } from "../openworld/marks.js";
 import { openCard, cardTick, cardOpen, closeCard, cardSay, cardFocus } from "./card.js";
-import { LOT } from "./lot.js";
 import { REFAEL, PASS_DEALER } from "./data.js";
 
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -362,4 +362,32 @@ on("title", () => { if (TD.on) endTest("abort"); dropRefael(); drop(); TD.gone =
 on("town:enter", () => { D.said = false; D.passed = false; TD.gone = null; });
 on("town:leave", () => { dropRefael(); drop(); D.said = false; D.passed = false; });
 
-export const dealerDebug = { D, TD, TEST, openLot, startTest, endTest, canShop, canTest: canTestFrom, lift, drop };
+/** Is (x, z) ON the car lot (between the sidewalk and the back of the lot, along the row of cars)? Open ground — the
+ *  watchdog + unstuck ask (it sits inside the block's rectangle, like Lulu's own lot). */
+export function onLot(x, z) {
+    if (!(ctx.town && ctx.town.active)) return false;
+    // (one strip along the row of cars: from just past the first car (up to the showroom's wall) to just past the last)
+    const a = spot("lot_" + LOT[0]), b = spot("lot_" + LOT[LOT.length - 1]);
+    if (!a || !b) return false;
+    const uB = (b.x - a.x) * a.ux + (b.z - a.z) * a.uz, dx = x - a.x, dz = z - a.z, u = dx * a.ux + dz * a.uz, n = dx * a.nx + dz * a.nz;
+    const pad = LOT_GAP / 2 + 0.8;
+    return u > Math.min(0, uB) - pad && u < Math.max(0, uB) + pad && n > -7.2 && n < 1.2;
+}
+
+// ── driving up to the lot: one quiet line on the prompt (the ✋ needs her on her feet) ──
+const DRIVE = { on: false };
+hook("hud", () => {
+    let show = false;
+    if (ctx.state === "playing" && !(ctx.foot && ctx.foot.active) && inTown() && !(party() && !roam()) && !(ctx.law && (ctx.law.chasing || ctx.law.fugitive)) && ctx.car.speed < 2.2) {
+        const sp = spot("dealer");
+        if (sp && Math.hypot(ctx.car.pos.x - sp.x, ctx.car.pos.z - sp.z) < 60) {
+            for (const k of LOT) { const ls = spot("lot_" + k); if (ls && Math.hypot(ctx.car.pos.x - ls.x, ctx.car.pos.z - ls.z) < 9) { show = true; break; } }
+            if (!show && Math.hypot(ctx.car.pos.x - sp.x, ctx.car.pos.z - sp.z) < 10) show = true;
+        }
+    }
+    if (show) H.prompt("🚗 Uncle Refael's — get out and walk up to a car to look 🚶‍♀️");
+    else if (DRIVE.on) H.prompt("");
+    DRIVE.on = show;
+});
+
+export const dealerDebug = { D, TD, TEST, openLot, startTest, endTest, canShop, canTest: canTestFrom, lift, drop, onLot, DRIVE };

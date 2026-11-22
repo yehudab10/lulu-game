@@ -131,10 +131,9 @@ async function body(t, guests) {
     // (in a party nobody loses a heart — a hit is a pratfall, the driver drives on: the ride just goes on)
     await A.frames(60);
     console.log("   after the driver's knock-out:", JSON.stringify(await A.game(`({ state: ctx.state, riding: ctx.openworld.riding, foot: !!ctx.foot.active })`)), "host", await g(`ctx.state`));
-    // (the driver's pratfall shove reaches the passenger's screen as network snapshots: on a crawling CI page one step of the
-    //  friend's car can be 11–16 m — that's the party's remote-car smoothing (ci/everyone's), reported, not a ride bug; the
-    //  rest of the watchdog still applies here)
-    await seg("the driver hit mid-ride", A, ["nan", "overlay", "flat", "hidden", "stuck", "nocontrol"]);
+    // (the driver's pratfall shove reaches the passenger's screen as network snapshots: the remote car glides it out —
+    //  party/remote.js glideRate — so the jump check is on here too)
+    await seg("the driver hit mid-ride", A, ["nan", "overlay", "flat", "hidden", "stuck", "nocontrol", "jump"]);
   }
 
   // ════ 4. the driver is arrested mid-ride ════
