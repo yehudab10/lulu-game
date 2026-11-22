@@ -49,24 +49,34 @@ function carLabel(k) {
     if (inv.ownedSkins.includes(k)) return `🚗 ${sk.name.toUpperCase()} · ✓ YOURS`;
     return `🚗 ${sk.name.toUpperCase()} · ${fmt(SKIN_SHOP[k].price)} 💰`;
 }
+/** A ✋ spot that reaches as far as she'd naturally stand: `sp` slid toward her along its own axes — u (along the
+ *  street) within [u0, u1], n (toward the street) within [n0, n1] — so the prompt is up anywhere in that strip, not only
+ *  on the one square metre in front of the board. (She used to get nothing standing next to the car, or next to him.) */
+function reach(sp, u0, u1, n0, n1) {
+    const p = ctx.foot.pos, dx = p.x - sp.x, dz = p.z - sp.z;
+    const u = Math.max(u0, Math.min(u1, dx * sp.ux + dz * sp.uz)), n = Math.max(n0, Math.min(n1, dx * sp.nx + dz * sp.nz));
+    return { x: sp.x + sp.ux * u + sp.nx * n, z: sp.z + sp.uz * u + sp.nz * n };
+}
 function lotSpot(k) {
     return {
-        r: 1.9, short: "CAR",
+        // (her car's whole bay: from the kerb side of the sidewalk to the back of the lot, half a gap either side)
+        r: 2.1, short: "CAR",
         pos() {
             if (!canShop() || D.busy) return null;
             const sp = spot("lot_" + k);
-            return sp && near(sp, 30) ? { x: sp.x, z: sp.z } : null;
+            return sp && near(sp, 30) ? reach(sp, 0, 0, -6.2, 2.6) : null;
         },
         label: () => carLabel(k),
         act: () => openLot(k),
     };
 }
 const doorSpot = {
-    r: 2.2, short: "MOISHE",
+    // (the door AND the man: he stands 2.2 m along from it, and walking up to HIM is what anyone does first)
+    r: 2.4, short: "MOISHE",
     pos() {
         if (!canShop() || D.busy) return null;
         const sp = spot("dealer");
-        return sp && near(sp, 30) ? { x: sp.x, z: sp.z } : null;
+        return sp && near(sp, 30) ? reach(sp, -3.2, 1.2, -1.2, 2.6) : null;
     },
     label: () => "🚗 UNCLE MOISHE'S — BROWSE",
     act() {

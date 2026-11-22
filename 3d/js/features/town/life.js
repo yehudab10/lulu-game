@@ -364,7 +364,7 @@ function tickJam(dt, lp, foot) {
     if (!T.jam.length) return;
     LIFE.yellT -= dt;
     if (LIFE.yellT > 0) return;
-    LIFE.yellT = 2.2 + Math.random() * 2.5;
+    LIFE.yellT = 5 + Math.random() * 4;      // (was 2.2–4.7 s: a jam's yells were ~half of a minute's pop-ups on foot — ci/polish)
     toLocal(lp.x, lp.z, _l);
     const close = T.jam.filter(j => Math.hypot(j.x - _l.x, j.z - _l.z) < 55);
     if (!close.length) return;
