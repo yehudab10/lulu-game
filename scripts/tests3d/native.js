@@ -259,6 +259,7 @@ module.exports = {
 
     // ── 3. updates from the server ────────────────────────────────────────
     const OTA_DIRS = ["www-ota-next", "www-ota-bad", "www-ota-test"].map(d => path.join(ROOT, d));
+    const err0 = t.errors.length;
     try {
       t.check("ota: on in the app, running the bundled copy", await g(`ctx.native.ota.active && ctx.native.ota.debug.current.id === "builtin"`));
       t.check("ota: the bundled copy told the updater it's ready", (await t.L(`window.__otaLog || []`)).includes("ready"));
@@ -335,6 +336,9 @@ module.exports = {
       }
     } finally {
       for (const d of OTA_DIRS) fs.rmSync(d, { recursive: true, force: true });
+      // switching copies reloads the page while the old one may still be loading models: its cancelled
+      // fetches surface as "Failed to fetch" on the page being left. That's the switch itself, not a bug.
+      for (let i = t.errors.length - 1; i >= err0; i--) if (/^TypeError: Failed to fetch/.test(t.errors[i])) t.errors.splice(i, 1);
     }
   },
 };
