@@ -236,7 +236,7 @@ async function rooms(t, g, Hp, A, hostUid, guestUid, hi) {
   t.check("guest: it's the HOST's house", (await A.game(`ctx.decor.visitOwner()`)) === hostUid && await A.game(`ctx.decor.visiting`));
   t.check("…with the host's road-map rug (not her own bare floor)", await A.game(`(() => { const V = ctx.decor.debug.room().data.V; return !!V.objs.rug && Object.keys(V.cache.rug || {}).includes("road"); })()`), JSON.stringify(await A.game(`Object.keys(ctx.decor.debug.room().data.V.cache.rug || {})`)));
   t.check("…and nothing of the host's changed in her own save", await A.game(`ctx.decor.placed("rug") === "none"`));
-  const roomDbg = (P, other) => P.game(`(() => { const p = ctx.party.peer(${"${other}"}), R = ctx.together.debug.room(); return JSON.stringify({ st: ctx.state, town: ctx.town.active && ctx.town.id, mine: R && { id: R.room, inst: R.inst, mates: R.mates.map(m => m.uid) }, peer: p && { m: p.m, z: p.x && p.x.z, in: p.x && p.x.in && p.x.in.slice(0, 2), dr: p.x && p.x.dr } }); })()`);
+  const roomDbg = (P, other) => P.game(`(() => { const p = ctx.party.peer(${other}), R = ctx.together.debug.room(); return JSON.stringify({ st: ctx.state, town: ctx.town.active && ctx.town.id, mine: R && { id: R.room, inst: R.inst, mates: R.mates.map(m => m.uid) }, peer: p && { m: p.m, z: p.x && p.x.z, in: p.x && p.x.in && p.x.in.slice(0, 2), dr: p.x && p.x.dr } }); })()`);
   if (!await Hp.until(`ctx.together.debug.room().mates.some(m => m.uid === ${GU})`, "host sees the guest come in", 60000)) console.log("   ROOM host", await roomDbg(Hp, GU));
   if (!await A.until(`ctx.together.debug.room().mates.some(m => m.uid === ${HU})`, "guest sees the host at home", 60000)) console.log("   ROOM guest", await roomDbg(A, HU));
   await t.shot("luluhome-together");
