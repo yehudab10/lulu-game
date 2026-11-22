@@ -113,6 +113,10 @@ module.exports = {
     await t.frames(30);
     const hasDay = await t.L(`!!document.querySelector("#slot-left .day-chip")`);
     t.check("📝 Ima's list is on the HUD (the chip the layout has to make room for)", hasDay);
+    // the LONGEST errand line any item can show: today's list is date-seeded, so this used to pass or fail by the calendar
+    await g(`(() => { const all = []; (function walk(o) { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === "object") { if (o.id && o.text) all.push(o); else Object.values(o).forEach(walk); } })(ctx.day.ITEMS);
+      all.sort((a, b) => (b.icon + b.text).length - (a.icon + a.text).length); const D = ctx.day.debug.DAY; D.list = [all[0].id, ...D.list.filter(i => i !== all[0].id).slice(0, 2)]; D.prog = {}; return true; })()`);
+    await t.frames(20);
     const setSave = code => t.L(`import("./js/core/save.js").then(m => { ${code} })`);
     for (const [name, w, h, tv, d] of VIEWS) {
       if (ONLY && !ONLY.includes(name)) continue;
@@ -132,6 +136,7 @@ module.exports = {
         if (d === "touch" && foot) t.check(`${where}: the WALK stick is clear of the 📝 / ON FOOT chips`, clash(m, "stick", "left").length === 0, clash(m, "stick", "left").join(" | "));
         t.check(`${where}: ⏭ SKIP is clear of the trip bar + its label`, clash(m, "skip", "tripLabel").length + clash(m, "skip", "trip").length === 0, clash(m, "skip", "tripLabel").concat(clash(m, "skip", "trip")).join(" | "));
         if (!foot) t.check(`${where}: the bottom prompt + hint are clear of the speedo`, clash(m, "prompt", "speedo").length + clash(m, "padHint", "speedo").length === 0, clash(m, "prompt", "speedo").concat(clash(m, "padHint", "speedo")).join(" | "));
+        t.check(`${where}: Ima's list line (the longest errand) never wraps — the chip stays 2 lines`, await t.L(`(() => { const s = document.querySelector("#slot-left .day-chip small"); if (!s) return true; const cs = getComputedStyle(s); return s.getBoundingClientRect().height < parseFloat(cs.fontSize) * 1.7 && cs.whiteSpace === "nowrap"; })()`));
         t.check(`${where}: the WELCOME banner is clear of the 📝 chip (+ the other chips)`, ["left", "right", "trip", "tripLabel", "pills"].every(x => !clash(m, "banner", x).length), ["left", "right", "trip", "tripLabel", "pills"].flatMap(x => clash(m, "banner", x)).join(" | "));
         // …and nothing else on anything else
         t.check(`${where}: no two HUD pieces on top of each other, all on screen`, !m.pairs.length && !m.off.length, m.pairs.map(p => p.txt).concat(m.off.map(o => "off-screen " + o)).join(" | "));
