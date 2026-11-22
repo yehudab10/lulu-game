@@ -362,6 +362,17 @@ ctx.exits = {
     get dealOfDay() { return dealOfDay().id; },
     debug: {
         RS, LY, LIFE,
+        /** Why a rest area can't go at s: "" (it can) | town@s | airport | place:<id>@s | reserved:s0-s1 | story */
+        why(s) {
+            const a = s + LY.SPAN.a, b = s + LY.SPAN.b, T = ctx.town, sp = (T && T.span) || { a: -1500, b: 260 };
+            if (T && T.exits) for (const e of T.exits) if (e.s + sp.b > a && e.s + sp.a < b) return "town:" + e.town + "@" + Math.round(e.s);
+            try { if (ctx.airport && ctx.airport.zones && ctx.airport.zones(a, b).length) return "airport"; } catch (e) { /* none */ }
+            const P = ctx.places;
+            if (P && P.list && P.at) for (const p of P.list()) { if (/^exits_/.test(p.id)) continue; for (const x of P.at(p.id) || []) if (x > s - 320 && x < s + LY.ACC1 + 80) return "place:" + p.id + "@" + x; }
+            const w = ctx.world, lap = lapWorld();
+            const r = w && w.reserved && w.reserved.find(r => r.side !== -1 && !(lap && r.dMax > 5000) && r.s1 > s + LY.TAPER0 - 40 && r.s0 < s + LY.ACC1 + 40 && r.dMax > 9 && r.dMin < 72 && r.dMax - r.dMin > 12);
+            return r ? `reserved:${Math.round(r.s0)}-${Math.round(r.s1)} d${r.dMin}-${r.dMax}` : "";
+        },
         /** Plan a rest area `ahead` metres in front of her NOW (rebuilds the chunks it touches). */
         restAhead(ahead = 900) {
             const w = ctx.world;
