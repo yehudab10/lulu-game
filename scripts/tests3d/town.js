@@ -567,7 +567,7 @@ async function attached(t, g, E, perf) {
   // back out, then Midwood's OWN exit (ci/exits2): its cross road runs on as Avenue P to Ocean Pkwy's corner
   // (planned 900 m on from a spot past Lakewood's; she's put on the highway 300 m short of it, so Midwood is built)
   await g(`(ctx.town.leave("reset"), (() => { const s = ${E} + 1500, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); })(), true)`);
-  const E2 = await g(`${D}.exitAhead(900, "midwood")`);
+  const E2 = await g(`ctx.town.exitOf("midwood", ${E} + 600)`);   // (the route's own Midwood exit — a new one near it would clash)
   await g(`(ctx.law.hold(600), (() => { const s = ${E2} - 300, p = ctx.world.highway.point(s, 5.25, {}); ctx.car.place(p.x, p.z, p.h); ctx.car.s = s; ctx.car.d = 5.25; ctx.world.prebuild(s); ctx.cam.snap(); })(), true)`);
   await t.frames(5);
   await g(`${D}.buildNow()`);
