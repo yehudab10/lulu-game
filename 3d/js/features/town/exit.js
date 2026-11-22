@@ -85,19 +85,23 @@ function signBusy(s) { const w = ctx.world; return !(ctx.party && ctx.party.acti
 /** Slide an exit forward until its signs, decel lane and ramps keep clear of every pull-in place
  *  (features/world's ctx.places: Gas 'n' Go, the Lookout, the family's driveways…), every rest area
  *  (features/exits) and big reserved stretches (the coast's ocean). */
+const airportIn = (a, b) => { try { return !!(ctx.airport && ctx.airport.zones && ctx.airport.zones(a, b).length > 0); } catch (e) { return false; } };
 function clearOfPlaces(s, towns = null, once = false) {
     const P = ctx.places;
     let busy = [];
     try { if (P && P.list && P.at) for (const p of P.list()) busy = busy.concat(P.at(p.id) || []); } catch (e) { busy = []; }
     const spans = () => { try { return ctx.exits && ctx.exits.spans ? ctx.exits.spans() : []; } catch (e) { return []; } };
-    // (a 🎉 party plans from fixed data only — the places — so every friend's exits land on the same metre)
-    const party = !!(ctx.party && ctx.party.active);
+    // (fixed data only — the places + the town's fit beside the road — so every run and every friend's screen has the exits
+    //  on the same metres: rest areas, set pieces and the rest plan around the exits, never the other way — ci/exits2)
+    const party = true;
     for (let k = 0; k < 300; k++) {
         const a = s + SPAN.a, b = s + SPAN.b;
         const clash = busy.some(x => x > s - 760 && x < s + ACC1 + 80) ||
             (!party && spans().some(o => o.b > a && o.a < b)) ||
             (!party && reservedRight(s + TAPER0 - 30, s + ACC1 + 30)) ||
-            (towns && FIT.fits && !FIT.fits(s, towns));
+            (towns && FIT.fits && !FIT.fits(s, towns)) ||
+            // (✈ the airport is planned FIRST from fixed data; a town exit slides past its zone — empty until it's switched on)
+            airportIn(s + SPAN.a, s + ACC1 + 80);
         if (!clash) return s;
         if (once) return null;
         s += 50;              // (fine steps: an attached town fits ~a third of the spots along the road — FIT)
@@ -111,6 +115,8 @@ function clearOfPlaces(s, towns = null, once = false) {
  */
 /** Would an exit at s for these towns plan right there (no sliding)? (debug: exitAhead looks either way for one) */
 export const exitClear = (s, towns) => clearOfPlaces(s, towns, true) != null;
+/** Where an exit planned at s for these towns would land (slid clear; fixed data only — a pure function of s). */
+export const exitFitS = (s, towns) => clearOfPlaces(s, (Array.isArray(towns) ? towns : [towns]).filter(Boolean));
 export function planExit(s, towns) {
     const w = ctx.world;
     towns = (Array.isArray(towns) ? towns : [towns]).filter(Boolean);

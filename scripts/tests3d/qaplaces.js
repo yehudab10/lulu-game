@@ -37,7 +37,7 @@ module.exports = {
       await g(`(ctx.law.hold && ctx.law.hold(900), ctx.town.load("${id}"), ctx.civic.load(), true)`);
       if (!await t.until(`__lulu3d.ctx.town.loaded("${id}")`, `${id}'s models`, 90000)) return false;
       await W.moved(t);
-      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exits[0].s, speed: 0 })`);
+      await g(`ctx.town.enter({ town: "${id}", exitS: ctx.town.exitOf("${id}"), speed: 0 })`);
       if (!await t.until(`__lulu3d.ctx.town.active && __lulu3d.ctx.civic.here`, `in ${id} with its buildings`, 20000)) return false;
       // (a clean record: by design a FUGITIVE — say she slipped out of the ER in the last town — can't walk into these)
       await g(`(ctx.law.fugitive && ctx.law.clearHeat ? ctx.law.clearHeat("") : 0, true)`);
